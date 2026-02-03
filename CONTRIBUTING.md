@@ -5,7 +5,7 @@ Thanks for taking the time to contribute. This project is early-stage and still 
 ## Development setup
 
 Prerequisites:
-- Rust 1.75+
+- Rust 1.85+
 - Node.js 20+ (for the VS Code extension)
 
 Clone and build:
