@@ -79,16 +79,16 @@ jobs:
           cp docs/deploy/INSTALL.md dist/runtime-${{ matrix.platform }}/
           cp docs/deploy/systemd/trust-runtime.service dist/runtime-${{ matrix.platform }}/
           cat > dist/runtime-${{ matrix.platform }}/README.txt <<'README'
-truST Runtime
+          truST Runtime
 
-This bundle contains the trust-runtime and trust-bundle-gen binaries.
+          This bundle contains the trust-runtime and trust-bundle-gen binaries.
 
-Quick start:
-- Put trust-runtime and trust-bundle-gen on your PATH
-- Run: trust-runtime --project <your-project>
+          Quick start:
+          - Put trust-runtime and trust-bundle-gen on your PATH
+          - Run: trust-runtime --project <your-project>
 
-See INSTALL.md for full setup details.
-README
+          See INSTALL.md for full setup details.
+          README
           tar -czf trust-runtime-${{ matrix.platform }}.tar.gz -C dist/runtime-${{ matrix.platform }} .
 
       - name: Package runtime (Windows)
@@ -101,16 +101,16 @@ README
           Copy-Item docs/deploy/INSTALL.md dist/runtime-${{ matrix.platform }}/
           Copy-Item docs/deploy/systemd/trust-runtime.service dist/runtime-${{ matrix.platform }}/
           @'
-truST Runtime
+          truST Runtime
 
-This bundle contains the trust-runtime and trust-bundle-gen binaries.
+          This bundle contains the trust-runtime and trust-bundle-gen binaries.
 
-Quick start:
-- Put trust-runtime.exe and trust-bundle-gen.exe on your PATH
-- Run: trust-runtime --project <your-project>
+          Quick start:
+          - Put trust-runtime.exe and trust-bundle-gen.exe on your PATH
+          - Run: trust-runtime --project <your-project>
 
-See INSTALL.md for full setup details.
-'@ | Set-Content -Path dist/runtime-${{ matrix.platform }}/README.txt
+          See INSTALL.md for full setup details.
+          '@ | Set-Content -Path dist/runtime-${{ matrix.platform }}/README.txt
           Compress-Archive -Path dist/runtime-${{ matrix.platform }}/* -DestinationPath trust-runtime-${{ matrix.platform }}.zip
 
       - name: Setup Node.js
