@@ -18,6 +18,12 @@ import {
 
 let client: LanguageClient | undefined;
 let showIecDiagnosticRefs = true;
+let startAttempts = 0;
+let startRetryTimer: NodeJS.Timeout | undefined;
+let notifiedStartFailure = false;
+
+const MAX_START_ATTEMPTS = 3;
+const START_RETRY_DELAY_MS = 3000;
 
 function sendServerConfig(target: LanguageClient | undefined): void {
   if (!target) {
@@ -47,6 +53,83 @@ function traceFromConfig(value?: string): Trace {
 
 function readIecDiagnosticsSetting(config: vscode.WorkspaceConfiguration): boolean {
   return config.get<boolean>("diagnostics.showIecReferences", true);
+}
+
+function startClientWithRetry(
+  context: vscode.ExtensionContext,
+  config: vscode.WorkspaceConfiguration
+): void {
+  if (!client) {
+    return;
+  }
+  if (startRetryTimer) {
+    clearTimeout(startRetryTimer);
+    startRetryTimer = undefined;
+  }
+
+  const attempt = startAttempts + 1;
+  startAttempts = attempt;
+  const startPromise = client.start();
+  const trace = traceFromConfig(config.get<string>("trace.server"));
+
+  void startPromise.then(() => {
+    startAttempts = 0;
+    notifiedStartFailure = false;
+    if (client) {
+      sendServerConfig(client);
+      void client.setTrace(trace);
+    }
+  });
+
+  void startPromise.catch((error) => {
+    const message =
+      error instanceof Error ? error.message : String(error ?? "");
+    const isNotFound = message.includes("ENOENT") || message.includes("not found");
+    if (!notifiedStartFailure) {
+      notifiedStartFailure = true;
+      const title = isNotFound
+        ? "truST LSP failed to start: trust-lsp binary not found."
+        : "truST LSP failed to start. Check the Output panel for details.";
+      const actions = ["Show Output", "Retry Now"];
+      if (isNotFound) {
+        actions.unshift("Open Settings");
+      }
+      void vscode.window
+        .showErrorMessage(title, ...actions)
+        .then((selection) => {
+          if (!selection) {
+            return;
+          }
+          if (selection === "Open Settings") {
+            void vscode.commands.executeCommand(
+              "workbench.action.openSettings",
+              "trust-lsp.server.path"
+            );
+            return;
+          }
+          if (selection === "Show Output") {
+            client?.outputChannel?.show(true);
+            return;
+          }
+          if (selection === "Retry Now") {
+            startAttempts = 0;
+            startClientWithRetry(context, config);
+          }
+        });
+      if (isNotFound) {
+        client?.outputChannel?.appendLine(
+          "truST LSP could not find the trust-lsp binary. In dev mode, build it and copy into editors/vscode/bin, or set trust-lsp.server.path."
+        );
+      }
+    }
+
+    if (startAttempts < MAX_START_ATTEMPTS) {
+      const delayMs = START_RETRY_DELAY_MS * startAttempts;
+      startRetryTimer = setTimeout(() => {
+        startClientWithRetry(context, config);
+      }, delayMs);
+    }
+  });
 }
 
 export function activate(context: vscode.ExtensionContext) {
@@ -92,18 +175,11 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(client);
-  const startPromise = client.start();
   registerNamespaceMoveCommand(context, client);
   registerNamespaceMoveCodeActions(context);
   registerNamespaceMoveContext(context);
 
-  const trace = traceFromConfig(config.get<string>("trace.server"));
-  void startPromise.then(() => {
-    if (client) {
-      sendServerConfig(client);
-      void client.setTrace(trace);
-    }
-  });
+  startClientWithRetry(context, config);
 
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((event) => {
@@ -136,6 +212,12 @@ export async function deactivate(): Promise<void> {
   if (!client) {
     return;
   }
+  if (startRetryTimer) {
+    clearTimeout(startRetryTimer);
+    startRetryTimer = undefined;
+  }
+  startAttempts = 0;
+  notifiedStartFailure = false;
   const current = client;
   client = undefined;
   await current.stop();
