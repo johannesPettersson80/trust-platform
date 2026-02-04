@@ -175,7 +175,7 @@ impl Project {
 
 fn normalize_path(path: &Path) -> PathBuf {
     if let Ok(canon) = path.canonicalize() {
-        return canon;
+        return strip_windows_device_prefix(canon);
     }
     let mut normalized = PathBuf::new();
     for component in path.components() {
@@ -188,4 +188,39 @@ fn normalize_path(path: &Path) -> PathBuf {
         }
     }
     normalized
+}
+
+#[cfg(windows)]
+fn strip_windows_device_prefix(path: PathBuf) -> PathBuf {
+    let raw = match path.to_str() {
+        Some(raw) => raw,
+        None => return path,
+    };
+
+    if let Some(rest) = raw
+        .strip_prefix(r"\\?\UNC\")
+        .or_else(|| raw.strip_prefix(r"\?\UNC\"))
+        .or_else(|| raw.strip_prefix(r"\\.\UNC\"))
+        .or_else(|| raw.strip_prefix(r"\??\UNC\"))
+    {
+        let mut unc = String::from(r"\\");
+        unc.push_str(rest);
+        return PathBuf::from(unc);
+    }
+
+    if let Some(rest) = raw
+        .strip_prefix(r"\\?\")
+        .or_else(|| raw.strip_prefix(r"\?\"))
+        .or_else(|| raw.strip_prefix(r"\\.\"))
+        .or_else(|| raw.strip_prefix(r"\??\"))
+    {
+        return PathBuf::from(rest);
+    }
+
+    path
+}
+
+#[cfg(not(windows))]
+fn strip_windows_device_prefix(path: PathBuf) -> PathBuf {
+    path
 }
