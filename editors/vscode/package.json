@@ -1,9 +1,9 @@
 {
   "name": "trust-lsp",
   "displayName": "truST LSP",
-  "description": "truST LSP \u2014 IEC 61131-3 Structured Text language support",
+  "description": "truST LSP — IEC 61131-3 Structured Text language support",
   "icon": "icon.png",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "publisher": "trust-platform",
   "license": "MIT",
   "engines": {
