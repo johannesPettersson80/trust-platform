@@ -3,7 +3,7 @@
   "displayName": "truST LSP",
   "description": "truST LSP — IEC 61131-3 Structured Text language support",
   "icon": "icon.png",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "publisher": "trust-platform",
   "license": "MIT",
   "engines": {
@@ -169,7 +169,10 @@
         },
         "trust-lsp.runtime.mode": {
           "type": "string",
-          "enum": ["simulate", "online"],
+          "enum": [
+            "simulate",
+            "online"
+          ],
           "default": "simulate",
           "description": "Default runtime mode for the runtime panel.",
           "scope": "resource"
@@ -197,7 +200,8 @@
           "default": true,
           "description": "Enable inline values in the editor.",
           "scope": "resource"
-        },        "trust-lsp.runtime.ignorePragmas": {
+        },
+        "trust-lsp.runtime.ignorePragmas": {
           "type": "array",
           "items": {
             "type": "string"
