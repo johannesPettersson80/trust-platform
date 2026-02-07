@@ -48,6 +48,8 @@ pub fn run_wizard(path: Option<PathBuf>, start: bool) -> anyhow::Result<()> {
             true,
             run::ConsoleMode::Auto,
             false,
+            false,
+            1,
         )?;
     }
     Ok(())

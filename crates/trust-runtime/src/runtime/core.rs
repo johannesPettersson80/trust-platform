@@ -227,6 +227,15 @@ impl Runtime {
         self.apply_fault(err, self.watchdog.decision())
     }
 
+    /// Record a scripted simulation fault.
+    pub fn simulation_fault(
+        &mut self,
+        message: impl Into<smol_str::SmolStr>,
+    ) -> error::RuntimeError {
+        let err = error::RuntimeError::SimulationFault(message.into());
+        self.apply_fault(err, self.faults.decision())
+    }
+
     pub(super) fn apply_fault(
         &mut self,
         err: error::RuntimeError,

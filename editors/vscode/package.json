@@ -28,7 +28,9 @@
   "activationEvents": [
     "onLanguage:structured-text",
     "onDebug:structured-text",
+    "onCommand:trust-lsp.newProject",
     "onCommand:trust-lsp.debug.openIoPanel",
+    "onCommand:trust-lsp.hmi.openPreview",
     "onCommand:trust-lsp.debug.reload",
     "onCommand:trust-lsp.moveNamespace.ui",
     "onLanguageModelTool:trust_lsp_request",
@@ -76,7 +78,9 @@
     "onLanguageModelTool:trust_debug_attach",
     "onLanguageModelTool:trust_debug_reload",
     "onLanguageModelTool:trust_debug_open_io_panel",
-    "onLanguageModelTool:trust_debug_ensure_configuration"
+    "onLanguageModelTool:trust_debug_ensure_configuration",
+    "onCommand:trust-lsp.test.runAll",
+    "onCommand:trust-lsp.test.runOne"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -210,6 +214,18 @@
             "@trustlsp:runtime-ignore"
           ],
           "description": "Top-of-file pragma tokens that exclude a file from runtime loading."
+        },
+        "trust-lsp.runtime.cli.path": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the trust-runtime CLI executable for running Structured Text tests (leave empty to use trust-runtime from PATH)."
+        },
+        "trust-lsp.hmi.pollIntervalMs": {
+          "type": "number",
+          "default": 500,
+          "minimum": 100,
+          "description": "Polling interval for the HMI preview panel value refresh (milliseconds).",
+          "scope": "resource"
         }
       }
     },
@@ -1604,6 +1620,11 @@
     ],
     "commands": [
       {
+        "command": "trust-lsp.newProject",
+        "title": "Structured Text: New Project",
+        "category": "Structured Text"
+      },
+      {
         "command": "trust-lsp.moveNamespace.ui",
         "title": "Structured Text: Move Namespace",
         "category": "Structured Text"
@@ -1629,8 +1650,23 @@
         "category": "Structured Text"
       },
       {
+        "command": "trust-lsp.hmi.openPreview",
+        "title": "Structured Text: Open HMI Preview",
+        "category": "Structured Text"
+      },
+      {
         "command": "trust-lsp.debug.reload",
         "title": "Structured Text: Hot Reload",
+        "category": "Structured Text"
+      },
+      {
+        "command": "trust-lsp.test.runAll",
+        "title": "Structured Text: Run All Tests",
+        "category": "Structured Text"
+      },
+      {
+        "command": "trust-lsp.test.runOne",
+        "title": "Structured Text: Run Test",
         "category": "Structured Text"
       }
     ],
@@ -1765,6 +1801,12 @@
             "program": "${file}"
           }
         ]
+      }
+    ],
+    "snippets": [
+      {
+        "language": "structured-text",
+        "path": "./snippets/st.code-snippets"
       }
     ]
   },

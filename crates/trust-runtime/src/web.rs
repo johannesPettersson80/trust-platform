@@ -85,6 +85,9 @@ struct SetupDefaultsResponse {
 const INDEX_HTML: &str = include_str!("web/ui/index.html");
 const APP_JS: &str = include_str!("web/ui/app.js");
 const APP_CSS: &str = include_str!("web/ui/styles.css");
+const HMI_HTML: &str = include_str!("web/ui/hmi.html");
+const HMI_JS: &str = include_str!("web/ui/hmi.js");
+const HMI_CSS: &str = include_str!("web/ui/hmi.css");
 
 fn default_bundle_root(bundle_root: &Option<PathBuf>) -> PathBuf {
     bundle_root
@@ -405,6 +408,7 @@ fn apply_setup(
 }
 
 pub struct WebServer {
+    // Retained to keep the web thread alive for the lifetime of the server handle.
     #[allow(dead_code)]
     handle: thread::JoinHandle<()>,
     pub listen: String,
@@ -443,14 +447,93 @@ pub fn start_web_server(
                 let _ = request.respond(response);
                 continue;
             }
+            if method == Method::Get && (url == "/hmi" || url == "/hmi/") {
+                let response = Response::from_string(HMI_HTML)
+                    .with_header(Header::from_bytes("Content-Type", "text/html").unwrap());
+                let _ = request.respond(response);
+                continue;
+            }
+            if method == Method::Get && url == "/hmi/export.json" {
+                let schema_response = handle_request_value(
+                    json!({
+                        "id": 1_u64,
+                        "type": "hmi.schema.get"
+                    }),
+                    &control_state,
+                    None,
+                );
+                let schema_payload = serde_json::to_value(schema_response)
+                    .unwrap_or_else(|_| json!({ "ok": false }));
+                let ok = schema_payload
+                    .get("ok")
+                    .and_then(serde_json::Value::as_bool)
+                    .unwrap_or(false);
+                if !ok {
+                    let response =
+                        Response::from_string(json!({ "error": "schema unavailable" }).to_string())
+                            .with_status_code(503)
+                            .with_header(
+                                Header::from_bytes("Content-Type", "application/json").unwrap(),
+                            );
+                    let _ = request.respond(response);
+                    continue;
+                }
+                let schema = schema_payload
+                    .get("result")
+                    .cloned()
+                    .unwrap_or_else(|| json!({}));
+                let exported_at_ms = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis();
+                let payload = json!({
+                    "version": 1_u32,
+                    "exported_at_ms": exported_at_ms,
+                    "entrypoint": "hmi/index.html",
+                    "routes": ["/hmi", "/hmi/app.js", "/hmi/styles.css", "/api/control"],
+                    "config": {
+                        "poll_ms": 500_u32,
+                        "schema": schema
+                    },
+                    "assets": {
+                        "hmi/index.html": HMI_HTML,
+                        "hmi/styles.css": HMI_CSS,
+                        "hmi/app.js": HMI_JS
+                    }
+                });
+                let response = Response::from_string(payload.to_string())
+                    .with_header(Header::from_bytes("Content-Type", "application/json").unwrap())
+                    .with_header(
+                        Header::from_bytes(
+                            "Content-Disposition",
+                            "attachment; filename=\"trust-hmi-export.json\"",
+                        )
+                        .unwrap(),
+                    );
+                let _ = request.respond(response);
+                continue;
+            }
             if method == Method::Get && url == "/styles.css" {
                 let response = Response::from_string(APP_CSS)
                     .with_header(Header::from_bytes("Content-Type", "text/css").unwrap());
                 let _ = request.respond(response);
                 continue;
             }
+            if method == Method::Get && url == "/hmi/styles.css" {
+                let response = Response::from_string(HMI_CSS)
+                    .with_header(Header::from_bytes("Content-Type", "text/css").unwrap());
+                let _ = request.respond(response);
+                continue;
+            }
             if method == Method::Get && url == "/app.js" {
                 let response = Response::from_string(APP_JS).with_header(
+                    Header::from_bytes("Content-Type", "application/javascript").unwrap(),
+                );
+                let _ = request.respond(response);
+                continue;
+            }
+            if method == Method::Get && url == "/hmi/app.js" {
+                let response = Response::from_string(HMI_JS).with_header(
                     Header::from_bytes("Content-Type", "application/javascript").unwrap(),
                 );
                 let _ = request.respond(response);

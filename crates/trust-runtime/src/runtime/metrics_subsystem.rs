@@ -40,6 +40,14 @@ impl MetricsSubsystem {
         }
     }
 
+    pub(super) fn record_profile_call(&self, kind: &str, name: &SmolStr, duration: StdDuration) {
+        if let Some(metrics) = self.sink.as_ref() {
+            if let Ok(mut guard) = metrics.lock() {
+                guard.record_call(kind, name, duration);
+            }
+        }
+    }
+
     pub(super) fn record_overrun(&self, name: &SmolStr, missed: u64) {
         if let Some(metrics) = self.sink.as_ref() {
             if let Ok(mut guard) = metrics.lock() {

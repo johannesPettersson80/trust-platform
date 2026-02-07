@@ -20,6 +20,17 @@ jobs:
         with:
           components: rustfmt
       - run: cargo fmt --all -- --check
+      - name: Mark gate success
+        if: ${{ success() }}
+        run: |
+          mkdir -p gate-artifacts
+          echo "job=fmt result=success" > gate-artifacts/fmt.txt
+      - name: Upload gate marker
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-fmt
+          path: gate-artifacts/fmt.txt
 
   clippy:
     name: Clippy
@@ -31,6 +42,17 @@ jobs:
           components: clippy
       - uses: Swatinem/rust-cache@v2
       - run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Mark gate success
+        if: ${{ success() }}
+        run: |
+          mkdir -p gate-artifacts
+          echo "job=clippy result=success" > gate-artifacts/clippy.txt
+      - name: Upload gate marker
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-clippy
+          path: gate-artifacts/clippy.txt
 
   test:
     name: Test (${{ matrix.os }})
@@ -46,6 +68,18 @@ jobs:
       - run: cargo build --all-targets
       - run: cargo test -p trust-runtime --test complete_program
       - run: cargo test --all-targets
+      - name: Mark gate success
+        if: ${{ success() }}
+        shell: bash
+        run: |
+          mkdir -p gate-artifacts
+          echo "job=test os=${{ matrix.os }} result=success" > gate-artifacts/test-${{ matrix.os }}.txt
+      - name: Upload gate marker
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-test-${{ matrix.os }}
+          path: gate-artifacts/test-${{ matrix.os }}.txt
 
   msrv:
     name: MSRV (1.85)
@@ -55,6 +89,17 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.85
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --all-targets
+      - name: Mark gate success
+        if: ${{ success() }}
+        run: |
+          mkdir -p gate-artifacts
+          echo "job=msrv result=success" > gate-artifacts/msrv.txt
+      - name: Upload gate marker
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-msrv
+          path: gate-artifacts/msrv.txt
 
   docs:
     name: Documentation
@@ -66,6 +111,17 @@ jobs:
       - run: cargo doc --no-deps --all-features
         env:
           RUSTDOCFLAGS: -D warnings
+      - name: Mark gate success
+        if: ${{ success() }}
+        run: |
+          mkdir -p gate-artifacts
+          echo "job=docs result=success" > gate-artifacts/docs.txt
+      - name: Upload gate marker
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-docs
+          path: gate-artifacts/docs.txt
 
   vscode-extension:
     name: VS Code Extension
@@ -80,6 +136,79 @@ jobs:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: editors/vscode/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
       - run: npm ci
       - run: npm run lint
       - run: npm run compile
+      - name: Build trust-lsp test server
+        run: cargo build -p trust-lsp
+        working-directory: ${{ github.workspace }}
+      - name: Run extension integration tests
+        run: npm test
+        env:
+          ST_LSP_TEST_SERVER: ${{ github.workspace }}/target/debug/trust-lsp
+      - name: Mark gate success
+        if: ${{ success() }}
+        run: |
+          mkdir -p "${GITHUB_WORKSPACE}/gate-artifacts"
+          echo "job=vscode-extension result=success" > "${GITHUB_WORKSPACE}/gate-artifacts/vscode-extension.txt"
+      - name: Upload gate marker
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-vscode-extension
+          path: gate-artifacts/vscode-extension.txt
+
+  release-gate-report:
+    name: Release Gate Report
+    runs-on: ubuntu-latest
+    needs: [fmt, clippy, test, msrv, docs, vscode-extension]
+    if: ${{ always() }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare gate artifact directory
+        run: mkdir -p gate-artifacts
+
+      - name: Download gate markers
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          path: gate-artifacts
+          pattern: gate-*
+
+      - name: Generate release gate report
+        env:
+          NEED_FMT: ${{ needs.fmt.result }}
+          NEED_CLIPPY: ${{ needs.clippy.result }}
+          NEED_TEST: ${{ needs.test.result }}
+          NEED_MSRV: ${{ needs.msrv.result }}
+          NEED_DOCS: ${{ needs.docs.result }}
+          NEED_VSCODE_EXTENSION: ${{ needs['vscode-extension'].result }}
+        run: |
+          python3 scripts/generate_release_gate_report.py \
+            --output-dir gate-report \
+            --gate-artifacts-dir gate-artifacts \
+            --required-gate gate-fmt \
+            --required-gate gate-clippy \
+            --required-gate gate-test-ubuntu-latest \
+            --required-gate gate-test-macos-latest \
+            --required-gate gate-test-windows-latest \
+            --required-gate gate-msrv \
+            --required-gate gate-docs \
+            --required-gate gate-vscode-extension \
+            --job-status "fmt=${NEED_FMT}" \
+            --job-status "clippy=${NEED_CLIPPY}" \
+            --job-status "test=${NEED_TEST}" \
+            --job-status "msrv=${NEED_MSRV}" \
+            --job-status "docs=${NEED_DOCS}" \
+            --job-status "vscode-extension=${NEED_VSCODE_EXTENSION}" \
+            --checklist docs/release-gate-checklist.md
+
+      - name: Upload release gate report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-gate-report
+          path: gate-report/

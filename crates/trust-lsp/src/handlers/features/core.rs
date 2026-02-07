@@ -2,7 +2,6 @@
 
 use rustc_hash::{FxHashMap, FxHashSet};
 use serde_json::json;
-use serde_json::Value;
 use std::path::{Path, PathBuf};
 use tower_lsp::lsp_types::request::{
     GotoDeclarationParams, GotoDeclarationResponse, GotoImplementationParams,
@@ -33,54 +32,34 @@ use trust_ide::{
     InlineValueScope, StdlibFilter,
 };
 
-use super::lsp_utils::{
+use super::super::config::{bool_with_aliases, lsp_runtime_section, string_with_aliases};
+use super::super::lsp_utils::{
     display_symbol_name, is_primary_pou_symbol_kind, lsp_symbol_kind, offset_to_line_col,
     offset_to_position, position_to_offset, rename_result_to_changes, semantic_tokens_to_lsp,
     st_file_stem, symbol_container_name, text_document_identifier_for_edit,
 };
-use super::progress::{
+use super::super::progress::{
     send_partial_result, send_work_done_begin, send_work_done_end, send_work_done_report,
 };
-use super::runtime_values::{fetch_runtime_inline_values, RuntimeInlineValues};
+use super::super::runtime_values::{fetch_runtime_inline_values, RuntimeInlineValues};
 
 const PARTIAL_CHUNK_SIZE: usize = 200;
 
-fn runtime_section(value: &Value) -> Option<&Value> {
-    let section = value
-        .get("stLsp")
-        .or_else(|| value.get("trust-lsp"))
-        .or_else(|| value.get("trust_lsp"))
-        .or_else(|| {
-            let has_runtime = value.get("runtime").is_some();
-            has_runtime.then_some(value)
-        });
-    section.and_then(|section| section.get("runtime"))
-}
-
-fn runtime_flag(runtime: &Value, keys: &[&str]) -> Option<bool> {
-    for key in keys {
-        if let Some(value) = runtime.get(*key).and_then(Value::as_bool) {
-            return Some(value);
-        }
-    }
-    None
-}
-
 fn runtime_inline_values_enabled(state: &ServerState) -> bool {
     let value = state.config();
-    let Some(runtime) = runtime_section(&value) else {
+    let Some(runtime) = lsp_runtime_section(&value) else {
         return true;
     };
-    runtime_flag(runtime, &["inlineValuesEnabled", "inline_values_enabled"]).unwrap_or(true)
+    bool_with_aliases(runtime, &["inlineValuesEnabled", "inline_values_enabled"]).unwrap_or(true)
 }
 
 fn runtime_control_override(state: &ServerState) -> (Option<String>, Option<String>) {
     let value = state.config();
-    let runtime = match runtime_section(&value) {
+    let runtime = match lsp_runtime_section(&value) {
         Some(runtime) => runtime,
         None => return (None, None),
     };
-    let control_enabled = runtime_flag(
+    let control_enabled = bool_with_aliases(
         runtime,
         &["controlEndpointEnabled", "control_endpoint_enabled"],
     )
@@ -88,17 +67,11 @@ fn runtime_control_override(state: &ServerState) -> (Option<String>, Option<Stri
     if !control_enabled {
         return (None, None);
     }
-    let endpoint = runtime
-        .get("controlEndpoint")
-        .or_else(|| runtime.get("control_endpoint"))
-        .and_then(Value::as_str)
+    let endpoint = string_with_aliases(runtime, &["controlEndpoint", "control_endpoint"])
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(|value| value.to_string());
-    let auth = runtime
-        .get("controlAuthToken")
-        .or_else(|| runtime.get("control_auth_token"))
-        .and_then(Value::as_str)
+    let auth = string_with_aliases(runtime, &["controlAuthToken", "control_auth_token"])
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(|value| value.to_string());

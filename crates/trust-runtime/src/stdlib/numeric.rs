@@ -253,6 +253,7 @@ fn div_time_duration(lhs: &Value, rhs: &Value) -> Result<Value, RuntimeError> {
     }
 }
 
+// Shared coercion helper retained for upcoming numeric stdlib harmonization work.
 #[allow(dead_code)]
 fn coerce_numeric(value: &Value, target: NumericKind) -> Result<Value, RuntimeError> {
     match target {
@@ -269,6 +270,7 @@ fn coerce_numeric(value: &Value, target: NumericKind) -> Result<Value, RuntimeEr
     }
 }
 
+// Shared promotion helper retained for upcoming numeric stdlib harmonization work.
 #[allow(dead_code)]
 fn common_numeric_kind(values: &[Value]) -> Result<NumericKind, RuntimeError> {
     let mut common = None;

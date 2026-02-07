@@ -2,8 +2,10 @@
 //!
 //! Handles:
 //! - PROGRAM / END_PROGRAM
+//! - TEST_PROGRAM / END_TEST_PROGRAM (extension)
 //! - FUNCTION / END_FUNCTION
 //! - FUNCTION_BLOCK / END_FUNCTION_BLOCK
+//! - TEST_FUNCTION_BLOCK / END_TEST_FUNCTION_BLOCK (extension)
 //! - CLASS / END_CLASS
 //! - CONFIGURATION / END_CONFIGURATION
 //! - RESOURCE / END_RESOURCE
@@ -22,8 +24,20 @@ use super::super::Parser;
 impl Parser<'_, '_> {
     /// Parse a PROGRAM declaration.
     pub(crate) fn parse_program(&mut self) {
+        let is_test_program = self.at(TokenKind::KwTestProgram);
+        let expected_end = if is_test_program {
+            TokenKind::KwEndTestProgram
+        } else {
+            TokenKind::KwEndProgram
+        };
+        let alternate_end = if is_test_program {
+            TokenKind::KwEndProgram
+        } else {
+            TokenKind::KwEndTestProgram
+        };
+
         self.start_node(SyntaxKind::Program);
-        self.bump(); // PROGRAM
+        self.bump(); // PROGRAM / TEST_PROGRAM
 
         if self.at(TokenKind::Ident) {
             self.parse_name();
@@ -40,7 +54,11 @@ impl Parser<'_, '_> {
 
         // Parse statements and actions in a statement list
         self.start_node(SyntaxKind::StmtList);
-        while !self.at(TokenKind::KwEndProgram) && !self.at_end() && !self.at_stmt_list_end() {
+        while !self.at(expected_end)
+            && !self.at(alternate_end)
+            && !self.at_end()
+            && !self.at_stmt_list_end()
+        {
             if self.at(TokenKind::KwAction) {
                 self.parse_action();
             } else {
@@ -49,10 +67,17 @@ impl Parser<'_, '_> {
         }
         self.finish_node();
 
-        if self.at(TokenKind::KwEndProgram) {
+        if self.at(expected_end) {
             self.bump();
         } else {
-            self.error("expected END_PROGRAM");
+            if is_test_program {
+                self.error("expected END_TEST_PROGRAM");
+            } else {
+                self.error("expected END_PROGRAM");
+            }
+            if self.at(alternate_end) {
+                self.bump();
+            }
         }
 
         self.finish_node();
@@ -100,8 +125,20 @@ impl Parser<'_, '_> {
 
     /// Parse a FUNCTION_BLOCK declaration.
     pub(crate) fn parse_function_block(&mut self) {
+        let is_test_function_block = self.at(TokenKind::KwTestFunctionBlock);
+        let expected_end = if is_test_function_block {
+            TokenKind::KwEndTestFunctionBlock
+        } else {
+            TokenKind::KwEndFunctionBlock
+        };
+        let alternate_end = if is_test_function_block {
+            TokenKind::KwEndFunctionBlock
+        } else {
+            TokenKind::KwEndTestFunctionBlock
+        };
+
         self.start_node(SyntaxKind::FunctionBlock);
-        self.bump(); // FUNCTION_BLOCK
+        self.bump(); // FUNCTION_BLOCK / TEST_FUNCTION_BLOCK
 
         if self.at(TokenKind::KwFinal) || self.at(TokenKind::KwAbstract) {
             self.bump();
@@ -150,7 +187,7 @@ impl Parser<'_, '_> {
                 }
             } else if self.at(TokenKind::KwAction) {
                 self.parse_action();
-            } else if self.at(TokenKind::KwEndFunctionBlock) || self.at_end() {
+            } else if self.at(expected_end) || self.at(alternate_end) || self.at_end() {
                 break;
             } else if self.current().can_start_statement() {
                 self.parse_statement();
@@ -159,10 +196,17 @@ impl Parser<'_, '_> {
             }
         }
 
-        if self.at(TokenKind::KwEndFunctionBlock) {
+        if self.at(expected_end) {
             self.bump();
         } else {
-            self.error("expected END_FUNCTION_BLOCK");
+            if is_test_function_block {
+                self.error("expected END_TEST_FUNCTION_BLOCK");
+            } else {
+                self.error("expected END_FUNCTION_BLOCK");
+            }
+            if self.at(alternate_end) {
+                self.bump();
+            }
         }
 
         self.finish_node();
@@ -727,11 +771,12 @@ impl Parser<'_, '_> {
 
         // Parse namespace contents
         while !self.at(TokenKind::KwEndNamespace) && !self.at_end() {
-            if self.at(TokenKind::KwProgram) {
+            if self.at(TokenKind::KwProgram) || self.at(TokenKind::KwTestProgram) {
                 self.parse_program();
             } else if self.at(TokenKind::KwFunction) {
                 self.parse_function();
-            } else if self.at(TokenKind::KwFunctionBlock) {
+            } else if self.at(TokenKind::KwFunctionBlock) || self.at(TokenKind::KwTestFunctionBlock)
+            {
                 self.parse_function_block();
             } else if self.at(TokenKind::KwClass) {
                 self.parse_class();

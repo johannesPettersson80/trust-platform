@@ -22,10 +22,13 @@ use crate::value::Value;
 
 #[derive(Debug)]
 pub struct MeshService {
+    // Reserved for diagnostics/status surfaces once mesh management commands are exposed.
     #[allow(dead_code)]
     listen: SocketAddr,
+    // Kept until lifecycle/stop APIs are implemented for controlled thread shutdown.
     #[allow(dead_code)]
     _publisher: thread::JoinHandle<()>,
+    // Kept until lifecycle/stop APIs are implemented for controlled thread shutdown.
     #[allow(dead_code)]
     _listener: thread::JoinHandle<()>,
 }

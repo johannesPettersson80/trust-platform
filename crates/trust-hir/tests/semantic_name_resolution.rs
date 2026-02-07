@@ -30,6 +30,30 @@ END_PROGRAM
 }
 
 #[test]
+fn test_variable_in_scope_test_program() {
+    check_no_errors(
+        r#"
+TEST_PROGRAM TestSuite
+    VAR x : DINT; END_VAR
+    x := 10;
+END_TEST_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_variable_in_scope_test_function_block() {
+    check_no_errors(
+        r#"
+TEST_FUNCTION_BLOCK FB_TestCase
+    VAR x : DINT; END_VAR
+    x := 10;
+END_TEST_FUNCTION_BLOCK
+"#,
+    );
+}
+
+#[test]
 // IEC 61131-3 Ed.3 Section 6.5.2.2 (duplicate declarations)
 fn test_duplicate_declaration() {
     check_has_error(

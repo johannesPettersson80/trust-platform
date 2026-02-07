@@ -21,6 +21,15 @@ fn test_missing_end_program() {
 }
 
 #[test]
+fn test_missing_end_test_program() {
+    insta::assert_snapshot!(snapshot_parse(
+        r#"TEST_PROGRAM TestSuite
+    x := 1;
+"#
+    ));
+}
+
+#[test]
 fn test_missing_end_if() {
     insta::assert_snapshot!(snapshot_parse(
         r#"PROGRAM Test

@@ -17,6 +17,25 @@ Program Organization Units (POUs) are the building blocks of IEC 61131-3 program
 | Interface | `INTERFACE` | N/A | N/A | N/A |
 | Method | `METHOD` | N/A | No | Optional |
 
+### Implementation Extension: Test POUs (DEV-033)
+
+The following declarations are implemented as non-IEC extensions for MP-014:
+
+```
+TEST_PROGRAM name
+  ...
+END_TEST_PROGRAM
+
+TEST_FUNCTION_BLOCK name
+  ...
+END_TEST_FUNCTION_BLOCK
+```
+
+Current parser/HIR behavior:
+- `TEST_PROGRAM` is parsed with PROGRAM structure and collected as `SymbolKind::Program`.
+- `TEST_FUNCTION_BLOCK` is parsed with FUNCTION_BLOCK structure and collected as `SymbolKind::FunctionBlock`.
+- Mismatched end markers produce actionable diagnostics (`expected END_TEST_PROGRAM` / `expected END_TEST_FUNCTION_BLOCK`).
+
 ## 2. FUNCTION Declaration (Table 19, Section 6.6.2)
 
 ### Syntax

@@ -30,6 +30,13 @@ use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use base64::Engine;
 use serde_json::json;
 
+mod client;
+mod commands;
+mod input;
+mod parsing;
+mod render;
+mod state;
+
 const COLOR_TEAL: Color = Color::Rgb(0, 168, 150);
 const COLOR_GREEN: Color = Color::Rgb(46, 204, 113);
 const COLOR_AMBER: Color = Color::Rgb(243, 156, 18);
@@ -64,6 +71,9 @@ struct StatusSnapshot {
     drivers: Vec<DriverSnapshot>,
     debug_enabled: bool,
     control_mode: String,
+    simulation_mode: String,
+    simulation_time_scale: u32,
+    simulation_warning: String,
 }
 
 #[derive(Default, Clone)]
@@ -132,6 +142,10 @@ struct SettingsSnapshot {
     mesh_publish: Vec<String>,
     mesh_subscribe: Vec<(String, String)>,
     control_mode: String,
+    simulation_enabled: bool,
+    simulation_time_scale: u32,
+    simulation_mode: String,
+    simulation_warning: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -524,24 +538,7 @@ fn resolve_endpoint(
     endpoint: Option<String>,
     token: Option<String>,
 ) -> anyhow::Result<(ControlEndpoint, Option<String>, Option<PathBuf>)> {
-    let mut auth = token.or_else(|| std::env::var("TRUST_CTL_TOKEN").ok());
-    if let Some(endpoint) = endpoint {
-        return Ok((ControlEndpoint::parse(&endpoint)?, auth, bundle));
-    }
-    let bundle_path = detect_bundle_path(bundle).map_err(anyhow::Error::from)?;
-    let bundle = RuntimeBundle::load(bundle_path.clone())?;
-    if auth.is_none() {
-        auth = bundle
-            .runtime
-            .control_auth_token
-            .as_ref()
-            .map(|value| value.to_string());
-    }
-    Ok((
-        ControlEndpoint::parse(bundle.runtime.control_endpoint.as_str())?,
-        auth,
-        Some(bundle_path),
-    ))
+    client::resolve_endpoint(bundle, endpoint, token)
 }
 
 #[derive(Default)]
@@ -551,296 +548,31 @@ struct ConsoleConfig {
 }
 
 fn load_console_config(root: &Path) -> ConsoleConfig {
-    let path = root.join("runtime.toml");
-    let text = match fs::read_to_string(&path) {
-        Ok(text) => text,
-        Err(_) => return ConsoleConfig::default(),
-    };
-    let value: toml::Value = match text.parse() {
-        Ok(value) => value,
-        Err(_) => return ConsoleConfig::default(),
-    };
-    let console = match value.get("console") {
-        Some(console) => console,
-        None => return ConsoleConfig::default(),
-    };
-    let layout = console
-        .get("layout")
-        .and_then(|value| value.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|entry| entry.as_str())
-                .filter_map(PanelKind::parse)
-                .collect::<Vec<_>>()
-        });
-    let refresh_ms = console
-        .get("refresh_ms")
-        .and_then(|value| value.as_integer())
-        .and_then(|value| u64::try_from(value).ok());
-    ConsoleConfig { layout, refresh_ms }
+    client::load_console_config(root)
 }
 
 fn fetch_data(client: &mut ControlClient) -> anyhow::Result<UiData> {
-    let status = client.request(json!({"id": 1, "type": "status"}))?;
-    let tasks = client.request(json!({"id": 2, "type": "tasks.stats"}))?;
-    let io = client.request(json!({"id": 3, "type": "io.list"}))?;
-    let events =
-        client.request(json!({"id": 4, "type": "events.tail", "params": { "limit": 20 }}))?;
-    let settings = client.request(json!({"id": 5, "type": "config.get"}))?;
-    Ok(UiData {
-        status: parse_status(&status),
-        tasks: parse_tasks(&tasks),
-        io: parse_io(&io),
-        events: parse_events(&events),
-        settings: parse_settings(&settings),
-    })
+    client::fetch_data(client)
 }
 
 fn parse_status(response: &serde_json::Value) -> Option<StatusSnapshot> {
-    let result = response.get("result")?;
-    Some(StatusSnapshot {
-        state: result.get("state")?.as_str()?.to_string(),
-        fault: result
-            .get("fault")
-            .and_then(|v| v.as_str())
-            .unwrap_or("none")
-            .to_string(),
-        resource: result
-            .get("resource")
-            .and_then(|v| v.as_str())
-            .unwrap_or("resource")
-            .to_string(),
-        uptime_ms: result
-            .get("uptime_ms")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0),
-        cycle_min: result
-            .get("metrics")
-            .and_then(|m| m.get("cycle_ms"))
-            .and_then(|v| v.get("min"))
-            .and_then(|v| v.as_f64())
-            .unwrap_or(0.0),
-        cycle_avg: result
-            .get("metrics")
-            .and_then(|m| m.get("cycle_ms"))
-            .and_then(|v| v.get("avg"))
-            .and_then(|v| v.as_f64())
-            .unwrap_or(0.0),
-        cycle_max: result
-            .get("metrics")
-            .and_then(|m| m.get("cycle_ms"))
-            .and_then(|v| v.get("max"))
-            .and_then(|v| v.as_f64())
-            .unwrap_or(0.0),
-        cycle_last: result
-            .get("metrics")
-            .and_then(|m| m.get("cycle_ms"))
-            .and_then(|v| v.get("last"))
-            .and_then(|v| v.as_f64())
-            .unwrap_or(0.0),
-        overruns: result
-            .get("metrics")
-            .and_then(|m| m.get("overruns"))
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0),
-        faults: result
-            .get("metrics")
-            .and_then(|m| m.get("faults"))
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0),
-        drivers: result
-            .get("io_drivers")
-            .and_then(|v| v.as_array())
-            .map(|drivers| {
-                drivers
-                    .iter()
-                    .map(|entry| DriverSnapshot {
-                        name: entry
-                            .get("name")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("driver")
-                            .to_string(),
-                        status: entry
-                            .get("status")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("unknown")
-                            .to_string(),
-                        error: entry
-                            .get("error")
-                            .and_then(|v| v.as_str())
-                            .map(|value| value.to_string()),
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default(),
-        debug_enabled: result
-            .get("debug_enabled")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false),
-        control_mode: result
-            .get("control_mode")
-            .and_then(|v| v.as_str())
-            .unwrap_or("production")
-            .to_string(),
-    })
+    parsing::parse_status(response)
 }
 
 fn parse_tasks(response: &serde_json::Value) -> Vec<TaskSnapshot> {
-    let mut out = Vec::new();
-    let tasks = response
-        .get("result")
-        .and_then(|r| r.get("tasks"))
-        .and_then(|v| v.as_array())
-        .cloned()
-        .unwrap_or_default();
-    for task in tasks {
-        let name = task.get("name").and_then(|v| v.as_str()).unwrap_or("task");
-        out.push(TaskSnapshot {
-            name: name.to_string(),
-            last_ms: task.get("last_ms").and_then(|v| v.as_f64()).unwrap_or(0.0),
-            avg_ms: task.get("avg_ms").and_then(|v| v.as_f64()).unwrap_or(0.0),
-            max_ms: task.get("max_ms").and_then(|v| v.as_f64()).unwrap_or(0.0),
-            overruns: task.get("overruns").and_then(|v| v.as_u64()).unwrap_or(0),
-        });
-    }
-    out
+    parsing::parse_tasks(response)
 }
 
 fn parse_io(response: &serde_json::Value) -> Vec<IoEntry> {
-    let mut out = Vec::new();
-    let result = response.get("result");
-    let add_entries =
-        |entries: Option<&Vec<serde_json::Value>>, direction: &str, out: &mut Vec<IoEntry>| {
-            if let Some(entries) = entries {
-                for entry in entries {
-                    let name = entry.get("name").and_then(|v| v.as_str()).unwrap_or("");
-                    let address = entry.get("address").and_then(|v| v.as_str()).unwrap_or("");
-                    let value = entry
-                        .get("value")
-                        .map(|v| v.to_string())
-                        .unwrap_or_default();
-                    out.push(IoEntry {
-                        name: name.to_string(),
-                        address: address.to_string(),
-                        value,
-                        direction: direction.to_string(),
-                    });
-                }
-            }
-        };
-    if let Some(result) = result {
-        let inputs = result.get("inputs").and_then(|v| v.as_array());
-        let outputs = result.get("outputs").and_then(|v| v.as_array());
-        add_entries(inputs, "IN", &mut out);
-        add_entries(outputs, "OUT", &mut out);
-    }
-    out
+    parsing::parse_io(response)
 }
 
 fn parse_events(response: &serde_json::Value) -> Vec<EventSnapshot> {
-    let mut out = Vec::new();
-    let events = response
-        .get("result")
-        .and_then(|r| r.get("events"))
-        .and_then(|v| v.as_array())
-        .cloned()
-        .unwrap_or_default();
-    for event in events {
-        let Some(obj) = event.as_object() else {
-            continue;
-        };
-        let kind = match obj.get("type").and_then(|v| v.as_str()).unwrap_or("info") {
-            "fault" => EventKind::Fault,
-            "task_overrun" => EventKind::Warn,
-            _ => EventKind::Info,
-        };
-        let (timestamp, message, label) = format_event_label(obj);
-        if message.is_empty() {
-            continue;
-        }
-        out.push(EventSnapshot {
-            label,
-            kind,
-            timestamp,
-            message,
-        });
-    }
-    out
+    parsing::parse_events(response)
 }
 
 fn parse_settings(response: &serde_json::Value) -> Option<SettingsSnapshot> {
-    let result = response.get("result")?;
-    Some(SettingsSnapshot {
-        log_level: result.get("log.level")?.as_str()?.to_string(),
-        watchdog_enabled: result
-            .get("watchdog.enabled")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false),
-        watchdog_timeout_ms: result
-            .get("watchdog.timeout_ms")
-            .and_then(|v| v.as_i64())
-            .unwrap_or(0),
-        watchdog_action: result
-            .get("watchdog.action")
-            .and_then(|v| v.as_str())
-            .unwrap_or("halt")
-            .to_string(),
-        fault_policy: result
-            .get("fault.policy")
-            .and_then(|v| v.as_str())
-            .unwrap_or("halt")
-            .to_string(),
-        retain_mode: result
-            .get("retain.mode")
-            .and_then(|v| v.as_str())
-            .unwrap_or("none")
-            .to_string(),
-        retain_save_interval_ms: result
-            .get("retain.save_interval_ms")
-            .and_then(|v| v.as_i64()),
-        web_listen: result
-            .get("web.listen")
-            .and_then(|v| v.as_str())
-            .unwrap_or("0.0.0.0:8080")
-            .to_string(),
-        web_auth: result
-            .get("web.auth")
-            .and_then(|v| v.as_str())
-            .unwrap_or("local")
-            .to_string(),
-        discovery_enabled: result
-            .get("discovery.enabled")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false),
-        mesh_enabled: result
-            .get("mesh.enabled")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false),
-        mesh_publish: result
-            .get("mesh.publish")
-            .and_then(|v| v.as_array())
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(|v| v.as_str())
-                    .map(|v| v.to_string())
-                    .collect()
-            })
-            .unwrap_or_default(),
-        mesh_subscribe: result
-            .get("mesh.subscribe")
-            .and_then(|v| v.as_object())
-            .map(|map| {
-                map.iter()
-                    .map(|(k, v)| (k.clone(), v.as_str().unwrap_or_default().to_string()))
-                    .collect()
-            })
-            .unwrap_or_default(),
-        control_mode: result
-            .get("control.mode")
-            .and_then(|v| v.as_str())
-            .unwrap_or("production")
-            .to_string(),
-    })
+    parsing::parse_settings(response)
 }
 
 fn handle_key(
@@ -849,296 +581,7 @@ fn handle_key(
     state: &mut UiState,
     no_input: bool,
 ) -> anyhow::Result<bool> {
-    if no_input && key.code == KeyCode::Char('q') {
-        return Ok(true);
-    }
-
-    if state.prompt.active {
-        return handle_prompt_key(key, client, state);
-    }
-
-    if no_input {
-        if key.code == KeyCode::Char('/') {
-            state.prompt.set_output(vec![PromptLine::plain(
-                "Read-only mode.",
-                Style::default().fg(COLOR_INFO),
-            )]);
-        }
-        return Ok(false);
-    }
-
-    if let Some(confirm) = state.pending_confirm.take() {
-        return handle_confirm(confirm, key, client);
-    }
-
-    if key.code == KeyCode::Char('/') {
-        state.prompt.activate_with("/");
-        state
-            .prompt
-            .set_suggestions_list(command_suggestions(state, None));
-        return Ok(false);
-    }
-
-    if key.code == KeyCode::Tab {
-        advance_panel_page(state);
-        return Ok(false);
-    }
-
-    let action = match key.code {
-        KeyCode::Char('p') | KeyCode::Char('P') => Some("pause"),
-        KeyCode::Char('r') | KeyCode::Char('R') => Some("resume"),
-        KeyCode::Char('s') | KeyCode::Char('S') => Some("step_in"),
-        KeyCode::Char('o') | KeyCode::Char('O') => Some("step_over"),
-        KeyCode::Char('u') | KeyCode::Char('U') => Some("step_out"),
-        KeyCode::Char('w') | KeyCode::Char('W') => {
-            state.pending_confirm = Some(ConfirmAction::RestartWarm);
-            return Ok(false);
-        }
-        KeyCode::Char('c') | KeyCode::Char('C') => {
-            state.pending_confirm = Some(ConfirmAction::RestartCold);
-            return Ok(false);
-        }
-        KeyCode::Char('x') | KeyCode::Char('X') => {
-            state.pending_confirm = Some(ConfirmAction::Shutdown);
-            return Ok(false);
-        }
-        KeyCode::Char('q') | KeyCode::Char('Q') => return Ok(true),
-        _ => None,
-    };
-
-    if let Some(action) = action {
-        if matches!(
-            action,
-            "pause" | "resume" | "step_in" | "step_over" | "step_out"
-        ) && !state.debug_controls
-        {
-            state.prompt.set_output(vec![PromptLine::plain(
-                "Debug controls disabled.",
-                Style::default().fg(COLOR_AMBER),
-            )]);
-            return Ok(false);
-        }
-        let request = match action {
-            "pause" => json!({"id": 1, "type": "pause"}),
-            "resume" => json!({"id": 1, "type": "resume"}),
-            "step_in" => json!({"id": 1, "type": "step_in"}),
-            "step_over" => json!({"id": 1, "type": "step_over"}),
-            "step_out" => json!({"id": 1, "type": "step_out"}),
-            _ => json!({"id": 1, "type": "status"}),
-        };
-        let _ = client.request(request);
-    }
-    Ok(false)
-}
-
-fn handle_prompt_key(
-    key: KeyEvent,
-    client: &mut ControlClient,
-    state: &mut UiState,
-) -> anyhow::Result<bool> {
-    match key.code {
-        KeyCode::Esc => {
-            let mode = state.prompt.mode;
-            state.prompt.deactivate();
-            state.prompt.clear_suggestions();
-            match mode {
-                PromptMode::IoSelect(_) => {
-                    open_menu(MenuKind::Io, state);
-                }
-                PromptMode::IoValueSelect => {
-                    if let Some(action) = state.io_pending_action {
-                        open_io_select(action, state);
-                    } else {
-                        open_menu(MenuKind::Io, state);
-                    }
-                }
-                PromptMode::Menu(_) | PromptMode::SettingsSelect => {
-                    state.prompt.clear_output();
-                    state.prompt.mode = PromptMode::Normal;
-                }
-                _ => {
-                    state.prompt.clear_output();
-                    state.prompt.mode = PromptMode::Normal;
-                }
-            }
-            return Ok(false);
-        }
-        KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-            state.prompt.deactivate();
-            state.prompt.mode = PromptMode::Normal;
-            state.prompt.clear_suggestions();
-            return Ok(false);
-        }
-        KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-            state.prompt.mode = PromptMode::ConfirmAction(ConfirmAction::ExitConsole);
-            state.prompt.set_output(vec![PromptLine::plain(
-                "Exit console? [y/N]",
-                Style::default().fg(COLOR_AMBER),
-            )]);
-            state.prompt.input.clear();
-            state.prompt.cursor = 0;
-            return Ok(false);
-        }
-        KeyCode::Enter => {
-            if state.prompt.showing_suggestions
-                && state.prompt.mode == PromptMode::Normal
-                && !state.prompt.input.trim().contains(' ')
-            {
-                if let Some(selected) = state.prompt.selected_suggestion() {
-                    let cmd = format!("/{}", selected.cmd);
-                    state.prompt.push_history(cmd.clone());
-                    state.prompt.deactivate();
-                    state.prompt.clear_suggestions();
-                    return execute_command(&cmd, client, state);
-                }
-            }
-            let input = state.prompt.input.trim().to_string();
-            state.prompt.push_history(input.clone());
-            state.prompt.deactivate();
-            state.prompt.clear_suggestions();
-            return handle_prompt_submit(&input, client, state);
-        }
-        KeyCode::Backspace => {
-            if state.prompt.cursor > 0 {
-                state.prompt.cursor -= 1;
-                state.prompt.input.remove(state.prompt.cursor);
-            }
-        }
-        KeyCode::Left => {
-            if state.prompt.cursor > 0 {
-                state.prompt.cursor -= 1;
-            }
-        }
-        KeyCode::Right => {
-            if state.prompt.cursor < state.prompt.input.len() {
-                state.prompt.cursor += 1;
-            }
-        }
-        KeyCode::Up => {
-            if state.prompt.showing_suggestions {
-                state.prompt.move_suggestion(-1);
-                return Ok(false);
-            }
-            if state.prompt.mode == PromptMode::SettingsSelect {
-                move_settings_selection(state, -1);
-                return Ok(false);
-            }
-            if let PromptMode::Menu(kind) = state.prompt.mode {
-                move_menu_selection(state, kind, -1);
-                return Ok(false);
-            }
-            if let PromptMode::IoSelect(action) = state.prompt.mode {
-                move_io_selection(state, action, -1);
-                return Ok(false);
-            }
-            if state.prompt.mode == PromptMode::IoValueSelect {
-                move_io_value_selection(state, -1);
-                return Ok(false);
-            }
-            state.prompt.history_prev();
-        }
-        KeyCode::Down => {
-            if state.prompt.showing_suggestions {
-                state.prompt.move_suggestion(1);
-                return Ok(false);
-            }
-            if state.prompt.mode == PromptMode::SettingsSelect {
-                move_settings_selection(state, 1);
-                return Ok(false);
-            }
-            if let PromptMode::Menu(kind) = state.prompt.mode {
-                move_menu_selection(state, kind, 1);
-                return Ok(false);
-            }
-            if let PromptMode::IoSelect(action) = state.prompt.mode {
-                move_io_selection(state, action, 1);
-                return Ok(false);
-            }
-            if state.prompt.mode == PromptMode::IoValueSelect {
-                move_io_value_selection(state, 1);
-                return Ok(false);
-            }
-            state.prompt.history_next();
-        }
-        KeyCode::Char(ch) => {
-            state.prompt.input.insert(state.prompt.cursor, ch);
-            state.prompt.cursor += 1;
-        }
-        _ => {}
-    }
-    update_command_suggestions(state);
-    Ok(false)
-}
-
-fn handle_prompt_submit(
-    input: &str,
-    client: &mut ControlClient,
-    state: &mut UiState,
-) -> anyhow::Result<bool> {
-    let trimmed = input.trim();
-    if trimmed.is_empty() && state.prompt.mode == PromptMode::Normal {
-        return Ok(false);
-    }
-
-    match state.prompt.mode {
-        PromptMode::SettingsSelect => return handle_settings_select(trimmed, client, state),
-        PromptMode::SettingsValue(key) => {
-            return handle_settings_value(trimmed, key, client, state)
-        }
-        PromptMode::Menu(kind) => return handle_menu_select(trimmed, kind, client, state),
-        PromptMode::IoSelect(action) => return handle_io_select(trimmed, action, client, state),
-        PromptMode::IoValueSelect => return handle_io_value_select(trimmed, client, state),
-        PromptMode::ConfirmAction(action) => {
-            return handle_prompt_confirm(trimmed, action, client, state)
-        }
-        PromptMode::Normal => {}
-    }
-
-    execute_command(trimmed, client, state)
-}
-
-fn handle_prompt_confirm(
-    input: &str,
-    action: ConfirmAction,
-    client: &mut ControlClient,
-    state: &mut UiState,
-) -> anyhow::Result<bool> {
-    match input.trim().to_ascii_lowercase().as_str() {
-        "y" | "yes" => match action {
-            ConfirmAction::ExitConsole => return Ok(true),
-            ConfirmAction::Shutdown => {
-                let _ = client.request(json!({"id": 1, "type": "shutdown"}));
-                state.prompt.set_output(vec![PromptLine::plain(
-                    "Shutdown requested.",
-                    Style::default().fg(COLOR_GREEN),
-                )]);
-            }
-            ConfirmAction::RestartCold => {
-                let _ = client
-                    .request(json!({"id": 1, "type": "restart", "params": { "mode": "cold" }}));
-                state.prompt.set_output(vec![PromptLine::plain(
-                    "Restarting (cold)...",
-                    Style::default().fg(COLOR_GREEN),
-                )]);
-            }
-            ConfirmAction::RestartWarm => {
-                let _ = client
-                    .request(json!({"id": 1, "type": "restart", "params": { "mode": "warm" }}));
-                state.prompt.set_output(vec![PromptLine::plain(
-                    "Restarting (warm)...",
-                    Style::default().fg(COLOR_GREEN),
-                )]);
-            }
-        },
-        _ => {
-            state.prompt.set_output(vec![PromptLine::plain(
-                "Cancelled.",
-                Style::default().fg(COLOR_INFO),
-            )]);
-        }
-    }
-    state.prompt.mode = PromptMode::Normal;
-    Ok(false)
+    input::handle_key(key, client, state, no_input)
 }
 
 fn handle_settings_select(
@@ -1227,85 +670,7 @@ fn handle_settings_value(
 }
 
 fn render_ui(area: Rect, frame: &mut ratatui::Frame<'_>, state: &UiState, no_input: bool) {
-    let mut prompt_height = (state.prompt.output.len() + state.alerts.len() + 1) as u16;
-    let is_menu = matches!(
-        state.prompt.mode,
-        PromptMode::SettingsSelect
-            | PromptMode::Menu(_)
-            | PromptMode::IoSelect(_)
-            | PromptMode::IoValueSelect
-    );
-    let max_prompt = if is_menu { 14 } else { 8 };
-    if prompt_height < 3 {
-        prompt_height = 3;
-    }
-    if prompt_height > max_prompt {
-        prompt_height = max_prompt;
-    }
-    let min_panel_height = 8;
-    if prompt_height + min_panel_height >= area.height {
-        prompt_height = area.height.saturating_sub(min_panel_height).max(3);
-    }
-    let layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Min(area.height.saturating_sub(prompt_height)),
-            Constraint::Length(prompt_height),
-        ])
-        .split(area);
-    render_panels(layout[0], frame, state);
-    render_prompt(layout[1], frame, state, no_input);
-}
-
-fn render_panels(area: Rect, frame: &mut ratatui::Frame<'_>, state: &UiState) {
-    if let Some(panel) = state.focus {
-        render_panel(area, frame, state, panel, true);
-        return;
-    }
-    let width = area.width;
-    let panels = state.layout.as_slice();
-    if width >= 120 && panels.len() >= 4 {
-        let cols = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-            .split(area);
-        let left = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-            .split(cols[0]);
-        let right = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-            .split(cols[1]);
-        render_panel(left[0], frame, state, panels[0], false);
-        render_panel(right[0], frame, state, panels[1], false);
-        render_panel(left[1], frame, state, panels[2], false);
-        render_panel(right[1], frame, state, panels[3], false);
-        return;
-    }
-
-    if width >= 80 {
-        let pages = panels.len().div_ceil(2);
-        let page = state.panel_page % pages.max(1);
-        let start = page * 2;
-        let stack = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-            .split(area);
-        if let Some(panel) = panels.get(start) {
-            render_panel(stack[0], frame, state, *panel, false);
-        }
-        if let Some(panel) = panels.get(start + 1) {
-            render_panel(stack[1], frame, state, *panel, false);
-        }
-        return;
-    }
-
-    let panel = panels
-        .get(state.panel_page % panels.len().max(1))
-        .copied()
-        .unwrap_or(PanelKind::Status);
-    render_panel(area, frame, state, panel, false);
+    render::render_ui(area, frame, state, no_input);
 }
 
 fn render_panel(
@@ -1461,6 +826,45 @@ fn render_status_panel(area: Rect, frame: &mut ratatui::Frame<'_>, state: &UiSta
         12,
         value_style(),
     ));
+    let simulation_mode = if status.simulation_mode.is_empty() {
+        if settings.simulation_mode.is_empty() {
+            if settings.simulation_enabled {
+                "simulation".to_string()
+            } else {
+                "production".to_string()
+            }
+        } else {
+            settings.simulation_mode.clone()
+        }
+    } else {
+        status.simulation_mode.clone()
+    };
+    let simulation_time_scale = if status.simulation_time_scale > 0 {
+        status.simulation_time_scale
+    } else {
+        settings.simulation_time_scale
+    };
+    lines.push(label_value_line(
+        "Mode",
+        &format!("{simulation_mode} (x{simulation_time_scale})"),
+        12,
+        value_style(),
+    ));
+    if simulation_mode.eq_ignore_ascii_case("simulation") {
+        let warning = if !status.simulation_warning.is_empty() {
+            status.simulation_warning.clone()
+        } else {
+            settings.simulation_warning.clone()
+        };
+        if !warning.is_empty() {
+            lines.push(label_value_line(
+                "Warning",
+                &warning,
+                12,
+                Style::default().fg(COLOR_AMBER),
+            ));
+        }
+    }
     let web = if settings.web_listen.is_empty() {
         "disabled".to_string()
     } else {
@@ -1798,117 +1202,19 @@ fn format_uptime(uptime_ms: u64) -> String {
 }
 
 fn push_alert(state: &mut UiState, text: &str, style: Style) {
-    if state.alerts.len() > 4 {
-        state.alerts.pop_front();
-    }
-    state
-        .alerts
-        .push_back(PromptLine::plain(text.to_string(), style));
+    state::push_alert(state, text, style);
 }
 
 fn update_cycle_history(state: &mut UiState) {
-    let status = match state.data.status.as_ref() {
-        Some(status) => status,
-        None => return,
-    };
-    let value = (status.cycle_last * 10.0).max(0.0).round() as u64;
-    if state.cycle_history.len() >= 120 {
-        state.cycle_history.pop_front();
-    }
-    state.cycle_history.push_back(value.max(1));
+    state::update_cycle_history(state);
 }
 
 fn update_watch_values(client: &mut ControlClient, state: &mut UiState) {
-    if state.watch_list.is_empty() {
-        state.watch_values.clear();
-        return;
-    }
-    let mut out = Vec::new();
-    for name in state.watch_list.iter() {
-        let response = client.request(json!({
-            "id": 1,
-            "type": "eval",
-            "params": { "expr": name }
-        }));
-        match response {
-            Ok(value) => {
-                if let Some(result) = value.get("result").and_then(|r| r.get("value")) {
-                    out.push((name.clone(), result.to_string()));
-                } else if let Some(err) = value.get("error").and_then(|e| e.as_str()) {
-                    out.push((name.clone(), format!("error: {err}")));
-                } else {
-                    out.push((name.clone(), "unknown".to_string()));
-                }
-            }
-            Err(_) => out.push((name.clone(), "unavailable".to_string())),
-        }
-    }
-    state.watch_values = out;
+    state::update_watch_values(client, state);
 }
 
 fn update_event_alerts(state: &mut UiState) {
-    let events = state.data.events.clone();
-    for event in events {
-        if state.seen_events.contains(&event.label) {
-            continue;
-        }
-        state.seen_events.insert(event.label.clone());
-        match event.kind {
-            EventKind::Fault => push_alert(
-                state,
-                &format!("[FAULT] {}", event.message),
-                Style::default().fg(COLOR_RED),
-            ),
-            EventKind::Warn => push_alert(
-                state,
-                &format!("[WARN] {}", event.message),
-                Style::default().fg(COLOR_AMBER),
-            ),
-            EventKind::Info => {}
-        }
-        if state.seen_events.len() > 400 {
-            state.seen_events.clear();
-        }
-    }
-}
-
-fn format_event_label(
-    obj: &serde_json::Map<String, serde_json::Value>,
-) -> (Option<String>, String, String) {
-    let event_type = obj.get("type").and_then(|v| v.as_str()).unwrap_or("event");
-    let time_ms = obj
-        .get("time_ns")
-        .and_then(|v| v.as_u64())
-        .map(|ns| ns / 1_000_000);
-    let timestamp = time_ms.map(|ms| format!("{:>6}ms", ms));
-    let message = match event_type {
-        "fault" => obj
-            .get("error")
-            .and_then(|v| v.as_str())
-            .unwrap_or("fault")
-            .to_string(),
-        "task_overrun" => {
-            let name = obj.get("name").and_then(|v| v.as_str()).unwrap_or("task");
-            let missed = obj.get("missed").and_then(|v| v.as_u64()).unwrap_or(0);
-            format!("overrun {name} ({missed})")
-        }
-        "task_start" => {
-            let name = obj.get("name").and_then(|v| v.as_str()).unwrap_or("task");
-            format!("task start {name}")
-        }
-        "task_end" => {
-            let name = obj.get("name").and_then(|v| v.as_str()).unwrap_or("task");
-            format!("task end {name}")
-        }
-        "cycle_start" | "cycle_end" => String::new(),
-        _ => event_type.to_string(),
-    };
-    let label = if let Some(ts) = timestamp.as_ref() {
-        format!("{ts} {message}")
-    } else {
-        message.clone()
-    };
-    (timestamp, message, label)
+    state::update_event_alerts(state);
 }
 
 struct SettingApplyResult {
@@ -2061,150 +1367,7 @@ fn execute_command(
     client: &mut ControlClient,
     state: &mut UiState,
 ) -> anyhow::Result<bool> {
-    let raw = input.trim();
-    if raw.is_empty() {
-        return Ok(false);
-    }
-    if raw == "/" {
-        state
-            .prompt
-            .set_suggestions_list(command_suggestions(state, None));
-        return Ok(false);
-    }
-    let mut cmd = raw;
-    if let Some(stripped) = cmd.strip_prefix('/') {
-        cmd = stripped;
-    }
-    let mut parts = cmd.split_whitespace();
-    let head = parts.next().unwrap_or("");
-    match head {
-        "s" => {
-            state.prompt.set_output(status_lines(state));
-            return Ok(false);
-        }
-        "h" => {
-            state.prompt.set_output(help_lines(state));
-            return Ok(false);
-        }
-        "q" => return Ok(true),
-        "p" => {
-            handle_control_command(vec!["pause"], client, state)?;
-            return Ok(false);
-        }
-        "r" => {
-            handle_control_command(vec!["resume"], client, state)?;
-            return Ok(false);
-        }
-        _ => {}
-    }
-
-    if state.beginner_mode && !is_beginner_command(head) {
-        state.prompt.set_output(vec![PromptLine::plain(
-            "Beginner mode: use /help, /status, /settings, /io, /control, /info, /exit.",
-            Style::default().fg(COLOR_AMBER),
-        )]);
-        return Ok(false);
-    }
-
-    match head {
-        "help" => {
-            state.prompt.set_output(help_lines(state));
-        }
-        "status" => {
-            state.prompt.set_output(status_lines(state));
-        }
-        "info" => {
-            state.prompt.set_output(info_lines(state));
-        }
-        "clear" => {
-            state.prompt.clear_output();
-            state.alerts.clear();
-        }
-        "exit" => return Ok(true),
-        "settings" => {
-            state.prompt.mode = PromptMode::SettingsSelect;
-            state.settings_index = 0;
-            state
-                .prompt
-                .set_output(settings_menu_lines(state, state.settings_index));
-            state.prompt.activate_with("");
-        }
-        "io" => {
-            handle_io_command(parts.collect::<Vec<_>>(), client, state)?;
-        }
-        "control" => {
-            handle_control_command(parts.collect::<Vec<_>>(), client, state)?;
-        }
-        "access" => {
-            handle_access_command(parts.collect::<Vec<_>>(), client, state)?;
-        }
-        "linking" => {
-            handle_linking_command(parts.collect::<Vec<_>>(), client, state)?;
-        }
-        "build" => {
-            handle_build_command(state)?;
-        }
-        "reload" => {
-            handle_reload_command(client, state)?;
-        }
-        "watch" => {
-            if let Some(name) = parts.next() {
-                if !state.watch_list.iter().any(|v| v == name) {
-                    state.watch_list.push(name.to_string());
-                }
-                state.prompt.set_output(vec![PromptLine::plain(
-                    format!("Watching {name}."),
-                    Style::default().fg(COLOR_GREEN),
-                )]);
-            }
-        }
-        "unwatch" => match parts.next() {
-            Some("all") => {
-                state.watch_list.clear();
-                state.watch_values.clear();
-                state.prompt.set_output(vec![PromptLine::plain(
-                    "Watches cleared.",
-                    Style::default().fg(COLOR_INFO),
-                )]);
-            }
-            Some(name) => {
-                state.watch_list.retain(|v| v != name);
-                state.prompt.set_output(vec![PromptLine::plain(
-                    format!("Stopped watching {name}."),
-                    Style::default().fg(COLOR_INFO),
-                )]);
-            }
-            None => {
-                state.prompt.set_output(vec![PromptLine::plain(
-                    "Usage: /unwatch <name|all>",
-                    Style::default().fg(COLOR_INFO),
-                )]);
-            }
-        },
-        "log" => {
-            handle_log_command(parts.collect::<Vec<_>>(), client, state)?;
-        }
-        "layout" => {
-            handle_layout_command(parts.collect::<Vec<_>>(), state)?;
-        }
-        "focus" => {
-            handle_focus_command(parts.collect::<Vec<_>>(), state)?;
-        }
-        "unfocus" => {
-            state.focus = None;
-            state.prompt.set_output(vec![PromptLine::plain(
-                "Returned to grid view.",
-                Style::default().fg(COLOR_INFO),
-            )]);
-        }
-        _ => {
-            state.prompt.set_output(vec![PromptLine::plain(
-                "Unknown command. Type /help.",
-                Style::default().fg(COLOR_RED),
-            )]);
-        }
-    }
-    Ok(false)
+    commands::execute_command(input, client, state)
 }
 
 fn help_lines(state: &UiState) -> Vec<PromptLine> {
@@ -2408,6 +1571,14 @@ fn status_lines(state: &UiState) -> Vec<PromptLine> {
         .as_ref()
         .map(|s| format!("http://{}", s.web_listen))
         .unwrap_or_else(|| "--".to_string());
+    let mode = if status.simulation_mode.is_empty() {
+        "production".to_string()
+    } else {
+        format!(
+            "{} x{}",
+            status.simulation_mode, status.simulation_time_scale
+        )
+    };
     let line2 = PromptLine::from_segments(vec![
         seg("I/O: ", label_style()),
         seg(
@@ -2420,8 +1591,20 @@ fn status_lines(state: &UiState) -> Vec<PromptLine> {
         ),
         seg("  Web: ", label_style()),
         seg(web, value_style()),
+        seg("  Mode: ", label_style()),
+        seg(mode, value_style()),
     ]);
-    vec![line, line2]
+    if status.simulation_mode.eq_ignore_ascii_case("simulation")
+        && !status.simulation_warning.is_empty()
+    {
+        let warning = PromptLine::from_segments(vec![
+            seg("Warning: ", Style::default().fg(COLOR_AMBER)),
+            seg(status.simulation_warning, Style::default().fg(COLOR_AMBER)),
+        ]);
+        vec![line, line2, warning]
+    } else {
+        vec![line, line2]
+    }
 }
 
 fn info_lines(state: &UiState) -> Vec<PromptLine> {
@@ -4026,5 +3209,439 @@ impl ControlClient {
         let mut response = String::new();
         self.reader.read_line(&mut response)?;
         Ok(serde_json::from_str(&response)?)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ratatui::backend::TestBackend;
+    use ratatui::Terminal;
+    use serde_json::json;
+    use std::net::TcpListener;
+    use std::thread;
+
+    fn test_client() -> ControlClient {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind test control socket");
+        let addr = listener.local_addr().expect("read local addr");
+
+        thread::spawn(move || {
+            let Ok((stream, _)) = listener.accept() else {
+                return;
+            };
+            let reader_stream = stream.try_clone().expect("clone stream for request reader");
+            let mut reader = io::BufReader::new(reader_stream);
+            let mut writer = stream;
+            loop {
+                let mut request = String::new();
+                match reader.read_line(&mut request) {
+                    Ok(0) | Err(_) => break,
+                    Ok(_) => {}
+                }
+                let id = serde_json::from_str::<serde_json::Value>(&request)
+                    .ok()
+                    .and_then(|value| value.get("id").cloned())
+                    .unwrap_or_else(|| json!(1));
+                let response = json!({
+                    "id": id,
+                    "ok": true,
+                    "result": {}
+                });
+                if writer
+                    .write_all(response.to_string().as_bytes())
+                    .and_then(|_| writer.write_all(b"\n"))
+                    .and_then(|_| writer.flush())
+                    .is_err()
+                {
+                    break;
+                }
+            }
+        });
+
+        ControlClient::connect(ControlEndpoint::Tcp(addr), None).expect("connect test client")
+    }
+
+    fn sample_state() -> UiState {
+        let mut forced_io = HashSet::new();
+        forced_io.insert("QX0.0".to_string());
+
+        UiState {
+            data: UiData {
+                status: Some(StatusSnapshot {
+                    state: "running".to_string(),
+                    fault: "none".to_string(),
+                    resource: "SIM_RESOURCE".to_string(),
+                    uptime_ms: 12_345,
+                    cycle_min: 0.2,
+                    cycle_avg: 0.4,
+                    cycle_max: 0.9,
+                    cycle_last: 0.5,
+                    overruns: 0,
+                    faults: 0,
+                    drivers: vec![DriverSnapshot {
+                        name: "sim".to_string(),
+                        status: "ok".to_string(),
+                        error: None,
+                    }],
+                    debug_enabled: true,
+                    control_mode: "rw".to_string(),
+                    simulation_mode: "production".to_string(),
+                    simulation_time_scale: 1,
+                    simulation_warning: String::new(),
+                }),
+                tasks: vec![TaskSnapshot {
+                    name: "MainTask".to_string(),
+                    last_ms: 0.5,
+                    avg_ms: 0.4,
+                    max_ms: 0.9,
+                    overruns: 0,
+                }],
+                io: vec![
+                    IoEntry {
+                        name: "MotorStart".to_string(),
+                        address: "QX0.0".to_string(),
+                        value: "true".to_string(),
+                        direction: "OUT".to_string(),
+                    },
+                    IoEntry {
+                        name: "LevelLow".to_string(),
+                        address: "IX0.1".to_string(),
+                        value: "false".to_string(),
+                        direction: "IN".to_string(),
+                    },
+                ],
+                events: vec![EventSnapshot {
+                    label: "EVT001".to_string(),
+                    kind: EventKind::Info,
+                    timestamp: Some("2026-01-01T00:00:00Z".to_string()),
+                    message: "Started".to_string(),
+                }],
+                settings: Some(SettingsSnapshot {
+                    log_level: "info".to_string(),
+                    watchdog_enabled: true,
+                    watchdog_timeout_ms: 500,
+                    watchdog_action: "halt".to_string(),
+                    fault_policy: "safe_halt".to_string(),
+                    retain_mode: "none".to_string(),
+                    retain_save_interval_ms: None,
+                    web_listen: "127.0.0.1:8080".to_string(),
+                    web_auth: "local".to_string(),
+                    discovery_enabled: false,
+                    mesh_enabled: false,
+                    mesh_publish: Vec::new(),
+                    mesh_subscribe: Vec::new(),
+                    control_mode: "rw".to_string(),
+                    simulation_enabled: false,
+                    simulation_time_scale: 1,
+                    simulation_mode: "production".to_string(),
+                    simulation_warning: String::new(),
+                }),
+            },
+            pending_confirm: None,
+            beginner_mode: false,
+            debug_controls: true,
+            prompt: PromptState::new(),
+            layout: vec![
+                PanelKind::Cycle,
+                PanelKind::Io,
+                PanelKind::Status,
+                PanelKind::Events,
+            ],
+            focus: None,
+            panel_page: 0,
+            settings_index: 0,
+            menu_index: 0,
+            io_index: 0,
+            io_value_index: 0,
+            io_pending_address: None,
+            io_pending_action: None,
+            cycle_history: VecDeque::from([2, 4, 6, 8]),
+            watch_list: vec!["Main.counter".to_string()],
+            watch_values: vec![("Main.counter".to_string(), "42".to_string())],
+            forced_io,
+            alerts: VecDeque::new(),
+            seen_events: HashSet::new(),
+            connected: true,
+            bundle_root: None,
+        }
+    }
+
+    fn render_snapshot(state: &UiState, no_input: bool, width: u16, height: u16) -> String {
+        let backend = TestBackend::new(width, height);
+        let mut terminal = Terminal::new(backend).expect("create test terminal");
+        terminal
+            .draw(|frame| render_ui(frame.size(), frame, state, no_input))
+            .expect("draw ui");
+        let mut lines = Vec::new();
+        let buffer = terminal.backend().buffer();
+        for y in 0..height {
+            let mut line = String::new();
+            for x in 0..width {
+                line.push_str(buffer.get(x, y).symbol());
+            }
+            lines.push(line.trim_end().to_string());
+        }
+        while lines.last().is_some_and(|line| line.is_empty()) {
+            lines.pop();
+        }
+        lines.join("\n")
+    }
+
+    fn prompt_output_text(state: &UiState) -> String {
+        state
+            .prompt
+            .output
+            .iter()
+            .flat_map(|line| line.segments.iter().map(|(text, _)| text.as_str()))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    #[test]
+    fn parse_status_includes_simulation_mode_fields() {
+        let response = json!({
+            "result": {
+                "state": "running",
+                "resource": "SIM_RESOURCE",
+                "simulation_mode": "simulation",
+                "simulation_time_scale": 12,
+                "simulation_warning": "Simulation mode active (time scale x12). Not for live hardware.",
+                "metrics": {
+                    "cycle_ms": {
+                        "min": 0.1,
+                        "avg": 0.2,
+                        "max": 0.3,
+                        "last": 0.2
+                    },
+                    "overruns": 0,
+                    "faults": 0
+                }
+            }
+        });
+
+        let status = parse_status(&response).expect("status parse");
+        assert_eq!(status.simulation_mode, "simulation");
+        assert_eq!(status.simulation_time_scale, 12);
+        assert!(status.simulation_warning.contains("Not for live hardware"));
+    }
+
+    #[test]
+    fn parse_settings_includes_simulation_fields() {
+        let response = json!({
+            "result": {
+                "log.level": "info",
+                "simulation.enabled": true,
+                "simulation.time_scale": 6,
+                "simulation.mode": "simulation",
+                "simulation.warning": "Simulation mode active (time scale x6). Not for live hardware."
+            }
+        });
+
+        let settings = parse_settings(&response).expect("settings parse");
+        assert!(settings.simulation_enabled);
+        assert_eq!(settings.simulation_time_scale, 6);
+        assert_eq!(settings.simulation_mode, "simulation");
+        assert!(settings
+            .simulation_warning
+            .contains("Not for live hardware"));
+    }
+
+    #[test]
+    fn parse_snapshot_includes_tasks_io_and_events() {
+        let status_response = json!({
+            "result": {
+                "state": "running",
+                "resource": "SIM_RESOURCE",
+                "metrics": {
+                    "cycle_ms": { "min": 0.1, "avg": 0.2, "max": 0.4, "last": 0.3 },
+                    "overruns": 2,
+                    "faults": 1
+                },
+                "drivers": [{ "name": "sim", "status": "ok" }],
+                "control_mode": "rw"
+            }
+        });
+        let tasks_response = json!({
+            "result": [
+                { "name": "MainTask", "last_ms": 0.5, "avg_ms": 0.4, "max_ms": 0.9, "overruns": 0 }
+            ]
+        });
+        let io_response = json!({
+            "result": [
+                { "name": "MotorStart", "address": "QX0.0", "value": true, "direction": "OUT" }
+            ]
+        });
+        let events_response = json!({
+            "result": [
+                { "code": "EVT001", "level": "warn", "message": "Cycle near limit" }
+            ]
+        });
+        let settings_response = json!({
+            "result": {
+                "log.level": "debug",
+                "web.listen": "127.0.0.1:8080",
+                "control.mode": "rw",
+                "mesh.publish": ["Main.speed"],
+                "mesh.subscribe": [{ "topic": "line/a", "alias": "Main.in" }]
+            }
+        });
+
+        let status = parse_status(&status_response).expect("parse status");
+        let tasks = parse_tasks(&tasks_response);
+        let io = parse_io(&io_response);
+        let events = parse_events(&events_response);
+        let settings = parse_settings(&settings_response).expect("parse settings");
+
+        let snapshot = format!(
+            "status={} resource={} last={:.1} overruns={}\n\
+tasks={} first={} avg={:.1}\n\
+io={} first={} value={}\n\
+events={} first={} kind={:?}\n\
+settings log={} web={} control={} publish={} subscribe={}",
+            status.state,
+            status.resource,
+            status.cycle_last,
+            status.overruns,
+            tasks.len(),
+            tasks.first().map(|task| task.name.as_str()).unwrap_or("-"),
+            tasks.first().map(|task| task.avg_ms).unwrap_or_default(),
+            io.len(),
+            io.first()
+                .map(|entry| entry.address.as_str())
+                .unwrap_or("-"),
+            io.first().map(|entry| entry.value.as_str()).unwrap_or("-"),
+            events.len(),
+            events
+                .first()
+                .map(|event| event.label.as_str())
+                .unwrap_or("-"),
+            events
+                .first()
+                .map(|event| event.kind)
+                .unwrap_or(EventKind::Info),
+            settings.log_level,
+            settings.web_listen,
+            settings.control_mode,
+            settings.mesh_publish.join(","),
+            settings
+                .mesh_subscribe
+                .iter()
+                .map(|(topic, alias)| format!("{topic}->{alias}"))
+                .collect::<Vec<_>>()
+                .join(",")
+        );
+
+        assert_eq!(
+            snapshot,
+            "status=running resource=SIM_RESOURCE last=0.3 overruns=2\n\
+tasks=1 first=MainTask avg=0.4\n\
+io=1 first=QX0.0 value=true\n\
+events=1 first=EVT001 kind=Warn\n\
+settings log=debug web=127.0.0.1:8080 control=rw publish=Main.speed subscribe=line/a->Main.in"
+        );
+    }
+
+    #[test]
+    fn render_dashboard_snapshot_matches_layout() {
+        let mut state = sample_state();
+        state.prompt.set_output(vec![PromptLine::plain(
+            "Monitoring",
+            Style::default().fg(COLOR_INFO),
+        )]);
+
+        let snapshot = render_snapshot(&state, true, 80, 20);
+        let excerpt = snapshot
+            .lines()
+            .take(8)
+            .collect::<Vec<_>>()
+            .join("\n")
+            .replace('│', "|")
+            .replace('─', "-")
+            .replace(['┌', '┐', '└', '┘', '┬', '┴', '├', '┤', '┼'], "+");
+
+        assert_eq!(
+            excerpt,
+            "+ Cycle Time ------------------------------------------------------------------+\n\
+|   █                                                                          |\n\
+|  ▄█                                                                          |\n\
+|  ██                                                                          |\n\
+| ███                                                                          |\n\
+|▄███                                                                          |\n\
+|████                                                                          |\n\
+|min 0.2ms  avg 0.4ms  max 0.9ms  last 0.5ms                                   |"
+        );
+    }
+
+    #[test]
+    fn input_navigation_handles_prompt_and_read_only_mode() {
+        let mut client = test_client();
+        let mut state = sample_state();
+
+        let should_exit = handle_key(
+            KeyEvent::from(KeyCode::Char('/')),
+            &mut client,
+            &mut state,
+            false,
+        )
+        .expect("open prompt");
+        assert!(!should_exit);
+        assert!(state.prompt.active);
+        assert!(state.prompt.showing_suggestions);
+
+        state.prompt.showing_suggestions = false;
+        state.prompt.history = vec!["status".to_string(), "help".to_string()];
+        state.prompt.input.clear();
+        state.prompt.cursor = 0;
+
+        handle_key(KeyEvent::from(KeyCode::Up), &mut client, &mut state, false)
+            .expect("history up");
+        assert_eq!(state.prompt.input, "help");
+        handle_key(KeyEvent::from(KeyCode::Up), &mut client, &mut state, false)
+            .expect("history up again");
+        assert_eq!(state.prompt.input, "status");
+        handle_key(
+            KeyEvent::from(KeyCode::Down),
+            &mut client,
+            &mut state,
+            false,
+        )
+        .expect("history down");
+        assert_eq!(state.prompt.input, "help");
+
+        let mut readonly_state = sample_state();
+        handle_key(
+            KeyEvent::from(KeyCode::Char('/')),
+            &mut client,
+            &mut readonly_state,
+            true,
+        )
+        .expect("readonly slash");
+        assert!(!readonly_state.prompt.active);
+        assert!(prompt_output_text(&readonly_state).contains("Read-only mode."));
+        assert!(handle_key(
+            KeyEvent::from(KeyCode::Char('q')),
+            &mut client,
+            &mut readonly_state,
+            true,
+        )
+        .expect("readonly quit"));
+    }
+
+    #[test]
+    fn command_routing_covers_settings_beginner_guard_and_pause() {
+        let mut client = test_client();
+        let mut state = sample_state();
+
+        assert!(!execute_command("/settings", &mut client, &mut state).expect("settings command"));
+        assert_eq!(state.prompt.mode, PromptMode::SettingsSelect);
+        assert!(state.prompt.active);
+
+        let mut beginner_state = sample_state();
+        beginner_state.beginner_mode = true;
+        execute_command("/log", &mut client, &mut beginner_state).expect("blocked command");
+        assert!(prompt_output_text(&beginner_state).contains("Beginner mode"));
+
+        execute_command("/p", &mut client, &mut state).expect("pause shortcut");
+        assert!(prompt_output_text(&state).contains("Paused."));
     }
 }

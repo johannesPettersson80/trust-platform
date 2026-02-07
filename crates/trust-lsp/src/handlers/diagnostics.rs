@@ -1,6 +1,7 @@
 //! Diagnostics publishing helpers.
 
 use serde_json::{json, Map, Value};
+use std::collections::BTreeMap;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use tower_lsp::lsp_types::{
@@ -15,6 +16,7 @@ use tower_lsp::lsp_types::{
 use tower_lsp::Client;
 
 use trust_hir::db::FileId;
+use trust_hir::symbols::SymbolKind;
 use trust_hir::DiagnosticSeverity as HirSeverity;
 use trust_syntax::parser::parse;
 
@@ -23,7 +25,7 @@ use crate::external_diagnostics::collect_external_diagnostics;
 use crate::library_graph::library_dependency_issues;
 use crate::state::{path_to_uri, uri_to_path, ServerState};
 
-use super::lsp_utils::offset_to_position;
+use super::lsp_utils::{offset_to_position, position_to_offset};
 
 pub(crate) async fn publish_diagnostics(
     client: &Client,
@@ -190,7 +192,7 @@ pub(crate) fn collect_diagnostics(
         let mut diagnostics = diagnostics;
         apply_diagnostic_filters(state, uri, &mut diagnostics);
         apply_diagnostic_overrides(state, uri, &mut diagnostics);
-        attach_explainers(state, &mut diagnostics);
+        attach_explainers(state, uri, content, None, &mut diagnostics);
         return diagnostics;
     }
     let parsed = parse(content);
@@ -269,9 +271,16 @@ pub(crate) fn collect_diagnostics(
         diagnostics.extend(collect_external_diagnostics(&config, uri));
     }
 
+    let learner_context = build_learner_context(state, file_id);
     apply_diagnostic_filters(state, uri, &mut diagnostics);
     apply_diagnostic_overrides(state, uri, &mut diagnostics);
-    attach_explainers(state, &mut diagnostics);
+    attach_explainers(
+        state,
+        uri,
+        content,
+        Some(&learner_context),
+        &mut diagnostics,
+    );
     diagnostics
 }
 
@@ -318,32 +327,428 @@ fn diagnostic_allowed(settings: &DiagnosticSettings, diagnostic: &Diagnostic) ->
     }
 }
 
-fn attach_explainers(state: &ServerState, diagnostics: &mut [Diagnostic]) {
+#[derive(Default, Debug, Clone)]
+struct LearnerContext {
+    value_candidates: Vec<String>,
+    type_candidates: Vec<String>,
+}
+
+fn build_learner_context(state: &ServerState, file_id: FileId) -> LearnerContext {
+    state.with_database(|db| {
+        let symbols = db.file_symbols_with_project(file_id);
+        let mut value_map = BTreeMap::<String, String>::new();
+        let mut type_map = BTreeMap::<String, String>::new();
+
+        for symbol in symbols.iter() {
+            if is_value_suggestion_kind(&symbol.kind) {
+                let name = symbol.name.to_string();
+                value_map.entry(name.to_ascii_uppercase()).or_insert(name);
+            }
+            if symbol.is_type() {
+                let name = symbol.name.to_string();
+                type_map.entry(name.to_ascii_uppercase()).or_insert(name);
+            }
+        }
+
+        for builtin in BUILTIN_TYPE_NAMES {
+            let name = builtin.to_string();
+            type_map
+                .entry(name.to_ascii_uppercase())
+                .or_insert_with(|| name);
+        }
+
+        LearnerContext {
+            value_candidates: value_map.into_values().collect(),
+            type_candidates: type_map.into_values().collect(),
+        }
+    })
+}
+
+const BUILTIN_TYPE_NAMES: &[&str] = &[
+    "BOOL", "BYTE", "WORD", "DWORD", "LWORD", "SINT", "INT", "DINT", "LINT", "USINT", "UINT",
+    "UDINT", "ULINT", "REAL", "LREAL", "TIME", "LTIME", "DATE", "LDATE", "TOD", "LTOD", "DT",
+    "LDT", "STRING", "WSTRING", "CHAR", "WCHAR", "POINTER",
+];
+
+fn is_value_suggestion_kind(kind: &SymbolKind) -> bool {
+    matches!(
+        kind,
+        SymbolKind::Variable { .. }
+            | SymbolKind::Constant
+            | SymbolKind::Parameter { .. }
+            | SymbolKind::EnumValue { .. }
+            | SymbolKind::ProgramInstance
+    )
+}
+
+fn attach_explainers(
+    state: &ServerState,
+    uri: &Url,
+    content: &str,
+    learner_context: Option<&LearnerContext>,
+    diagnostics: &mut [Diagnostic],
+) {
     for diagnostic in diagnostics {
         let Some(code) = diagnostic_code(diagnostic) else {
             continue;
         };
-        let Some(explainer) = diagnostic_explainer(&code, &diagnostic.message) else {
-            continue;
-        };
-        if diagnostic.code_description.is_none() {
-            if let Some(href) = spec_url(state, explainer.spec_path) {
-                diagnostic.code_description = Some(CodeDescription { href });
-            }
-        }
         let mut data = match diagnostic.data.take() {
             Some(Value::Object(map)) => map,
             _ => Map::new(),
         };
-        data.insert(
-            "explain".to_string(),
-            json!({
-                "iec": explainer.iec_ref,
-                "spec": explainer.spec_path,
-            }),
-        );
-        diagnostic.data = Some(Value::Object(data));
+
+        if let Some(explainer) = diagnostic_explainer(&code, &diagnostic.message) {
+            if diagnostic.code_description.is_none() {
+                if let Some(href) = spec_url(state, explainer.spec_path) {
+                    diagnostic.code_description = Some(CodeDescription { href });
+                }
+            }
+            data.insert(
+                "explain".to_string(),
+                json!({
+                    "iec": explainer.iec_ref,
+                    "spec": explainer.spec_path,
+                }),
+            );
+        }
+
+        let mut hints = Vec::new();
+        let mut did_you_mean = Vec::new();
+
+        if let Some(context) = learner_context {
+            let suggestions = did_you_mean_suggestions(&code, &diagnostic.message, context);
+            if !suggestions.is_empty() {
+                hints.push(format!(
+                    "Did you mean {}?",
+                    format_suggestion_list(&suggestions)
+                ));
+                did_you_mean = suggestions;
+            }
+        }
+
+        hints.extend(syntax_habit_hints(&code, diagnostic, content));
+
+        if let Some(hint) = conversion_guidance_hint(&code, &diagnostic.message) {
+            hints.push(hint);
+        }
+
+        dedupe_preserve_order(&mut hints);
+        for hint in &hints {
+            push_related_hint(diagnostic, uri, hint);
+        }
+        if !hints.is_empty() {
+            data.insert("hints".to_string(), json!(hints));
+        }
+        if !did_you_mean.is_empty() {
+            data.insert("didYouMean".to_string(), json!(did_you_mean));
+        }
+
+        if !data.is_empty() {
+            diagnostic.data = Some(Value::Object(data));
+        }
     }
+}
+
+fn push_related_hint(diagnostic: &mut Diagnostic, uri: &Url, hint: &str) {
+    let message = format!("Hint: {hint}");
+    if diagnostic
+        .related_information
+        .as_ref()
+        .is_some_and(|related| {
+            related
+                .iter()
+                .any(|info| info.message.eq_ignore_ascii_case(&message))
+        })
+    {
+        return;
+    }
+    diagnostic
+        .related_information
+        .get_or_insert_with(Vec::new)
+        .push(DiagnosticRelatedInformation {
+            location: Location {
+                uri: uri.clone(),
+                range: diagnostic.range,
+            },
+            message,
+        });
+}
+
+fn did_you_mean_suggestions(code: &str, message: &str, context: &LearnerContext) -> Vec<String> {
+    match code {
+        "E101" => {
+            let Some(query) = extract_quoted_after_prefix(message, "undefined identifier '") else {
+                return Vec::new();
+            };
+            top_ranked_suggestions(&query, &context.value_candidates)
+        }
+        "E102" => {
+            let query = extract_quoted_after_prefix(message, "cannot resolve type '")
+                .or_else(|| extract_quoted_after_prefix(message, "cannot resolve interface '"));
+            let Some(query) = query else {
+                return Vec::new();
+            };
+            top_ranked_suggestions(&query, &context.type_candidates)
+        }
+        _ => Vec::new(),
+    }
+}
+
+fn extract_quoted_after_prefix(message: &str, prefix: &str) -> Option<String> {
+    let tail = message.strip_prefix(prefix)?;
+    let end = tail.find('\'')?;
+    let value = tail[..end].trim();
+    if value.is_empty() {
+        return None;
+    }
+    Some(value.to_string())
+}
+
+fn format_suggestion_list(suggestions: &[String]) -> String {
+    match suggestions {
+        [] => String::new(),
+        [one] => format!("'{one}'"),
+        [one, two] => format!("'{one}' or '{two}'"),
+        [one, two, three, ..] => format!("'{one}', '{two}', or '{three}'"),
+    }
+}
+
+fn top_ranked_suggestions(query: &str, candidates: &[String]) -> Vec<String> {
+    let normalized_query = normalize_identifier(query);
+    if normalized_query.len() < 3 {
+        return Vec::new();
+    }
+    let (min_score, max_distance) = suggestion_thresholds(normalized_query.len());
+    let mut seen = std::collections::HashSet::new();
+    let mut scored = Vec::new();
+
+    for candidate in candidates {
+        let normalized_candidate = normalize_identifier(candidate);
+        if normalized_candidate.is_empty() || normalized_candidate == normalized_query {
+            continue;
+        }
+        if !seen.insert(normalized_candidate.clone()) {
+            continue;
+        }
+
+        let distance = levenshtein_distance(&normalized_query, &normalized_candidate);
+        if distance > max_distance {
+            continue;
+        }
+        let score = similarity_score(&normalized_query, &normalized_candidate, distance);
+        if score < min_score {
+            continue;
+        }
+        scored.push((score, distance, candidate.clone()));
+    }
+
+    scored.sort_by(|a, b| {
+        b.0.partial_cmp(&a.0)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| a.1.cmp(&b.1))
+            .then_with(|| a.2.len().cmp(&b.2.len()))
+            .then_with(|| a.2.cmp(&b.2))
+    });
+
+    scored
+        .into_iter()
+        .take(3)
+        .map(|(_, _, name)| name)
+        .collect()
+}
+
+fn suggestion_thresholds(query_len: usize) -> (f32, usize) {
+    match query_len {
+        0..=2 => (1.0, 0),
+        3..=4 => (0.80, 1),
+        5..=7 => (0.67, 2),
+        8..=12 => (0.60, 3),
+        _ => (0.55, 4),
+    }
+}
+
+fn normalize_identifier(value: &str) -> String {
+    value
+        .chars()
+        .filter(|ch| ch.is_ascii_alphanumeric() || *ch == '_' || *ch == '.')
+        .map(|ch| ch.to_ascii_uppercase())
+        .collect()
+}
+
+fn similarity_score(query: &str, candidate: &str, distance: usize) -> f32 {
+    let max_len = query.len().max(candidate.len()).max(1) as f32;
+    let mut score = 1.0 - (distance as f32 / max_len);
+    if candidate.starts_with(query) || query.starts_with(candidate) {
+        score += 0.20;
+    } else if candidate.contains(query) || query.contains(candidate) {
+        score += 0.10;
+    }
+    if query
+        .chars()
+        .next()
+        .zip(candidate.chars().next())
+        .is_some_and(|(a, b)| a == b)
+    {
+        score += 0.06;
+    }
+    score.clamp(0.0, 1.0)
+}
+
+fn levenshtein_distance(a: &str, b: &str) -> usize {
+    if a == b {
+        return 0;
+    }
+    if a.is_empty() {
+        return b.chars().count();
+    }
+    if b.is_empty() {
+        return a.chars().count();
+    }
+
+    let b_chars: Vec<char> = b.chars().collect();
+    let mut prev: Vec<usize> = (0..=b_chars.len()).collect();
+    let mut curr: Vec<usize> = vec![0; b_chars.len() + 1];
+
+    for (i, a_char) in a.chars().enumerate() {
+        curr[0] = i + 1;
+        for (j, b_char) in b_chars.iter().enumerate() {
+            let cost = usize::from(a_char != *b_char);
+            let deletion = prev[j + 1] + 1;
+            let insertion = curr[j] + 1;
+            let substitution = prev[j] + cost;
+            curr[j + 1] = deletion.min(insertion).min(substitution);
+        }
+        std::mem::swap(&mut prev, &mut curr);
+    }
+    prev[b_chars.len()]
+}
+
+fn syntax_habit_hints(code: &str, diagnostic: &Diagnostic, content: &str) -> Vec<String> {
+    if !matches!(code, "E001" | "E002" | "E003") {
+        return Vec::new();
+    }
+    let mut hints = Vec::new();
+    let snippet = diagnostic_snippet(content, diagnostic).unwrap_or_default();
+    let line = content
+        .lines()
+        .nth(diagnostic.range.start.line as usize)
+        .unwrap_or_default();
+    let combined = format!("{line} {snippet}");
+    let message = diagnostic.message.to_ascii_lowercase();
+
+    if combined.contains("==") {
+        hints.push("In Structured Text, use '=' for comparison and ':=' for assignment.".into());
+    }
+    if combined.contains("&&") {
+        hints.push("In Structured Text, use AND instead of &&.".into());
+    }
+    if combined.contains("||") {
+        hints.push("In Structured Text, use OR instead of ||.".into());
+    }
+    if combined.contains('{') || combined.contains('}') {
+        hints.push("Structured Text uses END_* keywords for block endings, not '{' or '}'.".into());
+    }
+
+    let plain_equal = snippet.trim() == "="
+        || (message.contains(":=") && contains_plain_equal(&combined) && !combined.contains("=="));
+    if plain_equal {
+        hints.push("In Structured Text, assignments use ':='.".into());
+    }
+
+    hints
+}
+
+fn diagnostic_snippet(content: &str, diagnostic: &Diagnostic) -> Option<String> {
+    let start = position_to_offset(content, diagnostic.range.start)? as usize;
+    let end = position_to_offset(content, diagnostic.range.end)? as usize;
+    if start >= content.len() {
+        return None;
+    }
+    let end = end.min(content.len());
+    if start >= end {
+        return None;
+    }
+    Some(content[start..end].to_string())
+}
+
+fn contains_plain_equal(text: &str) -> bool {
+    let bytes = text.as_bytes();
+    for (index, byte) in bytes.iter().enumerate() {
+        if *byte != b'=' {
+            continue;
+        }
+        let prev = if index > 0 { bytes[index - 1] } else { b'\0' };
+        let next = if index + 1 < bytes.len() {
+            bytes[index + 1]
+        } else {
+            b'\0'
+        };
+        if prev != b':' && prev != b'<' && prev != b'>' && next != b'=' {
+            return true;
+        }
+    }
+    false
+}
+
+fn conversion_guidance_hint(code: &str, message: &str) -> Option<String> {
+    if !matches!(code, "E201" | "E203" | "E207" | "W005") {
+        return None;
+    }
+    let quoted = collect_quoted_segments(message);
+    let (source, target) = if message
+        .to_ascii_lowercase()
+        .starts_with("return type mismatch: expected '")
+    {
+        if quoted.len() < 2 {
+            return None;
+        }
+        (quoted[1], quoted[0])
+    } else if quoted.len() >= 2 {
+        (quoted[0], quoted[1])
+    } else {
+        return None;
+    };
+
+    let source = normalize_identifier(source);
+    let target = normalize_identifier(target);
+    if source.is_empty() || target.is_empty() || source == target {
+        return None;
+    }
+    if !source
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '.')
+        || !target
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '.')
+    {
+        return None;
+    }
+
+    Some(format!(
+        "Use an explicit conversion to make intent clear, e.g. `{source}_TO_{target}(<expr>)`."
+    ))
+}
+
+fn collect_quoted_segments(message: &str) -> Vec<&str> {
+    let mut result = Vec::new();
+    let mut start = 0usize;
+    while let Some(open) = message[start..].find('\'') {
+        let open = start + open + 1;
+        let Some(close) = message[open..].find('\'') else {
+            break;
+        };
+        let close = open + close;
+        if close > open {
+            result.push(&message[open..close]);
+        }
+        start = close + 1;
+    }
+    result
+}
+
+fn dedupe_preserve_order(items: &mut Vec<String>) {
+    let mut seen = std::collections::HashSet::new();
+    items.retain(|item| seen.insert(item.to_ascii_lowercase()));
 }
 
 fn diagnostic_code(diagnostic: &Diagnostic) -> Option<String> {
@@ -524,6 +929,17 @@ fn collect_config_diagnostics(
     let config_path = uri_to_path(uri);
     let config = ProjectConfig::from_contents(&root, config_path, content);
     let mut diagnostics = Vec::new();
+    for issue in &config.dependency_resolution_issues {
+        let range = find_name_range(content, issue.dependency.as_str());
+        diagnostics.push(Diagnostic {
+            range,
+            severity: Some(DiagnosticSeverity::ERROR),
+            code: Some(NumberOrString::String(issue.code.to_string())),
+            source: Some("trust-lsp".to_string()),
+            message: issue.message.clone(),
+            ..Default::default()
+        });
+    }
     for issue in library_dependency_issues(&config) {
         let target = issue
             .dependency
@@ -583,5 +999,45 @@ fn fallback_range(content: &str) -> Range {
     Range {
         start: tower_lsp::lsp_types::Position::new(0, 0),
         end: tower_lsp::lsp_types::Position::new(0, end),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{top_ranked_suggestions, LearnerContext};
+
+    #[test]
+    fn suggestion_ranking_prefers_closest_match() {
+        let context = LearnerContext {
+            value_candidates: vec![
+                "speedValue".to_string(),
+                "seedValue".to_string(),
+                "setpoint".to_string(),
+            ],
+            type_candidates: Vec::new(),
+        };
+        let suggestions = top_ranked_suggestions("speadValue", &context.value_candidates);
+        assert_eq!(
+            suggestions.first().map(String::as_str),
+            Some("speedValue"),
+            "closest typo fix should rank first"
+        );
+    }
+
+    #[test]
+    fn suggestion_ranking_suppresses_low_confidence_noise() {
+        let context = LearnerContext {
+            value_candidates: vec![
+                "temperature".to_string(),
+                "counter".to_string(),
+                "runtimeTicks".to_string(),
+            ],
+            type_candidates: Vec::new(),
+        };
+        let suggestions = top_ranked_suggestions("zzzzzzz", &context.value_candidates);
+        assert!(
+            suggestions.is_empty(),
+            "unrelated names should not produce misleading suggestions"
+        );
     }
 }

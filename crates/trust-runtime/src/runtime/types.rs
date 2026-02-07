@@ -62,6 +62,7 @@ pub(crate) enum GlobalInitValue {
 
 #[derive(Debug, Clone)]
 pub(crate) struct GlobalVarMeta {
+    // Preserved for upcoming diagnostics/profiling surfaces that report declared type metadata.
     #[allow(dead_code)]
     pub type_id: trust_hir::TypeId,
     pub retain: RetainPolicy,

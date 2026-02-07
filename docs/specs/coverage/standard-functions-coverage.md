@@ -246,6 +246,12 @@ Status (current codebase; refactor-only check on 2026-01-23): All standard funct
 - [x] SPLIT_LDT
 - [x] DAY_OF_WEEK
 
+## Non-IEC Extensions (MP-014 Test Framework)
+- [x] ASSERT_TRUE
+- [x] ASSERT_FALSE
+- [x] ASSERT_EQUAL
+- [x] ASSERT_NEAR
+
 ## Table 43 - Bistable Function Blocks
 - [x] RS
 - [x] SR

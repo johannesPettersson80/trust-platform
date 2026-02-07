@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>truST HMI</title>
+  <link rel="stylesheet" href="/hmi/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <h1>truST HMI</h1>
+      <p id="resourceName">Loading resource...</p>
+    </div>
+    <div class="status">
+      <div class="pill" id="connectionState">Disconnected</div>
+      <div class="pill" id="freshnessState">freshness: n/a</div>
+      <div class="pill mode" id="modeLabel">read-only</div>
+      <div class="pill mode" id="themeLabel">theme: classic</div>
+    </div>
+    <div class="actions">
+      <a id="exportLink" class="action-link" href="/hmi/export.json" download>Export Standalone</a>
+    </div>
+  </header>
+
+  <main class="hmi-shell" id="hmiShell">
+    <aside class="sidebar" id="pageSidebar"></aside>
+    <section class="content" id="pageContent">
+      <section class="groups hidden" id="hmiGroups"></section>
+      <section class="panel trend-panel hidden" id="trendPanel"></section>
+      <section class="panel alarm-panel hidden" id="alarmPanel"></section>
+      <section class="panel empty" id="emptyState">Waiting for HMI schema...</section>
+    </section>
+  </main>
+
+  <script src="/hmi/app.js" defer></script>
+</body>
+</html>

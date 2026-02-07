@@ -23,10 +23,10 @@ Table 15 (docs/specs/03-variables.md)
   - iec_table15: ok [crates/trust-runtime/tests/var_vla.rs]
 
 Table 62 (docs/specs/09-semantic-rules.md)
-  - test_task_missing_priority_error: ok [crates/trust-hir/tests/semantic_type_checking.rs]
-  - test_task_single_requires_bool_literal: ok [crates/trust-hir/tests/semantic_type_checking.rs]
-  - test_task_interval_requires_time_literal: ok [crates/trust-hir/tests/semantic_type_checking.rs]
-  - test_program_with_unknown_task_error: ok [crates/trust-hir/tests/semantic_type_checking.rs]
+  - test_task_missing_priority_error: ok [crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs]
+  - test_task_single_requires_bool_literal: ok [crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs]
+  - test_task_interval_requires_time_literal: ok [crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs]
+  - test_program_with_unknown_task_error: ok [crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs]
 
 Tables 64-66 (docs/specs/09-semantic-rules.md)
   - iec_table64: ok [crates/trust-hir/tests/namespaces.rs]

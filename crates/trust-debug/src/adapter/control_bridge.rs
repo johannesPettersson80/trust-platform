@@ -18,7 +18,7 @@ use trust_runtime::io::IoDriverStatus;
 use trust_runtime::metrics::RuntimeMetrics;
 use trust_runtime::scheduler::{ResourceCommand, ResourceControl, StdClock};
 use trust_runtime::settings::{
-    BaseSettings, DiscoverySettings, MeshSettings, RuntimeSettings, WebSettings,
+    BaseSettings, DiscoverySettings, MeshSettings, RuntimeSettings, SimulationSettings, WebSettings,
 };
 use trust_runtime::value::Value;
 use trust_runtime::watchdog::{FaultPolicy, RetainMode, WatchdogPolicy};
@@ -46,6 +46,7 @@ impl DebugControlServer {
             debug: session.debug_control(),
             resource,
             metadata: Arc::new(Mutex::new(session.metadata().clone())),
+            project_root: None,
             sources: SourceRegistry::new(session.control_sources()),
             io_snapshot: Arc::new(Mutex::new(None)),
             pending_restart: Arc::new(Mutex::new(None)),
@@ -60,6 +61,7 @@ impl DebugControlServer {
             io_health: Arc::new(Mutex::new(Vec::<IoDriverStatus>::new())),
             debug_enabled: Arc::new(AtomicBool::new(true)),
             debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
+            hmi_live: Arc::new(Mutex::new(trust_runtime::hmi::HmiLiveState::default())),
             pairing: None,
         });
         let server = ControlServer::start(endpoint, state.clone())?;
@@ -118,6 +120,12 @@ fn default_settings(session: &dyn DebugRuntime) -> RuntimeSettings {
             publish: Vec::new(),
             subscribe: IndexMap::new(),
         },
+        SimulationSettings {
+            enabled: false,
+            time_scale: 1,
+            mode_label: SmolStr::new("production"),
+            warning: SmolStr::new(""),
+        },
     )
 }
 
@@ -134,6 +142,12 @@ fn spawn_command_drain(rx: std::sync::mpsc::Receiver<ResourceCommand>) -> thread
                     let _ = respond_to.send(IndexMap::<SmolStr, Value>::new());
                 }
                 ResourceCommand::MeshApply { .. } => {}
+                ResourceCommand::Snapshot { respond_to } => {
+                    let _ = respond_to.send(trust_runtime::debug::DebugSnapshot {
+                        storage: trust_runtime::memory::VariableStorage::new(),
+                        now: trust_runtime::value::Duration::ZERO,
+                    });
+                }
                 ResourceCommand::Pause
                 | ResourceCommand::Resume
                 | ResourceCommand::UpdateWatchdog(_)

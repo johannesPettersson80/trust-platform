@@ -48,6 +48,17 @@ Expected outcome:
 - Uptime increments.
 - Tasks and I/O panels show data (or empty states).
 
+Open the read-only HMI dashboard:
+
+```
+http://<device-ip>:8080/hmi
+```
+
+Expected outcome:
+- Connection state shows **Connected** (or **Stale** while waiting for first cycle).
+- Freshness updates every poll.
+- Auto-discovered widgets render for program/global variables.
+
 ## 4) Run the setup wizard (first time)
 
 Use the Setup button in the top bar or the “Finish setup” banner.
@@ -119,3 +130,4 @@ For GPIO:
 - Operator usage: `docs/guides/PLC_OPERATOR_GUIDE.md`
 - Multi‑PLC setup: `docs/guides/PLC_MULTI_NODE.md`
 - Networking + ports: `docs/guides/PLC_NETWORKING.md`
+- Simulation-first workflow: `docs/guides/PLC_SIMULATION_WORKFLOW.md`

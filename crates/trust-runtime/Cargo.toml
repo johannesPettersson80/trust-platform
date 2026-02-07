@@ -23,6 +23,7 @@ clap.workspace = true
 clap_complete.workspace = true
 qrcode.workspace = true
 urlencoding.workspace = true
+roxmltree.workspace = true
 anyhow.workspace = true
 glob.workspace = true
 ratatui.workspace = true

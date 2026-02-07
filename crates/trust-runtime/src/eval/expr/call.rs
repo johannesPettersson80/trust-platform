@@ -1,3 +1,5 @@
+#![cfg_attr(not(test), deny(clippy::unwrap_used))]
+
 use smol_str::SmolStr;
 
 use crate::error::RuntimeError;
@@ -163,7 +165,9 @@ fn bind_stdlib_named_args_fixed(
 
     let mut values: Vec<Option<Value>> = vec![None; params.len()];
     for arg in args {
-        let name = arg.name.as_ref().expect("checked above");
+        let Some(name) = arg.name.as_ref() else {
+            return Err(RuntimeError::InvalidArgumentName("<unnamed>".into()));
+        };
         let key = name.to_ascii_uppercase();
         let position = params
             .iter()
@@ -202,7 +206,9 @@ fn bind_stdlib_named_args_variadic(
     let mut max_index: Option<usize> = None;
 
     for arg in args {
-        let name = arg.name.as_ref().expect("checked above");
+        let Some(name) = arg.name.as_ref() else {
+            return Err(RuntimeError::InvalidArgumentName("<unnamed>".into()));
+        };
         let key = name.to_ascii_uppercase();
         if let Some(position) = fixed.iter().position(|param| param.as_str() == key) {
             if fixed_values[position].is_some() {
@@ -272,10 +278,22 @@ fn bind_stdlib_named_args_variadic(
 
     let mut resolved = Vec::with_capacity(fixed.len() + count);
     for value in fixed_values {
-        resolved.push(value.expect("checked above"));
+        let Some(value) = value else {
+            return Err(RuntimeError::InvalidArgumentCount {
+                expected: fixed.len() + count,
+                got: args.len(),
+            });
+        };
+        resolved.push(value);
     }
     for value in variadic_values.into_iter().take(count) {
-        resolved.push(value.expect("checked above"));
+        let Some(value) = value else {
+            return Err(RuntimeError::InvalidArgumentCount {
+                expected: fixed.len() + count,
+                got: args.len(),
+            });
+        };
+        resolved.push(value);
     }
     Ok(resolved)
 }
@@ -392,7 +410,9 @@ fn bind_split_args(
 
     let mut assigned: Vec<Option<&CallArg>> = vec![None; params.len()];
     for arg in args {
-        let name = arg.name.as_ref().expect("checked above");
+        let Some(name) = arg.name.as_ref() else {
+            return Err(RuntimeError::InvalidArgumentName("<unnamed>".into()));
+        };
         let key = name.to_ascii_uppercase();
         let position = params
             .iter()
@@ -499,4 +519,80 @@ pub(super) fn eval_ref_call(
     };
     let reference = resolve_reference_for_lvalue(ctx, target)?;
     Ok(Value::Reference(Some(reference)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{bind_split_args, bind_stdlib_named_args, ArgValue, CallArg, EvalContext, Expr};
+    use crate::error::RuntimeError;
+    use crate::memory::VariableStorage;
+    use crate::stdlib::StdParams;
+    use crate::value::{DateTimeProfile, Duration, Value};
+    use trust_hir::types::TypeRegistry;
+
+    fn make_context<'a>(
+        storage: &'a mut VariableStorage,
+        registry: &'a TypeRegistry,
+    ) -> EvalContext<'a> {
+        EvalContext {
+            storage,
+            registry,
+            profile: DateTimeProfile::default(),
+            now: Duration::ZERO,
+            debug: None,
+            call_depth: 0,
+            functions: None,
+            stdlib: None,
+            function_blocks: None,
+            classes: None,
+            using: None,
+            access: None,
+            current_instance: None,
+            return_name: None,
+            loop_depth: 0,
+            pause_requested: false,
+        }
+    }
+
+    fn unnamed_literal_arg(value: Value) -> CallArg {
+        CallArg {
+            name: None,
+            value: ArgValue::Expr(Expr::Literal(value)),
+        }
+    }
+
+    #[test]
+    fn bind_stdlib_named_args_rejects_unnamed_arg_without_panic() {
+        let mut storage = VariableStorage::new();
+        let registry = TypeRegistry::new();
+        let mut ctx = make_context(&mut storage, &registry);
+        let params = StdParams::Fixed(vec!["IN".into()]);
+        let args = vec![unnamed_literal_arg(Value::Int(1))];
+
+        let result = bind_stdlib_named_args(&mut ctx, &params, &args);
+        assert!(matches!(
+            result,
+            Err(RuntimeError::InvalidArgumentName(name)) if name.as_str() == "<unnamed>"
+        ));
+    }
+
+    #[test]
+    fn bind_split_args_rejects_unnamed_named_call_without_panic() {
+        let mut storage = VariableStorage::new();
+        let registry = TypeRegistry::new();
+        let mut ctx = make_context(&mut storage, &registry);
+        let args = vec![
+            CallArg {
+                name: Some("IN".into()),
+                value: ArgValue::Expr(Expr::Literal(Value::Int(1))),
+            },
+            unnamed_literal_arg(Value::Int(2)),
+        ];
+
+        let result = bind_split_args(&mut ctx, &["IN", "YEAR"], &args);
+        assert!(matches!(
+            result,
+            Err(RuntimeError::InvalidArgumentName(name)) if name.as_str() == "<unnamed>"
+        ));
+    }
 }

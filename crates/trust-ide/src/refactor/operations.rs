@@ -12,11 +12,12 @@ use trust_hir::{is_reserved_keyword, is_valid_identifier, Database, SourceDataba
 use trust_syntax::parser::parse;
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode, SyntaxToken};
 
+use super::utilities;
 use crate::references::{find_references, FindReferencesOptions};
 use crate::rename::{RenameResult, TextEdit};
 use crate::util::{
-    ident_token_in_name, is_type_name_node, name_from_name_node, namespace_path_for_symbol,
-    qualified_name_from_field_expr, qualified_name_parts_from_node, resolve_target_at_position,
+    ident_token_in_name, is_type_name_node, name_from_name_node, qualified_name_from_field_expr,
+    qualified_name_parts_from_node, resolve_target_at_position,
     resolve_target_at_position_with_context, resolve_type_symbol_at_node, ResolvedTarget,
 };
 
@@ -86,21 +87,7 @@ struct ExtractParam {
 
 /// Parses a dotted namespace path into parts, validating identifiers.
 pub fn parse_namespace_path(path: &str) -> Option<Vec<SmolStr>> {
-    let mut parts = Vec::new();
-    for part in path.split('.') {
-        if part.is_empty() {
-            return None;
-        }
-        if !is_valid_identifier(part) || is_reserved_keyword(part) {
-            return None;
-        }
-        parts.push(SmolStr::new(part));
-    }
-    if parts.is_empty() {
-        None
-    } else {
-        Some(parts)
-    }
+    utilities::parse_namespace_path(path)
 }
 
 /// Returns the full namespace path (including the namespace itself).
@@ -108,20 +95,11 @@ pub(crate) fn namespace_full_path(
     symbols: &SymbolTable,
     symbol_id: SymbolId,
 ) -> Option<Vec<SmolStr>> {
-    let symbol = symbols.get(symbol_id)?;
-    if !matches!(symbol.kind, SymbolKind::Namespace) {
-        return None;
-    }
-    let mut parts = namespace_path_for_symbol(symbols, symbol);
-    parts.push(symbol.name.clone());
-    Some(parts)
+    utilities::namespace_full_path(symbols, symbol_id)
 }
 
 fn symbol_qualified_name(symbols: &SymbolTable, symbol_id: SymbolId) -> Option<String> {
-    let symbol = symbols.get(symbol_id)?;
-    let mut parts = namespace_path_for_symbol(symbols, symbol);
-    parts.push(symbol.name.clone());
-    Some(join_namespace_path(&parts))
+    utilities::symbol_qualified_name(symbols, symbol_id)
 }
 
 /// Moves a namespace path by rewriting `USING` directives and qualified names.
@@ -1373,41 +1351,15 @@ fn build_property_stub(stub: &PropertyStub, indent: &str, child_indent: &str) ->
 }
 
 fn indent_unit_for(indent: &str) -> &str {
-    if indent.contains('\t') {
-        "\t"
-    } else {
-        "    "
-    }
+    utilities::indent_unit_for(indent)
 }
 
 fn reindent_block(block: &str, indent: &str) -> String {
-    let mut out = Vec::new();
-    for line in block.lines() {
-        if line.trim().is_empty() {
-            out.push(String::new());
-        } else {
-            out.push(format!("{indent}{}", line.trim_start()));
-        }
-    }
-    out.join("\n")
+    utilities::reindent_block(block, indent)
 }
 
 fn line_indent_at_offset(source: &str, offset: TextSize) -> String {
-    let offset = usize::from(offset);
-    let bytes = source.as_bytes();
-    let mut line_start = offset;
-    while line_start > 0 {
-        let b = bytes[line_start - 1];
-        if b == b'\n' || b == b'\r' {
-            break;
-        }
-        line_start -= 1;
-    }
-    let mut end = line_start;
-    while end < bytes.len() && (bytes[end] == b' ' || bytes[end] == b'\t') {
-        end += 1;
-    }
-    source[line_start..end].to_string()
+    utilities::line_indent_at_offset(source, offset)
 }
 
 fn build_formal_args(params: &[ExtractParam]) -> String {
@@ -1574,35 +1526,15 @@ fn declared_symbols_in_range(symbols: &SymbolTable, range: TextRange) -> FxHashS
 }
 
 fn trim_range_to_non_whitespace(source: &str, range: TextRange) -> Option<TextRange> {
-    let mut start = usize::from(range.start());
-    let mut end = usize::from(range.end());
-    if start >= end || start >= source.len() {
-        return None;
-    }
-    end = end.min(source.len());
-    let bytes = source.as_bytes();
-    while start < end && bytes[start].is_ascii_whitespace() {
-        start += 1;
-    }
-    while end > start && bytes[end - 1].is_ascii_whitespace() {
-        end -= 1;
-    }
-    if start >= end {
-        None
-    } else {
-        Some(TextRange::new(
-            TextSize::from(start as u32),
-            TextSize::from(end as u32),
-        ))
-    }
+    utilities::trim_range_to_non_whitespace(source, range)
 }
 
 fn range_contains(outer: TextRange, inner: TextRange) -> bool {
-    outer.start() <= inner.start() && outer.end() >= inner.end()
+    utilities::range_contains(outer, inner)
 }
 
 fn ranges_overlap(a: TextRange, b: TextRange) -> bool {
-    a.start() < b.end() && b.start() < a.end()
+    utilities::ranges_overlap(a, b)
 }
 
 fn enclosing_stmt_list(root: &SyntaxNode, range: TextRange) -> Option<SyntaxNode> {
@@ -2579,12 +2511,7 @@ fn extend_range_to_line_end(source: &str, range: TextRange) -> TextRange {
 }
 
 fn text_for_range(source: &str, range: TextRange) -> String {
-    let start: usize = range.start().into();
-    let end: usize = range.end().into();
-    source
-        .get(start..end)
-        .map(|text| text.trim().to_string())
-        .unwrap_or_default()
+    utilities::text_for_range(source, range)
 }
 
 fn normalize_member_name(name: &str) -> SmolStr {
@@ -2611,63 +2538,23 @@ fn is_expression_kind(kind: SyntaxKind) -> bool {
 }
 
 fn qualified_name_parts(node: &SyntaxNode) -> Vec<SmolStr> {
-    node.descendants_with_tokens()
-        .filter_map(|element| element.into_token())
-        .filter(|token| token.kind() == SyntaxKind::Ident)
-        .map(|token| SmolStr::new(token.text()))
-        .collect()
+    utilities::qualified_name_parts(node)
 }
 
 fn path_eq_ignore_ascii_case(a: &[SmolStr], b: &[SmolStr]) -> bool {
-    if a.len() != b.len() {
-        return false;
-    }
-    a.iter()
-        .zip(b.iter())
-        .all(|(left, right)| left.eq_ignore_ascii_case(right.as_str()))
+    utilities::path_eq_ignore_ascii_case(a, b)
 }
 
 fn path_starts_with_ignore_ascii_case(path: &[SmolStr], prefix: &[SmolStr]) -> bool {
-    if path.len() < prefix.len() {
-        return false;
-    }
-    path.iter()
-        .zip(prefix.iter())
-        .all(|(left, right)| left.eq_ignore_ascii_case(right.as_str()))
+    utilities::path_starts_with_ignore_ascii_case(path, prefix)
 }
 
 fn join_namespace_path(parts: &[SmolStr]) -> String {
-    let mut out = String::new();
-    for (idx, part) in parts.iter().enumerate() {
-        if idx > 0 {
-            out.push('.');
-        }
-        out.push_str(part.as_str());
-    }
-    out
+    utilities::join_namespace_path(parts)
 }
 
 fn node_token_range(node: &SyntaxNode) -> text_size::TextRange {
-    let mut first = None;
-    let mut last = None;
-    for token in node
-        .descendants_with_tokens()
-        .filter_map(|element| element.into_token())
-    {
-        if token.kind().is_trivia() {
-            continue;
-        }
-        if first.is_none() {
-            first = Some(token.clone());
-        }
-        last = Some(token);
-    }
-    match (first, last) {
-        (Some(first), Some(last)) => {
-            text_size::TextRange::new(first.text_range().start(), last.text_range().end())
-        }
-        _ => node.text_range(),
-    }
+    utilities::node_token_range(node)
 }
 
 #[cfg(test)]

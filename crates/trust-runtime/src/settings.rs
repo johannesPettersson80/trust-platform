@@ -18,6 +18,7 @@ pub struct RuntimeSettings {
     pub web: WebSettings,
     pub discovery: DiscoverySettings,
     pub mesh: MeshSettings,
+    pub simulation: SimulationSettings,
 }
 
 impl RuntimeSettings {
@@ -26,6 +27,7 @@ impl RuntimeSettings {
         web: WebSettings,
         discovery: DiscoverySettings,
         mesh: MeshSettings,
+        simulation: SimulationSettings,
     ) -> Self {
         Self {
             log_level: base.log_level,
@@ -36,6 +38,7 @@ impl RuntimeSettings {
             web,
             discovery,
             mesh,
+            simulation,
         }
     }
 }
@@ -71,4 +74,12 @@ pub struct MeshSettings {
     pub auth_token: Option<SmolStr>,
     pub publish: Vec<SmolStr>,
     pub subscribe: IndexMap<SmolStr, SmolStr>,
+}
+
+#[derive(Debug, Clone)]
+pub struct SimulationSettings {
+    pub enabled: bool,
+    pub time_scale: u32,
+    pub mode_label: SmolStr,
+    pub warning: SmolStr,
 }

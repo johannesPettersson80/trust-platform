@@ -9,6 +9,18 @@ fn test_empty_program() {
 }
 
 #[test]
+fn test_test_program() {
+    insta::assert_snapshot!(snapshot_parse(
+        r#"TEST_PROGRAM TestSuite
+VAR
+    passed : BOOL;
+END_VAR
+    passed := TRUE;
+END_TEST_PROGRAM"#
+    ));
+}
+
+#[test]
 fn test_program_with_var_block() {
     insta::assert_snapshot!(snapshot_parse(
         r#"PROGRAM Test
@@ -49,6 +61,18 @@ VAR
     counter : INT;
 END_VAR
 END_FUNCTION_BLOCK"#
+    ));
+}
+
+#[test]
+fn test_test_function_block() {
+    insta::assert_snapshot!(snapshot_parse(
+        r#"TEST_FUNCTION_BLOCK FB_TestCase
+VAR
+    ok : BOOL;
+END_VAR
+    ok := TRUE;
+END_TEST_FUNCTION_BLOCK"#
     ));
 }
 

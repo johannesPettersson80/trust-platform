@@ -68,6 +68,55 @@ impl Clock for StdClock {
     }
 }
 
+/// Monotonic clock with simulation time acceleration.
+#[derive(Debug, Clone)]
+pub struct ScaledClock {
+    start: std::time::Instant,
+    scale: u32,
+}
+
+impl ScaledClock {
+    #[must_use]
+    pub fn new(scale: u32) -> Self {
+        Self {
+            start: std::time::Instant::now(),
+            scale: scale.max(1),
+        }
+    }
+
+    #[must_use]
+    pub fn scale(&self) -> u32 {
+        self.scale
+    }
+}
+
+impl Clock for ScaledClock {
+    fn now(&self) -> Duration {
+        let elapsed = self.start.elapsed();
+        let scaled_nanos = elapsed
+            .as_nanos()
+            .saturating_mul(self.scale as u128)
+            .min(i64::MAX as u128);
+        Duration::from_nanos(scaled_nanos as i64)
+    }
+
+    fn sleep_until(&self, deadline: Duration) {
+        let now = self.now();
+        let delta_sim = deadline.as_nanos().saturating_sub(now.as_nanos());
+        if delta_sim <= 0 {
+            return;
+        }
+        let scale = i64::from(self.scale.max(1));
+        let delta_real = (delta_sim + scale - 1) / scale;
+        if delta_real <= 0 {
+            thread::yield_now();
+            return;
+        }
+        let nanos = u64::try_from(delta_real).unwrap_or(u64::MAX);
+        thread::sleep(std::time::Duration::from_nanos(nanos));
+    }
+}
+
 #[derive(Debug)]
 struct ManualClockState {
     now: Duration,
@@ -196,6 +245,9 @@ pub enum ResourceCommand {
     MeshApply {
         updates: IndexMap<SmolStr, Value>,
     },
+    Snapshot {
+        respond_to: std::sync::mpsc::Sender<crate::debug::DebugSnapshot>,
+    },
 }
 
 /// Gate that blocks resource execution until opened.
@@ -242,9 +294,11 @@ pub struct ResourceRunner<C: Clock + Clone> {
     runtime: Runtime,
     clock: C,
     cycle_interval: Duration,
+    time_scale: u32,
     restart_signal: Option<Arc<Mutex<Option<crate::RestartMode>>>>,
     start_gate: Option<Arc<StartGate>>,
     command_rx: Option<std::sync::mpsc::Receiver<ResourceCommand>>,
+    simulation: Option<crate::simulation::SimulationController>,
 }
 
 impl<C: Clock + Clone> ResourceRunner<C> {
@@ -254,9 +308,11 @@ impl<C: Clock + Clone> ResourceRunner<C> {
             runtime,
             clock,
             cycle_interval,
+            time_scale: 1,
             restart_signal: None,
             start_gate: None,
             command_rx: None,
+            simulation: None,
         }
     }
 
@@ -271,6 +327,20 @@ impl<C: Clock + Clone> ResourceRunner<C> {
     #[must_use]
     pub fn with_start_gate(mut self, gate: Arc<StartGate>) -> Self {
         self.start_gate = Some(gate);
+        self
+    }
+
+    /// Apply simulation time acceleration (`>= 1`).
+    #[must_use]
+    pub fn with_time_scale(mut self, scale: u32) -> Self {
+        self.time_scale = scale.max(1);
+        self
+    }
+
+    /// Attach a simulation controller for coupling/disturbance hooks.
+    #[must_use]
+    pub fn with_simulation(mut self, simulation: crate::simulation::SimulationController) -> Self {
+        self.simulation = Some(simulation);
         self
     }
 
@@ -388,6 +458,26 @@ impl<C: Clock + Clone> ResourceRunner<C> {
     }
 }
 
+fn scaled_time(now: Duration, scale: u32) -> Duration {
+    if scale <= 1 {
+        return now;
+    }
+    let scaled = now.as_nanos().saturating_mul(i64::from(scale));
+    Duration::from_nanos(scaled)
+}
+
+fn scaled_sleep_interval(interval: Duration, scale: u32) -> Duration {
+    if scale <= 1 {
+        return interval;
+    }
+    let nanos = interval.as_nanos();
+    if nanos <= 0 {
+        return Duration::ZERO;
+    }
+    let scaled = (nanos / i64::from(scale)).max(1);
+    Duration::from_nanos(scaled)
+}
+
 fn run_resource_loop<C: Clock + Clone>(
     mut runner: ResourceRunner<C>,
     stop: Arc<AtomicBool>,
@@ -444,21 +534,49 @@ fn run_resource_loop<C: Clock + Clone>(
         }
 
         if paused {
-            let now = runner.clock.now();
+            let now_raw = runner.clock.now();
             let interval = runner.cycle_interval.as_nanos();
             if interval <= 0 {
                 thread::yield_now();
             } else {
-                let deadline = Duration::from_nanos(now.as_nanos().saturating_add(interval));
+                let sleep_interval =
+                    scaled_sleep_interval(runner.cycle_interval, runner.time_scale);
+                let deadline = Duration::from_nanos(
+                    now_raw.as_nanos().saturating_add(sleep_interval.as_nanos()),
+                );
                 runner.clock.sleep_until(deadline);
             }
             continue;
         }
 
-        let now = runner.clock.now();
+        let now_raw = runner.clock.now();
+        let now = scaled_time(now_raw, runner.time_scale);
         runner.runtime.set_current_time(now);
-        let result = runner.runtime.execute_cycle();
-        let end = runner.clock.now();
+        let wall_start = std::time::Instant::now();
+        if let Some(simulation) = runner.simulation.as_mut() {
+            if let Err(err) = simulation.apply_pre_cycle(now, &mut runner.runtime) {
+                if matches!(
+                    runner.runtime.fault_policy(),
+                    crate::watchdog::FaultPolicy::Restart
+                ) {
+                    if let Err(restart_err) = runner.runtime.restart(crate::RestartMode::Warm) {
+                        *last_error.lock().expect("resource error poisoned") = Some(restart_err);
+                        *state.lock().expect("resource state poisoned") = ResourceState::Faulted;
+                        break;
+                    }
+                    continue;
+                }
+                *last_error.lock().expect("resource error poisoned") = Some(err);
+                *state.lock().expect("resource state poisoned") = ResourceState::Faulted;
+                break;
+            }
+        }
+        let mut result = runner.runtime.execute_cycle();
+        if result.is_ok() {
+            if let Some(simulation) = runner.simulation.as_mut() {
+                result = simulation.apply_post_cycle(now, &runner.runtime);
+            }
+        }
         if let Err(err) = result {
             if matches!(
                 runner.runtime.fault_policy(),
@@ -478,7 +596,7 @@ fn run_resource_loop<C: Clock + Clone>(
 
         let watchdog = runner.runtime.watchdog_policy();
         if watchdog.enabled {
-            let elapsed = end.as_nanos().saturating_sub(now.as_nanos());
+            let elapsed = i64::try_from(wall_start.elapsed().as_nanos()).unwrap_or(i64::MAX);
             if elapsed > watchdog.timeout.as_nanos() {
                 if matches!(watchdog.action, crate::watchdog::WatchdogAction::Restart) {
                     if let Err(restart_err) = runner.runtime.restart(crate::RestartMode::Warm) {
@@ -500,7 +618,9 @@ fn run_resource_loop<C: Clock + Clone>(
             thread::yield_now();
             continue;
         }
-        let deadline = Duration::from_nanos(now.as_nanos().saturating_add(interval));
+        let sleep_interval = scaled_sleep_interval(runner.cycle_interval, runner.time_scale);
+        let deadline =
+            Duration::from_nanos(now_raw.as_nanos().saturating_add(sleep_interval.as_nanos()));
         runner.clock.sleep_until(deadline);
     }
 }
@@ -562,26 +682,54 @@ fn run_resource_loop_with_shared<C: Clock + Clone>(
         }
 
         if paused {
-            let now = runner.clock.now();
+            let now_raw = runner.clock.now();
             let interval = runner.cycle_interval.as_nanos();
             if interval <= 0 {
                 thread::yield_now();
             } else {
-                let deadline = Duration::from_nanos(now.as_nanos().saturating_add(interval));
+                let sleep_interval =
+                    scaled_sleep_interval(runner.cycle_interval, runner.time_scale);
+                let deadline = Duration::from_nanos(
+                    now_raw.as_nanos().saturating_add(sleep_interval.as_nanos()),
+                );
                 runner.clock.sleep_until(deadline);
             }
             continue;
         }
 
-        let now = runner.clock.now();
+        let now_raw = runner.clock.now();
+        let now = scaled_time(now_raw, runner.time_scale);
         runner.runtime.set_current_time(now);
-        let result = shared.with_lock(|globals| {
+        let wall_start = std::time::Instant::now();
+        if let Some(simulation) = runner.simulation.as_mut() {
+            if let Err(err) = simulation.apply_pre_cycle(now, &mut runner.runtime) {
+                if matches!(
+                    runner.runtime.fault_policy(),
+                    crate::watchdog::FaultPolicy::Restart
+                ) {
+                    if let Err(restart_err) = runner.runtime.restart(crate::RestartMode::Warm) {
+                        *last_error.lock().expect("resource error poisoned") = Some(restart_err);
+                        *state.lock().expect("resource state poisoned") = ResourceState::Faulted;
+                        break;
+                    }
+                    continue;
+                }
+                *last_error.lock().expect("resource error poisoned") = Some(err);
+                *state.lock().expect("resource state poisoned") = ResourceState::Faulted;
+                break;
+            }
+        }
+        let mut result = shared.with_lock(|globals| {
             shared.sync_into_locked(globals, &mut runner.runtime)?;
             let result = runner.runtime.execute_cycle();
             shared.sync_from_locked(globals, &runner.runtime)?;
             result
         });
-        let end = runner.clock.now();
+        if result.is_ok() {
+            if let Some(simulation) = runner.simulation.as_mut() {
+                result = simulation.apply_post_cycle(now, &runner.runtime);
+            }
+        }
         if let Err(err) = result {
             if matches!(
                 runner.runtime.fault_policy(),
@@ -600,7 +748,7 @@ fn run_resource_loop_with_shared<C: Clock + Clone>(
         }
         let watchdog = runner.runtime.watchdog_policy();
         if watchdog.enabled {
-            let elapsed = end.as_nanos().saturating_sub(now.as_nanos());
+            let elapsed = i64::try_from(wall_start.elapsed().as_nanos()).unwrap_or(i64::MAX);
             if elapsed > watchdog.timeout.as_nanos() {
                 if matches!(watchdog.action, crate::watchdog::WatchdogAction::Restart) {
                     if let Err(restart_err) = runner.runtime.restart(crate::RestartMode::Warm) {
@@ -622,7 +770,9 @@ fn run_resource_loop_with_shared<C: Clock + Clone>(
             thread::yield_now();
             continue;
         }
-        let deadline = Duration::from_nanos(now.as_nanos().saturating_add(interval));
+        let sleep_interval = scaled_sleep_interval(runner.cycle_interval, runner.time_scale);
+        let deadline =
+            Duration::from_nanos(now_raw.as_nanos().saturating_add(sleep_interval.as_nanos()));
         runner.clock.sleep_until(deadline);
     }
 }
@@ -649,6 +799,13 @@ fn apply_resource_command(runtime: &mut Runtime, command: ResourceCommand) {
             let _ = respond_to.send(snapshot);
         }
         ResourceCommand::MeshApply { updates } => runtime.apply_mesh_updates(&updates),
+        ResourceCommand::Snapshot { respond_to } => {
+            let snapshot = crate::debug::DebugSnapshot {
+                storage: runtime.storage().clone(),
+                now: runtime.current_time(),
+            };
+            let _ = respond_to.send(snapshot);
+        }
     }
 }
 
@@ -849,5 +1006,44 @@ impl SharedGlobals {
             globals.insert(name.clone(), value.clone());
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Clock, ScaledClock, StdClock};
+    use crate::value::Duration;
+
+    #[test]
+    fn scaled_clock_clamps_zero_to_one() {
+        let clock = ScaledClock::new(0);
+        assert_eq!(clock.scale(), 1);
+    }
+
+    #[test]
+    fn scaled_clock_sleeps_faster_than_std_clock() {
+        let std_clock = StdClock::new();
+        let std_deadline = Duration::from_millis(20);
+        let std_start = std::time::Instant::now();
+        std_clock.sleep_until(std_deadline);
+        let std_elapsed = std_start.elapsed();
+
+        let scaled_clock = ScaledClock::new(20);
+        let scaled_deadline = Duration::from_millis(20);
+        let scaled_start = std::time::Instant::now();
+        scaled_clock.sleep_until(scaled_deadline);
+        let scaled_elapsed = scaled_start.elapsed();
+
+        assert!(std_elapsed >= std::time::Duration::from_millis(10));
+        assert!(scaled_elapsed < std_elapsed);
+    }
+
+    #[test]
+    fn scaled_clock_now_is_monotonic() {
+        let clock = ScaledClock::new(10);
+        let first = clock.now();
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        let second = clock.now();
+        assert!(second.as_nanos() >= first.as_nanos());
     }
 }

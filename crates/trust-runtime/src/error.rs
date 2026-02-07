@@ -59,6 +59,10 @@ pub enum RuntimeError {
     #[error("invalid argument name '{0}'")]
     InvalidArgumentName(SmolStr),
 
+    /// Assertion failure in ST test execution.
+    #[error("assertion failed: {0}")]
+    AssertionFailed(SmolStr),
+
     /// Division by zero.
     #[error("division by zero")]
     DivisionByZero,
@@ -130,6 +134,10 @@ pub enum RuntimeError {
     /// Watchdog timeout.
     #[error("watchdog timeout")]
     WatchdogTimeout,
+
+    /// Scripted simulation fault injection.
+    #[error("simulation fault '{0}'")]
+    SimulationFault(SmolStr),
 
     /// Configuration error.
     #[error("invalid config '{0}'")]

@@ -44,6 +44,7 @@ clap_complete = "4"
 qrcode = "0.14"
 urlencoding = "2"
 percent-encoding = "2"
+roxmltree = "0.20"
 
 # Error handling
 thiserror = "1"

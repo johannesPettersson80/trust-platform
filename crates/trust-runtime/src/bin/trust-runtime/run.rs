@@ -20,7 +20,7 @@ use trust_runtime::metrics::RuntimeMetrics;
 use trust_runtime::retain::FileRetainStore;
 use trust_runtime::scheduler::{ResourceRunner, StartGate, StdClock};
 use trust_runtime::settings::{
-    BaseSettings, DiscoverySettings, MeshSettings, RuntimeSettings, WebSettings,
+    BaseSettings, DiscoverySettings, MeshSettings, RuntimeSettings, SimulationSettings, WebSettings,
 };
 use trust_runtime::value::Duration;
 use trust_runtime::web::pairing::PairingStore;
@@ -46,6 +46,8 @@ pub fn run_default(verbose: bool) -> anyhow::Result<()> {
             verbose,
             ConsoleMode::Auto,
             false,
+            false,
+            1,
         ),
         Err(_) => {
             if std::io::stdin().is_terminal() {
@@ -57,6 +59,8 @@ pub fn run_default(verbose: bool) -> anyhow::Result<()> {
                     verbose,
                     ConsoleMode::Disabled,
                     false,
+                    false,
+                    1,
                 )
             }
         }
@@ -69,6 +73,8 @@ pub fn run_play(
     verbose: bool,
     console: ConsoleMode,
     beginner: bool,
+    simulation: bool,
+    time_scale: u32,
 ) -> anyhow::Result<()> {
     let mut created = false;
     let project_path = match project {
@@ -118,10 +124,12 @@ pub fn run_play(
         true,
         console,
         beginner,
+        simulation,
+        time_scale,
     )
 }
 
-pub fn run_validate(bundle: PathBuf) -> anyhow::Result<()> {
+pub fn run_validate(bundle: PathBuf, ci: bool) -> anyhow::Result<()> {
     let bundle = RuntimeBundle::load(&bundle)?;
     let control_endpoint = ControlEndpoint::parse(bundle.runtime.control_endpoint.as_str())?;
     if matches!(control_endpoint, ControlEndpoint::Tcp(_))
@@ -135,6 +143,19 @@ pub fn run_validate(bundle: PathBuf) -> anyhow::Result<()> {
         .map_err(anyhow::Error::from)?;
     let mut runtime = Runtime::new();
     runtime.apply_bytecode_bytes(&bundle.bytecode, Some(&bundle.runtime.resource_name))?;
+    if ci {
+        let payload = json!({
+            "version": 1,
+            "command": "validate",
+            "status": "ok",
+            "project": bundle.root.display().to_string(),
+            "resource": bundle.runtime.resource_name.to_string(),
+            "control_endpoint": bundle.runtime.control_endpoint.to_string(),
+            "io_driver": bundle.io.driver.to_string(),
+        });
+        println!("{}", serde_json::to_string_pretty(&payload)?);
+        return Ok(());
+    }
     println!("{}", style::success("Project ok"));
     Ok(())
 }
@@ -149,6 +170,8 @@ pub fn run_runtime(
     show_banner: bool,
     console: ConsoleMode,
     beginner: bool,
+    simulation: bool,
+    time_scale: u32,
 ) -> anyhow::Result<()> {
     let restart_mode = match restart.to_ascii_lowercase().as_str() {
         "cold" => RestartMode::Cold,
@@ -206,6 +229,29 @@ pub fn run_runtime(
         let runtime = session.build_runtime()?;
         (None, runtime, sources)
     };
+
+    if time_scale == 0 {
+        anyhow::bail!("--time-scale must be >= 1");
+    }
+    let mut simulation_config = bundle
+        .as_ref()
+        .and_then(|bundle| bundle.simulation.clone())
+        .unwrap_or_default();
+    if simulation || time_scale > 1 {
+        simulation_config.enabled = true;
+    }
+    if time_scale > 1 {
+        simulation_config.time_scale = time_scale;
+    }
+    if simulation_config.time_scale == 0 {
+        anyhow::bail!("simulation.time_scale must be >= 1");
+    }
+    let simulation_enabled = simulation_config.enabled;
+    let simulation_time_scale = simulation_config.time_scale.max(1);
+    let simulation_warning =
+        simulation_warning_message(simulation_enabled, simulation_time_scale).unwrap_or_default();
+    let simulation_controller = simulation_enabled
+        .then(|| trust_runtime::simulation::SimulationController::new(simulation_config));
 
     let debug = runtime.enable_debug();
     let metrics = Arc::new(Mutex::new(RuntimeMetrics::new()));
@@ -317,9 +363,13 @@ pub fn run_runtime(
         .as_ref()
         .map(|bundle| bundle.runtime.cycle_interval)
         .unwrap_or_else(|| Duration::from_millis(10));
-    let runner = ResourceRunner::new(runtime, StdClock::new(), cycle_interval)
+    let mut runner = ResourceRunner::new(runtime, StdClock::new(), cycle_interval)
         .with_restart_signal(pending_restart.clone())
-        .with_start_gate(start_gate.clone());
+        .with_start_gate(start_gate.clone())
+        .with_time_scale(simulation_time_scale);
+    if let Some(simulation) = simulation_controller {
+        runner = runner.with_simulation(simulation);
+    }
     let mut handle = runner.spawn("trust-runtime")?;
     let control = handle.control();
 
@@ -353,6 +403,16 @@ pub fn run_runtime(
                 publish: bundle.runtime.mesh.publish.clone(),
                 subscribe: bundle.runtime.mesh.subscribe.clone(),
             },
+            SimulationSettings {
+                enabled: simulation_enabled,
+                time_scale: simulation_time_scale,
+                mode_label: SmolStr::new(if simulation_enabled {
+                    "simulation"
+                } else {
+                    "production"
+                }),
+                warning: SmolStr::new(simulation_warning.clone()),
+            },
         )
     } else {
         RuntimeSettings::new(
@@ -380,6 +440,16 @@ pub fn run_runtime(
                 auth_token: None,
                 publish: Vec::new(),
                 subscribe: indexmap::IndexMap::new(),
+            },
+            SimulationSettings {
+                enabled: simulation_enabled,
+                time_scale: simulation_time_scale,
+                mode_label: SmolStr::new(if simulation_enabled {
+                    "simulation"
+                } else {
+                    "production"
+                }),
+                warning: SmolStr::new(simulation_warning.clone()),
             },
         )
     };
@@ -422,6 +492,7 @@ pub fn run_runtime(
         metrics: metrics.clone(),
         events: events.clone(),
         settings: Arc::new(Mutex::new(settings)),
+        project_root: bundle.as_ref().map(|bundle| bundle.root.clone()),
         resource_name: bundle
             .as_ref()
             .map(|bundle| bundle.runtime.resource_name.clone())
@@ -434,6 +505,7 @@ pub fn run_runtime(
                 .unwrap_or(true),
         )),
         debug_variables: Arc::new(Mutex::new(trust_runtime::debug::DebugVariableHandles::new())),
+        hmi_live: Arc::new(Mutex::new(trust_runtime::hmi::HmiLiveState::default())),
         pairing: pairing.clone(),
     });
 
@@ -492,7 +564,12 @@ pub fn run_runtime(
             .as_ref()
             .filter(|bundle| bundle.runtime.web.enabled)
             .map(|bundle| format_web_url(bundle.runtime.web.listen.as_str()));
-        print_trust_banner(bundle.as_ref(), web_url.as_deref());
+        print_trust_banner(
+            bundle.as_ref(),
+            web_url.as_deref(),
+            simulation_enabled,
+            simulation_time_scale,
+        );
     }
 
     let wants_console = match console {
@@ -521,7 +598,13 @@ pub fn run_runtime(
     }
     if let Some(bundle) = &bundle {
         if verbose {
-            print_startup_summary(bundle, restart_mode, &control_endpoint);
+            print_startup_summary(
+                bundle,
+                restart_mode,
+                &control_endpoint,
+                simulation_enabled,
+                simulation_time_scale,
+            );
         }
         logger.log(
             LogLevel::Debug,
@@ -549,6 +632,8 @@ pub fn run_runtime(
                 "web_listen": bundle.runtime.web.listen.to_string(),
                 "discovery_enabled": bundle.runtime.discovery.enabled,
                 "mesh_enabled": bundle.runtime.mesh.enabled,
+                "simulation_mode": if simulation_enabled { "simulation" } else { "production" },
+                "simulation_time_scale": simulation_time_scale,
             }),
         );
     }
@@ -564,9 +649,17 @@ pub fn run_runtime(
     Ok(())
 }
 
-fn print_trust_banner(bundle: Option<&RuntimeBundle>, web_url: Option<&str>) {
+fn print_trust_banner(
+    bundle: Option<&RuntimeBundle>,
+    web_url: Option<&str>,
+    simulation_enabled: bool,
+    simulation_time_scale: u32,
+) {
     crate::style::print_logo();
     println!("Your PLC is running.");
+    if let Some(warning) = simulation_warning_message(simulation_enabled, simulation_time_scale) {
+        println!("{}", style::warning(warning));
+    }
     if let Some(bundle) = bundle {
         println!("PLC name: {}", bundle.runtime.resource_name);
         println!("Project: {}", bundle.root.display());
@@ -614,10 +707,25 @@ fn load_sources(root: &Path) -> anyhow::Result<SourceRegistry> {
     Ok(SourceRegistry::new(files))
 }
 
-fn print_startup_summary(bundle: &RuntimeBundle, restart: RestartMode, endpoint: &ControlEndpoint) {
+fn print_startup_summary(
+    bundle: &RuntimeBundle,
+    restart: RestartMode,
+    endpoint: &ControlEndpoint,
+    simulation_enabled: bool,
+    simulation_time_scale: u32,
+) {
     println!("project folder: {}", bundle.root.display());
     println!("PLC name: {}", bundle.runtime.resource_name);
     println!("restart: {restart:?}");
+    println!(
+        "mode: {} (time scale x{})",
+        if simulation_enabled {
+            "simulation"
+        } else {
+            "production"
+        },
+        simulation_time_scale
+    );
     println!(
         "cycle interval: {} ms",
         bundle.runtime.cycle_interval.as_millis()
@@ -702,6 +810,16 @@ fn format_web_url(listen: &str) -> String {
     format!("http://{host}:{port}")
 }
 
+fn simulation_warning_message(enabled: bool, time_scale: u32) -> Option<String> {
+    if !enabled {
+        return None;
+    }
+    Some(format!(
+        "Simulation mode active (time scale x{}). Not for live hardware.",
+        time_scale.max(1)
+    ))
+}
+
 fn should_auto_create(path: &Path) -> anyhow::Result<bool> {
     if !path.exists() {
         return Ok(true);
@@ -712,6 +830,24 @@ fn should_auto_create(path: &Path) -> anyhow::Result<bool> {
     let runtime_toml = path.join("runtime.toml");
     let program_stbc = path.join("program.stbc");
     Ok(!runtime_toml.is_file() || !program_stbc.is_file())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::simulation_warning_message;
+
+    #[test]
+    fn simulation_warning_includes_mode_and_safety_note() {
+        let message = simulation_warning_message(true, 8).expect("message");
+        assert!(message.contains("Simulation mode active"));
+        assert!(message.contains("Not for live hardware"));
+        assert!(message.contains("x8"));
+    }
+
+    #[test]
+    fn simulation_warning_omitted_in_production_mode() {
+        assert!(simulation_warning_message(false, 1).is_none());
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]

@@ -352,22 +352,64 @@ function relativePathLabel(uri: vscode.Uri): string {
   return relative || path.basename(uri.fsPath);
 }
 
-async function pickProgramType(): Promise<ProgramTypeOption | undefined> {
+type SelectionMode = "interactive" | "auto";
+
+function isInteractiveMode(mode: SelectionMode): boolean {
+  return mode === "interactive";
+}
+
+export function selectWorkspaceFolderPathForMode(
+  mode: SelectionMode,
+  folders: readonly string[],
+  preferredPath?: string,
+  activePath?: string
+): string | undefined {
+  if (preferredPath) {
+    return preferredPath;
+  }
+  if (folders.length === 0) {
+    return undefined;
+  }
+  if (folders.length === 1) {
+    return folders[0];
+  }
+  if (mode === "interactive") {
+    return undefined;
+  }
+  if (activePath && folders.includes(activePath)) {
+    return activePath;
+  }
+  return folders[0];
+}
+
+function programPicks(programs: ProgramTypeOption[]): Array<{
+  label: string;
+  description: string;
+  program: ProgramTypeOption;
+}> {
+  return programs.map((program) => ({
+    label: `PROGRAM ${program.name}`,
+    description: relativePathLabel(program.uri),
+    program,
+  }));
+}
+
+async function pickProgramTypeWithMode(
+  mode: SelectionMode
+): Promise<ProgramTypeOption | undefined> {
   const preferred = preferredStructuredTextUri();
   if (preferred) {
     const text = await readStructuredText(preferred);
     if (text) {
-      const preferredPrograms = collectProgramTypesFromSource(text, preferred);
-      if (preferredPrograms.length === 1) {
-        return preferredPrograms[0];
-      }
-      if (preferredPrograms.length > 1) {
-        const picks = preferredPrograms.map((program) => ({
-          label: `PROGRAM ${program.name}`,
-          description: relativePathLabel(program.uri),
-          program,
-        }));
-        const picked = await vscode.window.showQuickPick(picks, {
+      const programs = collectProgramTypesFromSource(text, preferred);
+      if (programs.length > 0) {
+        if (!isInteractiveMode(mode)) {
+          return programs[0];
+        }
+        if (programs.length === 1) {
+          return programs[0];
+        }
+        const picked = await vscode.window.showQuickPick(programPicks(programs), {
           placeHolder: "Select the PROGRAM type to run.",
           ignoreFocusOut: true,
         });
@@ -383,35 +425,12 @@ async function pickProgramType(): Promise<ProgramTypeOption | undefined> {
     );
     return undefined;
   }
-  const picks = programs.map((program) => ({
-    label: `PROGRAM ${program.name}`,
-    description: relativePathLabel(program.uri),
-    program,
-  }));
-  const picked = await vscode.window.showQuickPick(picks, {
-    placeHolder: "Select the PROGRAM type to run.",
-    ignoreFocusOut: true,
-  });
-  return picked?.program;
-}
-
-async function pickProgramTypeAuto(): Promise<ProgramTypeOption | undefined> {
-  const preferred = preferredStructuredTextUri();
-  if (preferred) {
-    const text = await readStructuredText(preferred);
-    if (text) {
-      const programs = collectProgramTypesFromSource(text, preferred);
-      if (programs.length > 0) {
-        return programs[0];
-      }
-    }
-  }
-  const programs = await collectProgramTypes();
-  if (programs.length === 0) {
-    vscode.window.showErrorMessage(
-      "No PROGRAM declarations found to create a configuration."
-    );
-    return undefined;
+  if (isInteractiveMode(mode)) {
+    const picked = await vscode.window.showQuickPick(programPicks(programs), {
+      placeHolder: "Select the PROGRAM type to run.",
+      ignoreFocusOut: true,
+    });
+    return picked?.program;
   }
   programs.sort((a, b) => a.name.localeCompare(b.name));
   if (programs.length > 1) {
@@ -422,8 +441,9 @@ async function pickProgramTypeAuto(): Promise<ProgramTypeOption | undefined> {
   return programs[0];
 }
 
-async function pickWorkspaceFolder(
-  preferred?: vscode.WorkspaceFolder
+async function pickWorkspaceFolderWithMode(
+  preferred: vscode.WorkspaceFolder | undefined,
+  mode: SelectionMode
 ): Promise<vscode.WorkspaceFolder | undefined> {
   const folders = vscode.workspace.workspaceFolders ?? [];
   if (preferred) {
@@ -435,36 +455,31 @@ async function pickWorkspaceFolder(
   if (folders.length === 0) {
     return undefined;
   }
-  const picks = folders.map((folder) => ({
-    label: folder.name,
-    description: folder.uri.fsPath,
-    folder,
-  }));
-  const picked = await vscode.window.showQuickPick(picks, {
-    placeHolder: "Select a workspace folder for the configuration.",
-    ignoreFocusOut: true,
-  });
-  return picked?.folder;
-}
-
-function pickWorkspaceFolderAuto(
-  preferred?: vscode.WorkspaceFolder
-): vscode.WorkspaceFolder | undefined {
-  const folders = vscode.workspace.workspaceFolders ?? [];
-  if (preferred) {
-    return preferred;
-  }
-  if (folders.length === 1) {
-    return folders[0];
+  if (isInteractiveMode(mode)) {
+    const picked = await vscode.window.showQuickPick(
+      folders.map((folder) => ({
+        label: folder.name,
+        description: folder.uri.fsPath,
+        folder,
+      })),
+      {
+        placeHolder: "Select a workspace folder for the configuration.",
+        ignoreFocusOut: true,
+      }
+    );
+    return picked?.folder;
   }
   const active = preferredStructuredTextUri();
-  if (active) {
-    const activeFolder = vscode.workspace.getWorkspaceFolder(active);
-    if (activeFolder) {
-      return activeFolder;
-    }
-  }
-  return folders[0];
+  const activeFolderPath = active
+    ? vscode.workspace.getWorkspaceFolder(active)?.uri.fsPath
+    : undefined;
+  const selectedPath = selectWorkspaceFolderPathForMode(
+    mode,
+    folders.map((folder) => folder.uri.fsPath),
+    undefined,
+    activeFolderPath
+  );
+  return folders.find((folder) => folder.uri.fsPath === selectedPath);
 }
 
 async function nextConfigurationUri(
@@ -486,11 +501,12 @@ async function nextConfigurationUri(
   return vscode.Uri.joinPath(folder.uri, "configuration.st");
 }
 
-async function createDefaultConfiguration(
-  program: ProgramTypeOption
+async function createDefaultConfigurationWithMode(
+  program: ProgramTypeOption,
+  mode: SelectionMode
 ): Promise<vscode.Uri | undefined> {
   const preferredFolder = vscode.workspace.getWorkspaceFolder(program.uri);
-  const folder = await pickWorkspaceFolder(preferredFolder);
+  const folder = await pickWorkspaceFolderWithMode(preferredFolder, mode);
   if (!folder) {
     vscode.window.showErrorMessage("No workspace folder available.");
     return undefined;
@@ -511,39 +527,14 @@ async function createDefaultConfiguration(
     configUri,
     Buffer.from(content, "utf8")
   );
-  const doc = await vscode.workspace.openTextDocument(configUri);
-  await vscode.window.showTextDocument(doc, { preview: false });
-  return configUri;
-}
-
-async function createDefaultConfigurationAuto(
-  program: ProgramTypeOption
-): Promise<vscode.Uri | undefined> {
-  const preferredFolder = vscode.workspace.getWorkspaceFolder(program.uri);
-  const folder = pickWorkspaceFolderAuto(preferredFolder);
-  if (!folder) {
-    vscode.window.showErrorMessage("No workspace folder available.");
-    return undefined;
+  if (isInteractiveMode(mode)) {
+    const doc = await vscode.workspace.openTextDocument(configUri);
+    await vscode.window.showTextDocument(doc, { preview: false });
+  } else {
+    debugChannel().appendLine(
+      `Created default configuration at ${configUri.fsPath}`
+    );
   }
-
-  const configUri = await nextConfigurationUri(folder);
-  const content = [
-    "CONFIGURATION Conf",
-    "  RESOURCE Res ON PLC",
-    "    TASK MainTask (INTERVAL := T#100ms, PRIORITY := 1);",
-    `    PROGRAM P1 WITH MainTask : ${program.name};`,
-    "  END_RESOURCE",
-    "END_CONFIGURATION",
-    "",
-  ].join("\n");
-
-  await vscode.workspace.fs.writeFile(
-    configUri,
-    Buffer.from(content, "utf8")
-  );
-  debugChannel().appendLine(
-    `Created default configuration at ${configUri.fsPath}`
-  );
   return configUri;
 }
 
@@ -586,19 +577,39 @@ function pickConfigurationFromActiveFolder(
   return undefined;
 }
 
-async function ensureConfigurationEntryAuto(): Promise<vscode.Uri | undefined> {
+async function ensureConfigurationEntryWithMode(
+  mode: SelectionMode
+): Promise<vscode.Uri | undefined> {
   const configs = await findConfigurationUris();
   if (configs.length === 1) {
     rememberConfiguration(configs[0]);
     return configs[0];
   }
   if (configs.length > 1) {
+    if (isInteractiveMode(mode)) {
+      const picked = await vscode.window.showQuickPick(
+        configs.map((config) => ({
+          label: path.basename(config.fsPath),
+          description: relativePathLabel(config),
+          uri: config,
+        })),
+        {
+          placeHolder: "Multiple CONFIGURATION files found. Select one to run.",
+          ignoreFocusOut: true,
+        }
+      );
+      if (picked?.uri) {
+        rememberConfiguration(picked.uri);
+      }
+      return picked?.uri;
+    }
     const fromState = pickConfigurationFromState(configs);
     if (fromState) {
       return fromState;
     }
     const fromActive = pickConfigurationFromActiveFolder(configs);
-    const picked = fromActive ?? configs.sort((a, b) => a.fsPath.localeCompare(b.fsPath))[0];
+    const picked =
+      fromActive ?? configs.sort((a, b) => a.fsPath.localeCompare(b.fsPath))[0];
     debugChannel().appendLine(
       `Multiple CONFIGURATION files found; using ${picked.fsPath}.`
     );
@@ -606,52 +617,48 @@ async function ensureConfigurationEntryAuto(): Promise<vscode.Uri | undefined> {
     return picked;
   }
 
-  const program = await pickProgramTypeAuto();
+  if (isInteractiveMode(mode)) {
+    const create = await vscode.window.showInformationMessage(
+      "No CONFIGURATION found. Create a default configuration?",
+      "Create",
+      "Cancel"
+    );
+    if (create !== "Create") {
+      return undefined;
+    }
+  }
+
+  const program = await pickProgramTypeWithMode(mode);
   if (!program) {
     return undefined;
   }
-  const created = await createDefaultConfigurationAuto(program);
+  const created = await createDefaultConfigurationWithMode(program, mode);
   rememberConfiguration(created);
   return created;
 }
 
-async function ensureConfigurationEntry(): Promise<vscode.Uri | undefined> {
-  const configs = await findConfigurationUris();
-  if (configs.length === 1) {
-    rememberConfiguration(configs[0]);
-    return configs[0];
-  }
-  if (configs.length > 1) {
-    const picks = configs.map((config) => ({
-      label: path.basename(config.fsPath),
-      description: relativePathLabel(config),
-      uri: config,
-    }));
-    const picked = await vscode.window.showQuickPick(picks, {
-      placeHolder: "Multiple CONFIGURATION files found. Select one to run.",
-      ignoreFocusOut: true,
-    });
-    if (picked?.uri) {
-      rememberConfiguration(picked.uri);
-    }
-    return picked?.uri;
-  }
+async function ensureConfigurationEntryAuto(): Promise<vscode.Uri | undefined> {
+  return ensureConfigurationEntryWithMode("auto");
+}
 
-  const create = await vscode.window.showInformationMessage(
-    "No CONFIGURATION found. Create a default configuration?",
-    "Create",
-    "Cancel"
+async function ensureConfigurationEntry(): Promise<vscode.Uri | undefined> {
+  return ensureConfigurationEntryWithMode("interactive");
+}
+
+export async function __testEnsureConfigurationEntryAuto(): Promise<
+  vscode.Uri | undefined
+> {
+  return ensureConfigurationEntryAuto();
+}
+
+export async function __testCreateDefaultConfigurationAuto(
+  programName: string,
+  programUri: vscode.Uri
+): Promise<vscode.Uri | undefined> {
+  return createDefaultConfigurationWithMode(
+    { name: programName, uri: programUri },
+    "auto"
   );
-  if (create !== "Create") {
-    return undefined;
-  }
-  const program = await pickProgramType();
-  if (!program) {
-    return undefined;
-  }
-  const created = await createDefaultConfiguration(program);
-  rememberConfiguration(created);
-  return created;
 }
 
 function extractProgramTypesFromConfiguration(source: string): string[] {

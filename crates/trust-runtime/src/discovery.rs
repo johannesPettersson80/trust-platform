@@ -49,6 +49,7 @@ impl DiscoveryState {
 }
 
 pub struct DiscoveryHandle {
+    // Owned daemon keeps mDNS browse/advertise resources alive for handle lifetime.
     #[allow(dead_code)]
     daemon: ServiceDaemon,
     state: Arc<DiscoveryState>,

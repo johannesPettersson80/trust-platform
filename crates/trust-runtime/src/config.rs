@@ -10,6 +10,7 @@ use smol_str::SmolStr;
 
 use crate::error::RuntimeError;
 use crate::io::{IoAddress, IoSafeState, IoSize};
+use crate::simulation::SimulationConfig;
 use crate::value::Duration;
 use crate::value::Value;
 use crate::watchdog::{FaultPolicy, RetainMode, WatchdogAction, WatchdogPolicy};
@@ -94,6 +95,7 @@ pub struct RuntimeBundle {
     pub root: PathBuf,
     pub runtime: RuntimeConfig,
     pub io: IoConfig,
+    pub simulation: Option<SimulationConfig>,
     pub bytecode: Vec<u8>,
 }
 
@@ -116,6 +118,7 @@ impl RuntimeBundle {
         }
         let runtime_path = root.join("runtime.toml");
         let io_path = root.join("io.toml");
+        let simulation_path = root.join("simulation.toml");
         let program_path = root.join("program.stbc");
 
         if !runtime_path.is_file() {
@@ -155,11 +158,13 @@ impl RuntimeBundle {
         let bytecode = std::fs::read(&program_path).map_err(|err| {
             RuntimeError::InvalidBundle(format!("failed to read program.stbc: {err}").into())
         })?;
+        let simulation = SimulationConfig::load_optional(&simulation_path)?;
 
         Ok(Self {
             root,
             runtime,
             io,
+            simulation,
             bytecode,
         })
     }

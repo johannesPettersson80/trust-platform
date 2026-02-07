@@ -8,9 +8,12 @@ import {
 import { registerDebugAdapter } from "./debug";
 import { getBinaryPath } from "./binary";
 import { registerIoPanel } from "./ioPanel";
+import { registerHmiPanel } from "./hmiPanel";
 import { registerLanguageModelTools } from "./lm-tools";
 import { augmentDiagnostic } from "./diagnostics";
 import { defaultRuntimeControlEndpoint } from "./runtimeDefaults";
+import { registerNewProjectCommand } from "./newProject";
+import { registerStTestIntegration } from "./stTests";
 import {
   registerNamespaceMoveCommand,
   registerNamespaceMoveCodeActions,
@@ -166,7 +169,9 @@ function startClientWithRetry(
 export async function activate(context: vscode.ExtensionContext) {
   registerDebugAdapter(context);
   registerIoPanel(context);
+  registerHmiPanel(context);
   registerLanguageModelTools(context, { getClient: () => client });
+  registerStTestIntegration(context);
   await seedDefaultRuntimeControlEndpoint(context);
   const config = vscode.workspace.getConfiguration("trust-lsp");
   showIecDiagnosticRefs = readIecDiagnosticsSetting(config);
@@ -207,6 +212,7 @@ export async function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(client);
+  registerNewProjectCommand(context);
   registerNamespaceMoveCommand(context, client);
   registerNamespaceMoveCodeActions(context);
   registerNamespaceMoveContext(context);

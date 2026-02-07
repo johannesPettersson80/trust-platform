@@ -10,6 +10,7 @@ use trust_syntax::{lex, Token, TokenKind};
 
 use crate::state::ServerState;
 
+use super::config::{bool_with_aliases, lsp_section, string_with_aliases, value_with_aliases};
 use super::lsp_utils::offset_to_position;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -65,42 +66,46 @@ fn format_config(
     }
 
     let value = state.config();
-    let format = config_section(&value)
-        .and_then(|v| v.get("format"))
-        .or_else(|| config_section(&value).and_then(|v| v.get("formatting")));
+    let format = lsp_section(&value)
+        .and_then(|section| value_with_aliases(section, &["format", "formatting"]));
 
     if let Some(format) = format {
-        if let Some(width) = format.get("indentWidth").and_then(Value::as_u64) {
+        if let Some(width) =
+            value_with_aliases(format, &["indentWidth", "indent_width"]).and_then(Value::as_u64)
+        {
             config.indent_width = width.max(1) as usize;
         }
-        if let Some(insert) = format.get("insertSpaces").and_then(Value::as_bool) {
+        if let Some(insert) = bool_with_aliases(format, &["insertSpaces", "insert_spaces"]) {
             config.insert_spaces = insert;
         }
-        if let Some(case) = format.get("keywordCase").and_then(Value::as_str) {
+        if let Some(case) = string_with_aliases(format, &["keywordCase", "keyword_case"]) {
             config.keyword_case = match case.to_ascii_lowercase().as_str() {
                 "upper" => KeywordCase::Upper,
                 "lower" => KeywordCase::Lower,
                 _ => KeywordCase::Preserve,
             };
         }
-        if let Some(align) = format.get("alignVarDecls").and_then(Value::as_bool) {
+        if let Some(align) = bool_with_aliases(format, &["alignVarDecls", "align_var_decls"]) {
             config.align_var_decl_colons = align;
         }
-        if let Some(align) = format.get("alignAssignments").and_then(Value::as_bool) {
+        if let Some(align) = bool_with_aliases(format, &["alignAssignments", "align_assignments"]) {
             config.align_assignments = align;
         }
-        if let Some(max) = format.get("maxLineLength").and_then(Value::as_u64) {
+        if let Some(max) = value_with_aliases(format, &["maxLineLength", "max_line_length"])
+            .and_then(Value::as_u64)
+        {
             if max > 0 {
                 config.max_line_length = Some(max as usize);
             }
         }
-        if let Some(style) = format.get("spacingStyle").and_then(Value::as_str) {
+        if let Some(style) = string_with_aliases(format, &["spacingStyle", "spacing_style"]) {
             config.spacing_style = match style.to_ascii_lowercase().as_str() {
                 "compact" | "tight" => SpacingStyle::Compact,
                 _ => SpacingStyle::Spaced,
             };
         }
-        if let Some(style) = format.get("endKeywordStyle").and_then(Value::as_str) {
+        if let Some(style) = string_with_aliases(format, &["endKeywordStyle", "end_keyword_style"])
+        {
             config.end_keyword_style = match style.to_ascii_lowercase().as_str() {
                 "indented" | "indent" => EndKeywordStyle::Indented,
                 _ => EndKeywordStyle::Aligned,
@@ -180,13 +185,6 @@ fn format_profile_overrides(profile: Option<&str>) -> FormatOverrides {
         },
         _ => FormatOverrides::default(),
     }
-}
-
-fn config_section(value: &Value) -> Option<&Value> {
-    value
-        .get("stLsp")
-        .or_else(|| value.get("trust-lsp"))
-        .or_else(|| value.get("trust_lsp"))
 }
 
 pub fn formatting(state: &ServerState, params: DocumentFormattingParams) -> Option<Vec<TextEdit>> {

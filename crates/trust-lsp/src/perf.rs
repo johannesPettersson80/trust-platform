@@ -2,7 +2,7 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::handlers::{completion, hover, index_workspace, rename};
+    use crate::handlers::{completion, document_diagnostic, hover, index_workspace, rename};
     use crate::state::ServerState;
     use crate::test_support::test_client;
     use std::env;
@@ -10,7 +10,7 @@ mod tests {
     use std::path::PathBuf;
     use std::time::{Duration, Instant};
     use tower_lsp::lsp_types::{
-        CompletionParams, Position, RenameParams, TextDocumentIdentifier,
+        CompletionParams, DocumentDiagnosticParams, Position, RenameParams, TextDocumentIdentifier,
         TextDocumentPositionParams, WorkspaceSymbolParams,
     };
 
@@ -268,6 +268,60 @@ END_PROGRAM
         assert!(
             avg.as_millis() <= budget_ms as u128,
             "workspace/symbol avg {:?} exceeded budget {}ms",
+            avg,
+            budget_ms
+        );
+    }
+
+    #[test]
+    #[ignore]
+    fn perf_diagnostics_budget() {
+        let declarations = env_usize("ST_LSP_PERF_DIAGNOSTIC_DECLS", 200);
+        let mut source = String::from(
+            r#"
+TYPE MotorConfig : STRUCT
+    speed : INT;
+END_STRUCT
+END_TYPE
+
+PROGRAM Main
+VAR
+    cfg : MotroConfig;
+    flag : BOOL;
+"#,
+        );
+        for idx in 0..declarations {
+            source.push_str(&format!("    speedValue{idx} : DINT;\n"));
+        }
+        source.push_str(
+            r#"END_VAR
+    speadValue0 := 1;
+    flag := 1;
+"#,
+        );
+        for idx in 0..declarations {
+            source.push_str(&format!("    speedValue{idx} := {idx};\n"));
+        }
+        source.push_str("END_PROGRAM\n");
+
+        let (state, uri) = perf_state(&source);
+        let params = DocumentDiagnosticParams {
+            text_document: TextDocumentIdentifier { uri },
+            identifier: None,
+            previous_result_id: None,
+            work_done_progress_params: Default::default(),
+            partial_result_params: Default::default(),
+        };
+
+        let iterations = env_usize("ST_LSP_PERF_ITERATIONS", 30);
+        let budget_ms = env_u64("ST_LSP_PERF_DIAGNOSTICS_MS", 900);
+        let avg = avg_duration(iterations, || {
+            let _ = document_diagnostic(&state, params.clone());
+        });
+
+        assert!(
+            avg.as_millis() <= budget_ms as u128,
+            "diagnostics avg {:?} exceeded budget {}ms",
             avg,
             budget_ms
         );

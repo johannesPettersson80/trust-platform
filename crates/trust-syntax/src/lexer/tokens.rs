@@ -207,6 +207,14 @@ pub enum TokenKind {
     #[token("END_PROGRAM", ignore(ascii_case))]
     KwEndProgram,
 
+    /// `TEST_PROGRAM` (non-IEC extension for user tests)
+    #[token("TEST_PROGRAM", ignore(ascii_case))]
+    KwTestProgram,
+
+    /// `END_TEST_PROGRAM`
+    #[token("END_TEST_PROGRAM", ignore(ascii_case))]
+    KwEndTestProgram,
+
     /// `FUNCTION`
     #[token("FUNCTION", ignore(ascii_case))]
     KwFunction,
@@ -222,6 +230,14 @@ pub enum TokenKind {
     /// `END_FUNCTION_BLOCK`
     #[token("END_FUNCTION_BLOCK", ignore(ascii_case))]
     KwEndFunctionBlock,
+
+    /// `TEST_FUNCTION_BLOCK` (non-IEC extension for user tests)
+    #[token("TEST_FUNCTION_BLOCK", ignore(ascii_case))]
+    KwTestFunctionBlock,
+
+    /// `END_TEST_FUNCTION_BLOCK`
+    #[token("END_TEST_FUNCTION_BLOCK", ignore(ascii_case))]
+    KwEndTestFunctionBlock,
 
     /// `CLASS`
     #[token("CLASS", ignore(ascii_case))]
@@ -1002,10 +1018,14 @@ impl TokenKind {
             self,
             Self::KwProgram
                 | Self::KwEndProgram
+                | Self::KwTestProgram
+                | Self::KwEndTestProgram
                 | Self::KwFunction
                 | Self::KwEndFunction
                 | Self::KwFunctionBlock
                 | Self::KwEndFunctionBlock
+                | Self::KwTestFunctionBlock
+                | Self::KwEndTestFunctionBlock
                 | Self::KwClass
                 | Self::KwEndClass
                 | Self::KwMethod
@@ -1544,6 +1564,29 @@ mod tests {
                 TokenKind::KwFunctionBlock,
                 TokenKind::Ident,
                 TokenKind::KwEndFunctionBlock
+            ]
+        );
+    }
+
+    #[test]
+    fn test_test_pou_keywords() {
+        let tokens = lex(
+            "TEST_PROGRAM Test END_TEST_PROGRAM TEST_FUNCTION_BLOCK FB_Test END_TEST_FUNCTION_BLOCK",
+        );
+        let kinds: Vec<_> = tokens
+            .iter()
+            .map(|(k, _)| *k)
+            .filter(|k| !k.is_trivia())
+            .collect();
+        assert_eq!(
+            kinds,
+            vec![
+                TokenKind::KwTestProgram,
+                TokenKind::Ident,
+                TokenKind::KwEndTestProgram,
+                TokenKind::KwTestFunctionBlock,
+                TokenKind::Ident,
+                TokenKind::KwEndTestFunctionBlock
             ]
         );
     }

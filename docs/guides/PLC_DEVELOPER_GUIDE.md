@@ -31,6 +31,18 @@ Validate a project folder (config + bytecode):
 trust-runtime validate --project <project-folder>
 ```
 
+Generate API docs from tagged ST comments (`@brief`, `@param`, `@return`):
+```
+trust-runtime docs --project <project-folder> --format both --out-dir <project-folder>/docs/api
+```
+
+PLCopen XML interchange (strict ST subset profile):
+```
+trust-runtime plcopen profile
+trust-runtime plcopen export --project <project-folder> --output <project-folder>/interop/plcopen.xml
+trust-runtime plcopen import --input <plcopen.xml> --project <target-project-folder>
+```
+
 Start runtime:
 ```
 trust-runtime --project <project-folder>
@@ -47,6 +59,7 @@ Key sections:
 - `[runtime.mesh]`: runtime-to-runtime sharing.
 - `[runtime.retain]`: retain store.
 - `[runtime.watchdog]`: fault policy + safe halt.
+- `simulation.toml`: simulation couplings, delays, and scripted disturbances/fault injection.
 
 ## I/O Configuration (io.toml)
 
@@ -65,7 +78,14 @@ Open:
 http://<device-ip>:8080
 ```
 
-The browser UI is for operations: status, I/O, settings, deploy.
+Operations UI:
+- `http://<device-ip>:8080` for status, I/O, settings, deploy.
+- `http://<device-ip>:8080/hmi` for auto-generated read-only HMI.
+
+Dedicated HMI control API (via `POST /api/control`):
+- `hmi.schema.get`
+- `hmi.values.get`
+- `hmi.write` (currently disabled in read-only mode)
 
 ## Debug Attach (Development)
 
@@ -107,3 +127,11 @@ runtime.mesh.publish = ["Status.PLCState"]
 ## Testing
 
 Recommended checks: run the runtime reliability and GPIO hardware checklists before deployment.
+
+For CI/CD pipelines and stable machine-readable outputs, see:
+
+`docs/guides/PLC_CI_CD.md`
+
+For simulation-first workflows, see:
+
+`docs/guides/PLC_SIMULATION_WORKFLOW.md`

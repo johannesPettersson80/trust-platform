@@ -144,7 +144,7 @@ function toggleTheme() {
 
 function applyInitialSkeletons() {
   applySkeleton('health', 4);
-  applySkeleton('metrics', 4);
+  applySkeleton('metrics', 6);
   applySkeleton('tasks', 4);
   applySkeleton('ioInputs', 4);
   applySkeleton('ioOutputs', 4);
@@ -562,15 +562,24 @@ async function refreshStatus() {
   const fault = result.fault || null;
   lastFaultText = fault;
   currentState = result.state || 'unknown';
+  const simulationMode = result.simulation_mode || 'production';
+  const simulationScale = Number(result.simulation_time_scale || 1);
+  const simulationWarning = result.simulation_warning || '';
   updateControlAvailability(result.debug_enabled !== false);
   updateStatusPill(currentState);
   document.getElementById('statusMeta').textContent = `PLC name: ${plcName}`;
-  document.getElementById('runtimeMeta').textContent = `${plcName} | uptime ${formatDuration(result.uptime_ms || 0)}`;
+  document.getElementById('runtimeMeta').textContent = `${plcName} | ${simulationMode} x${simulationScale} | uptime ${formatDuration(result.uptime_ms || 0)}`;
   const drivers = result.io_drivers || [];
   const okDrivers = drivers.filter(d => d.status === 'ok').length;
   const degraded = drivers.filter(d => d.status === 'degraded').length;
   const faulted = drivers.filter(d => d.status === 'faulted').length;
   const metrics = result.metrics || {};
+  const profiling = metrics.profiling || {};
+  const topContributors = Array.isArray(profiling.top) ? profiling.top : [];
+  const leadContributor = topContributors[0] || null;
+  const leadContributorLabel = leadContributor
+    ? `${leadContributor.kind}:${leadContributor.name} (${formatMs(leadContributor.avg_cycle_ms)} / ${Number(leadContributor.cycle_pct || 0).toFixed(1)}%)`
+    : 'n/a';
   const cpu = Number(metrics.cpu_pct ?? metrics.cpu);
   const memBytes = Number(metrics.memory_bytes ?? metrics.mem_bytes);
   const memMb = Number.isFinite(memBytes) ? memBytes / (1024 * 1024) : Number(metrics.memory_mb ?? metrics.mem_mb);
@@ -579,9 +588,11 @@ async function refreshStatus() {
   setHtml('health', `
     <div class="row"><span>State</span><span class="stat">${currentState}</span></div>
     <div class="row"><span>Uptime</span><span>${formatDuration(result.uptime_ms || 0)}</span></div>
+    <div class="row"><span>Mode</span><span>${escapeHtml(simulationMode)} (x${simulationScale})</span></div>
     <div class="row"><span>Fault</span><span>${fault || 'none'}</span></div>
     <div class="row"><span>I/O drivers</span><span>${okDrivers} ok | ${degraded} degraded | ${faulted} faulted</span></div>
     <div class="row"><span>CPU / memory</span><span>${cpuLabel} / ${memLabel}</span></div>
+    ${simulationMode === 'simulation' && simulationWarning ? `<div class="row"><span>Warning</span><span>${escapeHtml(simulationWarning)}</span></div>` : ''}
   `);
   const cycle = metrics.cycle_ms || {};
   setHtml('metrics', `
@@ -589,6 +600,8 @@ async function refreshStatus() {
     <div class="row"><span>avg</span><span>${formatMs(cycle.avg)}</span></div>
     <div class="row"><span>min / max</span><span>${formatMs(cycle.min)} / ${formatMs(cycle.max)}</span></div>
     <div class="row"><span>overruns</span><span>${metrics.overruns ?? 0}</span></div>
+    <div class="row"><span>profiling</span><span>${profiling.enabled ? 'on' : 'off'}</span></div>
+    <div class="row"><span>top contributor</span><span>${escapeHtml(leadContributorLabel)}</span></div>
   `);
   const lastCycle = Number(cycle.last);
   if (Number.isFinite(lastCycle)) {
@@ -614,6 +627,7 @@ async function refreshTasks() {
   const tasks = await apiRequest('tasks.stats');
   if (!tasks.ok) return;
   const list = tasks.result.tasks || [];
+  const topContributors = tasks.result.top_contributors || [];
   if (!list.length) {
     setHtml('tasks', '<div class="empty">No tasks configured yet. Add a task in runtime.toml.</div>');
     return;
@@ -626,6 +640,14 @@ async function refreshTasks() {
       <td>${t.overruns}</td>
     </tr>
   `).join('');
+  const contributorRows = topContributors.slice(0, 5).map((entry) => `
+    <tr>
+      <td>${escapeHtml(entry.kind || '-')}</td>
+      <td>${escapeHtml(entry.name || '-')}</td>
+      <td>${formatMs(entry.avg_cycle_ms)}</td>
+      <td>${Number(entry.cycle_pct || 0).toFixed(1)}%</td>
+    </tr>
+  `).join('');
   setHtml('tasks', `
     <table class="data-table" aria-label="Task timings">
       <thead>
@@ -633,6 +655,15 @@ async function refreshTasks() {
       </thead>
       <tbody>${rows}</tbody>
     </table>
+    <div class="muted" style="margin:10px 0 6px;">Top cycle-budget contributors</div>
+    ${contributorRows ? `
+      <table class="data-table" aria-label="Top cycle contributors">
+        <thead>
+          <tr><th>kind</th><th>name</th><th>avg/cycle</th><th>share</th></tr>
+        </thead>
+        <tbody>${contributorRows}</tbody>
+      </table>
+    ` : '<div class="empty">No profiling contributors captured yet.</div>'}
   `);
 }
 

@@ -328,65 +328,77 @@ function showPanel(context: vscode.ExtensionContext): void {
     panel = undefined;
   });
 
-  panel.webview.onDidReceiveMessage((message) => {
-    if (message?.type === "refresh") {
-      void requestIoState();
-    }
-    if (message?.type === "writeInput") {
-      void writeInput(String(message.address || ""), String(message.value || ""));
-    }
-    if (message?.type === "forceInput") {
-      void forceInput(String(message.address || ""), String(message.value || ""));
-    }
-    if (message?.type === "releaseInput") {
-      void releaseInput(String(message.address || ""));
-    }
-    if (message?.type === "startDebug") {
-      void startDebugging();
-    }
-    if (message?.type === "compile") {
-      void compileActiveProgram();
-    }
-    if (message?.type === "compileAndStart") {
-      void compileActiveProgram({ startDebugAfter: true });
-    }
-    if (message?.type === "stopDebug") {
-      void stopDebugging();
-    }
-    if (message?.type === "runtimeStart") {
-      void handleRuntimePrimary();
-    }
-    if (message?.type === "runtimeSetMode") {
-      void setRuntimeMode(message.mode);
-    }
-    if (message?.type === "requestSettings") {
-      panel?.webview.postMessage({
-        type: "settings",
-        payload: collectSettingsSnapshot(),
-      });
-    }
-    if (message?.type === "saveSettings") {
-      void applySettingsUpdate(message.payload);
-    }
-    if (message?.type === "webviewError") {
-      const detail =
-        typeof message.message === "string" ? message.message : "Unknown error";
-      console.error("Runtime panel webview error:", detail, message.stack || "");
-      panel?.webview.postMessage({
-        type: "status",
-        payload: `Runtime panel error: ${detail}`,
-      });
-    }
-    if (message?.type === "webviewReady") {
-      console.info("Runtime panel webview ready.");
-      void sendRuntimeStatus();
-    }
-  });
+  panel.webview.onDidReceiveMessage(handleWebviewMessage);
 
   void requestIoState();
   void sendRuntimeStatus();
 
   context.subscriptions.push(panel);
+}
+
+function postPanelStatus(message: string): void {
+  panel?.webview.postMessage({
+    type: "status",
+    payload: message,
+  });
+}
+
+function handleWebviewMessage(message: any): void {
+  const type = typeof message?.type === "string" ? message.type : "";
+  switch (type) {
+    case "refresh":
+      void requestIoState();
+      break;
+    case "writeInput":
+      void writeInput(String(message.address || ""), String(message.value || ""));
+      break;
+    case "forceInput":
+      void forceInput(String(message.address || ""), String(message.value || ""));
+      break;
+    case "releaseInput":
+      void releaseInput(String(message.address || ""));
+      break;
+    case "startDebug":
+      void startDebugging();
+      break;
+    case "compile":
+      void compileActiveProgram();
+      break;
+    case "compileAndStart":
+      void compileActiveProgram({ startDebugAfter: true });
+      break;
+    case "stopDebug":
+      void stopDebugging();
+      break;
+    case "runtimeStart":
+      void handleRuntimePrimary();
+      break;
+    case "runtimeSetMode":
+      void setRuntimeMode(message.mode);
+      break;
+    case "requestSettings":
+      panel?.webview.postMessage({
+        type: "settings",
+        payload: collectSettingsSnapshot(),
+      });
+      break;
+    case "saveSettings":
+      void applySettingsUpdate(message.payload);
+      break;
+    case "webviewError": {
+      const detail =
+        typeof message.message === "string" ? message.message : "Unknown error";
+      console.error("Runtime panel webview error:", detail, message.stack || "");
+      postPanelStatus(`Runtime panel error: ${detail}`);
+      break;
+    }
+    case "webviewReady":
+      console.info("Runtime panel webview ready.");
+      void sendRuntimeStatus();
+      break;
+    default:
+      break;
+  }
 }
 
 type SettingsPayload = {
@@ -426,68 +438,50 @@ async function applySettingsUpdate(payload: SettingsPayload | undefined): Promis
     return;
   }
   const config = vscode.workspace.getConfiguration("trust-lsp");
-  await config.update(
-    "server.path",
-    payload.serverPath?.trim() || undefined,
-    vscode.ConfigurationTarget.Workspace
-  );
-  await config.update(
-    "trace.server",
-    payload.traceServer?.trim() || "off",
-    vscode.ConfigurationTarget.Workspace
-  );
-  await config.update(
-    "debug.adapter.path",
-    payload.debugAdapterPath?.trim() || undefined,
-    vscode.ConfigurationTarget.Workspace
-  );
-  await config.update(
-    "debug.adapter.args",
-    payload.debugAdapterArgs ?? [],
-    vscode.ConfigurationTarget.Workspace
-  );
-  await config.update(
-    "debug.adapter.env",
-    payload.debugAdapterEnv ?? {},
-    vscode.ConfigurationTarget.Workspace
-  );
-  const runtimeControlEndpoint = payload.runtimeControlEndpoint?.trim() || undefined;
-  await config.update(
-    "runtime.controlEndpoint",
-    runtimeControlEndpoint || undefined,
-    vscode.ConfigurationTarget.Workspace
-  );
-  await config.update(
-    "runtime.controlAuthToken",
-    payload.runtimeControlAuthToken?.trim() || undefined,
-    vscode.ConfigurationTarget.Workspace
-  );
-  await config.update(
-    "runtime.includeGlobs",
-    payload.runtimeIncludeGlobs ?? [],
-    vscode.ConfigurationTarget.Workspace
-  );
-  await config.update(
-    "runtime.excludeGlobs",
-    payload.runtimeExcludeGlobs ?? [],
-    vscode.ConfigurationTarget.Workspace
-  );
-  await config.update(
-    "runtime.ignorePragmas",
-    payload.runtimeIgnorePragmas ?? [],
-    vscode.ConfigurationTarget.Workspace
-  );
-  await config.update(
-    "runtime.inlineValuesEnabled",
-    payload.runtimeInlineValuesEnabled ?? true,
-    vscode.ConfigurationTarget.Workspace
-  );
+  const settingsUpdates: Array<{ key: string; value: unknown }> = [
+    { key: "server.path", value: payload.serverPath?.trim() || undefined },
+    { key: "trace.server", value: payload.traceServer?.trim() || "off" },
+    {
+      key: "debug.adapter.path",
+      value: payload.debugAdapterPath?.trim() || undefined,
+    },
+    { key: "debug.adapter.args", value: payload.debugAdapterArgs ?? [] },
+    { key: "debug.adapter.env", value: payload.debugAdapterEnv ?? {} },
+    {
+      key: "runtime.controlEndpoint",
+      value: payload.runtimeControlEndpoint?.trim() || undefined,
+    },
+    {
+      key: "runtime.controlAuthToken",
+      value: payload.runtimeControlAuthToken?.trim() || undefined,
+    },
+    { key: "runtime.includeGlobs", value: payload.runtimeIncludeGlobs ?? [] },
+    { key: "runtime.excludeGlobs", value: payload.runtimeExcludeGlobs ?? [] },
+    { key: "runtime.ignorePragmas", value: payload.runtimeIgnorePragmas ?? [] },
+    {
+      key: "runtime.inlineValuesEnabled",
+      value: payload.runtimeInlineValuesEnabled ?? true,
+    },
+  ];
+  for (const update of settingsUpdates) {
+    await config.update(
+      update.key,
+      update.value,
+      vscode.ConfigurationTarget.Workspace
+    );
+  }
 
+  postPanelStatus("Settings saved.");
+}
 
-  panel?.webview.postMessage({
-    type: "status",
-    payload: "Settings saved.",
-  });
+export async function __testApplySettingsUpdate(
+  payload: SettingsPayload | undefined
+): Promise<void> {
+  await applySettingsUpdate(payload);
+}
+
+export function __testCollectSettingsSnapshot(): SettingsPayload {
+  return collectSettingsSnapshot();
 }
 
 function runtimeConfigTarget(): vscode.Uri | undefined {

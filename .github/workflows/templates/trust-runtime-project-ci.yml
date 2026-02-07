@@ -1,0 +1,42 @@
+name: truST Project CI Template
+
+on:
+  push:
+    paths:
+      - "sources/**"
+      - "runtime.toml"
+      - "io.toml"
+      - ".github/workflows/trust-runtime-project-ci.yml"
+  pull_request:
+    paths:
+      - "sources/**"
+      - "runtime.toml"
+      - "io.toml"
+
+jobs:
+  plc-ci:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build trust-runtime CLI
+        run: cargo build -p trust-runtime --bin trust-runtime
+
+      - name: Build project bytecode (CI mode)
+        run: target/debug/trust-runtime build --project . --ci
+
+      - name: Validate project bundle (CI mode)
+        run: target/debug/trust-runtime validate --project . --ci
+
+      - name: Run ST tests (JUnit output)
+        run: target/debug/trust-runtime test --project . --ci --output junit > st-tests.junit.xml
+
+      - name: Upload JUnit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: st-tests-junit
+          path: st-tests.junit.xml

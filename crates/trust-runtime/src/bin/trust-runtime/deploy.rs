@@ -123,6 +123,9 @@ fn copy_bundle(source: &Path, dest: &Path) -> anyhow::Result<()> {
     if source.join("io.toml").is_file() {
         copy_file(source.join("io.toml"), dest.join("io.toml"))?;
     }
+    if source.join("simulation.toml").is_file() {
+        copy_file(source.join("simulation.toml"), dest.join("simulation.toml"))?;
+    }
     copy_file(source.join("program.stbc"), dest.join("program.stbc"))?;
 
     let sources = source.join("sources");

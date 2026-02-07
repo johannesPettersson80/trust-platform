@@ -1,0 +1,81 @@
+name: Nightly Reliability
+
+on:
+  schedule:
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+    inputs:
+      load_duration_seconds:
+        description: "Load test duration in seconds"
+        required: false
+        default: "300"
+      load_interval_seconds:
+        description: "Load test sample interval in seconds"
+        required: false
+        default: "1"
+      soak_duration_hours:
+        description: "Soak test duration in hours"
+        required: false
+        default: "1"
+      soak_interval_seconds:
+        description: "Soak test sample interval in seconds"
+        required: false
+        default: "30"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  reliability:
+    name: Runtime Reliability
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build trust-runtime
+        run: cargo build -p trust-runtime
+
+      - name: Prepare artifact directory
+        run: mkdir -p artifacts/nightly
+
+      - name: Run load test
+        env:
+          ST_RUNTIME: ${{ github.workspace }}/target/debug/trust-runtime
+          LOAD_DURATION_SECONDS: ${{ github.event.inputs.load_duration_seconds || '300' }}
+          LOAD_INTERVAL_SECONDS: ${{ github.event.inputs.load_interval_seconds || '1' }}
+        run: |
+          OUT=artifacts/nightly/load.log \
+          DURATION="${LOAD_DURATION_SECONDS}" \
+          INTERVAL="${LOAD_INTERVAL_SECONDS}" \
+          scripts/runtime_load_test.sh docs/internal/testing/bundles/sample-runtime
+
+      - name: Run soak test
+        env:
+          ST_RUNTIME: ${{ github.workspace }}/target/debug/trust-runtime
+          SOAK_DURATION_HOURS: ${{ github.event.inputs.soak_duration_hours || '1' }}
+          SOAK_INTERVAL_SECONDS: ${{ github.event.inputs.soak_interval_seconds || '30' }}
+        run: |
+          OUT=artifacts/nightly/soak.log \
+          DURATION_HOURS="${SOAK_DURATION_HOURS}" \
+          INTERVAL_SEC="${SOAK_INTERVAL_SECONDS}" \
+          scripts/runtime_soak_test.sh docs/internal/testing/bundles/sample-runtime
+
+      - name: Summarize reliability trends
+        run: |
+          python3 scripts/summarize_runtime_reliability.py \
+            --load-log artifacts/nightly/load.log \
+            --soak-log artifacts/nightly/soak.log \
+            --output-json artifacts/nightly/reliability-summary.json \
+            --output-md artifacts/nightly/reliability-summary.md
+
+      - name: Upload reliability artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-reliability-${{ github.run_id }}
+          path: artifacts/nightly/

@@ -2,6 +2,8 @@
 
 #[path = "trust-runtime/build.rs"]
 mod build;
+#[path = "trust-runtime/ci.rs"]
+mod ci;
 #[path = "trust-runtime/cli.rs"]
 mod cli;
 #[path = "trust-runtime/commit.rs"]
@@ -12,8 +14,12 @@ mod completions;
 mod ctl;
 #[path = "trust-runtime/deploy.rs"]
 mod deploy;
+#[path = "trust-runtime/docs.rs"]
+mod docs;
 #[path = "trust-runtime/git.rs"]
 mod git;
+#[path = "trust-runtime/plcopen.rs"]
+mod plcopen;
 #[path = "trust-runtime/prompt.rs"]
 mod prompt;
 #[path = "trust-runtime/run.rs"]
@@ -22,6 +28,8 @@ mod run;
 mod setup;
 #[path = "trust-runtime/style.rs"]
 mod style;
+#[path = "trust-runtime/test.rs"]
+mod test;
 #[path = "trust-runtime/wizard.rs"]
 mod wizard;
 
@@ -31,10 +39,22 @@ use clap::Parser;
 use cli::{Cli, Command};
 
 fn main() -> anyhow::Result<()> {
+    let raw_args: Vec<String> = std::env::args().collect();
+    let ci_mode = raw_args.iter().any(|arg| arg == "--ci");
+    let ci_command = raw_args
+        .iter()
+        .skip(1)
+        .find(|arg| !arg.starts_with('-'))
+        .map(|arg| arg.as_str());
     if let Err(err) = run() {
         let message = format_error_with_tip(&err);
         eprintln!("{}", style::error(format!("Error: {message}")));
-        std::process::exit(1);
+        let exit_code = if ci_mode {
+            ci::classify_error_with_command(&message, ci_command)
+        } else {
+            1
+        };
+        std::process::exit(exit_code);
     }
     Ok(())
 }
@@ -70,6 +90,8 @@ fn run() -> anyhow::Result<()> {
             config,
             runtime_root,
             restart,
+            simulation,
+            time_scale,
         }) => run::run_runtime(
             project,
             config,
@@ -79,6 +101,8 @@ fn run() -> anyhow::Result<()> {
             false,
             run::ConsoleMode::Disabled,
             false,
+            simulation,
+            time_scale,
         ),
         Some(Command::Play {
             project,
@@ -86,6 +110,8 @@ fn run() -> anyhow::Result<()> {
             console,
             no_console,
             beginner,
+            simulation,
+            time_scale,
         }) => {
             let console_mode = if no_console {
                 run::ConsoleMode::Disabled
@@ -94,7 +120,15 @@ fn run() -> anyhow::Result<()> {
             } else {
                 run::ConsoleMode::Auto
             };
-            run::run_play(project, restart, cli.verbose, console_mode, beginner)
+            run::run_play(
+                project,
+                restart,
+                cli.verbose,
+                console_mode,
+                beginner,
+                simulation,
+                time_scale,
+            )
         }
         Some(Command::Ui {
             project,
@@ -110,8 +144,24 @@ fn run() -> anyhow::Result<()> {
             token,
             action,
         }) => ctl::run_control(project, endpoint, token, action),
-        Some(Command::Validate { project }) => run::run_validate(project),
-        Some(Command::Build { project, sources }) => build::run_build(project, sources),
+        Some(Command::Validate { project, ci }) => run::run_validate(project, ci),
+        Some(Command::Build {
+            project,
+            sources,
+            ci,
+        }) => build::run_build(project, sources, ci),
+        Some(Command::Test {
+            project,
+            filter,
+            output,
+            ci,
+        }) => test::run_test(project, filter, output, ci),
+        Some(Command::Docs {
+            project,
+            out_dir,
+            format,
+        }) => docs::run_docs(project, out_dir, format),
+        Some(Command::Plcopen { action }) => plcopen::run_plcopen(action),
         Some(Command::Setup {
             driver,
             backend,
@@ -160,6 +210,9 @@ fn suggest_subcommand(input: &str) -> Option<&'static str> {
         "ctl",
         "validate",
         "build",
+        "test",
+        "docs",
+        "plcopen",
         "deploy",
         "rollback",
         "commit",

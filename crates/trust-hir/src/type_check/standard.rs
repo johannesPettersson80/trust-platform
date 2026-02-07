@@ -1,5 +1,6 @@
 use super::*;
 
+mod assertions;
 mod bit;
 mod comparison;
 mod conversions;
@@ -44,6 +45,10 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
                 "LIMIT" => self.infer_limit_call(node),
                 "MUX" => self.infer_mux_call(node),
                 "GT" | "GE" | "EQ" | "LE" | "LT" | "NE" => self.infer_comparison_call(node, &upper),
+                "ASSERT_TRUE" => self.infer_assert_true_call(node),
+                "ASSERT_FALSE" => self.infer_assert_false_call(node),
+                "ASSERT_EQUAL" => self.infer_assert_equal_call(node),
+                "ASSERT_NEAR" => self.infer_assert_near_call(node),
                 "LEN" => self.infer_len_call(node),
                 "LEFT" | "RIGHT" => self.infer_left_right_call(node, &upper),
                 "MID" => self.infer_mid_call(node),

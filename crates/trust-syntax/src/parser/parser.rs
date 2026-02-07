@@ -119,11 +119,12 @@ impl<'t, 'src> Parser<'t, 'src> {
         while !self.at_end() {
             if self.at(TokenKind::KwUsing) {
                 self.parse_using_directive();
-            } else if self.at(TokenKind::KwProgram) {
+            } else if self.at(TokenKind::KwProgram) || self.at(TokenKind::KwTestProgram) {
                 self.parse_program();
             } else if self.at(TokenKind::KwFunction) {
                 self.parse_function();
-            } else if self.at(TokenKind::KwFunctionBlock) {
+            } else if self.at(TokenKind::KwFunctionBlock) || self.at(TokenKind::KwTestFunctionBlock)
+            {
                 self.parse_function_block();
             } else if self.at(TokenKind::KwClass) {
                 self.parse_class();
@@ -140,7 +141,7 @@ impl<'t, 'src> Parser<'t, 'src> {
             } else {
                 // Error recovery: skip unknown token
                 self.error(
-                    "expected PROGRAM, FUNCTION, FUNCTION_BLOCK, CLASS, CONFIGURATION, INTERFACE, TYPE, or NAMESPACE",
+                    "expected PROGRAM, TEST_PROGRAM, FUNCTION, FUNCTION_BLOCK, TEST_FUNCTION_BLOCK, CLASS, CONFIGURATION, INTERFACE, TYPE, or NAMESPACE",
                 );
                 self.bump();
             }
@@ -239,8 +240,10 @@ impl<'t, 'src> Parser<'t, 'src> {
             | TokenKind::KwEndUnion
             // End of POUs
             | TokenKind::KwEndProgram
+            | TokenKind::KwEndTestProgram
             | TokenKind::KwEndFunction
             | TokenKind::KwEndFunctionBlock
+            | TokenKind::KwEndTestFunctionBlock
             | TokenKind::KwEndClass
             | TokenKind::KwEndMethod
             | TokenKind::KwEndProperty
@@ -253,8 +256,10 @@ impl<'t, 'src> Parser<'t, 'src> {
             | TokenKind::KwEndSet
             // Start of new constructs (recover at next item)
             | TokenKind::KwProgram
+            | TokenKind::KwTestProgram
             | TokenKind::KwFunction
             | TokenKind::KwFunctionBlock
+            | TokenKind::KwTestFunctionBlock
             | TokenKind::KwClass
             | TokenKind::KwMethod
             | TokenKind::KwProperty

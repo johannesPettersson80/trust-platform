@@ -62,6 +62,12 @@ impl RuntimeMetadata {
         &self.tasks
     }
 
+    /// Access program definitions.
+    #[must_use]
+    pub fn programs(&self) -> &IndexMap<SmolStr, ProgramDef> {
+        &self.programs
+    }
+
     /// Resolve a stable thread id for a task name.
     #[must_use]
     pub fn task_thread_id(&self, name: &SmolStr) -> Option<u32> {

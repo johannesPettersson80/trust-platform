@@ -109,6 +109,16 @@ pub fn library_dependency_issues(config: &ProjectConfig) -> Vec<LibraryIssue> {
         }
     }
 
+    for cycle in dependency_cycles(&by_name) {
+        let label = cycle.join(" -> ");
+        issues.push(LibraryIssue {
+            code: "L004",
+            message: format!("Dependency cycle detected: {label}"),
+            subject: cycle.first().cloned().unwrap_or_default(),
+            dependency: None,
+        });
+    }
+
     issues
 }
 
@@ -117,4 +127,146 @@ fn version_label(version: &Option<String>) -> String {
         .as_deref()
         .map(|value| value.to_string())
         .unwrap_or_else(|| "unspecified".to_string())
+}
+
+fn dependency_cycles(by_name: &FxHashMap<&str, Vec<&LibrarySpec>>) -> Vec<Vec<String>> {
+    let mut adjacency: FxHashMap<&str, Vec<&str>> = FxHashMap::default();
+    for libs in by_name.values() {
+        for lib in libs {
+            let edges = adjacency.entry(lib.name.as_str()).or_default();
+            for dependency in &lib.dependencies {
+                if by_name.contains_key(dependency.name.as_str()) {
+                    edges.push(dependency.name.as_str());
+                }
+            }
+        }
+    }
+    for edges in adjacency.values_mut() {
+        edges.sort();
+        edges.dedup();
+    }
+
+    let mut state: FxHashMap<&str, VisitState> = FxHashMap::default();
+    let mut stack = Vec::new();
+    let mut seen_keys = BTreeSet::new();
+    let mut cycles = Vec::new();
+    let mut names: Vec<&str> = adjacency.keys().copied().collect();
+    names.sort();
+    names.dedup();
+    for name in names {
+        detect_cycle(
+            name,
+            &adjacency,
+            &mut state,
+            &mut stack,
+            &mut seen_keys,
+            &mut cycles,
+        );
+    }
+    cycles
+}
+
+fn detect_cycle<'a>(
+    current: &'a str,
+    adjacency: &FxHashMap<&'a str, Vec<&'a str>>,
+    state: &mut FxHashMap<&'a str, VisitState>,
+    stack: &mut Vec<&'a str>,
+    seen_keys: &mut BTreeSet<String>,
+    cycles: &mut Vec<Vec<String>>,
+) {
+    match state.get(current).copied() {
+        Some(VisitState::Visiting) | Some(VisitState::Done) => return,
+        None => {}
+    }
+    state.insert(current, VisitState::Visiting);
+    stack.push(current);
+
+    if let Some(edges) = adjacency.get(current) {
+        for next in edges {
+            match state.get(next).copied() {
+                Some(VisitState::Visiting) => {
+                    if let Some(idx) = stack.iter().position(|candidate| candidate == next) {
+                        let nodes = stack[idx..].to_vec();
+                        let cycle = canonical_cycle(&nodes);
+                        let key = cycle.join("->");
+                        if seen_keys.insert(key) {
+                            cycles.push(cycle);
+                        }
+                    }
+                }
+                Some(VisitState::Done) => {}
+                None => detect_cycle(next, adjacency, state, stack, seen_keys, cycles),
+            }
+        }
+    }
+
+    let _ = stack.pop();
+    state.insert(current, VisitState::Done);
+}
+
+fn canonical_cycle(nodes: &[&str]) -> Vec<String> {
+    if nodes.is_empty() {
+        return Vec::new();
+    }
+    let mut best: Vec<&str> = nodes.to_vec();
+    for offset in 1..nodes.len() {
+        let mut rotated = nodes[offset..].to_vec();
+        rotated.extend_from_slice(&nodes[..offset]);
+        if rotated < best {
+            best = rotated;
+        }
+    }
+    let mut cycle: Vec<String> = best.iter().map(|value| (*value).to_string()).collect();
+    cycle.push(best[0].to_string());
+    cycle
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum VisitState {
+    Visiting,
+    Done,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_dir(prefix: &str) -> PathBuf {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
+        let dir = std::env::temp_dir().join(format!("{prefix}-{stamp}"));
+        fs::create_dir_all(&dir).expect("create temp dir");
+        dir
+    }
+
+    #[test]
+    fn library_dependency_issues_report_cycles() {
+        let root = temp_dir("trustlsp-library-cycle");
+        let config = ProjectConfig::from_contents(
+            &root,
+            Some(root.join("trust-lsp.toml")),
+            r#"
+[[libraries]]
+name = "A"
+path = "libs/a"
+dependencies = [{ name = "B" }]
+
+[[libraries]]
+name = "B"
+path = "libs/b"
+dependencies = [{ name = "A" }]
+"#,
+        );
+        let issues = library_dependency_issues(&config);
+        assert!(issues.iter().any(|issue| issue.code == "L004"));
+        assert!(issues
+            .iter()
+            .any(|issue| issue.message.contains("A -> B -> A")));
+        fs::remove_dir_all(root).ok();
+    }
 }

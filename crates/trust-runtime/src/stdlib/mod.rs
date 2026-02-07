@@ -1,5 +1,6 @@
 //! Standard library registry.
 
+pub mod assertions;
 pub mod bit;
 pub mod comparison;
 pub mod conversions;
@@ -60,6 +61,7 @@ impl StandardLibrary {
         let mut lib = Self {
             functions: IndexMap::new(),
         };
+        assertions::register(&mut lib);
         numeric::register(&mut lib);
         bit::register(&mut lib);
         selection::register(&mut lib);

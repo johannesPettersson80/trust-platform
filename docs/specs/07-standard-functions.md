@@ -441,3 +441,19 @@ The trust-hir should include definitions for all standard functions with:
 - Return type
 - Extensibility flag
 - Built-in implementation or intrinsic marker
+
+## Non-IEC Extensions (MP-014)
+
+The following functions are non-IEC additions for the user-facing ST test framework:
+
+| Function | Signature | Behavior |
+|----------|-----------|----------|
+| `ASSERT_TRUE` | `ASSERT_TRUE(IN: BOOL) : VOID` | Fails test if `IN` is not `TRUE` |
+| `ASSERT_FALSE` | `ASSERT_FALSE(IN: BOOL) : VOID` | Fails test if `IN` is not `FALSE` |
+| `ASSERT_EQUAL` | `ASSERT_EQUAL(EXPECTED: ANY_ELEMENTARY, ACTUAL: ANY_ELEMENTARY) : VOID` | Fails test when values are not equal |
+| `ASSERT_NEAR` | `ASSERT_NEAR(EXPECTED: ANY_NUM, ACTUAL: ANY_NUM, DELTA: ANY_NUM) : VOID` | Fails test when `ABS(EXPECTED-ACTUAL) > DELTA` |
+
+Compatibility notes:
+- These assertions are extension-only and not part of IEC 61131-3 Tables 22-36.
+- They are intended for `TEST_PROGRAM` / `TEST_FUNCTION_BLOCK` execution paths.
+- Runtime failures include assertion context (`expected` / `actual` and tolerance data for `ASSERT_NEAR`).

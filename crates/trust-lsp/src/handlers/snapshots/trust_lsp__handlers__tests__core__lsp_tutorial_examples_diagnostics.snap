@@ -1,0 +1,16 @@
+---
+source: crates/trust-lsp/src/handlers/tests/core.rs
+assertion_line: 1728
+expression: rendered
+---
+{
+  "01_hello_counter.st": [],
+  "02_blinker.st": [],
+  "03_traffic_light.st": [],
+  "04_tank_level.st": [],
+  "05_motor_starter.st": [],
+  "06_recipe_manager.st": [],
+  "07_pid_loop.st": [],
+  "08_conveyor_system.st": [],
+  "09_simulation_coupling.st": []
+}

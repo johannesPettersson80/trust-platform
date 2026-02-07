@@ -1,0 +1,450 @@
+:root {
+  color-scheme: light;
+  --bg: #f3f5f8;
+  --surface: #ffffff;
+  --surface-soft: #f7f9fc;
+  --text: #142133;
+  --muted: #5f6f82;
+  --border: #d8e0ea;
+  --ok: #15803d;
+  --warn: #b45309;
+  --bad: #b91c1c;
+  --accent: #0f766e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 15% -10%, color-mix(in srgb, var(--accent) 18%, white 82%) 0%, var(--bg) 55%),
+    var(--bg);
+}
+
+.topbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto auto;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.95rem 1.2rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand h1 {
+  margin: 0;
+  font-size: 1.15rem;
+  letter-spacing: 0.02em;
+}
+
+.brand p {
+  margin: 0.28rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.status {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.pill {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.78rem;
+  background: var(--surface-soft);
+}
+
+.pill.mode {
+  border-color: color-mix(in srgb, var(--accent) 55%, white 45%);
+  color: color-mix(in srgb, var(--accent) 70%, black 30%);
+}
+
+.pill.connected {
+  border-color: #86efac;
+  color: var(--ok);
+  background: #f0fdf4;
+}
+
+.pill.stale {
+  border-color: #fcd34d;
+  color: var(--warn);
+  background: #fffbeb;
+}
+
+.pill.disconnected {
+  border-color: #fca5a5;
+  color: var(--bad);
+  background: #fef2f2;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.action-link {
+  text-decoration: none;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border) 55%);
+  color: color-mix(in srgb, var(--accent) 75%, black 25%);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface) 88%);
+  border-radius: 999px;
+  padding: 0.34rem 0.8rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.hmi-shell {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  min-height: calc(100vh - 76px);
+}
+
+.sidebar {
+  border-right: 1px solid var(--border);
+  padding: 0.8rem;
+  background: color-mix(in srgb, var(--surface) 92%, var(--bg) 8%);
+  display: grid;
+  align-content: start;
+  gap: 0.45rem;
+}
+
+.page-button {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 0.5rem 0.65rem;
+  text-align: left;
+  cursor: pointer;
+  display: grid;
+  gap: 0.1rem;
+}
+
+.page-button .page-title {
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.page-button .page-kind {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+
+.page-button.active {
+  border-color: color-mix(in srgb, var(--accent) 55%, white 45%);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface) 90%);
+}
+
+.content {
+  padding: 1rem 1.1rem 1.3rem;
+  overflow: auto;
+}
+
+.groups {
+  display: grid;
+  gap: 0.95rem;
+}
+
+.group-section {
+  background: color-mix(in srgb, var(--surface) 86%, var(--bg) 14%);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 0.75rem;
+}
+
+.group-title {
+  margin: 0 0 0.6rem;
+  font-size: 0.92rem;
+  letter-spacing: 0.01em;
+  color: color-mix(in srgb, var(--text) 85%, var(--accent) 15%);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.8rem;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.75rem;
+  display: grid;
+  gap: 0.5rem;
+  min-height: 138px;
+}
+
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.card-title-wrap {
+  min-width: 0;
+}
+
+.card-title {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.2;
+}
+
+.card-path {
+  margin: 0.2rem 0 0;
+  font-size: 0.74rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.widget-tag {
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.12rem 0.4rem;
+  white-space: nowrap;
+}
+
+.card-value {
+  font-size: 1.4rem;
+  font-weight: 600;
+  line-height: 1.2;
+  min-height: 1.7rem;
+}
+
+.card-meta {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.card[data-quality="bad"] {
+  border-color: #fca5a5;
+}
+
+.card[data-quality="stale"] {
+  border-color: #fcd34d;
+}
+
+.indicator-true {
+  color: var(--ok);
+}
+
+.indicator-false {
+  color: var(--bad);
+}
+
+.panel {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface) 90%, var(--bg) 10%);
+  padding: 0.75rem;
+}
+
+.panel-head {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+  color: color-mix(in srgb, var(--text) 88%, var(--accent) 12%);
+}
+
+.trend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.8rem;
+}
+
+.trend-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 0.6rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.trend-card h3 {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.trend-meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.trend-svg {
+  width: 100%;
+  height: 120px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 4%, white 96%);
+}
+
+.trend-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.trend-band {
+  fill: color-mix(in srgb, var(--accent) 16%, transparent 84%);
+  stroke: none;
+}
+
+.alarm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.alarm-table th,
+.alarm-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 0.45rem 0.3rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.alarm-chip {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.alarm-chip.raised {
+  border-color: #fca5a5;
+  color: var(--bad);
+  background: #fff1f2;
+}
+
+.alarm-chip.acknowledged {
+  border-color: #fcd34d;
+  color: var(--warn);
+  background: #fffbeb;
+}
+
+.alarm-ack {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 0.28rem 0.55rem;
+  cursor: pointer;
+  font-size: 0.74rem;
+}
+
+.alarm-ack:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.alarm-history {
+  margin-top: 0.9rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.7rem;
+}
+
+.alarm-history ul {
+  margin: 0;
+  padding-left: 1rem;
+  display: grid;
+  gap: 0.28rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.empty {
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+  color: var(--muted);
+  background: var(--surface-soft);
+}
+
+.hidden {
+  display: none;
+}
+
+body.viewport-mobile .hmi-shell {
+  grid-template-columns: 1fr;
+}
+
+body.viewport-mobile .sidebar {
+  border-right: none;
+  border-bottom: 1px solid var(--border);
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+}
+
+body.viewport-mobile .content {
+  padding: 0.85rem;
+}
+
+body.viewport-tablet .hmi-shell {
+  grid-template-columns: 180px minmax(0, 1fr);
+}
+
+body.viewport-kiosk {
+  font-size: 1.05rem;
+}
+
+body.viewport-kiosk .topbar {
+  padding: 0.7rem 0.9rem;
+}
+
+body.viewport-kiosk .sidebar {
+  display: none;
+}
+
+body.viewport-kiosk .hmi-shell {
+  grid-template-columns: 1fr;
+}
+
+@media (max-width: 1024px) {
+  .topbar {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .status {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 680px) {
+  .hmi-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  }
+
+  .content {
+    padding: 0.85rem;
+  }
+
+  .card {
+    min-height: 120px;
+  }
+}

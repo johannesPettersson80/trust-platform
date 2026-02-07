@@ -37,6 +37,56 @@ END_PROGRAM
 }
 
 #[test]
+fn test_test_program_scope_resolution() {
+    let mut db = Database::new();
+    let file = FileId(0);
+    db.set_source_text(
+        file,
+        r#"
+TEST_PROGRAM TestSuite
+    VAR
+        x : INT;
+    END_VAR
+    x := 10;
+END_TEST_PROGRAM
+"#
+        .to_string(),
+    );
+
+    let symbols = db.file_symbols(file);
+    let test_program = symbols.iter().find(|s| s.name == "TestSuite").unwrap();
+    assert!(matches!(test_program.kind, SymbolKind::Program));
+
+    let x = symbols.iter().find(|s| s.name == "x").unwrap();
+    assert_eq!(x.parent, Some(test_program.id));
+}
+
+#[test]
+fn test_test_function_block_scope_resolution() {
+    let mut db = Database::new();
+    let file = FileId(0);
+    db.set_source_text(
+        file,
+        r#"
+TEST_FUNCTION_BLOCK FB_TestCase
+    VAR
+        x : INT;
+    END_VAR
+    x := 10;
+END_TEST_FUNCTION_BLOCK
+"#
+        .to_string(),
+    );
+
+    let symbols = db.file_symbols(file);
+    let test_fb = symbols.iter().find(|s| s.name == "FB_TestCase").unwrap();
+    assert!(matches!(test_fb.kind, SymbolKind::FunctionBlock));
+
+    let x = symbols.iter().find(|s| s.name == "x").unwrap();
+    assert_eq!(x.parent, Some(test_fb.id));
+}
+
+#[test]
 fn test_method_scope_resolution() {
     check_no_errors(
         r#"

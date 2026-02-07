@@ -1,0 +1,28 @@
+---
+source: crates/trust-syntax/tests/parser_pous.rs
+expression: "snapshot_parse(r#\"TEST_PROGRAM TestSuite\nVAR\n    passed : BOOL;\nEND_VAR\n    passed := TRUE;\nEND_TEST_PROGRAM\"#)"
+---
+SourceFile@0..90
+  Program@0..90
+    KwTestProgram@0..12 "TEST_PROGRAM"
+    Name@12..23
+      Ident@13..22 "TestSuite"
+    VarBlock@23..58
+      KwVar@23..26 "VAR"
+      VarDecl@26..46
+        Name@26..38
+          Ident@31..37 "passed"
+        Colon@38..39 ":"
+        TypeRef@39..44
+          KwBool@40..44 "BOOL"
+        Semicolon@44..45 ";"
+      KwEndVar@46..53 "END_VAR"
+    StmtList@58..74
+      AssignStmt@58..74
+        NameRef@58..65
+          Ident@58..64 "passed"
+        Assign@65..67 ":="
+        Literal@67..72
+          KwTrue@68..72 "TRUE"
+        Semicolon@72..73 ";"
+    KwEndTestProgram@74..90 "END_TEST_PROGRAM"

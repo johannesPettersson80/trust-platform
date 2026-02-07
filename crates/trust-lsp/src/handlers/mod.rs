@@ -3,6 +3,7 @@
 //! This module wires handler submodules together.
 
 mod commands;
+mod config;
 mod diagnostics;
 mod features;
 mod formatting;

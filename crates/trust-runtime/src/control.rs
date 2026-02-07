@@ -2,6 +2,7 @@
 
 #![allow(missing_docs)]
 
+mod handlers;
 mod transport;
 
 use std::collections::VecDeque;
@@ -77,10 +78,12 @@ pub struct ControlState {
     pub metrics: Arc<Mutex<RuntimeMetrics>>,
     pub events: Arc<Mutex<VecDeque<crate::debug::RuntimeEvent>>>,
     pub settings: Arc<Mutex<RuntimeSettings>>,
+    pub project_root: Option<PathBuf>,
     pub resource_name: SmolStr,
     pub io_health: Arc<Mutex<Vec<IoDriverStatus>>>,
     pub debug_enabled: Arc<AtomicBool>,
     pub debug_variables: Arc<Mutex<DebugVariableHandles>>,
+    pub hmi_live: Arc<Mutex<crate::hmi::HmiLiveState>>,
     pub pairing: Option<Arc<PairingStore>>,
 }
 
@@ -138,7 +141,6 @@ impl SourceRegistry {
 #[derive(Debug)]
 pub struct ControlServer {
     endpoint: ControlEndpoint,
-    #[allow(dead_code)]
     state: Arc<ControlState>,
 }
 
@@ -154,6 +156,11 @@ impl ControlServer {
     #[must_use]
     pub fn endpoint(&self) -> &ControlEndpoint {
         &self.endpoint
+    }
+
+    #[must_use]
+    pub fn state(&self) -> Arc<ControlState> {
+        self.state.clone()
     }
 }
 
@@ -220,53 +227,8 @@ pub(crate) fn handle_request_value(
         );
         return response;
     }
-    let response = match request.r#type.as_str() {
-        "status" => handle_status(request.id, state),
-        "health" => handle_health(request.id, state),
-        "pause" => handle_pause(request.id, state),
-        "resume" => handle_resume(request.id, state),
-        "step_in" => handle_step(request.id, state, StepKind::In),
-        "step_over" => handle_step(request.id, state, StepKind::Over),
-        "step_out" => handle_step(request.id, state, StepKind::Out),
-        "debug.state" => handle_debug_state(request.id, state),
-        "debug.stops" => handle_debug_stops(request.id, state),
-        "debug.stack" => handle_debug_stack(request.id, state),
-        "debug.scopes" => handle_debug_scopes(request.id, request.params, state),
-        "debug.variables" => handle_debug_variables(request.id, request.params, state),
-        "debug.evaluate" => handle_debug_evaluate(request.id, request.params, state),
-        "debug.breakpoint_locations" => {
-            handle_debug_breakpoint_locations(request.id, request.params, state)
-        }
-        "tasks.stats" => handle_task_stats(request.id, state),
-        "io.list" => handle_io_list(request.id, state),
-        "events.tail" => handle_events_tail(request.id, request.params, state),
-        "events" => handle_events_tail(request.id, request.params, state),
-        "faults" => handle_faults(request.id, request.params, state),
-        "config.get" => handle_config_get(request.id, state),
-        "config.set" => handle_config_set(request.id, request.params, state),
-        "breakpoints.set" => handle_breakpoints_set(request.id, request.params, state),
-        "breakpoints.clear" => handle_breakpoints_clear(request.id, request.params, state),
-        "breakpoints.list" => handle_breakpoints_list(request.id, state),
-        "breakpoints.clear_all" => handle_breakpoints_clear_all(request.id, state),
-        "breakpoints.clear_id" => handle_breakpoints_clear_id(request.id, request.params, state),
-        "io.read" => handle_io_read(request.id, state),
-        "io.write" => handle_io_write(request.id, request.params, state),
-        "io.force" => handle_io_force(request.id, request.params, state),
-        "io.unforce" => handle_io_unforce(request.id, request.params, state),
-        "eval" => handle_eval(request.id, request.params, state),
-        "set" => handle_set(request.id, request.params, state),
-        "var.force" => handle_var_force(request.id, request.params, state),
-        "var.unforce" => handle_var_unforce(request.id, request.params, state),
-        "var.forced" => handle_var_forced(request.id, state),
-        "shutdown" => handle_shutdown(request.id, state),
-        "restart" => handle_restart(request.id, request.params, state),
-        "bytecode.reload" => handle_bytecode_reload(request.id, request.params, state),
-        "pair.start" => handle_pair_start(request.id, state),
-        "pair.claim" => handle_pair_claim(request.id, request.params, state),
-        "pair.list" => handle_pair_list(request.id, state),
-        "pair.revoke" => handle_pair_revoke(request.id, request.params, state),
-        _ => ControlResponse::error(request.id, "unsupported request".into()),
-    };
+    let response = handlers::dispatch(&request, state)
+        .unwrap_or_else(|| ControlResponse::error(request.id, "unsupported request".into()));
     record_audit(
         state,
         request.id,
@@ -338,6 +300,11 @@ fn is_debug_request(kind: &str) -> bool {
 fn handle_status(id: u64, state: &ControlState) -> ControlResponse {
     let status = state.resource.state();
     let error = state.resource.last_error().map(|err| err.to_string());
+    let simulation = state
+        .settings
+        .lock()
+        .ok()
+        .map(|guard| guard.simulation.clone());
     let io_health = state
         .io_health
         .lock()
@@ -364,6 +331,17 @@ fn handle_status(id: u64, state: &ControlState) -> ControlResponse {
                 .lock()
                 .map(|mode| format!("{:?}", *mode).to_ascii_lowercase())
                 .unwrap_or_else(|_| "production".to_string()),
+            "simulation_mode": simulation
+                .as_ref()
+                .map(|cfg| cfg.mode_label.as_str())
+                .unwrap_or("production"),
+            "simulation_enabled": simulation.as_ref().map(|cfg| cfg.enabled).unwrap_or(false),
+            "simulation_time_scale": simulation.as_ref().map(|cfg| cfg.time_scale).unwrap_or(1),
+            "simulation_warning": simulation
+                .as_ref()
+                .map(|cfg| cfg.warning.as_str())
+                .unwrap_or(""),
+            "hmi_read_only": true,
             "metrics": {
                 "cycle_ms": {
                     "min": metrics.cycle.min_ms,
@@ -373,6 +351,25 @@ fn handle_status(id: u64, state: &ControlState) -> ControlResponse {
                 },
                 "overruns": metrics.overruns,
                 "faults": metrics.faults,
+                "profiling": {
+                    "enabled": metrics.profiling.enabled,
+                    "top": metrics
+                        .profiling
+                        .top_contributors
+                        .iter()
+                        .map(|entry| {
+                            json!({
+                                "key": entry.key.as_str(),
+                                "kind": entry.kind.as_str(),
+                                "name": entry.name.as_str(),
+                                "avg_cycle_ms": entry.avg_cycle_ms,
+                                "cycle_pct": entry.cycle_pct,
+                                "last_ms": entry.last_ms,
+                                "last_cycle_pct": entry.last_cycle_pct,
+                            })
+                        })
+                        .collect::<Vec<_>>(),
+                },
             },
             "io_drivers": io_health,
         }),
@@ -430,7 +427,30 @@ fn handle_task_stats(id: u64, state: &ControlState) -> ControlResponse {
             })
         })
         .collect::<Vec<_>>();
-    ControlResponse::ok(id, json!({ "tasks": tasks }))
+    let top_contributors = metrics
+        .profiling
+        .top_contributors
+        .iter()
+        .map(|entry| {
+            json!({
+                "key": entry.key.as_str(),
+                "kind": entry.kind.as_str(),
+                "name": entry.name.as_str(),
+                "avg_cycle_ms": entry.avg_cycle_ms,
+                "cycle_pct": entry.cycle_pct,
+                "last_ms": entry.last_ms,
+                "last_cycle_pct": entry.last_cycle_pct,
+            })
+        })
+        .collect::<Vec<_>>();
+    ControlResponse::ok(
+        id,
+        json!({
+            "tasks": tasks,
+            "profiling_enabled": metrics.profiling.enabled,
+            "top_contributors": top_contributors,
+        }),
+    )
 }
 
 fn handle_io_list(id: u64, state: &ControlState) -> ControlResponse {
@@ -442,6 +462,222 @@ fn handle_io_list(id: u64, state: &ControlState) -> ControlResponse {
         Some(snapshot) => ControlResponse::ok(id, snapshot.into_json()),
         None => ControlResponse::error(id, "no snapshot available".into()),
     }
+}
+
+fn handle_hmi_schema_get(id: u64, state: &ControlState) -> ControlResponse {
+    let metadata = match state.metadata.lock() {
+        Ok(guard) => guard,
+        Err(_) => return ControlResponse::error(id, "metadata unavailable".into()),
+    };
+    let snapshot = load_runtime_snapshot(state);
+    let customization = load_hmi_customization(state);
+    let result = crate::hmi::build_schema(
+        state.resource_name.as_str(),
+        &metadata,
+        snapshot.as_ref(),
+        true,
+        Some(&customization),
+    );
+    ControlResponse::ok(
+        id,
+        serde_json::to_value(result).expect("serialize hmi.schema.get"),
+    )
+}
+
+fn handle_hmi_values_get(
+    id: u64,
+    params: Option<serde_json::Value>,
+    state: &ControlState,
+) -> ControlResponse {
+    let params = match params {
+        Some(value) => match serde_json::from_value::<HmiValuesParams>(value) {
+            Ok(parsed) => parsed,
+            Err(err) => return ControlResponse::error(id, format!("invalid params: {err}")),
+        },
+        None => HmiValuesParams { ids: None },
+    };
+    let metadata = match state.metadata.lock() {
+        Ok(guard) => guard,
+        Err(_) => return ControlResponse::error(id, "metadata unavailable".into()),
+    };
+    let snapshot = load_runtime_snapshot(state);
+    let customization = load_hmi_customization(state);
+    let schema = crate::hmi::build_schema(
+        state.resource_name.as_str(),
+        &metadata,
+        snapshot.as_ref(),
+        true,
+        Some(&customization),
+    );
+    let result = crate::hmi::build_values(
+        state.resource_name.as_str(),
+        &metadata,
+        snapshot.as_ref(),
+        true,
+        params.ids.as_deref(),
+    );
+    if let Ok(mut live) = state.hmi_live.lock() {
+        crate::hmi::update_live_state(&mut live, &schema, &result);
+    }
+    ControlResponse::ok(
+        id,
+        serde_json::to_value(result).expect("serialize hmi.values.get"),
+    )
+}
+
+fn handle_hmi_trends_get(
+    id: u64,
+    params: Option<serde_json::Value>,
+    state: &ControlState,
+) -> ControlResponse {
+    let params = match params {
+        Some(value) => match serde_json::from_value::<HmiTrendsParams>(value) {
+            Ok(parsed) => parsed,
+            Err(err) => return ControlResponse::error(id, format!("invalid params: {err}")),
+        },
+        None => HmiTrendsParams::default(),
+    };
+    let metadata = match state.metadata.lock() {
+        Ok(guard) => guard,
+        Err(_) => return ControlResponse::error(id, "metadata unavailable".into()),
+    };
+    let snapshot = load_runtime_snapshot(state);
+    let customization = load_hmi_customization(state);
+    let schema = crate::hmi::build_schema(
+        state.resource_name.as_str(),
+        &metadata,
+        snapshot.as_ref(),
+        true,
+        Some(&customization),
+    );
+    let values = crate::hmi::build_values(
+        state.resource_name.as_str(),
+        &metadata,
+        snapshot.as_ref(),
+        true,
+        params.ids.as_deref(),
+    );
+    let result = match state.hmi_live.lock() {
+        Ok(mut live) => {
+            crate::hmi::update_live_state(&mut live, &schema, &values);
+            crate::hmi::build_trends(
+                &live,
+                &schema,
+                params.ids.as_deref(),
+                params.duration_ms.unwrap_or(10 * 60 * 1_000),
+                params.buckets.unwrap_or(120),
+            )
+        }
+        Err(_) => return ControlResponse::error(id, "hmi state unavailable".into()),
+    };
+    ControlResponse::ok(
+        id,
+        serde_json::to_value(result).expect("serialize hmi.trends.get"),
+    )
+}
+
+fn handle_hmi_alarms_get(
+    id: u64,
+    params: Option<serde_json::Value>,
+    state: &ControlState,
+) -> ControlResponse {
+    let params = match params {
+        Some(value) => match serde_json::from_value::<HmiAlarmsParams>(value) {
+            Ok(parsed) => parsed,
+            Err(err) => return ControlResponse::error(id, format!("invalid params: {err}")),
+        },
+        None => HmiAlarmsParams::default(),
+    };
+    let metadata = match state.metadata.lock() {
+        Ok(guard) => guard,
+        Err(_) => return ControlResponse::error(id, "metadata unavailable".into()),
+    };
+    let snapshot = load_runtime_snapshot(state);
+    let customization = load_hmi_customization(state);
+    let schema = crate::hmi::build_schema(
+        state.resource_name.as_str(),
+        &metadata,
+        snapshot.as_ref(),
+        true,
+        Some(&customization),
+    );
+    let values = crate::hmi::build_values(
+        state.resource_name.as_str(),
+        &metadata,
+        snapshot.as_ref(),
+        true,
+        None,
+    );
+    let result = match state.hmi_live.lock() {
+        Ok(mut live) => {
+            crate::hmi::update_live_state(&mut live, &schema, &values);
+            crate::hmi::build_alarm_view(&live, params.limit.unwrap_or(100))
+        }
+        Err(_) => return ControlResponse::error(id, "hmi state unavailable".into()),
+    };
+    ControlResponse::ok(
+        id,
+        serde_json::to_value(result).expect("serialize hmi.alarms.get"),
+    )
+}
+
+fn handle_hmi_alarm_ack(
+    id: u64,
+    params: Option<serde_json::Value>,
+    state: &ControlState,
+) -> ControlResponse {
+    let params = match params {
+        Some(value) => match serde_json::from_value::<HmiAlarmAckParams>(value) {
+            Ok(parsed) => parsed,
+            Err(err) => return ControlResponse::error(id, format!("invalid params: {err}")),
+        },
+        None => return ControlResponse::error(id, "missing params".into()),
+    };
+    let timestamp_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis();
+    let result = match state.hmi_live.lock() {
+        Ok(mut live) => {
+            match crate::hmi::acknowledge_alarm(&mut live, params.id.as_str(), timestamp_ms) {
+                Ok(()) => crate::hmi::build_alarm_view(&live, 100),
+                Err(err) => return ControlResponse::error(id, err),
+            }
+        }
+        Err(_) => return ControlResponse::error(id, "hmi state unavailable".into()),
+    };
+    ControlResponse::ok(
+        id,
+        serde_json::to_value(result).expect("serialize hmi.alarm.ack"),
+    )
+}
+
+fn handle_hmi_write(id: u64) -> ControlResponse {
+    ControlResponse::error(id, "hmi.write disabled in read-only mode".into())
+}
+
+fn load_hmi_customization(state: &ControlState) -> crate::hmi::HmiCustomization {
+    let source_refs = state
+        .sources
+        .files()
+        .iter()
+        .map(|file| crate::hmi::HmiSourceRef {
+            path: &file.path,
+            text: file.text.as_str(),
+        })
+        .collect::<Vec<_>>();
+    crate::hmi::load_customization(state.project_root.as_deref(), &source_refs)
+}
+
+fn load_runtime_snapshot(state: &ControlState) -> Option<crate::debug::DebugSnapshot> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    let request = ResourceCommand::Snapshot { respond_to: tx };
+    if state.resource.send_command(request).is_ok() {
+        if let Ok(snapshot) = rx.recv_timeout(std::time::Duration::from_millis(250)) {
+            return Some(snapshot);
+        }
+    }
+    state.debug.snapshot()
 }
 
 fn handle_events_tail(
@@ -538,6 +774,11 @@ fn handle_config_get(id: u64, state: &ControlState) -> ControlResponse {
                 .lock()
                 .map(|mode| format!("{:?}", *mode))
                 .unwrap_or_else(|_| "Production".to_string()),
+            "simulation.enabled": settings.simulation.enabled,
+            "simulation.time_scale": settings.simulation.time_scale,
+            "simulation.mode": settings.simulation.mode_label.as_str(),
+            "simulation.warning": settings.simulation.warning.as_str(),
+            "hmi.read_only": true,
         }),
     )
 }
@@ -2025,6 +2266,28 @@ struct DebugBreakpointLocationsParams {
 }
 
 #[derive(Debug, Deserialize)]
+struct HmiValuesParams {
+    ids: Option<Vec<String>>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct HmiTrendsParams {
+    ids: Option<Vec<String>>,
+    duration_ms: Option<u64>,
+    buckets: Option<usize>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct HmiAlarmsParams {
+    limit: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
+struct HmiAlarmAckParams {
+    id: String,
+}
+
+#[derive(Debug, Deserialize)]
 struct IoWriteParams {
     address: String,
     value: String,
@@ -2198,5 +2461,562 @@ fn io_health_to_json(entry: &IoDriverStatus) -> serde_json::Value {
             "status": "faulted",
             "error": error.as_str(),
         }),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::VecDeque;
+    use std::sync::atomic::AtomicBool;
+    use std::sync::{Arc, Mutex};
+
+    use indexmap::IndexMap;
+    use serde_json::json;
+
+    use crate::debug::DebugVariableHandles;
+    use crate::error::RuntimeError;
+    use crate::harness::TestHarness;
+    use crate::metrics::RuntimeMetrics;
+    use crate::scheduler::{ResourceCommand, ResourceControl, StdClock};
+    use crate::settings::{
+        BaseSettings, DiscoverySettings, MeshSettings, RuntimeSettings, SimulationSettings,
+        WebSettings,
+    };
+    use crate::watchdog::{FaultPolicy, RetainMode, WatchdogPolicy};
+
+    fn runtime_settings() -> RuntimeSettings {
+        RuntimeSettings::new(
+            BaseSettings {
+                log_level: SmolStr::new("info"),
+                watchdog: WatchdogPolicy::default(),
+                fault_policy: FaultPolicy::SafeHalt,
+                retain_mode: RetainMode::None,
+                retain_save_interval: None,
+            },
+            WebSettings {
+                enabled: false,
+                listen: SmolStr::new("127.0.0.1:0"),
+                auth: SmolStr::new("local"),
+            },
+            DiscoverySettings {
+                enabled: false,
+                service_name: SmolStr::new("truST"),
+                advertise: false,
+                interfaces: Vec::new(),
+            },
+            MeshSettings {
+                enabled: false,
+                listen: SmolStr::new("127.0.0.1:0"),
+                auth_token: None,
+                publish: Vec::new(),
+                subscribe: IndexMap::new(),
+            },
+            SimulationSettings {
+                enabled: false,
+                time_scale: 1,
+                mode_label: SmolStr::new("production"),
+                warning: SmolStr::new(""),
+            },
+        )
+    }
+
+    fn hmi_test_state(source: &str) -> ControlState {
+        let mut harness = TestHarness::from_source(source).expect("build harness");
+        let debug = harness.runtime_mut().enable_debug();
+        harness.cycle();
+        let snapshot = crate::debug::DebugSnapshot {
+            storage: harness.runtime().storage().clone(),
+            now: harness.runtime().current_time(),
+        };
+
+        let (resource, cmd_rx) = ResourceControl::stub(StdClock::new());
+        std::thread::spawn(move || {
+            while let Ok(command) = cmd_rx.recv() {
+                match command {
+                    ResourceCommand::ReloadBytecode { respond_to, .. } => {
+                        let _ = respond_to
+                            .send(Err(RuntimeError::ControlError(SmolStr::new("unsupported"))));
+                    }
+                    ResourceCommand::MeshSnapshot { respond_to, .. } => {
+                        let _ = respond_to.send(IndexMap::new());
+                    }
+                    ResourceCommand::Snapshot { respond_to } => {
+                        let _ = respond_to.send(snapshot.clone());
+                    }
+                    ResourceCommand::MeshApply { .. }
+                    | ResourceCommand::Pause
+                    | ResourceCommand::Resume
+                    | ResourceCommand::UpdateWatchdog(_)
+                    | ResourceCommand::UpdateFaultPolicy(_)
+                    | ResourceCommand::UpdateRetainSaveInterval(_)
+                    | ResourceCommand::UpdateIoSafeState(_) => {}
+                }
+            }
+        });
+        ControlState {
+            debug,
+            resource,
+            metadata: Arc::new(Mutex::new(harness.runtime().metadata_snapshot())),
+            sources: SourceRegistry::new(vec![SourceFile {
+                id: 1,
+                path: std::path::PathBuf::from("main.st"),
+                text: source.to_string(),
+            }]),
+            io_snapshot: Arc::new(Mutex::new(None)),
+            pending_restart: Arc::new(Mutex::new(None)),
+            auth_token: Arc::new(Mutex::new(None)),
+            control_requires_auth: false,
+            control_mode: Arc::new(Mutex::new(ControlMode::Debug)),
+            audit_tx: None,
+            metrics: Arc::new(Mutex::new(RuntimeMetrics::default())),
+            events: Arc::new(Mutex::new(VecDeque::new())),
+            settings: Arc::new(Mutex::new(runtime_settings())),
+            project_root: None,
+            resource_name: SmolStr::new("RESOURCE"),
+            io_health: Arc::new(Mutex::new(Vec::new())),
+            debug_enabled: Arc::new(AtomicBool::new(true)),
+            debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
+            hmi_live: Arc::new(Mutex::new(crate::hmi::HmiLiveState::default())),
+            pairing: None,
+        }
+    }
+
+    #[test]
+    fn hmi_schema_contract_includes_required_mapping() {
+        let source = r#"
+TYPE MODE : (OFF, AUTO); END_TYPE
+TYPE POINT :
+STRUCT
+    X : INT;
+    Y : INT;
+END_STRUCT
+END_TYPE
+
+PROGRAM Main
+VAR
+    run : BOOL := TRUE;
+    speed : REAL := 42.5;
+    mode : MODE := MODE#AUTO;
+    name : STRING := 'pump';
+    nums : ARRAY[1..3] OF INT;
+    point : POINT;
+END_VAR
+nums[1] := 1;
+nums[2] := 2;
+nums[3] := 3;
+point.X := 11;
+point.Y := 12;
+END_PROGRAM
+"#;
+        let state = hmi_test_state(source);
+        let response =
+            handle_request_value(json!({"id": 1, "type": "hmi.schema.get"}), &state, None);
+        assert!(
+            response.ok,
+            "schema response should be ok: {:?}",
+            response.error
+        );
+        let result = response.result.expect("schema result");
+        assert_eq!(
+            result.get("mode").and_then(serde_json::Value::as_str),
+            Some("read_only")
+        );
+        assert_eq!(
+            result.get("read_only").and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            result
+                .get("theme")
+                .and_then(|theme| theme.get("style"))
+                .and_then(serde_json::Value::as_str),
+            Some("classic")
+        );
+        assert!(result
+            .get("pages")
+            .and_then(serde_json::Value::as_array)
+            .is_some_and(|pages| !pages.is_empty()));
+
+        let widgets = result
+            .get("widgets")
+            .and_then(serde_json::Value::as_array)
+            .expect("widgets array");
+        let mut by_path = IndexMap::new();
+        for widget in widgets {
+            let path = widget
+                .get("path")
+                .and_then(serde_json::Value::as_str)
+                .expect("widget path");
+            let kind = widget
+                .get("widget")
+                .and_then(serde_json::Value::as_str)
+                .expect("widget kind");
+            by_path.insert(path.to_string(), kind.to_string());
+        }
+
+        assert_eq!(
+            by_path.get("Main.run").map(String::as_str),
+            Some("indicator")
+        );
+        assert_eq!(by_path.get("Main.speed").map(String::as_str), Some("value"));
+        assert_eq!(
+            by_path.get("Main.mode").map(String::as_str),
+            Some("readout")
+        );
+        assert_eq!(by_path.get("Main.name").map(String::as_str), Some("text"));
+        assert_eq!(by_path.get("Main.nums").map(String::as_str), Some("table"));
+        assert_eq!(by_path.get("Main.point").map(String::as_str), Some("tree"));
+        let run_widget = widgets
+            .iter()
+            .find(|widget| {
+                widget
+                    .get("path")
+                    .and_then(serde_json::Value::as_str)
+                    .map(|path| path == "Main.run")
+                    .unwrap_or(false)
+            })
+            .expect("run widget");
+        assert_eq!(
+            run_widget.get("id").and_then(serde_json::Value::as_str),
+            Some("resource/RESOURCE/program/Main/field/run")
+        );
+    }
+
+    #[test]
+    fn hmi_values_contract_returns_timestamp_quality_and_typed_values() {
+        let source = r#"
+TYPE POINT :
+STRUCT
+    X : INT;
+END_STRUCT
+END_TYPE
+
+PROGRAM Main
+VAR
+    run : BOOL := TRUE;
+    speed : REAL := 42.5;
+    name : STRING := 'pump';
+    nums : ARRAY[1..3] OF INT;
+    point : POINT;
+END_VAR
+nums[1] := 1;
+nums[2] := 2;
+nums[3] := 3;
+point.X := 11;
+END_PROGRAM
+"#;
+        let state = hmi_test_state(source);
+        let ids = vec![
+            "resource/RESOURCE/program/Main/field/run",
+            "resource/RESOURCE/program/Main/field/speed",
+            "resource/RESOURCE/program/Main/field/name",
+            "resource/RESOURCE/program/Main/field/nums",
+            "resource/RESOURCE/program/Main/field/point",
+        ];
+        let response = handle_request_value(
+            json!({
+                "id": 2,
+                "type": "hmi.values.get",
+                "params": { "ids": ids }
+            }),
+            &state,
+            None,
+        );
+        assert!(
+            response.ok,
+            "values response should be ok: {:?}",
+            response.error
+        );
+        let result = response.result.expect("values result");
+        assert_eq!(
+            result.get("connected").and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        assert!(result
+            .get("timestamp_ms")
+            .and_then(serde_json::Value::as_u64)
+            .is_some());
+
+        let values = result
+            .get("values")
+            .and_then(serde_json::Value::as_object)
+            .expect("values object");
+        let run = values
+            .get("resource/RESOURCE/program/Main/field/run")
+            .expect("run value");
+        assert_eq!(
+            run.get("q").and_then(serde_json::Value::as_str),
+            Some("good")
+        );
+        assert_eq!(
+            run.get("v").and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+
+        let speed = values
+            .get("resource/RESOURCE/program/Main/field/speed")
+            .expect("speed value");
+        assert!(speed.get("v").and_then(serde_json::Value::as_f64).is_some());
+
+        let name = values
+            .get("resource/RESOURCE/program/Main/field/name")
+            .expect("name value");
+        assert_eq!(
+            name.get("v").and_then(serde_json::Value::as_str),
+            Some("pump")
+        );
+
+        let nums = values
+            .get("resource/RESOURCE/program/Main/field/nums")
+            .expect("nums value");
+        assert_eq!(
+            nums.get("v")
+                .and_then(serde_json::Value::as_array)
+                .map(|values| values.len()),
+            Some(3)
+        );
+
+        let point = values
+            .get("resource/RESOURCE/program/Main/field/point")
+            .expect("point value");
+        assert!(point
+            .get("v")
+            .and_then(serde_json::Value::as_object)
+            .is_some());
+    }
+
+    #[test]
+    fn hmi_write_is_disabled_in_read_only_mode() {
+        let source = r#"
+PROGRAM Main
+VAR
+    run : BOOL := TRUE;
+END_VAR
+END_PROGRAM
+"#;
+        let state = hmi_test_state(source);
+        let response = handle_request_value(
+            json!({
+                "id": 3,
+                "type": "hmi.write",
+                "params": { "id": "resource/RESOURCE/program/Main/field/run", "value": false }
+            }),
+            &state,
+            None,
+        );
+        assert!(!response.ok);
+        assert_eq!(
+            response.error.as_deref(),
+            Some("hmi.write disabled in read-only mode")
+        );
+    }
+
+    #[test]
+    fn hmi_trends_and_alarm_contracts_support_ack_flow() {
+        let source = r#"
+PROGRAM Main
+VAR
+    // @hmi(min=0, max=100)
+    speed : REAL := 120.0;
+END_VAR
+END_PROGRAM
+"#;
+        let state = hmi_test_state(source);
+
+        let trends = handle_request_value(
+            json!({
+                "id": 10,
+                "type": "hmi.trends.get",
+                "params": { "duration_ms": 60_000, "buckets": 24 }
+            }),
+            &state,
+            None,
+        );
+        assert!(trends.ok, "hmi.trends.get failed: {:?}", trends.error);
+        let trend_series = trends
+            .result
+            .as_ref()
+            .and_then(|value| value.get("series"))
+            .and_then(serde_json::Value::as_array)
+            .expect("trend series");
+        assert!(!trend_series.is_empty(), "expected trend series");
+
+        let alarms = handle_request_value(
+            json!({
+                "id": 11,
+                "type": "hmi.alarms.get",
+                "params": { "limit": 10 }
+            }),
+            &state,
+            None,
+        );
+        assert!(alarms.ok, "hmi.alarms.get failed: {:?}", alarms.error);
+        let active = alarms
+            .result
+            .as_ref()
+            .and_then(|value| value.get("active"))
+            .and_then(serde_json::Value::as_array)
+            .expect("active alarms");
+        assert_eq!(active.len(), 1, "expected one raised alarm");
+        let alarm_id = active[0]
+            .get("id")
+            .and_then(serde_json::Value::as_str)
+            .expect("alarm id");
+
+        let ack = handle_request_value(
+            json!({
+                "id": 12,
+                "type": "hmi.alarm.ack",
+                "params": { "id": alarm_id }
+            }),
+            &state,
+            None,
+        );
+        assert!(ack.ok, "hmi.alarm.ack failed: {:?}", ack.error);
+        let ack_active = ack
+            .result
+            .as_ref()
+            .and_then(|value| value.get("active"))
+            .and_then(serde_json::Value::as_array)
+            .expect("ack active alarms");
+        assert_eq!(ack_active.len(), 1);
+        assert_eq!(
+            ack_active[0]
+                .get("state")
+                .and_then(serde_json::Value::as_str),
+            Some("acknowledged")
+        );
+    }
+
+    #[test]
+    fn request_routing_contract_dispatches_core_handler_modules() {
+        let source = r#"
+PROGRAM Main
+VAR
+    run : BOOL := TRUE;
+END_VAR
+END_PROGRAM
+"#;
+        let state = hmi_test_state(source);
+        let requests = vec![
+            json!({"id": 1, "type": "status"}),
+            json!({"id": 2, "type": "io.list"}),
+            json!({"id": 3, "type": "debug.state"}),
+            json!({"id": 4, "type": "var.forced"}),
+            json!({"id": 5, "type": "restart", "params": { "mode": "warm" }}),
+        ];
+
+        for request in requests {
+            let response = handle_request_value(request.clone(), &state, None);
+            assert_ne!(
+                response.error.as_deref(),
+                Some("unsupported request"),
+                "request should be routed by module split: {request}"
+            );
+        }
+    }
+
+    #[test]
+    fn debug_program_and_io_handlers_preserve_behavior() {
+        let source = r#"
+PROGRAM Main
+VAR
+    run : BOOL := TRUE;
+END_VAR
+END_PROGRAM
+"#;
+        let state = hmi_test_state(source);
+
+        let pause = handle_request_value(json!({"id": 1, "type": "pause"}), &state, None);
+        assert!(pause.ok, "pause should succeed: {:?}", pause.error);
+
+        let debug_state =
+            handle_request_value(json!({"id": 2, "type": "debug.state"}), &state, None);
+        assert!(
+            debug_state.ok,
+            "debug.state should succeed: {:?}",
+            debug_state.error
+        );
+
+        let restart = handle_request_value(
+            json!({"id": 3, "type": "restart", "params": { "mode": "warm" }}),
+            &state,
+            None,
+        );
+        assert!(restart.ok, "restart should succeed: {:?}", restart.error);
+        assert_eq!(
+            state.pending_restart.lock().ok().and_then(|guard| *guard),
+            Some(RestartMode::Warm)
+        );
+
+        let io_write = handle_request_value(
+            json!({
+                "id": 4,
+                "type": "io.write",
+                "params": { "address": "%QX0.0", "value": "true" }
+            }),
+            &state,
+            None,
+        );
+        assert!(io_write.ok, "io.write should succeed: {:?}", io_write.error);
+        assert_eq!(
+            io_write
+                .result
+                .as_ref()
+                .and_then(|result| result.get("status"))
+                .and_then(serde_json::Value::as_str),
+            Some("queued")
+        );
+    }
+
+    #[test]
+    fn invalid_and_malformed_requests_return_negative_responses() {
+        let source = r#"
+PROGRAM Main
+VAR
+    run : BOOL := TRUE;
+END_VAR
+END_PROGRAM
+"#;
+        let state = hmi_test_state(source);
+
+        let invalid_line = handle_request_line("{invalid-json", &state, None)
+            .expect("invalid request should still return response line");
+        let invalid_json: serde_json::Value =
+            serde_json::from_str(&invalid_line).expect("parse invalid response");
+        let invalid_error = invalid_json
+            .get("error")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
+        assert!(invalid_error.starts_with("invalid request:"));
+
+        let unsupported =
+            handle_request_value(json!({"id": 10, "type": "does.not.exist"}), &state, None);
+        assert!(!unsupported.ok);
+        assert_eq!(unsupported.error.as_deref(), Some("unsupported request"));
+
+        let malformed_io = handle_request_value(
+            json!({"id": 11, "type": "io.write", "params": { "address": "%QX0.0" }}),
+            &state,
+            None,
+        );
+        assert!(!malformed_io.ok);
+        assert!(malformed_io
+            .error
+            .as_deref()
+            .unwrap_or_default()
+            .contains("invalid params"));
+
+        let invalid_restart = handle_request_value(
+            json!({"id": 12, "type": "restart", "params": { "mode": "sideways" }}),
+            &state,
+            None,
+        );
+        assert!(!invalid_restart.ok);
+        assert_eq!(
+            invalid_restart.error.as_deref(),
+            Some("invalid restart mode")
+        );
     }
 }

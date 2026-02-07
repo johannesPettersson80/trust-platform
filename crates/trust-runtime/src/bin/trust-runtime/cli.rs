@@ -1,6 +1,6 @@
 //! CLI definitions for trust-runtime.
 
-use clap::{ArgAction, Parser, Subcommand};
+use clap::{ArgAction, Parser, Subcommand, ValueEnum};
 use clap_complete::Shell;
 use std::path::PathBuf;
 
@@ -37,10 +37,16 @@ pub enum Command {
         /// Restart mode on startup.
         #[arg(long, default_value = "cold")]
         restart: String,
+        /// Run in explicit simulation mode.
+        #[arg(long, action = ArgAction::SetTrue)]
+        simulation: bool,
+        /// Simulation time acceleration factor (>= 1).
+        #[arg(long, default_value_t = 1)]
+        time_scale: u32,
     },
     /// Start the runtime with project auto-detection (production UX).
     #[command(
-        after_help = "Examples:\n  trust-runtime play\n  trust-runtime play --project ./my-plc\n  trust-runtime play --restart warm"
+        after_help = "Examples:\n  trust-runtime play\n  trust-runtime play --project ./my-plc\n  trust-runtime play --restart warm\n  trust-runtime play --project ./my-plc --simulation --time-scale 8"
     )]
     Play {
         /// Project folder directory (auto-creates a default project if missing).
@@ -58,6 +64,12 @@ pub enum Command {
         /// Use beginner mode (limited controls).
         #[arg(long, action = ArgAction::SetTrue)]
         beginner: bool,
+        /// Run in explicit simulation mode.
+        #[arg(long, action = ArgAction::SetTrue)]
+        simulation: bool,
+        /// Simulation time acceleration factor (>= 1).
+        #[arg(long, default_value_t = 1)]
+        time_scale: u32,
     },
     /// Interactive TUI for monitoring and control.
     Ui {
@@ -99,6 +111,9 @@ pub enum Command {
         /// Project folder directory.
         #[arg(long = "project", alias = "bundle")]
         project: PathBuf,
+        /// Enable CI-friendly behavior and stable exit code mapping.
+        #[arg(long, action = ArgAction::SetTrue)]
+        ci: bool,
     },
     /// Build program.stbc from project sources.
     Build {
@@ -108,6 +123,41 @@ pub enum Command {
         /// Sources directory override (defaults to <project>/sources).
         #[arg(long)]
         sources: Option<PathBuf>,
+        /// Enable CI-friendly behavior and machine-readable output.
+        #[arg(long, action = ArgAction::SetTrue)]
+        ci: bool,
+    },
+    /// Discover and execute ST tests in a project.
+    Test {
+        /// Project folder directory (defaults to auto-detect or current directory).
+        #[arg(long = "project", alias = "bundle")]
+        project: Option<PathBuf>,
+        /// Optional case-insensitive substring filter for test names.
+        #[arg(long)]
+        filter: Option<String>,
+        /// Output format (`human`, `junit`, `tap`, `json`).
+        #[arg(long, value_enum, default_value_t = TestOutput::Human)]
+        output: TestOutput,
+        /// Enable CI-friendly behavior (`human` output defaults to `junit`).
+        #[arg(long, action = ArgAction::SetTrue)]
+        ci: bool,
+    },
+    /// Generate API documentation from tagged ST comments.
+    Docs {
+        /// Project folder directory (defaults to auto-detect or current directory).
+        #[arg(long = "project", alias = "bundle")]
+        project: Option<PathBuf>,
+        /// Output directory for generated documentation files.
+        #[arg(long = "out-dir")]
+        out_dir: Option<PathBuf>,
+        /// Output format (`markdown`, `html`, `both`).
+        #[arg(long, value_enum, default_value_t = DocsFormat::Both)]
+        format: DocsFormat,
+    },
+    /// PLCopen XML interchange (strict subset profile).
+    Plcopen {
+        #[command(subcommand)]
+        action: PlcopenAction,
     },
     /// Initialize system IO configuration (writes /etc/trust/io.toml).
     #[command(
@@ -178,6 +228,49 @@ pub enum Command {
     },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum TestOutput {
+    Human,
+    Junit,
+    Tap,
+    Json,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum DocsFormat {
+    Markdown,
+    Html,
+    Both,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum PlcopenAction {
+    /// Print supported PLCopen profile and strict subset contract.
+    Profile {
+        /// Print machine-readable JSON.
+        #[arg(long, action = ArgAction::SetTrue)]
+        json: bool,
+    },
+    /// Export project sources to PLCopen XML.
+    Export {
+        /// Project folder directory (defaults to auto-detect or current directory).
+        #[arg(long = "project", alias = "bundle")]
+        project: Option<PathBuf>,
+        /// Output XML file path (defaults to <project>/interop/plcopen.xml).
+        #[arg(long = "output")]
+        output: Option<PathBuf>,
+    },
+    /// Import PLCopen XML into project sources.
+    Import {
+        /// Input PLCopen XML file.
+        #[arg(long = "input")]
+        input: PathBuf,
+        /// Project folder directory (defaults to auto-detect or current directory).
+        #[arg(long = "project", alias = "bundle")]
+        project: Option<PathBuf>,
+    },
+}
+
 #[derive(Debug, Subcommand)]
 #[command(infer_subcommands = true)]
 pub enum ControlAction {
@@ -202,4 +295,102 @@ pub enum ControlAction {
     Shutdown,
     ConfigGet,
     ConfigSet { key: String, value: String },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+
+    #[test]
+    fn parse_build_ci_flag() {
+        let cli = Cli::parse_from(["trust-runtime", "build", "--ci"]);
+        match cli.command.expect("command") {
+            Command::Build { ci, .. } => assert!(ci),
+            other => panic!("expected build command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parse_validate_ci_flag() {
+        let cli = Cli::parse_from(["trust-runtime", "validate", "--project", "project", "--ci"]);
+        match cli.command.expect("command") {
+            Command::Validate { ci, .. } => assert!(ci),
+            other => panic!("expected validate command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parse_test_ci_flag() {
+        let cli = Cli::parse_from(["trust-runtime", "test", "--project", "project", "--ci"]);
+        match cli.command.expect("command") {
+            Command::Test { ci, .. } => assert!(ci),
+            other => panic!("expected test command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parse_docs_command() {
+        let cli = Cli::parse_from([
+            "trust-runtime",
+            "docs",
+            "--project",
+            "project",
+            "--out-dir",
+            "out",
+            "--format",
+            "markdown",
+        ]);
+        match cli.command.expect("command") {
+            Command::Docs {
+                project,
+                out_dir,
+                format,
+            } => {
+                assert_eq!(project, Some(PathBuf::from("project")));
+                assert_eq!(out_dir, Some(PathBuf::from("out")));
+                assert_eq!(format, DocsFormat::Markdown);
+            }
+            other => panic!("expected docs command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parse_plcopen_export_command() {
+        let cli = Cli::parse_from([
+            "trust-runtime",
+            "plcopen",
+            "export",
+            "--project",
+            "project",
+            "--output",
+            "out.xml",
+        ]);
+        match cli.command.expect("command") {
+            Command::Plcopen { action } => match action {
+                PlcopenAction::Export { project, output } => {
+                    assert_eq!(project, Some(PathBuf::from("project")));
+                    assert_eq!(output, Some(PathBuf::from("out.xml")));
+                }
+                other => panic!("expected plcopen export action, got {other:?}"),
+            },
+            other => panic!("expected plcopen command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parse_play_simulation_flags() {
+        let cli = Cli::parse_from(["trust-runtime", "play", "--simulation", "--time-scale", "8"]);
+        match cli.command.expect("command") {
+            Command::Play {
+                simulation,
+                time_scale,
+                ..
+            } => {
+                assert!(simulation);
+                assert_eq!(time_scale, 8);
+            }
+            other => panic!("expected play command, got {other:?}"),
+        }
+    }
 }

@@ -356,3 +356,71 @@ END_PROGRAM
         DiagnosticCode::UndefinedType,
     );
 }
+
+#[test]
+fn test_assert_standard_functions_ok() {
+    check_no_errors(
+        r#"
+PROGRAM Test
+VAR
+    b : BOOL := TRUE;
+    x : INT := INT#2;
+    y : DINT := DINT#2;
+    r : REAL := REAL#1.0;
+END_VAR
+ASSERT_TRUE(b);
+ASSERT_FALSE(FALSE);
+ASSERT_EQUAL(x, y);
+ASSERT_NEAR(r, REAL#1.1, REAL#0.2);
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_assert_true_requires_bool() {
+    check_has_error(
+        r#"
+PROGRAM Test
+ASSERT_TRUE(INT#1);
+END_PROGRAM
+"#,
+        DiagnosticCode::InvalidArgumentType,
+    );
+}
+
+#[test]
+fn test_assert_equal_requires_comparable_types() {
+    check_has_error(
+        r#"
+PROGRAM Test
+ASSERT_EQUAL(TRUE, INT#1);
+END_PROGRAM
+"#,
+        DiagnosticCode::InvalidArgumentType,
+    );
+}
+
+#[test]
+fn test_assert_near_requires_numeric_types() {
+    check_has_error(
+        r#"
+PROGRAM Test
+ASSERT_NEAR(TRUE, REAL#1.0, REAL#0.1);
+END_PROGRAM
+"#,
+        DiagnosticCode::InvalidArgumentType,
+    );
+}
+
+#[test]
+fn test_assert_equal_wrong_arity() {
+    check_has_error(
+        r#"
+PROGRAM Test
+ASSERT_EQUAL(INT#1);
+END_PROGRAM
+"#,
+        DiagnosticCode::WrongArgumentCount,
+    );
+}

@@ -7,7 +7,7 @@ skinparam linetype ortho
 skinparam nodesep 50
 skinparam ranksep 35
 
-title truST Runtime: Bytecode & Execution Engine
+title truST Runtime: Bytecode, Scheduler, and Simulation Engine
 
 ' ============================================================
 ' RUNTIME CORE
@@ -55,26 +55,30 @@ package "Execution Cycle" as cyclePkg #LightBlue {
     rectangle "execute_cycle() (cycle.rs:18-91)" as cycleFlow #Wheat {
         card "1. Apply debug var writes" as step1
         card "2. Emit CycleStart event" as step2
+        card "2a. simulation pre-cycle hooks\n(disturbances + delayed effects)" as step2a
         card "3. read_cycle_inputs()" as step3
         card "4. collect_ready_tasks()" as step4
         card "5. Sort by (priority, due_at)" as step5
         card "6. execute_task() for each" as step6
-        card "6a. watchdog check" as step6a
+        card "6a. watchdog check\n(wall-clock elapsed)" as step6a
         card "7. execute_background_programs()" as step7
         card "8. write_cycle_outputs()" as step8
+        card "8a. simulation post-cycle hooks\n(coupling scheduling)" as step8a
         card "9. update_io_health()" as step9
         card "10. Emit CycleEnd event" as step10
     }
 
     step1 --> step2
-    step2 --> step3
+    step2 --> step2a
+    step2a --> step3
     step3 --> step4
     step4 --> step5
     step5 --> step6
     step6 --> step6a
     step6a --> step7
     step7 --> step8
-    step8 --> step9
+    step8 --> step8a
+    step8a --> step9
     step9 --> step10
 
     note right of step4
@@ -106,6 +110,20 @@ package "Execution Cycle" as cyclePkg #LightBlue {
         • exposed via ctl status / UI
     end note
 
+    note right of step2a
+        simulation pre-cycle:
+        • apply scheduled delayed effects
+        • apply scripted disturbances
+        • fault injection hooks
+    end note
+
+    note right of step8a
+        simulation post-cycle:
+        • read source outputs
+        • apply threshold/coupling logic
+        • enqueue delayed input effects
+    end note
+
     note right of step6
         execute_task():
         • emits TaskStart event
@@ -135,6 +153,46 @@ package "Lifecycle" as lifecyclePkg #LightGray {
         card "1. stop tasks" as stop1
         card "2. save_retain()" as stop2
     }
+}
+
+' ============================================================
+' CONTROL + HMI CONTRACT
+' ============================================================
+package "Control + HMI Contract" as hmiPkg #Lavender {
+    rectangle "Control API (control.rs)" as hmiControl #Wheat {
+        card "hmi.schema.get\n(read-only schema from metadata)" as hmiSchema
+        card "load customization\n(@hmi + hmi.toml)" as hmiCustomize
+        card "merge precedence:\ndefaults < annotation < file" as hmiMerge
+        card "emit schema:\ntheme + responsive + export + pages/widgets" as hmiEmit
+        card "hmi.values.get\n(typed values + quality + timestamp)" as hmiValues
+        card "hmi.trends.get\n(sample buffers + downsample)" as hmiTrends
+        card "hmi.alarms.get / hmi.alarm.ack\n(raise -> ack -> clear + history)" as hmiAlarms
+        card "hmi.write\n(disabled in read-only mode)" as hmiWrite
+    }
+
+    rectangle "Web HMI (/hmi)" as hmiWeb #Wheat {
+        card "GET /hmi, /hmi/app.js, /hmi/styles.css" as hmiRoute
+        card "sidebar navigation:\ndashboard/trend/alarm/table/process" as hmiNav
+        card "poll POST /api/control every 500 ms\n(values/trends/alarms)" as hmiPoll
+        card "status badges:\nconnection + freshness" as hmiStatus
+        card "GET /hmi/export.json\n(standalone assets + routes + schema config)" as hmiExport
+    }
+
+    hmiSchema --> hmiCustomize
+    hmiCustomize --> hmiMerge
+    hmiMerge --> hmiEmit
+    hmiEmit --> hmiValues
+    hmiValues --> hmiTrends
+    hmiValues --> hmiAlarms
+    hmiValues --> hmiWrite
+    hmiAlarms --> hmiWrite
+    hmiRoute --> hmiPoll
+    hmiRoute --> hmiNav
+    hmiPoll --> hmiStatus
+    hmiPoll ..> hmiValues : request values
+    hmiPoll ..> hmiTrends : request trends
+    hmiPoll ..> hmiAlarms : request alarms
+    hmiRoute --> hmiExport
 }
 
 ' ============================================================
@@ -416,6 +474,8 @@ runtime --> cyclePkg : execute_cycle()
 runtime --> stdlibPkg
 runtime --> ioPkg
 runtime --> bcApply
+runtime --> hmiControl
+hmiControl --> hmiWeb
 
 evalCtx --> stmtPkg : executes
 evalCtx --> exprPkg : evaluates

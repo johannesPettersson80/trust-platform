@@ -11,6 +11,12 @@ async function main(): Promise<void> {
   const workspacePath = fs.mkdtempSync(
     path.join(os.tmpdir(), "trust-lsp-vscode-workspace-")
   );
+  const userDataDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), "trust-lsp-vscode-user-data-")
+  );
+  const extensionsDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), "trust-lsp-vscode-extensions-")
+  );
 
   const defaultServerName =
     process.platform === "win32" ? "trust-lsp.exe" : "trust-lsp";
@@ -23,6 +29,9 @@ async function main(): Promise<void> {
   const configured = process.env.ST_LSP_TEST_SERVER?.trim();
   const serverPath =
     configured && fs.existsSync(configured) ? configured : defaultServerPath;
+  const runtimeName =
+    process.platform === "win32" ? "trust-runtime.exe" : "trust-runtime";
+  const runtimePath = path.join(repoRoot, "target", "debug", runtimeName);
 
   if (!configured) {
     execSync("cargo build -p trust-lsp", {
@@ -33,12 +42,24 @@ async function main(): Promise<void> {
     throw new Error(`ST_LSP_TEST_SERVER not found at ${serverPath}`);
   }
 
+  execSync("cargo build -p trust-runtime", {
+    cwd: repoRoot,
+    stdio: "inherit",
+  });
+
   await runTests({
     extensionDevelopmentPath,
     extensionTestsPath,
-    launchArgs: [workspacePath],
+    launchArgs: [
+      workspacePath,
+      "--user-data-dir",
+      userDataDir,
+      "--extensions-dir",
+      extensionsDir,
+    ],
     extensionTestsEnv: {
       ST_LSP_TEST_SERVER: serverPath,
+      ST_RUNTIME_TEST_BIN: runtimePath,
     },
   });
 }

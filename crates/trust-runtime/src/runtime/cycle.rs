@@ -195,12 +195,18 @@ impl Runtime {
     }
 
     fn execute_program_by_name(&mut self, name: &SmolStr) -> Result<(), error::RuntimeError> {
+        let timer = self.metrics.start_timer();
         let program = self
             .programs
             .get(name)
             .cloned()
             .ok_or_else(|| error::RuntimeError::UndefinedProgram(name.clone()))?;
-        self.execute_program(&program)
+        let result = self.execute_program(&program);
+        if let Some(start) = timer {
+            self.metrics
+                .record_profile_call("program", name, start.elapsed());
+        }
+        result
     }
 
     fn execute_task(&mut self, task: &TaskConfig) -> Result<(), error::RuntimeError> {
@@ -315,6 +321,7 @@ impl Runtime {
         &mut self,
         reference: &crate::value::ValueRef,
     ) -> Result<(), error::RuntimeError> {
+        let timer = self.metrics.start_timer();
         let instance_id = match self.storage.read_by_ref(reference.clone()) {
             Some(Value::Instance(id)) => *id,
             Some(_) => return Err(error::RuntimeError::TypeMismatch),
@@ -379,6 +386,10 @@ impl Runtime {
 
         ctx.storage.pop_frame();
         self.debug = debug;
+        if let Some(start) = timer {
+            self.metrics
+                .record_profile_call("fb", &fb.name, start.elapsed());
+        }
         result
     }
 

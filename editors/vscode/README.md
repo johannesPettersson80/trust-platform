@@ -5,7 +5,9 @@
 - Fast diagnostics and semantic highlighting
 - Go to definition/references, rename, and formatting
 - Runtime panel with live I/O control
+- HMI preview panel with live schema + value updates
 - Debugging with breakpoints, step, continue, and runtime values
+- ST test workflow with CodeLens + Test Explorer
 
 ---
 
@@ -39,6 +41,7 @@ code --install-extension trust-platform.trust-lsp
 - Refactor safely: rename symbols and move namespaces
 - Debug real logic with breakpoints + runtime state
 - Drive and observe process I/O directly in the panel
+- Run ST tests from CodeLens (`TEST_PROGRAM` / `TEST_FUNCTION_BLOCK`) and Test Explorer
 
 ---
 
@@ -75,9 +78,13 @@ Open it in VS Code:
 
 ## Commands You’ll Use Most
 
+- `Structured Text: New Project`
 - `Structured Text: Open Runtime Panel`
+- `Structured Text: Open HMI Preview`
 - `Structured Text: Start Debugging`
 - `Structured Text: Attach Debugger`
+- `Structured Text: Run All Tests`
+- `Structured Text: Run Test`
 - `Structured Text: Move Namespace`
 - `Structured Text: Create/Select Configuration`
 
@@ -89,5 +96,6 @@ Set custom binary paths if needed:
 
 - `trust-lsp.server.path`
 - `trust-lsp.debug.adapter.path`
+- `trust-lsp.runtime.cli.path`
 
 Full docs: https://github.com/johannesPettersson80/trust-platform/tree/main/docs

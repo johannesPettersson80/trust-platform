@@ -1,0 +1,94 @@
+{
+  "ton-usage": {
+    "prefix": "ton-usage",
+    "description": "Instantiate TON with named enable, done, and elapsed variables.",
+    "body": [
+      "PROGRAM ${1:Main}",
+      "VAR",
+      "    ${2:timer} : TON;",
+      "    ${3:enableCmd} : BOOL := FALSE;",
+      "    ${4:done} : BOOL := FALSE;",
+      "    ${5:elapsed} : TIME := T#0ms;",
+      "END_VAR",
+      "",
+      "${2:timer}(IN := ${3:enableCmd}, PT := ${6:T#500ms}, Q => ${4:done}, ET => ${5:elapsed});",
+      "END_PROGRAM"
+    ]
+  },
+  "state-machine": {
+    "prefix": "state-machine",
+    "description": "Create an INT-backed CASE state machine with start/stop transitions.",
+    "body": [
+      "PROGRAM ${1:StateMachine}",
+      "VAR",
+      "    ${2:state} : INT := 0;",
+      "    ${3:commandStart} : BOOL := FALSE;",
+      "    ${4:commandStop} : BOOL := FALSE;",
+      "END_VAR",
+      "",
+      "CASE ${2:state} OF",
+      "    0:",
+      "        IF ${3:commandStart} THEN",
+      "            ${2:state} := 1;",
+      "        END_IF;",
+      "    1:",
+      "        IF ${4:commandStop} THEN",
+      "            ${2:state} := 0;",
+      "        END_IF;",
+      "END_CASE;",
+      "END_PROGRAM"
+    ]
+  },
+  "fb-template": {
+    "prefix": "fb-template",
+    "description": "Scaffold a reusable FUNCTION_BLOCK with start/stop latch behavior.",
+    "body": [
+      "FUNCTION_BLOCK ${1:MotorController}",
+      "VAR_INPUT",
+      "    ${2:startCmd} : BOOL;",
+      "    ${3:stopCmd} : BOOL;",
+      "END_VAR",
+      "VAR_OUTPUT",
+      "    ${4:running} : BOOL;",
+      "END_VAR",
+      "",
+      "IF ${3:stopCmd} THEN",
+      "    ${4:running} := FALSE;",
+      "ELSIF ${2:startCmd} THEN",
+      "    ${4:running} := TRUE;",
+      "END_IF;",
+      "END_FUNCTION_BLOCK"
+    ]
+  },
+  "for-loop": {
+    "prefix": "for-loop",
+    "description": "Insert a counted FOR loop with explicit accumulator and index variables.",
+    "body": [
+      "PROGRAM ${1:LoopProgram}",
+      "VAR",
+      "    ${2:sum} : DINT := 0;",
+      "    ${3:idx} : DINT;",
+      "END_VAR",
+      "",
+      "FOR ${3:idx} := ${4:0} TO ${5:9} BY ${6:1} DO",
+      "    ${2:sum} := ${2:sum} + ${3:idx};",
+      "END_FOR;",
+      "END_PROGRAM"
+    ]
+  },
+  "edge-detect": {
+    "prefix": "edge-detect",
+    "description": "Use R_TRIG to convert a BOOL signal edge into a one-scan pulse.",
+    "body": [
+      "PROGRAM ${1:EdgeProgram}",
+      "VAR",
+      "    ${2:edgeDetector} : R_TRIG;",
+      "    ${3:signalIn} : BOOL := FALSE;",
+      "    ${4:pulseOut} : BOOL := FALSE;",
+      "END_VAR",
+      "",
+      "${2:edgeDetector}(CLK := ${3:signalIn}, Q => ${4:pulseOut});",
+      "END_PROGRAM"
+    ]
+  }
+}

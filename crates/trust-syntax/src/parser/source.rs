@@ -142,8 +142,10 @@ impl<'t, 'src> Source<'t, 'src> {
                 | TokenKind::KwEndWhile
                 | TokenKind::KwEndRepeat
                 | TokenKind::KwEndFunctionBlock
+                | TokenKind::KwEndTestFunctionBlock
                 | TokenKind::KwEndFunction
                 | TokenKind::KwEndProgram
+                | TokenKind::KwEndTestProgram
                 | TokenKind::KwEndMethod
                 | TokenKind::KwEndProperty
                 | TokenKind::KwEndInterface
@@ -189,8 +191,10 @@ impl<'t, 'src> Source<'t, 'src> {
                 | TokenKind::KwEndWhile
                 | TokenKind::KwEndRepeat
                 | TokenKind::KwEndFunctionBlock
+                | TokenKind::KwEndTestFunctionBlock
                 | TokenKind::KwEndFunction
                 | TokenKind::KwEndProgram
+                | TokenKind::KwEndTestProgram
                 | TokenKind::KwEndMethod
                 | TokenKind::KwEndProperty
                 | TokenKind::KwEndInterface

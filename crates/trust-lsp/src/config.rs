@@ -1,7 +1,7 @@
 //! Workspace/project configuration for trust-lsp.
 
 use serde::Deserialize;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 use tower_lsp::lsp_types::DiagnosticSeverity;
 use tracing::warn;
@@ -14,7 +14,6 @@ pub struct ProjectConfig {
     /// Root directory for the workspace.
     pub root: PathBuf,
     /// Config file path (if found).
-    #[allow(dead_code)]
     pub config_path: Option<PathBuf>,
     /// Extra include paths to index.
     pub include_paths: Vec<PathBuf>,
@@ -24,6 +23,10 @@ pub struct ProjectConfig {
     pub stdlib: StdlibSettings,
     /// External libraries to index.
     pub libraries: Vec<LibrarySpec>,
+    /// Local package dependencies declared in `[dependencies]`.
+    pub dependencies: Vec<ProjectDependency>,
+    /// Resolver issues produced while expanding local dependencies.
+    pub dependency_resolution_issues: Vec<DependencyResolutionIssue>,
     /// External diagnostics sources (custom linters).
     pub diagnostic_external_paths: Vec<PathBuf>,
     /// Build configuration (compile flags, target profile).
@@ -133,7 +136,13 @@ impl ProjectConfig {
                 docs,
             });
         }
+        let dependencies = parse_project_dependencies(root, &parsed.dependencies);
+        let (dependency_libraries, dependency_resolution_issues) =
+            resolve_manifest_dependencies(&dependencies);
+        libraries.extend(dependency_libraries);
         config.libraries = libraries;
+        config.dependencies = dependencies;
+        config.dependency_resolution_issues = dependency_resolution_issues;
 
         config
     }
@@ -172,6 +181,8 @@ impl ProjectConfig {
             vendor_profile: None,
             stdlib: StdlibSettings::default(),
             libraries: Vec::new(),
+            dependencies: Vec::new(),
+            dependency_resolution_issues: Vec::new(),
             diagnostic_external_paths: Vec::new(),
             build: BuildConfig::default(),
             targets: Vec::new(),
@@ -188,7 +199,6 @@ impl ProjectConfig {
 #[derive(Debug, Clone, Default)]
 pub struct StdlibSettings {
     /// Named profile (e.g., "iec", "full", "none").
-    #[allow(dead_code)]
     pub profile: Option<String>,
     /// Allow list of function/FB names (case-insensitive).
     pub allow: Option<Vec<String>>,
@@ -435,10 +445,8 @@ pub struct TargetProfile {
 
 #[derive(Debug, Clone)]
 pub struct LibrarySpec {
-    #[allow(dead_code)]
     pub name: String,
     pub path: PathBuf,
-    #[allow(dead_code)]
     pub version: Option<String>,
     pub dependencies: Vec<LibraryDependency>,
     pub docs: Vec<PathBuf>,
@@ -541,8 +549,26 @@ pub struct LibraryDependency {
     pub version: Option<String>,
 }
 
+/// A local package dependency declared in `[dependencies]`.
+#[derive(Debug, Clone)]
+pub struct ProjectDependency {
+    pub name: String,
+    pub path: PathBuf,
+    pub version: Option<String>,
+}
+
+/// Dependency resolver issue surfaced as a config diagnostic.
+#[derive(Debug, Clone)]
+pub struct DependencyResolutionIssue {
+    pub code: &'static str,
+    pub dependency: String,
+    pub message: String,
+}
+
 #[derive(Debug, Deserialize)]
 struct ConfigFile {
+    #[serde(default)]
+    dependencies: BTreeMap<String, ManifestDependencyEntry>,
     #[serde(default)]
     project: ProjectSection,
     #[serde(default)]
@@ -668,6 +694,32 @@ struct LibraryDependencySection {
     version: Option<String>,
 }
 
+#[derive(Debug, Default, Deserialize)]
+struct PackageSection {
+    version: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum ManifestDependencyEntry {
+    Path(String),
+    Detailed(ManifestDependencySection),
+}
+
+#[derive(Debug, Deserialize)]
+struct ManifestDependencySection {
+    path: String,
+    version: Option<String>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct DependencyManifestFile {
+    #[serde(default)]
+    package: PackageSection,
+    #[serde(default)]
+    dependencies: BTreeMap<String, ManifestDependencyEntry>,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(untagged)]
 enum StdlibSelection {
@@ -757,6 +809,22 @@ impl From<LibraryDependencyEntry> for LibraryDependency {
     }
 }
 
+impl ManifestDependencyEntry {
+    fn path(&self) -> &str {
+        match self {
+            ManifestDependencyEntry::Path(path) => path,
+            ManifestDependencyEntry::Detailed(entry) => entry.path.as_str(),
+        }
+    }
+
+    fn version(&self) -> Option<String> {
+        match self {
+            ManifestDependencyEntry::Path(_) => None,
+            ManifestDependencyEntry::Detailed(entry) => entry.version.clone(),
+        }
+    }
+}
+
 impl From<IndexingSection> for IndexingConfig {
     fn from(section: IndexingSection) -> Self {
         IndexingConfig {
@@ -795,6 +863,161 @@ fn resolve_path(root: &Path, entry: &str) -> PathBuf {
     } else {
         root.join(path)
     }
+}
+
+fn parse_project_dependencies(
+    root: &Path,
+    entries: &BTreeMap<String, ManifestDependencyEntry>,
+) -> Vec<ProjectDependency> {
+    entries
+        .iter()
+        .map(|(name, entry)| ProjectDependency {
+            name: name.clone(),
+            path: resolve_path(root, entry.path()),
+            version: entry.version(),
+        })
+        .collect()
+}
+
+fn resolve_manifest_dependencies(
+    dependencies: &[ProjectDependency],
+) -> (Vec<LibrarySpec>, Vec<DependencyResolutionIssue>) {
+    let mut libraries = BTreeMap::new();
+    let mut issues = Vec::new();
+    let mut states = HashMap::new();
+
+    for dependency in dependencies {
+        resolve_dependency_recursive(dependency, &mut states, &mut libraries, &mut issues);
+    }
+
+    (libraries.into_values().collect(), issues)
+}
+
+fn resolve_dependency_recursive(
+    dependency: &ProjectDependency,
+    states: &mut HashMap<String, DependencyVisitState>,
+    libraries: &mut BTreeMap<String, LibrarySpec>,
+    issues: &mut Vec<DependencyResolutionIssue>,
+) {
+    let path = canonicalize_or_self(&dependency.path);
+    if !path.is_dir() {
+        issues.push(DependencyResolutionIssue {
+            code: "L001",
+            dependency: dependency.name.clone(),
+            message: format!(
+                "Dependency '{}' path does not exist: {}",
+                dependency.name,
+                path.display()
+            ),
+        });
+        return;
+    }
+
+    if let Some(existing) = libraries.get(&dependency.name) {
+        if let Some(required) = dependency.version.as_deref() {
+            if existing.version.as_deref() != Some(required) {
+                let available = existing.version.as_deref().unwrap_or("unspecified");
+                issues.push(DependencyResolutionIssue {
+                    code: "L002",
+                    dependency: dependency.name.clone(),
+                    message: format!(
+                        "Dependency '{}' requested version {}, but resolved version is {}",
+                        dependency.name, required, available
+                    ),
+                });
+            }
+        }
+        return;
+    }
+
+    if states
+        .get(dependency.name.as_str())
+        .copied()
+        .is_some_and(|state| state == DependencyVisitState::Visiting)
+    {
+        return;
+    }
+
+    states.insert(dependency.name.clone(), DependencyVisitState::Visiting);
+
+    let (package, nested_dependencies) = match load_dependency_manifest(&path) {
+        Ok(manifest) => (
+            manifest.package,
+            parse_project_dependencies(&path, &manifest.dependencies),
+        ),
+        Err(message) => {
+            issues.push(DependencyResolutionIssue {
+                code: "L001",
+                dependency: dependency.name.clone(),
+                message,
+            });
+            (PackageSection::default(), Vec::new())
+        }
+    };
+
+    if let Some(required) = dependency.version.as_deref() {
+        if package.version.as_deref() != Some(required) {
+            let available = package.version.as_deref().unwrap_or("unspecified");
+            issues.push(DependencyResolutionIssue {
+                code: "L002",
+                dependency: dependency.name.clone(),
+                message: format!(
+                    "Dependency '{}' requested version {}, but resolved package version is {}",
+                    dependency.name, required, available
+                ),
+            });
+        }
+    }
+
+    let mut library_dependencies = Vec::new();
+    for nested in &nested_dependencies {
+        library_dependencies.push(LibraryDependency {
+            name: nested.name.clone(),
+            version: nested.version.clone(),
+        });
+        resolve_dependency_recursive(nested, states, libraries, issues);
+    }
+
+    libraries.insert(
+        dependency.name.clone(),
+        LibrarySpec {
+            name: dependency.name.clone(),
+            path,
+            version: package.version,
+            dependencies: library_dependencies,
+            docs: Vec::new(),
+        },
+    );
+    states.insert(dependency.name.clone(), DependencyVisitState::Done);
+}
+
+fn load_dependency_manifest(path: &Path) -> Result<DependencyManifestFile, String> {
+    let Some(config_path) = find_config_file(path) else {
+        return Ok(DependencyManifestFile::default());
+    };
+    let contents = std::fs::read_to_string(&config_path).map_err(|err| {
+        format!(
+            "Failed to read dependency manifest for '{}': {} ({err})",
+            path.display(),
+            config_path.display()
+        )
+    })?;
+    toml::from_str(&contents).map_err(|err| {
+        format!(
+            "Failed to parse dependency manifest for '{}': {err}",
+            path.display()
+        )
+    })
+}
+
+fn canonicalize_or_self(path: &Path) -> PathBuf {
+    path.canonicalize().unwrap_or_else(|_| path.to_path_buf())
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DependencyVisitState {
+    Visiting,
+    Done,
 }
 
 #[cfg(test)]
@@ -958,6 +1181,100 @@ vendor_profile = "siemens"
         let config = ProjectConfig::load(&root);
         assert!(!config.diagnostics.warn_missing_else);
         assert!(!config.diagnostics.warn_implicit_conversion);
+
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn resolves_local_dependencies_transitively() {
+        let root = temp_dir("trustlsp-config-dependencies");
+        let root_config = root.join("trust-lsp.toml");
+        let dep_a = root.join("deps").join("lib-a");
+        let dep_b = root.join("deps").join("lib-b");
+        fs::create_dir_all(&dep_a).expect("create dep a");
+        fs::create_dir_all(&dep_b).expect("create dep b");
+        fs::write(
+            &root_config,
+            r#"
+[project]
+include_paths = ["src"]
+
+[dependencies]
+LibA = { path = "deps/lib-a", version = "1.0.0" }
+"#,
+        )
+        .expect("write root config");
+        fs::write(
+            dep_a.join("trust-lsp.toml"),
+            r#"
+[package]
+version = "1.0.0"
+
+[dependencies]
+LibB = { path = "../lib-b", version = "2.0.0" }
+"#,
+        )
+        .expect("write dep a manifest");
+        fs::write(
+            dep_b.join("trust-lsp.toml"),
+            r#"
+[package]
+version = "2.0.0"
+"#,
+        )
+        .expect("write dep b manifest");
+
+        let config = ProjectConfig::load(&root);
+        assert_eq!(config.dependencies.len(), 1);
+        assert!(config.dependencies.iter().any(|dep| dep.name == "LibA"));
+        assert!(config.libraries.iter().any(|lib| lib.name == "LibA"));
+        assert!(config.libraries.iter().any(|lib| lib.name == "LibB"));
+        assert!(config
+            .indexing_roots()
+            .iter()
+            .any(|path| path.ends_with("lib-a")));
+        assert!(config
+            .indexing_roots()
+            .iter()
+            .any(|path| path.ends_with("lib-b")));
+        assert!(config.dependency_resolution_issues.is_empty());
+
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn reports_dependency_missing_path_and_version_mismatch() {
+        let root = temp_dir("trustlsp-config-dependency-issues");
+        let root_config = root.join("trust-lsp.toml");
+        let dep = root.join("deps").join("versioned");
+        fs::create_dir_all(&dep).expect("create dependency dir");
+        fs::write(
+            dep.join("trust-lsp.toml"),
+            r#"
+[package]
+version = "2.0.0"
+"#,
+        )
+        .expect("write dependency manifest");
+        fs::write(
+            &root_config,
+            r#"
+[dependencies]
+Missing = "deps/missing"
+Versioned = { path = "deps/versioned", version = "1.0.0" }
+"#,
+        )
+        .expect("write config");
+
+        let config = ProjectConfig::load(&root);
+        assert!(config
+            .dependency_resolution_issues
+            .iter()
+            .any(|issue| issue.code == "L001" && issue.dependency == "Missing"));
+        assert!(config
+            .dependency_resolution_issues
+            .iter()
+            .any(|issue| issue.code == "L002" && issue.dependency == "Versioned"));
 
         fs::remove_dir_all(root).ok();
     }

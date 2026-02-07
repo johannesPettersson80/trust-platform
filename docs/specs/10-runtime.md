@@ -1616,6 +1616,16 @@ Rules:
 - **Data sharing** is explicit (publish/subscribe mapping only).
 - TOML remains the source of truth; offline edits are supported.
 
+HMI customization (implementer-specific):
+- `hmi.schema.get` returns `theme`, `pages`, and widget-level layout metadata (`page`, `group`, `order`, `unit`, bounds) in addition to stable widget IDs.
+- Project-level `hmi.toml` supports:
+  - `[theme]` (`style`, optional `accent`)
+  - `[[pages]]` (`id`, `title`, `order`)
+  - `[widgets.\"<path>\"]` overrides for label/unit/bounds/widget/page/group/order.
+- ST-level `@hmi(...)` annotations on variable declarations support `label`, `unit`, `min`, `max`, `widget`, `page`, `group`, and `order`.
+- Merge precedence is deterministic: defaults < ST annotations < `hmi.toml` overrides.
+- Theme fallback is deterministic: unknown/missing theme values fall back to built-in `classic`.
+
 Operational UX and pairing flow are documented internally.
 
 #### 6.9 Debugging and Diagnostics
@@ -3445,7 +3455,9 @@ Range: 0.0 to 3000.0
 - `stdlib` profiles: `full` (default), `iec` (IEC standard functions/FBs only; Tables 22–36, 43–46), `none` (no standard library completions/hover), or an explicit allow-list array.
 - When `vendor_profile` is set and no explicit stdlib allow-list/profile is provided, the server defaults to the IEC profile for completions/hover.
 - `[[libraries]]` entries include `name`, `path`, and optional `version` for external library indexing.
+- `[dependencies]` supports local package references (`Name = "path"` or `Name = { path = "...", version? = "..." }`) with transitive resolution for indexing and runtime build input assembly.
 - `[[libraries]]` can declare `dependencies` (array of `{ name, version? }`) to model library graphs; missing dependencies or version mismatches are reported as config diagnostics.
+- Library/dependency graphs report missing references (L001), version mismatches (L002), conflicting declarations (L003), and dependency cycles (L004).
 - `[[libraries]]` can declare `docs` (array of markdown files) to attach vendor library documentation to hover/completion. Each file uses `# SymbolName` headings followed by doc text.
 - `[workspace]` controls multi-root federation: `priority` orders root results for workspace symbol search, and `visibility` (`public`, `private`, `hidden`) filters which roots participate when querying (private roots only appear for non-empty queries) (tooling behavior, non-IEC).
 - `[build]` exposes project compile flags (`flags`), `defines`, and optional `target`/`profile` defaults.
@@ -3725,7 +3737,23 @@ ANY
 
 ---
 
-### Appendix C: References
+### Appendix C: PLCopen XML Interchange (Strict Subset)
+
+Runtime exposes a strict PLCopen XML profile through `trust-runtime plcopen`:
+
+- `trust-runtime plcopen profile` prints the supported profile contract.
+- `trust-runtime plcopen export` exports ST POUs to PLCopen XML.
+- `trust-runtime plcopen import` imports supported PLCopen POUs into `sources/`.
+
+Current strict subset contract:
+
+- Namespace: `http://www.plcopen.org/xml/tc6_0200`
+- Profile: `trust-st-strict-v1`
+- Supported POU body: `ST` text bodies for `PROGRAM`, `FUNCTION`, `FUNCTION_BLOCK`
+- Source mapping: embedded `addData` payload + sidecar `*.source-map.json`
+- Unsupported nodes: reported as warnings and preserved via vendor extension hooks
+
+### Appendix D: References
 
 1. IEC 61131-3:2013 - Programmable controllers - Part 3: Programming languages
 2. PLCopen - Technical Committee 6 (XML)
