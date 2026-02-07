@@ -47,6 +47,9 @@ struct SetupDefaultsResponse {
     resource_name: String,
     cycle_ms: u64,
     driver: String,
+    use_system_io: bool,
+    write_system_io: bool,
+    system_io_exists: bool,
     token_required: bool,
     token_expires_at: Option<u64>,
     needs_setup: bool,
@@ -114,6 +117,9 @@ pub fn run_setup_web(options: SetupWebOptions) -> anyhow::Result<()> {
                     resource_name: guard.options.defaults.resource_name.as_str().to_string(),
                     cycle_ms: guard.options.defaults.cycle_ms,
                     driver: guard.options.defaults.driver.clone(),
+                    use_system_io: true,
+                    write_system_io: false,
+                    system_io_exists: trust_runtime::config::system_io_config_path().is_file(),
                     token_required: guard.options.token_required,
                     token_expires_at: guard.expires_at,
                     needs_setup: true,
@@ -227,24 +233,40 @@ fn authorize_setup(
     query: Option<&str>,
     state: &Arc<Mutex<SetupState>>,
 ) -> bool {
-    let guard = match state.lock() {
-        Ok(guard) => guard,
-        Err(_) => return false,
-    };
-    if let Some(expires_at) = guard.expires_at {
-        if now_secs() > expires_at {
-            return false;
-        }
-    }
-    let Some(token) = guard.token.as_deref() else {
-        return true;
-    };
     let header_token = request
         .headers()
         .iter()
         .find(|header| header.field.equiv("X-Setup-Token"))
         .map(|header| header.value.as_str().to_string());
-    if header_token.as_deref() == Some(token) {
+    let guard = match state.lock() {
+        Ok(guard) => guard,
+        Err(_) => return false,
+    };
+    authorize_setup_access(
+        guard.token.as_deref(),
+        guard.expires_at,
+        header_token.as_deref(),
+        query,
+        now_secs(),
+    )
+}
+
+fn authorize_setup_access(
+    expected_token: Option<&str>,
+    expires_at: Option<u64>,
+    header_token: Option<&str>,
+    query: Option<&str>,
+    now_unix: u64,
+) -> bool {
+    if let Some(expires_at) = expires_at {
+        if now_unix > expires_at {
+            return false;
+        }
+    }
+    let Some(token) = expected_token else {
+        return true;
+    };
+    if header_token == Some(token) {
         return true;
     }
     query
@@ -310,4 +332,112 @@ fn now_secs() -> u64 {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn unique_temp_dir(prefix: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time before unix epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "trust-runtime-{prefix}-{}-{nanos}",
+            std::process::id()
+        ))
+    }
+
+    #[test]
+    fn setup_access_allows_when_token_not_required() {
+        assert!(authorize_setup_access(None, None, None, None, 100));
+    }
+
+    #[test]
+    fn setup_access_requires_matching_token() {
+        assert!(!authorize_setup_access(
+            Some("secret"),
+            None,
+            None,
+            None,
+            100
+        ));
+        assert!(!authorize_setup_access(
+            Some("secret"),
+            None,
+            Some("wrong"),
+            None,
+            100
+        ));
+        assert!(authorize_setup_access(
+            Some("secret"),
+            None,
+            Some("secret"),
+            None,
+            100
+        ));
+        assert!(authorize_setup_access(
+            Some("secret"),
+            None,
+            None,
+            Some("token=secret"),
+            100
+        ));
+    }
+
+    #[test]
+    fn setup_access_enforces_expiry() {
+        assert!(authorize_setup_access(
+            Some("secret"),
+            Some(100),
+            Some("secret"),
+            None,
+            100
+        ));
+        assert!(!authorize_setup_access(
+            Some("secret"),
+            Some(100),
+            Some("secret"),
+            None,
+            101
+        ));
+    }
+
+    #[test]
+    fn apply_setup_persists_runtime_artifacts() {
+        let root = unique_temp_dir("setup-web-artifacts");
+        std::fs::create_dir_all(&root).expect("create root");
+        let defaults = SetupDefaults::from_bundle(&root);
+        let state = Arc::new(Mutex::new(SetupState {
+            options: SetupWebOptions {
+                bundle_root: root.clone(),
+                bind: "127.0.0.1".to_string(),
+                port: 8080,
+                token_required: false,
+                token_ttl_minutes: 0,
+                defaults,
+            },
+            token: None,
+            expires_at: None,
+            done: false,
+        }));
+        let payload = SetupApplyRequest {
+            project_path: Some(root.display().to_string()),
+            resource_name: Some("setup_web_plc".to_string()),
+            cycle_ms: Some(100),
+            driver: Some("loopback".to_string()),
+            write_system_io: Some(false),
+            overwrite_system_io: Some(false),
+            use_system_io: Some(false),
+        };
+        let message = apply_setup(&state, payload).expect("apply setup");
+        assert!(message.contains("Setup complete"));
+        assert!(root.join("runtime.toml").is_file());
+        assert!(root.join("io.toml").is_file());
+        assert!(root.join("program.stbc").is_file());
+        assert!(root.join("sources").join("main.st").is_file());
+        assert!(root.join("sources").join("config.st").is_file());
+        let _ = std::fs::remove_dir_all(root);
+    }
 }

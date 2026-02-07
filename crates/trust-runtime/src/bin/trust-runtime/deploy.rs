@@ -26,6 +26,7 @@ pub fn run_deploy(
     spinner.enable_steady_tick(std::time::Duration::from_millis(120));
     spinner.set_message("Deploying project...");
     let source_bundle = RuntimeBundle::load(&bundle)?;
+    validate_bundle(&source_bundle)?;
     let root = root.unwrap_or(std::env::current_dir()?);
     let bundles_dir = root.join("bundles");
     let deployments_dir = root.join("deployments");

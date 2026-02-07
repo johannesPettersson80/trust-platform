@@ -3085,6 +3085,8 @@ fn update_runtime_toml(root: &Path, key: &str, value: &str) -> anyhow::Result<()
     let mut doc: toml::Value = text.parse()?;
     set_toml_value(&mut doc, key, value)?;
     let output = toml::to_string_pretty(&doc)?;
+    crate::config::validate_runtime_toml_text(&output)
+        .map_err(|err| anyhow::anyhow!(err.to_string()))?;
     fs::write(&path, output)?;
     Ok(())
 }

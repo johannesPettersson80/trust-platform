@@ -9,6 +9,7 @@ use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use serde::Deserialize;
 
+use crate::config::{validate_io_toml_text, validate_runtime_toml_text};
 use crate::error::RuntimeError;
 
 #[derive(Debug, Deserialize)]
@@ -47,6 +48,7 @@ pub fn apply_deploy(
             format!("project folder not found: {}", bundle_root.display()).into(),
         ));
     }
+    preflight_deploy(bundle_root, &request)?;
     let mut written = Vec::new();
     if let Some(runtime_toml) = request.runtime_toml {
         let path = bundle_root.join("runtime.toml");
@@ -98,6 +100,43 @@ pub fn apply_deploy(
         written,
         restart: request.restart,
     })
+}
+
+fn preflight_deploy(bundle_root: &Path, request: &DeployRequest) -> Result<(), RuntimeError> {
+    let runtime_text = if let Some(text) = request.runtime_toml.as_deref() {
+        Some(text.to_string())
+    } else {
+        let existing = bundle_root.join("runtime.toml");
+        if existing.is_file() {
+            Some(std::fs::read_to_string(&existing).map_err(|err| {
+                RuntimeError::InvalidConfig(format!("runtime.toml: {err}").into())
+            })?)
+        } else {
+            None
+        }
+    };
+    let runtime_text = runtime_text.ok_or_else(|| {
+        RuntimeError::InvalidConfig("deploy preflight requires runtime.toml".into())
+    })?;
+    validate_runtime_toml_text(&runtime_text)?;
+
+    let io_text = if let Some(text) = request.io_toml.as_deref() {
+        Some(text.to_string())
+    } else {
+        let existing = bundle_root.join("io.toml");
+        if existing.is_file() {
+            Some(
+                std::fs::read_to_string(&existing)
+                    .map_err(|err| RuntimeError::InvalidConfig(format!("io.toml: {err}").into()))?,
+            )
+        } else {
+            None
+        }
+    };
+    if let Some(io_text) = io_text {
+        validate_io_toml_text(&io_text)?;
+    }
+    Ok(())
 }
 
 pub fn apply_rollback(root: &Path) -> Result<RollbackResult, RuntimeError> {
@@ -186,7 +225,37 @@ mod tests {
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(&root).unwrap();
         let request = DeployRequest {
-            runtime_toml: Some("[runtime]\n".to_string()),
+            runtime_toml: Some(
+                r#"
+[bundle]
+version = 1
+
+[resource]
+name = "main"
+cycle_interval_ms = 100
+
+[runtime.control]
+endpoint = "unix:///tmp/trust-runtime.sock"
+mode = "production"
+debug_enabled = false
+
+[runtime.log]
+level = "info"
+
+[runtime.retain]
+mode = "none"
+save_interval_ms = 1000
+
+[runtime.watchdog]
+enabled = false
+timeout_ms = 5000
+action = "halt"
+
+[runtime.fault]
+policy = "halt"
+"#
+                .to_string(),
+            ),
             io_toml: None,
             program_stbc_b64: Some(STANDARD.encode([1u8, 2, 3])),
             sources: Some(vec![DeploySource {
@@ -199,6 +268,54 @@ mod tests {
         assert!(result.written.contains(&"runtime.toml".to_string()));
         assert!(root.join("program.stbc").exists());
         assert!(root.join("sources/main.st").exists());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn apply_deploy_rejects_invalid_runtime_schema() {
+        let mut root = std::env::temp_dir();
+        root.push(format!("trust-deploy-invalid-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        let request = DeployRequest {
+            runtime_toml: Some(
+                r#"
+[bundle]
+version = 1
+
+[resource]
+name = "main"
+cycle_interval_ms = 0
+
+[runtime.control]
+endpoint = "unix:///tmp/trust-runtime.sock"
+
+[runtime.log]
+level = "info"
+
+[runtime.retain]
+mode = "none"
+save_interval_ms = 1000
+
+[runtime.watchdog]
+enabled = false
+timeout_ms = 5000
+action = "halt"
+
+[runtime.fault]
+policy = "halt"
+"#
+                .to_string(),
+            ),
+            io_toml: None,
+            program_stbc_b64: None,
+            sources: None,
+            restart: None,
+        };
+        let err = apply_deploy(&root, request).expect_err("schema should fail");
+        assert!(err
+            .to_string()
+            .contains("resource.cycle_interval_ms must be >= 1"));
         let _ = fs::remove_dir_all(root);
     }
 }

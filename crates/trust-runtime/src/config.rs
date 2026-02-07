@@ -174,9 +174,7 @@ impl RuntimeConfig {
     pub fn load(path: impl AsRef<Path>) -> Result<Self, RuntimeError> {
         let text = std::fs::read_to_string(path.as_ref())
             .map_err(|err| RuntimeError::InvalidConfig(format!("runtime.toml: {err}").into()))?;
-        let raw: RuntimeToml = toml::from_str(&text)
-            .map_err(|err| RuntimeError::InvalidConfig(format!("runtime.toml: {err}").into()))?;
-        raw.into_config()
+        parse_runtime_toml_from_text(&text, "runtime.toml")
     }
 }
 
@@ -184,9 +182,7 @@ impl IoConfig {
     pub fn load(path: impl AsRef<Path>) -> Result<Self, RuntimeError> {
         let text = std::fs::read_to_string(path.as_ref())
             .map_err(|err| RuntimeError::InvalidConfig(format!("io.toml: {err}").into()))?;
-        let raw: IoToml = toml::from_str(&text)
-            .map_err(|err| RuntimeError::InvalidConfig(format!("io.toml: {err}").into()))?;
-        raw.into_config()
+        parse_io_toml_from_text(&text, "io.toml")
     }
 }
 
@@ -203,7 +199,42 @@ pub fn load_system_io_config() -> Result<Option<IoConfig>, RuntimeError> {
     IoConfig::load(path).map(Some)
 }
 
+pub fn validate_runtime_toml_text(text: &str) -> Result<(), RuntimeError> {
+    parse_runtime_toml_from_text(text, "runtime.toml").map(|_| ())
+}
+
+pub fn validate_io_toml_text(text: &str) -> Result<(), RuntimeError> {
+    parse_io_toml_from_text(text, "io.toml").map(|_| ())
+}
+
+fn parse_runtime_toml_from_text(
+    text: &str,
+    file_name: &str,
+) -> Result<RuntimeConfig, RuntimeError> {
+    let raw: RuntimeToml = toml::from_str(text)
+        .map_err(|err| RuntimeError::InvalidConfig(format!("{file_name}: {err}").into()))?;
+    raw.into_config()
+        .map_err(|err| prefix_invalid_config(file_name, err))
+}
+
+fn parse_io_toml_from_text(text: &str, file_name: &str) -> Result<IoConfig, RuntimeError> {
+    let raw: IoToml = toml::from_str(text)
+        .map_err(|err| RuntimeError::InvalidConfig(format!("{file_name}: {err}").into()))?;
+    raw.into_config()
+        .map_err(|err| prefix_invalid_config(file_name, err))
+}
+
+fn prefix_invalid_config(file_name: &str, err: RuntimeError) -> RuntimeError {
+    match err {
+        RuntimeError::InvalidConfig(message) => {
+            RuntimeError::InvalidConfig(format!("{file_name}: {message}").into())
+        }
+        other => other,
+    }
+}
+
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct RuntimeToml {
     bundle: BundleSection,
     resource: ResourceSection,
@@ -211,11 +242,13 @@ struct RuntimeToml {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct BundleSection {
     version: u32,
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct ResourceSection {
     name: String,
     cycle_interval_ms: u64,
@@ -223,6 +256,7 @@ struct ResourceSection {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct TaskSection {
     name: String,
     interval_ms: u64,
@@ -232,6 +266,7 @@ struct TaskSection {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct RuntimeSection {
     control: ControlSection,
     log: LogSection,
@@ -244,6 +279,7 @@ struct RuntimeSection {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct ControlSection {
     endpoint: String,
     auth_token: Option<String>,
@@ -270,11 +306,13 @@ impl ControlMode {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct LogSection {
     level: String,
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct RetainSection {
     mode: String,
     path: Option<String>,
@@ -282,6 +320,7 @@ struct RetainSection {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct WatchdogSection {
     enabled: bool,
     timeout_ms: u64,
@@ -289,11 +328,13 @@ struct WatchdogSection {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct FaultSection {
     policy: String,
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct WebSection {
     enabled: Option<bool>,
     listen: Option<String>,
@@ -301,6 +342,7 @@ struct WebSection {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct DiscoverySection {
     enabled: Option<bool>,
     service_name: Option<String>,
@@ -309,6 +351,7 @@ struct DiscoverySection {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct MeshSection {
     enabled: Option<bool>,
     listen: Option<String>,
@@ -318,11 +361,13 @@ struct MeshSection {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct IoToml {
     io: IoSection,
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct IoSection {
     driver: String,
     params: toml::Value,
@@ -330,6 +375,7 @@ struct IoSection {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct IoSafeEntry {
     address: String,
     value: String,
@@ -337,25 +383,105 @@ struct IoSafeEntry {
 
 impl RuntimeToml {
     fn into_config(self) -> Result<RuntimeConfig, RuntimeError> {
+        if self.bundle.version != 1 {
+            return Err(RuntimeError::InvalidConfig(
+                format!("unsupported bundle.version {}", self.bundle.version).into(),
+            ));
+        }
+        if self.resource.name.trim().is_empty() {
+            return Err(RuntimeError::InvalidConfig(
+                "resource.name must not be empty".into(),
+            ));
+        }
+        if self.resource.cycle_interval_ms == 0 {
+            return Err(RuntimeError::InvalidConfig(
+                "resource.cycle_interval_ms must be >= 1".into(),
+            ));
+        }
+        if self.runtime.control.endpoint.trim().is_empty() {
+            return Err(RuntimeError::InvalidConfig(
+                "runtime.control.endpoint must not be empty".into(),
+            ));
+        }
+        if self.runtime.log.level.trim().is_empty() {
+            return Err(RuntimeError::InvalidConfig(
+                "runtime.log.level must not be empty".into(),
+            ));
+        }
+        if self.runtime.retain.save_interval_ms == 0 {
+            return Err(RuntimeError::InvalidConfig(
+                "runtime.retain.save_interval_ms must be >= 1".into(),
+            ));
+        }
+        if self.runtime.watchdog.timeout_ms == 0 {
+            return Err(RuntimeError::InvalidConfig(
+                "runtime.watchdog.timeout_ms must be >= 1".into(),
+            ));
+        }
         let retain_mode = RetainMode::parse(&self.runtime.retain.mode)?;
-        if matches!(retain_mode, RetainMode::File) && self.runtime.retain.path.is_none() {
+        if matches!(retain_mode, RetainMode::File)
+            && self
+                .runtime
+                .retain
+                .path
+                .as_deref()
+                .is_none_or(|path| path.trim().is_empty())
+        {
             return Err(RuntimeError::InvalidConfig(
                 "runtime.retain.path required when mode=file".into(),
             ));
         }
         let watchdog_action = WatchdogAction::parse(&self.runtime.watchdog.action)?;
         let fault_policy = FaultPolicy::parse(&self.runtime.fault.policy)?;
-        let tasks = self.resource.tasks.map(|tasks| {
-            tasks
-                .into_iter()
-                .map(|task| TaskOverride {
-                    name: SmolStr::new(task.name),
-                    interval: Duration::from_millis(task.interval_ms as i64),
-                    priority: task.priority,
-                    programs: task.programs.into_iter().map(SmolStr::new).collect(),
-                    single: task.single.map(SmolStr::new),
-                })
-                .collect()
+        let tasks = self
+            .resource
+            .tasks
+            .map(|tasks| {
+                tasks
+                    .into_iter()
+                    .map(|task| {
+                        if task.name.trim().is_empty() {
+                            return Err(RuntimeError::InvalidConfig(
+                                "resource.tasks[].name must not be empty".into(),
+                            ));
+                        }
+                        if task.interval_ms == 0 {
+                            return Err(RuntimeError::InvalidConfig(
+                                "resource.tasks[].interval_ms must be >= 1".into(),
+                            ));
+                        }
+                        if task.programs.is_empty() {
+                            return Err(RuntimeError::InvalidConfig(
+                                "resource.tasks[].programs must not be empty".into(),
+                            ));
+                        }
+                        if task
+                            .programs
+                            .iter()
+                            .any(|program| program.trim().is_empty())
+                        {
+                            return Err(RuntimeError::InvalidConfig(
+                                "resource.tasks[].programs entries must not be empty".into(),
+                            ));
+                        }
+                        Ok(TaskOverride {
+                            name: SmolStr::new(task.name),
+                            interval: Duration::from_millis(task.interval_ms as i64),
+                            priority: task.priority,
+                            programs: task.programs.into_iter().map(SmolStr::new).collect(),
+                            single: task.single.map(SmolStr::new),
+                        })
+                    })
+                    .collect::<Result<Vec<_>, RuntimeError>>()
+            })
+            .transpose()?;
+        let control_auth_token = self.runtime.control.auth_token.and_then(|token| {
+            let trimmed = token.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(SmolStr::new(trimmed))
+            }
         });
         let control_mode =
             ControlMode::parse(self.runtime.control.mode.as_deref().unwrap_or("production"))?;
@@ -363,9 +489,7 @@ impl RuntimeToml {
             Some(value) => value,
             None => matches!(control_mode, ControlMode::Debug),
         };
-        if self.runtime.control.endpoint.starts_with("tcp://")
-            && self.runtime.control.auth_token.is_none()
-        {
+        if self.runtime.control.endpoint.starts_with("tcp://") && control_auth_token.is_none() {
             return Err(RuntimeError::InvalidConfig(
                 "runtime.control.auth_token required for tcp endpoint".into(),
             ));
@@ -375,8 +499,17 @@ impl RuntimeToml {
             listen: Some("0.0.0.0:8080".into()),
             auth: Some("local".into()),
         });
+        if web_section
+            .listen
+            .as_deref()
+            .is_some_and(|listen| listen.trim().is_empty())
+        {
+            return Err(RuntimeError::InvalidConfig(
+                "runtime.web.listen must not be empty".into(),
+            ));
+        }
         let web_auth = WebAuthMode::parse(web_section.auth.as_deref().unwrap_or("local"))?;
-        if matches!(web_auth, WebAuthMode::Token) && self.runtime.control.auth_token.is_none() {
+        if matches!(web_auth, WebAuthMode::Token) && control_auth_token.is_none() {
             return Err(RuntimeError::InvalidConfig(
                 "runtime.web.auth=token requires runtime.control.auth_token".into(),
             ));
@@ -388,6 +521,15 @@ impl RuntimeToml {
             advertise: Some(true),
             interfaces: None,
         });
+        if discovery_section
+            .service_name
+            .as_deref()
+            .is_some_and(|name| name.trim().is_empty())
+        {
+            return Err(RuntimeError::InvalidConfig(
+                "runtime.discovery.service_name must not be empty".into(),
+            ));
+        }
 
         let mesh_section = self.runtime.mesh.unwrap_or(MeshSection {
             enabled: Some(false),
@@ -396,13 +538,22 @@ impl RuntimeToml {
             publish: None,
             subscribe: None,
         });
+        if mesh_section
+            .listen
+            .as_deref()
+            .is_some_and(|listen| listen.trim().is_empty())
+        {
+            return Err(RuntimeError::InvalidConfig(
+                "runtime.mesh.listen must not be empty".into(),
+            ));
+        }
 
         Ok(RuntimeConfig {
             bundle_version: self.bundle.version,
             resource_name: SmolStr::new(self.resource.name),
             cycle_interval: Duration::from_millis(self.resource.cycle_interval_ms as i64),
             control_endpoint: SmolStr::new(self.runtime.control.endpoint),
-            control_auth_token: self.runtime.control.auth_token.map(SmolStr::new),
+            control_auth_token,
             control_debug_enabled: debug_enabled,
             control_mode,
             log_level: SmolStr::new(self.runtime.log.level),
@@ -468,6 +619,16 @@ impl RuntimeToml {
 
 impl IoToml {
     fn into_config(self) -> Result<IoConfig, RuntimeError> {
+        if self.io.driver.trim().is_empty() {
+            return Err(RuntimeError::InvalidConfig(
+                "io.driver must not be empty".into(),
+            ));
+        }
+        if !self.io.params.is_table() {
+            return Err(RuntimeError::InvalidConfig(
+                "io.params must be a table".into(),
+            ));
+        }
         let mut safe_state = IoSafeState::default();
         if let Some(entries) = self.io.safe_state {
             for entry in entries {
@@ -515,4 +676,109 @@ fn parse_u64(text: &str) -> Result<u64, RuntimeError> {
     trimmed.parse::<u64>().map_err(|err| {
         RuntimeError::InvalidConfig(format!("invalid numeric value '{trimmed}': {err}").into())
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{validate_io_toml_text, validate_runtime_toml_text};
+
+    fn runtime_toml() -> String {
+        r#"
+[bundle]
+version = 1
+
+[resource]
+name = "main"
+cycle_interval_ms = 100
+
+[runtime.control]
+endpoint = "unix:///tmp/trust-runtime.sock"
+mode = "production"
+debug_enabled = false
+
+[runtime.log]
+level = "info"
+
+[runtime.retain]
+mode = "none"
+save_interval_ms = 1000
+
+[runtime.watchdog]
+enabled = false
+timeout_ms = 5000
+action = "halt"
+
+[runtime.fault]
+policy = "halt"
+
+[runtime.web]
+enabled = true
+listen = "0.0.0.0:8080"
+auth = "local"
+
+[runtime.discovery]
+enabled = true
+service_name = "truST"
+advertise = true
+interfaces = ["eth0"]
+
+[runtime.mesh]
+enabled = false
+listen = "0.0.0.0:5200"
+publish = []
+subscribe = {}
+"#
+        .to_string()
+    }
+
+    fn io_toml() -> String {
+        r#"
+[io]
+driver = "loopback"
+params = {}
+"#
+        .to_string()
+    }
+
+    #[test]
+    fn runtime_schema_rejects_unknown_keys() {
+        let text = format!("{}\n[runtime.extra]\nflag = true\n", runtime_toml());
+        let err = validate_runtime_toml_text(&text).expect_err("runtime schema should fail");
+        assert!(err.to_string().contains("unknown field"));
+    }
+
+    #[test]
+    fn runtime_schema_rejects_invalid_ranges() {
+        let text = runtime_toml().replace("cycle_interval_ms = 100", "cycle_interval_ms = 0");
+        let err = validate_runtime_toml_text(&text).expect_err("cycle interval range should fail");
+        assert!(err
+            .to_string()
+            .contains("resource.cycle_interval_ms must be >= 1"));
+    }
+
+    #[test]
+    fn runtime_schema_requires_control_auth_for_tcp_endpoints() {
+        let text = runtime_toml().replace(
+            "endpoint = \"unix:///tmp/trust-runtime.sock\"",
+            "endpoint = \"tcp://127.0.0.1:5000\"",
+        );
+        let err = validate_runtime_toml_text(&text).expect_err("tcp auth should fail");
+        assert!(err
+            .to_string()
+            .contains("runtime.control.auth_token required for tcp endpoint"));
+    }
+
+    #[test]
+    fn io_schema_rejects_unknown_keys() {
+        let text = io_toml().replace("params = {}", "params = {}\nunknown = true");
+        let err = validate_io_toml_text(&text).expect_err("io schema should fail");
+        assert!(err.to_string().contains("unknown field"));
+    }
+
+    #[test]
+    fn io_schema_requires_table_params() {
+        let text = io_toml().replace("params = {}", "params = 42");
+        let err = validate_io_toml_text(&text).expect_err("io.params type should fail");
+        assert!(err.to_string().contains("io.params must be a table"));
+    }
 }

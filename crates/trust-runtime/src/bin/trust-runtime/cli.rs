@@ -166,9 +166,30 @@ pub enum Command {
     },
     /// Initialize system IO configuration (writes /etc/trust/io.toml).
     #[command(
-        after_help = "Examples:\n  trust-runtime setup\n  trust-runtime setup --driver gpio --force\n  trust-runtime setup --path ./io.toml"
+        after_help = "Examples:\n  trust-runtime setup\n  trust-runtime setup --mode cancel\n  trust-runtime setup --mode browser --access remote --project ./my-plc\n  trust-runtime setup --mode cli --project ./my-plc\n  trust-runtime setup --driver gpio --force\n  trust-runtime setup --path ./io.toml"
     )]
     Setup {
+        /// Setup mode (`browser`, `cli`, `cancel`).
+        #[arg(long, value_enum)]
+        mode: Option<SetupModeArg>,
+        /// Browser setup access profile (`local` uses loopback, `remote` requires token).
+        #[arg(long, value_enum, default_value_t = SetupAccessArg::Local)]
+        access: SetupAccessArg,
+        /// Project folder for guided browser/CLI setup.
+        #[arg(long = "project", alias = "bundle")]
+        project: Option<PathBuf>,
+        /// Browser setup bind address override.
+        #[arg(long)]
+        bind: Option<String>,
+        /// Browser setup HTTP port.
+        #[arg(long, default_value_t = 8080)]
+        port: u16,
+        /// Browser setup token TTL in minutes (`remote` mode only).
+        #[arg(long = "token-ttl-minutes")]
+        token_ttl_minutes: Option<u64>,
+        /// Preview setup plan without applying changes.
+        #[arg(long, action = ArgAction::SetTrue)]
+        dry_run: bool,
         /// Override driver selection (default is auto-detect).
         #[arg(long)]
         driver: Option<String>,
@@ -246,6 +267,19 @@ pub enum DocsFormat {
     Markdown,
     Html,
     Both,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum SetupModeArg {
+    Browser,
+    Cli,
+    Cancel,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum SetupAccessArg {
+    Local,
+    Remote,
 }
 
 #[derive(Debug, Subcommand)]
@@ -490,6 +524,15 @@ mod tests {
                 assert_eq!(time_scale, 8);
             }
             other => panic!("expected play command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parse_setup_cancel_mode() {
+        let cli = Cli::parse_from(["trust-runtime", "setup", "--mode", "cancel"]);
+        match cli.command.expect("command") {
+            Command::Setup { mode, .. } => assert_eq!(mode, Some(SetupModeArg::Cancel)),
+            other => panic!("expected setup command, got {other:?}"),
         }
     }
 

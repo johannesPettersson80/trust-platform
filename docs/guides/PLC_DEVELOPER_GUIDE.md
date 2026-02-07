@@ -19,6 +19,23 @@ sources/
 - `program.stbc`: compiled bytecode.
 - `sources/`: Structured Text sources.
 
+## Config Paths + Apply Semantics
+
+Runtime reads configuration from these canonical paths:
+
+- Project runtime config: `<project-folder>/runtime.toml` (required).
+- Project I/O config: `<project-folder>/io.toml` (optional).
+- System I/O fallback if project `io.toml` is missing:
+  - Linux/macOS: `/etc/trust/io.toml`
+  - Windows: `C:\ProgramData\truST\io.toml`
+
+Apply/restart behavior:
+
+- Offline edits to `runtime.toml` and `io.toml` are loaded on next runtime start/restart.
+- `trust-runtime validate --project <project-folder>` validates both files against the canonical schema (required keys, types/ranges, unknown-key policy).
+- Browser UI and deploy preflight use the same schema checks before writing/applying config.
+- `config.set` updates running settings in memory and returns `restart_required` keys when a restart is needed to apply the change surface (web/discovery/mesh/control mode/retain mode).
+
 ## Build Flow
 
 Compile sources into bytecode:

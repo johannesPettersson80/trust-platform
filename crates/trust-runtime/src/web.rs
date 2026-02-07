@@ -207,6 +207,7 @@ fn json_to_toml(value: &serde_json::Value) -> toml::Value {
 }
 
 fn parse_io_toml(text: &str) -> Result<(String, toml::Value, Vec<IoSafeStateEntry>), RuntimeError> {
+    crate::config::validate_io_toml_text(text)?;
     let raw: toml::Value = toml::from_str(text)
         .map_err(|err| RuntimeError::InvalidConfig(format!("io.toml: {err}").into()))?;
     let io = raw
@@ -389,6 +390,7 @@ fn apply_setup(
     let runtime_path = bundle_root.join("runtime.toml");
     let runtime_text =
         crate::bundle_template::render_runtime_toml(&SmolStr::new(resource_name), cycle_ms);
+    crate::config::validate_runtime_toml_text(&runtime_text)?;
     std::fs::write(&runtime_path, runtime_text).map_err(|err| {
         RuntimeError::InvalidConfig(format!("failed to write runtime.toml: {err}").into())
     })?;
@@ -406,6 +408,7 @@ fn apply_setup(
                 RuntimeError::InvalidConfig(format!("io template error: {err}").into())
             })?;
         let io_text = crate::bundle_template::render_io_toml(&template);
+        crate::config::validate_io_toml_text(&io_text)?;
         std::fs::write(&io_path, io_text).map_err(|err| {
             RuntimeError::InvalidConfig(format!("failed to write io.toml: {err}").into())
         })?;
@@ -761,9 +764,14 @@ pub fn start_web_server(
                     let params_toml = json_to_toml(&params_json);
                     let safe_state = payload.safe_state.unwrap_or_default();
                     let io_text = render_io_toml(payload.driver.as_str(), params_toml, safe_state);
-                    match std::fs::write(&io_path, io_text) {
-                        Ok(_) => "✓ I/O config saved. Restart the runtime to apply.".to_string(),
-                        Err(err) => format!("error: failed to write io.toml: {err}"),
+                    match crate::config::validate_io_toml_text(&io_text) {
+                        Ok(()) => match std::fs::write(&io_path, io_text) {
+                            Ok(_) => {
+                                "✓ I/O config saved. Restart the runtime to apply.".to_string()
+                            }
+                            Err(err) => format!("error: failed to write io.toml: {err}"),
+                        },
+                        Err(err) => format!("error: {err}"),
                     }
                 };
                 let response = Response::from_string(response_body)

@@ -788,232 +788,377 @@ fn handle_config_set(
     params: Option<serde_json::Value>,
     state: &ControlState,
 ) -> ControlResponse {
+    macro_rules! parse_or_error {
+        ($expr:expr) => {
+            match $expr {
+                Ok(value) => value,
+                Err(error) => return ControlResponse::error(id, error),
+            }
+        };
+    }
+
     let params = match params {
         Some(params) => params,
         None => return ControlResponse::error(id, "missing params".into()),
     };
-    let mut settings = match state.settings.lock() {
+    let params = match params.as_object() {
+        Some(params) => params,
+        None => {
+            return ControlResponse::error(
+                id,
+                "invalid config payload: params must be an object".into(),
+            )
+        }
+    };
+    let mut settings_guard = match state.settings.lock() {
         Ok(guard) => guard,
         Err(_) => return ControlResponse::error(id, "settings unavailable".into()),
     };
+    let mut settings = settings_guard.clone();
     let mut updated = Vec::new();
     let mut restart_required = Vec::new();
-    if let Some(value) = params.get("log.level").and_then(|v| v.as_str()) {
-        settings.log_level = SmolStr::new(value);
-        updated.push("log.level");
-    }
-    if let Some(enabled) = params.get("watchdog.enabled").and_then(|v| v.as_bool()) {
-        settings.watchdog.enabled = enabled;
-        updated.push("watchdog.enabled");
-    }
-    if let Some(timeout) = params.get("watchdog.timeout_ms").and_then(|v| v.as_i64()) {
-        settings.watchdog.timeout = crate::value::Duration::from_millis(timeout);
-        updated.push("watchdog.timeout_ms");
-    }
-    if let Some(action) = params.get("watchdog.action").and_then(|v| v.as_str()) {
-        match crate::watchdog::WatchdogAction::parse(action) {
-            Ok(action) => {
-                settings.watchdog.action = action;
-                updated.push("watchdog.action");
-            }
-            Err(err) => return ControlResponse::error(id, err.to_string()),
-        }
-    }
-    if let Some(policy) = params.get("fault.policy").and_then(|v| v.as_str()) {
-        match crate::watchdog::FaultPolicy::parse(policy) {
-            Ok(policy) => {
-                settings.fault_policy = policy;
-                updated.push("fault.policy");
-            }
-            Err(err) => return ControlResponse::error(id, err.to_string()),
-        }
-    }
-    if let Some(interval) = params
-        .get("retain.save_interval_ms")
-        .and_then(|v| v.as_i64())
-    {
-        settings.retain_save_interval = Some(crate::value::Duration::from_millis(interval));
-        updated.push("retain.save_interval_ms");
-    }
-    if let Some(mode) = params.get("retain.mode").and_then(|v| v.as_str()) {
-        match crate::watchdog::RetainMode::parse(mode) {
-            Ok(mode) => {
-                settings.retain_mode = mode;
-                updated.push("retain.mode");
-                restart_required.push("retain.mode");
-            }
-            Err(err) => return ControlResponse::error(id, err.to_string()),
-        }
-    }
-
-    if let Some(enabled) = params.get("web.enabled").and_then(|v| v.as_bool()) {
-        settings.web.enabled = enabled;
-        updated.push("web.enabled");
-        restart_required.push("web.enabled");
-    }
-    if let Some(listen) = params.get("web.listen").and_then(|v| v.as_str()) {
-        settings.web.listen = SmolStr::new(listen);
-        updated.push("web.listen");
-        restart_required.push("web.listen");
-    }
-    if let Some(auth) = params.get("web.auth").and_then(|v| v.as_str()) {
-        if auth.eq_ignore_ascii_case("token") {
-            if let Ok(guard) = state.auth_token.lock() {
-                if guard.is_none() {
-                    return ControlResponse::error(
-                        id,
-                        "web.auth=token requires control auth token".into(),
-                    );
-                }
-            }
-        }
-        settings.web.auth = SmolStr::new(auth);
-        updated.push("web.auth");
-        restart_required.push("web.auth");
-    }
-    if let Some(enabled) = params.get("discovery.enabled").and_then(|v| v.as_bool()) {
-        settings.discovery.enabled = enabled;
-        updated.push("discovery.enabled");
-        restart_required.push("discovery.enabled");
-    }
-    if let Some(name) = params
-        .get("discovery.service_name")
-        .and_then(|v| v.as_str())
-    {
-        settings.discovery.service_name = SmolStr::new(name);
-        updated.push("discovery.service_name");
-        restart_required.push("discovery.service_name");
-    }
-    if let Some(advertise) = params.get("discovery.advertise").and_then(|v| v.as_bool()) {
-        settings.discovery.advertise = advertise;
-        updated.push("discovery.advertise");
-        restart_required.push("discovery.advertise");
-    }
-    if let Some(interfaces) = params
-        .get("discovery.interfaces")
-        .and_then(|v| v.as_array())
-    {
-        settings.discovery.interfaces = interfaces
-            .iter()
-            .filter_map(|item| item.as_str())
-            .map(SmolStr::new)
-            .collect();
-        updated.push("discovery.interfaces");
-        restart_required.push("discovery.interfaces");
-    }
-    if let Some(enabled) = params.get("mesh.enabled").and_then(|v| v.as_bool()) {
-        settings.mesh.enabled = enabled;
-        updated.push("mesh.enabled");
-        restart_required.push("mesh.enabled");
-    }
-    if let Some(listen) = params.get("mesh.listen").and_then(|v| v.as_str()) {
-        settings.mesh.listen = SmolStr::new(listen);
-        updated.push("mesh.listen");
-        restart_required.push("mesh.listen");
-    }
-    if let Some(publish) = params.get("mesh.publish").and_then(|v| v.as_array()) {
-        settings.mesh.publish = publish
-            .iter()
-            .filter_map(|item| item.as_str())
-            .map(SmolStr::new)
-            .collect();
-        updated.push("mesh.publish");
-        restart_required.push("mesh.publish");
-    }
-    if let Some(subscribe) = params.get("mesh.subscribe").and_then(|v| v.as_object()) {
-        settings.mesh.subscribe = subscribe
-            .iter()
-            .map(|(k, v)| {
-                (
-                    SmolStr::new(k),
-                    SmolStr::new(v.as_str().unwrap_or_default()),
-                )
-            })
-            .collect();
-        updated.push("mesh.subscribe");
-        restart_required.push("mesh.subscribe");
-    }
-    if let Some(value) = params.get("mesh.auth_token") {
-        if value.is_null() {
-            settings.mesh.auth_token = None;
-            updated.push("mesh.auth_token");
-            restart_required.push("mesh.auth_token");
-        } else if let Some(token) = value.as_str() {
-            if token.trim().is_empty() {
-                return ControlResponse::error(id, "mesh auth token cannot be empty".into());
-            }
-            settings.mesh.auth_token = Some(SmolStr::new(token));
-            updated.push("mesh.auth_token");
-            restart_required.push("mesh.auth_token");
-        } else {
-            return ControlResponse::error(id, "invalid mesh.auth_token".into());
-        }
-    }
-
+    let mut auth_token = match state.auth_token.lock() {
+        Ok(guard) => guard.clone(),
+        Err(_) => return ControlResponse::error(id, "auth token unavailable".into()),
+    };
+    let mut auth_changed = false;
     if let Some(value) = params.get("control.auth_token") {
-        let mut auth_guard = match state.auth_token.lock() {
-            Ok(guard) => guard,
-            Err(_) => return ControlResponse::error(id, "auth token unavailable".into()),
-        };
         if value.is_null() {
             if state.control_requires_auth {
                 return ControlResponse::error(id, "auth token required for tcp endpoints".into());
             }
-            *auth_guard = None;
+            auth_token = None;
+            auth_changed = true;
             updated.push("control.auth_token");
         } else if let Some(token) = value.as_str() {
-            if token.trim().is_empty() {
-                return ControlResponse::error(id, "auth token cannot be empty".into());
+            let token = token.trim();
+            if token.is_empty() {
+                return ControlResponse::error(
+                    id,
+                    config_value_error("control.auth_token", "must not be empty"),
+                );
             }
-            *auth_guard = Some(SmolStr::new(token));
+            auth_token = Some(SmolStr::new(token));
+            auth_changed = true;
             updated.push("control.auth_token");
         } else {
-            return ControlResponse::error(id, "invalid control.auth_token".into());
+            return ControlResponse::error(
+                id,
+                config_type_error("control.auth_token", "string or null"),
+            );
         }
     }
-    if let Some(value) = params
-        .get("control.debug_enabled")
-        .and_then(|v| v.as_bool())
-    {
-        state.debug_enabled.store(value, Ordering::Relaxed);
-        updated.push("control.debug_enabled");
-    }
-    if let Some(mode) = params.get("control.mode").and_then(|v| v.as_str()) {
-        let parsed = match mode.trim().to_ascii_lowercase().as_str() {
-            "production" => ControlMode::Production,
-            "debug" => ControlMode::Debug,
-            _ => {
-                return ControlResponse::error(id, format!("invalid runtime.control.mode '{mode}'"))
+
+    let mut control_mode = match state.control_mode.lock() {
+        Ok(guard) => *guard,
+        Err(_) => return ControlResponse::error(id, "control mode unavailable".into()),
+    };
+    let mut control_mode_changed = false;
+    let mut debug_enabled = state.debug_enabled.load(Ordering::Relaxed);
+    let mut debug_enabled_changed = false;
+
+    for (key, value) in params {
+        match key.as_str() {
+            "control.auth_token" => {}
+            "log.level" => {
+                let level = parse_or_error!(expect_non_empty_string(key, value));
+                settings.log_level = SmolStr::new(level);
+                updated.push("log.level");
             }
-        };
-        if let Ok(mut guard) = state.control_mode.lock() {
-            *guard = parsed;
+            "watchdog.enabled" => {
+                settings.watchdog.enabled = parse_or_error!(expect_bool(key, value));
+                updated.push("watchdog.enabled");
+            }
+            "watchdog.timeout_ms" => {
+                let timeout = parse_or_error!(expect_positive_i64(key, value));
+                settings.watchdog.timeout = crate::value::Duration::from_millis(timeout);
+                updated.push("watchdog.timeout_ms");
+            }
+            "watchdog.action" => {
+                let action = parse_or_error!(expect_non_empty_string(key, value));
+                settings.watchdog.action =
+                    parse_or_error!(crate::watchdog::WatchdogAction::parse(action)
+                        .map_err(|err| config_value_error(key, &err.to_string())));
+                updated.push("watchdog.action");
+            }
+            "fault.policy" => {
+                let policy = parse_or_error!(expect_non_empty_string(key, value));
+                settings.fault_policy =
+                    parse_or_error!(crate::watchdog::FaultPolicy::parse(policy)
+                        .map_err(|err| config_value_error(key, &err.to_string())));
+                updated.push("fault.policy");
+            }
+            "retain.save_interval_ms" => {
+                let interval = parse_or_error!(expect_positive_i64(key, value));
+                settings.retain_save_interval = Some(crate::value::Duration::from_millis(interval));
+                updated.push("retain.save_interval_ms");
+            }
+            "retain.mode" => {
+                let mode = parse_or_error!(expect_non_empty_string(key, value));
+                settings.retain_mode = parse_or_error!(crate::watchdog::RetainMode::parse(mode)
+                    .map_err(|err| config_value_error(key, &err.to_string())));
+                updated.push("retain.mode");
+                restart_required.push("retain.mode");
+            }
+            "web.enabled" => {
+                settings.web.enabled = parse_or_error!(expect_bool(key, value));
+                updated.push("web.enabled");
+                restart_required.push("web.enabled");
+            }
+            "web.listen" => {
+                let listen = parse_or_error!(expect_non_empty_string(key, value));
+                settings.web.listen = SmolStr::new(listen);
+                updated.push("web.listen");
+                restart_required.push("web.listen");
+            }
+            "web.auth" => {
+                let auth = parse_or_error!(expect_non_empty_string(key, value));
+                if auth.eq_ignore_ascii_case("token") && auth_token.is_none() {
+                    return ControlResponse::error(
+                        id,
+                        config_value_error("web.auth", "token mode requires control.auth_token"),
+                    );
+                }
+                if !(auth.eq_ignore_ascii_case("local") || auth.eq_ignore_ascii_case("token")) {
+                    return ControlResponse::error(
+                        id,
+                        config_value_error("web.auth", "expected 'local' or 'token'"),
+                    );
+                }
+                settings.web.auth = SmolStr::new(auth.to_ascii_lowercase());
+                updated.push("web.auth");
+                restart_required.push("web.auth");
+            }
+            "discovery.enabled" => {
+                settings.discovery.enabled = parse_or_error!(expect_bool(key, value));
+                updated.push("discovery.enabled");
+                restart_required.push("discovery.enabled");
+            }
+            "discovery.service_name" => {
+                let service_name = parse_or_error!(expect_non_empty_string(key, value));
+                settings.discovery.service_name = SmolStr::new(service_name);
+                updated.push("discovery.service_name");
+                restart_required.push("discovery.service_name");
+            }
+            "discovery.advertise" => {
+                settings.discovery.advertise = parse_or_error!(expect_bool(key, value));
+                updated.push("discovery.advertise");
+                restart_required.push("discovery.advertise");
+            }
+            "discovery.interfaces" => {
+                settings.discovery.interfaces = parse_or_error!(expect_string_array(key, value))
+                    .into_iter()
+                    .map(SmolStr::new)
+                    .collect();
+                updated.push("discovery.interfaces");
+                restart_required.push("discovery.interfaces");
+            }
+            "mesh.enabled" => {
+                settings.mesh.enabled = parse_or_error!(expect_bool(key, value));
+                updated.push("mesh.enabled");
+                restart_required.push("mesh.enabled");
+            }
+            "mesh.listen" => {
+                let listen = parse_or_error!(expect_non_empty_string(key, value));
+                settings.mesh.listen = SmolStr::new(listen);
+                updated.push("mesh.listen");
+                restart_required.push("mesh.listen");
+            }
+            "mesh.publish" => {
+                settings.mesh.publish = parse_or_error!(expect_string_array(key, value))
+                    .into_iter()
+                    .map(SmolStr::new)
+                    .collect();
+                updated.push("mesh.publish");
+                restart_required.push("mesh.publish");
+            }
+            "mesh.subscribe" => {
+                settings.mesh.subscribe = parse_or_error!(expect_string_map(key, value))
+                    .into_iter()
+                    .map(|(topic, alias)| (SmolStr::new(topic), SmolStr::new(alias)))
+                    .collect();
+                updated.push("mesh.subscribe");
+                restart_required.push("mesh.subscribe");
+            }
+            "mesh.auth_token" => {
+                if value.is_null() {
+                    settings.mesh.auth_token = None;
+                } else if let Some(token) = value.as_str() {
+                    let token = token.trim();
+                    if token.is_empty() {
+                        return ControlResponse::error(
+                            id,
+                            config_value_error("mesh.auth_token", "must not be empty"),
+                        );
+                    }
+                    settings.mesh.auth_token = Some(SmolStr::new(token));
+                } else {
+                    return ControlResponse::error(
+                        id,
+                        config_type_error("mesh.auth_token", "string or null"),
+                    );
+                }
+                updated.push("mesh.auth_token");
+                restart_required.push("mesh.auth_token");
+            }
+            "control.debug_enabled" => {
+                debug_enabled = parse_or_error!(expect_bool(key, value));
+                debug_enabled_changed = true;
+                updated.push("control.debug_enabled");
+            }
+            "control.mode" => {
+                let mode = parse_or_error!(expect_non_empty_string(key, value));
+                control_mode = match mode.to_ascii_lowercase().as_str() {
+                    "production" => ControlMode::Production,
+                    "debug" => ControlMode::Debug,
+                    _ => {
+                        return ControlResponse::error(
+                            id,
+                            config_value_error("control.mode", "expected 'production' or 'debug'"),
+                        )
+                    }
+                };
+                control_mode_changed = true;
+                updated.push("control.mode");
+                restart_required.push("control.mode");
+            }
+            _ => {
+                return ControlResponse::error(id, format!("unknown config key '{key}'"));
+            }
         }
-        updated.push("control.mode");
-        restart_required.push("control.mode");
+    }
+
+    *settings_guard = settings.clone();
+
+    if auth_changed {
+        if let Ok(mut guard) = state.auth_token.lock() {
+            *guard = auth_token;
+        } else {
+            return ControlResponse::error(id, "auth token unavailable".into());
+        }
+    }
+    if control_mode_changed {
+        if let Ok(mut guard) = state.control_mode.lock() {
+            *guard = control_mode;
+        } else {
+            return ControlResponse::error(id, "control mode unavailable".into());
+        }
+    }
+    if debug_enabled_changed {
+        state.debug_enabled.store(debug_enabled, Ordering::Relaxed);
     }
 
     let _ = state
         .resource
         .send_command(crate::scheduler::ResourceCommand::UpdateWatchdog(
-            settings.watchdog,
+            settings_guard.watchdog,
         ));
     let _ = state
         .resource
         .send_command(crate::scheduler::ResourceCommand::UpdateFaultPolicy(
-            settings.fault_policy,
+            settings_guard.fault_policy,
         ));
     let _ =
         state
             .resource
             .send_command(crate::scheduler::ResourceCommand::UpdateRetainSaveInterval(
-                settings.retain_save_interval,
+                settings_guard.retain_save_interval,
             ));
 
     ControlResponse::ok(
         id,
         json!({ "updated": updated, "restart_required": restart_required }),
     )
+}
+
+fn config_type_error(key: &str, expected: &str) -> String {
+    format!("invalid config value for '{key}': expected {expected}")
+}
+
+fn config_value_error(key: &str, message: &str) -> String {
+    format!("invalid config value for '{key}': {message}")
+}
+
+fn expect_bool(key: &str, value: &serde_json::Value) -> Result<bool, String> {
+    value
+        .as_bool()
+        .ok_or_else(|| config_type_error(key, "boolean"))
+}
+
+fn expect_non_empty_string<'a>(key: &str, value: &'a serde_json::Value) -> Result<&'a str, String> {
+    let value = value
+        .as_str()
+        .ok_or_else(|| config_type_error(key, "string"))?;
+    let value = value.trim();
+    if value.is_empty() {
+        return Err(config_value_error(key, "must not be empty"));
+    }
+    Ok(value)
+}
+
+fn expect_positive_i64(key: &str, value: &serde_json::Value) -> Result<i64, String> {
+    let number = value
+        .as_i64()
+        .or_else(|| value.as_u64().and_then(|n| i64::try_from(n).ok()))
+        .ok_or_else(|| config_type_error(key, "integer >= 1"))?;
+    if number < 1 {
+        return Err(config_value_error(key, "must be >= 1"));
+    }
+    Ok(number)
+}
+
+fn expect_string_array(key: &str, value: &serde_json::Value) -> Result<Vec<String>, String> {
+    let values = value
+        .as_array()
+        .ok_or_else(|| config_type_error(key, "array of strings"))?;
+    let mut output = Vec::with_capacity(values.len());
+    for (index, item) in values.iter().enumerate() {
+        let Some(text) = item.as_str() else {
+            return Err(config_value_error(
+                key,
+                &format!("entry {index} must be a string"),
+            ));
+        };
+        let text = text.trim();
+        if text.is_empty() {
+            return Err(config_value_error(
+                key,
+                &format!("entry {index} must not be empty"),
+            ));
+        }
+        output.push(text.to_string());
+    }
+    Ok(output)
+}
+
+fn expect_string_map(
+    key: &str,
+    value: &serde_json::Value,
+) -> Result<Vec<(String, String)>, String> {
+    let values = value
+        .as_object()
+        .ok_or_else(|| config_type_error(key, "object of strings"))?;
+    let mut output = Vec::with_capacity(values.len());
+    for (map_key, map_value) in values {
+        if map_key.trim().is_empty() {
+            return Err(config_value_error(key, "map keys must not be empty"));
+        }
+        let Some(text) = map_value.as_str() else {
+            return Err(config_value_error(
+                key,
+                &format!("entry '{map_key}' must be a string"),
+            ));
+        };
+        let text = text.trim();
+        if text.is_empty() {
+            return Err(config_value_error(
+                key,
+                &format!("entry '{map_key}' must not be empty"),
+            ));
+        }
+        output.push((map_key.clone(), text.to_string()));
+    }
+    Ok(output)
 }
 
 fn handle_pause(id: u64, state: &ControlState) -> ControlResponse {
@@ -2968,6 +3113,74 @@ END_PROGRAM
                 .and_then(serde_json::Value::as_str),
             Some("queued")
         );
+    }
+
+    #[test]
+    fn config_set_reports_field_level_diagnostics_for_unknown_and_type_errors() {
+        let source = r#"
+PROGRAM Main
+VAR
+    run : BOOL := TRUE;
+END_VAR
+END_PROGRAM
+"#;
+        let state = hmi_test_state(source);
+
+        let unknown = handle_request_value(
+            json!({
+                "id": 20,
+                "type": "config.set",
+                "params": { "unknown.key": true }
+            }),
+            &state,
+            None,
+        );
+        assert!(!unknown.ok);
+        assert_eq!(
+            unknown.error.as_deref(),
+            Some("unknown config key 'unknown.key'")
+        );
+
+        let invalid_type = handle_request_value(
+            json!({
+                "id": 21,
+                "type": "config.set",
+                "params": { "web.enabled": "yes" }
+            }),
+            &state,
+            None,
+        );
+        assert!(!invalid_type.ok);
+        assert!(invalid_type
+            .error
+            .as_deref()
+            .unwrap_or_default()
+            .contains("invalid config value for 'web.enabled': expected boolean"));
+    }
+
+    #[test]
+    fn config_set_reports_cross_field_auth_diagnostic() {
+        let source = r#"
+PROGRAM Main
+VAR
+    run : BOOL := TRUE;
+END_VAR
+END_PROGRAM
+"#;
+        let state = hmi_test_state(source);
+        let response = handle_request_value(
+            json!({
+                "id": 22,
+                "type": "config.set",
+                "params": { "web.auth": "token" }
+            }),
+            &state,
+            None,
+        );
+        assert!(!response.ok);
+        assert!(response.error.as_deref().unwrap_or_default().contains(
+            "invalid config value for 'web.auth': token mode requires control.auth_token"
+        ));
     }
 
     #[test]
