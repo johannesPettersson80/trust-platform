@@ -1,0 +1,11 @@
+CONFIGURATION Config
+VAR_GLOBAL
+    InSignal AT %IX0.0 : BOOL;
+    OutSignal AT %QX0.0 : BOOL;
+END_VAR
+
+RESOURCE ReliabilityResource ON PLC
+    TASK MainTask (INTERVAL := T#100ms, PRIORITY := 1);
+    PROGRAM P1 WITH MainTask : Main;
+END_RESOURCE
+END_CONFIGURATION

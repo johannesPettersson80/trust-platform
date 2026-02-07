@@ -21,6 +21,22 @@ on:
         description: "Soak test sample interval in seconds"
         required: false
         default: "30"
+      load_max_cycle_ms:
+        description: "Load gate: worst max cycle time budget in ms"
+        required: false
+        default: "20"
+      load_max_jitter_ms:
+        description: "Load gate: worst jitter budget in ms"
+        required: false
+        default: "20"
+      soak_max_rss_kb:
+        description: "Soak gate: max RSS budget in KB"
+        required: false
+        default: "262144"
+      soak_max_cpu_pct:
+        description: "Soak gate: max CPU budget in percent"
+        required: false
+        default: "95"
 
 env:
   CARGO_TERM_COLOR: always
@@ -52,7 +68,7 @@ jobs:
           OUT=artifacts/nightly/load.log \
           DURATION="${LOAD_DURATION_SECONDS}" \
           INTERVAL="${LOAD_INTERVAL_SECONDS}" \
-          scripts/runtime_load_test.sh docs/internal/testing/bundles/sample-runtime
+          scripts/runtime_load_test.sh tests/fixtures/runtime_reliability_bundle
 
       - name: Run soak test
         env:
@@ -63,15 +79,25 @@ jobs:
           OUT=artifacts/nightly/soak.log \
           DURATION_HOURS="${SOAK_DURATION_HOURS}" \
           INTERVAL_SEC="${SOAK_INTERVAL_SECONDS}" \
-          scripts/runtime_soak_test.sh docs/internal/testing/bundles/sample-runtime
+          scripts/runtime_soak_test.sh tests/fixtures/runtime_reliability_bundle
 
       - name: Summarize reliability trends
+        env:
+          LOAD_MAX_CYCLE_MS: ${{ github.event.inputs.load_max_cycle_ms || '20' }}
+          LOAD_MAX_JITTER_MS: ${{ github.event.inputs.load_max_jitter_ms || '20' }}
+          SOAK_MAX_RSS_KB: ${{ github.event.inputs.soak_max_rss_kb || '262144' }}
+          SOAK_MAX_CPU_PCT: ${{ github.event.inputs.soak_max_cpu_pct || '95' }}
         run: |
           python3 scripts/summarize_runtime_reliability.py \
             --load-log artifacts/nightly/load.log \
             --soak-log artifacts/nightly/soak.log \
             --output-json artifacts/nightly/reliability-summary.json \
-            --output-md artifacts/nightly/reliability-summary.md
+            --output-md artifacts/nightly/reliability-summary.md \
+            --enforce-gates \
+            --max-load-max-ms "${LOAD_MAX_CYCLE_MS}" \
+            --max-load-jitter-ms "${LOAD_MAX_JITTER_MS}" \
+            --max-soak-rss-kb "${SOAK_MAX_RSS_KB}" \
+            --max-soak-cpu-pct "${SOAK_MAX_CPU_PCT}"
 
       - name: Upload reliability artifacts
         if: ${{ always() }}
