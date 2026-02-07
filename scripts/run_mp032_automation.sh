@@ -11,7 +11,7 @@ LOAD_MAX_CYCLE_MS="${LOAD_MAX_CYCLE_MS:-20}"
 LOAD_MAX_JITTER_MS="${LOAD_MAX_JITTER_MS:-20}"
 SOAK_MAX_RSS_KB="${SOAK_MAX_RSS_KB:-262144}"
 SOAK_MAX_CPU_PCT="${SOAK_MAX_CPU_PCT:-95}"
-OUT_DIR="${OUT_DIR:-artifacts/mp032/$(date +%Y%m%d_%H%M%S)}"
+OUT_DIR="${OUT_DIR:-target/mp032/$(date +%Y%m%d_%H%M%S)}"
 
 mkdir -p "$OUT_DIR"
 
