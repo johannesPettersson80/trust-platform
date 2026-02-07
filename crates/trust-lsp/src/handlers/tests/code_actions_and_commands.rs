@@ -861,6 +861,9 @@ fn lsp_project_info_exposes_build_and_targets() {
                 profile: Some("release".to_string()),
                 flags: vec!["-O2".to_string()],
                 defines: vec!["SIM=1".to_string()],
+                dependencies_offline: false,
+                dependencies_locked: false,
+                dependency_lockfile: PathBuf::from("trust-lsp.lock"),
             },
             targets: vec![TargetProfile {
                 name: "sim".to_string(),

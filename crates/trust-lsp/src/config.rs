@@ -1,8 +1,10 @@
 //! Workspace/project configuration for trust-lsp.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
+use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use tower_lsp::lsp_types::DiagnosticSeverity;
 use tracing::warn;
 
@@ -136,9 +138,12 @@ impl ProjectConfig {
                 docs,
             });
         }
-        let dependencies = parse_project_dependencies(root, &parsed.dependencies);
-        let (dependency_libraries, dependency_resolution_issues) =
-            resolve_manifest_dependencies(&dependencies);
+        let policy = DependencyPolicy::from(parsed.dependency_policy);
+        let (dependencies, mut dependency_resolution_issues) =
+            parse_project_dependencies(root, &parsed.dependencies);
+        let (dependency_libraries, mut resolver_issues) =
+            resolve_manifest_dependencies(root, &dependencies, &config.build, &policy);
+        dependency_resolution_issues.append(&mut resolver_issues);
         libraries.extend(dependency_libraries);
         config.libraries = libraries;
         config.dependencies = dependencies;
@@ -422,7 +427,7 @@ pub struct RuntimeConfig {
 }
 
 /// Build configuration for project compilation.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct BuildConfig {
     /// Optional target name to select.
     pub target: Option<String>,
@@ -432,6 +437,26 @@ pub struct BuildConfig {
     pub flags: Vec<String>,
     /// Preprocessor/define flags.
     pub defines: Vec<String>,
+    /// Dependency resolver runs in offline mode (no fetch/clone).
+    pub dependencies_offline: bool,
+    /// Dependency resolver requires locked/pinned revisions.
+    pub dependencies_locked: bool,
+    /// Lock file path used for dependency pinning snapshots.
+    pub dependency_lockfile: PathBuf,
+}
+
+impl Default for BuildConfig {
+    fn default() -> Self {
+        Self {
+            target: None,
+            profile: None,
+            flags: Vec::new(),
+            defines: Vec::new(),
+            dependencies_offline: false,
+            dependencies_locked: false,
+            dependency_lockfile: PathBuf::from("trust-lsp.lock"),
+        }
+    }
 }
 
 /// Target-specific build configuration.
@@ -549,11 +574,20 @@ pub struct LibraryDependency {
     pub version: Option<String>,
 }
 
+#[derive(Debug, Clone)]
+pub struct GitDependency {
+    pub url: String,
+    pub rev: Option<String>,
+    pub tag: Option<String>,
+    pub branch: Option<String>,
+}
+
 /// A local package dependency declared in `[dependencies]`.
 #[derive(Debug, Clone)]
 pub struct ProjectDependency {
     pub name: String,
-    pub path: PathBuf,
+    pub path: Option<PathBuf>,
+    pub git: Option<GitDependency>,
     pub version: Option<String>,
 }
 
@@ -565,10 +599,19 @@ pub struct DependencyResolutionIssue {
     pub message: String,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct DependencyPolicy {
+    pub allowed_git_hosts: Vec<String>,
+    pub allow_http: bool,
+    pub allow_ssh: bool,
+}
+
 #[derive(Debug, Deserialize)]
 struct ConfigFile {
     #[serde(default)]
     dependencies: BTreeMap<String, ManifestDependencyEntry>,
+    #[serde(default)]
+    dependency_policy: DependencyPolicySection,
     #[serde(default)]
     project: ProjectSection,
     #[serde(default)]
@@ -651,6 +694,14 @@ struct TelemetrySection {
 }
 
 #[derive(Debug, Default, Deserialize)]
+struct DependencyPolicySection {
+    #[serde(default)]
+    allowed_git_hosts: Vec<String>,
+    allow_http: Option<bool>,
+    allow_ssh: Option<bool>,
+}
+
+#[derive(Debug, Default, Deserialize)]
 struct BuildSection {
     target: Option<String>,
     profile: Option<String>,
@@ -658,6 +709,9 @@ struct BuildSection {
     flags: Vec<String>,
     #[serde(default)]
     defines: Vec<String>,
+    dependencies_offline: Option<bool>,
+    dependencies_locked: Option<bool>,
+    dependency_lockfile: Option<String>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -708,8 +762,12 @@ enum ManifestDependencyEntry {
 
 #[derive(Debug, Deserialize)]
 struct ManifestDependencySection {
-    path: String,
+    path: Option<String>,
+    git: Option<String>,
     version: Option<String>,
+    rev: Option<String>,
+    tag: Option<String>,
+    branch: Option<String>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -718,6 +776,35 @@ struct DependencyManifestFile {
     package: PackageSection,
     #[serde(default)]
     dependencies: BTreeMap<String, ManifestDependencyEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "source", rename_all = "snake_case")]
+enum DependencyLockEntry {
+    Path { path: String },
+    Git { url: String, rev: String },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+struct DependencyLockFile {
+    #[serde(default = "dependency_lock_version")]
+    version: u32,
+    #[serde(default)]
+    dependencies: BTreeMap<String, DependencyLockEntry>,
+}
+
+#[derive(Debug, Clone)]
+struct ResolvedGitDependency {
+    path: PathBuf,
+    rev: String,
+}
+
+#[derive(Debug, Clone)]
+enum RevisionSelector {
+    Rev(String),
+    Tag(String),
+    Branch(String),
+    DefaultHead,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -774,6 +861,27 @@ impl From<BuildSection> for BuildConfig {
             profile: section.profile,
             flags: section.flags,
             defines: section.defines,
+            dependencies_offline: section.dependencies_offline.unwrap_or(false),
+            dependencies_locked: section.dependencies_locked.unwrap_or(false),
+            dependency_lockfile: section
+                .dependency_lockfile
+                .map(PathBuf::from)
+                .unwrap_or_else(|| PathBuf::from("trust-lsp.lock")),
+        }
+    }
+}
+
+impl From<DependencyPolicySection> for DependencyPolicy {
+    fn from(section: DependencyPolicySection) -> Self {
+        DependencyPolicy {
+            allowed_git_hosts: section
+                .allowed_git_hosts
+                .into_iter()
+                .map(|host| host.trim().to_ascii_lowercase())
+                .filter(|host| !host.is_empty())
+                .collect(),
+            allow_http: section.allow_http.unwrap_or(false),
+            allow_ssh: section.allow_ssh.unwrap_or(false),
         }
     }
 }
@@ -805,22 +913,6 @@ impl From<LibraryDependencyEntry> for LibraryDependency {
                 name: section.name,
                 version: section.version,
             },
-        }
-    }
-}
-
-impl ManifestDependencyEntry {
-    fn path(&self) -> &str {
-        match self {
-            ManifestDependencyEntry::Path(path) => path,
-            ManifestDependencyEntry::Detailed(entry) => entry.path.as_str(),
-        }
-    }
-
-    fn version(&self) -> Option<String> {
-        match self {
-            ManifestDependencyEntry::Path(_) => None,
-            ManifestDependencyEntry::Detailed(entry) => entry.version.clone(),
         }
     }
 }
@@ -868,127 +960,700 @@ fn resolve_path(root: &Path, entry: &str) -> PathBuf {
 fn parse_project_dependencies(
     root: &Path,
     entries: &BTreeMap<String, ManifestDependencyEntry>,
-) -> Vec<ProjectDependency> {
-    entries
-        .iter()
-        .map(|(name, entry)| ProjectDependency {
-            name: name.clone(),
-            path: resolve_path(root, entry.path()),
-            version: entry.version(),
-        })
-        .collect()
+) -> (Vec<ProjectDependency>, Vec<DependencyResolutionIssue>) {
+    let mut dependencies = Vec::new();
+    let mut issues = Vec::new();
+    for (name, entry) in entries {
+        match parse_project_dependency(root, name, entry) {
+            Ok(dependency) => dependencies.push(dependency),
+            Err(message) => issues.push(DependencyResolutionIssue {
+                code: "L005",
+                dependency: name.clone(),
+                message,
+            }),
+        }
+    }
+    (dependencies, issues)
 }
 
 fn resolve_manifest_dependencies(
+    root: &Path,
     dependencies: &[ProjectDependency],
+    build: &BuildConfig,
+    policy: &DependencyPolicy,
 ) -> (Vec<LibrarySpec>, Vec<DependencyResolutionIssue>) {
-    let mut libraries = BTreeMap::new();
     let mut issues = Vec::new();
-    let mut states = HashMap::new();
+    let lock_path = dependency_lock_path(root, build);
+    let lock = match load_dependency_lock(&lock_path) {
+        Ok(lock) => lock,
+        Err(message) => {
+            issues.push(DependencyResolutionIssue {
+                code: "L006",
+                dependency: "lockfile".to_string(),
+                message,
+            });
+            DependencyLockFile::default()
+        }
+    };
 
-    for dependency in dependencies {
-        resolve_dependency_recursive(dependency, &mut states, &mut libraries, &mut issues);
+    let mut resolver = DependencyResolver::new(root, build, policy, &lock, issues);
+    resolver.resolve_all(dependencies);
+    let (libraries, mut issues, resolved_lock) = resolver.finish();
+
+    if issues.is_empty() && !build.dependencies_locked && !resolved_lock.is_empty() {
+        if let Err(message) = write_dependency_lock(&lock_path, resolved_lock) {
+            issues.push(DependencyResolutionIssue {
+                code: "L006",
+                dependency: "lockfile".to_string(),
+                message,
+            });
+        }
     }
 
     (libraries.into_values().collect(), issues)
 }
 
-fn resolve_dependency_recursive(
-    dependency: &ProjectDependency,
-    states: &mut HashMap<String, DependencyVisitState>,
-    libraries: &mut BTreeMap<String, LibrarySpec>,
-    issues: &mut Vec<DependencyResolutionIssue>,
-) {
-    let path = canonicalize_or_self(&dependency.path);
-    if !path.is_dir() {
-        issues.push(DependencyResolutionIssue {
-            code: "L001",
-            dependency: dependency.name.clone(),
-            message: format!(
-                "Dependency '{}' path does not exist: {}",
-                dependency.name,
-                path.display()
-            ),
-        });
-        return;
+struct DependencyResolver<'a> {
+    root: &'a Path,
+    build: &'a BuildConfig,
+    policy: &'a DependencyPolicy,
+    lock: &'a DependencyLockFile,
+    states: HashMap<String, DependencyVisitState>,
+    libraries: BTreeMap<String, LibrarySpec>,
+    issues: Vec<DependencyResolutionIssue>,
+    resolved_lock: BTreeMap<String, DependencyLockEntry>,
+}
+
+impl<'a> DependencyResolver<'a> {
+    fn new(
+        root: &'a Path,
+        build: &'a BuildConfig,
+        policy: &'a DependencyPolicy,
+        lock: &'a DependencyLockFile,
+        issues: Vec<DependencyResolutionIssue>,
+    ) -> Self {
+        Self {
+            root,
+            build,
+            policy,
+            lock,
+            states: HashMap::new(),
+            libraries: BTreeMap::new(),
+            issues,
+            resolved_lock: BTreeMap::new(),
+        }
     }
 
-    if let Some(existing) = libraries.get(&dependency.name) {
+    fn resolve_all(&mut self, dependencies: &[ProjectDependency]) {
+        for dependency in dependencies {
+            self.resolve_dependency_recursive(dependency);
+        }
+    }
+
+    fn finish(
+        self,
+    ) -> (
+        BTreeMap<String, LibrarySpec>,
+        Vec<DependencyResolutionIssue>,
+        BTreeMap<String, DependencyLockEntry>,
+    ) {
+        (self.libraries, self.issues, self.resolved_lock)
+    }
+
+    fn resolve_dependency_recursive(&mut self, dependency: &ProjectDependency) {
+        let path = match resolve_dependency_source(
+            self.root,
+            self.build,
+            self.policy,
+            self.lock,
+            dependency,
+            &mut self.resolved_lock,
+        ) {
+            Ok(path) => path,
+            Err(issue) => {
+                self.issues.push(issue);
+                return;
+            }
+        };
+        if !path.is_dir() {
+            self.issues.push(DependencyResolutionIssue {
+                code: "L001",
+                dependency: dependency.name.clone(),
+                message: format!(
+                    "Dependency '{}' path does not exist: {}",
+                    dependency.name,
+                    path.display()
+                ),
+            });
+            return;
+        }
+
+        if let Some(existing) = self.libraries.get(&dependency.name) {
+            if let Some(required) = dependency.version.as_deref() {
+                if existing.version.as_deref() != Some(required) {
+                    let available = existing.version.as_deref().unwrap_or("unspecified");
+                    self.issues.push(DependencyResolutionIssue {
+                        code: "L002",
+                        dependency: dependency.name.clone(),
+                        message: format!(
+                            "Dependency '{}' requested version {}, but resolved version is {}",
+                            dependency.name, required, available
+                        ),
+                    });
+                }
+            }
+            return;
+        }
+
+        if self
+            .states
+            .get(dependency.name.as_str())
+            .copied()
+            .is_some_and(|state| state == DependencyVisitState::Visiting)
+        {
+            return;
+        }
+
+        self.states
+            .insert(dependency.name.clone(), DependencyVisitState::Visiting);
+
+        let (package, nested_dependencies) = match load_dependency_manifest(&path) {
+            Ok(manifest) => {
+                let (nested, mut parse_issues) =
+                    parse_project_dependencies(&path, &manifest.dependencies);
+                self.issues.append(&mut parse_issues);
+                (manifest.package, nested)
+            }
+            Err(message) => {
+                self.issues.push(DependencyResolutionIssue {
+                    code: "L001",
+                    dependency: dependency.name.clone(),
+                    message,
+                });
+                (PackageSection::default(), Vec::new())
+            }
+        };
+
         if let Some(required) = dependency.version.as_deref() {
-            if existing.version.as_deref() != Some(required) {
-                let available = existing.version.as_deref().unwrap_or("unspecified");
-                issues.push(DependencyResolutionIssue {
+            if package.version.as_deref() != Some(required) {
+                let available = package.version.as_deref().unwrap_or("unspecified");
+                self.issues.push(DependencyResolutionIssue {
                     code: "L002",
                     dependency: dependency.name.clone(),
                     message: format!(
-                        "Dependency '{}' requested version {}, but resolved version is {}",
+                        "Dependency '{}' requested version {}, but resolved package version is {}",
                         dependency.name, required, available
                     ),
                 });
             }
         }
-        return;
-    }
 
-    if states
-        .get(dependency.name.as_str())
-        .copied()
-        .is_some_and(|state| state == DependencyVisitState::Visiting)
-    {
-        return;
-    }
-
-    states.insert(dependency.name.clone(), DependencyVisitState::Visiting);
-
-    let (package, nested_dependencies) = match load_dependency_manifest(&path) {
-        Ok(manifest) => (
-            manifest.package,
-            parse_project_dependencies(&path, &manifest.dependencies),
-        ),
-        Err(message) => {
-            issues.push(DependencyResolutionIssue {
-                code: "L001",
-                dependency: dependency.name.clone(),
-                message,
+        let mut library_dependencies = Vec::new();
+        for nested in &nested_dependencies {
+            library_dependencies.push(LibraryDependency {
+                name: nested.name.clone(),
+                version: nested.version.clone(),
             });
-            (PackageSection::default(), Vec::new())
+            self.resolve_dependency_recursive(nested);
         }
+
+        self.libraries.insert(
+            dependency.name.clone(),
+            LibrarySpec {
+                name: dependency.name.clone(),
+                path,
+                version: package.version,
+                dependencies: library_dependencies,
+                docs: Vec::new(),
+            },
+        );
+        self.states
+            .insert(dependency.name.clone(), DependencyVisitState::Done);
+    }
+}
+
+fn parse_project_dependency(
+    root: &Path,
+    name: &str,
+    entry: &ManifestDependencyEntry,
+) -> Result<ProjectDependency, String> {
+    match entry {
+        ManifestDependencyEntry::Path(path) => Ok(ProjectDependency {
+            name: name.to_string(),
+            path: Some(resolve_path(root, path)),
+            git: None,
+            version: None,
+        }),
+        ManifestDependencyEntry::Detailed(section) => {
+            let has_path = section
+                .path
+                .as_ref()
+                .is_some_and(|path| !path.trim().is_empty());
+            let has_git = section
+                .git
+                .as_ref()
+                .is_some_and(|git| !git.trim().is_empty());
+
+            if has_path == has_git {
+                return Err(format!(
+                    "Dependency '{name}' must set exactly one of `path` or `git`"
+                ));
+            }
+
+            let selector_count = usize::from(section.rev.is_some())
+                + usize::from(section.tag.is_some())
+                + usize::from(section.branch.is_some());
+            if selector_count > 1 {
+                return Err(format!(
+                    "Dependency '{name}' may set only one of `rev`, `tag`, or `branch`"
+                ));
+            }
+
+            if has_path {
+                if section.rev.is_some() || section.tag.is_some() || section.branch.is_some() {
+                    return Err(format!(
+                        "Dependency '{name}' path entries do not support `rev`, `tag`, or `branch`"
+                    ));
+                }
+                let path = section.path.as_deref().unwrap_or_default();
+                return Ok(ProjectDependency {
+                    name: name.to_string(),
+                    path: Some(resolve_path(root, path)),
+                    git: None,
+                    version: section.version.clone(),
+                });
+            }
+
+            Ok(ProjectDependency {
+                name: name.to_string(),
+                path: None,
+                git: Some(GitDependency {
+                    url: section.git.clone().unwrap_or_default(),
+                    rev: section.rev.clone(),
+                    tag: section.tag.clone(),
+                    branch: section.branch.clone(),
+                }),
+                version: section.version.clone(),
+            })
+        }
+    }
+}
+
+fn resolve_dependency_source(
+    root: &Path,
+    build: &BuildConfig,
+    policy: &DependencyPolicy,
+    lock: &DependencyLockFile,
+    dependency: &ProjectDependency,
+    resolved_lock: &mut BTreeMap<String, DependencyLockEntry>,
+) -> Result<PathBuf, DependencyResolutionIssue> {
+    if let Some(path) = dependency.path.as_ref() {
+        let resolved = canonicalize_or_self(path);
+        resolved_lock.insert(
+            dependency.name.clone(),
+            DependencyLockEntry::Path {
+                path: resolved.to_string_lossy().into_owned(),
+            },
+        );
+        return Ok(resolved);
+    }
+
+    let Some(git) = dependency.git.as_ref() else {
+        return Err(DependencyResolutionIssue {
+            code: "L005",
+            dependency: dependency.name.clone(),
+            message: format!("Dependency '{}' has no source", dependency.name),
+        });
     };
 
-    if let Some(required) = dependency.version.as_deref() {
-        if package.version.as_deref() != Some(required) {
-            let available = package.version.as_deref().unwrap_or("unspecified");
-            issues.push(DependencyResolutionIssue {
-                code: "L002",
-                dependency: dependency.name.clone(),
+    let resolved = resolve_git_dependency(root, build, policy, lock, &dependency.name, git)?;
+    resolved_lock.insert(
+        dependency.name.clone(),
+        DependencyLockEntry::Git {
+            url: git.url.clone(),
+            rev: resolved.rev.clone(),
+        },
+    );
+    Ok(resolved.path)
+}
+
+fn resolve_git_dependency(
+    root: &Path,
+    build: &BuildConfig,
+    policy: &DependencyPolicy,
+    lock: &DependencyLockFile,
+    dependency_name: &str,
+    git: &GitDependency,
+) -> Result<ResolvedGitDependency, DependencyResolutionIssue> {
+    if let Err(message) = validate_git_source_policy(git.url.as_str(), policy) {
+        return Err(DependencyResolutionIssue {
+            code: "L005",
+            dependency: dependency_name.to_string(),
+            message: format!("Dependency '{dependency_name}' rejected by trust policy: {message}"),
+        });
+    }
+
+    let lock_entry = lock.dependencies.get(dependency_name);
+    let selector = match (git.rev.as_ref(), git.tag.as_ref(), git.branch.as_ref()) {
+        (Some(rev), None, None) => RevisionSelector::Rev(rev.clone()),
+        (None, Some(tag), None) => RevisionSelector::Tag(tag.clone()),
+        (None, None, Some(branch)) => RevisionSelector::Branch(branch.clone()),
+        (None, None, None) => {
+            if build.dependencies_locked {
+                match lock_entry {
+                    Some(DependencyLockEntry::Git { url, rev }) if *url == git.url => {
+                        RevisionSelector::Rev(rev.clone())
+                    }
+                    Some(DependencyLockEntry::Git { .. }) => {
+                        return Err(DependencyResolutionIssue {
+                            code: "L006",
+                            dependency: dependency_name.to_string(),
+                            message: format!(
+                                "Dependency '{dependency_name}' lock entry URL mismatch for locked resolution"
+                            ),
+                        });
+                    }
+                    _ => {
+                        return Err(DependencyResolutionIssue {
+                            code: "L006",
+                            dependency: dependency_name.to_string(),
+                            message: format!(
+                                "Dependency '{dependency_name}' requires `rev`/`tag`/`branch` or lock entry in locked mode"
+                            ),
+                        });
+                    }
+                }
+            } else if let Some(DependencyLockEntry::Git { url, rev }) = lock_entry {
+                if *url == git.url {
+                    RevisionSelector::Rev(rev.clone())
+                } else {
+                    RevisionSelector::DefaultHead
+                }
+            } else {
+                RevisionSelector::DefaultHead
+            }
+        }
+        _ => {
+            return Err(DependencyResolutionIssue {
+                code: "L005",
+                dependency: dependency_name.to_string(),
                 message: format!(
-                    "Dependency '{}' requested version {}, but resolved package version is {}",
-                    dependency.name, required, available
+                    "Dependency '{dependency_name}' may set only one of `rev`, `tag`, or `branch`"
                 ),
             });
         }
+    };
+
+    let repo_root = root.join(".trust-lsp").join("deps").join("git");
+    let repo_dir = repo_root.join(format!(
+        "{}-{}",
+        sanitize_for_path(dependency_name),
+        stable_hash_hex(git.url.as_str())
+    ));
+
+    if !repo_dir.is_dir() {
+        if build.dependencies_offline {
+            return Err(DependencyResolutionIssue {
+                code: "L007",
+                dependency: dependency_name.to_string(),
+                message: format!(
+                    "Dependency '{dependency_name}' is not available in offline mode (missing cache at {})",
+                    repo_dir.display()
+                ),
+            });
+        }
+        std::fs::create_dir_all(&repo_root).map_err(|err| DependencyResolutionIssue {
+            code: "L001",
+            dependency: dependency_name.to_string(),
+            message: format!(
+                "Dependency '{dependency_name}' failed to create git cache root: {err}"
+            ),
+        })?;
+        run_git_command(
+            None,
+            &[
+                "clone",
+                "--no-checkout",
+                git.url.as_str(),
+                repo_dir.to_string_lossy().as_ref(),
+            ],
+        )
+        .map_err(|message| DependencyResolutionIssue {
+            code: "L001",
+            dependency: dependency_name.to_string(),
+            message: format!("Dependency '{dependency_name}' clone failed: {message}"),
+        })?;
+    } else if !build.dependencies_offline {
+        run_git_command(Some(&repo_dir), &["fetch", "--tags", "--prune", "origin"]).map_err(
+            |message| DependencyResolutionIssue {
+                code: "L001",
+                dependency: dependency_name.to_string(),
+                message: format!("Dependency '{dependency_name}' fetch failed: {message}"),
+            },
+        )?;
     }
 
-    let mut library_dependencies = Vec::new();
-    for nested in &nested_dependencies {
-        library_dependencies.push(LibraryDependency {
-            name: nested.name.clone(),
-            version: nested.version.clone(),
-        });
-        resolve_dependency_recursive(nested, states, libraries, issues);
+    let resolved_rev = resolve_git_revision(&repo_dir, &selector).ok_or_else(|| {
+        let detail = match selector {
+            RevisionSelector::Rev(rev) => format!("rev {rev}"),
+            RevisionSelector::Tag(tag) => format!("tag {tag}"),
+            RevisionSelector::Branch(branch) => format!("branch {branch}"),
+            RevisionSelector::DefaultHead => "default HEAD".to_string(),
+        };
+        let code = if build.dependencies_offline {
+            "L007"
+        } else {
+            "L001"
+        };
+        DependencyResolutionIssue {
+            code,
+            dependency: dependency_name.to_string(),
+            message: format!(
+                "Dependency '{dependency_name}' could not resolve git {detail} in {}",
+                repo_dir.display()
+            ),
+        }
+    })?;
+
+    run_git_command(
+        Some(&repo_dir),
+        &["checkout", "--detach", "--force", resolved_rev.as_str()],
+    )
+    .map_err(|message| DependencyResolutionIssue {
+        code: "L001",
+        dependency: dependency_name.to_string(),
+        message: format!("Dependency '{dependency_name}' checkout failed: {message}"),
+    })?;
+
+    Ok(ResolvedGitDependency {
+        path: repo_dir,
+        rev: resolved_rev,
+    })
+}
+
+fn validate_git_source_policy(url: &str, policy: &DependencyPolicy) -> Result<(), String> {
+    let trimmed = url.trim();
+    if trimmed.is_empty() {
+        return Err("git URL is empty".to_string());
     }
 
-    libraries.insert(
-        dependency.name.clone(),
-        LibrarySpec {
-            name: dependency.name.clone(),
-            path,
-            version: package.version,
-            dependencies: library_dependencies,
-            docs: Vec::new(),
-        },
-    );
-    states.insert(dependency.name.clone(), DependencyVisitState::Done);
+    if is_local_git_source(trimmed) || trimmed.starts_with("file://") {
+        return Ok(());
+    }
+
+    if let Some(authority) = trimmed.strip_prefix("https://") {
+        let host =
+            extract_git_host(authority).ok_or_else(|| "failed to parse HTTPS host".to_string())?;
+        return validate_git_host(host.as_str(), policy);
+    }
+
+    if let Some(authority) = trimmed.strip_prefix("http://") {
+        if !policy.allow_http {
+            return Err("HTTP git sources are disabled".to_string());
+        }
+        let host =
+            extract_git_host(authority).ok_or_else(|| "failed to parse HTTP host".to_string())?;
+        return validate_git_host(host.as_str(), policy);
+    }
+
+    if let Some(authority) = trimmed.strip_prefix("ssh://") {
+        if !policy.allow_ssh {
+            return Err("SSH git sources are disabled".to_string());
+        }
+        let host =
+            extract_git_host(authority).ok_or_else(|| "failed to parse SSH host".to_string())?;
+        return validate_git_host(host.as_str(), policy);
+    }
+
+    if looks_like_scp_git_source(trimmed) {
+        if !policy.allow_ssh {
+            return Err("SSH git sources are disabled".to_string());
+        }
+        let host = trimmed
+            .split_once('@')
+            .and_then(|(_, right)| right.split_once(':').map(|(host, _)| host.to_string()))
+            .ok_or_else(|| "failed to parse SCP-style SSH host".to_string())?;
+        return validate_git_host(host.as_str(), policy);
+    }
+
+    Err("unsupported git source scheme".to_string())
+}
+
+fn validate_git_host(host: &str, policy: &DependencyPolicy) -> Result<(), String> {
+    let host = host.trim().trim_start_matches('[').trim_end_matches(']');
+    if host.is_empty() {
+        return Err("git host is empty".to_string());
+    }
+    if policy.allowed_git_hosts.is_empty() {
+        return Ok(());
+    }
+    let host_lower = host.to_ascii_lowercase();
+    if policy.allowed_git_hosts.iter().any(|allowed| {
+        host_lower == *allowed || host_lower.ends_with(format!(".{allowed}").as_str())
+    }) {
+        Ok(())
+    } else {
+        Err(format!(
+            "host '{host}' is not in dependency_policy.allowed_git_hosts"
+        ))
+    }
+}
+
+fn extract_git_host(authority_and_path: &str) -> Option<String> {
+    let authority = authority_and_path.split('/').next()?;
+    let authority = authority
+        .split_once('@')
+        .map_or(authority, |(_, value)| value);
+    if authority.starts_with('[') {
+        return authority
+            .split_once(']')
+            .map(|(host, _)| host.trim_start_matches('[').to_string());
+    }
+    let host = authority.split(':').next()?.trim();
+    if host.is_empty() {
+        None
+    } else {
+        Some(host.to_string())
+    }
+}
+
+fn is_local_git_source(source: &str) -> bool {
+    source.starts_with("./")
+        || source.starts_with("../")
+        || source.starts_with('/')
+        || source
+            .chars()
+            .nth(1)
+            .is_some_and(|second| second == ':' && source.chars().next().is_some())
+}
+
+fn looks_like_scp_git_source(source: &str) -> bool {
+    source.contains('@') && source.contains(':') && !source.contains("://")
+}
+
+fn resolve_git_revision(repo: &Path, selector: &RevisionSelector) -> Option<String> {
+    match selector {
+        RevisionSelector::Rev(rev) => rev_parse_commit(repo, rev.as_str()),
+        RevisionSelector::Tag(tag) => rev_parse_commit(repo, format!("refs/tags/{tag}").as_str())
+            .or_else(|| rev_parse_commit(repo, tag.as_str())),
+        RevisionSelector::Branch(branch) => {
+            rev_parse_commit(repo, format!("refs/remotes/origin/{branch}").as_str())
+                .or_else(|| rev_parse_commit(repo, format!("refs/heads/{branch}").as_str()))
+                .or_else(|| rev_parse_commit(repo, branch.as_str()))
+        }
+        RevisionSelector::DefaultHead => rev_parse_commit(repo, "refs/remotes/origin/HEAD")
+            .or_else(|| rev_parse_commit(repo, "origin/HEAD"))
+            .or_else(|| rev_parse_commit(repo, "HEAD")),
+    }
+}
+
+fn rev_parse_commit(repo: &Path, reference: &str) -> Option<String> {
+    run_git_command(
+        Some(repo),
+        &[
+            "rev-parse",
+            "--verify",
+            format!("{reference}^{{commit}}").as_str(),
+        ],
+    )
+    .ok()
+}
+
+fn run_git_command(cwd: Option<&Path>, args: &[&str]) -> Result<String, String> {
+    let mut command = Command::new("git");
+    command.args(args);
+    if let Some(dir) = cwd {
+        command.current_dir(dir);
+    }
+    let output = command
+        .output()
+        .map_err(|err| format!("failed to execute git: {err}"))?;
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let detail = if stderr.trim().is_empty() {
+            stdout.trim()
+        } else {
+            stderr.trim()
+        };
+        Err(format!("git {}: {detail}", args.join(" ")))
+    }
+}
+
+fn dependency_lock_path(root: &Path, build: &BuildConfig) -> PathBuf {
+    if build.dependency_lockfile.is_absolute() {
+        build.dependency_lockfile.clone()
+    } else {
+        root.join(&build.dependency_lockfile)
+    }
+}
+
+fn load_dependency_lock(path: &Path) -> Result<DependencyLockFile, String> {
+    if !path.is_file() {
+        return Ok(DependencyLockFile::default());
+    }
+    let content = std::fs::read_to_string(path).map_err(|err| {
+        format!(
+            "failed to read dependency lock file {}: {err}",
+            path.display()
+        )
+    })?;
+    toml::from_str(&content).map_err(|err| {
+        format!(
+            "failed to parse dependency lock file {}: {err}",
+            path.display()
+        )
+    })
+}
+
+fn write_dependency_lock(
+    path: &Path,
+    dependencies: BTreeMap<String, DependencyLockEntry>,
+) -> Result<(), String> {
+    let lock = DependencyLockFile {
+        version: dependency_lock_version(),
+        dependencies,
+    };
+    let content = toml::to_string_pretty(&lock)
+        .map_err(|err| format!("failed to encode dependency lock file: {err}"))?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|err| {
+            format!(
+                "failed to create dependency lock parent {}: {err}",
+                parent.display()
+            )
+        })?;
+    }
+    std::fs::write(path, content).map_err(|err| {
+        format!(
+            "failed to write dependency lock file {}: {err}",
+            path.display()
+        )
+    })
+}
+
+fn dependency_lock_version() -> u32 {
+    1
+}
+
+fn sanitize_for_path(value: &str) -> String {
+    let mut out = String::with_capacity(value.len());
+    for ch in value.chars() {
+        if ch.is_ascii_alphanumeric() {
+            out.push(ch.to_ascii_lowercase());
+        } else {
+            out.push('-');
+        }
+    }
+    out.trim_matches('-').to_string()
+}
+
+fn stable_hash_hex(value: &str) -> String {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    value.hash(&mut hasher);
+    format!("{:016x}", hasher.finish())
 }
 
 fn load_dependency_manifest(path: &Path) -> Result<DependencyManifestFile, String> {
@@ -1024,6 +1689,7 @@ enum DependencyVisitState {
 mod tests {
     use super::*;
     use std::fs;
+    use std::process::Command;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn temp_dir(prefix: &str) -> PathBuf {
@@ -1034,6 +1700,54 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("{prefix}-{stamp}"));
         fs::create_dir_all(&dir).expect("create temp dir");
         dir
+    }
+
+    fn git(cwd: &Path, args: &[&str]) -> String {
+        let output = Command::new("git")
+            .current_dir(cwd)
+            .args(args)
+            .output()
+            .expect("execute git command");
+        assert!(
+            output.status.success(),
+            "git {} failed: {}",
+            args.join(" "),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8_lossy(&output.stdout).trim().to_string()
+    }
+
+    fn init_dependency_repo(path: &Path) -> (String, String) {
+        fs::create_dir_all(path).expect("create dependency repo");
+        git(path, &["init"]);
+        git(path, &["config", "user.email", "test@example.com"]);
+        git(path, &["config", "user.name", "trust-lsp test"]);
+        fs::write(
+            path.join("trust-lsp.toml"),
+            r#"
+[package]
+version = "1.0.0"
+"#,
+        )
+        .expect("write initial manifest");
+        git(path, &["add", "."]);
+        git(path, &["commit", "-m", "initial"]);
+        let rev_v1 = git(path, &["rev-parse", "HEAD"]);
+        git(path, &["tag", "v1"]);
+        git(path, &["branch", "stable"]);
+
+        fs::write(
+            path.join("trust-lsp.toml"),
+            r#"
+[package]
+version = "2.0.0"
+"#,
+        )
+        .expect("write updated manifest");
+        git(path, &["add", "."]);
+        git(path, &["commit", "-m", "update"]);
+        let rev_v2 = git(path, &["rev-parse", "HEAD"]);
+        (rev_v1, rev_v2)
     }
 
     #[test]
@@ -1275,6 +1989,154 @@ Versioned = { path = "deps/versioned", version = "1.0.0" }
             .dependency_resolution_issues
             .iter()
             .any(|issue| issue.code == "L002" && issue.dependency == "Versioned"));
+
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn resolves_git_dependencies_with_rev_tag_and_branch_pinning() {
+        let root = temp_dir("trustlsp-config-git-pins");
+        let repo = root.join("repos/vendor");
+        let (rev_v1, _rev_v2) = init_dependency_repo(&repo);
+
+        fs::write(
+            root.join("trust-lsp.toml"),
+            format!(
+                r#"
+[dependencies]
+ByRev = {{ git = "{repo}", rev = "{rev}" }}
+ByTag = {{ git = "{repo}", tag = "v1" }}
+ByBranch = {{ git = "{repo}", branch = "stable" }}
+"#,
+                repo = repo.to_string_lossy(),
+                rev = rev_v1
+            ),
+        )
+        .expect("write root config");
+
+        let config = ProjectConfig::load(&root);
+        assert!(config.dependency_resolution_issues.is_empty());
+        let by_rev = config
+            .libraries
+            .iter()
+            .find(|lib| lib.name == "ByRev")
+            .expect("ByRev library");
+        let by_tag = config
+            .libraries
+            .iter()
+            .find(|lib| lib.name == "ByTag")
+            .expect("ByTag library");
+        let by_branch = config
+            .libraries
+            .iter()
+            .find(|lib| lib.name == "ByBranch")
+            .expect("ByBranch library");
+
+        assert_eq!(by_rev.version.as_deref(), Some("1.0.0"));
+        assert_eq!(by_tag.version.as_deref(), Some("1.0.0"));
+        assert_eq!(by_branch.version.as_deref(), Some("1.0.0"));
+        assert!(root.join("trust-lsp.lock").is_file());
+
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn locked_mode_requires_pin_or_lock_entry_for_git_dependencies() {
+        let root = temp_dir("trustlsp-config-git-locked");
+        let repo = root.join("repos/vendor");
+        let _ = init_dependency_repo(&repo);
+
+        fs::write(
+            root.join("trust-lsp.toml"),
+            format!(
+                r#"
+[build]
+dependencies_locked = true
+
+[dependencies]
+Floating = {{ git = "{repo}" }}
+"#,
+                repo = repo.to_string_lossy()
+            ),
+        )
+        .expect("write root config");
+
+        let config = ProjectConfig::load(&root);
+        assert!(config
+            .dependency_resolution_issues
+            .iter()
+            .any(|issue| issue.code == "L006" && issue.dependency == "Floating"));
+
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn offline_locked_mode_uses_cached_lock_resolution() {
+        let root = temp_dir("trustlsp-config-git-offline");
+        let repo = root.join("repos/vendor");
+        let _ = init_dependency_repo(&repo);
+
+        let initial_config = format!(
+            r#"
+[dependencies]
+Floating = {{ git = "{repo}" }}
+"#,
+            repo = repo.to_string_lossy()
+        );
+        fs::write(root.join("trust-lsp.toml"), initial_config).expect("write initial config");
+        let first = ProjectConfig::load(&root);
+        assert!(
+            first.dependency_resolution_issues.is_empty(),
+            "initial resolve should succeed"
+        );
+        assert!(root.join("trust-lsp.lock").is_file());
+
+        fs::write(
+            root.join("trust-lsp.toml"),
+            format!(
+                r#"
+[build]
+dependencies_locked = true
+dependencies_offline = true
+
+[dependencies]
+Floating = {{ git = "{repo}" }}
+"#,
+                repo = repo.to_string_lossy()
+            ),
+        )
+        .expect("write offline config");
+
+        let offline = ProjectConfig::load(&root);
+        assert!(
+            offline.dependency_resolution_issues.is_empty(),
+            "offline locked resolve should reuse lock/cache"
+        );
+        assert!(offline.libraries.iter().any(|lib| lib.name == "Floating"));
+
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn enforces_git_host_allowlist_policy() {
+        let root = temp_dir("trustlsp-config-policy");
+        fs::write(
+            root.join("trust-lsp.toml"),
+            r#"
+[dependency_policy]
+allowed_git_hosts = ["git.example.internal"]
+
+[dependencies]
+Vendor = { git = "https://github.com/example/vendor.git", rev = "deadbeef" }
+"#,
+        )
+        .expect("write policy config");
+
+        let config = ProjectConfig::load(&root);
+        assert!(config
+            .dependency_resolution_issues
+            .iter()
+            .any(|issue| issue.code == "L005" && issue.dependency == "Vendor"));
 
         fs::remove_dir_all(root).ok();
     }

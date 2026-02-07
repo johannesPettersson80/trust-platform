@@ -3468,7 +3468,17 @@ Range: 0.0 to 3000.0
 - `stdlib` profiles: `full` (default), `iec` (IEC standard functions/FBs only; Tables 22–36, 43–46), `none` (no standard library completions/hover), or an explicit allow-list array.
 - When `vendor_profile` is set and no explicit stdlib allow-list/profile is provided, the server defaults to the IEC profile for completions/hover.
 - `[[libraries]]` entries include `name`, `path`, and optional `version` for external library indexing.
-- `[dependencies]` supports local package references (`Name = "path"` or `Name = { path = "...", version? = "..." }`) with transitive resolution for indexing and runtime build input assembly.
+- `[dependencies]` supports local and git package references:
+  - local: `Name = "path"` or `Name = { path = "...", version? = "..." }`
+  - git: `Name = { git = "<url-or-local-repo>", rev? = "...", tag? = "...", branch? = "...", version? = "..." }`
+- Dependency pinning/lock behavior:
+  - `rev`/`tag`/`branch` pin git dependencies explicitly.
+  - `build.dependencies_locked = true` requires explicit pinning or a matching lock entry.
+  - Resolver snapshots pinned sources to `build.dependency_lockfile` (default `trust-lsp.lock`) for reproducible resolution.
+  - `build.dependencies_offline = true` disables clone/fetch and resolves from local cache + lock only.
+- Basic supply-chain trust policy is configurable via `[dependency_policy]`:
+  - `allowed_git_hosts = ["example.com"]` allow-list (empty = any host).
+  - `allow_http` (default false), `allow_ssh` (default false).
 - `[[libraries]]` can declare `dependencies` (array of `{ name, version? }`) to model library graphs; missing dependencies or version mismatches are reported as config diagnostics.
 - Library/dependency graphs report missing references (L001), version mismatches (L002), conflicting declarations (L003), and dependency cycles (L004).
 - `[[libraries]]` can declare `docs` (array of markdown files) to attach vendor library documentation to hover/completion. Each file uses `# SymbolName` headings followed by doc text.
