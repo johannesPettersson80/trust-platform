@@ -37,9 +37,17 @@ on:
         description: "Soak gate: max CPU budget in percent"
         required: false
         default: "95"
+      flake_gate_enforce:
+        description: "Fail job when 14-day flake aggregate gate is pending/failing"
+        required: false
+        default: "false"
 
 env:
   CARGO_TERM_COLOR: always
+
+permissions:
+  contents: read
+  actions: read
 
 jobs:
   reliability:
@@ -93,6 +101,28 @@ jobs:
             --output-json artifacts/nightly/st-test-flake-sample.json \
             --output-md artifacts/nightly/st-test-flake-sample.md \
             --max-failures 0
+
+      - name: Aggregate 14-day ST test flake trend
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FLAKE_GATE_ENFORCE: ${{ github.event.inputs.flake_gate_enforce || 'false' }}
+        run: |
+          ENFORCE_ARGS="--pending-ok"
+          if [ "${FLAKE_GATE_ENFORCE}" = "true" ]; then
+            ENFORCE_ARGS="--enforce-gate"
+          fi
+
+          python3 scripts/aggregate_st_test_flake_history.py \
+            --sample-file artifacts/nightly/st-test-flake-sample.json \
+            --github-repo "${{ github.repository }}" \
+            --github-token "${GITHUB_TOKEN}" \
+            --days 14 \
+            --min-samples 14 \
+            --max-aggregate-rate 0.0 \
+            --artifact-name-prefix nightly-reliability- \
+            --output-json artifacts/nightly/st-test-flake-14d.json \
+            --output-md artifacts/nightly/st-test-flake-14d.md \
+            ${ENFORCE_ARGS}
 
       - name: Summarize reliability trends
         env:

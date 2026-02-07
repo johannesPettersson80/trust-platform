@@ -13,6 +13,8 @@ Legend: `[ ]` pending, `[x]` complete.
 - [x] Nightly workflow runs runtime load and soak scripts.
 - [x] Nightly workflow uploads load/soak logs and summary artifacts.
 - [x] Reliability summary includes CPU/RSS trend data plus fault/restart signals.
+- [x] Nightly workflow captures ST test flake sample artifacts.
+- [x] Nightly workflow generates a rolling 14-day ST test flake aggregate report.
 
 ## Aggregation Gates
 - [x] CI uploads per-job gate marker artifacts.
