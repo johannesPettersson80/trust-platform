@@ -22,6 +22,12 @@ Run ST tests in CI mode (defaults to JUnit if `--output` is omitted):
 trust-runtime test --project <project-folder> --ci --output junit
 ```
 
+Run ST tests with stable machine-readable JSON summary output:
+
+```bash
+trust-runtime test --project <project-folder> --ci --output json
+```
+
 Generate markdown docs for API review artifacts:
 
 ```bash
