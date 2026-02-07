@@ -13,6 +13,8 @@ CPU_RE = re.compile(r"\bcpu=([0-9]+(?:\.[0-9]+)?)\b")
 RSS_RE = re.compile(r"\bmem_rss_kb=([0-9]+)\b")
 RESTART_RE = re.compile(r"\brestarts?=([0-9]+)\b")
 PROCESS_ALIVE_RE = re.compile(r"\bprocess_alive=(true|false)\b", re.IGNORECASE)
+HMI_STATUS_RE = re.compile(r"\bhmi_status=(ok|error|disabled|stopped)\b", re.IGNORECASE)
+HMI_LATENCY_RE = re.compile(r"\bhmi_latency_ms=([0-9]+(?:\.[0-9]+)?)\b")
 FAULT_STATE_RE = re.compile(r"\bstate=faulted\b", re.IGNORECASE)
 FAULT_FIELD_RE = re.compile(r"\bfault=([^\s]+)\b", re.IGNORECASE)
 TASK_STATS_RE = re.compile(
@@ -91,6 +93,10 @@ def summarize_soak_log(lines: list[str]) -> dict[str, object]:
     samples = [line for line in lines if line and not line.startswith("#")]
     cpu_values: list[float] = []
     rss_values: list[int] = []
+    hmi_latency_values: list[float] = []
+    hmi_samples = 0
+    hmi_ok = 0
+    hmi_errors = 0
     fault_mentions = 0
     restart_max = 0
     process_exits = 0
@@ -115,6 +121,20 @@ def summarize_soak_log(lines: list[str]) -> dict[str, object]:
         if process_alive_match and process_alive_match.group(1).lower() == "false":
             process_exits += 1
 
+        hmi_status_match = HMI_STATUS_RE.search(line)
+        if hmi_status_match:
+            status = hmi_status_match.group(1).lower()
+            if status in ("ok", "error"):
+                hmi_samples += 1
+                if status == "ok":
+                    hmi_ok += 1
+                else:
+                    hmi_errors += 1
+
+        hmi_latency_match = HMI_LATENCY_RE.search(line)
+        if hmi_latency_match:
+            hmi_latency_values.append(float(hmi_latency_match.group(1)))
+
     return {
         "samples": len(samples),
         "first_timestamp": first_timestamp(samples),
@@ -122,6 +142,17 @@ def summarize_soak_log(lines: list[str]) -> dict[str, object]:
         "fault_mentions": fault_mentions,
         "restart_max": restart_max,
         "process_exits": process_exits,
+        "hmi": {
+            "enabled": hmi_samples > 0,
+            "samples": hmi_samples,
+            "ok": hmi_ok,
+            "errors": hmi_errors,
+            "latency_ms": {
+                "min": min(hmi_latency_values) if hmi_latency_values else None,
+                "avg": mean(hmi_latency_values) if hmi_latency_values else None,
+                "max": max(hmi_latency_values) if hmi_latency_values else None,
+            },
+        },
         "cpu_pct": {
             "min": min(cpu_values) if cpu_values else None,
             "avg": mean(cpu_values) if cpu_values else None,
@@ -155,6 +186,8 @@ def build_gate_result(
     max_soak_restarts: int,
     max_soak_rss_kb: int,
     max_soak_cpu_pct: float,
+    max_soak_hmi_errors: int,
+    max_soak_hmi_latency_ms: float,
 ) -> dict[str, object]:
     load = summary["load"]
     soak = summary["soak"]
@@ -162,8 +195,10 @@ def build_gate_result(
     assert isinstance(soak, dict)
     soak_cpu = soak["cpu_pct"]
     soak_mem = soak["mem_rss_kb"]
+    soak_hmi = soak.get("hmi", {})
     assert isinstance(soak_cpu, dict)
     assert isinstance(soak_mem, dict)
+    assert isinstance(soak_hmi, dict)
 
     failures: list[str] = []
     if int(load["samples"]) == 0:
@@ -222,6 +257,22 @@ def build_gate_result(
             f"soak: cpu_pct.max={soak_cpu_max:.2f} exceeds {max_soak_cpu_pct:.2f}"
         )
 
+    if bool(soak_hmi.get("enabled")):
+        if int(soak_hmi.get("errors", 0)) > max_soak_hmi_errors:
+            failures.append(
+                f"soak: hmi.errors={soak_hmi.get('errors')} exceeds {max_soak_hmi_errors}"
+            )
+        hmi_latency = soak_hmi.get("latency_ms", {})
+        if isinstance(hmi_latency, dict):
+            hmi_latency_max = hmi_latency.get("max")
+            if hmi_latency_max is None:
+                failures.append("soak: HMI enabled but no latency samples parsed")
+            elif float(hmi_latency_max) > max_soak_hmi_latency_ms:
+                failures.append(
+                    "soak: hmi.latency_ms.max="
+                    f"{hmi_latency_max:.3f} exceeds {max_soak_hmi_latency_ms:.3f}"
+                )
+
     return {
         "passed": not failures,
         "failures": failures,
@@ -235,6 +286,8 @@ def build_gate_result(
             "max_soak_restarts": max_soak_restarts,
             "max_soak_rss_kb": max_soak_rss_kb,
             "max_soak_cpu_pct": max_soak_cpu_pct,
+            "max_soak_hmi_errors": max_soak_hmi_errors,
+            "max_soak_hmi_latency_ms": max_soak_hmi_latency_ms,
         },
     }
 
@@ -247,8 +300,10 @@ def write_markdown(path: Path, summary: dict[str, object]) -> None:
     assert isinstance(soak, dict)
     cpu = soak["cpu_pct"]
     mem = soak["mem_rss_kb"]
+    hmi = soak.get("hmi", {})
     assert isinstance(cpu, dict)
     assert isinstance(mem, dict)
+    assert isinstance(hmi, dict)
 
     lines = [
         "# Runtime Reliability Summary",
@@ -276,14 +331,34 @@ def write_markdown(path: Path, summary: dict[str, object]) -> None:
         f"- First timestamp: `{soak['first_timestamp']}`",
         f"- Last timestamp: `{soak['last_timestamp']}`",
         "",
-        "## Resource Trends",
-        "",
-        "| Metric | Min | Avg | Max |",
-        "| --- | ---: | ---: | ---: |",
-        f"| CPU % | {format_number(cpu['min'])} | {format_number(cpu['avg'])} | {format_number(cpu['max'])} |",
-        f"| RSS KB | {format_number(mem['min'])} | {format_number(mem['avg'])} | {format_number(mem['max'])} |",
-        "",
     ]
+
+    if bool(hmi.get("enabled")):
+        latency = hmi.get("latency_ms", {})
+        assert isinstance(latency, dict)
+        lines.extend(
+            [
+                "## HMI Polling",
+                "",
+                f"- Samples: `{hmi.get('samples')}`",
+                f"- Successful polls: `{hmi.get('ok')}`",
+                f"- Failed polls: `{hmi.get('errors')}`",
+                f"- Latency min/avg/max (ms): `{format_number(latency.get('min'))}` / `{format_number(latency.get('avg'))}` / `{format_number(latency.get('max'))}`",
+                "",
+            ]
+        )
+
+    lines.extend(
+        [
+            "## Resource Trends",
+            "",
+            "| Metric | Min | Avg | Max |",
+            "| --- | ---: | ---: | ---: |",
+            f"| CPU % | {format_number(cpu['min'])} | {format_number(cpu['avg'])} | {format_number(cpu['max'])} |",
+            f"| RSS KB | {format_number(mem['min'])} | {format_number(mem['avg'])} | {format_number(mem['max'])} |",
+            "",
+        ]
+    )
 
     if isinstance(gate, dict):
         lines.append("## Gate Result")
@@ -323,6 +398,8 @@ def main() -> int:
     parser.add_argument("--max-soak-restarts", type=int, default=0)
     parser.add_argument("--max-soak-rss-kb", type=int, default=262_144)
     parser.add_argument("--max-soak-cpu-pct", type=float, default=95.0)
+    parser.add_argument("--max-soak-hmi-errors", type=int, default=0)
+    parser.add_argument("--max-soak-hmi-latency-ms", type=float, default=250.0)
     args = parser.parse_args()
 
     load_lines_data = load_lines(Path(args.load_log))
@@ -355,6 +432,8 @@ def main() -> int:
         max_soak_restarts=args.max_soak_restarts,
         max_soak_rss_kb=args.max_soak_rss_kb,
         max_soak_cpu_pct=args.max_soak_cpu_pct,
+        max_soak_hmi_errors=args.max_soak_hmi_errors,
+        max_soak_hmi_latency_ms=args.max_soak_hmi_latency_ms,
     )
     summary["gate"] = gate_result
 

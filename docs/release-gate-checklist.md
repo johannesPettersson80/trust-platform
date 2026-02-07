@@ -15,6 +15,7 @@ Legend: `[ ]` pending, `[x]` complete.
 - [x] Reliability summary includes CPU/RSS trend data plus fault/restart signals.
 - [x] Nightly workflow captures ST test flake sample artifacts.
 - [x] Nightly workflow generates a rolling 14-day ST test flake aggregate report.
+- [x] Self-hosted long-read-only HMI soak workflow exists for 24h evidence capture.
 
 ## Aggregation Gates
 - [x] CI uploads per-job gate marker artifacts.

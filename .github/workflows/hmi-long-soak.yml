@@ -1,0 +1,106 @@
+name: HMI Long Soak
+
+on:
+  workflow_dispatch:
+    inputs:
+      load_duration_seconds:
+        description: "Load test warm-up duration in seconds"
+        required: false
+        default: "300"
+      load_interval_seconds:
+        description: "Load test sample interval in seconds"
+        required: false
+        default: "1"
+      soak_duration_hours:
+        description: "Read-only HMI soak duration in hours"
+        required: false
+        default: "24"
+      soak_interval_seconds:
+        description: "Read-only HMI poll interval in seconds"
+        required: false
+        default: "60"
+      soak_max_rss_kb:
+        description: "Soak gate: max RSS budget in KB"
+        required: false
+        default: "262144"
+      soak_max_cpu_pct:
+        description: "Soak gate: max CPU budget in percent"
+        required: false
+        default: "95"
+      soak_max_hmi_errors:
+        description: "Soak gate: max HMI polling errors"
+        required: false
+        default: "0"
+      soak_max_hmi_latency_ms:
+        description: "Soak gate: max HMI polling latency in ms"
+        required: false
+        default: "250"
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  hmi-soak:
+    name: Long Read-Only HMI Soak
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 1800
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build trust-runtime
+        run: cargo build -p trust-runtime
+
+      - name: Prepare artifact directory
+        run: mkdir -p artifacts/hmi-soak
+
+      - name: Run load warm-up
+        env:
+          ST_RUNTIME: ${{ github.workspace }}/target/debug/trust-runtime
+          DURATION: ${{ github.event.inputs.load_duration_seconds || '300' }}
+          INTERVAL: ${{ github.event.inputs.load_interval_seconds || '1' }}
+        run: |
+          OUT=artifacts/hmi-soak/load.log \
+          scripts/runtime_load_test.sh tests/fixtures/hmi_reliability_bundle
+
+      - name: Run long read-only HMI soak
+        env:
+          ST_RUNTIME: ${{ github.workspace }}/target/debug/trust-runtime
+          DURATION_HOURS: ${{ github.event.inputs.soak_duration_hours || '24' }}
+          INTERVAL_SEC: ${{ github.event.inputs.soak_interval_seconds || '60' }}
+          HMI_POLL_ENABLED: "true"
+          HMI_BASE_URL: "http://127.0.0.1:18080"
+        run: |
+          OUT=artifacts/hmi-soak/soak.log \
+          scripts/runtime_soak_test.sh tests/fixtures/hmi_reliability_bundle
+
+      - name: Summarize and enforce reliability gates
+        env:
+          SOAK_MAX_RSS_KB: ${{ github.event.inputs.soak_max_rss_kb || '262144' }}
+          SOAK_MAX_CPU_PCT: ${{ github.event.inputs.soak_max_cpu_pct || '95' }}
+          SOAK_MAX_HMI_ERRORS: ${{ github.event.inputs.soak_max_hmi_errors || '0' }}
+          SOAK_MAX_HMI_LATENCY_MS: ${{ github.event.inputs.soak_max_hmi_latency_ms || '250' }}
+        run: |
+          python3 scripts/summarize_runtime_reliability.py \
+            --load-log artifacts/hmi-soak/load.log \
+            --soak-log artifacts/hmi-soak/soak.log \
+            --output-json artifacts/hmi-soak/reliability-summary.json \
+            --output-md artifacts/hmi-soak/reliability-summary.md \
+            --enforce-gates \
+            --max-soak-rss-kb "${SOAK_MAX_RSS_KB}" \
+            --max-soak-cpu-pct "${SOAK_MAX_CPU_PCT}" \
+            --max-soak-hmi-errors "${SOAK_MAX_HMI_ERRORS}" \
+            --max-soak-hmi-latency-ms "${SOAK_MAX_HMI_LATENCY_MS}"
+
+      - name: Upload long soak artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: hmi-long-soak-${{ github.run_id }}
+          path: artifacts/hmi-soak/
