@@ -136,9 +136,14 @@ pub struct MeshConfig {
 
 #[derive(Debug, Clone)]
 pub struct IoConfig {
-    pub driver: SmolStr,
-    pub params: toml::Value,
+    pub drivers: Vec<IoDriverConfig>,
     pub safe_state: IoSafeState,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct IoDriverConfig {
+    pub name: SmolStr,
+    pub params: toml::Value,
 }
 
 #[derive(Debug, Clone)]
@@ -485,9 +490,17 @@ struct IoToml {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct IoSection {
-    driver: String,
-    params: toml::Value,
+    driver: Option<String>,
+    params: Option<toml::Value>,
+    drivers: Option<Vec<IoDriverSection>>,
     safe_state: Option<Vec<IoSafeEntry>>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct IoDriverSection {
+    name: String,
+    params: Option<toml::Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1137,16 +1150,66 @@ impl RuntimeToml {
 
 impl IoToml {
     fn into_config(self) -> Result<IoConfig, RuntimeError> {
-        if self.io.driver.trim().is_empty() {
+        let legacy_driver = self
+            .io
+            .driver
+            .as_deref()
+            .map(str::trim)
+            .filter(|text| !text.is_empty())
+            .map(ToOwned::to_owned);
+        let legacy_params = self
+            .io
+            .params
+            .unwrap_or_else(|| toml::Value::Table(toml::map::Map::new()));
+        let explicit_drivers = self.io.drivers.unwrap_or_default();
+
+        if legacy_driver.is_some() && !explicit_drivers.is_empty() {
             return Err(RuntimeError::InvalidConfig(
-                "io.driver must not be empty".into(),
+                "use either io.driver/io.params or io.drivers, not both".into(),
             ));
         }
-        if !self.io.params.is_table() {
-            return Err(RuntimeError::InvalidConfig(
-                "io.params must be a table".into(),
-            ));
-        }
+
+        let drivers = if let Some(driver) = legacy_driver {
+            if !legacy_params.is_table() {
+                return Err(RuntimeError::InvalidConfig(
+                    "io.params must be a table".into(),
+                ));
+            }
+            vec![IoDriverConfig {
+                name: SmolStr::new(driver),
+                params: legacy_params,
+            }]
+        } else {
+            if explicit_drivers.is_empty() {
+                return Err(RuntimeError::InvalidConfig(
+                    "io.driver or io.drivers must be set".into(),
+                ));
+            }
+            explicit_drivers
+                .into_iter()
+                .enumerate()
+                .map(|(idx, driver)| {
+                    if driver.name.trim().is_empty() {
+                        return Err(RuntimeError::InvalidConfig(
+                            format!("io.drivers[{idx}].name must not be empty").into(),
+                        ));
+                    }
+                    let params = driver
+                        .params
+                        .unwrap_or_else(|| toml::Value::Table(toml::map::Map::new()));
+                    if !params.is_table() {
+                        return Err(RuntimeError::InvalidConfig(
+                            format!("io.drivers[{idx}].params must be a table").into(),
+                        ));
+                    }
+                    Ok(IoDriverConfig {
+                        name: SmolStr::new(driver.name),
+                        params,
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()?
+        };
+
         let mut safe_state = IoSafeState::default();
         if let Some(entries) = self.io.safe_state {
             for entry in entries {
@@ -1156,8 +1219,7 @@ impl IoToml {
             }
         }
         Ok(IoConfig {
-            driver: SmolStr::new(self.io.driver),
-            params: self.io.params,
+            drivers,
             safe_state,
         })
     }
@@ -1441,5 +1503,53 @@ params = {}
         let text = io_toml().replace("params = {}", "params = 42");
         let err = validate_io_toml_text(&text).expect_err("io.params type should fail");
         assert!(err.to_string().contains("io.params must be a table"));
+    }
+
+    #[test]
+    fn io_schema_accepts_multiple_drivers() {
+        let text = r#"
+[io]
+safe_state = [{ address = "%QX0.0", value = "FALSE" }]
+
+[[io.drivers]]
+name = "modbus-tcp"
+params = { address = "127.0.0.1:502", unit_id = 1, input_start = 0, output_start = 0, timeout_ms = 500, on_error = "fault" }
+
+[[io.drivers]]
+name = "mqtt"
+params = { broker = "127.0.0.1:1883", topic_in = "trust/io/in", topic_out = "trust/io/out", reconnect_ms = 500, keep_alive_s = 5, allow_insecure_remote = false }
+"#;
+        validate_io_toml_text(text).expect("io.drivers profile should be valid");
+    }
+
+    #[test]
+    fn io_schema_rejects_mixed_single_and_multi_driver_fields() {
+        let text = r#"
+[io]
+driver = "loopback"
+params = {}
+
+[[io.drivers]]
+name = "mqtt"
+params = { broker = "127.0.0.1:1883" }
+"#;
+        let err = validate_io_toml_text(text)
+            .expect_err("mixed io.driver and io.drivers should be rejected");
+        assert!(err
+            .to_string()
+            .contains("use either io.driver/io.params or io.drivers"));
+    }
+
+    #[test]
+    fn io_schema_rejects_empty_multi_driver_list() {
+        let text = r#"
+[io]
+drivers = []
+"#;
+        let err =
+            validate_io_toml_text(text).expect_err("empty io.drivers list should be rejected");
+        assert!(err
+            .to_string()
+            .contains("io.driver or io.drivers must be set"));
     }
 }

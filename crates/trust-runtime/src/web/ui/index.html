@@ -172,6 +172,12 @@
                   </select>
                 </div>
                 <div class="field">
+                  <label class="muted">Additional drivers <span class="help" title="Optional extra drivers composed with the primary driver (for example: modbus-tcp + mqtt)." aria-label="Additional drivers help">?</span></label>
+                  <div id="ioAdditionalDrivers" class="table"></div>
+                  <button class="btn ghost" onclick="addAdditionalIoDriver()">+ Add driver</button>
+                  <div class="note">Primary driver above plus additional drivers are executed in listed order each cycle.</div>
+                </div>
+                <div class="field">
                   <label class="muted">Use system I/O config <span class="help" title="Use /etc/trust/io.toml instead of project io.toml." aria-label="Use system I/O help">?</span></label>
                   <select id="ioUseSystem"><option value="false">false</option><option value="true">true</option></select>
                 </div>

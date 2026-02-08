@@ -14,9 +14,10 @@ use serde_json::{json, Value};
 use smol_str::SmolStr;
 use tiny_http::{Header, Method, Response, Server, StatusCode};
 
-use crate::bundle_template::IoConfigTemplate;
+use crate::bundle_template::{IoConfigTemplate, IoDriverTemplate};
 use crate::config::{
-    load_system_io_config, ControlMode, IoConfig, RuntimeConfig, WebAuthMode, WebConfig,
+    load_system_io_config, ControlMode, IoConfig, IoDriverConfig, RuntimeConfig, WebAuthMode,
+    WebConfig,
 };
 use crate::control::{handle_request_value, ControlState};
 use crate::debug::dap::format_value;
@@ -54,20 +55,34 @@ struct RollbackRequest {
 
 #[derive(Debug, Deserialize)]
 struct IoConfigRequest {
-    driver: String,
+    driver: Option<String>,
     params: Option<serde_json::Value>,
+    drivers: Option<Vec<IoDriverConfigRequest>>,
     safe_state: Option<Vec<IoSafeStateEntry>>,
     use_system_io: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+struct IoDriverConfigRequest {
+    name: String,
+    params: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Serialize)]
 struct IoConfigResponse {
     driver: String,
     params: serde_json::Value,
+    drivers: Vec<IoDriverConfigResponse>,
     safe_state: Vec<IoSafeStateEntry>,
     supported_drivers: Vec<String>,
     source: String,
     use_system_io: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct IoDriverConfigResponse {
+    name: String,
+    params: serde_json::Value,
 }
 
 #[derive(Debug, Deserialize)]
@@ -156,11 +171,24 @@ fn setup_defaults(bundle_root: &Option<PathBuf>) -> SetupDefaultsResponse {
 
     let (driver, use_system_io) = if io_path.exists() {
         match IoConfig::load(&io_path) {
-            Ok(io) => (io.driver.to_string(), false),
+            Ok(io) => (
+                io.drivers
+                    .first()
+                    .map(|driver| driver.name.to_string())
+                    .unwrap_or_else(detect_default_driver),
+                false,
+            ),
             Err(_) => (detect_default_driver(), system_io_exists),
         }
     } else if let Some(system_io) = system_io {
-        (system_io.driver.to_string(), true)
+        (
+            system_io
+                .drivers
+                .first()
+                .map(|driver| driver.name.to_string())
+                .unwrap_or_else(detect_default_driver),
+            true,
+        )
     } else {
         (detect_default_driver(), false)
     };
@@ -210,82 +238,56 @@ fn json_to_toml(value: &serde_json::Value) -> toml::Value {
     }
 }
 
-fn parse_io_toml(text: &str) -> Result<(String, toml::Value, Vec<IoSafeStateEntry>), RuntimeError> {
-    crate::config::validate_io_toml_text(text)?;
-    let raw: toml::Value = toml::from_str(text)
-        .map_err(|err| RuntimeError::InvalidConfig(format!("io.toml: {err}").into()))?;
-    let io = raw
-        .get("io")
-        .and_then(|value| value.as_table())
-        .ok_or_else(|| RuntimeError::InvalidConfig("io.toml missing [io]".into()))?;
-    let driver = io
-        .get("driver")
-        .and_then(|value| value.as_str())
-        .unwrap_or("loopback")
-        .to_string();
-    let params = io
-        .get("params")
-        .cloned()
-        .unwrap_or_else(|| toml::Value::Table(toml::map::Map::new()));
-    let safe_state = io
-        .get("safe_state")
-        .and_then(|value| value.as_array())
-        .map(|entries| {
-            entries
-                .iter()
-                .filter_map(|entry| entry.as_table())
-                .filter_map(|entry| {
-                    let address = entry.get("address")?.as_str()?.to_string();
-                    let value = entry.get("value")?.as_str()?.to_string();
-                    Some(IoSafeStateEntry { address, value })
-                })
-                .collect::<Vec<_>>()
+fn io_config_to_response(config: IoConfig, source: &str, use_system_io: bool) -> IoConfigResponse {
+    let drivers = config
+        .drivers
+        .iter()
+        .map(|driver| IoDriverConfigResponse {
+            name: driver.name.to_string(),
+            params: serde_json::to_value(&driver.params).unwrap_or_else(|_| json!({})),
         })
-        .unwrap_or_default();
-    Ok((driver, params, safe_state))
+        .collect::<Vec<_>>();
+    let primary = drivers.first().cloned().unwrap_or(IoDriverConfigResponse {
+        name: detect_default_driver(),
+        params: json!({}),
+    });
+    let safe_state = config
+        .safe_state
+        .outputs
+        .iter()
+        .map(|(address, value)| IoSafeStateEntry {
+            address: format_io_address(address),
+            value: format_value(value),
+        })
+        .collect::<Vec<_>>();
+    IoConfigResponse {
+        driver: primary.name,
+        params: primary.params,
+        drivers,
+        safe_state,
+        supported_drivers: IoDriverRegistry::default_registry().canonical_driver_names(),
+        source: source.to_string(),
+        use_system_io,
+    }
 }
 
 fn load_io_config(bundle_root: &Option<PathBuf>) -> Result<IoConfigResponse, RuntimeError> {
     let project_root = default_bundle_root(bundle_root);
     let project_io = project_root.join("io.toml");
     if project_io.is_file() {
-        let text = std::fs::read_to_string(&project_io).map_err(|err| {
-            RuntimeError::InvalidConfig(format!("failed to read io.toml: {err}").into())
-        })?;
-        let (driver, params, safe_state) = parse_io_toml(&text)?;
-        let params_json = serde_json::to_value(&params).unwrap_or_else(|_| json!({}));
-        return Ok(IoConfigResponse {
-            driver,
-            params: params_json,
-            safe_state,
-            supported_drivers: IoDriverRegistry::default_registry().canonical_driver_names(),
-            source: "project".to_string(),
-            use_system_io: false,
-        });
+        let config = IoConfig::load(&project_io)?;
+        return Ok(io_config_to_response(config, "project", false));
     }
     if let Some(system) = load_system_io_config().ok().flatten() {
-        let params_json = serde_json::to_value(&system.params).unwrap_or_else(|_| json!({}));
-        let safe_state = system
-            .safe_state
-            .outputs
-            .iter()
-            .map(|(address, value)| IoSafeStateEntry {
-                address: format_io_address(address),
-                value: format_value(value),
-            })
-            .collect::<Vec<_>>();
-        return Ok(IoConfigResponse {
-            driver: system.driver.to_string(),
-            params: params_json,
-            safe_state,
-            supported_drivers: IoDriverRegistry::default_registry().canonical_driver_names(),
-            source: "system".to_string(),
-            use_system_io: true,
-        });
+        return Ok(io_config_to_response(system, "system", true));
     }
     Ok(IoConfigResponse {
         driver: detect_default_driver(),
         params: json!({}),
+        drivers: vec![IoDriverConfigResponse {
+            name: detect_default_driver(),
+            params: json!({}),
+        }],
         safe_state: Vec::new(),
         supported_drivers: IoDriverRegistry::default_registry().canonical_driver_names(),
         source: "default".to_string(),
@@ -293,16 +295,74 @@ fn load_io_config(bundle_root: &Option<PathBuf>) -> Result<IoConfigResponse, Run
     })
 }
 
-fn render_io_toml(driver: &str, params: toml::Value, safe_state: Vec<IoSafeStateEntry>) -> String {
+fn render_io_toml(drivers: Vec<IoDriverConfig>, safe_state: Vec<IoSafeStateEntry>) -> String {
     let template = IoConfigTemplate {
-        driver: driver.to_string(),
-        params,
+        drivers: drivers
+            .into_iter()
+            .map(|driver| IoDriverTemplate {
+                name: driver.name.to_string(),
+                params: driver.params,
+            })
+            .collect(),
         safe_state: safe_state
             .into_iter()
             .map(|entry| (entry.address, entry.value))
             .collect(),
     };
     crate::bundle_template::render_io_toml(&template)
+}
+
+fn driver_configs_from_payload(
+    payload: &IoConfigRequest,
+) -> Result<Vec<IoDriverConfig>, RuntimeError> {
+    if let Some(drivers) = payload.drivers.as_ref() {
+        if drivers.is_empty() {
+            return Err(RuntimeError::InvalidConfig(
+                "io.drivers must contain at least one driver".into(),
+            ));
+        }
+        return drivers
+            .iter()
+            .enumerate()
+            .map(|(idx, driver)| {
+                let name = driver.name.trim();
+                if name.is_empty() {
+                    return Err(RuntimeError::InvalidConfig(
+                        format!("io.drivers[{idx}].name must not be empty").into(),
+                    ));
+                }
+                let params_json = driver.params.clone().unwrap_or_else(|| json!({}));
+                let params_toml = json_to_toml(&params_json);
+                if !params_toml.is_table() {
+                    return Err(RuntimeError::InvalidConfig(
+                        format!("io.drivers[{idx}].params must be a table/object").into(),
+                    ));
+                }
+                Ok(IoDriverConfig {
+                    name: SmolStr::new(name),
+                    params: params_toml,
+                })
+            })
+            .collect::<Result<Vec<_>, _>>();
+    }
+
+    let driver = payload
+        .driver
+        .as_deref()
+        .map(str::trim)
+        .filter(|text| !text.is_empty())
+        .ok_or_else(|| RuntimeError::InvalidConfig("driver is required".into()))?;
+    let params_json = payload.params.clone().unwrap_or_else(|| json!({}));
+    let params_toml = json_to_toml(&params_json);
+    if !params_toml.is_table() {
+        return Err(RuntimeError::InvalidConfig(
+            "params must be a table/object".into(),
+        ));
+    }
+    Ok(vec![IoDriverConfig {
+        name: SmolStr::new(driver),
+        params: params_toml,
+    }])
 }
 
 fn format_io_address(address: &IoAddress) -> String {
@@ -825,17 +885,19 @@ pub fn start_web_server(
                         "✓ Using system I/O config. Restart the runtime to apply.".to_string()
                     }
                 } else {
-                    let params_json = payload.params.unwrap_or_else(|| json!({}));
-                    let params_toml = json_to_toml(&params_json);
-                    let safe_state = payload.safe_state.unwrap_or_default();
-                    let io_text = render_io_toml(payload.driver.as_str(), params_toml, safe_state);
-                    match crate::config::validate_io_toml_text(&io_text) {
-                        Ok(()) => match std::fs::write(&io_path, io_text) {
-                            Ok(_) => {
-                                "✓ I/O config saved. Restart the runtime to apply.".to_string()
+                    match driver_configs_from_payload(&payload) {
+                        Ok(drivers) => {
+                            let safe_state = payload.safe_state.clone().unwrap_or_default();
+                            let io_text = render_io_toml(drivers, safe_state);
+                            match crate::config::validate_io_toml_text(&io_text) {
+                                Ok(()) => match std::fs::write(&io_path, io_text) {
+                                    Ok(_) => "✓ I/O config saved. Restart the runtime to apply."
+                                        .to_string(),
+                                    Err(err) => format!("error: failed to write io.toml: {err}"),
+                                },
+                                Err(err) => format!("error: {err}"),
                             }
-                            Err(err) => format!("error: failed to write io.toml: {err}"),
-                        },
+                        }
                         Err(err) => format!("error: {err}"),
                     }
                 };

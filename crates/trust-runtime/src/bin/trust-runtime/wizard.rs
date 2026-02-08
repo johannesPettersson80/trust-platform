@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use smol_str::SmolStr;
 use trust_runtime::bundle_template::{
-    build_io_config_auto, render_io_toml, render_runtime_toml, IoConfigTemplate,
+    build_io_config_auto, render_io_toml, render_runtime_toml, IoConfigTemplate, IoDriverTemplate,
 };
 use trust_runtime::harness::{CompileSession, SourceFile};
 
@@ -249,8 +249,10 @@ fn build_io_config(driver: &str) -> anyhow::Result<IoConfigTemplate> {
         params.insert("inputs".into(), inputs);
         params.insert("outputs".into(), outputs);
         return Ok(IoConfigTemplate {
-            driver: "gpio".to_string(),
-            params: toml::Value::Table(params),
+            drivers: vec![IoDriverTemplate {
+                name: "gpio".to_string(),
+                params: toml::Value::Table(params),
+            }],
             safe_state,
         });
     }

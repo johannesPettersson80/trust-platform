@@ -16,7 +16,15 @@ let lastUptimeMs = null;
 let lastWallClockMs = null;
 let lastUpdateMs = null;
 let currentPlcName = 'PLC';
-let ioConfigState = { driver: 'loopback', params: {}, safe_state: [], use_system_io: false, source: 'project' };
+let ioConfigState = {
+  driver: 'loopback',
+  params: {},
+  drivers: [],
+  supported_drivers: [],
+  safe_state: [],
+  use_system_io: false,
+  source: 'project',
+};
 let ioConfigOriginal = null;
 let meshPublishState = [];
 let meshSubscribeState = [];
@@ -79,6 +87,75 @@ function populateDriverSelect(selectId, drivers, includeAuto = false) {
   if (current) {
     select.value = current;
   }
+}
+
+function normalizeIoDriverConfigs(drivers, fallbackName = 'loopback') {
+  const normalized = Array.isArray(drivers)
+    ? drivers
+      .map(entry => ({
+        name: String(entry?.name || '').trim(),
+        params: (entry?.params && typeof entry.params === 'object' && !Array.isArray(entry.params))
+          ? entry.params
+          : {},
+      }))
+      .filter(entry => entry.name)
+    : [];
+  if (!normalized.length) {
+    return [{ name: fallbackName, params: {} }];
+  }
+  return normalized;
+}
+
+function driverParamsText(params) {
+  return JSON.stringify(params || {}, null, 2);
+}
+
+function renderAdditionalIoDrivers() {
+  const target = document.getElementById('ioAdditionalDrivers');
+  if (!target) return;
+  const entries = (ioConfigState.drivers || []).slice(1);
+  if (!entries.length) {
+    target.innerHTML = '<div class="empty">No additional drivers configured.</div>';
+    return;
+  }
+  const supported = uniqueIoDrivers(ioConfigState.supported_drivers || fallbackSupportedIoDrivers);
+  target.innerHTML = entries.map((entry, idx) => {
+    const values = supported.includes(entry.name) ? [...supported] : [...supported, entry.name];
+    const options = values
+      .map(value => `<option value="${value}" ${value === entry.name ? 'selected' : ''}>${value}</option>`)
+      .join('');
+    return `
+      <div class="card" style="padding:10px; margin-bottom:8px;">
+        <div class="table-row" style="grid-template-columns: 1fr auto;">
+          <select id="ioExtraDriverName${idx}">${options}</select>
+          <button class="btn ghost" onclick="removeAdditionalIoDriver(${idx})">Remove</button>
+        </div>
+        <div class="field" style="margin-top:8px;">
+          <label class="muted">Params (JSON object)</label>
+          <textarea id="ioExtraDriverParams${idx}" rows="6">${escapeHtml(driverParamsText(entry.params))}</textarea>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function addAdditionalIoDriver() {
+  if (!Array.isArray(ioConfigState.drivers) || !ioConfigState.drivers.length) {
+    ioConfigState.drivers = [{ name: ioConfigState.driver || 'loopback', params: ioConfigState.params || {} }];
+  }
+  const primary = String(ioConfigState.driver || 'loopback');
+  const fallback = fallbackSupportedIoDrivers.find(name => name !== primary) || 'simulated';
+  ioConfigState.drivers.push({ name: fallback, params: {} });
+  renderAdditionalIoDrivers();
+}
+
+function removeAdditionalIoDriver(index) {
+  const offset = Number(index) + 1;
+  if (!Array.isArray(ioConfigState.drivers) || offset < 1 || offset >= ioConfigState.drivers.length) {
+    return;
+  }
+  ioConfigState.drivers.splice(offset, 1);
+  renderAdditionalIoDrivers();
 }
 
 function escapeHtml(value) {
@@ -1048,7 +1125,7 @@ function updateIoDriverPanels() {
 function setIoConfigDisabled(disabled) {
   const section = document.getElementById('ioConfig');
   if (!section) return;
-  section.querySelectorAll('input, select, button').forEach(el => {
+  section.querySelectorAll('input, select, textarea, button').forEach(el => {
     if (el.id === 'ioUseSystem') return;
     if (el.id === 'ioConfigApply') return;
     el.disabled = disabled;
@@ -1163,23 +1240,56 @@ function removeSafeState(index) {
 
 async function loadIoConfig() {
   let supportedDrivers = fallbackSupportedIoDrivers;
-  let configuredDriver = 'loopback';
+  let configuredDrivers = [{ name: 'loopback', params: {} }];
   try {
     const res = await fetch('/api/io/config');
     const data = await res.json();
     supportedDrivers = uniqueIoDrivers(data?.supported_drivers);
-    ioConfigState = Object.assign({ driver: 'loopback', params: {}, safe_state: [], use_system_io: false, source: 'project' }, data || {});
-    configuredDriver = String(ioConfigState.driver || 'loopback');
+    const fallbackLegacy = {
+      name: String(data?.driver || 'loopback'),
+      params: (data?.params && typeof data.params === 'object' && !Array.isArray(data.params)) ? data.params : {},
+    };
+    configuredDrivers = normalizeIoDriverConfigs(data?.drivers, fallbackLegacy.name);
+    if (!Array.isArray(data?.drivers) || !data.drivers.length) {
+      configuredDrivers = normalizeIoDriverConfigs([fallbackLegacy], fallbackLegacy.name);
+    }
+    ioConfigState = Object.assign({
+      driver: configuredDrivers[0].name,
+      params: configuredDrivers[0].params || {},
+      drivers: configuredDrivers,
+      supported_drivers: supportedDrivers,
+      safe_state: [],
+      use_system_io: false,
+      source: 'project',
+    }, data || {});
+    ioConfigState.supported_drivers = supportedDrivers;
+    ioConfigState.drivers = configuredDrivers;
+    ioConfigState.driver = configuredDrivers[0].name;
+    ioConfigState.params = configuredDrivers[0].params || {};
   } catch (err) {
-    ioConfigState = { driver: 'loopback', params: {}, safe_state: [], use_system_io: false, source: 'default' };
+    configuredDrivers = [{ name: 'loopback', params: {} }];
+    ioConfigState = {
+      driver: 'loopback',
+      params: {},
+      drivers: configuredDrivers,
+      supported_drivers: supportedDrivers,
+      safe_state: [],
+      use_system_io: false,
+      source: 'default',
+    };
   }
-  populateDriverSelect('ioDriverSelect', [...supportedDrivers, configuredDriver]);
+  populateDriverSelect('ioDriverSelect', [...supportedDrivers, ...configuredDrivers.map(entry => entry.name)]);
   ioConfigOriginal = JSON.parse(JSON.stringify(ioConfigState));
   const driverSelect = document.getElementById('ioDriverSelect');
   if (driverSelect) {
     driverSelect.value = ioConfigState.driver || 'loopback';
     driverSelect.onchange = () => {
       ioConfigState.driver = driverSelect.value;
+      if (!Array.isArray(ioConfigState.drivers) || !ioConfigState.drivers.length) {
+        ioConfigState.drivers = [{ name: ioConfigState.driver, params: {} }];
+      }
+      ioConfigState.drivers[0].name = ioConfigState.driver;
+      ioConfigState.params = ioConfigState.drivers[0].params || {};
       updateIoDriverPanels();
     };
   }
@@ -1193,6 +1303,14 @@ async function loadIoConfig() {
   }
   if (!ioConfigState.params || typeof ioConfigState.params !== 'object') {
     ioConfigState.params = {};
+  }
+  if (!Array.isArray(ioConfigState.drivers) || !ioConfigState.drivers.length) {
+    ioConfigState.drivers = [{ name: ioConfigState.driver || 'loopback', params: ioConfigState.params }];
+  } else {
+    ioConfigState.drivers[0] = {
+      name: ioConfigState.driver || ioConfigState.drivers[0].name || 'loopback',
+      params: ioConfigState.params,
+    };
   }
   if (ioConfigState.driver === 'gpio') {
     ioConfigState.params.inputs = ioConfigState.params.inputs || [];
@@ -1237,6 +1355,7 @@ async function loadIoConfig() {
   if (mqttUsername) mqttUsername.value = ioConfigState.params.username || '';
   const mqttPassword = document.getElementById('mqttPassword');
   if (mqttPassword) mqttPassword.value = ioConfigState.params.password || '';
+  renderAdditionalIoDrivers();
   renderGpioInputs();
   renderGpioOutputs();
   renderSafeState();
@@ -1309,9 +1428,33 @@ async function saveIoConfig() {
   } else {
     params = {};
   }
+  const extraConfigured = (ioConfigState.drivers || []).slice(1);
+  const extraDrivers = [];
+  for (let idx = 0; idx < extraConfigured.length; idx += 1) {
+    const name = String(document.getElementById(`ioExtraDriverName${idx}`)?.value || '').trim();
+    if (!name) {
+      setStatus('ioConfigStatus', `Additional driver #${idx + 1} requires a name.`, 'error');
+      return;
+    }
+    const raw = document.getElementById(`ioExtraDriverParams${idx}`)?.value.trim() || '{}';
+    let parsed;
+    try {
+      parsed = raw ? JSON.parse(raw) : {};
+    } catch (err) {
+      setStatus('ioConfigStatus', `Additional driver #${idx + 1} params are invalid JSON.`, 'error');
+      return;
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      setStatus('ioConfigStatus', `Additional driver #${idx + 1} params must be a JSON object.`, 'error');
+      return;
+    }
+    extraDrivers.push({ name, params: parsed });
+  }
+  const drivers = [{ name: driver, params }, ...extraDrivers];
   const payload = {
     driver,
     params,
+    drivers,
     safe_state: (ioConfigState.safe_state || []).filter(entry => entry.address && entry.value),
     use_system_io: useSystem,
   };

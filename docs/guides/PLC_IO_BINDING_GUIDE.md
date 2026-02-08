@@ -21,12 +21,24 @@ END_VAR
 
 ## 2) io.toml Structure (v1)
 
-Required:
+Single-driver form (legacy + still supported):
 ```
 [io]
 driver = "simulated"
 params = {}
 ```
+
+Multi-driver form (composed drivers, executed in order):
+```
+[io]
+drivers = [
+  { name = "modbus-tcp", params = { address = "192.168.0.10:502", unit_id = 1, input_start = 0, output_start = 0, timeout_ms = 500, on_error = "fault" } },
+  { name = "mqtt", params = { broker = "192.168.0.20:1883", topic_in = "line/in", topic_out = "line/out", reconnect_ms = 500, keep_alive_s = 5, allow_insecure_remote = true } }
+]
+```
+
+Rule:
+- Use either `io.driver` + `io.params` or `io.drivers` (do not mix both in one file).
 
 Optional safe state outputs:
 ```

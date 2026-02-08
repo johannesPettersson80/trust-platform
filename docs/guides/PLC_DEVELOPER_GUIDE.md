@@ -89,7 +89,13 @@ Key sections:
 
 See `docs/guides/PLC_IO_BINDING_GUIDE.md` for full examples.
 
-Supported `io.driver` values include `loopback`, `simulated`, `gpio`, `modbus-tcp`, and `mqtt`.
+Supported I/O backends are `loopback`, `simulated`, `gpio`, `modbus-tcp`, and `mqtt`.
+
+`io.toml` supports:
+- single-driver form: `io.driver` + `io.params`
+- multi-driver form: `io.drivers = [{ name = \"...\", params = {...} }, ...]`
+
+Use one form at a time (do not mix `io.driver` with `io.drivers`).
 
 ## Browser UI (Operations)
 

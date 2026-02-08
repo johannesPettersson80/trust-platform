@@ -143,12 +143,20 @@ pub fn run_validate(bundle: PathBuf, ci: bool) -> anyhow::Result<()> {
         anyhow::bail!("tcp control endpoint requires runtime.control.auth_token");
     }
     let registry = IoDriverRegistry::default_registry();
-    registry
-        .validate(&bundle.io.driver, &bundle.io.params)
-        .map_err(anyhow::Error::from)?;
+    for driver in &bundle.io.drivers {
+        registry
+            .validate(driver.name.as_str(), &driver.params)
+            .map_err(anyhow::Error::from)?;
+    }
     let mut runtime = Runtime::new();
     runtime.apply_bytecode_bytes(&bundle.bytecode, Some(&bundle.runtime.resource_name))?;
     if ci {
+        let io_drivers = bundle
+            .io
+            .drivers
+            .iter()
+            .map(|driver| driver.name.to_string())
+            .collect::<Vec<_>>();
         let payload = json!({
             "version": 1,
             "command": "validate",
@@ -156,7 +164,8 @@ pub fn run_validate(bundle: PathBuf, ci: bool) -> anyhow::Result<()> {
             "project": bundle.root.display().to_string(),
             "resource": bundle.runtime.resource_name.to_string(),
             "control_endpoint": bundle.runtime.control_endpoint.to_string(),
-            "io_driver": bundle.io.driver.to_string(),
+            "io_driver": io_drivers.first().cloned().unwrap_or_default(),
+            "io_drivers": io_drivers,
         });
         println!("{}", serde_json::to_string_pretty(&payload)?);
         return Ok(());
@@ -287,11 +296,13 @@ pub fn run_runtime(
         runtime.set_fault_policy(bundle.runtime.fault_policy);
         runtime.set_io_safe_state(bundle.io.safe_state.clone());
         let registry = IoDriverRegistry::default_registry();
-        if let Some(spec) = registry
-            .build(&bundle.io.driver, &bundle.io.params)
-            .map_err(anyhow::Error::from)?
-        {
-            runtime.add_io_driver(spec.name, spec.driver);
+        for driver in &bundle.io.drivers {
+            if let Some(spec) = registry
+                .build(driver.name.as_str(), &driver.params)
+                .map_err(anyhow::Error::from)?
+            {
+                runtime.add_io_driver(spec.name, spec.driver);
+            }
         }
         match bundle.runtime.retain_mode {
             trust_runtime::watchdog::RetainMode::File => {
@@ -688,7 +699,18 @@ pub fn run_runtime(
                 "resource": bundle.runtime.resource_name.to_string(),
                 "restart": format!("{restart_mode:?}"),
                 "cycle_interval_ms": bundle.runtime.cycle_interval.as_millis(),
-                "io_driver": bundle.io.driver.to_string(),
+                "io_driver": bundle
+                    .io
+                    .drivers
+                    .first()
+                    .map(|driver| driver.name.to_string())
+                    .unwrap_or_default(),
+                "io_drivers": bundle
+                    .io
+                    .drivers
+                    .iter()
+                    .map(|driver| driver.name.to_string())
+                    .collect::<Vec<_>>(),
                 "retain_mode": format_retain_mode(bundle.runtime.retain_mode),
                 "retain_path": bundle.runtime.retain_path.as_ref().map(|p| p.display().to_string()),
                 "retain_save_ms": bundle.runtime.retain_save_interval.as_millis(),
@@ -751,7 +773,16 @@ fn print_trust_banner(
     if let Some(bundle) = bundle {
         println!("PLC name: {}", bundle.runtime.resource_name);
         println!("Project: {}", bundle.root.display());
-        println!("I/O driver: {}", bundle.io.driver);
+        println!(
+            "I/O drivers: {}",
+            bundle
+                .io
+                .drivers
+                .iter()
+                .map(|driver| driver.name.to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
         println!(
             "Control mode: {:?} (debug {})",
             bundle.runtime.control_mode,
@@ -819,7 +850,16 @@ fn print_startup_summary(
         "cycle interval: {} ms",
         bundle.runtime.cycle_interval.as_millis()
     );
-    println!("io driver: {}", bundle.io.driver);
+    println!(
+        "io drivers: {}",
+        bundle
+            .io
+            .drivers
+            .iter()
+            .map(|driver| driver.name.to_string())
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
     println!("control mode: {:?}", bundle.runtime.control_mode);
     println!(
         "debug: {}",
