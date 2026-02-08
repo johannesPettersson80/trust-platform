@@ -550,7 +550,7 @@ function renderRows(entries, options = {}) {
           : defaultNumericValue(entry.value);
       }
       input.placeholder = entry.value || "";
-      input.disabled = !canWrite;
+      input.disabled = !(canWrite || canForce);
       input.addEventListener("input", () => {
         editCache.set(key, input.value);
       });
@@ -586,14 +586,19 @@ function renderRows(entries, options = {}) {
       const writeButton = document.createElement("button");
       writeButton.className = "mini-btn";
       writeButton.textContent = "W";
-      writeButton.title = "Write once (next cycle)";
+      writeButton.title = "Write once (next cycle, inputs only)";
       writeButton.disabled = !canWrite;
       writeButton.addEventListener("click", () => sendValue("write"));
 
       const forceButton = document.createElement("button");
       forceButton.className = "mini-btn";
-      forceButton.textContent = "F";
-      forceButton.title = "Force continuously";
+      const isForced = !!entry.forced;
+      forceButton.classList.toggle("active", isForced);
+      forceButton.setAttribute("aria-pressed", isForced ? "true" : "false");
+      forceButton.textContent = isForced ? "F*" : "F";
+      forceButton.title = isForced
+        ? "Force continuously (active)"
+        : "Force continuously";
       forceButton.disabled = !canForce;
       forceButton.addEventListener("click", () => sendValue("force"));
 
@@ -680,7 +685,11 @@ function render(state) {
     createNode(
       "Outputs",
       2,
-      renderRows(state.outputs, { allowActions: false, showAddress: true }),
+      renderRows(state.outputs, {
+        allowActions: true,
+        showAddress: true,
+        allowWrite: false,
+      }),
       true
     )
   );
@@ -688,7 +697,11 @@ function render(state) {
     createNode(
       "Memory",
       2,
-      renderRows(state.memory, { allowActions: false, showAddress: true }),
+      renderRows(state.memory, {
+        allowActions: true,
+        showAddress: true,
+        allowWrite: false,
+      }),
       true
     )
   );

@@ -24,7 +24,7 @@ mod variables;
 #[cfg(test)]
 mod tests;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::BufWriter;
 use std::sync::atomic::{AtomicBool, AtomicU32};
@@ -223,6 +223,7 @@ pub struct DebugAdapter {
     runner: Option<DebugRunner>,
     control_server: Option<DebugControlServer>,
     last_io_state: Arc<Mutex<Option<IoStateEventBody>>>,
+    forced_io_addresses: Arc<Mutex<HashSet<String>>>,
     launch_state: LaunchState,
     pause_expected: Arc<AtomicBool>,
     stop_gate: StopGate,

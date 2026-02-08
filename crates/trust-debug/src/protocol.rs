@@ -106,6 +106,8 @@ pub struct IoStateEntry {
     pub name: Option<String>,
     pub address: String,
     pub value: String,
+    #[serde(default)]
+    pub forced: bool,
 }
 
 /// Custom event body carrying I/O state snapshots.

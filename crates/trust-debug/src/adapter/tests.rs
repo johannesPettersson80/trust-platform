@@ -9,9 +9,9 @@ use crate::protocol::{
     EvaluateArguments, EvaluateResponseBody, Event, InitializeArguments, InitializeResponseBody,
     IoStateEventBody, IoWriteArguments, MessageType, NextArguments, PauseArguments, Request,
     Response, ScopesArguments, ScopesResponseBody, SetBreakpointsArguments,
-    SetBreakpointsResponseBody, Source, SourceBreakpoint, StackTraceArguments,
-    StackTraceResponseBody, StepInArguments, StepOutArguments, ThreadsResponseBody,
-    VariablesArguments, VariablesResponseBody,
+    SetBreakpointsResponseBody, SetExpressionArguments, SetExpressionResponseBody, Source,
+    SourceBreakpoint, StackTraceArguments, StackTraceResponseBody, StepInArguments,
+    StepOutArguments, ThreadsResponseBody, VariablesArguments, VariablesResponseBody,
 };
 use crate::DebugSession;
 use indexmap::IndexMap;
@@ -277,6 +277,151 @@ fn dispatch_io_write_updates_input() {
         .read(&input_addr)
         .unwrap();
     assert_eq!(value, RuntimeValue::Bool(true));
+}
+
+#[test]
+fn dispatch_set_expression_force_supports_output_and_memory_io() {
+    let mut runtime = Runtime::new();
+    let output_addr = IoAddress::parse("%QX0.0").unwrap();
+    let memory_addr = IoAddress::parse("%MX0.0").unwrap();
+    runtime.io_mut().bind("OUT0", output_addr.clone());
+    runtime.io_mut().bind("MEM0", memory_addr.clone());
+
+    let session = DebugSession::new(runtime);
+    let mut adapter = DebugAdapter::new(session);
+
+    let force_output = Request {
+        seq: 1,
+        message_type: MessageType::Request,
+        command: "setExpression".to_string(),
+        arguments: Some(
+            serde_json::to_value(SetExpressionArguments {
+                expression: "%QX0.0".to_string(),
+                value: "force: TRUE".to_string(),
+                frame_id: None,
+            })
+            .unwrap(),
+        ),
+    };
+    let outcome = adapter.dispatch_request(force_output);
+    assert_eq!(outcome.responses.len(), 1);
+    assert_eq!(outcome.events.len(), 1);
+    let response: Response<SetExpressionResponseBody> =
+        serde_json::from_value(outcome.responses[0].clone()).unwrap();
+    assert!(
+        response.success,
+        "force output failed: {:?}",
+        response.message
+    );
+    let output_event: Event<IoStateEventBody> =
+        serde_json::from_value(outcome.events[0].clone()).unwrap();
+    assert!(output_event
+        .body
+        .unwrap()
+        .outputs
+        .iter()
+        .any(|entry| entry.address == "%QX0.0" && entry.forced));
+
+    let force_memory = Request {
+        seq: 2,
+        message_type: MessageType::Request,
+        command: "setExpression".to_string(),
+        arguments: Some(
+            serde_json::to_value(SetExpressionArguments {
+                expression: "%MX0.0".to_string(),
+                value: "force: TRUE".to_string(),
+                frame_id: None,
+            })
+            .unwrap(),
+        ),
+    };
+    let outcome = adapter.dispatch_request(force_memory);
+    assert_eq!(outcome.responses.len(), 1);
+    assert_eq!(outcome.events.len(), 1);
+    let response: Response<SetExpressionResponseBody> =
+        serde_json::from_value(outcome.responses[0].clone()).unwrap();
+    assert!(
+        response.success,
+        "force memory failed: {:?}",
+        response.message
+    );
+    let memory_event: Event<IoStateEventBody> =
+        serde_json::from_value(outcome.events[0].clone()).unwrap();
+    assert!(memory_event
+        .body
+        .unwrap()
+        .memory
+        .iter()
+        .any(|entry| entry.address == "%MX0.0" && entry.forced));
+
+    let release_output = Request {
+        seq: 3,
+        message_type: MessageType::Request,
+        command: "setExpression".to_string(),
+        arguments: Some(
+            serde_json::to_value(SetExpressionArguments {
+                expression: "%QX0.0".to_string(),
+                value: "release".to_string(),
+                frame_id: None,
+            })
+            .unwrap(),
+        ),
+    };
+    let outcome = adapter.dispatch_request(release_output);
+    assert_eq!(outcome.responses.len(), 1);
+    assert_eq!(outcome.events.len(), 1);
+    let release_event: Event<IoStateEventBody> =
+        serde_json::from_value(outcome.events[0].clone()).unwrap();
+    assert!(release_event
+        .body
+        .unwrap()
+        .outputs
+        .iter()
+        .any(|entry| entry.address == "%QX0.0" && !entry.forced));
+
+    let runtime = adapter.session().runtime_handle();
+    let runtime = runtime.lock().unwrap();
+    assert_eq!(
+        runtime.io().read(&output_addr).unwrap(),
+        RuntimeValue::Bool(true)
+    );
+    assert_eq!(
+        runtime.io().read(&memory_addr).unwrap(),
+        RuntimeValue::Bool(true)
+    );
+}
+
+#[test]
+fn dispatch_set_expression_write_once_rejects_output_io() {
+    let mut runtime = Runtime::new();
+    let output_addr = IoAddress::parse("%QX0.1").unwrap();
+    runtime.io_mut().bind("OUT1", output_addr);
+
+    let session = DebugSession::new(runtime);
+    let mut adapter = DebugAdapter::new(session);
+
+    let request = Request {
+        seq: 1,
+        message_type: MessageType::Request,
+        command: "setExpression".to_string(),
+        arguments: Some(
+            serde_json::to_value(SetExpressionArguments {
+                expression: "%QX0.1".to_string(),
+                value: "TRUE".to_string(),
+                frame_id: None,
+            })
+            .unwrap(),
+        ),
+    };
+    let outcome = adapter.dispatch_request(request);
+    assert_eq!(outcome.responses.len(), 1);
+    let response: Response<serde_json::Value> =
+        serde_json::from_value(outcome.responses[0].clone()).unwrap();
+    assert!(!response.success);
+    assert_eq!(
+        response.message.as_deref(),
+        Some("only input addresses can be written once")
+    );
 }
 
 #[test]

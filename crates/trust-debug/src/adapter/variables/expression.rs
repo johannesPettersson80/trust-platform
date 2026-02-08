@@ -56,19 +56,11 @@ impl DebugAdapter {
                 };
             }
         };
-        let force_requested = matches!(directive, SetDirective::Force(_));
-
         let mut frame_id = args.frame_id.map(FrameId);
         let snapshot = self.session.debug_control().snapshot();
         let paused = snapshot.is_some();
         if paused {
-            return self.handle_set_expression_paused(
-                request,
-                args,
-                directive,
-                force_requested,
-                snapshot.unwrap(),
-            );
+            return self.handle_set_expression_paused(request, args, directive, snapshot.unwrap());
         }
         let runtime_handle = self.session.runtime_handle();
         let mut runtime = match runtime_handle.lock() {
@@ -94,10 +86,10 @@ impl DebugAdapter {
         let refresh_frame = frame_id;
 
         if let Ok(address) = resolve_io_address(&runtime, expr_text) {
-            if address.area != IoArea::Input {
+            if address.area != IoArea::Input && matches!(&directive, SetDirective::Write(_)) {
                 return DispatchOutcome {
                     responses: vec![
-                        self.error_response(&request, "only input addresses can be written")
+                        self.error_response(&request, "only input addresses can be written once")
                     ],
                     ..DispatchOutcome::default()
                 };
@@ -106,7 +98,9 @@ impl DebugAdapter {
             let result = match &directive {
                 SetDirective::Release => {
                     self.session.debug_control().release_io(&address);
-                    self.emit_io_state_event_from_runtime(&mut events);
+                    self.set_io_forced(&address, false);
+                    let body = self.update_io_cache_from_runtime(&runtime);
+                    events.push(self.event("stIoState", Some(body)));
                     runtime.io().read(&address).unwrap_or(RuntimeValue::Null)
                 }
                 SetDirective::Write(raw) | SetDirective::Force(raw) => {
@@ -128,10 +122,11 @@ impl DebugAdapter {
                             };
                         }
                     };
-                    if force_requested {
+                    if matches!(&directive, SetDirective::Force(_)) {
                         self.session
                             .debug_control()
                             .force_io(address.clone(), coerced.clone());
+                        self.set_io_forced(&address, true);
                     } else {
                         self.session
                             .debug_control()
@@ -301,7 +296,6 @@ impl DebugAdapter {
         request: Request<Value>,
         args: SetExpressionArguments,
         directive: SetDirective,
-        force_requested: bool,
         snapshot: DebugSnapshot,
     ) -> DispatchOutcome {
         let mut frame_id = args.frame_id.map(FrameId);
@@ -333,10 +327,10 @@ impl DebugAdapter {
         let mut events = Vec::new();
 
         if let Ok(address) = resolve_io_address_from_state(&self.build_io_state(), expr_text) {
-            if address.area != IoArea::Input {
+            if address.area != IoArea::Input && matches!(&directive, SetDirective::Write(_)) {
                 return DispatchOutcome {
                     responses: vec![
-                        self.error_response(&request, "only input addresses can be written")
+                        self.error_response(&request, "only input addresses can be written once")
                     ],
                     ..DispatchOutcome::default()
                 };
@@ -345,6 +339,7 @@ impl DebugAdapter {
             let result = match &directive {
                 SetDirective::Release => {
                     self.session.debug_control().release_io(&address);
+                    self.set_io_forced(&address, false);
                     if let Ok(cache) = self.last_io_state.lock() {
                         if let Some(state) = cache.clone() {
                             events.push(self.event("stIoState", Some(state)));
@@ -372,10 +367,11 @@ impl DebugAdapter {
                             };
                         }
                     };
-                    if force_requested {
+                    if matches!(&directive, SetDirective::Force(_)) {
                         self.session
                             .debug_control()
                             .force_io(address.clone(), coerced.clone());
+                        self.set_io_forced(&address, true);
                     } else {
                         self.session
                             .debug_control()

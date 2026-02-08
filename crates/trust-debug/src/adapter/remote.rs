@@ -291,10 +291,15 @@ impl RemoteSession {
                             } else {
                                 value.to_string()
                             };
+                            let forced = entry
+                                .get("forced")
+                                .and_then(|flag| flag.as_bool())
+                                .unwrap_or(false);
                             Some(IoStateEntry {
                                 name,
                                 address,
                                 value: value_str,
+                                forced,
                             })
                         })
                         .collect::<Vec<_>>()

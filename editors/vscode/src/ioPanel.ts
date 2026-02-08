@@ -7,6 +7,7 @@ type IoEntry = {
   name?: string;
   address: string;
   value: string;
+  forced?: boolean;
 };
 
 type IoState = {
@@ -605,7 +606,7 @@ async function writeInput(address: string, value: string): Promise<void> {
     await session.customRequest("stIoWrite", { address, value });
     panel?.webview.postMessage({
       type: "status",
-      payload: `Input write queued for ${address}.`,
+      payload: `I/O write queued for ${address}.`,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -640,7 +641,7 @@ async function forceInput(address: string, value: string): Promise<void> {
     });
     panel?.webview.postMessage({
       type: "status",
-      payload: `Input forced at ${address}.`,
+      payload: `I/O force active at ${address}.`,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -675,7 +676,7 @@ async function releaseInput(address: string): Promise<void> {
     });
     panel?.webview.postMessage({
       type: "status",
-      payload: `Input released at ${address}.`,
+      payload: `I/O force released at ${address}.`,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -1602,6 +1603,13 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
 
       .mini-btn:hover {
         background: var(--button-hover);
+      }
+
+      .mini-btn.active {
+        background: var(--vscode-testing-iconPassed, #1f8f4e);
+        color: #ffffff;
+        border-color: var(--vscode-testing-iconPassed, #1f8f4e);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
       }
 
       .mini-btn:disabled {

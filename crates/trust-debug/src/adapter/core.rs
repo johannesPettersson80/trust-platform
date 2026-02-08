@@ -4,7 +4,7 @@
 //! - dispatch_request/handle_request: route DAP requests
 //! - event helpers: output/stopped/terminated
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::OpenOptions;
 use std::io::{self, BufReader, BufWriter};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
@@ -52,6 +52,7 @@ impl DebugAdapter {
             runner: None,
             control_server: None,
             last_io_state: Arc::new(Mutex::new(None)),
+            forced_io_addresses: Arc::new(Mutex::new(HashSet::new())),
             launch_state: LaunchState::default(),
             pause_expected: Arc::new(AtomicBool::new(false)),
             stop_gate: StopGate::new(),
@@ -160,6 +161,7 @@ impl DebugAdapter {
         let io_logger = dap_log.clone();
         let io_seq = Arc::clone(&self.next_seq);
         let io_state_cache = Arc::clone(&self.last_io_state);
+        let forced_io_addresses = Arc::clone(&self.forced_io_addresses);
         let io_thread = thread::spawn(move || {
             let mut last_sent = Instant::now() - IO_EVENT_MIN_INTERVAL;
             while let Ok(snapshot) = io_rx.recv() {
@@ -167,7 +169,17 @@ impl DebugAdapter {
                 while let Ok(next) = io_rx.try_recv() {
                     latest = next;
                 }
-                let body = io_state_from_snapshot(latest);
+                let mut body = io_state_from_snapshot(latest);
+                if let Ok(forced) = forced_io_addresses.lock() {
+                    for entry in body
+                        .inputs
+                        .iter_mut()
+                        .chain(body.outputs.iter_mut())
+                        .chain(body.memory.iter_mut())
+                    {
+                        entry.forced = forced.contains(entry.address.as_str());
+                    }
+                }
                 let mut should_emit = true;
                 if let Ok(mut cache) = io_state_cache.lock() {
                     if let Some(previous) = cache.as_ref() {

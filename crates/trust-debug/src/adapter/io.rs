@@ -19,6 +19,38 @@ use super::variables::format_value;
 use super::{DebugAdapter, DispatchOutcome};
 
 impl DebugAdapter {
+    pub(super) fn set_io_forced(&self, address: &IoAddress, forced: bool) {
+        let key = format_io_address(address);
+        if let Ok(mut entries) = self.forced_io_addresses.lock() {
+            if forced {
+                entries.insert(key);
+            } else {
+                entries.remove(&key);
+            }
+        }
+        if let Ok(mut cache) = self.last_io_state.lock() {
+            if let Some(state) = cache.as_mut() {
+                self.apply_forced_flags(state);
+            }
+        }
+    }
+
+    fn apply_forced_flags(&self, state: &mut IoStateEventBody) {
+        let forced = if let Ok(entries) = self.forced_io_addresses.lock() {
+            entries.clone()
+        } else {
+            Default::default()
+        };
+        for entry in state
+            .inputs
+            .iter_mut()
+            .chain(state.outputs.iter_mut())
+            .chain(state.memory.iter_mut())
+        {
+            entry.forced = forced.contains(entry.address.as_str());
+        }
+    }
+
     pub(super) fn handle_io_state(&mut self, request: Request<Value>) -> DispatchOutcome {
         if let Some(remote) = self.remote_session.as_mut() {
             match remote.io_state() {
@@ -132,7 +164,9 @@ impl DebugAdapter {
             }
         }
         if let Ok(runtime) = self.session.runtime_handle().lock() {
-            return io_state_from_snapshot(runtime.io().snapshot());
+            let mut state = io_state_from_snapshot(runtime.io().snapshot());
+            self.apply_forced_flags(&mut state);
+            return state;
         }
         IoStateEventBody {
             inputs: Vec::new(),
@@ -144,11 +178,24 @@ impl DebugAdapter {
     pub(super) fn capture_io_state_from_runtime(&self) -> Option<IoStateEventBody> {
         let runtime_handle = self.session.runtime_handle();
         let runtime = runtime_handle.lock().ok()?;
-        let body = io_state_from_snapshot(runtime.io().snapshot());
+        let mut body = io_state_from_snapshot(runtime.io().snapshot());
+        self.apply_forced_flags(&mut body);
         if let Ok(mut cache) = self.last_io_state.lock() {
             *cache = Some(body.clone());
         }
         Some(body)
+    }
+
+    pub(super) fn update_io_cache_from_runtime(
+        &self,
+        runtime: &trust_runtime::Runtime,
+    ) -> IoStateEventBody {
+        let mut body = io_state_from_snapshot(runtime.io().snapshot());
+        self.apply_forced_flags(&mut body);
+        if let Ok(mut cache) = self.last_io_state.lock() {
+            *cache = Some(body.clone());
+        }
+        body
     }
 
     pub(super) fn emit_io_state_event_from_runtime(&self, events: &mut Vec<Value>) {
@@ -162,7 +209,19 @@ impl DebugAdapter {
         address: IoAddress,
         value: RuntimeValue,
     ) -> IoStateEventBody {
-        let mut state = self.build_io_state();
+        let mut state = if let Ok(cache) = self.last_io_state.lock() {
+            cache.clone().unwrap_or(IoStateEventBody {
+                inputs: Vec::new(),
+                outputs: Vec::new(),
+                memory: Vec::new(),
+            })
+        } else {
+            IoStateEventBody {
+                inputs: Vec::new(),
+                outputs: Vec::new(),
+                memory: Vec::new(),
+            }
+        };
         let address_str = format_io_address(&address);
         let entries = match address.area {
             IoArea::Input => &mut state.inputs,
@@ -179,8 +238,10 @@ impl DebugAdapter {
                 name: None,
                 address: address_str,
                 value: format_value(&value),
+                forced: false,
             });
         }
+        self.apply_forced_flags(&mut state);
         if let Ok(mut cache) = self.last_io_state.lock() {
             *cache = Some(state.clone());
         }
@@ -349,6 +410,7 @@ pub(super) fn io_state_from_snapshot(snapshot: IoSnapshot) -> IoStateEventBody {
                     name,
                     address,
                     value,
+                    forced: false,
                 }
             })
             .collect()

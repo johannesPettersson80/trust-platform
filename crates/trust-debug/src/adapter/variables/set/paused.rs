@@ -382,11 +382,10 @@ impl DebugAdapter {
                         }
                     }
                 };
-                if address.area != IoArea::Input {
+                if address.area != IoArea::Input && matches!(&directive, SetDirective::Write(_)) {
                     return DispatchOutcome {
-                        responses: vec![
-                            self.error_response(&request, "only input addresses can be written")
-                        ],
+                        responses: vec![self
+                            .error_response(&request, "only input addresses can be written once")],
                         ..DispatchOutcome::default()
                     };
                 }
@@ -394,6 +393,7 @@ impl DebugAdapter {
                 match &directive {
                     SetDirective::Release => {
                         self.session.debug_control().release_io(&address);
+                        self.set_io_forced(&address, false);
                         RuntimeValue::Null
                     }
                     SetDirective::Write(raw) | SetDirective::Force(raw) => {
@@ -420,6 +420,7 @@ impl DebugAdapter {
                             self.session
                                 .debug_control()
                                 .force_io(address.clone(), coerced.clone());
+                            self.set_io_forced(&address, true);
                         } else {
                             self.session
                                 .debug_control()
