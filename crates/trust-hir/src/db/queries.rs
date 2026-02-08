@@ -67,21 +67,18 @@ impl Default for Database {
     }
 }
 
-impl Clone for Database {
-    fn clone(&self) -> Self {
-        Self {
-            sources: self.sources.clone(),
-            salsa_state_id: self.salsa_state_id,
-        }
-    }
-}
-
 impl std::fmt::Debug for Database {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Database")
             .field("sources", &self.sources.len())
             .field("salsa_state_id", &self.salsa_state_id)
             .finish()
+    }
+}
+
+impl Drop for Database {
+    fn drop(&mut self) {
+        salsa_backend::remove_state(self.salsa_state_id);
     }
 }
 

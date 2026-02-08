@@ -382,16 +382,13 @@ impl ServerState {
         documents::apply_memory_budget(self);
     }
 
-    /// Executes a function with a database snapshot.
+    /// Executes a function with a read lock on the database.
     pub fn with_database<F, R>(&self, f: F) -> R
     where
         F: FnOnce(&Database) -> R,
     {
-        let snapshot = {
-            let project = self.project.read();
-            project.database().clone()
-        };
-        f(&snapshot)
+        let project = self.project.read();
+        f(project.database())
     }
 }
 

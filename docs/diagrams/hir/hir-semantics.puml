@@ -24,7 +24,6 @@ package "Database Layer" as dbLayer #LightGreen {
         +diagnostics(file_id) → Arc<Vec<Diagnostic>>
         +analyze(file_id) → FileAnalysis
         +type_of(file_id, expr_id) → TypeId
-        +invalidate(file_id)
     }
 
     class "FileId" as fileId {

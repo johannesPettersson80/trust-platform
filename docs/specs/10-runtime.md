@@ -3220,27 +3220,27 @@ struct ProjectInputs {
 #[salsa::tracked(return_ref)]
 fn parse_green(db: &dyn salsa::Database, input: SourceInput) -> GreenNode;
 
-#[salsa::tracked(return_ref, no_eq)]
+#[salsa::tracked(return_ref)]
 fn file_symbols_query(
     db: &dyn salsa::Database,
     input: SourceInput,
 ) -> Arc<SymbolTable>;
 
-#[salsa::tracked(return_ref, no_eq)]
+#[salsa::tracked(return_ref)]
 fn analyze_query(
     db: &dyn salsa::Database,
     project: ProjectInputs,
     file_id: FileId,
 ) -> Arc<FileAnalysis>;
 
-#[salsa::tracked(return_ref, no_eq)]
+#[salsa::tracked(return_ref)]
 fn diagnostics_query(
     db: &dyn salsa::Database,
     project: ProjectInputs,
     file_id: FileId,
 ) -> Arc<Vec<Diagnostic>>;
 
-#[salsa::tracked(no_eq)]
+#[salsa::tracked]
 fn type_of_query(
     db: &dyn salsa::Database,
     project: ProjectInputs,

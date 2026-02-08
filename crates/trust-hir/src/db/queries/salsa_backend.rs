@@ -13,6 +13,7 @@ use rowan::GreenNode;
 use rustc_hash::{FxHashMap, FxHashSet};
 use salsa::Setter;
 use std::cell::RefCell;
+use std::rc::Rc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 #[salsa::db]
@@ -34,7 +35,7 @@ pub(super) struct SalsaState {
 }
 
 thread_local! {
-    static SALSA_STATES: RefCell<FxHashMap<u64, SalsaState>> = RefCell::new(FxHashMap::default());
+    static SALSA_STATES: RefCell<FxHashMap<u64, Rc<RefCell<SalsaState>>>> = RefCell::new(FxHashMap::default());
 }
 
 static NEXT_SALSA_STATE_ID: AtomicU64 = AtomicU64::new(1);
@@ -43,12 +44,34 @@ pub(super) fn allocate_state_id() -> u64 {
     NEXT_SALSA_STATE_ID.fetch_add(1, Ordering::Relaxed)
 }
 
-pub(super) fn with_state<R>(state_id: u64, f: impl FnOnce(&mut SalsaState) -> R) -> R {
+fn state_cell(state_id: u64) -> Rc<RefCell<SalsaState>> {
     SALSA_STATES.with(|states| {
         let mut states = states.borrow_mut();
-        let state = states.entry(state_id).or_default();
-        f(state)
+        states
+            .entry(state_id)
+            .or_insert_with(|| Rc::new(RefCell::new(SalsaState::default())))
+            .clone()
     })
+}
+
+pub(super) fn with_state<R>(state_id: u64, f: impl FnOnce(&mut SalsaState) -> R) -> R {
+    let state = state_cell(state_id);
+    let mut state = state
+        .try_borrow_mut()
+        .expect("reentrant mutable Salsa state access");
+    f(&mut state)
+}
+
+pub(super) fn with_state_read<R>(state_id: u64, f: impl FnOnce(&SalsaState) -> R) -> R {
+    let state = state_cell(state_id);
+    let state = state.borrow();
+    f(&state)
+}
+
+pub(super) fn remove_state(state_id: u64) {
+    SALSA_STATES.with(|states| {
+        states.borrow_mut().remove(&state_id);
+    });
 }
 
 pub(super) fn sync_project_inputs(state: &mut SalsaState) {
@@ -65,10 +88,7 @@ pub(super) fn sync_project_inputs(state: &mut SalsaState) {
     }
 }
 
-pub(super) fn project_inputs(state: &mut SalsaState) -> ProjectInputs {
-    if state.project_inputs.is_none() {
-        sync_project_inputs(state);
-    }
+pub(super) fn project_inputs(state: &SalsaState) -> ProjectInputs {
     state
         .project_inputs
         .expect("project inputs should be initialized")
@@ -92,7 +112,7 @@ pub(super) fn parse_green(db: &dyn salsa::Database, input: SourceInput) -> Green
     parsed.syntax().green().into_owned()
 }
 
-#[salsa::tracked(return_ref, no_eq)]
+#[salsa::tracked(return_ref)]
 pub(super) fn file_symbols_query(db: &dyn salsa::Database, input: SourceInput) -> Arc<SymbolTable> {
     let green = parse_green(db, input).clone();
     let root = SyntaxNode::new_root(green);
@@ -100,7 +120,7 @@ pub(super) fn file_symbols_query(db: &dyn salsa::Database, input: SourceInput) -
     Arc::new(symbols)
 }
 
-#[salsa::tracked(return_ref, no_eq)]
+#[salsa::tracked(return_ref)]
 pub(super) fn analyze_query(
     db: &dyn salsa::Database,
     project: ProjectInputs,
@@ -108,6 +128,7 @@ pub(super) fn analyze_query(
 ) -> Arc<FileAnalysis> {
     let Some(ProjectState {
         target_input,
+        project_source_inputs,
         project_sources,
         project_tables,
     }) = collect_project_state(db, project, file_id)
@@ -115,8 +136,7 @@ pub(super) fn analyze_query(
         return empty_analysis();
     };
 
-    let parsed = parse(target_input.text(db));
-    let root = parsed.syntax();
+    let root = SyntaxNode::new_root(parse_green(db, target_input).clone());
     let (mut symbols, mut diagnostics, pending_types) =
         SymbolCollector::new().collect_for_project(&root);
     merge_project_symbols(file_id, &mut symbols, &project_tables);
@@ -143,7 +163,7 @@ pub(super) fn analyze_query(
     check_configuration_semantics(&symbols, &root, &mut builder);
     diagnostics.extend(builder.finish());
 
-    let project_used = collect_project_used_symbols(&project_sources, &project_tables);
+    let project_used = collect_project_used_symbols(db, &project_source_inputs, &project_tables);
     let mut builder = DiagnosticBuilder::new();
     type_check_file(&mut symbols, &root, &mut builder);
     check_unreachable_statements(&root, &mut builder);
@@ -159,7 +179,7 @@ pub(super) fn analyze_query(
     })
 }
 
-#[salsa::tracked(return_ref, no_eq)]
+#[salsa::tracked(return_ref)]
 pub(super) fn diagnostics_query(
     db: &dyn salsa::Database,
     project: ProjectInputs,
@@ -168,7 +188,7 @@ pub(super) fn diagnostics_query(
     analyze_query(db, project, file_id).diagnostics.clone()
 }
 
-#[salsa::tracked(no_eq)]
+#[salsa::tracked]
 pub(super) fn type_of_query(
     db: &dyn salsa::Database,
     project: ProjectInputs,
@@ -184,8 +204,7 @@ pub(super) fn type_of_query(
         return TypeId::UNKNOWN;
     };
 
-    let parsed = parse(target_input.text(db));
-    let root = parsed.syntax();
+    let root = SyntaxNode::new_root(parse_green(db, target_input).clone());
     let Some(expr_node) = expression_by_id(&root, expr_id) else {
         return TypeId::UNKNOWN;
     };
@@ -214,6 +233,7 @@ fn empty_analysis() -> Arc<FileAnalysis> {
 
 struct ProjectState {
     target_input: SourceInput,
+    project_source_inputs: FxHashMap<FileId, SourceInput>,
     project_sources: FxHashMap<FileId, Arc<String>>,
     project_tables: FxHashMap<FileId, Arc<SymbolTable>>,
 }
@@ -228,9 +248,11 @@ fn collect_project_state(
         .iter()
         .find_map(|(candidate_id, input)| (*candidate_id == file_id).then_some(*input))?;
 
+    let mut project_source_inputs: FxHashMap<FileId, SourceInput> = FxHashMap::default();
     let mut project_sources: FxHashMap<FileId, Arc<String>> = FxHashMap::default();
     let mut project_tables: FxHashMap<FileId, Arc<SymbolTable>> = FxHashMap::default();
     for (candidate_id, input) in files.iter().copied() {
+        project_source_inputs.insert(candidate_id, input);
         let source = Arc::new(input.text(db).clone());
         project_sources.insert(candidate_id, source);
         project_tables.insert(candidate_id, file_symbols_query(db, input).clone());
@@ -238,6 +260,7 @@ fn collect_project_state(
 
     Some(ProjectState {
         target_input,
+        project_source_inputs,
         project_sources,
         project_tables,
     })
@@ -268,15 +291,15 @@ fn merge_project_symbols(
 }
 
 fn collect_project_used_symbols(
-    sources: &FxHashMap<FileId, Arc<String>>,
+    db: &dyn salsa::Database,
+    source_inputs: &FxHashMap<FileId, SourceInput>,
     tables: &FxHashMap<FileId, Arc<SymbolTable>>,
 ) -> FxHashSet<(FileId, SymbolId)> {
     let mut used = FxHashSet::default();
     let ordered_tables = ordered_table_entries(tables);
 
-    for (&file_id, source) in sources {
-        let parsed = parse(source);
-        let root = parsed.syntax();
+    for (&file_id, input) in source_inputs {
+        let root = SyntaxNode::new_root(parse_green(db, *input).clone());
         let mut symbols = tables
             .get(&file_id)
             .map(|table| (**table).clone())

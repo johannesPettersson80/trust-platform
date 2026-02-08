@@ -11,18 +11,20 @@ impl Database {
         Self::default()
     }
 
-    /// Explicit invalidation hook kept for API compatibility.
-    ///
-    /// Queries are Salsa-backed, so source updates invalidate incrementally
-    /// through tracked inputs.
-    pub fn invalidate(&mut self, _file_id: FileId) {}
-
     fn source_input_for_file(
         &self,
         state: &mut salsa_backend::SalsaState,
         file_id: FileId,
     ) -> Option<salsa_backend::SourceInput> {
         if let Some(source) = state.sources.get(&file_id).copied() {
+            let Some(text) = self.sources.get(&file_id) else {
+                state.sources.remove(&file_id);
+                salsa_backend::sync_project_inputs(state);
+                return None;
+            };
+            if source.text(&state.db) != text.as_ref().as_str() {
+                source.set_text(&mut state.db).to(text.as_ref().clone());
+            }
             return Some(source);
         }
 
@@ -82,7 +84,9 @@ impl Database {
     fn analyze_salsa(&self, file_id: FileId) -> Arc<FileAnalysis> {
         salsa_backend::with_state(self.salsa_state_id, |state| {
             self.prepare_salsa_project(state);
+        });
 
+        salsa_backend::with_state_read(self.salsa_state_id, |state| {
             if !state.sources.contains_key(&file_id) {
                 return Arc::new(FileAnalysis {
                     symbols: Arc::new(SymbolTable::default()),
@@ -98,7 +102,9 @@ impl Database {
     fn diagnostics_salsa(&self, file_id: FileId) -> Arc<Vec<Diagnostic>> {
         salsa_backend::with_state(self.salsa_state_id, |state| {
             self.prepare_salsa_project(state);
+        });
 
+        salsa_backend::with_state_read(self.salsa_state_id, |state| {
             if !state.sources.contains_key(&file_id) {
                 return Arc::new(Vec::new());
             }
@@ -111,7 +117,9 @@ impl Database {
     fn type_of_salsa(&self, file_id: FileId, expr_id: u32) -> TypeId {
         salsa_backend::with_state(self.salsa_state_id, |state| {
             self.prepare_salsa_project(state);
+        });
 
+        salsa_backend::with_state_read(self.salsa_state_id, |state| {
             if !state.sources.contains_key(&file_id) {
                 return TypeId::UNKNOWN;
             }
@@ -122,9 +130,21 @@ impl Database {
     }
 
     fn prepare_salsa_project(&self, state: &mut salsa_backend::SalsaState) {
+        let mut removed_files = false;
+        state.sources.retain(|file_id, _| {
+            let keep = self.sources.contains_key(file_id);
+            if !keep {
+                removed_files = true;
+            }
+            keep
+        });
+
         let mut project_changed = false;
         for (&known_file_id, text) in &self.sources {
-            if state.sources.contains_key(&known_file_id) {
+            if let Some(source) = state.sources.get(&known_file_id).copied() {
+                if source.text(&state.db) != text.as_ref().as_str() {
+                    source.set_text(&mut state.db).to(text.as_ref().clone());
+                }
                 continue;
             }
             let source = salsa_backend::SourceInput::new(&state.db, text.as_ref().clone());
@@ -132,7 +152,7 @@ impl Database {
             project_changed = true;
         }
 
-        if project_changed || state.project_inputs.is_none() {
+        if removed_files || project_changed || state.project_inputs.is_none() {
             salsa_backend::sync_project_inputs(state);
         }
     }
@@ -164,25 +184,31 @@ impl SourceDatabase for Database {
     }
 
     fn set_source_text(&mut self, file_id: FileId, text: String) {
+        let text = Arc::new(text);
+        self.sources.insert(file_id, text.clone());
+
         salsa_backend::with_state(self.salsa_state_id, |state| {
             if let Some(source) = state.sources.get(&file_id).copied() {
-                source.set_text(&mut state.db).to(text.clone());
+                source.set_text(&mut state.db).to(text.as_ref().clone());
             } else {
-                let source = salsa_backend::SourceInput::new(&state.db, text.clone());
+                let source = salsa_backend::SourceInput::new(&state.db, text.as_ref().clone());
                 state.sources.insert(file_id, source);
             }
             salsa_backend::sync_project_inputs(state);
         });
-        self.sources.insert(file_id, Arc::new(text));
     }
 }
 
 impl SemanticDatabase for Database {
     fn file_symbols(&self, file_id: FileId) -> Arc<SymbolTable> {
-        salsa_backend::with_state(self.salsa_state_id, |state| {
-            let Some(source) = self.source_input_for_file(state, file_id) else {
-                return Arc::new(SymbolTable::default());
-            };
+        let source = salsa_backend::with_state(self.salsa_state_id, |state| {
+            self.source_input_for_file(state, file_id)
+        });
+        let Some(source) = source else {
+            return Arc::new(SymbolTable::default());
+        };
+
+        salsa_backend::with_state_read(self.salsa_state_id, |state| {
             salsa_backend::file_symbols_query(&state.db, source).clone()
         })
     }
@@ -469,5 +495,78 @@ mod tests {
             TypeId::BOOL,
             "updated dependency should produce BOOL"
         );
+    }
+
+    #[test]
+    fn remove_source_text_clears_single_file_queries() {
+        let mut db = Database::new();
+        let file = FileId(30);
+        db.set_source_text(
+            file,
+            "PROGRAM Main\nVAR\n    value : INT;\nEND_VAR\nvalue := 1;\nEND_PROGRAM\n".to_string(),
+        );
+        assert!(db.file_symbols(file).lookup_any("value").is_some());
+
+        db.remove_source_text(file);
+
+        assert_eq!(db.source_text(file).as_str(), "");
+        assert!(db.file_symbols(file).lookup_any("value").is_none());
+        assert!(db.diagnostics(file).is_empty());
+    }
+
+    #[test]
+    fn remove_source_text_invalidates_cross_file_dependency() {
+        let mut db = Database::new();
+        let (file_lib, file_main) = install_cross_file_fixture(&mut db);
+        let before = db.analyze(file_main);
+        assert!(before
+            .diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.is_error()));
+
+        db.remove_source_text(file_lib);
+        let after = db.analyze(file_main);
+
+        assert!(
+            after
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.is_error()),
+            "missing dependency should emit an error"
+        );
+    }
+
+    #[test]
+    fn remove_and_readd_source_restores_cross_file_resolution() {
+        let mut db = Database::new();
+        let (file_lib, file_main) = install_cross_file_fixture(&mut db);
+        db.remove_source_text(file_lib);
+        db.set_source_text(
+            file_lib,
+            "FUNCTION AddOne : INT\nVAR_INPUT\n    x : INT;\nEND_VAR\nAddOne := x + 1;\nEND_FUNCTION\n"
+                .to_string(),
+        );
+
+        let analysis = db.analyze(file_main);
+        assert!(analysis.symbols.lookup_any("AddOne").is_some());
+        assert!(analysis
+            .diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.is_error()));
+    }
+
+    #[test]
+    fn source_text_and_symbols_stay_consistent_after_edit() {
+        let mut db = Database::new();
+        let file = FileId(31);
+        db.set_source_text(file, "PROGRAM Main\nEND_PROGRAM\n".to_string());
+
+        db.set_source_text(
+            file,
+            "PROGRAM Main\nVAR\n    value : INT;\nEND_VAR\nvalue := 7;\nEND_PROGRAM\n".to_string(),
+        );
+
+        assert!(db.source_text(file).contains("value : INT"));
+        assert!(db.file_symbols(file).lookup_any("value").is_some());
     }
 }
