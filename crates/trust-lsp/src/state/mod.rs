@@ -413,6 +413,8 @@ fn now_millis() -> u64 {
 mod tests {
     use super::*;
     use std::fs;
+    #[cfg(windows)]
+    use std::path::PathBuf;
     use std::sync::Arc;
     use std::time::{SystemTime, UNIX_EPOCH};
     use tokio::sync::mpsc;
