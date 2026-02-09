@@ -167,6 +167,8 @@ jobs:
       - name: Build trust-lsp test server
         run: cargo build -p trust-lsp
         working-directory: ${{ github.workspace }}
+      - name: Add trust-lsp binary directory to PATH
+        run: echo "${{ github.workspace }}/target/debug" >> "$GITHUB_PATH"
       - name: Install virtual display dependencies
         run: |
           sudo apt-get update

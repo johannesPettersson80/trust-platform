@@ -71,6 +71,10 @@ function sendServerConfig(target: LanguageClient | undefined): void {
 
 
 function resolveServerCommand(context: vscode.ExtensionContext): string {
+  const testServerPath = (process.env.ST_LSP_TEST_SERVER ?? "").trim();
+  if (testServerPath.length > 0) {
+    return testServerPath;
+  }
   return getBinaryPath(context, "trust-lsp", "server.path");
 }
 
