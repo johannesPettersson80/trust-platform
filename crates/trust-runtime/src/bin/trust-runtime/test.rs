@@ -3,6 +3,7 @@
 use std::collections::BTreeSet;
 use std::fmt::Write;
 use std::path::{Path, PathBuf};
+use std::time::{Duration as StdDuration, Instant};
 
 use anyhow::Context;
 use serde_json::json;
@@ -89,11 +90,14 @@ struct ExecutedTest {
     case: DiscoveredTest,
     outcome: TestOutcome,
     message: Option<String>,
+    duration_ms: u64,
 }
 
 pub fn run_test(
     project: Option<PathBuf>,
     filter: Option<String>,
+    list: bool,
+    timeout: u64,
     output: TestOutput,
     ci: bool,
 ) -> anyhow::Result<()> {
@@ -119,13 +123,29 @@ pub fn run_test(
     }
 
     let mut tests = discover_tests(&sources);
+    let discovered_total = tests.len();
     if let Some(filter) = filter.as_deref() {
         let needle = filter.to_ascii_lowercase();
         tests.retain(|case| case.name.as_str().to_ascii_lowercase().contains(&needle));
     }
 
+    if list {
+        let rendered =
+            render_list_output(&project_root, &tests, discovered_total, filter.as_deref());
+        print!("{rendered}");
+        return Ok(());
+    }
+
     if tests.is_empty() {
-        let rendered = render_output(output, &project_root, &[], TestSummary::default())?;
+        let rendered = render_output(
+            output,
+            &project_root,
+            &[],
+            TestSummary::default(),
+            discovered_total,
+            filter.as_deref(),
+            0,
+        )?;
         print!("{rendered}");
         return Ok(());
     }
@@ -142,30 +162,55 @@ pub fn run_test(
     let session = CompileSession::from_sources(compile_sources);
     let _ = session.build_runtime()?;
 
+    let test_timeout = if timeout == 0 {
+        None
+    } else {
+        Some(StdDuration::from_secs(timeout))
+    };
+    let total_started = Instant::now();
     let mut results = Vec::with_capacity(tests.len());
     for case in &tests {
-        let result = match execute_test_case(&session, case) {
+        let case_started = Instant::now();
+        let result = match execute_test_case(&session, case, test_timeout) {
             Ok(()) => ExecutedTest {
                 case: case.clone(),
                 outcome: TestOutcome::Passed,
                 message: None,
+                duration_ms: elapsed_ms(case_started.elapsed()),
             },
             Err(RuntimeError::AssertionFailed(message)) => ExecutedTest {
                 case: case.clone(),
                 outcome: TestOutcome::Failed,
                 message: Some(message.to_string()),
+                duration_ms: elapsed_ms(case_started.elapsed()),
+            },
+            Err(RuntimeError::ExecutionTimeout) => ExecutedTest {
+                case: case.clone(),
+                outcome: TestOutcome::Error,
+                message: Some(timeout_message(timeout)),
+                duration_ms: elapsed_ms(case_started.elapsed()),
             },
             Err(err) => ExecutedTest {
                 case: case.clone(),
                 outcome: TestOutcome::Error,
                 message: Some(err.to_string()),
+                duration_ms: elapsed_ms(case_started.elapsed()),
             },
         };
         results.push(result);
     }
+    let total_duration_ms = elapsed_ms(total_started.elapsed());
 
     let summary = summarize_results(&results);
-    let rendered = render_output(output, &project_root, &results, summary)?;
+    let rendered = render_output(
+        output,
+        &project_root,
+        &results,
+        summary,
+        discovered_total,
+        filter.as_deref(),
+        total_duration_ms,
+    )?;
     print!("{rendered}");
 
     if summary.has_failures() {
@@ -173,6 +218,18 @@ pub fn run_test(
     }
 
     Ok(())
+}
+
+fn timeout_message(timeout_seconds: u64) -> String {
+    if timeout_seconds == 1 {
+        "test timed out after 1 second".to_string()
+    } else {
+        format!("test timed out after {timeout_seconds} seconds")
+    }
+}
+
+fn elapsed_ms(duration: std::time::Duration) -> u64 {
+    duration.as_millis().try_into().unwrap_or(u64::MAX)
 }
 
 fn summarize_results(results: &[ExecutedTest]) -> TestSummary {
@@ -192,10 +249,20 @@ fn render_output(
     project_root: &Path,
     results: &[ExecutedTest],
     summary: TestSummary,
+    discovered_total: usize,
+    filter: Option<&str>,
+    total_duration_ms: u64,
 ) -> anyhow::Result<String> {
     match output {
-        TestOutput::Human => Ok(render_human_output(project_root, results, summary)),
-        TestOutput::Json => render_json_output(project_root, results, summary),
+        TestOutput::Human => Ok(render_human_output(
+            project_root,
+            results,
+            summary,
+            discovered_total,
+            filter,
+            total_duration_ms,
+        )),
+        TestOutput::Json => render_json_output(project_root, results, summary, total_duration_ms),
         TestOutput::Tap => Ok(render_tap_output(results)),
         TestOutput::Junit => Ok(render_junit_output(results, summary)),
     }
@@ -213,6 +280,9 @@ fn render_human_output(
     project_root: &Path,
     results: &[ExecutedTest],
     summary: TestSummary,
+    discovered_total: usize,
+    filter: Option<&str>,
+    total_duration_ms: u64,
 ) -> String {
     let mut output = String::new();
     let mut failed_results = Vec::new();
@@ -226,31 +296,34 @@ fn render_human_output(
         ))
     );
     if results.is_empty() {
-        let _ = writeln!(output, "{}", style::warning("No ST tests discovered."));
+        render_no_tests_message(&mut output, filter, discovered_total);
     }
     for (idx, result) in results.iter().enumerate() {
         let prefix = format!("[{}/{}]", idx + 1, results.len());
         let test_id = format!("{}::{}", result.case.kind.label(), result.case.name);
+        let display_path = display_path(project_root, &result.case.file);
         match result.outcome {
             TestOutcome::Passed => {
                 let _ = writeln!(
                     output,
-                    "{} {} {} ({})",
+                    "{} {} {} ({}) [{}ms]",
                     style::success("PASS"),
                     prefix,
                     test_id,
-                    result.case.file.display()
+                    display_path,
+                    result.duration_ms
                 );
             }
             TestOutcome::Failed => {
                 let _ = writeln!(
                     output,
-                    "{} {} {} {}:{}",
+                    "{} {} {} {}:{} [{}ms]",
                     style::error("FAIL"),
                     prefix,
                     test_id,
-                    result.case.file.display(),
-                    result.case.line
+                    display_path,
+                    result.case.line,
+                    result.duration_ms
                 );
                 let _ = writeln!(
                     output,
@@ -265,12 +338,13 @@ fn render_human_output(
             TestOutcome::Error => {
                 let _ = writeln!(
                     output,
-                    "{} {} {} {}:{}",
+                    "{} {} {} {}:{} [{}ms]",
                     style::error("ERROR"),
                     prefix,
                     test_id,
-                    result.case.file.display(),
-                    result.case.line
+                    display_path,
+                    result.case.line,
+                    result.duration_ms
                 );
                 let _ = writeln!(
                     output,
@@ -294,7 +368,7 @@ fn render_human_output(
                 idx + 1,
                 result.case.kind.label(),
                 result.case.name,
-                result.case.file.display(),
+                display_path(project_root, &result.case.file),
                 result.case.line
             );
             let _ = writeln!(
@@ -313,9 +387,57 @@ fn render_human_output(
     }
     let _ = writeln!(
         output,
-        "{} passed, {} failed, {} errors",
-        summary.passed, summary.failed, summary.errors
+        "{} passed, {} failed, {} errors ({}ms)",
+        summary.passed, summary.failed, summary.errors, total_duration_ms
     );
+    output
+}
+
+fn render_no_tests_message(output: &mut String, filter: Option<&str>, discovered_total: usize) {
+    if let (Some(filter), total) = (filter, discovered_total) {
+        if total > 0 {
+            let _ = writeln!(
+                output,
+                "{}",
+                style::warning(format!(
+                    "0 tests matched filter \"{filter}\" ({total} tests discovered, all filtered out)"
+                ))
+            );
+            return;
+        }
+    }
+    let _ = writeln!(output, "{}", style::warning("No ST tests discovered."));
+}
+
+fn display_path(project_root: &Path, file: &Path) -> String {
+    file.strip_prefix(project_root)
+        .unwrap_or(file)
+        .display()
+        .to_string()
+}
+
+fn render_list_output(
+    project_root: &Path,
+    tests: &[DiscoveredTest],
+    discovered_total: usize,
+    filter: Option<&str>,
+) -> String {
+    let mut output = String::new();
+    if tests.is_empty() {
+        render_no_tests_message(&mut output, filter, discovered_total);
+        return output;
+    }
+    for case in tests {
+        let _ = writeln!(
+            output,
+            "{}::{} ({}:{})",
+            case.kind.label(),
+            case.name,
+            display_path(project_root, &case.file),
+            case.line
+        );
+    }
+    let _ = writeln!(output, "{} test(s) listed", tests.len());
     output
 }
 
@@ -323,6 +445,7 @@ fn render_json_output(
     project_root: &Path,
     results: &[ExecutedTest],
     summary: TestSummary,
+    total_duration_ms: u64,
 ) -> anyhow::Result<String> {
     let tests = results
         .iter()
@@ -335,6 +458,7 @@ fn render_json_output(
                 "line": result.case.line,
                 "source": result.case.source_line.as_deref(),
                 "message": result.message.as_deref(),
+                "duration_ms": result.duration_ms,
             })
         })
         .collect::<Vec<_>>();
@@ -346,6 +470,7 @@ fn render_json_output(
             "passed": summary.passed,
             "failed": summary.failed,
             "errors": summary.errors,
+            "duration_ms": total_duration_ms,
         },
         "tests": tests,
     });
@@ -464,14 +589,22 @@ fn xml_escape(text: &str) -> String {
     escaped
 }
 
-fn execute_test_case(session: &CompileSession, case: &DiscoveredTest) -> Result<(), RuntimeError> {
+fn execute_test_case(
+    session: &CompileSession,
+    case: &DiscoveredTest,
+    timeout: Option<StdDuration>,
+) -> Result<(), RuntimeError> {
     let mut runtime = session
         .build_runtime()
         .map_err(|err| RuntimeError::ControlError(err.to_string().into()))?;
-    match case.kind {
+    let deadline = timeout.and_then(|limit| Instant::now().checked_add(limit));
+    runtime.set_execution_deadline(deadline);
+    let result = match case.kind {
         TestKind::Program => execute_test_program(&mut runtime, case.name.as_str()),
         TestKind::FunctionBlock => execute_test_function_block(&mut runtime, case.name.as_str()),
-    }
+    };
+    runtime.set_execution_deadline(None);
+    result
 }
 
 fn execute_test_program(runtime: &mut Runtime, name: &str) -> Result<(), RuntimeError> {
@@ -751,7 +884,7 @@ END_TEST_PROGRAM
             "tests.st",
             sources[0].text.clone(),
         )]);
-        let err = execute_test_case(&session, &tests[0]).unwrap_err();
+        let err = execute_test_case(&session, &tests[0], None).unwrap_err();
         assert!(matches!(err, RuntimeError::AssertionFailed(_)));
     }
 
@@ -776,7 +909,7 @@ END_PROGRAM
             "tests_fb.st",
             sources[0].text.clone(),
         )]);
-        execute_test_case(&session, &tests[0]).unwrap();
+        execute_test_case(&session, &tests[0], None).unwrap();
     }
 
     #[test]
@@ -801,8 +934,8 @@ END_TEST_PROGRAM
             "isolation.st",
             sources[0].text.clone(),
         )]);
-        execute_test_case(&session, &tests[0]).unwrap();
-        execute_test_case(&session, &tests[0]).unwrap();
+        execute_test_case(&session, &tests[0], None).unwrap();
+        execute_test_case(&session, &tests[0], None).unwrap();
     }
 
     #[test]
@@ -814,6 +947,9 @@ END_TEST_PROGRAM
             Path::new("/tmp/project"),
             &results,
             summary,
+            results.len(),
+            None,
+            6,
         )
         .expect("json output");
         let value: serde_json::Value = serde_json::from_str(&output).expect("valid json");
@@ -827,6 +963,10 @@ END_TEST_PROGRAM
         assert_eq!(value["tests"][1]["status"], "failed");
         assert_eq!(value["tests"][2]["status"], "error");
         assert_eq!(value["tests"][1]["source"], "ASSERT_EQUAL(INT#2, X);");
+        assert_eq!(value["summary"]["duration_ms"], 6);
+        assert_eq!(value["tests"][0]["duration_ms"], 1);
+        assert_eq!(value["tests"][1]["duration_ms"], 2);
+        assert_eq!(value["tests"][2]["duration_ms"], 3);
     }
 
     #[test]
@@ -838,6 +978,9 @@ END_TEST_PROGRAM
             Path::new("/tmp/project"),
             &results,
             summary,
+            results.len(),
+            None,
+            6,
         )
         .unwrap();
 
@@ -859,6 +1002,9 @@ END_TEST_PROGRAM
             Path::new("/tmp/project"),
             &results,
             summary,
+            results.len(),
+            None,
+            6,
         )
         .unwrap();
 
@@ -887,6 +1033,7 @@ END_TEST_PROGRAM
                 },
                 outcome: TestOutcome::Passed,
                 message: None,
+                duration_ms: 1,
             },
             ExecutedTest {
                 case: DiscoveredTest {
@@ -899,6 +1046,7 @@ END_TEST_PROGRAM
                 },
                 outcome: TestOutcome::Failed,
                 message: Some("ASSERT_EQUAL failed: expected <2> & got 3".to_string()),
+                duration_ms: 2,
             },
             ExecutedTest {
                 case: DiscoveredTest {
@@ -911,6 +1059,7 @@ END_TEST_PROGRAM
                 },
                 outcome: TestOutcome::Error,
                 message: Some("runtime <panic>".to_string()),
+                duration_ms: 3,
             },
         ]
     }
@@ -924,16 +1073,84 @@ END_TEST_PROGRAM
             Path::new("/tmp/project"),
             &results,
             summary,
+            results.len(),
+            None,
+            6,
         )
         .expect("human output");
 
         let plain = strip_ansi(&output);
-        assert!(plain.contains("FAIL [2/3] TEST_PROGRAM::FailCase tests.st:12"));
+        assert!(plain.contains("FAIL [2/3] TEST_PROGRAM::FailCase tests.st:12 [2ms]"));
         assert!(plain.contains("reason   : ASSERT_EQUAL failed: expected <2> & got 3"));
         assert!(plain.contains("source   : ASSERT_EQUAL(INT#2, X);"));
         assert!(plain.contains("Failure summary:"));
         assert!(plain.contains("1. TEST_PROGRAM::FailCase @ tests.st:12"));
         assert!(plain.contains("2. TEST_FUNCTION_BLOCK::ErrCase @ fb_tests.st:20"));
+        assert!(plain.contains("1 passed, 1 failed, 1 errors (6ms)"));
+    }
+
+    #[test]
+    fn human_output_filter_zero_message_is_clear() {
+        let output = render_output(
+            TestOutput::Human,
+            Path::new("/tmp/project"),
+            &[],
+            TestSummary::default(),
+            2,
+            Some("START"),
+            0,
+        )
+        .expect("human output");
+        let plain = strip_ansi(&output);
+        assert!(plain.contains("0 tests matched filter \"START\""));
+        assert!(plain.contains("(2 tests discovered, all filtered out)"));
+    }
+
+    #[test]
+    fn list_output_contract() {
+        let tests = vec![
+            DiscoveredTest {
+                kind: TestKind::Program,
+                name: "CaseA".into(),
+                file: PathBuf::from("/tmp/project/sources/tests.st"),
+                byte_offset: 0,
+                line: 1,
+                source_line: None,
+            },
+            DiscoveredTest {
+                kind: TestKind::FunctionBlock,
+                name: "CaseB".into(),
+                file: PathBuf::from("/tmp/project/sources/tests.st"),
+                byte_offset: 12,
+                line: 24,
+                source_line: None,
+            },
+        ];
+        let text = render_list_output(Path::new("/tmp/project"), &tests, 2, None);
+        assert!(text.contains("TEST_PROGRAM::CaseA (sources/tests.st:1)"));
+        assert!(text.contains("TEST_FUNCTION_BLOCK::CaseB (sources/tests.st:24)"));
+        assert!(text.contains("2 test(s) listed"));
+    }
+
+    #[test]
+    fn execute_test_case_returns_execution_timeout_for_deadline_overrun() {
+        let sources = vec![LoadedSource {
+            path: PathBuf::from("timeout.st"),
+            text: r#"
+TEST_PROGRAM TimeoutCase
+WHILE TRUE DO
+END_WHILE;
+END_TEST_PROGRAM
+"#
+            .to_string(),
+        }];
+        let tests = discover_tests(&sources);
+        let session = CompileSession::from_sources(vec![HarnessSourceFile::with_path(
+            "timeout.st",
+            sources[0].text.clone(),
+        )]);
+        let err = execute_test_case(&session, &tests[0], Some(StdDuration::ZERO)).unwrap_err();
+        assert!(matches!(err, RuntimeError::ExecutionTimeout));
     }
 
     #[test]
@@ -946,5 +1163,11 @@ END_TEST_PROGRAM
             effective_output(TestOutput::Human, false),
             TestOutput::Human
         );
+    }
+
+    #[test]
+    fn timeout_message_pluralization() {
+        assert_eq!(timeout_message(1), "test timed out after 1 second");
+        assert_eq!(timeout_message(5), "test timed out after 5 seconds");
     }
 }

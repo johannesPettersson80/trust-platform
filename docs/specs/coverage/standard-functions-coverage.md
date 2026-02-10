@@ -250,6 +250,11 @@ Status (current codebase; refactor-only check on 2026-01-23): All standard funct
 - [x] ASSERT_TRUE
 - [x] ASSERT_FALSE
 - [x] ASSERT_EQUAL
+- [x] ASSERT_NOT_EQUAL
+- [x] ASSERT_GREATER
+- [x] ASSERT_LESS
+- [x] ASSERT_GREATER_OR_EQUAL
+- [x] ASSERT_LESS_OR_EQUAL
 - [x] ASSERT_NEAR
 
 ## Table 43 - Bistable Function Blocks

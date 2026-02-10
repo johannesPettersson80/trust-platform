@@ -44,6 +44,7 @@ impl<'a> BytecodeEncoder<'a> {
             return_name: None,
             loop_depth: 0,
             pause_requested: false,
+            execution_deadline: None,
         };
         crate::eval::expr::eval_expr(&mut ctx, expr)
             .map_err(|_| BytecodeError::InvalidSection("unsupported const expression".into()))

@@ -135,6 +135,10 @@ pub enum RuntimeError {
     #[error("watchdog timeout")]
     WatchdogTimeout,
 
+    /// Script/test execution exceeded the configured time budget.
+    #[error("execution timed out")]
+    ExecutionTimeout,
+
     /// Scripted simulation fault injection.
     #[error("simulation fault '{0}'")]
     SimulationFault(SmolStr),

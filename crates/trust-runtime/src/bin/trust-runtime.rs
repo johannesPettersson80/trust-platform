@@ -155,9 +155,11 @@ fn run() -> anyhow::Result<()> {
         Some(Command::Test {
             project,
             filter,
+            list,
+            timeout,
             output,
             ci,
-        }) => test::run_test(project, filter, output, ci),
+        }) => test::run_test(project, filter, list, timeout, output, ci),
         Some(Command::Docs {
             project,
             out_dir,

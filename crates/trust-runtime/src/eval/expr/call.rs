@@ -551,6 +551,7 @@ mod tests {
             return_name: None,
             loop_depth: 0,
             pause_requested: false,
+            execution_deadline: None,
         }
     }
 

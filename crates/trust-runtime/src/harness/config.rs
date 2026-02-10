@@ -395,6 +395,7 @@ pub(super) fn apply_globals(
             return_name: None,
             loop_depth: 0,
             pause_requested: false,
+            execution_deadline: None,
         };
 
         for init in globals {
@@ -674,6 +675,7 @@ pub(super) fn apply_config_inits(
                 return_name: None,
                 loop_depth: 0,
                 pause_requested: false,
+                execution_deadline: None,
             };
             let value = eval_expr(&mut ctx, expr)
                 .map_err(|err| CompileError::new(format!("VAR_CONFIG initializer error: {err}")))?;

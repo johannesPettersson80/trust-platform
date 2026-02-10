@@ -33,7 +33,7 @@ This folder provides a step-by-step progression of small, runnable ST programs.
    - Expected behavior: `high_level_alarm` is TRUE when `%IW0` is `>= 500`, FALSE otherwise.
 10. `10_unit_testing_101/`
    - Focus: ST unit testing with `TEST_PROGRAM` / `TEST_FUNCTION_BLOCK`.
-   - Expected behavior: `trust-runtime test` discovers and executes assertion-based tests, supports filter and CI output formats.
+   - Expected behavior: `trust-runtime test` discovers and executes assertion-based tests, supports `--list`, `--filter`, `--timeout`, and CI output formats.
    - Walk-through: open `10_unit_testing_101/README.md` for a step-by-step guide on writing tests in truST.
 11. `11_unit_testing_102/`
    - Focus: mock I/O design pattern and failure triage workflow.

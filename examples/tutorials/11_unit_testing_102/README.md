@@ -64,13 +64,25 @@ cargo run -p trust-runtime --bin trust-runtime -- test --project examples/tutori
 4. Fix code.
 5. Re-run until green.
 
-## Step 5: Debug only one test while iterating
+## Step 5: Debug one test while iterating
 
 ```bash
 cargo run -p trust-runtime --bin trust-runtime -- test --project examples/tutorials/11_unit_testing_102 --filter BAND
 ```
 
-## Step 6: Export machine-readable output for CI
+## Step 6: List tests and set timeout
+
+```bash
+cargo run -p trust-runtime --bin trust-runtime -- test --project examples/tutorials/11_unit_testing_102 --list
+```
+
+```bash
+cargo run -p trust-runtime --bin trust-runtime -- test --project examples/tutorials/11_unit_testing_102 --timeout 5
+```
+
+`--timeout` is per test case in seconds. `--timeout 0` disables timeout.
+
+## Step 7: Export machine-readable output for CI
 
 ```bash
 cargo run -p trust-runtime --bin trust-runtime -- test --project examples/tutorials/11_unit_testing_102 --output junit
@@ -79,6 +91,8 @@ cargo run -p trust-runtime --bin trust-runtime -- test --project examples/tutori
 ```bash
 cargo run -p trust-runtime --bin trust-runtime -- test --project examples/tutorials/11_unit_testing_102 --output json
 ```
+
+JSON includes per-test and summary `duration_ms` fields.
 
 ## Rule of thumb
 

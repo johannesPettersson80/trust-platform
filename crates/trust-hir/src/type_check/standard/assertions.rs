@@ -11,23 +11,36 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
     }
 
     pub(in crate::type_check) fn infer_assert_equal_call(&mut self, node: &SyntaxNode) -> TypeId {
-        let params = vec![
-            builtin_param("EXPECTED", ParamDirection::In),
-            builtin_param("ACTUAL", ParamDirection::In),
-        ];
-        let call = self.builtin_call(node, params);
-        call.check_formal_arg_count(self, node, 2);
-        if call.arg_count() != 2 {
-            return TypeId::UNKNOWN;
-        }
-        let inputs = call.args_from(0);
-        if inputs.len() != 2 {
-            return TypeId::UNKNOWN;
-        }
-        if !self.check_comparable_args(&inputs) {
-            return TypeId::UNKNOWN;
-        }
-        TypeId::VOID
+        self.infer_assert_comparable_call(node, "EXPECTED", "ACTUAL")
+    }
+
+    pub(in crate::type_check) fn infer_assert_not_equal_call(
+        &mut self,
+        node: &SyntaxNode,
+    ) -> TypeId {
+        self.infer_assert_comparable_call(node, "EXPECTED", "ACTUAL")
+    }
+
+    pub(in crate::type_check) fn infer_assert_greater_call(&mut self, node: &SyntaxNode) -> TypeId {
+        self.infer_assert_comparable_call(node, "VALUE", "BOUND")
+    }
+
+    pub(in crate::type_check) fn infer_assert_less_call(&mut self, node: &SyntaxNode) -> TypeId {
+        self.infer_assert_comparable_call(node, "VALUE", "BOUND")
+    }
+
+    pub(in crate::type_check) fn infer_assert_greater_or_equal_call(
+        &mut self,
+        node: &SyntaxNode,
+    ) -> TypeId {
+        self.infer_assert_comparable_call(node, "VALUE", "BOUND")
+    }
+
+    pub(in crate::type_check) fn infer_assert_less_or_equal_call(
+        &mut self,
+        node: &SyntaxNode,
+    ) -> TypeId {
+        self.infer_assert_comparable_call(node, "VALUE", "BOUND")
     }
 
     pub(in crate::type_check) fn infer_assert_near_call(&mut self, node: &SyntaxNode) -> TypeId {
@@ -66,6 +79,31 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
                 arg.range,
                 format!("{name} expects BOOL input"),
             );
+            return TypeId::UNKNOWN;
+        }
+        TypeId::VOID
+    }
+
+    fn infer_assert_comparable_call(
+        &mut self,
+        node: &SyntaxNode,
+        left_name: &str,
+        right_name: &str,
+    ) -> TypeId {
+        let params = vec![
+            builtin_param(left_name, ParamDirection::In),
+            builtin_param(right_name, ParamDirection::In),
+        ];
+        let call = self.builtin_call(node, params);
+        call.check_formal_arg_count(self, node, 2);
+        if call.arg_count() != 2 {
+            return TypeId::UNKNOWN;
+        }
+        let inputs = call.args_from(0);
+        if inputs.len() != 2 {
+            return TypeId::UNKNOWN;
+        }
+        if !self.check_comparable_args(&inputs) {
             return TypeId::UNKNOWN;
         }
         TypeId::VOID

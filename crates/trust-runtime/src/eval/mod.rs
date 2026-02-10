@@ -37,6 +37,7 @@ pub struct EvalContext<'a> {
     pub return_name: Option<SmolStr>,
     pub loop_depth: u32,
     pub pause_requested: bool,
+    pub execution_deadline: Option<std::time::Instant>,
 }
 
 /// Parameter declaration for POUs.

@@ -119,6 +119,7 @@ impl Stmt {
 
 /// Execute a statement.
 pub fn exec_stmt(ctx: &mut EvalContext<'_>, stmt: &Stmt) -> Result<StmtResult, RuntimeError> {
+    check_execution_budget(ctx)?;
     #[cfg(feature = "debug")]
     if let Some(hook) = ctx.debug.take() {
         hook.on_statement_with_context(ctx, stmt.location(), ctx.call_depth);
@@ -230,6 +231,7 @@ pub fn exec_stmt(ctx: &mut EvalContext<'_>, stmt: &Stmt) -> Result<StmtResult, R
                 coerce_loop_value(&control_template, current)?,
             )?;
             loop {
+                check_execution_budget(ctx)?;
                 if (step_i > 0 && current > end_i) || (step_i < 0 && current < end_i) {
                     break;
                 }
@@ -255,7 +257,11 @@ pub fn exec_stmt(ctx: &mut EvalContext<'_>, stmt: &Stmt) -> Result<StmtResult, R
         Stmt::While {
             condition, body, ..
         } => {
-            while eval_bool(ctx, condition)? {
+            loop {
+                check_execution_budget(ctx)?;
+                if !eval_bool(ctx, condition)? {
+                    break;
+                }
                 ctx.loop_depth += 1;
                 let result = exec_block(ctx, body)?;
                 ctx.loop_depth -= 1;
@@ -270,6 +276,7 @@ pub fn exec_stmt(ctx: &mut EvalContext<'_>, stmt: &Stmt) -> Result<StmtResult, R
             Ok(StmtResult::Continue)
         }
         Stmt::Repeat { body, until, .. } => loop {
+            check_execution_budget(ctx)?;
             ctx.loop_depth += 1;
             let result = exec_block(ctx, body)?;
             ctx.loop_depth -= 1;
@@ -311,6 +318,15 @@ pub fn exec_stmt(ctx: &mut EvalContext<'_>, stmt: &Stmt) -> Result<StmtResult, R
             }
         }
     }
+}
+
+fn check_execution_budget(ctx: &EvalContext<'_>) -> Result<(), RuntimeError> {
+    if let Some(deadline) = ctx.execution_deadline {
+        if std::time::Instant::now() >= deadline {
+            return Err(RuntimeError::ExecutionTimeout);
+        }
+    }
+    Ok(())
 }
 
 /// Execute a list of statements.

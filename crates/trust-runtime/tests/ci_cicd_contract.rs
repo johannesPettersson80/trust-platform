@@ -167,6 +167,10 @@ fn ci_json_summary_mode_contract_is_stable() {
     assert_eq!(test_json["summary"]["failed"], 0);
     assert_eq!(test_json["summary"]["errors"], 0);
     assert!(
+        test_json["summary"]["duration_ms"].is_number(),
+        "expected summary duration_ms in JSON output"
+    );
+    assert!(
         test_json["summary"]["total"]
             .as_u64()
             .is_some_and(|total| total >= 1),
@@ -175,6 +179,9 @@ fn ci_json_summary_mode_contract_is_stable() {
     assert!(test_json["tests"]
         .as_array()
         .is_some_and(|tests| tests.iter().any(|case| case["name"] == "CI_Passes")));
+    assert!(test_json["tests"]
+        .as_array()
+        .is_some_and(|tests| tests.iter().all(|case| case["duration_ms"].is_number())));
 
     let _ = std::fs::remove_dir_all(project);
 }

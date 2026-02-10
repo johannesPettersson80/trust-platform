@@ -2140,6 +2140,7 @@ fn evaluate_with_snapshot(
             return_name: None,
             loop_depth: 0,
             pause_requested: false,
+            execution_deadline: None,
         };
         crate::eval::eval_expr(&mut ctx, expr)
     };

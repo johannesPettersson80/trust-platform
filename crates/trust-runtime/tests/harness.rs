@@ -85,3 +85,26 @@ fn run_controls() {
     assert_eq!(harness.current_time(), Duration::ZERO);
     assert_eq!(harness.cycle_count(), 5);
 }
+
+#[test]
+fn run_until_returns_immediately_when_condition_is_already_true() {
+    let source = r#"
+        PROGRAM Demo
+        END_PROGRAM
+    "#;
+    let mut harness = TestHarness::from_source(source).unwrap();
+    let results = harness.run_until(|_| true);
+    assert!(results.is_empty());
+    assert_eq!(harness.cycle_count(), 0);
+}
+
+#[test]
+#[should_panic(expected = "run_until exceeded 3 cycles")]
+fn run_until_max_panics_when_limit_is_exceeded() {
+    let source = r#"
+        PROGRAM Demo
+        END_PROGRAM
+    "#;
+    let mut harness = TestHarness::from_source(source).unwrap();
+    let _ = harness.run_until_max(|_| false, 3);
+}

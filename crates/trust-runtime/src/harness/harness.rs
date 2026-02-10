@@ -11,6 +11,8 @@ use crate::Runtime;
 use super::types::{CompileError, CycleResult};
 use super::{CompileSession, SourceFile};
 
+const DEFAULT_MAX_CYCLES: u64 = 10_000;
+
 /// Test harness for PLC code unit testing.
 pub struct TestHarness {
     runtime: Runtime,
@@ -148,8 +150,19 @@ impl TestHarness {
     where
         F: Fn(&Runtime) -> bool,
     {
+        self.run_until_max(condition, DEFAULT_MAX_CYCLES)
+    }
+
+    /// Runs until a condition is met, with a maximum cycle guard.
+    pub fn run_until_max<F>(&mut self, condition: F, max_cycles: u64) -> Vec<CycleResult>
+    where
+        F: Fn(&Runtime) -> bool,
+    {
         let mut results = Vec::new();
         while !condition(&self.runtime) {
+            if results.len() as u64 >= max_cycles {
+                panic!("run_until exceeded {max_cycles} cycles without condition becoming true");
+            }
             results.push(self.cycle());
         }
         results

@@ -827,6 +827,7 @@ pub(in crate::harness) fn const_int_from_node(
         return_name: None,
         loop_depth: 0,
         pause_requested: false,
+        execution_deadline: None,
     };
     let value =
         eval_expr(&mut eval_ctx, &expr).map_err(|err| CompileError::new(err.to_string()))?;
@@ -875,6 +876,7 @@ pub(in crate::harness) fn const_duration_from_node(
         return_name: None,
         loop_depth: 0,
         pause_requested: false,
+        execution_deadline: None,
     };
     let value =
         eval_expr(&mut eval_ctx, &expr).map_err(|err| CompileError::new(err.to_string()))?;

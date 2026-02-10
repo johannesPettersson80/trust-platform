@@ -371,6 +371,11 @@ END_VAR
 ASSERT_TRUE(b);
 ASSERT_FALSE(FALSE);
 ASSERT_EQUAL(x, y);
+ASSERT_NOT_EQUAL(x, INT#3);
+ASSERT_GREATER(INT#3, INT#2);
+ASSERT_LESS(INT#2, INT#3);
+ASSERT_GREATER_OR_EQUAL(INT#3, INT#3);
+ASSERT_LESS_OR_EQUAL(INT#3, INT#3);
 ASSERT_NEAR(r, REAL#1.1, REAL#0.2);
 END_PROGRAM
 "#,
@@ -402,6 +407,18 @@ END_PROGRAM
 }
 
 #[test]
+fn test_assert_greater_requires_comparable_types() {
+    check_has_error(
+        r#"
+PROGRAM Test
+ASSERT_GREATER(TRUE, INT#1);
+END_PROGRAM
+"#,
+        DiagnosticCode::InvalidArgumentType,
+    );
+}
+
+#[test]
 fn test_assert_near_requires_numeric_types() {
     check_has_error(
         r#"
@@ -419,6 +436,18 @@ fn test_assert_equal_wrong_arity() {
         r#"
 PROGRAM Test
 ASSERT_EQUAL(INT#1);
+END_PROGRAM
+"#,
+        DiagnosticCode::WrongArgumentCount,
+    );
+}
+
+#[test]
+fn test_assert_less_or_equal_wrong_arity() {
+    check_has_error(
+        r#"
+PROGRAM Test
+ASSERT_LESS_OR_EQUAL(INT#1);
 END_PROGRAM
 "#,
         DiagnosticCode::WrongArgumentCount,

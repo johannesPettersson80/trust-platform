@@ -156,6 +156,7 @@ impl Runtime {
             return_name: None,
             loop_depth: 0,
             pause_requested: false,
+            execution_deadline: self.execution_deadline,
         };
         let mut has_frame = false;
         if instance_id.is_some() || !program.temps.is_empty() {
@@ -355,6 +356,7 @@ impl Runtime {
             return_name: None,
             loop_depth: 0,
             pause_requested: false,
+            execution_deadline: self.execution_deadline,
         };
         ctx.storage
             .push_frame_with_instance(fb.name.clone(), instance_id);

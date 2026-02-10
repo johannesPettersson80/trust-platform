@@ -135,6 +135,12 @@ pub enum Command {
         /// Optional case-insensitive substring filter for test names.
         #[arg(long)]
         filter: Option<String>,
+        /// List discovered tests without executing them.
+        #[arg(long, action = ArgAction::SetTrue)]
+        list: bool,
+        /// Per-test timeout in seconds.
+        #[arg(long, default_value_t = 5)]
+        timeout: u64,
         /// Output format (`human`, `junit`, `tap`, `json`).
         #[arg(long, value_enum, default_value_t = TestOutput::Human)]
         output: TestOutput,

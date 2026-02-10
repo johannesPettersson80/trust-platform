@@ -53,6 +53,7 @@ pub struct Runtime {
     pub(super) metrics: MetricsSubsystem,
     pub(super) watchdog: WatchdogSubsystem,
     pub(super) faults: FaultSubsystem,
+    pub(super) execution_deadline: Option<std::time::Instant>,
 }
 
 impl std::fmt::Debug for Runtime {
@@ -111,6 +112,7 @@ impl Runtime {
             metrics: MetricsSubsystem::new(),
             watchdog: WatchdogSubsystem::new(),
             faults: FaultSubsystem::new(),
+            execution_deadline: None,
         };
         runtime.register_builtin_function_blocks();
         runtime
@@ -199,6 +201,17 @@ impl Runtime {
     #[must_use]
     pub fn fault_policy(&self) -> FaultPolicy {
         self.faults.policy()
+    }
+
+    /// Set an optional execution deadline enforced by the evaluator.
+    pub fn set_execution_deadline(&mut self, deadline: Option<std::time::Instant>) {
+        self.execution_deadline = deadline;
+    }
+
+    /// Get the current execution deadline.
+    #[must_use]
+    pub fn execution_deadline(&self) -> Option<std::time::Instant> {
+        self.execution_deadline
     }
 
     /// Update configured safe-state outputs.
@@ -542,6 +555,7 @@ impl Runtime {
         let function_blocks = &self.function_blocks;
         let classes = &self.classes;
         let access = &self.access;
+        let execution_deadline = self.execution_deadline;
         let eval = |storage: &mut VariableStorage, instance_id: Option<InstanceId>| {
             let mut ctx = EvalContext {
                 storage,
@@ -560,6 +574,7 @@ impl Runtime {
                 return_name: None,
                 loop_depth: 0,
                 pause_requested: false,
+                execution_deadline,
             };
             eval::eval_expr(&mut ctx, expr)
         };
@@ -591,6 +606,7 @@ impl Runtime {
         let function_blocks = &self.function_blocks;
         let classes = &self.classes;
         let access = &self.access;
+        let execution_deadline = self.execution_deadline;
         let eval = |storage: &mut VariableStorage, instance_id: Option<InstanceId>| {
             let mut ctx = EvalContext {
                 storage,
@@ -609,6 +625,7 @@ impl Runtime {
                 return_name: None,
                 loop_depth: 0,
                 pause_requested: false,
+                execution_deadline,
             };
             f(&mut ctx)
         };

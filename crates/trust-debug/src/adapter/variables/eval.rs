@@ -209,6 +209,7 @@ impl DebugAdapter {
                 return_name: None,
                 loop_depth: 0,
                 pause_requested: false,
+                execution_deadline: None,
             };
             trust_runtime::eval::eval_expr(&mut ctx, expr)
         };
@@ -306,6 +307,7 @@ impl DebugAdapter {
                 return_name: None,
                 loop_depth: 0,
                 pause_requested: false,
+                execution_deadline: None,
             };
             f(&mut ctx)
         };

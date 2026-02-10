@@ -256,6 +256,7 @@ fn init_var_defaults(
         return_name: None,
         loop_depth: 0,
         pause_requested: false,
+        execution_deadline: None,
     };
     for var in vars {
         if function_block_type_name(var.type_id, registry).is_some() {
