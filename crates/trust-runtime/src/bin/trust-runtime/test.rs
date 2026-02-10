@@ -14,7 +14,7 @@ use trust_runtime::harness::{CompileSession, SourceFile as HarnessSourceFile};
 use trust_runtime::instance::create_fb_instance;
 use trust_runtime::Runtime;
 use trust_syntax::parser;
-use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
+use trust_syntax::syntax::{SyntaxKind, SyntaxNode, SyntaxToken};
 
 use crate::cli::TestOutput;
 use crate::style;
@@ -588,7 +588,7 @@ fn qualified_pou_name(node: &SyntaxNode) -> Option<SmolStr> {
     let name_node = node
         .children()
         .find(|child| child.kind() == SyntaxKind::Name)?;
-    parts.push(name_node.text().to_string().trim().to_string());
+    parts.push(name_part_from_name_node(&name_node)?);
 
     for ancestor in node.ancestors() {
         if ancestor.kind() != SyntaxKind::Namespace {
@@ -597,13 +597,34 @@ fn qualified_pou_name(node: &SyntaxNode) -> Option<SmolStr> {
         if let Some(ns_name) = ancestor
             .children()
             .find(|child| child.kind() == SyntaxKind::Name)
+            .and_then(|name_node| name_part_from_name_node(&name_node))
         {
-            parts.push(ns_name.text().to_string().trim().to_string());
+            parts.push(ns_name);
         }
     }
 
     parts.reverse();
     Some(parts.join(".").into())
+}
+
+fn name_part_from_name_node(node: &SyntaxNode) -> Option<String> {
+    let text = first_ident_token(node)?.text().trim().to_string();
+    if text.is_empty() {
+        None
+    } else {
+        Some(text)
+    }
+}
+
+fn first_ident_token(node: &SyntaxNode) -> Option<SyntaxToken> {
+    node.descendants_with_tokens()
+        .filter_map(|element| element.into_token())
+        .find(|token| {
+            matches!(
+                token.kind(),
+                SyntaxKind::Ident | SyntaxKind::KwEn | SyntaxKind::KwEno
+            )
+        })
 }
 
 fn line_for_offset(text: &str, byte_offset: usize) -> usize {
@@ -689,6 +710,27 @@ END_NAMESPACE
             discovered[1].source_line.as_deref(),
             Some("TEST_PROGRAM Plain")
         );
+    }
+
+    #[test]
+    fn discovery_ignores_comments_after_test_name() {
+        let sources = vec![LoadedSource {
+            path: PathBuf::from("comments.st"),
+            text: r#"
+TEST_PROGRAM InlineComment (* inline comment *)
+END_TEST_PROGRAM
+
+TEST_PROGRAM NextLineComment
+(* line comment right after declaration *)
+END_TEST_PROGRAM
+"#
+            .to_string(),
+        }];
+
+        let discovered = discover_tests(&sources);
+        assert_eq!(discovered.len(), 2);
+        assert_eq!(discovered[0].name, "InlineComment");
+        assert_eq!(discovered[1].name, "NextLineComment");
     }
 
     #[test]
