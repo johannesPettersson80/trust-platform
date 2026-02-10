@@ -29,7 +29,7 @@ pub struct SymbolOrigin {
 }
 
 /// A USING directive attached to a scope.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UsingDirective {
     /// Fully qualified namespace path.
     pub path: Vec<SmolStr>,
@@ -182,7 +182,7 @@ pub struct SymbolModifiers {
 }
 
 /// A symbol in the symbol table.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Symbol {
     /// The symbol's unique ID.
     pub id: SymbolId,
@@ -255,7 +255,7 @@ impl Symbol {
 }
 
 /// A scope in the symbol table.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Scope {
     /// The scope's unique ID.
     pub id: ScopeId,

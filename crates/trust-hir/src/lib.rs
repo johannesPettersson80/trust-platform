@@ -9,8 +9,9 @@
 //!
 //! # Architecture
 //!
-//! The crate uses `salsa` for incremental computation. All analysis is expressed
-//! as queries that are automatically cached and invalidated when inputs change.
+//! The crate uses `salsa` for incremental computation.
+//! Source/parse/file-symbol queries and semantic query families
+//! (`analyze`, diagnostics, and `type_of`) are Salsa-backed.
 //!
 //! # Example
 //!

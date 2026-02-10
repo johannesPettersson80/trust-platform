@@ -9,10 +9,17 @@ use trust_hir::SourceKey;
 use super::ServerState;
 
 pub(super) fn workspace_config_for_uri(state: &ServerState, uri: &Url) -> Option<ProjectConfig> {
+    workspace_config_match_for_uri(state, uri).map(|(_, config)| config)
+}
+
+pub(super) fn workspace_config_match_for_uri(
+    state: &ServerState,
+    uri: &Url,
+) -> Option<(Url, ProjectConfig)> {
     let configs = state.workspace_configs.read();
     if let Some(path) = uri_to_path(uri) {
         let path = normalize_match_path(path);
-        let mut best: Option<(usize, ProjectConfig)> = None;
+        let mut best: Option<(usize, Url, ProjectConfig)> = None;
         for (root_url, config) in configs.iter() {
             let Some(root_path) = uri_to_path(root_url) else {
                 continue;
@@ -20,11 +27,11 @@ pub(super) fn workspace_config_for_uri(state: &ServerState, uri: &Url) -> Option
             let root_path = normalize_match_path(root_path);
             if path.starts_with(&root_path) {
                 let depth = root_path.components().count();
-                update_best_match(&mut best, depth, config);
+                update_best_match(&mut best, depth, root_url, config);
             }
         }
         if best.is_some() {
-            return best.map(|(_, config)| config);
+            return best.map(|(_, root, config)| (root, config));
         }
     }
 
@@ -32,7 +39,7 @@ pub(super) fn workspace_config_for_uri(state: &ServerState, uri: &Url) -> Option
         .path_segments()
         .map(|segments| segments.filter(|segment| !segment.is_empty()).collect())
         .unwrap_or_default();
-    let mut best: Option<(usize, ProjectConfig)> = None;
+    let mut best: Option<(usize, Url, ProjectConfig)> = None;
     for (root_url, config) in configs.iter() {
         let root_segments: Vec<_> = root_url
             .path_segments()
@@ -46,22 +53,23 @@ pub(super) fn workspace_config_for_uri(state: &ServerState, uri: &Url) -> Option
         }
         if uri_segments[..root_segments.len()] == root_segments[..] {
             let depth = root_segments.len();
-            update_best_match(&mut best, depth, config);
+            update_best_match(&mut best, depth, root_url, config);
         }
     }
-    best.map(|(_, config)| config)
+    best.map(|(_, root, config)| (root, config))
 }
 
 fn update_best_match(
-    best: &mut Option<(usize, ProjectConfig)>,
+    best: &mut Option<(usize, Url, ProjectConfig)>,
     depth: usize,
+    root_url: &Url,
     config: &ProjectConfig,
 ) {
     if best
         .as_ref()
-        .is_none_or(|(best_depth, _)| depth > *best_depth)
+        .is_none_or(|(best_depth, _, _)| depth > *best_depth)
     {
-        *best = Some((depth, config.clone()));
+        *best = Some((depth, root_url.clone(), config.clone()));
     }
 }
 

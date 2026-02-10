@@ -4,6 +4,15 @@ This directory contains specifications, guides, and diagrams for truST LSP.
 
 For quick start and runtime inline values, see the root `README.md`.
 
+## Reports
+
+Durable engineering reports and gate baselines are in `docs/reports/`.
+See `docs/reports/README.md` for what is kept there vs. what should go to `logs/` or `docs/internal/`.
+
+## Internal Documents
+
+Implementation planning notes and remediation checklists live in `docs/internal/`.
+
 ## Diagram Maintenance
 
 Use the helper scripts to keep PlantUML diagrams in sync:

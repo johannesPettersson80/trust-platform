@@ -16,6 +16,8 @@ indexmap.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 text-size.workspace = true
+rowan.workspace = true
+parking_lot.workspace = true
 
 [dev-dependencies]
 expect-test.workspace = true

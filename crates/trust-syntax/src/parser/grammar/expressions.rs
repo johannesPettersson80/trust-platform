@@ -16,6 +16,9 @@ use crate::syntax::SyntaxKind;
 use super::super::CompletedMarker;
 use super::super::Parser;
 
+// Guard against pathological recursive inputs discovered by fuzzing.
+const MAX_EXPRESSION_DEPTH: usize = 1024;
+
 impl Parser<'_, '_> {
     /// Parse an expression using Pratt parsing.
     pub(crate) fn parse_expression(&mut self) -> CompletedMarker {
@@ -24,6 +27,17 @@ impl Parser<'_, '_> {
 
     /// Parse expression with minimum binding power.
     pub(crate) fn parse_expr_bp(&mut self, min_bp: u8) -> CompletedMarker {
+        if self.expr_depth >= MAX_EXPRESSION_DEPTH {
+            let marker = self.start();
+            self.error("expression nesting exceeds parser limit");
+            if !self.at_end() {
+                self.bump();
+            }
+            return marker.complete(self, SyntaxKind::Error);
+        }
+
+        self.expr_depth += 1;
+
         let mut lhs = if let Some(bp) = self.current().prefix_binding_power() {
             let marker = self.start();
             self.bump();
@@ -55,6 +69,7 @@ impl Parser<'_, '_> {
             break;
         }
 
+        self.expr_depth -= 1;
         lhs
     }
 

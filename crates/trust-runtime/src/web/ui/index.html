@@ -168,7 +168,14 @@
                     <option value="modbus-tcp">modbus-tcp</option>
                     <option value="loopback">loopback</option>
                     <option value="simulated">simulated</option>
+                    <option value="mqtt">mqtt</option>
                   </select>
+                </div>
+                <div class="field">
+                  <label class="muted">Additional drivers <span class="help" title="Optional extra drivers composed with the primary driver (for example: modbus-tcp + mqtt)." aria-label="Additional drivers help">?</span></label>
+                  <div id="ioAdditionalDrivers" class="table"></div>
+                  <button class="btn ghost" onclick="addAdditionalIoDriver()">+ Add driver</button>
+                  <div class="note">Primary driver above plus additional drivers are executed in listed order each cycle. Common drivers use guided fields; custom drivers use JSON.</div>
                 </div>
                 <div class="field">
                   <label class="muted">Use system I/O config <span class="help" title="Use /etc/trust/io.toml instead of project io.toml." aria-label="Use system I/O help">?</span></label>
@@ -234,6 +241,51 @@
                       <button class="btn ghost" onclick="addGpioOutput()">+ Add output</button>
                     </div>
                   </div>
+                </div>
+
+                <div id="ioDriverMqtt" hidden>
+                  <div class="grid two">
+                    <div class="field">
+                      <label class="muted">Broker <span class="help" title="MQTT broker host:port." aria-label="MQTT broker help">?</span></label>
+                      <input id="mqttBroker" type="text" placeholder="127.0.0.1:1883"/>
+                    </div>
+                    <div class="field">
+                      <label class="muted">Client ID <span class="help" title="Optional client id; leave blank for auto." aria-label="MQTT client id help">?</span></label>
+                      <input id="mqttClientId" type="text" placeholder="trust-runtime-1234"/>
+                    </div>
+                    <div class="field">
+                      <label class="muted">Topic in <span class="help" title="Broker topic for input image updates." aria-label="MQTT topic in help">?</span></label>
+                      <input id="mqttTopicIn" type="text" placeholder="trust/io/in"/>
+                    </div>
+                    <div class="field">
+                      <label class="muted">Topic out <span class="help" title="Broker topic for output image publishes." aria-label="MQTT topic out help">?</span></label>
+                      <input id="mqttTopicOut" type="text" placeholder="trust/io/out"/>
+                    </div>
+                    <div class="field">
+                      <label class="muted">Reconnect (ms) <span class="help" title="Retry interval when broker is unavailable." aria-label="MQTT reconnect help">?</span></label>
+                      <input id="mqttReconnectMs" type="number" min="1" placeholder="500"/>
+                    </div>
+                    <div class="field">
+                      <label class="muted">Keep-alive (s) <span class="help" title="MQTT keep-alive interval in seconds." aria-label="MQTT keep alive help">?</span></label>
+                      <input id="mqttKeepAliveS" type="number" min="1" max="65535" placeholder="5"/>
+                    </div>
+                    <div class="field">
+                      <label class="muted">Allow insecure remote <span class="help" title="Allow non-local plaintext broker endpoints." aria-label="MQTT insecure remote help">?</span></label>
+                      <select id="mqttAllowInsecureRemote">
+                        <option value="false">false</option>
+                        <option value="true">true</option>
+                      </select>
+                    </div>
+                    <div class="field">
+                      <label class="muted">Username <span class="help" title="Optional. If set, password must also be set." aria-label="MQTT username help">?</span></label>
+                      <input id="mqttUsername" type="text" placeholder="operator"/>
+                    </div>
+                    <div class="field">
+                      <label class="muted">Password <span class="help" title="Optional. If set, username must also be set." aria-label="MQTT password help">?</span></label>
+                      <input id="mqttPassword" type="password" placeholder="secret"/>
+                    </div>
+                  </div>
+                  <div class="note">MQTT TLS is not yet supported in this release (`tls=false`).</div>
                 </div>
 
                 <div class="field" style="margin-top:12px;">
@@ -550,6 +602,7 @@
                     <option value="gpio">gpio</option>
                     <option value="modbus-tcp">modbus-tcp</option>
                     <option value="simulated">simulated</option>
+                    <option value="mqtt">mqtt</option>
                   </select>
                 </div>
                 <button class="btn ghost" id="toggleAdvanced" onclick="toggleAdvancedSettings()">Show advanced</button>

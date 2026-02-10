@@ -2065,7 +2065,10 @@ fn lsp_tutorial_examples_no_unexpected_diagnostics_snapshot() {
         state.open_document(uri.clone(), 1, source.to_string());
 
         let file_id = state.get_document(&uri).expect("tutorial document").file_id;
-        let diagnostics = super::diagnostics::collect_diagnostics(&state, &uri, source, file_id);
+        let ticket = state.begin_semantic_request();
+        let diagnostics = super::diagnostics::collect_diagnostics_with_ticket_for_tests(
+            &state, &uri, source, file_id, ticket,
+        );
 
         let summary: Vec<String> = diagnostics
             .iter()

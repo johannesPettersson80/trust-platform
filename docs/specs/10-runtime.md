@@ -4,6 +4,7 @@
 - Current runtime: tree-walking interpreter over a lowered eval AST (trust-syntax + trust-hir).
 - Bytecode (STBC) is used for packaging and metadata; there is no bytecode VM in the runtime yet.
 - Debugger uses DAP plus the runtime control protocol; LSP/IDE technical spec is included below.
+- Salsa incremental queries are used in `trust-hir` (analysis/LSP path), not in the deterministic runtime scan loop.
 - IEC language specs remain in docs/specs/01-09-*.md.
 
 ## Runtime Interpreter
@@ -918,7 +919,11 @@ pub enum AddressSize {
 | `%IX1.2` | Input | Bit | Byte 1, Bit 2 |
 | `%IW4` | Input | Word | Byte 4-5 |
 | `%QD10` | Output | DWord | Byte 10-13 |
+| `%MX0.7` | Memory | Bit | Byte 0, Bit 7 |
+| `%MB12` | Memory | Byte | Byte 12 |
+| `%MW50` | Memory | Word | Byte 50-51 |
 | `%MD0` | Memory | DWord | Byte 0-3 |
+| `%ML8` | Memory | LWord | Byte 8-15 |
 
 #### 9.4 I/O Provider Interface
 
@@ -1453,6 +1458,9 @@ The process image is owned by a single resource thread; no internal locking is r
 #### 6.5 I/O Drivers
 
 I/O exchange is explicit and deterministic: inputs are read into the input image at the start of each resource cycle, and outputs are written after all ready tasks complete.
+Marker bindings (`%M`) are synchronized with program storage at both cycle boundaries:
+- Start of cycle: `%M` process image -> bound variables (same phase as `%I` input latch).
+- End of cycle: bound variables -> `%M` process image (same phase as `%Q` output commit).
 
 ```rust
 pub trait IoDriver: Send {
@@ -2697,12 +2705,12 @@ Runtime and debugger behavior are specified in:
 |-------|---------|---------|
 | logos | Lexer generation | 0.14 |
 | rowan | Lossless syntax trees | 0.15 |
-| salsa | Incremental computation | 0.18 |
+| salsa | Incremental query engine | 0.26 |
 | tower-lsp | LSP framework | 0.20 |
 
 #### 2.4 Concurrency Model
 
-- Single-threaded analysis (salsa handles caching)
+- Single-threaded analysis (Salsa-backed source/parse/file symbols/`analyze`/diagnostics/`type_of`)
 - Async I/O for LSP communication (tokio)
 - Document store protected by RwLock
 
@@ -3205,12 +3213,54 @@ enum Type {
 #### 5.5 Salsa Queries
 
 ```rust
-#[salsa::query_group(SemanticDatabaseStorage)]
-trait SemanticDatabase: SyntaxDatabase {
-    fn symbols(&self, file: FileId) -> Arc<SymbolTable>;
-    fn resolve_name(&self, file: FileId, pos: TextSize) -> Option<SymbolId>;
-    fn type_of(&self, file: FileId, expr: ExprId) -> TypeId;
+#[salsa::input]
+struct SourceInput {
+    #[returns(ref)]
+    text: String,
+}
+
+#[salsa::input]
+struct ProjectInputs {
+    #[returns(ref)]
+    files: Vec<(FileId, SourceInput)>,
+}
+
+#[salsa::tracked(returns(ref))]
+fn parse_green(db: &dyn salsa::Database, input: SourceInput) -> GreenNode;
+
+#[salsa::tracked(returns(ref))]
+fn file_symbols_query(
+    db: &dyn salsa::Database,
+    input: SourceInput,
+) -> Arc<SymbolTable>;
+
+#[salsa::tracked(returns(ref))]
+fn analyze_query(
+    db: &dyn salsa::Database,
+    project: ProjectInputs,
+    file_id: FileId,
+) -> Arc<FileAnalysis>;
+
+#[salsa::tracked(returns(ref))]
+fn diagnostics_query(
+    db: &dyn salsa::Database,
+    project: ProjectInputs,
+    file_id: FileId,
+) -> Arc<Vec<Diagnostic>>;
+
+#[salsa::tracked]
+fn type_of_query(
+    db: &dyn salsa::Database,
+    project: ProjectInputs,
+    file_id: FileId,
+    expr_id: u32,
+) -> TypeId;
+
+trait SemanticDatabase: SourceDatabase {
+    fn file_symbols(&self, file: FileId) -> Arc<SymbolTable>;
+    fn analyze(&self, file: FileId) -> Arc<FileAnalysis>;
     fn diagnostics(&self, file: FileId) -> Arc<Vec<Diagnostic>>;
+    fn type_of(&self, file: FileId, expr_id: u32) -> TypeId;
 }
 ```
 

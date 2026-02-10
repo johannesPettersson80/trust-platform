@@ -56,7 +56,7 @@ struct GlobalCandidate {
 
 pub(in crate::db) fn check_shared_global_task_hazards(
     symbols: &SymbolTable,
-    sources: &FxHashMap<FileId, Arc<String>>,
+    project_roots: &[(FileId, SyntaxNode)],
     file_id: FileId,
     diagnostics: &mut DiagnosticBuilder,
 ) {
@@ -65,13 +65,12 @@ pub(in crate::db) fn check_shared_global_task_hazards(
         return;
     }
 
-    let parsed_files = parse_project_sources(sources);
-    let (program_tasks, task_info) = collect_program_task_assignments(symbols, &parsed_files);
+    let (program_tasks, task_info) = collect_program_task_assignments(symbols, project_roots);
     if program_tasks.is_empty() {
         return;
     }
 
-    let program_accesses = collect_program_accesses(symbols, &parsed_files, &globals_by_key);
+    let program_accesses = collect_program_accesses(symbols, project_roots, &globals_by_key);
     if program_accesses.is_empty() {
         return;
     }
@@ -160,15 +159,6 @@ fn collect_global_candidates(
     }
 
     (by_key, by_id)
-}
-
-fn parse_project_sources(sources: &FxHashMap<FileId, Arc<String>>) -> Vec<(FileId, SyntaxNode)> {
-    let mut parsed = Vec::new();
-    for (&file_id, source) in sources.iter() {
-        let tree = parse(source);
-        parsed.push((file_id, tree.syntax()));
-    }
-    parsed
 }
 
 fn collect_program_task_assignments(

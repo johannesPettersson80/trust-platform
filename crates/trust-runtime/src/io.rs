@@ -395,7 +395,7 @@ impl IoInterface {
 
     pub fn read_inputs(&self, storage: &mut VariableStorage) -> Result<(), RuntimeError> {
         for binding in &self.bindings {
-            if binding.address.area != IoArea::Input {
+            if !matches!(binding.address.area, IoArea::Input | IoArea::Memory) {
                 continue;
             }
             let value = self.read(&binding.address)?;
@@ -419,7 +419,7 @@ impl IoInterface {
     pub fn write_outputs(&mut self, storage: &VariableStorage) -> Result<(), RuntimeError> {
         let bindings = self.bindings.clone();
         for binding in bindings {
-            if binding.address.area != IoArea::Output {
+            if !matches!(binding.address.area, IoArea::Output | IoArea::Memory) {
                 continue;
             }
             let value = match &binding.target {
@@ -711,14 +711,22 @@ fn coerce_to_io(value: Value, target: TypeId, size: IoSize) -> Result<Value, Run
             Value::Bool(flag) => Ok(Value::Bool(flag)),
             _ => Err(RuntimeError::TypeMismatch),
         },
-        TypeId::SINT => match value {
-            Value::SInt(val) => Ok(Value::Byte(val as u8)),
-            _ => Err(RuntimeError::TypeMismatch),
-        },
-        TypeId::USINT => match value {
-            Value::USInt(val) => Ok(Value::Byte(val)),
-            _ => Err(RuntimeError::TypeMismatch),
-        },
+        TypeId::SINT => {
+            let val = match value {
+                Value::SInt(val) => val,
+                _ => i8::try_from(crate::numeric::to_i64(&value)?)
+                    .map_err(|_| RuntimeError::Overflow)?,
+            };
+            Ok(Value::Byte(val as u8))
+        }
+        TypeId::USINT => {
+            let val = match value {
+                Value::USInt(val) => val,
+                _ => u8::try_from(crate::numeric::to_u64(&value)?)
+                    .map_err(|_| RuntimeError::Overflow)?,
+            };
+            Ok(Value::Byte(val))
+        }
         TypeId::BYTE => match value {
             Value::Byte(val) => Ok(Value::Byte(val)),
             _ => Err(RuntimeError::TypeMismatch),
@@ -727,14 +735,22 @@ fn coerce_to_io(value: Value, target: TypeId, size: IoSize) -> Result<Value, Run
             Value::Char(val) => Ok(Value::Byte(val)),
             _ => Err(RuntimeError::TypeMismatch),
         },
-        TypeId::INT => match value {
-            Value::Int(val) => Ok(Value::Word(val as u16)),
-            _ => Err(RuntimeError::TypeMismatch),
-        },
-        TypeId::UINT => match value {
-            Value::UInt(val) => Ok(Value::Word(val)),
-            _ => Err(RuntimeError::TypeMismatch),
-        },
+        TypeId::INT => {
+            let val = match value {
+                Value::Int(val) => val,
+                _ => i16::try_from(crate::numeric::to_i64(&value)?)
+                    .map_err(|_| RuntimeError::Overflow)?,
+            };
+            Ok(Value::Word(val as u16))
+        }
+        TypeId::UINT => {
+            let val = match value {
+                Value::UInt(val) => val,
+                _ => u16::try_from(crate::numeric::to_u64(&value)?)
+                    .map_err(|_| RuntimeError::Overflow)?,
+            };
+            Ok(Value::Word(val))
+        }
         TypeId::WORD => match value {
             Value::Word(val) => Ok(Value::Word(val)),
             _ => Err(RuntimeError::TypeMismatch),
@@ -743,38 +759,58 @@ fn coerce_to_io(value: Value, target: TypeId, size: IoSize) -> Result<Value, Run
             Value::WChar(val) => Ok(Value::Word(val)),
             _ => Err(RuntimeError::TypeMismatch),
         },
-        TypeId::DINT => match value {
-            Value::DInt(val) => Ok(Value::DWord(val as u32)),
-            _ => Err(RuntimeError::TypeMismatch),
-        },
-        TypeId::UDINT => match value {
-            Value::UDInt(val) => Ok(Value::DWord(val)),
-            _ => Err(RuntimeError::TypeMismatch),
-        },
+        TypeId::DINT => {
+            let val = match value {
+                Value::DInt(val) => val,
+                _ => i32::try_from(crate::numeric::to_i64(&value)?)
+                    .map_err(|_| RuntimeError::Overflow)?,
+            };
+            Ok(Value::DWord(val as u32))
+        }
+        TypeId::UDINT => {
+            let val = match value {
+                Value::UDInt(val) => val,
+                _ => u32::try_from(crate::numeric::to_u64(&value)?)
+                    .map_err(|_| RuntimeError::Overflow)?,
+            };
+            Ok(Value::DWord(val))
+        }
         TypeId::DWORD => match value {
             Value::DWord(val) => Ok(Value::DWord(val)),
             _ => Err(RuntimeError::TypeMismatch),
         },
-        TypeId::REAL => match value {
-            Value::Real(val) => Ok(Value::DWord(val.to_bits())),
-            _ => Err(RuntimeError::TypeMismatch),
-        },
-        TypeId::LINT => match value {
-            Value::LInt(val) => Ok(Value::LWord(val as u64)),
-            _ => Err(RuntimeError::TypeMismatch),
-        },
-        TypeId::ULINT => match value {
-            Value::ULInt(val) => Ok(Value::LWord(val)),
-            _ => Err(RuntimeError::TypeMismatch),
-        },
+        TypeId::REAL => {
+            let val = match value {
+                Value::Real(val) => val,
+                _ => crate::numeric::to_f64(&value)? as f32,
+            };
+            Ok(Value::DWord(val.to_bits()))
+        }
+        TypeId::LINT => {
+            let val = match value {
+                Value::LInt(val) => val,
+                _ => crate::numeric::to_i64(&value)?,
+            };
+            Ok(Value::LWord(val as u64))
+        }
+        TypeId::ULINT => {
+            let val = match value {
+                Value::ULInt(val) => val,
+                _ => crate::numeric::to_u64(&value)?,
+            };
+            Ok(Value::LWord(val))
+        }
         TypeId::LWORD => match value {
             Value::LWord(val) => Ok(Value::LWord(val)),
             _ => Err(RuntimeError::TypeMismatch),
         },
-        TypeId::LREAL => match value {
-            Value::LReal(val) => Ok(Value::LWord(val.to_bits())),
-            _ => Err(RuntimeError::TypeMismatch),
-        },
+        TypeId::LREAL => {
+            let val = match value {
+                Value::LReal(val) => val,
+                _ => crate::numeric::to_f64(&value)?,
+            };
+            Ok(Value::LWord(val.to_bits()))
+        }
         _ => Err(RuntimeError::TypeMismatch),
     }
 }

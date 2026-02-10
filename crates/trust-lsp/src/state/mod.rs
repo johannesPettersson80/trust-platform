@@ -15,6 +15,7 @@ use tokio::sync::Semaphore;
 use tower_lsp::lsp_types::{SemanticToken, Url};
 
 use crate::config::ProjectConfig;
+use crate::library_docs::library_doc_map;
 use crate::telemetry::{TelemetryCollector, TelemetryEvent};
 use trust_hir::{db::FileId, Database, Project};
 
@@ -116,6 +117,8 @@ pub struct ServerState {
     diagnostic_id: AtomicU64,
     /// Monotonic counter for document access.
     doc_access_counter: AtomicU64,
+    /// Monotonic generation used for cooperative semantic request cancellation.
+    semantic_request_generation: AtomicU64,
     /// Last activity time (epoch ms) for adaptive throttling.
     last_activity_ms: AtomicU64,
     /// Whether work-done progress is supported by the client.
@@ -134,6 +137,8 @@ pub struct ServerState {
     workspace_folders: RwLock<Vec<Url>>,
     /// Workspace configuration per root.
     workspace_configs: RwLock<FxHashMap<Url, ProjectConfig>>,
+    /// Cached external library docs per workspace root.
+    library_docs: RwLock<FxHashMap<Url, Arc<FxHashMap<String, String>>>>,
     /// Telemetry collector (opt-in).
     telemetry: TelemetryCollector,
     /// Limits concurrency for background workspace scans.
@@ -150,6 +155,7 @@ impl ServerState {
             semantic_tokens_id: AtomicU64::new(1),
             diagnostic_id: AtomicU64::new(1),
             doc_access_counter: AtomicU64::new(1),
+            semantic_request_generation: AtomicU64::new(1),
             last_activity_ms: AtomicU64::new(0),
             work_done_progress: AtomicBool::new(false),
             diagnostic_refresh_supported: AtomicBool::new(false),
@@ -159,6 +165,7 @@ impl ServerState {
             project: RwLock::new(Project::new()),
             workspace_folders: RwLock::new(Vec::new()),
             workspace_configs: RwLock::new(FxHashMap::default()),
+            library_docs: RwLock::new(FxHashMap::default()),
             telemetry: TelemetryCollector::new(),
             request_limiter: RequestLimiter::new(BACKGROUND_REQUEST_LIMIT),
         }
@@ -225,7 +232,8 @@ impl ServerState {
 
     /// Stores configuration for a workspace root.
     pub fn set_workspace_config(&self, root: Url, config: ProjectConfig) {
-        self.workspace_configs.write().insert(root, config);
+        self.workspace_configs.write().insert(root.clone(), config);
+        self.library_docs.write().remove(&root);
     }
 
     /// Returns all workspace configurations with their roots.
@@ -249,6 +257,19 @@ impl ServerState {
     /// Returns the best-matching workspace configuration for a document URI.
     pub fn workspace_config_for_uri(&self, uri: &Url) -> Option<ProjectConfig> {
         path::workspace_config_for_uri(self, uri)
+    }
+
+    /// Returns cached library docs for the workspace that owns `uri`.
+    pub fn library_docs_for_uri(&self, uri: &Url) -> Option<Arc<FxHashMap<String, String>>> {
+        let (root, config) = path::workspace_config_match_for_uri(self, uri)?;
+        if let Some(docs) = self.library_docs.read().get(&root).cloned() {
+            return Some(docs);
+        }
+
+        let docs = Arc::new(library_doc_map(&config));
+        let mut cache = self.library_docs.write();
+        let entry = cache.entry(root).or_insert_with(|| Arc::clone(&docs));
+        Some(Arc::clone(entry))
     }
 
     pub fn record_telemetry(&self, event: TelemetryEvent, duration: Duration, uri: Option<&Url>) {
@@ -382,16 +403,25 @@ impl ServerState {
         documents::apply_memory_budget(self);
     }
 
-    /// Executes a function with a database snapshot.
+    /// Executes a function with a read lock on the database.
     pub fn with_database<F, R>(&self, f: F) -> R
     where
         F: FnOnce(&Database) -> R,
     {
-        let snapshot = {
-            let project = self.project.read();
-            project.database().clone()
-        };
-        f(&snapshot)
+        let project = self.project.read();
+        f(project.database())
+    }
+
+    /// Starts a semantic request generation and cancels older in-flight semantic computations.
+    pub fn begin_semantic_request(&self) -> u64 {
+        self.semantic_request_generation
+            .fetch_add(1, Ordering::Relaxed)
+            + 1
+    }
+
+    /// Returns true if a semantic request ticket has been superseded.
+    pub fn semantic_request_cancelled(&self, ticket: u64) -> bool {
+        self.semantic_request_generation.load(Ordering::Relaxed) != ticket
     }
 }
 
@@ -596,6 +626,66 @@ evict_to_percent = 75
             first, third,
             "changed diagnostics should emit a new result id"
         );
+    }
+
+    #[test]
+    fn library_docs_cache_reuses_entries_until_workspace_config_changes() {
+        let root = temp_dir("trustlsp-library-doc-cache");
+        let config_path = root.join("trust-lsp.toml");
+        let docs_path = root.join("lib-docs.md");
+        let lib_path = root.join("vendor");
+        let source_path = root.join("main.st");
+        fs::create_dir_all(&lib_path).expect("create library dir");
+        fs::write(
+            &config_path,
+            r#"
+[[libraries]]
+name = "Vendor"
+path = "vendor"
+docs = ["lib-docs.md"]
+"#,
+        )
+        .expect("write config");
+        fs::write(&docs_path, "# ADDONE\nold docs\n").expect("write docs");
+        fs::write(&source_path, "PROGRAM Main\nEND_PROGRAM\n").expect("write source");
+
+        let state = ServerState::new();
+        let root_uri = Url::from_file_path(&root).expect("root uri");
+        let source_uri = Url::from_file_path(&source_path).expect("source uri");
+        state.set_workspace_config(root_uri.clone(), ProjectConfig::load(&root));
+
+        let docs_one = state
+            .library_docs_for_uri(&source_uri)
+            .expect("library docs");
+        let docs_two = state
+            .library_docs_for_uri(&source_uri)
+            .expect("library docs");
+        assert!(
+            Arc::ptr_eq(&docs_one, &docs_two),
+            "cached lookup should reuse the existing docs map"
+        );
+        assert_eq!(
+            docs_one.get("ADDONE").map(String::as_str),
+            Some("old docs"),
+            "initial docs payload should be loaded"
+        );
+
+        fs::write(&docs_path, "# ADDONE\nnew docs\n").expect("rewrite docs");
+        state.set_workspace_config(root_uri, ProjectConfig::load(&root));
+        let docs_three = state
+            .library_docs_for_uri(&source_uri)
+            .expect("library docs after config refresh");
+        assert!(
+            !Arc::ptr_eq(&docs_one, &docs_three),
+            "config refresh should invalidate and rebuild cached docs"
+        );
+        assert_eq!(
+            docs_three.get("ADDONE").map(String::as_str),
+            Some("new docs"),
+            "refreshed cache should expose updated docs"
+        );
+
+        fs::remove_dir_all(root).ok();
     }
 
     #[test]

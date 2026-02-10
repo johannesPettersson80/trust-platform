@@ -1,0 +1,83 @@
+name: Salsa Hardening
+
+on:
+  pull_request:
+    branches: [master, main]
+  push:
+    branches: [master, main]
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  memory-regression:
+    name: Memory Regression Gate
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Compare memory/perf metrics with baseline
+        run: ./scripts/salsa_memory_gate.sh compare
+
+  fuzz-smoke:
+    name: Fuzz Smoke
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz --locked
+      - name: Run PR smoke fuzz targets
+        run: ./scripts/salsa_fuzz_gate.sh smoke
+      - name: Upload fuzz artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: salsa-fuzz-smoke-artifacts
+          path: |
+            fuzz/artifacts/
+
+  miri-nightly:
+    name: Miri Nightly Gate
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: miri
+      - uses: Swatinem/rust-cache@v2
+      - name: Setup Miri
+        run: cargo +nightly miri setup
+      - name: Run targeted Miri allowlist
+        run: ./scripts/salsa_miri_gate.sh
+
+  fuzz-extended-nightly:
+    name: Fuzz Extended Nightly
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz --locked
+      - name: Run extended fuzz targets
+        env:
+          SALSA_FUZZ_EXTENDED_SECONDS: "900"
+        run: ./scripts/salsa_fuzz_gate.sh extended
+      - name: Upload extended fuzz artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: salsa-fuzz-extended-artifacts
+          path: |
+            fuzz/artifacts/

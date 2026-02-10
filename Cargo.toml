@@ -10,7 +10,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/johannesPettersson80/trust-platform"
@@ -26,7 +26,7 @@ rowan = "0.15"
 text-size = "1.1"
 
 # Semantic analysis
-salsa = "0.18"
+salsa = "0.26"
 
 # LSP
 tower-lsp = "0.20"

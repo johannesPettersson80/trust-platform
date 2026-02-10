@@ -435,12 +435,14 @@ impl DebugAdapter {
         let runtime = self.session.runtime_handle();
         let control = self.session.debug_control();
         let cycle_time = cycle_time_hint(self.session.metadata());
+        let cycle_interval = wall_interval_for_cycle(cycle_time);
         let stop = Arc::new(AtomicBool::new(false));
         let stop_flag = Arc::clone(&stop);
         let handle = thread::spawn(move || loop {
             if stop_flag.load(Ordering::Relaxed) {
                 break;
             }
+            let cycle_start = Instant::now();
             let mut runtime = match runtime.lock() {
                 Ok(guard) => guard,
                 Err(poisoned) => poisoned.into_inner(),
@@ -453,6 +455,14 @@ impl DebugAdapter {
                     }
                 }
             }
+            drop(runtime);
+
+            let elapsed = cycle_start.elapsed();
+            if elapsed >= cycle_interval {
+                continue;
+            }
+            let deadline = cycle_start + cycle_interval;
+            sleep_until_or_stopped(&stop_flag, deadline);
         });
         self.runner = Some(DebugRunner {
             stop,
@@ -831,4 +841,26 @@ fn cycle_time_hint(metadata: &RuntimeMetadata) -> Duration {
         .filter(|interval| interval.as_nanos() > 0)
         .min()
         .unwrap_or_else(|| Duration::from_millis(10))
+}
+
+fn wall_interval_for_cycle(cycle_time: Duration) -> StdDuration {
+    let nanos = cycle_time.as_nanos();
+    if nanos <= 0 {
+        return StdDuration::from_millis(10);
+    }
+    let nanos = u64::try_from(nanos).unwrap_or(u64::MAX);
+    StdDuration::from_nanos(nanos)
+}
+
+fn sleep_until_or_stopped(stop_flag: &AtomicBool, deadline: Instant) {
+    const MAX_SLEEP_CHUNK: StdDuration = StdDuration::from_millis(5);
+
+    while !stop_flag.load(Ordering::Relaxed) {
+        let now = Instant::now();
+        if now >= deadline {
+            break;
+        }
+        let remaining = deadline.duration_since(now);
+        thread::sleep(remaining.min(MAX_SLEEP_CHUNK));
+    }
 }

@@ -11,6 +11,10 @@ rust-version.workspace = true
 name = "trust-lsp"
 path = "src/main.rs"
 
+[features]
+default = []
+perf_alloc_metrics = []
+
 [dependencies]
 trust-syntax.workspace = true
 trust-hir.workspace = true

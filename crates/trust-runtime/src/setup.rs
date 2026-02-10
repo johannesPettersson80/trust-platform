@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 
 use smol_str::SmolStr;
 
+use crate::bundle_template::{IoConfigTemplate, IoDriverTemplate};
 use crate::config::{system_io_config_path, IoConfig};
 use crate::error::RuntimeError;
 
@@ -43,8 +44,10 @@ pub fn run_setup(options: SetupOptions) -> Result<PathBuf, RuntimeError> {
     };
 
     let io_config = IoConfig {
-        driver: SmolStr::new(driver),
-        params,
+        drivers: vec![crate::config::IoDriverConfig {
+            name: SmolStr::new(driver),
+            params,
+        }],
         safe_state: crate::io::IoSafeState::default(),
     };
 
@@ -151,17 +154,18 @@ fn write_system_io_config(path: &Path, config: &IoConfig) -> Result<(), RuntimeE
 }
 
 fn render_io_config(config: &IoConfig) -> Result<String, RuntimeError> {
-    let mut io_table = toml::map::Map::new();
-    io_table.insert(
-        "driver".into(),
-        toml::Value::String(config.driver.to_string()),
-    );
-    io_table.insert("params".into(), config.params.clone());
-    let mut root = toml::map::Map::new();
-    root.insert("io".into(), toml::Value::Table(io_table));
-    toml::to_string(&toml::Value::Table(root)).map_err(|err| {
-        RuntimeError::InvalidConfig(format!("failed to render io.toml: {err}").into())
-    })
+    let template = IoConfigTemplate {
+        drivers: config
+            .drivers
+            .iter()
+            .map(|driver| IoDriverTemplate {
+                name: driver.name.to_string(),
+                params: driver.params.clone(),
+            })
+            .collect(),
+        safe_state: Vec::new(),
+    };
+    Ok(crate::bundle_template::render_io_toml(&template))
 }
 
 fn is_raspberry_pi() -> Result<bool, RuntimeError> {

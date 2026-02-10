@@ -19,14 +19,38 @@ END_VAR
 - `%I` = input, `%Q` = output, `%M` = memory
 - `X` = bit address (use for GPIO and discrete I/O)
 
+Marker (`%M`) address variants:
+- `%MX<byte>.<bit>` (bit, BOOL), example: `%MX0.7`
+- `%MB<byte>` (byte), example: `%MB12`
+- `%MW<byte>` (word), example: `%MW50`
+- `%MD<byte>` (double word), example: `%MD200`
+- `%ML<byte>` (long word), example: `%ML8`
+- `%M*` (wildcard, resolved by `VAR_CONFIG`)
+
+Runtime cycle semantics for `%M` bindings:
+- Cycle start: `%M` process image is read into bound variables.
+- Cycle end: bound variable values are written back to `%M` process image.
+
 ## 2) io.toml Structure (v1)
 
-Required:
+Single-driver form (legacy + still supported):
 ```
 [io]
 driver = "simulated"
 params = {}
 ```
+
+Multi-driver form (composed drivers, executed in order):
+```
+[io]
+drivers = [
+  { name = "modbus-tcp", params = { address = "192.168.0.10:502", unit_id = 1, input_start = 0, output_start = 0, timeout_ms = 500, on_error = "fault" } },
+  { name = "mqtt", params = { broker = "192.168.0.20:1883", topic_in = "line/in", topic_out = "line/out", reconnect_ms = 500, keep_alive_s = 5, allow_insecure_remote = true } }
+]
+```
+
+Rule:
+- Use either `io.driver` + `io.params` or `io.drivers` (do not mix both in one file).
 
 Optional safe state outputs:
 ```

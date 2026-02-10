@@ -19,6 +19,27 @@ fn parse_addresses() {
     assert_eq!(addr.area, IoArea::Memory);
     assert_eq!(addr.size, IoSize::Byte);
     assert_eq!(addr.byte, 5);
+
+    let addr = IoAddress::parse("%MX0.7").unwrap();
+    assert_eq!(addr.area, IoArea::Memory);
+    assert_eq!(addr.size, IoSize::Bit);
+    assert_eq!(addr.byte, 0);
+    assert_eq!(addr.bit, 7);
+
+    let addr = IoAddress::parse("%MW12").unwrap();
+    assert_eq!(addr.area, IoArea::Memory);
+    assert_eq!(addr.size, IoSize::Word);
+    assert_eq!(addr.byte, 12);
+
+    let addr = IoAddress::parse("%MD24").unwrap();
+    assert_eq!(addr.area, IoArea::Memory);
+    assert_eq!(addr.size, IoSize::DWord);
+    assert_eq!(addr.byte, 24);
+
+    let addr = IoAddress::parse("%ML40").unwrap();
+    assert_eq!(addr.area, IoArea::Memory);
+    assert_eq!(addr.size, IoSize::LWord);
+    assert_eq!(addr.byte, 40);
 }
 
 #[test]

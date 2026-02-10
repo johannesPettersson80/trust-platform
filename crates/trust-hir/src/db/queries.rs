@@ -1,9 +1,13 @@
 use super::*;
-use std::sync::RwLock;
+use parking_lot::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 mod collector;
 mod database;
 mod helpers;
+mod salsa_backend;
+
+pub use salsa_backend::SalsaEventSnapshot;
 
 pub(super) use helpers::{
     collect_program_instances, implements_clause_names, name_from_node, normalize_member_name,
@@ -47,75 +51,52 @@ pub trait SemanticDatabase: SourceDatabase {
 }
 
 /// The main database struct.
-#[derive(Debug)]
 pub struct Database {
     sources: FxHashMap<FileId, Arc<String>>,
-    symbol_cache: RwLock<FxHashMap<FileId, CacheEntry<SymbolTable>>>,
-    analysis_cache: RwLock<FxHashMap<FileId, CacheEntry<FileAnalysis>>>,
-    expr_cache: RwLock<FxHashMap<FileId, ExprTypeCache>>,
-    revision: RwLock<u64>,
+    salsa_state: Mutex<salsa_backend::SalsaState>,
+    source_revision: AtomicU64,
 }
 
-#[derive(Debug, Clone)]
-pub(super) struct CacheEntry<T> {
-    pub(super) revision: u64,
-    pub(super) value: Arc<T>,
-}
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FileAnalysis {
     pub symbols: Arc<SymbolTable>,
     pub diagnostics: Arc<Vec<Diagnostic>>,
-}
-
-#[derive(Debug, Clone)]
-struct ExprTypeCache {
-    symbol_hash: u64,
-    entries: FxHashMap<ExprCacheKey, TypeId>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-struct ExprCacheKey {
-    scope_id: ScopeId,
-    expr_hash: u64,
 }
 
 impl Default for Database {
     fn default() -> Self {
         Self {
             sources: FxHashMap::default(),
-            symbol_cache: RwLock::new(FxHashMap::default()),
-            analysis_cache: RwLock::new(FxHashMap::default()),
-            expr_cache: RwLock::new(FxHashMap::default()),
-            revision: RwLock::new(0),
+            salsa_state: Mutex::new(salsa_backend::SalsaState::default()),
+            source_revision: AtomicU64::new(1),
         }
     }
 }
 
-impl Clone for Database {
-    fn clone(&self) -> Self {
+#[cfg(test)]
+impl Database {
+    pub(crate) fn new_with_salsa_observability() -> Self {
         Self {
-            sources: self.sources.clone(),
-            symbol_cache: RwLock::new(
-                self.symbol_cache
-                    .read()
-                    .expect("symbol cache poisoned")
-                    .clone(),
-            ),
-            analysis_cache: RwLock::new(
-                self.analysis_cache
-                    .read()
-                    .expect("analysis cache poisoned")
-                    .clone(),
-            ),
-            expr_cache: RwLock::new(
-                self.expr_cache
-                    .read()
-                    .expect("expression cache poisoned")
-                    .clone(),
-            ),
-            revision: RwLock::new(*self.revision.read().expect("revision lock poisoned")),
+            sources: FxHashMap::default(),
+            salsa_state: Mutex::new(salsa_backend::SalsaState::with_event_observability(
+                true, false,
+            )),
+            source_revision: AtomicU64::new(1),
         }
+    }
+}
+
+impl std::fmt::Debug for Database {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let state = self.salsa_state.lock();
+        f.debug_struct("Database")
+            .field("sources", &self.sources.len())
+            .field("salsa_sources", &state.sources.len())
+            .field(
+                "source_revision",
+                &self.source_revision.load(Ordering::Relaxed),
+            )
+            .finish()
     }
 }
 

@@ -5,12 +5,19 @@ use smol_str::SmolStr;
 /// Template for an io.toml file.
 #[derive(Debug, Clone)]
 pub struct IoConfigTemplate {
-    /// Driver name.
-    pub driver: String,
-    /// Driver parameters.
-    pub params: toml::Value,
+    /// Driver configurations.
+    pub drivers: Vec<IoDriverTemplate>,
     /// Optional safe state entries.
     pub safe_state: Vec<(String, String)>,
+}
+
+/// Single I/O driver template.
+#[derive(Debug, Clone)]
+pub struct IoDriverTemplate {
+    /// Driver name.
+    pub name: String,
+    /// Driver parameters.
+    pub params: toml::Value,
 }
 
 /// Build a default io.toml template for a driver.
@@ -36,8 +43,10 @@ pub fn build_io_config_auto(driver: &str) -> anyhow::Result<IoConfigTemplate> {
         params.insert("inputs".into(), inputs);
         params.insert("outputs".into(), outputs);
         return Ok(IoConfigTemplate {
-            driver: "gpio".to_string(),
-            params: toml::Value::Table(params),
+            drivers: vec![IoDriverTemplate {
+                name: "gpio".to_string(),
+                params: toml::Value::Table(params),
+            }],
             safe_state,
         });
     }
@@ -53,15 +62,19 @@ pub fn build_io_config_auto(driver: &str) -> anyhow::Result<IoConfigTemplate> {
         params.insert("timeout_ms".into(), toml::Value::Integer(500));
         params.insert("on_error".into(), toml::Value::String("fault".to_string()));
         return Ok(IoConfigTemplate {
-            driver: "modbus-tcp".to_string(),
-            params: toml::Value::Table(params),
+            drivers: vec![IoDriverTemplate {
+                name: "modbus-tcp".to_string(),
+                params: toml::Value::Table(params),
+            }],
             safe_state,
         });
     }
     if driver.eq_ignore_ascii_case("simulated") {
         return Ok(IoConfigTemplate {
-            driver: "simulated".to_string(),
-            params: toml::Value::Table(toml::map::Map::new()),
+            drivers: vec![IoDriverTemplate {
+                name: "simulated".to_string(),
+                params: toml::Value::Table(toml::map::Map::new()),
+            }],
             safe_state,
         });
     }
@@ -83,14 +96,18 @@ pub fn build_io_config_auto(driver: &str) -> anyhow::Result<IoConfigTemplate> {
         params.insert("keep_alive_s".into(), toml::Value::Integer(5));
         params.insert("allow_insecure_remote".into(), toml::Value::Boolean(false));
         return Ok(IoConfigTemplate {
-            driver: "mqtt".to_string(),
-            params: toml::Value::Table(params),
+            drivers: vec![IoDriverTemplate {
+                name: "mqtt".to_string(),
+                params: toml::Value::Table(params),
+            }],
             safe_state,
         });
     }
     Ok(IoConfigTemplate {
-        driver: "loopback".to_string(),
-        params: toml::Value::Table(toml::map::Map::new()),
+        drivers: vec![IoDriverTemplate {
+            name: "loopback".to_string(),
+            params: toml::Value::Table(toml::map::Map::new()),
+        }],
         safe_state,
     })
 }
@@ -108,8 +125,24 @@ pub fn render_runtime_toml(resource_name: &SmolStr, cycle_ms: u64) -> String {
 pub fn render_io_toml(config: &IoConfigTemplate) -> String {
     let mut root = toml::map::Map::new();
     let mut io = toml::map::Map::new();
-    io.insert("driver".into(), toml::Value::String(config.driver.clone()));
-    io.insert("params".into(), config.params.clone());
+    if config.drivers.len() == 1 {
+        if let Some(driver) = config.drivers.first() {
+            io.insert("driver".into(), toml::Value::String(driver.name.clone()));
+            io.insert("params".into(), driver.params.clone());
+        }
+    } else {
+        let drivers = config
+            .drivers
+            .iter()
+            .map(|driver| {
+                toml::Value::Table(toml::map::Map::from_iter([
+                    ("name".into(), toml::Value::String(driver.name.clone())),
+                    ("params".into(), driver.params.clone()),
+                ]))
+            })
+            .collect::<Vec<_>>();
+        io.insert("drivers".into(), toml::Value::Array(drivers));
+    }
     if !config.safe_state.is_empty() {
         let entries = config
             .safe_state

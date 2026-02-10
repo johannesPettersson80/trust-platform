@@ -1,6 +1,40 @@
 use super::*;
 
 #[test]
+fn lsp_completion_returns_none_when_request_ticket_is_cancelled() {
+    let source = r#"
+PROGRAM Test
+VAR
+    x : INT;
+END_VAR
+    x := A
+END_PROGRAM
+"#;
+    let state = ServerState::new();
+    let uri = tower_lsp::lsp_types::Url::parse("file:///workspace/test.st").unwrap();
+    state.open_document(uri.clone(), 1, source.to_string());
+
+    let stale_ticket = state.begin_semantic_request();
+    let _active_ticket = state.begin_semantic_request();
+
+    let params = tower_lsp::lsp_types::CompletionParams {
+        text_document_position: tower_lsp::lsp_types::TextDocumentPositionParams {
+            text_document: tower_lsp::lsp_types::TextDocumentIdentifier { uri: uri.clone() },
+            position: position_at(source, "A\nEND_PROGRAM"),
+        },
+        work_done_progress_params: Default::default(),
+        partial_result_params: Default::default(),
+        context: None,
+    };
+
+    let result = completion_with_ticket_for_tests(&state, params, stale_ticket);
+    assert!(
+        result.is_none(),
+        "cancelled completion ticket should short-circuit without panic"
+    );
+}
+
+#[test]
 fn lsp_completion_respects_stdlib_allowlist() {
     let source = r#"
 PROGRAM Test

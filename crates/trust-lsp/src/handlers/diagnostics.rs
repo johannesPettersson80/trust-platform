@@ -34,7 +34,9 @@ pub(crate) async fn publish_diagnostics(
     content: &str,
     file_id: FileId,
 ) {
-    let diagnostics = collect_diagnostics(state, uri, content, file_id);
+    let request_ticket = state.begin_semantic_request();
+    let diagnostics =
+        collect_diagnostics_with_ticket(state, uri, content, file_id, Some(request_ticket));
     let content_hash = hash_content(content);
     let diagnostic_hash = hash_diagnostics(&diagnostics);
     let _ = state.store_diagnostics(uri.clone(), content_hash, diagnostic_hash);
@@ -48,6 +50,7 @@ pub(crate) fn document_diagnostic(
     state: &ServerState,
     params: DocumentDiagnosticParams,
 ) -> DocumentDiagnosticReportResult {
+    let request_ticket = state.begin_semantic_request();
     let uri = params.text_document.uri;
     let Some(doc) = state.ensure_document(&uri) else {
         return DocumentDiagnosticReportResult::Report(DocumentDiagnosticReport::Full(
@@ -61,7 +64,13 @@ pub(crate) fn document_diagnostic(
         ));
     };
 
-    let diagnostics = collect_diagnostics(state, &uri, &doc.content, doc.file_id);
+    let diagnostics = collect_diagnostics_with_ticket(
+        state,
+        &uri,
+        &doc.content,
+        doc.file_id,
+        Some(request_ticket),
+    );
     let content_hash = hash_content(&doc.content);
     let diagnostic_hash = hash_diagnostics(&diagnostics);
     let result_id = state.store_diagnostics(uri.clone(), content_hash, diagnostic_hash);
@@ -96,6 +105,7 @@ pub(crate) fn workspace_diagnostic(
     state: &ServerState,
     params: WorkspaceDiagnosticParams,
 ) -> WorkspaceDiagnosticReportResult {
+    let request_ticket = state.begin_semantic_request();
     let mut previous = std::collections::HashMap::new();
     for entry in params.previous_result_ids {
         previous.insert(entry.uri, entry.value);
@@ -104,8 +114,17 @@ pub(crate) fn workspace_diagnostic(
     let mut items = Vec::new();
     let mut seen = std::collections::HashSet::new();
     for doc in state.documents() {
+        if state.semantic_request_cancelled(request_ticket) {
+            break;
+        }
         seen.insert(doc.uri.clone());
-        let diagnostics = collect_diagnostics(state, &doc.uri, &doc.content, doc.file_id);
+        let diagnostics = collect_diagnostics_with_ticket(
+            state,
+            &doc.uri,
+            &doc.content,
+            doc.file_id,
+            Some(request_ticket),
+        );
         let content_hash = hash_content(&doc.content);
         let diagnostic_hash = hash_diagnostics(&diagnostics);
         let result_id = state.store_diagnostics(doc.uri.clone(), content_hash, diagnostic_hash);
@@ -181,12 +200,19 @@ pub(crate) fn workspace_diagnostic(
     WorkspaceDiagnosticReportResult::Report(WorkspaceDiagnosticReport { items })
 }
 
-pub(crate) fn collect_diagnostics(
+pub(crate) fn collect_diagnostics_with_ticket(
     state: &ServerState,
     uri: &Url,
     content: &str,
     file_id: FileId,
+    request_ticket: Option<u64>,
 ) -> Vec<Diagnostic> {
+    let is_cancelled =
+        request_ticket.is_some_and(|ticket| state.semantic_request_cancelled(ticket));
+    if is_cancelled {
+        return Vec::new();
+    }
+
     if is_config_uri(uri) {
         let diagnostics = collect_config_diagnostics(state, uri, content, None);
         let mut diagnostics = diagnostics;
@@ -222,8 +248,17 @@ pub(crate) fn collect_diagnostics(
         })
         .collect();
 
-    let semantic =
-        state.with_database(|db| trust_ide::diagnostics::collect_diagnostics(db, file_id));
+    let semantic = state.with_database(|db| {
+        if request_ticket.is_some_and(|ticket| state.semantic_request_cancelled(ticket)) {
+            Vec::new()
+        } else {
+            trust_ide::diagnostics::collect_diagnostics(db, file_id)
+        }
+    });
+
+    if request_ticket.is_some_and(|ticket| state.semantic_request_cancelled(ticket)) {
+        return diagnostics;
+    }
 
     for diag in semantic {
         let range = Range {
@@ -282,6 +317,17 @@ pub(crate) fn collect_diagnostics(
         &mut diagnostics,
     );
     diagnostics
+}
+
+#[cfg(test)]
+pub(crate) fn collect_diagnostics_with_ticket_for_tests(
+    state: &ServerState,
+    uri: &Url,
+    content: &str,
+    file_id: FileId,
+    request_ticket: u64,
+) -> Vec<Diagnostic> {
+    collect_diagnostics_with_ticket(state, uri, content, file_id, Some(request_ticket))
 }
 
 fn apply_diagnostic_filters(state: &ServerState, uri: &Url, diagnostics: &mut Vec<Diagnostic>) {

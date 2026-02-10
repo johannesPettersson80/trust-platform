@@ -7,7 +7,7 @@ use text_size::TextRange;
 use crate::types::{StructField, Type, TypeId, UnionVariant};
 
 /// The symbol table containing all symbols and scopes.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SymbolTable {
     /// All symbols indexed by ID.
     symbols: FxHashMap<SymbolId, Symbol>,
@@ -428,11 +428,6 @@ impl SymbolTable {
     #[must_use]
     pub fn type_by_id(&self, id: TypeId) -> Option<&Type> {
         self.types.get(&id)
-    }
-
-    /// Returns an iterator over all registered types.
-    pub(crate) fn types_iter(&self) -> impl Iterator<Item = (&TypeId, &Type)> {
-        self.types.iter()
     }
 
     /// Resolves an enum value by name (case-insensitive) and returns its numeric value.

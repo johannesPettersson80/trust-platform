@@ -1,0 +1,8 @@
+CONFIGURATION MarkerCounter
+TASK Cycle (INTERVAL := T#50ms, PRIORITY := 1);
+PROGRAM P1 WITH Cycle : MainProgram;
+VAR_CONFIG
+    P1.Counter AT %MW0 : INT;
+    P1.CounterLatched AT %QW0 : INT;
+END_VAR
+END_CONFIGURATION

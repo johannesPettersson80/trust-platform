@@ -7,7 +7,7 @@
   "docs/diagrams/debug/debug-state-machine.puml": "c1a7201b2d0d475f66fcaf3302927e0f7d1677a459595aee4c8222347dcc666a",
   "docs/diagrams/debug/debug-step-sequence.puml": "1b8403da7a6c2d2336513ca05dd331819edd6e06ed493b5bc88972a4a0701ca0",
   "docs/diagrams/debug/debug-threads.puml": "8cd4754b4b26ae5762552283b06d02e2ed255c8189c49341e727891fc8b3f143",
-  "docs/diagrams/hir/hir-semantics.puml": "a75cf24ca4b96c29913ad667c903186992bf78386d65ca8cd46ac645b4859285",
+  "docs/diagrams/hir/hir-semantics.puml": "a6742513eb4f1be38e475b5151872948ab44ede8a98b30816e310db544a90d6e",
   "docs/diagrams/lsp/lsp-request-flow.puml": "320c272a4f2a8925b80a43ee773f51d1f0d94eb488697a7f31e477e7bbcd630e",
   "docs/diagrams/syntax/syntax-pipeline.puml": "93cecb3d620c51377e79677ba18e48c6acf79ea0f6b4c9f2ab75a52ca9d1b57b"
 }

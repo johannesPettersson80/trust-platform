@@ -142,12 +142,12 @@ Fix:
 
 You see in the CLI:
 ```
-Invalid I/O driver 'spi'. Expected: gpio or loopback.
+invalid I/O driver 'spi'. Expected: loopback, gpio, simulated, modbus-tcp, or mqtt.
 ```
 
 Fix:
 1. Re-run the wizard: `trust-runtime wizard`.
-2. Choose `loopback` for simulation or `gpio` for Raspberry Pi.
+2. Choose one supported driver: `loopback`, `simulated`, `gpio`, `modbus-tcp`, or `mqtt`.
 
 ### “Permission denied” writing system I/O
 

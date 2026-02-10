@@ -7,7 +7,7 @@ This guide explains which ports are used and how to enable remote access safely.
 - Web UI: **8080** (HTTP)
 - Discovery: **mDNS** (UDP 5353)
 - Mesh/data: **5200** (TCP/UDP as configured)
-- MQTT broker (if `io.driver = "mqtt"`): **1883** (TCP, broker-defined)
+- MQTT broker (if any configured I/O driver is `mqtt`): **1883** (TCP, broker-defined)
 
 ## Local‑only by default
 

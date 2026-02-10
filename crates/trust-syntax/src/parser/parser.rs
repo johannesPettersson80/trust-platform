@@ -32,6 +32,7 @@ pub(crate) struct Parser<'t, 'src> {
     pub(crate) source: Source<'t, 'src>,
     pub(crate) events: Vec<Event>,
     errors: Vec<ParseError>,
+    pub(crate) expr_depth: usize,
 }
 
 pub(crate) struct Marker {
@@ -108,6 +109,7 @@ impl<'t, 'src> Parser<'t, 'src> {
             source: Source::new(tokens, source),
             events: Vec::new(),
             errors: Vec::new(),
+            expr_depth: 0,
         }
     }
 

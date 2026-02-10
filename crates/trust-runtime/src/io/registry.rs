@@ -1,5 +1,6 @@
 //! I/O driver registry for runtime configuration.
 
+use std::collections::BTreeSet;
 use std::collections::HashMap;
 
 use smol_str::SmolStr;
@@ -117,6 +118,15 @@ impl IoDriverRegistry {
             driver,
         }))
     }
+
+    /// Return the canonical built-in driver names (stable sorted).
+    pub fn canonical_driver_names(&self) -> Vec<String> {
+        let mut names = BTreeSet::new();
+        for entry in self.entries.values() {
+            names.insert(entry.canonical.to_string());
+        }
+        names.into_iter().collect()
+    }
 }
 
 fn normalize_name(name: SmolStr) -> SmolStr {
@@ -167,4 +177,35 @@ fn validate_mqtt(params: &toml::Value) -> Result<(), RuntimeError> {
 fn create_mqtt(params: &toml::Value) -> Result<Box<dyn IoDriver>, RuntimeError> {
     let driver = MqttIoDriver::from_params(params)?;
     Ok(Box::new(driver))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn canonical_driver_names_are_sorted_unique() {
+        let registry = IoDriverRegistry::default_registry();
+        let names = registry.canonical_driver_names();
+        assert_eq!(
+            names,
+            vec![
+                "gpio".to_string(),
+                "loopback".to_string(),
+                "modbus-tcp".to_string(),
+                "mqtt".to_string(),
+                "simulated".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn alias_resolves_to_canonical_driver_name() {
+        let registry = IoDriverRegistry::default_registry();
+        let spec = registry
+            .build("sim", &toml::Value::Table(toml::map::Map::new()))
+            .expect("build simulated alias")
+            .expect("driver spec");
+        assert_eq!(spec.name.as_str(), "simulated");
+    }
 }

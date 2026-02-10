@@ -10,7 +10,7 @@ Purpose: keep user-facing terminology consistent across CLI, UI, and docs.
 - **System-wide I/O config**: the device-level I/O settings used by multiple PLC projects. *(Seen in Setup wizard advanced options.)*
 - **Cycle time**: how often the PLC task runs (example: 100 ms). *(Seen in Setup wizard + Overview metrics.)*
 - **RETAIN**: values preserved across restarts (if enabled). *(Seen in restart and fault behavior docs.)*
-- **Driver**: the I/O backend (example: gpio, loopback). *(Seen in Setup wizard and I/O page.)*
+- **Driver**: the I/O backend (example: gpio, loopback, simulated, modbus-tcp, mqtt). *(Seen in Setup wizard and I/O page.)*
 - **Safe state**: the output values applied when a fault occurs. *(Seen in safety/fault settings and docs.)*
 - **Fault**: a runtime error that stops or degrades the PLC. *(Seen in Logs and Overview health.)*
 - **Cold restart**: full restart (retained values reset). *(Seen in Controls and Deploy options.)*

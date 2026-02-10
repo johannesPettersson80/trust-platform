@@ -110,9 +110,11 @@ pub fn run_rollback(root: Option<PathBuf>) -> anyhow::Result<()> {
 
 fn validate_bundle(bundle: &RuntimeBundle) -> anyhow::Result<()> {
     let registry = IoDriverRegistry::default_registry();
-    registry
-        .validate(&bundle.io.driver, &bundle.io.params)
-        .map_err(anyhow::Error::from)?;
+    for driver in &bundle.io.drivers {
+        registry
+            .validate(driver.name.as_str(), &driver.params)
+            .map_err(anyhow::Error::from)?;
+    }
     let mut runtime = trust_runtime::Runtime::new();
     runtime.apply_bytecode_bytes(&bundle.bytecode, Some(&bundle.runtime.resource_name))?;
     Ok(())
@@ -460,9 +462,8 @@ fn diff_watchdog(changes: &mut Vec<String>, prev: &WatchdogPolicy, next: &Watchd
 fn diff_io(previous: Option<&IoConfig>, next: &IoConfig) -> Vec<String> {
     let mut changes = Vec::new();
     if let Some(prev) = previous {
-        diff_field(&mut changes, "driver", &prev.driver, &next.driver);
-        if prev.params != next.params {
-            changes.push("params: updated".to_string());
+        if prev.drivers != next.drivers {
+            changes.push("drivers: updated".to_string());
         }
         if safe_state_changed(&prev.safe_state, &next.safe_state) {
             changes.push("safe_state: updated".to_string());

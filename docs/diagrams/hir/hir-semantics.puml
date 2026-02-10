@@ -14,18 +14,17 @@ title truST HIR: Symbol Collection & Type System
 ' ============================================================
 package "Database Layer" as dbLayer #LightGreen {
 
-    class "Database" as db <<db/queries.rs:46-50>> {
+    class "Database" as db <<db/queries.rs>> {
         sources: FxHashMap<FileId, Arc<String>>
-        symbol_cache: RwLock<FxHashMap<FileId, CacheEntry<SymbolTable>>>
-        analysis_cache: RwLock<FxHashMap<FileId, CacheEntry<FileAnalysis>>>
-        revision: RwLock<u64>
+        salsa_state: Mutex<SalsaState>
+        source_revision: AtomicU64
         --
         +new() → Database
         +set_source_text(file_id, text)
         +file_symbols(file_id) → Arc<SymbolTable>
         +diagnostics(file_id) → Arc<Vec<Diagnostic>>
         +analyze(file_id) → FileAnalysis
-        +invalidate(file_id)
+        +type_of(file_id, expr_id) → TypeId
     }
 
     class "FileId" as fileId {
@@ -33,20 +32,20 @@ package "Database Layer" as dbLayer #LightGreen {
     }
 
     note right of db
-        Manual caching with FxHashMap
-        (not using salsa queries directly)
+        Salsa-backed query path:
+        parse_green -> file_symbols_query
+        -> analyze_query
+        -> diagnostics_query / type_of_query
 
-        Any source change bumps the
-        revision and clears caches
-        (cross-file dependencies).
+        Any source change syncs inputs,
+        invalidating affected queries
+        through Salsa dependency tracking.
 
-        analyze() returns symbols +
-        diagnostics from one pass
-        (used by diagnostics and
-        file_symbols_with_project).
-
-        project_symbol_tables() merges
-        symbols across all files
+        Observability/cancellation:
+        - `TRUST_HIR_SALSA_EVENT_METRICS=1`
+        - `TRUST_HIR_SALSA_EVENT_LOG=1`
+        - cooperative cancellation checkpoints
+          in tracked query hot paths.
     end note
 }
 

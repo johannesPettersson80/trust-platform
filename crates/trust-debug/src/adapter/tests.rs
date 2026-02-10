@@ -712,6 +712,43 @@ fn dispatch_threads_maps_tasks() {
 }
 
 #[test]
+fn debug_runner_respects_task_interval_pacing() {
+    let source = r#"
+CONFIGURATION Conf
+VAR_GLOBAL
+    Counter : DINT := DINT#0;
+END_VAR
+TASK MainTask (INTERVAL := T#100ms, PRIORITY := 1);
+PROGRAM P1 WITH MainTask : MainProg;
+END_CONFIGURATION
+
+PROGRAM MainProg
+Counter := Counter + DINT#1;
+END_PROGRAM
+"#;
+
+    let harness = TestHarness::from_source(source).expect("compile source");
+    let session = DebugSession::new(harness.into_runtime());
+    let mut adapter = DebugAdapter::new(session);
+
+    adapter.start_runner();
+    std::thread::sleep(std::time::Duration::from_millis(240));
+    adapter.stop_runner();
+
+    let runtime = adapter.session().runtime_handle();
+    let guard = runtime.lock().expect("runtime lock");
+    let counter = match guard.storage().get_global("Counter") {
+        Some(RuntimeValue::DInt(value)) => *value,
+        other => panic!("unexpected Counter value: {other:?}"),
+    };
+
+    assert!(
+        counter <= 6,
+        "expected interval pacing to cap cycle count, got Counter={counter}"
+    );
+}
+
+#[test]
 fn dap_breakpoint_stops_and_resumes_with_task_order() {
     let source = r#"
 CONFIGURATION Conf

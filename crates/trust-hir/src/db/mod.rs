@@ -1,7 +1,8 @@
-//! Salsa database for semantic analysis.
+//! Semantic database and query traits.
 //!
-//! This module defines the query groups and database traits for incremental
-//! semantic analysis.
+//! This module uses salsa-backed incremental computation for source text,
+//! parse, and semantic query families (`file_symbols`, `analyze`,
+//! diagnostics, `type_of`).
 
 use rustc_hash::{FxHashMap, FxHashSet};
 use smol_str::SmolStr;
@@ -23,4 +24,4 @@ mod diagnostics;
 mod queries;
 mod symbol_import;
 
-pub use queries::{Database, FileId, SemanticDatabase, SourceDatabase};
+pub use queries::{Database, FileId, SalsaEventSnapshot, SemanticDatabase, SourceDatabase};

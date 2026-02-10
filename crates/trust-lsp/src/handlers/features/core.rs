@@ -20,8 +20,8 @@ use trust_syntax::syntax::{SyntaxKind, SyntaxNode, SyntaxToken};
 
 use crate::config::{find_config_file, WorkspaceVisibility, CONFIG_FILES};
 use crate::external_diagnostics::ExternalFixData;
-use crate::handlers::diagnostics::collect_diagnostics;
-use crate::library_docs::{doc_for_name, library_doc_map};
+use crate::handlers::diagnostics::collect_diagnostics_with_ticket;
+use crate::library_docs::doc_for_name;
 use crate::state::{path_to_uri, uri_to_path, ServerState};
 use tracing::{debug, warn};
 use trust_ide::goto_def::goto_definition as ide_goto_definition;
@@ -117,14 +117,13 @@ pub fn hover(state: &ServerState, params: HoverParams) -> Option<Hover> {
         trust_ide::hover_with_filter(db, doc.file_id, TextSize::from(offset), &stdlib_filter)
     })?;
 
-    if let Some(config) = state.workspace_config_for_uri(uri) {
-        let docs = library_doc_map(&config);
+    if let Some(docs) = state.library_docs_for_uri(uri) {
         if !docs.is_empty() {
             let symbol_name = state.with_database(|db| {
                 trust_ide::symbol_name_at_position(db, doc.file_id, TextSize::from(offset))
             });
             if let Some(name) = symbol_name {
-                if let Some(extra) = doc_for_name(&docs, name.as_str()) {
+                if let Some(extra) = doc_for_name(docs.as_ref(), name.as_str()) {
                     if !result.contents.contains(extra) {
                         result.contents.push_str("\n\n---\n\n");
                         result.contents.push_str(extra);
@@ -149,8 +148,21 @@ pub fn hover(state: &ServerState, params: HoverParams) -> Option<Hover> {
 }
 
 pub fn completion(state: &ServerState, params: CompletionParams) -> Option<CompletionResponse> {
+    let request_ticket = state.begin_semantic_request();
+    completion_with_ticket(state, params, request_ticket)
+}
+
+fn completion_with_ticket(
+    state: &ServerState,
+    params: CompletionParams,
+    request_ticket: u64,
+) -> Option<CompletionResponse> {
     let uri = &params.text_document_position.text_document.uri;
     let position = params.text_document_position.position;
+
+    if state.semantic_request_cancelled(request_ticket) {
+        return None;
+    }
 
     let doc = state.get_document(uri)?;
     let offset = position_to_offset(&doc.content, position)?;
@@ -160,6 +172,10 @@ pub fn completion(state: &ServerState, params: CompletionParams) -> Option<Compl
     let items = state.with_database(|db| {
         trust_ide::complete_with_filter(db, doc.file_id, TextSize::from(offset), &stdlib_filter)
     });
+
+    if state.semantic_request_cancelled(request_ticket) {
+        return None;
+    }
 
     // Convert to LSP completion items
     let mut lsp_items: Vec<CompletionItem> = items
@@ -221,11 +237,10 @@ pub fn completion(state: &ServerState, params: CompletionParams) -> Option<Compl
         })
         .collect();
 
-    if let Some(config) = state.workspace_config_for_uri(uri) {
-        let docs = library_doc_map(&config);
+    if let Some(docs) = state.library_docs_for_uri(uri) {
         if !docs.is_empty() {
             for item in &mut lsp_items {
-                if let Some(extra) = doc_for_name(&docs, &item.label) {
+                if let Some(extra) = doc_for_name(docs.as_ref(), &item.label) {
                     append_completion_doc(item, extra);
                 }
             }
@@ -233,6 +248,15 @@ pub fn completion(state: &ServerState, params: CompletionParams) -> Option<Compl
     }
 
     Some(CompletionResponse::Array(lsp_items))
+}
+
+#[cfg(test)]
+pub(crate) fn completion_with_ticket_for_tests(
+    state: &ServerState,
+    params: CompletionParams,
+    request_ticket: u64,
+) -> Option<CompletionResponse> {
+    completion_with_ticket(state, params, request_ticket)
 }
 
 pub fn completion_resolve(_state: &ServerState, mut item: CompletionItem) -> CompletionItem {
@@ -445,6 +469,19 @@ pub fn goto_implementation(
 }
 
 pub fn references(state: &ServerState, params: ReferenceParams) -> Option<Vec<Location>> {
+    let request_ticket = state.begin_semantic_request();
+    references_with_ticket(state, params, request_ticket)
+}
+
+fn references_with_ticket(
+    state: &ServerState,
+    params: ReferenceParams,
+    request_ticket: u64,
+) -> Option<Vec<Location>> {
+    if state.semantic_request_cancelled(request_ticket) {
+        return None;
+    }
+
     let uri = &params.text_document_position.text_document.uri;
     let position = params.text_document_position.position;
 
@@ -458,20 +495,27 @@ pub fn references(state: &ServerState, params: ReferenceParams) -> Option<Vec<Lo
         trust_ide::find_references(db, doc.file_id, TextSize::from(offset), options)
     });
 
-    let locations = refs
-        .into_iter()
-        .filter_map(|r| {
-            let target_doc = state.document_for_file_id(r.file_id)?;
-            let range = Range {
-                start: offset_to_position(&target_doc.content, r.range.start().into()),
-                end: offset_to_position(&target_doc.content, r.range.end().into()),
-            };
-            Some(Location {
-                uri: target_doc.uri,
-                range,
-            })
-        })
-        .collect();
+    if state.semantic_request_cancelled(request_ticket) {
+        return None;
+    }
+
+    let mut locations = Vec::new();
+    for reference in refs {
+        if state.semantic_request_cancelled(request_ticket) {
+            return None;
+        }
+        let Some(target_doc) = state.document_for_file_id(reference.file_id) else {
+            continue;
+        };
+        let range = Range {
+            start: offset_to_position(&target_doc.content, reference.range.start().into()),
+            end: offset_to_position(&target_doc.content, reference.range.end().into()),
+        };
+        locations.push(Location {
+            uri: target_doc.uri,
+            range,
+        });
+    }
 
     Some(locations)
 }
@@ -617,6 +661,19 @@ pub fn workspace_symbol(
     state: &ServerState,
     params: WorkspaceSymbolParams,
 ) -> Option<Vec<SymbolInformation>> {
+    let request_ticket = state.begin_semantic_request();
+    workspace_symbol_with_ticket(state, params, request_ticket)
+}
+
+fn workspace_symbol_with_ticket(
+    state: &ServerState,
+    params: WorkspaceSymbolParams,
+    request_ticket: u64,
+) -> Option<Vec<SymbolInformation>> {
+    if state.semantic_request_cancelled(request_ticket) {
+        return None;
+    }
+
     let query = params.query.trim().to_lowercase();
     let query_empty = query.is_empty();
 
@@ -624,6 +681,10 @@ pub fn workspace_symbol(
     let mut result = Vec::new();
 
     for file_id in file_ids {
+        if state.semantic_request_cancelled(request_ticket) {
+            return None;
+        }
+
         let doc = match state.document_for_file_id(file_id) {
             Some(doc) => doc,
             None => continue,
@@ -639,6 +700,10 @@ pub fn workspace_symbol(
 
         let symbols = state.with_database(|db| db.file_symbols(file_id));
         for symbol in symbols.iter() {
+            if state.semantic_request_cancelled(request_ticket) {
+                return None;
+            }
+
             let name = display_symbol_name(&symbols, symbol);
             if !query_empty && !name.to_lowercase().contains(&query) {
                 continue;
@@ -731,15 +796,40 @@ pub async fn workspace_symbol_with_progress(
 }
 
 pub fn code_action(state: &ServerState, params: CodeActionParams) -> Option<CodeActionResponse> {
+    let request_ticket = state.begin_semantic_request();
+    code_action_with_ticket(state, params, request_ticket)
+}
+
+fn code_action_with_ticket(
+    state: &ServerState,
+    params: CodeActionParams,
+    request_ticket: u64,
+) -> Option<CodeActionResponse> {
+    if state.semantic_request_cancelled(request_ticket) {
+        return None;
+    }
+
     let uri = &params.text_document.uri;
     let doc = state.get_document(uri)?;
+    if state.semantic_request_cancelled(request_ticket) {
+        return None;
+    }
     let parsed = parse(&doc.content);
     let root = parsed.syntax();
     let mut actions = Vec::new();
     let target_range = params.range;
     let mut diagnostics = params.context.diagnostics.clone();
-    let collected = collect_diagnostics(state, uri, &doc.content, doc.file_id);
+    let collected = collect_diagnostics_with_ticket(
+        state,
+        uri,
+        &doc.content,
+        doc.file_id,
+        Some(request_ticket),
+    );
     diagnostics.extend(collected);
+    if state.semantic_request_cancelled(request_ticket) {
+        return None;
+    }
     let mut seen = FxHashSet::default();
     diagnostics.retain(|diag| {
         let code = diagnostic_code(diag).unwrap_or_default();
@@ -756,6 +846,9 @@ pub fn code_action(state: &ServerState, params: CodeActionParams) -> Option<Code
     diagnostics.retain(|diag| ranges_intersect(diag.range, target_range));
 
     for diagnostic in &diagnostics {
+        if state.semantic_request_cancelled(request_ticket) {
+            return None;
+        }
         if let Some(edit) = external_fix_text_edit(diagnostic) {
             let title = external_fix_title(diagnostic);
             push_quickfix_action(&mut actions, &title, diagnostic, uri, edit);
@@ -916,24 +1009,42 @@ pub fn code_action(state: &ServerState, params: CodeActionParams) -> Option<Code
         }
     }
 
+    if state.semantic_request_cancelled(request_ticket) {
+        return None;
+    }
     if let Some(action) = interface_stub_action(state, &doc, &params) {
         actions.push(action);
     }
 
+    if state.semantic_request_cancelled(request_ticket) {
+        return None;
+    }
     if let Some(action) = inline_symbol_action(state, &doc, &params) {
         actions.push(action);
     }
 
+    if state.semantic_request_cancelled(request_ticket) {
+        return None;
+    }
     actions.extend(extract_actions(state, &doc, &params));
 
+    if state.semantic_request_cancelled(request_ticket) {
+        return None;
+    }
     if let Some(action) = convert_function_action(state, &doc, &params) {
         actions.push(action);
     }
 
+    if state.semantic_request_cancelled(request_ticket) {
+        return None;
+    }
     if let Some(action) = convert_function_block_action(state, &doc, &params) {
         actions.push(action);
     }
 
+    if state.semantic_request_cancelled(request_ticket) {
+        return None;
+    }
     if let Some(action) = namespace_move_action(&doc, &root, &params) {
         actions.push(action);
     }
@@ -942,6 +1053,19 @@ pub fn code_action(state: &ServerState, params: CodeActionParams) -> Option<Code
 }
 
 pub fn rename(state: &ServerState, params: RenameParams) -> Option<WorkspaceEdit> {
+    let request_ticket = state.begin_semantic_request();
+    rename_with_ticket(state, params, request_ticket)
+}
+
+fn rename_with_ticket(
+    state: &ServerState,
+    params: RenameParams,
+    request_ticket: u64,
+) -> Option<WorkspaceEdit> {
+    if state.semantic_request_cancelled(request_ticket) {
+        return None;
+    }
+
     let uri = &params.text_document_position.text_document.uri;
     let position = params.text_document_position.position;
     let new_name = &params.new_name;
@@ -949,11 +1073,28 @@ pub fn rename(state: &ServerState, params: RenameParams) -> Option<WorkspaceEdit
     let doc = state.get_document(uri)?;
     let offset = position_to_offset(&doc.content, position)?;
 
+    if state.semantic_request_cancelled(request_ticket) {
+        return None;
+    }
+
     let result = state
         .with_database(|db| trust_ide::rename(db, doc.file_id, TextSize::from(offset), new_name))?;
 
+    if state.semantic_request_cancelled(request_ticket) {
+        return None;
+    }
+
     let file_rename = maybe_rename_pou_file(state, doc.file_id, TextSize::from(offset), new_name);
+
+    if state.semantic_request_cancelled(request_ticket) {
+        return None;
+    }
+
     let changes = rename_result_to_changes(state, result)?;
+
+    if state.semantic_request_cancelled(request_ticket) {
+        return None;
+    }
 
     if let Some(rename_op) = file_rename {
         let mut document_changes = changes_to_document_operations(state, changes);
