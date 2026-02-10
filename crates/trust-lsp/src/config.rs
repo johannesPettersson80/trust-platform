@@ -1750,6 +1750,21 @@ version = "2.0.0"
         (rev_v1, rev_v2)
     }
 
+    fn toml_git_source(path: &Path) -> String {
+        #[cfg(windows)]
+        {
+            let normalized = path.to_string_lossy().replace('\\', "/");
+            normalized
+                .strip_prefix("//?/")
+                .unwrap_or(normalized.as_str())
+                .to_string()
+        }
+        #[cfg(not(windows))]
+        {
+            path.to_string_lossy().into_owned()
+        }
+    }
+
     #[test]
     fn loads_project_config_with_includes_and_libraries() {
         let root = temp_dir("trustlsp-config");
@@ -2008,7 +2023,7 @@ ByRev = {{ git = "{repo}", rev = "{rev}" }}
 ByTag = {{ git = "{repo}", tag = "v1" }}
 ByBranch = {{ git = "{repo}", branch = "stable" }}
 "#,
-                repo = repo.to_string_lossy(),
+                repo = toml_git_source(&repo),
                 rev = rev_v1
             ),
         )
@@ -2056,7 +2071,7 @@ dependencies_locked = true
 [dependencies]
 Floating = {{ git = "{repo}" }}
 "#,
-                repo = repo.to_string_lossy()
+                repo = toml_git_source(&repo)
             ),
         )
         .expect("write root config");
@@ -2081,7 +2096,7 @@ Floating = {{ git = "{repo}" }}
 [dependencies]
 Floating = {{ git = "{repo}" }}
 "#,
-            repo = repo.to_string_lossy()
+            repo = toml_git_source(&repo)
         );
         fs::write(root.join("trust-lsp.toml"), initial_config).expect("write initial config");
         let first = ProjectConfig::load(&root);
@@ -2102,7 +2117,7 @@ dependencies_offline = true
 [dependencies]
 Floating = {{ git = "{repo}" }}
 "#,
-                repo = repo.to_string_lossy()
+                repo = toml_git_source(&repo)
             ),
         )
         .expect("write offline config");

@@ -21,7 +21,9 @@ Use `logs/` for raw run logs and `docs/internal/` for planning drafts.
 
 ## Current canonical reports
 
+Some reports are historical snapshots that describe issues that were fixed later.
+For current Salsa status, read `salsa-upgrade-report.md` and the latest overnight hardening report.
+
 - `salsa-integration-audit.md`
-- `salsa-integration-audit-fix-checklist.md`
 - `salsa-upgrade-report.md`
 - `salsa-overnight-hardening-20260209.md`

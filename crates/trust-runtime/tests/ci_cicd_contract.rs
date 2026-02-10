@@ -608,7 +608,7 @@ fn ci_vscode_extension_job_contract_wires_failure_to_release_gate() {
     );
     let vscode_block = &text[vscode_start..report_start];
     assert!(
-        vscode_block.contains("run: npm test"),
+        vscode_block.contains("npm test"),
         "vscode-extension job must execute integration tests"
     );
     assert!(

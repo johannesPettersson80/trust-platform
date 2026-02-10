@@ -1,5 +1,10 @@
 # Salsa Integration Audit Report
 
+> Historical note (2026-02-10): this report captures pre-remediation findings.
+> The tracked issues were addressed on `spike/salsa-stage1-gate` during the Salsa
+> 0.26 migration. See `docs/reports/salsa-upgrade-report.md` and the overnight
+> hardening report for current status.
+
 **Date:** 2026-02-08
 **Branch:** `spike/salsa-stage1-gate`
 **Scope:** `crates/trust-hir/src/db/queries/salsa_backend.rs`, `database.rs`, `queries.rs`

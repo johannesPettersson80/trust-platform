@@ -1,5 +1,17 @@
 use super::*;
 
+fn normalize_path_for_assert(path: &std::path::Path) -> String {
+    let canonical = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    let mut normalized = canonical.to_string_lossy().replace('\\', "/");
+    if let Some(stripped) = normalized.strip_prefix("//?/") {
+        normalized = stripped.to_string();
+    }
+    if cfg!(windows) {
+        normalized = normalized.to_ascii_lowercase();
+    }
+    normalized
+}
+
 #[test]
 fn lsp_diagnostics_short_circuit_when_request_ticket_is_cancelled() {
     let source = r#"
@@ -960,12 +972,9 @@ END_FUNCTION
         .expect("dep source");
     let found_dependency_symbol = symbols.iter().any(|symbol| {
         symbol.name == "VendorDouble"
-            && symbol
-                .location
-                .uri
-                .to_file_path()
-                .ok()
-                .is_some_and(|path| path == dep_source)
+            && symbol.location.uri.to_file_path().ok().is_some_and(|path| {
+                normalize_path_for_assert(&path) == normalize_path_for_assert(&dep_source)
+            })
     });
     assert!(
         found_dependency_symbol,
