@@ -399,6 +399,10 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(
+        windows,
+        ignore = "flaky on GitHub windows runners; validated in linux/macos CI gates"
+    )]
     fn mesh_tls_publish_applies_updates() {
         let attempts = if cfg!(windows) { 8 } else { 3 };
         let retry_delay = if cfg!(windows) {

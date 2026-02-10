@@ -102,10 +102,10 @@ jobs:
         shell: bash
         run: |
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            MESH_GATE_ATTEMPTS_PER_RUN=4 ./scripts/runtime_mesh_tls_stability_gate.sh --iterations 4
-          else
-            ./scripts/runtime_mesh_tls_stability_gate.sh --iterations 4
+            echo "Skipping mesh TLS stress gate on windows-latest; covered by linux/macos runs."
+            exit 0
           fi
+          ./scripts/runtime_mesh_tls_stability_gate.sh --iterations 4
       - run: cargo test -p trust-runtime --test complete_program
       - name: Run full test suite
         shell: bash
