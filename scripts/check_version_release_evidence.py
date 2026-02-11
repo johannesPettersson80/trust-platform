@@ -8,6 +8,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 import tomllib
 import urllib.error
 import urllib.parse
@@ -98,6 +99,24 @@ def main() -> int:
     parser.add_argument("--before", default="")
     parser.add_argument("--after", required=True)
     parser.add_argument("--repo", required=True)
+    parser.add_argument(
+        "--run-discovery-timeout-seconds",
+        type=int,
+        default=180,
+        help="How long to wait for the tag-triggered Release run to appear.",
+    )
+    parser.add_argument(
+        "--run-completion-timeout-seconds",
+        type=int,
+        default=1800,
+        help="How long to wait for the Release run to complete.",
+    )
+    parser.add_argument(
+        "--poll-interval-seconds",
+        type=int,
+        default=15,
+        help="Polling interval used while waiting for Release workflow evidence.",
+    )
     args = parser.parse_args()
 
     if args.event_name != "push" or args.ref not in {"refs/heads/main", "refs/heads/master"}:
@@ -152,32 +171,81 @@ def main() -> int:
     if not token:
         return fail("GITHUB_TOKEN is required to verify release workflow/release API evidence.")
 
-    runs_status, runs_payload = github_api_get(
-        args.repo,
-        "/actions/workflows/release.yml/runs",
-        token,
-        query={"event": "push", "per_page": "100"},
-    )
-    if runs_status != 200:
-        return fail(
-            "Could not query release workflow runs from GitHub API "
-            f"(status {runs_status}): {runs_payload.get('message', 'unknown error')}"
-        )
+    poll_interval = max(args.poll_interval_seconds, 1)
+    run_discovery_timeout = max(args.run_discovery_timeout_seconds, 0)
+    run_completion_timeout = max(args.run_completion_timeout_seconds, 0)
 
-    run_for_tag = next(
-        (run for run in runs_payload.get("workflow_runs", []) if run.get("head_branch") == expected_tag),
-        None,
-    )
-    if run_for_tag is None:
-        return fail(
-            f"Tag {expected_tag} exists, but no Release workflow run was found for that tag. "
-            "Push the tag and wait for the Release workflow to start."
+    run_for_tag: dict | None = None
+    discovery_deadline = time.monotonic() + run_discovery_timeout
+    while True:
+        runs_status, runs_payload = github_api_get(
+            args.repo,
+            "/actions/workflows/release.yml/runs",
+            token,
+            query={"event": "push", "per_page": "100"},
         )
-    if run_for_tag.get("status") != "completed" or run_for_tag.get("conclusion") != "success":
+        if runs_status != 200:
+            return fail(
+                "Could not query release workflow runs from GitHub API "
+                f"(status {runs_status}): {runs_payload.get('message', 'unknown error')}"
+            )
+
+        run_for_tag = next(
+            (
+                run
+                for run in runs_payload.get("workflow_runs", [])
+                if run.get("head_branch") == expected_tag
+            ),
+            None,
+        )
+        if run_for_tag is not None:
+            break
+        if time.monotonic() >= discovery_deadline:
+            return fail(
+                f"Tag {expected_tag} exists, but no Release workflow run was found for that tag "
+                f"within {run_discovery_timeout}s."
+            )
+        time.sleep(poll_interval)
+
+    run_id = run_for_tag.get("id")
+    run_status = run_for_tag.get("status")
+    run_conclusion = run_for_tag.get("conclusion")
+    run_url = run_for_tag.get("html_url")
+    if run_status != "completed":
+        if run_id is None:
+            return fail(
+                f"Release workflow for {expected_tag} has no run id and cannot be polled. "
+                f"Run: {run_url}"
+            )
+        completion_deadline = time.monotonic() + run_completion_timeout
+        while time.monotonic() < completion_deadline:
+            time.sleep(poll_interval)
+            run_status_code, run_payload = github_api_get(
+                args.repo,
+                f"/actions/runs/{run_id}",
+                token,
+            )
+            if run_status_code != 200:
+                return fail(
+                    "Could not query Release run status from GitHub API "
+                    f"(status {run_status_code}): {run_payload.get('message', 'unknown error')}"
+                )
+            run_for_tag = run_payload
+            run_status = run_for_tag.get("status")
+            run_conclusion = run_for_tag.get("conclusion")
+            run_url = run_for_tag.get("html_url")
+            if run_status == "completed":
+                break
+        if run_status != "completed":
+            return fail(
+                f"Release workflow for {expected_tag} did not complete within "
+                f"{run_completion_timeout}s (latest status={run_status}). Run: {run_url}"
+            )
+
+    if run_conclusion != "success":
         return fail(
-            f"Release workflow for {expected_tag} is not successful yet "
-            f"(status={run_for_tag.get('status')}, conclusion={run_for_tag.get('conclusion')}). "
-            f"Run: {run_for_tag.get('html_url')}"
+            f"Release workflow for {expected_tag} is not successful "
+            f"(status={run_status}, conclusion={run_conclusion}). Run: {run_url}"
         )
 
     release_status, release_payload = github_api_get(
@@ -199,7 +267,7 @@ def main() -> int:
     print(
         "version-release-guard: release evidence verified for "
         f"{expected_tag}. release={release_payload.get('html_url')} "
-        f"workflow={run_for_tag.get('html_url')}"
+        f"workflow={run_url}"
     )
     return 0
 

@@ -8,6 +8,7 @@ Legend: `[ ]` pending, `[x]` complete.
 - [x] Rust test gate is enforced.
 - [x] VS Code extension lint and compile gates are enforced.
 - [x] VS Code extension integration tests run with `ST_LSP_TEST_SERVER`.
+- [x] Workspace and VS Code extension release versions are enforced to stay aligned (`Cargo.toml`, `package.json`, `package-lock.json` root fields).
 - [x] Main/master version bumps are blocked unless matching tag + successful release workflow + published GitHub release evidence exist.
 
 ## Reliability Gates

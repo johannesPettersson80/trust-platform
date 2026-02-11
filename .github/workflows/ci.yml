@@ -336,6 +336,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Validate workspace/extension version alignment
+        run: |
+          python3 scripts/check_release_version_alignment.py
       - name: Validate version bump release evidence
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
