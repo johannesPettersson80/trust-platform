@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.7.1`
+Target release: `v0.7.2`
 
 ### Added
 
@@ -85,3 +85,4 @@ Target release: `v0.7.1`
 - Windows CI/test path issues (`PathBuf` import and path hygiene guardrails).
 - `Harness::run_until` now has a default cycle guard and explicit `run_until_max` limit to prevent hangs.
 - Filtered test runs now clearly report when zero tests match but tests were discovered.
+- `version-release-guard` now tolerates short ordering races between `main` and tag pushes by polling for the expected version tag before failing.

@@ -147,15 +147,26 @@ def main() -> int:
             f"enforcing release evidence for {current_version}."
         )
 
-    run_git(["fetch", "--tags", "--force", "origin"])
+    poll_interval = max(args.poll_interval_seconds, 1)
+    run_discovery_timeout = max(args.run_discovery_timeout_seconds, 0)
+    run_completion_timeout = max(args.run_completion_timeout_seconds, 0)
 
-    tag_commit_proc = run_git(["rev-parse", f"refs/tags/{expected_tag}^{{}}"], check=False)
-    if tag_commit_proc.returncode != 0:
-        return fail(
-            f"Workspace version bumped to {current_version}, but tag {expected_tag} does not "
-            "exist on origin. Create/push the annotated tag and rerun CI."
-        )
-    tag_commit = tag_commit_proc.stdout.strip()
+    # Tag and main pushes can land a few seconds apart; wait briefly instead of failing instantly.
+    tag_commit: str | None = None
+    tag_discovery_deadline = time.monotonic() + run_discovery_timeout
+    while True:
+        run_git(["fetch", "--tags", "--force", "origin"])
+        tag_commit_proc = run_git(["rev-parse", f"refs/tags/{expected_tag}^{{}}"], check=False)
+        if tag_commit_proc.returncode == 0:
+            tag_commit = tag_commit_proc.stdout.strip()
+            break
+        if time.monotonic() >= tag_discovery_deadline:
+            return fail(
+                f"Workspace version bumped to {current_version}, but tag {expected_tag} does not "
+                f"exist on origin after waiting {run_discovery_timeout}s. Create/push the "
+                "annotated tag and rerun CI."
+            )
+        time.sleep(poll_interval)
 
     ancestor_check = subprocess.run(
         ["git", "merge-base", "--is-ancestor", tag_commit, args.after],
@@ -170,10 +181,6 @@ def main() -> int:
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN") or ""
     if not token:
         return fail("GITHUB_TOKEN is required to verify release workflow/release API evidence.")
-
-    poll_interval = max(args.poll_interval_seconds, 1)
-    run_discovery_timeout = max(args.run_discovery_timeout_seconds, 0)
-    run_completion_timeout = max(args.run_completion_timeout_seconds, 0)
 
     run_for_tag: dict | None = None
     discovery_deadline = time.monotonic() + run_discovery_timeout
