@@ -13,6 +13,7 @@ import { registerLanguageModelTools } from "./lm-tools";
 import { augmentDiagnostic } from "./diagnostics";
 import { defaultRuntimeControlEndpoint } from "./runtimeDefaults";
 import { registerNewProjectCommand } from "./newProject";
+import { registerPlcopenImportCommand } from "./plcopenImport";
 import { registerStTestIntegration } from "./stTests";
 import {
   registerNamespaceMoveCommand,
@@ -217,6 +218,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(client);
   registerNewProjectCommand(context);
+  registerPlcopenImportCommand(context);
   registerNamespaceMoveCommand(context, client);
   registerNamespaceMoveCodeActions(context);
   registerNamespaceMoveContext(context);

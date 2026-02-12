@@ -12,6 +12,7 @@ export function run(): Promise<void> {
   require("./hmi.integration.test");
   require("./lsp.integration.test");
   require("./new-project.test");
+  require("./plcopen-import.test");
   require("./snippets.test");
   require("./st-tests.integration.test");
 

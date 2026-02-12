@@ -79,6 +79,7 @@ Open it in VS Code:
 ## Commands You’ll Use Most
 
 - `Structured Text: New Project`
+- `Structured Text: Import PLCopen XML`
 - `Structured Text: Open Runtime Panel`
 - `Structured Text: Open HMI Preview`
 - `Structured Text: Start Debugging`

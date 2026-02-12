@@ -3,7 +3,7 @@
   "displayName": "truST LSP",
   "description": "truST LSP — IEC 61131-3 Structured Text language support",
   "icon": "icon.png",
-  "version": "0.7.11",
+  "version": "0.7.12",
   "publisher": "trust-platform",
   "license": "MIT OR Apache-2.0",
   "engines": {
@@ -30,6 +30,7 @@
     "onLanguage:structured-text",
     "onDebug:structured-text",
     "onCommand:trust-lsp.newProject",
+    "onCommand:trust-lsp.plcopen.import",
     "onCommand:trust-lsp.debug.openIoPanel",
     "onCommand:trust-lsp.hmi.openPreview",
     "onCommand:trust-lsp.debug.reload",
@@ -1623,6 +1624,11 @@
       {
         "command": "trust-lsp.newProject",
         "title": "Structured Text: New Project",
+        "category": "Structured Text"
+      },
+      {
+        "command": "trust-lsp.plcopen.import",
+        "title": "Structured Text: Import PLCopen XML",
         "category": "Structured Text"
       },
       {
