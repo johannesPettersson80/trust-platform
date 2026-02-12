@@ -13,6 +13,9 @@ test:
 check:
 	cargo check --all
 
+editor-smoke:
+	./scripts/check_editor_integration_smoke.sh
+
 lint: fmt clippy
 
 readme-media:

@@ -39,6 +39,16 @@ Siemens SCL v1 supported subset, known deviations, and regression coverage are
 documented in:
 `docs/guides/SIEMENS_SCL_COMPATIBILITY.md`.
 
+## Editor Expansion (Neovim + Zed)
+
+Official non-VS-Code LSP setup guides and reference configurations are
+documented in:
+`docs/guides/EDITOR_SETUP_NEOVIM_ZED.md`.
+
+Reference editor config packs:
+- `editors/neovim/`
+- `editors/zed/`
+
 ## Diagram Maintenance
 
 Use the helper scripts to keep PlantUML diagrams in sync:

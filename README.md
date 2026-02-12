@@ -4,7 +4,8 @@
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE-MIT)
 [![Rust Version](https://img.shields.io/badge/rust-1.85%2B-orange.svg)](https://www.rust-lang.org)
 
-**truST Platform** is an **IEC 61131-3 Structured Text** toolchain for **VS Code**:
+**truST Platform** is an **IEC 61131-3 Structured Text** toolchain with first-class
+VS Code support and official LSP setup profiles for Neovim and Zed:
 - Language Server (**LSP**) + VS Code extension
 - Runtime execution engine
 - Debug Adapter (**DAP**) debugger
@@ -70,6 +71,7 @@ code --install-extension trust-platform.trust-lsp
 - Inline values + I/O panel driven by the runtime control endpoint.
 - DAP debugging with breakpoints, stepping, and variables.
 - Deterministic conformance runner via `trust-runtime conformance`.
+- Official Neovim/Zed LSP setup profiles with CI smoke validation.
 
 ---
 
@@ -139,6 +141,7 @@ starts a local runtime for debugging and inline values.
 
 - `docs/README.md` — documentation index and diagram workflow
 - `docs/guides/PLC_QUICK_START.md` — hands-on quick start
+- `docs/guides/EDITOR_SETUP_NEOVIM_ZED.md` — Neovim + Zed setup and validation contract
 - `docs/specs/README.md` — IEC 61131-3 specs and tooling references
 - `conformance/README.md` — conformance suite MVP scope and contracts
 
@@ -147,6 +150,7 @@ starts a local runtime for debugging and inline values.
 ## Status
 
 - VS Code Marketplace: live
+- Neovim + Zed LSP setup docs/configs: shipped (`editors/neovim/`, `editors/zed/`)
 - Runtime + debugger: experimental, integrated in the platform workflow
 
 ---

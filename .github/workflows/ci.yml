@@ -305,6 +305,27 @@ jobs:
           name: gate-vscode-extension
           path: gate-artifacts/vscode-extension.txt
 
+  editor-expansion:
+    name: Editor Expansion Smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Validate Neovim/Zed editor setup and core workflow coverage
+        run: ./scripts/check_editor_integration_smoke.sh
+      - name: Mark gate success
+        if: ${{ success() }}
+        run: |
+          mkdir -p gate-artifacts
+          echo "job=editor-expansion result=success" > gate-artifacts/editor-expansion.txt
+      - name: Upload gate marker
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-editor-expansion
+          path: gate-artifacts/editor-expansion.txt
+
   mp001-parity:
     name: MP-001 Parity
     runs-on: ubuntu-latest
@@ -364,7 +385,7 @@ jobs:
   release-gate-report:
     name: Release Gate Report
     runs-on: ubuntu-latest
-    needs: [fmt, clippy, test, msrv, docs, vscode-extension, mp001-parity, version-release-guard]
+    needs: [fmt, clippy, test, msrv, docs, vscode-extension, editor-expansion, mp001-parity, version-release-guard]
     if: ${{ always() }}
     steps:
       - uses: actions/checkout@v4
@@ -387,6 +408,7 @@ jobs:
           NEED_MSRV: ${{ needs.msrv.result }}
           NEED_DOCS: ${{ needs.docs.result }}
           NEED_VSCODE_EXTENSION: ${{ needs['vscode-extension'].result }}
+          NEED_EDITOR_EXPANSION: ${{ needs['editor-expansion'].result }}
           NEED_MP001_PARITY: ${{ needs['mp001-parity'].result }}
           NEED_VERSION_RELEASE_GUARD: ${{ needs['version-release-guard'].result }}
         run: |
@@ -401,6 +423,7 @@ jobs:
             --required-gate gate-msrv \
             --required-gate gate-docs \
             --required-gate gate-vscode-extension \
+            --required-gate gate-editor-expansion \
             --required-gate gate-mp001-parity \
             --required-gate gate-version-release-guard \
             --job-status "fmt=${NEED_FMT}" \
@@ -409,6 +432,7 @@ jobs:
             --job-status "msrv=${NEED_MSRV}" \
             --job-status "docs=${NEED_DOCS}" \
             --job-status "vscode-extension=${NEED_VSCODE_EXTENSION}" \
+            --job-status "editor-expansion=${NEED_EDITOR_EXPANSION}" \
             --job-status "mp001-parity=${NEED_MP001_PARITY}" \
             --job-status "version-release-guard=${NEED_VERSION_RELEASE_GUARD}" \
             --checklist docs/release-gate-checklist.md

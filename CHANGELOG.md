@@ -6,10 +6,15 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.7.4`
+Target release: `v0.7.5`
 
 ### Added
 
+- Editor Expansion v1 (Deliverable 6):
+  - Official Neovim setup pack published with reference `nvim-lspconfig` profile and workflow keymaps: `editors/neovim/`.
+  - Official Zed setup pack published with reference language-server profile: `editors/zed/`.
+  - Editor setup/validation guide published: `docs/guides/EDITOR_SETUP_NEOVIM_ZED.md`.
+  - New editor smoke gate script `scripts/check_editor_integration_smoke.sh` validates editor config contracts and runs targeted LSP workflow tests for diagnostics/hover/completion/formatting/definition.
 - Vendor Library Compatibility Baseline (Deliverable 4):
   - `trust-runtime plcopen import` now applies deterministic vendor-library shim mappings for selected Siemens, Rockwell, Schneider/CODESYS, and Mitsubishi aliases.
   - Import/migration JSON contracts now include `applied_library_shims` with vendor/source/replacement/occurrence metadata.
@@ -55,6 +60,7 @@ Target release: `v0.7.4`
 
 ### Changed
 
+- CI release-gate aggregation now includes a dedicated `Editor Expansion Smoke` gate for Neovim/Zed integration coverage.
 - PLCopen XML Full ST Project Coverage (Deliverable 5):
   - Profile advanced to `trust-st-complete-v1`.
   - `trust-runtime plcopen import` now supports full ST-project model import for:

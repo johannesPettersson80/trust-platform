@@ -1,0 +1,18 @@
+{
+  "lsp": {
+    "trust-lsp": {
+      "binary": {
+        "path": "trust-lsp"
+      }
+    }
+  },
+  "languages": {
+    "Structured Text": {
+      "language_servers": [
+        "trust-lsp"
+      ],
+      "formatter": "language_server",
+      "format_on_save": "on"
+    }
+  }
+}

@@ -3,7 +3,7 @@
   "displayName": "truST LSP",
   "description": "truST LSP — IEC 61131-3 Structured Text language support",
   "icon": "icon.png",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "publisher": "trust-platform",
   "license": "MIT OR Apache-2.0",
   "engines": {
