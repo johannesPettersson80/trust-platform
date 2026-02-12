@@ -15,6 +15,7 @@ through `trust-runtime plcopen import`.
 | Capability | Status | Notes |
 |---|---|---|
 | IEC standard FB names (`TON`, `TOF`, `TP`, `R_TRIG`, `F_TRIG`) | supported | Native runtime/LSP support. |
+| Mitsubishi edge aliases (`DIFU`, `DIFD`) in authored ST | supported | Native runtime/LSP support maps to IEC edge behavior. |
 | Vendor alias shims for selected timer/edge blocks | partial | Import rewrites known aliases and records each applied shim in migration reports. |
 | Vendor library package/AOI indexing hints via ecosystem detection | partial | Detection is advisory and tied to migration diagnostics, not full semantic import. |
 | Vendor AOI internals, safety annotations, proprietary pragmas | unsupported | Requires manual migration and validation. |

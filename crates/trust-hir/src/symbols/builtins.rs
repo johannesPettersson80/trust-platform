@@ -107,6 +107,20 @@ impl SymbolTable {
                 ("Q", TypeId::BOOL, ParamDirection::Out),
             ],
         );
+        self.register_simple_function_block(
+            "DIFU",
+            &[
+                ("CLK", TypeId::BOOL, ParamDirection::In),
+                ("Q", TypeId::BOOL, ParamDirection::Out),
+            ],
+        );
+        self.register_simple_function_block(
+            "DIFD",
+            &[
+                ("CLK", TypeId::BOOL, ParamDirection::In),
+                ("Q", TypeId::BOOL, ParamDirection::Out),
+            ],
+        );
     }
 
     fn register_counter_function_blocks(&mut self) {

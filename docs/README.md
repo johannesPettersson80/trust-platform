@@ -39,6 +39,12 @@ Siemens SCL v1 supported subset, known deviations, and regression coverage are
 documented in:
 `docs/guides/SIEMENS_SCL_COMPATIBILITY.md`.
 
+## Mitsubishi GX Works3 Compatibility
+
+Mitsubishi GX Works3 v1 supported subset, known incompatibilities, and
+regression coverage are documented in:
+`docs/guides/MITSUBISHI_GXWORKS3_COMPATIBILITY.md`.
+
 ## Editor Expansion (Neovim + Zed)
 
 Official non-VS-Code LSP setup guides and reference configurations are

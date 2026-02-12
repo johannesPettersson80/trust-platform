@@ -1,5 +1,6 @@
 ---
-source: crates/trust-lsp/src/handlers/tests.rs
+source: crates/trust-lsp/src/handlers/tests/mod.rs
+assertion_line: 1008
 expression: output
 ---
 {
@@ -8,7 +9,7 @@ expression: output
       "from": {
         "data": {
           "fileId": 0,
-          "symbolId": 179
+          "symbolId": 185
         },
         "kind": 2,
         "name": "Main",
@@ -52,7 +53,7 @@ expression: output
     {
       "data": {
         "fileId": 0,
-        "symbolId": 174
+        "symbolId": 180
       },
       "kind": 12,
       "name": "Foo",
@@ -91,15 +92,15 @@ expression: output
               "spec": "docs/specs/09-semantic-rules.md"
             }
           },
-          "message": "unused variable 'y'",
+          "message": "unused variable 'typed'",
           "range": {
             "end": {
-              "character": 5,
-              "line": 38
+              "character": 9,
+              "line": 39
             },
             "start": {
               "character": 4,
-              "line": 38
+              "line": 39
             }
           },
           "severity": 2,
@@ -114,11 +115,11 @@ expression: output
               "range": {
                 "end": {
                   "character": 0,
-                  "line": 40
+                  "line": 41
                 },
                 "start": {
                   "character": 4,
-                  "line": 38
+                  "line": 39
                 }
               }
             }
@@ -131,6 +132,30 @@ expression: output
     }
   ],
   "codeLens": [
+    {
+      "command": {
+        "arguments": [
+          "file:///workspace/golden/alpha/Main.st",
+          {
+            "character": 6,
+            "line": 29
+          },
+          []
+        ],
+        "command": "editor.action.showReferences",
+        "title": "References: 0"
+      },
+      "range": {
+        "end": {
+          "character": 13,
+          "line": 29
+        },
+        "start": {
+          "character": 6,
+          "line": 29
+        }
+      }
+    },
     {
       "command": {
         "arguments": [
@@ -266,30 +291,6 @@ expression: output
         "start": {
           "character": 10,
           "line": 21
-        }
-      }
-    },
-    {
-      "command": {
-        "arguments": [
-          "file:///workspace/golden/alpha/Main.st",
-          {
-            "character": 6,
-            "line": 29
-          },
-          []
-        ],
-        "command": "editor.action.showReferences",
-        "title": "References: 0"
-      },
-      "range": {
-        "end": {
-          "character": 13,
-          "line": 29
-        },
-        "start": {
-          "character": 6,
-          "line": 29
         }
       }
     }
@@ -523,6 +524,28 @@ expression: output
         "source": "trust-lsp"
       },
       {
+        "code": "W001",
+        "data": {
+          "explain": {
+            "iec": "IEC 61131-3 Ed.3 §6.5.2.2",
+            "spec": "docs/specs/09-semantic-rules.md"
+          }
+        },
+        "message": "unused variable 'typed'",
+        "range": {
+          "end": {
+            "character": 9,
+            "line": 39
+          },
+          "start": {
+            "character": 4,
+            "line": 39
+          }
+        },
+        "severity": 2,
+        "source": "trust-lsp"
+      },
+      {
         "code": "W009",
         "data": {
           "explain": {
@@ -583,28 +606,6 @@ expression: output
           "start": {
             "character": 4,
             "line": 38
-          }
-        },
-        "severity": 2,
-        "source": "trust-lsp"
-      },
-      {
-        "code": "W001",
-        "data": {
-          "explain": {
-            "iec": "IEC 61131-3 Ed.3 §6.5.2.2",
-            "spec": "docs/specs/09-semantic-rules.md"
-          }
-        },
-        "message": "unused variable 'typed'",
-        "range": {
-          "end": {
-            "character": 9,
-            "line": 39
-          },
-          "start": {
-            "character": 4,
-            "line": 39
           }
         },
         "severity": 2,
@@ -708,6 +709,57 @@ expression: output
       "location": {
         "range": {
           "end": {
+            "character": 13,
+            "line": 29
+          },
+          "start": {
+            "character": 6,
+            "line": 29
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "Derived"
+    },
+    {
+      "kind": 3,
+      "location": {
+        "range": {
+          "end": {
+            "character": 13,
+            "line": 12
+          },
+          "start": {
+            "character": 10,
+            "line": 12
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "Lib"
+    },
+    {
+      "kind": 2,
+      "location": {
+        "range": {
+          "end": {
+            "character": 18,
+            "line": 1
+          },
+          "start": {
+            "character": 14,
+            "line": 1
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "Conf (CONFIGURATION)"
+    },
+    {
+      "kind": 5,
+      "location": {
+        "range": {
+          "end": {
             "character": 10,
             "line": 26
           },
@@ -788,57 +840,6 @@ expression: output
         "uri": "file:///workspace/golden/alpha/Main.st"
       },
       "name": "IFace"
-    },
-    {
-      "kind": 5,
-      "location": {
-        "range": {
-          "end": {
-            "character": 13,
-            "line": 29
-          },
-          "start": {
-            "character": 6,
-            "line": 29
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "Derived"
-    },
-    {
-      "kind": 3,
-      "location": {
-        "range": {
-          "end": {
-            "character": 13,
-            "line": 12
-          },
-          "start": {
-            "character": 10,
-            "line": 12
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "Lib"
-    },
-    {
-      "kind": 2,
-      "location": {
-        "range": {
-          "end": {
-            "character": 18,
-            "line": 1
-          },
-          "start": {
-            "character": 14,
-            "line": 1
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "Conf (CONFIGURATION)"
     }
   ],
   "executeCommandProjectInfo": {
@@ -2005,6 +2006,28 @@ expression: output
             "source": "trust-lsp"
           },
           {
+            "code": "W001",
+            "data": {
+              "explain": {
+                "iec": "IEC 61131-3 Ed.3 §6.5.2.2",
+                "spec": "docs/specs/09-semantic-rules.md"
+              }
+            },
+            "message": "unused variable 'typed'",
+            "range": {
+              "end": {
+                "character": 9,
+                "line": 39
+              },
+              "start": {
+                "character": 4,
+                "line": 39
+              }
+            },
+            "severity": 2,
+            "source": "trust-lsp"
+          },
+          {
             "code": "W009",
             "data": {
               "explain": {
@@ -2065,28 +2088,6 @@ expression: output
               "start": {
                 "character": 4,
                 "line": 38
-              }
-            },
-            "severity": 2,
-            "source": "trust-lsp"
-          },
-          {
-            "code": "W001",
-            "data": {
-              "explain": {
-                "iec": "IEC 61131-3 Ed.3 §6.5.2.2",
-                "spec": "docs/specs/09-semantic-rules.md"
-              }
-            },
-            "message": "unused variable 'typed'",
-            "range": {
-              "end": {
-                "character": 9,
-                "line": 39
-              },
-              "start": {
-                "character": 4,
-                "line": 39
               }
             },
             "severity": 2,
@@ -2193,6 +2194,96 @@ expression: output
       "name": "Base"
     },
     {
+      "containerName": "CTUD_INT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "CD"
+    },
+    {
+      "containerName": "CTD_DINT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "CD"
+    },
+    {
+      "containerName": "CTUD_DINT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "CD"
+    },
+    {
+      "containerName": "CTD_LINT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "CD"
+    },
+    {
+      "containerName": "CTUD_LINT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "CD"
+    },
+    {
       "containerName": "CTD_UDINT",
       "kind": 13,
       "location": {
@@ -2332,7 +2423,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/Main.st"
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
       },
       "name": "CD"
     },
@@ -2350,7 +2441,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/Main.st"
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
       },
       "name": "CD"
     },
@@ -2368,7 +2459,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/Main.st"
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
       },
       "name": "CD"
     },
@@ -2386,7 +2477,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/Main.st"
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
       },
       "name": "CD"
     },
@@ -2404,7 +2495,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/Main.st"
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
       },
       "name": "CD"
     },
@@ -2518,96 +2609,6 @@ expression: output
     },
     {
       "containerName": "CTD_INT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
-      },
-      "name": "CD"
-    },
-    {
-      "containerName": "CTUD_INT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
-      },
-      "name": "CD"
-    },
-    {
-      "containerName": "CTD_DINT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
-      },
-      "name": "CD"
-    },
-    {
-      "containerName": "CTUD_DINT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
-      },
-      "name": "CD"
-    },
-    {
-      "containerName": "CTD_LINT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
-      },
-      "name": "CD"
-    },
-    {
-      "containerName": "CTUD_LINT",
       "kind": 13,
       "location": {
         "range": {
@@ -2626,6 +2627,42 @@ expression: output
     },
     {
       "containerName": "R_TRIG",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "CLK"
+    },
+    {
+      "containerName": "DIFD",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "CLK"
+    },
+    {
+      "containerName": "DIFU",
       "kind": 13,
       "location": {
         "range": {
@@ -2662,6 +2699,42 @@ expression: output
     },
     {
       "containerName": "R_TRIG",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "CLK"
+    },
+    {
+      "containerName": "DIFD",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "CLK"
+    },
+    {
+      "containerName": "DIFU",
       "kind": 13,
       "location": {
         "range": {
@@ -3309,78 +3382,6 @@ expression: output
       "name": "CTU_ULINT (FUNCTION_BLOCK)"
     },
     {
-      "containerName": "CTUD_DINT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "CU"
-    },
-    {
-      "containerName": "CTU_DINT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "CU"
-    },
-    {
-      "containerName": "CTUD_LINT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "CU"
-    },
-    {
-      "containerName": "CTU_LINT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "CU"
-    },
-    {
       "containerName": "CTUD_UDINT",
       "kind": 13,
       "location": {
@@ -3538,7 +3539,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+        "uri": "file:///workspace/golden/alpha/Main.st"
       },
       "name": "CU"
     },
@@ -3556,7 +3557,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+        "uri": "file:///workspace/golden/alpha/Main.st"
       },
       "name": "CU"
     },
@@ -3574,7 +3575,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+        "uri": "file:///workspace/golden/alpha/Main.st"
       },
       "name": "CU"
     },
@@ -3592,7 +3593,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+        "uri": "file:///workspace/golden/alpha/Main.st"
       },
       "name": "CU"
     },
@@ -3741,78 +3742,6 @@ expression: output
       "name": "CU"
     },
     {
-      "containerName": "CTUD_INT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "CV"
-    },
-    {
-      "containerName": "CTU",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "CV"
-    },
-    {
-      "containerName": "CTU_ULINT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "CV"
-    },
-    {
-      "containerName": "CTD_LINT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "CV"
-    },
-    {
       "containerName": "CTUD_DINT",
       "kind": 13,
       "location": {
@@ -3826,63 +3755,9 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/Main.st"
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
       },
-      "name": "CV"
-    },
-    {
-      "containerName": "CTU_INT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "CV"
-    },
-    {
-      "containerName": "CTD_UDINT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "CV"
-    },
-    {
-      "containerName": "CTUD_LINT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "CV"
+      "name": "CU"
     },
     {
       "containerName": "CTU_DINT",
@@ -3898,9 +3773,45 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/Main.st"
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
       },
-      "name": "CV"
+      "name": "CU"
+    },
+    {
+      "containerName": "CTUD_LINT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "CU"
+    },
+    {
+      "containerName": "CTU_LINT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "CU"
     },
     {
       "containerName": "CTD",
@@ -4078,7 +3989,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+        "uri": "file:///workspace/golden/alpha/Main.st"
       },
       "name": "CV"
     },
@@ -4096,7 +4007,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+        "uri": "file:///workspace/golden/alpha/Main.st"
       },
       "name": "CV"
     },
@@ -4114,7 +4025,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+        "uri": "file:///workspace/golden/alpha/Main.st"
       },
       "name": "CV"
     },
@@ -4132,7 +4043,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+        "uri": "file:///workspace/golden/alpha/Main.st"
       },
       "name": "CV"
     },
@@ -4150,7 +4061,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+        "uri": "file:///workspace/golden/alpha/Main.st"
       },
       "name": "CV"
     },
@@ -4168,7 +4079,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+        "uri": "file:///workspace/golden/alpha/Main.st"
       },
       "name": "CV"
     },
@@ -4186,7 +4097,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+        "uri": "file:///workspace/golden/alpha/Main.st"
       },
       "name": "CV"
     },
@@ -4204,7 +4115,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+        "uri": "file:///workspace/golden/alpha/Main.st"
       },
       "name": "CV"
     },
@@ -4222,7 +4133,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+        "uri": "file:///workspace/golden/alpha/Main.st"
       },
       "name": "CV"
     },
@@ -4372,6 +4283,168 @@ expression: output
     },
     {
       "containerName": "CTD_DINT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "CV"
+    },
+    {
+      "containerName": "CTUD_INT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "CV"
+    },
+    {
+      "containerName": "CTU",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "CV"
+    },
+    {
+      "containerName": "CTU_ULINT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "CV"
+    },
+    {
+      "containerName": "CTD_LINT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "CV"
+    },
+    {
+      "containerName": "CTUD_DINT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "CV"
+    },
+    {
+      "containerName": "CTU_INT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "CV"
+    },
+    {
+      "containerName": "CTD_UDINT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "CV"
+    },
+    {
+      "containerName": "CTUD_LINT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "CV"
+    },
+    {
+      "containerName": "CTU_DINT",
       "kind": 13,
       "location": {
         "range": {
@@ -4410,6 +4483,74 @@ expression: output
       "location": {
         "range": {
           "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "DIFD (FUNCTION_BLOCK)"
+    },
+    {
+      "kind": 5,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "DIFD (FUNCTION_BLOCK)"
+    },
+    {
+      "kind": 5,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "DIFU (FUNCTION_BLOCK)"
+    },
+    {
+      "kind": 5,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "DIFU (FUNCTION_BLOCK)"
+    },
+    {
+      "kind": 5,
+      "location": {
+        "range": {
+          "end": {
             "character": 13,
             "line": 29
           },
@@ -4423,42 +4564,6 @@ expression: output
       "name": "Derived"
     },
     {
-      "containerName": "TOF_LTIME",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "ET"
-    },
-    {
-      "containerName": "TON_LTIME",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "ET"
-    },
-    {
       "containerName": "TP_LTIME",
       "kind": 13,
       "location": {
@@ -4544,7 +4649,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+        "uri": "file:///workspace/golden/alpha/Main.st"
       },
       "name": "ET"
     },
@@ -4562,7 +4667,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+        "uri": "file:///workspace/golden/alpha/Main.st"
       },
       "name": "ET"
     },
@@ -4622,6 +4727,42 @@ expression: output
     },
     {
       "containerName": "TP",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "ET"
+    },
+    {
+      "containerName": "TOF_LTIME",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "ET"
+    },
+    {
+      "containerName": "TON_LTIME",
       "kind": 13,
       "location": {
         "range": {
@@ -4708,24 +4849,6 @@ expression: output
       "name": "IFace"
     },
     {
-      "containerName": "TP",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "IN"
-    },
-    {
       "containerName": "TOF_LTIME",
       "kind": 13,
       "location": {
@@ -4829,7 +4952,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+        "uri": "file:///workspace/golden/alpha/Main.st"
       },
       "name": "IN"
     },
@@ -4924,7 +5047,7 @@ expression: output
       "name": "IN"
     },
     {
-      "containerName": "CTD_INT",
+      "containerName": "TP",
       "kind": 13,
       "location": {
         "range": {
@@ -4937,99 +5060,9 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/Main.st"
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
       },
-      "name": "LD"
-    },
-    {
-      "containerName": "CTUD_LINT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "LD"
-    },
-    {
-      "containerName": "CTD_DINT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "LD"
-    },
-    {
-      "containerName": "CTUD_UDINT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "LD"
-    },
-    {
-      "containerName": "CTUD",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "LD"
-    },
-    {
-      "containerName": "CTD_LINT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "LD"
+      "name": "IN"
     },
     {
       "containerName": "CTUD_ULINT",
@@ -5153,7 +5186,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+        "uri": "file:///workspace/golden/alpha/Main.st"
       },
       "name": "LD"
     },
@@ -5171,7 +5204,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+        "uri": "file:///workspace/golden/alpha/Main.st"
       },
       "name": "LD"
     },
@@ -5189,7 +5222,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+        "uri": "file:///workspace/golden/alpha/Main.st"
       },
       "name": "LD"
     },
@@ -5207,7 +5240,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+        "uri": "file:///workspace/golden/alpha/Main.st"
       },
       "name": "LD"
     },
@@ -5225,7 +5258,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+        "uri": "file:///workspace/golden/alpha/Main.st"
       },
       "name": "LD"
     },
@@ -5243,7 +5276,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+        "uri": "file:///workspace/golden/alpha/Main.st"
       },
       "name": "LD"
     },
@@ -5339,6 +5372,114 @@ expression: output
     },
     {
       "containerName": "CTD_ULINT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "LD"
+    },
+    {
+      "containerName": "CTD_INT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "LD"
+    },
+    {
+      "containerName": "CTUD_LINT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "LD"
+    },
+    {
+      "containerName": "CTD_DINT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "LD"
+    },
+    {
+      "containerName": "CTUD_UDINT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "LD"
+    },
+    {
+      "containerName": "CTUD",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "LD"
+    },
+    {
+      "containerName": "CTD_LINT",
       "kind": 13,
       "location": {
         "range": {
@@ -5407,6 +5548,42 @@ expression: output
       "name": "MyInt (TYPE (ALIAS))"
     },
     {
+      "containerName": "TON",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "PT"
+    },
+    {
+      "containerName": "TP",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "PT"
+    },
+    {
       "containerName": "TOF_LTIME",
       "kind": 13,
       "location": {
@@ -5492,7 +5669,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/Main.st"
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
       },
       "name": "PT"
     },
@@ -5510,7 +5687,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/Main.st"
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
       },
       "name": "PT"
     },
@@ -5587,7 +5764,7 @@ expression: output
       "name": "PT"
     },
     {
-      "containerName": "TON",
+      "containerName": "CTU_LINT",
       "kind": 13,
       "location": {
         "range": {
@@ -5600,12 +5777,12 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+        "uri": "file:///workspace/golden/alpha/Main.st"
       },
-      "name": "PT"
+      "name": "PV"
     },
     {
-      "containerName": "TP",
+      "containerName": "CTD_INT",
       "kind": 13,
       "location": {
         "range": {
@@ -5618,9 +5795,99 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+        "uri": "file:///workspace/golden/alpha/Main.st"
       },
-      "name": "PT"
+      "name": "PV"
+    },
+    {
+      "containerName": "CTUD_LINT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "PV"
+    },
+    {
+      "containerName": "CTU_UDINT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "PV"
+    },
+    {
+      "containerName": "CTD_DINT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "PV"
+    },
+    {
+      "containerName": "CTU",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "PV"
+    },
+    {
+      "containerName": "CTUD_UDINT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "PV"
     },
     {
       "containerName": "CTU_ULINT",
@@ -5834,7 +6101,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/Main.st"
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
       },
       "name": "PV"
     },
@@ -5852,7 +6119,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/Main.st"
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
       },
       "name": "PV"
     },
@@ -5870,7 +6137,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/Main.st"
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
       },
       "name": "PV"
     },
@@ -5888,7 +6155,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/Main.st"
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
       },
       "name": "PV"
     },
@@ -5906,7 +6173,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/Main.st"
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
       },
       "name": "PV"
     },
@@ -5924,7 +6191,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/Main.st"
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
       },
       "name": "PV"
     },
@@ -5942,7 +6209,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/Main.st"
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
       },
       "name": "PV"
     },
@@ -6145,295 +6412,7 @@ expression: output
       "name": "PV"
     },
     {
-      "containerName": "CTU_LINT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
-      },
-      "name": "PV"
-    },
-    {
-      "containerName": "CTD_INT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
-      },
-      "name": "PV"
-    },
-    {
-      "containerName": "CTUD_LINT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
-      },
-      "name": "PV"
-    },
-    {
-      "containerName": "CTU_UDINT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
-      },
-      "name": "PV"
-    },
-    {
-      "containerName": "CTD_DINT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
-      },
-      "name": "PV"
-    },
-    {
-      "containerName": "CTU",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
-      },
-      "name": "PV"
-    },
-    {
-      "containerName": "CTUD_UDINT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
-      },
-      "name": "PV"
-    },
-    {
-      "containerName": "TOF",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "Q"
-    },
-    {
-      "containerName": "CTD_ULINT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "Q"
-    },
-    {
-      "containerName": "TON",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "Q"
-    },
-    {
-      "containerName": "CTU_LINT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "Q"
-    },
-    {
-      "containerName": "CTD_INT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "Q"
-    },
-    {
-      "containerName": "TP",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "Q"
-    },
-    {
-      "containerName": "CTU_UDINT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "Q"
-    },
-    {
-      "containerName": "CTD_DINT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "Q"
-    },
-    {
-      "containerName": "CTU",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "Q"
-    },
-    {
-      "containerName": "F_TRIG",
+      "containerName": "DIFD",
       "kind": 13,
       "location": {
         "range": {
@@ -6523,7 +6502,7 @@ expression: output
       "name": "Q"
     },
     {
-      "containerName": "R_TRIG",
+      "containerName": "DIFU",
       "kind": 13,
       "location": {
         "range": {
@@ -6644,6 +6623,420 @@ expression: output
             "line": 0
           }
         },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "Q"
+    },
+    {
+      "containerName": "F_TRIG",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "Q"
+    },
+    {
+      "containerName": "CTD_ULINT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "Q"
+    },
+    {
+      "containerName": "TON",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "Q"
+    },
+    {
+      "containerName": "CTU_LINT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "Q"
+    },
+    {
+      "containerName": "CTD_INT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "Q"
+    },
+    {
+      "containerName": "TP",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "Q"
+    },
+    {
+      "containerName": "R_TRIG",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "Q"
+    },
+    {
+      "containerName": "CTU_UDINT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "Q"
+    },
+    {
+      "containerName": "CTD_DINT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "Q"
+    },
+    {
+      "containerName": "CTU",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "Q"
+    },
+    {
+      "containerName": "DIFD",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "Q"
+    },
+    {
+      "containerName": "CTU_ULINT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "Q"
+    },
+    {
+      "containerName": "CTD_LINT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "Q"
+    },
+    {
+      "containerName": "CTU_INT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "Q"
+    },
+    {
+      "containerName": "TOF_LTIME",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "Q"
+    },
+    {
+      "containerName": "DIFU",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "Q"
+    },
+    {
+      "containerName": "CTD_UDINT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "Q"
+    },
+    {
+      "containerName": "TON_LTIME",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "Q"
+    },
+    {
+      "containerName": "CTU_DINT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "Q"
+    },
+    {
+      "containerName": "TP_LTIME",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "Q"
+    },
+    {
+      "containerName": "CTD",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "Q"
+    },
+    {
+      "containerName": "TOF",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "Q"
+    },
+    {
+      "containerName": "F_TRIG",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
         "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
       },
       "name": "Q"
@@ -6739,6 +7132,24 @@ expression: output
       "name": "Q"
     },
     {
+      "containerName": "R_TRIG",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "Q"
+    },
+    {
       "containerName": "CTU_UDINT",
       "kind": 13,
       "location": {
@@ -6776,204 +7187,6 @@ expression: output
     },
     {
       "containerName": "CTU",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
-      },
-      "name": "Q"
-    },
-    {
-      "containerName": "F_TRIG",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
-      },
-      "name": "Q"
-    },
-    {
-      "containerName": "CTU_ULINT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
-      },
-      "name": "Q"
-    },
-    {
-      "containerName": "CTD_LINT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
-      },
-      "name": "Q"
-    },
-    {
-      "containerName": "CTU_INT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
-      },
-      "name": "Q"
-    },
-    {
-      "containerName": "TOF_LTIME",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
-      },
-      "name": "Q"
-    },
-    {
-      "containerName": "R_TRIG",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
-      },
-      "name": "Q"
-    },
-    {
-      "containerName": "CTD_UDINT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
-      },
-      "name": "Q"
-    },
-    {
-      "containerName": "TON_LTIME",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
-      },
-      "name": "Q"
-    },
-    {
-      "containerName": "CTU_DINT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
-      },
-      "name": "Q"
-    },
-    {
-      "containerName": "TP_LTIME",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
-      },
-      "name": "Q"
-    },
-    {
-      "containerName": "CTD",
       "kind": 13,
       "location": {
         "range": {
@@ -7063,6 +7276,42 @@ expression: output
       "name": "Q1"
     },
     {
+      "containerName": "CTUD_DINT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "QD"
+    },
+    {
+      "containerName": "CTUD_LINT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "QD"
+    },
+    {
       "containerName": "CTUD_UDINT",
       "kind": 13,
       "location": {
@@ -7148,7 +7397,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/Main.st"
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
       },
       "name": "QD"
     },
@@ -7166,7 +7415,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/Main.st"
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
       },
       "name": "QD"
     },
@@ -7241,78 +7490,6 @@ expression: output
         "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
       },
       "name": "QD"
-    },
-    {
-      "containerName": "CTUD_DINT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
-      },
-      "name": "QD"
-    },
-    {
-      "containerName": "CTUD_LINT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
-      },
-      "name": "QD"
-    },
-    {
-      "containerName": "CTUD_DINT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "QU"
-    },
-    {
-      "containerName": "CTUD_LINT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "QU"
     },
     {
       "containerName": "CTUD_UDINT",
@@ -7400,7 +7577,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+        "uri": "file:///workspace/golden/alpha/Main.st"
       },
       "name": "QU"
     },
@@ -7418,7 +7595,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+        "uri": "file:///workspace/golden/alpha/Main.st"
       },
       "name": "QU"
     },
@@ -7495,60 +7672,6 @@ expression: output
       "name": "QU"
     },
     {
-      "containerName": "CTUD_INT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "R"
-    },
-    {
-      "containerName": "CTU_UDINT",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "R"
-    },
-    {
-      "containerName": "CTU",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "R"
-    },
-    {
       "containerName": "CTUD_DINT",
       "kind": 13,
       "location": {
@@ -7562,12 +7685,12 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/Main.st"
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
       },
-      "name": "R"
+      "name": "QU"
     },
     {
-      "containerName": "CTU_ULINT",
+      "containerName": "CTUD_LINT",
       "kind": 13,
       "location": {
         "range": {
@@ -7580,27 +7703,9 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/Main.st"
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
       },
-      "name": "R"
-    },
-    {
-      "containerName": "SR",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "R"
+      "name": "QU"
     },
     {
       "containerName": "CTU_INT",
@@ -7729,6 +7834,24 @@ expression: output
       "name": "R"
     },
     {
+      "containerName": "SR",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "R"
+    },
+    {
       "containerName": "CTUD_INT",
       "kind": 13,
       "location": {
@@ -7742,7 +7865,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+        "uri": "file:///workspace/golden/alpha/Main.st"
       },
       "name": "R"
     },
@@ -7760,7 +7883,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+        "uri": "file:///workspace/golden/alpha/Main.st"
       },
       "name": "R"
     },
@@ -7778,7 +7901,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+        "uri": "file:///workspace/golden/alpha/Main.st"
       },
       "name": "R"
     },
@@ -7796,7 +7919,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+        "uri": "file:///workspace/golden/alpha/Main.st"
       },
       "name": "R"
     },
@@ -7814,25 +7937,7 @@ expression: output
             "line": 0
           }
         },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
-      },
-      "name": "R"
-    },
-    {
-      "containerName": "SR",
-      "kind": 13,
-      "location": {
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 0
-          },
-          "start": {
-            "character": 0,
-            "line": 0
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+        "uri": "file:///workspace/golden/alpha/Main.st"
       },
       "name": "R"
     },
@@ -7946,6 +8051,114 @@ expression: output
     },
     {
       "containerName": "CTUD_ULINT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "R"
+    },
+    {
+      "containerName": "SR",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "R"
+    },
+    {
+      "containerName": "CTUD_INT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "R"
+    },
+    {
+      "containerName": "CTU_UDINT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "R"
+    },
+    {
+      "containerName": "CTU",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "R"
+    },
+    {
+      "containerName": "CTUD_DINT",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "R"
+    },
+    {
+      "containerName": "CTU_ULINT",
       "kind": 13,
       "location": {
         "range": {

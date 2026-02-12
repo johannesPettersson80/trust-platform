@@ -21,8 +21,8 @@ pub fn builtin_kind(name: &str) -> Option<BuiltinFbKind> {
     match upper.as_str() {
         "RS" => Some(BuiltinFbKind::Rs),
         "SR" => Some(BuiltinFbKind::Sr),
-        "R_TRIG" => Some(BuiltinFbKind::RTrig),
-        "F_TRIG" => Some(BuiltinFbKind::FTrig),
+        "R_TRIG" | "DIFU" => Some(BuiltinFbKind::RTrig),
+        "F_TRIG" | "DIFD" => Some(BuiltinFbKind::FTrig),
         "CTU" | "CTU_INT" | "CTU_DINT" | "CTU_LINT" | "CTU_UDINT" | "CTU_ULINT" => {
             Some(BuiltinFbKind::Ctu)
         }
@@ -88,6 +88,20 @@ pub fn standard_function_blocks() -> Vec<FunctionBlockDef> {
         ),
         fb(
             "F_TRIG",
+            &[
+                ("CLK", TypeId::BOOL, ParamDirection::In),
+                ("Q", TypeId::BOOL, ParamDirection::Out),
+            ],
+        ),
+        fb(
+            "DIFU",
+            &[
+                ("CLK", TypeId::BOOL, ParamDirection::In),
+                ("Q", TypeId::BOOL, ParamDirection::Out),
+            ],
+        ),
+        fb(
+            "DIFD",
             &[
                 ("CLK", TypeId::BOOL, ParamDirection::In),
                 ("Q", TypeId::BOOL, ParamDirection::Out),

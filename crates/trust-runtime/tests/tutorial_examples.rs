@@ -12,6 +12,8 @@ const CONVEYOR_SYSTEM: &str = include_str!("../../../examples/tutorials/08_conve
 const SIMULATION_COUPLING: &str =
     include_str!("../../../examples/tutorials/09_simulation_coupling.st");
 const SIEMENS_SCL_V1_MAIN: &str = include_str!("../../../examples/siemens_scl_v1/src/Main.st");
+const MITSUBISHI_GXWORKS3_V1_MAIN: &str =
+    include_str!("../../../examples/mitsubishi_gxworks3_v1/src/Main.st");
 
 const TUTORIALS: [(&str, &str); 9] = [
     ("01_hello_counter.st", HELLO_COUNTER),
@@ -41,6 +43,17 @@ fn siemens_scl_v1_example_parse_typecheck_and_compile_to_bytecode() {
         .expect("runtime compile failed for Siemens SCL v1 example");
     bytecode_module_from_source_with_path(SIEMENS_SCL_V1_MAIN, "siemens_scl_v1/Main.st")
         .expect("bytecode compile failed for Siemens SCL v1 example");
+}
+
+#[test]
+fn mitsubishi_gxworks3_v1_example_parse_typecheck_and_compile_to_bytecode() {
+    TestHarness::from_source(MITSUBISHI_GXWORKS3_V1_MAIN)
+        .expect("runtime compile failed for Mitsubishi GX Works3 v1 example");
+    bytecode_module_from_source_with_path(
+        MITSUBISHI_GXWORKS3_V1_MAIN,
+        "mitsubishi_gxworks3_v1/Main.st",
+    )
+    .expect("bytecode compile failed for Mitsubishi GX Works3 v1 example");
 }
 
 #[test]

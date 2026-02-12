@@ -549,6 +549,19 @@ END_PROGRAM
 }
 
 #[test]
+fn test_mitsubishi_edge_alias_function_blocks() {
+    check_no_errors(
+        r#"
+PROGRAM Test
+    VAR difu : DIFU; difd : DIFD; q_up : BOOL; q_down : BOOL; END_VAR
+    difu(CLK := TRUE, Q => q_up);
+    difd(CLK := FALSE, Q => q_down);
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
 // IEC 61131-3 Ed.3 Table 45 (counter function blocks)
 fn test_standard_counter_function_blocks() {
     check_no_errors(

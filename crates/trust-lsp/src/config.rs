@@ -19,7 +19,7 @@ pub struct ProjectConfig {
     pub config_path: Option<PathBuf>,
     /// Extra include paths to index.
     pub include_paths: Vec<PathBuf>,
-    /// Vendor profile hint (e.g., codesys, twincat).
+    /// Vendor profile hint (e.g., codesys, twincat, mitsubishi/gxworks3).
     pub vendor_profile: Option<String>,
     /// Standard library selection settings.
     pub stdlib: StdlibSettings,
@@ -313,6 +313,14 @@ impl DiagnosticSettings {
                     settings.warn_shadowed = true;
                     settings.warn_deprecated = true;
                 }
+                "mitsubishi" | "gxworks3" => {
+                    settings.warn_unused = true;
+                    settings.warn_unreachable = true;
+                    settings.warn_missing_else = true;
+                    settings.warn_implicit_conversion = true;
+                    settings.warn_shadowed = true;
+                    settings.warn_deprecated = true;
+                }
                 _ => {}
             }
         }
@@ -377,7 +385,8 @@ fn apply_rule_pack(settings: &mut DiagnosticSettings, pack: &str) {
             settings.warn_implicit_conversion = false;
             apply_safety_overrides(settings);
         }
-        "codesys-safety" | "beckhoff-safety" | "twincat-safety" => {
+        "codesys-safety" | "beckhoff-safety" | "twincat-safety" | "mitsubishi-safety"
+        | "gxworks3-safety" => {
             settings.enable_all_warnings();
             apply_safety_overrides(settings);
         }
@@ -1903,6 +1912,26 @@ vendor_profile = "siemens"
         let config = ProjectConfig::load(&root);
         assert!(!config.diagnostics.warn_missing_else);
         assert!(!config.diagnostics.warn_implicit_conversion);
+
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn mitsubishi_vendor_profile_keeps_default_diagnostics_enabled() {
+        let root = temp_dir("trustlsp-config-diagnostics-mitsubishi");
+        let config_path = root.join("trust-lsp.toml");
+        fs::write(
+            &config_path,
+            r#"
+[project]
+vendor_profile = "mitsubishi"
+"#,
+        )
+        .expect("write config");
+
+        let config = ProjectConfig::load(&root);
+        assert!(config.diagnostics.warn_missing_else);
+        assert!(config.diagnostics.warn_implicit_conversion);
 
         fs::remove_dir_all(root).ok();
     }

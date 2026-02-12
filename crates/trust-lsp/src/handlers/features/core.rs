@@ -100,7 +100,7 @@ fn stdlib_filter_for_uri(state: &ServerState, uri: &Url) -> StdlibFilter {
 fn stdlib_profile_for_vendor(profile: Option<&str>) -> Option<&'static str> {
     let profile = profile?.trim().to_ascii_lowercase();
     match profile.as_str() {
-        "codesys" | "beckhoff" | "twincat" | "siemens" => Some("iec"),
+        "codesys" | "beckhoff" | "twincat" | "siemens" | "mitsubishi" | "gxworks3" => Some("iec"),
         _ => None,
     }
 }

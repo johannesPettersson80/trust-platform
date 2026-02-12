@@ -3511,7 +3511,7 @@ Range: 0.0 to 3000.0
 - Range formatting expands to the nearest syntactic block (e.g., VAR blocks, IF/CASE loops, POU/method/property bodies) to avoid partial-block drift.
 - VAR alignment respects manual grouping: blank lines or comment/pragma lines split alignment groups to preserve intentional spacing and comment anchors.
 - Formatting config keys: `indentWidth`, `insertSpaces`, `keywordCase`, `spacingStyle`, `endKeywordStyle`, `alignVarDecls`, `alignAssignments`, `maxLineLength`.
-- Vendor preset defaults (overrideable via config): `codesys`/`beckhoff`/`twincat` use 4-space indents with spaced operators; `siemens` uses 2-space indents with compact operator spacing; all align `END_*` keywords by default.
+- Vendor preset defaults (overrideable via config): `codesys`/`beckhoff`/`twincat`/`mitsubishi`/`gxworks3` use 4-space indents with spaced operators; `siemens` uses 2-space indents with compact operator spacing; all align `END_*` keywords by default.
 
 #### 7.6 Project Configuration & Workspace Indexing
 
@@ -3543,9 +3543,9 @@ Range: 0.0 to 3000.0
 - `[indexing]` adaptive throttling: `throttle_idle_ms`, `throttle_active_ms`, `throttle_max_ms`, and `throttle_active_window_ms` pace background indexing based on recent editor activity and observed per-file work.
 - `[runtime]` supports `control_endpoint` and optional `control_auth_token` for debug-assisted inline values.
 - `[diagnostics]` toggles warning categories (`warn_unused`, `warn_unreachable`, `warn_missing_else`, `warn_implicit_conversion`, `warn_shadowed`, `warn_deprecated`, `warn_complexity`, `warn_nondeterminism`) for vendor-dialect alignment (IEC 61131-3 Ed.3 §6.4.2; §7.3.3.3.3). Cyclomatic complexity warnings (W008) use a default threshold of 15; unused warnings (W001/W002/W009) cover variables, parameters, and top-level POUs.
-- `[diagnostics].rule_pack` presets safety-focused defaults (e.g., `iec-safety`, `siemens-safety`, `codesys-safety`, `beckhoff-safety`, `twincat-safety`); explicit `warn_*` keys override pack defaults. `[diagnostics].severity_overrides` can promote specific warning codes to error severity (W004 missing ELSE per IEC 61131-3 Ed.3 §7.3.3.3.3; W005 implicit conversion per §6.4.2; W010 TIME/DATE nondeterminism per §6.4.2; W011 direct variables per §6.5.5).
+- `[diagnostics].rule_pack` presets safety-focused defaults (e.g., `iec-safety`, `siemens-safety`, `codesys-safety`, `beckhoff-safety`, `twincat-safety`, `mitsubishi-safety`, `gxworks3-safety`); explicit `warn_*` keys override pack defaults. `[diagnostics].severity_overrides` can promote specific warning codes to error severity (W004 missing ELSE per IEC 61131-3 Ed.3 §7.3.3.3.3; W005 implicit conversion per §6.4.2; W010 TIME/DATE nondeterminism per §6.4.2; W011 direct variables per §6.5.5).
 - `[diagnostics].external_paths` lists JSON diagnostics payloads from external linters (optional per-diagnostic fix data yields quick-fix actions).
-- Vendor diagnostic defaults: `siemens` disables Missing ELSE (W004) and implicit conversion (W005); `codesys`, `beckhoff`, and `twincat` keep all warning categories enabled unless overridden in `[diagnostics]`.
+- Vendor diagnostic defaults: `siemens` disables Missing ELSE (W004) and implicit conversion (W005); `codesys`, `beckhoff`, `twincat`, `mitsubishi`, and `gxworks3` keep all warning categories enabled unless overridden in `[diagnostics]`.
 - `[telemetry]` (opt-in) records aggregated feature usage + latency to JSONL (`enabled`, `path`, `flush_every`); payloads include event names and durations only (tooling behavior, non-IEC).
 - Indexing progress is reported via `window/workDoneProgress` when supported by the client.
 - Workspace indexing runs in the background; adaptive throttling yields between files to keep interactive edits responsive (tooling behavior, non-IEC).

@@ -187,6 +187,53 @@ fn lsp_formatting_siemens_profile_preserves_hash_prefixed_references() {
 }
 
 #[test]
+fn lsp_formatting_mitsubishi_profile_keeps_spaced_style() {
+    let source = "program Test\nvar\npulse:bool;\nrise:difu;\nq_rise:bool;\nend_var\nrise(clk:=pulse,q=>q_rise);\nend_program\n";
+    let state = ServerState::new();
+    let root_uri = tower_lsp::lsp_types::Url::parse("file:///workspace/").unwrap();
+    state.set_workspace_config(
+        root_uri,
+        ProjectConfig {
+            root: PathBuf::from("/workspace"),
+            config_path: None,
+            include_paths: Vec::new(),
+            vendor_profile: Some("mitsubishi".to_string()),
+            stdlib: StdlibSettings::default(),
+            libraries: Vec::new(),
+            dependencies: Vec::new(),
+            dependency_resolution_issues: Vec::new(),
+            diagnostic_external_paths: Vec::new(),
+            build: BuildConfig::default(),
+            targets: Vec::new(),
+            indexing: IndexingConfig::default(),
+            diagnostics: DiagnosticSettings::default(),
+            runtime: RuntimeConfig::default(),
+            workspace: WorkspaceSettings::default(),
+            telemetry: TelemetryConfig::default(),
+        },
+    );
+
+    let uri = tower_lsp::lsp_types::Url::parse("file:///workspace/test.st").unwrap();
+    state.open_document(uri.clone(), 1, source.to_string());
+
+    let params = tower_lsp::lsp_types::DocumentFormattingParams {
+        text_document: tower_lsp::lsp_types::TextDocumentIdentifier { uri },
+        options: tower_lsp::lsp_types::FormattingOptions {
+            tab_size: 2,
+            insert_spaces: true,
+            ..Default::default()
+        },
+        work_done_progress_params: Default::default(),
+    };
+
+    let edits = formatting(&state, params).expect("formatting edits");
+    assert!(!edits.is_empty());
+    let formatted = edits[0].new_text.as_str();
+    let expected = "PROGRAM Test\n    VAR\n        pulse : BOOL;\n        rise  : difu;\n        q_rise: BOOL;\n    END_VAR\n    rise(clk := pulse, q => q_rise);\nEND_PROGRAM\n";
+    assert_eq!(formatted, expected);
+}
+
+#[test]
 fn lsp_formatting_accepts_snake_case_client_keys() {
     let source = "PROGRAM Test\nVAR\nx:INT;\nEND_VAR\nx:=1;\nEND_PROGRAM\n";
     let state = ServerState::new();

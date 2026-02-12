@@ -163,7 +163,7 @@ fn format_profile_overrides(profile: Option<&str>) -> FormatOverrides {
     };
     let profile = profile.trim().to_ascii_lowercase();
     match profile.as_str() {
-        "codesys" | "beckhoff" | "twincat" => FormatOverrides {
+        "codesys" | "beckhoff" | "twincat" | "mitsubishi" | "gxworks3" => FormatOverrides {
             indent_width: Some(4),
             insert_spaces: Some(true),
             keyword_case: Some(KeywordCase::Upper),
