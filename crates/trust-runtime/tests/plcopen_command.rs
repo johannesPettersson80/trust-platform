@@ -362,6 +362,47 @@ END_CONFIGURATION
 }
 
 #[test]
+fn plcopen_import_json_detects_openplc_ecosystem_and_shims() {
+    let import_project = unique_temp_dir("plcopen-cli-openplc-import");
+    let fixture = fixture_path("openplc.xml");
+    let import = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .args([
+            "plcopen",
+            "import",
+            "--input",
+            fixture.to_str().expect("fixture utf-8"),
+            "--project",
+            import_project.to_str().expect("import project utf-8"),
+            "--json",
+        ])
+        .output()
+        .expect("run plcopen import json");
+    assert!(
+        import.status.success(),
+        "expected import json success, stderr was:\n{}",
+        String::from_utf8_lossy(&import.stderr)
+    );
+
+    let import_json: serde_json::Value =
+        serde_json::from_slice(&import.stdout).expect("parse import JSON report");
+    assert_eq!(import_json["detected_ecosystem"], "openplc");
+    assert!(import_json["unsupported_diagnostics"]
+        .as_array()
+        .expect("unsupported diagnostics array")
+        .iter()
+        .any(|entry| entry["code"] == "PLCO203"));
+    assert!(import_json["applied_library_shims"]
+        .as_array()
+        .expect("applied library shims array")
+        .iter()
+        .any(|entry| entry["vendor"] == "openplc"
+            && entry["source_symbol"] == "R_EDGE"
+            && entry["replacement_symbol"] == "R_TRIG"));
+
+    let _ = std::fs::remove_dir_all(import_project);
+}
+
+#[test]
 fn plcopen_import_json_reports_applied_vendor_library_shims() {
     let project = unique_temp_dir("plcopen-cli-shim-import");
     std::fs::create_dir_all(&project).expect("create temp project");

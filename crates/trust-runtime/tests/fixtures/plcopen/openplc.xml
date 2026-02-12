@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://www.plcopen.org/xml/tc6_0200">
+  <fileHeader companyName="OpenPLC Project" productName="OpenPLC Editor v3" />
+  <types>
+    <pous>
+      <pou name="Main" pouType="PROGRAM">
+        <body>
+          <ST><![CDATA[
+PROGRAM Main
+VAR
+    Rising : R_EDGE;
+END_VAR
+Rising(CLK := TRUE);
+END_PROGRAM
+]]></ST>
+        </body>
+      </pou>
+      <pou name="LegacySfc" pouType="SFC">
+        <body>
+          <ST><![CDATA[
+PROGRAM LegacySfc
+END_PROGRAM
+]]></ST>
+        </body>
+      </pou>
+    </pous>
+  </types>
+</project>

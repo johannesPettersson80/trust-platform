@@ -117,6 +117,7 @@ supported ST-project structures and fails CI on schema-drift regressions.
 
 Detected values currently include:
 
+- `openplc`
 - `codesys`
 - `beckhoff-twincat`
 - `siemens-tia`

@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.7.9`
+Target release: `v0.7.10`
 
 ### Added
 
@@ -108,6 +108,8 @@ Target release: `v0.7.9`
 - `trust-runtime plcopen profile` now publishes a compatibility matrix plus round-trip limits/known-gaps contract fields.
 - `trust-runtime plcopen import` compatibility scoring now accounts for shimmed vendor-library aliases as partial-coverage items.
 - PLCopen ecosystem detection now recognizes Mitsubishi GX Works markers (`mitsubishi-gxworks3`) for migration reporting/shim selection.
+- PLCopen ecosystem detection now recognizes OpenPLC markers (`openplc`) for migration reporting/shim selection, with OpenPLC fixture-backed regression coverage.
+- PLCopen vendor-library shim matching now also normalizes keyword-style vendor aliases (for example `R_EDGE`) when used in supported type/call positions.
 - Migrated `trust-hir` semantic path to Salsa-only backend and upgraded Salsa to `0.26`.
 - Enabled VS Code extension integration tests in CI under virtual display (`xvfb`).
 - Expanded cancellation checks in workspace-scale LSP operations.

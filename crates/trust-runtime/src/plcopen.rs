@@ -3194,7 +3194,7 @@ fn vendor_library_shims_for_ecosystem(ecosystem: &str) -> &'static [VendorLibrar
     match ecosystem {
         "siemens-tia" => SIEMENS_LIBRARY_SHIMS,
         "rockwell-studio5000" => ROCKWELL_LIBRARY_SHIMS,
-        "schneider-ecostruxure" | "codesys" => SCHNEIDER_LIBRARY_SHIMS,
+        "schneider-ecostruxure" | "codesys" | "openplc" => SCHNEIDER_LIBRARY_SHIMS,
         "mitsubishi-gxworks3" => MITSUBISHI_LIBRARY_SHIMS,
         _ => &[],
     }
@@ -3226,19 +3226,15 @@ fn apply_vendor_library_shims(
         }
 
         let token_text = &body[start..end];
-        if token.kind == TokenKind::Ident {
-            if let Some(shim) = match_library_shim(shims, token_text, &tokens, index) {
-                output.push_str(shim.replacement_symbol);
-                let key = (
-                    ecosystem.to_string(),
-                    shim.source_symbol.to_string(),
-                    shim.replacement_symbol.to_string(),
-                    shim.notes.to_string(),
-                );
-                *counts.entry(key).or_insert(0) += 1;
-            } else {
-                output.push_str(token_text);
-            }
+        if let Some(shim) = match_library_shim(shims, token_text, &tokens, index) {
+            output.push_str(shim.replacement_symbol);
+            let key = (
+                ecosystem.to_string(),
+                shim.source_symbol.to_string(),
+                shim.replacement_symbol.to_string(),
+                shim.notes.to_string(),
+            );
+            *counts.entry(key).or_insert(0) += 1;
         } else {
             output.push_str(token_text);
         }
@@ -3428,6 +3424,11 @@ fn detect_vendor_ecosystem(root: roxmltree::Node<'_, '_>, xml_text: &str) -> Str
 
     if normalized.contains("twincat") || normalized.contains("beckhoff") {
         "beckhoff-twincat".to_string()
+    } else if normalized.contains("openplc")
+        || normalized.contains("open plc")
+        || normalized.contains("openplc editor")
+    {
+        "openplc".to_string()
     } else if normalized.contains("schneider")
         || normalized.contains("ecostruxure")
         || normalized.contains("unity pro")

@@ -195,6 +195,49 @@ fn migration_import_schneider_fixture_detects_vendor_precedence() {
 }
 
 #[test]
+fn migration_import_openplc_fixture_reports_vendor_coverage() {
+    let project = unique_temp_dir("plcopen-migration-openplc");
+    let fixture = fixture_path("openplc.xml");
+
+    let report = import_xml_to_project(&fixture, &project).expect("import openplc fixture");
+
+    assert_eq!(report.detected_ecosystem, "openplc");
+    assert_eq!(report.discovered_pous, 2);
+    assert_eq!(report.imported_pous, 1);
+    assert!(report
+        .unsupported_diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "PLCO203"));
+    assert!(report
+        .unsupported_diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "PLCO301"));
+    assert!(report
+        .applied_library_shims
+        .iter()
+        .any(|entry| entry.vendor == "openplc"
+            && entry.source_symbol == "R_EDGE"
+            && entry.replacement_symbol == "R_TRIG"));
+
+    let migration = read_json(&report.migration_report_path);
+    assert_eq!(migration["detected_ecosystem"], "openplc");
+    assert!(migration["unsupported_diagnostics"]
+        .as_array()
+        .expect("unsupported_diagnostics array")
+        .iter()
+        .any(|diagnostic| diagnostic["code"] == "PLCO203"));
+    assert!(migration["applied_library_shims"]
+        .as_array()
+        .expect("applied library shims array")
+        .iter()
+        .any(|entry| entry["vendor"] == "openplc"
+            && entry["source_symbol"] == "R_EDGE"
+            && entry["replacement_symbol"] == "R_TRIG"));
+
+    let _ = std::fs::remove_dir_all(project);
+}
+
+#[test]
 fn migration_semantic_loss_scoring_reflects_import_completeness() {
     let clean_project = unique_temp_dir("plcopen-migration-clean");
     let clean_xml = clean_project.join("clean.xml");
