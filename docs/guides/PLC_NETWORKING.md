@@ -29,6 +29,32 @@ trueST ships in local‑only mode by default. To enable remote access:
 - VPN (WireGuard or OpenVPN)
 - SSH tunnel for Web UI
 
+## TLS for remote endpoints
+
+When exposing web/control endpoints beyond localhost, enable TLS explicitly.
+
+Example `runtime.toml` settings:
+
+```toml
+[runtime.web]
+enabled = true
+listen = "0.0.0.0:8080"
+auth = "local"
+tls = true
+
+[runtime.tls]
+mode = "self-managed"
+cert_path = "security/server-cert.pem"
+key_path = "security/server-key.pem"
+require_remote = true
+```
+
+Rules enforced by runtime schema:
+
+- `runtime.web.tls=true` requires `runtime.tls.mode != "disabled"`.
+- TLS-enabled mode requires `runtime.tls.cert_path` and `runtime.tls.key_path`.
+- if `runtime.tls.require_remote=true` and web listen is remote, TLS must be enabled.
+
 ## Troubleshooting
 
 If remote access fails:

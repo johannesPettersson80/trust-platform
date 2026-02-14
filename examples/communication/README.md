@@ -7,7 +7,10 @@ Included protocols:
 - `modbus-tcp`
 - `mqtt`
 - `opcua`
-- `ethercat`
+- `ethercat` (mock-first + hardware handoff)
+- `ethercat_field_validated_es` (field-tested EK1100 + EL2008 profile)
+- `gpio`
+- composed `multi_driver` (`io.drivers = [...]`)
 
 ## Why this folder exists
 
@@ -23,6 +26,12 @@ Most projects start with `simulated` or `loopback`, then fail during integration
    - learn runtime wire exposure and feature-gated build behavior.
 4. `ethercat/README.md`
    - learn mock-first module chain validation, then hardware handoff.
+5. `ethercat_field_validated_es/README.md`
+   - apply a previously field-tested real-adapter profile for EK1100 + EL2008 output commissioning.
+6. `gpio/README.md`
+   - learn IEC bit mapping to GPIO lines, debounce, and safe-state defaults.
+7. `multi_driver/README.md`
+   - learn composed-driver commissioning and mutual-exclusion rules.
 
 ## Common base layout in each example
 

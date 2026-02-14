@@ -104,6 +104,7 @@ Key sections:
 - `[runtime.web]`: browser UI.
 - `[runtime.discovery]`: local mDNS.
 - `[runtime.mesh]`: runtime-to-runtime sharing.
+- `[runtime.observability]`: historian sampling + Prometheus export.
 - `[runtime.retain]`: retain store.
 - `[runtime.watchdog]`: fault policy + safe halt.
 - `simulation.toml`: simulation couplings, delays, and scripted disturbances/fault injection.
@@ -122,6 +123,10 @@ Use one form at a time (do not mix `io.driver` with `io.drivers`).
 
 For EtherCAT backend scope and setup details, see:
 `docs/guides/ETHERCAT_BACKEND_V1.md`.
+
+For protocol-commissioning example projects (including GPIO and composed
+multi-driver setup), see:
+`examples/communication/README.md`.
 
 ## Browser UI (Operations)
 

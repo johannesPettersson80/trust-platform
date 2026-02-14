@@ -145,6 +145,9 @@ Communication examples with step-by-step commissioning flow:
 - `examples/communication/mqtt/README.md`
 - `examples/communication/opcua/README.md`
 - `examples/communication/ethercat/README.md`
+- `examples/communication/ethercat_field_validated_es/README.md`
+- `examples/communication/gpio/README.md`
+- `examples/communication/multi_driver/README.md`
 
 ## 8) Validate + Inspect
 

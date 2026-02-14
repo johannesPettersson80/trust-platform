@@ -338,7 +338,7 @@ For each tutorial:
 
 ---
 
-## Advanced Operations Tutorials (13-22)
+## Advanced Operations Tutorials (13-23)
 
 After finishing Tutorials 01-12, continue with these production-oriented
 walkthroughs. Each guide is intentionally detailed and explains both what to do
@@ -366,6 +366,8 @@ and why it matters.
    - implement CI gates with machine-readable reports and stable exit codes.
 10. `22_neovim_zed_workflow/README.md`
     - run a complete non-VS-Code workflow with Neovim/Zed plus terminal gates.
+11. `23_observability_historian_prometheus/README.md`
+    - enable historian + Prometheus telemetry and verify runtime observability contracts.
 
 Suggested sequence for operations engineers:
 
@@ -379,6 +381,7 @@ Suggested sequence for operations engineers:
 8. `20_hmi_write_enablement/README.md`
 9. `21_ci_cd_project_pipeline/README.md`
 10. `22_neovim_zed_workflow/README.md`
+11. `23_observability_historian_prometheus/README.md`
 
 ---
 
@@ -392,6 +395,9 @@ For protocol-first commissioning, use:
     - `mqtt`
     - `opcua`
     - `ethercat`
+    - `ethercat_field_validated_es`
+    - `gpio`
+    - `multi_driver`
   - each subfolder includes a runnable minimal project and step-by-step flow.
 
 Transport gating reminders:

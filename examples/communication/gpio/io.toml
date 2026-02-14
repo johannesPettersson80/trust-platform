@@ -1,0 +1,15 @@
+[io]
+driver = "gpio"
+
+[io.params]
+backend = "sysfs"
+inputs = [
+  { address = "%IX0.0", line = 17, debounce_ms = 5 }
+]
+outputs = [
+  { address = "%QX0.0", line = 27, initial = false }
+]
+
+[[io.safe_state]]
+address = "%QX0.0"
+value = "FALSE"
