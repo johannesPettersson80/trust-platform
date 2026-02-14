@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.8.0`
+Target release: `v0.9.0`
 
 ### Added
 
