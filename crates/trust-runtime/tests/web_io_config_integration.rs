@@ -167,9 +167,9 @@ fn make_project(name: &str) -> PathBuf {
         .expect("clock")
         .as_nanos();
     let root = std::env::temp_dir().join(format!("trust-runtime-web-io-{name}-{stamp}"));
-    std::fs::create_dir_all(root.join("sources")).expect("create sources");
+    std::fs::create_dir_all(root.join("src")).expect("create src");
     std::fs::write(
-        root.join("sources/main.st"),
+        root.join("src/main.st"),
         "PROGRAM Main\nVAR\nx : INT := 0;\nEND_VAR\nEND_PROGRAM\n",
     )
     .expect("write source");

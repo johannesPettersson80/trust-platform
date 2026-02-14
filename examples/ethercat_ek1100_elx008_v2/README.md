@@ -114,10 +114,8 @@ Si ya configuraste permisos previamente:
 
 ```bash
 # Compilar
-rm -rf sources program.stbc
-mkdir -p sources
-cp src/*.st src/io.toml sources/
-trust-runtime build --project . --sources sources
+rm -rf program.stbc
+trust-runtime build --project . --sources src
 
 # Ejecutar
 trust-runtime run --project .

@@ -3,6 +3,7 @@ use crate::bytecode::{
     VarMetaEntry,
 };
 use crate::io::IoTarget;
+use crate::memory::IoArea;
 
 use super::util::{format_io_address, to_u32};
 use super::{BytecodeEncoder, BytecodeError};
@@ -10,9 +11,10 @@ use super::{BytecodeEncoder, BytecodeError};
 impl<'a> BytecodeEncoder<'a> {
     pub(super) fn build_resource_meta(&mut self) -> Result<ResourceMeta, BytecodeError> {
         let name_idx = self.strings.intern("RESOURCE");
-        let inputs_size = to_u32(self.runtime.io().inputs().len(), "inputs size")?;
-        let outputs_size = to_u32(self.runtime.io().outputs().len(), "outputs size")?;
-        let memory_size = to_u32(self.runtime.io().memory().len(), "memory size")?;
+        let (inputs, outputs, memory) = process_image_sizes(self.runtime.io());
+        let inputs_size = to_u32(inputs, "inputs size")?;
+        let outputs_size = to_u32(outputs, "outputs size")?;
+        let memory_size = to_u32(memory, "memory size")?;
 
         let mut tasks = Vec::new();
         for task in self.runtime.tasks() {
@@ -123,4 +125,31 @@ impl<'a> BytecodeEncoder<'a> {
         }
         Ok(RetainInit { entries })
     }
+}
+
+fn process_image_sizes(io: &crate::io::IoInterface) -> (usize, usize, usize) {
+    let mut inputs = io.inputs().len();
+    let mut outputs = io.outputs().len();
+    let mut memory = io.memory().len();
+
+    for binding in io.bindings() {
+        let address = &binding.address;
+        if address.wildcard || address.path.len() > 1 {
+            continue;
+        }
+        let span = match address.size {
+            crate::io::IoSize::Bit | crate::io::IoSize::Byte => 1usize,
+            crate::io::IoSize::Word => 2usize,
+            crate::io::IoSize::DWord => 4usize,
+            crate::io::IoSize::LWord => 8usize,
+        };
+        let required = address.byte as usize + span;
+        match address.area {
+            IoArea::Input => inputs = inputs.max(required),
+            IoArea::Output => outputs = outputs.max(required),
+            IoArea::Memory => memory = memory.max(required),
+        }
+    }
+
+    (inputs, outputs, memory)
 }

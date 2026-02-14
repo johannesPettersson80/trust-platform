@@ -51,13 +51,13 @@ Note: `TEST_PROGRAM`, `TEST_FUNCTION_BLOCK`, and `ASSERT_*` are truST extensions
 
 ## Project layout
 
-- `sources/main.st`: production logic under test
-- `sources/tests.st`: test cases
+- `src/main.st`: production logic under test
+- `src/tests.st`: test cases
 - `trust-lsp.toml`: minimal project configuration
 
 ## Step 1: Review the production code
 
-Open `sources/main.st`. It contains:
+Open `src/main.st`. It contains:
 
 - `LIMIT_ADD` (pure function with clamping),
 - `SCALE_RAW_TO_PERCENT` (integer-to-real conversion),
@@ -65,7 +65,7 @@ Open `sources/main.st`. It contains:
 
 ## Step 2: Review test cases
 
-Open `sources/tests.st`.
+Open `src/tests.st`.
 
 - `TEST_PROGRAM TEST_LIMIT_ADD_AND_SCALING` tests pure function behavior.
 - `TEST_FUNCTION_BLOCK TEST_FB_START_STOP_SEQUENCE` tests state transitions across scan cycles.
@@ -131,7 +131,7 @@ JSON includes test-level and summary `duration_ms` fields.
 
 ## Step 8: Practice red-green-refactor
 
-1. Break one expectation in `sources/tests.st`.
+1. Break one expectation in `src/tests.st`.
 2. Run tests and confirm the failing assertion output.
 3. Fix code or expected value.
 4. Re-run until green.

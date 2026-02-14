@@ -15,9 +15,9 @@ fn unique_temp_dir(prefix: &str) -> std::path::PathBuf {
 #[test]
 fn docs_command_generates_markdown_and_html() {
     let project = unique_temp_dir("docs-project");
-    let sources = project.join("sources");
+    let sources = project.join("src");
     let out_dir = project.join("generated-docs");
-    std::fs::create_dir_all(&sources).expect("create sources");
+    std::fs::create_dir_all(&sources).expect("create src");
     std::fs::write(
         sources.join("main.st"),
         r#"

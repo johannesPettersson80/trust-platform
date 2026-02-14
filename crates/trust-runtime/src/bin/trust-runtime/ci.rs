@@ -87,7 +87,7 @@ mod tests {
     #[test]
     fn classify_invalid_config_code() {
         assert_eq!(
-            classify_error("invalid project folder '/tmp/p': missing src/ or sources/ directory"),
+            classify_error("invalid project folder '/tmp/p': missing src/ directory"),
             EXIT_INVALID_CONFIG
         );
         assert_eq!(

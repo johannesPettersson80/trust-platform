@@ -207,7 +207,12 @@ Target release: `v0.9.0`
     - `imported_data_types`, `discovered_configurations`, `imported_configurations`, `imported_resources`, `imported_tasks`, `imported_program_instances` (import/migration)
   - Added CODESYS ST-complete fixture packs (`small`/`medium`/`large`) with deterministic expected migration artifacts and CI schema-drift parity gate in `crates/trust-runtime/tests/plcopen_st_complete_parity.rs`.
   - Updated PLCopen compatibility/spec docs and added end-to-end import/export example project in `examples/plcopen_xml_st_complete/`.
-- `trust-runtime build`, `trust-runtime test`, and `trust-runtime docs` now resolve project source roots as `src/` first with fallback to legacy `sources/`.
+- Project source layout is now `src/` only across runtime/CLI flows:
+  - `trust-runtime build`, `test`, `docs`, and `run --project` now require `<project>/src` as the default source root.
+  - Legacy `<project>/sources` fallback resolution was removed from bundle/project source lookup.
+  - Setup/wizard-generated projects and shipped tutorials/examples now use `src/` consistently.
+  - PLCopen import/export project-root resolution now targets `src/` only.
+  - `trust-runtime setup` auto-migrates an existing `<project>/sources` folder to `<project>/src` when preparing a project.
 - `trust-runtime build --sources <relative-path>` now resolves relative source overrides from `--project`, avoiding path-resolution mismatches from external working directories.
 - `trust-runtime plcopen export` and `trust-runtime plcopen import` now support `--json` for machine-readable report output.
 - `trust-runtime plcopen profile` now publishes a compatibility matrix plus round-trip limits/known-gaps contract fields.

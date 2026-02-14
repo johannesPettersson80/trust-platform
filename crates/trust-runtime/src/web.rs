@@ -393,7 +393,7 @@ fn format_io_address(address: &IoAddress) -> String {
 }
 
 fn list_sources(bundle_root: &Path) -> Vec<String> {
-    let sources_dir = bundle_root.join("sources");
+    let sources_dir = bundle_root.join("src");
     let mut list = Vec::new();
     let Ok(entries) = std::fs::read_dir(&sources_dir) else {
         return list;
@@ -412,11 +412,11 @@ fn list_sources(bundle_root: &Path) -> Vec<String> {
 }
 
 fn read_source_file(bundle_root: &Path, name: &str) -> Result<String, RuntimeError> {
-    let sources_dir = bundle_root.join("sources");
+    let sources_dir = bundle_root.join("src");
     let requested = sources_dir.join(name);
-    let sources_dir = sources_dir.canonicalize().map_err(|err| {
-        RuntimeError::InvalidConfig(format!("sources dir unavailable: {err}").into())
-    })?;
+    let sources_dir = sources_dir
+        .canonicalize()
+        .map_err(|err| RuntimeError::InvalidConfig(format!("src dir unavailable: {err}").into()))?;
     let requested = requested
         .canonicalize()
         .map_err(|err| RuntimeError::InvalidConfig(format!("source not found: {err}").into()))?;

@@ -82,7 +82,7 @@ fn write_generated_tests(project: &Path, case_count: usize) {
             "TEST_PROGRAM AutoCase_{idx}\nASSERT_TRUE(TRUE);\nEND_TEST_PROGRAM\n\n"
         ));
     }
-    std::fs::write(project.join("sources").join("tests.st"), text)
+    std::fs::write(project.join("src").join("tests.st"), text)
         .expect("write generated tests fixture");
 }
 

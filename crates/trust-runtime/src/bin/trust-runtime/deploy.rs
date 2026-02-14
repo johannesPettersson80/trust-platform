@@ -131,9 +131,9 @@ fn copy_bundle(source: &Path, dest: &Path) -> anyhow::Result<()> {
     }
     copy_file(source.join("program.stbc"), dest.join("program.stbc"))?;
 
-    let sources = source.join("sources");
+    let sources = source.join("src");
     if sources.is_dir() {
-        copy_dir(&sources, &dest.join("sources"))?;
+        copy_dir(&sources, &dest.join("src"))?;
     }
     Ok(())
 }
@@ -547,7 +547,7 @@ fn format_address(address: &IoAddress) -> String {
 }
 
 fn collect_sources(root: &Path) -> anyhow::Result<BTreeMap<String, Vec<u8>>> {
-    let sources_root = root.join("sources");
+    let sources_root = root.join("src");
     if !sources_root.is_dir() {
         return Ok(BTreeMap::new());
     }

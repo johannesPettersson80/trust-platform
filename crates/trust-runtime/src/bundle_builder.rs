@@ -68,7 +68,7 @@ pub fn build_program_stbc(
 ///
 /// Behavior:
 /// - if `sources_root` is provided and relative, it is resolved relative to `bundle_root`
-/// - default search prefers `src/`, then falls back to legacy `sources/`
+/// - default search uses `src/`
 pub fn resolve_sources_root(
     bundle_root: &Path,
     sources_root: Option<&Path>,
@@ -91,13 +91,8 @@ pub fn resolve_sources_root(
         return Ok(canonicalize_or_self(&src_root));
     }
 
-    let legacy_sources_root = bundle_root.join("sources");
-    if legacy_sources_root.is_dir() {
-        return Ok(canonicalize_or_self(&legacy_sources_root));
-    }
-
     anyhow::bail!(
-        "invalid project folder '{}': missing src/ or sources/ directory",
+        "invalid project folder '{}': missing src/ directory",
         bundle_root.display()
     );
 }
@@ -132,6 +127,14 @@ fn resolve_dependency_recursive(
             "dependency '{}' path does not exist: {}",
             dependency.name,
             path.display()
+        );
+    }
+    let dependency_src = path.join("src");
+    if !dependency_src.is_dir() {
+        anyhow::bail!(
+            "dependency '{}' missing src/ directory: {}",
+            dependency.name,
+            dependency_src.display()
         );
     }
 
@@ -222,16 +225,7 @@ fn parse_dependency_specs(
 }
 
 fn preferred_dependency_sources_root(path: &Path) -> PathBuf {
-    let src = path.join("src");
-    if src.is_dir() {
-        return src;
-    }
-    let sources = path.join("sources");
-    if sources.is_dir() {
-        sources
-    } else {
-        path.to_path_buf()
-    }
+    path.join("src")
 }
 
 fn collect_sources(source_roots: &[PathBuf]) -> anyhow::Result<(Vec<SourceFile>, Vec<PathBuf>)> {
@@ -386,7 +380,7 @@ mod tests {
 
     fn write_root_source(root: &Path) {
         write_file(
-            &root.join("sources/main.st"),
+            &root.join("src/main.st"),
             r#"
 PROGRAM Main
 VAR
@@ -400,7 +394,7 @@ END_PROGRAM
 
     fn write_dependency_source(root: &Path, name: &str) {
         write_file(
-            &root.join("sources/lib.st"),
+            &root.join("src/lib.st"),
             &format!(
                 r#"
 FUNCTION {name} : INT
@@ -549,7 +543,7 @@ version = "2.0.0"
         let dep_a = root.join("deps/lib-a");
         let dep_b = root.join("deps/lib-b");
         write_file(
-            &root.join("sources/main.st"),
+            &root.join("src/main.st"),
             r#"
 PROGRAM Main
 VAR
@@ -594,6 +588,28 @@ version = "1.0.0"
         assert_eq!(first.resolved_dependencies, second.resolved_dependencies);
         assert_eq!(first.sources, second.sources);
         assert_eq!(first_bytes, second_bytes);
+
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn resolve_sources_root_prefers_src_directory() {
+        let root = temp_dir("trust-runtime-resolve-src");
+        write_file(&root.join("src/main.st"), "PROGRAM Main END_PROGRAM");
+
+        let resolved = resolve_sources_root(&root, None).expect("resolve sources root");
+        assert!(resolved.ends_with("src"));
+
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn resolve_sources_root_rejects_legacy_sources_directory() {
+        let root = temp_dir("trust-runtime-resolve-sources");
+        write_file(&root.join("sources/main.st"), "PROGRAM Legacy END_PROGRAM");
+        let err = resolve_sources_root(&root, None).expect_err("legacy sources should fail");
+        let message = err.to_string();
+        assert!(message.contains("missing src/ directory"));
 
         fs::remove_dir_all(root).ok();
     }

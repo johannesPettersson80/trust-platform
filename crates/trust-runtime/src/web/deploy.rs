@@ -115,7 +115,7 @@ pub fn apply_deploy(
         written.push("program.stbc".to_string());
     }
     if let Some(sources) = request.sources {
-        let sources_root = bundle_root.join("sources");
+        let sources_root = bundle_root.join("src");
         for source in sources {
             let rel = sanitize_relative_path(&source.path).ok_or_else(|| {
                 RuntimeError::ControlError(format!("invalid source path: {}", source.path).into())
@@ -123,13 +123,13 @@ pub fn apply_deploy(
             let dest = sources_root.join(rel);
             if let Some(parent) = dest.parent() {
                 fs::create_dir_all(parent).map_err(|err| {
-                    RuntimeError::ControlError(format!("create sources dir: {err}").into())
+                    RuntimeError::ControlError(format!("create src dir: {err}").into())
                 })?;
             }
             fs::write(&dest, source.content).map_err(|err| {
                 RuntimeError::ControlError(format!("write source {}: {err}", dest.display()).into())
             })?;
-            written.push(format!("sources/{}", source.path));
+            written.push(format!("src/{}", source.path));
         }
     }
     if written.is_empty() {
@@ -437,7 +437,7 @@ policy = "halt"
         let result = apply_deploy(&root, request).unwrap();
         assert!(result.written.contains(&"runtime.toml".to_string()));
         assert!(root.join("program.stbc").exists());
-        assert!(root.join("sources/main.st").exists());
+        assert!(root.join("src/main.st").exists());
         let _ = fs::remove_dir_all(root);
     }
 

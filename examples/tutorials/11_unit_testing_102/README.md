@@ -16,13 +16,13 @@ This gives fast tests, deterministic behavior, and easier debugging.
 
 ## Project layout
 
-- `sources/main.st`: production code (I/O mapping + logic FB)
-- `sources/tests.st`: unit tests
+- `src/main.st`: production code (I/O mapping + logic FB)
+- `src/tests.st`: unit tests
 - `trust-lsp.toml`: project config
 
 ## Step 1: Understand the architecture
 
-Open `sources/main.st`:
+Open `src/main.st`:
 
 - `FB_TANK_CONTROL` contains decision logic.
 - `PROGRAM TankProgram` maps field I/O to `%IX/%IW/%QX/%QW`.
@@ -32,7 +32,7 @@ This separation is the key to mockable tests.
 
 ## Step 2: Review the tests
 
-Open `sources/tests.st`:
+Open `src/tests.st`:
 
 - `TEST_PROGRAM TEST_TANK_CONTROL_WITH_MOCK_IO`:
   - instantiates the FB directly (`VAR DUT : FB_TANK_CONTROL;`)

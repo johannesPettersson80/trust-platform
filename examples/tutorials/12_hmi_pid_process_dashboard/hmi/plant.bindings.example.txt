@@ -1,5 +1,5 @@
 # Example binding contract for this tutorial project.
-# Update `source` paths if you rename symbols in `sources/main.st`.
+# Update `source` paths if you rename symbols in `src/main.st`.
 
 title = "P&ID Bypass"
 kind = "process"

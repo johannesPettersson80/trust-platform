@@ -6,7 +6,7 @@ Purpose: keep user-facing terminology consistent across CLI, UI, and docs.
 
 - **PLC**: a running control instance. *(Seen in the sidebar header and status pill.)*
 - **PLC name**: the human-friendly name for a PLC (maps to internal resource name). *(Seen in Overview + Setup wizard.)*
-- **Project folder**: the folder that contains runtime.toml, io.toml, sources/, and program.stbc. *(Seen in setup and CLI prompts.)*
+- **Project folder**: the folder that contains runtime.toml, io.toml, src/, and program.stbc. *(Seen in setup and CLI prompts.)*
 - **System-wide I/O config**: the device-level I/O settings used by multiple PLC projects. *(Seen in Setup wizard advanced options.)*
 - **Cycle time**: how often the PLC task runs (example: 100 ms). *(Seen in Setup wizard + Overview metrics.)*
 - **RETAIN**: values preserved across restarts (if enabled). *(Seen in restart and fault behavior docs.)*

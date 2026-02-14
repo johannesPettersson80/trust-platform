@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex};
 use serde_json::json;
 use smol_str::SmolStr;
 use trust_runtime::bundle::detect_bundle_path;
+use trust_runtime::bundle_builder::resolve_sources_root;
 use trust_runtime::bytecode::BytecodeModule;
 use trust_runtime::config::RuntimeBundle;
 use trust_runtime::control::{
@@ -205,28 +206,22 @@ pub fn run_runtime(
 
     let (bundle, mut runtime, sources) = if let Some(project_path) = project {
         let bundle = RuntimeBundle::load(&project_path)?;
-        let sources_path = bundle.root.join("sources");
-        if sources_path.is_dir() {
-            let sources = load_sources(&sources_path)?;
-            let session = CompileSession::from_sources(
-                sources
-                    .files()
-                    .iter()
-                    .map(|file| {
-                        trust_runtime::harness::SourceFile::with_path(
-                            file.path.to_string_lossy().as_ref(),
-                            file.text.clone(),
-                        )
-                    })
-                    .collect(),
-            );
-            let runtime = session.build_runtime()?;
-            (Some(bundle), runtime, sources)
-        } else {
-            let runtime = Runtime::new();
-            let sources = SourceRegistry::default();
-            (Some(bundle), runtime, sources)
-        }
+        let sources_path = resolve_sources_root(bundle.root.as_path(), None)?;
+        let sources = load_sources(&sources_path)?;
+        let session = CompileSession::from_sources(
+            sources
+                .files()
+                .iter()
+                .map(|file| {
+                    trust_runtime::harness::SourceFile::with_path(
+                        file.path.to_string_lossy().as_ref(),
+                        file.text.clone(),
+                    )
+                })
+                .collect(),
+        );
+        let runtime = session.build_runtime()?;
+        (Some(bundle), runtime, sources)
     } else {
         let config_path = config.ok_or_else(|| anyhow::anyhow!("--config required"))?;
         let runtime_root = runtime_root.unwrap_or_else(|| {

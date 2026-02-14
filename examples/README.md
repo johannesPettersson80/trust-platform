@@ -73,7 +73,7 @@ code /path/to/trust-platform
 
 ```bash
 trust-runtime build --project examples/filling_line --sources src
-trust-runtime build --project examples/tutorials/12_hmi_pid_process_dashboard --sources sources
+trust-runtime build --project examples/tutorials/12_hmi_pid_process_dashboard --sources src
 trust-runtime build --project examples/plant_demo --sources src
 trust-runtime build --project examples/ethercat_ek1100_elx008_v1 --sources src
 trust-runtime build --project examples/ethercat_ek1100_elx008_v2 --sources src

@@ -67,8 +67,8 @@ fn filter_zero_message_is_clear_in_human_output() {
 #[test]
 fn timeout_flag_reports_error_for_infinite_loop_test() {
     let project = unique_temp_dir("timeout-project");
-    let sources = project.join("sources");
-    std::fs::create_dir_all(&sources).expect("create sources dir");
+    let sources = project.join("src");
+    std::fs::create_dir_all(&sources).expect("create src dir");
     std::fs::write(
         sources.join("tests.st"),
         r#"

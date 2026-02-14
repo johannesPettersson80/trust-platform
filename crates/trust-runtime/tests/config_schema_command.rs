@@ -42,7 +42,7 @@ fn make_runtime_toml_portable(runtime_toml: String) -> String {
 }
 
 fn write_project_fixture(root: &std::path::Path, resource_name: &str) {
-    std::fs::create_dir_all(root.join("sources")).expect("create source directory");
+    std::fs::create_dir_all(root.join("src")).expect("create source directory");
     let runtime_toml =
         make_runtime_toml_portable(render_runtime_toml(&SmolStr::new(resource_name), 100));
     let io_template = build_io_config_auto("loopback").expect("build loopback io template");
@@ -50,7 +50,7 @@ fn write_project_fixture(root: &std::path::Path, resource_name: &str) {
     std::fs::write(root.join("runtime.toml"), runtime_toml).expect("write runtime.toml");
     std::fs::write(root.join("io.toml"), io_toml).expect("write io.toml");
     std::fs::write(
-        root.join("sources").join("main.st"),
+        root.join("src").join("main.st"),
         r#"
 PROGRAM Main
 VAR

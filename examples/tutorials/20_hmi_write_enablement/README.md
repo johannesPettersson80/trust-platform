@@ -36,7 +36,7 @@ cd /tmp/trust-hmi-write
 Why: verify current behavior before introducing writes.
 
 ```bash
-trust-runtime build --project . --sources sources
+trust-runtime build --project . --sources src
 trust-runtime run --project .
 ```
 

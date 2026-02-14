@@ -465,7 +465,7 @@ pub fn supported_profile() -> PlcopenProfile {
             PlcopenCompatibilityMatrixEntry {
                 capability: "PLCopen dataTypes import (elementary/derived/array/struct/enum/subrange subset)",
                 status: "supported",
-                notes: "Supported dataType baseType nodes are imported into generated ST TYPE declarations under src/ (or sources/ for legacy projects).",
+                notes: "Supported dataType baseType nodes are imported into generated ST TYPE declarations under src/.",
             },
             PlcopenCompatibilityMatrixEntry {
                 capability: "PLCopen dataTypes export (elementary/derived/array/struct/enum/subrange subset)",
@@ -506,7 +506,7 @@ pub fn supported_profile() -> PlcopenProfile {
             "Round-trip guarantees preserve supported ST dataType signatures (name + supported baseType graph).",
             "Round-trip guarantees preserve supported configuration/resource/task/program-instance wiring intent.",
             "Round-trip does not preserve vendor formatting/layout, graphical networks, or runtime deployment metadata.",
-            "Round-trip can rename output source files to sanitized unique names inside src/ (or sources/ for legacy projects).",
+            "Round-trip can rename output source files to sanitized unique names inside src/.",
             "Round-trip may normalize selected vendor library symbols to IEC equivalents when shim rules apply during import.",
             "Round-trip preserves unknown vendor addData as opaque fragments, not executable semantics.",
         ],
@@ -533,13 +533,8 @@ fn resolve_existing_source_root(project_root: &Path) -> anyhow::Result<PathBuf> 
         return Ok(src_root);
     }
 
-    let sources_root = project_root.join("sources");
-    if sources_root.is_dir() {
-        return Ok(sources_root);
-    }
-
     anyhow::bail!(
-        "invalid project folder '{}': missing src/ or sources/ directory",
+        "invalid project folder '{}': missing src/ directory",
         project_root.display()
     );
 }
@@ -548,11 +543,6 @@ fn resolve_or_create_source_root(project_root: &Path) -> anyhow::Result<PathBuf>
     let src_root = project_root.join("src");
     if src_root.is_dir() {
         return Ok(src_root);
-    }
-
-    let sources_root = project_root.join("sources");
-    if sources_root.is_dir() {
-        return Ok(sources_root);
     }
 
     std::fs::create_dir_all(&src_root)
@@ -4178,7 +4168,7 @@ mod tests {
     fn round_trip_export_import_export_preserves_pou_subset() {
         let source_project = temp_dir("plcopen-roundtrip-src");
         write(
-            &source_project.join("sources/main.st"),
+            &source_project.join("src/main.st"),
             r#"
 PROGRAM Main
 VAR
@@ -4188,7 +4178,7 @@ END_PROGRAM
 "#,
         );
         write(
-            &source_project.join("sources/calc.st"),
+            &source_project.join("src/calc.st"),
             r#"
 FUNCTION Calc : INT
 VAR_INPUT
@@ -4543,7 +4533,7 @@ END_VAR
     fn export_reinjects_vendor_extension_hook_file() {
         let project = temp_dir("plcopen-export-vendor-hook");
         write(
-            &project.join("sources/main.st"),
+            &project.join("src/main.st"),
             r#"
 PROGRAM Main
 END_PROGRAM
@@ -4567,7 +4557,7 @@ END_PROGRAM
     fn export_with_vendor_target_emits_adapter_report_and_metadata() {
         let project = temp_dir("plcopen-export-target-ab");
         write(
-            &project.join("sources/main.st"),
+            &project.join("src/main.st"),
             r#"
 PROGRAM Main
 VAR RETAIN
@@ -4616,7 +4606,7 @@ END_CONFIGURATION
     fn export_siemens_target_emits_scl_bundle_and_program_ob_mapping() {
         let project = temp_dir("plcopen-export-target-siemens-scl");
         write(
-            &project.join("sources/main.st"),
+            &project.join("src/main.st"),
             r#"
 TYPE
     EMode : (Idle, Run);

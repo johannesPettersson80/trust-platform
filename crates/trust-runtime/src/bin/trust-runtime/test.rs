@@ -1107,7 +1107,7 @@ END_TEST_PROGRAM
             DiscoveredTest {
                 kind: TestKind::Program,
                 name: "CaseA".into(),
-                file: PathBuf::from("/tmp/project/sources/tests.st"),
+                file: PathBuf::from("/tmp/project/src/tests.st"),
                 byte_offset: 0,
                 line: 1,
                 source_line: None,
@@ -1115,15 +1115,15 @@ END_TEST_PROGRAM
             DiscoveredTest {
                 kind: TestKind::FunctionBlock,
                 name: "CaseB".into(),
-                file: PathBuf::from("/tmp/project/sources/tests.st"),
+                file: PathBuf::from("/tmp/project/src/tests.st"),
                 byte_offset: 12,
                 line: 24,
                 source_line: None,
             },
         ];
         let text = render_list_output(Path::new("/tmp/project"), &tests, 2, None);
-        assert!(text.contains("TEST_PROGRAM::CaseA (sources/tests.st:1)"));
-        assert!(text.contains("TEST_FUNCTION_BLOCK::CaseB (sources/tests.st:24)"));
+        assert!(text.contains("TEST_PROGRAM::CaseA (src/tests.st:1)"));
+        assert!(text.contains("TEST_FUNCTION_BLOCK::CaseB (src/tests.st:24)"));
         assert!(text.contains("2 test(s) listed"));
     }
 

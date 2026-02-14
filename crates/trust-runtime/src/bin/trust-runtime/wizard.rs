@@ -32,7 +32,7 @@ pub fn run_wizard(path: Option<PathBuf>, start: bool) -> anyhow::Result<()> {
             bundle_path.display()
         ))
     );
-    println!("(Project folder contains runtime.toml, io.toml, program.stbc)");
+    println!("(Project folder contains runtime.toml, io.toml, src/, program.stbc)");
     let should_start = if start {
         true
     } else {
@@ -102,12 +102,12 @@ pub fn create_bundle(path: Option<PathBuf>) -> anyhow::Result<PathBuf> {
     fs::write(&runtime_path, runtime_text)?;
     fs::write(&io_path, io_text)?;
 
-    let sources_dir = root.join("sources");
-    fs::create_dir_all(&sources_dir)?;
+    let src_dir = root.join("src");
+    fs::create_dir_all(&src_dir)?;
     let main_text = render_main_source();
     let config_text = render_config_source(&resource_name, cycle_ms);
-    fs::write(sources_dir.join("main.st"), &main_text)?;
-    fs::write(sources_dir.join("config.st"), &config_text)?;
+    fs::write(src_dir.join("main.st"), &main_text)?;
+    fs::write(src_dir.join("config.st"), &config_text)?;
 
     let session = CompileSession::from_sources(vec![
         SourceFile::with_path("config.st", config_text),
@@ -128,7 +128,8 @@ pub fn create_bundle_auto(path: Option<PathBuf>) -> anyhow::Result<PathBuf> {
     let runtime_path = root.join("runtime.toml");
     let io_path = root.join("io.toml");
     let program_path = root.join("program.stbc");
-    let sources_dir = root.join("sources");
+    let src_dir = root.join("src");
+    migrate_legacy_sources_dir(&root, &src_dir)?;
 
     let (resource_name, cycle_ms) = if runtime_path.exists() {
         let runtime = trust_runtime::config::RuntimeConfig::load(&runtime_path)?;
@@ -156,19 +157,19 @@ pub fn create_bundle_auto(path: Option<PathBuf>) -> anyhow::Result<PathBuf> {
         fs::write(&io_path, io_text)?;
     }
 
-    if !sources_dir.exists() {
-        fs::create_dir_all(&sources_dir)?;
-        write_default_sources(&sources_dir, &resource_name, cycle_ms)?;
+    if !src_dir.exists() {
+        fs::create_dir_all(&src_dir)?;
+        write_default_sources(&src_dir, &resource_name, cycle_ms)?;
     } else {
-        upgrade_legacy_sources(&sources_dir, &resource_name, cycle_ms)?;
+        upgrade_legacy_sources(&src_dir, &resource_name, cycle_ms)?;
     }
 
     if !program_path.exists() {
-        remove_legacy_global_io(&sources_dir)?;
-        let sources = collect_sources(&sources_dir)?;
+        remove_legacy_global_io(&src_dir)?;
+        let sources = collect_sources(&src_dir)?;
         let sources = if sources.is_empty() {
-            write_default_sources(&sources_dir, &resource_name, cycle_ms)?;
-            collect_sources(&sources_dir)?
+            write_default_sources(&src_dir, &resource_name, cycle_ms)?;
+            collect_sources(&src_dir)?
         } else {
             sources
         };
@@ -321,6 +322,39 @@ fn write_default_sources(
     let config_text = render_config_source(resource_name, cycle_ms);
     fs::write(root.join("main.st"), main_text)?;
     fs::write(root.join("config.st"), config_text)?;
+    Ok(())
+}
+
+fn migrate_legacy_sources_dir(root: &Path, src_dir: &Path) -> anyhow::Result<()> {
+    if src_dir.exists() {
+        return Ok(());
+    }
+    let legacy_dir = root.join("sources");
+    if !legacy_dir.is_dir() {
+        return Ok(());
+    }
+    match fs::rename(&legacy_dir, src_dir) {
+        Ok(()) => Ok(()),
+        Err(_) => {
+            copy_dir_recursive(&legacy_dir, src_dir)?;
+            fs::remove_dir_all(&legacy_dir)?;
+            Ok(())
+        }
+    }
+}
+
+fn copy_dir_recursive(source: &Path, dest: &Path) -> anyhow::Result<()> {
+    fs::create_dir_all(dest)?;
+    for entry in fs::read_dir(source)? {
+        let entry = entry?;
+        let path = entry.path();
+        let target = dest.join(entry.file_name());
+        if path.is_dir() {
+            copy_dir_recursive(&path, &target)?;
+        } else {
+            fs::copy(&path, &target)?;
+        }
+    }
     Ok(())
 }
 

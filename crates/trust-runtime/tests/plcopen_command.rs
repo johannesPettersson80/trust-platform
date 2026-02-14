@@ -22,11 +22,7 @@ fn fixture_path(name: &str) -> PathBuf {
 }
 
 fn source_root(project_root: &std::path::Path) -> PathBuf {
-    let src = project_root.join("src");
-    if src.is_dir() {
-        return src;
-    }
-    project_root.join("sources")
+    project_root.join("src")
 }
 
 fn pou_signatures(xml_text: &str) -> Vec<(String, String, String)> {
@@ -102,7 +98,7 @@ fn plcopen_profile_json_emits_contract() {
 #[test]
 fn plcopen_export_and_import_round_trip_via_cli() {
     let source_project = unique_temp_dir("plcopen-cli-source");
-    let source_dir = source_project.join("sources");
+    let source_dir = source_project.join("src");
     let xml_a = source_project.join("out/plcopen.xml");
     std::fs::create_dir_all(&source_dir).expect("create source root");
     std::fs::write(
@@ -179,7 +175,7 @@ END_FUNCTION_BLOCK
     let imported_sources = source_root(&imported_project);
     assert!(
         imported_sources.is_dir(),
-        "import did not create src/ or sources/ directory"
+        "import did not create src/ directory"
     );
     assert!(
         imported_project
@@ -230,9 +226,9 @@ END_FUNCTION_BLOCK
 #[test]
 fn plcopen_export_import_json_reports_include_compatibility_diagnostics() {
     let project = unique_temp_dir("plcopen-cli-json-report");
-    std::fs::create_dir_all(project.join("sources")).expect("create sources");
+    std::fs::create_dir_all(project.join("src")).expect("create src");
     std::fs::write(
-        project.join("sources/main.st"),
+        project.join("src/main.st"),
         r#"
 PROGRAM Main
 END_PROGRAM
@@ -301,9 +297,9 @@ END_PROGRAM
 #[test]
 fn plcopen_export_target_generates_adapter_report_and_default_target_path() {
     let project = unique_temp_dir("plcopen-cli-target-export");
-    std::fs::create_dir_all(project.join("sources")).expect("create sources");
+    std::fs::create_dir_all(project.join("src")).expect("create src");
     std::fs::write(
-        project.join("sources/main.st"),
+        project.join("src/main.st"),
         r#"
 PROGRAM Main
 VAR RETAIN
@@ -372,9 +368,9 @@ END_CONFIGURATION
 #[test]
 fn plcopen_export_siemens_target_generates_scl_bundle() {
     let project = unique_temp_dir("plcopen-cli-target-export-siemens");
-    std::fs::create_dir_all(project.join("sources")).expect("create sources");
+    std::fs::create_dir_all(project.join("src")).expect("create src");
     std::fs::write(
-        project.join("sources/main.st"),
+        project.join("src/main.st"),
         r#"
 PROGRAM Main
 VAR
