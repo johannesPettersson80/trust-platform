@@ -108,7 +108,45 @@ timeout_ms = 500
 on_error = "fault"
 ```
 
-## 6) Validate + Inspect
+## 6) MQTT Example
+
+```
+[io]
+driver = "mqtt"
+
+[io.params]
+broker = "192.168.0.20:1883"
+topic_in = "line/in"
+topic_out = "line/out"
+reconnect_ms = 500
+keep_alive_s = 5
+allow_insecure_remote = true
+```
+
+## 7) Transport Gating Notes (Critical)
+
+EtherCAT hardware transport (non-`mock` adapter):
+
+- requires build feature `ethercat-wire`
+- supported on unix targets only in this build
+- `adapter = "mock"` remains valid for deterministic local/CI validation
+
+OPC UA wire server:
+
+- requires build feature `opcua-wire`
+- if `[runtime.opcua].enabled = true` without `opcua-wire`, runtime startup fails with a feature-disabled error
+- when enabled, configure either:
+  - `allow_anonymous = true` (local commissioning only), or
+  - `allow_anonymous = false` plus both `username` and `password`
+
+Communication examples with step-by-step commissioning flow:
+
+- `examples/communication/modbus_tcp/README.md`
+- `examples/communication/mqtt/README.md`
+- `examples/communication/opcua/README.md`
+- `examples/communication/ethercat/README.md`
+
+## 8) Validate + Inspect
 
 EtherCAT backend details (module chain profile, diagnostics, and hardware setup):
 `docs/guides/ETHERCAT_BACKEND_V1.md`.

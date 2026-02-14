@@ -1,0 +1,10 @@
+CONFIGURATION Config
+VAR_GLOBAL
+    TankLevel : REAL := 42.5;
+    PumpRunning : BOOL := FALSE;
+END_VAR
+RESOURCE CommRes ON PLC
+    TASK MainTask (INTERVAL := T#100ms, PRIORITY := 1);
+    PROGRAM Main WITH MainTask : Main;
+END_RESOURCE
+END_CONFIGURATION

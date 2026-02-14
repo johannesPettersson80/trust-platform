@@ -6,10 +6,74 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.7.15`
+Target release: `v0.8.0`
 
 ### Added
 
+- HMI Phase 0 scaffold start:
+  - Added runtime scaffold engine APIs `scaffold_hmi_dir` and `scaffold_hmi_dir_with_sources` in `crates/trust-runtime/src/hmi.rs` to generate deterministic `hmi/` directory artifacts from source metadata.
+  - Added `trust-runtime hmi init` CLI workflow (`crates/trust-runtime/src/bin/trust-runtime/hmi.rs`) with style selection (`industrial|classic|mint`) and deterministic generation summary output.
+  - Added `trust-lsp.hmiInit` `workspace/executeCommand` support in `crates/trust-lsp/src/handlers/commands.rs`, reusing runtime scaffold generation from workspace sources and returning structured summary payloads.
+  - Added VS Code LM tool `trust_hmi_init` in `editors/vscode/src/lm-tools.ts` and `editors/vscode/package.json`, routing HMI scaffold generation through the new LSP command path.
+  - Added Phase 0 runtime scaffold tests for external symbol filtering, widget mapping by writability/type, deterministic output stability, and repeated-instance section grouping.
+  - Converted `docs/internal/testing/checklists/hmi-complete-implementation-checklist.md` into a tracked execution board with active Phase 0 lanes and work item IDs.
+- HMI Phase 1.6 live descriptor refresh:
+  - Added runtime descriptor watcher (`notify`) with debounce for `hmi/*.toml` updates and safe hot-reload without runtime restart.
+  - Added `schema_revision` to `hmi.schema.get` payloads and wired in-memory revision bumps on successful descriptor reload.
+  - Added fail-safe invalid descriptor handling that retains the last known-good schema and prevents runtime crashes on bad TOML edits.
+- HMI Phase 2.1 section layout foundation:
+  - Added schema-driven section rendering in web HMI (`page.sections`) with responsive 12-column spans for sections/widgets.
+  - Added explicit fallback to legacy group card rendering when section metadata is absent, preserving existing trend/alarm/dashboard behavior.
+  - Added widget renderers for `gauge`, `sparkline`, `bar`, `tank`, `indicator`, `toggle`, and `slider` with value updates and existing `hmi.write` integration for writable controls.
+  - Added transition/micro-animation behavior for gauge/bar/tank/indicator/toggle updates and dark-mode CSS variable overrides via `prefers-color-scheme: dark`.
+  - Added integration coverage for section layout assets, renderer assets, and schema span metadata used by the web renderer.
+- HMI Phase 2.4 live transport foundation:
+  - Added `/ws/hmi` websocket endpoint in the embedded web server for push updates (`hmi.values.delta`, `hmi.schema.revision`, `hmi.alarms.event`).
+  - Added web HMI client websocket transport with reconnect/backoff and automatic fallback to HTTP polling when websocket is unavailable.
+  - Added schema live-refresh behavior in the web client to re-fetch full `hmi.schema.get` payloads on `schema_revision` events.
+  - Added integration coverage for websocket event flow and export transport metadata (`/ws/hmi` route + `config.ws_route`).
+  - Added websocket hardening integration gates for local latency SLO budgets (p95/p99), forced socket-failure polling recovery, and reconnect churn stability.
+- HMI Phase 2.5 process-page foundation:
+  - Added process-page schema support (`kind = "process"`) with page-level SVG asset and bind metadata (`svg`, `bindings`) in runtime HMI contracts.
+  - Added secure SVG asset serving route (`/hmi/assets/<svg>`) with path containment checks and SVG-only file restrictions.
+  - Added process bind parsing guardrails for safe selector/attribute usage plus optional `format`, `map`, and `scale` transform contracts.
+  - Added web client process renderer path to inline SVG assets and apply live bind updates from HMI value streams.
+  - Added integration coverage for process schema metadata, asset serving, and negative filtering of unsafe/missing bind selectors.
+- HMI Phase 2 completion hardening:
+  - Added renderer-state regression coverage for all new widget kinds (`gauge`, `sparkline`, `bar`, `tank`, `indicator`, `toggle`, `slider`) across null/stale/good value paths.
+  - Added responsive breakpoint regression checks for desktop/tablet/mobile class behavior in the web HMI layout engine.
+  - Added process asset-pack integrity checks for `hmi/pid-symbols/` licensing/library presence, stable IDs in `hmi/plant.svg` and `hmi/plant-minimal.svg`, and selector alignment in `hmi/plant.bindings.example.toml`.
+- HMI Phase 3 core command/tool surface:
+  - Added LSP command `trust-lsp.hmiBindings` with workspace-root/file scoping and deterministic bindings catalog payloads (`programs`, `globals`) including qualifier/writable metadata and available constraints (`unit`, `min`, `max`, `enum_values`).
+  - Added VS Code LM tools `trust_hmi_get_bindings`, `trust_hmi_get_layout`, and `trust_hmi_apply_patch` with dry-run conflict reporting for descriptor file operations.
+  - Added VS Code command registrations `trust-lsp.hmi.init` and `trust-lsp.hmi.refreshFromDescriptor` and integrated refresh invocation from HMI patch application flows.
+  - Added VS Code HMI integration coverage for LM tool valid/invalid payload handling and cancellation behavior.
+- HMI Phase 3.6/3.7 completion:
+  - Added LSP diagnostics for `hmi/*.toml` files with stable codes for parse failures, unknown bind paths, type/widget mismatches, and invalid widget property combinations.
+  - Added near-match suggestion hints for unknown binding paths in HMI descriptor diagnostics.
+  - Added multi-root LM-tool integration coverage to verify explicit `rootPath` resolution and write routing for `trust_hmi_apply_patch`/`trust_hmi_get_layout`.
+- HMI Phase 4 panel refresh foundation:
+  - Expanded VS Code HMI preview refresh relevance to `hmi/*.toml` and `hmi/*.svg`.
+  - Added debounced filesystem watching of HMI descriptor/assets (`**/hmi/*.{toml,svg}`) so open panels refresh on descriptor edits without forced auto-open behavior.
+  - Added section-aware panel rendering (`page.sections` + `widget_span`) for dashboard pages.
+  - Added process-page panel rendering (`kind = "process"`) with safe binding updates and local `hmi/*.svg` asset hydration in VS Code preview.
+- HMI Phase 5 export bundle foundation:
+  - Updated `/hmi/export.json` payload contract to `version = 2`.
+  - Added `config.descriptor` to export payloads with the resolved live `hmi/` descriptor content when present (or `null` when running legacy/no-descriptor projects).
+  - Added export integration coverage for descriptor-backed bundles and renderer-capability assertions in exported `hmi/app.js`.
+- HMI Phase 6 intent-to-evidence foundation:
+  - Added VS Code LM tool `trust_hmi_plan_intent` to generate/update deterministic `hmi/_intent.toml` artifacts with operator goals, personas, KPI priorities, and constraints.
+  - Added VS Code LM tool `trust_hmi_trace_capture` for deterministic scenario-tagged API-level runtime trace capture (`hmi.schema.get`/`hmi.values.get`) into `hmi/_evidence/<run>/trace-<scenario>.json`.
+  - Added VS Code LM tool `trust_hmi_generate_candidates` for scaffold-rules-based deterministic candidate generation and ranking by readability/action-latency/alarm-salience metrics with `candidates.json` evidence output.
+  - Added VS Code LM tool `trust_hmi_validate` to run machine-readable HMI validation checks, emit deterministic `hmi/_lock.json`, and write evidence runs under `hmi/_evidence/<timestamp>/`.
+  - Added VS Code LM tool `trust_hmi_preview_snapshot` to emit deterministic desktop/tablet/mobile snapshot artifacts under `hmi/_evidence/<run>/screenshots/`.
+  - Added VS Code LM tool `trust_hmi_run_journey` for API/event-level operator journey execution (no headless browser requirement) with pass/fail timing metrics in `journeys.json`.
+  - Added VS Code LM tool `trust_hmi_explain_widget` for widget provenance reporting (canonical ID, symbol/type, write-policy allowlist state, and contract endpoint mapping).
+  - Hardened `trust_hmi_run_journey` with tool-side write guardrails (read-only/disabled/allowlist checks) and machine-readable step codes before issuing runtime `hmi.write` requests.
+  - Added validation retention support (`prune` + `retain_runs`, default 10) and evidence pruning behavior in `trust_hmi_validate`.
+  - Added integration tests covering intent generation, candidate-ranking determinism, trace capture, validation artifact emission, snapshot output, API/event journey execution, unauthorized-write safety handling, evidence retention pruning, lock determinism, and cancellation handling for the full Phase 6 toolset.
+  - Added runtime hardening regressions for write-cycle budget checks, websocket slow-consumer/backpressure stability, malformed process-SVG resilience, and rapid descriptor file-churn no-deadlock behavior.
+  - Added default gitignore rule for `hmi/_evidence/` artifacts.
 - Direct Siemens TIA source handoff via export adapters:
   - `trust-runtime plcopen export --target siemens` now emits a Siemens SCL sidecar bundle (`<output>.scl/*.scl`) alongside PLCopen XML.
   - Siemens-target export reports now include `siemens_scl_bundle_dir` and `siemens_scl_files[]` for automation and CI evidence.
@@ -22,6 +86,7 @@ Target release: `v0.7.15`
   - Added explicit import usage docs in `README.md`, `docs/README.md`, `editors/vscode/README.md`, and PLCopen example READMEs.
 - Guided example/tutorial expansion:
   - Added `examples/README.md` as a structured tutorial index with recommended learning order and setup checklist.
+  - Added `examples/tutorials/12_hmi_pid_process_dashboard/` as a full process-HMI tutorial with a runnable PLC model, descriptor-driven `hmi/` pages, production-style `kind = "process"` SVG bindings, setpoint/deviation/alarm coverage, and step-by-step build/run/customization guidance (including screenshot/GIF capture workflow).
   - Added a full walkthrough for `examples/filling_line/README.md` (run, I/O mapping, expected outcomes, and tuning exercise).
   - Reworked example READMEs (`plant_demo`, `memory_marker_counter`, `siemens_scl_v1`, `mitsubishi_gxworks3_v1`, `ethercat_ek1100_elx008_v1`, `plcopen_xml_st_complete`, `tutorials`) into detailed step-by-step VS Code setup guides.
   - Added `examples/vendor_library_stubs/` as a tutorial for user-provided vendor library stub indexing (`[[libraries]]`) with Siemens-style sample declarations.
@@ -117,6 +182,13 @@ Target release: `v0.7.15`
 ### Changed
 
 - Browser/WASM position mapping now uses UTF-16 column semantics for protocol compatibility in `trust-wasm-analysis` range/position conversions.
+- HMI scaffold update behavior now skips regenerating default `process.toml` when curated custom process pages already exist, and skips creating empty `control.toml` when no writable points are discovered.
+- HMI auto-schematic Process scaffold now enforces deterministic grid/anchor rules (shared FIT/PT instrument template geometry, value offset one grid row above sensor centerline, stems snapped to process line, connector-anchored routing) and level-fill bindings now update both `y` and `height` for percent-consistent tank visuals.
+- Tutorial `12_hmi_pid_process_dashboard` now uses grid-aligned P&ID SVG layouts (hidden `pid-layout-guides` layer) with compact overview inventory widgets and cleaned page set (no duplicate scaffold `Process` page / empty `Control` page).
+- Tutorial `12_hmi_pid_process_dashboard` Process/Bypass P&ID pages now use denser operator layout (integrated status rail, calibrated tank scales, stronger typography hierarchy, and ISA-style symbol/line cleanup) with synchronized level-fill scaling.
+- Tutorial `12_hmi_pid_process_dashboard` Process/Bypass P&ID pages now remove duplicated PV summary strip and fix tank header text overlap while keeping tank fill scaling aligned to visible geometry.
+- Tutorial `12_hmi_pid_process_dashboard` Process/Bypass P&ID pages now render pipe runs without the extra lane background panel.
+- Added grouped communication examples under `examples/communication/` for Modbus/TCP, MQTT, OPC UA, and EtherCAT, and documented protocol transport gates (including `ethercat-wire` unix hardware scope and `opcua-wire` requirement) in examples/tutorial indexes and `docs/guides/PLC_IO_BINDING_GUIDE.md`.
 - CI release-gate aggregation now includes a dedicated `Editor Expansion Smoke` gate for Neovim/Zed integration coverage.
 - PLCopen XML Full ST Project Coverage (Deliverable 5):
   - Profile advanced to `trust-st-complete-v1`.

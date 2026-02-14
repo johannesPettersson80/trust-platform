@@ -1,0 +1,14 @@
+[io]
+driver = "mqtt"
+
+[io.params]
+broker = "127.0.0.1:1883"
+topic_in = "trust/examples/mqtt/in"
+topic_out = "trust/examples/mqtt/out"
+reconnect_ms = 500
+keep_alive_s = 5
+allow_insecure_remote = false
+
+[[io.safe_state]]
+address = "%QX0.0"
+value = "FALSE"

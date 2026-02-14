@@ -1,0 +1,71 @@
+[bundle]
+version = 1
+
+[resource]
+name = "CommOpcUaRes"
+cycle_interval_ms = 100
+
+[runtime.control]
+endpoint = "unix:///tmp/trust-runtime-opcua.sock"
+mode = "production"
+debug_enabled = false
+
+[runtime.web]
+enabled = false
+listen = "127.0.0.1:8080"
+auth = "local"
+tls = false
+
+[runtime.tls]
+mode = "disabled"
+require_remote = false
+
+[runtime.discovery]
+enabled = false
+service_name = "truST"
+advertise = false
+interfaces = []
+
+[runtime.mesh]
+enabled = false
+listen = "0.0.0.0:5200"
+tls = false
+auth_token = ""
+publish = []
+
+[runtime.opcua]
+enabled = true
+listen = "127.0.0.1:4840"
+endpoint_path = "/"
+namespace_uri = "urn:trust:runtime"
+publish_interval_ms = 250
+max_nodes = 128
+expose = ["TankLevel", "PumpRunning"]
+security_policy = "none"
+security_mode = "none"
+allow_anonymous = true
+
+[runtime.observability]
+enabled = false
+sample_interval_ms = 1000
+mode = "all"
+include = []
+history_path = "history/historian.jsonl"
+max_entries = 20000
+prometheus_enabled = true
+prometheus_path = "/metrics"
+
+[runtime.log]
+level = "info"
+
+[runtime.retain]
+mode = "none"
+save_interval_ms = 1000
+
+[runtime.watchdog]
+enabled = false
+timeout_ms = 1000
+action = "halt"
+
+[runtime.fault]
+policy = "halt"

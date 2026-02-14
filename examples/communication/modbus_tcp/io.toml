@@ -1,0 +1,14 @@
+[io]
+driver = "modbus-tcp"
+
+[io.params]
+address = "127.0.0.1:1502"
+unit_id = 1
+input_start = 0
+output_start = 0
+timeout_ms = 500
+on_error = "fault"
+
+[[io.safe_state]]
+address = "%QX0.0"
+value = "FALSE"

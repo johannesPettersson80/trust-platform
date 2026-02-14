@@ -32,7 +32,10 @@ code /path/to/trust-platform
 | Track | Start Here | What You Learn | Typical Time |
 |---|---|---|---|
 | ST fundamentals | `examples/tutorials/README.md` | language basics, VS Code tooling, testing workflow | 60-120 min |
+| Advanced operations tutorials (13-22) | `examples/tutorials/README.md` | project bootstrap, deploy/rollback, multi-PLC mesh, secure remote access, I/O backend matrix, simulation, safety commissioning, HMI write enablement, CI/CD, Neovim/Zed workflow | 180-320 min |
+| Communication protocols (grouped) | `examples/communication/README.md` | protocol-focused examples for Modbus/TCP, MQTT, OPC UA, and EtherCAT with transport gates and commissioning flow | 90-180 min |
 | Runtime I/O mental model | `examples/memory_marker_counter/README.md` | `%M/%Q` cycle semantics + debugger confirmation | 20-30 min |
+| HMI P&ID tutorial | `examples/tutorials/12_hmi_pid_process_dashboard/README.md` | process SVG pages, bypass mode, setpoint/alarm bindings, and live HMI refresh workflow | 35-55 min |
 | Multi-file architecture | `examples/plant_demo/README.md` | type/FB/program/config layering + cross-file refactors | 25-40 min |
 | Process-control capstone | `examples/filling_line/README.md` | hysteresis control, interface hierarchy, hot reload | 35-55 min |
 | EtherCAT bring-up | `examples/ethercat_ek1100_elx008_v1/README.md` | `io.toml`, mock-first validation, hardware handoff | 30-50 min |
@@ -44,10 +47,22 @@ code /path/to/trust-platform
 ## Recommended Learning Order
 
 1. `examples/tutorials/README.md`
-2. `examples/memory_marker_counter/README.md`
-3. `examples/plant_demo/README.md`
-4. `examples/filling_line/README.md`
-5. Choose specialization:
+2. `examples/tutorials/12_hmi_pid_process_dashboard/README.md`
+3. `examples/memory_marker_counter/README.md`
+4. `examples/plant_demo/README.md`
+5. `examples/filling_line/README.md`
+6. `examples/tutorials/13_project_bootstrap_zero_to_first_app/README.md`
+7. `examples/tutorials/17_io_backends_and_multi_driver/README.md`
+8. `examples/communication/README.md`
+9. `examples/tutorials/18_simulation_toml_fault_injection/README.md`
+10. `examples/tutorials/19_safety_commissioning/README.md`
+11. `examples/tutorials/14_deploy_and_rollback/README.md`
+12. `examples/tutorials/16_secure_remote_access/README.md`
+13. `examples/tutorials/15_multi_plc_discovery_mesh/README.md`
+14. `examples/tutorials/20_hmi_write_enablement/README.md`
+15. `examples/tutorials/21_ci_cd_project_pipeline/README.md`
+16. `examples/tutorials/22_neovim_zed_workflow/README.md`
+17. Choose specialization:
    - Interop: `examples/plcopen_xml_st_complete/README.md`
    - Vendor profiles: `examples/siemens_scl_v1/README.md`, `examples/mitsubishi_gxworks3_v1/README.md`
    - Fieldbus backend: `examples/ethercat_ek1100_elx008_v1/README.md`
@@ -56,8 +71,13 @@ code /path/to/trust-platform
 
 ```bash
 trust-runtime build --project examples/filling_line --sources src
+trust-runtime build --project examples/tutorials/12_hmi_pid_process_dashboard --sources sources
 trust-runtime build --project examples/plant_demo --sources src
 trust-runtime build --project examples/ethercat_ek1100_elx008_v1 --sources src
+trust-runtime build --project examples/communication/modbus_tcp --sources src
+trust-runtime build --project examples/communication/mqtt --sources src
+trust-runtime build --project examples/communication/opcua --sources src
+trust-runtime build --project examples/communication/ethercat --sources src
 trust-runtime build --project examples/siemens_scl_v1 --sources src
 trust-runtime build --project examples/mitsubishi_gxworks3_v1 --sources src
 trust-runtime build --project examples/vendor_library_stubs --sources .

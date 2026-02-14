@@ -1,0 +1,26 @@
+[io]
+driver = "ethercat"
+
+[io.params]
+adapter = "eth0"
+timeout_ms = 250
+cycle_warn_ms = 5
+on_error = "fault"
+
+[[io.params.modules]]
+model = "EK1100"
+slot = 0
+
+[[io.params.modules]]
+model = "EL1008"
+slot = 1
+channels = 8
+
+[[io.params.modules]]
+model = "EL2008"
+slot = 2
+channels = 8
+
+[[io.safe_state]]
+address = "%QX0.0"
+value = "FALSE"
