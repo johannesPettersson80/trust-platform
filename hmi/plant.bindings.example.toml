@@ -1,0 +1,95 @@
+# Bindings example for hmi/plant.svg
+# Update `source` paths to match your PLC project symbols.
+
+title = "Plant Overview"
+kind = "process"
+svg = "plant.svg"
+order = 10
+
+# Pump running state indicator
+[[bind]]
+selector = "#pid-pump-001-status"
+attribute = "fill"
+source = "PumpStation.running"
+map = { true = "#22c55e", false = "#ef4444" }
+
+[[bind]]
+selector = "#pid-tag-pump-001-state"
+attribute = "data-value"
+source = "PumpStation.running"
+map = { true = "RUNNING", false = "STOPPED" }
+
+# Valve position/status
+[[bind]]
+selector = "#pid-valve-001-status"
+attribute = "fill"
+source = "ValveControl.open"
+map = { true = "#22c55e", false = "#f59e0b" }
+
+[[bind]]
+selector = "#pid-tag-valve-001-position"
+attribute = "data-value"
+source = "ValveControl.position"
+format = "{:.0f} %"
+
+# Flow and pressure tags
+[[bind]]
+selector = "#pid-tag-fit-001-pv"
+attribute = "data-value"
+source = "PumpStation.flow"
+format = "{:.1f} m3/h"
+
+[[bind]]
+selector = "#pid-tag-pt-001-pv"
+attribute = "data-value"
+source = "PumpStation.pressure"
+format = "{:.2f} bar"
+
+# Tank level fill geometry (same source bound to y and height)
+[[bind]]
+selector = "#pid-tank-001-level-fill"
+attribute = "y"
+source = "TankControl.level"
+scale = { min = 0, max = 100, output_min = 832, output_max = 540 }
+
+[[bind]]
+selector = "#pid-tank-001-level-fill"
+attribute = "height"
+source = "TankControl.level"
+scale = { min = 0, max = 100, output_min = 0, output_max = 292 }
+
+[[bind]]
+selector = "#pid-tag-tank-001-level"
+attribute = "data-value"
+source = "TankControl.level"
+format = "{:.1f} %"
+
+[[bind]]
+selector = "#pid-tank-002-level-fill"
+attribute = "y"
+source = "TankControl.product_level"
+scale = { min = 0, max = 100, output_min = 830, output_max = 610 }
+
+[[bind]]
+selector = "#pid-tank-002-level-fill"
+attribute = "height"
+source = "TankControl.product_level"
+scale = { min = 0, max = 100, output_min = 0, output_max = 220 }
+
+[[bind]]
+selector = "#pid-tag-tank-002-level"
+attribute = "data-value"
+source = "TankControl.product_level"
+format = "{:.1f} %"
+
+# Alarm banner
+[[bind]]
+selector = "#pid-banner-alarm-001"
+attribute = "opacity"
+source = "PumpStation.high_pressure_alarm"
+map = { true = "1", false = "0" }
+
+[[bind]]
+selector = "#pid-banner-alarm-001-text"
+attribute = "data-value"
+source = "PumpStation.alarm_message"

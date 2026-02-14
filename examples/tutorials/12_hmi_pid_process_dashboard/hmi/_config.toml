@@ -1,0 +1,35 @@
+version = 1
+
+[theme]
+style = "classic"
+accent = "#2563eb"
+
+[layout]
+navigation = "tabs"
+header = true
+header_title = "Process Operations P&ID"
+
+[write]
+enabled = false
+allow = []
+
+[[alarm]]
+bind = "P1.FeedLevelPct"
+low = 25
+label = "LT-001 Low Feed Level"
+
+[[alarm]]
+bind = "P1.FlowDeviationM3h"
+high = 20
+low = -20
+label = "FIT-001 Flow Deviation"
+
+[[alarm]]
+bind = "P1.PressureBar"
+high = 6.8
+label = "PT-001 High Pressure"
+
+[[alarm]]
+bind = "P1.ProductLevelPct"
+high = 90
+label = "LT-002 High Product Level"

@@ -1,7 +1,10 @@
 import * as path from "path";
+import * as crypto from "crypto";
+import * as net from "net";
 import { TextDecoder } from "util";
 import * as vscode from "vscode";
 import type { LanguageClient } from "vscode-languageclient/node";
+import { defaultRuntimeControlEndpoint } from "./runtimeDefaults";
 
 type LmApi = {
   registerTool: <T>(
@@ -155,6 +158,107 @@ interface ProjectInfoParams {
   arguments?: unknown[];
 }
 
+interface HmiInitParams {
+  style?: string;
+}
+
+interface HmiBindingsParams {
+  rootPath?: string;
+  filePath?: string;
+}
+
+interface HmiGetLayoutParams {
+  rootPath?: string;
+}
+
+type HmiPatchOperation = {
+  op: "add" | "remove" | "replace" | "move";
+  path: string;
+  from?: string;
+  value?: unknown;
+};
+
+interface HmiApplyPatchParams {
+  dry_run?: boolean;
+  rootPath?: string;
+  operations: HmiPatchOperation[];
+}
+
+interface HmiPlanIntentParams {
+  rootPath?: string;
+  dry_run?: boolean;
+  summary?: string;
+  goals?: string[];
+  personas?: string[];
+  kpis?: string[];
+  priorities?: string[];
+  constraints?: string[];
+}
+
+interface HmiValidateParams {
+  rootPath?: string;
+  dry_run?: boolean;
+  prune?: boolean;
+  retain_runs?: number;
+}
+
+interface HmiTraceCaptureParams {
+  rootPath?: string;
+  dry_run?: boolean;
+  run_id?: string;
+  scenario?: string;
+  ids?: string[];
+  samples?: number;
+  sample_interval_ms?: number;
+}
+
+interface HmiGenerateCandidatesParams {
+  rootPath?: string;
+  dry_run?: boolean;
+  run_id?: string;
+  candidate_count?: number;
+}
+
+interface HmiPreviewSnapshotParams {
+  rootPath?: string;
+  dry_run?: boolean;
+  run_id?: string;
+  candidate_id?: string;
+  viewports?: string[];
+}
+
+type HmiJourneyAction = "read_values" | "wait" | "write";
+
+interface HmiJourneyStepParams {
+  action: HmiJourneyAction;
+  ids?: string[];
+  duration_ms?: number;
+  widget_id?: string;
+  value?: unknown;
+  expect_error_code?: string;
+}
+
+interface HmiJourneyParams {
+  id: string;
+  title?: string;
+  max_duration_ms?: number;
+  steps?: HmiJourneyStepParams[];
+}
+
+interface HmiRunJourneyParams {
+  rootPath?: string;
+  dry_run?: boolean;
+  run_id?: string;
+  scenario?: string;
+  journeys?: HmiJourneyParams[];
+}
+
+interface HmiExplainWidgetParams {
+  rootPath?: string;
+  widget_id?: string;
+  path?: string;
+}
+
 interface FileReadParams {
   filePath: string;
   startLine?: number;
@@ -265,6 +369,1486 @@ function ensureWorkspaceUri(uri: vscode.Uri): string | undefined {
     }
   }
   return "filePath must be inside the current workspace.";
+}
+
+function resolveWorkspaceFolder(
+  rootPath?: string,
+): { folder?: vscode.WorkspaceFolder; error?: string } {
+  const folders = vscode.workspace.workspaceFolders;
+  if (!folders || folders.length === 0) {
+    return { error: "No workspace is open." };
+  }
+  if (!rootPath || !rootPath.trim()) {
+    const active = vscode.window.activeTextEditor?.document.uri;
+    if (active) {
+      const byActive = vscode.workspace.getWorkspaceFolder(active);
+      if (byActive) {
+        return { folder: byActive };
+      }
+    }
+    return { folder: folders[0] };
+  }
+
+  const uri = uriFromFilePath(rootPath.trim());
+  if (!uri) {
+    return { error: "rootPath must be an absolute path or URI." };
+  }
+  const workspaceError = ensureWorkspaceUri(uri);
+  if (workspaceError) {
+    return { error: workspaceError };
+  }
+  const folder = vscode.workspace.getWorkspaceFolder(uri);
+  if (!folder) {
+    return { error: "Unable to resolve workspace folder for rootPath." };
+  }
+  return { folder };
+}
+
+function decodeJsonPointerToken(token: string): string {
+  return token.replace(/~1/g, "/").replace(/~0/g, "~");
+}
+
+function normalizeHmiTomlName(raw: string): string | undefined {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  const normalized = trimmed.replace(/^\/+/, "");
+  if (
+    normalized.includes("/") ||
+    normalized.includes("\\") ||
+    normalized.includes("..")
+  ) {
+    return undefined;
+  }
+  if (!/^[A-Za-z0-9._-]+\.toml$/.test(normalized)) {
+    return undefined;
+  }
+  return normalized;
+}
+
+function hmiDescriptorFileFromPointer(pointer: string): string | undefined {
+  if (!pointer.startsWith("/")) {
+    return undefined;
+  }
+  const parts = pointer
+    .split("/")
+    .slice(1)
+    .map(decodeJsonPointerToken);
+  if (parts.length < 2 || parts[0] !== "files") {
+    return undefined;
+  }
+  const file = normalizeHmiTomlName(parts[1] ?? "");
+  if (!file) {
+    return undefined;
+  }
+  if (parts.length === 2) {
+    return file;
+  }
+  if (parts.length === 3 && parts[2] === "content") {
+    return file;
+  }
+  return undefined;
+}
+
+type HmiLayoutFileEntry = { name: string; path: string; content: string };
+
+type HmiLayoutSnapshot = {
+  exists: boolean;
+  rootPath: string;
+  hmiPath: string;
+  config: HmiLayoutFileEntry | null;
+  pages: HmiLayoutFileEntry[];
+  files: HmiLayoutFileEntry[];
+  assets: string[];
+};
+
+type HmiBindingCatalogEntry = {
+  id: string;
+  path: string;
+  dataType: string;
+  qualifier: string;
+  writable: boolean;
+  unit: string | null;
+  min: number | null;
+  max: number | null;
+  enumValues: string[];
+};
+
+type HmiBindingCatalog = {
+  entries: HmiBindingCatalogEntry[];
+  byPath: Map<string, HmiBindingCatalogEntry>;
+};
+
+type HmiLockEntry = {
+  id: string;
+  path: string;
+  data_type: string;
+  qualifier: string;
+  writable: boolean;
+  constraints: {
+    unit: string | null;
+    min: number | null;
+    max: number | null;
+    enum_values: string[];
+  };
+  files: string[];
+  binding_fingerprint: string;
+};
+
+type HmiValidationCheck = {
+  code: string;
+  severity: "error" | "warning" | "info";
+  message: string;
+  file?: string;
+  range?: string;
+};
+
+type HmiSchemaWidget = {
+  id: string;
+  path: string;
+  label: string;
+  data_type: string;
+  writable: boolean;
+  page: string;
+  group: string;
+};
+
+type HmiSchemaResult = {
+  version: number;
+  mode: string;
+  read_only: boolean;
+  pages: Array<{
+    id: string;
+    title: string;
+    order: number;
+    kind?: string;
+    sections?: Array<{ title: string; span: number; widget_ids?: string[] }>;
+  }>;
+  widgets: HmiSchemaWidget[];
+};
+
+type HmiValuesResult = {
+  connected: boolean;
+  timestamp_ms: number;
+  values: Record<string, { v: unknown; q: string; ts_ms: number }>;
+};
+
+type HmiCandidateStrategy = {
+  id: string;
+  grouping: "program" | "qualifier" | "path";
+  density: "compact" | "balanced" | "spacious";
+  widget_bias: "status_first" | "balanced" | "trend_first";
+  alarm_emphasis: boolean;
+};
+
+type HmiCandidateMetrics = {
+  readability: number;
+  action_latency: number;
+  alarm_salience: number;
+  overall: number;
+};
+
+type HmiCandidate = {
+  id: string;
+  rank: number;
+  strategy: HmiCandidateStrategy;
+  metrics: HmiCandidateMetrics;
+  summary: {
+    bindings: number;
+    sections: number;
+  };
+  preview: {
+    title: string;
+    sections: Array<{
+      title: string;
+      widget_ids: string[];
+    }>;
+  };
+};
+
+type SnapshotViewport = "desktop" | "tablet" | "mobile";
+
+type RuntimeControlRequestHandler = (
+  endpoint: string,
+  authToken: string | undefined,
+  requestType: string,
+  params: unknown,
+  token: vscode.CancellationToken,
+  timeoutMs?: number,
+) => Promise<unknown>;
+
+type ParsedControlEndpoint =
+  | { kind: "tcp"; host: string; port: number }
+  | { kind: "unix"; path: string };
+
+let controlRequestSeq = 1;
+
+function hmiSeverityRank(severity: HmiValidationCheck["severity"]): number {
+  if (severity === "error") {
+    return 0;
+  }
+  if (severity === "warning") {
+    return 1;
+  }
+  return 2;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  return value as Record<string, unknown>;
+}
+
+function parseControlEndpoint(endpoint: string): ParsedControlEndpoint | undefined {
+  if (endpoint.startsWith("tcp://")) {
+    try {
+      const url = new URL(endpoint);
+      const port = Number(url.port);
+      if (!url.hostname || !Number.isFinite(port) || port <= 0) {
+        return undefined;
+      }
+      return { kind: "tcp", host: url.hostname, port };
+    } catch {
+      return undefined;
+    }
+  }
+  if (endpoint.startsWith("unix://")) {
+    if (process.platform === "win32") {
+      return undefined;
+    }
+    const socketPath = endpoint.slice("unix://".length);
+    if (!socketPath.trim()) {
+      return undefined;
+    }
+    return { kind: "unix", path: socketPath };
+  }
+  return undefined;
+}
+
+function runtimeEndpointSettings(rootPath: string): {
+  endpoint: string;
+  authToken: string | undefined;
+} {
+  const config = vscode.workspace.getConfiguration(
+    "trust-lsp",
+    vscode.Uri.file(rootPath),
+  );
+  const endpointEnabled = config.get<boolean>("runtime.controlEndpointEnabled", true);
+  const configured = endpointEnabled
+    ? (config.get<string>("runtime.controlEndpoint") ?? "").trim()
+    : "";
+  const endpoint = configured || defaultRuntimeControlEndpoint();
+  const auth = (config.get<string>("runtime.controlAuthToken") ?? "").trim();
+  return {
+    endpoint,
+    authToken: auth.length > 0 ? auth : undefined,
+  };
+}
+
+async function sendRuntimeControlRequest(
+  endpoint: string,
+  authToken: string | undefined,
+  requestType: string,
+  params: unknown,
+  token: vscode.CancellationToken,
+  timeoutMs = 2000,
+): Promise<unknown> {
+  if (token.isCancellationRequested) {
+    throw new Error("Cancelled.");
+  }
+  const parsed = parseControlEndpoint(endpoint);
+  if (!parsed) {
+    throw new Error(`invalid control endpoint '${endpoint}'`);
+  }
+  const requestEnvelope = {
+    id: controlRequestSeq++,
+    type: requestType,
+    params,
+    auth: authToken,
+  };
+  return await new Promise<unknown>((resolve, reject) => {
+    let settled = false;
+    let buffer = "";
+    const socket =
+      parsed.kind === "tcp"
+        ? net.createConnection({ host: parsed.host, port: parsed.port })
+        : net.createConnection({ path: parsed.path });
+    const disposables: vscode.Disposable[] = [];
+
+    const finish = (callback: () => void): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      socket.destroy();
+      for (const disposable of disposables) {
+        disposable.dispose();
+      }
+      callback();
+    };
+
+    socket.setTimeout(timeoutMs, () => {
+      finish(() => reject(new Error("control request timeout")));
+    });
+    socket.once("error", (error) => {
+      finish(() => reject(error));
+    });
+    socket.once("connect", () => {
+      socket.write(`${JSON.stringify(requestEnvelope)}\n`);
+    });
+    socket.on("data", (chunk: Buffer | string) => {
+      buffer += chunk.toString();
+      let newlineIndex = buffer.indexOf("\n");
+      while (newlineIndex !== -1) {
+        const line = buffer.slice(0, newlineIndex).trim();
+        buffer = buffer.slice(newlineIndex + 1);
+        if (line.length > 0) {
+          try {
+            const parsedLine = JSON.parse(line) as {
+              ok?: boolean;
+              result?: unknown;
+              error?: unknown;
+              code?: unknown;
+            };
+            if (parsedLine.ok) {
+              finish(() => resolve(parsedLine.result));
+            } else {
+              const code =
+                typeof parsedLine.code === "string" && parsedLine.code.trim()
+                  ? parsedLine.code.trim()
+                  : undefined;
+              const detail =
+                typeof parsedLine.error === "string" && parsedLine.error.trim()
+                  ? parsedLine.error.trim()
+                  : "control request rejected";
+              finish(() =>
+                reject(new Error(code ? `${code}: ${detail}` : detail)),
+              );
+            }
+            return;
+          } catch (error) {
+            finish(() => reject(error));
+            return;
+          }
+        }
+        newlineIndex = buffer.indexOf("\n");
+      }
+    });
+
+    disposables.push(
+      token.onCancellationRequested(() => {
+        finish(() => reject(new Error("Cancelled.")));
+      }),
+    );
+  });
+}
+
+let runtimeControlRequest: RuntimeControlRequestHandler =
+  sendRuntimeControlRequest;
+
+export function __testSetRuntimeControlRequestHandler(
+  handler?: RuntimeControlRequestHandler,
+): void {
+  runtimeControlRequest = handler ?? sendRuntimeControlRequest;
+}
+
+async function requestRuntimeControl(
+  rootPath: string,
+  token: vscode.CancellationToken,
+  requestType: string,
+  params: unknown,
+): Promise<unknown> {
+  const settings = runtimeEndpointSettings(rootPath);
+  return await runtimeControlRequest(
+    settings.endpoint,
+    settings.authToken,
+    requestType,
+    params,
+    token,
+  );
+}
+
+function parseHmiSchemaPayload(value: unknown): HmiSchemaResult | undefined {
+  const record = asRecord(value);
+  if (!record) {
+    return undefined;
+  }
+  const widgetValues = Array.isArray(record.widgets) ? record.widgets : [];
+  const pageValues = Array.isArray(record.pages) ? record.pages : [];
+
+  const widgets: HmiSchemaWidget[] = [];
+  for (const item of widgetValues) {
+    const widget = asRecord(item);
+    if (!widget || typeof widget.id !== "string") {
+      continue;
+    }
+    widgets.push({
+      id: widget.id,
+      path: typeof widget.path === "string" ? widget.path : "",
+      label: typeof widget.label === "string" ? widget.label : widget.id,
+      data_type: typeof widget.data_type === "string" ? widget.data_type : "UNKNOWN",
+      writable: widget.writable === true,
+      page: typeof widget.page === "string" ? widget.page : "overview",
+      group: typeof widget.group === "string" ? widget.group : "General",
+    });
+  }
+
+  const pages: HmiSchemaResult["pages"] = [];
+  for (const item of pageValues) {
+    const page = asRecord(item);
+    if (!page || typeof page.id !== "string") {
+      continue;
+    }
+    const sectionsRaw = Array.isArray(page.sections) ? page.sections : [];
+    const sections = sectionsRaw
+      .map((entry) => {
+        const section = asRecord(entry);
+        if (!section || typeof section.title !== "string") {
+          return undefined;
+        }
+        const widgetIds = Array.isArray(section.widget_ids)
+          ? section.widget_ids
+              .filter((id): id is string => typeof id === "string")
+              .sort((left, right) => left.localeCompare(right))
+          : [];
+        const normalized: { title: string; span: number; widget_ids?: string[] } = {
+          title: section.title,
+          span:
+            typeof section.span === "number" && Number.isFinite(section.span)
+              ? section.span
+              : 12,
+        };
+        if (widgetIds.length > 0) {
+          normalized.widget_ids = widgetIds;
+        }
+        return normalized;
+      })
+      .filter(
+        (entry): entry is { title: string; span: number; widget_ids?: string[] } =>
+          !!entry,
+      );
+    pages.push({
+      id: page.id,
+      title: typeof page.title === "string" ? page.title : page.id,
+      order:
+        typeof page.order === "number" && Number.isFinite(page.order)
+          ? page.order
+          : 0,
+      kind: typeof page.kind === "string" ? page.kind : undefined,
+      sections: sections.length > 0 ? sections : undefined,
+    });
+  }
+
+  return {
+    version:
+      typeof record.version === "number" && Number.isFinite(record.version)
+        ? record.version
+        : 1,
+    mode: typeof record.mode === "string" ? record.mode : "read_only",
+    read_only: record.read_only !== false,
+    pages: pages.sort((left, right) =>
+      left.order === right.order
+        ? left.id.localeCompare(right.id)
+        : left.order - right.order,
+    ),
+    widgets: widgets.sort((left, right) => left.id.localeCompare(right.id)),
+  };
+}
+
+function parseHmiValuesPayload(value: unknown): HmiValuesResult | undefined {
+  const record = asRecord(value);
+  if (!record) {
+    return undefined;
+  }
+  const rawValues = asRecord(record.values) ?? {};
+  const values: HmiValuesResult["values"] = {};
+  for (const [widgetId, rawEntry] of Object.entries(rawValues)) {
+    const entry = asRecord(rawEntry);
+    if (!entry) {
+      continue;
+    }
+    const quality = typeof entry.q === "string" ? entry.q : "unknown";
+    const ts =
+      typeof entry.ts_ms === "number" && Number.isFinite(entry.ts_ms)
+        ? entry.ts_ms
+        : Date.now();
+    values[widgetId] = {
+      v: entry.v,
+      q: quality,
+      ts_ms: ts,
+    };
+  }
+  return {
+    connected: record.connected !== false,
+    timestamp_ms:
+      typeof record.timestamp_ms === "number" && Number.isFinite(record.timestamp_ms)
+        ? record.timestamp_ms
+        : Date.now(),
+    values,
+  };
+}
+
+function coerceInt(
+  value: unknown,
+  fallback: number,
+  minimum: number,
+  maximum: number,
+): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return fallback;
+  }
+  return Math.max(minimum, Math.min(maximum, Math.trunc(value)));
+}
+
+async function sleepWithCancellation(
+  durationMs: number,
+  token: vscode.CancellationToken,
+): Promise<boolean> {
+  if (token.isCancellationRequested) {
+    return false;
+  }
+  return await new Promise<boolean>((resolve) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      disposable.dispose();
+      resolve(true);
+    }, Math.max(0, durationMs));
+    const disposable = token.onCancellationRequested(() => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timer);
+      resolve(false);
+    });
+  });
+}
+
+function normalizeEvidenceRunId(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return /^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z$/.test(trimmed)
+    ? trimmed
+    : undefined;
+}
+
+function layoutDescriptorPages(files: HmiLayoutFileEntry[]): HmiLayoutFileEntry[] {
+  return files.filter(
+    (file) =>
+      file.name !== "_config.toml" &&
+      file.name !== "_intent.toml" &&
+      !file.name.startsWith("_"),
+  );
+}
+
+function parseQuotedArrayFromToml(content: string, key: string): string[] {
+  const match = content.match(
+    new RegExp(`^\\s*${key}\\s*=\\s*\\[(.*)\\]\\s*$`, "m"),
+  );
+  if (!match || typeof match[1] !== "string") {
+    return [];
+  }
+  const values: string[] = [];
+  for (const quoted of match[1].matchAll(/"([^"]+)"/g)) {
+    const item = (quoted[1] ?? "").trim();
+    if (item) {
+      values.push(item);
+    }
+  }
+  return normalizeStringList(values);
+}
+
+function normalizeErrorCode(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const normalized = value.trim().toUpperCase().replace(/[^A-Z0-9_]/g, "_");
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function extractErrorCode(message: string): string | undefined {
+  const match = message.match(/^\s*([A-Z0-9_]{3,})\s*:/);
+  if (!match || typeof match[1] !== "string") {
+    return undefined;
+  }
+  return normalizeErrorCode(match[1]);
+}
+
+function errorCodeMatches(
+  expected: string | undefined,
+  code: string | undefined,
+  detail: string,
+): boolean {
+  const normalizedExpected = normalizeErrorCode(expected);
+  if (!normalizedExpected) {
+    return false;
+  }
+  const normalizedCode = normalizeErrorCode(code);
+  if (normalizedCode && normalizedCode === normalizedExpected) {
+    return true;
+  }
+  return detail.toUpperCase().includes(normalizedExpected);
+}
+
+async function readHmiLayoutSnapshot(
+  rootPath: string | undefined,
+  token: vscode.CancellationToken,
+): Promise<{ snapshot?: HmiLayoutSnapshot; error?: string }> {
+  const resolved = resolveWorkspaceFolder(rootPath);
+  if (resolved.error || !resolved.folder) {
+    return { error: resolved.error ?? "Unable to resolve workspace folder." };
+  }
+  const hmiRoot = vscode.Uri.joinPath(resolved.folder.uri, "hmi");
+  let entries: [string, vscode.FileType][];
+  try {
+    entries = await vscode.workspace.fs.readDirectory(hmiRoot);
+  } catch {
+    return {
+      snapshot: {
+        exists: false,
+        rootPath: resolved.folder.uri.fsPath,
+        hmiPath: hmiRoot.fsPath,
+        config: null,
+        pages: [],
+        files: [],
+        assets: [],
+      },
+    };
+  }
+
+  const tomlFiles = entries
+    .filter(
+      ([name, kind]) =>
+        kind === vscode.FileType.File &&
+        name.toLowerCase().endsWith(".toml"),
+    )
+    .map(([name]) => name)
+    .sort((left, right) => left.localeCompare(right));
+  const svgFiles = entries
+    .filter(
+      ([name, kind]) =>
+        kind === vscode.FileType.File &&
+        name.toLowerCase().endsWith(".svg"),
+    )
+    .map(([name]) => name)
+    .sort((left, right) => left.localeCompare(right));
+
+  const files: HmiLayoutFileEntry[] = [];
+  for (const fileName of tomlFiles) {
+    if (token.isCancellationRequested) {
+      return { error: "Cancelled." };
+    }
+    const fileUri = vscode.Uri.joinPath(hmiRoot, fileName);
+    const bytes = await vscode.workspace.fs.readFile(fileUri);
+    files.push({
+      name: fileName,
+      path: path.posix.join("hmi", fileName),
+      content: Buffer.from(bytes).toString("utf8"),
+    });
+  }
+
+  const config = files.find((entry) => entry.name === "_config.toml") ?? null;
+  const pages = files
+    .filter((entry) => entry.name !== "_config.toml")
+    .sort((left, right) => left.name.localeCompare(right.name));
+
+  return {
+    snapshot: {
+      exists: true,
+      rootPath: resolved.folder.uri.fsPath,
+      hmiPath: hmiRoot.fsPath,
+      config,
+      pages,
+      files,
+      assets: svgFiles,
+    },
+  };
+}
+
+async function writeUtf8File(uri: vscode.Uri, text: string): Promise<void> {
+  await vscode.workspace.fs.writeFile(uri, Buffer.from(text, "utf8"));
+}
+
+function normalizeStringList(values: string[] | undefined): string[] {
+  if (!Array.isArray(values)) {
+    return [];
+  }
+  return Array.from(
+    new Set(
+      values
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0),
+    ),
+  ).sort((left, right) => left.localeCompare(right));
+}
+
+function tomlQuote(value: string): string {
+  return `"${value
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/\r/g, "\\r")
+    .replace(/\n/g, "\\n")
+    .replace(/\t/g, "\\t")}"`;
+}
+
+function renderIntentToml(params: HmiPlanIntentParams): string {
+  const summary = (params.summary ?? "").trim();
+  const goals = normalizeStringList(params.goals);
+  const personas = normalizeStringList(params.personas);
+  const kpis = normalizeStringList(params.kpis);
+  const priorities = normalizeStringList(params.priorities);
+  const constraints = normalizeStringList(params.constraints);
+  const lines: string[] = [];
+  lines.push("version = 1");
+  lines.push("");
+  lines.push("[intent]");
+  lines.push(
+    `summary = ${tomlQuote(summary || "Operator-focused HMI intent plan")}`,
+  );
+  lines.push(
+    `personas = [${personas.map((value) => tomlQuote(value)).join(", ")}]`,
+  );
+  lines.push(
+    `goals = [${goals.map((value) => tomlQuote(value)).join(", ")}]`,
+  );
+  lines.push(
+    `kpis = [${kpis.map((value) => tomlQuote(value)).join(", ")}]`,
+  );
+  lines.push(
+    `priorities = [${priorities.map((value) => tomlQuote(value)).join(", ")}]`,
+  );
+  lines.push(
+    `constraints = [${constraints.map((value) => tomlQuote(value)).join(", ")}]`,
+  );
+  lines.push("");
+  lines.push("[workflow]");
+  lines.push("requires_validation = true");
+  lines.push("requires_evidence = true");
+  lines.push("requires_journey = true");
+  return `${lines.join("\n")}\n`;
+}
+
+type HmiLayoutBindingRef = { file: string; path: string };
+
+function extractLayoutBindingRefs(
+  files: HmiLayoutFileEntry[],
+): HmiLayoutBindingRef[] {
+  const refs: HmiLayoutBindingRef[] = [];
+  const pattern = /^\s*(bind|source)\s*=\s*"([^"]+)"/;
+  for (const file of files) {
+    for (const line of file.content.split(/\r?\n/)) {
+      const match = line.match(pattern);
+      if (!match) {
+        continue;
+      }
+      const bindPath = (match[2] ?? "").trim();
+      if (!bindPath) {
+        continue;
+      }
+      refs.push({ file: file.name, path: bindPath });
+    }
+  }
+  refs.sort((left, right) =>
+    left.path === right.path
+      ? left.file.localeCompare(right.file)
+      : left.path.localeCompare(right.path),
+  );
+  return refs;
+}
+
+function parseWritePolicyFromConfigToml(configContent: string | undefined): {
+  enabled: boolean;
+  allow: string[];
+} {
+  if (!configContent) {
+    return { enabled: false, allow: [] };
+  }
+  let inWriteSection = false;
+  let collectingAllow = false;
+  let enabled = false;
+  const allow = new Set<string>();
+  for (const rawLine of configContent.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (line.length === 0 || line.startsWith("#")) {
+      continue;
+    }
+    const section = line.match(/^\[([^\]]+)\]$/);
+    if (section) {
+      inWriteSection = section[1].trim().toLowerCase() === "write";
+      collectingAllow = false;
+      continue;
+    }
+    if (!inWriteSection) {
+      continue;
+    }
+    const enabledMatch = line.match(/^enabled\s*=\s*(true|false)\s*$/i);
+    if (enabledMatch) {
+      enabled = enabledMatch[1].toLowerCase() === "true";
+      continue;
+    }
+    if (collectingAllow || /^allow\s*=/.test(line)) {
+      collectingAllow = true;
+      for (const quoted of line.matchAll(/"([^"]+)"/g)) {
+        const value = (quoted[1] ?? "").trim();
+        if (value) {
+          allow.add(value);
+        }
+      }
+      if (line.includes("]")) {
+        collectingAllow = false;
+      }
+    }
+  }
+  return {
+    enabled,
+    allow: Array.from(allow.values()).sort((left, right) =>
+      left.localeCompare(right),
+    ),
+  };
+}
+
+function stableComponent(value: string): string {
+  const source = value.trim().toLowerCase();
+  if (!source) {
+    return "x";
+  }
+  let out = "";
+  let previousDash = false;
+  for (const char of source) {
+    const code = char.charCodeAt(0);
+    const isAlphaNum =
+      (code >= 48 && code <= 57) ||
+      (code >= 97 && code <= 122);
+    if (isAlphaNum) {
+      out += char;
+      previousDash = false;
+      continue;
+    }
+    if (!previousDash) {
+      out += "-";
+      previousDash = true;
+    }
+  }
+  const normalized = out.replace(/^-+/, "").replace(/-+$/, "");
+  return normalized || "x";
+}
+
+function canonicalWidgetIdFromPath(pathValue: string): string {
+  const trimmed = pathValue.trim();
+  if (trimmed.toLowerCase().startsWith("global.")) {
+    const name = trimmed.slice("global.".length);
+    return `resource/resource/global/${stableComponent(name)}`;
+  }
+  const parts = trimmed.split(".");
+  if (parts.length >= 2) {
+    const program = parts[0];
+    const field = parts.slice(1).join(".");
+    return `resource/resource/program/${stableComponent(program)}/field/${stableComponent(field)}`;
+  }
+  return `resource/resource/path/${stableComponent(trimmed)}`;
+}
+
+function normalizeHmiBindingsCatalog(response: unknown): HmiBindingCatalog {
+  const byPath = new Map<string, HmiBindingCatalogEntry>();
+  const entries: HmiBindingCatalogEntry[] = [];
+  const payload =
+    response && typeof response === "object"
+      ? (response as Record<string, unknown>)
+      : {};
+  const programs = Array.isArray(payload.programs) ? payload.programs : [];
+  const globals = Array.isArray(payload.globals) ? payload.globals : [];
+  for (const program of programs) {
+    if (!program || typeof program !== "object") {
+      continue;
+    }
+    const variables = Array.isArray((program as { variables?: unknown }).variables)
+      ? ((program as { variables?: unknown[] }).variables ?? [])
+      : [];
+    for (const variable of variables) {
+      if (!variable || typeof variable !== "object") {
+        continue;
+      }
+      const record = variable as Record<string, unknown>;
+      const pathValue = typeof record.path === "string" ? record.path.trim() : "";
+      if (!pathValue) {
+        continue;
+      }
+      const entry: HmiBindingCatalogEntry = {
+        id: canonicalWidgetIdFromPath(pathValue),
+        path: pathValue,
+        dataType:
+          typeof record.type === "string"
+            ? record.type
+            : typeof record.data_type === "string"
+              ? record.data_type
+              : "UNKNOWN",
+        qualifier:
+          typeof record.qualifier === "string" ? record.qualifier : "UNKNOWN",
+        writable: record.writable === true,
+        unit: typeof record.unit === "string" ? record.unit : null,
+        min: Number.isFinite(record.min) ? Number(record.min) : null,
+        max: Number.isFinite(record.max) ? Number(record.max) : null,
+        enumValues: normalizeStringList(
+          Array.isArray(record.enum_values)
+            ? (record.enum_values.filter((value) => typeof value === "string") as string[])
+            : [],
+        ),
+      };
+      byPath.set(pathValue, entry);
+      entries.push(entry);
+    }
+  }
+
+  for (const variable of globals) {
+    if (!variable || typeof variable !== "object") {
+      continue;
+    }
+    const record = variable as Record<string, unknown>;
+    const pathValue = typeof record.path === "string" ? record.path.trim() : "";
+    if (!pathValue) {
+      continue;
+    }
+    const entry: HmiBindingCatalogEntry = {
+      id: canonicalWidgetIdFromPath(pathValue),
+      path: pathValue,
+      dataType:
+        typeof record.type === "string"
+          ? record.type
+          : typeof record.data_type === "string"
+            ? record.data_type
+            : "UNKNOWN",
+      qualifier:
+        typeof record.qualifier === "string" ? record.qualifier : "UNKNOWN",
+      writable: record.writable === true,
+      unit: typeof record.unit === "string" ? record.unit : null,
+      min: Number.isFinite(record.min) ? Number(record.min) : null,
+      max: Number.isFinite(record.max) ? Number(record.max) : null,
+      enumValues: normalizeStringList(
+        Array.isArray(record.enum_values)
+          ? (record.enum_values.filter((value) => typeof value === "string") as string[])
+          : [],
+      ),
+    };
+    byPath.set(pathValue, entry);
+    entries.push(entry);
+  }
+
+  entries.sort((left, right) =>
+    left.path === right.path
+      ? left.id.localeCompare(right.id)
+      : left.path.localeCompare(right.path),
+  );
+
+  return { entries, byPath };
+}
+
+function stableSortDeep(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((entry) => stableSortDeep(entry));
+  }
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+  const source = value as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const key of Object.keys(source).sort((left, right) =>
+    left.localeCompare(right),
+  )) {
+    out[key] = stableSortDeep(source[key]);
+  }
+  return out;
+}
+
+function stableJsonString(value: unknown): string {
+  return JSON.stringify(stableSortDeep(value), null, 2);
+}
+
+function bindingFingerprint(entry: Omit<HmiLockEntry, "binding_fingerprint">): string {
+  return crypto
+    .createHash("sha256")
+    .update(stableJsonString(entry))
+    .digest("hex")
+    .slice(0, 16);
+}
+
+function buildHmiLockEntries(
+  layoutRefs: HmiLayoutBindingRef[],
+  catalog: HmiBindingCatalog,
+): { entries: HmiLockEntry[]; unknownPaths: string[] } {
+  const filesByPath = new Map<string, Set<string>>();
+  for (const ref of layoutRefs) {
+    const files = filesByPath.get(ref.path) ?? new Set<string>();
+    files.add(ref.file);
+    filesByPath.set(ref.path, files);
+  }
+  const layoutPaths = Array.from(filesByPath.keys()).sort((left, right) =>
+    left.localeCompare(right),
+  );
+  const targetPaths =
+    layoutPaths.length > 0
+      ? layoutPaths
+      : Array.from(catalog.byPath.keys()).sort((left, right) =>
+          left.localeCompare(right),
+        );
+  const unknownPaths: string[] = [];
+  const entries: HmiLockEntry[] = [];
+  for (const pathValue of targetPaths) {
+    const match = catalog.byPath.get(pathValue);
+    if (!match) {
+      unknownPaths.push(pathValue);
+    }
+    const base: Omit<HmiLockEntry, "binding_fingerprint"> = {
+      id: match?.id ?? canonicalWidgetIdFromPath(pathValue),
+      path: pathValue,
+      data_type: match?.dataType ?? "UNKNOWN",
+      qualifier: match?.qualifier ?? "UNKNOWN",
+      writable: match?.writable ?? false,
+      constraints: {
+        unit: match?.unit ?? null,
+        min: match?.min ?? null,
+        max: match?.max ?? null,
+        enum_values: match?.enumValues ?? [],
+      },
+      files: Array.from(filesByPath.get(pathValue) ?? []).sort((left, right) =>
+        left.localeCompare(right),
+      ),
+    };
+    entries.push({
+      ...base,
+      binding_fingerprint: bindingFingerprint(base),
+    });
+  }
+  entries.sort((left, right) =>
+    left.id === right.id
+      ? left.path.localeCompare(right.path)
+      : left.id.localeCompare(right.id),
+  );
+  unknownPaths.sort((left, right) => left.localeCompare(right));
+  return { entries, unknownPaths };
+}
+
+const HMI_CANDIDATE_STRATEGIES: readonly HmiCandidateStrategy[] = [
+  {
+    id: "balanced",
+    grouping: "program",
+    density: "balanced",
+    widget_bias: "balanced",
+    alarm_emphasis: true,
+  },
+  {
+    id: "alarm_first",
+    grouping: "qualifier",
+    density: "balanced",
+    widget_bias: "status_first",
+    alarm_emphasis: true,
+  },
+  {
+    id: "compact",
+    grouping: "program",
+    density: "compact",
+    widget_bias: "status_first",
+    alarm_emphasis: false,
+  },
+  {
+    id: "trend_first",
+    grouping: "path",
+    density: "spacious",
+    widget_bias: "trend_first",
+    alarm_emphasis: false,
+  },
+];
+
+function metric(value: number): number {
+  return Math.round(Math.max(0, Math.min(100, value)) * 100) / 100;
+}
+
+function strategyGroupKey(
+  bindPath: string,
+  catalog: HmiBindingCatalog,
+  strategy: HmiCandidateStrategy,
+): string {
+  if (strategy.grouping === "qualifier") {
+    const qualifier = catalog.byPath.get(bindPath)?.qualifier ?? "UNQUALIFIED";
+    return qualifier.trim() || "UNQUALIFIED";
+  }
+  if (strategy.grouping === "path") {
+    const root = bindPath.split(".")[0] ?? "Path";
+    return root.trim() || "Path";
+  }
+  const program = bindPath.split(".")[0] ?? "Program";
+  return program.trim() || "Program";
+}
+
+function buildCandidatePreview(
+  bindPaths: string[],
+  catalog: HmiBindingCatalog,
+  strategy: HmiCandidateStrategy,
+): HmiCandidate["preview"] {
+  const sectionsByTitle = new Map<string, string[]>();
+  for (const bindPath of bindPaths) {
+    const sectionTitle = strategyGroupKey(bindPath, catalog, strategy);
+    const widgetId = catalog.byPath.get(bindPath)?.id ?? canonicalWidgetIdFromPath(bindPath);
+    const section = sectionsByTitle.get(sectionTitle) ?? [];
+    section.push(widgetId);
+    sectionsByTitle.set(sectionTitle, section);
+  }
+  const sections = Array.from(sectionsByTitle.entries())
+    .map(([title, widgetIds]) => ({
+      title,
+      widget_ids: Array.from(new Set(widgetIds.values())).sort((left, right) =>
+        left.localeCompare(right),
+      ),
+    }))
+    .sort((left, right) => left.title.localeCompare(right.title));
+  return {
+    title: `Candidate ${strategy.id.replace(/_/g, " ")}`,
+    sections,
+  };
+}
+
+function intentPriorityWeights(intentContent: string | undefined): {
+  readability: number;
+  action_latency: number;
+  alarm_salience: number;
+} {
+  const priorities = intentContent
+    ? parseQuotedArrayFromToml(intentContent, "priorities")
+    : [];
+  let readability = 1;
+  let actionLatency = 1;
+  let alarmSalience = 1;
+  for (const priority of priorities) {
+    const normalized = priority.toLowerCase();
+    if (
+      normalized.includes("readability") ||
+      normalized.includes("clarity") ||
+      normalized.includes("usability")
+    ) {
+      readability += 1.5;
+    }
+    if (
+      normalized.includes("latency") ||
+      normalized.includes("response") ||
+      normalized.includes("speed")
+    ) {
+      actionLatency += 1.5;
+    }
+    if (normalized.includes("alarm") || normalized.includes("safety")) {
+      alarmSalience += 1.5;
+    }
+  }
+  const total = readability + actionLatency + alarmSalience;
+  return {
+    readability: readability / total,
+    action_latency: actionLatency / total,
+    alarm_salience: alarmSalience / total,
+  };
+}
+
+function generateCandidateMetrics(
+  bindPaths: string[],
+  catalog: HmiBindingCatalog,
+  strategy: HmiCandidateStrategy,
+  sectionCount: number,
+  weights: {
+    readability: number;
+    action_latency: number;
+    alarm_salience: number;
+  },
+): HmiCandidateMetrics {
+  const bindCount = Math.max(1, bindPaths.length);
+  const boolCount = bindPaths.filter((bindPath) => {
+    const dataType = (catalog.byPath.get(bindPath)?.dataType ?? "").toUpperCase();
+    return dataType === "BOOL";
+  }).length;
+  const boolRatio = boolCount / bindCount;
+  const densityPenalty =
+    strategy.density === "compact"
+      ? 16
+      : strategy.density === "balanced"
+        ? 10
+        : 6;
+  const readability = metric(
+    100 -
+      densityPenalty -
+      Math.max(0, bindCount - 8) * 1.2 -
+      sectionCount * 2 +
+      (strategy.widget_bias === "trend_first" ? -4 : 2),
+  );
+  const actionLatency = metric(
+    100 -
+      sectionCount * 4 -
+      (strategy.density === "spacious"
+        ? 14
+        : strategy.density === "balanced"
+          ? 10
+          : 6) +
+      (strategy.widget_bias === "status_first" ? 8 : 2),
+  );
+  const alarmSalience = metric(
+    60 +
+      (strategy.alarm_emphasis ? 25 : 8) +
+      boolRatio * 15 -
+      (strategy.density === "compact" ? 5 : 0),
+  );
+  const overall = metric(
+    readability * weights.readability +
+      actionLatency * weights.action_latency +
+      alarmSalience * weights.alarm_salience,
+  );
+  return {
+    readability,
+    action_latency: actionLatency,
+    alarm_salience: alarmSalience,
+    overall,
+  };
+}
+
+function generateHmiCandidates(
+  layoutRefs: HmiLayoutBindingRef[],
+  catalog: HmiBindingCatalog,
+  intentContent: string | undefined,
+  candidateCount: number,
+): HmiCandidate[] {
+  const uniqueBindPaths = Array.from(
+    new Set(
+      (layoutRefs.length > 0
+        ? layoutRefs.map((ref) => ref.path)
+        : catalog.entries.map((entry) => entry.path)
+      ).filter((pathValue) => pathValue.trim().length > 0),
+    ),
+  ).sort((left, right) => left.localeCompare(right));
+  const limit = Math.max(
+    1,
+    Math.min(HMI_CANDIDATE_STRATEGIES.length, Math.trunc(candidateCount)),
+  );
+  const weights = intentPriorityWeights(intentContent);
+  const candidates = HMI_CANDIDATE_STRATEGIES.slice(0, limit).map((strategy) => {
+    const preview = buildCandidatePreview(uniqueBindPaths, catalog, strategy);
+    const metrics = generateCandidateMetrics(
+      uniqueBindPaths,
+      catalog,
+      strategy,
+      preview.sections.length,
+      weights,
+    );
+    return {
+      id: `candidate-${strategy.id}`,
+      rank: 0,
+      strategy,
+      metrics,
+      summary: {
+        bindings: uniqueBindPaths.length,
+        sections: preview.sections.length,
+      },
+      preview,
+    } as HmiCandidate;
+  });
+  candidates.sort((left, right) => {
+    if (left.metrics.overall !== right.metrics.overall) {
+      return right.metrics.overall - left.metrics.overall;
+    }
+    return left.id.localeCompare(right.id);
+  });
+  return candidates.map((candidate, index) => ({
+    ...candidate,
+    rank: index + 1,
+  }));
+}
+
+function normalizeTraceIds(
+  ids: string[] | undefined,
+  schema: HmiSchemaResult,
+): string[] {
+  const explicit = normalizeStringList(ids);
+  if (explicit.length > 0) {
+    return explicit;
+  }
+  return schema.widgets
+    .map((widget) => widget.id)
+    .sort((left, right) => left.localeCompare(right))
+    .slice(0, 10);
+}
+
+function normalizeScenario(value: string | undefined): string {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return "normal";
+  }
+  return stableComponent(trimmed);
+}
+
+function normalizeSnapshotViewports(values: string[] | undefined): SnapshotViewport[] {
+  const valid = new Set(
+    normalizeStringList(values)
+      .map((value) => value.toLowerCase())
+      .filter((value) => value === "desktop" || value === "tablet" || value === "mobile"),
+  );
+  const order: SnapshotViewport[] = ["desktop", "tablet", "mobile"];
+  if (valid.size === 0) {
+    return order;
+  }
+  return order.filter((name) => valid.has(name));
+}
+
+function viewportSize(viewport: SnapshotViewport): { width: number; height: number } {
+  if (viewport === "mobile") {
+    return { width: 390, height: 844 };
+  }
+  if (viewport === "tablet") {
+    return { width: 1024, height: 768 };
+  }
+  return { width: 1440, height: 900 };
+}
+
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function renderSnapshotSvg(
+  viewport: SnapshotViewport,
+  candidate: HmiCandidate,
+): string {
+  const size = viewportSize(viewport);
+  const padding = 24;
+  const contentWidth = size.width - padding * 2;
+  const titleY = 46;
+  const rows = Math.max(1, Math.min(candidate.preview.sections.length, 8));
+  const rowHeight = Math.max(56, Math.floor((size.height - 120) / rows));
+  const lines: string[] = [];
+  lines.push(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${size.width}" height="${size.height}" viewBox="0 0 ${size.width} ${size.height}">`,
+  );
+  lines.push(`<rect x="0" y="0" width="${size.width}" height="${size.height}" fill="#0f172a" />`);
+  lines.push(
+    `<text x="${padding}" y="${titleY}" fill="#e2e8f0" font-family="Menlo, monospace" font-size="20">${escapeXml(candidate.preview.title)} (${viewport})</text>`,
+  );
+  candidate.preview.sections.slice(0, 8).forEach((section, index) => {
+    const y = 72 + index * rowHeight;
+    lines.push(
+      `<rect x="${padding}" y="${y}" width="${contentWidth}" height="${rowHeight - 8}" rx="8" fill="#1e293b" stroke="#334155" />`,
+    );
+    lines.push(
+      `<text x="${padding + 12}" y="${y + 26}" fill="#f8fafc" font-family="Menlo, monospace" font-size="14">${escapeXml(section.title)}</text>`,
+    );
+    lines.push(
+      `<text x="${padding + 12}" y="${y + 46}" fill="#94a3b8" font-family="Menlo, monospace" font-size="12">widgets: ${section.widget_ids.length}</text>`,
+    );
+  });
+  lines.push("</svg>");
+  return `${lines.join("\n")}\n`;
+}
+
+function hashContent(value: string): string {
+  return crypto.createHash("sha256").update(value).digest("hex").slice(0, 16);
+}
+
+function evidenceRunId(date: Date): string {
+  const year = date.getUTCFullYear().toString().padStart(4, "0");
+  const month = (date.getUTCMonth() + 1).toString().padStart(2, "0");
+  const day = date.getUTCDate().toString().padStart(2, "0");
+  const hours = date.getUTCHours().toString().padStart(2, "0");
+  const minutes = date.getUTCMinutes().toString().padStart(2, "0");
+  const seconds = date.getUTCSeconds().toString().padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}-${minutes}-${seconds}Z`;
+}
+
+async function pruneEvidenceRuns(
+  hmiRoot: vscode.Uri,
+  retainRuns: number,
+): Promise<string[]> {
+  const evidenceRoot = vscode.Uri.joinPath(hmiRoot, "_evidence");
+  let entries: [string, vscode.FileType][];
+  try {
+    entries = await vscode.workspace.fs.readDirectory(evidenceRoot);
+  } catch {
+    return [];
+  }
+  const dirs = entries
+    .filter(([, kind]) => kind === vscode.FileType.Directory)
+    .map(([name]) => name)
+    .sort((left, right) => left.localeCompare(right));
+  const limit = Math.max(1, Math.trunc(retainRuns));
+  if (dirs.length <= limit) {
+    return [];
+  }
+  const removable = dirs.slice(0, dirs.length - limit);
+  for (const name of removable) {
+    await vscode.workspace.fs.delete(vscode.Uri.joinPath(evidenceRoot, name), {
+      recursive: true,
+      useTrash: false,
+    });
+  }
+  return removable;
+}
+
+async function collectHmiDiagnosticsForFiles(
+  rootPath: string,
+  files: HmiLayoutFileEntry[],
+  token: vscode.CancellationToken,
+): Promise<HmiValidationCheck[]> {
+  const checks: HmiValidationCheck[] = [];
+  for (const file of files) {
+    if (token.isCancellationRequested) {
+      break;
+    }
+    const uri = vscode.Uri.joinPath(vscode.Uri.file(rootPath), file.path);
+    try {
+      await ensureDocument(uri);
+    } catch {
+      continue;
+    }
+    const diagnostics = vscode.languages.getDiagnostics(uri);
+    for (const diagnostic of diagnostics) {
+      const severity: HmiValidationCheck["severity"] =
+        diagnostic.severity === vscode.DiagnosticSeverity.Error
+          ? "error"
+          : diagnostic.severity === vscode.DiagnosticSeverity.Warning
+            ? "warning"
+            : "info";
+      const code =
+        typeof diagnostic.code === "string" || typeof diagnostic.code === "number"
+          ? String(diagnostic.code)
+          : typeof diagnostic.code?.value === "string" ||
+              typeof diagnostic.code?.value === "number"
+            ? String(diagnostic.code.value)
+            : "HMI_VALIDATE_DIAGNOSTIC";
+      checks.push({
+        code,
+        severity,
+        message: diagnostic.message,
+        file: file.path,
+        range: formatRange(diagnostic.range),
+      });
+    }
+  }
+  checks.sort((left, right) => {
+    const rank = hmiSeverityRank(left.severity) - hmiSeverityRank(right.severity);
+    if (rank !== 0) {
+      return rank;
+    }
+    if ((left.file ?? "") !== (right.file ?? "")) {
+      return (left.file ?? "").localeCompare(right.file ?? "");
+    }
+    if (left.code !== right.code) {
+      return left.code.localeCompare(right.code);
+    }
+    return left.message.localeCompare(right.message);
+  });
+  return checks;
 }
 
 async function ensureDocument(uri: vscode.Uri): Promise<vscode.TextDocument> {
@@ -2315,6 +3899,1562 @@ export class STProjectInfoTool extends LspToolBase {
   }
 }
 
+export class STHmiGetBindingsTool extends LspToolBase {
+  async invoke(
+    options: InvocationOptions<HmiBindingsParams>,
+    token: vscode.CancellationToken,
+  ): Promise<unknown> {
+    if (token.isCancellationRequested) {
+      return textResult("Cancelled.");
+    }
+
+    const args: Record<string, unknown> = {};
+    if (options.input.rootPath && options.input.rootPath.trim()) {
+      const uri = uriFromFilePath(options.input.rootPath.trim());
+      if (!uri) {
+        return errorResult("rootPath must be an absolute path or URI.");
+      }
+      const workspaceError = ensureWorkspaceUri(uri);
+      if (workspaceError) {
+        return errorResult(workspaceError);
+      }
+      args.root_uri = uri.toString();
+    }
+    if (options.input.filePath && options.input.filePath.trim()) {
+      const uri = uriFromFilePath(options.input.filePath.trim());
+      if (!uri) {
+        return errorResult("filePath must be an absolute path or URI.");
+      }
+      const workspaceError = ensureWorkspaceUri(uri);
+      if (workspaceError) {
+        return errorResult(workspaceError);
+      }
+      args.text_document = { uri: uri.toString() };
+    }
+
+    const result = await this.request(
+      "workspace/executeCommand",
+      {
+        command: "trust-lsp.hmiBindings",
+        arguments: Object.keys(args).length > 0 ? [args] : [],
+      },
+      token,
+    );
+    if ("error" in result) {
+      return errorResult(result.error);
+    }
+    const response = result.response as { ok?: boolean; error?: unknown } | null;
+    if (
+      response &&
+      typeof response === "object" &&
+      response.ok === false
+    ) {
+      const message =
+        typeof response.error === "string"
+          ? response.error
+          : "trust-lsp.hmiBindings failed.";
+      return errorResult(message);
+    }
+    return textResult(
+      JSON.stringify(
+        {
+          command: "trust-lsp.hmiBindings",
+          result: result.response,
+        },
+        null,
+        2,
+      ),
+    );
+  }
+}
+
+export class STHmiGetLayoutTool {
+  async invoke(
+    options: InvocationOptions<HmiGetLayoutParams>,
+    token: vscode.CancellationToken,
+  ): Promise<unknown> {
+    if (token.isCancellationRequested) {
+      return textResult("Cancelled.");
+    }
+    const layout = await readHmiLayoutSnapshot(options.input.rootPath, token);
+    if (layout.error) {
+      if (layout.error === "Cancelled.") {
+        return textResult("Cancelled.");
+      }
+      return errorResult(layout.error);
+    }
+    const snapshot = layout.snapshot;
+    if (!snapshot) {
+      return errorResult("Unable to read HMI layout.");
+    }
+    return textResult(
+      JSON.stringify(
+        snapshot.exists
+          ? snapshot
+          : {
+              exists: false,
+              rootPath: snapshot.rootPath,
+              hmiPath: snapshot.hmiPath,
+            },
+        null,
+        2,
+      ),
+    );
+  }
+}
+
+export class STHmiApplyPatchTool {
+  async invoke(
+    options: InvocationOptions<HmiApplyPatchParams>,
+    token: vscode.CancellationToken,
+  ): Promise<unknown> {
+    if (token.isCancellationRequested) {
+      return textResult("Cancelled.");
+    }
+    if (!Array.isArray(options.input.operations) || options.input.operations.length === 0) {
+      return errorResult("operations must be a non-empty array.");
+    }
+
+    const resolved = resolveWorkspaceFolder(options.input.rootPath);
+    if (resolved.error || !resolved.folder) {
+      return errorResult(resolved.error ?? "Unable to resolve workspace folder.");
+    }
+    const dryRun = options.input.dry_run === true;
+    const hmiRoot = vscode.Uri.joinPath(resolved.folder.uri, "hmi");
+
+    const currentFiles = new Map<string, string>();
+    try {
+      const entries = await vscode.workspace.fs.readDirectory(hmiRoot);
+      for (const [name, kind] of entries) {
+        if (kind !== vscode.FileType.File || !name.toLowerCase().endsWith(".toml")) {
+          continue;
+        }
+        const content = await vscode.workspace.fs.readFile(vscode.Uri.joinPath(hmiRoot, name));
+        currentFiles.set(name, Buffer.from(content).toString("utf8"));
+      }
+    } catch {
+      // hmi/ may not exist yet; this is valid for patch application.
+    }
+
+    const nextFiles = new Map(currentFiles);
+    const conflicts: Array<{
+      code: string;
+      index: number;
+      path?: string;
+      message: string;
+    }> = [];
+
+    for (const [index, operation] of options.input.operations.entries()) {
+      if (token.isCancellationRequested) {
+        return textResult("Cancelled.");
+      }
+      const op = operation?.op;
+      if (!op || !["add", "remove", "replace", "move"].includes(op)) {
+        conflicts.push({
+          code: "HMI_PATCH_INVALID_OP",
+          index,
+          message: "operation.op must be one of add/remove/replace/move",
+        });
+        continue;
+      }
+      const target = hmiDescriptorFileFromPointer(String(operation.path ?? ""));
+      if (!target) {
+        conflicts.push({
+          code: "HMI_PATCH_INVALID_PATH",
+          index,
+          path: String(operation.path ?? ""),
+          message: "path must target /files/<name>.toml or /files/<name>.toml/content",
+        });
+        continue;
+      }
+
+      if (op === "add" || op === "replace") {
+        if (typeof operation.value !== "string") {
+          conflicts.push({
+            code: "HMI_PATCH_TYPE_MISMATCH",
+            index,
+            path: String(operation.path ?? ""),
+            message: "add/replace requires a string value containing TOML content",
+          });
+          continue;
+        }
+        if (op === "add" && nextFiles.has(target)) {
+          conflicts.push({
+            code: "HMI_PATCH_CONFLICT_EXISTS",
+            index,
+            path: String(operation.path ?? ""),
+            message: `target file '${target}' already exists`,
+          });
+          continue;
+        }
+        if (op === "replace" && !nextFiles.has(target)) {
+          conflicts.push({
+            code: "HMI_PATCH_NOT_FOUND",
+            index,
+            path: String(operation.path ?? ""),
+            message: `target file '${target}' does not exist`,
+          });
+          continue;
+        }
+        nextFiles.set(target, operation.value);
+        continue;
+      }
+
+      if (op === "remove") {
+        if (!nextFiles.has(target)) {
+          conflicts.push({
+            code: "HMI_PATCH_NOT_FOUND",
+            index,
+            path: String(operation.path ?? ""),
+            message: `target file '${target}' does not exist`,
+          });
+          continue;
+        }
+        nextFiles.delete(target);
+        continue;
+      }
+
+      const from = hmiDescriptorFileFromPointer(String(operation.from ?? ""));
+      if (!from) {
+        conflicts.push({
+          code: "HMI_PATCH_INVALID_FROM",
+          index,
+          path: String(operation.from ?? ""),
+          message: "move requires a valid from pointer",
+        });
+        continue;
+      }
+      const sourceText = nextFiles.get(from);
+      if (sourceText === undefined) {
+        conflicts.push({
+          code: "HMI_PATCH_NOT_FOUND",
+          index,
+          path: String(operation.from ?? ""),
+          message: `source file '${from}' does not exist`,
+        });
+        continue;
+      }
+      if (nextFiles.has(target)) {
+        conflicts.push({
+          code: "HMI_PATCH_CONFLICT_EXISTS",
+          index,
+          path: String(operation.path ?? ""),
+          message: `target file '${target}' already exists`,
+        });
+        continue;
+      }
+      nextFiles.delete(from);
+      nextFiles.set(target, sourceText);
+    }
+
+    const changedFiles: Array<{ file: string; action: "add" | "replace" | "remove" }> = [];
+    const names = new Set<string>([...currentFiles.keys(), ...nextFiles.keys()]);
+    for (const name of Array.from(names.values()).sort((left, right) => left.localeCompare(right))) {
+      const before = currentFiles.get(name);
+      const after = nextFiles.get(name);
+      if (before === undefined && after !== undefined) {
+        changedFiles.push({ file: path.posix.join("hmi", name), action: "add" });
+      } else if (before !== undefined && after === undefined) {
+        changedFiles.push({ file: path.posix.join("hmi", name), action: "remove" });
+      } else if (before !== undefined && after !== undefined && before !== after) {
+        changedFiles.push({ file: path.posix.join("hmi", name), action: "replace" });
+      }
+    }
+
+    if (dryRun || conflicts.length > 0) {
+      return textResult(
+        JSON.stringify(
+          {
+            ok: conflicts.length === 0,
+            dry_run: dryRun,
+            rootPath: resolved.folder.uri.fsPath,
+            conflicts,
+            changes: changedFiles,
+          },
+          null,
+          2,
+        ),
+      );
+    }
+
+    await vscode.workspace.fs.createDirectory(hmiRoot);
+    for (const change of changedFiles) {
+      if (token.isCancellationRequested) {
+        return textResult("Cancelled.");
+      }
+      const fileName = change.file.slice("hmi/".length);
+      const fileUri = vscode.Uri.joinPath(hmiRoot, fileName);
+      if (change.action === "remove") {
+        try {
+          await vscode.workspace.fs.delete(fileUri, { useTrash: false });
+        } catch {
+          // Ignore missing files during remove reconciliation.
+        }
+        continue;
+      }
+      const text = nextFiles.get(fileName) ?? "";
+      await vscode.workspace.fs.writeFile(fileUri, Buffer.from(text, "utf8"));
+    }
+
+    try {
+      await vscode.commands.executeCommand("trust-lsp.hmi.refreshFromDescriptor");
+    } catch {
+      // Optional refresh command; ignore failures.
+    }
+
+    return textResult(
+      JSON.stringify(
+        {
+          ok: true,
+          dry_run: false,
+          rootPath: resolved.folder.uri.fsPath,
+          conflicts: [],
+          changes: changedFiles,
+        },
+        null,
+        2,
+      ),
+    );
+  }
+}
+
+export class STHmiPlanIntentTool {
+  async invoke(
+    options: InvocationOptions<HmiPlanIntentParams>,
+    token: vscode.CancellationToken,
+  ): Promise<unknown> {
+    if (token.isCancellationRequested) {
+      return textResult("Cancelled.");
+    }
+    const layout = await readHmiLayoutSnapshot(options.input.rootPath, token);
+    if (layout.error) {
+      if (layout.error === "Cancelled.") {
+        return textResult("Cancelled.");
+      }
+      return errorResult(layout.error);
+    }
+    const snapshot = layout.snapshot;
+    if (!snapshot) {
+      return errorResult("Unable to resolve HMI workspace.");
+    }
+    const dryRun = options.input.dry_run === true;
+    const hmiRoot = vscode.Uri.file(snapshot.hmiPath);
+    const intentUri = vscode.Uri.joinPath(hmiRoot, "_intent.toml");
+    const content = renderIntentToml(options.input);
+
+    let previous = "";
+    let existed = false;
+    try {
+      const bytes = await vscode.workspace.fs.readFile(intentUri);
+      previous = Buffer.from(bytes).toString("utf8");
+      existed = true;
+    } catch {
+      existed = false;
+    }
+
+    const changed = previous !== content;
+    if (!dryRun && changed) {
+      await vscode.workspace.fs.createDirectory(hmiRoot);
+      await writeUtf8File(intentUri, content);
+    }
+
+    return textResult(
+      JSON.stringify(
+        {
+          ok: true,
+          dry_run: dryRun,
+          rootPath: snapshot.rootPath,
+          intentPath: path.posix.join("hmi", "_intent.toml"),
+          existed,
+          changed,
+          content,
+        },
+        null,
+        2,
+      ),
+    );
+  }
+}
+
+export class STHmiValidateTool extends LspToolBase {
+  async invoke(
+    options: InvocationOptions<HmiValidateParams>,
+    token: vscode.CancellationToken,
+  ): Promise<unknown> {
+    if (token.isCancellationRequested) {
+      return textResult("Cancelled.");
+    }
+    const layout = await readHmiLayoutSnapshot(options.input.rootPath, token);
+    if (layout.error) {
+      if (layout.error === "Cancelled.") {
+        return textResult("Cancelled.");
+      }
+      return errorResult(layout.error);
+    }
+    const snapshot = layout.snapshot;
+    if (!snapshot) {
+      return errorResult("Unable to resolve HMI workspace.");
+    }
+    if (!snapshot.exists) {
+      return errorResult("hmi/ directory does not exist.");
+    }
+
+    const dryRun = options.input.dry_run === true;
+    const prune = options.input.prune === true;
+    const retainRuns = Number.isInteger(options.input.retain_runs)
+      ? Math.max(1, Number(options.input.retain_runs))
+      : 10;
+    const checks: HmiValidationCheck[] = [];
+    const layoutRefs = extractLayoutBindingRefs(snapshot.pages);
+    if (layoutRefs.length === 0) {
+      checks.push({
+        code: "HMI_VALIDATE_LAYOUT_NO_BINDS",
+        severity: "warning",
+        message: "No bind/source entries were found in hmi page files.",
+      });
+    }
+
+    const writePolicy = parseWritePolicyFromConfigToml(snapshot.config?.content);
+    if (writePolicy.enabled && writePolicy.allow.length === 0) {
+      checks.push({
+        code: "HMI_VALIDATE_WRITE_ALLOWLIST_EMPTY",
+        severity: "error",
+        file: "hmi/_config.toml",
+        message:
+          "[write].enabled is true but no allowlist entries were found in hmi/_config.toml.",
+      });
+    }
+    for (const target of writePolicy.allow) {
+      if (!target.startsWith("resource/")) {
+        checks.push({
+          code: "HMI_VALIDATE_WRITE_ALLOW_NON_CANONICAL",
+          severity: "warning",
+          file: "hmi/_config.toml",
+          message: `Write allowlist target '${target}' is not canonical (expected resource/... identifier).`,
+        });
+      }
+    }
+
+    const pollMs = vscode.workspace
+      .getConfiguration("trust-lsp", vscode.Uri.file(snapshot.rootPath))
+      .get<number>("hmi.pollIntervalMs", 500);
+    if (pollMs < 50) {
+      checks.push({
+        code: "HMI_VALIDATE_POLL_INTERVAL_TOO_LOW",
+        severity: "warning",
+        message: `Configured poll interval (${pollMs}ms) is below the recommended lower bound (50ms).`,
+      });
+    } else if (pollMs > 1000) {
+      checks.push({
+        code: "HMI_VALIDATE_POLL_INTERVAL_TOO_HIGH",
+        severity: "warning",
+        message: `Configured poll interval (${pollMs}ms) exceeds the recommended upper bound (1000ms).`,
+      });
+    }
+
+    let catalog = normalizeHmiBindingsCatalog({});
+    let catalogAvailable = false;
+    const bindingsRequest = await this.request(
+      "workspace/executeCommand",
+      {
+        command: "trust-lsp.hmiBindings",
+        arguments: [{ root_uri: vscode.Uri.file(snapshot.rootPath).toString() }],
+      },
+      token,
+    );
+    if ("error" in bindingsRequest) {
+      checks.push({
+        code: "HMI_VALIDATE_BINDINGS_UNAVAILABLE",
+        severity: "warning",
+        message: `Unable to load binding catalog from trust-lsp.hmiBindings: ${bindingsRequest.error}`,
+      });
+    } else {
+      const payload =
+        bindingsRequest.response && typeof bindingsRequest.response === "object"
+          ? (bindingsRequest.response as Record<string, unknown>)
+          : {};
+      if (payload.ok === false) {
+        checks.push({
+          code: "HMI_VALIDATE_BINDINGS_UNAVAILABLE",
+          severity: "warning",
+          message: `trust-lsp.hmiBindings failed: ${String(payload.error ?? "unknown error")}`,
+        });
+      } else {
+        catalog = normalizeHmiBindingsCatalog(payload);
+        catalogAvailable = true;
+      }
+    }
+
+    const lock = buildHmiLockEntries(layoutRefs, catalog);
+    for (const unknownPath of lock.unknownPaths) {
+      checks.push({
+        code: "HMI_VALIDATE_UNKNOWN_BIND_PATH",
+        severity: catalogAvailable ? "error" : "warning",
+        message: `Binding path '${unknownPath}' is not present in the current binding catalog.`,
+      });
+    }
+
+    const diagnosticChecks = await collectHmiDiagnosticsForFiles(
+      snapshot.rootPath,
+      snapshot.files,
+      token,
+    );
+    checks.push(...diagnosticChecks);
+    checks.sort((left, right) => {
+      const severity = hmiSeverityRank(left.severity) - hmiSeverityRank(right.severity);
+      if (severity !== 0) {
+        return severity;
+      }
+      if ((left.file ?? "") !== (right.file ?? "")) {
+        return (left.file ?? "").localeCompare(right.file ?? "");
+      }
+      if (left.code !== right.code) {
+        return left.code.localeCompare(right.code);
+      }
+      return left.message.localeCompare(right.message);
+    });
+
+    const errors = checks.filter((check) => check.severity === "error").length;
+    const warnings = checks.filter((check) => check.severity === "warning").length;
+    const infos = checks.filter((check) => check.severity === "info").length;
+    const ok = errors === 0;
+
+    const lockDocument = {
+      version: 1,
+      widgets: lock.entries,
+    };
+    const lockContent = `${stableJsonString(lockDocument)}\n`;
+    const generatedAt = new Date();
+    const validationDocument = {
+      version: 1,
+      generated_at: generatedAt.toISOString(),
+      ok,
+      root_path: snapshot.rootPath,
+      hmi_path: snapshot.hmiPath,
+      counts: {
+        errors,
+        warnings,
+        infos,
+      },
+      checks,
+    };
+    const journeysDocument = {
+      version: 1,
+      generated_at: generatedAt.toISOString(),
+      journeys: [],
+      note: "No journey scenarios executed in validate-only run.",
+    };
+
+    const hmiRoot = vscode.Uri.file(snapshot.hmiPath);
+    const lockUri = vscode.Uri.joinPath(hmiRoot, "_lock.json");
+    let evidencePath: string | null = null;
+    let prunedRuns: string[] = [];
+    if (!dryRun) {
+      await vscode.workspace.fs.createDirectory(hmiRoot);
+      await writeUtf8File(lockUri, lockContent);
+
+      const runId = evidenceRunId(generatedAt);
+      const evidenceRoot = vscode.Uri.joinPath(hmiRoot, "_evidence");
+      const runRoot = vscode.Uri.joinPath(evidenceRoot, runId);
+      await vscode.workspace.fs.createDirectory(runRoot);
+      await writeUtf8File(
+        vscode.Uri.joinPath(runRoot, "validation.json"),
+        `${stableJsonString(validationDocument)}\n`,
+      );
+      await writeUtf8File(
+        vscode.Uri.joinPath(runRoot, "journeys.json"),
+        `${stableJsonString(journeysDocument)}\n`,
+      );
+      evidencePath = path.posix.join("hmi", "_evidence", runId);
+      if (prune) {
+        prunedRuns = await pruneEvidenceRuns(hmiRoot, retainRuns);
+      }
+    }
+
+    return textResult(
+      JSON.stringify(
+        {
+          ok,
+          dry_run: dryRun,
+          prune,
+          retain_runs: retainRuns,
+          rootPath: snapshot.rootPath,
+          lockPath: path.posix.join("hmi", "_lock.json"),
+          evidencePath,
+          prunedRuns,
+          checks,
+          counts: { errors, warnings, infos },
+          widgetCount: lock.entries.length,
+        },
+        null,
+        2,
+      ),
+    );
+  }
+}
+
+export class STHmiTraceCaptureTool {
+  async invoke(
+    options: InvocationOptions<HmiTraceCaptureParams>,
+    token: vscode.CancellationToken,
+  ): Promise<unknown> {
+    if (token.isCancellationRequested) {
+      return textResult("Cancelled.");
+    }
+    const layout = await readHmiLayoutSnapshot(options.input.rootPath, token);
+    if (layout.error) {
+      if (layout.error === "Cancelled.") {
+        return textResult("Cancelled.");
+      }
+      return errorResult(layout.error);
+    }
+    const snapshot = layout.snapshot;
+    if (!snapshot || !snapshot.exists) {
+      return errorResult("hmi/ directory does not exist.");
+    }
+    let schemaPayload: HmiSchemaResult;
+    try {
+      const schemaRaw = await requestRuntimeControl(
+        snapshot.rootPath,
+        token,
+        "hmi.schema.get",
+        undefined,
+      );
+      const parsed = parseHmiSchemaPayload(schemaRaw);
+      if (!parsed) {
+        return errorResult("runtime returned an invalid hmi.schema.get payload.");
+      }
+      schemaPayload = parsed;
+    } catch (error) {
+      return errorResult(`Failed to capture trace schema: ${String(error)}`);
+    }
+
+    const dryRun = options.input.dry_run === true;
+    const scenario = normalizeScenario(options.input.scenario);
+    const sampleCount = coerceInt(options.input.samples, 4, 1, 50);
+    const sampleIntervalMs = coerceInt(options.input.sample_interval_ms, 200, 10, 5000);
+    const ids = normalizeTraceIds(options.input.ids, schemaPayload);
+    if (ids.length === 0) {
+      return errorResult("No widget IDs available for trace capture.");
+    }
+
+    const startedAt = new Date();
+    const samples: Array<{
+      index: number;
+      timestamp_ms: number;
+      connected: boolean;
+      values: Record<string, unknown>;
+      qualities: Record<string, string>;
+      error?: string;
+    }> = [];
+    for (let index = 0; index < sampleCount; index += 1) {
+      if (token.isCancellationRequested) {
+        return textResult("Cancelled.");
+      }
+      try {
+        const valuesRaw = await requestRuntimeControl(
+          snapshot.rootPath,
+          token,
+          "hmi.values.get",
+          { ids },
+        );
+        const parsedValues = parseHmiValuesPayload(valuesRaw);
+        if (!parsedValues) {
+          throw new Error("runtime returned an invalid hmi.values.get payload.");
+        }
+        const valueSnapshot: Record<string, unknown> = {};
+        const qualitySnapshot: Record<string, string> = {};
+        for (const widgetId of ids) {
+          const entry = parsedValues.values[widgetId];
+          if (!entry) {
+            continue;
+          }
+          valueSnapshot[widgetId] = entry.v;
+          qualitySnapshot[widgetId] = entry.q;
+        }
+        samples.push({
+          index: index + 1,
+          timestamp_ms: parsedValues.timestamp_ms,
+          connected: parsedValues.connected,
+          values: valueSnapshot,
+          qualities: qualitySnapshot,
+        });
+      } catch (error) {
+        samples.push({
+          index: index + 1,
+          timestamp_ms: Date.now(),
+          connected: false,
+          values: {},
+          qualities: {},
+          error: String(error),
+        });
+      }
+
+      if (index + 1 < sampleCount) {
+        const slept = await sleepWithCancellation(sampleIntervalMs, token);
+        if (!slept) {
+          return textResult("Cancelled.");
+        }
+      }
+    }
+
+    const runId = normalizeEvidenceRunId(options.input.run_id) ?? evidenceRunId(startedAt);
+    const traceDocument = {
+      version: 1,
+      generated_at: startedAt.toISOString(),
+      scenario,
+      ids,
+      sample_interval_ms: sampleIntervalMs,
+      samples,
+    };
+
+    let evidencePath: string | null = null;
+    let tracePath: string | null = null;
+    if (!dryRun) {
+      const hmiRoot = vscode.Uri.file(snapshot.hmiPath);
+      const runRoot = vscode.Uri.joinPath(hmiRoot, "_evidence", runId);
+      await vscode.workspace.fs.createDirectory(runRoot);
+      const fileName = `trace-${scenario}.json`;
+      await writeUtf8File(
+        vscode.Uri.joinPath(runRoot, fileName),
+        `${stableJsonString(traceDocument)}\n`,
+      );
+      evidencePath = path.posix.join("hmi", "_evidence", runId);
+      tracePath = path.posix.join(evidencePath, fileName);
+    }
+
+    return textResult(
+      JSON.stringify(
+        {
+          ok: true,
+          dry_run: dryRun,
+          rootPath: snapshot.rootPath,
+          scenario,
+          run_id: runId,
+          evidencePath,
+          tracePath,
+          counts: {
+            requested_samples: sampleCount,
+            captured_samples: samples.length,
+            error_samples: samples.filter((sample) => !!sample.error).length,
+          },
+          ids,
+          samples,
+        },
+        null,
+        2,
+      ),
+    );
+  }
+}
+
+export class STHmiGenerateCandidatesTool extends LspToolBase {
+  async invoke(
+    options: InvocationOptions<HmiGenerateCandidatesParams>,
+    token: vscode.CancellationToken,
+  ): Promise<unknown> {
+    if (token.isCancellationRequested) {
+      return textResult("Cancelled.");
+    }
+    const layout = await readHmiLayoutSnapshot(options.input.rootPath, token);
+    if (layout.error) {
+      if (layout.error === "Cancelled.") {
+        return textResult("Cancelled.");
+      }
+      return errorResult(layout.error);
+    }
+    const snapshot = layout.snapshot;
+    if (!snapshot || !snapshot.exists) {
+      return errorResult("hmi/ directory does not exist.");
+    }
+
+    const descriptorPages = layoutDescriptorPages(snapshot.files);
+    const refs = extractLayoutBindingRefs(descriptorPages);
+    let catalog = normalizeHmiBindingsCatalog({});
+    let catalogAvailable = false;
+    let catalogError: string | undefined;
+    const bindingsRequest = await this.request(
+      "workspace/executeCommand",
+      {
+        command: "trust-lsp.hmiBindings",
+        arguments: [{ root_uri: vscode.Uri.file(snapshot.rootPath).toString() }],
+      },
+      token,
+    );
+    if ("error" in bindingsRequest) {
+      catalogError = bindingsRequest.error;
+    } else {
+      const payload =
+        bindingsRequest.response && typeof bindingsRequest.response === "object"
+          ? (bindingsRequest.response as Record<string, unknown>)
+          : {};
+      if (payload.ok === false) {
+        catalogError = String(payload.error ?? "unknown error");
+      } else {
+        catalog = normalizeHmiBindingsCatalog(payload);
+        catalogAvailable = true;
+      }
+    }
+
+    const intentContent = snapshot.files.find((file) => file.name === "_intent.toml")?.content;
+    const candidateCount = coerceInt(
+      options.input.candidate_count,
+      3,
+      1,
+      HMI_CANDIDATE_STRATEGIES.length,
+    );
+    const candidates = generateHmiCandidates(
+      refs,
+      catalog,
+      intentContent,
+      candidateCount,
+    );
+    const generatedAt = new Date();
+    const runId = normalizeEvidenceRunId(options.input.run_id) ?? evidenceRunId(generatedAt);
+    const dryRun = options.input.dry_run === true;
+    const candidateDocument = {
+      version: 1,
+      generated_at: generatedAt.toISOString(),
+      intent_priorities: intentContent
+        ? parseQuotedArrayFromToml(intentContent, "priorities")
+        : [],
+      candidates,
+    };
+
+    let evidencePath: string | null = null;
+    let candidatesPath: string | null = null;
+    if (!dryRun) {
+      const hmiRoot = vscode.Uri.file(snapshot.hmiPath);
+      const runRoot = vscode.Uri.joinPath(hmiRoot, "_evidence", runId);
+      await vscode.workspace.fs.createDirectory(runRoot);
+      await writeUtf8File(
+        vscode.Uri.joinPath(runRoot, "candidates.json"),
+        `${stableJsonString(candidateDocument)}\n`,
+      );
+      evidencePath = path.posix.join("hmi", "_evidence", runId);
+      candidatesPath = path.posix.join(evidencePath, "candidates.json");
+    }
+
+    return textResult(
+      JSON.stringify(
+        {
+          ok: true,
+          dry_run: dryRun,
+          rootPath: snapshot.rootPath,
+          run_id: runId,
+          evidencePath,
+          candidatesPath,
+          catalogAvailable,
+          catalogError,
+          candidates,
+        },
+        null,
+        2,
+      ),
+    );
+  }
+}
+
+export class STHmiPreviewSnapshotTool extends LspToolBase {
+  async invoke(
+    options: InvocationOptions<HmiPreviewSnapshotParams>,
+    token: vscode.CancellationToken,
+  ): Promise<unknown> {
+    if (token.isCancellationRequested) {
+      return textResult("Cancelled.");
+    }
+    const layout = await readHmiLayoutSnapshot(options.input.rootPath, token);
+    if (layout.error) {
+      if (layout.error === "Cancelled.") {
+        return textResult("Cancelled.");
+      }
+      return errorResult(layout.error);
+    }
+    const snapshot = layout.snapshot;
+    if (!snapshot || !snapshot.exists) {
+      return errorResult("hmi/ directory does not exist.");
+    }
+
+    const dryRun = options.input.dry_run === true;
+    const requestedRunId = normalizeEvidenceRunId(options.input.run_id);
+    let runId = requestedRunId;
+    let candidates: HmiCandidate[] = [];
+    if (requestedRunId) {
+      const candidatesUri = vscode.Uri.joinPath(
+        vscode.Uri.file(snapshot.hmiPath),
+        "_evidence",
+        requestedRunId,
+        "candidates.json",
+      );
+      try {
+        const bytes = await vscode.workspace.fs.readFile(candidatesUri);
+        const payload = JSON.parse(Buffer.from(bytes).toString("utf8")) as {
+          candidates?: unknown[];
+        };
+        if (Array.isArray(payload.candidates)) {
+          candidates = payload.candidates
+            .map((entry) => {
+              const record = asRecord(entry);
+              if (!record || typeof record.id !== "string") {
+                return undefined;
+              }
+              const strategy = asRecord(record.strategy);
+              const metrics = asRecord(record.metrics);
+              const preview = asRecord(record.preview);
+              if (!strategy || !metrics || !preview || !Array.isArray(preview.sections)) {
+                return undefined;
+              }
+              return {
+                id: record.id,
+                rank:
+                  typeof record.rank === "number" && Number.isFinite(record.rank)
+                    ? record.rank
+                    : 0,
+                strategy: {
+                  id: typeof strategy.id === "string" ? strategy.id : "loaded",
+                  grouping:
+                    strategy.grouping === "qualifier" ||
+                    strategy.grouping === "path"
+                      ? strategy.grouping
+                      : "program",
+                  density:
+                    strategy.density === "compact" || strategy.density === "spacious"
+                      ? strategy.density
+                      : "balanced",
+                  widget_bias:
+                    strategy.widget_bias === "status_first" ||
+                    strategy.widget_bias === "trend_first"
+                      ? strategy.widget_bias
+                      : "balanced",
+                  alarm_emphasis: strategy.alarm_emphasis === true,
+                },
+                metrics: {
+                  readability:
+                    typeof metrics.readability === "number" ? metrics.readability : 0,
+                  action_latency:
+                    typeof metrics.action_latency === "number"
+                      ? metrics.action_latency
+                      : 0,
+                  alarm_salience:
+                    typeof metrics.alarm_salience === "number"
+                      ? metrics.alarm_salience
+                      : 0,
+                  overall: typeof metrics.overall === "number" ? metrics.overall : 0,
+                },
+                summary: {
+                  bindings:
+                    typeof asRecord(record.summary)?.bindings === "number"
+                      ? (asRecord(record.summary)?.bindings as number)
+                      : 0,
+                  sections:
+                    typeof asRecord(record.summary)?.sections === "number"
+                      ? (asRecord(record.summary)?.sections as number)
+                      : 0,
+                },
+                preview: {
+                  title: typeof preview.title === "string" ? preview.title : "Candidate",
+                  sections: preview.sections
+                    .map((section) => {
+                      const sectionRecord = asRecord(section);
+                      if (!sectionRecord || typeof sectionRecord.title !== "string") {
+                        return undefined;
+                      }
+                      const widgetIds = Array.isArray(sectionRecord.widget_ids)
+                        ? sectionRecord.widget_ids.filter(
+                            (value): value is string => typeof value === "string",
+                          )
+                        : [];
+                      return {
+                        title: sectionRecord.title,
+                        widget_ids: widgetIds.sort((left, right) =>
+                          left.localeCompare(right),
+                        ),
+                      };
+                    })
+                    .filter(
+                      (
+                        section,
+                      ): section is { title: string; widget_ids: string[] } => !!section,
+                    ),
+                },
+              } as HmiCandidate;
+            })
+            .filter((entry): entry is HmiCandidate => !!entry)
+            .sort((left, right) => left.rank - right.rank);
+        }
+      } catch {
+        candidates = [];
+      }
+    }
+
+    if (candidates.length === 0) {
+      const descriptorPages = layoutDescriptorPages(snapshot.files);
+      const refs = extractLayoutBindingRefs(descriptorPages);
+      let catalog = normalizeHmiBindingsCatalog({});
+      const bindingsRequest = await this.request(
+        "workspace/executeCommand",
+        {
+          command: "trust-lsp.hmiBindings",
+          arguments: [{ root_uri: vscode.Uri.file(snapshot.rootPath).toString() }],
+        },
+        token,
+      );
+      if (!("error" in bindingsRequest)) {
+        const payload =
+          bindingsRequest.response && typeof bindingsRequest.response === "object"
+            ? (bindingsRequest.response as Record<string, unknown>)
+            : {};
+        if (payload.ok !== false) {
+          catalog = normalizeHmiBindingsCatalog(payload);
+        }
+      }
+      const intentContent = snapshot.files.find((file) => file.name === "_intent.toml")?.content;
+      candidates = generateHmiCandidates(refs, catalog, intentContent, 3);
+    }
+
+    if (candidates.length === 0) {
+      return errorResult("No candidate layouts are available for snapshot rendering.");
+    }
+    const selectedCandidate =
+      (options.input.candidate_id
+        ? candidates.find((candidate) => candidate.id === options.input.candidate_id)
+        : undefined) ?? candidates[0];
+    const viewports = normalizeSnapshotViewports(options.input.viewports);
+    const generatedAt = new Date();
+    runId = runId ?? evidenceRunId(generatedAt);
+
+    const snapshots = viewports.map((viewport) => {
+      const svg = renderSnapshotSvg(viewport, selectedCandidate);
+      return {
+        viewport,
+        fileName: `${viewport}-overview.svg`,
+        content: svg,
+        hash: hashContent(svg),
+        bytes: Buffer.byteLength(svg, "utf8"),
+      };
+    });
+
+    let evidencePath: string | null = null;
+    const files: Array<{ viewport: SnapshotViewport; path: string; hash: string; bytes: number }> = [];
+    if (!dryRun) {
+      const hmiRoot = vscode.Uri.file(snapshot.hmiPath);
+      const screenshotRoot = vscode.Uri.joinPath(
+        hmiRoot,
+        "_evidence",
+        runId,
+        "screenshots",
+      );
+      await vscode.workspace.fs.createDirectory(screenshotRoot);
+      for (const snapshotEntry of snapshots) {
+        await writeUtf8File(
+          vscode.Uri.joinPath(screenshotRoot, snapshotEntry.fileName),
+          snapshotEntry.content,
+        );
+        files.push({
+          viewport: snapshotEntry.viewport,
+          path: path.posix.join(
+            "hmi",
+            "_evidence",
+            runId,
+            "screenshots",
+            snapshotEntry.fileName,
+          ),
+          hash: snapshotEntry.hash,
+          bytes: snapshotEntry.bytes,
+        });
+      }
+      evidencePath = path.posix.join("hmi", "_evidence", runId);
+    } else {
+      for (const snapshotEntry of snapshots) {
+        files.push({
+          viewport: snapshotEntry.viewport,
+          path: path.posix.join(
+            "hmi",
+            "_evidence",
+            runId,
+            "screenshots",
+            snapshotEntry.fileName,
+          ),
+          hash: snapshotEntry.hash,
+          bytes: snapshotEntry.bytes,
+        });
+      }
+    }
+
+    return textResult(
+      JSON.stringify(
+        {
+          ok: true,
+          dry_run: dryRun,
+          rootPath: snapshot.rootPath,
+          run_id: runId,
+          evidencePath,
+          candidate_id: selectedCandidate.id,
+          files,
+        },
+        null,
+        2,
+      ),
+    );
+  }
+}
+
+export class STHmiRunJourneyTool {
+  async invoke(
+    options: InvocationOptions<HmiRunJourneyParams>,
+    token: vscode.CancellationToken,
+  ): Promise<unknown> {
+    if (token.isCancellationRequested) {
+      return textResult("Cancelled.");
+    }
+    const layout = await readHmiLayoutSnapshot(options.input.rootPath, token);
+    if (layout.error) {
+      if (layout.error === "Cancelled.") {
+        return textResult("Cancelled.");
+      }
+      return errorResult(layout.error);
+    }
+    const snapshot = layout.snapshot;
+    if (!snapshot || !snapshot.exists) {
+      return errorResult("hmi/ directory does not exist.");
+    }
+
+    let schema: HmiSchemaResult;
+    try {
+      const schemaRaw = await requestRuntimeControl(
+        snapshot.rootPath,
+        token,
+        "hmi.schema.get",
+        undefined,
+      );
+      const parsedSchema = parseHmiSchemaPayload(schemaRaw);
+      if (!parsedSchema) {
+        return errorResult("runtime returned an invalid hmi.schema.get payload.");
+      }
+      schema = parsedSchema;
+    } catch (error) {
+      return errorResult(`Failed to execute journey schema load: ${String(error)}`);
+    }
+
+    const defaultIds = normalizeTraceIds(undefined, schema).slice(0, 5);
+    const schemaWidgetById = new Map(
+      schema.widgets.map((widget) => [widget.id, widget] as const),
+    );
+    const writePolicy = parseWritePolicyFromConfigToml(snapshot.config?.content);
+    const writeAllow = new Set(writePolicy.allow);
+
+    const localWriteGuard = (
+      widgetId: string,
+    ): { code: string; message: string } | undefined => {
+      if (schema.read_only) {
+        return {
+          code: "HMI_JOURNEY_WRITE_READ_ONLY",
+          message: "hmi.write is disabled because runtime schema is read-only.",
+        };
+      }
+      if (!writePolicy.enabled) {
+        return {
+          code: "HMI_JOURNEY_WRITE_DISABLED",
+          message: "hmi.write is disabled in hmi/_config.toml.",
+        };
+      }
+      if (writeAllow.size === 0) {
+        return {
+          code: "HMI_JOURNEY_WRITE_ALLOWLIST_EMPTY",
+          message: "hmi.write allowlist is empty in hmi/_config.toml.",
+        };
+      }
+      const widgetPath = schemaWidgetById.get(widgetId)?.path;
+      const allowlisted = writeAllow.has(widgetId) || (widgetPath ? writeAllow.has(widgetPath) : false);
+      if (!allowlisted) {
+        return {
+          code: "HMI_JOURNEY_WRITE_NOT_ALLOWLISTED",
+          message: `write target '${widgetId}' is not in tool-side allowlist checks`,
+        };
+      }
+      return undefined;
+    };
+
+    const requestedJourneys = Array.isArray(options.input.journeys)
+      ? options.input.journeys
+      : [];
+    const journeys = requestedJourneys
+      .map((journey, index) => {
+        const id = typeof journey.id === "string" && journey.id.trim()
+          ? stableComponent(journey.id)
+          : `journey-${index + 1}`;
+        const title =
+          typeof journey.title === "string" && journey.title.trim()
+            ? journey.title.trim()
+            : `Journey ${index + 1}`;
+        const maxDurationMs = coerceInt(journey.max_duration_ms, 60000, 100, 300000);
+        const steps =
+          Array.isArray(journey.steps) && journey.steps.length > 0
+            ? journey.steps
+            : [{ action: "read_values" as const, ids: defaultIds }];
+        return {
+          id,
+          title,
+          max_duration_ms: maxDurationMs,
+          steps,
+        };
+      })
+      .filter((journey) => journey.steps.length > 0);
+    if (journeys.length === 0) {
+      journeys.push({
+        id: "default",
+        title: "Default value fetch journey",
+        max_duration_ms: 60000,
+        steps: [{ action: "read_values", ids: defaultIds }],
+      });
+    }
+
+    const dryRun = options.input.dry_run === true;
+    const scenario = normalizeScenario(options.input.scenario);
+    const generatedAt = new Date();
+    const runId = normalizeEvidenceRunId(options.input.run_id) ?? evidenceRunId(generatedAt);
+    const results: Array<{
+      id: string;
+      title: string;
+      status: "passed" | "failed";
+      duration_ms: number;
+      api_actions: number;
+      steps: Array<{
+        index: number;
+        action: HmiJourneyAction;
+        status: "passed" | "failed";
+        duration_ms: number;
+        code?: string;
+        detail?: string;
+      }>;
+    }> = [];
+    for (const journey of journeys) {
+      if (token.isCancellationRequested) {
+        return textResult("Cancelled.");
+      }
+      const stepResults: Array<{
+        index: number;
+        action: HmiJourneyAction;
+        status: "passed" | "failed";
+        duration_ms: number;
+        code?: string;
+        detail?: string;
+      }> = [];
+      let apiActions = 0;
+      let failed = false;
+      const started = Date.now();
+      for (const [stepIndex, step] of journey.steps.entries()) {
+        const action = step.action;
+        const stepStarted = Date.now();
+        let status: "passed" | "failed" = "passed";
+        let code: string | undefined;
+        let detail: string | undefined;
+        if (action === "wait") {
+          const durationMs = coerceInt(step.duration_ms, 150, 10, 10000);
+          const slept = await sleepWithCancellation(durationMs, token);
+          if (!slept) {
+            return textResult("Cancelled.");
+          }
+        } else if (action === "read_values") {
+          apiActions += 1;
+          const ids = normalizeStringList(step.ids);
+          const requestIds = ids.length > 0 ? ids : defaultIds;
+          try {
+            const valuesRaw = await requestRuntimeControl(
+              snapshot.rootPath,
+              token,
+              "hmi.values.get",
+              { ids: requestIds },
+            );
+            const parsedValues = parseHmiValuesPayload(valuesRaw);
+            if (!parsedValues) {
+              throw new Error("runtime returned an invalid hmi.values.get payload.");
+            }
+            detail = `values=${Object.keys(parsedValues.values).length}`;
+          } catch (error) {
+            status = "failed";
+            code = "HMI_JOURNEY_READ_VALUES_FAILED";
+            detail = String(error);
+          }
+        } else if (action === "write") {
+          const widgetId =
+            typeof step.widget_id === "string" ? step.widget_id.trim() : "";
+          const expectedErrorCode = normalizeErrorCode(step.expect_error_code);
+          if (!widgetId) {
+            status = "failed";
+            code = "HMI_JOURNEY_WRITE_MISSING_TARGET";
+            detail = "write step requires widget_id";
+          } else {
+            const blocked = localWriteGuard(widgetId);
+            if (blocked) {
+              code = blocked.code;
+              detail = blocked.message;
+              status = errorCodeMatches(expectedErrorCode, code, detail)
+                ? "passed"
+                : "failed";
+            } else {
+              apiActions += 1;
+              try {
+                await requestRuntimeControl(
+                  snapshot.rootPath,
+                  token,
+                  "hmi.write",
+                  { id: widgetId, value: step.value },
+                );
+                if (expectedErrorCode) {
+                  status = "failed";
+                  code = "HMI_JOURNEY_EXPECTED_ERROR_MISSING";
+                  detail = `expected error code '${expectedErrorCode}' but write succeeded`;
+                }
+              } catch (error) {
+                const message = String(error);
+                const runtimeCode = extractErrorCode(message);
+                code = runtimeCode ?? "HMI_JOURNEY_WRITE_FAILED";
+                if (errorCodeMatches(expectedErrorCode, code, message)) {
+                  status = "passed";
+                  detail = message;
+                } else {
+                  status = "failed";
+                  detail = message;
+                }
+              }
+            }
+          }
+        }
+        const durationMs = Date.now() - stepStarted;
+        if (status === "failed") {
+          failed = true;
+        }
+        stepResults.push({
+          index: stepIndex + 1,
+          action,
+          status,
+          duration_ms: durationMs,
+          code,
+          detail,
+        });
+      }
+      const durationMs = Date.now() - started;
+      if (durationMs > journey.max_duration_ms) {
+        failed = true;
+      }
+      results.push({
+        id: journey.id,
+        title: journey.title,
+        status: failed ? "failed" : "passed",
+        duration_ms: durationMs,
+        api_actions: apiActions,
+        steps: stepResults,
+      });
+    }
+
+    const ok = results.every((journey) => journey.status === "passed");
+    const journeysDocument = {
+      version: 1,
+      generated_at: generatedAt.toISOString(),
+      scenario,
+      ok,
+      journeys: results,
+    };
+
+    let evidencePath: string | null = null;
+    let journeysPath: string | null = null;
+    if (!dryRun) {
+      const hmiRoot = vscode.Uri.file(snapshot.hmiPath);
+      const runRoot = vscode.Uri.joinPath(hmiRoot, "_evidence", runId);
+      await vscode.workspace.fs.createDirectory(runRoot);
+      await writeUtf8File(
+        vscode.Uri.joinPath(runRoot, "journeys.json"),
+        `${stableJsonString(journeysDocument)}\n`,
+      );
+      evidencePath = path.posix.join("hmi", "_evidence", runId);
+      journeysPath = path.posix.join(evidencePath, "journeys.json");
+    }
+
+    return textResult(
+      JSON.stringify(
+        {
+          ok,
+          dry_run: dryRun,
+          rootPath: snapshot.rootPath,
+          run_id: runId,
+          scenario,
+          evidencePath,
+          journeysPath,
+          journeys: results,
+        },
+        null,
+        2,
+      ),
+    );
+  }
+}
+
+export class STHmiExplainWidgetTool extends LspToolBase {
+  async invoke(
+    options: InvocationOptions<HmiExplainWidgetParams>,
+    token: vscode.CancellationToken,
+  ): Promise<unknown> {
+    if (token.isCancellationRequested) {
+      return textResult("Cancelled.");
+    }
+    const layout = await readHmiLayoutSnapshot(options.input.rootPath, token);
+    if (layout.error) {
+      if (layout.error === "Cancelled.") {
+        return textResult("Cancelled.");
+      }
+      return errorResult(layout.error);
+    }
+    const snapshot = layout.snapshot;
+    if (!snapshot || !snapshot.exists) {
+      return errorResult("hmi/ directory does not exist.");
+    }
+
+    const descriptorPages = layoutDescriptorPages(snapshot.files);
+    const refs = extractLayoutBindingRefs(descriptorPages);
+    let catalog = normalizeHmiBindingsCatalog({});
+    let catalogAvailable = false;
+    let catalogError: string | undefined;
+    const bindingsRequest = await this.request(
+      "workspace/executeCommand",
+      {
+        command: "trust-lsp.hmiBindings",
+        arguments: [{ root_uri: vscode.Uri.file(snapshot.rootPath).toString() }],
+      },
+      token,
+    );
+    if ("error" in bindingsRequest) {
+      catalogError = bindingsRequest.error;
+    } else {
+      const payload =
+        bindingsRequest.response && typeof bindingsRequest.response === "object"
+          ? (bindingsRequest.response as Record<string, unknown>)
+          : {};
+      if (payload.ok === false) {
+        catalogError = String(payload.error ?? "unknown error");
+      } else {
+        catalog = normalizeHmiBindingsCatalog(payload);
+        catalogAvailable = true;
+      }
+    }
+
+    const lock = buildHmiLockEntries(refs, catalog);
+    const requestedId = options.input.widget_id?.trim();
+    const requestedPath = options.input.path?.trim();
+    const selected =
+      (requestedId
+        ? lock.entries.find((entry) => entry.id === requestedId)
+        : undefined) ??
+      (requestedPath
+        ? lock.entries.find((entry) => entry.path === requestedPath)
+        : undefined) ??
+      lock.entries[0];
+    if (!selected) {
+      return errorResult("No widget/binding metadata available for explanation.");
+    }
+
+    const writePolicy = parseWritePolicyFromConfigToml(snapshot.config?.content);
+    const allowlisted =
+      writePolicy.allow.includes(selected.id) || writePolicy.allow.includes(selected.path);
+    const bindingCatalogEntry = catalog.byPath.get(selected.path);
+
+    return textResult(
+      JSON.stringify(
+        {
+          ok: true,
+          rootPath: snapshot.rootPath,
+          requested: {
+            widget_id: requestedId ?? null,
+            path: requestedPath ?? null,
+          },
+          widget: selected,
+          provenance: {
+            canonical_id: selected.id,
+            symbol_path: selected.path,
+            type: selected.data_type,
+            qualifier: selected.qualifier,
+            writable: selected.writable,
+            write_policy: {
+              enabled: writePolicy.enabled,
+              allowlisted,
+              allow: writePolicy.allow,
+            },
+            alarm_policy: {
+              min: selected.constraints.min,
+              max: selected.constraints.max,
+              unit: selected.constraints.unit,
+            },
+            source_files: selected.files.map((file) => path.posix.join("hmi", file)),
+            contract_endpoints: ["hmi.schema.get", "hmi.values.get", "hmi.write"],
+            binding_catalog: {
+              available: catalogAvailable,
+              error: catalogError,
+              match: bindingCatalogEntry
+                ? {
+                    id: bindingCatalogEntry.id,
+                    path: bindingCatalogEntry.path,
+                    dataType: bindingCatalogEntry.dataType,
+                    qualifier: bindingCatalogEntry.qualifier,
+                    writable: bindingCatalogEntry.writable,
+                  }
+                : null,
+            },
+          },
+        },
+        null,
+        2,
+      ),
+    );
+  }
+}
+
+export class STHmiInitTool extends LspToolBase {
+  async invoke(
+    options: InvocationOptions<HmiInitParams>,
+    token: vscode.CancellationToken,
+  ): Promise<unknown> {
+    if (token.isCancellationRequested) {
+      return textResult("Cancelled.");
+    }
+    const rawStyle =
+      typeof options.input.style === "string" ? options.input.style.trim() : "";
+    const args =
+      rawStyle.length > 0
+        ? [{ style: rawStyle.toLowerCase() }]
+        : [];
+    const result = await this.request(
+      "workspace/executeCommand",
+      { command: "trust-lsp.hmiInit", arguments: args },
+      token,
+    );
+    if ("error" in result) {
+      return errorResult(result.error);
+    }
+    const response = result.response as { ok?: boolean; error?: unknown } | null;
+    if (
+      response &&
+      typeof response === "object" &&
+      response.ok === false
+    ) {
+      const message =
+        typeof response.error === "string"
+          ? response.error
+          : "trust-lsp.hmiInit failed.";
+      return errorResult(message);
+    }
+    return textResult(
+      JSON.stringify(
+        {
+          command: "trust-lsp.hmiInit",
+          result: result.response,
+        },
+        null,
+        2,
+      ),
+    );
+  }
+}
+
 export class STWorkspaceSymbolsTimedTool {
   async invoke(
     options: InvocationOptions<WorkspaceSymbolsTimedParams>,
@@ -2744,6 +5884,26 @@ export function registerLanguageModelTools(
     lm.registerTool("trust_get_formatting_edits", new STFormatTool()),
     lm.registerTool("trust_get_code_actions", new STCodeActionsTool(getClient)),
     lm.registerTool("trust_get_project_info", new STProjectInfoTool(getClient)),
+    lm.registerTool("trust_hmi_get_bindings", new STHmiGetBindingsTool(getClient)),
+    lm.registerTool("trust_hmi_get_layout", new STHmiGetLayoutTool()),
+    lm.registerTool("trust_hmi_apply_patch", new STHmiApplyPatchTool()),
+    lm.registerTool("trust_hmi_plan_intent", new STHmiPlanIntentTool()),
+    lm.registerTool("trust_hmi_trace_capture", new STHmiTraceCaptureTool()),
+    lm.registerTool(
+      "trust_hmi_generate_candidates",
+      new STHmiGenerateCandidatesTool(getClient),
+    ),
+    lm.registerTool("trust_hmi_validate", new STHmiValidateTool(getClient)),
+    lm.registerTool(
+      "trust_hmi_preview_snapshot",
+      new STHmiPreviewSnapshotTool(getClient),
+    ),
+    lm.registerTool("trust_hmi_run_journey", new STHmiRunJourneyTool()),
+    lm.registerTool(
+      "trust_hmi_explain_widget",
+      new STHmiExplainWidgetTool(getClient),
+    ),
+    lm.registerTool("trust_hmi_init", new STHmiInitTool(getClient)),
     lm.registerTool("trust_workspace_rename_file", new STWorkspaceRenameFileTool()),
     lm.registerTool("trust_update_settings", new STSettingsUpdateTool(getClient)),
     lm.registerTool("trust_read_telemetry", new STTelemetryReadTool()),

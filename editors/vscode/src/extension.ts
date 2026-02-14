@@ -224,6 +224,28 @@ export async function activate(context: vscode.ExtensionContext) {
   registerNamespaceMoveCommand(context, client);
   registerNamespaceMoveCodeActions(context);
   registerNamespaceMoveContext(context);
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "trust-lsp.hmi.init",
+      async (input?: { style?: string } | string) => {
+        if (!client) {
+          throw new Error("Language client is not available.");
+        }
+        const rawStyle =
+          typeof input === "string"
+            ? input
+            : typeof input?.style === "string"
+              ? input.style
+              : "";
+        const style = rawStyle.trim().toLowerCase();
+        const args = style ? [{ style }] : [];
+        return client.sendRequest("workspace/executeCommand", {
+          command: "trust-lsp.hmiInit",
+          arguments: args,
+        });
+      }
+    )
+  );
 
   startClientWithRetry(context, config);
 

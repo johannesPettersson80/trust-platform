@@ -1,0 +1,48 @@
+# Example binding contract for this tutorial project.
+# Update `source` paths if you rename symbols in `sources/main.st`.
+
+title = "P&ID Bypass"
+kind = "process"
+svg = "plant-bypass.svg"
+order = 30
+
+[[bind]]
+selector = "#pid-pump-001-status"
+attribute = "fill"
+source = "P1.PumpRunning"
+map = { true = "#22c55e", false = "#ef4444" }
+
+[[bind]]
+selector = "#pid-tag-fit-001-pv"
+attribute = "data-value"
+source = "P1.TotalFlowM3h"
+format = "{:.1f} m3/h"
+
+[[bind]]
+selector = "#pid-tag-pt-001-pv"
+attribute = "data-value"
+source = "P1.PressureBar"
+format = "{:.2f} bar"
+
+[[bind]]
+selector = "#pid-tag-flow-sp"
+attribute = "data-value"
+source = "P1.FlowSetpointM3h"
+format = "{:.1f} m3/h"
+
+[[bind]]
+selector = "#pid-tag-pressure-sp"
+attribute = "data-value"
+source = "P1.PressureSetpointBar"
+format = "{:.2f} bar"
+
+[[bind]]
+selector = "#pid-banner-alarm-001"
+attribute = "opacity"
+source = "P1.AnyAlarmActive"
+map = { true = "1", false = "0" }
+
+[[bind]]
+selector = "#pid-banner-alarm-001-text"
+attribute = "data-value"
+source = "P1.AlarmMessage"

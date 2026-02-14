@@ -9,7 +9,7 @@ use std::time::Duration;
 use indexmap::IndexMap;
 use smol_str::SmolStr;
 use trust_runtime::config::{ControlMode, WebAuthMode, WebConfig};
-use trust_runtime::control::{ControlState, SourceFile, SourceRegistry};
+use trust_runtime::control::{ControlState, HmiRuntimeDescriptor, SourceFile, SourceRegistry};
 use trust_runtime::debug::DebugVariableHandles;
 use trust_runtime::error::RuntimeError;
 use trust_runtime::harness::TestHarness;
@@ -123,15 +123,20 @@ fn control_state(
     let mut metrics = RuntimeMetrics::default();
     metrics.record_cycle(Duration::from_millis(10));
 
+    let sources = SourceRegistry::new(vec![SourceFile {
+        id: 1,
+        path: PathBuf::from("main.st"),
+        text: source.to_string(),
+    }]);
+    let hmi_descriptor = Arc::new(Mutex::new(HmiRuntimeDescriptor::from_sources(
+        None, &sources,
+    )));
+
     Arc::new(ControlState {
         debug,
         resource,
         metadata: Arc::new(Mutex::new(harness.runtime().metadata_snapshot())),
-        sources: SourceRegistry::new(vec![SourceFile {
-            id: 1,
-            path: PathBuf::from("main.st"),
-            text: source.to_string(),
-        }]),
+        sources,
         io_snapshot: Arc::new(Mutex::new(None)),
         pending_restart: Arc::new(Mutex::new(None)),
         auth_token: Arc::new(Mutex::new(auth_token.map(SmolStr::new))),
@@ -147,6 +152,7 @@ fn control_state(
         debug_enabled: Arc::new(AtomicBool::new(true)),
         debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
         hmi_live: Arc::new(Mutex::new(trust_runtime::hmi::HmiLiveState::default())),
+        hmi_descriptor,
         historian,
         pairing: None,
     })

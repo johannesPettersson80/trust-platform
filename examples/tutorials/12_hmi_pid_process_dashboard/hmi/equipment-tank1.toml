@@ -1,0 +1,39 @@
+title = "TANK-001"
+icon = "settings"
+order = 101
+kind = "dashboard"
+hidden = true
+
+[[section]]
+title = "Level"
+span = 12
+
+[[section.widget]]
+type = "bar"
+bind = "P1.FeedLevelPct"
+label = "Feed Level"
+unit = "%"
+min = 0
+max = 100
+span = 6
+
+[[section.widget]]
+type = "value"
+bind = "P1.FeedLevelSetpointPct"
+label = "Level Setpoint"
+unit = "%"
+min = 0
+max = 100
+span = 6
+
+[[section]]
+title = "Alarms"
+span = 12
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.LowFeedAlarm"
+label = "Low Feed Alarm"
+span = 6
+on_color = "#f97316"
+off_color = "#94a3b8"

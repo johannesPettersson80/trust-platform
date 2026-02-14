@@ -103,6 +103,21 @@ Use this when you want to create a truST project from an existing PLCopen XML fi
 The command runs `trust-runtime plcopen import --json` in the background and
 lets you open the imported project and migration report after completion.
 
+## HMI Descriptor + LM Workflow
+
+Use the HMI descriptor workflow when building `hmi/` pages and process SVG
+layouts:
+
+1. Run `Structured Text: Initialize HMI Descriptor`.
+2. Open `Structured Text: Open HMI Preview`.
+3. In LM-driven flows, use deterministic tool order:
+   - `trust_hmi_init` -> `trust_hmi_get_bindings` -> `trust_hmi_get_layout`
+   - `trust_hmi_apply_patch` (`dry_run=true` first, then apply)
+   - `trust_hmi_validate` / `trust_hmi_run_journey` for evidence checks
+
+Detailed guide:
+- `docs/guides/HMI_DIRECTORY_WORKFLOW.md`
+
 ---
 
 ## Advanced Setup (optional)

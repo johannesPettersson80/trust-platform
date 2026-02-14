@@ -1,0 +1,200 @@
+title = "Overview"
+icon = "dashboard"
+order = 10
+kind = "dashboard"
+
+[[section]]
+title = "Equipment"
+span = 12
+tier = "module"
+
+[[section.widget]]
+type = "module"
+bind = "P1.FeedLevelPct"
+label = "TANK-001"
+detail_page = "equipment-tank1"
+unit = "%"
+
+[[section.widget]]
+type = "module"
+bind = "P1.PumpRunning"
+label = "PUMP-001"
+detail_page = "equipment-pump1"
+
+[[section.widget]]
+type = "module"
+bind = "P1.TotalFlowM3h"
+label = "FIT-001"
+detail_page = "equipment-flow1"
+unit = "m3/h"
+
+[[section.widget]]
+type = "module"
+bind = "P1.PressureBar"
+label = "PT-001"
+detail_page = "equipment-pressure1"
+unit = "bar"
+
+[[section.widget]]
+type = "module"
+bind = "P1.BypassOpen"
+label = "VALVE-001"
+detail_page = "equipment-valve1"
+
+[[section.widget]]
+type = "module"
+bind = "P1.ProductLevelPct"
+label = "TANK-002"
+detail_page = "equipment-tank2"
+unit = "%"
+
+[[section]]
+title = "Operations"
+span = 4
+
+[[section.widget]]
+type = "text"
+bind = "P1.ModeText"
+label = "Operating Mode"
+span = 12
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.AnyAlarmActive"
+label = "Any Alarm"
+span = 6
+on_color = "#ef4444"
+off_color = "#94a3b8"
+
+[[section.widget]]
+type = "value"
+bind = "P1.AlarmActiveCount"
+label = "Active Alarms"
+min = 0
+max = 4
+span = 6
+
+[[section]]
+title = "Flow & Pressure"
+span = 4
+
+[[section.widget]]
+type = "value"
+bind = "P1.FlowSetpointM3h"
+label = "Flow Setpoint"
+unit = "m3/h"
+min = 0
+max = 180
+span = 6
+
+[[section.widget]]
+type = "value"
+bind = "P1.PressureSetpointBar"
+label = "Pressure Setpoint"
+unit = "bar"
+min = 0
+max = 8
+span = 6
+
+[[section.widget]]
+type = "sparkline"
+bind = "P1.FlowDeviationM3h"
+label = "Flow Deviation"
+unit = "m3/h"
+min = -40
+max = 40
+span = 12
+
+[[section]]
+title = "Inventory"
+span = 4
+
+[[section.widget]]
+type = "value"
+bind = "P1.FeedLevelSetpointPct"
+label = "Feed Level Setpoint"
+unit = "%"
+min = 0
+max = 100
+span = 6
+
+[[section.widget]]
+type = "value"
+bind = "P1.ProductLevelSetpointPct"
+label = "Product Level Setpoint"
+unit = "%"
+min = 0
+max = 100
+span = 6
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.LowFeedAlarm"
+label = "Low Feed Alarm"
+span = 6
+on_color = "#f97316"
+off_color = "#94a3b8"
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.HighProductAlarm"
+label = "High Product Alarm"
+span = 6
+on_color = "#ef4444"
+off_color = "#94a3b8"
+
+[[section]]
+title = "Key Metrics"
+span = 12
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.MainFlowM3h"
+label = "Main Flow M3H"
+unit = "l/min"
+min = 0
+max = 500
+span = 4
+inferred_interface = true
+
+[[section]]
+title = "Status"
+span = 12
+
+[[section.widget]]
+type = "text"
+bind = "P1.AlarmMessage"
+label = "Alarm Message"
+span = 2
+inferred_interface = true
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.BypassCmd"
+label = "Bypass Command"
+span = 2
+inferred_interface = true
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.BypassFlowM3h"
+label = "Bypass Flow M3H"
+unit = "l/min"
+min = 0
+max = 500
+span = 2
+inferred_interface = true
+
+[[section]]
+title = "Details"
+span = 12
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.PressureDeviationBar"
+label = "Pressure Deviation BAR"
+unit = "bar"
+min = 0
+max = 16
+span = 3
+inferred_interface = true

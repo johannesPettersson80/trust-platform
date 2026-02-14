@@ -11,7 +11,9 @@ use indexmap::IndexMap;
 use smol_str::SmolStr;
 
 use trust_runtime::config::ControlMode;
-use trust_runtime::control::{ControlEndpoint, ControlServer, ControlState, SourceRegistry};
+use trust_runtime::control::{
+    ControlEndpoint, ControlServer, ControlState, HmiRuntimeDescriptor, SourceRegistry,
+};
 use trust_runtime::debug::{DebugVariableHandles, RuntimeEvent};
 use trust_runtime::error::RuntimeError;
 use trust_runtime::io::IoDriverStatus;
@@ -42,12 +44,16 @@ impl DebugControlServer {
         auth_token: Option<String>,
     ) -> Result<Self, RuntimeError> {
         let (resource, cmd_rx) = ResourceControl::stub(StdClock::new());
+        let sources = SourceRegistry::new(session.control_sources());
+        let hmi_descriptor = Arc::new(Mutex::new(HmiRuntimeDescriptor::from_sources(
+            None, &sources,
+        )));
         let state = Arc::new(ControlState {
             debug: session.debug_control(),
             resource,
             metadata: Arc::new(Mutex::new(session.metadata().clone())),
             project_root: None,
-            sources: SourceRegistry::new(session.control_sources()),
+            sources,
             io_snapshot: Arc::new(Mutex::new(None)),
             pending_restart: Arc::new(Mutex::new(None)),
             auth_token: Arc::new(Mutex::new(auth_token.map(SmolStr::new))),
@@ -62,6 +68,7 @@ impl DebugControlServer {
             debug_enabled: Arc::new(AtomicBool::new(true)),
             debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
             hmi_live: Arc::new(Mutex::new(trust_runtime::hmi::HmiLiveState::default())),
+            hmi_descriptor,
             historian: None,
             pairing: None,
         });

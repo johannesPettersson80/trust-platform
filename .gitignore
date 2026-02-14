@@ -42,9 +42,18 @@ runtime-*.log.runtime.log
 /runtime.toml
 /io.toml
 /program.stbc
+/examples/**/program.stbc
+/examples/**/hmi/process.auto.svg
 /sources/
+/hmi/_evidence/
+/.merge-pr*/
 
 # Internal docs (not for public repo)
-docs/internal/
+docs/internal/*
+!docs/internal/testing/
+docs/internal/testing/*
+!docs/internal/testing/checklists/
+docs/internal/testing/checklists/*
+!docs/internal/testing/checklists/hmi-complete-implementation-checklist.md
 CLAUDE.md
 AGENTS.md

@@ -1,6 +1,7 @@
 import * as assert from "assert";
 import { spawnSync } from "child_process";
 import * as vscode from "vscode";
+import { STHmiApplyPatchTool, STHmiGetLayoutTool } from "../../lm-tools";
 
 const NEW_PROJECT_COMMAND = "trust-lsp.newProject";
 
@@ -58,6 +59,36 @@ function completionItems(result: CompletionResult): vscode.CompletionItem[] {
     return [];
   }
   return Array.isArray(result) ? result : result.items;
+}
+
+function toolResultText(result: unknown): string {
+  if (typeof result === "string") {
+    return result;
+  }
+  if (!result || typeof result !== "object") {
+    return String(result);
+  }
+  const objectResult = result as Record<string, unknown>;
+  if (typeof objectResult.text === "string") {
+    return objectResult.text;
+  }
+  const content = objectResult.content;
+  if (Array.isArray(content)) {
+    for (const entry of content) {
+      if (
+        entry &&
+        typeof entry === "object" &&
+        typeof (entry as { value?: unknown }).value === "string"
+      ) {
+        return (entry as { value: string }).value;
+      }
+    }
+  }
+  try {
+    return JSON.stringify(result);
+  } catch {
+    return String(result);
+  }
 }
 
 suite("New project command (VS Code)", function () {
@@ -264,6 +295,8 @@ suite("New project command (VS Code)", function () {
   });
 
   test("works in single-root and multi-root workspace setups", async () => {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    assert.ok(workspaceFolder, "Expected primary workspace folder.");
     const singleRootTarget = vscode.Uri.joinPath(
       fixturesRoot,
       "single-root-project"
@@ -311,6 +344,51 @@ suite("New project command (VS Code)", function () {
     assert.strictEqual(
       await pathExists(vscode.Uri.joinPath(multiRootTarget, "src", "Main.st")),
       true
+    );
+
+    const patchTool = new STHmiApplyPatchTool();
+    const layoutTool = new STHmiGetLayoutTool();
+    const tokenSource = new vscode.CancellationTokenSource();
+    const hmiFile = `multi-root-hmi-${Date.now()}.toml`;
+
+    const patchResult = await patchTool.invoke(
+      {
+        input: {
+          dry_run: false,
+          rootPath: secondWorkspaceRoot.fsPath,
+          operations: [
+            {
+              op: "add",
+              path: `/files/${hmiFile}`,
+              value: 'title = "Secondary HMI"\n',
+            },
+          ],
+        },
+      },
+      tokenSource.token
+    );
+    const patchPayload = JSON.parse(toolResultText(patchResult));
+    assert.strictEqual(patchPayload.ok, true);
+    assert.strictEqual(patchPayload.rootPath, secondWorkspaceRoot.fsPath);
+    assert.strictEqual(
+      await pathExists(vscode.Uri.joinPath(secondWorkspaceRoot, "hmi", hmiFile)),
+      true
+    );
+    assert.strictEqual(
+      await pathExists(vscode.Uri.joinPath(workspaceFolder.uri, "hmi", hmiFile)),
+      false
+    );
+
+    const layoutResult = await layoutTool.invoke(
+      { input: { rootPath: secondWorkspaceRoot.fsPath } },
+      tokenSource.token
+    );
+    const layoutPayload = JSON.parse(toolResultText(layoutResult));
+    assert.strictEqual(layoutPayload.exists, true);
+    assert.strictEqual(layoutPayload.rootPath, secondWorkspaceRoot.fsPath);
+    assert.ok(
+      Array.isArray(layoutPayload.files) &&
+        layoutPayload.files.some((entry: { name?: string }) => entry.name === hmiFile)
     );
   });
 });

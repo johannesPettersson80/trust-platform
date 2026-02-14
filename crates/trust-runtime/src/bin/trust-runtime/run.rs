@@ -11,11 +11,13 @@ use trust_runtime::bundle::detect_bundle_path;
 use trust_runtime::bytecode::BytecodeModule;
 use trust_runtime::config::RuntimeBundle;
 use trust_runtime::control::{
-    ControlEndpoint, ControlServer, ControlState, SourceFile, SourceRegistry,
+    spawn_hmi_descriptor_watcher, ControlEndpoint, ControlServer, ControlState,
+    HmiRuntimeDescriptor, SourceFile, SourceRegistry,
 };
 use trust_runtime::discovery::{start_discovery, DiscoveryState};
 use trust_runtime::harness::CompileSession;
 use trust_runtime::historian::HistorianService;
+use trust_runtime::hmi::{HmiScaffoldMode, HmiSourceRef};
 use trust_runtime::io::IoDriverRegistry;
 use trust_runtime::mesh::start_mesh;
 use trust_runtime::metrics::RuntimeMetrics;
@@ -338,6 +340,10 @@ pub fn run_runtime(
     runtime.restart(restart_mode)?;
     runtime.load_retain_store()?;
 
+    let startup_hmi_scaffold = bundle
+        .as_ref()
+        .and_then(|bundle| auto_scaffold_hmi_update(bundle, &runtime, &sources));
+
     let logger = RuntimeLogger::new(match &bundle {
         Some(bundle) => LogLevel::parse(bundle.runtime.log_level.as_str()),
         None => LogLevel::Info,
@@ -533,6 +539,10 @@ pub fn run_runtime(
         }
     });
 
+    let hmi_descriptor = Arc::new(Mutex::new(HmiRuntimeDescriptor::from_sources(
+        bundle.as_ref().map(|bundle| bundle.root.as_path()),
+        &sources,
+    )));
     let state = Arc::new(ControlState {
         debug: debug.clone(),
         resource: control.clone(),
@@ -566,9 +576,11 @@ pub fn run_runtime(
         )),
         debug_variables: Arc::new(Mutex::new(trust_runtime::debug::DebugVariableHandles::new())),
         hmi_live: Arc::new(Mutex::new(trust_runtime::hmi::HmiLiveState::default())),
+        hmi_descriptor,
         historian: historian.clone(),
         pairing: pairing.clone(),
     });
+    spawn_hmi_descriptor_watcher(state.clone());
 
     let mut opcua_server: Option<OpcUaWireServer> = None;
     if let Some(bundle) = &bundle {
@@ -658,6 +670,7 @@ pub fn run_runtime(
             web_url.as_deref(),
             simulation_enabled,
             simulation_time_scale,
+            startup_hmi_scaffold.as_ref(),
         );
     }
 
@@ -770,6 +783,7 @@ fn print_trust_banner(
     web_url: Option<&str>,
     simulation_enabled: bool,
     simulation_time_scale: u32,
+    scaffold: Option<&trust_runtime::hmi::HmiScaffoldSummary>,
 ) {
     crate::style::print_logo();
     println!("Your PLC is running.");
@@ -801,10 +815,69 @@ fn print_trust_banner(
     }
     if let Some(web_url) = web_url {
         println!("Open: {web_url}");
+        let page_count = scaffold
+            .map(|summary| {
+                summary
+                    .files
+                    .iter()
+                    .filter(|entry| entry.path.ends_with(".toml") && entry.path != "_config.toml")
+                    .count()
+            })
+            .unwrap_or(0);
+        if page_count > 0 {
+            println!(
+                "HMI ready: {web_url}/hmi ({page_count} pages scaffolded, edit mode available)"
+            );
+        } else {
+            println!("HMI ready: {web_url}/hmi");
+        }
     } else {
         println!("Web UI: disabled");
     }
     println!("Press Ctrl+C to stop.");
+}
+
+fn auto_scaffold_hmi_update(
+    bundle: &RuntimeBundle,
+    runtime: &Runtime,
+    sources: &SourceRegistry,
+) -> Option<trust_runtime::hmi::HmiScaffoldSummary> {
+    let source_refs = sources
+        .files()
+        .iter()
+        .map(|file| HmiSourceRef {
+            path: file.path.as_path(),
+            text: file.text.as_str(),
+        })
+        .collect::<Vec<_>>();
+    if source_refs.is_empty() {
+        return None;
+    }
+    let metadata = runtime.metadata_snapshot();
+    let snapshot = trust_runtime::debug::DebugSnapshot {
+        storage: runtime.storage().clone(),
+        now: runtime.current_time(),
+    };
+    match trust_runtime::hmi::scaffold_hmi_dir_with_sources_mode(
+        bundle.root.as_path(),
+        &metadata,
+        Some(&snapshot),
+        &source_refs,
+        "industrial",
+        HmiScaffoldMode::Update,
+        false,
+    ) {
+        Ok(summary) => Some(summary),
+        Err(err) => {
+            eprintln!(
+                "{}",
+                style::warning(format!(
+                    "Warning: failed to update HMI scaffold automatically: {err}"
+                ))
+            );
+            None
+        }
+    }
 }
 
 fn format_endpoint(endpoint: &ControlEndpoint) -> String {

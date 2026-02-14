@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="600" viewBox="0 0 1280 600" role="img" aria-labelledby="title desc">
+  <title id="title">truST HMI Plant P&amp;ID Bypass</title>
+  <desc id="desc">Bypass-capable process view with compact ISA-style layout and setpoint strip.</desc>
+
+  <defs>
+    <style>
+      .pid-title { font-family: "IBM Plex Sans", "Segoe UI", Arial, sans-serif; fill: #0f172a; }
+      .pid-subtitle { font-family: "IBM Plex Sans", "Segoe UI", Arial, sans-serif; fill: #475569; }
+      .pid-tag { font-family: "IBM Plex Sans", "Segoe UI", Arial, sans-serif; fill: #1f2937; }
+      .pid-value { font-family: "IBM Plex Mono", "Consolas", monospace; fill: #1d4ed8; }
+      .pid-shell { fill: #f8fafc; stroke: #334155; stroke-width: 2.4; }
+      .pid-line { fill: none; stroke: #2563eb; stroke-width: 5.2; stroke-linecap: round; }
+      .pid-bypass-line { fill: none; stroke: #cbd5e1; stroke-width: 4.4; stroke-dasharray: 10 7; stroke-linecap: round; }
+      .pid-symbol { fill: none; stroke: #334155; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+      .pid-solid { fill: #334155; }
+      .pid-arrow { fill: #2563eb; }
+      .pid-scale { font-family: "IBM Plex Sans", "Segoe UI", Arial, sans-serif; fill: #64748b; }
+      .pid-rail { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 1.5; }
+    </style>
+    <pattern id="pid-layout-grid" width="64" height="64" patternUnits="userSpaceOnUse">
+      <path d="M64 0H0V64" fill="none" stroke="#d1d9e6" stroke-width="1"/>
+    </pattern>
+  </defs>
+
+  <rect width="1280" height="600" fill="#eef2f7"/>
+  <rect x="12" y="12" width="1256" height="576" rx="12" fill="#ffffff" stroke="#d7dee9" stroke-width="1.6"/>
+
+  <g id="pid-header">
+    <text class="pid-title" x="48" y="58" font-size="42" font-weight="700">Plant Bypass View</text>
+    <text class="pid-subtitle" x="48" y="88" font-size="17">Flow can route through bypass branch during process transitions</text>
+  </g>
+
+  <g id="pid-status-rail" transform="translate(886,34)">
+    <rect class="pid-rail" x="0" y="0" width="350" height="60" rx="10"/>
+    <text class="pid-subtitle" x="14" y="22" font-size="14" font-weight="700">Process status</text>
+    <circle cx="18" cy="42" r="5" fill="#16a34a"/>
+    <text class="pid-subtitle" x="30" y="46" font-size="13">running</text>
+    <circle cx="120" cy="42" r="5" fill="#2563eb"/>
+    <text class="pid-subtitle" x="132" y="46" font-size="13">bypass</text>
+    <circle cx="216" cy="42" r="5" fill="#94a3b8"/>
+    <text class="pid-subtitle" x="228" y="46" font-size="13">off</text>
+  </g>
+
+  <g id="pid-layout-guides" opacity="0" pointer-events="none">
+    <rect x="80" y="120" width="1120" height="384" fill="url(#pid-layout-grid)"/>
+    <rect x="80" y="120" width="1120" height="384" fill="none" stroke="#94a3b8" stroke-width="1"/>
+  </g>
+
+  <g id="pid-main-process">
+    <g id="pid-tank-001">
+      <text class="pid-tag" x="80" y="100" font-size="22" font-weight="700">TANK-001</text>
+      <text id="pid-tag-tank-001-level" class="pid-value" data-value="62.3 %" x="80" y="122" font-size="19" font-weight="600">62.3 %</text>
+      <rect id="pid-tank-001-shell" class="pid-shell" x="80" y="120" width="180" height="360" rx="12"/>
+      <rect id="pid-tank-001-level-fill" x="96" y="460" width="148" height="0" rx="6" fill="#7ea7df" opacity="0.82"/>
+
+      <line x1="72" y1="140" x2="80" y2="140" stroke="#94a3b8" stroke-width="1.4"/>
+      <line x1="72" y1="220" x2="80" y2="220" stroke="#94a3b8" stroke-width="1.4"/>
+      <line x1="72" y1="300" x2="80" y2="300" stroke="#94a3b8" stroke-width="1.4"/>
+      <line x1="72" y1="380" x2="80" y2="380" stroke="#94a3b8" stroke-width="1.4"/>
+      <line x1="72" y1="460" x2="80" y2="460" stroke="#94a3b8" stroke-width="1.4"/>
+      <text class="pid-scale" x="44" y="145" font-size="12">100%</text>
+      <text class="pid-scale" x="52" y="225" font-size="12">75</text>
+      <text class="pid-scale" x="52" y="305" font-size="12">50</text>
+      <text class="pid-scale" x="52" y="385" font-size="12">25</text>
+      <text class="pid-scale" x="56" y="465" font-size="12">0</text>
+    </g>
+
+    <g id="pid-lane">
+      <path id="pid-line-001" class="pid-line" d="M260 300 H342"/>
+      <path id="pid-line-002" class="pid-line" d="M378 300 H610"/>
+      <path id="pid-line-003" class="pid-line" d="M670 300 H1020"/>
+      <path id="pid-line-bypass-001" class="pid-bypass-line" d="M378 236 H940 V300 H1020"/>
+      <polygon class="pid-arrow" points="314,292 326,300 314,308"/>
+      <polygon class="pid-arrow" points="510,292 522,300 510,308"/>
+      <polygon class="pid-arrow" points="816,292 828,300 816,308"/>
+      <polygon class="pid-arrow" points="888,228 900,236 888,244"/>
+    </g>
+
+    <g id="pid-pump-001" transform="translate(330,258)">
+      <circle cx="30" cy="42" r="18" class="pid-symbol"/>
+      <path d="M20 54 L40 54 L30 38 Z" class="pid-solid" transform="rotate(90 30 42)"/>
+      <circle id="pid-pump-001-status" cx="64" cy="20" r="5" fill="#16a34a" stroke="#ffffff" stroke-width="1.8"/>
+      <text class="pid-tag" x="0" y="86" font-size="18" font-weight="700">PUMP-001</text>
+      <text id="pid-tag-pump-001-state" class="pid-value" data-value="RUNNING" x="0" y="106" font-size="15" font-weight="600">RUNNING</text>
+    </g>
+
+    <g id="pid-fit-001" transform="translate(470,190)">
+      <line x1="30" y1="40" x2="30" y2="110" class="pid-symbol"/>
+      <circle cx="30" cy="24" r="16" class="pid-symbol"/>
+      <line x1="16" y1="24" x2="44" y2="24" class="pid-symbol"/>
+      <text class="pid-tag" x="30" y="-4" font-size="16" font-weight="700" text-anchor="middle">FIT-001</text>
+      <text id="pid-tag-fit-001-pv" class="pid-value" data-value="126.5 m3/h" x="30" y="14" font-size="14" font-weight="600" text-anchor="middle">126.5 m3/h</text>
+    </g>
+
+    <g id="pid-valve-001" transform="translate(610,258)">
+      <polygon points="0,24 30,42 0,60" class="pid-symbol"/>
+      <polygon points="60,24 30,42 60,60" class="pid-symbol"/>
+      <circle id="pid-valve-001-status" cx="64" cy="20" r="5" fill="#94a3b8" stroke="#ffffff" stroke-width="1.8"/>
+      <text class="pid-tag" x="0" y="86" font-size="18" font-weight="700">VALVE-001</text>
+      <text id="pid-tag-valve-001-position" class="pid-value" data-value="54 %" x="0" y="106" font-size="15" font-weight="600">54 %</text>
+    </g>
+
+    <g id="pid-pt-001" transform="translate(790,190)">
+      <line x1="30" y1="40" x2="30" y2="110" class="pid-symbol"/>
+      <circle cx="30" cy="24" r="16" class="pid-symbol"/>
+      <line x1="16" y1="24" x2="44" y2="24" class="pid-symbol"/>
+      <text class="pid-tag" x="30" y="-4" font-size="16" font-weight="700" text-anchor="middle">PT-001</text>
+      <text id="pid-tag-pt-001-pv" class="pid-value" data-value="7.24 bar" x="30" y="14" font-size="14" font-weight="600" text-anchor="middle">7.24 bar</text>
+    </g>
+
+    <g id="pid-bypass-fit-001" transform="translate(910,146)">
+      <line x1="30" y1="40" x2="30" y2="90" class="pid-symbol"/>
+      <circle cx="30" cy="24" r="16" class="pid-symbol"/>
+      <line x1="16" y1="24" x2="44" y2="24" class="pid-symbol"/>
+      <text class="pid-tag" x="30" y="-4" font-size="14" font-weight="700" text-anchor="middle">BYPASS FIT-002</text>
+      <text id="pid-tag-bypass-001-pv" class="pid-value" data-value="22.0 m3/h" x="30" y="14" font-size="12" font-weight="600" text-anchor="middle">22.0 m3/h</text>
+    </g>
+
+    <g id="pid-tank-002">
+      <text class="pid-tag" x="1020" y="100" font-size="22" font-weight="700">TANK-002</text>
+      <text id="pid-tag-tank-002-level" class="pid-value" data-value="34.7 %" x="1020" y="122" font-size="19" font-weight="600">34.7 %</text>
+      <rect id="pid-tank-002-shell" class="pid-shell" x="1020" y="120" width="180" height="360" rx="12"/>
+      <rect id="pid-tank-002-level-fill" x="1036" y="460" width="148" height="0" rx="6" fill="#7fd3be" opacity="0.82"/>
+
+      <line x1="1200" y1="140" x2="1208" y2="140" stroke="#94a3b8" stroke-width="1.4"/>
+      <line x1="1200" y1="220" x2="1208" y2="220" stroke="#94a3b8" stroke-width="1.4"/>
+      <line x1="1200" y1="300" x2="1208" y2="300" stroke="#94a3b8" stroke-width="1.4"/>
+      <line x1="1200" y1="380" x2="1208" y2="380" stroke="#94a3b8" stroke-width="1.4"/>
+      <line x1="1200" y1="460" x2="1208" y2="460" stroke="#94a3b8" stroke-width="1.4"/>
+      <text class="pid-scale" x="1212" y="145" font-size="12">100%</text>
+      <text class="pid-scale" x="1212" y="225" font-size="12">75</text>
+      <text class="pid-scale" x="1212" y="305" font-size="12">50</text>
+      <text class="pid-scale" x="1212" y="385" font-size="12">25</text>
+      <text class="pid-scale" x="1212" y="465" font-size="12">0</text>
+    </g>
+
+    <g id="pid-setpoint-strip" transform="translate(360,504)">
+      <rect class="pid-rail" x="0" y="0" width="560" height="44" rx="10"/>
+      <text class="pid-subtitle" x="14" y="18" font-size="12" font-weight="700">FLOW SP</text>
+      <text id="pid-tag-flow-sp" class="pid-value" data-value="128.0 m3/h" x="14" y="36" font-size="14" font-weight="600">128.0 m3/h</text>
+
+      <text class="pid-subtitle" x="204" y="18" font-size="12" font-weight="700">PRESSURE SP</text>
+      <text id="pid-tag-pressure-sp" class="pid-value" data-value="4.60 bar" x="204" y="36" font-size="14" font-weight="600">4.60 bar</text>
+
+      <text class="pid-subtitle" x="414" y="18" font-size="12" font-weight="700">ALARMS</text>
+      <text id="pid-tag-alarm-count" class="pid-value" data-value="0" x="414" y="36" font-size="14" font-weight="600">0</text>
+    </g>
+  </g>
+
+  <g id="pid-banner-alarm-001" opacity="0">
+    <rect x="342" y="98" width="596" height="42" rx="8" fill="#fee2e2" stroke="#dc2626" stroke-width="1.8"/>
+    <text id="pid-banner-alarm-001-text" class="pid-tag" data-value="ALARM: PT-001 High Pressure" x="360" y="125" font-size="18" font-weight="700" fill="#991b1b">ALARM: PT-001 High Pressure</text>
+  </g>
+</svg>

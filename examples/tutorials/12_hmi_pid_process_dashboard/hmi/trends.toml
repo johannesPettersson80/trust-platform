@@ -1,0 +1,6 @@
+title = "Trends"
+icon = "line-chart"
+order = 50
+kind = "trend"
+duration_s = 600
+signals = ["P1.BypassFlowM3h", "P1.FeedLevelPct", "P1.FeedLevelSetpointPct", "P1.FlowDeviationM3h", "P1.FlowSetpointM3h", "P1.MainFlowM3h", "P1.PressureSetpointBar", "P1.ProductLevelSetpointPct"]

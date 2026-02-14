@@ -1,0 +1,54 @@
+title = "PUMP-001"
+icon = "settings"
+order = 100
+kind = "dashboard"
+hidden = true
+
+[[section]]
+title = "Status"
+span = 12
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.PumpRunning"
+label = "Running"
+span = 6
+on_color = "#16a34a"
+off_color = "#94a3b8"
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.BypassCmd"
+label = "Bypass Command"
+span = 6
+
+[[section]]
+title = "Values"
+span = 12
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.TotalFlowM3h"
+label = "Total Flow"
+unit = "m3/h"
+min = 0
+max = 180
+span = 6
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.MainFlowM3h"
+label = "Main Flow"
+unit = "m3/h"
+min = 0
+max = 500
+span = 6
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.PressureBar"
+label = "Pressure"
+unit = "bar"
+min = 0
+max = 9
+span = 6

@@ -32,7 +32,9 @@ dialoguer.workspace = true
 indicatif.workspace = true
 owo-colors.workspace = true
 rumqttc.workspace = true
+notify = "6"
 tiny_http = { version = "0.12", features = ["ssl-rustls"] }
+tungstenite = "0.21"
 mdns-sd = "0.10"
 base64 = "0.22"
 rand = "0.8"

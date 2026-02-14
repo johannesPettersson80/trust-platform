@@ -20,6 +20,8 @@ mod deploy;
 mod docs;
 #[path = "trust-runtime/git.rs"]
 mod git;
+#[path = "trust-runtime/hmi.rs"]
+mod hmi;
 #[path = "trust-runtime/plcopen.rs"]
 mod plcopen;
 #[path = "trust-runtime/prompt.rs"]
@@ -167,6 +169,7 @@ fn run() -> anyhow::Result<()> {
             out_dir,
             format,
         }) => docs::run_docs(project, out_dir, format),
+        Some(Command::Hmi { project, action }) => hmi::run_hmi(project, action),
         Some(Command::Plcopen { action }) => plcopen::run_plcopen(action),
         Some(Command::Registry { action }) => registry::run_registry(action),
         Some(Command::Setup {
@@ -244,6 +247,7 @@ fn suggest_subcommand(input: &str) -> Option<&'static str> {
         "build",
         "test",
         "docs",
+        "hmi",
         "plcopen",
         "registry",
         "deploy",

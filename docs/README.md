@@ -18,6 +18,12 @@ Implementation planning notes and remediation checklists live in `docs/internal/
 Hands-on setup tutorials and example learning tracks are indexed in:
 `examples/README.md`.
 
+## HMI Directory Workflow
+
+Production `hmi/` descriptor usage (including process SVG pages and LM tool
+invocation order) is documented in:
+`docs/guides/HMI_DIRECTORY_WORKFLOW.md`.
+
 ## Conformance Suite
 
 Conformance scope, naming rules, and summary-contract artifacts are in

@@ -3,22 +3,35 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0f1115" />
   <title>truST HMI</title>
   <link rel="stylesheet" href="/hmi/styles.css" />
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
-      <h1>truST HMI</h1>
-      <p id="resourceName">Loading resource...</p>
+      <svg class="brand-logo" viewBox="0 0 160 80">
+        <text x="20" y="50" class="logo-text">tru<tspan class="logo-accent">ST</tspan></text>
+        <text x="20" y="70" class="logo-tagline">open source plc toolchain</text>
+      </svg>
     </div>
     <div class="status">
+      <div class="alarm-banner" id="alarmBanner">
+        <span class="alarm-banner-dot" id="alarmBannerDot"></span>
+        <span class="alarm-banner-text" id="alarmBannerText">No alarms</span>
+      </div>
       <div class="pill" id="connectionState">Disconnected</div>
       <div class="pill" id="freshnessState">freshness: n/a</div>
       <div class="pill mode" id="modeLabel">read-only</div>
-      <div class="pill mode" id="themeLabel">theme: classic</div>
+      <div class="pill mode" id="themeLabel">Dark mode</div>
+      <div class="pill hidden" id="diagnosticState">diag: n/a</div>
     </div>
     <div class="actions">
+      <button id="backButton" class="action-link hidden" type="button">Back</button>
+      <button id="modeToggle" class="action-link" type="button">Engineering Mode</button>
+      <button id="layoutToggle" class="action-link hidden" type="button">Edit Layout</button>
+      <button id="addSignalButton" class="action-link hidden" type="button">Add Signal</button>
+      <button id="resetLayoutButton" class="action-link hidden" type="button">Reset Defaults</button>
       <a id="exportLink" class="action-link" href="/hmi/export.json" download>Export Standalone</a>
     </div>
   </header>

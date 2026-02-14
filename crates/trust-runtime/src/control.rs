@@ -5,12 +5,13 @@
 mod handlers;
 mod transport;
 
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::Sender;
+use std::sync::mpsc::{RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use crate::config::ControlMode;
 use crate::debug::{
@@ -29,10 +30,13 @@ use crate::web::pairing::PairingStore;
 use crate::RestartMode;
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use base64::Engine;
+use notify::{Event, EventKind, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use smol_str::SmolStr;
-use tracing::debug;
+use tracing::{debug, warn};
+
+const HMI_DESCRIPTOR_WATCH_DEBOUNCE: Duration = Duration::from_millis(250);
 
 #[derive(Debug, Clone)]
 pub enum ControlEndpoint {
@@ -85,6 +89,7 @@ pub struct ControlState {
     pub debug_enabled: Arc<AtomicBool>,
     pub debug_variables: Arc<Mutex<DebugVariableHandles>>,
     pub hmi_live: Arc<Mutex<crate::hmi::HmiLiveState>>,
+    pub hmi_descriptor: Arc<Mutex<HmiRuntimeDescriptor>>,
     pub historian: Option<Arc<crate::historian::HistorianService>>,
     pub pairing: Option<Arc<PairingStore>>,
 }
@@ -140,6 +145,24 @@ impl SourceRegistry {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct HmiRuntimeDescriptor {
+    pub customization: crate::hmi::HmiCustomization,
+    pub schema_revision: u64,
+    pub last_error: Option<String>,
+}
+
+impl HmiRuntimeDescriptor {
+    #[must_use]
+    pub fn from_sources(project_root: Option<&Path>, sources: &SourceRegistry) -> Self {
+        Self {
+            customization: load_hmi_customization_from_sources(project_root, sources),
+            schema_revision: 0,
+            last_error: None,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct ControlServer {
     endpoint: ControlEndpoint,
@@ -163,6 +186,100 @@ impl ControlServer {
     #[must_use]
     pub fn state(&self) -> Arc<ControlState> {
         self.state.clone()
+    }
+}
+
+pub fn spawn_hmi_descriptor_watcher(state: Arc<ControlState>) {
+    let Some(project_root) = state.project_root.clone() else {
+        return;
+    };
+    let project_root_for_thread = project_root.clone();
+    let state_for_thread = state.clone();
+    let (ready_tx, ready_rx) = std::sync::mpsc::channel::<Result<(), String>>();
+    std::thread::spawn(move || {
+        let (tx, rx) = std::sync::mpsc::channel::<notify::Result<Event>>();
+        let mut watcher = match notify::recommended_watcher(move |result| {
+            let _ = tx.send(result);
+        }) {
+            Ok(watcher) => watcher,
+            Err(err) => {
+                let _ = ready_tx.send(Err(err.to_string()));
+                warn!("hmi watcher init failed: {err}");
+                return;
+            }
+        };
+
+        if let Err(err) = watcher.watch(project_root_for_thread.as_path(), RecursiveMode::Recursive)
+        {
+            let _ = ready_tx.send(Err(err.to_string()));
+            warn!(
+                "hmi watcher failed to watch '{}': {err}",
+                project_root_for_thread.display()
+            );
+            return;
+        }
+        let _ = ready_tx.send(Ok(()));
+
+        loop {
+            let mut should_reload = match rx.recv() {
+                Ok(Ok(event)) => {
+                    hmi_event_matches_descriptor(&event, project_root_for_thread.as_path())
+                }
+                Ok(Err(err)) => {
+                    warn!("hmi watcher event error: {err}");
+                    false
+                }
+                Err(_) => break,
+            };
+            if !should_reload {
+                continue;
+            }
+
+            let mut deadline = Instant::now() + HMI_DESCRIPTOR_WATCH_DEBOUNCE;
+            loop {
+                let now = Instant::now();
+                let Some(timeout) = deadline.checked_duration_since(now) else {
+                    break;
+                };
+                match rx.recv_timeout(timeout) {
+                    Ok(Ok(event)) => {
+                        if hmi_event_matches_descriptor(&event, project_root_for_thread.as_path()) {
+                            should_reload = true;
+                            deadline = Instant::now() + HMI_DESCRIPTOR_WATCH_DEBOUNCE;
+                        }
+                    }
+                    Ok(Err(err)) => {
+                        warn!("hmi watcher event error: {err}");
+                    }
+                    Err(RecvTimeoutError::Timeout) => break,
+                    Err(RecvTimeoutError::Disconnected) => return,
+                }
+            }
+
+            if !should_reload {
+                continue;
+            }
+
+            if let Err(err) = reload_hmi_descriptor_state(&state_for_thread) {
+                warn!("hmi descriptor reload failed: {err}");
+            }
+        }
+    });
+    match ready_rx.recv_timeout(Duration::from_secs(1)) {
+        Ok(Ok(())) => {}
+        Ok(Err(err)) => warn!("hmi watcher startup failed: {err}"),
+        Err(RecvTimeoutError::Timeout) => {
+            warn!(
+                "hmi watcher startup timed out for '{}'",
+                project_root.display()
+            );
+        }
+        Err(RecvTimeoutError::Disconnected) => {
+            warn!(
+                "hmi watcher startup channel disconnected for '{}'",
+                project_root.display()
+            );
+        }
     }
 }
 
@@ -358,6 +475,7 @@ fn required_role_for_control_request(kind: &str, params: Option<&serde_json::Val
         | "hmi.values.get"
         | "hmi.trends.get"
         | "hmi.alarms.get"
+        | "hmi.descriptor.get"
         | "historian.query"
         | "historian.alerts"
         | "debug.state"
@@ -384,7 +502,9 @@ fn required_role_for_control_request(kind: &str, params: Option<&serde_json::Val
         | "io.force"
         | "io.unforce"
         | "debug.evaluate"
-        | "hmi.write" => AccessRole::Engineer,
+        | "hmi.write"
+        | "hmi.descriptor.update"
+        | "hmi.scaffold.reset" => AccessRole::Engineer,
         "config.set" => required_role_for_config_set(params),
         "shutdown" | "bytecode.reload" | "pair.start" | "pair.list" | "pair.revoke" => {
             AccessRole::Admin
@@ -583,14 +703,16 @@ fn handle_hmi_schema_get(id: u64, state: &ControlState) -> ControlResponse {
         Err(_) => return ControlResponse::error(id, "metadata unavailable".into()),
     };
     let snapshot = load_runtime_snapshot(state);
-    let customization = load_hmi_customization(state);
-    let result = crate::hmi::build_schema(
+    let descriptor = hmi_descriptor_snapshot(state);
+    let mut result = crate::hmi::build_schema(
         state.resource_name.as_str(),
         &metadata,
         snapshot.as_ref(),
         true,
-        Some(&customization),
+        Some(&descriptor.customization),
     );
+    result.schema_revision = descriptor.schema_revision;
+    result.descriptor_error = descriptor.last_error.clone();
     ControlResponse::ok(
         id,
         serde_json::to_value(result).expect("serialize hmi.schema.get"),
@@ -614,13 +736,13 @@ fn handle_hmi_values_get(
         Err(_) => return ControlResponse::error(id, "metadata unavailable".into()),
     };
     let snapshot = load_runtime_snapshot(state);
-    let customization = load_hmi_customization(state);
+    let descriptor = hmi_descriptor_snapshot(state);
     let schema = crate::hmi::build_schema(
         state.resource_name.as_str(),
         &metadata,
         snapshot.as_ref(),
         true,
-        Some(&customization),
+        Some(&descriptor.customization),
     );
     let result = crate::hmi::build_values(
         state.resource_name.as_str(),
@@ -655,13 +777,13 @@ fn handle_hmi_trends_get(
         Err(_) => return ControlResponse::error(id, "metadata unavailable".into()),
     };
     let snapshot = load_runtime_snapshot(state);
-    let customization = load_hmi_customization(state);
+    let descriptor = hmi_descriptor_snapshot(state);
     let schema = crate::hmi::build_schema(
         state.resource_name.as_str(),
         &metadata,
         snapshot.as_ref(),
         true,
-        Some(&customization),
+        Some(&descriptor.customization),
     );
     let values = crate::hmi::build_values(
         state.resource_name.as_str(),
@@ -706,13 +828,13 @@ fn handle_hmi_alarms_get(
         Err(_) => return ControlResponse::error(id, "metadata unavailable".into()),
     };
     let snapshot = load_runtime_snapshot(state);
-    let customization = load_hmi_customization(state);
+    let descriptor = hmi_descriptor_snapshot(state);
     let schema = crate::hmi::build_schema(
         state.resource_name.as_str(),
         &metadata,
         snapshot.as_ref(),
         true,
-        Some(&customization),
+        Some(&descriptor.customization),
     );
     let values = crate::hmi::build_values(
         state.resource_name.as_str(),
@@ -731,6 +853,198 @@ fn handle_hmi_alarms_get(
     ControlResponse::ok(
         id,
         serde_json::to_value(result).expect("serialize hmi.alarms.get"),
+    )
+}
+
+fn handle_hmi_descriptor_get(id: u64, state: &ControlState) -> ControlResponse {
+    let descriptor = hmi_descriptor_snapshot(state);
+    if let Some(dir) = descriptor.customization.dir_descriptor().cloned() {
+        return ControlResponse::ok(
+            id,
+            serde_json::to_value(dir).expect("serialize hmi.descriptor.get"),
+        );
+    }
+
+    let metadata = match state.metadata.lock() {
+        Ok(guard) => guard,
+        Err(_) => return ControlResponse::error(id, "metadata unavailable".into()),
+    };
+    let snapshot = load_runtime_snapshot(state);
+    let schema = crate::hmi::build_schema(
+        state.resource_name.as_str(),
+        &metadata,
+        snapshot.as_ref(),
+        true,
+        Some(&descriptor.customization),
+    );
+    let inferred = descriptor_from_schema(&schema);
+    ControlResponse::ok(
+        id,
+        serde_json::to_value(inferred).expect("serialize inferred hmi descriptor"),
+    )
+}
+
+fn handle_hmi_descriptor_update(
+    id: u64,
+    params: Option<serde_json::Value>,
+    state: &ControlState,
+) -> ControlResponse {
+    let params = match params {
+        Some(value) => match serde_json::from_value::<HmiDescriptorUpdateParams>(value) {
+            Ok(parsed) => parsed,
+            Err(err) => return ControlResponse::error(id, format!("invalid params: {err}")),
+        },
+        None => return ControlResponse::error(id, "missing params".into()),
+    };
+    let project_root = match state.project_root.as_ref() {
+        Some(path) => path,
+        None => {
+            return ControlResponse::error(
+                id,
+                "hmi.descriptor.update requires a project bundle".into(),
+            )
+        }
+    };
+
+    let metadata = match state.metadata.lock() {
+        Ok(guard) => guard,
+        Err(_) => return ControlResponse::error(id, "metadata unavailable".into()),
+    };
+    let snapshot = load_runtime_snapshot(state);
+    let diagnostics = crate::hmi::validate_hmi_bindings(
+        state.resource_name.as_str(),
+        &metadata,
+        snapshot.as_ref(),
+        &params.descriptor,
+    );
+    if !diagnostics.is_empty() {
+        return ControlResponse::error(
+            id,
+            format!(
+                "descriptor validation failed ({} issue(s), first: {} [{}])",
+                diagnostics.len(),
+                diagnostics[0].message,
+                diagnostics[0].code
+            ),
+        );
+    }
+    drop(metadata);
+
+    let files = match crate::hmi::write_hmi_dir_descriptor(project_root, &params.descriptor) {
+        Ok(files) => files,
+        Err(err) => {
+            return ControlResponse::error(id, format!("descriptor write failed: {err}"));
+        }
+    };
+    let revision = match reload_hmi_descriptor_state(state) {
+        Ok(revision) => revision,
+        Err(err) => return ControlResponse::error(id, format!("descriptor reload failed: {err}")),
+    };
+    ControlResponse::ok(
+        id,
+        json!({
+            "status": "updated",
+            "schema_revision": revision,
+            "files": files,
+        }),
+    )
+}
+
+fn handle_hmi_scaffold_reset(
+    id: u64,
+    params: Option<serde_json::Value>,
+    state: &ControlState,
+) -> ControlResponse {
+    let params = match params {
+        Some(value) => match serde_json::from_value::<HmiScaffoldResetParams>(value) {
+            Ok(parsed) => parsed,
+            Err(err) => return ControlResponse::error(id, format!("invalid params: {err}")),
+        },
+        None => HmiScaffoldResetParams::default(),
+    };
+    let project_root = match state.project_root.as_ref() {
+        Some(path) => path,
+        None => {
+            return ControlResponse::error(
+                id,
+                "hmi.scaffold.reset requires a project bundle".into(),
+            )
+        }
+    };
+
+    let mode = match params
+        .mode
+        .as_deref()
+        .map(|value| value.trim().to_ascii_lowercase())
+    {
+        Some(mode) if mode == "update" => crate::hmi::HmiScaffoldMode::Update,
+        Some(mode) if mode == "reset" || mode.is_empty() => crate::hmi::HmiScaffoldMode::Reset,
+        Some(mode) => {
+            return ControlResponse::error(
+                id,
+                format!("invalid scaffold mode '{mode}' (expected update|reset)"),
+            )
+        }
+        None => crate::hmi::HmiScaffoldMode::Reset,
+    };
+    let style = params
+        .style
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .or_else(|| {
+            hmi_descriptor_snapshot(state)
+                .customization
+                .dir_descriptor()
+                .and_then(|descriptor| descriptor.config.theme.style.clone())
+        })
+        .unwrap_or_else(|| "industrial".to_string());
+
+    let metadata = match state.metadata.lock() {
+        Ok(guard) => guard,
+        Err(_) => return ControlResponse::error(id, "metadata unavailable".into()),
+    };
+    let snapshot = load_runtime_snapshot(state);
+    let source_refs = state
+        .sources
+        .files()
+        .iter()
+        .map(|file| crate::hmi::HmiSourceRef {
+            path: file.path.as_path(),
+            text: file.text.as_str(),
+        })
+        .collect::<Vec<_>>();
+    let summary = match crate::hmi::scaffold_hmi_dir_with_sources_mode(
+        project_root,
+        &metadata,
+        snapshot.as_ref(),
+        &source_refs,
+        style.as_str(),
+        mode,
+        false,
+    ) {
+        Ok(summary) => summary,
+        Err(err) => {
+            return ControlResponse::error(id, format!("failed to reset scaffold: {err}"));
+        }
+    };
+    drop(metadata);
+
+    let revision = match reload_hmi_descriptor_state(state) {
+        Ok(revision) => revision,
+        Err(err) => return ControlResponse::error(id, format!("descriptor reload failed: {err}")),
+    };
+
+    ControlResponse::ok(
+        id,
+        json!({
+            "status": "updated",
+            "mode": mode.as_str(),
+            "style": summary.style,
+            "schema_revision": revision,
+            "files": summary.files,
+        }),
     )
 }
 
@@ -782,7 +1096,8 @@ fn handle_hmi_write(
         return ControlResponse::error(id, "missing params.id".into());
     }
 
-    let customization = load_hmi_customization(state);
+    let descriptor = hmi_descriptor_snapshot(state);
+    let customization = descriptor.customization;
     if !customization.write_enabled() {
         return ControlResponse::error(id, "hmi.write disabled in read-only mode".into());
     }
@@ -861,9 +1176,44 @@ fn handle_hmi_write(
     )
 }
 
-fn load_hmi_customization(state: &ControlState) -> crate::hmi::HmiCustomization {
-    let source_refs = state
-        .sources
+fn hmi_descriptor_snapshot(state: &ControlState) -> HmiRuntimeDescriptor {
+    state
+        .hmi_descriptor
+        .lock()
+        .map(|guard| guard.clone())
+        .unwrap_or_else(|_| {
+            HmiRuntimeDescriptor::from_sources(state.project_root.as_deref(), &state.sources)
+        })
+}
+
+fn reload_hmi_descriptor_state(state: &ControlState) -> Result<u64, String> {
+    let customization = match load_hmi_customization_strict_from_sources(
+        state.project_root.as_deref(),
+        &state.sources,
+    ) {
+        Ok(customization) => customization,
+        Err(err) => {
+            if let Ok(mut descriptor) = state.hmi_descriptor.lock() {
+                descriptor.last_error = Some(err.clone());
+            }
+            return Err(err);
+        }
+    };
+    let mut descriptor = state
+        .hmi_descriptor
+        .lock()
+        .map_err(|_| "hmi descriptor state unavailable".to_string())?;
+    descriptor.customization = customization;
+    descriptor.schema_revision = descriptor.schema_revision.saturating_add(1);
+    descriptor.last_error = None;
+    Ok(descriptor.schema_revision)
+}
+
+fn load_hmi_customization_from_sources(
+    project_root: Option<&Path>,
+    sources: &SourceRegistry,
+) -> crate::hmi::HmiCustomization {
+    let source_refs = sources
         .files()
         .iter()
         .map(|file| crate::hmi::HmiSourceRef {
@@ -871,7 +1221,39 @@ fn load_hmi_customization(state: &ControlState) -> crate::hmi::HmiCustomization 
             text: file.text.as_str(),
         })
         .collect::<Vec<_>>();
-    crate::hmi::load_customization(state.project_root.as_deref(), &source_refs)
+    crate::hmi::load_customization(project_root, &source_refs)
+}
+
+fn load_hmi_customization_strict_from_sources(
+    project_root: Option<&Path>,
+    sources: &SourceRegistry,
+) -> Result<crate::hmi::HmiCustomization, String> {
+    let source_refs = sources
+        .files()
+        .iter()
+        .map(|file| crate::hmi::HmiSourceRef {
+            path: &file.path,
+            text: file.text.as_str(),
+        })
+        .collect::<Vec<_>>();
+    crate::hmi::try_load_customization(project_root, &source_refs).map_err(|err| err.to_string())
+}
+
+fn hmi_event_matches_descriptor(event: &Event, project_root: &Path) -> bool {
+    if !matches!(
+        event.kind,
+        EventKind::Create(_) | EventKind::Modify(_) | EventKind::Remove(_)
+    ) {
+        return false;
+    }
+    let hmi_dir = project_root.join("hmi");
+    event.paths.iter().any(|path| {
+        path.starts_with(&hmi_dir)
+            && path
+                .extension()
+                .and_then(|value| value.to_str())
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("toml"))
+    })
 }
 
 fn load_runtime_snapshot(state: &ControlState) -> Option<crate::debug::DebugSnapshot> {
@@ -883,6 +1265,142 @@ fn load_runtime_snapshot(state: &ControlState) -> Option<crate::debug::DebugSnap
         }
     }
     state.debug.snapshot()
+}
+
+fn descriptor_from_schema(schema: &crate::hmi::HmiSchemaResult) -> crate::hmi::HmiDirDescriptor {
+    let mut pages = Vec::new();
+    let widgets_by_page = schema.widgets.iter().fold(
+        BTreeMap::<String, Vec<&crate::hmi::HmiWidgetSchema>>::new(),
+        |mut acc, widget| {
+            acc.entry(widget.page.clone()).or_default().push(widget);
+            acc
+        },
+    );
+    let widget_by_id = schema
+        .widgets
+        .iter()
+        .map(|widget| (widget.id.as_str(), widget))
+        .collect::<BTreeMap<_, _>>();
+
+    for page in &schema.pages {
+        let page_widgets = widgets_by_page
+            .get(page.id.as_str())
+            .cloned()
+            .unwrap_or_default();
+        let mut sections = Vec::new();
+        if !page.sections.is_empty() {
+            for section in &page.sections {
+                let widgets = section
+                    .widget_ids
+                    .iter()
+                    .filter_map(|id| widget_by_id.get(id.as_str()).copied())
+                    .map(|widget| crate::hmi::HmiDirWidget {
+                        widget_type: Some(widget.widget.clone()),
+                        bind: widget.path.clone(),
+                        label: Some(widget.label.clone()),
+                        unit: widget.unit.clone(),
+                        min: widget.min,
+                        max: widget.max,
+                        span: widget.widget_span,
+                        on_color: widget.on_color.clone(),
+                        off_color: widget.off_color.clone(),
+                        inferred_interface: widget.inferred_interface.then_some(true),
+                        detail_page: widget.detail_page.clone(),
+                        zones: widget.zones.clone(),
+                    })
+                    .collect::<Vec<_>>();
+                if widgets.is_empty() {
+                    continue;
+                }
+                sections.push(crate::hmi::HmiDirSection {
+                    title: section.title.clone(),
+                    span: section.span.clamp(1, 12),
+                    tier: section.tier.clone(),
+                    widgets,
+                });
+            }
+        }
+        if sections.is_empty() {
+            let mut grouped = BTreeMap::<String, Vec<&crate::hmi::HmiWidgetSchema>>::new();
+            for widget in &page_widgets {
+                grouped
+                    .entry(widget.group.clone())
+                    .or_default()
+                    .push(*widget);
+            }
+            for (group, widgets) in grouped {
+                let mapped = widgets
+                    .into_iter()
+                    .map(|widget| crate::hmi::HmiDirWidget {
+                        widget_type: Some(widget.widget.clone()),
+                        bind: widget.path.clone(),
+                        label: Some(widget.label.clone()),
+                        unit: widget.unit.clone(),
+                        min: widget.min,
+                        max: widget.max,
+                        span: widget.widget_span,
+                        on_color: widget.on_color.clone(),
+                        off_color: widget.off_color.clone(),
+                        inferred_interface: widget.inferred_interface.then_some(true),
+                        detail_page: widget.detail_page.clone(),
+                        zones: widget.zones.clone(),
+                    })
+                    .collect::<Vec<_>>();
+                if mapped.is_empty() {
+                    continue;
+                }
+                sections.push(crate::hmi::HmiDirSection {
+                    title: if group.trim().is_empty() {
+                        "General".to_string()
+                    } else {
+                        group
+                    },
+                    span: 12,
+                    tier: None,
+                    widgets: mapped,
+                });
+            }
+        }
+
+        pages.push(crate::hmi::HmiDirPage {
+            id: page.id.clone(),
+            title: page.title.clone(),
+            icon: page.icon.clone(),
+            order: page.order,
+            kind: page.kind.clone(),
+            duration_ms: page.duration_ms,
+            svg: page.svg.clone(),
+            hidden: page.hidden,
+            signals: page.signals.clone(),
+            sections,
+            bindings: page
+                .bindings
+                .iter()
+                .map(|binding| crate::hmi::HmiDirProcessBinding {
+                    selector: binding.selector.clone(),
+                    attribute: binding.attribute.clone(),
+                    source: binding.source.clone(),
+                    format: binding.format.clone(),
+                    map: binding.map.clone(),
+                    scale: binding.scale.clone(),
+                })
+                .collect(),
+        });
+    }
+
+    crate::hmi::HmiDirDescriptor {
+        config: crate::hmi::HmiDirConfig {
+            version: Some(1),
+            theme: crate::hmi::HmiDirTheme {
+                style: Some(schema.theme.style.clone()),
+                accent: Some(schema.theme.accent.clone()),
+            },
+            layout: crate::hmi::HmiDirLayout::default(),
+            write: crate::hmi::HmiDirWrite::default(),
+            alarms: Vec::new(),
+        },
+        pages,
+    }
 }
 
 fn handle_events_tail(
@@ -2897,6 +3415,17 @@ struct HmiWriteParams {
     value: serde_json::Value,
 }
 
+#[derive(Debug, Deserialize)]
+struct HmiDescriptorUpdateParams {
+    descriptor: crate::hmi::HmiDirDescriptor,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct HmiScaffoldResetParams {
+    mode: Option<String>,
+    style: Option<String>,
+}
+
 #[derive(Debug, Default, Deserialize)]
 struct HistorianQueryParams {
     variable: Option<String>,
@@ -3096,7 +3625,7 @@ mod tests {
     use std::path::PathBuf;
     use std::sync::atomic::AtomicBool;
     use std::sync::{Arc, Mutex};
-    use std::time::{SystemTime, UNIX_EPOCH};
+    use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
     use indexmap::IndexMap;
     use serde_json::json;
@@ -3210,15 +3739,19 @@ mod tests {
                 }
             }
         });
+        let sources = SourceRegistry::new(vec![SourceFile {
+            id: 1,
+            path: std::path::PathBuf::from("main.st"),
+            text: source.to_string(),
+        }]);
+        let hmi_descriptor = Arc::new(Mutex::new(HmiRuntimeDescriptor::from_sources(
+            None, &sources,
+        )));
         ControlState {
             debug,
             resource,
             metadata: Arc::new(Mutex::new(harness.runtime().metadata_snapshot())),
-            sources: SourceRegistry::new(vec![SourceFile {
-                id: 1,
-                path: std::path::PathBuf::from("main.st"),
-                text: source.to_string(),
-            }]),
+            sources,
             io_snapshot: Arc::new(Mutex::new(None)),
             pending_restart: Arc::new(Mutex::new(None)),
             auth_token: Arc::new(Mutex::new(None)),
@@ -3234,8 +3767,71 @@ mod tests {
             debug_enabled: Arc::new(AtomicBool::new(true)),
             debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
             hmi_live: Arc::new(Mutex::new(crate::hmi::HmiLiveState::default())),
+            hmi_descriptor,
             historian: None,
             pairing: None,
+        }
+    }
+
+    fn set_hmi_project_root(state: &mut ControlState, root: &Path) {
+        state.project_root = Some(root.to_path_buf());
+        state.hmi_descriptor = Arc::new(Mutex::new(HmiRuntimeDescriptor::from_sources(
+            state.project_root.as_deref(),
+            &state.sources,
+        )));
+    }
+
+    fn hmi_schema_result(state: &ControlState) -> serde_json::Value {
+        let response =
+            handle_request_value(json!({"id": 999, "type": "hmi.schema.get"}), state, None);
+        assert!(response.ok, "schema response failed: {:?}", response.error);
+        response.result.expect("schema result")
+    }
+
+    fn hmi_schema_revision_and_speed_label(state: &ControlState) -> (u64, String) {
+        let result = hmi_schema_result(state);
+        let revision = result
+            .get("schema_revision")
+            .and_then(serde_json::Value::as_u64)
+            .expect("schema revision");
+        let label = result
+            .get("widgets")
+            .and_then(serde_json::Value::as_array)
+            .and_then(|widgets| {
+                widgets.iter().find_map(|widget| {
+                    if widget.get("path").and_then(serde_json::Value::as_str) == Some("Main.speed")
+                    {
+                        widget
+                            .get("label")
+                            .and_then(serde_json::Value::as_str)
+                            .map(ToOwned::to_owned)
+                    } else {
+                        None
+                    }
+                })
+            })
+            .expect("speed label");
+        (revision, label)
+    }
+
+    fn wait_for_schema_revision(
+        state: &ControlState,
+        min_revision: u64,
+        timeout: Duration,
+    ) -> (u64, String) {
+        let deadline = Instant::now() + timeout;
+        loop {
+            let current = hmi_schema_revision_and_speed_label(state);
+            if current.0 >= min_revision {
+                return current;
+            }
+            if Instant::now() >= deadline {
+                panic!(
+                    "schema revision did not reach {min_revision}; last seen {:?}",
+                    current
+                );
+            }
+            std::thread::sleep(Duration::from_millis(50));
         }
     }
 
@@ -3286,6 +3882,12 @@ END_PROGRAM
         assert_eq!(
             result.get("mode").and_then(serde_json::Value::as_str),
             Some("read_only")
+        );
+        assert_eq!(
+            result
+                .get("schema_revision")
+                .and_then(serde_json::Value::as_u64),
+            Some(0)
         );
         assert_eq!(
             result.get("read_only").and_then(serde_json::Value::as_bool),
@@ -3497,7 +4099,7 @@ allow = ["resource/RESOURCE/program/Main/field/run"]
         );
 
         let mut state = hmi_test_state(source);
-        state.project_root = Some(root.clone());
+        set_hmi_project_root(&mut state, &root);
 
         let response = handle_request_value(
             json!({
@@ -3553,7 +4155,7 @@ allow = ["Main.run"]
         );
 
         let mut state = hmi_test_state(source);
-        state.project_root = Some(root.clone());
+        set_hmi_project_root(&mut state, &root);
 
         let response = handle_request_value(
             json!({
@@ -3595,7 +4197,7 @@ allow = ["resource/RESOURCE/program/Main/field/other"]
         );
 
         let mut state = hmi_test_state(source);
-        state.project_root = Some(root.clone());
+        set_hmi_project_root(&mut state, &root);
         let response = handle_request_value(
             json!({
                 "id": 6,
@@ -3637,7 +4239,7 @@ allow = ["resource/RESOURCE/program/Main/field/run"]
         );
 
         let mut state = hmi_test_state(source);
-        state.project_root = Some(root.clone());
+        set_hmi_project_root(&mut state, &root);
         let response = handle_request_value(
             json!({
                 "id": 7,
@@ -3656,6 +4258,71 @@ allow = ["resource/RESOURCE/program/Main/field/run"]
             Some("invalid hmi.write value for target 'resource/RESOURCE/program/Main/field/run'")
         );
         assert!(state.debug.drain_var_writes().is_empty());
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn hmi_write_processing_stays_under_cycle_budget() {
+        let source = r#"
+PROGRAM Main
+VAR
+    run : BOOL := TRUE;
+END_VAR
+END_PROGRAM
+"#;
+        let root = temp_dir("hmi-write-budget");
+        write_file(
+            &root.join("hmi.toml"),
+            r#"
+[write]
+enabled = true
+allow = ["resource/RESOURCE/program/Main/field/run"]
+"#,
+        );
+
+        let mut state = hmi_test_state(source);
+        set_hmi_project_root(&mut state, &root);
+
+        let writes: u32 = 300;
+        let mut max = Duration::ZERO;
+        let mut total = Duration::ZERO;
+        for index in 0..writes {
+            let started = Instant::now();
+            let response = handle_request_value(
+                json!({
+                    "id": 70_u64 + u64::from(index),
+                    "type": "hmi.write",
+                    "params": {
+                        "id": "resource/RESOURCE/program/Main/field/run",
+                        "value": index % 2 == 0
+                    }
+                }),
+                &state,
+                None,
+            );
+            let elapsed = started.elapsed();
+            assert!(response.ok, "hmi.write failed: {:?}", response.error);
+            max = max.max(elapsed);
+            total += elapsed;
+        }
+
+        let avg = total / writes;
+        assert!(
+            max < Duration::from_millis(100),
+            "max hmi.write latency {:?} exceeded write cycle budget",
+            max
+        );
+        assert!(
+            avg < Duration::from_millis(25),
+            "avg hmi.write latency {:?} exceeded expected write overhead",
+            avg
+        );
+
+        let drained = state.debug.drain_var_writes();
+        assert!(
+            !drained.is_empty(),
+            "expected queued writes after budget benchmark loop"
+        );
         fs::remove_dir_all(root).ok();
     }
 
@@ -3734,6 +4401,430 @@ END_PROGRAM
                 .and_then(serde_json::Value::as_str),
             Some("acknowledged")
         );
+    }
+
+    #[test]
+    fn hmi_descriptor_watcher_updates_schema_without_runtime_restart() {
+        let source = r#"
+PROGRAM Main
+VAR
+    speed : REAL := 42.0;
+END_VAR
+END_PROGRAM
+"#;
+        let root = temp_dir("hmi-live-refresh");
+        write_file(
+            &root.join("hmi/overview.toml"),
+            r#"
+title = "Overview"
+
+[[section]]
+title = "Drive"
+span = 12
+
+[[section.widget]]
+type = "value"
+bind = "Main.speed"
+label = "Speed A"
+"#,
+        );
+
+        let mut state = hmi_test_state(source);
+        set_hmi_project_root(&mut state, &root);
+        let state = Arc::new(state);
+        spawn_hmi_descriptor_watcher(state.clone());
+
+        let (initial_revision, initial_label) = hmi_schema_revision_and_speed_label(state.as_ref());
+        assert_eq!(initial_revision, 0);
+        assert_eq!(initial_label, "Speed A");
+
+        write_file(
+            &root.join("hmi/overview.toml"),
+            r#"
+title = "Overview"
+
+[[section]]
+title = "Drive"
+span = 12
+
+[[section.widget]]
+type = "value"
+bind = "Main.speed"
+label = "Speed B"
+"#,
+        );
+
+        let (revision, label) = wait_for_schema_revision(state.as_ref(), 1, Duration::from_secs(5));
+        assert_eq!(revision, 1);
+        assert_eq!(label, "Speed B");
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn hmi_descriptor_watcher_retains_last_good_schema_on_invalid_toml() {
+        let source = r#"
+PROGRAM Main
+VAR
+    speed : REAL := 42.0;
+END_VAR
+END_PROGRAM
+"#;
+        let root = temp_dir("hmi-live-invalid");
+        write_file(
+            &root.join("hmi/overview.toml"),
+            r#"
+title = "Overview"
+
+[[section]]
+title = "Drive"
+span = 12
+
+[[section.widget]]
+type = "value"
+bind = "Main.speed"
+label = "Speed A"
+"#,
+        );
+
+        let mut state = hmi_test_state(source);
+        set_hmi_project_root(&mut state, &root);
+        let state = Arc::new(state);
+        spawn_hmi_descriptor_watcher(state.clone());
+
+        let (initial_revision, initial_label) = hmi_schema_revision_and_speed_label(state.as_ref());
+        assert_eq!(initial_revision, 0);
+        assert_eq!(initial_label, "Speed A");
+
+        write_file(
+            &root.join("hmi/overview.toml"),
+            r#"
+title = "Overview"
+
+[[section]]
+title = "Drive"
+span = "wide"
+"#,
+        );
+
+        std::thread::sleep(Duration::from_millis(600));
+        let (revision_after_invalid, label_after_invalid) =
+            hmi_schema_revision_and_speed_label(state.as_ref());
+        assert_eq!(revision_after_invalid, 0);
+        assert_eq!(label_after_invalid, "Speed A");
+        let invalid_schema = hmi_schema_result(state.as_ref());
+        assert!(
+            invalid_schema
+                .get("descriptor_error")
+                .and_then(serde_json::Value::as_str)
+                .is_some(),
+            "descriptor_error should be present after invalid descriptor update"
+        );
+
+        write_file(
+            &root.join("hmi/overview.toml"),
+            r#"
+title = "Overview"
+
+[[section]]
+title = "Drive"
+span = 12
+
+[[section.widget]]
+type = "value"
+bind = "Main.speed"
+label = "Speed C"
+"#,
+        );
+
+        let (revision_after_fix, label_after_fix) =
+            wait_for_schema_revision(state.as_ref(), 1, Duration::from_secs(5));
+        assert_eq!(revision_after_fix, 1);
+        assert_eq!(label_after_fix, "Speed C");
+        let fixed_schema = hmi_schema_result(state.as_ref());
+        assert!(
+            fixed_schema.get("descriptor_error").is_none(),
+            "descriptor_error should clear after descriptor recovers"
+        );
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn hmi_descriptor_watcher_handles_rapid_file_changes_without_deadlock() {
+        let source = r#"
+PROGRAM Main
+VAR
+    speed : REAL := 42.0;
+END_VAR
+END_PROGRAM
+"#;
+        let root = temp_dir("hmi-live-rapid");
+        write_file(
+            &root.join("hmi/overview.toml"),
+            r#"
+title = "Overview"
+
+[[section]]
+title = "Drive"
+span = 12
+
+[[section.widget]]
+type = "value"
+bind = "Main.speed"
+label = "Speed A"
+"#,
+        );
+
+        let mut state = hmi_test_state(source);
+        set_hmi_project_root(&mut state, &root);
+        let state = Arc::new(state);
+        spawn_hmi_descriptor_watcher(state.clone());
+
+        let (initial_revision, initial_label) = hmi_schema_revision_and_speed_label(state.as_ref());
+        assert_eq!(initial_revision, 0);
+        assert_eq!(initial_label, "Speed A");
+
+        for index in 0..24_u32 {
+            if index % 5 == 0 {
+                write_file(
+                    &root.join("hmi/overview.toml"),
+                    r#"
+title = "Overview"
+
+[[section]]
+title = "Drive"
+span = "wide"
+"#,
+                );
+            } else {
+                write_file(
+                    &root.join("hmi/overview.toml"),
+                    format!(
+                        r#"
+title = "Overview"
+
+[[section]]
+title = "Drive"
+span = 12
+
+[[section.widget]]
+type = "value"
+bind = "Main.speed"
+label = "Speed {index}"
+"#
+                    )
+                    .as_str(),
+                );
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        write_file(
+            &root.join("hmi/overview.toml"),
+            r#"
+title = "Overview"
+
+[[section]]
+title = "Drive"
+span = 12
+
+[[section.widget]]
+type = "value"
+bind = "Main.speed"
+label = "Speed Final"
+"#,
+        );
+
+        let (revision_after_churn, label_after_churn) =
+            wait_for_schema_revision(state.as_ref(), 1, Duration::from_secs(5));
+        assert!(revision_after_churn >= 1);
+        assert_eq!(label_after_churn, "Speed Final");
+
+        for id in 0..40_u64 {
+            let response = handle_request_value(
+                json!({"id": 9_000_u64 + id, "type": "hmi.schema.get"}),
+                &state,
+                None,
+            );
+            assert!(
+                response.ok,
+                "schema request failed during churn: {:?}",
+                response.error
+            );
+        }
+
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn hmi_descriptor_get_returns_inferred_layout_when_files_missing() {
+        let source = r#"
+PROGRAM Main
+VAR
+    run : BOOL := TRUE;
+    speed : REAL := 42.0;
+END_VAR
+END_PROGRAM
+"#;
+        let state = hmi_test_state(source);
+        let response = handle_request_value(
+            json!({"id": 700, "type": "hmi.descriptor.get"}),
+            &state,
+            None,
+        );
+        assert!(
+            response.ok,
+            "hmi.descriptor.get failed: {:?}",
+            response.error
+        );
+        let pages = response
+            .result
+            .as_ref()
+            .and_then(|value| value.get("pages"))
+            .and_then(serde_json::Value::as_array)
+            .expect("descriptor pages");
+        assert!(
+            !pages.is_empty(),
+            "inferred descriptor should include at least one page"
+        );
+    }
+
+    #[test]
+    fn hmi_descriptor_update_writes_files_and_bumps_schema_revision() {
+        let source = r#"
+PROGRAM Main
+VAR
+    speed : REAL := 42.0;
+END_VAR
+END_PROGRAM
+"#;
+        let root = temp_dir("hmi-descriptor-update");
+        let mut state = hmi_test_state(source);
+        set_hmi_project_root(&mut state, &root);
+
+        let response = handle_request_value(
+            json!({
+                "id": 701,
+                "type": "hmi.descriptor.update",
+                "params": {
+                    "descriptor": {
+                        "config": {
+                            "theme": { "style": "industrial", "accent": "#22d3ee" },
+                            "layout": {},
+                            "write": {},
+                            "alarm": []
+                        },
+                        "pages": [
+                            {
+                                "id": "overview",
+                                "title": "Overview",
+                                "icon": "activity",
+                                "order": 0,
+                                "kind": "dashboard",
+                                "duration_ms": null,
+                                "svg": null,
+                                "signals": [],
+                                "sections": [
+                                    {
+                                        "title": "Drive",
+                                        "span": 12,
+                                        "widgets": [
+                                            {
+                                                "widget_type": "gauge",
+                                                "bind": "Main.speed",
+                                                "label": "Speed Updated",
+                                                "unit": "rpm",
+                                                "min": 0,
+                                                "max": 100,
+                                                "span": 6,
+                                                "on_color": null,
+                                                "off_color": null,
+                                                "zones": []
+                                            }
+                                        ]
+                                    }
+                                ],
+                                "bindings": []
+                            }
+                        ]
+                    }
+                }
+            }),
+            &state,
+            None,
+        );
+        assert!(
+            response.ok,
+            "hmi.descriptor.update failed: {:?}",
+            response.error
+        );
+        let revision = response
+            .result
+            .as_ref()
+            .and_then(|value| value.get("schema_revision"))
+            .and_then(serde_json::Value::as_u64)
+            .expect("schema revision");
+        assert!(revision >= 1, "schema revision should increment");
+        assert!(root.join("hmi/_config.toml").is_file());
+        assert!(root.join("hmi/overview.toml").is_file());
+        let overview = fs::read_to_string(root.join("hmi/overview.toml")).expect("read overview");
+        assert!(overview.contains("Speed Updated"));
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn hmi_scaffold_reset_regenerates_required_pages_and_revision() {
+        let source = r#"
+PROGRAM Main
+VAR_INPUT
+    start_cmd : BOOL := FALSE;
+END_VAR
+VAR_OUTPUT
+    speed : REAL := 42.0;
+END_VAR
+END_PROGRAM
+"#;
+        let root = temp_dir("hmi-scaffold-reset-endpoint");
+        write_file(
+            &root.join("hmi/overview.toml"),
+            r#"
+title = "Overview"
+
+[[section]]
+title = "Custom"
+span = 12
+"#,
+        );
+        let mut state = hmi_test_state(source);
+        set_hmi_project_root(&mut state, &root);
+
+        let response = handle_request_value(
+            json!({
+                "id": 702,
+                "type": "hmi.scaffold.reset",
+                "params": { "mode": "reset", "style": "industrial" }
+            }),
+            &state,
+            None,
+        );
+        assert!(
+            response.ok,
+            "hmi.scaffold.reset failed: {:?}",
+            response.error
+        );
+        let revision = response
+            .result
+            .as_ref()
+            .and_then(|value| value.get("schema_revision"))
+            .and_then(serde_json::Value::as_u64)
+            .expect("schema revision");
+        assert!(revision >= 1, "schema revision should increment");
+        assert!(root.join("hmi/overview.toml").is_file());
+        assert!(root.join("hmi/process.toml").is_file());
+        assert!(root.join("hmi/control.toml").is_file());
+        assert!(root.join("hmi/trends.toml").is_file());
+        assert!(root.join("hmi/alarms.toml").is_file());
+        let config = fs::read_to_string(root.join("hmi/_config.toml")).expect("read config");
+        assert!(config.contains("version = 1"));
+        fs::remove_dir_all(root).ok();
     }
 
     #[test]

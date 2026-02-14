@@ -160,6 +160,14 @@ pub enum Command {
         #[arg(long, value_enum, default_value_t = DocsFormat::Both)]
         format: DocsFormat,
     },
+    /// Human-machine-interface scaffold workflows.
+    Hmi {
+        /// Project folder directory (defaults to auto-detect or current directory).
+        #[arg(long = "project", alias = "bundle")]
+        project: Option<PathBuf>,
+        #[command(subcommand)]
+        action: HmiAction,
+    },
     /// PLCopen XML interchange (ST-complete profile).
     Plcopen {
         #[command(subcommand)]
@@ -291,6 +299,48 @@ pub enum DocsFormat {
     Markdown,
     Html,
     Both,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum HmiStyleArg {
+    Industrial,
+    Classic,
+    Mint,
+}
+
+impl HmiStyleArg {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Industrial => "industrial",
+            Self::Classic => "classic",
+            Self::Mint => "mint",
+        }
+    }
+}
+
+#[derive(Debug, Subcommand)]
+pub enum HmiAction {
+    /// Auto-generate `hmi/` scaffold pages from source metadata.
+    Init {
+        /// Theme style for generated `_config.toml`.
+        #[arg(long, value_enum, default_value_t = HmiStyleArg::Industrial)]
+        style: HmiStyleArg,
+        /// Allow init to overwrite an existing non-empty `hmi/` directory.
+        #[arg(long, action = ArgAction::SetTrue)]
+        force: bool,
+    },
+    /// Merge missing scaffold pages/signals into an existing `hmi/` directory.
+    Update {
+        /// Theme style used when creating new scaffold files.
+        #[arg(long, value_enum, default_value_t = HmiStyleArg::Industrial)]
+        style: HmiStyleArg,
+    },
+    /// Regenerate scaffold-owned files and create a backup snapshot.
+    Reset {
+        /// Theme style for regenerated scaffold files.
+        #[arg(long, value_enum, default_value_t = HmiStyleArg::Industrial)]
+        style: HmiStyleArg,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -631,6 +681,78 @@ mod tests {
                 assert_eq!(time_scale, 8);
             }
             other => panic!("expected play command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parse_hmi_init_command() {
+        let cli = Cli::parse_from([
+            "trust-runtime",
+            "hmi",
+            "--project",
+            "project",
+            "init",
+            "--style",
+            "classic",
+        ]);
+        match cli.command.expect("command") {
+            Command::Hmi { project, action } => {
+                assert_eq!(project, Some(PathBuf::from("project")));
+                match action {
+                    HmiAction::Init { style, force } => {
+                        assert_eq!(style, HmiStyleArg::Classic);
+                        assert!(!force);
+                    }
+                    other => panic!("expected hmi init action, got {other:?}"),
+                }
+            }
+            other => panic!("expected hmi command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parse_hmi_update_command() {
+        let cli = Cli::parse_from([
+            "trust-runtime",
+            "hmi",
+            "--project",
+            "project",
+            "update",
+            "--style",
+            "mint",
+        ]);
+        match cli.command.expect("command") {
+            Command::Hmi { project, action } => {
+                assert_eq!(project, Some(PathBuf::from("project")));
+                match action {
+                    HmiAction::Update { style } => assert_eq!(style, HmiStyleArg::Mint),
+                    other => panic!("expected hmi update action, got {other:?}"),
+                }
+            }
+            other => panic!("expected hmi command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parse_hmi_reset_command() {
+        let cli = Cli::parse_from([
+            "trust-runtime",
+            "hmi",
+            "--project",
+            "project",
+            "reset",
+            "--style",
+            "industrial",
+        ]);
+        match cli.command.expect("command") {
+            Command::Hmi { project, action } => {
+                assert_eq!(project, Some(PathBuf::from("project")));
+                match action {
+                    HmiAction::Reset { style } => assert_eq!(style, HmiStyleArg::Industrial),
+                    other => panic!("expected hmi reset action, got {other:?}"),
+                }
+            }
+            other => panic!("expected hmi command, got {other:?}"),
         }
     }
 

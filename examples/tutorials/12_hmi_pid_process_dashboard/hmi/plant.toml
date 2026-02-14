@@ -1,0 +1,100 @@
+title = "P&ID Process"
+icon = "schema"
+order = 20
+kind = "process"
+hidden = true
+svg = "plant.svg"
+
+[[bind]]
+selector = "#pid-banner-alarm-001-text"
+attribute = "data-value"
+source = "P1.AlarmMessage"
+
+[[bind]]
+selector = "#pid-banner-alarm-001"
+attribute = "opacity"
+source = "P1.AnyAlarmActive"
+map = { "false" = "0", "true" = "1" }
+
+[[bind]]
+selector = "#pid-line-002"
+attribute = "stroke"
+source = "P1.BypassOpen"
+map = { "false" = "#2563eb", "true" = "#cbd5e1" }
+
+[[bind]]
+selector = "#pid-line-003"
+attribute = "stroke"
+source = "P1.BypassOpen"
+map = { "false" = "#2563eb", "true" = "#cbd5e1" }
+
+[[bind]]
+selector = "#pid-tag-tank-001-level"
+attribute = "data-value"
+source = "P1.FeedLevelPct"
+format = "{:.1f} %"
+
+[[bind]]
+selector = "#pid-tank-001-level-fill"
+attribute = "height"
+source = "P1.FeedLevelPct"
+scale = { min = 0, max = 100, output_min = 0, output_max = 320 }
+
+[[bind]]
+selector = "#pid-tank-001-level-fill"
+attribute = "y"
+source = "P1.FeedLevelPct"
+scale = { min = 0, max = 100, output_min = 460, output_max = 140 }
+
+[[bind]]
+selector = "#pid-tag-pump-001-state"
+attribute = "data-value"
+source = "P1.ModeText"
+
+[[bind]]
+selector = "#pid-tag-pt-001-pv"
+attribute = "data-value"
+source = "P1.PressureBar"
+format = "{:.2f} bar"
+
+[[bind]]
+selector = "#pid-tag-tank-002-level"
+attribute = "data-value"
+source = "P1.ProductLevelPct"
+format = "{:.1f} %"
+
+[[bind]]
+selector = "#pid-tank-002-level-fill"
+attribute = "height"
+source = "P1.ProductLevelPct"
+scale = { min = 0, max = 100, output_min = 0, output_max = 320 }
+
+[[bind]]
+selector = "#pid-tank-002-level-fill"
+attribute = "y"
+source = "P1.ProductLevelPct"
+scale = { min = 0, max = 100, output_min = 460, output_max = 140 }
+
+[[bind]]
+selector = "#pid-pump-001-status"
+attribute = "fill"
+source = "P1.PumpRunning"
+map = { "false" = "#94a3b8", "true" = "#16a34a" }
+
+[[bind]]
+selector = "#pid-tag-fit-001-pv"
+attribute = "data-value"
+source = "P1.TotalFlowM3h"
+format = "{:.1f} m3/h"
+
+[[bind]]
+selector = "#pid-valve-001-status"
+attribute = "fill"
+source = "P1.ValveOpen"
+map = { "false" = "#f59e0b", "true" = "#16a34a" }
+
+[[bind]]
+selector = "#pid-tag-valve-001-position"
+attribute = "data-value"
+source = "P1.ValvePosition"
+format = "{:.0f} %"

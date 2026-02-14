@@ -13,6 +13,13 @@ pub(super) fn dispatch(request: &ControlRequest, state: &ControlState) -> Option
         "hmi.alarms.get" => {
             super::super::handle_hmi_alarms_get(request.id, request.params.clone(), state)
         }
+        "hmi.descriptor.get" => super::super::handle_hmi_descriptor_get(request.id, state),
+        "hmi.descriptor.update" => {
+            super::super::handle_hmi_descriptor_update(request.id, request.params.clone(), state)
+        }
+        "hmi.scaffold.reset" => {
+            super::super::handle_hmi_scaffold_reset(request.id, request.params.clone(), state)
+        }
         "hmi.alarm.ack" => {
             super::super::handle_hmi_alarm_ack(request.id, request.params.clone(), state)
         }

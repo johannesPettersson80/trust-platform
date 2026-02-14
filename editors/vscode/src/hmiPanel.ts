@@ -8,6 +8,7 @@ const HMI_PANEL_VIEW_TYPE = "trust-hmi-preview";
 const HMI_LAYOUT_FILE = [".vscode", "trust-hmi-layout.json"] as const;
 const REQUEST_TIMEOUT_MS = 2000;
 const DEFAULT_POLL_INTERVAL_MS = 500;
+const DESCRIPTOR_REFRESH_DEBOUNCE_MS = 150;
 const SEARCH_GLOB = "**/*.{st,ST,pou,POU}";
 const SEARCH_EXCLUDE = "**/{.git,node_modules,target,.vscode-test}/**";
 
@@ -43,7 +44,45 @@ export type HmiWidgetSchema = {
   unit?: string | null;
   min?: number | null;
   max?: number | null;
+  section_title?: string | null;
+  widget_span?: number | null;
   location?: HmiWidgetLocation;
+};
+
+type HmiProcessScaleSchema = {
+  min: number;
+  max: number;
+  output_min: number;
+  output_max: number;
+};
+
+type HmiProcessBindingSchema = {
+  selector: string;
+  attribute: string;
+  source: string;
+  format?: string | null;
+  map?: Record<string, string>;
+  scale?: HmiProcessScaleSchema | null;
+};
+
+type HmiSectionSchema = {
+  title: string;
+  span: number;
+  widget_ids?: string[];
+};
+
+type HmiPageSchema = {
+  id: string;
+  title: string;
+  order: number;
+  kind?: string;
+  icon?: string | null;
+  duration_ms?: number | null;
+  svg?: string | null;
+  svg_content?: string | null;
+  signals?: string[];
+  sections?: HmiSectionSchema[];
+  bindings?: HmiProcessBindingSchema[];
 };
 
 type HmiSchemaResult = {
@@ -59,7 +98,7 @@ type HmiSchemaResult = {
     surface?: string;
     text?: string;
   };
-  pages: Array<{ id: string; title: string; order: number }>;
+  pages: HmiPageSchema[];
   widgets: HmiWidgetSchema[];
 };
 
@@ -91,6 +130,7 @@ let lastValues: HmiValuesResult | undefined;
 let lastStatus = "";
 let overrides: LayoutOverrides = {};
 let controlRequest: ControlRequestHandler = sendControlRequest;
+let descriptorRefreshTimer: NodeJS.Timeout | undefined;
 
 export function registerHmiPanel(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
@@ -98,13 +138,47 @@ export function registerHmiPanel(context: vscode.ExtensionContext): void {
       await showPanel(context);
     })
   );
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "trust-lsp.hmi.refreshFromDescriptor",
+      async () => {
+        if (!panel) {
+          return false;
+        }
+        await refreshSchema();
+        return true;
+      }
+    )
+  );
 
   context.subscriptions.push(
     vscode.workspace.onDidSaveTextDocument((document) => {
       if (!panel || !isRelevantForSchemaRefresh(document.uri)) {
         return;
       }
-      void refreshSchema();
+      scheduleSchemaRefresh();
+    })
+  );
+  const descriptorWatcher = vscode.workspace.createFileSystemWatcher("**/hmi/*.{toml,svg}");
+  context.subscriptions.push(
+    descriptorWatcher,
+    descriptorWatcher.onDidChange((uri) => {
+      if (!panel || !isRelevantForSchemaRefresh(uri)) {
+        return;
+      }
+      scheduleSchemaRefresh();
+    }),
+    descriptorWatcher.onDidCreate((uri) => {
+      if (!panel || !isRelevantForSchemaRefresh(uri)) {
+        return;
+      }
+      scheduleSchemaRefresh();
+    }),
+    descriptorWatcher.onDidDelete((uri) => {
+      if (!panel || !isRelevantForSchemaRefresh(uri)) {
+        return;
+      }
+      scheduleSchemaRefresh();
     })
   );
 
@@ -148,6 +222,7 @@ async function showPanel(context: vscode.ExtensionContext): Promise<void> {
   panel.onDidDispose(() => {
     panel = undefined;
     stopPolling();
+    clearScheduledSchemaRefresh();
     baseSchema = undefined;
     effectiveSchema = undefined;
     lastValues = undefined;
@@ -240,7 +315,7 @@ async function handleSaveLayoutMessage(payload: unknown): Promise<void> {
     await saveLayoutOverrides(folder.uri, parsed);
     overrides = parsed;
     if (baseSchema) {
-      effectiveSchema = applyLayoutOverrides(baseSchema, overrides);
+      effectiveSchema = await resolveSchemaForPanel(baseSchema, folder.uri);
       postMessage("schema", effectiveSchema);
     }
     setStatus(`Saved HMI layout overrides (${Object.keys(parsed).length} widgets).`);
@@ -264,7 +339,11 @@ async function refreshSchema(): Promise<void> {
       throw new Error("runtime returned an invalid hmi.schema.get payload");
     }
     baseSchema = raw;
-    effectiveSchema = applyLayoutOverrides(raw, overrides);
+    const workspaceFolder = pickWorkspaceFolder();
+    effectiveSchema = await resolveSchemaForPanel(
+      raw,
+      workspaceFolder ? workspaceFolder.uri : undefined,
+    );
     postMessage("schema", effectiveSchema);
     setStatus(
       `Schema loaded (${effectiveSchema.widgets.length} widgets, ${effectiveSchema.pages.length} pages).`
@@ -274,6 +353,97 @@ async function refreshSchema(): Promise<void> {
     const detail = error instanceof Error ? error.message : String(error);
     setStatus(`HMI schema request failed: ${detail}`);
   }
+}
+
+async function resolveSchemaForPanel(
+  schema: HmiSchemaResult,
+  workspaceUri: vscode.Uri | undefined,
+): Promise<HmiSchemaResult> {
+  const withLayout = applyLayoutOverrides(schema, overrides);
+  if (!workspaceUri) {
+    return withLayout;
+  }
+  return await hydrateProcessPageAssets(withLayout, workspaceUri);
+}
+
+async function hydrateProcessPageAssets(
+  schema: HmiSchemaResult,
+  workspaceUri: vscode.Uri,
+): Promise<HmiSchemaResult> {
+  const pages = await Promise.all(
+    schema.pages.map(async (page) => {
+      if (normalizePageKind(page.kind) !== "process") {
+        return { ...page };
+      }
+      const svgContent = await loadProcessSvgContent(workspaceUri, page.svg);
+      return {
+        ...page,
+        svg_content: svgContent ?? null,
+      };
+    }),
+  );
+  return { ...schema, pages };
+}
+
+async function loadProcessSvgContent(
+  workspaceUri: vscode.Uri,
+  svgPath: string | null | undefined,
+): Promise<string | undefined> {
+  const normalized = normalizeProcessSvgPath(svgPath);
+  if (!normalized) {
+    return undefined;
+  }
+  const svgUri = vscode.Uri.joinPath(workspaceUri, "hmi", ...normalized.split("/"));
+  const rootPath = path.resolve(workspaceUri.fsPath);
+  const svgFsPath = path.resolve(svgUri.fsPath);
+  const safeRootPrefix = `${rootPath}${path.sep}`;
+  if (svgFsPath !== rootPath && !svgFsPath.startsWith(safeRootPrefix)) {
+    return undefined;
+  }
+  try {
+    const bytes = await vscode.workspace.fs.readFile(svgUri);
+    return Buffer.from(bytes).toString("utf8");
+  } catch {
+    return undefined;
+  }
+}
+
+function normalizeProcessSvgPath(value: string | null | undefined): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  const normalized = trimmed.replace(/\\/g, "/").replace(/^\/+/, "");
+  const parts = normalized.split("/").filter((part) => part.length > 0);
+  if (parts.length === 0) {
+    return undefined;
+  }
+  if (
+    parts.some(
+      (part) =>
+        part === "." ||
+        part === ".." ||
+        !/^[A-Za-z0-9._-]+$/.test(part),
+    )
+  ) {
+    return undefined;
+  }
+  const last = parts[parts.length - 1];
+  if (!last.toLowerCase().endsWith(".svg")) {
+    return undefined;
+  }
+  return parts.join("/");
+}
+
+function normalizePageKind(value: string | null | undefined): string {
+  const kind = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (kind === "process" || kind === "trend" || kind === "alarm") {
+    return kind;
+  }
+  return "dashboard";
 }
 
 async function pollValues(force = false): Promise<void> {
@@ -319,6 +489,25 @@ function stopPolling(): void {
   }
   clearInterval(pollTimer);
   pollTimer = undefined;
+}
+
+function scheduleSchemaRefresh(): void {
+  if (!panel) {
+    return;
+  }
+  clearScheduledSchemaRefresh();
+  descriptorRefreshTimer = setTimeout(() => {
+    descriptorRefreshTimer = undefined;
+    void refreshSchema();
+  }, DESCRIPTOR_REFRESH_DEBOUNCE_MS);
+}
+
+function clearScheduledSchemaRefresh(): void {
+  if (!descriptorRefreshTimer) {
+    return;
+  }
+  clearTimeout(descriptorRefreshTimer);
+  descriptorRefreshTimer = undefined;
 }
 
 function runtimeEndpointSettings(): {
@@ -470,11 +659,14 @@ function pickWorkspaceFolder(): vscode.WorkspaceFolder | undefined {
 }
 
 function isRelevantForSchemaRefresh(uri: vscode.Uri): boolean {
-  const file = uri.fsPath.toLowerCase();
-  if (file.endsWith(".st") || file.endsWith(".pou")) {
+  const normalized = uri.fsPath.toLowerCase().replace(/\\/g, "/");
+  if (normalized.endsWith(".st") || normalized.endsWith(".pou")) {
     return true;
   }
-  return file.endsWith("hmi.toml") || file.endsWith(".hmi.toml");
+  if (!normalized.includes("/hmi/")) {
+    return false;
+  }
+  return normalized.endsWith(".toml") || normalized.endsWith(".svg");
 }
 
 async function layoutFileUri(workspaceUri: vscode.Uri): Promise<vscode.Uri> {
@@ -610,23 +802,38 @@ function applyLayoutOverrides(schema: HmiSchemaResult, localOverrides: LayoutOve
     return left.label.localeCompare(right.label);
   });
 
-  const pageOrder = new Map(schema.pages.map((page) => [page.id, page.order]));
+  const pageMap = new Map<string, HmiPageSchema>(
+    schema.pages.map((page) => [
+      page.id,
+      {
+        ...page,
+        kind: normalizePageKind(page.kind),
+      },
+    ]),
+  );
+  const maxExistingOrder = schema.pages.reduce(
+    (max, page) => Math.max(max, Number.isFinite(page.order) ? page.order : max),
+    0,
+  );
+  let nextSyntheticOrder = maxExistingOrder + 10;
   for (const widget of widgets) {
-    if (!pageOrder.has(widget.page)) {
-      pageOrder.set(widget.page, pageOrder.size * 10);
+    if (!pageMap.has(widget.page)) {
+      pageMap.set(widget.page, {
+        id: widget.page,
+        title: titleCase(widget.page),
+        order: nextSyntheticOrder,
+        kind: "dashboard",
+        sections: [],
+        bindings: [],
+        signals: [],
+      });
+      nextSyntheticOrder += 10;
     }
   }
 
-  const pages = Array.from(pageOrder.entries())
-    .map(([id, order]) => {
-      const existing = schema.pages.find((page) => page.id === id);
-      return {
-        id,
-        order,
-        title: existing?.title ?? titleCase(id),
-      };
-    })
-    .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id));
+  const pages = Array.from(pageMap.values()).sort(
+    (left, right) => left.order - right.order || left.id.localeCompare(right.id),
+  );
 
   return {
     ...schema,
@@ -960,6 +1167,79 @@ function getHtml(webview: vscode.Webview): string {
       width: 100%;
       box-sizing: border-box;
     }
+    .section-grid {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 10px;
+      width: 100%;
+    }
+    .section-card {
+      border: 1px solid var(--vscode-panel-border);
+      border-radius: 8px;
+      padding: 10px;
+      background: color-mix(in srgb, var(--vscode-editor-background) 92%, var(--vscode-editor-foreground) 8%);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 0;
+    }
+    .section-title {
+      margin: 0;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      opacity: 0.88;
+      text-transform: uppercase;
+    }
+    .section-widget-grid {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 8px;
+      width: 100%;
+    }
+    .process-panel {
+      grid-column: 1 / -1;
+      border: 1px solid var(--vscode-panel-border);
+      border-radius: 8px;
+      padding: 10px;
+      background: color-mix(in srgb, var(--vscode-editor-background) 94%, var(--vscode-editor-foreground) 6%);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .process-svg-host {
+      width: 100%;
+      overflow: auto;
+      border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 70%, transparent);
+      border-radius: 6px;
+      padding: 8px;
+      box-sizing: border-box;
+      background: color-mix(in srgb, var(--vscode-editor-background) 96%, var(--vscode-editor-foreground) 4%);
+    }
+    .process-svg-host svg {
+      width: 100%;
+      height: auto;
+      display: block;
+      min-height: 200px;
+    }
+    .process-meta {
+      font-size: 11px;
+      opacity: 0.72;
+    }
+    .empty {
+      font-size: 12px;
+      opacity: 0.75;
+      padding: 6px 0;
+    }
+    @media (max-width: 900px) {
+      .section-grid {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+      }
+      .section-widget-grid {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+      }
+    }
   </style>
 </head>
 <body>
@@ -1023,6 +1303,31 @@ function getHtml(webview: vscode.Webview): string {
       return JSON.stringify(value);
     }
 
+    function currentPage() {
+      const pages = Array.isArray(state.schema?.pages) ? state.schema.pages : [];
+      if (pages.length === 0) {
+        return null;
+      }
+      return pages.find((page) => page.id === state.selectedPage) || pages[0];
+    }
+
+    function currentPageKind() {
+      const page = currentPage();
+      const kind = typeof page?.kind === "string" ? page.kind.trim().toLowerCase() : "";
+      if (kind === "process" || kind === "trend" || kind === "alarm") {
+        return kind;
+      }
+      return "dashboard";
+    }
+
+    function clampSpan(value, fallback) {
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric)) {
+        return fallback;
+      }
+      return Math.max(1, Math.min(12, Math.trunc(numeric)));
+    }
+
     function renderTabs() {
       const pages = Array.isArray(state.schema?.pages) ? state.schema.pages : [];
       if (!state.selectedPage && pages.length > 0) {
@@ -1045,17 +1350,91 @@ function getHtml(webview: vscode.Webview): string {
       }
     }
 
-    function renderWidgets() {
-      elements.widgets.innerHTML = "";
-      if (!state.schema) {
-        return;
+    function createWidgetCard(widget) {
+      const card = document.createElement("article");
+      card.className = "widget";
+      card.style.gridColumn = "span " + clampSpan(widget.widget_span, 12);
+
+      const title = document.createElement("button");
+      title.className = "widget-title";
+      title.textContent = widget.label;
+      title.title = "Open declaration";
+      title.addEventListener("click", () => {
+        vscode.postMessage({ type: "navigateWidget", payload: { id: widget.id } });
+      });
+      card.appendChild(title);
+
+      const value = document.createElement("div");
+      value.className = "widget-value";
+      value.textContent = toDisplayValue(state.values?.values?.[widget.id]);
+      card.appendChild(value);
+
+      const meta = document.createElement("div");
+      meta.className = "widget-meta";
+      meta.textContent =
+        widget.path +
+        " | " +
+        widget.data_type +
+        (widget.unit ? " (" + widget.unit + ")" : "");
+      card.appendChild(meta);
+
+      if (state.editMode) {
+        const rowA = document.createElement("div");
+        rowA.className = "edit-row";
+        const labelInput = document.createElement("input");
+        labelInput.placeholder = "Label";
+        labelInput.value = widget.label || "";
+        labelInput.addEventListener("change", () => {
+          const text = labelInput.value.trim();
+          recordOverride(widget.path, "label", text || null);
+        });
+        const pageInput = document.createElement("input");
+        pageInput.placeholder = "Page ID";
+        pageInput.value = widget.page || "";
+        pageInput.addEventListener("change", () => {
+          const text = pageInput.value.trim();
+          recordOverride(widget.path, "page", text || null);
+        });
+        rowA.appendChild(labelInput);
+        rowA.appendChild(pageInput);
+        card.appendChild(rowA);
+
+        const rowB = document.createElement("div");
+        rowB.className = "edit-row";
+        const groupInput = document.createElement("input");
+        groupInput.placeholder = "Group";
+        groupInput.value = widget.group || "";
+        groupInput.addEventListener("change", () => {
+          const text = groupInput.value.trim();
+          recordOverride(widget.path, "group", text || null);
+        });
+        const orderInput = document.createElement("input");
+        orderInput.type = "number";
+        orderInput.placeholder = "Order";
+        orderInput.value = isFiniteNumber(widget.order) ? String(widget.order) : "";
+        orderInput.addEventListener("change", () => {
+          const text = orderInput.value.trim();
+          if (!text) {
+            recordOverride(widget.path, "order", null);
+            return;
+          }
+          const numeric = Number(text);
+          if (!Number.isFinite(numeric)) {
+            return;
+          }
+          recordOverride(widget.path, "order", Math.trunc(numeric));
+        });
+        rowB.appendChild(groupInput);
+        rowB.appendChild(orderInput);
+        card.appendChild(rowB);
       }
-      const allWidgets = Array.isArray(state.schema.widgets) ? state.schema.widgets : [];
-      const visible = state.selectedPage
-        ? allWidgets.filter((widget) => widget.page === state.selectedPage)
-        : allWidgets;
+
+      return card;
+    }
+
+    function renderGroupedWidgets(widgets) {
       let lastGroup = "";
-      for (const widget of visible) {
+      for (const widget of widgets) {
         if (widget.group !== lastGroup) {
           const group = document.createElement("div");
           group.className = "group";
@@ -1063,85 +1442,260 @@ function getHtml(webview: vscode.Webview): string {
           elements.widgets.appendChild(group);
           lastGroup = widget.group;
         }
-        const card = document.createElement("article");
-        card.className = "widget";
+        elements.widgets.appendChild(createWidgetCard(widget));
+      }
+    }
 
-        const title = document.createElement("button");
-        title.className = "widget-title";
-        title.textContent = widget.label;
-        title.title = "Open declaration";
-        title.addEventListener("click", () => {
-          vscode.postMessage({ type: "navigateWidget", payload: { id: widget.id } });
-        });
+    function renderSectionWidgets(page, widgets) {
+      const sections = Array.isArray(page?.sections) ? page.sections : [];
+      if (!sections.length) {
+        renderGroupedWidgets(widgets);
+        return;
+      }
+      const byId = new Map(widgets.map((widget) => [widget.id, widget]));
+      const used = new Set();
+      const sectionGrid = document.createElement("section");
+      sectionGrid.className = "section-grid";
+
+      for (const section of sections) {
+        const card = document.createElement("article");
+        card.className = "section-card";
+        card.style.gridColumn = "span " + clampSpan(section?.span, 12);
+
+        const title = document.createElement("h3");
+        title.className = "section-title";
+        title.textContent =
+          typeof section?.title === "string" && section.title.trim()
+            ? section.title.trim()
+            : "Section";
         card.appendChild(title);
 
-        const value = document.createElement("div");
-        value.className = "widget-value";
-        value.textContent = toDisplayValue(state.values?.values?.[widget.id]);
-        card.appendChild(value);
-
-        const meta = document.createElement("div");
-        meta.className = "widget-meta";
-        meta.textContent =
-          widget.path +
-          " | " +
-          widget.data_type +
-          (widget.unit ? " (" + widget.unit + ")" : "");
-        card.appendChild(meta);
-
-        if (state.editMode) {
-          const rowA = document.createElement("div");
-          rowA.className = "edit-row";
-          const labelInput = document.createElement("input");
-          labelInput.placeholder = "Label";
-          labelInput.value = widget.label || "";
-          labelInput.addEventListener("change", () => {
-            const text = labelInput.value.trim();
-            recordOverride(widget.path, "label", text || null);
-          });
-          const pageInput = document.createElement("input");
-          pageInput.placeholder = "Page ID";
-          pageInput.value = widget.page || "";
-          pageInput.addEventListener("change", () => {
-            const text = pageInput.value.trim();
-            recordOverride(widget.path, "page", text || null);
-          });
-          rowA.appendChild(labelInput);
-          rowA.appendChild(pageInput);
-          card.appendChild(rowA);
-
-          const rowB = document.createElement("div");
-          rowB.className = "edit-row";
-          const groupInput = document.createElement("input");
-          groupInput.placeholder = "Group";
-          groupInput.value = widget.group || "";
-          groupInput.addEventListener("change", () => {
-            const text = groupInput.value.trim();
-            recordOverride(widget.path, "group", text || null);
-          });
-          const orderInput = document.createElement("input");
-          orderInput.type = "number";
-          orderInput.placeholder = "Order";
-          orderInput.value = isFiniteNumber(widget.order) ? String(widget.order) : "";
-          orderInput.addEventListener("change", () => {
-            const text = orderInput.value.trim();
-            if (!text) {
-              recordOverride(widget.path, "order", null);
-              return;
-            }
-            const numeric = Number(text);
-            if (!Number.isFinite(numeric)) {
-              return;
-            }
-            recordOverride(widget.path, "order", Math.trunc(numeric));
-          });
-          rowB.appendChild(groupInput);
-          rowB.appendChild(orderInput);
-          card.appendChild(rowB);
+        const grid = document.createElement("div");
+        grid.className = "section-widget-grid";
+        const widgetIds = Array.isArray(section?.widget_ids) ? section.widget_ids : [];
+        for (const widgetId of widgetIds) {
+          const widget = byId.get(widgetId);
+          if (!widget) {
+            continue;
+          }
+          used.add(widget.id);
+          grid.appendChild(createWidgetCard(widget));
         }
 
-        elements.widgets.appendChild(card);
+        if (!grid.children.length) {
+          const empty = document.createElement("div");
+          empty.className = "empty";
+          empty.textContent = "No widgets are mapped to this section.";
+          card.appendChild(empty);
+        } else {
+          card.appendChild(grid);
+        }
+        sectionGrid.appendChild(card);
       }
+
+      const unassigned = widgets.filter((widget) => !used.has(widget.id));
+      if (unassigned.length) {
+        const card = document.createElement("article");
+        card.className = "section-card";
+        card.style.gridColumn = "span 12";
+        const title = document.createElement("h3");
+        title.className = "section-title";
+        title.textContent = "Other";
+        card.appendChild(title);
+        const grid = document.createElement("div");
+        grid.className = "section-widget-grid";
+        for (const widget of unassigned) {
+          grid.appendChild(createWidgetCard(widget));
+        }
+        card.appendChild(grid);
+        sectionGrid.appendChild(card);
+      }
+
+      elements.widgets.appendChild(sectionGrid);
+    }
+
+    function isSafeProcessSelector(selector) {
+      return typeof selector === "string" && /^#[A-Za-z0-9_.:-]{1,127}$/.test(selector);
+    }
+
+    function isSafeProcessAttribute(attribute) {
+      return (
+        typeof attribute === "string" &&
+        /^(text|fill|stroke|opacity|x|y|width|height|class|transform|data-value)$/.test(attribute)
+      );
+    }
+
+    function formatProcessRawValue(value) {
+      if (value === null || value === undefined) {
+        return "--";
+      }
+      if (typeof value === "number") {
+        return Number.isFinite(value) ? String(value) : "--";
+      }
+      if (typeof value === "boolean") {
+        return value ? "true" : "false";
+      }
+      if (typeof value === "string") {
+        return value;
+      }
+      try {
+        return JSON.stringify(value);
+      } catch {
+        return String(value);
+      }
+    }
+
+    function scaleProcessValue(value, scale) {
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric) || !scale || typeof scale !== "object") {
+        return value;
+      }
+      const min = Number(scale.min);
+      const max = Number(scale.max);
+      const outputMin = Number(scale.output_min);
+      const outputMax = Number(scale.output_max);
+      if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) {
+        return value;
+      }
+      if (!Number.isFinite(outputMin) || !Number.isFinite(outputMax)) {
+        return value;
+      }
+      const ratio = (numeric - min) / (max - min);
+      return outputMin + (outputMax - outputMin) * ratio;
+    }
+
+    function formatProcessValue(value, format) {
+      if (typeof format !== "string" || !format.trim()) {
+        return formatProcessRawValue(value);
+      }
+      const pattern = format.trim();
+      const fixedMatch = pattern.match(/\{:\.(\d+)f\}/);
+      if (fixedMatch && Number.isFinite(Number(value))) {
+        const precision = Number(fixedMatch[1]);
+        const formatted = Number(value).toFixed(precision);
+        return pattern.replace(/\{:\.(\d+)f\}/, formatted);
+      }
+      if (pattern.includes("{}")) {
+        return pattern.replace("{}", formatProcessRawValue(value));
+      }
+      return (pattern + " " + formatProcessRawValue(value)).trim();
+    }
+
+    function renderProcessPage(page, widgets) {
+      const panel = document.createElement("section");
+      panel.className = "process-panel";
+      if (state.editMode) {
+        const note = document.createElement("div");
+        note.className = "process-meta";
+        note.textContent = "Layout edit mode is disabled for process pages.";
+        panel.appendChild(note);
+      }
+
+      const svgContent = typeof page?.svg_content === "string" ? page.svg_content.trim() : "";
+      if (!svgContent) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent =
+          "Process SVG is not available. Add the asset under hmi/ and refresh.";
+        panel.appendChild(empty);
+        elements.widgets.appendChild(panel);
+        return;
+      }
+
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(svgContent, "image/svg+xml");
+      const svgRoot = doc.documentElement;
+      if (!svgRoot || String(svgRoot.tagName).toLowerCase() !== "svg") {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = "Invalid process SVG content.";
+        panel.appendChild(empty);
+        elements.widgets.appendChild(panel);
+        return;
+      }
+
+      for (const tag of ["script", "foreignObject"]) {
+        for (const node of Array.from(svgRoot.querySelectorAll(tag))) {
+          node.remove();
+        }
+      }
+
+      const byPath = new Map(widgets.map((widget) => [widget.path, widget]));
+      const bindings = Array.isArray(page?.bindings) ? page.bindings : [];
+      let applied = 0;
+      for (const binding of bindings) {
+        const selector =
+          typeof binding?.selector === "string" ? binding.selector.trim() : "";
+        const attribute =
+          typeof binding?.attribute === "string"
+            ? binding.attribute.trim().toLowerCase()
+            : "";
+        const source = typeof binding?.source === "string" ? binding.source.trim() : "";
+        if (!isSafeProcessSelector(selector) || !isSafeProcessAttribute(attribute) || !source) {
+          continue;
+        }
+        const target = svgRoot.querySelector(selector);
+        if (!target) {
+          continue;
+        }
+        const widget = byPath.get(source);
+        if (!widget) {
+          continue;
+        }
+        const entry = state.values?.values?.[widget.id];
+        if (!entry || typeof entry !== "object") {
+          continue;
+        }
+        let resolved = entry.v;
+        const mapTable =
+          binding?.map && typeof binding.map === "object" ? binding.map : null;
+        if (mapTable) {
+          const key = formatProcessRawValue(resolved);
+          if (Object.prototype.hasOwnProperty.call(mapTable, key)) {
+            resolved = mapTable[key];
+          }
+        }
+        resolved = scaleProcessValue(resolved, binding?.scale);
+        const text = formatProcessValue(resolved, binding?.format);
+        if (attribute === "text") {
+          target.textContent = text;
+        } else {
+          target.setAttribute(attribute, text);
+        }
+        applied += 1;
+      }
+
+      const host = document.createElement("div");
+      host.className = "process-svg-host";
+      host.appendChild(svgRoot);
+      panel.appendChild(host);
+
+      const meta = document.createElement("div");
+      meta.className = "process-meta";
+      const fileName =
+        typeof page?.svg === "string" && page.svg.trim() ? page.svg.trim() : "inline";
+      meta.textContent = "SVG: " + fileName + " | active bindings: " + applied;
+      panel.appendChild(meta);
+
+      elements.widgets.appendChild(panel);
+    }
+
+    function renderWidgets() {
+      elements.widgets.innerHTML = "";
+      if (!state.schema) {
+        return;
+      }
+      const page = currentPage();
+      const kind = currentPageKind();
+      const allWidgets = Array.isArray(state.schema.widgets) ? state.schema.widgets : [];
+      const visible = state.selectedPage
+        ? allWidgets.filter((widget) => widget.page === state.selectedPage)
+        : allWidgets;
+      if (kind === "process") {
+        renderProcessPage(page, visible);
+        return;
+      }
+      renderSectionWidgets(page, visible);
     }
 
     function render() {
@@ -1239,6 +1793,7 @@ export async function __testForcePollValues(): Promise<void> {
 
 export function __testResetHmiPanelState(): void {
   stopPolling();
+  clearScheduledSchemaRefresh();
   if (panel) {
     panel.dispose();
     panel = undefined;

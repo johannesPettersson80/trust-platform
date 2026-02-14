@@ -1,0 +1,44 @@
+[bundle]
+version = 1
+
+[resource]
+name = "TutorialPidResource"
+cycle_interval_ms = 100
+
+[runtime.control]
+endpoint = "unix:///tmp/trust-runtime-tutorial-pid.sock"
+mode = "production"
+debug_enabled = false
+
+[runtime.web]
+enabled = true
+listen = "127.0.0.1:18082"
+auth = "local"
+
+[runtime.discovery]
+enabled = false
+service_name = "truST-tutorial-pid"
+advertise = false
+interfaces = []
+
+[runtime.mesh]
+enabled = false
+listen = "127.0.0.1:15282"
+auth_token = ""
+publish = []
+subscribe = {}
+
+[runtime.log]
+level = "info"
+
+[runtime.retain]
+mode = "none"
+save_interval_ms = 1000
+
+[runtime.watchdog]
+enabled = false
+timeout_ms = 5000
+action = "halt"
+
+[runtime.fault]
+policy = "halt"

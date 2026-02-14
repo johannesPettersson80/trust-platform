@@ -2,7 +2,8 @@
 
 use serde::Deserialize;
 use serde_json::{json, Value};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
+use std::path::{Path, PathBuf};
 use tower_lsp::lsp_types::{
     CreateFile, CreateFileOptions, DeleteFile, DeleteFileOptions, DocumentChangeOperation,
     DocumentChanges, ExecuteCommandParams, OptionalVersionedTextDocumentIdentifier, Position,
@@ -13,6 +14,10 @@ use tower_lsp::Client;
 use text_size::{TextRange, TextSize};
 use trust_ide::refactor::parse_namespace_path;
 use trust_ide::rename::{RenameResult, TextEdit as IdeTextEdit};
+use trust_runtime::bundle_builder::resolve_sources_root;
+use trust_runtime::debug::DebugSnapshot;
+use trust_runtime::harness::{CompileSession, SourceFile as HarnessSourceFile};
+use trust_runtime::hmi::{self as runtime_hmi, HmiSourceRef};
 use trust_syntax::parser::parse;
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 
@@ -23,6 +28,8 @@ use crate::state::{path_to_uri, uri_to_path, ServerState};
 
 pub const MOVE_NAMESPACE_COMMAND: &str = "trust-lsp.moveNamespace";
 pub const PROJECT_INFO_COMMAND: &str = "trust-lsp.projectInfo";
+pub const HMI_INIT_COMMAND: &str = "trust-lsp.hmiInit";
+pub const HMI_BINDINGS_COMMAND: &str = "trust-lsp.hmiBindings";
 
 #[derive(Debug, Deserialize)]
 pub struct MoveNamespaceCommandArgs {
@@ -35,6 +42,24 @@ pub struct MoveNamespaceCommandArgs {
 
 #[derive(Debug, Deserialize)]
 struct ProjectInfoCommandArgs {
+    #[serde(default)]
+    root_uri: Option<Url>,
+    #[serde(default)]
+    text_document: Option<TextDocumentIdentifier>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct HmiInitCommandArgs {
+    #[serde(default)]
+    style: Option<String>,
+    #[serde(default)]
+    root_uri: Option<Url>,
+    #[serde(default)]
+    text_document: Option<TextDocumentIdentifier>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct HmiBindingsCommandArgs {
     #[serde(default)]
     root_uri: Option<Url>,
     #[serde(default)]
@@ -54,6 +79,8 @@ pub async fn execute_command(
             Some(json!(response.applied))
         }
         PROJECT_INFO_COMMAND => project_info_value(state, params.arguments),
+        HMI_INIT_COMMAND => hmi_init_value(state, params.arguments),
+        HMI_BINDINGS_COMMAND => hmi_bindings_value(state, params.arguments),
         _ => None,
     }
 }
@@ -147,6 +174,282 @@ fn project_info_for_config(root: &Url, config: &crate::config::ProjectConfig) ->
         "targets": targets,
         "libraries": libraries,
     })
+}
+
+#[derive(Debug, Clone)]
+struct LoadedSource {
+    path: PathBuf,
+    text: String,
+}
+
+pub(crate) fn hmi_init_value(state: &ServerState, args: Vec<Value>) -> Option<Value> {
+    hmi_init_value_with_context(state, args)
+}
+
+pub(crate) fn hmi_bindings_value(state: &ServerState, args: Vec<Value>) -> Option<Value> {
+    hmi_bindings_value_with_context(state, args)
+}
+
+fn hmi_init_value_with_context<C: ServerContext>(context: &C, args: Vec<Value>) -> Option<Value> {
+    let parsed = match parse_hmi_init_args(args) {
+        Ok(parsed) => parsed,
+        Err(error) => return Some(json!({ "ok": false, "error": error })),
+    };
+
+    let style = match normalize_hmi_style(parsed.style.as_deref()) {
+        Ok(style) => style,
+        Err(error) => return Some(json!({ "ok": false, "error": error })),
+    };
+
+    let project_root = match resolve_hmi_project_root(context, &parsed) {
+        Some(root) => root,
+        None => {
+            return Some(json!({
+                "ok": false,
+                "error": "unable to resolve workspace root for trust-lsp.hmiInit",
+            }));
+        }
+    };
+
+    let (sources_root, sources) = match load_hmi_sources(project_root.as_path()) {
+        Ok(loaded) => loaded,
+        Err(error) => return Some(json!({ "ok": false, "error": error })),
+    };
+
+    let compile_sources = sources
+        .iter()
+        .map(|source| {
+            HarnessSourceFile::with_path(
+                source.path.to_string_lossy().as_ref(),
+                source.text.clone(),
+            )
+        })
+        .collect::<Vec<_>>();
+
+    let runtime = match CompileSession::from_sources(compile_sources).build_runtime() {
+        Ok(runtime) => runtime,
+        Err(error) => return Some(json!({ "ok": false, "error": error.to_string() })),
+    };
+
+    let metadata = runtime.metadata_snapshot();
+    let snapshot = DebugSnapshot {
+        storage: runtime.storage().clone(),
+        now: runtime.current_time(),
+    };
+    let source_refs = sources
+        .iter()
+        .map(|source| HmiSourceRef {
+            path: source.path.as_path(),
+            text: source.text.as_str(),
+        })
+        .collect::<Vec<_>>();
+
+    let summary = match runtime_hmi::scaffold_hmi_dir_with_sources(
+        project_root.as_path(),
+        &metadata,
+        Some(&snapshot),
+        &source_refs,
+        style.as_str(),
+    ) {
+        Ok(summary) => summary,
+        Err(error) => return Some(json!({ "ok": false, "error": error.to_string() })),
+    };
+
+    Some(json!({
+        "ok": true,
+        "command": HMI_INIT_COMMAND,
+        "root": project_root.display().to_string(),
+        "sourcesRoot": sources_root.display().to_string(),
+        "style": style,
+        "summaryText": summary.render_text(),
+        "files": summary.files,
+    }))
+}
+
+fn hmi_bindings_value_with_context<C: ServerContext>(
+    context: &C,
+    args: Vec<Value>,
+) -> Option<Value> {
+    let parsed = match parse_hmi_bindings_args(args) {
+        Ok(parsed) => parsed,
+        Err(error) => return Some(json!({ "ok": false, "error": error })),
+    };
+
+    let project_root = match resolve_hmi_bindings_project_root(context, &parsed) {
+        Some(root) => root,
+        None => {
+            return Some(json!({
+                "ok": false,
+                "error": "unable to resolve workspace root for trust-lsp.hmiBindings",
+            }));
+        }
+    };
+
+    let (sources_root, sources) = match load_hmi_sources(project_root.as_path()) {
+        Ok(loaded) => loaded,
+        Err(error) => return Some(json!({ "ok": false, "error": error })),
+    };
+
+    let compile_sources = sources
+        .iter()
+        .map(|source| {
+            HarnessSourceFile::with_path(
+                source.path.to_string_lossy().as_ref(),
+                source.text.clone(),
+            )
+        })
+        .collect::<Vec<_>>();
+
+    let runtime = match CompileSession::from_sources(compile_sources).build_runtime() {
+        Ok(runtime) => runtime,
+        Err(error) => return Some(json!({ "ok": false, "error": error.to_string() })),
+    };
+
+    let metadata = runtime.metadata_snapshot();
+    let snapshot = DebugSnapshot {
+        storage: runtime.storage().clone(),
+        now: runtime.current_time(),
+    };
+    let source_refs = sources
+        .iter()
+        .map(|source| HmiSourceRef {
+            path: source.path.as_path(),
+            text: source.text.as_str(),
+        })
+        .collect::<Vec<_>>();
+    let bindings =
+        runtime_hmi::collect_hmi_bindings_catalog(&metadata, Some(&snapshot), &source_refs);
+
+    Some(json!({
+        "ok": true,
+        "command": HMI_BINDINGS_COMMAND,
+        "root": project_root.display().to_string(),
+        "sourcesRoot": sources_root.display().to_string(),
+        "programs": bindings.programs,
+        "globals": bindings.globals,
+    }))
+}
+
+fn parse_hmi_init_args(args: Vec<Value>) -> Result<HmiInitCommandArgs, String> {
+    match args.len() {
+        0 => Ok(HmiInitCommandArgs::default()),
+        1 => serde_json::from_value(args.into_iter().next().unwrap_or(Value::Null))
+            .map_err(|error| format!("invalid trust-lsp.hmiInit arguments: {error}")),
+        _ => Err("trust-lsp.hmiInit expects zero or one argument object".to_string()),
+    }
+}
+
+fn parse_hmi_bindings_args(args: Vec<Value>) -> Result<HmiBindingsCommandArgs, String> {
+    match args.len() {
+        0 => Ok(HmiBindingsCommandArgs::default()),
+        1 => serde_json::from_value(args.into_iter().next().unwrap_or(Value::Null))
+            .map_err(|error| format!("invalid trust-lsp.hmiBindings arguments: {error}")),
+        _ => Err("trust-lsp.hmiBindings expects zero or one argument object".to_string()),
+    }
+}
+
+fn normalize_hmi_style(style: Option<&str>) -> Result<String, String> {
+    let raw = style.unwrap_or("industrial");
+    let normalized = raw.trim().to_ascii_lowercase();
+    if normalized.is_empty() {
+        return Ok("industrial".to_string());
+    }
+    match normalized.as_str() {
+        "industrial" | "classic" | "mint" => Ok(normalized),
+        _ => Err(format!(
+            "invalid style '{raw}', expected one of: industrial, classic, mint"
+        )),
+    }
+}
+
+fn resolve_hmi_project_root(
+    context: &impl ServerContext,
+    args: &HmiInitCommandArgs,
+) -> Option<PathBuf> {
+    if let Some(root_uri) = &args.root_uri {
+        return uri_to_path(root_uri);
+    }
+
+    if let Some(text_document) = &args.text_document {
+        if let Some(config) = context.workspace_config_for_uri(&text_document.uri) {
+            return Some(config.root);
+        }
+        let doc_path = uri_to_path(&text_document.uri)?;
+        if doc_path.is_dir() {
+            return Some(doc_path);
+        }
+        return doc_path.parent().map(Path::to_path_buf);
+    }
+
+    if let Some((_root_uri, config)) = context.workspace_configs().into_iter().next() {
+        return Some(config.root);
+    }
+
+    context
+        .workspace_folders()
+        .into_iter()
+        .next()
+        .and_then(|uri| uri_to_path(&uri))
+}
+
+fn resolve_hmi_bindings_project_root(
+    context: &impl ServerContext,
+    args: &HmiBindingsCommandArgs,
+) -> Option<PathBuf> {
+    if let Some(root_uri) = &args.root_uri {
+        return uri_to_path(root_uri);
+    }
+
+    if let Some(text_document) = &args.text_document {
+        if let Some(config) = context.workspace_config_for_uri(&text_document.uri) {
+            return Some(config.root);
+        }
+        let doc_path = uri_to_path(&text_document.uri)?;
+        if doc_path.is_dir() {
+            return Some(doc_path);
+        }
+        return doc_path.parent().map(Path::to_path_buf);
+    }
+
+    if let Some((_root_uri, config)) = context.workspace_configs().into_iter().next() {
+        return Some(config.root);
+    }
+
+    context
+        .workspace_folders()
+        .into_iter()
+        .next()
+        .and_then(|uri| uri_to_path(&uri))
+}
+
+fn load_hmi_sources(root: &Path) -> Result<(PathBuf, Vec<LoadedSource>), String> {
+    let sources_root = resolve_sources_root(root, None).map_err(|error| error.to_string())?;
+    let mut source_paths = BTreeSet::new();
+    for pattern in ["**/*.st", "**/*.ST", "**/*.pou", "**/*.POU"] {
+        let glob_pattern = format!("{}/{}", sources_root.display(), pattern);
+        let entries = glob::glob(&glob_pattern)
+            .map_err(|error| format!("invalid glob '{glob_pattern}': {error}"))?;
+        for entry in entries {
+            let path = entry.map_err(|error| error.to_string())?;
+            source_paths.insert(path);
+        }
+    }
+
+    if source_paths.is_empty() {
+        return Err(format!(
+            "no ST sources found under {}",
+            sources_root.display()
+        ));
+    }
+
+    let mut sources = Vec::with_capacity(source_paths.len());
+    for path in source_paths {
+        let text = std::fs::read_to_string(&path)
+            .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+        sources.push(LoadedSource { path, text });
+    }
+
+    Ok((sources_root, sources))
 }
 
 pub(crate) fn namespace_move_workspace_edit(
@@ -462,6 +765,7 @@ mod tests {
     use serde_json::json;
     use std::collections::HashMap;
     use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
     use trust_hir::db::FileId;
 
     #[derive(Clone, Default)]
@@ -546,6 +850,16 @@ mod tests {
             true,
             1,
         )
+    }
+
+    fn temp_dir(prefix: &str) -> PathBuf {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock before UNIX_EPOCH")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("{prefix}-{stamp}"));
+        std::fs::create_dir_all(&path).expect("create temp dir");
+        path
     }
 
     #[test]
@@ -714,5 +1028,171 @@ END_PROGRAM
         let from_context =
             project_info_value_with_context(&state, Vec::new()).expect("context value");
         assert_eq!(from_wrapper, from_context);
+    }
+
+    #[test]
+    fn hmi_init_command_with_mock_context_generates_scaffold() {
+        let root = temp_dir("trustlsp-hmi-init");
+        let src_dir = root.join("src");
+        std::fs::create_dir_all(&src_dir).expect("create src dir");
+        let source_path = src_dir.join("pump.st");
+        let source = r#"
+PROGRAM PumpStation
+VAR_INPUT
+    speed_setpoint : REAL;
+END_VAR
+VAR_OUTPUT
+    speed : REAL;
+    running : BOOL;
+END_VAR
+END_PROGRAM
+"#;
+        std::fs::write(&source_path, source).expect("write source");
+
+        let root_uri = Url::from_directory_path(&root).expect("root uri");
+        let context = MockContext {
+            workspace_configs: vec![(
+                root_uri.clone(),
+                test_project_config(root.to_string_lossy().as_ref(), "x86_64"),
+            )],
+            workspace_folders: vec![root_uri],
+            ..MockContext::default()
+        };
+
+        let result = hmi_init_value_with_context(&context, vec![json!({ "style": "mint" })])
+            .expect("hmi init response");
+        assert_eq!(
+            result.get("ok").and_then(Value::as_bool),
+            Some(true),
+            "unexpected hmi bindings response: {result}",
+        );
+        assert_eq!(result.get("style").and_then(Value::as_str), Some("mint"));
+        assert!(root.join("hmi").join("_config.toml").is_file());
+        assert!(root.join("hmi").join("overview.toml").is_file());
+
+        std::fs::remove_dir_all(root).expect("remove temp dir");
+    }
+
+    #[test]
+    fn hmi_init_command_rejects_invalid_style() {
+        let context = MockContext::default();
+        let result = hmi_init_value_with_context(&context, vec![json!({ "style": "retro" })])
+            .expect("hmi init response");
+        assert_eq!(result.get("ok").and_then(Value::as_bool), Some(false));
+        let error = result.get("error").and_then(Value::as_str).unwrap_or("");
+        assert!(error.contains("invalid style"));
+    }
+
+    #[test]
+    fn hmi_bindings_command_with_mock_context_returns_external_contract_catalog() {
+        let root = temp_dir("trustlsp-hmi-bindings");
+        let src_dir = root.join("src");
+        std::fs::create_dir_all(&src_dir).expect("create src dir");
+        let source_path = src_dir.join("pump.st");
+        let source = r#"
+TYPE MODE : (OFF, AUTO); END_TYPE
+
+PROGRAM PumpStation
+VAR_INPUT
+    speed_setpoint : REAL;
+END_VAR
+VAR_OUTPUT
+    speed : REAL;
+    mode : MODE := MODE#AUTO;
+END_VAR
+VAR
+    internal_counter : DINT;
+END_VAR
+END_PROGRAM
+"#;
+        std::fs::write(&source_path, source).expect("write source");
+
+        let root_uri = Url::from_directory_path(&root).expect("root uri");
+        let context = MockContext {
+            workspace_configs: vec![(
+                root_uri.clone(),
+                test_project_config(root.to_string_lossy().as_ref(), "x86_64"),
+            )],
+            workspace_folders: vec![root_uri],
+            ..MockContext::default()
+        };
+
+        let result =
+            hmi_bindings_value_with_context(&context, Vec::new()).expect("hmi bindings response");
+        assert_eq!(
+            result.get("ok").and_then(Value::as_bool),
+            Some(true),
+            "unexpected hmi bindings response: {result}",
+        );
+        assert_eq!(
+            result.get("command").and_then(Value::as_str),
+            Some(HMI_BINDINGS_COMMAND)
+        );
+
+        let programs = result
+            .get("programs")
+            .and_then(Value::as_array)
+            .expect("programs");
+        let pump = programs
+            .iter()
+            .find(|entry| entry.get("name").and_then(Value::as_str) == Some("PumpStation"))
+            .expect("PumpStation program");
+        let variables = pump
+            .get("variables")
+            .and_then(Value::as_array)
+            .expect("program variables");
+
+        assert!(variables.iter().any(|variable| {
+            variable.get("name").and_then(Value::as_str) == Some("speed_setpoint")
+                && variable.get("path").and_then(Value::as_str)
+                    == Some("PumpStation.speed_setpoint")
+                && variable.get("type").and_then(Value::as_str) == Some("REAL")
+                && variable.get("qualifier").and_then(Value::as_str) == Some("VAR_INPUT")
+                && variable.get("writable").and_then(Value::as_bool) == Some(true)
+        }));
+        assert!(variables.iter().any(|variable| {
+            variable.get("name").and_then(Value::as_str) == Some("speed")
+                && variable.get("path").and_then(Value::as_str) == Some("PumpStation.speed")
+                && variable.get("qualifier").and_then(Value::as_str) == Some("VAR_OUTPUT")
+                && variable.get("writable").and_then(Value::as_bool) == Some(false)
+        }));
+        assert!(variables.iter().any(|variable| {
+            variable.get("name").and_then(Value::as_str) == Some("mode")
+                && variable.get("type").and_then(Value::as_str) == Some("MODE")
+                && variable
+                    .get("enum_values")
+                    .and_then(Value::as_array)
+                    .is_some_and(|values| {
+                        values.iter().any(|value| value.as_str() == Some("OFF"))
+                            && values.iter().any(|value| value.as_str() == Some("AUTO"))
+                    })
+        }));
+        assert!(!variables.iter().any(|variable| {
+            variable.get("name").and_then(Value::as_str) == Some("internal_counter")
+        }));
+        assert!(pump
+            .get("file")
+            .and_then(Value::as_str)
+            .is_some_and(|path| path.ends_with("pump.st")));
+
+        assert!(result.get("globals").and_then(Value::as_array).is_some());
+
+        std::fs::remove_dir_all(root).expect("remove temp dir");
+    }
+
+    #[test]
+    fn hmi_bindings_command_rejects_invalid_argument_shape() {
+        let context = MockContext::default();
+        let result = hmi_bindings_value_with_context(
+            &context,
+            vec![
+                json!({ "root_uri": "file:///tmp" }),
+                json!({ "unexpected": true }),
+            ],
+        )
+        .expect("hmi bindings response");
+        assert_eq!(result.get("ok").and_then(Value::as_bool), Some(false));
+        let error = result.get("error").and_then(Value::as_str).unwrap_or("");
+        assert!(error.contains("expects zero or one argument object"));
     }
 }

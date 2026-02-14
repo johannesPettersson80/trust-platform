@@ -28,11 +28,13 @@ toml.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 anyhow.workspace = true
+glob.workspace = true
 parking_lot.workspace = true
 rustc-hash.workspace = true
 text-size.workspace = true
 smol_str.workspace = true
 percent-encoding.workspace = true
+trust-runtime.workspace = true
 
 [dev-dependencies]
 expect-test.workspace = true

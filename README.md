@@ -152,6 +152,7 @@ starts a local runtime for debugging and inline values.
 ## Documentation
 
 - `docs/README.md` — documentation index and diagram workflow
+- `docs/guides/HMI_DIRECTORY_WORKFLOW.md` — `hmi/` directory format, process SVG pages, and LM tool workflow
 - `examples/README.md` — guided example/tutorial tracks with setup walkthroughs
 - `docs/guides/PLC_QUICK_START.md` — hands-on quick start
 - `docs/guides/EDITOR_SETUP_NEOVIM_ZED.md` — Neovim + Zed setup and validation contract

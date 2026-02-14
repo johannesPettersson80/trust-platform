@@ -1,0 +1,30 @@
+
+        <svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+          <title>PV003B</title>
+          <desc>None. Version 2</desc>
+          <g id="Symbol">
+            <path d="M23.6667 27.8333L14 8.49999H34L24.3333 27.8333L43 18.5V38.5L24 29L5 38.5V18.5L23.6667 27.8333ZM32.382 9.49999L15.618 9.49999L24 26.2639L32.382 9.49999ZM25.2361 28.5L42 36.882V20.118L25.2361 28.5ZM22.7639 28.5L6 20.118V36.882L22.7639 28.5Z" />
+          </g>
+          <g id="Annotations">
+              <circle
+                  key="annotation-connector-3"
+                  id="annotation-connector-3"
+                  cx="24.001"
+                  cy="9"
+                  r="0.5"
+                /><circle
+                  key="annotation-connector-1"
+                  id="annotation-connector-1"
+                  cx="42.5"
+                  cy="28.5"
+                  r="0.5"
+                /><circle
+                  key="annotation-connector-2"
+                  id="annotation-connector-2"
+                  cx="5.5"
+                  cy="28.5"
+                  r="0.5"
+                />
+            </g>
+          </svg>
+        

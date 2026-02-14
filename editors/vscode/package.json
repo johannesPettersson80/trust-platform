@@ -3,7 +3,7 @@
   "displayName": "truST LSP",
   "description": "truST LSP — IEC 61131-3 Structured Text language support",
   "icon": "icon.png",
-  "version": "0.7.15",
+  "version": "0.8.0",
   "publisher": "trust-platform",
   "license": "MIT OR Apache-2.0",
   "engines": {
@@ -34,6 +34,8 @@
     "onCommand:trust-lsp.plcopen.export",
     "onCommand:trust-lsp.debug.openIoPanel",
     "onCommand:trust-lsp.hmi.openPreview",
+    "onCommand:trust-lsp.hmi.refreshFromDescriptor",
+    "onCommand:trust-lsp.hmi.init",
     "onCommand:trust-lsp.debug.reload",
     "onCommand:trust-lsp.moveNamespace.ui",
     "onLanguageModelTool:trust_lsp_request",
@@ -73,6 +75,17 @@
     "onLanguageModelTool:trust_get_formatting_edits",
     "onLanguageModelTool:trust_get_code_actions",
     "onLanguageModelTool:trust_get_project_info",
+    "onLanguageModelTool:trust_hmi_get_bindings",
+    "onLanguageModelTool:trust_hmi_get_layout",
+    "onLanguageModelTool:trust_hmi_apply_patch",
+    "onLanguageModelTool:trust_hmi_plan_intent",
+    "onLanguageModelTool:trust_hmi_trace_capture",
+    "onLanguageModelTool:trust_hmi_generate_candidates",
+    "onLanguageModelTool:trust_hmi_validate",
+    "onLanguageModelTool:trust_hmi_preview_snapshot",
+    "onLanguageModelTool:trust_hmi_run_journey",
+    "onLanguageModelTool:trust_hmi_explain_widget",
+    "onLanguageModelTool:trust_hmi_init",
     "onLanguageModelTool:trust_workspace_rename_file",
     "onLanguageModelTool:trust_update_settings",
     "onLanguageModelTool:trust_read_telemetry",
@@ -841,6 +854,447 @@
               "type": "array",
               "items": {},
               "description": "Optional arguments array for the command"
+            }
+          }
+        }
+      },
+      {
+        "name": "trust_hmi_get_bindings",
+        "displayName": "ST HMI Bindings",
+        "toolReferenceName": "stHmiGetBindings",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(symbol-field)",
+        "userDescription": "Return available HMI binding points with type and write metadata.",
+        "modelDescription": "Returns all external-facing PLC binding points (program/global) with canonical bind paths, data types, qualifier metadata, writability, and constraints via trust-lsp.hmiBindings.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "rootPath": {
+              "type": "string",
+              "description": "Optional workspace root path/URI to scope lookup."
+            },
+            "filePath": {
+              "type": "string",
+              "description": "Optional file path/URI used to resolve workspace scope."
+            }
+          }
+        }
+      },
+      {
+        "name": "trust_hmi_get_layout",
+        "displayName": "ST HMI Layout",
+        "toolReferenceName": "stHmiGetLayout",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(layout)",
+        "userDescription": "Read hmi/ descriptor files.",
+        "modelDescription": "Reads all TOML files under hmi/ and returns config/pages/file content. Returns { exists: false } when no hmi/ directory exists.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "rootPath": {
+              "type": "string",
+              "description": "Optional workspace root path/URI to scope file reads."
+            }
+          }
+        }
+      },
+      {
+        "name": "trust_hmi_apply_patch",
+        "displayName": "ST HMI Patch",
+        "toolReferenceName": "stHmiApplyPatch",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(diff)",
+        "userDescription": "Apply typed patch operations to hmi/*.toml files.",
+        "modelDescription": "Applies typed patch operations to hmi TOML descriptor files with dry_run support and conflict reporting; writes only changed files and triggers descriptor refresh.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "dry_run": {
+              "type": "boolean",
+              "description": "Validate operations without writing files."
+            },
+            "rootPath": {
+              "type": "string",
+              "description": "Optional workspace root path/URI."
+            },
+            "operations": {
+              "type": "array",
+              "description": "Patch operations on descriptor pointers under /files/<name>.toml[/content].",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "op": {
+                    "type": "string",
+                    "enum": [
+                      "add",
+                      "remove",
+                      "replace",
+                      "move"
+                    ]
+                  },
+                  "path": {
+                    "type": "string",
+                    "description": "JSON pointer path."
+                  },
+                  "from": {
+                    "type": "string",
+                    "description": "Source JSON pointer for move."
+                  },
+                  "value": {
+                    "description": "String TOML content for add/replace."
+                  }
+                },
+                "required": [
+                  "op",
+                  "path"
+                ]
+              }
+            }
+          },
+          "required": [
+            "operations"
+          ]
+        }
+      },
+      {
+        "name": "trust_hmi_plan_intent",
+        "displayName": "ST HMI Intent Plan",
+        "toolReferenceName": "stHmiPlanIntent",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(target)",
+        "userDescription": "Generate or update hmi/_intent.toml from operator goals and constraints.",
+        "modelDescription": "Creates a deterministic hmi/_intent.toml artifact with goals, personas, KPIs, priorities, and constraints for the HMI intent-to-evidence loop. Supports dry_run preview without file writes.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "rootPath": {
+              "type": "string",
+              "description": "Optional workspace root path/URI."
+            },
+            "dry_run": {
+              "type": "boolean",
+              "description": "Render intent content without writing hmi/_intent.toml."
+            },
+            "summary": {
+              "type": "string",
+              "description": "Single-sentence operator intent summary."
+            },
+            "goals": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Ordered operator goals."
+            },
+            "personas": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Operator personas for layout/flow decisions."
+            },
+            "kpis": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "KPIs used to evaluate dashboard effectiveness."
+            },
+            "priorities": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Priority order (for example safety, alarm salience, action latency)."
+            },
+            "constraints": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Safety/operational constraints that must hold."
+            }
+          }
+        }
+      },
+      {
+        "name": "trust_hmi_trace_capture",
+        "displayName": "ST HMI Trace Capture",
+        "toolReferenceName": "stHmiTraceCapture",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(pulse)",
+        "userDescription": "Capture API-level runtime traces for selected HMI widget IDs and scenarios.",
+        "modelDescription": "Captures runtime traces at the API/event layer using hmi.schema.get and hmi.values.get for a chosen scenario and writes deterministic evidence artifacts under hmi/_evidence/<run>/trace-<scenario>.json.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "rootPath": {
+              "type": "string",
+              "description": "Optional workspace root path/URI."
+            },
+            "dry_run": {
+              "type": "boolean",
+              "description": "Capture and return trace payload without writing evidence files."
+            },
+            "run_id": {
+              "type": "string",
+              "description": "Optional existing evidence run id (YYYY-MM-DDTHH-MM-SSZ)."
+            },
+            "scenario": {
+              "type": "string",
+              "description": "Scenario label (for example startup, normal, fault, recovery)."
+            },
+            "ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Optional widget IDs to sample. Defaults to first schema widgets."
+            },
+            "samples": {
+              "type": "number",
+              "description": "Number of samples to capture (1-50)."
+            },
+            "sample_interval_ms": {
+              "type": "number",
+              "description": "Delay between samples in milliseconds (10-5000)."
+            }
+          }
+        }
+      },
+      {
+        "name": "trust_hmi_generate_candidates",
+        "displayName": "ST HMI Generate Candidates",
+        "toolReferenceName": "stHmiGenerateCandidates",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(sparkle)",
+        "userDescription": "Generate deterministic layout candidates ranked by readability, latency, and alarm salience.",
+        "modelDescription": "Generates deterministic HMI candidate layouts by reusing scaffold-style strategy parameters (grouping, density, widget bias), ranks them by objective metrics, and can persist candidates.json evidence.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "rootPath": {
+              "type": "string",
+              "description": "Optional workspace root path/URI."
+            },
+            "dry_run": {
+              "type": "boolean",
+              "description": "Generate candidates without writing hmi/_evidence artifacts."
+            },
+            "run_id": {
+              "type": "string",
+              "description": "Optional existing evidence run id (YYYY-MM-DDTHH-MM-SSZ)."
+            },
+            "candidate_count": {
+              "type": "number",
+              "description": "How many ranked candidates to return."
+            }
+          }
+        }
+      },
+      {
+        "name": "trust_hmi_validate",
+        "displayName": "ST HMI Validate",
+        "toolReferenceName": "stHmiValidate",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(verified-filled)",
+        "userDescription": "Validate HMI descriptor, emit lock/evidence artifacts, and optionally prune evidence runs.",
+        "modelDescription": "Runs HMI validation checks (descriptor diagnostics, write-policy guardrails, poll budget checks, and binding coverage), emits deterministic hmi/_lock.json, and stores validation evidence under hmi/_evidence/<timestamp>/ with optional bounded retention pruning.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "rootPath": {
+              "type": "string",
+              "description": "Optional workspace root path/URI."
+            },
+            "dry_run": {
+              "type": "boolean",
+              "description": "Run checks without writing _lock.json or evidence files."
+            },
+            "prune": {
+              "type": "boolean",
+              "description": "When true, prune oldest hmi/_evidence runs after writing current evidence."
+            },
+            "retain_runs": {
+              "type": "number",
+              "description": "Maximum number of newest evidence runs to retain when prune=true. Defaults to 10."
+            }
+          }
+        }
+      },
+      {
+        "name": "trust_hmi_preview_snapshot",
+        "displayName": "ST HMI Preview Snapshot",
+        "toolReferenceName": "stHmiPreviewSnapshot",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(device-camera)",
+        "userDescription": "Render deterministic desktop/tablet/mobile snapshot artifacts for a candidate layout.",
+        "modelDescription": "Renders deterministic SVG snapshot artifacts for desktop/tablet/mobile viewports for a selected candidate layout and stores them under hmi/_evidence/<run>/screenshots/.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "rootPath": {
+              "type": "string",
+              "description": "Optional workspace root path/URI."
+            },
+            "dry_run": {
+              "type": "boolean",
+              "description": "Compute snapshots and hashes without writing files."
+            },
+            "run_id": {
+              "type": "string",
+              "description": "Optional existing evidence run id (YYYY-MM-DDTHH-MM-SSZ)."
+            },
+            "candidate_id": {
+              "type": "string",
+              "description": "Optional candidate id. Defaults to highest-ranked candidate."
+            },
+            "viewports": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "desktop",
+                  "tablet",
+                  "mobile"
+                ]
+              },
+              "description": "Subset of viewport snapshots to render."
+            }
+          }
+        }
+      },
+      {
+        "name": "trust_hmi_run_journey",
+        "displayName": "ST HMI Run Journey",
+        "toolReferenceName": "stHmiRunJourney",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(play)",
+        "userDescription": "Execute scripted API/event-level operator journeys and record metrics.",
+        "modelDescription": "Runs API/event-level journey scripts (read_values, wait, write) without requiring a browser, captures timing and pass/fail metrics, and writes journeys evidence under hmi/_evidence/<run>/journeys.json.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "rootPath": {
+              "type": "string",
+              "description": "Optional workspace root path/URI."
+            },
+            "dry_run": {
+              "type": "boolean",
+              "description": "Execute journey logic without writing journeys.json."
+            },
+            "run_id": {
+              "type": "string",
+              "description": "Optional existing evidence run id (YYYY-MM-DDTHH-MM-SSZ)."
+            },
+            "scenario": {
+              "type": "string",
+              "description": "Scenario label for evidence grouping."
+            },
+            "journeys": {
+              "type": "array",
+              "description": "Optional journey definitions; defaults to API read-values smoke journey.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "max_duration_ms": {
+                    "type": "number"
+                  },
+                  "steps": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "action": {
+                          "type": "string",
+                          "enum": [
+                            "read_values",
+                            "wait",
+                            "write"
+                          ]
+                        },
+                        "ids": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "duration_ms": {
+                          "type": "number"
+                        },
+                        "widget_id": {
+                          "type": "string"
+                        },
+                        "value": {},
+                        "expect_error_code": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "action"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "id"
+                ]
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "trust_hmi_explain_widget",
+        "displayName": "ST HMI Explain Widget",
+        "toolReferenceName": "stHmiExplainWidget",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(info)",
+        "userDescription": "Explain widget provenance from bind path to type, write policy, and contract metadata.",
+        "modelDescription": "Explains a widget's provenance path and guardrails: canonical ID, PLC symbol path/type, write-policy allowlist state, and endpoint-level contract context.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "rootPath": {
+              "type": "string",
+              "description": "Optional workspace root path/URI."
+            },
+            "widget_id": {
+              "type": "string",
+              "description": "Canonical widget ID to explain."
+            },
+            "path": {
+              "type": "string",
+              "description": "Bind/source path fallback when widget_id is not provided."
+            }
+          }
+        }
+      },
+      {
+        "name": "trust_hmi_init",
+        "displayName": "ST HMI Init",
+        "toolReferenceName": "stHmiInit",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(dashboard)",
+        "userDescription": "Generate an HMI scaffold from PLC sources.",
+        "modelDescription": "Auto-generates an hmi/ directory from the current PLC workspace by executing trust-lsp.hmiInit over workspace/executeCommand. Use this first when a user asks to create an HMI.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "style": {
+              "type": "string",
+              "enum": [
+                "industrial",
+                "classic",
+                "mint"
+              ],
+              "description": "Optional HMI theme style. Defaults to industrial."
             }
           }
         }
@@ -1665,6 +2119,16 @@
       {
         "command": "trust-lsp.hmi.openPreview",
         "title": "Structured Text: Open HMI Preview",
+        "category": "Structured Text"
+      },
+      {
+        "command": "trust-lsp.hmi.refreshFromDescriptor",
+        "title": "Structured Text: Refresh HMI Descriptor",
+        "category": "Structured Text"
+      },
+      {
+        "command": "trust-lsp.hmi.init",
+        "title": "Structured Text: Initialize HMI Descriptor",
         "category": "Structured Text"
       },
       {

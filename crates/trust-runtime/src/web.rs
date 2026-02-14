@@ -6,7 +6,7 @@ use std::net::ToSocketAddrs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use qrcode::{render::svg, QrCode};
 use serde::{Deserialize, Serialize};
@@ -123,6 +123,10 @@ const HMI_HTML: &str = include_str!("web/ui/hmi.html");
 const HMI_JS: &str = include_str!("web/ui/hmi.js");
 const HMI_CSS: &str = include_str!("web/ui/hmi.css");
 const IDE_HTML: &str = include_str!("web/ui/ide.html");
+const HMI_WS_ROUTE: &str = "/ws/hmi";
+const HMI_WS_VALUES_POLL_INTERVAL: Duration = Duration::from_millis(100);
+const HMI_WS_SCHEMA_POLL_INTERVAL: Duration = Duration::from_millis(500);
+const HMI_WS_ALARMS_POLL_INTERVAL: Duration = Duration::from_millis(500);
 
 fn default_bundle_root(bundle_root: &Option<PathBuf>) -> PathBuf {
     bundle_root
@@ -423,6 +427,28 @@ fn read_source_file(bundle_root: &Path, name: &str) -> Result<String, RuntimeErr
         .map_err(|err| RuntimeError::InvalidConfig(format!("failed to read source: {err}").into()))
 }
 
+fn read_hmi_asset_file(project_root: &Path, name: &str) -> Result<String, RuntimeError> {
+    let hmi_dir = project_root.join("hmi");
+    let requested = hmi_dir.join(name);
+    let hmi_dir = hmi_dir
+        .canonicalize()
+        .map_err(|err| RuntimeError::InvalidConfig(format!("hmi dir unavailable: {err}").into()))?;
+    let requested = requested
+        .canonicalize()
+        .map_err(|err| RuntimeError::InvalidConfig(format!("hmi asset not found: {err}").into()))?;
+    if !requested.starts_with(&hmi_dir) {
+        return Err(RuntimeError::InvalidConfig("invalid hmi asset path".into()));
+    }
+    if requested.extension().and_then(|value| value.to_str()) != Some("svg") {
+        return Err(RuntimeError::InvalidConfig(
+            "unsupported hmi asset type (only .svg is allowed)".into(),
+        ));
+    }
+    std::fs::read_to_string(&requested).map_err(|err| {
+        RuntimeError::InvalidConfig(format!("failed to read hmi asset '{}': {err}", name).into())
+    })
+}
+
 fn apply_setup(
     bundle_root: &Option<PathBuf>,
     payload: SetupApplyRequest,
@@ -540,6 +566,7 @@ pub fn start_web_server(
         for mut request in server.incoming_requests() {
             let method = request.method().clone();
             let url = request.url().to_string();
+            let url_path = url.split('?').next().unwrap_or(url.as_str());
             if method == Method::Get && (url == "/" || url == "/setup") {
                 let response = Response::from_string(INDEX_HTML)
                     .with_header(Header::from_bytes("Content-Type", "text/html").unwrap());
@@ -550,6 +577,85 @@ pub fn start_web_server(
                 let response = Response::from_string(HMI_HTML)
                     .with_header(Header::from_bytes("Content-Type", "text/html").unwrap());
                 let _ = request.respond(response);
+                continue;
+            }
+            if method == Method::Get && url_path.starts_with("/hmi/assets/") {
+                let Some(project_root) = bundle_root
+                    .clone()
+                    .or_else(|| control_state.project_root.clone())
+                else {
+                    let response = Response::from_string(
+                        json!({ "ok": false, "error": "project root unavailable" }).to_string(),
+                    )
+                    .with_status_code(StatusCode(400))
+                    .with_header(Header::from_bytes("Content-Type", "application/json").unwrap());
+                    let _ = request.respond(response);
+                    continue;
+                };
+                let encoded = url_path.trim_start_matches("/hmi/assets/");
+                if encoded.is_empty() {
+                    let response = Response::from_string(
+                        json!({ "ok": false, "error": "missing asset path" }).to_string(),
+                    )
+                    .with_status_code(StatusCode(400))
+                    .with_header(Header::from_bytes("Content-Type", "application/json").unwrap());
+                    let _ = request.respond(response);
+                    continue;
+                }
+                let asset = decode_url_component(encoded);
+                match read_hmi_asset_file(&project_root, asset.as_str()) {
+                    Ok(svg) => {
+                        let response = Response::from_string(svg).with_header(
+                            Header::from_bytes("Content-Type", "image/svg+xml").unwrap(),
+                        );
+                        let _ = request.respond(response);
+                    }
+                    Err(err) => {
+                        let response = Response::from_string(
+                            json!({ "ok": false, "error": err.to_string() }).to_string(),
+                        )
+                        .with_status_code(StatusCode(404))
+                        .with_header(
+                            Header::from_bytes("Content-Type", "application/json").unwrap(),
+                        );
+                        let _ = request.respond(response);
+                    }
+                }
+                continue;
+            }
+            if method == Method::Get && url_path == HMI_WS_ROUTE {
+                let request_token = match check_auth(
+                    &request,
+                    auth,
+                    &auth_token,
+                    pairing.as_deref(),
+                    AccessRole::Viewer,
+                ) {
+                    Ok(token) => token,
+                    Err(error) => {
+                        let _ = request.respond(auth_error_response(error));
+                        continue;
+                    }
+                };
+                let accept_key = match websocket_accept_key(&request) {
+                    Ok(key) => key,
+                    Err(error) => {
+                        let response = Response::from_string(
+                            json!({ "ok": false, "error": error }).to_string(),
+                        )
+                        .with_status_code(StatusCode(400))
+                        .with_header(
+                            Header::from_bytes("Content-Type", "application/json").unwrap(),
+                        );
+                        let _ = request.respond(response);
+                        continue;
+                    }
+                };
+                let response = Response::empty(StatusCode(101)).with_header(
+                    Header::from_bytes("Sec-WebSocket-Accept", accept_key.as_bytes()).unwrap(),
+                );
+                let stream = request.upgrade("websocket", response);
+                spawn_hmi_websocket_session(stream, control_state.clone(), request_token);
                 continue;
             }
             if method == Method::Get && (url == "/ide" || url == "/ide/") {
@@ -591,14 +697,21 @@ pub fn start_web_server(
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap_or_default()
                     .as_millis();
+                let descriptor = control_state
+                    .hmi_descriptor
+                    .lock()
+                    .ok()
+                    .and_then(|state| state.customization.dir_descriptor().cloned());
                 let payload = json!({
-                    "version": 1_u32,
+                    "version": 2_u32,
                     "exported_at_ms": exported_at_ms,
                     "entrypoint": "hmi/index.html",
-                    "routes": ["/hmi", "/hmi/app.js", "/hmi/styles.css", "/api/control"],
+                    "routes": ["/hmi", "/hmi/app.js", "/hmi/styles.css", "/api/control", HMI_WS_ROUTE],
                     "config": {
                         "poll_ms": 500_u32,
-                        "schema": schema
+                        "ws_route": HMI_WS_ROUTE,
+                        "schema": schema,
+                        "descriptor": descriptor
                     },
                     "assets": {
                         "hmi/index.html": HMI_HTML,
@@ -1581,6 +1694,229 @@ pub fn start_web_server(
     });
 
     Ok(WebServer { handle, listen })
+}
+
+fn websocket_accept_key(request: &tiny_http::Request) -> Result<String, &'static str> {
+    let upgrade = header_value(request, "Upgrade").ok_or("missing Upgrade header")?;
+    if !upgrade.eq_ignore_ascii_case("websocket") {
+        return Err("invalid websocket upgrade");
+    }
+    let connection = header_value(request, "Connection").ok_or("missing Connection header")?;
+    if !connection.to_ascii_lowercase().contains("upgrade") {
+        return Err("invalid Connection upgrade");
+    }
+    let key = header_value(request, "Sec-WebSocket-Key").ok_or("missing Sec-WebSocket-Key")?;
+    Ok(tungstenite::handshake::derive_accept_key(key.as_bytes()))
+}
+
+fn header_value(request: &tiny_http::Request, key: &str) -> Option<String> {
+    request
+        .headers()
+        .iter()
+        .find(|header| header.field.as_str().as_str().eq_ignore_ascii_case(key))
+        .map(|header| header.value.as_str().trim().to_string())
+}
+
+fn spawn_hmi_websocket_session(
+    stream: Box<dyn tiny_http::ReadWrite + Send>,
+    control_state: Arc<ControlState>,
+    request_token: Option<String>,
+) {
+    thread::spawn(move || {
+        if let Err(err) = run_hmi_websocket_session(stream, control_state, request_token) {
+            tracing::debug!("hmi websocket session closed: {err}");
+        }
+    });
+}
+
+fn run_hmi_websocket_session(
+    stream: Box<dyn tiny_http::ReadWrite + Send>,
+    control_state: Arc<ControlState>,
+    request_token: Option<String>,
+) -> Result<(), String> {
+    use tungstenite::protocol::Role;
+
+    let mut socket = tungstenite::protocol::WebSocket::from_raw_socket(stream, Role::Server, None);
+    let mut request_id = 10_000_u64;
+    let mut last_schema_revision = 0_u64;
+    let mut widget_ids = Vec::new();
+    let mut last_values = serde_json::Map::new();
+    let mut last_alarm_payload: Option<serde_json::Value> = None;
+    let mut next_schema_poll = Instant::now();
+    let mut next_alarm_poll = Instant::now();
+
+    if let Some(schema_result) = hmi_control_result(
+        control_state.as_ref(),
+        &mut request_id,
+        "hmi.schema.get",
+        None,
+        request_token.as_deref(),
+    ) {
+        last_schema_revision = schema_result
+            .get("schema_revision")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(0);
+        widget_ids = hmi_widget_ids(&schema_result);
+    }
+
+    loop {
+        let values_params = if widget_ids.is_empty() {
+            None
+        } else {
+            Some(json!({ "ids": widget_ids }))
+        };
+        let values_result = hmi_control_result(
+            control_state.as_ref(),
+            &mut request_id,
+            "hmi.values.get",
+            values_params,
+            request_token.as_deref(),
+        )
+        .ok_or_else(|| "hmi.values.get failed".to_string())?;
+
+        if let Some(delta) = hmi_values_delta(&values_result, &mut last_values) {
+            hmi_ws_send_json(
+                &mut socket,
+                &json!({
+                    "type": "hmi.values.delta",
+                    "result": delta,
+                }),
+            )?;
+        }
+
+        let now = Instant::now();
+        if now >= next_schema_poll {
+            next_schema_poll = now + HMI_WS_SCHEMA_POLL_INTERVAL;
+            if let Some(schema_result) = hmi_control_result(
+                control_state.as_ref(),
+                &mut request_id,
+                "hmi.schema.get",
+                None,
+                request_token.as_deref(),
+            ) {
+                let revision = schema_result
+                    .get("schema_revision")
+                    .and_then(serde_json::Value::as_u64)
+                    .unwrap_or(last_schema_revision);
+                if revision != last_schema_revision {
+                    last_schema_revision = revision;
+                    widget_ids = hmi_widget_ids(&schema_result);
+                    hmi_ws_send_json(
+                        &mut socket,
+                        &json!({
+                            "type": "hmi.schema.revision",
+                            "result": { "schema_revision": revision }
+                        }),
+                    )?;
+                }
+            }
+        }
+
+        if now >= next_alarm_poll {
+            next_alarm_poll = now + HMI_WS_ALARMS_POLL_INTERVAL;
+            if let Some(alarms_result) = hmi_control_result(
+                control_state.as_ref(),
+                &mut request_id,
+                "hmi.alarms.get",
+                Some(json!({ "limit": 50_u64 })),
+                request_token.as_deref(),
+            ) {
+                if last_alarm_payload.as_ref() != Some(&alarms_result) {
+                    last_alarm_payload = Some(alarms_result.clone());
+                    hmi_ws_send_json(
+                        &mut socket,
+                        &json!({
+                            "type": "hmi.alarms.event",
+                            "result": alarms_result
+                        }),
+                    )?;
+                }
+            }
+        }
+
+        std::thread::sleep(HMI_WS_VALUES_POLL_INTERVAL);
+    }
+}
+
+fn hmi_control_result(
+    control_state: &ControlState,
+    request_id: &mut u64,
+    request_type: &str,
+    params: Option<serde_json::Value>,
+    request_token: Option<&str>,
+) -> Option<serde_json::Value> {
+    *request_id = request_id.saturating_add(1);
+    let mut payload = json!({
+        "id": *request_id,
+        "type": request_type,
+    });
+    if let Some(params) = params {
+        payload["params"] = params;
+    }
+    let response = dispatch_control_request(payload, control_state, Some("web/ws"), request_token);
+    let response = serde_json::to_value(response).ok()?;
+    if !response
+        .get("ok")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false)
+    {
+        return None;
+    }
+    response.get("result").cloned()
+}
+
+fn hmi_widget_ids(schema: &serde_json::Value) -> Vec<String> {
+    schema
+        .get("widgets")
+        .and_then(serde_json::Value::as_array)
+        .map(|widgets| {
+            widgets
+                .iter()
+                .filter_map(|widget| widget.get("id").and_then(serde_json::Value::as_str))
+                .map(std::string::ToString::to_string)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default()
+}
+
+fn hmi_values_delta(
+    values_result: &serde_json::Value,
+    last_values: &mut serde_json::Map<String, serde_json::Value>,
+) -> Option<serde_json::Value> {
+    let values = values_result.get("values")?.as_object()?;
+    let mut delta = serde_json::Map::new();
+    for (id, entry) in values {
+        if last_values.get(id) != Some(entry) {
+            delta.insert(id.clone(), entry.clone());
+        }
+    }
+    last_values.retain(|id, _| values.contains_key(id));
+    for (id, entry) in values {
+        last_values.insert(id.clone(), entry.clone());
+    }
+    if delta.is_empty() {
+        return None;
+    }
+    Some(json!({
+        "connected": values_result
+            .get("connected")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false),
+        "timestamp_ms": values_result.get("timestamp_ms").cloned().unwrap_or(serde_json::Value::Null),
+        "values": delta,
+    }))
+}
+
+fn hmi_ws_send_json<S>(
+    socket: &mut tungstenite::protocol::WebSocket<S>,
+    payload: &serde_json::Value,
+) -> Result<(), String>
+where
+    S: std::io::Read + std::io::Write,
+{
+    socket
+        .send(tungstenite::Message::Text(payload.to_string()))
+        .map_err(|err| err.to_string())
 }
 
 fn check_auth(
