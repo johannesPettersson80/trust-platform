@@ -54,6 +54,42 @@ fn copy_dir_recursive(src: &Path, dst: &Path) {
     }
 }
 
+#[cfg(unix)]
+fn normalize_runtime_endpoint_for_platform(_project: &Path) {}
+
+#[cfg(not(unix))]
+fn normalize_runtime_endpoint_for_platform(project: &Path) {
+    let runtime_path = project.join("runtime.toml");
+    let Ok(raw) = std::fs::read_to_string(&runtime_path) else {
+        return;
+    };
+    if !raw.contains("endpoint = \"unix://") {
+        return;
+    }
+
+    let mut changed = false;
+    let mut normalized = String::with_capacity(raw.len());
+    for line in raw.lines() {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("endpoint = \"unix://") {
+            normalized.push_str("endpoint = \"tcp://127.0.0.1:18082\"\n");
+            changed = true;
+        } else {
+            normalized.push_str(line);
+            normalized.push('\n');
+        }
+    }
+
+    if changed {
+        std::fs::write(&runtime_path, normalized).unwrap_or_else(|err| {
+            panic!(
+                "rewrite runtime endpoint for {}: {err}",
+                runtime_path.display()
+            )
+        });
+    }
+}
+
 #[test]
 fn communication_examples_build_and_validate() {
     let root = communication_examples_root();
@@ -103,6 +139,7 @@ fn communication_examples_build_and_validate() {
         let temp_root = unique_temp_dir(&format!("communication-example-{name}"));
         let project = temp_root.join(&name);
         copy_dir_recursive(&fixture, &project);
+        normalize_runtime_endpoint_for_platform(&project);
 
         let build = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
             .args(["build", "--project"])

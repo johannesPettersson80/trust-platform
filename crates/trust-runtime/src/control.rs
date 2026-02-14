@@ -37,6 +37,10 @@ use smol_str::SmolStr;
 use tracing::{debug, warn};
 
 const HMI_DESCRIPTOR_WATCH_DEBOUNCE: Duration = Duration::from_millis(250);
+#[cfg(test)]
+const HMI_DESCRIPTOR_WATCH_STARTUP_TIMEOUT: Duration = Duration::from_secs(5);
+#[cfg(not(test))]
+const HMI_DESCRIPTOR_WATCH_STARTUP_TIMEOUT: Duration = Duration::from_secs(1);
 
 #[derive(Debug, Clone)]
 pub enum ControlEndpoint {
@@ -265,7 +269,7 @@ pub fn spawn_hmi_descriptor_watcher(state: Arc<ControlState>) {
             }
         }
     });
-    match ready_rx.recv_timeout(Duration::from_secs(1)) {
+    match ready_rx.recv_timeout(HMI_DESCRIPTOR_WATCH_STARTUP_TIMEOUT) {
         Ok(Ok(())) => {}
         Ok(Err(err)) => warn!("hmi watcher startup failed: {err}"),
         Err(RecvTimeoutError::Timeout) => {
@@ -3835,6 +3839,41 @@ mod tests {
         }
     }
 
+    fn wait_for_descriptor_error(state: &ControlState, timeout: Duration) -> serde_json::Value {
+        let deadline = Instant::now() + timeout;
+        loop {
+            let schema = hmi_schema_result(state);
+            if schema
+                .get("descriptor_error")
+                .and_then(serde_json::Value::as_str)
+                .is_some()
+            {
+                return schema;
+            }
+            if Instant::now() >= deadline {
+                panic!("descriptor_error was not present before timeout");
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+    }
+
+    fn wait_for_descriptor_error_clear(
+        state: &ControlState,
+        timeout: Duration,
+    ) -> serde_json::Value {
+        let deadline = Instant::now() + timeout;
+        loop {
+            let schema = hmi_schema_result(state);
+            if schema.get("descriptor_error").is_none() {
+                return schema;
+            }
+            if Instant::now() >= deadline {
+                panic!("descriptor_error was not cleared before timeout");
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+    }
+
     fn pairing_file(name: &str) -> PathBuf {
         let stamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -4506,19 +4545,15 @@ span = "wide"
 "#,
         );
 
-        std::thread::sleep(Duration::from_millis(600));
+        let invalid_schema = wait_for_descriptor_error(state.as_ref(), Duration::from_secs(5));
         let (revision_after_invalid, label_after_invalid) =
             hmi_schema_revision_and_speed_label(state.as_ref());
         assert_eq!(revision_after_invalid, 0);
         assert_eq!(label_after_invalid, "Speed A");
-        let invalid_schema = hmi_schema_result(state.as_ref());
-        assert!(
-            invalid_schema
-                .get("descriptor_error")
-                .and_then(serde_json::Value::as_str)
-                .is_some(),
-            "descriptor_error should be present after invalid descriptor update"
-        );
+        assert!(invalid_schema
+            .get("descriptor_error")
+            .and_then(serde_json::Value::as_str)
+            .is_some());
 
         write_file(
             &root.join("hmi/overview.toml"),
@@ -4540,7 +4575,7 @@ label = "Speed C"
             wait_for_schema_revision(state.as_ref(), 1, Duration::from_secs(5));
         assert_eq!(revision_after_fix, 1);
         assert_eq!(label_after_fix, "Speed C");
-        let fixed_schema = hmi_schema_result(state.as_ref());
+        let fixed_schema = wait_for_descriptor_error_clear(state.as_ref(), Duration::from_secs(5));
         assert!(
             fixed_schema.get("descriptor_error").is_none(),
             "descriptor_error should clear after descriptor recovers"
