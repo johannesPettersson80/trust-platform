@@ -1,0 +1,12 @@
+# Carpeta temporal generada por trust-runtime
+sources/
+
+# Bytecode compilado
+program.stbc
+*.stbc
+
+# Cache del LSP
+.trust-lsp/
+
+# Archivos de depuración
+*.log

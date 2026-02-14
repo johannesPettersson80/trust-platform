@@ -1,0 +1,4 @@
+[project]
+# Generic IEC project; runtime I/O profile is configured in io.toml.
+include_paths = ["src"]
+vendor_profile = "codesys"
