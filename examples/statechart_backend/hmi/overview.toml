@@ -1,0 +1,71 @@
+title = "Overview"
+icon = "activity"
+order = 0
+
+[[section]]
+title = "Details"
+span = 12
+tier = "detail"
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.DO0"
+inferred_interface = true
+label = "DO0"
+span = 3
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.DO1"
+inferred_interface = true
+label = "DO1"
+span = 3
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.DO2"
+inferred_interface = true
+label = "DO2"
+span = 3
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.DO3"
+inferred_interface = true
+label = "DO3"
+span = 3
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.DO4"
+inferred_interface = true
+label = "DO4"
+span = 3
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.DO5"
+inferred_interface = true
+label = "DO5"
+span = 3
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.DO6"
+inferred_interface = true
+label = "DO6"
+span = 3
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.DO7"
+inferred_interface = true
+label = "DO7"
+span = 3
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.heartbeat"
+inferred_interface = true
+label = "Heartbeat"
+span = 3

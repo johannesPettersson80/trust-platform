@@ -1,0 +1,270 @@
+{
+  "id": "ethercat-snake",
+  "description": "EtherCAT Snake Pattern - Controls 8 digital outputs in sequence",
+  "initial": "S0_AllOff",
+  "states": {
+    "S0_AllOff": {
+      "type": "normal",
+      "entry": ["turnOffAll"],
+      "on": {
+        "TIMER": {
+          "target": "S1_LED0_On",
+          "actions": ["logTransition"]
+        }
+      }
+    },
+    "S1_LED0_On": {
+      "type": "normal",
+      "entry": ["turnOn_DO0"],
+      "on": {
+        "TIMER": {
+          "target": "S2_LED0_1_On"
+        }
+      }
+    },
+    "S2_LED0_1_On": {
+      "type": "normal",
+      "entry": ["turnOn_DO1"],
+      "on": {
+        "TIMER": {
+          "target": "S3_LED0_2_On"
+        }
+      }
+    },
+    "S3_LED0_2_On": {
+      "type": "normal",
+      "entry": ["turnOn_DO2"],
+      "on": {
+        "TIMER": {
+          "target": "S4_LED0_3_On"
+        }
+      }
+    },
+    "S4_LED0_3_On": {
+      "type": "normal",
+      "entry": ["turnOn_DO3"],
+      "on": {
+        "TIMER": {
+          "target": "S5_LED0_4_On"
+        }
+      }
+    },
+    "S5_LED0_4_On": {
+      "type": "normal",
+      "entry": ["turnOn_DO4"],
+      "on": {
+        "TIMER": {
+          "target": "S6_LED0_5_On"
+        }
+      }
+    },
+    "S6_LED0_5_On": {
+      "type": "normal",
+      "entry": ["turnOn_DO5"],
+      "on": {
+        "TIMER": {
+          "target": "S7_LED0_6_On"
+        }
+      }
+    },
+    "S7_LED0_6_On": {
+      "type": "normal",
+      "entry": ["turnOn_DO6"],
+      "on": {
+        "TIMER": {
+          "target": "S8_AllOn"
+        }
+      }
+    },
+    "S8_AllOn": {
+      "type": "normal",
+      "entry": ["turnOn_DO7"],
+      "on": {
+        "TIMER": {
+          "target": "S9_LED7_Off",
+          "actions": ["logPhaseChange"]
+        }
+      }
+    },
+    "S9_LED7_Off": {
+      "type": "normal",
+      "entry": ["turnOff_DO7"],
+      "on": {
+        "TIMER": {
+          "target": "S10_LED6_Off"
+        }
+      }
+    },
+    "S10_LED6_Off": {
+      "type": "normal",
+      "entry": ["turnOff_DO6"],
+      "on": {
+        "TIMER": {
+          "target": "S11_LED5_Off"
+        }
+      }
+    },
+    "S11_LED5_Off": {
+      "type": "normal",
+      "entry": ["turnOff_DO5"],
+      "on": {
+        "TIMER": {
+          "target": "S12_LED4_Off"
+        }
+      }
+    },
+    "S12_LED4_Off": {
+      "type": "normal",
+      "entry": ["turnOff_DO4"],
+      "on": {
+        "TIMER": {
+          "target": "S13_LED3_Off"
+        }
+      }
+    },
+    "S13_LED3_Off": {
+      "type": "normal",
+      "entry": ["turnOff_DO3"],
+      "on": {
+        "TIMER": {
+          "target": "S14_LED2_Off"
+        }
+      }
+    },
+    "S14_LED2_Off": {
+      "type": "normal",
+      "entry": ["turnOff_DO2"],
+      "on": {
+        "TIMER": {
+          "target": "S15_LED1_Off"
+        }
+      }
+    },
+    "S15_LED1_Off": {
+      "type": "normal",
+      "entry": ["turnOff_DO1"],
+      "on": {
+        "TIMER": {
+          "target": "S16_LED0_Off"
+        }
+      }
+    },
+    "S16_LED0_Off": {
+      "type": "normal",
+      "entry": ["turnOff_DO0"],
+      "on": {
+        "TIMER": {
+          "target": "S1_LED0_On",
+          "actions": ["logCycleComplete"]
+        }
+      }
+    }
+  },
+  "actionMappings": {
+    "turnOffAll": {
+      "action": "SET_MULTIPLE",
+      "targets": [
+        { "address": "%QX0.0", "value": false },
+        { "address": "%QX0.1", "value": false },
+        { "address": "%QX0.2", "value": false },
+        { "address": "%QX0.3", "value": false },
+        { "address": "%QX0.4", "value": false },
+        { "address": "%QX0.5", "value": false },
+        { "address": "%QX0.6", "value": false },
+        { "address": "%QX0.7", "value": false }
+      ]
+    },
+    "turnOn_DO0": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.0",
+      "value": true
+    },
+    "turnOn_DO1": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.1",
+      "value": true
+    },
+    "turnOn_DO2": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.2",
+      "value": true
+    },
+    "turnOn_DO3": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.3",
+      "value": true
+    },
+    "turnOn_DO4": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.4",
+      "value": true
+    },
+    "turnOn_DO5": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.5",
+      "value": true
+    },
+    "turnOn_DO6": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.6",
+      "value": true
+    },
+    "turnOn_DO7": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.7",
+      "value": true
+    },
+    "turnOff_DO0": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.0",
+      "value": false
+    },
+    "turnOff_DO1": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.1",
+      "value": false
+    },
+    "turnOff_DO2": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.2",
+      "value": false
+    },
+    "turnOff_DO3": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.3",
+      "value": false
+    },
+    "turnOff_DO4": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.4",
+      "value": false
+    },
+    "turnOff_DO5": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.5",
+      "value": false
+    },
+    "turnOff_DO6": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.6",
+      "value": false
+    },
+    "turnOff_DO7": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.7",
+      "value": false
+    },
+    "logTransition": {
+      "action": "LOG",
+      "message": "Transitioning to next state"
+    },
+    "logPhaseChange": {
+      "action": "LOG",
+      "message": "Phase change: Starting turn-off sequence"
+    },
+    "logCycleComplete": {
+      "action": "LOG",
+      "message": "Cycle complete, restarting"
+    }
+  }
+}

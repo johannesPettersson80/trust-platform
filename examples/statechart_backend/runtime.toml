@@ -1,0 +1,75 @@
+# Runtime configuration for StateChart hardware execution
+# Based on: examples/ethercat_ek1100_elx008_v2/runtime.toml
+
+[bundle]
+version = 1
+
+[resource]
+name = "MainResource"
+cycle_interval_ms = 10
+
+[runtime.control]
+endpoint = "unix:///tmp/trust-debug.sock"
+mode = "debug"
+debug_enabled = true
+
+[runtime.web]
+enabled = false
+listen = "127.0.0.1:8080"
+auth = "local"
+tls = false
+
+[runtime.tls]
+mode = "disabled"
+require_remote = false
+
+[runtime.discovery]
+enabled = false
+service_name = "truST"
+advertise = false
+interfaces = []
+
+[runtime.mesh]
+enabled = false
+listen = "0.0.0.0:5200"
+tls = false
+auth_token = ""
+publish = []
+
+[runtime.opcua]
+enabled = false
+listen = "0.0.0.0:4840"
+endpoint_path = "/"
+namespace_uri = "urn:trust:runtime"
+publish_interval_ms = 250
+max_nodes = 128
+expose = []
+security_policy = "basic256sha256"
+security_mode = "sign_and_encrypt"
+allow_anonymous = false
+
+[runtime.observability]
+enabled = false
+sample_interval_ms = 1000
+mode = "all"
+include = []
+history_path = "history/historian.jsonl"
+max_entries = 20000
+prometheus_enabled = true
+prometheus_path = "/metrics"
+
+[runtime.log]
+level = "info"
+
+[runtime.retain]
+mode = "none"
+save_interval_ms = 1000
+
+[runtime.watchdog]
+enabled = false
+timeout_ms = 1000
+action = "halt"
+
+[runtime.fault]
+policy = "halt"
+

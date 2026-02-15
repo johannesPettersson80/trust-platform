@@ -1,0 +1,14 @@
+version = 1
+
+[theme]
+style = "industrial"
+accent = "#c2410c"
+
+[layout]
+navigation = "sidebar-left"
+header = true
+header_title = "P1 HMI"
+
+[write]
+enabled = false
+allow = []

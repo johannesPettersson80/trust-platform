@@ -1,0 +1,6 @@
+title = "Trends"
+kind = "trend"
+icon = "line-chart"
+order = 50
+duration_s = 600
+signals = []

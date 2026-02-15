@@ -1,0 +1,83 @@
+# I/O Configuration for EtherCAT Hardware
+# Tested with: Beckhoff EK1100 + EL2008 (8-channel digital output)
+# Based on: examples/ethercat_ek1100_elx008_v2/io.toml
+
+[io]
+driver = "ethercat"
+
+[io.params]
+# Network interface for EtherCAT
+# Change to match your system (check with: ip link show)
+adapter = "enp111s0"
+# adapter = "mock"  # Use this for simulation mode without hardware
+
+timeout_ms = 250
+cycle_warn_ms = 5
+on_error = "fault"
+# mock_inputs = ["01", "00"]  # Only for mock mode
+
+# EK1100 Bus Coupler
+[[io.params.modules]]
+model = "EK1100"
+slot = 0
+
+# EL2008 - 8-channel 24V digital output
+[[io.params.modules]]
+model = "EL2008"
+slot = 1
+channels = 8
+
+# Safe states - all outputs OFF when runtime stops
+# These match the addresses used in StateChart actionMappings
+[[io.safe_state]]
+address = "%QX0.0"
+value = "FALSE"
+
+[[io.safe_state]]
+address = "%QX0.1"
+value = "FALSE"
+
+[[io.safe_state]]
+address = "%QX0.2"
+value = "FALSE"
+
+[[io.safe_state]]
+address = "%QX0.3"
+value = "FALSE"
+
+[[io.safe_state]]
+address = "%QX0.4"
+value = "FALSE"
+
+[[io.safe_state]]
+address = "%QX0.5"
+value = "FALSE"
+
+[[io.safe_state]]
+address = "%QX0.6"
+value = "FALSE"
+
+[[io.safe_state]]
+address = "%QX0.7"
+value = "FALSE"
+
+# ============================================================
+# Alternative: GPIO driver (Raspberry Pi, etc.)
+# ============================================================
+# Uncomment this section to use GPIO instead of EtherCAT
+#
+# [io]
+# driver = "gpio"
+# 
+# [io.params]
+# chip = "/dev/gpiochip0"
+# 
+# [[io.params.output]]
+# line = 17  # Maps to %QX0.0 (GPIO 17 = Pin 11)
+# 
+# [[io.params.output]]
+# line = 27  # Maps to %QX0.1 (GPIO 27 = Pin 13)
+# 
+# [[io.params.output]]
+# line = 22  # Maps to %QX0.2 (GPIO 22 = Pin 15)
+

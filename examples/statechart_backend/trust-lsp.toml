@@ -1,0 +1,15 @@
+# StateChart Hardware Test Project
+# Minimal trust project for running StateCharts with real hardware
+
+[project]
+vendor_profile = "codesys"
+include_paths = ["src"]
+stdlib = "iec"
+
+[runtime]
+# Control endpoint for StateChart editor communication
+control_endpoint = "unix:///tmp/trust-debug.sock"
+
+# Optional: Use TCP for remote access
+# control_endpoint = "tcp://127.0.0.1:9000"
+# control_auth_token = "your-secret-token"
