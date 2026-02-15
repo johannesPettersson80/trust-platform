@@ -262,7 +262,7 @@ For each tutorial:
 
 ### Guided Steps
 
-1. Open `10_unit_testing_101/sources/tests.st`.
+1. Open `10_unit_testing_101/src/tests.st`.
 2. Use CodeLens `Run Test` above each test.
 3. Open Testing sidebar (beaker icon) and run all discovered tests.
 4. Inspect pass/fail indicators and test output details.
@@ -286,7 +286,7 @@ For each tutorial:
 
 ### Guided Steps
 
-1. Open `11_unit_testing_102/sources/tests.st`.
+1. Open `11_unit_testing_102/src/tests.st`.
 2. Run all tests from Testing sidebar.
 3. Break one expected value intentionally.
 4. Re-run failed test only from sidebar.

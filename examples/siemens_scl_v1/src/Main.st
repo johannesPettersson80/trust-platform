@@ -19,9 +19,6 @@ PROGRAM Main
 VAR
     Counter : FB_EdgeCounter;
     Total : DINT;
-END_VAR
-
-VAR_EXTERNAL
     Pulse : BOOL;
     CountNonZero : BOOL;
 END_VAR

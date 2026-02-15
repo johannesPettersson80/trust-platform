@@ -9,7 +9,7 @@ This tutorial shows the practical Siemens flow:
 ## Prerequisites
 
 - `trust-runtime` built and available on PATH.
-- A truST ST project with `src/` or `sources/`.
+- A truST ST project with `src/`.
 - TIA Portal project where blocks will be imported.
 
 ## Step 1: Export Siemens Target

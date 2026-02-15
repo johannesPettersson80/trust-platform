@@ -1,5 +1,5 @@
 PROGRAM Main
-VAR_EXTERNAL
+VAR
     DI0 : BOOL;
     DO0 : BOOL;
 END_VAR

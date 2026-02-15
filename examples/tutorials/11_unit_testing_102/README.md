@@ -2,37 +2,39 @@
 
 This tutorial shows the production pattern you should use in truST:
 
-1. keep physical I/O mapping (`%I`, `%Q`, `%M`) inside a `PROGRAM`,
+1. keep physical I/O mapping (`%I`, `%Q`, `%M`) in `CONFIGURATION` via `VAR_CONFIG`,
 2. keep control logic inside a `FUNCTION_BLOCK` with plain inputs/outputs,
-3. unit test the function block with simulated values (mock I/O).
+3. keep the `PROGRAM` as wiring between mapped variables and control FB logic,
+4. unit test the function block with simulated values (mock I/O).
 
 This gives fast tests, deterministic behavior, and easier debugging.
 
 ## What you will build
 
-- A production `PROGRAM` (`TankProgram`) that maps real I/O addresses.
+- A production `PROGRAM` (`TankProgram`) with plain variables and wiring logic.
+- A `CONFIGURATION` (`TankControlConfig`) that binds `%I/%Q` addresses with `VAR_CONFIG`.
 - A logic block (`FB_TANK_CONTROL`) that can be tested without hardware.
 - Tests that simulate low/high/stop conditions and verify outputs.
 
 ## Project layout
 
-- `sources/main.st`: production code (I/O mapping + logic FB)
-- `sources/tests.st`: unit tests
+- `src/main.st`: production code (I/O mapping + logic FB)
+- `src/tests.st`: unit tests
 - `trust-lsp.toml`: project config
 
 ## Step 1: Understand the architecture
 
-Open `sources/main.st`:
+Open `src/main.st`:
 
 - `FB_TANK_CONTROL` contains decision logic.
-- `PROGRAM TankProgram` maps field I/O to `%IX/%IW/%QX/%QW`.
-- Program calls FB and copies FB outputs to mapped outputs.
+- `PROGRAM TankProgram` wires process variables into the FB and copies outputs back.
+- `CONFIGURATION TankControlConfig` performs `%IX/%IW/%QX/%QW` mapping via `VAR_CONFIG`.
 
 This separation is the key to mockable tests.
 
 ## Step 2: Review the tests
 
-Open `sources/tests.st`:
+Open `src/tests.st`:
 
 - `TEST_PROGRAM TEST_TANK_CONTROL_WITH_MOCK_IO`:
   - instantiates the FB directly (`VAR DUT : FB_TANK_CONTROL;`)

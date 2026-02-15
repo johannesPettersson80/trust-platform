@@ -49,7 +49,7 @@ You will get five operator pages:
   trust-lsp.toml
   runtime.toml
   io.toml
-  sources/
+  src/
     main.st
     config.st
   hmi/
@@ -112,7 +112,7 @@ code examples/tutorials/12_hmi_pid_process_dashboard
 
 Inspect these files first:
 
-- `sources/main.st` (process model + setpoint/alarm logic)
+- `src/main.st` (process model + setpoint/alarm logic)
 - `hmi/overview.toml` (operator widget dashboard)
 - `hmi/plant.toml` (primary process page bindings)
 - `hmi/plant-bypass.toml` (advanced bypass process bindings)
@@ -121,7 +121,7 @@ Inspect these files first:
 
 ```bash
 cargo run -p trust-runtime --bin trust-runtime -- \
-  build --project examples/tutorials/12_hmi_pid_process_dashboard --sources sources
+  build --project examples/tutorials/12_hmi_pid_process_dashboard --sources src
 ```
 
 Expected outcome:
@@ -274,7 +274,7 @@ This keeps edits typed, reviewable, and evidence-backed.
 
 - confirm runtime is running on `127.0.0.1:18082`
 - confirm `source = "..."` paths match ST variable names
-- confirm `sources/config.st` task/program mapping is active
+- confirm `src/config.st` task/program mapping is active
 
 ### Writes do not work
 

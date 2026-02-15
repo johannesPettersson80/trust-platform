@@ -227,7 +227,7 @@ impl WebIdeState {
             diagnostics_source: "trust-lsp/trust-hir through project sources (out-of-process)"
                 .to_string(),
             deployment_boundaries: vec![
-                "Allowed file scope: <project>/sources/**/*.st".to_string(),
+                "Allowed file scope: <project>/src/**/*.st".to_string(),
                 "Runtime/deploy configs are excluded from IDE write surface".to_string(),
                 "Authoring mode requires runtime control mode=debug".to_string(),
             ],
@@ -455,11 +455,11 @@ impl WebIdeState {
                 "project root unavailable for web IDE",
             ));
         };
-        let sources = root.join("sources");
+        let sources = root.join("src");
         if !sources.is_dir() {
             return Err(IdeError::new(
                 IdeErrorKind::NotFound,
-                "project sources directory is missing",
+                "project src directory is missing",
             ));
         }
         Ok(sources)
@@ -609,12 +609,12 @@ mod tests {
             std::process::id()
         ));
         let _ = std::fs::remove_dir_all(&path);
-        std::fs::create_dir_all(path.join("sources")).expect("create sources");
+        std::fs::create_dir_all(path.join("src")).expect("create src");
         path
     }
 
     fn write_source(project: &Path, rel: &str, content: &str) {
-        let path = project.join("sources").join(rel);
+        let path = project.join("src").join(rel);
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).expect("create source parent");
         }

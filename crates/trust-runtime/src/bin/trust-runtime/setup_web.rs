@@ -436,8 +436,8 @@ mod tests {
         assert!(root.join("runtime.toml").is_file());
         assert!(root.join("io.toml").is_file());
         assert!(root.join("program.stbc").is_file());
-        assert!(root.join("sources").join("main.st").is_file());
-        assert!(root.join("sources").join("config.st").is_file());
+        assert!(root.join("src").join("main.st").is_file());
+        assert!(root.join("src").join("config.st").is_file());
         let _ = std::fs::remove_dir_all(root);
     }
 }

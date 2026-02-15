@@ -120,7 +120,7 @@ pub enum Command {
         /// Project folder directory (defaults to auto-detect or current directory).
         #[arg(long = "project", alias = "bundle")]
         project: Option<PathBuf>,
-        /// Sources directory override (defaults to <project>/src, fallback <project>/sources).
+        /// Sources directory override (defaults to <project>/src).
         #[arg(long)]
         sources: Option<PathBuf>,
         /// Enable CI-friendly behavior and machine-readable output.

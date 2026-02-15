@@ -40,8 +40,8 @@ Open `io.toml` and map each field:
 
 Open `src/config.st` and `src/Main.st`.
 
-- `%IX0.0` mapped to `DI0`
-- `%QX0.0` mapped to `DO0`
+- `%IX0.0` mapped to `DI0` via `VAR_CONFIG`
+- `%QX0.0` mapped to `DO0` via `VAR_CONFIG`
 - `DO0 := DI0 OR RisingSeen`
 
 This provides a minimal deterministic signal path for bring-up checks.

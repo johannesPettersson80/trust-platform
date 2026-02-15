@@ -20,7 +20,7 @@ Hardware EtherCAT transport (non-`mock` adapter) is gated by build and platform:
 ## Files in this folder
 
 - `src/main.st`: `%IX -> %QX` minimal logic (`DO0 := DI0`)
-- `src/config.st`: `%IX0.0` / `%QX0.0` global mapping and task binding
+- `src/config.st`: task binding plus `VAR_CONFIG` mapping (`P1.DI0`/`P1.DO0`)
 - `io.toml`: deterministic mock profile
 - `io.hardware.toml`: hardware profile template (`adapter = "eth0"`)
 - `runtime.toml`: runtime defaults

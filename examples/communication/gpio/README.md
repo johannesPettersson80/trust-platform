@@ -12,7 +12,7 @@ This example shows how to wire IEC `%IX/%QX` symbols to GPIO lines using
 ## Files in this folder
 
 - `src/main.st`: minimal `%IX -> %QX` logic (`DO0 := DI0`)
-- `src/config.st`: `%IX0.0` / `%QX0.0` symbol mapping and task binding
+- `src/config.st`: task binding plus `VAR_CONFIG` mapping (`P1.DI0`/`P1.DO0`)
 - `io.toml`: GPIO driver configuration
 - `runtime.toml`: runtime profile defaults
 - `trust-lsp.toml`: project profile

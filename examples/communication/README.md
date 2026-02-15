@@ -37,7 +37,7 @@ Most projects start with `simulated` or `loopback`, then fail during integration
 
 - `trust-lsp.toml`: project + runtime endpoint defaults
 - `src/main.st`: minimal IEC program logic
-- `src/config.st`: global symbol + task/resource binding
+- `src/config.st`: task/resource binding + `VAR_CONFIG` `%I/%Q` mapping
 - `io.toml`: protocol-specific I/O backend profile
 - `runtime.toml`: runtime profile (OPC UA example uses this directly)
 

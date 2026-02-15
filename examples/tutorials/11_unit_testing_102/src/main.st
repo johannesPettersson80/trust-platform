@@ -37,12 +37,12 @@ END_FUNCTION_BLOCK
 
 PROGRAM TankProgram
 VAR
-    StartCmd AT %IX0.0 : BOOL;
-    StopCmd AT %IX0.1 : BOOL;
-    LevelRaw AT %IW0 : INT;
-    FillValveOut AT %QX0.0 : BOOL;
-    DrainValveOut AT %QX0.1 : BOOL;
-    PumpSpeedOut AT %QW0 : INT;
+    StartCmd : BOOL;
+    StopCmd : BOOL;
+    LevelRaw : INT;
+    FillValveOut : BOOL;
+    DrainValveOut : BOOL;
+    PumpSpeedOut : INT;
 
     Ctrl : FB_TANK_CONTROL;
 END_VAR
@@ -52,3 +52,16 @@ FillValveOut := Ctrl.FillValveCmd;
 DrainValveOut := Ctrl.DrainValveCmd;
 PumpSpeedOut := Ctrl.PumpSpeedCmd;
 END_PROGRAM
+
+CONFIGURATION TankControlConfig
+TASK Cycle (INTERVAL := T#100ms, PRIORITY := 1);
+PROGRAM P1 WITH Cycle : TankProgram;
+VAR_CONFIG
+    P1.StartCmd AT %IX0.0 : BOOL;
+    P1.StopCmd AT %IX0.1 : BOOL;
+    P1.LevelRaw AT %IW0 : INT;
+    P1.FillValveOut AT %QX0.0 : BOOL;
+    P1.DrainValveOut AT %QX0.1 : BOOL;
+    P1.PumpSpeedOut AT %QW0 : INT;
+END_VAR
+END_CONFIGURATION

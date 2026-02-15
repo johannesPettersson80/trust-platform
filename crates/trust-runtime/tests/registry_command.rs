@@ -42,7 +42,7 @@ fn make_runtime_toml_portable(runtime_toml: String) -> String {
 }
 
 fn write_project_fixture(root: &std::path::Path, resource_name: &str) {
-    std::fs::create_dir_all(root.join("sources")).expect("create source directory");
+    std::fs::create_dir_all(root.join("src")).expect("create source directory");
     let runtime_toml =
         make_runtime_toml_portable(render_runtime_toml(&SmolStr::new(resource_name), 100));
     let io_template = build_io_config_auto("loopback").expect("build loopback io template");
@@ -50,7 +50,7 @@ fn write_project_fixture(root: &std::path::Path, resource_name: &str) {
     std::fs::write(root.join("runtime.toml"), runtime_toml).expect("write runtime.toml");
     std::fs::write(root.join("io.toml"), io_toml).expect("write io.toml");
     std::fs::write(
-        root.join("sources").join("main.st"),
+        root.join("src").join("main.st"),
         r#"
 PROGRAM Main
 VAR
@@ -62,7 +62,7 @@ END_PROGRAM
     )
     .expect("write main source");
     std::fs::write(
-        root.join("sources").join("config.st"),
+        root.join("src").join("config.st"),
         format!(
             "CONFIGURATION Config\nRESOURCE {resource_name} ON PLC\n    TASK MainTask (INTERVAL := T#100ms, PRIORITY := 1);\n    PROGRAM P1 WITH MainTask : Main;\nEND_RESOURCE\nEND_CONFIGURATION\n"
         ),
@@ -237,7 +237,7 @@ fn registry_publish_download_verify_round_trip() {
     assert!(download.join("runtime.toml").is_file());
     assert!(download.join("io.toml").is_file());
     assert!(download.join("program.stbc").is_file());
-    assert!(download.join("sources").join("main.st").is_file());
+    assert!(download.join("src").join("main.st").is_file());
     assert_eq!(
         std::fs::read(project.join("program.stbc")).expect("read source bytecode"),
         std::fs::read(download.join("program.stbc")).expect("read downloaded bytecode")

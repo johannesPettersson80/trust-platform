@@ -99,7 +99,7 @@ Operational rule:
 
 Why: you need to verify CI fails correctly, not only success path.
 
-1. Break one assertion in `examples/tutorials/11_unit_testing_102/sources/tests.st`.
+1. Break one assertion in `examples/tutorials/11_unit_testing_102/src/tests.st`.
 2. Re-run test command with `--ci --output junit`.
 3. Verify non-zero exit and failing report entries.
 

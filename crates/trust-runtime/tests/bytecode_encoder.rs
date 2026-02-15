@@ -936,3 +936,36 @@ END_CONFIGURATION
         .expect("ref entry");
     assert_eq!(ref_entry.location, RefLocation::Global);
 }
+
+#[test]
+fn encoder_resource_meta_sizes_follow_io_bindings() {
+    let source = r#"
+PROGRAM Main
+VAR_EXTERNAL
+    DI0 : BOOL;
+    DO0 : BOOL;
+END_VAR
+DO0 := DI0;
+END_PROGRAM
+
+CONFIGURATION C
+VAR_GLOBAL
+    DI0 AT %IX0.0 : BOOL;
+    DO0 AT %QX0.0 : BOOL;
+END_VAR
+RESOURCE R ON CPU
+TASK T (INTERVAL := T#10ms, PRIORITY := 0);
+PROGRAM Main WITH T : Main;
+END_RESOURCE
+END_CONFIGURATION
+"#;
+
+    let module = bytecode_module_from_source(source).unwrap();
+    let resource_meta = match module.section(SectionId::ResourceMeta) {
+        Some(SectionData::ResourceMeta(meta)) => meta,
+        other => panic!("expected RESOURCE_META, got {other:?}"),
+    };
+    let resource = resource_meta.resources.first().expect("resource entry");
+    assert!(resource.inputs_size >= 1);
+    assert!(resource.outputs_size >= 1);
+}

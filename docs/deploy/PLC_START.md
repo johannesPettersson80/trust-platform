@@ -22,7 +22,7 @@ project/
   io.toml
 ```
 
-If you keep ST sources in `sources/`, generate `program.stbc`:
+If you keep ST sources in `src/`, generate `program.stbc`:
 
 ```
 trust-runtime build --project /path/to/project

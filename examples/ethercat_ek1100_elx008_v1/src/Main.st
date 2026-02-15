@@ -1,9 +1,6 @@
 PROGRAM Main
 VAR
     RisingSeen : BOOL := FALSE;
-END_VAR
-
-VAR_EXTERNAL
     DI0 : BOOL;
     DO0 : BOOL;
 END_VAR

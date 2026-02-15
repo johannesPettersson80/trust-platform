@@ -18,9 +18,6 @@ END_FUNCTION_BLOCK
 PROGRAM Main
 VAR
     Bridge : FB_EdgeBridge;
-END_VAR
-
-VAR_EXTERNAL
     Pulse : BOOL;
     RiseSeen : BOOL;
     FallSeen : BOOL;

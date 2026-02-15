@@ -114,10 +114,8 @@ Si ya configuraste permisos previamente:
 
 ```bash
 # Compilar
-rm -rf sources program.stbc
-mkdir -p sources
-cp src/*.st src/io.toml sources/
-trust-runtime build --project . --sources sources
+rm -rf program.stbc
+trust-runtime build --project . --sources src
 
 # Ejecutar
 trust-runtime run --project .
@@ -154,9 +152,9 @@ step_time : TIME := T#200MS;  (* Cambiar a T#100MS para más rápido *)
 En `src/config.st`, ajustar las direcciones:
 
 ```structured-text
-VAR_GLOBAL
-    DO0 AT %QX0.0 : BOOL;  (* Primera salida del EL2008 *)
-    DO1 AT %QX0.1 : BOOL;  (* Segunda salida *)
+VAR_CONFIG
+    P1.DO0 AT %QX0.0 : BOOL;  (* Primera salida del EL2008 *)
+    P1.DO1 AT %QX0.1 : BOOL;  (* Segunda salida *)
     (* ... *)
 END_VAR
 ```

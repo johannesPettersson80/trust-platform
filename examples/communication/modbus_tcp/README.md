@@ -11,7 +11,7 @@ This example shows how to wire a minimal PLC project to `io.driver = "modbus-tcp
 ## Files in this folder
 
 - `src/main.st`: simple input-to-output logic (`DO0 := DI0`)
-- `src/config.st`: `%IX0.0` / `%QX0.0` global mapping and task binding
+- `src/config.st`: task binding plus `VAR_CONFIG` mapping (`P1.DI0`/`P1.DO0`)
 - `io.toml`: Modbus/TCP backend profile
 - `runtime.toml`: runtime defaults
 - `trust-lsp.toml`: project settings

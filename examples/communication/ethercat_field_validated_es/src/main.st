@@ -1,5 +1,5 @@
 PROGRAM Main
-VAR_EXTERNAL
+VAR
     DO0 : BOOL;
     DO1 : BOOL;
     DO2 : BOOL;
@@ -8,9 +8,7 @@ VAR_EXTERNAL
     DO5 : BOOL;
     DO6 : BOOL;
     DO7 : BOOL;
-END_VAR
 
-VAR
     step_timer : TON;
     step_time : TIME := T#200MS;
     position : INT := 0;

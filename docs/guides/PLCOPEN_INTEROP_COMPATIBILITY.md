@@ -21,9 +21,9 @@ multi-vendor export adapters).
 | Capability | Status | Notes |
 |---|---|---|
 | ST POU import/export (`PROGRAM`, `FUNCTION`, `FUNCTION_BLOCK`) | supported | Includes common aliases (`PRG`, `FC`, `FUN`, `FB`). |
-| ST `types/dataTypes` import (`elementary`, `derived`, `array`, `struct`, `enum`, `subrange`) | supported | Imported into generated ST `TYPE` declarations under `sources/`. |
+| ST `types/dataTypes` import (`elementary`, `derived`, `array`, `struct`, `enum`, `subrange`) | supported | Imported into generated ST `TYPE` declarations under `src/`. |
 | ST `TYPE` export to `types/dataTypes` | partial | Supported ST declarations are emitted; unsupported forms are skipped with warnings. |
-| `instances/configurations/resources/tasks/program instances` import/export | supported | Deterministic ST mapping with name normalization and structured diagnostics when fallback behavior is applied. |
+| `instances/configurations/resources/tasks/program instances` import/export | supported | Deterministic ST mapping with name normalization and structured diagnostics. |
 | Source map metadata (`trust.sourceMap`) | supported | Embedded `addData` payload + sidecar `*.source-map.json`. |
 | Vendor extension preservation (`addData`) | partial | Preserved/re-injectable, but not semantically interpreted. |
 | Vendor ecosystem migration heuristics | partial | Advisory signal only; not semantic equivalence. |
@@ -147,7 +147,7 @@ Not guaranteed:
 - Original vendor formatting/layout in XML payloads.
 - Preservation of graphical network semantics.
 - Import of runtime deployment/safety metadata.
-- Exact source file names (imports use sanitized unique names under `sources/`).
+- Exact source file names (imports use sanitized unique names under `src/`).
 
 ## Known Gaps
 

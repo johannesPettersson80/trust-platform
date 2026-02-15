@@ -130,8 +130,8 @@ fn setup_cli_mode_writes_artifacts_and_next_steps() {
     assert!(project.join("runtime.toml").is_file());
     assert!(project.join("io.toml").is_file());
     assert!(project.join("program.stbc").is_file());
-    assert!(project.join("sources").join("main.st").is_file());
-    assert!(project.join("sources").join("config.st").is_file());
+    assert!(project.join("src").join("main.st").is_file());
+    assert!(project.join("src").join("config.st").is_file());
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Setup complete"));

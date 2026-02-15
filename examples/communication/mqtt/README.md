@@ -11,7 +11,7 @@ This example shows how to use `io.driver = "mqtt"` for broker-based I/O exchange
 ## Files in this folder
 
 - `src/main.st`: minimal `%IX -> %QX` logic (`DO0 := DI0`)
-- `src/config.st`: `%IX0.0` / `%QX0.0` global mapping and task binding
+- `src/config.st`: task binding plus `VAR_CONFIG` mapping (`P1.DI0`/`P1.DO0`)
 - `io.toml`: MQTT backend profile
 - `runtime.toml`: runtime defaults
 - `trust-lsp.toml`: project settings

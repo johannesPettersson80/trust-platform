@@ -11,13 +11,13 @@ A PLC project folder contains:
 runtime.toml
 io.toml
 program.stbc
-sources/
+src/
 ```
 
 - `runtime.toml`: runtime configuration (tasks, control, web, watchdog, retain).
 - `io.toml`: I/O driver config and safe-state outputs.
 - `program.stbc`: compiled bytecode.
-- `sources/`: Structured Text sources.
+- `src/`: Structured Text sources.
 
 ## Config Paths + Apply Semantics
 
@@ -65,7 +65,7 @@ trust-runtime plcopen import --input <plcopen.xml> --project <target-project-fol
 trust-runtime plcopen import --input <plcopen.xml> --project <target-project-folder> --json
 ```
 
-Import writes migrated sources to `sources/` and a migration report to:
+Import writes migrated sources to `src/` and a migration report to:
 
 `<project-folder>/interop/plcopen-migration-report.json`
 

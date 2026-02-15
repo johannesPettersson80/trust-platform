@@ -59,10 +59,8 @@ echo "3. Directorio de trabajo: $(pwd)"
 
 # 4. Limpiar y recompilar
 echo "4. Limpiando y recompilando..."
-rm -rf .trust-lsp program.stbc sources
-mkdir -p sources
-cp src/*.st src/io.toml sources/
-trust-runtime build --project . --sources sources
+rm -rf .trust-lsp program.stbc
+trust-runtime build --project . --sources src
 
 # 5. Ejecutar
 echo -e "${GREEN}5. Iniciando runtime con EtherCAT...${NC}"

@@ -109,7 +109,7 @@ No tasks configured yet.
 Cause: missing `config.st` with a task declaration.
 
 Fix:
-1. Ensure `sources/config.st` exists.
+1. Ensure `src/config.st` exists.
 2. Rebuild: `trust-runtime build --project <project-folder>`.
 
 ### “Auth required”

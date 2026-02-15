@@ -1,6 +1,6 @@
 [project]
 vendor_profile = "codesys"
-include_paths = ["sources"]
+include_paths = ["src"]
 stdlib = "iec"
 
 [runtime]

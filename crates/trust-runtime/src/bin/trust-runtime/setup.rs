@@ -278,7 +278,7 @@ fn run_browser_setup_interactive() -> anyhow::Result<()> {
     } else {
         DEFAULT_SETUP_PORT
     };
-    println!("Project folder: where runtime.toml, io.toml, sources/, program.stbc live.");
+    println!("Project folder: where runtime.toml, io.toml, src/, program.stbc live.");
     let default_bundle = default_bundle_path();
     let bundle_path = prompt::prompt_path("Project folder (runtime files)", &default_bundle)?;
     run_browser_setup_mode(
@@ -334,7 +334,7 @@ fn run_browser_setup_mode(
 }
 
 fn run_browser_setup_auto() -> anyhow::Result<()> {
-    println!("Project folder: where runtime.toml, io.toml, sources/, program.stbc live.");
+    println!("Project folder: where runtime.toml, io.toml, src/, program.stbc live.");
     let default_bundle = default_bundle_path();
     let bundle_path = prompt::prompt_path("Project folder (runtime files)", &default_bundle)?;
     run_browser_setup_mode(
@@ -360,7 +360,7 @@ fn run_cli_setup_interactive() -> anyhow::Result<()> {
 }
 
 fn run_cli_guided_interactive() -> anyhow::Result<()> {
-    println!("Project folder: where runtime.toml, io.toml, sources/, program.stbc live.");
+    println!("Project folder: where runtime.toml, io.toml, src/, program.stbc live.");
     let default_bundle = default_bundle_path();
     let bundle_path = prompt::prompt_path("Project folder (runtime files)", &default_bundle)?;
     let defaults = SetupDefaults::from_bundle(&bundle_path);
