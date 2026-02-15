@@ -1,0 +1,26 @@
+{
+  "id": "my-new-statecahrt",
+  "initial": "Initial",
+  "states": {
+    "Initial": {
+      "entry": [],
+      "exit": [],
+      "on": {
+        "START": {
+          "target": "Running",
+          "actions": []
+        }
+      }
+    },
+    "Running": {
+      "entry": [],
+      "exit": [],
+      "on": {
+        "STOP": {
+          "target": "Initial",
+          "actions": []
+        }
+      }
+    }
+  }
+}

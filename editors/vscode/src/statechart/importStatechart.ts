@@ -162,38 +162,91 @@ export function registerImportStatechartCommand(
     vscode.commands.registerCommand(
       IMPORT_STATECHART_COMMAND,
       async (args?: ImportStatechartArgs) => {
-        const resolved = await resolveSourceAndTarget(args);
-        if (!resolved) {
+        console.log('[Import Statechart] Command started', args);
+        
+        // Select source file
+        const sourceUri = asUri(args?.sourceUri) ?? (await promptForSourceFile());
+        if (!sourceUri) {
+          console.log('[Import Statechart] No source file selected');
+          return;
+        }
+        
+        console.log('[Import Statechart] Source file:', sourceUri.fsPath);
+
+        const sourceExists = await pathExists(sourceUri);
+        if (!sourceExists) {
+          vscode.window.showErrorMessage(`Source file not found: ${sourceUri.fsPath}`);
           return;
         }
 
-        const { source, target } = resolved;
-        const exists = await pathExists(target);
+        const isValid = await isValidStatechart(sourceUri);
+        if (!isValid) {
+          vscode.window.showErrorMessage(
+            `Invalid statechart file. Must be a JSON file with 'id' and 'states' properties.`
+          );
+          return;
+        }
+
+        // Check if file is already in workspace
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri;
+        const isInWorkspace = workspaceRoot && sourceUri.fsPath.startsWith(workspaceRoot.fsPath);
         
-        if (exists) {
-          const shouldOverwrite =
-            args?.overwrite ?? (await confirmOverwrite(target));
-          if (!shouldOverwrite) {
+        console.log('[Import Statechart] Workspace root:', workspaceRoot?.fsPath);
+        console.log('[Import Statechart] Is in workspace:', isInWorkspace);
+
+        let targetUri = sourceUri;
+        let needsCopy = false;
+
+        // If not in workspace and targetUri is specified, copy it
+        if (!isInWorkspace && args?.targetUri) {
+          needsCopy = true;
+          const targetFolder = await promptForTargetFolder();
+          if (!targetFolder) {
+            console.log('[Import Statechart] No target folder selected, opening source directly');
+            needsCopy = false;
+          } else {
+            const fileName = sourceUri.path.split("/").pop() ?? "imported.statechart.json";
+            targetUri = vscode.Uri.joinPath(targetFolder, fileName);
+
+            const exists = await pathExists(targetUri);
+            if (exists) {
+              const shouldOverwrite = args?.overwrite ?? (await confirmOverwrite(targetUri));
+              if (!shouldOverwrite) {
+                return;
+              }
+            }
+          }
+        }
+
+        // Copy file if needed
+        if (needsCopy) {
+          try {
+            await copyStatechart(sourceUri, targetUri);
+            vscode.window.showInformationMessage(
+              `Statechart imported successfully: ${targetUri.fsPath}`
+            );
+          } catch (error) {
+            vscode.window.showErrorMessage(
+              `Failed to import statechart: ${error instanceof Error ? error.message : String(error)}`
+            );
             return;
           }
         }
 
-        try {
-          await copyStatechart(source, target);
-
-          const openAfter = args?.openAfterImport ?? true;
-          if (openAfter) {
-            const doc = await vscode.workspace.openTextDocument(target);
-            await vscode.window.showTextDocument(doc);
+        // Open with the custom StateChart editor
+        const openAfter = args?.openAfterImport ?? true;
+        console.log('[Import Statechart] Opening file:', targetUri.fsPath);
+        
+        if (openAfter) {
+          try {
+            await vscode.commands.executeCommand('vscode.openWith', targetUri, 'trust-lsp.statechartEditor');
+            console.log('[Import Statechart] File opened successfully');
+          } catch (error) {
+            console.error('[Import Statechart] Failed to open:', error);
+            vscode.window.showErrorMessage(
+              `Failed to open statechart: ${error instanceof Error ? error.message : String(error)}`
+            );
           }
-
-          vscode.window.showInformationMessage(
-            `Statechart imported successfully: ${target.fsPath}`
-          );
-        } catch (error) {
-          vscode.window.showErrorMessage(
-            `Failed to import statechart: ${error instanceof Error ? error.message : String(error)}`
-          );
         }
       }
     )

@@ -115,6 +115,19 @@ async function resolveTargetUri(
     return { uri: directTarget, name };
   }
 
+  // First, ask for the name
+  const rawName = args?.statechartName ?? (await promptForStatechartName());
+  if (!rawName) {
+    return undefined;
+  }
+
+  const trimmedName = rawName.trim();
+  const validation = validateStatechartName(trimmedName);
+  if (validation) {
+    vscode.window.showErrorMessage(validation);
+    return undefined;
+  }
+
   // Get the current workspace folder or ask the user to select one
   let baseUri: vscode.Uri | undefined;
   const folders = vscode.workspace.workspaceFolders;
@@ -125,24 +138,13 @@ async function resolveTargetUri(
       canSelectFiles: false,
       canSelectFolders: true,
       canSelectMany: false,
-      openLabel: "Select Folder",
+      openLabel: "Select Folder for New Statechart",
+      title: `Select folder to save "${trimmedName}"`,
     });
     baseUri = selected?.[0];
   }
 
   if (!baseUri) {
-    return undefined;
-  }
-
-  const rawName = args?.statechartName ?? (await promptForStatechartName());
-  if (!rawName) {
-    return undefined;
-  }
-
-  const trimmedName = rawName.trim();
-  const validation = validateStatechartName(trimmedName);
-  if (validation) {
-    vscode.window.showErrorMessage(validation);
     return undefined;
   }
 
@@ -163,12 +165,17 @@ export function registerNewStatechartCommand(
     vscode.commands.registerCommand(
       NEW_STATECHART_COMMAND,
       async (args?: NewStatechartArgs) => {
+        console.log('[New Statechart] Command started', args);
+        
         const resolved = await resolveTargetUri(args);
         if (!resolved) {
+          console.log('[New Statechart] No target resolved');
           return;
         }
 
         const { uri: targetUri, name } = resolved;
+        console.log('[New Statechart] Target:', targetUri.fsPath, 'Name:', name);
+        
         const exists = await pathExists(targetUri);
         if (exists) {
           const shouldOverwrite =
@@ -178,14 +185,23 @@ export function registerNewStatechartCommand(
           }
         }
 
-        await writeStatechart(targetUri, name);
+        try {
+          await writeStatechart(targetUri, name);
+          console.log('[New Statechart] File written successfully');
 
-        const doc = await vscode.workspace.openTextDocument(targetUri);
-        await vscode.window.showTextDocument(doc);
+          // Open with the custom StateChart editor
+          await vscode.commands.executeCommand('vscode.openWith', targetUri, 'trust-lsp.statechartEditor');
+          console.log('[New Statechart] File opened successfully');
 
-        vscode.window.showInformationMessage(
-          `UML Statechart created: ${targetUri.fsPath}`
-        );
+          vscode.window.showInformationMessage(
+            `UML Statechart created: ${targetUri.fsPath}`
+          );
+        } catch (error) {
+          console.error('[New Statechart] Error:', error);
+          vscode.window.showErrorMessage(
+            `Failed to create statechart: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
       }
     )
   );
