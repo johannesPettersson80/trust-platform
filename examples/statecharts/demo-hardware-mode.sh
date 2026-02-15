@@ -69,7 +69,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 
 # Kill any existing runtime
-pkill -9 trust-runtime 2>/dev/null || true
+pkill -f trust-runtime 2>/dev/null || true
 sleep 1
 
 # Remove old socket

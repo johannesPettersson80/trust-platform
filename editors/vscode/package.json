@@ -3,7 +3,7 @@
   "displayName": "truST LSP",
   "description": "truST LSP — IEC 61131-3 Structured Text language support",
   "icon": "icon.png",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "publisher": "trust-platform",
   "license": "MIT OR Apache-2.0",
   "engines": {
@@ -2315,9 +2315,10 @@
     "vscode:prepublish": "npm run compile",
     "build:panel": "node ./scripts/build-io-panel.js",
     "build:statechart": "node ./scripts/build-statechart-webview.js",
-    "compile": "npm run build:panel && npm run build:statechart && tsc -p ./",
+    "typecheck:webview": "tsc -p ./tsconfig.webview.json",
+    "compile": "npm run build:panel && npm run build:statechart && tsc -p ./ && npm run typecheck:webview",
     "watch": "concurrently \"node ./scripts/watch-io-panel.js\" \"node ./scripts/build-statechart-webview.js --watch\"",
-    "lint": "eslint src --ext ts",
+    "lint": "eslint src --ext ts,tsx",
     "test": "npm run compile && node ./out/test/runTest.js"
   },
   "dependencies": {

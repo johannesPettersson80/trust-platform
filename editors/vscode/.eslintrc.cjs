@@ -8,6 +8,9 @@ module.exports = {
   parserOptions: {
     ecmaVersion: 2020,
     sourceType: "module",
+    ecmaFeatures: {
+      jsx: true,
+    },
   },
   plugins: ["@typescript-eslint"],
   ignorePatterns: ["out/**", "dist/**", "node_modules/**"],

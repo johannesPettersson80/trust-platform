@@ -55,9 +55,12 @@ RUNTIME_PID=$!
 echo "⏳ Waiting for control endpoint..."
 for i in {1..50}; do
   if [ -S "$SOCKET" ]; then
-    # Set permissions so regular users can connect
-    chmod 666 "$SOCKET"
-    echo "✅ Control endpoint ready: $SOCKET (rw-rw-rw-)"
+    # Set group-based permissions instead of world-writable socket.
+    if [ -n "${SUDO_GID:-}" ]; then
+      chgrp "$SUDO_GID" "$SOCKET" 2>/dev/null || true
+    fi
+    chmod 660 "$SOCKET"
+    echo "✅ Control endpoint ready: $SOCKET (rw-rw----)"
     break
   fi
   sleep 0.1

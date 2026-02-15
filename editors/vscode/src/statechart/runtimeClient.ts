@@ -9,6 +9,7 @@ import * as vscode from "vscode";
 export interface RuntimeConfig {
   controlEndpoint: string; // e.g., "unix:///tmp/trust-debug.sock" or "tcp://127.0.0.1:9000"
   controlAuthToken?: string;
+  requestTimeoutMs?: number;
 }
 
 export interface IoWriteParams {
@@ -38,11 +39,13 @@ export class RuntimeClient {
   private requestId = 1;
   private endpoint: string;
   private authToken?: string;
+  private requestTimeoutMs: number;
   private buffer = "";
 
   constructor(config: RuntimeConfig) {
     this.endpoint = config.controlEndpoint;
     this.authToken = config.controlAuthToken;
+    this.requestTimeoutMs = config.requestTimeoutMs ?? 5000;
   }
 
   /**
@@ -103,7 +106,8 @@ export class RuntimeClient {
    * Send a control request and wait for response
    */
   private async sendRequest(type: string, params?: any): Promise<ControlResponse> {
-    if (!this.socket) {
+    const socket = this.socket;
+    if (!socket) {
       throw new Error("Not connected to runtime");
     }
 
@@ -116,27 +120,40 @@ export class RuntimeClient {
     };
 
     return new Promise((resolve, reject) => {
+      let settled = false;
+      const cleanup = () => {
+        clearTimeout(timeout);
+        socket.removeListener("data", dataHandler);
+        socket.removeListener("error", errorHandler);
+        socket.removeListener("close", closeHandler);
+      };
+      const settle = (handler: () => void) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        cleanup();
+        handler();
+      };
       const timeout = setTimeout(() => {
-        reject(new Error(`Request ${id} timed out`));
-      }, 5000);
+        settle(() => reject(new Error(`Request ${id} timed out`)));
+      }, this.requestTimeoutMs);
 
       // Setup response handler
       const dataHandler = (data: Buffer) => {
         this.buffer += data.toString();
-        
+
         // Try to parse complete JSON lines
         const lines = this.buffer.split("\n");
         this.buffer = lines.pop() || "";
 
         for (const line of lines) {
           if (!line.trim()) continue;
-          
+
           try {
             const response: ControlResponse = JSON.parse(line);
             if (response.id === id) {
-              clearTimeout(timeout);
-              this.socket?.removeListener("data", dataHandler);
-              resolve(response);
+              settle(() => resolve(response));
             }
           } catch (err) {
             console.error("Failed to parse response:", err);
@@ -144,15 +161,22 @@ export class RuntimeClient {
         }
       };
 
-      this.socket!.on("data", dataHandler);
+      const errorHandler = (err: Error) => {
+        settle(() => reject(err));
+      };
+      const closeHandler = () => {
+        settle(() => reject(new Error("Runtime connection closed")));
+      };
+
+      socket.on("data", dataHandler);
+      socket.on("error", errorHandler);
+      socket.on("close", closeHandler);
 
       // Send request
       const requestLine = JSON.stringify(request) + "\n";
-      this.socket!.write(requestLine, (err) => {
+      socket.write(requestLine, (err) => {
         if (err) {
-          clearTimeout(timeout);
-          this.socket?.removeListener("data", dataHandler);
-          reject(err);
+          settle(() => reject(err));
         }
       });
     });

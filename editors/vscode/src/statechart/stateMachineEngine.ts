@@ -48,24 +48,45 @@ export class StateMachineEngine {
   private runtimeClient?: RuntimeClient;
   private forcedAddresses: Set<string> = new Set();
   private activeTimers: Map<string, NodeJS.Timeout> = new Map();
+  private initialized = false;
 
-  constructor(configJson: string, mode: ExecutionMode = "simulation", runtimeClient?: RuntimeClient) {
+  constructor(
+    configJson: string,
+    mode: ExecutionMode = "simulation",
+    runtimeClient?: RuntimeClient
+  ) {
     this.config = JSON.parse(configJson);
     this.currentState = this.config.initial || Object.keys(this.config.states)[0];
     this.mode = mode;
     this.runtimeClient = runtimeClient;
-    
+
     if (!this.currentState) {
       throw new Error("No initial state defined");
     }
+  }
 
-    console.log(`🎯 StateMachine initialized in ${mode} mode`);
-    
+  /**
+   * Initialize machine by running entry actions and scheduling initial timers.
+   */
+  async initialize(): Promise<void> {
+    if (this.initialized) {
+      return;
+    }
+
+    console.log(`🎯 StateMachine initialized in ${this.mode} mode`);
+
     // Execute entry actions of initial state
-    this.executeActions(this.config.states[this.currentState]?.entry);
+    await this.executeActions(this.config.states[this.currentState]?.entry);
 
     // Schedule timers for initial state
     this.scheduleStateTimers(this.currentState);
+    this.initialized = true;
+  }
+
+  private async ensureInitialized(): Promise<void> {
+    if (!this.initialized) {
+      await this.initialize();
+    }
   }
 
   /**
@@ -85,7 +106,9 @@ export class StateMachineEngine {
         console.log(`⏰ Scheduling auto-transition: ${stateName} --[${eventName}]--> (after ${afterDelay}ms)`);
         const timerId = setTimeout(() => {
           console.log(`🔥 Timer fired: ${eventName} on ${stateName} (${afterDelay}ms elapsed)`);
-          this.sendEvent(eventName);
+          void this.sendEvent(eventName).catch((error) => {
+            console.error(`Failed to handle auto-transition event ${eventName}:`, error);
+          });
         }, afterDelay);
         
         this.activeTimers.set(`${stateName}:${eventName}`, timerId);
@@ -157,6 +180,8 @@ export class StateMachineEngine {
    * Send an event to trigger a transition
    */
   async sendEvent(eventName: string): Promise<boolean> {
+    await this.ensureInitialized();
+
     const state = this.config.states[this.currentState];
     if (!state || !state.on) {
       console.log(`No transitions defined for state: ${this.currentState}`);
@@ -173,6 +198,12 @@ export class StateMachineEngine {
     const targetState = typeof transition === "string" ? transition : transition.target;
     const actions = typeof transition === "object" ? transition.actions : undefined;
     const guard = typeof transition === "object" ? transition.guard : undefined;
+    const newState = this.config.states[targetState];
+
+    if (!newState) {
+      console.warn(`Transition target "${targetState}" does not exist`);
+      return false;
+    }
 
     // Check guard
     if (guard && !(await this.evaluateGuard(guard))) {
@@ -184,20 +215,17 @@ export class StateMachineEngine {
     this.cancelStateTimers(this.currentState);
 
     // Execute exit actions from current state
-    this.executeActions(state.exit);
+    await this.executeActions(state.exit);
 
     // Execute transition actions
-    this.executeActions(actions);
+    await this.executeActions(actions);
 
     // Transition to new state
     this.previousState = this.currentState;
     this.currentState = targetState;
 
     // Execute entry actions of new state
-    const newState = this.config.states[targetState];
-    if (newState) {
-      this.executeActions(newState.entry);
-    }
+    await this.executeActions(newState.entry);
 
     console.log(`Transitioned from ${this.previousState} to ${this.currentState} via ${eventName}`);
 
@@ -315,7 +343,7 @@ export class StateMachineEngine {
     // In hardware mode, evaluate against real I/O
     if (!this.runtimeClient) {
       console.warn("Hardware mode but no runtime client available");
-      return true;
+      return false;
     }
 
     try {
@@ -329,7 +357,7 @@ export class StateMachineEngine {
       const addressMatch = trimmed.match(/(%[IQM][XWDLB]\d+\.\d+|%[IQM][WDL]\d+)/i);
       if (!addressMatch) {
         console.warn(`No valid I/O address found in guard: ${guard}`);
-        return true; // Default to true if no valid address
+        return false;
       }
 
       const address = addressMatch[0];
@@ -347,7 +375,7 @@ export class StateMachineEngine {
       const comparisonMatch = trimmed.match(/(%[IQM][XWDLB]\d+\.\d+|%[IQM][WDL]\d+)\s*(==|!=|>|>=|<|<=)\s*(.+)/i);
       if (!comparisonMatch) {
         console.warn(`Could not parse guard comparison: ${guard}`);
-        return true;
+        return false;
       }
 
       const operator = comparisonMatch[2];
@@ -360,7 +388,7 @@ export class StateMachineEngine {
       return this.compareValues(ioValue, operator, expectedValue);
     } catch (error) {
       console.error(`Error evaluating guard: ${guard}`, error);
-      return true; // Default to allow transition on error
+      return false;
     }
   }
 
@@ -411,7 +439,7 @@ export class StateMachineEngine {
         return Number(actual) <= Number(expected);
       default:
         console.warn(`Unknown operator: ${operator}`);
-        return true;
+        return false;
     }
   }
 

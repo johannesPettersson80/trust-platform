@@ -9,11 +9,17 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
-PROJECT_DIR="/home/runtimevic/Descargas/trust-platform/examples/statechart_backend"
-RUNTIME="/home/runtimevic/Descargas/trust-platform/target/release/trust-runtime"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/../statechart_backend" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+RUNTIME="$REPO_ROOT/target/release/trust-runtime"
 SOCKET="/tmp/trust-debug.sock"
 
 cd "$PROJECT_DIR"
+
+if [ ! -f "$RUNTIME" ]; then
+  RUNTIME="trust-runtime"
+fi
 
 echo "🔨 Building..."
 $RUNTIME build --project .
@@ -37,9 +43,12 @@ RUNTIME_PID=$!
 echo "⏳ Waiting for control endpoint..."
 for i in {1..50}; do
   if [ -S "$SOCKET" ]; then
-    # Change permissions so VS Code can connect
-    chmod 666 "$SOCKET"
-    echo "✅ Control endpoint ready (accessible to all users)"
+    # Keep socket writable by root + invoking user's group only.
+    if [ -n "${SUDO_GID:-}" ]; then
+      chgrp "$SUDO_GID" "$SOCKET" 2>/dev/null || true
+    fi
+    chmod 660 "$SOCKET"
+    echo "✅ Control endpoint ready (rw-rw----)"
     break
   fi
   sleep 0.1

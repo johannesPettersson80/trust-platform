@@ -1,6 +1,5 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import * as fs from "fs";
 import { StateMachineEngine } from "./stateMachineEngine";
 import { RuntimeClient, getRuntimeConfig } from "./runtimeClient";
 
@@ -12,6 +11,62 @@ interface SimulatorEntry {
   mode: ExecutionMode;
   runtimeClient?: RuntimeClient;
 }
+
+const WEBVIEW_HTML_TEMPLATE = `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; img-src {{cspSource}} data:; style-src {{cspSource}} 'unsafe-inline'; script-src {{cspSource}};"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>StateChart Editor</title>
+    <link rel="stylesheet" href="{{webviewStyle}}" />
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html,
+      body,
+      #root {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        font-family: var(
+          --vscode-font-family,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          Oxygen,
+          Ubuntu,
+          Cantarell,
+          sans-serif
+        );
+        background-color: var(--vscode-editor-background);
+        color: var(--vscode-editor-foreground);
+      }
+
+      .react-flow__controls button {
+        background-color: var(--vscode-button-background);
+        color: var(--vscode-button-foreground);
+        border-color: var(--vscode-button-border);
+      }
+
+      .react-flow__controls button:hover {
+        background-color: var(--vscode-button-hoverBackground);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script src="{{webviewScript}}"></script>
+  </body>
+</html>`;
 
 /**
  * Custom Editor Provider for StateChart JSON files
@@ -48,6 +103,8 @@ export class StateChartEditorProvider
     webviewPanel: vscode.WebviewPanel,
     _token: vscode.CancellationToken
   ): Promise<void> {
+    const docId = document.uri.toString();
+
     // Setup webview
     webviewPanel.webview.options = {
       enableScripts: true,
@@ -60,7 +117,7 @@ export class StateChartEditorProvider
 
     // Helper function to update webview
     function updateWebview() {
-      webviewPanel.webview.postMessage({
+      void webviewPanel.webview.postMessage({
         type: "update",
         content: document.getText(),
       });
@@ -76,12 +133,7 @@ export class StateChartEditorProvider
     );
 
     // Make sure we get rid of the listener when our editor is closed
-    webviewPanel.onDidDispose(() => {
-      changeDocumentSubscription.dispose();
-    });
-
-    // Receive messages from the webview
-    webviewPanel.webview.onDidReceiveMessage((message) => {
+    const messageSubscription = webviewPanel.webview.onDidReceiveMessage((message) => {
       switch (message.type) {
         case "save":
           this.updateTextDocument(document, message.content);
@@ -93,24 +145,35 @@ export class StateChartEditorProvider
           return;
 
         case "error":
-          vscode.window.showErrorMessage(
+          void vscode.window.showErrorMessage(
             `StateChart Editor Error: ${message.error}`
           );
           return;
 
         case "startExecution":
-          this.startExecution(document, webviewPanel, message.mode || "simulation");
+          void this.startExecution(
+            document,
+            webviewPanel,
+            message.mode || "simulation"
+          );
           return;
 
         case "stopExecution":
-          this.stopExecution(document.uri.toString());
-          webviewPanel.webview.postMessage({ type: "executionStopped" });
+          void this.stopExecution(docId);
+          void webviewPanel.webview.postMessage({ type: "executionStopped" });
           return;
 
         case "sendEvent":
-          this.sendEvent(document.uri.toString(), message.event, webviewPanel);
+          void this.sendEvent(docId, message.event, webviewPanel);
           return;
       }
+    });
+
+    // Make sure we get rid of listeners and running execution when editor closes.
+    webviewPanel.onDidDispose(() => {
+      changeDocumentSubscription.dispose();
+      messageSubscription.dispose();
+      void this.stopExecution(docId, false);
     });
 
     // Send initial content
@@ -133,16 +196,7 @@ export class StateChartEditorProvider
       )
     );
 
-    // Read the HTML template
-    const htmlPath = path.join(
-      this.context.extensionPath,
-      "src",
-      "statechart",
-      "webview",
-      "index.html"
-    );
-
-    let html = fs.readFileSync(htmlPath, "utf8");
+    let html = WEBVIEW_HTML_TEMPLATE;
 
     // Replace placeholders
     html = html.replace(/{{cspSource}}/g, webview.cspSource);
@@ -214,6 +268,7 @@ export class StateChartEditorProvider
       // Create new simulator
       const content = document.getText();
       const simulator = new StateMachineEngine(content, mode, runtimeClient);
+      await simulator.initialize();
 
       // Send initial state
       const executionState = simulator.getExecutionState();
@@ -245,25 +300,33 @@ export class StateChartEditorProvider
   /**
    * Stop execution of the state machine
    */
-  private async stopExecution(docId: string) {
+  private async stopExecution(docId: string, notify = true): Promise<void> {
     const entry = this.simulators.get(docId);
-    if (entry) {
-      if (entry.timer) {
-        clearInterval(entry.timer);
-      }
-      
-      // Cleanup forced I/O addresses
+    if (!entry) {
+      return;
+    }
+
+    if (entry.timer) {
+      clearInterval(entry.timer);
+    }
+
+    try {
+      // Cleanup forced I/O addresses.
       await entry.simulator.cleanup();
-      
-      // Disconnect from runtime if connected
+    } catch (error) {
+      console.error("[StateChart] Failed to cleanup execution entry", error);
+    } finally {
+      // Disconnect from runtime if connected.
       if (entry.runtimeClient) {
         entry.runtimeClient.disconnect();
       }
-      
+
       this.simulators.delete(docId);
-      
+    }
+
+    if (notify) {
       const modeText = entry.mode === "simulation" ? "Simulation" : "Hardware";
-      vscode.window.showInformationMessage(`${modeText} execution stopped`);
+      void vscode.window.showInformationMessage(`${modeText} execution stopped`);
     }
   }
 

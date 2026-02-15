@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { asUri, pathExists } from "./uriUtils";
 
 type NewStatechartArgs = {
   targetUri?: vscode.Uri | string;
@@ -35,32 +36,6 @@ const STATECHART_TEMPLATE = `{
   }
 }
 `;
-
-function asUri(value?: vscode.Uri | string): vscode.Uri | undefined {
-  if (!value) {
-    return undefined;
-  }
-  if (value instanceof vscode.Uri) {
-    return value;
-  }
-  try {
-    if (value.includes("://")) {
-      return vscode.Uri.parse(value);
-    }
-    return vscode.Uri.file(value);
-  } catch {
-    return undefined;
-  }
-}
-
-async function pathExists(uri: vscode.Uri): Promise<boolean> {
-  try {
-    await vscode.workspace.fs.stat(uri);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 function validateStatechartName(value: string): string | undefined {
   const trimmed = value.trim();
@@ -165,17 +140,13 @@ export function registerNewStatechartCommand(
     vscode.commands.registerCommand(
       NEW_STATECHART_COMMAND,
       async (args?: NewStatechartArgs) => {
-        console.log('[New Statechart] Command started', args);
-        
         const resolved = await resolveTargetUri(args);
         if (!resolved) {
-          console.log('[New Statechart] No target resolved');
           return;
         }
 
         const { uri: targetUri, name } = resolved;
-        console.log('[New Statechart] Target:', targetUri.fsPath, 'Name:', name);
-        
+
         const exists = await pathExists(targetUri);
         if (exists) {
           const shouldOverwrite =
@@ -187,17 +158,19 @@ export function registerNewStatechartCommand(
 
         try {
           await writeStatechart(targetUri, name);
-          console.log('[New Statechart] File written successfully');
 
           // Open with the custom StateChart editor
-          await vscode.commands.executeCommand('vscode.openWith', targetUri, 'trust-lsp.statechartEditor');
-          console.log('[New Statechart] File opened successfully');
+          await vscode.commands.executeCommand(
+            "vscode.openWith",
+            targetUri,
+            "trust-lsp.statechartEditor"
+          );
 
           vscode.window.showInformationMessage(
             `UML Statechart created: ${targetUri.fsPath}`
           );
         } catch (error) {
-          console.error('[New Statechart] Error:', error);
+          console.error("[New Statechart] Error:", error);
           vscode.window.showErrorMessage(
             `Failed to create statechart: ${error instanceof Error ? error.message : String(error)}`
           );

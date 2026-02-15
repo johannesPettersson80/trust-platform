@@ -6,10 +6,14 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.9.2`
+Target release: `v0.9.3`
 
 ### Added
 
+- VS Code statechart automated coverage:
+  - Added editor lifecycle test coverage to verify running statechart sessions are cleaned up when a custom editor panel is disposed.
+  - Added state machine engine behavior tests for awaited hardware action ordering and fail-closed guard evaluation paths.
+  - Added runtime client timeout cleanup coverage to ensure request listeners are removed on timeout/error.
 - EtherCAT bring-up examples:
   - Added `examples/ethercat_ek1100_elx008_v2/` for EK1100 + EL2008-only hardware chains with a validated 8-output snake pattern.
   - Added helper run scripts and docs for real-NIC bring-up and deterministic mock-mode fallback.
@@ -184,6 +188,10 @@ Target release: `v0.9.2`
 
 ### Changed
 
+- VS Code statechart extension quality gates now lint TSX sources and run explicit webview TypeScript typechecking (`tsconfig.webview.json`) during compile.
+- Statechart import command flow now consistently resolves source/target paths and reuses shared URI/path helpers across statechart commands.
+- Statechart hardware helper scripts/docs now use repository-relative paths and group-based socket permissions (`660`) instead of world-writable sockets.
+- Statechart operator/developer guides and helper script output are now standardized to English for consistent repository documentation language.
 - Standardized example I/O mapping patterns to use `VAR_CONFIG` bindings (instead of direct `%I/%Q` declarations in `VAR`/`VAR_GLOBAL`) across communication, EtherCAT, Siemens, Mitsubishi, and unit-testing tutorial projects.
 - Updated example documentation snippets to reflect `PROGRAM` variables plus `CONFIGURATION`-level `VAR_CONFIG` wiring as the recommended deterministic pattern.
 - Browser/WASM position mapping now uses UTF-16 column semantics for protocol compatibility in `trust-wasm-analysis` range/position conversions.
@@ -236,6 +244,12 @@ Target release: `v0.9.2`
 
 ### Fixed
 
+- VS Code statechart custom editor packaging now loads the webview template from bundled extension code instead of `src/**` runtime paths excluded by `.vscodeignore`.
+- VS Code statechart editor lifecycle now stops active execution sessions when the panel closes, ensuring timers/runtime connections are cleaned up.
+- State machine engine transition execution now awaits exit/transition/entry hardware actions before completing transitions.
+- Hardware-mode guard handling now fails closed on parse/read/runtime errors instead of allowing unsafe transitions.
+- Runtime control client request timeout/error handling now removes per-request listeners reliably to prevent listener leaks.
+- Statechart traffic-light example now starts from a valid non-dead initial state (`Red`).
 - VS Code extension project workflows now follow `src/`-based projects consistently: ST test run root detection accepts `src`, PLCopen export integration coverage uses `src`, and new-project scaffolding no longer generates legacy `sources/`.
 - CI Windows build no longer fails on missing `wpcap.lib` when `ethercat-wire` is enabled by default; EtherCAT wire dependency wiring is now unix-target gated while preserving mock-driver support cross-platform.
 - MP-001 parity baseline updated for newly added Mitsubishi LSP regression tests so discovery parity gate remains deterministic.

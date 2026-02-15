@@ -130,7 +130,8 @@ statechart_backend/
 
 **Solution:** Script handles this automatically, but if manual:
 ```bash
-sudo chmod 666 /tmp/trust-debug.sock
+sudo chgrp <your-group> /tmp/trust-debug.sock
+sudo chmod 660 /tmp/trust-debug.sock
 ```
 
 ### EtherCAT Error: No such device

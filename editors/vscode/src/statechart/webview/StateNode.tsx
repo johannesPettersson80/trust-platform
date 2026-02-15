@@ -5,8 +5,10 @@ import { StateNodeData } from "./types";
 /**
  * Visual component for a state node in the StateChart  * Renders different styles based on state type (normal, initial, final, compound)
  */
-export const StateNode: React.FC<NodeProps<StateNodeData>> = memo(
+export const StateNode: React.FC<NodeProps> = memo(
   ({ data, selected }) => {
+    const stateData = data as StateNodeData;
+
     const getNodeStyle = () => {
       const baseStyle: React.CSSProperties = {
         padding: "12px 16px",
@@ -24,7 +26,7 @@ export const StateNode: React.FC<NodeProps<StateNodeData>> = memo(
       };
 
       // Active state styling - override everything for maximum visibility
-      if (data.isActive) {
+      if (stateData.isActive) {
         return {
           ...baseStyle,
           backgroundColor: "rgba(76, 175, 80, 0.25)", // Green background with transparency
@@ -38,7 +40,7 @@ export const StateNode: React.FC<NodeProps<StateNodeData>> = memo(
       }
 
       // Style variations by state type
-      switch (data.type) {
+      switch (stateData.type) {
         case "initial":
           return {
             ...baseStyle,
@@ -63,8 +65,8 @@ export const StateNode: React.FC<NodeProps<StateNodeData>> = memo(
       }
     };
 
-    const hasEntry = data.entry && data.entry.length > 0;
-    const hasExit = data.exit && data.exit.length > 0;
+    const hasEntry = stateData.entry && stateData.entry.length > 0;
+    const hasExit = stateData.exit && stateData.exit.length > 0;
 
     return (
       <div style={getNodeStyle()}>
@@ -84,24 +86,25 @@ export const StateNode: React.FC<NodeProps<StateNodeData>> = memo(
         <div style={{ marginBottom: hasEntry || hasExit ? "8px" : 0 }}>
           <div
             style={{
-              fontWeight: data.isActive ? 700 : 600,
-              fontSize: data.isActive ? "15px" : "14px",
+              fontWeight: stateData.isActive ? 700 : 600,
+              fontSize: stateData.isActive ? "15px" : "14px",
               marginBottom: "4px",
-              color: data.isActive ? "#ffffff" : "inherit",
+              color: stateData.isActive ? "#ffffff" : "inherit",
             }}
           >
-            {data.isActive && "▶ "}{data.label}
+            {stateData.isActive && "▶ "}
+            {stateData.label}
           </div>
-          {data.type !== "normal" && (
+          {stateData.type !== "normal" && (
             <div
               style={{
                 fontSize: "11px",
-                opacity: data.isActive ? 0.9 : 0.7,
+                opacity: stateData.isActive ? 0.9 : 0.7,
                 textTransform: "uppercase",
-                color: data.isActive ? "#e0f2e0" : "inherit",
+                color: stateData.isActive ? "#e0f2e0" : "inherit",
               }}
             >
-              {data.type}
+              {stateData.type}
             </div>
           )}
         </div>
@@ -113,18 +116,18 @@ export const StateNode: React.FC<NodeProps<StateNodeData>> = memo(
               fontSize: "11px",
               marginTop: "6px",
               paddingTop: "6px",
-              borderTop: `1px solid ${data.isActive ? "rgba(255,255,255,0.3)" : "var(--vscode-panel-border)"}`,
-              color: data.isActive ? "#e0f2e0" : "inherit",
+              borderTop: `1px solid ${stateData.isActive ? "rgba(255,255,255,0.3)" : "var(--vscode-panel-border)"}`,
+              color: stateData.isActive ? "#e0f2e0" : "inherit",
             }}
           >
-            <div style={{ opacity: data.isActive ? 0.9 : 0.7, marginBottom: "2px" }}>entry /</div>
-            {data.entry!.map((action, idx) => (
+            <div style={{ opacity: stateData.isActive ? 0.9 : 0.7, marginBottom: "2px" }}>entry /</div>
+            {stateData.entry!.map((action: string, idx: number) => (
               <div
                 key={idx}
                 style={{
                   paddingLeft: "8px",
                   fontFamily: "var(--vscode-editor-font-family)",
-                  color: data.isActive ? "#ffffff" : "inherit",
+                  color: stateData.isActive ? "#ffffff" : "inherit",
                 }}
               >
                 {action}
@@ -140,18 +143,18 @@ export const StateNode: React.FC<NodeProps<StateNodeData>> = memo(
               fontSize: "11px",
               marginTop: "6px",
               paddingTop: "6px",
-              borderTop: `1px solid ${data.isActive ? "rgba(255,255,255,0.3)" : "var(--vscode-panel-border)"}`,
-              color: data.isActive ? "#e0f2e0" : "inherit",
+              borderTop: `1px solid ${stateData.isActive ? "rgba(255,255,255,0.3)" : "var(--vscode-panel-border)"}`,
+              color: stateData.isActive ? "#e0f2e0" : "inherit",
             }}
           >
-            <div style={{ opacity: data.isActive ? 0.9 : 0.7, marginBottom: "2px" }}>exit /</div>
-            {data.exit!.map((action, idx) => (
+            <div style={{ opacity: stateData.isActive ? 0.9 : 0.7, marginBottom: "2px" }}>exit /</div>
+            {stateData.exit!.map((action: string, idx: number) => (
               <div
                 key={idx}
                 style={{
                   paddingLeft: "8px",
                   fontFamily: "var(--vscode-editor-font-family)",
-                  color: data.isActive ? "#ffffff" : "inherit",
+                  color: stateData.isActive ? "#ffffff" : "inherit",
                 }}
               >
                 {action}
@@ -161,7 +164,7 @@ export const StateNode: React.FC<NodeProps<StateNodeData>> = memo(
         )}
 
         {/* Active state indicator - enhanced pulse animation */}
-        {data.isActive && (
+        {stateData.isActive && (
           <>
             <div
               style={{

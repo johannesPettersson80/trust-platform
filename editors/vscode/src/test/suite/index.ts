@@ -14,6 +14,9 @@ export function run(): Promise<void> {
   require("./new-project.test");
   require("./plcopen-export.test");
   require("./plcopen-import.test");
+  require("./statechart-editor.lifecycle.test");
+  require("./statechart-engine.test");
+  require("./statechart-runtime-client.test");
   require("./snippets.test");
   require("./st-tests.integration.test");
 

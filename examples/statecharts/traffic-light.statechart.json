@@ -1,6 +1,6 @@
 {
   "id": "stateMachine",
-  "initial": "State5",
+  "initial": "Red",
   "states": {
     "Red": {
       "entry": [
@@ -62,7 +62,54 @@
           "target": "Yellow"
         }
       }
+    }
+  },
+  "actionMappings": {
+    "logRedEntry": {
+      "action": "LOG",
+      "message": "Entering RED state"
     },
-    "State5": {}
+    "turnOnRedLight": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.0",
+      "value": true
+    },
+    "turnOffRedLight": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.0",
+      "value": false
+    },
+    "logGreenEntry": {
+      "action": "LOG",
+      "message": "Entering GREEN state"
+    },
+    "turnOnGreenLight": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.1",
+      "value": true
+    },
+    "turnOffGreenLight": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.1",
+      "value": false
+    },
+    "logYellowEntry": {
+      "action": "LOG",
+      "message": "Entering YELLOW state"
+    },
+    "turnOnYellowLight": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.2",
+      "value": true
+    },
+    "turnOffYellowLight": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.2",
+      "value": false
+    },
+    "logTransition": {
+      "action": "LOG",
+      "message": "Traffic light transition"
+    }
   }
 }

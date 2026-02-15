@@ -523,19 +523,19 @@ npm run watch
 
 # Test extension (F5 in VS Code)
 # Or from terminal:
-code --extensionDevelopmentPath=/home/runtimevic/Descargas/trust-platform/editors/vscode
+code --extensionDevelopmentPath="$(pwd)/editors/vscode"
 
 # Start hardware backend
 cd examples/statechart_backend
 sudo ./start.sh
 
 # Stop runtime
-sudo pkill -9 trust-runtime
+sudo pkill -f trust-runtime
 sudo rm -f /tmp/trust-debug.sock
 
 # Verify socket permissions
 ls -l /tmp/trust-debug.sock
-# Should be: srw-rw-rw-
+# Should be: srw-rw----
 
 # Package VSIX (future)
 npm run package

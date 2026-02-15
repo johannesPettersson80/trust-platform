@@ -66,7 +66,7 @@ sudo ./start.sh
 ✅ Build complete
 🚀 Starting runtime...
    Control endpoint: /tmp/trust-debug.sock
-✅ Control endpoint ready: /tmp/trust-debug.sock (rw-rw-rw-)
+✅ Control endpoint ready: /tmp/trust-debug.sock (rw-rw----)
 ✅ Backend is running!
 ```
 
