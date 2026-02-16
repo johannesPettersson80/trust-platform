@@ -30,6 +30,13 @@ Workflow: `.github/workflows/demo-pages.yml`
 - Can also be started manually with **workflow_dispatch**.
 - Uploads `docs/demo/` as the Pages artifact and deploys to
   the `github-pages` environment.
+- The workflow uses `actions/configure-pages@v5` with `enablement: true` to
+  auto-enable Pages for first-time repos.
+
+If you still see `Get Pages site failed`:
+1. Open repository settings -> **Pages**.
+2. Ensure build/deploy source is **GitHub Actions**.
+3. Re-run the **Demo Pages** workflow.
 
 After the workflow succeeds, the demo URL is:
 
