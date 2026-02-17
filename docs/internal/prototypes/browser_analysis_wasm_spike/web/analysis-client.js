@@ -11,6 +11,9 @@ export class TrustWasmAnalysisClient {
     this.restartDelayMs = Number.isFinite(options.restartDelayMs)
       ? Math.max(0, options.restartDelayMs)
       : 200;
+    this.bootstrapTimeoutMs = Number.isFinite(options.bootstrapTimeoutMs)
+      ? Math.max(0, options.bootstrapTimeoutMs)
+      : 20000;
 
     this.workerFactory =
       options.workerFactory ||
@@ -19,6 +22,7 @@ export class TrustWasmAnalysisClient {
     this.worker = null;
     this.pending = new Map();
     this.requestSequence = 0;
+    this.bootstrapSequence = 0;
     this.lastRequestId = null;
     this.statusListeners = new Set();
     this.restartCount = 0;
@@ -59,6 +63,28 @@ export class TrustWasmAnalysisClient {
       this.emitStatus({ type: "worker_error", error: event.message });
       this.rejectAllPending(error);
       this._scheduleRestart(error);
+    });
+
+    this._sendBootstrapStatusRequest();
+  }
+
+  _sendBootstrapStatusRequest() {
+    if (!this.worker || this.disposed) {
+      return;
+    }
+
+    const id = `bootstrap-${++this.bootstrapSequence}`;
+    this.pending.set(id, {
+      method: "status",
+      bootstrap: true,
+      resolve: () => {},
+      reject: () => {},
+    });
+    this.worker.postMessage({
+      id,
+      method: "status",
+      params: {},
+      timeoutMs: this.bootstrapTimeoutMs,
     });
   }
 
@@ -172,7 +198,13 @@ export class TrustWasmAnalysisClient {
     if (message.error) {
       const method = state.method || "request";
       const errorMessage = message.error.message || "unknown worker error";
-      state.reject(new Error(`${method}: ${errorMessage}`));
+      const error = new Error(`${method}: ${errorMessage}`);
+      if (state.bootstrap) {
+        this.emitStatus({ type: "startup_error", error: error.message });
+        this._scheduleRestart(error);
+        return;
+      }
+      state.reject(error);
       return;
     }
 

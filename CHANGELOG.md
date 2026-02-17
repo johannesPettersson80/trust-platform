@@ -208,6 +208,7 @@ Target release: `v0.9.13`
 ### Changed
 
 - Demo Pages WASM startup UX now force-updates the `WASM Ready` badge after engine readiness resolves, preventing a stale `Loading WASM...` state when the worker `ready` event arrives before listener registration.
+- Demo WASM analysis clients now send an internal bootstrap `status` request on worker spawn so startup no longer depends on user interaction before `WASM Ready` appears.
 - VS Code statechart extension quality gates now lint TSX sources and run explicit webview TypeScript typechecking (`tsconfig.webview.json`) during compile.
 - Statechart import command flow now consistently resolves source/target paths and reuses shared URI/path helpers across statechart commands.
 - Statechart hardware helper scripts/docs now use repository-relative paths and group-based socket permissions (`660`) instead of world-writable sockets.

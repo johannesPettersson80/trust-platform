@@ -44,6 +44,29 @@ function tick(ms = 0) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+test("analysis client bootstraps worker so ready resolves without external request", async () => {
+  const worker = new FakeWorker("bootstrap");
+  const client = new TrustWasmAnalysisClient({
+    workerFactory: () => worker,
+    autoRestart: false,
+  });
+
+  // Before the fix, no message was sent on startup, so ready() never resolved
+  // unless another API call triggered the first worker request.
+  const readyOrTimeout = Promise.race([
+    client.ready().then(() => "ready"),
+    tick(50).then(() => "timeout"),
+  ]);
+
+  await tick(0);
+  assert.equal(worker.sent.length, 1, "expected startup bootstrap request");
+  assert.equal(worker.sent[0].method, "status");
+  worker.emitMessage({ type: "ready" });
+
+  assert.equal(await readyOrTimeout, "ready");
+  client.dispose();
+});
+
 test("analysis client sends request and resolves response", async () => {
   const worker = new FakeWorker("w1");
   const client = new TrustWasmAnalysisClient({
@@ -55,8 +78,8 @@ test("analysis client sends request and resolves response", async () => {
   await client.ready();
 
   const pending = client.status();
-  assert.equal(worker.sent.length, 1);
-  const request = worker.sent[0];
+  assert.equal(worker.sent.length, 2);
+  const request = worker.sent[1];
   assert.equal(request.method, "status");
 
   worker.emitMessage({ id: request.id, result: { document_count: 1, uris: ["memory:///main.st"] } });
