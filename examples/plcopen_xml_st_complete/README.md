@@ -43,6 +43,17 @@ In the imported project folder:
 3. Ctrl+Click imported type names to verify go-to-definition works.
 4. Run `Shift+Alt+F` on imported files to normalize formatting.
 
+### CODESYS GlobalVars Note (`qualified_only`)
+
+For CODESYS exports that use `{attribute 'qualified_only'}` global variable
+lists (for example `GVL.start`), import now materializes a compiler-valid model:
+
+- Global list file contains `TYPE + CONFIGURATION/VAR_GLOBAL` wrapper content.
+- Referencing POUs get injected `VAR_EXTERNAL` declarations for the list
+  (for example `GVL : GVL_TYPE;`).
+- Imported functions without explicit result assignment get a deterministic
+  fallback (`<FunctionName> := <FunctionName>;`) to keep diagnostics clean.
+
 ## Step 3: OpenPLC Detection Note
 
 Repeat Step 1 using:

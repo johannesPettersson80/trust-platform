@@ -184,8 +184,8 @@ END_FUNCTION_BLOCK
             .is_file(),
         "import did not emit migration report"
     );
-    let imported_files = std::fs::read_dir(&imported_sources)
-        .expect("read imported sources")
+    let imported_files = glob::glob(&format!("{}/**/*.st", imported_sources.display()))
+        .expect("glob imported sources")
         .filter_map(Result::ok)
         .count();
     assert!(

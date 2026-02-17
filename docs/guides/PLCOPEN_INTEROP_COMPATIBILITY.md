@@ -24,6 +24,8 @@ multi-vendor export adapters).
 | ST `types/dataTypes` import (`elementary`, `derived`, `array`, `struct`, `enum`, `subrange`) | supported | Imported into generated ST `TYPE` declarations under `src/`. |
 | ST `TYPE` export to `types/dataTypes` | partial | Supported ST declarations are emitted; unsupported forms are skipped with warnings. |
 | `instances/configurations/resources/tasks/program instances` import/export | supported | Deterministic ST mapping with name normalization and structured diagnostics. |
+| CODESYS `addData/globalVars` import/export | supported | Import prefers `interfaceasplaintext` for pragma fidelity and falls back to `<variable>` synthesis; `qualified_only` lists are materialized as `TYPE + CONFIGURATION/VAR_GLOBAL` wrappers with required `VAR_EXTERNAL` injection in referencing POUs; export emits deterministic CODESYS `globalVars` metadata. |
+| CODESYS `addData/projectstructure` folder mapping import/export | partial | Import/export mirrors deterministic folder placement for POUs/GVLs; library/device-tree semantics remain metadata-only. |
 | Source map metadata (`trust.sourceMap`) | supported | Embedded `addData` payload + sidecar `*.source-map.json`. |
 | Vendor extension preservation (`addData`) | partial | Preserved/re-injectable, but not semantically interpreted. |
 | Vendor ecosystem migration heuristics | partial | Advisory signal only; not semantic equivalence. |
@@ -77,6 +79,10 @@ equivalence on target runtimes.
   - `imported_resources`
   - `imported_tasks`
   - `imported_program_instances`
+  - `discovered_global_var_lists`
+  - `imported_global_var_lists`
+  - `imported_project_structure_nodes`
+  - `imported_folder_paths`
   - `source_coverage_percent`
   - `semantic_loss_percent`
   - `compatibility_coverage`:
@@ -140,6 +146,9 @@ Guaranteed for supported ST-project structures:
 - ST POU signature-level stability.
 - Supported `dataTypes` signature stability.
 - Supported configuration/resource/task/program-instance wiring intent stability.
+- Supported CODESYS globalVars declaration stability.
+- Supported CODESYS folder-placement intent stability for deterministic projectstructure trees.
+- Deterministic fallback insertion for missing FUNCTION result assignments (`<FuncName> := <FuncName>;`) during import synthesis.
 - Stable source-map sidecar contract.
 
 Not guaranteed:

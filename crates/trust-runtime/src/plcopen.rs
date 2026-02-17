@@ -16,6 +16,12 @@ const PROFILE_NAME: &str = "trust-st-complete-v1";
 const SOURCE_MAP_DATA_NAME: &str = "trust.sourceMap";
 const VENDOR_EXT_DATA_NAME: &str = "trust.vendorExtensions";
 const EXPORT_ADAPTER_DATA_NAME: &str = "trust.exportAdapter";
+const CODESYS_APPLICATION_DATA_NAME: &str = "http://www.3s-software.com/plcopenxml/application";
+const CODESYS_PROJECTSTRUCTURE_DATA_NAME: &str =
+    "http://www.3s-software.com/plcopenxml/projectstructure";
+const CODESYS_INTERFACE_PLAINTEXT_DATA_NAME: &str =
+    "http://www.3s-software.com/plcopenxml/interfaceasplaintext";
+const CODESYS_OBJECT_ID_DATA_NAME: &str = "http://www.3s-software.com/plcopenxml/objectid";
 const VENDOR_EXTENSION_HOOK_FILE: &str = "plcopen.vendor-extensions.xml";
 const IMPORTED_VENDOR_EXTENSION_FILE: &str = "plcopen.vendor-extensions.imported.xml";
 const MIGRATION_REPORT_FILE: &str = "interop/plcopen-migration-report.json";
@@ -103,6 +109,9 @@ pub struct PlcopenExportReport {
     pub resource_count: usize,
     pub task_count: usize,
     pub program_instance_count: usize,
+    pub exported_global_var_lists: usize,
+    pub exported_project_structure_nodes: usize,
+    pub exported_folder_paths: usize,
     pub source_count: usize,
     pub warnings: Vec<String>,
 }
@@ -119,6 +128,10 @@ pub struct PlcopenImportReport {
     pub imported_resources: usize,
     pub imported_tasks: usize,
     pub imported_program_instances: usize,
+    pub discovered_global_var_lists: usize,
+    pub imported_global_var_lists: usize,
+    pub imported_project_structure_nodes: usize,
+    pub imported_folder_paths: usize,
     pub warnings: Vec<String>,
     pub unsupported_nodes: Vec<String>,
     pub preserved_vendor_extensions: Option<PathBuf>,
@@ -148,6 +161,10 @@ pub struct PlcopenMigrationReport {
     pub imported_resources: usize,
     pub imported_tasks: usize,
     pub imported_program_instances: usize,
+    pub discovered_global_var_lists: usize,
+    pub imported_global_var_lists: usize,
+    pub imported_project_structure_nodes: usize,
+    pub imported_folder_paths: usize,
     pub source_coverage_percent: f64,
     pub semantic_loss_percent: f64,
     pub compatibility_coverage: PlcopenCompatibilityCoverage,
@@ -292,6 +309,23 @@ struct DataTypeDecl {
     line: usize,
 }
 
+#[derive(Debug, Clone)]
+struct GlobalVarDecl {
+    name: String,
+    body: String,
+    source: String,
+    source_path: PathBuf,
+    line: usize,
+    variables: Vec<GlobalVarVariableDecl>,
+}
+
+#[derive(Debug, Clone)]
+struct GlobalVarVariableDecl {
+    name: String,
+    type_expr: String,
+    initial_value: Option<String>,
+}
+
 #[derive(Debug, Clone, Default)]
 struct TaskDecl {
     name: String,
@@ -331,6 +365,50 @@ struct ImportProjectModelStats {
     imported_tasks: usize,
     imported_program_instances: usize,
     written_sources: Vec<PathBuf>,
+}
+
+#[derive(Debug, Clone, Default)]
+struct ImportGlobalVarStats {
+    discovered_global_var_lists: usize,
+    imported_global_var_lists: usize,
+    written_sources: Vec<PathBuf>,
+    qualified_list_externals: Vec<QualifiedGlobalListExternalDecl>,
+}
+
+#[derive(Debug, Clone)]
+struct QualifiedGlobalListExternalDecl {
+    list_name: String,
+    type_name: String,
+}
+
+#[derive(Debug, Clone, Default)]
+struct CodesysProjectStructureMap {
+    object_paths_by_id: BTreeMap<String, Vec<String>>,
+    unique_object_paths_by_name: BTreeMap<String, Vec<String>>,
+    object_count: usize,
+}
+
+#[derive(Debug, Clone)]
+struct CodesysExportObjectEntry {
+    name: String,
+    object_id: String,
+    folder_segments: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+struct CodesysProjectObjectNode {
+    name: String,
+    object_id: String,
+    children: Vec<CodesysProjectObjectNode>,
+}
+
+#[derive(Debug, Clone)]
+struct CodesysExportMetadata {
+    global_var_lists: Vec<(GlobalVarDecl, CodesysExportObjectEntry)>,
+    pou_entries: Vec<CodesysExportObjectEntry>,
+    project_structure_root: CodesysProjectObjectNode,
+    exported_project_structure_nodes: usize,
+    exported_folder_paths: usize,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -433,6 +511,8 @@ pub fn supported_profile() -> PlcopenProfile {
             "types/pous/pou[pouType=program|function|functionBlock]",
             "types/dataTypes/dataType[baseType subset: elementary|derived|array|struct|enum|subrange] (import/export)",
             "instances/configurations/resources/tasks/program instances",
+            "CODESYS addData/globalVars (import/export)",
+            "CODESYS addData/projectstructure folder mapping (import/export)",
             "pou/body/ST plain-text bodies",
             "addData/data[name=trust.sourceMap|trust.vendorExtensions|trust.exportAdapter]",
         ],
@@ -478,6 +558,16 @@ pub fn supported_profile() -> PlcopenProfile {
                 notes: "ST configuration/resource/task/program-instance model is imported/exported with deterministic naming and diagnostics.",
             },
             PlcopenCompatibilityMatrixEntry {
+                capability: "CODESYS global variable lists (addData/globalVars)",
+                status: "supported",
+                notes: "Import prefers interface-as-plaintext for VAR_GLOBAL fidelity and falls back to variable node synthesis; export emits deterministic CODESYS globalVars metadata.",
+            },
+            PlcopenCompatibilityMatrixEntry {
+                capability: "CODESYS project structure folder mapping (addData/projectstructure)",
+                status: "partial",
+                notes: "Import/export mirrors deterministic source-folder hierarchies for POUs/GVLs; unsupported library/device-tree object semantics remain metadata only.",
+            },
+            PlcopenCompatibilityMatrixEntry {
                 capability: "Vendor library compatibility shims (selected timer/edge aliases)",
                 status: "partial",
                 notes: "Import can normalize selected Siemens/Rockwell/Schneider/Mitsubishi aliases to IEC FB names and reports each shim application.",
@@ -505,6 +595,8 @@ pub fn supported_profile() -> PlcopenProfile {
             "Round-trip guarantees preserve ST POU signatures (name/type/body intent) for ST-complete supported inputs.",
             "Round-trip guarantees preserve supported ST dataType signatures (name + supported baseType graph).",
             "Round-trip guarantees preserve supported configuration/resource/task/program-instance wiring intent.",
+            "Round-trip preserves supported CODESYS globalVars declarations (plaintext-first import strategy).",
+            "Round-trip preserves deterministic folder placement intent for supported CODESYS projectstructure object trees.",
             "Round-trip does not preserve vendor formatting/layout, graphical networks, or runtime deployment metadata.",
             "Round-trip can rename output source files to sanitized unique names inside src/.",
             "Round-trip may normalize selected vendor library symbols to IEC equivalents when shim rules apply during import.",
@@ -566,6 +658,7 @@ pub fn export_project_to_xml_with_target(
     let mut warnings = Vec::new();
     let mut declarations = Vec::new();
     let mut data_type_decls = Vec::new();
+    let mut global_var_lists = Vec::new();
     let mut configurations = Vec::new();
 
     for source in &sources {
@@ -580,11 +673,19 @@ pub fn export_project_to_xml_with_target(
         let (mut source_configs, mut config_warnings) = extract_configuration_declarations(source);
         configurations.append(&mut source_configs);
         warnings.append(&mut config_warnings);
+
+        let (mut source_globals, mut global_warnings) = extract_global_var_declarations(source);
+        global_var_lists.append(&mut source_globals);
+        warnings.append(&mut global_warnings);
     }
 
-    if declarations.is_empty() && data_type_decls.is_empty() && configurations.is_empty() {
+    if declarations.is_empty()
+        && data_type_decls.is_empty()
+        && global_var_lists.is_empty()
+        && configurations.is_empty()
+    {
         anyhow::bail!(
-            "no PLCopen ST-complete declarations discovered (supported: POUs, TYPE blocks, CONFIGURATION/RESOURCE/TASK/PROGRAM)"
+            "no PLCopen ST-complete declarations discovered (supported: POUs, TYPE blocks, VAR_GLOBAL blocks, CONFIGURATION/RESOURCE/TASK/PROGRAM)"
         );
     }
 
@@ -597,6 +698,14 @@ pub fn export_project_to_xml_with_target(
     });
 
     data_type_decls.sort_by(|left, right| {
+        left.name
+            .to_ascii_lowercase()
+            .cmp(&right.name.to_ascii_lowercase())
+            .then(left.source.cmp(&right.source))
+            .then(left.line.cmp(&right.line))
+    });
+
+    global_var_lists.sort_by(|left, right| {
         left.name
             .to_ascii_lowercase()
             .cmp(&right.name.to_ascii_lowercase())
@@ -809,6 +918,8 @@ pub fn export_project_to_xml_with_target(
         }
     }
 
+    let codesys_metadata =
+        build_codesys_export_metadata(&declarations, &global_var_lists, &mut warnings);
     xml.push_str("  <addData>\n");
     xml.push_str(&format!(
         "    <data name=\"{}\" handleUnknown=\"implementation\"><text><![CDATA[{}]]></text></data>\n",
@@ -830,6 +941,7 @@ pub fn export_project_to_xml_with_target(
             escape_cdata(&adapter_json)
         ));
     }
+    append_codesys_export_add_data(&mut xml, &codesys_metadata, &mut warnings);
 
     let vendor_hook_path = project_root.join(VENDOR_EXTENSION_HOOK_FILE);
     if vendor_hook_path.is_file() {
@@ -929,6 +1041,9 @@ pub fn export_project_to_xml_with_target(
         resource_count: exported_resource_count,
         task_count: exported_task_count,
         program_instance_count: exported_program_instance_count,
+        exported_global_var_lists: codesys_metadata.global_var_lists.len(),
+        exported_project_structure_nodes: codesys_metadata.exported_project_structure_nodes,
+        exported_folder_paths: codesys_metadata.exported_folder_paths,
         source_count: sources.len(),
         warnings,
     })
@@ -982,6 +1097,8 @@ pub fn import_xml_to_project(
     let source_map = parse_embedded_source_map(root);
     let detected_ecosystem = detect_vendor_ecosystem(root, &xml_text);
     let promoted_program_pous = detect_program_pous_used_as_types(root);
+    let project_structure_map = parse_codesys_project_structure(root);
+    let mut imported_folder_paths = HashSet::new();
 
     let sources_root = resolve_or_create_source_root(project_root)?;
 
@@ -1009,10 +1126,20 @@ pub fn import_xml_to_project(
     )?;
     written_sources.extend(project_model_stats.written_sources.iter().cloned());
 
-    for pou in root
-        .descendants()
-        .filter(|node| is_element_named_ci(*node, "pou"))
-    {
+    let global_var_stats = import_global_var_lists_to_sources(
+        root,
+        &sources_root,
+        &mut seen_files,
+        &mut warnings,
+        &mut unsupported_nodes,
+        &mut unsupported_diagnostics,
+        &mut loss_warnings,
+        &project_structure_map,
+        &mut imported_folder_paths,
+    )?;
+    written_sources.extend(global_var_stats.written_sources.iter().cloned());
+
+    for pou in collect_import_pou_nodes(root) {
         discovered_pous += 1;
         let pou_name = extract_pou_name(pou);
         let entry_name = pou_name
@@ -1155,7 +1282,37 @@ pub fn import_xml_to_project(
             continue;
         };
 
-        let candidate = unique_source_path(&sources_root, &name, &mut seen_files);
+        let (reconstructed_source, injected_global_externals) =
+            inject_required_var_external_declarations(
+                &reconstructed_source,
+                &global_var_stats.qualified_list_externals,
+            );
+        for external in injected_global_externals {
+            warnings.push(format!(
+                "inserted VAR_EXTERNAL '{}' declaration in pou '{}'",
+                external, name
+            ));
+            unsupported_diagnostics.push(unsupported_diagnostic(
+                "PLCO603",
+                "info",
+                "pou/interface/externalVars",
+                format!(
+                    "Inserted VAR_EXTERNAL declaration for qualified global list '{}'",
+                    external
+                ),
+                Some(name.clone()),
+                "Review and keep inserted external declaration if the POU uses qualified global list access",
+            ));
+        }
+
+        let folder_segments =
+            resolve_codesys_folder_segments_for_node(pou, &name, &project_structure_map);
+        let candidate = unique_source_path_with_segments(
+            &sources_root,
+            &folder_segments,
+            &name,
+            &mut seen_files,
+        );
 
         let (shimmed_body, shim_applications) =
             apply_vendor_library_shims(&reconstructed_source, &detected_ecosystem);
@@ -1187,8 +1344,8 @@ pub fn import_xml_to_project(
             *applied_shim_counts.entry(key).or_insert(0) += application.occurrences;
         }
 
-        std::fs::write(&candidate, shimmed_body)
-            .with_context(|| format!("failed to write '{}'", candidate.display()))?;
+        write_text_file_with_parents(&candidate, &shimmed_body)?;
+        track_imported_folder_path(&candidate, &sources_root, &mut imported_folder_paths);
         written_sources.push(candidate);
 
         migration_entries.push(PlcopenMigrationEntry {
@@ -1284,6 +1441,10 @@ pub fn import_xml_to_project(
         imported_resources: project_model_stats.imported_resources,
         imported_tasks: project_model_stats.imported_tasks,
         imported_program_instances: project_model_stats.imported_program_instances,
+        discovered_global_var_lists: global_var_stats.discovered_global_var_lists,
+        imported_global_var_lists: global_var_stats.imported_global_var_lists,
+        imported_project_structure_nodes: project_structure_map.object_count,
+        imported_folder_paths: imported_folder_paths.len(),
         source_coverage_percent,
         semantic_loss_percent,
         compatibility_coverage: compatibility_coverage.clone(),
@@ -1313,6 +1474,10 @@ pub fn import_xml_to_project(
         imported_resources: project_model_stats.imported_resources,
         imported_tasks: project_model_stats.imported_tasks,
         imported_program_instances: project_model_stats.imported_program_instances,
+        discovered_global_var_lists: global_var_stats.discovered_global_var_lists,
+        imported_global_var_lists: global_var_stats.imported_global_var_lists,
+        imported_project_structure_nodes: project_structure_map.object_count,
+        imported_folder_paths: imported_folder_paths.len(),
         written_sources,
         warnings,
         unsupported_nodes,
@@ -1400,6 +1565,191 @@ fn extract_pou_declarations(source: &LoadedSource) -> (Vec<PouDecl>, Vec<String>
     }
 
     (declarations, warnings)
+}
+
+fn extract_global_var_declarations(source: &LoadedSource) -> (Vec<GlobalVarDecl>, Vec<String>) {
+    let mut declarations = Vec::new();
+    let mut warnings = Vec::new();
+    let lines = source.text.lines().collect::<Vec<_>>();
+    let struct_fields_by_type = parse_struct_type_declarations(&source.text);
+    let mut index = 0usize;
+    let mut block_index = 0usize;
+    let base_name = source
+        .path
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| "GlobalVars".to_string());
+
+    while index < lines.len() {
+        let upper = lines[index].trim().to_ascii_uppercase();
+        if !upper.starts_with("VAR_GLOBAL") {
+            index += 1;
+            continue;
+        }
+
+        let mut block_start = index;
+        while block_start > 0 {
+            let prev = lines[block_start - 1].trim();
+            if prev.is_empty() {
+                break;
+            }
+            if prev.starts_with('{') && prev.ends_with('}') {
+                block_start -= 1;
+            } else {
+                break;
+            }
+        }
+
+        let Some(end_index) = (index..lines.len())
+            .find(|line_index| lines[*line_index].trim().eq_ignore_ascii_case("END_VAR"))
+        else {
+            warnings.push(format!(
+                "{}:{} unterminated VAR_GLOBAL block skipped during PLCopen export",
+                source.path.display(),
+                index + 1
+            ));
+            break;
+        };
+
+        let body = normalize_body_text(lines[block_start..=end_index].join("\n"));
+        let mut variables = parse_global_var_entries_from_st_block(&body);
+        let name = if block_index == 0 {
+            base_name.clone()
+        } else {
+            format!("{base_name}_{}", block_index + 1)
+        };
+        if variables.len() == 1 {
+            let wrapper = &variables[0];
+            if wrapper.name.eq_ignore_ascii_case(&name) {
+                let type_key = wrapper.type_expr.trim().to_ascii_lowercase();
+                if let Some(struct_fields) = struct_fields_by_type.get(&type_key) {
+                    variables = struct_fields.clone();
+                }
+            }
+        }
+        declarations.push(GlobalVarDecl {
+            name,
+            body,
+            source: source.path.display().to_string(),
+            source_path: source.path.clone(),
+            line: block_start + 1,
+            variables,
+        });
+        block_index += 1;
+        index = end_index + 1;
+    }
+
+    (declarations, warnings)
+}
+
+fn parse_struct_type_declarations(source: &str) -> BTreeMap<String, Vec<GlobalVarVariableDecl>> {
+    let mut map = BTreeMap::new();
+    let lines = source.lines().collect::<Vec<_>>();
+    let mut index = 0usize;
+
+    while index < lines.len() {
+        let trimmed = lines[index].trim();
+        let Some((lhs, rhs)) = trimmed.split_once(':') else {
+            index += 1;
+            continue;
+        };
+        if !rhs.trim().eq_ignore_ascii_case("STRUCT") {
+            index += 1;
+            continue;
+        }
+
+        let type_name = lhs.trim();
+        if type_name.is_empty() {
+            index += 1;
+            continue;
+        }
+
+        index += 1;
+        let mut field_lines = Vec::new();
+        while index < lines.len() && !lines[index].trim().eq_ignore_ascii_case("END_STRUCT") {
+            field_lines.push(lines[index]);
+            index += 1;
+        }
+        if index >= lines.len() {
+            break;
+        }
+
+        let mut pseudo_block = String::from("VAR_GLOBAL\n");
+        for field in field_lines {
+            pseudo_block.push_str(field);
+            pseudo_block.push('\n');
+        }
+        pseudo_block.push_str("END_VAR\n");
+
+        let fields = parse_global_var_entries_from_st_block(&pseudo_block);
+        if !fields.is_empty() {
+            map.insert(type_name.to_ascii_lowercase(), fields);
+        }
+
+        index += 1;
+    }
+
+    map
+}
+
+fn parse_global_var_entries_from_st_block(block: &str) -> Vec<GlobalVarVariableDecl> {
+    let mut entries = Vec::new();
+    let mut in_block = false;
+
+    for line in block.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if trimmed.starts_with('{') && trimmed.ends_with('}') {
+            continue;
+        }
+        if trimmed.to_ascii_uppercase().starts_with("VAR_GLOBAL") {
+            in_block = true;
+            continue;
+        }
+        if trimmed.eq_ignore_ascii_case("END_VAR") {
+            break;
+        }
+        if !in_block || trimmed.starts_with("//") || trimmed.starts_with("(*") {
+            continue;
+        }
+
+        let declaration = trimmed.trim_end_matches(';').trim();
+        let Some((lhs, rhs)) = declaration.split_once(':') else {
+            continue;
+        };
+        let raw_name = lhs.trim();
+        if raw_name.is_empty() {
+            continue;
+        }
+        let var_name = raw_name
+            .split_whitespace()
+            .next()
+            .map(ToOwned::to_owned)
+            .unwrap_or_default();
+        if var_name.is_empty() {
+            continue;
+        }
+        let (type_expr, initial_value) = match rhs.split_once(":=") {
+            Some((type_part, initial_part)) => (
+                type_part.trim().to_string(),
+                Some(initial_part.trim().to_string()),
+            ),
+            None => (rhs.trim().to_string(), None),
+        };
+        if type_expr.is_empty() {
+            continue;
+        }
+        entries.push(GlobalVarVariableDecl {
+            name: var_name,
+            type_expr,
+            initial_value,
+        });
+    }
+
+    entries
 }
 
 fn node_to_pou_type(node: &SyntaxNode) -> Option<PlcopenPouType> {
@@ -1918,6 +2268,207 @@ fn extract_text_content(node: roxmltree::Node<'_, '_>) -> Option<String> {
     }
 }
 
+fn collect_import_pou_nodes<'a, 'input>(
+    root: roxmltree::Node<'a, 'input>,
+) -> Vec<roxmltree::Node<'a, 'input>> {
+    let mut standard = Vec::new();
+    for types in root
+        .children()
+        .filter(|child| is_element_named_ci(*child, "types"))
+    {
+        for pous in types
+            .children()
+            .filter(|child| is_element_named_ci(*child, "pous"))
+        {
+            for pou in pous
+                .children()
+                .filter(|child| is_element_named_ci(*child, "pou"))
+            {
+                standard.push(pou);
+            }
+        }
+    }
+
+    if !standard.is_empty() {
+        return standard;
+    }
+
+    root.descendants()
+        .filter(|node| is_element_named_ci(*node, "pou"))
+        .collect()
+}
+
+fn sanitize_path_segment(name: &str, fallback: &str) -> String {
+    let mut segment = sanitize_filename(name.trim());
+    while segment.starts_with('_') {
+        segment.remove(0);
+    }
+    if segment.is_empty() {
+        fallback.to_string()
+    } else {
+        segment
+    }
+}
+
+fn extract_object_id_from_node(node: roxmltree::Node<'_, '_>) -> Option<String> {
+    for data in node
+        .descendants()
+        .filter(|entry| is_element_named_ci(*entry, "data"))
+    {
+        let Some(name) = attribute_ci(data, "name") else {
+            continue;
+        };
+        if !name.to_ascii_lowercase().contains("objectid")
+            && !name.eq_ignore_ascii_case(CODESYS_OBJECT_ID_DATA_NAME)
+        {
+            continue;
+        }
+        if let Some(object_id_node) = data
+            .descendants()
+            .find(|entry| is_element_named_ci(*entry, "ObjectId"))
+            .or_else(|| {
+                data.descendants()
+                    .find(|entry| is_element_named_ci(*entry, "objectId"))
+            })
+        {
+            if let Some(text) = extract_text_content(object_id_node) {
+                let trimmed = text.trim();
+                if !trimmed.is_empty() {
+                    return Some(trimmed.to_string());
+                }
+            }
+        }
+        if let Some(text) = extract_text_content(data) {
+            let trimmed = text.trim();
+            if !trimmed.is_empty() {
+                return Some(trimmed.to_string());
+            }
+        }
+    }
+    None
+}
+
+fn parse_codesys_project_structure(root: roxmltree::Node<'_, '_>) -> CodesysProjectStructureMap {
+    fn walk_object(
+        node: roxmltree::Node<'_, '_>,
+        parent_path: &[String],
+        object_paths_by_id: &mut BTreeMap<String, Vec<String>>,
+        object_paths_by_name: &mut BTreeMap<String, Vec<Vec<String>>>,
+        object_count: &mut usize,
+    ) {
+        let name = attribute_ci_any(&node, &["Name", "name"])
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or_else(|| "Object".to_string());
+        let mut path = parent_path.to_vec();
+        path.push(sanitize_path_segment(&name, "Object"));
+        *object_count += 1;
+
+        if let Some(object_id) = attribute_ci_any(&node, &["ObjectId", "objectId", "id"])
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+        {
+            object_paths_by_id.insert(object_id, path.clone());
+        }
+
+        let key = name.trim().to_ascii_lowercase();
+        object_paths_by_name
+            .entry(key)
+            .or_default()
+            .push(path.clone());
+
+        for child in node
+            .children()
+            .filter(|entry| is_element_named_ci(*entry, "Object"))
+        {
+            walk_object(
+                child,
+                &path,
+                object_paths_by_id,
+                object_paths_by_name,
+                object_count,
+            );
+        }
+    }
+
+    let mut object_paths_by_id = BTreeMap::new();
+    let mut object_paths_by_name: BTreeMap<String, Vec<Vec<String>>> = BTreeMap::new();
+    let mut object_count = 0usize;
+
+    for data in root
+        .descendants()
+        .filter(|node| is_element_named_ci(*node, "data"))
+    {
+        let Some(name) = attribute_ci(data, "name") else {
+            continue;
+        };
+        if !name.to_ascii_lowercase().contains("projectstructure")
+            && !name.eq_ignore_ascii_case(CODESYS_PROJECTSTRUCTURE_DATA_NAME)
+        {
+            continue;
+        }
+        for project_structure in data
+            .descendants()
+            .filter(|node| is_element_named_ci(*node, "ProjectStructure"))
+        {
+            for object in project_structure
+                .children()
+                .filter(|child| is_element_named_ci(*child, "Object"))
+            {
+                walk_object(
+                    object,
+                    &[],
+                    &mut object_paths_by_id,
+                    &mut object_paths_by_name,
+                    &mut object_count,
+                );
+            }
+        }
+    }
+
+    let unique_object_paths_by_name = object_paths_by_name
+        .into_iter()
+        .filter_map(|(name, paths)| {
+            if paths.len() == 1 {
+                Some((name, paths[0].clone()))
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    CodesysProjectStructureMap {
+        object_paths_by_id,
+        unique_object_paths_by_name,
+        object_count,
+    }
+}
+
+fn resolve_codesys_folder_segments_for_node(
+    node: roxmltree::Node<'_, '_>,
+    fallback_name: &str,
+    project_structure_map: &CodesysProjectStructureMap,
+) -> Vec<String> {
+    if let Some(object_id) = extract_object_id_from_node(node) {
+        if let Some(path) = project_structure_map.object_paths_by_id.get(&object_id) {
+            if path.len() >= 2 {
+                return path[..path.len() - 1].to_vec();
+            }
+        }
+    }
+
+    let name_key = fallback_name.trim().to_ascii_lowercase();
+    if let Some(path) = project_structure_map
+        .unique_object_paths_by_name
+        .get(&name_key)
+    {
+        if path.len() >= 2 {
+            return path[..path.len() - 1].to_vec();
+        }
+    }
+
+    Vec::new()
+}
+
 #[derive(Debug, Clone)]
 struct InterfaceVarSection {
     keyword: &'static str,
@@ -2053,6 +2604,24 @@ fn synthesize_import_pou_source(
             "POU body missing or empty; importer synthesized a declaration shell",
             Some(pou_name.to_string()),
             "Manual body implementation may still be required after import",
+        ));
+    }
+
+    if pou_type == PlcopenPouType::Function
+        && !function_result_assignment_present(&synthesized, pou_name)
+    {
+        synthesized.push_str(&format!("{pou_name} := {pou_name};\n"));
+        warnings.push(format!(
+            "function '{}' lacked an explicit result assignment; inserted default self-assignment",
+            pou_name
+        ));
+        unsupported_diagnostics.push(unsupported_diagnostic(
+            "PLCO212",
+            "info",
+            "pou/body/ST",
+            "Function body lacked explicit result assignment; importer inserted a default self-assignment",
+            Some(pou_name.to_string()),
+            "Review the inserted assignment and replace it with domain-specific return logic",
         ));
     }
 
@@ -2221,8 +2790,227 @@ fn parse_function_return_type_from_header(header: &str) -> Option<String> {
     }
 }
 
+fn function_result_assignment_present(source: &str, function_name: &str) -> bool {
+    let target = function_name.trim();
+    if target.is_empty() {
+        return false;
+    }
+
+    let mut in_block_comment = false;
+    for line in source.lines() {
+        let mut text = line.to_string();
+
+        if in_block_comment {
+            if let Some(end) = text.find("*)") {
+                text = text[end + 2..].to_string();
+                in_block_comment = false;
+            } else {
+                continue;
+            }
+        }
+
+        while let Some(start) = text.find("(*") {
+            if let Some(end_rel) = text[start + 2..].find("*)") {
+                let end = start + 2 + end_rel;
+                text.replace_range(start..end + 2, "");
+            } else {
+                text.truncate(start);
+                in_block_comment = true;
+                break;
+            }
+        }
+
+        if let Some(comment) = text.find("//") {
+            text.truncate(comment);
+        }
+
+        let trimmed = text.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        let Some((lhs, _rhs)) = trimmed.split_once(":=") else {
+            continue;
+        };
+        if lhs.trim().eq_ignore_ascii_case(target) {
+            return true;
+        }
+    }
+
+    false
+}
+
+fn inject_required_var_external_declarations(
+    source: &str,
+    externals: &[QualifiedGlobalListExternalDecl],
+) -> (String, Vec<String>) {
+    if externals.is_empty() {
+        return (source.to_string(), Vec::new());
+    }
+
+    let mut required = Vec::new();
+    for external in externals {
+        if source_uses_qualified_global_list(source, &external.list_name)
+            && !source_has_var_external_symbol(source, &external.list_name)
+        {
+            required.push(external.clone());
+        }
+    }
+
+    if required.is_empty() {
+        return (source.to_string(), Vec::new());
+    }
+
+    let lines = source.lines().collect::<Vec<_>>();
+    if lines.is_empty() {
+        return (source.to_string(), Vec::new());
+    }
+    let insert_at = find_var_section_insertion_index(&lines);
+
+    let mut rendered = String::new();
+    for (index, line) in lines.iter().enumerate() {
+        if index == insert_at {
+            rendered.push_str("VAR_EXTERNAL\n");
+            for external in &required {
+                rendered.push_str(&format!(
+                    "    {} : {};\n",
+                    external.list_name, external.type_name
+                ));
+            }
+            rendered.push_str("END_VAR\n");
+        }
+        rendered.push_str(line);
+        rendered.push('\n');
+    }
+    if insert_at >= lines.len() {
+        rendered.push_str("VAR_EXTERNAL\n");
+        for external in &required {
+            rendered.push_str(&format!(
+                "    {} : {};\n",
+                external.list_name, external.type_name
+            ));
+        }
+        rendered.push_str("END_VAR\n");
+    }
+
+    let inserted = required.into_iter().map(|decl| decl.list_name).collect();
+    (rendered, inserted)
+}
+
+fn source_uses_qualified_global_list(source: &str, list_name: &str) -> bool {
+    if list_name.trim().is_empty() {
+        return false;
+    }
+    let lowered_source = source.to_ascii_lowercase();
+    let needle = format!("{}.", list_name.trim().to_ascii_lowercase());
+
+    for (index, _) in lowered_source.match_indices(&needle) {
+        if index == 0 {
+            return true;
+        }
+        let prev = lowered_source[..index]
+            .chars()
+            .next_back()
+            .unwrap_or_default();
+        if !is_identifier_char(prev) {
+            return true;
+        }
+    }
+
+    false
+}
+
+fn source_has_var_external_symbol(source: &str, symbol_name: &str) -> bool {
+    let target = symbol_name.trim();
+    if target.is_empty() {
+        return false;
+    }
+
+    let mut in_external = false;
+    for line in source.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if trimmed.to_ascii_uppercase().starts_with("VAR_EXTERNAL") {
+            in_external = true;
+            continue;
+        }
+        if in_external && trimmed.eq_ignore_ascii_case("END_VAR") {
+            in_external = false;
+            continue;
+        }
+        if !in_external {
+            continue;
+        }
+
+        let Some((lhs, _rhs)) = trimmed.trim_end_matches(';').split_once(':') else {
+            continue;
+        };
+        let name = lhs
+            .split(',')
+            .next()
+            .map(str::trim)
+            .unwrap_or_default()
+            .split_whitespace()
+            .next()
+            .unwrap_or_default();
+        if name.eq_ignore_ascii_case(target) {
+            return true;
+        }
+    }
+
+    false
+}
+
+fn find_var_section_insertion_index(lines: &[&str]) -> usize {
+    if lines.is_empty() {
+        return 0;
+    }
+
+    let mut index = 1usize;
+    while index < lines.len() {
+        let trimmed = lines[index].trim();
+        if trimmed.is_empty() {
+            index += 1;
+            continue;
+        }
+        if is_var_section_header(trimmed) {
+            index += 1;
+            while index < lines.len() && !lines[index].trim().eq_ignore_ascii_case("END_VAR") {
+                index += 1;
+            }
+            if index < lines.len() {
+                index += 1;
+            }
+            continue;
+        }
+        break;
+    }
+
+    index
+}
+
+fn is_var_section_header(line: &str) -> bool {
+    let upper = line.trim().to_ascii_uppercase();
+    upper == "VAR" || upper.starts_with("VAR_")
+}
+
+fn is_identifier_char(ch: char) -> bool {
+    ch.is_ascii_alphanumeric() || ch == '_'
+}
+
 fn unique_source_path(
     sources_root: &Path,
+    base_name: &str,
+    seen_files: &mut HashSet<PathBuf>,
+) -> PathBuf {
+    unique_source_path_with_segments(sources_root, &[], base_name, seen_files)
+}
+
+fn unique_source_path_with_segments(
+    sources_root: &Path,
+    folder_segments: &[String],
     base_name: &str,
     seen_files: &mut HashSet<PathBuf>,
 ) -> PathBuf {
@@ -2230,13 +3018,44 @@ fn unique_source_path(
     if file_name.is_empty() {
         file_name = "unnamed".to_string();
     }
-    let mut candidate = sources_root.join(format!("{file_name}.st"));
+    let mut directory = sources_root.to_path_buf();
+    for segment in folder_segments {
+        directory = directory.join(sanitize_path_segment(segment, "folder"));
+    }
+
+    let mut candidate = directory.join(format!("{file_name}.st"));
     let mut duplicate_index = 2usize;
     while !seen_files.insert(candidate.clone()) {
-        candidate = sources_root.join(format!("{file_name}_{duplicate_index}.st"));
+        candidate = directory.join(format!("{file_name}_{duplicate_index}.st"));
         duplicate_index += 1;
     }
     candidate
+}
+
+fn write_text_file_with_parents(path: &Path, text: &str) -> anyhow::Result<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("failed to create '{}'", parent.display()))?;
+    }
+    std::fs::write(path, text).with_context(|| format!("failed to write '{}'", path.display()))?;
+    Ok(())
+}
+
+fn track_imported_folder_path(
+    file_path: &Path,
+    sources_root: &Path,
+    imported_folder_paths: &mut HashSet<String>,
+) {
+    let Some(parent) = file_path.parent() else {
+        return;
+    };
+    let Ok(relative) = parent.strip_prefix(sources_root) else {
+        return;
+    };
+    if relative.as_os_str().is_empty() {
+        return;
+    }
+    imported_folder_paths.insert(relative.to_string_lossy().replace('\\', "/"));
 }
 
 fn append_indent(xml: &mut String, spaces: usize) {
@@ -2271,6 +3090,309 @@ fn append_program_instance_xml(xml: &mut String, program: &ProgramBindingDecl, i
         xml.push_str(&format!(" task=\"{}\"", escape_xml_attr(task_name)));
     }
     xml.push_str(" />\n");
+}
+
+fn source_folder_segments_for_codesys(path: &Path) -> Vec<String> {
+    let mut segments = path
+        .components()
+        .filter_map(|component| component.as_os_str().to_str())
+        .map(ToOwned::to_owned)
+        .collect::<Vec<_>>();
+
+    if segments
+        .first()
+        .is_some_and(|segment| segment.eq_ignore_ascii_case("src"))
+    {
+        segments.remove(0);
+    }
+    if segments
+        .first()
+        .is_some_and(|segment| segment.eq_ignore_ascii_case("Application"))
+    {
+        segments.remove(0);
+    }
+    if !segments.is_empty() {
+        segments.pop();
+    }
+
+    segments
+        .into_iter()
+        .map(|segment| sanitize_path_segment(&segment, "folder"))
+        .collect()
+}
+
+fn deterministic_codesys_object_id(kind: &str, name: &str, folder_segments: &[String]) -> String {
+    let seed = format!(
+        "{kind}:{}:{}",
+        folder_segments.join("/"),
+        name.to_ascii_lowercase()
+    );
+    let h1 = crc32fast::hash(format!("a:{seed}").as_bytes());
+    let h2 = crc32fast::hash(format!("b:{seed}").as_bytes());
+    let h3 = crc32fast::hash(format!("c:{seed}").as_bytes());
+    let h4 = crc32fast::hash(format!("d:{seed}").as_bytes());
+    let tail = ((u64::from(h3 & 0xffff)) << 32) | u64::from(h4);
+    format!(
+        "{:08x}-{:04x}-{:04x}-{:04x}-{:012x}",
+        h1,
+        (h2 >> 16) as u16,
+        (h2 & 0xffff) as u16,
+        (h3 >> 16) as u16,
+        tail & 0x0000_ffff_ffff_ffff
+    )
+}
+
+fn build_codesys_project_structure_tree(
+    entries: &[CodesysExportObjectEntry],
+) -> CodesysProjectObjectNode {
+    #[derive(Default)]
+    struct NodeBuilder {
+        object_id: String,
+        children: BTreeMap<String, NodeBuilder>,
+    }
+
+    fn insert_entry(node: &mut NodeBuilder, key_segments: &[String], object_id: &str) {
+        if key_segments.is_empty() {
+            return;
+        }
+        let key = key_segments[0].clone();
+        let child = node.children.entry(key).or_default();
+        if key_segments.len() == 1 {
+            child.object_id = object_id.to_string();
+            return;
+        }
+        insert_entry(child, &key_segments[1..], object_id);
+    }
+
+    fn finalize_node(
+        name: &str,
+        builder: NodeBuilder,
+        parent_path: &[String],
+    ) -> CodesysProjectObjectNode {
+        let mut path = parent_path.to_vec();
+        path.push(name.to_string());
+        let children = builder
+            .children
+            .into_iter()
+            .map(|(child_name, child_builder)| finalize_node(&child_name, child_builder, &path))
+            .collect::<Vec<_>>();
+        let object_id = if builder.object_id.is_empty() {
+            deterministic_codesys_object_id("folder", name, &path)
+        } else {
+            builder.object_id
+        };
+        CodesysProjectObjectNode {
+            name: name.to_string(),
+            object_id,
+            children,
+        }
+    }
+
+    let mut root_builder = NodeBuilder {
+        object_id: deterministic_codesys_object_id("root", "Application", &[]),
+        children: BTreeMap::new(),
+    };
+
+    for entry in entries {
+        let mut path = entry.folder_segments.clone();
+        path.push(entry.name.clone());
+        insert_entry(&mut root_builder, &path, &entry.object_id);
+    }
+
+    finalize_node("Application", root_builder, &[])
+}
+
+fn count_project_structure_nodes(node: &CodesysProjectObjectNode) -> usize {
+    1 + node
+        .children
+        .iter()
+        .map(count_project_structure_nodes)
+        .sum::<usize>()
+}
+
+fn build_codesys_export_metadata(
+    declarations: &[PouDecl],
+    global_var_lists: &[GlobalVarDecl],
+    warnings: &mut Vec<String>,
+) -> CodesysExportMetadata {
+    let pou_entries = declarations
+        .iter()
+        .map(|decl| {
+            let source_path = PathBuf::from(&decl.source);
+            let folder_segments = source_folder_segments_for_codesys(&source_path);
+            let object_id = deterministic_codesys_object_id("pou", &decl.name, &folder_segments);
+            CodesysExportObjectEntry {
+                name: decl.name.clone(),
+                object_id,
+                folder_segments,
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let mut global_entries = Vec::new();
+    for decl in global_var_lists {
+        let folder_segments = source_folder_segments_for_codesys(&decl.source_path);
+        let object_id = deterministic_codesys_object_id("gvl", &decl.name, &folder_segments);
+        if decl.variables.is_empty() {
+            warnings.push(format!(
+                "{}:{} global list '{}' has no parseable declaration entries; exporting plaintext-only metadata",
+                decl.source, decl.line, decl.name
+            ));
+        }
+        global_entries.push((
+            decl.clone(),
+            CodesysExportObjectEntry {
+                name: decl.name.clone(),
+                object_id,
+                folder_segments,
+            },
+        ));
+    }
+
+    let mut all_entries = pou_entries.clone();
+    all_entries.extend(global_entries.iter().map(|(_, entry)| entry.clone()));
+    let project_structure_root = build_codesys_project_structure_tree(&all_entries);
+    let exported_project_structure_nodes = count_project_structure_nodes(&project_structure_root);
+
+    let mut folder_paths = all_entries
+        .iter()
+        .filter(|entry| !entry.folder_segments.is_empty())
+        .map(|entry| entry.folder_segments.join("/"))
+        .collect::<HashSet<_>>();
+    if !all_entries.is_empty() {
+        folder_paths.insert("Application".to_string());
+    }
+    let exported_folder_paths = folder_paths.len();
+
+    CodesysExportMetadata {
+        global_var_lists: global_entries,
+        pou_entries,
+        project_structure_root,
+        exported_project_structure_nodes,
+        exported_folder_paths,
+    }
+}
+
+fn append_codesys_project_structure_node(
+    xml: &mut String,
+    node: &CodesysProjectObjectNode,
+    indent: usize,
+) {
+    append_indent(xml, indent);
+    xml.push_str(&format!(
+        "<Object Name=\"{}\" ObjectId=\"{}\"",
+        escape_xml_attr(&node.name),
+        escape_xml_attr(&node.object_id)
+    ));
+    if node.children.is_empty() {
+        xml.push_str(" />\n");
+        return;
+    }
+
+    xml.push_str(">\n");
+    for child in &node.children {
+        append_codesys_project_structure_node(xml, child, indent + 2);
+    }
+    append_indent(xml, indent);
+    xml.push_str("</Object>\n");
+}
+
+fn append_codesys_export_add_data(
+    xml: &mut String,
+    metadata: &CodesysExportMetadata,
+    warnings: &mut Vec<String>,
+) {
+    if metadata.pou_entries.is_empty() && metadata.global_var_lists.is_empty() {
+        return;
+    }
+
+    if !metadata.global_var_lists.is_empty() {
+        xml.push_str(&format!(
+            "    <data name=\"{}\" handleUnknown=\"implementation\">\n",
+            CODESYS_APPLICATION_DATA_NAME
+        ));
+        xml.push_str("      <resource name=\"Application\">\n");
+        for (decl, object_entry) in &metadata.global_var_lists {
+            xml.push_str(&format!(
+                "        <globalVars name=\"{}\">\n",
+                escape_xml_attr(&decl.name)
+            ));
+            for variable in &decl.variables {
+                xml.push_str(&format!(
+                    "          <variable name=\"{}\">\n",
+                    escape_xml_attr(&variable.name)
+                ));
+                xml.push_str("            <type>\n");
+                if let Some(type_xml) =
+                    type_expression_to_plcopen_base_type_xml(&variable.type_expr)
+                {
+                    for line in type_xml.lines() {
+                        xml.push_str("              ");
+                        xml.push_str(line);
+                        xml.push('\n');
+                    }
+                } else {
+                    warnings.push(format!(
+                        "{}:{} unsupported global type '{}' in '{}'; exported as derived",
+                        decl.source, decl.line, variable.type_expr, variable.name
+                    ));
+                    xml.push_str(&format!(
+                        "              <derived name=\"{}\" />\n",
+                        escape_xml_attr(&variable.type_expr)
+                    ));
+                }
+                xml.push_str("            </type>\n");
+                if let Some(initial_value) = variable
+                    .initial_value
+                    .as_ref()
+                    .map(|value| value.trim().to_string())
+                    .filter(|value| !value.is_empty())
+                {
+                    xml.push_str("            <initialValue>\n");
+                    xml.push_str(&format!(
+                        "              <simpleValue value=\"{}\" />\n",
+                        escape_xml_attr(&initial_value)
+                    ));
+                    xml.push_str("            </initialValue>\n");
+                }
+                xml.push_str("          </variable>\n");
+            }
+            xml.push_str("          <addData>\n");
+            xml.push_str(&format!(
+                "            <data name=\"{}\" handleUnknown=\"implementation\">\n",
+                CODESYS_INTERFACE_PLAINTEXT_DATA_NAME
+            ));
+            xml.push_str("              <InterfaceAsPlainText>\n");
+            xml.push_str(&format!(
+                "                <xhtml xmlns=\"http://www.w3.org/1999/xhtml\">{}</xhtml>\n",
+                escape_xml_attr(&decl.body)
+            ));
+            xml.push_str("              </InterfaceAsPlainText>\n");
+            xml.push_str("            </data>\n");
+            xml.push_str(&format!(
+                "            <data name=\"{}\" handleUnknown=\"discard\">\n",
+                CODESYS_OBJECT_ID_DATA_NAME
+            ));
+            xml.push_str(&format!(
+                "              <ObjectId>{}</ObjectId>\n",
+                escape_xml_attr(&object_entry.object_id)
+            ));
+            xml.push_str("            </data>\n");
+            xml.push_str("          </addData>\n");
+            xml.push_str("        </globalVars>\n");
+        }
+        xml.push_str("      </resource>\n");
+        xml.push_str("    </data>\n");
+    }
+
+    xml.push_str(&format!(
+        "    <data name=\"{}\" handleUnknown=\"discard\">\n",
+        CODESYS_PROJECTSTRUCTURE_DATA_NAME
+    ));
+    xml.push_str("      <ProjectStructure>\n");
+    append_codesys_project_structure_node(xml, &metadata.project_structure_root, 8);
+    xml.push_str("      </ProjectStructure>\n");
+    xml.push_str("    </data>\n");
 }
 
 fn extract_data_type_declarations(source: &LoadedSource) -> (Vec<DataTypeDecl>, Vec<String>) {
@@ -2884,8 +4006,7 @@ fn import_data_types_to_sources(
     source.push_str("END_TYPE\n");
 
     let path = unique_source_path(sources_root, GENERATED_DATA_TYPES_SOURCE_PREFIX, seen_files);
-    std::fs::write(&path, source)
-        .with_context(|| format!("failed to write imported data types '{}'", path.display()))?;
+    write_text_file_with_parents(&path, &source)?;
 
     warnings.push(format!(
         "imported {} PLCopen dataType declaration(s) into {}",
@@ -2893,6 +4014,286 @@ fn import_data_types_to_sources(
         path.display()
     ));
     Ok(Some((path, imported_count)))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn import_global_var_lists_to_sources(
+    root: roxmltree::Node<'_, '_>,
+    sources_root: &Path,
+    seen_files: &mut HashSet<PathBuf>,
+    warnings: &mut Vec<String>,
+    unsupported_nodes: &mut Vec<String>,
+    unsupported_diagnostics: &mut Vec<PlcopenUnsupportedDiagnostic>,
+    loss_warnings: &mut usize,
+    project_structure_map: &CodesysProjectStructureMap,
+    imported_folder_paths: &mut HashSet<String>,
+) -> anyhow::Result<ImportGlobalVarStats> {
+    let mut stats = ImportGlobalVarStats::default();
+
+    for global_vars in root
+        .descendants()
+        .filter(|node| is_element_named_ci(*node, "globalVars"))
+    {
+        stats.discovered_global_var_lists += 1;
+
+        let default_name = format!("GlobalVars{}", stats.discovered_global_var_lists);
+        let name = attribute_ci(global_vars, "name")
+            .or_else(|| {
+                global_vars
+                    .children()
+                    .find(|child| is_element_named_ci(*child, "name"))
+                    .and_then(extract_text_content)
+            })
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+            .unwrap_or(default_name.clone());
+
+        let global_source = extract_codesys_global_vars_plaintext(global_vars)
+            .or_else(|| synthesize_global_vars_source(global_vars, warnings))
+            .map(normalize_body_text);
+        let Some(global_source) = global_source else {
+            warnings.push(format!(
+                "skipping globalVars '{}': missing plaintext/variable declarations",
+                name
+            ));
+            unsupported_nodes.push(format!("addData/globalVars/{name}"));
+            unsupported_diagnostics.push(unsupported_diagnostic(
+                "PLCO601",
+                "warning",
+                format!("addData/globalVars/{name}"),
+                "globalVars entry skipped because no importable declarations were found",
+                None,
+                "Provide interface-as-plaintext or variable/type entries in the globalVars node",
+            ));
+            *loss_warnings += 1;
+            continue;
+        };
+
+        let variables = parse_global_var_entries_from_st_block(&global_source);
+        if variables.is_empty() {
+            warnings.push(format!(
+                "skipping globalVars '{}': no parseable VAR_GLOBAL declarations found",
+                name
+            ));
+            unsupported_nodes.push(format!("addData/globalVars/{name}"));
+            unsupported_diagnostics.push(unsupported_diagnostic(
+                "PLCO602",
+                "warning",
+                format!("addData/globalVars/{name}"),
+                "globalVars plaintext was present but no declarations could be parsed",
+                None,
+                "Ensure declarations follow 'name : TYPE [:= value];' syntax inside VAR_GLOBAL",
+            ));
+            *loss_warnings += 1;
+            continue;
+        }
+
+        let list_identifier = sanitize_st_identifier(&name, "GlobalVars");
+        if !list_identifier.eq_ignore_ascii_case(&name) {
+            warnings.push(format!(
+                "normalized globalVars identifier '{}' -> '{}'",
+                name, list_identifier
+            ));
+        }
+
+        let var_global_header_suffix = extract_var_global_header_suffix(&global_source);
+        let is_qualified_only = codesys_global_vars_is_qualified_only(global_vars, &global_source);
+
+        let (rendered_source, qualified_external) = if is_qualified_only {
+            let type_name = format!("{list_identifier}_TYPE");
+            let configuration_name = format!("{list_identifier}_Globals");
+
+            let mut rendered = String::new();
+            rendered.push_str("TYPE\n");
+            rendered.push_str(&format!("{type_name} : STRUCT\n"));
+            for variable in &variables {
+                rendered.push_str("    ");
+                rendered.push_str(&format_global_var_declaration(variable));
+                rendered.push('\n');
+            }
+            rendered.push_str("END_STRUCT\n");
+            rendered.push_str("END_TYPE\n\n");
+            rendered.push_str(&format!("CONFIGURATION {configuration_name}\n"));
+            rendered.push_str(&render_var_global_header(&var_global_header_suffix));
+            rendered.push('\n');
+            rendered.push_str(&format!("    {list_identifier} : {type_name};\n"));
+            rendered.push_str("END_VAR\n");
+            rendered.push_str("END_CONFIGURATION\n");
+
+            warnings.push(format!(
+                "mapped qualified_only globalVars '{}' to configuration/type wrapper for cross-file compatibility",
+                name
+            ));
+            (
+                rendered,
+                Some(QualifiedGlobalListExternalDecl {
+                    list_name: list_identifier.clone(),
+                    type_name,
+                }),
+            )
+        } else {
+            let configuration_name = format!("{list_identifier}_Globals");
+            let mut rendered = String::new();
+            rendered.push_str(&format!("CONFIGURATION {configuration_name}\n"));
+            rendered.push_str(&render_var_global_header(&var_global_header_suffix));
+            rendered.push('\n');
+            for variable in &variables {
+                rendered.push_str("    ");
+                rendered.push_str(&format_global_var_declaration(variable));
+                rendered.push('\n');
+            }
+            rendered.push_str("END_VAR\n");
+            rendered.push_str("END_CONFIGURATION\n");
+            (rendered, None)
+        };
+
+        let folder_segments =
+            resolve_codesys_folder_segments_for_node(global_vars, &name, project_structure_map);
+        let candidate =
+            unique_source_path_with_segments(sources_root, &folder_segments, &name, seen_files);
+        write_text_file_with_parents(&candidate, &rendered_source)?;
+        track_imported_folder_path(&candidate, sources_root, imported_folder_paths);
+
+        if let Some(external_decl) = qualified_external {
+            stats.qualified_list_externals.push(external_decl);
+        }
+        stats.imported_global_var_lists += 1;
+        warnings.push(format!(
+            "imported globalVars '{}' into {}",
+            name,
+            candidate.display()
+        ));
+        stats.written_sources.push(candidate);
+    }
+
+    Ok(stats)
+}
+
+fn extract_var_global_header_suffix(source: &str) -> String {
+    for line in source.lines() {
+        let trimmed = line.trim();
+        let upper = trimmed.to_ascii_uppercase();
+        if upper.starts_with("VAR_GLOBAL") {
+            return trimmed["VAR_GLOBAL".len()..].trim().to_string();
+        }
+    }
+    String::new()
+}
+
+fn render_var_global_header(suffix: &str) -> String {
+    if suffix.trim().is_empty() {
+        "VAR_GLOBAL".to_string()
+    } else {
+        format!("VAR_GLOBAL {}", suffix.trim())
+    }
+}
+
+fn format_global_var_declaration(variable: &GlobalVarVariableDecl) -> String {
+    let mut declaration = format!("{} : {}", variable.name.trim(), variable.type_expr.trim());
+    if let Some(initial_value) = variable.initial_value.as_deref() {
+        let init = initial_value.trim();
+        if !init.is_empty() {
+            declaration.push_str(" := ");
+            declaration.push_str(init);
+        }
+    }
+    declaration.push(';');
+    declaration
+}
+
+fn codesys_global_vars_is_qualified_only(node: roxmltree::Node<'_, '_>, source: &str) -> bool {
+    let lowered_source = source.to_ascii_lowercase();
+    if lowered_source.contains("attribute 'qualified_only'")
+        || lowered_source.contains("attribute \"qualified_only\"")
+    {
+        return true;
+    }
+
+    for attribute in node
+        .descendants()
+        .filter(|entry| is_element_named_ci(*entry, "Attribute"))
+    {
+        let Some(name) = attribute_ci_any(&attribute, &["Name", "name"])
+            .map(|value| value.trim().to_ascii_lowercase())
+        else {
+            continue;
+        };
+        if name != "qualified_only" {
+            continue;
+        }
+        let value = attribute_ci_any(&attribute, &["Value", "value"]).unwrap_or_default();
+        let normalized = value.trim().to_ascii_lowercase();
+        if normalized.is_empty() || normalized == "1" || normalized == "true" {
+            return true;
+        }
+    }
+
+    false
+}
+
+fn extract_codesys_global_vars_plaintext(node: roxmltree::Node<'_, '_>) -> Option<String> {
+    for data in node
+        .descendants()
+        .filter(|entry| is_element_named_ci(*entry, "data"))
+    {
+        let Some(name) = attribute_ci(data, "name") else {
+            continue;
+        };
+        if !name.to_ascii_lowercase().contains("interfaceasplaintext")
+            && !name.eq_ignore_ascii_case(CODESYS_INTERFACE_PLAINTEXT_DATA_NAME)
+        {
+            continue;
+        }
+        if let Some(text) = extract_text_content(data) {
+            if !text.trim().is_empty() {
+                return Some(text);
+            }
+        }
+    }
+    None
+}
+
+fn synthesize_global_vars_source(
+    node: roxmltree::Node<'_, '_>,
+    warnings: &mut Vec<String>,
+) -> Option<String> {
+    let mut out = String::new();
+    for attribute in node
+        .descendants()
+        .filter(|entry| is_element_named_ci(*entry, "Attribute"))
+    {
+        let Some(name) = attribute_ci_any(&attribute, &["Name", "name"])
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+        else {
+            continue;
+        };
+        if let Some(value) = attribute_ci_any(&attribute, &["Value", "value"]) {
+            if value.trim().is_empty() {
+                out.push_str(&format!("{{attribute '{}'}}\n", name));
+            } else {
+                out.push_str(&format!("{{attribute '{}': '{}'}}\n", name, value.trim()));
+            }
+        } else {
+            out.push_str(&format!("{{attribute '{}'}}\n", name));
+        }
+    }
+
+    let declarations = parse_interface_var_declarations(node);
+    if declarations.is_empty() {
+        return None;
+    }
+    warnings.push(
+        "synthesized globalVars text from variable entries (interface-as-plaintext missing)"
+            .to_string(),
+    );
+    out.push_str("VAR_GLOBAL\n");
+    for declaration in declarations {
+        out.push_str(&declaration);
+        out.push('\n');
+    }
+    out.push_str("END_VAR\n");
+    Some(out)
 }
 
 fn import_project_model_to_sources(
@@ -2997,7 +4398,7 @@ fn import_project_model_to_sources(
             &format!("plcopen_configuration_{}", configuration.name),
             seen_files,
         );
-        std::fs::write(&path, source_text).with_context(|| {
+        write_text_file_with_parents(&path, &source_text).with_context(|| {
             format!(
                 "failed to write imported configuration '{}'",
                 path.display()
@@ -4515,6 +5916,231 @@ END_VAR
         assert!(!pump.contains("PROGRAM Pump"));
 
         let _ = std::fs::remove_dir_all(project);
+    }
+
+    #[test]
+    fn import_codesys_global_vars_and_project_structure_into_application_folder() {
+        let project = temp_dir("plcopen-import-codesys-gvl-folders");
+        let xml_path = project.join("input.xml");
+        write(
+            &xml_path,
+            r#"<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://www.plcopen.org/xml/tc6_0200">
+  <types>
+    <pous />
+  </types>
+  <instances>
+    <configurations />
+  </instances>
+  <addData>
+    <data name="http://www.3s-software.com/plcopenxml/application" handleUnknown="implementation">
+      <resource name="Application">
+        <globalVars name="GVL">
+          <variable name="start">
+            <type>
+              <BOOL />
+            </type>
+          </variable>
+          <variable name="number">
+            <type>
+              <INT />
+            </type>
+            <initialValue>
+              <simpleValue value="100" />
+            </initialValue>
+          </variable>
+          <addData>
+            <data name="http://www.3s-software.com/plcopenxml/interfaceasplaintext" handleUnknown="implementation">
+              <InterfaceAsPlainText>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml">{attribute 'qualified_only'}
+VAR_GLOBAL
+    start: BOOL;
+    number: INT := 100;
+END_VAR</xhtml>
+              </InterfaceAsPlainText>
+            </data>
+            <data name="http://www.3s-software.com/plcopenxml/objectid" handleUnknown="discard">
+              <ObjectId>gvl-id</ObjectId>
+            </data>
+          </addData>
+        </globalVars>
+        <addData>
+          <data name="http://www.3s-software.com/plcopenxml/pou" handleUnknown="implementation">
+            <pou name="PLC_PRG" pouType="program">
+              <body>
+                <ST>
+                  <xhtml xmlns="http://www.w3.org/1999/xhtml">GVL.start := TRUE;</xhtml>
+                </ST>
+              </body>
+              <addData>
+                <data name="http://www.3s-software.com/plcopenxml/objectid" handleUnknown="discard">
+                  <ObjectId>pou-id</ObjectId>
+                </data>
+              </addData>
+            </pou>
+          </data>
+        </addData>
+      </resource>
+    </data>
+    <data name="http://www.3s-software.com/plcopenxml/projectstructure" handleUnknown="discard">
+      <ProjectStructure>
+        <Object Name="Application" ObjectId="app-id">
+          <Object Name="PLC_PRG" ObjectId="pou-id" />
+          <Object Name="GVL" ObjectId="gvl-id" />
+        </Object>
+      </ProjectStructure>
+    </data>
+  </addData>
+</project>
+"#,
+        );
+
+        let report = import_xml_to_project(&xml_path, &project).expect("import XML");
+        assert_eq!(report.detected_ecosystem, "generic-plcopen");
+        assert_eq!(report.imported_pous, 1);
+        assert_eq!(report.imported_global_var_lists, 1);
+        assert!(report.imported_project_structure_nodes >= 3);
+        assert_eq!(report.imported_folder_paths, 1);
+
+        let prg = project.join("src/Application/PLC_PRG.st");
+        let gvl = project.join("src/Application/GVL.st");
+        assert!(prg.is_file(), "expected PLC_PRG in Application folder");
+        assert!(gvl.is_file(), "expected GVL in Application folder");
+
+        let prg_text = std::fs::read_to_string(prg).expect("read prg");
+        assert!(prg_text.contains("VAR_EXTERNAL"));
+        assert!(prg_text.contains("GVL : GVL_TYPE;"));
+        assert!(prg_text.contains("GVL.start := TRUE;"));
+
+        let gvl_text = std::fs::read_to_string(gvl).expect("read gvl");
+        assert!(gvl_text.contains("TYPE"));
+        assert!(gvl_text.contains("GVL_TYPE : STRUCT"));
+        assert!(gvl_text.contains("CONFIGURATION GVL_Globals"));
+        assert!(gvl_text.contains("VAR_GLOBAL"));
+        assert!(gvl_text.contains("number : INT := 100;"));
+        assert!(gvl_text.contains("GVL : GVL_TYPE;"));
+
+        let _ = std::fs::remove_dir_all(project);
+    }
+
+    #[test]
+    fn import_injects_var_external_for_qualified_globals_and_function_result_assignment() {
+        let project = temp_dir("plcopen-import-codesys-qualified-global-externals");
+        let xml_path = project.join("input.xml");
+        write(
+            &xml_path,
+            r#"<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://www.plcopen.org/xml/tc6_0200">
+  <types>
+    <pous>
+      <pou name="PLC_PRG" pouType="program">
+        <body>
+          <ST>
+            <xhtml xmlns="http://www.w3.org/1999/xhtml">GVL.start := TRUE;
+dosomthingfunction();</xhtml>
+          </ST>
+        </body>
+      </pou>
+      <pou name="dosomthingfunction" pouType="function">
+        <interface>
+          <returnType>
+            <INT />
+          </returnType>
+        </interface>
+        <body>
+          <ST>
+            <xhtml xmlns="http://www.w3.org/1999/xhtml">IF (GVL.start) THEN
+  GVL.number := 200;
+END_IF</xhtml>
+          </ST>
+        </body>
+      </pou>
+    </pous>
+  </types>
+  <addData>
+    <data name="http://www.3s-software.com/plcopenxml/application" handleUnknown="implementation">
+      <resource name="Application">
+        <globalVars name="GVL">
+          <addData>
+            <data name="http://www.3s-software.com/plcopenxml/interfaceasplaintext" handleUnknown="implementation">
+              <InterfaceAsPlainText>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml">{attribute 'qualified_only'}
+VAR_GLOBAL
+    start: BOOL;
+    number: INT := 100;
+END_VAR</xhtml>
+              </InterfaceAsPlainText>
+            </data>
+          </addData>
+        </globalVars>
+      </resource>
+    </data>
+  </addData>
+</project>
+"#,
+        );
+
+        let report = import_xml_to_project(&xml_path, &project).expect("import XML");
+        assert_eq!(report.imported_pous, 2);
+        assert_eq!(report.imported_global_var_lists, 1);
+
+        let prg_text =
+            std::fs::read_to_string(project.join("src/PLC_PRG.st")).expect("read PLC_PRG");
+        assert!(prg_text.contains("VAR_EXTERNAL"));
+        assert!(prg_text.contains("GVL : GVL_TYPE;"));
+        assert!(prg_text.contains("GVL.start := TRUE;"));
+
+        let function_text = std::fs::read_to_string(project.join("src/dosomthingfunction.st"))
+            .expect("read function");
+        assert!(function_text.contains("VAR_EXTERNAL"));
+        assert!(function_text.contains("GVL : GVL_TYPE;"));
+        assert!(function_text.contains("dosomthingfunction := dosomthingfunction;"));
+
+        let _ = std::fs::remove_dir_all(project);
+    }
+
+    #[test]
+    fn export_emits_codesys_global_vars_and_project_structure_metadata() {
+        let project = temp_dir("plcopen-export-codesys-gvl-folders");
+        write(
+            &project.join("src/Application/PLC_PRG.st"),
+            r#"
+PROGRAM PLC_PRG
+GVL.start := TRUE;
+END_PROGRAM
+"#,
+        );
+        write(
+            &project.join("src/Application/GVL.st"),
+            r#"
+{attribute 'qualified_only'}
+VAR_GLOBAL
+    start: BOOL;
+    number: INT := 100;
+END_VAR
+"#,
+        );
+
+        let output = project.join("out/plcopen.xml");
+        let report = export_project_to_xml(&project, &output).expect("export XML");
+        assert_eq!(report.exported_global_var_lists, 1);
+        assert!(report.exported_project_structure_nodes >= 3);
+        assert!(report.exported_folder_paths >= 1);
+
+        let xml = std::fs::read_to_string(&output).expect("read xml");
+        assert!(xml.contains(CODESYS_APPLICATION_DATA_NAME));
+        assert!(xml.contains(CODESYS_PROJECTSTRUCTURE_DATA_NAME));
+        assert!(xml.contains("<globalVars name=\"GVL\">"));
+        assert!(xml.contains("Object Name=\"GVL\""));
+
+        let imported = temp_dir("plcopen-export-codesys-gvl-folders-import");
+        let import_report = import_xml_to_project(&output, &imported).expect("import exported xml");
+        assert_eq!(import_report.imported_global_var_lists, 1);
+        assert!(imported.join("src/Application/GVL.st").is_file());
+        assert!(imported.join("src/Application/PLC_PRG.st").is_file());
+
+        let _ = std::fs::remove_dir_all(project);
+        let _ = std::fs::remove_dir_all(imported);
     }
 
     #[test]

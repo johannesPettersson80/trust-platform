@@ -10,13 +10,14 @@
   "imported_program_instances": 2,
   "compatibility_coverage": {
     "supported_items": 2,
-    "partial_items": 4,
+    "partial_items": 5,
     "unsupported_items": 1,
     "verdict": "partial"
   },
   "unsupported_nodes": [
     "types/dataTypes/GoodType",
     "types/dataTypes/BrokenType",
+    "addData/globalVars/GlobalVars1",
     "instances/globalVars",
     "pouType:DATA_BLOCK"
   ],
@@ -25,6 +26,7 @@
     "PLCO203",
     "PLCO402",
     "PLCO403",
+    "PLCO601",
     "PLCO506"
   ]
 }

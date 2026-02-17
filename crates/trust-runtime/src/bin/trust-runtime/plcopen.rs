@@ -136,14 +136,19 @@ fn print_export_report(report: &PlcopenExportReport) {
     );
     println!("Target adapter: {}", report.target);
     println!(
-        "Exported {} POU(s), {} data type(s), {} configuration(s), {} resource(s), {} task(s), {} program instance(s) from {} source file(s)",
+        "Exported {} POU(s), {} data type(s), {} global list(s), {} configuration(s), {} resource(s), {} task(s), {} program instance(s) from {} source file(s)",
         report.pou_count,
         report.data_type_count,
+        report.exported_global_var_lists,
         report.configuration_count,
         report.resource_count,
         report.task_count,
         report.program_instance_count,
         report.source_count
+    );
+    println!(
+        "CODESYS project structure: {} object node(s), {} folder path(s)",
+        report.exported_project_structure_nodes, report.exported_folder_paths
     );
     println!("Source map: {}", report.source_map_path.display());
     if let Some(bundle_dir) = &report.siemens_scl_bundle_dir {
@@ -202,12 +207,19 @@ fn print_import_report(report: &PlcopenImportReport) {
         report.discovered_pous, report.source_coverage_percent, report.semantic_loss_percent
     );
     println!(
-        "Imported {} data type(s), {} configuration(s), {} resource(s), {} task(s), {} program instance(s)",
+        "Imported {} data type(s), {} global list(s), {} configuration(s), {} resource(s), {} task(s), {} program instance(s)",
         report.imported_data_types,
+        report.imported_global_var_lists,
         report.imported_configurations,
         report.imported_resources,
         report.imported_tasks,
         report.imported_program_instances
+    );
+    println!(
+        "Discovered {} global list(s), imported {} project-structure object node(s), used {} folder path(s)",
+        report.discovered_global_var_lists,
+        report.imported_project_structure_nodes,
+        report.imported_folder_paths
     );
     println!("Detected ecosystem: {}", report.detected_ecosystem);
     println!(

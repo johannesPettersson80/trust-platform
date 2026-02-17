@@ -6,10 +6,15 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.9.13`
+Target release: `v0.9.15`
 
 ### Added
 
+- PLCopen CODESYS global/folder parity:
+  - `trust-runtime plcopen import` now imports CODESYS `addData/globalVars` into ST `VAR_GLOBAL` sources (plaintext-first with variable-node synthesis fallback).
+  - CODESYS `addData/projectstructure` object trees are now used to place imported POUs/GVLs into mirrored `src/` subfolders (for example `src/Application/...`).
+  - `trust-runtime plcopen export` now emits deterministic CODESYS `globalVars` and `projectstructure` metadata for ST POUs + GVL files.
+  - Import/export JSON reports now include global-list and project-structure counters (`discovered/imported_global_var_lists`, folder/object-node counts).
 - VS Code statechart automated coverage:
   - Added editor lifecycle test coverage to verify running statechart sessions are cleaned up when a custom editor panel is disposed.
   - Added state machine engine behavior tests for awaited hardware action ordering and fail-closed guard evaluation paths.
@@ -207,6 +212,10 @@ Target release: `v0.9.13`
 
 ### Changed
 
+- PLCopen CODESYS import hardening:
+  - `trust-runtime plcopen import` now maps CODESYS `{attribute 'qualified_only'}` global variable lists into a compiler-valid `TYPE + CONFIGURATION/VAR_GLOBAL` wrapper model instead of emitting unsupported top-level `VAR_GLOBAL` files.
+  - Imported POUs that reference qualified lists (for example `GVL.start`) now receive injected `VAR_EXTERNAL` declarations so cross-file global access resolves in trust-lsp/runtime builds.
+  - Imported `FUNCTION` POUs without explicit result assignment now get a deterministic fallback self-assignment (for example `MyFunc := MyFunc;`) to prevent `E206 missing return value` on first import.
 - Demo Pages WASM startup UX now force-updates the `WASM Ready` badge after engine readiness resolves, preventing a stale `Loading WASM...` state when the worker `ready` event arrives before listener registration.
 - Demo WASM analysis clients now send an internal bootstrap `status` request on worker spawn so startup no longer depends on user interaction before `WASM Ready` appears.
 - Demo Pages now publishes a root `favicon.ico` and links it from `docs/demo/index.html`, avoiding browser default `/favicon.ico` 404s.
