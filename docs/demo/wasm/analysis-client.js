@@ -2,7 +2,7 @@ export class TrustWasmAnalysisClient {
   constructor(options = {}) {
     this.defaultTimeoutMs = Number.isFinite(options.defaultTimeoutMs)
       ? options.defaultTimeoutMs
-      : 1500;
+      : 10000;
     this.workerUrl = options.workerUrl || "/ide/wasm/worker.js";
     this.autoRestart = options.autoRestart !== false;
     this.maxRestarts = Number.isFinite(options.maxRestarts)
@@ -231,35 +231,35 @@ export class TrustWasmAnalysisClient {
     this.cancel(this.lastRequestId);
   }
 
-  applyDocuments(documents, timeoutMs = 2200) {
+  applyDocuments(documents, timeoutMs = 15000) {
     return this.send("applyDocuments", { documents }, timeoutMs);
   }
 
-  diagnostics(uri, timeoutMs = 2000) {
+  diagnostics(uri, timeoutMs = 12000) {
     return this.send("diagnostics", { uri }, timeoutMs);
   }
 
-  hover(uri, position, timeoutMs = 1200) {
+  hover(uri, position, timeoutMs = 10000) {
     return this.send("hover", { uri, position }, timeoutMs);
   }
 
-  completion(uri, position, limit = 25, timeoutMs = 1600) {
+  completion(uri, position, limit = 25, timeoutMs = 12000) {
     return this.send("completion", { uri, position, limit }, timeoutMs);
   }
 
-  references(uri, position, includeDeclaration = true, timeoutMs = 1500) {
+  references(uri, position, includeDeclaration = true, timeoutMs = 12000) {
     return this.send("references", { uri, position, include_declaration: includeDeclaration }, timeoutMs);
   }
 
-  definition(uri, position, timeoutMs = 1200) {
+  definition(uri, position, timeoutMs = 12000) {
     return this.send("definition", { uri, position }, timeoutMs);
   }
 
-  documentHighlight(uri, position, timeoutMs = 800) {
+  documentHighlight(uri, position, timeoutMs = 8000) {
     return this.send("documentHighlight", { uri, position }, timeoutMs);
   }
 
-  rename(uri, position, newName, timeoutMs = 2000) {
+  rename(uri, position, newName, timeoutMs = 15000) {
     return this.send("rename", { uri, position, new_name: newName }, timeoutMs);
   }
 

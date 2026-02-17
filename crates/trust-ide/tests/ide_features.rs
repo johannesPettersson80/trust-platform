@@ -153,6 +153,45 @@ END_NAMESPACE
     assert_eq!(result.range.start(), TextSize::from(expected));
 }
 
+#[test]
+fn test_goto_definition_boundary_positions_for_typed_literal_and_local_var() {
+    let source = r#"
+TYPE
+    E_State : (Idle := 0, Running := 1);
+END_TYPE
+
+PROGRAM Main
+VAR
+    x : INT;
+    s : E_State;
+END_VAR
+
+s := E_State#Idle;
+x := x + 1;
+END_PROGRAM
+"#;
+    let (db, file) = setup(source);
+
+    let enum_hash_pos = TextSize::from(source.find("E_State#Idle").unwrap() as u32 + 7);
+    let enum_def = goto_definition(&db, file, enum_hash_pos).expect("enum definition");
+    let enum_decl = source.find("E_State : (").unwrap() as u32;
+    assert_eq!(
+        enum_def.range.start(),
+        TextSize::from(enum_decl),
+        "cursor on '#' boundary should still resolve enum definition"
+    );
+
+    let local_boundary_pos = TextSize::from(source.find("x + 1").unwrap() as u32 + 1);
+    let local_def =
+        goto_definition(&db, file, local_boundary_pos).expect("local variable definition");
+    let local_decl = source.find("x : INT").unwrap() as u32;
+    assert_eq!(
+        local_def.range.start(),
+        TextSize::from(local_decl),
+        "cursor at local symbol boundary should resolve declaration"
+    );
+}
+
 // =============================================================================
 // Go To Implementation Tests
 // =============================================================================

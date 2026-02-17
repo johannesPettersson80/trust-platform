@@ -5,6 +5,16 @@
 
 const ST_LANGUAGE_ID = "trust-st";
 const MARKER_OWNER = "trust.demo";
+const REQUEST_TIMEOUT_MS = Object.freeze({
+  applyDocuments: 20000,
+  diagnostics: 12000,
+  hover: 10000,
+  completion: 12000,
+  definition: 12000,
+  references: 12000,
+  rename: 15000,
+  documentHighlight: 10000,
+});
 
 // ── DOM References ───────────────────────────────────
 
@@ -144,7 +154,7 @@ END_CONFIGURATION
 const WALKTHROUGH = [
   {
     title: "Diagnostics",
-    hint: "Notice the squiggles in the editor. The WASM engine detects errors and warnings in real time across all 4 files.",
+    hint: "The project starts clean. Introduce a temporary typo (for example <kbd>Cmd.Enabl</kbd>) to see WASM squiggles and diagnostics update live.",
   },
   {
     title: "Hover",
@@ -266,6 +276,66 @@ function fallbackCompletionRange(model, position) {
   );
 }
 
+function requestPositions(model, position) {
+  const points = [];
+  const seen = new Set();
+  const lineNumber = Number(position.lineNumber || 1);
+  const maxColumn = model.getLineMaxColumn(lineNumber);
+  const push = (column) => {
+    const clampedColumn = clamp(Number(column || 1), 1, maxColumn);
+    const key = `${lineNumber}:${clampedColumn}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    points.push({ lineNumber, column: clampedColumn });
+  };
+
+  push(position.column);
+  push(position.column - 1);
+  push(position.column - 2);
+
+  const word =
+    model.getWordAtPosition(position) ||
+    model.getWordAtPosition({ lineNumber, column: Math.max(1, position.column - 1) });
+  if (word) {
+    push(word.startColumn);
+    push(word.endColumn - 1);
+  }
+
+  return points
+    .map((p) => fromMonacoPosition(p))
+    .filter((p) => p.character >= 0);
+}
+
+function hasNonEmptyResult(result) {
+  if (result == null) return false;
+  if (Array.isArray(result)) return result.length > 0;
+  if (typeof result === "object") {
+    if (Array.isArray(result.edits)) return result.edits.length > 0;
+    if (result.changes && typeof result.changes === "object") {
+      return Object.values(result.changes).some(
+        (entries) => Array.isArray(entries) && entries.length > 0,
+      );
+    }
+  }
+  return true;
+}
+
+async function requestWithPositionFallback(model, position, query, hasResult = hasNonEmptyResult) {
+  let lastError = null;
+  for (const candidate of requestPositions(model, position)) {
+    try {
+      const result = await query(candidate);
+      if (hasResult(result)) {
+        return result;
+      }
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  if (lastError) throw lastError;
+  return null;
+}
+
 function setStatus(text, level) {
   dom.statusLabel.textContent = text;
   dom.statusDot.className = `status-dot ${level || ""}`;
@@ -278,8 +348,22 @@ function setWasmBadge(text, level) {
     : text;
 }
 
+function normalizeDemoUri(uri) {
+  const raw = String(uri || "").trim();
+  if (!raw) return "";
+  const withoutScheme = raw
+    .replace(/^file:\/\/\//i, "")
+    .replace(/^memory:\/\/\//i, "")
+    .replace(/^https?:\/\/[^/]+\//i, "");
+  return withoutScheme.replace(/^\/+/, "");
+}
+
 function findModelByUri(uri) {
-  const index = DEMO_FILES.findIndex((f) => f.uri === uri);
+  const key = normalizeDemoUri(uri);
+  const index = DEMO_FILES.findIndex((f) => {
+    const fileKey = normalizeDemoUri(f.uri);
+    return key === fileKey || key.endsWith(`/${fileKey}`);
+  });
   return index >= 0 ? models[index] : null;
 }
 
@@ -383,7 +467,7 @@ async function loadWasmClient() {
   const { TrustWasmAnalysisClient } = await import("./wasm/analysis-client.js");
   wasmClient = new TrustWasmAnalysisClient({
     workerUrl: "./wasm/worker.js",
-    defaultTimeoutMs: 5000,
+    defaultTimeoutMs: REQUEST_TIMEOUT_MS.completion,
   });
   wasmClient.onStatus((status) => {
     if (status.type === "ready") {
@@ -414,7 +498,7 @@ async function syncAllDocuments() {
     uri: f.uri,
     text: models[i] ? models[i].getValue() : f.content,
   }));
-  syncInFlight = wasmClient.applyDocuments(documents, 8000);
+  syncInFlight = wasmClient.applyDocuments(documents, REQUEST_TIMEOUT_MS.applyDocuments);
   try {
     await syncInFlight;
     lastSyncedVersionKey = versionKey;
@@ -430,7 +514,10 @@ async function runDiagnosticsForAll() {
   let totalDiagnostics = 0;
   for (let i = 0; i < DEMO_FILES.length; i++) {
     try {
-      const result = await wasmClient.diagnostics(DEMO_FILES[i].uri);
+      const result = await wasmClient.diagnostics(
+        DEMO_FILES[i].uri,
+        REQUEST_TIMEOUT_MS.diagnostics,
+      );
       const items = Array.isArray(result) ? result : [];
       totalDiagnostics += items.length;
       if (models[i]) {
@@ -471,10 +558,19 @@ function registerProviders() {
     async provideCompletionItems(model, position) {
       const file = DEMO_FILES.find((f) => findModelByUri(f.uri) === model);
       if (!file || !wasmClient) return { suggestions: [] };
-      const cursor = fromMonacoPosition(position);
       try {
         await syncAllDocuments();
-        const items = await wasmClient.completion(file.uri, cursor, 80, 5000);
+        const items = await requestWithPositionFallback(
+          model,
+          position,
+          (cursor) => wasmClient.completion(
+            file.uri,
+            cursor,
+            120,
+            REQUEST_TIMEOUT_MS.completion,
+          ),
+          (value) => Array.isArray(value) && value.length > 0,
+        );
         if (!Array.isArray(items) || items.length === 0) return { suggestions: [] };
         const defaultRange = fallbackCompletionRange(model, position);
         const suggestions = items
@@ -515,7 +611,12 @@ function registerProviders() {
       if (!file || !wasmClient) return null;
       try {
         await syncAllDocuments();
-        const response = await wasmClient.hover(file.uri, fromMonacoPosition(position), 3500);
+        const response = await requestWithPositionFallback(
+          model,
+          position,
+          (cursor) => wasmClient.hover(file.uri, cursor, REQUEST_TIMEOUT_MS.hover),
+          (value) => Boolean(value && value.contents),
+        );
         if (!response || !response.contents) return null;
         const hoverText = normalizeHoverContentValue(response.contents);
         if (!hoverText) return null;
@@ -535,7 +636,19 @@ function registerProviders() {
       if (!file || !wasmClient) return null;
       try {
         await syncAllDocuments();
-        const result = await wasmClient.definition(file.uri, fromMonacoPosition(position));
+        const result = await requestWithPositionFallback(
+          model,
+          position,
+          (cursor) => wasmClient.definition(
+            file.uri,
+            cursor,
+            REQUEST_TIMEOUT_MS.definition,
+          ),
+          (value) => {
+            const locations = Array.isArray(value) ? value : value ? [value] : [];
+            return locations.some((loc) => loc && loc.uri && loc.range);
+          },
+        );
         if (!result) return null;
         const locations = Array.isArray(result) ? result : [result];
         return locations
@@ -560,10 +673,16 @@ function registerProviders() {
       if (!file || !wasmClient) return null;
       try {
         await syncAllDocuments();
-        const result = await wasmClient.references(
-          file.uri,
-          fromMonacoPosition(position),
-          context?.includeDeclaration !== false,
+        const result = await requestWithPositionFallback(
+          model,
+          position,
+          (cursor) => wasmClient.references(
+            file.uri,
+            cursor,
+            context?.includeDeclaration !== false,
+            REQUEST_TIMEOUT_MS.references,
+          ),
+          (value) => Array.isArray(value) && value.length > 0,
         );
         if (!Array.isArray(result)) return null;
         return result
@@ -587,7 +706,16 @@ function registerProviders() {
       if (!file || !wasmClient) return null;
       try {
         await syncAllDocuments();
-        const result = await wasmClient.rename(file.uri, fromMonacoPosition(position), newName);
+        const result = await requestWithPositionFallback(
+          model,
+          position,
+          (cursor) => wasmClient.rename(
+            file.uri,
+            cursor,
+            newName,
+            REQUEST_TIMEOUT_MS.rename,
+          ),
+        );
         const edits = [];
         if (Array.isArray(result)) {
           for (const change of result) {
@@ -659,7 +787,12 @@ async function updateDocumentHighlights() {
   }
   const position = fromMonacoPosition(editor.getPosition());
   try {
-    const highlights = await wasmClient.documentHighlight(file.uri, position);
+    await syncAllDocuments();
+    const highlights = await wasmClient.documentHighlight(
+      file.uri,
+      position,
+      REQUEST_TIMEOUT_MS.documentHighlight,
+    );
     if (!Array.isArray(highlights) || highlights.length === 0) {
       documentHighlightDecorations = editor.deltaDecorations(documentHighlightDecorations, []);
       return;

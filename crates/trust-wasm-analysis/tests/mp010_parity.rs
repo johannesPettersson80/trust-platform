@@ -309,6 +309,61 @@ fn definition_references_and_rename_work_with_plain_demo_uris() {
 }
 
 #[test]
+fn definition_supports_boundary_cursor_positions_with_plain_demo_uris() {
+    let mut documents = load_plant_demo_documents();
+    for doc in &mut documents {
+        let file_name = doc
+            .uri
+            .rsplit('/')
+            .next()
+            .expect("document uri should have file name")
+            .to_string();
+        doc.uri = file_name;
+    }
+
+    let fb_text = documents
+        .iter()
+        .find(|doc| doc.uri == "fb_pump.st")
+        .map(|doc| doc.text.clone())
+        .expect("fb source exists");
+
+    let mut engine = BrowserAnalysisEngine::new();
+    engine
+        .replace_documents(documents)
+        .expect("load plain-uri documents");
+
+    let enum_hash_offset = fb_text
+        .find("E_PumpState#Idle")
+        .map(|idx| idx as u32 + "E_PumpState".len() as u32)
+        .expect("enum typed-literal anchor exists");
+    let enum_def = engine
+        .definition(DefinitionRequest {
+            uri: "fb_pump.st".to_string(),
+            position: offset_to_position_utf16(&fb_text, enum_hash_offset),
+        })
+        .expect("enum hash-boundary definition request should succeed");
+    assert!(
+        enum_def.is_some(),
+        "definition should resolve when cursor is on typed-literal '#' boundary"
+    );
+
+    let ramp_boundary_offset = fb_text
+        .find("ramp + 0.2")
+        .map(|idx| idx as u32 + "ramp".len() as u32)
+        .expect("ramp usage anchor exists");
+    let ramp_def = engine
+        .definition(DefinitionRequest {
+            uri: "fb_pump.st".to_string(),
+            position: offset_to_position_utf16(&fb_text, ramp_boundary_offset),
+        })
+        .expect("ramp boundary definition request should succeed");
+    assert!(
+        ramp_def.is_some(),
+        "definition should resolve when cursor is at local variable boundary"
+    );
+}
+
+#[test]
 fn references_and_rename_work_with_plain_demo_uris() {
     let mut documents = load_plant_demo_documents();
     for doc in &mut documents {
