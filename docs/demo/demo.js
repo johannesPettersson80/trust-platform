@@ -558,16 +558,25 @@ async function loadWasmClient() {
     workerUrl: "./wasm/worker.js",
     defaultTimeoutMs: REQUEST_TIMEOUT_MS.completion,
   });
+  let wasmReadyUiSet = false;
+  const markWasmReady = () => {
+    if (wasmReadyUiSet) return;
+    wasmReadyUiSet = true;
+    setWasmBadge("WASM Ready", "ok");
+    setStatus("WASM analysis engine ready", "ready");
+  };
   wasmClient.onStatus((status) => {
     if (status.type === "ready") {
-      setWasmBadge("WASM Ready", "ok");
-      setStatus("WASM analysis engine ready", "ready");
+      markWasmReady();
     } else if (status.type === "fatal") {
       setWasmBadge("WASM Error", "err");
       setStatus("WASM error: " + status.error, "error");
     }
   });
   await wasmClient.ready();
+  // Guard against a startup race where the worker posts "ready" before the
+  // status listener is attached.
+  markWasmReady();
 }
 
 async function syncAllDocuments() {
