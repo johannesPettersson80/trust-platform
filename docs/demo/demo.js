@@ -1,3 +1,5 @@
+import { buildRequestPositions } from "./lsp-position-resolver.js";
+
 // truST Demo – standalone GitHub Pages demo orchestration
 // Loads Monaco + WASM analysis engine, registers all 7 LSP providers.
 
@@ -170,7 +172,7 @@ const WALKTHROUGH = [
   },
   {
     title: "Find References",
-    hint: "Right-click on <kbd>Enable</kbd> and select <em>Go to References</em> (or press <kbd>Shift+F12</kbd>) to see every usage across files.",
+    hint: "Left-click <kbd>Enable</kbd> first, then right-click and select <em>Go to References</em> (or press <kbd>Shift+F12</kbd>) to see every usage across files.",
   },
   {
     title: "Document Highlights",
@@ -178,7 +180,7 @@ const WALKTHROUGH = [
   },
   {
     title: "Rename",
-    hint: "Press <kbd>F2</kbd> (or <kbd>Fn+F2</kbd> on laptops) on <kbd>ActualSpeed</kbd> to rename it across all files in the project.",
+    hint: "Left-click <kbd>ActualSpeed</kbd> first, then press <kbd>F2</kbd> (or <kbd>Fn+F2</kbd> on laptops) to rename it across all files in the project.",
   },
 ];
 
@@ -193,6 +195,13 @@ let documentHighlightDecorations = [];
 let documentHighlightTimer = null;
 let lastSyncedVersionKey = "";
 let syncInFlight = null;
+const DEBUG_LSP = (() => {
+  try {
+    return new URLSearchParams(window.location.search).get("debug_lsp") === "1";
+  } catch {
+    return false;
+  }
+})();
 
 // ── Helpers ──────────────────────────────────────────
 
@@ -276,34 +285,46 @@ function fallbackCompletionRange(model, position) {
   );
 }
 
-function requestPositions(model, position) {
-  const points = [];
-  const seen = new Set();
-  const lineNumber = Number(position.lineNumber || 1);
-  const maxColumn = model.getLineMaxColumn(lineNumber);
-  const push = (column) => {
-    const clampedColumn = clamp(Number(column || 1), 1, maxColumn);
-    const key = `${lineNumber}:${clampedColumn}`;
-    if (seen.has(key)) return;
-    seen.add(key);
-    points.push({ lineNumber, column: clampedColumn });
-  };
+function debugLog(event, payload) {
+  if (!DEBUG_LSP) return;
+  console.info(`[demo:lsp] ${event}`, payload);
+}
 
-  push(position.column);
-  push(position.column - 1);
-  push(position.column - 2);
-
-  const word =
-    model.getWordAtPosition(position) ||
-    model.getWordAtPosition({ lineNumber, column: Math.max(1, position.column - 1) });
-  if (word) {
-    push(word.startColumn);
-    push(word.endColumn - 1);
+function summarizeResult(result) {
+  if (result == null) return "null";
+  if (Array.isArray(result)) return `array(${result.length})`;
+  if (typeof result === "object") {
+    if (Array.isArray(result.edits)) return `edits(${result.edits.length})`;
+    if (result.changes && typeof result.changes === "object") {
+      return `changes(${Object.keys(result.changes).length})`;
+    }
+    return "object";
   }
+  return typeof result;
+}
 
-  return points
-    .map((p) => fromMonacoPosition(p))
-    .filter((p) => p.character >= 0);
+function describeWord(model, candidate) {
+  const word =
+    model.getWordAtPosition(candidate)
+    || model.getWordAtPosition({
+      lineNumber: candidate.lineNumber,
+      column: Math.max(1, candidate.column - 1),
+    })
+    || model.getWordAtPosition({
+      lineNumber: candidate.lineNumber,
+      column: candidate.column + 1,
+    });
+  return word ? word.word : null;
+}
+
+function requestCandidates(model, position) {
+  return buildRequestPositions(model, position)
+    .map((candidate) => ({
+      monaco: candidate,
+      protocol: fromMonacoPosition(candidate),
+      word: describeWord(model, candidate),
+    }))
+    .filter((candidate) => candidate.protocol.character >= 0);
 }
 
 function hasNonEmptyResult(result) {
@@ -320,18 +341,70 @@ function hasNonEmptyResult(result) {
   return true;
 }
 
-async function requestWithPositionFallback(model, position, query, hasResult = hasNonEmptyResult) {
+async function requestWithPositionFallback(
+  model,
+  position,
+  query,
+  hasResult = hasNonEmptyResult,
+  context = {},
+) {
   let lastError = null;
-  for (const candidate of requestPositions(model, position)) {
+  const candidates = requestCandidates(model, position);
+  debugLog("request.start", {
+    operation: context.operation || "unknown",
+    fileUri: context.fileUri || "",
+    anchor: { lineNumber: position.lineNumber, column: position.column },
+    candidates: candidates.map((candidate) => ({
+      lineNumber: candidate.monaco.lineNumber,
+      column: candidate.monaco.column,
+      word: candidate.word,
+    })),
+  });
+
+  for (let index = 0; index < candidates.length; index += 1) {
+    const candidate = candidates[index];
     try {
-      const result = await query(candidate);
-      if (hasResult(result)) {
+      const result = await query(candidate.protocol);
+      const ok = hasResult(result);
+      debugLog("request.candidate", {
+        operation: context.operation || "unknown",
+        fileUri: context.fileUri || "",
+        candidate: {
+          lineNumber: candidate.monaco.lineNumber,
+          column: candidate.monaco.column,
+          word: candidate.word,
+          index,
+        },
+        ok,
+        result: summarizeResult(result),
+      });
+      if (ok) {
+        debugLog("request.success", {
+          operation: context.operation || "unknown",
+          fileUri: context.fileUri || "",
+          index,
+        });
         return result;
       }
     } catch (error) {
       lastError = error;
+      debugLog("request.error", {
+        operation: context.operation || "unknown",
+        fileUri: context.fileUri || "",
+        candidate: {
+          lineNumber: candidate.monaco.lineNumber,
+          column: candidate.monaco.column,
+          word: candidate.word,
+          index,
+        },
+        error: String(error?.message || error),
+      });
     }
   }
+  debugLog("request.empty", {
+    operation: context.operation || "unknown",
+    fileUri: context.fileUri || "",
+  });
   if (lastError) throw lastError;
   return null;
 }
@@ -570,6 +643,7 @@ function registerProviders() {
             REQUEST_TIMEOUT_MS.completion,
           ),
           (value) => Array.isArray(value) && value.length > 0,
+          { operation: "completion", fileUri: file.uri },
         );
         if (!Array.isArray(items) || items.length === 0) return { suggestions: [] };
         const defaultRange = fallbackCompletionRange(model, position);
@@ -616,6 +690,7 @@ function registerProviders() {
           position,
           (cursor) => wasmClient.hover(file.uri, cursor, REQUEST_TIMEOUT_MS.hover),
           (value) => Boolean(value && value.contents),
+          { operation: "hover", fileUri: file.uri },
         );
         if (!response || !response.contents) return null;
         const hoverText = normalizeHoverContentValue(response.contents);
@@ -648,6 +723,7 @@ function registerProviders() {
             const locations = Array.isArray(value) ? value : value ? [value] : [];
             return locations.some((loc) => loc && loc.uri && loc.range);
           },
+          { operation: "definition", fileUri: file.uri },
         );
         if (!result) return null;
         const locations = Array.isArray(result) ? result : [result];
@@ -683,6 +759,7 @@ function registerProviders() {
             REQUEST_TIMEOUT_MS.references,
           ),
           (value) => Array.isArray(value) && value.length > 0,
+          { operation: "references", fileUri: file.uri },
         );
         if (!Array.isArray(result)) return null;
         return result
@@ -715,6 +792,8 @@ function registerProviders() {
             newName,
             REQUEST_TIMEOUT_MS.rename,
           ),
+          hasNonEmptyResult,
+          { operation: "rename", fileUri: file.uri },
         );
         const edits = [];
         if (Array.isArray(result)) {
@@ -754,15 +833,27 @@ function registerProviders() {
       }
     },
     async resolveRenameLocation(model, position) {
-      const word = model.getWordAtPosition(position)
-        || model.getWordAtPosition({
-          lineNumber: position.lineNumber,
-          column: Math.max(1, position.column - 1),
-        });
-      if (!word) return { rejectReason: "Not a renamable symbol" };
+      const candidates = requestCandidates(model, position);
+      for (const candidate of candidates) {
+        const word =
+          model.getWordAtPosition(candidate.monaco)
+          || model.getWordAtPosition({
+            lineNumber: candidate.monaco.lineNumber,
+            column: Math.max(1, candidate.monaco.column - 1),
+          });
+        if (!word) continue;
+        return {
+          range: new monaco.Range(
+            candidate.monaco.lineNumber,
+            word.startColumn,
+            candidate.monaco.lineNumber,
+            word.endColumn,
+          ),
+          text: word.word,
+        };
+      }
       return {
-        range: new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, word.endColumn),
-        text: word.word,
+        rejectReason: "Not a renamable symbol",
       };
     },
   });
@@ -848,6 +939,20 @@ function createEditor() {
     renderLineHighlight: "all",
     padding: { top: 8, bottom: 8 },
     theme: "trust-dark",
+  });
+
+  editor.onContextMenu((event) => {
+    const position = event?.target?.position;
+    if (!position) return;
+    editor.setPosition(position);
+  });
+
+  editor.onMouseDown((event) => {
+    const position = event?.target?.position;
+    if (!position) return;
+    if (event?.event?.rightButton || event?.event?.middleButton) {
+      editor.setPosition(position);
+    }
   });
 
   editor.onDidChangeCursorPosition(() => {

@@ -20,6 +20,7 @@ Stable shipped binaries: `trust-lsp`, `trust-runtime`, `trust-debug`, `trust-bun
 ## Demo
 
 - Browser IDE static demo (GitHub Pages-ready, no server required): `docs/demo/`
+- Local GitHub Pages replica runner: `scripts/run_demo_local_replica.sh --port 4175 --repo trust-platform`
 
 ### Debug session with breakpoint + runtime
 ![Debug session with breakpoint + runtime](docs/media/debug.png)

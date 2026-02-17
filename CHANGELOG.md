@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.9.11`
+Target release: `v0.9.12`
 
 ### Added
 
@@ -282,6 +282,9 @@ Target release: `v0.9.11`
 - Browser IDE/WASM LSP navigation for structured type fields is now project-wide: `Go to Definition`, `Go to References`, and rename now resolve `STRUCT`/`UNION` members across files (fixing `No definition/references found` on demo symbols like `Enable`, `ActualSpeed`, and `ramp`).
 - GitHub Pages demo rename wiring now consumes WASM rename edits directly, restoring `F2` rename in Monaco, and walkthrough instructions now match the exact Monaco UI labels/actions (`Ctrl+Left-click`, `Go to References`, `Fn+F2` note for laptops).
 - GitHub Pages demo LSP request handling is now resilient on slower browser hosts: WASM timeouts were raised for diagnostics/navigation/rename/completion, Monaco cursor boundary fallback now retries nearby symbol offsets for strict WASM requests, URI mapping accepts normalized location schemes, and diagnostics walkthrough text now reflects a clean-by-default project (use a temporary typo to demonstrate squiggles).
+- GitHub Pages demo strict-WASM LSP cursor anchoring is now delimiter-aware (`.`, `#`, `:` boundaries): completion/definition/references/rename retry nearby identifier edges, context-menu requests set the cursor to the clicked symbol, and rename preflight resolves identifier ranges from the same fallback matrix.
+- Browser analysis worker-recovery checks now also run demo cursor-position fallback regressions (`docs/demo/lsp-position-resolver.test.mjs`) and no longer fail hard when the legacy prototype test fixture path is absent.
+- Added local GitHub Pages replica serving for the demo (`scripts/serve_demo_local_replica.py`, `scripts/run_demo_local_replica.sh`) with `/<repo>/` routing and no-cache headers so local behavior matches deployed Pages URLs.
 - IDE symbol-target resolution now anchors token/scope lookup to the resolved identifier range (not raw punctuation cursor token), fixing `Go to Definition`, references, and rename misses when the cursor lands on adjacent punctuation in demo/editor workflows.
 - GitHub Pages demo release packaging now rebuilds and ships refreshed `docs/demo/wasm/` artifacts from the current `trust-wasm-analysis` engine so deployed Pages behavior matches committed source fixes.
 - VS Code extension project workflows now follow `src/`-based projects consistently: ST test run root detection accepts `src`, PLCopen export integration coverage uses `src`, and new-project scaffolding no longer generates legacy `sources/`.

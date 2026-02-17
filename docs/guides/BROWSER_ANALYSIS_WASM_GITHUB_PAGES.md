@@ -22,10 +22,14 @@ results when WASM requests fail or time out.
 
 1. Rebuild/copy demo assets:
    `scripts/build_demo.sh`
-2. Serve the static directory:
-   `python3 -m http.server 8000 -d docs/demo`
+2. Serve a local GitHub Pages replica (`/<repo>/` path prefix + no-cache):
+   `scripts/run_demo_local_replica.sh --port 4175 --repo trust-platform`
 3. Open:
-   `http://localhost:8000/`
+   `http://127.0.0.1:4175/trust-platform/`
+
+Alternative quick static host:
+- `python3 -m http.server 8000 -d docs/demo`
+- `http://127.0.0.1:8000/`
 
 ### Manual smoke checks (strict WASM/LSP path)
 
@@ -38,11 +42,11 @@ results when WASM requests fail or time out.
 4. Go to definition:
    in `fb_pump.st`, `Ctrl+Left-click` `E_PumpState`; expected jump to `types.st` enum declaration.
 5. Go to references:
-   in `types.st`, right-click `Enable` and choose `Go to References` (or press `Shift+F12`); expected references include `fb_pump.st` and `program.st`.
+   in `types.st`, first left-click `Enable`, then right-click `Enable` and choose `Go to References` (or press `Shift+F12`); expected references include `fb_pump.st` and `program.st`.
 6. Document highlights:
    click `ramp` in `fb_pump.st`; expected all occurrences in that file are highlighted.
 7. Rename:
-   in `types.st`, put cursor on `ActualSpeed`, press `F2` (or `Fn+F2`), rename to `ActualSpeedRpm`; expected edits across files.
+   in `types.st`, first left-click `ActualSpeed`, then press `F2` (or `Fn+F2`), rename to `ActualSpeedRpm`; expected edits across files.
 
 ## GitHub Pages deployment
 
@@ -59,6 +63,9 @@ If you still see `Get Pages site failed`:
 1. Open repository settings -> **Pages**.
 2. Ensure build/deploy source is **GitHub Actions**.
 3. Re-run the **Demo Pages** workflow.
+
+For local debugging of cursor-anchor retries, add `?debug_lsp=1` to the URL and
+watch browser console logs prefixed with `[demo:lsp]`.
 
 After the workflow succeeds, the demo URL is:
 

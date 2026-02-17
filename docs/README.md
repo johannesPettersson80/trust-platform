@@ -89,6 +89,8 @@ GitHub Pages static demo (all 7 LSP features, no server required):
 - `docs/demo/`
 - `docs/guides/BROWSER_ANALYSIS_WASM_GITHUB_PAGES.md`
 - `.github/workflows/demo-pages.yml`
+- `scripts/build_demo.sh`
+- `scripts/run_demo_local_replica.sh`
 
 ## Web IDE (`/ide`)
 
