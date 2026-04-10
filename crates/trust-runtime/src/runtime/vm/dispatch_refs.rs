@@ -9,6 +9,7 @@ use super::call::VM_LOCAL_SENTINEL_FRAME_ID;
 use super::errors::VmTrap;
 use super::frames::{FrameStack, VmFrame};
 use super::{VmModule, VmRef};
+use crate::memory::coerce_to_existing_value_type;
 
 pub(super) fn load_ref(
     runtime: &Runtime,
@@ -280,7 +281,7 @@ fn read_value_path<'a>(value: &'a Value, path: &[RefSegment]) -> Option<&'a Valu
 
 fn write_value_path(target: &mut Value, path: &[RefSegment], value: Value) -> bool {
     if path.is_empty() {
-        *target = value;
+        *target = coerce_to_existing_value_type(target, value);
         return true;
     }
 

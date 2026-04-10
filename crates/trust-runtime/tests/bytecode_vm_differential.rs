@@ -205,6 +205,63 @@ fn differential_c1_stdlib_named_dispatch() {
 }
 
 #[test]
+fn differential_c1_conversion_call_inside_for_loop_preserves_execution() {
+    let source = r#"
+        PROGRAM Main
+        VAR
+            sum_for : DINT := DINT#0;
+            i : INT := INT#0;
+        END_VAR
+
+        FOR i := 1 TO 5 DO
+            sum_for := sum_for + INT_TO_DINT(i);
+        END_FOR;
+        END_PROGRAM
+    "#;
+
+    assert_backend_parity(source, &["sum_for", "i"], 1);
+
+    let mut vm = vm_harness(source);
+    let cycle = vm.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "unexpected VM runtime errors: {:?}",
+        cycle.errors
+    );
+    assert_eq!(vm.get_output("sum_for"), Some(Value::DInt(15)));
+    assert_eq!(vm.get_output("i"), Some(Value::Int(6)));
+}
+
+#[test]
+fn differential_c1_conversion_call_inside_while_loop_preserves_execution() {
+    let source = r#"
+        PROGRAM Main
+        VAR
+            sum_while : DINT := DINT#0;
+            i : INT := INT#0;
+        END_VAR
+
+        WHILE i < 5 DO
+            i := i + 1;
+            sum_while := sum_while + INT_TO_DINT(i);
+        END_WHILE;
+        END_PROGRAM
+    "#;
+
+    assert_backend_parity(source, &["sum_while", "i"], 1);
+
+    let mut vm = vm_harness(source);
+    let cycle = vm.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "unexpected VM runtime errors: {:?}",
+        cycle.errors
+    );
+    assert_eq!(vm.get_output("sum_while"), Some(Value::DInt(15)));
+    assert_eq!(vm.get_output("i"), Some(Value::Int(5)));
+}
+
+#[test]
 fn differential_c1_missing_required_argument_error_parity() {
     let source = r#"
         FUNCTION Divide : INT

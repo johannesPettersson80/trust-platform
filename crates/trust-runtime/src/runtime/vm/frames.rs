@@ -1,4 +1,4 @@
-use crate::memory::InstanceId;
+use crate::memory::{coerce_to_existing_value_type, InstanceId};
 use crate::value::Value;
 
 use super::errors::VmTrap;
@@ -63,7 +63,7 @@ impl VmFrame {
             start: self.local_ref_start,
             count: self.local_ref_count,
         })?;
-        *slot = value;
+        *slot = coerce_to_existing_value_type(slot, value);
         Ok(())
     }
 }

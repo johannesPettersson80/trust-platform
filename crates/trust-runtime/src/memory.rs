@@ -5,6 +5,7 @@
 use indexmap::IndexMap;
 use rustc_hash::FxHashMap;
 use smol_str::SmolStr;
+use trust_hir::TypeId;
 
 use crate::value::{PartialAccess, RefSegment, Value, ValueRef};
 
@@ -78,7 +79,12 @@ impl VariableStorage {
     }
 
     pub fn set_global(&mut self, name: impl Into<SmolStr>, value: Value) {
-        self.globals.insert(name.into(), value);
+        let name = name.into();
+        if let Some(existing) = self.globals.get_mut(name.as_str()) {
+            *existing = coerce_to_existing_value_type(existing, value);
+            return;
+        }
+        self.globals.insert(name, value);
     }
 
     #[must_use]
@@ -160,7 +166,12 @@ impl VariableStorage {
 
     pub fn set_local(&mut self, name: impl Into<SmolStr>, value: Value) -> bool {
         if let Some(frame) = self.current_frame_mut() {
-            frame.variables.insert(name.into(), value);
+            let name = name.into();
+            if let Some(existing) = frame.variables.get_mut(name.as_str()) {
+                *existing = coerce_to_existing_value_type(existing, value);
+            } else {
+                frame.variables.insert(name, value);
+            }
             true
         } else {
             false
@@ -238,7 +249,12 @@ impl VariableStorage {
         value: Value,
     ) -> bool {
         if let Some(instance) = self.instances.get_mut(&id) {
-            instance.variables.insert(name.into(), value);
+            let name = name.into();
+            if let Some(existing) = instance.variables.get_mut(name.as_str()) {
+                *existing = coerce_to_existing_value_type(existing, value);
+            } else {
+                instance.variables.insert(name, value);
+            }
             true
         } else {
             false
@@ -479,7 +495,7 @@ fn read_by_ref_path<'a>(value: &'a Value, path: &[RefSegment]) -> Option<&'a Val
 
 fn write_by_ref_path(target: &mut Value, path: &[RefSegment], value: Value) -> bool {
     if path.is_empty() {
-        *target = value;
+        *target = coerce_to_existing_value_type(target, value);
         return true;
     }
 
@@ -506,6 +522,62 @@ fn write_by_ref_path(target: &mut Value, path: &[RefSegment], value: Value) -> b
             }
             _ => false,
         },
+    }
+}
+
+pub(crate) fn coerce_to_existing_value_type(existing: &Value, value: Value) -> Value {
+    let Some(target_type) = builtin_type_id(existing) else {
+        return value;
+    };
+    if builtin_type_id(&value) == Some(target_type) {
+        return value;
+    }
+    let Some(type_name) = target_type.builtin_name() else {
+        return value;
+    };
+    crate::stdlib::conversions::call_conversion(
+        &format!("TO_{type_name}"),
+        std::slice::from_ref(&value),
+    )
+    .and_then(Result::ok)
+    .unwrap_or(value)
+}
+
+fn builtin_type_id(value: &Value) -> Option<TypeId> {
+    match value {
+        Value::Bool(_) => Some(TypeId::BOOL),
+        Value::SInt(_) => Some(TypeId::SINT),
+        Value::Int(_) => Some(TypeId::INT),
+        Value::DInt(_) => Some(TypeId::DINT),
+        Value::LInt(_) => Some(TypeId::LINT),
+        Value::USInt(_) => Some(TypeId::USINT),
+        Value::UInt(_) => Some(TypeId::UINT),
+        Value::UDInt(_) => Some(TypeId::UDINT),
+        Value::ULInt(_) => Some(TypeId::ULINT),
+        Value::Real(_) => Some(TypeId::REAL),
+        Value::LReal(_) => Some(TypeId::LREAL),
+        Value::Byte(_) => Some(TypeId::BYTE),
+        Value::Word(_) => Some(TypeId::WORD),
+        Value::DWord(_) => Some(TypeId::DWORD),
+        Value::LWord(_) => Some(TypeId::LWORD),
+        Value::Time(_) => Some(TypeId::TIME),
+        Value::LTime(_) => Some(TypeId::LTIME),
+        Value::Date(_) => Some(TypeId::DATE),
+        Value::LDate(_) => Some(TypeId::LDATE),
+        Value::Tod(_) => Some(TypeId::TOD),
+        Value::LTod(_) => Some(TypeId::LTOD),
+        Value::Dt(_) => Some(TypeId::DT),
+        Value::Ldt(_) => Some(TypeId::LDT),
+        Value::String(_) => Some(TypeId::STRING),
+        Value::WString(_) => Some(TypeId::WSTRING),
+        Value::Char(_) => Some(TypeId::CHAR),
+        Value::WChar(_) => Some(TypeId::WCHAR),
+        Value::Array(_)
+        | Value::Struct(_)
+        | Value::Enum(_)
+        | Value::Reference(_)
+        | Value::Instance(_)
+        | Value::Null => None,
     }
 }
 
