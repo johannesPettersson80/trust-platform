@@ -11,6 +11,7 @@ export function run(): Promise<void> {
   require("./debug-io.integration.test");
   require("./hmi.integration.test");
   require("./lsp.integration.test");
+  require("./runtime-default-settings.integration.test");
   require("./new-project.test");
   require("./plcopen-export.test");
   require("./plcopen-import.test");
