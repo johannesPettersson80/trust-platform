@@ -167,12 +167,24 @@ impl<'a, 'b> CallChecker<'a, 'b> {
 
         if formal_call {
             for (param, arg) in params.iter().zip(assigned.iter()) {
-                if arg.is_none() && matches!(param.direction, ParamDirection::InOut) {
-                    self.checker.diagnostics.error(
-                        DiagnosticCode::InvalidArgumentType,
-                        node.text_range(),
-                        format!("missing binding for in-out parameter '{}'", param.name),
-                    );
+                if arg.is_none() {
+                    match param.direction {
+                        ParamDirection::InOut => {
+                            self.checker.diagnostics.error(
+                                DiagnosticCode::InvalidArgumentType,
+                                node.text_range(),
+                                format!("missing binding for in-out parameter '{}'", param.name),
+                            );
+                        }
+                        ParamDirection::In => {
+                            self.checker.diagnostics.warning(
+                                DiagnosticCode::UnusedParameter,
+                                node.text_range(),
+                                format!("input parameter '{}' not provided (will use default value)", param.name),
+                            );
+                        }
+                        _ => {}
+                    }
                 }
             }
         }
