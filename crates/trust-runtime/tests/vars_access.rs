@@ -82,7 +82,7 @@ END_CONFIGURATION
     harness.cycle();
 
     assert_eq!(harness.get_output("observed"), Some(Value::Int(41)));
-    assert_eq!(harness.get_output("counter"), Some(Value::Int(42)));
+    assert_eq!(harness.get_output("counter"), Some(Value::DInt(42)));
     assert_eq!(harness.get_direct_output("%MW0").unwrap(), Value::Word(42));
 }
 

@@ -229,7 +229,7 @@ fn differential_c1_conversion_call_inside_for_loop_preserves_execution() {
         cycle.errors
     );
     assert_eq!(vm.get_output("sum_for"), Some(Value::DInt(15)));
-    assert_eq!(vm.get_output("i"), Some(Value::Int(6)));
+    assert_eq!(vm.get_output("i"), Some(Value::DInt(6)));
 }
 
 #[test]
@@ -258,7 +258,7 @@ fn differential_c1_conversion_call_inside_while_loop_preserves_execution() {
         cycle.errors
     );
     assert_eq!(vm.get_output("sum_while"), Some(Value::DInt(15)));
-    assert_eq!(vm.get_output("i"), Some(Value::Int(5)));
+    assert_eq!(vm.get_output("i"), Some(Value::DInt(5)));
 }
 
 #[test]

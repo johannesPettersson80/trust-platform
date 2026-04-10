@@ -34,32 +34,43 @@ fn convert_with_mode(
     dst: TypeId,
     mode: ConversionMode,
 ) -> Result<Value, RuntimeError> {
-    let actual_src = value_type_id(value).ok_or(RuntimeError::TypeMismatch)?;
-    if let Some(expected) = src {
-        if actual_src != expected {
-            return Err(RuntimeError::TypeMismatch);
-        }
-    }
+    let (value, actual_src) = normalize_source_value(value, src, mode)?;
     if !is_conversion_allowed(actual_src, dst) {
         return Err(RuntimeError::TypeMismatch);
     }
-    convert_value(value, dst, mode)
+    convert_value(&value, dst, mode)
 }
 
 fn trunc_convert(value: &Value, src: Option<TypeId>, dst: TypeId) -> Result<Value, RuntimeError> {
-    let actual_src = value_type_id(value).ok_or(RuntimeError::TypeMismatch)?;
-    if let Some(expected) = src {
-        if actual_src != expected {
-            return Err(RuntimeError::TypeMismatch);
-        }
-    }
+    let (value, actual_src) = normalize_source_value(value, src, ConversionMode::Trunc)?;
     if !matches!(actual_src, TypeId::REAL | TypeId::LREAL) {
         return Err(RuntimeError::TypeMismatch);
     }
     if !is_integer_type(dst) {
         return Err(RuntimeError::TypeMismatch);
     }
-    convert_value(value, dst, ConversionMode::Trunc)
+    convert_value(&value, dst, ConversionMode::Trunc)
+}
+
+fn normalize_source_value(
+    value: &Value,
+    src: Option<TypeId>,
+    mode: ConversionMode,
+) -> Result<(Value, TypeId), RuntimeError> {
+    let actual_src = value_type_id(value).ok_or(RuntimeError::TypeMismatch)?;
+    let Some(expected) = src else {
+        return Ok((value.clone(), actual_src));
+    };
+    if actual_src == expected {
+        return Ok((value.clone(), actual_src));
+    }
+    if !is_conversion_allowed(actual_src, expected) {
+        return Err(RuntimeError::TypeMismatch);
+    }
+    // Runtime storage can widen scalar values (for example INT -> DINT after arithmetic).
+    // Exact-source conversions should normalize back to the requested source type first.
+    let coerced = convert_value(value, expected, mode)?;
+    Ok((coerced, expected))
 }
 
 fn convert_value(value: &Value, dst: TypeId, mode: ConversionMode) -> Result<Value, RuntimeError> {

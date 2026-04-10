@@ -5,7 +5,7 @@ use crate::bytecode::{
     NATIVE_CALL_KIND_STDLIB,
 };
 use crate::error::RuntimeError;
-use crate::memory::{coerce_to_existing_value_type, FrameId, InstanceId, MemoryLocation};
+use crate::memory::{FrameId, InstanceId, MemoryLocation};
 use crate::stdlib::{conversions, fbs, time, StdParams};
 use crate::value::{RefSegment, Value, ValueRef};
 
@@ -1461,7 +1461,7 @@ fn read_by_ref_path<'a>(value: &'a Value, path: &[RefSegment]) -> Option<&'a Val
 
 fn write_by_ref_path(target: &mut Value, path: &[RefSegment], value: Value) -> bool {
     if path.is_empty() {
-        *target = coerce_to_existing_value_type(target, value);
+        *target = value;
         return true;
     }
     match &path[0] {
