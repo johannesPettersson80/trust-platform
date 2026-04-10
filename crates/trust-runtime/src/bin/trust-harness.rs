@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
 
 use trust_runtime::harness::TestHarness;
-use trust_runtime::value::Value;
+use trust_runtime::value::{Duration, Value};
 
 #[derive(Deserialize)]
 struct Request {
@@ -29,6 +29,9 @@ struct Request {
     inputs: Option<std::collections::HashMap<String, String>>,
     #[serde(default)]
     watch: Option<Vec<String>>,
+    /// Scan time in milliseconds — advances virtual time per cycle (for TON/TOF/TP)
+    #[serde(default)]
+    dt_ms: Option<i64>,
 }
 
 #[derive(Serialize)]
@@ -137,9 +140,14 @@ fn handle_cycle(req: &Request, harness: &mut Option<TestHarness>) -> Response {
         }
     }
 
-    // Execute cycles
+    // Execute cycles, advancing virtual time if dt_ms is provided
     let count = req.count.unwrap_or(1);
+    let dt = req.dt_ms.map(Duration::from_millis);
     for _ in 0..count {
+        // Advance time BEFORE cycle so TON sees elapsed time during execution
+        if let Some(dt) = dt {
+            h.advance_time(dt);
+        }
         h.cycle();
     }
 
