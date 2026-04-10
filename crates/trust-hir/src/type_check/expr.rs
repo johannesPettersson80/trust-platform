@@ -202,12 +202,56 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
 
         if op.is_comparison() {
             self.check_comparable(lhs_type, rhs_type, node.text_range());
+            // Warn about floating-point equality comparison (common pitfall)
+            if matches!(op, BinaryOp::Eq | BinaryOp::Neq) {
+                let lhs_r = self.checker.resolve_alias_type(lhs_type);
+                let rhs_r = self.checker.resolve_alias_type(rhs_type);
+                if lhs_r == TypeId::REAL || lhs_r == TypeId::LREAL
+                    || rhs_r == TypeId::REAL || rhs_r == TypeId::LREAL
+                {
+                    self.checker.diagnostics.warning(
+                        DiagnosticCode::NondeterministicIo,
+                        node.text_range(),
+                        "floating-point equality comparison may produce unexpected results due to rounding; consider using a tolerance check (e.g., ABS(a - b) < 0.001)",
+                    );
+                }
+            }
             TypeId::BOOL
         } else if op.is_logical() {
-            self.check_boolean(lhs_type, node.text_range());
-            self.check_boolean(rhs_type, node.text_range());
-            TypeId::BOOL
+            // IEC 61131-3: AND/OR/XOR work on BOOL and bit-string types
+            // (BYTE, WORD, DWORD, LWORD). For bit-strings, the result type
+            // is the operand type, not BOOL.
+            let lhs_resolved = self.checker.resolve_alias_type(lhs_type);
+            let rhs_resolved = self.checker.resolve_alias_type(rhs_type);
+            let lhs_is_bit = self.checker.resolved_type(lhs_resolved).is_some_and(|ty| ty.is_bit_string());
+            let rhs_is_bit = self.checker.resolved_type(rhs_resolved).is_some_and(|ty| ty.is_bit_string());
+            if lhs_is_bit && rhs_is_bit {
+                // Bit-string logical: result is the wider type (or same if equal)
+                lhs_resolved
+            } else if lhs_is_bit || rhs_is_bit {
+                // Mixed bit-string and non-bit-string: type error
+                self.checker.diagnostics.error(
+                    DiagnosticCode::TypeMismatch,
+                    node.text_range(),
+                    "mismatched types for logical operation",
+                );
+                TypeId::UNKNOWN
+            } else {
+                self.check_boolean(lhs_type, node.text_range());
+                self.check_boolean(rhs_type, node.text_range());
+                TypeId::BOOL
+            }
         } else if op.is_arithmetic() {
+            // Warn about division/modulo by zero literal
+            if matches!(op, BinaryOp::Div | BinaryOp::Mod) {
+                if is_zero_literal(rhs_node) {
+                    self.checker.diagnostics.warning(
+                        DiagnosticCode::OutOfRange,
+                        node.text_range(),
+                        "division by zero",
+                    );
+                }
+            }
             if let (Some(lhs_ty), Some(rhs_ty)) = (
                 self.checker
                     .symbols
@@ -252,8 +296,14 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
                 TypeId::UNKNOWN
             }
             UnaryOp::Not => {
-                self.check_boolean(operand, node.text_range());
-                TypeId::BOOL
+                let resolved = self.checker.resolve_alias_type(operand);
+                let is_bit = self.checker.resolved_type(resolved).is_some_and(|ty| ty.is_bit_string());
+                if is_bit {
+                    resolved // NOT on BYTE/WORD/DWORD → same type
+                } else {
+                    self.check_boolean(operand, node.text_range());
+                    TypeId::BOOL
+                }
             }
             UnaryOp::Unknown => TypeId::UNKNOWN,
         }
@@ -335,4 +385,26 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
             }
         }
     }
+}
+
+/// Check if a syntax node is a literal integer zero (0).
+fn is_zero_literal(node: &SyntaxNode) -> bool {
+    if node.kind() != SyntaxKind::Literal {
+        return false;
+    }
+    for element in node.descendants_with_tokens() {
+        let token = match element.into_token() {
+            Some(token) => token,
+            None => continue,
+        };
+        match token.kind() {
+            SyntaxKind::IntLiteral => return token.text() == "0",
+            SyntaxKind::RealLiteral => {
+                let text = token.text();
+                return text == "0.0" || text == "0.";
+            }
+            _ => {}
+        }
+    }
+    false
 }
