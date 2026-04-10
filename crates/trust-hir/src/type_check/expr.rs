@@ -204,9 +204,29 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
             self.check_comparable(lhs_type, rhs_type, node.text_range());
             TypeId::BOOL
         } else if op.is_logical() {
-            self.check_boolean(lhs_type, node.text_range());
-            self.check_boolean(rhs_type, node.text_range());
-            TypeId::BOOL
+            // IEC 61131-3: AND/OR/XOR work on BOOL and bit-string types
+            // (BYTE, WORD, DWORD, LWORD). For bit-strings, the result type
+            // is the operand type, not BOOL.
+            let lhs_resolved = self.checker.resolve_alias_type(lhs_type);
+            let rhs_resolved = self.checker.resolve_alias_type(rhs_type);
+            let lhs_is_bit = self.checker.resolved_type(lhs_resolved).is_some_and(|ty| ty.is_bit_string());
+            let rhs_is_bit = self.checker.resolved_type(rhs_resolved).is_some_and(|ty| ty.is_bit_string());
+            if lhs_is_bit && rhs_is_bit {
+                // Bit-string logical: result is the wider type (or same if equal)
+                lhs_resolved
+            } else if lhs_is_bit || rhs_is_bit {
+                // Mixed bit-string and non-bit-string: type error
+                self.checker.diagnostics.error(
+                    DiagnosticCode::TypeMismatch,
+                    node.text_range(),
+                    "mismatched types for logical operation",
+                );
+                TypeId::UNKNOWN
+            } else {
+                self.check_boolean(lhs_type, node.text_range());
+                self.check_boolean(rhs_type, node.text_range());
+                TypeId::BOOL
+            }
         } else if op.is_arithmetic() {
             if let (Some(lhs_ty), Some(rhs_ty)) = (
                 self.checker
@@ -252,8 +272,14 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
                 TypeId::UNKNOWN
             }
             UnaryOp::Not => {
-                self.check_boolean(operand, node.text_range());
-                TypeId::BOOL
+                let resolved = self.checker.resolve_alias_type(operand);
+                let is_bit = self.checker.resolved_type(resolved).is_some_and(|ty| ty.is_bit_string());
+                if is_bit {
+                    resolved // NOT on BYTE/WORD/DWORD → same type
+                } else {
+                    self.check_boolean(operand, node.text_range());
+                    TypeId::BOOL
+                }
             }
             UnaryOp::Unknown => TypeId::UNKNOWN,
         }
