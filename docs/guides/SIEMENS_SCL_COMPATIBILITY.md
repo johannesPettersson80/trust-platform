@@ -54,7 +54,7 @@ For direct Siemens source handoff to TIA via external source files:
 - `trust-runtime plcopen export --target siemens` emits a `.scl` bundle sidecar.
 - Tutorial: `docs/guides/SIEMENS_TIA_SCL_IMPORT_TUTORIAL.md`
 
-See `docs/internal/standards/IEC_DEVIATIONS.md` for the formal deviation record.
+See `docs/IEC_DEVIATIONS.md` for the formal deviation record.
 
 ## Regression Coverage
 
