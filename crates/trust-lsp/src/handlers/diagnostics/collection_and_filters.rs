@@ -210,8 +210,10 @@ mod collection_filter_tests {
 
     #[test]
     fn numeric_hazard_filter_controls_numeric_warning_codes() {
-        let mut settings = DiagnosticSettings::default();
-        settings.warn_numeric_hazards = false;
+        let mut settings = DiagnosticSettings {
+            warn_numeric_hazards: false,
+            ..DiagnosticSettings::default()
+        };
 
         assert!(!diagnostic_allowed(&settings, &warning("W013")));
         assert!(!diagnostic_allowed(&settings, &warning("W014")));
