@@ -2,11 +2,10 @@
 
 #![allow(missing_docs)]
 
+use crate::value::{PartialAccess, RefSegment, Value, ValueRef};
 use indexmap::IndexMap;
 use rustc_hash::FxHashMap;
 use smol_str::SmolStr;
-
-use crate::value::{PartialAccess, RefSegment, Value, ValueRef};
 
 /// Memory location identifier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
