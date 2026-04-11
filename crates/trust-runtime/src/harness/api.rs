@@ -5,12 +5,14 @@
 use super::build;
 use super::types::{CompileError, SourceFile};
 use crate::Runtime;
+use smol_str::SmolStr;
 
 /// Compile helper for runtime + bytecode builds.
 #[derive(Debug, Clone)]
 pub struct CompileSession {
     sources: Vec<SourceFile>,
     label_errors: bool,
+    extra_program_instances: Vec<SmolStr>,
 }
 
 impl CompileSession {
@@ -19,6 +21,7 @@ impl CompileSession {
         Self {
             sources: vec![SourceFile::new(source)],
             label_errors: false,
+            extra_program_instances: Vec::new(),
         }
     }
 
@@ -28,12 +31,27 @@ impl CompileSession {
         Self {
             sources,
             label_errors,
+            extra_program_instances: Vec::new(),
         }
     }
 
     /// Enable/disable labeled errors (file path or index prefix).
     pub fn label_errors(mut self, label_errors: bool) -> Self {
         self.label_errors = label_errors;
+        self
+    }
+
+    /// Register additional program instances at build time.
+    ///
+    /// This is used by `trust-runtime test` so discovered `TEST_PROGRAM`s can be
+    /// executed even when a `CONFIGURATION` is present, without changing normal
+    /// configured runtime behavior.
+    pub fn with_extra_program_instances<I, S>(mut self, names: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<SmolStr>,
+    {
+        self.extra_program_instances = names.into_iter().map(Into::into).collect();
         self
     }
 
@@ -44,12 +62,20 @@ impl CompileSession {
 
     /// Compile sources into a runtime.
     pub fn build_runtime(&self) -> Result<Runtime, CompileError> {
-        build::build_runtime_from_source_files(&self.sources, self.label_errors)
+        build::build_runtime_from_source_files(
+            &self.sources,
+            self.label_errors,
+            &self.extra_program_instances,
+        )
     }
 
     /// Compile sources into a bytecode module.
     pub fn build_bytecode_module(&self) -> Result<crate::bytecode::BytecodeModule, CompileError> {
-        build::build_bytecode_module_from_source_files(&self.sources, self.label_errors)
+        build::build_bytecode_module_from_source_files(
+            &self.sources,
+            self.label_errors,
+            &self.extra_program_instances,
+        )
     }
 
     /// Compile sources into bytecode bytes.

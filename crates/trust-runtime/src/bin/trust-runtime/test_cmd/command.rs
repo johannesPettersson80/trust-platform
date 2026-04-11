@@ -58,7 +58,13 @@ pub fn run_test(
             )
         })
         .collect::<Vec<_>>();
-    let session = CompileSession::from_sources(compile_sources);
+    let extra_program_instances = tests
+        .iter()
+        .filter(|case| matches!(case.kind, TestKind::Program))
+        .map(|case| case.name.clone())
+        .collect::<BTreeSet<_>>();
+    let session = CompileSession::from_sources(compile_sources)
+        .with_extra_program_instances(extra_program_instances);
     let _ = session.build_runtime()?;
 
     let test_timeout = if timeout == 0 {
@@ -118,4 +124,3 @@ pub fn run_test(
 
     Ok(())
 }
-

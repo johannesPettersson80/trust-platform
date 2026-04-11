@@ -133,3 +133,49 @@ fn json_output_includes_duration_fields() {
         "every test case must include numeric duration_ms"
     );
 }
+
+#[test]
+fn test_program_runs_when_configuration_is_present() {
+    let project = unique_temp_dir("config-test-program-project");
+    let sources = project.join("src");
+    std::fs::create_dir_all(&sources).expect("create src dir");
+    std::fs::write(
+        sources.join("tests.st"),
+        r#"
+CONFIGURATION Cfg
+    RESOURCE Res ON PLC
+        TASK MainTask(INTERVAL := T#10ms, PRIORITY := 1);
+        PROGRAM MainInst WITH MainTask : Main;
+    END_RESOURCE
+END_CONFIGURATION
+
+PROGRAM Main
+END_PROGRAM
+
+TEST_PROGRAM Probe
+ASSERT_TRUE(TRUE);
+END_TEST_PROGRAM
+"#,
+    )
+    .expect("write config + test source");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .args(["test", "--project"])
+        .arg(&project)
+        .args(["--filter", "Probe"])
+        .output()
+        .expect("run trust-runtime test with configuration");
+
+    assert!(
+        output.status.success(),
+        "expected test run success.\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert!(text.contains("TEST_PROGRAM::Probe"));
+    assert!(text.contains("passed"));
+
+    let _ = std::fs::remove_dir_all(project);
+}

@@ -19,6 +19,7 @@ use super::types::{CompileError, SourceFile};
 pub(super) fn build_runtime_from_source_files(
     sources: &[SourceFile],
     label_errors: bool,
+    extra_program_instances: &[SmolStr],
 ) -> Result<Runtime, CompileError> {
     let mut parses = Vec::with_capacity(sources.len());
     let mut parse_errors = Vec::new();
@@ -229,6 +230,18 @@ pub(super) fn build_runtime_from_source_files(
             &config.using,
             &mut wildcards,
         )?;
+        let extra_programs = build_extra_program_instances(
+            &program_defs,
+            &config.programs,
+            extra_program_instances,
+        )?;
+        register_program_instances(
+            &mut runtime,
+            &program_defs,
+            &extra_programs,
+            &config.using,
+            &mut wildcards,
+        )?;
         apply_config_inits(
             &mut runtime,
             &config.config_inits,
@@ -286,9 +299,49 @@ pub(super) fn build_runtime_from_source_files(
 pub(super) fn build_bytecode_module_from_source_files(
     sources: &[SourceFile],
     label_errors: bool,
+    extra_program_instances: &[SmolStr],
 ) -> Result<crate::bytecode::BytecodeModule, CompileError> {
-    let runtime = build_runtime_from_source_files(sources, label_errors)?;
+    let runtime = build_runtime_from_source_files(sources, label_errors, extra_program_instances)?;
     build_bytecode_module_from_runtime_and_sources(&runtime, sources)
+}
+
+fn build_extra_program_instances(
+    program_defs: &IndexMap<SmolStr, ProgramDef>,
+    configured_programs: &[super::ProgramInstanceConfig],
+    extra_program_instances: &[SmolStr],
+) -> Result<Vec<super::ProgramInstanceConfig>, CompileError> {
+    if extra_program_instances.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let configured_names = configured_programs
+        .iter()
+        .map(|program| program.name.to_ascii_uppercase())
+        .collect::<std::collections::HashSet<_>>();
+    let mut seen = std::collections::HashSet::new();
+    let mut extra_programs = Vec::new();
+
+    for name in extra_program_instances {
+        let key = name.to_ascii_uppercase();
+        if configured_names.contains(&key) || !seen.insert(key.clone()) {
+            continue;
+        }
+        if !program_defs.contains_key(key.as_str()) {
+            return Err(CompileError::new(format!(
+                "extra PROGRAM instance '{}' has no matching declaration",
+                name
+            )));
+        }
+        extra_programs.push(super::ProgramInstanceConfig {
+            name: name.clone(),
+            type_name: name.clone(),
+            task: None,
+            retain: None,
+            fb_tasks: Vec::new(),
+        });
+    }
+
+    Ok(extra_programs)
 }
 
 fn build_bytecode_module_from_runtime_and_sources(
