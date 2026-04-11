@@ -55,6 +55,14 @@ impl<'a> BytecodeEncoder<'a> {
                 Ok(true)
             }
             crate::eval::expr::Expr::Field { target, field } => {
+                if let Some(qualified) = qualified_field_expr_name(expr) {
+                    if let Some(reference) = self.resolve_name_ref(ctx, &qualified)? {
+                        let ref_idx = self.ref_index_for(&reference)?;
+                        code.push(0x20);
+                        code.extend_from_slice(&ref_idx.to_le_bytes());
+                        return Ok(true);
+                    }
+                }
                 if let crate::eval::expr::Expr::Name(base) = target.as_ref() {
                     if let Some(access) = crate::value::parse_partial_access(field.as_str()) {
                         if self.emit_partial_read_for_name(ctx, base, access, code)? {
@@ -381,6 +389,14 @@ impl<'a> BytecodeEncoder<'a> {
         match expr {
             crate::eval::expr::Expr::Name(name) => self.emit_ref_for_name(ctx, name, code),
             crate::eval::expr::Expr::Field { target, field } => {
+                if let Some(qualified) = qualified_field_expr_name(expr) {
+                    if let Some(reference) = self.resolve_name_ref(ctx, &qualified)? {
+                        let ref_idx = self.ref_index_for(&reference)?;
+                        code.push(0x22);
+                        code.extend_from_slice(&ref_idx.to_le_bytes());
+                        return Ok(true);
+                    }
+                }
                 if matches!(target.as_ref(), crate::eval::expr::Expr::This) {
                     return self.emit_self_field_ref(ctx, field, code);
                 }
@@ -454,5 +470,16 @@ impl<'a> BytecodeEncoder<'a> {
             symbol.push_str(token.as_str());
         }
         self.strings.intern(SmolStr::new(symbol))
+    }
+}
+
+fn qualified_field_expr_name(expr: &crate::eval::expr::Expr) -> Option<SmolStr> {
+    match expr {
+        crate::eval::expr::Expr::Name(name) => Some(name.clone()),
+        crate::eval::expr::Expr::Field { target, field } => {
+            let prefix = qualified_field_expr_name(target)?;
+            Some(SmolStr::new(format!("{prefix}.{field}")))
+        }
+        _ => None,
     }
 }

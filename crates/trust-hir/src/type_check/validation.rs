@@ -179,6 +179,16 @@ impl<'a> TypeChecker<'a> {
                     .resolve_name_in_context(&name, node.text_range())
             }
             SyntaxKind::FieldExpr => {
+                if let Some(symbol_id) = self.resolve_ref().resolve_namespace_qualified_symbol(node)
+                {
+                    let accessible = self
+                        .resolve()
+                        .check_member_access(symbol_id, node.text_range());
+                    return Some(ResolvedSymbol {
+                        id: symbol_id,
+                        accessible,
+                    });
+                }
                 let children: Vec<_> = node.children().collect();
                 if children.len() < 2 {
                     return None;

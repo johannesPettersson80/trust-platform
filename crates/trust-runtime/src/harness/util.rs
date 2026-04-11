@@ -44,6 +44,25 @@ pub(super) fn collect_using_directives(node: &SyntaxNode) -> Vec<SmolStr> {
     names
 }
 
+pub(super) fn namespace_qualified_name(node: &SyntaxNode, name: &str) -> SmolStr {
+    let mut parts = Vec::new();
+    for ancestor in node.ancestors() {
+        if ancestor.kind() != SyntaxKind::Namespace {
+            continue;
+        }
+        let Some(namespace_name) = ancestor
+            .children()
+            .find(|child| matches!(child.kind(), SyntaxKind::QualifiedName | SyntaxKind::Name))
+        else {
+            continue;
+        };
+        parts.push(node_text(&namespace_name));
+    }
+    parts.reverse();
+    parts.push(name.to_string());
+    SmolStr::new(parts.join("."))
+}
+
 pub(super) fn using_directive_names(node: &SyntaxNode) -> Vec<SmolStr> {
     node.children()
         .filter(|child| {

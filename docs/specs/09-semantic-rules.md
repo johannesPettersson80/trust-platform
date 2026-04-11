@@ -15,14 +15,14 @@ This specification defines semantic rules and error conditions for trust-hir.
 | VAR_INPUT | Parameter | Read inside, written by caller |
 | VAR_OUTPUT | Parameter | Written inside, read by caller |
 | VAR_IN_OUT | Parameter | Read/write both sides |
-| VAR_EXTERNAL | Reference | Access to VAR_GLOBAL |
-| VAR_GLOBAL | Configuration/Resource | Accessible via VAR_EXTERNAL |
+| VAR_EXTERNAL | Reference | Access to VAR_GLOBAL (strict IEC form; optional in truST vendor-parity mode) |
+| VAR_GLOBAL | Program/Configuration/Resource | Accessible via VAR_EXTERNAL or truST vendor-parity bare/qualified access |
 
 ### 1.2 Name Resolution Order
 
 1. Local scope (VAR, VAR_TEMP, parameters)
 2. Enclosing POU (for methods within FB/CLASS)
-3. Global scope (via VAR_EXTERNAL)
+3. Global scope (via `VAR_EXTERNAL` in strict IEC form, or via truST vendor-parity bare/qualified global access)
 4. Namespace-qualified names
 
 ### 1.3 Shadowing Rules
@@ -286,7 +286,7 @@ declarations. The same checks are applied to function blocks that use `IMPLEMENT
 | Method implementation | Class/FB must implement or declare all interface methods (IEC 61131-3 Ed.3 §6.6.6.4.1) |
 | Signature match | Implementation must match interface signature (name, parameters, return type) |
 | Access specifier | Implementation must be PUBLIC or INTERNAL |
-| Property signatures (extension) | Interface PROPERTY signatures require matching type/accessors (see `IEC deviations log (internal)`) |
+| Property signatures (extension) | Interface PROPERTY signatures require matching type/accessors (see `docs/IEC_DEVIATIONS.md`) |
 
 Abstract classes may declare required interface methods as ABSTRACT (IEC 61131-3 Ed.3 §6.6.5.8.3).
 

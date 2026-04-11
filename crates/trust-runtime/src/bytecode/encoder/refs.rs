@@ -17,12 +17,20 @@ impl<'a> BytecodeEncoder<'a> {
         use crate::eval::expr::LValue;
         let mut reference = match target {
             LValue::Name(name) => return self.resolve_name_ref(ctx, name),
-            LValue::Field { name, .. } | LValue::Index { name, .. } => {
+            LValue::Field { name, field } => {
+                let qualified = SmolStr::new(format!("{name}.{field}"));
+                if let Some(reference) = self.resolve_name_ref(ctx, &qualified)? {
+                    return Ok(Some(reference));
+                }
                 match self.resolve_name_ref(ctx, name)? {
                     Some(reference) => reference,
                     None => return Ok(None),
                 }
             }
+            LValue::Index { name, .. } => match self.resolve_name_ref(ctx, name)? {
+                Some(reference) => reference,
+                None => return Ok(None),
+            },
             LValue::Deref(_) => return Ok(None),
         };
         match target {
@@ -76,6 +84,9 @@ impl<'a> BytecodeEncoder<'a> {
         name: &SmolStr,
     ) -> Result<Option<ValueRef>, BytecodeError> {
         if let Some(reference) = ctx.local_ref(name) {
+            return Ok(Some(reference.clone()));
+        }
+        if let Some(reference) = ctx.static_ref(name) {
             return Ok(Some(reference.clone()));
         }
         if let Some(instance_id) = ctx.instance_id {

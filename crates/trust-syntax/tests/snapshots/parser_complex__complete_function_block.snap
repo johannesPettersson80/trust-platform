@@ -88,67 +88,68 @@ SourceFile@0..424
           KwReal@245..249 "REAL"
         Semicolon@249..250 ";"
       KwEndVar@251..258 "END_VAR"
-    AssignStmt@260..288
-      NameRef@260..266
-        Ident@260..265 "error"
-      Assign@266..268 ":="
-      BinaryExpr@268..286
-        NameRef@268..278
-          Ident@269..277 "setpoint"
-        Minus@278..279 "-"
-        NameRef@279..286
-          Ident@280..286 "actual"
-      Semicolon@286..287 ";"
-    AssignStmt@288..318
-      NameRef@288..297
-        Ident@288..296 "integral"
-      Assign@297..299 ":="
-      BinaryExpr@299..316
-        NameRef@299..309
-          Ident@300..308 "integral"
-        Plus@309..310 "+"
-        NameRef@310..316
-          Ident@311..316 "error"
-      Semicolon@316..317 ";"
-    AssignStmt@318..384
-      NameRef@318..325
-        Ident@318..324 "output"
-      Assign@325..327 ":="
-      BinaryExpr@327..382
-        BinaryExpr@327..355
-          BinaryExpr@327..339
-            NameRef@327..331
-              Ident@328..330 "kp"
-            Star@331..332 "*"
-            NameRef@332..339
-              Ident@333..338 "error"
-          Plus@339..340 "+"
-          BinaryExpr@340..355
-            NameRef@340..344
-              Ident@341..343 "ki"
-            Star@344..345 "*"
-            NameRef@345..355
-              Ident@346..354 "integral"
-        Plus@355..356 "+"
-        BinaryExpr@356..382
-          NameRef@356..360
-            Ident@357..359 "kd"
-          Star@360..361 "*"
-          ParenExpr@361..382
-            LParen@362..363 "("
-            BinaryExpr@363..381
-              NameRef@363..369
-                Ident@363..368 "error"
-              Minus@369..370 "-"
-              NameRef@370..381
-                Ident@371..381 "prev_error"
-            RParen@381..382 ")"
-      Semicolon@382..383 ";"
-    AssignStmt@384..406
-      NameRef@384..395
-        Ident@384..394 "prev_error"
-      Assign@395..397 ":="
-      NameRef@397..403
-        Ident@398..403 "error"
-      Semicolon@403..404 ";"
+    StmtList@260..406
+      AssignStmt@260..288
+        NameRef@260..266
+          Ident@260..265 "error"
+        Assign@266..268 ":="
+        BinaryExpr@268..286
+          NameRef@268..278
+            Ident@269..277 "setpoint"
+          Minus@278..279 "-"
+          NameRef@279..286
+            Ident@280..286 "actual"
+        Semicolon@286..287 ";"
+      AssignStmt@288..318
+        NameRef@288..297
+          Ident@288..296 "integral"
+        Assign@297..299 ":="
+        BinaryExpr@299..316
+          NameRef@299..309
+            Ident@300..308 "integral"
+          Plus@309..310 "+"
+          NameRef@310..316
+            Ident@311..316 "error"
+        Semicolon@316..317 ";"
+      AssignStmt@318..384
+        NameRef@318..325
+          Ident@318..324 "output"
+        Assign@325..327 ":="
+        BinaryExpr@327..382
+          BinaryExpr@327..355
+            BinaryExpr@327..339
+              NameRef@327..331
+                Ident@328..330 "kp"
+              Star@331..332 "*"
+              NameRef@332..339
+                Ident@333..338 "error"
+            Plus@339..340 "+"
+            BinaryExpr@340..355
+              NameRef@340..344
+                Ident@341..343 "ki"
+              Star@344..345 "*"
+              NameRef@345..355
+                Ident@346..354 "integral"
+          Plus@355..356 "+"
+          BinaryExpr@356..382
+            NameRef@356..360
+              Ident@357..359 "kd"
+            Star@360..361 "*"
+            ParenExpr@361..382
+              LParen@362..363 "("
+              BinaryExpr@363..381
+                NameRef@363..369
+                  Ident@363..368 "error"
+                Minus@369..370 "-"
+                NameRef@370..381
+                  Ident@371..381 "prev_error"
+              RParen@381..382 ")"
+        Semicolon@382..383 ";"
+      AssignStmt@384..406
+        NameRef@384..395
+          Ident@384..394 "prev_error"
+        Assign@395..397 ":="
+        NameRef@397..403
+          Ident@398..403 "error"
+        Semicolon@403..404 ";"
     KwEndFunctionBlock@406..424 "END_FUNCTION_BLOCK"

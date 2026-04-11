@@ -9,6 +9,7 @@ use trust_hir::db::SemanticDatabase;
 use trust_hir::{Project, SourceKey};
 use trust_syntax::parser;
 
+use super::compiler::lower_root_global_var_blocks;
 use super::config::{
     apply_config_inits, apply_globals, apply_program_retain_overrides,
     attach_fb_instances_to_tasks, attach_programs_to_tasks, ensure_wildcards_resolved,
@@ -180,6 +181,13 @@ pub(super) fn build_runtime_from_source_files(
     let mut globals = Vec::new();
     for (idx, parse) in parses.iter().enumerate() {
         let syntax = parse.syntax();
+        globals.extend(lower_root_global_var_blocks(
+            &syntax,
+            runtime.registry_mut(),
+            profile,
+            file_ids[idx].0,
+            &mut statement_locations[idx],
+        )?);
         let lowered = super::lower_programs(
             &syntax,
             runtime.registry_mut(),
@@ -281,6 +289,7 @@ pub(super) fn build_runtime_from_source_files(
         ensure_wildcards_resolved(&wildcards)?;
     }
 
+    init_function_static_locals(&mut runtime)?;
     let _ = runtime.ensure_background_thread_id();
 
     for (idx, locations) in statement_locations.into_iter().enumerate() {
@@ -294,6 +303,119 @@ pub(super) fn build_runtime_from_source_files(
     }
 
     Ok(runtime)
+}
+
+fn init_function_static_locals(runtime: &mut Runtime) -> Result<(), CompileError> {
+    let registry = runtime.registry().clone();
+    let profile = runtime.profile();
+    let functions = runtime.functions().clone();
+    let stdlib = runtime.stdlib().clone();
+    let function_blocks = runtime.function_blocks().clone();
+    let classes = runtime.classes().clone();
+    let now = runtime.current_time();
+    let mut ctx = crate::eval::EvalContext {
+        storage: runtime.storage_mut(),
+        registry: &registry,
+        profile,
+        now,
+        debug: None,
+        call_depth: 0,
+        functions: Some(&functions),
+        stdlib: Some(&stdlib),
+        function_blocks: Some(&function_blocks),
+        classes: Some(&classes),
+        using: None,
+        access: None,
+        current_instance: None,
+        return_name: None,
+        loop_depth: 0,
+        pause_requested: false,
+        execution_deadline: None,
+    };
+
+    for function in functions.values() {
+        for local in &function.static_locals {
+            let key = crate::eval::static_storage_name(&function.name, &local.name);
+            if let Some(fb_name) = super::function_block_type_name(local.type_id, &registry) {
+                if local.initializer.is_some() {
+                    return Err(CompileError::new(
+                        "function VAR_STAT function block instances cannot have initializers",
+                    ));
+                }
+                let fb_key = SmolStr::new(fb_name.to_ascii_uppercase());
+                let fb = function_blocks.get(&fb_key).ok_or_else(|| {
+                    CompileError::new(format!("unknown function block '{fb_name}'"))
+                })?;
+                let instance_id = crate::instance::create_fb_instance(
+                    ctx.storage,
+                    &registry,
+                    &profile,
+                    &classes,
+                    &function_blocks,
+                    &functions,
+                    &stdlib,
+                    fb,
+                )
+                .map_err(|err| CompileError::new(err.to_string()))?;
+                ctx.storage
+                    .set_global(key, crate::value::Value::Instance(instance_id));
+                continue;
+            }
+            if let Some(class_name) = super::class_type_name(local.type_id, &registry) {
+                if local.initializer.is_some() {
+                    return Err(CompileError::new(
+                        "function VAR_STAT class instances cannot have initializers",
+                    ));
+                }
+                let class_key = SmolStr::new(class_name.to_ascii_uppercase());
+                let class_def = classes
+                    .get(&class_key)
+                    .ok_or_else(|| CompileError::new(format!("unknown class '{class_name}'")))?;
+                let instance_id = crate::instance::create_class_instance(
+                    ctx.storage,
+                    &registry,
+                    &profile,
+                    &classes,
+                    &function_blocks,
+                    &functions,
+                    &stdlib,
+                    class_def,
+                )
+                .map_err(|err| CompileError::new(err.to_string()))?;
+                ctx.storage
+                    .set_global(key, crate::value::Value::Instance(instance_id));
+                continue;
+            }
+            if super::interface_type_name(local.type_id, &registry).is_some() {
+                ctx.storage.set_global(key, crate::value::Value::Null);
+                continue;
+            }
+            let value = crate::value::default_value_for_type_id(local.type_id, &registry, &profile)
+                .map_err(|err| CompileError::new(format!("default value error: {err:?}")))?;
+            ctx.storage.set_global(key, value);
+        }
+    }
+
+    for function in functions.values() {
+        for local in &function.static_locals {
+            if super::function_block_type_name(local.type_id, &registry).is_some()
+                || super::class_type_name(local.type_id, &registry).is_some()
+            {
+                continue;
+            }
+            let Some(expr) = &local.initializer else {
+                continue;
+            };
+            ctx.using = Some(&function.using);
+            let value = crate::eval::eval_expr(&mut ctx, expr)
+                .map_err(|err| CompileError::new(format!("initializer error: {err}")))?;
+            let value = super::coerce_value_to_type(value, local.type_id)?;
+            let key = crate::eval::static_storage_name(&function.name, &local.name);
+            ctx.storage.set_global(key, value);
+        }
+    }
+
+    Ok(())
 }
 
 pub(super) fn build_bytecode_module_from_source_files(

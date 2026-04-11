@@ -1,11 +1,12 @@
-type FunctionBlockVars = (Vec<Param>, Vec<VarDef>, Vec<VarDef>);
+type FunctionVarBlocks = (Vec<Param>, Vec<VarDef>, Vec<VarDef>);
 
 fn lower_function_var_blocks(
     node: &SyntaxNode,
     ctx: &mut LoweringContext<'_>,
-) -> Result<(Vec<Param>, Vec<VarDef>), CompileError> {
+) -> Result<FunctionVarBlocks, CompileError> {
     let mut params = Vec::new();
     let mut locals = Vec::new();
+    let mut statics = Vec::new();
     for var_block in node
         .children()
         .filter(|child| child.kind() == SyntaxKind::VarBlock)
@@ -75,6 +76,21 @@ fn lower_function_var_blocks(
                             type_id,
                             initializer: init_expr.clone(),
                             retain: qualifiers.retain,
+                            static_storage: false,
+                            external: false,
+                            constant: qualifiers.constant,
+                            address: address_info.clone(),
+                        });
+                    }
+                }
+                VarBlockKind::Stat => {
+                    for name in names {
+                        statics.push(VarDef {
+                            name,
+                            type_id,
+                            initializer: init_expr.clone(),
+                            retain: qualifiers.retain,
+                            static_storage: true,
                             external: false,
                             constant: qualifiers.constant,
                             address: address_info.clone(),
@@ -92,5 +108,5 @@ fn lower_function_var_blocks(
             }
         }
     }
-    Ok((params, locals))
+    Ok((params, locals, statics))
 }

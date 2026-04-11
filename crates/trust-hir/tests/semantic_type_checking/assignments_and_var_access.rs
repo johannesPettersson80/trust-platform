@@ -554,6 +554,141 @@ END_PROGRAM
 }
 
 #[test]
+fn test_var_external_matches_program_scoped_global() {
+    check_no_errors(
+        r#"
+PROGRAM Main
+VAR_GLOBAL
+    G : INT;
+END_VAR
+END_PROGRAM
+
+FUNCTION_BLOCK UsesGlobal
+VAR_EXTERNAL
+    G : INT;
+END_VAR
+END_FUNCTION_BLOCK
+"#,
+    );
+}
+
+#[test]
+fn test_bare_global_access_is_accepted_across_pou_kinds() {
+    check_no_errors(
+        r#"
+CONFIGURATION Conf
+VAR_GLOBAL
+    G : INT := 1;
+END_VAR
+END_CONFIGURATION
+
+PROGRAM Main
+VAR
+    P : INT;
+END_VAR
+P := G;
+END_PROGRAM
+
+FUNCTION FnProbe : INT
+FnProbe := G;
+END_FUNCTION
+
+FUNCTION_BLOCK FbProbe
+VAR
+    LocalCopy : INT;
+END_VAR
+LocalCopy := G;
+END_FUNCTION_BLOCK
+
+CLASS CProbe
+METHOD PUBLIC DoThing
+G := G + 1;
+END_METHOD
+END_CLASS
+"#,
+    );
+}
+
+#[test]
+fn test_bare_configuration_global_access_resolves_across_files() {
+    check_no_errors_multi(&[
+        r#"
+PROGRAM Main
+VAR
+    observed : INT;
+END_VAR
+observed := gConfig;
+gConfig := gConfig + 1;
+END_PROGRAM
+"#,
+        r#"
+CONFIGURATION Conf
+VAR_GLOBAL
+    gConfig : INT := 4;
+END_VAR
+PROGRAM P1 : Main;
+END_CONFIGURATION
+"#,
+    ]);
+}
+
+#[test]
+fn test_function_block_bare_missing_name_is_rejected() {
+    check_has_error(
+        r#"
+FUNCTION_BLOCK FbProbe
+VAR
+    LocalCopy : INT;
+END_VAR
+LocalCopy := Missing;
+END_FUNCTION_BLOCK
+"#,
+        DiagnosticCode::UndefinedVariable,
+    );
+}
+
+#[test]
+fn test_program_bare_missing_name_is_rejected() {
+    check_has_error(
+        r#"
+PROGRAM Main
+VAR
+    LocalCopy : INT;
+END_VAR
+LocalCopy := Missing;
+END_PROGRAM
+"#,
+        DiagnosticCode::UndefinedVariable,
+    );
+}
+
+#[test]
+fn test_function_bare_missing_name_is_rejected() {
+    check_has_error(
+        r#"
+FUNCTION FnProbe : INT
+FnProbe := Missing;
+END_FUNCTION
+"#,
+        DiagnosticCode::UndefinedVariable,
+    );
+}
+
+#[test]
+fn test_class_method_bare_missing_name_is_rejected() {
+    check_has_error(
+        r#"
+CLASS CProbe
+METHOD PUBLIC DoThing
+Missing := Missing + 1;
+END_METHOD
+END_CLASS
+"#,
+        DiagnosticCode::UndefinedVariable,
+    );
+}
+
+#[test]
 // IEC 61131-3 Ed.3 Section 6.5.6 (RETAIN/NON_RETAIN qualifiers)
 fn test_var_retain_non_retain_conflict() {
     check_has_error(

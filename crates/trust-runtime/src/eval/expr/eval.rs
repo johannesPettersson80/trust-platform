@@ -148,6 +148,11 @@ pub fn eval_expr(ctx: &mut EvalContext<'_>, expr: &Expr) -> Result<Value, Runtim
             read_indices(target_value, &index_values)
         }
         Expr::Field { target, field } => {
+            if let Some(qualified) = qualified_field_expr_name(expr) {
+                if let Ok(value) = read_name(ctx, &qualified) {
+                    return Ok(value);
+                }
+            }
             let target_value = eval_expr(ctx, target)?;
             read_field(ctx, target_value, field)
         }
@@ -167,6 +172,17 @@ pub fn eval_expr(ctx: &mut EvalContext<'_>, expr: &Expr) -> Result<Value, Runtim
                 _ => Err(RuntimeError::TypeMismatch),
             }
         }
+    }
+}
+
+fn qualified_field_expr_name(expr: &Expr) -> Option<SmolStr> {
+    match expr {
+        Expr::Name(name) => Some(name.clone()),
+        Expr::Field { target, field } => {
+            let prefix = qualified_field_expr_name(target)?;
+            Some(SmolStr::new(format!("{prefix}.{field}")))
+        }
+        _ => None,
     }
 }
 

@@ -10,6 +10,8 @@ use trust_syntax::parser::parse;
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode, SyntaxToken};
 use trust_syntax::{lex, TokenKind};
 
+use crate::var_decl::find_var_decl_for_range;
+
 /// Finds the enclosing POU (Program Organization Unit) node for a given position.
 pub fn find_enclosing_pou(root: &SyntaxNode, offset: TextSize) -> Option<SyntaxNode> {
     let token = root.token_at_offset(offset).right_biased()?;
@@ -240,4 +242,3 @@ impl<'a> IdeContext<'a> {
         scope_at_position(&self.symbols, &self.root, position)
     }
 }
-

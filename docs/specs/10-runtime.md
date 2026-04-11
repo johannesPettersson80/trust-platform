@@ -1195,7 +1195,8 @@ fn test_timer() {
 
 - CLASS/INTERFACE/METHOD/PROPERTY support
 - Inheritance (EXTENDS) + interface conformance (IMPLEMENTS)
-- REFERENCE types (REF_TO) + assignment attempt semantics (see `IEC deviations log (internal)`)
+- REFERENCE types (REF_TO) + assignment attempt semantics (see `docs/IEC_DEVIATIONS.md`)
+- `VAR_STAT` vendor-extension storage semantics (see `docs/IEC_DEVIATIONS.md`)
 - Direct address I/O (%I, %Q, %M)
 
 #### Phase 5: Debugging (Implemented)
@@ -1529,7 +1530,7 @@ Overrun policy (default): if a periodic task misses its deadline, the missed act
 - A watchdog monitors cycle/task execution time.
 - If the watchdog timeout elapses, the runtime raises a **FAULT** and halts the resource.
 - Timeout thresholds and fault action are configured per resource (see §6.9) and are
-  **implementer-specific** in IEC 61131-3 (recorded in `IEC deviations log (internal)`).
+  **implementer-specific** in IEC 61131-3 (recorded in `docs/IEC_DEVIATIONS.md`).
 - Default action is **safe_halt**: outputs are set to configured safe values (if provided),
   then the resource halts. For **halt** and **safe_halt**, safe-state outputs are applied
   before halting.
@@ -1541,7 +1542,10 @@ startup:
 
 - **Warm restart**: RETAIN variables restore their retained values; NON_RETAIN are initialized.
 - **Cold restart**: RETAIN and NON_RETAIN variables are initialized.
-- Unqualified variables follow the runtime's retain policy (see the internal IEC decisions log, ID IEC-DEC-009).
+- Unqualified variables follow the runtime's retain policy (see `docs/IEC_DECISIONS.md`).
+- `VAR_STAT` follows the documented vendor-extension storage rules from `docs/IEC_DEVIATIONS.md`:
+  function statics persist across calls, method statics persist per instance and per method, and
+  `PROGRAM`/`FUNCTION_BLOCK`/`CLASS` `VAR_STAT` uses ordinary instance storage.
 
 Retain storage is provided via a pluggable backend:
 
@@ -1579,7 +1583,7 @@ and control protocol.
 If a project folder omits `io.toml`, the launcher loads the system IO config
 
 This behavior is implementer-specific; IEC 61131-3 does not define
-hardware driver selection or OS-level IO configuration (see the internal IEC deviations log, DEV-028).
+hardware driver selection or OS-level IO configuration (see `docs/IEC_DEVIATIONS.md`).
 
 Control endpoints are local by default (`unix://` on Unix-like platforms) and the Unix socket is
 created with restrictive permissions (0600) to prevent accidental exposure.
@@ -3372,7 +3376,8 @@ Diagnostics without a mapping return only `code` + `message` until their IEC ref
 ##### 6.3.1 Go to Definition
 
 - Variables → declaration
-- `VAR_EXTERNAL` resolves to the matching `VAR_GLOBAL` across the workspace (IEC 61131-3 Ed.3, §6.5.2.2; Tables 13–16)
+- `VAR_EXTERNAL` resolves to the matching `VAR_GLOBAL` declared in the associated program/configuration/resource scope (IEC 61131-3 Ed.3, §6.5.2.2; Tables 13–16, Table 47 feature 8a)
+- truST vendor-parity global access also resolves bare global names directly, and qualified names such as `GVL.shared` resolve against namespaced GVL entries recorded in runtime storage.
 - Types → type definition
 - Methods → method definition
 - Properties → property definition

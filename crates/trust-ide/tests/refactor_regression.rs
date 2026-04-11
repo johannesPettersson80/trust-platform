@@ -232,6 +232,7 @@ END_FUNCTION_BLOCK
           [1..15] => "FUNCTION"
           [23..23] => " : INT"
           [23..85] => ""
+          [72..78] => "Fb"
           [85..103] => "END_FUNCTION"
     "#]]
     .assert_eq(&snapshot);

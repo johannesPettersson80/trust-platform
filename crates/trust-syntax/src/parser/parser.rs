@@ -121,6 +121,8 @@ impl<'t, 'src> Parser<'t, 'src> {
         while !self.at_end() {
             if self.at(TokenKind::KwUsing) {
                 self.parse_using_directive();
+            } else if self.at(TokenKind::KwVarGlobal) {
+                self.parse_var_block();
             } else if self.at(TokenKind::KwProgram) || self.at(TokenKind::KwTestProgram) {
                 self.parse_program();
             } else if self.at(TokenKind::KwFunction) {
@@ -143,7 +145,7 @@ impl<'t, 'src> Parser<'t, 'src> {
             } else {
                 // Error recovery: skip unknown token
                 self.error(
-                    "expected PROGRAM, TEST_PROGRAM, FUNCTION, FUNCTION_BLOCK, TEST_FUNCTION_BLOCK, CLASS, CONFIGURATION, INTERFACE, TYPE, or NAMESPACE",
+                    "expected VAR_GLOBAL, PROGRAM, TEST_PROGRAM, FUNCTION, FUNCTION_BLOCK, TEST_FUNCTION_BLOCK, CLASS, CONFIGURATION, INTERFACE, TYPE, or NAMESPACE",
                 );
                 self.bump();
             }

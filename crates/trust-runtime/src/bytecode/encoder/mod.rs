@@ -208,6 +208,7 @@ struct BytecodeEncoder<'a> {
 struct CodegenContext {
     instance_id: Option<InstanceId>,
     locals: HashMap<SmolStr, ValueRef>,
+    static_refs: HashMap<SmolStr, ValueRef>,
     self_fields: HashMap<SmolStr, SmolStr>,
     for_temp_pairs: Vec<(SmolStr, SmolStr)>,
     next_for_temp: usize,
@@ -217,12 +218,14 @@ impl CodegenContext {
     fn new(
         instance_id: Option<InstanceId>,
         locals: HashMap<SmolStr, ValueRef>,
+        static_refs: HashMap<SmolStr, ValueRef>,
         self_fields: HashMap<SmolStr, SmolStr>,
         for_temp_pairs: Vec<(SmolStr, SmolStr)>,
     ) -> Self {
         Self {
             instance_id,
             locals,
+            static_refs,
             self_fields,
             for_temp_pairs,
             next_for_temp: 0,
@@ -231,6 +234,10 @@ impl CodegenContext {
 
     fn local_ref(&self, name: &SmolStr) -> Option<&ValueRef> {
         self.locals.get(name)
+    }
+
+    fn static_ref(&self, name: &SmolStr) -> Option<&ValueRef> {
+        self.static_refs.get(name)
     }
 
     fn self_field_name(&self, name: &SmolStr) -> Option<&SmolStr> {

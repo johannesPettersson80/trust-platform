@@ -402,7 +402,7 @@ END_WHILE;
 4. Error if termination cannot be guaranteed (infinite loop)
 5. Should NOT be used for inter-process synchronization
 
-Implementation note (trust-hir): termination-guarantee analysis is not implemented; see `IEC deviations log (internal)` (DEV-011).
+Implementation note (trust-hir): termination-guarantee analysis is not implemented; see `docs/IEC_DEVIATIONS.md`.
 
 ## 11. REPEAT Statement (Section 7.3.3.4.4)
 
@@ -440,7 +440,7 @@ END_REPEAT;
 4. Loop terminates when condition becomes TRUE
 5. Error if termination cannot be guaranteed
 
-Implementation note (trust-hir): termination-guarantee analysis is not implemented; see `IEC deviations log (internal)` (DEV-011).
+Implementation note (trust-hir): termination-guarantee analysis is not implemented; see `docs/IEC_DEVIATIONS.md`.
 
 ## 12. EXIT Statement (Section 7.3.3.4.6)
 

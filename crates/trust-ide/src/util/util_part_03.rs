@@ -45,7 +45,12 @@ pub(crate) fn resolve_target_at_position_with_context(
         if let Some(field_target) = field_target_for_symbol_declaration(symbols, symbol) {
             return Some(ResolvedTarget::Field(field_target));
         }
-        return Some(ResolvedTarget::Symbol(symbol.id));
+        return Some(ResolvedTarget::Symbol(canonical_symbol_id(
+            symbols,
+            file_id,
+            root,
+            symbol.id,
+        )));
     }
 
     let token_candidates = [
@@ -72,7 +77,12 @@ pub(crate) fn resolve_target_at_position_with_context(
             {
                 if let Some(parts) = qualified_name_from_field_expr(&field_expr) {
                     if let Some(symbol_id) = symbols.resolve_qualified(&parts) {
-                        return Some(ResolvedTarget::Symbol(symbol_id));
+                        return Some(ResolvedTarget::Symbol(canonical_symbol_id(
+                            symbols,
+                            file_id,
+                            root,
+                            symbol_id,
+                        )));
                     }
                 }
             }
@@ -80,12 +90,22 @@ pub(crate) fn resolve_target_at_position_with_context(
             if is_type_name_node(&name_node) {
                 if let Some(parts) = qualified_name_parts_from_node(&name_node) {
                     if let Some(symbol_id) = resolve_type_symbol(symbols, &parts, scope_id) {
-                        return Some(ResolvedTarget::Symbol(symbol_id));
+                        return Some(ResolvedTarget::Symbol(canonical_symbol_id(
+                            symbols,
+                            file_id,
+                            root,
+                            symbol_id,
+                        )));
                     }
                 } else if let Some(symbol_id) =
                     resolve_type_symbol(symbols, &[SmolStr::new(name)], scope_id)
                 {
-                    return Some(ResolvedTarget::Symbol(symbol_id));
+                    return Some(ResolvedTarget::Symbol(canonical_symbol_id(
+                        symbols,
+                        file_id,
+                        root,
+                        symbol_id,
+                    )));
                 }
             }
         } else if name_node.kind() == SyntaxKind::NameRef {
@@ -103,7 +123,12 @@ pub(crate) fn resolve_target_at_position_with_context(
             {
                 if let Some(parts) = qualified_name_from_field_expr(&field_expr) {
                     if let Some(symbol_id) = symbols.resolve_qualified(&parts) {
-                        return Some(ResolvedTarget::Symbol(symbol_id));
+                        return Some(ResolvedTarget::Symbol(canonical_symbol_id(
+                            symbols,
+                            file_id,
+                            root,
+                            symbol_id,
+                        )));
                     }
                 }
             }
@@ -111,13 +136,23 @@ pub(crate) fn resolve_target_at_position_with_context(
     }
 
     if let Some(symbol_id) = symbols.resolve(name, scope_id) {
-        return Some(ResolvedTarget::Symbol(symbol_id));
+        return Some(ResolvedTarget::Symbol(canonical_symbol_id(
+            symbols,
+            file_id,
+            root,
+            symbol_id,
+        )));
     }
 
     // Some type-usage contexts (for example enum qualified literals like
     // `E_State#Value`) do not classify as a TypeRef node; fall back to type lookup.
     if let Some(symbol_id) = resolve_type_symbol(symbols, &[SmolStr::new(name)], scope_id) {
-        return Some(ResolvedTarget::Symbol(symbol_id));
+        return Some(ResolvedTarget::Symbol(canonical_symbol_id(
+            symbols,
+            file_id,
+            root,
+            symbol_id,
+        )));
     }
 
     if let Some(symbol_id) = symbols
@@ -125,10 +160,98 @@ pub(crate) fn resolve_target_at_position_with_context(
         .find(|symbol| symbol.is_type() && symbol.name.eq_ignore_ascii_case(name))
         .map(|symbol| symbol.id)
     {
-        return Some(ResolvedTarget::Symbol(symbol_id));
+        return Some(ResolvedTarget::Symbol(canonical_symbol_id(
+            symbols,
+            file_id,
+            root,
+            symbol_id,
+        )));
     }
 
     None
+}
+
+fn canonical_symbol_id(
+    symbols: &SymbolTable,
+    local_file_id: FileId,
+    root: &SyntaxNode,
+    symbol_id: SymbolId,
+) -> SymbolId {
+    let Some(symbol) = symbols.get(symbol_id) else {
+        return symbol_id;
+    };
+    if let Some(origin) = symbol.origin {
+        if origin.file_id != local_file_id {
+            if let Some(candidate_id) = canonical_origin_candidate(symbols, symbol_id, origin) {
+                return candidate_id;
+            }
+        }
+    }
+    if symbol_declares_external(root, symbol.range) {
+        if let Some(candidate_id) = canonical_external_target(symbols, local_file_id, symbol_id) {
+            return candidate_id;
+        }
+    }
+    symbol_id
+}
+
+fn canonical_origin_candidate(
+    symbols: &SymbolTable,
+    symbol_id: SymbolId,
+    origin: trust_hir::symbols::SymbolOrigin,
+) -> Option<SymbolId> {
+    symbols
+        .iter()
+        .find(|candidate| {
+            candidate.id != symbol_id
+                && candidate.origin == Some(origin)
+                && !matches!(
+                    candidate.kind,
+                    SymbolKind::Variable {
+                        qualifier: trust_hir::symbols::VarQualifier::External,
+                    }
+                )
+        })
+        .map(|candidate| candidate.id)
+}
+
+fn canonical_external_target(
+    symbols: &SymbolTable,
+    local_file_id: FileId,
+    symbol_id: SymbolId,
+) -> Option<SymbolId> {
+    let symbol = symbols.get(symbol_id)?;
+    symbols
+        .iter()
+        .find(|candidate| {
+            candidate.id != symbol_id
+                && candidate.name.eq_ignore_ascii_case(&symbol.name)
+                && candidate.origin.map(|origin| origin.file_id) != Some(local_file_id)
+                && !matches!(
+                    candidate.kind,
+                    SymbolKind::Variable {
+                        qualifier: trust_hir::symbols::VarQualifier::External,
+                    }
+                )
+                && std::mem::discriminant(&candidate.kind) == std::mem::discriminant(&symbol.kind)
+        })
+        .map(|candidate| candidate.id)
+}
+
+fn symbol_declares_external(root: &SyntaxNode, symbol_range: TextRange) -> bool {
+    find_var_decl_for_range(root, symbol_range)
+        .and_then(|var_decl| {
+            var_decl
+                .ancestors()
+                .find(|node| node.kind() == SyntaxKind::VarBlock)
+        })
+        .map(|block| {
+            block
+                .descendants_with_tokens()
+                .filter_map(|element| element.into_token())
+                .any(|token| token.kind() == SyntaxKind::KwVarExternal)
+        })
+        .unwrap_or(false)
 }
 
 fn field_target_for_symbol_declaration(
@@ -212,4 +335,3 @@ pub(crate) fn resolve_type_symbol_at_node(
     let scope_id = scope_at_position(symbols, root, name_node.text_range().start());
     resolve_type_symbol(symbols, &parts, scope_id)
 }
-

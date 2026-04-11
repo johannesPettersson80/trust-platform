@@ -26,6 +26,7 @@ fn call_function_exec() {
             default: None,
         }],
         locals: Vec::new(),
+        static_locals: Vec::new(),
         using: Vec::new(),
         body: vec![Stmt::Return {
             expr: Some(Expr::Binary {

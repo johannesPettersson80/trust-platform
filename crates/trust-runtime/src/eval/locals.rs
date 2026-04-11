@@ -1,9 +1,33 @@
+pub(crate) fn static_storage_name(owner: &SmolStr, name: &SmolStr) -> SmolStr {
+    SmolStr::new(format!("__STAT::{owner}::{name}"))
+}
+
+pub(crate) fn method_static_storage_owner(owner: &SmolStr, method: &SmolStr) -> SmolStr {
+    SmolStr::new(format!("{owner}::{method}"))
+}
+
+pub(crate) fn static_storage_value_ref(
+    ctx: &EvalContext<'_>,
+    name: &SmolStr,
+) -> Option<crate::value::ValueRef> {
+    let (instance_id, owner) = static_storage_binding(ctx, name)?;
+    let key = static_storage_name(&owner, name);
+    match instance_id {
+        Some(instance_id) => ctx.storage.ref_for_instance_recursive(instance_id, key.as_ref()),
+        None => ctx.storage.ref_for_global(key.as_ref()),
+    }
+}
+
 pub(crate) fn init_locals(
     ctx: &mut EvalContext<'_>,
     locals: &[VarDef],
 ) -> Result<(), RuntimeError> {
     for local in locals {
         if local.external {
+            continue;
+        }
+        if local.static_storage {
+            ensure_static_storage(ctx, local)?;
             continue;
         }
         if let Some(fb_name) = function_block_type_name(local.type_id, ctx.registry) {
@@ -69,6 +93,10 @@ pub(crate) fn init_locals_in_frame(
         if local.external {
             continue;
         }
+        if local.static_storage {
+            ensure_static_storage(ctx, local)?;
+            continue;
+        }
         if let Some(fb_name) = function_block_type_name(local.type_id, ctx.registry) {
             let function_blocks = ctx.function_blocks.ok_or(RuntimeError::TypeMismatch)?;
             let functions = ctx.functions.ok_or(RuntimeError::TypeMismatch)?;
@@ -124,6 +152,153 @@ pub(crate) fn init_locals_in_frame(
     Ok(())
 }
 
+fn ensure_static_storage(ctx: &mut EvalContext<'_>, local: &VarDef) -> Result<(), RuntimeError> {
+    let (instance_id, owner) =
+        static_storage_binding(ctx, &local.name).ok_or(RuntimeError::TypeMismatch)?;
+    let key = static_storage_name(&owner, &local.name);
+
+    if let Some(instance_id) = instance_id {
+        if ctx.storage.get_instance_var(instance_id, key.as_ref()).is_none() {
+            let value = if let Some(expr) = &local.initializer {
+                eval_expr(ctx, expr)?
+            } else {
+                default_value_for_type_id(local.type_id, ctx.registry, &ctx.profile)
+                    .unwrap_or(Value::Null)
+            };
+            ctx.storage.set_instance_var(instance_id, key, value);
+        }
+        return Ok(());
+    }
+
+    if ctx.storage.get_global(key.as_ref()).is_none() {
+        let value = if let Some(expr) = &local.initializer {
+            eval_expr(ctx, expr)?
+        } else {
+            default_value_for_type_id(local.type_id, ctx.registry, &ctx.profile)
+                .unwrap_or(Value::Null)
+        };
+        ctx.storage.set_global(key, value);
+    }
+    Ok(())
+}
+
+fn static_storage_binding(
+    ctx: &EvalContext<'_>,
+    name: &SmolStr,
+) -> Option<(Option<InstanceId>, SmolStr)> {
+    let frame = ctx.storage.current_frame()?;
+    if let Some(functions) = ctx.functions {
+        let key = SmolStr::new(frame.owner.to_ascii_uppercase());
+        if let Some(function) = functions.get(&key) {
+            if contains_var_named(&function.static_locals, name) {
+                return Some((None, function.name.clone()));
+            }
+        }
+    }
+
+    let instance_id = frame.instance_id.or(ctx.current_instance)?;
+    let owner = method_static_owner_label(ctx, instance_id, &frame.owner, name)?;
+    Some((Some(instance_id), owner))
+}
+
+fn contains_var_named(vars: &[VarDef], name: &SmolStr) -> bool {
+    vars.iter()
+        .any(|var| var.name.eq_ignore_ascii_case(name.as_str()))
+}
+
+fn method_static_owner_label(
+    ctx: &EvalContext<'_>,
+    instance_id: InstanceId,
+    method_name: &SmolStr,
+    local_name: &SmolStr,
+) -> Option<SmolStr> {
+    let instance = ctx.storage.get_instance(instance_id)?;
+    let key = SmolStr::new(instance.type_name.to_ascii_uppercase());
+
+    if let Some(function_blocks) = ctx.function_blocks {
+        if let Some(function_block) = function_blocks.get(&key) {
+            let classes = ctx.classes?;
+            return method_static_owner_label_in_fb(
+                function_blocks,
+                classes,
+                function_block,
+                method_name,
+                local_name,
+            );
+        }
+    }
+
+    let classes = ctx.classes?;
+    let class_def = classes.get(&key)?;
+    method_static_owner_label_in_class(classes, class_def, method_name, local_name)
+}
+
+fn method_static_owner_label_in_fb(
+    function_blocks: &IndexMap<SmolStr, FunctionBlockDef>,
+    classes: &IndexMap<SmolStr, ClassDef>,
+    function_block: &FunctionBlockDef,
+    method_name: &SmolStr,
+    local_name: &SmolStr,
+) -> Option<SmolStr> {
+    let mut current = Some(function_block);
+    while let Some(def) = current {
+        if let Some(method) = def
+            .methods
+            .iter()
+            .find(|method| method.name.eq_ignore_ascii_case(method_name.as_str()))
+        {
+            return contains_var_named(&method.static_locals, local_name)
+                .then(|| method_static_storage_owner(&def.name, &method.name));
+        }
+        let Some(base) = &def.base else {
+            break;
+        };
+        match base {
+            FunctionBlockBase::FunctionBlock(base_name) => {
+                let key = SmolStr::new(base_name.to_ascii_uppercase());
+                current = function_blocks.get(&key);
+            }
+            FunctionBlockBase::Class(base_name) => {
+                let key = SmolStr::new(base_name.to_ascii_uppercase());
+                let class_def = classes.get(&key)?;
+                return method_static_owner_label_in_class(
+                    classes,
+                    class_def,
+                    method_name,
+                    local_name,
+                );
+            }
+        }
+    }
+    None
+}
+
+fn method_static_owner_label_in_class(
+    classes: &IndexMap<SmolStr, ClassDef>,
+    class_def: &ClassDef,
+    method_name: &SmolStr,
+    local_name: &SmolStr,
+) -> Option<SmolStr> {
+    let mut current = class_def;
+    loop {
+        if let Some(method) = current
+            .methods
+            .iter()
+            .find(|method| method.name.eq_ignore_ascii_case(method_name.as_str()))
+        {
+            return contains_var_named(&method.static_locals, local_name)
+                .then(|| method_static_storage_owner(&current.name, &method.name));
+        }
+        let Some(base) = &current.base else {
+            break;
+        };
+        let key = SmolStr::new(base.to_ascii_uppercase());
+        let next = classes.get(&key)?;
+        current = next;
+    }
+    None
+}
+
 fn function_block_type_name(type_id: TypeId, registry: &TypeRegistry) -> Option<SmolStr> {
     let ty = registry.get(type_id)?;
     match ty {
@@ -141,4 +316,3 @@ fn class_type_name(type_id: TypeId, registry: &TypeRegistry) -> Option<SmolStr> 
         _ => None,
     }
 }
-

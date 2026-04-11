@@ -10,6 +10,10 @@ use super::access::{
 };
 use super::ast::LValue;
 
+fn qualified_field_name(name: &SmolStr, field: &SmolStr) -> SmolStr {
+    SmolStr::new(format!("{name}.{field}"))
+}
+
 pub(super) fn resolve_reference_for_lvalue(
     ctx: &mut EvalContext<'_>,
     target: &LValue,
@@ -36,6 +40,10 @@ pub(super) fn resolve_reference_for_lvalue(
             Ok(value_ref)
         }
         LValue::Field { name, field } => {
+            let qualified = qualified_field_name(name, field);
+            if let Some(reference) = resolve_reference(ctx, &qualified) {
+                return Ok(reference);
+            }
             let base_value = read_name(ctx, name)?;
             match base_value {
                 Value::Instance(id) => ctx
@@ -76,6 +84,10 @@ pub fn read_lvalue(ctx: &mut EvalContext<'_>, target: &LValue) -> Result<Value, 
             read_indices(array_value, &index_values)
         }
         LValue::Field { name, field } => {
+            let qualified = qualified_field_name(name, field);
+            if let Ok(value) = read_name(ctx, &qualified) {
+                return Ok(value);
+            }
             let struct_value = read_name(ctx, name)?;
             read_field(ctx, struct_value, field)
         }
@@ -109,6 +121,10 @@ pub fn write_lvalue(
             write_name(ctx, name, updated)
         }
         LValue::Field { name, field } => {
+            let qualified = qualified_field_name(name, field);
+            if resolve_reference(ctx, &qualified).is_some() {
+                return write_name(ctx, &qualified, value);
+            }
             let struct_value = read_name(ctx, name)?;
             if let Value::Instance(id) = struct_value {
                 let Some(reference) = ctx.storage.ref_for_instance_recursive(id, field.as_ref())

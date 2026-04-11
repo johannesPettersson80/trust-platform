@@ -81,3 +81,29 @@ END_VAR
 END_PROGRAM"#
     ));
 }
+
+#[test]
+fn test_file_scope_var_global() {
+    let parsed = parse(
+        r#"VAR_GLOBAL
+    g_Shared : INT := 0;
+END_VAR"#,
+    );
+    assert!(
+        parsed.ok(),
+        "expected file-scope VAR_GLOBAL to parse, got: {:?}",
+        parsed.errors()
+    );
+    let syntax = parsed.syntax();
+    assert!(
+        syntax
+            .children()
+            .any(|child| child.kind() == SyntaxKind::VarBlock),
+        "expected root-level VarBlock, got:\n{}",
+        snapshot_parse(
+            r#"VAR_GLOBAL
+    g_Shared : INT := 0;
+END_VAR"#
+        )
+    );
+}

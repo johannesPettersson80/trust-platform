@@ -9,7 +9,10 @@ pub(in crate::db) fn is_global_symbol(symbols: &SymbolTable, symbol: &Symbol) ->
             .map(|parent| {
                 matches!(
                     parent.kind,
-                    SymbolKind::Namespace | SymbolKind::Configuration | SymbolKind::Resource
+                    SymbolKind::Namespace
+                        | SymbolKind::Configuration
+                        | SymbolKind::Resource
+                        | SymbolKind::Program
                 )
             })
             .unwrap_or(false),

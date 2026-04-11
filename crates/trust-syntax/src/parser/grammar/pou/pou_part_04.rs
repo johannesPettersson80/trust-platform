@@ -189,6 +189,8 @@ impl Parser<'_, '_> {
                 self.parse_program();
             } else if self.at(TokenKind::KwFunction) {
                 self.parse_function();
+            } else if self.at(TokenKind::KwVarGlobal) {
+                self.parse_var_block();
             } else if self.at(TokenKind::KwFunctionBlock) || self.at(TokenKind::KwTestFunctionBlock)
             {
                 self.parse_function_block();

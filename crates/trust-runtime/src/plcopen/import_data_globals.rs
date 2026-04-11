@@ -111,6 +111,7 @@ fn import_global_var_lists_to_sources(
     loss_warnings: &mut usize,
     project_structure_map: &CodesysProjectStructureMap,
     imported_folder_paths: &mut HashSet<String>,
+    global_var_mode: PlcopenImportGlobalVarMode,
 ) -> anyhow::Result<ImportGlobalVarStats> {
     let mut stats = ImportGlobalVarStats::default();
 
@@ -181,54 +182,101 @@ fn import_global_var_lists_to_sources(
         }
 
         let var_global_header_suffix = extract_var_global_header_suffix(&global_source);
+        let global_prefix = extract_leading_global_prefix(&global_source);
         let is_qualified_only = codesys_global_vars_is_qualified_only(global_vars, &global_source);
 
-        let (rendered_source, qualified_external) = if is_qualified_only {
-            let type_name = format!("{list_identifier}_TYPE");
-            let configuration_name = format!("{list_identifier}_Globals");
+        let (rendered_source, qualified_external) = match (global_var_mode, is_qualified_only) {
+            (PlcopenImportGlobalVarMode::StrictIecAdapter, true) => {
+                let type_name = format!("{list_identifier}_TYPE");
+                let configuration_name = format!("{list_identifier}_Globals");
 
-            let mut rendered = String::new();
-            rendered.push_str("TYPE\n");
-            rendered.push_str(&format!("{type_name} : STRUCT\n"));
-            for variable in &variables {
-                rendered.push_str("    ");
-                rendered.push_str(&format_global_var_declaration(variable));
+                let mut rendered = String::new();
+                rendered.push_str("TYPE\n");
+                rendered.push_str(&format!("{type_name} : STRUCT\n"));
+                for variable in &variables {
+                    rendered.push_str("    ");
+                    rendered.push_str(&format_global_var_declaration(variable));
+                    rendered.push('\n');
+                }
+                rendered.push_str("END_STRUCT\n");
+                rendered.push_str("END_TYPE\n\n");
+                rendered.push_str(&format!("CONFIGURATION {configuration_name}\n"));
+                rendered.push_str(&render_var_global_header(&var_global_header_suffix));
                 rendered.push('\n');
-            }
-            rendered.push_str("END_STRUCT\n");
-            rendered.push_str("END_TYPE\n\n");
-            rendered.push_str(&format!("CONFIGURATION {configuration_name}\n"));
-            rendered.push_str(&render_var_global_header(&var_global_header_suffix));
-            rendered.push('\n');
-            rendered.push_str(&format!("    {list_identifier} : {type_name};\n"));
-            rendered.push_str("END_VAR\n");
-            rendered.push_str("END_CONFIGURATION\n");
+                rendered.push_str(&format!("    {list_identifier} : {type_name};\n"));
+                rendered.push_str("END_VAR\n");
+                rendered.push_str("END_CONFIGURATION\n");
 
-            warnings.push(format!(
-                "mapped qualified_only globalVars '{}' to configuration/type wrapper for cross-file compatibility",
-                name
-            ));
-            (
-                rendered,
-                Some(QualifiedGlobalListExternalDecl {
-                    list_name: list_identifier.clone(),
-                    type_name,
-                }),
-            )
-        } else {
-            let configuration_name = format!("{list_identifier}_Globals");
-            let mut rendered = String::new();
-            rendered.push_str(&format!("CONFIGURATION {configuration_name}\n"));
-            rendered.push_str(&render_var_global_header(&var_global_header_suffix));
-            rendered.push('\n');
-            for variable in &variables {
-                rendered.push_str("    ");
-                rendered.push_str(&format_global_var_declaration(variable));
-                rendered.push('\n');
+                warnings.push(format!(
+                    "mapped qualified_only globalVars '{}' to strict-IEC configuration/type wrapper",
+                    name
+                ));
+                (
+                    rendered,
+                    Some(QualifiedGlobalListExternalDecl {
+                        list_name: list_identifier.clone(),
+                        type_name,
+                    }),
+                )
             }
-            rendered.push_str("END_VAR\n");
-            rendered.push_str("END_CONFIGURATION\n");
-            (rendered, None)
+            (PlcopenImportGlobalVarMode::StrictIecAdapter, false) => {
+                let configuration_name = format!("{list_identifier}_Globals");
+                let mut rendered = String::new();
+                rendered.push_str(&format!("CONFIGURATION {configuration_name}\n"));
+                rendered.push_str(&render_var_global_header(&var_global_header_suffix));
+                rendered.push('\n');
+                for variable in &variables {
+                    rendered.push_str("    ");
+                    rendered.push_str(&format_global_var_declaration(variable));
+                    rendered.push('\n');
+                }
+                rendered.push_str("END_VAR\n");
+                rendered.push_str("END_CONFIGURATION\n");
+                (rendered, None)
+            }
+            (_, true) => {
+                let mut rendered = String::new();
+                if !global_prefix.is_empty() {
+                    rendered.push_str(&global_prefix);
+                    if !global_prefix.ends_with('\n') {
+                        rendered.push('\n');
+                    }
+                }
+                rendered.push_str(&format!("NAMESPACE {list_identifier}\n"));
+                rendered.push_str(&render_var_global_header(&var_global_header_suffix));
+                rendered.push('\n');
+                for variable in &variables {
+                    rendered.push_str("    ");
+                    rendered.push_str(&format_global_var_declaration(variable));
+                    rendered.push('\n');
+                }
+                rendered.push_str("END_VAR\n");
+                rendered.push_str("END_NAMESPACE\n");
+
+                warnings.push(format!(
+                    "mapped qualified_only globalVars '{}' to namespaced vendor-style GVL for native qualified access",
+                    name
+                ));
+                (rendered, None)
+            }
+            (_, false) => {
+                let mut rendered = String::new();
+                if !global_prefix.is_empty() {
+                    rendered.push_str(&global_prefix);
+                    if !global_prefix.ends_with('\n') {
+                        rendered.push('\n');
+                    }
+                }
+                rendered.push_str(&render_var_global_header(&var_global_header_suffix));
+                rendered.push('\n');
+                for variable in &variables {
+                    rendered.push_str("    ");
+                    rendered.push_str(&format_global_var_declaration(variable));
+                    rendered.push('\n');
+                }
+                rendered.push_str("END_VAR\n");
+                (rendered, None)
+            }
         };
 
         let folder_segments =
@@ -262,6 +310,18 @@ fn extract_var_global_header_suffix(source: &str) -> String {
         }
     }
     String::new()
+}
+
+fn extract_leading_global_prefix(source: &str) -> String {
+    let mut prefix = Vec::new();
+    for line in source.lines() {
+        if line.trim().to_ascii_uppercase().starts_with("VAR_GLOBAL") {
+            break;
+        }
+        prefix.push(line);
+    }
+    let prefix = prefix.join("\n");
+    prefix.trim_end().to_string()
 }
 
 fn render_var_global_header(suffix: &str) -> String {
@@ -379,4 +439,3 @@ fn synthesize_global_vars_source(
     out.push_str("END_VAR\n");
     Some(out)
 }
-

@@ -12,7 +12,7 @@ use crate::value::DateTimeProfile;
 
 use super::super::lower::{lower_expr, lower_stmt_list};
 use super::super::types::CompileError;
-use super::super::util::{collect_using_directives, node_text};
+use super::super::util::{collect_using_directives, namespace_qualified_name, node_text};
 use super::model::{GlobalInit, LoweredProgram, LoweringContext, ProgramVars};
 use super::types::qualify_with_namespaces;
 use super::vars::{parse_var_decl, var_block_kind, var_block_qualifiers, VarBlockKind};

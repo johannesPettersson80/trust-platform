@@ -30,7 +30,13 @@ impl<'a> BytecodeEncoder<'a> {
                 local_ref_count,
                 for_temp_pairs,
             } = self.local_scope_for_body(None, &[], &program.temps, &program.body)?;
-            let mut ctx = CodegenContext::new(instance_id, locals, HashMap::new(), for_temp_pairs);
+            let mut ctx = CodegenContext::new(
+                instance_id,
+                locals,
+                HashMap::new(),
+                HashMap::new(),
+                for_temp_pairs,
+            );
             let (code, local_debug) = self.emit_pou_body(&mut ctx, id, &program.body)?;
             let entry = self.pou_entry_program(program, id)?;
             append_emitted_pou(
@@ -60,7 +66,13 @@ impl<'a> BytecodeEncoder<'a> {
                 for_temp_pairs,
             } = self.local_scope_for_body(None, &[], &fb.temps, &fb.body)?;
             let self_fields = self.self_fields_for_owner(&fb.name)?;
-            let mut ctx = CodegenContext::new(None, locals, self_fields, for_temp_pairs);
+            let mut ctx = CodegenContext::new(
+                None,
+                locals,
+                HashMap::new(),
+                self_fields,
+                for_temp_pairs,
+            );
             let (code, local_debug) = self.emit_pou_body(&mut ctx, id, &fb.body)?;
             let entry = self.pou_entry_function_block(fb, id, !self.is_stdlib_fb(&fb.name))?;
             append_emitted_pou(
@@ -89,7 +101,14 @@ impl<'a> BytecodeEncoder<'a> {
                 local_ref_count,
                 for_temp_pairs,
             } = self.local_scope_for_body(Some(&func.name), &func.params, &func.locals, &func.body)?;
-            let mut ctx = CodegenContext::new(None, locals, HashMap::new(), for_temp_pairs);
+            let static_refs = self.static_refs_for_function(func)?;
+            let mut ctx = CodegenContext::new(
+                None,
+                locals,
+                static_refs,
+                HashMap::new(),
+                for_temp_pairs,
+            );
             let (code, local_debug) = self.emit_pou_body(&mut ctx, id, &func.body)?;
             let entry = self.pou_entry_function(func, id)?;
             append_emitted_pou(
@@ -118,14 +137,14 @@ impl<'a> BytecodeEncoder<'a> {
             entries.push(entry);
         }
 
-        for (owner, fb) in self.runtime.function_blocks().iter() {
+        for (_owner, fb) in self.runtime.function_blocks().iter() {
             let owner_id = self
                 .pou_ids
-                .function_block_id(owner)
+                .function_block_id(&fb.name)
                 .ok_or_else(|| BytecodeError::InvalidSection("method owner missing".into()))?;
             for method in &fb.methods {
                 self.emit_method_entry(
-                    owner,
+                    &fb.name,
                     method,
                     owner_id,
                     &mut EmittedPouBuffers {
@@ -138,14 +157,14 @@ impl<'a> BytecodeEncoder<'a> {
             }
         }
 
-        for (owner, class) in self.runtime.classes().iter() {
+        for (_owner, class) in self.runtime.classes().iter() {
             let owner_id = self
                 .pou_ids
-                .class_id(owner)
+                .class_id(&class.name)
                 .ok_or_else(|| BytecodeError::InvalidSection("method owner missing".into()))?;
             for method in &class.methods {
                 self.emit_method_entry(
-                    owner,
+                    &class.name,
                     method,
                     owner_id,
                     &mut EmittedPouBuffers {
@@ -183,8 +202,14 @@ impl<'a> BytecodeEncoder<'a> {
             &method.locals,
             &method.body,
         )?;
-        let self_fields = self.self_fields_for_owner(owner)?;
-        let mut ctx = CodegenContext::new(None, locals, self_fields, for_temp_pairs);
+        let mut self_fields = self.self_fields_for_owner(owner)?;
+        for local in &method.static_locals {
+            let owner = crate::eval::method_static_storage_owner(owner, &method.name);
+            let hidden = crate::eval::static_storage_name(&owner, &local.name);
+            let key = super::util::normalize_name(&local.name);
+            self_fields.insert(key, hidden);
+        }
+        let mut ctx = CodegenContext::new(None, locals, HashMap::new(), self_fields, for_temp_pairs);
         let (code, local_debug) = self.emit_pou_body(&mut ctx, id, &method.body)?;
         let entry = self.pou_entry_method(method, owner_id, id)?;
         append_emitted_pou(
@@ -195,6 +220,28 @@ impl<'a> BytecodeEncoder<'a> {
             local_debug,
             emitted,
         )
+    }
+
+    fn static_refs_for_function(
+        &self,
+        function: &FunctionDef,
+    ) -> Result<HashMap<SmolStr, crate::value::ValueRef>, BytecodeError> {
+        let mut refs = HashMap::new();
+        for local in &function.static_locals {
+            let hidden = crate::eval::static_storage_name(&function.name, &local.name);
+            let reference = self
+                .runtime
+                .storage()
+                .ref_for_global(hidden.as_ref())
+                .ok_or_else(|| {
+                    BytecodeError::InvalidSection(
+                        format!("missing function VAR_STAT backing storage for '{}'", local.name)
+                            .into(),
+                    )
+                })?;
+            refs.insert(local.name.clone(), reference);
+        }
+        Ok(refs)
     }
 }
 
