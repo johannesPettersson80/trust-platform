@@ -454,6 +454,71 @@ END_PROGRAM
 }
 
 #[test]
+fn test_float_equality_warning() {
+    let warnings = check_warnings(
+        r#"
+PROGRAM Test
+    VAR
+        r : REAL;
+        flag : BOOL;
+    END_VAR
+    flag := (r + 0.2) = 0.3;
+END_PROGRAM
+"#,
+    );
+    assert!(warnings.contains(&DiagnosticCode::FloatingPointEquality));
+}
+
+#[test]
+fn test_integer_equality_has_no_float_warning() {
+    let warnings = check_warnings(
+        r#"
+PROGRAM Test
+    VAR
+        a : INT;
+        b : INT;
+        flag : BOOL;
+    END_VAR
+    flag := a = b;
+END_PROGRAM
+"#,
+    );
+    assert!(!warnings.contains(&DiagnosticCode::FloatingPointEquality));
+}
+
+#[test]
+fn test_literal_division_by_zero_warning() {
+    let warnings = check_warnings(
+        r#"
+PROGRAM Test
+    VAR
+        x : DINT;
+    END_VAR
+    x := 10 / 0;
+    x := 10 MOD 0;
+END_PROGRAM
+"#,
+    );
+    assert!(warnings.contains(&DiagnosticCode::LiteralDivisionByZero));
+}
+
+#[test]
+fn test_nonliteral_division_has_no_zero_literal_warning() {
+    let warnings = check_warnings(
+        r#"
+PROGRAM Test
+    VAR
+        x : DINT;
+        denom : DINT;
+    END_VAR
+    x := 10 / denom;
+END_PROGRAM
+"#,
+    );
+    assert!(!warnings.contains(&DiagnosticCode::LiteralDivisionByZero));
+}
+
+#[test]
 fn test_used_function_no_unused_pou_warning() {
     let warnings = check_warnings(
         r#"

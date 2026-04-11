@@ -100,6 +100,10 @@ pub enum DiagnosticCode {
     NondeterministicIo,
     /// Shared global accessed by multiple tasks with writes.
     SharedGlobalTaskHazard,
+    /// Floating-point equality or inequality comparison.
+    FloatingPointEquality,
+    /// Division or modulo by literal zero.
+    LiteralDivisionByZero,
 
     // Info/Hints (I001-I099)
     /// Suggested simplification.
@@ -153,6 +157,8 @@ impl DiagnosticCode {
             Self::NondeterministicTimeDate => "W010",
             Self::NondeterministicIo => "W011",
             Self::SharedGlobalTaskHazard => "W012",
+            Self::FloatingPointEquality => "W013",
+            Self::LiteralDivisionByZero => "W014",
             // Info
             Self::Simplification => "I001",
             Self::StyleSuggestion => "I002",
@@ -200,7 +206,9 @@ impl DiagnosticCode {
             | Self::UnusedPou
             | Self::NondeterministicTimeDate
             | Self::NondeterministicIo
-            | Self::SharedGlobalTaskHazard => DiagnosticSeverity::Warning,
+            | Self::SharedGlobalTaskHazard
+            | Self::FloatingPointEquality
+            | Self::LiteralDivisionByZero => DiagnosticSeverity::Warning,
 
             // Info/Hints
             Self::Simplification | Self::StyleSuggestion => DiagnosticSeverity::Hint,

@@ -37,6 +37,7 @@ fn diagnostic_allowed(settings: &DiagnosticSettings, diagnostic: &Diagnostic) ->
         "W007" => settings.warn_deprecated,
         "W008" => settings.warn_complexity,
         "W010" | "W011" => settings.warn_nondeterminism,
+        "W013" | "W014" => settings.warn_numeric_hazards,
         _ => true,
     }
 }
@@ -189,6 +190,38 @@ fn push_related_hint(diagnostic: &mut Diagnostic, uri: &Url, hint: &str) {
             },
             message,
         });
+}
+
+#[cfg(test)]
+mod collection_filter_tests {
+    use super::*;
+    use tower_lsp::lsp_types::{
+        Diagnostic, DiagnosticSeverity as LspDiagnosticSeverity, NumberOrString, Range,
+    };
+
+    fn warning(code: &str) -> Diagnostic {
+        Diagnostic {
+            range: Range::default(),
+            severity: Some(LspDiagnosticSeverity::WARNING),
+            code: Some(NumberOrString::String(code.to_string())),
+            ..Diagnostic::default()
+        }
+    }
+
+    #[test]
+    fn numeric_hazard_filter_controls_numeric_warning_codes() {
+        let mut settings = DiagnosticSettings {
+            warn_numeric_hazards: false,
+            ..DiagnosticSettings::default()
+        };
+
+        assert!(!diagnostic_allowed(&settings, &warning("W013")));
+        assert!(!diagnostic_allowed(&settings, &warning("W014")));
+
+        settings.warn_numeric_hazards = true;
+        assert!(diagnostic_allowed(&settings, &warning("W013")));
+        assert!(diagnostic_allowed(&settings, &warning("W014")));
+    }
 }
 
 fn did_you_mean_suggestions(code: &str, message: &str, context: &LearnerContext) -> Vec<String> {
@@ -622,4 +655,3 @@ fn spec_url(state: &ServerState, spec_path: &str) -> Option<Url> {
     }
     None
 }
-

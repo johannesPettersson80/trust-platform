@@ -76,6 +76,7 @@ END_PROGRAM
                 warn_deprecated: true,
                 warn_complexity: false,
                 warn_nondeterminism: true,
+                warn_numeric_hazards: true,
                 severity_overrides: Default::default(),
             },
             runtime: RuntimeConfig::default(),

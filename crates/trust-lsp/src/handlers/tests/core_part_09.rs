@@ -142,6 +142,7 @@ pub(super) fn lsp_tutorial_examples_no_unexpected_diagnostics_snapshot() {
                 warn_deprecated: false,
                 warn_complexity: false,
                 warn_nondeterminism: false,
+                warn_numeric_hazards: false,
                 severity_overrides: Default::default(),
             },
             runtime: RuntimeConfig::default(),
