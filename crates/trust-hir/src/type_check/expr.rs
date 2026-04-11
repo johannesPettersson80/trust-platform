@@ -1,7 +1,7 @@
 use super::helpers::direct_address_type;
 use super::literals::{
     int_literal_info, is_long_date_literal, is_long_dt_literal, is_long_time_literal,
-    is_long_tod_literal, smallest_int_type_for_literal,
+    is_long_tod_literal, is_zero_numeric_literal_expr, smallest_int_type_for_literal,
 };
 use super::*;
 
@@ -201,6 +201,7 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
         let op = BinaryOp::from_node(node);
 
         if op.is_comparison() {
+            self.warn_float_equality(lhs_type, rhs_type, op, node.text_range());
             self.check_comparable(lhs_type, rhs_type, node.text_range());
             TypeId::BOOL
         } else if op.is_logical() {
@@ -212,6 +213,7 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
                 node.text_range(),
             )
         } else if op.is_arithmetic() {
+            self.warn_literal_zero_divisor(op, rhs_node);
             if let (Some(lhs_ty), Some(rhs_ty)) = (
                 self.checker
                     .symbols
@@ -362,6 +364,42 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
                 TypeId::UNKNOWN
             }
         }
+    }
+
+    fn warn_float_equality(&mut self, lhs: TypeId, rhs: TypeId, op: BinaryOp, range: TextRange) {
+        if !matches!(op, BinaryOp::Eq | BinaryOp::Neq) {
+            return;
+        }
+
+        let lhs = self.checker.resolve_subrange_base(lhs);
+        let rhs = self.checker.resolve_subrange_base(rhs);
+        let lhs_is_float = self.checker.resolved_type(lhs).is_some_and(Type::is_float);
+        let rhs_is_float = self.checker.resolved_type(rhs).is_some_and(Type::is_float);
+
+        if lhs_is_float || rhs_is_float {
+            self.checker.diagnostics.warning(
+                DiagnosticCode::FloatingPointEquality,
+                range,
+                "floating-point equality comparison may produce unexpected results",
+            );
+        }
+    }
+
+    fn warn_literal_zero_divisor(&mut self, op: BinaryOp, rhs_node: &SyntaxNode) {
+        if !matches!(op, BinaryOp::Div | BinaryOp::Mod) || !is_zero_numeric_literal_expr(rhs_node) {
+            return;
+        }
+
+        let message = if matches!(op, BinaryOp::Div) {
+            "division by literal zero will fault at runtime"
+        } else {
+            "MOD by literal zero will fault at runtime"
+        };
+        self.checker.diagnostics.warning(
+            DiagnosticCode::LiteralDivisionByZero,
+            rhs_node.text_range(),
+            message,
+        );
     }
 
     pub(super) fn common_numeric_type(

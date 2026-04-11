@@ -33,6 +33,7 @@ pub(super) fn lsp_mitsubishi_gxworks3_example_has_no_unexpected_diagnostics() {
                 warn_deprecated: false,
                 warn_complexity: false,
                 warn_nondeterminism: false,
+                warn_numeric_hazards: false,
                 severity_overrides: Default::default(),
             },
             runtime: RuntimeConfig::default(),

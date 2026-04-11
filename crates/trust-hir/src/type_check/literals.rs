@@ -235,6 +235,40 @@ pub(super) fn is_untyped_real_literal_expr(node: &SyntaxNode) -> bool {
     }
 }
 
+pub(super) fn is_zero_numeric_literal_expr(node: &SyntaxNode) -> bool {
+    match node.kind() {
+        SyntaxKind::Literal => literal_is_zero(node),
+        SyntaxKind::ParenExpr => node
+            .children()
+            .next()
+            .is_some_and(|child| is_zero_numeric_literal_expr(&child)),
+        SyntaxKind::UnaryExpr => {
+            if int_unary_op_from_node(node).is_none() {
+                return false;
+            }
+            node.children()
+                .next()
+                .is_some_and(|child| is_zero_numeric_literal_expr(&child))
+        }
+        _ => false,
+    }
+}
+
+fn literal_is_zero(node: &SyntaxNode) -> bool {
+    if int_literal_info(node).is_some_and(|info| info.value == 0) {
+        return true;
+    }
+
+    node.descendants_with_tokens()
+        .filter_map(|e| e.into_token())
+        .find(|token| token.kind() == SyntaxKind::RealLiteral)
+        .and_then(|token| {
+            let cleaned: String = token.text().chars().filter(|c| *c != '_').collect();
+            cleaned.parse::<f64>().ok()
+        })
+        .is_some_and(|value| value == 0.0)
+}
+
 #[derive(Clone, Copy)]
 pub(super) enum IntBinaryOp {
     Add,

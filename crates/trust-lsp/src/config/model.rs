@@ -136,6 +136,8 @@ pub struct DiagnosticSettings {
     pub warn_complexity: bool,
     /// Toggle non-determinism warnings (W010/W011).
     pub warn_nondeterminism: bool,
+    /// Toggle numeric hazard warnings (W013/W014).
+    pub warn_numeric_hazards: bool,
     /// Per-code severity overrides (e.g., W010 -> error).
     pub severity_overrides: HashMap<String, DiagnosticSeverity>,
 }
@@ -151,6 +153,7 @@ impl Default for DiagnosticSettings {
             warn_deprecated: true,
             warn_complexity: true,
             warn_nondeterminism: true,
+            warn_numeric_hazards: true,
             severity_overrides: HashMap::new(),
         }
     }
@@ -165,6 +168,7 @@ impl DiagnosticSettings {
         self.warn_deprecated = true;
         self.warn_complexity = true;
         self.warn_nondeterminism = true;
+        self.warn_numeric_hazards = true;
     }
 }
 /// Runtime control settings for inline values/debug integration.

@@ -77,3 +77,15 @@ This file tracks known, intentional deviations/extensions from strict IEC 61131-
 - Mitigation:
   - Unsupported symbol forms are not silently coerced; they are rejected with explicit
     diagnostics.
+
+## 2026-04-11 - Numeric hazard diagnostics for ST expressions
+
+- Area: Structured Text diagnostics
+- IEC reference: IEC 61131-3 Ed.3 defines expression evaluation and runtime fault behavior, but does not require warnings for floating-point equality or literal zero divisors.
+- Deviation:
+  - The type checker emits `W013` for `=`/`<>` comparisons when either operand is `REAL`/`LREAL`.
+  - The type checker emits `W014` for `DIV`/`MOD` expressions whose right-hand operand is a literal zero.
+- Impact:
+  - truST reports additional proactive diagnostics beyond strict IEC conformance.
+- Mitigation:
+  - These are configurable tooling warnings under `[diagnostics].warn_numeric_hazards`, and severities can still be overridden per code.

@@ -87,6 +87,9 @@ impl DiagnosticSettings {
         if let Some(value) = section.warn_nondeterminism {
             settings.warn_nondeterminism = value;
         }
+        if let Some(value) = section.warn_numeric_hazards {
+            settings.warn_numeric_hazards = value;
+        }
 
         apply_severity_overrides(&mut settings, section.severity_overrides);
         settings
@@ -244,6 +247,7 @@ struct DiagnosticSection {
     warn_deprecated: Option<bool>,
     warn_complexity: Option<bool>,
     warn_nondeterminism: Option<bool>,
+    warn_numeric_hazards: Option<bool>,
     #[serde(default)]
     external_paths: Vec<String>,
     #[serde(default)]
@@ -526,3 +530,7 @@ fn resolve_path(root: &Path, entry: &str) -> PathBuf {
         root.join(path)
     }
 }
+
+#[cfg(test)]
+#[path = "config/tests.rs"]
+mod tests;
