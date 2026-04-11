@@ -1,0 +1,420 @@
+metadata:
+  artifact: plcopen_motion_compliance_matrix
+  version: 1
+  status: active
+  schema:
+    required_columns:
+      - PublicName
+      - SourcePart
+      - SourceClass
+      - truSTPhase
+      - truSTStatus
+      - Notes
+    optional_columns:
+      - PinnedSourceRevision
+      - Profile_A_AxisCore
+      - Profile_B_Sync
+      - Profile_C_GroupCore
+      - Profile_D_Homing
+      - Profile_E_OOPFacade
+  pinned_sources:
+    part1:
+      name: PLCopen Motion Control Part 1
+      version: "2.0"
+      revision_date: "2011-03-17"
+    part4:
+      name: PLCopen Motion Control Part 4
+      version: "2.0 RFC"
+      revision_date: "2025-11-18"
+    part5:
+      name: PLCopen Motion Control Part 5
+      version: "2.0"
+      revision_date: "2011-11-16"
+  notes:
+    - Part 1 single-axis public surface through the current A2 scope is implemented and tracked per symbol in this matrix.
+    - Internal ST-only carrier globals used by the test fixture are intentionally omitted because they are not public PLCopen names.
+rows:
+  - PublicName: AXIS_REF
+    SourcePart: Part1
+    SourceClass: V
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Lightweight axis handle required by the selected classic Part 1 profile.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_BUFFER_MODE
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Full Part 1 enum surface for the selected Phase A profile.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_DIRECTION
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Phase A core public enum.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_EXECUTION_MODE
+    SourcePart: Part4
+    SourceClass: E
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Phase A adopts the Part 4 three-value enum; single-axis Phase A FBs reject mcDelayed.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_A_AxisCore: Required
+  - PublicName: MC_SOURCE
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Required by MC_ReadMotionState.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_AXIS_STATUS
+    SourcePart: truST
+    SourceClass: V
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Documented truST extension enum.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_Constants
+    SourcePart: truST
+    SourceClass: V
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Public ST helper FB publishing the standardized Part 1 parameter-number names and the stable public mcERR_* values; call the FB once before reading members.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_Power
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial single-axis public FB; the initial profile omits EnablePositive and EnableNegative.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_Home
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_Stop
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB; selected truST signature follows Part 1 FB tables and omits Active.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_Halt
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_MoveAbsolute
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_MoveRelative
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_MoveAdditive
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_MoveVelocity
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_MoveContinuousAbsolute
+    SourcePart: Part1
+    SourceClass: E
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_MoveContinuousRelative
+    SourcePart: Part1
+    SourceClass: E
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_SetPosition
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_SetOverride
+    SourcePart: Part1
+    SourceClass: E
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A enable-style public FB with Enabled semantics.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_ReadActualPosition
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_ReadActualVelocity
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_ReadActualTorque
+    SourcePart: Part1
+    SourceClass: E
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_ReadAxisError
+    SourcePart: Part1
+    SourceClass: E
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_ReadParameter
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_ReadBoolParameter
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_WriteParameter
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB; initial profile rejects mcDelayed.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_WriteBoolParameter
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB; initial profile rejects mcDelayed.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_ReadStatus
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_ReadMotionState
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB consuming MC_SOURCE.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_ReadAxisInfo
+    SourcePart: Part1
+    SourceClass: E
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_Reset
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_CamTableSelect
+    SourcePart: Part1
+    SourceClass: E
+    truSTPhase: B
+    truSTStatus: Required
+    Notes: Initial Phase B synchronization public FB.
+    Profile_B_Sync: Required
+  - PublicName: MC_CamIn
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: B
+    truSTStatus: Required
+    Notes: Initial Phase B synchronization public FB.
+    Profile_B_Sync: Required
+  - PublicName: MC_CamOut
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: B
+    truSTStatus: Required
+    Notes: Initial Phase B synchronization public FB.
+    Profile_B_Sync: Required
+  - PublicName: MC_GearIn
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: B
+    truSTStatus: Required
+    Notes: Initial Phase B synchronization public FB.
+    Profile_B_Sync: Required
+  - PublicName: MC_GearOut
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: B
+    truSTStatus: Required
+    Notes: Initial Phase B synchronization public FB.
+    Profile_B_Sync: Required
+  - PublicName: MC_GearInPos
+    SourcePart: Part1
+    SourceClass: E
+    truSTPhase: B
+    truSTStatus: Required
+    Notes: Initial Phase B synchronization public FB.
+    Profile_B_Sync: Required
+  - PublicName: AXES_GROUP_REF
+    SourcePart: Part4
+    SourceClass: V
+    truSTPhase: C
+    truSTStatus: Required
+    Notes: Lightweight axes-group handle required by the selected coordinated-motion profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: IDENT_IN_GROUP_REF
+    SourcePart: Part4
+    SourceClass: V
+    truSTPhase: C
+    truSTStatus: Required
+    Notes: Group-member identifier preserved on add/remove/config/read group FBs.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_COMMAND_ID
+    SourcePart: Part4
+    SourceClass: V
+    truSTPhase: C
+    truSTStatus: Required
+    Notes: Public command identifier for accepted coordinated/group commands.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_GROUP_PARAMETER
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Required
+    Notes: Includes the standardized mcDynamicsMode and mcTransitionReferencePoint members.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_TRANSITION_PARAMETER
+    SourcePart: Part4
+    SourceClass: V
+    truSTPhase: C
+    truSTStatus: Required
+    Notes: Vendor-specific coordinated-motion transition parameter input type.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_KIN_REF
+    SourcePart: Part4
+    SourceClass: V
+    truSTPhase: C
+    truSTStatus: Required
+    Notes: Vendor-specific kinematic reference type.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_COORD_SYSTEM
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Required
+    Notes: Initial Phase C public enum; minimum supported subset is ACS, MCS, PCS.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_DYNAMICS_MODE
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Required
+    Notes: Required by MC_GROUP_PARAMETER::mcDynamicsMode.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_TRANSITION_MODE
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Required
+    Notes: Initial Phase C public enum.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_TRANSITION_VELOCITY
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Required
+    Notes: Initial Phase C public enum.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_TRANSITION_REFERENCE
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Required
+    Notes: Initial Phase C public enum.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_COMMAND_STATE
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Required
+    Notes: Required by MC_GroupReadCommandInfo.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_GROUP_STATUS
+    SourcePart: truST
+    SourceClass: V
+    truSTPhase: C
+    truSTStatus: Required
+    Notes: Documented truST extension enum.
+    Profile_C_GroupCore: Required
+  - PublicName: MC_HOME_DIRECTION
+    SourcePart: Part5
+    SourceClass: B
+    truSTPhase: D
+    truSTStatus: Required
+    Notes: Phase D public homing enum.
+    Profile_D_Homing: Required
+  - PublicName: MC_SWITCH_MODE
+    SourcePart: Part5
+    SourceClass: B
+    truSTPhase: D
+    truSTStatus: Required
+    Notes: Phase D public homing enum.
+    Profile_D_Homing: Required
+  - PublicName: MC_REF_SIGNAL_REF
+    SourcePart: Part5
+    SourceClass: V
+    truSTPhase: D
+    truSTStatus: Required
+    Notes: Vendor-specific Phase D public reference-signal type.
+    Profile_D_Homing: Required
