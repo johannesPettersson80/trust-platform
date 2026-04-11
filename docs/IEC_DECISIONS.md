@@ -52,3 +52,13 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
   - Core LD semantics are specified to remain compatible with common Edition 2 usage patterns.
 - Reason:
   - Keeps a single normative baseline while avoiding unnecessary migration breakage for existing LD logic.
+
+## 2026-04-11 - Mixed-width infix bitwise result typing
+
+- Area: ST expression typing
+- IEC context: IEC 61131-3 Ed.3 expression semantics allow `AND`/`OR`/`XOR`/`NOT` on bit strings, but mixed-width infix result typing is not stated concretely enough for interoperable implementation behavior.
+- Decision:
+  - Infix `AND`, `&`, `OR`, and `XOR` on `ANY_BIT` operands widen to the wider operand type.
+  - Infix `NOT` preserves the operand type.
+- Reason:
+  - This keeps infix operators aligned with the existing standard-function `ANY_BIT` behavior and avoids divergent typing between `a AND b` and `AND(a, b)`.

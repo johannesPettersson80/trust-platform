@@ -172,6 +172,9 @@ IntVar := REAL_TO_INT(RealVar);
 
 **Bitwise Operations** (when applied to ANY_BIT types):
 
+- `AND`, `&`, `OR`, and `XOR` operate on bit strings and produce the wider operand type when widths differ.
+- `NOT` preserves the operand bit-string type.
+
 ```
 // BYTE operations
 B1 := 16#F0;
@@ -289,7 +292,7 @@ ptr^                // Dereference
 | Operation | Operand Types | Result |
 |-----------|---------------|--------|
 | AND, OR, XOR | BOOL | BOOL |
-| AND, OR, XOR | ANY_BIT | Same bit width |
+| AND, OR, XOR | ANY_BIT | Wider of operands |
 | NOT | BOOL | BOOL |
 | NOT | ANY_BIT | Same bit width |
 

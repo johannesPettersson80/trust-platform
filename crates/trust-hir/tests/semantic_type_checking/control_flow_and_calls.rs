@@ -627,3 +627,64 @@ END_PROGRAM
 "#,
     );
 }
+
+#[test]
+fn test_infix_bitwise_any_bit_expressions_are_allowed() {
+    check_no_errors(
+        r#"
+PROGRAM Test
+    VAR
+        a : WORD := WORD#16#FF00;
+        b : WORD := WORD#16#0F0F;
+        r : WORD;
+    END_VAR
+    r := a AND b;
+    r := a OR b;
+    r := a XOR b;
+    r := NOT a;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_infix_ampersand_matches_and_for_bit_strings() {
+    let errors = check_errors(
+        r#"
+PROGRAM Test
+    VAR
+        w : WORD := WORD#16#FF00;
+        dw : DWORD := DWORD#16#0000_F0F0;
+    END_VAR
+    w := w & dw;
+END_PROGRAM
+"#,
+    );
+    assert_eq!(
+        errors,
+        vec![DiagnosticCode::IncompatibleAssignment],
+        "Expected '&' to widen like AND and only fail on the narrowing assignment, got: {:?}",
+        errors
+    );
+}
+
+#[test]
+fn test_infix_bitwise_mixed_width_results_cannot_shrink_silently() {
+    let errors = check_errors(
+        r#"
+PROGRAM Test
+    VAR
+        w : WORD := WORD#16#FF00;
+        dw : DWORD := DWORD#16#0000_F0F0;
+    END_VAR
+    w := w AND dw;
+END_PROGRAM
+"#,
+    );
+    assert_eq!(
+        errors,
+        vec![DiagnosticCode::IncompatibleAssignment],
+        "Expected only the narrowing assignment error, got: {:?}",
+        errors
+    );
+}
