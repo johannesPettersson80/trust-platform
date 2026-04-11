@@ -1,0 +1,6 @@
+PROGRAM Main
+VAR
+    WrongError : MC_ERROR;
+    WrongPayload : MC_PAYLOAD_REF;
+END_VAR
+END_PROGRAM
