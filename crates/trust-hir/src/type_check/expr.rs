@@ -204,9 +204,13 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
             self.check_comparable(lhs_type, rhs_type, node.text_range());
             TypeId::BOOL
         } else if op.is_logical() {
-            self.check_boolean(lhs_type, node.text_range());
-            self.check_boolean(rhs_type, node.text_range());
-            TypeId::BOOL
+            self.common_bit_string_type(
+                lhs_type,
+                lhs_node.text_range(),
+                rhs_type,
+                rhs_node.text_range(),
+                node.text_range(),
+            )
         } else if op.is_arithmetic() {
             if let (Some(lhs_ty), Some(rhs_ty)) = (
                 self.checker
@@ -251,10 +255,7 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
                 );
                 TypeId::UNKNOWN
             }
-            UnaryOp::Not => {
-                self.check_boolean(operand, node.text_range());
-                TypeId::BOOL
-            }
+            UnaryOp::Not => self.unary_bit_string_type(operand, node.text_range()),
             UnaryOp::Unknown => TypeId::UNKNOWN,
         }
     }
@@ -303,6 +304,64 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
             range,
             "types are not comparable",
         );
+    }
+
+    pub(super) fn common_bit_string_type(
+        &mut self,
+        lhs: TypeId,
+        lhs_range: TextRange,
+        rhs: TypeId,
+        rhs_range: TextRange,
+        range: TextRange,
+    ) -> TypeId {
+        let lhs = self.checker.resolve_subrange_base(lhs);
+        let rhs = self.checker.resolve_subrange_base(rhs);
+        let lhs_ty = self.checker.resolved_type(lhs);
+        let rhs_ty = self.checker.resolved_type(rhs);
+
+        match (lhs_ty, rhs_ty) {
+            (Some(l), Some(r)) if l.is_bit_string() && r.is_bit_string() => {
+                let lhs_size = l.bit_size().unwrap_or(0);
+                let rhs_size = r.bit_size().unwrap_or(0);
+                let common = if lhs_size >= rhs_size { lhs } else { rhs };
+
+                if lhs != common {
+                    self.checker
+                        .warn_implicit_conversion(common, lhs, lhs_range);
+                }
+                if rhs != common {
+                    self.checker
+                        .warn_implicit_conversion(common, rhs, rhs_range);
+                }
+
+                common
+            }
+            (None, _) | (_, None) => TypeId::UNKNOWN,
+            _ => {
+                self.checker.diagnostics.error(
+                    DiagnosticCode::TypeMismatch,
+                    range,
+                    "operands must be BOOL or bit-string types",
+                );
+                TypeId::UNKNOWN
+            }
+        }
+    }
+
+    pub(super) fn unary_bit_string_type(&mut self, operand: TypeId, range: TextRange) -> TypeId {
+        let operand = self.checker.resolve_subrange_base(operand);
+        match self.checker.resolved_type(operand) {
+            Some(ty) if ty.is_bit_string() => operand,
+            None => TypeId::UNKNOWN,
+            _ => {
+                self.checker.diagnostics.error(
+                    DiagnosticCode::TypeMismatch,
+                    range,
+                    "NOT requires BOOL or bit-string type",
+                );
+                TypeId::UNKNOWN
+            }
+        }
     }
 
     pub(super) fn common_numeric_type(

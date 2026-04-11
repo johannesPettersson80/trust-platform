@@ -47,6 +47,7 @@ impl BinaryOp {
                 SyntaxKind::LtEq => return Self::LtEq,
                 SyntaxKind::Gt => return Self::Gt,
                 SyntaxKind::GtEq => return Self::GtEq,
+                SyntaxKind::Ampersand => return Self::And,
                 SyntaxKind::KwAnd => return Self::And,
                 SyntaxKind::KwOr => return Self::Or,
                 SyntaxKind::KwXor => return Self::Xor,
