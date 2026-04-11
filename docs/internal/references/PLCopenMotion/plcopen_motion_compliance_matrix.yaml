@@ -31,7 +31,7 @@ metadata:
       version: "2.0"
       revision_date: "2011-11-16"
   notes:
-    - Part 1 single-axis public surface through the current A2 scope is implemented and tracked per symbol in this matrix.
+    - Part 1 single-axis public surface through the current early A4 scope is implemented and tracked per symbol in this matrix.
     - Internal ST-only carrier globals used by the test fixture are intentionally omitted because they are not public PLCopen names.
 rows:
   - PublicName: AXIS_REF

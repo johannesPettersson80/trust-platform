@@ -36,13 +36,8 @@ Execution cadence:
 Scope rule:
 - Harness-only discovery smoke tests, Rust-side motion scaffolding, and empty future-phase placeholder projects are not part of the motion-library implementation checklist and SHALL NOT block or precede the ST library work.
 
-Current ST-only path:
-- The single-axis kernel is not blocked on runtime work. The current ST fixture uses `PROGRAM Main` `VAR_GLOBAL` as the internal shared-state carrier for the single-axis axis kernel, and the landed A1/A2 tests execute against that path directly.
-
-Separate runtime/tooling follow-ups:
-- `VAR_STAT` remains unsupported in the current harness compiler and is not used by the motion library.
-- `CONFIGURATION`-scoped `VAR_GLOBAL` lowers, and `trust-runtime test` now registers discovered `TEST_PROGRAM`s in test mode even when a `CONFIGURATION` is present. The current motion ST fixture still uses the already-landed `PROGRAM Main` `VAR_GLOBAL` path; migrating the fixture to config/file-scope GVL parity remains a separate follow-up.
-- IDE/LSP/hover/docstring tasks remain tracked in this checklist as tooling follow-ups, but they do not block the ST-library phases.
+Runtime base note:
+- Runtime prerequisites for Phase A1+ landed via `feature/codesys-twincat-parity` (file-scope `VAR_GLOBAL`, `NAMESPACE`-scoped `VAR_GLOBAL`, `PROGRAM`-scoped `VAR_GLOBAL` acceptance, bare-global-access deviation, `VAR_STAT`, and the `TEST_PROGRAM` + `CONFIGURATION` test-mode fix). ST-only motion work proceeds on that base, and the current single-axis fixture uses a file-scope `VAR_GLOBAL` carrier for its internal kernel state without exposing that carrier as public PLCopen surface.
 
 ## Global Execution Rules
 
