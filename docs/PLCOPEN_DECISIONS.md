@@ -27,5 +27,23 @@ This file tracks implementation decisions made where PLCopen profiles or source 
   - The initial ST publication path for standardized Part 1 parameter IDs and the public `mcERR_*` namespace is `MC_Constants`, which exposes stable accessible members with those names.
   - The initial public `mcERR_*` mapping is pinned to the spec's stable namespace table: `mcERR_None=16#0000`, `mcERR_InvalidParameter=16#0001`, `mcERR_InvalidState=16#0100`, `mcERR_AxisGrouped=16#0101`, `mcERR_GroupDisabled=16#0102`, `mcERR_GroupNotReady=16#0103`, `mcERR_NotHomed=16#0104`, `mcERR_NotPowered=16#0105`, `mcERR_BackendFault=16#0200`, `mcERR_KinematicNoSolution=16#0300`, `mcERR_KinematicSingularity=16#0301`, `mcERR_QueueFull=16#0400`, `mcERR_NotSupported=16#0500`.
   - Phase C compliance-matrix rows track the pinned Part 4 RFC revision dated `2025-11-18`; deferred DH/joint-introspection names must be re-verified when that Part 4 source revision changes.
+  - When single-axis motion FBs consume the Part 1 software-limit parameter plane, enabled `SWLimitPos` / `SWLimitNeg` values clamp accepted position targets for `MC_Home`, `MC_MoveAbsolute`, `MC_MoveRelative`, `MC_MoveAdditive`, `MC_MoveContinuousAbsolute`, and `MC_MoveContinuousRelative`; disabled limit flags leave the target unclamped.
+  - The current Phase A deferred single-axis FB set uses the `absent` path only; none of those deferred names ship as runtime placeholders in the initial release.
+  - The initial Phase B synchronization enum surface includes `MC_START_MODE = {mcAbsolute, mcRelative, mcRampIn}` and `MC_SYNC_MODE = {mcShortest, mcCatchUp, mcSlowDown}`.
+  - The initial Phase B synchronization public types use `MC_CAM_ID = UINT` and publish `MC_CAM_REF` as a fixed 8-point ST struct with `MasterPosition0..7` / `SlavePosition0..7` fields.
+  - In the current Phase B profile, `MC_CamTableSelect` rejects `MC_EXECUTION_MODE = mcDelayed` with `mcERR_NotSupported`.
+  - The current Phase B deferred synchronization FB set (`MC_PhasingAbsolute`, `MC_PhasingRelative`, `MC_CombineAxes`) uses the `absent` path only; none of those names ship as runtime placeholders in the current profile.
+  - The initial Phase C public kinematic reference type uses `MC_KIN_REF = UINT`.
 - Reason:
   - These choices turn PLCopen implementation-defined, profile-scoped, or source-inconsistent areas into deterministic, testable truST behavior before implementation begins.
+
+## 2026-04-12 - Coordinated-motion scope pin and homing guard decisions
+
+- Area: PLCopen Motion Parts 4 / 5 shipped scope
+- PLCopen context: PLCopen Motion Control Part 4 v2.0 RFC sections 19.3, 19.4 and Part 5 v2.0 section 19.5 as pinned by the truST motion spec
+- Decision:
+  - The current shipped coordinated-motion profile is the Phase C core subset only; the optional Phase C.1 tracking/synchronization FBs (`MC_SetDynCoordTransform`, `MC_TrackConveyorBelt`, `MC_SyncAxisToGroup`, `MC_SyncGroupToAxis`, `MC_TrackRotaryTable`) remain deferred on the absent path until a later scope expansion explicitly selects them.
+  - The current shipped Phase D homing profile includes `MC_StepAbsoluteSwitch`, `MC_StepLimitSwitch`, `MC_StepBlock`, `MC_StepReferencePulse`, `MC_StepDistanceCoded`, `MC_HomeDirect`, `MC_HomeAbsolute`, and `MC_FinishHoming`.
+  - The passive/flying Part 5 homing FBs (`MC_StepReferenceFlyingSwitch`, `MC_StepReferenceFlyingRefPulse`, `MC_AbortPassiveHoming`) remain deferred on the absent path in the current shipped profile.
+- Reason:
+  - These decisions keep the public PLCopen surface aligned with the ST fixtures that are actually implemented and tested, while preserving the reserved names explicitly in the compliance matrix.

@@ -64,6 +64,10 @@ recommended path is to provide local ST library stubs and index them in
 This gives deterministic editor semantics while you incrementally migrate vendor
 code.
 
+Use this `[[libraries]]` path for stub/index packs. For reusable truST
+Structured Text packages that should participate in normal project compilation
+and runtime builds, use `[dependencies]` instead.
+
 ### 1) Create a stub library folder
 
 Example layout:

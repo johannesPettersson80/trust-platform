@@ -49,15 +49,7 @@ pub fn run_test(
         return Ok(());
     }
 
-    let compile_sources = sources
-        .iter()
-        .map(|source| {
-            HarnessSourceFile::with_path(
-                source.path.to_string_lossy().into_owned(),
-                source.text.clone(),
-            )
-        })
-        .collect::<Vec<_>>();
+    let compile_sources = collect_project_source_files(&project_root, None)?;
     let extra_program_instances = tests
         .iter()
         .filter(|case| matches!(case.kind, TestKind::Program))

@@ -383,6 +383,55 @@ mod tests {
     }
 
     #[test]
+    fn parse_bench_project_command() {
+        let cli = Cli::parse_from([
+            "trust-runtime",
+            "bench",
+            "project",
+            "--project",
+            "examples/plcopen_motion_single_axis_demo",
+            "--samples",
+            "300",
+            "--warmup-cycles",
+            "50",
+            "--watch",
+            "g_motion_demo_completed_sequences",
+            "--watch",
+            "g_motion_demo_last_error",
+            "--output",
+            "json",
+        ]);
+        match cli.command.expect("command") {
+            Command::Bench { action } => match action {
+                BenchAction::Project {
+                    project,
+                    samples,
+                    warmup_cycles,
+                    watch,
+                    output,
+                } => {
+                    assert_eq!(
+                        project,
+                        PathBuf::from("examples/plcopen_motion_single_axis_demo")
+                    );
+                    assert_eq!(samples, 300);
+                    assert_eq!(warmup_cycles, 50);
+                    assert_eq!(
+                        watch,
+                        vec![
+                            "g_motion_demo_completed_sequences",
+                            "g_motion_demo_last_error"
+                        ]
+                    );
+                    assert_eq!(output, BenchOutputFormat::Json);
+                }
+                other => panic!("expected bench project action, got {other:?}"),
+            },
+            other => panic!("expected bench command, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn parse_bench_t0_shm_command() {
         let cli = Cli::parse_from([
             "trust-runtime",

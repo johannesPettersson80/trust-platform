@@ -120,13 +120,25 @@ Place `trust-lsp.toml` at the workspace root:
 
 ```toml
 [project]
-include_paths = ["libs"]
+include_paths = ["src"]
 vendor_profile = "codesys"
+
+[dependencies]
+MyMotionLib = { path = "libraries/my_motion_lib", version = "0.1.0" }
+
+[[libraries]]
+name = "vendor-stubs"
+path = "vendor/siemens"
+version = "0.1.0"
 
 [runtime]
 control_endpoint = "unix:///tmp/trust-runtime.sock"
 control_auth_token = "optional-token"
 ```
+
+Use `src/` for project-owned code, `[dependencies]` for reusable truST
+Structured Text packages, and `[[libraries]]` for external/index-only stub
+libraries or attached vendor documentation packs.
 
 Inline values also work by setting the runtime endpoint from the VS Code **Structured Text Runtime** panel
 (gear icon → Runtime Settings). In **External** mode the panel connects to that endpoint; in **Local** mode it

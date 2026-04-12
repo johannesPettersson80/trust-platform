@@ -243,6 +243,8 @@ END_TYPE
 
 The following names SHALL exist as public types when the corresponding profile is enabled:
 
+- `AXIS_ID` and `AXES_GROUP_ID`
+  Vendor-specific public ID aliases used by the coordinated-motion membership and readback FBs. Recommended implementation for truST: `UDINT`.
 - `MC_COMMAND_ID`  
   Vendor-specific identifier for buffered motions and queued administrative commands. Recommended implementation for truST: `UINT`, with `0` meaning "not yet accepted".
 - `IDENT_IN_GROUP_REF`  
@@ -252,11 +254,11 @@ The following names SHALL exist as public types when the corresponding profile i
 - `MC_TRANSITION_PARAMETER`  
   Vendor-specific additional transition/blending parameter used by the Part 4 group-motion FBs. Recommended implementation for truST: `REAL`.
 - `MC_KIN_REF`  
-  Vendor-specific kinematic-model reference used by `MC_SetKinTransform` and `MC_ReadKinTransform`.
+  Vendor-specific kinematic-model reference used by `MC_SetKinTransform` and `MC_ReadKinTransform`. The current truST profile represents `MC_KIN_REF` as `UINT`.
 - `MC_COORD_REF`  
   Vendor-specific coordinate-transform type. truST SHOULD use the same field names as `MC_CART_REF`.
 - `MC_CAM_ID` and `MC_CAM_REF`  
-  Vendor-specific identifiers/data references used by camming FBs in Phase B.
+  Vendor-specific identifiers/data references used by camming FBs in Phase B. The current truST profile represents `MC_CAM_ID` as `UINT`. The current public ST publication path for `MC_CAM_REF` is a fixed 8-point struct carrier with fields `CamId`, `NumberOfPairs`, `IsAbsolute`, `MasterPosition0..7`, and `SlavePosition0..7`.
 - `MC_GROUP_SWLIMITS`  
   Vendor-specific grouped software-limit type for `MC_GroupReadSWLimits` and `MC_GroupWriteSWLimits`.
 - `MC_PATH_REF` and `MC_PATH_DATA_REF`  
@@ -333,6 +335,22 @@ Notes:
 - Part 1 single-axis administrative FBs define only the `{mcImmediately, mcQueued}` subset and do not define semantics for `mcDelayed`.
 - In the initial Phase A profile, single-axis FBs that expose `ExecutionMode` SHALL reject `mcDelayed` with `mcERR_NotSupported` until a later profile explicitly enables it.
 - Individual FBs MAY support only a subset of enum values; unsupported values SHALL return `mcERR_NotSupported` or the corresponding PLCopen-compatible FB error.
+
+The following additional synchronization enums SHALL be public in Phase B:
+
+```iecst
+TYPE MC_START_MODE : (
+    mcAbsolute,
+    mcRelative,
+    mcRampIn
+); END_TYPE
+
+TYPE MC_SYNC_MODE : (
+    mcShortest,
+    mcCatchUp,
+    mcSlowDown
+); END_TYPE
+```
 
 ### 8.2 Coordinated-motion enums
 
@@ -578,6 +596,8 @@ For `MC_ReadParameter`, `MC_ReadBoolParameter`, `MC_WriteParameter`, and `MC_Wri
 | 17 | `MaxJerkAppl` | `REAL` | E | R/W |
 
 The public ST library SHALL publish these standardized parameter numbers through `FUNCTION_BLOCK MC_Constants`, using the stable member names `PN_CommandedPosition`, `PN_SWLimitPos`, `PN_SWLimitNeg`, `PN_EnableLimitPos`, `PN_EnableLimitNeg`, `PN_EnablePosLagMonitoring`, `PN_MaxPositionLag`, `PN_MaxVelocitySystem`, `PN_MaxVelocityAppl`, `PN_ActualVelocity`, `PN_CommandedVelocity`, `PN_MaxAccelerationSystem`, `PN_MaxAccelerationAppl`, `PN_MaxDecelerationSystem`, `PN_MaxDecelerationAppl`, `PN_MaxJerkSystem`, and `PN_MaxJerkAppl`.
+
+When the single-axis motion FBs consume this parameter plane, enabled software limits clamp accepted position targets rather than rejecting the command outright. In the initial Phase A profile this clamp applies to `MC_Home`, `MC_MoveAbsolute`, `MC_MoveRelative`, `MC_MoveAdditive`, `MC_MoveContinuousAbsolute`, and `MC_MoveContinuousRelative`; disabling the corresponding BOOL limit parameter removes the clamp.
 
 For the standardized Part 1 parameter range, `MC_ReadBoolParameter` and `MC_WriteBoolParameter` SHALL accept `PN = 4`, `PN = 5`, and `PN = 6`.
 
@@ -1064,6 +1084,8 @@ Deferred but reserved:
 - `MC_TouchProbe`
 - `MC_AbortTrigger`
 
+For the current Phase A release, every deferred single-axis FB above follows the `absent` path rather than a runtime placeholder; the compliance matrix SHALL record that explicitly for each row.
+
 Phase A signature notes:
 
 - `MC_Power` SHALL expose `Status`; `Status` is not the same signal as `Valid`.
@@ -1098,8 +1120,10 @@ Optional in later synchronization releases:
 Phase B notes:
 
 - `MC_CamTableSelect` SHALL prepare/select the cam data needed by `MC_CamIn`.
+- In the current truST Phase B profile, `MC_CamTableSelect` rejects `MC_EXECUTION_MODE = mcDelayed` with `mcERR_NotSupported`.
 - Where the Part 1 v2.0 signatures define them, v2.0 additions such as `MasterValueSource`, `StartMode`, or cyclic-update behavior SHALL be preserved.
 - `MC_CamOut` and `MC_GearOut` leave synchronized motion; they do not imply standstill.
+- The current Phase B deferred set (`MC_PhasingAbsolute`, `MC_PhasingRelative`, `MC_CombineAxes`) uses the `absent` path only; these names are intentionally not published as runtime placeholders in the current public ST surface.
 
 ### 19.3 Phase C - Group Core
 
@@ -1183,7 +1207,8 @@ Phase C notes:
 
 ### 19.4 Phase C.1 - Tracking and synchronization subset
 
-Required if robot/conveyor scenarios are needed:
+Required if robot/conveyor scenarios are needed.
+The current shipped truST motion profile does not select this optional C.1 subset; its public FB names remain deferred on the absent path until a later scope expansion explicitly adopts them.
 
 - `MC_SetDynCoordTransform`
 - `MC_TrackConveyorBelt`
@@ -1219,7 +1244,8 @@ Phase D notes:
 - The Phase D step FBs complement `MC_Home`; they do not replace the generic Part 1 homing FB.
 - The Phase D public surface SHALL include the Part 5 homing-specific types `MC_HOME_DIRECTION`, `MC_SWITCH_MODE`, and `MC_REF_SIGNAL_REF`.
 - Step FBs SHALL preserve the Part 5 error-limiting model using torque/time/distance limits where defined.
-- Passive/flying homing FBs, when implemented, SHALL not themselves trigger motion-state transitions.
+- In the current deterministic ST kernel, `MC_StepBlock.DetectionVelocityTime` is modeled as a consecutive-scan confirmation rule: `TIME#0ms` completes immediately when the block condition is met, while a nonzero value requires the same block condition on one additional active scan before completion.
+- Passive/flying homing FBs remain deferred on the absent path in the current shipped profile, and when they are later implemented they SHALL not themselves trigger motion-state transitions.
 
 ### 19.6 Phase E - Optional OOP facade
 

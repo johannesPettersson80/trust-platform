@@ -1,0 +1,5 @@
+[project]
+include_paths = ["src"]
+
+[dependencies]
+PLCopenMotionCoordinatedMotion = { path = "../../../../../../libraries/plcopen_motion/coordinated_motion", version = "0.1.0" }

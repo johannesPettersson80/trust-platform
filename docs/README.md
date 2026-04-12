@@ -54,6 +54,18 @@ PLCopen compatibility matrix, migration diagnostics contract, round-trip limits,
 and known gaps are documented in:
 `docs/guides/PLCOPEN_INTEROP_COMPATIBILITY.md`.
 
+## PLCopen Motion Library
+
+The currently shipped PLCopen Motion profile, supported FB subsets, and
+deferred-scope guard rails are documented in:
+- `docs/guides/PLCOPEN_MOTION_LIBRARY_GUIDE.md`
+- `docs/specs/coverage/plcopen-motion-coverage.md`
+
+The reusable PLCopen Motion ST packages live under `libraries/plcopen_motion/`.
+The fixture projects under
+`crates/trust-runtime/tests/fixtures/plcopen_motion/` are conformance
+consumers, not the library source.
+
 LD network-body schema v2 interop profile:
 `docs/guides/PLCOPEN_LD_INTEROP.md`.
 
@@ -152,8 +164,16 @@ inline values.
 
 ```toml
 [project]
-include_paths = ["libs"]
+include_paths = ["src"]
 vendor_profile = "codesys"
+
+[dependencies]
+MyMotionLib = { path = "libraries/my_motion_lib", version = "0.1.0" }
+
+[[libraries]]
+name = "vendor-stubs"
+path = "vendor/siemens"
+version = "0.1.0"
 
 [runtime]
 # Required to surface live inline values from a running runtime/debug session.
@@ -161,6 +181,10 @@ control_endpoint = "unix:///tmp/trust-runtime.sock"
 # Optional auth token (matches runtime control settings).
 control_auth_token = "optional-token"
 ```
+
+Use `src/` for project-owned code, `[dependencies]` for reusable truST ST
+packages, and `[[libraries]]` for external/index-only stub libraries or vendor
+docs packs.
 
 Inline values can surface live locals/globals/retain values when the runtime control endpoint is
 reachable and `textDocument/inlineValue` requests include a frame id.

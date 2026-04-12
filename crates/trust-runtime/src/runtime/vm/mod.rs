@@ -180,6 +180,7 @@ impl VmModule {
                 )));
             }
             let mut vm_entry = VmPouEntry {
+                name: SmolStr::new(name.clone()),
                 code_start,
                 code_end,
                 local_ref_start: entry.local_ref_start,
@@ -270,6 +271,10 @@ impl VmModule {
         self.pou_by_id.get(&id)
     }
 
+    pub(super) fn pou_name(&self, id: u32) -> Option<&str> {
+        self.pou(id).map(|entry| entry.name.as_str())
+    }
+
     pub(super) fn pou_params(&self, id: u32) -> Option<&[VmParamMeta]> {
         self.pou_params.get(&id).map(Vec::as_slice)
     }
@@ -312,6 +317,7 @@ impl VmModule {
 
 #[derive(Debug, Clone)]
 pub(super) struct VmPouEntry {
+    pub(super) name: SmolStr,
     pub(super) code_start: usize,
     pub(super) code_end: usize,
     pub(super) local_ref_start: u32,

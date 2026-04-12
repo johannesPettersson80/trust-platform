@@ -153,6 +153,15 @@ impl Runtime {
         self.vm_register_profile.snapshot()
     }
 
+    /// Resolve a VM POU id to its decoded name when a bytecode module is loaded.
+    #[must_use]
+    pub fn vm_pou_name(&self, pou_id: u32) -> Option<String> {
+        self.vm_module
+            .as_ref()
+            .and_then(|module| module.pou_name(pou_id))
+            .map(ToOwned::to_owned)
+    }
+
     /// Enable or disable the experimental tier-1 specialized register-executor path.
     pub fn set_vm_tier1_specialized_executor_enabled(&mut self, enabled: bool) {
         self.vm_tier1_specialized_executor.set_enabled(enabled);

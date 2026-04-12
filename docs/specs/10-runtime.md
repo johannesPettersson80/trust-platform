@@ -720,6 +720,7 @@ fn call_function(
 - **Stateful**: Internal VAR persists across calls
 - **Instances**: Each instance has independent state
 - **Call syntax**: `instance(inputs)` then access outputs via `instance.output`
+- **Omitted `VAR_INPUT` arguments**: When a FUNCTION_BLOCK call leaves an input open, runtime reuses the instance's previously stored input value; on the first call it falls back to the parameter initializer or the IEC type default if no initializer exists.
 
 ```rust
 fn call_fb(
@@ -3543,6 +3544,9 @@ Range: 0.0 to 3000.0
 - `[dependencies]` supports local and git package references:
   - local: `Name = "path"` or `Name = { path = "...", version? = "..." }`
   - git: `Name = { git = "<url-or-local-repo>", rev? = "...", tag? = "...", branch? = "...", version? = "..." }`
+- Intended usage split:
+  - `[dependencies]` is for reusable truST ST packages that participate in source resolution, `trust-runtime build`, and `trust-runtime test --project`.
+  - `[[libraries]]` is for external/indexed library trees, stub packs, and attached vendor docs used for compatibility/indexing.
 - Dependency pinning/lock behavior:
   - `rev`/`tag`/`branch` pin git dependencies explicitly.
   - `build.dependencies_locked = true` requires explicit pinning or a matching lock entry.

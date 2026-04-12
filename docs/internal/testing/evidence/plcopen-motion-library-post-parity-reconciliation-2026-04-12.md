@@ -1,5 +1,7 @@
 # PLCopen Motion Library Post-Parity Reconciliation Evidence — 2026-04-12
 
+> Historical note: this reconciliation pass predates the later extraction of the reusable motion-library sources into `libraries/plcopen_motion/*`. The current library source of truth is the package layout under `libraries/`; the fixture projects remain conformance consumers.
+
 ## Stacked Branch Base
 
 - Worktree: `/home/johannes/projects/trust-platform-motion-stacked`
@@ -16,11 +18,11 @@
 Parity's stricter FUNCTION_BLOCK-body name resolution surfaced that the carried motion fixture still depended on bare access to the internal shared-state carrier when that carrier lived inside `PROGRAM Main VAR_GLOBAL`. The stacked baseline failed with `undefined identifier 'g_trust_motion_*'` in the single-axis motion FB bodies.
 
 Applied fix on the stacked branch:
-- [main.st](/home/johannes/projects/trust-platform-motion-stacked/crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/main.st): moved the internal shared-state carrier to a file-scope `VAR_GLOBAL` block and left `PROGRAM Main` empty.
-- [plcopen_motion_single_axis_internal_kernel.st](/home/johannes/projects/trust-platform-motion-stacked/crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/plcopen_motion_single_axis_internal_kernel.st): removed the temporary `VAR_EXTERNAL` experiment used during diagnosis.
-- [plcopen_motion_single_axis_public_surface.st](/home/johannes/projects/trust-platform-motion-stacked/crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/plcopen_motion_single_axis_public_surface.st): removed the temporary `VAR_EXTERNAL` experiment used during diagnosis.
+- [plcopen_motion_single_axis_globals.st](/home/johannes/projects/trust-platform-motion-stacked/libraries/plcopen_motion/single_axis_core/src/plcopen_motion_single_axis_globals.st): now hosts the internal shared-state carrier as a file-scope `VAR_GLOBAL` block.
+- [plcopen_motion_single_axis_internal_kernel.st](/home/johannes/projects/trust-platform-motion-stacked/libraries/plcopen_motion/single_axis_core/src/plcopen_motion_single_axis_internal_kernel.st): removed the temporary `VAR_EXTERNAL` experiment used during diagnosis.
+- [plcopen_motion_single_axis_public_surface.st](/home/johannes/projects/trust-platform-motion-stacked/libraries/plcopen_motion/single_axis_core/src/plcopen_motion_single_axis_public_surface.st): removed the temporary `VAR_EXTERNAL` experiment used during diagnosis.
 
-No PLCopen public-surface names changed. The fix was internal to the ST fixture kernel.
+No PLCopen public-surface names changed. The fix was internal to the ST library kernel.
 
 ## Regression Sweep
 
@@ -413,7 +415,7 @@ The current single-axis motion FBs keep per-instance persistent state in plain `
 ### Shared-State Carrier Shape
 
 Current kernel shape:
-- [main.st](/home/johannes/projects/trust-platform-motion-stacked/crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/main.st) uses a file-scope `VAR_GLOBAL` block as the internal shared axis-state carrier.
+- [plcopen_motion_single_axis_globals.st](/home/johannes/projects/trust-platform-motion-stacked/libraries/plcopen_motion/single_axis_core/src/plcopen_motion_single_axis_globals.st) uses a file-scope `VAR_GLOBAL` block as the internal shared axis-state carrier.
 
 Possible later alternatives now available on the parity base:
 - Move the carrier into a dedicated `gvl_motion.st` file with a bare top-level `VAR_GLOBAL` block.

@@ -1,5 +1,6 @@
 use super::*;
 use std::time::{SystemTime, UNIX_EPOCH};
+use trust_runtime::harness::SourceFile as HarnessSourceFile;
 
 fn unique_temp_dir(prefix: &str) -> std::path::PathBuf {
     let nanos = SystemTime::now()

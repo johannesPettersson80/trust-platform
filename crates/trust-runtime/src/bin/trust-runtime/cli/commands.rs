@@ -285,9 +285,11 @@ pub enum Command {
         shell: Shell,
     },
     /// Run runtime communication benchmark scenarios.
-    #[command(
-        after_help = "Examples:\n  trust-runtime bench t0-shm --samples 2000 --output json\n  trust-runtime bench mesh-zenoh --samples 1000 --loss-rate 0.01 --reorder-rate 0.02\n  trust-runtime bench dispatch --fanout 4 --output table"
-    )]
+    #[command(after_help = "Examples:
+  trust-runtime bench project --project examples/plcopen_motion_single_axis_demo --watch g_motion_demo_completed_sequences --output json
+  trust-runtime bench t0-shm --samples 2000 --output json
+  trust-runtime bench mesh-zenoh --samples 1000 --loss-rate 0.01 --reorder-rate 0.02
+  trust-runtime bench dispatch --fanout 4 --output table")]
     Bench {
         #[command(subcommand)]
         action: BenchAction,

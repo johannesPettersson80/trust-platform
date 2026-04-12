@@ -9,7 +9,9 @@ This file tracks known, intentional deviations/extensions from strict PLCopen pr
 - Deviation:
   - `MC_AXIS_STATUS` and `MC_GROUP_STATUS` are published as truST extension enum types; PLCopen itself standardizes the status surface primarily through boolean outputs on `MC_ReadStatus` and `MC_GroupReadStatus`.
   - `MC_Constants` is published as a truST ST helper FB for standardized Part 1 parameter IDs and the stable public `mcERR_*` namespace; PLCopen defines the IDs and classic `ErrorID : WORD` surface, but not this convenience carrier. In the current runtime, callers invoke `MC_Constants()` before reading members because the outputs are assigned in the FB body.
-  - The single-axis ST fixture uses a file-scope `VAR_GLOBAL` block as an internal shared-state carrier for the motion kernel. That placement is a truST-specific implementation device, is not part of the public PLCopen surface, and is intentionally omitted from the compliance matrix.
+  - The single-axis, synchronization, and coordinated-motion library packages use file-scope `VAR_GLOBAL` blocks in their `*_globals.st` sources as internal shared-state carriers for the motion kernels. That placement is a truST-specific implementation device, is not part of the public PLCopen surface, and is intentionally omitted from the compliance matrix.
+  - `MC_CAM_REF` is published in the current ST profile as a fixed 8-point struct carrier (`MasterPosition0..7` / `SlavePosition0..7`) rather than as an opaque vendor reference or dynamically sized table object.
+  - `MC_SYNC_MODE` exposes the PLCopen-compatible public literals `mcShortest`, `mcCatchUp`, and `mcSlowDown`, but the current deterministic synchronization kernel maps them to the same alignment path until a later profile differentiates the physical catch-up/slow-down behavior.
   - In coordinated-motion group contexts, legacy `mcBlending*` values follow the truST error path and return `mcERR_NotSupported` until a future profile explicitly documents a mapping, even though Part 4 also permits treating them as `mcBuffered`.
   - The initial truST profile rejects override factors greater than `1.0` for `MC_SetOverride` and `MC_GroupSetOverride`, even though PLCopen allows vendor-specific behavior above `1.0`.
   - `MC_COORD_SYSTEM` uses prefixed public ST literals (`mcACS`, `mcMCS`, `mcWCS`, `mcPCS`, `mcFCS`, `mcTCS`) rather than the bare coordinate-system spellings shown in the Part 4 tables.
@@ -19,3 +21,15 @@ This file tracks known, intentional deviations/extensions from strict PLCopen pr
   - Public truST source exposes a slightly richer or stricter profile than the bare PLCopen FB surface in these areas.
 - Mitigation:
   - The extension/deviation points are documented in the motion spec, recorded in the compliance matrix, and locked by dedicated tests before support is claimed.
+
+## 2026-04-12 - Homing-kernel deterministic simplifications
+
+- Area: PLCopen Part 5 homing execution in the deterministic ST fixture kernel
+- PLCopen reference: PLCopen Motion Control Part 5 v2.0
+- Deviation:
+  - The homing library package uses the same file-scope `VAR_GLOBAL` shared-state carrier pattern in `plcopen_motion_homing_globals.st` as the other motion-library packages; this remains an internal truST implementation device and is not part of the public PLCopen surface.
+  - `MC_StepBlock.DetectionVelocityTime` is modeled as a consecutive-scan confirmation rule in the deterministic ST kernel: `TIME#0ms` completes as soon as the block condition is met, while a nonzero value requires the low-velocity/torque block condition on one additional active scan before completion.
+- Impact:
+  - The public FB surface remains PLCopen-shaped, but the deterministic test kernel expresses physical dwell-time behavior as scan-count confirmation instead of wall-clock timing.
+- Mitigation:
+  - The simplification is recorded here, reflected in the compliance matrix notes, and locked by dedicated Phase D ST tests.

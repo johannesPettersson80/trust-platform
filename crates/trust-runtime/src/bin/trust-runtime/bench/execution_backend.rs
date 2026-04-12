@@ -193,7 +193,9 @@ struct VmProfileCapture {
 }
 
 #[cfg(feature = "legacy-interpreter")]
-fn run_execution_backend_bench(workload: ExecutionBackendBenchWorkload) -> anyhow::Result<BenchReport> {
+fn run_execution_backend_bench(
+    workload: ExecutionBackendBenchWorkload,
+) -> anyhow::Result<BenchReport> {
     let mut fixture_reports = Vec::with_capacity(EXECUTION_BACKEND_CORPUS.len());
     let mut aggregate_interpreter_ns = Vec::new();
     let mut aggregate_vm_ns = Vec::new();
@@ -211,11 +213,8 @@ fn run_execution_backend_bench(workload: ExecutionBackendBenchWorkload) -> anyho
             workload.warmup_cycles,
             workload.samples,
         )?;
-        let vm_profile_capture = collect_vm_profile_capture(
-            fixture,
-            workload.warmup_cycles,
-            workload.samples,
-        )?;
+        let vm_profile_capture =
+            collect_vm_profile_capture(fixture, workload.warmup_cycles, workload.samples)?;
         let vm_profile = build_vm_profile_report(
             &vm_profile_capture.register_snapshot,
             &vm_profile_capture.lowering_cache_snapshot,
@@ -258,7 +257,9 @@ fn run_execution_backend_bench(workload: ExecutionBackendBenchWorkload) -> anyho
 }
 
 #[cfg(not(feature = "legacy-interpreter"))]
-fn run_execution_backend_bench(_workload: ExecutionBackendBenchWorkload) -> anyhow::Result<BenchReport> {
+fn run_execution_backend_bench(
+    _workload: ExecutionBackendBenchWorkload,
+) -> anyhow::Result<BenchReport> {
     anyhow::bail!(
         "bench execution-backend requires --features legacy-interpreter for interpreter-vs-vm comparison"
     );
@@ -286,9 +287,7 @@ fn collect_vm_profile_capture(
     harness.runtime_mut().set_vm_register_profile_enabled(true);
     harness.runtime_mut().reset_vm_register_lowering_cache();
     harness.runtime_mut().reset_vm_register_profile();
-    harness
-        .runtime_mut()
-        .reset_vm_tier1_specialized_executor();
+    harness.runtime_mut().reset_vm_tier1_specialized_executor();
 
     run_cycles_checked(
         &mut harness,
@@ -306,9 +305,8 @@ fn collect_vm_profile_capture(
     )?;
     let register_snapshot = harness.runtime().vm_register_profile_snapshot();
     let lowering_cache_snapshot = harness.runtime().vm_register_lowering_cache_snapshot();
-    let tier1_specialized_executor_snapshot = harness
-        .runtime()
-        .vm_tier1_specialized_executor_snapshot();
+    let tier1_specialized_executor_snapshot =
+        harness.runtime().vm_tier1_specialized_executor_snapshot();
     verify_vm_fixture_profile_requirements(fixture.name, &register_snapshot)?;
     harness.runtime_mut().set_vm_register_profile_enabled(false);
     Ok(VmProfileCapture {
@@ -350,7 +348,9 @@ fn require_register_ir_execution(
     fixture_name: &str,
     register_snapshot: &VmRegisterProfileSnapshot,
 ) -> anyhow::Result<()> {
-    if register_snapshot.register_programs_executed == 0 || register_snapshot.register_program_fallbacks != 0 {
+    if register_snapshot.register_programs_executed == 0
+        || register_snapshot.register_program_fallbacks != 0
+    {
         anyhow::bail!(
             "fixture '{fixture_name}' must execute through register IR (executed={}, fallbacks={}, reasons={:?})",
             register_snapshot.register_programs_executed,
@@ -366,7 +366,8 @@ fn harness_for_backend(source: &str, backend: ExecutionBackend) -> anyhow::Resul
     let mut harness = TestHarness::from_source(source).map_err(|err| anyhow::anyhow!("{err}"))?;
     match backend {
         ExecutionBackend::BytecodeVm => {
-            let bytes = bytecode_bytes_from_source(source).map_err(|err| anyhow::anyhow!("{err}"))?;
+            let bytes =
+                bytecode_bytes_from_source(source).map_err(|err| anyhow::anyhow!("{err}"))?;
             harness
                 .runtime_mut()
                 .apply_bytecode_bytes(&bytes, None)
@@ -470,9 +471,7 @@ fn build_vm_profile_report(
     vm_samples_ns: &[u64],
     vm_profile_samples_ns: &[u64],
 ) -> VmProfileReport {
-    let mut hot_blocks = register_snapshot
-        .hot_blocks
-        .to_vec();
+    let mut hot_blocks = register_snapshot.hot_blocks.to_vec();
     hot_blocks.sort_by(|left, right| {
         right
             .hits
@@ -485,6 +484,7 @@ fn build_vm_profile_report(
         .take(16)
         .map(|entry| VmProfileHotBlockReport {
             pou_id: entry.pou_id,
+            pou_name: None,
             block_id: entry.block_id,
             start_pc: entry.start_pc,
             hits: entry.hits,
@@ -550,7 +550,7 @@ fn build_vm_profile_report(
         register_program_fallbacks: register_snapshot.register_program_fallbacks,
         fallback_reasons,
         hot_blocks,
-        profiling_overhead_ratio,
+        profiling_overhead_ratio: Some(profiling_overhead_ratio),
         register_lowering_cache,
         tier1_specialized_executor,
     }

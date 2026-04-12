@@ -94,7 +94,10 @@ docs/internal/testing/evidence/*
 !docs/internal/testing/evidence/web-ide-full-checklist-evidence-2026-02-15.md
 !docs/internal/testing/evidence/ld-runtime-pane-parity-2026-02-27.md
 !docs/internal/testing/checklists/plcopen-motion-library-implementation-checklist.md
-!docs/internal/testing/evidence/plcopen-motion-library-implementation-2026-04-11.md
+!docs/internal/testing/checklists/plcopen-motion-vm-register-ir-hotpath-checklist.md
+!docs/internal/testing/checklists/runtime-vm-performance-follow-up.md
+!docs/internal/testing/checklists/architecture-improvements.md
+!docs/internal/testing/evidence/plcopen-motion-library-implementation-*.md
 !docs/internal/testing/evidence/plcopen-motion-library-post-parity-reconciliation-*.md
 !docs/internal/references/
 !docs/internal/references/PLCopenMotion/
