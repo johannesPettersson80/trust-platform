@@ -24,7 +24,7 @@ multi-vendor export adapters).
 | ST `types/dataTypes` import (`elementary`, `derived`, `array`, `struct`, `enum`, `subrange`) | supported | Imported into generated ST `TYPE` declarations under `src/`. |
 | ST `TYPE` export to `types/dataTypes` | partial | Supported ST declarations are emitted; unsupported forms are skipped with warnings. |
 | `instances/configurations/resources/tasks/program instances` import/export | supported | Deterministic ST mapping with name normalization and structured diagnostics. |
-| CODESYS `addData/globalVars` import/export | supported | Import prefers `interfaceasplaintext` for pragma fidelity and falls back to `<variable>` synthesis; `qualified_only` lists are materialized as `TYPE + CONFIGURATION/VAR_GLOBAL` wrappers with required `VAR_EXTERNAL` injection in referencing POUs; export emits deterministic CODESYS `globalVars` metadata. |
+| CODESYS `addData/globalVars` import/export | supported | Import prefers `interfaceasplaintext` for pragma fidelity and falls back to `<variable>` synthesis. Default import now materializes native truST vendor-parity globals (file-scope GVLs and namespaced GVLs for `qualified_only` lists) without mandatory `VAR_EXTERNAL` injection. Adapter callers can still request strict IEC reshaping through `PlcopenImportGlobalVarMode::StrictIecAdapter`, which restores the older wrapper + injected-`VAR_EXTERNAL` flow for external consumers that require it. Export emits deterministic CODESYS `globalVars` metadata. |
 | CODESYS `addData/projectstructure` folder mapping import/export | partial | Import/export mirrors deterministic folder placement for POUs/GVLs; library/device-tree semantics remain metadata-only. |
 | Source map metadata (`trust.sourceMap`) | supported | Embedded `addData` payload + sidecar `*.source-map.json`. |
 | Vendor extension preservation (`addData`) | partial | Preserved/re-injectable, but not semantically interpreted. |
@@ -165,6 +165,7 @@ Not guaranteed:
 - Vendor library shim coverage is intentionally limited to the baseline alias catalog.
 - No semantic translation for vendor-specific AOI/FB internals and pragmas.
 - Vendor extension nodes are preserved as opaque metadata, not executed.
+- Core truST does not yet enforce CODESYS `{attribute 'qualified_only'}` as a semantic restriction; qualified access works, but bare global access is still accepted by the vendor-parity language/runtime path.
 - Export adapters do not generate native vendor package formats (`.L5X`, TIA project archives, EcoStruxure project archives).
 
 ## Example Project

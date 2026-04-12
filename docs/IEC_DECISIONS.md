@@ -1,5 +1,9 @@
 # IEC Decisions Log
 
+Authoritative location:
+- This tracked file is the repository source of truth for IEC interpretation decisions.
+- Do not point tracked docs or code comments at legacy internal IEC decision-log paths.
+
 This file tracks implementation decisions made where IEC 61131-3 leaves room for interpretation.
 
 ## 2026-02-25 - LD deterministic network traversal
@@ -62,3 +66,23 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
   - Infix `NOT` preserves the operand type.
 - Reason:
   - This keeps infix operators aligned with the existing standard-function `ANY_BIT` behavior and avoids divergent typing between `a AND b` and `AND(a, b)`.
+
+## 2026-04-11 - `VAR_GLOBAL` inside `PROGRAM`
+
+- Area: ST variable declarations
+- IEC context: IEC 61131-3 Ed.3 Table 47 feature 8a and §6.5.2.2 permit `VAR_GLOBAL ... END_VAR` within a `PROGRAM`, and allow `VAR_EXTERNAL` to match the associated `program`, `configuration`, or `resource`.
+- Decision:
+  - truST accepts `VAR_GLOBAL ... END_VAR` inside `PROGRAM`.
+  - `VAR_EXTERNAL` may link to a `PROGRAM`-scoped `VAR_GLOBAL`.
+- Reason:
+  - This aligns the implementation with the checked-in IEC interpretation used by the project and removes an internal contradiction between HIR/runtime behavior and the older variables spec table.
+
+## 2026-04-11 - Duplicate global-name policy across file/program/configuration scope
+
+- Area: ST global-variable naming
+- IEC context: IEC 61131-3 Ed.3 does not give a repository-level collision policy for vendor-style file-scope GVLs mixed with `PROGRAM`/`CONFIGURATION` globals.
+- Decision:
+  - truST rejects duplicate global names within the same effective namespace, even when they are declared in different global-host scopes such as file-scope GVL, `PROGRAM`, `CONFIGURATION`, or `RESOURCE`.
+- Reason:
+  - Bare global access and `VAR_EXTERNAL` linkage become ambiguous if multiple globals with the same effective name coexist.
+  - Rejecting duplicates matches the chosen vendor-parity direction more closely than silently preferring one declaration.

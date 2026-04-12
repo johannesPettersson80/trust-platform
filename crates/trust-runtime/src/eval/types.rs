@@ -36,6 +36,7 @@ pub struct VarDef {
     pub type_id: TypeId,
     pub initializer: Option<expr::Expr>,
     pub retain: crate::RetainPolicy,
+    pub static_storage: bool,
     pub external: bool,
     pub constant: bool,
     pub address: Option<IoAddress>,
@@ -48,6 +49,7 @@ pub struct FunctionDef {
     pub return_type: TypeId,
     pub params: Vec<Param>,
     pub locals: Vec<VarDef>,
+    pub static_locals: Vec<VarDef>,
     pub using: Vec<SmolStr>,
     pub body: Vec<stmt::Stmt>,
 }
@@ -79,6 +81,7 @@ pub struct MethodDef {
     pub return_type: Option<TypeId>,
     pub params: Vec<Param>,
     pub locals: Vec<VarDef>,
+    pub static_locals: Vec<VarDef>,
     pub using: Vec<SmolStr>,
     pub body: Vec<stmt::Stmt>,
 }

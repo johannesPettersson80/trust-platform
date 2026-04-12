@@ -117,7 +117,7 @@ statement constructs are allowed, and evaluation must be side-effect free. (IEC 
 - Use the same operator precedence and associativity as Table 71. (IEC 61131-3 Ed.3, Table 71)
 - Disallow assignments, control-flow statements, and function block/method invocations.
 - Allow only an explicit whitelist of pure standard functions for evaluation; see
-  `IEC deviations log (internal)` for the permitted set and rationale.
+  `docs/IEC_DEVIATIONS.md` for the permitted set and rationale.
 
 ### Rule 6: Type Conversion
 

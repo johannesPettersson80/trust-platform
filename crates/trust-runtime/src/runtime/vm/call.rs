@@ -473,7 +473,7 @@ fn bind_builtin_function_block_arguments(
                     None => runtime
                         .storage
                         .read_by_ref(field_ref.clone())
-                        .map(default_like_value)
+                        .cloned()
                         .unwrap_or(Value::Null),
                 };
                 if !runtime.storage.write_by_ref(field_ref.clone(), value) {
@@ -578,21 +578,16 @@ fn bind_vm_function_block_arguments(
             0 => {
                 let value = match arg {
                     Some(arg) => resolve_vm_arg_value(runtime, caller_frame, arg)?,
-                    None => {
-                        if let Some(default_const_idx) = param.default_const_idx {
-                            module
-                                .consts
-                                .get(default_const_idx as usize)
-                                .cloned()
-                                .ok_or(VmTrap::InvalidConstIndex(default_const_idx))?
-                        } else {
-                            runtime
-                                .storage
-                                .read_by_ref(field_ref.clone())
-                                .map(default_like_value)
-                                .unwrap_or(Value::Null)
-                        }
-                    }
+                    None => runtime
+                        .storage
+                        .read_by_ref(field_ref.clone())
+                        .cloned()
+                        .or_else(|| {
+                            param.default_const_idx.and_then(|default_const_idx| {
+                                module.consts.get(default_const_idx as usize).cloned()
+                            })
+                        })
+                        .unwrap_or(Value::Null),
                 };
                 if !runtime.storage.write_by_ref(field_ref.clone(), value) {
                     return Err(VmTrap::Runtime(RuntimeError::NullReference));
@@ -655,31 +650,6 @@ fn bind_vm_function_block_arguments(
     }
 
     Ok(out_bindings)
-}
-
-fn default_like_value(value: &Value) -> Value {
-    match value {
-        Value::Bool(_) => Value::Bool(false),
-        Value::SInt(_) => Value::SInt(0),
-        Value::Int(_) => Value::Int(0),
-        Value::DInt(_) => Value::DInt(0),
-        Value::LInt(_) => Value::LInt(0),
-        Value::USInt(_) => Value::USInt(0),
-        Value::UInt(_) => Value::UInt(0),
-        Value::UDInt(_) => Value::UDInt(0),
-        Value::ULInt(_) => Value::ULInt(0),
-        Value::Real(_) => Value::Real(0.0),
-        Value::LReal(_) => Value::LReal(0.0),
-        Value::Byte(_) => Value::Byte(0),
-        Value::Word(_) => Value::Word(0),
-        Value::DWord(_) => Value::DWord(0),
-        Value::LWord(_) => Value::LWord(0),
-        Value::String(_) => Value::String(SmolStr::new("")),
-        Value::WString(_) => Value::WString(String::new()),
-        Value::Char(_) => Value::Char(0),
-        Value::WChar(_) => Value::WChar(0),
-        _ => Value::Null,
-    }
 }
 
 fn bind_vm_call_arguments(

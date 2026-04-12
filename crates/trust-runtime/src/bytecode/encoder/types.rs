@@ -21,6 +21,7 @@ impl<'a> BytecodeEncoder<'a> {
             self.type_index(func.return_type)?;
             self.collect_param_types(&func.params)?;
             self.collect_var_types(&func.locals)?;
+            self.collect_var_types(&func.static_locals)?;
         }
         for fb in self.runtime.function_blocks().values() {
             if self.is_stdlib_fb(&fb.name) {
@@ -67,6 +68,7 @@ impl<'a> BytecodeEncoder<'a> {
         }
         self.collect_param_types(&method.params)?;
         self.collect_var_types(&method.locals)?;
+        self.collect_var_types(&method.static_locals)?;
         Ok(())
     }
 

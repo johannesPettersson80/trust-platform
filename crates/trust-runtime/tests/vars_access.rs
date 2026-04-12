@@ -171,3 +171,149 @@ END_CONFIGURATION
         Value::LWord(5_000_000_000)
     );
 }
+
+#[test]
+fn file_scope_globals_are_shared_across_program_and_function_blocks() {
+    let gvl = r#"
+VAR_GLOBAL
+    shared : INT := 0;
+END_VAR
+"#;
+    let support = r#"
+FUNCTION_BLOCK Bump
+VAR_EXTERNAL
+    shared : INT;
+END_VAR
+shared := shared + 1;
+END_FUNCTION_BLOCK
+"#;
+    let main = r#"
+PROGRAM Main
+VAR
+    bump1 : Bump;
+    bump2 : Bump;
+    observed : INT;
+END_VAR
+VAR_EXTERNAL
+    shared : INT;
+END_VAR
+bump1();
+bump2();
+observed := shared;
+END_PROGRAM
+"#;
+
+    let mut harness = TestHarness::from_sources(&[gvl, support, main]).unwrap();
+    harness.cycle();
+
+    match harness.get_output("observed") {
+        Some(Value::Int(value)) => assert_eq!(i64::from(value), 2),
+        Some(Value::DInt(value)) => assert_eq!(i64::from(value), 2),
+        Some(Value::LInt(value)) => assert_eq!(value, 2),
+        other => panic!("unexpected observed value {other:?}"),
+    }
+}
+
+#[test]
+fn namespaced_globals_support_qualified_access() {
+    let gvl = r#"
+NAMESPACE GVL
+VAR_GLOBAL
+    shared : INT := 3;
+END_VAR
+END_NAMESPACE
+"#;
+    let main = r#"
+PROGRAM Main
+VAR
+    observed : INT;
+END_VAR
+observed := GVL.shared;
+GVL.shared := GVL.shared + 1;
+END_PROGRAM
+"#;
+
+    let mut harness = TestHarness::from_sources(&[gvl, main]).unwrap();
+    harness.cycle();
+
+    assert_eq!(harness.get_output("observed"), Some(Value::Int(3)));
+    match harness.runtime().storage().get_global("GVL.shared") {
+        Some(Value::Int(value)) => assert_eq!(i64::from(*value), 4),
+        Some(Value::DInt(value)) => assert_eq!(i64::from(*value), 4),
+        Some(Value::LInt(value)) => assert_eq!(*value, 4),
+        other => panic!("unexpected namespaced global value {other:?}"),
+    }
+}
+
+#[test]
+fn globals_are_accessible_without_var_external_across_vendor_parity_scopes() {
+    let file_gvl = r#"
+VAR_GLOBAL
+    gFile : INT := 1;
+END_VAR
+"#;
+    let namespaced_gvl = r#"
+NAMESPACE GVL
+VAR_GLOBAL
+    shared : INT := 2;
+END_VAR
+END_NAMESPACE
+"#;
+    let main = r#"
+PROGRAM Main
+VAR_GLOBAL
+    gProgram : INT := 3;
+END_VAR
+VAR
+    observedFile : INT;
+    observedProgram : INT;
+    observedNamespace : INT;
+    observedConfig : INT;
+END_VAR
+observedFile := gFile;
+observedProgram := gProgram;
+observedNamespace := GVL.shared;
+observedConfig := gConfig;
+gFile := gFile + 1;
+gProgram := gProgram + 1;
+GVL.shared := GVL.shared + 1;
+gConfig := gConfig + 1;
+END_PROGRAM
+"#;
+    let configuration = r#"
+CONFIGURATION Conf
+VAR_GLOBAL
+    gConfig : INT := 4;
+END_VAR
+PROGRAM P1 : Main;
+END_CONFIGURATION
+"#;
+
+    let mut harness =
+        TestHarness::from_sources(&[file_gvl, namespaced_gvl, main, configuration]).unwrap();
+    harness.cycle();
+
+    assert_eq!(harness.get_output("observedFile"), Some(Value::Int(1)));
+    assert_eq!(harness.get_output("observedProgram"), Some(Value::Int(3)));
+    assert_eq!(harness.get_output("observedNamespace"), Some(Value::Int(2)));
+    assert_eq!(harness.get_output("observedConfig"), Some(Value::Int(4)));
+
+    match harness.runtime().storage().get_global("gFile") {
+        Some(Value::Int(value)) => assert_eq!(i64::from(*value), 2),
+        Some(Value::DInt(value)) => assert_eq!(i64::from(*value), 2),
+        Some(Value::LInt(value)) => assert_eq!(*value, 2),
+        other => panic!("unexpected file-scope global value {other:?}"),
+    }
+    match harness.runtime().storage().get_global("gConfig") {
+        Some(Value::Int(value)) => assert_eq!(i64::from(*value), 5),
+        Some(Value::DInt(value)) => assert_eq!(i64::from(*value), 5),
+        Some(Value::LInt(value)) => assert_eq!(*value, 5),
+        other => panic!("unexpected configuration global value {other:?}"),
+    }
+    match harness.runtime().storage().get_global("GVL.shared") {
+        Some(Value::Int(value)) => assert_eq!(i64::from(*value), 3),
+        Some(Value::DInt(value)) => assert_eq!(i64::from(*value), 3),
+        Some(Value::LInt(value)) => assert_eq!(*value, 3),
+        other => panic!("unexpected namespaced global value {other:?}"),
+    }
+}

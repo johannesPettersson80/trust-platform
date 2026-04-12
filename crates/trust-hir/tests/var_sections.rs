@@ -38,3 +38,74 @@ END_CONFIGURATION
 "#,
     );
 }
+
+#[test]
+fn program_var_global_is_accepted() {
+    check_no_errors(
+        r#"
+PROGRAM Main
+VAR_GLOBAL
+    G : INT;
+END_VAR
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn file_scope_var_global_is_accepted_across_files() {
+    let gvl = r#"
+VAR_GLOBAL
+    G : INT;
+END_VAR
+"#;
+    let consumer = r#"
+PROGRAM Main
+VAR_EXTERNAL
+    G : INT;
+END_VAR
+END_PROGRAM
+"#;
+    check_no_errors_multi(&[gvl, consumer]);
+}
+
+#[test]
+fn multiple_file_scope_gvls_are_aggregated() {
+    let gvl_a = r#"
+VAR_GLOBAL
+    G_A : INT;
+END_VAR
+"#;
+    let gvl_b = r#"
+VAR_GLOBAL
+    G_B : INT;
+END_VAR
+"#;
+    let consumer = r#"
+PROGRAM Main
+VAR_EXTERNAL
+    G_A : INT;
+    G_B : INT;
+END_VAR
+END_PROGRAM
+    "#;
+    check_no_errors_multi(&[gvl_a, gvl_b, consumer]);
+}
+
+#[test]
+fn duplicate_global_names_across_scopes_are_rejected() {
+    check_has_error(
+        r#"
+VAR_GLOBAL
+    G : INT;
+END_VAR
+
+PROGRAM Main
+VAR_GLOBAL
+    G : INT;
+END_VAR
+END_PROGRAM
+"#,
+        DiagnosticCode::DuplicateDeclaration,
+    );
+}

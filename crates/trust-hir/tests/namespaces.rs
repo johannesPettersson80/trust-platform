@@ -48,3 +48,24 @@ END_PROGRAM
 "#,
     );
 }
+
+#[test]
+fn namespace_global_supports_qualified_reads_and_writes() {
+    check_no_errors(
+        r#"
+NAMESPACE GVL
+VAR_GLOBAL
+    shared : INT := 1;
+END_VAR
+END_NAMESPACE
+
+PROGRAM Main
+VAR
+    observed : INT;
+END_VAR
+observed := GVL.shared;
+GVL.shared := observed + 1;
+END_PROGRAM
+"#,
+    );
+}

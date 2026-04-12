@@ -1,0 +1,5 @@
+[project]
+include_paths = ["src"]
+
+[dependencies]
+PLCopenMotionHoming = { path = "../../../../../../libraries/plcopen_motion/homing", version = "0.1.0" }

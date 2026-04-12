@@ -1,5 +1,6 @@
 ---
 source: crates/trust-syntax/tests/parser_pous.rs
+assertion_line: 69
 expression: "snapshot_parse(r#\"TEST_FUNCTION_BLOCK FB_TestCase\nVAR\n    ok : BOOL;\nEND_VAR\n    ok := TRUE;\nEND_TEST_FUNCTION_BLOCK\"#)"
 ---
 SourceFile@0..98
@@ -17,11 +18,12 @@ SourceFile@0..98
           KwBool@45..49 "BOOL"
         Semicolon@49..50 ";"
       KwEndVar@51..58 "END_VAR"
-    AssignStmt@63..75
-      NameRef@63..66
-        Ident@63..65 "ok"
-      Assign@66..68 ":="
-      Literal@68..73
-        KwTrue@69..73 "TRUE"
-      Semicolon@73..74 ";"
+    StmtList@63..75
+      AssignStmt@63..75
+        NameRef@63..66
+          Ident@63..65 "ok"
+        Assign@66..68 ":="
+        Literal@68..73
+          KwTrue@69..73 "TRUE"
+        Semicolon@73..74 ";"
     KwEndTestFunctionBlock@75..98 "END_TEST_FUNCTION_BLOCK"

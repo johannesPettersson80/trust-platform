@@ -41,6 +41,7 @@ fn lower_program_var_blocks(
                             type_id,
                             initializer: init_expr.clone(),
                             retain: qualifiers.retain,
+                            static_storage: false,
                             external: false,
                             constant: qualifiers.constant,
                             address: address_info.clone(),
@@ -53,7 +54,7 @@ fn lower_program_var_blocks(
                 VarBlockKind::Global => {
                     for name in names {
                         globals.push(GlobalInit {
-                            name,
+                            name: namespace_qualified_name(&var_block, name.as_str()),
                             type_id,
                             initializer: init_expr.clone(),
                             retain: qualifiers.retain,
@@ -65,13 +66,15 @@ fn lower_program_var_blocks(
                 VarBlockKind::Input
                 | VarBlockKind::Output
                 | VarBlockKind::InOut
-                | VarBlockKind::Var => {
+                | VarBlockKind::Var
+                | VarBlockKind::Stat => {
                     for name in names {
                         vars.push(VarDef {
                             name,
                             type_id,
                             initializer: init_expr.clone(),
                             retain: qualifiers.retain,
+                            static_storage: false,
                             external: false,
                             constant: qualifiers.constant,
                             address: address_info.clone(),

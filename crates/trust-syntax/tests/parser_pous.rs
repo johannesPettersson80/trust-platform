@@ -77,6 +77,41 @@ END_TEST_FUNCTION_BLOCK"#
 }
 
 #[test]
+fn test_function_block_top_level_statements_form_stmt_list() {
+    let parsed = parse(
+        r#"FUNCTION_BLOCK FB_Test
+VAR
+    ok : BOOL;
+END_VAR
+ok := TRUE;
+END_FUNCTION_BLOCK"#,
+    );
+    assert!(
+        parsed.ok(),
+        "expected FUNCTION_BLOCK with top-level statements to parse, got: {:?}",
+        parsed.errors()
+    );
+    let syntax = parsed.syntax();
+    let fb = syntax
+        .children()
+        .find(|child| child.kind() == SyntaxKind::FunctionBlock)
+        .expect("expected function block node");
+    assert!(
+        fb.children()
+            .any(|child| child.kind() == SyntaxKind::StmtList),
+        "expected FUNCTION_BLOCK statements to be wrapped in StmtList, got:\n{}",
+        snapshot_parse(
+            r#"FUNCTION_BLOCK FB_Test
+VAR
+    ok : BOOL;
+END_VAR
+ok := TRUE;
+END_FUNCTION_BLOCK"#
+        )
+    );
+}
+
+#[test]
 fn test_function_block_extends() {
     insta::assert_snapshot!(snapshot_parse(
         r#"FUNCTION_BLOCK FB_Child EXTENDS FB_Parent
@@ -183,6 +218,40 @@ fn test_namespace() {
     END_FUNCTION
 END_NAMESPACE"#
     ));
+}
+
+#[test]
+fn test_namespace_with_var_global() {
+    let parsed = parse(
+        r#"NAMESPACE GVL
+VAR_GLOBAL
+    shared : INT := 1;
+END_VAR
+END_NAMESPACE"#,
+    );
+    assert!(
+        parsed.ok(),
+        "expected namespace VAR_GLOBAL to parse, got: {:?}",
+        parsed.errors()
+    );
+    let syntax = parsed.syntax();
+    let namespace = syntax
+        .children()
+        .find(|child| child.kind() == SyntaxKind::Namespace)
+        .expect("expected namespace node");
+    assert!(
+        namespace
+            .children()
+            .any(|child| child.kind() == SyntaxKind::VarBlock),
+        "expected namespace to contain VarBlock, got:\n{}",
+        snapshot_parse(
+            r#"NAMESPACE GVL
+VAR_GLOBAL
+    shared : INT := 1;
+END_VAR
+END_NAMESPACE"#
+        )
+    );
 }
 
 #[test]

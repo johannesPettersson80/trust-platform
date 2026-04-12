@@ -169,6 +169,7 @@ struct GlobalInfo {
     type_id: TypeId,
     is_constant: bool,
     origin: SymbolOrigin,
+    range: TextRange,
 }
 
 pub(in crate::db) fn check_global_external_links_with_project(
@@ -193,14 +194,21 @@ pub(in crate::db) fn check_global_external_links_with_project(
             file_id,
             symbol_id: symbol.id,
         });
-        globals.insert(
-            key,
-            GlobalInfo {
-                type_id: symbol.type_id,
-                is_constant,
-                origin,
-            },
-        );
+        let info = GlobalInfo {
+            type_id: symbol.type_id,
+            is_constant,
+            origin,
+            range: symbol.range,
+        };
+        if let Some(existing) = globals.insert(key, info) {
+            let diagnostic = Diagnostic::error(
+                DiagnosticCode::DuplicateDeclaration,
+                symbol.range,
+                format!("duplicate global declaration of '{}'", symbol.name),
+            )
+            .with_related(existing.range, "previously declared here");
+            diagnostics.add(diagnostic);
+        }
     }
 
     for block in root

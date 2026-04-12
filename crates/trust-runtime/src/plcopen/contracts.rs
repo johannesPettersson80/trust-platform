@@ -132,6 +132,18 @@ pub struct PlcopenImportReport {
     pub applied_library_shims: Vec<PlcopenLibraryShimApplication>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PlcopenImportGlobalVarMode {
+    #[default]
+    NativeVendorParity,
+    StrictIecAdapter,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct PlcopenImportOptions {
+    pub global_var_mode: PlcopenImportGlobalVarMode,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct PlcopenMigrationReport {
     pub profile: String,

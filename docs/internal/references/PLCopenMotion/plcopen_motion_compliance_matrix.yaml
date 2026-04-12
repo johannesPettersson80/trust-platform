@@ -1,0 +1,1312 @@
+metadata:
+  artifact: plcopen_motion_compliance_matrix
+  version: 1
+  status: active
+  schema:
+    required_columns:
+      - PublicName
+      - SourcePart
+      - SourceClass
+      - truSTPhase
+      - truSTStatus
+      - Notes
+    optional_columns:
+      - PinnedSourceRevision
+      - Profile_A_AxisCore
+      - Profile_B_Sync
+      - Profile_C_GroupCore
+      - Profile_D_Homing
+      - Profile_E_OOPFacade
+  pinned_sources:
+    part1:
+      name: PLCopen Motion Control Part 1
+      version: "2.0"
+      revision_date: "2011-03-17"
+    part4:
+      name: PLCopen Motion Control Part 4
+      version: "2.0 RFC"
+      revision_date: "2025-11-18"
+    part5:
+      name: PLCopen Motion Control Part 5
+      version: "2.0"
+      revision_date: "2011-11-16"
+  notes:
+    - The shipped ST motion surface currently covers the Part 1 single-axis core, the selected synchronization subset, the Phase C coordinated-motion core subset, and the selected Phase D homing subset.
+    - Internal ST-only carrier globals used by the test fixture are intentionally omitted because they are not public PLCopen names.
+rows:
+  - PublicName: AXIS_REF
+    SourcePart: Part1
+    SourceClass: V
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Lightweight axis handle required by the selected classic Part 1 profile.
+    Profile_A_AxisCore: Required
+  - PublicName: AXIS_ID
+    SourcePart: Part4
+    SourceClass: V
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Public ID alias used by coordinated-motion membership/readback FBs; current truST profile represents it as UDINT.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: AXES_GROUP_ID
+    SourcePart: Part4
+    SourceClass: V
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Public ID alias used by coordinated-motion membership/readback FBs; current truST profile represents it as UDINT.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_BUFFER_MODE
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Full Part 1 enum surface for the selected Phase A profile.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_DIRECTION
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Phase A core public enum.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_EXECUTION_MODE
+    SourcePart: Part4
+    SourceClass: E
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Phase A adopts the Part 4 three-value enum; single-axis Phase A FBs reject mcDelayed.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_A_AxisCore: Required
+  - PublicName: MC_SOURCE
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Required by MC_ReadMotionState.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_AXIS_STATUS
+    SourcePart: truST
+    SourceClass: V
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Documented truST extension enum.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_Constants
+    SourcePart: truST
+    SourceClass: V
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Public ST helper FB publishing the standardized Part 1 parameter-number names and the stable public mcERR_* values; call the FB once before reading members.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_Power
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial single-axis public FB; the initial profile omits EnablePositive and EnableNegative.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_Home
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_Stop
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB; selected truST signature follows Part 1 FB tables and omits Active.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_Halt
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_MoveAbsolute
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_MoveRelative
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_MoveAdditive
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_MoveVelocity
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_MoveContinuousAbsolute
+    SourcePart: Part1
+    SourceClass: E
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_MoveContinuousRelative
+    SourcePart: Part1
+    SourceClass: E
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_SetPosition
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_SetOverride
+    SourcePart: Part1
+    SourceClass: E
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A enable-style public FB with Enabled semantics.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_ReadActualPosition
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_ReadActualVelocity
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_ReadActualTorque
+    SourcePart: Part1
+    SourceClass: E
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_ReadAxisError
+    SourcePart: Part1
+    SourceClass: E
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_ReadParameter
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_ReadBoolParameter
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_WriteParameter
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB; initial profile rejects mcDelayed.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_WriteBoolParameter
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB; initial profile rejects mcDelayed.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_ReadStatus
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_ReadMotionState
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB consuming MC_SOURCE.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_ReadAxisInfo
+    SourcePart: Part1
+    SourceClass: E
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_Reset
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: A
+    truSTStatus: Implemented
+    Notes: Initial Phase A public FB.
+    Profile_A_AxisCore: Required
+  - PublicName: MC_MoveSuperimposed
+    SourcePart: Part1
+    SourceClass: E
+    truSTPhase: A
+    truSTStatus: Deferred
+    Notes: Deferred single-axis FB; absent path in the current public surface (no runtime placeholder) until a dedicated Phase A extension lands.
+    Profile_A_AxisCore: Deferred
+  - PublicName: MC_HaltSuperimposed
+    SourcePart: Part1
+    SourceClass: E
+    truSTPhase: A
+    truSTStatus: Deferred
+    Notes: Deferred single-axis FB; absent path in the current public surface (no runtime placeholder) until a dedicated Phase A extension lands.
+    Profile_A_AxisCore: Deferred
+  - PublicName: MC_TorqueControl
+    SourcePart: Part1
+    SourceClass: E
+    truSTPhase: A
+    truSTStatus: Deferred
+    Notes: Deferred single-axis FB; absent path in the current public surface (no runtime placeholder) until a dedicated Phase A extension lands.
+    Profile_A_AxisCore: Deferred
+  - PublicName: MC_PositionProfile
+    SourcePart: Part1
+    SourceClass: E
+    truSTPhase: A
+    truSTStatus: Deferred
+    Notes: Deferred single-axis FB; absent path in the current public surface (no runtime placeholder) until a dedicated Phase A extension lands.
+    Profile_A_AxisCore: Deferred
+  - PublicName: MC_VelocityProfile
+    SourcePart: Part1
+    SourceClass: E
+    truSTPhase: A
+    truSTStatus: Deferred
+    Notes: Deferred single-axis FB; absent path in the current public surface (no runtime placeholder) until a dedicated Phase A extension lands.
+    Profile_A_AxisCore: Deferred
+  - PublicName: MC_AccelerationProfile
+    SourcePart: Part1
+    SourceClass: E
+    truSTPhase: A
+    truSTStatus: Deferred
+    Notes: Deferred single-axis FB; absent path in the current public surface (no runtime placeholder) until a dedicated Phase A extension lands.
+    Profile_A_AxisCore: Deferred
+  - PublicName: MC_ReadDigitalInput
+    SourcePart: Part1
+    SourceClass: E
+    truSTPhase: A
+    truSTStatus: Deferred
+    Notes: Deferred single-axis FB; absent path in the current public surface (no runtime placeholder) until a dedicated Phase A extension lands.
+    Profile_A_AxisCore: Deferred
+  - PublicName: MC_ReadDigitalOutput
+    SourcePart: Part1
+    SourceClass: E
+    truSTPhase: A
+    truSTStatus: Deferred
+    Notes: Deferred single-axis FB; absent path in the current public surface (no runtime placeholder) until a dedicated Phase A extension lands.
+    Profile_A_AxisCore: Deferred
+  - PublicName: MC_WriteDigitalOutput
+    SourcePart: Part1
+    SourceClass: E
+    truSTPhase: A
+    truSTStatus: Deferred
+    Notes: Deferred single-axis FB; absent path in the current public surface (no runtime placeholder) until a dedicated Phase A extension lands.
+    Profile_A_AxisCore: Deferred
+  - PublicName: MC_DigitalCamSwitch
+    SourcePart: Part1
+    SourceClass: E
+    truSTPhase: A
+    truSTStatus: Deferred
+    Notes: Deferred single-axis FB; absent path in the current public surface (no runtime placeholder) until a dedicated Phase A extension lands.
+    Profile_A_AxisCore: Deferred
+  - PublicName: MC_TouchProbe
+    SourcePart: Part1
+    SourceClass: E
+    truSTPhase: A
+    truSTStatus: Deferred
+    Notes: Deferred single-axis FB; absent path in the current public surface (no runtime placeholder) until a dedicated Phase A extension lands.
+    Profile_A_AxisCore: Deferred
+  - PublicName: MC_AbortTrigger
+    SourcePart: Part1
+    SourceClass: E
+    truSTPhase: A
+    truSTStatus: Deferred
+    Notes: Deferred single-axis FB; absent path in the current public surface (no runtime placeholder) until a dedicated Phase A extension lands.
+    Profile_A_AxisCore: Deferred
+  - PublicName: MC_START_MODE
+    SourcePart: Part1
+    SourceClass: E
+    truSTPhase: B
+    truSTStatus: Implemented
+    Notes: Phase B public synchronization enum used by MC_CamIn.
+    Profile_B_Sync: Required
+  - PublicName: MC_SYNC_MODE
+    SourcePart: Part1
+    SourceClass: E
+    truSTPhase: B
+    truSTStatus: Implemented
+    Notes: Phase B public synchronization enum used by MC_GearInPos.
+    Profile_B_Sync: Required
+  - PublicName: MC_CAM_ID
+    SourcePart: Part1
+    SourceClass: V
+    truSTPhase: B
+    truSTStatus: Implemented
+    Notes: Public cam identifier type; current truST profile represents it as UINT.
+    Profile_B_Sync: Required
+  - PublicName: MC_CAM_REF
+    SourcePart: Part1
+    SourceClass: V
+    truSTPhase: B
+    truSTStatus: Implemented
+    Notes: Public cam-reference carrier; current truST ST profile publishes a fixed 8-point MasterPosition0..7 / SlavePosition0..7 struct.
+    Profile_B_Sync: Required
+  - PublicName: MC_CamTableSelect
+    SourcePart: Part1
+    SourceClass: E
+    truSTPhase: B
+    truSTStatus: Implemented
+    Notes: Initial Phase B synchronization public FB.
+    Profile_B_Sync: Required
+  - PublicName: MC_CamIn
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: B
+    truSTStatus: Implemented
+    Notes: Initial Phase B synchronization public FB.
+    Profile_B_Sync: Required
+  - PublicName: MC_CamOut
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: B
+    truSTStatus: Implemented
+    Notes: Initial Phase B synchronization public FB.
+    Profile_B_Sync: Required
+  - PublicName: MC_GearIn
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: B
+    truSTStatus: Implemented
+    Notes: Initial Phase B synchronization public FB.
+    Profile_B_Sync: Required
+  - PublicName: MC_GearOut
+    SourcePart: Part1
+    SourceClass: B
+    truSTPhase: B
+    truSTStatus: Implemented
+    Notes: Initial Phase B synchronization public FB.
+    Profile_B_Sync: Required
+  - PublicName: MC_GearInPos
+    SourcePart: Part1
+    SourceClass: E
+    truSTPhase: B
+    truSTStatus: Implemented
+    Notes: Initial Phase B synchronization public FB.
+    Profile_B_Sync: Required
+  - PublicName: MC_PhasingAbsolute
+    SourcePart: Part1
+    SourceClass: E
+    truSTPhase: B
+    truSTStatus: Deferred
+    Notes: Deferred Phase B synchronization FB; absent path in the current public surface (no runtime placeholder).
+    Profile_B_Sync: Deferred
+  - PublicName: MC_PhasingRelative
+    SourcePart: Part1
+    SourceClass: E
+    truSTPhase: B
+    truSTStatus: Deferred
+    Notes: Deferred Phase B synchronization FB; absent path in the current public surface (no runtime placeholder).
+    Profile_B_Sync: Deferred
+  - PublicName: MC_CombineAxes
+    SourcePart: Part1
+    SourceClass: E
+    truSTPhase: B
+    truSTStatus: Deferred
+    Notes: Deferred Phase B synchronization FB; absent path in the current public surface (no runtime placeholder).
+    Profile_B_Sync: Deferred
+  - PublicName: AXES_GROUP_REF
+    SourcePart: Part4
+    SourceClass: V
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Lightweight axes-group handle required by the selected coordinated-motion profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: IDENT_IN_GROUP_REF
+    SourcePart: Part4
+    SourceClass: V
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Group-member identifier preserved on add/remove/config/read group FBs.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_COMMAND_ID
+    SourcePart: Part4
+    SourceClass: V
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Public command identifier for accepted coordinated/group commands.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_GROUP_PARAMETER
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Includes the standardized mcDynamicsMode and mcTransitionReferencePoint members.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_TRANSITION_PARAMETER
+    SourcePart: Part4
+    SourceClass: V
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Vendor-specific coordinated-motion transition parameter input type.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_KIN_REF
+    SourcePart: Part4
+    SourceClass: V
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Vendor-specific kinematic reference type; current truST profile represents it as UINT.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_CART_REF
+    SourcePart: Part4
+    SourceClass: V
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Public Cartesian reference struct for the coordinated-motion profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_COORD_REF
+    SourcePart: Part4
+    SourceClass: V
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Public coordinate-transform reference struct for the coordinated-motion profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_CONFIG_DATA
+    SourcePart: Part4
+    SourceClass: V
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Public coordinated-motion configuration helper struct.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_TURN_INFO
+    SourcePart: Part4
+    SourceClass: V
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Public coordinated-motion turn-info helper struct.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_CART_POS_REF
+    SourcePart: Part4
+    SourceClass: V
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Public Cartesian position carrier for coordinated-motion readback and transform tests.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_AXES_POS_REF
+    SourcePart: Part4
+    SourceClass: V
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Public axis-position carrier; current truST profile uses the documented array-based representation.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_POS_REF
+    SourcePart: Part4
+    SourceClass: V
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Public combined Cartesian/axis position carrier.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_DISTANCE_REF
+    SourcePart: Part4
+    SourceClass: V
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Public relative-position/distance carrier for coordinated-motion profiles.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_SWLIMIT
+    SourcePart: truST
+    SourceClass: V
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Public helper struct used by MC_GROUP_SWLIMITS in the current ST publication path.
+    Profile_C_GroupCore: Required
+  - PublicName: MC_GROUP_SWLIMITS
+    SourcePart: Part4
+    SourceClass: V
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Public grouped software-limit carrier for the coordinated-motion profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_CIRC_MODE
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Deferred
+    Notes: Reserved later-only Part 4 enum family; not public in the current shipped Phase C coordinated-motion surface until a consuming FB enters scope.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Deferred
+  - PublicName: MC_CIRC_PATHCHOICE
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Deferred
+    Notes: Reserved later-only Part 4 enum family; not public in the current shipped Phase C coordinated-motion surface until a consuming FB enters scope.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Deferred
+  - PublicName: MC_ORIENTATION_MODE
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Public orientation-mode enum used by the shipped linear/direct coordinated-motion FBs.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_TOOL_SOURCE
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Deferred
+    Notes: Reserved later-only Part 4 enum family; not public in the current shipped Phase C coordinated-motion surface until a consuming FB enters scope.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Deferred
+  - PublicName: MC_COORD_SYSTEM
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Initial Phase C public enum; minimum supported subset is ACS, MCS, PCS.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_DYNAMICS_MODE
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Required by MC_GROUP_PARAMETER::mcDynamicsMode.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_TRANSITION_MODE
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Initial Phase C public enum.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_TRANSITION_VELOCITY
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Initial Phase C public enum.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_TRANSITION_REFERENCE
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Initial Phase C public enum.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_COMMAND_STATE
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Required by MC_GroupReadCommandInfo.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_GROUP_STATUS
+    SourcePart: truST
+    SourceClass: V
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Documented truST extension enum.
+    Profile_C_GroupCore: Required
+  - PublicName: MC_AddAxisToGroup
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_RemoveAxisFromGroup
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_UngroupAllAxes
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_GroupReadConfiguration
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_ReadAxisGroupInfo
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_GroupEnable
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_GroupDisable
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_GroupPower
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_GroupReadStatus
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_GroupReadError
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_GroupReset
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_GroupReadPosition
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_GroupReadVelocity
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_GroupReadAcceleration
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_GroupReadMotionState
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_GroupReadParameter
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_GroupWriteParameter
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_GroupReadSWLimits
+    SourcePart: Part4
+    SourceClass: V
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_GroupWriteSWLimits
+    SourcePart: Part4
+    SourceClass: V
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_SetKinTransform
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_SetCartesianTransform
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_SetCoordinateTransform
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_ReadKinTransform
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_ReadCartesianTransform
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_ReadCoordinateTransform
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_GroupSetPosition
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_MoveLinearAbsolute
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_MoveLinearRelative
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_MoveDirectAbsolute
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_MoveDirectRelative
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_GroupHome
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile; accepts only mcAborting and mcBuffered.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_GroupStop
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_GroupHalt
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_GroupWaitTime
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_GroupSetOverride
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_TransformPosition
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_GroupReadCommandInfo
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_GroupWriteReferenceDynamics
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_GroupReadReferenceDynamics
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_GroupWriteDefaultDynamics
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_GroupReadDefaultDynamics
+    SourcePart: Part4
+    SourceClass: B
+    truSTPhase: C
+    truSTStatus: Implemented
+    Notes: Implemented coordinated-motion public FB in the current Phase C core profile.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Required
+  - PublicName: MC_MoveCircularAbsolute
+    SourcePart: Part4
+    SourceClass: E
+    truSTPhase: C
+    truSTStatus: Deferred
+    Notes: Deferred coordinated-motion public FB; absent path in the current public surface.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Deferred
+  - PublicName: MC_MoveCircularRelative
+    SourcePart: Part4
+    SourceClass: E
+    truSTPhase: C
+    truSTStatus: Deferred
+    Notes: Deferred coordinated-motion public FB; absent path in the current public surface.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Deferred
+  - PublicName: MC_PathSelect
+    SourcePart: Part4
+    SourceClass: E
+    truSTPhase: C
+    truSTStatus: Deferred
+    Notes: Deferred coordinated-motion public FB; absent path in the current public surface.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Deferred
+  - PublicName: MC_MovePath
+    SourcePart: Part4
+    SourceClass: E
+    truSTPhase: C
+    truSTStatus: Deferred
+    Notes: Deferred coordinated-motion public FB; absent path in the current public surface.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Deferred
+  - PublicName: MC_GroupInterrupt
+    SourcePart: Part4
+    SourceClass: E
+    truSTPhase: C
+    truSTStatus: Deferred
+    Notes: Deferred coordinated-motion public FB; absent path in the current public surface.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Deferred
+  - PublicName: MC_GroupContinue
+    SourcePart: Part4
+    SourceClass: E
+    truSTPhase: C
+    truSTStatus: Deferred
+    Notes: Deferred coordinated-motion public FB; absent path in the current public surface.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Deferred
+  - PublicName: MC_ReadDHParameters
+    SourcePart: Part4
+    SourceClass: E
+    truSTPhase: C
+    truSTStatus: Deferred
+    Notes: Deferred coordinated-motion public FB; absent path in the current public surface.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Deferred
+  - PublicName: MC_ReadJointInfo
+    SourcePart: Part4
+    SourceClass: E
+    truSTPhase: C
+    truSTStatus: Deferred
+    Notes: Deferred coordinated-motion public FB; absent path in the current public surface.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Deferred
+  - PublicName: MC_GroupJog
+    SourcePart: Part4
+    SourceClass: E
+    truSTPhase: C
+    truSTStatus: Deferred
+    Notes: Deferred coordinated-motion public FB; absent path in the current public surface.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Deferred
+  - PublicName: MC_GroupJogVector
+    SourcePart: Part4
+    SourceClass: E
+    truSTPhase: C
+    truSTStatus: Deferred
+    Notes: Deferred coordinated-motion public FB; absent path in the current public surface.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Deferred
+  - PublicName: MC_GroupWriteJoggingDynamics
+    SourcePart: Part4
+    SourceClass: E
+    truSTPhase: C
+    truSTStatus: Deferred
+    Notes: Deferred coordinated-motion public FB; absent path in the current public surface.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Deferred
+  - PublicName: MC_GroupReadJoggingDynamics
+    SourcePart: Part4
+    SourceClass: E
+    truSTPhase: C
+    truSTStatus: Deferred
+    Notes: Deferred coordinated-motion public FB; absent path in the current public surface.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Deferred
+  - PublicName: MC_WriteToolData
+    SourcePart: Part4
+    SourceClass: E
+    truSTPhase: C
+    truSTStatus: Deferred
+    Notes: Deferred coordinated-motion public FB; absent path in the current public surface.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Deferred
+  - PublicName: MC_ReadToolData
+    SourcePart: Part4
+    SourceClass: E
+    truSTPhase: C
+    truSTStatus: Deferred
+    Notes: Deferred coordinated-motion public FB; absent path in the current public surface.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Deferred
+  - PublicName: MC_SelectTool
+    SourcePart: Part4
+    SourceClass: E
+    truSTPhase: C
+    truSTStatus: Deferred
+    Notes: Deferred coordinated-motion public FB; absent path in the current public surface.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Deferred
+  - PublicName: MC_ReadTool
+    SourcePart: Part4
+    SourceClass: E
+    truSTPhase: C
+    truSTStatus: Deferred
+    Notes: Deferred coordinated-motion public FB; absent path in the current public surface.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Deferred
+  - PublicName: MC_WritePayloadData
+    SourcePart: Part4
+    SourceClass: E
+    truSTPhase: C
+    truSTStatus: Deferred
+    Notes: Deferred coordinated-motion public FB; absent path in the current public surface.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Deferred
+  - PublicName: MC_ReadPayloadData
+    SourcePart: Part4
+    SourceClass: E
+    truSTPhase: C
+    truSTStatus: Deferred
+    Notes: Deferred coordinated-motion public FB; absent path in the current public surface.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Deferred
+  - PublicName: MC_SelectPayload
+    SourcePart: Part4
+    SourceClass: E
+    truSTPhase: C
+    truSTStatus: Deferred
+    Notes: Deferred coordinated-motion public FB; absent path in the current public surface.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Deferred
+  - PublicName: MC_ReadPayload
+    SourcePart: Part4
+    SourceClass: E
+    truSTPhase: C
+    truSTStatus: Deferred
+    Notes: Deferred coordinated-motion public FB; absent path in the current public surface.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Deferred
+  - PublicName: MC_ReadRigidBodyDynamic
+    SourcePart: Part4
+    SourceClass: E
+    truSTPhase: C
+    truSTStatus: Deferred
+    Notes: Deferred coordinated-motion public FB; absent path in the current public surface.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Deferred
+  - PublicName: MC_WriteRigidBodyDynamic
+    SourcePart: Part4
+    SourceClass: E
+    truSTPhase: C
+    truSTStatus: Deferred
+    Notes: Deferred coordinated-motion public FB; absent path in the current public surface.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Deferred
+  - PublicName: MC_SetDynCoordTransform
+    SourcePart: Part4
+    SourceClass: E
+    truSTPhase: C
+    truSTStatus: Deferred
+    Notes: Optional Phase C.1 tracking FB not selected in the current shipped profile; absent path in the current public surface.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Deferred
+  - PublicName: MC_TrackConveyorBelt
+    SourcePart: Part4
+    SourceClass: E
+    truSTPhase: C
+    truSTStatus: Deferred
+    Notes: Optional Phase C.1 tracking FB not selected in the current shipped profile; absent path in the current public surface.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Deferred
+  - PublicName: MC_SyncAxisToGroup
+    SourcePart: Part4
+    SourceClass: E
+    truSTPhase: C
+    truSTStatus: Deferred
+    Notes: Optional Phase C.1 tracking FB not selected in the current shipped profile; absent path in the current public surface.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Deferred
+  - PublicName: MC_SyncGroupToAxis
+    SourcePart: Part4
+    SourceClass: E
+    truSTPhase: C
+    truSTStatus: Deferred
+    Notes: Optional Phase C.1 tracking FB not selected in the current shipped profile; absent path in the current public surface.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Deferred
+  - PublicName: MC_TrackRotaryTable
+    SourcePart: Part4
+    SourceClass: E
+    truSTPhase: C
+    truSTStatus: Deferred
+    Notes: Optional Phase C.1 tracking FB not selected in the current shipped profile; absent path in the current public surface.
+    PinnedSourceRevision: "2025-11-18"
+    Profile_C_GroupCore: Deferred
+  - PublicName: MC_HOME_DIRECTION
+    SourcePart: Part5
+    SourceClass: B
+    truSTPhase: D
+    truSTStatus: Implemented
+    Notes: Phase D public homing enum.
+    Profile_D_Homing: Required
+  - PublicName: MC_SWITCH_MODE
+    SourcePart: Part5
+    SourceClass: B
+    truSTPhase: D
+    truSTStatus: Implemented
+    Notes: Phase D public homing enum.
+    Profile_D_Homing: Required
+  - PublicName: MC_REF_SIGNAL_REF
+    SourcePart: Part5
+    SourceClass: V
+    truSTPhase: D
+    truSTStatus: Implemented
+    Notes: Vendor-specific Phase D public reference-signal type.
+    Profile_D_Homing: Required
+  - PublicName: MC_StepAbsoluteSwitch
+    SourcePart: Part5
+    SourceClass: B
+    truSTPhase: D
+    truSTStatus: Implemented
+    Notes: Implemented Phase D homing public FB in the current shipped profile.
+    PinnedSourceRevision: "2011-11-16"
+    Profile_D_Homing: Required
+  - PublicName: MC_StepLimitSwitch
+    SourcePart: Part5
+    SourceClass: B
+    truSTPhase: D
+    truSTStatus: Implemented
+    Notes: Implemented Phase D homing public FB in the current shipped profile.
+    PinnedSourceRevision: "2011-11-16"
+    Profile_D_Homing: Required
+  - PublicName: MC_StepBlock
+    SourcePart: Part5
+    SourceClass: B
+    truSTPhase: D
+    truSTStatus: Implemented
+    Notes: Implemented Phase D homing public FB in the current shipped profile; nonzero DetectionVelocityTime requires the block condition on consecutive scans in the deterministic ST kernel.
+    PinnedSourceRevision: "2011-11-16"
+    Profile_D_Homing: Required
+  - PublicName: MC_StepReferencePulse
+    SourcePart: Part5
+    SourceClass: B
+    truSTPhase: D
+    truSTStatus: Implemented
+    Notes: Implemented Phase D homing public FB in the current shipped profile.
+    PinnedSourceRevision: "2011-11-16"
+    Profile_D_Homing: Required
+  - PublicName: MC_StepDistanceCoded
+    SourcePart: Part5
+    SourceClass: B
+    truSTPhase: D
+    truSTStatus: Implemented
+    Notes: Implemented Phase D homing public FB in the current shipped profile.
+    PinnedSourceRevision: "2011-11-16"
+    Profile_D_Homing: Required
+  - PublicName: MC_HomeDirect
+    SourcePart: Part5
+    SourceClass: B
+    truSTPhase: D
+    truSTStatus: Implemented
+    Notes: Implemented Phase D homing public FB in the current shipped profile.
+    PinnedSourceRevision: "2011-11-16"
+    Profile_D_Homing: Required
+  - PublicName: MC_HomeAbsolute
+    SourcePart: Part5
+    SourceClass: B
+    truSTPhase: D
+    truSTStatus: Implemented
+    Notes: Implemented Phase D homing public FB in the current shipped profile.
+    PinnedSourceRevision: "2011-11-16"
+    Profile_D_Homing: Required
+  - PublicName: MC_FinishHoming
+    SourcePart: Part5
+    SourceClass: B
+    truSTPhase: D
+    truSTStatus: Implemented
+    Notes: Implemented Phase D homing public FB in the current shipped profile.
+    PinnedSourceRevision: "2011-11-16"
+    Profile_D_Homing: Required
+  - PublicName: MC_StepReferenceFlyingSwitch
+    SourcePart: Part5
+    SourceClass: E
+    truSTPhase: D
+    truSTStatus: Deferred
+    Notes: Deferred Phase D homing public FB; absent path in the current public surface.
+    PinnedSourceRevision: "2011-11-16"
+    Profile_D_Homing: Deferred
+  - PublicName: MC_StepReferenceFlyingRefPulse
+    SourcePart: Part5
+    SourceClass: E
+    truSTPhase: D
+    truSTStatus: Deferred
+    Notes: Deferred Phase D homing public FB; absent path in the current public surface.
+    PinnedSourceRevision: "2011-11-16"
+    Profile_D_Homing: Deferred
+  - PublicName: MC_AbortPassiveHoming
+    SourcePart: Part5
+    SourceClass: E
+    truSTPhase: D
+    truSTStatus: Deferred
+    Notes: Deferred Phase D homing public FB; absent path in the current public surface.
+    PinnedSourceRevision: "2011-11-16"
+    Profile_D_Homing: Deferred

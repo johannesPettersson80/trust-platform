@@ -6,10 +6,18 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.10.0`
+Target release: `v0.13.0`
+
+### Added
+
+- `trust-runtime bench project` now benchmarks a real project folder with watched-global capture, cycle-budget reporting, per-cycle latency summaries, and budget-overrun counts, so reusable Structured Text libraries can be validated through user-facing example projects instead of only synthetic fixtures.
+- Added `examples/plcopen_motion_single_axis_demo` as the reference consumer for `libraries/plcopen_motion/single_axis_core`, plus `scripts/runtime_motion_example_bench_gate.sh` for focused end-to-end semantic + cycle-budget validation of the shipped PLCopen motion surface.
+- Added `examples/plcopen_motion_single_axis_benchmarks` plus `scripts/runtime_motion_benchmark_breakdown.sh` to isolate runtime floor, `MC_Constants()`, status/readback, inactive-command, single-command, and constants-once motion costs on the same release benchmark path.
+- `trust-runtime bench project` now emits VM register-profile details for VM-backed workloads, including hot blocks, fallback reasons, and lowering-cache counters, so project benchmarks can explain where scan time is going instead of only reporting latency totals.
 
 ### Changed
 
+- Structured Text `FUNCTION_BLOCK` calls now reuse the previously stored `VAR_INPUT` value when an input argument is omitted, with first-call fallback still using the declared initializer or IEC default; this closes the motion-library command-update semantics gap without inventing separate runtime rules.
 - Web IDE build/deploy behavior now matches CLI semantics in unified shell flows: build tasks use project-root `--project` resolution, deploy normalizes `src/`-prefixed source paths to avoid nested `src/src` writes, and online connection defaults now seed same-origin host/port for faster standalone startup.
 - Web IDE header controls now use a compact primary toolbar (`Open`, `Save`, `Build`, `Deploy`) with overflow menu actions for lower visual clutter while preserving the full command set.
 - VS Code HMI widget-navigation source scanning fallback was merged on top of current mainline traversal logic so declaration resolution stays deterministic for `.st`/`.pou` projects after main-branch merge.
@@ -23,14 +31,25 @@ Target release: `v0.10.0`
 - MP-060 post-C1 recovery pass implemented for register VM hot path (`P0 -> P2 -> P1`): boxed large runtime value variants (`Array`/`Struct`/`Enum` with unboxed `Reference`), added extended register-op fusion (`BinaryRefToRef`, `BinaryRefConstToRef`, `BinaryConstRefToRef`, `CmpRefConstJumpIf`) with tier-1 specialized-executor support, and added consume-aware per-block register read paths; refreshed locked `mp-060-corpus-v3` 3-run benchmark evidence and comparison artifacts in `target/gate-artifacts/runtime-vm-bench-v3-post-p0-p2-p1-run1/`.
 - MP-060 post-hotpath correction pass: `execution-backend` benchmark corpus upgraded to `mp-060-corpus-v4` with per-cycle loop-state reset in `loop-arith`, VM profile guardrails now assert loop-body execution during measured cycles, benchmark comparison now uses 3-run median-of-runs decision metrics (`scripts/runtime_vm_bench_compare.sh`) with aggregate median derived from per-fixture medians (instead of pooled cross-fixture sample p50), and register-IR `CALL_NATIVE` now reuses a program-level pooled operand stack (removing per-call stack allocation churn) alongside cached per-program read metadata and direct block-id indexing in the register executor.
 - Runtime specs/docs synchronized to VM-default production backend policy: `docs/specs/10-runtime.md` and `docs/specs/README.md` now describe bytecode VM execution as the primary runtime path, with interpreter execution documented as legacy `legacy-interpreter` parity/test-oracle flow only.
+- `trust-runtime plcopen import` now defaults to native CODESYS/TwinCAT-style global-list materialization: file-scope GVLs stay as `VAR_GLOBAL` files, `qualified_only` lists import as namespaced GVLs, and mandatory `VAR_EXTERNAL` injection is no longer the default import shape. A strict adapter mode remains available for wrapper + injected-`VAR_EXTERNAL` reshaping when external consumers need it.
+- The canonical PLCopen motion demo now initializes `MC_Constants()` once during startup instead of republishing its outputs every scan, so the reference benchmark reflects the cheaper steady-state usage pattern already documented by the library guide.
+- Register-IR hotpath coverage now includes `LOAD_SELF (0x23)`, complex local-ref execution, and CASE block-entry stack modeling, project-bench VM hot-block reports resolve readable POU names, and lowering-cache fallbacks now preserve the failing POU name plus the original lowering error message. On the PLCopen motion demo this removes the old `unsupported_opcode_0x23`, `complex_local_ref_path`, and `Main` lowering-error buckets and keeps the release gate comfortably under the 10 ms cycle budget with `0` VM fallbacks.
 
 ### Fixed
 
+- `trust-runtime bench project` now applies the project's configured runtime execution backend and the motion example bench gate accepts `TRUST_MOTION_MAX_OVERRUNS` / `TRUST_MOTION_P95_MAX_US` overrides for hardware-specific performance gating.
+- `trust-runtime test` now executes discovered `TEST_PROGRAM`s even when a project includes a `CONFIGURATION`, while normal configured runtime builds continue to register only configured programs.
+- `trust-runtime test --project` now compiles sources from local `[dependencies]` packages in addition to the project's own `src/`, so extracted Structured Text libraries can be consumed from real package roots instead of living inside test fixtures.
+- Multi-file HIR import now preserves configuration/resource global lookup bindings, so vendor-parity bare global access continues to resolve after splitting projects across source files.
 - Runtime assignment writes now preserve declared scalar storage types in both interpreter and VM paths, so loop counters keep their declared `INT`/`UINT`/etc. representation and exact-source conversion calls such as `INT_TO_DINT(...)` no longer fail inside `FOR` and `WHILE` loops.
 - Structured Text infix bitwise operators now accept `BOOL`/`ANY_BIT` operands with the same widening behavior as the standard `AND`/`OR`/`XOR`/`NOT` functions, and `&` now type-checks as the `AND` synonym instead of falling through as `UNKNOWN`.
+- `VAR_STAT` now executes with documented vendor semantics in the runtime: function statics persist across calls, method statics persist per instance/method, and instance-bearing scopes treat `VAR_STAT` as persistent instance storage.
 
 ### Added
 
+- Shipped the first PLCopen Motion library profile in Structured Text: Part 1 single-axis classic core, Part 1 synchronization cam/gear subset, Part 4 coordinated-motion core subset, and Part 5 homing core subset, with a compliance matrix, user-facing guide, deferred-surface guards, and deterministic ST conformance fixtures.
+- truST now accepts namespaced vendor-style GVL declarations (`NAMESPACE ... VAR_GLOBAL ... END_NAMESPACE`) and resolves qualified access such as `GVL.shared` in both HIR and runtime execution.
+- truST now records vendor-parity global access explicitly: top-level GVLs, namespaced GVLs, and direct global access without mandatory `VAR_EXTERNAL` are documented and covered by regression tests.
 - `trust-harness` now provides a lightweight JSON-line test driver for compiled ST programs, including `cycle.dt_ms` virtual-time advancement and typed `TIME`/`LTIME` watch output for timer-oriented automation.
 - LSP/type-checker numeric hazard warnings now flag floating-point equality/inequality comparisons (`W013`) and `DIV`/`MOD` expressions with literal zero divisors (`W014`), with a dedicated `warn_numeric_hazards` diagnostics toggle for vendor/workspace tuning.
 - VS Code SFC visual editor integration (IEC 61131-3 style step/transition canvas, runtime panel wiring, and bundled EtherCAT Snake SFC examples) is now included in mainline extension workflows.

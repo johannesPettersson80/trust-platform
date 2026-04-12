@@ -18,6 +18,12 @@ pub(super) fn write_name(
         ctx.storage.set_local(name.clone(), value.clone());
         return Ok(());
     }
+    if let Some(reference) = crate::eval::static_storage_value_ref(ctx, name) {
+        if ctx.storage.write_by_ref(reference, value.clone()) {
+            return Ok(());
+        }
+        return Err(RuntimeError::NullReference);
+    }
     if let Some(instance_id) = ctx.current_instance {
         if let Some(reference) = ctx
             .storage
@@ -58,6 +64,13 @@ pub(super) fn read_name(ctx: &EvalContext<'_>, name: &SmolStr) -> Result<Value, 
     if let Some(value) = ctx.storage.get_local(name.as_ref()) {
         return Ok(value.clone());
     }
+    if let Some(reference) = crate::eval::static_storage_value_ref(ctx, name) {
+        return ctx
+            .storage
+            .read_by_ref(reference)
+            .cloned()
+            .ok_or(RuntimeError::NullReference);
+    }
     if let Some(instance_id) = ctx.current_instance {
         if let Some(value) = ctx
             .storage
@@ -91,6 +104,9 @@ pub(super) fn read_name(ctx: &EvalContext<'_>, name: &SmolStr) -> Result<Value, 
 
 pub(super) fn resolve_reference(ctx: &EvalContext<'_>, name: &SmolStr) -> Option<ValueRef> {
     if let Some(value_ref) = ctx.storage.ref_for_local(name.as_ref()) {
+        return Some(value_ref);
+    }
+    if let Some(value_ref) = crate::eval::static_storage_value_ref(ctx, name) {
         return Some(value_ref);
     }
     if let Some(instance_id) = ctx.current_instance {

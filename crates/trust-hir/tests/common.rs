@@ -24,6 +24,30 @@ pub fn check_no_errors(source: &str) {
     assert!(errors.is_empty(), "Expected no errors, got: {:?}", errors);
 }
 
+/// Helper to assert no errors across multiple source files.
+pub fn check_no_errors_multi(sources: &[&str]) {
+    let mut db = Database::new();
+    for (idx, source) in sources.iter().enumerate() {
+        db.set_source_text(FileId(idx as u32), (*source).to_string());
+    }
+    let errors = sources
+        .iter()
+        .enumerate()
+        .flat_map(|(idx, _)| {
+            db.diagnostics(FileId(idx as u32))
+                .iter()
+                .filter(|d| d.severity == DiagnosticSeverity::Error)
+                .map(|d| d.code)
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        errors.is_empty(),
+        "Expected no errors across files, got: {:?}",
+        errors
+    );
+}
+
 /// Helper to assert a specific error is present.
 pub fn check_has_error(source: &str, expected: DiagnosticCode) {
     let errors = check_errors(source);

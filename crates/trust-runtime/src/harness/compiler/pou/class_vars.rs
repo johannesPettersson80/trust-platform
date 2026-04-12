@@ -33,6 +33,7 @@ fn lower_class_var_blocks(
             }
             match kind {
                 VarBlockKind::Var
+                | VarBlockKind::Stat
                 | VarBlockKind::Input
                 | VarBlockKind::Output
                 | VarBlockKind::InOut => {
@@ -42,6 +43,7 @@ fn lower_class_var_blocks(
                             type_id,
                             initializer: init_expr.clone(),
                             retain: qualifiers.retain,
+                            static_storage: false,
                             external: false,
                             constant: qualifiers.constant,
                             address: address_info.clone(),

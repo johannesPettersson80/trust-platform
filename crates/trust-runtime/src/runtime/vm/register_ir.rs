@@ -65,6 +65,13 @@ pub(super) enum RegisterInstr {
     LoadNull {
         dest: RegisterId,
     },
+    LoadSelf {
+        dest: RegisterId,
+    },
+    Move {
+        src: RegisterId,
+        dest: RegisterId,
+    },
     CallNative {
         kind: u32,
         symbol_idx: u32,
@@ -153,6 +160,7 @@ pub(super) struct RegisterBlock {
     pub(super) id: u32,
     pub(super) start_pc: usize,
     pub(super) end_pc: usize,
+    pub(super) entry_stack_depth: u32,
     pub(super) instructions: Vec<RegisterInstr>,
 }
 
@@ -357,13 +365,12 @@ struct CachedRegisterProgram {
     register_read_counts_by_block: Arc<Vec<Vec<u32>>>,
     block_has_register_reads: Arc<Vec<bool>>,
     fallback_opcode: Option<u8>,
-    has_complex_local_paths: bool,
 }
 
 #[derive(Debug, Clone)]
 enum RegisterLoweringCacheEntry {
     Ready(CachedRegisterProgram),
-    LoweringError,
+    LoweringError { message: String },
 }
 
 #[derive(Debug, Clone)]
@@ -455,9 +462,11 @@ impl RegisterLoweringCacheState {
         self.misses = self.misses.saturating_add(1);
         let built = match build_cached_register_program(module, pou_id) {
             Ok(program) => Arc::new(RegisterLoweringCacheEntry::Ready(program)),
-            Err(_) => {
+            Err(err) => {
                 self.build_errors = self.build_errors.saturating_add(1);
-                Arc::new(RegisterLoweringCacheEntry::LoweringError)
+                Arc::new(RegisterLoweringCacheEntry::LoweringError {
+                    message: err.to_string(),
+                })
             }
         };
 
@@ -516,6 +525,13 @@ enum Tier1CompiledInstr {
         value: Value,
     },
     LoadNull {
+        dest: RegisterId,
+    },
+    LoadSelf {
+        dest: RegisterId,
+    },
+    Move {
+        src: RegisterId,
         dest: RegisterId,
     },
     LoadRef {
@@ -773,13 +789,11 @@ fn build_cached_register_program(
         .map(|counts| counts.iter().any(|count| *count != 0))
         .collect::<Vec<_>>();
     let fallback_opcode = first_fallback_opcode(&program);
-    let has_complex_local_paths = lowered_uses_complex_local_paths(module, &program);
     Ok(CachedRegisterProgram {
         program: Arc::new(program),
         register_read_counts_by_block: Arc::new(register_read_counts_by_block),
         block_has_register_reads: Arc::new(block_has_register_reads),
         fallback_opcode,
-        has_complex_local_paths,
     })
 }
 
@@ -828,10 +842,11 @@ pub(super) fn try_execute_pou_with_register_ir_with_locals(
         .get_or_build(module, pou_id);
     let lowered = match lowered.as_ref() {
         RegisterLoweringCacheEntry::Ready(program) => program,
-        RegisterLoweringCacheEntry::LoweringError => {
+        RegisterLoweringCacheEntry::LoweringError { message } => {
+            let pou_name = module.pou_name(pou_id).unwrap_or("<unknown>");
             runtime
                 .vm_register_profile
-                .record_fallback("lowering_error");
+                .record_fallback(format!("lowering_error:{pou_name}: {message}"));
             return Ok(None);
         }
     };
@@ -842,13 +857,6 @@ pub(super) fn try_execute_pou_with_register_ir_with_locals(
             .record_fallback(format!("unsupported_opcode_0x{opcode:02X}"));
         return Ok(None);
     }
-    if lowered.has_complex_local_paths {
-        runtime
-            .vm_register_profile
-            .record_fallback("complex_local_ref_path");
-        return Ok(None);
-    }
-
     let result = execute_register_program(
         runtime,
         module,
@@ -865,6 +873,288 @@ pub(super) fn try_execute_pou_with_register_ir_with_locals(
     Ok(Some(result))
 }
 
+fn canonical_stack_register(slot: u32) -> RegisterId {
+    RegisterId(slot)
+}
+
+fn pop_stack_depth(depth: &mut u32, opcode: u8) -> Result<(), RuntimeError> {
+    if *depth == 0 {
+        return Err(invalid_bytecode(format!(
+            "register-ir lowering stack underflow while decoding opcode 0x{opcode:02X}",
+        )));
+    }
+    *depth -= 1;
+    Ok(())
+}
+
+fn propagate_block_entry_stack_depth(
+    entry_depths: &mut [Option<u32>],
+    block_index: usize,
+    depth: u32,
+    worklist: &mut VecDeque<usize>,
+) -> Result<(), RuntimeError> {
+    match entry_depths.get_mut(block_index) {
+        Some(slot @ None) => {
+            *slot = Some(depth);
+            worklist.push_back(block_index);
+        }
+        Some(Some(existing)) if *existing != depth => {
+            return Err(invalid_bytecode(format!(
+                "register-ir inconsistent block-entry stack depth for block {block_index}: {existing} vs {depth}",
+            )));
+        }
+        Some(Some(_)) => {}
+        None => {
+            return Err(invalid_bytecode(format!(
+                "register-ir missing block {block_index} while propagating stack depth",
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn apply_decoded_stack_effect(depth: &mut u32, instr: &DecodedInstr) -> Result<(), RuntimeError> {
+    match instr.opcode {
+        0x00 | 0x01 | 0x02 | 0x05 | 0x06 | 0x07 | 0x08 | 0x70 => {}
+        0x03 | 0x04 | 0x12 => pop_stack_depth(depth, instr.opcode)?,
+        0x10 | 0x20 | 0x22 | 0x23 | 0x24 | 0x25 | 0x60 => {
+            *depth = depth.saturating_add(1);
+        }
+        0x09 => {
+            let (_, _, arg_count) = operand_native_call(instr)?;
+            for _ in 0..arg_count {
+                pop_stack_depth(depth, instr.opcode)?;
+            }
+            *depth = depth.saturating_add(1);
+        }
+        0x11 => {
+            if *depth == 0 {
+                return Err(invalid_bytecode(
+                    "register-ir lowering stack underflow on DUP",
+                ));
+            }
+            *depth = depth.saturating_add(1);
+        }
+        0x13 => {
+            if *depth < 2 {
+                return Err(invalid_bytecode(
+                    "register-ir lowering stack underflow on SWAP",
+                ));
+            }
+        }
+        0x14 => {
+            if *depth < 3 {
+                return Err(invalid_bytecode(
+                    "register-ir lowering stack underflow on ROT3",
+                ));
+            }
+        }
+        0x15 => {
+            if *depth < 4 {
+                return Err(invalid_bytecode(
+                    "register-ir lowering stack underflow on ROT4",
+                ));
+            }
+        }
+        0x16 | 0x30 | 0x32 | 0x45 | 0x49 | 0x61 | 0x62 => {
+            if *depth == 0 {
+                return Err(invalid_bytecode(format!(
+                    "register-ir lowering stack underflow while decoding opcode 0x{:02X}",
+                    instr.opcode,
+                )));
+            }
+        }
+        0x21 => pop_stack_depth(depth, instr.opcode)?,
+        0x31 | 0x40..=0x44 | 0x46..=0x48 | 0x4A..=0x4E | 0x50..=0x55 | 0x63 => {
+            pop_stack_depth(depth, instr.opcode)?;
+        }
+        0x33 => {
+            pop_stack_depth(depth, instr.opcode)?;
+            pop_stack_depth(depth, instr.opcode)?;
+        }
+        _ => {
+            return Err(invalid_bytecode(format!(
+                "register-ir unsupported stack-effect analysis for opcode 0x{:02X}",
+                instr.opcode,
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn compute_block_entry_stack_depths(
+    decoded: &[DecodedInstr],
+    leaders: &[usize],
+    code_start: usize,
+    code_end: usize,
+) -> Result<HashMap<usize, u32>, RuntimeError> {
+    let mut start_to_index = HashMap::new();
+    for (index, start_pc) in leaders.iter().copied().enumerate() {
+        start_to_index.insert(start_pc, index);
+    }
+
+    let mut entry_depths = vec![None; leaders.len()];
+    let mut worklist = VecDeque::new();
+    if !leaders.is_empty() {
+        entry_depths[0] = Some(0);
+        worklist.push_back(0);
+    }
+
+    while let Some(block_index) = worklist.pop_front() {
+        let start_pc = leaders[block_index];
+        let end_pc = leaders.get(block_index + 1).copied().unwrap_or(code_end);
+        let mut depth = entry_depths[block_index].unwrap_or(0);
+        let mut terminated = false;
+
+        for instr in decoded
+            .iter()
+            .filter(|instr| instr.pc >= start_pc && instr.pc < end_pc)
+        {
+            match instr.opcode {
+                0x02 => {
+                    let offset = operand_i32(instr)?;
+                    let target_pc = jump_target_pc(instr.next_pc, offset, code_start, code_end)?;
+                    if target_pc < code_end {
+                        let target_index = *start_to_index.get(&target_pc).ok_or_else(|| {
+                            invalid_bytecode(format!(
+                                "register-ir jump target {target_pc} is not a block leader"
+                            ))
+                        })?;
+                        propagate_block_entry_stack_depth(
+                            &mut entry_depths,
+                            target_index,
+                            depth,
+                            &mut worklist,
+                        )?;
+                    }
+                    terminated = true;
+                    break;
+                }
+                0x03 | 0x04 => {
+                    pop_stack_depth(&mut depth, instr.opcode)?;
+                    let offset = operand_i32(instr)?;
+                    let target_pc = jump_target_pc(instr.next_pc, offset, code_start, code_end)?;
+                    if target_pc < code_end {
+                        let target_index = *start_to_index.get(&target_pc).ok_or_else(|| {
+                            invalid_bytecode(format!(
+                                "register-ir jump target {target_pc} is not a block leader"
+                            ))
+                        })?;
+                        propagate_block_entry_stack_depth(
+                            &mut entry_depths,
+                            target_index,
+                            depth,
+                            &mut worklist,
+                        )?;
+                    }
+                    if instr.next_pc < code_end {
+                        let fallthrough_index =
+                            *start_to_index.get(&instr.next_pc).ok_or_else(|| {
+                                invalid_bytecode(format!(
+                                    "register-ir fallthrough target {} is not a block leader",
+                                    instr.next_pc,
+                                ))
+                            })?;
+                        propagate_block_entry_stack_depth(
+                            &mut entry_depths,
+                            fallthrough_index,
+                            depth,
+                            &mut worklist,
+                        )?;
+                    }
+                    terminated = true;
+                    break;
+                }
+                0x06 => {
+                    terminated = true;
+                    break;
+                }
+                _ => apply_decoded_stack_effect(&mut depth, instr)?,
+            }
+        }
+
+        if !terminated {
+            if let Some(next_start_pc) = leaders.get(block_index + 1).copied() {
+                let next_index = *start_to_index.get(&next_start_pc).ok_or_else(|| {
+                    invalid_bytecode(format!(
+                        "register-ir fallthrough target {next_start_pc} is not a block leader",
+                    ))
+                })?;
+                propagate_block_entry_stack_depth(
+                    &mut entry_depths,
+                    next_index,
+                    depth,
+                    &mut worklist,
+                )?;
+            }
+        }
+    }
+
+    let mut resolved = HashMap::new();
+    for (index, start_pc) in leaders.iter().copied().enumerate() {
+        if let Some(depth) = entry_depths[index] {
+            resolved.insert(start_pc, depth);
+        }
+    }
+    Ok(resolved)
+}
+
+fn normalize_stack_for_block_exit(
+    next_register: &mut u32,
+    instructions: &mut Vec<RegisterInstr>,
+    stack: &[RegisterId],
+    protected: Option<RegisterId>,
+) -> Option<RegisterId> {
+    let mut protected = protected;
+    if let Some(register) = protected {
+        let clobbered = stack.iter().enumerate().any(|(slot, src)| {
+            let dest = canonical_stack_register(slot as u32);
+            dest == register && *src != register
+        });
+        if clobbered {
+            let temp = alloc_register(next_register);
+            instructions.push(RegisterInstr::Move {
+                src: register,
+                dest: temp,
+            });
+            protected = Some(temp);
+        }
+    }
+
+    let mut pending = stack
+        .iter()
+        .enumerate()
+        .filter_map(|(slot, src)| {
+            let dest = canonical_stack_register(slot as u32);
+            (*src != dest).then_some((*src, dest))
+        })
+        .collect::<Vec<_>>();
+    let mut scratch = None;
+
+    while !pending.is_empty() {
+        if let Some(index) = pending
+            .iter()
+            .position(|(_, dest)| !pending.iter().any(|(other_src, _)| *other_src == *dest))
+        {
+            let (src, dest) = pending.remove(index);
+            instructions.push(RegisterInstr::Move { src, dest });
+            continue;
+        }
+
+        let (src, dest) = pending.remove(0);
+        let temp = *scratch.get_or_insert_with(|| alloc_register(next_register));
+        instructions.push(RegisterInstr::Move { src, dest: temp });
+        for (other_src, _) in &mut pending {
+            if *other_src == src {
+                *other_src = temp;
+            }
+        }
+        pending.push((temp, dest));
+    }
+
+    protected
+}
+
 pub(super) fn lower_pou_to_register_ir(
     module: &VmModule,
     pou_id: u32,
@@ -874,16 +1164,22 @@ pub(super) fn lower_pou_to_register_ir(
         .ok_or_else(|| invalid_bytecode(format!("vm missing pou id {pou_id}")))?;
     let decoded = decode_pou(module, pou.code_start, pou.code_end)?;
     let leaders = collect_block_leaders(&decoded, pou.code_start, pou.code_end)?;
+    let entry_stack_depths =
+        compute_block_entry_stack_depths(&decoded, &leaders, pou.code_start, pou.code_end)?;
     let mut start_to_block = HashMap::new();
     for (idx, start) in leaders.iter().copied().enumerate() {
         start_to_block.insert(start, idx as u32);
     }
 
-    let mut next_register = 0_u32;
+    let max_entry_stack_depth = entry_stack_depths.values().copied().max().unwrap_or(0);
+    let mut next_register = max_entry_stack_depth;
     let mut blocks = Vec::with_capacity(leaders.len());
     for (idx, start_pc) in leaders.iter().copied().enumerate() {
         let end_pc = leaders.get(idx + 1).copied().unwrap_or(pou.code_end);
-        let mut stack = Vec::new();
+        let entry_stack_depth = entry_stack_depths.get(&start_pc).copied().unwrap_or(0);
+        let mut stack = (0..entry_stack_depth)
+            .map(canonical_stack_register)
+            .collect::<Vec<_>>();
         let mut opaque_mode = false;
         let mut instructions = Vec::new();
 
@@ -906,6 +1202,12 @@ pub(super) fn lower_pou_to_register_ir(
                     let target_pc =
                         jump_target_pc(instr.next_pc, offset, pou.code_start, pou.code_end)?;
                     let target = pc_to_block_target(target_pc, pou.code_end, &start_to_block)?;
+                    normalize_stack_for_block_exit(
+                        &mut next_register,
+                        &mut instructions,
+                        &stack,
+                        None,
+                    );
                     instructions.push(RegisterInstr::Jump { target });
                 }
                 0x03 | 0x04 => {
@@ -914,6 +1216,13 @@ pub(super) fn lower_pou_to_register_ir(
                     let target_pc =
                         jump_target_pc(instr.next_pc, offset, pou.code_start, pou.code_end)?;
                     let target = pc_to_block_target(target_pc, pou.code_end, &start_to_block)?;
+                    let cond = normalize_stack_for_block_exit(
+                        &mut next_register,
+                        &mut instructions,
+                        &stack,
+                        Some(cond),
+                    )
+                    .unwrap_or(cond);
                     instructions.push(RegisterInstr::JumpIf {
                         cond,
                         jump_if_true: instr.opcode == 0x03,
@@ -987,6 +1296,11 @@ pub(super) fn lower_pou_to_register_ir(
                     let dest = alloc_register(&mut next_register);
                     stack.push(dest);
                     instructions.push(RegisterInstr::LoadNull { dest });
+                }
+                0x23 => {
+                    let dest = alloc_register(&mut next_register);
+                    stack.push(dest);
+                    instructions.push(RegisterInstr::LoadSelf { dest });
                 }
                 0x30 => {
                     let field_idx = operand_u32(instr)?;
@@ -1146,10 +1460,19 @@ pub(super) fn lower_pou_to_register_ir(
                         opcode: instr.opcode,
                         operands: instr.operands.clone(),
                     });
-                    // Unknown stack effect: switch to opaque lowering for the rest of this block.
                     opaque_mode = true;
                 }
             }
+        }
+
+        let terminates_control_flow = instructions.last().is_some_and(|instruction| {
+            matches!(
+                instruction,
+                RegisterInstr::Jump { .. } | RegisterInstr::JumpIf { .. } | RegisterInstr::Return
+            )
+        });
+        if !terminates_control_flow {
+            normalize_stack_for_block_exit(&mut next_register, &mut instructions, &stack, None);
         }
 
         let instructions = fuse_register_block_instructions(&instructions);
@@ -1157,6 +1480,7 @@ pub(super) fn lower_pou_to_register_ir(
             id: idx as u32,
             start_pc,
             end_pc,
+            entry_stack_depth,
             instructions,
         });
     }
@@ -1422,15 +1746,22 @@ pub(super) fn verify_register_program(program: &RegisterProgram) -> Result<(), R
     }
 
     for block in &program.blocks {
-        let mut defined = BTreeSet::new();
+        let mut defined = (0..block.entry_stack_depth)
+            .map(RegisterId)
+            .collect::<BTreeSet<_>>();
         for instr in &block.instructions {
             match instr {
                 RegisterInstr::LoadConst { dest, .. }
                 | RegisterInstr::LoadRef { dest, .. }
                 | RegisterInstr::LoadRefAddr { dest, .. }
                 | RegisterInstr::LoadNull { dest }
+                | RegisterInstr::LoadSelf { dest }
                 | RegisterInstr::SizeOfType { dest, .. } => {
                     verify_dest(dest, program.max_registers, &mut defined)?;
+                }
+                RegisterInstr::Move { src, dest } => {
+                    verify_src(src, &defined)?;
+                    verify_move_dest(dest, program.max_registers, &mut defined)?;
                 }
                 RegisterInstr::SizeOfValue { src, dest } => {
                     verify_src(src, &defined)?;
@@ -1759,6 +2090,11 @@ fn compile_tier1_block(
                 Tier1CompiledInstr::LoadConst { dest: *dest, value }
             }
             RegisterInstr::LoadNull { dest } => Tier1CompiledInstr::LoadNull { dest: *dest },
+            RegisterInstr::LoadSelf { dest } => Tier1CompiledInstr::LoadSelf { dest: *dest },
+            RegisterInstr::Move { src, dest } => Tier1CompiledInstr::Move {
+                src: *src,
+                dest: *dest,
+            },
             RegisterInstr::LoadRef { dest, ref_idx } => Tier1CompiledInstr::LoadRef {
                 dest: *dest,
                 ref_idx: *ref_idx,
@@ -1907,6 +2243,19 @@ fn execute_tier1_compiled_block(
             }
             Tier1CompiledInstr::LoadNull { dest } => {
                 write_register(registers, *dest, Value::Null)?;
+            }
+            Tier1CompiledInstr::LoadSelf { dest } => {
+                let frame = frames
+                    .current()
+                    .ok_or_else(|| VmTrap::CallStackUnderflow.into_runtime_error())?;
+                let self_instance = frame.runtime_instance.ok_or_else(|| {
+                    VmTrap::Runtime(RuntimeError::TypeMismatch).into_runtime_error()
+                })?;
+                write_register(registers, *dest, Value::Instance(self_instance))?;
+            }
+            Tier1CompiledInstr::Move { src, dest } => {
+                let value = read_register(registers, *src)?;
+                write_register(registers, *dest, value)?;
             }
             Tier1CompiledInstr::LoadRef { dest, ref_idx } => {
                 let value = load_ref(runtime, module, frames, *ref_idx)
@@ -2137,6 +2486,19 @@ fn execute_register_block_interpreted(
             }
             RegisterInstr::LoadNull { dest } => {
                 write_register(registers, *dest, Value::Null)?;
+            }
+            RegisterInstr::LoadSelf { dest } => {
+                let frame = frames
+                    .current()
+                    .ok_or_else(|| VmTrap::CallStackUnderflow.into_runtime_error())?;
+                let self_instance = frame.runtime_instance.ok_or_else(|| {
+                    VmTrap::Runtime(RuntimeError::TypeMismatch).into_runtime_error()
+                })?;
+                write_register(registers, *dest, Value::Instance(self_instance))?;
+            }
+            RegisterInstr::Move { src, dest } => {
+                let value = read_register_with_counts(registers, remaining_register_reads, *src)?;
+                write_register(registers, *dest, value)?;
             }
             RegisterInstr::LoadRef { dest, ref_idx } => {
                 let value = load_ref(runtime, module, frames, *ref_idx)
@@ -2453,6 +2815,9 @@ fn register_read_counts_for_block(max_registers: u32, block: &RegisterBlock) -> 
             RegisterInstr::StoreRef { src, .. } => {
                 increment_register_read_count(&mut counts, *src);
             }
+            RegisterInstr::Move { src, .. } => {
+                increment_register_read_count(&mut counts, *src);
+            }
             RegisterInstr::JumpIf { cond, .. } => {
                 increment_register_read_count(&mut counts, *cond);
             }
@@ -2461,6 +2826,7 @@ fn register_read_counts_for_block(max_registers: u32, block: &RegisterBlock) -> 
             | RegisterInstr::LoadRef { .. }
             | RegisterInstr::LoadRefAddr { .. }
             | RegisterInstr::LoadNull { .. }
+            | RegisterInstr::LoadSelf { .. }
             | RegisterInstr::SizeOfType { .. }
             | RegisterInstr::BinaryRefToRef { .. }
             | RegisterInstr::BinaryRefConstToRef { .. }
@@ -2469,6 +2835,11 @@ fn register_read_counts_for_block(max_registers: u32, block: &RegisterBlock) -> 
             | RegisterInstr::Jump { .. }
             | RegisterInstr::Return
             | RegisterInstr::VmFallback { .. } => {}
+        }
+    }
+    for slot in 0..block.entry_stack_depth {
+        if let Some(count) = counts.get_mut(slot as usize) {
+            *count = count.saturating_add(1);
         }
     }
     counts
@@ -2736,6 +3107,21 @@ fn verify_dest(
     Ok(())
 }
 
+fn verify_move_dest(
+    dest: &RegisterId,
+    max_registers: u32,
+    defined: &mut BTreeSet<RegisterId>,
+) -> Result<(), RuntimeError> {
+    if dest.index() >= max_registers {
+        return Err(invalid_bytecode(format!(
+            "register-ir destination register {} out of bounds (max={max_registers})",
+            dest.index()
+        )));
+    }
+    defined.insert(*dest);
+    Ok(())
+}
+
 fn verify_src(src: &RegisterId, defined: &BTreeSet<RegisterId>) -> Result<(), RuntimeError> {
     if !defined.contains(src) {
         return Err(invalid_bytecode(format!(
@@ -2967,21 +3353,26 @@ struct DecodedInstr {
 #[cfg(test)]
 mod tests {
     use std::collections::{HashMap, HashSet};
+    use std::path::PathBuf;
 
+    use indexmap::IndexMap;
     use smol_str::SmolStr;
 
+    use crate::bundle_builder::collect_project_source_files;
     use crate::bytecode::{SectionData, SectionId, TypeTable};
+    use crate::config::RuntimeConfig;
     use crate::error::RuntimeError;
     use crate::eval::ops::{apply_binary, apply_unary, BinaryOp, UnaryOp};
-    use crate::harness::bytecode_module_from_source;
-    use crate::value::{DateTimeProfile, Value};
-    use crate::Runtime;
+    use crate::execution_backend::ExecutionBackend;
+    use crate::harness::{bytecode_module_from_source, CompileSession, TestHarness};
+    use crate::value::{DateTimeProfile, RefSegment, StructValue, Value};
+    use crate::{RestartMode, Runtime};
 
     use super::super::{VmPouEntry, VmRef};
     use super::{
         invalid_bytecode, lower_pou_to_register_ir, try_execute_pou_with_register_ir,
-        verify_register_program, BlockTarget, RegisterExecutionOutcome, RegisterId, RegisterInstr,
-        RegisterProgram, VmModule,
+        try_execute_pou_with_register_ir_with_locals, verify_register_program, BlockTarget,
+        RegisterExecutionOutcome, RegisterId, RegisterInstr, RegisterProgram, VmModule,
     };
 
     fn vm_module_and_main_pou(source: &str) -> (VmModule, u32) {
@@ -3002,6 +3393,7 @@ mod tests {
         pou_by_id.insert(
             pou_id,
             VmPouEntry {
+                name: SmolStr::new("MAIN"),
                 code_start: 0,
                 code_end: code.len(),
                 local_ref_start: 0,
@@ -3334,6 +3726,15 @@ mod tests {
                     RegisterInstr::LoadNull { dest } => {
                         write_register_value(&mut registers, *dest, Value::Null)?;
                     }
+                    RegisterInstr::LoadSelf { .. } => {
+                        return Err(invalid_bytecode(
+                            "parity register executor does not support LOAD_SELF",
+                        ));
+                    }
+                    RegisterInstr::Move { src, dest } => {
+                        let value = read_register_value(&registers, *src)?;
+                        write_register_value(&mut registers, *dest, value)?;
+                    }
                     RegisterInstr::LoadRef { dest, ref_idx } => {
                         let value = refs.get(*ref_idx as usize).cloned().ok_or_else(|| {
                             invalid_bytecode(format!(
@@ -3641,6 +4042,238 @@ mod tests {
     }
 
     #[test]
+    fn register_ir_lowering_handles_case_selector_live_across_branch_blocks() {
+        let source = r#"
+            PROGRAM Main
+            VAR
+                selector : UINT := UINT#2;
+                output : UINT := UINT#0;
+            END_VAR
+
+            CASE selector OF
+                UINT#1:
+                    output := UINT#10;
+                UINT#2:
+                    output := UINT#20;
+                ELSE
+                    output := UINT#30;
+            END_CASE;
+            END_PROGRAM
+        "#;
+
+        let (vm_module, pou_id) = vm_module_and_main_pou(source);
+        let lowered = lower_pou_to_register_ir(&vm_module, pou_id).expect("lower register ir");
+        verify_register_program(&lowered).expect("verify register ir");
+        assert_no_fallback(&lowered);
+    }
+
+    #[test]
+    fn register_executor_runs_case_program_without_fallback() {
+        let source = r#"
+            VAR_GLOBAL
+                g_selector : UINT := UINT#2;
+                g_output : UINT := UINT#0;
+            END_VAR
+
+            PROGRAM Main
+            CASE g_selector OF
+                UINT#1:
+                    g_output := UINT#10;
+                UINT#2:
+                    g_output := UINT#20;
+                ELSE
+                    g_output := UINT#30;
+            END_CASE;
+            END_PROGRAM
+        "#;
+
+        let mut harness = TestHarness::from_source(source).expect("create harness");
+        harness
+            .runtime_mut()
+            .set_execution_backend(ExecutionBackend::BytecodeVm)
+            .expect("set backend");
+        harness
+            .runtime_mut()
+            .restart(RestartMode::Cold)
+            .expect("restart");
+        harness.runtime_mut().set_vm_register_profile_enabled(true);
+        harness.runtime_mut().reset_vm_register_profile();
+
+        let result = harness.cycle();
+        assert!(
+            result.errors.is_empty(),
+            "cycle errors: {:?}",
+            result.errors
+        );
+        assert_eq!(harness.get_output("g_output"), Some(Value::UInt(20)));
+
+        let profile = harness.runtime().vm_register_profile_snapshot();
+        assert!(profile.register_programs_executed >= 1);
+        assert_eq!(
+            profile.register_program_fallbacks, 0,
+            "expected no register fallbacks, got {:?}",
+            profile.fallback_reasons
+        );
+    }
+
+    #[test]
+    fn register_executor_runs_multi_label_case_program_without_fallback() {
+        let source = r#"
+            VAR_GLOBAL
+                g_selector : UINT := UINT#3;
+                g_output : UINT := UINT#0;
+            END_VAR
+
+            PROGRAM Main
+            CASE g_selector OF
+                UINT#1:
+                    g_output := UINT#10;
+                UINT#2:
+                    g_output := UINT#20;
+                UINT#3:
+                    g_output := UINT#30;
+                ELSE
+                    g_output := UINT#99;
+            END_CASE;
+            END_PROGRAM
+        "#;
+
+        let mut harness = TestHarness::from_source(source).expect("create harness");
+        harness
+            .runtime_mut()
+            .set_execution_backend(ExecutionBackend::BytecodeVm)
+            .expect("set backend");
+        harness
+            .runtime_mut()
+            .restart(RestartMode::Cold)
+            .expect("restart");
+        harness.runtime_mut().set_vm_register_profile_enabled(true);
+        harness.runtime_mut().reset_vm_register_profile();
+
+        let result = harness.cycle();
+        assert!(
+            result.errors.is_empty(),
+            "cycle errors: {:?}",
+            result.errors
+        );
+        assert_eq!(harness.get_output("g_output"), Some(Value::UInt(30)));
+
+        let profile = harness.runtime().vm_register_profile_snapshot();
+        assert!(profile.register_programs_executed >= 1);
+        assert_eq!(
+            profile.register_program_fallbacks, 0,
+            "expected no register fallbacks, got {:?}",
+            profile.fallback_reasons
+        );
+    }
+
+    #[test]
+    fn register_executor_runs_case_branch_with_nested_if_without_fallback() {
+        let source = r#"
+            VAR_GLOBAL
+                g_current_step : UINT := UINT#30;
+                g_last_error : UINT := UINT#0;
+                g_power_status : BOOL := TRUE;
+            END_VAR
+
+            PROGRAM Main
+            CASE g_current_step OF
+                UINT#10:
+                    IF FALSE THEN
+                        g_current_step := UINT#20;
+                    END_IF;
+                UINT#20:
+                    IF FALSE THEN
+                        g_current_step := UINT#30;
+                    END_IF;
+                UINT#30:
+                    IF g_power_status THEN
+                        g_current_step := UINT#40;
+                    END_IF;
+                ELSE
+                    g_last_error := UINT#512;
+                    g_current_step := UINT#900;
+            END_CASE;
+
+            IF g_last_error <> UINT#0 THEN
+                g_current_step := UINT#900;
+            END_IF;
+            END_PROGRAM
+        "#;
+
+        let mut harness = TestHarness::from_source(source).expect("create harness");
+        harness
+            .runtime_mut()
+            .set_execution_backend(ExecutionBackend::BytecodeVm)
+            .expect("set backend");
+        harness
+            .runtime_mut()
+            .restart(RestartMode::Cold)
+            .expect("restart");
+        harness.runtime_mut().set_vm_register_profile_enabled(true);
+        harness.runtime_mut().reset_vm_register_profile();
+
+        let result = harness.cycle();
+        assert!(
+            result.errors.is_empty(),
+            "cycle errors: {:?}",
+            result.errors
+        );
+        assert_eq!(harness.get_output("g_current_step"), Some(Value::UInt(40)));
+        assert_eq!(harness.get_output("g_last_error"), Some(Value::UInt(0)));
+
+        let profile = harness.runtime().vm_register_profile_snapshot();
+        assert!(profile.register_programs_executed >= 1);
+        assert_eq!(
+            profile.register_program_fallbacks, 0,
+            "expected no register fallbacks, got {:?}",
+            profile.fallback_reasons
+        );
+    }
+
+    #[test]
+    fn register_executor_progresses_motion_demo_to_step_40_without_error_by_cycle_three() {
+        let project = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../examples/plcopen_motion_single_axis_demo");
+        let runtime_config =
+            RuntimeConfig::load(project.join("runtime.toml")).expect("load runtime config");
+        let cycle_budget = runtime_config.cycle_interval;
+        let compile_sources =
+            collect_project_source_files(&project, None).expect("collect project sources");
+        let session = CompileSession::from_sources(compile_sources);
+        let mut runtime = session.build_runtime().expect("build runtime");
+        runtime
+            .set_execution_backend(ExecutionBackend::BytecodeVm)
+            .expect("set backend");
+        runtime.set_vm_register_profile_enabled(true);
+        runtime.reset_vm_register_profile();
+
+        for cycle in 0..3 {
+            runtime.execute_cycle().unwrap_or_else(|err| {
+                panic!("cycle {} failed: {err}", cycle + 1);
+            });
+            runtime.advance_time(cycle_budget);
+        }
+
+        assert_eq!(
+            runtime.storage().get_global("g_motion_demo_current_step"),
+            Some(&Value::UInt(40))
+        );
+        assert_eq!(
+            runtime.storage().get_global("g_motion_demo_last_error"),
+            Some(&Value::Word(0))
+        );
+
+        let profile = runtime.vm_register_profile_snapshot();
+        assert!(profile.register_programs_executed >= 1);
+        assert_eq!(
+            profile.register_program_fallbacks, 0,
+            "expected no register fallbacks, got {:?}",
+            profile.fallback_reasons
+        );
+    }
+
+    #[test]
     fn register_ir_verifier_rejects_unknown_block_target() {
         let source = r#"
             PROGRAM Main
@@ -3918,6 +4551,167 @@ mod tests {
                 .iter()
                 .any(|entry| entry.reason.starts_with("unsupported_opcode") && entry.count == 1),
             "expected unsupported opcode fallback reason in profile snapshot",
+        );
+    }
+
+    #[test]
+    fn register_ir_lowering_handles_function_block_self_fields_without_fallback() {
+        let source = r#"
+            FUNCTION_BLOCK Counter
+            VAR_INPUT
+                Enable : BOOL;
+            END_VAR
+            VAR_OUTPUT
+                Value : DINT;
+            END_VAR
+
+            IF Enable THEN
+                Value := Value + DINT#1;
+            END_IF;
+            END_FUNCTION_BLOCK
+
+            PROGRAM Main
+            VAR
+                fb : Counter;
+            END_VAR
+            fb(Enable := TRUE);
+            END_PROGRAM
+        "#;
+
+        let bytecode = bytecode_module_from_source(source).expect("compile bytecode");
+        let vm_module = VmModule::from_bytecode(&bytecode).expect("decode vm module");
+        let fb_pou_id = vm_module
+            .function_block_ids
+            .get(&SmolStr::new("COUNTER"))
+            .copied()
+            .expect("counter pou id");
+        let lowered = lower_pou_to_register_ir(&vm_module, fb_pou_id).expect("lower register ir");
+        verify_register_program(&lowered).expect("verify register ir");
+        assert_no_fallback(&lowered);
+    }
+
+    #[test]
+    fn register_executor_runs_program_with_complex_local_fields_without_fallback() {
+        let pou_id = 1_u32;
+        let code = vec![
+            0x10, 0, 0, 0, 0, // LOAD_CONST 0
+            0x21, 0, 0, 0, 0, // STORE_REF local path
+            0x20, 0, 0, 0, 0, // LOAD_REF local path
+            0x21, 1, 0, 0, 0,    // STORE_REF global
+            0x06, // RETURN
+        ];
+        let mut pou_by_id = HashMap::new();
+        pou_by_id.insert(
+            pou_id,
+            VmPouEntry {
+                name: SmolStr::new("MAIN"),
+                code_start: 0,
+                code_end: code.len(),
+                local_ref_start: 0,
+                local_ref_count: 1,
+                primary_instance_owner: None,
+            },
+        );
+        let mut program_ids = HashMap::new();
+        program_ids.insert(SmolStr::new("MAIN"), pou_id);
+        let refs = vec![
+            VmRef::Local {
+                owner_frame_id: 0,
+                offset: 0,
+                path: vec![
+                    RefSegment::Field(SmolStr::new("INNER")),
+                    RefSegment::Field(SmolStr::new("VALUE")),
+                ],
+            },
+            VmRef::Global {
+                offset: 0,
+                path: Vec::new(),
+            },
+        ];
+        let module = VmModule {
+            code,
+            strings: Vec::new(),
+            types: TypeTable::default(),
+            refs,
+            consts: vec![Value::DInt(7)],
+            pou_by_id,
+            program_ids,
+            function_ids: HashMap::new(),
+            function_block_ids: HashMap::new(),
+            class_ids: HashMap::new(),
+            native_symbol_specs: Vec::new(),
+            pou_params: HashMap::new(),
+            pou_has_return_slot: HashSet::new(),
+            method_table_by_owner: HashMap::new(),
+            debug_map: super::super::debug_map::VmDebugMap::default(),
+            instruction_budget: super::super::DEFAULT_INSTRUCTION_BUDGET,
+        };
+        let initial_outer = Value::Struct(Box::new(StructValue {
+            type_name: SmolStr::new("OUTER_T"),
+            fields: IndexMap::from([(
+                SmolStr::new("INNER"),
+                Value::Struct(Box::new(StructValue {
+                    type_name: SmolStr::new("INNER_T"),
+                    fields: IndexMap::from([(SmolStr::new("VALUE"), Value::DInt(0))]),
+                })),
+            )]),
+        }));
+        let mut runtime = Runtime::new();
+        runtime.storage_mut().set_global("g0", Value::DInt(0));
+        runtime.set_vm_register_profile_enabled(true);
+        runtime.reset_vm_register_profile();
+
+        let outcome = try_execute_pou_with_register_ir_with_locals(
+            &mut runtime,
+            &module,
+            pou_id,
+            None,
+            Some(&[initial_outer]),
+            false,
+            0,
+            None,
+        )
+        .expect("execute register program");
+        assert!(
+            outcome.is_some(),
+            "expected register execution, got stack fallback"
+        );
+        assert_eq!(runtime.storage().get_global("g0"), Some(&Value::DInt(7)));
+
+        let profile = runtime.vm_register_profile_snapshot();
+        assert_eq!(
+            profile.register_program_fallbacks, 0,
+            "expected no register fallback reasons, got {:?}",
+            profile.fallback_reasons
+        );
+    }
+
+    #[test]
+    fn register_lowering_error_fallback_reason_includes_pou_name_and_message() {
+        let mut code = Vec::new();
+        code.push(0x02);
+        emit_i32(&mut code, 4096);
+        code.push(0x06);
+        let (module, pou_id) = manual_vm_module(code, Vec::new(), 0);
+
+        let mut runtime = Runtime::new();
+        runtime.set_vm_register_profile_enabled(true);
+        runtime.reset_vm_register_profile();
+
+        let outcome = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
+            .expect("fallback decision");
+        assert_eq!(outcome, RegisterExecutionOutcome::FallbackToStack);
+
+        let profile = runtime.vm_register_profile_snapshot();
+        assert!(
+            profile.fallback_reasons.iter().any(|entry| {
+                entry.reason.contains("lowering_error")
+                    && entry.reason.contains("MAIN")
+                    && entry.reason.contains("invalid jump target")
+                    && entry.count == 1
+            }),
+            "expected lowering_error fallback reason with pou name and message, got {:?}",
+            profile.fallback_reasons
         );
     }
 

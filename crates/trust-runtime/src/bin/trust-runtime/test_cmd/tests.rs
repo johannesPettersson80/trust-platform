@@ -1,4 +1,17 @@
 use super::*;
+use std::time::{SystemTime, UNIX_EPOCH};
+use trust_runtime::harness::SourceFile as HarnessSourceFile;
+
+fn unique_temp_dir(prefix: &str) -> std::path::PathBuf {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system time before unix epoch")
+        .as_nanos();
+    std::env::temp_dir().join(format!(
+        "trust-runtime-{prefix}-{}-{nanos}",
+        std::process::id()
+    ))
+}
 
 fn strip_ansi(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
@@ -152,6 +165,108 @@ END_TEST_PROGRAM
     )]);
     execute_test_case(&session, &tests[0], None).unwrap();
     execute_test_case(&session, &tests[0], None).unwrap();
+}
+
+#[test]
+fn execute_test_case_keeps_unconfigured_test_program_out_of_default_runtime() {
+    let sources = vec![LoadedSource {
+        path: PathBuf::from("tests.st"),
+        text: r#"
+CONFIGURATION Cfg
+    RESOURCE Res ON PLC
+        TASK MainTask(INTERVAL := T#10ms, PRIORITY := 1);
+        PROGRAM MainInst WITH MainTask : Main;
+    END_RESOURCE
+END_CONFIGURATION
+
+PROGRAM Main
+END_PROGRAM
+
+TEST_PROGRAM Probe
+ASSERT_TRUE(TRUE);
+END_TEST_PROGRAM
+"#
+        .to_string(),
+    }];
+    let tests = discover_tests(&sources);
+    assert_eq!(tests.len(), 1);
+
+    let session = CompileSession::from_sources(vec![HarnessSourceFile::with_path(
+        "tests.st",
+        sources[0].text.clone(),
+    )]);
+    let err = execute_test_case(&session, &tests[0], None).unwrap_err();
+    assert!(matches!(err, RuntimeError::UndefinedProgram(name) if name == "Probe"));
+}
+
+#[test]
+fn execute_test_case_runs_test_program_when_session_registers_extra_program_instance() {
+    let sources = vec![LoadedSource {
+        path: PathBuf::from("tests.st"),
+        text: r#"
+CONFIGURATION Cfg
+    RESOURCE Res ON PLC
+        TASK MainTask(INTERVAL := T#10ms, PRIORITY := 1);
+        PROGRAM MainInst WITH MainTask : Main;
+    END_RESOURCE
+END_CONFIGURATION
+
+PROGRAM Main
+END_PROGRAM
+
+TEST_PROGRAM Probe
+ASSERT_TRUE(TRUE);
+END_TEST_PROGRAM
+"#
+        .to_string(),
+    }];
+    let tests = discover_tests(&sources);
+    assert_eq!(tests.len(), 1);
+
+    let session = CompileSession::from_sources(vec![HarnessSourceFile::with_path(
+        "tests.st",
+        sources[0].text.clone(),
+    )])
+    .with_extra_program_instances([tests[0].name.clone()]);
+    execute_test_case(&session, &tests[0], None).unwrap();
+}
+
+#[test]
+fn run_test_executes_test_program_when_configuration_is_present() {
+    let project = unique_temp_dir("config-test-program-project");
+    let sources = project.join("src");
+    std::fs::create_dir_all(&sources).expect("create src dir");
+    std::fs::write(
+        sources.join("tests.st"),
+        r#"
+CONFIGURATION Cfg
+    RESOURCE Res ON PLC
+        TASK MainTask(INTERVAL := T#10ms, PRIORITY := 1);
+        PROGRAM MainInst WITH MainTask : Main;
+    END_RESOURCE
+END_CONFIGURATION
+
+PROGRAM Main
+END_PROGRAM
+
+TEST_PROGRAM Probe
+ASSERT_TRUE(TRUE);
+END_TEST_PROGRAM
+"#,
+    )
+    .expect("write config + test source");
+
+    let result = run_test(
+        Some(project.clone()),
+        Some("Probe".to_string()),
+        false,
+        0,
+        TestOutput::Human,
+        false,
+    );
+    assert!(result.is_ok(), "expected test command success: {result:?}");
+
+    let _ = std::fs::remove_dir_all(project);
 }
 
 #[test]

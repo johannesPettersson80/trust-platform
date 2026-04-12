@@ -149,19 +149,46 @@ impl<'a> SymbolImporter<'a> {
             } else {
                 let parent_id = self.target.get(*new_id).and_then(|symbol| symbol.parent);
                 if let Some(parent_id) = parent_id {
-                    let is_namespace_parent = self
-                        .target
-                        .get(parent_id)
-                        .map(|parent| matches!(parent.kind, SymbolKind::Namespace))
-                        .unwrap_or(false);
-                    if is_namespace_parent {
-                        let name = self.target.get(*new_id).map(|symbol| symbol.name.clone());
-                        self.ensure_namespace_scope(parent_id);
-                        if let (Some(scope_id), Some(name)) =
-                            (self.target.scope_for_owner(parent_id), name)
-                        {
-                            let _ = self.target.define_in_scope(scope_id, name.clone(), *new_id);
+                    let parent_kind = self.target.get(parent_id).map(|parent| parent.kind.clone());
+                    match parent_kind {
+                        Some(SymbolKind::Namespace) => {
+                            let name = self.target.get(*new_id).map(|symbol| symbol.name.clone());
+                            self.ensure_namespace_scope(parent_id);
+                            if let (Some(scope_id), Some(name)) =
+                                (self.target.scope_for_owner(parent_id), name)
+                            {
+                                let _ =
+                                    self.target.define_in_scope(scope_id, name.clone(), *new_id);
+                            }
                         }
+                        Some(SymbolKind::Configuration | SymbolKind::Resource) => {
+                            let define_globally = self
+                                .target
+                                .get(*new_id)
+                                .map(|symbol| {
+                                    matches!(
+                                        symbol.kind,
+                                        SymbolKind::Variable {
+                                            qualifier: VarQualifier::Global,
+                                        } | SymbolKind::Variable {
+                                            qualifier: VarQualifier::Access,
+                                        } | SymbolKind::Constant
+                                    )
+                                })
+                                .unwrap_or(false);
+                            if define_globally {
+                                let name =
+                                    self.target.get(*new_id).map(|symbol| symbol.name.clone());
+                                if let Some(name) = name {
+                                    let _ = self.target.define_in_scope(
+                                        ScopeId::GLOBAL,
+                                        name.clone(),
+                                        *new_id,
+                                    );
+                                }
+                            }
+                        }
+                        _ => {}
                     }
                 }
             }

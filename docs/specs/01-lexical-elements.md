@@ -157,7 +157,7 @@ TRANSITION, END_TRANSITION, FROM, TO
 ACTION, END_ACTION
 ```
 
-> **ST-only note**: SFC keywords are reserved by IEC 61131-3 but SFC syntax/semantics are out-of-scope for trust-lsp. They are treated as reserved keywords only (see `IEC deviations log (internal)`, DEV-001).
+> **ST-only note**: SFC keywords are reserved by IEC 61131-3 but SFC syntax/semantics are out-of-scope for truST. They are treated as reserved keywords only (see `docs/IEC_DEVIATIONS.md`).
 
 #### Special
 ```
@@ -168,7 +168,7 @@ READ_ONLY, READ_WRITE
 
 #### Implementation Extensions (Reserved Keywords)
 
-The following keywords are reserved by trust-lsp but are **not** part of the IEC 61131-3 keyword list. They are implemented as extensions and documented in `IEC deviations log (internal)`:
+The following keywords are reserved by truST but are **not** part of the IEC 61131-3 keyword list. They are implemented as extensions and documented in `docs/IEC_DEVIATIONS.md`:
 
 ```
 VAR_STAT
@@ -180,6 +180,11 @@ ADR, SIZEOF
 TEST_PROGRAM, END_TEST_PROGRAM
 TEST_FUNCTION_BLOCK, END_TEST_FUNCTION_BLOCK
 ```
+
+`VAR_STAT` is a shipped vendor-extension keyword. Runtime semantics are recorded in
+`docs/IEC_DEVIATIONS.md`: function statics persist across calls, method statics persist per
+instance and per method, and `PROGRAM`/`FUNCTION_BLOCK`/`CLASS` `VAR_STAT` behaves as ordinary
+instance storage.
 
 ## 4. White Space (Section 6.1.4)
 

@@ -282,12 +282,12 @@ END_FUNCTION
 
 1. **Local variables** (VAR, VAR_TEMP) - Visible within declaring POU
 2. **Parameters** (VAR_INPUT, VAR_OUTPUT, VAR_IN_OUT) - Part of POU interface
-3. **Global variables** (VAR_EXTERNAL reference to VAR_GLOBAL) - Accessible via explicit declaration
+3. **Global variables** (VAR_GLOBAL) - Accessible via `VAR_EXTERNAL` in strict IEC form, or via vendor-parity bare/qualified access in truST
 
 ### Name Resolution
 
 1. Local names take precedence over global names
-2. Qualified names can disambiguate: `NAMESPACE.Variable`
+2. Qualified names can disambiguate namespace-backed globals: `GVL.shared`
 3. THIS.member for class/FB member access
 4. Directly represented variables are globally unique
 
@@ -334,14 +334,21 @@ END_VAR
 ```
 
 **Rules**:
-- VAR_EXTERNAL creates a reference to VAR_GLOBAL. (IEC 61131-3 Ed.3, 6.5.2.2, Figure 8)
+- VAR_EXTERNAL creates a reference to VAR_GLOBAL declared in the associated program, configuration, or resource. (IEC 61131-3 Ed.3, 6.5.2.2, Figure 8)
 - Type must exactly match the VAR_GLOBAL declaration. (IEC 61131-3 Ed.3, 6.5.2.2)
 - VAR_EXTERNAL cannot declare an initial value. (IEC 61131-3 Ed.3, 6.5.1.3)
 - VAR_EXTERNAL CONSTANT is required when the referenced VAR_GLOBAL is CONSTANT. (IEC 61131-3 Ed.3, Figure 8)
 - Error if VAR_GLOBAL doesn't exist. (IEC 61131-3 Ed.3, 6.5.2.2)
 - Modification of VAR_EXTERNAL CONSTANT is an error. (IEC 61131-3 Ed.3, 6.5.2.2)
 
+truST vendor-parity note:
+- `VAR_EXTERNAL` remains supported and type-checked, but it is optional in truST for vendor-parity global access paths. See `docs/IEC_DEVIATIONS.md`.
+- `NAMESPACE ... VAR_GLOBAL ... END_NAMESPACE` is accepted as a vendor-style namespaced GVL extension, and qualified access such as `GVL.shared` resolves directly.
+
 ## 9. Declaration Rules Summary
+
+truST vendor-parity note:
+- In addition to the IEC-declared locations below, truST accepts top-level file-scope `VAR_GLOBAL ... END_VAR` and namespaced `VAR_GLOBAL` blocks as vendor-style GVL extensions. See `docs/IEC_DEVIATIONS.md`.
 
 ### What Can Be Declared Where
 
@@ -353,7 +360,7 @@ END_VAR
 | VAR_OUTPUT | Yes | Yes | Yes | - | - |
 | VAR_IN_OUT | Yes | Yes | Yes | - | - |
 | VAR_EXTERNAL | Yes | Yes | Yes | Yes | - |
-| VAR_GLOBAL | - | - | - | - | Yes |
+| VAR_GLOBAL | - | - | Yes | - | Yes |
 | VAR_ACCESS | - | - | - | - | Yes |
 | VAR_CONFIG | - | - | - | - | Yes |
 

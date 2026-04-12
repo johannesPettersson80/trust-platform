@@ -5,19 +5,64 @@ It assumes you already have the runtime installed.
 
 ## Project Layout (Structure)
 
-A PLC project folder contains:
+A PLC project folder typically contains:
 
 ```
 runtime.toml
 io.toml
 program.stbc
+trust-lsp.toml
 src/
 ```
 
 - `runtime.toml`: runtime configuration (tasks, control, web, watchdog, retain).
 - `io.toml`: I/O driver config and safe-state outputs.
 - `program.stbc`: compiled bytecode.
-- `src/`: Structured Text sources.
+- `trust-lsp.toml`: optional project config for include paths, package dependencies, vendor profile, and runtime-assisted editor features.
+- `src/`: project-owned Structured Text sources.
+
+## Reusable Libraries
+
+Project-owned Structured Text belongs in `<project>/src/`.
+
+Reusable truST libraries should live in their own package directory. In this
+repo the convention is `libraries/<name>/`; in user projects any separate
+package directory is fine as long as consuming projects point to it through
+`[dependencies]`.
+
+Example layout:
+
+```text
+my-project/
+  runtime.toml
+  io.toml
+  trust-lsp.toml
+  src/
+
+libraries/
+  my_motion_lib/
+    trust-lsp.toml
+    src/
+```
+
+A reusable library package should contain:
+
+- `trust-lsp.toml` with `[package].version` and `[project].include_paths = ["src"]`
+- `src/` with the library Structured Text sources
+
+Consumers reference reusable packages from their own `trust-lsp.toml`:
+
+```toml
+[dependencies]
+MyMotionLib = { path = "../libraries/my_motion_lib", version = "0.1.0" }
+```
+
+`trust-runtime build --project ...` and `trust-runtime test --project ...`
+compile the project's own `src/` plus any local `[dependencies]` packages.
+
+Use `[[libraries]]` for external/index-only library trees, vendor stub packs,
+or attached documentation packs. Do not place reusable libraries under
+`crates/.../tests/fixtures/`; that path is test-only repo infrastructure.
 
 ## Config Paths + Apply Semantics
 

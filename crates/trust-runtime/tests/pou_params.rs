@@ -45,6 +45,7 @@ fn param_binding() {
             },
         ],
         locals: Vec::new(),
+        static_locals: Vec::new(),
         using: Vec::new(),
         body: vec![
             Stmt::Assign {

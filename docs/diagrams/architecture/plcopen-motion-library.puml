@@ -1,0 +1,91 @@
+@startuml plcopen-motion-library
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam componentStyle uml2
+skinparam linetype ortho
+skinparam nodesep 45
+skinparam ranksep 35
+
+title truST PLCopen Motion Library: ST Surface And Shared Kernels
+
+package "Normative Inputs" {
+  artifact "Motion Spec" as spec
+  artifact "Compliance Matrix" as matrix
+  artifact "Decisions / Deviations" as logs
+}
+
+package "Reusable Library Packages\n(libraries/plcopen_motion/*)" {
+  component "Single-Axis\nsingle_axis_core" as single
+  component "Synchronization\nsynchronization" as sync
+  component "Coordinated Motion Core\ncoordinated_motion" as group
+  component "Homing Core\nhoming" as homing
+}
+
+package "Shared Internal ST Kernels" {
+  component "Axis Kernel\nplcopen_motion_single_axis_internal_kernel.st" as axisKernel
+  component "Synchronization Support\nplcopen_motion_synchronization_support.st" as syncSupport
+  component "Group Kernel\nplcopen_motion_coordinated_motion_support.st" as groupKernel
+  component "Homing Support\nplcopen_motion_homing_support.st" as homeSupport
+}
+
+package "Internal State Carriers\n(non-public)" {
+  database "Single-axis file-scope\nVAR_GLOBAL carrier" as axisStore
+  database "Synchronization file-scope\nVAR_GLOBAL carrier" as syncStore
+  database "Group file-scope\nVAR_GLOBAL carrier" as groupStore
+  database "Homing file-scope\nVAR_GLOBAL carrier" as homeStore
+}
+
+package "ST Conformance Fixtures\n(crates/.../tests/fixtures/plcopen_motion/*)" {
+  component "Positive fixtures" as positive
+  component "Deferred / negative fixtures" as negative
+}
+
+spec --> single
+spec --> sync
+spec --> group
+spec --> homing
+matrix --> single
+matrix --> sync
+matrix --> group
+matrix --> homing
+logs --> single
+logs --> sync
+logs --> group
+logs --> homing
+
+single --> axisKernel
+sync --> syncSupport
+syncSupport --> axisKernel
+group --> groupKernel
+homing --> homeSupport
+homeSupport --> axisKernel
+
+axisKernel --> axisStore
+syncSupport --> syncStore
+groupKernel --> groupStore
+homeSupport --> homeStore
+
+positive --> single
+positive --> sync
+positive --> group
+positive --> homing
+negative --> single
+negative --> sync
+negative --> group
+negative --> homing
+
+note right of axisStore
+Internal shared-state carriers are
+implementation devices only.
+They are intentionally omitted from
+the public PLCopen compliance matrix.
+end note
+
+note bottom of negative
+Fixture consumers lock deferred names,
+legacy literals, and unsupported public
+surface members to the chosen absent-path
+or deterministic error-path behavior.
+end note
+
+@enduml

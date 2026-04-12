@@ -39,6 +39,23 @@ pub fn build_program_stbc(
     })
 }
 
+/// Collect compile sources for a project, including any local package dependencies.
+pub fn collect_project_source_files(
+    bundle_root: &Path,
+    sources_root: Option<&Path>,
+) -> anyhow::Result<Vec<SourceFile>> {
+    let sources_root = resolve_sources_root(bundle_root, sources_root)?;
+    let dependencies = resolve_local_dependencies(bundle_root)?;
+
+    let mut source_roots = vec![sources_root];
+    for dependency in &dependencies {
+        source_roots.push(preferred_dependency_sources_root(&dependency.path));
+    }
+
+    let (sources, _) = collect_sources(&source_roots)?;
+    Ok(sources)
+}
+
 /// Resolve the effective project source root for bundle operations.
 ///
 /// Behavior:

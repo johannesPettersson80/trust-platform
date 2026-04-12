@@ -26,6 +26,7 @@ fn fb_stateful() {
             initializer: None,
             retain: trust_runtime::RetainPolicy::Unspecified,
             external: false,
+            static_storage: false,
             constant: false,
             address: None,
         }],

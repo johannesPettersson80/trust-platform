@@ -141,8 +141,14 @@ fn find_references_to_symbol_in_file_by_identity(
             continue;
         }
 
-        let ref_scope = scope_at_position(&symbols, &root, ref_range.start());
-        if let Some(resolved_id) = symbols.resolve(ref_name, ref_scope) {
+        if let Some(ResolvedTarget::Symbol(resolved_id)) = resolve_target_at_position_with_context(
+            db,
+            file_id,
+            ref_range.start(),
+            &source,
+            &root,
+            &symbols,
+        ) {
             if symbol_identity(&symbols, resolved_id, file_id) == Some(identity) {
                 let is_write = is_write_context(&node);
                 references.push(Reference {

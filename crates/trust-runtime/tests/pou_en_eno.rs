@@ -38,6 +38,7 @@ fn en_eno_semantics() {
             },
         ],
         locals: Vec::new(),
+        static_locals: Vec::new(),
         using: Vec::new(),
         body: vec![Stmt::Assign {
             target: LValue::Name("count".into()),

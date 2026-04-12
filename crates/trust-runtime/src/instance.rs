@@ -86,6 +86,18 @@ pub fn create_fb_instance(
         &fb.vars,
         &fb.using,
     )?;
+    init_method_static_defaults(
+        storage,
+        registry,
+        profile,
+        classes,
+        function_blocks,
+        functions,
+        stdlib,
+        instance_id,
+        &fb.name,
+        &fb.methods,
+    )?;
 
     Ok(instance_id)
 }
@@ -165,6 +177,18 @@ pub fn create_class_instance(
         instance_id,
         &class_def.vars,
         &class_def.using,
+    )?;
+    init_method_static_defaults(
+        storage,
+        registry,
+        profile,
+        classes,
+        function_blocks,
+        functions,
+        stdlib,
+        instance_id,
+        &class_def.name,
+        &class_def.methods,
     )?;
 
     Ok(instance_id)
@@ -283,6 +307,113 @@ fn init_var_defaults(
         ctx.storage
             .set_instance_var(instance_id, var.name.clone(), value);
     }
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn init_method_static_defaults(
+    storage: &mut VariableStorage,
+    registry: &TypeRegistry,
+    profile: &DateTimeProfile,
+    classes: &IndexMap<SmolStr, ClassDef>,
+    function_blocks: &IndexMap<SmolStr, FunctionBlockDef>,
+    functions: &IndexMap<SmolStr, FunctionDef>,
+    stdlib: &StandardLibrary,
+    instance_id: InstanceId,
+    owner: &SmolStr,
+    methods: &[crate::eval::MethodDef],
+) -> Result<(), RuntimeError> {
+    for method in methods {
+        let method_owner = crate::eval::method_static_storage_owner(owner, &method.name);
+        for local in &method.static_locals {
+            let key = crate::eval::static_storage_name(&method_owner, &local.name);
+            if let Some(fb_name) = function_block_type_name(local.type_id, registry) {
+                if local.initializer.is_some() {
+                    return Err(RuntimeError::TypeMismatch);
+                }
+                let fb_key = SmolStr::new(fb_name.to_ascii_uppercase());
+                let fb = function_blocks
+                    .get(&fb_key)
+                    .ok_or_else(|| RuntimeError::UndefinedFunctionBlock(fb_name.clone()))?;
+                let nested_id = create_fb_instance(
+                    storage,
+                    registry,
+                    profile,
+                    classes,
+                    function_blocks,
+                    functions,
+                    stdlib,
+                    fb,
+                )?;
+                storage.set_instance_var(instance_id, key, Value::Instance(nested_id));
+                continue;
+            }
+            if let Some(class_name) = class_type_name(local.type_id, registry) {
+                if local.initializer.is_some() {
+                    return Err(RuntimeError::TypeMismatch);
+                }
+                let class_key = SmolStr::new(class_name.to_ascii_uppercase());
+                let class_def = classes.get(&class_key).ok_or(RuntimeError::TypeMismatch)?;
+                let nested_id = create_class_instance(
+                    storage,
+                    registry,
+                    profile,
+                    classes,
+                    function_blocks,
+                    functions,
+                    stdlib,
+                    class_def,
+                )?;
+                storage.set_instance_var(instance_id, key, Value::Instance(nested_id));
+                continue;
+            }
+            let value =
+                default_value_for_type_id(local.type_id, registry, profile).unwrap_or(Value::Null);
+            storage.set_instance_var(instance_id, key, value);
+        }
+    }
+
+    let mut ctx = EvalContext {
+        storage,
+        registry,
+        profile: *profile,
+        now: Duration::ZERO,
+        debug: None,
+        call_depth: 0,
+        functions: Some(functions),
+        stdlib: Some(stdlib),
+        function_blocks: Some(function_blocks),
+        classes: Some(classes),
+        using: None,
+        access: None,
+        current_instance: Some(instance_id),
+        return_name: None,
+        loop_depth: 0,
+        pause_requested: false,
+        execution_deadline: None,
+    };
+
+    for method in methods {
+        let method_owner = crate::eval::method_static_storage_owner(owner, &method.name);
+        for local in &method.static_locals {
+            if function_block_type_name(local.type_id, registry).is_some() {
+                continue;
+            }
+            if class_type_name(local.type_id, registry).is_some() {
+                continue;
+            }
+            let Some(expr) = &local.initializer else {
+                continue;
+            };
+            ctx.using = Some(&method.using);
+            let value = eval_expr(&mut ctx, expr)?;
+            let value = crate::harness::coerce_value_to_type(value, local.type_id)
+                .map_err(|_| RuntimeError::TypeMismatch)?;
+            let key = crate::eval::static_storage_name(&method_owner, &local.name);
+            ctx.storage.set_instance_var(instance_id, key, value);
+        }
+    }
+
     Ok(())
 }
 

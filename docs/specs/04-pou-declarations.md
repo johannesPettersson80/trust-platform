@@ -406,7 +406,7 @@ Controller.Start();            // Call through interface
 
 ### Rules
 
-1. Interfaces contain only method prototypes (no implementation) per IEC 61131-3 Ed.3 §6.6.6.1. Property signatures are accepted as an extension (see `IEC deviations log (internal)`).
+1. Interfaces contain only method prototypes (no implementation) per IEC 61131-3 Ed.3 §6.6.6.1. Property signatures are accepted as an extension (see `docs/IEC_DEVIATIONS.md`).
 2. All methods are implicitly PUBLIC
 3. Classes implementing interface MUST implement all methods
 4. Interfaces can extend other interfaces

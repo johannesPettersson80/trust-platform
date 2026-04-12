@@ -1,5 +1,9 @@
 # IEC Deviations Log
 
+Authoritative location:
+- This tracked file is the repository source of truth for IEC deviations/extensions.
+- Do not point tracked docs or code comments at legacy internal IEC deviation-log paths.
+
 This file tracks known, intentional deviations/extensions from strict IEC 61131-3 behavior.
 
 ## 2026-02-25 - CTUD single-input profile in LD v2 node model
@@ -89,3 +93,59 @@ This file tracks known, intentional deviations/extensions from strict IEC 61131-
   - truST reports additional proactive diagnostics beyond strict IEC conformance.
 - Mitigation:
   - These are configurable tooling warnings under `[diagnostics].warn_numeric_hazards`, and severities can still be overridden per code.
+
+## 2026-04-11 - File-scope `VAR_GLOBAL` as vendor-style GVL
+
+- Area: Structured Text global-variable declarations
+- IEC reference: IEC 61131-3 Ed.3 models globals through `PROGRAM`/`CONFIGURATION`/`RESOURCE`; vendor ecosystems such as CODESYS/TwinCAT also use standalone GVL source files.
+- Deviation:
+  - truST accepts top-level file-scope `VAR_GLOBAL ... END_VAR` blocks and treats them as global variable libraries (GVLs).
+- Impact:
+  - CODESYS/TwinCAT-style GVL source files compile directly in truST without wrapping them in a `CONFIGURATION`.
+- Mitigation:
+  - Duplicate global names in the same effective namespace are rejected.
+  - Strict-IEC reshaping remains available as an adapter/export concern rather than a core-language requirement.
+
+## 2026-04-11 - Namespaced vendor-style GVLs
+
+- Area: Structured Text global-variable declarations
+- IEC reference: `NAMESPACE`-scoped global-variable libraries are a vendor extension rather than an IEC Ed.3 construct.
+- Deviation:
+  - truST accepts `NAMESPACE ... VAR_GLOBAL ... END_NAMESPACE`.
+  - Qualified access such as `GVL.shared` resolves against the namespaced global directly.
+  - CODESYS `{attribute 'qualified_only'}` is not enforced as a semantic restriction in core truST yet.
+- Impact:
+  - Vendor-style namespaced GVLs compile directly in truST, including qualified reads/writes.
+  - Projects imported from vendor tooling may still allow bare access where CODESYS would require qualification.
+- Mitigation:
+  - Strict import/export paths may keep wrapper or injected-`VAR_EXTERNAL` transforms for external consumers that need them, including PLCopen import calls that opt into `PlcopenImportGlobalVarMode::StrictIecAdapter`.
+  - Documentation calls out the current `qualified_only` limitation explicitly.
+
+## 2026-04-11 - Optional `VAR_EXTERNAL` for vendor-parity global access
+
+- Area: Structured Text global-variable access
+- IEC reference: IEC 61131-3 Ed.3 §6.5.2.2 / Figure 8 requires explicit `VAR_EXTERNAL` linkage for external global access.
+- Deviation:
+  - truST accepts direct global access without requiring a matching `VAR_EXTERNAL` declaration.
+  - `VAR_EXTERNAL` remains supported and type-checked when authors choose to declare it.
+  - This vendor-parity path applies to configuration/resource globals, file-scope GVLs, and qualified namespaced GVL access.
+- Impact:
+  - CODESYS/TwinCAT-style ST authored without injected `VAR_EXTERNAL` blocks compiles directly in truST.
+- Mitigation:
+  - Undefined bare names still diagnose as errors.
+  - Strict-IEC export/adapter flows may still synthesize `VAR_EXTERNAL` declarations when targeting stricter consumers, including the optional PLCopen strict-adapter import mode.
+
+## 2026-04-11 - `VAR_STAT` runtime semantics
+
+- Area: Structured Text static variables
+- IEC reference: `VAR_STAT` is a vendor extension and is not defined by IEC 61131-3 Ed.3.
+- Deviation:
+  - truST accepts `VAR_STAT` and gives it persistent storage semantics.
+  - In `FUNCTION`, `VAR_STAT` persists across calls to that function definition.
+  - In `METHOD`, `VAR_STAT` persists per enclosing instance and per method.
+  - In `PROGRAM`, `FUNCTION_BLOCK`, and `CLASS`, `VAR_STAT` behaves as ordinary instance storage in the enclosing instance-bearing scope.
+- Impact:
+  - Vendor-authored code using `VAR_STAT` compiles and preserves static state without rewriting to IEC-only forms.
+- Mitigation:
+  - `VAR_STAT` remains an explicit vendor extension in docs/specs.
+  - Strict-IEC export/adapter paths may rewrite or reject `VAR_STAT` for consumers that do not support it.

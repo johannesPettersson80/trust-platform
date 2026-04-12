@@ -1,4 +1,5 @@
 {
+  "docs/diagrams/architecture/plcopen-motion-library.puml": "af6554ca786fef5e268d7979b4f0aaae88c79936a121d2add4e27d31088d6de3",
   "docs/diagrams/architecture/runtime-cloud-planes.puml": "3c6dfac75e9ce0e77f1a503caf149d0ea611f5427e7c4e8bac7490fe2befeaf7",
   "docs/diagrams/architecture/runtime-execution.puml": "346e44c63f3ea547bee245bfe637df3b0d741d7ce52365f6367758e38c6596e4",
   "docs/diagrams/architecture/system-architecture.puml": "ff1303beb1326d1bcfeff039217eafa2a055c981904f46fcc9223328a28bb960",
@@ -10,9 +11,5 @@
   "docs/diagrams/debug/debug-threads.puml": "8cd4754b4b26ae5762552283b06d02e2ed255c8189c49341e727891fc8b3f143",
   "docs/diagrams/hir/hir-semantics.puml": "a6742513eb4f1be38e475b5151872948ab44ede8a98b30816e310db544a90d6e",
   "docs/diagrams/lsp/lsp-request-flow.puml": "5cdabf270a7c9d0b35f601f38c4d20510b8fc8f2ab5e58e0f2773141d2f0577a",
-  "docs/diagrams/syntax/syntax-pipeline.puml": "93cecb3d620c51377e79677ba18e48c6acf79ea0f6b4c9f2ab75a52ca9d1b57b",
-  "docs/internal/design/vm-call-flow-after.puml": "5dd574116c4abf8e369eac1649008a53e6f254a6247a2dfdc9e51f38b251c74b",
-  "docs/internal/design/vm-call-flow-before.puml": "0e7f5e98ec714912f0fad7ed1bc0c79c24acc4a88fb51c02d87349df3631ad55",
-  "docs/internal/design/vm-call-flow-current.puml": "cda0770a11be738bf16a2ced2a4d18a5177e82293d85b551ff7c4c11ac937006",
-  "docs/internal/design/vm-call-flow-target.puml": "78d6f84c41c13fbd1bc0d9c176c6fc28176dd7204d3fae32cd679e6ff88b18d5"
+  "docs/diagrams/syntax/syntax-pipeline.puml": "93cecb3d620c51377e79677ba18e48c6acf79ea0f6b4c9f2ab75a52ca9d1b57b"
 }

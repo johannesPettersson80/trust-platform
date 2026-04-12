@@ -51,6 +51,26 @@ struct DispatchBenchReport {
     histogram: Vec<HistogramBucket>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+struct ProjectBenchReport {
+    scenario: &'static str,
+    project: String,
+    resource_name: String,
+    execution_backend: String,
+    cycle_budget_us: f64,
+    samples: usize,
+    warmup_cycles: usize,
+    total_cycles: usize,
+    measured_duration_ms: f64,
+    throughput_cycles_per_sec: f64,
+    cycle_latency: LatencySummary,
+    histogram: Vec<HistogramBucket>,
+    budget_overruns: u64,
+    watched_globals: BTreeMap<String, serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    vm_profile: Option<VmProfileReport>,
+}
+
 #[cfg(feature = "legacy-interpreter")]
 #[derive(Debug, Clone, Serialize)]
 struct BackendComparisonSummary {
@@ -58,30 +78,28 @@ struct BackendComparisonSummary {
     throughput_cycles_per_sec: f64,
 }
 
-#[cfg(feature = "legacy-interpreter")]
 #[derive(Debug, Clone, Serialize)]
 struct VmProfileFallbackReasonReport {
     reason: String,
     count: u64,
 }
 
-#[cfg(feature = "legacy-interpreter")]
 #[derive(Debug, Clone, Serialize)]
 struct VmProfileHotBlockReport {
     pou_id: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pou_name: Option<String>,
     block_id: u32,
     start_pc: u32,
     hits: u64,
 }
 
-#[cfg(feature = "legacy-interpreter")]
 #[derive(Debug, Clone, Serialize)]
 struct VmTier1SpecializedExecutorDeoptReasonReport {
     reason: String,
     count: u64,
 }
 
-#[cfg(feature = "legacy-interpreter")]
 #[derive(Debug, Clone, Serialize)]
 struct VmTier1SpecializedExecutorReport {
     enabled: bool,
@@ -97,7 +115,6 @@ struct VmTier1SpecializedExecutorReport {
     deopt_reasons: Vec<VmTier1SpecializedExecutorDeoptReasonReport>,
 }
 
-#[cfg(feature = "legacy-interpreter")]
 #[derive(Debug, Clone, Serialize)]
 struct VmRegisterLoweringCacheReport {
     enabled: bool,
@@ -111,14 +128,14 @@ struct VmRegisterLoweringCacheReport {
     invalidations: u64,
 }
 
-#[cfg(feature = "legacy-interpreter")]
 #[derive(Debug, Clone, Serialize)]
 struct VmProfileReport {
     register_programs_executed: u64,
     register_program_fallbacks: u64,
     fallback_reasons: Vec<VmProfileFallbackReasonReport>,
     hot_blocks: Vec<VmProfileHotBlockReport>,
-    profiling_overhead_ratio: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    profiling_overhead_ratio: Option<f64>,
     register_lowering_cache: VmRegisterLoweringCacheReport,
     #[serde(skip_serializing_if = "Option::is_none")]
     tier1_specialized_executor: Option<VmTier1SpecializedExecutorReport>,
@@ -153,6 +170,8 @@ struct ExecutionBackendBenchReport {
 enum BenchReport {
     #[serde(rename = "t0-shm")]
     T0Shm(T0ShmBenchReport),
+    #[serde(rename = "project")]
+    Project(ProjectBenchReport),
     #[serde(rename = "mesh-zenoh")]
     MeshZenoh(MeshZenohBenchReport),
     #[serde(rename = "dispatch")]
@@ -179,6 +198,36 @@ impl BenchWorkload {
         Ok(Self {
             samples,
             payload_bytes,
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+struct ProjectBenchWorkload {
+    project: std::path::PathBuf,
+    samples: usize,
+    warmup_cycles: usize,
+    watch: Vec<String>,
+}
+
+impl ProjectBenchWorkload {
+    fn normalize(
+        project: std::path::PathBuf,
+        samples: usize,
+        warmup_cycles: usize,
+        watch: Vec<String>,
+    ) -> anyhow::Result<Self> {
+        if samples == 0 {
+            anyhow::bail!("--samples must be greater than zero");
+        }
+        if !project.is_dir() {
+            anyhow::bail!("--project must point to an existing project folder");
+        }
+        Ok(Self {
+            project,
+            samples,
+            warmup_cycles,
+            watch,
         })
     }
 }

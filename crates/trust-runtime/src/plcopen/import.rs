@@ -2,6 +2,14 @@ pub fn import_xml_to_project(
     xml_path: &Path,
     project_root: &Path,
 ) -> anyhow::Result<PlcopenImportReport> {
+    import_xml_to_project_with_options(xml_path, project_root, PlcopenImportOptions::default())
+}
+
+pub fn import_xml_to_project_with_options(
+    xml_path: &Path,
+    project_root: &Path,
+    options: PlcopenImportOptions,
+) -> anyhow::Result<PlcopenImportReport> {
     let xml_text = std::fs::read_to_string(xml_path)
         .with_context(|| format!("failed to read PLCopen XML '{}'", xml_path.display()))?;
     let document = roxmltree::Document::parse(&xml_text)
@@ -85,6 +93,7 @@ pub fn import_xml_to_project(
         &mut loss_warnings,
         &project_structure_map,
         &mut imported_folder_paths,
+        options.global_var_mode,
     )?;
     written_sources.extend(global_var_stats.written_sources.iter().cloned());
 
@@ -231,26 +240,29 @@ pub fn import_xml_to_project(
             continue;
         };
 
-        let (reconstructed_source, injected_global_externals) =
+        let strict_var_external_adapter =
+            options.global_var_mode == PlcopenImportGlobalVarMode::StrictIecAdapter;
+        let (reconstructed_source, inserted_externals) = if strict_var_external_adapter {
             inject_required_var_external_declarations(
                 &reconstructed_source,
                 &global_var_stats.qualified_list_externals,
-            );
-        for external in injected_global_externals {
+            )
+        } else {
+            (reconstructed_source, Vec::new())
+        };
+        if !inserted_externals.is_empty() {
             warnings.push(format!(
-                "inserted VAR_EXTERNAL '{}' declaration in pou '{}'",
-                external, name
+                "inserted strict-IEC VAR_EXTERNAL adapter(s) into pou '{}': {}",
+                name,
+                inserted_externals.join(", ")
             ));
             unsupported_diagnostics.push(unsupported_diagnostic(
                 "PLCO603",
                 "info",
-                "pou/interface/externalVars",
-                format!(
-                    "Inserted VAR_EXTERNAL declaration for qualified global list '{}'",
-                    external
-                ),
+                format!("pou:{name}/var_external_adapter"),
+                "Strict-IEC import adapter synthesized VAR_EXTERNAL declarations for qualified global list access",
                 Some(name.clone()),
-                "Review and keep inserted external declaration if the POU uses qualified global list access",
+                "Disable strict adapter mode to keep native vendor-parity globals without injected externals",
             ));
         }
 
@@ -440,4 +452,3 @@ pub fn import_xml_to_project(
         applied_library_shims,
     })
 }
-

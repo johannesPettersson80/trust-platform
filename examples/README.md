@@ -35,6 +35,8 @@ code /path/to/trust-platform
 | Advanced operations tutorials (13-23) | `examples/tutorials/README.md` | project bootstrap, deploy/rollback, multi-PLC mesh, secure remote access, I/O backend matrix, simulation, safety commissioning, HMI write enablement, CI/CD, Neovim/Zed workflow, observability commissioning | 210-360 min |
 | Communication protocols (grouped) | `examples/communication/README.md` | protocol-focused examples for Modbus/TCP, MQTT, OPC UA, two EtherCAT commissioning profiles (mock-first + field-tested), GPIO, and composed multi-driver configurations with transport gates and commissioning flow | 120-220 min |
 | Runtime I/O mental model | `examples/memory_marker_counter/README.md` | `%M/%Q` cycle semantics + debugger confirmation | 20-30 min |
+| PLCopen motion benchmark example | `examples/plcopen_motion_single_axis_demo/README.md` | reusable library consumption, scan-driven PLCopen motion sequencing, and end-to-end runtime benchmarking | 25-40 min |
+| PLCopen motion profiling pack | `examples/plcopen_motion_single_axis_benchmarks/README.md` | runtime-floor, constants-only, status-only, inactive-command, single-command, and constants-once isolates for performance triage | 20-35 min |
 | HMI P&ID tutorial | `examples/tutorials/12_hmi_pid_process_dashboard/README.md` | process SVG pages, bypass mode, setpoint/alarm bindings, and live HMI refresh workflow | 35-55 min |
 | Runtime cloud onboarding pack | `examples/runtime_cloud/README.md` | profile setup (`dev`/`plant`/`wan`), preflight/dispatch payloads, federation allowlist flow | 30-60 min |
 | Multi-file architecture | `examples/plant_demo/README.md` | type/FB/program/config layering + cross-file refactors | 25-40 min |
@@ -51,22 +53,23 @@ code /path/to/trust-platform
 1. `examples/tutorials/README.md`
 2. `examples/tutorials/12_hmi_pid_process_dashboard/README.md`
 3. `examples/memory_marker_counter/README.md`
-4. `examples/plant_demo/README.md`
-5. `examples/filling_line/README.md`
-6. `examples/tutorials/13_project_bootstrap_zero_to_first_app/README.md`
-7. `examples/tutorials/17_io_backends_and_multi_driver/README.md`
-8. `examples/communication/README.md`
-9. `examples/tutorials/18_simulation_toml_fault_injection/README.md`
-10. `examples/tutorials/19_safety_commissioning/README.md`
-11. `examples/tutorials/14_deploy_and_rollback/README.md`
-12. `examples/tutorials/16_secure_remote_access/README.md`
-13. `examples/tutorials/15_multi_plc_discovery_mesh/README.md`
-14. `examples/runtime_cloud/README.md`
-15. `examples/tutorials/20_hmi_write_enablement/README.md`
-16. `examples/tutorials/21_ci_cd_project_pipeline/README.md`
-17. `examples/tutorials/22_neovim_zed_workflow/README.md`
-18. `examples/tutorials/23_observability_historian_prometheus/README.md`
-19. Choose specialization:
+4. `examples/plcopen_motion_single_axis_demo/README.md`
+5. `examples/plant_demo/README.md`
+6. `examples/filling_line/README.md`
+7. `examples/tutorials/13_project_bootstrap_zero_to_first_app/README.md`
+8. `examples/tutorials/17_io_backends_and_multi_driver/README.md`
+9. `examples/communication/README.md`
+10. `examples/tutorials/18_simulation_toml_fault_injection/README.md`
+11. `examples/tutorials/19_safety_commissioning/README.md`
+12. `examples/tutorials/14_deploy_and_rollback/README.md`
+13. `examples/tutorials/16_secure_remote_access/README.md`
+14. `examples/tutorials/15_multi_plc_discovery_mesh/README.md`
+15. `examples/runtime_cloud/README.md`
+16. `examples/tutorials/20_hmi_write_enablement/README.md`
+17. `examples/tutorials/21_ci_cd_project_pipeline/README.md`
+18. `examples/tutorials/22_neovim_zed_workflow/README.md`
+19. `examples/tutorials/23_observability_historian_prometheus/README.md`
+20. Choose specialization:
    - Interop: `examples/plcopen_xml_st_complete/README.md`
    - Vendor profiles: `examples/siemens_scl_v1/README.md`, `examples/mitsubishi_gxworks3_v1/README.md`
    - Fieldbus backend: `examples/ethercat_ek1100_elx008_v1/README.md`, `examples/ethercat_ek1100_elx008_v2/README.md`
@@ -75,6 +78,7 @@ code /path/to/trust-platform
 
 ```bash
 trust-runtime build --project examples/filling_line --sources src
+trust-runtime build --project examples/plcopen_motion_single_axis_demo --sources src
 trust-runtime build --project examples/tutorials/12_hmi_pid_process_dashboard --sources src
 trust-runtime build --project examples/plant_demo --sources src
 trust-runtime build --project examples/ethercat_ek1100_elx008_v1 --sources src
@@ -97,4 +101,6 @@ Tutorial regression checks:
 cargo test -p trust-runtime tutorial_examples_parse_typecheck_and_compile_to_bytecode
 cargo test -p trust-runtime st_test_cli_command
 cargo test -p trust-runtime --test communication_examples_cli
+./scripts/runtime_motion_example_bench_gate.sh
+./scripts/runtime_motion_benchmark_breakdown.sh
 ```

@@ -64,6 +64,13 @@ pub fn call_function<'a>(
     let saved_call_depth = ctx.call_depth;
     ctx.call_depth = saved_call_depth.saturating_add(1);
 
+    if let Err(err) = init_locals(ctx, &func.static_locals) {
+        ctx.call_depth = saved_call_depth;
+        ctx.storage.pop_frame();
+        ctx.return_name = saved_return;
+        ctx.using = saved_using;
+        return Err(err);
+    }
     if let Err(err) = init_locals(ctx, &func.locals) {
         ctx.call_depth = saved_call_depth;
         ctx.storage.pop_frame();
@@ -168,6 +175,14 @@ pub fn call_method(
     let saved_call_depth = ctx.call_depth;
     ctx.call_depth = saved_call_depth.saturating_add(1);
 
+    if let Err(err) = init_locals(ctx, &method.static_locals) {
+        ctx.call_depth = saved_call_depth;
+        ctx.storage.pop_frame();
+        ctx.return_name = saved_return;
+        ctx.using = saved_using;
+        ctx.current_instance = saved_instance;
+        return Err(err);
+    }
     if let Err(err) = init_locals(ctx, &method.locals) {
         ctx.call_depth = saved_call_depth;
         ctx.storage.pop_frame();

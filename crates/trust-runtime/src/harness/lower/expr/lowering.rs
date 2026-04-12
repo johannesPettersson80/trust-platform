@@ -33,7 +33,7 @@ pub(in crate::harness) fn lower_lvalue(
                 return Err(CompileError::new("invalid field expression"));
             }
             let target = &exprs[0];
-            let name = if target.kind() == SyntaxKind::NameRef {
+            let name = if matches!(target.kind(), SyntaxKind::NameRef | SyntaxKind::FieldExpr) {
                 node_text(target)
             } else {
                 return Err(CompileError::new("unsupported field target"));

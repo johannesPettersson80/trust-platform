@@ -20,7 +20,7 @@ fn lower_global_var_block(
             | VarBlockKind::InOut => {
                 for name in names {
                     globals.push(GlobalInit {
-                        name,
+                        name: namespace_qualified_name(var_block, name.as_str()),
                         type_id,
                         initializer: init_expr.clone(),
                         retain: qualifiers.retain,
@@ -76,7 +76,7 @@ fn lower_var_access_block(
         match &path {
             AccessPath::Direct { text, .. } => {
                 result.globals.push(GlobalInit {
-                    name,
+                    name: namespace_qualified_name(var_block, name.as_str()),
                     type_id,
                     initializer: None,
                     retain: crate::RetainPolicy::Unspecified,

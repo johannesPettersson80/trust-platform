@@ -12,6 +12,7 @@ FUNCTION_BLOCK FB_snake_simple_v2_BLOCKLY
 VAR
   position : BOOL;
   direction : BOOL;
+  temp : INT;
 END_VAR
 
 (* Generated from Blockly *)

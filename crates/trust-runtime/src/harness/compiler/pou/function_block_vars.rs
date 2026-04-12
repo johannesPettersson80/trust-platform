@@ -1,7 +1,9 @@
+type FunctionBlockVarBlocks = (Vec<Param>, Vec<VarDef>, Vec<VarDef>);
+
 fn lower_function_block_var_blocks(
     node: &SyntaxNode,
     ctx: &mut LoweringContext<'_>,
-) -> Result<FunctionBlockVars, CompileError> {
+) -> Result<FunctionBlockVarBlocks, CompileError> {
     let mut params = Vec::new();
     let mut vars = Vec::new();
     let mut temps = Vec::new();
@@ -74,6 +76,21 @@ fn lower_function_block_var_blocks(
                             type_id,
                             initializer: init_expr.clone(),
                             retain: qualifiers.retain,
+                            static_storage: false,
+                            external: false,
+                            constant: qualifiers.constant,
+                            address: address_info.clone(),
+                        });
+                    }
+                }
+                VarBlockKind::Stat => {
+                    for name in names {
+                        vars.push(VarDef {
+                            name,
+                            type_id,
+                            initializer: init_expr.clone(),
+                            retain: qualifiers.retain,
+                            static_storage: false,
                             external: false,
                             constant: qualifiers.constant,
                             address: address_info.clone(),
@@ -87,6 +104,7 @@ fn lower_function_block_var_blocks(
                             type_id,
                             initializer: init_expr.clone(),
                             retain: qualifiers.retain,
+                            static_storage: false,
                             external: false,
                             constant: qualifiers.constant,
                             address: address_info.clone(),

@@ -171,7 +171,16 @@ impl Parser<'_, '_> {
             } else if self.at(expected_end) || self.at(alternate_end) || self.at_end() {
                 break;
             } else if self.current().can_start_statement() {
-                self.parse_statement();
+                self.start_node(SyntaxKind::StmtList);
+                while self.current().can_start_statement()
+                    && !self.at(expected_end)
+                    && !self.at(alternate_end)
+                    && !self.at_end()
+                    && !self.at_stmt_list_end()
+                {
+                    self.parse_statement();
+                }
+                self.finish_node();
             } else {
                 break;
             }

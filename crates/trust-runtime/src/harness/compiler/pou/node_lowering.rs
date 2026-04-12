@@ -167,7 +167,7 @@ fn lower_function_node(
         .ok_or_else(|| CompileError::new("missing function return type"))?;
     let return_type = lower_type_ref(&return_type, ctx)?;
 
-    let (params, locals) = lower_function_var_blocks(node, ctx)?;
+    let (params, locals, static_locals) = lower_function_var_blocks(node, ctx)?;
     let body = lower_stmt_list(node, ctx)?;
 
     Ok(FunctionDef {
@@ -175,6 +175,7 @@ fn lower_function_node(
         return_type,
         params,
         locals,
+        static_locals,
         using: ctx.using.clone(),
         body,
     })
@@ -206,7 +207,7 @@ fn lower_method_node(
         .map(|type_ref| lower_type_ref(&type_ref, &mut method_ctx))
         .transpose()?;
 
-    let (params, locals) = lower_function_var_blocks(node, &mut method_ctx)?;
+    let (params, locals, static_locals) = lower_function_var_blocks(node, &mut method_ctx)?;
     let body = lower_stmt_list(node, &mut method_ctx)?;
 
     Ok(MethodDef {
@@ -214,6 +215,7 @@ fn lower_method_node(
         return_type,
         params,
         locals,
+        static_locals,
         using: method_ctx.using.clone(),
         body,
     })

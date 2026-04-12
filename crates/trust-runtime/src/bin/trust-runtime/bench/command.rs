@@ -7,6 +7,16 @@ pub fn run_bench(action: BenchAction) -> anyhow::Result<()> {
 
 fn execute_bench(action: BenchAction) -> anyhow::Result<(BenchReport, BenchOutputFormat)> {
     match action {
+        BenchAction::Project {
+            project,
+            samples,
+            warmup_cycles,
+            watch,
+            output,
+        } => {
+            let workload = ProjectBenchWorkload::normalize(project, samples, warmup_cycles, watch)?;
+            Ok((run_project_bench(workload)?, output))
+        }
         BenchAction::T0Shm {
             samples,
             payload_bytes,
