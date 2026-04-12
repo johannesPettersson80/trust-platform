@@ -48,7 +48,7 @@ Out of scope for this checklist:
 - [x] A-IEC-002 Canonical files selected as `docs/IEC_DECISIONS.md` and `docs/IEC_DEVIATIONS.md`.
   Evidence: `docs/IEC_DECISIONS.md`, `docs/IEC_DEVIATIONS.md`, `AGENTS.md`.
 - [x] A-IEC-003 Internal duplicates removed or replaced with redirect stubs.
-  Evidence: No tracked `docs/internal/standards/IEC_DECISIONS.md` or `docs/internal/standards/IEC_DEVIATIONS.md` remain in this branch; enforced by `scripts/check_iec_log_paths.py`.
+  Evidence: No tracked duplicate IEC decision/deviation log files remain in this branch; enforced by `scripts/check_iec_log_paths.py`.
 - [x] A-IEC-004 All repo references updated to the canonical files.
   Evidence: `docs/guides/SIEMENS_SCL_COMPATIBILITY.md`, validated with `python3 scripts/check_iec_log_paths.py`.
 
