@@ -44,6 +44,8 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  # GitHub runners do not guarantee sccache availability; disable wrapper in CI/nightly reliability.
+  RUSTC_WRAPPER: ""
 
 permissions:
   contents: read
@@ -55,7 +57,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 240
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -152,7 +154,7 @@ jobs:
 
       - name: Upload reliability artifacts
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: nightly-reliability-${{ github.run_id }}
           path: artifacts/nightly/

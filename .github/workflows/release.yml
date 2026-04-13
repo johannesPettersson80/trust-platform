@@ -18,7 +18,7 @@ jobs:
     name: VM Differential (Full)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -34,7 +34,7 @@ jobs:
 
       - name: Upload VM differential artifacts
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-runtime-vm-differential
           path: artifacts/release/runtime-vm-differential/**
@@ -64,7 +64,7 @@ jobs:
             platform: win32-x64
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -145,7 +145,7 @@ jobs:
           Compress-Archive -Path dist/runtime-${{ matrix.platform }}/* -DestinationPath trust-runtime-${{ matrix.platform }}.zip
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
           cache: 'npm'
@@ -164,13 +164,13 @@ jobs:
         run: npx vsce package --target ${{ matrix.platform }}
 
       - name: Upload VSIX artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vsix-${{ matrix.platform }}
           path: editors/vscode/*.vsix
 
       - name: Upload runtime artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: runtime-${{ matrix.platform }}
           path: |
@@ -184,24 +184,24 @@ jobs:
     env:
       VSCE_PAT: ${{ secrets.VSCE_PAT }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Download VSIX artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: vsix-artifacts
           pattern: vsix-*
           merge-multiple: true
 
       - name: Download runtime artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: runtime-artifacts
           pattern: runtime-*
           merge-multiple: true
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
 

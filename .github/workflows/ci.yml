@@ -17,7 +17,7 @@ jobs:
     name: Format
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
@@ -31,7 +31,7 @@ jobs:
           echo "job=fmt result=success" > gate-artifacts/fmt.txt
       - name: Upload gate marker
         if: ${{ success() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gate-fmt
           path: gate-artifacts/fmt.txt
@@ -40,7 +40,7 @@ jobs:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -61,7 +61,7 @@ jobs:
           echo "job=clippy result=success" > gate-artifacts/clippy.txt
       - name: Upload gate marker
         if: ${{ success() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gate-clippy
           path: gate-artifacts/clippy.txt
@@ -74,7 +74,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Prepare test log path
@@ -144,7 +144,7 @@ jobs:
           exit 1
       - name: Upload test suite log
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-log-${{ matrix.os }}
           path: gate-artifacts/test-${{ matrix.os }}.log
@@ -156,7 +156,7 @@ jobs:
           echo "job=test os=${{ matrix.os }} result=success" > gate-artifacts/test-${{ matrix.os }}.txt
       - name: Upload gate marker
         if: ${{ success() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gate-test-${{ matrix.os }}
           path: gate-artifacts/test-${{ matrix.os }}.txt
@@ -165,7 +165,7 @@ jobs:
     name: Conformance
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Run conformance suite (pass 1)
@@ -235,7 +235,7 @@ jobs:
           ./scripts/runtime_comms_conformance_gate.sh
       - name: Upload conformance artifacts
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: conformance-suite
           path: |
@@ -254,7 +254,7 @@ jobs:
           echo "job=conformance result=success" > gate-artifacts/conformance.txt
       - name: Upload gate marker
         if: ${{ success() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gate-conformance
           path: gate-artifacts/conformance.txt
@@ -263,7 +263,7 @@ jobs:
     name: MSRV (1.85)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@1.85
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --all-targets
@@ -276,7 +276,7 @@ jobs:
           echo "job=msrv result=success" > gate-artifacts/msrv.txt
       - name: Upload gate marker
         if: ${{ success() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gate-msrv
           path: gate-artifacts/msrv.txt
@@ -285,7 +285,7 @@ jobs:
     name: Documentation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo doc --no-deps --all-features
@@ -298,7 +298,7 @@ jobs:
           echo "job=docs result=success" > gate-artifacts/docs.txt
       - name: Upload gate marker
         if: ${{ success() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gate-docs
           path: gate-artifacts/docs.txt
@@ -307,10 +307,10 @@ jobs:
     name: Browser Analysis Gates
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '20'
       - name: Install wasm target
@@ -328,7 +328,7 @@ jobs:
           echo "job=browser-analysis result=success" > gate-artifacts/browser-analysis.txt
       - name: Upload gate marker
         if: ${{ success() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gate-browser-analysis
           path: gate-artifacts/browser-analysis.txt
@@ -340,8 +340,8 @@ jobs:
       run:
         working-directory: editors/vscode
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: '20'
           cache: 'npm'
@@ -382,7 +382,7 @@ jobs:
           ST_LSP_TEST_SERVER: ${{ github.workspace }}/target/debug/trust-lsp
       - name: Upload VS Code integration test log
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vscode-extension-test-log
           path: gate-artifacts/vscode-extension-test.log
@@ -393,7 +393,7 @@ jobs:
           echo "job=vscode-extension result=success" > "${GITHUB_WORKSPACE}/gate-artifacts/vscode-extension.txt"
       - name: Upload gate marker
         if: ${{ success() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gate-vscode-extension
           path: gate-artifacts/vscode-extension.txt
@@ -402,7 +402,7 @@ jobs:
     name: Editor Expansion Smoke
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Validate Neovim/Zed editor setup and core workflow coverage
@@ -414,7 +414,7 @@ jobs:
           echo "job=editor-expansion result=success" > gate-artifacts/editor-expansion.txt
       - name: Upload gate marker
         if: ${{ success() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gate-editor-expansion
           path: gate-artifacts/editor-expansion.txt
@@ -423,7 +423,7 @@ jobs:
     name: MP-001 Parity
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Verify split-test parity and discovery stability
@@ -435,7 +435,7 @@ jobs:
           echo "job=mp001-parity result=success" > gate-artifacts/mp001-parity.txt
       - name: Upload gate marker
         if: ${{ success() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gate-mp001-parity
           path: gate-artifacts/mp001-parity.txt
@@ -447,7 +447,7 @@ jobs:
       contents: read
       actions: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Validate workspace/extension version alignment
@@ -470,7 +470,7 @@ jobs:
           echo "job=version-release-guard result=success" > gate-artifacts/version-release-guard.txt
       - name: Upload gate marker
         if: ${{ success() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gate-version-release-guard
           path: gate-artifacts/version-release-guard.txt
@@ -481,14 +481,14 @@ jobs:
     needs: [fmt, clippy, test, msrv, docs, browser-analysis, vscode-extension, editor-expansion, mp001-parity, version-release-guard]
     if: ${{ always() }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Prepare gate artifact directory
         run: mkdir -p gate-artifacts
 
       - name: Download gate markers
         continue-on-error: true
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: gate-artifacts
           pattern: gate-*
@@ -535,7 +535,7 @@ jobs:
 
       - name: Upload release gate report
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-gate-report
           path: gate-report/
