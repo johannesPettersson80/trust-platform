@@ -9,9 +9,10 @@ use crate::debug::DebugHook;
 use crate::error::RuntimeError;
 use crate::eval::ops::{apply_binary, apply_unary, BinaryOp, UnaryOp};
 use crate::execution_backend::{
-    VmRegisterFallbackReason, VmRegisterHotBlock, VmRegisterLoweringCacheSnapshot,
-    VmRegisterProfileSnapshot, VmTier1SpecializedExecutorDeoptReason,
-    VmTier1SpecializedExecutorSnapshot,
+    VmRegisterCallOpCounters, VmRegisterFallbackReason, VmRegisterHotBlock,
+    VmRegisterLoweringCacheSnapshot, VmRegisterProfileSnapshot, VmRegisterRefOpCounters,
+    VmRegisterValueOpCounters, VmTier1SpecializedExecutorCompileFailureReason,
+    VmTier1SpecializedExecutorDeoptReason, VmTier1SpecializedExecutorSnapshot,
 };
 use crate::memory::InstanceId;
 use crate::value::{size_of_value, Value};
@@ -19,14 +20,14 @@ use crate::value::{size_of_value, Value};
 use super::super::core::Runtime;
 use super::call::{execute_native_call, push_call_frame};
 use super::dispatch_refs::{
-    dynamic_load_ref, dynamic_ref_field, dynamic_ref_index, dynamic_store_ref, index_to_i64,
-    load_ref, load_ref_addr, store_ref,
+    dynamic_ref_field, dynamic_ref_index, dynamic_store_ref, index_to_i64, load_ref_addr,
+    peek_dynamic_ref, peek_ref, store_ref,
 };
 use super::dispatch_sizeof::{sizeof_error_to_runtime, sizeof_type_from_table};
 use super::errors::VmTrap;
 use super::frames::{ensure_global_call_depth, FrameStack};
 use super::stack::OperandStack;
-use super::{invalid_bytecode, opcode_operand_len, VmModule};
+use super::{invalid_bytecode, materialize_borrowed_value, opcode_operand_len, VmModule};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(super) struct RegisterId(u32);
@@ -66,6 +67,9 @@ pub(super) enum RegisterInstr {
         dest: RegisterId,
     },
     LoadSelf {
+        dest: RegisterId,
+    },
+    LoadSuper {
         dest: RegisterId,
     },
     Move {
@@ -282,6 +286,9 @@ pub(in crate::runtime) struct RegisterProfileState {
     register_program_fallbacks: u64,
     fallback_reasons: BTreeMap<String, u64>,
     block_hits: BTreeMap<(u32, u32, u32), u64>,
+    ref_ops: VmRegisterRefOpCounters,
+    call_ops: VmRegisterCallOpCounters,
+    value_ops: VmRegisterValueOpCounters,
 }
 
 impl RegisterProfileState {
@@ -294,6 +301,9 @@ impl RegisterProfileState {
         self.register_program_fallbacks = 0;
         self.fallback_reasons.clear();
         self.block_hits.clear();
+        self.ref_ops = VmRegisterRefOpCounters::default();
+        self.call_ops = VmRegisterCallOpCounters::default();
+        self.value_ops = VmRegisterValueOpCounters::default();
     }
 
     pub(in crate::runtime) fn snapshot(&self) -> VmRegisterProfileSnapshot {
@@ -321,6 +331,9 @@ impl RegisterProfileState {
             register_program_fallbacks: self.register_program_fallbacks,
             fallback_reasons,
             hot_blocks,
+            ref_ops: self.ref_ops.clone(),
+            call_ops: self.call_ops.clone(),
+            value_ops: self.value_ops.clone(),
         }
     }
 
@@ -351,6 +364,85 @@ impl RegisterProfileState {
             .or_insert(0);
         *entry = entry.saturating_add(1);
     }
+
+    pub(super) fn record_ref_op(&mut self, kind: RegisterRefOpKind) {
+        if !self.enabled {
+            return;
+        }
+        let counter = match kind {
+            RegisterRefOpKind::LoadRef => &mut self.ref_ops.load_ref,
+            RegisterRefOpKind::StoreRef => &mut self.ref_ops.store_ref,
+            RegisterRefOpKind::LoadRefAddr => &mut self.ref_ops.load_ref_addr,
+            RegisterRefOpKind::RefField => &mut self.ref_ops.ref_field,
+            RegisterRefOpKind::RefIndex => &mut self.ref_ops.ref_index,
+            RegisterRefOpKind::LoadDynamic => &mut self.ref_ops.load_dynamic,
+            RegisterRefOpKind::StoreDynamic => &mut self.ref_ops.store_dynamic,
+            RegisterRefOpKind::InstanceFieldLookup => &mut self.ref_ops.instance_field_lookups,
+        };
+        *counter = counter.saturating_add(1);
+    }
+
+    pub(super) fn record_call_op(&mut self, kind: RegisterCallOpKind) {
+        if !self.enabled {
+            return;
+        }
+        let counter = match kind {
+            RegisterCallOpKind::FramePush => &mut self.call_ops.frame_pushes,
+            RegisterCallOpKind::FramePop => &mut self.call_ops.frame_pops,
+            RegisterCallOpKind::FunctionBlockCallEntry => {
+                &mut self.call_ops.function_block_call_entries
+            }
+            RegisterCallOpKind::ParameterBinding => &mut self.call_ops.parameter_bindings,
+            RegisterCallOpKind::OutputCopyBack => &mut self.call_ops.output_copy_backs,
+        };
+        *counter = counter.saturating_add(1);
+    }
+
+    pub(super) fn record_value_op(&mut self, kind: RegisterValueOpKind) {
+        if !self.enabled {
+            return;
+        }
+        let counter = match kind {
+            RegisterValueOpKind::ConstLoadClone => &mut self.value_ops.const_load_clones,
+            RegisterValueOpKind::RegisterReadClone => &mut self.value_ops.register_read_clones,
+            RegisterValueOpKind::RegisterReadMove => &mut self.value_ops.register_read_moves,
+            RegisterValueOpKind::ReadValueClone => &mut self.value_ops.read_value_clones,
+            RegisterValueOpKind::BindingExprClone => &mut self.value_ops.binding_expr_clones,
+            RegisterValueOpKind::OutputValueClone => &mut self.value_ops.output_value_clones,
+        };
+        *counter = counter.saturating_add(1);
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum RegisterRefOpKind {
+    LoadRef,
+    StoreRef,
+    LoadRefAddr,
+    RefField,
+    RefIndex,
+    LoadDynamic,
+    StoreDynamic,
+    InstanceFieldLookup,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum RegisterCallOpKind {
+    FramePush,
+    FramePop,
+    FunctionBlockCallEntry,
+    ParameterBinding,
+    OutputCopyBack,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum RegisterValueOpKind {
+    ConstLoadClone,
+    RegisterReadClone,
+    RegisterReadMove,
+    ReadValueClone,
+    BindingExprClone,
+    OutputValueClone,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -530,17 +622,48 @@ enum Tier1CompiledInstr {
     LoadSelf {
         dest: RegisterId,
     },
+    LoadSuper {
+        dest: RegisterId,
+    },
     Move {
         src: RegisterId,
+        dest: RegisterId,
+    },
+    CallNative {
+        kind: u32,
+        symbol_idx: u32,
+        args: Box<[RegisterId]>,
         dest: RegisterId,
     },
     LoadRef {
         dest: RegisterId,
         ref_idx: u32,
     },
+    LoadRefAddr {
+        dest: RegisterId,
+        ref_idx: u32,
+    },
     StoreRef {
         ref_idx: u32,
         src: RegisterId,
+    },
+    RefField {
+        base: RegisterId,
+        field: smol_str::SmolStr,
+        dest: RegisterId,
+    },
+    RefIndex {
+        base: RegisterId,
+        index: RegisterId,
+        dest: RegisterId,
+    },
+    LoadDynamic {
+        reference: RegisterId,
+        dest: RegisterId,
+    },
+    StoreDynamic {
+        reference: RegisterId,
+        value: RegisterId,
     },
     Unary {
         op: UnaryOp,
@@ -596,10 +719,11 @@ pub(in crate::runtime) struct RegisterTier1SpecializedExecutorState {
     cache_capacity: usize,
     block_hits: BTreeMap<Tier1BlockKey, u64>,
     compiled_order: VecDeque<Tier1BlockKey>,
-    compiled_blocks: BTreeMap<Tier1BlockKey, Tier1CompiledBlock>,
+    compiled_blocks: BTreeMap<Tier1BlockKey, Arc<Tier1CompiledBlock>>,
     compile_attempts: u64,
     compile_successes: u64,
     compile_failures: u64,
+    compile_failure_reasons: BTreeMap<String, u64>,
     cache_evictions: u64,
     block_executions: u64,
     deopt_count: u64,
@@ -618,6 +742,7 @@ impl Default for RegisterTier1SpecializedExecutorState {
             compile_attempts: 0,
             compile_successes: 0,
             compile_failures: 0,
+            compile_failure_reasons: BTreeMap::new(),
             cache_evictions: 0,
             block_executions: 0,
             deopt_count: 0,
@@ -651,6 +776,7 @@ impl RegisterTier1SpecializedExecutorState {
         self.compile_attempts = 0;
         self.compile_successes = 0;
         self.compile_failures = 0;
+        self.compile_failure_reasons.clear();
         self.cache_evictions = 0;
         self.block_executions = 0;
         self.deopt_count = 0;
@@ -664,6 +790,16 @@ impl RegisterTier1SpecializedExecutorState {
     }
 
     pub(in crate::runtime) fn snapshot(&self) -> VmTier1SpecializedExecutorSnapshot {
+        let compile_failure_reasons = self
+            .compile_failure_reasons
+            .iter()
+            .map(
+                |(reason, count)| VmTier1SpecializedExecutorCompileFailureReason {
+                    reason: reason.clone(),
+                    count: *count,
+                },
+            )
+            .collect::<Vec<_>>();
         let deopt_reasons = self
             .deopt_reasons
             .iter()
@@ -680,6 +816,7 @@ impl RegisterTier1SpecializedExecutorState {
             compile_attempts: self.compile_attempts,
             compile_successes: self.compile_successes,
             compile_failures: self.compile_failures,
+            compile_failure_reasons,
             cache_evictions: self.cache_evictions,
             block_executions: self.block_executions,
             deopt_count: self.deopt_count,
@@ -701,7 +838,7 @@ impl RegisterTier1SpecializedExecutorState {
         hits >= self.hot_block_threshold && !self.compiled_blocks.contains_key(key)
     }
 
-    fn compiled_block(&self, key: &Tier1BlockKey) -> Option<&Tier1CompiledBlock> {
+    fn compiled_block(&self, key: &Tier1BlockKey) -> Option<&Arc<Tier1CompiledBlock>> {
         self.compiled_blocks.get(key)
     }
 
@@ -713,11 +850,16 @@ impl RegisterTier1SpecializedExecutorState {
         self.compile_successes = self.compile_successes.saturating_add(1);
     }
 
-    fn record_compile_failure(&mut self) {
+    fn record_compile_failure(&mut self, reason: impl Into<String>) {
         self.compile_failures = self.compile_failures.saturating_add(1);
+        let entry = self
+            .compile_failure_reasons
+            .entry(reason.into())
+            .or_insert(0);
+        *entry = entry.saturating_add(1);
     }
 
-    fn insert_compiled_block(&mut self, block: Tier1CompiledBlock) {
+    fn insert_compiled_block(&mut self, block: Arc<Tier1CompiledBlock>) {
         let key = block.key;
         if self.compiled_blocks.contains_key(&key) {
             return;
@@ -1302,6 +1444,11 @@ pub(super) fn lower_pou_to_register_ir(
                     stack.push(dest);
                     instructions.push(RegisterInstr::LoadSelf { dest });
                 }
+                0x24 => {
+                    let dest = alloc_register(&mut next_register);
+                    stack.push(dest);
+                    instructions.push(RegisterInstr::LoadSuper { dest });
+                }
                 0x30 => {
                     let field_idx = operand_u32(instr)?;
                     let base = pop_stack(&mut stack, instr.opcode)?;
@@ -1756,6 +1903,7 @@ pub(super) fn verify_register_program(program: &RegisterProgram) -> Result<(), R
                 | RegisterInstr::LoadRefAddr { dest, .. }
                 | RegisterInstr::LoadNull { dest }
                 | RegisterInstr::LoadSelf { dest }
+                | RegisterInstr::LoadSuper { dest }
                 | RegisterInstr::SizeOfType { dest, .. } => {
                     verify_dest(dest, program.max_registers, &mut defined)?;
                 }
@@ -1850,6 +1998,9 @@ fn execute_register_program(
         entry_instance,
     )
     .map_err(VmTrap::into_runtime_error)?;
+    runtime
+        .vm_register_profile
+        .record_call_op(RegisterCallOpKind::FramePush);
     if let Some(initial_locals) = initial_locals {
         let frame = frames
             .current_mut()
@@ -1913,7 +2064,9 @@ fn execute_register_program(
                 block,
                 &mut frames,
                 registers,
+                native_call_stack,
                 budget,
+                depth_offset,
             )? {
                 Some(outcome) => outcome,
                 None => execute_register_block_interpreted(
@@ -1947,6 +2100,9 @@ fn execute_register_program(
         match outcome {
             RegisterBlockExecutionOutcome::ReturnFromPou => {
                 let finished = frames.pop().map_err(VmTrap::into_runtime_error)?;
+                runtime
+                    .vm_register_profile
+                    .record_call_op(RegisterCallOpKind::FramePop);
                 if frames.is_empty() {
                     return Ok(build_register_pou_result(finished, capture_return));
                 }
@@ -1967,6 +2123,9 @@ fn execute_register_program(
                     BlockTarget::Block(next_block) => current_block = next_block,
                     BlockTarget::Exit => {
                         let finished = frames.pop().map_err(VmTrap::into_runtime_error)?;
+                        runtime
+                            .vm_register_profile
+                            .record_call_op(RegisterCallOpKind::FramePop);
                         return Ok(build_register_pou_result(finished, capture_return));
                     }
                 }
@@ -2002,6 +2161,17 @@ enum Tier1BlockExecutionOutcome {
     Deopt(&'static str),
 }
 
+enum BorrowedBinaryEval {
+    GuardHit(Value),
+    Materialized {
+        left: Value,
+        left_cloned: bool,
+        right: Value,
+        right_cloned: bool,
+    },
+}
+
+#[allow(clippy::too_many_arguments)]
 fn maybe_execute_tier1_block(
     runtime: &mut Runtime,
     module: &VmModule,
@@ -2009,7 +2179,9 @@ fn maybe_execute_tier1_block(
     block: &RegisterBlock,
     frames: &mut FrameStack,
     registers: &mut [Value],
+    native_call_stack: &mut OperandStack,
     budget: &mut usize,
+    depth_offset: u32,
 ) -> Result<Option<RegisterBlockExecutionOutcome>, RuntimeError> {
     if !runtime.vm_tier1_specialized_executor.enabled() {
         return Ok(None);
@@ -2019,7 +2191,7 @@ fn maybe_execute_tier1_block(
     let mut compiled = runtime
         .vm_tier1_specialized_executor
         .compiled_block(&key)
-        .cloned();
+        .map(Arc::clone);
     let hits = runtime.vm_tier1_specialized_executor.track_block_hit(key);
     if compiled.is_none()
         && runtime
@@ -2029,18 +2201,22 @@ fn maybe_execute_tier1_block(
         runtime
             .vm_tier1_specialized_executor
             .record_compile_attempt();
-        if let Some(compiled_block) = compile_tier1_block(module, block, key) {
-            runtime
-                .vm_tier1_specialized_executor
-                .record_compile_success();
-            runtime
-                .vm_tier1_specialized_executor
-                .insert_compiled_block(compiled_block.clone());
-            compiled = Some(compiled_block);
-        } else {
-            runtime
-                .vm_tier1_specialized_executor
-                .record_compile_failure();
+        match compile_tier1_block(module, block, key) {
+            Ok(compiled_block) => {
+                let compiled_block = Arc::new(compiled_block);
+                runtime
+                    .vm_tier1_specialized_executor
+                    .record_compile_success();
+                runtime
+                    .vm_tier1_specialized_executor
+                    .insert_compiled_block(Arc::clone(&compiled_block));
+                compiled = Some(compiled_block);
+            }
+            Err(reason) => {
+                runtime
+                    .vm_tier1_specialized_executor
+                    .record_compile_failure(reason);
+            }
         }
     }
 
@@ -2049,7 +2225,16 @@ fn maybe_execute_tier1_block(
     };
 
     match execute_tier1_compiled_block(
-        runtime, module, program, block, frames, registers, &compiled, budget,
+        runtime,
+        module,
+        program,
+        block,
+        frames,
+        registers,
+        native_call_stack,
+        compiled.as_ref(),
+        budget,
+        depth_offset,
     )? {
         Tier1BlockExecutionOutcome::Executed(outcome) => {
             runtime
@@ -2080,28 +2265,77 @@ fn compile_tier1_block(
     module: &VmModule,
     block: &RegisterBlock,
     key: Tier1BlockKey,
-) -> Option<Tier1CompiledBlock> {
+) -> Result<Tier1CompiledBlock, String> {
     let mut instructions = Vec::with_capacity(block.instructions.len());
     for instruction in &block.instructions {
         let compiled = match instruction {
             RegisterInstr::Nop => Tier1CompiledInstr::Nop,
             RegisterInstr::LoadConst { dest, const_idx } => {
-                let value = module.consts.get(*const_idx as usize)?.clone();
+                let value = module
+                    .consts
+                    .get(*const_idx as usize)
+                    .cloned()
+                    .ok_or_else(|| "invalid_const_idx".to_string())?;
                 Tier1CompiledInstr::LoadConst { dest: *dest, value }
             }
             RegisterInstr::LoadNull { dest } => Tier1CompiledInstr::LoadNull { dest: *dest },
             RegisterInstr::LoadSelf { dest } => Tier1CompiledInstr::LoadSelf { dest: *dest },
+            RegisterInstr::LoadSuper { dest } => Tier1CompiledInstr::LoadSuper { dest: *dest },
             RegisterInstr::Move { src, dest } => Tier1CompiledInstr::Move {
                 src: *src,
+                dest: *dest,
+            },
+            RegisterInstr::CallNative {
+                kind,
+                symbol_idx,
+                args,
+                dest,
+            } => Tier1CompiledInstr::CallNative {
+                kind: *kind,
+                symbol_idx: *symbol_idx,
+                args: args.clone().into_boxed_slice(),
                 dest: *dest,
             },
             RegisterInstr::LoadRef { dest, ref_idx } => Tier1CompiledInstr::LoadRef {
                 dest: *dest,
                 ref_idx: *ref_idx,
             },
+            RegisterInstr::LoadRefAddr { dest, ref_idx } => Tier1CompiledInstr::LoadRefAddr {
+                dest: *dest,
+                ref_idx: *ref_idx,
+            },
             RegisterInstr::StoreRef { ref_idx, src } => Tier1CompiledInstr::StoreRef {
                 ref_idx: *ref_idx,
                 src: *src,
+            },
+            RegisterInstr::RefField {
+                base,
+                field_idx,
+                dest,
+            } => {
+                let field = module
+                    .strings
+                    .get(*field_idx as usize)
+                    .cloned()
+                    .ok_or_else(|| "invalid_string_idx".to_string())?;
+                Tier1CompiledInstr::RefField {
+                    base: *base,
+                    field,
+                    dest: *dest,
+                }
+            }
+            RegisterInstr::RefIndex { base, index, dest } => Tier1CompiledInstr::RefIndex {
+                base: *base,
+                index: *index,
+                dest: *dest,
+            },
+            RegisterInstr::LoadDynamic { reference, dest } => Tier1CompiledInstr::LoadDynamic {
+                reference: *reference,
+                dest: *dest,
+            },
+            RegisterInstr::StoreDynamic { reference, value } => Tier1CompiledInstr::StoreDynamic {
+                reference: *reference,
+                value: *value,
             },
             RegisterInstr::Unary { op, src, dest } => Tier1CompiledInstr::Unary {
                 op: *op,
@@ -2115,7 +2349,7 @@ fn compile_tier1_block(
                 dest,
             } => {
                 if !is_tier1_supported_binary_op(*op) {
-                    return None;
+                    return Err(format!("unsupported_binary_op:{op:?}").to_ascii_lowercase());
                 }
                 Tier1CompiledInstr::BinaryDIntGuard {
                     op: *op,
@@ -2131,7 +2365,7 @@ fn compile_tier1_block(
                 dest_ref_idx,
             } => {
                 if !is_tier1_supported_binary_op(*op) {
-                    return None;
+                    return Err(format!("unsupported_binary_op:{op:?}").to_ascii_lowercase());
                 }
                 Tier1CompiledInstr::BinaryRefToRefDIntGuard {
                     op: *op,
@@ -2147,7 +2381,7 @@ fn compile_tier1_block(
                 dest_ref_idx,
             } => {
                 if !is_tier1_supported_binary_op(*op) {
-                    return None;
+                    return Err(format!("unsupported_binary_op:{op:?}").to_ascii_lowercase());
                 }
                 Tier1CompiledInstr::BinaryRefConstToRefDIntGuard {
                     op: *op,
@@ -2163,7 +2397,7 @@ fn compile_tier1_block(
                 dest_ref_idx,
             } => {
                 if !is_tier1_supported_binary_op(*op) {
-                    return None;
+                    return Err(format!("unsupported_binary_op:{op:?}").to_ascii_lowercase());
                 }
                 Tier1CompiledInstr::BinaryConstRefToRefDIntGuard {
                     op: *op,
@@ -2180,7 +2414,7 @@ fn compile_tier1_block(
                 target,
             } => {
                 if !is_cmp_binary_op(*op) {
-                    return None;
+                    return Err(format!("unsupported_cmp_op:{op:?}").to_ascii_lowercase());
                 }
                 Tier1CompiledInstr::CmpRefConstJumpIfDIntGuard {
                     op: *op,
@@ -2201,20 +2435,22 @@ fn compile_tier1_block(
                 target: *target,
             },
             RegisterInstr::Return => Tier1CompiledInstr::Return,
-            RegisterInstr::LoadRefAddr { .. }
-            | RegisterInstr::CallNative { .. }
-            | RegisterInstr::SizeOfType { .. }
-            | RegisterInstr::SizeOfValue { .. }
-            | RegisterInstr::RefField { .. }
-            | RegisterInstr::RefIndex { .. }
-            | RegisterInstr::LoadDynamic { .. }
-            | RegisterInstr::StoreDynamic { .. }
-            | RegisterInstr::VmFallback { .. } => return None,
+            RegisterInstr::SizeOfType { .. } => {
+                return Err("unsupported_instr:size_of_type".to_string())
+            }
+            RegisterInstr::SizeOfValue { .. } => {
+                return Err("unsupported_instr:size_of_value".to_string())
+            }
+            RegisterInstr::VmFallback { opcode, .. } => {
+                return Err(format!(
+                    "unsupported_instr:vm_fallback_opcode_{opcode:#04x}"
+                ));
+            }
         };
         instructions.push(compiled);
     }
 
-    Some(Tier1CompiledBlock { key, instructions })
+    Ok(Tier1CompiledBlock { key, instructions })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -2225,8 +2461,10 @@ fn execute_tier1_compiled_block(
     source_block: &RegisterBlock,
     frames: &mut FrameStack,
     registers: &mut [Value],
+    native_call_stack: &mut OperandStack,
     block: &Tier1CompiledBlock,
     budget: &mut usize,
+    depth_offset: u32,
 ) -> Result<Tier1BlockExecutionOutcome, RuntimeError> {
     let mut control_target = None;
     for (instruction_index, instruction) in block.instructions.iter().enumerate() {
@@ -2239,7 +2477,13 @@ fn execute_tier1_compiled_block(
         match instruction {
             Tier1CompiledInstr::Nop => {}
             Tier1CompiledInstr::LoadConst { dest, value } => {
-                write_register(registers, *dest, value.clone())?;
+                let (value, cloned) = materialize_borrowed_value(value);
+                if cloned {
+                    runtime
+                        .vm_register_profile
+                        .record_value_op(RegisterValueOpKind::ConstLoadClone);
+                }
+                write_register(registers, *dest, value)?;
             }
             Tier1CompiledInstr::LoadNull { dest } => {
                 write_register(registers, *dest, Value::Null)?;
@@ -2253,18 +2497,159 @@ fn execute_tier1_compiled_block(
                 })?;
                 write_register(registers, *dest, Value::Instance(self_instance))?;
             }
+            Tier1CompiledInstr::LoadSuper { dest } => {
+                let frame = frames
+                    .current()
+                    .ok_or_else(|| VmTrap::CallStackUnderflow.into_runtime_error())?;
+                let self_instance = frame.runtime_instance.ok_or_else(|| {
+                    VmTrap::Runtime(RuntimeError::TypeMismatch).into_runtime_error()
+                })?;
+                let instance = runtime
+                    .storage
+                    .get_instance(self_instance)
+                    .ok_or_else(|| VmTrap::NullReference.into_runtime_error())?;
+                let super_instance = instance.parent.ok_or_else(|| {
+                    VmTrap::Runtime(RuntimeError::TypeMismatch).into_runtime_error()
+                })?;
+                write_register(registers, *dest, Value::Instance(super_instance))?;
+            }
             Tier1CompiledInstr::Move { src, dest } => {
                 let value = read_register(registers, *src)?;
                 write_register(registers, *dest, value)?;
             }
+            Tier1CompiledInstr::CallNative {
+                kind,
+                symbol_idx,
+                args,
+                dest,
+            } => {
+                native_call_stack.clear();
+                for arg in args.iter() {
+                    let value = read_register(registers, *arg)?;
+                    native_call_stack
+                        .push(value)
+                        .map_err(VmTrap::into_runtime_error)?;
+                }
+                let arg_count = u32::try_from(args.len())
+                    .map_err(|_| invalid_bytecode("tier-1 call-native arg_count overflow"))?;
+                let caller_depth =
+                    depth_offset.saturating_add(frames.len().saturating_sub(1) as u32);
+                let frame = frames
+                    .current_mut()
+                    .ok_or_else(|| VmTrap::CallStackUnderflow.into_runtime_error())?;
+                let result = execute_native_call(
+                    runtime,
+                    module,
+                    frame,
+                    native_call_stack,
+                    caller_depth,
+                    budget,
+                    *kind,
+                    *symbol_idx,
+                    arg_count,
+                )
+                .map_err(VmTrap::into_runtime_error)?;
+                write_register(registers, *dest, result)?;
+            }
             Tier1CompiledInstr::LoadRef { dest, ref_idx } => {
-                let value = load_ref(runtime, module, frames, *ref_idx)
-                    .map_err(VmTrap::into_runtime_error)?;
+                runtime
+                    .vm_register_profile
+                    .record_ref_op(RegisterRefOpKind::LoadRef);
+                let value = {
+                    let value = peek_ref(runtime, module, frames, *ref_idx)
+                        .map_err(VmTrap::into_runtime_error)?;
+                    let (value, cloned) = materialize_borrowed_value(value);
+                    if cloned {
+                        runtime
+                            .vm_register_profile
+                            .record_value_op(RegisterValueOpKind::ReadValueClone);
+                    }
+                    value
+                };
                 write_register(registers, *dest, value)?;
             }
+            Tier1CompiledInstr::LoadRefAddr { dest, ref_idx } => {
+                runtime
+                    .vm_register_profile
+                    .record_ref_op(RegisterRefOpKind::LoadRefAddr);
+                let reference =
+                    load_ref_addr(module, frames, *ref_idx).map_err(VmTrap::into_runtime_error)?;
+                write_register(registers, *dest, Value::Reference(Some(reference)))?;
+            }
             Tier1CompiledInstr::StoreRef { ref_idx, src } => {
+                runtime
+                    .vm_register_profile
+                    .record_ref_op(RegisterRefOpKind::StoreRef);
                 let value = read_register(registers, *src)?;
                 store_ref(runtime, module, frames, *ref_idx, value)
+                    .map_err(VmTrap::into_runtime_error)?;
+            }
+            Tier1CompiledInstr::RefField { base, field, dest } => {
+                runtime
+                    .vm_register_profile
+                    .record_ref_op(RegisterRefOpKind::RefField);
+                let next = match read_register_ref(registers, *base)? {
+                    Value::Reference(Some(reference)) => {
+                        dynamic_ref_field(runtime, frames, reference.clone(), field.clone())
+                            .map_err(VmTrap::into_runtime_error)?
+                    }
+                    Value::Reference(None) => {
+                        return Err(VmTrap::NullReference.into_runtime_error());
+                    }
+                    Value::Instance(instance_id) => {
+                        runtime
+                            .vm_register_profile
+                            .record_ref_op(RegisterRefOpKind::InstanceFieldLookup);
+                        runtime
+                            .storage
+                            .ref_for_instance_recursive(*instance_id, field.as_str())
+                            .ok_or_else(|| {
+                                VmTrap::Runtime(RuntimeError::UndefinedField(field.clone()))
+                                    .into_runtime_error()
+                            })?
+                    }
+                    _ => {
+                        return Err(VmTrap::Runtime(RuntimeError::TypeMismatch).into_runtime_error())
+                    }
+                };
+                write_register(registers, *dest, Value::Reference(Some(next)))?;
+            }
+            Tier1CompiledInstr::RefIndex { base, index, dest } => {
+                runtime
+                    .vm_register_profile
+                    .record_ref_op(RegisterRefOpKind::RefIndex);
+                let index = index_to_i64(read_register(registers, *index)?)
+                    .map_err(VmTrap::into_runtime_error)?;
+                let reference = read_reference_register(registers, *base)?;
+                let next = dynamic_ref_index(runtime, frames, reference, index)
+                    .map_err(VmTrap::into_runtime_error)?;
+                write_register(registers, *dest, Value::Reference(Some(next)))?;
+            }
+            Tier1CompiledInstr::LoadDynamic { reference, dest } => {
+                runtime
+                    .vm_register_profile
+                    .record_ref_op(RegisterRefOpKind::LoadDynamic);
+                let reference = read_reference_register(registers, *reference)?;
+                let value = {
+                    let value = peek_dynamic_ref(runtime, frames, &reference)
+                        .map_err(VmTrap::into_runtime_error)?;
+                    let (value, cloned) = materialize_borrowed_value(value);
+                    if cloned {
+                        runtime
+                            .vm_register_profile
+                            .record_value_op(RegisterValueOpKind::ReadValueClone);
+                    }
+                    value
+                };
+                write_register(registers, *dest, value)?;
+            }
+            Tier1CompiledInstr::StoreDynamic { reference, value } => {
+                runtime
+                    .vm_register_profile
+                    .record_ref_op(RegisterRefOpKind::StoreDynamic);
+                let reference = read_reference_register(registers, *reference)?;
+                let value = read_register(registers, *value)?;
+                dynamic_store_ref(runtime, frames, &reference, value)
                     .map_err(VmTrap::into_runtime_error)?;
             }
             Tier1CompiledInstr::Unary { op, src, dest } => {
@@ -2280,9 +2665,12 @@ fn execute_tier1_compiled_block(
             } => {
                 let left = read_register(registers, *left)?;
                 let right = read_register(registers, *right)?;
-                let Some(result) = apply_dint_binary_guard(*op, left, right)? else {
-                    return Ok(Tier1BlockExecutionOutcome::Deopt("binary_non_dint_guard"));
-                };
+                let result =
+                    if let Some(result) = apply_dint_binary_guard_borrowed(*op, &left, &right)? {
+                        result
+                    } else {
+                        apply_binary(*op, left, right, &runtime.profile)?
+                    };
                 write_register(registers, *dest, result)?;
             }
             Tier1CompiledInstr::BinaryRefToRefDIntGuard {
@@ -2291,12 +2679,33 @@ fn execute_tier1_compiled_block(
                 right_ref_idx,
                 dest_ref_idx,
             } => {
-                let left = load_ref(runtime, module, frames, *left_ref_idx)
-                    .map_err(VmTrap::into_runtime_error)?;
-                let right = load_ref(runtime, module, frames, *right_ref_idx)
-                    .map_err(VmTrap::into_runtime_error)?;
-                let Some(result) = apply_dint_binary_guard(*op, left, right)? else {
-                    return Ok(Tier1BlockExecutionOutcome::Deopt("binary_non_dint_guard"));
+                let eval = {
+                    let left = peek_ref(runtime, module, frames, *left_ref_idx)
+                        .map_err(VmTrap::into_runtime_error)?;
+                    let right = peek_ref(runtime, module, frames, *right_ref_idx)
+                        .map_err(VmTrap::into_runtime_error)?;
+                    prepare_borrowed_binary_eval(*op, left, right)?
+                };
+                let result = match eval {
+                    BorrowedBinaryEval::GuardHit(result) => result,
+                    BorrowedBinaryEval::Materialized {
+                        left,
+                        left_cloned,
+                        right,
+                        right_cloned,
+                    } => {
+                        if left_cloned {
+                            runtime
+                                .vm_register_profile
+                                .record_value_op(RegisterValueOpKind::ReadValueClone);
+                        }
+                        if right_cloned {
+                            runtime
+                                .vm_register_profile
+                                .record_value_op(RegisterValueOpKind::ReadValueClone);
+                        }
+                        apply_binary(*op, left, right, &runtime.profile)?
+                    }
                 };
                 store_ref(runtime, module, frames, *dest_ref_idx, result)
                     .map_err(VmTrap::into_runtime_error)?;
@@ -2307,16 +2716,36 @@ fn execute_tier1_compiled_block(
                 const_idx,
                 dest_ref_idx,
             } => {
-                let left = load_ref(runtime, module, frames, *left_ref_idx)
-                    .map_err(VmTrap::into_runtime_error)?;
-                let right = module
-                    .consts
-                    .get(*const_idx as usize)
-                    .cloned()
-                    .ok_or(VmTrap::InvalidConstIndex(*const_idx))
-                    .map_err(VmTrap::into_runtime_error)?;
-                let Some(result) = apply_dint_binary_guard(*op, left, right)? else {
-                    return Ok(Tier1BlockExecutionOutcome::Deopt("binary_non_dint_guard"));
+                let eval = {
+                    let left = peek_ref(runtime, module, frames, *left_ref_idx)
+                        .map_err(VmTrap::into_runtime_error)?;
+                    let right = module
+                        .consts
+                        .get(*const_idx as usize)
+                        .ok_or(VmTrap::InvalidConstIndex(*const_idx))
+                        .map_err(VmTrap::into_runtime_error)?;
+                    prepare_borrowed_binary_eval(*op, left, right)?
+                };
+                let result = match eval {
+                    BorrowedBinaryEval::GuardHit(result) => result,
+                    BorrowedBinaryEval::Materialized {
+                        left,
+                        left_cloned,
+                        right,
+                        right_cloned,
+                    } => {
+                        if left_cloned {
+                            runtime
+                                .vm_register_profile
+                                .record_value_op(RegisterValueOpKind::ReadValueClone);
+                        }
+                        if right_cloned {
+                            runtime
+                                .vm_register_profile
+                                .record_value_op(RegisterValueOpKind::ConstLoadClone);
+                        }
+                        apply_binary(*op, left, right, &runtime.profile)?
+                    }
                 };
                 store_ref(runtime, module, frames, *dest_ref_idx, result)
                     .map_err(VmTrap::into_runtime_error)?;
@@ -2327,16 +2756,36 @@ fn execute_tier1_compiled_block(
                 right_ref_idx,
                 dest_ref_idx,
             } => {
-                let left = module
-                    .consts
-                    .get(*const_idx as usize)
-                    .cloned()
-                    .ok_or(VmTrap::InvalidConstIndex(*const_idx))
-                    .map_err(VmTrap::into_runtime_error)?;
-                let right = load_ref(runtime, module, frames, *right_ref_idx)
-                    .map_err(VmTrap::into_runtime_error)?;
-                let Some(result) = apply_dint_binary_guard(*op, left, right)? else {
-                    return Ok(Tier1BlockExecutionOutcome::Deopt("binary_non_dint_guard"));
+                let eval = {
+                    let left = module
+                        .consts
+                        .get(*const_idx as usize)
+                        .ok_or(VmTrap::InvalidConstIndex(*const_idx))
+                        .map_err(VmTrap::into_runtime_error)?;
+                    let right = peek_ref(runtime, module, frames, *right_ref_idx)
+                        .map_err(VmTrap::into_runtime_error)?;
+                    prepare_borrowed_binary_eval(*op, left, right)?
+                };
+                let result = match eval {
+                    BorrowedBinaryEval::GuardHit(result) => result,
+                    BorrowedBinaryEval::Materialized {
+                        left,
+                        left_cloned,
+                        right,
+                        right_cloned,
+                    } => {
+                        if left_cloned {
+                            runtime
+                                .vm_register_profile
+                                .record_value_op(RegisterValueOpKind::ConstLoadClone);
+                        }
+                        if right_cloned {
+                            runtime
+                                .vm_register_profile
+                                .record_value_op(RegisterValueOpKind::ReadValueClone);
+                        }
+                        apply_binary(*op, left, right, &runtime.profile)?
+                    }
                 };
                 store_ref(runtime, module, frames, *dest_ref_idx, result)
                     .map_err(VmTrap::into_runtime_error)?;
@@ -2348,20 +2797,40 @@ fn execute_tier1_compiled_block(
                 jump_if_true,
                 target,
             } => {
-                let left = load_ref(runtime, module, frames, *ref_idx)
-                    .map_err(VmTrap::into_runtime_error)?;
-                let right = module
-                    .consts
-                    .get(*const_idx as usize)
-                    .cloned()
-                    .ok_or(VmTrap::InvalidConstIndex(*const_idx))
-                    .map_err(VmTrap::into_runtime_error)?;
-                let Some(result) = apply_dint_binary_guard(*op, left, right)? else {
-                    return Ok(Tier1BlockExecutionOutcome::Deopt("binary_non_dint_guard"));
+                let eval = {
+                    let left = peek_ref(runtime, module, frames, *ref_idx)
+                        .map_err(VmTrap::into_runtime_error)?;
+                    let right = module
+                        .consts
+                        .get(*const_idx as usize)
+                        .ok_or(VmTrap::InvalidConstIndex(*const_idx))
+                        .map_err(VmTrap::into_runtime_error)?;
+                    prepare_borrowed_binary_eval(*op, left, right)?
+                };
+                let result = match eval {
+                    BorrowedBinaryEval::GuardHit(result) => result,
+                    BorrowedBinaryEval::Materialized {
+                        left,
+                        left_cloned,
+                        right,
+                        right_cloned,
+                    } => {
+                        if left_cloned {
+                            runtime
+                                .vm_register_profile
+                                .record_value_op(RegisterValueOpKind::ReadValueClone);
+                        }
+                        if right_cloned {
+                            runtime
+                                .vm_register_profile
+                                .record_value_op(RegisterValueOpKind::ConstLoadClone);
+                        }
+                        apply_binary(*op, left, right, &runtime.profile)?
+                    }
                 };
                 let condition = match result {
                     Value::Bool(value) => value,
-                    _ => return Ok(Tier1BlockExecutionOutcome::Deopt("binary_non_dint_guard")),
+                    _ => return Err(VmTrap::ConditionNotBool.into_runtime_error()),
                 };
                 if condition == *jump_if_true {
                     consume_loop_budget_for_block_target(program, source_block, *target, budget)?;
@@ -2398,13 +2867,13 @@ fn execute_tier1_compiled_block(
     ))
 }
 
-fn apply_dint_binary_guard(
+fn apply_dint_binary_guard_borrowed(
     op: BinaryOp,
-    left: Value,
-    right: Value,
+    left: &Value,
+    right: &Value,
 ) -> Result<Option<Value>, RuntimeError> {
     let (left, right) = match (left, right) {
-        (Value::DInt(left), Value::DInt(right)) => (left, right),
+        (Value::DInt(left), Value::DInt(right)) => (*left, *right),
         _ => return Ok(None),
     };
 
@@ -2435,6 +2904,33 @@ fn apply_dint_binary_guard(
     Ok(Some(value))
 }
 
+fn prepare_borrowed_binary_eval(
+    op: BinaryOp,
+    left: &Value,
+    right: &Value,
+) -> Result<BorrowedBinaryEval, RuntimeError> {
+    if let Some(result) = apply_dint_binary_guard_borrowed(op, left, right)? {
+        return Ok(BorrowedBinaryEval::GuardHit(result));
+    }
+
+    let (left, left_cloned) = materialize_borrowed_value(left);
+    let (right, right_cloned) = materialize_borrowed_value(right);
+    Ok(BorrowedBinaryEval::Materialized {
+        left,
+        left_cloned,
+        right,
+        right_cloned,
+    })
+}
+
+fn apply_dint_binary_guard(
+    op: BinaryOp,
+    left: Value,
+    right: Value,
+) -> Result<Option<Value>, RuntimeError> {
+    apply_dint_binary_guard_borrowed(op, &left, &right)
+}
+
 fn is_tier1_supported_binary_op(op: BinaryOp) -> bool {
     matches!(
         op,
@@ -2443,6 +2939,10 @@ fn is_tier1_supported_binary_op(op: BinaryOp) -> bool {
             | BinaryOp::Mul
             | BinaryOp::Div
             | BinaryOp::Mod
+            | BinaryOp::Pow
+            | BinaryOp::And
+            | BinaryOp::Or
+            | BinaryOp::Xor
             | BinaryOp::Eq
             | BinaryOp::Ne
             | BinaryOp::Lt
@@ -2479,7 +2979,15 @@ fn execute_register_block_interpreted(
                 let value = module
                     .consts
                     .get(*const_idx as usize)
-                    .cloned()
+                    .map(|value| {
+                        let (value, cloned) = materialize_borrowed_value(value);
+                        if cloned {
+                            runtime
+                                .vm_register_profile
+                                .record_value_op(RegisterValueOpKind::ConstLoadClone);
+                        }
+                        value
+                    })
                     .ok_or(VmTrap::InvalidConstIndex(*const_idx))
                     .map_err(VmTrap::into_runtime_error)?;
                 write_register(registers, *dest, value)?;
@@ -2496,22 +3004,66 @@ fn execute_register_block_interpreted(
                 })?;
                 write_register(registers, *dest, Value::Instance(self_instance))?;
             }
+            RegisterInstr::LoadSuper { dest } => {
+                let frame = frames
+                    .current()
+                    .ok_or_else(|| VmTrap::CallStackUnderflow.into_runtime_error())?;
+                let self_instance = frame.runtime_instance.ok_or_else(|| {
+                    VmTrap::Runtime(RuntimeError::TypeMismatch).into_runtime_error()
+                })?;
+                let instance = runtime
+                    .storage
+                    .get_instance(self_instance)
+                    .ok_or_else(|| VmTrap::NullReference.into_runtime_error())?;
+                let super_instance = instance.parent.ok_or_else(|| {
+                    VmTrap::Runtime(RuntimeError::TypeMismatch).into_runtime_error()
+                })?;
+                write_register(registers, *dest, Value::Instance(super_instance))?;
+            }
             RegisterInstr::Move { src, dest } => {
-                let value = read_register_with_counts(registers, remaining_register_reads, *src)?;
+                let value = read_register_with_counts(
+                    &mut runtime.vm_register_profile,
+                    registers,
+                    remaining_register_reads,
+                    *src,
+                )?;
                 write_register(registers, *dest, value)?;
             }
             RegisterInstr::LoadRef { dest, ref_idx } => {
-                let value = load_ref(runtime, module, frames, *ref_idx)
-                    .map_err(VmTrap::into_runtime_error)?;
+                runtime
+                    .vm_register_profile
+                    .record_ref_op(RegisterRefOpKind::LoadRef);
+                let value = {
+                    let value = peek_ref(runtime, module, frames, *ref_idx)
+                        .map_err(VmTrap::into_runtime_error)?;
+                    let (value, cloned) = materialize_borrowed_value(value);
+                    if cloned {
+                        runtime
+                            .vm_register_profile
+                            .record_value_op(RegisterValueOpKind::ReadValueClone);
+                    }
+                    value
+                };
                 write_register(registers, *dest, value)?;
             }
             RegisterInstr::LoadRefAddr { dest, ref_idx } => {
+                runtime
+                    .vm_register_profile
+                    .record_ref_op(RegisterRefOpKind::LoadRefAddr);
                 let reference =
                     load_ref_addr(module, frames, *ref_idx).map_err(VmTrap::into_runtime_error)?;
                 write_register(registers, *dest, Value::Reference(Some(reference)))?;
             }
             RegisterInstr::StoreRef { ref_idx, src } => {
-                let value = read_register_with_counts(registers, remaining_register_reads, *src)?;
+                runtime
+                    .vm_register_profile
+                    .record_ref_op(RegisterRefOpKind::StoreRef);
+                let value = read_register_with_counts(
+                    &mut runtime.vm_register_profile,
+                    registers,
+                    remaining_register_reads,
+                    *src,
+                )?;
                 store_ref(runtime, module, frames, *ref_idx, value)
                     .map_err(VmTrap::into_runtime_error)?;
             }
@@ -2523,8 +3075,12 @@ fn execute_register_block_interpreted(
             } => {
                 native_call_stack.clear();
                 for arg in args {
-                    let value =
-                        read_register_with_counts(registers, remaining_register_reads, *arg)?;
+                    let value = read_register_with_counts(
+                        &mut runtime.vm_register_profile,
+                        registers,
+                        remaining_register_reads,
+                        *arg,
+                    )?;
                     native_call_stack
                         .push(value)
                         .map_err(VmTrap::into_runtime_error)?;
@@ -2558,7 +3114,12 @@ fn execute_register_block_interpreted(
                 write_register(registers, *dest, Value::DInt(size))?;
             }
             RegisterInstr::SizeOfValue { src, dest } => {
-                let value = read_register_with_counts(registers, remaining_register_reads, *src)?;
+                let value = read_register_with_counts(
+                    &mut runtime.vm_register_profile,
+                    registers,
+                    remaining_register_reads,
+                    *src,
+                )?;
                 let size = size_of_value(runtime.registry(), &value)
                     .map_err(sizeof_error_to_runtime)
                     .map_err(|err| VmTrap::Runtime(err).into_runtime_error())?;
@@ -2571,6 +3132,9 @@ fn execute_register_block_interpreted(
                 field_idx,
                 dest,
             } => {
+                runtime
+                    .vm_register_profile
+                    .record_ref_op(RegisterRefOpKind::RefField);
                 let field = module
                     .strings
                     .get(*field_idx as usize)
@@ -2581,8 +3145,12 @@ fn execute_register_block_interpreted(
                         )
                         .into_runtime_error()
                     })?;
-                let base_value =
-                    read_register_with_counts(registers, remaining_register_reads, *base)?;
+                let base_value = read_register_with_counts(
+                    &mut runtime.vm_register_profile,
+                    registers,
+                    remaining_register_reads,
+                    *base,
+                )?;
                 let next = match base_value {
                     Value::Reference(Some(reference)) => {
                         dynamic_ref_field(runtime, frames, reference, field.clone())
@@ -2591,13 +3159,18 @@ fn execute_register_block_interpreted(
                     Value::Reference(None) => {
                         return Err(VmTrap::NullReference.into_runtime_error());
                     }
-                    Value::Instance(instance_id) => runtime
-                        .storage
-                        .ref_for_instance_recursive(instance_id, field.as_str())
-                        .ok_or_else(|| {
-                            VmTrap::Runtime(RuntimeError::UndefinedField(field))
-                                .into_runtime_error()
-                        })?,
+                    Value::Instance(instance_id) => {
+                        runtime
+                            .vm_register_profile
+                            .record_ref_op(RegisterRefOpKind::InstanceFieldLookup);
+                        runtime
+                            .storage
+                            .ref_for_instance_recursive(instance_id, field.as_str())
+                            .ok_or_else(|| {
+                                VmTrap::Runtime(RuntimeError::UndefinedField(field))
+                                    .into_runtime_error()
+                            })?
+                    }
                     _ => {
                         return Err(VmTrap::Runtime(RuntimeError::TypeMismatch).into_runtime_error())
                     }
@@ -2605,10 +3178,18 @@ fn execute_register_block_interpreted(
                 write_register(registers, *dest, Value::Reference(Some(next)))?;
             }
             RegisterInstr::RefIndex { base, index, dest } => {
-                let index_value =
-                    read_register_with_counts(registers, remaining_register_reads, *index)?;
+                runtime
+                    .vm_register_profile
+                    .record_ref_op(RegisterRefOpKind::RefIndex);
+                let index_value = read_register_with_counts(
+                    &mut runtime.vm_register_profile,
+                    registers,
+                    remaining_register_reads,
+                    *index,
+                )?;
                 let index = index_to_i64(index_value).map_err(VmTrap::into_runtime_error)?;
                 let reference = read_reference_register_with_counts(
+                    &mut runtime.vm_register_profile,
                     registers,
                     remaining_register_reads,
                     *base,
@@ -2618,27 +3199,54 @@ fn execute_register_block_interpreted(
                 write_register(registers, *dest, Value::Reference(Some(next)))?;
             }
             RegisterInstr::LoadDynamic { reference, dest } => {
+                runtime
+                    .vm_register_profile
+                    .record_ref_op(RegisterRefOpKind::LoadDynamic);
                 let reference = read_reference_register_with_counts(
+                    &mut runtime.vm_register_profile,
                     registers,
                     remaining_register_reads,
                     *reference,
                 )?;
-                let value = dynamic_load_ref(runtime, frames, &reference)
-                    .map_err(VmTrap::into_runtime_error)?;
+                let value = {
+                    let value = peek_dynamic_ref(runtime, frames, &reference)
+                        .map_err(VmTrap::into_runtime_error)?;
+                    let (value, cloned) = materialize_borrowed_value(value);
+                    if cloned {
+                        runtime
+                            .vm_register_profile
+                            .record_value_op(RegisterValueOpKind::ReadValueClone);
+                    }
+                    value
+                };
                 write_register(registers, *dest, value)?;
             }
             RegisterInstr::StoreDynamic { reference, value } => {
+                runtime
+                    .vm_register_profile
+                    .record_ref_op(RegisterRefOpKind::StoreDynamic);
                 let reference = read_reference_register_with_counts(
+                    &mut runtime.vm_register_profile,
                     registers,
                     remaining_register_reads,
                     *reference,
                 )?;
-                let value = read_register_with_counts(registers, remaining_register_reads, *value)?;
+                let value = read_register_with_counts(
+                    &mut runtime.vm_register_profile,
+                    registers,
+                    remaining_register_reads,
+                    *value,
+                )?;
                 dynamic_store_ref(runtime, frames, &reference, value)
                     .map_err(VmTrap::into_runtime_error)?;
             }
             RegisterInstr::Unary { op, src, dest } => {
-                let source = read_register_with_counts(registers, remaining_register_reads, *src)?;
+                let source = read_register_with_counts(
+                    &mut runtime.vm_register_profile,
+                    registers,
+                    remaining_register_reads,
+                    *src,
+                )?;
                 let result = apply_unary(*op, source)?;
                 write_register(registers, *dest, result)?;
             }
@@ -2648,8 +3256,18 @@ fn execute_register_block_interpreted(
                 right,
                 dest,
             } => {
-                let left = read_register_with_counts(registers, remaining_register_reads, *left)?;
-                let right = read_register_with_counts(registers, remaining_register_reads, *right)?;
+                let left = read_register_with_counts(
+                    &mut runtime.vm_register_profile,
+                    registers,
+                    remaining_register_reads,
+                    *left,
+                )?;
+                let right = read_register_with_counts(
+                    &mut runtime.vm_register_profile,
+                    registers,
+                    remaining_register_reads,
+                    *right,
+                )?;
                 let result = apply_binary(*op, left, right, &runtime.profile)?;
                 write_register(registers, *dest, result)?;
             }
@@ -2659,11 +3277,34 @@ fn execute_register_block_interpreted(
                 right_ref_idx,
                 dest_ref_idx,
             } => {
-                let left = load_ref(runtime, module, frames, *left_ref_idx)
-                    .map_err(VmTrap::into_runtime_error)?;
-                let right = load_ref(runtime, module, frames, *right_ref_idx)
-                    .map_err(VmTrap::into_runtime_error)?;
-                let result = apply_binary(*op, left, right, &runtime.profile)?;
+                let eval = {
+                    let left = peek_ref(runtime, module, frames, *left_ref_idx)
+                        .map_err(VmTrap::into_runtime_error)?;
+                    let right = peek_ref(runtime, module, frames, *right_ref_idx)
+                        .map_err(VmTrap::into_runtime_error)?;
+                    prepare_borrowed_binary_eval(*op, left, right)?
+                };
+                let result = match eval {
+                    BorrowedBinaryEval::GuardHit(result) => result,
+                    BorrowedBinaryEval::Materialized {
+                        left,
+                        left_cloned,
+                        right,
+                        right_cloned,
+                    } => {
+                        if left_cloned {
+                            runtime
+                                .vm_register_profile
+                                .record_value_op(RegisterValueOpKind::ReadValueClone);
+                        }
+                        if right_cloned {
+                            runtime
+                                .vm_register_profile
+                                .record_value_op(RegisterValueOpKind::ReadValueClone);
+                        }
+                        apply_binary(*op, left, right, &runtime.profile)?
+                    }
+                };
                 store_ref(runtime, module, frames, *dest_ref_idx, result)
                     .map_err(VmTrap::into_runtime_error)?;
             }
@@ -2673,15 +3314,37 @@ fn execute_register_block_interpreted(
                 const_idx,
                 dest_ref_idx,
             } => {
-                let left = load_ref(runtime, module, frames, *left_ref_idx)
-                    .map_err(VmTrap::into_runtime_error)?;
-                let right = module
-                    .consts
-                    .get(*const_idx as usize)
-                    .cloned()
-                    .ok_or(VmTrap::InvalidConstIndex(*const_idx))
-                    .map_err(VmTrap::into_runtime_error)?;
-                let result = apply_binary(*op, left, right, &runtime.profile)?;
+                let eval = {
+                    let left = peek_ref(runtime, module, frames, *left_ref_idx)
+                        .map_err(VmTrap::into_runtime_error)?;
+                    let right = module
+                        .consts
+                        .get(*const_idx as usize)
+                        .ok_or(VmTrap::InvalidConstIndex(*const_idx))
+                        .map_err(VmTrap::into_runtime_error)?;
+                    prepare_borrowed_binary_eval(*op, left, right)?
+                };
+                let result = match eval {
+                    BorrowedBinaryEval::GuardHit(result) => result,
+                    BorrowedBinaryEval::Materialized {
+                        left,
+                        left_cloned,
+                        right,
+                        right_cloned,
+                    } => {
+                        if left_cloned {
+                            runtime
+                                .vm_register_profile
+                                .record_value_op(RegisterValueOpKind::ReadValueClone);
+                        }
+                        if right_cloned {
+                            runtime
+                                .vm_register_profile
+                                .record_value_op(RegisterValueOpKind::ConstLoadClone);
+                        }
+                        apply_binary(*op, left, right, &runtime.profile)?
+                    }
+                };
                 store_ref(runtime, module, frames, *dest_ref_idx, result)
                     .map_err(VmTrap::into_runtime_error)?;
             }
@@ -2691,15 +3354,37 @@ fn execute_register_block_interpreted(
                 right_ref_idx,
                 dest_ref_idx,
             } => {
-                let left = module
-                    .consts
-                    .get(*const_idx as usize)
-                    .cloned()
-                    .ok_or(VmTrap::InvalidConstIndex(*const_idx))
-                    .map_err(VmTrap::into_runtime_error)?;
-                let right = load_ref(runtime, module, frames, *right_ref_idx)
-                    .map_err(VmTrap::into_runtime_error)?;
-                let result = apply_binary(*op, left, right, &runtime.profile)?;
+                let eval = {
+                    let left = module
+                        .consts
+                        .get(*const_idx as usize)
+                        .ok_or(VmTrap::InvalidConstIndex(*const_idx))
+                        .map_err(VmTrap::into_runtime_error)?;
+                    let right = peek_ref(runtime, module, frames, *right_ref_idx)
+                        .map_err(VmTrap::into_runtime_error)?;
+                    prepare_borrowed_binary_eval(*op, left, right)?
+                };
+                let result = match eval {
+                    BorrowedBinaryEval::GuardHit(result) => result,
+                    BorrowedBinaryEval::Materialized {
+                        left,
+                        left_cloned,
+                        right,
+                        right_cloned,
+                    } => {
+                        if left_cloned {
+                            runtime
+                                .vm_register_profile
+                                .record_value_op(RegisterValueOpKind::ConstLoadClone);
+                        }
+                        if right_cloned {
+                            runtime
+                                .vm_register_profile
+                                .record_value_op(RegisterValueOpKind::ReadValueClone);
+                        }
+                        apply_binary(*op, left, right, &runtime.profile)?
+                    }
+                };
                 store_ref(runtime, module, frames, *dest_ref_idx, result)
                     .map_err(VmTrap::into_runtime_error)?;
             }
@@ -2710,15 +3395,37 @@ fn execute_register_block_interpreted(
                 jump_if_true,
                 target,
             } => {
-                let left = load_ref(runtime, module, frames, *ref_idx)
-                    .map_err(VmTrap::into_runtime_error)?;
-                let right = module
-                    .consts
-                    .get(*const_idx as usize)
-                    .cloned()
-                    .ok_or(VmTrap::InvalidConstIndex(*const_idx))
-                    .map_err(VmTrap::into_runtime_error)?;
-                let result = apply_binary(*op, left, right, &runtime.profile)?;
+                let eval = {
+                    let left = peek_ref(runtime, module, frames, *ref_idx)
+                        .map_err(VmTrap::into_runtime_error)?;
+                    let right = module
+                        .consts
+                        .get(*const_idx as usize)
+                        .ok_or(VmTrap::InvalidConstIndex(*const_idx))
+                        .map_err(VmTrap::into_runtime_error)?;
+                    prepare_borrowed_binary_eval(*op, left, right)?
+                };
+                let result = match eval {
+                    BorrowedBinaryEval::GuardHit(result) => result,
+                    BorrowedBinaryEval::Materialized {
+                        left,
+                        left_cloned,
+                        right,
+                        right_cloned,
+                    } => {
+                        if left_cloned {
+                            runtime
+                                .vm_register_profile
+                                .record_value_op(RegisterValueOpKind::ReadValueClone);
+                        }
+                        if right_cloned {
+                            runtime
+                                .vm_register_profile
+                                .record_value_op(RegisterValueOpKind::ConstLoadClone);
+                        }
+                        apply_binary(*op, left, right, &runtime.profile)?
+                    }
+                };
                 let condition = match result {
                     Value::Bool(value) => value,
                     _ => return Err(VmTrap::ConditionNotBool.into_runtime_error()),
@@ -2739,8 +3446,12 @@ fn execute_register_block_interpreted(
                 jump_if_true,
                 target,
             } => {
-                let condition =
-                    read_bool_register_with_counts(registers, remaining_register_reads, *cond)?;
+                let condition = read_bool_register_with_counts(
+                    &mut runtime.vm_register_profile,
+                    registers,
+                    remaining_register_reads,
+                    *cond,
+                )?;
                 if condition == *jump_if_true {
                     consume_loop_budget_for_block_target(program, block, *target, budget)?;
                     control_target = Some(*target);
@@ -2827,6 +3538,7 @@ fn register_read_counts_for_block(max_registers: u32, block: &RegisterBlock) -> 
             | RegisterInstr::LoadRefAddr { .. }
             | RegisterInstr::LoadNull { .. }
             | RegisterInstr::LoadSelf { .. }
+            | RegisterInstr::LoadSuper { .. }
             | RegisterInstr::SizeOfType { .. }
             | RegisterInstr::BinaryRefToRef { .. }
             | RegisterInstr::BinaryRefConstToRef { .. }
@@ -2852,6 +3564,7 @@ fn increment_register_read_count(counts: &mut [u32], register: RegisterId) {
 }
 
 fn read_register_with_counts(
+    profile: &mut RegisterProfileState,
     registers: &mut [Value],
     remaining_register_reads: &mut [u32],
     register: RegisterId,
@@ -2880,29 +3593,33 @@ fn read_register_with_counts(
         ))
     })?;
     if consume {
+        profile.record_value_op(RegisterValueOpKind::RegisterReadMove);
         Ok(std::mem::replace(slot, Value::Null))
     } else {
+        profile.record_value_op(RegisterValueOpKind::RegisterReadClone);
         Ok(slot.clone())
     }
 }
 
 fn read_bool_register_with_counts(
+    profile: &mut RegisterProfileState,
     registers: &mut [Value],
     remaining_register_reads: &mut [u32],
     register: RegisterId,
 ) -> Result<bool, RuntimeError> {
-    match read_register_with_counts(registers, remaining_register_reads, register)? {
+    match read_register_with_counts(profile, registers, remaining_register_reads, register)? {
         Value::Bool(value) => Ok(value),
         _ => Err(VmTrap::ConditionNotBool.into_runtime_error()),
     }
 }
 
 fn read_reference_register_with_counts(
+    profile: &mut RegisterProfileState,
     registers: &mut [Value],
     remaining_register_reads: &mut [u32],
     register: RegisterId,
 ) -> Result<crate::value::ValueRef, RuntimeError> {
-    match read_register_with_counts(registers, remaining_register_reads, register)? {
+    match read_register_with_counts(profile, registers, remaining_register_reads, register)? {
         Value::Reference(Some(reference)) => Ok(reference),
         Value::Reference(None) => Err(VmTrap::NullReference.into_runtime_error()),
         _ => Err(VmTrap::Runtime(RuntimeError::TypeMismatch).into_runtime_error()),
@@ -3370,9 +4087,10 @@ mod tests {
 
     use super::super::{VmPouEntry, VmRef};
     use super::{
-        invalid_bytecode, lower_pou_to_register_ir, try_execute_pou_with_register_ir,
-        try_execute_pou_with_register_ir_with_locals, verify_register_program, BlockTarget,
-        RegisterExecutionOutcome, RegisterId, RegisterInstr, RegisterProgram, VmModule,
+        invalid_bytecode, lower_pou_to_register_ir, read_register_with_counts,
+        try_execute_pou_with_register_ir, try_execute_pou_with_register_ir_with_locals,
+        verify_register_program, BlockTarget, RegisterExecutionOutcome, RegisterId, RegisterInstr,
+        RegisterProfileState, RegisterProgram, VmModule,
     };
 
     fn vm_module_and_main_pou(source: &str) -> (VmModule, u32) {
@@ -3729,6 +4447,11 @@ mod tests {
                     RegisterInstr::LoadSelf { .. } => {
                         return Err(invalid_bytecode(
                             "parity register executor does not support LOAD_SELF",
+                        ));
+                    }
+                    RegisterInstr::LoadSuper { .. } => {
+                        return Err(invalid_bytecode(
+                            "parity register executor does not support LOAD_SUPER",
                         ));
                     }
                     RegisterInstr::Move { src, dest } => {
@@ -4514,6 +5237,289 @@ mod tests {
     }
 
     #[test]
+    fn register_executor_profile_records_dynamic_ref_and_instance_lookup_counters() {
+        let mut code = Vec::new();
+        code.push(0x22);
+        emit_u32(&mut code, 0);
+        code.push(0x30);
+        emit_u32(&mut code, 0);
+        code.push(0x32);
+        code.push(0x21);
+        emit_u32(&mut code, 1);
+        code.push(0x22);
+        emit_u32(&mut code, 0);
+        code.push(0x30);
+        emit_u32(&mut code, 0);
+        code.push(0x10);
+        emit_u32(&mut code, 0);
+        code.push(0x33);
+        code.push(0x23);
+        code.push(0x30);
+        emit_u32(&mut code, 1);
+        code.push(0x32);
+        code.push(0x21);
+        emit_u32(&mut code, 2);
+        code.push(0x23);
+        code.push(0x30);
+        emit_u32(&mut code, 1);
+        code.push(0x10);
+        emit_u32(&mut code, 1);
+        code.push(0x33);
+        code.push(0x06);
+
+        let pou_id = 1_u32;
+        let mut pou_by_id = HashMap::new();
+        pou_by_id.insert(
+            pou_id,
+            VmPouEntry {
+                name: SmolStr::new("MAIN"),
+                code_start: 0,
+                code_end: code.len(),
+                local_ref_start: 0,
+                local_ref_count: 0,
+                primary_instance_owner: None,
+            },
+        );
+        let mut program_ids = HashMap::new();
+        program_ids.insert(SmolStr::new("MAIN"), pou_id);
+        let refs = vec![
+            VmRef::Global {
+                offset: 0,
+                path: Vec::new(),
+            },
+            VmRef::Global {
+                offset: 1,
+                path: Vec::new(),
+            },
+            VmRef::Global {
+                offset: 2,
+                path: Vec::new(),
+            },
+        ];
+        let module = VmModule {
+            code,
+            strings: vec![SmolStr::new("VALUE"), SmolStr::new("ACC")],
+            types: TypeTable::default(),
+            refs,
+            consts: vec![Value::DInt(11), Value::DInt(13)],
+            pou_by_id,
+            program_ids,
+            function_ids: HashMap::new(),
+            function_block_ids: HashMap::new(),
+            class_ids: HashMap::new(),
+            native_symbol_specs: Vec::new(),
+            pou_params: HashMap::new(),
+            pou_has_return_slot: HashSet::new(),
+            method_table_by_owner: HashMap::new(),
+            debug_map: super::super::debug_map::VmDebugMap::default(),
+            instruction_budget: super::super::DEFAULT_INSTRUCTION_BUDGET,
+        };
+
+        let mut runtime = Runtime::new();
+        runtime.storage_mut().set_global(
+            "g0",
+            Value::Struct(std::sync::Arc::new(StructValue {
+                type_name: SmolStr::new("CELL_T"),
+                fields: IndexMap::from([(SmolStr::new("VALUE"), Value::DInt(7))]),
+            })),
+        );
+        runtime.storage_mut().set_global("g1", Value::DInt(0));
+        runtime.storage_mut().set_global("g2", Value::DInt(0));
+        let instance_id = runtime.storage_mut().create_instance("COUNTER");
+        assert!(runtime
+            .storage_mut()
+            .set_instance_var(instance_id, "ACC", Value::DInt(9)));
+        runtime.set_vm_register_profile_enabled(true);
+        runtime.reset_vm_register_profile();
+
+        let outcome =
+            try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, Some(instance_id))
+                .expect("execute register program");
+        assert_eq!(outcome, RegisterExecutionOutcome::Executed);
+        assert_eq!(runtime.storage().get_global("g1"), Some(&Value::DInt(7)));
+        assert_eq!(runtime.storage().get_global("g2"), Some(&Value::DInt(9)));
+        assert_eq!(
+            runtime.storage().get_global("g0"),
+            Some(&Value::Struct(std::sync::Arc::new(StructValue {
+                type_name: SmolStr::new("CELL_T"),
+                fields: IndexMap::from([(SmolStr::new("VALUE"), Value::DInt(11))]),
+            })))
+        );
+        assert_eq!(
+            runtime.storage().get_instance_var(instance_id, "ACC"),
+            Some(&Value::DInt(13))
+        );
+
+        let profile = runtime.vm_register_profile_snapshot();
+        assert_eq!(profile.register_program_fallbacks, 0);
+        assert_eq!(profile.ref_ops.load_ref, 0);
+        assert_eq!(profile.ref_ops.store_ref, 2);
+        assert_eq!(profile.ref_ops.load_ref_addr, 2);
+        assert_eq!(profile.ref_ops.ref_field, 4);
+        assert_eq!(profile.ref_ops.ref_index, 0);
+        assert_eq!(profile.ref_ops.load_dynamic, 2);
+        assert_eq!(profile.ref_ops.store_dynamic, 2);
+        assert_eq!(profile.ref_ops.instance_field_lookups, 2);
+        assert_eq!(profile.value_ops.read_value_clones, 0);
+    }
+
+    #[test]
+    fn register_executor_profile_records_function_block_call_counters() {
+        let source = r#"
+            FUNCTION_BLOCK Counter
+            VAR_INPUT
+                inc : BOOL;
+            END_VAR
+            VAR_OUTPUT
+                value : INT;
+            END_VAR
+
+            IF inc THEN
+                value := value + INT#1;
+            END_IF;
+            END_FUNCTION_BLOCK
+
+            PROGRAM Main
+            VAR
+                fb : Counter;
+                out_count : INT := INT#0;
+            END_VAR
+            fb(inc := TRUE, value => out_count);
+            END_PROGRAM
+        "#;
+
+        let mut harness = TestHarness::from_source(source).expect("create harness");
+        harness
+            .runtime_mut()
+            .set_execution_backend(ExecutionBackend::BytecodeVm)
+            .expect("set backend");
+        harness
+            .runtime_mut()
+            .restart(RestartMode::Cold)
+            .expect("restart");
+        harness.runtime_mut().set_vm_register_profile_enabled(true);
+        harness.runtime_mut().reset_vm_register_profile();
+
+        let result = harness.cycle();
+        assert!(
+            result.errors.is_empty(),
+            "cycle errors: {:?}",
+            result.errors
+        );
+        assert_eq!(harness.get_output("out_count"), Some(Value::Int(1)));
+
+        let profile = harness.runtime().vm_register_profile_snapshot();
+        assert_eq!(profile.register_program_fallbacks, 0);
+        assert_eq!(profile.call_ops.function_block_call_entries, 1);
+        assert_eq!(profile.call_ops.parameter_bindings, 2);
+        assert_eq!(profile.call_ops.output_copy_backs, 1);
+        assert!(profile.call_ops.frame_pushes >= 2);
+        assert!(profile.call_ops.frame_pops >= 2);
+        assert_eq!(profile.value_ops.binding_expr_clones, 0);
+        assert_eq!(profile.value_ops.output_value_clones, 0);
+    }
+
+    #[test]
+    fn register_executor_profile_avoids_clone_counters_for_struct_inout_function_block() {
+        let source = r#"
+            TYPE AXIS_REF :
+            STRUCT
+                AxisId : UDINT;
+                InternalIndex : UINT;
+            END_STRUCT
+            END_TYPE
+
+            FUNCTION_BLOCK TouchAxis
+            VAR_IN_OUT
+                Axis : AXIS_REF;
+            END_VAR
+            VAR_OUTPUT
+                Done : BOOL;
+            END_VAR
+
+            Axis.InternalIndex := Axis.InternalIndex + UINT#1;
+            Done := TRUE;
+            END_FUNCTION_BLOCK
+
+            PROGRAM Main
+            VAR
+                Axis : AXIS_REF;
+                Fb : TouchAxis;
+            END_VAR
+
+            Axis.AxisId := UDINT#1;
+            Axis.InternalIndex := UINT#1;
+            Fb(Axis := Axis);
+            END_PROGRAM
+        "#;
+
+        let mut harness = TestHarness::from_source(source).expect("create harness");
+        harness
+            .runtime_mut()
+            .set_execution_backend(ExecutionBackend::BytecodeVm)
+            .expect("set backend");
+        harness
+            .runtime_mut()
+            .restart(RestartMode::Cold)
+            .expect("restart");
+        harness.runtime_mut().set_vm_register_profile_enabled(true);
+        harness.runtime_mut().reset_vm_register_profile();
+
+        let result = harness.cycle();
+        assert!(
+            result.errors.is_empty(),
+            "cycle errors: {:?}",
+            result.errors
+        );
+
+        let profile = harness.runtime().vm_register_profile_snapshot();
+        assert_eq!(profile.register_program_fallbacks, 0);
+        assert!(profile.call_ops.function_block_call_entries >= 1);
+        assert!(profile.call_ops.parameter_bindings >= 1);
+        assert!(profile.call_ops.output_copy_backs >= 1);
+        assert_eq!(
+            profile.value_ops.read_value_clones, 0,
+            "profile: {:?}",
+            profile.value_ops
+        );
+        assert_eq!(
+            profile.value_ops.output_value_clones, 0,
+            "profile: {:?}",
+            profile.value_ops
+        );
+    }
+
+    #[test]
+    fn read_register_with_counts_records_clone_then_move_reads() {
+        let mut profile = RegisterProfileState::default();
+        profile.set_enabled(true);
+        let mut registers = vec![Value::DInt(7)];
+        let mut remaining = vec![2_u32];
+
+        let first = read_register_with_counts(
+            &mut profile,
+            registers.as_mut_slice(),
+            remaining.as_mut_slice(),
+            RegisterId(0),
+        )
+        .expect("first read");
+        let second = read_register_with_counts(
+            &mut profile,
+            registers.as_mut_slice(),
+            remaining.as_mut_slice(),
+            RegisterId(0),
+        )
+        .expect("second read");
+
+        assert_eq!(first, Value::DInt(7));
+        assert_eq!(second, Value::DInt(7));
+        assert_eq!(registers[0], Value::Null);
+        let snapshot = profile.snapshot();
+        assert_eq!(snapshot.value_ops.register_read_clones, 1);
+        assert_eq!(snapshot.value_ops.register_read_moves, 1);
+    }
+
+    #[test]
     fn register_executor_falls_back_when_lowering_contains_unsupported_opcode() {
         let mut code = Vec::new();
         code.push(0x07);
@@ -4525,6 +5531,157 @@ mod tests {
         let outcome = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
             .expect("fallback decision");
         assert_eq!(outcome, RegisterExecutionOutcome::FallbackToStack);
+    }
+
+    #[test]
+    fn register_executor_profile_records_ref_op_counters_for_load_ref_store_ref_program() {
+        let mut code = Vec::new();
+        code.push(0x20);
+        emit_u32(&mut code, 0);
+        code.push(0x21);
+        emit_u32(&mut code, 1);
+        code.push(0x06);
+        let (module, pou_id) = manual_vm_module(code, Vec::new(), 2);
+
+        let mut runtime = Runtime::new();
+        runtime.storage_mut().set_global("g0", Value::DInt(41));
+        runtime.storage_mut().set_global("g1", Value::DInt(0));
+        runtime.set_vm_register_profile_enabled(true);
+        runtime.reset_vm_register_profile();
+
+        let outcome = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
+            .expect("execute register program");
+        assert_eq!(outcome, RegisterExecutionOutcome::Executed);
+        assert_eq!(runtime.storage().get_global("g1"), Some(&Value::DInt(41)));
+
+        let profile = runtime.vm_register_profile_snapshot();
+        assert_eq!(profile.register_program_fallbacks, 0);
+        assert_eq!(profile.ref_ops.load_ref, 1);
+        assert_eq!(profile.ref_ops.store_ref, 1);
+        assert_eq!(profile.ref_ops.load_ref_addr, 0);
+        assert_eq!(profile.ref_ops.ref_field, 0);
+        assert_eq!(profile.ref_ops.ref_index, 0);
+        assert_eq!(profile.ref_ops.load_dynamic, 0);
+        assert_eq!(profile.ref_ops.store_dynamic, 0);
+        assert_eq!(profile.ref_ops.instance_field_lookups, 0);
+        assert_eq!(profile.value_ops.read_value_clones, 0);
+        assert_eq!(profile.value_ops.register_read_moves, 1);
+        assert_eq!(profile.value_ops.register_read_clones, 0);
+    }
+
+    #[test]
+    fn register_executor_profile_avoids_clone_counter_for_scalar_load_const() {
+        let mut code = Vec::new();
+        code.push(0x10);
+        emit_u32(&mut code, 0);
+        code.push(0x21);
+        emit_u32(&mut code, 0);
+        code.push(0x06);
+        let (module, pou_id) = manual_vm_module(code, vec![Value::DInt(41)], 1);
+
+        let mut runtime = Runtime::new();
+        runtime.storage_mut().set_global("g0", Value::DInt(0));
+        runtime.set_vm_register_profile_enabled(true);
+        runtime.reset_vm_register_profile();
+
+        let outcome = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
+            .expect("execute register program");
+        assert_eq!(outcome, RegisterExecutionOutcome::Executed);
+        assert_eq!(runtime.storage().get_global("g0"), Some(&Value::DInt(41)));
+
+        let profile = runtime.vm_register_profile_snapshot();
+        assert_eq!(profile.register_program_fallbacks, 0);
+        assert_eq!(profile.value_ops.const_load_clones, 0);
+    }
+
+    #[test]
+    fn register_executor_profile_avoids_clone_counters_for_borrowed_ref_const_binary_guard() {
+        let mut code = Vec::new();
+        code.push(0x20);
+        emit_u32(&mut code, 0);
+        code.push(0x10);
+        emit_u32(&mut code, 0);
+        code.push(0x40);
+        code.push(0x21);
+        emit_u32(&mut code, 1);
+        code.push(0x06);
+        let (module, pou_id) = manual_vm_module(code, vec![Value::DInt(1)], 2);
+
+        let mut runtime = Runtime::new();
+        runtime.storage_mut().set_global("g0", Value::DInt(41));
+        runtime.storage_mut().set_global("g1", Value::DInt(0));
+        runtime.set_vm_register_profile_enabled(true);
+        runtime.reset_vm_register_profile();
+
+        let outcome = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
+            .expect("execute register program");
+        assert_eq!(outcome, RegisterExecutionOutcome::Executed);
+        assert_eq!(runtime.storage().get_global("g1"), Some(&Value::DInt(42)));
+
+        let profile = runtime.vm_register_profile_snapshot();
+        assert_eq!(profile.register_program_fallbacks, 0);
+        assert_eq!(profile.value_ops.read_value_clones, 0);
+        assert_eq!(profile.value_ops.const_load_clones, 0);
+    }
+
+    #[test]
+    fn register_executor_profile_avoids_clone_counters_for_borrowed_ref_ref_non_dint_binary() {
+        let mut code = Vec::new();
+        code.push(0x20);
+        emit_u32(&mut code, 0);
+        code.push(0x20);
+        emit_u32(&mut code, 1);
+        code.push(0x47);
+        code.push(0x21);
+        emit_u32(&mut code, 2);
+        code.push(0x06);
+        let (module, pou_id) = manual_vm_module(code, Vec::new(), 3);
+
+        let mut runtime = Runtime::new();
+        runtime.storage_mut().set_global("g0", Value::Bool(false));
+        runtime.storage_mut().set_global("g1", Value::Bool(true));
+        runtime.storage_mut().set_global("g2", Value::Bool(false));
+        runtime.set_vm_register_profile_enabled(true);
+        runtime.reset_vm_register_profile();
+
+        let outcome = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
+            .expect("execute register program");
+        assert_eq!(outcome, RegisterExecutionOutcome::Executed);
+        assert_eq!(runtime.storage().get_global("g2"), Some(&Value::Bool(true)));
+
+        let profile = runtime.vm_register_profile_snapshot();
+        assert_eq!(profile.register_program_fallbacks, 0);
+        assert_eq!(profile.value_ops.read_value_clones, 0);
+    }
+
+    #[test]
+    fn register_executor_profile_avoids_clone_counters_for_borrowed_ref_const_non_dint_binary() {
+        let mut code = Vec::new();
+        code.push(0x20);
+        emit_u32(&mut code, 0);
+        code.push(0x10);
+        emit_u32(&mut code, 0);
+        code.push(0x47);
+        code.push(0x21);
+        emit_u32(&mut code, 1);
+        code.push(0x06);
+        let (module, pou_id) = manual_vm_module(code, vec![Value::Bool(true)], 2);
+
+        let mut runtime = Runtime::new();
+        runtime.storage_mut().set_global("g0", Value::Bool(false));
+        runtime.storage_mut().set_global("g1", Value::Bool(false));
+        runtime.set_vm_register_profile_enabled(true);
+        runtime.reset_vm_register_profile();
+
+        let outcome = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
+            .expect("execute register program");
+        assert_eq!(outcome, RegisterExecutionOutcome::Executed);
+        assert_eq!(runtime.storage().get_global("g1"), Some(&Value::Bool(true)));
+
+        let profile = runtime.vm_register_profile_snapshot();
+        assert_eq!(profile.register_program_fallbacks, 0);
+        assert_eq!(profile.value_ops.read_value_clones, 0);
+        assert_eq!(profile.value_ops.const_load_clones, 0);
     }
 
     #[test]
@@ -4591,6 +5748,184 @@ mod tests {
     }
 
     #[test]
+    fn tier1_compiler_accepts_function_block_self_field_dynamic_ops() {
+        let source = r#"
+            FUNCTION_BLOCK Counter
+            VAR_OUTPUT
+                Value : DINT;
+            END_VAR
+
+            Value := Value + DINT#1;
+            END_FUNCTION_BLOCK
+
+            PROGRAM Main
+            VAR
+                fb : Counter;
+            END_VAR
+
+            fb();
+            END_PROGRAM
+        "#;
+
+        let bytecode = bytecode_module_from_source(source).expect("compile bytecode");
+        let vm_module = VmModule::from_bytecode(&bytecode).expect("decode vm module");
+        let fb_pou_id = vm_module
+            .function_block_ids
+            .get(&SmolStr::new("COUNTER"))
+            .copied()
+            .expect("counter pou id");
+        let lowered = lower_pou_to_register_ir(&vm_module, fb_pou_id).expect("lower register ir");
+        verify_register_program(&lowered).expect("verify register ir");
+        let block = lowered
+            .blocks
+            .iter()
+            .find(|block| {
+                block
+                    .instructions
+                    .iter()
+                    .any(|instruction| matches!(instruction, RegisterInstr::RefField { .. }))
+                    && block
+                        .instructions
+                        .iter()
+                        .any(|instruction| matches!(instruction, RegisterInstr::LoadDynamic { .. }))
+                    && block.instructions.iter().any(|instruction| {
+                        matches!(instruction, RegisterInstr::StoreDynamic { .. })
+                    })
+            })
+            .expect("function block ref/dynamic block");
+        let key = super::tier1_block_key(&vm_module, fb_pou_id, block);
+        assert!(
+            super::compile_tier1_block(&vm_module, block, key).is_ok(),
+            "expected tier-1 compiler to accept self-field dynamic block: {:?}",
+            block.instructions
+        );
+    }
+
+    #[test]
+    fn tier1_compiler_accepts_function_block_index_dynamic_ops() {
+        let source = r#"
+            FUNCTION_BLOCK CounterArray
+            VAR_OUTPUT
+                Data : ARRAY[1..2] OF DINT;
+            END_VAR
+
+            Data[1] := Data[1] + DINT#1;
+            END_FUNCTION_BLOCK
+
+            PROGRAM Main
+            VAR
+                fb : CounterArray;
+            END_VAR
+
+            fb();
+            END_PROGRAM
+        "#;
+
+        let bytecode = bytecode_module_from_source(source).expect("compile bytecode");
+        let vm_module = VmModule::from_bytecode(&bytecode).expect("decode vm module");
+        let fb_pou_id = vm_module
+            .function_block_ids
+            .get(&SmolStr::new("COUNTERARRAY"))
+            .copied()
+            .expect("counterarray pou id");
+        let lowered = lower_pou_to_register_ir(&vm_module, fb_pou_id).expect("lower register ir");
+        verify_register_program(&lowered).expect("verify register ir");
+        let block = lowered
+            .blocks
+            .iter()
+            .find(|block| {
+                block
+                    .instructions
+                    .iter()
+                    .any(|instruction| matches!(instruction, RegisterInstr::RefIndex { .. }))
+                    && block
+                        .instructions
+                        .iter()
+                        .any(|instruction| matches!(instruction, RegisterInstr::LoadDynamic { .. }))
+                    && block.instructions.iter().any(|instruction| {
+                        matches!(instruction, RegisterInstr::StoreDynamic { .. })
+                    })
+            })
+            .expect("function block ref-index/dynamic block");
+        let key = super::tier1_block_key(&vm_module, fb_pou_id, block);
+        assert!(
+            super::compile_tier1_block(&vm_module, block, key).is_ok(),
+            "expected tier-1 compiler to accept index dynamic block: {:?}",
+            block.instructions
+        );
+    }
+
+    #[test]
+    fn register_executor_tier1_specialized_executor_executes_array_ref_blocks() {
+        let source = r#"
+            VAR_GLOBAL
+                g_value : DINT;
+            END_VAR
+
+            FUNCTION_BLOCK CounterArray
+            VAR_OUTPUT
+                Data : ARRAY[1..2] OF DINT;
+            END_VAR
+
+            Data[1] := Data[1] + DINT#1;
+            END_FUNCTION_BLOCK
+
+            PROGRAM Main
+            VAR
+                fb : CounterArray;
+            END_VAR
+
+            fb();
+            g_value := fb.Data[1];
+            END_PROGRAM
+        "#;
+
+        let mut harness = TestHarness::from_source(source).expect("create harness");
+        harness
+            .runtime_mut()
+            .set_execution_backend(ExecutionBackend::BytecodeVm)
+            .expect("set backend");
+        harness
+            .runtime_mut()
+            .restart(RestartMode::Cold)
+            .expect("restart");
+        harness
+            .runtime_mut()
+            .vm_tier1_specialized_executor
+            .set_enabled(true);
+        harness
+            .runtime_mut()
+            .vm_tier1_specialized_executor
+            .hot_block_threshold = 1;
+        harness.runtime_mut().reset_vm_tier1_specialized_executor();
+        harness
+            .runtime_mut()
+            .vm_tier1_specialized_executor
+            .hot_block_threshold = 1;
+
+        for cycle in 0..3 {
+            let result = harness.cycle();
+            assert!(
+                result.errors.is_empty(),
+                "cycle {} errors: {:?}",
+                cycle + 1,
+                result.errors
+            );
+        }
+
+        assert_eq!(harness.get_output("g_value"), Some(Value::DInt(3)));
+        let snapshot = harness.runtime().vm_tier1_specialized_executor_snapshot();
+        assert!(
+            snapshot.compile_successes >= 1,
+            "expected at least one compiled tier-1 block, snapshot={snapshot:?}"
+        );
+        assert!(
+            snapshot.block_executions >= 1,
+            "expected at least one executed compiled tier-1 block, snapshot={snapshot:?}"
+        );
+    }
+
+    #[test]
     fn register_executor_runs_program_with_complex_local_fields_without_fallback() {
         let pou_id = 1_u32;
         let code = vec![
@@ -4646,11 +5981,11 @@ mod tests {
             debug_map: super::super::debug_map::VmDebugMap::default(),
             instruction_budget: super::super::DEFAULT_INSTRUCTION_BUDGET,
         };
-        let initial_outer = Value::Struct(Box::new(StructValue {
+        let initial_outer = Value::Struct(std::sync::Arc::new(StructValue {
             type_name: SmolStr::new("OUTER_T"),
             fields: IndexMap::from([(
                 SmolStr::new("INNER"),
-                Value::Struct(Box::new(StructValue {
+                Value::Struct(std::sync::Arc::new(StructValue {
                     type_name: SmolStr::new("INNER_T"),
                     fields: IndexMap::from([(SmolStr::new("VALUE"), Value::DInt(0))]),
                 })),
@@ -4802,8 +6137,476 @@ mod tests {
     }
 
     #[test]
-    fn register_executor_tier1_specialized_executor_deopts_to_interpreted_block_for_non_dint_binary(
+    fn tier1_compiler_accepts_load_ref_addr_dynamic_block() {
+        let mut code = Vec::new();
+        code.push(0x22);
+        emit_u32(&mut code, 0);
+        code.push(0x32);
+        code.push(0x21);
+        emit_u32(&mut code, 1);
+        code.push(0x06);
+        let (module, pou_id) = manual_vm_module(code, Vec::new(), 2);
+
+        let lowered = lower_pou_to_register_ir(&module, pou_id).expect("lower register ir");
+        verify_register_program(&lowered).expect("verify register ir");
+        let block = lowered
+            .blocks
+            .iter()
+            .find(|block| {
+                block
+                    .instructions
+                    .iter()
+                    .any(|instruction| matches!(instruction, RegisterInstr::LoadRefAddr { .. }))
+                    && block
+                        .instructions
+                        .iter()
+                        .any(|instruction| matches!(instruction, RegisterInstr::LoadDynamic { .. }))
+            })
+            .expect("load-ref-addr block");
+        let key = super::tier1_block_key(&module, pou_id, block);
+        assert!(
+            super::compile_tier1_block(&module, block, key).is_ok(),
+            "expected tier-1 compiler to accept LoadRefAddr block: {:?}",
+            block.instructions
+        );
+    }
+
+    #[test]
+    fn register_executor_tier1_specialized_executor_executes_load_ref_addr_block() {
+        let mut code = Vec::new();
+        code.push(0x22);
+        emit_u32(&mut code, 0);
+        code.push(0x32);
+        code.push(0x21);
+        emit_u32(&mut code, 1);
+        code.push(0x06);
+        let (module, pou_id) = manual_vm_module(code, Vec::new(), 2);
+
+        let mut runtime = Runtime::new();
+        runtime.storage_mut().set_global("g0", Value::DInt(41));
+        runtime.storage_mut().set_global("g1", Value::DInt(0));
+        runtime.set_vm_tier1_specialized_executor_enabled(true);
+        runtime.reset_vm_tier1_specialized_executor();
+        runtime.vm_tier1_specialized_executor.hot_block_threshold = 1;
+
+        let outcome = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
+            .expect("execute register program");
+        assert_eq!(outcome, RegisterExecutionOutcome::Executed);
+        assert_eq!(runtime.storage().get_global("g1"), Some(&Value::DInt(41)));
+
+        let snapshot = runtime.vm_tier1_specialized_executor_snapshot();
+        assert!(snapshot.compile_successes >= 1, "snapshot={snapshot:?}");
+        assert!(snapshot.block_executions >= 1, "snapshot={snapshot:?}");
+        assert_eq!(snapshot.compile_failures, 0, "snapshot={snapshot:?}");
+    }
+
+    #[test]
+    fn tier1_compiler_accepts_load_super_dynamic_block() {
+        let mut code = Vec::new();
+        code.push(0x24);
+        code.push(0x30);
+        emit_u32(&mut code, 0);
+        code.push(0x32);
+        code.push(0x21);
+        emit_u32(&mut code, 0);
+        code.push(0x06);
+
+        let pou_id = 1_u32;
+        let mut pou_by_id = HashMap::new();
+        pou_by_id.insert(
+            pou_id,
+            VmPouEntry {
+                name: SmolStr::new("MAIN"),
+                code_start: 0,
+                code_end: code.len(),
+                local_ref_start: 0,
+                local_ref_count: 0,
+                primary_instance_owner: None,
+            },
+        );
+        let mut program_ids = HashMap::new();
+        program_ids.insert(SmolStr::new("MAIN"), pou_id);
+        let module = VmModule {
+            code,
+            strings: vec![SmolStr::new("COUNT")],
+            types: TypeTable::default(),
+            refs: vec![VmRef::Global {
+                offset: 0,
+                path: Vec::new(),
+            }],
+            consts: Vec::new(),
+            pou_by_id,
+            program_ids,
+            function_ids: HashMap::new(),
+            function_block_ids: HashMap::new(),
+            class_ids: HashMap::new(),
+            native_symbol_specs: Vec::new(),
+            pou_params: HashMap::new(),
+            pou_has_return_slot: HashSet::new(),
+            method_table_by_owner: HashMap::new(),
+            debug_map: super::super::debug_map::VmDebugMap::default(),
+            instruction_budget: super::super::DEFAULT_INSTRUCTION_BUDGET,
+        };
+
+        let lowered = lower_pou_to_register_ir(&module, pou_id).expect("lower register ir");
+        verify_register_program(&lowered).expect("verify register ir");
+        let block = lowered
+            .blocks
+            .iter()
+            .find(|block| {
+                block
+                    .instructions
+                    .iter()
+                    .any(|instruction| matches!(instruction, RegisterInstr::LoadSuper { .. }))
+                    && block
+                        .instructions
+                        .iter()
+                        .any(|instruction| matches!(instruction, RegisterInstr::LoadDynamic { .. }))
+            })
+            .expect("load-super block");
+        let key = super::tier1_block_key(&module, pou_id, block);
+        assert!(
+            super::compile_tier1_block(&module, block, key).is_ok(),
+            "expected tier-1 compiler to accept LoadSuper block: {:?}",
+            block.instructions
+        );
+    }
+
+    #[test]
+    fn register_executor_tier1_specialized_executor_executes_load_super_block() {
+        let mut code = Vec::new();
+        code.push(0x24);
+        code.push(0x30);
+        emit_u32(&mut code, 0);
+        code.push(0x32);
+        code.push(0x21);
+        emit_u32(&mut code, 0);
+        code.push(0x06);
+
+        let pou_id = 1_u32;
+        let mut pou_by_id = HashMap::new();
+        pou_by_id.insert(
+            pou_id,
+            VmPouEntry {
+                name: SmolStr::new("MAIN"),
+                code_start: 0,
+                code_end: code.len(),
+                local_ref_start: 0,
+                local_ref_count: 0,
+                primary_instance_owner: None,
+            },
+        );
+        let mut program_ids = HashMap::new();
+        program_ids.insert(SmolStr::new("MAIN"), pou_id);
+        let module = VmModule {
+            code,
+            strings: vec![SmolStr::new("COUNT")],
+            types: TypeTable::default(),
+            refs: vec![VmRef::Global {
+                offset: 0,
+                path: Vec::new(),
+            }],
+            consts: Vec::new(),
+            pou_by_id,
+            program_ids,
+            function_ids: HashMap::new(),
+            function_block_ids: HashMap::new(),
+            class_ids: HashMap::new(),
+            native_symbol_specs: Vec::new(),
+            pou_params: HashMap::new(),
+            pou_has_return_slot: HashSet::new(),
+            method_table_by_owner: HashMap::new(),
+            debug_map: super::super::debug_map::VmDebugMap::default(),
+            instruction_budget: super::super::DEFAULT_INSTRUCTION_BUDGET,
+        };
+
+        let mut runtime = Runtime::new();
+        runtime.storage_mut().set_global("g0", Value::DInt(0));
+        let base = runtime.storage_mut().create_instance("BASE");
+        let derived = runtime.storage_mut().create_instance("DERIVED");
+        runtime
+            .storage_mut()
+            .get_instance_mut(derived)
+            .expect("derived instance")
+            .parent = Some(base);
+        assert!(runtime
+            .storage_mut()
+            .set_instance_var(base, "COUNT", Value::DInt(10)));
+        runtime.set_vm_tier1_specialized_executor_enabled(true);
+        runtime.reset_vm_tier1_specialized_executor();
+        runtime.vm_tier1_specialized_executor.hot_block_threshold = 1;
+        runtime.set_vm_register_profile_enabled(true);
+        runtime.reset_vm_register_profile();
+
+        let outcome =
+            try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, Some(derived))
+                .expect("execute register program");
+        assert_eq!(outcome, RegisterExecutionOutcome::Executed);
+        assert_eq!(runtime.storage().get_global("g0"), Some(&Value::DInt(10)));
+
+        let tier1 = runtime.vm_tier1_specialized_executor_snapshot();
+        assert!(tier1.compile_successes >= 1, "snapshot={tier1:?}");
+        assert!(tier1.block_executions >= 1, "snapshot={tier1:?}");
+        assert_eq!(tier1.compile_failures, 0, "snapshot={tier1:?}");
+        assert_eq!(tier1.deopt_count, 0, "snapshot={tier1:?}");
+
+        let profile = runtime.vm_register_profile_snapshot();
+        assert_eq!(profile.register_program_fallbacks, 0, "profile={profile:?}");
+        assert_eq!(profile.ref_ops.load_dynamic, 1, "profile={profile:?}");
+        assert_eq!(
+            profile.ref_ops.instance_field_lookups, 1,
+            "profile={profile:?}"
+        );
+    }
+
+    #[test]
+    fn register_executor_tier1_specialized_executor_executes_bool_or_without_deopt() {
+        let mut code = Vec::new();
+        code.push(0x20);
+        emit_u32(&mut code, 0);
+        code.push(0x10);
+        emit_u32(&mut code, 0);
+        code.push(0x47);
+        code.push(0x21);
+        emit_u32(&mut code, 0);
+        code.push(0x06);
+        let (module, pou_id) = manual_vm_module(code, vec![Value::Bool(true)], 1);
+
+        let mut runtime = Runtime::new();
+        runtime.storage_mut().set_global("g0", Value::Bool(false));
+        runtime.set_vm_tier1_specialized_executor_enabled(true);
+        runtime.reset_vm_tier1_specialized_executor();
+        runtime.vm_tier1_specialized_executor.hot_block_threshold = 1;
+        runtime.set_vm_register_profile_enabled(true);
+        runtime.reset_vm_register_profile();
+
+        let outcome = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
+            .expect("execute register program");
+        assert_eq!(outcome, RegisterExecutionOutcome::Executed);
+        assert_eq!(runtime.storage().get_global("g0"), Some(&Value::Bool(true)));
+
+        let snapshot = runtime.vm_tier1_specialized_executor_snapshot();
+        assert!(snapshot.compile_successes >= 1, "snapshot={snapshot:?}");
+        assert!(snapshot.block_executions >= 1, "snapshot={snapshot:?}");
+        assert_eq!(snapshot.deopt_count, 0, "snapshot={snapshot:?}");
+        let profile = runtime.vm_register_profile_snapshot();
+        assert_eq!(
+            profile.value_ops.read_value_clones, 0,
+            "profile={profile:?}"
+        );
+        assert_eq!(
+            profile.value_ops.const_load_clones, 0,
+            "profile={profile:?}"
+        );
+    }
+
+    #[test]
+    fn tier1_compiler_accepts_call_native_function_blocks() {
+        let source = r#"
+            VAR_GLOBAL
+                g_value : DINT;
+            END_VAR
+
+            FUNCTION_BLOCK Counter
+            VAR_OUTPUT
+                Value : DINT;
+            END_VAR
+
+            Value := Value + DINT#1;
+            END_FUNCTION_BLOCK
+
+            PROGRAM Main
+            VAR
+                fb : Counter;
+            END_VAR
+
+            fb();
+            g_value := fb.Value;
+            END_PROGRAM
+        "#;
+
+        let bytecode = bytecode_module_from_source(source).expect("compile bytecode");
+        let vm_module = VmModule::from_bytecode(&bytecode).expect("decode vm module");
+        let main_pou_id = vm_module
+            .program_ids
+            .get(&SmolStr::new("MAIN"))
+            .copied()
+            .expect("main pou id");
+        let lowered = lower_pou_to_register_ir(&vm_module, main_pou_id).expect("lower register ir");
+        verify_register_program(&lowered).expect("verify register ir");
+        let block = lowered
+            .blocks
+            .iter()
+            .find(|block| {
+                block
+                    .instructions
+                    .iter()
+                    .any(|instruction| matches!(instruction, RegisterInstr::CallNative { .. }))
+            })
+            .expect("call-native block");
+        let key = super::tier1_block_key(&vm_module, main_pou_id, block);
+        assert!(
+            super::compile_tier1_block(&vm_module, block, key).is_ok(),
+            "expected tier-1 compiler to accept CallNative block: {:?}",
+            block.instructions
+        );
+    }
+
+    #[test]
+    fn register_executor_tier1_specialized_executor_executes_function_call_block() {
+        let source = r#"
+            VAR_GLOBAL
+                g_value : DINT;
+            END_VAR
+
+            FUNCTION AddOne : DINT
+            VAR_INPUT
+                Input : DINT;
+            END_VAR
+
+            AddOne := Input + DINT#1;
+            END_FUNCTION
+
+            PROGRAM Main
+            g_value := AddOne(Input := DINT#41);
+            END_PROGRAM
+        "#;
+
+        let mut harness = TestHarness::from_source(source).expect("create harness");
+        harness
+            .runtime_mut()
+            .set_execution_backend(ExecutionBackend::BytecodeVm)
+            .expect("set backend");
+        harness
+            .runtime_mut()
+            .restart(RestartMode::Cold)
+            .expect("restart");
+        harness
+            .runtime_mut()
+            .vm_tier1_specialized_executor
+            .set_enabled(true);
+        harness
+            .runtime_mut()
+            .vm_tier1_specialized_executor
+            .hot_block_threshold = 1;
+        harness.runtime_mut().reset_vm_tier1_specialized_executor();
+        harness
+            .runtime_mut()
+            .vm_tier1_specialized_executor
+            .hot_block_threshold = 1;
+
+        let result = harness.cycle();
+        assert!(
+            result.errors.is_empty(),
+            "cycle errors: {:?}",
+            result.errors
+        );
+
+        assert_eq!(harness.get_output("g_value"), Some(Value::DInt(42)));
+        let snapshot = harness.runtime().vm_tier1_specialized_executor_snapshot();
+        assert!(snapshot.compile_successes >= 1, "snapshot={snapshot:?}");
+        assert!(snapshot.block_executions >= 1, "snapshot={snapshot:?}");
+        assert_eq!(snapshot.compile_failures, 0, "snapshot={snapshot:?}");
+    }
+
+    #[test]
+    fn register_executor_tier1_specialized_executor_executes_function_block_call_block() {
+        let source = r#"
+            VAR_GLOBAL
+                g_value : DINT;
+            END_VAR
+
+            FUNCTION_BLOCK Counter
+            VAR_OUTPUT
+                Value : DINT;
+            END_VAR
+
+            Value := Value + DINT#1;
+            END_FUNCTION_BLOCK
+
+            PROGRAM Main
+            VAR
+                fb : Counter;
+            END_VAR
+
+            fb();
+            g_value := fb.Value;
+            END_PROGRAM
+        "#;
+
+        let mut harness = TestHarness::from_source(source).expect("create harness");
+        harness
+            .runtime_mut()
+            .set_execution_backend(ExecutionBackend::BytecodeVm)
+            .expect("set backend");
+        harness
+            .runtime_mut()
+            .restart(RestartMode::Cold)
+            .expect("restart");
+        harness
+            .runtime_mut()
+            .vm_tier1_specialized_executor
+            .set_enabled(true);
+        harness
+            .runtime_mut()
+            .vm_tier1_specialized_executor
+            .hot_block_threshold = 1;
+        harness.runtime_mut().reset_vm_tier1_specialized_executor();
+        harness
+            .runtime_mut()
+            .vm_tier1_specialized_executor
+            .hot_block_threshold = 1;
+
+        for cycle in 0..3 {
+            let result = harness.cycle();
+            assert!(
+                result.errors.is_empty(),
+                "cycle {} errors: {:?}",
+                cycle + 1,
+                result.errors
+            );
+        }
+
+        assert_eq!(harness.get_output("g_value"), Some(Value::DInt(3)));
+        let snapshot = harness.runtime().vm_tier1_specialized_executor_snapshot();
+        assert!(snapshot.compile_successes >= 1, "snapshot={snapshot:?}");
+        assert!(snapshot.block_executions >= 1, "snapshot={snapshot:?}");
+        assert_eq!(snapshot.compile_failures, 0, "snapshot={snapshot:?}");
+    }
+
+    #[test]
+    fn register_executor_tier1_specialized_executor_records_compile_failure_reason_for_unsupported_instruction(
     ) {
+        let mut code = Vec::new();
+        code.push(0x10);
+        emit_u32(&mut code, 0);
+        code.push(0x61);
+        code.push(0x12);
+        code.push(0x06);
+        let (module, pou_id) = manual_vm_module(code, vec![Value::DInt(7)], 0);
+
+        let mut runtime = Runtime::new();
+        runtime.set_vm_tier1_specialized_executor_enabled(true);
+        runtime.reset_vm_tier1_specialized_executor();
+        runtime.vm_tier1_specialized_executor.hot_block_threshold = 1;
+
+        let outcome = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
+            .expect("execute register program");
+        assert_eq!(outcome, RegisterExecutionOutcome::Executed);
+
+        let snapshot = runtime.vm_tier1_specialized_executor_snapshot();
+        assert_eq!(snapshot.compile_attempts, 1);
+        assert_eq!(snapshot.compile_failures, 1);
+        assert!(
+            snapshot.compile_failure_reasons.iter().any(|entry| {
+                entry.reason == "unsupported_instr:size_of_value" && entry.count >= 1
+            }),
+            "expected SizeOfValue compile failure reason in tier-1 specialized executor snapshot, got {snapshot:?}",
+        );
+    }
+
+    #[test]
+    fn register_executor_tier1_specialized_executor_executes_non_dint_binary_without_deopt() {
         let mut code = Vec::new();
         code.push(0x20);
         emit_u32(&mut code, 0);
@@ -4829,14 +6632,10 @@ mod tests {
         assert_eq!(runtime.storage().get_global("g0"), Some(&Value::Int(80)));
         let snapshot = runtime.vm_tier1_specialized_executor_snapshot();
         assert!(snapshot.compile_attempts >= 1);
-        assert!(snapshot.deopt_count >= 1);
-        assert!(
-            snapshot
-                .deopt_reasons
-                .iter()
-                .any(|entry| entry.reason == "binary_non_dint_guard" && entry.count >= 1),
-            "expected DINT guard deopt in tier-1 specialized executor snapshot",
-        );
+        assert!(snapshot.compile_successes >= 1);
+        assert!(snapshot.block_executions >= 1);
+        assert_eq!(snapshot.deopt_count, 0, "snapshot={snapshot:?}");
+        assert!(snapshot.deopt_reasons.is_empty(), "snapshot={snapshot:?}");
     }
 
     #[test]
@@ -4884,6 +6683,26 @@ mod tests {
             snapshot.cache_evictions >= 1,
             "expected at least one cache eviction with cap=1",
         );
+    }
+
+    #[test]
+    fn register_executor_tier1_specialized_executor_cache_hits_reuse_compiled_block_arc() {
+        let key = super::Tier1BlockKey {
+            module_ptr: 1,
+            pou_id: 2,
+            block_id: 3,
+            start_pc: 4,
+        };
+        let compiled = std::sync::Arc::new(super::Tier1CompiledBlock {
+            key,
+            instructions: vec![super::Tier1CompiledInstr::Return],
+        });
+        let mut state = super::RegisterTier1SpecializedExecutorState::default();
+
+        state.insert_compiled_block(std::sync::Arc::clone(&compiled));
+        let fetched = state.compiled_block(&key).cloned().expect("compiled block");
+
+        assert!(std::sync::Arc::ptr_eq(&compiled, &fetched));
     }
 
     #[test]

@@ -408,6 +408,7 @@ mod tests {
                     samples,
                     warmup_cycles,
                     watch,
+                    tier1,
                     output,
                 } => {
                     assert_eq!(
@@ -423,7 +424,29 @@ mod tests {
                             "g_motion_demo_last_error"
                         ]
                     );
+                    assert!(!tier1);
                     assert_eq!(output, BenchOutputFormat::Json);
+                }
+                other => panic!("expected bench project action, got {other:?}"),
+            },
+            other => panic!("expected bench command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parse_bench_project_command_with_tier1() {
+        let cli = Cli::parse_from([
+            "trust-runtime",
+            "bench",
+            "project",
+            "--project",
+            "examples/plcopen_motion_single_axis_demo",
+            "--tier1",
+        ]);
+        match cli.command.expect("command") {
+            Command::Bench { action } => match action {
+                BenchAction::Project { tier1, .. } => {
+                    assert!(tier1);
                 }
                 other => panic!("expected bench project action, got {other:?}"),
             },

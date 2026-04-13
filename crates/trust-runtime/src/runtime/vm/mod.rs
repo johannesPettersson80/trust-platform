@@ -389,6 +389,40 @@ pub(super) fn invalid_bytecode(message: impl Into<SmolStr>) -> RuntimeError {
     RuntimeError::InvalidBytecode(message.into())
 }
 
+pub(super) fn materialize_borrowed_value(value: &Value) -> (Value, bool) {
+    match value {
+        Value::Bool(value) => (Value::Bool(*value), false),
+        Value::SInt(value) => (Value::SInt(*value), false),
+        Value::Int(value) => (Value::Int(*value), false),
+        Value::DInt(value) => (Value::DInt(*value), false),
+        Value::LInt(value) => (Value::LInt(*value), false),
+        Value::USInt(value) => (Value::USInt(*value), false),
+        Value::UInt(value) => (Value::UInt(*value), false),
+        Value::UDInt(value) => (Value::UDInt(*value), false),
+        Value::ULInt(value) => (Value::ULInt(*value), false),
+        Value::Real(value) => (Value::Real(*value), false),
+        Value::LReal(value) => (Value::LReal(*value), false),
+        Value::Byte(value) => (Value::Byte(*value), false),
+        Value::Word(value) => (Value::Word(*value), false),
+        Value::DWord(value) => (Value::DWord(*value), false),
+        Value::LWord(value) => (Value::LWord(*value), false),
+        Value::Time(value) => (Value::Time(*value), false),
+        Value::LTime(value) => (Value::LTime(*value), false),
+        Value::Date(value) => (Value::Date(*value), false),
+        Value::LDate(value) => (Value::LDate(*value), false),
+        Value::Tod(value) => (Value::Tod(*value), false),
+        Value::LTod(value) => (Value::LTod(*value), false),
+        Value::Dt(value) => (Value::Dt(*value), false),
+        Value::Ldt(value) => (Value::Ldt(*value), false),
+        Value::Char(value) => (Value::Char(*value), false),
+        Value::WChar(value) => (Value::WChar(*value), false),
+        Value::Struct(value) => (Value::Struct(value.clone()), false),
+        Value::Instance(value) => (Value::Instance(*value), false),
+        Value::Null => (Value::Null, false),
+        _ => (value.clone(), true),
+    }
+}
+
 fn decode_ref_table(
     ref_table: &RefTable,
     strings: &StringTable,

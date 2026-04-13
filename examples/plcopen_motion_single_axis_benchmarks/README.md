@@ -23,15 +23,14 @@ That script writes raw JSON outputs plus a markdown summary under:
 
 - `target/gate-artifacts/runtime-motion-benchmark-breakdown/`
 
-Each JSON report now includes a `vm_profile` section for VM-backed projects, and
-the markdown summary highlights the hottest register blocks for
-`status_only`, `command_idle`, `move_absolute_only`, and the full demo.
+Each JSON report includes a `vm_profile` section for VM-backed projects, and
+the markdown summary highlights the motion-heavy workloads that dominate the
+shipped example path.
 
 If you want a quick manual spot check for one variant:
 
 ```bash
-cargo run --release -p trust-runtime --bin trust-runtime -- \
-  bench project \
+target/release/trust-runtime bench project \
   --project examples/plcopen_motion_single_axis_benchmarks/status_only \
   --samples 128 \
   --warmup-cycles 32 \

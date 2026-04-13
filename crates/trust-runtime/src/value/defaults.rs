@@ -86,7 +86,7 @@ fn default_value_for_type(
                 let field_value = default_value_for_type_id(field.type_id, registry, profile)?;
                 values.insert(field.name.clone(), field_value);
             }
-            Ok(Value::Struct(Box::new(StructValue {
+            Ok(Value::Struct(std::sync::Arc::new(StructValue {
                 type_name: name.clone(),
                 fields: values,
             })))
@@ -110,7 +110,7 @@ fn default_value_for_type(
                 let variant_value = default_value_for_type_id(variant.type_id, registry, profile)?;
                 values.insert(variant.name.clone(), variant_value);
             }
-            Ok(Value::Struct(Box::new(StructValue {
+            Ok(Value::Struct(std::sync::Arc::new(StructValue {
                 type_name: name.clone(),
                 fields: values,
             })))

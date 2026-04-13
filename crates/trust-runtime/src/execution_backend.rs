@@ -80,6 +80,9 @@ pub struct VmRegisterProfileSnapshot {
     pub register_program_fallbacks: u64,
     pub fallback_reasons: Vec<VmRegisterFallbackReason>,
     pub hot_blocks: Vec<VmRegisterHotBlock>,
+    pub ref_ops: VmRegisterRefOpCounters,
+    pub call_ops: VmRegisterCallOpCounters,
+    pub value_ops: VmRegisterValueOpCounters,
 }
 
 /// Fallback reason counter for register-executor eligibility.
@@ -98,6 +101,40 @@ pub struct VmRegisterHotBlock {
     pub hits: u64,
 }
 
+/// Ref-operation counters captured from register-executor runs.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct VmRegisterRefOpCounters {
+    pub load_ref: u64,
+    pub store_ref: u64,
+    pub load_ref_addr: u64,
+    pub ref_field: u64,
+    pub ref_index: u64,
+    pub load_dynamic: u64,
+    pub store_dynamic: u64,
+    pub instance_field_lookups: u64,
+}
+
+/// Call/frame-operation counters captured from VM execution paths.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct VmRegisterCallOpCounters {
+    pub frame_pushes: u64,
+    pub frame_pops: u64,
+    pub function_block_call_entries: u64,
+    pub parameter_bindings: u64,
+    pub output_copy_backs: u64,
+}
+
+/// Value-clone/move counters captured from VM execution paths.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct VmRegisterValueOpCounters {
+    pub const_load_clones: u64,
+    pub register_read_clones: u64,
+    pub register_read_moves: u64,
+    pub read_value_clones: u64,
+    pub binding_expr_clones: u64,
+    pub output_value_clones: u64,
+}
+
 /// Tier-1 specialized register-executor runtime snapshot.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct VmTier1SpecializedExecutorSnapshot {
@@ -108,10 +145,18 @@ pub struct VmTier1SpecializedExecutorSnapshot {
     pub compile_attempts: u64,
     pub compile_successes: u64,
     pub compile_failures: u64,
+    pub compile_failure_reasons: Vec<VmTier1SpecializedExecutorCompileFailureReason>,
     pub cache_evictions: u64,
     pub block_executions: u64,
     pub deopt_count: u64,
     pub deopt_reasons: Vec<VmTier1SpecializedExecutorDeoptReason>,
+}
+
+/// Tier-1 specialized register-executor compile failure reason counter.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct VmTier1SpecializedExecutorCompileFailureReason {
+    pub reason: String,
+    pub count: u64,
 }
 
 /// Tier-1 specialized register-executor deoptimization reason counter.

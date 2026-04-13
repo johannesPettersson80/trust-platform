@@ -96,6 +96,7 @@ docs/internal/testing/evidence/*
 !docs/internal/testing/checklists/plcopen-motion-library-implementation-checklist.md
 !docs/internal/testing/checklists/plcopen-motion-vm-register-ir-hotpath-checklist.md
 !docs/internal/testing/checklists/runtime-vm-performance-follow-up.md
+!docs/internal/testing/checklists/runtime-vm-performance-p1-investigation-plan.md
 !docs/internal/testing/checklists/architecture-improvements.md
 !docs/internal/testing/evidence/plcopen-motion-library-implementation-*.md
 !docs/internal/testing/evidence/plcopen-motion-library-post-parity-reconciliation-*.md

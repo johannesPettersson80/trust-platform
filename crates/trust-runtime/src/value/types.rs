@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use indexmap::IndexMap;
 use smol_str::SmolStr;
 
@@ -68,7 +70,7 @@ pub enum Value {
     WChar(u16),
 
     Array(Box<ArrayValue>),
-    Struct(Box<StructValue>),
+    Struct(Arc<StructValue>),
     Enum(Box<EnumValue>),
 
     Reference(Option<ValueRef>),

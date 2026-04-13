@@ -202,6 +202,9 @@ pub(super) fn execute_pou_stack_with_locals(
     let (operand_stack, frames) = execution_buffers.stacks_mut();
     let mut pc = push_call_frame(frames, module, pou_id, usize::MAX, entry_instance)
         .map_err(VmTrap::into_runtime_error)?;
+    runtime
+        .vm_register_profile
+        .record_call_op(super::register_ir::RegisterCallOpKind::FramePush);
     if let Some(initial_locals) = initial_locals {
         let frame = frames
             .current_mut()
@@ -236,6 +239,9 @@ pub(super) fn execute_pou_stack_with_locals(
 
         if pc == frame_end {
             let finished = frames.pop().map_err(VmTrap::into_runtime_error)?;
+            runtime
+                .vm_register_profile
+                .record_call_op(super::register_ir::RegisterCallOpKind::FramePop);
             if frames.is_empty() {
                 return Ok(build_stack_result(finished, capture_return));
             }
@@ -308,9 +314,15 @@ pub(super) fn execute_pou_stack_with_locals(
                     .map_err(VmTrap::into_runtime_error)?;
                 pc = push_call_frame(frames, module, callee, return_pc, inherited_instance)
                     .map_err(VmTrap::into_runtime_error)?;
+                runtime
+                    .vm_register_profile
+                    .record_call_op(super::register_ir::RegisterCallOpKind::FramePush);
             }
             0x06 => {
                 let finished = frames.pop().map_err(VmTrap::into_runtime_error)?;
+                runtime
+                    .vm_register_profile
+                    .record_call_op(super::register_ir::RegisterCallOpKind::FramePop);
                 if frames.is_empty() {
                     return Ok(build_stack_result(finished, capture_return));
                 }

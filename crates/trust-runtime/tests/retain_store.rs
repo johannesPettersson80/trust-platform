@@ -26,7 +26,7 @@ fn retain_store_roundtrip() {
     );
     snapshot.insert(
         "Struct",
-        Value::Struct(Box::new(StructValue {
+        Value::Struct(std::sync::Arc::new(StructValue {
             type_name: SmolStr::new("MyStruct"),
             fields: [(SmolStr::new("FieldA"), Value::DInt(100))]
                 .into_iter()

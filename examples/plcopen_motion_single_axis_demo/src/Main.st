@@ -21,11 +21,13 @@ VAR
     StepScanCounter : UDINT;
 END_VAR
 
+(* Load published parameter numbers and motion error constants once. *)
 IF NOT ConstantsLoaded THEN
     Constants();
     ConstantsLoaded := TRUE;
 END_IF;
 
+(* One-time demo setup: shared axis handle plus visible status globals. *)
 IF NOT Initialized THEN
     Axis.AxisId := UDINT#1;
     Axis.InternalIndex := UINT#1;
@@ -49,6 +51,7 @@ ELSE
     StepScanCounter := StepScanCounter + UDINT#1;
 END_IF;
 
+(* PLCopen FBs are called every scan; the current step drives Execute inputs. *)
 Power(Axis := Axis, Enable := g_motion_demo_current_step <> UINT#900);
 WriteLimitPos(
     Axis := Axis,
@@ -150,6 +153,7 @@ IF g_motion_demo_last_error = Constants.mcERR_None THEN
     END_IF;
 END_IF;
 
+(* Sequence: configure limits, home, chain buffered moves, then stop and repeat. *)
 CASE g_motion_demo_current_step OF
     UINT#10:
         IF Power.Status AND WriteLimitPos.Done THEN
@@ -210,6 +214,7 @@ CASE g_motion_demo_current_step OF
         g_motion_demo_current_step := UINT#900;
 END_CASE;
 
+(* Fail closed if a step stalls or any FB reports an error. *)
 IF (g_motion_demo_current_step <> UINT#900) AND
    (g_motion_demo_last_error = Constants.mcERR_None) AND
    (StepScanCounter > UDINT#32) THEN

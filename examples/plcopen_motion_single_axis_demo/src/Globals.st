@@ -1,4 +1,5 @@
 VAR_GLOBAL
+    (* Demo observability points for runtime/watch inspection. *)
     g_motion_demo_completed_sequences : UDINT;
     g_motion_demo_last_error : WORD;
     g_motion_demo_current_step : UINT;

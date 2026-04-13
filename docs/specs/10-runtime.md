@@ -3734,6 +3734,8 @@ tests/corpus/
 - Large file parsing (10K+ lines)
 - Completion response time
 - Memory usage under load
+- Benchmark evidence must record whether the runtime binary was built as a portable/generic release or with host-native CPU tuning.
+- Official/shared release artifacts must remain portable; host-native builds (for example `-C target-cpu=native`) are opt-in benchmark/tuning artifacts only and must not be treated as the default cross-host baseline.
 
 ---
 

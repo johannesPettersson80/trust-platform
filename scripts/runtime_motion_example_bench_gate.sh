@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
 
+source "${ROOT_DIR}/scripts/runtime_host_codegen.sh"
+
 PROJECT="${PROJECT:-examples/plcopen_motion_single_axis_demo}"
 OUT_DIR="${OUT_DIR:-target/gate-artifacts/runtime-motion-example-bench}"
 SAMPLES="${TRUST_MOTION_BENCH_SAMPLES:-128}"
@@ -11,10 +13,14 @@ WARMUP_CYCLES="${TRUST_MOTION_BENCH_WARMUP_CYCLES:-32}"
 
 mkdir -p "${OUT_DIR}"
 
+BUILD_MODE="$(trust_runtime_detect_host_codegen_mode)"
 REPORT_JSON="${OUT_DIR}/motion-example-bench.json"
 
+echo "[motion-bench-gate] build mode: ${BUILD_MODE}"
+trust_runtime_build_release_binary "${BUILD_MODE}"
+BENCH_CMD=("$(trust_runtime_release_binary_path)")
 echo "[motion-bench-gate] running trust-runtime bench project on ${PROJECT}"
-cargo run --release -p trust-runtime --bin trust-runtime -- \
+"${BENCH_CMD[@]}" \
   bench project \
   --project "${PROJECT}" \
   --samples "${SAMPLES}" \
@@ -83,6 +89,7 @@ cat > "${OUT_DIR}/summary.md" <<MD
 # Motion Example Bench Gate
 
 - project: ${PROJECT}
+- build mode: ${BUILD_MODE}
 - samples: ${SAMPLES}
 - warmup cycles: ${WARMUP_CYCLES}
 - completed sequences: ${completed_sequences}
@@ -101,6 +108,7 @@ MD
 
 jq -n \
   --arg project "${PROJECT}" \
+  --arg build_mode "${BUILD_MODE}" \
   --argjson samples "${SAMPLES}" \
   --argjson warmup_cycles "${WARMUP_CYCLES}" \
   --arg completed_sequences "${completed_sequences}" \
@@ -115,6 +123,7 @@ jq -n \
   --arg max_overruns "${max_overruns}" \
   '{
     project: $project,
+    build_mode: $build_mode,
     samples: $samples,
     warmup_cycles: $warmup_cycles,
     watched_globals: {
