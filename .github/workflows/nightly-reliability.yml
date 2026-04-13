@@ -17,6 +17,10 @@ on:
         description: "Soak test duration in hours"
         required: false
         default: "1"
+      soak_duration_seconds:
+        description: "Manual smoke-only soak duration override in seconds (leave empty for scheduled/default hour-based runs)"
+        required: false
+        default: ""
       soak_interval_seconds:
         description: "Soak test sample interval in seconds"
         required: false
@@ -84,10 +88,12 @@ jobs:
         env:
           ST_RUNTIME: ${{ github.workspace }}/target/debug/trust-runtime
           SOAK_DURATION_HOURS: ${{ github.event.inputs.soak_duration_hours || '1' }}
+          SOAK_DURATION_SECONDS: ${{ github.event.inputs.soak_duration_seconds || '' }}
           SOAK_INTERVAL_SECONDS: ${{ github.event.inputs.soak_interval_seconds || '30' }}
         run: |
           OUT=artifacts/nightly/soak.log \
           DURATION_HOURS="${SOAK_DURATION_HOURS}" \
+          DURATION_SECONDS="${SOAK_DURATION_SECONDS}" \
           INTERVAL_SEC="${SOAK_INTERVAL_SECONDS}" \
           scripts/runtime_soak_test.sh tests/fixtures/runtime_reliability_bundle
 
