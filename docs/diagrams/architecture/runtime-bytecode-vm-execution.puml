@@ -1,0 +1,148 @@
+@startuml runtime-bytecode-vm-execution
+!theme plain
+allowmixing
+skinparam backgroundColor #FEFEFE
+skinparam componentStyle uml2
+skinparam linetype ortho
+skinparam nodesep 45
+skinparam ranksep 35
+
+title truST Runtime: Detailed Bytecode VM Execution Path
+
+package "Production Cycle Entry" as entryPkg #LightBlue {
+    component "Runtime::execute_cycle()\n(runtime/cycle.rs)" as cycle
+    component "execute_task() /\nexecute_background_programs()" as taskDispatch
+    interface "RuntimeExecutionBackend\n(runtime/backend.rs)" as backendContract
+    component "BytecodeVmBackend\n(default production path)" as vmBackend
+    component "InterpreterBackend\n(legacy-interpreter only)" as interpBackend #DDDDDD
+
+    cycle --> taskDispatch
+    taskDispatch --> backendContract : execute_program /\nexecute_function_block_ref
+    backendContract <|.. vmBackend
+    backendContract <|.. interpBackend
+}
+
+note right of interpBackend
+    Not selectable in normal production
+    startup. Retained only behind the
+    legacy-interpreter feature for
+    parity/test-oracle workflows.
+end note
+
+package "Lazy VM Module Materialization" as modulePkg #LightYellow {
+    component "ensure_vm_module_loaded()\n(runtime/backend.rs)" as ensureVm
+    artifact "BytecodeModule::from_runtime*\n(runtime -> STBC sections)" as bytecodeBuild
+    component "VmModule::from_bytecode()\n(runtime/vm/mod.rs)" as vmModule
+    component "VmModule cached on Runtime\nstrings, refs, consts, pou tables,\nnative symbol specs, debug map" as vmModuleState
+
+    vmBackend --> ensureVm
+    ensureVm --> bytecodeBuild : when vm_module missing
+    ensureVm --> vmModule
+    vmModule --> vmModuleState
+}
+
+note right of vmModuleState
+    Native call symbol metadata is
+    prepared when the VmModule is built.
+    CALL_NATIVE does not need to split
+    the raw symbol string every call.
+end note
+
+package "Program / FB Execution Inside VM" as vmExecPkg #LightCyan {
+    component "vm::dispatch::execute_program() /\nexecute_function_block_ref()" as vmEntry
+    component "try_execute_pou_with_register_ir_with_locals()\n(register path + lowering cache)" as regTry
+    component "execute_register_program()\n(register executor + tier1)" as regExec
+    component "execute_pou_stack_with_locals()\n(stack-bytecode execution path)" as stackExec
+    component "debug_map.rs\n(pc -> source / symbol lookup)" as debugMap
+
+    vmModuleState --> vmEntry
+    vmEntry --> regTry
+    regTry --> regExec : eligible + not stepping
+    regTry --> stackExec : debug mode / lowering error /\nunsupported shape / fallback
+    regExec --> debugMap
+    stackExec --> debugMap
+}
+
+note right of regTry
+    RegisterLoweringCacheState and the
+    tier1 specialized executor live here.
+
+    Debug stepping intentionally keeps
+    stack-bytecode execution as the
+    single source of truth.
+end note
+
+package "Hot Runtime Bridges" as bridgePkg #Lavender {
+    component "call.rs\nCALL_NATIVE dispatch +\nargument binding + output copy-back" as callBridge
+    component "dispatch_refs.rs\nref / deref / dynamic field-index bridge" as refBridge
+    component "frames.rs + stack.rs\nframe stack + operand stacks\n(pooled execution buffers)" as vmStacks
+    component "VariableStorage\n(memory.rs)" as storage
+
+    regExec --> callBridge : CALL_NATIVE
+    stackExec --> callBridge : CALL_NATIVE
+    regExec --> refBridge : LoadRef / StoreRef /\nRefField / RefIndex / LoadDynamic
+    stackExec --> refBridge : ref opcodes
+    vmEntry --> vmStacks
+    callBridge --> vmStacks : recursive VM calls
+    callBridge --> storage : direct field bind /\ninstance reads-writes
+    refBridge --> storage : ValueRef-based reads-writes
+}
+
+note bottom of callBridge
+    Current performance-sensitive boundary:
+    - VM native-call argument marshaling
+    - FUNCTION_BLOCK parameter binding
+    - OUT / IN_OUT copy-back
+    - recursive VM POU execution
+end note
+
+note bottom of refBridge
+    Current performance-sensitive boundary:
+    - ValueRef materialization
+    - dynamic field/index traversal
+    - instance-field resolution
+    - storage read/write cloning pressure
+end note
+
+package "Residual Evaluator Users\n(not the primary production execution engine)" as evalPkg #MistyRose {
+    component "Runtime::evaluate_expression() /\nwith_eval_context()\n(runtime/core/evaluation.rs)" as runtimeEval
+    component "Debug watch / breakpoint\nexpression helpers" as debugEval
+    component "Harness + build-time init\nstatic locals / const-expression eval" as buildEval
+    component "legacy interpreter execution\n(feature-gated)" as legacyEval
+
+    runtimeEval --> debugEval
+    buildEval --> runtimeEval
+    legacyEval --> runtimeEval
+}
+
+note right of runtimeEval
+    EvalContext still exists for debug,
+    tooling, selected build-time/runtime
+    helper flows, and optional legacy
+    interpreter builds.
+
+    It is no longer the main production
+    task/program execution engine.
+end note
+
+cycle --> runtimeEval : debug writes / expression eval\nhelper surfaces only
+storage --> runtimeEval : evaluator reads-writes
+
+legend right
+    **What this diagram clarifies**
+    1. Production task/program execution defaults to BytecodeVmBackend.
+    2. The VM hot path is the combination of:
+       - register_ir.rs
+       - dispatch.rs
+       - call.rs
+       - dispatch_refs.rs
+       - memory.rs
+    3. EvalContext remains in the repo, but mainly for:
+       - debug-expression / watch evaluation
+       - build-time const and initializer work
+       - optional legacy-interpreter parity builds
+    4. Architecture work should optimize the VM bridges,
+       not treat EvalContext as the primary production path.
+end legend
+
+@enduml

@@ -8,7 +8,7 @@ use super::super::core::Runtime;
 use super::call::VM_LOCAL_SENTINEL_FRAME_ID;
 use super::errors::VmTrap;
 use super::frames::{FrameStack, VmFrame};
-use super::{VmModule, VmRef};
+use super::{materialize_borrowed_value, VmModule, VmRef};
 
 pub(super) fn load_ref(
     runtime: &Runtime,
@@ -27,8 +27,38 @@ pub(super) fn load_ref(
             if path.is_empty() {
                 frame.load_local(ref_idx)
             } else {
+                read_vm_local_ref(frame, *offset, path)
+            }
+        }
+        _ => peek_ref(runtime, module, frames, ref_idx)
+            .map(|value| materialize_borrowed_value(value).0),
+    }
+}
+
+pub(super) fn peek_ref<'a>(
+    runtime: &'a Runtime,
+    module: &'a VmModule,
+    frames: &'a FrameStack,
+    ref_idx: u32,
+) -> Result<&'a Value, VmTrap> {
+    let reference = module
+        .refs
+        .get(ref_idx as usize)
+        .ok_or(VmTrap::InvalidRefIndex(ref_idx))?;
+
+    match reference {
+        VmRef::Local { offset, path, .. } => {
+            let frame = frames.current().ok_or(VmTrap::CallStackUnderflow)?;
+            if path.is_empty() {
+                let slot = frame.local_slot_index(ref_idx)?;
+                frame.locals.get(slot).ok_or(VmTrap::InvalidLocalRef {
+                    ref_index: ref_idx,
+                    start: frame.local_ref_start,
+                    count: frame.local_ref_count,
+                })
+            } else {
                 let slot = *offset;
-                read_vm_local_ref(frame, slot, path)
+                peek_vm_local_ref(frame, slot, path)
             }
         }
         _ => {
@@ -37,7 +67,6 @@ pub(super) fn load_ref(
             runtime
                 .storage
                 .read_by_ref_parts(location, offset, path)
-                .cloned()
                 .ok_or(VmTrap::NullReference)
         }
     }
@@ -125,7 +154,7 @@ pub(super) fn dynamic_ref_field(
     mut reference: ValueRef,
     field: SmolStr,
 ) -> Result<ValueRef, VmTrap> {
-    let target = dynamic_load_ref(runtime, frames, &reference)?;
+    let target = peek_dynamic_ref(runtime, frames, &reference)?;
     match target {
         Value::Struct(struct_value) => {
             if !struct_value.fields.contains_key(field.as_str()) {
@@ -136,7 +165,7 @@ pub(super) fn dynamic_ref_field(
         }
         Value::Instance(instance_id) => runtime
             .storage
-            .ref_for_instance_recursive(instance_id, field.as_str())
+            .ref_for_instance_recursive(*instance_id, field.as_str())
             .ok_or(VmTrap::Runtime(RuntimeError::UndefinedField(field))),
         _ => Err(VmTrap::Runtime(RuntimeError::TypeMismatch)),
     }
@@ -153,7 +182,7 @@ pub(super) fn dynamic_ref_index(
     if let Some(RefSegment::Index(existing)) = reference.path.last().cloned() {
         let mut base_reference = reference.clone();
         let _ = base_reference.path.pop();
-        if let Value::Array(array) = dynamic_load_ref(runtime, frames, &base_reference)? {
+        if let Value::Array(array) = peek_dynamic_ref(runtime, frames, &base_reference)? {
             if existing.len() < array.dimensions.len() {
                 let (lower, upper) = array.dimensions[existing.len()];
                 if index < lower || index > upper {
@@ -173,7 +202,7 @@ pub(super) fn dynamic_ref_index(
         }
     }
 
-    let target = dynamic_load_ref(runtime, frames, &reference)?;
+    let target = peek_dynamic_ref(runtime, frames, &reference)?;
     match target {
         Value::Array(array) => {
             let Some((lower, upper)) = array.dimensions.first().copied() else {
@@ -193,6 +222,28 @@ pub(super) fn dynamic_ref_index(
     }
 }
 
+pub(super) fn peek_dynamic_ref<'a>(
+    runtime: &'a Runtime,
+    frames: &'a FrameStack,
+    reference: &ValueRef,
+) -> Result<&'a Value, VmTrap> {
+    if matches!(
+        reference.location,
+        MemoryLocation::Local(FrameId(VM_LOCAL_SENTINEL_FRAME_ID))
+    ) {
+        let frame = frames.current().ok_or(VmTrap::CallStackUnderflow)?;
+        let root = frame
+            .locals
+            .get(reference.offset)
+            .ok_or(VmTrap::NullReference)?;
+        return read_value_path(root, &reference.path).ok_or(VmTrap::NullReference);
+    }
+    runtime
+        .storage
+        .read_by_ref_ref(reference)
+        .ok_or(VmTrap::NullReference)
+}
+
 pub(super) fn dynamic_load_ref(
     runtime: &Runtime,
     frames: &FrameStack,
@@ -207,8 +258,8 @@ pub(super) fn dynamic_load_ref(
     }
     runtime
         .storage
-        .read_by_ref(reference.clone())
-        .cloned()
+        .read_by_ref_ref(reference)
+        .map(|value| materialize_borrowed_value(value).0)
         .ok_or(VmTrap::NullReference)
 }
 
@@ -225,18 +276,24 @@ pub(super) fn dynamic_store_ref(
         let frame = frames.current_mut().ok_or(VmTrap::CallStackUnderflow)?;
         return write_vm_local_ref(frame, reference.offset, &reference.path, value);
     }
-    if runtime.storage.write_by_ref(reference.clone(), value) {
+    if runtime.storage.write_by_ref_ref(reference, value) {
         Ok(())
     } else {
         Err(VmTrap::NullReference)
     }
 }
 
-fn read_vm_local_ref(frame: &VmFrame, offset: usize, path: &[RefSegment]) -> Result<Value, VmTrap> {
+fn peek_vm_local_ref<'a>(
+    frame: &'a VmFrame,
+    offset: usize,
+    path: &[RefSegment],
+) -> Result<&'a Value, VmTrap> {
     let root = frame.locals.get(offset).ok_or(VmTrap::NullReference)?;
-    read_value_path(root, path)
-        .cloned()
-        .ok_or(VmTrap::NullReference)
+    read_value_path(root, path).ok_or(VmTrap::NullReference)
+}
+
+fn read_vm_local_ref(frame: &VmFrame, offset: usize, path: &[RefSegment]) -> Result<Value, VmTrap> {
+    peek_vm_local_ref(frame, offset, path).map(|value| materialize_borrowed_value(value).0)
 }
 
 fn write_vm_local_ref(
@@ -286,7 +343,7 @@ fn write_value_path(target: &mut Value, path: &[RefSegment], value: Value) -> bo
 
     match &path[0] {
         RefSegment::Field(name) => match target {
-            Value::Struct(struct_value) => struct_value
+            Value::Struct(struct_value) => std::sync::Arc::make_mut(struct_value)
                 .fields
                 .get_mut(name)
                 .map(|field| write_value_path(field, &path[1..], value))
@@ -386,5 +443,126 @@ fn runtime_access_target<'a>(
             let _ = (area, offset, path);
             Err(VmTrap::UnsupportedRefLocation("io"))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use indexmap::IndexMap;
+
+    use crate::memory::FrameId;
+    use crate::runtime::vm::frames::VmFrame;
+    use crate::value::{ArrayValue, StructValue};
+    use crate::Runtime;
+
+    #[test]
+    fn peek_dynamic_ref_borrows_global_storage_value() {
+        let mut runtime = Runtime::new();
+        runtime.storage_mut().set_global(
+            "CELL",
+            Value::Struct(std::sync::Arc::new(StructValue {
+                type_name: SmolStr::new("CELL_T"),
+                fields: IndexMap::from([(SmolStr::new("ACC"), Value::DInt(7))]),
+            })),
+        );
+        let reference = runtime
+            .storage()
+            .ref_for_global("CELL")
+            .expect("global ref");
+        let frames = FrameStack::default();
+
+        let peeked = peek_dynamic_ref(&runtime, &frames, &reference).expect("peek global");
+        let direct = runtime
+            .storage()
+            .read_by_ref_ref(&reference)
+            .expect("direct global read");
+
+        assert!(std::ptr::eq(peeked, direct));
+    }
+
+    #[test]
+    fn peek_dynamic_ref_borrows_local_sentinel_value() {
+        let mut frames = FrameStack::default();
+        frames
+            .push(VmFrame {
+                pou_id: 0,
+                return_pc: 0,
+                code_start: 0,
+                code_end: 0,
+                local_ref_start: 0,
+                local_ref_count: 1,
+                locals: vec![Value::Struct(std::sync::Arc::new(StructValue {
+                    type_name: SmolStr::new("LOCAL_T"),
+                    fields: IndexMap::from([(SmolStr::new("ACC"), Value::DInt(11))]),
+                }))],
+                runtime_instance: None,
+                instance_owner: None,
+            })
+            .expect("push frame");
+        let runtime = Runtime::new();
+        let reference = ValueRef {
+            location: MemoryLocation::Local(FrameId(VM_LOCAL_SENTINEL_FRAME_ID)),
+            offset: 0,
+            path: vec![RefSegment::Field(SmolStr::new("ACC"))],
+        };
+
+        let peeked = peek_dynamic_ref(&runtime, &frames, &reference).expect("peek local");
+        let frame = frames.current().expect("current frame");
+        let direct = read_value_path(frame.locals.first().expect("local slot"), &reference.path)
+            .expect("direct local read");
+
+        assert!(std::ptr::eq(peeked, direct));
+    }
+
+    #[test]
+    fn dynamic_ref_field_resolves_instance_field_reference() {
+        let mut runtime = Runtime::new();
+        let instance = runtime.storage_mut().create_instance("FB");
+        assert!(runtime
+            .storage_mut()
+            .set_instance_var(instance, "ACC", Value::DInt(19)));
+        runtime
+            .storage_mut()
+            .set_global("HOLDER", Value::Instance(instance));
+        let holder = runtime
+            .storage()
+            .ref_for_global("HOLDER")
+            .expect("holder ref");
+        let frames = FrameStack::default();
+
+        let resolved = dynamic_ref_field(&runtime, &frames, holder, SmolStr::new("ACC"))
+            .expect("resolve instance field");
+        let expected = runtime
+            .storage()
+            .ref_for_instance_recursive(instance, "ACC")
+            .expect("expected ref");
+
+        assert_eq!(resolved, expected);
+    }
+
+    #[test]
+    fn dynamic_ref_index_extends_partial_index_against_array_shape() {
+        let mut runtime = Runtime::new();
+        runtime.storage_mut().set_global(
+            "GRID",
+            Value::Array(Box::new(ArrayValue {
+                elements: vec![
+                    Value::DInt(1),
+                    Value::DInt(2),
+                    Value::DInt(3),
+                    Value::DInt(4),
+                ],
+                dimensions: vec![(0, 1), (0, 1)],
+            })),
+        );
+        let mut reference = runtime.storage().ref_for_global("GRID").expect("grid ref");
+        reference.path.push(RefSegment::Index(vec![0]));
+        let frames = FrameStack::default();
+
+        let resolved =
+            dynamic_ref_index(&runtime, &frames, reference, 1).expect("extend partial index");
+
+        assert_eq!(resolved.path, vec![RefSegment::Index(vec![0, 1])]);
     }
 }

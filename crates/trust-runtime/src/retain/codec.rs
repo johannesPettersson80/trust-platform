@@ -271,7 +271,7 @@ fn decode_value(reader: &mut RetainReader<'_>) -> Result<Value, RuntimeError> {
                 let value = decode_value(reader)?;
                 fields.insert(name, value);
             }
-            Value::Struct(Box::new(StructValue { type_name, fields }))
+            Value::Struct(std::sync::Arc::new(StructValue { type_name, fields }))
         }
         x if x == ValueTag::Enum as u8 => {
             let type_name = SmolStr::new(reader.read_string()?);

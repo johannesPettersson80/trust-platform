@@ -193,8 +193,9 @@ pub(super) fn write_field(
     }
     match target {
         Value::Struct(mut struct_value) => {
-            if struct_value.fields.contains_key(field) {
-                struct_value.fields.insert(field.clone(), value);
+            let struct_value_mut = std::sync::Arc::make_mut(&mut struct_value);
+            if struct_value_mut.fields.contains_key(field) {
+                struct_value_mut.fields.insert(field.clone(), value);
                 Ok(Value::Struct(struct_value))
             } else {
                 Err(RuntimeError::UndefinedField(field.clone()))

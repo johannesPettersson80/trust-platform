@@ -270,7 +270,7 @@ impl DebugAdapter {
         let r#type = value_type_name(&value);
         let variables_reference = match value {
             RuntimeValue::Struct(value) => {
-                self.alloc_variable_handle(VariableHandle::Struct(*value))
+                self.alloc_variable_handle(VariableHandle::Struct((*value).clone()))
             }
             RuntimeValue::Array(value) => self.alloc_variable_handle(VariableHandle::Array(*value)),
             RuntimeValue::Instance(id) => self.alloc_variable_handle(VariableHandle::Instance(id)),

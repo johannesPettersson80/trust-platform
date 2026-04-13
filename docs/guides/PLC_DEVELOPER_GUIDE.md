@@ -93,6 +93,93 @@ Validate a project folder (config + bytecode):
 trust-runtime validate --project <project-folder>
 ```
 
+### Host-Specific Performance Builds
+
+Use the portable release build when the binary needs to run across different CPU families or when you are preparing a shared/distributed artifact:
+
+```bash
+cargo build --release -p trust-runtime --bin trust-runtime
+```
+
+If you control the deployment hardware and want maximum performance on that machine class, build a host-native binary:
+
+```bash
+RUSTFLAGS="-C target-cpu=native" cargo build --release -p trust-runtime --bin trust-runtime
+```
+
+That host-native binary may not run on other CPUs. It is appropriate for self-built deployments to a homogeneous hardware target and for local performance tuning, but not for portable/shared release artifacts.
+
+The benchmark scripts support the same build-mode policy so you can validate the exact build style you intend to ship:
+
+- `TRUST_RUNTIME_HOST_CODEGEN=auto`: default; picks `native` on Raspberry Pi benchmark hosts and `generic` elsewhere
+- `TRUST_RUNTIME_HOST_CODEGEN=generic`: force portable benchmark builds
+- `TRUST_RUNTIME_HOST_CODEGEN=native`: force host-native benchmark builds
+
+For a host-native validation run on the current machine, use one of the shipped benchmark surfaces:
+
+```bash
+TRUST_RUNTIME_HOST_CODEGEN=native ./scripts/runtime_motion_example_bench_gate.sh
+```
+
+For the broader shipped motion breakdown:
+
+```bash
+TRUST_RUNTIME_HOST_CODEGEN=native ./scripts/runtime_motion_benchmark_breakdown.sh
+```
+
+### Profile-Guided Optimization (PGO)
+
+When you want the fastest self-built runtime for one machine class, use PGO on top of the host-native build. This is not a portable release workflow.
+
+1. Install the LLVM merge tool bundled for Rust:
+
+```bash
+rustup component add llvm-tools-preview
+```
+
+2. Collect training data with representative workloads on the target machine:
+
+```bash
+PGO_ROOT="$PWD/target/pgo/runtime-motion-native"
+rm -rf "$PGO_ROOT" target/gate-artifacts/runtime-motion-pgo-gen*
+mkdir -p "$PGO_ROOT/raw"
+OUT_DIR=target/gate-artifacts/runtime-motion-pgo-gen-gate \
+TRUST_RUNTIME_HOST_CODEGEN=native \
+RUSTFLAGS="-Cprofile-generate=$PGO_ROOT/raw" \
+./scripts/runtime_motion_example_bench_gate.sh
+OUT_DIR=target/gate-artifacts/runtime-motion-pgo-gen-breakdown \
+TRUST_RUNTIME_HOST_CODEGEN=native \
+RUSTFLAGS="-Cprofile-generate=$PGO_ROOT/raw" \
+./scripts/runtime_motion_benchmark_breakdown.sh
+```
+
+3. Merge the raw profiles:
+
+```bash
+SYSROOT=$(rustc --print sysroot)
+LLVM_PROFDATA=$(find "$SYSROOT" -path '*/bin/llvm-profdata' -type f | head -n 1)
+"$LLVM_PROFDATA" merge -output="$PGO_ROOT/merged.profdata" "$PGO_ROOT"/raw/*.profraw
+```
+
+4. Rebuild and rerun the same validation surfaces with the merged profile:
+
+```bash
+OUT_DIR=target/gate-artifacts/runtime-motion-pgo-gate \
+TRUST_RUNTIME_HOST_CODEGEN=native \
+RUSTFLAGS="-Cprofile-use=$PGO_ROOT/merged.profdata" \
+./scripts/runtime_motion_example_bench_gate.sh
+OUT_DIR=target/gate-artifacts/runtime-motion-pgo-breakdown \
+TRUST_RUNTIME_HOST_CODEGEN=native \
+RUSTFLAGS="-Cprofile-use=$PGO_ROOT/merged.profdata" \
+./scripts/runtime_motion_benchmark_breakdown.sh
+```
+
+Current Raspberry Pi 5 evidence on the `full_demo` motion path:
+
+- portable baseline `full_demo p50`: `433.501 us`
+- host-native `full_demo p50`: `404.353 us`
+- host-native + PGO `full_demo p50`: `292.298 us`
+
 Generate API docs from tagged ST comments (`@brief`, `@param`, `@return`):
 ```
 trust-runtime docs --project <project-folder> --format both --out-dir <project-folder>/docs/api

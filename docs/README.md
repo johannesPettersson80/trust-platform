@@ -36,6 +36,14 @@ Runnable payload/config examples:
 Backend mode controls, rollback workflow, compatibility-window policy, and release-evidence expectations for MP-060 are documented in:
 `docs/guides/RUNTIME_EXECUTION_BACKEND_MIGRATION.md`.
 
+## Runtime Performance And Benchmark Builds
+
+User-facing runtime benchmark and build-mode guidance is documented in:
+- `docs/guides/PLC_DEVELOPER_GUIDE.md`
+- `examples/plcopen_motion_single_axis_benchmarks/README.md`
+
+Use `TRUST_RUNTIME_HOST_CODEGEN=generic` for portable/shared binaries and cross-host comparisons. Use `TRUST_RUNTIME_HOST_CODEGEN=native` when you control the deployment hardware and want maximum performance on that machine class. The full host-native + PGO workflow is documented in `docs/guides/PLC_DEVELOPER_GUIDE.md`.
+
 ## HMI Directory Workflow
 
 Production `hmi/` descriptor usage (including process SVG pages and LM tool
@@ -56,10 +64,12 @@ and known gaps are documented in:
 
 ## PLCopen Motion Library
 
-The currently shipped PLCopen Motion profile, supported FB subsets, and
-deferred-scope guard rails are documented in:
+The currently shipped PLCopen Motion profile, public data types, per-FB input/output reference, and deferred-scope guard rails are documented in:
 - `docs/guides/PLCOPEN_MOTION_LIBRARY_GUIDE.md`
 - `docs/specs/coverage/plcopen-motion-coverage.md`
+
+Reference consumer walkthrough:
+- `examples/plcopen_motion_single_axis_demo/README.md`
 
 The reusable PLCopen Motion ST packages live under `libraries/plcopen_motion/`.
 The fixture projects under

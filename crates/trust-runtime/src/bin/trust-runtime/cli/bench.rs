@@ -15,6 +15,9 @@ pub enum BenchAction {
         /// Global values to capture at the end of the run.
         #[arg(long = "watch")]
         watch: Vec<String>,
+        /// Enable the experimental tier-1 specialized executor during the run.
+        #[arg(long = "tier1", default_value_t = false)]
+        tier1: bool,
         /// Output format (`table`, `json`).
         #[arg(long, value_enum, default_value_t = BenchOutputFormat::Table)]
         output: BenchOutputFormat,

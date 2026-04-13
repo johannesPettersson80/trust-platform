@@ -17,7 +17,7 @@ fn index_and_field() {
 
     let mut fields = IndexMap::new();
     fields.insert("a".into(), Value::Int(10));
-    let struct_value = Value::Struct(Box::new(StructValue {
+    let struct_value = Value::Struct(std::sync::Arc::new(StructValue {
         type_name: "S".into(),
         fields,
     }));

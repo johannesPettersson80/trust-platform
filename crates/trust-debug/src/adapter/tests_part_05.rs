@@ -15,7 +15,7 @@ fn dispatch_threads_stack_scopes_variables() {
     fields.insert(SmolStr::new("field"), RuntimeValue::Bool(true));
     runtime.storage_mut().set_local(
         "s",
-        RuntimeValue::Struct(Box::new(StructValue {
+        RuntimeValue::Struct(std::sync::Arc::new(StructValue {
             type_name: SmolStr::new("MY_STRUCT"),
             fields,
         })),

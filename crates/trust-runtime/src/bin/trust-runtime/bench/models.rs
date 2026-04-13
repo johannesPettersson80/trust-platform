@@ -95,6 +95,43 @@ struct VmProfileHotBlockReport {
 }
 
 #[derive(Debug, Clone, Serialize)]
+struct VmProfileRefOpReport {
+    load_ref: u64,
+    store_ref: u64,
+    load_ref_addr: u64,
+    ref_field: u64,
+    ref_index: u64,
+    load_dynamic: u64,
+    store_dynamic: u64,
+    instance_field_lookups: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct VmProfileCallOpReport {
+    frame_pushes: u64,
+    frame_pops: u64,
+    function_block_call_entries: u64,
+    parameter_bindings: u64,
+    output_copy_backs: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct VmProfileValueOpReport {
+    const_load_clones: u64,
+    register_read_clones: u64,
+    register_read_moves: u64,
+    read_value_clones: u64,
+    binding_expr_clones: u64,
+    output_value_clones: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct VmTier1SpecializedExecutorCompileFailureReasonReport {
+    reason: String,
+    count: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
 struct VmTier1SpecializedExecutorDeoptReasonReport {
     reason: String,
     count: u64,
@@ -109,6 +146,7 @@ struct VmTier1SpecializedExecutorReport {
     compile_attempts: u64,
     compile_successes: u64,
     compile_failures: u64,
+    compile_failure_reasons: Vec<VmTier1SpecializedExecutorCompileFailureReasonReport>,
     cache_evictions: u64,
     block_executions: u64,
     deopt_count: u64,
@@ -134,6 +172,9 @@ struct VmProfileReport {
     register_program_fallbacks: u64,
     fallback_reasons: Vec<VmProfileFallbackReasonReport>,
     hot_blocks: Vec<VmProfileHotBlockReport>,
+    ref_ops: VmProfileRefOpReport,
+    call_ops: VmProfileCallOpReport,
+    value_ops: VmProfileValueOpReport,
     #[serde(skip_serializing_if = "Option::is_none")]
     profiling_overhead_ratio: Option<f64>,
     register_lowering_cache: VmRegisterLoweringCacheReport,
@@ -208,6 +249,7 @@ struct ProjectBenchWorkload {
     samples: usize,
     warmup_cycles: usize,
     watch: Vec<String>,
+    enable_tier1: bool,
 }
 
 impl ProjectBenchWorkload {
@@ -216,6 +258,7 @@ impl ProjectBenchWorkload {
         samples: usize,
         warmup_cycles: usize,
         watch: Vec<String>,
+        enable_tier1: bool,
     ) -> anyhow::Result<Self> {
         if samples == 0 {
             anyhow::bail!("--samples must be greater than zero");
@@ -228,6 +271,7 @@ impl ProjectBenchWorkload {
             samples,
             warmup_cycles,
             watch,
+            enable_tier1,
         })
     }
 }

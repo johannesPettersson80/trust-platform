@@ -60,6 +60,40 @@ fn render_table(report: &BenchReport) -> String {
                         );
                     }
                 }
+                let ref_ops = &vm_profile.ref_ops;
+                let _ = writeln!(
+                    out,
+                    "  ref-ops: load_ref={} store_ref={} load_ref_addr={} ref_field={} ref_index={} load_dynamic={} store_dynamic={} instance_field_lookups={}",
+                    ref_ops.load_ref,
+                    ref_ops.store_ref,
+                    ref_ops.load_ref_addr,
+                    ref_ops.ref_field,
+                    ref_ops.ref_index,
+                    ref_ops.load_dynamic,
+                    ref_ops.store_dynamic,
+                    ref_ops.instance_field_lookups
+                );
+                let call_ops = &vm_profile.call_ops;
+                let _ = writeln!(
+                    out,
+                    "  call-ops: frame_pushes={} frame_pops={} function_block_call_entries={} parameter_bindings={} output_copy_backs={}",
+                    call_ops.frame_pushes,
+                    call_ops.frame_pops,
+                    call_ops.function_block_call_entries,
+                    call_ops.parameter_bindings,
+                    call_ops.output_copy_backs
+                );
+                let value_ops = &vm_profile.value_ops;
+                let _ = writeln!(
+                    out,
+                    "  value-ops: const_load_clones={} register_read_clones={} register_read_moves={} read_value_clones={} binding_expr_clones={} output_value_clones={}",
+                    value_ops.const_load_clones,
+                    value_ops.register_read_clones,
+                    value_ops.register_read_moves,
+                    value_ops.read_value_clones,
+                    value_ops.binding_expr_clones,
+                    value_ops.output_value_clones
+                );
                 let lowering_cache = &vm_profile.register_lowering_cache;
                 let _ = writeln!(
                     out,
@@ -74,6 +108,40 @@ fn render_table(report: &BenchReport) -> String {
                     lowering_cache.cache_evictions,
                     lowering_cache.invalidations
                 );
+                if let Some(tier1) = &vm_profile.tier1_specialized_executor {
+                    let _ = writeln!(
+                        out,
+                        "  tier1-specialized-executor: enabled={} threshold={} cache={}/{} compile={}/{}/{} evictions={} executions={} deopts={}",
+                        tier1.enabled,
+                        tier1.hot_block_threshold,
+                        tier1.cached_blocks,
+                        tier1.cache_capacity,
+                        tier1.compile_attempts,
+                        tier1.compile_successes,
+                        tier1.compile_failures,
+                        tier1.cache_evictions,
+                        tier1.block_executions,
+                        tier1.deopt_count
+                    );
+                    if !tier1.compile_failure_reasons.is_empty() {
+                        let reasons = tier1
+                            .compile_failure_reasons
+                            .iter()
+                            .map(|entry| format!("{}={}", entry.reason, entry.count))
+                            .collect::<Vec<_>>()
+                            .join(" ");
+                        let _ = writeln!(out, "    compile-failure-reasons: {reasons}");
+                    }
+                    if !tier1.deopt_reasons.is_empty() {
+                        let reasons = tier1
+                            .deopt_reasons
+                            .iter()
+                            .map(|entry| format!("{}={}", entry.reason, entry.count))
+                            .collect::<Vec<_>>()
+                            .join(" ");
+                        let _ = writeln!(out, "    deopt-reasons: {reasons}");
+                    }
+                }
             }
             render_histogram(&mut out, data.histogram.as_slice());
         }
@@ -166,6 +234,40 @@ fn render_table(report: &BenchReport) -> String {
                             block.pou_id, pou, block.block_id, block.start_pc, block.hits
                         );
                     }
+                    let ref_ops = &vm_profile.ref_ops;
+                    let _ = writeln!(
+                        out,
+                        "  ref-ops: load_ref={} store_ref={} load_ref_addr={} ref_field={} ref_index={} load_dynamic={} store_dynamic={} instance_field_lookups={}",
+                        ref_ops.load_ref,
+                        ref_ops.store_ref,
+                        ref_ops.load_ref_addr,
+                        ref_ops.ref_field,
+                        ref_ops.ref_index,
+                        ref_ops.load_dynamic,
+                        ref_ops.store_dynamic,
+                        ref_ops.instance_field_lookups
+                    );
+                    let call_ops = &vm_profile.call_ops;
+                    let _ = writeln!(
+                        out,
+                        "  call-ops: frame_pushes={} frame_pops={} function_block_call_entries={} parameter_bindings={} output_copy_backs={}",
+                        call_ops.frame_pushes,
+                        call_ops.frame_pops,
+                        call_ops.function_block_call_entries,
+                        call_ops.parameter_bindings,
+                        call_ops.output_copy_backs
+                    );
+                    let value_ops = &vm_profile.value_ops;
+                    let _ = writeln!(
+                        out,
+                        "  value-ops: const_load_clones={} register_read_clones={} register_read_moves={} read_value_clones={} binding_expr_clones={} output_value_clones={}",
+                        value_ops.const_load_clones,
+                        value_ops.register_read_clones,
+                        value_ops.register_read_moves,
+                        value_ops.read_value_clones,
+                        value_ops.binding_expr_clones,
+                        value_ops.output_value_clones
+                    );
                     let lowering_cache = &vm_profile.register_lowering_cache;
                     let _ = writeln!(
                         out,
@@ -195,6 +297,24 @@ fn render_table(report: &BenchReport) -> String {
                             tier1.block_executions,
                             tier1.deopt_count
                         );
+                        if !tier1.compile_failure_reasons.is_empty() {
+                            let reasons = tier1
+                                .compile_failure_reasons
+                                .iter()
+                                .map(|entry| format!("{}={}", entry.reason, entry.count))
+                                .collect::<Vec<_>>()
+                                .join(" ");
+                            let _ = writeln!(out, "    compile-failure-reasons: {reasons}");
+                        }
+                        if !tier1.deopt_reasons.is_empty() {
+                            let reasons = tier1
+                                .deopt_reasons
+                                .iter()
+                                .map(|entry| format!("{}={}", entry.reason, entry.count))
+                                .collect::<Vec<_>>()
+                                .join(" ");
+                            let _ = writeln!(out, "    deopt-reasons: {reasons}");
+                        }
                     } else {
                         let _ = writeln!(out, "  tier1-specialized-executor: disabled");
                     }

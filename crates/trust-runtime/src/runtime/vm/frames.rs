@@ -1,7 +1,7 @@
 use crate::memory::InstanceId;
 use crate::value::Value;
 
-use super::errors::VmTrap;
+use super::{errors::VmTrap, materialize_borrowed_value};
 
 pub(super) const VM_MAX_CALL_DEPTH: usize = 1024;
 
@@ -48,7 +48,7 @@ impl VmFrame {
         let index = self.local_slot_index(ref_index)?;
         self.locals
             .get(index)
-            .cloned()
+            .map(|value| materialize_borrowed_value(value).0)
             .ok_or(VmTrap::InvalidLocalRef {
                 ref_index,
                 start: self.local_ref_start,

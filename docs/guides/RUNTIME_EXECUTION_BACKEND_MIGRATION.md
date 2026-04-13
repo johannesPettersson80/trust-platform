@@ -45,3 +45,4 @@ This note defines the MP-060 production backend contract after VM-default cutove
 3. Treat backend mode as startup-only; no in-flight backend switching.
 4. For legacy interpreter behavior investigation, run dedicated differential/benchmark workflows rather than production startup with interpreter.
    - use `--features legacy-interpreter` on dedicated parity/benchmark commands.
+5. When comparing VM benchmark results across machines, pin portable builds with `TRUST_RUNTIME_HOST_CODEGEN=generic`. Use `TRUST_RUNTIME_HOST_CODEGEN=native` only for host-local tuning runs, because host-native binaries may not run on other CPUs.

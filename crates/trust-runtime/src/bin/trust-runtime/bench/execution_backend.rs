@@ -529,6 +529,14 @@ fn build_vm_profile_report(
             compile_attempts: tier1_specialized_executor_snapshot.compile_attempts,
             compile_successes: tier1_specialized_executor_snapshot.compile_successes,
             compile_failures: tier1_specialized_executor_snapshot.compile_failures,
+            compile_failure_reasons: tier1_specialized_executor_snapshot
+                .compile_failure_reasons
+                .iter()
+                .map(|entry| VmTier1SpecializedExecutorCompileFailureReasonReport {
+                    reason: entry.reason.clone(),
+                    count: entry.count,
+                })
+                .collect(),
             cache_evictions: tier1_specialized_executor_snapshot.cache_evictions,
             block_executions: tier1_specialized_executor_snapshot.block_executions,
             deopt_count: tier1_specialized_executor_snapshot.deopt_count,
@@ -550,6 +558,31 @@ fn build_vm_profile_report(
         register_program_fallbacks: register_snapshot.register_program_fallbacks,
         fallback_reasons,
         hot_blocks,
+        ref_ops: VmProfileRefOpReport {
+            load_ref: register_snapshot.ref_ops.load_ref,
+            store_ref: register_snapshot.ref_ops.store_ref,
+            load_ref_addr: register_snapshot.ref_ops.load_ref_addr,
+            ref_field: register_snapshot.ref_ops.ref_field,
+            ref_index: register_snapshot.ref_ops.ref_index,
+            load_dynamic: register_snapshot.ref_ops.load_dynamic,
+            store_dynamic: register_snapshot.ref_ops.store_dynamic,
+            instance_field_lookups: register_snapshot.ref_ops.instance_field_lookups,
+        },
+        call_ops: VmProfileCallOpReport {
+            frame_pushes: register_snapshot.call_ops.frame_pushes,
+            frame_pops: register_snapshot.call_ops.frame_pops,
+            function_block_call_entries: register_snapshot.call_ops.function_block_call_entries,
+            parameter_bindings: register_snapshot.call_ops.parameter_bindings,
+            output_copy_backs: register_snapshot.call_ops.output_copy_backs,
+        },
+        value_ops: VmProfileValueOpReport {
+            const_load_clones: register_snapshot.value_ops.const_load_clones,
+            register_read_clones: register_snapshot.value_ops.register_read_clones,
+            register_read_moves: register_snapshot.value_ops.register_read_moves,
+            read_value_clones: register_snapshot.value_ops.read_value_clones,
+            binding_expr_clones: register_snapshot.value_ops.binding_expr_clones,
+            output_value_clones: register_snapshot.value_ops.output_value_clones,
+        },
         profiling_overhead_ratio: Some(profiling_overhead_ratio),
         register_lowering_cache,
         tier1_specialized_executor,

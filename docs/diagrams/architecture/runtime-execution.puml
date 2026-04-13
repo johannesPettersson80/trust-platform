@@ -56,7 +56,7 @@ package "Runtime Core" as runtimeCore #LightGreen {
 
 package "Execution Backend Boundary" as backendPkg #LightYellow {
     interface "RuntimeExecutionBackend\n(runtime/backend.rs)" as backendContract
-    component "InterpreterBackend" as interpBackend
+    component "InterpreterBackend\n(legacy-interpreter only)" as interpBackend #DDDDDD
     component "BytecodeVmBackend\n(phase-gated)" as vmBackend
 
     backendContract <|.. interpBackend
@@ -395,14 +395,14 @@ package "Evaluation Context" as evalPkg #Wheat {
     }
 
     note right of evalCtx
-        Created fresh for each
-        task execution, carries
-        all runtime references
+        Residual evaluator surface:
+        - debug expression / watch evaluation
+        - selected build-time/runtime helpers
+        - legacy-interpreter feature builds
 
-        DebugHook boundary:
-        statement hooks fire
-        during eval; DebugControl
-        stays outside evaluation
+        Production task/program execution
+        now goes through RuntimeExecutionBackend
+        and defaults to the bytecode VM.
     end note
 }
 
@@ -628,9 +628,9 @@ legend right
     **Execution Model:**
     1. Tasks scheduled by priority + interval
     2. Programs execute within tasks
-    3. EvalContext provides runtime state
-    4. Stmt/Expr AST interpreted directly
-    5. Debug hooks at statement boundaries
+    3. Production execution dispatches through RuntimeExecutionBackend
+    4. Bytecode VM is the default production backend
+    5. EvalContext remains for debug/tooling/build-helper paths
 
     **Memory Areas:**
     • Globals - Program-wide variables
