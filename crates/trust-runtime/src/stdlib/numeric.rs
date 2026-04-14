@@ -3,7 +3,7 @@
 #![allow(missing_docs)]
 
 use crate::error::RuntimeError;
-use crate::eval::ops::{apply_binary, BinaryOp};
+use crate::program_model::{apply_binary, BinaryOp};
 use crate::stdlib::helpers::{
     require_arity, require_min, scale_time, signed_from_i128, to_f64, to_i64, to_u64,
     unsigned_from_u128, wider_numeric, NumericKind,

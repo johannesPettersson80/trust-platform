@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Compare memory/perf metrics with baseline
@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@nightly
       - uses: Swatinem/rust-cache@v2
       - name: Install cargo-fuzz
@@ -39,7 +39,7 @@ jobs:
         run: ./scripts/salsa_fuzz_gate.sh smoke
       - name: Upload fuzz artifacts
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: salsa-fuzz-smoke-artifacts
           path: |
@@ -50,7 +50,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@nightly
         with:
           components: miri
@@ -65,7 +65,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@nightly
       - uses: Swatinem/rust-cache@v2
       - name: Install cargo-fuzz
@@ -76,7 +76,7 @@ jobs:
         run: ./scripts/salsa_fuzz_gate.sh extended
       - name: Upload extended fuzz artifacts
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: salsa-fuzz-extended-artifacts
           path: |

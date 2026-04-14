@@ -17,6 +17,10 @@ on:
         description: "Soak test duration in hours"
         required: false
         default: "1"
+      soak_duration_seconds:
+        description: "Manual smoke-only soak duration override in seconds (leave empty for scheduled/default hour-based runs)"
+        required: false
+        default: ""
       soak_interval_seconds:
         description: "Soak test sample interval in seconds"
         required: false
@@ -44,6 +48,8 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  # GitHub runners do not guarantee sccache availability; disable wrapper in CI/nightly reliability.
+  RUSTC_WRAPPER: ""
 
 permissions:
   contents: read
@@ -55,7 +61,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 240
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -82,10 +88,12 @@ jobs:
         env:
           ST_RUNTIME: ${{ github.workspace }}/target/debug/trust-runtime
           SOAK_DURATION_HOURS: ${{ github.event.inputs.soak_duration_hours || '1' }}
+          SOAK_DURATION_SECONDS: ${{ github.event.inputs.soak_duration_seconds || '' }}
           SOAK_INTERVAL_SECONDS: ${{ github.event.inputs.soak_interval_seconds || '30' }}
         run: |
           OUT=artifacts/nightly/soak.log \
           DURATION_HOURS="${SOAK_DURATION_HOURS}" \
+          DURATION_SECONDS="${SOAK_DURATION_SECONDS}" \
           INTERVAL_SEC="${SOAK_INTERVAL_SECONDS}" \
           scripts/runtime_soak_test.sh tests/fixtures/runtime_reliability_bundle
 
@@ -142,17 +150,16 @@ jobs:
             --max-soak-rss-kb "${SOAK_MAX_RSS_KB}" \
             --max-soak-cpu-pct "${SOAK_MAX_CPU_PCT}"
 
-      - name: Run MP-060 full differential suite gate
+      - name: Run MP-060 VM determinism and reliability gate
         run: |
-          OUT_DIR=artifacts/nightly/runtime-vm-differential \
-          TRUST_VM_DIFFERENTIAL_PROFILE=full \
-          TRUST_VM_DIFFERENTIAL_TEST_THREADS=1 \
-          TRUST_VM_DIFFERENTIAL_MAX_SECONDS=1800 \
-          ./scripts/runtime_vm_differential_gate.sh
+          OUT_DIR=artifacts/nightly/runtime-vm-determinism \
+          TRUST_VM_DETERMINISM_ITERATIONS=3 \
+          TRUST_VM_DETERMINISM_TEST_THREADS=1 \
+          ./scripts/runtime_vm_determinism_reliability_gate.sh
 
       - name: Upload reliability artifacts
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: nightly-reliability-${{ github.run_id }}
           path: artifacts/nightly/

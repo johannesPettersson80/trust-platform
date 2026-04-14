@@ -7,8 +7,8 @@ use crate::value::ValueRef;
 
 use super::util::{count_for_loops, normalize_name};
 use super::{BytecodeEncoder, BytecodeError, LocalScope};
-use crate::eval::Param;
-use crate::eval::VarDef;
+use crate::program_model::Param;
+use crate::program_model::{Stmt, VarDef};
 
 impl<'a> BytecodeEncoder<'a> {
     pub(super) fn alloc_local_frame_id(&mut self) -> FrameId {
@@ -22,7 +22,7 @@ impl<'a> BytecodeEncoder<'a> {
         return_name: Option<&SmolStr>,
         params: &[Param],
         locals: &[VarDef],
-        body: &[crate::eval::stmt::Stmt],
+        body: &[Stmt],
     ) -> Result<LocalScope, BytecodeError> {
         let mut names = Vec::new();
         if let Some(name) = return_name {

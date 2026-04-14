@@ -2,7 +2,6 @@
 
 #![allow(missing_docs)]
 
-mod backend;
 mod bytecode;
 mod core;
 mod cycle;

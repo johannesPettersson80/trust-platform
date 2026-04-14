@@ -99,8 +99,8 @@ impl DebugControl {
         }
     }
 
-    /// Refresh the stored snapshot using the provided evaluation context.
-    pub fn refresh_snapshot(&self, ctx: &mut EvalContext<'_>) {
+    /// Refresh the stored snapshot using the provided debug runtime context.
+    pub fn refresh_snapshot(&self, ctx: &mut DebugRuntimeContext<'_>) {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
         update_watch_snapshot(&mut state, ctx);
@@ -109,7 +109,7 @@ impl DebugControl {
 
     /// Refresh the stored snapshot from raw runtime storage.
     ///
-    /// This is used by VM backends that do not execute through `EvalContext`
+    /// This is used by VM backends that do not execute through the interpreter context
     /// but still need paused-state snapshots for debugger stack/scopes queries.
     pub fn refresh_snapshot_from_storage(
         &self,

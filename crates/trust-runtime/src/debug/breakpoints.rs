@@ -4,9 +4,9 @@
 
 use std::sync::mpsc::Sender;
 
-use crate::eval::{eval_expr, EvalContext};
 use crate::value::Value;
 
+use super::hook::DebugRuntimeContext;
 use super::{DebugBreakpoint, DebugLog, LogFragment, SourceLocation};
 
 pub(crate) fn matches_breakpoint(
@@ -14,7 +14,7 @@ pub(crate) fn matches_breakpoint(
     logs: &mut Vec<DebugLog>,
     log_tx: Option<&Sender<DebugLog>>,
     location: &SourceLocation,
-    ctx: &mut Option<&mut EvalContext<'_>>,
+    ctx: &mut Option<&mut DebugRuntimeContext<'_>>,
 ) -> Option<u64> {
     for breakpoint in breakpoints.iter_mut() {
         let bp_location = &breakpoint.location;
@@ -61,8 +61,18 @@ pub(crate) fn matches_breakpoint(
     None
 }
 
-fn condition_matches(ctx: &mut EvalContext<'_>, condition: &crate::eval::expr::Expr) -> bool {
-    match eval_expr(ctx, condition) {
+fn condition_matches(
+    ctx: &mut DebugRuntimeContext<'_>,
+    condition: &crate::program_model::Expr,
+) -> bool {
+    match crate::helper_eval::eval_storage_expr_with_stdlib(
+        ctx.storage,
+        ctx.registry,
+        &ctx.profile,
+        ctx.current_instance,
+        ctx.stdlib,
+        condition,
+    ) {
         Ok(Value::Bool(true)) => true,
         Ok(Value::Bool(false)) => false,
         Ok(_) => false,
@@ -70,12 +80,19 @@ fn condition_matches(ctx: &mut EvalContext<'_>, condition: &crate::eval::expr::E
     }
 }
 
-fn format_log_message(ctx: &mut EvalContext<'_>, fragments: &[LogFragment]) -> String {
+fn format_log_message(ctx: &mut DebugRuntimeContext<'_>, fragments: &[LogFragment]) -> String {
     let mut output = String::new();
     for fragment in fragments {
         match fragment {
             LogFragment::Text(text) => output.push_str(text),
-            LogFragment::Expr(expr) => match eval_expr(ctx, expr) {
+            LogFragment::Expr(expr) => match crate::helper_eval::eval_storage_expr_with_stdlib(
+                ctx.storage,
+                ctx.registry,
+                &ctx.profile,
+                ctx.current_instance,
+                ctx.stdlib,
+                expr,
+            ) {
                 Ok(value) => output.push_str(&format_log_value(&value)),
                 Err(err) => output.push_str(&format!("<error: {err}>")),
             },

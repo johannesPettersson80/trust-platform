@@ -1,6 +1,6 @@
 [package]
 name = "trust-runtime"
-description = "Runtime interpreter for IEC 61131-3 Structured Text"
+description = "Runtime for IEC 61131-3 Structured Text"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -62,4 +62,3 @@ default = ["debug", "ethercat-wire"]
 debug = []
 opcua-wire = ["dep:opcua"]
 ethercat-wire = ["dep:ethercrab", "dep:tokio"]
-legacy-interpreter = []

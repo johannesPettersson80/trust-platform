@@ -1,0 +1,99 @@
+@startuml runtime-interpreter-removal-map
+!theme plain
+allowmixing
+skinparam backgroundColor #FEFEFE
+skinparam componentStyle uml2
+skinparam linetype ortho
+skinparam nodesep 40
+skinparam ranksep 35
+
+title truST Runtime: Legacy Interpreter Removal Map
+
+package "Keep: VM-Only Runtime Path" as keepPkg #LightCyan {
+    component "Runtime::execute_cycle()\nVM execution only" as keepCycle
+    component "runtime/vm/*\ndispatch + register_ir + refs + call" as keepVm
+    component "stdlib/fbs::execute_builtin_in_storage()" as keepBuiltin
+    component "VariableStorage" as keepStorage
+
+    keepCycle --> keepVm
+    keepCycle --> extractHelper : debug write queue
+    keepVm --> keepBuiltin
+    keepVm --> keepStorage
+}
+
+package "Extract Before Delete" as extractPkg #LightYellow {
+    component "Shared runtime model\nParam / VarDef / FunctionDef /\nFunctionBlockDef / MethodDef /\nClassDef / InterfaceDef / CallArg" as extractModel
+    component "AST model\nExpr / LValue / SizeOfTarget / Stmt" as extractAst
+    component "Shared semantics helpers\nBinaryOp / UnaryOp / apply_* / sizeof helpers" as extractOps
+    component "Initializer + debug helper evaluator\nsmall VM-era helper surface" as extractHelper
+
+    extractModel --> extractAst
+    extractHelper --> extractModel
+    extractHelper --> extractOps
+}
+
+package "Rewrite Consumers" as rewritePkg #Lavender {
+    component "task.rs\nruntime/core.rs\nruntime/metadata.rs" as rewriteCore
+    component "bytecode/encoder/**" as rewriteEncoder
+    component "harness/compiler/**\nharness/lower/**\nharness/parse.rs\nharness/io.rs" as rewriteHarnessModel
+    component "instance.rs\nharness/build.rs\nharness/config*.rs" as rewriteInit
+    component "runtime/core/evaluation.rs\ncontrol/debug_handlers_helpers.rs\ntest_cmd/execute.rs" as rewriteDebug
+    component "runtime/vm/dispatch_ops.rs\nruntime/vm/register_ir.rs\nstdlib/numeric.rs\nstdlib/time.rs" as rewriteVmOps
+
+    rewriteCore --> extractModel
+    rewriteEncoder --> extractModel
+    rewriteEncoder --> extractAst
+    rewriteEncoder --> extractOps
+    rewriteHarnessModel --> extractModel
+    rewriteHarnessModel --> extractAst
+    rewriteInit --> extractHelper
+    rewriteDebug --> extractHelper
+    rewriteVmOps --> extractOps
+}
+
+package "Delete" as deletePkg #MistyRose {
+    component "ExecutionBackend::Interpreter\nlegacy-interpreter feature\nInterpreterBackend" as deleteBackend
+    component "runtime/cycle.rs\nexecute_program_interpreter()\nexecute_function_block_ref_interpreter()" as deleteCycle
+    component "eval executor\nEvalContext + calls + expr eval +\nstmt exec + bindings + locals + outputs" as deleteEval
+    component "bench execution-backend\ninterpreter-vs-VM differential gates" as deleteBench
+    component "interpreter-only tests + docs + CI policy" as deleteEvidence
+
+    deleteBackend --> deleteCycle
+    deleteCycle --> deleteEval
+    deleteBench --> deleteEvidence
+}
+
+note right of extractPkg
+    This is the critical split.
+
+    `eval/` is not one thing:
+    - model types survive
+    - semantics helpers survive
+    - legacy executor dies
+end note
+
+note right of deletePkg
+    Do not delete `eval/` first.
+
+    Shared model extraction is done.
+    Next move the remaining hook/test users,
+    then remove the backend and executor.
+end note
+
+extractModel ..> deleteEval : split out
+extractAst ..> deleteEval : split out
+extractOps ..> deleteEval : split out
+extractHelper ..> deleteEval : replace helper usages
+keepVm ..> extractOps : keeps shared semantics
+keepBuiltin ..> deleteEval : drop EvalContext wrapper
+
+legend right
+    Removal order:
+    1. Extract shared model + semantics
+    2. Land bounded helper replacements
+    3. Rewrite remaining helper consumers
+    4. Delete interpreter backend + executor
+    5. Remove interpreter benchmark/CI/docs evidence
+end legend
+
+@enduml

@@ -14,30 +14,39 @@ env:
   RUSTC_WRAPPER: ""
 
 jobs:
-  vm-differential-full:
-    name: VM Differential (Full)
+  runtime-vm-validation:
+    name: Runtime VM Validation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: dtolnay/rust-toolchain@stable
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Run MP-060 full differential suite gate
+      - name: Run MP-060 full VM benchmark gate
         run: |
-          OUT_DIR=artifacts/release/runtime-vm-differential \
-          TRUST_VM_DIFFERENTIAL_PROFILE=full \
-          TRUST_VM_DIFFERENTIAL_TEST_THREADS=1 \
-          TRUST_VM_DIFFERENTIAL_MAX_SECONDS=1800 \
-          ./scripts/runtime_vm_differential_gate.sh
+          OUT_DIR=artifacts/release/runtime-vm-bench \
+          TRUST_VM_BENCH_PROFILE=full \
+          TRUST_VM_BENCH_TIER=default \
+          TRUST_VM_BENCH_HOST_CODEGEN=generic \
+          ./scripts/runtime_vm_bench_gate.sh
 
-      - name: Upload VM differential artifacts
+      - name: Run MP-060 VM determinism and reliability gate
+        run: |
+          OUT_DIR=artifacts/release/runtime-vm-determinism \
+          TRUST_VM_DETERMINISM_ITERATIONS=3 \
+          TRUST_VM_DETERMINISM_TEST_THREADS=1 \
+          ./scripts/runtime_vm_determinism_reliability_gate.sh
+
+      - name: Upload runtime VM validation artifacts
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: release-runtime-vm-differential
-          path: artifacts/release/runtime-vm-differential/**
+          name: release-runtime-vm-validation
+          path: |
+            artifacts/release/runtime-vm-bench/**
+            artifacts/release/runtime-vm-determinism/**
 
   build:
     name: Build (${{ matrix.target }})
@@ -64,7 +73,7 @@ jobs:
             platform: win32-x64
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -145,7 +154,7 @@ jobs:
           Compress-Archive -Path dist/runtime-${{ matrix.platform }}/* -DestinationPath trust-runtime-${{ matrix.platform }}.zip
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
           cache: 'npm'
@@ -164,13 +173,13 @@ jobs:
         run: npx vsce package --target ${{ matrix.platform }}
 
       - name: Upload VSIX artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vsix-${{ matrix.platform }}
           path: editors/vscode/*.vsix
 
       - name: Upload runtime artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: runtime-${{ matrix.platform }}
           path: |
@@ -179,29 +188,29 @@ jobs:
 
   publish:
     name: Publish
-    needs: [build, vm-differential-full]
+    needs: [build, runtime-vm-validation]
     runs-on: ubuntu-latest
     env:
       VSCE_PAT: ${{ secrets.VSCE_PAT }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Download VSIX artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: vsix-artifacts
           pattern: vsix-*
           merge-multiple: true
 
       - name: Download runtime artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: runtime-artifacts
           pattern: runtime-*
           merge-multiple: true
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
 

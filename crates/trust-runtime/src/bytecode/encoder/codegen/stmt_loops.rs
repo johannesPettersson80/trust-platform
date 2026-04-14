@@ -3,8 +3,8 @@ impl<'a> BytecodeEncoder<'a> {
         &mut self,
         ctx: &mut CodegenContext,
         pou_id: u32,
-        condition: &crate::eval::expr::Expr,
-        body: &[crate::eval::stmt::Stmt],
+        condition: &crate::program_model::Expr,
+        body: &[crate::program_model::Stmt],
         code: &mut Vec<u8>,
         debug_entries: &mut Vec<DebugEntry>,
     ) -> Result<bool, BytecodeError> {
@@ -38,8 +38,8 @@ impl<'a> BytecodeEncoder<'a> {
         &mut self,
         ctx: &mut CodegenContext,
         pou_id: u32,
-        body: &[crate::eval::stmt::Stmt],
-        until: &crate::eval::expr::Expr,
+        body: &[crate::program_model::Stmt],
+        until: &crate::program_model::Expr,
         code: &mut Vec<u8>,
         debug_entries: &mut Vec<DebugEntry>,
     ) -> Result<bool, BytecodeError> {
@@ -72,10 +72,10 @@ impl<'a> BytecodeEncoder<'a> {
         ctx: &mut CodegenContext,
         pou_id: u32,
         control: &SmolStr,
-        start: &crate::eval::expr::Expr,
-        end: &crate::eval::expr::Expr,
-        step: &crate::eval::expr::Expr,
-        body: &[crate::eval::stmt::Stmt],
+        start: &crate::program_model::Expr,
+        end: &crate::program_model::Expr,
+        step: &crate::program_model::Expr,
+        body: &[crate::program_model::Stmt],
         code: &mut Vec<u8>,
         debug_entries: &mut Vec<DebugEntry>,
     ) -> Result<bool, BytecodeError> {
@@ -92,7 +92,7 @@ impl<'a> BytecodeEncoder<'a> {
             return Ok(false);
         };
         let control_access = match self
-            .resolve_lvalue_ref(ctx, &crate::eval::expr::LValue::Name(control.clone()))?
+            .resolve_lvalue_ref(ctx, &crate::program_model::LValue::Name(control.clone()))?
         {
             Some(reference) => AccessKind::Static(reference),
             None => match ctx.self_field_name(control) {

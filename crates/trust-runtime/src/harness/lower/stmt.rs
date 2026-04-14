@@ -1,6 +1,5 @@
 use crate::debug::SourceLocation;
-use crate::eval::expr::Expr;
-use crate::eval::stmt::{CaseLabel, Stmt};
+use crate::program_model::{CaseLabel, Expr, Stmt};
 use crate::value::Value;
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 

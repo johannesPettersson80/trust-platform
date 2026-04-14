@@ -1,6 +1,6 @@
 use smol_str::SmolStr;
 
-use crate::eval::expr::{Expr, LValue};
+use crate::program_model::{Expr, LValue};
 use crate::value::DateTimeProfile;
 use trust_hir::types::TypeRegistry;
 use trust_syntax::parser;

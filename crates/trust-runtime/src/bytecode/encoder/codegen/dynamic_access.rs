@@ -2,8 +2,8 @@ impl<'a> BytecodeEncoder<'a> {
     fn emit_assign(
         &mut self,
         ctx: &CodegenContext,
-        target: &crate::eval::expr::LValue,
-        value: &crate::eval::expr::Expr,
+        target: &crate::program_model::LValue,
+        value: &crate::program_model::Expr,
         code: &mut Vec<u8>,
     ) -> Result<bool, BytecodeError> {
         if let Some(emitted) = self.emit_partial_assign(ctx, target, value, code)? {
@@ -35,11 +35,11 @@ impl<'a> BytecodeEncoder<'a> {
     fn emit_partial_assign(
         &mut self,
         ctx: &CodegenContext,
-        target: &crate::eval::expr::LValue,
-        value: &crate::eval::expr::Expr,
+        target: &crate::program_model::LValue,
+        value: &crate::program_model::Expr,
         code: &mut Vec<u8>,
     ) -> Result<Option<bool>, BytecodeError> {
-        let crate::eval::expr::LValue::Field { name, field } = target else {
+        let crate::program_model::LValue::Field { name, field } = target else {
             return Ok(None);
         };
         let Some(partial) = crate::value::parse_partial_access(field.as_str()) else {
@@ -64,8 +64,8 @@ impl<'a> BytecodeEncoder<'a> {
     fn emit_dynamic_assign(
         &mut self,
         ctx: &CodegenContext,
-        target: &crate::eval::expr::LValue,
-        value: &crate::eval::expr::Expr,
+        target: &crate::program_model::LValue,
+        value: &crate::program_model::Expr,
         code: &mut Vec<u8>,
     ) -> Result<Option<bool>, BytecodeError> {
         if !self.lvalue_is_self_field(ctx, target) {
@@ -88,10 +88,10 @@ impl<'a> BytecodeEncoder<'a> {
     fn emit_dynamic_ref_for_lvalue(
         &mut self,
         ctx: &CodegenContext,
-        target: &crate::eval::expr::LValue,
+        target: &crate::program_model::LValue,
         code: &mut Vec<u8>,
     ) -> Result<bool, BytecodeError> {
-        use crate::eval::expr::LValue;
+        use crate::program_model::LValue;
         match target {
             LValue::Name(name) => self.emit_ref_for_name(ctx, name, code),
             LValue::Field { name, field } => {
@@ -122,15 +122,15 @@ impl<'a> BytecodeEncoder<'a> {
     fn lvalue_is_self_field(
         &self,
         ctx: &CodegenContext,
-        target: &crate::eval::expr::LValue,
+        target: &crate::program_model::LValue,
     ) -> bool {
         match target {
-            crate::eval::expr::LValue::Name(name)
-            | crate::eval::expr::LValue::Field { name, .. }
-            | crate::eval::expr::LValue::Index { name, .. } => {
+            crate::program_model::LValue::Name(name)
+            | crate::program_model::LValue::Field { name, .. }
+            | crate::program_model::LValue::Index { name, .. } => {
                 ctx.self_field_name(name).is_some() && ctx.local_ref(name).is_none()
             }
-            crate::eval::expr::LValue::Deref(_) => false,
+            crate::program_model::LValue::Deref(_) => false,
         }
     }
 
@@ -282,7 +282,7 @@ impl<'a> BytecodeEncoder<'a> {
         &mut self,
         ctx: &CodegenContext,
         base: &SmolStr,
-        indices: &[crate::eval::expr::Expr],
+        indices: &[crate::program_model::Expr],
         code: &mut Vec<u8>,
     ) -> Result<bool, BytecodeError> {
         if !self.emit_self_field_ref(ctx, base, code)? {

@@ -31,7 +31,6 @@ include!("bench/t0_shm.rs");
 include!("bench/mesh_zenoh.rs");
 include!("bench/dispatch.rs");
 include!("bench/project.rs");
-include!("bench/execution_backend.rs");
 include!("bench/output.rs");
 include!("bench/command.rs");
 

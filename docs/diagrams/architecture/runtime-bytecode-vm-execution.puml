@@ -7,45 +7,32 @@ skinparam linetype ortho
 skinparam nodesep 45
 skinparam ranksep 35
 
-title truST Runtime: Detailed Bytecode VM Execution Path
+title truST Runtime: VM Execution and Helper Evaluation
 
 package "Production Cycle Entry" as entryPkg #LightBlue {
     component "Runtime::execute_cycle()\n(runtime/cycle.rs)" as cycle
     component "execute_task() /\nexecute_background_programs()" as taskDispatch
-    interface "RuntimeExecutionBackend\n(runtime/backend.rs)" as backendContract
-    component "BytecodeVmBackend\n(default production path)" as vmBackend
-    component "InterpreterBackend\n(legacy-interpreter only)" as interpBackend #DDDDDD
+    component "ensure_vm_module_loaded() /\nbuild_vm_module()\n(runtime/cycle.rs)" as ensureVm
 
     cycle --> taskDispatch
-    taskDispatch --> backendContract : execute_program /\nexecute_function_block_ref
-    backendContract <|.. vmBackend
-    backendContract <|.. interpBackend
+    taskDispatch --> ensureVm : execute_program / execute_function_block_ref
 }
 
-note right of interpBackend
-    Not selectable in normal production
-    startup. Retained only behind the
-    legacy-interpreter feature for
-    parity/test-oracle workflows.
-end note
-
 package "Lazy VM Module Materialization" as modulePkg #LightYellow {
-    component "ensure_vm_module_loaded()\n(runtime/backend.rs)" as ensureVm
     artifact "BytecodeModule::from_runtime*\n(runtime -> STBC sections)" as bytecodeBuild
     component "VmModule::from_bytecode()\n(runtime/vm/mod.rs)" as vmModule
     component "VmModule cached on Runtime\nstrings, refs, consts, pou tables,\nnative symbol specs, debug map" as vmModuleState
 
-    vmBackend --> ensureVm
     ensureVm --> bytecodeBuild : when vm_module missing
     ensureVm --> vmModule
     vmModule --> vmModuleState
 }
 
 note right of vmModuleState
-    Native call symbol metadata is
+    Native-call symbol metadata is
     prepared when the VmModule is built.
     CALL_NATIVE does not need to split
-    the raw symbol string every call.
+    raw symbol strings every cycle.
 end note
 
 package "Program / FB Execution Inside VM" as vmExecPkg #LightCyan {
@@ -58,7 +45,7 @@ package "Program / FB Execution Inside VM" as vmExecPkg #LightCyan {
     vmModuleState --> vmEntry
     vmEntry --> regTry
     regTry --> regExec : eligible + not stepping
-    regTry --> stackExec : debug mode / lowering error /\nunsupported shape / fallback
+    regTry --> stackExec : debug mode / lowering error / unsupported shape / fallback
     regExec --> debugMap
     stackExec --> debugMap
 }
@@ -80,11 +67,11 @@ package "Hot Runtime Bridges" as bridgePkg #Lavender {
 
     regExec --> callBridge : CALL_NATIVE
     stackExec --> callBridge : CALL_NATIVE
-    regExec --> refBridge : LoadRef / StoreRef /\nRefField / RefIndex / LoadDynamic
+    regExec --> refBridge : LoadRef / StoreRef / RefField / RefIndex / LoadDynamic
     stackExec --> refBridge : ref opcodes
     vmEntry --> vmStacks
     callBridge --> vmStacks : recursive VM calls
-    callBridge --> storage : direct field bind /\ninstance reads-writes
+    callBridge --> storage : direct field bind / instance reads-writes
     refBridge --> storage : ValueRef-based reads-writes
 }
 
@@ -104,45 +91,42 @@ note bottom of refBridge
     - storage read/write cloning pressure
 end note
 
-package "Residual Evaluator Users\n(not the primary production execution engine)" as evalPkg #MistyRose {
-    component "Runtime::evaluate_expression() /\nwith_eval_context()\n(runtime/core/evaluation.rs)" as runtimeEval
-    component "Debug watch / breakpoint\nexpression helpers" as debugEval
-    component "Harness + build-time init\nstatic locals / const-expression eval" as buildEval
-    component "legacy interpreter execution\n(feature-gated)" as legacyEval
+package "Helper Evaluation\n(non-cycle helper flows only)" as helperPkg #MistyRose {
+    component "Runtime::evaluate_expression()\n(runtime/core/evaluation.rs)" as runtimeEval
+    component "helper_eval::const_expr\ncompile-time const folding" as constEval
+    component "helper_eval::storage_expr\ndebug/config/init reads" as storageEval
+    component "helper_eval::storage_lvalue\ndebug pending writes" as storageWrite
+    component "DebugRuntimeContext\n(debug/hook.rs)" as debugCtx
 
-    runtimeEval --> debugEval
-    buildEval --> runtimeEval
-    legacyEval --> runtimeEval
+    runtimeEval --> storageEval
+    debugCtx --> storageEval
+    cycle --> storageWrite : pending debug writes
+    constEval --> storage
+    storageEval --> storage
+    storageWrite --> storage
 }
 
-note right of runtimeEval
-    EvalContext still exists for debug,
-    tooling, selected build-time/runtime
-    helper flows, and optional legacy
-    interpreter builds.
+note right of helperPkg
+    These helpers exist for bounded
+    const/debug/config flows only.
 
-    It is no longer the main production
-    task/program execution engine.
+    Scheduled task/program execution
+    does not pass through EvalContext or
+    an interpreter backend anymore.
 end note
-
-cycle --> runtimeEval : debug writes / expression eval\nhelper surfaces only
-storage --> runtimeEval : evaluator reads-writes
 
 legend right
     **What this diagram clarifies**
-    1. Production task/program execution defaults to BytecodeVmBackend.
-    2. The VM hot path is the combination of:
+    1. Production task/program execution goes directly to the VM path.
+    2. There is no production backend-dispatch seam or interpreter backend.
+    3. The VM hot path is the combination of:
        - register_ir.rs
        - dispatch.rs
        - call.rs
        - dispatch_refs.rs
        - memory.rs
-    3. EvalContext remains in the repo, but mainly for:
-       - debug-expression / watch evaluation
-       - build-time const and initializer work
-       - optional legacy-interpreter parity builds
-    4. Architecture work should optimize the VM bridges,
-       not treat EvalContext as the primary production path.
+    4. `helper_eval` handles const/debug/config helpers only.
+    5. Remaining evaluator internals are test-only and are not part of the runtime scan-loop architecture.
 end legend
 
 @enduml

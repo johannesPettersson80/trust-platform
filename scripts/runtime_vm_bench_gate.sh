@@ -6,21 +6,17 @@ cd "${ROOT_DIR}"
 
 BENCH_OUT_DIR="${TRUST_VM_BENCH_ARTIFACT_DIR:-${OUT_DIR:-target/gate-artifacts/runtime-vm-bench}}"
 PROFILE="${TRUST_VM_BENCH_PROFILE:-quick}"
-ENFORCE_THRESHOLDS="${TRUST_VM_BENCH_ENFORCE_THRESHOLDS:-0}"
-CARGO_PROFILE="${TRUST_VM_BENCH_CARGO_PROFILE:-debug}"
-
-MEDIAN_RATIO_MAX="${TRUST_VM_MEDIAN_RATIO_MAX:-0.50}"
-P99_RATIO_MAX="${TRUST_VM_P99_RATIO_MAX:-0.70}"
-THROUGHPUT_RATIO_MIN="${TRUST_VM_THROUGHPUT_RATIO_MIN:-2.00}"
+TIER="${TRUST_VM_BENCH_TIER:-default}"
+HOST_CODEGEN="${TRUST_VM_BENCH_HOST_CODEGEN:-generic}"
 
 case "${PROFILE}" in
   quick)
-    SAMPLES="${TRUST_VM_BENCH_SAMPLES:-400}"
-    WARMUP_CYCLES="${TRUST_VM_BENCH_WARMUP_CYCLES:-40}"
+    SAMPLES="${TRUST_VM_BENCH_SAMPLES:-32}"
+    WARMUP_CYCLES="${TRUST_VM_BENCH_WARMUP_CYCLES:-8}"
     ;;
   full)
-    SAMPLES="${TRUST_VM_BENCH_SAMPLES:-2000}"
-    WARMUP_CYCLES="${TRUST_VM_BENCH_WARMUP_CYCLES:-200}"
+    SAMPLES="${TRUST_VM_BENCH_SAMPLES:-128}"
+    WARMUP_CYCLES="${TRUST_VM_BENCH_WARMUP_CYCLES:-32}"
     ;;
   *)
     echo "[vm-bench-gate] FAIL: unsupported profile '${PROFILE}' (expected quick|full)"
@@ -30,119 +26,53 @@ esac
 
 mkdir -p "${BENCH_OUT_DIR}"
 
-# Avoid leaking benchmark artifact OUT_DIR into cargo/rustc build script env.
+# Avoid leaking gate OUT_DIR into cargo/rustc build script env.
 unset OUT_DIR
 
-case "${CARGO_PROFILE}" in
-  debug|release)
-    ;;
-  *)
-    echo "[vm-bench-gate] FAIL: unsupported TRUST_VM_BENCH_CARGO_PROFILE='${CARGO_PROFILE}' (expected debug|release)"
-    exit 1
-    ;;
-esac
+echo "[vm-bench-gate] capturing VM syntax corpus benchmark (profile=${PROFILE}, tier=${TIER}, host_codegen=${HOST_CODEGEN})"
+TRUST_RUNTIME_HOST_CODEGEN="${HOST_CODEGEN}" OUT_DIR="${BENCH_OUT_DIR}" TRUST_VM_SYNTAX_CORPUS_SAMPLES="${SAMPLES}" TRUST_VM_SYNTAX_CORPUS_WARMUP_CYCLES="${WARMUP_CYCLES}" TRUST_VM_SYNTAX_CORPUS_TIER="${TIER}" ./scripts/runtime_vm_syntax_corpus.sh | tee "${BENCH_OUT_DIR}/gate.log"
 
-cargo_args=(run -p trust-runtime --bin trust-runtime --features legacy-interpreter --)
-if [[ "${CARGO_PROFILE}" == "release" ]]; then
-  cargo_args=(run --release -p trust-runtime --bin trust-runtime --features legacy-interpreter --)
-fi
+BENCH_OUT_DIR_ENV="${BENCH_OUT_DIR}" PROFILE_ENV="${PROFILE}" TIER_ENV="${TIER}" SAMPLES_ENV="${SAMPLES}" WARMUP_ENV="${WARMUP_CYCLES}" python3 - <<'PY2'
+import json
+import os
+from pathlib import Path
 
-echo "[vm-bench-gate] running trust-runtime bench execution-backend (profile=${PROFILE}, cargo_profile=${CARGO_PROFILE})"
-started_ns="$(date +%s%N)"
-cargo "${cargo_args[@]}" \
-  bench execution-backend \
-  --samples "${SAMPLES}" \
-  --warmup-cycles "${WARMUP_CYCLES}" \
-  --output json \
-  > "${BENCH_OUT_DIR}/execution-backend.json"
-duration_ms="$(( ($(date +%s%N) - started_ns) / 1000000 ))"
+out_dir = Path(os.environ['BENCH_OUT_DIR_ENV'])
+profile = os.environ['PROFILE_ENV']
+tier = os.environ['TIER_ENV']
+samples = int(os.environ['SAMPLES_ENV'])
+warmup = int(os.environ['WARMUP_ENV'])
+corpus_dir = out_dir / tier
+summary = json.loads((corpus_dir / 'summary.json').read_text())
+rows = summary['rows']
+worst_p95 = max((row['p95_us'] for row in rows), default=0.0)
+summary_doc = f'''# Runtime VM Benchmark Gate
 
-read_json_number() {
-  local file="$1"
-  local query="$2"
-  jq -r "${query}" "${file}"
-}
+- profile: {profile}
+- tier: {tier}
+- build mode: {summary.get('build_mode', 'generic')}
+- samples: {samples}
+- warmup cycles: {warmup}
+- suite wall-clock ms: {summary.get('suite_wall_clock_ms', 0)}
+- workloads: {len(rows)}
+- worst p95 us: {worst_p95:.3f}
+- syntax corpus summary: `{tier}/summary.md`
 
-float_le() {
-  local left="$1"
-  local right="$2"
-  awk -v a="${left}" -v b="${right}" 'BEGIN { exit (a <= b) ? 0 : 1 }'
-}
+Result: RECORDED
+'''
+(out_dir / 'summary.md').write_text(summary_doc)
+(out_dir / 'summary.json').write_text(json.dumps({
+    'profile': profile,
+    'tier': tier,
+    'build_mode': summary.get('build_mode', 'generic'),
+    'samples': samples,
+    'warmup_cycles': warmup,
+    'suite_wall_clock_ms': summary.get('suite_wall_clock_ms', 0),
+    'workloads': len(rows),
+    'worst_p95_us': worst_p95,
+    'corpus_summary_path': f'{tier}/summary.json',
+    'result': 'recorded',
+}, indent=2))
+PY2
 
-float_ge() {
-  local left="$1"
-  local right="$2"
-  awk -v a="${left}" -v b="${right}" 'BEGIN { exit (a >= b) ? 0 : 1 }'
-}
-
-MEDIAN_RATIO="$(read_json_number "${BENCH_OUT_DIR}/execution-backend.json" '.report.aggregate.median_latency_ratio')"
-P99_RATIO="$(read_json_number "${BENCH_OUT_DIR}/execution-backend.json" '.report.aggregate.p99_latency_ratio')"
-THROUGHPUT_RATIO="$(read_json_number "${BENCH_OUT_DIR}/execution-backend.json" '.report.aggregate.throughput_ratio')"
-
-RESULT="recorded"
-if [[ "${ENFORCE_THRESHOLDS}" == "1" ]]; then
-  if ! float_le "${MEDIAN_RATIO}" "${MEDIAN_RATIO_MAX}"; then
-    echo "[vm-bench-gate] FAIL: median latency ratio ${MEDIAN_RATIO} exceeds ${MEDIAN_RATIO_MAX}"
-    exit 1
-  fi
-  if ! float_le "${P99_RATIO}" "${P99_RATIO_MAX}"; then
-    echo "[vm-bench-gate] FAIL: p99 latency ratio ${P99_RATIO} exceeds ${P99_RATIO_MAX}"
-    exit 1
-  fi
-  if ! float_ge "${THROUGHPUT_RATIO}" "${THROUGHPUT_RATIO_MIN}"; then
-    echo "[vm-bench-gate] FAIL: throughput ratio ${THROUGHPUT_RATIO} below ${THROUGHPUT_RATIO_MIN}"
-    exit 1
-  fi
-  RESULT="pass"
-fi
-
-cat > "${BENCH_OUT_DIR}/summary.md" <<MD
-# MP-060 Runtime Execution Backend Benchmark
-
-- profile: ${PROFILE}
-- samples per fixture: ${SAMPLES}
-- warmup cycles: ${WARMUP_CYCLES}
-- aggregate median latency ratio (vm/interpreter): ${MEDIAN_RATIO} (target <= ${MEDIAN_RATIO_MAX})
-- aggregate p99 latency ratio (vm/interpreter): ${P99_RATIO} (target <= ${P99_RATIO_MAX})
-- aggregate throughput ratio (vm/interpreter): ${THROUGHPUT_RATIO} (target >= ${THROUGHPUT_RATIO_MIN})
-- thresholds enforced: ${ENFORCE_THRESHOLDS}
-- cargo profile: ${CARGO_PROFILE}
-- benchmark duration_ms: ${duration_ms}
-- result: ${RESULT}
-MD
-
-jq -n \
-  --arg profile "${PROFILE}" \
-  --argjson samples "${SAMPLES}" \
-  --argjson warmup_cycles "${WARMUP_CYCLES}" \
-  --arg median_ratio "${MEDIAN_RATIO}" \
-  --arg p99_ratio "${P99_RATIO}" \
-  --arg throughput_ratio "${THROUGHPUT_RATIO}" \
-  --arg median_ratio_max "${MEDIAN_RATIO_MAX}" \
-  --arg p99_ratio_max "${P99_RATIO_MAX}" \
-  --arg throughput_ratio_min "${THROUGHPUT_RATIO_MIN}" \
-  --arg enforced "${ENFORCE_THRESHOLDS}" \
-  --arg cargo_profile "${CARGO_PROFILE}" \
-  --arg duration_ms "${duration_ms}" \
-  --arg result "${RESULT}" \
-  '{
-    profile: $profile,
-    cargo_profile: $cargo_profile,
-    samples_per_fixture: $samples,
-    warmup_cycles: $warmup_cycles,
-    duration_ms: ($duration_ms | tonumber),
-    aggregate_ratios: {
-      median_latency_vm_over_interpreter: ($median_ratio | tonumber),
-      p99_latency_vm_over_interpreter: ($p99_ratio | tonumber),
-      throughput_vm_over_interpreter: ($throughput_ratio | tonumber)
-    },
-    thresholds: {
-      median_latency_max: ($median_ratio_max | tonumber),
-      p99_latency_max: ($p99_ratio_max | tonumber),
-      throughput_min: ($throughput_ratio_min | tonumber)
-    },
-    thresholds_enforced: ($enforced == "1"),
-    result: $result
-  }' > "${BENCH_OUT_DIR}/summary.json"
-
-echo "[vm-bench-gate] ${RESULT^^}"
+echo "[vm-bench-gate] RECORDED"

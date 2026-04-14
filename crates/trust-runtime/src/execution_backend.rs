@@ -10,9 +10,6 @@ pub enum ExecutionBackend {
     /// Bytecode VM execution path.
     #[default]
     BytecodeVm,
-    /// AST interpreter execution path (legacy compatibility mode).
-    #[cfg(feature = "legacy-interpreter")]
-    Interpreter,
 }
 
 impl ExecutionBackend {
@@ -20,19 +17,10 @@ impl ExecutionBackend {
     pub fn parse(text: &str) -> Result<Self, RuntimeError> {
         match text.trim().to_ascii_lowercase().as_str() {
             "vm" => Ok(Self::BytecodeVm),
-            "interpreter" => {
-                #[cfg(feature = "legacy-interpreter")]
-                {
-                    Ok(Self::Interpreter)
-                }
-                #[cfg(not(feature = "legacy-interpreter"))]
-                {
-                    Err(RuntimeError::InvalidConfig(
-                        "runtime.execution_backend='interpreter' is no longer supported for production runtimes; use 'vm'"
-                            .into(),
-                    ))
-                }
-            }
+            "interpreter" => Err(RuntimeError::InvalidConfig(
+                "runtime.execution_backend='interpreter' is no longer supported for production runtimes; use 'vm'"
+                    .into(),
+            )),
             _ => Err(RuntimeError::InvalidConfig(
                 format!("invalid runtime.execution_backend '{text}'").into(),
             )),
@@ -43,8 +31,6 @@ impl ExecutionBackend {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::BytecodeVm => "vm",
-            #[cfg(feature = "legacy-interpreter")]
-            Self::Interpreter => "interpreter",
         }
     }
 }
@@ -216,16 +202,12 @@ mod tests {
             .contains("invalid runtime.execution_backend 'bytecode'"));
     }
 
-    #[cfg(feature = "legacy-interpreter")]
     #[test]
-    fn parse_accepts_case_insensitive_interpreter_values() {
-        assert_eq!(
-            ExecutionBackend::parse("interpreter").expect("parse interpreter"),
-            ExecutionBackend::Interpreter
-        );
-        assert_eq!(
-            ExecutionBackend::parse("INTERPRETER").expect("parse uppercase interpreter"),
-            ExecutionBackend::Interpreter
-        );
+    fn parse_rejects_interpreter_values() {
+        let err = ExecutionBackend::parse("interpreter")
+            .expect_err("interpreter backend should be rejected");
+        assert!(err
+            .to_string()
+            .contains("runtime.execution_backend='interpreter' is no longer supported"));
     }
 }

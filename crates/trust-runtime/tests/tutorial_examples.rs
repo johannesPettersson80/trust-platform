@@ -1,7 +1,5 @@
 use std::path::{Path, PathBuf};
 
-#[cfg(feature = "legacy-interpreter")]
-use trust_runtime::execution_backend::ExecutionBackend;
 use trust_runtime::harness::{
     bytecode_module_from_source_with_path, bytecode_module_from_sources_with_paths, TestHarness,
 };
@@ -221,11 +219,6 @@ fn visual_examples_compile_generated_companion_and_runtime_entry() {
 #[test]
 fn tutorial_blinker_ton_timing_behavior() {
     let mut harness = TestHarness::from_source(BLINKER).expect("compile blinker tutorial");
-    #[cfg(feature = "legacy-interpreter")]
-    harness
-        .runtime_mut()
-        .set_execution_backend(ExecutionBackend::Interpreter)
-        .expect("switch to interpreter backend");
 
     harness.cycle();
     harness.assert_eq("lamp", false);
@@ -261,11 +254,6 @@ fn traffic_state(harness: &TestHarness) -> (Option<Value>, Option<Value>, Option
 #[test]
 fn tutorial_traffic_light_state_sequence() {
     let mut harness = TestHarness::from_source(TRAFFIC_LIGHT).expect("compile traffic tutorial");
-    #[cfg(feature = "legacy-interpreter")]
-    harness
-        .runtime_mut()
-        .set_execution_backend(ExecutionBackend::Interpreter)
-        .expect("switch to interpreter backend");
 
     harness.cycle();
     let s0 = traffic_state(&harness);

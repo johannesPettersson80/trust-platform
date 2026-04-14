@@ -8,14 +8,13 @@ use trust_hir::types::TypeRegistry;
 use trust_hir::Type;
 
 use crate::error::RuntimeError;
-use crate::eval::{
-    eval_expr, ClassDef, EvalContext, FunctionBlockBase, FunctionBlockDef, FunctionDef, Param,
-    VarDef,
-};
 use crate::memory::{InstanceId, VariableStorage};
+use crate::program_model::{
+    ClassDef, FunctionBlockBase, FunctionBlockDef, FunctionDef, Param, VarDef,
+};
 use crate::stdlib::StandardLibrary;
 use crate::task::ProgramDef;
-use crate::value::{default_value_for_type_id, DateTimeProfile, Duration, Value};
+use crate::value::{default_value_for_type_id, DateTimeProfile, Value};
 
 /// Create and initialize a function block instance.
 #[allow(clippy::too_many_arguments)]
@@ -84,7 +83,6 @@ pub fn create_fb_instance(
         stdlib,
         instance_id,
         &fb.vars,
-        &fb.using,
     )?;
     init_method_static_defaults(
         storage,
@@ -125,7 +123,6 @@ pub fn create_program_instance(
         stdlib,
         instance_id,
         &program.vars,
-        &program.using,
     )?;
     Ok(instance_id)
 }
@@ -176,7 +173,6 @@ pub fn create_class_instance(
         stdlib,
         instance_id,
         &class_def.vars,
-        &class_def.using,
     )?;
     init_method_static_defaults(
         storage,
@@ -219,7 +215,6 @@ fn init_var_defaults(
     stdlib: &StandardLibrary,
     instance_id: InstanceId,
     vars: &[VarDef],
-    using: &[SmolStr],
 ) -> Result<(), RuntimeError> {
     for var in vars {
         if let Some(fb_name) = function_block_type_name(var.type_id, registry) {
@@ -263,25 +258,6 @@ fn init_var_defaults(
             default_value_for_type_id(var.type_id, registry, profile).unwrap_or(Value::Null);
         storage.set_instance_var(instance_id, var.name.clone(), value);
     }
-    let mut ctx = EvalContext {
-        storage,
-        registry,
-        profile: *profile,
-        now: Duration::ZERO,
-        debug: None,
-        call_depth: 0,
-        functions: Some(functions),
-        stdlib: Some(stdlib),
-        function_blocks: Some(function_blocks),
-        classes: Some(classes),
-        using: Some(using),
-        access: None,
-        current_instance: Some(instance_id),
-        return_name: None,
-        loop_depth: 0,
-        pause_requested: false,
-        execution_deadline: None,
-    };
     for var in vars {
         if function_block_type_name(var.type_id, registry).is_some() {
             if var.initializer.is_some() {
@@ -301,11 +277,16 @@ fn init_var_defaults(
         if var.external {
             continue;
         }
-        let value = eval_expr(&mut ctx, expr)?;
+        let value = crate::helper_eval::eval_storage_expr(
+            storage,
+            registry,
+            profile,
+            Some(instance_id),
+            expr,
+        )?;
         let value = crate::harness::coerce_value_to_type(value, var.type_id)
             .map_err(|_| RuntimeError::TypeMismatch)?;
-        ctx.storage
-            .set_instance_var(instance_id, var.name.clone(), value);
+        storage.set_instance_var(instance_id, var.name.clone(), value);
     }
     Ok(())
 }
@@ -321,12 +302,12 @@ fn init_method_static_defaults(
     stdlib: &StandardLibrary,
     instance_id: InstanceId,
     owner: &SmolStr,
-    methods: &[crate::eval::MethodDef],
+    methods: &[crate::program_model::MethodDef],
 ) -> Result<(), RuntimeError> {
     for method in methods {
-        let method_owner = crate::eval::method_static_storage_owner(owner, &method.name);
+        let method_owner = crate::program_model::method_static_storage_owner(owner, &method.name);
         for local in &method.static_locals {
-            let key = crate::eval::static_storage_name(&method_owner, &local.name);
+            let key = crate::program_model::static_storage_name(&method_owner, &local.name);
             if let Some(fb_name) = function_block_type_name(local.type_id, registry) {
                 if local.initializer.is_some() {
                     return Err(RuntimeError::TypeMismatch);
@@ -373,28 +354,8 @@ fn init_method_static_defaults(
         }
     }
 
-    let mut ctx = EvalContext {
-        storage,
-        registry,
-        profile: *profile,
-        now: Duration::ZERO,
-        debug: None,
-        call_depth: 0,
-        functions: Some(functions),
-        stdlib: Some(stdlib),
-        function_blocks: Some(function_blocks),
-        classes: Some(classes),
-        using: None,
-        access: None,
-        current_instance: Some(instance_id),
-        return_name: None,
-        loop_depth: 0,
-        pause_requested: false,
-        execution_deadline: None,
-    };
-
     for method in methods {
-        let method_owner = crate::eval::method_static_storage_owner(owner, &method.name);
+        let method_owner = crate::program_model::method_static_storage_owner(owner, &method.name);
         for local in &method.static_locals {
             if function_block_type_name(local.type_id, registry).is_some() {
                 continue;
@@ -405,12 +366,17 @@ fn init_method_static_defaults(
             let Some(expr) = &local.initializer else {
                 continue;
             };
-            ctx.using = Some(&method.using);
-            let value = eval_expr(&mut ctx, expr)?;
+            let value = crate::helper_eval::eval_storage_expr(
+                storage,
+                registry,
+                profile,
+                Some(instance_id),
+                expr,
+            )?;
             let value = crate::harness::coerce_value_to_type(value, local.type_id)
                 .map_err(|_| RuntimeError::TypeMismatch)?;
-            let key = crate::eval::static_storage_name(&method_owner, &local.name);
-            ctx.storage.set_instance_var(instance_id, key, value);
+            let key = crate::program_model::static_storage_name(&method_owner, &local.name);
+            storage.set_instance_var(instance_id, key, value);
         }
     }
 

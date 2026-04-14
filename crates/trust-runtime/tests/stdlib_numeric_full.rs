@@ -1,5 +1,3 @@
-#[cfg(feature = "legacy-interpreter")]
-use trust_runtime::execution_backend::ExecutionBackend;
 use trust_runtime::harness::TestHarness;
 use trust_runtime::stdlib::StandardLibrary;
 use trust_runtime::value::{DateTimeValue, DateValue, Duration, TimeOfDayValue, Value};
@@ -155,11 +153,6 @@ fn split_functions() {
     "#;
 
     let mut harness = TestHarness::from_source(source).unwrap();
-    #[cfg(feature = "legacy-interpreter")]
-    harness
-        .runtime_mut()
-        .set_execution_backend(ExecutionBackend::Interpreter)
-        .expect("switch to interpreter backend");
     harness.cycle();
 
     harness.assert_eq("year_a", 1970i16);

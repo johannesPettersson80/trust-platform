@@ -74,11 +74,11 @@ fn location_to_stack_frame(
 }
 
 fn evaluate_with_snapshot(
-    expr: &crate::eval::expr::Expr,
+    expr: &crate::program_model::Expr,
     registry: &trust_hir::types::TypeRegistry,
     frame_id: Option<crate::memory::FrameId>,
     snapshot: &crate::debug::DebugSnapshot,
-    using: &[smol_str::SmolStr],
+    _using: &[smol_str::SmolStr],
     state: &ControlState,
 ) -> Result<Value, RuntimeError> {
     let metadata = state
@@ -86,37 +86,18 @@ fn evaluate_with_snapshot(
         .lock()
         .map_err(|_| RuntimeError::ControlError("metadata unavailable".into()))?;
     let profile = metadata.profile();
-    let now = snapshot.now;
-    let functions = metadata.functions();
-    let stdlib = metadata.stdlib();
-    let function_blocks = metadata.function_blocks();
-    let classes = metadata.classes();
-    let access = metadata.access_map();
-
     let mut storage = snapshot.storage.clone();
     let eval = |storage: &mut crate::memory::VariableStorage,
                 instance_id: Option<crate::memory::InstanceId>|
      -> Result<Value, RuntimeError> {
-        let mut ctx = crate::eval::EvalContext {
+        crate::helper_eval::eval_storage_expr_with_stdlib(
             storage,
             registry,
-            profile,
-            now,
-            debug: None,
-            call_depth: 0,
-            functions: Some(functions),
-            stdlib: Some(stdlib),
-            function_blocks: Some(function_blocks),
-            classes: Some(classes),
-            using: if using.is_empty() { None } else { Some(using) },
-            access: Some(access),
-            current_instance: instance_id,
-            return_name: None,
-            loop_depth: 0,
-            pause_requested: false,
-            execution_deadline: None,
-        };
-        crate::eval::eval_expr(&mut ctx, expr)
+            &profile,
+            instance_id,
+            Some(metadata.stdlib()),
+            expr,
+        )
     };
 
     if let Some(frame_id) = frame_id {

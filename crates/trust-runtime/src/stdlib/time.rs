@@ -6,7 +6,7 @@ use crate::datetime::{
     days_from_civil, days_to_ticks, nanos_to_ticks, ticks_per_day, DivisionMode, NANOS_PER_DAY,
 };
 use crate::error::RuntimeError;
-use crate::eval::ops::{apply_binary, BinaryOp};
+use crate::program_model::{apply_binary, BinaryOp};
 use crate::stdlib::helpers::{require_arity, scale_time, to_i64};
 use crate::stdlib::StandardLibrary;
 use crate::value::{

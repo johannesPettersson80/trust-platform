@@ -5,7 +5,7 @@ use smol_str::SmolStr;
 use crate::bytecode::{
     DebugEntry, InterfaceMethod, MethodEntry, ParamEntry, PouClassMeta, PouEntry, PouIndex, PouKind,
 };
-use crate::eval::{ClassDef, FunctionBlockDef, FunctionDef, MethodDef, Param};
+use crate::program_model::{ClassDef, FunctionBlockDef, FunctionDef, MethodDef, Param};
 use crate::value::Value;
 use trust_hir::symbols::ParamDirection;
 

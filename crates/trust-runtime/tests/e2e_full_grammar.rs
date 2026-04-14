@@ -1,5 +1,3 @@
-#[cfg(feature = "legacy-interpreter")]
-use trust_runtime::execution_backend::ExecutionBackend;
 use trust_runtime::harness::TestHarness;
 use trust_runtime::value::Value;
 
@@ -54,11 +52,6 @@ fn var_and_stmt_coverage() {
     "#;
 
     let mut harness = TestHarness::from_source(source).unwrap();
-    #[cfg(feature = "legacy-interpreter")]
-    harness
-        .runtime_mut()
-        .set_execution_backend(ExecutionBackend::Interpreter)
-        .expect("switch to interpreter backend");
 
     let cycle = harness.cycle();
 

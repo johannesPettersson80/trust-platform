@@ -1,5 +1,3 @@
-mod common;
-
 use std::sync::mpsc::channel;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -7,15 +5,27 @@ use std::time::{Duration, Instant};
 use trust_hir::types::TypeRegistry;
 use trust_runtime::debug::{
     offset_to_line_col, resolve_breakpoint_location, DebugBreakpoint, DebugControl, DebugHook,
-    DebugStopReason, HitCondition, LogFragment, SourceLocation,
+    DebugRuntimeContext, DebugStopReason, HitCondition, LogFragment, SourceLocation,
 };
-use trust_runtime::eval::expr::Expr;
-use trust_runtime::eval::stmt::{exec_stmt, Stmt};
 use trust_runtime::harness::parse_debug_expression;
 use trust_runtime::harness::TestHarness;
 use trust_runtime::memory::VariableStorage;
 use trust_runtime::value::{DateTimeProfile, Value};
 use trust_runtime::Runtime;
+
+fn make_debug_context<'a>(
+    storage: &'a mut VariableStorage,
+    registry: &'a TypeRegistry,
+) -> DebugRuntimeContext<'a> {
+    DebugRuntimeContext {
+        storage,
+        registry,
+        stdlib: None,
+        profile: DateTimeProfile::default(),
+        current_instance: None,
+        now: trust_runtime::value::Duration::ZERO,
+    }
+}
 
 fn wait_for_pause(control: &DebugControl, timeout: Duration) {
     let deadline = Instant::now() + timeout;
@@ -258,36 +268,6 @@ END_PROGRAM
 }
 
 #[test]
-fn debug_hook_fires_once_per_statement() {
-    struct CountingHook {
-        count: usize,
-    }
-
-    impl DebugHook for CountingHook {
-        fn on_statement(&mut self, _location: Option<&SourceLocation>, _call_depth: u32) {
-            self.count += 1;
-        }
-    }
-
-    let mut storage = VariableStorage::default();
-    storage.push_frame("MAIN");
-    let registry = TypeRegistry::new();
-    let mut ctx = common::make_context(&mut storage, &registry);
-    let mut hook = CountingHook { count: 0 };
-    ctx.debug = Some(&mut hook);
-
-    let stmt = Stmt::Expr {
-        expr: Expr::Literal(Value::Int(1)),
-        location: None,
-    };
-
-    let _ = exec_stmt(&mut ctx, &stmt).unwrap();
-
-    let expected = if cfg!(feature = "debug") { 1 } else { 0 };
-    assert_eq!(hook.count, expected);
-}
-
-#[test]
 fn breakpoint_emits_stop_event() {
     let control = DebugControl::new();
     let (stop_tx, stop_rx) = channel();
@@ -323,7 +303,7 @@ fn frame_location_tracks_current_frame() {
     let mut storage = VariableStorage::new();
     let frame_id = storage.push_frame("MAIN");
     let registry = TypeRegistry::new();
-    let mut ctx = common::make_context(&mut storage, &registry);
+    let mut ctx = make_debug_context(&mut storage, &registry);
 
     let mut hook = control.clone();
     hook.on_statement_with_context(&mut ctx, Some(&location), 0);
@@ -350,7 +330,7 @@ fn watch_changes_reported_between_stops() {
         storage.push_frame("MAIN");
         storage.set_local("x", Value::DInt(1));
         let registry = TypeRegistry::new();
-        let mut ctx = common::make_context(&mut storage, &registry);
+        let mut ctx = make_debug_context(&mut storage, &registry);
         hook.on_statement_with_context(&mut ctx, Some(&location), 0);
         ctx.storage.set_local("x", Value::DInt(2));
         hook.on_statement_with_context(&mut ctx, Some(&location), 0);
@@ -451,7 +431,7 @@ fn conditional_breakpoint_skips_when_false() {
         storage.push_frame("MAIN");
         storage.set_local("x", Value::DInt(0));
         let registry = TypeRegistry::new();
-        let mut ctx = common::make_context(&mut storage, &registry);
+        let mut ctx = make_debug_context(&mut storage, &registry);
         hook.on_statement_with_context(&mut ctx, Some(&location), 0);
         tx.send(()).unwrap();
     });
@@ -488,7 +468,7 @@ fn conditional_breakpoint_pauses_when_true() {
         storage.push_frame("MAIN");
         storage.set_local("x", Value::DInt(1));
         let registry = TypeRegistry::new();
-        let mut ctx = common::make_context(&mut storage, &registry);
+        let mut ctx = make_debug_context(&mut storage, &registry);
         hook.on_statement_with_context(&mut ctx, Some(&location), 0);
         tx.send(()).unwrap();
     });
@@ -524,7 +504,7 @@ fn hit_count_breakpoint_pauses_on_threshold() {
         let mut storage = VariableStorage::new();
         storage.push_frame("MAIN");
         let registry = TypeRegistry::new();
-        let mut ctx = common::make_context(&mut storage, &registry);
+        let mut ctx = make_debug_context(&mut storage, &registry);
 
         hook.on_statement_with_context(&mut ctx, Some(&location), 0);
         tx.send(1).unwrap();
@@ -573,7 +553,7 @@ fn logpoint_emits_output_without_pausing() {
         storage.push_frame("MAIN");
         storage.set_local("x", Value::DInt(41));
         let registry = TypeRegistry::new();
-        let mut ctx = common::make_context(&mut storage, &registry);
+        let mut ctx = make_debug_context(&mut storage, &registry);
         hook.on_statement_with_context(&mut ctx, Some(&location), 0);
         tx.send(()).unwrap();
     });

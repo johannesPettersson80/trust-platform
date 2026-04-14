@@ -166,7 +166,8 @@ package "trust-runtime crate" as struntime #LightCoral {
     package "Runtime" as runtime {
         component "execute_cycle()" as execCycle <<cycle.rs:18>>
         component "VariableStorage" as varStorage
-        component "EvalContext" as evalCtx <<cycle.rs:125>>
+        component "DebugRuntimeContext" as debugCtx <<debug/hook.rs>>
+        component "helper_eval::storage_lvalue" as debugWrite <<helper_eval/storage_lvalue.rs>>
         component "Task Registry" as taskRegistry
     }
 
@@ -184,8 +185,8 @@ package "trust-runtime crate" as struntime #LightCoral {
     onStatement --> snapshot : captures
     onStatement --> frameLocs : per-frame location
 
-    execCycle --> evalCtx
-    evalCtx --> debugHook : calls on_statement
+    execCycle --> debugWrite : pending debug writes
+    debugCtx --> debugHook : storage-native statement context
 
     onStatement --> stopChannel : emit DebugStop
 }

@@ -25,7 +25,6 @@ fn lower_global_var_block(
                         initializer: init_expr.clone(),
                         retain: qualifiers.retain,
                         address: address.clone(),
-                        using: ctx.using.clone(),
                     });
                 }
             }
@@ -81,7 +80,6 @@ fn lower_var_access_block(
                     initializer: None,
                     retain: crate::RetainPolicy::Unspecified,
                     address: Some(text.clone()),
-                    using: ctx.using.clone(),
                 });
             }
             AccessPath::Parts(_) => {

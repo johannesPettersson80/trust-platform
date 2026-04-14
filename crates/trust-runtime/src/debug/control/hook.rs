@@ -11,7 +11,7 @@ impl DebugHook for DebugControl {
 
     fn on_statement_with_context(
         &mut self,
-        ctx: &mut EvalContext<'_>,
+        ctx: &mut DebugRuntimeContext<'_>,
         location: Option<&SourceLocation>,
         call_depth: u32,
     ) {
@@ -24,7 +24,7 @@ impl DebugControl {
         &mut self,
         location: Option<&SourceLocation>,
         call_depth: u32,
-        mut ctx: Option<&mut EvalContext<'_>>,
+        mut ctx: Option<&mut DebugRuntimeContext<'_>>,
     ) {
         let (lock, cvar) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
@@ -240,10 +240,18 @@ fn emit_stop(
     state.stops.push(stop);
 }
 
-fn update_watch_snapshot(state: &mut DebugState, ctx: &mut EvalContext<'_>) {
+fn update_watch_snapshot(state: &mut DebugState, ctx: &mut DebugRuntimeContext<'_>) {
     let mut changed = false;
     for watch in &mut state.watches {
-        let next = eval_expr(ctx, &watch.expr).ok();
+        let next = crate::helper_eval::eval_storage_expr_with_stdlib(
+            ctx.storage,
+            ctx.registry,
+            &ctx.profile,
+            ctx.current_instance,
+            ctx.stdlib,
+            &watch.expr,
+        )
+        .ok();
         if watch.last != next {
             watch.last = next;
             changed = true;
@@ -254,7 +262,7 @@ fn update_watch_snapshot(state: &mut DebugState, ctx: &mut EvalContext<'_>) {
     }
 }
 
-fn update_snapshot(state: &mut DebugState, ctx: &mut EvalContext<'_>) {
+fn update_snapshot(state: &mut DebugState, ctx: &mut DebugRuntimeContext<'_>) {
     state.snapshot = Some(DebugSnapshot {
         storage: ctx.storage.clone(),
         now: ctx.now,

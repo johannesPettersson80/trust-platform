@@ -20,52 +20,44 @@ hash_file() {
   sha256sum "${file}" | awk '{print $1}'
 }
 
-echo "[vm-determinism-gate] repeat-run differential parity (${ITERATIONS} iterations)"
-differential_hashes=()
+echo "[vm-determinism-gate] repeat-run VM behavior-lock suites (${ITERATIONS} iterations)"
+suite_hashes=()
 for run in $(seq 1 "${ITERATIONS}"); do
-  log_path="${OUT_DIR}/bytecode-vm-differential-run-${run}.log"
-  signature_path="${OUT_DIR}/bytecode-vm-differential-run-${run}.signature"
-  json_path="${OUT_DIR}/bytecode-vm-differential-run-${run}.json"
+  log_path="${OUT_DIR}/vm-behavior-run-${run}.log"
+  signature_path="${OUT_DIR}/vm-behavior-run-${run}.signature"
+  json_path="${OUT_DIR}/vm-behavior-run-${run}.json"
 
   started_ns="$(date +%s%N)"
-  cargo test -p trust-runtime --features legacy-interpreter --test bytecode_vm_differential -- --test-threads="${TEST_THREADS}" \
-    | tee "${log_path}"
+  cargo test -p trust-runtime --test api_smoke --test complete_program -- --test-threads="${TEST_THREADS}"     | tee "${log_path}"
   ended_ns="$(date +%s%N)"
   duration_ms="$(( (ended_ns - started_ns) / 1000000 ))"
 
-  # Capture normalized test result lines (name + status) as repeat-run signature.
-  grep '^test differential_' "${log_path}" \
-    | sed -E 's/[[:space:]]+/ /g' \
-    > "${signature_path}"
+  grep '^test ' "${log_path}"     | sed -E 's/[[:space:]]+/ /g'     > "${signature_path}"
 
   if [[ ! -s "${signature_path}" ]]; then
-    echo "[vm-determinism-gate] FAIL: no differential test signatures captured for run ${run}"
+    echo "[vm-determinism-gate] FAIL: no VM behavior signatures captured for run ${run}"
     exit 1
   fi
 
   tests_hash="$(hash_file "${signature_path}")"
-  differential_hashes+=("${tests_hash}")
+  suite_hashes+=("${tests_hash}")
 
-  jq -n \
-    --arg run "${run}" \
-    --arg duration_ms "${duration_ms}" \
-    --arg tests_hash "${tests_hash}" \
-    '{
+  jq -n     --arg run "${run}"     --arg duration_ms "${duration_ms}"     --arg tests_hash "${tests_hash}"     '{
       run: ($run | tonumber),
       duration_ms: ($duration_ms | tonumber),
       tests_hash: $tests_hash
     }' > "${json_path}"
 done
 
-reference_hash="${differential_hashes[0]}"
-for current_hash in "${differential_hashes[@]}"; do
+reference_hash="${suite_hashes[0]}"
+for current_hash in "${suite_hashes[@]}"; do
   if [[ "${current_hash}" != "${reference_hash}" ]]; then
-    echo "[vm-determinism-gate] FAIL: differential test-set hash mismatch between runs"
+    echo "[vm-determinism-gate] FAIL: VM behavior-lock hash mismatch between runs"
     exit 1
   fi
 done
 
-echo "[vm-determinism-gate] reliability regression suite (fault/restart parity contracts)"
+echo "[vm-determinism-gate] runtime reliability suites"
 runtime_reliability_log="${OUT_DIR}/runtime-reliability.log"
 hot_reload_log="${OUT_DIR}/hot-reload.log"
 
@@ -78,28 +70,22 @@ cargo test -p trust-runtime --test hot_reload -- --test-threads=1 | tee "${hot_r
 hot_reload_ms="$(( ($(date +%s%N) - started_ns) / 1000000 ))"
 
 cat > "${OUT_DIR}/summary.md" <<MD
-# MP-060 Determinism and Reliability Gate
+# Runtime VM Determinism and Reliability Gate
 
-- differential repeat-run iterations: ${ITERATIONS}
-- differential test-set hash: ${reference_hash}
+- repeat-run iterations: ${ITERATIONS}
+- behavior-lock test-set hash: ${reference_hash}
 - runtime_reliability duration_ms: ${runtime_reliability_ms}
 - hot_reload duration_ms: ${hot_reload_ms}
 
 Checks:
-- repeat-run differential parity: PASS
+- repeat-run VM behavior-lock suites: PASS
 - fault/restart reliability suites: PASS
 
 Result: PASS
 MD
 
-jq -n \
-  --arg iterations "${ITERATIONS}" \
-  --arg test_threads "${TEST_THREADS}" \
-  --arg tests_hash "${reference_hash}" \
-  --arg runtime_reliability_ms "${runtime_reliability_ms}" \
-  --arg hot_reload_ms "${hot_reload_ms}" \
-  '{
-    differential_repeat_runs: {
+jq -n   --arg iterations "${ITERATIONS}"   --arg test_threads "${TEST_THREADS}"   --arg tests_hash "${reference_hash}"   --arg runtime_reliability_ms "${runtime_reliability_ms}"   --arg hot_reload_ms "${hot_reload_ms}"   '{
+    vm_behavior_lock_repeat_runs: {
       iterations: ($iterations | tonumber),
       test_threads: ($test_threads | tonumber),
       tests_hash: $tests_hash

@@ -1,14 +1,14 @@
-fn expr_supported(expr: &crate::eval::expr::Expr) -> bool {
-    use crate::eval::expr::Expr;
-    use crate::eval::ops::{BinaryOp, UnaryOp};
+fn expr_supported(expr: &crate::program_model::Expr) -> bool {
+    use crate::program_model::Expr;
+    use crate::program_model::{BinaryOp, UnaryOp};
     match expr {
         Expr::Literal(value) => {
             type_id_for_value(value).is_some() || matches!(value, crate::value::Value::Null)
         }
         Expr::Name(_) => true,
         Expr::This | Expr::Super => true,
-        Expr::SizeOf(crate::eval::expr::SizeOfTarget::Type(_)) => true,
-        Expr::SizeOf(crate::eval::expr::SizeOfTarget::Expr(expr)) => expr_supported(expr),
+        Expr::SizeOf(crate::program_model::SizeOfTarget::Type(_)) => true,
+        Expr::SizeOf(crate::program_model::SizeOfTarget::Expr(expr)) => expr_supported(expr),
         Expr::Field { target, field: _ } => expr_supported(target),
         Expr::Index { target, indices } => {
             expr_supported(target) && indices.iter().all(expr_supported)
@@ -48,18 +48,18 @@ fn expr_supported(expr: &crate::eval::expr::Expr) -> bool {
     }
 }
 
-fn call_arg_supported(arg: &crate::eval::CallArg) -> bool {
-    use crate::eval::ArgValue;
+fn call_arg_supported(arg: &crate::program_model::CallArg) -> bool {
+    use crate::program_model::ArgValue;
     match &arg.value {
         ArgValue::Expr(expr) => expr_supported(expr),
         ArgValue::Target(target) => lvalue_supported(target),
     }
 }
 
-fn lvalue_supported(target: &crate::eval::expr::LValue) -> bool {
+fn lvalue_supported(target: &crate::program_model::LValue) -> bool {
     match target {
-        crate::eval::expr::LValue::Name(_) | crate::eval::expr::LValue::Field { .. } => true,
-        crate::eval::expr::LValue::Index { indices, .. } => indices.iter().all(expr_supported),
-        crate::eval::expr::LValue::Deref(expr) => expr_supported(expr),
+        crate::program_model::LValue::Name(_) | crate::program_model::LValue::Field { .. } => true,
+        crate::program_model::LValue::Index { indices, .. } => indices.iter().all(expr_supported),
+        crate::program_model::LValue::Deref(expr) => expr_supported(expr),
     }
 }

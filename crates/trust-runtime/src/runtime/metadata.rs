@@ -6,8 +6,8 @@ use indexmap::IndexMap;
 use smol_str::SmolStr;
 
 use crate::debug::SourceLocation;
-use crate::eval::{ClassDef, FunctionBlockDef, FunctionDef, InterfaceDef};
 use crate::memory::{AccessMap, FrameId, LocalFrame, VariableStorage};
+use crate::program_model::{ClassDef, FunctionBlockDef, FunctionDef, InterfaceDef};
 use crate::stdlib::StandardLibrary;
 use crate::task::{ProgramDef, TaskConfig};
 use crate::value::DateTimeProfile;

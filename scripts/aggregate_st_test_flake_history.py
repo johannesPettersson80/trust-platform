@@ -9,6 +9,7 @@ import glob
 import io
 import json
 import sys
+import urllib.error
 import urllib.request
 import zipfile
 from dataclasses import dataclass
@@ -153,12 +154,31 @@ def github_api_get_json(url: str, token: str) -> dict[str, Any]:
     return payload
 
 
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
 def github_download_artifact_zip(url: str, token: str) -> bytes:
     request = urllib.request.Request(url)
     request.add_header("Accept", "application/vnd.github+json")
     request.add_header("Authorization", f"Bearer {token}")
     request.add_header("X-GitHub-Api-Version", "2022-11-28")
-    with urllib.request.urlopen(request, timeout=60) as response:
+
+    opener = urllib.request.build_opener(_NoRedirectHandler)
+    redirect_url: str | None = None
+    try:
+        with opener.open(request, timeout=60) as response:
+            return response.read()
+    except urllib.error.HTTPError as exc:
+        if exc.code not in {301, 302, 303, 307, 308}:
+            raise
+        redirect_url = exc.headers.get("Location")
+    if not redirect_url:
+        raise ValueError(f"artifact download did not provide a redirect: {url}")
+
+    redirected_request = urllib.request.Request(redirect_url)
+    with urllib.request.urlopen(redirected_request, timeout=60) as response:
         return response.read()
 
 
@@ -203,8 +223,16 @@ def collect_github_samples(
                 continue
             page_had_candidates = True
 
-            blob = github_download_artifact_zip(archive_download_url, token)
-            with zipfile.ZipFile(io.BytesIO(blob)) as archive:
+            try:
+                blob = github_download_artifact_zip(archive_download_url, token)
+                archive = zipfile.ZipFile(io.BytesIO(blob))
+            except Exception as exc:
+                print(
+                    f"warning: skipping artifact {name} from {created_at.isoformat()}: {exc}",
+                    file=sys.stderr,
+                )
+                continue
+            with archive:
                 candidate = None
                 for member in archive.namelist():
                     if member.endswith(sample_name):

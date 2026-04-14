@@ -1,6 +1,6 @@
 use smol_str::SmolStr;
 
-use crate::eval::{MethodDef, Param, VarDef};
+use crate::program_model::{MethodDef, Param, VarDef};
 use trust_hir::{Type, TypeId};
 
 use super::util::normalize_name;

@@ -1,7 +1,6 @@
 use indexmap::IndexMap;
 use smol_str::SmolStr;
 
-use crate::eval::{eval_expr, EvalContext};
 use crate::instance::{create_class_instance, create_fb_instance};
 use crate::task::ProgramDef;
 use crate::value::{default_value_for_type_id, Value};

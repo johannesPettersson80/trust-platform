@@ -1,7 +1,5 @@
 use trust_runtime::debug::RuntimeEvent;
 use trust_runtime::error::RuntimeError;
-#[cfg(feature = "legacy-interpreter")]
-use trust_runtime::execution_backend::ExecutionBackend;
 use trust_runtime::harness::TestHarness;
 use trust_runtime::scheduler::{ManualClock, ResourceRunner};
 use trust_runtime::value::{Duration, Value};
@@ -146,14 +144,6 @@ END_PROGRAM
 "#;
 
     let runtime = TestHarness::from_source(source).unwrap().into_runtime();
-    #[cfg(feature = "legacy-interpreter")]
-    let runtime = {
-        let mut runtime = runtime;
-        runtime
-            .set_execution_backend(ExecutionBackend::Interpreter)
-            .expect("switch to interpreter backend");
-        runtime
-    };
     let clock = ManualClock::new();
     let mut runner = ResourceRunner::new(runtime, clock.clone(), Duration::from_millis(1));
 

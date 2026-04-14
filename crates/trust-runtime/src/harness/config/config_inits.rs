@@ -1,7 +1,6 @@
 pub(super) fn apply_config_inits(
     runtime: &mut Runtime,
     config_inits: &[ConfigInit],
-    using: &[SmolStr],
     wildcards: &mut Vec<WildcardRequirement>,
 ) -> Result<(), CompileError> {
     if config_inits.is_empty() {
@@ -9,10 +8,6 @@ pub(super) fn apply_config_inits(
     }
     let registry = runtime.registry().clone();
     let profile = runtime.profile();
-    let functions = runtime.functions().clone();
-    let stdlib = runtime.stdlib().clone();
-    let function_blocks = runtime.function_blocks().clone();
-    let classes = runtime.classes().clone();
 
     for init in config_inits {
         let resolved = resolve_access_path(runtime, &init.path)?;
@@ -65,28 +60,14 @@ pub(super) fn apply_config_inits(
         };
 
         let value = {
-            let now = runtime.current_time();
-            let mut ctx = EvalContext {
-                storage: runtime.storage_mut(),
-                registry: &registry,
-                profile,
-                now,
-                debug: None,
-                call_depth: 0,
-                functions: Some(&functions),
-                stdlib: Some(&stdlib),
-                function_blocks: Some(&function_blocks),
-                classes: Some(&classes),
-                using: Some(using),
-                access: None,
-                current_instance: None,
-                return_name: None,
-                loop_depth: 0,
-                pause_requested: false,
-                execution_deadline: None,
-            };
-            let value = eval_expr(&mut ctx, expr)
-                .map_err(|err| CompileError::new(format!("VAR_CONFIG initializer error: {err}")))?;
+            let value = crate::helper_eval::eval_storage_expr(
+                runtime.storage(),
+                &registry,
+                &profile,
+                None,
+                expr,
+            )
+            .map_err(|err| CompileError::new(format!("VAR_CONFIG initializer error: {err}")))?;
             super::coerce_value_to_type(value, init.type_id)?
         };
 

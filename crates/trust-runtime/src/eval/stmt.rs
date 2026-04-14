@@ -2,127 +2,39 @@
 
 #![allow(missing_docs)]
 
+pub use crate::program_model::stmt::{CaseLabel, Stmt, StmtResult};
+
+#[cfg(test)]
+use crate::error::RuntimeError;
+#[cfg(test)]
+use crate::eval::expr::{eval_expr, read_lvalue, write_lvalue, Expr, LValue};
+#[cfg(test)]
+use crate::eval::EvalContext;
+#[cfg(test)]
+use crate::value::Value;
+#[cfg(test)]
 use smol_str::SmolStr;
 
-use crate::debug::SourceLocation;
-use crate::error::RuntimeError;
-use crate::eval::expr::{eval_expr, read_lvalue, write_lvalue, Expr, LValue};
-use crate::eval::EvalContext;
-use crate::value::Value;
-
-/// Statement execution result.
-#[derive(Debug, Clone, PartialEq)]
-pub enum StmtResult {
-    Continue,
-    Return(Option<Value>),
-    Exit,
-    LoopContinue,
-    Jump(SmolStr),
-}
-
-/// CASE label.
-#[derive(Debug, Clone)]
-pub enum CaseLabel {
-    Single(i64),
-    Range(i64, i64),
-}
-
-/// Statement node.
-#[derive(Debug, Clone)]
-pub enum Stmt {
-    Assign {
-        target: LValue,
-        value: Expr,
-        location: Option<SourceLocation>,
-    },
-    AssignAttempt {
-        target: LValue,
-        value: Expr,
-        location: Option<SourceLocation>,
-    },
-    Expr {
-        expr: Expr,
-        location: Option<SourceLocation>,
-    },
-    If {
-        condition: Expr,
-        then_block: Vec<Stmt>,
-        else_if: Vec<(Expr, Vec<Stmt>)>,
-        else_block: Vec<Stmt>,
-        location: Option<SourceLocation>,
-    },
-    Case {
-        selector: Expr,
-        branches: Vec<(Vec<CaseLabel>, Vec<Stmt>)>,
-        else_block: Vec<Stmt>,
-        location: Option<SourceLocation>,
-    },
-    For {
-        control: SmolStr,
-        start: Expr,
-        end: Expr,
-        step: Expr,
-        body: Vec<Stmt>,
-        location: Option<SourceLocation>,
-    },
-    While {
-        condition: Expr,
-        body: Vec<Stmt>,
-        location: Option<SourceLocation>,
-    },
-    Repeat {
-        body: Vec<Stmt>,
-        until: Expr,
-        location: Option<SourceLocation>,
-    },
-    Label {
-        name: SmolStr,
-        stmt: Option<Box<Stmt>>,
-        location: Option<SourceLocation>,
-    },
-    Jmp {
-        target: SmolStr,
-        location: Option<SourceLocation>,
-    },
-    Return {
-        expr: Option<Expr>,
-        location: Option<SourceLocation>,
-    },
-    Exit {
-        location: Option<SourceLocation>,
-    },
-    Continue {
-        location: Option<SourceLocation>,
-    },
-}
-
-impl Stmt {
-    #[must_use]
-    pub fn location(&self) -> Option<&SourceLocation> {
-        match self {
-            Stmt::Assign { location, .. }
-            | Stmt::AssignAttempt { location, .. }
-            | Stmt::Expr { location, .. }
-            | Stmt::If { location, .. }
-            | Stmt::Case { location, .. }
-            | Stmt::For { location, .. }
-            | Stmt::While { location, .. }
-            | Stmt::Repeat { location, .. }
-            | Stmt::Label { location, .. }
-            | Stmt::Jmp { location, .. }
-            | Stmt::Return { location, .. }
-            | Stmt::Exit { location, .. }
-            | Stmt::Continue { location, .. } => location.as_ref(),
-        }
-    }
-}
-
 /// Execute a statement.
-pub fn exec_stmt(ctx: &mut EvalContext<'_>, stmt: &Stmt) -> Result<StmtResult, RuntimeError> {
+#[cfg(test)]
+pub(crate) fn exec_stmt(
+    ctx: &mut EvalContext<'_>,
+    stmt: &Stmt,
+) -> Result<StmtResult, RuntimeError> {
     check_execution_budget(ctx)?;
     #[cfg(feature = "debug")]
     if let Some(hook) = ctx.debug.take() {
-        hook.on_statement_with_context(ctx, stmt.location(), ctx.call_depth);
+        {
+            let mut debug_ctx = crate::debug::DebugRuntimeContext {
+                storage: &mut *ctx.storage,
+                registry: ctx.registry,
+                stdlib: ctx.stdlib,
+                profile: ctx.profile,
+                current_instance: ctx.current_instance,
+                now: ctx.now,
+            };
+            hook.on_statement_with_context(&mut debug_ctx, stmt.location(), ctx.call_depth);
+        }
         ctx.debug = Some(hook);
     }
     match stmt {
@@ -320,6 +232,7 @@ pub fn exec_stmt(ctx: &mut EvalContext<'_>, stmt: &Stmt) -> Result<StmtResult, R
     }
 }
 
+#[cfg(test)]
 fn check_execution_budget(ctx: &EvalContext<'_>) -> Result<(), RuntimeError> {
     if let Some(deadline) = ctx.execution_deadline {
         if std::time::Instant::now() >= deadline {
@@ -330,7 +243,11 @@ fn check_execution_budget(ctx: &EvalContext<'_>) -> Result<(), RuntimeError> {
 }
 
 /// Execute a list of statements.
-pub fn exec_block(ctx: &mut EvalContext<'_>, stmts: &[Stmt]) -> Result<StmtResult, RuntimeError> {
+#[cfg(test)]
+pub(crate) fn exec_block(
+    ctx: &mut EvalContext<'_>,
+    stmts: &[Stmt],
+) -> Result<StmtResult, RuntimeError> {
     let mut labels = rustc_hash::FxHashMap::default();
     for (idx, stmt) in stmts.iter().enumerate() {
         if let Stmt::Label { name, .. } = stmt {
@@ -358,6 +275,7 @@ pub fn exec_block(ctx: &mut EvalContext<'_>, stmts: &[Stmt]) -> Result<StmtResul
     Ok(StmtResult::Continue)
 }
 
+#[cfg(test)]
 fn eval_bool(ctx: &mut EvalContext<'_>, expr: &Expr) -> Result<bool, RuntimeError> {
     match eval_expr(ctx, expr)? {
         Value::Bool(value) => Ok(value),
@@ -365,6 +283,7 @@ fn eval_bool(ctx: &mut EvalContext<'_>, expr: &Expr) -> Result<bool, RuntimeErro
     }
 }
 
+#[cfg(test)]
 fn int_value(value: Value) -> Result<i64, RuntimeError> {
     match value {
         Value::SInt(v) => Ok(v as i64),
@@ -379,6 +298,7 @@ fn int_value(value: Value) -> Result<i64, RuntimeError> {
     }
 }
 
+#[cfg(test)]
 fn is_unsigned_int(value: &Value) -> bool {
     matches!(
         value,
@@ -386,6 +306,7 @@ fn is_unsigned_int(value: &Value) -> bool {
     )
 }
 
+#[cfg(test)]
 fn coerce_loop_value(template: &Value, value: i64) -> Result<Value, RuntimeError> {
     match template {
         Value::SInt(_) => i8::try_from(value)

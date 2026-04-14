@@ -13,12 +13,16 @@ on:
       - "runtime.toml"
       - "io.toml"
 
+env:
+  # Shared project CI runners may not provide sccache; disable the workspace rustc wrapper by default.
+  RUSTC_WRAPPER: ""
+
 jobs:
   plc-ci:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -36,7 +40,7 @@ jobs:
         run: target/debug/trust-runtime test --project . --ci --output junit > st-tests.junit.xml
 
       - name: Upload JUnit report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: st-tests-junit
           path: st-tests.junit.xml

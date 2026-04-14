@@ -4,9 +4,13 @@
 
 use smol_str::SmolStr;
 
-use crate::eval::expr::Expr;
-use crate::memory::VariableStorage;
-use crate::value::Duration;
+use crate::error::RuntimeError;
+use crate::memory::{FrameId, VariableStorage};
+use crate::program_model::{Expr, LValue};
+use crate::stdlib::StandardLibrary;
+use crate::value::{DateTimeProfile, Duration, Value};
+
+use trust_hir::types::TypeRegistry;
 
 /// Source location for a statement or expression.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -111,6 +115,90 @@ pub struct DebugSnapshot {
     pub storage: VariableStorage,
     /// Current runtime time.
     pub now: Duration,
+}
+
+impl DebugSnapshot {
+    /// Evaluate an expression against this paused-state snapshot.
+    pub fn evaluate_expression(
+        &mut self,
+        expr: &Expr,
+        registry: &TypeRegistry,
+        stdlib: Option<&StandardLibrary>,
+        profile: &DateTimeProfile,
+        frame_id: Option<FrameId>,
+    ) -> Result<Value, RuntimeError> {
+        let eval = |storage: &mut VariableStorage| {
+            let instance_id = storage.current_frame().and_then(|frame| frame.instance_id);
+            crate::helper_eval::eval_storage_expr_with_stdlib(
+                storage,
+                registry,
+                profile,
+                instance_id,
+                stdlib,
+                expr,
+            )
+        };
+
+        if let Some(frame_id) = frame_id {
+            self.storage
+                .with_frame(frame_id, eval)
+                .ok_or(RuntimeError::InvalidFrame(frame_id.0))?
+        } else {
+            eval(&mut self.storage)
+        }
+    }
+
+    /// Read an lvalue against this paused-state snapshot.
+    pub fn read_lvalue(
+        &mut self,
+        target: &LValue,
+        registry: &TypeRegistry,
+        profile: &DateTimeProfile,
+        frame_id: Option<FrameId>,
+    ) -> Result<Value, RuntimeError> {
+        let read = |storage: &mut VariableStorage| {
+            let instance_id = storage.current_frame().and_then(|frame| frame.instance_id);
+            crate::helper_eval::read_storage_lvalue(storage, registry, profile, instance_id, target)
+        };
+
+        if let Some(frame_id) = frame_id {
+            self.storage
+                .with_frame(frame_id, read)
+                .ok_or(RuntimeError::InvalidFrame(frame_id.0))?
+        } else {
+            read(&mut self.storage)
+        }
+    }
+
+    /// Write an lvalue against this paused-state snapshot.
+    pub fn write_lvalue(
+        &mut self,
+        target: &LValue,
+        value: Value,
+        registry: &TypeRegistry,
+        profile: &DateTimeProfile,
+        frame_id: Option<FrameId>,
+    ) -> Result<(), RuntimeError> {
+        let write = |storage: &mut VariableStorage| {
+            let instance_id = storage.current_frame().and_then(|frame| frame.instance_id);
+            crate::helper_eval::write_storage_lvalue(
+                storage,
+                registry,
+                profile,
+                instance_id,
+                target,
+                value.clone(),
+            )
+        };
+
+        if let Some(frame_id) = frame_id {
+            self.storage
+                .with_frame(frame_id, write)
+                .ok_or(RuntimeError::InvalidFrame(frame_id.0))?
+        } else {
+            write(&mut self.storage)
+        }
+    }
 }
 
 /// Runtime scheduling and diagnostic events.

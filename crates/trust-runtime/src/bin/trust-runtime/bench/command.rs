@@ -47,13 +47,5 @@ fn execute_bench(action: BenchAction) -> anyhow::Result<(BenchReport, BenchOutpu
             let workload = DispatchBenchWorkload::normalize(samples, payload_bytes, fanout)?;
             Ok((run_dispatch_bench(workload)?, output))
         }
-        BenchAction::ExecutionBackend {
-            samples,
-            warmup_cycles,
-            output,
-        } => {
-            let workload = ExecutionBackendBenchWorkload::normalize(samples, warmup_cycles)?;
-            Ok((run_execution_backend_bench(workload)?, output))
-        }
     }
 }

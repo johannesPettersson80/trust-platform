@@ -2,12 +2,12 @@ impl<'a> BytecodeEncoder<'a> {
     fn emit_expr(
         &mut self,
         ctx: &CodegenContext,
-        expr: &crate::eval::expr::Expr,
+        expr: &crate::program_model::Expr,
         code: &mut Vec<u8>,
     ) -> Result<bool, BytecodeError> {
         let start_len = code.len();
         let result = match expr {
-            crate::eval::expr::Expr::Literal(value) => {
+            crate::program_model::Expr::Literal(value) => {
                 if matches!(value, Value::Null) {
                     code.push(0x25); // LOAD_NULL
                     return Ok(true);
@@ -23,8 +23,8 @@ impl<'a> BytecodeEncoder<'a> {
                 code.extend_from_slice(&const_idx.to_le_bytes());
                 Ok(true)
             }
-            crate::eval::expr::Expr::SizeOf(target) => self.emit_sizeof_expr(ctx, target, code),
-            crate::eval::expr::Expr::Name(name) => {
+            crate::program_model::Expr::SizeOf(target) => self.emit_sizeof_expr(ctx, target, code),
+            crate::program_model::Expr::Name(name) => {
                 if let Some(reference) = ctx.local_ref(name) {
                     let ref_idx = self.ref_index_for(reference)?;
                     code.push(0x20);
@@ -46,15 +46,15 @@ impl<'a> BytecodeEncoder<'a> {
                 code.extend_from_slice(&ref_idx.to_le_bytes());
                 Ok(true)
             }
-            crate::eval::expr::Expr::This => {
+            crate::program_model::Expr::This => {
                 code.push(0x23); // LOAD_SELF
                 Ok(true)
             }
-            crate::eval::expr::Expr::Super => {
+            crate::program_model::Expr::Super => {
                 code.push(0x24); // LOAD_SUPER
                 Ok(true)
             }
-            crate::eval::expr::Expr::Field { target, field } => {
+            crate::program_model::Expr::Field { target, field } => {
                 if let Some(qualified) = qualified_field_expr_name(expr) {
                     if let Some(reference) = self.resolve_name_ref(ctx, &qualified)? {
                         let ref_idx = self.ref_index_for(&reference)?;
@@ -63,7 +63,7 @@ impl<'a> BytecodeEncoder<'a> {
                         return Ok(true);
                     }
                 }
-                if let crate::eval::expr::Expr::Name(base) = target.as_ref() {
+                if let crate::program_model::Expr::Name(base) = target.as_ref() {
                     if let Some(access) = crate::value::parse_partial_access(field.as_str()) {
                         if self.emit_partial_read_for_name(ctx, base, access, code)? {
                             return Ok(true);
@@ -75,7 +75,7 @@ impl<'a> BytecodeEncoder<'a> {
                     code.truncate(start_len);
                     let reference = match self.resolve_lvalue_ref(
                         ctx,
-                        &crate::eval::expr::LValue::Field {
+                        &crate::program_model::LValue::Field {
                             name: base.clone(),
                             field: field.clone(),
                         },
@@ -90,7 +90,7 @@ impl<'a> BytecodeEncoder<'a> {
                     code.push(0x20);
                     code.extend_from_slice(&ref_idx.to_le_bytes());
                     Ok(true)
-                } else if matches!(target.as_ref(), crate::eval::expr::Expr::This) {
+                } else if matches!(target.as_ref(), crate::program_model::Expr::This) {
                     if self.emit_dynamic_load_name(ctx, field, code)? {
                         Ok(true)
                     } else {
@@ -106,15 +106,15 @@ impl<'a> BytecodeEncoder<'a> {
                     Ok(true)
                 }
             }
-            crate::eval::expr::Expr::Index { target, indices } => {
-                if let crate::eval::expr::Expr::Name(base) = target.as_ref() {
+            crate::program_model::Expr::Index { target, indices } => {
+                if let crate::program_model::Expr::Name(base) = target.as_ref() {
                     if self.emit_dynamic_load_index(ctx, base, indices, code)? {
                         return Ok(true);
                     }
                     code.truncate(start_len);
                     if let Some(reference) = self.resolve_lvalue_ref(
                         ctx,
-                        &crate::eval::expr::LValue::Index {
+                        &crate::program_model::LValue::Index {
                             name: base.clone(),
                             indices: indices.clone(),
                         },
@@ -151,8 +151,8 @@ impl<'a> BytecodeEncoder<'a> {
                     Ok(true)
                 }
             }
-            crate::eval::expr::Expr::Ref(target) => self.emit_ref_lvalue(ctx, target, code),
-            crate::eval::expr::Expr::Deref(expr) => {
+            crate::program_model::Expr::Ref(target) => self.emit_ref_lvalue(ctx, target, code),
+            crate::program_model::Expr::Deref(expr) => {
                 if !self.emit_expr(ctx, expr, code)? {
                     code.truncate(start_len);
                     return Ok(false);
@@ -160,8 +160,8 @@ impl<'a> BytecodeEncoder<'a> {
                 code.push(0x32);
                 Ok(true)
             }
-            crate::eval::expr::Expr::Unary { op, expr } => {
-                use crate::eval::ops::UnaryOp;
+            crate::program_model::Expr::Unary { op, expr } => {
+                use crate::program_model::UnaryOp;
                 if !self.emit_expr(ctx, expr, code)? {
                     code.truncate(start_len);
                     return Ok(false);
@@ -173,8 +173,8 @@ impl<'a> BytecodeEncoder<'a> {
                 }
                 Ok(true)
             }
-            crate::eval::expr::Expr::Binary { op, left, right } => {
-                use crate::eval::ops::BinaryOp;
+            crate::program_model::Expr::Binary { op, left, right } => {
+                use crate::program_model::BinaryOp;
                 let opcode = match op {
                     BinaryOp::Add => 0x40,
                     BinaryOp::Sub => 0x41,
@@ -203,7 +203,7 @@ impl<'a> BytecodeEncoder<'a> {
                 code.push(opcode);
                 Ok(true)
             }
-            crate::eval::expr::Expr::Call { target, args } => {
+            crate::program_model::Expr::Call { target, args } => {
                 self.emit_call_expr(ctx, target, args, code)
             }
         };
@@ -223,17 +223,17 @@ impl<'a> BytecodeEncoder<'a> {
     fn emit_sizeof_expr(
         &mut self,
         ctx: &CodegenContext,
-        target: &crate::eval::expr::SizeOfTarget,
+        target: &crate::program_model::SizeOfTarget,
         code: &mut Vec<u8>,
     ) -> Result<bool, BytecodeError> {
         match target {
-            crate::eval::expr::SizeOfTarget::Type(type_id) => {
+            crate::program_model::SizeOfTarget::Type(type_id) => {
                 let type_idx = self.type_index(*type_id)?;
                 code.push(0x60); // SIZEOF_TYPE
                 code.extend_from_slice(&type_idx.to_le_bytes());
                 Ok(true)
             }
-            crate::eval::expr::SizeOfTarget::Expr(expr) => {
+            crate::program_model::SizeOfTarget::Expr(expr) => {
                 if !self.emit_expr(ctx, expr, code)? {
                     return Ok(false);
                 }
@@ -246,11 +246,11 @@ impl<'a> BytecodeEncoder<'a> {
     fn emit_call_expr(
         &mut self,
         ctx: &CodegenContext,
-        target: &crate::eval::expr::Expr,
-        args: &[crate::eval::CallArg],
+        target: &crate::program_model::Expr,
+        args: &[crate::program_model::CallArg],
         code: &mut Vec<u8>,
     ) -> Result<bool, BytecodeError> {
-        if let crate::eval::expr::Expr::Name(name) = target {
+        if let crate::program_model::Expr::Name(name) = target {
             let key = SmolStr::new(name.to_ascii_uppercase());
             if key == "REF" {
                 return self.emit_ref_builtin_call(ctx, args, code);
@@ -275,7 +275,7 @@ impl<'a> BytecodeEncoder<'a> {
         }
 
         let (kind, target_name, receiver_emitted) = match target {
-            crate::eval::expr::Expr::Field {
+            crate::program_model::Expr::Field {
                 target: receiver,
                 field,
             } => {
@@ -286,7 +286,7 @@ impl<'a> BytecodeEncoder<'a> {
                 }
                 (NativeTargetKind::Method, field.clone(), true)
             }
-            crate::eval::expr::Expr::Name(name) => {
+            crate::program_model::Expr::Name(name) => {
                 let key = SmolStr::new(name.to_ascii_uppercase());
                 if self.runtime.functions().contains_key(&key) {
                     (NativeTargetKind::Function, name.clone(), false)
@@ -320,7 +320,7 @@ impl<'a> BytecodeEncoder<'a> {
         let mut arg_tokens = Vec::with_capacity(args.len());
         for arg in args {
             let prefix = match &arg.value {
-                crate::eval::ArgValue::Expr(expr) => {
+                crate::program_model::ArgValue::Expr(expr) => {
                     if !self.emit_expr(ctx, expr, code)? {
                         return Err(BytecodeError::InvalidSection(
                             "unsupported CALL_NATIVE argument expression".into(),
@@ -328,7 +328,7 @@ impl<'a> BytecodeEncoder<'a> {
                     }
                     "E"
                 }
-                crate::eval::ArgValue::Target(target) => {
+                crate::program_model::ArgValue::Target(target) => {
                     if let Some(reference) = self.resolve_lvalue_ref(ctx, target)? {
                         let ref_idx = self.ref_index_for(&reference)?;
                         code.push(0x22); // LOAD_REF_ADDR (static)
@@ -368,7 +368,7 @@ impl<'a> BytecodeEncoder<'a> {
     fn emit_ref_lvalue(
         &mut self,
         ctx: &CodegenContext,
-        target: &crate::eval::expr::LValue,
+        target: &crate::program_model::LValue,
         code: &mut Vec<u8>,
     ) -> Result<bool, BytecodeError> {
         if let Some(reference) = self.resolve_lvalue_ref(ctx, target)? {
@@ -383,12 +383,12 @@ impl<'a> BytecodeEncoder<'a> {
     fn emit_ref_expr(
         &mut self,
         ctx: &CodegenContext,
-        expr: &crate::eval::expr::Expr,
+        expr: &crate::program_model::Expr,
         code: &mut Vec<u8>,
     ) -> Result<bool, BytecodeError> {
         match expr {
-            crate::eval::expr::Expr::Name(name) => self.emit_ref_for_name(ctx, name, code),
-            crate::eval::expr::Expr::Field { target, field } => {
+            crate::program_model::Expr::Name(name) => self.emit_ref_for_name(ctx, name, code),
+            crate::program_model::Expr::Field { target, field } => {
                 if let Some(qualified) = qualified_field_expr_name(expr) {
                     if let Some(reference) = self.resolve_name_ref(ctx, &qualified)? {
                         let ref_idx = self.ref_index_for(&reference)?;
@@ -397,7 +397,7 @@ impl<'a> BytecodeEncoder<'a> {
                         return Ok(true);
                     }
                 }
-                if matches!(target.as_ref(), crate::eval::expr::Expr::This) {
+                if matches!(target.as_ref(), crate::program_model::Expr::This) {
                     return self.emit_self_field_ref(ctx, field, code);
                 }
                 if !self.emit_ref_expr(ctx, target, code)? {
@@ -408,7 +408,7 @@ impl<'a> BytecodeEncoder<'a> {
                 code.extend_from_slice(&field_idx.to_le_bytes());
                 Ok(true)
             }
-            crate::eval::expr::Expr::Index { target, indices } => {
+            crate::program_model::Expr::Index { target, indices } => {
                 if !self.emit_ref_expr(ctx, target, code)? {
                     return Ok(false);
                 }
@@ -420,8 +420,8 @@ impl<'a> BytecodeEncoder<'a> {
                 }
                 Ok(true)
             }
-            crate::eval::expr::Expr::Ref(target) => self.emit_ref_lvalue(ctx, target, code),
-            crate::eval::expr::Expr::Deref(expr) => self.emit_expr(ctx, expr, code),
+            crate::program_model::Expr::Ref(target) => self.emit_ref_lvalue(ctx, target, code),
+            crate::program_model::Expr::Deref(expr) => self.emit_expr(ctx, expr, code),
             _ => Ok(false),
         }
     }
@@ -429,7 +429,7 @@ impl<'a> BytecodeEncoder<'a> {
     fn emit_ref_builtin_call(
         &mut self,
         ctx: &CodegenContext,
-        args: &[crate::eval::CallArg],
+        args: &[crate::program_model::CallArg],
         code: &mut Vec<u8>,
     ) -> Result<bool, BytecodeError> {
         if args.len() != 1 {
@@ -438,7 +438,7 @@ impl<'a> BytecodeEncoder<'a> {
             ));
         }
         match &args[0].value {
-            crate::eval::ArgValue::Target(target) => {
+            crate::program_model::ArgValue::Target(target) => {
                 if self.emit_ref_lvalue(ctx, target, code)? {
                     Ok(true)
                 } else {
@@ -447,7 +447,7 @@ impl<'a> BytecodeEncoder<'a> {
                     ))
                 }
             }
-            crate::eval::ArgValue::Expr(expr) => {
+            crate::program_model::ArgValue::Expr(expr) => {
                 if self.emit_ref_expr(ctx, expr, code)? {
                     Ok(true)
                 } else {
@@ -473,10 +473,10 @@ impl<'a> BytecodeEncoder<'a> {
     }
 }
 
-fn qualified_field_expr_name(expr: &crate::eval::expr::Expr) -> Option<SmolStr> {
+fn qualified_field_expr_name(expr: &crate::program_model::Expr) -> Option<SmolStr> {
     match expr {
-        crate::eval::expr::Expr::Name(name) => Some(name.clone()),
-        crate::eval::expr::Expr::Field { target, field } => {
+        crate::program_model::Expr::Name(name) => Some(name.clone()),
+        crate::program_model::Expr::Field { target, field } => {
             let prefix = qualified_field_expr_name(target)?;
             Some(SmolStr::new(format!("{prefix}.{field}")))
         }

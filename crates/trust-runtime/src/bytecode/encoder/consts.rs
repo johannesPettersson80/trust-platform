@@ -30,68 +30,19 @@ impl<'a> BytecodeEncoder<'a> {
 
     pub(super) fn const_value_from_expr(
         &self,
-        expr: &crate::eval::expr::Expr,
+        expr: &crate::program_model::Expr,
     ) -> Result<Value, BytecodeError> {
-        if !const_expr_supported(expr) {
-            return Err(BytecodeError::InvalidSection(
-                "unsupported const expression".into(),
-            ));
-        }
-        let mut storage = crate::memory::VariableStorage::default();
-        let mut ctx = crate::eval::EvalContext {
-            storage: &mut storage,
-            registry: self.runtime.registry(),
-            profile: self.runtime.profile(),
-            now: crate::value::Duration::ZERO,
-            debug: None,
-            call_depth: 0,
-            functions: None,
-            stdlib: None,
-            function_blocks: None,
-            classes: None,
-            using: None,
-            access: None,
-            current_instance: None,
-            return_name: None,
-            loop_depth: 0,
-            pause_requested: false,
-            execution_deadline: None,
-        };
-        crate::eval::expr::eval_expr(&mut ctx, expr)
-            .map_err(|_| BytecodeError::InvalidSection("unsupported const expression".into()))
-    }
-}
-
-fn const_expr_supported(expr: &crate::eval::expr::Expr) -> bool {
-    use crate::eval::expr::Expr;
-    use crate::eval::ops::{BinaryOp, UnaryOp};
-    match expr {
-        Expr::Literal(value) => type_id_for_value(value).is_some(),
-        Expr::Unary { op, expr } => {
-            matches!(op, UnaryOp::Neg | UnaryOp::Not | UnaryOp::Pos) && const_expr_supported(expr)
-        }
-        Expr::Binary { op, left, right } => {
-            matches!(
-                op,
-                BinaryOp::Add
-                    | BinaryOp::Sub
-                    | BinaryOp::Mul
-                    | BinaryOp::Div
-                    | BinaryOp::Mod
-                    | BinaryOp::Pow
-                    | BinaryOp::And
-                    | BinaryOp::Or
-                    | BinaryOp::Xor
-                    | BinaryOp::Eq
-                    | BinaryOp::Ne
-                    | BinaryOp::Lt
-                    | BinaryOp::Le
-                    | BinaryOp::Gt
-                    | BinaryOp::Ge
-            ) && const_expr_supported(left)
-                && const_expr_supported(right)
-        }
-        _ => false,
+        crate::helper_eval::eval_const_expr(expr, &self.runtime.profile()).map_err(|err| {
+            let message = match err {
+                crate::helper_eval::ConstExprError::UnsupportedExpr => {
+                    "unsupported const expression".to_string()
+                }
+                crate::helper_eval::ConstExprError::Runtime(runtime) => {
+                    format!("unsupported const expression: {runtime}")
+                }
+            };
+            BytecodeError::InvalidSection(message.into())
+        })
     }
 }
 

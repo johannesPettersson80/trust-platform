@@ -1,10 +1,10 @@
 use smol_str::SmolStr;
 
 use crate::debug::SourceLocation;
-use crate::eval::expr::Expr;
-use crate::eval::VarDef;
 use crate::io::IoAddress;
 use crate::memory::IoArea;
+use crate::program_model::Expr;
+use crate::program_model::VarDef;
 use crate::task::ProgramDef;
 use crate::value::DateTimeProfile;
 use trust_hir::TypeId;
@@ -86,7 +86,6 @@ pub(crate) struct GlobalInit {
     pub(crate) initializer: Option<Expr>,
     pub(crate) retain: crate::RetainPolicy,
     pub(crate) address: Option<SmolStr>,
-    pub(crate) using: Vec<SmolStr>,
 }
 
 #[derive(Clone)]

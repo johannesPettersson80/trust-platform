@@ -6,14 +6,9 @@ use indexmap::IndexMap;
 use smol_str::SmolStr;
 
 use crate::error;
-#[cfg(feature = "legacy-interpreter")]
-use crate::eval::{self, EvalContext};
-#[cfg(feature = "legacy-interpreter")]
-use crate::stdlib;
 use crate::task::{ProgramDef, TaskConfig};
 use crate::value::{Duration, Value};
-#[cfg(feature = "legacy-interpreter")]
-use trust_hir::symbols::ParamDirection;
+use std::sync::Arc;
 
 use super::core::Runtime;
 use super::types::ReadyTask;
@@ -46,10 +41,31 @@ impl Runtime {
                 }
             }
             for write in debug.drain_lvalue_writes() {
-                let using_ref = (!write.using.is_empty()).then_some(write.using.as_slice());
-                let _ = self.with_eval_context(write.frame_id, using_ref, |ctx| {
-                    crate::eval::expr::write_lvalue(ctx, &write.target, write.value.clone())
-                });
+                let _ = if let Some(frame_id) = write.frame_id {
+                    self.storage
+                        .with_frame(frame_id, |storage| {
+                            let instance_id =
+                                storage.current_frame().and_then(|frame| frame.instance_id);
+                            crate::helper_eval::write_storage_lvalue(
+                                storage,
+                                &self.registry,
+                                &self.profile,
+                                instance_id,
+                                &write.target,
+                                write.value.clone(),
+                            )
+                        })
+                        .unwrap_or(Err(error::RuntimeError::InvalidFrame(frame_id.0)))
+                } else {
+                    crate::helper_eval::write_storage_lvalue(
+                        &mut self.storage,
+                        &self.registry,
+                        &self.profile,
+                        None,
+                        &write.target,
+                        write.value.clone(),
+                    )
+                };
             }
         }
 
@@ -136,76 +152,45 @@ impl Runtime {
 
     /// Execute a program body in the runtime context.
     pub fn execute_program(&mut self, program: &ProgramDef) -> Result<(), error::RuntimeError> {
-        let backend = super::backend::resolve_backend(self.execution_backend);
-        backend.execute_program(self, program)
+        self.ensure_vm_module_loaded()?;
+        super::vm::execute_program(self, program)
     }
 
-    #[cfg(feature = "legacy-interpreter")]
-    pub(super) fn execute_program_interpreter(
+    /// Execute a function block once by its declared type name.
+    pub fn execute_function_block_by_name(
         &mut self,
-        program: &ProgramDef,
+        name: &str,
     ) -> Result<(), error::RuntimeError> {
-        let mut debug = self.debug.take();
-        let instance_id = match self.storage.get_global(program.name.as_ref()) {
-            Some(Value::Instance(id)) => Some(*id),
-            _ => None,
-        };
-        let mut ctx = EvalContext {
-            storage: &mut self.storage,
-            registry: &self.registry,
-            profile: self.profile,
-            now: self.current_time,
-            debug: debug
-                .as_mut()
-                .map(|hook| hook as &mut dyn crate::debug::DebugHook),
-            call_depth: 0,
-            functions: Some(&self.functions),
-            stdlib: Some(&self.stdlib),
-            function_blocks: Some(&self.function_blocks),
-            classes: Some(&self.classes),
-            using: Some(&program.using),
-            access: Some(&self.access),
-            current_instance: instance_id,
-            return_name: None,
-            loop_depth: 0,
-            pause_requested: false,
-            execution_deadline: self.execution_deadline,
-        };
-        let mut has_frame = false;
-        if instance_id.is_some() || !program.temps.is_empty() {
-            if let Some(instance_id) = instance_id {
-                ctx.storage
-                    .push_frame_with_instance(program.name.clone(), instance_id);
-            } else {
-                ctx.storage.push_frame(program.name.clone());
-            }
-            if !program.temps.is_empty() {
-                if let Err(err) = eval::init_locals_in_frame(&mut ctx, &program.temps) {
-                    ctx.storage.pop_frame();
-                    self.debug = debug;
-                    return Err(err);
-                }
-            }
-            has_frame = true;
-        }
-        let result = match eval::exec_block(&mut ctx, &program.body) {
-            Ok(result) => result,
-            Err(err) => {
-                if has_frame {
-                    ctx.storage.pop_frame();
-                }
-                self.debug = debug;
-                return Err(err);
-            }
-        };
-        if has_frame {
-            ctx.storage.pop_frame();
-        }
-        self.debug = debug;
-        match result {
-            eval::stmt::StmtResult::Continue => Ok(()),
-            _ => Err(error::RuntimeError::InvalidControlFlow),
-        }
+        let key = SmolStr::new(name.to_ascii_uppercase());
+        let fb = self
+            .function_blocks
+            .get(&key)
+            .cloned()
+            .ok_or_else(|| error::RuntimeError::UndefinedFunctionBlock(name.into()))?;
+        let instance_id = crate::instance::create_fb_instance(
+            &mut self.storage,
+            &self.registry,
+            &self.profile,
+            &self.classes,
+            &self.function_blocks,
+            &self.functions,
+            &self.stdlib,
+            &fb,
+        )?;
+
+        const TEMP_FB_REF_OWNER: &str = "__TRUST_TEST_FB_EXEC";
+        const TEMP_FB_REF_LOCAL: &str = "__trust_test_fb_ref";
+
+        self.storage.push_frame(TEMP_FB_REF_OWNER);
+        self.storage
+            .set_local(TEMP_FB_REF_LOCAL, Value::Instance(instance_id));
+        let reference = self
+            .storage
+            .ref_for_local(TEMP_FB_REF_LOCAL)
+            .ok_or(error::RuntimeError::NullReference)?;
+        let result = self.execute_function_block_ref(&reference);
+        self.storage.pop_frame();
+        result
     }
 
     fn execute_program_by_name(&mut self, name: &SmolStr) -> Result<(), error::RuntimeError> {
@@ -335,86 +320,44 @@ impl Runtime {
         &mut self,
         reference: &crate::value::ValueRef,
     ) -> Result<(), error::RuntimeError> {
-        let backend = super::backend::resolve_backend(self.execution_backend);
-        backend.execute_function_block_ref(self, reference)
+        self.ensure_vm_module_loaded()?;
+        super::vm::execute_function_block_ref(self, reference)
     }
 
-    #[cfg(feature = "legacy-interpreter")]
-    pub(super) fn execute_function_block_ref_interpreter(
-        &mut self,
-        reference: &crate::value::ValueRef,
-    ) -> Result<(), error::RuntimeError> {
-        let timer = self.metrics.start_timer();
-        let instance_id = match self.storage.read_by_ref(reference.clone()) {
-            Some(Value::Instance(id)) => *id,
-            Some(_) => return Err(error::RuntimeError::TypeMismatch),
-            None => return Err(error::RuntimeError::NullReference),
-        };
-        let instance = self
-            .storage
-            .get_instance(instance_id)
-            .ok_or(error::RuntimeError::NullReference)?;
-        let key = SmolStr::new(instance.type_name.to_ascii_uppercase());
-        let fb = self.function_blocks.get(&key).ok_or_else(|| {
-            error::RuntimeError::UndefinedFunctionBlock(instance.type_name.clone())
-        })?;
-        let mut debug = self.debug.take();
-        let mut ctx = EvalContext {
-            storage: &mut self.storage,
-            registry: &self.registry,
-            profile: self.profile,
-            now: self.current_time,
-            debug: debug
-                .as_mut()
-                .map(|hook| hook as &mut dyn crate::debug::DebugHook),
-            call_depth: 0,
-            functions: Some(&self.functions),
-            stdlib: Some(&self.stdlib),
-            function_blocks: Some(&self.function_blocks),
-            classes: Some(&self.classes),
-            using: Some(&fb.using),
-            access: Some(&self.access),
-            current_instance: Some(instance_id),
-            return_name: None,
-            loop_depth: 0,
-            pause_requested: false,
-            execution_deadline: self.execution_deadline,
-        };
-        ctx.storage
-            .push_frame_with_instance(fb.name.clone(), instance_id);
+    fn ensure_vm_module_loaded(&mut self) -> Result<(), error::RuntimeError> {
+        if self.vm_module.is_some() {
+            return Ok(());
+        }
+        let module = self.build_vm_module()?;
+        module
+            .validate()
+            .map_err(|err| error::RuntimeError::InvalidBytecode(err.to_string().into()))?;
+        let vm_module = Arc::new(super::vm::VmModule::from_bytecode(&module)?);
+        self.vm_module = Some(vm_module);
+        Ok(())
+    }
 
-        if fb.params.iter().any(|param| {
-            param.name.eq_ignore_ascii_case("EN") && matches!(param.direction, ParamDirection::In)
-        }) {
-            if let Some(Value::Bool(false)) = ctx.storage.get_instance_var(instance_id, "EN") {
-                if fb.params.iter().any(|param| {
-                    param.name.eq_ignore_ascii_case("ENO")
-                        && matches!(param.direction, ParamDirection::Out)
-                }) {
-                    ctx.storage
-                        .set_instance_var(instance_id, "ENO", Value::Bool(false));
-                }
-                ctx.storage.pop_frame();
-                self.debug = debug;
-                return Ok(());
-            }
+    fn build_vm_module(&self) -> Result<crate::bytecode::BytecodeModule, error::RuntimeError> {
+        if self.source_text_index.is_empty() {
+            return crate::bytecode::BytecodeModule::from_runtime(self).map_err(|err| {
+                error::RuntimeError::InvalidBytecode(
+                    format!("vm module build failed: {err}").into(),
+                )
+            });
         }
 
-        let builtin_kind = stdlib::fbs::builtin_kind(fb.name.as_ref());
-        let result = if let Some(kind) = builtin_kind {
-            stdlib::fbs::execute_builtin(&mut ctx, instance_id, kind)
-        } else {
-            crate::eval::init_locals_in_frame(&mut ctx, &fb.temps)?;
-            crate::eval::exec_block(&mut ctx, &fb.body).map(|_| ())
-        };
-
-        ctx.storage.pop_frame();
-        self.debug = debug;
-        if let Some(start) = timer {
-            self.metrics
-                .record_profile_call("fb", &fb.name, start.elapsed());
-        }
-        result
+        let max_file_id = self.source_text_index.keys().copied().max().unwrap_or(0);
+        let sources = (0..=max_file_id)
+            .map(|file_id| {
+                self.source_text_index
+                    .get(&file_id)
+                    .map(String::as_str)
+                    .unwrap_or("")
+            })
+            .collect::<Vec<_>>();
+        crate::bytecode::BytecodeModule::from_runtime_with_sources(self, &sources).map_err(|err| {
+            error::RuntimeError::InvalidBytecode(format!("vm module build failed: {err}").into())
+        })
     }
 
     fn read_cycle_inputs(&mut self) -> Result<(), error::RuntimeError> {

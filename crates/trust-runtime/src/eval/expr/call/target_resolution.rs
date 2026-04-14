@@ -67,11 +67,11 @@ pub(super) fn resolve_fb_method(
             break;
         };
         match base {
-            crate::eval::FunctionBlockBase::FunctionBlock(base_name) => {
+            crate::program_model::FunctionBlockBase::FunctionBlock(base_name) => {
                 let base_key = SmolStr::new(base_name.to_ascii_uppercase());
                 current = function_blocks.get(&base_key);
             }
-            crate::eval::FunctionBlockBase::Class(base_name) => {
+            crate::program_model::FunctionBlockBase::Class(base_name) => {
                 let base_key = SmolStr::new(base_name.to_ascii_uppercase());
                 let class_def = classes.get(&base_key)?;
                 return resolve_class_method(classes, class_def, name);
