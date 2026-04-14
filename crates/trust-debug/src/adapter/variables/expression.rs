@@ -7,9 +7,9 @@ use serde_json::Value;
 
 use trust_runtime::debug::DebugSnapshot;
 use trust_runtime::error::RuntimeError;
-use trust_runtime::eval::expr::{read_lvalue, write_lvalue, LValue};
 use trust_runtime::harness::{coerce_value_to_type, parse_debug_expression, parse_debug_lvalue};
 use trust_runtime::memory::{FrameId, IoArea, VariableStorage};
+use trust_runtime::program_model::LValue;
 use trust_runtime::value::Value as RuntimeValue;
 use trust_runtime::Runtime;
 
@@ -299,14 +299,9 @@ impl DebugAdapter {
             };
 
             if paused {
-                let using = refresh_frame
-                    .and_then(|frame_id| runtime.using_for_frame(frame_id))
-                    .unwrap_or_default();
-                let using_ref = (!using.is_empty()).then_some(using.as_slice());
-                let _ = runtime.with_eval_context(refresh_frame, using_ref, |ctx| {
-                    self.session.debug_control().refresh_snapshot(ctx);
-                    Ok(())
-                });
+                self.session
+                    .debug_control()
+                    .refresh_snapshot_from_storage(runtime.storage(), runtime.current_time());
                 events.push(self.event(
                     "invalidated",
                     Some(InvalidatedEventBody {
@@ -338,23 +333,21 @@ impl DebugAdapter {
                 };
             }
         };
-        let using_ref = (!using.is_empty()).then_some(using.as_slice());
 
         let map_runtime_error = |err: RuntimeError| match err {
             RuntimeError::InvalidFrame(_) => "unknown frame id".to_string(),
             _ => err.to_string(),
         };
 
-        let current =
-            match runtime.with_eval_context(frame_id, using_ref, |ctx| read_lvalue(ctx, &target)) {
-                Ok(value) => value,
-                Err(err) => {
-                    return DispatchOutcome {
-                        responses: vec![self.error_response(&request, &map_runtime_error(err))],
-                        ..DispatchOutcome::default()
-                    };
-                }
-            };
+        let current = match runtime.read_lvalue(&target, frame_id) {
+            Ok(value) => value,
+            Err(err) => {
+                return DispatchOutcome {
+                    responses: vec![self.error_response(&request, &map_runtime_error(err))],
+                    ..DispatchOutcome::default()
+                };
+            }
+        };
         let Some(type_id) = type_id_for_value(&current) else {
             return DispatchOutcome {
                 responses: vec![self.error_response(&request, "unsupported variable type")],
@@ -395,9 +388,7 @@ impl DebugAdapter {
                         };
                     }
                 };
-                if let Err(err) = runtime.with_eval_context(frame_id, using_ref, |ctx| {
-                    write_lvalue(ctx, &target, coerced.clone())
-                }) {
+                if let Err(err) = runtime.write_lvalue(&target, coerced.clone(), frame_id) {
                     return DispatchOutcome {
                         responses: vec![self.error_response(&request, &map_runtime_error(err))],
                         ..DispatchOutcome::default()
@@ -421,14 +412,9 @@ impl DebugAdapter {
         };
 
         if paused {
-            let using = refresh_frame
-                .and_then(|frame_id| runtime.using_for_frame(frame_id))
-                .unwrap_or_default();
-            let using_ref = (!using.is_empty()).then_some(using.as_slice());
-            let _ = runtime.with_eval_context(refresh_frame, using_ref, |ctx| {
-                self.session.debug_control().refresh_snapshot(ctx);
-                Ok(())
-            });
+            self.session
+                .debug_control()
+                .refresh_snapshot_from_storage(runtime.storage(), runtime.current_time());
             events.push(self.event(
                 "invalidated",
                 Some(InvalidatedEventBody {
@@ -582,25 +568,24 @@ impl DebugAdapter {
         };
 
         let target_clone = target.clone();
-        let current = match self.session.debug_control().with_snapshot(|snapshot| {
-            self.with_snapshot_eval(snapshot, frame_id, &using, &registry, |ctx| {
-                read_lvalue(ctx, &target)
-            })
-        }) {
-            Some(Ok(value)) => value,
-            Some(Err(err)) => {
-                return DispatchOutcome {
-                    responses: vec![self.error_response(&request, &map_runtime_error(err))],
-                    ..DispatchOutcome::default()
-                };
-            }
-            None => {
-                return DispatchOutcome {
-                    responses: vec![self.error_response(&request, "no snapshot available")],
-                    ..DispatchOutcome::default()
-                };
-            }
-        };
+        let current =
+            match self.session.debug_control().with_snapshot(|snapshot| {
+                snapshot.read_lvalue(&target, &registry, &profile, frame_id)
+            }) {
+                Some(Ok(value)) => value,
+                Some(Err(err)) => {
+                    return DispatchOutcome {
+                        responses: vec![self.error_response(&request, &map_runtime_error(err))],
+                        ..DispatchOutcome::default()
+                    };
+                }
+                None => {
+                    return DispatchOutcome {
+                        responses: vec![self.error_response(&request, "no snapshot available")],
+                        ..DispatchOutcome::default()
+                    };
+                }
+            };
 
         let Some(type_id) = type_id_for_value(&current) else {
             return DispatchOutcome {
@@ -659,9 +644,13 @@ impl DebugAdapter {
                 };
 
                 let write_result = self.session.debug_control().with_snapshot(|snapshot| {
-                    self.with_snapshot_eval(snapshot, frame_id, &using, &registry, |ctx| {
-                        write_lvalue(ctx, &target_clone, coerced.clone())
-                    })
+                    snapshot.write_lvalue(
+                        &target_clone,
+                        coerced.clone(),
+                        &registry,
+                        &profile,
+                        frame_id,
+                    )
                 });
                 if let Some(Err(err)) = write_result {
                     return DispatchOutcome {
@@ -672,7 +661,6 @@ impl DebugAdapter {
 
                 self.session.debug_control().enqueue_lvalue_write(
                     frame_id,
-                    using.clone(),
                     target_clone.clone(),
                     coerced.clone(),
                 );
@@ -714,9 +702,13 @@ impl DebugAdapter {
                 };
 
                 let write_result = self.session.debug_control().with_snapshot(|snapshot| {
-                    self.with_snapshot_eval(snapshot, frame_id, &using, &registry, |ctx| {
-                        write_lvalue(ctx, &target_clone, coerced.clone())
-                    })
+                    snapshot.write_lvalue(
+                        &target_clone,
+                        coerced.clone(),
+                        &registry,
+                        &profile,
+                        frame_id,
+                    )
                 });
                 if let Some(Err(err)) = write_result {
                     return DispatchOutcome {

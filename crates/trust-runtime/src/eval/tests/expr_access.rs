@@ -1,4 +1,4 @@
-mod common;
+use super::common;
 
 use indexmap::IndexMap;
 use trust_hir::types::TypeRegistry;

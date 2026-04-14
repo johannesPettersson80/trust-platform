@@ -7,7 +7,6 @@ use std::time::Instant;
 
 use crate::debug::DebugHook;
 use crate::error::RuntimeError;
-use crate::eval::ops::{apply_binary, apply_unary, BinaryOp, UnaryOp};
 use crate::execution_backend::{
     VmRegisterCallOpCounters, VmRegisterFallbackReason, VmRegisterHotBlock,
     VmRegisterLoweringCacheSnapshot, VmRegisterProfileSnapshot, VmRegisterRefOpCounters,
@@ -15,6 +14,7 @@ use crate::execution_backend::{
     VmTier1SpecializedExecutorDeoptReason, VmTier1SpecializedExecutorSnapshot,
 };
 use crate::memory::InstanceId;
+use crate::program_model::{apply_binary, apply_unary, BinaryOp, UnaryOp};
 use crate::value::{size_of_value, Value};
 
 use super::super::core::Runtime;
@@ -4079,9 +4079,9 @@ mod tests {
     use crate::bytecode::{SectionData, SectionId, TypeTable};
     use crate::config::RuntimeConfig;
     use crate::error::RuntimeError;
-    use crate::eval::ops::{apply_binary, apply_unary, BinaryOp, UnaryOp};
     use crate::execution_backend::ExecutionBackend;
     use crate::harness::{bytecode_module_from_source, CompileSession, TestHarness};
+    use crate::program_model::{apply_binary, apply_unary, BinaryOp, UnaryOp};
     use crate::value::{DateTimeProfile, RefSegment, StructValue, Value};
     use crate::{RestartMode, Runtime};
 

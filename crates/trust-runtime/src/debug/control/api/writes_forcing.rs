@@ -42,7 +42,6 @@ impl DebugControl {
     pub fn enqueue_lvalue_write(
         &self,
         frame_id: Option<FrameId>,
-        using: Vec<SmolStr>,
         target: LValue,
         value: Value,
     ) {
@@ -50,7 +49,6 @@ impl DebugControl {
         let mut state = lock.lock().expect("debug state poisoned");
         state.pending_lvalue_writes.push(PendingLValueWrite {
             frame_id,
-            using,
             target,
             value,
         });

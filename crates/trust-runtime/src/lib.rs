@@ -1,9 +1,11 @@
-//! `trust-runtime` - IEC 61131-3 Structured Text runtime interpreter.
+//! `trust-runtime` - IEC 61131-3 Structured Text runtime.
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 #![allow(clippy::module_name_repetitions)]
 #![recursion_limit = "512"]
+
+extern crate self as trust_runtime;
 
 /// Bundle discovery helpers.
 pub mod bundle;
@@ -30,6 +32,7 @@ pub mod eval;
 pub mod execution_backend;
 /// Test harness for runtime execution.
 pub mod harness;
+pub(crate) mod helper_eval;
 /// Historian, alerts, and Prometheus observability helpers.
 pub mod historian;
 /// HMI schema and value contract helpers.
@@ -49,6 +52,8 @@ mod numeric;
 pub mod opcua;
 /// PLCopen XML import/export helpers (strict subset profile).
 pub mod plcopen;
+/// Backend-agnostic runtime/program model and shared semantics.
+pub mod program_model;
 /// Deterministic same-host realtime (T0/HardRT) communication contracts.
 pub mod realtime;
 /// Local package registry contracts and workflows.

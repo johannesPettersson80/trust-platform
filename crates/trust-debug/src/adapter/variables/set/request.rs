@@ -479,14 +479,9 @@ impl DebugAdapter {
         };
 
         if paused {
-            let using = refresh_frame
-                .and_then(|frame_id| runtime.using_for_frame(frame_id))
-                .unwrap_or_default();
-            let using_ref = (!using.is_empty()).then_some(using.as_slice());
-            let _ = runtime.with_eval_context(refresh_frame, using_ref, |ctx| {
-                self.session.debug_control().refresh_snapshot(ctx);
-                Ok(())
-            });
+            self.session
+                .debug_control()
+                .refresh_snapshot_from_storage(runtime.storage(), runtime.current_time());
             events.push(self.event(
                 "invalidated",
                 Some(InvalidatedEventBody {

@@ -98,6 +98,8 @@ docs/internal/testing/evidence/*
 !docs/internal/testing/checklists/runtime-vm-performance-follow-up.md
 !docs/internal/testing/checklists/runtime-vm-performance-p1-investigation-plan.md
 !docs/internal/testing/checklists/architecture-improvements.md
+!docs/internal/testing/checklists/runtime-remove-legacy-interpreter.md
+!docs/internal/testing/checklists/runtime-remove-legacy-interpreter-claude-review-brief.md
 !docs/internal/testing/evidence/plcopen-motion-library-implementation-*.md
 !docs/internal/testing/evidence/plcopen-motion-library-post-parity-reconciliation-*.md
 !docs/internal/references/

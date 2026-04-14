@@ -17,21 +17,12 @@ pub use timers::{TimerOutput, Tof, Ton, Tp};
 pub use triggers::{FTrig, RTrig};
 
 use crate::error::RuntimeError;
-use crate::eval::EvalContext;
 use crate::memory::{InstanceId, VariableStorage};
 use crate::value::Duration;
 
 struct BuiltinExecContext<'a> {
     storage: &'a mut VariableStorage,
     now: Duration,
-}
-
-pub fn execute_builtin(
-    ctx: &mut EvalContext<'_>,
-    instance_id: InstanceId,
-    kind: BuiltinFbKind,
-) -> Result<(), RuntimeError> {
-    execute_builtin_in_storage(ctx.storage, ctx.now, instance_id, kind)
 }
 
 pub fn execute_builtin_in_storage(

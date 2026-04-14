@@ -250,12 +250,7 @@ pub(super) fn build_runtime_from_source_files(
             &config.using,
             &mut wildcards,
         )?;
-        apply_config_inits(
-            &mut runtime,
-            &config.config_inits,
-            &config.using,
-            &mut wildcards,
-        )?;
+        apply_config_inits(&mut runtime, &config.config_inits, &mut wildcards)?;
         ensure_wildcards_resolved(&wildcards)?;
         register_access_bindings(&mut runtime, &config.access)?;
         let mut tasks = config.tasks;
@@ -312,30 +307,11 @@ fn init_function_static_locals(runtime: &mut Runtime) -> Result<(), CompileError
     let stdlib = runtime.stdlib().clone();
     let function_blocks = runtime.function_blocks().clone();
     let classes = runtime.classes().clone();
-    let now = runtime.current_time();
-    let mut ctx = crate::eval::EvalContext {
-        storage: runtime.storage_mut(),
-        registry: &registry,
-        profile,
-        now,
-        debug: None,
-        call_depth: 0,
-        functions: Some(&functions),
-        stdlib: Some(&stdlib),
-        function_blocks: Some(&function_blocks),
-        classes: Some(&classes),
-        using: None,
-        access: None,
-        current_instance: None,
-        return_name: None,
-        loop_depth: 0,
-        pause_requested: false,
-        execution_deadline: None,
-    };
+    let storage = runtime.storage_mut();
 
     for function in functions.values() {
         for local in &function.static_locals {
-            let key = crate::eval::static_storage_name(&function.name, &local.name);
+            let key = crate::program_model::static_storage_name(&function.name, &local.name);
             if let Some(fb_name) = super::function_block_type_name(local.type_id, &registry) {
                 if local.initializer.is_some() {
                     return Err(CompileError::new(
@@ -347,7 +323,7 @@ fn init_function_static_locals(runtime: &mut Runtime) -> Result<(), CompileError
                     CompileError::new(format!("unknown function block '{fb_name}'"))
                 })?;
                 let instance_id = crate::instance::create_fb_instance(
-                    ctx.storage,
+                    storage,
                     &registry,
                     &profile,
                     &classes,
@@ -357,8 +333,7 @@ fn init_function_static_locals(runtime: &mut Runtime) -> Result<(), CompileError
                     fb,
                 )
                 .map_err(|err| CompileError::new(err.to_string()))?;
-                ctx.storage
-                    .set_global(key, crate::value::Value::Instance(instance_id));
+                storage.set_global(key, crate::value::Value::Instance(instance_id));
                 continue;
             }
             if let Some(class_name) = super::class_type_name(local.type_id, &registry) {
@@ -372,7 +347,7 @@ fn init_function_static_locals(runtime: &mut Runtime) -> Result<(), CompileError
                     .get(&class_key)
                     .ok_or_else(|| CompileError::new(format!("unknown class '{class_name}'")))?;
                 let instance_id = crate::instance::create_class_instance(
-                    ctx.storage,
+                    storage,
                     &registry,
                     &profile,
                     &classes,
@@ -382,17 +357,16 @@ fn init_function_static_locals(runtime: &mut Runtime) -> Result<(), CompileError
                     class_def,
                 )
                 .map_err(|err| CompileError::new(err.to_string()))?;
-                ctx.storage
-                    .set_global(key, crate::value::Value::Instance(instance_id));
+                storage.set_global(key, crate::value::Value::Instance(instance_id));
                 continue;
             }
             if super::interface_type_name(local.type_id, &registry).is_some() {
-                ctx.storage.set_global(key, crate::value::Value::Null);
+                storage.set_global(key, crate::value::Value::Null);
                 continue;
             }
             let value = crate::value::default_value_for_type_id(local.type_id, &registry, &profile)
                 .map_err(|err| CompileError::new(format!("default value error: {err:?}")))?;
-            ctx.storage.set_global(key, value);
+            storage.set_global(key, value);
         }
     }
 
@@ -406,12 +380,12 @@ fn init_function_static_locals(runtime: &mut Runtime) -> Result<(), CompileError
             let Some(expr) = &local.initializer else {
                 continue;
             };
-            ctx.using = Some(&function.using);
-            let value = crate::eval::eval_expr(&mut ctx, expr)
-                .map_err(|err| CompileError::new(format!("initializer error: {err}")))?;
+            let value =
+                crate::helper_eval::eval_storage_expr(storage, &registry, &profile, None, expr)
+                    .map_err(|err| CompileError::new(format!("initializer error: {err}")))?;
             let value = super::coerce_value_to_type(value, local.type_id)?;
-            let key = crate::eval::static_storage_name(&function.name, &local.name);
-            ctx.storage.set_global(key, value);
+            let key = crate::program_model::static_storage_name(&function.name, &local.name);
+            storage.set_global(key, value);
         }
     }
 

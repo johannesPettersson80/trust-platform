@@ -70,17 +70,4 @@ pub enum BenchAction {
         #[arg(long, value_enum, default_value_t = BenchOutputFormat::Table)]
         output: BenchOutputFormat,
     },
-    /// Benchmark interpreter-vs-VM cycle latency/throughput on the MP-060 corpus.
-    #[command(name = "execution-backend")]
-    ExecutionBackend {
-        /// Number of measured cycles per corpus fixture.
-        #[arg(long, default_value_t = 2_000)]
-        samples: usize,
-        /// Warmup cycles executed before measurements begin.
-        #[arg(long = "warmup-cycles", default_value_t = 200)]
-        warmup_cycles: usize,
-        /// Output format (`table`, `json`).
-        #[arg(long, value_enum, default_value_t = BenchOutputFormat::Table)]
-        output: BenchOutputFormat,
-    },
 }

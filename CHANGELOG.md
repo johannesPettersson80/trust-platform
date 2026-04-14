@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.14.0`
+Target release: `v0.15.0`
 
 ### Added
 
@@ -37,6 +37,10 @@ Target release: `v0.14.0`
 
 ### Changed
 
+- `trust-runtime` is now VM-only in production: the `legacy-interpreter` feature, interpreter backend dispatch seam, and interpreter runtime paths are gone; CLI/config startup selection still accepts `vm` and now rejects `interpreter` explicitly.
+- Removed `trust-runtime bench execution-backend` and the interpreter differential gate flow; VM-only syntax-corpus, determinism/reliability, and production-backend guard scripts now carry the runtime evidence path.
+- Hardened `scripts/runtime_vm_syntax_corpus.sh` so the default corpus skips stale missing fixture folders instead of aborting halfway through a benchmark run.
+- Runtime docs/diagrams/specs now describe `program_model` plus bounded `helper_eval` helpers as the surviving support surface around the VM, and executor internals under `src/eval/**` are confined to test-only coverage.
 - Rewrote the user-facing PLCopen motion documentation so the single-axis demo README now explains the example itself and the main library guide now serves as a real reference manual with package wiring, datatype purpose tables, and per-function-block input/output coverage.
 
 - Structured Text `FUNCTION_BLOCK` calls now reuse the previously stored `VAR_INPUT` value when an input argument is omitted, with first-call fallback still using the declared initializer or IEC default; this closes the motion-library command-update semantics gap without inventing separate runtime rules.

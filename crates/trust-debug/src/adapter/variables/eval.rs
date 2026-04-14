@@ -8,9 +8,9 @@ use serde_json::Value;
 use trust_hir::types::TypeRegistry;
 use trust_runtime::debug::DebugSnapshot;
 use trust_runtime::error::RuntimeError;
-use trust_runtime::eval::expr::Expr;
 use trust_runtime::harness::parse_debug_expression;
-use trust_runtime::memory::{FrameId, InstanceId};
+use trust_runtime::memory::FrameId;
+use trust_runtime::program_model::Expr;
 use trust_runtime::value::Value as RuntimeValue;
 
 use crate::protocol::{EvaluateArguments, EvaluateResponseBody, Request};
@@ -177,54 +177,17 @@ impl DebugAdapter {
         registry: &TypeRegistry,
         frame_id: Option<FrameId>,
         snapshot: &DebugSnapshot,
-        using: &[smol_str::SmolStr],
+        _using: &[smol_str::SmolStr],
     ) -> Result<RuntimeValue, RuntimeError> {
-        let metadata = self.session.metadata();
-        let profile = metadata.profile();
-        let now = snapshot.now;
-        let functions = metadata.functions();
-        let stdlib = metadata.stdlib();
-        let function_blocks = metadata.function_blocks();
-        let classes = metadata.classes();
-        let access = metadata.access_map();
-
-        let mut storage = snapshot.storage.clone();
-        let eval = |storage: &mut trust_runtime::memory::VariableStorage,
-                    instance_id: Option<InstanceId>|
-         -> Result<RuntimeValue, RuntimeError> {
-            let mut ctx = trust_runtime::eval::EvalContext {
-                storage,
-                registry,
-                profile,
-                now,
-                debug: None,
-                call_depth: 0,
-                functions: Some(functions),
-                stdlib: Some(stdlib),
-                function_blocks: Some(function_blocks),
-                classes: Some(classes),
-                using: if using.is_empty() { None } else { Some(using) },
-                access: Some(access),
-                current_instance: instance_id,
-                return_name: None,
-                loop_depth: 0,
-                pause_requested: false,
-                execution_deadline: None,
-            };
-            trust_runtime::eval::eval_expr(&mut ctx, expr)
-        };
-
-        let value = if let Some(frame_id) = frame_id {
-            storage
-                .with_frame(frame_id, |storage| {
-                    let instance_id = storage.current_frame().and_then(|frame| frame.instance_id);
-                    eval(storage, instance_id)
-                })
-                .ok_or(RuntimeError::InvalidFrame(frame_id.0))??
-        } else {
-            eval(&mut storage, None)?
-        };
-        Ok(value)
+        let mut snapshot = snapshot.clone();
+        let profile = self.session.metadata().profile();
+        snapshot.evaluate_expression(
+            expr,
+            registry,
+            Some(self.session.metadata().stdlib()),
+            &profile,
+            frame_id,
+        )
     }
 
     pub(super) fn parse_value_expression_snapshot(
@@ -267,62 +230,6 @@ impl DebugAdapter {
                 RuntimeError::InvalidFrame(_) => "unknown frame id".to_string(),
                 _ => err.to_string(),
             })
-    }
-
-    pub(super) fn with_snapshot_eval<T>(
-        &self,
-        snapshot: &mut DebugSnapshot,
-        frame_id: Option<FrameId>,
-        using: &[smol_str::SmolStr],
-        registry: &TypeRegistry,
-        f: impl FnOnce(&mut trust_runtime::eval::EvalContext<'_>) -> Result<T, RuntimeError>,
-    ) -> Result<T, RuntimeError> {
-        let metadata = self.session.metadata();
-        let profile = metadata.profile();
-        let now = snapshot.now;
-        let functions = metadata.functions();
-        let stdlib = metadata.stdlib();
-        let function_blocks = metadata.function_blocks();
-        let classes = metadata.classes();
-        let access = metadata.access_map();
-        let using = if using.is_empty() { None } else { Some(using) };
-
-        let eval = |storage: &mut trust_runtime::memory::VariableStorage,
-                    instance_id: Option<InstanceId>|
-         -> Result<T, RuntimeError> {
-            let mut ctx = trust_runtime::eval::EvalContext {
-                storage,
-                registry,
-                profile,
-                now,
-                debug: None,
-                call_depth: 0,
-                functions: Some(functions),
-                stdlib: Some(stdlib),
-                function_blocks: Some(function_blocks),
-                classes: Some(classes),
-                using,
-                access: Some(access),
-                current_instance: instance_id,
-                return_name: None,
-                loop_depth: 0,
-                pause_requested: false,
-                execution_deadline: None,
-            };
-            f(&mut ctx)
-        };
-
-        if let Some(frame_id) = frame_id {
-            snapshot
-                .storage
-                .with_frame(frame_id, |storage| {
-                    let instance_id = storage.current_frame().and_then(|frame| frame.instance_id);
-                    eval(storage, instance_id)
-                })
-                .ok_or(RuntimeError::InvalidFrame(frame_id.0))?
-        } else {
-            eval(&mut snapshot.storage, None)
-        }
     }
 }
 

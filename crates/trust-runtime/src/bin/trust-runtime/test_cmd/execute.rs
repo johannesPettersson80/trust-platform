@@ -27,26 +27,5 @@ fn execute_test_program(runtime: &mut Runtime, name: &str) -> Result<(), Runtime
 }
 
 fn execute_test_function_block(runtime: &mut Runtime, name: &str) -> Result<(), RuntimeError> {
-    runtime.with_eval_context(None, None, |ctx| {
-        let function_blocks = ctx.function_blocks.ok_or(RuntimeError::TypeMismatch)?;
-        let functions = ctx.functions.ok_or(RuntimeError::TypeMismatch)?;
-        let stdlib = ctx.stdlib.ok_or(RuntimeError::TypeMismatch)?;
-        let classes = ctx.classes.ok_or(RuntimeError::TypeMismatch)?;
-
-        let key = SmolStr::new(name.to_ascii_uppercase());
-        let fb = function_blocks
-            .get(&key)
-            .ok_or_else(|| RuntimeError::UndefinedFunctionBlock(name.into()))?;
-        let instance_id = create_fb_instance(
-            ctx.storage,
-            ctx.registry,
-            &ctx.profile,
-            classes,
-            function_blocks,
-            functions,
-            stdlib,
-            fb,
-        )?;
-        call_function_block(ctx, fb, instance_id, &[])
-    })
+    runtime.execute_function_block_by_name(name)
 }

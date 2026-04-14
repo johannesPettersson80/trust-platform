@@ -1,9 +1,10 @@
-pub fn eval_expr(ctx: &mut EvalContext<'_>, expr: &expr::Expr) -> Result<Value, RuntimeError> {
+pub(crate) fn eval_expr(ctx: &mut EvalContext<'_>, expr: &expr::Expr) -> Result<Value, RuntimeError> {
     expr::eval_expr(ctx, expr)
 }
 
 /// Execute a statement.
-pub fn exec_stmt(
+#[allow(dead_code)]
+pub(crate) fn exec_stmt(
     ctx: &mut EvalContext<'_>,
     stmt: &stmt::Stmt,
 ) -> Result<stmt::StmtResult, RuntimeError> {
@@ -11,7 +12,7 @@ pub fn exec_stmt(
 }
 
 /// Execute a list of statements.
-pub fn exec_block(
+pub(crate) fn exec_block(
     ctx: &mut EvalContext<'_>,
     stmts: &[stmt::Stmt],
 ) -> Result<stmt::StmtResult, RuntimeError> {
@@ -19,7 +20,7 @@ pub fn exec_block(
 }
 
 /// Call a function definition.
-pub fn call_function<'a>(
+pub(crate) fn call_function<'a>(
     ctx: &mut EvalContext<'a>,
     func: &'a FunctionDef,
     args: &[CallArg],
@@ -124,7 +125,7 @@ pub fn call_function<'a>(
 }
 
 /// Call a method definition on a specific instance.
-pub fn call_method(
+pub(crate) fn call_method(
     ctx: &mut EvalContext<'_>,
     method: &MethodDef,
     instance_id: InstanceId,
@@ -243,7 +244,7 @@ pub fn call_method(
 }
 
 /// Call a function block definition on a specific instance.
-pub fn call_function_block<'a>(
+pub(crate) fn call_function_block<'a>(
     ctx: &mut EvalContext<'a>,
     fb: &'a FunctionBlockDef,
     instance_id: InstanceId,
@@ -283,7 +284,8 @@ pub fn call_function_block<'a>(
     ctx.call_depth = saved_call_depth.saturating_add(1);
     let builtin_kind = fbs::builtin_kind(fb.name.as_ref());
     let result = if let Some(kind) = builtin_kind {
-        fbs::execute_builtin(ctx, instance_id, kind).map(|_| stmt::StmtResult::Continue)
+        fbs::execute_builtin_in_storage(ctx.storage, ctx.now, instance_id, kind)
+            .map(|_| stmt::StmtResult::Continue)
     } else {
         if let Err(err) = init_locals_in_frame(ctx, &fb.temps) {
             ctx.call_depth = saved_call_depth;

@@ -200,25 +200,18 @@ jobs:
           OUT_DIR=gate-artifacts/runtime-comms-bench \
           TRUST_COMMS_BENCH_SAMPLES=256 \
           ./scripts/runtime_comms_bench_gate.sh
-      - name: Capture MP-060 interpreter-vs-VM benchmark evidence (quick profile)
+      - name: Capture runtime VM syntax corpus benchmark evidence (quick profile)
         run: |
           OUT_DIR=gate-artifacts/runtime-vm-bench \
           TRUST_VM_BENCH_PROFILE=quick \
-          TRUST_VM_BENCH_ENFORCE_THRESHOLDS=0 \
+          TRUST_VM_BENCH_HOST_CODEGEN=generic \
           ./scripts/runtime_vm_bench_gate.sh
-      - name: Capture MP-060 determinism/reliability evidence
+      - name: Capture runtime VM determinism/reliability evidence
         run: |
           OUT_DIR=gate-artifacts/runtime-vm-determinism \
           TRUST_VM_DETERMINISM_ITERATIONS=2 \
           TRUST_VM_DETERMINISM_TEST_THREADS=1 \
           ./scripts/runtime_vm_determinism_reliability_gate.sh
-      - name: Enforce MP-060 differential quick subset gate
-        run: |
-          OUT_DIR=gate-artifacts/runtime-vm-differential \
-          TRUST_VM_DIFFERENTIAL_PROFILE=quick \
-          TRUST_VM_DIFFERENTIAL_TEST_THREADS=1 \
-          TRUST_VM_DIFFERENTIAL_MAX_SECONDS=240 \
-          ./scripts/runtime_vm_differential_gate.sh
       - name: Enforce MP-060 production backend leak guard
         run: |
           ./scripts/runtime_vm_production_backend_guard.sh
@@ -244,7 +237,6 @@ jobs:
             gate-artifacts/runtime-comms-bench/**
             gate-artifacts/runtime-vm-bench/**
             gate-artifacts/runtime-vm-determinism/**
-            gate-artifacts/runtime-vm-differential/**
             gate-artifacts/runtime-cloud-security-profiles/**
             gate-artifacts/runtime-comms-conformance/**
       - name: Mark gate success

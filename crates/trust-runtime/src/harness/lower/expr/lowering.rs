@@ -148,14 +148,14 @@ fn lower_sizeof_expr(
         .find(|child| child.kind() == SyntaxKind::TypeRef)
     {
         let type_id = lower_type_ref(&type_ref, ctx)?;
-        return Ok(Expr::SizeOf(crate::eval::expr::SizeOfTarget::Type(type_id)));
+        return Ok(Expr::SizeOf(crate::program_model::SizeOfTarget::Type(type_id)));
     }
     if let Some(expr_node) = node
         .children()
         .find(|child| is_expression_kind(child.kind()))
     {
         let expr = lower_expr(&expr_node, ctx)?;
-        return Ok(Expr::SizeOf(crate::eval::expr::SizeOfTarget::Expr(
+        return Ok(Expr::SizeOf(crate::program_model::SizeOfTarget::Expr(
             Box::new(expr),
         )));
     }

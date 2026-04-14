@@ -139,7 +139,7 @@ package "trust-runtime crate" as struntime #LightYellow {
     component "Runtime" as runtime <<runtime/core.rs:22-44>>
     component "RuntimeConfig" as runtimeConfig
     component "VariableStorage" as varStorage <<memory.rs:63-71>>
-    component "EvalContext" as evalCtx
+    component "Program Model + Helper Eval" as evalCtx
     component "StandardLibrary" as stdlib <<stdlib/>>
     component "Harness Facade\n(CompileSession)" as harness <<harness/api.rs>>
     component "Runtime Launcher\n(trust-runtime CLI)" as launcher

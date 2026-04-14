@@ -5,8 +5,8 @@ use smol_str::SmolStr;
 
 use crate::debug::DebugHook;
 use crate::error::RuntimeError;
-use crate::eval::ops::{BinaryOp, UnaryOp};
 use crate::memory::InstanceId;
+use crate::program_model::{BinaryOp, UnaryOp};
 use crate::task::ProgramDef;
 use crate::value::{
     read_partial_access, size_of_value, write_partial_access, PartialAccess, PartialAccessError,

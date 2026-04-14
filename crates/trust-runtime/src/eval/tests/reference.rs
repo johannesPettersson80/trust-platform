@@ -1,4 +1,4 @@
-mod common;
+use super::common;
 
 use trust_hir::types::TypeRegistry;
 use trust_hir::TypeId;

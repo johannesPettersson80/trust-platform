@@ -73,38 +73,3 @@ fn runtime_metrics_snapshot_tracks_vm_backend_selection() {
     let snapshot = metrics.lock().expect("metrics lock").snapshot();
     assert_eq!(snapshot.execution_backend, ExecutionBackend::BytecodeVm);
 }
-
-#[cfg(feature = "legacy-interpreter")]
-#[test]
-fn runtime_rolls_back_to_interpreter_with_loaded_bytecode() {
-    let source = r#"
-        PROGRAM Main
-        VAR
-            count : DINT := DINT#0;
-        END_VAR
-        count := count + DINT#1;
-        END_PROGRAM
-    "#;
-
-    let session = CompileSession::from_source(source);
-    let mut runtime = session.build_runtime().expect("build runtime");
-    let bytes = session.build_bytecode_bytes().expect("build bytecode");
-    runtime
-        .apply_bytecode_bytes(&bytes, None)
-        .expect("apply bytecode");
-
-    runtime
-        .set_execution_backend(ExecutionBackend::Interpreter)
-        .expect("select interpreter backend");
-    runtime.execute_cycle().expect("execute cycle");
-
-    assert_eq!(runtime.execution_backend(), ExecutionBackend::Interpreter);
-    let main_id = match runtime.storage().get_global("Main") {
-        Some(Value::Instance(id)) => *id,
-        other => panic!("expected Main instance global, got {other:?}"),
-    };
-    assert_eq!(
-        runtime.storage().get_instance_var(main_id, "count"),
-        Some(&Value::DInt(1))
-    );
-}

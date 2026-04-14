@@ -5,36 +5,17 @@ impl Runtime {
         expr: &Expr,
         frame_id: Option<FrameId>,
     ) -> Result<Value, error::RuntimeError> {
-        let profile = self.profile;
-        let now = self.current_time;
         let registry = &self.registry;
-        let functions = &self.functions;
-        let stdlib = &self.stdlib;
-        let function_blocks = &self.function_blocks;
-        let classes = &self.classes;
-        let access = &self.access;
-        let execution_deadline = self.execution_deadline;
+        let profile = &self.profile;
         let eval = |storage: &mut VariableStorage, instance_id: Option<InstanceId>| {
-            let mut ctx = EvalContext {
+            crate::helper_eval::eval_storage_expr_with_stdlib(
                 storage,
                 registry,
                 profile,
-                now,
-                debug: None,
-                call_depth: 0,
-                functions: Some(functions),
-                stdlib: Some(stdlib),
-                function_blocks: Some(function_blocks),
-                classes: Some(classes),
-                using: None,
-                access: Some(access),
-                current_instance: instance_id,
-                return_name: None,
-                loop_depth: 0,
-                pause_requested: false,
-                execution_deadline,
-            };
-            eval::eval_expr(&mut ctx, expr)
+                instance_id,
+                Some(&self.stdlib),
+                expr,
+            )
         };
 
         if let Some(frame_id) = frame_id {
@@ -49,55 +30,59 @@ impl Runtime {
         }
     }
 
-    /// Run a closure with an evaluation context, optionally scoped to a frame.
-    pub fn with_eval_context<T>(
+    /// Read a debugger-targeted lvalue within the current runtime context.
+    pub fn read_lvalue(
         &mut self,
+        target: &LValue,
         frame_id: Option<FrameId>,
-        using: Option<&[SmolStr]>,
-        f: impl FnOnce(&mut EvalContext<'_>) -> Result<T, error::RuntimeError>,
-    ) -> Result<T, error::RuntimeError> {
-        let profile = self.profile;
-        let now = self.current_time;
+    ) -> Result<Value, error::RuntimeError> {
         let registry = &self.registry;
-        let functions = &self.functions;
-        let stdlib = &self.stdlib;
-        let function_blocks = &self.function_blocks;
-        let classes = &self.classes;
-        let access = &self.access;
-        let execution_deadline = self.execution_deadline;
-        let eval = |storage: &mut VariableStorage, instance_id: Option<InstanceId>| {
-            let mut ctx = EvalContext {
-                storage,
-                registry,
-                profile,
-                now,
-                debug: None,
-                call_depth: 0,
-                functions: Some(functions),
-                stdlib: Some(stdlib),
-                function_blocks: Some(function_blocks),
-                classes: Some(classes),
-                using,
-                access: Some(access),
-                current_instance: instance_id,
-                return_name: None,
-                loop_depth: 0,
-                pause_requested: false,
-                execution_deadline,
-            };
-            f(&mut ctx)
+        let profile = &self.profile;
+        let read = |storage: &mut VariableStorage, instance_id: Option<InstanceId>| {
+            crate::helper_eval::read_storage_lvalue(storage, registry, profile, instance_id, target)
         };
 
         if let Some(frame_id) = frame_id {
             self.storage
                 .with_frame(frame_id, |storage| {
                     let instance_id = storage.current_frame().and_then(|frame| frame.instance_id);
-                    eval(storage, instance_id)
+                    read(storage, instance_id)
                 })
                 .ok_or(error::RuntimeError::InvalidFrame(frame_id.0))?
         } else {
-            eval(&mut self.storage, None)
+            read(&mut self.storage, None)
         }
     }
 
+    /// Write a debugger-targeted lvalue within the current runtime context.
+    pub fn write_lvalue(
+        &mut self,
+        target: &LValue,
+        value: Value,
+        frame_id: Option<FrameId>,
+    ) -> Result<(), error::RuntimeError> {
+        let registry = &self.registry;
+        let profile = &self.profile;
+        let write = |storage: &mut VariableStorage, instance_id: Option<InstanceId>| {
+            crate::helper_eval::write_storage_lvalue(
+                storage,
+                registry,
+                profile,
+                instance_id,
+                target,
+                value.clone(),
+            )
+        };
+
+        if let Some(frame_id) = frame_id {
+            self.storage
+                .with_frame(frame_id, |storage| {
+                    let instance_id = storage.current_frame().and_then(|frame| frame.instance_id);
+                    write(storage, instance_id)
+                })
+                .ok_or(error::RuntimeError::InvalidFrame(frame_id.0))?
+        } else {
+            write(&mut self.storage, None)
+        }
+    }
 }

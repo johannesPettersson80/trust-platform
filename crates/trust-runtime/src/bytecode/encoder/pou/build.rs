@@ -204,8 +204,8 @@ impl<'a> BytecodeEncoder<'a> {
         )?;
         let mut self_fields = self.self_fields_for_owner(owner)?;
         for local in &method.static_locals {
-            let owner = crate::eval::method_static_storage_owner(owner, &method.name);
-            let hidden = crate::eval::static_storage_name(&owner, &local.name);
+            let owner = crate::program_model::method_static_storage_owner(owner, &method.name);
+            let hidden = crate::program_model::static_storage_name(&owner, &local.name);
             let key = super::util::normalize_name(&local.name);
             self_fields.insert(key, hidden);
         }
@@ -228,7 +228,7 @@ impl<'a> BytecodeEncoder<'a> {
     ) -> Result<HashMap<SmolStr, crate::value::ValueRef>, BytecodeError> {
         let mut refs = HashMap::new();
         for local in &function.static_locals {
-            let hidden = crate::eval::static_storage_name(&function.name, &local.name);
+            let hidden = crate::program_model::static_storage_name(&function.name, &local.name);
             let reference = self
                 .runtime
                 .storage()

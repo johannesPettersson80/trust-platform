@@ -1,4 +1,5 @@
 use trust_hir::types::TypeRegistry;
+use trust_runtime::debug::DebugRuntimeContext;
 use trust_runtime::eval::EvalContext;
 use trust_runtime::memory::VariableStorage;
 use trust_runtime::value::{DateTimeProfile, Duration};
@@ -25,5 +26,20 @@ pub fn make_context<'a>(
         loop_depth: 0,
         pause_requested: false,
         execution_deadline: None,
+    }
+}
+
+#[allow(dead_code)]
+pub fn make_debug_context<'a>(
+    storage: &'a mut VariableStorage,
+    registry: &'a TypeRegistry,
+) -> DebugRuntimeContext<'a> {
+    DebugRuntimeContext {
+        storage,
+        registry,
+        stdlib: None,
+        profile: DateTimeProfile::default(),
+        current_instance: None,
+        now: Duration::ZERO,
     }
 }

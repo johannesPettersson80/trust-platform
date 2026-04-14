@@ -71,12 +71,6 @@ struct ProjectBenchReport {
     vm_profile: Option<VmProfileReport>,
 }
 
-#[cfg(feature = "legacy-interpreter")]
-#[derive(Debug, Clone, Serialize)]
-struct BackendComparisonSummary {
-    latency: LatencySummary,
-    throughput_cycles_per_sec: f64,
-}
 
 #[derive(Debug, Clone, Serialize)]
 struct VmProfileFallbackReasonReport {
@@ -182,28 +176,6 @@ struct VmProfileReport {
     tier1_specialized_executor: Option<VmTier1SpecializedExecutorReport>,
 }
 
-#[cfg(feature = "legacy-interpreter")]
-#[derive(Debug, Clone, Serialize)]
-struct ExecutionBackendFixtureReport {
-    fixture: &'static str,
-    interpreter: BackendComparisonSummary,
-    vm: BackendComparisonSummary,
-    median_latency_ratio: f64,
-    p99_latency_ratio: f64,
-    throughput_ratio: f64,
-    vm_profile: Option<VmProfileReport>,
-}
-
-#[cfg(feature = "legacy-interpreter")]
-#[derive(Debug, Clone, Serialize)]
-struct ExecutionBackendBenchReport {
-    scenario: &'static str,
-    corpus: &'static str,
-    cycles_per_fixture: usize,
-    warmup_cycles: usize,
-    fixtures: Vec<ExecutionBackendFixtureReport>,
-    aggregate: ExecutionBackendFixtureReport,
-}
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "benchmark", content = "report")]
@@ -217,9 +189,6 @@ enum BenchReport {
     MeshZenoh(MeshZenohBenchReport),
     #[serde(rename = "dispatch")]
     Dispatch(DispatchBenchReport),
-    #[cfg(feature = "legacy-interpreter")]
-    #[serde(rename = "execution-backend")]
-    ExecutionBackend(ExecutionBackendBenchReport),
 }
 
 #[derive(Debug, Clone)]
@@ -319,38 +288,5 @@ impl DispatchBenchWorkload {
             base: BenchWorkload::normalize(samples, payload_bytes)?,
             fanout,
         })
-    }
-}
-
-#[cfg(feature = "legacy-interpreter")]
-#[derive(Debug, Clone)]
-struct ExecutionBackendBenchWorkload {
-    samples: usize,
-    warmup_cycles: usize,
-}
-
-#[cfg(feature = "legacy-interpreter")]
-impl ExecutionBackendBenchWorkload {
-    fn normalize(samples: usize, warmup_cycles: usize) -> anyhow::Result<Self> {
-        if samples == 0 {
-            anyhow::bail!("--samples must be greater than zero");
-        }
-        Ok(Self {
-            samples,
-            warmup_cycles,
-        })
-    }
-}
-
-#[cfg(not(feature = "legacy-interpreter"))]
-#[derive(Debug, Clone)]
-struct ExecutionBackendBenchWorkload;
-
-#[cfg(not(feature = "legacy-interpreter"))]
-impl ExecutionBackendBenchWorkload {
-    fn normalize(_samples: usize, _warmup_cycles: usize) -> anyhow::Result<Self> {
-        anyhow::bail!(
-            "bench execution-backend requires --features legacy-interpreter for interpreter-vs-vm comparison"
-        );
     }
 }

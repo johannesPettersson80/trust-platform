@@ -1,5 +1,3 @@
-#[cfg(feature = "legacy-interpreter")]
-use trust_runtime::execution_backend::ExecutionBackend;
 use trust_runtime::harness::TestHarness;
 use trust_runtime::value::Value;
 
@@ -34,11 +32,6 @@ END_CONFIGURATION
 "#;
 
     let mut harness = TestHarness::from_source(source).unwrap();
-    #[cfg(feature = "legacy-interpreter")]
-    harness
-        .runtime_mut()
-        .set_execution_backend(ExecutionBackend::Interpreter)
-        .expect("switch to interpreter backend");
     let program_id = match harness.runtime().storage().get_global("P1") {
         Some(Value::Instance(id)) => *id,
         other => panic!("expected program instance, got {other:?}"),

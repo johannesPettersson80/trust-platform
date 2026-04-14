@@ -121,7 +121,6 @@ pub(crate) struct PendingVarWrite {
 #[derive(Debug, Clone)]
 pub(crate) struct PendingLValueWrite {
     pub frame_id: Option<FrameId>,
-    pub using: Vec<SmolStr>,
     pub target: LValue,
     pub value: Value,
 }

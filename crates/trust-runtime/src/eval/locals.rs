@@ -1,11 +1,3 @@
-pub(crate) fn static_storage_name(owner: &SmolStr, name: &SmolStr) -> SmolStr {
-    SmolStr::new(format!("__STAT::{owner}::{name}"))
-}
-
-pub(crate) fn method_static_storage_owner(owner: &SmolStr, method: &SmolStr) -> SmolStr {
-    SmolStr::new(format!("{owner}::{method}"))
-}
-
 pub(crate) fn static_storage_value_ref(
     ctx: &EvalContext<'_>,
     name: &SmolStr,

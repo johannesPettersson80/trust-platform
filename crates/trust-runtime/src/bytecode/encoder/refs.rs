@@ -12,9 +12,9 @@ impl<'a> BytecodeEncoder<'a> {
     pub(super) fn resolve_lvalue_ref(
         &self,
         ctx: &CodegenContext,
-        target: &crate::eval::expr::LValue,
+        target: &crate::program_model::LValue,
     ) -> Result<Option<ValueRef>, BytecodeError> {
-        use crate::eval::expr::LValue;
+        use crate::program_model::LValue;
         let mut reference = match target {
             LValue::Name(name) => return self.resolve_name_ref(ctx, name),
             LValue::Field { name, field } => {
@@ -43,7 +43,7 @@ impl<'a> BytecodeEncoder<'a> {
                 let mut resolved = Vec::with_capacity(indices.len());
                 for expr in indices {
                     let value = match expr {
-                        crate::eval::expr::Expr::Literal(value) => value,
+                        crate::program_model::Expr::Literal(value) => value,
                         _ => return Ok(None),
                     };
                     let index = match value {

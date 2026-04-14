@@ -1,4 +1,4 @@
-mod common;
+use super::common;
 
 use indexmap::IndexMap;
 use smol_str::SmolStr;

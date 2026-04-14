@@ -9,15 +9,15 @@ pub(super) fn normalize_name(name: &SmolStr) -> SmolStr {
     SmolStr::new(name.to_ascii_uppercase())
 }
 
-pub(super) fn count_for_loops(stmts: &[crate::eval::stmt::Stmt]) -> usize {
+pub(super) fn count_for_loops(stmts: &[crate::program_model::Stmt]) -> usize {
     let mut count: usize = 0;
     for stmt in stmts {
         match stmt {
-            crate::eval::stmt::Stmt::For { body, .. } => {
+            crate::program_model::Stmt::For { body, .. } => {
                 count = count.saturating_add(1);
                 count = count.saturating_add(count_for_loops(body));
             }
-            crate::eval::stmt::Stmt::If {
+            crate::program_model::Stmt::If {
                 then_block,
                 else_if,
                 else_block,
@@ -29,7 +29,7 @@ pub(super) fn count_for_loops(stmts: &[crate::eval::stmt::Stmt]) -> usize {
                 }
                 count = count.saturating_add(count_for_loops(else_block));
             }
-            crate::eval::stmt::Stmt::Case {
+            crate::program_model::Stmt::Case {
                 branches,
                 else_block,
                 ..
@@ -39,11 +39,11 @@ pub(super) fn count_for_loops(stmts: &[crate::eval::stmt::Stmt]) -> usize {
                 }
                 count = count.saturating_add(count_for_loops(else_block));
             }
-            crate::eval::stmt::Stmt::While { body, .. }
-            | crate::eval::stmt::Stmt::Repeat { body, .. } => {
+            crate::program_model::Stmt::While { body, .. }
+            | crate::program_model::Stmt::Repeat { body, .. } => {
                 count = count.saturating_add(count_for_loops(body));
             }
-            crate::eval::stmt::Stmt::Label { stmt, .. } => {
+            crate::program_model::Stmt::Label { stmt, .. } => {
                 if let Some(stmt) = stmt.as_deref() {
                     count = count.saturating_add(count_for_loops(std::slice::from_ref(stmt)));
                 }

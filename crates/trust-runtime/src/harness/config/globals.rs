@@ -9,26 +9,7 @@ pub(super) fn apply_globals(
     let function_blocks = runtime.function_blocks().clone();
     let classes = runtime.classes().clone();
     {
-        let now = runtime.current_time();
-        let mut ctx = EvalContext {
-            storage: runtime.storage_mut(),
-            registry: &registry,
-            profile,
-            now,
-            debug: None,
-            call_depth: 0,
-            functions: Some(&functions),
-            stdlib: Some(&stdlib),
-            function_blocks: Some(&function_blocks),
-            classes: Some(&classes),
-            using: None,
-            access: None,
-            current_instance: None,
-            return_name: None,
-            loop_depth: 0,
-            pause_requested: false,
-            execution_deadline: None,
-        };
+        let storage = runtime.storage_mut();
 
         for init in globals {
             if let Some(fb_name) = super::function_block_type_name(init.type_id, &registry) {
@@ -42,7 +23,7 @@ pub(super) fn apply_globals(
                     CompileError::new(format!("unknown function block '{fb_name}'"))
                 })?;
                 let instance_id = create_fb_instance(
-                    ctx.storage,
+                    storage,
                     &registry,
                     &profile,
                     &classes,
@@ -52,8 +33,7 @@ pub(super) fn apply_globals(
                     fb,
                 )
                 .map_err(|err| CompileError::new(err.to_string()))?;
-                ctx.storage
-                    .set_global(init.name.clone(), Value::Instance(instance_id));
+                storage.set_global(init.name.clone(), Value::Instance(instance_id));
                 continue;
             }
             if let Some(class_name) = super::class_type_name(init.type_id, &registry) {
@@ -67,7 +47,7 @@ pub(super) fn apply_globals(
                     .get(&key)
                     .ok_or_else(|| CompileError::new(format!("unknown class '{class_name}'")))?;
                 let instance_id = create_class_instance(
-                    ctx.storage,
+                    storage,
                     &registry,
                     &profile,
                     &classes,
@@ -77,17 +57,16 @@ pub(super) fn apply_globals(
                     class_def,
                 )
                 .map_err(|err| CompileError::new(err.to_string()))?;
-                ctx.storage
-                    .set_global(init.name.clone(), Value::Instance(instance_id));
+                storage.set_global(init.name.clone(), Value::Instance(instance_id));
                 continue;
             }
             if super::interface_type_name(init.type_id, &registry).is_some() {
-                ctx.storage.set_global(init.name.clone(), Value::Null);
+                storage.set_global(init.name.clone(), Value::Null);
                 continue;
             }
             let value = default_value_for_type_id(init.type_id, &registry, &profile)
                 .map_err(|err| CompileError::new(format!("default value error: {err:?}")))?;
-            ctx.storage.set_global(init.name.clone(), value);
+            storage.set_global(init.name.clone(), value);
         }
 
         for init in globals {
@@ -97,11 +76,16 @@ pub(super) fn apply_globals(
                 {
                     continue;
                 }
-                ctx.using = Some(&init.using);
-                let value = eval_expr(&mut ctx, expr)
-                    .map_err(|err| CompileError::new(format!("initializer error: {err}")))?;
+                let value = crate::helper_eval::eval_storage_expr(
+                    storage,
+                    &registry,
+                    &profile,
+                    None,
+                    expr,
+                )
+                .map_err(|err| CompileError::new(format!("initializer error: {err}")))?;
                 let value = super::coerce_value_to_type(value, init.type_id)?;
-                ctx.storage.set_global(init.name.clone(), value);
+                storage.set_global(init.name.clone(), value);
             }
         }
     }

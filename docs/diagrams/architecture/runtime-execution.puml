@@ -54,14 +54,12 @@ package "Runtime Core" as runtimeCore #LightGreen {
     runtime ..> runtimeOnlineChange : hot-reload contract owner
 }
 
-package "Execution Backend Boundary" as backendPkg #LightYellow {
-    interface "RuntimeExecutionBackend\n(runtime/backend.rs)" as backendContract
-    component "InterpreterBackend\n(legacy-interpreter only)" as interpBackend #DDDDDD
-    component "BytecodeVmBackend\n(phase-gated)" as vmBackend
+package "Execution Engine" as backendPkg #LightYellow {
+    component "execute_program() / execute_function_block_ref()\n(runtime/cycle.rs)" as runtimeDispatch
+    component "ensure_vm_module_loaded() / build_vm_module()\n(runtime/cycle.rs)" as vmEnsure
 
-    backendContract <|.. interpBackend
-    backendContract <|.. vmBackend
-    runtime ..> backendContract : program/FB dispatch
+    runtime ..> runtimeDispatch : program/FB dispatch
+    runtimeDispatch --> vmEnsure
 
     package "Bytecode VM Core\n(runtime/vm/*)" as vmCore #LightCyan {
         component "dispatch.rs\n(PC loop + op dispatch + debug hook emit)" as vmDispatch
@@ -74,7 +72,7 @@ package "Execution Backend Boundary" as backendPkg #LightYellow {
         component "debug_map.rs\n(symbol/source mappings + pc->source)" as vmDebugMap
     }
 
-    vmBackend --> vmDispatch
+    vmEnsure --> vmDispatch
     vmDispatch ..> vmStack
     vmDispatch ..> vmFrames
     vmDispatch ..> vmErrors
@@ -166,7 +164,7 @@ package "Execution Cycle" as cyclePkg #LightBlue {
         execute_task():
         • emits TaskStart event
         • runs programs + FB refs
-        • dispatches via backend boundary
+        • dispatches directly to the VM path
         • emits TaskEnd event
         • task → DAP thread id
     end note
@@ -377,32 +375,22 @@ runtime ..> opc4 : snapshot globals
 ' ============================================================
 ' EVALUATION CONTEXT
 ' ============================================================
-package "Evaluation Context" as evalPkg #Wheat {
+package "Helper Evaluation" as evalPkg #Wheat {
 
-    class "EvalContext" as evalCtx {
-        storage: &mut VariableStorage
-        registry: &TypeRegistry
-        profile: &DateTimeProfile
-        now: Duration
-        debug: Option<&mut DebugHook>
-        call_depth: u32
-        current_instance: Option<InstanceId>
-        loop_depth: u32
-        --
-        functions: &IndexMap<...>
-        function_blocks: &IndexMap<...>
-        classes: &IndexMap<...>
-    }
+    component "helper_eval::const_expr" as constEval
+    component "helper_eval::storage_expr" as storageEval
+    component "helper_eval::storage_lvalue" as storageWrite
+    component "DebugRuntimeContext" as debugRuntimeCtx
 
-    note right of evalCtx
-        Residual evaluator surface:
+    note right of storageEval
+        Residual helper surface:
         - debug expression / watch evaluation
         - selected build-time/runtime helpers
-        - legacy-interpreter feature builds
+        - pending debug writes
 
         Production task/program execution
-        now goes through RuntimeExecutionBackend
-        and defaults to the bytecode VM.
+        goes directly through the VM path.
+        Remaining evaluator internals are test-only.
     end note
 }
 
@@ -628,9 +616,9 @@ legend right
     **Execution Model:**
     1. Tasks scheduled by priority + interval
     2. Programs execute within tasks
-    3. Production execution dispatches through RuntimeExecutionBackend
-    4. Bytecode VM is the default production backend
-    5. EvalContext remains for debug/tooling/build-helper paths
+    3. Production execution dispatches directly into the VM after module materialization
+    4. Bytecode VM is the only production execution backend
+    5. helper_eval handles debug/tooling/build-helper paths
 
     **Memory Areas:**
     • Globals - Program-wide variables

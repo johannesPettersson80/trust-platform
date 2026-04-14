@@ -4,15 +4,15 @@
 
 use smol_str::SmolStr;
 
-use crate::eval::stmt::Stmt;
+use crate::program_model::{Stmt, VarDef};
 use crate::value::{Duration, ValueRef};
 
 /// Program definition for execution.
 #[derive(Debug, Clone)]
 pub struct ProgramDef {
     pub name: SmolStr,
-    pub vars: Vec<crate::eval::VarDef>,
-    pub temps: Vec<crate::eval::VarDef>,
+    pub vars: Vec<VarDef>,
+    pub temps: Vec<VarDef>,
     pub using: Vec<SmolStr>,
     pub body: Vec<Stmt>,
 }

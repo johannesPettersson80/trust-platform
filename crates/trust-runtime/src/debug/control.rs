@@ -8,14 +8,13 @@ use std::sync::{Arc, Condvar, Mutex};
 
 use smol_str::SmolStr;
 
-use crate::eval::expr::{Expr, LValue};
-use crate::eval::{eval_expr, EvalContext};
 use crate::io::{IoAddress, IoSnapshot};
 use crate::memory::{FrameId, InstanceId};
+use crate::program_model::{Expr, LValue};
 use crate::value::Value;
 
 use super::breakpoints::matches_breakpoint;
-use super::hook::DebugHook;
+use super::hook::{DebugHook, DebugRuntimeContext};
 use super::trace::trace_debug;
 use super::{
     DebugBreakpoint, DebugLog, DebugSnapshot, DebugStop, DebugStopReason, RuntimeEvent,

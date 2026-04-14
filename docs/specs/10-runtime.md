@@ -1,9 +1,9 @@
 # truST Platform Runtime and Tooling Specification
 
 ## Status and scope
-- Current runtime (production): bytecode VM execution over STBC modules (`ExecutionBackend::BytecodeVm`).
-- Legacy interpreter execution is feature-gated (`legacy-interpreter`) and retained only for parity/differential/benchmark oracle workflows.
-- Production startup selection is VM-only (`run`/`play` reject interpreter backend selection).
+- Current runtime (production): bytecode-VM execution over STBC modules (`ExecutionBackend::BytecodeVm`).
+- `run`/`play` accept `vm` only; `interpreter` is rejected in CLI/config startup selection.
+- Helper evaluation remains only for const-folding, initializer/config evaluation, and debug expression/write flows.
 - Debugger uses DAP plus the runtime control protocol; LSP/IDE technical spec is included below.
 - Salsa incremental queries are used in `trust-hir` (analysis/LSP path), not in the deterministic runtime scan loop.
 - IEC language specs remain in docs/specs/01-09-*.md.
@@ -12,7 +12,7 @@
 
 IEC 61131-3 Edition 3.0 (2013) - Runtime Execution
 
-This specification defines the `trust-runtime` execution engine for IEC 61131-3 Structured Text with cycle-based deterministic execution. The primary execution path is the bytecode VM; the legacy interpreter remains an opt-in parity oracle.
+This specification defines the `trust-runtime` execution engine for IEC 61131-3 Structured Text with cycle-based deterministic execution. Scheduled task/program execution is bytecode-VM only; helper evaluation exists only for bounded non-cycle flows.
 
 ### 1. Overview
 
@@ -21,7 +21,7 @@ This specification defines the `trust-runtime` execution engine for IEC 61131-3 
 1. **VM-first execution**: Execute validated STBC bytecode in the runtime VM dispatch loop
 2. **Cycle-based execution**: Execute programs in discrete cycles, not continuous loops
 3. **Deterministic**: Same inputs produce same outputs, ordered iteration via IndexMap
-4. **Testable**: First-class support for unit testing PLC logic and VM-vs-interpreter differential checks
+4. **Testable**: First-class support for unit testing PLC logic, VM behavior-lock checks, and runtime vertical validation
 5. **Zero unsafe**: Follows `unsafe_code = "forbid"` convention
 
 #### 1.2 Architecture
@@ -32,7 +32,9 @@ crates/trust-runtime/
 ├── src/
 │   ├── lib.rs            # Public API, Runtime struct
 │   ├── bytecode/         # STBC encode/decode + metadata/debug maps
-│   ├── eval/             # Legacy interpreter path (feature-gated parity oracle)
+│   ├── eval/             # Shared model facade + test-only evaluator internals
+│   ├── helper_eval/      # Storage-native helper evaluators for const/debug/config flows
+│   ├── program_model/    # Shared runtime/program AST + operator contracts
 │   ├── runtime/          # Runtime core + VM dispatch/execution subsystems
 │   ├── stdlib/           # Standard functions + FBs
 │   ├── value/            # Value types + date/time profile
@@ -48,6 +50,7 @@ crates/trust-runtime/
 └── tests/
 ```
 
+> Historical note: older code snippets later in this document still show `EvalContext`-style conceptual APIs from the pre-VM migration era. Those snippets are background/reference material only and do not override the VM-only production contract above.
 
 #### 1.3 Dependencies
 
@@ -1252,7 +1255,7 @@ Test against IEC 61131-3 examples from specification.
 
 ## ST Runtime Implementation Specification
 
-**Status:** Implemented architecture. Production runtime executes STBC bytecode through the VM by default; interpreter execution is retained only for parity/test-oracle workflows.
+**Status:** Implemented architecture. Production runtime executes STBC bytecode through the VM only; helper evaluation remains for bounded const/debug/config flows and the old evaluator internals are test-only.
 
 ### 1. Purpose
 

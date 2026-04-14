@@ -1,9 +1,9 @@
 use indexmap::IndexMap;
 use smol_str::SmolStr;
 
-use crate::eval::FunctionBlockDef;
 use crate::io::IoAddress;
 use crate::memory::{InstanceId, VariableStorage};
+use crate::program_model::FunctionBlockDef;
 use crate::task::ProgramDef;
 use crate::value::Value;
 use trust_hir::types::TypeRegistry;

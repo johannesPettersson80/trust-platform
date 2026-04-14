@@ -1,4 +1,4 @@
-use crate::eval::ops::{apply_binary, apply_unary, BinaryOp, UnaryOp};
+use crate::program_model::{apply_binary, apply_unary, BinaryOp, UnaryOp};
 
 use super::super::core::Runtime;
 use super::errors::VmTrap;

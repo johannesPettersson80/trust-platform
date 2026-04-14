@@ -21,7 +21,7 @@ specification documents split into:
 | [07-standard-functions.md](07-standard-functions.md) | Type conversion, numerical, string, date/time functions | trust-hir |
 | [08-standard-function-blocks.md](08-standard-function-blocks.md) | Bistable, edge detection, counter, timer FBs | trust-hir |
 | [09-semantic-rules.md](09-semantic-rules.md) | Scope rules, error conditions, OOP rules | trust-hir |
-| [10-runtime.md](10-runtime.md) | Runtime bytecode VM + debugger + LSP/IDE tooling spec (legacy interpreter kept for parity/oracle workflows) | trust-runtime, trust-debug, trust-lsp |
+| [10-runtime.md](10-runtime.md) | Runtime bytecode VM + helper-evaluation + debugger + LSP/IDE tooling spec | trust-runtime, trust-debug, trust-lsp |
 | [11-ladder-diagram.md](11-ladder-diagram.md) | Normative IEC-aligned LD language semantics and conformance rules | trust-runtime, trust-lsp, editors/vscode |
 | [12-ladder-profile-trust.md](12-ladder-profile-trust.md) | truST LD schema/runtime/editor profile and interoperability constraints | trust-runtime, trust-lsp, editors/vscode |
 | [13-visual-editors-runtime-unification.md](13-visual-editors-runtime-unification.md) | Shared ST-backed runtime/debug command path for Ladder/Statechart/Blockly | editors/vscode, trust-debug, trust-runtime |

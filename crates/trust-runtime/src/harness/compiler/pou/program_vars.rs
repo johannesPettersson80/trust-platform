@@ -59,7 +59,6 @@ fn lower_program_var_blocks(
                             initializer: init_expr.clone(),
                             retain: qualifiers.retain,
                             address: address.clone(),
-                            using: ctx.using.clone(),
                         });
                     }
                 }

@@ -1,10 +1,8 @@
-mod common;
+use super::common;
 
 use trust_hir::types::TypeRegistry;
 use trust_runtime::eval::eval_expr;
 use trust_runtime::eval::expr::Expr;
-#[cfg(feature = "legacy-interpreter")]
-use trust_runtime::execution_backend::ExecutionBackend;
 use trust_runtime::harness::TestHarness;
 use trust_runtime::memory::VariableStorage;
 use trust_runtime::value::Value;
@@ -57,11 +55,6 @@ fn iec_7_3_2() {
     "#;
 
     let mut harness = TestHarness::from_source(source).unwrap();
-    #[cfg(feature = "legacy-interpreter")]
-    harness
-        .runtime_mut()
-        .set_execution_backend(ExecutionBackend::Interpreter)
-        .expect("switch to interpreter backend");
 
     let cycle = harness.cycle();
     assert!(

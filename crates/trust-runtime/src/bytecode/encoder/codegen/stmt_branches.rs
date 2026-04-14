@@ -4,10 +4,10 @@ impl<'a> BytecodeEncoder<'a> {
         &mut self,
         ctx: &mut CodegenContext,
         pou_id: u32,
-        condition: &crate::eval::expr::Expr,
-        then_block: &[crate::eval::stmt::Stmt],
-        else_if: &[(crate::eval::expr::Expr, Vec<crate::eval::stmt::Stmt>)],
-        else_block: &[crate::eval::stmt::Stmt],
+        condition: &crate::program_model::Expr,
+        then_block: &[crate::program_model::Stmt],
+        else_if: &[(crate::program_model::Expr, Vec<crate::program_model::Stmt>)],
+        else_block: &[crate::program_model::Stmt],
         code: &mut Vec<u8>,
         debug_entries: &mut Vec<DebugEntry>,
     ) -> Result<bool, BytecodeError> {
@@ -75,12 +75,12 @@ impl<'a> BytecodeEncoder<'a> {
         &mut self,
         ctx: &mut CodegenContext,
         pou_id: u32,
-        selector: &crate::eval::expr::Expr,
+        selector: &crate::program_model::Expr,
         branches: &[(
-            Vec<crate::eval::stmt::CaseLabel>,
-            Vec<crate::eval::stmt::Stmt>,
+            Vec<crate::program_model::CaseLabel>,
+            Vec<crate::program_model::Stmt>,
         )],
-        else_block: &[crate::eval::stmt::Stmt],
+        else_block: &[crate::program_model::Stmt],
         code: &mut Vec<u8>,
         debug_entries: &mut Vec<DebugEntry>,
     ) -> Result<bool, BytecodeError> {
@@ -101,7 +101,7 @@ impl<'a> BytecodeEncoder<'a> {
             let mut label_jumps = Vec::new();
             for label in labels {
                 match label {
-                    crate::eval::stmt::CaseLabel::Single(value) => {
+                    crate::program_model::CaseLabel::Single(value) => {
                         code.push(0x11);
                         if !self.emit_const_value(&Value::LInt(*value), code)? {
                             code.truncate(code_start);
@@ -111,7 +111,7 @@ impl<'a> BytecodeEncoder<'a> {
                         code.push(0x50);
                         label_jumps.push(self.emit_jump_placeholder(code, 0x03));
                     }
-                    crate::eval::stmt::CaseLabel::Range(lower, upper) => {
+                    crate::program_model::CaseLabel::Range(lower, upper) => {
                         code.push(0x11);
                         if !self.emit_const_value(&Value::LInt(*lower), code)? {
                             code.truncate(code_start);

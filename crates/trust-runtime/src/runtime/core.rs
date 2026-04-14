@@ -3,18 +3,18 @@
 #![allow(missing_docs)]
 
 use crate::debug::DebugControl;
-use crate::eval::expr::Expr;
-use crate::eval::{ClassDef, EvalContext, FunctionBlockDef, FunctionDef, InterfaceDef};
 use crate::execution_backend::ExecutionBackend;
 use crate::io::{IoDriver, IoDriverStatus, IoInterface, IoSafeState};
 use crate::memory::{AccessMap, FrameId, InstanceId, VariableStorage};
 use crate::metrics::RuntimeMetrics;
+use crate::program_model::{ClassDef, FunctionBlockDef, FunctionDef, InterfaceDef};
+use crate::program_model::{Expr, LValue};
 use crate::retain::{RetainManager, RetainStore};
 use crate::stdlib::StandardLibrary;
 use crate::task::{ProgramDef, TaskConfig, TaskState};
 use crate::value::{DateTimeProfile, Duration, Value};
 use crate::watchdog::{FaultDecision, FaultPolicy, WatchdogPolicy};
-use crate::{error, eval, stdlib};
+use crate::{error, stdlib};
 use indexmap::IndexMap;
 use smol_str::SmolStr;
 use std::collections::HashMap;

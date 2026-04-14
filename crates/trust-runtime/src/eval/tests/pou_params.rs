@@ -1,4 +1,4 @@
-mod common;
+use super::common;
 
 use trust_hir::symbols::ParamDirection;
 use trust_hir::types::TypeRegistry;

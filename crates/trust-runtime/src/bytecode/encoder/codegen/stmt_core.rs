@@ -3,7 +3,7 @@ impl<'a> BytecodeEncoder<'a> {
         &mut self,
         ctx: &mut CodegenContext,
         pou_id: u32,
-        body: &[crate::eval::stmt::Stmt],
+        body: &[crate::program_model::Stmt],
     ) -> Result<(Vec<u8>, Vec<DebugEntry>), BytecodeError> {
         let mut code = Vec::new();
         let mut debug_entries = Vec::new();
@@ -17,7 +17,7 @@ impl<'a> BytecodeEncoder<'a> {
         &mut self,
         ctx: &mut CodegenContext,
         pou_id: u32,
-        stmt: &crate::eval::stmt::Stmt,
+        stmt: &crate::program_model::Stmt,
         code: &mut Vec<u8>,
         debug_entries: &mut Vec<DebugEntry>,
     ) -> Result<(), BytecodeError> {
@@ -40,13 +40,13 @@ impl<'a> BytecodeEncoder<'a> {
             });
         }
         let emitted = match stmt {
-            crate::eval::stmt::Stmt::Assign { target, value, .. } => {
+            crate::program_model::Stmt::Assign { target, value, .. } => {
                 self.emit_assign(ctx, target, value, code)?
             }
-            crate::eval::stmt::Stmt::AssignAttempt { target, value, .. } => {
+            crate::program_model::Stmt::AssignAttempt { target, value, .. } => {
                 self.emit_assign(ctx, target, value, code)?
             }
-            crate::eval::stmt::Stmt::Expr { expr, .. } => {
+            crate::program_model::Stmt::Expr { expr, .. } => {
                 if !self.emit_expr(ctx, expr, code)? {
                     false
                 } else {
@@ -54,7 +54,7 @@ impl<'a> BytecodeEncoder<'a> {
                     true
                 }
             }
-            crate::eval::stmt::Stmt::If {
+            crate::program_model::Stmt::If {
                 condition,
                 then_block,
                 else_if,
@@ -70,7 +70,7 @@ impl<'a> BytecodeEncoder<'a> {
                 code,
                 debug_entries,
             )?,
-            crate::eval::stmt::Stmt::Case {
+            crate::program_model::Stmt::Case {
                 selector,
                 branches,
                 else_block,
@@ -84,13 +84,13 @@ impl<'a> BytecodeEncoder<'a> {
                 code,
                 debug_entries,
             )?,
-            crate::eval::stmt::Stmt::While {
+            crate::program_model::Stmt::While {
                 condition, body, ..
             } => self.emit_while_stmt(ctx, pou_id, condition, body, code, debug_entries)?,
-            crate::eval::stmt::Stmt::Repeat { body, until, .. } => {
+            crate::program_model::Stmt::Repeat { body, until, .. } => {
                 self.emit_repeat_stmt(ctx, pou_id, body, until, code, debug_entries)?
             }
-            crate::eval::stmt::Stmt::For {
+            crate::program_model::Stmt::For {
                 control,
                 start,
                 end,
@@ -108,7 +108,7 @@ impl<'a> BytecodeEncoder<'a> {
                 code,
                 debug_entries,
             )?,
-            crate::eval::stmt::Stmt::Label { stmt, .. } => {
+            crate::program_model::Stmt::Label { stmt, .. } => {
                 if let Some(stmt) = stmt.as_deref() {
                     self.emit_stmt(ctx, pou_id, stmt, code, debug_entries)?;
                     true
@@ -139,7 +139,7 @@ impl<'a> BytecodeEncoder<'a> {
         &mut self,
         ctx: &mut CodegenContext,
         pou_id: u32,
-        block: &[crate::eval::stmt::Stmt],
+        block: &[crate::program_model::Stmt],
         code: &mut Vec<u8>,
         debug_entries: &mut Vec<DebugEntry>,
     ) -> Result<(), BytecodeError> {
@@ -151,8 +151,8 @@ impl<'a> BytecodeEncoder<'a> {
 
 }
 
-fn stmt_contains_c1_required_call(stmt: &crate::eval::stmt::Stmt) -> bool {
-    use crate::eval::stmt::Stmt;
+fn stmt_contains_c1_required_call(stmt: &crate::program_model::Stmt) -> bool {
+    use crate::program_model::Stmt;
     match stmt {
         Stmt::Assign { value, .. } => expr_contains_call(value),
         Stmt::Expr { expr, .. } => expr_contains_call(expr),
@@ -219,8 +219,8 @@ fn stmt_contains_c1_required_call(stmt: &crate::eval::stmt::Stmt) -> bool {
     }
 }
 
-fn expr_contains_call(expr: &crate::eval::expr::Expr) -> bool {
-    use crate::eval::expr::Expr;
+fn expr_contains_call(expr: &crate::program_model::Expr) -> bool {
+    use crate::program_model::Expr;
     match expr {
         Expr::Call { .. } => true,
         Expr::Unary { expr, .. } => expr_contains_call(expr),
@@ -230,10 +230,10 @@ fn expr_contains_call(expr: &crate::eval::expr::Expr) -> bool {
         }
         Expr::Field { target, .. } => expr_contains_call(target),
         Expr::Ref(lvalue) => lvalue_contains_call(lvalue),
-        Expr::Deref(expr) | Expr::SizeOf(crate::eval::expr::SizeOfTarget::Expr(expr)) => {
+        Expr::Deref(expr) | Expr::SizeOf(crate::program_model::SizeOfTarget::Expr(expr)) => {
             expr_contains_call(expr)
         }
-        Expr::SizeOf(crate::eval::expr::SizeOfTarget::Type(_))
+        Expr::SizeOf(crate::program_model::SizeOfTarget::Type(_))
         | Expr::Literal(_)
         | Expr::This
         | Expr::Super
@@ -241,8 +241,8 @@ fn expr_contains_call(expr: &crate::eval::expr::Expr) -> bool {
     }
 }
 
-fn lvalue_contains_call(lvalue: &crate::eval::expr::LValue) -> bool {
-    use crate::eval::expr::LValue;
+fn lvalue_contains_call(lvalue: &crate::program_model::LValue) -> bool {
+    use crate::program_model::LValue;
     match lvalue {
         LValue::Name(_) => false,
         LValue::Field { .. } => false,
@@ -251,8 +251,8 @@ fn lvalue_contains_call(lvalue: &crate::eval::expr::LValue) -> bool {
     }
 }
 
-fn stmt_contains_c5_required_construct(stmt: &crate::eval::stmt::Stmt) -> bool {
-    use crate::eval::stmt::Stmt;
+fn stmt_contains_c5_required_construct(stmt: &crate::program_model::Stmt) -> bool {
+    use crate::program_model::Stmt;
     match stmt {
         Stmt::Assign { value, .. } => expr_contains_sizeof(value),
         Stmt::AssignAttempt { .. }
@@ -315,8 +315,8 @@ fn stmt_contains_c5_required_construct(stmt: &crate::eval::stmt::Stmt) -> bool {
     }
 }
 
-fn expr_contains_sizeof(expr: &crate::eval::expr::Expr) -> bool {
-    use crate::eval::expr::Expr;
+fn expr_contains_sizeof(expr: &crate::program_model::Expr) -> bool {
+    use crate::program_model::Expr;
     match expr {
         Expr::SizeOf(_) => true,
         Expr::Unary { expr, .. } | Expr::Deref(expr) => expr_contains_sizeof(expr),
@@ -330,8 +330,8 @@ fn expr_contains_sizeof(expr: &crate::eval::expr::Expr) -> bool {
         Expr::Call { target, args } => {
             expr_contains_sizeof(target)
                 || args.iter().any(|arg| match &arg.value {
-                    crate::eval::ArgValue::Expr(expr) => expr_contains_sizeof(expr),
-                    crate::eval::ArgValue::Target(target) => lvalue_contains_sizeof(target),
+                    crate::program_model::ArgValue::Expr(expr) => expr_contains_sizeof(expr),
+                    crate::program_model::ArgValue::Target(target) => lvalue_contains_sizeof(target),
                 })
         }
         Expr::Ref(lvalue) => lvalue_contains_sizeof(lvalue),
@@ -339,8 +339,8 @@ fn expr_contains_sizeof(expr: &crate::eval::expr::Expr) -> bool {
     }
 }
 
-fn lvalue_contains_sizeof(lvalue: &crate::eval::expr::LValue) -> bool {
-    use crate::eval::expr::LValue;
+fn lvalue_contains_sizeof(lvalue: &crate::program_model::LValue) -> bool {
+    use crate::program_model::LValue;
     match lvalue {
         LValue::Name(_) | LValue::Field { .. } => false,
         LValue::Index { indices, .. } => indices.iter().any(expr_contains_sizeof),

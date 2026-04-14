@@ -11,8 +11,8 @@ impl ClassLike for FunctionBlockDef {
 
     fn base_name(&self) -> Option<SmolStr> {
         self.base.as_ref().map(|base| match base {
-            crate::eval::FunctionBlockBase::FunctionBlock(name)
-            | crate::eval::FunctionBlockBase::Class(name) => name.clone(),
+            crate::program_model::FunctionBlockBase::FunctionBlock(name)
+            | crate::program_model::FunctionBlockBase::Class(name) => name.clone(),
         })
     }
 

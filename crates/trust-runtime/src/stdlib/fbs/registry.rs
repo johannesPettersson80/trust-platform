@@ -1,4 +1,4 @@
-use crate::eval::{FunctionBlockDef, Param};
+use crate::program_model::{FunctionBlockDef, Param};
 use trust_hir::symbols::ParamDirection;
 use trust_hir::TypeId;
 
