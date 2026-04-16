@@ -84,26 +84,22 @@ impl SymbolCollector {
 
         for name_node in names {
             if let Some((name, range)) = name_from_node(&name_node) {
-                // Determine the symbol kind based on the qualifier
-                let kind = if is_constant {
-                    SymbolKind::Constant
-                } else {
-                    match qualifier {
-                        // VAR_INPUT, VAR_OUTPUT, VAR_IN_OUT are parameters
-                        VarQualifier::Input => SymbolKind::Parameter {
-                            direction: ParamDirection::In,
-                        },
-                        VarQualifier::Output => SymbolKind::Parameter {
-                            direction: ParamDirection::Out,
-                        },
-                        VarQualifier::InOut => SymbolKind::Parameter {
-                            direction: ParamDirection::InOut,
-                        },
-                        // Other qualifiers are regular variables
-                        _ => SymbolKind::Variable { qualifier },
-                    }
+                let kind = match qualifier {
+                    VarQualifier::Input => SymbolKind::Parameter {
+                        direction: ParamDirection::In,
+                    },
+                    VarQualifier::Output => SymbolKind::Parameter {
+                        direction: ParamDirection::Out,
+                    },
+                    VarQualifier::InOut => SymbolKind::Parameter {
+                        direction: ParamDirection::InOut,
+                    },
+                    VarQualifier::Temp => SymbolKind::Variable { qualifier },
+                    _ if is_constant => SymbolKind::Constant,
+                    _ => SymbolKind::Variable { qualifier },
                 };
                 let mut symbol = Symbol::new(SymbolId::UNKNOWN, name, kind, type_id, range);
+                symbol.is_constant = is_constant;
                 symbol.direct_address = direct_address.clone();
                 symbol.parent = self.current_parent();
                 symbol.visibility = visibility;

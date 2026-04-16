@@ -10,8 +10,8 @@ Locked decisions:
   HIR lvalue assignability walk only.
 - [x] `D2` Implement bound-agnostic compatibility only through `ARRAY[*] OF T`.
   No implicit widening between concrete array bounds.
-- [x] `D3` Reject `CONSTANT` semantics on parameter blocks. Warn instead and
-  keep runtime/codegen behavior unchanged.
+- [x] `D3` Implement IEC-correct `CONSTANT` semantics with `Symbol.is_constant`
+  and preserve parameter identity.
 - [x] `D4` Add an explicit `(Pointer, Pointer)` compatibility arm and a
   pointer-target diagnostic.
 - [x] `D5` Keep the pointer model typed, non-arithmetic, and lifetime-unchecked.
@@ -73,7 +73,7 @@ Locked decisions:
   `VAR_EXTERNAL CONSTANT`
 - [x] `P3.9` Add runtime smoke test in
   `crates/trust-runtime/tests/var_constants.rs`
-- [ ] `P3.10` Commit failing tests:
+- [x] `P3.10` Commit failing tests:
   `test: pin IEC-correct CONSTANT qualifier on parameter and VAR_TEMP blocks (failing)`
 
 ## Phase 4 Implementation: Pointer Deref Assignability
@@ -108,7 +108,7 @@ Locked decisions:
 
 - [x] `P6.1` Add `is_constant: bool` on `Symbol` itself and wire the default
   value
-- [ ] `P6.2` Rewire collection so parameter/`VAR_TEMP` `CONSTANT` keeps normal
+- [x] `P6.2` Rewire collection so parameter/`VAR_TEMP` `CONSTANT` keeps normal
   kind plus `is_constant: true`
 - [ ] `P6.3` Restrict precollection to true compile-time constant-expression
   surfaces
