@@ -110,7 +110,7 @@ Locked decisions:
   value
 - [x] `P6.2` Rewire collection so parameter/`VAR_TEMP` `CONSTANT` keeps normal
   kind plus `is_constant: true`
-- [ ] `P6.3` Restrict precollection to true compile-time constant-expression
+- [x] `P6.3` Restrict precollection to true compile-time constant-expression
   surfaces
 - [ ] `P6.4` Enforce `is_constant` writes via `ConstantModification`
 - [ ] `P6.5` Keep `VAR_IN_OUT CONSTANT` call-site binding identical to plain

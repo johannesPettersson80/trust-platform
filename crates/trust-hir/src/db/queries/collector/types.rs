@@ -385,6 +385,12 @@ impl SymbolCollector {
                 };
                 return self.table.register_type(name, ty);
             }
+
+            self.diagnostics.error(
+                DiagnosticCode::TypeMismatch,
+                expr.text_range(),
+                "string length must be a constant expression",
+            );
         }
 
         // No length specified, return default STRING or WSTRING

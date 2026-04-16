@@ -70,7 +70,7 @@ impl SymbolCollector {
             }
         }
 
-        if node.kind() == SyntaxKind::VarBlock && var_block_is_constant(node) {
+        if node.kind() == SyntaxKind::VarBlock && const_block_is_precollectable(node) {
             self.collect_const_block(node, &current_scope);
         }
 
@@ -95,5 +95,30 @@ impl SymbolCollector {
                 }
             }
         }
+    }
+}
+
+fn const_block_is_precollectable(node: &SyntaxNode) -> bool {
+    if !var_block_is_constant(node) {
+        return false;
+    }
+
+    match var_qualifier_from_block(node) {
+        VarQualifier::Global | VarQualifier::External => true,
+        VarQualifier::Local => !node
+            .descendants_with_tokens()
+            .filter_map(|element| element.into_token())
+            .any(|token| {
+                matches!(
+                    token.kind(),
+                    SyntaxKind::KwVarAccess | SyntaxKind::KwVarConfig
+                )
+            }),
+        VarQualifier::Input
+        | VarQualifier::Output
+        | VarQualifier::InOut
+        | VarQualifier::Temp
+        | VarQualifier::Static
+        | VarQualifier::Access => false,
     }
 }
