@@ -360,6 +360,7 @@ Usage notes:
 | `CLK_PULSE` | Periodic pulse generator with optional pulse-count limit and asynchronous reset. |
 | `CYCLE_4` | Four-state cyclic sequencer with optional forced start state via `SL` / `SX`. |
 | `D_TRIG` | `DWORD` change trigger exposing the unsigned delta to the previous input. |
+| `DELAY` | Ring-buffer delay line for `REAL` inputs with up to 32 retained samples and reset-to-current-input behavior. |
 | `FIFO_16` | Sixteen-entry `DWORD` FIFO buffer. |
 | `FIFO_32` | Thirty-two-entry `DWORD` FIFO buffer. |
 | `GEN_BIT` | Four-lane serial pattern generator that shifts bits out of up to four source `DWORD`s. |
@@ -444,6 +445,7 @@ Usage notes:
 | `F_POWER(A, X, N)` | Power-law helper `A * X^N`. |
 | `F_QUAD(X, A, B, C)` | Quadratic helper `(A * X + B) * X + C`. |
 | `FRMP_B(START, DIR, TD, TR)` | Byte ramp helper with 0..255 saturation and millisecond-based time scaling. |
+| `FT_AVG(IN, E, N, RST)` | Stateful moving-average FB over `N` retained samples with enable-gating and reset-to-current-input behavior. |
 | `FRACT(X)` | Fractional part helper. |
 | `HYPOT(X, Y)` | Euclidean hypotenuse. |
 | `INC(X, D, M)` | Wraparound increment helper. |
@@ -498,8 +500,49 @@ END_TYPE
 
 ## Function Block Reference
 
-The shipped FBs are stateless scan functions: they read one or more unit inputs,
-normalize to a base unit, and emit `Y*` outputs every scan.
+The shipped FB surface includes both stateful helper FBs and stateless
+unit-conversion FBs.
+
+### `DELAY`
+
+Type: `FUNCTION_BLOCK`
+
+`VAR_INPUT`:
+- `IN : REAL`
+- `N : INT`
+- `RST : BOOL`
+
+`VAR_OUTPUT`:
+- `OUT : REAL`
+
+Usage notes:
+- Retains up to 32 samples of `IN`.
+- `RST` reloads the internal ring buffer with the current input value and
+  immediately sets `OUT := IN`.
+- `N = 0` acts as the zero-delay path (`OUT := IN`).
+
+### `FT_AVG`
+
+Type: `FUNCTION_BLOCK`
+
+`VAR_INPUT`:
+- `IN : REAL`
+- `E : BOOL := TRUE`
+- `N : INT := 32`
+- `RST : BOOL`
+
+`VAR_OUTPUT`:
+- `AVG : REAL`
+
+Usage notes:
+- Maintains a moving average over the retained sample window.
+- `RST` and first-call initialization reload the average to the current input.
+- `E = FALSE` freezes the current average and does not advance the internal
+  delay line.
+
+The unit-conversion FBs listed below are stateless scan functions: they read
+one or more unit inputs, normalize to a base unit, and emit `Y*` outputs every
+scan.
 
 ### `ENERGY`
 

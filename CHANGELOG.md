@@ -14,6 +14,7 @@ Target release: `v0.17.0`
 
 ### Added
 
+- `libraries/oscat_basic` now also ships the stateful helper function blocks `DELAY` and `FT_AVG`.
 - `libraries/oscat_basic` now also ships the first linear/polynomial/ramp math helpers: `F_LIN`, `F_LIN2`, `F_POLY`, `F_POWER`, `F_QUAD`, and `FRMP_B`.
 - Added the first shipped `libraries/oscat_basic` package with an initial OSCAT BASIC compatibility slice (shared math/physics constants plus core conversion helpers), alongside `examples/oscat_basic_smoke` as the first consumer project wired through `[dependencies]`.
 - Added OSCAT compatibility extensions `TIME_TO_DWORD`, `DWORD_TO_TIME`, `T_PLC_MS`, and `T_PLC_US`, plus restored `DIR_TO_DEG`, `F_TO_PT`, `PT_TO_F`, and the live `LANGUAGE.DIRS[...]` surface in `libraries/oscat_basic`.
