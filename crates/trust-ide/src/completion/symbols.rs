@@ -12,7 +12,10 @@ fn symbols_in_scope(
         {
             continue;
         }
-        let kind = match symbol.kind {
+        let kind = if symbol_is_constant(symbol) {
+            CompletionKind::Constant
+        } else {
+            match symbol.kind {
             SymbolKind::Variable { .. } => CompletionKind::Variable,
             SymbolKind::Constant => CompletionKind::Constant,
             SymbolKind::Function { .. } => CompletionKind::Function,
@@ -29,6 +32,7 @@ fn symbols_in_scope(
             | SymbolKind::Configuration
             | SymbolKind::Resource
             | SymbolKind::Task => CompletionKind::Variable,
+            }
         };
 
         let mut item = CompletionItem::new(symbol.name.clone(), kind);
@@ -284,13 +288,16 @@ fn completion_item_for_symbol(
     {
         return None;
     }
-    let kind = match symbol.kind {
+    let kind = if symbol_is_constant(symbol) {
+        CompletionKind::Constant
+    } else {
+        match symbol.kind {
         SymbolKind::Variable { .. } => CompletionKind::Variable,
-        SymbolKind::Constant => CompletionKind::Constant,
         SymbolKind::Function { .. } => CompletionKind::Function,
         SymbolKind::Method { .. } => CompletionKind::Method,
         SymbolKind::Property { .. } => CompletionKind::Property,
         _ => return None,
+        }
     };
     let mut item = CompletionItem::new(symbol.name.clone(), kind).with_priority(10);
     if let Some(detail) = type_detail(symbols, symbol.type_id) {
@@ -450,7 +457,10 @@ fn using_scope_symbol_completions(
                     continue;
                 }
 
-                let kind = match symbol.kind {
+                let kind = if symbol_is_constant(symbol) {
+                    CompletionKind::Constant
+                } else {
+                    match symbol.kind {
                     SymbolKind::Variable { .. } => CompletionKind::Variable,
                     SymbolKind::Constant => CompletionKind::Constant,
                     SymbolKind::Function { .. } => CompletionKind::Function,
@@ -467,6 +477,7 @@ fn using_scope_symbol_completions(
                     | SymbolKind::Configuration
                     | SymbolKind::Resource
                     | SymbolKind::Task => CompletionKind::Variable,
+                    }
                 };
 
                 let mut item = CompletionItem::new(symbol.name.clone(), kind);

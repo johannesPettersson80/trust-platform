@@ -240,7 +240,7 @@ fn format_type_definition(symbols: &SymbolTable, symbol: &Symbol) -> String {
         } => {
             let dims: Vec<String> = dimensions
                 .iter()
-                .map(|(lower, upper)| format!("{}..{}", lower, upper))
+                .map(ArrayDimensionExt::display_bounds)
                 .collect();
             let element_name = format_type_ref(symbols, *element);
             format!(
@@ -291,7 +291,7 @@ fn format_type_ref(symbols: &SymbolTable, type_id: TypeId) -> String {
         }) => {
             let dims: Vec<String> = dimensions
                 .iter()
-                .map(|(lower, upper)| format!("{}..{}", lower, upper))
+                .map(ArrayDimensionExt::display_bounds)
                 .collect();
             format!(
                 "ARRAY[{}] OF {}",

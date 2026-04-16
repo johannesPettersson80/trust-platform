@@ -18,7 +18,8 @@ use crate::rename::{RenameResult, TextEdit};
 use crate::util::{
     ident_token_in_name, is_type_name_node, name_from_name_node, qualified_name_from_field_expr,
     qualified_name_parts_from_node, resolve_target_at_position,
-    resolve_target_at_position_with_context, resolve_type_symbol_at_node, ResolvedTarget,
+    resolve_target_at_position_with_context, resolve_type_symbol_at_node, symbol_is_constant,
+    ResolvedTarget,
 };
 
 /// Result of an inline refactor request.

@@ -37,6 +37,8 @@ mod core_part_09;
 mod core_part_10;
 #[path = "core_part_11.rs"]
 mod core_part_11;
+#[path = "core_part_12.rs"]
+mod core_part_12;
 #[allow(unused_imports)]
 use core_part_01::*;
 #[allow(unused_imports)]
@@ -59,3 +61,5 @@ use core_part_09::*;
 use core_part_10::*;
 #[allow(unused_imports)]
 use core_part_11::*;
+#[allow(unused_imports)]
+use core_part_12::*;

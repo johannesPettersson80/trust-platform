@@ -17,10 +17,7 @@ fn field_expr_const_info(context: &ConstExprContext<'_>, node: &SyntaxNode) -> C
             requires_local_scope: false,
         };
     };
-    if !matches!(
-        symbol.kind,
-        SymbolKind::Constant | SymbolKind::EnumValue { .. }
-    ) {
+    if !matches!(symbol.kind, SymbolKind::EnumValue { .. }) && !symbol_is_constant(symbol) {
         return ConstExprInfo {
             is_const: false,
             requires_local_scope: false,
@@ -191,4 +188,3 @@ fn join_namespace_path(parts: &[SmolStr]) -> String {
 fn node_token_range(node: &SyntaxNode) -> text_size::TextRange {
     utilities::node_token_range(node)
 }
-

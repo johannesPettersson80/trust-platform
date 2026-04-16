@@ -14,8 +14,8 @@ use trust_syntax::syntax::{SyntaxKind, SyntaxNode, SyntaxToken};
 use crate::signature_help::call_signature_context;
 use crate::stdlib_docs::{self, StdlibFilter};
 use crate::util::{
-    is_member_symbol_kind, namespace_path_for_symbol, scope_at_position, type_detail,
-    using_path_for_symbol, IdeContext, SymbolFilter,
+    is_member_symbol_kind, namespace_path_for_symbol, scope_at_position, symbol_is_constant,
+    type_detail, using_path_for_symbol, IdeContext, SymbolFilter,
 };
 
 include!("completion/types.rs");

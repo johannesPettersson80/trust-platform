@@ -31,6 +31,8 @@ pub struct CallSignatureParam {
     pub name: SmolStr,
     /// Parameter direction.
     pub direction: ParamDirection,
+    /// Whether the parameter is declared CONSTANT.
+    pub is_constant: bool,
 }
 
 /// Signature metadata for call transformation helpers.
@@ -63,6 +65,7 @@ pub(crate) struct ParamData {
     pub(crate) name: SmolStr,
     pub(crate) type_id: TypeId,
     pub(crate) direction: ParamDirection,
+    pub(crate) is_constant: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -186,6 +189,7 @@ pub fn call_signature_info(
         .map(|param| CallSignatureParam {
             name: param.name.clone(),
             direction: param.direction,
+            is_constant: param.is_constant,
         })
         .collect();
     Some(CallSignatureInfo {
@@ -245,4 +249,3 @@ pub fn signature_help(
         active_parameter: active_param,
     })
 }
-

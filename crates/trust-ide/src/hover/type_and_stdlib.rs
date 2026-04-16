@@ -125,7 +125,7 @@ pub fn format_type(ty: &Type) -> String {
         Type::Array { dimensions, .. } => {
             let dims: Vec<String> = dimensions
                 .iter()
-                .map(|(l, u)| format!("{}..{}", l, u))
+                .map(ArrayDimensionExt::display_bounds)
                 .collect();
             format!("ARRAY[{}] OF ...", dims.join(", "))
         }
@@ -166,11 +166,16 @@ pub fn format_type(ty: &Type) -> String {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 enum VarSectionKind {
     Input,
+    InputConstant,
     Output,
+    OutputConstant,
     InOut,
+    InOutConstant,
     Var,
     VarTemp,
+    VarTempConstant,
     VarStat,
+    VarStatConstant,
     VarGlobal,
     VarExternal,
     VarAccess,
@@ -181,11 +186,16 @@ impl VarSectionKind {
     fn header(self) -> &'static str {
         match self {
             VarSectionKind::Input => "VAR_INPUT",
+            VarSectionKind::InputConstant => "VAR_INPUT CONSTANT",
             VarSectionKind::Output => "VAR_OUTPUT",
+            VarSectionKind::OutputConstant => "VAR_OUTPUT CONSTANT",
             VarSectionKind::InOut => "VAR_IN_OUT",
+            VarSectionKind::InOutConstant => "VAR_IN_OUT CONSTANT",
             VarSectionKind::Var => "VAR",
             VarSectionKind::VarTemp => "VAR_TEMP",
+            VarSectionKind::VarTempConstant => "VAR_TEMP CONSTANT",
             VarSectionKind::VarStat => "VAR_STAT",
+            VarSectionKind::VarStatConstant => "VAR_STAT CONSTANT",
             VarSectionKind::VarGlobal => "VAR_GLOBAL",
             VarSectionKind::VarExternal => "VAR_EXTERNAL",
             VarSectionKind::VarAccess => "VAR_ACCESS",
@@ -215,19 +225,33 @@ fn format_function_block(
     for member in filter.members_of_owner(symbol.id) {
         let section = match member.kind {
             SymbolKind::Parameter { direction } => match direction {
+                trust_hir::symbols::ParamDirection::In if member.is_constant => {
+                    VarSectionKind::InputConstant
+                }
                 trust_hir::symbols::ParamDirection::In => VarSectionKind::Input,
+                trust_hir::symbols::ParamDirection::Out if member.is_constant => {
+                    VarSectionKind::OutputConstant
+                }
                 trust_hir::symbols::ParamDirection::Out => VarSectionKind::Output,
+                trust_hir::symbols::ParamDirection::InOut if member.is_constant => {
+                    VarSectionKind::InOutConstant
+                }
                 trust_hir::symbols::ParamDirection::InOut => VarSectionKind::InOut,
             },
             SymbolKind::Variable { qualifier } => match qualifier {
                 VarQualifier::Local => VarSectionKind::Var,
+                VarQualifier::Temp if member.is_constant => VarSectionKind::VarTempConstant,
                 VarQualifier::Temp => VarSectionKind::VarTemp,
+                VarQualifier::Static if member.is_constant => VarSectionKind::VarStatConstant,
                 VarQualifier::Static => VarSectionKind::VarStat,
                 VarQualifier::Global => VarSectionKind::VarGlobal,
                 VarQualifier::External => VarSectionKind::VarExternal,
                 VarQualifier::Access => VarSectionKind::VarAccess,
+                VarQualifier::Input if member.is_constant => VarSectionKind::InputConstant,
                 VarQualifier::Input => VarSectionKind::Input,
+                VarQualifier::Output if member.is_constant => VarSectionKind::OutputConstant,
                 VarQualifier::Output => VarSectionKind::Output,
+                VarQualifier::InOut if member.is_constant => VarSectionKind::InOutConstant,
                 VarQualifier::InOut => VarSectionKind::InOut,
             },
             SymbolKind::Constant => VarSectionKind::Constant,
@@ -256,11 +280,16 @@ fn format_function_block(
 
     let section_order = [
         VarSectionKind::Input,
+        VarSectionKind::InputConstant,
         VarSectionKind::Output,
+        VarSectionKind::OutputConstant,
         VarSectionKind::InOut,
+        VarSectionKind::InOutConstant,
         VarSectionKind::Var,
         VarSectionKind::VarTemp,
+        VarSectionKind::VarTempConstant,
         VarSectionKind::VarStat,
+        VarSectionKind::VarStatConstant,
         VarSectionKind::VarGlobal,
         VarSectionKind::VarExternal,
         VarSectionKind::VarAccess,
@@ -523,4 +552,3 @@ fn slice_source(source: &str, range: TextRange) -> Option<&str> {
     let end: usize = range.end().into();
     source.get(start..end)
 }
-

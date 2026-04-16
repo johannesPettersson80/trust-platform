@@ -290,6 +290,9 @@ fn format_symbol(
                 VarQualifier::Static => "VAR_STAT",
             }
             .to_string();
+            if symbol_is_constant(symbol) {
+                qual.push_str(" CONSTANT");
+            }
             if let Some(retention) = info.retention {
                 qual.push(' ');
                 qual.push_str(retention);
@@ -433,11 +436,15 @@ fn format_symbol(
             result.push_str(&format!("{}{} := {}", header_prefix, symbol.name, value));
         }
         SymbolKind::Parameter { direction } => {
-            let dir = match direction {
+            let mut dir = match direction {
                 trust_hir::symbols::ParamDirection::In => "IN",
                 trust_hir::symbols::ParamDirection::Out => "OUT",
                 trust_hir::symbols::ParamDirection::InOut => "IN_OUT",
-            };
+            }
+            .to_string();
+            if symbol_is_constant(symbol) {
+                dir.push_str(" CONSTANT");
+            }
             result.push_str(&format!(
                 "({}) {}{} : {}",
                 dir,
@@ -524,4 +531,3 @@ fn modifiers_prefix(modifiers: SymbolModifiers) -> Option<String> {
     }
     (!parts.is_empty()).then_some(parts.join(" "))
 }
-

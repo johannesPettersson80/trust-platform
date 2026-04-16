@@ -7,7 +7,7 @@ use trust_hir::{Database, SourceDatabase, SymbolKind};
 use trust_syntax::parser::parse;
 use trust_syntax::syntax::SyntaxKind;
 
-use crate::util::{resolve_target_at_position_with_context, ResolvedTarget};
+use crate::util::{resolve_target_at_position_with_context, symbol_is_constant, ResolvedTarget};
 use crate::var_decl::{
     find_var_decl_for_range, initializer_from_var_decl, var_decl_info_for_symbol,
 };
@@ -126,8 +126,8 @@ pub fn inline_value_hints(
 
 fn inline_text_for_symbol(db: &Database, file_id: FileId, symbol: &Symbol) -> Option<String> {
     match symbol.kind {
-        SymbolKind::Constant => inline_text_for_constant(db, file_id, symbol),
         SymbolKind::EnumValue { value } => Some(format!(" = {value}")),
+        _ if symbol_is_constant(symbol) => inline_text_for_constant(db, file_id, symbol),
         _ => None,
     }
 }
@@ -247,5 +247,29 @@ END_PROGRAM
         let hints = inline_value_hints(&db, prog_id, TextRange::new(start, end));
 
         assert!(hints.iter().any(|hint| hint.text == " = 42"));
+    }
+
+    #[test]
+    fn inline_value_hints_for_var_temp_constant() {
+        let source = r#"
+FUNCTION_BLOCK Fb
+VAR_TEMP
+    CONSTANT T : INT := INT#7;
+END_VAR
+VAR_OUTPUT
+    X : INT;
+END_VAR
+    X := T;
+END_FUNCTION_BLOCK
+"#;
+        let mut db = Database::new();
+        let file_id = FileId(0);
+        db.set_source_text(file_id, source.to_string());
+
+        let start = TextSize::from(0u32);
+        let end = TextSize::from(source.len() as u32);
+        let hints = inline_value_hints(&db, file_id, TextRange::new(start, end));
+
+        assert!(hints.iter().any(|hint| hint.text == " = INT#7"));
     }
 }

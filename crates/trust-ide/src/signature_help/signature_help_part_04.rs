@@ -89,6 +89,7 @@ fn param(name: &str, type_id: TypeId) -> ParamData {
         name: SmolStr::new(name),
         type_id,
         direction: ParamDirection::In,
+        is_constant: false,
     }
 }
 
@@ -97,6 +98,7 @@ fn out_param(name: &str, type_id: TypeId) -> ParamData {
         name: SmolStr::new(name),
         type_id,
         direction: ParamDirection::Out,
+        is_constant: false,
     }
 }
 

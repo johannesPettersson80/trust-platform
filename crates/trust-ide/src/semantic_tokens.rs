@@ -12,7 +12,8 @@ use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 use trust_syntax::{lex, TokenKind};
 
 use crate::util::{
-    resolve_target_at_position_with_context, scope_at_position, ResolvedTarget, SymbolFilter,
+    resolve_target_at_position_with_context, scope_at_position, symbol_is_constant, ResolvedTarget,
+    SymbolFilter,
 };
 
 /// Semantic token types.
@@ -138,7 +139,7 @@ fn classify_identifier(
     // Check if this is a declaration site (range matches a symbol's range)
     if let Some(symbol) = filter.symbol_at_range(range) {
         modifiers.declaration = true;
-        if matches!(symbol.kind, SymbolKind::Constant) {
+        if symbol_is_constant(symbol) {
             modifiers.readonly = true;
         }
         return (symbol_kind_to_token_type(&symbol.kind), modifiers);
@@ -153,7 +154,7 @@ fn classify_identifier(
             match target {
                 ResolvedTarget::Symbol(symbol_id) => {
                     if let Some(symbol) = symbols.get(symbol_id) {
-                        if matches!(symbol.kind, SymbolKind::Constant) {
+                        if symbol_is_constant(symbol) {
                             modifiers.readonly = true;
                         }
                         if symbol.range == range {
@@ -178,7 +179,7 @@ fn classify_identifier(
     // Find the scope at this position and resolve the name
     let scope_id = scope_at_position(symbols, root, offset);
     if let Some(symbol) = filter.resolve_in_scope(name, scope_id) {
-        if matches!(symbol.kind, SymbolKind::Constant) {
+        if symbol_is_constant(symbol) {
             modifiers.readonly = true;
         }
         return (symbol_kind_to_token_type(&symbol.kind), modifiers);
@@ -186,7 +187,7 @@ fn classify_identifier(
 
     // Fallback: try global lookup
     if let Some(symbol) = filter.lookup_any(name) {
-        if matches!(symbol.kind, SymbolKind::Constant) {
+        if symbol_is_constant(symbol) {
             modifiers.readonly = true;
         }
         return (symbol_kind_to_token_type(&symbol.kind), modifiers);

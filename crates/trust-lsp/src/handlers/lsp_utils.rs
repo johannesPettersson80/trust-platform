@@ -201,6 +201,9 @@ pub(crate) fn is_primary_pou_symbol_kind(kind: &HirSymbolKind) -> bool {
 }
 
 pub(crate) fn lsp_symbol_kind(symbols: &SymbolTable, symbol: &Symbol) -> SymbolKind {
+    if symbol.is_constant {
+        return SymbolKind::CONSTANT;
+    }
     match symbol.kind {
         trust_hir::SymbolKind::Program => SymbolKind::MODULE,
         trust_hir::SymbolKind::Configuration => SymbolKind::MODULE,

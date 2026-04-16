@@ -228,6 +228,7 @@ fn callable_params(symbols: &SymbolTable, symbol: &Symbol) -> Vec<ParamData> {
                     name: sym.name.clone(),
                     type_id: sym.type_id,
                     direction,
+                    is_constant: sym.is_constant,
                 }),
                 _ => None,
             }
@@ -255,8 +256,11 @@ fn format_param_label(symbols: &SymbolTable, param: &ParamData) -> String {
     let type_name = format_type_name(symbols, param.type_id);
     let mut label = format!("{}: {}", param.name, type_name);
     let suffix = match param.direction {
+        ParamDirection::In if param.is_constant => Some("IN CONSTANT"),
         ParamDirection::In => None,
+        ParamDirection::Out if param.is_constant => Some("OUT CONSTANT"),
         ParamDirection::Out => Some("OUT"),
+        ParamDirection::InOut if param.is_constant => Some("IN_OUT CONSTANT"),
         ParamDirection::InOut => Some("IN_OUT"),
     };
     if let Some(dir) = suffix {
@@ -274,4 +278,3 @@ fn format_type_name(symbols: &SymbolTable, type_id: TypeId) -> String {
         .map(|name| name.to_string())
         .unwrap_or_else(|| "?".to_string())
 }
-

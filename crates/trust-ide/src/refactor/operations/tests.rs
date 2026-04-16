@@ -170,6 +170,60 @@ END_PROGRAM
     }
 
     #[test]
+    fn inline_variable_initialized_from_var_temp_constant() {
+        let source = r#"
+FUNCTION_BLOCK Fb
+VAR_TEMP
+    CONSTANT T : INT := INT#7;
+END_VAR
+VAR
+    Alias : INT := T;
+END_VAR
+VAR_OUTPUT
+    X : INT;
+END_VAR
+    X := Alias;
+END_FUNCTION_BLOCK
+"#;
+        let mut db = Database::new();
+        let file_id = FileId(0);
+        db.set_source_text(file_id, source.to_string());
+
+        let offset = source.rfind("Alias;").expect("inline target ref");
+        let result = inline_symbol(&db, file_id, TextSize::from(offset as u32)).expect("inline");
+        assert_eq!(result.kind, InlineTargetKind::Variable);
+        let edits = result.edits.edits.get(&file_id).expect("file edits");
+        assert!(edits.iter().any(|edit| edit.new_text == "T"));
+    }
+
+    #[test]
+    fn inline_variable_initialized_from_var_input_constant() {
+        let source = r#"
+FUNCTION_BLOCK Fb
+VAR_INPUT
+    CONSTANT A : INT;
+END_VAR
+VAR
+    Alias : INT := A;
+END_VAR
+VAR_OUTPUT
+    X : INT;
+END_VAR
+    X := Alias;
+END_FUNCTION_BLOCK
+"#;
+        let mut db = Database::new();
+        let file_id = FileId(0);
+        db.set_source_text(file_id, source.to_string());
+
+        let offset = source.rfind("Alias;").expect("inline target ref");
+        let result = inline_symbol(&db, file_id, TextSize::from(offset as u32)).expect("inline");
+        assert_eq!(result.kind, InlineTargetKind::Variable);
+        let edits = result.edits.edits.get(&file_id).expect("file edits");
+        assert!(edits.iter().any(|edit| edit.new_text == "A"));
+    }
+
+    #[test]
     fn extract_method_creates_method_and_call() {
         let source = r#"
 CLASS Controller

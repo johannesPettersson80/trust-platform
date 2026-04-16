@@ -116,8 +116,10 @@ pub fn inline_symbol(db: &Database, file_id: FileId, position: TextSize) -> Opti
     };
     let symbol = symbols.get(symbol_id)?;
 
-    let (kind, allow_inline) = match symbol.kind {
-        SymbolKind::Constant => (InlineTargetKind::Constant, true),
+    let (kind, allow_inline) = if symbol_is_constant(symbol) {
+        (InlineTargetKind::Constant, true)
+    } else {
+        match symbol.kind {
         SymbolKind::Variable { qualifier } => {
             let allowed = matches!(
                 qualifier,
@@ -128,6 +130,7 @@ pub fn inline_symbol(db: &Database, file_id: FileId, position: TextSize) -> Opti
             (InlineTargetKind::Variable, allowed)
         }
         _ => (InlineTargetKind::Variable, false),
+        }
     };
 
     if !allow_inline {

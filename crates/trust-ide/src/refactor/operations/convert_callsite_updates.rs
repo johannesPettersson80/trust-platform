@@ -325,7 +325,17 @@ fn expression_const_info(context: &ConstExprContext<'_>, expr: &SyntaxNode) -> C
 }
 
 fn name_ref_const_info(context: &ConstExprContext<'_>, node: &SyntaxNode) -> ConstExprInfo {
-    let offset = node.text_range().start();
+    let Some(offset) = node
+        .descendants_with_tokens()
+        .filter_map(|element| element.into_token())
+        .find(|token| token.kind() == SyntaxKind::Ident)
+        .map(|token| token.text_range().start())
+    else {
+        return ConstExprInfo {
+            is_const: false,
+            requires_local_scope: false,
+        };
+    };
     let target = resolve_target_at_position_with_context(
         context.db,
         context.file_id,
@@ -346,10 +356,7 @@ fn name_ref_const_info(context: &ConstExprContext<'_>, node: &SyntaxNode) -> Con
             requires_local_scope: false,
         };
     };
-    if !matches!(
-        symbol.kind,
-        SymbolKind::Constant | SymbolKind::EnumValue { .. }
-    ) {
+    if !matches!(symbol.kind, SymbolKind::EnumValue { .. }) && !symbol_is_constant(symbol) {
         return ConstExprInfo {
             is_const: false,
             requires_local_scope: false,
@@ -360,4 +367,3 @@ fn name_ref_const_info(context: &ConstExprContext<'_>, node: &SyntaxNode) -> Con
         requires_local_scope: symbol.parent.is_some(),
     }
 }
-

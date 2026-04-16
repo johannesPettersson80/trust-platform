@@ -74,6 +74,7 @@ Target release: `v0.17.0`
 
 ### Fixed
 
+- `trust-ide` / `trust-lsp` now surface the shipped pointer/`ARRAY[*]`/IEC `CONSTANT` semantics consistently across completion, hover, semantic tokens, signature help, workspace symbols, inline values, refactor const-analysis, and constant-section diagnostics instead of drifting behind the HIR fixes.
 - Project analysis now honors cross-file `VAR_GLOBAL CONSTANT` integer expressions in type-length contexts such as `STRING[MaxLen]`, and the OSCAT BASIC CRC/buffer helpers now use the shipped `ARRAY[*]` / `POINTER TO ARRAY[*]` compatibility forms without giant caller-side ceremony arrays.
 - IEC `CONSTANT` qualifier handling now preserves parameter/`VAR_TEMP` identity in HIR, rejects writes through the shared `ConstantModification` path, blocks function block instances in `CONSTANT` sections, and keeps parameter/`VAR_TEMP` declarations out of compile-time constant-expression evaluation.
 - Bytecode VM lowering now executes `EXIT` and `CONTINUE` correctly in `FOR`, `WHILE`, and `REPEAT` loops instead of rejecting those statement paths through the generic C5 fallback.
