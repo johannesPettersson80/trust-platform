@@ -11,6 +11,7 @@ Target release: `v0.17.0`
 ### Fixed
 
 - Typed conversion calls no longer misclassify an outer positional argument as a named/formal argument when the nested inner call uses `IN := ...`, so expressions like `UDINT_TO_REAL(DWORD_TO_UDINT(IN := x))` type-check correctly again.
+- Flattened the shipped OSCAT BASIC helper implementations for `DAY_TO_TIME`, `HOUR_TO_TIME`, `MINUTE_TO_TIME`, `SECOND_TO_TIME`, `F_TO_PT`, `PT_TO_F`, `T_PLC_US`, `CHR_TO_STRING`, and `REAL_TO_STRF` so they no longer depend on deeply nested conversion-call expressions.
 
 ### Added
 
