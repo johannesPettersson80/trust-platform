@@ -10,6 +10,10 @@ that same chapter directory.
 
 Current scope:
 
+- chapter 3 data types including `CALENDAR`, `COMPLEX`,
+  `CONSTANTS_LOCATION`, `CONSTANTS_SETUP`, `ESR_DATA`, `FRACTION`,
+  `HOLIDAY_DATA`, `REAL2`, `SDT`, `TIMER_EVENT`, `VECTOR_3`, and the shared
+  `CONSTANTS_*` carrier records
 - shared OSCAT-style `MATH` and `PHYS` constants, loaded by `OSCAT_BASIC_Constants()`
 - shared `LANGUAGE` direction tables with live `LANGUAGE.DIRS[...]` access
 - engineering conversion helpers, direction helpers, and range helpers
@@ -44,3 +48,10 @@ Conformance consumers for the currently shipped surface live under:
 - `crates/trust-runtime/tests/fixtures/oscat_basic/negative_public_surface`
 
 This is an incremental port, not the full OSCAT BASIC catalog.
+
+IEC compatibility note:
+
+- The shipped `CALENDAR` port uses `LOCAL_DT`, `LOCAL_DATE`, and `LOCAL_TOD`
+  instead of upstream `LDT`, `LDATE`, and `LTOD`, because those upstream names
+  collide with reserved IEC date/time keywords and truST keeps that rule
+  strict.

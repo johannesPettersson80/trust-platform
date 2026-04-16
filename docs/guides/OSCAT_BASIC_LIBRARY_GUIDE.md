@@ -12,7 +12,9 @@ current helpers from scan-driven Structured Text.
 ## Package Layout
 
 - `libraries/oscat_basic/src/03_data_types/oscat_basic_data_types.st`: shipped
-  data types including `REAL2` and the shared `CONSTANTS_*` carrier records
+  data types including `CALENDAR`, `COMPLEX`, `CONSTANTS_LOCATION`,
+  `CONSTANTS_SETUP`, `ESR_DATA`, `FRACTION`, `HOLIDAY_DATA`, `REAL2`, `SDT`,
+  `TIMER_EVENT`, `VECTOR_3`, and the shared `CONSTANTS_*` carrier records
 - `libraries/oscat_basic/src/04_other_functions/oscat_basic_other_functions.st`:
   `OSCAT_BASIC_Constants()` and the shared carrier globals
 - `libraries/oscat_basic/src/05_mathematics/oscat_basic_mathematics.st`:
@@ -93,6 +95,10 @@ OSCATBasic = { path = "../../libraries/oscat_basic", version = "0.1.0" }
    `ARRAY[*] OF BYTE` via `VAR_IN_OUT` parameters, and `CRC_GEN` accepts
    `POINTER TO ARRAY[*] OF BYTE`. Raw `POINTER TO BYTE` arithmetic remains
    outside the supported truST pointer model.
+8. `CALENDAR` keeps the upstream field shape but uses IEC-compliant local field
+   names `LOCAL_DT`, `LOCAL_DATE`, and `LOCAL_TOD` in place of upstream
+   `LDT`, `LDATE`, and `LTOD`, because those upstream names are reserved IEC
+   date/time keywords in truST.
 
 ## Shared Constants And Carriers
 
@@ -139,6 +145,36 @@ Fields:
 
 `DIRS[language, sector]` is live data in the shipped library surface, so callers
 can use it directly in addition to `DEG_TO_DIR` / `DIR_TO_DEG`.
+
+## Data Type Reference
+
+### `CALENDAR`
+
+Type: `STRUCT`
+
+Important fields:
+- `UTC`
+- `LOCAL_DT`
+- `LOCAL_DATE`
+- `LOCAL_TOD`
+- `YEAR`
+- `MONTH`
+- `DAY`
+- `WEEKDAY`
+- `OFFSET`
+- `DST_EN`
+- `DST_ON`
+- `LANGUAGE`
+- `SUN_RISE`
+- `SUN_SET`
+- `NIGHT`
+- `HOLIDAY`
+- `WORK_WEEK`
+
+Compatibility note:
+- Upstream OSCAT names the local date/time fields `LDT`, `LDATE`, and `LTOD`.
+  truST keeps strict IEC keyword reservation, so the shipped port uses
+  `LOCAL_DT`, `LOCAL_DATE`, and `LOCAL_TOD` instead.
 
 ### `OSCAT_BASIC_Constants`
 

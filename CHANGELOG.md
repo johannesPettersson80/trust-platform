@@ -10,6 +10,10 @@ Target release: `v0.17.0`
 
 ### Fixed
 
+- The OSCAT BASIC `CALENDAR` port keeps truST strict about IEC reserved
+  keywords instead of relaxing the parser, so the shipped Chapter 3 data type
+  exposes compliant local-time field names `LOCAL_DT`, `LOCAL_DATE`, and
+  `LOCAL_TOD` in place of upstream `LDT`, `LDATE`, and `LTOD`.
 - `trust-hir` now resolves cross-file user-defined types for root `VAR_GLOBAL`
   declarations during project-aware symbol collection instead of depending on a
   late repair pass, so split projects like OSCAT BASIC can keep shared carrier
@@ -24,6 +28,11 @@ Target release: `v0.17.0`
 
 ### Added
 
+- `libraries/oscat_basic` now also ships the first Chapter 3 data-type slice:
+  `CALENDAR`, `COMPLEX`, `CONSTANTS_LOCATION`, `CONSTANTS_SETUP`, `ESR_DATA`,
+  `FRACTION`, `HOLIDAY_DATA`, `REAL2`, `SDT`, `TIMER_EVENT`, and `VECTOR_3`,
+  plus the preloaded `MATH.FACTS[...]` factorial table used by later OSCAT
+  helpers.
 - `libraries/oscat_basic` now also ships the stateful helper function blocks `DELAY` and `FT_AVG`.
 - `libraries/oscat_basic` now also ships the first linear/polynomial/ramp math helpers: `F_LIN`, `F_LIN2`, `F_POLY`, `F_POWER`, `F_QUAD`, and `FRMP_B`.
 - Added the first shipped `libraries/oscat_basic` package with an initial OSCAT BASIC compatibility slice (shared math/physics constants plus core conversion helpers), alongside `examples/oscat_basic_smoke` as the first consumer project wired through `[dependencies]`.
