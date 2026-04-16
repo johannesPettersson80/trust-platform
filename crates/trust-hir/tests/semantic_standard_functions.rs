@@ -68,6 +68,38 @@ END_PROGRAM
 }
 
 #[test]
+fn test_typed_conversion_accepts_positional_outer_named_inner_call() {
+    check_no_errors(
+        r#"
+PROGRAM Test
+VAR
+    dw: DWORD;
+    r: REAL;
+END_VAR
+r := UDINT_TO_REAL(DWORD_TO_UDINT(IN := dw));
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_converted_numeric_expression_accepts_bit_to_numeric_scaling() {
+    check_no_errors(
+        r#"
+PROGRAM Test
+VAR
+    td_ms: DWORD;
+    tr_ms: DWORD;
+    scaled: REAL;
+END_VAR
+scaled := UDINT_TO_REAL(IN := DWORD_TO_UDINT(IN := td_ms)) * REAL#256.0
+    / UDINT_TO_REAL(IN := DWORD_TO_UDINT(IN := tr_ms));
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
 // IEC 61131-3 Ed.3 Tables 28-33 (numeric/bitwise functions)
 fn test_standard_numeric_and_bitwise_functions() {
     check_no_errors(

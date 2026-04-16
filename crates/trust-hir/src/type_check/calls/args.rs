@@ -610,7 +610,7 @@ impl<'a, 'b> CallChecker<'a, 'b> {
 
 fn call_arg_assign(node: &SyntaxNode) -> CallArgAssign {
     for token in node
-        .descendants_with_tokens()
+        .children_with_tokens()
         .filter_map(|element| element.into_token())
     {
         match token.kind() {
