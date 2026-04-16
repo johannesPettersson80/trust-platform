@@ -313,6 +313,25 @@ Use `<TYPE>_TO_<TYPE>` functions:
 
 ```
 VAR
+  s1: STRING[10] := 'ABCD';      // Max 10 chars, initial length 4
+  s2: STRING;                    // Implementer-specific max length
+END_VAR
+```
+
+The declared length may also be a compile-time constant expression:
+
+```
+VAR_GLOBAL CONSTANT
+  MaxLen: INT := 12;
+END_VAR
+
+VAR
+  s3: STRING[MaxLen + 2];
+END_VAR
+```
+
+```
+VAR
   s1: STRING[10] := 'ABCD';     // Max 10 chars, initial length 4
   s2: STRING;                    // Implementer-specific max length
 END_VAR

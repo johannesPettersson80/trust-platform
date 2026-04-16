@@ -448,8 +448,8 @@ X := Arr2D[1,2,3];  // ERROR: Too many dimensions (expected 2)
 
 ```
 FUNCTION_BLOCK FB
-VAR_INPUT
-  Data: ARRAY[*] OF INT;  // ERROR: Variable-length only in FUNCTION/METHOD
+VAR
+  Data: ARRAY[*] OF INT;  // ERROR: wildcard only allowed in parameter positions
 END_VAR
 END_FUNCTION_BLOCK
 ```

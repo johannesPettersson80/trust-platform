@@ -1,0 +1,8 @@
+neue Funktionen und Änderungen in oscat_network 1.21: 
+
+neue Netzwerk-Variablen Bausteine für (PCWORX,CODESYS,BECKHOFF)
+Verbesserung des Datenlogger-Paketes mit neuen XML und HTML Logger
+Optimierung der IP_CONTROL Bausteine
+Automatischer Reconnect bei Server-Bausteinen
+Bausteine zur Standardisierung der Wetterdaten 
+Grafiken zur Visualisierung (Wetter,Mond,Windrichtung)

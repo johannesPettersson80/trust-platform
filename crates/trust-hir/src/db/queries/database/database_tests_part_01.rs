@@ -121,6 +121,34 @@
     }
 
     #[test]
+    fn analyze_salsa_accepts_cross_file_global_constants_in_string_lengths() {
+        let mut db = Database::new();
+        let file_globals = FileId(30);
+        let file_main = FileId(31);
+
+        db.set_source_text(
+            file_globals,
+            "VAR_GLOBAL CONSTANT\n    STRING_LENGTH : INT := INT#12;\nEND_VAR\n".to_string(),
+        );
+        db.set_source_text(
+            file_main,
+            "PROGRAM Main\nVAR\n    s : STRING[STRING_LENGTH];\nEND_VAR\nEND_PROGRAM\n"
+                .to_string(),
+        );
+
+        let analysis = db.analyze_salsa(file_main);
+
+        assert!(
+            analysis
+                .diagnostics
+                .iter()
+                .all(|diagnostic| !diagnostic.is_error()),
+            "cross-file constant string length should analyze without errors: {:?}",
+            analysis.diagnostics
+        );
+    }
+
+    #[test]
     fn analyze_salsa_reuses_result_without_edits() {
         let mut db = Database::new();
         let (_file_lib, file_main) = install_cross_file_fixture(&mut db);
@@ -189,4 +217,3 @@
             "fixing invalid call should reduce diagnostics"
         );
     }
-

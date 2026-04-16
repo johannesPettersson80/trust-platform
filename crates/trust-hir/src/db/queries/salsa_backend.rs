@@ -297,8 +297,12 @@ pub(super) fn analyze_query(
     };
 
     let root = SyntaxNode::new_root(parse_green(db, target_input).clone());
+    let const_roots: Vec<SyntaxNode> = project_roots_from_inputs(db, &project_source_inputs)
+        .into_iter()
+        .map(|(_, project_root)| project_root)
+        .collect();
     let (mut symbols, mut diagnostics, pending_types) =
-        SymbolCollector::new().collect_for_project(&root);
+        SymbolCollector::new().collect_for_project_with_const_roots(&root, &const_roots);
     merge_project_symbols(file_id, &mut symbols, project_tables.as_ref());
 
     let mut builder = DiagnosticBuilder::new();

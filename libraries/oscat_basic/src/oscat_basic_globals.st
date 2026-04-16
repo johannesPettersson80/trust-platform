@@ -1,0 +1,240 @@
+(* Initial OSCAT BASIC constant subset ported from OSCAT BASIC 3.33. *)
+
+TYPE CONSTANTS_MATH :
+STRUCT
+    PI : REAL := 3.141592653589793;
+    PI2 : REAL := 6.283185307179586;
+    PI4 : REAL := 12.566370614359173;
+    PI05 : REAL := 1.570796326794897;
+    PI025 : REAL := 0.785398163397448;
+    PI_INV : REAL := 0.318309886183791;
+    E : REAL := 2.718281828459045;
+    E_INV : REAL := 0.367879441171442;
+    SQ2 : REAL := 1.4142135623731;
+END_STRUCT
+END_TYPE
+
+TYPE CONSTANTS_PHYS :
+STRUCT
+    C : REAL := 299792458.0;
+    E : REAL := 1.60217653E-19;
+    G : REAL := 9.80665;
+    T0 : REAL := -273.15;
+    RU : REAL := 8.314472;
+    PN : REAL := 101325.0;
+END_STRUCT
+END_TYPE
+
+TYPE CONSTANTS_LANGUAGE :
+STRUCT
+    DEFAULT : INT := 1;
+    LMAX : INT := 3;
+    WEEKDAYS : ARRAY[1..3, 1..7] OF STRING[10];
+    WEEKDAYS2 : ARRAY[1..3, 1..7] OF STRING[2];
+    MONTHS : ARRAY[1..3, 1..12] OF STRING[10];
+    MONTHS3 : ARRAY[1..3, 1..12] OF STRING[3];
+    DIRS : ARRAY[1..3, 0..15] OF STRING[3];
+END_STRUCT
+END_TYPE
+
+VAR_GLOBAL CONSTANT
+    STRING_LENGTH : INT := 250;
+    LIST_LENGTH : INT := 250;
+END_VAR
+
+VAR_GLOBAL
+    MATH : CONSTANTS_MATH;
+    PHYS : CONSTANTS_PHYS;
+    LANGUAGE : CONSTANTS_LANGUAGE;
+    g_oscat_basic_constants_loaded : BOOL := FALSE;
+END_VAR
+
+FUNCTION OSCAT_BASIC_Constants : BOOL
+IF NOT g_oscat_basic_constants_loaded THEN
+    MATH.PI := 3.141592653589793;
+    MATH.PI2 := 6.283185307179586;
+    MATH.PI4 := 12.566370614359173;
+    MATH.PI05 := 1.570796326794897;
+    MATH.PI025 := 0.785398163397448;
+    MATH.PI_INV := 0.318309886183791;
+    MATH.E := 2.718281828459045;
+    MATH.E_INV := 0.367879441171442;
+    MATH.SQ2 := 1.4142135623731;
+
+    PHYS.C := 299792458.0;
+    PHYS.E := 1.60217653E-19;
+    PHYS.G := 9.80665;
+    PHYS.T0 := -273.15;
+    PHYS.RU := 8.314472;
+    PHYS.PN := 101325.0;
+
+    LANGUAGE.DEFAULT := 1;
+    LANGUAGE.LMAX := 3;
+    LANGUAGE.WEEKDAYS[1, 1] := 'Monday';
+    LANGUAGE.WEEKDAYS[1, 2] := 'Tuesday';
+    LANGUAGE.WEEKDAYS[1, 3] := 'Wednesday';
+    LANGUAGE.WEEKDAYS[1, 4] := 'Thursday';
+    LANGUAGE.WEEKDAYS[1, 5] := 'Friday';
+    LANGUAGE.WEEKDAYS[1, 6] := 'Saturday';
+    LANGUAGE.WEEKDAYS[1, 7] := 'Sunday';
+    LANGUAGE.WEEKDAYS[2, 1] := 'Montag';
+    LANGUAGE.WEEKDAYS[2, 2] := 'Dienstag';
+    LANGUAGE.WEEKDAYS[2, 3] := 'Mittwoch';
+    LANGUAGE.WEEKDAYS[2, 4] := 'Donnerstag';
+    LANGUAGE.WEEKDAYS[2, 5] := 'Freitag';
+    LANGUAGE.WEEKDAYS[2, 6] := 'Samstag';
+    LANGUAGE.WEEKDAYS[2, 7] := 'Sonntag';
+    LANGUAGE.WEEKDAYS[3, 1] := 'Lundi';
+    LANGUAGE.WEEKDAYS[3, 2] := 'Mardi';
+    LANGUAGE.WEEKDAYS[3, 3] := 'Mercredi';
+    LANGUAGE.WEEKDAYS[3, 4] := 'Jeudi';
+    LANGUAGE.WEEKDAYS[3, 5] := 'Vendredi';
+    LANGUAGE.WEEKDAYS[3, 6] := 'Samedi';
+    LANGUAGE.WEEKDAYS[3, 7] := 'Dimanche';
+    LANGUAGE.WEEKDAYS2[1, 1] := 'Mo';
+    LANGUAGE.WEEKDAYS2[1, 2] := 'Tu';
+    LANGUAGE.WEEKDAYS2[1, 3] := 'We';
+    LANGUAGE.WEEKDAYS2[1, 4] := 'Th';
+    LANGUAGE.WEEKDAYS2[1, 5] := 'Fr';
+    LANGUAGE.WEEKDAYS2[1, 6] := 'Sa';
+    LANGUAGE.WEEKDAYS2[1, 7] := 'Su';
+    LANGUAGE.WEEKDAYS2[2, 1] := 'Mo';
+    LANGUAGE.WEEKDAYS2[2, 2] := 'Di';
+    LANGUAGE.WEEKDAYS2[2, 3] := 'Mi';
+    LANGUAGE.WEEKDAYS2[2, 4] := 'Do';
+    LANGUAGE.WEEKDAYS2[2, 5] := 'Fr';
+    LANGUAGE.WEEKDAYS2[2, 6] := 'Sa';
+    LANGUAGE.WEEKDAYS2[2, 7] := 'So';
+    LANGUAGE.WEEKDAYS2[3, 1] := 'Lu';
+    LANGUAGE.WEEKDAYS2[3, 2] := 'Ma';
+    LANGUAGE.WEEKDAYS2[3, 3] := 'Me';
+    LANGUAGE.WEEKDAYS2[3, 4] := 'Je';
+    LANGUAGE.WEEKDAYS2[3, 5] := 'Ve';
+    LANGUAGE.WEEKDAYS2[3, 6] := 'Sa';
+    LANGUAGE.WEEKDAYS2[3, 7] := 'Di';
+    LANGUAGE.MONTHS[1, 1] := 'January';
+    LANGUAGE.MONTHS[1, 2] := 'February';
+    LANGUAGE.MONTHS[1, 3] := 'March';
+    LANGUAGE.MONTHS[1, 4] := 'April';
+    LANGUAGE.MONTHS[1, 5] := 'May';
+    LANGUAGE.MONTHS[1, 6] := 'June';
+    LANGUAGE.MONTHS[1, 7] := 'July';
+    LANGUAGE.MONTHS[1, 8] := 'August';
+    LANGUAGE.MONTHS[1, 9] := 'September';
+    LANGUAGE.MONTHS[1, 10] := 'October';
+    LANGUAGE.MONTHS[1, 11] := 'November';
+    LANGUAGE.MONTHS[1, 12] := 'December';
+    LANGUAGE.MONTHS[2, 1] := 'Januar';
+    LANGUAGE.MONTHS[2, 2] := 'Februar';
+    LANGUAGE.MONTHS[2, 3] := 'Maerz';
+    LANGUAGE.MONTHS[2, 4] := 'April';
+    LANGUAGE.MONTHS[2, 5] := 'Mai';
+    LANGUAGE.MONTHS[2, 6] := 'Juni';
+    LANGUAGE.MONTHS[2, 7] := 'Juli';
+    LANGUAGE.MONTHS[2, 8] := 'August';
+    LANGUAGE.MONTHS[2, 9] := 'September';
+    LANGUAGE.MONTHS[2, 10] := 'Oktober';
+    LANGUAGE.MONTHS[2, 11] := 'November';
+    LANGUAGE.MONTHS[2, 12] := 'Dezember';
+    LANGUAGE.MONTHS[3, 1] := 'Janvier';
+    LANGUAGE.MONTHS[3, 2] := 'Fevrier';
+    LANGUAGE.MONTHS[3, 3] := 'Mars';
+    LANGUAGE.MONTHS[3, 4] := 'Avril';
+    LANGUAGE.MONTHS[3, 5] := 'Mai';
+    LANGUAGE.MONTHS[3, 6] := 'Juin';
+    LANGUAGE.MONTHS[3, 7] := 'Juillet';
+    LANGUAGE.MONTHS[3, 8] := 'Aout';
+    LANGUAGE.MONTHS[3, 9] := 'Septembre';
+    LANGUAGE.MONTHS[3, 10] := 'Octobre';
+    LANGUAGE.MONTHS[3, 11] := 'Novembre';
+    LANGUAGE.MONTHS[3, 12] := 'Decembre';
+    LANGUAGE.MONTHS3[1, 1] := 'Jan';
+    LANGUAGE.MONTHS3[1, 2] := 'Feb';
+    LANGUAGE.MONTHS3[1, 3] := 'Mar';
+    LANGUAGE.MONTHS3[1, 4] := 'Apr';
+    LANGUAGE.MONTHS3[1, 5] := 'May';
+    LANGUAGE.MONTHS3[1, 6] := 'Jun';
+    LANGUAGE.MONTHS3[1, 7] := 'Jul';
+    LANGUAGE.MONTHS3[1, 8] := 'Aug';
+    LANGUAGE.MONTHS3[1, 9] := 'Sep';
+    LANGUAGE.MONTHS3[1, 10] := 'Oct';
+    LANGUAGE.MONTHS3[1, 11] := 'Nov';
+    LANGUAGE.MONTHS3[1, 12] := 'Dec';
+    LANGUAGE.MONTHS3[2, 1] := 'Jan';
+    LANGUAGE.MONTHS3[2, 2] := 'Feb';
+    LANGUAGE.MONTHS3[2, 3] := 'Mrz';
+    LANGUAGE.MONTHS3[2, 4] := 'Apr';
+    LANGUAGE.MONTHS3[2, 5] := 'Mai';
+    LANGUAGE.MONTHS3[2, 6] := 'Jun';
+    LANGUAGE.MONTHS3[2, 7] := 'Jul';
+    LANGUAGE.MONTHS3[2, 8] := 'Aug';
+    LANGUAGE.MONTHS3[2, 9] := 'Sep';
+    LANGUAGE.MONTHS3[2, 10] := 'Okt';
+    LANGUAGE.MONTHS3[2, 11] := 'Nov';
+    LANGUAGE.MONTHS3[2, 12] := 'Dez';
+    LANGUAGE.MONTHS3[3, 1] := 'Jan';
+    LANGUAGE.MONTHS3[3, 2] := 'Fev';
+    LANGUAGE.MONTHS3[3, 3] := 'Mar';
+    LANGUAGE.MONTHS3[3, 4] := 'Avr';
+    LANGUAGE.MONTHS3[3, 5] := 'Mai';
+    LANGUAGE.MONTHS3[3, 6] := 'Jun';
+    LANGUAGE.MONTHS3[3, 7] := 'Jul';
+    LANGUAGE.MONTHS3[3, 8] := 'Aou';
+    LANGUAGE.MONTHS3[3, 9] := 'Sep';
+    LANGUAGE.MONTHS3[3, 10] := 'Oct';
+    LANGUAGE.MONTHS3[3, 11] := 'Nov';
+    LANGUAGE.MONTHS3[3, 12] := 'Dec';
+    LANGUAGE.DIRS[1, 0] := 'N';
+    LANGUAGE.DIRS[1, 1] := 'NNE';
+    LANGUAGE.DIRS[1, 2] := 'NE';
+    LANGUAGE.DIRS[1, 3] := 'ENE';
+    LANGUAGE.DIRS[1, 4] := 'E';
+    LANGUAGE.DIRS[1, 5] := 'ESE';
+    LANGUAGE.DIRS[1, 6] := 'SE';
+    LANGUAGE.DIRS[1, 7] := 'SSE';
+    LANGUAGE.DIRS[1, 8] := 'S';
+    LANGUAGE.DIRS[1, 9] := 'SSW';
+    LANGUAGE.DIRS[1, 10] := 'SW';
+    LANGUAGE.DIRS[1, 11] := 'WSW';
+    LANGUAGE.DIRS[1, 12] := 'W';
+    LANGUAGE.DIRS[1, 13] := 'WNW';
+    LANGUAGE.DIRS[1, 14] := 'NW';
+    LANGUAGE.DIRS[1, 15] := 'NNW';
+    LANGUAGE.DIRS[2, 0] := 'N';
+    LANGUAGE.DIRS[2, 1] := 'NNO';
+    LANGUAGE.DIRS[2, 2] := 'NO';
+    LANGUAGE.DIRS[2, 3] := 'ONO';
+    LANGUAGE.DIRS[2, 4] := 'O';
+    LANGUAGE.DIRS[2, 5] := 'OSO';
+    LANGUAGE.DIRS[2, 6] := 'SO';
+    LANGUAGE.DIRS[2, 7] := 'SSO';
+    LANGUAGE.DIRS[2, 8] := 'S';
+    LANGUAGE.DIRS[2, 9] := 'SSW';
+    LANGUAGE.DIRS[2, 10] := 'SW';
+    LANGUAGE.DIRS[2, 11] := 'WSW';
+    LANGUAGE.DIRS[2, 12] := 'W';
+    LANGUAGE.DIRS[2, 13] := 'WNW';
+    LANGUAGE.DIRS[2, 14] := 'NW';
+    LANGUAGE.DIRS[2, 15] := 'NNW';
+    LANGUAGE.DIRS[3, 0] := 'N';
+    LANGUAGE.DIRS[3, 1] := 'NNO';
+    LANGUAGE.DIRS[3, 2] := 'NO';
+    LANGUAGE.DIRS[3, 3] := 'ONO';
+    LANGUAGE.DIRS[3, 4] := 'O';
+    LANGUAGE.DIRS[3, 5] := 'OSO';
+    LANGUAGE.DIRS[3, 6] := 'SO';
+    LANGUAGE.DIRS[3, 7] := 'SSO';
+    LANGUAGE.DIRS[3, 8] := 'S';
+    LANGUAGE.DIRS[3, 9] := 'SSW';
+    LANGUAGE.DIRS[3, 10] := 'SW';
+    LANGUAGE.DIRS[3, 11] := 'WSW';
+    LANGUAGE.DIRS[3, 12] := 'W';
+    LANGUAGE.DIRS[3, 13] := 'WNW';
+    LANGUAGE.DIRS[3, 14] := 'NW';
+    LANGUAGE.DIRS[3, 15] := 'NNW';
+
+    g_oscat_basic_constants_loaded := TRUE;
+END_IF;
+
+OSCAT_BASIC_Constants := TRUE;
+END_FUNCTION

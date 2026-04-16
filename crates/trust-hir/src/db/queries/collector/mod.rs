@@ -44,10 +44,14 @@ impl SymbolCollector {
         (self.table, self.diagnostics.finish())
     }
 
-    pub(super) fn collect_for_project(
+    pub(crate) fn collect_for_project_with_const_roots(
         mut self,
         root: &SyntaxNode,
+        const_roots: &[SyntaxNode],
     ) -> (SymbolTable, Vec<Diagnostic>, Vec<PendingType>) {
+        for project_root in const_roots {
+            self.precollect_constants(project_root, None);
+        }
         self.phase_precollect(root);
         self.phase_collect_symbols(root);
         self.phase_access_and_config(root);

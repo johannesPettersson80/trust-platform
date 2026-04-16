@@ -19,3 +19,8 @@ attachments, not for normal reusable truST library packages.
 
 `crates/.../tests/fixtures/` is test-only infrastructure and must not be used as
 a user library location.
+
+Current shipped package roots include:
+
+- `libraries/plcopen_motion/`
+- `libraries/oscat_basic/`

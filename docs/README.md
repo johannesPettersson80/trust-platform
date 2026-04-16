@@ -76,6 +76,31 @@ The fixture projects under
 `crates/trust-runtime/tests/fixtures/plcopen_motion/` are conformance
 consumers, not the library source.
 
+## OSCAT BASIC Library
+
+The currently shipped OSCAT BASIC compatibility slice, public shared carriers,
+conversion/calendar/clock helper surface, and unit-conversion FBs are documented in:
+
+- `docs/guides/OSCAT_BASIC_LIBRARY_GUIDE.md`
+
+The reusable OSCAT BASIC package lives under:
+
+- `libraries/oscat_basic/`
+
+Reference consumer walkthrough:
+
+- `examples/oscat_basic_smoke/README.md`
+
+The fixture projects under:
+
+- `crates/trust-runtime/tests/fixtures/oscat_basic/`
+
+are conformance consumers, not the library source.
+
+Upstream reference material and license capture used for the port live under:
+
+- `docs/internal/references/OSCAT/OSCAT_BASIC/`
+
 LD network-body schema v2 interop profile:
 `docs/guides/PLCOPEN_LD_INTEROP.md`.
 
