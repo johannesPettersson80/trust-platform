@@ -118,15 +118,14 @@ Locked decisions:
 - [x] `P6.6` Reject FB instances in all `CONSTANT` sections per IEC Figure 7
   footnote
 - [x] `P6.7` Verify all Phase 3 HIR tests pass
-- [ ] `P6.8` Verify the runtime smoke test passes
+- [x] `P6.8` Verify the runtime smoke test passes
 - [x] `P6.9` Update IEC-facing docs:
   `docs/specs/03-variables.md`,
   `docs/internal/standards/IEC_DEVIATIONS.md`,
   `docs/internal/standards/IEC_ST_FEATURE_MATRIX.md`
 - [x] `P6.10` Record legacy `VAR CONSTANT` local handling as explicit
   phase-boundary debt
-- [ ] `P6.11` Commit feature:
-  `feat(hir): implement IEC-correct CONSTANT qualifier semantics`
+- [x] `P6.11` Land the Phase 6 feature as a split commit series
 
 ## Phase 7 Cleanup: OSCAT Consumers
 
@@ -152,4 +151,4 @@ Locked decisions:
 - [x] `DOC.1` Update `CHANGELOG.md` under `## [Unreleased]`
 - [ ] `DOC.2` Update standards/runtime docs for the shipped pointer and
   `ARRAY[*]` behavior
-- [ ] `DOC.3` Keep the checklist in sync with each completed phase
+- [x] `DOC.3` Keep the checklist in sync with each completed phase
