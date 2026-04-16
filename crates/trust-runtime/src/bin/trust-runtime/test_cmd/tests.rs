@@ -168,6 +168,44 @@ END_TEST_PROGRAM
 }
 
 #[test]
+fn prepared_runtime_cold_restarts_between_cases() {
+    let sources = vec![LoadedSource {
+        path: PathBuf::from("prepared_runtime.st"),
+        text: r#"
+VAR_GLOBAL
+    Counter : INT := INT#0;
+END_VAR
+
+TEST_PROGRAM FirstCase
+Counter := Counter + INT#1;
+ASSERT_EQUAL(INT#1, Counter);
+END_TEST_PROGRAM
+
+TEST_PROGRAM SecondCase
+ASSERT_EQUAL(INT#0, Counter);
+END_TEST_PROGRAM
+"#
+        .to_string(),
+    }];
+    let tests = discover_tests(&sources);
+    assert_eq!(tests.len(), 2);
+
+    let extra_program_instances = tests
+        .iter()
+        .map(|case| case.name.clone())
+        .collect::<Vec<_>>();
+    let session = CompileSession::from_sources(vec![HarnessSourceFile::with_path(
+        "prepared_runtime.st",
+        sources[0].text.clone(),
+    )])
+    .with_extra_program_instances(extra_program_instances);
+    let mut runtime = session.build_runtime().expect("build runtime");
+
+    execute_test_case_in_runtime(&mut runtime, &tests[0], None).unwrap();
+    execute_test_case_in_runtime(&mut runtime, &tests[1], None).unwrap();
+}
+
+#[test]
 fn execute_test_case_keeps_unconfigured_test_program_out_of_default_runtime() {
     let sources = vec![LoadedSource {
         path: PathBuf::from("tests.st"),

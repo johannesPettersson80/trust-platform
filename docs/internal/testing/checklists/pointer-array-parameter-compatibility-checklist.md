@@ -20,7 +20,7 @@ Locked decisions:
 
 - [x] `P0.1` `cargo build -p trust-hir -p trust-runtime -p trust-syntax`
 - [x] `P0.2` `cargo test -p trust-hir --no-run`
-- [ ] `P0.3` `cargo test -p trust-runtime --no-run`
+- [x] `P0.3` `cargo test -p trust-runtime --no-run`
 
 ## Phase 1 Tests: `VAR_INPUT` Pointer Write-Through
 
@@ -129,26 +129,31 @@ Locked decisions:
 
 ## Phase 7 Cleanup: OSCAT Consumers
 
-- [ ] `P7.1` Rewrite `CRC_GEN` to `POINTER TO ARRAY[*] OF BYTE`
-- [ ] `P7.2` Rewrite `_BUFFER_*` / `BUFFER_*` to `VAR_IN_OUT ARRAY[*] OF BYTE`
-- [ ] `P7.3` Remove giant ceremony arrays from OSCAT core fixtures
-- [ ] `P7.4` Re-run OSCAT integration fixtures and keep behavior unchanged
-- [ ] `P7.5` Commit refactor:
+- [x] `P7.1` Rewrite `CRC_GEN` to `POINTER TO ARRAY[*] OF BYTE`
+- [x] `P7.2` Rewrite `_BUFFER_*` / `BUFFER_*` to `VAR_IN_OUT ARRAY[*] OF BYTE`
+- [x] `P7.3` Remove giant ceremony arrays from OSCAT core fixtures
+- [x] `P7.4` Re-run OSCAT integration fixtures and keep behavior unchanged
+  Note: `target/debug/trust-runtime test --project crates/trust-runtime/tests/fixtures/oscat_basic/core --timeout 60`
+  now passes `69/69`. Closing this phase also required restoring
+  project-wide `VAR_GLOBAL CONSTANT` integer evaluation for type-length
+  contexts such as `STRING[STRING_LENGTH]`, which was blocking the OSCAT core
+  fixture from compiling as a project.
+- [x] `P7.5` Commit refactor:
   `refactor(oscat_basic): use ARRAY[*] wildcards in buffer and CRC helpers`
 
 ## Phase 8 Final Validation
 
-- [ ] `P8.1` `cargo build -p trust-hir -p trust-runtime -p trust-syntax`
-- [ ] `P8.2` `cargo test -p trust-hir`
-- [ ] `P8.3` `cargo test -p trust-runtime`
-- [ ] `P8.4` `cargo test -p trust-syntax`
-- [ ] `P8.5` `just fmt`
-- [ ] `P8.6` `just clippy`
-- [ ] `P8.7` `just test-all`
+- [x] `P8.1` `cargo build -p trust-hir -p trust-runtime -p trust-syntax`
+- [x] `P8.2` `cargo test -p trust-hir`
+- [x] `P8.3` `cargo test -p trust-runtime`
+- [x] `P8.4` `cargo test -p trust-syntax`
+- [x] `P8.5` `just fmt`
+- [x] `P8.6` `just clippy`
+- [x] `P8.7` `just test-all`
 
 ## Documentation Follow-Up
 
 - [x] `DOC.1` Update `CHANGELOG.md` under `## [Unreleased]`
-- [ ] `DOC.2` Update standards/runtime docs for the shipped pointer and
+- [x] `DOC.2` Update standards/runtime docs for the shipped pointer and
   `ARRAY[*]` behavior
 - [x] `DOC.3` Keep the checklist in sync with each completed phase

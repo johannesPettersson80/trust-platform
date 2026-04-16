@@ -57,7 +57,11 @@ pub fn run_test(
         .collect::<BTreeSet<_>>();
     let session = CompileSession::from_sources(compile_sources)
         .with_extra_program_instances(extra_program_instances);
-    let _ = session.build_runtime()?;
+    let mut runtime = session.build_runtime()?;
+    let bytecode = session.build_bytecode_bytes()?;
+    runtime
+        .apply_bytecode_bytes(&bytecode, None)
+        .context("failed to preload bytecode for ST test execution")?;
 
     let test_timeout = if timeout == 0 {
         None
@@ -68,7 +72,7 @@ pub fn run_test(
     let mut results = Vec::with_capacity(tests.len());
     for case in &tests {
         let case_started = Instant::now();
-        let result = match execute_test_case(&session, case, test_timeout) {
+        let result = match execute_test_case_in_runtime(&mut runtime, case, test_timeout) {
             Ok(()) => ExecutedTest {
                 case: case.clone(),
                 outcome: TestOutcome::Passed,

@@ -18,6 +18,11 @@ fn tutorial_project_path(name: &str) -> PathBuf {
     manifest_dir.join("../../examples/tutorials").join(name)
 }
 
+fn runtime_fixture_path(name: &str) -> PathBuf {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    manifest_dir.join("tests/fixtures").join(name)
+}
+
 #[test]
 fn list_flag_lists_tutorial_10_tests_without_executing() {
     let tutorial = tutorial_project_path("10_unit_testing_101");
@@ -102,6 +107,32 @@ END_TEST_PROGRAM
     assert!(text.contains("test timed out after 1 second"));
 
     let _ = std::fs::remove_dir_all(project);
+}
+
+#[test]
+fn timeout_budget_does_not_count_project_recompilation_per_case() {
+    let fixture = runtime_fixture_path("oscat_basic/core");
+    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .args(["test", "--project"])
+        .arg(&fixture)
+        .args([
+            "--filter",
+            "oscat_basic_logic_jk_rs_and_selector_behave",
+            "--timeout",
+            "2",
+        ])
+        .output()
+        .expect("run trust-runtime test on OSCAT core fixture with tight timeout");
+
+    assert!(
+        output.status.success(),
+        "expected filtered OSCAT run success.\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert!(text.contains("PASS [1/1] TEST_PROGRAM::oscat_basic_logic_jk_rs_and_selector_behave"));
 }
 
 #[test]
