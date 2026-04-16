@@ -62,12 +62,8 @@ FUNCTION CHR_TO_STRING : STRING[1]
 VAR_INPUT
     C : BYTE;
 END_VAR
-VAR
-    CharValue : CHAR;
-END_VAR
 
-CharValue := BYTE_TO_CHAR(IN := C);
-CHR_TO_STRING := CHAR_TO_STRING(IN := CharValue);
+CHR_TO_STRING := CHAR_TO_STRING(BYTE_TO_CHAR(C));
 END_FUNCTION
 
 FUNCTION FILL : STRING[STRING_LENGTH]
@@ -137,15 +133,13 @@ VAR_INPUT
 END_VAR
 VAR
     RoundedMagnitude : REAL;
-    RoundedInteger : DINT;
     I : INT;
     Digits : INT;
 END_VAR
 
 Digits := LIMIT(INT#0, N, INT#7);
 RoundedMagnitude := ABS(IN) * EXP10(X := INT_TO_REAL(Digits));
-RoundedInteger := REAL_TO_DINT(IN := RoundedMagnitude);
-REAL_TO_STRF := DINT_TO_STRING(IN := RoundedInteger);
+REAL_TO_STRF := DINT_TO_STRING(REAL_TO_DINT(RoundedMagnitude));
 
 FOR I := LEN(REAL_TO_STRF) TO Digits DO
     REAL_TO_STRF := CONCAT(IN1 := '0', IN2 := REAL_TO_STRF);
