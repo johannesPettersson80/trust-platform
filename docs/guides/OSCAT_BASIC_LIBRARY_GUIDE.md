@@ -443,6 +443,7 @@ Usage notes:
 | `F_POLY(X, C)` | Polynomial evaluation helper for the shipped 8-coefficient OSCAT form. |
 | `F_POWER(A, X, N)` | Power-law helper `A * X^N`. |
 | `F_QUAD(X, A, B, C)` | Quadratic helper `(A * X + B) * X + C`. |
+| `FRMP_B(START, DIR, TD, TR)` | Byte ramp helper with 0..255 saturation and millisecond-based time scaling. |
 | `FRACT(X)` | Fractional part helper. |
 | `HYPOT(X, Y)` | Euclidean hypotenuse. |
 | `INC(X, D, M)` | Wraparound increment helper. |

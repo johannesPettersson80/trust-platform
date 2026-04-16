@@ -177,6 +177,52 @@ END_VAR
 F_QUAD := (A * X + B) * X + C;
 END_FUNCTION
 
+FUNCTION FRMP_B : BYTE
+VAR_INPUT
+    START : BYTE;
+    DIR : BOOL;
+    TD : TIME;
+    TR : TIME;
+END_VAR
+VAR
+    TdMs : DWORD;
+    TrMs : DWORD;
+    DeltaValue : DINT;
+    StartValue : DINT;
+    ResultValue : DINT;
+    MaxDeltaValue : DINT;
+END_VAR
+IF TD < TR THEN
+    TdMs := TIME_TO_DWORD(IN := TD);
+    TrMs := TIME_TO_DWORD(IN := TR);
+    DeltaValue := D_TRUNC(
+        X := UDINT_TO_REAL(IN := DWORD_TO_UDINT(IN := TdMs)) * REAL#256.0
+            / UDINT_TO_REAL(IN := DWORD_TO_UDINT(IN := TrMs))
+    );
+    StartValue := BYTE_TO_DINT(IN := START);
+    IF DIR THEN
+        MaxDeltaValue := DINT#255 - StartValue;
+        IF DeltaValue > MaxDeltaValue THEN
+            DeltaValue := MaxDeltaValue;
+        END_IF;
+        ResultValue := StartValue + DeltaValue;
+    ELSE
+        MaxDeltaValue := StartValue;
+        IF DeltaValue > MaxDeltaValue THEN
+            DeltaValue := MaxDeltaValue;
+        END_IF;
+        ResultValue := StartValue - DeltaValue;
+    END_IF;
+    FRMP_B := DINT_TO_BYTE(IN := ResultValue);
+ELSE
+    IF DIR THEN
+        FRMP_B := BYTE#255;
+    ELSE
+        FRMP_B := BYTE#0;
+    END_IF;
+END_IF;
+END_FUNCTION
+
 FUNCTION FRACT : REAL
 VAR_INPUT
     X : REAL;
