@@ -195,12 +195,7 @@ fn var_input_pointer_deref_write_mutates_callers_storage() {
     storage.set_global(
         "Local",
         Value::Array(Box::new(ArrayValue {
-            elements: vec![
-                Value::Int(0),
-                Value::Int(0),
-                Value::Int(0),
-                Value::Int(0),
-            ],
+            elements: vec![Value::Int(0), Value::Int(0), Value::Int(0), Value::Int(0)],
             dimensions: vec![(0, 3)],
         })),
     );
@@ -264,4 +259,195 @@ fn var_input_pointer_deref_write_mutates_callers_storage() {
         panic!("expected Local array");
     };
     assert_eq!(local.elements[1], Value::Int(123));
+}
+
+#[test]
+fn wildcard_array_var_in_out_writes_through_correctly() {
+    let mut registry = TypeRegistry::new();
+    let wildcard_array = registry.register_array(TypeId::BYTE, vec![(0, i64::MAX)]);
+
+    let mut storage = VariableStorage::new();
+    storage.set_global(
+        "Small",
+        Value::Array(Box::new(ArrayValue {
+            elements: vec![
+                Value::Byte(0),
+                Value::Byte(0),
+                Value::Byte(0),
+                Value::Byte(0),
+            ],
+            dimensions: vec![(0, 3)],
+        })),
+    );
+    storage.set_global(
+        "Large",
+        Value::Array(Box::new(ArrayValue {
+            elements: vec![
+                Value::Byte(0),
+                Value::Byte(0),
+                Value::Byte(0),
+                Value::Byte(0),
+                Value::Byte(0),
+                Value::Byte(0),
+                Value::Byte(0),
+                Value::Byte(0),
+            ],
+            dimensions: vec![(0, 7)],
+        })),
+    );
+
+    let fb = FunctionBlockDef {
+        name: "WriteWild".into(),
+        base: None,
+        params: vec![Param {
+            name: "arr".into(),
+            type_id: wildcard_array,
+            direction: ParamDirection::InOut,
+            address: None,
+            default: None,
+        }],
+        vars: Vec::new(),
+        temps: Vec::new(),
+        using: Vec::new(),
+        methods: Vec::new(),
+        body: vec![Stmt::Assign {
+            target: trust_runtime::eval::expr::LValue::Index {
+                target: Box::new(trust_runtime::eval::expr::LValue::Name("arr".into())),
+                indices: vec![Expr::Literal(Value::Int(1))],
+            },
+            value: Expr::Literal(Value::Byte(9)),
+            location: None,
+        }],
+    };
+
+    let function_blocks: IndexMap<SmolStr, FunctionBlockDef> = IndexMap::new();
+    let functions: IndexMap<SmolStr, trust_runtime::eval::FunctionDef> = IndexMap::new();
+    let classes: IndexMap<SmolStr, trust_runtime::eval::ClassDef> = IndexMap::new();
+    let instance_id = create_fb_instance(
+        &mut storage,
+        &registry,
+        &trust_runtime::value::DateTimeProfile::default(),
+        &classes,
+        &function_blocks,
+        &functions,
+        &StandardLibrary::new(),
+        &fb,
+    )
+    .unwrap();
+    let mut ctx = common::make_context(&mut storage, &registry);
+
+    call_function_block(
+        &mut ctx,
+        &fb,
+        instance_id,
+        &[trust_runtime::eval::CallArg {
+            name: Some("arr".into()),
+            value: trust_runtime::eval::ArgValue::Target(trust_runtime::eval::expr::LValue::Name(
+                "Small".into(),
+            )),
+        }],
+    )
+    .unwrap();
+    call_function_block(
+        &mut ctx,
+        &fb,
+        instance_id,
+        &[trust_runtime::eval::CallArg {
+            name: Some("arr".into()),
+            value: trust_runtime::eval::ArgValue::Target(trust_runtime::eval::expr::LValue::Name(
+                "Large".into(),
+            )),
+        }],
+    )
+    .unwrap();
+
+    let Some(Value::Array(small)) = ctx.storage.get_global("Small") else {
+        panic!("expected Small array");
+    };
+    let Some(Value::Array(large)) = ctx.storage.get_global("Large") else {
+        panic!("expected Large array");
+    };
+    assert_eq!(small.elements[1], Value::Byte(9));
+    assert_eq!(large.elements[1], Value::Byte(9));
+}
+
+#[test]
+fn pointer_to_wildcard_array_writes_through_correctly() {
+    let mut registry = TypeRegistry::new();
+    let wildcard_array = registry.register_array(TypeId::BYTE, vec![(0, i64::MAX)]);
+    let pointer_type = registry.register_pointer(wildcard_array);
+
+    let mut storage = VariableStorage::new();
+    storage.set_global(
+        "Local",
+        Value::Array(Box::new(ArrayValue {
+            elements: vec![
+                Value::Byte(0),
+                Value::Byte(0),
+                Value::Byte(0),
+                Value::Byte(0),
+            ],
+            dimensions: vec![(0, 3)],
+        })),
+    );
+
+    let fb = FunctionBlockDef {
+        name: "WritePointerWild".into(),
+        base: None,
+        params: vec![Param {
+            name: "PT".into(),
+            type_id: pointer_type,
+            direction: ParamDirection::In,
+            address: None,
+            default: None,
+        }],
+        vars: Vec::new(),
+        temps: Vec::new(),
+        using: Vec::new(),
+        methods: Vec::new(),
+        body: vec![Stmt::Assign {
+            target: trust_runtime::eval::expr::LValue::Index {
+                target: Box::new(trust_runtime::eval::expr::LValue::Deref(Box::new(
+                    Expr::Name("PT".into()),
+                ))),
+                indices: vec![Expr::Literal(Value::Int(2))],
+            },
+            value: Expr::Literal(Value::Byte(11)),
+            location: None,
+        }],
+    };
+
+    let function_blocks: IndexMap<SmolStr, FunctionBlockDef> = IndexMap::new();
+    let functions: IndexMap<SmolStr, trust_runtime::eval::FunctionDef> = IndexMap::new();
+    let classes: IndexMap<SmolStr, trust_runtime::eval::ClassDef> = IndexMap::new();
+    let instance_id = create_fb_instance(
+        &mut storage,
+        &registry,
+        &trust_runtime::value::DateTimeProfile::default(),
+        &classes,
+        &function_blocks,
+        &functions,
+        &StandardLibrary::new(),
+        &fb,
+    )
+    .unwrap();
+    let mut ctx = common::make_context(&mut storage, &registry);
+
+    call_function_block(
+        &mut ctx,
+        &fb,
+        instance_id,
+        &[trust_runtime::eval::CallArg {
+            name: Some("PT".into()),
+            value: trust_runtime::eval::ArgValue::Expr(Expr::Ref(
+                trust_runtime::eval::expr::LValue::Name("Local".into()),
+            )),
+        }],
+    )
+    .unwrap();
+
+    let Some(Value::Array(local)) = ctx.storage.get_global("Local") else {
+        panic!("expected Local array");
+    };
+    assert_eq!(local.elements[2], Value::Byte(11));
 }

@@ -107,3 +107,51 @@ END_VAR"#
         )
     );
 }
+
+#[test]
+fn parse_array_star_in_var_input() {
+    let parsed = parse(
+        r#"FUNCTION_BLOCK FB
+VAR_INPUT
+    arr : ARRAY[*] OF BYTE;
+END_VAR
+END_FUNCTION_BLOCK"#,
+    );
+    assert!(
+        parsed.ok(),
+        "expected ARRAY[*] in VAR_INPUT to parse, got: {:?}",
+        parsed.errors()
+    );
+}
+
+#[test]
+fn parse_array_star_in_var_in_out() {
+    let parsed = parse(
+        r#"FUNCTION_BLOCK FB
+VAR_IN_OUT
+    arr : ARRAY[*] OF BYTE;
+END_VAR
+END_FUNCTION_BLOCK"#,
+    );
+    assert!(
+        parsed.ok(),
+        "expected ARRAY[*] in VAR_IN_OUT to parse, got: {:?}",
+        parsed.errors()
+    );
+}
+
+#[test]
+fn parse_array_star_in_pointer_to_array() {
+    let parsed = parse(
+        r#"FUNCTION_BLOCK FB
+VAR_INPUT
+    pt : POINTER TO ARRAY[*] OF BYTE;
+END_VAR
+END_FUNCTION_BLOCK"#,
+    );
+    assert!(
+        parsed.ok(),
+        "expected POINTER TO ARRAY[*] to parse, got: {:?}",
+        parsed.errors()
+    );
+}

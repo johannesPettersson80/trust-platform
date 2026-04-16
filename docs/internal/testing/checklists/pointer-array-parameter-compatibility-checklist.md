@@ -39,19 +39,19 @@ Locked decisions:
 
 ## Phase 2 Tests: `ARRAY[*]` Wildcard
 
-- [ ] `P2.1` Add parser coverage for `ARRAY[*]` in parameter and pointer forms
-- [ ] `P2.2` Pin rejection of `ARRAY[*]` outside parameter / `VAR_IN_OUT`
+- [x] `P2.1` Add parser coverage for `ARRAY[*]` in parameter and pointer forms
+- [x] `P2.2` Pin rejection of `ARRAY[*]` outside parameter / `VAR_IN_OUT`
   positions
-- [ ] `P2.3` Pin rejection of multi-dimensional wildcard forms in this first cut
-- [ ] `P2.4` Add HIR wildcard compatibility regression module
-- [ ] `P2.5` Pin wildcard acceptance for `VAR_IN_OUT ARRAY[*]`
-- [ ] `P2.6` Pin element-type mismatch rejection
-- [ ] `P2.7` Pin concrete-bound mismatch rejection
-- [ ] `P2.8` Pin pointer-to-wildcard acceptance for `ADR(array)`
-- [ ] `P2.9` Pin pointer-to-concrete mismatch rejection
-- [ ] `P2.10` Pin pointer-target-specific mismatch diagnostic
-- [ ] `P2.11` Pin rejection of wildcard array return types
-- [ ] `P2.12` Add eval/runtime wildcard write-through regressions
+- [x] `P2.3` Pin rejection of multi-dimensional wildcard forms in this first cut
+- [x] `P2.4` Add HIR wildcard compatibility regression module
+- [x] `P2.5` Pin wildcard acceptance for `VAR_IN_OUT ARRAY[*]`
+- [x] `P2.6` Pin element-type mismatch rejection
+- [x] `P2.7` Pin concrete-bound mismatch rejection
+- [x] `P2.8` Pin pointer-to-wildcard acceptance for `ADR(array)`
+- [x] `P2.9` Pin pointer-to-concrete mismatch rejection
+- [x] `P2.10` Pin pointer-target-specific mismatch diagnostic
+- [x] `P2.11` Pin rejection of wildcard array return types
+- [x] `P2.12` Add eval/runtime wildcard write-through regressions
 - [ ] `P2.13` Commit failing tests:
   `test: pin ARRAY[*] wildcard semantics (failing)`
 

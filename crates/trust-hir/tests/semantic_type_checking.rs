@@ -1,5 +1,7 @@
 mod common;
 
+#[path = "semantic_type_checking/array_wildcard_compatibility.rs"]
+mod array_wildcard_compatibility;
 #[path = "semantic_type_checking/assignments_and_var_access.rs"]
 mod assignments_and_var_access;
 #[path = "semantic_type_checking/basics_and_warnings.rs"]
