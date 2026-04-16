@@ -1130,6 +1130,15 @@ fn dispatch_native_stdlib_call(
     args: &[VmNativeArg],
 ) -> Result<Value, VmTrap> {
     let key = SmolStr::new(target_name.to_ascii_uppercase());
+    if time::is_runtime_clock_name(key.as_str()) {
+        if !args.is_empty() {
+            return Err(VmTrap::Runtime(RuntimeError::InvalidArgumentCount {
+                expected: 0,
+                got: args.len(),
+            }));
+        }
+        return Ok(Value::Time(runtime.current_time()));
+    }
     if time::is_split_name(key.as_str()) {
         return dispatch_native_split_call(runtime, frame, key.as_str(), args);
     }
@@ -2386,7 +2395,7 @@ fn read_by_ref_path<'a>(value: &'a Value, path: &[RefSegment]) -> Option<&'a Val
 
 fn write_by_ref_path(target: &mut Value, path: &[RefSegment], value: Value) -> bool {
     if path.is_empty() {
-        *target = value;
+        *target = crate::value::normalize_assignment_for_target(target, value);
         return true;
     }
     match &path[0] {

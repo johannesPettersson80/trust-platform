@@ -218,6 +218,16 @@ pub(super) fn dynamic_ref_index(
             reference.path.push(RefSegment::Index(vec![index]));
             Ok(reference)
         }
+        Value::String(text) => {
+            ensure_string_index_in_bounds(text.as_str(), index)?;
+            reference.path.push(RefSegment::Index(vec![index]));
+            Ok(reference)
+        }
+        Value::WString(text) => {
+            ensure_string_index_in_bounds(text.as_str(), index)?;
+            reference.path.push(RefSegment::Index(vec![index]));
+            Ok(reference)
+        }
         _ => Err(VmTrap::Runtime(RuntimeError::TypeMismatch)),
     }
 }
@@ -254,13 +264,17 @@ pub(super) fn dynamic_load_ref(
         MemoryLocation::Local(FrameId(VM_LOCAL_SENTINEL_FRAME_ID))
     ) {
         let frame = frames.current().ok_or(VmTrap::CallStackUnderflow)?;
-        return read_vm_local_ref(frame, reference.offset, &reference.path);
+        let root = frame
+            .locals
+            .get(reference.offset)
+            .ok_or(VmTrap::NullReference)?;
+        return materialize_value_path(root, &reference.path).ok_or(VmTrap::NullReference);
     }
-    runtime
+    let root = runtime
         .storage
-        .read_by_ref_ref(reference)
-        .map(|value| materialize_borrowed_value(value).0)
-        .ok_or(VmTrap::NullReference)
+        .read_direct_slot_by_location(reference.location, reference.offset)
+        .ok_or(VmTrap::NullReference)?;
+    materialize_value_path(root, &reference.path).ok_or(VmTrap::NullReference)
 }
 
 pub(super) fn dynamic_store_ref(
@@ -276,7 +290,21 @@ pub(super) fn dynamic_store_ref(
         let frame = frames.current_mut().ok_or(VmTrap::CallStackUnderflow)?;
         return write_vm_local_ref(frame, reference.offset, &reference.path, value);
     }
-    if runtime.storage.write_by_ref_ref(reference, value) {
+    let Some(mut root) = runtime
+        .storage()
+        .read_direct_slot_by_location(reference.location, reference.offset)
+        .cloned()
+    else {
+        return Err(VmTrap::NullReference);
+    };
+    if !write_value_path(&mut root, &reference.path, value) {
+        return Err(VmTrap::NullReference);
+    }
+    if runtime.storage_mut().write_direct_slot_by_location(
+        reference.location,
+        reference.offset,
+        root,
+    ) {
         Ok(())
     } else {
         Err(VmTrap::NullReference)
@@ -337,7 +365,7 @@ fn read_value_path<'a>(value: &'a Value, path: &[RefSegment]) -> Option<&'a Valu
 
 fn write_value_path(target: &mut Value, path: &[RefSegment], value: Value) -> bool {
     if path.is_empty() {
-        *target = value;
+        *target = crate::value::normalize_assignment_for_target(target, value);
         return true;
     }
 
@@ -362,9 +390,125 @@ fn write_value_path(target: &mut Value, path: &[RefSegment], value: Value) -> bo
                     .map(|element| write_value_path(element, &path[1..], value))
                     .unwrap_or(false)
             }
+            Value::String(text) => write_string_path(text, indices, value, false)
+                .map(|updated| {
+                    *target = Value::String(updated.into());
+                    true
+                })
+                .unwrap_or(false),
+            Value::WString(text) => write_string_path(text, indices, value, true)
+                .map(|updated| {
+                    *target = Value::WString(updated);
+                    true
+                })
+                .unwrap_or(false),
             _ => false,
         },
     }
+}
+
+fn materialize_value_path(value: &Value, path: &[RefSegment]) -> Option<Value> {
+    if path.is_empty() {
+        return Some(materialize_borrowed_value(value).0);
+    }
+    match &path[0] {
+        RefSegment::Field(name) => match value {
+            Value::Struct(struct_value) => struct_value
+                .fields
+                .get(name)
+                .and_then(|field| materialize_value_path(field, &path[1..])),
+            _ => None,
+        },
+        RefSegment::Index(indices) => match value {
+            Value::Array(array) => {
+                let offset = array_offset_i64(&array.dimensions, indices)?;
+                array
+                    .elements
+                    .get(offset)
+                    .and_then(|element| materialize_value_path(element, &path[1..]))
+            }
+            Value::String(text) => {
+                let index = string_index_position(text.as_str(), indices)?;
+                let ch = text.chars().nth(index)?;
+                if !path[1..].is_empty() {
+                    return None;
+                }
+                Some(Value::Char(u8::try_from(ch as u32).ok()?))
+            }
+            Value::WString(text) => {
+                let index = string_index_position(text.as_str(), indices)?;
+                let ch = text.chars().nth(index)?;
+                if !path[1..].is_empty() {
+                    return None;
+                }
+                Some(Value::WChar(u16::try_from(ch as u32).ok()?))
+            }
+            _ => None,
+        },
+    }
+}
+
+fn string_index_position(text: &str, indices: &[i64]) -> Option<usize> {
+    if indices.len() != 1 {
+        return None;
+    }
+    let index = indices[0];
+    if index < 1 {
+        return None;
+    }
+    let position = usize::try_from(index - 1).ok()?;
+    if position >= text.chars().count() {
+        return None;
+    }
+    Some(position)
+}
+
+fn ensure_string_index_in_bounds(text: &str, index: i64) -> Result<(), VmTrap> {
+    let upper =
+        i64::try_from(text.chars().count()).map_err(|_| VmTrap::Runtime(RuntimeError::Overflow))?;
+    if index < 1 || index > upper {
+        return Err(VmTrap::Runtime(RuntimeError::IndexOutOfBounds {
+            index,
+            lower: 1,
+            upper,
+        }));
+    }
+    Ok(())
+}
+
+fn write_string_path(text: &str, indices: &[i64], value: Value, wide: bool) -> Option<String> {
+    let position = string_index_position(text, indices)?;
+    let mut chars: Vec<char> = text.chars().collect();
+    chars[position] = value_to_char(value, wide)?;
+    Some(chars.into_iter().collect())
+}
+
+fn value_to_char(value: Value, wide: bool) -> Option<char> {
+    let code = match value {
+        Value::Char(code) => u32::from(code),
+        Value::WChar(code) => u32::from(code),
+        Value::String(text) => {
+            let mut chars = text.chars();
+            let ch = chars.next()?;
+            if chars.next().is_some() {
+                return None;
+            }
+            return Some(ch);
+        }
+        Value::WString(text) => {
+            let mut chars = text.chars();
+            let ch = chars.next()?;
+            if chars.next().is_some() {
+                return None;
+            }
+            return Some(ch);
+        }
+        _ => return None,
+    };
+    if !wide && code > u32::from(u8::MAX) {
+        return None;
+    }
+    std::char::from_u32(code)
 }
 
 fn array_offset_i64(dimensions: &[(i64, i64)], indices: &[i64]) -> Option<usize> {

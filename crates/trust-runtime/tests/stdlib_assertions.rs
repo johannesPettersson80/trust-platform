@@ -20,6 +20,19 @@ fn assertion_functions_pass_when_conditions_hold() {
         Value::Null
     );
     assert_eq!(
+        lib.call("ASSERT_EQUAL", &[Value::Char(b'B'), Value::Char(b'B')])
+            .unwrap(),
+        Value::Null
+    );
+    assert_eq!(
+        lib.call(
+            "ASSERT_EQUAL",
+            &[Value::WChar('Y' as u16), Value::WChar('Y' as u16)]
+        )
+        .unwrap(),
+        Value::Null
+    );
+    assert_eq!(
         lib.call("ASSERT_NOT_EQUAL", &[Value::Int(2), Value::Int(3)])
             .unwrap(),
         Value::Null

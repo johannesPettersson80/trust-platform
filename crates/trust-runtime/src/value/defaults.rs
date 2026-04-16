@@ -107,7 +107,7 @@ fn default_value_for_type(
             })))
         }
         Type::Alias { target, .. } => default_value_for_type_id(*target, registry, profile),
-        Type::Reference { .. } => Ok(Value::Reference(None)),
+        Type::Reference { .. } | Type::Pointer { .. } => Ok(Value::Reference(None)),
         Type::Subrange { base, lower, .. } => int_value_of_base(*base, *lower),
         Type::Null => Ok(Value::Null),
         Type::Union { name, variants } => {
@@ -123,7 +123,6 @@ fn default_value_for_type(
         }
         Type::Unknown
         | Type::Void
-        | Type::Pointer { .. }
         | Type::FunctionBlock { .. }
         | Type::Class { .. }
         | Type::Interface { .. }

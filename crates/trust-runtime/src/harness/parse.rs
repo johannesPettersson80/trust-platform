@@ -57,6 +57,7 @@ pub fn parse_debug_expression(
         using: using.to_vec(),
         file_id: 0,
         statement_locations: &mut statement_locations,
+        compile_time_consts: Default::default(),
     };
     super::lower_expr(expr, &mut ctx)
 }
@@ -109,6 +110,7 @@ pub fn parse_debug_lvalue(
         using: using.to_vec(),
         file_id: 0,
         statement_locations: &mut statement_locations,
+        compile_time_consts: Default::default(),
     };
     super::lower::lower_lvalue(target, &mut ctx)
 }

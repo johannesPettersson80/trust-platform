@@ -11,6 +11,8 @@ use crate::eval::expr::{eval_expr, read_lvalue, write_lvalue, Expr, LValue};
 #[cfg(test)]
 use crate::eval::EvalContext;
 #[cfg(test)]
+use crate::program_model::BinaryOp;
+#[cfg(test)]
 use crate::value::Value;
 #[cfg(test)]
 use smol_str::SmolStr;
@@ -42,7 +44,7 @@ pub(crate) fn exec_stmt(
             let value = eval_expr(ctx, value)?;
             write_lvalue(ctx, target, value)?;
             if let Some(return_name) = &ctx.return_name {
-                if target.name() == return_name {
+                if matches!(target, LValue::Name(name) if name == return_name) {
                     let value = read_lvalue(ctx, target)?;
                     if let Some(frame) = ctx.storage.current_frame_mut() {
                         frame.return_value = Some(value);
@@ -93,18 +95,26 @@ pub(crate) fn exec_stmt(
             ..
         } => {
             let selector_value = eval_expr(ctx, selector)?;
-            let selector_int = match selector_value {
-                Value::SInt(v) => v as i64,
-                Value::Int(v) => v as i64,
-                Value::DInt(v) => v as i64,
-                Value::LInt(v) => v,
-                _ => return Err(RuntimeError::CaseSelectorType),
-            };
             for (labels, block) in branches {
                 for label in labels {
                     let matches = match label {
-                        CaseLabel::Single(value) => *value == selector_int,
+                        CaseLabel::Single(value) => match crate::program_model::apply_binary(
+                            BinaryOp::Eq,
+                            selector_value.clone(),
+                            value.clone(),
+                            &ctx.profile,
+                        )? {
+                            Value::Bool(matches) => matches,
+                            _ => return Err(RuntimeError::CaseSelectorType),
+                        },
                         CaseLabel::Range(lower, upper) => {
+                            let selector_int = match &selector_value {
+                                Value::SInt(v) => *v as i64,
+                                Value::Int(v) => *v as i64,
+                                Value::DInt(v) => *v as i64,
+                                Value::LInt(v) => *v,
+                                _ => return Err(RuntimeError::CaseSelectorType),
+                            };
                             selector_int >= *lower && selector_int <= *upper
                         }
                     };

@@ -1,3 +1,12 @@
+type InstanceInitContext<'a> = (
+    &'a mut VariableStorage,
+    &'a TypeRegistry,
+    &'a IndexMap<SmolStr, ClassDef>,
+    &'a IndexMap<SmolStr, FunctionBlockDef>,
+    &'a IndexMap<SmolStr, FunctionDef>,
+    &'a StandardLibrary,
+);
+
 impl Runtime {
     /// Mutable access to variable storage (temporary API).
     pub fn storage_mut(&mut self) -> &mut VariableStorage {
@@ -59,6 +68,17 @@ impl Runtime {
     #[must_use]
     pub fn stdlib(&self) -> &StandardLibrary {
         &self.stdlib
+    }
+
+    pub(crate) fn instance_init_context(&mut self) -> InstanceInitContext<'_> {
+        (
+            &mut self.storage,
+            &self.registry,
+            &self.classes,
+            &self.function_blocks,
+            &self.functions,
+            &self.stdlib,
+        )
     }
 
     /// Register a function definition by name.

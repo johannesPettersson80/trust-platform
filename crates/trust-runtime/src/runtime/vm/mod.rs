@@ -20,6 +20,7 @@ mod dispatch_refs;
 mod dispatch_sizeof;
 mod errors;
 mod frames;
+mod local_init;
 mod register_ir;
 mod stack;
 

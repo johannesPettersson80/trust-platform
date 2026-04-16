@@ -18,7 +18,7 @@ pub enum StmtResult {
 /// CASE label.
 #[derive(Debug, Clone)]
 pub enum CaseLabel {
-    Single(i64),
+    Single(Value),
     Range(i64, i64),
 }
 

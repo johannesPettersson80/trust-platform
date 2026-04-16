@@ -186,8 +186,7 @@ pub(crate) fn eval_storage_expr_with_stdlib(
             )?;
             match value {
                 Value::Reference(Some(reference)) => storage
-                    .read_by_ref(reference)
-                    .cloned()
+                    .materialize_by_ref(reference)
                     .ok_or(RuntimeError::NullReference),
                 Value::Reference(None) => Err(RuntimeError::NullReference),
                 _ => Err(RuntimeError::TypeMismatch),
@@ -583,6 +582,8 @@ fn read_indices(target: Value, indices: &[Value]) -> Result<Value, RuntimeError>
                 .cloned()
                 .ok_or(RuntimeError::TypeMismatch)
         }
+        Value::String(text) => read_string_index(text.as_str(), indices, false),
+        Value::WString(text) => read_string_index(text.as_str(), indices, true),
         _ => Err(RuntimeError::TypeMismatch),
     }
 }
@@ -624,6 +625,35 @@ fn index_to_i64(value: Value) -> Result<i64, RuntimeError> {
         Value::DWord(v) => Ok(v as i64),
         Value::LWord(v) => Ok(v as i64),
         _ => Err(RuntimeError::TypeMismatch),
+    }
+}
+
+fn read_string_index(text: &str, indices: &[Value], wide: bool) -> Result<Value, RuntimeError> {
+    if indices.len() != 1 {
+        return Err(RuntimeError::TypeMismatch);
+    }
+    let index = index_to_i64(indices[0].clone())?;
+    if index < 1 {
+        return Err(RuntimeError::IndexOutOfBounds {
+            index,
+            lower: 1,
+            upper: i64::MAX,
+        });
+    }
+    let position = usize::try_from(index - 1).map_err(|_| RuntimeError::Overflow)?;
+    let Some(ch) = text.chars().nth(position) else {
+        return Err(RuntimeError::IndexOutOfBounds {
+            index,
+            lower: 1,
+            upper: i64::try_from(text.chars().count()).map_err(|_| RuntimeError::Overflow)?,
+        });
+    };
+    if wide {
+        let code = u16::try_from(ch as u32).map_err(|_| RuntimeError::Overflow)?;
+        Ok(Value::WChar(code))
+    } else {
+        let code = u8::try_from(ch as u32).map_err(|_| RuntimeError::Overflow)?;
+        Ok(Value::Char(code))
     }
 }
 

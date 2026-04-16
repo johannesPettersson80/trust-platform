@@ -256,7 +256,12 @@ pub(crate) fn call_function_block<'a>(
         should_execute,
         param_values,
         out_targets,
-    } = match prepare_bindings(ctx, &fb.params, args, BindingMode::FunctionBlock) {
+    } = match prepare_bindings(
+        ctx,
+        &fb.params,
+        args,
+        BindingMode::FunctionBlock { instance_id },
+    ) {
         Ok(value) => value,
         Err(err) => {
             ctx.current_instance = saved_instance;

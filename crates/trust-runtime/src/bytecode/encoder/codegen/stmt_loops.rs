@@ -22,15 +22,24 @@ impl<'a> BytecodeEncoder<'a> {
             return Ok(false);
         }
         let jump_false = self.emit_jump_placeholder(code, 0x04);
+        ctx.push_loop();
         if let Err(err) = self.emit_block(ctx, pou_id, body, code, debug_entries) {
+            let _ = ctx.pop_loop();
             code.truncate(code_start);
             debug_entries.truncate(debug_start);
             return Err(err);
+        }
+        let loop_patches = ctx.pop_loop().unwrap_or_default();
+        for jump in loop_patches.continue_jumps {
+            self.patch_jump(code, jump, loop_start)?;
         }
         let jump_back = self.emit_jump_placeholder(code, 0x02);
         self.patch_jump(code, jump_back, loop_start)?;
         let loop_end = code.len();
         self.patch_jump(code, jump_false, loop_end)?;
+        for jump in loop_patches.exit_jumps {
+            self.patch_jump(code, jump, loop_end)?;
+        }
         Ok(true)
     }
 
@@ -51,10 +60,17 @@ impl<'a> BytecodeEncoder<'a> {
             return Ok(false);
         }
         let loop_start = code.len();
+        ctx.push_loop();
         if let Err(err) = self.emit_block(ctx, pou_id, body, code, debug_entries) {
+            let _ = ctx.pop_loop();
             code.truncate(code_start);
             debug_entries.truncate(debug_start);
             return Err(err);
+        }
+        let loop_patches = ctx.pop_loop().unwrap_or_default();
+        let continue_target = code.len();
+        for jump in loop_patches.continue_jumps {
+            self.patch_jump(code, jump, continue_target)?;
         }
         if !self.emit_expr(ctx, until, code)? {
             code.truncate(code_start);
@@ -63,6 +79,10 @@ impl<'a> BytecodeEncoder<'a> {
         }
         let jump_false = self.emit_jump_placeholder(code, 0x04);
         self.patch_jump(code, jump_false, loop_start)?;
+        let loop_end = code.len();
+        for jump in loop_patches.exit_jumps {
+            self.patch_jump(code, jump, loop_end)?;
+        }
         Ok(true)
     }
 
@@ -165,10 +185,17 @@ impl<'a> BytecodeEncoder<'a> {
 
         let body_start = code.len();
         self.patch_jump(code, jump_to_body, body_start)?;
+        ctx.push_loop();
         if let Err(err) = self.emit_block(ctx, pou_id, body, code, debug_entries) {
+            let _ = ctx.pop_loop();
             code.truncate(code_start);
             debug_entries.truncate(debug_start);
             return Err(err);
+        }
+        let loop_patches = ctx.pop_loop().unwrap_or_default();
+        let continue_target = code.len();
+        for jump in loop_patches.continue_jumps {
+            self.patch_jump(code, jump, continue_target)?;
         }
         self.emit_load_access(&control_access, code)?;
         self.emit_load_ref(&step_ref, code)?;
@@ -180,6 +207,9 @@ impl<'a> BytecodeEncoder<'a> {
         let loop_end = code.len();
         self.patch_jump(code, jump_false_end_neg, loop_end)?;
         self.patch_jump(code, jump_false_end_pos, loop_end)?;
+        for jump in loop_patches.exit_jumps {
+            self.patch_jump(code, jump, loop_end)?;
+        }
         Ok(true)
     }
 }

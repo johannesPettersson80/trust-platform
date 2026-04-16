@@ -5,13 +5,24 @@ use crate::eval::EvalContext;
 use crate::value::{RefSegment, Value, ValueRef};
 
 use super::access::{
-    array_offset, eval_indices, index_to_i64, read_field, read_indices, read_name,
-    resolve_reference, write_field, write_indices,
+    array_offset, eval_indices, index_to_i64, read_name, resolve_reference, write_field,
+    write_indices,
 };
 use super::ast::LValue;
 
-fn qualified_field_name(name: &SmolStr, field: &SmolStr) -> SmolStr {
-    SmolStr::new(format!("{name}.{field}"))
+fn expr_from_lvalue(target: &LValue) -> crate::program_model::Expr {
+    match target {
+        LValue::Name(name) => crate::program_model::Expr::Name(name.clone()),
+        LValue::Index { target, indices } => crate::program_model::Expr::Index {
+            target: Box::new(expr_from_lvalue(target)),
+            indices: indices.clone(),
+        },
+        LValue::Field { target, field } => crate::program_model::Expr::Field {
+            target: Box::new(expr_from_lvalue(target)),
+            field: field.clone(),
+        },
+        LValue::Deref(expr) => crate::program_model::Expr::Deref(expr.clone()),
+    }
 }
 
 pub(super) fn resolve_reference_for_lvalue(
@@ -21,10 +32,9 @@ pub(super) fn resolve_reference_for_lvalue(
     match target {
         LValue::Name(name) => resolve_reference(ctx, name)
             .ok_or_else(|| RuntimeError::UndefinedVariable(name.clone())),
-        LValue::Index { name, indices } => {
-            let base = resolve_reference(ctx, name)
-                .ok_or_else(|| RuntimeError::UndefinedVariable(name.clone()))?;
-            let array_value = read_name(ctx, name)?;
+        LValue::Index { target, indices } => {
+            let base = resolve_reference_for_lvalue(ctx, target)?;
+            let array_value = read_lvalue(ctx, target)?;
             let Value::Array(array) = &array_value else {
                 return Err(RuntimeError::TypeMismatch);
             };
@@ -39,12 +49,16 @@ pub(super) fn resolve_reference_for_lvalue(
             value_ref.path.push(RefSegment::Index(index_path));
             Ok(value_ref)
         }
-        LValue::Field { name, field } => {
-            let qualified = qualified_field_name(name, field);
-            if let Some(reference) = resolve_reference(ctx, &qualified) {
-                return Ok(reference);
+        LValue::Field { target, field } => {
+            if let Some(qualified) = target
+                .qualified_name()
+                .map(|prefix| SmolStr::new(format!("{prefix}.{field}")))
+            {
+                if let Some(reference) = resolve_reference(ctx, &qualified) {
+                    return Ok(reference);
+                }
             }
-            let base_value = read_name(ctx, name)?;
+            let base_value = read_lvalue(ctx, target)?;
             match base_value {
                 Value::Instance(id) => ctx
                     .storage
@@ -55,8 +69,7 @@ pub(super) fn resolve_reference_for_lvalue(
                     if !fields.contains_key(field) {
                         return Err(RuntimeError::UndefinedField(field.clone()));
                     }
-                    let mut value_ref = resolve_reference(ctx, name)
-                        .ok_or_else(|| RuntimeError::UndefinedVariable(name.clone()))?;
+                    let mut value_ref = resolve_reference_for_lvalue(ctx, target)?;
                     value_ref.path.push(RefSegment::Field(field.clone()));
                     Ok(value_ref)
                 }
@@ -78,31 +91,7 @@ pub(super) fn resolve_reference_for_lvalue(
 pub fn read_lvalue(ctx: &mut EvalContext<'_>, target: &LValue) -> Result<Value, RuntimeError> {
     match target {
         LValue::Name(name) => read_name(ctx, name),
-        LValue::Index { name, indices } => {
-            let array_value = read_name(ctx, name)?;
-            let index_values = eval_indices(ctx, indices)?;
-            read_indices(array_value, &index_values)
-        }
-        LValue::Field { name, field } => {
-            let qualified = qualified_field_name(name, field);
-            if let Ok(value) = read_name(ctx, &qualified) {
-                return Ok(value);
-            }
-            let struct_value = read_name(ctx, name)?;
-            read_field(ctx, struct_value, field)
-        }
-        LValue::Deref(expr) => {
-            let value = super::eval::eval_expr(ctx, expr)?;
-            match value {
-                Value::Reference(Some(reference)) => ctx
-                    .storage
-                    .read_by_ref(reference)
-                    .cloned()
-                    .ok_or(RuntimeError::NullReference),
-                Value::Reference(None) => Err(RuntimeError::NullReference),
-                _ => Err(RuntimeError::TypeMismatch),
-            }
-        }
+        _ => super::eval::eval_expr(ctx, &expr_from_lvalue(target)),
     }
 }
 
@@ -114,32 +103,16 @@ pub fn write_lvalue(
 ) -> Result<(), RuntimeError> {
     match target {
         LValue::Name(name) => write_name(ctx, name, value),
-        LValue::Index { name, indices } => {
-            let array_value = read_name(ctx, name)?;
+        LValue::Index { target, indices } => {
+            let array_value = read_lvalue(ctx, target)?;
             let index_values = eval_indices(ctx, indices)?;
             let updated = write_indices(array_value, &index_values, value)?;
-            write_name(ctx, name, updated)
+            write_lvalue(ctx, target, updated)
         }
-        LValue::Field { name, field } => {
-            let qualified = qualified_field_name(name, field);
-            if resolve_reference(ctx, &qualified).is_some() {
-                return write_name(ctx, &qualified, value);
-            }
-            let struct_value = read_name(ctx, name)?;
-            if let Value::Instance(id) = struct_value {
-                let Some(reference) = ctx.storage.ref_for_instance_recursive(id, field.as_ref())
-                else {
-                    return Err(RuntimeError::UndefinedField(field.clone()));
-                };
-                if ctx.storage.write_by_ref(reference, value) {
-                    Ok(())
-                } else {
-                    Err(RuntimeError::NullReference)
-                }
-            } else {
-                let updated = write_field(ctx, struct_value, field, value)?;
-                write_name(ctx, name, updated)
-            }
+        LValue::Field { target, field } => {
+            let base_value = read_lvalue(ctx, target)?;
+            let updated = write_field(ctx, base_value, field, value)?;
+            write_lvalue(ctx, target, updated)
         }
         LValue::Deref(expr) => {
             let reference_value = super::eval::eval_expr(ctx, expr)?;

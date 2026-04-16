@@ -1,4 +1,5 @@
 use trust_runtime::harness::TestHarness;
+use trust_runtime::value::Value;
 
 #[test]
 fn assign_attempt() {
@@ -23,4 +24,8 @@ fn assign_attempt() {
     let mut harness = TestHarness::from_source(source).unwrap();
     harness.cycle();
     harness.assert_eq("out", 6i16);
+    assert!(matches!(
+        harness.get_output("r2"),
+        Some(Value::Reference(None))
+    ));
 }

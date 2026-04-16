@@ -2,6 +2,7 @@ fn lower_program_node(
     program_node: &SyntaxNode,
     registry: &mut trust_hir::types::TypeRegistry,
     profile: DateTimeProfile,
+    compile_time_consts: &CompileTimeConsts,
     file_id: u32,
     statement_locations: &mut Vec<crate::debug::SourceLocation>,
 ) -> Result<LoweredProgram, CompileError> {
@@ -13,6 +14,7 @@ fn lower_program_node(
         using,
         file_id,
         statement_locations,
+        compile_time_consts: compile_time_consts.clone(),
     };
     let vars = lower_program_var_blocks(program_node, &mut ctx)?;
     let body = lower_stmt_list(program_node, &mut ctx)?;
@@ -199,6 +201,7 @@ fn lower_method_node(
         using,
         file_id: ctx.file_id,
         statement_locations: ctx.statement_locations,
+        compile_time_consts: ctx.compile_time_consts.clone(),
     };
 
     let return_type = node

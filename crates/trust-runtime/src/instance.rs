@@ -72,7 +72,7 @@ pub fn create_fb_instance(
         }
     }
 
-    init_param_defaults(storage, registry, profile, instance_id, &fb.params);
+    init_param_defaults(storage, registry, profile, instance_id, &fb.params)?;
     init_var_defaults(
         storage,
         registry,
@@ -196,12 +196,30 @@ fn init_param_defaults(
     profile: &DateTimeProfile,
     instance_id: InstanceId,
     params: &[Param],
-) {
+) -> Result<(), RuntimeError> {
     for param in params {
         let value =
             default_value_for_type_id(param.type_id, registry, profile).unwrap_or(Value::Null);
         storage.set_instance_var(instance_id, param.name.clone(), value);
     }
+
+    for param in params {
+        let Some(expr) = &param.default else {
+            continue;
+        };
+        let value = crate::helper_eval::eval_storage_expr(
+            storage,
+            registry,
+            profile,
+            Some(instance_id),
+            expr,
+        )?;
+        let value = crate::harness::coerce_value_to_type(value, param.type_id)
+            .map_err(|_| RuntimeError::TypeMismatch)?;
+        storage.set_instance_var(instance_id, param.name.clone(), value);
+    }
+
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -401,5 +419,60 @@ fn function_block_type_name(
         Type::FunctionBlock { name } => Some(name.clone()),
         Type::Alias { target, .. } => function_block_type_name(*target, registry),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::create_fb_instance;
+    use crate::program_model::{expr::Expr, FunctionBlockDef, Param};
+    use crate::stdlib::StandardLibrary;
+    use crate::value::{DateTimeProfile, Value};
+    use indexmap::IndexMap;
+    use smol_str::SmolStr;
+    use trust_hir::symbols::ParamDirection;
+    use trust_hir::types::TypeRegistry;
+    use trust_hir::TypeId;
+
+    #[test]
+    fn create_fb_instance_honors_declared_var_input_initializer() {
+        let registry = TypeRegistry::new();
+        let mut storage = crate::memory::VariableStorage::new();
+        let fb = FunctionBlockDef {
+            name: "Adjust".into(),
+            base: None,
+            params: vec![Param {
+                name: "inc".into(),
+                type_id: TypeId::INT,
+                direction: ParamDirection::In,
+                address: None,
+                default: Some(Expr::Literal(Value::Int(5))),
+            }],
+            vars: Vec::new(),
+            temps: Vec::new(),
+            using: Vec::new(),
+            methods: Vec::new(),
+            body: Vec::new(),
+        };
+        let function_blocks: IndexMap<SmolStr, FunctionBlockDef> = IndexMap::new();
+        let functions: IndexMap<SmolStr, crate::program_model::FunctionDef> = IndexMap::new();
+        let classes: IndexMap<SmolStr, crate::program_model::ClassDef> = IndexMap::new();
+
+        let instance_id = create_fb_instance(
+            &mut storage,
+            &registry,
+            &DateTimeProfile::default(),
+            &classes,
+            &function_blocks,
+            &functions,
+            &StandardLibrary::new(),
+            &fb,
+        )
+        .expect("create fb instance");
+
+        assert_eq!(
+            storage.get_instance_var(instance_id, "inc"),
+            Some(&Value::Int(5))
+        );
     }
 }

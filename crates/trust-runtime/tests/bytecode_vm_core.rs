@@ -586,10 +586,6 @@ fn vm_opcode_positive_path_covers_dynamic_reference_and_nested_chains() {
         body.contains(&0x32),
         "expected LOAD_DYNAMIC opcode in main body"
     );
-    assert!(
-        body.contains(&0x33),
-        "expected STORE_DYNAMIC opcode in main body"
-    );
 
     let mut harness = vm_harness(source);
     let cycle = harness.cycle();
@@ -600,6 +596,145 @@ fn vm_opcode_positive_path_covers_dynamic_reference_and_nested_chains() {
     );
     harness.assert_eq("out_ref", 9i16);
     harness.assert_eq("out_nested", 0i16);
+}
+
+#[test]
+fn vm_opcode_positive_path_covers_nested_field_chain_assignments() {
+    let source = r#"
+        TYPE
+            Inner : STRUCT
+                value : INT;
+            END_STRUCT;
+            Outer : STRUCT
+                inner : Inner;
+            END_STRUCT;
+        END_TYPE
+
+        PROGRAM Main
+        VAR
+            outer : Outer;
+            out_value : INT := INT#0;
+        END_VAR
+        outer.inner.value := INT#9;
+        out_value := outer.inner.value;
+        END_PROGRAM
+    "#;
+    let module = bytecode_module_from_source(source).expect("compile bytecode module");
+    let body = main_body_bytes(&module);
+    assert!(
+        body.contains(&0x30),
+        "expected REF_FIELD opcode in main body"
+    );
+    assert!(
+        body.contains(&0x32),
+        "expected LOAD_DYNAMIC opcode in main body"
+    );
+
+    let mut harness = vm_harness(source);
+    let cycle = harness.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "nested field-chain assignment execution failed: {:?}",
+        cycle.errors
+    );
+    harness.assert_eq("out_value", 9i16);
+}
+
+#[test]
+fn vm_opcode_positive_path_covers_nested_field_index_assignments() {
+    let source = r#"
+        TYPE
+            Item : STRUCT
+                value : INT;
+            END_STRUCT;
+            Outer : STRUCT
+                arr : ARRAY[0..2] OF INT;
+            END_STRUCT;
+        END_TYPE
+
+        PROGRAM Main
+        VAR
+            outer : Outer;
+            items : ARRAY[0..1] OF Item;
+            idx : INT := INT#1;
+            out_field_index : INT := INT#0;
+            out_index_field : INT := INT#0;
+        END_VAR
+        outer.arr[idx] := INT#9;
+        items[idx].value := INT#7;
+        out_field_index := outer.arr[idx];
+        out_index_field := items[idx].value;
+        END_PROGRAM
+    "#;
+    let module = bytecode_module_from_source(source).expect("compile bytecode module");
+    let body = main_body_bytes(&module);
+    assert!(
+        body.contains(&0x30),
+        "expected REF_FIELD opcode in main body"
+    );
+    assert!(
+        body.contains(&0x31),
+        "expected REF_INDEX opcode in main body"
+    );
+    assert!(
+        body.contains(&0x32),
+        "expected LOAD_DYNAMIC opcode in main body"
+    );
+    assert!(
+        body.contains(&0x33),
+        "expected STORE_DYNAMIC opcode in main body"
+    );
+
+    let mut harness = vm_harness(source);
+    let cycle = harness.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "nested field/index assignment execution failed: {:?}",
+        cycle.errors
+    );
+    harness.assert_eq("out_field_index", 9i16);
+    harness.assert_eq("out_index_field", 7i16);
+}
+
+#[test]
+fn vm_opcode_positive_path_covers_string_and_wstring_index_reads() {
+    let source = r#"
+        PROGRAM Main
+        VAR
+            idx : INT := INT#2;
+            text_value : STRING[8] := 'ABCD';
+            wide_value : WSTRING[8] := "WXYZ";
+            out_char : CHAR;
+            out_wchar : WCHAR;
+        END_VAR
+
+        out_char := text_value[idx];
+        out_wchar := wide_value[idx + INT#1];
+        END_PROGRAM
+    "#;
+    let module = bytecode_module_from_source(source).expect("compile bytecode module");
+    let body = main_body_bytes(&module);
+    assert!(
+        body.contains(&0x31),
+        "expected REF_INDEX opcode in main body"
+    );
+    assert!(
+        body.contains(&0x32),
+        "expected LOAD_DYNAMIC opcode in main body"
+    );
+
+    let mut harness = vm_harness(source);
+    let cycle = harness.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "string index execution failed: {:?}",
+        cycle.errors
+    );
+    assert_eq!(harness.get_output("out_char"), Some(Value::Char(b'B')));
+    assert_eq!(
+        harness.get_output("out_wchar"),
+        Some(Value::WChar('Y' as u16))
+    );
 }
 
 #[test]
@@ -843,6 +978,80 @@ fn vm_rejects_sizeof_type_with_excessive_non_cyclic_alias_depth() {
     let mut harness = vm_harness_from_module(source, &module);
     let cycle = harness.cycle();
     assert_invalid_bytecode_contains(&cycle.errors, "SIZEOF type nesting exceeds max depth");
+}
+
+#[test]
+fn vm_lowering_supports_exit_and_continue_in_loop_stmt_paths() {
+    let source = r#"
+        PROGRAM Main
+        VAR
+            i : INT := INT#0;
+            w : INT := INT#0;
+            r : INT := INT#0;
+            sum_for : INT := INT#0;
+            sum_while : INT := INT#0;
+            sum_repeat : INT := INT#0;
+        END_VAR
+
+        FOR i := INT#0 TO INT#4 BY INT#1 DO
+            IF i = INT#1 THEN
+                CONTINUE;
+            END_IF;
+            IF i = INT#3 THEN
+                EXIT;
+            END_IF;
+            sum_for := sum_for + i;
+        END_FOR;
+
+        WHILE w < INT#5 DO
+            w := w + INT#1;
+            IF w = INT#2 THEN
+                CONTINUE;
+            END_IF;
+            IF w = INT#4 THEN
+                EXIT;
+            END_IF;
+            sum_while := sum_while + w;
+        END_WHILE;
+
+        REPEAT
+            r := r + INT#1;
+            IF r = INT#2 THEN
+                CONTINUE;
+            END_IF;
+            IF r = INT#4 THEN
+                EXIT;
+            END_IF;
+            sum_repeat := sum_repeat + r;
+        UNTIL r >= INT#6 END_REPEAT;
+        END_PROGRAM
+    "#;
+
+    let module = bytecode_module_from_source(source).expect("compile bytecode module");
+    let body = main_body_bytes(&module);
+    assert!(
+        body.contains(&0x02),
+        "expected JMP opcode in main loop body"
+    );
+    assert!(
+        body.contains(&0x03),
+        "expected JMP_IF_TRUE opcode in main loop body"
+    );
+    assert!(
+        body.contains(&0x04),
+        "expected JMP_IF_FALSE opcode in main loop body"
+    );
+
+    let mut harness = vm_harness(source);
+    let cycle = harness.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "vm execution failed: {:?}",
+        cycle.errors
+    );
+    harness.assert_eq("sum_for", 2i16);
+    harness.assert_eq("sum_while", 4i16);
+    harness.assert_eq("sum_repeat", 4i16);
 }
 
 #[test]

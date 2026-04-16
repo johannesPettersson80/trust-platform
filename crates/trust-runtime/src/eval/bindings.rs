@@ -70,6 +70,15 @@ fn prepare_bindings(
             ParamDirection::In => {
                 let value = if let Some(arg) = arg {
                     eval_arg_expr(ctx, arg)?
+                } else if let BindingMode::FunctionBlock { instance_id } = mode {
+                    if let Some(value) = ctx.storage.get_instance_var(instance_id, &param.name) {
+                        value.clone()
+                    } else if let Some(default) = &param.default {
+                        expr::eval_expr(ctx, default)?
+                    } else {
+                        default_value_for_type_id(param.type_id, ctx.registry, &ctx.profile)
+                            .unwrap_or(Value::Null)
+                    }
                 } else if let Some(default) = &param.default {
                     expr::eval_expr(ctx, default)?
                 } else {

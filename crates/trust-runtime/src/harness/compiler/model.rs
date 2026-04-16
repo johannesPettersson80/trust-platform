@@ -1,3 +1,4 @@
+use indexmap::IndexMap;
 use smol_str::SmolStr;
 
 use crate::debug::SourceLocation;
@@ -6,8 +7,12 @@ use crate::memory::IoArea;
 use crate::program_model::Expr;
 use crate::program_model::VarDef;
 use crate::task::ProgramDef;
-use crate::value::DateTimeProfile;
+use crate::value::{DateTimeProfile, Value};
 use trust_hir::TypeId;
+
+use super::super::types::CompileError;
+
+pub(crate) type CompileTimeConsts = IndexMap<SmolStr, Value>;
 
 pub(crate) struct LoweredProgram {
     pub(crate) program: ProgramDef,
@@ -101,4 +106,29 @@ pub(crate) struct LoweringContext<'a> {
     pub(crate) using: Vec<SmolStr>,
     pub(crate) file_id: u32,
     pub(crate) statement_locations: &'a mut Vec<SourceLocation>,
+    pub(crate) compile_time_consts: CompileTimeConsts,
+}
+
+impl LoweringContext<'_> {
+    fn const_key(name: &str) -> SmolStr {
+        SmolStr::new(name.to_ascii_uppercase())
+    }
+
+    pub(crate) fn lookup_compile_time_const(&self, name: &str) -> Option<Value> {
+        self.compile_time_consts
+            .get(Self::const_key(name).as_str())
+            .cloned()
+    }
+
+    pub(crate) fn register_compile_time_const(&mut self, name: &str, value: Value) {
+        self.compile_time_consts
+            .insert(Self::const_key(name), value);
+    }
+
+    pub(crate) fn eval_compile_time_const_expr(&self, expr: &Expr) -> Result<Value, CompileError> {
+        crate::helper_eval::eval_const_expr_with_resolver(expr, &self.profile, &|name| {
+            self.lookup_compile_time_const(name)
+        })
+        .map_err(|err| CompileError::new(err.to_string()))
+    }
 }

@@ -380,7 +380,7 @@ impl<'a> BytecodeEncoder<'a> {
                     },
                 )
             }
-            Type::Reference { target } => {
+            Type::Reference { target } | Type::Pointer { target } => {
                 let target_type_id = self.type_index(*target)?;
                 (TypeKind::Reference, TypeData::Reference { target_type_id })
             }
@@ -400,11 +400,6 @@ impl<'a> BytecodeEncoder<'a> {
             Type::Interface { name } => {
                 let methods = self.interface_methods_for(name)?;
                 (TypeKind::Interface, TypeData::Interface { methods })
-            }
-            Type::Pointer { .. } => {
-                return Err(BytecodeError::InvalidSection(
-                    "unsupported pointer type".into(),
-                ))
             }
             Type::Unknown
             | Type::Void

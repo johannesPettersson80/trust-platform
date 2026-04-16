@@ -2,7 +2,7 @@ use std::time::Duration as StdDuration;
 
 use trust_runtime::harness::TestHarness;
 use trust_runtime::scheduler::{Clock, ManualClock, ResourceRunner, StdClock};
-use trust_runtime::value::Duration;
+use trust_runtime::value::{Duration, Value};
 
 #[test]
 fn monotonic_time() {
@@ -30,4 +30,22 @@ END_PROGRAM
 
     runner.tick().unwrap();
     assert_eq!(clock.sleep_calls(), 0);
+}
+
+#[test]
+fn time_builtin_uses_runtime_clock() {
+    let source = r#"
+PROGRAM Main
+VAR
+    stamp : TIME;
+END_VAR
+stamp := TIME();
+END_PROGRAM
+"#;
+
+    let mut harness = TestHarness::from_source(source).unwrap();
+    harness.advance_time(Duration::from_millis(123));
+    harness.cycle();
+
+    harness.assert_eq("stamp", Value::Time(Duration::from_millis(123)));
 }

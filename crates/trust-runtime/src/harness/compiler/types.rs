@@ -99,6 +99,7 @@ fn lower_type_decl_node(
         using,
         file_id,
         statement_locations,
+        compile_time_consts: Default::default(),
     };
     let mut pending_name: Option<SmolStr> = None;
     for child in node.children() {
@@ -299,9 +300,12 @@ pub(crate) fn lower_type_ref(
                 return Ok(ctx.registry.register_reference(target));
             }
             SyntaxKind::PointerType => {
-                return Err(CompileError::new(
-                    "POINTER types are not supported (IEC REF_TO only)",
-                ));
+                let inner = child
+                    .children()
+                    .find(|n| n.kind() == SyntaxKind::TypeRef)
+                    .ok_or_else(|| CompileError::new("missing POINTER TO target type"))?;
+                let target = lower_type_ref(&inner, ctx)?;
+                return Ok(ctx.registry.register_pointer(target));
             }
             SyntaxKind::StringType => {
                 let is_wide = child

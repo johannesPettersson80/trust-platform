@@ -15,67 +15,39 @@ impl<'a> BytecodeEncoder<'a> {
         target: &crate::program_model::LValue,
     ) -> Result<Option<ValueRef>, BytecodeError> {
         use crate::program_model::LValue;
-        let mut reference = match target {
-            LValue::Name(name) => return self.resolve_name_ref(ctx, name),
-            LValue::Field { name, field } => {
-                let qualified = SmolStr::new(format!("{name}.{field}"));
-                if let Some(reference) = self.resolve_name_ref(ctx, &qualified)? {
-                    return Ok(Some(reference));
-                }
-                match self.resolve_name_ref(ctx, name)? {
-                    Some(reference) => reference,
-                    None => return Ok(None),
-                }
+        if target.contains_index() {
+            return Ok(None);
+        }
+        if let Some(qualified) = target.qualified_name() {
+            if let Some(reference) = self.resolve_name_ref(ctx, &qualified)? {
+                return Ok(Some(reference));
             }
-            LValue::Index { name, .. } => match self.resolve_name_ref(ctx, name)? {
-                Some(reference) => reference,
-                None => return Ok(None),
-            },
-            LValue::Deref(_) => return Ok(None),
-        };
+        }
         match target {
-            LValue::Field { field, .. } => {
-                reference
-                    .path
-                    .push(crate::value::RefSegment::Field(field.clone()));
-            }
-            LValue::Index { indices, .. } => {
-                let mut resolved = Vec::with_capacity(indices.len());
-                for expr in indices {
-                    let value = match expr {
-                        crate::program_model::Expr::Literal(value) => value,
-                        _ => return Ok(None),
-                    };
-                    let index = match value {
-                        Value::SInt(v) => i64::from(*v),
-                        Value::Int(v) => i64::from(*v),
-                        Value::DInt(v) => i64::from(*v),
-                        Value::LInt(v) => *v,
-                        Value::USInt(v) => i64::from(*v),
-                        Value::UInt(v) => i64::from(*v),
-                        Value::UDInt(v) => i64::from(*v),
-                        Value::ULInt(v) => match i64::try_from(*v) {
-                            Ok(value) => value,
-                            Err(_) => return Ok(None),
-                        },
-                        Value::Byte(v) => i64::from(*v),
-                        Value::Word(v) => i64::from(*v),
-                        Value::DWord(v) => i64::from(*v),
-                        Value::LWord(v) => match i64::try_from(*v) {
-                            Ok(value) => value,
-                            Err(_) => return Ok(None),
-                        },
-                        _ => return Ok(None),
-                    };
-                    resolved.push(index);
-                }
+            LValue::Name(name) => self.resolve_name_ref(ctx, name),
+            LValue::Index { target, indices } => {
+                let Some(mut reference) = self.resolve_lvalue_ref(ctx, target)? else {
+                    return Ok(None);
+                };
+                let Some(resolved) = literal_indices(indices)? else {
+                    return Ok(None);
+                };
                 reference
                     .path
                     .push(crate::value::RefSegment::Index(resolved));
+                Ok(Some(reference))
             }
-            _ => {}
+            LValue::Field { target, field } => {
+                let Some(mut reference) = self.resolve_lvalue_ref(ctx, target)? else {
+                    return Ok(None);
+                };
+                reference
+                    .path
+                    .push(crate::value::RefSegment::Field(field.clone()));
+                Ok(Some(reference))
+            }
+            LValue::Deref(_) => Ok(None),
         }
-        Ok(Some(reference))
     }
 
     pub(super) fn resolve_name_ref(
@@ -148,4 +120,35 @@ impl<'a> BytecodeEncoder<'a> {
         self.ref_map.insert(value_ref.clone(), idx);
         Ok(idx)
     }
+}
+
+fn literal_indices(
+    indices: &[crate::program_model::Expr],
+) -> Result<Option<Vec<i64>>, BytecodeError> {
+    let mut resolved = Vec::with_capacity(indices.len());
+    for expr in indices {
+        let value = match expr {
+            crate::program_model::Expr::Literal(value) => value,
+            _ => return Ok(None),
+        };
+        let index = match value {
+            Value::SInt(v) => i64::from(*v),
+            Value::Int(v) => i64::from(*v),
+            Value::DInt(v) => i64::from(*v),
+            Value::LInt(v) => *v,
+            Value::USInt(v) => i64::from(*v),
+            Value::UInt(v) => i64::from(*v),
+            Value::UDInt(v) => i64::from(*v),
+            Value::ULInt(v) => i64::try_from(*v)
+                .map_err(|_| BytecodeError::InvalidSection("index literal overflow".into()))?,
+            Value::Byte(v) => i64::from(*v),
+            Value::Word(v) => i64::from(*v),
+            Value::DWord(v) => i64::from(*v),
+            Value::LWord(v) => i64::try_from(*v)
+                .map_err(|_| BytecodeError::InvalidSection("index literal overflow".into()))?,
+            _ => return Ok(None),
+        };
+        resolved.push(index);
+    }
+    Ok(Some(resolved))
 }

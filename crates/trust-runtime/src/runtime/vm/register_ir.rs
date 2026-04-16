@@ -20,8 +20,8 @@ use crate::value::{size_of_value, Value};
 use super::super::core::Runtime;
 use super::call::{execute_native_call, push_call_frame};
 use super::dispatch_refs::{
-    dynamic_ref_field, dynamic_ref_index, dynamic_store_ref, index_to_i64, load_ref_addr,
-    peek_dynamic_ref, peek_ref, store_ref,
+    dynamic_load_ref, dynamic_ref_field, dynamic_ref_index, dynamic_store_ref, index_to_i64,
+    load_ref_addr, peek_ref, store_ref,
 };
 use super::dispatch_sizeof::{sizeof_error_to_runtime, sizeof_type_from_table};
 use super::errors::VmTrap;
@@ -2015,6 +2015,12 @@ fn execute_register_program(
             frame.locals[index] = value;
         }
     }
+    {
+        let frame = frames
+            .current_mut()
+            .ok_or_else(|| VmTrap::CallStackUnderflow.into_runtime_error())?;
+        super::local_init::initialize_declared_locals(runtime, module, frame)?;
+    }
     let mut register_execution_buffers =
         RegisterExecutionBuffers::acquire(program.max_registers as usize);
     let (registers, remaining_register_reads, native_call_stack) =
@@ -2630,17 +2636,8 @@ fn execute_tier1_compiled_block(
                     .vm_register_profile
                     .record_ref_op(RegisterRefOpKind::LoadDynamic);
                 let reference = read_reference_register(registers, *reference)?;
-                let value = {
-                    let value = peek_dynamic_ref(runtime, frames, &reference)
-                        .map_err(VmTrap::into_runtime_error)?;
-                    let (value, cloned) = materialize_borrowed_value(value);
-                    if cloned {
-                        runtime
-                            .vm_register_profile
-                            .record_value_op(RegisterValueOpKind::ReadValueClone);
-                    }
-                    value
-                };
+                let value = dynamic_load_ref(runtime, frames, &reference)
+                    .map_err(VmTrap::into_runtime_error)?;
                 write_register(registers, *dest, value)?;
             }
             Tier1CompiledInstr::StoreDynamic { reference, value } => {
@@ -3208,17 +3205,8 @@ fn execute_register_block_interpreted(
                     remaining_register_reads,
                     *reference,
                 )?;
-                let value = {
-                    let value = peek_dynamic_ref(runtime, frames, &reference)
-                        .map_err(VmTrap::into_runtime_error)?;
-                    let (value, cloned) = materialize_borrowed_value(value);
-                    if cloned {
-                        runtime
-                            .vm_register_profile
-                            .record_value_op(RegisterValueOpKind::ReadValueClone);
-                    }
-                    value
-                };
+                let value = dynamic_load_ref(runtime, frames, &reference)
+                    .map_err(VmTrap::into_runtime_error)?;
                 write_register(registers, *dest, value)?;
             }
             RegisterInstr::StoreDynamic { reference, value } => {
@@ -4791,6 +4779,32 @@ mod tests {
     }
 
     #[test]
+    fn register_ir_lowering_handles_string_case_selector() {
+        let source = r#"
+            PROGRAM Main
+            VAR
+                selector : STRING := 'B';
+                output : UINT := UINT#0;
+            END_VAR
+
+            CASE selector OF
+                'A':
+                    output := UINT#10;
+                'B':
+                    output := UINT#20;
+                ELSE
+                    output := UINT#30;
+            END_CASE;
+            END_PROGRAM
+        "#;
+
+        let (vm_module, pou_id) = vm_module_and_main_pou(source);
+        let lowered = lower_pou_to_register_ir(&vm_module, pou_id).expect("lower register ir");
+        verify_register_program(&lowered).expect("verify register ir");
+        assert_no_fallback(&lowered);
+    }
+
+    #[test]
     fn register_executor_runs_case_program_without_fallback() {
         let source = r#"
             VAR_GLOBAL
@@ -4829,6 +4843,119 @@ mod tests {
             result.errors
         );
         assert_eq!(harness.get_output("g_output"), Some(Value::UInt(20)));
+
+        let profile = harness.runtime().vm_register_profile_snapshot();
+        assert!(profile.register_programs_executed >= 1);
+        assert_eq!(
+            profile.register_program_fallbacks, 0,
+            "expected no register fallbacks, got {:?}",
+            profile.fallback_reasons
+        );
+    }
+
+    #[test]
+    fn register_executor_runs_string_case_program_without_fallback() {
+        let source = r#"
+            VAR_GLOBAL
+                g_selector : STRING := 'B';
+                g_output : UINT := UINT#0;
+            END_VAR
+
+            PROGRAM Main
+            CASE g_selector OF
+                'A':
+                    g_output := UINT#10;
+                'B':
+                    g_output := UINT#20;
+                ELSE
+                    g_output := UINT#30;
+            END_CASE;
+            END_PROGRAM
+        "#;
+
+        let mut harness = TestHarness::from_source(source).expect("create harness");
+        harness
+            .runtime_mut()
+            .set_execution_backend(ExecutionBackend::BytecodeVm)
+            .expect("set backend");
+        harness
+            .runtime_mut()
+            .restart(RestartMode::Cold)
+            .expect("restart");
+        harness.runtime_mut().set_vm_register_profile_enabled(true);
+        harness.runtime_mut().reset_vm_register_profile();
+
+        let result = harness.cycle();
+        assert!(
+            result.errors.is_empty(),
+            "cycle errors: {:?}",
+            result.errors
+        );
+        assert_eq!(harness.get_output("g_output"), Some(Value::UInt(20)));
+
+        let profile = harness.runtime().vm_register_profile_snapshot();
+        assert!(profile.register_programs_executed >= 1);
+        assert_eq!(
+            profile.register_program_fallbacks, 0,
+            "expected no register fallbacks, got {:?}",
+            profile.fallback_reasons
+        );
+    }
+
+    #[test]
+    fn register_executor_fb_omitted_input_uses_initializer_then_reuses_stored_value() {
+        let source = r#"
+            FUNCTION_BLOCK Adjust
+            VAR_INPUT
+                base : INT;
+                inc : INT := INT#5;
+            END_VAR
+            VAR_OUTPUT
+                result : INT;
+            END_VAR
+            result := base + inc;
+            END_FUNCTION_BLOCK
+
+            PROGRAM Main
+            VAR
+                fb : Adjust;
+                first : INT := INT#0;
+                second : INT := INT#0;
+                third : INT := INT#0;
+            END_VAR
+
+            fb(base := INT#3);
+            first := fb.result;
+
+            fb(base := INT#3, inc := INT#9);
+            second := fb.result;
+
+            fb(base := INT#3);
+            third := fb.result;
+            END_PROGRAM
+        "#;
+
+        let mut harness = TestHarness::from_source(source).expect("create harness");
+        harness
+            .runtime_mut()
+            .set_execution_backend(ExecutionBackend::BytecodeVm)
+            .expect("set backend");
+        harness
+            .runtime_mut()
+            .restart(RestartMode::Cold)
+            .expect("restart");
+        harness.runtime_mut().set_vm_register_profile_enabled(true);
+        harness.runtime_mut().reset_vm_register_profile();
+
+        let result = harness.cycle();
+        assert!(
+            result.errors.is_empty(),
+            "cycle errors: {:?}",
+            result.errors
+        );
+        assert_eq!(harness.get_output("first"), Some(Value::Int(8)));
+        assert_eq!(harness.get_output("second"), Some(Value::Int(12)));
+        assert_eq!(harness.get_output("third"), Some(Value::Int(12)));
 
         let profile = harness.runtime().vm_register_profile_snapshot();
         assert!(profile.register_programs_executed >= 1);

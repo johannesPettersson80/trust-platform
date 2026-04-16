@@ -2,6 +2,7 @@ pub(crate) fn lower_programs(
     syntax: &SyntaxNode,
     registry: &mut trust_hir::types::TypeRegistry,
     profile: DateTimeProfile,
+    compile_time_consts: &CompileTimeConsts,
     file_id: u32,
     statement_locations: &mut Vec<crate::debug::SourceLocation>,
 ) -> Result<Vec<LoweredProgram>, CompileError> {
@@ -14,6 +15,7 @@ pub(crate) fn lower_programs(
             &program_node,
             registry,
             profile,
+            compile_time_consts,
             file_id,
             statement_locations,
         )?);
@@ -25,6 +27,7 @@ pub(crate) fn lower_functions(
     syntax: &SyntaxNode,
     registry: &mut trust_hir::types::TypeRegistry,
     profile: DateTimeProfile,
+    compile_time_consts: &CompileTimeConsts,
     file_id: u32,
     statement_locations: &mut Vec<crate::debug::SourceLocation>,
 ) -> Result<Vec<FunctionDef>, CompileError> {
@@ -40,6 +43,7 @@ pub(crate) fn lower_functions(
             using,
             file_id,
             statement_locations,
+            compile_time_consts: compile_time_consts.clone(),
         };
         functions.push(lower_function_node(&func_node, &mut ctx)?);
     }
@@ -50,6 +54,7 @@ pub(crate) fn lower_function_blocks(
     syntax: &SyntaxNode,
     registry: &mut trust_hir::types::TypeRegistry,
     profile: DateTimeProfile,
+    compile_time_consts: &CompileTimeConsts,
     file_id: u32,
     statement_locations: &mut Vec<crate::debug::SourceLocation>,
 ) -> Result<Vec<FunctionBlockDef>, CompileError> {
@@ -65,6 +70,7 @@ pub(crate) fn lower_function_blocks(
             using,
             file_id,
             statement_locations,
+            compile_time_consts: compile_time_consts.clone(),
         };
         function_blocks.push(lower_function_block_node(&fb_node, &mut ctx)?);
     }
@@ -75,6 +81,7 @@ pub(crate) fn lower_classes(
     syntax: &SyntaxNode,
     registry: &mut trust_hir::types::TypeRegistry,
     profile: DateTimeProfile,
+    compile_time_consts: &CompileTimeConsts,
     file_id: u32,
     statement_locations: &mut Vec<crate::debug::SourceLocation>,
 ) -> Result<Vec<ClassDef>, CompileError> {
@@ -90,6 +97,7 @@ pub(crate) fn lower_classes(
             using,
             file_id,
             statement_locations,
+            compile_time_consts: compile_time_consts.clone(),
         };
         classes.push(lower_class_node(&class_node, &mut ctx)?);
     }
@@ -100,6 +108,7 @@ pub(crate) fn lower_interfaces(
     syntax: &SyntaxNode,
     registry: &mut trust_hir::types::TypeRegistry,
     profile: DateTimeProfile,
+    compile_time_consts: &CompileTimeConsts,
     file_id: u32,
     statement_locations: &mut Vec<crate::debug::SourceLocation>,
 ) -> Result<Vec<InterfaceDef>, CompileError> {
@@ -115,6 +124,7 @@ pub(crate) fn lower_interfaces(
             using,
             file_id,
             statement_locations,
+            compile_time_consts: compile_time_consts.clone(),
         };
         interfaces.push(lower_interface_node(&interface_node, &mut ctx)?);
     }

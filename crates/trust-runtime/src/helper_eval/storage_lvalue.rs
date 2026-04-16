@@ -27,12 +27,12 @@ pub(crate) fn read_storage_lvalue(
 fn expr_from_lvalue(target: &LValue) -> Expr {
     match target {
         LValue::Name(name) => Expr::Name(name.clone()),
-        LValue::Index { name, indices } => Expr::Index {
-            target: Box::new(Expr::Name(name.clone())),
+        LValue::Index { target, indices } => Expr::Index {
+            target: Box::new(expr_from_lvalue(target)),
             indices: indices.clone(),
         },
-        LValue::Field { name, field } => Expr::Field {
-            target: Box::new(Expr::Name(name.clone())),
+        LValue::Field { target, field } => Expr::Field {
+            target: Box::new(expr_from_lvalue(target)),
             field: field.clone(),
         },
         LValue::Deref(expr) => Expr::Deref(expr.clone()),
@@ -49,17 +49,26 @@ pub(crate) fn write_storage_lvalue(
 ) -> Result<(), RuntimeError> {
     match target {
         LValue::Name(name) => write_name(storage, current_instance, name, value),
-        LValue::Index { name, indices } => {
-            let array_value = read_name(storage, current_instance, name)?;
+        LValue::Index { target, indices } => {
+            let array_value =
+                read_storage_lvalue(storage, registry, profile, current_instance, target)?;
             let index_values = indices
                 .iter()
                 .map(|expr| eval_storage_expr(storage, registry, profile, current_instance, expr))
                 .collect::<Result<Vec<_>, _>>()?;
             let updated = write_indices(array_value, &index_values, value)?;
-            write_name(storage, current_instance, name, updated)
+            write_storage_lvalue(
+                storage,
+                registry,
+                profile,
+                current_instance,
+                target,
+                updated,
+            )
         }
-        LValue::Field { name, field } => {
-            let base_value = read_name(storage, current_instance, name)?;
+        LValue::Field { target, field } => {
+            let base_value =
+                read_storage_lvalue(storage, registry, profile, current_instance, target)?;
             match base_value {
                 Value::Instance(id) => {
                     let Some(reference) = storage.ref_for_instance_recursive(id, field.as_str())
@@ -74,7 +83,14 @@ pub(crate) fn write_storage_lvalue(
                 }
                 other => {
                     let updated = write_field(other, field, value)?;
-                    write_name(storage, current_instance, name, updated)
+                    write_storage_lvalue(
+                        storage,
+                        registry,
+                        profile,
+                        current_instance,
+                        target,
+                        updated,
+                    )
                 }
             }
         }
@@ -118,28 +134,6 @@ fn write_name(
     }
     storage.set_global(name.clone(), value);
     Ok(())
-}
-
-fn read_name(
-    storage: &VariableStorage,
-    current_instance: Option<InstanceId>,
-    name: &SmolStr,
-) -> Result<Value, RuntimeError> {
-    if let Some(value) = storage.get_local(name.as_str()) {
-        return Ok(value.clone());
-    }
-    if let Some(instance_id) = current_instance {
-        if let Some(value) = storage.get_instance_var_recursive(instance_id, name.as_str()) {
-            return Ok(value.clone());
-        }
-    }
-    if let Some(value) = storage.get_global(name.as_str()) {
-        return Ok(value.clone());
-    }
-    if let Some(value) = storage.get_retain(name.as_str()) {
-        return Ok(value.clone());
-    }
-    Err(RuntimeError::UndefinedVariable(name.clone()))
 }
 
 fn write_indices(target: Value, indices: &[Value], value: Value) -> Result<Value, RuntimeError> {
@@ -205,10 +199,11 @@ fn resolve_lvalue_reference(
     match target {
         LValue::Name(name) => resolve_name_reference(storage, current_instance, name)
             .ok_or_else(|| RuntimeError::UndefinedVariable(name.clone())),
-        LValue::Index { name, indices } => {
-            let base = resolve_name_reference(storage, current_instance, name)
-                .ok_or_else(|| RuntimeError::UndefinedVariable(name.clone()))?;
-            let array_value = read_name(storage, current_instance, name)?;
+        LValue::Index { target, indices } => {
+            let base =
+                resolve_lvalue_reference(storage, registry, profile, current_instance, target)?;
+            let array_value =
+                read_storage_lvalue(storage, registry, profile, current_instance, target)?;
             let Value::Array(array) = &array_value else {
                 return Err(RuntimeError::TypeMismatch);
             };
@@ -225,8 +220,19 @@ fn resolve_lvalue_reference(
             value_ref.path.push(RefSegment::Index(index_path));
             Ok(value_ref)
         }
-        LValue::Field { name, field } => {
-            let base_value = read_name(storage, current_instance, name)?;
+        LValue::Field { target, field } => {
+            if let Some(qualified) = target
+                .qualified_name()
+                .map(|prefix| SmolStr::new(format!("{prefix}.{field}")))
+            {
+                if let Some(reference) =
+                    resolve_name_reference(storage, current_instance, &qualified)
+                {
+                    return Ok(reference);
+                }
+            }
+            let base_value =
+                read_storage_lvalue(storage, registry, profile, current_instance, target)?;
             match base_value {
                 Value::Instance(id) => storage
                     .ref_for_instance_recursive(id, field.as_str())
@@ -235,8 +241,13 @@ fn resolve_lvalue_reference(
                     if !struct_value.fields.contains_key(field) {
                         return Err(RuntimeError::UndefinedField(field.clone()));
                     }
-                    let mut value_ref = resolve_name_reference(storage, current_instance, name)
-                        .ok_or_else(|| RuntimeError::UndefinedVariable(name.clone()))?;
+                    let mut value_ref = resolve_lvalue_reference(
+                        storage,
+                        registry,
+                        profile,
+                        current_instance,
+                        target,
+                    )?;
                     value_ref.path.push(RefSegment::Field(field.clone()));
                     Ok(value_ref)
                 }
@@ -362,7 +373,7 @@ mod tests {
             &DateTimeProfile::default(),
             None,
             &LValue::Index {
-                name: "arr".into(),
+                target: Box::new(LValue::Name("arr".into())),
                 indices: vec![Expr::Literal(Value::DInt(1))],
             },
             Value::DInt(9),
@@ -417,7 +428,7 @@ mod tests {
             &DateTimeProfile::default(),
             None,
             &LValue::Field {
-                name: "st".into(),
+                target: Box::new(LValue::Name("st".into())),
                 field: "x".into(),
             },
             Value::DInt(3),
@@ -428,5 +439,96 @@ mod tests {
             panic!("expected struct");
         };
         assert_eq!(st.fields.get("x"), Some(&Value::DInt(3)));
+    }
+
+    #[test]
+    fn writes_nested_struct_array_element_without_eval_context() {
+        let mut storage = VariableStorage::new();
+        let mut outer_fields = indexmap::IndexMap::new();
+        outer_fields.insert(
+            SmolStr::new("arr"),
+            Value::Array(Box::new(crate::value::ArrayValue {
+                elements: vec![Value::DInt(1), Value::DInt(2), Value::DInt(3)],
+                dimensions: vec![(0, 2)],
+            })),
+        );
+        storage.set_global(
+            "outer",
+            Value::Struct(Arc::new(crate::value::StructValue {
+                type_name: SmolStr::new("Outer"),
+                fields: outer_fields,
+            })),
+        );
+        let registry = TypeRegistry::new();
+
+        write_storage_lvalue(
+            &mut storage,
+            &registry,
+            &DateTimeProfile::default(),
+            None,
+            &LValue::Index {
+                target: Box::new(LValue::Field {
+                    target: Box::new(LValue::Name("outer".into())),
+                    field: "arr".into(),
+                }),
+                indices: vec![Expr::Literal(Value::DInt(1))],
+            },
+            Value::DInt(9),
+        )
+        .unwrap();
+
+        let Value::Struct(outer) = storage.get_global("outer").cloned().unwrap() else {
+            panic!("expected struct");
+        };
+        let Value::Array(array) = outer.fields.get("arr").cloned().unwrap() else {
+            panic!("expected array field");
+        };
+        assert_eq!(array.elements[1], Value::DInt(9));
+    }
+
+    #[test]
+    fn writes_nested_array_of_struct_field_without_eval_context() {
+        let mut storage = VariableStorage::new();
+        storage.set_global(
+            "items",
+            Value::Array(Box::new(crate::value::ArrayValue {
+                elements: vec![
+                    Value::Struct(Arc::new(crate::value::StructValue {
+                        type_name: SmolStr::new("Item"),
+                        fields: indexmap::IndexMap::from([(SmolStr::new("value"), Value::DInt(1))]),
+                    })),
+                    Value::Struct(Arc::new(crate::value::StructValue {
+                        type_name: SmolStr::new("Item"),
+                        fields: indexmap::IndexMap::from([(SmolStr::new("value"), Value::DInt(2))]),
+                    })),
+                ],
+                dimensions: vec![(0, 1)],
+            })),
+        );
+        let registry = TypeRegistry::new();
+
+        write_storage_lvalue(
+            &mut storage,
+            &registry,
+            &DateTimeProfile::default(),
+            None,
+            &LValue::Field {
+                target: Box::new(LValue::Index {
+                    target: Box::new(LValue::Name("items".into())),
+                    indices: vec![Expr::Literal(Value::DInt(1))],
+                }),
+                field: "value".into(),
+            },
+            Value::DInt(7),
+        )
+        .unwrap();
+
+        let Value::Array(items) = storage.get_global("items").cloned().unwrap() else {
+            panic!("expected array");
+        };
+        let Value::Struct(item) = items.elements[1].clone() else {
+            panic!("expected struct element");
+        };
+        assert_eq!(item.fields.get("value"), Some(&Value::DInt(7)));
     }
 }

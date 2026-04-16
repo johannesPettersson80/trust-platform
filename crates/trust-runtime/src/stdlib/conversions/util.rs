@@ -106,6 +106,12 @@ pub(super) fn is_conversion_allowed(src: TypeId, dst: TypeId) -> bool {
     if src == TypeId::TIME && dst == TypeId::LTIME {
         return true;
     }
+    if src == TypeId::TIME && dst == TypeId::DWORD {
+        return true;
+    }
+    if src == TypeId::DWORD && dst == TypeId::TIME {
+        return true;
+    }
     if src == TypeId::LDT && dst == TypeId::DT {
         return true;
     }
@@ -139,6 +145,37 @@ pub(super) fn is_conversion_allowed(src: TypeId, dst: TypeId) -> bool {
 
     let src = normalize_string_type_id(src);
     let dst = normalize_string_type_id(dst);
+
+    if matches!(dst, TypeId::STRING | TypeId::WSTRING)
+        && (is_numeric_type(src)
+            || matches!(
+                src,
+                TypeId::BYTE | TypeId::WORD | TypeId::DWORD | TypeId::LWORD
+            ))
+    {
+        return true;
+    }
+    if matches!(src, TypeId::STRING | TypeId::WSTRING) && is_numeric_type(dst) {
+        return true;
+    }
+    if matches!(dst, TypeId::CHAR | TypeId::WCHAR)
+        && (is_numeric_type(src)
+            || matches!(
+                src,
+                TypeId::BYTE | TypeId::WORD | TypeId::DWORD | TypeId::LWORD
+            ))
+    {
+        return true;
+    }
+    if matches!(src, TypeId::CHAR | TypeId::WCHAR)
+        && (is_numeric_type(dst)
+            || matches!(
+                dst,
+                TypeId::BYTE | TypeId::WORD | TypeId::DWORD | TypeId::LWORD
+            ))
+    {
+        return true;
+    }
 
     if src == TypeId::WSTRING && matches!(dst, TypeId::STRING | TypeId::WCHAR) {
         return true;

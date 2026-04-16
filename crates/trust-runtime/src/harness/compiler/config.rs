@@ -14,8 +14,8 @@ use super::super::util::{
 };
 use super::lower_type_ref;
 use super::model::{
-    AccessDecl, AccessPart, AccessPath, ConfigInit, ConfigModel, FbTaskBinding, GlobalInit,
-    LoweringContext, ProgramInstanceConfig,
+    AccessDecl, AccessPart, AccessPath, CompileTimeConsts, ConfigInit, ConfigModel, FbTaskBinding,
+    GlobalInit, LoweringContext, ProgramInstanceConfig,
 };
 use super::vars::{parse_var_decl, var_block_kind, var_block_qualifiers, VarBlockKind};
 
@@ -29,6 +29,7 @@ pub(crate) fn lower_root_global_var_blocks(
     node: &SyntaxNode,
     registry: &mut trust_hir::types::TypeRegistry,
     profile: crate::value::DateTimeProfile,
+    compile_time_consts: &mut CompileTimeConsts,
     file_id: u32,
     statement_locations: &mut Vec<crate::debug::SourceLocation>,
 ) -> Result<Vec<GlobalInit>, CompileError> {
@@ -39,8 +40,10 @@ pub(crate) fn lower_root_global_var_blocks(
         using,
         file_id,
         statement_locations,
+        compile_time_consts: compile_time_consts.clone(),
     };
     let globals = lower_root_global_var_blocks_in_scope(node, &mut ctx)?;
+    *compile_time_consts = ctx.compile_time_consts.clone();
     Ok(globals)
 }
 

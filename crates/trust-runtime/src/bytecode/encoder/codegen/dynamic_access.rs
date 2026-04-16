@@ -39,7 +39,10 @@ impl<'a> BytecodeEncoder<'a> {
         value: &crate::program_model::Expr,
         code: &mut Vec<u8>,
     ) -> Result<Option<bool>, BytecodeError> {
-        let crate::program_model::LValue::Field { name, field } = target else {
+        let crate::program_model::LValue::Field { target, field } = target else {
+            return Ok(None);
+        };
+        let crate::program_model::LValue::Name(name) = target.as_ref() else {
             return Ok(None);
         };
         let Some(partial) = crate::value::parse_partial_access(field.as_str()) else {
@@ -94,8 +97,8 @@ impl<'a> BytecodeEncoder<'a> {
         use crate::program_model::LValue;
         match target {
             LValue::Name(name) => self.emit_ref_for_name(ctx, name, code),
-            LValue::Field { name, field } => {
-                if !self.emit_ref_for_name(ctx, name, code)? {
+            LValue::Field { target, field } => {
+                if !self.emit_dynamic_ref_for_lvalue(ctx, target, code)? {
                     return Ok(false);
                 }
                 let field_idx = self.strings.intern(field.clone());
@@ -103,8 +106,8 @@ impl<'a> BytecodeEncoder<'a> {
                 code.extend_from_slice(&field_idx.to_le_bytes());
                 Ok(true)
             }
-            LValue::Index { name, indices } => {
-                if !self.emit_ref_for_name(ctx, name, code)? {
+            LValue::Index { target, indices } => {
+                if !self.emit_dynamic_ref_for_lvalue(ctx, target, code)? {
                     return Ok(false);
                 }
                 for index in indices {
@@ -124,14 +127,10 @@ impl<'a> BytecodeEncoder<'a> {
         ctx: &CodegenContext,
         target: &crate::program_model::LValue,
     ) -> bool {
-        match target {
-            crate::program_model::LValue::Name(name)
-            | crate::program_model::LValue::Field { name, .. }
-            | crate::program_model::LValue::Index { name, .. } => {
-                ctx.self_field_name(name).is_some() && ctx.local_ref(name).is_none()
-            }
-            crate::program_model::LValue::Deref(_) => false,
-        }
+        let Some(name) = target.root_name() else {
+            return false;
+        };
+        ctx.self_field_name(name).is_some() && ctx.local_ref(name).is_none()
     }
 
     fn emit_self_field_ref(

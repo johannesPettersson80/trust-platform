@@ -74,6 +74,7 @@ Target release: `v0.17.0`
 
 ### Fixed
 
+- Runtime and VM execution now handle nested field/index lvalue chains, string and WSTRING dynamic indexing, split-local/initializer parity, and debugger force/release on direct instance fields consistently across harness, VM, helper-eval, and debug-adapter paths.
 - HIR/syntax now parse and type-check `TIME()` as a zero-argument builtin, allow `STRING`/`WSTRING` indexing in expressions, accept string `CASE` labels and fixed-length string comparisons, and document the shipped implementer conversion extensions (`TIME_TO_DWORD`, `DWORD_TO_TIME`, `CHAR_TO_BYTE`, `WCHAR_TO_WORD`).
 - `trust-ide` / `trust-lsp` now surface the shipped pointer/`ARRAY[*]`/IEC `CONSTANT` semantics consistently across completion, hover, semantic tokens, signature help, workspace symbols, inline values, refactor const-analysis, and constant-section diagnostics instead of drifting behind the HIR fixes.
 - Project analysis now honors cross-file `VAR_GLOBAL CONSTANT` integer expressions in type-length contexts such as `STRING[MaxLen]`, and the OSCAT BASIC CRC/buffer helpers now use the shipped `ARRAY[*]` / `POINTER TO ARRAY[*]` compatibility forms without giant caller-side ceremony arrays.

@@ -12,6 +12,9 @@ pub(super) fn convert_to_time(value: &Value, dst: TypeId) -> Result<Value, Runti
         (Value::LTime(duration), TypeId::LTIME) => Ok(Value::LTime(*duration)),
         (Value::Time(duration), TypeId::LTIME) => Ok(Value::LTime(*duration)),
         (Value::LTime(duration), TypeId::TIME) => Ok(Value::Time(*duration)),
+        (Value::DWord(value), TypeId::TIME) => Ok(Value::Time(
+            crate::value::Duration::from_millis(i64::from(*value)),
+        )),
         _ => Err(RuntimeError::TypeMismatch),
     }
 }

@@ -212,6 +212,13 @@ struct CodegenContext {
     self_fields: HashMap<SmolStr, SmolStr>,
     for_temp_pairs: Vec<(SmolStr, SmolStr)>,
     next_for_temp: usize,
+    loop_stack: Vec<LoopPatchState>,
+}
+
+#[derive(Clone, Default)]
+struct LoopPatchState {
+    continue_jumps: Vec<usize>,
+    exit_jumps: Vec<usize>,
 }
 
 impl CodegenContext {
@@ -229,6 +236,7 @@ impl CodegenContext {
             self_fields,
             for_temp_pairs,
             next_for_temp: 0,
+            loop_stack: Vec::new(),
         }
     }
 
@@ -251,6 +259,30 @@ impl CodegenContext {
             self.next_for_temp += 1;
         }
         pair
+    }
+
+    fn push_loop(&mut self) {
+        self.loop_stack.push(LoopPatchState::default());
+    }
+
+    fn pop_loop(&mut self) -> Option<LoopPatchState> {
+        self.loop_stack.pop()
+    }
+
+    fn record_continue_jump(&mut self, jump: usize) -> bool {
+        let Some(loop_state) = self.loop_stack.last_mut() else {
+            return false;
+        };
+        loop_state.continue_jumps.push(jump);
+        true
+    }
+
+    fn record_exit_jump(&mut self, jump: usize) -> bool {
+        let Some(loop_state) = self.loop_stack.last_mut() else {
+            return false;
+        };
+        loop_state.exit_jumps.push(jump);
+        true
     }
 }
 

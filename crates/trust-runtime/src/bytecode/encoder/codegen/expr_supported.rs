@@ -58,8 +58,11 @@ fn call_arg_supported(arg: &crate::program_model::CallArg) -> bool {
 
 fn lvalue_supported(target: &crate::program_model::LValue) -> bool {
     match target {
-        crate::program_model::LValue::Name(_) | crate::program_model::LValue::Field { .. } => true,
-        crate::program_model::LValue::Index { indices, .. } => indices.iter().all(expr_supported),
+        crate::program_model::LValue::Name(_) => true,
+        crate::program_model::LValue::Field { target, .. } => lvalue_supported(target),
+        crate::program_model::LValue::Index { target, indices } => {
+            lvalue_supported(target) && indices.iter().all(expr_supported)
+        }
         crate::program_model::LValue::Deref(expr) => expr_supported(expr),
     }
 }

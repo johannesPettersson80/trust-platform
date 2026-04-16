@@ -225,6 +225,24 @@ impl VariableStorage {
         self.next_frame_id = 0;
     }
 
+    pub fn reset_runtime_values(&mut self, reset_instance_sequence: bool) {
+        self.globals.clear();
+        self.frames.clear();
+        self.instances.clear();
+        self.next_frame_id = 0;
+        if reset_instance_sequence {
+            self.next_instance_id = 0;
+        }
+        self.instance_field_offsets
+            .write()
+            .expect("instance_field_offsets poisoned")
+            .clear();
+        self.recursive_instance_field_resolutions
+            .write()
+            .expect("recursive_instance_field_resolutions poisoned")
+            .clear();
+    }
+
     /// Temporarily treat the provided frame as the current frame.
     pub fn with_frame<T>(
         &mut self,
@@ -536,7 +554,7 @@ impl VariableStorage {
                 .globals
                 .get_index_mut(offset)
                 .map(|(_, slot)| {
-                    *slot = value;
+                    *slot = crate::value::normalize_assignment_for_target(slot, value);
                 })
                 .is_some(),
             MemoryLocation::Local(frame_id) => self
@@ -545,7 +563,7 @@ impl VariableStorage {
                 .find(|frame| frame.id == frame_id)
                 .and_then(|frame| {
                     frame.variables.get_index_mut(offset).map(|(_, slot)| {
-                        *slot = value;
+                        *slot = crate::value::normalize_assignment_for_target(slot, value);
                     })
                 })
                 .is_some(),
@@ -554,7 +572,7 @@ impl VariableStorage {
                 .get_mut(&instance_id)
                 .and_then(|instance| {
                     instance.variables.get_index_mut(offset).map(|(_, slot)| {
-                        *slot = value;
+                        *slot = crate::value::normalize_assignment_for_target(slot, value);
                     })
                 })
                 .is_some(),
@@ -568,6 +586,14 @@ impl VariableStorage {
 
     pub fn read_by_ref_ref(&self, value_ref: &crate::value::ValueRef) -> Option<&Value> {
         self.read_by_ref_parts(value_ref.location, value_ref.offset, &value_ref.path)
+    }
+
+    pub fn materialize_by_ref(&self, value_ref: crate::value::ValueRef) -> Option<Value> {
+        self.materialize_by_ref_ref(&value_ref)
+    }
+
+    pub fn materialize_by_ref_ref(&self, value_ref: &crate::value::ValueRef) -> Option<Value> {
+        self.materialize_by_ref_parts(value_ref.location, value_ref.offset, &value_ref.path)
     }
 
     pub fn read_by_ref_parts(
@@ -584,6 +610,21 @@ impl VariableStorage {
         let root = self.read_direct_slot_by_location(resolved.location, resolved.offset)?;
 
         read_by_ref_path(root, &resolved.path)
+    }
+
+    pub fn materialize_by_ref_parts(
+        &self,
+        location: MemoryLocation,
+        offset: usize,
+        path: &[RefSegment],
+    ) -> Option<Value> {
+        if path.is_empty() {
+            return self.read_direct_slot_by_location(location, offset).cloned();
+        }
+
+        let resolved = self.resolve_reference_parts(location, offset, path)?;
+        let root = self.read_direct_slot_by_location(resolved.location, resolved.offset)?;
+        materialize_by_ref_path(root, &resolved.path)
     }
 
     pub fn write_by_ref(&mut self, value_ref: crate::value::ValueRef, value: Value) -> bool {
@@ -743,7 +784,7 @@ fn read_by_ref_path<'a>(value: &'a Value, path: &[RefSegment]) -> Option<&'a Val
 
 fn write_by_ref_path(target: &mut Value, path: &[RefSegment], value: Value) -> bool {
     if path.is_empty() {
-        *target = value;
+        *target = crate::value::normalize_assignment_for_target(target, value);
         return true;
     }
 
@@ -768,7 +809,60 @@ fn write_by_ref_path(target: &mut Value, path: &[RefSegment], value: Value) -> b
                     .map(|element| write_by_ref_path(element, &path[1..], value))
                     .unwrap_or(false)
             }
+            Value::String(text) => write_string_path(text, indices, value, false)
+                .map(|updated| {
+                    *target = Value::String(updated.into());
+                    true
+                })
+                .unwrap_or(false),
+            Value::WString(text) => write_string_path(text, indices, value, true)
+                .map(|updated| {
+                    *target = Value::WString(updated);
+                    true
+                })
+                .unwrap_or(false),
             _ => false,
+        },
+    }
+}
+
+fn materialize_by_ref_path(value: &Value, path: &[RefSegment]) -> Option<Value> {
+    if path.is_empty() {
+        return Some(value.clone());
+    }
+    match &path[0] {
+        RefSegment::Field(name) => match value {
+            Value::Struct(struct_value) => struct_value
+                .fields
+                .get(name)
+                .and_then(|field| materialize_by_ref_path(field, &path[1..])),
+            _ => None,
+        },
+        RefSegment::Index(indices) => match value {
+            Value::Array(array) => {
+                let offset = array_offset_i64(&array.dimensions, indices)?;
+                array
+                    .elements
+                    .get(offset)
+                    .and_then(|element| materialize_by_ref_path(element, &path[1..]))
+            }
+            Value::String(text) => {
+                if !path[1..].is_empty() {
+                    return None;
+                }
+                let position = string_index_position(text.as_str(), indices)?;
+                let ch = text.chars().nth(position)?;
+                Some(Value::Char(u8::try_from(ch as u32).ok()?))
+            }
+            Value::WString(text) => {
+                if !path[1..].is_empty() {
+                    return None;
+                }
+                let position = string_index_position(text.as_str(), indices)?;
+                let ch = text.chars().nth(position)?;
+                Some(Value::WChar(u16::try_from(ch as u32).ok()?))
+            }
+            _ => None,
         },
     }
 }
@@ -788,6 +882,56 @@ fn array_offset_i64(dimensions: &[(i64, i64)], indices: &[i64]) -> Option<usize>
         stride *= len;
     }
     usize::try_from(offset).ok()
+}
+
+fn string_index_position(text: &str, indices: &[i64]) -> Option<usize> {
+    if indices.len() != 1 {
+        return None;
+    }
+    let index = indices[0];
+    if index < 1 {
+        return None;
+    }
+    let position = usize::try_from(index - 1).ok()?;
+    if position >= text.chars().count() {
+        return None;
+    }
+    Some(position)
+}
+
+fn write_string_path(text: &str, indices: &[i64], value: Value, wide: bool) -> Option<String> {
+    let position = string_index_position(text, indices)?;
+    let mut chars: Vec<char> = text.chars().collect();
+    chars[position] = value_to_char(value, wide)?;
+    Some(chars.into_iter().collect())
+}
+
+fn value_to_char(value: Value, wide: bool) -> Option<char> {
+    let code = match value {
+        Value::Char(code) => u32::from(code),
+        Value::WChar(code) => u32::from(code),
+        Value::String(text) => {
+            let mut chars = text.chars();
+            let ch = chars.next()?;
+            if chars.next().is_some() {
+                return None;
+            }
+            return Some(ch);
+        }
+        Value::WString(text) => {
+            let mut chars = text.chars();
+            let ch = chars.next()?;
+            if chars.next().is_some() {
+                return None;
+            }
+            return Some(ch);
+        }
+        _ => return None,
+    };
+    if !wide && code > u32::from(u8::MAX) {
+        return None;
+    }
+    std::char::from_u32(code)
 }
 
 #[cfg(test)]

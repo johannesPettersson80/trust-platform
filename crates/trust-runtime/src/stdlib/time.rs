@@ -384,6 +384,10 @@ pub fn is_split_name(name: &str) -> bool {
     )
 }
 
+pub fn is_runtime_clock_name(name: &str) -> bool {
+    name == "TIME"
+}
+
 pub fn split_date(
     value: &Value,
     profile: DateTimeProfile,

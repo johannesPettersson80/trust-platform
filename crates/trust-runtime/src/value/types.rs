@@ -79,6 +79,13 @@ pub enum Value {
     Null,
 }
 
+pub(crate) fn normalize_assignment_for_target(target: &Value, value: Value) -> Value {
+    match (target, value) {
+        (Value::Reference(_), Value::Null) => Value::Reference(None),
+        (_, value) => value,
+    }
+}
+
 impl From<bool> for Value {
     fn from(value: bool) -> Self {
         Value::Bool(value)

@@ -2,6 +2,7 @@ pub(crate) fn lower_configuration(
     syntax: &SyntaxNode,
     registry: &mut trust_hir::types::TypeRegistry,
     profile: crate::value::DateTimeProfile,
+    compile_time_consts: &CompileTimeConsts,
     file_id: u32,
     statement_locations: &mut Vec<crate::debug::SourceLocation>,
 ) -> Result<Option<ConfigModel>, CompileError> {
@@ -25,6 +26,7 @@ pub(crate) fn lower_configuration(
         using,
         file_id,
         statement_locations,
+        compile_time_consts: compile_time_consts.clone(),
     };
     let mut globals = Vec::new();
     let mut tasks = Vec::new();

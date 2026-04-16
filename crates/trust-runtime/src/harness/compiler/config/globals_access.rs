@@ -12,6 +12,17 @@ fn lower_global_var_block(
         let (names, type_ref, initializer, address) = parse_var_decl(&var_decl)?;
         let type_id = lower_type_ref(&type_ref, ctx)?;
         let init_expr = initializer.map(|expr| lower_expr(&expr, ctx)).transpose()?;
+        if qualifiers.constant && matches!(kind, VarBlockKind::Global | VarBlockKind::Var) {
+            if let Some(expr) = init_expr.as_ref() {
+                let value = ctx.eval_compile_time_const_expr(expr)?;
+                let value = crate::harness::coerce_value_to_type(value, type_id)?;
+                for name in &names {
+                    ctx.register_compile_time_const(name.as_str(), value.clone());
+                    let qualified = namespace_qualified_name(var_block, name.as_str());
+                    ctx.register_compile_time_const(qualified.as_str(), value.clone());
+                }
+            }
+        }
         match kind {
             VarBlockKind::Global
             | VarBlockKind::Var

@@ -68,7 +68,13 @@ impl DebugAdapter {
                         .to_string(),
                 )
             }
-            LValue::Field { name, field } => {
+            LValue::Field { target, field } => {
+                let LValue::Name(name) = target.as_ref() else {
+                    return Err(
+                        "force/release is only supported for globals, retains, or instance fields"
+                            .to_string(),
+                    );
+                };
                 let instance_id = match runtime.storage().get_global(name.as_ref()) {
                     Some(RuntimeValue::Instance(id)) => *id,
                     _ => return Err(
@@ -134,7 +140,13 @@ impl DebugAdapter {
                         .to_string(),
                 )
             }
-            LValue::Field { name, field } => {
+            LValue::Field { target, field } => {
+                let LValue::Name(name) = target.as_ref() else {
+                    return Err(
+                        "force/release is only supported for globals, retains, or instance fields"
+                            .to_string(),
+                    );
+                };
                 let instance_id = match storage.get_global(name.as_ref()) {
                     Some(RuntimeValue::Instance(id)) => *id,
                     _ => return Err(

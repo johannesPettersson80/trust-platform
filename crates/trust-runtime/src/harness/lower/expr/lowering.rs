@@ -9,12 +9,7 @@ pub(in crate::harness) fn lower_lvalue(
             if exprs.len() < 2 {
                 return Err(CompileError::new("invalid index expression"));
             }
-            let target = &exprs[0];
-            let name = if target.kind() == SyntaxKind::NameRef {
-                node_text(target)
-            } else {
-                return Err(CompileError::new("unsupported index target"));
-            };
+            let target = lower_lvalue(&exprs[0], ctx)?;
             let mut indices = Vec::new();
             for expr in exprs.iter().skip(1) {
                 indices.push(lower_expr(expr, ctx)?);
@@ -23,7 +18,7 @@ pub(in crate::harness) fn lower_lvalue(
                 return Err(CompileError::new("missing index expression"));
             }
             Ok(LValue::Index {
-                name: name.into(),
+                target: Box::new(target),
                 indices,
             })
         }
@@ -32,18 +27,13 @@ pub(in crate::harness) fn lower_lvalue(
             if exprs.is_empty() {
                 return Err(CompileError::new("invalid field expression"));
             }
-            let target = &exprs[0];
-            let name = if matches!(target.kind(), SyntaxKind::NameRef | SyntaxKind::FieldExpr) {
-                node_text(target)
-            } else {
-                return Err(CompileError::new("unsupported field target"));
-            };
+            let target = lower_lvalue(&exprs[0], ctx)?;
             let field = node
                 .children()
                 .find(|child| matches!(child.kind(), SyntaxKind::Name | SyntaxKind::Literal))
                 .ok_or_else(|| CompileError::new("missing field name"))?;
             Ok(LValue::Field {
-                name: name.into(),
+                target: Box::new(target),
                 field: node_text(&field).into(),
             })
         }

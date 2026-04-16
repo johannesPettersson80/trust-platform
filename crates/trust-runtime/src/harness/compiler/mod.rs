@@ -12,7 +12,7 @@ pub(super) use config::{
     lower_configuration, lower_root_global_var_blocks, resolve_program_type_name,
 };
 pub(super) use model::{
-    AccessDecl, AccessPart, AccessPath, ConfigInit, GlobalInit, LoweringContext,
+    AccessDecl, AccessPart, AccessPath, CompileTimeConsts, ConfigInit, GlobalInit, LoweringContext,
     ProgramInstanceConfig, ResolvedAccess, WildcardRequirement,
 };
 pub(super) use pou::{

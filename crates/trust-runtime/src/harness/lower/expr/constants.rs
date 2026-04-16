@@ -28,13 +28,19 @@ fn is_wildcard_expr(node: &SyntaxNode) -> bool {
     node.text().to_string().trim() == "*"
 }
 
+pub(in crate::harness) fn const_value_from_node(
+    node: &SyntaxNode,
+    ctx: &mut LoweringContext<'_>,
+) -> Result<Value, CompileError> {
+    let expr = lower_expr(node, ctx)?;
+    ctx.eval_compile_time_const_expr(&expr)
+}
+
 pub(in crate::harness) fn const_int_from_node(
     node: &SyntaxNode,
     ctx: &mut LoweringContext<'_>,
 ) -> Result<i64, CompileError> {
-    let expr = lower_expr(node, ctx)?;
-    let value = crate::helper_eval::eval_const_expr(&expr, &ctx.profile)
-        .map_err(|err| CompileError::new(err.to_string()))?;
+    let value = const_value_from_node(node, ctx)?;
     match value {
         Value::SInt(v) => Ok(v as i64),
         Value::Int(v) => Ok(v as i64),
@@ -61,9 +67,7 @@ pub(in crate::harness) fn const_duration_from_node(
     node: &SyntaxNode,
     ctx: &mut LoweringContext<'_>,
 ) -> Result<Duration, CompileError> {
-    let expr = lower_expr(node, ctx)?;
-    let value = crate::helper_eval::eval_const_expr(&expr, &ctx.profile)
-        .map_err(|err| CompileError::new(err.to_string()))?;
+    let value = const_value_from_node(node, ctx)?;
     match value {
         Value::Time(duration) | Value::LTime(duration) => Ok(duration),
         _ => Err(CompileError::new("expected TIME/INTERVAL constant")),

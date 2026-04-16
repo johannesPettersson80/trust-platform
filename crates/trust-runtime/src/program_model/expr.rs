@@ -49,22 +49,46 @@ pub enum SizeOfTarget {
 #[derive(Debug, Clone)]
 pub enum LValue {
     Name(SmolStr),
-    Index { name: SmolStr, indices: Vec<Expr> },
-    Field { name: SmolStr, field: SmolStr },
+    Index {
+        target: Box<LValue>,
+        indices: Vec<Expr>,
+    },
+    Field {
+        target: Box<LValue>,
+        field: SmolStr,
+    },
     Deref(Box<Expr>),
 }
 
 impl LValue {
     #[must_use]
-    pub fn name(&self) -> &SmolStr {
+    pub fn root_name(&self) -> Option<&SmolStr> {
         match self {
-            LValue::Name(name) => name,
-            LValue::Index { name, .. } => name,
-            LValue::Field { name, .. } => name,
-            LValue::Deref(_) => {
-                static PLACEHOLDER: SmolStr = SmolStr::new_static("<deref>");
-                &PLACEHOLDER
+            LValue::Name(name) => Some(name),
+            LValue::Index { target, .. } | LValue::Field { target, .. } => target.root_name(),
+            LValue::Deref(_) => None,
+        }
+    }
+
+    #[must_use]
+    pub fn qualified_name(&self) -> Option<SmolStr> {
+        match self {
+            LValue::Name(name) => Some(name.clone()),
+            LValue::Field { target, field } => {
+                let prefix = target.qualified_name()?;
+                Some(SmolStr::new(format!("{prefix}.{field}")))
             }
+            LValue::Index { .. } | LValue::Deref(_) => None,
+        }
+    }
+
+    #[must_use]
+    pub fn contains_index(&self) -> bool {
+        match self {
+            LValue::Name(_) => false,
+            LValue::Index { .. } => true,
+            LValue::Field { target, .. } => target.contains_index(),
+            LValue::Deref(_) => false,
         }
     }
 }

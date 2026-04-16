@@ -41,5 +41,5 @@ struct PreparedBindings {
 #[derive(Debug, Clone, Copy)]
 enum BindingMode {
     Function,
-    FunctionBlock,
+    FunctionBlock { instance_id: InstanceId },
 }

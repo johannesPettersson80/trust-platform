@@ -101,6 +101,46 @@ fn conversion_full() {
         lib.call("TOD_TO_LTOD", std::slice::from_ref(&tod)).unwrap(),
         ltod
     );
+    assert_eq!(
+        lib.call(
+            "TIME_TO_DWORD",
+            &[Value::Time(trust_runtime::value::Duration::from_millis(0))]
+        )
+        .unwrap(),
+        Value::DWord(0)
+    );
+    assert_eq!(
+        lib.call("DWORD_TO_TIME", &[Value::DWord(0)]).unwrap(),
+        Value::Time(trust_runtime::value::Duration::from_millis(0))
+    );
+    assert_eq!(
+        lib.call(
+            "TIME_TO_DWORD",
+            &[Value::Time(trust_runtime::value::Duration::from_millis(
+                123
+            ))]
+        )
+        .unwrap(),
+        Value::DWord(123)
+    );
+    assert_eq!(
+        lib.call("DWORD_TO_TIME", &[Value::DWord(123)]).unwrap(),
+        Value::Time(trust_runtime::value::Duration::from_millis(123))
+    );
+    assert!(lib
+        .call(
+            "TIME_TO_DWORD",
+            &[Value::Time(trust_runtime::value::Duration::from_millis(-1))]
+        )
+        .is_err());
+    assert!(lib
+        .call(
+            "TIME_TO_DWORD",
+            &[Value::Time(trust_runtime::value::Duration::from_millis(
+                i64::from(u32::MAX) + 1
+            ))]
+        )
+        .is_err());
 
     // String/char conversions.
     assert_eq!(
@@ -112,6 +152,36 @@ fn conversion_full() {
         lib.call("STRING_TO_CHAR", &[Value::String("A".into())])
             .unwrap(),
         Value::Char(b'A')
+    );
+    assert_eq!(
+        lib.call("BYTE_TO_CHAR", &[Value::Byte(b'A')]).unwrap(),
+        Value::Char(b'A')
+    );
+    assert_eq!(
+        lib.call("CHAR_TO_BYTE", &[Value::Char(b'A')]).unwrap(),
+        Value::Byte(b'A')
+    );
+    assert_eq!(
+        lib.call("WCHAR_TO_WORD", &[Value::WChar(b'B' as u16)])
+            .unwrap(),
+        Value::Word(b'B' as u16)
+    );
+    assert_eq!(
+        lib.call("DINT_TO_STRING", &[Value::DInt(42)]).unwrap(),
+        Value::String("42".into())
+    );
+    assert_eq!(
+        lib.call("REAL_TO_STRING", &[Value::Real(1.25)]).unwrap(),
+        Value::String("1.25".into())
+    );
+    assert_eq!(
+        lib.call("DWORD_TO_STRING", &[Value::DWord(42)]).unwrap(),
+        Value::String("42".into())
+    );
+    assert_eq!(
+        lib.call("STRING_TO_DINT", &[Value::String("42".into())])
+            .unwrap(),
+        Value::DInt(42)
     );
     assert_eq!(
         lib.call("WCHAR_TO_CHAR", &[Value::WChar(b'B' as u16)])

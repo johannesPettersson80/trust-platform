@@ -9,7 +9,7 @@ use trust_hir::db::SemanticDatabase;
 use trust_hir::{Project, SourceKey};
 use trust_syntax::parser;
 
-use super::compiler::lower_root_global_var_blocks;
+use super::compiler::{lower_root_global_var_blocks, CompileTimeConsts};
 use super::config::{
     apply_config_inits, apply_globals, apply_program_retain_overrides,
     attach_fb_instances_to_tasks, attach_programs_to_tasks, ensure_wildcards_resolved,
@@ -89,6 +89,21 @@ pub(super) fn build_runtime_from_source_files(
         super::predeclare_interfaces(&syntax, runtime.registry_mut())?;
     }
 
+    let mut compile_time_consts = CompileTimeConsts::default();
+    let mut root_globals_per_file = Vec::with_capacity(parses.len());
+    for (idx, parse) in parses.iter().enumerate() {
+        let syntax = parse.syntax();
+        let globals = lower_root_global_var_blocks(
+            &syntax,
+            runtime.registry_mut(),
+            profile,
+            &mut compile_time_consts,
+            file_ids[idx].0,
+            &mut statement_locations[idx],
+        )?;
+        root_globals_per_file.push(globals);
+    }
+
     let mut interface_names = std::collections::HashSet::new();
     for (idx, parse) in parses.iter().enumerate() {
         let syntax = parse.syntax();
@@ -96,6 +111,7 @@ pub(super) fn build_runtime_from_source_files(
             &syntax,
             runtime.registry_mut(),
             profile,
+            &compile_time_consts,
             file_ids[idx].0,
             &mut statement_locations[idx],
         )?;
@@ -118,6 +134,7 @@ pub(super) fn build_runtime_from_source_files(
             &syntax,
             runtime.registry_mut(),
             profile,
+            &compile_time_consts,
             file_ids[idx].0,
             &mut statement_locations[idx],
         )?;
@@ -140,6 +157,7 @@ pub(super) fn build_runtime_from_source_files(
             &syntax,
             runtime.registry_mut(),
             profile,
+            &compile_time_consts,
             file_ids[idx].0,
             &mut statement_locations[idx],
         )?;
@@ -162,6 +180,7 @@ pub(super) fn build_runtime_from_source_files(
             &syntax,
             runtime.registry_mut(),
             profile,
+            &compile_time_consts,
             file_ids[idx].0,
             &mut statement_locations[idx],
         )?;
@@ -181,17 +200,12 @@ pub(super) fn build_runtime_from_source_files(
     let mut globals = Vec::new();
     for (idx, parse) in parses.iter().enumerate() {
         let syntax = parse.syntax();
-        globals.extend(lower_root_global_var_blocks(
-            &syntax,
-            runtime.registry_mut(),
-            profile,
-            file_ids[idx].0,
-            &mut statement_locations[idx],
-        )?);
+        globals.extend(root_globals_per_file[idx].clone());
         let lowered = super::lower_programs(
             &syntax,
             runtime.registry_mut(),
             profile,
+            &compile_time_consts,
             file_ids[idx].0,
             &mut statement_locations[idx],
         )?;
@@ -215,6 +229,7 @@ pub(super) fn build_runtime_from_source_files(
             &syntax,
             runtime.registry_mut(),
             profile,
+            &compile_time_consts,
             file_ids[idx].0,
             &mut statement_locations[idx],
         )? {

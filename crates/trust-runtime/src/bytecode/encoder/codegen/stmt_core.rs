@@ -116,6 +116,10 @@ impl<'a> BytecodeEncoder<'a> {
                     false
                 }
             }
+            crate::program_model::Stmt::Exit { .. } => self.emit_loop_jump(ctx, code, true)?,
+            crate::program_model::Stmt::Continue { .. } => {
+                self.emit_loop_jump(ctx, code, false)?
+            }
             _ => false,
         };
 
@@ -147,6 +151,32 @@ impl<'a> BytecodeEncoder<'a> {
             self.emit_stmt(ctx, pou_id, stmt, code, debug_entries)?;
         }
         Ok(())
+    }
+
+    fn emit_loop_jump(
+        &mut self,
+        ctx: &mut CodegenContext,
+        code: &mut Vec<u8>,
+        exit: bool,
+    ) -> Result<bool, BytecodeError> {
+        let jump = self.emit_jump_placeholder(code, 0x02);
+        let recorded = if exit {
+            ctx.record_exit_jump(jump)
+        } else {
+            ctx.record_continue_jump(jump)
+        };
+        if recorded {
+            Ok(true)
+        } else {
+            Err(BytecodeError::InvalidSection(
+                if exit {
+                    "EXIT lowering requires active loop"
+                } else {
+                    "CONTINUE lowering requires active loop"
+                }
+                .into(),
+            ))
+        }
     }
 
 }
@@ -245,8 +275,10 @@ fn lvalue_contains_call(lvalue: &crate::program_model::LValue) -> bool {
     use crate::program_model::LValue;
     match lvalue {
         LValue::Name(_) => false,
-        LValue::Field { .. } => false,
-        LValue::Index { indices, .. } => indices.iter().any(expr_contains_call),
+        LValue::Field { target, .. } => lvalue_contains_call(target),
+        LValue::Index { target, indices } => {
+            lvalue_contains_call(target) || indices.iter().any(expr_contains_call)
+        }
         LValue::Deref(expr) => expr_contains_call(expr),
     }
 }
@@ -342,8 +374,11 @@ fn expr_contains_sizeof(expr: &crate::program_model::Expr) -> bool {
 fn lvalue_contains_sizeof(lvalue: &crate::program_model::LValue) -> bool {
     use crate::program_model::LValue;
     match lvalue {
-        LValue::Name(_) | LValue::Field { .. } => false,
-        LValue::Index { indices, .. } => indices.iter().any(expr_contains_sizeof),
+        LValue::Name(_) => false,
+        LValue::Field { target, .. } => lvalue_contains_sizeof(target),
+        LValue::Index { target, indices } => {
+            lvalue_contains_sizeof(target) || indices.iter().any(expr_contains_sizeof)
+        }
         LValue::Deref(expr) => expr_contains_sizeof(expr),
     }
 }

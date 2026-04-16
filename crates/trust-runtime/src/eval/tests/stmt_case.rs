@@ -16,7 +16,7 @@ fn case_labels() {
         selector: Expr::Literal(Value::Int(2)),
         branches: vec![
             (
-                vec![CaseLabel::Single(1)],
+                vec![CaseLabel::Single(Value::Int(1))],
                 vec![Stmt::Assign {
                     target: LValue::Name("x".into()),
                     value: Expr::Literal(Value::Int(1)),
@@ -25,6 +25,40 @@ fn case_labels() {
             ),
             (
                 vec![CaseLabel::Range(2, 3)],
+                vec![Stmt::Assign {
+                    target: LValue::Name("x".into()),
+                    value: Expr::Literal(Value::Int(9)),
+                    location: None,
+                }],
+            ),
+        ],
+        else_block: vec![],
+        location: None,
+    };
+
+    exec_stmt(&mut ctx, &stmt).unwrap();
+    assert_eq!(storage.get_global("x"), Some(&Value::Int(9)));
+}
+
+#[test]
+fn case_string_labels() {
+    let mut storage = VariableStorage::new();
+    let registry = TypeRegistry::new();
+    let mut ctx = common::make_context(&mut storage, &registry);
+
+    let stmt = Stmt::Case {
+        selector: Expr::Literal(Value::String("B".into())),
+        branches: vec![
+            (
+                vec![CaseLabel::Single(Value::String("A".into()))],
+                vec![Stmt::Assign {
+                    target: LValue::Name("x".into()),
+                    value: Expr::Literal(Value::Int(1)),
+                    location: None,
+                }],
+            ),
+            (
+                vec![CaseLabel::Single(Value::String("B".into()))],
                 vec![Stmt::Assign {
                     target: LValue::Name("x".into()),
                     value: Expr::Literal(Value::Int(9)),

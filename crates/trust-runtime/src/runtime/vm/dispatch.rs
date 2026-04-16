@@ -219,6 +219,12 @@ pub(super) fn execute_pou_stack_with_locals(
             frame.locals[index] = value;
         }
     }
+    {
+        let frame = frames
+            .current_mut()
+            .ok_or_else(|| VmTrap::CallStackUnderflow.into_runtime_error())?;
+        super::local_init::initialize_declared_locals(runtime, module, frame)?;
+    }
     let mut local_budget = module.instruction_budget;
     let budget = shared_budget.unwrap_or(&mut local_budget);
 

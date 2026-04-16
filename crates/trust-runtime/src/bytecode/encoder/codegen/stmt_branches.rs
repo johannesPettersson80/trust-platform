@@ -103,7 +103,7 @@ impl<'a> BytecodeEncoder<'a> {
                 match label {
                     crate::program_model::CaseLabel::Single(value) => {
                         code.push(0x11);
-                        if !self.emit_const_value(&Value::LInt(*value), code)? {
+                        if !self.emit_const_value(value, code)? {
                             code.truncate(code_start);
                             debug_entries.truncate(debug_start);
                             return Ok(false);

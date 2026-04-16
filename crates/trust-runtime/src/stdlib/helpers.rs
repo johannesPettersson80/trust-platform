@@ -120,11 +120,19 @@ pub fn coerce_to_common(value: &Value, kind: &CommonKind) -> Result<Value, Runti
             if *wide {
                 match value {
                     Value::WString(_) => Ok(value.clone()),
+                    Value::WChar(value) => {
+                        let ch = std::char::from_u32(u32::from(*value))
+                            .ok_or(RuntimeError::TypeMismatch)?;
+                        Ok(Value::WString(ch.to_string()))
+                    }
                     _ => Err(RuntimeError::TypeMismatch),
                 }
             } else {
                 match value {
                     Value::String(_) => Ok(value.clone()),
+                    Value::Char(value) => {
+                        Ok(Value::String((char::from(*value)).to_string().into()))
+                    }
                     _ => Err(RuntimeError::TypeMismatch),
                 }
             }
@@ -229,6 +237,8 @@ fn classify_value(value: &Value) -> Option<CommonKind> {
     match value {
         Value::String(_) => return Some(CommonKind::String { wide: false }),
         Value::WString(_) => return Some(CommonKind::String { wide: true }),
+        Value::Char(_) => return Some(CommonKind::String { wide: false }),
+        Value::WChar(_) => return Some(CommonKind::String { wide: true }),
         _ => {}
     }
     match value {

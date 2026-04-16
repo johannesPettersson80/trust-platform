@@ -49,6 +49,9 @@ impl Runtime {
             }
         }
 
+        self.storage
+            .reset_runtime_values(matches!(mode, RestartMode::Cold));
+
         for (name, meta) in globals {
             let keep = matches!(mode, RestartMode::Warm) && retain_on_warm(meta.retain);
             if keep {
@@ -124,7 +127,6 @@ impl Runtime {
             self.storage.set_instance_var(*id, var_name, value);
         }
 
-        self.storage.clear_frames();
         self.current_time = Duration::ZERO;
         for state in self.task_state.values_mut() {
             *state = TaskState::new(self.current_time);

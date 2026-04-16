@@ -32,18 +32,43 @@ pub(crate) fn eval_const_expr(
     expr: &Expr,
     profile: &DateTimeProfile,
 ) -> Result<Value, ConstExprError> {
+    eval_const_expr_with_resolver(expr, profile, &|_| None)
+}
+
+pub(crate) fn eval_const_expr_with_resolver(
+    expr: &Expr,
+    profile: &DateTimeProfile,
+    resolve_name: &impl Fn(&str) -> Option<Value>,
+) -> Result<Value, ConstExprError> {
+    if let Some(name) = qualified_const_name(expr) {
+        if let Some(value) = resolve_name(&name) {
+            return Ok(value);
+        }
+    }
+
     match expr {
         Expr::Literal(value) => Ok(value.clone()),
         Expr::Unary { op, expr } => {
-            let value = eval_const_expr(expr, profile)?;
+            let value = eval_const_expr_with_resolver(expr, profile, resolve_name)?;
             Ok(apply_unary(*op, value)?)
         }
         Expr::Binary { op, left, right } => {
-            let left = eval_const_expr(left, profile)?;
-            let right = eval_const_expr(right, profile)?;
+            let left = eval_const_expr_with_resolver(left, profile, resolve_name)?;
+            let right = eval_const_expr_with_resolver(right, profile, resolve_name)?;
             Ok(apply_binary(*op, left, right, profile)?)
         }
         _ => Err(ConstExprError::UnsupportedExpr),
+    }
+}
+
+fn qualified_const_name(expr: &Expr) -> Option<String> {
+    match expr {
+        Expr::Name(name) => Some(name.to_string()),
+        Expr::Field { target, field } => {
+            let prefix = qualified_const_name(target)?;
+            Some(format!("{prefix}.{field}"))
+        }
+        _ => None,
     }
 }
 
@@ -78,5 +103,20 @@ mod tests {
             eval_const_expr(&expr, &DateTimeProfile::default()),
             Err(ConstExprError::UnsupportedExpr)
         ));
+    }
+
+    #[test]
+    fn resolves_named_const_with_resolver() {
+        let expr = Expr::Binary {
+            op: BinaryOp::Add,
+            left: Box::new(Expr::Name("LEN".into())),
+            right: Box::new(Expr::Literal(Value::Int(2))),
+        };
+
+        let value = eval_const_expr_with_resolver(&expr, &DateTimeProfile::default(), &|name| {
+            (name == "LEN").then_some(Value::Int(10))
+        })
+        .unwrap();
+        assert_eq!(value, Value::Int(12));
     }
 }

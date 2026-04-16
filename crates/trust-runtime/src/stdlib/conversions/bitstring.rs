@@ -10,6 +10,8 @@ pub(super) fn convert_to_bit_string(value: &Value, dst: TypeId) -> Result<Value,
         Value::Word(v) => bit_string_from_u64(*v as u64, dst),
         Value::DWord(v) => bit_string_from_u64(*v as u64, dst),
         Value::LWord(v) => bit_string_from_u64(*v, dst),
+        Value::Char(v) => bit_string_from_u64(*v as u64, dst),
+        Value::WChar(v) => bit_string_from_u64(*v as u64, dst),
         Value::SInt(v) => integer_to_bit_string(*v as i64, dst),
         Value::Int(v) => integer_to_bit_string(*v as i64, dst),
         Value::DInt(v) => integer_to_bit_string(*v as i64, dst),
@@ -20,6 +22,11 @@ pub(super) fn convert_to_bit_string(value: &Value, dst: TypeId) -> Result<Value,
         Value::ULInt(v) => unsigned_to_bit_string(*v, dst),
         Value::Real(v) if dst == TypeId::DWORD => Ok(Value::DWord(v.to_bits())),
         Value::LReal(v) if dst == TypeId::LWORD => Ok(Value::LWord(v.to_bits())),
+        Value::Time(duration) if dst == TypeId::DWORD => {
+            let millis = duration.as_millis();
+            let millis = u32::try_from(millis).map_err(|_| RuntimeError::Overflow)?;
+            Ok(Value::DWord(millis))
+        }
         _ => Err(RuntimeError::TypeMismatch),
     }
 }

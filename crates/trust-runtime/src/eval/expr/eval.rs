@@ -41,6 +41,15 @@ pub fn eval_expr(ctx: &mut EvalContext<'_>, expr: &Expr) -> Result<Value, Runtim
                 if key == "REF" {
                     return eval_ref_call(ctx, args);
                 }
+                if time::is_runtime_clock_name(key.as_str()) {
+                    if !args.is_empty() {
+                        return Err(RuntimeError::InvalidArgumentCount {
+                            expected: 0,
+                            got: args.len(),
+                        });
+                    }
+                    return Ok(Value::Time(ctx.now));
+                }
                 if time::is_split_name(key.as_str()) {
                     return eval_split_call(ctx, key.as_str(), args);
                 }
@@ -165,8 +174,7 @@ pub fn eval_expr(ctx: &mut EvalContext<'_>, expr: &Expr) -> Result<Value, Runtim
             match value {
                 Value::Reference(Some(reference)) => ctx
                     .storage
-                    .read_by_ref(reference)
-                    .cloned()
+                    .materialize_by_ref(reference)
                     .ok_or(RuntimeError::NullReference),
                 Value::Reference(None) => Err(RuntimeError::NullReference),
                 _ => Err(RuntimeError::TypeMismatch),

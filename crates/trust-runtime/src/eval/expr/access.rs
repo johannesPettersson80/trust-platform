@@ -135,6 +135,8 @@ pub(super) fn read_indices(target: Value, indices: &[Value]) -> Result<Value, Ru
                 .cloned()
                 .ok_or(RuntimeError::TypeMismatch)
         }
+        Value::String(text) => read_string_index(text.as_str(), indices, false),
+        Value::WString(text) => read_string_index(text.as_str(), indices, true),
         _ => Err(RuntimeError::TypeMismatch),
     }
 }
@@ -154,6 +156,8 @@ pub(super) fn write_indices(
                 Err(RuntimeError::TypeMismatch)
             }
         }
+        Value::String(text) => write_string_index(text.as_str(), indices, value, false),
+        Value::WString(text) => write_string_index(text.as_str(), indices, value, true),
         _ => Err(RuntimeError::TypeMismatch),
     }
 }
@@ -252,6 +256,97 @@ pub(super) fn array_offset(
         stride *= len;
     }
     usize::try_from(offset).map_err(|_| RuntimeError::TypeMismatch)
+}
+
+fn read_string_index(text: &str, indices: &[Value], wide: bool) -> Result<Value, RuntimeError> {
+    let Some(position) = single_string_index(indices)? else {
+        return Err(RuntimeError::TypeMismatch);
+    };
+    let Some(ch) = text.chars().nth(position) else {
+        return Err(RuntimeError::IndexOutOfBounds {
+            index: i64::try_from(position + 1).map_err(|_| RuntimeError::Overflow)?,
+            lower: 1,
+            upper: i64::try_from(text.chars().count()).map_err(|_| RuntimeError::Overflow)?,
+        });
+    };
+    if wide {
+        let code = u16::try_from(ch as u32).map_err(|_| RuntimeError::Overflow)?;
+        Ok(Value::WChar(code))
+    } else {
+        let code = u8::try_from(ch as u32).map_err(|_| RuntimeError::Overflow)?;
+        Ok(Value::Char(code))
+    }
+}
+
+fn write_string_index(
+    text: &str,
+    indices: &[Value],
+    value: Value,
+    wide: bool,
+) -> Result<Value, RuntimeError> {
+    let Some(position) = single_string_index(indices)? else {
+        return Err(RuntimeError::TypeMismatch);
+    };
+    let mut chars: Vec<char> = text.chars().collect();
+    if position >= chars.len() {
+        return Err(RuntimeError::IndexOutOfBounds {
+            index: i64::try_from(position + 1).map_err(|_| RuntimeError::Overflow)?,
+            lower: 1,
+            upper: i64::try_from(chars.len()).map_err(|_| RuntimeError::Overflow)?,
+        });
+    }
+    chars[position] = value_to_char(value, wide)?;
+    let updated: String = chars.into_iter().collect();
+    if wide {
+        Ok(Value::WString(updated))
+    } else {
+        Ok(Value::String(updated.into()))
+    }
+}
+
+fn single_string_index(indices: &[Value]) -> Result<Option<usize>, RuntimeError> {
+    if indices.len() != 1 {
+        return Ok(None);
+    }
+    let index = index_to_i64(indices[0].clone())?;
+    if index < 1 {
+        return Err(RuntimeError::IndexOutOfBounds {
+            index,
+            lower: 1,
+            upper: i64::MAX,
+        });
+    }
+    usize::try_from(index - 1)
+        .map(Some)
+        .map_err(|_| RuntimeError::Overflow)
+}
+
+fn value_to_char(value: Value, wide: bool) -> Result<char, RuntimeError> {
+    let code = match value {
+        Value::Char(code) => u32::from(code),
+        Value::WChar(code) => u32::from(code),
+        Value::String(text) => {
+            let mut chars = text.chars();
+            let ch = chars.next().ok_or(RuntimeError::TypeMismatch)?;
+            if chars.next().is_some() {
+                return Err(RuntimeError::TypeMismatch);
+            }
+            return Ok(ch);
+        }
+        Value::WString(text) => {
+            let mut chars = text.chars();
+            let ch = chars.next().ok_or(RuntimeError::TypeMismatch)?;
+            if chars.next().is_some() {
+                return Err(RuntimeError::TypeMismatch);
+            }
+            return Ok(ch);
+        }
+        _ => return Err(RuntimeError::TypeMismatch),
+    };
+    if !wide && code > u32::from(u8::MAX) {
+        return Err(RuntimeError::Overflow);
+    }
+    std::char::from_u32(code).ok_or(RuntimeError::TypeMismatch)
 }
 
 fn partial_access_error_to_runtime(err: PartialAccessError) -> RuntimeError {

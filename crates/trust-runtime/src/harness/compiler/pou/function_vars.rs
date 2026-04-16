@@ -20,6 +20,17 @@ fn lower_function_var_blocks(
             let (names, type_ref, initializer, address) = parse_var_decl(&var_decl)?;
             let type_id = lower_type_ref(&type_ref, ctx)?;
             let init_expr = initializer.map(|expr| lower_expr(&expr, ctx)).transpose()?;
+            if qualifiers.constant
+                && matches!(kind, VarBlockKind::Var | VarBlockKind::Stat | VarBlockKind::Temp)
+            {
+                if let Some(expr) = init_expr.as_ref() {
+                    let value = ctx.eval_compile_time_const_expr(expr)?;
+                    let value = crate::harness::coerce_value_to_type(value, type_id)?;
+                    for name in &names {
+                        ctx.register_compile_time_const(name.as_str(), value.clone());
+                    }
+                }
+            }
             let address_info = address
                 .as_ref()
                 .map(|text| IoAddress::parse(text))

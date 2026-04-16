@@ -4,6 +4,7 @@ use crate::value::Value;
 use trust_hir::TypeId;
 
 use super::bitstring::bit_string_to_int;
+use super::string::{parse_int_text, parse_real_text, string_input};
 use super::ConversionMode;
 
 pub(super) fn convert_to_int(
@@ -26,8 +27,15 @@ pub(super) fn convert_to_int(
         Value::UInt(v) => unsigned_int_from_u64(*v as u64, dst),
         Value::UDInt(v) => unsigned_int_from_u64(*v as u64, dst),
         Value::ULInt(v) => unsigned_int_from_u64(*v, dst),
+        Value::Char(v) => unsigned_int_from_u64(*v as u64, dst),
+        Value::WChar(v) => unsigned_int_from_u64(*v as u64, dst),
         Value::Byte(_) | Value::Word(_) | Value::DWord(_) | Value::LWord(_) => {
             bit_string_to_int(value, dst)
+        }
+        Value::String(_) | Value::WString(_) => {
+            let text = string_input(value)?;
+            let parsed = parse_int_text(text)?;
+            signed_int_from_i128(parsed, dst)
         }
         _ => Err(RuntimeError::TypeMismatch),
     }
@@ -55,6 +63,11 @@ pub(super) fn convert_to_real(value: &Value, dst: TypeId) -> Result<Value, Runti
         Value::UInt(v) => real_from_int(*v as f64, dst),
         Value::UDInt(v) => real_from_int(*v as f64, dst),
         Value::ULInt(v) => real_from_int(*v as f64, dst),
+        Value::String(_) | Value::WString(_) => {
+            let text = string_input(value)?;
+            let parsed = parse_real_text(text)?;
+            real_from_int(parsed, dst)
+        }
         _ => Err(RuntimeError::TypeMismatch),
     }
 }

@@ -76,7 +76,7 @@ impl<'a> BytecodeEncoder<'a> {
                     let reference = match self.resolve_lvalue_ref(
                         ctx,
                         &crate::program_model::LValue::Field {
-                            name: base.clone(),
+                            target: Box::new(crate::program_model::LValue::Name(base.clone())),
                             field: field.clone(),
                         },
                     )? {
@@ -115,7 +115,7 @@ impl<'a> BytecodeEncoder<'a> {
                     if let Some(reference) = self.resolve_lvalue_ref(
                         ctx,
                         &crate::program_model::LValue::Index {
-                            name: base.clone(),
+                            target: Box::new(crate::program_model::LValue::Name(base.clone())),
                             indices: indices.clone(),
                         },
                     )? {
@@ -291,6 +291,7 @@ impl<'a> BytecodeEncoder<'a> {
                 if self.runtime.functions().contains_key(&key) {
                     (NativeTargetKind::Function, name.clone(), false)
                 } else if self.runtime.stdlib().get(name.as_str()).is_some()
+                    || crate::stdlib::time::is_runtime_clock_name(key.as_str())
                     || crate::stdlib::time::is_split_name(key.as_str())
                     || crate::stdlib::conversions::is_conversion_name(key.as_str())
                 {

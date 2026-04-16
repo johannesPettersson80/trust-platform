@@ -146,6 +146,98 @@ fn dispatch_set_expression_write_once_rejects_output_io() {
 }
 
 #[test]
+fn dispatch_set_expression_force_supports_direct_instance_field_live() {
+    let mut runtime = Runtime::new();
+    let instance_id = runtime.storage_mut().create_instance("MAIN_T");
+    runtime
+        .storage_mut()
+        .set_instance_var(instance_id, "count", RuntimeValue::Int(1));
+    runtime
+        .storage_mut()
+        .set_global("Main", RuntimeValue::Instance(instance_id));
+
+    let session = DebugSession::new(runtime);
+    let mut adapter = DebugAdapter::new(session);
+
+    let request = Request {
+        seq: 1,
+        message_type: MessageType::Request,
+        command: "setExpression".to_string(),
+        arguments: Some(
+            serde_json::to_value(SetExpressionArguments {
+                expression: "Main.count".to_string(),
+                value: "force: 5".to_string(),
+                frame_id: None,
+            })
+            .unwrap(),
+        ),
+    };
+    let outcome = adapter.dispatch_request(request);
+    let response: Response<SetExpressionResponseBody> =
+        serde_json::from_value(outcome.responses[0].clone()).unwrap();
+    assert!(
+        response.success,
+        "live direct instance-field force failed: {:?}",
+        response.message
+    );
+
+    let runtime = adapter.session().runtime_handle();
+    let runtime = runtime.lock().unwrap();
+    assert_eq!(
+        runtime.storage().get_instance_var(instance_id, "count"),
+        Some(&RuntimeValue::Int(5))
+    );
+}
+
+#[test]
+fn dispatch_set_expression_force_supports_direct_instance_field_paused() {
+    let mut runtime = Runtime::new();
+    let instance_id = runtime.storage_mut().create_instance("MAIN_T");
+    runtime
+        .storage_mut()
+        .set_instance_var(instance_id, "count", RuntimeValue::Int(1));
+    runtime
+        .storage_mut()
+        .set_global("Main", RuntimeValue::Instance(instance_id));
+
+    let control = DebugControl::new();
+    control.refresh_snapshot_from_storage(runtime.storage(), runtime.current_time());
+
+    let session = DebugSession::with_control(runtime, control);
+    let mut adapter = DebugAdapter::new(session);
+
+    let request = Request {
+        seq: 1,
+        message_type: MessageType::Request,
+        command: "setExpression".to_string(),
+        arguments: Some(
+            serde_json::to_value(SetExpressionArguments {
+                expression: "Main.count".to_string(),
+                value: "force: 5".to_string(),
+                frame_id: None,
+            })
+            .unwrap(),
+        ),
+    };
+    let outcome = adapter.dispatch_request(request);
+    let response: Response<SetExpressionResponseBody> =
+        serde_json::from_value(outcome.responses[0].clone()).unwrap();
+    assert!(
+        response.success,
+        "paused direct instance-field force failed: {:?}",
+        response.message
+    );
+
+    let snapshot_value = adapter.session().debug_control().with_snapshot(|snapshot| {
+        snapshot
+            .storage
+            .get_instance_var(instance_id, "count")
+            .cloned()
+    });
+    assert_eq!(snapshot_value, Some(Some(RuntimeValue::Int(5))));
+}
+
+#[test]
 fn dispatch_initialize_emits_initialized_event() {
     let runtime = Runtime::new();
     let mut adapter = DebugAdapter::new(DebugSession::new(runtime));

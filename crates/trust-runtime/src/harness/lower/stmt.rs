@@ -5,7 +5,7 @@ use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 
 use super::super::util::{direct_expr_children, first_expr_child, is_statement_kind, node_text};
 use super::super::{CompileError, LoweringContext};
-use super::expr::{const_int_from_node, lower_expr, lower_lvalue};
+use super::expr::{const_int_from_node, const_value_from_node, lower_expr, lower_lvalue};
 
 pub(in crate::harness) fn lower_stmt_list(
     program: &SyntaxNode,
@@ -247,7 +247,7 @@ fn lower_case_label(
         return Err(CompileError::new("missing CASE label"));
     }
     if exprs.len() == 1 {
-        let value = const_int_from_node(&exprs[0], ctx)?;
+        let value = const_value_from_node(&exprs[0], ctx)?;
         return Ok(vec![CaseLabel::Single(value)]);
     }
     if exprs.len() == 2 {
