@@ -1,7 +1,7 @@
 use super::const_utils::*;
 use super::*;
 use crate::db::diagnostics::{is_expression_kind, resolve_pending_types_with_table};
-use crate::types::{StructField, UnionVariant};
+use crate::types::{ArrayDimensionExt, StructField, UnionVariant};
 
 impl SymbolCollector {
     pub(super) fn collect_type_symbols(&mut self, node: &SyntaxNode) {
@@ -248,10 +248,14 @@ impl SymbolCollector {
     pub(super) fn collect_array_type(&mut self, node: &SyntaxNode) -> TypeId {
         let mut dimensions = Vec::new();
         let mut element_type = TypeId::UNKNOWN;
+        let subranges: Vec<_> = node
+            .children()
+            .filter(|n| n.kind() == SyntaxKind::Subrange)
+            .collect();
 
         // Collect dimensions from Subrange children
-        for subrange in node.children().filter(|n| n.kind() == SyntaxKind::Subrange) {
-            if let Some((lower, upper)) = self.extract_subrange(&subrange) {
+        for subrange in &subranges {
+            if let Some((lower, upper)) = self.extract_subrange(subrange) {
                 dimensions.push((lower, upper));
             }
         }
@@ -266,11 +270,13 @@ impl SymbolCollector {
             dimensions.push((0, i64::MAX));
         }
 
+        self.validate_array_wildcard_usage(node, &subranges, &dimensions);
+
         self.table.register_array_type(element_type, dimensions)
     }
 
     pub(super) fn extract_subrange(&mut self, node: &SyntaxNode) -> Option<(i64, i64)> {
-        if node.text().to_string().trim().contains('*') {
+        if subrange_is_exact_wildcard(node) || subrange_contains_star(node) {
             return Some((0, i64::MAX));
         }
         let mut values = Vec::new();
@@ -285,6 +291,50 @@ impl SymbolCollector {
             Some((0, values[0]))
         } else {
             None
+        }
+    }
+
+    fn validate_array_wildcard_usage(
+        &mut self,
+        node: &SyntaxNode,
+        subranges: &[SyntaxNode],
+        dimensions: &[(i64, i64)],
+    ) {
+        let contains_star = subranges.iter().any(subrange_contains_star);
+        if !contains_star {
+            return;
+        }
+
+        let wildcard_dims = subranges
+            .iter()
+            .filter(|subrange| subrange_is_exact_wildcard(subrange))
+            .count();
+
+        let allowed_context = node
+            .ancestors()
+            .find(|ancestor| ancestor.kind() == SyntaxKind::VarBlock)
+            .is_some_and(|block| {
+                matches!(
+                    var_qualifier_from_block(&block),
+                    VarQualifier::Input | VarQualifier::Output | VarQualifier::InOut
+                )
+            });
+
+        if !allowed_context {
+            self.diagnostics.error(
+                DiagnosticCode::InvalidOperation,
+                node.text_range(),
+                "ARRAY[*] array wildcard '*' is only allowed in VAR_INPUT, VAR_OUTPUT, or VAR_IN_OUT declarations",
+            );
+        }
+
+        let exact_wildcard_dims = dimensions.iter().filter(|dim| dim.is_wildcard()).count();
+        if subranges.len() != 1 || wildcard_dims != 1 || exact_wildcard_dims != 1 {
+            self.diagnostics.error(
+                DiagnosticCode::InvalidOperation,
+                node.text_range(),
+                "ARRAY[*] wildcard form requires exactly one wildcard dimension",
+            );
         }
     }
 
@@ -472,11 +522,7 @@ impl SymbolCollector {
     pub(super) fn return_type_from_node(&mut self, node: &SyntaxNode) -> Option<TypeId> {
         node.children()
             .find(|n| n.kind() == SyntaxKind::TypeRef)
-            .and_then(|type_ref| type_path_from_type_ref(&type_ref))
-            .map(|(parts, _)| {
-                let names: Vec<SmolStr> = parts.iter().map(|(name, _)| name.clone()).collect();
-                self.resolve_type_path(&names)
-            })
+            .map(|type_ref| self.resolve_type_from_ref(&type_ref))
     }
 
     pub(super) fn property_accessors(&self, node: &SyntaxNode) -> (bool, bool) {
@@ -491,4 +537,20 @@ impl SymbolCollector {
         }
         (has_get, has_set)
     }
+}
+
+fn subrange_is_exact_wildcard(node: &SyntaxNode) -> bool {
+    let token_kinds: Vec<_> = node
+        .descendants_with_tokens()
+        .filter_map(|element| element.into_token())
+        .filter(|token| !token.kind().is_trivia())
+        .map(|token| token.kind())
+        .collect();
+    token_kinds == [SyntaxKind::Star]
+}
+
+fn subrange_contains_star(node: &SyntaxNode) -> bool {
+    node.descendants_with_tokens()
+        .filter_map(|element| element.into_token())
+        .any(|token| token.kind() == SyntaxKind::Star)
 }

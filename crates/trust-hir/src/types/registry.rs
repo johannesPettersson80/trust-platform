@@ -1,7 +1,7 @@
 use rustc_hash::FxHashMap;
 use smol_str::SmolStr;
 
-use super::defs::{StructField, Type, TypeId, UnionVariant};
+use super::defs::{ArrayDimensionExt, StructField, Type, TypeId, UnionVariant};
 
 /// Type registry for managing all types.
 #[derive(Debug, Clone, Default)]
@@ -87,7 +87,7 @@ impl TypeRegistry {
         let elem_name = self.type_name(element).unwrap_or_else(|| "?".into());
         let dims_str: Vec<String> = dimensions
             .iter()
-            .map(|(l, u)| format!("{}..{}", l, u))
+            .map(ArrayDimensionExt::display_bounds)
             .collect();
         let name = format!("ARRAY[{}] OF {}", dims_str.join(", "), elem_name);
         self.register(

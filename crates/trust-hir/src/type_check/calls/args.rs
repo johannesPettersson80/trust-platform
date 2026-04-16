@@ -246,11 +246,7 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                         self.checker.diagnostics.error(
                             DiagnosticCode::InvalidArgumentType,
                             arg.range,
-                            format!(
-                                "expected '{}' for parameter '{}'",
-                                self.checker.type_name(param.type_id),
-                                param.name
-                            ),
+                            self.invalid_argument_type_message(param, arg_type),
                         );
                     }
                 }
@@ -286,11 +282,7 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                         self.checker.diagnostics.error(
                             DiagnosticCode::InvalidArgumentType,
                             arg.range,
-                            format!(
-                                "output parameter '{}' expects '{}'",
-                                param.name,
-                                self.checker.type_name(param.type_id)
-                            ),
+                            self.invalid_output_argument_type_message(param, arg_type),
                         );
                     }
                 }
@@ -331,11 +323,7 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                         self.checker.diagnostics.error(
                             DiagnosticCode::InvalidArgumentType,
                             arg.range,
-                            format!(
-                                "in-out parameter '{}' expects '{}'",
-                                param.name,
-                                self.checker.type_name(param.type_id)
-                            ),
+                            self.invalid_in_out_argument_type_message(param, arg_type),
                         );
                     }
                 }
@@ -379,11 +367,7 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                         self.checker.diagnostics.error(
                             DiagnosticCode::InvalidArgumentType,
                             arg.range,
-                            format!(
-                                "expected '{}' for parameter '{}'",
-                                self.checker.type_name(param.type_id),
-                                param.name
-                            ),
+                            self.invalid_argument_type_message(param, arg_type),
                         );
                     }
                 }
@@ -395,11 +379,7 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                         self.checker.diagnostics.error(
                             DiagnosticCode::InvalidArgumentType,
                             arg.range,
-                            format!(
-                                "output parameter '{}' expects '{}'",
-                                param.name,
-                                self.checker.type_name(param.type_id)
-                            ),
+                            self.invalid_output_argument_type_message(param, arg_type),
                         );
                     }
                 }
@@ -415,16 +395,75 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                         self.checker.diagnostics.error(
                             DiagnosticCode::InvalidArgumentType,
                             arg.range,
-                            format!(
-                                "in-out parameter '{}' expects '{}'",
-                                param.name,
-                                self.checker.type_name(param.type_id)
-                            ),
+                            self.invalid_in_out_argument_type_message(param, arg_type),
                         );
                     }
                 }
             }
         }
+    }
+
+    fn invalid_argument_type_message(&self, param: &ParamInfo, arg_type: TypeId) -> String {
+        self.pointer_target_mismatch_message(param, arg_type)
+            .unwrap_or_else(|| {
+                format!(
+                    "expected '{}' for parameter '{}'",
+                    self.checker.type_name(param.type_id),
+                    param.name
+                )
+            })
+    }
+
+    fn invalid_output_argument_type_message(&self, param: &ParamInfo, arg_type: TypeId) -> String {
+        self.pointer_target_mismatch_message(param, arg_type)
+            .unwrap_or_else(|| {
+                format!(
+                    "output parameter '{}' expects '{}'",
+                    param.name,
+                    self.checker.type_name(param.type_id)
+                )
+            })
+    }
+
+    fn invalid_in_out_argument_type_message(&self, param: &ParamInfo, arg_type: TypeId) -> String {
+        self.pointer_target_mismatch_message(param, arg_type)
+            .unwrap_or_else(|| {
+                format!(
+                    "in-out parameter '{}' expects '{}'",
+                    param.name,
+                    self.checker.type_name(param.type_id)
+                )
+            })
+    }
+
+    fn pointer_target_mismatch_message(
+        &self,
+        param: &ParamInfo,
+        arg_type: TypeId,
+    ) -> Option<String> {
+        let expected = self.checker.resolve_alias_type(param.type_id);
+        let actual = self.checker.resolve_alias_type(arg_type);
+        let (
+            Some(Type::Pointer {
+                target: expected_target,
+            }),
+            Some(Type::Pointer {
+                target: actual_target,
+            }),
+        ) = (
+            self.checker.symbols.type_by_id(expected),
+            self.checker.symbols.type_by_id(actual),
+        )
+        else {
+            return None;
+        };
+
+        Some(format!(
+            "pointer target mismatch for parameter '{}': expected pointer to '{}', got pointer to '{}'",
+            param.name,
+            self.checker.type_name(*expected_target),
+            self.checker.type_name(*actual_target)
+        ))
     }
 
     pub(in crate::type_check) fn collect_builtin_args(

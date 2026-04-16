@@ -4,7 +4,7 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use smol_str::SmolStr;
 use text_size::TextRange;
 
-use crate::types::{StructField, Type, TypeId, UnionVariant};
+use crate::types::{ArrayDimensionExt, StructField, Type, TypeId, UnionVariant};
 
 /// The symbol table containing all symbols and scopes.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -371,7 +371,7 @@ impl SymbolTable {
         let elem_name = self.type_name(element).unwrap_or_else(|| SmolStr::new("?"));
         let dims_str: Vec<String> = dimensions
             .iter()
-            .map(|(l, u)| format!("{}..{}", l, u))
+            .map(ArrayDimensionExt::display_bounds)
             .collect();
         let name = format!("ARRAY[{}] OF {}", dims_str.join(", "), elem_name);
         self.register_type(

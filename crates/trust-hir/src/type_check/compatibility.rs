@@ -1,4 +1,5 @@
 use super::*;
+use crate::types::ArrayDimensionExt;
 
 impl<'a> TypeChecker<'a> {
     pub(super) fn resolve_alias_type(&self, type_id: TypeId) -> TypeId {
@@ -118,8 +119,8 @@ impl<'a> TypeChecker<'a> {
                     return false;
                 }
                 for ((t_lower, t_upper), (s_lower, s_upper)) in td.iter().zip(sd.iter()) {
-                    let wildcard_target = *t_lower == 0 && *t_upper == i64::MAX;
-                    let wildcard_source = *s_lower == 0 && *s_upper == i64::MAX;
+                    let wildcard_target = (*t_lower, *t_upper).is_wildcard();
+                    let wildcard_source = (*s_lower, *s_upper).is_wildcard();
                     if wildcard_target || wildcard_source {
                         continue;
                     }
@@ -131,6 +132,18 @@ impl<'a> TypeChecker<'a> {
                     self.symbols.type_by_id(*te).unwrap_or(&Type::Unknown),
                     self.symbols.type_by_id(*se).unwrap_or(&Type::Unknown),
                 )
+            }
+
+            (Type::Pointer { target: tt }, Type::Pointer { target: ts }) => {
+                let target = self
+                    .symbols
+                    .type_by_id(self.resolve_alias_type(*tt))
+                    .unwrap_or(&Type::Unknown);
+                let source = self
+                    .symbols
+                    .type_by_id(self.resolve_alias_type(*ts))
+                    .unwrap_or(&Type::Unknown);
+                self.types_compatible(target, source)
             }
 
             (Type::Reference { target: tt }, Type::Reference { target: ts }) => {

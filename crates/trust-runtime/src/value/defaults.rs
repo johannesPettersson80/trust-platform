@@ -1,6 +1,6 @@
 use indexmap::IndexMap;
 use smol_str::SmolStr;
-use trust_hir::types::TypeRegistry;
+use trust_hir::types::{ArrayDimensionExt, TypeRegistry};
 use trust_hir::{Type, TypeId};
 
 use super::{
@@ -70,6 +70,12 @@ fn default_value_for_type(
             element,
             dimensions,
         } => {
+            if dimensions.iter().any(ArrayDimensionExt::is_wildcard) {
+                return Ok(Value::Array(Box::new(ArrayValue {
+                    elements: Vec::new(),
+                    dimensions: dimensions.clone(),
+                })));
+            }
             let total = array_len(dimensions)?;
             let mut elements = Vec::with_capacity(total);
             for _ in 0..total {

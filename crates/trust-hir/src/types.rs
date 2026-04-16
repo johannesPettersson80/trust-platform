@@ -8,5 +8,5 @@ mod compat;
 mod defs;
 mod registry;
 
-pub use defs::{StructField, Type, TypeId, UnionVariant};
+pub use defs::{ArrayDimensionExt, StructField, Type, TypeId, UnionVariant};
 pub use registry::TypeRegistry;

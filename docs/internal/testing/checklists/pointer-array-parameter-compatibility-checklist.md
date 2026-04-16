@@ -52,7 +52,7 @@ Locked decisions:
 - [x] `P2.10` Pin pointer-target-specific mismatch diagnostic
 - [x] `P2.11` Pin rejection of wildcard array return types
 - [x] `P2.12` Add eval/runtime wildcard write-through regressions
-- [ ] `P2.13` Commit failing tests:
+- [x] `P2.13` Commit failing tests:
   `test: pin ARRAY[*] wildcard semantics (failing)`
 
 ## Phase 3 Tests: Parameter `CONSTANT` Warning
@@ -74,22 +74,25 @@ Locked decisions:
 - [x] `P4.3` Keep `IndexExpr` and `FieldExpr` walking unchanged
 - [x] `P4.4` Verify all Phase 1 HIR tests pass
 - [x] `P4.5` Verify the Phase 1 eval/runtime test passes
-- [ ] `P4.6` Commit fix:
+- [x] `P4.6` Commit fix:
   `fix(hir): allow writes through VAR_INPUT pointer deref`
 
 ## Phase 5 Implementation: `ARRAY[*]`
 
-- [ ] `P5.1` Implement parser support for `ARRAY[*]`
-- [ ] `P5.2` Enforce wildcard position/scope restrictions
-- [ ] `P5.3` Enforce single-dimension wildcard restriction
-- [ ] `P5.4` Add a shared wildcard helper to the HIR type layer
-- [ ] `P5.5` Route array compatibility through the wildcard helper
-- [ ] `P5.6` Add explicit `(Pointer, Pointer)` compatibility arm
-- [ ] `P5.7` Add pointer-target-specific mismatch diagnostic
-- [ ] `P5.8` Add the pointer-model comment near `infer_addr_expr`
-- [ ] `P5.9` Verify all Phase 2 tests pass
-- [ ] `P5.10` Run broader HIR/runtime suites for array/pointer regressions
-- [ ] `P5.11` Commit feature:
+- [x] `P5.1` Implement parser support for `ARRAY[*]`
+- [x] `P5.2` Enforce wildcard position/scope restrictions
+- [x] `P5.3` Enforce single-dimension wildcard restriction
+- [x] `P5.4` Add a shared wildcard helper to the HIR type layer
+- [x] `P5.5` Route array compatibility through the wildcard helper
+- [x] `P5.6` Add explicit `(Pointer, Pointer)` compatibility arm
+- [x] `P5.7` Add pointer-target-specific mismatch diagnostic
+- [x] `P5.8` Add the pointer-model comment near `infer_addr_expr`
+- [x] `P5.9` Verify all Phase 2 tests pass
+- [x] `P5.10` Run broader HIR/runtime suites for array/pointer regressions
+  Note: `cargo test -p trust-runtime` still fails in
+  `tests/oscat_basic_generators.rs` because `CODE` is currently undefined in
+  the OSCAT library surface.
+- [x] `P5.11` Commit feature:
   `feat(hir): support ARRAY[*] wildcard and explicit pointer-target compat`
 
 ## Phase 6 Implementation: Parameter `CONSTANT` Warning

@@ -229,6 +229,29 @@ pub struct UnionVariant {
     pub address: Option<SmolStr>,
 }
 
+/// Helpers for array dimensions encoded as `(lower, upper)` pairs.
+pub trait ArrayDimensionExt {
+    /// Returns true when the dimension is the sentinel wildcard form.
+    fn is_wildcard(&self) -> bool;
+
+    /// Formats the dimension using `*` for the wildcard sentinel.
+    fn display_bounds(&self) -> String;
+}
+
+impl ArrayDimensionExt for (i64, i64) {
+    fn is_wildcard(&self) -> bool {
+        self.0 == 0 && self.1 == i64::MAX
+    }
+
+    fn display_bounds(&self) -> String {
+        if self.is_wildcard() {
+            "*".to_string()
+        } else {
+            format!("{}..{}", self.0, self.1)
+        }
+    }
+}
+
 /// A type in the ST type system.
 // Variant names map directly to standard ST type names.
 #[allow(missing_docs)]

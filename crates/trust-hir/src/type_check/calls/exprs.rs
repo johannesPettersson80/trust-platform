@@ -235,7 +235,12 @@ impl<'a, 'b> CallChecker<'a, 'b> {
 
         let operand = self.checker.expr().check_expression(&operand);
 
-        // ADR() returns a pointer to the operand type.
+        // Pointer model: pointers are typed and non-arithmetic. ADR produces a
+        // `POINTER TO <operand_type>`. Dereference (`^`) is a valid lvalue and
+        // may be assigned to regardless of the parameter direction of the
+        // pointer variable itself; only the pointer slot is direction-bound.
+        // `ARRAY[*]` is the only bound-agnostic form; implicit bound widening
+        // between concrete arrays is intentionally not supported.
         if operand == TypeId::UNKNOWN {
             return TypeId::UNKNOWN;
         }
