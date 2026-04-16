@@ -9,7 +9,7 @@ mod types;
 mod validation;
 mod variables;
 
-pub(super) struct SymbolCollector {
+pub(super) struct SymbolCollector<'a> {
     table: SymbolTable,
     diagnostics: DiagnosticBuilder,
     pending_types: Vec<PendingType>,
@@ -18,10 +18,17 @@ pub(super) struct SymbolCollector {
     const_exprs: FxHashMap<(Option<SmolStr>, SmolStr), SyntaxNode>,
     const_values: FxHashMap<(Option<SmolStr>, SmolStr), i64>,
     program_instances: FxHashMap<SmolStr, SymbolId>,
+    project_types: Option<&'a dyn ProjectTypeProvider>,
+    importing_project_types: FxHashSet<SmolStr>,
+    namespace_override: Option<Vec<SmolStr>>,
 }
 
-impl SymbolCollector {
-    pub(super) fn new() -> Self {
+impl<'a> SymbolCollector<'a> {
+    pub(super) fn with_project_types(project_types: &'a dyn ProjectTypeProvider) -> Self {
+        Self::build(Some(project_types))
+    }
+
+    fn build(project_types: Option<&'a dyn ProjectTypeProvider>) -> Self {
         Self {
             table: SymbolTable::new(),
             diagnostics: DiagnosticBuilder::new(),
@@ -30,6 +37,9 @@ impl SymbolCollector {
             const_exprs: FxHashMap::default(),
             const_values: FxHashMap::default(),
             program_instances: FxHashMap::default(),
+            project_types,
+            importing_project_types: FxHashSet::default(),
+            namespace_override: None,
         }
     }
 

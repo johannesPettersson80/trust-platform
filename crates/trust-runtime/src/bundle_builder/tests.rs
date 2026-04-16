@@ -48,6 +48,38 @@ END_FUNCTION
     );
 }
 
+fn write_cross_file_global_struct_project(root: &Path) {
+    write_file(
+        &root.join("src/01_types.st"),
+        r#"
+TYPE CARRIER :
+STRUCT
+    A : INT;
+END_STRUCT
+END_TYPE
+"#,
+    );
+    write_file(
+        &root.join("src/02_globals.st"),
+        r#"
+VAR_GLOBAL
+    G : CARRIER;
+END_VAR
+"#,
+    );
+    write_file(
+        &root.join("src/main.st"),
+        r#"
+PROGRAM Main
+VAR
+    x : INT;
+END_VAR
+x := G.A;
+END_PROGRAM
+"#,
+    );
+}
+
 #[test]
 fn build_includes_transitive_dependency_sources() {
     let root = temp_dir("trust-runtime-build-deps");
@@ -89,6 +121,20 @@ version = "2.0.0"
         report.resolved_dependencies,
         vec!["LibA".to_string(), "LibB".to_string()]
     );
+
+    fs::remove_dir_all(root).ok();
+}
+
+#[test]
+fn build_accepts_cross_file_root_global_struct_field_access() {
+    let root = temp_dir("trust-runtime-build-cross-file-global-struct");
+    write_cross_file_global_struct_project(&root);
+
+    let report = build_program_stbc(&root, None).expect("build should pass");
+    assert!(report.program_path.exists());
+    assert!(report.sources.iter().any(|path| path.ends_with("01_types.st")));
+    assert!(report.sources.iter().any(|path| path.ends_with("02_globals.st")));
+    assert!(report.sources.iter().any(|path| path.ends_with("main.st")));
 
     fs::remove_dir_all(root).ok();
 }

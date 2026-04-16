@@ -1,7 +1,7 @@
 use super::*;
 use crate::db::diagnostics::is_expression_kind;
 
-impl SymbolCollector {
+impl SymbolCollector<'_> {
     pub(super) fn extract_var_decl_info(
         &mut self,
         node: &SyntaxNode,

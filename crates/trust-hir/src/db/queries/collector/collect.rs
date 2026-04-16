@@ -1,6 +1,65 @@
 use super::*;
 
-impl SymbolCollector {
+impl SymbolCollector<'_> {
+    pub(super) fn push_namespace_path(
+        &mut self,
+        parts: &[(SmolStr, TextRange)],
+        visibility: Visibility,
+    ) -> Vec<NamespaceEntry> {
+        let mut entries = Vec::new();
+        for (name, range) in parts {
+            let current_scope = self.table.current_scope();
+            let existing_local = self
+                .table
+                .get_scope(current_scope)
+                .and_then(|scope| scope.lookup_local(name.as_str()));
+
+            if let Some(existing_id) = existing_local {
+                if let Some(existing_symbol) = self.table.get(existing_id) {
+                    if matches!(existing_symbol.kind, SymbolKind::Namespace) {
+                        let previous_scope = self.table.current_scope();
+                        let scope_id =
+                            self.table.scope_for_owner(existing_id).unwrap_or_else(|| {
+                                self.table
+                                    .push_scope(ScopeKind::Namespace, Some(existing_id))
+                            });
+                        self.table.set_current_scope(scope_id);
+                        self.parent_stack.push(existing_id);
+                        entries.push(NamespaceEntry::Reused { previous_scope });
+                        continue;
+                    }
+                }
+            }
+
+            let mut symbol = Symbol::new(
+                SymbolId::UNKNOWN,
+                name.clone(),
+                SymbolKind::Namespace,
+                TypeId::VOID,
+                *range,
+            );
+            symbol.parent = self.current_parent();
+            symbol.visibility = visibility;
+            let id = self.declare_symbol(symbol);
+            self.table.push_scope(ScopeKind::Namespace, Some(id));
+            self.parent_stack.push(id);
+            entries.push(NamespaceEntry::Pushed);
+        }
+        entries
+    }
+
+    pub(super) fn pop_namespace_path(&mut self, entries: Vec<NamespaceEntry>) {
+        for entry in entries.into_iter().rev() {
+            self.parent_stack.pop();
+            match entry {
+                NamespaceEntry::Pushed => self.table.pop_scope(),
+                NamespaceEntry::Reused { previous_scope } => {
+                    self.table.set_current_scope(previous_scope)
+                }
+            }
+        }
+    }
+
     pub(super) fn visit_node(&mut self, node: &SyntaxNode) {
         match node.kind() {
             SyntaxKind::Program => self.collect_pou(node, SymbolKind::Program, TypeId::VOID),
@@ -303,69 +362,16 @@ impl SymbolCollector {
     }
 
     fn collect_namespace(&mut self, node: &SyntaxNode) {
-        #[derive(Clone, Copy)]
-        enum NamespaceEntry {
-            Pushed,
-            Reused { previous_scope: ScopeId },
-        }
-
         let Some((parts, _range)) = qualified_name_parts(node) else {
             return;
         };
-
-        let mut entries = Vec::new();
-        for (name, range) in parts {
-            let current_scope = self.table.current_scope();
-            let existing_local = self
-                .table
-                .get_scope(current_scope)
-                .and_then(|scope| scope.lookup_local(name.as_str()));
-
-            if let Some(existing_id) = existing_local {
-                if let Some(existing_symbol) = self.table.get(existing_id) {
-                    if matches!(existing_symbol.kind, SymbolKind::Namespace) {
-                        let previous_scope = self.table.current_scope();
-                        let scope_id =
-                            self.table.scope_for_owner(existing_id).unwrap_or_else(|| {
-                                self.table
-                                    .push_scope(ScopeKind::Namespace, Some(existing_id))
-                            });
-                        self.table.set_current_scope(scope_id);
-                        self.parent_stack.push(existing_id);
-                        entries.push(NamespaceEntry::Reused { previous_scope });
-                        continue;
-                    }
-                }
-            }
-
-            let mut symbol = Symbol::new(
-                SymbolId::UNKNOWN,
-                name.clone(),
-                SymbolKind::Namespace,
-                TypeId::VOID,
-                range,
-            );
-            symbol.parent = self.current_parent();
-            symbol.visibility = visibility_from_node(node);
-            let id = self.declare_symbol(symbol);
-            self.table.push_scope(ScopeKind::Namespace, Some(id));
-            self.parent_stack.push(id);
-            entries.push(NamespaceEntry::Pushed);
-        }
+        let entries = self.push_namespace_path(&parts, visibility_from_node(node));
 
         for child in node.children() {
             self.visit_node(&child);
         }
 
-        for entry in entries.into_iter().rev() {
-            self.parent_stack.pop();
-            match entry {
-                NamespaceEntry::Pushed => self.table.pop_scope(),
-                NamespaceEntry::Reused { previous_scope } => {
-                    self.table.set_current_scope(previous_scope)
-                }
-            }
-        }
+        self.pop_namespace_path(entries);
     }
 
     fn default_member_visibility(&self) -> Visibility {
@@ -550,6 +556,9 @@ impl SymbolCollector {
     }
 
     pub(super) fn current_namespace_path(&self) -> Vec<SmolStr> {
+        if let Some(namespace) = &self.namespace_override {
+            return namespace.clone();
+        }
         let mut parts = Vec::new();
         for symbol_id in &self.parent_stack {
             let Some(symbol) = self.table.get(*symbol_id) else {
@@ -566,4 +575,10 @@ impl SymbolCollector {
         let parts = self.current_namespace_path();
         qualify_name(&parts, name)
     }
+}
+
+#[derive(Clone, Copy)]
+pub(super) enum NamespaceEntry {
+    Pushed,
+    Reused { previous_scope: ScopeId },
 }

@@ -1,7 +1,7 @@
 use super::const_utils::*;
 use super::*;
 
-impl SymbolCollector {
+impl SymbolCollector<'_> {
     pub(super) fn evaluate_constants(&mut self) {
         let keys: Vec<_> = self.const_exprs.keys().cloned().collect();
         let mut guard = FxHashSet::default();

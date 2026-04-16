@@ -33,8 +33,11 @@ package "Database Layer" as dbLayer #LightGreen {
 
     note right of db
         Salsa-backed query path:
-        parse_green -> file_symbols_query
-        -> analyze_query
+        parse_green -> file_type_prelude_query
+        -> project_type_catalog_query
+        -> file_symbols_query(project, file)
+        -> project_symbol_tables_query
+        -> merged_project_symbols / analyze_query
         -> diagnostics_query / type_of_query
 
         Any source change syncs inputs,
@@ -58,6 +61,7 @@ package "Symbol Collection" as collection #LightCoral {
         table: SymbolTable
         diagnostics: DiagnosticBuilder
         pending_types: Vec<PendingType>
+        project_types: Option<ProjectTypeProvider>
         parent_stack: Vec<SymbolId>
         const_exprs: FxHashMap
         const_values: FxHashMap
@@ -95,6 +99,34 @@ package "Symbol Collection" as collection #LightCoral {
     end note
 
     collector --> phases
+}
+
+' ============================================================
+' PROJECT TYPE CATALOG
+' ============================================================
+package "Project Type Catalog" as projectTypes #LightYellow {
+
+    class "FileTypePrelude" as filePrelude <<db/queries.rs>> {
+        entries: Vec<TypePreludeEntry>
+    }
+
+    class "ProjectTypeCatalog" as typeCatalog <<db/queries.rs>> {
+        entries: BTreeMap<QualifiedName, ProjectTypeCatalogEntry>
+        duplicates: Vec<ProjectTypeDuplicate>
+    }
+
+    interface "ProjectTypeProvider" as typeProvider <<db/queries.rs>> {
+        +catalog_entry(qualified_name) → ProjectTypeCatalogEntry?
+        +load_type_declaration(...) → SyntaxNode?
+    }
+
+    note right of typeCatalog
+        Keeps project-global type names
+        separate from file-local TypeId
+        allocation. Data type bodies are
+        imported into each SymbolTable on
+        demand during collection.
+    end note
 }
 
 ' ============================================================
@@ -331,6 +363,10 @@ end note
 ' ============================================================
 
 db --> collector : uses
+db --> filePrelude : builds
+db --> typeCatalog : merges
+typeCatalog --> typeProvider
+typeProvider --> collector : project-wide lookup
 collector --> symTable : builds
 symTable --> symKind : symbol kinds
 symTable --> typeSys : type info

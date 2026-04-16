@@ -2,41 +2,53 @@ use trust_runtime::execution_backend::ExecutionBackend;
 use trust_runtime::harness::TestHarness;
 use trust_runtime::value::{Duration, Value};
 
-const OSCAT_BASIC_LOGIC: &str = include_str!(concat!(
+const OSCAT_BASIC_DATA_TYPES: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/../../libraries/oscat_basic/src/oscat_basic_logic.st"
+    "/../../libraries/oscat_basic/src/03_data_types/oscat_basic_data_types.st"
 ));
-const OSCAT_BASIC_GLOBALS: &str = include_str!(concat!(
+const OSCAT_BASIC_OTHER_FUNCTIONS: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/../../libraries/oscat_basic/src/oscat_basic_globals.st"
+    "/../../libraries/oscat_basic/src/04_other_functions/oscat_basic_other_functions.st"
 ));
-const OSCAT_BASIC_MATH: &str = include_str!(concat!(
+const OSCAT_BASIC_MATHEMATICS: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/../../libraries/oscat_basic/src/oscat_basic_math.st"
+    "/../../libraries/oscat_basic/src/05_mathematics/oscat_basic_mathematics.st"
 ));
-const OSCAT_BASIC_MATH_EXTRA: &str = include_str!(concat!(
+const OSCAT_BASIC_TIME_AND_DATE: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/../../libraries/oscat_basic/src/oscat_basic_math_extra.st"
+    "/../../libraries/oscat_basic/src/12_time_and_date/oscat_basic_time_and_date.st"
 ));
-const OSCAT_BASIC_CONVERSIONS: &str = include_str!(concat!(
+const OSCAT_BASIC_STRING_FUNCTIONS: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/../../libraries/oscat_basic/src/oscat_basic_conversions.st"
+    "/../../libraries/oscat_basic/src/13_string_functions/oscat_basic_string_functions.st"
 ));
-const OSCAT_BASIC_STRING: &str = include_str!(concat!(
+const OSCAT_BASIC_MEMORY_MODULES: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/../../libraries/oscat_basic/src/oscat_basic_string.st"
+    "/../../libraries/oscat_basic/src/14_memory_modules/oscat_basic_memory_modules.st"
 ));
-const OSCAT_BASIC_LIST: &str = include_str!(concat!(
+const OSCAT_BASIC_PULSE_GENERATORS: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/../../libraries/oscat_basic/src/oscat_basic_list.st"
+    "/../../libraries/oscat_basic/src/15_pulse_generators/oscat_basic_pulse_generators.st"
 ));
-const OSCAT_BASIC_BUFFER: &str = include_str!(concat!(
+const OSCAT_BASIC_LOGIC_MODULES: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/../../libraries/oscat_basic/src/oscat_basic_buffer.st"
+    "/../../libraries/oscat_basic/src/16_logic_modules/oscat_basic_logic_modules.st"
 ));
-const OSCAT_BASIC_TIME: &str = include_str!(concat!(
+const OSCAT_BASIC_LATCHES_AND_SHIFT: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/../../libraries/oscat_basic/src/oscat_basic_time.st"
+    "/../../libraries/oscat_basic/src/17_latches_flip_flop_and_shift_register/oscat_basic_latches_flip_flop_and_shift_register.st"
+));
+const OSCAT_BASIC_MEASURING_MODULES: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../libraries/oscat_basic/src/21_measuring_modules/oscat_basic_measuring_modules.st"
+));
+const OSCAT_BASIC_BUFFER_MANAGEMENT: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../libraries/oscat_basic/src/25_buffer_management/oscat_basic_buffer_management.st"
+));
+const OSCAT_BASIC_LIST_PROCESSING: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../libraries/oscat_basic/src/26_list_processing/oscat_basic_list_processing.st"
 ));
 
 const OSCAT_BASIC_GENERATOR_PROGRAM: &str = r#"
@@ -224,20 +236,22 @@ fn harness_from_program(source: &'static str, bytecode_vm: bool) -> TestHarness 
     harness
 }
 
-fn oscat_basic_sources(program: &'static str) -> [&'static str; 10] {
-    // Generator FBs live in `oscat_basic_logic.st`, but that unit has cross-file
-    // dependencies on the broader OSCAT BASIC surface. Compile these tests
-    // against the real sibling units instead of ad hoc local shims.
+fn oscat_basic_sources(program: &'static str) -> [&'static str; 13] {
+    // Chapter 15 pulse generators depend on sibling chapter files, so compile
+    // the generator probes against the real chapter-organized OSCAT surface.
     [
-        OSCAT_BASIC_GLOBALS,
-        OSCAT_BASIC_MATH,
-        OSCAT_BASIC_MATH_EXTRA,
-        OSCAT_BASIC_CONVERSIONS,
-        OSCAT_BASIC_STRING,
-        OSCAT_BASIC_LIST,
-        OSCAT_BASIC_BUFFER,
-        OSCAT_BASIC_TIME,
-        OSCAT_BASIC_LOGIC,
+        OSCAT_BASIC_DATA_TYPES,
+        OSCAT_BASIC_OTHER_FUNCTIONS,
+        OSCAT_BASIC_MATHEMATICS,
+        OSCAT_BASIC_TIME_AND_DATE,
+        OSCAT_BASIC_STRING_FUNCTIONS,
+        OSCAT_BASIC_MEMORY_MODULES,
+        OSCAT_BASIC_PULSE_GENERATORS,
+        OSCAT_BASIC_LOGIC_MODULES,
+        OSCAT_BASIC_LATCHES_AND_SHIFT,
+        OSCAT_BASIC_MEASURING_MODULES,
+        OSCAT_BASIC_BUFFER_MANAGEMENT,
+        OSCAT_BASIC_LIST_PROCESSING,
         program,
     ]
 }

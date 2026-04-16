@@ -38,11 +38,16 @@ impl SourceDatabase for Database {
 
 impl SemanticDatabase for Database {
     fn file_symbols(&self, file_id: FileId) -> Arc<SymbolTable> {
-        let Some((db, source)) = self.source_handle_for_file(file_id) else {
+        let Some((db, project)) = self.with_synced_salsa_state(|state| {
+            state
+                .sources
+                .contains_key(&file_id)
+                .then_some((state.db.clone(), salsa_backend::project_inputs(state)))
+        }) else {
             return Arc::new(SymbolTable::default());
         };
 
-        salsa::Cancelled::catch(|| salsa_backend::file_symbols_query(&db, source).clone())
+        salsa::Cancelled::catch(|| salsa_backend::file_symbols_query(&db, project, file_id).clone())
             .unwrap_or_else(|_| Arc::new(SymbolTable::default()))
     }
 
@@ -76,4 +81,3 @@ impl SemanticDatabase for Database {
         self.analyze_salsa(file_id)
     }
 }
-

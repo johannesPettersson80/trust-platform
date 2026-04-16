@@ -11,7 +11,7 @@
   "docs/diagrams/debug/debug-state-machine.puml": "c1a7201b2d0d475f66fcaf3302927e0f7d1677a459595aee4c8222347dcc666a",
   "docs/diagrams/debug/debug-step-sequence.puml": "c35ff8307a78ce6c2801d353f481e755e1e1408dd530477ff8fede700c9c525d",
   "docs/diagrams/debug/debug-threads.puml": "8cd4754b4b26ae5762552283b06d02e2ed255c8189c49341e727891fc8b3f143",
-  "docs/diagrams/hir/hir-semantics.puml": "a6742513eb4f1be38e475b5151872948ab44ede8a98b30816e310db544a90d6e",
+  "docs/diagrams/hir/hir-semantics.puml": "d7232648ff4cc0f84c12c89e7198e80685026ed6f5a9b83b38148ac7ad4a84b6",
   "docs/diagrams/lsp/lsp-request-flow.puml": "5cdabf270a7c9d0b35f601f38c4d20510b8fc8f2ab5e58e0f2773141d2f0577a",
   "docs/diagrams/syntax/syntax-pipeline.puml": "93cecb3d620c51377e79677ba18e48c6acf79ea0f6b4c9f2ab75a52ca9d1b57b",
   "docs/internal/design/vm-call-flow-after.puml": "5dd574116c4abf8e369eac1649008a53e6f254a6247a2dfdc9e51f38b251c74b",

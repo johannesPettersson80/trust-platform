@@ -5,7 +5,10 @@ use super::diagnostics::{
     check_global_external_links_with_project, check_interface_conformance, check_nondeterminism,
     check_property_accessors, check_shared_global_task_hazards, check_unreachable_statements,
     check_using_directives, collect_used_symbols, expression_by_id, expression_context,
-    resolve_declared_var_types_with_project, resolve_pending_types_with_table, type_check_file,
+    resolve_pending_types_with_table, type_check_file,
+};
+use super::project_types::{
+    build_project_type_catalog, collect_file_type_prelude, find_project_type_declaration,
 };
 use super::symbol_import::SymbolImporter;
 use super::*;
@@ -217,10 +220,52 @@ pub(super) fn parse_green(db: &dyn salsa::Database, input: SourceInput) -> Green
 }
 
 #[salsa::tracked(returns(ref))]
-pub(super) fn file_symbols_query(db: &dyn salsa::Database, input: SourceInput) -> Arc<SymbolTable> {
+pub(super) fn file_type_prelude_query(
+    db: &dyn salsa::Database,
+    input: SourceInput,
+) -> Arc<FileTypePrelude> {
     let green = parse_green(db, input).clone();
     let root = SyntaxNode::new_root(green);
-    let (symbols, _) = SymbolCollector::new().collect(&root);
+    Arc::new(collect_file_type_prelude(&root))
+}
+
+#[salsa::tracked(returns(ref))]
+pub(super) fn project_type_catalog_query(
+    db: &dyn salsa::Database,
+    project: ProjectInputs,
+) -> Arc<ProjectTypeCatalog> {
+    let mut files = Vec::new();
+    for (file_id, input) in project.files(db).iter().copied() {
+        cancellation_checkpoint(db);
+        files.push((file_id, file_type_prelude_query(db, input).as_ref().clone()));
+    }
+    Arc::new(build_project_type_catalog(&files))
+}
+
+#[salsa::tracked(returns(ref))]
+pub(super) fn file_symbols_query(
+    db: &dyn salsa::Database,
+    project: ProjectInputs,
+    file_id: FileId,
+) -> Arc<SymbolTable> {
+    cancellation_checkpoint(db);
+    let files = project.files(db);
+    let Some(input) = files
+        .iter()
+        .find_map(|(candidate_id, input)| (*candidate_id == file_id).then_some(*input))
+    else {
+        return Arc::new(SymbolTable::default());
+    };
+
+    let green = parse_green(db, input).clone();
+    let root = SyntaxNode::new_root(green);
+    let catalog = project_type_catalog_query(db, project);
+    let provider = SalsaProjectTypeProvider {
+        db,
+        project_files: files.as_ref(),
+        catalog: catalog.as_ref(),
+    };
+    let (symbols, _) = SymbolCollector::with_project_types(&provider).collect(&root);
     Arc::new(symbols)
 }
 
@@ -230,9 +275,9 @@ pub(super) fn project_symbol_tables_query(
     project: ProjectInputs,
 ) -> Arc<FxHashMap<FileId, Arc<SymbolTable>>> {
     let mut project_tables: FxHashMap<FileId, Arc<SymbolTable>> = FxHashMap::default();
-    for (file_id, input) in project.files(db).iter().copied() {
+    for (file_id, _input) in project.files(db).iter().copied() {
         cancellation_checkpoint(db);
-        project_tables.insert(file_id, file_symbols_query(db, input).clone());
+        project_tables.insert(file_id, file_symbols_query(db, project, file_id).clone());
     }
     Arc::new(project_tables)
 }
@@ -297,17 +342,54 @@ pub(super) fn analyze_query(
     };
 
     let root = SyntaxNode::new_root(parse_green(db, target_input).clone());
+    let catalog = project_type_catalog_query(db, project);
+    let project_files = project.files(db);
+    let provider = SalsaProjectTypeProvider {
+        db,
+        project_files: project_files.as_ref(),
+        catalog: catalog.as_ref(),
+    };
     let const_roots: Vec<SyntaxNode> = project_roots_from_inputs(db, &project_source_inputs)
         .into_iter()
         .map(|(_, project_root)| project_root)
         .collect();
     let (mut symbols, mut diagnostics, pending_types) =
-        SymbolCollector::new().collect_for_project_with_const_roots(&root, &const_roots);
+        SymbolCollector::with_project_types(&provider)
+            .collect_for_project_with_const_roots(&root, &const_roots);
     merge_project_symbols(file_id, &mut symbols, project_tables.as_ref());
+
+    if !catalog.duplicates.is_empty() {
+        let mut builder = DiagnosticBuilder::new();
+        for duplicate in catalog.duplicates.iter().filter(|duplicate| {
+            duplicate.primary.file_id == file_id || duplicate.duplicate.file_id == file_id
+        }) {
+            let target = if duplicate.duplicate.file_id == file_id {
+                &duplicate.duplicate
+            } else {
+                &duplicate.primary
+            };
+            let other = if duplicate.duplicate.file_id == file_id {
+                &duplicate.primary
+            } else {
+                &duplicate.duplicate
+            };
+            builder.add(
+                Diagnostic::error(
+                    DiagnosticCode::DuplicateDeclaration,
+                    target.range,
+                    format!(
+                        "duplicate type declaration of '{}'",
+                        duplicate.qualified_name
+                    ),
+                )
+                .with_related(other.range, "previously declared here"),
+            );
+        }
+        diagnostics.extend(builder.finish());
+    }
 
     let mut builder = DiagnosticBuilder::new();
     resolve_pending_types_with_table(&symbols, pending_types, &mut builder);
-    resolve_declared_var_types_with_project(&mut symbols, &root);
     check_global_external_links_with_project(&mut symbols, &root, &mut builder, file_id);
     diagnostics.extend(builder.finish());
 
@@ -377,7 +459,6 @@ pub(super) fn type_of_query(
         .as_ref()
         .clone();
     let context = expression_context(&symbols, &expr_node);
-    resolve_declared_var_types_with_project(&mut symbols, &root);
 
     let mut diagnostics = DiagnosticBuilder::new();
     let mut checker = TypeChecker::new(&mut symbols, &mut diagnostics, context.scope_id);
@@ -402,6 +483,31 @@ struct ProjectState {
     target_input: SourceInput,
     project_source_inputs: FxHashMap<FileId, SourceInput>,
     project_tables: Arc<FxHashMap<FileId, Arc<SymbolTable>>>,
+}
+
+struct SalsaProjectTypeProvider<'a> {
+    db: &'a dyn salsa::Database,
+    project_files: &'a [(FileId, SourceInput)],
+    catalog: &'a ProjectTypeCatalog,
+}
+
+impl ProjectTypeProvider for SalsaProjectTypeProvider<'_> {
+    fn catalog_entry(&self, qualified_name: &str) -> Option<ProjectTypeCatalogEntry> {
+        self.catalog.entries.get(qualified_name).cloned()
+    }
+
+    fn load_type_declaration(
+        &self,
+        qualified_name: &str,
+        entry: &ProjectTypeCatalogEntry,
+    ) -> Option<SyntaxNode> {
+        let input = self
+            .project_files
+            .iter()
+            .find_map(|(file_id, input)| (*file_id == entry.file_id).then_some(*input))?;
+        let root = SyntaxNode::new_root(parse_green(self.db, input).clone());
+        find_project_type_declaration(&root, qualified_name, entry.kind)
+    }
 }
 
 fn collect_project_state(

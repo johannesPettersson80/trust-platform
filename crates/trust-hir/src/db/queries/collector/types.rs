@@ -3,7 +3,7 @@ use super::*;
 use crate::db::diagnostics::{is_expression_kind, resolve_pending_types_with_table};
 use crate::types::{ArrayDimensionExt, StructField, UnionVariant};
 
-impl SymbolCollector {
+impl SymbolCollector<'_> {
     pub(super) fn collect_type_symbols(&mut self, node: &SyntaxNode) {
         let mut pending: Option<(SmolStr, TextRange)> = None;
         for child in node.children() {
@@ -33,7 +33,21 @@ impl SymbolCollector {
         name_range: TextRange,
     ) {
         let qualified_name = self.qualify_current_name(&type_name);
+        self.register_type_symbol_with_qualified_name(
+            type_def,
+            type_name,
+            qualified_name,
+            name_range,
+        );
+    }
 
+    fn register_type_symbol_with_qualified_name(
+        &mut self,
+        type_def: &SyntaxNode,
+        type_name: SmolStr,
+        qualified_name: SmolStr,
+        name_range: TextRange,
+    ) {
         // Create TYPE symbol first with placeholder type_id, so that nested symbols
         // (like enum values) can have this symbol as their parent
         let mut symbol = Symbol::new(
@@ -88,6 +102,130 @@ impl SymbolCollector {
         // Update the TYPE symbol with the actual type_id
         if let Some(sym) = self.table.get_mut(type_symbol_id) {
             sym.type_id = type_id;
+        }
+    }
+
+    fn register_imported_carrier_type(
+        &mut self,
+        qualified_name: &SmolStr,
+        kind: ProjectTypeKind,
+    ) -> TypeId {
+        let carrier_type = match kind {
+            ProjectTypeKind::FunctionBlock => Type::FunctionBlock {
+                name: qualified_name.clone(),
+            },
+            ProjectTypeKind::Class => Type::Class {
+                name: qualified_name.clone(),
+            },
+            ProjectTypeKind::Interface => Type::Interface {
+                name: qualified_name.clone(),
+            },
+            ProjectTypeKind::Data => return TypeId::UNKNOWN,
+        };
+        self.table
+            .register_type(qualified_name.clone(), carrier_type)
+    }
+
+    fn resolve_project_type_path(&mut self, parts: &[SmolStr]) -> TypeId {
+        let Some(provider) = self.project_types else {
+            return TypeId::UNKNOWN;
+        };
+
+        for candidate in self.project_type_candidates(parts) {
+            let Some(entry) = provider.catalog_entry(candidate.as_str()) else {
+                continue;
+            };
+            let imported = match entry.kind {
+                ProjectTypeKind::Data => {
+                    if self.importing_project_types.contains(candidate.as_str()) {
+                        TypeId::UNKNOWN
+                    } else {
+                        self.importing_project_types.insert(candidate.clone());
+                        let imported = provider
+                            .load_type_declaration(candidate.as_str(), &entry)
+                            .and_then(|decl| self.import_project_data_type(&candidate, &decl));
+                        self.importing_project_types.remove(candidate.as_str());
+                        imported.unwrap_or(TypeId::UNKNOWN)
+                    }
+                }
+                ProjectTypeKind::FunctionBlock
+                | ProjectTypeKind::Class
+                | ProjectTypeKind::Interface => {
+                    self.register_imported_carrier_type(&candidate, entry.kind)
+                }
+            };
+            if imported == TypeId::UNKNOWN {
+                continue;
+            }
+            return imported;
+        }
+
+        TypeId::UNKNOWN
+    }
+
+    fn import_project_data_type(
+        &mut self,
+        qualified_name: &SmolStr,
+        decl: &SyntaxNode,
+    ) -> Option<TypeId> {
+        let type_def = if matches!(
+            decl.kind(),
+            SyntaxKind::StructDef
+                | SyntaxKind::UnionDef
+                | SyntaxKind::EnumDef
+                | SyntaxKind::ArrayType
+                | SyntaxKind::TypeRef
+        ) {
+            decl.clone()
+        } else {
+            decl.children().find(|child| {
+                matches!(
+                    child.kind(),
+                    SyntaxKind::StructDef
+                        | SyntaxKind::UnionDef
+                        | SyntaxKind::EnumDef
+                        | SyntaxKind::ArrayType
+                        | SyntaxKind::TypeRef
+                )
+            })?
+        };
+        let (_, namespace_parts) = split_imported_type_name(qualified_name)?;
+        let previous_namespace = self.namespace_override.replace(namespace_parts);
+        let type_id = self.register_imported_data_type(&type_def, qualified_name.clone());
+        self.namespace_override = previous_namespace;
+        (type_id != TypeId::UNKNOWN).then_some(type_id)
+    }
+
+    fn register_imported_data_type(
+        &mut self,
+        type_def: &SyntaxNode,
+        qualified_name: SmolStr,
+    ) -> TypeId {
+        match type_def.kind() {
+            SyntaxKind::StructDef => self.collect_struct_type(type_def, qualified_name),
+            SyntaxKind::UnionDef => self.collect_union_type(type_def, qualified_name),
+            SyntaxKind::EnumDef => self.collect_imported_enum_type(type_def, qualified_name),
+            SyntaxKind::ArrayType => {
+                let target_type = self.collect_array_type(type_def);
+                self.table.register_type(
+                    qualified_name.clone(),
+                    Type::Alias {
+                        name: qualified_name,
+                        target: target_type,
+                    },
+                )
+            }
+            SyntaxKind::TypeRef => {
+                let target_type = self.resolve_type_from_ref(type_def);
+                self.table.register_type(
+                    qualified_name.clone(),
+                    Type::Alias {
+                        name: qualified_name,
+                        target: target_type,
+                    },
+                )
+            }
+            _ => TypeId::UNKNOWN,
         }
     }
 
@@ -174,6 +312,33 @@ impl SymbolCollector {
         }
 
         type_id
+    }
+
+    fn collect_imported_enum_type(&mut self, node: &SyntaxNode, name: SmolStr) -> TypeId {
+        let mut values = Vec::new();
+        let mut next_value: i64 = 0;
+        let mut base_type = TypeId::INT;
+
+        if let Some(type_ref) = node.children().find(|n| n.kind() == SyntaxKind::TypeRef) {
+            base_type = self.resolve_type_from_ref(&type_ref);
+        }
+
+        for child in node.children() {
+            if child.kind() == SyntaxKind::EnumValue {
+                if let Some((value_name, _range)) = name_from_node(&child) {
+                    let value = self.extract_enum_value(&child).unwrap_or(next_value);
+                    values.push((value_name, value));
+                    next_value = value + 1;
+                }
+            } else if child.kind() == SyntaxKind::Name {
+                if let Some((value_name, _range)) = name_from_node(&child) {
+                    values.push((value_name, next_value));
+                    next_value += 1;
+                }
+            }
+        }
+
+        self.table.register_enum_type(name, base_type, values)
     }
 
     pub(super) fn extract_enum_value(&mut self, node: &SyntaxNode) -> Option<i64> {
@@ -473,17 +638,20 @@ impl SymbolCollector {
             return TypeId::UNKNOWN;
         }
         if parts.len() == 1 {
-            return self.resolve_type_in_scope(parts[0].as_str(), self.table.current_scope());
+            let type_id = self.resolve_type_in_scope(parts[0].as_str(), self.table.current_scope());
+            if type_id != TypeId::UNKNOWN {
+                return type_id;
+            }
+            return self.resolve_project_type_path(parts);
         }
 
         let symbol_id = self.table.resolve_qualified(parts);
-        let Some(symbol) = symbol_id.and_then(|id| self.table.get(id)) else {
-            return TypeId::UNKNOWN;
-        };
-        if symbol.is_type() {
-            return symbol.type_id;
+        if let Some(symbol) = symbol_id.and_then(|id| self.table.get(id)) {
+            if symbol.is_type() {
+                return symbol.type_id;
+            }
         }
-        TypeId::UNKNOWN
+        self.resolve_project_type_path(parts)
     }
 
     pub(super) fn resolve_type_in_scope(&self, name: &str, scope_id: ScopeId) -> TypeId {
@@ -501,6 +669,45 @@ impl SymbolCollector {
             return id;
         }
         TypeId::UNKNOWN
+    }
+
+    fn project_type_candidates(&self, parts: &[SmolStr]) -> Vec<SmolStr> {
+        if parts.is_empty() {
+            return Vec::new();
+        }
+        if parts.len() > 1 {
+            return vec![qualified_name_string(parts)];
+        }
+
+        let name = parts[0].clone();
+        let mut candidates = Vec::new();
+        candidates.push(name.clone());
+
+        let current_namespace = self.current_namespace_path();
+        for prefix_len in (1..=current_namespace.len()).rev() {
+            let qualified = qualify_name(&current_namespace[..prefix_len], &name);
+            if !candidates.contains(&qualified) {
+                candidates.push(qualified);
+            }
+        }
+
+        let mut scope_id = Some(self.table.current_scope());
+        while let Some(current) = scope_id {
+            let Some(scope) = self.table.get_scope(current) else {
+                break;
+            };
+            for using in &scope.using_directives {
+                let mut qualified = using.path.clone();
+                qualified.push(name.clone());
+                let qualified = qualified_name_string(&qualified);
+                if !candidates.contains(&qualified) {
+                    candidates.push(qualified);
+                }
+            }
+            scope_id = scope.parent;
+        }
+
+        candidates
     }
 
     pub(super) fn resolve_pending_types(&mut self) {
@@ -543,6 +750,17 @@ impl SymbolCollector {
         }
         (has_get, has_set)
     }
+}
+
+fn split_imported_type_name(qualified_name: &SmolStr) -> Option<(SmolStr, Vec<SmolStr>)> {
+    let parts: Vec<SmolStr> = qualified_name
+        .split('.')
+        .filter(|part| !part.is_empty())
+        .map(SmolStr::new)
+        .collect();
+    let leaf = parts.last()?.clone();
+    let namespace = parts[..parts.len().saturating_sub(1)].to_vec();
+    Some((leaf, namespace))
 }
 
 fn subrange_is_exact_wildcard(node: &SyntaxNode) -> bool {

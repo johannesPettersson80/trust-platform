@@ -10,6 +10,16 @@ Target release: `v0.17.0`
 
 ### Fixed
 
+- `trust-hir` now resolves cross-file user-defined types for root `VAR_GLOBAL`
+  declarations during project-aware symbol collection instead of depending on a
+  late repair pass, so split projects like OSCAT BASIC can keep shared carrier
+  types in one file/chapter and their globals in another while diagnostics,
+  analysis, runtime builds, and VM execution still resolve `MATH` / `PHYS` /
+  `LANGUAGE` correctly. The same project-type catalog path now also preserves
+  imported function block/class/interface identity, honors `USING` + namespaced
+  simple type references, and attaches every declaration inside multi-entry
+  `TYPE ... END_TYPE` blocks so cross-file POU member access surfaces like
+  `FB_Accumulator`, `ST_PumpCommand`, and `ST_PumpStatus` analyze correctly.
 - Typed conversion calls no longer misclassify an outer positional argument as a named/formal argument when the nested inner call uses `IN := ...`, so expressions like `UDINT_TO_REAL(DWORD_TO_UDINT(IN := x))` type-check correctly again.
 
 ### Added
@@ -211,13 +221,17 @@ Target release: `v0.17.0`
   - Added config-ui live connection manager APIs (`GET/POST /api/config-ui/live/targets`, `POST /api/config-ui/live/targets/remove`, `POST /api/config-ui/live/connect`, `GET /api/config-ui/live/state`) with in-memory target profiles and read-only runtime-cloud polling.
   - Added config-ui runtime lifecycle provider APIs (`GET/POST /api/config-ui/runtime/lifecycle`) for runtime status/probe plus managed start/stop/restart actions.
   - Config-mode `/api/runtime-cloud/state` now supports read-only live overlay of node/edge health from connected runtime-cloud snapshots without changing TOML-derived topology ownership/layout.
-  - Added config-ui integration tests for runtime create/delete and ST/runtime conflict-safe writeback paths.
-  - Removed active topology-devices overlay route dependency; runtime/config topology remains TOML/API-driven.
+- Added config-ui integration tests for runtime create/delete and ST/runtime conflict-safe writeback paths.
+- Removed active topology-devices overlay route dependency; runtime/config topology remains TOML/API-driven.
 - PLCopen CODESYS global/folder parity:
   - `trust-runtime plcopen import` now imports CODESYS `addData/globalVars` into ST `VAR_GLOBAL` sources (plaintext-first with variable-node synthesis fallback).
   - CODESYS `addData/projectstructure` object trees are now used to place imported POUs/GVLs into mirrored `src/` subfolders (for example `src/Application/...`).
   - `trust-runtime plcopen export` now emits deterministic CODESYS `globalVars` and `projectstructure` metadata for ST POUs + GVL files.
   - Import/export JSON reports now include global-list and project-structure counters (`discovered/imported_global_var_lists`, folder/object-node counts).
+
+### Changed
+
+- `libraries/oscat_basic/src` and the OSCAT BASIC core/negative conformance fixtures now follow the OSCAT manual chapter structure (`03_data_types` through `26_list_processing`) instead of a flat source bucket, so continued porting can proceed chapter-by-chapter with tests in the matching chapter first.
 - VS Code statechart automated coverage:
   - Added editor lifecycle test coverage to verify running statechart sessions are cleaned up when a custom editor panel is disposed.
   - Added state machine engine behavior tests for awaited hardware action ordering and fail-closed guard evaluation paths.

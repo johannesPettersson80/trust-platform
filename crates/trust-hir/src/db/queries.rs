@@ -5,6 +5,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 mod collector;
 mod database;
 mod helpers;
+mod project_types;
 mod salsa_backend;
 
 pub use salsa_backend::SalsaEventSnapshot;
@@ -104,6 +105,55 @@ pub(super) struct PendingType {
     pub(super) name: SmolStr,
     pub(super) range: TextRange,
     pub(super) scope_id: ScopeId,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub(super) enum ProjectTypeKind {
+    Data,
+    FunctionBlock,
+    Class,
+    Interface,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct TypePreludeEntry {
+    pub(super) qualified_name: SmolStr,
+    pub(super) kind: ProjectTypeKind,
+    pub(super) range: TextRange,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(super) struct FileTypePrelude {
+    pub(super) entries: Vec<TypePreludeEntry>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct ProjectTypeCatalogEntry {
+    pub(super) file_id: FileId,
+    pub(super) kind: ProjectTypeKind,
+    pub(super) range: TextRange,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct ProjectTypeDuplicate {
+    pub(super) qualified_name: SmolStr,
+    pub(super) primary: ProjectTypeCatalogEntry,
+    pub(super) duplicate: ProjectTypeCatalogEntry,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(super) struct ProjectTypeCatalog {
+    pub(super) entries: std::collections::BTreeMap<SmolStr, ProjectTypeCatalogEntry>,
+    pub(super) duplicates: Vec<ProjectTypeDuplicate>,
+}
+
+pub(super) trait ProjectTypeProvider {
+    fn catalog_entry(&self, qualified_name: &str) -> Option<ProjectTypeCatalogEntry>;
+    fn load_type_declaration(
+        &self,
+        qualified_name: &str,
+        entry: &ProjectTypeCatalogEntry,
+    ) -> Option<SyntaxNode>;
 }
 
 #[derive(Clone)]

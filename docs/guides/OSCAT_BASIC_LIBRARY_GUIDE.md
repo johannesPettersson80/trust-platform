@@ -11,29 +11,54 @@ current helpers from scan-driven Structured Text.
 
 ## Package Layout
 
-- `libraries/oscat_basic/src/oscat_basic_globals.st`: shared OSCAT-style
-  constant carriers and the one-time loader
-- `libraries/oscat_basic/src/oscat_basic_conversions.st`: engineering
-  conversions, direction helpers, range helpers, and unit-conversion FBs
-- `libraries/oscat_basic/src/oscat_basic_buffer.st`: byte-buffer mutation,
-  search, and extraction helpers
-- `libraries/oscat_basic/src/oscat_basic_list.st`: separator-prefixed list
-  helpers and iterator FB
-- `libraries/oscat_basic/src/oscat_basic_math.st`: additional scalar math
-  helpers
-- `libraries/oscat_basic/src/oscat_basic_math_extra.st`: `REAL2` helpers plus
-  the current geometry helper slice
-- `libraries/oscat_basic/src/oscat_basic_time.st`: time-conversion,
-  calendar/date, date-time component, and clock helpers layered on top of the
-  truST date/time primitives
-- `libraries/oscat_basic/src/oscat_basic_logic.st`: latch, counter,
-  flip-flop, shift-register, gate-logic, and trigger helpers/FBs
-- `libraries/oscat_basic/src/oscat_basic_string.st`: date-label, formatting,
-  bit/hex rendering, binary/hex/octal decoding, cleanup, decimal-decoder,
-  case-conversion, predicate, search, and string normalization helpers layered
-  on top of the truST string and conversion primitives
+- `libraries/oscat_basic/src/03_data_types/oscat_basic_data_types.st`: shipped
+  data types including `REAL2` and the shared `CONSTANTS_*` carrier records
+- `libraries/oscat_basic/src/04_other_functions/oscat_basic_other_functions.st`:
+  `OSCAT_BASIC_Constants()` and the shared carrier globals
+- `libraries/oscat_basic/src/05_mathematics/oscat_basic_mathematics.st`:
+  scalar math helpers
+- `libraries/oscat_basic/src/08_arithmetics_with_double_precision/oscat_basic_double_precision.st`:
+  `R2_*` helpers
+- `libraries/oscat_basic/src/09_arithmetic_functions/oscat_basic_arithmetic_functions.st`:
+  linear/polynomial/ramp and averaging helpers
+- `libraries/oscat_basic/src/10_geometric_functions/oscat_basic_geometric_functions.st`:
+  the current geometry slice
+- `libraries/oscat_basic/src/12_time_and_date/oscat_basic_time_and_date.st`:
+  time, date, and calendar helpers
+- `libraries/oscat_basic/src/13_string_functions/oscat_basic_string_functions.st`:
+  the shipped string/date-label/formatting/search helpers
+- `libraries/oscat_basic/src/14_memory_modules/oscat_basic_memory_modules.st`:
+  `FIFO_*` and `STACK_*`
+- `libraries/oscat_basic/src/15_pulse_generators/oscat_basic_pulse_generators.st`:
+  trigger, clock, scheduler, and sequence FBs
+- `libraries/oscat_basic/src/16_logic_modules/oscat_basic_logic_modules.st`:
+  gate/bit helpers plus `CRC_GEN`, `MATRIX`, and `PIN_CODE`
+- `libraries/oscat_basic/src/17_latches_flip_flop_and_shift_register/oscat_basic_latches_flip_flop_and_shift_register.st`:
+  latch, counter, flip-flop, selector, and shift-register helpers
+- `libraries/oscat_basic/src/19_signal_processing/oscat_basic_signal_processing.st`:
+  range/scale helpers and `DELAY`
+- `libraries/oscat_basic/src/21_measuring_modules/oscat_basic_measuring_modules.st`:
+  `T_PLC_MS()` and `T_PLC_US()`
+- `libraries/oscat_basic/src/22_calculations/oscat_basic_calculations.st`:
+  engineering conversions and unit-conversion FBs
+- `libraries/oscat_basic/src/25_buffer_management/oscat_basic_buffer_management.st`:
+  byte-buffer mutation, search, and extraction helpers
+- `libraries/oscat_basic/src/26_list_processing/oscat_basic_list_processing.st`:
+  separator-prefixed list helpers and iterator FB
+- `libraries/oscat_basic/src/<chapter>/`: empty placeholder directories also
+  exist for the currently unported manual chapters so future work lands in the
+  correct chapter from the start
+
+The conformance fixtures mirror the same manual layout:
+
+- `crates/trust-runtime/tests/fixtures/oscat_basic/core/src/<chapter>/tests.st`
+- `crates/trust-runtime/tests/fixtures/oscat_basic/negative_public_surface/src/<chapter>/tests.st`
 
 This is an incremental port, not the full OSCAT BASIC catalog.
+
+The Chapter 3 carrier record types and the Chapter 4 carrier globals now use
+the normal project-wide type catalog path in `trust-hir`; they no longer rely
+on a same-file co-location workaround.
 
 ## Dependency Setup
 

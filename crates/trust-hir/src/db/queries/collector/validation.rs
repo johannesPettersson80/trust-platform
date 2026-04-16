@@ -1,7 +1,7 @@
 use super::*;
 use crate::db::diagnostics::is_expression_kind;
 
-impl SymbolCollector {
+impl SymbolCollector<'_> {
     pub(super) fn check_access_and_config(&mut self, root: &SyntaxNode) {
         self.collect_program_instances(root);
         for node in root.descendants() {

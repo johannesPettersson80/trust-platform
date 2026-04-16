@@ -72,6 +72,84 @@
     }
 
     #[test]
+    fn project_type_catalog_reuses_result_when_type_preludes_are_unchanged() {
+        let mut db = Database::new();
+        let file_types = FileId(41);
+        let file_other = FileId(42);
+        db.set_source_text(
+            file_types,
+            "TYPE CARRIER :\nSTRUCT\n    A : INT;\nEND_STRUCT\nEND_TYPE\n".to_string(),
+        );
+        db.set_source_text(
+            file_other,
+            "PROGRAM Main\nVAR\n    X : INT;\nEND_VAR\nX := 1;\nEND_PROGRAM\n".to_string(),
+        );
+
+        let first = db.with_synced_salsa_state(|state| {
+            salsa_backend::project_type_catalog_query(&state.db, salsa_backend::project_inputs(state))
+                .clone()
+        });
+
+        db.set_source_text(
+            file_other,
+            "PROGRAM Main\nVAR\n    X : INT;\nEND_VAR\nX := 2;\nEND_PROGRAM\n".to_string(),
+        );
+
+        let second = db.with_synced_salsa_state(|state| {
+            salsa_backend::project_type_catalog_query(&state.db, salsa_backend::project_inputs(state))
+                .clone()
+        });
+
+        assert!(
+            Arc::ptr_eq(&first, &second),
+            "non-type edits should not invalidate the project type catalog"
+        );
+    }
+
+    #[test]
+    fn dependent_type_edit_reinvalidates_cross_file_global_struct_analysis() {
+        let mut db = Database::new();
+        let file_types = FileId(43);
+        let file_globals = FileId(44);
+        let file_main = FileId(45);
+
+        db.set_source_text(
+            file_types,
+            "TYPE CARRIER :\nSTRUCT\n    A : INT;\nEND_STRUCT\nEND_TYPE\n".to_string(),
+        );
+        db.set_source_text(
+            file_globals,
+            "VAR_GLOBAL\n    G : CARRIER;\nEND_VAR\n".to_string(),
+        );
+        db.set_source_text(
+            file_main,
+            "PROGRAM Main\nVAR\n    X : INT;\nEND_VAR\nX := G.A;\nEND_PROGRAM\n".to_string(),
+        );
+
+        let first = db.analyze_salsa(file_main);
+        assert!(
+            first.diagnostics.iter().all(|diagnostic| !diagnostic.is_error()),
+            "initial cross-file field access should analyze cleanly: {:?}",
+            first.diagnostics
+        );
+
+        db.set_source_text(
+            file_types,
+            "TYPE CARRIER :\nSTRUCT\n    B : INT;\nEND_STRUCT\nEND_TYPE\n".to_string(),
+        );
+
+        let second = db.analyze_salsa(file_main);
+        assert!(
+            second
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.is_error()),
+            "dependent type edit should invalidate downstream analysis: {:?}",
+            second.diagnostics
+        );
+    }
+
+    #[test]
     fn cancellation_requests_keep_queries_stable() {
         let mut setup_db = Database::new_with_salsa_observability();
         let file = FileId(40);

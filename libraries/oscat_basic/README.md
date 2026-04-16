@@ -2,6 +2,12 @@
 
 This package is the first executable OSCAT BASIC compatibility slice for truST.
 
+Source layout now mirrors the OSCAT BASIC manual chapters under `src/`, and the
+runtime conformance fixtures mirror the same chapter structure under
+`crates/trust-runtime/tests/fixtures/oscat_basic/*/src/`. New porting work
+should add tests to the matching chapter first and then land implementation in
+that same chapter directory.
+
 Current scope:
 
 - shared OSCAT-style `MATH` and `PHYS` constants, loaded by `OSCAT_BASIC_Constants()`

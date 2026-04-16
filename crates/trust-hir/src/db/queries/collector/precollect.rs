@@ -2,7 +2,7 @@ use super::const_utils::*;
 use super::*;
 use crate::db::diagnostics::{is_expression_kind, is_pou_kind};
 
-impl SymbolCollector {
+impl SymbolCollector<'_> {
     pub(super) fn precollect_pous(&mut self, node: &SyntaxNode, namespace: &[SmolStr]) {
         let mut current_ns: Vec<SmolStr> = namespace.to_vec();
         if node.kind() == SyntaxKind::Namespace {

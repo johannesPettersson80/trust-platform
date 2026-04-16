@@ -1,8 +1,7 @@
 use super::super::queries::*;
 use super::super::*;
 use super::context::{
-    expression_context, find_symbol_by_name_range, is_global_symbol, namespace_path_for_symbol,
-    normalized_name,
+    find_symbol_by_name_range, is_global_symbol, namespace_path_for_symbol, normalized_name,
 };
 use super::expression::is_expression_kind;
 
@@ -19,115 +18,6 @@ pub(in crate::db) fn resolve_pending_types_with_table(
                 format!("cannot resolve type '{}'", entry.name),
             );
         }
-    }
-}
-
-pub(in crate::db) fn resolve_declared_var_types_with_project(
-    symbols: &mut SymbolTable,
-    root: &SyntaxNode,
-) {
-    for var_decl in root
-        .descendants()
-        .filter(|node| node.kind() == SyntaxKind::VarDecl)
-    {
-        let Some(type_ref) = var_decl
-            .children()
-            .find(|child| child.kind() == SyntaxKind::TypeRef)
-        else {
-            continue;
-        };
-
-        if !is_simple_type_ref(&type_ref) {
-            continue;
-        }
-
-        let Some((parts, _range)) = type_path_from_type_ref(&type_ref) else {
-            continue;
-        };
-        let type_parts: Vec<SmolStr> = parts.iter().map(|(name, _)| name.clone()).collect();
-        if type_parts.is_empty() {
-            continue;
-        }
-
-        let scope_id = expression_context(symbols, &var_decl).scope_id;
-        let type_id = resolve_type_path_with_table(symbols, &type_parts, scope_id);
-        if type_id == TypeId::UNKNOWN {
-            continue;
-        }
-
-        for name_node in var_decl
-            .children()
-            .filter(|child| child.kind() == SyntaxKind::Name)
-        {
-            let Some((name, range)) = name_from_node(&name_node) else {
-                continue;
-            };
-            let Some(symbol_id) = find_symbol_by_name_range(symbols, name.as_str(), range) else {
-                continue;
-            };
-            let needs_update = symbols
-                .get(symbol_id)
-                .is_some_and(|symbol| symbol.type_id == TypeId::UNKNOWN);
-            if !needs_update {
-                continue;
-            }
-            if let Some(symbol) = symbols.get_mut(symbol_id) {
-                symbol.type_id = type_id;
-            }
-        }
-    }
-}
-
-fn is_simple_type_ref(node: &SyntaxNode) -> bool {
-    !node.descendants().any(|child| {
-        matches!(
-            child.kind(),
-            SyntaxKind::ArrayType
-                | SyntaxKind::PointerType
-                | SyntaxKind::ReferenceType
-                | SyntaxKind::StringType
-                | SyntaxKind::Subrange
-        )
-    })
-}
-
-fn resolve_type_path_with_table(
-    symbols: &SymbolTable,
-    parts: &[SmolStr],
-    scope_id: ScopeId,
-) -> TypeId {
-    if parts.is_empty() {
-        return TypeId::UNKNOWN;
-    }
-
-    if parts.len() == 1 {
-        let name = parts[0].as_str();
-        if let Some(id) = TypeId::from_builtin_name(name) {
-            return id;
-        }
-        if let Some(symbol_id) = symbols.resolve(name, scope_id) {
-            if let Some(symbol) = symbols.get(symbol_id) {
-                if symbol.is_type() {
-                    return symbol.type_id;
-                }
-            }
-        }
-        if let Some(id) = symbols.lookup_type(name) {
-            return id;
-        }
-        return TypeId::UNKNOWN;
-    }
-
-    let Some(symbol_id) = symbols.resolve_qualified(parts) else {
-        return TypeId::UNKNOWN;
-    };
-    let Some(symbol) = symbols.get(symbol_id) else {
-        return TypeId::UNKNOWN;
-    };
-    if symbol.is_type() {
-        symbol.type_id
-    } else {
-        TypeId::UNKNOWN
     }
 }
 
