@@ -201,10 +201,11 @@ impl<'a> TypeChecker<'a> {
                     children[1].text_range(),
                 )
             }
-            SyntaxKind::IndexExpr | SyntaxKind::DerefExpr => node
+            SyntaxKind::IndexExpr => node
                 .children()
                 .next()
                 .and_then(|base| self.assignment_target_symbol(&base)),
+            SyntaxKind::DerefExpr => None,
             _ => None,
         }
     }

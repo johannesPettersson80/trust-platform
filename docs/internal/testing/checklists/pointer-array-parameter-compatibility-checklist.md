@@ -34,7 +34,7 @@ Locked decisions:
 - [x] `P1.7` Pin acceptance of `PT^[i].F := ...`
 - [x] `P1.8` Add eval/runtime regression in
   `crates/trust-runtime/src/eval/tests/pou_fb.rs`
-- [ ] `P1.9` Commit failing tests:
+- [x] `P1.9` Commit failing tests:
   `test: pin VAR_INPUT pointer write-through semantics (failing)`
 
 ## Phase 2 Tests: `ARRAY[*]` Wildcard
@@ -69,11 +69,11 @@ Locked decisions:
 
 ## Phase 4 Implementation: Pointer Deref Assignability
 
-- [ ] `P4.1` Change `assignment_target_symbol` to stop at `DerefExpr`
-- [ ] `P4.2` Re-read the `None` short-circuit path before editing
-- [ ] `P4.3` Keep `IndexExpr` and `FieldExpr` walking unchanged
-- [ ] `P4.4` Verify all Phase 1 HIR tests pass
-- [ ] `P4.5` Verify the Phase 1 eval/runtime test passes
+- [x] `P4.1` Change `assignment_target_symbol` to stop at `DerefExpr`
+- [x] `P4.2` Re-read the `None` short-circuit path before editing
+- [x] `P4.3` Keep `IndexExpr` and `FieldExpr` walking unchanged
+- [x] `P4.4` Verify all Phase 1 HIR tests pass
+- [x] `P4.5` Verify the Phase 1 eval/runtime test passes
 - [ ] `P4.6` Commit fix:
   `fix(hir): allow writes through VAR_INPUT pointer deref`
 
