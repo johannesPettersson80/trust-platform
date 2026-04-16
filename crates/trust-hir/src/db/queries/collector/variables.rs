@@ -84,6 +84,20 @@ impl SymbolCollector {
 
         for name_node in names {
             if let Some((name, range)) = name_from_node(&name_node) {
+                if is_constant
+                    && matches!(
+                        self.table
+                            .type_by_id(self.table.resolve_alias_type(type_id)),
+                        Some(Type::FunctionBlock { .. })
+                    )
+                {
+                    self.diagnostics.error(
+                        DiagnosticCode::InvalidOperation,
+                        range,
+                        "function block instances shall not be declared in CONSTANT sections",
+                    );
+                }
+
                 let kind = match qualifier {
                     VarQualifier::Input => SymbolKind::Parameter {
                         direction: ParamDirection::In,

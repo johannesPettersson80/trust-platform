@@ -113,11 +113,11 @@ Locked decisions:
 - [x] `P6.3` Restrict precollection to true compile-time constant-expression
   surfaces
 - [x] `P6.4` Enforce `is_constant` writes via `ConstantModification`
-- [ ] `P6.5` Keep `VAR_IN_OUT CONSTANT` call-site binding identical to plain
+- [x] `P6.5` Keep `VAR_IN_OUT CONSTANT` call-site binding identical to plain
   `VAR_IN_OUT`
-- [ ] `P6.6` Reject FB instances in all `CONSTANT` sections per IEC Figure 7
+- [x] `P6.6` Reject FB instances in all `CONSTANT` sections per IEC Figure 7
   footnote
-- [ ] `P6.7` Verify all Phase 3 HIR tests pass
+- [x] `P6.7` Verify all Phase 3 HIR tests pass
 - [ ] `P6.8` Verify the runtime smoke test passes
 - [ ] `P6.9` Update IEC-facing docs:
   `docs/specs/03-variables.md`,
