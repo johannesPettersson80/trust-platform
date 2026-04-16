@@ -130,6 +130,53 @@ IF INT_TO_REAL(FLOOR) > X THEN
 END_IF;
 END_FUNCTION
 
+FUNCTION F_LIN : REAL
+VAR_INPUT
+    X : REAL;
+    A : REAL;
+    B : REAL;
+END_VAR
+F_LIN := A * X + B;
+END_FUNCTION
+
+FUNCTION F_LIN2 : REAL
+VAR_INPUT
+    X : REAL;
+    X1 : REAL;
+    Y1 : REAL;
+    X2 : REAL;
+    Y2 : REAL;
+END_VAR
+F_LIN2 := (Y2 - Y1) / (X2 - X1) * (X - X1) + Y1;
+END_FUNCTION
+
+FUNCTION F_POLY : REAL
+VAR_INPUT
+    X : REAL;
+    C : ARRAY[0..7] OF REAL;
+END_VAR
+F_POLY := (((((((C[7] * X + C[6]) * X + C[5]) * X + C[4]) * X + C[3]) * X + C[2]) * X + C[1]) * X + C[0]);
+END_FUNCTION
+
+FUNCTION F_POWER : REAL
+VAR_INPUT
+    A : REAL;
+    X : REAL;
+    N : REAL;
+END_VAR
+F_POWER := A * EXPT(X, N);
+END_FUNCTION
+
+FUNCTION F_QUAD : REAL
+VAR_INPUT
+    X : REAL;
+    A : REAL;
+    B : REAL;
+    C : REAL;
+END_VAR
+F_QUAD := (A * X + B) * X + C;
+END_FUNCTION
+
 FUNCTION FRACT : REAL
 VAR_INPUT
     X : REAL;

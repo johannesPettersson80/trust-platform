@@ -436,8 +436,13 @@ Usage notes:
 | `DEG(rad)` | Radians to degrees modulo `360`. |
 | `EVEN(IN)` | `TRUE` when the input is even. |
 | `EXP10(X)` | Base-10 exponential. |
+| `F_LIN(X, A, B)` | Linear equation helper `A * X + B`. |
+| `F_LIN2(X, X1, Y1, X2, Y2)` | Linear interpolation/extrapolation through two points. |
 | `FLOOR(X)` | Floor to `INT`. |
 | `FLOOR2(X)` | Floor to `DINT`. |
+| `F_POLY(X, C)` | Polynomial evaluation helper for the shipped 8-coefficient OSCAT form. |
+| `F_POWER(A, X, N)` | Power-law helper `A * X^N`. |
+| `F_QUAD(X, A, B, C)` | Quadratic helper `(A * X + B) * X + C`. |
 | `FRACT(X)` | Fractional part helper. |
 | `HYPOT(X, Y)` | Euclidean hypotenuse. |
 | `INC(X, D, M)` | Wraparound increment helper. |

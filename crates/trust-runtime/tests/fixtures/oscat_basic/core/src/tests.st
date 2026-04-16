@@ -2259,6 +2259,27 @@ ASSERT_NEAR(EXPECTED := REAL#1.5, ACTUAL := Absolute.RX, DELTA := REAL#0.0001);
 ASSERT_NEAR(EXPECTED := REAL#0.25, ACTUAL := Absolute.R1, DELTA := REAL#0.0001);
 END_TEST_PROGRAM
 
+TEST_PROGRAM oscat_basic_math_linear_and_polynomial_helpers_behave
+VAR
+    Coefficients : ARRAY[0..7] OF REAL;
+END_VAR
+
+Coefficients[0] := REAL#1.0;
+Coefficients[1] := REAL#2.0;
+Coefficients[2] := REAL#3.0;
+Coefficients[3] := REAL#0.0;
+Coefficients[4] := REAL#0.0;
+Coefficients[5] := REAL#0.0;
+Coefficients[6] := REAL#0.0;
+Coefficients[7] := REAL#0.0;
+
+ASSERT_NEAR(EXPECTED := REAL#10.0, ACTUAL := F_LIN(X := REAL#2.0, A := REAL#3.0, B := REAL#4.0), DELTA := REAL#0.0001);
+ASSERT_NEAR(EXPECTED := REAL#4.0, ACTUAL := F_LIN2(X := REAL#2.0, X1 := REAL#0.0, Y1 := REAL#0.0, X2 := REAL#4.0, Y2 := REAL#8.0), DELTA := REAL#0.0001);
+ASSERT_NEAR(EXPECTED := REAL#17.0, ACTUAL := F_POLY(X := REAL#2.0, C := Coefficients), DELTA := REAL#0.0001);
+ASSERT_NEAR(EXPECTED := REAL#18.0, ACTUAL := F_POWER(A := REAL#2.0, X := REAL#3.0, N := REAL#2.0), DELTA := REAL#0.0001);
+ASSERT_NEAR(EXPECTED := REAL#11.0, ACTUAL := F_QUAD(X := REAL#2.0, A := REAL#1.0, B := REAL#2.0, C := REAL#3.0), DELTA := REAL#0.0001);
+END_TEST_PROGRAM
+
 TEST_FUNCTION_BLOCK oscat_basic_energy_fb_converts_units
 VAR
     Dut : ENERGY;
