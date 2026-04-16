@@ -214,3 +214,400 @@ END_IF;
 
 OSCAT_BASIC_Constants := TRUE;
 END_FUNCTION
+
+FUNCTION STATUS_TO_ESR : ESR_DATA
+VAR_INPUT
+    status : BYTE;
+    adress : STRING(10);
+    DT_in : DT;
+    TS : TIME;
+END_VAR
+VAR
+    Result : ESR_DATA;
+END_VAR
+
+IF status < BYTE#100 THEN
+    Result.TYP := BYTE#1;
+ELSIF status < BYTE#200 THEN
+    Result.TYP := BYTE#2;
+ELSE
+    Result.TYP := BYTE#3;
+END_IF;
+Result.ADRESS := adress;
+Result.DS := DT_in;
+Result.TS := TS;
+Result.DATA[0] := status;
+STATUS_TO_ESR := Result;
+END_FUNCTION
+
+FUNCTION OSCAT_VERSION : DWORD
+VAR_INPUT
+    IN : BOOL;
+END_VAR
+
+IF IN THEN
+    OSCAT_VERSION := DWORD#1325462400;
+ELSE
+    OSCAT_VERSION := DWORD#333;
+END_IF;
+END_FUNCTION
+
+FUNCTION_BLOCK ESR_MON_B8
+VAR_INPUT
+    s0, s1, s2, s3, s4, s5, s6, s7 : BOOL;
+    DT_in : DT;
+END_VAR
+VAR_INPUT CONSTANT
+    a0, a1, a2, a3, a4, a5, a6, a7 : STRING(10);
+END_VAR
+VAR_OUTPUT
+    ESR_Flag : BOOL;
+END_VAR
+VAR_IN_OUT
+    ESR_Out : ARRAY[0..3] OF ESR_DATA;
+END_VAR
+VAR
+    x0, x1, x2, x3, x4, x5, x6, x7 : BOOL;
+    tx : TIME;
+    cnt : INT;
+END_VAR
+
+tx := DWORD_TO_TIME(T_PLC_MS());
+ESR_Flag := FALSE;
+ESR_Out[3].TYP := BYTE#0;
+ESR_Out[2].TYP := BYTE#0;
+ESR_Out[1].TYP := BYTE#0;
+ESR_Out[0].TYP := BYTE#0;
+cnt := INT#0;
+
+IF s0 <> x0 THEN
+    IF s0 THEN
+        ESR_Out[cnt].TYP := BYTE#11;
+    ELSE
+        ESR_Out[cnt].TYP := BYTE#10;
+    END_IF;
+    ESR_Out[cnt].ADRESS := a0;
+    ESR_Out[cnt].DS := DT_in;
+    ESR_Out[cnt].TS := tx;
+    x0 := s0;
+    cnt := cnt + INT#1;
+    ESR_Flag := TRUE;
+END_IF;
+IF s1 <> x1 AND cnt < INT#4 THEN
+    IF s1 THEN
+        ESR_Out[cnt].TYP := BYTE#11;
+    ELSE
+        ESR_Out[cnt].TYP := BYTE#10;
+    END_IF;
+    ESR_Out[cnt].ADRESS := a1;
+    ESR_Out[cnt].DS := DT_in;
+    ESR_Out[cnt].TS := tx;
+    x1 := s1;
+    cnt := cnt + INT#1;
+    ESR_Flag := TRUE;
+END_IF;
+IF s2 <> x2 AND cnt < INT#4 THEN
+    IF s2 THEN
+        ESR_Out[cnt].TYP := BYTE#11;
+    ELSE
+        ESR_Out[cnt].TYP := BYTE#10;
+    END_IF;
+    ESR_Out[cnt].ADRESS := a2;
+    ESR_Out[cnt].DS := DT_in;
+    ESR_Out[cnt].TS := tx;
+    x2 := s2;
+    cnt := cnt + INT#1;
+    ESR_Flag := TRUE;
+END_IF;
+IF s3 <> x3 AND cnt < INT#4 THEN
+    IF s3 THEN
+        ESR_Out[cnt].TYP := BYTE#11;
+    ELSE
+        ESR_Out[cnt].TYP := BYTE#10;
+    END_IF;
+    ESR_Out[cnt].ADRESS := a3;
+    ESR_Out[cnt].DS := DT_in;
+    ESR_Out[cnt].TS := tx;
+    x3 := s3;
+    cnt := cnt + INT#1;
+    ESR_Flag := TRUE;
+END_IF;
+IF s4 <> x4 AND cnt < INT#4 THEN
+    IF s4 THEN
+        ESR_Out[cnt].TYP := BYTE#11;
+    ELSE
+        ESR_Out[cnt].TYP := BYTE#10;
+    END_IF;
+    ESR_Out[cnt].ADRESS := a4;
+    ESR_Out[cnt].DS := DT_in;
+    ESR_Out[cnt].TS := tx;
+    x4 := s4;
+    cnt := cnt + INT#1;
+    ESR_Flag := TRUE;
+END_IF;
+IF s5 <> x5 AND cnt < INT#4 THEN
+    IF s5 THEN
+        ESR_Out[cnt].TYP := BYTE#11;
+    ELSE
+        ESR_Out[cnt].TYP := BYTE#10;
+    END_IF;
+    ESR_Out[cnt].ADRESS := a5;
+    ESR_Out[cnt].DS := DT_in;
+    ESR_Out[cnt].TS := tx;
+    x5 := s5;
+    cnt := cnt + INT#1;
+    ESR_Flag := TRUE;
+END_IF;
+IF s6 <> x6 AND cnt < INT#4 THEN
+    IF s6 THEN
+        ESR_Out[cnt].TYP := BYTE#11;
+    ELSE
+        ESR_Out[cnt].TYP := BYTE#10;
+    END_IF;
+    ESR_Out[cnt].ADRESS := a6;
+    ESR_Out[cnt].DS := DT_in;
+    ESR_Out[cnt].TS := tx;
+    x6 := s6;
+    cnt := cnt + INT#1;
+    ESR_Flag := TRUE;
+END_IF;
+IF s7 <> x7 AND cnt < INT#4 THEN
+    IF s7 THEN
+        ESR_Out[cnt].TYP := BYTE#11;
+    ELSE
+        ESR_Out[cnt].TYP := BYTE#10;
+    END_IF;
+    ESR_Out[cnt].ADRESS := a7;
+    ESR_Out[cnt].DS := DT_in;
+    ESR_Out[cnt].TS := tx;
+    x7 := s7;
+    cnt := cnt + INT#1;
+    ESR_Flag := TRUE;
+END_IF;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK ESR_MON_R4
+VAR_INPUT
+    R0, R1, R2, R3 : REAL;
+    DT_in : DT;
+END_VAR
+VAR_INPUT CONSTANT
+    a0, a1, a2, a3 : STRING(10);
+    s0, s1, s2, s3 : REAL;
+END_VAR
+VAR_OUTPUT
+    ESR_Flag : BOOL;
+END_VAR
+VAR_IN_OUT
+    ESR_Out : ARRAY[0..3] OF ESR_DATA;
+END_VAR
+VAR
+    x0, x1, x2, x3 : REAL;
+    tx : TIME;
+    cnt : INT;
+    raw : DWORD;
+END_VAR
+
+tx := DWORD_TO_TIME(T_PLC_MS());
+ESR_Flag := FALSE;
+ESR_Out[3].TYP := BYTE#0;
+ESR_Out[2].TYP := BYTE#0;
+ESR_Out[1].TYP := BYTE#0;
+ESR_Out[0].TYP := BYTE#0;
+cnt := INT#0;
+
+IF ABS(R0 - x0) > s0 THEN
+    raw := REAL_TO_DW(X := R0);
+    ESR_Out[cnt].TYP := BYTE#20;
+    ESR_Out[cnt].ADRESS := a0;
+    ESR_Out[cnt].DS := DT_in;
+    ESR_Out[cnt].TS := tx;
+    ESR_Out[cnt].DATA[0] := BYTE_OF_DWORD(IN := raw, N := BYTE#0);
+    ESR_Out[cnt].DATA[1] := BYTE_OF_DWORD(IN := raw, N := BYTE#1);
+    ESR_Out[cnt].DATA[2] := BYTE_OF_DWORD(IN := raw, N := BYTE#2);
+    ESR_Out[cnt].DATA[3] := BYTE_OF_DWORD(IN := raw, N := BYTE#3);
+    x0 := R0;
+    cnt := cnt + INT#1;
+    ESR_Flag := TRUE;
+END_IF;
+IF ABS(R1 - x1) > s1 AND cnt < INT#4 THEN
+    raw := REAL_TO_DW(X := R1);
+    ESR_Out[cnt].TYP := BYTE#20;
+    ESR_Out[cnt].ADRESS := a1;
+    ESR_Out[cnt].DS := DT_in;
+    ESR_Out[cnt].TS := tx;
+    ESR_Out[cnt].DATA[0] := BYTE_OF_DWORD(IN := raw, N := BYTE#0);
+    ESR_Out[cnt].DATA[1] := BYTE_OF_DWORD(IN := raw, N := BYTE#1);
+    ESR_Out[cnt].DATA[2] := BYTE_OF_DWORD(IN := raw, N := BYTE#2);
+    ESR_Out[cnt].DATA[3] := BYTE_OF_DWORD(IN := raw, N := BYTE#3);
+    x1 := R1;
+    cnt := cnt + INT#1;
+    ESR_Flag := TRUE;
+END_IF;
+IF ABS(R2 - x2) > s2 AND cnt < INT#4 THEN
+    raw := REAL_TO_DW(X := R2);
+    ESR_Out[cnt].TYP := BYTE#20;
+    ESR_Out[cnt].ADRESS := a2;
+    ESR_Out[cnt].DS := DT_in;
+    ESR_Out[cnt].TS := tx;
+    ESR_Out[cnt].DATA[0] := BYTE_OF_DWORD(IN := raw, N := BYTE#0);
+    ESR_Out[cnt].DATA[1] := BYTE_OF_DWORD(IN := raw, N := BYTE#1);
+    ESR_Out[cnt].DATA[2] := BYTE_OF_DWORD(IN := raw, N := BYTE#2);
+    ESR_Out[cnt].DATA[3] := BYTE_OF_DWORD(IN := raw, N := BYTE#3);
+    x2 := R2;
+    cnt := cnt + INT#1;
+    ESR_Flag := TRUE;
+END_IF;
+IF ABS(R3 - x3) > s3 AND cnt < INT#4 THEN
+    raw := REAL_TO_DW(X := R3);
+    ESR_Out[cnt].TYP := BYTE#20;
+    ESR_Out[cnt].ADRESS := a3;
+    ESR_Out[cnt].DS := DT_in;
+    ESR_Out[cnt].TS := tx;
+    ESR_Out[cnt].DATA[0] := BYTE_OF_DWORD(IN := raw, N := BYTE#0);
+    ESR_Out[cnt].DATA[1] := BYTE_OF_DWORD(IN := raw, N := BYTE#1);
+    ESR_Out[cnt].DATA[2] := BYTE_OF_DWORD(IN := raw, N := BYTE#2);
+    ESR_Out[cnt].DATA[3] := BYTE_OF_DWORD(IN := raw, N := BYTE#3);
+    x3 := R3;
+    cnt := cnt + INT#1;
+    ESR_Flag := TRUE;
+END_IF;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK ESR_MON_X8
+VAR_INPUT
+    s0, s1, s2, s3, s4, s5, s6, s7 : BYTE;
+    DT_in : DT;
+    Mode : BYTE := BYTE#3;
+END_VAR
+VAR_INPUT CONSTANT
+    a0, a1, a2, a3, a4, a5, a6, a7 : STRING(10);
+END_VAR
+VAR_OUTPUT
+    ESR_Flag : BOOL;
+END_VAR
+VAR_IN_OUT
+    ESR_Out : ARRAY[0..3] OF ESR_DATA;
+END_VAR
+VAR
+    x0, x1, x2, x3, x4, x5, x6, x7 : BYTE;
+    tx : TIME;
+    cnt : INT;
+END_VAR
+
+tx := DWORD_TO_TIME(T_PLC_MS());
+ESR_Flag := FALSE;
+ESR_Out[3].TYP := BYTE#0;
+ESR_Out[2].TYP := BYTE#0;
+ESR_Out[1].TYP := BYTE#0;
+ESR_Out[0].TYP := BYTE#0;
+cnt := INT#0;
+
+IF s0 <> x0 AND ((s0 < BYTE#100) OR (s0 < BYTE#200 AND Mode >= BYTE#2) OR (Mode = BYTE#3)) THEN
+    ESR_Out[cnt] := STATUS_TO_ESR(status := s0, adress := a0, DT_in := DT_in, TS := tx);
+    x0 := s0;
+    cnt := cnt + INT#1;
+    ESR_Flag := TRUE;
+END_IF;
+IF s1 <> x1 AND cnt < INT#4 AND ((s1 < BYTE#100) OR (s1 < BYTE#200 AND Mode >= BYTE#2) OR (Mode = BYTE#3)) THEN
+    ESR_Out[cnt] := STATUS_TO_ESR(status := s1, adress := a1, DT_in := DT_in, TS := tx);
+    x1 := s1;
+    cnt := cnt + INT#1;
+    ESR_Flag := TRUE;
+END_IF;
+IF s2 <> x2 AND cnt < INT#4 AND ((s2 < BYTE#100) OR (s2 < BYTE#200 AND Mode >= BYTE#2) OR (Mode = BYTE#3)) THEN
+    ESR_Out[cnt] := STATUS_TO_ESR(status := s2, adress := a2, DT_in := DT_in, TS := tx);
+    x2 := s2;
+    cnt := cnt + INT#1;
+    ESR_Flag := TRUE;
+END_IF;
+IF s3 <> x3 AND cnt < INT#4 AND ((s3 < BYTE#100) OR (s3 < BYTE#200 AND Mode >= BYTE#2) OR (Mode = BYTE#3)) THEN
+    ESR_Out[cnt] := STATUS_TO_ESR(status := s3, adress := a3, DT_in := DT_in, TS := tx);
+    x3 := s3;
+    cnt := cnt + INT#1;
+    ESR_Flag := TRUE;
+END_IF;
+IF s4 <> x4 AND cnt < INT#4 AND ((s4 < BYTE#100) OR (s4 < BYTE#200 AND Mode >= BYTE#2) OR (Mode = BYTE#3)) THEN
+    ESR_Out[cnt] := STATUS_TO_ESR(status := s4, adress := a4, DT_in := DT_in, TS := tx);
+    x4 := s4;
+    cnt := cnt + INT#1;
+    ESR_Flag := TRUE;
+END_IF;
+IF s5 <> x5 AND cnt < INT#4 AND ((s5 < BYTE#100) OR (s5 < BYTE#200 AND Mode >= BYTE#2) OR (Mode = BYTE#3)) THEN
+    ESR_Out[cnt] := STATUS_TO_ESR(status := s5, adress := a5, DT_in := DT_in, TS := tx);
+    x5 := s5;
+    cnt := cnt + INT#1;
+    ESR_Flag := TRUE;
+END_IF;
+IF s6 <> x6 AND cnt < INT#4 AND ((s6 < BYTE#100) OR (s6 < BYTE#200 AND Mode >= BYTE#2) OR (Mode = BYTE#3)) THEN
+    ESR_Out[cnt] := STATUS_TO_ESR(status := s6, adress := a6, DT_in := DT_in, TS := tx);
+    x6 := s6;
+    cnt := cnt + INT#1;
+    ESR_Flag := TRUE;
+END_IF;
+IF s7 <> x7 AND cnt < INT#4 AND ((s7 < BYTE#100) OR (s7 < BYTE#200 AND Mode >= BYTE#2) OR (Mode = BYTE#3)) THEN
+    ESR_Out[cnt] := STATUS_TO_ESR(status := s7, adress := a7, DT_in := DT_in, TS := tx);
+    x7 := s7;
+    cnt := cnt + INT#1;
+    ESR_Flag := TRUE;
+END_IF;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK ESR_COLLECT
+VAR_INPUT
+    ESR_0, ESR_1, ESR_2, ESR_3, ESR_4, ESR_5, ESR_6, ESR_7 : ARRAY[0..3] OF ESR_DATA;
+    rst : BOOL;
+END_VAR
+VAR_IN_OUT
+    pos : INT;
+END_VAR
+VAR_OUTPUT
+    ESR_OUT : ARRAY[0..31] OF ESR_DATA;
+END_VAR
+VAR CONSTANT
+    max_in : INT := INT#3;
+    max_out : INT := INT#32;
+END_VAR
+VAR
+    cnt : INT;
+END_VAR
+
+IF rst THEN
+    pos := INT#-1;
+ELSE
+    FOR cnt := INT#0 TO max_in DO
+        IF ESR_0[cnt].TYP > BYTE#0 THEN
+            pos := INC1(X := pos, N := max_out);
+            ESR_OUT[pos] := ESR_0[cnt];
+        END_IF;
+        IF ESR_1[cnt].TYP > BYTE#0 THEN
+            pos := INC1(X := pos, N := max_out);
+            ESR_OUT[pos] := ESR_1[cnt];
+        END_IF;
+        IF ESR_2[cnt].TYP > BYTE#0 THEN
+            pos := INC1(X := pos, N := max_out);
+            ESR_OUT[pos] := ESR_2[cnt];
+        END_IF;
+        IF ESR_3[cnt].TYP > BYTE#0 THEN
+            pos := INC1(X := pos, N := max_out);
+            ESR_OUT[pos] := ESR_3[cnt];
+        END_IF;
+        IF ESR_4[cnt].TYP > BYTE#0 THEN
+            pos := INC1(X := pos, N := max_out);
+            ESR_OUT[pos] := ESR_4[cnt];
+        END_IF;
+        IF ESR_5[cnt].TYP > BYTE#0 THEN
+            pos := INC1(X := pos, N := max_out);
+            ESR_OUT[pos] := ESR_5[cnt];
+        END_IF;
+        IF ESR_6[cnt].TYP > BYTE#0 THEN
+            pos := INC1(X := pos, N := max_out);
+            ESR_OUT[pos] := ESR_6[cnt];
+        END_IF;
+        IF ESR_7[cnt].TYP > BYTE#0 THEN
+            pos := INC1(X := pos, N := max_out);
+            ESR_OUT[pos] := ESR_7[cnt];
+        END_IF;
+    END_FOR;
+END_IF;
+END_FUNCTION_BLOCK

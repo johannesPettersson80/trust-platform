@@ -28,6 +28,9 @@ Target release: `v0.17.0`
 
 ### Added
 
+- `libraries/oscat_basic` now also ships the full Chapter 4 `Other Functions`
+  slice: `STATUS_TO_ESR`, `OSCAT_VERSION`, `ESR_COLLECT`, `ESR_MON_B8`,
+  `ESR_MON_R4`, and `ESR_MON_X8`.
 - `libraries/oscat_basic` now also ships the first Chapter 3 data-type slice:
   `CALENDAR`, `COMPLEX`, `CONSTANTS_LOCATION`, `CONSTANTS_SETUP`, `ESR_DATA`,
   `FRACTION`, `HOLIDAY_DATA`, `REAL2`, `SDT`, `TIMER_EVENT`, and `VECTOR_3`,

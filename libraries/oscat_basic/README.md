@@ -16,6 +16,8 @@ Current scope:
   `CONSTANTS_*` carrier records
 - shared OSCAT-style `MATH` and `PHYS` constants, loaded by `OSCAT_BASIC_Constants()`
 - shared `LANGUAGE` direction tables with live `LANGUAGE.DIRS[...]` access
+- chapter 4 helper surface `STATUS_TO_ESR`, `OSCAT_VERSION`, `ESR_COLLECT`,
+  `ESR_MON_B8`, `ESR_MON_R4`, and `ESR_MON_X8`
 - engineering conversion helpers, direction helpers, and range helpers
 - time conversion helpers `DAY_TO_TIME`, `HOUR_TO_TIME`, `MINUTE_TO_TIME`, and `SECOND_TO_TIME`
 - calendar/date helpers such as `DATE_ADD`, `DAYS_DELTA`, `EASTER`, `MONTH_BEGIN`, `WORK_WEEK`, and `YEAR_OF_DATE`

@@ -16,7 +16,8 @@ current helpers from scan-driven Structured Text.
   `CONSTANTS_SETUP`, `ESR_DATA`, `FRACTION`, `HOLIDAY_DATA`, `REAL2`, `SDT`,
   `TIMER_EVENT`, `VECTOR_3`, and the shared `CONSTANTS_*` carrier records
 - `libraries/oscat_basic/src/04_other_functions/oscat_basic_other_functions.st`:
-  `OSCAT_BASIC_Constants()` and the shared carrier globals
+  `OSCAT_BASIC_Constants()`, `STATUS_TO_ESR`, `OSCAT_VERSION`, `ESR_COLLECT`,
+  `ESR_MON_B8`, `ESR_MON_R4`, `ESR_MON_X8`, and the shared carrier globals
 - `libraries/oscat_basic/src/05_mathematics/oscat_basic_mathematics.st`:
   scalar math helpers
 - `libraries/oscat_basic/src/08_arithmetics_with_double_precision/oscat_basic_double_precision.st`:
@@ -194,6 +195,17 @@ Behavior:
 Usage notes:
 - Call this before reading `LANGUAGE.DIRS`.
 - Call this before helpers that depend on `MATH.PI2` or `PHYS.T0`.
+
+### Chapter 4 Other Functions
+
+| Surface | Summary |
+| --- | --- |
+| `STATUS_TO_ESR(status, adress, DT_in, TS)` | Builds one `ESR_DATA` record and classifies the byte-status into error (`1`), status (`2`), or debug (`3`) buckets. |
+| `OSCAT_VERSION(IN)` | Returns the OSCAT BASIC version marker `333`, or the upstream release-date epoch marker when `IN = TRUE`. |
+| `ESR_MON_B8` | Watches up to 8 BOOL inputs and emits up to 4 edge-change ESR records per scan. |
+| `ESR_MON_R4` | Watches up to 4 REAL inputs with per-channel sensitivity thresholds and emits ESR records with the sampled REAL payload bytes. |
+| `ESR_MON_X8` | Watches up to 8 BYTE status channels and filters error/status/debug events by `Mode`. |
+| `ESR_COLLECT` | Merges up to 8 monitor output arrays into one rolling 32-slot ESR buffer. |
 
 ## Function Reference
 
