@@ -192,6 +192,8 @@ pub struct Symbol {
     pub kind: SymbolKind,
     /// The symbol's type.
     pub type_id: TypeId,
+    /// Whether the declared storage is read-only within the entity.
+    pub is_constant: bool,
     /// Direct address binding (`AT %...`) if present.
     pub direct_address: Option<SmolStr>,
     /// The symbol's visibility.
@@ -222,6 +224,7 @@ impl Symbol {
             name: name.into(),
             kind,
             type_id,
+            is_constant: false,
             direct_address: None,
             visibility: Visibility::default(),
             modifiers: SymbolModifiers::default(),

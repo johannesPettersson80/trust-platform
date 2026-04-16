@@ -106,7 +106,7 @@ Locked decisions:
 
 ## Phase 6 Implementation: IEC-Correct `CONSTANT`
 
-- [ ] `P6.1` Add `is_constant: bool` on `Symbol` itself and wire the default
+- [x] `P6.1` Add `is_constant: bool` on `Symbol` itself and wire the default
   value
 - [ ] `P6.2` Rewire collection so parameter/`VAR_TEMP` `CONSTANT` keeps normal
   kind plus `is_constant: true`
