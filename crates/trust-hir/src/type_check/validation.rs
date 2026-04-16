@@ -1,7 +1,16 @@
 use super::calls::ResolvedSymbol;
 use super::*;
+use crate::symbols::Symbol;
 
 impl<'a> TypeChecker<'a> {
+    fn symbol_is_constant(&self, symbol: &Symbol) -> bool {
+        symbol.is_constant
+            || matches!(
+                symbol.kind,
+                SymbolKind::Constant | SymbolKind::EnumValue { .. }
+            )
+    }
+
     pub(super) fn is_valid_lvalue(&self, node: &SyntaxNode) -> bool {
         if node.kind() == SyntaxKind::ParenExpr {
             if let Some(inner) = node.children().next() {
@@ -44,10 +53,7 @@ impl<'a> TypeChecker<'a> {
                     return false;
                 }
                 if let Some(symbol) = self.symbols.get(resolved.id) {
-                    return matches!(
-                        symbol.kind,
-                        SymbolKind::Constant | SymbolKind::EnumValue { .. }
-                    );
+                    return self.symbol_is_constant(symbol);
                 }
             }
             return node
@@ -57,12 +63,16 @@ impl<'a> TypeChecker<'a> {
                 .unwrap_or(false);
         }
 
-        if matches!(node.kind(), SyntaxKind::IndexExpr | SyntaxKind::DerefExpr) {
+        if node.kind() == SyntaxKind::IndexExpr {
             return node
                 .children()
                 .next()
                 .map(|base| self.is_constant_target_with_resolved(&base, None))
                 .unwrap_or(false);
+        }
+
+        if node.kind() == SyntaxKind::DerefExpr {
+            return false;
         }
 
         if node.kind() == SyntaxKind::NameRef {
@@ -71,10 +81,7 @@ impl<'a> TypeChecker<'a> {
                     return false;
                 }
                 if let Some(symbol) = self.symbols.get(resolved.id) {
-                    return matches!(
-                        symbol.kind,
-                        SymbolKind::Constant | SymbolKind::EnumValue { .. }
-                    );
+                    return self.symbol_is_constant(symbol);
                 }
             }
 
@@ -87,10 +94,7 @@ impl<'a> TypeChecker<'a> {
                         return false;
                     }
                     if let Some(symbol) = self.symbols.get(resolved.id) {
-                        return matches!(
-                            symbol.kind,
-                            SymbolKind::Constant | SymbolKind::EnumValue { .. }
-                        );
+                        return self.symbol_is_constant(symbol);
                     }
                 }
             }
@@ -117,6 +121,20 @@ impl<'a> TypeChecker<'a> {
         let Some(symbol) = self.symbols.get(resolved.id) else {
             return true;
         };
+
+        if symbol.is_constant
+            || matches!(
+                symbol.kind,
+                SymbolKind::Constant | SymbolKind::EnumValue { .. }
+            )
+        {
+            self.diagnostics.error(
+                DiagnosticCode::ConstantModification,
+                node.text_range(),
+                format!("cannot assign to constant '{}'", symbol.name),
+            );
+            return false;
+        }
 
         match symbol.kind {
             SymbolKind::Variable { .. } => true,
@@ -145,14 +163,7 @@ impl<'a> TypeChecker<'a> {
                     false
                 }
             }
-            SymbolKind::Constant | SymbolKind::EnumValue { .. } => {
-                self.diagnostics.error(
-                    DiagnosticCode::ConstantModification,
-                    node.text_range(),
-                    "cannot assign to constant",
-                );
-                false
-            }
+            SymbolKind::Constant | SymbolKind::EnumValue { .. } => false,
             _ => {
                 self.diagnostics.error(
                     DiagnosticCode::InvalidAssignmentTarget,

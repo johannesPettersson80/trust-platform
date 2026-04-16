@@ -112,7 +112,7 @@ Locked decisions:
   kind plus `is_constant: true`
 - [x] `P6.3` Restrict precollection to true compile-time constant-expression
   surfaces
-- [ ] `P6.4` Enforce `is_constant` writes via `ConstantModification`
+- [x] `P6.4` Enforce `is_constant` writes via `ConstantModification`
 - [ ] `P6.5` Keep `VAR_IN_OUT CONSTANT` call-site binding identical to plain
   `VAR_IN_OUT`
 - [ ] `P6.6` Reject FB instances in all `CONSTANT` sections per IEC Figure 7
