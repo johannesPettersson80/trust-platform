@@ -115,9 +115,14 @@ END_VAR
 ```
 
 **Rules**:
-- CONSTANT can only be used with VAR, VAR_GLOBAL, VAR_EXTERNAL
-- Constants require initial values
-- Error if attempting to assign to a constant
+- `CONSTANT` may qualify any `VAR_*` section keyword listed in IEC Figure 7.
+- Assignment to a `CONSTANT` declaration from within the enclosing entity is rejected.
+- `VAR_INPUT CONSTANT` is valid and redundant: inputs are already read-only inside the entity.
+- `VAR_IN_OUT CONSTANT` preserves normal `VAR_IN_OUT` call-site binding rules, but the aliased storage is read-only inside the entity.
+- `VAR_OUTPUT CONSTANT` is valid and leaves the output unwritable from within the entity.
+- `VAR_TEMP CONSTANT` is valid and behaves as a read-only temporary variable.
+- Function block instances shall not be declared in `CONSTANT` sections. (IEC Figure 7 footnote `*`)
+- Only `VAR CONSTANT`, `VAR_GLOBAL CONSTANT`, and `VAR_EXTERNAL CONSTANT` participate in named compile-time constant-expression evaluation; parameter-block and `VAR_TEMP CONSTANT` declarations are runtime storage with read-only semantics.
 
 ### Edge Detection Qualifiers (Table 14)
 
