@@ -55,17 +55,26 @@ Locked decisions:
 - [x] `P2.13` Commit failing tests:
   `test: pin ARRAY[*] wildcard semantics (failing)`
 
-## Phase 3 Tests: Parameter `CONSTANT` Warning
+## Phase 3 Tests: IEC-Correct `CONSTANT` Qualifier
 
-- [ ] `P3.1` Add HIR regression module
+- [x] `P3.1` Add HIR regression module
   `crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs`
-- [ ] `P3.2` Pin warning on `VAR_INPUT CONSTANT`
-- [ ] `P3.3` Pin warning on `VAR_OUTPUT CONSTANT`
-- [ ] `P3.4` Pin warning on `VAR_IN_OUT CONSTANT`
-- [ ] `P3.5` Pin no-warning regression for `VAR_GLOBAL CONSTANT`
-- [ ] `P3.6` Pin current local `VAR CONSTANT` behavior unchanged
-- [ ] `P3.7` Commit failing tests:
-  `test: pin parameter CONSTANT qualifier warning (failing)`
+- [x] `P3.2` Pin symbol shape for `VAR_INPUT CONSTANT`, `VAR_OUTPUT CONSTANT`,
+  `VAR_IN_OUT CONSTANT`, and `VAR_TEMP CONSTANT`
+- [x] `P3.3` Pin parameter identity/call binding for `VAR_INPUT CONSTANT` and
+  `VAR_IN_OUT CONSTANT`
+- [x] `P3.4` Pin that parameter/`VAR_TEMP` `CONSTANT` names are not
+  precollected as compile-time constants
+- [x] `P3.5` Pin assignment rejection for constant parameter/`VAR_TEMP` writes
+- [x] `P3.6` Pin the Phase 4 interaction for constant pointer slots vs deref
+  writes
+- [x] `P3.7` Pin FB-instance rejection in all `CONSTANT` sections
+- [x] `P3.8` Pin regressions for `VAR_GLOBAL CONSTANT`, `VAR CONSTANT`, and
+  `VAR_EXTERNAL CONSTANT`
+- [x] `P3.9` Add runtime smoke test in
+  `crates/trust-runtime/tests/var_constants.rs`
+- [ ] `P3.10` Commit failing tests:
+  `test: pin IEC-correct CONSTANT qualifier on parameter and VAR_TEMP blocks (failing)`
 
 ## Phase 4 Implementation: Pointer Deref Assignability
 
@@ -95,14 +104,29 @@ Locked decisions:
 - [x] `P5.11` Commit feature:
   `feat(hir): support ARRAY[*] wildcard and explicit pointer-target compat`
 
-## Phase 6 Implementation: Parameter `CONSTANT` Warning
+## Phase 6 Implementation: IEC-Correct `CONSTANT`
 
-- [ ] `P6.1` Add warning emission during parameter collection/validation
-- [ ] `P6.2` Keep symbol/runtime semantics unchanged
-- [ ] `P6.3` Add or reuse a warning diagnostic code
-- [ ] `P6.4` Verify all Phase 3 tests pass
-- [ ] `P6.5` Commit feature:
-  `feat(hir): warn on ineffective CONSTANT qualifier in parameter blocks`
+- [ ] `P6.1` Add `is_constant: bool` on `Symbol` itself and wire the default
+  value
+- [ ] `P6.2` Rewire collection so parameter/`VAR_TEMP` `CONSTANT` keeps normal
+  kind plus `is_constant: true`
+- [ ] `P6.3` Restrict precollection to true compile-time constant-expression
+  surfaces
+- [ ] `P6.4` Enforce `is_constant` writes via `ConstantModification`
+- [ ] `P6.5` Keep `VAR_IN_OUT CONSTANT` call-site binding identical to plain
+  `VAR_IN_OUT`
+- [ ] `P6.6` Reject FB instances in all `CONSTANT` sections per IEC Figure 7
+  footnote
+- [ ] `P6.7` Verify all Phase 3 HIR tests pass
+- [ ] `P6.8` Verify the runtime smoke test passes
+- [ ] `P6.9` Update IEC-facing docs:
+  `docs/specs/03-variables.md`,
+  `docs/internal/standards/IEC_DEVIATIONS.md`,
+  `docs/internal/standards/IEC_ST_FEATURE_MATRIX.md`
+- [ ] `P6.10` Record legacy `VAR CONSTANT` local handling as explicit
+  phase-boundary debt
+- [ ] `P6.11` Commit feature:
+  `feat(hir): implement IEC-correct CONSTANT qualifier semantics`
 
 ## Phase 7 Cleanup: OSCAT Consumers
 
