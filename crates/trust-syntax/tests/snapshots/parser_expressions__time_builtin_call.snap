@@ -1,0 +1,22 @@
+---
+source: crates/trust-syntax/tests/parser_expressions.rs
+expression: "snapshot_parse(r#\"PROGRAM Test\n    t := TIME();\nEND_PROGRAM\"#)"
+---
+SourceFile@0..41
+  Program@0..41
+    KwProgram@0..7 "PROGRAM"
+    Name@7..17
+      Ident@8..12 "Test"
+    StmtList@17..30
+      AssignStmt@17..30
+        NameRef@17..19
+          Ident@17..18 "t"
+        Assign@19..21 ":="
+        CallExpr@21..28
+          NameRef@21..26
+            KwTime@22..26 "TIME"
+          ArgList@26..28
+            LParen@26..27 "("
+            RParen@27..28 ")"
+        Semicolon@28..29 ";"
+    KwEndProgram@30..41 "END_PROGRAM"

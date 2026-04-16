@@ -158,7 +158,7 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
             self.checker.diagnostics.error(
                 DiagnosticCode::TypeMismatch,
                 target.text_range(),
-                "reference assignment requires REF_TO target",
+                "reference assignment requires REF_TO or POINTER TO target",
             );
             return;
         };
@@ -171,7 +171,7 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
             self.checker.diagnostics.error(
                 DiagnosticCode::TypeMismatch,
                 value.text_range(),
-                "reference assignment requires REF_TO source",
+                "reference assignment requires REF_TO or POINTER TO source",
             );
             return;
         };
@@ -197,7 +197,7 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
     fn reference_target_type(&self, type_id: TypeId) -> Option<TypeId> {
         let resolved = self.checker.resolve_alias_type(type_id);
         match self.checker.symbols.type_by_id(resolved)? {
-            Type::Reference { target } => Some(*target),
+            Type::Reference { target } | Type::Pointer { target } => Some(*target),
             _ => None,
         }
     }

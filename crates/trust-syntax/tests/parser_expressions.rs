@@ -69,6 +69,15 @@ END_PROGRAM"#
 }
 
 #[test]
+fn test_time_builtin_call() {
+    insta::assert_snapshot!(snapshot_parse(
+        r#"PROGRAM Test
+    t := TIME();
+END_PROGRAM"#
+    ));
+}
+
+#[test]
 fn test_field_access() {
     insta::assert_snapshot!(snapshot_parse(
         r#"PROGRAM Test

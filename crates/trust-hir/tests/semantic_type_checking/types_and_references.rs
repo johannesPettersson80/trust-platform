@@ -29,6 +29,34 @@ END_FUNCTION_BLOCK
 }
 
 #[test]
+fn test_parenthesized_string_length_constant_expression() {
+    let mut db = Database::new();
+    let file = FileId(0);
+    db.set_source_text(
+        file,
+        r#"
+FUNCTION_BLOCK FB_Test
+    VAR CONSTANT
+        Len : DINT := 4;
+    END_VAR
+    VAR
+        name : STRING(Len + 1);
+    END_VAR
+END_FUNCTION_BLOCK
+"#
+        .to_string(),
+    );
+
+    let symbols = db.file_symbols(file);
+    let name = symbols.iter().find(|s| s.name == "name").unwrap();
+    let type_id = symbols.resolve_alias_type(name.type_id);
+    let Type::String { max_len } = symbols.type_by_id(type_id).unwrap() else {
+        panic!("expected string type");
+    };
+    assert_eq!(*max_len, Some(5));
+}
+
+#[test]
 fn test_string_literal_length_in_initializer() {
     check_has_error(
         r#"

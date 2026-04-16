@@ -406,6 +406,14 @@ impl Parser<'_, '_> {
                 } else {
                     self.error("expected ]");
                 }
+            } else if self.at(TokenKind::LParen) {
+                self.bump();
+                self.parse_expression();
+                if self.at(TokenKind::RParen) {
+                    self.bump();
+                } else {
+                    self.error("expected )");
+                }
             }
             self.finish_node();
         } else if self.current().is_type_keyword() {

@@ -80,3 +80,19 @@ END_VAR
 END_PROGRAM"#
     ));
 }
+
+#[test]
+// IEC 61131-3 Ed.3 Table 10 (alternative STRING/WSTRING sizing syntax)
+fn test_string_type_with_parenthesized_length() {
+    insta::assert_snapshot!(snapshot_parse(
+        r#"PROGRAM Test
+VAR CONSTANT
+    Len : INT := 50;
+END_VAR
+VAR
+    s1 : STRING(Len);
+    s2 : WSTRING(Len + 10);
+END_VAR
+END_PROGRAM"#
+    ));
+}

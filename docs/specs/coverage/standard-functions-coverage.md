@@ -132,6 +132,10 @@ Status (current codebase; refactor-only check on 2026-01-23): All standard funct
 - [x] LTOD_TO_TOD
 - [x] TOD_TO_LTOD
 
+Implementer extensions tracked outside IEC Table 26:
+- [x] TIME_TO_DWORD
+- [x] DWORD_TO_TIME
+
 ## Table 27 - Data Type Conversion of Character Types
 - [x] WSTRING_TO_STRING
 - [x] WSTRING_TO_WCHAR
@@ -141,6 +145,10 @@ Status (current codebase; refactor-only check on 2026-01-23): All standard funct
 - [x] WCHAR_TO_CHAR
 - [x] CHAR_TO_STRING
 - [x] CHAR_TO_WCHAR
+
+Implementer extensions tracked outside IEC Table 27:
+- [x] CHAR_TO_BYTE
+- [x] WCHAR_TO_WORD
 
 ## Table 28 - Numerical and Arithmetic Functions (Single Input)
 - [x] ABS

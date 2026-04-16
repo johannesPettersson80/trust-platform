@@ -2,6 +2,32 @@ use super::super::*;
 use super::helpers::{builtin_in_params, builtin_param};
 
 impl<'a, 'b> StandardChecker<'a, 'b> {
+    pub(in crate::type_check) fn infer_time_call(&mut self, node: &SyntaxNode) -> TypeId {
+        let call = self.builtin_call(node, Vec::new());
+        let has_arg_text = node
+            .children()
+            .find(|child| child.kind() == SyntaxKind::ArgList)
+            .map(|arg_list| {
+                let text = arg_list.text().to_string();
+                let inner = text
+                    .strip_prefix('(')
+                    .and_then(|inner| inner.strip_suffix(')'))
+                    .unwrap_or(text.as_str());
+                !inner.trim().is_empty()
+            })
+            .unwrap_or(false);
+        if call.arg_count() != 0 || has_arg_text {
+            let found = call.arg_count().max(usize::from(has_arg_text));
+            self.checker.diagnostics.error(
+                DiagnosticCode::WrongArgumentCount,
+                node.text_range(),
+                format!("expected 0 arguments, found {}", found),
+            );
+            return TypeId::UNKNOWN;
+        }
+        TypeId::TIME
+    }
+
     pub(in crate::type_check) fn infer_time_named_arith_call(
         &mut self,
         node: &SyntaxNode,

@@ -346,6 +346,32 @@ END_PROGRAM
 }
 
 #[test]
+fn test_string_indexing_is_allowed() {
+    check_no_errors(
+        r#"
+PROGRAM Test
+    VAR s : STRING[8] := 'ABCD'; ws : WSTRING[8] := "WXYZ"; c : CHAR; wc : WCHAR; END_VAR
+    c := s[2];
+    wc := ws[3];
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_string_indexing_requires_single_index() {
+    check_has_error(
+        r#"
+PROGRAM Test
+    VAR s : STRING[8] := 'ABCD'; c : CHAR; END_VAR
+    c := s[1, 2];
+END_PROGRAM
+"#,
+        DiagnosticCode::InvalidArrayIndex,
+    );
+}
+
+#[test]
 // IEC 61131-3 Ed.3 Tables 13-16 (VAR_ACCESS typing)
 fn test_var_access_type_mismatch() {
     check_has_error(

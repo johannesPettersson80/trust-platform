@@ -69,6 +69,15 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                 if name.eq_ignore_ascii_case("__DELETE") {
                     return self.infer_ref_delete_call(node);
                 }
+                if name.eq_ignore_ascii_case("TIME") {
+                    if let Some(result) = self
+                        .checker
+                        .standard()
+                        .infer_standard_function_call(&name, node)
+                    {
+                        return result;
+                    }
+                }
                 if let Some(resolved) = self
                     .checker
                     .resolve()

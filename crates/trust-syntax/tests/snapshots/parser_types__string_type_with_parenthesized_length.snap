@@ -1,0 +1,56 @@
+---
+source: crates/trust-syntax/tests/parser_types.rs
+expression: "snapshot_parse(r#\"PROGRAM Test\nVAR CONSTANT\n    Len : INT := 50;\nEND_VAR\nVAR\n    s1 : STRING(Len);\n    s2 : WSTRING(Len + 10);\nEND_VAR\nEND_PROGRAM\"#)"
+---
+SourceFile@0..128
+  Program@0..128
+    KwProgram@0..7 "PROGRAM"
+    Name@7..13
+      Ident@8..12 "Test"
+    VarBlock@13..55
+      KwVar@13..16 "VAR"
+      KwConstant@17..25 "CONSTANT"
+      VarDecl@25..47
+        Name@25..34
+          Ident@30..33 "Len"
+        Colon@34..35 ":"
+        TypeRef@35..40
+          KwInt@36..39 "INT"
+        Assign@40..42 ":="
+        Literal@42..45
+          IntLiteral@43..45 "50"
+        Semicolon@45..46 ";"
+      KwEndVar@47..54 "END_VAR"
+    VarBlock@55..117
+      KwVar@55..58 "VAR"
+      VarDecl@58..85
+        Name@58..66
+          Ident@63..65 "s1"
+        Colon@66..67 ":"
+        TypeRef@67..79
+          StringType@67..79
+            KwString@68..74 "STRING"
+            LParen@74..75 "("
+            NameRef@75..78
+              Ident@75..78 "Len"
+            RParen@78..79 ")"
+        Semicolon@79..80 ";"
+      VarDecl@85..109
+        Name@85..88
+          Ident@85..87 "s2"
+        Colon@88..89 ":"
+        TypeRef@89..107
+          StringType@89..107
+            KwWString@90..97 "WSTRING"
+            LParen@97..98 "("
+            BinaryExpr@98..106
+              NameRef@98..102
+                Ident@98..101 "Len"
+              Plus@102..103 "+"
+              Literal@103..106
+                IntLiteral@104..106 "10"
+            RParen@106..107 ")"
+        Semicolon@107..108 ";"
+      KwEndVar@109..116 "END_VAR"
+    StmtList@117..117
+    KwEndProgram@117..128 "END_PROGRAM"

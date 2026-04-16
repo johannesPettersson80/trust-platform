@@ -62,6 +62,7 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
                 "DELETE" => self.infer_delete_call(node),
                 "REPLACE" => self.infer_replace_call(node),
                 "FIND" => self.infer_find_call(node),
+                "TIME" => self.infer_time_call(node),
                 "ADD_TIME" | "ADD_LTIME" | "ADD_TOD_TIME" | "ADD_LTOD_LTIME" | "ADD_DT_TIME"
                 | "ADD_LDT_LTIME" | "SUB_TIME" | "SUB_LTIME" | "SUB_DATE_DATE"
                 | "SUB_LDATE_LDATE" | "SUB_TOD_TIME" | "SUB_LTOD_LTIME" | "SUB_TOD_TOD"

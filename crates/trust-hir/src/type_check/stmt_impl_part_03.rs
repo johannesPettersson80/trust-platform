@@ -44,9 +44,28 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         selector_type: TypeId,
         tracker: &mut CaseLabelTracker,
     ) {
+        let expr_children: Vec<_> = node
+            .children()
+            .filter(|n| is_expression_kind(n.kind()))
+            .collect();
+        let selector_type = self.checker.resolve_alias_type(selector_type);
+        if expr_children.len() == 2
+            && matches!(
+                self.checker.symbols.type_by_id(selector_type),
+                Some(Type::String { .. } | Type::WString { .. } | Type::AnyString)
+            )
+        {
+            self.checker.diagnostics.error(
+                DiagnosticCode::InvalidOperation,
+                node.text_range(),
+                "CASE subranges are not supported for STRING/WSTRING selectors",
+            );
+            return;
+        }
+
         let mut bounds = Vec::new();
         let mut has_label = false;
-        for child in node.children().filter(|n| is_expression_kind(n.kind())) {
+        for child in expr_children {
             has_label = true;
             if !self.is_case_label_expr(&child) {
                 self.checker.diagnostics.error(

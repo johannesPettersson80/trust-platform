@@ -96,6 +96,10 @@ Binary transfer between bit strings and numeric types as listed in Table 25:
 | `LTOD_TO_TOD` | LTOD to TOD |
 | `TOD_TO_LTOD` | TOD to LTOD |
 
+Implementer extension note:
+- truST additionally provides `TIME_TO_DWORD` and `DWORD_TO_TIME` as non-IEC conversion helpers.
+- These extensions use milliseconds: `TIME_TO_DWORD(T#123ms) = DWORD#123`, `DWORD_TO_TIME(DWORD#123) = T#123ms`.
+
 ### 2.5 Character Type Conversions (Table 27)
 
 | Function | Description |
@@ -109,7 +113,9 @@ Binary transfer between bit strings and numeric types as listed in Table 25:
 | `CHAR_TO_STRING` | Single-character STRING |
 | `CHAR_TO_WCHAR` | Convert CHAR to WCHAR |
 
-**Note**: Other conversions involving STRING/WSTRING (for example, numeric to string) are Implementer specific. When provided, they shall follow the external literal representation rules in 6.3.3.
+Implementer extension note:
+- truST also accepts direct character-to-bitstring conversions such as `CHAR_TO_BYTE` and `WCHAR_TO_WORD`.
+- Other conversions involving STRING/WSTRING (for example, numeric to string) remain implementer-specific. When provided, they shall follow the external literal representation rules in 6.3.3.
 
 ### 2.6 BCD Conversions (Table 22)
 

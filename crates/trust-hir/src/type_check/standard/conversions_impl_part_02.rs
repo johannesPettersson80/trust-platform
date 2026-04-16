@@ -65,11 +65,25 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
             .is_some_and(|ty| ty.is_string())
     }
 
+    pub(in crate::type_check) fn is_chars_type(&self, type_id: TypeId) -> bool {
+        self.checker
+            .resolved_type(type_id)
+            .is_some_and(|ty| ty.is_chars())
+    }
+
 
     pub(in crate::type_check) fn string_kind(&self, type_id: TypeId) -> Option<bool> {
         match self.checker.resolved_type(type_id)? {
             Type::String { .. } => Some(false),
             Type::WString { .. } => Some(true),
+            _ => None,
+        }
+    }
+
+    pub(in crate::type_check) fn chars_kind(&self, type_id: TypeId) -> Option<bool> {
+        match self.checker.resolved_type(type_id)? {
+            Type::String { .. } | Type::Char => Some(false),
+            Type::WString { .. } | Type::WChar => Some(true),
             _ => None,
         }
     }

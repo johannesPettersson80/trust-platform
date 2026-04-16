@@ -199,6 +199,7 @@ impl Parser<'_, '_> {
             TokenKind::Ident
             | TokenKind::KwEn
             | TokenKind::KwEno
+            | TokenKind::KwTime
             | TokenKind::KwRef
             | TokenKind::KwNew
             | TokenKind::KwNewDunder

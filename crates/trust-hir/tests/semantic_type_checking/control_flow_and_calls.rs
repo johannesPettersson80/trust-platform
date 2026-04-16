@@ -85,6 +85,91 @@ END_PROGRAM
 }
 
 #[test]
+fn test_case_string_label_ok() {
+    check_no_errors(
+        r#"
+PROGRAM Test
+    VAR s : STRING := 'ABC'; END_VAR
+    CASE s OF
+        'ABC': s := 'DEF';
+        'DEF': s := 'ABC';
+        ELSE
+            s := 'XYZ';
+    END_CASE;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_case_wstring_label_ok() {
+    check_no_errors(
+        r#"
+PROGRAM Test
+    VAR s : WSTRING := "ABC"; END_VAR
+    CASE s OF
+        "ABC": s := "DEF";
+        "DEF": s := "ABC";
+        ELSE
+            s := "XYZ";
+    END_CASE;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_case_string_subrange_rejected() {
+    check_has_error(
+        r#"
+PROGRAM Test
+    VAR s : STRING := 'B'; END_VAR
+    CASE s OF
+        'A'..'Z': s := 'OK';
+    END_CASE;
+END_PROGRAM
+"#,
+        DiagnosticCode::InvalidOperation,
+    );
+}
+
+#[test]
+fn test_string_comparison_operators_ok() {
+    check_no_errors(
+        r#"
+PROGRAM Test
+    VAR
+        s1 : STRING := 'ABC';
+        s2 : STRING := 'ABD';
+        w1 : WSTRING := "ABC";
+        w2 : WSTRING := "ABD";
+        b : BOOL;
+    END_VAR
+    b := (s1 = 'ABC') AND (s1 < s2) AND (w1 = "ABC") AND (w1 < w2);
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_fixed_length_string_comparison_operators_ok() {
+    check_no_errors(
+        r#"
+PROGRAM Test
+    VAR
+        s1 : STRING[1] := ' ';
+        s2 : STRING[1] := 'A';
+        w1 : WSTRING[1] := " ";
+        w2 : WSTRING[1] := "A";
+        b : BOOL;
+    END_VAR
+    b := (s1 = ' ') AND (s1 < s2) AND (w1 = " ") AND (w1 < w2);
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
 fn test_case_missing_else_warning() {
     let warnings = check_warnings(
         r#"

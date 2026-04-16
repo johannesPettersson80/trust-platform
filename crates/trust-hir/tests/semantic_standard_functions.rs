@@ -37,6 +37,8 @@ r := DINT_TO_REAL(di);
 di := REAL_TO_DINT(r);
 t := LTIME_TO_TIME(LT#1s);
 lt := TIME_TO_LTIME(T#1s);
+dw := TIME_TO_DWORD(t);
+t := DWORD_TO_TIME(dw);
 dt_val := CONCAT_DATE_TOD(DATE#2024-01-01, TOD#00:00:00);
 d := DT_TO_DATE(dt_val);
 ld := LDATE#2024-01-01;
@@ -48,6 +50,13 @@ ws := STRING_TO_WSTRING('A');
 c := STRING_TO_CHAR('A');
 wc := CHAR_TO_WCHAR(c);
 s := CHAR_TO_STRING(c);
+c := BYTE_TO_CHAR(BYTE#16#41);
+b := CHAR_TO_BYTE(c);
+w := WCHAR_TO_WORD(wc);
+s := DINT_TO_STRING(di);
+s := REAL_TO_STRING(r);
+s := DWORD_TO_STRING(dw);
+di := STRING_TO_DINT('42');
 ws := WCHAR_TO_WSTRING(wc);
 u := BCD_TO_UINT(WORD#16#0042);
 w := TO_BCD_WORD(u);
@@ -111,11 +120,30 @@ s := INSERT('AC', 'B', 2);
 s := DELETE('ABCD', 2, 2);
 s := REPLACE('ABCD', 'XX', 2, 2);
 idx := FIND('ABCABC', 'BC');
+t := TIME();
 t := ADD_TIME(T#1s, T#2s);
 tod_val := ADD_TOD_TIME(TOD#00:00:00, T#1s);
 dt_val := ADD_DT_TIME(DT#2024-01-01-00:00:00, T#1s);
 SPLIT_DATE(DATE#2024-01-01, year, month, day);
 dow := DAY_OF_WEEK(DATE#2024-01-01);
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_assert_equal_accepts_char_and_wchar() {
+    check_no_errors(
+        r#"
+PROGRAM Test
+VAR
+    c: CHAR;
+    wc: WCHAR;
+END_VAR
+c := STRING_TO_CHAR('B');
+wc := CHAR_TO_WCHAR(STRING_TO_CHAR('Y'));
+ASSERT_EQUAL(EXPECTED := STRING_TO_CHAR('B'), ACTUAL := c);
+ASSERT_EQUAL(EXPECTED := CHAR_TO_WCHAR(STRING_TO_CHAR('Y')), ACTUAL := wc);
 END_PROGRAM
 "#,
     );

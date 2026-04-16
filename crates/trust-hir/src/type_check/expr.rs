@@ -294,6 +294,11 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
             if l.is_numeric() && r.is_numeric() {
                 return;
             }
+            if matches!((l, r), (Type::String { .. }, Type::String { .. }))
+                || matches!((l, r), (Type::WString { .. }, Type::WString { .. }))
+            {
+                return;
+            }
         }
 
         // Unknown types are allowed (might be resolved later)

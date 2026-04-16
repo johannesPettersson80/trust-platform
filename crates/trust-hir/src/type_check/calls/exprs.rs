@@ -29,35 +29,79 @@ impl<'a, 'b> CallChecker<'a, 'b> {
             }
         }
 
-        if let Some(Type::Array {
-            element,
-            dimensions,
-        }) = self.checker.symbols.type_by_id(resolved_base)
-        {
-            let element = *element;
-            let dimensions = dimensions.clone();
-            if index_count != dimensions.len() {
-                self.checker.diagnostics.error(
-                    DiagnosticCode::InvalidArrayIndex,
-                    node.text_range(),
-                    format!(
-                        "expected {} index value(s), found {}",
-                        dimensions.len(),
-                        index_count
-                    ),
-                );
-                return TypeId::UNKNOWN;
+        if let Some(base_type) = self.checker.symbols.type_by_id(resolved_base) {
+            match base_type {
+                Type::Array {
+                    element,
+                    dimensions,
+                } => {
+                    let element = *element;
+                    let dimensions = dimensions.clone();
+                    if index_count != dimensions.len() {
+                        self.checker.diagnostics.error(
+                            DiagnosticCode::InvalidArrayIndex,
+                            node.text_range(),
+                            format!(
+                                "expected {} index value(s), found {}",
+                                dimensions.len(),
+                                index_count
+                            ),
+                        );
+                        return TypeId::UNKNOWN;
+                    }
+                    for ((expr, _, idx_type), (lower, upper)) in
+                        index_exprs.iter().zip(dimensions.iter())
+                    {
+                        self.check_array_index_bounds(expr, *idx_type, *lower, *upper);
+                    }
+                    return element;
+                }
+                Type::String { max_len } => {
+                    if index_count != 1 {
+                        self.checker.diagnostics.error(
+                            DiagnosticCode::InvalidArrayIndex,
+                            node.text_range(),
+                            format!("expected 1 index value, found {index_count}"),
+                        );
+                        return TypeId::UNKNOWN;
+                    }
+                    if let Some(max_len) = max_len {
+                        self.check_array_index_bounds(
+                            &index_exprs[0].0,
+                            index_exprs[0].2,
+                            1,
+                            i64::from(*max_len),
+                        );
+                    }
+                    return TypeId::CHAR;
+                }
+                Type::WString { max_len } => {
+                    if index_count != 1 {
+                        self.checker.diagnostics.error(
+                            DiagnosticCode::InvalidArrayIndex,
+                            node.text_range(),
+                            format!("expected 1 index value, found {index_count}"),
+                        );
+                        return TypeId::UNKNOWN;
+                    }
+                    if let Some(max_len) = max_len {
+                        self.check_array_index_bounds(
+                            &index_exprs[0].0,
+                            index_exprs[0].2,
+                            1,
+                            i64::from(*max_len),
+                        );
+                    }
+                    return TypeId::WCHAR;
+                }
+                _ => {}
             }
-            for ((expr, _, idx_type), (lower, upper)) in index_exprs.iter().zip(dimensions.iter()) {
-                self.check_array_index_bounds(expr, *idx_type, *lower, *upper);
-            }
-            return element;
         }
 
         self.checker.diagnostics.error(
             DiagnosticCode::TypeMismatch,
             node.text_range(),
-            "indexing requires an array type",
+            "indexing requires an array, STRING, or WSTRING type",
         );
         TypeId::UNKNOWN
     }
