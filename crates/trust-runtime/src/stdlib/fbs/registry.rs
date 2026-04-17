@@ -18,7 +18,11 @@ pub enum BuiltinFbKind {
 
 pub fn builtin_kind(name: &str) -> Option<BuiltinFbKind> {
     let upper = name.to_ascii_uppercase();
-    match upper.as_str() {
+    builtin_kind_uppercase(upper.as_str())
+}
+
+pub fn builtin_kind_uppercase(name_upper: &str) -> Option<BuiltinFbKind> {
+    match name_upper {
         "RS" => Some(BuiltinFbKind::Rs),
         "SR" => Some(BuiltinFbKind::Sr),
         "R_TRIG" | "DIFU" => Some(BuiltinFbKind::RTrig),

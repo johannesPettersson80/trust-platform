@@ -2,7 +2,7 @@ use smol_str::SmolStr;
 
 use crate::error::RuntimeError;
 use crate::eval::EvalContext;
-use crate::value::{RefSegment, Value, ValueRef};
+use crate::value::{ref_indices_from_iter, RefSegment, Value, ValueRef};
 
 use super::access::{
     array_offset, eval_indices, index_to_i64, read_name, resolve_reference, write_field,
@@ -46,7 +46,9 @@ pub(super) fn resolve_reference_for_lvalue(
                 index_path.push(index_to_i64(value)?);
             }
             let mut value_ref = base;
-            value_ref.path.push(RefSegment::Index(index_path));
+            value_ref
+                .path
+                .push(RefSegment::Index(ref_indices_from_iter(index_path)));
             Ok(value_ref)
         }
         LValue::Field { target, field } => {

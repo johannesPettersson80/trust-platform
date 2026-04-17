@@ -9,7 +9,9 @@ use crate::bytecode::{
 use crate::error::RuntimeError;
 use crate::memory::IoArea;
 use crate::task::ProgramDef;
-use crate::value::{RefSegment as ValueRefSegment, Value, ValueRef};
+use crate::value::{
+    ref_indices_from_iter, RefPath, RefSegment as ValueRefSegment, Value, ValueRef,
+};
 
 mod call;
 mod const_pool;
@@ -39,6 +41,7 @@ mod stack;
 use self::errors::VmTrap;
 use super::core::Runtime;
 
+pub(super) use local_init::VmLocalInitPlanCacheState;
 pub(super) use register_ir::{
     RegisterLoweringCacheState, RegisterProfileState, RegisterTier1SpecializedExecutorState,
 };
@@ -75,8 +78,6 @@ pub(super) struct VmModule {
     pou_params: HashMap<u32, Vec<VmParamMeta>>,
     pou_has_return_slot: HashSet<u32>,
     method_table_by_owner: HashMap<u32, HashMap<SmolStr, u32>>,
-    #[allow(dead_code)]
-    // Populated in Phase B, consumed by debug/event parity work in later phases.
     debug_map: debug_map::VmDebugMap,
     pub(super) instruction_budget: usize,
 }
@@ -91,6 +92,8 @@ pub(super) struct VmNativeArgSpec {
 pub(super) enum VmNativeSymbolSpec {
     Parsed {
         target_name: SmolStr,
+        normalized_target_name: SmolStr,
+        resolved_function_pou_id: Option<u32>,
         arg_specs: Vec<VmNativeArgSpec>,
     },
     ParseError(SmolStr),
@@ -125,11 +128,11 @@ impl VmModule {
 
         let refs = decode_ref_table(ref_table, strings)?;
         let consts = const_pool::decode_const_pool_entries(const_pool, types)?;
-        let native_symbol_specs = strings
+        let mut native_symbol_specs = strings
             .entries
             .iter()
             .map(call::preparse_native_symbol_spec)
-            .collect();
+            .collect::<Vec<_>>();
 
         let debug_map = debug_map::VmDebugMap::from_sections(
             strings,
@@ -247,6 +250,7 @@ impl VmModule {
                 }
             }
         }
+        call::resolve_native_symbol_specs(&mut native_symbol_specs, &function_ids);
 
         Ok(Self {
             code: bodies.clone(),
@@ -284,31 +288,24 @@ impl VmModule {
         self.pou_has_return_slot.contains(&id)
     }
 
-    pub(super) fn resolve_method_pou_id(
+    pub(super) fn resolve_method_pou_id_uppercase(
         &self,
         owner_pou_id: u32,
-        method_name: &str,
+        method_name_upper: &str,
     ) -> Option<u32> {
-        let key = SmolStr::new(method_name.to_ascii_uppercase());
         self.method_table_by_owner
             .get(&owner_pou_id)
-            .and_then(|table| table.get(&key))
+            .and_then(|table| table.get(method_name_upper))
             .copied()
     }
 
-    fn native_symbol_spec(
-        &self,
-        symbol_idx: u32,
-    ) -> Result<(&SmolStr, &[VmNativeArgSpec]), VmTrap> {
+    fn native_symbol_spec(&self, symbol_idx: u32) -> Result<&VmNativeSymbolSpec, VmTrap> {
         let entry = self
             .native_symbol_specs
             .get(symbol_idx as usize)
             .ok_or(VmTrap::InvalidNativeSymbolIndex(symbol_idx))?;
         match entry {
-            VmNativeSymbolSpec::Parsed {
-                target_name,
-                arg_specs,
-            } => Ok((target_name, arg_specs.as_slice())),
+            VmNativeSymbolSpec::Parsed { .. } => Ok(entry),
             VmNativeSymbolSpec::ParseError(message) => {
                 Err(VmTrap::InvalidNativeCall(message.clone()))
             }
@@ -337,26 +334,26 @@ pub(super) struct VmParamMeta {
 pub(super) enum VmRef {
     Global {
         offset: usize,
-        path: Vec<ValueRefSegment>,
+        path: RefPath,
     },
     Local {
         owner_frame_id: u32,
         offset: usize,
-        path: Vec<ValueRefSegment>,
+        path: RefPath,
     },
     Instance {
         owner_instance_id: u32,
         offset: usize,
-        path: Vec<ValueRefSegment>,
+        path: RefPath,
     },
     Retain {
         offset: usize,
-        path: Vec<ValueRefSegment>,
+        path: RefPath,
     },
     Io {
         area: IoArea,
         offset: usize,
-        path: Vec<ValueRefSegment>,
+        path: RefPath,
     },
 }
 
@@ -436,11 +433,13 @@ fn decode_ref_table(
 }
 
 fn decode_vm_ref(entry: &RefEntry, strings: &StringTable) -> Result<VmRef, RuntimeError> {
-    let mut path = Vec::with_capacity(entry.segments.len());
+    let mut path = RefPath::with_capacity(entry.segments.len());
     for segment in &entry.segments {
         match segment {
             crate::bytecode::RefSegment::Index(indices) => {
-                path.push(ValueRefSegment::Index(indices.clone()));
+                path.push(ValueRefSegment::Index(ref_indices_from_iter(
+                    indices.iter().copied(),
+                )));
             }
             crate::bytecode::RefSegment::Field { name_idx } => {
                 let name = strings

@@ -32,7 +32,9 @@ for run in $(seq 1 "${ITERATIONS}"); do
   ended_ns="$(date +%s%N)"
   duration_ms="$(( (ended_ns - started_ns) / 1000000 ))"
 
-  grep '^test ' "${log_path}"     | sed -E 's/[[:space:]]+/ /g'     > "${signature_path}"
+  grep '^test ' "${log_path}" \
+    | sed -E 's/[[:space:]]+/ /g; s/finished in [0-9.]+s/finished in <time>/g' \
+    > "${signature_path}"
 
   if [[ ! -s "${signature_path}" ]]; then
     echo "[vm-determinism-gate] FAIL: no VM behavior signatures captured for run ${run}"

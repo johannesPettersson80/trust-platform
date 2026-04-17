@@ -6,7 +6,9 @@ use smol_str::SmolStr;
 
 use crate::memory::{FrameId, InstanceId, IoArea, MemoryLocation};
 use crate::task::TaskConfig;
-use crate::value::{Duration, RefSegment as ValueRefSegment, ValueRef};
+use crate::value::{
+    ref_indices_from_iter, Duration, RefPath, RefSegment as ValueRefSegment, ValueRef,
+};
 
 use super::{
     BytecodeError, BytecodeMetadata, BytecodeModule, ProcessImageConfig, RefEntry, RefLocation,
@@ -107,11 +109,13 @@ impl RefEntry {
                 MemoryLocation::Io(area)
             }
         };
-        let mut path = Vec::new();
+        let mut path = RefPath::new();
         for segment in &self.segments {
             match segment {
                 RefSegment::Index(indices) => {
-                    path.push(ValueRefSegment::Index(indices.clone()));
+                    path.push(ValueRefSegment::Index(ref_indices_from_iter(
+                        indices.iter().copied(),
+                    )));
                 }
                 RefSegment::Field { name_idx } => {
                     let name = lookup_string(strings, *name_idx)?;

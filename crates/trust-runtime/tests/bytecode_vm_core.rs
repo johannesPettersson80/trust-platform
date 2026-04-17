@@ -738,6 +738,33 @@ fn vm_opcode_positive_path_covers_string_and_wstring_index_reads() {
 }
 
 #[test]
+fn vm_opcode_positive_path_covers_non_ascii_string_and_wstring_index_reads() {
+    let source = r#"
+        PROGRAM Main
+        VAR
+            text_value : STRING[8] := 'ÄBC';
+            wide_value : WSTRING[8] := "ÄBC";
+            out_char : CHAR;
+            out_wchar : WCHAR;
+        END_VAR
+
+        out_char := text_value[INT#1];
+        out_wchar := wide_value[INT#1];
+        END_PROGRAM
+    "#;
+
+    let mut harness = vm_harness(source);
+    let cycle = harness.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "non-ascii string index execution failed: {:?}",
+        cycle.errors
+    );
+    assert_eq!(harness.get_output("out_char"), Some(Value::Char(0xC4)));
+    assert_eq!(harness.get_output("out_wchar"), Some(Value::WChar(0x00C4)));
+}
+
+#[test]
 fn vm_opcode_positive_path_covers_sizeof_type_and_storage_operands() {
     let source = r#"
         PROGRAM Main

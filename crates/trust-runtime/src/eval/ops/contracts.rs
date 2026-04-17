@@ -29,10 +29,10 @@ pub enum BinaryOp {
 pub fn apply_unary(op: UnaryOp, value: Value) -> Result<Value, RuntimeError> {
     match op {
         UnaryOp::Neg => match value {
-            Value::SInt(v) => Ok(Value::SInt(-v)),
-            Value::Int(v) => Ok(Value::Int(-v)),
-            Value::DInt(v) => Ok(Value::DInt(-v)),
-            Value::LInt(v) => Ok(Value::LInt(-v)),
+            Value::SInt(v) => Ok(Value::SInt(v.checked_neg().ok_or(RuntimeError::Overflow)?)),
+            Value::Int(v) => Ok(Value::Int(v.checked_neg().ok_or(RuntimeError::Overflow)?)),
+            Value::DInt(v) => Ok(Value::DInt(v.checked_neg().ok_or(RuntimeError::Overflow)?)),
+            Value::LInt(v) => Ok(Value::LInt(v.checked_neg().ok_or(RuntimeError::Overflow)?)),
             Value::Real(v) => Ok(Value::Real(-v)),
             Value::LReal(v) => Ok(Value::LReal(-v)),
             _ => Err(RuntimeError::TypeMismatch),

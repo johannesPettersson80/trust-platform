@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use smol_str::SmolStr;
 
 use crate::bytecode::{
@@ -7,7 +9,9 @@ use crate::bytecode::{
 use crate::error::RuntimeError;
 use crate::memory::{FrameId, InstanceId, MemoryLocation};
 use crate::stdlib::{conversions, fbs, time, StdParams};
-use crate::value::{RefSegment, Value, ValueRef};
+use crate::value::{
+    materialize_value_path, read_value_path_borrowed, write_value_path, Value, ValueRef,
+};
 
 use super::errors::VmTrap;
 use super::frames::{FrameStack, VmFrame};
@@ -345,7 +349,23 @@ pub(super) fn execute_native_call(
     symbol_idx: u32,
     arg_count: u32,
 ) -> Result<Value, VmTrap> {
-    let (target_name, arg_specs) = module.native_symbol_spec(symbol_idx)?;
+    let spec = module.native_symbol_spec(symbol_idx)?;
+    let (target_name, normalized_target_name, resolved_function_pou_id, arg_specs) = match spec {
+        VmNativeSymbolSpec::Parsed {
+            target_name,
+            normalized_target_name,
+            resolved_function_pou_id,
+            arg_specs,
+        } => (
+            target_name,
+            normalized_target_name,
+            *resolved_function_pou_id,
+            arg_specs.as_slice(),
+        ),
+        VmNativeSymbolSpec::ParseError(message) => {
+            return Err(VmTrap::InvalidNativeCall(message.clone()));
+        }
+    };
     let receiver_count = native_receiver_count(kind)?;
     let total = usize::try_from(arg_count)
         .map_err(|_| VmTrap::InvalidNativeCall("arg_count overflow".into()))?;
@@ -392,9 +412,13 @@ pub(super) fn execute_native_call(
     }
 
     match kind {
-        NATIVE_CALL_KIND_STDLIB => {
-            dispatch_native_stdlib_call(runtime, frame, target_name, &vm_args)
-        }
+        NATIVE_CALL_KIND_STDLIB => dispatch_native_stdlib_call(
+            runtime,
+            frame,
+            target_name,
+            normalized_target_name,
+            &vm_args,
+        ),
         NATIVE_CALL_KIND_FUNCTION | NATIVE_CALL_KIND_FUNCTION_BLOCK | NATIVE_CALL_KIND_METHOD => {
             dispatch_native_vm_call(
                 runtime,
@@ -404,6 +428,8 @@ pub(super) fn execute_native_call(
                 shared_budget,
                 kind,
                 target_name,
+                normalized_target_name,
+                resolved_function_pou_id,
                 receiver_value,
                 &vm_args,
             )
@@ -421,13 +447,14 @@ fn dispatch_native_vm_call(
     shared_budget: &mut usize,
     kind: u32,
     target_name: &SmolStr,
+    normalized_target_name: &SmolStr,
+    resolved_function_pou_id: Option<u32>,
     receiver_value: Option<Value>,
     args: &[VmNativeArg],
 ) -> Result<Value, VmTrap> {
     match kind {
         NATIVE_CALL_KIND_FUNCTION => {
-            let key = SmolStr::new(target_name.to_ascii_uppercase());
-            let pou_id = module.function_ids.get(&key).copied().ok_or_else(|| {
+            let pou_id = resolved_function_pou_id.ok_or_else(|| {
                 VmTrap::Runtime(RuntimeError::UndefinedFunction(target_name.clone()))
             })?;
             execute_native_vm_pou_call(
@@ -451,22 +478,23 @@ fn dispatch_native_vm_call(
                 .ok_or(VmTrap::Runtime(RuntimeError::NullReference))?
                 .type_name
                 .clone();
-            let key = SmolStr::new(instance_type_name.to_ascii_uppercase());
+            let type_key = SmolStr::new(instance_type_name.to_ascii_uppercase());
             let pou_id = module
                 .function_block_ids
-                .get(&key)
+                .get(&type_key)
                 .copied()
                 .ok_or_else(|| {
                     VmTrap::Runtime(RuntimeError::UndefinedFunctionBlock(
                         instance_type_name.clone(),
                     ))
                 })?;
-            if let Some(kind) = fbs::builtin_kind(instance_type_name.as_str()) {
+            if let Some(kind) = fbs::builtin_kind_uppercase(type_key.as_str()) {
                 execute_native_builtin_function_block_call(
                     runtime,
                     frame,
                     instance_id,
                     &instance_type_name,
+                    type_key.as_str(),
                     kind,
                     args,
                 )?;
@@ -502,7 +530,7 @@ fn dispatch_native_vm_call(
                     VmTrap::Runtime(RuntimeError::UndefinedField(target_name.clone()))
                 })?;
             let pou_id = module
-                .resolve_method_pou_id(owner_pou_id, target_name.as_str())
+                .resolve_method_pou_id_uppercase(owner_pou_id, normalized_target_name.as_str())
                 .ok_or_else(|| {
                     VmTrap::Runtime(RuntimeError::UndefinedField(target_name.clone()))
                 })?;
@@ -654,6 +682,7 @@ fn execute_native_builtin_function_block_call(
     caller_frame: &mut VmFrame,
     instance_id: InstanceId,
     fb_type_name: &SmolStr,
+    fb_type_key: &str,
     kind: fbs::BuiltinFbKind,
     args: &[VmNativeArg],
 ) -> Result<(), VmTrap> {
@@ -664,6 +693,7 @@ fn execute_native_builtin_function_block_call(
         runtime,
         caller_frame,
         fb_type_name,
+        fb_type_key,
         instance_id,
         args,
     )?;
@@ -732,13 +762,13 @@ fn bind_builtin_function_block_arguments(
     runtime: &mut super::super::core::Runtime,
     caller_frame: &VmFrame,
     fb_type_name: &SmolStr,
+    fb_type_key: &str,
     instance_id: InstanceId,
     args: &[VmNativeArg],
 ) -> Result<Vec<VmFbOutBinding>, VmTrap> {
-    let key = SmolStr::new(fb_type_name.to_ascii_uppercase());
     let params = runtime
         .function_blocks()
-        .get(&key)
+        .get(fb_type_key)
         .ok_or_else(|| VmTrap::Runtime(RuntimeError::UndefinedFunctionBlock(fb_type_name.clone())))?
         .params
         .clone();
@@ -1127,10 +1157,10 @@ fn dispatch_native_stdlib_call(
     runtime: &mut super::super::core::Runtime,
     frame: &mut VmFrame,
     target_name: &SmolStr,
+    normalized_target_name: &SmolStr,
     args: &[VmNativeArg],
 ) -> Result<Value, VmTrap> {
-    let key = SmolStr::new(target_name.to_ascii_uppercase());
-    if time::is_runtime_clock_name(key.as_str()) {
+    if time::is_runtime_clock_name(normalized_target_name.as_str()) {
         if !args.is_empty() {
             return Err(VmTrap::Runtime(RuntimeError::InvalidArgumentCount {
                 expected: 0,
@@ -1139,21 +1169,21 @@ fn dispatch_native_stdlib_call(
         }
         return Ok(Value::Time(runtime.current_time()));
     }
-    if time::is_split_name(key.as_str()) {
-        return dispatch_native_split_call(runtime, frame, key.as_str(), args);
+    if time::is_split_name(normalized_target_name.as_str()) {
+        return dispatch_native_split_call(runtime, frame, normalized_target_name.as_str(), args);
     }
-    if let Some(entry) = runtime.stdlib().get(key.as_str()) {
+    if let Some(entry) = runtime.stdlib().get(normalized_target_name.as_str()) {
         let params = entry.params.clone();
         let func = entry.func;
         let values = bind_stdlib_values(runtime, frame, &params, args)?;
         return func(&values).map_err(VmTrap::Runtime);
     }
-    if conversions::is_conversion_name(key.as_str()) {
+    if conversions::is_conversion_name(normalized_target_name.as_str()) {
         let params = StdParams::Fixed(vec![SmolStr::new("IN")]);
         let values = bind_stdlib_values(runtime, frame, &params, args)?;
         return runtime
             .stdlib()
-            .call(key.as_str(), &values)
+            .call(normalized_target_name.as_str(), &values)
             .map_err(VmTrap::Runtime);
     }
     Err(VmTrap::Runtime(RuntimeError::UndefinedFunction(
@@ -1620,10 +1650,28 @@ fn native_receiver_count(kind: u32) -> Result<usize, VmTrap> {
 pub(super) fn preparse_native_symbol_spec(symbol: &SmolStr) -> VmNativeSymbolSpec {
     match parse_native_symbol(symbol) {
         Ok((target_name, arg_specs)) => VmNativeSymbolSpec::Parsed {
+            normalized_target_name: SmolStr::new(target_name.to_ascii_uppercase()),
+            resolved_function_pou_id: None,
             target_name,
             arg_specs,
         },
         Err(err) => VmNativeSymbolSpec::ParseError(err),
+    }
+}
+
+pub(super) fn resolve_native_symbol_specs(
+    specs: &mut [VmNativeSymbolSpec],
+    function_ids: &HashMap<SmolStr, u32>,
+) {
+    for spec in specs {
+        if let VmNativeSymbolSpec::Parsed {
+            normalized_target_name,
+            resolved_function_pou_id,
+            ..
+        } = spec
+        {
+            *resolved_function_pou_id = function_ids.get(normalized_target_name).copied();
+        }
     }
 }
 
@@ -1673,8 +1721,9 @@ mod tests {
     use smol_str::SmolStr;
 
     use crate::bytecode::TypeTable;
+    use crate::error::RuntimeError;
     use crate::memory::{FrameId, MemoryLocation};
-    use crate::value::{RefSegment, StructValue, Value, ValueRef};
+    use crate::value::{RefPath, RefSegment, StructValue, Value, ValueRef};
     use crate::Runtime;
 
     use super::super::frames::VmFrame;
@@ -1723,6 +1772,69 @@ mod tests {
             },
             pou_id,
         )
+    }
+
+    fn manual_vm_function_module(
+        name: &str,
+        params: Vec<VmParamMeta>,
+        has_return_slot: bool,
+    ) -> (VmModule, u32) {
+        let pou_id = 1_u32;
+        let mut pou_by_id = HashMap::new();
+        pou_by_id.insert(
+            pou_id,
+            VmPouEntry {
+                name: SmolStr::new(name),
+                code_start: 0,
+                code_end: 0,
+                local_ref_start: 0,
+                local_ref_count: params.len() as u32 + u32::from(has_return_slot),
+                primary_instance_owner: None,
+            },
+        );
+        let mut function_ids = HashMap::new();
+        function_ids.insert(SmolStr::new(name.to_ascii_uppercase()), pou_id);
+        let mut pou_params = HashMap::new();
+        pou_params.insert(pou_id, params);
+        let mut pou_has_return_slot = HashSet::new();
+        if has_return_slot {
+            pou_has_return_slot.insert(pou_id);
+        }
+        (
+            VmModule {
+                code: Vec::new(),
+                strings: Vec::new(),
+                types: TypeTable::default(),
+                refs: Vec::new(),
+                consts: Vec::new(),
+                pou_by_id,
+                program_ids: HashMap::new(),
+                function_ids,
+                function_block_ids: HashMap::new(),
+                class_ids: HashMap::new(),
+                native_symbol_specs: Vec::new(),
+                pou_params,
+                pou_has_return_slot,
+                method_table_by_owner: HashMap::new(),
+                debug_map: super::super::debug_map::VmDebugMap::default(),
+                instruction_budget: super::super::DEFAULT_INSTRUCTION_BUDGET,
+            },
+            pou_id,
+        )
+    }
+
+    fn expr_arg(name: Option<&str>, value: Value) -> super::VmNativeArg {
+        super::VmNativeArg {
+            name: name.map(SmolStr::new),
+            value: super::VmNativeArgValue::Expr(value),
+        }
+    }
+
+    fn target_arg(name: Option<&str>, reference: ValueRef) -> super::VmNativeArg {
+        super::VmNativeArg {
+            name: name.map(SmolStr::new),
+            value: super::VmNativeArgValue::Target(reference),
+        }
     }
 
     fn empty_caller_frame() -> VmFrame {
@@ -1897,7 +2009,7 @@ mod tests {
         let target_ref = ValueRef {
             location: MemoryLocation::Global,
             offset: 3,
-            path: Vec::new(),
+            path: RefPath::new(),
         };
         operand_stack
             .push(Value::Instance(crate::memory::InstanceId(7)))
@@ -1946,9 +2058,13 @@ mod tests {
         match entry {
             VmNativeSymbolSpec::Parsed {
                 target_name,
+                normalized_target_name,
+                resolved_function_pou_id,
                 arg_specs,
             } => {
                 assert_eq!(target_name, SmolStr::new("Add"));
+                assert_eq!(normalized_target_name, SmolStr::new("ADD"));
+                assert_eq!(resolved_function_pou_id, None);
                 assert_eq!(arg_specs.len(), 2);
                 assert_eq!(arg_specs[0].name.as_deref(), Some("a"));
                 assert!(!arg_specs[0].is_target);
@@ -1959,6 +2075,206 @@ mod tests {
                 panic!("unexpected parse error: {err}");
             }
         }
+    }
+
+    #[test]
+    fn resolve_native_symbol_specs_caches_resolved_function_id() {
+        let mut specs = vec![
+            preparse_native_symbol_spec(&SmolStr::new("Add|E:a")),
+            preparse_native_symbol_spec(&SmolStr::new("Len|E:in")),
+        ];
+        let mut function_ids = HashMap::new();
+        function_ids.insert(SmolStr::new("ADD"), 7);
+
+        super::resolve_native_symbol_specs(&mut specs, &function_ids);
+
+        match &specs[0] {
+            VmNativeSymbolSpec::Parsed {
+                resolved_function_pou_id,
+                ..
+            } => assert_eq!(*resolved_function_pou_id, Some(7)),
+            VmNativeSymbolSpec::ParseError(err) => panic!("unexpected parse error: {err}"),
+        }
+        match &specs[1] {
+            VmNativeSymbolSpec::Parsed {
+                resolved_function_pou_id,
+                ..
+            } => assert_eq!(*resolved_function_pou_id, None),
+            VmNativeSymbolSpec::ParseError(err) => panic!("unexpected parse error: {err}"),
+        }
+    }
+
+    #[test]
+    fn bind_vm_call_arguments_rejects_too_many_positional_arguments() {
+        let mut runtime = Runtime::new();
+        let (module, pou_id) = manual_vm_function_module(
+            "DoWork",
+            vec![VmParamMeta {
+                name: SmolStr::new("IN"),
+                direction: 0,
+                default_const_idx: None,
+            }],
+            false,
+        );
+        let err = super::bind_vm_call_arguments(
+            &mut runtime,
+            &module,
+            &empty_caller_frame(),
+            pou_id,
+            &[
+                expr_arg(None, Value::DInt(1)),
+                expr_arg(None, Value::DInt(2)),
+            ],
+        )
+        .expect_err("extra positional argument should fail");
+
+        match err {
+            super::VmTrap::InvalidNativeCall(message) => {
+                assert!(message.contains("too many positional arguments"));
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn bind_vm_call_arguments_keeps_omitted_middle_named_input_as_null() {
+        let mut runtime = Runtime::new();
+        let (module, pou_id) = manual_vm_function_module(
+            "DoWork",
+            vec![
+                VmParamMeta {
+                    name: SmolStr::new("A"),
+                    direction: 0,
+                    default_const_idx: None,
+                },
+                VmParamMeta {
+                    name: SmolStr::new("B"),
+                    direction: 0,
+                    default_const_idx: None,
+                },
+                VmParamMeta {
+                    name: SmolStr::new("C"),
+                    direction: 0,
+                    default_const_idx: None,
+                },
+            ],
+            false,
+        );
+        let (locals, out_bindings) = super::bind_vm_call_arguments(
+            &mut runtime,
+            &module,
+            &empty_caller_frame(),
+            pou_id,
+            &[
+                expr_arg(Some("A"), Value::DInt(1)),
+                expr_arg(Some("C"), Value::DInt(3)),
+            ],
+        )
+        .expect("named omission should bind remaining params");
+
+        assert!(out_bindings.is_empty());
+        assert_eq!(locals, vec![Value::DInt(1), Value::Null, Value::DInt(3)]);
+    }
+
+    #[test]
+    fn bind_stdlib_named_values_rejects_duplicate_named_argument() {
+        let mut runtime = Runtime::new();
+        let params = crate::stdlib::StdParams::Fixed(vec![SmolStr::new("IN"), SmolStr::new("N")]);
+        let err = super::bind_stdlib_named_values(
+            &mut runtime,
+            &empty_caller_frame(),
+            &params,
+            &[
+                expr_arg(Some("IN"), Value::DInt(1)),
+                expr_arg(Some("IN"), Value::DInt(2)),
+            ],
+        )
+        .expect_err("duplicate stdlib named arg should fail");
+
+        assert!(matches!(
+            err,
+            super::VmTrap::Runtime(RuntimeError::InvalidArgumentName(name))
+                if name == SmolStr::new("IN")
+        ));
+    }
+
+    #[test]
+    fn bind_stdlib_named_values_variadic_rejects_hole() {
+        let mut runtime = Runtime::new();
+        let params = crate::stdlib::StdParams::Variadic {
+            fixed: vec![SmolStr::new("IN")],
+            prefix: SmolStr::new("IN"),
+            start: 2,
+            min: 2,
+        };
+        let err = super::bind_stdlib_named_values(
+            &mut runtime,
+            &empty_caller_frame(),
+            &params,
+            &[
+                expr_arg(Some("IN"), Value::DInt(1)),
+                expr_arg(Some("IN2"), Value::DInt(2)),
+                expr_arg(Some("IN4"), Value::DInt(4)),
+            ],
+        )
+        .expect_err("variadic hole should fail");
+
+        assert!(matches!(
+            err,
+            super::VmTrap::Runtime(RuntimeError::InvalidArgumentCount {
+                expected: 4,
+                got: 3,
+            })
+        ));
+    }
+
+    #[test]
+    fn bind_vm_function_block_arguments_supports_mixed_out_and_inout_rebinding() {
+        let mut runtime = Runtime::new();
+        let instance = runtime.storage.create_instance("FB");
+        assert!(runtime
+            .storage
+            .set_instance_var(instance, "OUT", crate::value::Value::DInt(0)));
+        assert!(runtime
+            .storage
+            .set_instance_var(instance, "ACC", crate::value::Value::DInt(11)));
+        runtime.storage.set_global("OUT", Value::DInt(0));
+        runtime.storage.set_global("ACC_SRC", Value::DInt(5));
+        let out_ref = runtime
+            .storage
+            .ref_for_global("OUT")
+            .expect("out global ref");
+        let acc_ref = runtime
+            .storage
+            .ref_for_global("ACC_SRC")
+            .expect("acc source ref");
+        let (module, pou_id) = manual_vm_function_block_module(vec![
+            VmParamMeta {
+                name: SmolStr::new("OUT"),
+                direction: 1,
+                default_const_idx: None,
+            },
+            VmParamMeta {
+                name: SmolStr::new("ACC"),
+                direction: 2,
+                default_const_idx: None,
+            },
+        ]);
+
+        let bindings = super::bind_vm_function_block_arguments(
+            &mut runtime,
+            &module,
+            &empty_caller_frame(),
+            pou_id,
+            instance,
+            &[
+                target_arg(Some("OUT"), out_ref.clone()),
+                target_arg(Some("ACC"), acc_ref.clone()),
+            ],
+        )
+        .expect("mixed OUT and IN_OUT binding should succeed");
+
+        assert_eq!(bindings.len(), 2);
     }
 
     #[test]
@@ -2132,7 +2448,7 @@ mod tests {
         let reference = ValueRef {
             location: MemoryLocation::Local(FrameId(VM_LOCAL_SENTINEL_FRAME_ID)),
             offset: 0,
-            path: Vec::new(),
+            path: RefPath::new(),
         };
         let target = VmWriteTarget::from_reference(&reference);
         assert!(matches!(
@@ -2171,7 +2487,9 @@ mod tests {
         let reference = ValueRef {
             location: MemoryLocation::Global,
             offset: 0,
-            path: vec![RefSegment::Field(SmolStr::new("VALUE"))],
+            path: [RefSegment::Field(SmolStr::new("VALUE"))]
+                .into_iter()
+                .collect(),
         };
         let target = VmWriteTarget::from_reference(&reference);
         assert!(matches!(target.clone(), VmWriteTarget::Reference(_)));
@@ -2206,7 +2524,9 @@ mod tests {
         let nested_ref = ValueRef {
             location: struct_ref.location,
             offset: struct_ref.offset,
-            path: vec![RefSegment::Field(SmolStr::new("VALUE"))],
+            path: [RefSegment::Field(SmolStr::new("VALUE"))]
+                .into_iter()
+                .collect(),
         };
         let instance_ref = runtime
             .storage
@@ -2227,7 +2547,7 @@ mod tests {
         let local_ref = ValueRef {
             location: MemoryLocation::Local(FrameId(VM_LOCAL_SENTINEL_FRAME_ID)),
             offset: 0,
-            path: Vec::new(),
+            path: RefPath::new(),
         };
 
         for reference in [global_ref, nested_ref, instance_ref, local_ref] {
@@ -2312,7 +2632,7 @@ fn peek_vm_reference<'a>(
                 .into(),
             )
         })?;
-        return read_by_ref_path(root, &reference.path)
+        return read_value_path_borrowed(root, &reference.path)
             .ok_or(VmTrap::Runtime(RuntimeError::NullReference));
     }
     runtime
@@ -2326,8 +2646,30 @@ fn read_vm_reference(
     caller_frame: &VmFrame,
     reference: &ValueRef,
 ) -> Result<Value, VmTrap> {
-    let value = {
-        let value = peek_vm_reference(runtime, caller_frame, reference)?;
+    let value = if is_vm_local_sentinel(reference) {
+        let root = caller_frame.locals.get(reference.offset).ok_or_else(|| {
+            VmTrap::InvalidNativeCall(
+                format!(
+                    "local reference offset {} out of range for VM frame (locals={})",
+                    reference.offset,
+                    caller_frame.locals.len()
+                )
+                .into(),
+            )
+        })?;
+        if let Some(value) = read_value_path_borrowed(root, &reference.path) {
+            let (value, cloned) = materialize_borrowed_value(value);
+            if cloned {
+                runtime
+                    .vm_register_profile
+                    .record_value_op(RegisterValueOpKind::ReadValueClone);
+            }
+            value
+        } else {
+            materialize_value_path(root, &reference.path)
+                .ok_or(VmTrap::Runtime(RuntimeError::NullReference))?
+        }
+    } else if let Some(value) = runtime.storage.read_by_ref_ref(reference) {
         let (value, cloned) = materialize_borrowed_value(value);
         if cloned {
             runtime
@@ -2335,6 +2677,11 @@ fn read_vm_reference(
                 .record_value_op(RegisterValueOpKind::ReadValueClone);
         }
         value
+    } else {
+        runtime
+            .storage
+            .materialize_by_ref_ref(reference)
+            .ok_or(VmTrap::Runtime(RuntimeError::NullReference))?
     };
     Ok(value)
 }
@@ -2356,7 +2703,7 @@ fn write_vm_reference(
                 .into(),
             ));
         };
-        if write_by_ref_path(slot, &reference.path, value) {
+        if write_value_path(slot, &reference.path, value) {
             return Ok(());
         }
         return Err(VmTrap::Runtime(RuntimeError::TypeMismatch));
@@ -2366,77 +2713,4 @@ fn write_vm_reference(
     } else {
         Err(VmTrap::Runtime(RuntimeError::NullReference))
     }
-}
-
-fn read_by_ref_path<'a>(value: &'a Value, path: &[RefSegment]) -> Option<&'a Value> {
-    if path.is_empty() {
-        return Some(value);
-    }
-    match &path[0] {
-        RefSegment::Field(name) => match value {
-            Value::Struct(struct_value) => struct_value
-                .fields
-                .get(name.as_str())
-                .and_then(|field| read_by_ref_path(field, &path[1..])),
-            _ => None,
-        },
-        RefSegment::Index(indices) => match value {
-            Value::Array(array) => {
-                let offset = array_offset_i64(&array.dimensions, indices)?;
-                array
-                    .elements
-                    .get(offset)
-                    .and_then(|element| read_by_ref_path(element, &path[1..]))
-            }
-            _ => None,
-        },
-    }
-}
-
-fn write_by_ref_path(target: &mut Value, path: &[RefSegment], value: Value) -> bool {
-    if path.is_empty() {
-        *target = crate::value::normalize_assignment_for_target(target, value);
-        return true;
-    }
-    match &path[0] {
-        RefSegment::Field(name) => match target {
-            Value::Struct(struct_value) => std::sync::Arc::make_mut(struct_value)
-                .fields
-                .get_mut(name.as_str())
-                .map(|field| write_by_ref_path(field, &path[1..], value))
-                .unwrap_or(false),
-            _ => false,
-        },
-        RefSegment::Index(indices) => match target {
-            Value::Array(array) => {
-                let offset = match array_offset_i64(&array.dimensions, indices) {
-                    Some(offset) => offset,
-                    None => return false,
-                };
-                array
-                    .elements
-                    .get_mut(offset)
-                    .map(|element| write_by_ref_path(element, &path[1..], value))
-                    .unwrap_or(false)
-            }
-            _ => false,
-        },
-    }
-}
-
-fn array_offset_i64(dimensions: &[(i64, i64)], indices: &[i64]) -> Option<usize> {
-    if dimensions.len() != indices.len() {
-        return None;
-    }
-    let mut offset: i128 = 0;
-    let mut stride: i128 = 1;
-    for ((lower, upper), index) in dimensions.iter().zip(indices).rev() {
-        if index < lower || index > upper {
-            return None;
-        }
-        let len = (*upper - *lower + 1) as i128;
-        offset += (index - *lower) as i128 * stride;
-        stride *= len;
-    }
-    usize::try_from(offset).ok()
 }

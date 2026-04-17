@@ -99,7 +99,9 @@ fn resolve_access_parts(
                 AccessPart::Index(indices) => {
                     value_ref
                         .path
-                        .push(crate::value::RefSegment::Index(indices.clone()));
+                        .push(crate::value::RefSegment::Index(
+                            crate::value::ref_indices_from_iter(indices.iter().copied()),
+                        ));
                     current_value = runtime
                         .storage()
                         .read_by_ref(value_ref.clone())

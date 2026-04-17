@@ -17,6 +17,26 @@ fn type_errors() {
 }
 
 #[test]
+fn neg_overflow_returns_runtime_error() {
+    assert_eq!(
+        apply_unary(UnaryOp::Neg, Value::SInt(i8::MIN)),
+        Err(RuntimeError::Overflow)
+    );
+    assert_eq!(
+        apply_unary(UnaryOp::Neg, Value::Int(i16::MIN)),
+        Err(RuntimeError::Overflow)
+    );
+    assert_eq!(
+        apply_unary(UnaryOp::Neg, Value::DInt(i32::MIN)),
+        Err(RuntimeError::Overflow)
+    );
+    assert_eq!(
+        apply_unary(UnaryOp::Neg, Value::LInt(i64::MIN)),
+        Err(RuntimeError::Overflow)
+    );
+}
+
+#[test]
 fn div_overflow() {
     assert_eq!(
         apply_binary(

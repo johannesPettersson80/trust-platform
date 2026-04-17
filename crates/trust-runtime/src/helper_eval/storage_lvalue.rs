@@ -7,8 +7,8 @@ use crate::error::RuntimeError;
 use crate::memory::{InstanceId, VariableStorage};
 use crate::program_model::{Expr, LValue};
 use crate::value::{
-    parse_partial_access, write_partial_access, DateTimeProfile, PartialAccessError, RefSegment,
-    Value, ValueRef,
+    checked_array_offset_i64, parse_partial_access, ref_indices_from_iter, write_partial_access,
+    DateTimeProfile, PartialAccessError, RefSegment, Value, ValueRef,
 };
 
 use super::storage_expr::eval_storage_expr;
@@ -217,7 +217,9 @@ fn resolve_lvalue_reference(
                 index_path.push(index_to_i64(value)?);
             }
             let mut value_ref = base;
-            value_ref.path.push(RefSegment::Index(index_path));
+            value_ref
+                .path
+                .push(RefSegment::Index(ref_indices_from_iter(index_path)));
             Ok(value_ref)
         }
         LValue::Field { target, field } => {
@@ -298,22 +300,12 @@ fn array_offset(dimensions: &[(i64, i64)], indices: &[Value]) -> Result<usize, R
     if dimensions.len() != indices.len() {
         return Err(RuntimeError::TypeMismatch);
     }
-    let mut offset: i128 = 0;
-    let mut stride: i128 = 1;
-    for ((lower, upper), index_value) in dimensions.iter().zip(indices).rev() {
+    let mut numeric_indices = Vec::with_capacity(indices.len());
+    for index_value in indices {
         let idx = index_to_i64(index_value.clone())?;
-        if idx < *lower || idx > *upper {
-            return Err(RuntimeError::IndexOutOfBounds {
-                index: idx,
-                lower: *lower,
-                upper: *upper,
-            });
-        }
-        let len = (*upper - *lower + 1) as i128;
-        offset += (idx - *lower) as i128 * stride;
-        stride *= len;
+        numeric_indices.push(idx);
     }
-    usize::try_from(offset).map_err(|_| RuntimeError::TypeMismatch)
+    checked_array_offset_i64(dimensions, &numeric_indices)
 }
 
 fn partial_access_error_to_runtime(err: PartialAccessError) -> RuntimeError {

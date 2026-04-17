@@ -1,7 +1,7 @@
 use trust_hir::types::{TypeRegistry, POINTER_REFERENCE_HANDLE_SIZE_BYTES};
 use trust_hir::{Type, TypeId};
 
-use super::Value;
+use super::{string_element_count, Value};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SizeOfError {
@@ -69,8 +69,8 @@ pub fn size_of_value(registry: &TypeRegistry, value: &Value) -> Result<u64, Size
         Value::LInt(_) | Value::ULInt(_) | Value::LWord(_) | Value::LReal(_) => 8,
         Value::Time(_) | Value::Date(_) | Value::Tod(_) | Value::Dt(_) => 4,
         Value::LTime(_) | Value::LDate(_) | Value::LTod(_) | Value::Ldt(_) => 8,
-        Value::String(value) => value.len() as u64,
-        Value::WString(value) => (value.len() as u64) * 2,
+        Value::String(value) => string_element_count(value.as_str()) as u64,
+        Value::WString(value) => (string_element_count(value.as_str()) as u64) * 2,
         Value::Array(array) => {
             let element_size = match array.elements.first() {
                 Some(value) => size_of_value(registry, value)?,
@@ -111,4 +111,24 @@ fn array_len_bits(dimensions: &[(i64, i64)]) -> Option<u64> {
         total = total.checked_mul(len)?;
     }
     u64::try_from(total).ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::size_of_value;
+    use crate::value::Value;
+    use trust_hir::types::TypeRegistry;
+
+    #[test]
+    fn string_value_size_counts_character_elements() {
+        let registry = TypeRegistry::default();
+        assert_eq!(
+            size_of_value(&registry, &Value::String("ÄB".into())).unwrap(),
+            2
+        );
+        assert_eq!(
+            size_of_value(&registry, &Value::WString("ÄB".into())).unwrap(),
+            4
+        );
+    }
 }

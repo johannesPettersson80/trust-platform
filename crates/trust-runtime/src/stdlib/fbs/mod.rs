@@ -12,7 +12,7 @@ mod triggers;
 
 pub use bistable::{Rs, Sr};
 pub use counters::{CounterOutput, CounterUpDownOutput, Ctd, Ctu, Ctud};
-pub use registry::{builtin_kind, standard_function_blocks, BuiltinFbKind};
+pub use registry::{builtin_kind, builtin_kind_uppercase, standard_function_blocks, BuiltinFbKind};
 pub use timers::{TimerOutput, Tof, Ton, Tp};
 pub use triggers::{FTrig, RTrig};
 

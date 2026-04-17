@@ -84,3 +84,42 @@ fn string_full() {
         Value::Int(2)
     );
 }
+
+#[test]
+fn string_full_non_ascii_uses_character_elements() {
+    let lib = StandardLibrary::new();
+
+    assert_eq!(
+        lib.call("LEN", &[Value::String("ÄBC".into())]).unwrap(),
+        Value::Int(3)
+    );
+
+    assert_eq!(
+        lib.call("LEFT", &[Value::String("ÄBC".into()), Value::Int(1)])
+            .unwrap(),
+        Value::String("Ä".into())
+    );
+
+    assert_eq!(
+        lib.call(
+            "MID",
+            &[Value::String("ÄBC".into()), Value::Int(1), Value::Int(2)]
+        )
+        .unwrap(),
+        Value::String("B".into())
+    );
+
+    assert_eq!(
+        lib.call(
+            "FIND",
+            &[Value::String("ÄBC".into()), Value::String("B".into())]
+        )
+        .unwrap(),
+        Value::Int(2)
+    );
+
+    assert_eq!(
+        lib.call("LEN", &[Value::WString("ÄBC".into())]).unwrap(),
+        Value::Int(3)
+    );
+}

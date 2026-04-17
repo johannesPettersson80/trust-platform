@@ -329,7 +329,7 @@ impl<'a> BytecodeEncoder<'a> {
                         code.extend_from_slice(&ref_idx.to_le_bytes());
                     } else if !self.emit_dynamic_ref_for_lvalue(ctx, target, code)? {
                         return Err(BytecodeError::InvalidSection(
-                            "unsupported CALL_NATIVE argument target".into(),
+                            format!("unsupported CALL_NATIVE argument target: {:?}", target).into(),
                         ));
                     }
                     "T"

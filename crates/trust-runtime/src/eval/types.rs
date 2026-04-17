@@ -15,8 +15,6 @@ pub(crate) struct EvalContext<'a> {
     pub current_instance: Option<InstanceId>,
     pub return_name: Option<SmolStr>,
     pub loop_depth: u32,
-    #[allow(dead_code)]
-    pub pause_requested: bool,
     pub execution_deadline: Option<std::time::Instant>,
 }
 

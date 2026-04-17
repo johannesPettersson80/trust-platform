@@ -3,8 +3,8 @@ use smol_str::SmolStr;
 use crate::error::RuntimeError;
 use crate::eval::EvalContext;
 use crate::value::{
-    parse_partial_access, read_partial_access, write_partial_access, PartialAccessError, Value,
-    ValueRef,
+    checked_array_offset_i64, parse_partial_access, read_partial_access, read_string_element,
+    write_partial_access, write_string_element, PartialAccessError, Value, ValueRef,
 };
 
 use super::ast::Expr;
@@ -240,42 +240,19 @@ pub(super) fn array_offset(
     if dimensions.len() != indices.len() {
         return Err(RuntimeError::TypeMismatch);
     }
-    let mut offset: i128 = 0;
-    let mut stride: i128 = 1;
-    for ((lower, upper), index_value) in dimensions.iter().zip(indices).rev() {
+    let mut numeric_indices = Vec::with_capacity(indices.len());
+    for index_value in indices {
         let idx = index_to_i64(index_value.clone())?;
-        if idx < *lower || idx > *upper {
-            return Err(RuntimeError::IndexOutOfBounds {
-                index: idx,
-                lower: *lower,
-                upper: *upper,
-            });
-        }
-        let len = (*upper - *lower + 1) as i128;
-        offset += (idx - *lower) as i128 * stride;
-        stride *= len;
+        numeric_indices.push(idx);
     }
-    usize::try_from(offset).map_err(|_| RuntimeError::TypeMismatch)
+    checked_array_offset_i64(dimensions, &numeric_indices)
 }
 
 fn read_string_index(text: &str, indices: &[Value], wide: bool) -> Result<Value, RuntimeError> {
-    let Some(position) = single_string_index(indices)? else {
+    let Some(index) = single_string_index(indices)? else {
         return Err(RuntimeError::TypeMismatch);
     };
-    let Some(ch) = text.chars().nth(position) else {
-        return Err(RuntimeError::IndexOutOfBounds {
-            index: i64::try_from(position + 1).map_err(|_| RuntimeError::Overflow)?,
-            lower: 1,
-            upper: i64::try_from(text.chars().count()).map_err(|_| RuntimeError::Overflow)?,
-        });
-    };
-    if wide {
-        let code = u16::try_from(ch as u32).map_err(|_| RuntimeError::Overflow)?;
-        Ok(Value::WChar(code))
-    } else {
-        let code = u8::try_from(ch as u32).map_err(|_| RuntimeError::Overflow)?;
-        Ok(Value::Char(code))
-    }
+    read_string_element(text, index, wide)
 }
 
 fn write_string_index(
@@ -284,19 +261,10 @@ fn write_string_index(
     value: Value,
     wide: bool,
 ) -> Result<Value, RuntimeError> {
-    let Some(position) = single_string_index(indices)? else {
+    let Some(index) = single_string_index(indices)? else {
         return Err(RuntimeError::TypeMismatch);
     };
-    let mut chars: Vec<char> = text.chars().collect();
-    if position >= chars.len() {
-        return Err(RuntimeError::IndexOutOfBounds {
-            index: i64::try_from(position + 1).map_err(|_| RuntimeError::Overflow)?,
-            lower: 1,
-            upper: i64::try_from(chars.len()).map_err(|_| RuntimeError::Overflow)?,
-        });
-    }
-    chars[position] = value_to_char(value, wide)?;
-    let updated: String = chars.into_iter().collect();
+    let updated = write_string_element(text, index, value, wide)?;
     if wide {
         Ok(Value::WString(updated))
     } else {
@@ -304,49 +272,11 @@ fn write_string_index(
     }
 }
 
-fn single_string_index(indices: &[Value]) -> Result<Option<usize>, RuntimeError> {
+fn single_string_index(indices: &[Value]) -> Result<Option<i64>, RuntimeError> {
     if indices.len() != 1 {
         return Ok(None);
     }
-    let index = index_to_i64(indices[0].clone())?;
-    if index < 1 {
-        return Err(RuntimeError::IndexOutOfBounds {
-            index,
-            lower: 1,
-            upper: i64::MAX,
-        });
-    }
-    usize::try_from(index - 1)
-        .map(Some)
-        .map_err(|_| RuntimeError::Overflow)
-}
-
-fn value_to_char(value: Value, wide: bool) -> Result<char, RuntimeError> {
-    let code = match value {
-        Value::Char(code) => u32::from(code),
-        Value::WChar(code) => u32::from(code),
-        Value::String(text) => {
-            let mut chars = text.chars();
-            let ch = chars.next().ok_or(RuntimeError::TypeMismatch)?;
-            if chars.next().is_some() {
-                return Err(RuntimeError::TypeMismatch);
-            }
-            return Ok(ch);
-        }
-        Value::WString(text) => {
-            let mut chars = text.chars();
-            let ch = chars.next().ok_or(RuntimeError::TypeMismatch)?;
-            if chars.next().is_some() {
-                return Err(RuntimeError::TypeMismatch);
-            }
-            return Ok(ch);
-        }
-        _ => return Err(RuntimeError::TypeMismatch),
-    };
-    if !wide && code > u32::from(u8::MAX) {
-        return Err(RuntimeError::Overflow);
-    }
-    std::char::from_u32(code).ok_or(RuntimeError::TypeMismatch)
+    Ok(Some(index_to_i64(indices[0].clone())?))
 }
 
 fn partial_access_error_to_runtime(err: PartialAccessError) -> RuntimeError {

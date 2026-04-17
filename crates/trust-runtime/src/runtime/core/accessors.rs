@@ -85,18 +85,21 @@ impl Runtime {
     pub fn register_function(&mut self, function: FunctionDef) {
         let key = function.name.to_ascii_uppercase();
         self.functions.insert(key.into(), function);
+        self.vm_local_init_plan_cache.invalidate_all();
     }
 
     /// Register a function block definition by name.
     pub fn register_function_block(&mut self, function_block: FunctionBlockDef) {
         let key = function_block.name.to_ascii_uppercase();
         self.function_blocks.insert(key.into(), function_block);
+        self.vm_local_init_plan_cache.invalidate_all();
     }
 
     /// Register a class definition by name.
     pub fn register_class(&mut self, class_def: ClassDef) {
         let key = class_def.name.to_ascii_uppercase();
         self.classes.insert(key.into(), class_def);
+        self.vm_local_init_plan_cache.invalidate_all();
     }
 
     /// Register an interface definition by name.

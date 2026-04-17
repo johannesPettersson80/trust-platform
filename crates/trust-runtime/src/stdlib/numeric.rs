@@ -4,10 +4,7 @@
 
 use crate::error::RuntimeError;
 use crate::program_model::{apply_binary, BinaryOp};
-use crate::stdlib::helpers::{
-    require_arity, require_min, scale_time, signed_from_i128, to_f64, to_i64, to_u64,
-    unsigned_from_u128, wider_numeric, NumericKind,
-};
+use crate::stdlib::helpers::{require_arity, require_min, scale_time, to_f64};
 use crate::stdlib::StandardLibrary;
 use crate::value::{DateTimeProfile, Value};
 
@@ -251,35 +248,4 @@ fn div_time_duration(lhs: &Value, rhs: &Value) -> Result<Value, RuntimeError> {
         (Value::LTime(duration), other) => scale_time(*duration, other, false).map(Value::LTime),
         _ => Err(RuntimeError::TypeMismatch),
     }
-}
-
-// Shared coercion helper retained for upcoming numeric stdlib harmonization work.
-#[allow(dead_code)]
-fn coerce_numeric(value: &Value, target: NumericKind) -> Result<Value, RuntimeError> {
-    match target {
-        NumericKind::Real => Ok(Value::Real(to_f64(value)? as f32)),
-        NumericKind::LReal => Ok(Value::LReal(to_f64(value)?)),
-        NumericKind::SInt | NumericKind::Int | NumericKind::DInt | NumericKind::LInt => {
-            let value = i128::from(to_i64(value)?);
-            signed_from_i128(target, value)
-        }
-        NumericKind::USInt | NumericKind::UInt | NumericKind::UDInt | NumericKind::ULInt => {
-            let value = u128::from(to_u64(value)?);
-            unsigned_from_u128(target, value)
-        }
-    }
-}
-
-// Shared promotion helper retained for upcoming numeric stdlib harmonization work.
-#[allow(dead_code)]
-fn common_numeric_kind(values: &[Value]) -> Result<NumericKind, RuntimeError> {
-    let mut common = None;
-    for value in values {
-        let kind = crate::stdlib::helpers::numeric_kind(value).ok_or(RuntimeError::TypeMismatch)?;
-        common = Some(match common {
-            None => kind,
-            Some(existing) => wider_numeric(existing, kind),
-        });
-    }
-    common.ok_or(RuntimeError::TypeMismatch)
 }

@@ -33,6 +33,7 @@ pub(super) struct VmPouStackResult {
     pub(super) locals: Vec<Value>,
 }
 
+const STACK_DEADLINE_CHECK_STRIDE: usize = 32;
 const VM_EXECUTION_POOL_LIMIT: usize = 64;
 
 thread_local! {
@@ -227,6 +228,7 @@ pub(super) fn execute_pou_stack_with_locals(
     }
     let mut local_budget = module.instruction_budget;
     let budget = shared_budget.unwrap_or(&mut local_budget);
+    let mut instruction_count = 0usize;
 
     loop {
         if frames.is_empty() {
@@ -259,17 +261,22 @@ pub(super) fn execute_pou_stack_with_locals(
             return Err(VmTrap::InvalidJumpTarget(pc as i64).into_runtime_error());
         }
 
-        if deadline_exceeded(runtime.execution_deadline) {
+        if should_check_stack_deadline(instruction_count)
+            && deadline_exceeded(runtime.execution_deadline)
+        {
             return Err(VmTrap::DeadlineExceeded.into_runtime_error());
         }
 
         if let Some(location) = vm_statement_location(runtime, module, frame_pou_id, pc) {
-            if let Some(mut debug) = runtime.debug.clone() {
+            let storage = &runtime.storage;
+            let current_time = runtime.current_time;
+            if let Some(debug) = runtime.debug.as_mut() {
                 let call_depth = depth_offset.saturating_add(frames.len().saturating_sub(1) as u32);
-                debug.refresh_snapshot_from_storage(runtime.storage(), runtime.current_time);
+                debug.refresh_snapshot_from_storage(storage, current_time);
                 debug.on_statement(Some(&location), call_depth);
             }
         }
+        instruction_count = instruction_count.saturating_add(1);
 
         let opcode = module
             .code
@@ -633,6 +640,10 @@ fn deadline_exceeded(deadline: Option<Instant>) -> bool {
     }
 }
 
+fn should_check_stack_deadline(instruction_count: usize) -> bool {
+    instruction_count == 0 || instruction_count % STACK_DEADLINE_CHECK_STRIDE == 0
+}
+
 fn vm_statement_location(
     runtime: &Runtime,
     module: &VmModule,
@@ -670,5 +681,20 @@ fn partial_access_error_to_runtime(err: PartialAccessError) -> RuntimeError {
             upper,
         },
         PartialAccessError::TypeMismatch => RuntimeError::TypeMismatch,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn stack_deadline_stride_checks_first_and_stride_boundaries() {
+        assert!(super::should_check_stack_deadline(0));
+        assert!(!super::should_check_stack_deadline(1));
+        assert!(super::should_check_stack_deadline(
+            super::STACK_DEADLINE_CHECK_STRIDE
+        ));
+        assert!(super::should_check_stack_deadline(
+            super::STACK_DEADLINE_CHECK_STRIDE * 2
+        ));
     }
 }

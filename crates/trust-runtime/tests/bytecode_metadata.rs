@@ -223,7 +223,7 @@ fn ref_entry_from_value_ref(
         .path
         .iter()
         .map(|segment| match segment {
-            trust_runtime::value::RefSegment::Index(indices) => RefSegment::Index(indices.clone()),
+            trust_runtime::value::RefSegment::Index(indices) => RefSegment::Index(indices.to_vec()),
             trust_runtime::value::RefSegment::Field(name) => {
                 let idx = ensure_string(strings, name.as_str());
                 RefSegment::Field { name_idx: idx }

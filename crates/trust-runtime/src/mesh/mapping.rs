@@ -10,10 +10,13 @@ use crate::value::Value;
 
 use super::models::MeshQosProfile;
 
-#[cfg(not(test))]
-const MESH_SNAPSHOT_TIMEOUT: StdDuration = StdDuration::from_millis(200);
-#[cfg(test)]
-const MESH_SNAPSHOT_TIMEOUT: StdDuration = StdDuration::from_millis(750);
+fn mesh_snapshot_timeout() -> StdDuration {
+    if cfg!(test) {
+        StdDuration::from_millis(750)
+    } else {
+        StdDuration::from_millis(200)
+    }
+}
 
 pub(crate) const DEFAULT_SITE: &str = "default-site";
 
@@ -80,7 +83,7 @@ pub(crate) fn snapshot_globals(
 }
 
 fn wait_snapshot(rx: Receiver<IndexMap<SmolStr, Value>>) -> IndexMap<SmolStr, Value> {
-    rx.recv_timeout(MESH_SNAPSHOT_TIMEOUT).unwrap_or_default()
+    rx.recv_timeout(mesh_snapshot_timeout()).unwrap_or_default()
 }
 
 #[must_use]

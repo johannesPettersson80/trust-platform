@@ -1,3 +1,8 @@
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::sync::Arc;
+
+use indexmap::IndexMap;
 use smol_str::SmolStr;
 use trust_hir::{Type, TypeId};
 
@@ -5,11 +10,7 @@ use crate::error::RuntimeError;
 use crate::helper_eval::eval_storage_expr_with_stdlib;
 use crate::instance::{create_class_instance, create_fb_instance};
 use crate::memory::InstanceId;
-use crate::program_model::{
-    method_static_storage_owner, static_storage_name, FunctionBlockDef, FunctionDef, MethodDef,
-    Param, VarDef,
-};
-use crate::task::ProgramDef;
+use crate::program_model::{method_static_storage_owner, static_storage_name, Param, VarDef};
 use crate::value::{default_value_for_type_id, Value};
 
 use super::frames::VmFrame;
@@ -20,11 +21,17 @@ pub(super) fn initialize_declared_locals(
     module: &VmModule,
     frame: &mut VmFrame,
 ) -> Result<(), RuntimeError> {
-    let Some(plan) = init_plan_for_pou(runtime, module, frame.pou_id) else {
+    let Some(plan) = runtime
+        .vm_local_init_plan_cache
+        .plan_for(runtime, module, frame.pou_id)
+    else {
         return Ok(());
     };
     if frame.locals.is_empty() {
         return Ok(());
+    }
+    if can_initialize_directly(plan.as_ref()) {
+        return initialize_declared_locals_direct(runtime, plan.as_ref(), frame);
     }
 
     let temp_frame_id = if let Some(instance_id) = frame.runtime_instance {
@@ -35,7 +42,7 @@ pub(super) fn initialize_declared_locals(
         runtime.storage_mut().push_frame(plan.frame_owner().clone())
     };
 
-    let result = initialize_declared_locals_inner(runtime, &plan, frame);
+    let result = initialize_declared_locals_inner(runtime, plan.as_ref(), frame);
     runtime.storage_mut().remove_frame(temp_frame_id);
     result
 }
@@ -104,6 +111,38 @@ fn initialize_declared_locals_inner(
         if let Some(value) = runtime.storage().get_local(local.name.as_str()).cloned() {
             if let Some(slot_ref) = frame.locals.get_mut(slot) {
                 *slot_ref = value;
+            }
+        }
+        slot = slot.saturating_add(1);
+    }
+
+    Ok(())
+}
+
+fn initialize_declared_locals_direct(
+    runtime: &mut crate::Runtime,
+    plan: &VmPouInitPlan,
+    frame: &mut VmFrame,
+) -> Result<(), RuntimeError> {
+    let profile = runtime.profile();
+    let mut slot = 0usize;
+
+    if let Some((_, return_type)) = plan.return_slot() {
+        if matches!(frame.locals.get(slot), Some(Value::Null) | None) {
+            if let Some(slot_ref) = frame.locals.get_mut(slot) {
+                *slot_ref = default_value_for_type_id(return_type, runtime.registry(), &profile)
+                    .unwrap_or(Value::Null);
+            }
+        }
+        slot = slot.saturating_add(1);
+    }
+
+    slot = slot.saturating_add(plan.params().len());
+
+    for local in plan.locals() {
+        if !local.external {
+            if let Some(slot_ref) = frame.locals.get_mut(slot) {
+                *slot_ref = initialize_var_value(runtime, frame.runtime_instance, local)?;
             }
         }
         slot = slot.saturating_add(1);
@@ -233,100 +272,184 @@ fn initialize_var_value(
     )
 }
 
+fn can_initialize_directly(plan: &VmPouInitPlan) -> bool {
+    if !plan.static_locals().is_empty() {
+        return false;
+    }
+    plan.locals()
+        .iter()
+        .filter(|local| !local.external)
+        .all(|local| !local.static_storage && local.initializer.is_none())
+}
+
+#[derive(Debug, Clone)]
 enum VmPouInitPlan {
-    Program(ProgramDef),
-    Function(FunctionDef),
-    FunctionBlock(FunctionBlockDef),
-    Method { owner: SmolStr, method: MethodDef },
+    Program {
+        frame_owner: SmolStr,
+        locals: Vec<VarDef>,
+    },
+    Function {
+        frame_owner: SmolStr,
+        params: Vec<Param>,
+        locals: Vec<VarDef>,
+        static_locals: Vec<VarDef>,
+        return_slot: (SmolStr, TypeId),
+    },
+    FunctionBlock {
+        frame_owner: SmolStr,
+        locals: Vec<VarDef>,
+    },
+    Method {
+        owner: SmolStr,
+        frame_owner: SmolStr,
+        params: Vec<Param>,
+        locals: Vec<VarDef>,
+        static_locals: Vec<VarDef>,
+        return_slot: Option<(SmolStr, TypeId)>,
+    },
 }
 
 impl VmPouInitPlan {
     fn frame_owner(&self) -> &SmolStr {
         match self {
-            Self::Program(program) => &program.name,
-            Self::Function(function) => &function.name,
-            Self::FunctionBlock(function_block) => &function_block.name,
-            Self::Method { method, .. } => &method.name,
+            Self::Program { frame_owner, .. }
+            | Self::Function { frame_owner, .. }
+            | Self::FunctionBlock { frame_owner, .. }
+            | Self::Method { frame_owner, .. } => frame_owner,
         }
     }
 
     fn static_owner(&self) -> SmolStr {
         match self {
-            Self::Program(program) => program.name.clone(),
-            Self::Function(function) => function.name.clone(),
-            Self::FunctionBlock(function_block) => function_block.name.clone(),
-            Self::Method { owner, method } => method_static_storage_owner(owner, &method.name),
+            Self::Program { frame_owner, .. }
+            | Self::Function { frame_owner, .. }
+            | Self::FunctionBlock { frame_owner, .. } => frame_owner.clone(),
+            Self::Method {
+                owner, frame_owner, ..
+            } => method_static_storage_owner(owner, frame_owner),
         }
     }
 
     fn return_slot(&self) -> Option<(&SmolStr, TypeId)> {
         match self {
-            Self::Function(function) => Some((&function.name, function.return_type)),
-            Self::Method { method, .. } => method.return_type.map(|ty| (&method.name, ty)),
-            Self::Program(_) | Self::FunctionBlock(_) => None,
+            Self::Function { return_slot, .. } => Some((&return_slot.0, return_slot.1)),
+            Self::Method { return_slot, .. } => return_slot.as_ref().map(|(name, ty)| (name, *ty)),
+            Self::Program { .. } | Self::FunctionBlock { .. } => None,
         }
     }
 
     fn params(&self) -> &[Param] {
         match self {
-            Self::Program(_) => &[],
-            Self::Function(function) => &function.params,
+            Self::Program { .. } => &[],
+            Self::Function { params, .. } => params.as_slice(),
             // Function block bytecode bodies read parameters via instance fields.
             // Only function/method bodies materialize parameters into local slots.
-            Self::FunctionBlock(_) => &[],
-            Self::Method { method, .. } => &method.params,
+            Self::FunctionBlock { .. } => &[],
+            Self::Method { params, .. } => params.as_slice(),
         }
     }
 
     fn locals(&self) -> &[VarDef] {
         match self {
-            Self::Program(program) => &program.temps,
-            Self::Function(function) => &function.locals,
-            Self::FunctionBlock(function_block) => &function_block.temps,
-            Self::Method { method, .. } => &method.locals,
+            Self::Program { locals, .. }
+            | Self::Function { locals, .. }
+            | Self::FunctionBlock { locals, .. }
+            | Self::Method { locals, .. } => locals.as_slice(),
         }
     }
 
     fn static_locals(&self) -> &[VarDef] {
         match self {
-            Self::Function(function) => &function.static_locals,
-            Self::Method { method, .. } => &method.static_locals,
-            Self::Program(_) | Self::FunctionBlock(_) => &[],
+            Self::Function { static_locals, .. } | Self::Method { static_locals, .. } => {
+                static_locals.as_slice()
+            }
+            Self::Program { .. } | Self::FunctionBlock { .. } => &[],
         }
     }
 }
 
-fn init_plan_for_pou(
-    runtime: &crate::Runtime,
+#[derive(Debug, Default)]
+struct VmLocalInitPlanCacheData {
+    module_ptr: Option<usize>,
+    entries: HashMap<u32, Arc<VmPouInitPlan>>,
+}
+
+#[derive(Debug, Default)]
+pub(in crate::runtime) struct VmLocalInitPlanCacheState {
+    data: RefCell<VmLocalInitPlanCacheData>,
+}
+
+impl VmLocalInitPlanCacheState {
+    pub(in crate::runtime) fn invalidate_all(&self) {
+        let mut data = self.data.borrow_mut();
+        data.module_ptr = None;
+        data.entries.clear();
+    }
+
+    fn plan_for(
+        &self,
+        runtime: &crate::Runtime,
+        module: &VmModule,
+        pou_id: u32,
+    ) -> Option<Arc<VmPouInitPlan>> {
+        let module_ptr = module as *const VmModule as usize;
+        let mut data = self.data.borrow_mut();
+        if data.module_ptr != Some(module_ptr) {
+            data.module_ptr = Some(module_ptr);
+            data.entries.clear();
+        }
+        if let Some(plan) = data.entries.get(&pou_id).cloned() {
+            return Some(plan);
+        }
+        let plan = Arc::new(build_init_plan_for_pou(
+            module,
+            pou_id,
+            runtime.programs(),
+            runtime.functions(),
+            runtime.function_blocks(),
+            runtime.classes(),
+        )?);
+        data.entries.insert(pou_id, plan.clone());
+        Some(plan)
+    }
+}
+
+fn build_init_plan_for_pou(
     module: &VmModule,
     pou_id: u32,
+    programs: &IndexMap<SmolStr, crate::task::ProgramDef>,
+    functions: &IndexMap<SmolStr, crate::program_model::FunctionDef>,
+    function_blocks: &IndexMap<SmolStr, crate::program_model::FunctionBlockDef>,
+    classes: &IndexMap<SmolStr, crate::program_model::ClassDef>,
 ) -> Option<VmPouInitPlan> {
     let pou = module.pou(pou_id)?;
     let key = SmolStr::new(pou.name.to_ascii_uppercase());
 
     if module.program_ids.get(&key).copied() == Some(pou_id) {
-        return runtime
-            .programs()
-            .get(&key)
-            .cloned()
-            .map(VmPouInitPlan::Program);
+        return programs.get(&key).map(|program| VmPouInitPlan::Program {
+            frame_owner: program.name.clone(),
+            locals: program.temps.clone(),
+        });
     }
     if module.function_ids.get(&key).copied() == Some(pou_id) {
-        return runtime
-            .functions()
-            .get(&key)
-            .cloned()
-            .map(VmPouInitPlan::Function);
+        return functions.get(&key).map(|function| VmPouInitPlan::Function {
+            frame_owner: function.name.clone(),
+            params: function.params.clone(),
+            locals: function.locals.clone(),
+            static_locals: function.static_locals.clone(),
+            return_slot: (function.name.clone(), function.return_type),
+        });
     }
     if module.function_block_ids.get(&key).copied() == Some(pou_id) {
-        return runtime
-            .function_blocks()
+        return function_blocks
             .get(&key)
-            .cloned()
-            .map(VmPouInitPlan::FunctionBlock);
+            .map(|function_block| VmPouInitPlan::FunctionBlock {
+                frame_owner: function_block.name.clone(),
+                locals: function_block.temps.clone(),
+            });
     }
 
-    for (owner_key, function_block) in runtime.function_blocks() {
+    for (owner_key, function_block) in function_blocks {
         let Some(owner_id) = module.function_block_ids.get(owner_key).copied() else {
             continue;
         };
@@ -338,13 +461,17 @@ fn init_plan_for_pou(
             if method_table.get(&method_key).copied() == Some(pou_id) {
                 return Some(VmPouInitPlan::Method {
                     owner: function_block.name.clone(),
-                    method: method.clone(),
+                    frame_owner: method.name.clone(),
+                    params: method.params.clone(),
+                    locals: method.locals.clone(),
+                    static_locals: method.static_locals.clone(),
+                    return_slot: method.return_type.map(|ty| (method.name.clone(), ty)),
                 });
             }
         }
     }
 
-    for (owner_key, class_def) in runtime.classes() {
+    for (owner_key, class_def) in classes {
         let Some(owner_id) = module.class_ids.get(owner_key).copied() else {
             continue;
         };
@@ -356,7 +483,11 @@ fn init_plan_for_pou(
             if method_table.get(&method_key).copied() == Some(pou_id) {
                 return Some(VmPouInitPlan::Method {
                     owner: class_def.name.clone(),
-                    method: method.clone(),
+                    frame_owner: method.name.clone(),
+                    params: method.params.clone(),
+                    locals: method.locals.clone(),
+                    static_locals: method.static_locals.clone(),
+                    return_slot: method.return_type.map(|ty| (method.name.clone(), ty)),
                 });
             }
         }

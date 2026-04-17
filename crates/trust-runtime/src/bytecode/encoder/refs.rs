@@ -1,7 +1,7 @@
 use smol_str::SmolStr;
 
 use crate::memory::{FrameId, InstanceId, IoArea, MemoryLocation};
-use crate::value::{RefSegment as ValueRefSegment, Value, ValueRef};
+use crate::value::{ref_indices_from_iter, RefSegment as ValueRefSegment, Value, ValueRef};
 
 use crate::bytecode::{RefEntry, RefLocation, RefSegment};
 
@@ -34,7 +34,9 @@ impl<'a> BytecodeEncoder<'a> {
                 };
                 reference
                     .path
-                    .push(crate::value::RefSegment::Index(resolved));
+                    .push(crate::value::RefSegment::Index(ref_indices_from_iter(
+                        resolved,
+                    )));
                 Ok(Some(reference))
             }
             LValue::Field { target, field } => {
@@ -101,7 +103,7 @@ impl<'a> BytecodeEncoder<'a> {
         for segment in &value_ref.path {
             match segment {
                 ValueRefSegment::Index(indices) => {
-                    segments.push(RefSegment::Index(indices.clone()));
+                    segments.push(RefSegment::Index(indices.to_vec()));
                 }
                 ValueRefSegment::Field(name) => {
                     let name_idx = self.strings.intern(name.clone());

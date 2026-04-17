@@ -2,15 +2,6 @@ pub(crate) fn eval_expr(ctx: &mut EvalContext<'_>, expr: &expr::Expr) -> Result<
     expr::eval_expr(ctx, expr)
 }
 
-/// Execute a statement.
-#[allow(dead_code)]
-pub(crate) fn exec_stmt(
-    ctx: &mut EvalContext<'_>,
-    stmt: &stmt::Stmt,
-) -> Result<stmt::StmtResult, RuntimeError> {
-    stmt::exec_stmt(ctx, stmt)
-}
-
 /// Execute a list of statements.
 pub(crate) fn exec_block(
     ctx: &mut EvalContext<'_>,

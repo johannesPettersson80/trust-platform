@@ -22,7 +22,6 @@ fn make_context<'a>(storage: &'a mut VariableStorage, registry: &'a TypeRegistry
         current_instance: None,
         return_name: None,
         loop_depth: 0,
-        pause_requested: false,
         execution_deadline: None,
     }
 }

@@ -2,7 +2,12 @@
 
 #![allow(missing_docs)]
 
-use crate::value::{PartialAccess, RefSegment, Value, ValueRef};
+#[cfg(test)]
+use crate::value::ref_indices_from_iter;
+use crate::value::{
+    materialize_value_path, read_value_path_borrowed, write_value_path, PartialAccess, RefPath,
+    RefSegment, Value, ValueRef,
+};
 use indexmap::IndexMap;
 use rustc_hash::FxHashMap;
 use smol_str::SmolStr;
@@ -348,7 +353,7 @@ impl VariableStorage {
         Some(crate::value::ValueRef {
             location: MemoryLocation::Instance(id),
             offset,
-            path: Vec::new(),
+            path: RefPath::new(),
         })
     }
 
@@ -363,7 +368,7 @@ impl VariableStorage {
             return Some(crate::value::ValueRef {
                 location: MemoryLocation::Instance(owner),
                 offset: resolution.offset,
-                path: Vec::new(),
+                path: RefPath::new(),
             });
         }
 
@@ -379,7 +384,7 @@ impl VariableStorage {
                 return Some(crate::value::ValueRef {
                     location: MemoryLocation::Instance(instance_id),
                     offset,
-                    path: Vec::new(),
+                    path: RefPath::new(),
                 });
             }
             current = self
@@ -488,7 +493,7 @@ impl VariableStorage {
         Some(crate::value::ValueRef {
             location: MemoryLocation::Instance(id),
             offset,
-            path: Vec::new(),
+            path: RefPath::new(),
         })
     }
 
@@ -609,7 +614,7 @@ impl VariableStorage {
         let resolved = self.resolve_reference_parts(location, offset, path)?;
         let root = self.read_direct_slot_by_location(resolved.location, resolved.offset)?;
 
-        read_by_ref_path(root, &resolved.path)
+        read_value_path_borrowed(root, &resolved.path)
     }
 
     pub fn materialize_by_ref_parts(
@@ -624,7 +629,7 @@ impl VariableStorage {
 
         let resolved = self.resolve_reference_parts(location, offset, path)?;
         let root = self.read_direct_slot_by_location(resolved.location, resolved.offset)?;
-        materialize_by_ref_path(root, &resolved.path)
+        materialize_value_path(root, &resolved.path)
     }
 
     pub fn write_by_ref(&mut self, value_ref: crate::value::ValueRef, value: Value) -> bool {
@@ -655,7 +660,7 @@ impl VariableStorage {
                 let Some((_, slot)) = self.globals.get_index_mut(resolved.offset) else {
                     return false;
                 };
-                write_by_ref_path(slot, &resolved.path, value)
+                write_value_path(slot, &resolved.path, value)
             }
             MemoryLocation::Local(frame_id) => self
                 .frames
@@ -667,7 +672,7 @@ impl VariableStorage {
                         .get_index_mut(resolved.offset)
                         .map(|(_, v)| v)
                 })
-                .map(|slot| write_by_ref_path(slot, &resolved.path, value))
+                .map(|slot| write_value_path(slot, &resolved.path, value))
                 .unwrap_or(false),
             MemoryLocation::Instance(instance_id) => self
                 .instances
@@ -678,7 +683,7 @@ impl VariableStorage {
                         .get_index_mut(resolved.offset)
                         .map(|(_, v)| v)
                 })
-                .map(|slot| write_by_ref_path(slot, &resolved.path, value))
+                .map(|slot| write_value_path(slot, &resolved.path, value))
                 .unwrap_or(false),
             MemoryLocation::Io(_) | MemoryLocation::Retain => false,
         }
@@ -693,7 +698,7 @@ impl VariableStorage {
         let mut resolved = crate::value::ValueRef {
             location,
             offset,
-            path: Vec::new(),
+            path: RefPath::new(),
         };
 
         for segment in path {
@@ -753,191 +758,14 @@ fn ref_for_map(
     map.get_index_of(name).map(|offset| crate::value::ValueRef {
         location,
         offset,
-        path: Vec::new(),
+        path: RefPath::new(),
     })
-}
-
-fn read_by_ref_path<'a>(value: &'a Value, path: &[RefSegment]) -> Option<&'a Value> {
-    if path.is_empty() {
-        return Some(value);
-    }
-    match &path[0] {
-        RefSegment::Field(name) => match value {
-            Value::Struct(struct_value) => struct_value
-                .fields
-                .get(name)
-                .and_then(|field| read_by_ref_path(field, &path[1..])),
-            _ => None,
-        },
-        RefSegment::Index(indices) => match value {
-            Value::Array(array) => {
-                let offset = array_offset_i64(&array.dimensions, indices)?;
-                array
-                    .elements
-                    .get(offset)
-                    .and_then(|element| read_by_ref_path(element, &path[1..]))
-            }
-            _ => None,
-        },
-    }
-}
-
-fn write_by_ref_path(target: &mut Value, path: &[RefSegment], value: Value) -> bool {
-    if path.is_empty() {
-        *target = crate::value::normalize_assignment_for_target(target, value);
-        return true;
-    }
-
-    match &path[0] {
-        RefSegment::Field(name) => match target {
-            Value::Struct(struct_value) => std::sync::Arc::make_mut(struct_value)
-                .fields
-                .get_mut(name)
-                .map(|field| write_by_ref_path(field, &path[1..], value))
-                .unwrap_or(false),
-            _ => false,
-        },
-        RefSegment::Index(indices) => match target {
-            Value::Array(array) => {
-                let offset = match array_offset_i64(&array.dimensions, indices) {
-                    Some(offset) => offset,
-                    None => return false,
-                };
-                array
-                    .elements
-                    .get_mut(offset)
-                    .map(|element| write_by_ref_path(element, &path[1..], value))
-                    .unwrap_or(false)
-            }
-            Value::String(text) => write_string_path(text, indices, value, false)
-                .map(|updated| {
-                    *target = Value::String(updated.into());
-                    true
-                })
-                .unwrap_or(false),
-            Value::WString(text) => write_string_path(text, indices, value, true)
-                .map(|updated| {
-                    *target = Value::WString(updated);
-                    true
-                })
-                .unwrap_or(false),
-            _ => false,
-        },
-    }
-}
-
-fn materialize_by_ref_path(value: &Value, path: &[RefSegment]) -> Option<Value> {
-    if path.is_empty() {
-        return Some(value.clone());
-    }
-    match &path[0] {
-        RefSegment::Field(name) => match value {
-            Value::Struct(struct_value) => struct_value
-                .fields
-                .get(name)
-                .and_then(|field| materialize_by_ref_path(field, &path[1..])),
-            _ => None,
-        },
-        RefSegment::Index(indices) => match value {
-            Value::Array(array) => {
-                let offset = array_offset_i64(&array.dimensions, indices)?;
-                array
-                    .elements
-                    .get(offset)
-                    .and_then(|element| materialize_by_ref_path(element, &path[1..]))
-            }
-            Value::String(text) => {
-                if !path[1..].is_empty() {
-                    return None;
-                }
-                let position = string_index_position(text.as_str(), indices)?;
-                let ch = text.chars().nth(position)?;
-                Some(Value::Char(u8::try_from(ch as u32).ok()?))
-            }
-            Value::WString(text) => {
-                if !path[1..].is_empty() {
-                    return None;
-                }
-                let position = string_index_position(text.as_str(), indices)?;
-                let ch = text.chars().nth(position)?;
-                Some(Value::WChar(u16::try_from(ch as u32).ok()?))
-            }
-            _ => None,
-        },
-    }
-}
-
-fn array_offset_i64(dimensions: &[(i64, i64)], indices: &[i64]) -> Option<usize> {
-    if dimensions.len() != indices.len() {
-        return None;
-    }
-    let mut offset: i128 = 0;
-    let mut stride: i128 = 1;
-    for ((lower, upper), index) in dimensions.iter().zip(indices).rev() {
-        if index < lower || index > upper {
-            return None;
-        }
-        let len = (*upper - *lower + 1) as i128;
-        offset += (index - *lower) as i128 * stride;
-        stride *= len;
-    }
-    usize::try_from(offset).ok()
-}
-
-fn string_index_position(text: &str, indices: &[i64]) -> Option<usize> {
-    if indices.len() != 1 {
-        return None;
-    }
-    let index = indices[0];
-    if index < 1 {
-        return None;
-    }
-    let position = usize::try_from(index - 1).ok()?;
-    if position >= text.chars().count() {
-        return None;
-    }
-    Some(position)
-}
-
-fn write_string_path(text: &str, indices: &[i64], value: Value, wide: bool) -> Option<String> {
-    let position = string_index_position(text, indices)?;
-    let mut chars: Vec<char> = text.chars().collect();
-    chars[position] = value_to_char(value, wide)?;
-    Some(chars.into_iter().collect())
-}
-
-fn value_to_char(value: Value, wide: bool) -> Option<char> {
-    let code = match value {
-        Value::Char(code) => u32::from(code),
-        Value::WChar(code) => u32::from(code),
-        Value::String(text) => {
-            let mut chars = text.chars();
-            let ch = chars.next()?;
-            if chars.next().is_some() {
-                return None;
-            }
-            return Some(ch);
-        }
-        Value::WString(text) => {
-            let mut chars = text.chars();
-            let ch = chars.next()?;
-            if chars.next().is_some() {
-                return None;
-            }
-            return Some(ch);
-        }
-        _ => return None,
-    };
-    if !wide && code > u32::from(u8::MAX) {
-        return None;
-    }
-    std::char::from_u32(code)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::value::StructValue;
+    use crate::value::{ArrayValue, StructValue};
 
     #[test]
     fn instance_field_cache_is_scoped_per_instance() {
@@ -1327,6 +1155,58 @@ mod tests {
         assert_eq!(
             right_struct.fields.get("InternalIndex"),
             Some(&Value::UInt(1))
+        );
+    }
+
+    #[test]
+    fn read_and_write_by_ref_handle_extreme_array_bounds_without_overflow() {
+        let mut storage = VariableStorage::new();
+        storage.set_global(
+            "GRID",
+            Value::Array(Box::new(ArrayValue {
+                elements: vec![Value::DInt(7)],
+                dimensions: vec![(i64::MIN, i64::MAX)],
+            })),
+        );
+        let mut reference = storage.ref_for_global("GRID").expect("grid ref");
+        reference
+            .path
+            .push(RefSegment::Index(ref_indices_from_iter([i64::MIN])));
+
+        let read = storage
+            .read_by_ref(reference.clone())
+            .expect("read extreme lower bound");
+        assert_eq!(read, &Value::DInt(7));
+
+        assert!(storage.write_by_ref(reference.clone(), Value::DInt(9)));
+        let updated = storage
+            .read_by_ref(reference)
+            .expect("read updated lower bound");
+        assert_eq!(updated, &Value::DInt(9));
+    }
+
+    #[test]
+    fn read_and_write_by_ref_non_ascii_string_uses_character_elements() {
+        let mut storage = VariableStorage::new();
+        storage.set_global("TEXT", Value::String("ÄBC".into()));
+        let mut reference = storage.ref_for_global("TEXT").expect("text ref");
+        reference
+            .path
+            .push(RefSegment::Index(ref_indices_from_iter([1])));
+
+        let read = storage
+            .materialize_by_ref(reference.clone())
+            .expect("read non-ascii string element");
+        assert_eq!(read, Value::Char(0xC4));
+
+        reference.path.clear();
+        reference
+            .path
+            .push(RefSegment::Index(ref_indices_from_iter([2])));
+        assert!(storage.write_by_ref(reference.clone(), Value::Char(b'X')));
+        assert_eq!(
+            storage.get_global("TEXT"),
+            Some(&Value::String("ÄXC".into()))
         );
     }
 }

@@ -126,7 +126,7 @@ impl<'a> BytecodeEncoder<'a> {
         if !emitted {
             if stmt_contains_c1_required_call(stmt) {
                 return Err(BytecodeError::InvalidSection(
-                    "unsupported C1 CALL_NATIVE lowering path".into(),
+                    format!("unsupported C1 CALL_NATIVE lowering path: {:?}", stmt).into(),
                 ));
             }
             if stmt_contains_c5_required_construct(stmt) {

@@ -169,3 +169,25 @@ This file tracks known, intentional deviations/extensions from strict IEC 61131-
   - `ADR(str)` yields a typed pointer/reference-compatible handle for string dereference/indexing, not a raw byte-array reinterpretation of string storage.
 - Mitigation:
   - This behavior is documented as a vendor extension rather than an IEC core feature.
+
+## 2026-04-17 - Runtime STRING / WSTRING element semantics
+
+- ID: DEV-017
+- Area: Runtime string indexing, character access, and stdlib string element operations
+- IEC reference:
+  - IEC 61131-3 Ed.3 Table 10 defines `STRING` as single-byte and `WSTRING` as double-byte character strings.
+  - IEC examples and common vendor practice use 1-based element access for `str[idx]`.
+- Deviation:
+  - truST stores `STRING` as UTF-8 text and `WSTRING` as Rust `String` text rather than raw single-byte / UCS-2 buffers.
+  - Public runtime element access is 1-based for both `STRING` and `WSTRING`.
+  - `STRING[idx]`, `LEN`, `LEFT`, `RIGHT`, `MID`, `INSERT`, `DELETE`, `REPLACE`, and `FIND` operate on Unicode scalar elements, not raw UTF-8 bytes.
+  - `WSTRING[idx]` and the same stdlib helpers operate on the same Unicode scalar element model rather than raw 16-bit code units.
+  - Materializing a `STRING` element as `CHAR` still requires the selected scalar value to fit in `u8`; otherwise the runtime reports overflow.
+  - Materializing a `WSTRING` element as `WCHAR` requires the scalar value to fit in `u16`.
+  - `SIZEOF(STRING[n])` and `SIZEOF(WSTRING[n])` remain storage-oriented (`n` and `2n` respectively), while runtime value sizing uses the same scalar-element counts described above.
+- Impact:
+  - Non-ASCII text behaves consistently across VM ref indexing and the shipped string stdlib, but the behavior is not raw IEC byte/code-unit indexing.
+  - Existing projects that feed UTF-8 strings through file, MQTT, or fieldbus paths get stable element access semantics instead of mixed byte/scalar behavior.
+- Mitigation:
+  - The runtime and docs now use one explicit element model end-to-end.
+  - A future raw-byte/raw-code-unit storage rewrite would be a separate compatibility project because it would require changing the underlying runtime value representation.

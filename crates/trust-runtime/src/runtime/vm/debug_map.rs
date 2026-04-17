@@ -5,7 +5,6 @@ use smol_str::SmolStr;
 use crate::bytecode::{DebugMap, StringTable, VarMeta};
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)] // Populated now; consumed by backend-agnostic debug mapping parity phases.
 pub(super) struct VmSourceLocation {
     pub(super) file: SmolStr,
     pub(super) line: u32,

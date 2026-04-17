@@ -211,6 +211,9 @@ Implementer extensions tracked outside IEC Table 27:
 - [x] REPLACE
 - [x] FIND
 
+Runtime note:
+- The shipped VM/runtime applies the `DEV-018` element model consistently across `LEN`, `LEFT`, `RIGHT`, `MID`, `INSERT`, `DELETE`, `REPLACE`, and `FIND`.
+
 ## Table 35 - Time/Duration Arithmetic Functions
 - [x] ADD (overloaded)
 - [x] ADD_TIME

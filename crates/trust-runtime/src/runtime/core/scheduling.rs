@@ -14,6 +14,7 @@ impl Runtime {
         self.storage
             .set_global(program.name.clone(), Value::Instance(instance_id));
         self.programs.insert(program.name.clone(), program);
+        self.vm_local_init_plan_cache.invalidate_all();
         Ok(())
     }
 

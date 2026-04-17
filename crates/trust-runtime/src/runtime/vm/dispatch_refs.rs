@@ -2,7 +2,12 @@ use smol_str::SmolStr;
 
 use crate::error::RuntimeError;
 use crate::memory::{FrameId, InstanceId, MemoryLocation};
-use crate::value::{RefSegment, Value, ValueRef};
+use crate::value::{
+    materialize_value_path, read_value_path_borrowed, single_ref_index, string_element_position,
+    write_value_path, RefSegment, Value, ValueRef,
+};
+#[cfg(test)]
+use crate::value::{ref_indices_from_iter, RefPath};
 
 use super::super::core::Runtime;
 use super::call::VM_LOCAL_SENTINEL_FRAME_ID;
@@ -96,7 +101,7 @@ pub(super) fn load_ref_addr(
             Ok(ValueRef {
                 location,
                 offset,
-                path: path.to_vec(),
+                path: path.into(),
             })
         }
     }
@@ -165,7 +170,7 @@ pub(super) fn dynamic_ref_field(
         }
         Value::Instance(instance_id) => runtime
             .storage
-            .ref_for_instance_recursive(*instance_id, field.as_str())
+            .resolved_instance_field_ref(*instance_id, field.as_str())
             .ok_or(VmTrap::Runtime(RuntimeError::UndefinedField(field))),
         _ => Err(VmTrap::Runtime(RuntimeError::TypeMismatch)),
     }
@@ -215,17 +220,17 @@ pub(super) fn dynamic_ref_index(
                     upper,
                 }));
             }
-            reference.path.push(RefSegment::Index(vec![index]));
+            reference.path.push(single_ref_index(index));
             Ok(reference)
         }
         Value::String(text) => {
-            ensure_string_index_in_bounds(text.as_str(), index)?;
-            reference.path.push(RefSegment::Index(vec![index]));
+            string_element_position(text.as_str(), index).map_err(VmTrap::Runtime)?;
+            reference.path.push(single_ref_index(index));
             Ok(reference)
         }
         Value::WString(text) => {
-            ensure_string_index_in_bounds(text.as_str(), index)?;
-            reference.path.push(RefSegment::Index(vec![index]));
+            string_element_position(text.as_str(), index).map_err(VmTrap::Runtime)?;
+            reference.path.push(single_ref_index(index));
             Ok(reference)
         }
         _ => Err(VmTrap::Runtime(RuntimeError::TypeMismatch)),
@@ -246,7 +251,7 @@ pub(super) fn peek_dynamic_ref<'a>(
             .locals
             .get(reference.offset)
             .ok_or(VmTrap::NullReference)?;
-        return read_value_path(root, &reference.path).ok_or(VmTrap::NullReference);
+        return read_value_path_borrowed(root, &reference.path).ok_or(VmTrap::NullReference);
     }
     runtime
         .storage
@@ -270,11 +275,10 @@ pub(super) fn dynamic_load_ref(
             .ok_or(VmTrap::NullReference)?;
         return materialize_value_path(root, &reference.path).ok_or(VmTrap::NullReference);
     }
-    let root = runtime
+    runtime
         .storage
-        .read_direct_slot_by_location(reference.location, reference.offset)
-        .ok_or(VmTrap::NullReference)?;
-    materialize_value_path(root, &reference.path).ok_or(VmTrap::NullReference)
+        .materialize_by_ref_ref(reference)
+        .ok_or(VmTrap::NullReference)
 }
 
 pub(super) fn dynamic_store_ref(
@@ -290,21 +294,7 @@ pub(super) fn dynamic_store_ref(
         let frame = frames.current_mut().ok_or(VmTrap::CallStackUnderflow)?;
         return write_vm_local_ref(frame, reference.offset, &reference.path, value);
     }
-    let Some(mut root) = runtime
-        .storage()
-        .read_direct_slot_by_location(reference.location, reference.offset)
-        .cloned()
-    else {
-        return Err(VmTrap::NullReference);
-    };
-    if !write_value_path(&mut root, &reference.path, value) {
-        return Err(VmTrap::NullReference);
-    }
-    if runtime.storage_mut().write_direct_slot_by_location(
-        reference.location,
-        reference.offset,
-        root,
-    ) {
+    if runtime.storage_mut().write_by_ref_ref(reference, value) {
         Ok(())
     } else {
         Err(VmTrap::NullReference)
@@ -317,11 +307,12 @@ fn peek_vm_local_ref<'a>(
     path: &[RefSegment],
 ) -> Result<&'a Value, VmTrap> {
     let root = frame.locals.get(offset).ok_or(VmTrap::NullReference)?;
-    read_value_path(root, path).ok_or(VmTrap::NullReference)
+    read_value_path_borrowed(root, path).ok_or(VmTrap::NullReference)
 }
 
 fn read_vm_local_ref(frame: &VmFrame, offset: usize, path: &[RefSegment]) -> Result<Value, VmTrap> {
-    peek_vm_local_ref(frame, offset, path).map(|value| materialize_borrowed_value(value).0)
+    let root = frame.locals.get(offset).ok_or(VmTrap::NullReference)?;
+    materialize_value_path(root, path).ok_or(VmTrap::NullReference)
 }
 
 fn write_vm_local_ref(
@@ -336,196 +327,6 @@ fn write_vm_local_ref(
     } else {
         Err(VmTrap::NullReference)
     }
-}
-
-fn read_value_path<'a>(value: &'a Value, path: &[RefSegment]) -> Option<&'a Value> {
-    if path.is_empty() {
-        return Some(value);
-    }
-    match &path[0] {
-        RefSegment::Field(name) => match value {
-            Value::Struct(struct_value) => struct_value
-                .fields
-                .get(name)
-                .and_then(|field| read_value_path(field, &path[1..])),
-            _ => None,
-        },
-        RefSegment::Index(indices) => match value {
-            Value::Array(array) => {
-                let offset = array_offset_i64(&array.dimensions, indices)?;
-                array
-                    .elements
-                    .get(offset)
-                    .and_then(|element| read_value_path(element, &path[1..]))
-            }
-            _ => None,
-        },
-    }
-}
-
-fn write_value_path(target: &mut Value, path: &[RefSegment], value: Value) -> bool {
-    if path.is_empty() {
-        *target = crate::value::normalize_assignment_for_target(target, value);
-        return true;
-    }
-
-    match &path[0] {
-        RefSegment::Field(name) => match target {
-            Value::Struct(struct_value) => std::sync::Arc::make_mut(struct_value)
-                .fields
-                .get_mut(name)
-                .map(|field| write_value_path(field, &path[1..], value))
-                .unwrap_or(false),
-            _ => false,
-        },
-        RefSegment::Index(indices) => match target {
-            Value::Array(array) => {
-                let offset = match array_offset_i64(&array.dimensions, indices) {
-                    Some(offset) => offset,
-                    None => return false,
-                };
-                array
-                    .elements
-                    .get_mut(offset)
-                    .map(|element| write_value_path(element, &path[1..], value))
-                    .unwrap_or(false)
-            }
-            Value::String(text) => write_string_path(text, indices, value, false)
-                .map(|updated| {
-                    *target = Value::String(updated.into());
-                    true
-                })
-                .unwrap_or(false),
-            Value::WString(text) => write_string_path(text, indices, value, true)
-                .map(|updated| {
-                    *target = Value::WString(updated);
-                    true
-                })
-                .unwrap_or(false),
-            _ => false,
-        },
-    }
-}
-
-fn materialize_value_path(value: &Value, path: &[RefSegment]) -> Option<Value> {
-    if path.is_empty() {
-        return Some(materialize_borrowed_value(value).0);
-    }
-    match &path[0] {
-        RefSegment::Field(name) => match value {
-            Value::Struct(struct_value) => struct_value
-                .fields
-                .get(name)
-                .and_then(|field| materialize_value_path(field, &path[1..])),
-            _ => None,
-        },
-        RefSegment::Index(indices) => match value {
-            Value::Array(array) => {
-                let offset = array_offset_i64(&array.dimensions, indices)?;
-                array
-                    .elements
-                    .get(offset)
-                    .and_then(|element| materialize_value_path(element, &path[1..]))
-            }
-            Value::String(text) => {
-                let index = string_index_position(text.as_str(), indices)?;
-                let ch = text.chars().nth(index)?;
-                if !path[1..].is_empty() {
-                    return None;
-                }
-                Some(Value::Char(u8::try_from(ch as u32).ok()?))
-            }
-            Value::WString(text) => {
-                let index = string_index_position(text.as_str(), indices)?;
-                let ch = text.chars().nth(index)?;
-                if !path[1..].is_empty() {
-                    return None;
-                }
-                Some(Value::WChar(u16::try_from(ch as u32).ok()?))
-            }
-            _ => None,
-        },
-    }
-}
-
-fn string_index_position(text: &str, indices: &[i64]) -> Option<usize> {
-    if indices.len() != 1 {
-        return None;
-    }
-    let index = indices[0];
-    if index < 1 {
-        return None;
-    }
-    let position = usize::try_from(index - 1).ok()?;
-    if position >= text.chars().count() {
-        return None;
-    }
-    Some(position)
-}
-
-fn ensure_string_index_in_bounds(text: &str, index: i64) -> Result<(), VmTrap> {
-    let upper =
-        i64::try_from(text.chars().count()).map_err(|_| VmTrap::Runtime(RuntimeError::Overflow))?;
-    if index < 1 || index > upper {
-        return Err(VmTrap::Runtime(RuntimeError::IndexOutOfBounds {
-            index,
-            lower: 1,
-            upper,
-        }));
-    }
-    Ok(())
-}
-
-fn write_string_path(text: &str, indices: &[i64], value: Value, wide: bool) -> Option<String> {
-    let position = string_index_position(text, indices)?;
-    let mut chars: Vec<char> = text.chars().collect();
-    chars[position] = value_to_char(value, wide)?;
-    Some(chars.into_iter().collect())
-}
-
-fn value_to_char(value: Value, wide: bool) -> Option<char> {
-    let code = match value {
-        Value::Char(code) => u32::from(code),
-        Value::WChar(code) => u32::from(code),
-        Value::String(text) => {
-            let mut chars = text.chars();
-            let ch = chars.next()?;
-            if chars.next().is_some() {
-                return None;
-            }
-            return Some(ch);
-        }
-        Value::WString(text) => {
-            let mut chars = text.chars();
-            let ch = chars.next()?;
-            if chars.next().is_some() {
-                return None;
-            }
-            return Some(ch);
-        }
-        _ => return None,
-    };
-    if !wide && code > u32::from(u8::MAX) {
-        return None;
-    }
-    std::char::from_u32(code)
-}
-
-fn array_offset_i64(dimensions: &[(i64, i64)], indices: &[i64]) -> Option<usize> {
-    if dimensions.len() != indices.len() {
-        return None;
-    }
-    let mut offset: i128 = 0;
-    let mut stride: i128 = 1;
-    for ((lower, upper), index) in dimensions.iter().zip(indices).rev() {
-        if index < lower || index > upper {
-            return None;
-        }
-        let len = (*upper - *lower + 1) as i128;
-        offset += (index - *lower) as i128 * stride;
-        stride *= len;
-    }
-    usize::try_from(offset).ok()
 }
 
 pub(super) fn index_to_i64(value: Value) -> Result<i64, VmTrap> {
@@ -648,13 +449,16 @@ mod tests {
         let reference = ValueRef {
             location: MemoryLocation::Local(FrameId(VM_LOCAL_SENTINEL_FRAME_ID)),
             offset: 0,
-            path: vec![RefSegment::Field(SmolStr::new("ACC"))],
+            path: [RefSegment::Field(SmolStr::new("ACC"))]
+                .into_iter()
+                .collect(),
         };
 
         let peeked = peek_dynamic_ref(&runtime, &frames, &reference).expect("peek local");
         let frame = frames.current().expect("current frame");
-        let direct = read_value_path(frame.locals.first().expect("local slot"), &reference.path)
-            .expect("direct local read");
+        let direct =
+            read_value_path_borrowed(frame.locals.first().expect("local slot"), &reference.path)
+                .expect("direct local read");
 
         assert!(std::ptr::eq(peeked, direct));
     }
@@ -701,12 +505,50 @@ mod tests {
             })),
         );
         let mut reference = runtime.storage().ref_for_global("GRID").expect("grid ref");
-        reference.path.push(RefSegment::Index(vec![0]));
+        reference.path.push(single_ref_index(0));
         let frames = FrameStack::default();
 
         let resolved =
             dynamic_ref_index(&runtime, &frames, reference, 1).expect("extend partial index");
 
-        assert_eq!(resolved.path, vec![RefSegment::Index(vec![0, 1])]);
+        assert_eq!(
+            resolved.path,
+            [RefSegment::Index(ref_indices_from_iter([0, 1]))]
+                .into_iter()
+                .collect::<RefPath>()
+        );
+    }
+
+    #[test]
+    fn read_and_write_value_path_handle_extreme_array_bounds_without_overflow() {
+        let mut value = Value::Array(Box::new(ArrayValue {
+            elements: vec![Value::DInt(7)],
+            dimensions: vec![(i64::MIN, i64::MAX)],
+        }));
+        let path = [RefSegment::Index(ref_indices_from_iter([i64::MIN]))];
+
+        let read = read_value_path_borrowed(&value, &path).expect("read extreme lower bound");
+        assert_eq!(read, &Value::DInt(7));
+
+        assert!(write_value_path(&mut value, &path, Value::DInt(9)));
+        let updated =
+            read_value_path_borrowed(&value, &path).expect("read updated extreme lower bound");
+        assert_eq!(updated, &Value::DInt(9));
+    }
+
+    #[test]
+    fn read_and_write_value_path_non_ascii_string_uses_character_elements() {
+        let mut value = Value::String("ÄBC".into());
+        let path = [RefSegment::Index(ref_indices_from_iter([1]))];
+
+        let read = materialize_value_path(&value, &path).expect("read non-ascii string element");
+        assert_eq!(read, Value::Char(0xC4));
+
+        assert!(write_value_path(
+            &mut value,
+            &[RefSegment::Index(ref_indices_from_iter([2]))],
+            Value::Char(b'X')
+        ));
+        assert_eq!(value, Value::String("ÄXC".into()));
     }
 }

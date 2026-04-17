@@ -24,7 +24,6 @@ pub fn make_context<'a>(
         current_instance: None,
         return_name: None,
         loop_depth: 0,
-        pause_requested: false,
         execution_deadline: None,
     }
 }

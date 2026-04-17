@@ -48,10 +48,14 @@ pub(crate) use self::types::ControlResponse;
 use self::types::*;
 
 const HMI_DESCRIPTOR_WATCH_DEBOUNCE: Duration = Duration::from_millis(250);
-#[cfg(test)]
-const HMI_DESCRIPTOR_WATCH_STARTUP_TIMEOUT: Duration = Duration::from_secs(10);
-#[cfg(not(test))]
-const HMI_DESCRIPTOR_WATCH_STARTUP_TIMEOUT: Duration = Duration::from_secs(1);
+
+fn hmi_descriptor_watch_startup_timeout() -> Duration {
+    if cfg!(test) {
+        Duration::from_secs(10)
+    } else {
+        Duration::from_secs(1)
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum ControlEndpoint {
@@ -286,7 +290,7 @@ pub fn spawn_hmi_descriptor_watcher(state: Arc<ControlState>) {
             }
         }
     });
-    match ready_rx.recv_timeout(HMI_DESCRIPTOR_WATCH_STARTUP_TIMEOUT) {
+    match ready_rx.recv_timeout(hmi_descriptor_watch_startup_timeout()) {
         Ok(Ok(())) => {}
         Ok(Err(err)) => warn!("hmi watcher startup failed: {err}"),
         Err(RecvTimeoutError::Timeout) => {

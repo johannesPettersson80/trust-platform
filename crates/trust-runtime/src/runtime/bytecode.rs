@@ -34,6 +34,7 @@ impl Runtime {
         .ok_or_else(|| error::RuntimeError::InvalidBytecodeMetadata("resource".into()))?;
         self.apply_resource_metadata(resource)?;
         self.vm_module = None;
+        self.vm_local_init_plan_cache.invalidate_all();
         self.vm_register_lowering_cache.invalidate_all();
         self.vm_tier1_specialized_executor.invalidate_all();
         Ok(())

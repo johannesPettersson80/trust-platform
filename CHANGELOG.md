@@ -6,10 +6,24 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.18.1`
+Target release: `v0.18.2`
 
 ### Fixed
 
+- Runtime VM string access, native-call dispatch, and hot-path execution are
+  now more consistent and predictable: signed unary `NEG` on minimum signed
+  integers now reports overflow instead of panicking/wrapping, pure-`DINT`
+  `MOD 0` now matches the generic `ModuloByZero` contract, array offset math
+  and runtime date construction reject invalid edge cases deterministically,
+  runtime `STRING` / `WSTRING` indexing and string stdlib helpers now follow a
+  single documented element contract for non-ASCII text, `CALL_NATIVE` now
+  caches statically resolvable function targets instead of uppercasing and
+  hashing every call, and the VM hot path now reuses register frame buffers,
+  drops redundant register-file zeroing, batches stack deadline checks, and
+  avoids cloning the debug hook on each statement. The release benchmark path
+  also restores the earlier VM latency envelope by caching per-POU local-init
+  plans and trimming dynamic-ref hot-path overhead instead of rebuilding that
+  work every scan.
 - The OSCAT BASIC `CALENDAR` port keeps truST strict about IEC reserved
   keywords instead of relaxing the parser, so the shipped Chapter 3 data type
   exposes compliant local-time field names `LOCAL_DT`, `LOCAL_DATE`, and

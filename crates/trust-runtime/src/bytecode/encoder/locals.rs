@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use smol_str::SmolStr;
 
 use crate::memory::{FrameId, MemoryLocation};
-use crate::value::ValueRef;
+use crate::value::{RefPath, ValueRef};
 
 use super::util::{count_for_loops, normalize_name};
 use super::{BytecodeEncoder, BytecodeError, LocalScope};
@@ -105,7 +105,7 @@ impl<'a> BytecodeEncoder<'a> {
             let value_ref = ValueRef {
                 location: MemoryLocation::Local(frame_id),
                 offset,
-                path: Vec::new(),
+                path: RefPath::new(),
             };
             self.ref_index_for(&value_ref)?;
             locals.insert(name, value_ref);

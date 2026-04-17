@@ -1,6 +1,6 @@
 # Architecture Improvements Checklist
 
-Status: In Progress
+Status: Done
 
 - [x] `ARCH-PLCOPEN-01` Add a dedicated PLCopen motion architecture diagram describing the shipped ST public profiles, shared kernels, internal carriers, and deferred-feature guard coverage.
 - [x] `ARCH-PLCOPEN-02` Regenerate the PlantUML outputs and refresh `docs/diagrams/manifest.json` after adding the PLCopen motion architecture diagram.
@@ -14,3 +14,4 @@ Status: In Progress
 - [x] `ARCH-HIR-02` Regenerate the PlantUML outputs and refresh `docs/diagrams/manifest.json` after the project type catalog refactor.
 - [x] `ARCH-VM-07` Refresh the runtime execution diagrams so the shipped `SIZEOF` contract shows compile-time/static-type lowering and no longer presents `SIZEOF_VALUE` as part of normal ST codegen.
 - [x] `ARCH-VM-08` Regenerate the PlantUML outputs and refresh `docs/diagrams/manifest.json` after the `SIZEOF` contract update.
+- [x] `ARCH-VM-09` Split the `runtime/vm/register_ir` implementation into focused lowering/profile/tier1/test modules and consolidate composite ref-path walking into `value/reference.rs`; audit the existing VM diagrams and confirm no PlantUML refresh is required because execution/data flow and subsystem ownership stay unchanged.

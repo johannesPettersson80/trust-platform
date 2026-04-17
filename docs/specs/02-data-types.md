@@ -358,6 +358,7 @@ str[3] := 'X';     // str = 'ABXD'
 - Position 1 is the first character
 - Error if accessing beyond string length
 - Error if mixing CHAR/STRING with WCHAR/WSTRING
+- truST runtime note: indexed `STRING` / `WSTRING` access is 1-based and follows the documented runtime element model in `DEV-018`; both VM ref access and the shipped string stdlib operate on Unicode scalar elements rather than raw UTF-8 bytes / raw 16-bit code units.
 
 ## Implementation Notes for trust-hir
 

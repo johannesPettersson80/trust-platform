@@ -58,7 +58,6 @@ fn debug_hook_fires_once_per_statement() {
         current_instance: None,
         return_name: None,
         loop_depth: 0,
-        pause_requested: false,
         execution_deadline: None,
     };
 

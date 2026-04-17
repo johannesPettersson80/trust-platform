@@ -10,10 +10,12 @@ pub(super) struct OperandStack {
 }
 
 impl OperandStack {
+    #[inline]
     pub(super) fn clear(&mut self) {
         self.values.clear();
     }
 
+    #[inline]
     pub(super) fn push(&mut self, value: Value) -> Result<(), VmTrap> {
         if self.values.len() >= MAX_OPERAND_STACK {
             return Err(VmTrap::StackOverflow);
@@ -22,21 +24,25 @@ impl OperandStack {
         Ok(())
     }
 
+    #[inline]
     pub(super) fn pop(&mut self) -> Result<Value, VmTrap> {
         self.values.pop().ok_or(VmTrap::StackUnderflow)
     }
 
+    #[inline]
     pub(super) fn pop_pair(&mut self) -> Result<(Value, Value), VmTrap> {
         let right = self.pop()?;
         let left = self.pop()?;
         Ok((left, right))
     }
 
+    #[inline]
     pub(super) fn duplicate_top(&mut self) -> Result<(), VmTrap> {
         let value = self.values.last().cloned().ok_or(VmTrap::StackUnderflow)?;
         self.push(value)
     }
 
+    #[inline]
     pub(super) fn swap_top(&mut self) -> Result<(), VmTrap> {
         if self.values.len() < 2 {
             return Err(VmTrap::StackUnderflow);

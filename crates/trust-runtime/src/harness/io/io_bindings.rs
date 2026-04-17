@@ -62,7 +62,9 @@ fn collect_io_bindings(
                     let mut ref_with_index = reference.clone();
                     ref_with_index
                         .path
-                        .push(crate::value::RefSegment::Index(indices.clone()));
+                        .push(crate::value::RefSegment::Index(
+                            crate::value::ref_indices_from_iter(indices.iter().copied()),
+                        ));
                     return collect_io_bindings(
                         registry,
                         element,

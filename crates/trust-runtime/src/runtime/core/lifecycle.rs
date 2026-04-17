@@ -33,6 +33,7 @@ impl Runtime {
             watchdog: WatchdogSubsystem::new(),
             faults: FaultSubsystem::new(),
             execution_deadline: None,
+            vm_local_init_plan_cache: super::vm::VmLocalInitPlanCacheState::default(),
             vm_register_lowering_cache: super::vm::RegisterLoweringCacheState::from_env(),
             vm_register_profile: super::vm::RegisterProfileState::default(),
             vm_tier1_specialized_executor:

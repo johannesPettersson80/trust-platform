@@ -147,8 +147,12 @@ fn parse_string_literal(text: &str, is_wide: bool) -> Result<String, CompileErro
     let end = bytes.len() - 1;
     while i < end {
         if bytes[i] != b'$' {
-            result.push(bytes[i] as char);
-            i += 1;
+            let ch = text[i..end]
+                .chars()
+                .next()
+                .ok_or_else(|| CompileError::new("invalid string literal"))?;
+            result.push(ch);
+            i += ch.len_utf8();
             continue;
         }
         if i + 1 >= end {
@@ -189,7 +193,8 @@ fn parse_string_literal(text: &str, is_wide: bool) -> Result<String, CompileErro
                 if i + 1 + digits > end {
                     return Err(CompileError::new("invalid escape sequence"));
                 }
-                let hex = &text[i + 1..i + 1 + digits];
+                let hex = std::str::from_utf8(&bytes[i + 1..i + 1 + digits])
+                    .map_err(|_| CompileError::new("invalid escape sequence"))?;
                 let code = u32::from_str_radix(hex, 16)
                     .map_err(|_| CompileError::new("invalid hex escape"))?;
                 let ch = std::char::from_u32(code)
