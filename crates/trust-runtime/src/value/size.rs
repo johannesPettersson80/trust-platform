@@ -1,7 +1,7 @@
-use trust_hir::types::TypeRegistry;
+use trust_hir::types::{TypeRegistry, POINTER_REFERENCE_HANDLE_SIZE_BYTES};
 use trust_hir::{Type, TypeId};
 
-use super::{Value, ValueRef};
+use super::Value;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SizeOfError {
@@ -50,9 +50,7 @@ pub fn size_of_type(type_id: TypeId, registry: &TypeRegistry) -> Result<u64, Siz
         Type::WString { max_len } => max_len
             .map(|len| u64::from(len) * 2)
             .ok_or(SizeOfError::UnsupportedType),
-        Type::Reference { .. } | Type::Pointer { .. } => {
-            u64::try_from(std::mem::size_of::<ValueRef>()).map_err(|_| SizeOfError::Overflow)
-        }
+        Type::Reference { .. } | Type::Pointer { .. } => Ok(POINTER_REFERENCE_HANDLE_SIZE_BYTES),
         Type::Time | Type::Date | Type::Tod | Type::Dt => Ok(4),
         Type::LTime | Type::LDate | Type::LTod | Type::Ldt => Ok(8),
         _ => {
@@ -95,9 +93,7 @@ pub fn size_of_value(registry: &TypeRegistry, value: &Value) -> Result<u64, Size
                 .ok_or(SizeOfError::UnsupportedType)?;
             size_of_type(type_id, registry)?
         }
-        Value::Reference(_) => {
-            u64::try_from(std::mem::size_of::<ValueRef>()).map_err(|_| SizeOfError::Overflow)?
-        }
+        Value::Reference(_) => POINTER_REFERENCE_HANDLE_SIZE_BYTES,
         Value::Instance(_) => u64::try_from(std::mem::size_of::<crate::memory::InstanceId>())
             .map_err(|_| SizeOfError::Overflow)?,
         Value::Null => return Err(SizeOfError::UnsupportedType),

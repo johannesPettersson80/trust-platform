@@ -1,5 +1,5 @@
+use trust_hir::types::POINTER_REFERENCE_HANDLE_SIZE_BYTES;
 use trust_runtime::harness::{CompileSession, SourceFile, TestHarness};
-use trust_runtime::value::ValueRef;
 
 #[test]
 fn sizeof_variable_and_type_operands_build_and_run() {
@@ -110,7 +110,64 @@ fn sizeof_works_in_array_bounds_for_variable_operands() {
 }
 
 #[test]
-fn sizeof_pointer_and_reference_operands_use_handle_size() {
+fn sizeof_bare_name_prefers_variable_over_top_level_type_name() {
+    let source = r#"
+        TYPE Packet : LWORD; END_TYPE
+
+        PROGRAM Main
+        VAR
+            Packet : INT;
+            bytes : ARRAY[0..SIZEOF(Packet)-1] OF BYTE;
+            out_var : DINT := DINT#0;
+            out_bytes : DINT := DINT#0;
+        END_VAR
+
+        out_var := SIZEOF(Packet);
+        out_bytes := SIZEOF(bytes);
+        END_PROGRAM
+    "#;
+
+    let mut harness = TestHarness::from_source(source).expect("build harness");
+    let cycle = harness.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "runtime errors: {:?}",
+        cycle.errors
+    );
+    harness.assert_eq("out_var", 2i32);
+    harness.assert_eq("out_bytes", 2i32);
+}
+
+#[test]
+fn sizeof_pointer_operands_const_fold_in_array_bounds() {
+    let source = r#"
+        PROGRAM Main
+        VAR
+            p : POINTER TO INT;
+            bytes : ARRAY[0..SIZEOF(p)-1] OF BYTE;
+            out_p : DINT := DINT#0;
+            out_bytes : DINT := DINT#0;
+        END_VAR
+
+        out_p := SIZEOF(p);
+        out_bytes := SIZEOF(bytes);
+        END_PROGRAM
+    "#;
+
+    let expected = i32::try_from(POINTER_REFERENCE_HANDLE_SIZE_BYTES).expect("pointer size fits");
+    let mut harness = TestHarness::from_source(source).expect("build harness");
+    let cycle = harness.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "runtime errors: {:?}",
+        cycle.errors
+    );
+    harness.assert_eq("out_p", expected);
+    harness.assert_eq("out_bytes", expected);
+}
+
+#[test]
+fn sizeof_pointer_and_reference_operands_use_platform_pointer_size() {
     let source = r#"
         PROGRAM Main
         VAR
@@ -125,7 +182,7 @@ fn sizeof_pointer_and_reference_operands_use_handle_size() {
         END_PROGRAM
     "#;
 
-    let expected = i32::try_from(std::mem::size_of::<ValueRef>()).expect("ValueRef size fits");
+    let expected = i32::try_from(POINTER_REFERENCE_HANDLE_SIZE_BYTES).expect("pointer size fits");
     let mut harness = TestHarness::from_source(source).expect("build harness");
     let cycle = harness.cycle();
     assert!(
@@ -135,6 +192,18 @@ fn sizeof_pointer_and_reference_operands_use_handle_size() {
     );
     harness.assert_eq("out_p", expected);
     harness.assert_eq("out_r", expected);
+}
+
+#[test]
+fn sizeof_pointer_contract_matches_platform_word_size() {
+    assert_eq!(
+        POINTER_REFERENCE_HANDLE_SIZE_BYTES,
+        std::mem::size_of::<usize>() as u64
+    );
+    #[cfg(target_pointer_width = "64")]
+    assert_eq!(POINTER_REFERENCE_HANDLE_SIZE_BYTES, 8);
+    #[cfg(target_pointer_width = "32")]
+    assert_eq!(POINTER_REFERENCE_HANDLE_SIZE_BYTES, 4);
 }
 
 #[test]

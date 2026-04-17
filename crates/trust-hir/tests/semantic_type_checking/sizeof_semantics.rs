@@ -1,4 +1,5 @@
 use super::common::*;
+use trust_hir::types::POINTER_REFERENCE_HANDLE_SIZE_BYTES;
 
 fn error_messages(source: &str) -> Vec<String> {
     let mut db = Database::new();
@@ -75,6 +76,74 @@ END_VAR
 END_PROGRAM
 "#,
     );
+}
+
+#[test]
+fn test_sizeof_bare_name_prefers_variable_over_top_level_type_in_array_bounds() {
+    let mut db = Database::new();
+    let file = FileId(0);
+    db.set_source_text(
+        file,
+        r#"
+TYPE Packet : LWORD; END_TYPE
+
+PROGRAM Test
+VAR
+    Packet : INT;
+    bytes : ARRAY[0..SIZEOF(Packet)-1] OF BYTE;
+END_VAR
+END_PROGRAM
+"#
+        .to_string(),
+    );
+
+    let symbols = db.file_symbols(file);
+    let bytes = symbols.iter().find(|s| s.name == "bytes").unwrap();
+    let type_id = symbols.resolve_alias_type(bytes.type_id);
+    let Type::Array { dimensions, .. } = symbols.type_by_id(type_id).unwrap() else {
+        panic!("expected array type");
+    };
+    assert_eq!(dimensions, &vec![(0, 1)]);
+}
+
+#[test]
+fn test_sizeof_pointer_operand_const_folds_in_array_bounds() {
+    let mut db = Database::new();
+    let file = FileId(0);
+    db.set_source_text(
+        file,
+        r#"
+PROGRAM Test
+VAR
+    p : POINTER TO INT;
+    bytes : ARRAY[0..SIZEOF(p)-1] OF BYTE;
+END_VAR
+END_PROGRAM
+"#
+        .to_string(),
+    );
+
+    let symbols = db.file_symbols(file);
+    let bytes = symbols.iter().find(|s| s.name == "bytes").unwrap();
+    let type_id = symbols.resolve_alias_type(bytes.type_id);
+    let Type::Array { dimensions, .. } = symbols.type_by_id(type_id).unwrap() else {
+        panic!("expected array type");
+    };
+    let expected_upper =
+        i64::try_from(POINTER_REFERENCE_HANDLE_SIZE_BYTES).expect("handle size fits") - 1;
+    assert_eq!(dimensions, &vec![(0, expected_upper)]);
+}
+
+#[test]
+fn test_sizeof_pointer_contract_matches_platform_word_size() {
+    assert_eq!(
+        POINTER_REFERENCE_HANDLE_SIZE_BYTES,
+        std::mem::size_of::<usize>() as u64
+    );
+    #[cfg(target_pointer_width = "64")]
+    assert_eq!(POINTER_REFERENCE_HANDLE_SIZE_BYTES, 8);
+    #[cfg(target_pointer_width = "32")]
+    assert_eq!(POINTER_REFERENCE_HANDLE_SIZE_BYTES, 4);
 }
 
 #[test]

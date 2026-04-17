@@ -1,6 +1,7 @@
 use crate::bytecode::{TypeData, TypeTable};
 use crate::error::RuntimeError;
-use crate::value::{SizeOfError, ValueRef};
+use crate::value::SizeOfError;
+use trust_hir::types::POINTER_REFERENCE_HANDLE_SIZE_BYTES;
 
 pub(super) fn sizeof_error_to_runtime(err: SizeOfError) -> RuntimeError {
     match err {
@@ -82,9 +83,7 @@ fn sizeof_type_from_table_inner(
         TypeData::Subrange { base_type_id, .. } => {
             sizeof_type_from_table_inner(types, *base_type_id, stack)
         }
-        TypeData::Reference { .. } => {
-            u64::try_from(std::mem::size_of::<ValueRef>()).map_err(|_| RuntimeError::Overflow)
-        }
+        TypeData::Reference { .. } => Ok(POINTER_REFERENCE_HANDLE_SIZE_BYTES),
         TypeData::Pou { .. } | TypeData::Interface { .. } => Err(RuntimeError::TypeMismatch),
     })();
     let _ = stack.pop();

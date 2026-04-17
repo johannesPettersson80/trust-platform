@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.18.0`
+Target release: `v0.18.1`
 
 ### Fixed
 
@@ -30,8 +30,10 @@ Target release: `v0.18.0`
   analysis/lowering instead of evaluating a runtime value, so `SIZEOF(var)` now
   works in normal expressions and constant contexts like
   `ARRAY[0..SIZEOF(packet)-1]`, bare-name lookup follows CODESYS-style
-  variable-before-type shadowing, and invalid forms such as `SIZEOF(call)`,
-  arithmetic expressions, open arrays, unsized strings, and whole
+  variable-before-type shadowing even when a top-level type shares the same
+  bare name, pointer/reference operands now report and const-fold to platform
+  pointer word size instead of truST's internal handle layout, and invalid
+  forms such as `SIZEOF(call)`, arithmetic expressions, open arrays, unsized strings, and whole
   FB/class/interface instances fail deterministically during build instead of
   lowering to the legacy `SIZEOF_VALUE` path.
 

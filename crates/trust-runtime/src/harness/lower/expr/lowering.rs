@@ -154,6 +154,8 @@ fn lower_sizeof_operand_type(
     node: &SyntaxNode,
     ctx: &mut LoweringContext<'_>,
 ) -> Result<TypeId, CompileError> {
+    // Namespace-qualified type operands like Demo.Packet parse as FieldExpr,
+    // so prefer the type path before semantic value typing for that shape.
     if node.kind() == SyntaxKind::FieldExpr {
         if let Some(type_id) = lower_sizeof_named_type_operand(node, ctx)? {
             return Ok(type_id);

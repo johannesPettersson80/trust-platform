@@ -149,3 +149,23 @@ This file tracks known, intentional deviations/extensions from strict IEC 61131-
 - Mitigation:
   - `VAR_STAT` remains an explicit vendor extension in docs/specs.
   - Strict-IEC export/adapter paths may rewrite or reject `VAR_STAT` for consumers that do not support it.
+
+## 2026-04-17 - ADR / SIZEOF built-ins
+
+- ID: DEV-016
+- Area: ADR / SIZEOF built-ins
+- IEC reference: Not specified in IEC 61131-3 Ed3; vendor extension.
+- Deviation:
+  - truST parses and executes `ADR(...)` and `SIZEOF(...)` as built-in expressions.
+  - `SIZEOF(...)` returns a `DINT` byte count for the static storage representation of either an explicit `type_ref` or a storage operand (`var`, field/index access, dereference, `THIS.field`) without evaluating the operand.
+  - Bare identifiers resolve variables before type names, matching common CODESYS shadowing behavior.
+  - `SIZEOF(...)` is const-foldable when the static type is known.
+  - `STRING[n]` reports `n`, `WSTRING[n]` reports `2n`.
+  - `POINTER TO` / `REF_TO` operands report the platform pointer word size (`sizeof(usize)`), not truST's internal runtime handle layout.
+  - Open arrays, unsized strings/WSTRINGs, and whole FB/class/interface instances are rejected.
+- Impact:
+  - Common vendor ST patterns like `ARRAY[0..SIZEOF(packet)-1] OF BYTE` compile and fold deterministically.
+  - Pointer `SIZEOF` matches platform pointer width rather than leaking the size of truST's private runtime reference handle.
+  - `ADR(str)` yields a typed pointer/reference-compatible handle for string dereference/indexing, not a raw byte-array reinterpretation of string storage.
+- Mitigation:
+  - This behavior is documented as a vendor extension rather than an IEC core feature.

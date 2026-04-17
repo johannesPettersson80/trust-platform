@@ -1,5 +1,6 @@
 use super::const_utils::*;
 use super::*;
+use crate::types::POINTER_REFERENCE_HANDLE_SIZE_BYTES;
 
 impl SymbolCollector<'_> {
     pub(super) fn evaluate_constants(&mut self) {
@@ -207,11 +208,12 @@ impl SymbolCollector<'_> {
             Type::WString {
                 max_len: Some(max_len),
             } => u64::from(*max_len).checked_mul(2),
+            Type::Pointer { .. } | Type::Reference { .. } => {
+                Some(POINTER_REFERENCE_HANDLE_SIZE_BYTES)
+            }
             Type::FunctionBlock { .. }
             | Type::Class { .. }
             | Type::Interface { .. }
-            | Type::Pointer { .. }
-            | Type::Reference { .. }
             | Type::String { max_len: None }
             | Type::WString { max_len: None } => None,
             _ => ty.bit_size().map(|bits| u64::from(bits.div_ceil(8))),

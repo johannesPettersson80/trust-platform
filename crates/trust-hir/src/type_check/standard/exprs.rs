@@ -107,15 +107,35 @@ impl<'a> TypeChecker<'a> {
                 .and_then(|inner| self.resolve_sizeof_value_operand_type(&inner));
         }
 
-        if self.resolve_sizeof_named_type_operand(node).is_some() {
-            return None;
-        }
-
-        let type_id = match node.kind() {
-            SyntaxKind::ThisExpr | SyntaxKind::SuperExpr => self.expr().check_expression(node),
-            _ if self.is_valid_lvalue(node) => self.expr().check_expression(node),
+        match node.kind() {
+            SyntaxKind::NameRef => {
+                let name = self.resolve_ref().get_name_from_ref(node)?;
+                let resolved = self
+                    .resolve()
+                    .resolve_name_in_context(&name, node.text_range())?;
+                let symbol = self.symbols.get(resolved.id)?;
+                if symbol.is_type() || matches!(symbol.kind, SymbolKind::Namespace) {
+                    return None;
+                }
+            }
+            SyntaxKind::FieldExpr => {
+                if let Some(symbol_id) = self.resolve_ref().resolve_namespace_qualified_symbol(node)
+                {
+                    let symbol = self.symbols.get(symbol_id)?;
+                    if symbol.is_type() {
+                        return None;
+                    }
+                }
+                if !self.is_valid_lvalue(node) {
+                    return None;
+                }
+            }
+            SyntaxKind::ThisExpr | SyntaxKind::SuperExpr => {}
+            _ if self.is_valid_lvalue(node) => {}
             _ => return None,
         };
+
+        let type_id = self.expr().check_expression(node);
 
         (type_id != TypeId::UNKNOWN).then_some(type_id)
     }
