@@ -8,8 +8,9 @@ use crate::value::{
     DateTimeProfile, DateTimeValue, DateValue, Duration, EnumValue, LDateTimeValue, LDateValue,
     LTimeOfDayValue, TimeOfDayValue, Value,
 };
+use trust_hir::symbols::SymbolTable;
 use trust_hir::types::TypeRegistry;
-use trust_hir::TypeId;
+use trust_hir::{Type, TypeId};
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 
 use super::super::util::{direct_expr_children, first_expr_child, is_expression_kind, node_text};

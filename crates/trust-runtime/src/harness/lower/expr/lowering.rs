@@ -144,12 +144,313 @@ fn lower_sizeof_expr(
         .children()
         .find(|child| is_expression_kind(child.kind()))
     {
-        let expr = lower_expr(&expr_node, ctx)?;
-        return Ok(Expr::SizeOf(crate::program_model::SizeOfTarget::Expr(
-            Box::new(expr),
-        )));
+        let type_id = lower_sizeof_operand_type(&expr_node, ctx)?;
+        return Ok(Expr::SizeOf(crate::program_model::SizeOfTarget::Type(type_id)));
     }
     Err(CompileError::new("SIZEOF expects a type or expression"))
+}
+
+fn lower_sizeof_operand_type(
+    node: &SyntaxNode,
+    ctx: &mut LoweringContext<'_>,
+) -> Result<TypeId, CompileError> {
+    if node.kind() == SyntaxKind::FieldExpr {
+        if let Some(type_id) = lower_sizeof_named_type_operand(node, ctx)? {
+            return Ok(type_id);
+        }
+    }
+    if let Some(type_id) = lower_sizeof_value_operand_type(node, ctx)? {
+        return Ok(type_id);
+    }
+    if let Some(type_id) = lower_sizeof_named_type_operand(node, ctx)? {
+        return Ok(type_id);
+    }
+
+    if node.kind() == SyntaxKind::NameRef {
+        return Err(CompileError::new(format!(
+            "SIZEOF operand '{}' is neither a variable nor a type",
+            node_text(node)
+        )));
+    }
+
+    Err(CompileError::new(
+        "SIZEOF expects a type name or storage operand",
+    ))
+}
+
+fn lower_sizeof_value_operand_type(
+    node: &SyntaxNode,
+    ctx: &mut LoweringContext<'_>,
+) -> Result<Option<TypeId>, CompileError> {
+    if node.kind() == SyntaxKind::ParenExpr {
+        let Some(inner) = first_expr_child(node) else {
+            return Ok(None);
+        };
+        return lower_sizeof_value_operand_type(&inner, ctx);
+    }
+
+    if !matches!(
+        node.kind(),
+        SyntaxKind::NameRef
+            | SyntaxKind::FieldExpr
+            | SyntaxKind::IndexExpr
+            | SyntaxKind::DerefExpr
+            | SyntaxKind::ThisExpr
+            | SyntaxKind::SuperExpr
+    ) {
+        return Ok(None);
+    }
+
+    let (semantic_db, semantic_file_id) = match (ctx.semantic_db, ctx.semantic_file_id) {
+        (Some(db), Some(file_id)) => (db, file_id),
+        _ => return Ok(None),
+    };
+
+    let offset = u32::from(node.text_range().start());
+    let Some(expr_id) = semantic_db.expr_id_at_offset(semantic_file_id, offset) else {
+        return Ok(None);
+    };
+    let hir_type_id = semantic_db.type_of(semantic_file_id, expr_id);
+    if hir_type_id == TypeId::UNKNOWN {
+        return Ok(None);
+    }
+
+    let analysis = semantic_db.analyze(semantic_file_id);
+    let Some(hir_type) = analysis.symbols.type_by_id(hir_type_id) else {
+        return Ok(None);
+    };
+    if matches!(
+        hir_type,
+        Type::Unknown
+            | Type::Any
+            | Type::AnyDerived
+            | Type::AnyElementary
+            | Type::AnyMagnitude
+            | Type::AnyInt
+            | Type::AnyUnsigned
+            | Type::AnySigned
+            | Type::AnyReal
+            | Type::AnyNum
+            | Type::AnyDuration
+            | Type::AnyBit
+            | Type::AnyChars
+            | Type::AnyString
+            | Type::AnyChar
+            | Type::AnyDate
+    ) {
+        return Ok(None);
+    }
+    let runtime_type_id = import_hir_type_to_runtime(ctx.registry, analysis.symbols.as_ref(), hir_type_id)?;
+    Ok(Some(runtime_type_id))
+}
+
+fn lower_sizeof_named_type_operand(
+    node: &SyntaxNode,
+    ctx: &mut LoweringContext<'_>,
+) -> Result<Option<TypeId>, CompileError> {
+    if node.kind() == SyntaxKind::ParenExpr {
+        let Some(inner) = first_expr_child(node) else {
+            return Ok(None);
+        };
+        return lower_sizeof_named_type_operand(&inner, ctx);
+    }
+
+    match node.kind() {
+        SyntaxKind::NameRef => {
+            let resolved = resolve_type_name_from_operand(&node_text(node), ctx)?;
+            Ok(resolved)
+        }
+        SyntaxKind::FieldExpr => {
+            let Some(qualified) = qualified_type_operand_name(node) else {
+                return Ok(None);
+            };
+            let resolved = resolve_type_name_from_operand(&qualified, ctx)?;
+            Ok(resolved)
+        }
+        _ => Ok(None),
+    }
+}
+
+fn resolve_type_name_from_operand(
+    name: &str,
+    ctx: &mut LoweringContext<'_>,
+) -> Result<Option<TypeId>, CompileError> {
+    if let Some(type_id) = ctx.registry.lookup(name) {
+        return Ok(Some(type_id));
+    }
+    if name.contains('.') {
+        return Ok(None);
+    }
+    match resolve_type_name(name, ctx) {
+        Ok(type_id) => Ok(Some(type_id)),
+        Err(_) => Ok(None),
+    }
+}
+
+fn qualified_type_operand_name(node: &SyntaxNode) -> Option<String> {
+    match node.kind() {
+        SyntaxKind::NameRef => Some(node_text(node)),
+        SyntaxKind::FieldExpr => {
+            let exprs = direct_expr_children(node);
+            let target = exprs.first()?;
+            let prefix = qualified_type_operand_name(target)?;
+            let field = node
+                .children()
+                .find(|child| matches!(child.kind(), SyntaxKind::Name | SyntaxKind::Literal))?;
+            Some(format!("{prefix}.{}", node_text(&field)))
+        }
+        SyntaxKind::ParenExpr => {
+            let inner = first_expr_child(node)?;
+            qualified_type_operand_name(&inner)
+        }
+        _ => None,
+    }
+}
+
+fn import_hir_type_to_runtime(
+    registry: &mut TypeRegistry,
+    symbols: &SymbolTable,
+    hir_type_id: TypeId,
+) -> Result<TypeId, CompileError> {
+    if hir_type_id.builtin_name().is_some() {
+        return Ok(hir_type_id);
+    }
+
+    let Some(type_name) = symbols.type_name(hir_type_id) else {
+        return Err(CompileError::new("unable to resolve SIZEOF operand type"));
+    };
+    if let Some(existing) = registry.lookup(type_name.as_str()) {
+        return Ok(existing);
+    }
+
+    let hir_type = symbols
+        .type_by_id(hir_type_id)
+        .ok_or_else(|| CompileError::new("unable to resolve SIZEOF operand type"))?
+        .clone();
+
+    match hir_type {
+        Type::Alias { name, target } => {
+            let target = import_hir_type_to_runtime(registry, symbols, target)?;
+            Ok(registry.register(name.clone(), Type::Alias { name, target }))
+        }
+        Type::Struct { name, fields } => {
+            let mut lowered = Vec::with_capacity(fields.len());
+            for field in fields {
+                lowered.push(trust_hir::types::StructField {
+                    name: field.name,
+                    type_id: import_hir_type_to_runtime(registry, symbols, field.type_id)?,
+                    address: field.address,
+                });
+            }
+            Ok(registry.register_struct(name, lowered))
+        }
+        Type::Union { name, variants } => {
+            let mut lowered = Vec::with_capacity(variants.len());
+            for variant in variants {
+                lowered.push(trust_hir::types::UnionVariant {
+                    name: variant.name,
+                    type_id: import_hir_type_to_runtime(registry, symbols, variant.type_id)?,
+                    address: variant.address,
+                });
+            }
+            Ok(registry.register_union(name, lowered))
+        }
+        Type::Enum { name, base, values } => {
+            let base = import_hir_type_to_runtime(registry, symbols, base)?;
+            Ok(registry.register_enum(name, base, values))
+        }
+        Type::Array {
+            element,
+            dimensions,
+        } => {
+            let element = import_hir_type_to_runtime(registry, symbols, element)?;
+            Ok(registry.register_array(element, dimensions))
+        }
+        Type::Pointer { target } => {
+            let target = import_hir_type_to_runtime(registry, symbols, target)?;
+            Ok(registry.register_pointer(target))
+        }
+        Type::Reference { target } => {
+            let target = import_hir_type_to_runtime(registry, symbols, target)?;
+            Ok(registry.register_reference(target))
+        }
+        Type::Subrange { base, lower, upper } => {
+            let base = import_hir_type_to_runtime(registry, symbols, base)?;
+            let name = format!(
+                "{}({lower}..{upper})",
+                registry
+                    .type_name(base)
+                    .unwrap_or_else(|| smol_str::SmolStr::new("UNKNOWN"))
+            );
+            Ok(registry.register(name, Type::Subrange { base, lower, upper }))
+        }
+        Type::String {
+            max_len: Some(max_len),
+        } => Ok(registry.register_string_with_length(max_len)),
+        Type::WString {
+            max_len: Some(max_len),
+        } => Ok(registry.register_wstring_with_length(max_len)),
+        Type::FunctionBlock { name } => Ok(registry
+            .lookup(name.as_str())
+            .unwrap_or_else(|| registry.register(name.clone(), Type::FunctionBlock { name }))),
+        Type::Class { name } => Ok(registry
+            .lookup(name.as_str())
+            .unwrap_or_else(|| registry.register(name.clone(), Type::Class { name }))),
+        Type::Interface { name } => Ok(registry
+            .lookup(name.as_str())
+            .unwrap_or_else(|| registry.register(name.clone(), Type::Interface { name }))),
+        Type::Unknown => Ok(TypeId::UNKNOWN),
+        other => {
+            let name = type_name_for_anonymous_hir_type(registry, &other);
+            Ok(registry.register(name, other))
+        }
+    }
+}
+
+fn type_name_for_anonymous_hir_type(registry: &TypeRegistry, ty: &Type) -> String {
+    match ty {
+        Type::String {
+            max_len: Some(max_len),
+        } => format!("STRING[{max_len}]"),
+        Type::WString {
+            max_len: Some(max_len),
+        } => format!("WSTRING[{max_len}]"),
+        Type::Pointer { target } => format!(
+            "POINTER TO {}",
+            registry
+                .type_name(*target)
+                .unwrap_or_else(|| smol_str::SmolStr::new("?"))
+        ),
+        Type::Reference { target } => format!(
+            "REF_TO {}",
+            registry
+                .type_name(*target)
+                .unwrap_or_else(|| smol_str::SmolStr::new("?"))
+        ),
+        Type::Array {
+            element,
+            dimensions,
+        } => {
+            let dims = dimensions
+                .iter()
+                .map(|(lower, upper)| {
+                    if *lower == 0 && *upper == i64::MAX {
+                        "*".to_string()
+                    } else {
+                        format!("{lower}..{upper}")
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!(
+                "ARRAY[{dims}] OF {}",
+                registry
+                    .type_name(*element)
+                    .unwrap_or_else(|| smol_str::SmolStr::new("?"))
+            )
+        }
+        _ => format!("{ty:?}"),
+    }
 }
 
 fn lower_call_expr(node: &SyntaxNode, ctx: &mut LoweringContext<'_>) -> Result<Expr, CompileError> {

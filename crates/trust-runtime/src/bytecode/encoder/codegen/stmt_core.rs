@@ -260,9 +260,7 @@ fn expr_contains_call(expr: &crate::program_model::Expr) -> bool {
         }
         Expr::Field { target, .. } => expr_contains_call(target),
         Expr::Ref(lvalue) => lvalue_contains_call(lvalue),
-        Expr::Deref(expr) | Expr::SizeOf(crate::program_model::SizeOfTarget::Expr(expr)) => {
-            expr_contains_call(expr)
-        }
+        Expr::Deref(expr) => expr_contains_call(expr),
         Expr::SizeOf(crate::program_model::SizeOfTarget::Type(_))
         | Expr::Literal(_)
         | Expr::This

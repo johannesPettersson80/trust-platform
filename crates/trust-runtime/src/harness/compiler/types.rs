@@ -18,6 +18,8 @@ pub(crate) fn lower_type_decls(
     syntax: &SyntaxNode,
     registry: &mut trust_hir::types::TypeRegistry,
     profile: DateTimeProfile,
+    semantic_db: &dyn trust_hir::db::SemanticDatabase,
+    semantic_file_id: trust_hir::db::FileId,
     file_id: u32,
     statement_locations: &mut Vec<SourceLocation>,
 ) -> Result<(), CompileError> {
@@ -25,7 +27,15 @@ pub(crate) fn lower_type_decls(
         .descendants()
         .filter(|child| child.kind() == SyntaxKind::TypeDecl)
     {
-        lower_type_decl_node(&type_decl, registry, profile, file_id, statement_locations)?;
+        lower_type_decl_node(
+            &type_decl,
+            registry,
+            profile,
+            semantic_db,
+            semantic_file_id,
+            file_id,
+            statement_locations,
+        )?;
     }
     Ok(())
 }
@@ -89,6 +99,8 @@ fn lower_type_decl_node(
     node: &SyntaxNode,
     registry: &mut trust_hir::types::TypeRegistry,
     profile: DateTimeProfile,
+    semantic_db: &dyn trust_hir::db::SemanticDatabase,
+    semantic_file_id: trust_hir::db::FileId,
     file_id: u32,
     statement_locations: &mut Vec<SourceLocation>,
 ) -> Result<(), CompileError> {
@@ -98,6 +110,8 @@ fn lower_type_decl_node(
         profile,
         using,
         file_id,
+        semantic_db: Some(semantic_db),
+        semantic_file_id: Some(semantic_file_id),
         statement_locations,
         compile_time_consts: Default::default(),
     };

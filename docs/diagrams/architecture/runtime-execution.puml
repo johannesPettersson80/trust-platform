@@ -81,6 +81,17 @@ package "Execution Engine" as backendPkg #LightYellow {
     vmDispatch ..> vmDispatchRefs
     vmDispatch ..> vmDispatchSizeOf
     vmDispatch ..> runtime : resolve vm debug source labels/offsets
+
+    note right of vmDispatchSizeOf
+        ST lowering resolves `SIZEOF(...)`
+        operands to static types before
+        bytecode emit.
+
+        Production codegen emits
+        `SIZEOF_TYPE`; legacy
+        `SIZEOF_VALUE` remains only for
+        compatibility / negative-path tests.
+    end note
 }
 
 ' ============================================================

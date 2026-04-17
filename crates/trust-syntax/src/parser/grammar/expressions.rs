@@ -271,10 +271,7 @@ impl Parser<'_, '_> {
                     if self.current().is_type_keyword()
                         || matches!(
                             self.current(),
-                            TokenKind::Ident
-                                | TokenKind::KwArray
-                                | TokenKind::KwPointer
-                                | TokenKind::KwRefTo
+                            TokenKind::KwArray | TokenKind::KwPointer | TokenKind::KwRefTo
                         )
                     {
                         self.parse_type_ref();

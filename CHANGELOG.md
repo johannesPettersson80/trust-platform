@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.17.0`
+Target release: `v0.17.1`
 
 ### Fixed
 
@@ -25,6 +25,15 @@ Target release: `v0.17.0`
   `TYPE ... END_TYPE` blocks so cross-file POU member access surfaces like
   `FB_Accumulator`, `ST_PumpCommand`, and `ST_PumpStatus` analyze correctly.
 - Typed conversion calls no longer misclassify an outer positional argument as a named/formal argument when the nested inner call uses `IN := ...`, so expressions like `UDINT_TO_REAL(DWORD_TO_UDINT(IN := x))` type-check correctly again.
+- `SIZEOF(...)` now resolves the static type of an explicit type name or
+  storage operand (`var`, field/index access, dereference, `THIS.field`) during
+  analysis/lowering instead of evaluating a runtime value, so `SIZEOF(var)` now
+  works in normal expressions and constant contexts like
+  `ARRAY[0..SIZEOF(packet)-1]`, bare-name lookup follows CODESYS-style
+  variable-before-type shadowing, and invalid forms such as `SIZEOF(call)`,
+  arithmetic expressions, open arrays, unsized strings, and whole
+  FB/class/interface instances fail deterministically during build instead of
+  lowering to the legacy `SIZEOF_VALUE` path.
 
 ### Added
 

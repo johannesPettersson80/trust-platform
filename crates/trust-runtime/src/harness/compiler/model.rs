@@ -8,6 +8,7 @@ use crate::program_model::Expr;
 use crate::program_model::VarDef;
 use crate::task::ProgramDef;
 use crate::value::{DateTimeProfile, Value};
+use trust_hir::db::{FileId, SemanticDatabase};
 use trust_hir::TypeId;
 
 use super::super::types::CompileError;
@@ -105,8 +106,56 @@ pub(crate) struct LoweringContext<'a> {
     pub(crate) profile: DateTimeProfile,
     pub(crate) using: Vec<SmolStr>,
     pub(crate) file_id: u32,
+    pub(crate) semantic_db: Option<&'a dyn SemanticDatabase>,
+    pub(crate) semantic_file_id: Option<FileId>,
     pub(crate) statement_locations: &'a mut Vec<SourceLocation>,
     pub(crate) compile_time_consts: CompileTimeConsts,
+}
+
+pub(crate) struct LoweringInputs<'a> {
+    pub(crate) profile: DateTimeProfile,
+    pub(crate) file_id: u32,
+    pub(crate) semantic_db: Option<&'a dyn SemanticDatabase>,
+    pub(crate) semantic_file_id: Option<FileId>,
+    pub(crate) statement_locations: &'a mut Vec<SourceLocation>,
+    pub(crate) compile_time_consts: CompileTimeConsts,
+}
+
+impl<'a> LoweringInputs<'a> {
+    pub(crate) fn new(
+        profile: DateTimeProfile,
+        file_id: u32,
+        semantic_db: Option<&'a dyn SemanticDatabase>,
+        semantic_file_id: Option<FileId>,
+        statement_locations: &'a mut Vec<SourceLocation>,
+        compile_time_consts: CompileTimeConsts,
+    ) -> Self {
+        Self {
+            profile,
+            file_id,
+            semantic_db,
+            semantic_file_id,
+            statement_locations,
+            compile_time_consts,
+        }
+    }
+
+    pub(crate) fn context<'b>(
+        &'b mut self,
+        registry: &'b mut trust_hir::types::TypeRegistry,
+        using: Vec<SmolStr>,
+    ) -> LoweringContext<'b> {
+        LoweringContext {
+            registry,
+            profile: self.profile,
+            using,
+            file_id: self.file_id,
+            semantic_db: self.semantic_db,
+            semantic_file_id: self.semantic_file_id,
+            statement_locations: &mut *self.statement_locations,
+            compile_time_consts: self.compile_time_consts.clone(),
+        }
+    }
 }
 
 impl LoweringContext<'_> {
@@ -126,9 +175,12 @@ impl LoweringContext<'_> {
     }
 
     pub(crate) fn eval_compile_time_const_expr(&self, expr: &Expr) -> Result<Value, CompileError> {
-        crate::helper_eval::eval_const_expr_with_resolver(expr, &self.profile, &|name| {
-            self.lookup_compile_time_const(name)
-        })
+        crate::helper_eval::eval_const_expr_with_resolver_and_registry(
+            expr,
+            &self.profile,
+            self.registry,
+            &|name| self.lookup_compile_time_const(name),
+        )
         .map_err(|err| CompileError::new(err.to_string()))
     }
 }

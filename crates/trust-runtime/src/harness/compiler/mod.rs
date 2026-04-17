@@ -13,7 +13,7 @@ pub(super) use config::{
 };
 pub(super) use model::{
     AccessDecl, AccessPart, AccessPath, CompileTimeConsts, ConfigInit, GlobalInit, LoweringContext,
-    ProgramInstanceConfig, ResolvedAccess, WildcardRequirement,
+    LoweringInputs, ProgramInstanceConfig, ResolvedAccess, WildcardRequirement,
 };
 pub(super) use pou::{
     lower_classes, lower_function_blocks, lower_functions, lower_interfaces, lower_programs,

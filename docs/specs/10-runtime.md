@@ -633,11 +633,16 @@ pub enum StmtResult {
 | Parentheses | `ParenExpr` | `(expr)` |
 | This | `ThisExpr` | `THIS` |
 | Super | `SuperExpr` | `SUPER` |
-| Sizeof | `SizeOfExpr` | `SIZEOF(type)` |
+| Sizeof | `SizeOfExpr` | `SIZEOF(type | storage)` |
 
 **REF operator** (IEC 61131-3 Ed.3 §6.4.4.10.3):
 - `REF(var)` returns a reference to a declared variable or instance.
 - Applying `REF` to temporary variables (VAR_TEMP or function-local temporaries) is not permitted.
+
+**SIZEOF operator** (vendor extension, see `DEV-016`):
+- `SIZEOF(...)` accepts either an explicit type reference or a storage operand (`name`, field/index access, dereference, `THIS.field`).
+- The operand is not evaluated; `SIZEOF(...)` resolves the operand's static type and returns a `DINT` byte count.
+- Bare names resolve variables before types. Unsupported operands (for example calls or arithmetic expressions) and unsupported/unsized storage types are rejected during analysis.
 
 #### 6.2 Operator Precedence
 
@@ -3079,6 +3084,11 @@ field_expr = expression '.' name ;
 addr_expr = 'ADR' '(' expression ')' ;
 
 sizeof_expr = 'SIZEOF' '(' (type_ref | expression) ')' ;
+
+(* Semantic restriction: the parser accepts the general expression arm so the
+   analyzer can emit precise diagnostics, but valid operands are limited to
+   explicit type references or storage expressions. Calls and arithmetic
+   expressions are rejected semantically. *)
 
 (* Operator Precedence - Pratt Parser *)
 (* 1. OR (lowest)

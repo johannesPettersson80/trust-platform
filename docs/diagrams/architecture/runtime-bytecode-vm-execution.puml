@@ -33,6 +33,12 @@ note right of vmModuleState
     prepared when the VmModule is built.
     CALL_NATIVE does not need to split
     raw symbol strings every cycle.
+
+    `SIZEOF(...)` operands are resolved to
+    static types before ST bytecode emit.
+    Production codegen emits `SIZEOF_TYPE`
+    only; legacy `SIZEOF_VALUE` exists for
+    compatibility / negative-path coverage.
 end note
 
 package "Program / FB Execution Inside VM" as vmExecPkg #LightCyan {

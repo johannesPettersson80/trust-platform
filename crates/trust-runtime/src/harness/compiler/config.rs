@@ -14,8 +14,8 @@ use super::super::util::{
 };
 use super::lower_type_ref;
 use super::model::{
-    AccessDecl, AccessPart, AccessPath, CompileTimeConsts, ConfigInit, ConfigModel, FbTaskBinding,
-    GlobalInit, LoweringContext, ProgramInstanceConfig,
+    AccessDecl, AccessPart, AccessPath, ConfigInit, ConfigModel, FbTaskBinding, GlobalInit,
+    LoweringContext, LoweringInputs, ProgramInstanceConfig,
 };
 use super::vars::{parse_var_decl, var_block_kind, var_block_qualifiers, VarBlockKind};
 
@@ -28,22 +28,12 @@ include!("config/resolve.rs");
 pub(crate) fn lower_root_global_var_blocks(
     node: &SyntaxNode,
     registry: &mut trust_hir::types::TypeRegistry,
-    profile: crate::value::DateTimeProfile,
-    compile_time_consts: &mut CompileTimeConsts,
-    file_id: u32,
-    statement_locations: &mut Vec<crate::debug::SourceLocation>,
+    inputs: &mut LoweringInputs<'_>,
 ) -> Result<Vec<GlobalInit>, CompileError> {
     let using = collect_using_directives(node);
-    let mut ctx = LoweringContext {
-        registry,
-        profile,
-        using,
-        file_id,
-        statement_locations,
-        compile_time_consts: compile_time_consts.clone(),
-    };
+    let mut ctx = inputs.context(registry, using);
     let globals = lower_root_global_var_blocks_in_scope(node, &mut ctx)?;
-    *compile_time_consts = ctx.compile_time_consts.clone();
+    inputs.compile_time_consts = ctx.compile_time_consts.clone();
     Ok(globals)
 }
 

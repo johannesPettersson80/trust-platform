@@ -8,8 +8,8 @@ use crate::program_model::{
 };
 use crate::stdlib::{conversions, StandardLibrary, StdParams};
 use crate::value::{
-    parse_partial_access, read_partial_access, size_of_type, size_of_value, DateTimeProfile,
-    PartialAccessError, SizeOfError, Value,
+    parse_partial_access, read_partial_access, size_of_type, DateTimeProfile, PartialAccessError,
+    SizeOfError, Value,
 };
 
 use super::storage_lvalue::read_storage_lvalue;
@@ -501,27 +501,16 @@ fn bind_stdlib_named_args_variadic(
 }
 
 fn eval_size_of(
-    storage: &VariableStorage,
+    _storage: &VariableStorage,
     registry: &TypeRegistry,
-    profile: &DateTimeProfile,
-    current_instance: Option<InstanceId>,
-    stdlib: Option<&StandardLibrary>,
+    _profile: &DateTimeProfile,
+    _current_instance: Option<InstanceId>,
+    _stdlib: Option<&StandardLibrary>,
     target: &SizeOfTarget,
 ) -> Result<Value, RuntimeError> {
     let size = match target {
         SizeOfTarget::Type(type_id) => {
             size_of_type(*type_id, registry).map_err(size_error_to_runtime)?
-        }
-        SizeOfTarget::Expr(expr) => {
-            let value = eval_storage_expr_with_stdlib(
-                storage,
-                registry,
-                profile,
-                current_instance,
-                stdlib,
-                expr,
-            )?;
-            size_of_value(registry, &value).map_err(size_error_to_runtime)?
         }
     };
     let size = i32::try_from(size).map_err(|_| RuntimeError::Overflow)?;

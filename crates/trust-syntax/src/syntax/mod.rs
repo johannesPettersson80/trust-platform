@@ -244,7 +244,7 @@ macro_rules! define_syntax_kind {
             /// Address-of: `ADR(var)`
             AddrExpr,
 
-            /// Sizeof: `SIZEOF(type)`
+            /// Sizeof: `SIZEOF(type | storage)`
             SizeOfExpr,
 
             /// Name reference (variable, constant, etc.)

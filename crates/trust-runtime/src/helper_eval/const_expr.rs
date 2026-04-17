@@ -3,7 +3,8 @@ use std::fmt;
 use crate::error::RuntimeError;
 use crate::program_model::ops::{apply_binary, apply_unary};
 use crate::program_model::Expr;
-use crate::value::{DateTimeProfile, Value};
+use crate::value::{size_of_type, DateTimeProfile, SizeOfError, Value};
+use trust_hir::types::TypeRegistry;
 
 #[derive(Debug)]
 pub(crate) enum ConstExprError {
@@ -40,6 +41,16 @@ pub(crate) fn eval_const_expr_with_resolver(
     profile: &DateTimeProfile,
     resolve_name: &impl Fn(&str) -> Option<Value>,
 ) -> Result<Value, ConstExprError> {
+    let registry = TypeRegistry::new();
+    eval_const_expr_with_resolver_and_registry(expr, profile, &registry, resolve_name)
+}
+
+pub(crate) fn eval_const_expr_with_resolver_and_registry(
+    expr: &Expr,
+    profile: &DateTimeProfile,
+    registry: &TypeRegistry,
+    resolve_name: &impl Fn(&str) -> Option<Value>,
+) -> Result<Value, ConstExprError> {
     if let Some(name) = qualified_const_name(expr) {
         if let Some(value) = resolve_name(&name) {
             return Ok(value);
@@ -53,12 +64,28 @@ pub(crate) fn eval_const_expr_with_resolver(
             Ok(apply_unary(*op, value)?)
         }
         Expr::Binary { op, left, right } => {
-            let left = eval_const_expr_with_resolver(left, profile, resolve_name)?;
-            let right = eval_const_expr_with_resolver(right, profile, resolve_name)?;
+            let left =
+                eval_const_expr_with_resolver_and_registry(left, profile, registry, resolve_name)?;
+            let right =
+                eval_const_expr_with_resolver_and_registry(right, profile, registry, resolve_name)?;
             Ok(apply_binary(*op, left, right, profile)?)
+        }
+        Expr::SizeOf(crate::program_model::SizeOfTarget::Type(type_id)) => {
+            let size = size_of_type(*type_id, registry).map_err(size_error_to_const)?;
+            let size =
+                i32::try_from(size).map_err(|_| ConstExprError::Runtime(RuntimeError::Overflow))?;
+            Ok(Value::DInt(size))
         }
         _ => Err(ConstExprError::UnsupportedExpr),
     }
+}
+
+fn size_error_to_const(err: SizeOfError) -> ConstExprError {
+    let runtime = match err {
+        SizeOfError::Overflow => RuntimeError::Overflow,
+        SizeOfError::UnknownType | SizeOfError::UnsupportedType => RuntimeError::TypeMismatch,
+    };
+    ConstExprError::Runtime(runtime)
 }
 
 fn qualified_const_name(expr: &Expr) -> Option<String> {

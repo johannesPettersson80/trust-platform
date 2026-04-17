@@ -12,5 +12,7 @@ mod control_flow_and_calls;
 mod parameter_constant_qualifier;
 #[path = "semantic_type_checking/pointer_param_write_through.rs"]
 mod pointer_param_write_through;
+#[path = "semantic_type_checking/sizeof_semantics.rs"]
+mod sizeof_semantics;
 #[path = "semantic_type_checking/types_and_references.rs"]
 mod types_and_references;

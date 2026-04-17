@@ -8,7 +8,6 @@ fn expr_supported(expr: &crate::program_model::Expr) -> bool {
         Expr::Name(_) => true,
         Expr::This | Expr::Super => true,
         Expr::SizeOf(crate::program_model::SizeOfTarget::Type(_)) => true,
-        Expr::SizeOf(crate::program_model::SizeOfTarget::Expr(expr)) => expr_supported(expr),
         Expr::Field { target, field: _ } => expr_supported(target),
         Expr::Index { target, indices } => {
             expr_supported(target) && indices.iter().all(expr_supported)

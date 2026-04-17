@@ -20,6 +20,12 @@ pub fn size_of_type(type_id: TypeId, registry: &TypeRegistry) -> Result<u64, Siz
             element,
             dimensions,
         } => {
+            if dimensions
+                .iter()
+                .any(|(lower, upper)| *lower == 0 && *upper == i64::MAX)
+            {
+                return Err(SizeOfError::UnsupportedType);
+            }
             let element_size = size_of_type(*element, registry)?;
             let len = array_len_bits(dimensions).ok_or(SizeOfError::UnsupportedType)?;
             element_size.checked_mul(len).ok_or(SizeOfError::Overflow)

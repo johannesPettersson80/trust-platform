@@ -1,21 +1,11 @@
 fn lower_program_node(
     program_node: &SyntaxNode,
     registry: &mut trust_hir::types::TypeRegistry,
-    profile: DateTimeProfile,
-    compile_time_consts: &CompileTimeConsts,
-    file_id: u32,
-    statement_locations: &mut Vec<crate::debug::SourceLocation>,
+    inputs: &mut LoweringInputs<'_>,
 ) -> Result<LoweredProgram, CompileError> {
     let name = qualified_pou_name(program_node)?;
     let using = collect_using_directives(program_node);
-    let mut ctx = LoweringContext {
-        registry,
-        profile,
-        using,
-        file_id,
-        statement_locations,
-        compile_time_consts: compile_time_consts.clone(),
-    };
+    let mut ctx = inputs.context(registry, using);
     let vars = lower_program_var_blocks(program_node, &mut ctx)?;
     let body = lower_stmt_list(program_node, &mut ctx)?;
     Ok(LoweredProgram {
@@ -200,6 +190,8 @@ fn lower_method_node(
         profile: ctx.profile,
         using,
         file_id: ctx.file_id,
+        semantic_db: ctx.semantic_db,
+        semantic_file_id: ctx.semantic_file_id,
         statement_locations: ctx.statement_locations,
         compile_time_consts: ctx.compile_time_consts.clone(),
     };

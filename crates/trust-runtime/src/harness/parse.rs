@@ -56,6 +56,8 @@ pub fn parse_debug_expression(
         profile,
         using: using.to_vec(),
         file_id: 0,
+        semantic_db: None,
+        semantic_file_id: None,
         statement_locations: &mut statement_locations,
         compile_time_consts: Default::default(),
     };
@@ -109,6 +111,8 @@ pub fn parse_debug_lvalue(
         profile,
         using: using.to_vec(),
         file_id: 0,
+        semantic_db: None,
+        semantic_file_id: None,
         statement_locations: &mut statement_locations,
         compile_time_consts: Default::default(),
     };

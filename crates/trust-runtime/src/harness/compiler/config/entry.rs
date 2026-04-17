@@ -1,10 +1,7 @@
 pub(crate) fn lower_configuration(
     syntax: &SyntaxNode,
     registry: &mut trust_hir::types::TypeRegistry,
-    profile: crate::value::DateTimeProfile,
-    compile_time_consts: &CompileTimeConsts,
-    file_id: u32,
-    statement_locations: &mut Vec<crate::debug::SourceLocation>,
+    inputs: &mut LoweringInputs<'_>,
 ) -> Result<Option<ConfigModel>, CompileError> {
     let configs: Vec<SyntaxNode> = syntax
         .descendants()
@@ -20,14 +17,7 @@ pub(crate) fn lower_configuration(
     }
     let config = configs[0].clone();
     let using = collect_using_directives(&config);
-    let mut ctx = LoweringContext {
-        registry,
-        profile,
-        using,
-        file_id,
-        statement_locations,
-        compile_time_consts: compile_time_consts.clone(),
-    };
+    let mut ctx = inputs.context(registry, using);
     let mut globals = Vec::new();
     let mut tasks = Vec::new();
     let mut programs = Vec::new();

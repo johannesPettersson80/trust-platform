@@ -12,3 +12,5 @@ Status: In Progress
 - [x] `ARCH-VM-06` Refresh the runtime execution/debug/system diagrams after removing the production interpreter backend so they show direct VM dispatch plus `helper_eval` helper flows.
 - [x] `ARCH-HIR-01` Refresh the HIR semantics architecture diagram so the Salsa query flow shows `file_type_prelude_query`, `project_type_catalog_query`, and project-aware `file_symbols_query` as the source of cross-file type visibility.
 - [x] `ARCH-HIR-02` Regenerate the PlantUML outputs and refresh `docs/diagrams/manifest.json` after the project type catalog refactor.
+- [x] `ARCH-VM-07` Refresh the runtime execution diagrams so the shipped `SIZEOF` contract shows compile-time/static-type lowering and no longer presents `SIZEOF_VALUE` as part of normal ST codegen.
+- [x] `ARCH-VM-08` Regenerate the PlantUML outputs and refresh `docs/diagrams/manifest.json` after the `SIZEOF` contract update.

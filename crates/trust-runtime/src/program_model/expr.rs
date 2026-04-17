@@ -42,7 +42,6 @@ pub enum Expr {
 #[derive(Debug, Clone)]
 pub enum SizeOfTarget {
     Type(trust_hir::TypeId),
-    Expr(Box<Expr>),
 }
 
 /// Assignment target.

@@ -47,6 +47,12 @@ fn sizeof_type_from_table_inner(
             max_length,
         } => sizeof_primitive_type(*prim_id, *max_length),
         TypeData::Array { elem_type_id, dims } => {
+            if dims
+                .iter()
+                .any(|(lower, upper)| *lower == 0 && *upper == i64::MAX)
+            {
+                return Err(RuntimeError::TypeMismatch);
+            }
             let elem_size = sizeof_type_from_table_inner(types, *elem_type_id, stack)?;
             let len = type_array_len(dims).ok_or(RuntimeError::TypeMismatch)?;
             elem_size.checked_mul(len).ok_or(RuntimeError::Overflow)

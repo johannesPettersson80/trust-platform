@@ -9,7 +9,7 @@ use trust_hir::db::SemanticDatabase;
 use trust_hir::{Project, SourceKey};
 use trust_syntax::parser;
 
-use super::compiler::{lower_root_global_var_blocks, CompileTimeConsts};
+use super::compiler::{lower_root_global_var_blocks, CompileTimeConsts, LoweringInputs};
 use super::config::{
     apply_config_inits, apply_globals, apply_program_retain_overrides,
     attach_fb_instances_to_tasks, attach_programs_to_tasks, ensure_wildcards_resolved,
@@ -77,6 +77,8 @@ pub(super) fn build_runtime_from_source_files(
             &syntax,
             runtime.registry_mut(),
             profile,
+            project.database(),
+            file_ids[idx],
             file_ids[idx].0,
             &mut statement_locations[idx],
         )?;
@@ -93,28 +95,31 @@ pub(super) fn build_runtime_from_source_files(
     let mut root_globals_per_file = Vec::with_capacity(parses.len());
     for (idx, parse) in parses.iter().enumerate() {
         let syntax = parse.syntax();
-        let globals = lower_root_global_var_blocks(
-            &syntax,
-            runtime.registry_mut(),
+        let mut inputs = LoweringInputs::new(
             profile,
-            &mut compile_time_consts,
             file_ids[idx].0,
+            Some(project.database()),
+            Some(file_ids[idx]),
             &mut statement_locations[idx],
-        )?;
+            std::mem::take(&mut compile_time_consts),
+        );
+        let globals = lower_root_global_var_blocks(&syntax, runtime.registry_mut(), &mut inputs)?;
+        compile_time_consts = inputs.compile_time_consts;
         root_globals_per_file.push(globals);
     }
 
     let mut interface_names = std::collections::HashSet::new();
     for (idx, parse) in parses.iter().enumerate() {
         let syntax = parse.syntax();
-        let interfaces = super::lower_interfaces(
-            &syntax,
-            runtime.registry_mut(),
+        let mut inputs = LoweringInputs::new(
             profile,
-            &compile_time_consts,
             file_ids[idx].0,
+            Some(project.database()),
+            Some(file_ids[idx]),
             &mut statement_locations[idx],
-        )?;
+            compile_time_consts.clone(),
+        );
+        let interfaces = super::lower_interfaces(&syntax, runtime.registry_mut(), &mut inputs)?;
         for interface_def in interfaces {
             let key = interface_def.name.to_ascii_uppercase();
             if !interface_names.insert(key.clone()) {
@@ -130,14 +135,15 @@ pub(super) fn build_runtime_from_source_files(
     let mut class_names = std::collections::HashSet::new();
     for (idx, parse) in parses.iter().enumerate() {
         let syntax = parse.syntax();
-        let classes = super::lower_classes(
-            &syntax,
-            runtime.registry_mut(),
+        let mut inputs = LoweringInputs::new(
             profile,
-            &compile_time_consts,
             file_ids[idx].0,
+            Some(project.database()),
+            Some(file_ids[idx]),
             &mut statement_locations[idx],
-        )?;
+            compile_time_consts.clone(),
+        );
+        let classes = super::lower_classes(&syntax, runtime.registry_mut(), &mut inputs)?;
         for class_def in classes {
             let key = class_def.name.to_ascii_uppercase();
             if !class_names.insert(key.clone()) {
@@ -153,14 +159,16 @@ pub(super) fn build_runtime_from_source_files(
     let mut function_block_names = std::collections::HashSet::new();
     for (idx, parse) in parses.iter().enumerate() {
         let syntax = parse.syntax();
-        let function_blocks = super::lower_function_blocks(
-            &syntax,
-            runtime.registry_mut(),
+        let mut inputs = LoweringInputs::new(
             profile,
-            &compile_time_consts,
             file_ids[idx].0,
+            Some(project.database()),
+            Some(file_ids[idx]),
             &mut statement_locations[idx],
-        )?;
+            compile_time_consts.clone(),
+        );
+        let function_blocks =
+            super::lower_function_blocks(&syntax, runtime.registry_mut(), &mut inputs)?;
         for fb in function_blocks {
             let key = fb.name.to_ascii_uppercase();
             if !function_block_names.insert(key.clone()) {
@@ -176,14 +184,15 @@ pub(super) fn build_runtime_from_source_files(
     let mut function_names = std::collections::HashSet::new();
     for (idx, parse) in parses.iter().enumerate() {
         let syntax = parse.syntax();
-        let functions = super::lower_functions(
-            &syntax,
-            runtime.registry_mut(),
+        let mut inputs = LoweringInputs::new(
             profile,
-            &compile_time_consts,
             file_ids[idx].0,
+            Some(project.database()),
+            Some(file_ids[idx]),
             &mut statement_locations[idx],
-        )?;
+            compile_time_consts.clone(),
+        );
+        let functions = super::lower_functions(&syntax, runtime.registry_mut(), &mut inputs)?;
         for func in functions {
             let key = func.name.to_ascii_uppercase();
             if !function_names.insert(key.clone()) {
@@ -201,14 +210,15 @@ pub(super) fn build_runtime_from_source_files(
     for (idx, parse) in parses.iter().enumerate() {
         let syntax = parse.syntax();
         globals.extend(root_globals_per_file[idx].clone());
-        let lowered = super::lower_programs(
-            &syntax,
-            runtime.registry_mut(),
+        let mut inputs = LoweringInputs::new(
             profile,
-            &compile_time_consts,
             file_ids[idx].0,
+            Some(project.database()),
+            Some(file_ids[idx]),
             &mut statement_locations[idx],
-        )?;
+            compile_time_consts.clone(),
+        );
+        let lowered = super::lower_programs(&syntax, runtime.registry_mut(), &mut inputs)?;
         for program in lowered {
             let key = program.program.name.to_ascii_uppercase();
             if program_defs.contains_key(key.as_str()) {
@@ -225,14 +235,17 @@ pub(super) fn build_runtime_from_source_files(
     let mut config_model = None;
     for (idx, parse) in parses.iter().enumerate() {
         let syntax = parse.syntax();
-        if let Some(config) = super::lower_configuration(
-            &syntax,
-            runtime.registry_mut(),
+        let mut inputs = LoweringInputs::new(
             profile,
-            &compile_time_consts,
             file_ids[idx].0,
+            Some(project.database()),
+            Some(file_ids[idx]),
             &mut statement_locations[idx],
-        )? {
+            compile_time_consts.clone(),
+        );
+        if let Some(config) =
+            super::lower_configuration(&syntax, runtime.registry_mut(), &mut inputs)?
+        {
             if config_model.is_some() {
                 return Err(CompileError::new(
                     "multiple CONFIGURATION declarations not supported",

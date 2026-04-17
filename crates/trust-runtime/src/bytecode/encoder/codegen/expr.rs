@@ -222,7 +222,7 @@ impl<'a> BytecodeEncoder<'a> {
 
     fn emit_sizeof_expr(
         &mut self,
-        ctx: &CodegenContext,
+        _ctx: &CodegenContext,
         target: &crate::program_model::SizeOfTarget,
         code: &mut Vec<u8>,
     ) -> Result<bool, BytecodeError> {
@@ -231,13 +231,6 @@ impl<'a> BytecodeEncoder<'a> {
                 let type_idx = self.type_index(*type_id)?;
                 code.push(0x60); // SIZEOF_TYPE
                 code.extend_from_slice(&type_idx.to_le_bytes());
-                Ok(true)
-            }
-            crate::program_model::SizeOfTarget::Expr(expr) => {
-                if !self.emit_expr(ctx, expr, code)? {
-                    return Ok(false);
-                }
-                code.push(0x61); // SIZEOF_VALUE
                 Ok(true)
             }
         }

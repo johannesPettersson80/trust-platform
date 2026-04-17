@@ -738,18 +738,17 @@ fn vm_opcode_positive_path_covers_string_and_wstring_index_reads() {
 }
 
 #[test]
-fn vm_opcode_positive_path_covers_sizeof_type_and_expr_forms() {
+fn vm_opcode_positive_path_covers_sizeof_type_and_storage_operands() {
     let source = r#"
         PROGRAM Main
         VAR
             out_size_type_int : DINT := DINT#0;
-            out_size_expr_s : DINT := DINT#0;
-            out_size_expr_ws : DINT := DINT#0;
+            sized : STRING[5];
+            out_size_var_s : DINT := DINT#0;
         END_VAR
 
         out_size_type_int := SIZEOF(INT);
-        out_size_expr_s := SIZEOF('HELLO');
-        out_size_expr_ws := SIZEOF("AB");
+        out_size_var_s := SIZEOF(sized);
         END_PROGRAM
     "#;
     let module = bytecode_module_from_source(source).expect("compile bytecode module");
@@ -759,8 +758,8 @@ fn vm_opcode_positive_path_covers_sizeof_type_and_expr_forms() {
         "expected SIZEOF_TYPE opcode in main body"
     );
     assert!(
-        body.contains(&0x61),
-        "expected SIZEOF_VALUE opcode in main body"
+        !body.contains(&0x61),
+        "did not expect legacy SIZEOF_VALUE opcode in main body"
     );
 
     let mut harness = vm_harness(source);
@@ -771,8 +770,7 @@ fn vm_opcode_positive_path_covers_sizeof_type_and_expr_forms() {
         cycle.errors
     );
     harness.assert_eq("out_size_type_int", 2i32);
-    harness.assert_eq("out_size_expr_s", 5i32);
-    harness.assert_eq("out_size_expr_ws", 4i32);
+    harness.assert_eq("out_size_var_s", 5i32);
 }
 
 #[test]
@@ -919,7 +917,7 @@ fn vm_validator_rejects_invalid_sizeof_type_index() {
 }
 
 #[test]
-fn vm_rejects_sizeof_expr_for_null_value() {
+fn vm_rejects_legacy_sizeof_value_opcode_with_empty_stack() {
     let source = r#"
         PROGRAM Main
         VAR

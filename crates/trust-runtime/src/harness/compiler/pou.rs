@@ -8,12 +8,11 @@ use crate::program_model::{
     VarDef,
 };
 use crate::task::ProgramDef;
-use crate::value::DateTimeProfile;
 
 use super::super::lower::{lower_expr, lower_stmt_list};
 use super::super::types::CompileError;
 use super::super::util::{collect_using_directives, namespace_qualified_name, node_text};
-use super::model::{CompileTimeConsts, GlobalInit, LoweredProgram, LoweringContext, ProgramVars};
+use super::model::{GlobalInit, LoweredProgram, LoweringContext, LoweringInputs, ProgramVars};
 use super::types::qualify_with_namespaces;
 use super::vars::{parse_var_decl, var_block_kind, var_block_qualifiers, VarBlockKind};
 use super::{lower_type_ref, resolve_named_type};

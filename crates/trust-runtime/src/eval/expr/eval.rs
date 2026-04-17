@@ -4,7 +4,7 @@ use crate::error::RuntimeError;
 use crate::eval::ops::{apply_binary, apply_unary, BinaryOp};
 use crate::eval::EvalContext;
 use crate::stdlib::{conversions, time, StdParams};
-use crate::value::{size_of_type, size_of_value, SizeOfError, Value};
+use crate::value::{size_of_type, SizeOfError, Value};
 
 use super::access::{eval_indices, read_field, read_indices, read_name};
 use super::ast::{Expr, SizeOfTarget};
@@ -198,10 +198,6 @@ fn eval_size_of(ctx: &mut EvalContext<'_>, target: &SizeOfTarget) -> Result<Valu
     let size = match target {
         SizeOfTarget::Type(type_id) => {
             size_of_type(*type_id, ctx.registry).map_err(size_error_to_runtime)?
-        }
-        SizeOfTarget::Expr(expr) => {
-            let value = eval_expr(ctx, expr)?;
-            size_of_value(ctx.registry, &value).map_err(size_error_to_runtime)?
         }
     };
     let size = i32::try_from(size).map_err(|_| RuntimeError::Overflow)?;
