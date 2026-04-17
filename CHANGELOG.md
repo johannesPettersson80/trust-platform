@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.17.1`
+Target release: `v0.18.0`
 
 ### Fixed
 
@@ -37,6 +37,11 @@ Target release: `v0.17.1`
 
 ### Added
 
+- `libraries/oscat_basic` now also ships the full Chapter 6 `Arrays` surface:
+  `_ARRAY_ABS`, `_ARRAY_ADD`, `_ARRAY_INIT`, `_ARRAY_MEDIAN`, `_ARRAY_MUL`,
+  `_ARRAY_SHUFFLE`, `_ARRAY_SORT`, `ARRAY_AVG`, `ARRAY_GAV`, `ARRAY_HAV`,
+  `ARRAY_MAX`, `ARRAY_MIN`, `ARRAY_SDV`, `ARRAY_SPR`, `ARRAY_SUM`,
+  `ARRAY_TREND`, `ARRAY_VAR`, and `IS_SORTED`.
 - `libraries/oscat_basic` now also ships the full Chapter 4 `Other Functions`
   slice: `STATUS_TO_ESR`, `OSCAT_VERSION`, `ESR_COLLECT`, `ESR_MON_B8`,
   `ESR_MON_R4`, and `ESR_MON_X8`.

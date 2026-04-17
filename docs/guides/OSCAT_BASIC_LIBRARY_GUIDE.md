@@ -20,6 +20,8 @@ current helpers from scan-driven Structured Text.
   `ESR_MON_B8`, `ESR_MON_R4`, `ESR_MON_X8`, and the shared carrier globals
 - `libraries/oscat_basic/src/05_mathematics/oscat_basic_mathematics.st`:
   scalar math helpers
+- `libraries/oscat_basic/src/06_arrays/oscat_basic_arrays.st`:
+  Chapter 6 array mutation, ordering, and statistics helpers
 - `libraries/oscat_basic/src/08_arithmetics_with_double_precision/oscat_basic_double_precision.st`:
   `R2_*` helpers
 - `libraries/oscat_basic/src/09_arithmetic_functions/oscat_basic_arithmetic_functions.st`:
@@ -266,6 +268,26 @@ The shipped Chapter 5 `Mathematics` surface is now complete.
 | `SIGMOID(X)` / `SIGN_I(IN)` / `SIGN_R(IN)` | Sigmoid and sign helpers. |
 | `SINC(X)` / `SQRTN(X, N)` / `TANC(X)` | `sin(x)/x`, nth-root, and `tan(x)/x` helpers. |
 | `WINDOW(low, in, high)` / `WINDOW2(low, in, high)` | Exclusive and inclusive range-window checks. |
+
+### Array helpers
+
+The shipped Chapter 6 `Arrays` surface is now complete.
+
+| Function | Summary |
+| --- | --- |
+| `_ARRAY_ABS(PT, SIZE)` | In-place absolute value for each `REAL` array element. |
+| `_ARRAY_ADD(PT, SIZE, X)` | In-place additive offset for each `REAL` array element. |
+| `_ARRAY_INIT(PT, SIZE, INIT)` | Fill a `REAL` array with one value. |
+| `_ARRAY_MEDIAN(PT, SIZE)` | Sort in place and return the median. |
+| `_ARRAY_MUL(PT, SIZE, X)` | In-place scalar multiply for each `REAL` array element. |
+| `_ARRAY_SHUFFLE(PT, SIZE)` | Randomly shuffle the elements in place. |
+| `_ARRAY_SORT(PT, SIZE)` | Sort a `REAL` array in ascending order. |
+| `ARRAY_AVG(PT, SIZE)` / `ARRAY_GAV(PT, SIZE)` / `ARRAY_HAV(PT, SIZE)` | Arithmetic, geometric, and harmonic means. |
+| `ARRAY_MAX(PT, SIZE)` / `ARRAY_MIN(PT, SIZE)` / `ARRAY_SPR(PT, SIZE)` | Maximum, minimum, and spread. |
+| `ARRAY_SDV(PT, SIZE)` / `ARRAY_VAR(PT, SIZE)` | Standard deviation and sample variance. |
+| `ARRAY_SUM(PT, SIZE)` | Sum all `REAL` elements. |
+| `ARRAY_TREND(PT, SIZE)` | Difference between the two half-array averages. |
+| `IS_SORTED(PT, SIZE)` | `TRUE` when the array is already ascending. |
 
 ### Time conversion helpers
 

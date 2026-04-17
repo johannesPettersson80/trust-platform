@@ -18,6 +18,11 @@ Current scope:
 - shared `LANGUAGE` direction tables with live `LANGUAGE.DIRS[...]` access
 - chapter 4 helper surface `STATUS_TO_ESR`, `OSCAT_VERSION`, `ESR_COLLECT`,
   `ESR_MON_B8`, `ESR_MON_R4`, and `ESR_MON_X8`
+- chapter 6 `Arrays` surface `_ARRAY_ABS`, `_ARRAY_ADD`, `_ARRAY_INIT`,
+  `_ARRAY_MEDIAN`, `_ARRAY_MUL`, `_ARRAY_SHUFFLE`, `_ARRAY_SORT`,
+  `ARRAY_AVG`, `ARRAY_GAV`, `ARRAY_HAV`, `ARRAY_MAX`, `ARRAY_MIN`,
+  `ARRAY_SDV`, `ARRAY_SPR`, `ARRAY_SUM`, `ARRAY_TREND`, `ARRAY_VAR`, and
+  `IS_SORTED`
 - engineering conversion helpers, direction helpers, and range helpers
 - time conversion helpers `DAY_TO_TIME`, `HOUR_TO_TIME`, `MINUTE_TO_TIME`, and `SECOND_TO_TIME`
 - calendar/date helpers such as `DATE_ADD`, `DAYS_DELTA`, `EASTER`, `MONTH_BEGIN`, `WORK_WEEK`, and `YEAR_OF_DATE`
