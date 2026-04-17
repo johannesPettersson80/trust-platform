@@ -239,6 +239,34 @@ Usage notes:
 | `RANGE_TO_WORD(X, low, high)` | Clamp and scale a real-valued range into `WORD`. |
 | `SCALE(X, K, O, MX, MN)` | Linear scale with clamp. |
 
+### Mathematical helpers
+
+The shipped Chapter 5 `Mathematics` surface is now complete.
+
+| Function | Summary |
+| --- | --- |
+| `AGDF(X)` | Inverse Gudermannian helper. |
+| `ATAN2(Y, X)` | Quadrant-aware angle in radians. |
+| `BETA(X, Y)` | Beta-function helper using the shipped `GAMMA` approximation. |
+| `BINOM(N, K)` | Binomial coefficient (`N over K`). |
+| `CAUCHY(X, T, U)` | Cauchy distribution density. |
+| `CAUCHYCD(X, T, U)` | Cauchy distribution cumulative density. |
+| `COTH(X)` | Hyperbolic cotangent. |
+| `DIFFER(in1, in2, X)` | `TRUE` when the absolute REAL delta exceeds the threshold `X`. |
+| `ERF(X)` / `ERFC(X)` | Error-function helpers. |
+| `EXPN(X, N)` | Integer-power helper for `X^N`. |
+| `FACT(X)` / `FIB(X)` | Factorial and Fibonacci helpers. |
+| `GAUSS(X, U, SI)` / `GAUSSCD(X, U, SI)` | Gaussian density and cumulative-density helpers. |
+| `GAMMA(X)` | Stirling-style approximation for the gamma function. |
+| `GCD(A, B)` / `REAL_TO_FRAC(X, N)` | Greatest-common-divisor and nearest-fraction helpers. |
+| `GDF(X)` / `GOLD(X)` | Gudermannian and golden-function helpers. |
+| `LAMBERT_W(X)` / `LANGEVIN(X)` | Lambert-W and Langevin helpers. |
+| `RDM(last)` / `RDM2(last, low, high)` / `RDMDW(last)` | OSCAT random helpers for `REAL`, bounded `INT`, and `DWORD`. |
+| `RND(X, N)` / `ROUND(IN, N)` | Truncating and rounded decimal helpers. |
+| `SIGMOID(X)` / `SIGN_I(IN)` / `SIGN_R(IN)` | Sigmoid and sign helpers. |
+| `SINC(X)` / `SQRTN(X, N)` / `TANC(X)` | `sin(x)/x`, nth-root, and `tan(x)/x` helpers. |
+| `WINDOW(low, in, high)` / `WINDOW2(low, in, high)` | Exclusive and inclusive range-window checks. |
+
 ### Time conversion helpers
 
 | Function | Summary |

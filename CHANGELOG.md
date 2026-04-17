@@ -31,6 +31,13 @@ Target release: `v0.17.0`
 - `libraries/oscat_basic` now also ships the full Chapter 4 `Other Functions`
   slice: `STATUS_TO_ESR`, `OSCAT_VERSION`, `ESR_COLLECT`, `ESR_MON_B8`,
   `ESR_MON_R4`, and `ESR_MON_X8`.
+- `libraries/oscat_basic` now also ships the full Chapter 5 `Mathematics`
+  surface, including the remaining error/distribution helpers (`ERF`, `ERFC`,
+  `GAUSS`, `GAUSSCD`), integer/sequence/fraction helpers (`EXPN`, `FACT`,
+  `FIB`, `GCD`, `REAL_TO_FRAC`), transcendental helpers (`GDF`, `GOLD`,
+  `LAMBERT_W`, `LANGEVIN`, `SIGMOID`, `SINC`, `SQRTN`, `TANC`), rounding and
+  window helpers (`RND`, `ROUND`, `WINDOW`, `WINDOW2`), and the OSCAT random
+  helpers (`RDM`, `RDM2`, `RDMDW`).
 - `libraries/oscat_basic` now also ships the first Chapter 3 data-type slice:
   `CALENDAR`, `COMPLEX`, `CONSTANTS_LOCATION`, `CONSTANTS_SETUP`, `ESR_DATA`,
   `FRACTION`, `HOLIDAY_DATA`, `REAL2`, `SDT`, `TIMER_EVENT`, and `VECTOR_3`,
