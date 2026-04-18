@@ -6,10 +6,19 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.18.3`
+Target release: `v0.18.4`
 
 ### Fixed
 
+- The ST compiler/runtime build path now closes the remaining open regression
+  cases around control-flow and declaration lowering: unqualified enum members
+  now work as `CASE` labels in end-to-end runtime/bytecode builds, aggregate
+  array declaration initializers now parse and execute for explicit, partial,
+  and repetition-count forms, struct-field access through indexed arrays stays
+  buildable on the CLI path, and bare `RETURN;` now works after assigning the
+  implicit function/method result on that path because the HIR checker tracks
+  definite assignment and the bytecode VM lowers `RETURN` instead of rejecting
+  it as a legacy C5 edge case.
 - The OSCAT runtime/compiler path now handles the full shipped OSCAT library
   more reliably: bytecode lowering resolves local instance names before global
   callable symbols, normalizes OSCAT-style identifier lookup consistently

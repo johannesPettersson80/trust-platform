@@ -38,6 +38,7 @@ pub struct TypeChecker<'a> {
     current_function_return: Option<TypeId>,
     current_pou_symbol: Option<SymbolId>,
     saw_return_value: bool,
+    return_value_definitely_assigned: bool,
     this_type: Option<TypeId>,
     super_type: Option<TypeId>,
     loop_stack: Vec<LoopContext>,

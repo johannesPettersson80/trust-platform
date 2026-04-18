@@ -206,6 +206,40 @@ END_FUNCTION
 }
 
 #[test]
+fn test_function_bare_return_allowed_after_assigning_return_target_on_same_path() {
+    check_no_errors(
+        r#"
+FUNCTION Add : DINT
+    VAR_INPUT
+        a : DINT;
+    END_VAR
+    Add := a;
+    RETURN;
+END_FUNCTION
+"#,
+    );
+}
+
+#[test]
+fn test_function_bare_return_rejected_when_return_target_not_definitely_assigned() {
+    check_has_error(
+        r#"
+FUNCTION Add : DINT
+    VAR_INPUT
+        a : DINT;
+        cond : BOOL;
+    END_VAR
+    IF cond THEN
+        Add := a;
+    END_IF;
+    RETURN;
+END_FUNCTION
+"#,
+        DiagnosticCode::MissingReturn,
+    );
+}
+
+#[test]
 fn test_array_bounds_constant_expression() {
     let mut db = Database::new();
     let file = FileId(0);

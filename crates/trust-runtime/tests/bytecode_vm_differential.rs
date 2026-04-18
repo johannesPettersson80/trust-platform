@@ -199,3 +199,41 @@ END_PROGRAM
     assert_register_path(&register.runtime().vm_register_profile_snapshot());
     assert_stack_fallback(&stack.runtime().vm_register_profile_snapshot());
 }
+
+#[test]
+fn register_and_stack_paths_match_for_unqualified_enum_case_labels() {
+    let source = r#"
+TYPE Axis : (X, Z, G)
+END_TYPE
+
+PROGRAM Main
+VAR
+    axis : Axis := Axis#Z;
+    outv : DINT := 0;
+END_VAR
+CASE axis OF
+    X: outv := 1;
+    Z: outv := 2;
+    G: outv := 3;
+END_CASE;
+END_PROGRAM
+"#;
+
+    let mut register = vm_harness(source, false);
+    let mut stack = vm_harness(source, true);
+
+    let register_cycle = register.cycle();
+    let stack_cycle = stack.cycle();
+
+    assert_eq!(register_cycle.errors, stack_cycle.errors);
+    assert!(
+        register_cycle.errors.is_empty(),
+        "register errors: {:?}",
+        register_cycle.errors
+    );
+    assert_eq!(register.get_output("outv"), stack.get_output("outv"));
+    assert_eq!(register.get_output("outv"), Some(Value::DInt(2)));
+
+    assert_register_path(&register.runtime().vm_register_profile_snapshot());
+    assert_stack_fallback(&stack.runtime().vm_register_profile_snapshot());
+}

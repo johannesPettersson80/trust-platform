@@ -197,6 +197,12 @@ IF Error THEN
 END_IF;
 ```
 
+### Rules
+
+1. `RETURN expression;` is valid for functions and methods with a return value.
+2. `RETURN;` is also valid for functions and methods when the implicit return variable has already been assigned on that control-flow path.
+3. In programs, function blocks, and procedures, `RETURN;` performs an early exit.
+
 ## 7. IF Statement (Section 7.3.3.3.2)
 
 ### Syntax
@@ -307,7 +313,7 @@ END_CASE;
 ### Rules
 
 1. Selector must be an elementary data type. (IEC 61131-3 Ed.3, 7.3.3.3.3)
-2. Case labels are literals, enumerated values, or subranges; label types must match the selector. (IEC 61131-3 Ed.3, 7.3.3.3.3; Table 72)
+2. Case labels are literals, enumerated values, or subranges; label types must match the selector. Unqualified enum members and typed enum literals (`Type#Value`) are both accepted. (IEC 61131-3 Ed.3, 7.3.3.3.3; Table 72)
 3. Ranges use `..` syntax (e.g., `1..10`); multiple values are comma-separated.
 4. ELSE executes when the selector matches no label; otherwise no statements execute (ELSE optional). (IEC 61131-3 Ed.3, 7.3.3.3.3)
 5. trust-hir warns when ELSE is omitted unless the selector is an enum and the labels cover all enum values.

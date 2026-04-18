@@ -25,7 +25,12 @@ fn lower_function_var_blocks(
             {
                 if let Some(expr) = init_expr.as_ref() {
                     let value = ctx.eval_compile_time_const_expr(expr)?;
-                    let value = crate::harness::coerce_value_to_type(value, type_id)?;
+                    let value = crate::harness::coerce_initializer_value_to_type(
+                        value,
+                        type_id,
+                        ctx.registry,
+                        &ctx.profile,
+                    )?;
                     for name in &names {
                         ctx.register_compile_time_const(name.as_str(), value.clone());
                     }

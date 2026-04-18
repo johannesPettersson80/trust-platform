@@ -214,8 +214,13 @@ fn init_param_defaults(
             Some(instance_id),
             expr,
         )?;
-        let value = crate::harness::coerce_value_to_type(value, param.type_id)
-            .map_err(|_| RuntimeError::TypeMismatch)?;
+        let value = crate::harness::coerce_initializer_value_to_type(
+            value,
+            param.type_id,
+            registry,
+            profile,
+        )
+        .map_err(|_| RuntimeError::TypeMismatch)?;
         storage.set_instance_var(instance_id, param.name.clone(), value);
     }
 
@@ -302,8 +307,9 @@ fn init_var_defaults(
             Some(instance_id),
             expr,
         )?;
-        let value = crate::harness::coerce_value_to_type(value, var.type_id)
-            .map_err(|_| RuntimeError::TypeMismatch)?;
+        let value =
+            crate::harness::coerce_initializer_value_to_type(value, var.type_id, registry, profile)
+                .map_err(|_| RuntimeError::TypeMismatch)?;
         storage.set_instance_var(instance_id, var.name.clone(), value);
     }
     Ok(())
@@ -391,8 +397,13 @@ fn init_method_static_defaults(
                 Some(instance_id),
                 expr,
             )?;
-            let value = crate::harness::coerce_value_to_type(value, local.type_id)
-                .map_err(|_| RuntimeError::TypeMismatch)?;
+            let value = crate::harness::coerce_initializer_value_to_type(
+                value,
+                local.type_id,
+                registry,
+                profile,
+            )
+            .map_err(|_| RuntimeError::TypeMismatch)?;
             let key = crate::program_model::static_storage_name(&method_owner, &local.name);
             storage.set_instance_var(instance_id, key, value);
         }

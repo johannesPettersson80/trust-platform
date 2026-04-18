@@ -40,6 +40,7 @@ impl TokenKind {
                 | Self::KwNot
                 | Self::TypedLiteralPrefix
                 | Self::LParen
+                | Self::LBracket
                 | Self::Minus
                 | Self::Plus
                 | Self::KwThis

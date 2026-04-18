@@ -127,7 +127,7 @@ impl VmModule {
         };
 
         let refs = decode_ref_table(ref_table, strings)?;
-        let consts = const_pool::decode_const_pool_entries(const_pool, types)?;
+        let consts = const_pool::decode_const_pool_entries(const_pool, types, strings)?;
         let mut native_symbol_specs = strings
             .entries
             .iter()

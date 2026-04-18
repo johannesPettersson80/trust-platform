@@ -3,7 +3,7 @@ use std::fmt;
 use crate::error::RuntimeError;
 use crate::program_model::ops::{apply_binary, apply_unary};
 use crate::program_model::Expr;
-use crate::value::{size_of_type, DateTimeProfile, SizeOfError, Value};
+use crate::value::{size_of_type, ArrayValue, DateTimeProfile, SizeOfError, Value};
 use trust_hir::types::TypeRegistry;
 
 #[derive(Debug)]
@@ -59,6 +59,14 @@ pub(crate) fn eval_const_expr_with_resolver_and_registry(
 
     match expr {
         Expr::Literal(value) => Ok(value.clone()),
+        Expr::ArrayInitializer(elements) => {
+            let values =
+                eval_array_initializer_elements(elements, profile, registry, resolve_name)?;
+            Ok(Value::Array(Box::new(ArrayValue {
+                dimensions: vec![(1, values.len() as i64)],
+                elements: values,
+            })))
+        }
         Expr::Unary { op, expr } => {
             let value = eval_const_expr_with_resolver(expr, profile, resolve_name)?;
             Ok(apply_unary(*op, value)?)
@@ -78,6 +86,69 @@ pub(crate) fn eval_const_expr_with_resolver_and_registry(
         }
         _ => Err(ConstExprError::UnsupportedExpr),
     }
+}
+
+fn eval_array_initializer_elements(
+    elements: &[Expr],
+    profile: &DateTimeProfile,
+    registry: &TypeRegistry,
+    resolve_name: &impl Fn(&str) -> Option<Value>,
+) -> Result<Vec<Value>, ConstExprError> {
+    let mut values = Vec::new();
+    for expr in elements {
+        if let Some((count, repeated_args)) = array_repeat_group(expr)? {
+            for _ in 0..count {
+                for arg in repeated_args {
+                    let crate::program_model::ArgValue::Expr(value_expr) = &arg.value else {
+                        return Err(ConstExprError::UnsupportedExpr);
+                    };
+                    values.push(eval_const_expr_with_resolver_and_registry(
+                        value_expr,
+                        profile,
+                        registry,
+                        resolve_name,
+                    )?);
+                }
+            }
+            continue;
+        }
+        values.push(eval_const_expr_with_resolver_and_registry(
+            expr,
+            profile,
+            registry,
+            resolve_name,
+        )?);
+    }
+    Ok(values)
+}
+
+fn array_repeat_group(
+    expr: &Expr,
+) -> Result<Option<(usize, &[crate::program_model::CallArg])>, ConstExprError> {
+    let Expr::Call { target, args } = expr else {
+        return Ok(None);
+    };
+    if args.iter().any(|arg| arg.name.is_some()) {
+        return Err(ConstExprError::UnsupportedExpr);
+    }
+    let count = match target.as_ref() {
+        Expr::Literal(Value::SInt(v)) => i64::from(*v),
+        Expr::Literal(Value::Int(v)) => i64::from(*v),
+        Expr::Literal(Value::DInt(v)) => i64::from(*v),
+        Expr::Literal(Value::LInt(v)) => *v,
+        Expr::Literal(Value::USInt(v)) => i64::from(*v),
+        Expr::Literal(Value::UInt(v)) => i64::from(*v),
+        Expr::Literal(Value::UDInt(v)) => i64::from(*v),
+        Expr::Literal(Value::ULInt(v)) => {
+            i64::try_from(*v).map_err(|_| ConstExprError::UnsupportedExpr)?
+        }
+        _ => return Ok(None),
+    };
+    if count < 0 {
+        return Err(ConstExprError::UnsupportedExpr);
+    }
+    let count = usize::try_from(count).map_err(|_| ConstExprError::UnsupportedExpr)?;
+    Ok(Some((count, args)))
 }
 
 fn size_error_to_const(err: SizeOfError) -> ConstExprError {

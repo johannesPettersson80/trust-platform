@@ -210,3 +210,80 @@ END_TEST_PROGRAM
 
     let _ = std::fs::remove_dir_all(project);
 }
+
+#[test]
+fn build_accepts_recent_language_regression_cases() {
+    let project = unique_temp_dir("build-regression-cases");
+    let sources = project.join("src");
+    std::fs::create_dir_all(&sources).expect("create src dir");
+    std::fs::write(
+        sources.join("main.st"),
+        r#"
+TYPE Axis : (X, Z, G)
+END_TYPE
+
+TYPE StepData :
+STRUCT
+    cyl : INT;
+    ext : BOOL;
+END_STRUCT
+END_TYPE
+
+FUNCTION ValueOrDefault : DINT
+VAR_INPUT
+    cond : BOOL;
+    value : DINT;
+END_VAR
+IF cond THEN
+    ValueOrDefault := value;
+    RETURN;
+END_IF;
+RETURN DINT#0;
+END_FUNCTION
+
+PROGRAM Main
+VAR CONSTANT
+    K : INT := 2;
+END_VAR
+VAR
+    choice : INT := 2;
+    axis : Axis := Axis#Z;
+    arr : ARRAY[1..3] OF INT := [1, 2, 3];
+    seq : ARRAY[0..1] OF StepData;
+    idx : INT := 1;
+    outv : DINT := DINT#0;
+END_VAR
+
+CASE choice OF
+    K: outv := DINT#1;
+END_CASE;
+
+CASE axis OF
+    X: outv := DINT#10;
+    Z: outv := ValueOrDefault(cond := TRUE, value := DINT#20);
+    G: outv := DINT#30;
+END_CASE;
+
+seq[idx].cyl := arr[2];
+seq[idx].ext := TRUE;
+END_PROGRAM
+"#,
+    )
+    .expect("write regression source");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .args(["build", "--project"])
+        .arg(&project)
+        .args(["--sources", "src", "--ci"])
+        .output()
+        .expect("run trust-runtime build");
+
+    assert!(
+        output.status.success(),
+        "expected build success.\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let _ = std::fs::remove_dir_all(project);
+}

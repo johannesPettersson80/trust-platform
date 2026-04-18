@@ -122,11 +122,23 @@ pub(in crate::harness) fn lower_expr(
         }
         SyntaxKind::CallExpr => lower_call_expr(node, ctx),
         SyntaxKind::SizeOfExpr => lower_sizeof_expr(node, ctx),
-        SyntaxKind::ArrayInitializer | SyntaxKind::InitializerList => {
-            Err(CompileError::new("initializer lists are not supported yet"))
-        }
+        SyntaxKind::ArrayInitializer => lower_array_initializer(node, ctx),
+        SyntaxKind::InitializerList => Err(CompileError::new("initializer lists are not supported yet")),
         _ => Err(CompileError::new("unsupported expression")),
     }
+}
+
+fn lower_array_initializer(
+    node: &SyntaxNode,
+    ctx: &mut LoweringContext<'_>,
+) -> Result<Expr, CompileError> {
+    let mut elements = Vec::new();
+    for child in node.children() {
+        if is_expression_kind(child.kind()) {
+            elements.push(lower_expr(&child, ctx)?);
+        }
+    }
+    Ok(Expr::ArrayInitializer(elements))
 }
 
 fn lower_sizeof_expr(
@@ -243,6 +255,62 @@ fn lower_sizeof_value_operand_type(
         return Ok(None);
     }
     let runtime_type_id = import_hir_type_to_runtime(ctx.registry, analysis.symbols.as_ref(), hir_type_id)?;
+    Ok(Some(runtime_type_id))
+}
+
+pub(in crate::harness) fn lower_expression_type(
+    node: &SyntaxNode,
+    ctx: &mut LoweringContext<'_>,
+) -> Result<Option<TypeId>, CompileError> {
+    if node.kind() == SyntaxKind::ParenExpr {
+        let Some(inner) = first_expr_child(node) else {
+            return Ok(None);
+        };
+        return lower_expression_type(&inner, ctx);
+    }
+
+    let (semantic_db, semantic_file_id) = match (ctx.semantic_db, ctx.semantic_file_id) {
+        (Some(db), Some(file_id)) => (db, file_id),
+        _ => return Ok(None),
+    };
+
+    let offset = u32::from(node.text_range().start());
+    let Some(expr_id) = semantic_db.expr_id_at_offset(semantic_file_id, offset) else {
+        return Ok(None);
+    };
+    let hir_type_id = semantic_db.type_of(semantic_file_id, expr_id);
+    if hir_type_id == TypeId::UNKNOWN {
+        return Ok(None);
+    }
+
+    let analysis = semantic_db.analyze(semantic_file_id);
+    let Some(hir_type) = analysis.symbols.type_by_id(hir_type_id) else {
+        return Ok(None);
+    };
+    if matches!(
+        hir_type,
+        Type::Unknown
+            | Type::Any
+            | Type::AnyDerived
+            | Type::AnyElementary
+            | Type::AnyMagnitude
+            | Type::AnyInt
+            | Type::AnyUnsigned
+            | Type::AnySigned
+            | Type::AnyReal
+            | Type::AnyNum
+            | Type::AnyDuration
+            | Type::AnyBit
+            | Type::AnyChars
+            | Type::AnyString
+            | Type::AnyChar
+            | Type::AnyDate
+    ) {
+        return Ok(None);
+    }
+
+    let runtime_type_id =
+        import_hir_type_to_runtime(ctx.registry, analysis.symbols.as_ref(), hir_type_id)?;
     Ok(Some(runtime_type_id))
 }
 

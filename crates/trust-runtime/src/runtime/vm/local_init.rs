@@ -188,8 +188,13 @@ fn ensure_static_local(
             Some(runtime.stdlib()),
             expr,
         )?;
-        crate::harness::coerce_value_to_type(value, local.type_id)
-            .map_err(|_| RuntimeError::TypeMismatch)?
+        crate::harness::coerce_initializer_value_to_type(
+            value,
+            local.type_id,
+            runtime.registry(),
+            &profile,
+        )
+        .map_err(|_| RuntimeError::TypeMismatch)?
     } else {
         default_value_for_type_id(local.type_id, runtime.registry(), &profile)
             .unwrap_or(Value::Null)
@@ -262,8 +267,13 @@ fn initialize_var_value(
             Some(runtime.stdlib()),
             expr,
         )?;
-        return crate::harness::coerce_value_to_type(value, local.type_id)
-            .map_err(|_| RuntimeError::TypeMismatch);
+        return crate::harness::coerce_initializer_value_to_type(
+            value,
+            local.type_id,
+            runtime.registry(),
+            &profile,
+        )
+        .map_err(|_| RuntimeError::TypeMismatch);
     }
 
     Ok(

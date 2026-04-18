@@ -112,6 +112,8 @@ pub(super) fn is_expression_kind(kind: SyntaxKind) -> bool {
     matches!(
         kind,
         SyntaxKind::Literal
+            | SyntaxKind::ArrayInitializer
+            | SyntaxKind::InitializerList
             | SyntaxKind::NameRef
             | SyntaxKind::BinaryExpr
             | SyntaxKind::UnaryExpr

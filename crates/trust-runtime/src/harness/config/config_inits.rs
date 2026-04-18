@@ -68,7 +68,12 @@ pub(super) fn apply_config_inits(
                 expr,
             )
             .map_err(|err| CompileError::new(format!("VAR_CONFIG initializer error: {err}")))?;
-            super::coerce_value_to_type(value, init.type_id)?
+            super::coerce_initializer_value_to_type(
+                value,
+                init.type_id,
+                &registry,
+                &profile,
+            )?
         };
 
         match resolved {

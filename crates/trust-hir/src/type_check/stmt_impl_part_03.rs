@@ -5,7 +5,11 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         node: &SyntaxNode,
         selector_type: TypeId,
         tracker: &mut CaseLabelTracker,
-    ) {
+        initial_state: bool,
+    ) -> bool {
+        let saved = self.checker.return_value_definitely_assigned;
+        self.checker.return_value_definitely_assigned = initial_state;
+
         // Check that case labels are compatible with selector type
         for child in node.children() {
             match child.kind() {
@@ -18,6 +22,10 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
                 _ => {}
             }
         }
+
+        let exit_state = self.checker.return_value_definitely_assigned;
+        self.checker.return_value_definitely_assigned = saved;
+        exit_state
     }
 
 

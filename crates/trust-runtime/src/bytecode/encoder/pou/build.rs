@@ -32,6 +32,7 @@ impl<'a> BytecodeEncoder<'a> {
             } = self.local_scope_for_body(None, &[], &program.temps, &program.body)?;
             let mut ctx = CodegenContext::new(
                 instance_id,
+                None,
                 locals,
                 HashMap::new(),
                 HashMap::new(),
@@ -67,6 +68,7 @@ impl<'a> BytecodeEncoder<'a> {
             } = self.local_scope_for_body(None, &[], &fb.temps, &fb.body)?;
             let self_fields = self.self_fields_for_owner(&fb.name)?;
             let mut ctx = CodegenContext::new(
+                None,
                 None,
                 locals,
                 HashMap::new(),
@@ -104,6 +106,7 @@ impl<'a> BytecodeEncoder<'a> {
             let static_refs = self.static_refs_for_function(func)?;
             let mut ctx = CodegenContext::new(
                 None,
+                Some(func.name.clone()),
                 locals,
                 static_refs,
                 HashMap::new(),
@@ -209,7 +212,14 @@ impl<'a> BytecodeEncoder<'a> {
             let key = super::util::normalize_name(&local.name);
             self_fields.insert(key, hidden);
         }
-        let mut ctx = CodegenContext::new(None, locals, HashMap::new(), self_fields, for_temp_pairs);
+        let mut ctx = CodegenContext::new(
+            None,
+            method.return_type.as_ref().map(|_| method.name.clone()),
+            locals,
+            HashMap::new(),
+            self_fields,
+            for_temp_pairs,
+        );
         let (code, local_debug) = self.emit_pou_body(&mut ctx, id, &method.body)?;
         let entry = self.pou_entry_method(method, owner_id, id)?;
         append_emitted_pou(

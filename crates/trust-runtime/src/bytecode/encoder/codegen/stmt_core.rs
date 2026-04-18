@@ -54,6 +54,9 @@ impl<'a> BytecodeEncoder<'a> {
                     true
                 }
             }
+            crate::program_model::Stmt::Return { expr, .. } => {
+                self.emit_return_stmt(ctx, expr.as_ref(), code)?
+            }
             crate::program_model::Stmt::If {
                 condition,
                 then_block,
@@ -179,6 +182,29 @@ impl<'a> BytecodeEncoder<'a> {
         }
     }
 
+    fn emit_return_stmt(
+        &mut self,
+        ctx: &mut CodegenContext,
+        expr: Option<&crate::program_model::Expr>,
+        code: &mut Vec<u8>,
+    ) -> Result<bool, BytecodeError> {
+        if let Some(expr) = expr {
+            let Some(return_name) = ctx.return_name.clone() else {
+                return Ok(false);
+            };
+            if !self.emit_assign(
+                ctx,
+                &crate::program_model::LValue::Name(return_name),
+                expr,
+                code,
+            )? {
+                return Ok(false);
+            }
+        }
+        code.push(0x06);
+        Ok(true)
+    }
+
 }
 
 fn stmt_contains_c1_required_call(stmt: &crate::program_model::Stmt) -> bool {
@@ -253,6 +279,7 @@ fn expr_contains_call(expr: &crate::program_model::Expr) -> bool {
     use crate::program_model::Expr;
     match expr {
         Expr::Call { .. } => true,
+        Expr::ArrayInitializer(elements) => elements.iter().any(expr_contains_call),
         Expr::Unary { expr, .. } => expr_contains_call(expr),
         Expr::Binary { left, right, .. } => expr_contains_call(left) || expr_contains_call(right),
         Expr::Index { target, indices } => {
@@ -287,9 +314,9 @@ fn stmt_contains_c5_required_construct(stmt: &crate::program_model::Stmt) -> boo
         Stmt::Assign { value, .. } => expr_contains_sizeof(value),
         Stmt::AssignAttempt { .. }
         | Stmt::Jmp { .. }
-        | Stmt::Return { .. }
         | Stmt::Exit { .. }
         | Stmt::Continue { .. } => true,
+        Stmt::Return { expr, .. } => expr.as_ref().is_some_and(expr_contains_sizeof),
         Stmt::Expr { expr, .. } => expr_contains_sizeof(expr),
         Stmt::If {
             condition,
@@ -349,6 +376,7 @@ fn expr_contains_sizeof(expr: &crate::program_model::Expr) -> bool {
     use crate::program_model::Expr;
     match expr {
         Expr::SizeOf(_) => true,
+        Expr::ArrayInitializer(elements) => elements.iter().any(expr_contains_sizeof),
         Expr::Unary { expr, .. } | Expr::Deref(expr) => expr_contains_sizeof(expr),
         Expr::Binary { left, right, .. } => {
             expr_contains_sizeof(left) || expr_contains_sizeof(right)

@@ -23,6 +23,7 @@ impl<'a> BytecodeEncoder<'a> {
                 code.extend_from_slice(&const_idx.to_le_bytes());
                 Ok(true)
             }
+            crate::program_model::Expr::ArrayInitializer(_) => Ok(false),
             crate::program_model::Expr::SizeOf(target) => self.emit_sizeof_expr(ctx, target, code),
             crate::program_model::Expr::Name(name) => {
                 if let Some(reference) = ctx.local_ref(name) {

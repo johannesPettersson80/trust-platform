@@ -4,6 +4,7 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         let return_expr = node.children().find(|n| is_expression_kind(n.kind()));
         if return_expr.is_some() {
             self.checker.saw_return_value = true;
+            self.checker.return_value_definitely_assigned = true;
         }
 
         match (self.checker.current_function_return, return_expr) {
@@ -25,11 +26,13 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
                 }
             }
             (Some(expected), None) if expected != TypeId::VOID => {
-                self.checker.diagnostics.error(
-                    DiagnosticCode::MissingReturn,
-                    node.text_range(),
-                    "missing return value",
-                );
+                if !self.checker.return_value_definitely_assigned {
+                    self.checker.diagnostics.error(
+                        DiagnosticCode::MissingReturn,
+                        node.text_range(),
+                        "missing return value",
+                    );
+                }
             }
             (None, Some(expr)) | (Some(TypeId::VOID), Some(expr)) => {
                 self.checker.diagnostics.error(
@@ -71,6 +74,16 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
                 self.check_statement(&child);
             }
         }
+    }
+
+
+    fn check_statement_children_with_state(&mut self, node: &SyntaxNode, initial_state: bool) -> bool {
+        let saved = self.checker.return_value_definitely_assigned;
+        self.checker.return_value_definitely_assigned = initial_state;
+        self.check_statement_children(node);
+        let exit_state = self.checker.return_value_definitely_assigned;
+        self.checker.return_value_definitely_assigned = saved;
+        exit_state
     }
 
 

@@ -207,6 +207,7 @@ struct BytecodeEncoder<'a> {
 #[derive(Clone, Default)]
 struct CodegenContext {
     instance_id: Option<InstanceId>,
+    return_name: Option<SmolStr>,
     locals: HashMap<SmolStr, ValueRef>,
     static_refs: HashMap<SmolStr, ValueRef>,
     self_fields: HashMap<SmolStr, SmolStr>,
@@ -224,6 +225,7 @@ struct LoopPatchState {
 impl CodegenContext {
     fn new(
         instance_id: Option<InstanceId>,
+        return_name: Option<SmolStr>,
         locals: HashMap<SmolStr, ValueRef>,
         static_refs: HashMap<SmolStr, ValueRef>,
         self_fields: HashMap<SmolStr, SmolStr>,
@@ -231,6 +233,7 @@ impl CodegenContext {
     ) -> Self {
         Self {
             instance_id,
+            return_name,
             locals,
             static_refs,
             self_fields,

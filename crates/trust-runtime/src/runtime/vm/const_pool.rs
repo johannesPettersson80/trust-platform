@@ -1,9 +1,9 @@
 use smol_str::SmolStr;
 
-use crate::bytecode::{ConstEntry, ConstPool, TypeData, TypeTable};
+use crate::bytecode::{ConstEntry, ConstPool, StringTable, TypeData, TypeEntry, TypeTable};
 use crate::error::RuntimeError;
 use crate::value::{
-    DateTimeValue, DateValue, Duration, LDateTimeValue, LDateValue, LTimeOfDayValue,
+    DateTimeValue, DateValue, Duration, EnumValue, LDateTimeValue, LDateValue, LTimeOfDayValue,
     TimeOfDayValue, Value,
 };
 
@@ -12,24 +12,20 @@ use super::invalid_bytecode;
 pub(super) fn decode_const_pool_entries(
     const_pool: &ConstPool,
     types: &TypeTable,
+    strings: &StringTable,
 ) -> Result<Vec<Value>, RuntimeError> {
     let mut out = Vec::with_capacity(const_pool.entries.len());
     for entry in &const_pool.entries {
-        out.push(decode_const_value(entry, types)?);
+        out.push(decode_const_value(entry, types, strings)?);
     }
     Ok(out)
 }
 
-enum ConstKind {
-    Primitive(u16),
-    Enum,
-}
-
-fn resolve_const_kind(
+fn resolve_const_entry(
     types: &TypeTable,
     type_id: u32,
     depth: u8,
-) -> Result<ConstKind, RuntimeError> {
+) -> Result<&TypeEntry, RuntimeError> {
     if depth > 32 {
         return Err(invalid_bytecode("const type recursion overflow"));
     }
@@ -38,25 +34,54 @@ fn resolve_const_kind(
         .get(type_id as usize)
         .ok_or_else(|| invalid_bytecode(format!("invalid const type index {type_id}")))?;
     match &entry.data {
-        TypeData::Primitive { prim_id, .. } => Ok(ConstKind::Primitive(*prim_id)),
-        TypeData::Alias { target_type_id } => resolve_const_kind(types, *target_type_id, depth + 1),
-        TypeData::Subrange { base_type_id, .. } => {
-            resolve_const_kind(types, *base_type_id, depth + 1)
+        TypeData::Primitive { .. } | TypeData::Enum { .. } => Ok(entry),
+        TypeData::Alias { target_type_id } => {
+            resolve_const_entry(types, *target_type_id, depth + 1)
         }
-        TypeData::Enum { .. } => Ok(ConstKind::Enum),
+        TypeData::Subrange { base_type_id, .. } => {
+            resolve_const_entry(types, *base_type_id, depth + 1)
+        }
         _ => Err(invalid_bytecode(format!(
             "unsupported const type kind at index {type_id}"
         ))),
     }
 }
 
-fn decode_const_value(entry: &ConstEntry, types: &TypeTable) -> Result<Value, RuntimeError> {
-    match resolve_const_kind(types, entry.type_id, 0)? {
-        ConstKind::Enum => {
+fn decode_const_value(
+    entry: &ConstEntry,
+    types: &TypeTable,
+    strings: &StringTable,
+) -> Result<Value, RuntimeError> {
+    match &resolve_const_entry(types, entry.type_id, 0)?.data {
+        TypeData::Enum { variants, .. } => {
             let bytes = read_exact::<8>(&entry.payload, "enum const payload")?;
-            Ok(Value::LInt(i64::from_le_bytes(bytes)))
+            let numeric_value = i64::from_le_bytes(bytes);
+            let type_entry = resolve_const_entry(types, entry.type_id, 0)?;
+            let enum_name_idx = type_entry
+                .name_idx
+                .ok_or_else(|| invalid_bytecode("enum const missing type name"))?;
+            let enum_name = strings
+                .entries
+                .get(enum_name_idx as usize)
+                .cloned()
+                .ok_or_else(|| invalid_bytecode("enum const type name index out of bounds"))?;
+            let variant = variants
+                .iter()
+                .find(|variant| variant.value == numeric_value)
+                .ok_or_else(|| invalid_bytecode("enum const variant value missing"))?;
+            let variant_name = strings
+                .entries
+                .get(variant.name_idx as usize)
+                .cloned()
+                .ok_or_else(|| invalid_bytecode("enum const variant name index out of bounds"))?;
+            Ok(Value::Enum(Box::new(EnumValue {
+                type_name: enum_name,
+                variant_name,
+                numeric_value,
+            })))
         }
-        ConstKind::Primitive(prim_id) => decode_primitive_constant(prim_id, &entry.payload),
+        TypeData::Primitive { prim_id, .. } => decode_primitive_constant(*prim_id, &entry.payload),
+        _ => Err(invalid_bytecode("unsupported const type kind")),
     }
 }
 

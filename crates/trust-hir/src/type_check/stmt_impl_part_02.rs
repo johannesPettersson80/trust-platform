@@ -1,6 +1,7 @@
 impl<'a, 'b> StmtChecker<'a, 'b> {
 
     fn check_for_stmt(&mut self, node: &SyntaxNode) {
+        let incoming = self.checker.return_value_definitely_assigned;
         let mut control_symbol = None;
         let mut control_type = None;
 
@@ -88,12 +89,14 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         }
 
         self.checker.loop_stack.push(LoopContext { restricted });
-        self.check_statement_children(node);
+        let _ = self.check_statement_children_with_state(node, incoming);
         self.checker.loop_stack.pop();
+        self.checker.return_value_definitely_assigned = incoming;
     }
 
 
     fn check_while_stmt(&mut self, node: &SyntaxNode) {
+        let incoming = self.checker.return_value_definitely_assigned;
         // Check condition is boolean
         if let Some(expr) = first_expression_child(node) {
             let cond_type = self.check_expression(&expr);
@@ -105,12 +108,14 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         self.checker.loop_stack.push(LoopContext {
             restricted: FxHashSet::default(),
         });
-        self.check_statement_children(node);
+        let _ = self.check_statement_children_with_state(node, incoming);
         self.checker.loop_stack.pop();
+        self.checker.return_value_definitely_assigned = incoming;
     }
 
 
     fn check_repeat_stmt(&mut self, node: &SyntaxNode) {
+        let incoming = self.checker.return_value_definitely_assigned;
         // Check UNTIL condition is boolean
         if let Some(expr) = last_expression_child(node) {
             let cond_type = self.check_expression(&expr);
@@ -122,12 +127,14 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         self.checker.loop_stack.push(LoopContext {
             restricted: FxHashSet::default(),
         });
-        self.check_statement_children(node);
+        let _ = self.check_statement_children_with_state(node, incoming);
         self.checker.loop_stack.pop();
+        self.checker.return_value_definitely_assigned = incoming;
     }
 
 
     fn check_case_stmt(&mut self, node: &SyntaxNode) {
+        let incoming = self.checker.return_value_definitely_assigned;
         // Get selector type
         let mut selector_type = TypeId::UNKNOWN;
         if let Some(expr) = first_expression_child(node) {
@@ -142,17 +149,34 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         }
 
         let mut tracker = CaseLabelTracker::default();
+        let mut branch_states = Vec::new();
 
         // Check case branches
         for child in node.children() {
             if child.kind() == SyntaxKind::CaseBranch {
-                self.check_case_branch(&child, selector_type, &mut tracker);
+                branch_states.push(self.check_case_branch(
+                    &child,
+                    selector_type,
+                    &mut tracker,
+                    incoming,
+                ));
             }
         }
 
         let has_else = node
             .children()
             .any(|child| child.kind() == SyntaxKind::ElseBranch);
+        for child in node.children() {
+            if child.kind() == SyntaxKind::ElseBranch {
+                branch_states.push(self.check_statement_children_with_state(&child, incoming));
+            }
+        }
+        let exhaustive = has_else || self.case_labels_cover_enum(selector_type, &tracker);
+        if !exhaustive {
+            branch_states.push(incoming);
+        }
+        self.checker.return_value_definitely_assigned =
+            branch_states.into_iter().all(std::convert::identity);
         if !has_else && !self.case_labels_cover_enum(selector_type, &tracker) {
             self.checker.diagnostics.warning(
                 DiagnosticCode::MissingElse,

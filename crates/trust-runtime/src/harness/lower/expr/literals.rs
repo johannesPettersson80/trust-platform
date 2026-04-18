@@ -466,7 +466,11 @@ fn is_long_dt_literal(text: &str) -> bool {
     upper.starts_with("LDT#") || upper.starts_with("LDATE_AND_TIME#")
 }
 
-fn enum_literal_value(name: &str, type_id: TypeId, registry: &TypeRegistry) -> Option<Value> {
+pub(in crate::harness) fn enum_literal_value(
+    name: &str,
+    type_id: TypeId,
+    registry: &TypeRegistry,
+) -> Option<Value> {
     let ty = registry.get(type_id)?;
     if let trust_hir::Type::Enum {
         name: enum_name,

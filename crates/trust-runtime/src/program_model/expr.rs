@@ -9,6 +9,7 @@ use super::CallArg;
 #[derive(Debug, Clone)]
 pub enum Expr {
     Literal(Value),
+    ArrayInitializer(Vec<Expr>),
     This,
     Super,
     SizeOf(SizeOfTarget),

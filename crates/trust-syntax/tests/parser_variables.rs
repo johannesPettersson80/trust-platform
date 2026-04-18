@@ -83,6 +83,54 @@ END_PROGRAM"#
 }
 
 #[test]
+fn test_var_with_array_initializer() {
+    let parsed = parse(
+        r#"PROGRAM Test
+VAR
+    values : ARRAY[1..3] OF INT := [1, 2, 3];
+END_VAR
+END_PROGRAM"#,
+    );
+    assert!(
+        parsed.ok(),
+        "expected array declaration initializer to parse, got: {:?}",
+        parsed.errors()
+    );
+}
+
+#[test]
+fn test_var_with_partial_array_initializer() {
+    let parsed = parse(
+        r#"PROGRAM Test
+VAR
+    values : ARRAY[1..5] OF INT := [1, 2];
+END_VAR
+END_PROGRAM"#,
+    );
+    assert!(
+        parsed.ok(),
+        "expected partial array declaration initializer to parse, got: {:?}",
+        parsed.errors()
+    );
+}
+
+#[test]
+fn test_var_with_repetition_array_initializer() {
+    let parsed = parse(
+        r#"PROGRAM Test
+VAR
+    values : ARRAY[1..6] OF INT := [3(1, 2)];
+END_VAR
+END_PROGRAM"#,
+    );
+    assert!(
+        parsed.ok(),
+        "expected repetition-count array initializer to parse, got: {:?}",
+        parsed.errors()
+    );
+}
+
+#[test]
 fn test_file_scope_var_global() {
     let parsed = parse(
         r#"VAR_GLOBAL

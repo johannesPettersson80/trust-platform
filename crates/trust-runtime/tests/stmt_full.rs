@@ -1,6 +1,42 @@
 use trust_runtime::harness::TestHarness;
 
 #[test]
+fn function_return_statement_uses_assigned_return_value_in_vm() {
+    let source = r#"
+        FUNCTION ValueOrDefault : DINT
+        VAR_INPUT
+            cond : BOOL;
+            value : DINT;
+        END_VAR
+        IF cond THEN
+            ValueOrDefault := value;
+            RETURN;
+        END_IF;
+        RETURN DINT#0;
+        END_FUNCTION
+
+        PROGRAM Test
+        VAR
+            out : DINT := DINT#0;
+        END_VAR
+        out := ValueOrDefault(cond := TRUE, value := DINT#5);
+        END_PROGRAM
+    "#;
+
+    let mut harness = TestHarness::from_source(source).expect("compile harness");
+    let cycle = harness.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "runtime errors: {:?}",
+        cycle.errors
+    );
+    assert_eq!(
+        harness.get_output("out"),
+        Some(trust_runtime::value::Value::DInt(5))
+    );
+}
+
+#[test]
 fn iec_table72() {
     let source = r#"
         FUNCTION Inc : INT

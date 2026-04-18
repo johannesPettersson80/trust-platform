@@ -1,7 +1,8 @@
 use smol_str::SmolStr;
 
-use crate::value::Value;
-use trust_hir::TypeId;
+use crate::value::{default_value_for_type_id, DateTimeProfile, Value};
+use trust_hir::types::TypeRegistry;
+use trust_hir::{Type, TypeId};
 
 use super::CompileError;
 
@@ -26,6 +27,67 @@ pub fn coerce_value_to_type(value: Value, type_id: TypeId) -> Result<Value, Comp
         TypeId::TOD | TypeId::LTOD => coerce_tod(value, type_id),
         TypeId::DT | TypeId::LDT => coerce_dt(value, type_id),
         _ => Ok(value),
+    }
+}
+
+pub fn coerce_initializer_value_to_type(
+    value: Value,
+    type_id: TypeId,
+    registry: &TypeRegistry,
+    profile: &DateTimeProfile,
+) -> Result<Value, CompileError> {
+    let Some(ty) = registry.get(type_id) else {
+        return coerce_value_to_type(value, type_id);
+    };
+    coerce_initializer_value_to_runtime_type(value, ty, type_id, registry, profile)
+}
+
+fn coerce_initializer_value_to_runtime_type(
+    value: Value,
+    ty: &Type,
+    type_id: TypeId,
+    registry: &TypeRegistry,
+    profile: &DateTimeProfile,
+) -> Result<Value, CompileError> {
+    match ty {
+        Type::Alias { target, .. } => {
+            let Some(target_ty) = registry.get(*target) else {
+                return coerce_value_to_type(value, *target);
+            };
+            coerce_initializer_value_to_runtime_type(value, target_ty, *target, registry, profile)
+        }
+        Type::Array {
+            element,
+            dimensions,
+        } => {
+            let Value::Array(array) = value else {
+                return Err(CompileError::new("expected array initializer"));
+            };
+            let mut coerced = default_value_for_type_id(type_id, registry, profile)
+                .map_err(|_| CompileError::new("default value error for array initializer"))?;
+            let Value::Array(ref mut target_array) = coerced else {
+                return Err(CompileError::new("expected array initializer"));
+            };
+            if array.elements.len() > target_array.elements.len() {
+                return Err(CompileError::new("too many array initializer elements"));
+            }
+            if target_array.dimensions != *dimensions {
+                target_array.dimensions = dimensions.clone();
+            }
+            for (slot, element_value) in target_array
+                .elements
+                .iter_mut()
+                .zip(array.elements.into_iter())
+            {
+                *slot =
+                    coerce_initializer_value_to_type(element_value, *element, registry, profile)?;
+            }
+            Ok(coerced)
+        }
+        Type::Subrange { base, .. } => {
+            coerce_initializer_value_to_type(value, *base, registry, profile)
+        }
+        _ => coerce_value_to_type(value, type_id),
     }
 }
 

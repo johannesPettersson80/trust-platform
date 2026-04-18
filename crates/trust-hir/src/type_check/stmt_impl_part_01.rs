@@ -84,6 +84,7 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
 
         if self.checker.is_return_target(target) {
             self.checker.saw_return_value = true;
+            self.checker.return_value_definitely_assigned = true;
         }
 
         if is_ref_assign {
@@ -126,6 +127,9 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
 
 
     fn check_if_stmt(&mut self, node: &SyntaxNode) {
+        let incoming = self.checker.return_value_definitely_assigned;
+        let mut branch_states = vec![self.check_statement_children_with_state(node, incoming)];
+
         // Check condition is boolean
         if let Some(expr) = first_expression_child(node) {
             let cond_type = self.check_expression(&expr);
@@ -146,12 +150,21 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
                                 .check_boolean(cond_type, expr.text_range());
                         }
                     }
-                    self.check_statement_children(&child);
+                    branch_states.push(self.check_statement_children_with_state(&child, incoming));
                 }
-                _ if is_statement_kind(child.kind()) => self.check_statement(&child),
+                _ if is_statement_kind(child.kind()) => {}
                 _ => {}
             }
         }
+
+        let has_else = node
+            .children()
+            .any(|child| child.kind() == SyntaxKind::ElseBranch);
+        if !has_else {
+            branch_states.push(incoming);
+        }
+        self.checker.return_value_definitely_assigned =
+            branch_states.into_iter().all(std::convert::identity);
     }
 
 }

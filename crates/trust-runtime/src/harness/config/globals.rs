@@ -84,7 +84,8 @@ pub(super) fn apply_globals(
                     expr,
                 )
                 .map_err(|err| CompileError::new(format!("initializer error: {err}")))?;
-                let value = super::coerce_value_to_type(value, init.type_id)?;
+                let value =
+                    super::coerce_initializer_value_to_type(value, init.type_id, &registry, &profile)?;
                 storage.set_global(init.name.clone(), value);
             }
         }

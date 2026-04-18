@@ -21,7 +21,7 @@ pub use api::{
     bytecode_module_from_source_with_path, bytecode_module_from_sources,
     bytecode_module_from_sources_with_paths, CompileSession,
 };
-pub use coerce::coerce_value_to_type;
+pub use coerce::{coerce_initializer_value_to_type, coerce_value_to_type};
 pub use harness::TestHarness;
 pub use parse::{parse_debug_expression, parse_debug_lvalue};
 pub use types::{CompileError, CycleResult, SourceFile};

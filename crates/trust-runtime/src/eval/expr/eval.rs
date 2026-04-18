@@ -4,7 +4,7 @@ use crate::error::RuntimeError;
 use crate::eval::ops::{apply_binary, apply_unary, BinaryOp};
 use crate::eval::EvalContext;
 use crate::stdlib::{conversions, time, StdParams};
-use crate::value::{size_of_type, SizeOfError, Value};
+use crate::value::{size_of_type, ArrayValue, SizeOfError, Value};
 
 use super::access::{eval_indices, read_field, read_indices, read_name};
 use super::ast::{Expr, SizeOfTarget};
@@ -18,6 +18,10 @@ use super::lvalue::resolve_reference_for_lvalue;
 pub fn eval_expr(ctx: &mut EvalContext<'_>, expr: &Expr) -> Result<Value, RuntimeError> {
     match expr {
         Expr::Literal(value) => Ok(value.clone()),
+        Expr::ArrayInitializer(elements) => Ok(Value::Array(Box::new(ArrayValue {
+            dimensions: vec![(1, elements.len() as i64)],
+            elements: eval_array_initializer_elements(ctx, elements)?,
+        }))),
         Expr::This => ctx
             .current_instance
             .map(Value::Instance)
@@ -181,6 +185,57 @@ pub fn eval_expr(ctx: &mut EvalContext<'_>, expr: &Expr) -> Result<Value, Runtim
             }
         }
     }
+}
+
+fn eval_array_initializer_elements(
+    ctx: &mut EvalContext<'_>,
+    elements: &[Expr],
+) -> Result<Vec<Value>, RuntimeError> {
+    let mut values = Vec::new();
+    for expr in elements {
+        if let Some((count, repeated_args)) = array_repeat_group(expr)? {
+            for _ in 0..count {
+                for arg in repeated_args {
+                    let crate::program_model::ArgValue::Expr(value_expr) = &arg.value else {
+                        return Err(RuntimeError::TypeMismatch);
+                    };
+                    values.push(eval_expr(ctx, value_expr)?);
+                }
+            }
+            continue;
+        }
+        values.push(eval_expr(ctx, expr)?);
+    }
+    Ok(values)
+}
+
+fn array_repeat_group(
+    expr: &Expr,
+) -> Result<Option<(usize, &[crate::program_model::CallArg])>, RuntimeError> {
+    let Expr::Call { target, args } = expr else {
+        return Ok(None);
+    };
+    if args.iter().any(|arg| arg.name.is_some()) {
+        return Err(RuntimeError::TypeMismatch);
+    }
+    let count = match target.as_ref() {
+        Expr::Literal(Value::SInt(v)) => i64::from(*v),
+        Expr::Literal(Value::Int(v)) => i64::from(*v),
+        Expr::Literal(Value::DInt(v)) => i64::from(*v),
+        Expr::Literal(Value::LInt(v)) => *v,
+        Expr::Literal(Value::USInt(v)) => i64::from(*v),
+        Expr::Literal(Value::UInt(v)) => i64::from(*v),
+        Expr::Literal(Value::UDInt(v)) => i64::from(*v),
+        Expr::Literal(Value::ULInt(v)) => {
+            i64::try_from(*v).map_err(|_| RuntimeError::TypeMismatch)?
+        }
+        _ => return Ok(None),
+    };
+    if count < 0 {
+        return Err(RuntimeError::TypeMismatch);
+    }
+    let count = usize::try_from(count).map_err(|_| RuntimeError::TypeMismatch)?;
+    Ok(Some((count, args)))
 }
 
 fn qualified_field_expr_name(expr: &Expr) -> Option<SmolStr> {

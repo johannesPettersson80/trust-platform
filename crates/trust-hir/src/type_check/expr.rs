@@ -19,6 +19,7 @@ impl<'a> TypeChecker<'a> {
             current_function_return: None,
             current_pou_symbol: None,
             saw_return_value: false,
+            return_value_definitely_assigned: false,
             this_type: None,
             super_type: None,
             loop_stack: Vec::new(),

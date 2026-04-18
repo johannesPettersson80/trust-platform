@@ -20,3 +20,82 @@ END_PROGRAM
     assert_eq!(harness.get_output("b"), Some(Value::Int(4)));
     assert_eq!(harness.get_output("c"), Some(Value::Int(5)));
 }
+
+#[test]
+fn declaration_array_initializer_end_to_end() {
+    let source = r#"
+PROGRAM Main
+VAR
+    a : ARRAY[1..3] OF INT := [1, 2, 3];
+END_VAR
+END_PROGRAM
+"#;
+
+    let mut harness = TestHarness::from_source(source).expect("compile harness");
+    harness.cycle();
+
+    assert_eq!(
+        harness.get_output("a"),
+        Some(Value::Array(Box::new(trust_runtime::value::ArrayValue {
+            elements: vec![Value::Int(1), Value::Int(2), Value::Int(3)],
+            dimensions: vec![(1, 3)],
+        })))
+    );
+}
+
+#[test]
+fn declaration_partial_array_initializer_default_fills_remaining_elements() {
+    let source = r#"
+PROGRAM Main
+VAR
+    a : ARRAY[1..5] OF INT := [1, 2];
+END_VAR
+END_PROGRAM
+"#;
+
+    let mut harness = TestHarness::from_source(source).expect("compile harness");
+    harness.cycle();
+
+    assert_eq!(
+        harness.get_output("a"),
+        Some(Value::Array(Box::new(trust_runtime::value::ArrayValue {
+            elements: vec![
+                Value::Int(1),
+                Value::Int(2),
+                Value::Int(0),
+                Value::Int(0),
+                Value::Int(0),
+            ],
+            dimensions: vec![(1, 5)],
+        })))
+    );
+}
+
+#[test]
+fn declaration_repetition_array_initializer_expands_group() {
+    let source = r#"
+PROGRAM Main
+VAR
+    a : ARRAY[1..6] OF INT := [3(1, 2)];
+END_VAR
+END_PROGRAM
+"#;
+
+    let mut harness = TestHarness::from_source(source).expect("compile harness");
+    harness.cycle();
+
+    assert_eq!(
+        harness.get_output("a"),
+        Some(Value::Array(Box::new(trust_runtime::value::ArrayValue {
+            elements: vec![
+                Value::Int(1),
+                Value::Int(2),
+                Value::Int(1),
+                Value::Int(2),
+                Value::Int(1),
+                Value::Int(2),
+            ],
+            dimensions: vec![(1, 6)],
+        })))
+    );
+}

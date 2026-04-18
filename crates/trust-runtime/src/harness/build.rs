@@ -411,7 +411,8 @@ fn init_function_static_locals(runtime: &mut Runtime) -> Result<(), CompileError
             let value =
                 crate::helper_eval::eval_storage_expr(storage, &registry, &profile, None, expr)
                     .map_err(|err| CompileError::new(format!("initializer error: {err}")))?;
-            let value = super::coerce_value_to_type(value, local.type_id)?;
+            let value =
+                super::coerce_initializer_value_to_type(value, local.type_id, &registry, &profile)?;
             let key = crate::program_model::static_storage_name(&function.name, &local.name);
             storage.set_global(key, value);
         }

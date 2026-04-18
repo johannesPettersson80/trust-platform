@@ -9,7 +9,7 @@ use crate::program_model::{
 use crate::stdlib::{conversions, StandardLibrary, StdParams};
 use crate::value::{
     checked_array_offset_i64, parse_partial_access, read_partial_access, read_string_element,
-    size_of_type, DateTimeProfile, PartialAccessError, SizeOfError, Value,
+    size_of_type, ArrayValue, DateTimeProfile, PartialAccessError, SizeOfError, Value,
 };
 
 use super::storage_lvalue::read_storage_lvalue;
@@ -34,6 +34,17 @@ pub(crate) fn eval_storage_expr_with_stdlib(
 ) -> Result<Value, RuntimeError> {
     match expr {
         Expr::Literal(value) => Ok(value.clone()),
+        Expr::ArrayInitializer(elements) => Ok(Value::Array(Box::new(ArrayValue {
+            dimensions: vec![(1, elements.len() as i64)],
+            elements: eval_array_initializer_elements(
+                storage,
+                registry,
+                profile,
+                current_instance,
+                stdlib,
+                elements,
+            )?,
+        }))),
         Expr::This => current_instance
             .map(Value::Instance)
             .ok_or(RuntimeError::TypeMismatch),
@@ -193,6 +204,73 @@ pub(crate) fn eval_storage_expr_with_stdlib(
             }
         }
     }
+}
+
+fn eval_array_initializer_elements(
+    storage: &VariableStorage,
+    registry: &TypeRegistry,
+    profile: &DateTimeProfile,
+    current_instance: Option<InstanceId>,
+    stdlib: Option<&StandardLibrary>,
+    elements: &[Expr],
+) -> Result<Vec<Value>, RuntimeError> {
+    let mut values = Vec::new();
+    for expr in elements {
+        if let Some((count, repeated_args)) = array_repeat_group(expr)? {
+            for _ in 0..count {
+                for arg in repeated_args {
+                    let crate::program_model::ArgValue::Expr(value_expr) = &arg.value else {
+                        return Err(RuntimeError::TypeMismatch);
+                    };
+                    values.push(eval_storage_expr_with_stdlib(
+                        storage,
+                        registry,
+                        profile,
+                        current_instance,
+                        stdlib,
+                        value_expr,
+                    )?);
+                }
+            }
+            continue;
+        }
+        values.push(eval_storage_expr_with_stdlib(
+            storage,
+            registry,
+            profile,
+            current_instance,
+            stdlib,
+            expr,
+        )?);
+    }
+    Ok(values)
+}
+
+fn array_repeat_group(expr: &Expr) -> Result<Option<(usize, &[CallArg])>, RuntimeError> {
+    let Expr::Call { target, args } = expr else {
+        return Ok(None);
+    };
+    if args.iter().any(|arg| arg.name.is_some()) {
+        return Err(RuntimeError::TypeMismatch);
+    }
+    let count = match target.as_ref() {
+        Expr::Literal(Value::SInt(v)) => i64::from(*v),
+        Expr::Literal(Value::Int(v)) => i64::from(*v),
+        Expr::Literal(Value::DInt(v)) => i64::from(*v),
+        Expr::Literal(Value::LInt(v)) => *v,
+        Expr::Literal(Value::USInt(v)) => i64::from(*v),
+        Expr::Literal(Value::UInt(v)) => i64::from(*v),
+        Expr::Literal(Value::UDInt(v)) => i64::from(*v),
+        Expr::Literal(Value::ULInt(v)) => {
+            i64::try_from(*v).map_err(|_| RuntimeError::TypeMismatch)?
+        }
+        _ => return Ok(None),
+    };
+    if count < 0 {
+        return Err(RuntimeError::TypeMismatch);
+    }
+    let count = usize::try_from(count).map_err(|_| RuntimeError::TypeMismatch)?;
+    Ok(Some((count, args)))
 }
 
 fn eval_call(

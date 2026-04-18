@@ -122,6 +122,7 @@ impl Parser<'_, '_> {
     /// Parse primary expressions (literals, identifiers, etc.).
     pub(crate) fn parse_primary_expr(&mut self) -> CompletedMarker {
         match self.current() {
+            TokenKind::LBracket => self.parse_array_initializer_expr(),
             TokenKind::IntLiteral
             | TokenKind::RealLiteral
             | TokenKind::StringLiteral
@@ -299,6 +300,27 @@ impl Parser<'_, '_> {
                 marker.complete(self, SyntaxKind::Error)
             }
         }
+    }
+
+    fn parse_array_initializer_expr(&mut self) -> CompletedMarker {
+        let marker = self.start();
+        self.bump(); // [
+
+        if !self.at(TokenKind::RBracket) {
+            self.parse_expression();
+            while self.at(TokenKind::Comma) {
+                self.bump();
+                self.parse_expression();
+            }
+        }
+
+        if self.at(TokenKind::RBracket) {
+            self.bump();
+        } else {
+            self.error("expected ]");
+        }
+
+        marker.complete(self, SyntaxKind::ArrayInitializer)
     }
 
     /// Parse argument list for function calls.

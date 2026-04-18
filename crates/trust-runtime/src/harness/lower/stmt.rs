@@ -1,11 +1,14 @@
 use crate::debug::SourceLocation;
 use crate::program_model::{CaseLabel, Expr, Stmt};
 use crate::value::Value;
+use trust_hir::TypeId;
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 
 use super::super::util::{direct_expr_children, first_expr_child, is_statement_kind, node_text};
 use super::super::{CompileError, LoweringContext};
-use super::expr::{const_int_from_node, const_value_from_node, lower_expr, lower_lvalue};
+use super::expr::{
+    const_value_from_node, enum_literal_value, lower_expr, lower_expression_type, lower_lvalue,
+};
 
 pub(in crate::harness) fn lower_stmt_list(
     program: &SyntaxNode,
@@ -182,9 +185,10 @@ fn lower_else_block(
 }
 
 fn lower_case(node: &SyntaxNode, ctx: &mut LoweringContext<'_>) -> Result<Stmt, CompileError> {
-    let selector =
+    let selector_node =
         first_expr_child(node).ok_or_else(|| CompileError::new("missing CASE selector"))?;
-    let selector = lower_expr(&selector, ctx)?;
+    let selector_type = lower_expression_type(&selector_node, ctx)?;
+    let selector = lower_expr(&selector_node, ctx)?;
 
     let mut branches = Vec::new();
     let mut else_block = Vec::new();
@@ -192,7 +196,7 @@ fn lower_case(node: &SyntaxNode, ctx: &mut LoweringContext<'_>) -> Result<Stmt, 
     for child in node.children() {
         match child.kind() {
             SyntaxKind::CaseBranch => {
-                branches.push(lower_case_branch(&child, ctx)?);
+                branches.push(lower_case_branch(&child, selector_type, ctx)?);
             }
             SyntaxKind::ElseBranch => {
                 else_block = lower_else_block(&child, ctx)?;
@@ -211,6 +215,7 @@ fn lower_case(node: &SyntaxNode, ctx: &mut LoweringContext<'_>) -> Result<Stmt, 
 
 fn lower_case_branch(
     node: &SyntaxNode,
+    selector_type: Option<TypeId>,
     ctx: &mut LoweringContext<'_>,
 ) -> Result<(Vec<CaseLabel>, Vec<Stmt>), CompileError> {
     let mut labels = Vec::new();
@@ -218,7 +223,7 @@ fn lower_case_branch(
 
     for child in node.children() {
         match child.kind() {
-            SyntaxKind::CaseLabel => labels.extend(lower_case_label(&child, ctx)?),
+            SyntaxKind::CaseLabel => labels.extend(lower_case_label(&child, selector_type, ctx)?),
             _ if is_statement_kind(child.kind()) => {
                 if let Some(stmt) = lower_stmt(&child, ctx)? {
                     stmts.push(stmt);
@@ -233,6 +238,7 @@ fn lower_case_branch(
 
 fn lower_case_label(
     node: &SyntaxNode,
+    selector_type: Option<TypeId>,
     ctx: &mut LoweringContext<'_>,
 ) -> Result<Vec<CaseLabel>, CompileError> {
     let exprs = if let Some(subrange) = node
@@ -247,15 +253,61 @@ fn lower_case_label(
         return Err(CompileError::new("missing CASE label"));
     }
     if exprs.len() == 1 {
-        let value = const_value_from_node(&exprs[0], ctx)?;
+        let value = const_case_label_value(&exprs[0], selector_type, ctx)?;
         return Ok(vec![CaseLabel::Single(value)]);
     }
     if exprs.len() == 2 {
-        let lower = const_int_from_node(&exprs[0], ctx)?;
-        let upper = const_int_from_node(&exprs[1], ctx)?;
+        let lower = const_case_label_int(&exprs[0], selector_type, ctx)?;
+        let upper = const_case_label_int(&exprs[1], selector_type, ctx)?;
         return Ok(vec![CaseLabel::Range(lower, upper)]);
     }
     Err(CompileError::new("invalid CASE label"))
+}
+
+fn const_case_label_value(
+    node: &SyntaxNode,
+    selector_type: Option<TypeId>,
+    ctx: &mut LoweringContext<'_>,
+) -> Result<Value, CompileError> {
+    match const_value_from_node(node, ctx) {
+        Ok(value) => Ok(value),
+        Err(err) => {
+            let Some(type_id) = selector_type else {
+                return Err(err);
+            };
+            if node.kind() != SyntaxKind::NameRef {
+                return Err(err);
+            }
+            enum_literal_value(node_text(node).as_str(), type_id, ctx.registry).ok_or(err)
+        }
+    }
+}
+
+fn const_case_label_int(
+    node: &SyntaxNode,
+    selector_type: Option<TypeId>,
+    ctx: &mut LoweringContext<'_>,
+) -> Result<i64, CompileError> {
+    match const_case_label_value(node, selector_type, ctx)? {
+        Value::SInt(v) => Ok(v as i64),
+        Value::Int(v) => Ok(v as i64),
+        Value::DInt(v) => Ok(v as i64),
+        Value::LInt(v) => Ok(v),
+        Value::USInt(v) => Ok(v as i64),
+        Value::UInt(v) => Ok(v as i64),
+        Value::UDInt(v) => Ok(v as i64),
+        Value::ULInt(v) => {
+            Ok(i64::try_from(v).map_err(|_| CompileError::new("integer constant out of range"))?)
+        }
+        Value::Byte(v) => Ok(v as i64),
+        Value::Word(v) => Ok(v as i64),
+        Value::DWord(v) => Ok(v as i64),
+        Value::LWord(v) => {
+            Ok(i64::try_from(v).map_err(|_| CompileError::new("integer constant out of range"))?)
+        }
+        Value::Enum(enum_value) => Ok(enum_value.numeric_value),
+        _ => Err(CompileError::new("expected integer constant")),
+    }
 }
 
 fn lower_for(node: &SyntaxNode, ctx: &mut LoweringContext<'_>) -> Result<Stmt, CompileError> {
