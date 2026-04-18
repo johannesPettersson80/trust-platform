@@ -607,15 +607,12 @@ fn normalized_field_access_type(
     type_id: TypeId,
 ) -> TypeId {
     let mut current = symbols.resolve_alias_type(type_id);
-    loop {
-        let Some(next) = (match symbols.type_by_id(current) {
-            Some(Type::Reference { target } | Type::Pointer { target }) => {
-                Some(symbols.resolve_alias_type(*target))
-            }
-            _ => None,
-        }) else {
-            break;
-        };
+    while let Some(next) = match symbols.type_by_id(current) {
+        Some(Type::Reference { target } | Type::Pointer { target }) => {
+            Some(symbols.resolve_alias_type(*target))
+        }
+        _ => None,
+    } {
         if next == current {
             break;
         }

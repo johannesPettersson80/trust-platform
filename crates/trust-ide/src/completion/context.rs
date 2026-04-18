@@ -15,16 +15,12 @@ fn detect_context(root: &SyntaxNode, position: TextSize) -> CompletionContext {
             // Colon triggers type annotation completion
             SyntaxKind::Colon => return CompletionContext::TypeAnnotation,
             // Comma in argument list
-            SyntaxKind::Comma => {
-                if is_in_argument_list(&prev) {
-                    return CompletionContext::Argument;
-                }
+            SyntaxKind::Comma if is_in_argument_list(&prev) => {
+                return CompletionContext::Argument;
             }
             // Opening paren might be function call
-            SyntaxKind::LParen => {
-                if is_in_call_expr(&prev) {
-                    return CompletionContext::Argument;
-                }
+            SyntaxKind::LParen if is_in_call_expr(&prev) => {
+                return CompletionContext::Argument;
             }
             _ => {}
         }
