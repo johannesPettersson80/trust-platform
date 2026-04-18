@@ -155,21 +155,15 @@ pub(super) fn handle_prompt_key(
             state.prompt.clear_suggestions();
             return handle_prompt_submit(&input, client, state);
         }
-        KeyCode::Backspace => {
-            if state.prompt.cursor > 0 {
-                state.prompt.cursor -= 1;
-                state.prompt.input.remove(state.prompt.cursor);
-            }
+        KeyCode::Backspace if state.prompt.cursor > 0 => {
+            state.prompt.cursor -= 1;
+            state.prompt.input.remove(state.prompt.cursor);
         }
-        KeyCode::Left => {
-            if state.prompt.cursor > 0 {
-                state.prompt.cursor -= 1;
-            }
+        KeyCode::Left if state.prompt.cursor > 0 => {
+            state.prompt.cursor -= 1;
         }
-        KeyCode::Right => {
-            if state.prompt.cursor < state.prompt.input.len() {
-                state.prompt.cursor += 1;
-            }
+        KeyCode::Right if state.prompt.cursor < state.prompt.input.len() => {
+            state.prompt.cursor += 1;
         }
         KeyCode::Up => {
             if state.prompt.showing_suggestions {
