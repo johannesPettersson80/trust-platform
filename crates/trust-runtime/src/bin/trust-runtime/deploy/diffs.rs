@@ -129,10 +129,8 @@ fn diff_sources(previous_root: Option<&Path>, next_root: &Path) -> SourceDiff {
         match (prev.get(&key), next.get(&key)) {
             (None, Some(_)) => added.push(key),
             (Some(_), None) => removed.push(key),
-            (Some(prev_bytes), Some(next_bytes)) => {
-                if prev_bytes != next_bytes {
-                    modified.push(key);
-                }
+            (Some(prev_bytes), Some(next_bytes)) if prev_bytes != next_bytes => {
+                modified.push(key);
             }
             _ => {}
         }

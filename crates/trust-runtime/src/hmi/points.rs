@@ -142,13 +142,8 @@ fn widget_for_type(ty: &Type, writable: bool) -> &'static str {
         | Type::Class { .. }
         | Type::Interface { .. } => "tree",
         ty if ty.is_string() || ty.is_char() => "text",
-        ty if ty.is_numeric() || ty.is_bit_string() || ty.is_time() => {
-            if writable {
-                "slider"
-            } else {
-                "value"
-            }
-        }
+        ty if (ty.is_numeric() || ty.is_bit_string() || ty.is_time()) && writable => "slider",
+        ty if ty.is_numeric() || ty.is_bit_string() || ty.is_time() => "value",
         _ => "value",
     }
 }
@@ -283,4 +278,3 @@ fn now_unix_ms() -> u128 {
         .unwrap_or_default()
         .as_millis()
 }
-

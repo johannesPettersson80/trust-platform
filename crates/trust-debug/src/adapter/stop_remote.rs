@@ -71,11 +71,7 @@ fn should_emit_stop(
     breakpoints: &Arc<Mutex<HashMap<u32, u64>>>,
 ) -> bool {
     match stop.reason.as_str() {
-        "pause" | "entry" => {
-            if !pause_expected.swap(false, Ordering::SeqCst) {
-                return false;
-            }
-        }
+        "pause" | "entry" if !pause_expected.swap(false, Ordering::SeqCst) => return false,
         "breakpoint" | "step" => {
             pause_expected.store(false, Ordering::SeqCst);
         }

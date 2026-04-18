@@ -92,11 +92,7 @@ fn start_mqtt_test_broker(
                                 sent_inbound = true;
                             }
                         }
-                        12 => {
-                            if write_mqtt_pingresp(&mut stream).is_err() {
-                                break;
-                            }
-                        }
+                        12 if write_mqtt_pingresp(&mut stream).is_err() => break,
                         14 => break,
                         _ => {}
                     }

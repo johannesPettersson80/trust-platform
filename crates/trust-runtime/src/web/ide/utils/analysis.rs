@@ -75,7 +75,7 @@ pub(in crate::web::ide) fn apply_text_edits(
     edits: &[trust_ide::rename::TextEdit],
 ) -> Result<String, IdeError> {
     let mut sorted = edits.to_vec();
-    sorted.sort_by(|a, b| b.range.start().cmp(&a.range.start()));
+    sorted.sort_by_key(|edit| std::cmp::Reverse(edit.range.start()));
 
     let mut output = text.to_string();
     for edit in sorted {

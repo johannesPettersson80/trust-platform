@@ -1354,41 +1354,37 @@ fn lowered_uses_complex_local_paths(module: &VmModule, program: &RegisterProgram
             RegisterInstr::LoadRef { ref_idx, .. }
             | RegisterInstr::LoadRefAddr { ref_idx, .. }
             | RegisterInstr::StoreRef { ref_idx, .. }
-            | RegisterInstr::CmpRefConstJumpIf { ref_idx, .. } => {
-                if uses_complex_local_ref(*ref_idx) {
-                    return true;
-                }
+            | RegisterInstr::CmpRefConstJumpIf { ref_idx, .. }
+                if uses_complex_local_ref(*ref_idx) =>
+            {
+                return true;
             }
             RegisterInstr::BinaryRefToRef {
                 left_ref_idx,
                 right_ref_idx,
                 dest_ref_idx,
                 ..
-            } => {
-                if uses_complex_local_ref(*left_ref_idx)
-                    || uses_complex_local_ref(*right_ref_idx)
-                    || uses_complex_local_ref(*dest_ref_idx)
-                {
-                    return true;
-                }
+            } if uses_complex_local_ref(*left_ref_idx)
+                || uses_complex_local_ref(*right_ref_idx)
+                || uses_complex_local_ref(*dest_ref_idx) =>
+            {
+                return true;
             }
             RegisterInstr::BinaryRefConstToRef {
                 left_ref_idx,
                 dest_ref_idx,
                 ..
-            } => {
-                if uses_complex_local_ref(*left_ref_idx) || uses_complex_local_ref(*dest_ref_idx) {
-                    return true;
-                }
+            } if uses_complex_local_ref(*left_ref_idx) || uses_complex_local_ref(*dest_ref_idx) => {
+                return true;
             }
             RegisterInstr::BinaryConstRefToRef {
                 right_ref_idx,
                 dest_ref_idx,
                 ..
-            } => {
-                if uses_complex_local_ref(*right_ref_idx) || uses_complex_local_ref(*dest_ref_idx) {
-                    return true;
-                }
+            } if uses_complex_local_ref(*right_ref_idx)
+                || uses_complex_local_ref(*dest_ref_idx) =>
+            {
+                return true;
             }
             _ => {}
         }

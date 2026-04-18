@@ -74,11 +74,7 @@ fn coerce_initializer_value_to_runtime_type(
             if target_array.dimensions != *dimensions {
                 target_array.dimensions = dimensions.clone();
             }
-            for (slot, element_value) in target_array
-                .elements
-                .iter_mut()
-                .zip(array.elements.into_iter())
-            {
+            for (slot, element_value) in target_array.elements.iter_mut().zip(array.elements) {
                 *slot =
                     coerce_initializer_value_to_type(element_value, *element, registry, profile)?;
             }
