@@ -67,19 +67,15 @@ fn detect_context(root: &SyntaxNode, position: TextSize) -> CompletionContext {
             SyntaxKind::Program
             | SyntaxKind::Function
             | SyntaxKind::FunctionBlock
-            | SyntaxKind::Method => {
-                // Only if we're past the VAR blocks
-                if is_past_var_blocks(&ancestor, position) {
-                    return CompletionContext::Statement;
-                }
+            | SyntaxKind::Method
+                if is_past_var_blocks(&ancestor, position) =>
+            {
+                return CompletionContext::Statement;
             }
 
             // At the source file level
-            SyntaxKind::SourceFile => {
-                // Check if we're inside a POU or at top level
-                if !is_inside_pou(&ancestor, position) {
-                    return CompletionContext::TopLevel;
-                }
+            SyntaxKind::SourceFile if !is_inside_pou(&ancestor, position) => {
+                return CompletionContext::TopLevel;
             }
 
             _ => {}
