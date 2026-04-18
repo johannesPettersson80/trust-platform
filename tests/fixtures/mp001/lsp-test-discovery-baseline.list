@@ -57,6 +57,11 @@ handlers::tests::core::core_part_09::lsp_inline_values_merge_instances_with_name
 handlers::tests::core::core_part_09::lsp_tutorial_examples_no_unexpected_diagnostics_snapshot: test
 handlers::tests::core::core_part_10::lsp_siemens_hash_prefixed_example_has_no_unexpected_diagnostics: test
 handlers::tests::core::core_part_11::lsp_mitsubishi_gxworks3_example_has_no_unexpected_diagnostics: test
+handlers::tests::core::core_part_12::lsp_completion_constant_parameter_uses_constant_kind: test
+handlers::tests::core::core_part_12::lsp_diagnostics_report_fb_instance_in_constant_sections: test
+handlers::tests::core::core_part_12::lsp_hover_constant_parameter_mentions_constant_and_array_star: test
+handlers::tests::core::core_part_12::lsp_signature_help_constant_parameter_mentions_constant: test
+handlers::tests::core::core_part_12::lsp_workspace_symbols_mark_constant_parameters_as_constants: test
 handlers::tests::formatting_and_navigation::lsp_call_hierarchy_cross_file_incoming: test
 handlers::tests::formatting_and_navigation::lsp_call_hierarchy_cross_file_incoming_named_args: test
 handlers::tests::formatting_and_navigation::lsp_call_hierarchy_incoming_outgoing: test

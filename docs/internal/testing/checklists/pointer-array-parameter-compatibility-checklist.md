@@ -121,7 +121,7 @@ Locked decisions:
 - [x] `P6.8` Verify the runtime smoke test passes
 - [x] `P6.9` Update IEC-facing docs:
   `docs/specs/03-variables.md`,
-  `docs/internal/standards/IEC_DEVIATIONS.md`,
+  `docs/IEC_DEVIATIONS.md`,
   `docs/internal/standards/IEC_ST_FEATURE_MATRIX.md`
 - [x] `P6.10` Record legacy `VAR CONSTANT` local handling as explicit
   phase-boundary debt
