@@ -25,14 +25,15 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
                     );
                 }
             }
-            (Some(expected), None) if expected != TypeId::VOID => {
-                if !self.checker.return_value_definitely_assigned {
-                    self.checker.diagnostics.error(
-                        DiagnosticCode::MissingReturn,
-                        node.text_range(),
-                        "missing return value",
-                    );
-                }
+            (Some(expected), None)
+                if expected != TypeId::VOID
+                    && !self.checker.return_value_definitely_assigned =>
+            {
+                self.checker.diagnostics.error(
+                    DiagnosticCode::MissingReturn,
+                    node.text_range(),
+                    "missing return value",
+                );
             }
             (None, Some(expr)) | (Some(TypeId::VOID), Some(expr)) => {
                 self.checker.diagnostics.error(

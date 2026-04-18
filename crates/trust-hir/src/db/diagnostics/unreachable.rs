@@ -55,12 +55,11 @@ fn check_constant_if_branches(root: &SyntaxNode, diagnostics: &mut DiagnosticBui
                     Some(false) => {
                         mark_unreachable_statements(&branch.statements, diagnostics);
                     }
+                    Some(true) if previous_all_false => {
+                        branch_always_taken = true;
+                    }
                     Some(true) => {
-                        if previous_all_false {
-                            branch_always_taken = true;
-                        } else {
-                            previous_all_false = false;
-                        }
+                        previous_all_false = false;
                     }
                     None => {
                         previous_all_false = false;

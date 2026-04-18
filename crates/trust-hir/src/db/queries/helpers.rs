@@ -451,10 +451,8 @@ pub(in crate::db) fn parse_access_path(node: &SyntaxNode) -> Option<ParsedAccess
                 SyntaxKind::DirectAddress => {
                     return None;
                 }
-                SyntaxKind::IntLiteral => {
-                    if expect_member {
-                        return None;
-                    }
+                SyntaxKind::IntLiteral if expect_member => {
+                    return None;
                 }
                 SyntaxKind::Dot => {
                     expect_member = true;
@@ -463,16 +461,12 @@ pub(in crate::db) fn parse_access_path(node: &SyntaxNode) -> Option<ParsedAccess
                     in_index = true;
                     index_count = 1;
                 }
-                SyntaxKind::Comma => {
-                    if in_index {
-                        index_count += 1;
-                    }
+                SyntaxKind::Comma if in_index => {
+                    index_count += 1;
                 }
-                SyntaxKind::RBracket => {
-                    if in_index {
-                        segments.push(AccessPathSegment::Index(index_count));
-                        in_index = false;
-                    }
+                SyntaxKind::RBracket if in_index => {
+                    segments.push(AccessPathSegment::Index(index_count));
+                    in_index = false;
                 }
                 _ => {}
             }
@@ -544,12 +538,12 @@ pub(in crate::db) fn program_config_instance_and_type(
                     }
                 }
             }
-            SyntaxKind::QualifiedName | SyntaxKind::TypeRef => {
-                if expect_type && type_parts.is_none() {
-                    if let Some((parts, _)) = qualified_name_parts(child) {
-                        type_parts = Some(parts.into_iter().map(|(name, _)| name).collect());
-                        expect_type = false;
-                    }
+            SyntaxKind::QualifiedName | SyntaxKind::TypeRef
+                if expect_type && type_parts.is_none() =>
+            {
+                if let Some((parts, _)) = qualified_name_parts(child) {
+                    type_parts = Some(parts.into_iter().map(|(name, _)| name).collect());
+                    expect_type = false;
                 }
             }
             _ => {}
