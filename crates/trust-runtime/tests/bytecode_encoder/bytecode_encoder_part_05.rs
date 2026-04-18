@@ -179,3 +179,57 @@ END_CONFIGURATION
     assert!(resource.inputs_size >= 1);
     assert!(resource.outputs_size >= 1);
 }
+
+#[test]
+fn encoder_accepts_case_insensitive_names_in_call_heavy_if_blocks() {
+    let source = r#"
+TYPE CONSTANTS_PHYS :
+STRUCT
+    T0 : REAL := -273.15;
+END_STRUCT
+END_TYPE
+
+VAR_GLOBAL
+    PHYS : CONSTANTS_PHYS;
+END_VAR
+
+FUNCTION EXP10 : REAL
+VAR_INPUT
+    X : REAL;
+END_VAR
+EXP10 := EXP(X * 2.30258509299405);
+END_FUNCTION
+
+FUNCTION DEW_TEMP : REAL
+VAR_INPUT
+    RH : REAL;
+    T : REAL;
+END_VAR
+VAR CONSTANT
+    a : REAL := 7.5;
+    b : REAL := 237.3;
+END_VAR
+VAR
+    V : REAL;
+    SaturationTerm : REAL;
+END_VAR
+IF rh > 0.0 THEN
+    SaturationTerm := EXP10((a * T) / (b + T));
+    V := LOG(RH * 0.01 * SaturationTerm);
+    DEW_TEMP := b * V / (a - V);
+ELSE
+    DEW_TEMP := phys.T0;
+END_IF;
+END_FUNCTION
+
+PROGRAM Main
+VAR
+    out : REAL := REAL#0.0;
+END_VAR
+out := DEW_TEMP(RH := REAL#50.0, T := REAL#20.0);
+END_PROGRAM
+"#;
+
+    let module = bytecode_module_from_source(source).expect("compile bytecode module");
+    module.validate().expect("validate module");
+}

@@ -101,14 +101,14 @@ impl<'a> BytecodeEncoder<'a> {
             if seen.contains(&key) {
                 continue;
             }
-            seen.insert(key);
+            seen.insert(key.clone());
             let value_ref = ValueRef {
                 location: MemoryLocation::Local(frame_id),
                 offset,
                 path: RefPath::new(),
             };
             self.ref_index_for(&value_ref)?;
-            locals.insert(name, value_ref);
+            locals.insert(key, value_ref);
             offset = offset.saturating_add(1);
         }
         let local_ref_count = self

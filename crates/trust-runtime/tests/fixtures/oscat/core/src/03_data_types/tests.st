@@ -1,0 +1,74 @@
+TEST_PROGRAM oscat_data_types_are_available
+VAR
+    CalendarValue : CALENDAR;
+    ComplexValue : COMPLEX;
+    LocationValue : CONSTANTS_LOCATION;
+    SetupValue : CONSTANTS_SETUP;
+    EsrValue : ESR_DATA;
+    FractionValue : FRACTION;
+    HolidayValue : HOLIDAY_DATA;
+    MathValue : CONSTANTS_MATH;
+    PhysValue : CONSTANTS_PHYS;
+    LanguageValue : CONSTANTS_LANGUAGE;
+    DoubleRealValue : REAL2;
+    StampValue : SDT;
+    EventValue : TIMER_EVENT;
+    VectorValue : VECTOR_3;
+END_VAR
+
+CalendarValue.YEAR := INT#2026;
+CalendarValue.DST_EN := TRUE;
+ComplexValue.RE := REAL#1.25;
+ComplexValue.IM := REAL#-0.5;
+LocationValue.DEFAULT := INT#2;
+LocationValue.LANGUAGE[1] := INT#3;
+SetupValue.EXTENDED_ASCII := FALSE;
+SetupValue.MTH_OFS[12] := INT#334;
+SetupValue.DECADES[3] := REAL#1000.0;
+EsrValue.TYP := BYTE#7;
+EsrValue.DATA[0] := BYTE#16#AA;
+FractionValue.NUMERATOR := INT#3;
+FractionValue.DENOMINATOR := INT#4;
+HolidayValue.DAY := SINT#25;
+HolidayValue.MONTH := SINT#12;
+MathValue.FACTS[5] := DINT#120;
+PhysValue.PN := REAL#101325.0;
+LanguageValue.LMAX := INT#3;
+DoubleRealValue.RX := REAL#2.5;
+DoubleRealValue.R1 := REAL#0.125;
+StampValue.YEAR := INT#2026;
+StampValue.MS := INT#250;
+EventValue.CHANNEL := BYTE#2;
+EventValue.DAY := BYTE#5;
+VectorValue.X := REAL#1.0;
+VectorValue.Y := REAL#2.0;
+VectorValue.Z := REAL#3.0;
+
+ASSERT_EQUAL(EXPECTED := INT#2026, ACTUAL := CalendarValue.YEAR);
+ASSERT_TRUE(IN := CalendarValue.DST_EN);
+ASSERT_NEAR(EXPECTED := REAL#1.25, ACTUAL := ComplexValue.RE, DELTA := REAL#0.0001);
+ASSERT_NEAR(EXPECTED := REAL#-0.5, ACTUAL := ComplexValue.IM, DELTA := REAL#0.0001);
+ASSERT_EQUAL(EXPECTED := INT#2, ACTUAL := LocationValue.DEFAULT);
+ASSERT_EQUAL(EXPECTED := INT#3, ACTUAL := LocationValue.LANGUAGE[1]);
+ASSERT_FALSE(IN := SetupValue.EXTENDED_ASCII);
+ASSERT_EQUAL(EXPECTED := INT#334, ACTUAL := SetupValue.MTH_OFS[12]);
+ASSERT_NEAR(EXPECTED := REAL#1000.0, ACTUAL := SetupValue.DECADES[3], DELTA := REAL#0.0001);
+ASSERT_EQUAL(EXPECTED := BYTE#7, ACTUAL := EsrValue.TYP);
+ASSERT_EQUAL(EXPECTED := BYTE#16#AA, ACTUAL := EsrValue.DATA[0]);
+ASSERT_EQUAL(EXPECTED := INT#3, ACTUAL := FractionValue.NUMERATOR);
+ASSERT_EQUAL(EXPECTED := INT#4, ACTUAL := FractionValue.DENOMINATOR);
+ASSERT_EQUAL(EXPECTED := SINT#25, ACTUAL := HolidayValue.DAY);
+ASSERT_EQUAL(EXPECTED := SINT#12, ACTUAL := HolidayValue.MONTH);
+ASSERT_EQUAL(EXPECTED := DINT#120, ACTUAL := MathValue.FACTS[5]);
+ASSERT_NEAR(EXPECTED := REAL#101325.0, ACTUAL := PhysValue.PN, DELTA := REAL#0.1);
+ASSERT_EQUAL(EXPECTED := INT#3, ACTUAL := LanguageValue.LMAX);
+ASSERT_NEAR(EXPECTED := REAL#2.5, ACTUAL := DoubleRealValue.RX, DELTA := REAL#0.0001);
+ASSERT_NEAR(EXPECTED := REAL#0.125, ACTUAL := DoubleRealValue.R1, DELTA := REAL#0.0001);
+ASSERT_EQUAL(EXPECTED := INT#2026, ACTUAL := StampValue.YEAR);
+ASSERT_EQUAL(EXPECTED := INT#250, ACTUAL := StampValue.MS);
+ASSERT_EQUAL(EXPECTED := BYTE#2, ACTUAL := EventValue.CHANNEL);
+ASSERT_EQUAL(EXPECTED := BYTE#5, ACTUAL := EventValue.DAY);
+ASSERT_NEAR(EXPECTED := REAL#1.0, ACTUAL := VectorValue.X, DELTA := REAL#0.0001);
+ASSERT_NEAR(EXPECTED := REAL#2.0, ACTUAL := VectorValue.Y, DELTA := REAL#0.0001);
+ASSERT_NEAR(EXPECTED := REAL#3.0, ACTUAL := VectorValue.Z, DELTA := REAL#0.0001);
+END_TEST_PROGRAM

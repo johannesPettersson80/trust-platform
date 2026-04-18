@@ -241,11 +241,13 @@ impl CodegenContext {
     }
 
     fn local_ref(&self, name: &SmolStr) -> Option<&ValueRef> {
-        self.locals.get(name)
+        let key = normalize_name(name);
+        self.locals.get(&key)
     }
 
     fn static_ref(&self, name: &SmolStr) -> Option<&ValueRef> {
-        self.static_refs.get(name)
+        let key = normalize_name(name);
+        self.static_refs.get(&key)
     }
 
     fn self_field_name(&self, name: &SmolStr) -> Option<&SmolStr> {

@@ -111,13 +111,13 @@ END_TEST_PROGRAM
 
 #[test]
 fn timeout_budget_does_not_count_project_recompilation_per_case() {
-    let fixture = runtime_fixture_path("oscat_basic/core");
+    let fixture = runtime_fixture_path("oscat/core");
     let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
         .args(["test", "--project"])
         .arg(&fixture)
         .args([
             "--filter",
-            "oscat_basic_logic_jk_rs_and_selector_behave",
+            "oscat_logic_jk_rs_and_selector_behave",
             "--timeout",
             "2",
         ])
@@ -132,7 +132,7 @@ fn timeout_budget_does_not_count_project_recompilation_per_case() {
     );
 
     let text = String::from_utf8_lossy(&output.stdout);
-    assert!(text.contains("PASS [1/1] TEST_PROGRAM::oscat_basic_logic_jk_rs_and_selector_behave"));
+    assert!(text.contains("PASS [1/1] TEST_PROGRAM::oscat_logic_jk_rs_and_selector_behave"));
 }
 
 #[test]

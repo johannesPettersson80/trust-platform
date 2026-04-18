@@ -239,7 +239,7 @@ impl<'a> BytecodeEncoder<'a> {
                             .into(),
                     )
                 })?;
-            refs.insert(local.name.clone(), reference);
+            refs.insert(super::util::normalize_name(&local.name), reference);
         }
         Ok(refs)
     }

@@ -281,15 +281,7 @@ impl<'a> BytecodeEncoder<'a> {
             }
             crate::program_model::Expr::Name(name) => {
                 let key = SmolStr::new(name.to_ascii_uppercase());
-                if self.runtime.functions().contains_key(&key) {
-                    (NativeTargetKind::Function, name.clone(), false)
-                } else if self.runtime.stdlib().get(name.as_str()).is_some()
-                    || crate::stdlib::time::is_runtime_clock_name(key.as_str())
-                    || crate::stdlib::time::is_split_name(key.as_str())
-                    || crate::stdlib::conversions::is_conversion_name(key.as_str())
-                {
-                    (NativeTargetKind::Stdlib, name.clone(), false)
-                } else if ctx.local_ref(name).is_some()
+                if ctx.local_ref(name).is_some()
                     || ctx.self_field_name(name).is_some()
                     || self.resolve_name_ref(ctx, name)?.is_some()
                 {
@@ -299,6 +291,14 @@ impl<'a> BytecodeEncoder<'a> {
                         ));
                     }
                     (NativeTargetKind::FunctionBlock, name.clone(), true)
+                } else if self.runtime.functions().contains_key(&key) {
+                    (NativeTargetKind::Function, name.clone(), false)
+                } else if self.runtime.stdlib().get(name.as_str()).is_some()
+                    || crate::stdlib::time::is_runtime_clock_name(key.as_str())
+                    || crate::stdlib::time::is_split_name(key.as_str())
+                    || crate::stdlib::conversions::is_conversion_name(key.as_str())
+                {
+                    (NativeTargetKind::Stdlib, name.clone(), false)
                 } else {
                     code.push(0x23); // LOAD_SELF
                     (NativeTargetKind::Method, name.clone(), true)

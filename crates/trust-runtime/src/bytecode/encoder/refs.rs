@@ -5,6 +5,7 @@ use crate::value::{ref_indices_from_iter, RefSegment as ValueRefSegment, Value, 
 
 use crate::bytecode::{RefEntry, RefLocation, RefSegment};
 
+use super::util::normalize_name;
 use super::util::to_u32;
 use super::{BytecodeEncoder, BytecodeError, CodegenContext};
 
@@ -57,6 +58,7 @@ impl<'a> BytecodeEncoder<'a> {
         ctx: &CodegenContext,
         name: &SmolStr,
     ) -> Result<Option<ValueRef>, BytecodeError> {
+        let key = normalize_name(name);
         if let Some(reference) = ctx.local_ref(name) {
             return Ok(Some(reference.clone()));
         }
@@ -68,16 +70,34 @@ impl<'a> BytecodeEncoder<'a> {
                 .runtime
                 .storage()
                 .ref_for_instance_recursive(instance_id, name.as_ref())
+                .or_else(|| {
+                    (key != *name).then(|| {
+                        self.runtime
+                            .storage()
+                            .ref_for_instance_recursive(instance_id, key.as_ref())
+                    })?
+                })
             {
                 return Ok(Some(reference));
             }
         }
-        if let Some(binding) = self.runtime.access_map().get(name.as_ref()) {
+        if let Some(binding) = self
+            .runtime
+            .access_map()
+            .get(name.as_ref())
+            .or_else(|| (key != *name).then(|| self.runtime.access_map().get(key.as_ref()))?)
+        {
             if binding.partial.is_none() {
                 return Ok(Some(binding.reference.clone()));
             }
         }
-        Ok(self.runtime.storage().ref_for_global(name.as_ref()))
+        Ok(self
+            .runtime
+            .storage()
+            .ref_for_global(name.as_ref())
+            .or_else(|| {
+                (key != *name).then(|| self.runtime.storage().ref_for_global(key.as_ref()))?
+            }))
     }
 
     pub(super) fn ref_index_for(&mut self, value_ref: &ValueRef) -> Result<u32, BytecodeError> {

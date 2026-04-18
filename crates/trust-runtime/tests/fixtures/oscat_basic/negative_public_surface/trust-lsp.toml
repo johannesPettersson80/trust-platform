@@ -1,6 +1,0 @@
-[project]
-include_paths = ["src"]
-stdlib = "iec"
-
-[dependencies]
-OSCATBasic = { path = "../../../../../../libraries/oscat_basic", version = "0.1.0" }

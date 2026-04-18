@@ -176,7 +176,6 @@ struct VmProfileReport {
     tier1_specialized_executor: Option<VmTier1SpecializedExecutorReport>,
 }
 
-
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "benchmark", content = "report")]
 #[allow(clippy::large_enum_variant)]

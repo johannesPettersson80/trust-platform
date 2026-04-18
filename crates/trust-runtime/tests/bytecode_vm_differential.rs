@@ -131,3 +131,71 @@ END_PROGRAM
     assert_register_started_without_fallback(&register.runtime().vm_register_profile_snapshot());
     assert_stack_fallback(&stack.runtime().vm_register_profile_snapshot());
 }
+
+#[test]
+fn register_and_stack_paths_match_for_case_insensitive_oscat_style_calls() {
+    let source = r#"
+TYPE CONSTANTS_PHYS :
+STRUCT
+    T0 : REAL := -273.15;
+END_STRUCT
+END_TYPE
+
+VAR_GLOBAL
+    PHYS : CONSTANTS_PHYS;
+END_VAR
+
+FUNCTION EXP10 : REAL
+VAR_INPUT
+    X : REAL;
+END_VAR
+EXP10 := EXP(X * 2.30258509299405);
+END_FUNCTION
+
+FUNCTION DEW_TEMP : REAL
+VAR_INPUT
+    RH : REAL;
+    T : REAL;
+END_VAR
+VAR CONSTANT
+    a : REAL := 7.5;
+    b : REAL := 237.3;
+END_VAR
+VAR
+    V : REAL;
+    SaturationTerm : REAL;
+END_VAR
+IF rh > 0.0 THEN
+    SaturationTerm := EXP10((a * T) / (b + T));
+    V := LOG(RH * 0.01 * SaturationTerm);
+    DEW_TEMP := b * V / (a - V);
+ELSE
+    DEW_TEMP := phys.T0;
+END_IF;
+END_FUNCTION
+
+PROGRAM Main
+VAR
+    outv : REAL := REAL#0.0;
+END_VAR
+outv := DEW_TEMP(RH := REAL#50.0, T := REAL#20.0);
+END_PROGRAM
+"#;
+
+    let mut register = vm_harness(source, false);
+    let mut stack = vm_harness(source, true);
+
+    let register_cycle = register.cycle();
+    let stack_cycle = stack.cycle();
+
+    assert_eq!(register_cycle.errors, stack_cycle.errors);
+    assert!(
+        register_cycle.errors.is_empty(),
+        "register errors: {:?}",
+        register_cycle.errors
+    );
+    assert_eq!(register.get_output("outv"), stack.get_output("outv"));
+
+    assert_register_path(&register.runtime().vm_register_profile_snapshot());
+    assert_stack_fallback(&stack.runtime().vm_register_profile_snapshot());
+}

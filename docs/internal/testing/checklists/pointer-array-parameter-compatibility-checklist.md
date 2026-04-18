@@ -98,9 +98,9 @@ Locked decisions:
 - [x] `P5.8` Add the pointer-model comment near `infer_addr_expr`
 - [x] `P5.9` Verify all Phase 2 tests pass
 - [x] `P5.10` Run broader HIR/runtime suites for array/pointer regressions
-  Note: `cargo test -p trust-runtime` still fails in
-  `tests/oscat_basic_generators.rs` because `CODE` is currently undefined in
-  the OSCAT library surface.
+  Note: the old `tests/oscat_generators.rs` blocker is obsolete; OSCAT
+  library coverage now lives in the ST conformance fixture under
+  `crates/trust-runtime/tests/fixtures/oscat/core`.
 - [x] `P5.11` Commit feature:
   `feat(hir): support ARRAY[*] wildcard and explicit pointer-target compat`
 
@@ -133,7 +133,7 @@ Locked decisions:
 - [x] `P7.2` Rewrite `_BUFFER_*` / `BUFFER_*` to `VAR_IN_OUT ARRAY[*] OF BYTE`
 - [x] `P7.3` Remove giant ceremony arrays from OSCAT core fixtures
 - [x] `P7.4` Re-run OSCAT integration fixtures and keep behavior unchanged
-  Note: `target/debug/trust-runtime test --project crates/trust-runtime/tests/fixtures/oscat_basic/core --timeout 60`
+  Note: `target/debug/trust-runtime test --project crates/trust-runtime/tests/fixtures/oscat/core --timeout 60`
   now passes `69/69`. Closing this phase also required restoring
   project-wide `VAR_GLOBAL CONSTANT` integer evaluation for type-length
   contexts such as `STRING[STRING_LENGTH]`, which was blocking the OSCAT core

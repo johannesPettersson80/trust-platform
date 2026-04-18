@@ -1,0 +1,70 @@
+TEST_PROGRAM oscat_buffer_management_copy_helpers_behave
+VAR
+    Buffer : ARRAY[0..7] OF BYTE;
+    NextPos : INT;
+    InsertPos : INT;
+END_VAR
+
+ASSERT_TRUE(IN := _BUFFER_INIT(PT := Buffer, SIZE := UINT#6, INIT := BYTE#42));
+ASSERT_EQUAL(EXPECTED := BYTE#42, ACTUAL := Buffer[0]);
+ASSERT_EQUAL(EXPECTED := BYTE#42, ACTUAL := Buffer[5]);
+
+ASSERT_TRUE(IN := _BUFFER_CLEAR(PT := Buffer, SIZE := UINT#2));
+ASSERT_EQUAL(EXPECTED := BYTE#0, ACTUAL := Buffer[0]);
+ASSERT_EQUAL(EXPECTED := BYTE#0, ACTUAL := Buffer[1]);
+ASSERT_EQUAL(EXPECTED := BYTE#42, ACTUAL := Buffer[2]);
+
+NextPos := _STRING_TO_BUFFER(STR := 'Ab', POS := INT#1, PT := Buffer, SIZE := UINT#8);
+ASSERT_EQUAL(EXPECTED := INT#3, ACTUAL := NextPos);
+ASSERT_EQUAL(EXPECTED := BYTE#65, ACTUAL := Buffer[1]);
+ASSERT_EQUAL(EXPECTED := BYTE#98, ACTUAL := Buffer[2]);
+
+ASSERT_TRUE(IN := _BUFFER_UPPERCASE(PT := Buffer, SIZE := INT#3));
+ASSERT_EQUAL(EXPECTED := BYTE#66, ACTUAL := Buffer[2]);
+
+ASSERT_TRUE(IN := _BUFFER_CLEAR(PT := Buffer, SIZE := UINT#8));
+NextPos := _STRING_TO_BUFFER(STR := 'ABCD', POS := INT#0, PT := Buffer, SIZE := UINT#8);
+ASSERT_EQUAL(EXPECTED := INT#4, ACTUAL := NextPos);
+
+InsertPos := _BUFFER_INSERT(STR := 'xy', POS := INT#2, PT := Buffer, SIZE := UINT#8);
+ASSERT_EQUAL(EXPECTED := INT#4, ACTUAL := InsertPos);
+ASSERT_EQUAL(EXPECTED := BYTE#65, ACTUAL := Buffer[0]);
+ASSERT_EQUAL(EXPECTED := BYTE#66, ACTUAL := Buffer[1]);
+ASSERT_EQUAL(EXPECTED := BYTE#120, ACTUAL := Buffer[2]);
+ASSERT_EQUAL(EXPECTED := BYTE#121, ACTUAL := Buffer[3]);
+ASSERT_EQUAL(EXPECTED := BYTE#67, ACTUAL := Buffer[4]);
+ASSERT_EQUAL(EXPECTED := BYTE#68, ACTUAL := Buffer[5]);
+END_TEST_PROGRAM
+
+TEST_PROGRAM oscat_buffer_management_search_helpers_behave
+VAR
+    Buffer : ARRAY[0..7] OF BYTE;
+    Pattern : ARRAY[0..7] OF BYTE;
+    MatchPos : INT;
+    SearchPos : INT;
+    Extracted : STRING[STRING_LENGTH];
+END_VAR
+
+ASSERT_TRUE(IN := _BUFFER_CLEAR(PT := Buffer, SIZE := UINT#8));
+ASSERT_TRUE(IN := _BUFFER_CLEAR(PT := Pattern, SIZE := UINT#8));
+ASSERT_EQUAL(
+    EXPECTED := INT#6,
+    ACTUAL := _STRING_TO_BUFFER(STR := 'abxycd', POS := INT#0, PT := Buffer, SIZE := UINT#8)
+);
+ASSERT_EQUAL(
+    EXPECTED := INT#3,
+    ACTUAL := _STRING_TO_BUFFER(STR := 'xyc', POS := INT#0, PT := Pattern, SIZE := UINT#8)
+);
+
+MatchPos := BUFFER_COMP(PT1 := Buffer, SIZE1 := INT#6, PT2 := Pattern, SIZE2 := INT#3, START := INT#0);
+ASSERT_EQUAL(EXPECTED := INT#2, ACTUAL := MatchPos);
+
+SearchPos := BUFFER_SEARCH(PT := Buffer, SIZE := INT#6, STR := 'XYC', POS := INT#0, IGN := TRUE);
+ASSERT_EQUAL(EXPECTED := INT#2, ACTUAL := SearchPos);
+SearchPos := BUFFER_SEARCH(PT := Buffer, SIZE := INT#6, STR := 'XYC', POS := INT#0, IGN := FALSE);
+ASSERT_EQUAL(EXPECTED := INT#-1, ACTUAL := SearchPos);
+
+ASSERT_TRUE(IN := _BUFFER_UPPERCASE(PT := Buffer, SIZE := INT#6));
+Extracted := BUFFER_TO_STRING(PT := Buffer, SIZE := UINT#6, START := UINT#2, STOP := UINT#4);
+ASSERT_EQUAL(EXPECTED := 'XYC', ACTUAL := Extracted);
+END_TEST_PROGRAM

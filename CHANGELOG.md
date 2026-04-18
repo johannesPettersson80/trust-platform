@@ -6,10 +6,17 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.18.2`
+Target release: `v0.18.3`
 
 ### Fixed
 
+- The OSCAT runtime/compiler path now handles the full shipped OSCAT library
+  more reliably: bytecode lowering resolves local instance names before global
+  callable symbols, normalizes OSCAT-style identifier lookup consistently
+  across locals/reference lowering, and fixes remaining Chapter 19/20/23/24
+  regressions such as `AOUT`/`AOUT1` scaling, `MULTI_IN` mode `0`,
+  `ACTUATOR_COIL`, `CTRL_IN`, `HYST*`, `PARSET`/`PARSET2`, and first-scan
+  `TEMP_EXT` sampling. The full OSCAT core fixture now runs green again.
 - Runtime VM string access, native-call dispatch, and hot-path execution are
   now more consistent and predictable: signed unary `NEG` on minimum signed
   integers now reports overflow instead of panicking/wrapping, pure-`DINT`
@@ -53,36 +60,49 @@ Target release: `v0.18.2`
 
 ### Added
 
-- `libraries/oscat_basic` now also ships the full Chapter 6 `Arrays` surface:
+- `libraries/oscat` now ships the full manual-aligned OSCAT chapter set
+  (`03_data_types` through `26_list_processing`) as the primary OSCAT package,
+  including the OSCAT_BUILDING Chapter 23 control/environmental surface, a
+  full ST conformance project under `fixtures/oscat/core` that now passes
+  `126` tests with `0` failures and `0` errors, plus a narrowed
+  `negative_public_surface` sentinel that exists only to pin the deliberate
+  upstream `OVERRIDE` -> truST `OVERRIDE_3` name deviation.
+- The OSCAT user documentation now matches the library’s current shipped
+  surface: `docs/guides/OSCAT_LIBRARY_GUIDE.md`, `libraries/oscat/README.md`,
+  `docs/README.md`, and `examples/oscat_smoke/README.md` now describe the full
+  package layout, validation evidence, public carrier/data-type surface, and
+  the major function-block families instead of the earlier smaller OSCAT BASIC
+  slice.
+- `libraries/oscat` now also ships the full Chapter 6 `Arrays` surface:
   `_ARRAY_ABS`, `_ARRAY_ADD`, `_ARRAY_INIT`, `_ARRAY_MEDIAN`, `_ARRAY_MUL`,
   `_ARRAY_SHUFFLE`, `_ARRAY_SORT`, `ARRAY_AVG`, `ARRAY_GAV`, `ARRAY_HAV`,
   `ARRAY_MAX`, `ARRAY_MIN`, `ARRAY_SDV`, `ARRAY_SPR`, `ARRAY_SUM`,
   `ARRAY_TREND`, `ARRAY_VAR`, and `IS_SORTED`.
-- `libraries/oscat_basic` now also ships the full Chapter 4 `Other Functions`
+- `libraries/oscat` now also ships the full Chapter 4 `Other Functions`
   slice: `STATUS_TO_ESR`, `OSCAT_VERSION`, `ESR_COLLECT`, `ESR_MON_B8`,
   `ESR_MON_R4`, and `ESR_MON_X8`.
-- `libraries/oscat_basic` now also ships the full Chapter 5 `Mathematics`
+- `libraries/oscat` now also ships the full Chapter 5 `Mathematics`
   surface, including the remaining error/distribution helpers (`ERF`, `ERFC`,
   `GAUSS`, `GAUSSCD`), integer/sequence/fraction helpers (`EXPN`, `FACT`,
   `FIB`, `GCD`, `REAL_TO_FRAC`), transcendental helpers (`GDF`, `GOLD`,
   `LAMBERT_W`, `LANGEVIN`, `SIGMOID`, `SINC`, `SQRTN`, `TANC`), rounding and
   window helpers (`RND`, `ROUND`, `WINDOW`, `WINDOW2`), and the OSCAT random
   helpers (`RDM`, `RDM2`, `RDMDW`).
-- `libraries/oscat_basic` now also ships the first Chapter 3 data-type slice:
+- `libraries/oscat` now also ships the first Chapter 3 data-type slice:
   `CALENDAR`, `COMPLEX`, `CONSTANTS_LOCATION`, `CONSTANTS_SETUP`, `ESR_DATA`,
   `FRACTION`, `HOLIDAY_DATA`, `REAL2`, `SDT`, `TIMER_EVENT`, and `VECTOR_3`,
   plus the preloaded `MATH.FACTS[...]` factorial table used by later OSCAT
   helpers.
-- `libraries/oscat_basic` now also ships the stateful helper function blocks `DELAY` and `FT_AVG`.
-- `libraries/oscat_basic` now also ships the first linear/polynomial/ramp math helpers: `F_LIN`, `F_LIN2`, `F_POLY`, `F_POWER`, `F_QUAD`, and `FRMP_B`.
-- Added the first shipped `libraries/oscat_basic` package with an initial OSCAT BASIC compatibility slice (shared math/physics constants plus core conversion helpers), alongside `examples/oscat_basic_smoke` as the first consumer project wired through `[dependencies]`.
-- Added OSCAT compatibility extensions `TIME_TO_DWORD`, `DWORD_TO_TIME`, `T_PLC_MS`, and `T_PLC_US`, plus restored `DIR_TO_DEG`, `F_TO_PT`, `PT_TO_F`, and the live `LANGUAGE.DIRS[...]` surface in `libraries/oscat_basic`.
-- `libraries/oscat_basic` now also ships a larger date/time slice including `DAY_TO_TIME`, `HOUR_TO_TIME`, `MINUTE_TO_TIME`, `SECOND_TO_TIME`, `DAY_OF_DATE`, `DAYS_DELTA`, `DAYS_IN_MONTH`, `DAYS_IN_YEAR`, `DATE_ADD`, `EASTER`, `WORK_WEEK`, `HOUR_OF_DT`, `MINUTE_OF_DT`, `SECOND_OF_DT`, `MONTH_BEGIN`, `MONTH_END`, `YEAR_BEGIN`, `YEAR_END`, and related leap/year helpers.
-- `libraries/oscat_basic` now also ships the first larger string and logic slices, including `MONTH_TO_STRING`, `WEEKDAY_TO_STRING`, `DT_TO_STRF`, `TO_LOWER`, `TO_UPPER`, `LOWERCASE`, `UPPERCASE`, the `ISC_*` / `IS_*` predicate helpers, the `FIND_CHAR` / `FIND_CTRL` / `FIND_NONUM` / `FIND_NUM` / `FINDB*` / `FINDP` search helpers, plus `CAPITALIZE`, `CLEAN`, `COUNT_CHAR`, `COUNT_SUBSTRING`, `CODE`, `DEL_CHARS`, `TO_UML`, `DEC_TO_BYTE`, `DEC_TO_DWORD`, `DEC_TO_INT`, `BYTE_TO_STRB`, `BYTE_TO_STRH`, `DWORD_TO_STRB`, `DWORD_TO_STRH`, `BIN_TO_BYTE`, `BIN_TO_DWORD`, `HEX_TO_BYTE`, `HEX_TO_DWORD`, `OCT_TO_BYTE`, `OCT_TO_DWORD`, `MIRROR`, `REPLACE_ALL`, `REPLACE_CHARS`, `REPLACE_UML`, `CHARCODE`, `CHARNAME`, `TICKER`, `LTCH`, `LTCH_4`, `STORE_8`, `COUNT_BR`, `COUNT_DR`, `TOGGLE`, `FF_D2E`, `FF_D4E`, and `FF_DRE`.
-- `libraries/oscat_basic` now also ships the rest of the current logic surface: `FF_JKE`, `FF_RSE`, `SELECT_8`, `SHR_4E`, `SHR_4UDE`, `SHR_8PLE`, `SHR_8UDE`, the full current gate-logic helper slice (`DEC_*`, `MUX_*`, `BIT_*`, `BYTE_*`, `WORD_*`, `DWORD_*`, `SHL1`, `SHR1`, `SWAP_*`, `REAL_TO_DW`, `DW_TO_REAL`, `CHK_REAL`, `REFLECT`, `REVERSE`), plus generator trigger FBs `A_TRIG`, `B_TRIG`, and `D_TRIG`.
-- `libraries/oscat_basic` now also ships the full current `/Logic/generators` and `/Logic/memory` slices: `CLICK_CNT`, `CLICK_DEC`, `CLK_DIV`, `CLK_N`, `CLK_PULSE`, `CYCLE_4`, `GEN_BIT`, `GEN_SQ`, `SCHEDULER`, `SCHEDULER_2`, `SEQUENCE_4`, `SEQUENCE_8`, `TONOF`, `TP_X`, `FIFO_16`, `FIFO_32`, `STACK_16`, and `STACK_32`.
-- `libraries/oscat_basic` now also ships the `/Logic/Others`, `/Buffer Management`, `/List Processing`, `/Mathematical/Geometry`, and `/Mathematical/Double Precision` slices: `CRC_GEN`, `MATRIX`, `PIN_CODE`, `_BUFFER_*`, `BUFFER_*`, `LIST_*`, `REAL2`, `R2_*`, `CIRCLE_*`, `CONE_V`, `ELLIPSE_*`, `SPHERE_V`, and `TRIANGLE_A`.
-- Added `docs/guides/OSCAT_BASIC_LIBRARY_GUIDE.md` plus an expanded `examples/oscat_basic_smoke` walkthrough so the shipped OSCAT BASIC slice now has a user-facing reference and a concrete consumer guide comparable to the motion-library docs.
+- `libraries/oscat` now also ships the stateful helper function blocks `DELAY` and `FT_AVG`.
+- `libraries/oscat` now also ships the first linear/polynomial/ramp math helpers: `F_LIN`, `F_LIN2`, `F_POLY`, `F_POWER`, `F_QUAD`, and `FRMP_B`.
+- Added the first shipped `libraries/oscat` package with the initial OSCAT compatibility slice (shared math/physics constants plus core conversion helpers), alongside `examples/oscat_smoke` as the first consumer project wired through `[dependencies]`.
+- Added OSCAT compatibility extensions `TIME_TO_DWORD`, `DWORD_TO_TIME`, `T_PLC_MS`, and `T_PLC_US`, plus restored `DIR_TO_DEG`, `F_TO_PT`, `PT_TO_F`, and the live `LANGUAGE.DIRS[...]` surface in `libraries/oscat`.
+- `libraries/oscat` now also ships a larger date/time slice including `DAY_TO_TIME`, `HOUR_TO_TIME`, `MINUTE_TO_TIME`, `SECOND_TO_TIME`, `DAY_OF_DATE`, `DAYS_DELTA`, `DAYS_IN_MONTH`, `DAYS_IN_YEAR`, `DATE_ADD`, `EASTER`, `WORK_WEEK`, `HOUR_OF_DT`, `MINUTE_OF_DT`, `SECOND_OF_DT`, `MONTH_BEGIN`, `MONTH_END`, `YEAR_BEGIN`, `YEAR_END`, and related leap/year helpers.
+- `libraries/oscat` now also ships the first larger string and logic slices, including `MONTH_TO_STRING`, `WEEKDAY_TO_STRING`, `DT_TO_STRF`, `TO_LOWER`, `TO_UPPER`, `LOWERCASE`, `UPPERCASE`, the `ISC_*` / `IS_*` predicate helpers, the `FIND_CHAR` / `FIND_CTRL` / `FIND_NONUM` / `FIND_NUM` / `FINDB*` / `FINDP` search helpers, plus `CAPITALIZE`, `CLEAN`, `COUNT_CHAR`, `COUNT_SUBSTRING`, `CODE`, `DEL_CHARS`, `TO_UML`, `DEC_TO_BYTE`, `DEC_TO_DWORD`, `DEC_TO_INT`, `BYTE_TO_STRB`, `BYTE_TO_STRH`, `DWORD_TO_STRB`, `DWORD_TO_STRH`, `BIN_TO_BYTE`, `BIN_TO_DWORD`, `HEX_TO_BYTE`, `HEX_TO_DWORD`, `OCT_TO_BYTE`, `OCT_TO_DWORD`, `MIRROR`, `REPLACE_ALL`, `REPLACE_CHARS`, `REPLACE_UML`, `CHARCODE`, `CHARNAME`, `TICKER`, `LTCH`, `LTCH_4`, `STORE_8`, `COUNT_BR`, `COUNT_DR`, `TOGGLE`, `FF_D2E`, `FF_D4E`, and `FF_DRE`.
+- `libraries/oscat` now also ships the rest of the current logic surface: `FF_JKE`, `FF_RSE`, `SELECT_8`, `SHR_4E`, `SHR_4UDE`, `SHR_8PLE`, `SHR_8UDE`, the full current gate-logic helper slice (`DEC_*`, `MUX_*`, `BIT_*`, `BYTE_*`, `WORD_*`, `DWORD_*`, `SHL1`, `SHR1`, `SWAP_*`, `REAL_TO_DW`, `DW_TO_REAL`, `CHK_REAL`, `REFLECT`, `REVERSE`), plus generator trigger FBs `A_TRIG`, `B_TRIG`, and `D_TRIG`.
+- `libraries/oscat` now also ships the full current `/Logic/generators` and `/Logic/memory` slices: `CLICK_CNT`, `CLICK_DEC`, `CLK_DIV`, `CLK_N`, `CLK_PULSE`, `CYCLE_4`, `GEN_BIT`, `GEN_SQ`, `SCHEDULER`, `SCHEDULER_2`, `SEQUENCE_4`, `SEQUENCE_8`, `TONOF`, `TP_X`, `FIFO_16`, `FIFO_32`, `STACK_16`, and `STACK_32`.
+- `libraries/oscat` now also ships the `/Logic/Others`, `/Buffer Management`, `/List Processing`, `/Mathematical/Geometry`, and `/Mathematical/Double Precision` slices: `CRC_GEN`, `MATRIX`, `PIN_CODE`, `_BUFFER_*`, `BUFFER_*`, `LIST_*`, `REAL2`, `R2_*`, `CIRCLE_*`, `CONE_V`, `ELLIPSE_*`, `SPHERE_V`, and `TRIANGLE_A`.
+- Added `docs/guides/OSCAT_LIBRARY_GUIDE.md` plus an expanded `examples/oscat_smoke` walkthrough so the shipped OSCAT package now has a user-facing reference and a concrete consumer guide comparable to the motion-library docs.
 - Runtime benchmark scripts now share a documented host-codegen policy via `TRUST_RUNTIME_HOST_CODEGEN=auto|generic|native`, defaulting to host-native builds only on Raspberry Pi benchmark hosts while keeping portable/generic builds explicit for shared comparisons and release artifacts.
 - User-facing build docs now also cover the full host-native and PGO runtime build workflow, including the required `llvm-tools-preview` setup, corpus-training commands, and current Raspberry Pi 5 benchmark evidence (`full_demo` about `433.501 us -> 404.353 us` with `native`, then about `292.298 us` with `native+PGO`).
 - Added `docs/diagrams/architecture/runtime-bytecode-vm-execution.puml` and corrected the high-level runtime architecture notes so the official diagrams now distinguish production bytecode-VM execution from residual `EvalContext` / `legacy-interpreter` helper paths.
@@ -280,7 +300,7 @@ Target release: `v0.18.2`
 
 ### Changed
 
-- `libraries/oscat_basic/src` and the OSCAT BASIC core/negative conformance fixtures now follow the OSCAT manual chapter structure (`03_data_types` through `26_list_processing`) instead of a flat source bucket, so continued porting can proceed chapter-by-chapter with tests in the matching chapter first.
+- `libraries/oscat/src` and the OSCAT core/negative conformance fixtures now follow the OSCAT manual chapter structure (`03_data_types` through `26_list_processing`) instead of a flat source bucket, so continued porting can proceed chapter-by-chapter with tests in the matching chapter first.
 - VS Code statechart automated coverage:
   - Added editor lifecycle test coverage to verify running statechart sessions are cleaned up when a custom editor panel is disposed.
   - Added state machine engine behavior tests for awaited hardware action ordering and fail-closed guard evaluation paths.

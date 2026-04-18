@@ -36,7 +36,7 @@ code /path/to/trust-platform
 | Communication protocols (grouped) | `examples/communication/README.md` | protocol-focused examples for Modbus/TCP, MQTT, OPC UA, two EtherCAT commissioning profiles (mock-first + field-tested), GPIO, and composed multi-driver configurations with transport gates and commissioning flow | 120-220 min |
 | Runtime I/O mental model | `examples/memory_marker_counter/README.md` | `%M/%Q` cycle semantics + debugger confirmation | 20-30 min |
 | PLCopen motion single-axis guide | `examples/plcopen_motion_single_axis_demo/README.md` | reusable library consumption, scan-driven PLCopen motion sequencing, and a step-by-step reference project | 25-40 min |
-| OSCAT BASIC smoke | `examples/oscat_basic_smoke/README.md` | reusable OSCAT BASIC package consumption, one-time constants loading, time/date helpers, clock helpers, direction helpers, and unit-conversion FB usage | 10-20 min |
+| OSCAT smoke | `examples/oscat_smoke/README.md` | reusable full OSCAT package consumption, one-time constants loading, shared carriers, time/date helpers, direction helpers, and representative FB usage | 10-20 min |
 | PLCopen motion profiling pack | `examples/plcopen_motion_single_axis_benchmarks/README.md` | runtime-floor, direct-global, dynamic-ref, trivial-FB, constants-only, status-only, inactive-command, single-command, and constants-once isolates for performance triage | 20-35 min |
 | HMI P&ID tutorial | `examples/tutorials/12_hmi_pid_process_dashboard/README.md` | process SVG pages, bypass mode, setpoint/alarm bindings, and live HMI refresh workflow | 35-55 min |
 | Runtime cloud onboarding pack | `examples/runtime_cloud/README.md` | profile setup (`dev`/`plant`/`wan`), preflight/dispatch payloads, federation allowlist flow | 30-60 min |
@@ -80,7 +80,7 @@ code /path/to/trust-platform
 ```bash
 trust-runtime build --project examples/filling_line --sources src
 trust-runtime build --project examples/plcopen_motion_single_axis_demo --sources src
-trust-runtime build --project examples/oscat_basic_smoke --sources src
+trust-runtime build --project examples/oscat_smoke --sources src
 trust-runtime build --project examples/tutorials/12_hmi_pid_process_dashboard --sources src
 trust-runtime build --project examples/plant_demo --sources src
 trust-runtime build --project examples/ethercat_ek1100_elx008_v1 --sources src

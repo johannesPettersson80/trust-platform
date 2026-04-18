@@ -1,0 +1,168 @@
+(* OSCAT BASIC 3.33 Chapter 11 vector mathematics helpers. *)
+
+FUNCTION V3_ABS : REAL
+VAR_INPUT
+    A : VECTOR_3;
+END_VAR
+V3_ABS := SQRT(A.X * A.X + A.Y * A.Y + A.Z * A.Z);
+END_FUNCTION
+
+FUNCTION V3_ADD : VECTOR_3
+VAR_INPUT
+    A : VECTOR_3;
+    B : VECTOR_3;
+END_VAR
+VAR
+    Result : VECTOR_3;
+END_VAR
+Result.X := A.X + B.X;
+Result.Y := A.Y + B.Y;
+Result.Z := A.Z + B.Z;
+V3_ADD := Result;
+END_FUNCTION
+
+FUNCTION V3_ANG : REAL
+VAR_INPUT
+    A : VECTOR_3;
+    B : VECTOR_3;
+END_VAR
+VAR
+    D : REAL;
+END_VAR
+D := V3_ABS(A := A) * V3_ABS(A := B);
+IF D > REAL#0.0 THEN
+    V3_ANG := ACOS(LIMIT(REAL#-1.0, V3_DPRO(A := A, B := B) / D, REAL#1.0));
+END_IF;
+END_FUNCTION
+
+FUNCTION V3_DPRO : REAL
+VAR_INPUT
+    A : VECTOR_3;
+    B : VECTOR_3;
+END_VAR
+V3_DPRO := A.X * B.X + A.Y * B.Y + A.Z * B.Z;
+END_FUNCTION
+
+FUNCTION V3_NORM : VECTOR_3
+VAR_INPUT
+    A : VECTOR_3;
+END_VAR
+VAR
+    LengthA : REAL;
+    Result : VECTOR_3;
+END_VAR
+LengthA := V3_ABS(A := A);
+IF LengthA > REAL#0.0 THEN
+    Result := V3_SMUL(A := A, M := REAL#1.0 / LengthA);
+END_IF;
+V3_NORM := Result;
+END_FUNCTION
+
+FUNCTION V3_NUL : BOOL
+VAR_INPUT
+    A : VECTOR_3;
+END_VAR
+V3_NUL := A.X = REAL#0.0 AND A.Y = REAL#0.0 AND A.Z = REAL#0.0;
+END_FUNCTION
+
+FUNCTION V3_PAR : BOOL
+VAR_INPUT
+    A : VECTOR_3;
+    B : VECTOR_3;
+END_VAR
+V3_PAR := V3_ABS(A := V3_XPRO(A := A, B := B)) = REAL#0.0;
+END_FUNCTION
+
+FUNCTION V3_REV : VECTOR_3
+VAR_INPUT
+    A : VECTOR_3;
+END_VAR
+VAR
+    Result : VECTOR_3;
+END_VAR
+Result.X := -A.X;
+Result.Y := -A.Y;
+Result.Z := -A.Z;
+V3_REV := Result;
+END_FUNCTION
+
+FUNCTION V3_SMUL : VECTOR_3
+VAR_INPUT
+    A : VECTOR_3;
+    M : REAL;
+END_VAR
+VAR
+    Result : VECTOR_3;
+END_VAR
+Result.X := A.X * M;
+Result.Y := A.Y * M;
+Result.Z := A.Z * M;
+V3_SMUL := Result;
+END_FUNCTION
+
+FUNCTION V3_SUB : VECTOR_3
+VAR_INPUT
+    A : VECTOR_3;
+    B : VECTOR_3;
+END_VAR
+VAR
+    Result : VECTOR_3;
+END_VAR
+Result.X := A.X - B.X;
+Result.Y := A.Y - B.Y;
+Result.Z := A.Z - B.Z;
+V3_SUB := Result;
+END_FUNCTION
+
+FUNCTION V3_XANG : REAL
+VAR_INPUT
+    A : VECTOR_3;
+END_VAR
+VAR
+    LengthA : REAL;
+END_VAR
+LengthA := V3_ABS(A := A);
+IF LengthA > REAL#0.0 THEN
+    V3_XANG := ACOS(A.X / LengthA);
+END_IF;
+END_FUNCTION
+
+FUNCTION V3_XPRO : VECTOR_3
+VAR_INPUT
+    A : VECTOR_3;
+    B : VECTOR_3;
+END_VAR
+VAR
+    Result : VECTOR_3;
+END_VAR
+Result.X := A.Y * B.Z - A.Z * B.Y;
+Result.Y := A.Z * B.X - A.X * B.Z;
+Result.Z := A.X * B.Y - A.Y * B.X;
+V3_XPRO := Result;
+END_FUNCTION
+
+FUNCTION V3_YANG : REAL
+VAR_INPUT
+    A : VECTOR_3;
+END_VAR
+VAR
+    LengthA : REAL;
+END_VAR
+LengthA := V3_ABS(A := A);
+IF LengthA > REAL#0.0 THEN
+    V3_YANG := ACOS(A.Y / LengthA);
+END_IF;
+END_FUNCTION
+
+FUNCTION V3_ZANG : REAL
+VAR_INPUT
+    A : VECTOR_3;
+END_VAR
+VAR
+    LengthA : REAL;
+END_VAR
+LengthA := V3_ABS(A := A);
+IF LengthA > REAL#0.0 THEN
+    V3_ZANG := ACOS(A.Z / LengthA);
+END_IF;
+END_FUNCTION
