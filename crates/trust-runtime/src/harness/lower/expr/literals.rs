@@ -489,3 +489,26 @@ pub(in crate::harness) fn enum_literal_value(
     }
     None
 }
+
+/// Rewrite an initializer expression so that an unqualified `NameRef`
+/// matching an enum variant of `target_type_id` becomes an `Expr::Literal`
+/// with the resolved `Value::Enum`. Non-matching expressions are returned
+/// unchanged.
+///
+/// Mirrors the approach `lower_case_label` uses for CASE labels
+/// introduced by commit 8d7f069: when the surrounding context supplies an
+/// enum target type, treat a bare variant name as the corresponding
+/// enum literal instead of deferring it to a plain name lookup that
+/// would fail at initializer evaluation time.
+pub(in crate::harness) fn resolve_initializer_enum_variant(
+    expr: Expr,
+    target_type_id: TypeId,
+    registry: &TypeRegistry,
+) -> Expr {
+    if let Expr::Name(name) = &expr {
+        if let Some(value) = enum_literal_value(name.as_str(), target_type_id, registry) {
+            return Expr::Literal(value);
+        }
+    }
+    expr
+}

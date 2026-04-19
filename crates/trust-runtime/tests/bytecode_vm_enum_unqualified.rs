@@ -37,9 +37,6 @@ fn enum_numeric(value: &Option<Value>) -> Option<i64> {
 }
 
 #[test]
-#[ignore = "FIXME(enum-unqualified): VAR initializer uses unqualified \
-enum variant — fails PROGRAM init with 'undefined variable'. Unignore \
-once the lowering fix for non-CASE-label contexts lands."]
 fn unqualified_enum_variant_initializes_var_to_declared_variant() {
     let source = r#"
 TYPE Phase : (IDLE, RUNNING, DONE)
