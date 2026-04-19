@@ -162,6 +162,14 @@ Target release: `v0.19.0`
   VS Code extension through one consistent code-server profile so the
   command-palette and workspace-shell captures stop regressing on fresh CI
   boots.
+- Unqualified enum variant names now also lower correctly outside `CASE`
+  labels in three more runtime contexts: `VAR` initializers
+  (`state : Phase := IDLE`), assignment right-hand sides
+  (`state := RUNNING`), and binary comparisons (`IF state = RUNNING THEN ...`).
+  The lowering path now consults HIR name resolution before rewriting a bare
+  `NameRef` into an enum literal, so same-named local variables/constants
+  still shadow enum members instead of being silently overridden by the
+  surrounding enum type.
 - The ST compiler/runtime build path now closes the remaining open regression
   cases around control-flow and declaration lowering: unqualified enum members
   now work as `CASE` labels in end-to-end runtime/bytecode builds, aggregate
