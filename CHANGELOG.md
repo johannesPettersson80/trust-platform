@@ -6,10 +6,23 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.18.5`
+Target release: `v0.18.6`
 
 ### Added
 
+- The public docs now have a workflow-first entry model instead of a mixed
+  "one start flow for everyone" structure. Home and Start now route five real
+  user journeys directly: Program in VS Code, Program in Browser IDE, Operate
+  in Browser HMI, Automate with CLI / CI / agents, and Maintain an Existing
+  Project. The site now also includes public `About`, `FAQ`, `Contribute`,
+  `Version History`, `Hardware Compatibility`, `API Lifecycle And Deprecation`,
+  runbook/operator pages, target-host lifecycle pages, and enterprise-integration
+  routing pages so technicians, maintainers, and GitHub visitors can find the
+  right docs path without repo spelunking.
+- The docs homepage and repo README now surface the published docs site as the
+  primary entry point, use the truST logo directly, and show real browser
+  captures for Browser IDE and Browser HMI instead of forcing readers through
+  repo file paths or VS Code-only framing.
 - `trust-runtime agent serve` now provides an initial external agent surface
   over stdio JSON-RPC with `agent.describe`, `workspace.read`,
   `workspace.write`, `workspace.project_info`, `lsp.diagnostics`,

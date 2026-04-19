@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 280">
+  <style>
+    .label { font: 600 22px Inter, Helvetica, Arial, sans-serif; fill: #1f2937; }
+    .small { font: 500 15px Inter, Helvetica, Arial, sans-serif; fill: #475569; }
+    .box { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 2; rx: 18; }
+    .accent { fill: #ecfeff; stroke: #14b8a6; stroke-width: 3; rx: 18; }
+    .surface { fill: #fffbeb; stroke: #f59e0b; stroke-width: 2; rx: 16; }
+    .arrow { stroke: #0f766e; stroke-width: 4; fill: none; marker-end: url(#arrow); }
+  </style>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="7" refY="3.5" orient="auto">
+      <polygon points="0 0, 8 3.5, 0 7" fill="#0f766e"/>
+    </marker>
+  </defs>
+
+  <rect x="20" y="70" width="190" height="96" class="box"/>
+  <text x="115" y="108" text-anchor="middle" class="label">Source Files</text>
+  <text x="115" y="134" text-anchor="middle" class="small">ST, config, HMI,</text>
+  <text x="115" y="154" text-anchor="middle" class="small">dependency metadata</text>
+
+  <rect x="260" y="70" width="220" height="96" class="accent"/>
+  <text x="370" y="108" text-anchor="middle" class="label">Build + Validate</text>
+  <text x="370" y="134" text-anchor="middle" class="small">compile, test, diagnose,</text>
+  <text x="370" y="154" text-anchor="middle" class="small">format, reload</text>
+
+  <rect x="530" y="70" width="220" height="96" class="box"/>
+  <text x="640" y="108" text-anchor="middle" class="label">Artifacts</text>
+  <text x="640" y="134" text-anchor="middle" class="small">program.stbc, runtime.toml,</text>
+  <text x="640" y="154" text-anchor="middle" class="small">io.toml, hmi/</text>
+
+  <rect x="800" y="58" width="190" height="120" class="accent"/>
+  <text x="895" y="106" text-anchor="middle" class="label">trust-runtime</text>
+  <text x="895" y="132" text-anchor="middle" class="small">execution, control,</text>
+  <text x="895" y="152" text-anchor="middle" class="small">debug, web surfaces</text>
+
+  <path d="M210 118 L260 118" class="arrow"/>
+  <path d="M480 118 L530 118" class="arrow"/>
+  <path d="M750 118 L800 118" class="arrow"/>
+
+  <rect x="1020" y="16" width="160" height="58" class="surface"/>
+  <text x="1100" y="44" text-anchor="middle" class="label" style="font-size:18px;">I/O Drivers</text>
+  <text x="1100" y="63" text-anchor="middle" class="small">GPIO, EtherCAT, MQTT</text>
+
+  <rect x="1020" y="86" width="160" height="58" class="surface"/>
+  <text x="1100" y="114" text-anchor="middle" class="label" style="font-size:18px;">Browser IDE</text>
+  <text x="1100" y="133" text-anchor="middle" class="small">/ide</text>
+
+  <rect x="1020" y="156" width="160" height="58" class="surface"/>
+  <text x="1100" y="184" text-anchor="middle" class="label" style="font-size:18px;">HMI + Control</text>
+  <text x="1100" y="203" text-anchor="middle" class="small">/hmi, CLI, agent API</text>
+
+  <path d="M990 82 L1020 45" class="arrow"/>
+  <path d="M990 118 L1020 115" class="arrow"/>
+  <path d="M990 154 L1020 185" class="arrow"/>
+</svg>

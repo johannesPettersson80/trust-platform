@@ -1,24 +1,42 @@
 # Start
 
-Use this section when you need first success quickly.
+Use this section when you need first success quickly. Start is organized by
+workflow, not by component name.
 
 ## Recommended Order
 
 1. [Installation](installation.md)
 2. [Choose Your Workflow](choose-your-workflow.md)
-3. [Editors](editors.md)
-4. [First Project](first-project.md)
-5. [First Run And Setup](first-run-and-setup.md)
-6. [Agent Quickstart](agent-quickstart.md) if you want Copilot or local-agent workflows
+3. [Program In VS Code](program-in-vscode.md)
+4. [Program In Browser IDE](program-in-browser.md)
+5. [Operate In Browser HMI](operate-in-browser.md)
+6. [Automate With CLI / CI / agents](automate-with-cli.md)
+7. [Maintain An Existing Project](maintain-an-existing-project.md)
+8. [Create A New Project](create-new-project.md)
+9. [Editors](editors.md)
+10. [Agent Quickstart](agent-quickstart.md) if you want the deeper JSON-RPC path
 
 ## Which Page Answers Which Question?
 
-- [Installation](installation.md): what to install and which binaries matter.
-- [Choose Your Workflow](choose-your-workflow.md): pick the right entry path for VS Code, CLI/agent, or browser/runtime-hosted work.
-- [Editors](editors.md): VS Code, Neovim, Zed, and browser IDE status in one place.
-- [First Project](first-project.md): create a project and understand the minimum file set.
-- [First Run And Setup](first-run-and-setup.md): start a runtime and confirm that the control plane works.
-- [Agent Quickstart](agent-quickstart.md): the shortest path for Copilot and local agents.
+- [Installation](installation.md): what to install and how to know it worked.
+- [Choose Your Workflow](choose-your-workflow.md): route yourself to the right first-success page.
+- [Program In VS Code](program-in-vscode.md): the primary engineering workflow.
+- [Program In Browser IDE](program-in-browser.md): browser-hosted engineering with `/ide`.
+- [Operate In Browser HMI](operate-in-browser.md): operator/technician path when you were given an HMI URL.
+- [Automate With CLI / CI / agents](automate-with-cli.md): first success for shell, CI, and JSON-RPC users.
+- [Maintain An Existing Project](maintain-an-existing-project.md): inherited-system workflow.
+- [Create A New Project](create-new-project.md): the honest empty-folder bootstrap path.
+- [Editors](editors.md): compare VS Code, Browser IDE, Neovim, Zed, and HMI browser surfaces.
+
+## Who Should Skip The Programmer-First Path?
+
+- If you are an operator or technician with a URL already in hand, go straight
+  to [Operate In Browser HMI](operate-in-browser.md).
+- If you inherited a running system, go to
+  [Maintain An Existing Project](maintain-an-existing-project.md) instead of
+  starting from an empty folder.
+- If you are wiring CI or an agent, go to
+  [Automate With CLI / CI / agents](automate-with-cli.md).
 
 ## If You Are Stuck
 

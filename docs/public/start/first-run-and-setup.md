@@ -1,81 +1,29 @@
 # First Run And Setup
 
-## Local runtime first
+Use this page when you searched for "first run" or "setup." The site now splits
+that work by workflow so operators, browser users, CLI users, and VS Code users
+do not all get one mixed page.
 
-The simplest first success is a local runtime:
+## Choose The Right Setup Path
 
-```bash
-trust-runtime play --project ./my-plc
-```
+- [Program In VS Code](program-in-vscode.md): local runtime panel path
+- [Program In Browser IDE](program-in-browser.md): `/ide` and `/hmi` path
+- [Operate In Browser HMI](operate-in-browser.md): operator path with a given URL
+- [Automate With CLI / CI / agents](automate-with-cli.md): shell and JSON-RPC path
+- [Install On Target](../operate/install-on-target.md): real device and service setup
 
-Or from VS Code:
+## Common First-Run Checks
 
-1. Open the runtime panel.
-2. Choose `Local`.
-3. Start the runtime.
+No matter which path you chose, first success means:
 
-![VS Code runtime overview](../assets/images/runtime/ui-overview.png)
+- the project builds or validates cleanly
+- the runtime or browser surface opens without bind/auth errors
+- one safe input or simulated value changes the expected output
 
-## Guided setup
+![Runtime panel overview](../assets/images/runtime/ui-overview.png)
 
-If you need guided runtime or I/O setup, use:
-
-```bash
-trust-runtime setup --project ./my-plc
-```
-
-For browser-guided setup on a specific port:
-
-```bash
-trust-runtime setup --mode browser --project ./my-plc --port 8080
-```
-
-## What success looks like
-
-- the runtime starts cleanly
-- diagnostics are clear
-- you can inspect or write process values through the runtime panel or control plane
-- the control endpoint and any enabled web UI bind without conflict
-
-### Typical first-run signals
-
-From the CLI path you should recognize this general shape:
-
-- the project is detected
-- runtime settings are loaded
-- the runtime enters running state
-- control and web endpoints are printed if enabled
-
-From the editor path you should recognize:
-
-- runtime status changes from stopped to running
-- the I/O tree populates
-- reads/writes/forces no longer show connection errors
-
-## Quick commissioning loop
-
-1. Run `trust-runtime build --project ./my-plc --sources src`.
-2. Run `trust-runtime validate --project ./my-plc`.
-3. Start the runtime with `trust-runtime play --project ./my-plc`.
-4. Open the runtime panel or web UI.
-5. Toggle one safe input or simulated value and verify the mapped output.
-
-## Common first-run failures
-
-| Symptom | Usually means | Go to |
-| --- | --- | --- |
-| bind/listen error | port/socket already in use | [Troubleshooting](../troubleshooting.md) |
-| runtime starts but no I/O changes | wrong driver or address mapping | [I/O Binding](../connect/devices-and-fieldbus/io-binding.md) |
-| validation passes but runtime faults on hardware access | host permissions or driver backend issue | [GPIO](../connect/devices-and-fieldbus/gpio.md) / [EtherCAT](../connect/devices-and-fieldbus/ethercat.md) |
-| editor connects but debug/runtime panel stays empty | control endpoint mismatch or runtime not started | [Debugging And Runtime Panel](../operate/debugging-and-runtime-panel.md) |
-
-## Related setup surfaces
+## Related
 
 - [Build, Validate, Test](../operate/build-validate-test.md)
-- [Compile, Validate, Reload](../operate/compile-validate-reload.md)
 - [Runtime UI And Control](../operate/runtime-ui-and-control.md)
-
-## Next
-
-- [Build, Validate, Test](../operate/build-validate-test.md)
-- [Debugging And Runtime Panel](../operate/debugging-and-runtime-panel.md)
+- [Troubleshooting](../troubleshooting.md)

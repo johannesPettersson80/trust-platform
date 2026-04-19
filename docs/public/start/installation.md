@@ -1,53 +1,52 @@
 # Installation
 
-Install truST when you need the local toolchain, not just syntax coloring.
-Most users only need `trust-lsp` in the editor and `trust-runtime` for build,
-validate, run, test, and runtime control.
+Use this page when you need the local truST toolchain. This page is for people
+installing developer/runtime tooling, not for operators who were only given an
+HMI URL.
 
-## What gets installed
+## What You Install
 
-| Binary | Use when | Typical user |
-| --- | --- | --- |
-| `trust-lsp` | editor diagnostics, formatting, rename, navigation | every developer |
-| `trust-runtime` | build, validate, run, test, setup, deploy, agent surface | every project |
-| `trust-debug` | debug adapter protocol bridge | VS Code / DAP users |
-| `trust-harness` | deterministic JSON-line execution | CI, agents, evaluation |
-| `trust-bundle-gen` | low-level bundle packaging | advanced build workflows |
+- `truST LSP` in VS Code when you want the main editor workflow
+- `trust-runtime` when you want to build, validate, run, test, serve `/ide`,
+  serve `/hmi`, or use `agent serve`
+- `trust-debug` when you want the debug adapter
+- `trust-harness` when you want deterministic shell/CI execution
 
-## Platform matrix
+## Fastest Path: VS Code
 
-| Platform | Recommended path | Notes |
-| --- | --- | --- |
-| Linux | build from source or use released binaries | best-supported runtime path |
-| macOS | build from source for CLI/editor tooling | browser/runtime features depend on local environment |
-| Windows | use the VS Code extension plus local binaries | prefer project-local runtime configs over system-wide paths |
-| Docker / CI | build from source in image | best for reproducible validation and docs gates |
-| Raspberry Pi / edge Linux | build on target or cross-build carefully | verify GPIO/EtherCAT/runtime permissions on host |
+1. Install VS Code if you do not already have it.
+2. Install `truST LSP` from the VS Code Marketplace:
+   <https://marketplace.visualstudio.com/items?itemName=trust-platform.trust-lsp>
+3. Open Command Palette and type `Structured Text:`.
 
-## Fast paths
+Command-line install:
 
-### VS Code first
+```bash
+code --install-extension trust-platform.trust-lsp
+```
 
-1. Install the `truST LSP` extension from the Marketplace.
-2. Open a folder containing `.st`, `.pou`, or supported visual-editor files.
-3. Use `Structured Text: Open Runtime Panel` when you want runtime control,
-   live I/O, or debug integration.
+## CLI / Runtime Path
 
-### Build from source
+Build the shipped binaries:
 
 ```bash
 cargo build -p trust-lsp -p trust-runtime -p trust-debug -p trust-harness
 ```
 
-For a release build:
+Or release binaries:
 
 ```bash
 cargo build --release -p trust-lsp -p trust-runtime -p trust-debug -p trust-harness
 ```
 
-## Post-install verification
+## How To Know It Worked
 
-Run these checks from a shell:
+In VS Code:
+
+- `Structured Text:` commands appear in Command Palette
+- `.st` files get diagnostics and syntax support
+
+In a shell:
 
 ```bash
 trust-lsp --version
@@ -56,50 +55,29 @@ trust-debug --version
 trust-harness --help
 ```
 
-What success looks like:
+## If It Did Not Work
 
-- each command resolves on `PATH`
-- version output prints without a loader error
-- `trust-harness --help` shows the JSON-line harness interface
+### No `Structured Text:` commands appear
 
-## Which install path should you choose?
-
-| Situation | Recommended path |
-| --- | --- |
-| You only want editing + diagnostics | VS Code extension + `trust-lsp` |
-| You want to run projects locally | add `trust-runtime` |
-| You want debugging | add `trust-debug` |
-| You want CI or agent workflows | add `trust-harness` and `trust-runtime agent serve` |
-
-## Common installation failures
+- restart VS Code once
+- confirm the extension is enabled for this workspace
+- confirm `trust-lsp` starts without loader/runtime errors
 
 ### `command not found`
 
-- ensure the built binary directory is on `PATH`
-- if you used Cargo, add `~/.cargo/bin` or use the full binary path
+- add the binary directory to `PATH`
+- if you built with Cargo, check `~/.cargo/bin`
 
-### VS Code opens files but truST features are missing
+### Runtime installs but hardware access fails
 
-- confirm the `truST LSP` extension is enabled for the workspace
-- confirm `trust-lsp` can start without dependency/runtime errors
-- open the Problems panel and the extension host logs
-
-### Runtime works in build/validate but hardware access fails
-
-- this is usually a host permission or device-access problem, not an install problem
-- see [GPIO](../connect/devices-and-fieldbus/gpio.md),
+- that is usually a permissions/device issue, not an install issue
+- go to [GPIO](../connect/devices-and-fieldbus/gpio.md),
   [EtherCAT](../connect/devices-and-fieldbus/ethercat.md), or
-  [Troubleshooting](../troubleshooting.md)
+  [Install On Target](../operate/install-on-target.md)
 
-## Where to go next
+## Where To Go Next
 
-If you are new, read these in order:
-
-1. [Choose Your Workflow](choose-your-workflow.md)
-2. [First Project](first-project.md)
-3. [First Run And Setup](first-run-and-setup.md)
-
-If you want runnable examples immediately, jump to:
-
-- [Examples](../examples/index.md)
-- [Tutorials](../examples/tutorials.md)
+- [Choose Your Workflow](choose-your-workflow.md)
+- [Program In VS Code](program-in-vscode.md)
+- [Program In Browser IDE](program-in-browser.md)
+- [Automate With CLI / CI / agents](automate-with-cli.md)

@@ -1,56 +1,56 @@
 # truST
 
-truST is an IEC 61131-3 Structured Text toolchain with a language server, runtime, debugger, deterministic harness, browser IDE surfaces, and an external agent contract. Use this site as the canonical public entry point for writing, connecting, operating, and integrating truST.
+![truST logo](assets/images/brand/trust-logo.svg)
+
+truST is a Structured Text engineering and runtime platform for building,
+testing, running, and operating PLC-style systems.
+
+![How truST fits together](assets/images/architecture/workflow-overview.svg)
+
+## Choose Your Path
+
+| Path | Best for | Start here | What success looks like |
+| --- | --- | --- | --- |
+| Program in VS Code | PLC engineers and controls developers | [Program In VS Code](start/program-in-vscode.md) | you can open a real project, run it, inspect `%I/%Q`, and fix one error |
+| Program in Browser IDE | browser-first engineering and demos | [Program In Browser IDE](start/program-in-browser.md) | you can open `/ide`, build, validate, and jump to `/hmi` |
+| Operate in Browser HMI | operators and technicians who were given a URL | [Operate In Browser HMI](start/operate-in-browser.md) | you can read overview/process/trends/alarms safely |
+| Automate with CLI / CI / agents | shell, CI, harness, and JSON-RPC users | [Automate With CLI](start/automate-with-cli.md) | you can build, validate, test, and call `agent serve` |
+| Maintain an existing project | inherited systems and handover work | [Maintain An Existing Project](start/maintain-an-existing-project.md) | you can open the project, identify the critical files, and make one safe change |
 
 ## Start Fast
 
-- [Install truST](start/installation.md)
-- [Create your first project](start/first-project.md)
-- [Run your first runtime](start/first-run-and-setup.md)
-- [Use Copilot or another agent with truST](start/agent-quickstart.md)
+- [Installation](start/installation.md)
+- [Choose Your Workflow](start/choose-your-workflow.md)
+- [Program In VS Code](start/program-in-vscode.md)
+- [Program In Browser IDE](start/program-in-browser.md)
+- [Operate In Browser HMI](start/operate-in-browser.md)
+- [Automate With CLI / CI / agents](start/automate-with-cli.md)
+
+## What Runs Where?
+
+- [Architecture](concepts/architecture.md): how source files, build/validate, runtime, I/O, Browser IDE, HMI, CLI, and agent surfaces fit together.
+- [Editors](start/editors.md): compare VS Code, Browser IDE, Neovim, Zed, and HMI browser surfaces.
+- [Protocol Matrix](connect/protocol-matrix.md): choose how truST talks to devices, runtimes, and external systems.
+- [Examples](examples/index.md): runnable projects mapped to the same categories as the docs.
+
+## Visual Preview
+
+### VS Code runtime workflow
+
+![VS Code debugging and runtime flow](assets/images/vscode/debug.png)
+
+### Browser IDE
+
+![Browser IDE](assets/images/browser/ide-home.png)
+
+### Browser HMI
+
+![Browser HMI](assets/images/browser/hmi-home.png)
 
 ## Need Help Fast?
 
 - [Troubleshooting](troubleshooting.md)
-- [Protocol Matrix](connect/protocol-matrix.md)
-- [Build, Validate, Test](operate/build-validate-test.md)
-- [Compile, Validate, Reload](operate/compile-validate-reload.md)
-- [Agent API](reference/agent-api/overview.md)
+- [Reference](reference/index.md)
+- [About](about.md)
+- [FAQ](faq.md)
 - [Changelog](changelog.md)
-
-## Choose Your Path
-
-### PLC engineer
-
-- Start with [Installation](start/installation.md), [First Project](start/first-project.md), and [First Run And Setup](start/first-run-and-setup.md).
-- For day-to-day authoring, go to [Develop](develop/index.md).
-- For runtime work, go to [Operate](operate/index.md).
-
-### Agent developer
-
-- Start with [Choose Your Workflow](start/choose-your-workflow.md), [Editors](start/editors.md), and [Agent Quickstart](start/agent-quickstart.md).
-- Use [Reference -> Agent API](reference/agent-api/overview.md) and [Harness Protocol](reference/harness/protocol.md) for machine-facing surfaces.
-
-### Integrator
-
-- Start with [Protocol Matrix](connect/protocol-matrix.md), [Runtime To Runtime](connect/runtime-to-runtime/index.md), and [Networking And Remote Access](connect/networking-and-remote-access.md).
-- Use [Reference -> Config](reference/config/index.md) when you need exact file and CLI details.
-
-## What You Can Find Here
-
-- [Develop](develop/index.md): authoring, visual editors, HMI, libraries, vendor profiles, and interop.
-- [Connect](connect/index.md): protocol matrix, runtime-to-runtime transport choices, external systems, and device/fieldbus drivers.
-- [Operate](operate/index.md): build, validate, test, reload, debug, simulate, deploy, and observe.
-- [Reference](reference/index.md): CLI binaries, config files, agent API, harness protocol, conformance, and specs.
-- [Examples](examples/index.md): runnable projects mapped to the same structure as the docs.
-
-## Common Questions
-
-| Question | Go to |
-| --- | --- |
-| I need to connect two runtimes. | [Runtime To Runtime](connect/runtime-to-runtime/index.md) |
-| I need to know what protocols exist. | [Protocol Matrix](connect/protocol-matrix.md) |
-| I need Modbus, MQTT, or OPC UA. | [External Systems](connect/external-systems/index.md) |
-| I need EtherCAT or GPIO. | [Devices And Fieldbus](connect/devices-and-fieldbus/index.md) |
-| I need exact config keys. | [Reference -> Config](reference/config/index.md) |
-| I need exact CLI flags. | [Reference -> CLI](reference/cli/trust-runtime.md) |

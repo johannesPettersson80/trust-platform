@@ -15,8 +15,8 @@ QUERY_EXPECTATIONS: list[tuple[str, str]] = [
     ("first project", "start/first-project/"),
     ("agent quickstart", "start/agent-quickstart/"),
     ("agent serve", "start/agent-quickstart/"),
-    ("vscode", "start/editors/"),
-    ("vs code", "start/editors/"),
+    ("vscode", "start/program-in-vscode/"),
+    ("vs code", "start/program-in-vscode/"),
     ("hmi", "operate/hmi-and-web-ui/"),
     ("ladder", "develop/visual-editors/ladder/"),
     ("visual editor", "develop/visual-editors/"),
@@ -154,6 +154,12 @@ def score_doc(query_tokens: list[str], query: str, doc: dict[str, str]) -> int:
         and location_base(location).startswith("reference/diagnostics/")
     ):
         score += 40
+    if location_base(location).startswith("faq/") and "faq" not in query.lower():
+        score -= 30
+    if location_base(location).startswith("examples/") and not any(
+        keyword in query.lower() for keyword in ("example", "examples", "tutorial", "tutorials")
+    ):
+        score -= 20
     if location_base(location).startswith("changelog/") and "changelog" not in query.lower():
         score -= 25
     if location_base(location).startswith("maintaining/") and "maintaining" not in query.lower():

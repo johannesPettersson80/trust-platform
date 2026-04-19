@@ -1,5 +1,8 @@
 # Editors
 
+Use this page when you need to compare editing and browser surfaces. This page
+is a chooser, not a first-success walkthrough.
+
 ## Editor matrix
 
 | Editor | Best for | Agent support | Status |
@@ -8,6 +11,7 @@
 | Neovim | LSP-heavy editing | external agents and shell flows | supported |
 | Zed | lighter GUI editing | external agents and shell flows | supported |
 | Browser IDE | runtime-hosted editing and demos | product/web flows | available |
+| Browser HMI | operator-facing browser use | not an authoring surface | available |
 
 ## VS Code
 
@@ -92,7 +96,18 @@ Detailed guide:
 
 --8<-- "docs/guides/WEB_IDE_FULL_BROWSER_GUIDE.md"
 
+## Browser HMI
+
+Use Browser HMI when you were given a runtime URL and only need the operator
+surface.
+
+Start here:
+
+- [Operate In Browser HMI](operate-in-browser.md)
+- [HMI And Web UI](../operate/hmi-and-web-ui.md)
+
 ## Next
 
-- [First Project](first-project.md)
+- [Program In VS Code](program-in-vscode.md)
+- [Program In Browser IDE](program-in-browser.md)
 - [Agent Quickstart](agent-quickstart.md)

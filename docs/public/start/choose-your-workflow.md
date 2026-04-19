@@ -1,36 +1,35 @@
 # Choose Your Workflow
 
-## If you want the fastest editor experience
+Use this page when you need the fastest route to the right truST surface for
+your job.
 
-Use [VS Code](editors.md#vs-code). It has the strongest integrated workflow today:
+## Workflow Cards
 
-- diagnostics
-- formatting
-- code actions
-- runtime panel
-- debugging
-- test integration
+| Workflow | Best for | You can do | You should not expect |
+| --- | --- | --- | --- |
+| [Program In VS Code](program-in-vscode.md) | full-time engineering | edit ST, debug, inspect I/O, use visual editors, run tests | operator-only simplicity |
+| [Program In Browser IDE](program-in-browser.md) | browser-hosted engineering and demos | open `/ide`, edit files, build, validate, jump to `/hmi` | zero-admin hosting; someone still has to start the runtime |
+| [Operate In Browser HMI](operate-in-browser.md) | operators and technicians | read overview/process/trends/alarms and follow local procedures | project authoring or deployment setup |
+| [Automate With CLI / CI / agents](automate-with-cli.md) | shell, CI, harness, JSON-RPC, Copilot-style flows | build, validate, test, serve agent API, script workflows | rich visual debugging by itself |
+| [Maintain An Existing Project](maintain-an-existing-project.md) | inherited systems and handover work | understand file layout, validate before editing, make safe changes | empty-folder bootstrap speed |
 
-## If you want agent automation or CI
+## Quick Routing
 
-Use the `trust-runtime agent serve` contract plus the deterministic harness:
+- If you want the strongest integrated engineering workflow, use
+  [Program In VS Code](program-in-vscode.md).
+- If you were given a runtime URL and want browser-hosted editing, use
+  [Program In Browser IDE](program-in-browser.md).
+- If you were given an HMI URL and only need to operate or inspect, use
+  [Operate In Browser HMI](operate-in-browser.md).
+- If you want shell, CI, or agent-first automation, use
+  [Automate With CLI / CI / agents](automate-with-cli.md).
+- If a colleague handed you a project and left, use
+  [Maintain An Existing Project](maintain-an-existing-project.md).
 
-- [Agent Quickstart](agent-quickstart.md)
-- [Agent API overview](../reference/agent-api/overview.md)
-- [Harness protocol](../reference/harness/protocol.md)
+## Related
 
-## If you want browser-hosted editing or operator-facing surfaces
-
-Use the runtime-hosted web surfaces and the browser IDE docs:
-
-- [Editors](editors.md#browser-ide)
-- [HMI And Web UI](../operate/hmi-and-web-ui.md)
-- [Runtime Cloud](../operate/runtime-cloud.md)
-
-## If you need vendor-oriented authoring
-
-Go to:
-
-- [Vendor Profiles](../develop/vendor-profiles.md)
-- [CODESYS and TwinCAT](../develop/interoperability/codesys-twincat.md)
-- [Siemens](../develop/interoperability/siemens.md)
+- [Editors](editors.md)
+- [Program In VS Code](program-in-vscode.md)
+- [Program In Browser IDE](program-in-browser.md)
+- [Operate In Browser HMI](operate-in-browser.md)
+- [Automate With CLI / CI / agents](automate-with-cli.md)

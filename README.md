@@ -1,4 +1,6 @@
-# truST Platform — Structured Text tooling for VS Code (LSP + Debugger + Runtime)
+# truST Platform — Structured Text tooling, runtime, browser IDE, and HMI
+
+![truST logo](docs/public/assets/images/brand/trust-logo.svg)
 
 [![CI](https://github.com/johannesPettersson80/trust-platform/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/johannesPettersson80/trust-platform/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE-MIT)
@@ -12,8 +14,17 @@ VS Code support and official LSP setup profiles for Neovim and Zed:
 
 Stable shipped binaries: `trust-lsp`, `trust-runtime`, `trust-debug`, `trust-bundle-gen`.
 
-> **Install:** VS Code Marketplace → **truST LSP**  
-> **Docs:** `docs/public/index.md` (site source) and `docs/README.md` (repo index)
+> **Docs site:** <https://johannespettersson80.github.io/trust-platform/>
+> **Start here:** <https://johannespettersson80.github.io/trust-platform/start/>
+> **Install:** VS Code Marketplace → **truST LSP**
+
+## Choose Your Workflow
+
+- [Program in VS Code](https://johannespettersson80.github.io/trust-platform/start/program-in-vscode/)
+- [Program in Browser IDE](https://johannespettersson80.github.io/trust-platform/start/program-in-browser/)
+- [Operate in Browser HMI](https://johannespettersson80.github.io/trust-platform/start/operate-in-browser/)
+- [Automate with CLI / CI / agents](https://johannespettersson80.github.io/trust-platform/start/automate-with-cli/)
+- [Maintain an existing project](https://johannespettersson80.github.io/trust-platform/start/maintain-an-existing-project/)
 
 ---
 
@@ -166,6 +177,7 @@ starts a local runtime for debugging and inline values.
 
 ## Documentation
 
+- docs site: <https://johannespettersson80.github.io/trust-platform/>
 - `docs/public/index.md` — canonical public docs source
 - `docs/README.md` — repo documentation index and diagram workflow
 - `docs/public/start/agent-quickstart.md` — quickest Copilot/agent path
@@ -189,6 +201,7 @@ starts a local runtime for debugging and inline values.
 - VS Code Marketplace: live
 - Neovim + Zed LSP setup docs/configs: shipped (`editors/neovim/`, `editors/zed/`)
 - Runtime + debugger: experimental, integrated in the platform workflow
+- canonical docs entry now routes by workflow instead of by repo file hunting
 
 ---
 

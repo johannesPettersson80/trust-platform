@@ -32,9 +32,13 @@ nav:
       - Overview: start/index.md
       - Installation: start/installation.md
       - Choose Your Workflow: start/choose-your-workflow.md
+      - Program In VS Code: start/program-in-vscode.md
+      - Program In Browser IDE: start/program-in-browser.md
+      - Operate In Browser HMI: start/operate-in-browser.md
+      - Automate With CLI / CI / Agents: start/automate-with-cli.md
+      - Maintain An Existing Project: start/maintain-an-existing-project.md
+      - Create A New Project: start/create-new-project.md
       - Editors: start/editors.md
-      - First Project: start/first-project.md
-      - First Run And Setup: start/first-run-and-setup.md
       - Agent Quickstart: start/agent-quickstart.md
   - Develop:
       - Overview: develop/index.md
@@ -79,6 +83,10 @@ nav:
           - Modbus TCP: connect/external-systems/modbus-tcp.md
           - MQTT: connect/external-systems/mqtt.md
           - OPC UA: connect/external-systems/opc-ua.md
+      - Enterprise:
+          - Overview: connect/enterprise/index.md
+          - Historian And Database: connect/enterprise/historian-and-database.md
+          - MES And ERP: connect/enterprise/mes-and-erp.md
       - Devices And Fieldbus:
           - Overview: connect/devices-and-fieldbus/index.md
           - Driver Matrix: connect/devices-and-fieldbus/driver-matrix.md
@@ -89,18 +97,33 @@ nav:
           - Simulated And Loopback: connect/devices-and-fieldbus/simulated-and-loopback.md
   - Operate:
       - Overview: operate/index.md
+      - Install On Target: operate/install-on-target.md
+      - Offline Install: operate/offline-install.md
+      - Runtime Lifecycle: operate/lifecycle.md
+      - Supervision: operate/supervision.md
+      - Backup And Restore: operate/backup-and-restore.md
+      - Upgrade: operate/upgrade.md
       - Build, Validate, Test: operate/build-validate-test.md
       - Compile, Validate, Reload: operate/compile-validate-reload.md
       - Debugging And Runtime Panel: operate/debugging-and-runtime-panel.md
       - Runtime UI And Control: operate/runtime-ui-and-control.md
       - HMI And Web UI: operate/hmi-and-web-ui.md
+      - Secrets: operate/secrets.md
+      - Audit Log: operate/audit-log.md
       - Simulation: operate/simulation.md
       - Safety And Commissioning: operate/safety-and-commissioning.md
       - Observability: operate/observability.md
+      - Performance Tuning: operate/performance-tuning.md
       - Operator Guide: operate/operator-guide.md
+      - Operator Daily Checks: operate/operator-daily-checks.md
+      - Operator Alarm Handbook: operate/operator-alarm-handbook.md
+      - Operator Shift Handover: operate/operator-shift-handover.md
+      - Technician I/O Diagnosis: operate/technician-io-diagnosis.md
+      - Field Fault Procedures: operate/field-fault-procedures.md
       - CI/CD: operate/ci-cd.md
       - Deploy And Rollback: operate/deploy-rollback.md
       - Runtime Cloud: operate/runtime-cloud.md
+      - Fleet Rollout And Templating: operate/fleet-rollout-and-templating.md
   - Reference:
       - Overview: reference/index.md
       - CLI:
@@ -123,6 +146,9 @@ nav:
           - v1: reference/agent-api/v1.md
       - Harness Protocol: reference/harness/protocol.md
       - Diagnostics: reference/diagnostics.md
+      - Hardware Compatibility: reference/hardware-compatibility.md
+      - API Lifecycle And Deprecation: reference/api-lifecycle-and-deprecation.md
+      - Version History: reference/version-history.md
       - Conformance: reference/conformance.md
       - Benchmarks: reference/benchmarks.md
       - Specifications:
@@ -161,6 +187,10 @@ nav:
       - Vendor Profiles: examples/vendor-profiles.md
       - Libraries And Motion: examples/libraries-and-motion.md
       - Capstones: examples/capstones.md
+      - Runbooks: examples/runbooks.md
   - Troubleshooting: troubleshooting.md
   - Changelog: changelog.md
+  - About: about.md
+  - FAQ: faq.md
+  - Contribute: contribute.md
   - Maintaining Docs: MAINTAINING.md

@@ -1,84 +1,24 @@
 # First Project
 
-Use this page when you are starting from an empty folder and want one known-good
-path to a running PLC project.
+Use this page when you searched for "first project." This page now routes you
+to the right first-success path instead of pretending one project-start page
+fits every reader.
 
-## Minimum project shape
+## Choose The Right First Project Path
 
-The smallest useful truST project looks like this:
+- If you want the main engineering workflow, go to
+  [Program In VS Code](program-in-vscode.md).
+- If you want browser-hosted engineering, go to
+  [Program In Browser IDE](program-in-browser.md).
+- If you inherited a running system, go to
+  [Maintain An Existing Project](maintain-an-existing-project.md).
+- If you truly want to bootstrap from an empty folder, go to
+  [Create A New Project](create-new-project.md).
 
-```text
-my-plc/
-  runtime.toml
-  io.toml
-  src/
-    Main.st
-    Configuration.st
-```
+## Still Want The Empty-Folder Bootstrap?
 
-Those files answer four different questions:
+The full zero-to-first-app tutorial still exists:
 
-| File | Purpose |
-| --- | --- |
-| `src/Main.st` | the IEC logic itself |
-| `src/Configuration.st` | task binding and `%I/%Q` address mapping |
-| `runtime.toml` | runtime timing, control, web, retain, fault policy |
-| `io.toml` | I/O backend and safe-state behavior |
-
-## Smallest useful ST example
-
-`src/Main.st`:
-
-```st
-PROGRAM FirstApp
-VAR
-    StartCmd : BOOL;
-    LampOut : BOOL;
-END_VAR
-
-LampOut := StartCmd;
-END_PROGRAM
-```
-
-`src/Configuration.st`:
-
-```st
-CONFIGURATION FirstConfig
-TASK Fast (INTERVAL := T#100ms, PRIORITY := 1);
-PROGRAM P1 WITH Fast : FirstApp;
-VAR_CONFIG
-    P1.StartCmd AT %IX0.0 : BOOL;
-    P1.LampOut AT %QX0.0 : BOOL;
-END_VAR
-END_CONFIGURATION
-```
-
-## What success should look like
-
-After you add `runtime.toml`, `io.toml`, and the two ST files:
-
-- `trust-runtime build --project . --sources src` should emit `program.stbc`
-- `trust-runtime validate --project .` should succeed
-- runtime control surfaces should see `%IX0.0` and `%QX0.0`
-
-Typical project tree after the first build:
-
-```text
-my-plc/
-  io.toml
-  program.stbc
-  runtime.toml
-  src/
-    Configuration.st
-    Main.st
-```
-
-## Good next questions
-
-- If you want the exact zero-to-running walkthrough, keep reading the full tutorial below.
-- If you want to understand how these files relate long-term, go to [Project Layout](../develop/project-layout.md).
-- If you want the quickest route to runtime verification, go to [First Run And Setup](first-run-and-setup.md).
-
-## Tutorial 13: Bootstrap From Zero
-
---8<-- "examples/tutorials/13_project_bootstrap_zero_to_first_app/README.md"
+- [Create A New Project](create-new-project.md)
+- [Tutorial 13: Bootstrap From Zero](../examples/tutorials.md)
+- [Project Layout](../develop/project-layout.md)
