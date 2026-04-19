@@ -234,7 +234,7 @@ fn lower_sizeof_value_operand_type(
         _ => return Ok(None),
     };
 
-    let offset = u32::from(node.text_range().start());
+    let offset = offset_for_type_lookup(node);
     let Some(expr_id) = semantic_db.expr_id_at_offset(semantic_file_id, offset) else {
         return Ok(None);
     };
@@ -272,6 +272,25 @@ fn lower_sizeof_value_operand_type(
     Ok(Some(runtime_type_id))
 }
 
+/// Pick an offset inside `node` that makes HIR's "smallest expression
+/// containing this offset" heuristic land on `node` itself rather than a
+/// leading child such as the leftmost `NameRef` of an `IndexExpr` or
+/// `FieldExpr`. The last byte of the text range is inside the outer
+/// expression but outside the half-open ranges of its prefix children,
+/// so it disambiguates `arr[i]`, `c.p`, and `arr[i].p` without affecting
+/// simple `NameRef` / `DerefExpr` / `ThisExpr` cases, whose ranges
+/// already contain their own last byte.
+fn offset_for_type_lookup(node: &SyntaxNode) -> u32 {
+    let range = node.text_range();
+    let end = u32::from(range.end());
+    let start = u32::from(range.start());
+    if end > start {
+        end - 1
+    } else {
+        start
+    }
+}
+
 pub(in crate::harness) fn lower_expression_type(
     node: &SyntaxNode,
     ctx: &mut LoweringContext<'_>,
@@ -288,7 +307,7 @@ pub(in crate::harness) fn lower_expression_type(
         _ => return Ok(None),
     };
 
-    let offset = u32::from(node.text_range().start());
+    let offset = offset_for_type_lookup(node);
     let Some(expr_id) = semantic_db.expr_id_at_offset(semantic_file_id, offset) else {
         return Ok(None);
     };

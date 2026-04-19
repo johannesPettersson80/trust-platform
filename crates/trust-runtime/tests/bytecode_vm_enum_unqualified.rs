@@ -103,11 +103,6 @@ END_PROGRAM
 }
 
 #[test]
-#[ignore = "FIXME(enum-unqualified): CASE selector = indexed array element \
-(arr[i]) — lower_expression_type's offset-based lookup returns the \
-leftmost NameRef type (array element type is lost), so enum labels \
-cannot resolve. Unignore once the offset heuristic handles complex \
-selectors."]
 fn unqualified_enum_variant_case_label_with_indexed_selector() {
     let source = r#"
 TYPE Phase : (IDLE, RUNNING)
@@ -133,10 +128,6 @@ END_PROGRAM
 }
 
 #[test]
-#[ignore = "FIXME(enum-unqualified): CASE selector = struct field (c.p) — \
-lower_expression_type's offset-based lookup returns the struct type, so \
-the enum-typed field's labels cannot resolve. Unignore once the offset \
-heuristic handles field-access selectors."]
 fn unqualified_enum_variant_case_label_with_field_selector() {
     let source = r#"
 TYPE Phase : (IDLE, RUNNING)
@@ -164,10 +155,6 @@ END_PROGRAM
 }
 
 #[test]
-#[ignore = "FIXME(enum-unqualified): CASE selector = indexed-struct field \
-(arr[i].field) — lower_expression_type's offset-based lookup misses the \
-whole path, so the enum-typed field's labels cannot resolve. Unignore \
-once the offset heuristic handles combined index+field selectors."]
 fn unqualified_enum_variant_case_label_with_indexed_field_selector() {
     let source = r#"
 TYPE Phase : (IDLE, RUNNING)
