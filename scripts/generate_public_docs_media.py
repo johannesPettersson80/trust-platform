@@ -139,20 +139,29 @@ def main() -> int:
     if args.regenerate_visual_editors:
         run([str(REPO_ROOT / "scripts/capture-public-docs-visual-editors.sh")])
 
-    if shutil.which("ffmpeg") is None:
+    generated: list[Path] = []
+    copied_targets: set[Path] = set()
+    fallback_by_dest = {dest: (source, timestamp) for source, dest, timestamp in VIDEO_STILL_FALLBACKS}
+    for source, dest in COPY_MAP:
+        if source.exists():
+            copy_asset(source, dest)
+            copied_targets.add(dest)
+            generated.append(dest)
+            continue
+        if dest not in fallback_by_dest:
+            raise FileNotFoundError(f"missing asset source: {source}")
+
+    pending_fallbacks = [
+        (source, dest, timestamp)
+        for source, dest, timestamp in VIDEO_STILL_FALLBACKS
+        if dest not in copied_targets
+    ]
+
+    if pending_fallbacks and shutil.which("ffmpeg") is None:
         print("ffmpeg is required to extract visual-editor stills", file=sys.stderr)
         return 1
 
-    generated: list[Path] = []
-    copied_targets: set[Path] = set()
-    for source, dest in COPY_MAP:
-        copy_asset(source, dest)
-        copied_targets.add(dest)
-        generated.append(dest)
-
-    for source, dest, timestamp in VIDEO_STILL_FALLBACKS:
-        if dest in copied_targets:
-            continue
+    for source, dest, timestamp in pending_fallbacks:
         extract_frame(source, dest, timestamp)
         generated.append(dest)
 

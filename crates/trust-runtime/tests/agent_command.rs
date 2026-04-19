@@ -12,6 +12,36 @@ use serde_json::{json, Value as JsonValue};
 
 static TEMP_DIR_COUNTER: AtomicU64 = AtomicU64::new(1);
 
+fn canonicalize_for_assert(path: &Path) -> PathBuf {
+    path.canonicalize().unwrap_or_else(|_| path.to_path_buf())
+}
+
+fn normalize_path_text(text: &str) -> String {
+    let without_verbatim = if let Some(stripped) = text.strip_prefix(r"\\?\UNC\") {
+        format!(r"\\{stripped}")
+    } else if let Some(stripped) = text.strip_prefix(r"\\?\") {
+        stripped.to_string()
+    } else {
+        text.to_string()
+    };
+    without_verbatim.replace('\\', "/")
+}
+
+fn assert_json_relative_path_eq(actual: &JsonValue, expected: &str) {
+    assert_eq!(
+        normalize_path_text(actual.as_str().expect("relative path string")),
+        normalize_path_text(expected)
+    );
+}
+
+fn assert_json_absolute_path_eq(actual: &JsonValue, expected: &Path) {
+    let expected_display = canonicalize_for_assert(expected).display().to_string();
+    assert_eq!(
+        normalize_path_text(actual.as_str().expect("absolute path string")),
+        normalize_path_text(&expected_display)
+    );
+}
+
 fn unique_temp_dir(prefix: &str) -> PathBuf {
     for _ in 0..64 {
         let nanos = SystemTime::now()
@@ -240,14 +270,7 @@ fn agent_serve_supports_describe_write_and_read_roundtrip() {
     .expect("write describe request");
     let describe = read_response(&mut reader);
     assert_eq!(describe["result"]["framing"], json!("jsonl"));
-    assert_eq!(
-        describe["result"]["workspace_root"],
-        json!(project
-            .canonicalize()
-            .expect("canonical project")
-            .display()
-            .to_string())
-    );
+    assert_json_absolute_path_eq(&describe["result"]["workspace_root"], &project);
 
     writeln!(
         stdin,
@@ -264,7 +287,7 @@ fn agent_serve_supports_describe_write_and_read_roundtrip() {
     )
     .expect("write workspace.write request");
     let write_response = read_response(&mut reader);
-    assert_eq!(write_response["result"]["path"], json!("src/main.st"));
+    assert_json_relative_path_eq(&write_response["result"]["path"], "src/main.st");
     assert_eq!(
         write_response["result"]["bytes_written"],
         json!(source_text.len())
@@ -284,7 +307,7 @@ fn agent_serve_supports_describe_write_and_read_roundtrip() {
     )
     .expect("write workspace.read request");
     let read_response = read_response(&mut reader);
-    assert_eq!(read_response["result"]["path"], json!("src/main.st"));
+    assert_json_relative_path_eq(&read_response["result"]["path"], "src/main.st");
     assert_eq!(read_response["result"]["text"], json!(source_text));
 
     drop(stdin);
@@ -432,10 +455,7 @@ END_PROGRAM
     let validate = read_response(&mut reader);
     assert_eq!(validate["result"]["status"], json!("ok"));
     assert_eq!(validate["result"]["command"], json!("validate"));
-    assert_eq!(
-        validate["result"]["project"],
-        json!(project.display().to_string())
-    );
+    assert_json_absolute_path_eq(&validate["result"]["project"], &project);
 
     write_request(
         &mut stdin,
@@ -573,9 +593,9 @@ fn agent_serve_supports_lsp_diagnostics_and_format_preview() {
         }),
     );
     let diagnostics = read_response(&mut reader);
-    assert_eq!(
-        diagnostics["result"]["target"],
-        json!(project.join("src/main.st").display().to_string())
+    assert_json_absolute_path_eq(
+        &diagnostics["result"]["target"],
+        &project.join("src/main.st"),
     );
     assert!(
         diagnostics["result"]["errors"]
@@ -584,8 +604,12 @@ fn agent_serve_supports_lsp_diagnostics_and_format_preview() {
             >= 1
     );
     assert_eq!(
-        diagnostics["result"]["issues"][0]["path"],
-        json!("src/main.st")
+        normalize_path_text(
+            diagnostics["result"]["issues"][0]["path"]
+                .as_str()
+                .expect("diagnostic path")
+        ),
+        "src/main.st"
     );
     assert!(
         diagnostics["result"]["issues"]
@@ -621,7 +645,7 @@ fn agent_serve_supports_lsp_diagnostics_and_format_preview() {
         }),
     );
     let format = read_response(&mut reader);
-    assert_eq!(format["result"]["path"], json!("src/main.st"));
+    assert_json_relative_path_eq(&format["result"]["path"], "src/main.st");
     assert_eq!(format["result"]["changed"], json!(true));
     assert_eq!(
         format["result"]["content"],
@@ -731,14 +755,7 @@ LibA = { path = "deps/lib-a", version = "1.0.0" }
         }),
     );
     let project_info = read_response(&mut reader);
-    assert_eq!(
-        project_info["result"]["project"],
-        json!(project
-            .canonicalize()
-            .expect("canonical project")
-            .display()
-            .to_string())
-    );
+    assert_json_absolute_path_eq(&project_info["result"]["project"], &project);
     assert_eq!(project_info["result"]["sourceCount"], json!(2));
     assert_eq!(
         project_info["result"]["resolvedDependencies"],

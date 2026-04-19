@@ -78,6 +78,12 @@ Target release: `v0.18.5`
 
 ### Fixed
 
+- The public docs Pages pipeline no longer hard-fails on runners without
+  `ffmpeg` when all committed screenshot assets are already present, and the
+  cross-platform `trust-runtime agent serve` contract tests now normalize
+  OS-specific path spellings (`/private` aliases, `\\?\\` prefixes, native
+  separators) instead of failing on macOS/Windows-only path formatting
+  differences.
 - Warm restart and live `bytecode.reload` now preserve compiled instance-backed
   runtime references across the restart boundary, so instance-backed I/O
   bindings and the new `trust-runtime agent serve` `runtime.reload` flow no
