@@ -122,6 +122,22 @@ version = "2.0.0"
         vec!["LibA".to_string(), "LibB".to_string()]
     );
 
+    let inspection = inspect_project_layout(&root, None).expect("inspection should pass");
+    assert!(inspection.sources_root.ends_with("src"));
+    assert!(
+        inspection
+            .manifest_path
+            .as_ref()
+            .is_some_and(|path| path.ends_with("trust-lsp.toml"))
+    );
+    assert_eq!(
+        inspection.resolved_dependencies,
+        vec!["LibA".to_string(), "LibB".to_string()]
+    );
+    assert_eq!(inspection.dependency_roots.len(), 2);
+    assert!(inspection.sources.iter().any(|path| path.ends_with("main.st")));
+    assert!(inspection.sources.iter().any(|path| path.ends_with("lib.st")));
+
     fs::remove_dir_all(root).ok();
 }
 

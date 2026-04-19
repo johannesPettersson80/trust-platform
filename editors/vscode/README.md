@@ -120,6 +120,22 @@ Detailed guide:
 
 ---
 
+## Language Model Tool Contract (Contributor Note)
+
+When adding or renaming a VS Code LM tool, keep the name in sync in exactly
+three places:
+
+1. `package.json` -> `activationEvents` entries using `onLanguageModelTool:<name>`
+2. `package.json` -> `contributes.languageModelTools[].name`
+3. `src/lm-tools.ts` -> `registerLanguageModelTools(...)`
+
+The extension test suite now checks this contract in
+`src/test/suite/lm-tools-contract.test.ts`. If one of the three surfaces drifts,
+tool discovery will silently break for Copilot/LM clients and the test should
+fail.
+
+---
+
 ## Advanced Setup (optional)
 
 Set custom binary paths if needed:

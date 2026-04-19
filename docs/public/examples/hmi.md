@@ -1,0 +1,29 @@
+# HMI
+
+Use this page when you want runnable HMI examples rather than only the
+authoring reference.
+
+## Best starting point
+
+| Example folder | Best for | Related docs |
+| --- | --- | --- |
+| `examples/tutorials/12_hmi_pid_process_dashboard` | end-to-end HMI workflow with process SVG, bindings, alarms, and trends | [HMI authoring](../develop/hmi-authoring.md) |
+
+## What this example teaches
+
+- how `hmi/` is structured
+- how SVG IDs map to live runtime symbols
+- how overview, trends, alarms, and process pages fit together
+- how to verify the browser surface after runtime launch
+
+## Typical loop
+
+1. Build the project.
+2. Run the runtime with web/HMI enabled.
+3. Open `/hmi`.
+4. Toggle inputs and verify live updates on process graphics and operator pages.
+
+## Related
+
+- [Operate -> HMI And Web UI](../operate/hmi-and-web-ui.md)
+- [Reference -> HMI Directory](../reference/config/hmi-directory.md)

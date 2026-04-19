@@ -17,6 +17,21 @@ pub struct BundleBuildReport {
     pub resolved_dependencies: Vec<String>,
 }
 
+/// Project layout summary without building bytecode.
+#[derive(Debug, Clone)]
+pub struct ProjectInspectionReport {
+    /// Resolved project source root.
+    pub sources_root: PathBuf,
+    /// Project manifest path if one was found.
+    pub manifest_path: Option<PathBuf>,
+    /// Source files included from the project and resolved local dependencies.
+    pub sources: Vec<PathBuf>,
+    /// Resolved dependency roots included in this project.
+    pub dependency_roots: Vec<PathBuf>,
+    /// Resolved dependency names in deterministic order.
+    pub resolved_dependencies: Vec<String>,
+}
+
 #[derive(Debug, Clone)]
 struct DependencySpec {
     name: String,

@@ -6,6 +6,7 @@ use std::path::PathBuf;
 
 include!("cli/commands.rs");
 include!("cli/output_formats.rs");
+include!("cli/agent.rs");
 include!("cli/bench.rs");
 include!("cli/hmi.rs");
 include!("cli/setup.rs");

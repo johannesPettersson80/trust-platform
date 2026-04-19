@@ -6,6 +6,10 @@ Expected files:
 - `screenshot-diagnostics.png`
 - `screenshot-refactor.png`
 - `screenshot-debug.png`
+- `screenshot-ladder-editor.png`
+- `screenshot-statechart-editor.png`
+- `screenshot-blockly-editor.png`
+- `screenshot-sfc-editor.png`
 - `demo-rename.gif`
 - `demo-debug.gif`
 
@@ -17,12 +21,17 @@ Expected files:
    - diagnostics: show Problems panel with IEC-aware diagnostics
    - refactor: show `Structured Text: Move Namespace` flow
    - debug: show breakpoints/stack/variables during an active debug session
+   - ladder/statechart/blockly/sfc: open the example file and let truST auto-open the visual editor
 3. Capture images (interactive region select):
 
 ```bash
 scripts/capture-screenshot.sh --output editors/vscode/assets/screenshot-diagnostics.png
 scripts/capture-screenshot.sh --output editors/vscode/assets/screenshot-refactor.png
 scripts/capture-screenshot.sh --output editors/vscode/assets/screenshot-debug.png
+scripts/capture-screenshot.sh --output editors/vscode/assets/screenshot-ladder-editor.png
+scripts/capture-screenshot.sh --output editors/vscode/assets/screenshot-statechart-editor.png
+scripts/capture-screenshot.sh --output editors/vscode/assets/screenshot-blockly-editor.png
+scripts/capture-screenshot.sh --output editors/vscode/assets/screenshot-sfc-editor.png
 ```
 
 4. Record GIF (`demo-rename.gif`) with your screen recorder of choice.
@@ -38,6 +47,18 @@ For fully automatic captures from the real `examples/plant_demo` workspace:
 
 ```bash
 scripts/capture-plant-demo-media.sh
+```
+
+For the Marketplace screenshots plus the public-doc visual-editor screenshots:
+
+```bash
+scripts/capture-readme-screenshots-auto.sh
+```
+
+For only the public-doc visual-editor screenshots:
+
+```bash
+scripts/capture-public-docs-visual-editors.sh
 ```
 
 ## Notes

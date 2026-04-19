@@ -6,10 +6,91 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.18.4`
+Target release: `v0.18.5`
+
+### Added
+
+- `trust-runtime agent serve` now provides an initial external agent surface
+  over stdio JSON-RPC with `agent.describe`, `workspace.read`,
+  `workspace.write`, `workspace.project_info`, `lsp.diagnostics`,
+  `lsp.format`, `runtime.build`,
+  `runtime.compile_reload`, `runtime.validate`, `runtime.test`,
+  `runtime.reload`, `harness.load`, `harness.reload`, `harness.cycle`,
+  `harness.set_input`, `harness.get_output`, `harness.advance_time`, and
+  `harness.run_until`, plus stable error codes for unknown methods,
+  workspace-path escapes, harness state, and bounded `run_until` timeouts.
+  The runtime-facing methods now reuse the existing `build --ci`,
+  `validate --ci`, JSON test-output path, in-process Web IDE
+  diagnostics/formatting services, and control-server `bytecode.reload`
+  contract instead of inventing a second reporting surface.
+- `trust-runtime agent serve runtime.compile_reload` now returns one
+  machine-readable payload for `diagnose -> build -> reload`, including
+  diagnostics counts/issues plus `runtimeStatus` / `runtimeMessage` and the
+  optional nested build/reload results needed for iterative repair loops.
+- `trust-runtime agent serve workspace.project_info` now returns a stable
+  orientation payload for agents, including resolved source roots, source
+  files, local dependency roots, runtime/io config presence, parsed runtime
+  control/web/mesh/discovery summary fields, and `trust-lsp.toml`
+  `vendor_profile` when present.
+- `trust-harness` is now a real programmable deterministic executor instead of
+  a minimal `load` / `cycle` helper. It now supports `reload`, `set_input`,
+  `get_output`, `set_access`, `get_access`, `bind_direct`,
+  `set_direct_input`, `get_direct_output`, `advance_time`, `run_until`,
+  `restart`, and `snapshot`, all over structured JSON-lines with shared typed
+  IEC value encoding and protocol docs in
+  `docs/guides/TRUST_HARNESS_PROTOCOL.md`.
+- A canonical public docs site now lives under `docs/public/` with question-
+  driven navigation (`start`, `develop`, `connect`, `operate`, `reference`,
+  `concepts`, `examples`), a MkDocs + Material site config at repo root, a
+  Pages workflow that builds and deploys the docs site, and a public-doc link
+  checker in `scripts/check_public_docs_links.py`.
+- The runnable examples catalog is now aligned to the docs IA instead of
+  acting like one flat dump: `examples/README.md` now routes by docs category,
+  `docs/internal/testing/checklists/example-catalog-audit.md` records keep /
+  tweak / merge / archive decisions, `examples/sfc/README.md` and
+  `examples/web_ui_complete_project/README.md` were added, and
+  `examples/simulate_process/README.md` now marks that family as archive-
+  candidate rather than a first-stop public example. Kept public examples now
+  also link back to their owning docs category, and
+  `scripts/check_example_catalog_links.py` enforces that the curated docs
+  catalog points to real runnable example paths.
+- The public docs are now materially self-contained instead of mostly wrapper
+  pages: editor selection, protocol matrices, runtime-to-runtime transports,
+  visual-editor guidance, runtime control/debug/operator docs, benchmark
+  reference, vendor-profile example routing, and key protocol pages now render
+  substantive in-site content instead of punting readers to raw GitHub pages.
+- Public-doc media is now generated through an explicit pipeline:
+  `scripts/capture-public-docs-visual-editors.sh` captures the visual-editor
+  screenshots automatically, `scripts/generate_public_docs_media.py` syncs
+  them into `docs/public/assets/images/`, and the Pages workflow now rebuilds
+  when those source screenshots or media-generation scripts change.
+- The docs Pages workflow now has stricter quality gates: local search
+  regression checks, post-deploy verification of the published site, and
+  automated media synchronization all run as part of the docs build path.
+- The public docs now cover more real operator/agent search paths directly in
+  CI, including `scan cycle`, `project layout`, `visual editor`, `vendor
+  profile`, `watchdog`, `fault policy`, `agent serve`, `hot reload`, and test
+  output format queries, so discoverability regressions are caught earlier.
+- The public docs now include a dedicated diagnostics reference page covering
+  current `E...`, `W...`, and `I...` codes, their default severities, meanings,
+  and first-fix guidance, and docs-search regression coverage now includes code
+  queries such as `E001`, `W003`, `implicit conversion`, and `missing else`.
 
 ### Fixed
 
+- Warm restart and live `bytecode.reload` now preserve compiled instance-backed
+  runtime references across the restart boundary, so instance-backed I/O
+  bindings and the new `trust-runtime agent serve` `runtime.reload` flow no
+  longer trip `null reference dereference` faults immediately after a reload.
+
+- VS Code language-model tool discovery is now consistent again: the extension
+  registers the same linked-editing, on-type-formatting, call-hierarchy, and
+  type-hierarchy tool names that `editors/vscode/package.json` declares and
+  activates, and the extension test suite now fails if manifest declarations,
+  activation events, and `lm.registerTool(...)` registrations drift apart.
+- The public docs workflow now rebuilds on guide/spec/conformance/media-source
+  edits instead of only direct `docs/public/**` changes, closing the stale-site
+  gap for `--8<--`-included content and generated public assets.
 - The ST compiler/runtime build path now closes the remaining open regression
   cases around control-flow and declaration lowering: unqualified enum members
   now work as `CASE` labels in end-to-end runtime/bytecode builds, aggregate

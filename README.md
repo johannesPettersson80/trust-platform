@@ -13,7 +13,7 @@ VS Code support and official LSP setup profiles for Neovim and Zed:
 Stable shipped binaries: `trust-lsp`, `trust-runtime`, `trust-debug`, `trust-bundle-gen`.
 
 > **Install:** VS Code Marketplace → **truST LSP**  
-> **Docs:** `docs/README.md`
+> **Docs:** `docs/public/index.md` (site source) and `docs/README.md` (repo index)
 
 ---
 
@@ -166,7 +166,11 @@ starts a local runtime for debugging and inline values.
 
 ## Documentation
 
-- `docs/README.md` — documentation index and diagram workflow
+- `docs/public/index.md` — canonical public docs source
+- `docs/README.md` — repo documentation index and diagram workflow
+- `docs/public/start/agent-quickstart.md` — quickest Copilot/agent path
+- `docs/public/connect/protocol-matrix.md` — where to look for supported protocols and transport families
+- `docs/public/examples/index.md` — curated runnable example catalog
 - `docs/guides/WEB_IDE_FULL_BROWSER_GUIDE.md` — runtime-hosted Browser IDE (`/ide`) usage and API surface
 - `docs/guides/HMI_DIRECTORY_WORKFLOW.md` — `hmi/` directory format, process SVG pages, and LM tool workflow
 - `docs/guides/RUNTIME_CLOUD_MANUAL.md` — runtime cloud onboarding manual (quickstart, profiles, federation, UI, troubleshooting)

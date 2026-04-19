@@ -1,13 +1,39 @@
 //! Bundle build command (compile sources to program.stbc).
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use indicatif::{ProgressBar, ProgressStyle};
-use serde_json::json;
+use serde_json::{json, Value as JsonValue};
 use trust_runtime::bundle::detect_bundle_path;
-use trust_runtime::bundle_builder::build_program_stbc;
+use trust_runtime::bundle_builder::{build_program_stbc, BundleBuildReport};
 
 use crate::style;
+
+pub(crate) fn build_json_payload(
+    bundle: Option<PathBuf>,
+    sources: Option<PathBuf>,
+) -> anyhow::Result<JsonValue> {
+    let bundle_root = match bundle {
+        Some(path) => path,
+        None => detect_bundle_path(None).unwrap_or(std::env::current_dir()?),
+    };
+    let report = build_program_stbc(&bundle_root, sources.as_deref())?;
+    Ok(build_payload_from_report(&bundle_root, report))
+}
+
+fn build_payload_from_report(bundle_root: &Path, report: BundleBuildReport) -> JsonValue {
+    json!({
+        "version": 1,
+        "command": "build",
+        "status": "ok",
+        "project": bundle_root.display().to_string(),
+        "program": report.program_path.display().to_string(),
+        "source_count": report.sources.len(),
+        "sources": report.sources.iter().map(|path| path.display().to_string()).collect::<Vec<_>>(),
+        "dependency_roots": report.dependency_roots.iter().map(|path| path.display().to_string()).collect::<Vec<_>>(),
+        "resolved_dependencies": report.resolved_dependencies,
+    })
+}
 
 pub fn run_build(
     bundle: Option<PathBuf>,
@@ -30,15 +56,7 @@ pub fn run_build(
         report
     };
     if ci {
-        let payload = json!({
-            "version": 1,
-            "command": "build",
-            "status": "ok",
-            "project": bundle_root.display().to_string(),
-            "program": report.program_path.display().to_string(),
-            "source_count": report.sources.len(),
-            "sources": report.sources.iter().map(|path| path.display().to_string()).collect::<Vec<_>>(),
-        });
+        let payload = build_payload_from_report(&bundle_root, report);
         println!("{}", serde_json::to_string_pretty(&payload)?);
         return Ok(());
     }

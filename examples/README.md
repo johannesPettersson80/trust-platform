@@ -1,6 +1,19 @@
-# Examples: Guided VS Code Tutorial Tracks
+# Examples: Curated Runnable Catalog
 
-This folder is curated as onboarding-quality tutorials.
+This directory is the runnable example catalog for truST.
+
+The canonical public navigation is the docs-site examples section:
+
+- `docs/public/examples/index.md`
+- `docs/public/examples/tutorials.md`
+- `docs/public/examples/test-and-debug.md`
+- `docs/public/examples/hmi.md`
+- `docs/public/examples/connectivity.md`
+- `docs/public/examples/runtime-cloud.md`
+- `docs/public/examples/visual-editors.md`
+- `docs/public/examples/vendor-profiles.md`
+- `docs/public/examples/libraries-and-motion.md`
+- `docs/public/examples/capstones.md`
 
 Two former directories were intentionally removed from `examples/`:
 
@@ -27,29 +40,31 @@ code --install-extension trust-platform.trust-lsp
 code /path/to/trust-platform
 ```
 
-## Tutorial Catalog (Kept + Improved)
+## Catalog By Docs Category
 
-| Track | Start Here | What You Learn | Typical Time |
+| Category | Start Here | What You Learn | Typical Time |
 |---|---|---|---|
-| ST fundamentals | `examples/tutorials/README.md` | language basics, VS Code tooling, testing workflow | 60-120 min |
-| Advanced operations tutorials (13-23) | `examples/tutorials/README.md` | project bootstrap, deploy/rollback, multi-PLC mesh, secure remote access, I/O backend matrix, simulation, safety commissioning, HMI write enablement, CI/CD, Neovim/Zed workflow, observability commissioning | 210-360 min |
-| Communication protocols (grouped) | `examples/communication/README.md` | protocol-focused examples for Modbus/TCP, MQTT, OPC UA, two EtherCAT commissioning profiles (mock-first + field-tested), GPIO, and composed multi-driver configurations with transport gates and commissioning flow | 120-220 min |
-| Runtime I/O mental model | `examples/memory_marker_counter/README.md` | `%M/%Q` cycle semantics + debugger confirmation | 20-30 min |
-| PLCopen motion single-axis guide | `examples/plcopen_motion_single_axis_demo/README.md` | reusable library consumption, scan-driven PLCopen motion sequencing, and a step-by-step reference project | 25-40 min |
-| OSCAT smoke | `examples/oscat_smoke/README.md` | reusable full OSCAT package consumption, one-time constants loading, shared carriers, time/date helpers, direction helpers, and representative FB usage | 10-20 min |
-| PLCopen motion profiling pack | `examples/plcopen_motion_single_axis_benchmarks/README.md` | runtime-floor, direct-global, dynamic-ref, trivial-FB, constants-only, status-only, inactive-command, single-command, and constants-once isolates for performance triage | 20-35 min |
-| HMI P&ID tutorial | `examples/tutorials/12_hmi_pid_process_dashboard/README.md` | process SVG pages, bypass mode, setpoint/alarm bindings, and live HMI refresh workflow | 35-55 min |
-| Runtime cloud onboarding pack | `examples/runtime_cloud/README.md` | profile setup (`dev`/`plant`/`wan`), preflight/dispatch payloads, federation allowlist flow | 30-60 min |
-| Multi-file architecture | `examples/plant_demo/README.md` | type/FB/program/config layering + cross-file refactors | 25-40 min |
-| Process-control capstone | `examples/filling_line/README.md` | hysteresis control, interface hierarchy, hot reload | 35-55 min |
-| EtherCAT bring-up (DI+DO) | `examples/ethercat_ek1100_elx008_v1/README.md` | `io.toml`, mock-first validation, hardware handoff | 30-50 min |
-| EtherCAT bring-up (DO snake) | `examples/ethercat_ek1100_elx008_v2/README.md` | EK1100+EL2008 output sweep, hardware run script, safety mapping | 20-35 min |
-| PLCopen XML interop | `examples/plcopen_xml_st_complete/README.md` | VS Code import, post-import exploration, round-trip checks, OpenPLC detection note | 30-50 min |
-| Siemens profile | `examples/siemens_scl_v1/README.md` | `#`-prefix behavior, profile comparison, runtime/debug run | 20-30 min |
-| Mitsubishi profile | `examples/mitsubishi_gxworks3_v1/README.md` | `DIFU/DIFD` mapping, profile comparison, runtime/debug run | 20-30 min |
-| Vendor library stubs | `examples/vendor_library_stubs/README.md` | user-extensible vendor symbol stubs via `[[libraries]]` | 15-25 min |
+| Tutorials | `examples/tutorials/README.md` | language basics, testing, bootstrap, deploy, networking, simulation, safety, HMI, CI/CD, observability | 60-360 min |
+| Test and debug | `examples/memory_marker_counter/README.md` | runtime/process-image mental model and debugger confirmation | 20-30 min |
+| HMI | `examples/tutorials/12_hmi_pid_process_dashboard/README.md` | HMI pages, bindings, live refresh | 35-55 min |
+| Connectivity | `examples/communication/README.md` | Modbus/TCP, MQTT, OPC UA, EtherCAT, GPIO, multi-driver | 120-220 min |
+| Runtime cloud | `examples/runtime_cloud/README.md` | profiles, preflight/dispatch, federation allowlists | 30-60 min |
+| Visual editors | `examples/ladder/README.md`, `examples/statecharts/README.md`, `examples/blockly/README.md` | visual authoring surfaces tied to companion ST | 15-45 min |
+| Vendor profiles | `examples/siemens_scl_v1/README.md`, `examples/mitsubishi_gxworks3_v1/README.md`, `examples/plcopen_xml_st_complete/README.md`, `examples/vendor_library_stubs/README.md` | vendor-oriented authoring and migration | 20-50 min |
+| Libraries and motion | `examples/plcopen_motion_single_axis_demo/README.md`, `examples/plcopen_motion_single_axis_benchmarks/README.md`, `examples/oscat_smoke/README.md` | shipped libraries and performance baselines | 10-40 min |
+| Capstones | `examples/plant_demo/README.md`, `examples/filling_line/README.md`, `examples/hardware_8do/README.md` | larger multi-file or hardware-leaning projects | 25-55 min |
+
+## Archive Policy
+
+- examples that are not strong public defaults belong in `examples/archive/`
+- currently, `examples/simulate_process/` is treated as archive-candidate material until it has a curated public entry README and narrower audience framing
+- see `docs/internal/testing/checklists/example-catalog-audit.md` for the current keep / tweak / merge / archive decisions
 
 ## Recommended Learning Order
+
+This is the detailed repo-level progression. The public docs page
+`docs/public/examples/learning-paths.md` remains the high-level route map by
+goal; keep the two aligned at the category level.
 
 1. `examples/tutorials/README.md`
 2. `examples/tutorials/12_hmi_pid_process_dashboard/README.md`

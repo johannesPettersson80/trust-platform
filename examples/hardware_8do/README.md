@@ -1,5 +1,7 @@
 # Hardware Backend: 8 Digital Outputs
 
+Docs category: `docs/public/examples/capstones.md`
+
 This is a **hardware backend** that provides the infrastructure to run programs on physical hardware with 8 digital outputs.
 
 ## Purpose

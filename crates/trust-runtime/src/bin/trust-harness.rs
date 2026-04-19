@@ -1,27 +1,37 @@
-//! Minimal JSON-line harness for deterministic cycle driving.
+//! JSON-line deterministic harness executor for agents, CI, and docs examples.
 
 use std::io::{self, BufRead, Write};
 
 use anyhow::{anyhow, Context};
 use serde::Deserialize;
 use serde_json::{json, Map, Value as JsonValue};
-use trust_runtime::harness::TestHarness;
-use trust_runtime::value::{Duration, Value};
+use trust_runtime::harness::{
+    decode_json_value, encode_json_value, HarnessAutomation, HarnessAutomationError,
+};
+use trust_runtime::RestartMode;
 
 #[derive(Debug, Deserialize)]
 struct Request {
     cmd: String,
     source: Option<String>,
+    sources: Option<Vec<String>>,
     count: Option<u32>,
     dt_ms: Option<i64>,
+    duration_ms: Option<i64>,
     watch: Option<Vec<String>>,
+    name: Option<String>,
+    value: Option<JsonValue>,
+    equals: Option<JsonValue>,
+    max_cycles: Option<u64>,
+    address: Option<String>,
+    mode: Option<String>,
 }
 
 fn main() -> anyhow::Result<()> {
     let stdin = io::stdin();
     let stdout = io::stdout();
     let mut out = stdout.lock();
-    let mut harness: Option<TestHarness> = None;
+    let mut harness = HarnessAutomation::new();
 
     for line in stdin.lock().lines() {
         let line = line.context("read stdin line")?;
@@ -31,7 +41,7 @@ fn main() -> anyhow::Result<()> {
 
         let response = match serde_json::from_str::<Request>(&line) {
             Ok(request) => handle_request(request, &mut harness),
-            Err(err) => error_response(format!("invalid request: {err}")),
+            Err(err) => error_response("invalid_request", format!("invalid request: {err}"), None),
         };
 
         writeln!(out, "{}", serde_json::to_string(&response)?)?;
@@ -41,163 +51,340 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn handle_request(request: Request, harness: &mut Option<TestHarness>) -> JsonValue {
+fn handle_request(request: Request, harness: &mut HarnessAutomation) -> JsonValue {
     match dispatch_request(request, harness) {
         Ok(data) => json!({
             "ok": true,
             "data": data,
         }),
-        Err(err) => error_response(err.to_string()),
+        Err(err) => match err.downcast::<HarnessAutomationError>() {
+            Ok(protocol_error) => automation_error_response(protocol_error),
+            Err(other) => error_response("invalid_request", other.to_string(), None),
+        },
     }
 }
 
 fn dispatch_request(
     request: Request,
-    harness: &mut Option<TestHarness>,
+    harness: &mut HarnessAutomation,
 ) -> anyhow::Result<JsonValue> {
     match request.cmd.as_str() {
         "load" => handle_load(request, harness),
+        "reload" => handle_reload(request, harness),
         "cycle" => handle_cycle(request, harness),
+        "set_input" => handle_set_input(request, harness),
+        "get_output" => handle_get_output(request, harness),
+        "set_access" => handle_set_access(request, harness),
+        "get_access" => handle_get_access(request, harness),
+        "bind_direct" => handle_bind_direct(request, harness),
+        "set_direct_input" => handle_set_direct_input(request, harness),
+        "get_direct_output" => handle_get_direct_output(request, harness),
+        "advance_time" => handle_advance_time(request, harness),
+        "run_until" => handle_run_until(request, harness),
+        "restart" => handle_restart(request, harness),
+        "snapshot" => handle_snapshot(request, harness),
         other => Err(anyhow!("unsupported command '{other}'")),
     }
 }
 
-fn handle_load(request: Request, harness: &mut Option<TestHarness>) -> anyhow::Result<JsonValue> {
-    let source = request
-        .source
-        .as_deref()
-        .ok_or_else(|| anyhow!("load requires 'source'"))?;
-    let mut loaded = TestHarness::from_source(source)?;
-    let cycle = loaded.cycle();
-    if !cycle.errors.is_empty() {
-        let rendered = cycle
-            .errors
-            .iter()
-            .map(std::string::ToString::to_string)
-            .collect::<Vec<_>>()
-            .join("; ");
-        return Err(anyhow!("initial cycle failed: {rendered}"));
-    }
-    *harness = Some(loaded);
+fn handle_load(request: Request, harness: &mut HarnessAutomation) -> anyhow::Result<JsonValue> {
+    let summary = harness
+        .load_sources(&source_list(&request)?)
+        .map_err(anyhow::Error::from)?;
     Ok(json!({
-        "cycle_count": 1,
-        "elapsed_ms": 0,
+        "source_count": summary.source_count,
+        "cycle_count": summary.cycle_count,
+        "elapsed_ms": summary.elapsed_ms,
     }))
 }
 
-fn handle_cycle(request: Request, harness: &mut Option<TestHarness>) -> anyhow::Result<JsonValue> {
-    let harness = harness
-        .as_mut()
-        .ok_or_else(|| anyhow!("cycle requires a loaded program"))?;
-    let count = request.count.unwrap_or(1);
-
-    if let Some(dt_ms) = request.dt_ms {
-        if dt_ms < 0 {
-            return Err(anyhow!("dt_ms must be non-negative"));
-        }
-    }
-
-    for _ in 0..count {
-        if let Some(dt_ms) = request.dt_ms {
-            harness.advance_time(Duration::from_millis(dt_ms));
-        }
-        let cycle = harness.cycle();
-        if !cycle.errors.is_empty() {
-            let rendered = cycle
-                .errors
-                .iter()
-                .map(std::string::ToString::to_string)
-                .collect::<Vec<_>>()
-                .join("; ");
-            return Err(anyhow!("cycle failed: {rendered}"));
-        }
-    }
-
-    let values = watched_values(harness, request.watch.as_deref().unwrap_or(&[]));
+fn handle_reload(request: Request, harness: &mut HarnessAutomation) -> anyhow::Result<JsonValue> {
+    let summary = harness
+        .reload_sources(&source_list(&request)?)
+        .map_err(anyhow::Error::from)?;
     Ok(json!({
-        "cycle_count": harness.cycle_count(),
-        "elapsed_ms": harness.current_time().as_millis(),
-        "values": values,
+        "source_count": summary.source_count,
+        "cycle_count": summary.cycle_count,
+        "elapsed_ms": summary.elapsed_ms,
     }))
 }
 
-fn watched_values(harness: &TestHarness, watch: &[String]) -> JsonValue {
-    let mut values = Map::new();
-    for name in watch {
-        let value = harness
-            .get_output(name)
-            .as_ref()
-            .map(value_to_json)
-            .unwrap_or(JsonValue::Null);
-        values.insert(name.clone(), value);
-    }
-    JsonValue::Object(values)
+fn handle_cycle(request: Request, harness: &mut HarnessAutomation) -> anyhow::Result<JsonValue> {
+    let snapshot = harness
+        .cycle(
+            request.count.unwrap_or(1),
+            request.dt_ms.unwrap_or(0),
+            request.watch.as_deref().unwrap_or(&[]),
+        )
+        .map_err(anyhow::Error::from)?;
+    Ok(json!({
+        "cycle_count": snapshot.cycle_count,
+        "elapsed_ms": snapshot.elapsed_ms,
+        "values": encode_watch_values(snapshot.values),
+    }))
 }
 
-fn value_to_json(value: &Value) -> JsonValue {
-    match value {
-        Value::Bool(v) => json!(v),
-        Value::SInt(v) => json!(v),
-        Value::Int(v) => json!(v),
-        Value::DInt(v) => json!(v),
-        Value::LInt(v) => json!(v),
-        Value::USInt(v) => json!(v),
-        Value::UInt(v) => json!(v),
-        Value::UDInt(v) => json!(v),
-        Value::ULInt(v) => json!(v),
-        Value::Real(v) => json!(v),
-        Value::LReal(v) => json!(v),
-        Value::Byte(v) => json!(v),
-        Value::Word(v) => json!(v),
-        Value::DWord(v) => json!(v),
-        Value::LWord(v) => json!(v),
-        Value::Time(v) => json!({"type": "TIME", "ms": v.as_millis()}),
-        Value::LTime(v) => json!({"type": "LTIME", "ms": v.as_millis()}),
-        Value::Date(v) => json!({"type": "DATE", "ticks": v.ticks()}),
-        Value::LDate(v) => json!({"type": "LDATE", "nanos": v.nanos()}),
-        Value::Tod(v) => json!({"type": "TOD", "ticks": v.ticks()}),
-        Value::LTod(v) => json!({"type": "LTOD", "nanos": v.nanos()}),
-        Value::Dt(v) => json!({"type": "DT", "ticks": v.ticks()}),
-        Value::Ldt(v) => json!({"type": "LDT", "nanos": v.nanos()}),
-        Value::String(v) => json!(v.to_string()),
-        Value::WString(v) => json!(v),
-        Value::Char(v) => json!(char::from(*v).to_string()),
-        Value::WChar(v) => json!(std::char::from_u32(u32::from(*v))
-            .unwrap_or('\u{FFFD}')
-            .to_string()),
-        Value::Array(array) => JsonValue::Array(array.elements.iter().map(value_to_json).collect()),
-        Value::Struct(value) => {
-            let mut fields = Map::new();
-            for (name, field_value) in &value.fields {
-                fields.insert(name.to_string(), value_to_json(field_value));
-            }
-            json!({
-                "type": "STRUCT",
-                "type_name": value.type_name.to_string(),
-                "fields": fields,
-            })
+fn handle_set_input(
+    request: Request,
+    harness: &mut HarnessAutomation,
+) -> anyhow::Result<JsonValue> {
+    let name = required_string(request.name, "set_input requires 'name'")?;
+    let value = request
+        .value
+        .as_ref()
+        .ok_or_else(|| anyhow!("set_input requires 'value'"))?;
+    harness
+        .set_input(
+            name.as_str(),
+            decode_json_value(value).map_err(anyhow::Error::from)?,
+        )
+        .map_err(anyhow::Error::from)?;
+    Ok(json!({
+        "name": name,
+        "status": "ok",
+    }))
+}
+
+fn handle_get_output(
+    request: Request,
+    harness: &mut HarnessAutomation,
+) -> anyhow::Result<JsonValue> {
+    let name = required_string(request.name, "get_output requires 'name'")?;
+    let snapshot = harness
+        .get_output(name.as_str())
+        .map_err(anyhow::Error::from)?;
+    Ok(json!({
+        "name": snapshot.name,
+        "value": snapshot.value.as_ref().map(encode_json_value).unwrap_or(JsonValue::Null),
+    }))
+}
+
+fn handle_set_access(
+    request: Request,
+    harness: &mut HarnessAutomation,
+) -> anyhow::Result<JsonValue> {
+    let name = required_string(request.name, "set_access requires 'name'")?;
+    let value = request
+        .value
+        .as_ref()
+        .ok_or_else(|| anyhow!("set_access requires 'value'"))?;
+    harness
+        .set_access(
+            name.as_str(),
+            decode_json_value(value).map_err(anyhow::Error::from)?,
+        )
+        .map_err(anyhow::Error::from)?;
+    Ok(json!({
+        "name": name,
+        "status": "ok",
+    }))
+}
+
+fn handle_get_access(
+    request: Request,
+    harness: &mut HarnessAutomation,
+) -> anyhow::Result<JsonValue> {
+    let name = required_string(request.name, "get_access requires 'name'")?;
+    let snapshot = harness
+        .get_access(name.as_str())
+        .map_err(anyhow::Error::from)?;
+    Ok(json!({
+        "name": snapshot.name,
+        "value": snapshot.value.as_ref().map(encode_json_value).unwrap_or(JsonValue::Null),
+    }))
+}
+
+fn handle_bind_direct(
+    request: Request,
+    harness: &mut HarnessAutomation,
+) -> anyhow::Result<JsonValue> {
+    let name = required_string(request.name, "bind_direct requires 'name'")?;
+    let address = required_string(request.address, "bind_direct requires 'address'")?;
+    harness
+        .bind_direct(name.as_str(), address.as_str())
+        .map_err(anyhow::Error::from)?;
+    Ok(json!({
+        "name": name,
+        "address": address,
+        "status": "ok",
+    }))
+}
+
+fn handle_set_direct_input(
+    request: Request,
+    harness: &mut HarnessAutomation,
+) -> anyhow::Result<JsonValue> {
+    let address = required_string(request.address, "set_direct_input requires 'address'")?;
+    let value = request
+        .value
+        .as_ref()
+        .ok_or_else(|| anyhow!("set_direct_input requires 'value'"))?;
+    harness
+        .set_direct_input(
+            address.as_str(),
+            decode_json_value(value).map_err(anyhow::Error::from)?,
+        )
+        .map_err(anyhow::Error::from)?;
+    Ok(json!({
+        "address": address,
+        "status": "ok",
+    }))
+}
+
+fn handle_get_direct_output(
+    request: Request,
+    harness: &mut HarnessAutomation,
+) -> anyhow::Result<JsonValue> {
+    let address = required_string(request.address, "get_direct_output requires 'address'")?;
+    let snapshot = harness
+        .get_direct_output(address.as_str())
+        .map_err(anyhow::Error::from)?;
+    Ok(json!({
+        "address": address,
+        "value": snapshot.value.as_ref().map(encode_json_value).unwrap_or(JsonValue::Null),
+    }))
+}
+
+fn handle_advance_time(
+    request: Request,
+    harness: &mut HarnessAutomation,
+) -> anyhow::Result<JsonValue> {
+    let duration_ms = request.duration_ms.or(request.dt_ms).unwrap_or(0);
+    let summary = harness
+        .advance_time(duration_ms)
+        .map_err(anyhow::Error::from)?;
+    Ok(json!({
+        "cycle_count": summary.cycle_count,
+        "elapsed_ms": summary.elapsed_ms,
+    }))
+}
+
+fn handle_run_until(
+    request: Request,
+    harness: &mut HarnessAutomation,
+) -> anyhow::Result<JsonValue> {
+    let name = required_string(request.name, "run_until requires 'name'")?;
+    let equals = request
+        .equals
+        .as_ref()
+        .ok_or_else(|| anyhow!("run_until requires 'equals'"))?;
+    let summary = harness
+        .run_until(
+            name.as_str(),
+            decode_json_value(equals).map_err(anyhow::Error::from)?,
+            request.dt_ms.unwrap_or(0),
+            request.max_cycles.unwrap_or(10_000),
+            request.watch.as_deref().unwrap_or(&[]),
+        )
+        .map_err(anyhow::Error::from)?;
+    Ok(json!({
+        "name": summary.name,
+        "cycles_ran": summary.cycles_ran,
+        "cycle_count": summary.cycle_count,
+        "elapsed_ms": summary.elapsed_ms,
+        "matched_value": summary.matched_value.as_ref().map(encode_json_value).unwrap_or(JsonValue::Null),
+        "values": encode_watch_values(summary.values),
+    }))
+}
+
+fn handle_restart(request: Request, harness: &mut HarnessAutomation) -> anyhow::Result<JsonValue> {
+    let mode = parse_restart_mode(request.mode.as_deref().unwrap_or("cold"))?;
+    let summary = harness.restart(mode).map_err(anyhow::Error::from)?;
+    Ok(json!({
+        "mode": match mode {
+            RestartMode::Cold => "cold",
+            RestartMode::Warm => "warm",
+        },
+        "cycle_count": summary.cycle_count,
+        "elapsed_ms": summary.elapsed_ms,
+    }))
+}
+
+fn handle_snapshot(request: Request, harness: &mut HarnessAutomation) -> anyhow::Result<JsonValue> {
+    let snapshot = harness
+        .snapshot(request.watch.as_deref().unwrap_or(&[]))
+        .map_err(anyhow::Error::from)?;
+    Ok(json!({
+        "cycle_count": snapshot.cycle_count,
+        "elapsed_ms": snapshot.elapsed_ms,
+        "values": encode_watch_values(snapshot.values),
+    }))
+}
+
+fn source_list(request: &Request) -> anyhow::Result<Vec<String>> {
+    if let Some(sources) = request.sources.as_ref() {
+        if sources.is_empty() {
+            return Err(anyhow!("'sources' must not be empty"));
         }
-        Value::Enum(value) => json!({
-            "type": "ENUM",
-            "type_name": value.type_name.to_string(),
-            "variant": value.variant_name.to_string(),
-            "numeric": value.numeric_value,
-        }),
-        Value::Reference(reference) => json!({
-            "type": "REFERENCE",
-            "value": reference.as_ref().map(|entry| format!("{entry:?}")),
-        }),
-        Value::Instance(id) => json!({
-            "type": "INSTANCE",
-            "value": id.0,
-        }),
-        Value::Null => JsonValue::Null,
+        return Ok(sources.clone());
+    }
+    if let Some(source) = request.source.as_ref() {
+        return Ok(vec![source.clone()]);
+    }
+    Err(anyhow!("request requires 'source' or 'sources'"))
+}
+
+fn required_string(value: Option<String>, message: &str) -> anyhow::Result<String> {
+    value.ok_or_else(|| anyhow!(message.to_string()))
+}
+
+fn parse_restart_mode(mode: &str) -> anyhow::Result<RestartMode> {
+    match mode.to_ascii_lowercase().as_str() {
+        "cold" => Ok(RestartMode::Cold),
+        "warm" => Ok(RestartMode::Warm),
+        other => Err(anyhow!("unsupported restart mode '{other}'")),
     }
 }
 
-fn error_response(message: String) -> JsonValue {
+fn encode_watch_values(
+    values: std::collections::BTreeMap<String, trust_runtime::value::Value>,
+) -> JsonValue {
+    JsonValue::Object(
+        values
+            .into_iter()
+            .map(|(name, value)| (name, encode_json_value(&value)))
+            .collect::<Map<String, JsonValue>>(),
+    )
+}
+
+fn automation_error_response(error: HarnessAutomationError) -> JsonValue {
+    match error {
+        HarnessAutomationError::NotLoaded => error_response("not_loaded", error.to_string(), None),
+        HarnessAutomationError::InvalidArgument(message) => {
+            error_response("invalid_argument", message, None)
+        }
+        HarnessAutomationError::Compile(message) => error_response("compile_error", message, None),
+        HarnessAutomationError::Runtime(message) => error_response("runtime_error", message, None),
+        HarnessAutomationError::RuntimeCycle { message, errors } => error_response(
+            "runtime_cycle_error",
+            message,
+            Some(json!({ "errors": errors })),
+        ),
+        HarnessAutomationError::RunUntilTimeout {
+            name,
+            max_cycles,
+            expected,
+        } => error_response(
+            "run_until_timeout",
+            format!(
+                "run_until exceeded {max_cycles} cycles before '{name}' matched the expected value"
+            ),
+            Some(json!({
+                "name": name,
+                "max_cycles": max_cycles,
+                "expected": encode_json_value(&expected),
+            })),
+        ),
+    }
+}
+
+fn error_response(kind: &str, message: String, data: Option<JsonValue>) -> JsonValue {
     json!({
         "ok": false,
-        "error": message,
+        "error": {
+            "kind": kind,
+            "message": message,
+            "data": data,
+        },
     })
 }

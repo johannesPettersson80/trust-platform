@@ -2,7 +2,9 @@
 
 This guide is the user-facing reference manual for the PLCopen Motion packages shipped with truST. It follows the same documentation intent users expect from library manuals such as OSCAT: each public type and each public function block is documented as a named API surface, not just listed in a coverage table.
 
-If you want a worked project first, read [examples/plcopen_motion_single_axis_demo/README.md](/home/johannes/projects/trust-platform/examples/plcopen_motion_single_axis_demo/README.md). That README explains how the reference example is wired and why the scan loop is written the way it is.
+If you want a worked project first, start with the reference example in
+`examples/plcopen_motion_single_axis_demo`. That project explains how the
+single-axis demo is wired and why the scan loop is written the way it is.
 
 ## Package Layout
 
@@ -1914,6 +1916,6 @@ Usage notes: Use as the closing step after earlier homing steps locate the refer
 
 ## Example And Further Reading
 
-- Example walkthrough: [examples/plcopen_motion_single_axis_demo/README.md](/home/johannes/projects/trust-platform/examples/plcopen_motion_single_axis_demo/README.md)
-- Coverage matrix: [docs/specs/coverage/plcopen-motion-coverage.md](/home/johannes/projects/trust-platform/docs/specs/coverage/plcopen-motion-coverage.md)
-- Performance-only material: [examples/plcopen_motion_single_axis_benchmarks/README.md](/home/johannes/projects/trust-platform/examples/plcopen_motion_single_axis_benchmarks/README.md)
+- Example walkthrough: `examples/plcopen_motion_single_axis_demo/README.md`
+- Coverage matrix: `docs/specs/coverage/plcopen-motion-coverage.md`
+- Performance-only material: `examples/plcopen_motion_single_axis_benchmarks/README.md`

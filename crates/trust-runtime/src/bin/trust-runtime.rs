@@ -1,5 +1,7 @@
 //! CLI entrypoint for ST runtime.
 
+#[path = "trust-runtime/agent.rs"]
+mod agent;
 #[path = "trust-runtime/bench.rs"]
 mod bench;
 #[path = "trust-runtime/build.rs"]
@@ -42,6 +44,8 @@ mod style;
 mod test;
 #[path = "trust-runtime/wizard.rs"]
 mod wizard;
+#[path = "trust-runtime/workflow.rs"]
+mod workflow;
 
 use clap::error::ErrorKind;
 use clap::Parser;
@@ -211,6 +215,9 @@ fn run() -> anyhow::Result<()> {
             cli::ConfigUiAction::Serve { project, listen } => {
                 config_ui::run_ide_serve(project, listen)
             }
+        },
+        Some(Command::Agent { action }) => match action {
+            cli::AgentAction::Serve { project } => agent::run_agent_serve(project),
         },
         Some(Command::ConfigUi { action }) => match action {
             cli::ConfigUiAction::Serve { project, listen } => {

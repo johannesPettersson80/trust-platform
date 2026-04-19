@@ -1,0 +1,204 @@
+# `trust-lsp.toml`
+
+`trust-lsp.toml` configures workspace indexing, reusable libraries,
+dependencies, diagnostics, vendor profile behavior, and runtime-assisted editor
+features.
+
+The language server discovers these filenames:
+
+- `trust-lsp.toml`
+- `.trust-lsp.toml`
+- `trustlsp.toml`
+
+## Minimal Example
+
+```toml
+[project]
+include_paths = ["src"]
+vendor_profile = "siemens"
+stdlib = "iec"
+
+[runtime]
+control_endpoint = "unix:///tmp/trust-runtime.sock"
+```
+
+## `[project]`
+
+| Key | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `include_paths` | string array | `[]` | Additional project source roots to index. |
+| `library_paths` | string array | `[]` | Legacy/index-only library roots. |
+| `vendor_profile` | string | none | Controls formatting and diagnostic defaults. |
+| `stdlib` | string or string array | `full` | String = profile; array = allowlist of names. |
+
+Common `stdlib` forms:
+
+```toml
+stdlib = "full"
+stdlib = "iec"
+stdlib = "none"
+stdlib = ["ABS", "CTU", "TON"]
+```
+
+## `[dependencies]`
+
+Use this for reusable truST packages that should participate in normal project
+compilation.
+
+Path dependency:
+
+```toml
+[dependencies]
+MyLib = { path = "../libraries/my_lib", version = "0.1.0" }
+```
+
+Git dependency:
+
+```toml
+[dependencies]
+MyLib = { git = "https://example.com/my-lib.git", tag = "v0.1.0", version = "0.1.0" }
+```
+
+Rules:
+
+- each dependency must set exactly one of `path` or `git`
+- at most one of `rev`, `tag`, or `branch`
+- locked/offline resolution behavior is controlled from `[build]`
+
+## `[[libraries]]`
+
+Use this for index-only packs, vendor stubs, or attached docs that should not
+be treated as first-class project dependencies.
+
+```toml
+[[libraries]]
+name = "siemens-stubs"
+path = "vendor/siemens"
+version = "0.1.0"
+docs = ["docs/vendor.md"]
+```
+
+Supported keys:
+
+- `name`
+- `path`
+- `version`
+- `dependencies = [{ name = "Core", version = "2.0" }]`
+- `docs`
+
+## `[build]`
+
+| Key | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `target` | string | none | Editor-side build target hint. |
+| `profile` | string | none | Profile name such as `debug` or `release`. |
+| `flags` | string array | `[]` | Additional compile flags. |
+| `defines` | string array | `[]` | Preprocessor/define flags. |
+| `dependencies_offline` | bool | `false` | Disables network fetch/clone for git deps. |
+| `dependencies_locked` | bool | `false` | Requires pinned revisions or lock entries. |
+| `dependency_lockfile` | string | `trust-lsp.lock` | Lock file path. |
+
+`[[targets]]` can override `profile`, `flags`, and `defines` per named target.
+
+## `[indexing]`
+
+| Key | Type | Default |
+| --- | --- | --- |
+| `max_files` | integer | none |
+| `max_ms` | integer | none |
+| `cache` | bool | `true` |
+| `cache_dir` | string | `.trust-lsp/index-cache` |
+| `memory_budget_mb` | integer | none |
+| `evict_to_percent` | integer | `80` |
+| `throttle_idle_ms` | integer | `0` |
+| `throttle_active_ms` | integer | `8` |
+| `throttle_max_ms` | integer | `50` |
+| `throttle_active_window_ms` | integer | `250` |
+
+## `[diagnostics]`
+
+Toggle categories directly:
+
+- `warn_unused`
+- `warn_unreachable`
+- `warn_missing_else`
+- `warn_implicit_conversion`
+- `warn_shadowed`
+- `warn_deprecated`
+- `warn_complexity`
+- `warn_nondeterminism`
+- `warn_numeric_hazards`
+
+Other keys:
+
+- `rule_pack`
+- `external_paths`
+- `severity_overrides = { W003 = "error" }`
+
+Supported rule packs include:
+
+- `iec-safety`
+- `safety`
+- `siemens-safety`
+- `codesys-safety`
+- `beckhoff-safety`
+- `twincat-safety`
+- `mitsubishi-safety`
+- `gxworks3-safety`
+
+Vendor profiles also affect defaults:
+
+- `siemens`: disables missing-ELSE and implicit-conversion warnings by default
+- `codesys` / `beckhoff` / `twincat`: keep standard warning set enabled
+- `mitsubishi` / `gxworks3`: keep standard warning set enabled
+
+## `[runtime]`
+
+| Key | Type | Notes |
+| --- | --- | --- |
+| `control_endpoint` | string | Runtime control endpoint for debug-assisted features. |
+| `control_auth_token` | string | Optional auth token for the control endpoint. |
+
+## `[workspace]`
+
+| Key | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `priority` | integer | `0` | Workspace federation priority. |
+| `visibility` | string | `public` | `public`, `private`, or `hidden`. |
+
+## `[telemetry]`
+
+| Key | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `enabled` | bool | `false` | Opt-in only. |
+| `path` | string | `.trust-lsp/telemetry.jsonl` when enabled | Output file. |
+| `flush_every` | integer | `25` | Flush interval. |
+
+## `[dependency_policy]`
+
+Use this to constrain git dependencies:
+
+```toml
+[dependency_policy]
+allowed_git_hosts = ["github.com", "gitlab.com"]
+allow_http = false
+allow_ssh = false
+```
+
+## Optional `[package]`
+
+Reusable library manifests may also declare:
+
+```toml
+[package]
+version = "0.1.0"
+```
+
+That version is used by the dependency resolver when another project consumes
+the package.
+
+## Related
+
+- [Vendor Profiles](../../develop/vendor-profiles.md)
+- [Project Layout](../../develop/project-layout.md)
+- [Agent Quickstart](../../start/agent-quickstart.md)

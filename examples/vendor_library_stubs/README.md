@@ -1,5 +1,7 @@
 # Vendor Library Stubs: User-Extensible Interop Pattern
 
+Docs category: `docs/public/examples/vendor-profiles.md`
+
 This tutorial shows how to index vendor-specific symbols that are not covered by
 built-in shim mappings.
 

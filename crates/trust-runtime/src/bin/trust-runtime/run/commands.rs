@@ -92,6 +92,16 @@ pub fn run_play(project: Option<PathBuf>, options: PlayOptions) -> anyhow::Resul
 }
 
 pub fn run_validate(bundle: PathBuf, ci: bool) -> anyhow::Result<()> {
+    let payload = validate_json_payload(bundle)?;
+    if ci {
+        println!("{}", serde_json::to_string_pretty(&payload)?);
+        return Ok(());
+    }
+    println!("{}", style::success("Project ok"));
+    Ok(())
+}
+
+pub(crate) fn validate_json_payload(bundle: PathBuf) -> anyhow::Result<serde_json::Value> {
     let bundle = RuntimeBundle::load(&bundle)?;
     let _tls_materials = load_tls_materials(&bundle.runtime.tls, Some(bundle.root.as_path()))?;
     let control_endpoint = ControlEndpoint::parse(bundle.runtime.control_endpoint.as_str())?;
@@ -113,26 +123,20 @@ pub fn run_validate(bundle: PathBuf, ci: bool) -> anyhow::Result<()> {
         .resource(bundle.runtime.resource_name.as_str())
         .or_else(|| metadata.primary_resource())
         .ok_or_else(|| anyhow::anyhow!("bytecode metadata missing resource definitions"))?;
-    if ci {
-        let io_drivers = bundle
-            .io
-            .drivers
-            .iter()
-            .map(|driver| driver.name.to_string())
-            .collect::<Vec<_>>();
-        let payload = json!({
-            "version": 1,
-            "command": "validate",
-            "status": "ok",
-            "project": bundle.root.display().to_string(),
-            "resource": bundle.runtime.resource_name.to_string(),
-            "control_endpoint": bundle.runtime.control_endpoint.to_string(),
-            "io_driver": io_drivers.first().cloned().unwrap_or_default(),
-            "io_drivers": io_drivers,
-        });
-        println!("{}", serde_json::to_string_pretty(&payload)?);
-        return Ok(());
-    }
-    println!("{}", style::success("Project ok"));
-    Ok(())
+    let io_drivers = bundle
+        .io
+        .drivers
+        .iter()
+        .map(|driver| driver.name.to_string())
+        .collect::<Vec<_>>();
+    Ok(json!({
+        "version": 1,
+        "command": "validate",
+        "status": "ok",
+        "project": bundle.root.display().to_string(),
+        "resource": bundle.runtime.resource_name.to_string(),
+        "control_endpoint": bundle.runtime.control_endpoint.to_string(),
+        "io_driver": io_drivers.first().cloned().unwrap_or_default(),
+        "io_drivers": io_drivers,
+    }))
 }

@@ -1,5 +1,7 @@
 # Plant Demo: Multi-File Architecture Tutorial
 
+Docs category: `docs/public/examples/capstones.md`
+
 This tutorial teaches how to navigate and debug a multi-file ST project in VS
 Code.
 

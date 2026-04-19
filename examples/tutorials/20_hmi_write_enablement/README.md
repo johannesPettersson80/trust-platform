@@ -27,7 +27,7 @@ Why: keep the shipped example unchanged and create a writable lab copy.
 
 ```bash
 rm -rf /tmp/trust-hmi-write
-cp -R /home/johannes/projects/trust-platform/examples/tutorials/12_hmi_pid_process_dashboard /tmp/trust-hmi-write
+cp -R examples/tutorials/12_hmi_pid_process_dashboard /tmp/trust-hmi-write
 cd /tmp/trust-hmi-write
 ```
 

@@ -1,5 +1,7 @@
 # Mitsubishi GX Works3 v1: Vendor Profile Tutorial
 
+Docs category: `docs/public/examples/vendor-profiles.md`
+
 This tutorial demonstrates Mitsubishi profile behavior and its mapping to
 standard IEC edge-detection concepts.
 

@@ -235,6 +235,14 @@ pub enum Command {
         #[command(subcommand)]
         action: ConfigUiAction,
     },
+    /// Serve the external agent contract over stdio JSON-RPC.
+    #[command(
+        after_help = "Examples:\n  trust-runtime agent serve --project ./my-plc\n  trust-runtime agent serve"
+    )]
+    Agent {
+        #[command(subcommand)]
+        action: AgentAction,
+    },
     /// Guided wizard to create a new project folder.
     #[command(alias = "init")]
     Wizard {

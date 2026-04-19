@@ -12,6 +12,7 @@ mod harness;
 mod io;
 mod lower;
 mod parse;
+mod protocol;
 mod types;
 mod util;
 
@@ -24,6 +25,11 @@ pub use api::{
 pub use coerce::{coerce_initializer_value_to_type, coerce_value_to_type};
 pub use harness::TestHarness;
 pub use parse::{parse_debug_expression, parse_debug_lvalue};
+pub use protocol::{
+    decode_json_value, encode_json_value, HarnessAutomation, HarnessAutomationError,
+    HarnessLoadSummary, HarnessRunUntilSummary, HarnessStateSummary, HarnessValueSnapshot,
+    HarnessWatchSnapshot,
+};
 pub use types::{CompileError, CycleResult, SourceFile};
 
 use compiler::{

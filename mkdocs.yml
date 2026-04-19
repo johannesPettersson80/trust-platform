@@ -1,0 +1,166 @@
+site_name: truST Documentation
+site_description: IEC 61131-3 Structured Text tooling, runtime, agent contract, and examples.
+site_url: https://johannespettersson80.github.io/trust-platform/
+repo_url: https://github.com/johannesPettersson80/trust-platform
+repo_name: johannesPettersson80/trust-platform
+docs_dir: docs/public
+site_dir: site/public
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+markdown_extensions:
+  - admonition
+  - tables
+  - pymdownx.snippets:
+      base_path:
+        - .
+      check_paths: true
+  - toc:
+      permalink: true
+plugins:
+  - search:
+      separator: '[\s\-\.]+'
+nav:
+  - Home: index.md
+  - Start:
+      - Overview: start/index.md
+      - Installation: start/installation.md
+      - Choose Your Workflow: start/choose-your-workflow.md
+      - Editors: start/editors.md
+      - First Project: start/first-project.md
+      - First Run And Setup: start/first-run-and-setup.md
+      - Agent Quickstart: start/agent-quickstart.md
+  - Develop:
+      - Overview: develop/index.md
+      - Project Layout: develop/project-layout.md
+      - Vendor Profiles: develop/vendor-profiles.md
+      - HMI Authoring: develop/hmi-authoring.md
+      - Package Registry: develop/package-registry.md
+      - Generate Project Docs: develop/generate-project-docs.md
+      - Visual Editors:
+          - Overview: develop/visual-editors/index.md
+          - Ladder: develop/visual-editors/ladder.md
+          - Statechart: develop/visual-editors/statechart.md
+          - Blockly: develop/visual-editors/blockly.md
+          - SFC: develop/visual-editors/sfc.md
+          - Companion ST: develop/visual-editors/companion-st.md
+      - Libraries:
+          - Overview: develop/libraries/index.md
+          - OSCAT: develop/libraries/oscat.md
+          - PLCopen Motion: develop/libraries/plcopen-motion.md
+      - Interoperability:
+          - Overview: develop/interoperability/index.md
+          - PLCopen: develop/interoperability/plcopen.md
+          - OpenPLC: develop/interoperability/openplc.md
+          - CODESYS and TwinCAT: develop/interoperability/codesys-twincat.md
+          - Siemens: develop/interoperability/siemens.md
+          - Mitsubishi: develop/interoperability/mitsubishi.md
+          - Vendor Libraries: develop/interoperability/vendor-libraries.md
+  - Connect:
+      - Overview: connect/index.md
+      - Protocol Matrix: connect/protocol-matrix.md
+      - Networking And Remote Access: connect/networking-and-remote-access.md
+      - Runtime To Runtime:
+          - Overview: connect/runtime-to-runtime/index.md
+          - Transport Matrix: connect/runtime-to-runtime/transport-matrix.md
+          - Discovery And Pairing: connect/runtime-to-runtime/discovery-and-pairing.md
+          - Mesh And Zenoh: connect/runtime-to-runtime/mesh-zenoh.md
+          - Realtime T0: connect/runtime-to-runtime/realtime-t0.md
+          - Runtime Cloud Federation: connect/runtime-to-runtime/runtime-cloud-federation.md
+          - Security: connect/runtime-to-runtime/security.md
+      - External Systems:
+          - Overview: connect/external-systems/index.md
+          - Modbus TCP: connect/external-systems/modbus-tcp.md
+          - MQTT: connect/external-systems/mqtt.md
+          - OPC UA: connect/external-systems/opc-ua.md
+      - Devices And Fieldbus:
+          - Overview: connect/devices-and-fieldbus/index.md
+          - Driver Matrix: connect/devices-and-fieldbus/driver-matrix.md
+          - I/O Binding: connect/devices-and-fieldbus/io-binding.md
+          - Multi Driver: connect/devices-and-fieldbus/multi-driver.md
+          - EtherCAT: connect/devices-and-fieldbus/ethercat.md
+          - GPIO: connect/devices-and-fieldbus/gpio.md
+          - Simulated And Loopback: connect/devices-and-fieldbus/simulated-and-loopback.md
+  - Operate:
+      - Overview: operate/index.md
+      - Build, Validate, Test: operate/build-validate-test.md
+      - Compile, Validate, Reload: operate/compile-validate-reload.md
+      - Debugging And Runtime Panel: operate/debugging-and-runtime-panel.md
+      - Runtime UI And Control: operate/runtime-ui-and-control.md
+      - HMI And Web UI: operate/hmi-and-web-ui.md
+      - Simulation: operate/simulation.md
+      - Safety And Commissioning: operate/safety-and-commissioning.md
+      - Observability: operate/observability.md
+      - Operator Guide: operate/operator-guide.md
+      - CI/CD: operate/ci-cd.md
+      - Deploy And Rollback: operate/deploy-rollback.md
+      - Runtime Cloud: operate/runtime-cloud.md
+  - Reference:
+      - Overview: reference/index.md
+      - CLI:
+          - trust-runtime: reference/cli/trust-runtime.md
+          - trust-lsp: reference/cli/trust-lsp.md
+          - trust-debug: reference/cli/trust-debug.md
+          - trust-harness: reference/cli/trust-harness.md
+          - trust-bundle-gen: reference/cli/trust-bundle-gen.md
+      - Config:
+          - Overview: reference/config/index.md
+          - runtime.toml: reference/config/runtime-toml.md
+          - io.toml: reference/config/io-toml.md
+          - simulation.toml: reference/config/simulation-toml.md
+          - trust-lsp.toml: reference/config/trust-lsp-toml.md
+          - hmi/: reference/config/hmi-directory.md
+          - Runtime Cloud Profiles: reference/config/runtime-cloud.md
+          - Vendor Profiles: reference/config/vendor-profiles.md
+      - Agent API:
+          - Overview: reference/agent-api/overview.md
+          - v1: reference/agent-api/v1.md
+      - Harness Protocol: reference/harness/protocol.md
+      - Diagnostics: reference/diagnostics.md
+      - Conformance: reference/conformance.md
+      - Benchmarks: reference/benchmarks.md
+      - Specifications:
+          - Overview: reference/specifications/index.md
+          - 01 Lexical Elements: reference/specifications/01-lexical-elements.md
+          - 02 Data Types: reference/specifications/02-data-types.md
+          - 03 Variables: reference/specifications/03-variables.md
+          - 04 POU Declarations: reference/specifications/04-pou-declarations.md
+          - 05 Expressions: reference/specifications/05-expressions.md
+          - 06 Statements: reference/specifications/06-statements.md
+          - 07 Standard Functions: reference/specifications/07-standard-functions.md
+          - 08 Standard Function Blocks: reference/specifications/08-standard-function-blocks.md
+          - 09 Semantic Rules: reference/specifications/09-semantic-rules.md
+          - 10 Runtime: reference/specifications/10-runtime.md
+          - 11 Ladder Diagram: reference/specifications/11-ladder-diagram.md
+          - 12 Ladder Profile truST: reference/specifications/12-ladder-profile-trust.md
+          - 13 Visual Editors Runtime Unification: reference/specifications/13-visual-editors-runtime-unification.md
+  - Concepts:
+      - Overview: concepts/index.md
+      - Architecture: concepts/architecture.md
+      - Project Model: concepts/project-model.md
+      - Scan Cycle: concepts/scan-cycle.md
+      - Deterministic Harness: concepts/deterministic-harness.md
+      - Runtime Model: concepts/runtime-model.md
+      - Visual Companion Model: concepts/visual-companion-model.md
+      - Communication Planes: concepts/communication-planes.md
+  - Examples:
+      - Overview: examples/index.md
+      - Learning Paths: examples/learning-paths.md
+      - Tutorials: examples/tutorials.md
+      - Test And Debug: examples/test-and-debug.md
+      - HMI: examples/hmi.md
+      - Connectivity: examples/connectivity.md
+      - Runtime Cloud: examples/runtime-cloud.md
+      - Visual Editors: examples/visual-editors.md
+      - Vendor Profiles: examples/vendor-profiles.md
+      - Libraries And Motion: examples/libraries-and-motion.md
+      - Capstones: examples/capstones.md
+  - Troubleshooting: troubleshooting.md
+  - Changelog: changelog.md
+  - Maintaining Docs: MAINTAINING.md

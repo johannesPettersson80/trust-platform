@@ -1,5 +1,7 @@
 # EtherCAT EK1100 + EL1008 + EL2008: Definitive Bring-Up Tutorial
 
+Docs category: `docs/public/examples/connectivity.md`
+
 This tutorial is the reference onboarding path for EtherCAT backend v1.
 
 Start in deterministic mock mode, verify behavior in VS Code, then transition

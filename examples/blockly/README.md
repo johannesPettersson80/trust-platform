@@ -1,5 +1,7 @@
 # Blockly PLC Examples
 
+Docs category: `docs/public/examples/visual-editors.md`
+
 Visual programming examples for trust-platform using Google Blockly.
 
 ## Available Examples

@@ -1,5 +1,7 @@
 # EtherCAT EK1100 + EL2008: Efecto Serpiente con Salidas Digitales
 
+Docs category: `docs/public/examples/connectivity.md`
+
 Este ejemplo demuestra el control de salidas digitales EtherCAT con un efecto visual tipo "serpiente" o "Knight Rider".
 
 ## Hardware Requerido

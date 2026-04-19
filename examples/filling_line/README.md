@@ -1,5 +1,7 @@
 # Filling Line: Capstone Process-Control Tutorial
 
+Docs category: `docs/public/examples/capstones.md`
+
 This is the capstone tutorial for process control in truST.
 
 You will run a full multi-file project, inspect interface implementations,

@@ -56,6 +56,35 @@ pub fn collect_project_source_files(
     Ok(sources)
 }
 
+/// Inspect project sources/dependencies without building bytecode.
+pub fn inspect_project_layout(
+    bundle_root: &Path,
+    sources_root: Option<&Path>,
+) -> anyhow::Result<ProjectInspectionReport> {
+    let sources_root = resolve_sources_root(bundle_root, sources_root)?;
+    let dependencies = resolve_local_dependencies(bundle_root)?;
+
+    let mut source_roots = vec![sources_root.clone()];
+    for dependency in &dependencies {
+        source_roots.push(preferred_dependency_sources_root(&dependency.path));
+    }
+
+    let (_, source_paths) = collect_sources(&source_roots)?;
+    Ok(ProjectInspectionReport {
+        sources_root,
+        manifest_path: find_dependency_manifest(bundle_root),
+        sources: source_paths,
+        dependency_roots: dependencies
+            .iter()
+            .map(|dependency| dependency.path.clone())
+            .collect(),
+        resolved_dependencies: dependencies
+            .iter()
+            .map(|dependency| dependency.name.clone())
+            .collect(),
+    })
+}
+
 /// Resolve the effective project source root for bundle operations.
 ///
 /// Behavior:

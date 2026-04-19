@@ -1,5 +1,7 @@
 # Communication Examples Index
 
+Docs category: `docs/public/examples/connectivity.md`
+
 This folder groups protocol-focused communication examples so they are easy to find and compare.
 
 Included protocols:

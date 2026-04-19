@@ -27,7 +27,7 @@ Why: CI pipeline should exercise both compile and runtime test paths.
 Use tutorial 11 project:
 
 ```bash
-cd /home/johannes/projects/trust-platform
+cd <repo-root>
 ```
 
 Project path used below:

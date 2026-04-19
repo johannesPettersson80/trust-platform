@@ -104,7 +104,7 @@ export function registerLanguageModelTools(
     ),
     lm.registerTool("trust_get_inlay_hints", new STInlayHintsTool(getClient)),
     lm.registerTool(
-      "trust_get_linked_editing_ranges",
+      "trust_get_linked_editing",
       new STLinkedEditingTool(getClient),
     ),
     lm.registerTool(
@@ -117,31 +117,31 @@ export function registerLanguageModelTools(
       new STSelectionRangeTool(getClient),
     ),
     lm.registerTool(
-      "trust_get_on_type_formatting",
+      "trust_get_on_type_formatting_edits",
       new STOnTypeFormattingTool(getClient),
     ),
     lm.registerTool(
-      "trust_prepare_call_hierarchy",
+      "trust_call_hierarchy_prepare",
       new STCallHierarchyPrepareTool(getClient),
     ),
     lm.registerTool(
-      "trust_get_call_hierarchy_incoming",
+      "trust_call_hierarchy_incoming",
       new STCallHierarchyIncomingTool(getClient),
     ),
     lm.registerTool(
-      "trust_get_call_hierarchy_outgoing",
+      "trust_call_hierarchy_outgoing",
       new STCallHierarchyOutgoingTool(getClient),
     ),
     lm.registerTool(
-      "trust_prepare_type_hierarchy",
+      "trust_type_hierarchy_prepare",
       new STTypeHierarchyPrepareTool(getClient),
     ),
     lm.registerTool(
-      "trust_get_type_hierarchy_supertypes",
+      "trust_type_hierarchy_supertypes",
       new STTypeHierarchySupertypesTool(getClient),
     ),
     lm.registerTool(
-      "trust_get_type_hierarchy_subtypes",
+      "trust_type_hierarchy_subtypes",
       new STTypeHierarchySubtypesTool(getClient),
     ),
     lm.registerTool("trust_file_read", new STFileReadTool()),

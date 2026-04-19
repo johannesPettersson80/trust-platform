@@ -1,6 +1,15 @@
 # Documentation Index
 
-This directory contains specifications, guides, and diagrams for truST LSP.
+Canonical public docs now live under `docs/public/` and are built with `mkdocs.yml`.
+
+Use these entry points first:
+
+- `docs/public/index.md`
+- `docs/public/start/agent-quickstart.md`
+- `docs/public/connect/protocol-matrix.md`
+- `docs/public/examples/index.md`
+
+This `docs/` directory still contains source guides, specs, diagrams, reports, and internal material used to build or support that public surface.
 
 For quick start and runtime inline values, see the root `README.md`.
 
@@ -15,8 +24,19 @@ Implementation planning notes and remediation checklists live in `docs/internal/
 
 ## Guided Examples
 
-Hands-on setup tutorials and example learning tracks are indexed in:
-`examples/README.md`.
+The curated runnable catalog is indexed in:
+
+- `docs/public/examples/index.md`
+- `examples/README.md`
+
+## Agent Automation
+
+The current external automation surfaces are documented in:
+
+- `docs/public/reference/agent-api/overview.md`
+- `docs/public/reference/harness/protocol.md`
+- `docs/guides/AGENT_CONTRACT_V1.md`
+- `docs/guides/TRUST_HARNESS_PROTOCOL.md`
 
 ## Runtime Cloud Manual
 

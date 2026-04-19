@@ -1,5 +1,7 @@
 # Runtime Cloud Examples
 
+Docs category: `docs/public/examples/runtime-cloud.md`
+
 This example pack supports the runtime cloud guides in `docs/guides/`.
 
 ## Included Files

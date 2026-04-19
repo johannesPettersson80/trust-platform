@@ -1,0 +1,153 @@
+# `trust-runtime`
+
+`trust-runtime` is the main operator, developer, and automation CLI for truST.
+
+## Top-level Command Families
+
+| Command | Purpose |
+| --- | --- |
+| `run` / `play` | start a runtime instance |
+| `ui` | interactive terminal UI |
+| `ctl` | send control requests to a running runtime |
+| `build` | generate `program.stbc` |
+| `validate` | validate project config + bundle |
+| `test` | run ST tests |
+| `docs` | generate API docs from tagged ST comments |
+| `hmi` | scaffold/update/reset `hmi/` |
+| `plcopen` | PLCopen import/export/profile |
+| `registry` | package registry workflows |
+| `setup` | initialize system I/O config |
+| `ide` | serve the browser IDE |
+| `agent` | serve the external agent contract |
+| `wizard` | create a new project folder |
+| `deploy` / `rollback` | versioned deployment and rollback |
+| `bench` | communication/runtime benchmark surfaces |
+| `conformance` | deterministic conformance suite runner |
+
+## Common Commands
+
+### Build
+
+```text
+Usage: trust-runtime build [OPTIONS]
+```
+
+Primary options:
+
+- `--project`
+- `--sources`
+- `--ci`
+
+### Validate
+
+```text
+Usage: trust-runtime validate [OPTIONS] --project <PROJECT>
+```
+
+Primary options:
+
+- `--project`
+- `--ci`
+
+### Test
+
+```text
+Usage: trust-runtime test [OPTIONS]
+```
+
+Primary options:
+
+- `--project`
+- `--filter`
+- `--list`
+- `--timeout`
+- `--output`
+- `--ci`
+
+### Agent
+
+```text
+Usage: trust-runtime agent [OPTIONS] <COMMAND>
+```
+
+Current stable subcommand:
+
+- `serve`
+
+### HMI
+
+```text
+Usage: trust-runtime hmi [OPTIONS] <COMMAND>
+```
+
+Current subcommands:
+
+- `init`
+- `update`
+- `reset`
+
+### PLCopen
+
+```text
+Usage: trust-runtime plcopen [OPTIONS] <COMMAND>
+```
+
+Current subcommands:
+
+- `profile`
+- `export`
+- `import`
+
+### Control
+
+```text
+Usage: trust-runtime ctl [OPTIONS] <COMMAND>
+```
+
+Important control subcommands:
+
+- `status`
+- `health`
+- `stats`
+- `io-read`
+- `io-write`
+- `io-force`
+- `io-unforce`
+- `restart`
+- `shutdown`
+- `config-get`
+- `config-set`
+
+## Common Flows
+
+### Build / validate / test
+
+```bash
+trust-runtime build --project ./my-plc --sources src
+trust-runtime validate --project ./my-plc
+trust-runtime test --project ./my-plc --output json
+```
+
+### Start runtime
+
+```bash
+trust-runtime play --project ./my-plc
+```
+
+### Run agent surface
+
+```bash
+trust-runtime agent serve --project ./my-plc
+```
+
+### Serve browser IDE
+
+```bash
+trust-runtime ide serve --project ./my-plc --listen 127.0.0.1:18080
+```
+
+## Related
+
+- [Build, Validate, Test](../../operate/build-validate-test.md)
+- [Agent API v1](../agent-api/v1.md)
+- [runtime.toml](../config/runtime-toml.md)

@@ -1,5 +1,7 @@
 # PLCopen Motion Single-Axis Benchmark Breakdown Pack
 
+Docs category: `docs/public/examples/libraries-and-motion.md`
+
 This profiling pack isolates the main per-scan cost suspects in the shipped
 single-axis PLCopen motion library.
 

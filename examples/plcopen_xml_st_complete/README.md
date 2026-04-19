@@ -1,5 +1,7 @@
 # PLCopen XML ST-Complete: VS Code-First Tutorial
 
+Docs category: `docs/public/examples/vendor-profiles.md`
+
 This is the primary PLCopen XML tutorial for users.
 
 Primary flow: import from VS Code command palette.

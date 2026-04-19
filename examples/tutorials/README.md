@@ -1,5 +1,7 @@
 # Beginner Structured Text Tutorials (VS Code Guided Path)
 
+Docs category: `docs/public/examples/tutorials.md`
+
 This is the primary onboarding path for learning truST in VS Code.
 
 You will move from simple ST syntax to runtime interaction and unit testing,

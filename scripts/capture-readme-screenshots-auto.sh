@@ -217,12 +217,48 @@ shot_debug() {
   close_window
 }
 
+shot_ladder_editor() {
+  local out="$ASSET_DIR/screenshot-ladder-editor.png"
+  launch_code "$ROOT_DIR/examples/ladder/simple-start-stop.ladder.json:1"
+  sleep 4
+  capture "$out"
+  close_window
+}
+
+shot_statechart_editor() {
+  local out="$ASSET_DIR/screenshot-statechart-editor.png"
+  launch_code "$ROOT_DIR/examples/statecharts/traffic-light.statechart.json:1"
+  sleep 4
+  capture "$out"
+  close_window
+}
+
+shot_blockly_editor() {
+  local out="$ASSET_DIR/screenshot-blockly-editor.png"
+  launch_code "$ROOT_DIR/examples/blockly/simple-led-blink.blockly.json:1"
+  sleep 4
+  capture "$out"
+  close_window
+}
+
+shot_sfc_editor() {
+  local out="$ASSET_DIR/screenshot-sfc-editor.png"
+  launch_code "$ROOT_DIR/examples/sfc/sfc_simple_parallel.sfc:1"
+  sleep 4
+  capture "$out"
+  close_window
+}
+
 echo "Using display output: $DISPLAY_OUTPUT"
 prepare_profile
 build_extension
 shot_diagnostics
 shot_refactor
 shot_debug
+shot_ladder_editor
+shot_statechart_editor
+shot_blockly_editor
+shot_sfc_editor
 
 if (( DO_OPTIMIZE == 1 )); then
   "$ROOT_DIR/scripts/prepare-readme-media.sh" --dir "$ASSET_DIR"

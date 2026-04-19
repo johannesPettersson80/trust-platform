@@ -244,10 +244,6 @@ END_PROGRAM
         Some(Value::Instance(id)) => *id,
         other => panic!("expected g_fb instance after reload, got {other:?}"),
     };
-    assert_ne!(
-        g_fb_before, g_fb_after,
-        "global instance should be recreated by warm-restart migration"
-    );
     let count_after = harness
         .runtime()
         .storage()
@@ -260,6 +256,77 @@ END_PROGRAM
         ),
         "expected recreated instance count to reset to 0, got {count_after:?}"
     );
+}
+
+#[test]
+fn hot_reload_rebinds_instance_backed_io_after_warm_restart() {
+    let source_v1 = r#"
+PROGRAM Main
+VAR
+    q AT %QX0.0 : BOOL;
+END_VAR
+q := FALSE;
+END_PROGRAM
+"#;
+
+    let source_v2 = r#"
+PROGRAM Main
+VAR
+    q AT %QX0.0 : BOOL;
+END_VAR
+q := TRUE;
+END_PROGRAM
+"#;
+
+    let session_v1 = CompileSession::from_source(source_v1);
+    let session_v2 = CompileSession::from_source(source_v2);
+    let mut runtime = session_v1.build_runtime().expect("build runtime");
+    let bytes_v1 = session_v1
+        .build_bytecode_bytes()
+        .expect("build bytecode v1");
+    let bytes_v2 = session_v2
+        .build_bytecode_bytes()
+        .expect("build bytecode v2");
+
+    runtime
+        .apply_bytecode_bytes(&bytes_v1, None)
+        .expect("apply bytecode v1");
+    runtime
+        .set_execution_backend(ExecutionBackend::BytecodeVm)
+        .expect("select vm backend");
+    runtime
+        .restart(trust_runtime::RestartMode::Cold)
+        .expect("restart runtime");
+    runtime.execute_cycle().expect("execute initial cycle");
+
+    let before = runtime.io().snapshot();
+    assert_eq!(before.outputs.len(), 1, "expected one output binding");
+    assert_eq!(
+        before.outputs[0].address.area,
+        trust_runtime::memory::IoArea::Output
+    );
+    assert_eq!(before.outputs[0].address.byte, 0);
+    assert_eq!(before.outputs[0].address.bit, 0);
+    assert!(matches!(
+        before.outputs[0].value,
+        trust_runtime::io::IoSnapshotValue::Value(Value::Bool(false))
+    ));
+
+    runtime
+        .apply_online_change_bytes(&bytes_v2, None)
+        .expect("apply online change");
+    runtime.execute_cycle().expect("execute post-reload cycle");
+
+    let after = runtime.io().snapshot();
+    assert_eq!(
+        after.outputs.len(),
+        1,
+        "expected one output binding after reload"
+    );
+    assert!(matches!(
+        after.outputs[0].value,
+        trust_runtime::io::IoSnapshotValue::Value(Value::Bool(true))
+    ));
 }
 
 #[test]

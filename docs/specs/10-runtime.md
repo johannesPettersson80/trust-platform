@@ -2633,7 +2633,7 @@ from the DAP references above and the current runtime/adapter architecture.
 5. [Semantic Analysis](#5-semantic-analysis)
 6. [IDE Features](#6-ide-features)
 7. [LSP Protocol](#7-lsp-protocol)
-8. [Runtime & Debugger](#8-runtime--debugger)
+8. [Runtime & Debugger](#8-runtime-debugger)
 9. [Error Handling](#9-error-handling)
 10. [Performance Requirements](#10-performance-requirements)
 11. [Testing Strategy](#11-testing-strategy)

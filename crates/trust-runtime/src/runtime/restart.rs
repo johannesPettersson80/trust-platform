@@ -49,8 +49,10 @@ impl Runtime {
             }
         }
 
-        self.storage
-            .reset_runtime_values(matches!(mode, RestartMode::Cold));
+        // Compiled runtime metadata keeps ValueRef targets for program/FB instances.
+        // Preserve those references across both cold and warm restarts by recreating
+        // instances from a stable id sequence before execution resumes.
+        self.storage.reset_runtime_values(true);
 
         for (name, meta) in globals {
             let keep = matches!(mode, RestartMode::Warm) && retain_on_warm(meta.retain);

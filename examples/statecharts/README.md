@@ -1,5 +1,7 @@
 # StateChart Examples
 
+Docs category: `docs/public/examples/visual-editors.md`
+
 This directory contains example UML StateChart files for the truST LSP StateChart Editor.
 
 ## Files

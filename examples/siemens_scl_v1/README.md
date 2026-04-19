@@ -1,5 +1,7 @@
 # Siemens SCL v1: Vendor Profile Tutorial
 
+Docs category: `docs/public/examples/vendor-profiles.md`
+
 This tutorial demonstrates Siemens profile behavior in VS Code and shows how to
 compare it against a generic profile.
 

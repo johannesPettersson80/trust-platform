@@ -1,5 +1,7 @@
 # Ladder Logic Examples
 
+Docs category: `docs/public/examples/visual-editors.md`
+
 This folder contains Ladder Diagram (LD) examples for the VS Code Ladder editor and the
 generated ST companion workflow.
 

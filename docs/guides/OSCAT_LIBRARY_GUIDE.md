@@ -3,9 +3,8 @@
 This guide is the user-facing reference for the complete manual-aligned OSCAT
 library currently shipped in truST.
 
-If you want a runnable consumer first, read
-[`examples/oscat_smoke/README.md`](../../examples/oscat_smoke/README.md).
-That walkthrough shows how a normal project wires the package through
+If you want a runnable consumer first, start with
+`examples/oscat_smoke/README.md`. That walkthrough shows how a normal project wires the package through
 `[dependencies]`, when to call `OSCAT_BASIC_Constants()`, and how to consume the
 helpers from scan-driven Structured Text.
 
@@ -1054,5 +1053,4 @@ PlcMs := T_PLC_MS();
 END_PROGRAM
 ```
 
-For a fuller worked consumer, see
-[`examples/oscat_smoke/README.md`](../../examples/oscat_smoke/README.md).
+For a fuller worked consumer, see `examples/oscat_smoke/README.md`.

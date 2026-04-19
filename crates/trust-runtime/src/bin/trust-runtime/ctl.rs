@@ -3,11 +3,18 @@
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 
-use serde_json::json;
+use anyhow::Context;
+use serde_json::{json, Value as JsonValue};
 use trust_runtime::config::RuntimeBundle;
 use trust_runtime::control::ControlEndpoint;
 
 use crate::cli::ControlAction;
+
+pub(crate) struct ResolvedControlTarget {
+    pub(crate) endpoint_text: String,
+    pub(crate) endpoint: ControlEndpoint,
+    pub(crate) auth_token: Option<String>,
+}
 
 pub fn run_control(
     bundle: Option<PathBuf>,
@@ -15,8 +22,17 @@ pub fn run_control(
     token: Option<String>,
     action: ControlAction,
 ) -> anyhow::Result<()> {
+    let target = resolve_control_target(bundle, endpoint, token)?;
+    send_control_request(&target, &action)
+}
+
+pub(crate) fn resolve_control_target(
+    bundle: Option<PathBuf>,
+    endpoint: Option<String>,
+    token: Option<String>,
+) -> anyhow::Result<ResolvedControlTarget> {
     let mut auth_token = token.or_else(|| std::env::var("TRUST_CTL_TOKEN").ok());
-    let endpoint = if let Some(endpoint) = endpoint {
+    let endpoint_text = if let Some(endpoint) = endpoint {
         endpoint
     } else if let Some(bundle_path) = bundle {
         let bundle = RuntimeBundle::load(bundle_path)?;
@@ -31,36 +47,100 @@ pub fn run_control(
     } else {
         anyhow::bail!("--endpoint or --project required");
     };
-    let endpoint = ControlEndpoint::parse(&endpoint)?;
+    let endpoint = ControlEndpoint::parse(&endpoint_text)?;
+    Ok(ResolvedControlTarget {
+        endpoint_text,
+        endpoint,
+        auth_token,
+    })
+}
+
+fn send_control_request(
+    target: &ResolvedControlTarget,
+    action: &ControlAction,
+) -> anyhow::Result<()> {
+    let request = build_request(action, target.auth_token.as_deref());
+    let response = send_control_request_value(&target.endpoint, &request)?;
+    let rendered = serde_json::to_string(&response)?;
+    print_control_response(action, rendered.trim_end());
+    Ok(())
+}
+
+pub(crate) fn call_control_request(
+    bundle: Option<PathBuf>,
+    endpoint: Option<String>,
+    token: Option<String>,
+    request_type: &str,
+    params: Option<JsonValue>,
+) -> anyhow::Result<ControlCallResult> {
+    let target = resolve_control_target(bundle, endpoint, token)?;
+    let request = json!({
+        "id": 1,
+        "type": request_type,
+        "auth": target.auth_token.as_deref(),
+        "params": params,
+    });
+    let response = send_control_request_value(&target.endpoint, &request)?;
+    if response
+        .get("ok")
+        .and_then(JsonValue::as_bool)
+        .unwrap_or(false)
+    {
+        Ok(ControlCallResult {
+            endpoint: target.endpoint_text,
+            result: response.get("result").cloned().unwrap_or(JsonValue::Null),
+            raw_response: response,
+        })
+    } else {
+        let message = response
+            .get("error")
+            .and_then(JsonValue::as_str)
+            .unwrap_or("control request failed");
+        anyhow::bail!("{message}");
+    }
+}
+
+pub(crate) struct ControlCallResult {
+    pub(crate) endpoint: String,
+    pub(crate) result: JsonValue,
+    pub(crate) raw_response: JsonValue,
+}
+
+fn send_control_request_value(
+    endpoint: &ControlEndpoint,
+    request: &JsonValue,
+) -> anyhow::Result<JsonValue> {
     match endpoint {
         ControlEndpoint::Tcp(addr) => {
-            let mut stream = std::net::TcpStream::connect(addr)?;
+            let mut stream = std::net::TcpStream::connect(addr)
+                .with_context(|| format!("connect control endpoint tcp://{addr}"))?;
             let mut reader = BufReader::new(stream.try_clone()?);
-            send_control_request(&mut stream, &mut reader, &action, auth_token.as_deref())
+            exchange_control_request(&mut stream, &mut reader, request)
         }
         #[cfg(unix)]
         ControlEndpoint::Unix(path) => {
-            let mut stream = std::os::unix::net::UnixStream::connect(path)?;
+            let mut stream = std::os::unix::net::UnixStream::connect(path)
+                .with_context(|| format!("connect control endpoint unix://{}", path.display()))?;
             let mut reader = BufReader::new(stream.try_clone()?);
-            send_control_request(&mut stream, &mut reader, &action, auth_token.as_deref())
+            exchange_control_request(&mut stream, &mut reader, request)
         }
     }
 }
 
-fn send_control_request<S: Write, R: BufRead>(
+fn exchange_control_request<S: Write, R: BufRead>(
     stream: &mut S,
     reader: &mut R,
-    action: &ControlAction,
-    auth_token: Option<&str>,
-) -> anyhow::Result<()> {
-    let request = build_request(action, auth_token);
-    let line = serde_json::to_string(&request)?;
+    request: &JsonValue,
+) -> anyhow::Result<JsonValue> {
+    let line = serde_json::to_string(request)?;
     writeln!(stream, "{line}")?;
     stream.flush()?;
     let mut response = String::new();
     reader.read_line(&mut response)?;
-    print_control_response(action, response.trim_end());
-    Ok(())
+    if response.trim().is_empty() {
+        anyhow::bail!("empty control response");
+    }
+    serde_json::from_str::<JsonValue>(response.trim_end()).context("parse control response")
 }
 
 fn print_control_response(action: &ControlAction, response: &str) {

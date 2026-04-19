@@ -1,5 +1,7 @@
 # PLCopen Motion Single-Axis Demo
 
+Docs category: `docs/public/examples/libraries-and-motion.md`
+
 This example is the reference consumer for
 `libraries/plcopen_motion/single_axis_core`.
 
@@ -156,4 +158,4 @@ These globals make the sequence easy to follow:
 
 For the full library reference, including the shipped motion data types and all
 public FB input/output surfaces, see
-[PLCOPEN_MOTION_LIBRARY_GUIDE.md](/home/johannes/projects/trust-platform/docs/guides/PLCOPEN_MOTION_LIBRARY_GUIDE.md).
+`docs/guides/PLCOPEN_MOTION_LIBRARY_GUIDE.md`.

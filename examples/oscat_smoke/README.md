@@ -1,5 +1,7 @@
 # OSCAT Smoke Example
 
+Docs category: `docs/public/examples/libraries-and-motion.md`
+
 This example is the reference consumer for `libraries/oscat`.
 
 Use it when you want to see how a normal truST project should consume the

@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" role="img" aria-labelledby="title desc">
+  <title id="title">truST HMI Plant Template (Minimal)</title>
+  <desc id="desc">Monochrome bind-ready process template with stable element IDs for operator screens.</desc>
+
+  <!--
+    Stable ID contract (kept aligned with plant.svg):
+    - pid-tank-001-level-fill
+    - pid-tank-002-level-fill
+    - pid-pump-001-status
+    - pid-valve-001-status
+    - pid-line-002
+    - pid-tag-fit-001-pv
+    - pid-tag-pt-001-pv
+    - pid-tag-tank-001-level
+    - pid-tag-tank-002-level
+    - pid-tag-pump-001-state
+    - pid-tag-valve-001-position
+    - pid-banner-alarm-001
+    - pid-banner-alarm-001-text
+  -->
+
+  <rect width="1920" height="1080" fill="#ffffff"/>
+
+  <g id="pid-header">
+    <text x="60" y="70" font-family="Segoe UI, Arial, sans-serif" font-size="34" font-weight="700" fill="#000000">Plant Overview</text>
+    <text x="60" y="104" font-family="Segoe UI, Arial, sans-serif" font-size="16" fill="#333333">Minimal monochrome P&amp;ID template</text>
+  </g>
+
+  <g id="pid-main-process" stroke="#000000" stroke-width="2">
+    <!-- Tank 001 -->
+    <g id="pid-tank-001">
+      <rect id="pid-tank-001-shell" x="120" y="230" width="260" height="620" rx="8" fill="#ffffff"/>
+      <rect id="pid-tank-001-level-fill" x="138" y="540" width="224" height="292" rx="4" fill="#d9d9d9" stroke="none"/>
+      <text x="150" y="280" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="#000000" stroke="none">TANK-001</text>
+      <text id="pid-tag-tank-001-level" data-value="62.3 %" x="150" y="315" font-family="Consolas, monospace" font-size="18" fill="#000000" stroke="none">62.3 %</text>
+    </g>
+
+    <!-- Pump 001 -->
+    <g id="pid-pump-001" transform="translate(520, 500)">
+      <rect x="-38" y="-52" width="170" height="170" rx="8" fill="#ffffff"/>
+      <image id="pid-symbol-pump-001" href="pid-symbols/PP001A.svg" x="0" y="0" width="96" height="96" preserveAspectRatio="xMidYMid meet"/>
+      <circle id="pid-pump-001-status" cx="120" cy="12" r="12" fill="#000000" stroke="#000000"/>
+      <text x="-10" y="126" font-family="Segoe UI, Arial, sans-serif" font-size="20" font-weight="700" fill="#000000" stroke="none">PUMP-001</text>
+      <text id="pid-tag-pump-001-state" data-value="RUNNING" x="-10" y="152" font-family="Consolas, monospace" font-size="16" fill="#000000" stroke="none">RUNNING</text>
+    </g>
+
+    <!-- Valve 001 -->
+    <g id="pid-valve-001" transform="translate(875, 525)">
+      <rect x="-48" y="-48" width="150" height="146" rx="8" fill="#ffffff"/>
+      <image id="pid-symbol-valve-001" href="pid-symbols/PV022A.svg" x="0" y="0" width="72" height="72" preserveAspectRatio="xMidYMid meet"/>
+      <circle id="pid-valve-001-status" cx="96" cy="10" r="10" fill="#000000" stroke="#000000"/>
+      <text x="-8" y="103" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="700" fill="#000000" stroke="none">VALVE-001</text>
+      <text id="pid-tag-valve-001-position" data-value="54 %" x="-8" y="126" font-family="Consolas, monospace" font-size="15" fill="#000000" stroke="none">54 %</text>
+    </g>
+
+    <!-- Tank 002 -->
+    <g id="pid-tank-002">
+      <rect id="pid-tank-002-shell" x="1320" y="200" width="300" height="650" rx="8" fill="#ffffff"/>
+      <rect id="pid-tank-002-level-fill" x="1340" y="610" width="260" height="220" rx="4" fill="#d9d9d9" stroke="none"/>
+      <text x="1360" y="250" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="#000000" stroke="none">TANK-002</text>
+      <text id="pid-tag-tank-002-level" data-value="34.7 %" x="1360" y="285" font-family="Consolas, monospace" font-size="18" fill="#000000" stroke="none">34.7 %</text>
+    </g>
+
+    <!-- Pressure transmitter 001 -->
+    <g id="pid-pt-001" transform="translate(1080, 300)">
+      <rect x="-24" y="-24" width="130" height="240" rx="8" fill="#ffffff"/>
+      <image id="pid-symbol-pt-001" href="pid-symbols/PT005A.svg" x="0" y="0" width="78" height="117" preserveAspectRatio="xMidYMid meet"/>
+      <text x="-8" y="145" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#000000" stroke="none">PT-001</text>
+      <text id="pid-tag-pt-001-pv" data-value="7.24 bar" x="-8" y="168" font-family="Consolas, monospace" font-size="15" fill="#000000" stroke="none">7.24 bar</text>
+    </g>
+
+    <!-- Process lines -->
+    <path id="pid-line-001" d="M380 560 H520" fill="none"/>
+    <path id="pid-line-002" d="M616 560 H875" fill="none"/>
+    <path id="pid-line-003" d="M948 560 H1320" fill="none"/>
+
+    <!-- Flow tag -->
+    <g id="pid-fit-001" transform="translate(740, 472)">
+      <rect x="0" y="0" width="150" height="60" rx="8" fill="#ffffff"/>
+      <text x="14" y="24" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" fill="#000000" stroke="none">FIT-001</text>
+      <text id="pid-tag-fit-001-pv" data-value="126.5 m3/h" x="14" y="44" font-family="Consolas, monospace" font-size="14" fill="#000000" stroke="none">126.5 m3/h</text>
+    </g>
+  </g>
+
+  <g id="pid-banner-alarm-001" opacity="0">
+    <rect x="560" y="130" width="800" height="56" rx="8" fill="#000000" stroke="#000000"/>
+    <text id="pid-banner-alarm-001-text" data-value="ALARM: PT-001 High Pressure" x="590" y="166" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700" fill="#ffffff">ALARM: PT-001 High Pressure</text>
+  </g>
+
+  <g id="pid-footer">
+    <text x="60" y="1040" font-family="Segoe UI, Arial, sans-serif" font-size="14" fill="#333333">Stable IDs preserved for binding compatibility.</text>
+  </g>
+</svg>

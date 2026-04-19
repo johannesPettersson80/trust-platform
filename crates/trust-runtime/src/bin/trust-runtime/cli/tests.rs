@@ -324,6 +324,25 @@ mod tests {
     }
 
     #[test]
+    fn parse_agent_serve_command() {
+        let cli = Cli::parse_from([
+            "trust-runtime",
+            "agent",
+            "serve",
+            "--project",
+            "workspace",
+        ]);
+        match cli.command.expect("command") {
+            Command::Agent { action } => match action {
+                AgentAction::Serve { project } => {
+                    assert_eq!(project, Some(PathBuf::from("workspace")));
+                }
+            },
+            other => panic!("expected agent command, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn parse_registry_private_init_command() {
         let cli = Cli::parse_from([
             "trust-runtime",

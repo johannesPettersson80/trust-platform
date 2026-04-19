@@ -1,5 +1,7 @@
 # Memory Marker Counter: Runtime I/O + Debugging Tutorial
 
+Docs category: `docs/public/examples/test-and-debug.md`
+
 This tutorial teaches the scan-cycle memory model and shows how to inspect it in
 both the Runtime Panel and debugger.
 
