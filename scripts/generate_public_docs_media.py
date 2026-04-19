@@ -148,6 +148,10 @@ def main() -> int:
             copied_targets.add(dest)
             generated.append(dest)
             continue
+        if dest.exists():
+            copied_targets.add(dest)
+            generated.append(dest)
+            continue
         if dest not in fallback_by_dest:
             raise FileNotFoundError(f"missing asset source: {source}")
 
