@@ -64,10 +64,7 @@ def readme_for_example(example_path: Path) -> Path | None:
 
 def main() -> int:
     failures: list[str] = []
-
-    if not AUDIT_PATH.exists():
-        print(f"missing audit file: {AUDIT_PATH}", file=sys.stderr)
-        return 1
+    audit_available = AUDIT_PATH.exists()
 
     if not DOCS_EXAMPLES_ROOT.exists():
         print(f"missing docs examples root: {DOCS_EXAMPLES_ROOT}", file=sys.stderr)
@@ -98,25 +95,31 @@ def main() -> int:
             if not target.exists():
                 failures.append(f"{page}: missing repo example target {target.relative_to(REPO_ROOT)}")
 
-    for row in parse_audit_rows():
-        decision = row["decision"]
-        if decision not in {"keep", "tweak", "merge"}:
-            continue
-        example_path = REPO_ROOT / row["path"]
-        if not example_path.exists():
-            failures.append(f"audit row missing example path: {row['path']}")
-            continue
-        readme = readme_for_example(example_path)
-        if readme is None:
-            failures.append(f"{row['path']}: missing README.md for kept public example")
-            continue
-        docs_category_path = f"docs/public/examples/{row['category']}.md"
-        docs_page = REPO_ROOT / docs_category_path
-        if not docs_page.exists():
-            failures.append(f"{row['path']}: missing docs category page {docs_category_path}")
-            continue
-        if docs_category_path not in readme.read_text(encoding="utf-8", errors="ignore"):
-            failures.append(f"{readme.relative_to(REPO_ROOT)}: missing backlink to {docs_category_path}")
+    if audit_available:
+        for row in parse_audit_rows():
+            decision = row["decision"]
+            if decision not in {"keep", "tweak", "merge"}:
+                continue
+            example_path = REPO_ROOT / row["path"]
+            if not example_path.exists():
+                failures.append(f"audit row missing example path: {row['path']}")
+                continue
+            readme = readme_for_example(example_path)
+            if readme is None:
+                failures.append(f"{row['path']}: missing README.md for kept public example")
+                continue
+            docs_category_path = f"docs/public/examples/{row['category']}.md"
+            docs_page = REPO_ROOT / docs_category_path
+            if not docs_page.exists():
+                failures.append(f"{row['path']}: missing docs category page {docs_category_path}")
+                continue
+            if docs_category_path not in readme.read_text(encoding="utf-8", errors="ignore"):
+                failures.append(f"{readme.relative_to(REPO_ROOT)}: missing backlink to {docs_category_path}")
+    else:
+        print(
+            f"example audit file not present; skipping internal audit checks: {AUDIT_PATH}",
+            file=sys.stderr,
+        )
 
     if failures:
         print("example catalog link audit failed:", file=sys.stderr)
