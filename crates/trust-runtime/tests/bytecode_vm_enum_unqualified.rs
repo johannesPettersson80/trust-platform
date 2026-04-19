@@ -80,9 +80,6 @@ END_PROGRAM
 }
 
 #[test]
-#[ignore = "FIXME(enum-unqualified): binary comparison with unqualified \
-enum variant silently compiles but never matches at runtime. Unignore \
-once the lowering fix for non-CASE-label contexts lands."]
 fn unqualified_enum_variant_comparison_matches_when_values_equal() {
     let source = r#"
 TYPE Phase : (IDLE, RUNNING, DONE)

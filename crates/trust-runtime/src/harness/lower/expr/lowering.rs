@@ -70,10 +70,24 @@ pub(in crate::harness) fn lower_expr(
             if exprs.len() != 2 {
                 return Err(CompileError::new("invalid binary expression"));
             }
+            let left_type = lower_expression_type(&exprs[0], ctx)?;
+            let right_type = lower_expression_type(&exprs[1], ctx)?;
+            let mut left = lower_expr(&exprs[0], ctx)?;
+            let mut right = lower_expr(&exprs[1], ctx)?;
+            // Let a bare enum variant name on one side resolve against the
+            // other side's enum type. Mirrors the v0.18.4 CASE-label fix
+            // (commit 8d7f069) for symmetric binary operands such as
+            // `state = RUNNING` and `RUNNING = state`.
+            if let Some(type_id) = right_type {
+                left = resolve_initializer_enum_variant(left, type_id, ctx.registry);
+            }
+            if let Some(type_id) = left_type {
+                right = resolve_initializer_enum_variant(right, type_id, ctx.registry);
+            }
             Ok(Expr::Binary {
                 op,
-                left: Box::new(lower_expr(&exprs[0], ctx)?),
-                right: Box::new(lower_expr(&exprs[1], ctx)?),
+                left: Box::new(left),
+                right: Box::new(right),
             })
         }
         SyntaxKind::ParenExpr => {
