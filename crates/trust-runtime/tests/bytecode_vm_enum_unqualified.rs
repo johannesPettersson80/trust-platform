@@ -58,10 +58,6 @@ END_PROGRAM
 }
 
 #[test]
-#[ignore = "FIXME(enum-unqualified): assignment with unqualified enum \
-variant rvalue silently lowers as no-op — target variable retains its \
-previous value. Unignore once the lowering fix for non-CASE-label \
-contexts lands."]
 fn unqualified_enum_variant_rvalue_assigns_expected_variant() {
     let source = r#"
 TYPE Phase : (IDLE, RUNNING, DONE)
