@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.18.6`
+Target release: `v0.19.0`
 
 ### Added
 
@@ -84,6 +84,17 @@ Target release: `v0.18.6`
   CI, including `scan cycle`, `project layout`, `visual editor`, `vendor
   profile`, `watchdog`, `fault policy`, `agent serve`, `hot reload`, and test
   output format queries, so discoverability regressions are caught earlier.
+- Public-doc screenshots now have a first automated browser-capture lane:
+  Playwright regenerates checked-in `/ide` and `/hmi` assets against live
+  truST surfaces, code-server provides a truthful VS Code-compatible proof
+  capture for the public docs, `docs/public/assets/capture-inventory.json`
+  records the checked-in completeness contract, and a dedicated docs-captures
+  workflow can refresh those assets on `main` and nightly without relying on
+  `ydotoold`.
+- Public-doc terminal captures now have a first automated lane as well:
+  VHS tapes regenerate checked-in CLI verification GIFs for installation and
+  build/validate/test docs, and the same docs-captures workflow refreshes
+  those assets alongside the browser/code-server captures.
 - The public docs now include a dedicated diagnostics reference page covering
   current `E...`, `W...`, and `I...` codes, their default severities, meanings,
   and first-fix guidance, and docs-search regression coverage now includes code
@@ -110,6 +121,13 @@ Target release: `v0.18.6`
 - The public docs workflow now rebuilds on guide/spec/conformance/media-source
   edits instead of only direct `docs/public/**` changes, closing the stale-site
   gap for `--8<--`-included content and generated public assets.
+- The code-server screenshot lane now waits for real editor content instead of
+  only a tab label, dismisses first-run/sign-in chrome, closes the unrelated
+  chat side panel before capture, and renames the Browser IDE screenshot to the
+  truthful "tutorial loaded" state instead of implying a welcome screen that
+  was not what the image actually showed. The installation docs also no longer
+  tell users to run the nonexistent `cargo build -p trust-harness` package
+  command; they now document the real package/build surface.
 - The ST compiler/runtime build path now closes the remaining open regression
   cases around control-flow and declaration lowering: unqualified enum members
   now work as `CASE` labels in end-to-end runtime/bytecode builds, aggregate

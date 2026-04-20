@@ -14,44 +14,16 @@ ASSET_ROOT = REPO_ROOT / "docs/public/assets/images"
 
 COPY_MAP: list[tuple[Path, Path]] = [
     (
+        REPO_ROOT / "docs/media/hero-runtime.png",
+        ASSET_ROOT / "hero-runtime.png",
+    ),
+    (
         REPO_ROOT / "docs/internal/assets/ui-overview.png",
         ASSET_ROOT / "runtime/ui-overview.png",
     ),
     (
-        REPO_ROOT / "docs/internal/assets/ui-io.png",
-        ASSET_ROOT / "runtime/ui-io.png",
-    ),
-    (
-        REPO_ROOT / "docs/internal/assets/ui-setup.png",
-        ASSET_ROOT / "runtime/ui-setup.png",
-    ),
-    (
-        REPO_ROOT / "editors/vscode/assets/screenshot-diagnostics.png",
-        ASSET_ROOT / "vscode/diagnostics.png",
-    ),
-    (
-        REPO_ROOT / "editors/vscode/assets/screenshot-refactor.png",
-        ASSET_ROOT / "vscode/refactor.png",
-    ),
-    (
-        REPO_ROOT / "editors/vscode/assets/screenshot-debug.png",
-        ASSET_ROOT / "vscode/debug.png",
-    ),
-    (
-        REPO_ROOT / "editors/vscode/assets/screenshot-ladder-editor.png",
-        ASSET_ROOT / "visual-editors/ladder.png",
-    ),
-    (
         REPO_ROOT / "editors/vscode/assets/screenshot-statechart-editor.png",
         ASSET_ROOT / "visual-editors/statechart.png",
-    ),
-    (
-        REPO_ROOT / "editors/vscode/assets/screenshot-blockly-editor.png",
-        ASSET_ROOT / "visual-editors/blockly.png",
-    ),
-    (
-        REPO_ROOT / "editors/vscode/assets/screenshot-sfc-editor.png",
-        ASSET_ROOT / "visual-editors/sfc.png",
     ),
     (
         REPO_ROOT / "examples/tutorials/12_hmi_pid_process_dashboard/hmi/plant.svg",
@@ -63,23 +35,7 @@ COPY_MAP: list[tuple[Path, Path]] = [
     ),
 ]
 
-VIDEO_STILL_FALLBACKS: list[tuple[Path, Path, str]] = [
-    (
-        REPO_ROOT / "examples/ladder/ladder-editor.mp4",
-        ASSET_ROOT / "visual-editors/ladder.png",
-        "00:00:02.000",
-    ),
-    (
-        REPO_ROOT / "examples/statecharts/stachart-snake.mp4",
-        ASSET_ROOT / "visual-editors/statechart.png",
-        "00:00:02.000",
-    ),
-    (
-        REPO_ROOT / "examples/blockly/Blockly-snake.mp4",
-        ASSET_ROOT / "visual-editors/blockly.png",
-        "00:00:02.000",
-    ),
-]
+VIDEO_STILL_FALLBACKS: list[tuple[Path, Path, str]] = []
 
 
 def run(cmd: list[str]) -> None:
@@ -123,9 +79,24 @@ def main() -> int:
         description="Generate public-doc screenshots and media assets."
     )
     parser.add_argument(
+        "--regenerate-browser-captures",
+        action="store_true",
+        help="Regenerate Playwright browser captures before syncing assets.",
+    )
+    parser.add_argument(
+        "--regenerate-vscode-captures",
+        action="store_true",
+        help="Regenerate Playwright code-server VS Code captures before syncing assets.",
+    )
+    parser.add_argument(
+        "--regenerate-terminal-captures",
+        action="store_true",
+        help="Regenerate VHS terminal captures before syncing assets.",
+    )
+    parser.add_argument(
         "--regenerate-vscode",
         action="store_true",
-        help="Regenerate VS Code screenshots with the existing auto-capture script before syncing assets.",
+        help="Regenerate legacy desktop VS Code screenshots with the existing auto-capture script before syncing assets.",
     )
     parser.add_argument(
         "--regenerate-visual-editors",
@@ -134,8 +105,14 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    if args.regenerate_browser_captures:
+        run([str(REPO_ROOT / "scripts/captures/run-playwright-captures.sh"), "browser"])
+    if args.regenerate_terminal_captures:
+        run([str(REPO_ROOT / "scripts/captures/run-terminal-captures.sh")])
+    if args.regenerate_vscode_captures:
+        run([str(REPO_ROOT / "scripts/captures/run-playwright-captures.sh"), "vscode"])
     if args.regenerate_vscode:
-        run([str(REPO_ROOT / "scripts/capture-readme-screenshots-auto.sh")])
+        run([str(REPO_ROOT / "scripts/capture-filling-line-media-pro.sh")])
     if args.regenerate_visual_editors:
         run([str(REPO_ROOT / "scripts/capture-public-docs-visual-editors.sh")])
 

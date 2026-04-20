@@ -10,6 +10,11 @@ need the first operator steps, start with
 
 ## HMI Workflow
 
+![Browser HMI overview](../assets/images/browser/hmi-home.png)
+
+*Figure:* The runtime-hosted HMI dashboard. Look here first for connection
+state, alarms, live values, and operator-facing status.
+
 --8<-- "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
 
 ## Related

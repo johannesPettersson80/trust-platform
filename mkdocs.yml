@@ -3,20 +3,27 @@ site_description: IEC 61131-3 Structured Text tooling, runtime, agent contract, 
 site_url: https://johannespettersson80.github.io/trust-platform/
 repo_url: https://github.com/johannesPettersson80/trust-platform
 repo_name: johannesPettersson80/trust-platform
+edit_uri: edit/main/docs/public/
 docs_dir: docs/public
 site_dir: site/public
+copyright: "© 2026 Johannes Pettersson — MIT/Apache-2.0 — johannes_salomon@hotmail.com"
 theme:
   name: material
   features:
     - navigation.sections
     - navigation.expand
     - navigation.top
+    - navigation.footer
+    - navigation.path
     - search.suggest
     - search.highlight
     - content.code.copy
+    - content.action.edit
 markdown_extensions:
   - admonition
+  - attr_list
   - tables
+  - pymdownx.superfences
   - pymdownx.snippets:
       base_path:
         - .
@@ -26,11 +33,13 @@ markdown_extensions:
 plugins:
   - search:
       separator: '[\s\-\.]+'
+  - mermaid2
 nav:
   - Home: index.md
   - Start:
       - Overview: start/index.md
       - Installation: start/installation.md
+      - Install From Source: start/install-from-source.md
       - Choose Your Workflow: start/choose-your-workflow.md
       - Program In VS Code: start/program-in-vscode.md
       - Program In Browser IDE: start/program-in-browser.md

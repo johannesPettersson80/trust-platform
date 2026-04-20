@@ -12,6 +12,8 @@ SEARCH_INDEX = Path("site/public/search/search_index.json")
 
 QUERY_EXPECTATIONS: list[tuple[str, str]] = [
     ("install", "start/installation/"),
+    ("install windows", "start/installation/"),
+    ("install mac", "start/installation/"),
     ("first project", "start/first-project/"),
     ("agent quickstart", "start/agent-quickstart/"),
     ("agent serve", "start/agent-quickstart/"),
@@ -41,6 +43,7 @@ QUERY_EXPECTATIONS: list[tuple[str, str]] = [
     ("sfc", "develop/visual-editors/sfc/"),
     ("twincat", "develop/interoperability/codesys-twincat/"),
     ("siemens", "develop/interoperability/siemens/"),
+    ("siemens import", "develop/interoperability/siemens/"),
     ("mitsubishi", "develop/interoperability/mitsubishi/"),
     ("plcopen", "develop/interoperability/plcopen/"),
     ("openplc", "develop/interoperability/openplc/"),
@@ -48,9 +51,15 @@ QUERY_EXPECTATIONS: list[tuple[str, str]] = [
     ("project layout", "develop/project-layout/"),
     ("vendor profile", "develop/vendor-profiles/"),
     ("io toml", "reference/config/io-toml/"),
+    ("%ix0.0", "connect/devices-and-fieldbus/io-binding/"),
     ("simulation toml", "reference/config/simulation-toml/"),
     ("trust lsp toml", "reference/config/trust-lsp-toml/"),
+    ("ctu timer", "reference/specifications/08-standard-function-blocks/"),
+    ("structured text new project", "start/create-new-project/"),
+    ("pid loop", "examples/tutorials/"),
+    ("raspberry pi", "operate/install-on-target/"),
     ("watchdog", "reference/config/runtime-toml/"),
+    ("watchdog timeout", "reference/config/runtime-toml/"),
     ("fault policy", "reference/config/runtime-toml/"),
     ("retain", "reference/config/runtime-toml/"),
     ("runtime to runtime transports", "connect/runtime-to-runtime/transport-matrix/"),
@@ -58,6 +67,7 @@ QUERY_EXPECTATIONS: list[tuple[str, str]] = [
     ("simulated", "connect/devices-and-fieldbus/simulated-and-loopback/"),
     ("loopback", "connect/devices-and-fieldbus/simulated-and-loopback/"),
     ("safe state", "operate/safety-and-commissioning/"),
+    ("e-stop", "operate/safety-and-commissioning/"),
     ("zenoh", "connect/runtime-to-runtime/mesh-zenoh/"),
     ("mesh", "connect/runtime-to-runtime/mesh-zenoh/"),
     ("discovery", "connect/runtime-to-runtime/discovery-and-pairing/"),
@@ -78,6 +88,9 @@ QUERY_EXPECTATIONS: list[tuple[str, str]] = [
     ("conformance", "reference/conformance/"),
     ("benchmarks", "reference/benchmarks/"),
     ("harness", "reference/harness/protocol/"),
+    ("alarm acknowledge", "operate/operator-alarm-handbook/"),
+    ("agent serve stdio", "start/automate-with-cli/"),
+    ("trust-runtime flags", "reference/cli/trust-runtime/"),
 ]
 
 

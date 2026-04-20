@@ -1,59 +1,58 @@
 # Installation
 
-Use this page when you need the local truST toolchain. This page is for people
-installing developer/runtime tooling, not for operators who were only given an
-HMI URL.
+Use this page when you need the fastest honest path from zero to a working
+truST editor and runtime install.
 
-## What You Install
+## Step 1: Install VS Code
 
-- `truST LSP` in VS Code when you want the main editor workflow
-- `trust-runtime` when you want to build, validate, run, test, serve `/ide`,
-  serve `/hmi`, or use `agent serve`
-- `trust-debug` when you want the debug adapter
-- `trust-harness` when you want deterministic shell/CI execution
+Download VS Code from <https://code.visualstudio.com/> and install the stable
+build for your operating system. If you already use VS Code for PLC or
+industrial projects, keep that install and move to step 2.
 
-## Fastest Path: VS Code
+## Step 2: Install truST LSP From The Marketplace
 
-1. Install VS Code if you do not already have it.
-2. Install `truST LSP` from the VS Code Marketplace:
-   <https://marketplace.visualstudio.com/items?itemName=trust-platform.trust-lsp>
-3. Open Command Palette and type `Structured Text:`.
+Open the Visual Studio Marketplace listing for truST LSP:
 
-Command-line install:
+<https://marketplace.visualstudio.com/items?itemName=trust-platform.trust-lsp>
 
-```bash
-code --install-extension trust-platform.trust-lsp
-```
+![truST LSP Marketplace listing](../assets/images/install/marketplace-listing.png)
 
-## CLI / Runtime Path
+*Figure:* The Marketplace listing for `truST LSP`. Install the extension from
+this page or directly from VS Code.
 
-Build the shipped binaries:
+## Step 3: Verify The Extension In VS Code
 
-```bash
-cargo build -p trust-lsp -p trust-runtime -p trust-debug -p trust-harness
-```
+Open VS Code, press `Ctrl+Shift+P`, and type `Structured Text:`. If the
+extension is healthy, the truST commands appear immediately in the Command
+Palette.
 
-Or release binaries:
+![VS Code Command Palette with Structured Text commands](../assets/images/install/command-palette-structured-text.png)
 
-```bash
-cargo build --release -p trust-lsp -p trust-runtime -p trust-debug -p trust-harness
-```
+*Figure:* `Structured Text:` commands visible in the Command Palette. This is
+the fastest proof that the editor-side install worked.
 
-## How To Know It Worked
+## Step 4: Download Runtime Binaries
 
-In VS Code:
+Download the current runtime bundle from GitHub Releases:
 
-- `Structured Text:` commands appear in Command Palette
-- `.st` files get diagnostics and syntax support
+<https://github.com/johannesPettersson80/trust-platform/releases/latest>
 
-In a shell:
+Choose the package that matches your machine:
 
-```bash
-trust-lsp --version
-trust-runtime --version
-trust-debug --version
-trust-harness --help
-```
+- `trust-runtime-linux-x64.tar.gz`
+- `trust-runtime-linux-arm64.tar.gz`
+- `trust-runtime-darwin-x64.tar.gz`
+- `trust-runtime-darwin-arm64.tar.gz`
+- `trust-runtime-win32-x64.zip`
+
+Use [Install On Target](../operate/install-on-target.md) when you need the
+runtime to survive reboot on a Raspberry Pi or another Linux host.
+
+![Runtime binary version and help checks](../assets/images/terminal/install-version-checks.gif)
+
+*Figure:* After download and install, `trust-runtime --version` and
+`trust-runtime --help` should respond locally. This is the fastest terminal
+check that the runtime bundle landed on your machine correctly.
 
 ## If It Did Not Work
 
@@ -61,23 +60,16 @@ trust-harness --help
 
 - restart VS Code once
 - confirm the extension is enabled for this workspace
-- confirm `trust-lsp` starts without loader/runtime errors
+- reinstall the extension from the Marketplace listing
 
-### `command not found`
+### The runtime download is missing for your platform
 
-- add the binary directory to `PATH`
-- if you built with Cargo, check `~/.cargo/bin`
+- check the latest GitHub release again
+- if you need an unreleased build, use [Install From Source](install-from-source.md)
 
-### Runtime installs but hardware access fails
-
-- that is usually a permissions/device issue, not an install issue
-- go to [GPIO](../connect/devices-and-fieldbus/gpio.md),
-  [EtherCAT](../connect/devices-and-fieldbus/ethercat.md), or
-  [Install On Target](../operate/install-on-target.md)
-
-## Where To Go Next
+## Next
 
 - [Choose Your Workflow](choose-your-workflow.md)
 - [Program In VS Code](program-in-vscode.md)
 - [Program In Browser IDE](program-in-browser.md)
-- [Automate With CLI / CI / agents](automate-with-cli.md)
+- [Install On Target](../operate/install-on-target.md)

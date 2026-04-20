@@ -5,6 +5,9 @@ transitions, and events instead of deeply nested ST conditions.
 
 ![Statechart editor](../../assets/images/visual-editors/statechart.png)
 
+*Figure:* A real statechart editor session with named states and transitions
+visible on the canvas.
+
 ## What it gives you
 
 - state-centric modeling

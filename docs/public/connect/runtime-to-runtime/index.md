@@ -2,6 +2,17 @@
 
 Open this section when you need to connect runtimes to each other.
 
+```mermaid
+flowchart LR
+    A[Runtime A] -->|discover and pair| B[Runtime B]
+    A -->|mesh / Zenoh data flow| B
+    A -->|realtime T0 on same host| B
+    A -->|runtime-cloud federation| C[Cloud / fleet control plane]
+    C --> B
+```
+
+*Figure: Runtime-to-runtime work spans local discovery, sustained mesh exchange, same-host realtime transport, and fleet/cloud coordination.*
+
 ## Start Here
 
 - [Transport Matrix](transport-matrix.md): compare discovery, mesh, realtime, and runtime-cloud paths before you configure anything

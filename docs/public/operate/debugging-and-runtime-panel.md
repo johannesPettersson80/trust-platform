@@ -18,17 +18,19 @@ runtime panel.
 4. Start the runtime.
 5. Use `F5` when you need breakpoints and stepping.
 
-![VS Code debug and runtime surface](../assets/images/vscode/debug.png)
-
 ## Runtime panel
 
 Use the runtime panel for:
 
-- live I/O read, write, and force actions
+- live I/O read and quick state checks
 - quick local iteration without leaving the editor
 - viewing runtime state while editing code
 
-![Runtime I/O panel](../assets/images/runtime/ui-io.png)
+![Runtime overview with live inputs and outputs](../assets/images/runtime/ui-overview.png)
+
+*Figure:* The runtime overview shows health, cycle timing, tasks, and the live
+input/output summary. This screenshot does not show a paused debugger or a
+force-confirmation dialog.
 
 ### Good panel workflows
 

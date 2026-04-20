@@ -14,7 +14,8 @@ workflow, not by component name.
 7. [Maintain An Existing Project](maintain-an-existing-project.md)
 8. [Create A New Project](create-new-project.md)
 9. [Editors](editors.md)
-10. [Agent Quickstart](agent-quickstart.md) if you want the deeper JSON-RPC path
+10. [Install From Source](install-from-source.md) if you are building truST yourself
+11. [Agent Quickstart](agent-quickstart.md) if you want the deeper JSON-RPC path
 
 ## Which Page Answers Which Question?
 

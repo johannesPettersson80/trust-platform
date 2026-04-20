@@ -38,6 +38,21 @@ trust-runtime ctl --project ./my-plc io-read
 trust-runtime ctl --project ./my-plc restart
 ```
 
+![`ctl status` against a running runtime](../assets/images/terminal/ctl-status.gif)
+
+*Figure:* `ctl status` returning the live runtime state from a running local
+bundle. This is the quickest scriptable “is it alive?” check.
+
+![`ctl io-read` returning a live snapshot](../assets/images/terminal/ctl-io-read.gif)
+
+*Figure:* `ctl io-read` returning the current `%M` and `%Q` snapshot. Use this
+when you need a terminal proof of actual signal values.
+
+![`ctl io-write` in debug mode](../assets/images/terminal/ctl-io-write.gif)
+
+*Figure:* `ctl io-write` against a debug-mode runtime followed by `io-read`.
+This is the write path you use in development, not the guarded production path.
+
 Important command families:
 
 - `status`, `health`, `stats`

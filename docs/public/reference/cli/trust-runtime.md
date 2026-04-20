@@ -2,6 +2,11 @@
 
 `trust-runtime` is the main operator, developer, and automation CLI for truST.
 
+![Top-level `trust-runtime --help`](../../assets/images/terminal/runtime-help.gif)
+
+*Figure:* The top-level `trust-runtime` command families exactly as the shipped
+binary reports them.
+
 ## Top-level Command Families
 
 | Command | Purpose |
@@ -118,6 +123,11 @@ Important control subcommands:
 - `config-get`
 - `config-set`
 
+![`trust-runtime ctl --help`](../../assets/images/terminal/ctl-help.gif)
+
+*Figure:* The `ctl` command family and its subcommands. Use this when you need
+the canonical scriptable control surface.
+
 ## Common Flows
 
 ### Build / validate / test
@@ -139,6 +149,11 @@ trust-runtime play --project ./my-plc
 ```bash
 trust-runtime agent serve --project ./my-plc
 ```
+
+![`trust-runtime agent serve --help`](../../assets/images/terminal/agent-serve-help.gif)
+
+*Figure:* The `agent serve` entrypoint and its current stable flags. This is the
+CLI contract agents and wrappers should target first.
 
 ### Serve browser IDE
 

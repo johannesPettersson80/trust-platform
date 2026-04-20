@@ -22,9 +22,15 @@ editors/vscode/*.vsix
 editors/vscode/.vscode-test/
 editors/vscode/target/
 crates/trust-runtime/web/ide-frontend/node_modules/
+scripts/captures/node_modules/
+scripts/captures/.cache/
+scripts/captures/test-results/
+scripts/captures/playwright-report/
 
 # Local tooling caches
 .claude/
+.venv/
+__pycache__/
 .claude-plugin/
 .trust-lsp/
 **/.trust-lsp/

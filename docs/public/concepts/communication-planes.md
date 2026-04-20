@@ -3,6 +3,19 @@
 truST distinguishes three communication layers so users can answer the right
 question first.
 
+```mermaid
+flowchart TB
+    A[Runtime-to-runtime<br/>discovery, mesh, realtime T0, runtime-cloud]
+    B[External systems<br/>Modbus TCP, MQTT, OPC UA]
+    C[Device / fieldbus / local I-O<br/>EtherCAT, GPIO, simulated, loopback]
+    D[Question: what is the other endpoint?]
+    D --> A
+    D --> B
+    D --> C
+```
+
+*Figure: Pick the communication plane by the endpoint you are talking to. That routing rule keeps runtime federation, external software, and direct hardware work in separate docs paths.*
+
 ## 1. Runtime-to-runtime
 
 Use this plane when one truST runtime needs to find, pair with, or exchange

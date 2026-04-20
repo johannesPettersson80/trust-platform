@@ -3,7 +3,9 @@
 Use Blockly when you want block-based editing tied to the same project and
 runtime model, especially for onboarding, demos, or teams easing into ST.
 
-![Blockly editor](../../assets/images/visual-editors/blockly.png)
+The screenshot was removed until the capture pipeline reliably opens the
+Blockly canvas instead of a placeholder or raw file view. The workflow below is
+still the product workflow; the image will come back with a truthful capture.
 
 ## What it gives you
 

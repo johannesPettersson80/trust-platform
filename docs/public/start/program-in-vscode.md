@@ -15,6 +15,12 @@ Open it:
 code examples/tutorials/12_hmi_pid_process_dashboard
 ```
 
+![truST workspace open in VS Code](../assets/images/vscode/workspace-shell.png)
+
+*Figure:* A real code-server-backed VS Code workspace with `Main.st` rendered in
+the editor. This is the engineering surface where diagnostics, runtime-panel
+commands, and project navigation begin.
+
 ## First Success Workflow
 
 1. Install `truST LSP`.
@@ -42,9 +48,13 @@ Good first proof:
 
 1. toggle `%IX0.0`
 2. confirm the runtime panel changes
-3. open `/hmi` from the running project if you want visual confirmation
+3. open `/hmi` from the running project for visual confirmation
 
-![Runtime panel overview](../assets/images/runtime/ui-overview.png)
+![Browser HMI for the tutorial project](../assets/images/browser/hmi-home.png)
+
+*Figure:* `/hmi` for the shipped tutorial project once the runtime is connected.
+Use it as the operator-facing surface you can open after toggling `%IX0.0` in
+the runtime panel.
 
 ## If It Fails
 
@@ -53,8 +63,8 @@ Good first proof:
   [Debugging And Runtime Panel](../operate/debugging-and-runtime-panel.md)
 - values do not move: go to [I/O Binding](../connect/devices-and-fieldbus/io-binding.md)
 - diagnostics appear after your edit: use the clickable Problems panel
-
-![VS Code diagnostics](../assets/images/vscode/diagnostics.png)
+- a realistic first failure is a one-letter typo such as `PumpRuning` instead of
+  `PumpRunning`; click the Problems entry to jump straight to the bad line
 
 ## Next
 

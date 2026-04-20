@@ -1,56 +1,70 @@
 # truST
 
-![truST logo](assets/images/brand/trust-logo.svg)
+truST is a free IEC 61131-3 Structured Text IDE and runtime. Program PLCs in
+VS Code, run them on a laptop or a Raspberry Pi, debug live, and expose a real
+browser HMI without buying a vendor-specific engineering suite.
 
-truST is a Structured Text engineering and runtime platform for building,
-testing, running, and operating PLC-style systems.
+[Install truST](start/installation.md){ .md-button .md-button--primary }
+[Browse Examples](examples/index.md){ .md-button }
 
-![How truST fits together](assets/images/architecture/workflow-overview.svg)
+![truST runtime workflow hero](assets/images/hero-runtime.png)
 
-## Choose Your Path
+*Figure:* The runtime/debug surface inside truST. This is the engineering path
+for live values, runtime state, and quick verification.
 
-| Path | Best for | Start here | What success looks like |
-| --- | --- | --- | --- |
-| Program in VS Code | PLC engineers and controls developers | [Program In VS Code](start/program-in-vscode.md) | you can open a real project, run it, inspect `%I/%Q`, and fix one error |
-| Program in Browser IDE | browser-first engineering and demos | [Program In Browser IDE](start/program-in-browser.md) | you can open `/ide`, build, validate, and jump to `/hmi` |
-| Operate in Browser HMI | operators and technicians who were given a URL | [Operate In Browser HMI](start/operate-in-browser.md) | you can read overview/process/trends/alarms safely |
-| Automate with CLI / CI / agents | shell, CI, harness, and JSON-RPC users | [Automate With CLI](start/automate-with-cli.md) | you can build, validate, test, and call `agent serve` |
-| Maintain an existing project | inherited systems and handover work | [Maintain An Existing Project](start/maintain-an-existing-project.md) | you can open the project, identify the critical files, and make one safe change |
+## What You Can Do With It
 
-## Start Fast
+- author Structured Text in VS Code with diagnostics, navigation, formatting,
+  and refactors
+- run the same project locally or on a target device with `trust-runtime`
+- inspect or operate the same project through `/ide` and `/hmi`
+- automate build, validate, test, deploy, rollback, and agent workflows from a shell
 
-- [Installation](start/installation.md)
-- [Choose Your Workflow](start/choose-your-workflow.md)
-- [Program In VS Code](start/program-in-vscode.md)
-- [Program In Browser IDE](start/program-in-browser.md)
-- [Operate In Browser HMI](start/operate-in-browser.md)
-- [Automate With CLI / CI / agents](start/automate-with-cli.md)
+## What truST Replaces
 
-## What Runs Where?
+truST covers the day-to-day authoring, runtime, and browser workflow that many
+teams otherwise split across TIA Portal, CODESYS, TwinCAT, and ad-hoc shell
+tooling. It is honest about its limits: truST is not safety-rated, and vendor-
+locked ecosystem features still matter when your plant requires them.
 
-- [Architecture](concepts/architecture.md): how source files, build/validate, runtime, I/O, Browser IDE, HMI, CLI, and agent surfaces fit together.
-- [Editors](start/editors.md): compare VS Code, Browser IDE, Neovim, Zed, and HMI browser surfaces.
-- [Protocol Matrix](connect/protocol-matrix.md): choose how truST talks to devices, runtimes, and external systems.
-- [Examples](examples/index.md): runnable projects mapped to the same categories as the docs.
-
-## Visual Preview
-
-### VS Code runtime workflow
-
-![VS Code debugging and runtime flow](assets/images/vscode/debug.png)
+## See It First
 
 ### Browser IDE
 
-![Browser IDE](assets/images/browser/ide-home.png)
+![Browser IDE](assets/images/browser/ide-tutorial-loaded.png)
+
+*Figure:* The browser IDE with a real tutorial project loaded. Use this when
+you want editing and build/validate flows at `/ide`.
 
 ### Browser HMI
 
 ![Browser HMI](assets/images/browser/hmi-home.png)
 
-## Need Help Fast?
+*Figure:* The browser HMI with a connected runtime and live values. This is the
+operator-facing `/hmi` surface.
 
-- [Troubleshooting](troubleshooting.md)
-- [Reference](reference/index.md)
-- [About](about.md)
-- [FAQ](faq.md)
-- [Changelog](changelog.md)
+### Architecture
+
+![How truST fits together](assets/images/architecture/workflow-overview.svg)
+
+*Figure:* Source files move through build and validation into `trust-runtime`,
+which then exposes I/O drivers, browser IDE, and HMI/control surfaces.
+
+## Start Here
+
+- [Installation](start/installation.md)
+- [Program In VS Code](start/program-in-vscode.md)
+- [Program In Browser IDE](start/program-in-browser.md)
+- [Operate In Browser HMI](start/operate-in-browser.md)
+- [Automate With CLI / CI / agents](start/automate-with-cli.md)
+
+## Project And Support
+
+- Maintainer: Johannes Pettersson
+- License: MIT OR Apache-2.0
+- Support: community issue tracker and maintainer contact
+- Production warning: evaluate runtime/HMI/browser features against your plant
+  requirements before treating them as vendor-drop-in replacements
+
+More detail lives on [About](about.md), [FAQ](faq.md), and
+[Changelog](changelog.md).

@@ -1,0 +1,124 @@
+{
+  "captures": [
+    {
+      "path": "images/browser/ide-tutorial-loaded.png",
+      "class": "browser-product-surface",
+      "generator": "playwright",
+      "source": "/ide with the tutorial project loaded for examples/tutorials/12_hmi_pid_process_dashboard"
+    },
+    {
+      "path": "images/browser/hmi-home.png",
+      "class": "browser-product-surface",
+      "generator": "playwright",
+      "source": "/hmi for examples/tutorials/12_hmi_pid_process_dashboard"
+    },
+    {
+      "path": "images/install/marketplace-listing.png",
+      "class": "browser-install-surface",
+      "generator": "playwright",
+      "source": "Visual Studio Marketplace listing for truST LSP"
+    },
+    {
+      "path": "images/install/command-palette-structured-text.png",
+      "class": "vscode-browser-surface",
+      "generator": "playwright+code-server",
+      "source": "code-server command palette filtered to truST Structured Text commands"
+    },
+    {
+      "path": "images/terminal/install-version-checks.gif",
+      "class": "terminal-capture",
+      "generator": "vhs",
+      "source": "local toolchain version and help checks from start/installation.md"
+    },
+    {
+      "path": "images/terminal/build-validate-test.gif",
+      "class": "terminal-capture",
+      "generator": "vhs",
+      "source": "CLI build/validate/test loop from start/automate-with-cli.md"
+    },
+    {
+      "path": "images/terminal/agent-describe.gif",
+      "class": "terminal-capture",
+      "generator": "vhs",
+      "source": "agent.describe JSON-RPC handshake"
+    },
+    {
+      "path": "images/terminal/agent-project-info.gif",
+      "class": "terminal-capture",
+      "generator": "vhs",
+      "source": "workspace.project_info JSON-RPC request"
+    },
+    {
+      "path": "images/terminal/build-failure.gif",
+      "class": "terminal-capture",
+      "generator": "vhs",
+      "source": "real build failure against a temporary broken project copy"
+    },
+    {
+      "path": "images/terminal/validate-success.gif",
+      "class": "terminal-capture",
+      "generator": "vhs",
+      "source": "validate success against examples/memory_marker_counter"
+    },
+    {
+      "path": "images/terminal/test-junit.gif",
+      "class": "terminal-capture",
+      "generator": "vhs",
+      "source": "JUnit output from the unit testing tutorial"
+    },
+    {
+      "path": "images/terminal/deploy.gif",
+      "class": "terminal-capture",
+      "generator": "vhs",
+      "source": "deploy CLI usage surface"
+    },
+    {
+      "path": "images/terminal/rollback.gif",
+      "class": "terminal-capture",
+      "generator": "vhs",
+      "source": "rollback CLI usage surface"
+    },
+    {
+      "path": "images/terminal/ctl-status.gif",
+      "class": "terminal-capture",
+      "generator": "vhs",
+      "source": "ctl status against a running local runtime"
+    },
+    {
+      "path": "images/terminal/ctl-io-read.gif",
+      "class": "terminal-capture",
+      "generator": "vhs",
+      "source": "ctl io-read against a running local runtime"
+    },
+    {
+      "path": "images/terminal/ctl-io-write.gif",
+      "class": "terminal-capture",
+      "generator": "vhs",
+      "source": "ctl io-write against a debug-mode local runtime"
+    },
+    {
+      "path": "images/terminal/runtime-help.gif",
+      "class": "terminal-capture",
+      "generator": "vhs",
+      "source": "trust-runtime top-level help output"
+    },
+    {
+      "path": "images/terminal/ctl-help.gif",
+      "class": "terminal-capture",
+      "generator": "vhs",
+      "source": "trust-runtime ctl help output"
+    },
+    {
+      "path": "images/terminal/agent-serve-help.gif",
+      "class": "terminal-capture",
+      "generator": "vhs",
+      "source": "trust-runtime agent serve help output"
+    },
+    {
+      "path": "images/vscode/workspace-shell.png",
+      "class": "vscode-browser-surface",
+      "generator": "playwright+code-server",
+      "source": "code-server workspace with the truST extension installed and Main.st rendered in the editor"
+    }
+  ]
+}

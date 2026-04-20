@@ -3,7 +3,9 @@
 Use Ladder when your logic is naturally rung-oriented and operators or PLC
 engineers already think in contacts, coils, timers, counters, and branches.
 
-![Ladder editor](../../assets/images/visual-editors/ladder.png)
+The screenshot was removed until the capture pipeline reliably opens the ladder
+custom editor instead of raw JSON. The workflow below is still the product
+workflow; the image will come back with a truthful capture.
 
 ## What it gives you
 

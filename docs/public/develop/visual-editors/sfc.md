@@ -3,7 +3,9 @@
 Use SFC when you want step/transition authoring while keeping execution unified
 with the rest of truST.
 
-![SFC editor](../../assets/images/visual-editors/sfc.png)
+The screenshot was removed until the capture pipeline reliably opens the SFC
+visual editor instead of a raw file view. The workflow below is still the
+product workflow; the image will come back with a truthful capture.
 
 ## What it gives you
 

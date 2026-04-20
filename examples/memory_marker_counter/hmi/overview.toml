@@ -1,0 +1,26 @@
+title = "Overview"
+icon = "activity"
+order = 0
+
+[[section]]
+title = "Details"
+span = 12
+tier = "detail"
+
+[[section.widget]]
+type = "value"
+bind = "P1.Counter"
+inferred_interface = true
+label = "Counter"
+span = 3
+min = 0
+max = 100
+
+[[section.widget]]
+type = "value"
+bind = "P1.CounterLatched"
+inferred_interface = true
+label = "Counter Latched"
+span = 3
+min = 0
+max = 100

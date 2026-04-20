@@ -1,0 +1,103 @@
+name: Docs Captures
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/docs-captures.yml"
+      - "docs/public/assets/capture-inventory.json"
+      - "docs/public/assets/images/**"
+      - "editors/vscode/**"
+      - "examples/tutorials/12_hmi_pid_process_dashboard/**"
+      - "manual-tests/trust-lsp-smoke/**"
+      - "scripts/build_browser_analysis_wasm_spike.sh"
+      - "scripts/captures/**"
+      - "scripts/check_public_docs_assets.py"
+      - "scripts/generate_public_docs_media.py"
+  workflow_dispatch:
+  schedule:
+    - cron: "0 4 * * *"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTC_WRAPPER: ""
+
+jobs:
+  refresh:
+    name: Refresh Automated Docs Captures
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: |
+            editors/vscode/package-lock.json
+            scripts/captures/package-lock.json
+
+      - name: Install capture dependencies
+        run: |
+          npm --prefix scripts/captures ci
+          npm --prefix scripts/captures run capture:install
+
+      - name: Refresh browser captures
+        run: |
+          python scripts/generate_public_docs_media.py --regenerate-browser-captures
+
+      - name: Refresh terminal captures
+        run: |
+          python scripts/generate_public_docs_media.py --regenerate-terminal-captures
+
+      - name: Refresh code-server captures
+        run: |
+          python scripts/generate_public_docs_media.py --regenerate-vscode-captures
+
+      - name: Verify docs assets still build
+        run: |
+          python scripts/generate_public_docs_media.py
+          python scripts/check_public_docs_links.py
+          python scripts/check_example_catalog_links.py
+          python -m pip install --upgrade pip
+          python -m pip install mkdocs-material
+          mkdocs build --strict
+          python scripts/check_public_docs_assets.py
+          python scripts/check_public_docs_search.py
+
+      - name: Upload refreshed captures
+        uses: actions/upload-artifact@v7
+        with:
+          name: docs-captures
+          path: |
+            docs/public/assets/images/**/*.png
+            docs/public/assets/images/**/*.gif
+
+      - name: Create capture refresh PR
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: automation/docs-captures
+          commit-message: "docs: refresh automated screenshots"
+          title: "docs: refresh automated screenshots"
+          body: |
+            Automated Playwright/code-server screenshot refresh.
+
+            Updated from:
+            - `scripts/captures/browser/*.spec.mjs`
+            - `scripts/captures/vscode/*.spec.mjs`
+          add-paths: |
+            docs/public/assets/images/**/*.png
+            docs/public/assets/images/**/*.gif

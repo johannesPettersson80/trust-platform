@@ -1,0 +1,13 @@
+{
+  "name": "trust-doc-captures",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "capture:browser": "playwright test -c playwright.browser.config.mjs",
+    "capture:vscode": "playwright test -c playwright.vscode.config.mjs",
+    "capture:install": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.53.0"
+  }
+}

@@ -5,6 +5,7 @@
   "settings": {
     "trust-lsp.server.path": "${workspaceFolder}/../../target/debug/trust-lsp",
     "trust-lsp.trace.server": "off",
-    "trust-lsp.diagnostics.showIecReferences": true
+    "trust-lsp.diagnostics.showIecReferences": true,
+    "git.openRepositoryInParentFolders": "never"
   }
 }

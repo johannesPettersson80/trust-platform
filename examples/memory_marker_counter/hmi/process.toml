@@ -1,0 +1,5 @@
+title = "Process"
+kind = "process"
+icon = "workflow"
+order = 20
+svg = "process.auto.svg"

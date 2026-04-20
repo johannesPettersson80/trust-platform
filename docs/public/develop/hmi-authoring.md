@@ -12,6 +12,11 @@ Read this when you need:
 
 ## HMI Directory Workflow
 
+![Browser HMI overview](../assets/images/browser/hmi-home.png)
+
+*Figure:* A rendered HMI page from the shipped tutorial. Read the workflow
+below while comparing the browser view with the `hmi/` files that define it.
+
 --8<-- "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
 
 ## Related

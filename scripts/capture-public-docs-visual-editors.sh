@@ -161,7 +161,7 @@ prepare_profile
 build_extension
 capture_editor "$ROOT_DIR/examples/ladder/simple-start-stop.ladder.json:1" "$ASSET_DIR/screenshot-ladder-editor.png"
 capture_editor "$ROOT_DIR/examples/statecharts/traffic-light.statechart.json:1" "$ASSET_DIR/screenshot-statechart-editor.png"
-capture_editor "$ROOT_DIR/examples/blockly/simple-led-blink.blockly.json:1" "$ASSET_DIR/screenshot-blockly-editor.png"
-capture_editor "$ROOT_DIR/examples/sfc/sfc_simple_parallel.sfc:1" "$ASSET_DIR/screenshot-sfc-editor.png"
+capture_editor "$ROOT_DIR/examples/blockly/snake-simple-v2.blockly.json:1" "$ASSET_DIR/screenshot-blockly-editor.png"
+capture_editor "$ROOT_DIR/examples/sfc/ethercat-snake-simple.sfc.json:1" "$ASSET_DIR/screenshot-sfc-editor.png"
 
 echo "Done. Visual-editor screenshots written to $ASSET_DIR"

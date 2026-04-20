@@ -62,9 +62,16 @@ Then:
 - build and validate complete without errors
 - `/hmi` shows overview, process, trends, and alarms for the same project
 
-![Browser IDE](../assets/images/browser/ide-home.png)
+![Browser IDE](../assets/images/browser/ide-tutorial-loaded.png)
+
+*Figure:* The browser IDE with the shipped tutorial project already loaded.
+Open the project tree from here, then open `src/main.st` before you build or
+validate.
 
 ![Browser HMI](../assets/images/browser/hmi-home.png)
+
+*Figure:* The matching browser HMI for the same project. Use it as the
+operator-side confirmation after the build succeeds.
 
 ## If It Fails
 

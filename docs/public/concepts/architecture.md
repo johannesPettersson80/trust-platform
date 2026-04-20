@@ -3,6 +3,12 @@
 truST is one language/runtime/tooling stack, not a loose collection of product
 surfaces.
 
+![How truST fits together](../assets/images/architecture/workflow-overview.svg)
+
+*Figure:* Source files move through build and validation into runtime
+artifacts, and the same runtime then serves I/O, browser IDE, and HMI/control
+surfaces.
+
 ## The Main Architectural Rule
 
 Editor, runtime, web, debugger, harness, and agent surfaces should reuse the

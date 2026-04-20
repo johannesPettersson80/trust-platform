@@ -1,0 +1,4 @@
+title = "Alarms"
+kind = "alarm"
+icon = "bell"
+order = 60

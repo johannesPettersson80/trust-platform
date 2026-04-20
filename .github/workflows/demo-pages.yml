@@ -51,7 +51,7 @@ jobs:
       - name: Install docs toolchain
         run: |
           python -m pip install --upgrade pip
-          python -m pip install mkdocs-material
+          python -m pip install mkdocs-material mkdocs-mermaid2-plugin
       - name: Generate docs media
         run: |
           python scripts/generate_public_docs_media.py

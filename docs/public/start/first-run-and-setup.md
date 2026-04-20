@@ -20,8 +20,6 @@ No matter which path you chose, first success means:
 - the runtime or browser surface opens without bind/auth errors
 - one safe input or simulated value changes the expected output
 
-![Runtime panel overview](../assets/images/runtime/ui-overview.png)
-
 ## Related
 
 - [Build, Validate, Test](../operate/build-validate-test.md)

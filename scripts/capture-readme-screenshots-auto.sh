@@ -235,7 +235,7 @@ shot_statechart_editor() {
 
 shot_blockly_editor() {
   local out="$ASSET_DIR/screenshot-blockly-editor.png"
-  launch_code "$ROOT_DIR/examples/blockly/simple-led-blink.blockly.json:1"
+  launch_code "$ROOT_DIR/examples/blockly/snake-simple-v2.blockly.json:1"
   sleep 4
   capture "$out"
   close_window
@@ -243,7 +243,7 @@ shot_blockly_editor() {
 
 shot_sfc_editor() {
   local out="$ASSET_DIR/screenshot-sfc-editor.png"
-  launch_code "$ROOT_DIR/examples/sfc/sfc_simple_parallel.sfc:1"
+  launch_code "$ROOT_DIR/examples/sfc/ethercat-snake-simple.sfc.json:1"
   sleep 4
   capture "$out"
   close_window

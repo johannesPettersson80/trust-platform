@@ -24,6 +24,9 @@ If the page is unreachable:
 
 ![Browser HMI](../assets/images/browser/hmi-home.png)
 
+*Figure:* The HMI overview page. Check overall state, alarms, and live values
+here before you open deeper operator pages.
+
 ## What Acknowledge Does And Does Not Mean
 
 - acknowledge clears the banner state for the operator workflow

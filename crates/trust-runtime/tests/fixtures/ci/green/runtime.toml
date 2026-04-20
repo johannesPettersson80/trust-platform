@@ -9,6 +9,10 @@ cycle_interval_ms = 100
 endpoint = "tcp://127.0.0.1:0"
 auth_token = "trust-ci-token"
 
+[runtime.web]
+enabled = false
+listen = "127.0.0.1:0"
+
 [runtime.log]
 level = "info"
 

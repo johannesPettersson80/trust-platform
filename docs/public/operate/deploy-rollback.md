@@ -13,6 +13,16 @@ trust-runtime rollback --root ./deploy-root
 `deploy` writes a versioned deployment entry. `rollback` moves the active
 deployment pointer back to the previous version.
 
+![Deploy CLI surface](../assets/images/terminal/deploy.gif)
+
+*Figure:* The `deploy` command surface and required flags. Use this to confirm
+the exact CLI contract before you automate rollout on a target root.
+
+![Rollback CLI surface](../assets/images/terminal/rollback.gif)
+
+*Figure:* The `rollback` command surface. Keep this close to the deployment root
+you operate so you know which flag set the runtime expects.
+
 ## Pre-deploy checklist
 
 - build succeeded

@@ -16,6 +16,12 @@ trust-runtime validate --project examples/memory_marker_counter
 trust-runtime test --project examples/memory_marker_counter --output human
 ```
 
+![CLI build, validate, test](../assets/images/terminal/build-validate-test.gif)
+
+*Figure:* The first CLI success loop against a shipped project. This is the
+minimum terminal proof that build, validate, and test all work before you move
+to CI or `agent serve`.
+
 ## First `agent serve` Request
 
 Ask the runtime what the agent surface supports:
@@ -33,6 +39,16 @@ printf '%s\n' \
   '{"jsonrpc":"2.0","id":1,"method":"workspace.project_info","params":{}}' \
   | trust-runtime agent serve --project ./examples/memory_marker_counter
 ```
+
+![JSON-RPC `agent.describe` response](../assets/images/terminal/agent-describe.gif)
+
+*Figure:* `agent.describe` returning the live JSON-RPC contract. Use this first
+when you need an agent or CI tool to discover what the runtime exposes.
+
+![JSON-RPC `workspace.project_info` response](../assets/images/terminal/agent-project-info.gif)
+
+*Figure:* `workspace.project_info` returning project metadata from the same
+bundle. This is the quickest shape check before running diagnostics or reloads.
 
 ## What Success Looks Like
 

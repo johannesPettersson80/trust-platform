@@ -1,25 +1,16 @@
 # About
 
-Use this page when you need the plain-language truth about what truST is, who
-maintains it, how to get help, and which surfaces are mature enough for
-production evaluation.
+## Project Purpose
 
-## What truST Is
+truST exists to provide an open IEC 61131-3 Structured Text toolchain with a
+real editor workflow, a runtime you can run locally or on a target, and browser
+surfaces for engineering and operation.
 
-truST is an open-source Structured Text toolchain and runtime platform. It
-combines:
+## Maintainer
 
-- editor tooling
-- runtime execution
-- debug/control surfaces
-- browser IDE and HMI surfaces
-- CLI, harness, and agent workflows
-
-## Who Maintains It
-
-- primary public maintainer: Johannes Pettersson
-- public project home:
-  <https://github.com/johannesPettersson80/trust-platform>
+- Maintainer: Johannes Pettersson
+- Project home: <https://github.com/johannesPettersson80/trust-platform>
+- Contact: johannes_salomon@hotmail.com
 
 ## License
 
@@ -28,50 +19,54 @@ truST is dual-licensed under:
 - MIT
 - Apache-2.0
 
-## How To Get Help
-
-- [FAQ](faq.md)
-- [Troubleshooting](troubleshooting.md)
-- GitHub Issues:
-  <https://github.com/johannesPettersson80/trust-platform/issues>
-
 ## Support Model
 
-- community support is best-effort
-- public GitHub issues are the default support path
-- site-specific plant runbooks and escalation contacts still belong to the plant
-  owner, not the generic truST docs
+- Community support: GitHub issues and public docs
+- Direct maintainer contact: email
+- Paid support: not advertised as a formal commercial support contract today
 
 ## Security Contact
 
-If you believe you found a security problem:
+Report security issues privately to:
 
-- open a private security contact path if one is published for the release
-- otherwise use the maintainer contact listed in the repository and avoid
-  posting exploit detail publicly before coordination
+- `johannes_salomon@hotmail.com`
 
-## Stable Vs Beta
+Do not post exploit details publicly before coordination.
 
-Use the docs and changelog as the public truth source.
+## Known Production Users
 
-General rule of thumb:
+- No public production-user references are published at this time.
 
-- CLI/reference/config contracts documented under [Reference](reference/index.md)
-  are the most stable public surfaces
-- VS Code authoring is the main engineering workflow
-- Browser IDE and some runtime/web flows are real and shipped, but still need
-  operator/admin honesty in the docs
-- advanced runtime-cloud and experimental workflows should be evaluated against
-  their specific docs/examples, not assumed by name alone
+## Roadmap
+
+- Public roadmap anchor: [Changelog](changelog.md)
+- Engineering direction and docs scope evolve in the public repository and
+  release notes
 
 ## Release Cadence
 
-- use [Changelog](changelog.md) for full release notes
-- use [Version History](reference/version-history.md) for "what changed between
-  versions?" guidance
+- Releases are published through GitHub Releases
+- The changelog and version history pages are the public source of truth for
+  shipped changes
 
-## Next
+## Stable Vs Beta
 
+### Stable
+
+- core Structured Text authoring workflow
+- CLI/reference/config contracts documented under [Reference](reference/index.md)
+- VS Code as the primary engineering workflow
+
+### Beta Or Evaluate Carefully
+
+- Browser IDE for day-to-day engineering in larger teams
+- Browser HMI for production-facing operator use
+- runtime-cloud and multi-runtime federation paths
+- visual-editor coverage outside the statechart/editor paths already documented
+
+## Related
+
+- [Installation](start/installation.md)
+- [Install On Target](operate/install-on-target.md)
 - [FAQ](faq.md)
-- [Contribute](contribute.md)
-- [Version History](reference/version-history.md)
+- [Changelog](changelog.md)

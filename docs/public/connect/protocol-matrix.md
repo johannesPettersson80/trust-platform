@@ -3,6 +3,17 @@
 This is the first page to open when you want to know what communication
 protocols and transport surfaces truST supports.
 
+```mermaid
+flowchart LR
+    A[Need connectivity] --> B[truST runtime on the other side?]
+    B -->|Yes| C[Runtime-to-runtime<br/>discovery / mesh / realtime T0 / runtime-cloud]
+    B -->|No| D[External software or plant system?]
+    D -->|Yes| E[External systems<br/>Modbus TCP / MQTT / OPC UA]
+    D -->|No| F[Local hardware or fieldbus<br/>EtherCAT / GPIO / simulated / loopback / multi-driver]
+```
+
+*Figure: Start with the endpoint class. Runtime federation, external software integration, and direct hardware wiring are different problem families and branch to different docs sections.*
+
 ## By problem type
 
 | Question | Start here | Typical surfaces |

@@ -2,6 +2,17 @@
 
 Structured Text execution in truST is cycle-driven.
 
+```mermaid
+flowchart LR
+    A[Sample Inputs<br/>%I / driver image] --> B[Materialize Mapped Variables<br/>VAR_CONFIG and globals]
+    B --> C[Execute Structured Text<br/>programs and function blocks]
+    C --> D[Write Outputs and Memory<br/>%Q / %M images]
+    D --> E[Publish Results<br/>HMI, watch, control, traces]
+    E --> A
+```
+
+*Figure: One truST scan cycle. Inputs are sampled first, logic executes against that image, and observers see the committed post-cycle state.*
+
 ## One Cycle, In Order
 
 1. inputs are sampled into the process image

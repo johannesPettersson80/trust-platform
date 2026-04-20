@@ -45,6 +45,16 @@ trust-runtime validate --project ./examples/tutorials/10_unit_testing_101
 trust-runtime test --project ./examples/tutorials/10_unit_testing_101 --output json
 ```
 
+![Validation success](../assets/images/terminal/validate-success.gif)
+
+*Figure:* A clean `validate` pass against a shipped project. Use this as the
+config/bundle safety gate before you start blaming runtime execution.
+
+![Build failure with a real syntax error](../assets/images/terminal/build-failure.gif)
+
+*Figure:* A deliberate one-line build break in a temporary project copy. This is
+the shape of a truthful compile failure, not placeholder garbage syntax.
+
 ## Test JSON Output And JUnit Output
 
 Use JSON output when an agent or CI parser needs machine-readable results:
@@ -58,6 +68,11 @@ Use JUnit output when your CI system expects test-report artifacts:
 ```bash
 trust-runtime test --project ./my-plc --output junit
 ```
+
+![JUnit test output](../assets/images/terminal/test-junit.gif)
+
+*Figure:* JUnit XML emitted from the unit-testing tutorial. This is the CI-safe
+artifact shape to feed into a test-report parser.
 
 Useful test options:
 
