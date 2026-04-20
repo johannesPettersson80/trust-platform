@@ -1,11 +1,24 @@
 # Operator Shift Handover
 
-## What To Record
+Use this page to capture the minimum information the next shift needs.
 
-- active or recently acknowledged alarms
-- unusual trends or values
-- any temporary bypass or maintenance mode
-- any manual intervention taken during the shift
+## Handover Checklist
+
+| Item | What to record |
+| --- | --- |
+| Active alarms | alarm name/code, first seen time, whether it was acknowledged |
+| Unusual values or trends | tag name, current value, expected range, last stable time |
+| Temporary modes | bypasses, maintenance mode, manual output forcing, or blocked equipment |
+| Manual interventions | what was changed, why, and whether it must be reversed |
+| Open actions | who owns the next step and when it must happen |
+
+## Contacts
+
+| Role | Contact | Phone |
+| --- | --- | --- |
+| Outgoing operator | fill in | fill in |
+| Incoming operator | fill in | fill in |
+| Supervisor | fill in | fill in |
 
 ## Related
 

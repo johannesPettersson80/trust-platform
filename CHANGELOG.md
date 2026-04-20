@@ -107,6 +107,14 @@ Target release: `v0.19.0`
   were rewritten to remove boilerplate "use this page when..." framing and
   similar filler so the rendered docs read as product documentation instead of
   internal notes.
+- The public docs landing/start/reference/operator pages now describe truST in
+  direct product language, ship real social metadata for sharing, and replace
+  thin operator checklists with concrete tables, screenshots, and escalation
+  placeholders instead of stub prose.
+- The checked-in Browser IDE and code-server public-doc captures now prove a
+  successful truST state more clearly: `/ide` waits for a real build to finish
+  before capture, and the VS Code-compatible proof opens the Structured Text
+  Runtime panel instead of showing only a generic workspace shell.
 - The docs search regression gate now routes `install mac`, `first project`,
   `ladder`, and `retain` queries back to the intended public docs pages after
   the docs IA/spec split, including a restored `Start -> First Project` page

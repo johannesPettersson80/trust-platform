@@ -1,6 +1,6 @@
 # Reference
 
-## Open Reference When You Need Exact Answers
+## Quick Lookup
 
 - [CLI](cli/trust-runtime.md): subcommands, flags, and machine-facing command examples
 - [Config](config/index.md): file shapes and exact keys

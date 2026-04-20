@@ -23,8 +23,9 @@ If the page is unreachable:
 
 ![Browser HMI](../assets/images/browser/hmi-home.png)
 
-*Figure:* The HMI overview page. Check overall state, alarms, and live values
-here before you open deeper operator pages.
+*Figure:* Start here: the HMI shows runtime connection state, freshness, alarms,
+and live process values. Open the Trends and Alarms pages from the left
+sidebar.
 
 ## What Acknowledge means
 
@@ -34,9 +35,11 @@ here before you open deeper operator pages.
 
 ## Operator restrictions
 
-- Do not force outputs on a live machine without procedure approval.
-- Do not assume clearing an alarm fixes the plant.
-- Do not edit project files from an operator-only session.
+- Force outputs only after procedure approval and field confirmation.
+- Treat acknowledge as an operator workflow step; if the condition remains or
+  returns, follow the site escalation path.
+- Keep project edits in an authorized engineering session; operator sessions
+  are for monitoring and approved actions.
 
 ## Local Runbook
 

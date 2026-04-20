@@ -1,6 +1,6 @@
 # Operate
 
-## Daily Engineering Loop
+## Common Operations
 
 1. [Build, Validate, Test](build-validate-test.md)
 2. [Compile, Validate, Reload](compile-validate-reload.md)

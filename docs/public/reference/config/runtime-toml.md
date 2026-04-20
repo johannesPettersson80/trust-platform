@@ -139,7 +139,7 @@ Accepted keys:
 - `auth = "local" | "token"`
 - `tls`
 
-Rules:
+Validation constraints:
 
 | Condition | Requirement | Example |
 | --- | --- | --- |
@@ -165,7 +165,7 @@ Accepted keys:
 - `ca_path`
 - `require_remote`
 
-Rules:
+Validation constraints:
 
 | Condition | Requirement | Example |
 | --- | --- | --- |
@@ -229,7 +229,7 @@ Accepted keys:
 - `zenohd_version`
 - `plugin_versions`
 
-Rules:
+Validation constraints:
 
 | Condition | Requirement | Example |
 | --- | --- | --- |
@@ -286,7 +286,7 @@ prometheus_path = "/metrics"
 alerts = []
 ```
 
-Key rules:
+Validation constraints:
 
 | Condition | Requirement | Example |
 | --- | --- | --- |
@@ -334,7 +334,7 @@ security_mode = "sign_and_encrypt"
 allow_anonymous = false
 ```
 
-Rules:
+Validation constraints:
 
 | Condition | Requirement | Example |
 | --- | --- | --- |

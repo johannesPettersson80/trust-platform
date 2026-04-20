@@ -16,13 +16,15 @@ trust-runtime test --project examples/memory_marker_counter --output human
 
 ![CLI build, validate, test](../assets/images/terminal/build-validate-test.gif)
 
-*Figure:* The first CLI success loop against a shipped project. This is the
-minimum terminal proof that build, validate, and test all work before you move
-to CI or `agent serve`.
+*Figure:* A shipped project built, validated, and tested from the terminal
+before you move to CI or `agent serve`.
 
-## First `agent serve` Request
+## Describe the Agent API
 
-Ask the runtime what the agent surface supports:
+`trust-runtime agent serve` is the stdio JSON-RPC entry point for shell tools,
+CI jobs, and automation.
+
+Ask the runtime what the JSON-RPC API supports:
 
 ```bash
 printf '%s\n' \
@@ -41,7 +43,7 @@ printf '%s\n' \
 ![JSON-RPC `agent.describe` response](../assets/images/terminal/agent-describe.gif)
 
 *Figure:* `agent.describe` returning the live JSON-RPC contract. Use this first
-when you need an agent or CI tool to discover what the runtime exposes.
+when you need an agent or CI tool to discover the runtime API.
 
 ![JSON-RPC `workspace.project_info` response](../assets/images/terminal/agent-project-info.gif)
 
@@ -52,7 +54,7 @@ bundle. This is the quickest shape check before running diagnostics or reloads.
 
 - build produces bytecode without errors
 - validate succeeds
-- tests report a concrete result
+- tests report pass/fail output
 - `agent.describe` and `workspace.project_info` return JSON-RPC responses
 
 ## If It Fails

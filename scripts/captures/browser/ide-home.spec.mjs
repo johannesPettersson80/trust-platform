@@ -69,6 +69,16 @@ test("capture browser ide with tutorial loaded", async ({ page }) => {
     "12_hmi_pid_process_dashboard"
   );
   await expect(page.locator("body")).toHaveAttribute("data-theme", "dark");
+  await page.locator("#buildBtn").click();
+  await expect(page.locator("#taskStatus")).toContainText(/build #/i, {
+    timeout: 30_000,
+  });
+  await expect(page.locator("#taskStatus")).toContainText(/success/i, {
+    timeout: 120_000,
+  });
+  await expect(page.locator("#taskOutput")).not.toContainText(
+    "Build/Test/Validate output will appear here."
+  );
 
   await page.screenshot({ path: output });
 });

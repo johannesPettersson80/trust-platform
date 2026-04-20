@@ -1,12 +1,16 @@
 # Field Fault Procedures
 
+Use this page for the generic decision flow after a field fault is detected.
+
 ## Safe Generic Sequence
 
-1. identify the alarm or bad signal
-2. put the system in the correct safe state for your site
-3. verify whether the fault is still physically present
-4. check the runtime/HMI evidence
-5. only then clear or restart according to site procedure
+| Step | Action | Do not skip |
+| --- | --- | --- |
+| 1. Identify the fault | record the alarm, bad signal, or equipment state | exact tag/alarm name and time |
+| 2. Make the site safe | follow the local safe-state or lockout procedure | field confirmation |
+| 3. Check whether the fault is still present | inspect the equipment, not just the HMI | physical condition |
+| 4. Compare runtime evidence | review the HMI, trends, runtime panel, and I/O reads | whether the software view matches the field |
+| 5. Recover only by procedure | clear, reset, or restart only when the site procedure says it is safe | recovery authorization |
 
 ## Important Boundary
 

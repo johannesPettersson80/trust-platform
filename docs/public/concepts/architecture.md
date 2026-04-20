@@ -1,17 +1,25 @@
 # Architecture
 
-truST is one language/runtime/tooling stack, not a loose collection of product
-surfaces.
+truST is one language/runtime/tooling stack, not a loose collection of
+disconnected tools.
+
+!!! note "Acronyms"
+    `ST` = Structured Text.
+    `LSP` = Language Server Protocol.
+    `DAP` = Debug Adapter Protocol.
+    `HIR` = High-level Intermediate Representation.
+    `.stbc` = Structured Text Bytecode bundle.
 
 ![How truST fits together](../assets/images/architecture/workflow-overview.svg)
 
-*Figure:* Source files move through build and validation into runtime
-artifacts, and the same runtime then serves I/O, browser IDE, and HMI/control
-surfaces.
+*Figure:* Source files move through Build+Validate into artifacts
+(`program.stbc`, `runtime.toml`, `io.toml`, `hmi/`), and the same runtime then
+serves I/O drivers, the browser IDE at `/ide`, and HMI/control pages at
+`/hmi`.
 
 ## The Main Architectural Rule
 
-Editor, runtime, web, debugger, harness, and agent surfaces should reuse the
+Editor, runtime, web UI, debugger, harness, and agent APIs should reuse the
 same project semantics and execution model instead of inventing separate paths.
 
 ## Main Layers
@@ -26,26 +34,26 @@ same project semantics and execution model instead of inventing separate paths.
 
 - `trust-runtime` builds `program.stbc` and executes the bytecode VM
 - runtime configuration comes from `runtime.toml`, `io.toml`, `simulation.toml`, and `hmi/`
-- control, reload, status, and testing surfaces are exposed through CLI, web UI, and agent methods
+- control, reload, status, and testing interfaces are exposed through CLI, web
+  UI, and agent methods
 
-### 3. Tooling surfaces
+### 3. Tooling interfaces
 
 - `trust-lsp` serves standard LSP editor workflows
 - `trust-debug` serves DAP over stdio for debugger integration
 - `trust-harness` provides deterministic in-process cycle execution
 - `trust-runtime agent serve` exposes a stable automation contract outside VS Code
 
-### 4. Browser-hosted surfaces
+### 4. Browser-hosted interfaces
 
 - `/ide` exposes the browser IDE for project editing
 - `/hmi` exposes operator-facing HMI pages
-- runtime-cloud surfaces expose topology, preflight, and dispatch operations
+- runtime-cloud APIs expose topology, preflight, and dispatch operations
 
-## One Project, Many Surfaces
+## One Project, Many Interfaces
 
 The same project should move through these interfaces without being rewritten
-for
-each tool:
+for each tool:
 
 1. authoring in an editor or browser IDE
 2. build and validation
@@ -71,18 +79,17 @@ That is why the docs repeatedly route readers back to the same config and
 workflow pages instead of documenting separate "editor mode" and "runtime mode"
 worlds.
 
-## What truST Tries To Avoid
+## Non-goals
 
-truST explicitly tries to avoid the common PLC-tool problem where:
+truST avoids the common PLC-tool split where:
 
 - the editor uses one project model
 - the runtime uses a different deployment model
 - the browser UI is a third system
 - automation or AI integrations only work by screen-scraping editor features
 
-The platform is much easier to maintain when agent tooling, runtime control,
-web UI, and editor integrations all sit on top of the same underlying project
-and execution model.
+The platform is easier to maintain when agent tooling, runtime control, web UI,
+and editor integrations all sit on top of the same project and execution model.
 
 ## Why this matters
 
@@ -94,8 +101,7 @@ The same project should behave consistently whether you:
 - drive it through the deterministic harness
 - inspect it in the web UI
 
-That shared execution contract is the main anti-vendor-sprawl design rule in
-truST.
+That shared execution contract is the main design rule in truST.
 
 ## Related
 

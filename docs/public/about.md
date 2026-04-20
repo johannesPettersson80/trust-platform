@@ -40,11 +40,10 @@ Do not post exploit details publicly before coordination.
 
 - Production users: none disclosed.
 
-## Roadmap
+## Change Tracking
 
-- Public roadmap anchor: [Changelog](changelog.md)
-- Engineering direction and docs scope evolve in the public repository and
-  release notes
+- Shipped changes: [Changelog](changelog.md)
+- Released versions: [Version History](reference/version-history.md)
 
 ## Release Cadence
 
@@ -52,24 +51,22 @@ Do not post exploit details publicly before coordination.
 - The changelog and version history pages are the public source of truth for
   shipped changes
 
-## Stable Vs Beta
-
-### Stable
+## Stable
 
 - core Structured Text authoring workflow
 - CLI/reference/config contracts documented under [Reference](reference/index.md)
 - VS Code as the primary engineering workflow
 
-### Beta Or Evaluate Carefully
+## Evaluate Per Site
 
-- Browser IDE for day-to-day engineering in larger teams: validate session,
-  auth, and deployment setup before team rollout.
-- Browser HMI for production-facing operator use: verify your site-specific
-  alarm, auth, and runbook flows before live use.
-- runtime-cloud and multi-runtime federation paths: validate network topology,
-  auth, and recovery behavior per site.
-- visual-editor coverage outside the statechart/editor paths already
-  documented: confirm the generated ST and runtime behavior in your project.
+- Browser IDE in larger teams: confirm how your team will coordinate file
+  ownership, reviews, and concurrent edits.
+- Browser HMI for production-facing operator use: confirm your auth model,
+  alarm handling, and write-enable procedure before live rollout.
+- runtime-cloud and multi-runtime federation: test network partitions, auth,
+  retries, and recovery behavior on your site topology.
+- visual editors outside the documented statechart/editor flows: compare the
+  generated ST and runtime behavior against your project requirements.
 
 ## Related
 

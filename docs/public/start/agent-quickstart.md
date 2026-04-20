@@ -14,7 +14,7 @@ At minimum, an agent should know how to:
 5. build or test
 6. close the diagnose -> build -> reload loop
 
-## Start the `agent serve` surface
+## Start `agent serve`
 
 ```bash
 trust-runtime agent serve --project ./my-plc
@@ -29,7 +29,7 @@ Transport details:
 
 ## Five-minute Example
 
-### 1. Ask what the agent surface supports
+### 1. Describe the agent API
 
 ```bash
 printf '%s\n' \
@@ -83,7 +83,7 @@ printf '%s\n' \
 
 ## Deterministic execution
 
-Use the harness surfaces when you need programmable cycle control:
+Use the harness APIs when you need programmable cycle control:
 
 - [Harness protocol](../reference/harness/protocol.md)
 - `harness.load`

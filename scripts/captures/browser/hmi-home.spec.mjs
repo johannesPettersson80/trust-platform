@@ -30,7 +30,9 @@ test("capture browser hmi home", async ({ page }) => {
     { timeout: 60_000, intervals: [1_000, 2_000, 5_000] }
   ).toContain("Overview");
 
-  response = await page.reload({ waitUntil: "domcontentloaded" });
+  response = await page.goto("http://127.0.0.1:18082/hmi", {
+    waitUntil: "domcontentloaded"
+  });
   expect(response?.ok()).toBeTruthy();
   await expect(page.locator("#pageSidebar")).toContainText("Overview", {
     timeout: 30_000

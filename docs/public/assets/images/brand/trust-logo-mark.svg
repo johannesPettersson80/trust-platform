@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="truST mark">
+  <rect x="6" y="6" width="52" height="52" rx="12" fill="#ffffff"/>
+  <text
+    x="32"
+    y="41"
+    text-anchor="middle"
+    font-family="Sora,Inter,Helvetica Neue,system-ui,sans-serif"
+    font-size="28"
+    font-weight="800"
+    letter-spacing="-2"
+    fill="#0f766e"
+  >ST</text>
+</svg>

@@ -1,5 +1,5 @@
 site_name: truST Documentation
-site_description: IEC 61131-3 Structured Text tooling, runtime, agent contract, and examples.
+site_description: Free, open-source IEC 61131-3 Structured Text IDE and runtime. VS Code extension, browser HMI, JSON-RPC API. Runs on Linux, macOS, Windows, and Raspberry Pi.
 site_url: https://johannespettersson80.github.io/trust-platform/
 repo_url: https://github.com/johannesPettersson80/trust-platform
 repo_name: johannesPettersson80/trust-platform
@@ -9,7 +9,8 @@ site_dir: site/public
 copyright: "© 2026 Johannes Pettersson — MIT/Apache-2.0 — johannes_salomon@hotmail.com"
 theme:
   name: material
-  logo: assets/images/brand/trust-logo.svg
+  custom_dir: docs/public/overrides
+  logo: assets/images/brand/trust-logo-mark.svg
   favicon: assets/images/brand/trust-favicon.png
   palette:
     - scheme: default

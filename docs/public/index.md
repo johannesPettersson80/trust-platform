@@ -11,8 +11,8 @@ browser HMI without buying a vendor IDE.
 
 ![truST runtime workflow hero](assets/images/hero-runtime.png)
 
-*Figure:* The runtime panel inside truST with live values, runtime state, and
-verification.
+*Figure:* VS Code with the Structured Text Runtime panel showing live I/O,
+memory, and compile diagnostics.
 
 ## Capabilities
 
@@ -22,18 +22,15 @@ verification.
 - inspect or operate the same project through `/ide` and `/hmi`
 - automate build, validate, test, deploy, rollback, and agent workflows from a shell
 
-## What truST Replaces
+## What truST Is
 
-truST covers the day-to-day authoring, runtime, and browser workflow that many
-teams otherwise split across Siemens TIA Portal, CODESYS, Beckhoff TwinCAT, and
-shell tooling.
-
-What truST does not replace:
-
-- safety-certified engineering environments
-- vendor-specific ecosystems such as Siemens LBP/LGF, Beckhoff TwinCAT motion
-  add-ons, or plant-specific closed libraries
-- your target-hardware validation and commissioning process
+- one project for authoring, runtime, debugging, and browser operation
+- VS Code, the browser IDE, and CLI/agent workflows all reuse the same project
+  semantics
+- one runtime binary for Linux, Windows, macOS, and Raspberry Pi
+- open licensing, scriptable automation, and browser HMI pages shipped with the
+  runtime
+- `/ide` and `/hmi` run against the same bundle you build and deploy
 
 ## See It First
 
@@ -53,8 +50,10 @@ What truST does not replace:
 
 ![How truST fits together](assets/images/architecture/workflow-overview.svg)
 
-*Figure:* Source files move through build and validation into `trust-runtime`,
-which then exposes I/O drivers, the browser IDE, and HMI/control pages.
+*Figure:* Source files move through Build+Validate into artifacts
+(`program.stbc`, `runtime.toml`, `io.toml`, `hmi/`), then into `trust-runtime`,
+which exposes I/O drivers, the browser IDE at `/ide`, and HMI/control pages at
+`/hmi`.
 
 ## Start Here
 
@@ -69,8 +68,6 @@ which then exposes I/O drivers, the browser IDE, and HMI/control pages.
 - Maintainer: Johannes Pettersson
 - License: MIT OR Apache-2.0
 - Support: community issue tracker and maintainer contact
-- Production warning: evaluate runtime/HMI/browser features against your plant
-  requirements before treating them as vendor-drop-in replacements
 
 More detail lives on [About](about.md), [FAQ](faq.md), and
 [Changelog](changelog.md).

@@ -1,11 +1,15 @@
 # Technician I/O Diagnosis
 
+Use this sequence when a signal on the HMI does not match the field.
+
 ## Read The Chain In Order
 
-1. what does the HMI show?
-2. what does the runtime panel or `io-read` show?
-3. how is the point mapped in `config.st` and `io.toml`?
-4. what does the real sensor/actuator/wiring say?
+| Step | Evidence | Next action |
+| --- | --- | --- |
+| 1. HMI value | tag state, timestamp, and whether the value is stale or fresh | if stale, check runtime status first |
+| 2. Runtime evidence | runtime panel, `io-read`, or control API result | if runtime and HMI differ, inspect mapping and refresh path |
+| 3. Mapping | `config.st`, `io.toml`, address, scaling, inversion, and task ownership | if mapping is wrong, fix the engineering config |
+| 4. Field check | sensor, actuator, terminal, fuse, or networked device state | if field and runtime differ, troubleshoot wiring or hardware |
 
 ## Good First Pages
 
