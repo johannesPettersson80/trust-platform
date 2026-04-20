@@ -80,6 +80,77 @@ END_PROGRAM
 }
 
 #[test]
+fn unqualified_enum_initializer_respects_same_named_constant_shadowing() {
+    let source = r#"
+TYPE Phase : (IDLE, RUNNING, DONE)
+END_TYPE
+
+PROGRAM Main
+VAR CONSTANT
+    IDLE : Phase := Phase#DONE;
+END_VAR
+VAR
+    state : Phase := IDLE;
+END_VAR
+END_PROGRAM
+"#;
+
+    let mut harness = TestHarness::from_source(source).expect("compile harness");
+    let _ = harness.cycle();
+
+    let got = harness.get_output("state");
+    assert_eq!(enum_variant_name(&got), Some("DONE"), "got {got:?}");
+    assert_eq!(enum_numeric(&got), Some(2), "got {got:?}");
+}
+
+#[test]
+fn unqualified_enum_assignment_respects_same_named_local_shadowing() {
+    let source = r#"
+TYPE Phase : (IDLE, RUNNING, DONE)
+END_TYPE
+
+PROGRAM Main
+VAR
+    state : Phase := Phase#IDLE;
+    RUNNING : Phase := Phase#DONE;
+END_VAR
+state := RUNNING;
+END_PROGRAM
+"#;
+
+    let mut harness = TestHarness::from_source(source).expect("compile harness");
+    let _ = harness.cycle();
+
+    let got = harness.get_output("state");
+    assert_eq!(enum_variant_name(&got), Some("DONE"), "got {got:?}");
+    assert_eq!(enum_numeric(&got), Some(2), "got {got:?}");
+}
+
+#[test]
+fn unqualified_enum_comparison_respects_same_named_local_shadowing() {
+    let source = r#"
+TYPE Phase : (IDLE, RUNNING, DONE)
+END_TYPE
+
+PROGRAM Main
+VAR
+    state : Phase := Phase#DONE;
+    RUNNING : Phase := Phase#DONE;
+    flag : DINT := 0;
+END_VAR
+IF state = RUNNING THEN
+    flag := 1;
+END_IF;
+END_PROGRAM
+"#;
+
+    let mut harness = TestHarness::from_source(source).expect("compile harness");
+    let _ = harness.cycle();
+
+    assert_eq!(harness.get_output("flag"), Some(Value::DInt(1)));
+}
+
+#[test]
 fn unqualified_enum_variant_comparison_matches_when_values_equal() {
     let source = r#"
 TYPE Phase : (IDLE, RUNNING, DONE)

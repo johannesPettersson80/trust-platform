@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.19.0`
+Target release: `v0.19.1`
 
 ### Added
 
@@ -102,6 +102,7 @@ Target release: `v0.19.0`
 
 ### Fixed
 
+<<<<<<< Updated upstream
 - The public docs and repo landing surfaces now lead with the strongest truST
   story instead of burying it behind browser-first proof shots: the homepage,
   `Program In VS Code`, `Debugging And Runtime Panel`, and `README.md` now show
@@ -162,14 +163,22 @@ Target release: `v0.19.0`
   VS Code extension through one consistent code-server profile so the
   command-palette and workspace-shell captures stop regressing on fresh CI
   boots.
-- Unqualified enum variant names now also lower correctly outside `CASE`
-  labels in three more runtime contexts: `VAR` initializers
-  (`state : Phase := IDLE`), assignment right-hand sides
-  (`state := RUNNING`), and binary comparisons (`IF state = RUNNING THEN ...`).
-  The lowering path now consults HIR name resolution before rewriting a bare
-  `NameRef` into an enum literal, so same-named local variables/constants
-  still shadow enum members instead of being silently overridden by the
-  surrounding enum type.
+- Unqualified enum variant names now also resolve in three contexts outside
+  `CASE` labels: `VAR` initializers (`state : Phase := IDLE`), the right-hand
+  side of assignments (`state := RUNNING`), and operands of binary
+  comparisons (`IF state = RUNNING THEN ...`). Before this change the first
+  form failed PROGRAM init with `undefined variable 'IDLE'`, and the other
+  two compiled but silently lowered the bare variant name as an unresolved
+  `Expr::Name`, so the target either kept its previous value or the
+  comparison never matched at runtime. The fix introduces a small
+  harness-lowering helper next to the existing `enum_literal_value` used by
+  `CASE` labels and applies it at the VAR-declaration, assignment, and
+  binary-expression call sites, mirroring the pattern introduced by the
+  unqualified-CASE-label fix. HIR type-check was already accepting all
+  three forms, so this is a lowering-layer alignment only; bare names still
+  follow normal symbol resolution, which means local variables/constants
+  continue to shadow same-named enum members, and qualified `Phase#X` forms
+  plus `CASE` labels behave as before.
 - The ST compiler/runtime build path now closes the remaining open regression
   cases around control-flow and declaration lowering: unqualified enum members
   now work as `CASE` labels in end-to-end runtime/bytecode builds, aggregate

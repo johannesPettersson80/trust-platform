@@ -79,10 +79,10 @@ pub(in crate::harness) fn lower_expr(
             // (commit 8d7f069) for symmetric binary operands such as
             // `state = RUNNING` and `RUNNING = state`.
             if let Some(type_id) = right_type {
-                left = resolve_initializer_enum_variant(left, type_id, ctx.registry);
+                left = resolve_initializer_enum_variant(&exprs[0], left, type_id, ctx);
             }
             if let Some(type_id) = left_type {
-                right = resolve_initializer_enum_variant(right, type_id, ctx.registry);
+                right = resolve_initializer_enum_variant(&exprs[1], right, type_id, ctx);
             }
             Ok(Expr::Binary {
                 op,

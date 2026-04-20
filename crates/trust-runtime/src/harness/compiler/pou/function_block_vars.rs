@@ -20,9 +20,12 @@ fn lower_function_block_var_blocks(
             let (names, type_ref, initializer, address) = parse_var_decl(&var_decl)?;
             let type_id = lower_type_ref(&type_ref, ctx)?;
             let init_expr = initializer
-                .map(|expr| lower_expr(&expr, ctx))
+                .map(|expr| {
+                    lower_expr(&expr, ctx)
+                        .map(|lowered| resolve_initializer_enum_variant(&expr, lowered, type_id, ctx))
+                })
                 .transpose()?
-                .map(|expr| resolve_initializer_enum_variant(expr, type_id, ctx.registry));
+                ;
             if qualifiers.constant
                 && matches!(kind, VarBlockKind::Var | VarBlockKind::Stat | VarBlockKind::Temp)
             {

@@ -490,25 +490,285 @@ pub(in crate::harness) fn enum_literal_value(
     None
 }
 
+fn first_ident_token(node: &SyntaxNode) -> Option<trust_syntax::syntax::SyntaxToken> {
+    node.descendants_with_tokens()
+        .filter_map(|element| element.into_token())
+        .find(|token| {
+            matches!(
+                token.kind(),
+                SyntaxKind::Ident | SyntaxKind::KwEn | SyntaxKind::KwEno
+            )
+        })
+}
+
+fn name_from_node(node: &SyntaxNode) -> Option<(SmolStr, text_size::TextRange)> {
+    let token = node
+        .children()
+        .find(|child| child.kind() == SyntaxKind::Name)
+        .and_then(|name_node| first_ident_token(&name_node))
+        .or_else(|| first_ident_token(node))?;
+    Some((SmolStr::new(token.text()), token.text_range()))
+}
+
+fn find_symbol_by_name_range(
+    symbols: &SymbolTable,
+    name: &str,
+    range: text_size::TextRange,
+) -> Option<SymbolId> {
+    symbols
+        .iter()
+        .find(|symbol| symbol.range == range && symbol.name.eq_ignore_ascii_case(name))
+        .map(|symbol| symbol.id)
+}
+
+fn find_scope_for_symbol(symbols: &SymbolTable, symbol_id: SymbolId) -> Option<ScopeId> {
+    for index in 0..symbols.scope_count() {
+        let scope_id = ScopeId(index as u32);
+        let Some(scope) = symbols.get_scope(scope_id) else {
+            break;
+        };
+        if scope.owner == Some(symbol_id) {
+            return Some(scope_id);
+        }
+    }
+    None
+}
+
+fn is_pou_kind(kind: SyntaxKind) -> bool {
+    matches!(
+        kind,
+        SyntaxKind::Program
+            | SyntaxKind::Function
+            | SyntaxKind::FunctionBlock
+            | SyntaxKind::Class
+            | SyntaxKind::Method
+            | SyntaxKind::Property
+            | SyntaxKind::Interface
+    )
+}
+
+#[derive(Clone, Copy)]
+struct ExpressionScopeContext {
+    scope_id: ScopeId,
+    current_pou_symbol: Option<SymbolId>,
+    this_type: Option<TypeId>,
+}
+
+fn receiver_type_for_pou(
+    symbols: &SymbolTable,
+    pou_symbol_id: Option<SymbolId>,
+    pou_node: &SyntaxNode,
+) -> Option<TypeId> {
+    match pou_node.kind() {
+        SyntaxKind::FunctionBlock | SyntaxKind::Class | SyntaxKind::Interface => pou_symbol_id
+            .and_then(|id| symbols.get(id))
+            .map(|symbol| symbol.type_id),
+        SyntaxKind::Method | SyntaxKind::Property => pou_symbol_id
+            .and_then(|id| symbols.get(id))
+            .and_then(|symbol| symbol.parent)
+            .and_then(|parent| symbols.get(parent))
+            .map(|symbol| symbol.type_id),
+        _ => None,
+    }
+}
+
+fn expression_scope_context(symbols: &SymbolTable, node: &SyntaxNode) -> ExpressionScopeContext {
+    let Some(pou_node) = node.ancestors().find(|ancestor| is_pou_kind(ancestor.kind())) else {
+        return ExpressionScopeContext {
+            scope_id: ScopeId::GLOBAL,
+            current_pou_symbol: None,
+            this_type: None,
+        };
+    };
+
+    let pou_symbol_id = name_from_node(&pou_node)
+        .and_then(|(name, range)| find_symbol_by_name_range(symbols, name.as_str(), range));
+    let scope_id = pou_symbol_id
+        .and_then(|id| find_scope_for_symbol(symbols, id))
+        .unwrap_or(ScopeId::GLOBAL);
+    let this_type = receiver_type_for_pou(symbols, pou_symbol_id, &pou_node);
+
+    ExpressionScopeContext {
+        scope_id,
+        current_pou_symbol: pou_symbol_id,
+        this_type,
+    }
+}
+
+fn class_owner_from_type(symbols: &SymbolTable, type_id: TypeId, allow_interface: bool) -> Option<SymbolId> {
+    let base_type = symbols.resolve_alias_type(type_id);
+    let name = match symbols.type_by_id(base_type)? {
+        Type::FunctionBlock { name } | Type::Class { name } => name,
+        Type::Interface { name } if allow_interface => name,
+        _ => return None,
+    };
+    symbols.resolve_by_name(name.as_str())
+}
+
+fn current_class_owner(
+    symbols: &SymbolTable,
+    current_pou_symbol: Option<SymbolId>,
+    this_type: Option<TypeId>,
+) -> Option<SymbolId> {
+    if let Some(pou_id) = current_pou_symbol {
+        if let Some(symbol) = symbols.get(pou_id) {
+            match symbol.kind {
+                SymbolKind::Class | SymbolKind::FunctionBlock => return Some(pou_id),
+                SymbolKind::Method { .. } | SymbolKind::Property { .. } => return symbol.parent,
+                _ => {}
+            }
+        }
+    }
+
+    let this_type = this_type?;
+    class_owner_from_type(symbols, this_type, false)
+}
+
+fn resolve_name_symbol_in_scope(
+    symbols: &SymbolTable,
+    scope_id: ScopeId,
+    current_pou_symbol: Option<SymbolId>,
+    this_type: Option<TypeId>,
+    name: &str,
+) -> Option<SymbolId> {
+    let mut scope_id = Some(scope_id);
+    let mut after_class_scope = None;
+    let mut class_scope_id = None;
+
+    while let Some(sid) = scope_id {
+        let scope = match symbols.get_scope(sid) {
+            Some(scope) => scope,
+            None => break,
+        };
+        if let Some(symbol_id) = scope.lookup_local(name) {
+            return Some(symbol_id);
+        }
+
+        if matches!(scope.kind, ScopeKind::Class | ScopeKind::FunctionBlock) {
+            after_class_scope = scope.parent;
+            class_scope_id = Some(sid);
+            break;
+        }
+
+        match symbols.resolve_using_in_scope(scope, name) {
+            UsingResolution::Single(symbol_id) => return Some(symbol_id),
+            UsingResolution::Ambiguous => return None,
+            UsingResolution::None => {}
+        }
+
+        scope_id = scope.parent;
+    }
+
+    if let Some(owner_id) = current_class_owner(symbols, current_pou_symbol, this_type) {
+        if let Some(member_id) = symbols.resolve_member_symbol_in_hierarchy(owner_id, name) {
+            return Some(member_id);
+        }
+    }
+
+    if let Some(class_sid) = class_scope_id {
+        let scope = symbols.get_scope(class_sid)?;
+        match symbols.resolve_using_in_scope(scope, name) {
+            UsingResolution::Single(symbol_id) => return Some(symbol_id),
+            UsingResolution::Ambiguous => return None,
+            UsingResolution::None => {}
+        }
+    }
+
+    let mut scope_id = after_class_scope;
+    while let Some(sid) = scope_id {
+        let scope = match symbols.get_scope(sid) {
+            Some(scope) => scope,
+            None => break,
+        };
+        if let Some(symbol_id) = scope.lookup_local(name) {
+            return Some(symbol_id);
+        }
+        match symbols.resolve_using_in_scope(scope, name) {
+            UsingResolution::Single(symbol_id) => return Some(symbol_id),
+            UsingResolution::Ambiguous => return None,
+            UsingResolution::None => {}
+        }
+        scope_id = scope.parent;
+    }
+
+    None
+}
+
+fn semantic_enum_type_name(symbols: &SymbolTable, type_id: TypeId) -> Option<SmolStr> {
+    let resolved = symbols.resolve_alias_type(type_id);
+    match symbols.type_by_id(resolved)? {
+        Type::Enum { name, .. } => Some(name.clone()),
+        _ => None,
+    }
+}
+
+fn runtime_enum_type_name(registry: &TypeRegistry, type_id: TypeId) -> Option<SmolStr> {
+    let mut current = type_id;
+    let mut guard = 0;
+    while guard < 16 {
+        match registry.get(current)? {
+            Type::Alias { target, .. } => {
+                current = *target;
+                guard += 1;
+            }
+            Type::Enum { name, .. } => return Some(name.clone()),
+            _ => return None,
+        }
+    }
+    None
+}
+
 /// Rewrite an initializer expression so that an unqualified `NameRef`
-/// matching an enum variant of `target_type_id` becomes an `Expr::Literal`
-/// with the resolved `Value::Enum`. Non-matching expressions are returned
-/// unchanged.
-///
-/// Mirrors the approach `lower_case_label` uses for CASE labels
-/// introduced by commit 8d7f069: when the surrounding context supplies an
-/// enum target type, treat a bare variant name as the corresponding
-/// enum literal instead of deferring it to a plain name lookup that
-/// would fail at initializer evaluation time.
+/// resolved by HIR as an enum value of `target_type_id` becomes an
+/// `Expr::Literal` with the corresponding `Value::Enum`.
 pub(in crate::harness) fn resolve_initializer_enum_variant(
+    node: &SyntaxNode,
     expr: Expr,
     target_type_id: TypeId,
-    registry: &TypeRegistry,
+    ctx: &LoweringContext<'_>,
 ) -> Expr {
-    if let Expr::Name(name) = &expr {
-        if let Some(value) = enum_literal_value(name.as_str(), target_type_id, registry) {
-            return Expr::Literal(value);
-        }
+    if node.kind() != SyntaxKind::NameRef {
+        return expr;
+    }
+    let Expr::Name(name) = &expr else {
+        return expr;
+    };
+
+    let (semantic_db, semantic_file_id) = match (ctx.semantic_db, ctx.semantic_file_id) {
+        (Some(db), Some(file_id)) => (db, file_id),
+        _ => return expr,
+    };
+    let analysis = semantic_db.analyze(semantic_file_id);
+    let symbols = analysis.symbols.as_ref();
+    let scope_context = expression_scope_context(symbols, node);
+    let Some(symbol_id) = resolve_name_symbol_in_scope(
+        symbols,
+        scope_context.scope_id,
+        scope_context.current_pou_symbol,
+        scope_context.this_type,
+        name.as_str(),
+    ) else {
+        return expr;
+    };
+    let Some(symbol) = symbols.get(symbol_id) else {
+        return expr;
+    };
+    if !matches!(symbol.kind, SymbolKind::EnumValue { .. }) {
+        return expr;
+    }
+
+    let Some(symbol_enum_name) = semantic_enum_type_name(symbols, symbol.type_id) else {
+        return expr;
+    };
+    let Some(target_enum_name) = runtime_enum_type_name(ctx.registry, target_type_id) else {
+        return expr;
+    };
+    if !symbol_enum_name.eq_ignore_ascii_case(target_enum_name.as_str()) {
+        return expr;
+    }
+
+    if let Some(value) = enum_literal_value(name.as_str(), target_type_id, ctx.registry) {
+        return Expr::Literal(value);
     }
     expr
 }

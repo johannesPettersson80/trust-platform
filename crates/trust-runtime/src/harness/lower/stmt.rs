@@ -92,7 +92,7 @@ fn lower_assign(node: &SyntaxNode, ctx: &mut LoweringContext<'_>) -> Result<Stmt
     let target = lower_lvalue(&exprs[0], ctx)?;
     let value = lower_expr(&exprs[1], ctx)?;
     let value = match target_type {
-        Some(type_id) => resolve_initializer_enum_variant(value, type_id, ctx.registry),
+        Some(type_id) => resolve_initializer_enum_variant(&exprs[1], value, type_id, ctx),
         None => value,
     };
     let location = stmt_location(node, ctx);
