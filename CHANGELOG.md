@@ -102,6 +102,12 @@ Target release: `v0.19.0`
 
 ### Fixed
 
+- The public docs and repo landing surfaces now lead with the strongest truST
+  story instead of burying it behind browser-first proof shots: the homepage,
+  `Program In VS Code`, `Debugging And Runtime Panel`, and `README.md` now show
+  real desktop VS Code screenshots for the runtime panel, IEC-aware diagnostics,
+  paused debugging, and cross-file rename, while browser IDE/HMI surfaces are
+  clearly presented as supporting views of the same project.
 - The docs site now ships the truST wordmark, a dedicated favicon, and a teal
   Material theme instead of the default MkDocs branding, and the public pages
   were rewritten to remove boilerplate "use this page when..." framing and

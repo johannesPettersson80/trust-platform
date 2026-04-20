@@ -115,6 +115,54 @@
       "source": "trust-runtime agent serve help output"
     },
     {
+      "path": "images/architecture/workflow-overview.svg",
+      "class": "diagram",
+      "generator": "hand-authored",
+      "source": "workflow overview from source files through artifacts into trust-runtime and browser surfaces"
+    },
+    {
+      "path": "images/brand/trust-logo.svg",
+      "class": "brand-asset",
+      "generator": "hand-authored",
+      "source": "truST wordmark used on the docs homepage"
+    },
+    {
+      "path": "images/hero-runtime.png",
+      "class": "vscode-desktop-surface",
+      "generator": "synced-media",
+      "source": "desktop VS Code with Structured Text code, runtime panel, live I/O, memory, and compile diagnostics"
+    },
+    {
+      "path": "images/runtime/ui-overview.png",
+      "class": "browser-product-surface",
+      "generator": "synced-media",
+      "source": "browser runtime overview with health, cycle timing, tasks, controls, and live I/O summary"
+    },
+    {
+      "path": "images/visual-editors/statechart.png",
+      "class": "vscode-desktop-surface",
+      "generator": "synced-media",
+      "source": "desktop VS Code statechart editor screenshot"
+    },
+    {
+      "path": "images/vscode/iec-diagnostics.png",
+      "class": "vscode-desktop-surface",
+      "generator": "synced-media",
+      "source": "desktop VS Code Problems panel showing IEC-aware diagnostics"
+    },
+    {
+      "path": "images/vscode/debugger-stopped-at-breakpoint.png",
+      "class": "vscode-desktop-surface",
+      "generator": "synced-media",
+      "source": "desktop VS Code debugger paused at a breakpoint with locals and runtime panel visible"
+    },
+    {
+      "path": "images/vscode/lsp-rename-across-files.png",
+      "class": "vscode-desktop-surface",
+      "generator": "synced-media",
+      "source": "desktop VS Code rename preview across files for a Structured Text symbol"
+    },
+    {
       "path": "images/vscode/workspace-shell.png",
       "class": "vscode-browser-surface",
       "generator": "playwright+code-server",

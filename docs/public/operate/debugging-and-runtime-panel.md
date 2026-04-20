@@ -1,11 +1,19 @@
 # Debugging And Runtime Panel
 
+truST puts the debugger and runtime panel beside your Structured Text code in
+VS Code.
+
+![Debugger paused at a breakpoint in VS Code](../assets/images/vscode/debugger-stopped-at-breakpoint.png)
+
+*Figure:* The debugger paused at a breakpoint with locals, call stack, inline
+values, and the runtime panel visible beside the code.
+
 ## What this surface gives you
 
-- debugger
-- runtime panel
-- inline and runtime values
-- live I/O inspection
+- breakpoints and stepping at ST statement boundaries
+- locals, call stack, and inline values in the editor
+- live I/O, memory, and compile diagnostics in the runtime panel
+- one project and control endpoint shared by edit, run, and debug
 
 ## Fast path
 
@@ -17,17 +25,16 @@
 
 ## Runtime panel
 
+![Desktop VS Code with the truST runtime panel](../assets/images/hero-runtime.png)
+
+*Figure:* Desktop VS Code with Structured Text code, the runtime panel docked
+on the right, live I/O, memory, and compile diagnostics in one window.
+
 Use the runtime panel for:
 
 - live I/O read and quick state checks
 - quick local iteration without leaving the editor
 - viewing runtime state while editing code
-
-![Runtime overview with live inputs and outputs](../assets/images/runtime/ui-overview.png)
-
-*Figure:* The runtime overview shows health, cycle timing, tasks, and the live
-input/output summary. This screenshot does not show a paused debugger or a
-force-confirmation dialog.
 
 ### Good panel workflows
 
@@ -78,6 +85,17 @@ control endpoint the rest of truST uses.
 3. Set a breakpoint in the ST file you care about.
 4. Press `F5`.
 5. Inspect variables, step, and resume until the failure condition is understood.
+
+## Browser Runtime Overview
+
+If you need a browser-hosted runtime summary outside VS Code, use the runtime
+web UI.
+
+![Runtime overview with live inputs and outputs](../assets/images/runtime/ui-overview.png)
+
+*Figure:* The browser runtime overview shows health, cycle timing, tasks, and
+the live input/output summary when you need the same runtime state outside the
+editor.
 
 ### When not to use the debugger
 

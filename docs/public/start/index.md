@@ -13,8 +13,10 @@ Find your starting page.
 - [Installation](installation.md): what to install and how to know it worked.
 - [Choose Your Workflow](choose-your-workflow.md): pick the right starting
   track.
-- [Program In VS Code](program-in-vscode.md): the primary engineering workflow.
-- [Program In Browser IDE](program-in-browser.md): browser-hosted engineering with `/ide`.
+- [Program In VS Code](program-in-vscode.md): the primary desktop engineering
+  workflow with IEC diagnostics, debugger, and runtime panel.
+- [Program In Browser IDE](program-in-browser.md): browser-hosted engineering
+  with `/ide` when you specifically want the browser surface.
 - [Operate In Browser HMI](operate-in-browser.md): operator/technician path
   when you already have the HMI URL.
 - [Automate With CLI / CI / agents](automate-with-cli.md): shell, CI, and

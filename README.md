@@ -13,11 +13,17 @@ Documentation: <https://johannespettersson80.github.io/trust-platform/>
 
 truST is an open-source IEC 61131-3 Structured Text toolchain with:
 
-- a VS Code extension and language server
+- a VS Code extension and IEC-aware language server
+- a live runtime panel and `trust-debug` debugger in the editor
 - `trust-runtime` for local and target execution
-- `trust-debug` for DAP debugging
 - browser IDE and HMI pages at `/ide` and `/hmi`
 - CLI, agent, and harness workflows for automation
+
+![Desktop VS Code with the truST runtime panel](docs/public/assets/images/hero-runtime.png)
+
+Desktop VS Code is the primary truST engineering surface: edit Structured
+Text, inspect live I/O and memory, view compile diagnostics, and debug the same
+running project without leaving the editor.
 
 ## Start
 
@@ -28,7 +34,8 @@ truST is an open-source IEC 61131-3 Structured Text toolchain with:
 ## Features
 
 - IEC-aware diagnostics, formatting, rename, navigation, and refactors
-- runtime panel with live values and I/O inspection
+- runtime panel with live values, memory, and I/O inspection
+- debugger with breakpoints, stepping, locals, and call stack
 - browser IDE and operator HMI backed by the same project/runtime
 - deterministic test and harness workflows
 - PLCopen XML import/export and visual editor support

@@ -18,6 +18,18 @@ COPY_MAP: list[tuple[Path, Path]] = [
         ASSET_ROOT / "hero-runtime.png",
     ),
     (
+        REPO_ROOT / "editors/vscode/assets/screenshot-diagnostics.png",
+        ASSET_ROOT / "vscode/iec-diagnostics.png",
+    ),
+    (
+        REPO_ROOT / "editors/vscode/assets/debug.png",
+        ASSET_ROOT / "vscode/debugger-stopped-at-breakpoint.png",
+    ),
+    (
+        REPO_ROOT / "editors/vscode/assets/rename.png",
+        ASSET_ROOT / "vscode/lsp-rename-across-files.png",
+    ),
+    (
         REPO_ROOT / "docs/internal/assets/ui-overview.png",
         ASSET_ROOT / "runtime/ui-overview.png",
     ),
