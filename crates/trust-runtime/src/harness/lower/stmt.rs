@@ -8,6 +8,7 @@ use super::super::util::{direct_expr_children, first_expr_child, is_statement_ki
 use super::super::{CompileError, LoweringContext};
 use super::expr::{
     const_value_from_node, enum_literal_value, lower_expr, lower_expression_type, lower_lvalue,
+    resolve_initializer_enum_variant,
 };
 
 pub(in crate::harness) fn lower_stmt_list(
@@ -87,8 +88,13 @@ fn lower_assign(node: &SyntaxNode, ctx: &mut LoweringContext<'_>) -> Result<Stmt
     if exprs.len() != 2 {
         return Err(CompileError::new("invalid assignment"));
     }
+    let target_type = lower_expression_type(&exprs[0], ctx)?;
     let target = lower_lvalue(&exprs[0], ctx)?;
     let value = lower_expr(&exprs[1], ctx)?;
+    let value = match target_type {
+        Some(type_id) => resolve_initializer_enum_variant(&exprs[1], value, type_id, ctx),
+        None => value,
+    };
     let location = stmt_location(node, ctx);
     if assignment_is_attempt(node) {
         Ok(Stmt::AssignAttempt {

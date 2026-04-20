@@ -70,10 +70,24 @@ pub(in crate::harness) fn lower_expr(
             if exprs.len() != 2 {
                 return Err(CompileError::new("invalid binary expression"));
             }
+            let left_type = lower_expression_type(&exprs[0], ctx)?;
+            let right_type = lower_expression_type(&exprs[1], ctx)?;
+            let mut left = lower_expr(&exprs[0], ctx)?;
+            let mut right = lower_expr(&exprs[1], ctx)?;
+            // Let a bare enum variant name on one side resolve against the
+            // other side's enum type. Mirrors the v0.18.4 CASE-label fix
+            // (commit 8d7f069) for symmetric binary operands such as
+            // `state = RUNNING` and `RUNNING = state`.
+            if let Some(type_id) = right_type {
+                left = resolve_initializer_enum_variant(&exprs[0], left, type_id, ctx);
+            }
+            if let Some(type_id) = left_type {
+                right = resolve_initializer_enum_variant(&exprs[1], right, type_id, ctx);
+            }
             Ok(Expr::Binary {
                 op,
-                left: Box::new(lower_expr(&exprs[0], ctx)?),
-                right: Box::new(lower_expr(&exprs[1], ctx)?),
+                left: Box::new(left),
+                right: Box::new(right),
             })
         }
         SyntaxKind::ParenExpr => {
@@ -220,7 +234,7 @@ fn lower_sizeof_value_operand_type(
         _ => return Ok(None),
     };
 
-    let offset = u32::from(node.text_range().start());
+    let offset = offset_for_type_lookup(node);
     let Some(expr_id) = semantic_db.expr_id_at_offset(semantic_file_id, offset) else {
         return Ok(None);
     };
@@ -258,6 +272,25 @@ fn lower_sizeof_value_operand_type(
     Ok(Some(runtime_type_id))
 }
 
+/// Pick an offset inside `node` that makes HIR's "smallest expression
+/// containing this offset" heuristic land on `node` itself rather than a
+/// leading child such as the leftmost `NameRef` of an `IndexExpr` or
+/// `FieldExpr`. The last byte of the text range is inside the outer
+/// expression but outside the half-open ranges of its prefix children,
+/// so it disambiguates `arr[i]`, `c.p`, and `arr[i].p` without affecting
+/// simple `NameRef` / `DerefExpr` / `ThisExpr` cases, whose ranges
+/// already contain their own last byte.
+fn offset_for_type_lookup(node: &SyntaxNode) -> u32 {
+    let range = node.text_range();
+    let end = u32::from(range.end());
+    let start = u32::from(range.start());
+    if end > start {
+        end - 1
+    } else {
+        start
+    }
+}
+
 pub(in crate::harness) fn lower_expression_type(
     node: &SyntaxNode,
     ctx: &mut LoweringContext<'_>,
@@ -274,7 +307,7 @@ pub(in crate::harness) fn lower_expression_type(
         _ => return Ok(None),
     };
 
-    let offset = u32::from(node.text_range().start());
+    let offset = offset_for_type_lookup(node);
     let Some(expr_id) = semantic_db.expr_id_at_offset(semantic_file_id, offset) else {
         return Ok(None);
     };
