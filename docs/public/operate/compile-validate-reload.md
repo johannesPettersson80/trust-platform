@@ -1,11 +1,9 @@
 # Compile, Validate, Reload / Hot Reload
 
-Use this page when you need the tight edit -> diagnose -> build -> reload loop.
-
 This is the public hot-reload path for truST: diagnose first, then rebuild, then
 reload only when the project is clean enough to run.
 
-## The Agent Path
+## For automated tools
 
 The preferred machine-facing loop is:
 
@@ -14,7 +12,7 @@ The preferred machine-facing loop is:
 3. `lsp.format`
 4. `runtime.compile_reload`
 
-`runtime.compile_reload` is the one-call repair-loop surface because it:
+`runtime.compile_reload` is the one-call repair loop because it:
 
 - collects diagnostics
 - blocks on errors
@@ -51,8 +49,8 @@ Current `runtimeStatus` values are:
 
 Reload is intentionally blocked when diagnostics contain errors. That keeps
 agents and editors from pushing obviously broken bytecode into a live runtime.
-In other words, hot reload is guarded by diagnostics instead of blindly
-swapping bytecode into a broken runtime state.
+In other words, hot reload is guarded by diagnostics instead of replacing
+bytecode in a broken runtime state.
 
 ## Editor Path
 

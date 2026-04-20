@@ -1,8 +1,5 @@
 # Historian And Database
 
-Use this page when you need to move runtime values into a historian, database,
-or long-term reporting system.
-
 ## What truST Gives You Today
 
 - observability outputs and historian-friendly runtime data:

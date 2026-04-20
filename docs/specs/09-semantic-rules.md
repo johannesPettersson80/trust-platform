@@ -540,50 +540,14 @@ Time := TOD#25:00:00;            // ERROR: Invalid hour 25
 DateTime := DT#2024-02-30-12:00; // ERROR: Feb 30 doesn't exist
 ```
 
-## 12. Diagnostic Severity Levels
+## 12. Diagnostic Ownership
 
-| Severity | Description | Examples |
-|----------|-------------|----------|
-| Error | Must be fixed, prevents compilation | Type mismatch, undefined reference |
-| Warning | Potential issue, may indicate bug | Unused variable, implicit conversion |
-| Info | Informational, style suggestions | Naming conventions |
+Semantic validity rules stay in this document. Diagnostic code allocation,
+severity guidance, LSP payload details, and editor refresh behavior are owned
+by `14-lsp.md`.
 
-### Recommended Diagnostic Categories
-
-**Errors**:
-- Undefined identifier
-- Type mismatch
-- Duplicate declaration
-- Invalid assignment target
-- Missing return value
-- Access specifier violation
-- Invalid inheritance
-
-**Warnings**:
-- Unused variable
-- Unused POU (program/function/function block)
-- Unreachable code
-- Implicit type conversion
-- Subrange value outside range
-- Possible null dereference
-- Missing ELSE in CASE
-- High cyclomatic complexity (non-IEC quality lint)
-- Non-deterministic time/date usage and direct I/O bindings (tooling lint; IEC 61131-3 Ed.3 §6.4.2 Table 10; §6.5.5 Table 16)
-- Shared global access across tasks with writes (tooling lint; IEC 61131-3 Ed.3 §6.5.2.2 Tables 13–16; §6.2/§6.8.2 Table 62)
-- Numeric hazards: floating-point equality and literal zero divisors (tooling lint; non-IEC)
-
-Warning diagnostics can be toggled per workspace via `trust-lsp.toml` `[diagnostics]` to match vendor dialect expectations (not all IEC 61131-3 tools emit the same warnings). Missing ELSE and implicit conversion warnings reference IEC 61131-3 Ed.3 §7.3.3.3.3 and §6.4.2 respectively. Cyclomatic complexity warnings (W008) trigger when a POU exceeds the default complexity threshold (15); they are a tooling quality lint rather than an IEC requirement. Unused POU warnings (W009) flag unreferenced programs/functions/function blocks. Numeric hazard warnings (W013/W014) flag equality/inequality comparisons involving `REAL`/`LREAL` operands and `DIV`/`MOD` expressions with literal zero right-hand operands; they are tooling lints rather than IEC-mandated diagnostics.
-Unreachable code warnings (W003) are reported for statements following unconditional terminators (`RETURN`, `EXIT`, `CONTINUE`, `JMP`) within the same statement list, and for branches guarded by constant boolean conditions (e.g., `IF FALSE THEN ...`).
-Non-determinism warnings (W010/W011) flag time/date typed symbols and direct I/O bindings as a tooling quality lint; they reference the IEC type and direct variable definitions (IEC 61131-3 Ed.3 §6.4.2 Table 10; §6.5.5 Table 16).
-Shared-global hazards (W012) flag VAR_GLOBAL values that are accessed by programs scheduled on multiple tasks when at least one task writes the variable. This is a tooling lint that references global variable and task configuration definitions (IEC 61131-3 Ed.3 §6.5.2.2 Tables 13–16; §6.2/§6.8.2 Table 62).
-
-## 13. Configuration/Resource/Task Diagnostics
-
-IEC 61131-3 Ed.3 §6.2 and §6.8.2 (Table 62) define CONFIGURATION/RESOURCE/TASK syntax and task scheduling inputs. trust-lsp enforces the following:
-
-- TASK init must include `PRIORITY := <Unsigned_Int>`; missing or non-integer priorities are errors (E306).
-- `SINGLE` expects a BOOL literal when provided; `INTERVAL` expects a TIME literal when provided (E306).
-- `PROGRAM ... WITH <Task_Name>` must reference a TASK declared in the same RESOURCE or CONFIGURATION (E307).
+Configuration/resource/task declarations and their IEC-aligned validation rules
+are owned by `18-configurations-resources-tasks.md`.
 
 ## Implementation Notes for trust-hir
 

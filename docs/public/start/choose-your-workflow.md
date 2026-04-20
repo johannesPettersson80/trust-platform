@@ -1,8 +1,5 @@
 # Choose Your Workflow
 
-Use this page when you need the fastest route to the right truST surface for
-your job.
-
 ## Workflow Cards
 
 | Workflow | Best for | You can do | You should not expect |

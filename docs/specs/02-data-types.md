@@ -279,6 +279,32 @@ refInt^ := 100;  // myInt is now 100
 - Assignment attempt with `?=` may yield `NULL`; callers must check for `NULL` before use (IEC 61131-3 Ed.3, 6.6.6.7.2, Table 52)
 - Dereferencing `NULL` is a runtime error (IEC 61131-3 Ed.3, Table 12)
 
+### 4.2 POINTER TO (Non-IEC Extension)
+
+truST supports `POINTER TO` as a vendor-style extension alongside IEC
+`REF_TO`; see `docs/IEC_DEVIATIONS.md` (DEV-018).
+
+```text
+VAR
+  ValuePtr : POINTER TO INT;
+END_VAR
+
+ValuePtr := ADR(SomeInt);
+ValuePtr^ := 42;
+IF ValuePtr = NULL THEN
+  ValuePtr ?= ADR(FallbackInt);
+END_IF;
+```
+
+**Rules**:
+
+- `ADR(...)` produces a typed `POINTER TO <target>`
+- Dereference (`^`) is a valid lvalue/rvalue on compatible pointer targets
+- `NULL` is allowed for `POINTER TO` and `REF_TO`
+- `?=` may be used to initialize a pointer/reference only when the target is
+  currently `NULL`
+- Pointer arithmetic is not supported
+
 ## 5. Type Conversion Rules (Figures 11-12, Section 6.4.2)
 
 ### Implicit Conversions
@@ -307,7 +333,7 @@ Use `<TYPE>_TO_<TYPE>` functions:
 4. **Date/Time conversions**: Various standard functions
 5. **String conversions**: Various standard functions
 
-## 6. String Operations
+## 6. String Types and Character Access
 
 ### String Length Declaration
 
@@ -330,17 +356,11 @@ VAR
 END_VAR
 ```
 
-```
-VAR
-  s1: STRING[10] := 'ABCD';     // Max 10 chars, initial length 4
-  s2: STRING;                    // Implementer-specific max length
-END_VAR
-```
-
 **Rules**:
 - `STRING[n]`/`WSTRING[n]` declare a maximum length of `n` characters; `n` must be a positive integer constant expression. (IEC 61131-3 Ed.3, Table 10)
 - Default initial value of `STRING`/`WSTRING` is the empty string (`''` / `""`). (IEC 61131-3 Ed.3, Table 10)
 - String literals used for initialization must be compatible with `ANY_STRING` and shall not exceed the declared maximum length. (IEC 61131-3 Ed.3, Figure 6)
+- Callable string-library functions (`LEN`, `LEFT`, `RIGHT`, `MID`, `CONCAT`, `INSERT`, `DELETE`, `REPLACE`, `FIND`) are specified in `07-standard-functions.md`.
 
 ### Character Access
 
@@ -353,6 +373,11 @@ END_VAR
 ch := str[2];      // ch = 'B' (1-indexed)
 str[3] := 'X';     // str = 'ABXD'
 ```
+
+**Rules**:
+- Character indexing is 1-based.
+- Indexing a string yields or updates a compatible `CHAR`/`WCHAR` element.
+- String library calls are specified in `07-standard-functions.md` §8.
 
 **Rules**:
 - Position 1 is the first character

@@ -1,8 +1,5 @@
 # Program In Browser IDE
 
-Use this page when you want browser-hosted engineering. An administrator starts
-`trust-runtime` once and gives you the URL.
-
 ## Truth First
 
 - Browser IDE lives at `/ide`

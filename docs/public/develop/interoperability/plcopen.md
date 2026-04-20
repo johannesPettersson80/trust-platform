@@ -1,10 +1,6 @@
 # PLCopen
 
-Use PLCopen workflows for interchange, migration, and round-trip inspection.
-This page is for PLCopen XML contracts and compatibility, not for editor-first
-authoring inside truST.
-
-Start here when:
+Use this guide when:
 
 - you are importing or exporting PLCopen XML
 - you need to understand what survives a round trip

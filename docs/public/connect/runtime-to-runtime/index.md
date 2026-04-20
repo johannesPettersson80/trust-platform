@@ -1,7 +1,5 @@
 # Runtime To Runtime
 
-Open this section when you need to connect runtimes to each other.
-
 ```mermaid
 flowchart LR
     A[Runtime A] -->|discover and pair| B[Runtime B]

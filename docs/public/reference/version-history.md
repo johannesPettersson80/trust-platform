@@ -1,8 +1,5 @@
 # Version History
 
-Use this page when you need the high-level "what changed between releases?"
-view. Use the [Changelog](../changelog.md) for full detail.
-
 ## Current Baseline
 
 - current released baseline at the time of writing: `v0.18.5`
@@ -22,7 +19,7 @@ view. Use the [Changelog](../changelog.md) for full detail.
 
 - if you are returning after a few weeks or months, start here
 - then open the full [Changelog](../changelog.md)
-- if you are upgrading a real installation, also read
+- if you are upgrading an installed runtime, also read
   [Upgrade](../operate/upgrade.md)
 
 ## Related

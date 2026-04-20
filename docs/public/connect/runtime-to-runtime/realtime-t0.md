@@ -1,8 +1,5 @@
 # Realtime T0
 
-Use this path when the transport question is about the low-latency same-host or
-tightly coupled realtime plane, not about cloud or federation workflows.
-
 ## What T0 is
 
 In the runtime code, T0 is the deterministic same-host HardRT route. It is not

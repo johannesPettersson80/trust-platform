@@ -157,7 +157,11 @@ TRANSITION, END_TRANSITION, FROM, TO
 ACTION, END_ACTION
 ```
 
-> **ST-only note**: SFC keywords are reserved by IEC 61131-3 but SFC syntax/semantics are out-of-scope for truST. They are treated as reserved keywords only (see `docs/IEC_DEVIATIONS.md`).
+> **SFC profile note**: truST reserves the IEC SFC keywords and ships a visual
+> SFC editor, but textual SFC body syntax is not specified in the Structured
+> Text parser. Use the visual-editor documentation for current authoring scope;
+> see `docs/public/develop/visual-editors/sfc.md` and `docs/IEC_DEVIATIONS.md`
+> (DEV-020).
 
 #### Special
 ```

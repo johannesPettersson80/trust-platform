@@ -28,6 +28,11 @@ hmi/
 
 ## Write Policy
 
+| policy_mode | `enabled` | `default_role` | `allowlist` | Example |
+| --- | --- | --- | --- | --- |
+| read-only | `false` | `viewer` | `[]` | alarms/trends only |
+| controlled writes | `true` | `operator` | explicit symbol list | start/stop buttons, setpoints |
+
 Minimal read-only policy:
 
 ```toml

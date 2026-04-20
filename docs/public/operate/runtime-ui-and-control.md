@@ -1,13 +1,10 @@
 # Runtime UI, Control, And Control Endpoint
 
-Use this page when you want to operate a running runtime from terminal or built
-in UI surfaces.
+Use the terminal UI, CLI, and web UI to inspect or control a running runtime.
 
-This is also the main user-facing page for runtime control endpoint workflows.
+## Control options
 
-## Primary surfaces
-
-| Surface | Best for |
+| Interface | Best for |
 | --- | --- |
 | `trust-runtime ui` | interactive operator and developer terminal UI |
 | `trust-runtime ctl` | scriptable control actions against a running runtime |
@@ -60,7 +57,7 @@ Important command families:
 - `restart`, `shutdown`
 - `config-get`, `config-set`
 
-## Use this page for
+## Capabilities
 
 - manual control
 - operator terminal workflows

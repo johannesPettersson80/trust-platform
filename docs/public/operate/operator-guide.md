@@ -1,9 +1,5 @@
 # Operator Guide
 
-Use this page when the reader is an operator or maintainer rather than the
-developer authoring the PLC project. This is the place for day-to-day runtime
-handling, not source-authoring conventions.
-
 This page is the generic truST operator guide. Site-specific URLs, contacts,
 alarm actions, and shift procedures belong in a local runbook.
 

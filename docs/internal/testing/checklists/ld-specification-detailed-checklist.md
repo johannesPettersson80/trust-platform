@@ -16,9 +16,9 @@ Truth policy:
 ## 1. Governance and Baseline
 
 - [x] IEC baseline fixed to Edition 3.0 (2013-02) in LD spec docs.
-  Evidence: `docs/specs/11-ladder-diagram.md:3`, `docs/specs/README.md:31`.
+  Evidence: `docs/specs/15-ladder-diagram.md:3`, `docs/specs/README.md:31`.
 - [x] LD normative vs implementation-profile split is explicit and consistent.
-  Evidence: `docs/specs/README.md:7`, `docs/specs/README.md:8`, `docs/specs/11-ladder-diagram.md:20`, `docs/specs/12-ladder-profile-trust.md:5`.
+  Evidence: `docs/specs/README.md:7`, `docs/specs/README.md:8`, `docs/specs/15-ladder-diagram.md:20`, `docs/specs/16-ladder-profile-trust.md:5`.
 - [x] Ambiguities are captured in `docs/IEC_DECISIONS.md`.
   Evidence: `docs/IEC_DECISIONS.md:5`, `docs/IEC_DECISIONS.md:35`.
 - [x] Deviations/extensions are captured in `docs/IEC_DEVIATIONS.md`.
@@ -29,56 +29,56 @@ Truth policy:
 ## 2. Normative LD Language Spec Completeness
 
 Target file:
-- `docs/specs/11-ladder-diagram.md`
+- `docs/specs/15-ladder-diagram.md`
 
 - [x] Conformance language (`MUST/SHOULD/MAY`) is present.
-  Evidence: `docs/specs/11-ladder-diagram.md:22`.
+  Evidence: `docs/specs/15-ladder-diagram.md:22`.
 - [x] IEC anchors for LD semantics are listed (Section 8.2, relevant FB tables).
-  Evidence: `docs/specs/11-ladder-diagram.md:30`.
+  Evidence: `docs/specs/15-ladder-diagram.md:30`.
 - [x] Network/rung model and evaluation ordering are defined.
-  Evidence: `docs/specs/11-ladder-diagram.md:39`, `docs/specs/11-ladder-diagram.md:41`.
+  Evidence: `docs/specs/15-ladder-diagram.md:39`, `docs/specs/15-ladder-diagram.md:41`.
 - [x] Left-to-right power flow and branch semantics are defined.
-  Evidence: `docs/specs/11-ladder-diagram.md:45`, `docs/specs/11-ladder-diagram.md:47`, `docs/specs/11-ladder-diagram.md:102`.
+  Evidence: `docs/specs/15-ladder-diagram.md:45`, `docs/specs/15-ladder-diagram.md:47`, `docs/specs/15-ladder-diagram.md:102`.
 - [x] Contact semantics (`NO`, `NC`) are defined.
-  Evidence: `docs/specs/11-ladder-diagram.md:90`.
+  Evidence: `docs/specs/15-ladder-diagram.md:90`.
 - [x] Coil semantics (`NORMAL`, `SET`, `RESET`, `NEGATED`) are defined.
-  Evidence: `docs/specs/11-ladder-diagram.md:95`.
+  Evidence: `docs/specs/15-ladder-diagram.md:95`.
 - [x] Function/function-block invocation rules are defined.
-  Evidence: `docs/specs/11-ladder-diagram.md:108`.
+  Evidence: `docs/specs/15-ladder-diagram.md:108`.
 - [x] Timer/counter semantic expectations map to IEC Table 45/46.
-  Evidence: `docs/specs/11-ladder-diagram.md:126`, `docs/specs/11-ladder-diagram.md:127`.
+  Evidence: `docs/specs/15-ladder-diagram.md:126`, `docs/specs/15-ladder-diagram.md:127`.
 - [x] Scan-cycle model (read/evaluate/commit/publish) is defined.
-  Evidence: `docs/specs/11-ladder-diagram.md:132`.
+  Evidence: `docs/specs/15-ladder-diagram.md:132`.
 - [x] Required diagnostics are enumerated.
-  Evidence: `docs/specs/11-ladder-diagram.md:145`.
+  Evidence: `docs/specs/15-ladder-diagram.md:145`.
 - [x] Edition 2 vs 3 compatibility statement is present.
-  Evidence: `docs/specs/11-ladder-diagram.md:157`.
+  Evidence: `docs/specs/15-ladder-diagram.md:157`.
 - [x] Symbolic-first variable policy is explicit.
-  Evidence: `docs/specs/11-ladder-diagram.md:60`.
+  Evidence: `docs/specs/15-ladder-diagram.md:60`.
 - [x] Local/global variable separation is defined via IEC sections (`VAR*`, `VAR_GLOBAL`, `VAR_EXTERNAL`).
-  Evidence: `docs/specs/11-ladder-diagram.md:65`, `docs/specs/11-ladder-diagram.md:67`, `docs/specs/11-ladder-diagram.md:78`.
+  Evidence: `docs/specs/15-ladder-diagram.md:65`, `docs/specs/15-ladder-diagram.md:67`, `docs/specs/15-ladder-diagram.md:78`.
 
 ## 3. Implementation Profile Completeness
 
 Target file:
-- `docs/specs/12-ladder-profile-trust.md`
+- `docs/specs/16-ladder-profile-trust.md`
 
 - [x] Schema v2 top-level contract is documented (`schemaVersion`, `metadata`, `variables`, `networks`).
-  Evidence: `docs/specs/12-ladder-profile-trust.md:18`, `docs/specs/12-ladder-profile-trust.md:30`.
+  Evidence: `docs/specs/16-ladder-profile-trust.md:18`, `docs/specs/16-ladder-profile-trust.md:30`.
 - [x] Supported LD node subset is fully listed.
-  Evidence: `docs/specs/12-ladder-profile-trust.md:55`.
+  Evidence: `docs/specs/16-ladder-profile-trust.md:55`.
 - [x] Runtime deterministic behavior and topology validation contract are documented.
-  Evidence: `docs/specs/12-ladder-profile-trust.md:67`.
+  Evidence: `docs/specs/16-ladder-profile-trust.md:67`.
 - [x] Variable/address runtime behavior is documented as profile-level, not normative limit.
-  Evidence: `docs/specs/12-ladder-profile-trust.md:81`, `docs/specs/12-ladder-profile-trust.md:96`.
+  Evidence: `docs/specs/16-ladder-profile-trust.md:81`, `docs/specs/16-ladder-profile-trust.md:96`.
 - [x] Runtime right-pane parity contract for Ladder/Statechart/Blockly is documented.
-  Evidence: `docs/specs/12-ladder-profile-trust.md:98`.
+  Evidence: `docs/specs/16-ladder-profile-trust.md:98`.
 - [x] PLCopen LD interop subset and diagnostics behavior are documented.
-  Evidence: `docs/specs/12-ladder-profile-trust.md:119`, `docs/specs/12-ladder-profile-trust.md:127`.
+  Evidence: `docs/specs/16-ladder-profile-trust.md:119`, `docs/specs/16-ladder-profile-trust.md:127`.
 - [x] Profile limitations are linked to `docs/IEC_DEVIATIONS.md`.
-  Evidence: `docs/specs/12-ladder-profile-trust.md:141`.
+  Evidence: `docs/specs/16-ladder-profile-trust.md:141`.
 - [x] Primary verification tests are listed.
-  Evidence: `docs/specs/12-ladder-profile-trust.md:146`.
+  Evidence: `docs/specs/16-ladder-profile-trust.md:146`.
 
 ## 4. Coverage and Traceability
 
@@ -100,7 +100,7 @@ Target files:
 ## 5. Runtime and Editor Parity Verification
 
 - [x] Shared runtime control contract is used by Ladder/Statechart/Blockly.
-  Evidence: `docs/specs/12-ladder-profile-trust.md:100`, `editors/vscode/src/test/suite/visual-runtime-controller.test.ts:9`.
+  Evidence: `docs/specs/16-ladder-profile-trust.md:100`, `editors/vscode/src/test/suite/visual-runtime-controller.test.ts:9`.
 - [x] Right pane is resizable with persisted width behavior.
   Evidence: `editors/vscode/src/test/suite/visual-right-pane-resize.test.ts:22`, `editors/vscode/src/test/suite/visual-right-pane-resize.test.ts:55`.
 - [x] Runtime panel bridge mode/state mapping is verified.
@@ -154,8 +154,8 @@ Target files:
   Evidence: `docs/specs/README.md:24`, `docs/specs/README.md:25`.
 - [x] `docs/specs/README.md` usage guide references LD coverage files.
   Evidence: `docs/specs/README.md:62`.
-- [x] No conflicting claims between `11-ladder-diagram.md` and `12-ladder-profile-trust.md`.
-  Evidence: `docs/specs/11-ladder-diagram.md:19`, `docs/specs/11-ladder-diagram.md:195`, `docs/specs/12-ladder-profile-trust.md:3`.
+- [x] No conflicting claims between `15-ladder-diagram.md` and `16-ladder-profile-trust.md`.
+  Evidence: `docs/specs/15-ladder-diagram.md:19`, `docs/specs/15-ladder-diagram.md:195`, `docs/specs/16-ladder-profile-trust.md:3`.
 - [x] Example docs are aligned with shipped behavior.
   Evidence: `examples/ladder/README.md` (updated right-pane `I/O`/`Settings`/`Tools` flow and runtime controls).
 

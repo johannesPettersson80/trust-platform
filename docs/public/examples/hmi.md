@@ -1,7 +1,6 @@
 # HMI
 
-Use this page when you want runnable HMI examples rather than only the
-authoring reference.
+Start with the shipped HMI tutorial project.
 
 ## Best starting point
 
@@ -14,9 +13,9 @@ authoring reference.
 - how `hmi/` is structured
 - how SVG IDs map to live runtime symbols
 - how overview, trends, alarms, and process pages fit together
-- how to verify the browser surface after runtime launch
+- how to verify the browser UI after runtime launch
 
-## Typical loop
+## Quick start
 
 1. Build the project.
 2. Run the runtime with web/HMI enabled.

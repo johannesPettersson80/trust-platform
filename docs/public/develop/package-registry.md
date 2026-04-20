@@ -1,8 +1,5 @@
 # Package Registry
 
-Use the package registry workflow when you want to publish or consume reusable
-truST packages instead of copying ST files between projects.
-
 ## Use it for
 
 - reusable libraries

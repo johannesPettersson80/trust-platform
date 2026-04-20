@@ -1,8 +1,5 @@
 # GPIO
 
-Use GPIO when IEC `%IX/%QX` addresses need to map directly to local host or
-edge lines.
-
 ## What to verify first
 
 - line numbers match the target host

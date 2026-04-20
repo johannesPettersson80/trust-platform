@@ -1,7 +1,5 @@
 # CI/CD
 
-Use this page when you want project build/test/docs workflows in CI rather than ad hoc local execution.
-
 ## Guide
 
 --8<-- "docs/guides/PLC_CI_CD.md"

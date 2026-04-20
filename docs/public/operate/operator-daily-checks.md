@@ -1,8 +1,5 @@
 # Operator Daily Checks
 
-Use this page when you need the generic start-of-shift or periodic operator
-checklist.
-
 ## Daily Checks
 
 1. confirm the HMI loads

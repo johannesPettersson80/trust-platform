@@ -1,7 +1,5 @@
 # Multi Driver
 
-Use this when one project needs more than one driver at once.
-
 ## Core rule
 
 Use exactly one of these forms in `io.toml`:

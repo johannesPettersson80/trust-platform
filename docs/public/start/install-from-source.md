@@ -1,7 +1,7 @@
 # Install From Source
 
-Use this page only when you are contributing to truST itself, testing an
-unreleased branch, or packaging custom binaries for your own environment.
+Build truST from source when you are contributing, testing unreleased changes,
+or packaging it yourself.
 
 ## Contributor Path
 
@@ -33,11 +33,11 @@ trust-runtime --version
 trust-runtime --help
 ```
 
-## When Not To Use This Page
+## Use release installs unless you need source builds
 
-- if you only want the editor workflow, use [Installation](installation.md)
-- if you only need runtime binaries, use the GitHub release download path from
-  [Installation](installation.md)
+- If you only want the editor workflow, use [Installation](installation.md).
+- If you only need runtime binaries, use the GitHub release download path from
+  [Installation](installation.md).
 
 ## Next
 

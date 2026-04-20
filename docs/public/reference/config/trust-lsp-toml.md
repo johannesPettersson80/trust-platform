@@ -33,12 +33,12 @@ control_endpoint = "unix:///tmp/trust-runtime.sock"
 
 Common `stdlib` forms:
 
-```toml
-stdlib = "full"
-stdlib = "iec"
-stdlib = "none"
-stdlib = ["ABS", "CTU", "TON"]
-```
+| Form | Meaning | Example |
+| --- | --- | --- |
+| string profile | use a named built-in profile | `stdlib = "full"` |
+| IEC-only profile | limit to IEC-facing standard library | `stdlib = "iec"` |
+| disabled | no preloaded stdlib symbols | `stdlib = "none"` |
+| explicit allowlist | load only named entries | `stdlib = ["ABS", "CTU", "TON"]` |
 
 ## `[dependencies]`
 

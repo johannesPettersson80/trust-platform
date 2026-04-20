@@ -3,7 +3,7 @@
 `trust-lsp` is the Language Server Protocol server for IEC 61131-3 Structured
 Text.
 
-## What it serves
+## Capabilities
 
 Standard LSP capabilities include:
 
@@ -22,10 +22,10 @@ Standard LSP capabilities include:
 - code lens
 - call hierarchy
 
-It also exposes a small `workspace/executeCommand` surface for project info and
+It also exposes a small `workspace/executeCommand` API for project info and
 HMI helper workflows.
 
-## What it does not serve
+## Not covered here
 
 Do not use `trust-lsp` when you need:
 

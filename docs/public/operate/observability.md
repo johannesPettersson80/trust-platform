@@ -1,8 +1,6 @@
 # Observability
 
-Use this page when you want metrics, historian, or runtime-level observability.
-
-## What this covers
+## What to monitor
 
 - historian file recording
 - Prometheus metrics export

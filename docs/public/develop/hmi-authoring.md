@@ -1,10 +1,6 @@
 # HMI Authoring
 
-Use this page when you are building or maintaining the `hmi/` directory for a
-project. This is the authoring path for browser/operator surfaces, not the
-place to learn runtime-cloud or raw transport setup.
-
-Read this when you need:
+This page covers:
 
 - HMI folder layout
 - widget/schema expectations
@@ -22,5 +18,5 @@ below while comparing the browser view with the `hmi/` files that define it.
 ## Related
 
 - [HMI And Web UI](../operate/hmi-and-web-ui.md)
-- [First Run And Setup](../start/first-run-and-setup.md)
+- [Program In Browser IDE](../start/program-in-browser.md)
 - [HMI examples](../examples/hmi.md)

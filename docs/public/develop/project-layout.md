@@ -1,10 +1,6 @@
 # Project Layout
 
-Use this page when you need the file-system mental model for a truST project.
-This page is for understanding an existing or new project layout, not for the
-first-success runtime workflow.
-
-## Canonical project tree
+## Project tree
 
 ```text
 my-plc/
@@ -63,7 +59,7 @@ workspace/
 - scattering `%I/%Q` mapping rules across comments instead of `Configuration.st`
 
 Use [Maintain An Existing Project](../start/maintain-an-existing-project.md)
-when a colleague handed you a real system. Use
+when a colleague handed you an existing system. Use
 [Create A New Project](../start/create-new-project.md) when you are starting
 from an empty folder.
 

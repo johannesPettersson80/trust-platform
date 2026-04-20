@@ -75,4 +75,4 @@ Disturbances schedule explicit events on the simulated plant.
 ## Related
 
 - [Simulation Workflow](../../operate/simulation.md)
-- [First Project](../../start/first-project.md)
+- [Create A New Project](../../start/create-new-project.md)

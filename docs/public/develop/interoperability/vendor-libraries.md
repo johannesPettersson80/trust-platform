@@ -1,9 +1,6 @@
 # Vendor Libraries
 
-Use vendor libraries when you need index-only symbol packs or compatibility
-shims without treating them as first-class project-owned code.
-
-Start here when:
+Use this guide when:
 
 - you need symbol visibility or migration help
 - you do not want to treat the imported pack as normal editable source

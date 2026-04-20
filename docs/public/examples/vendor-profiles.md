@@ -1,8 +1,5 @@
 # Vendor Profiles
 
-Use these examples when the real problem is migration, compatibility, or
-vendor-specific authoring style rather than greenfield IEC-only code.
-
 | Example folder | Use it for | Related docs |
 | --- | --- | --- |
 | `examples/siemens_scl_v1` | Siemens `#` symbol style, formatting, export path | [Siemens](../develop/interoperability/siemens.md) |

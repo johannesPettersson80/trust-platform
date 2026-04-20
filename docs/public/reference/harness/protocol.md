@@ -1,8 +1,6 @@
 # Harness Protocol
 
-Use this page when you need deterministic scan-cycle execution from scripts, CI, agents, or future local-model evaluation loops.
-
-## Canonical Protocol
+## Protocol Reference
 
 --8<-- "docs/guides/TRUST_HARNESS_PROTOCOL.md"
 

@@ -1,9 +1,5 @@
 # Visual Editors
 
-Use this section when you want to author logic visually without leaving the
-same project model, runtime, validation loop, or debug surfaces as hand-written
-Structured Text.
-
 ## Pick the right editor
 
 | Editor | Best for | What it feels like | Good first file |
@@ -31,4 +27,4 @@ Structured Text.
 
 - [Visual Companion Model](../../concepts/visual-companion-model.md)
 - [Visual editor examples](../../examples/visual-editors.md)
-- [Ladder spec](../../reference/specifications/11-ladder-diagram.md)
+- [Ladder spec](../../reference/specifications/15-ladder-diagram.md)

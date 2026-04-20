@@ -3,9 +3,9 @@
 truST visual editors are companion authoring surfaces over the same executable
 model, not separate runtimes with ad hoc translation.
 
-Use this page when you want the mental model behind companion ST rather than
-editor-specific instructions. If you need the operational authoring workflow,
-start with [Companion ST](../develop/visual-editors/companion-st.md).
+Use this mental model when you need the relationship between visual editors and
+companion ST. For operational authoring workflow, start with
+[Companion ST](../develop/visual-editors/companion-st.md).
 
 ## What that means
 
@@ -15,7 +15,7 @@ engine for each editor.
 
 ## Side-by-side mental model
 
-A visual rung or graph step remains the authoring surface, but the generated
+A visual rung or graph step remains the authoring UI, but the generated
 companion ST is still the executable bridge the rest of truST understands.
 
 Conceptually, a visual rung like:
@@ -39,7 +39,7 @@ execution model.
 When you save a visual model, the surrounding tooling should still align with:
 
 - the same project layout
-- the same runtime/debug surfaces
+- the same runtime/debug UIs
 - the same validation and reload loops
 - the same docs/reference model
 
@@ -57,5 +57,5 @@ visual workflow.
 
 - [Companion ST authoring rules](../develop/visual-editors/companion-st.md)
 - [Visual Editors overview](../develop/visual-editors/index.md)
-- [Visual Editors Runtime Unification spec](../reference/specifications/13-visual-editors-runtime-unification.md)
-- [Ladder Diagram spec](../reference/specifications/11-ladder-diagram.md)
+- [Visual Editors Runtime Unification spec](../reference/specifications/17-visual-editors-runtime-unification.md)
+- [Ladder Diagram spec](../reference/specifications/15-ladder-diagram.md)

@@ -1,8 +1,5 @@
 # Supervision
 
-Use this page when the runtime must stay up on a real machine and recover
-cleanly after restart or crash.
-
 ## Recommended Production Baseline
 
 - foreground runtime for development

@@ -1,8 +1,5 @@
 # Enterprise Integration
 
-Use this page when you need to route data between truST and plant IT systems
-such as historians, databases, MES, or ERP.
-
 ## Choose The Right Path
 
 - [Historian And Database](historian-and-database.md): time-series or database

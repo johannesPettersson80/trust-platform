@@ -3,7 +3,7 @@
 Status: Implementation profile (product-specific behavior and constraints).
 
 This document defines the current truST LD profile that implements
-`docs/specs/11-ladder-diagram.md`.
+`docs/specs/15-ladder-diagram.md`.
 
 ## 1. Scope
 

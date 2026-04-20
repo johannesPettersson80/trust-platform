@@ -1,8 +1,5 @@
 # Installation
 
-Use this page when you need the fastest honest path from zero to a working
-truST editor and runtime install.
-
 ## Step 1: Install VS Code
 
 Download VS Code from <https://code.visualstudio.com/> and install the stable

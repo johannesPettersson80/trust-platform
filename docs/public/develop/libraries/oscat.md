@@ -1,9 +1,5 @@
 # OSCAT
 
-Use this page when you need the shipped OSCAT package, package layout,
-dependency shape, and compatibility notes. Reach for it when you want ready-made
-utility/control helpers instead of rewriting common blocks from scratch.
-
 Use OSCAT when:
 
 - the shipped package already covers the function family you need

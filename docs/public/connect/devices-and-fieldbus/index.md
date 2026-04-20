@@ -1,7 +1,5 @@
 # Devices And Fieldbus
 
-Use this section when the question is about hardware drivers, fieldbus stacks, and local I/O composition.
-
 ## Start Here
 
 - [Driver Matrix](driver-matrix.md): compare shipped device-side backends first

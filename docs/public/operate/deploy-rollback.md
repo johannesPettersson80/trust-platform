@@ -1,8 +1,5 @@
 # Deploy And Rollback
 
-Use this page when the question is about rollout discipline, not local
-iteration.
-
 ## Core commands
 
 ```bash

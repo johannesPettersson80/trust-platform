@@ -1,8 +1,5 @@
 # MQTT
 
-Use MQTT when a broker-mediated topic boundary is a better fit than direct
-register polling.
-
 ## Good fit vs bad fit
 
 | Good fit | Bad fit |

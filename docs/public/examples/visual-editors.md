@@ -1,8 +1,5 @@
 # Visual Editors
 
-Use these examples when you want to learn one of the visual authoring surfaces
-without leaving the shared truST runtime/toolchain.
-
 | Example folder | Best for | Related docs |
 | --- | --- | --- |
 | `examples/ladder` | rung-based logic and companion ST flow | [Ladder](../develop/visual-editors/ladder.md) |

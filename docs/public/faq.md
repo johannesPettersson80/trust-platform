@@ -1,7 +1,6 @@
 # FAQ
 
-Use this page when you have a plain-language question that is not a failure
-symptom.
+Quick answers to common product, runtime, and workflow questions.
 
 ## Is truST safety-rated?
 
@@ -42,18 +41,18 @@ site-specific assets. See [Offline Install](operate/offline-install.md).
 
 ## What hardware does it run on?
 
-See [Hardware Compatibility](reference/hardware-compatibility.md). The short
-answer is that Linux and Raspberry Pi / edge Linux are the most natural runtime
-targets today, while Windows/macOS are commonly used for tooling.
+See [Hardware Compatibility](reference/hardware-compatibility.md). truST runs
+on Linux hosts including Raspberry Pi and other ARM64 systems. Windows and
+macOS are commonly used for tooling.
 
 ## How is truST different from OpenPLC or vendor IDEs?
 
-truST focuses on a docs-first, workflow-first ST toolchain with:
+truST combines:
 
-- strong editor tooling
-- explicit runtime/config/reference docs
-- browser surfaces
-- agent and deterministic harness surfaces
+- IEC 61131-3 Structured Text support
+- a browser-based operator HMI at `/hmi`
+- an agent-ready JSON-RPC API
+- open-source licensing under MIT and Apache-2.0
 
 See:
 

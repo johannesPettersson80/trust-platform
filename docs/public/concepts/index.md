@@ -1,7 +1,5 @@
 # Concepts
 
-Use this section when you want the mental model behind the product, not just the command or page to click.
-
 ## Start Here
 
 - [Architecture](architecture.md): the major layers and why truST tries to reuse one model across all surfaces

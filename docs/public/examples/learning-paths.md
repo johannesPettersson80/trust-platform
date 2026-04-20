@@ -1,8 +1,5 @@
 # Learning Paths
 
-Use this page when you want to choose the right example track quickly instead of
-browsing the whole catalog.
-
 This page is the high-level route map. The detailed repo-level progression still
 lives in the curated catalog on [Examples overview](index.md).
 

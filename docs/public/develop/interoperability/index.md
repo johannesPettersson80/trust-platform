@@ -1,7 +1,5 @@
 # Interoperability
 
-Use this section when you are importing, exporting, or authoring against vendor ecosystems.
-
 ## Pick The Ecosystem
 
 - [PLCopen](plcopen.md)

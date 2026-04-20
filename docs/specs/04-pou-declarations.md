@@ -91,6 +91,39 @@ END_FUNCTION
 
 Mixed calls are allowed when positional arguments precede formal arguments. (IEC 61131-3 Ed.3 §6.6.1.4.2; Table 50)
 
+### EN/ENO Mechanism (Section 6.6.1.6)
+
+`EN` and `ENO` are optional parameters on FUNCTION/FUNCTION_BLOCK declarations and calls:
+
+- `EN`: BOOL input, default `TRUE` when declared
+- `ENO`: BOOL output
+
+| EN | Execution | ENO |
+|----|-----------|-----|
+| FALSE | POU body is not executed | FALSE |
+| TRUE | POU body executes normally | TRUE unless the POU sets it FALSE |
+| TRUE | POU body encounters an execution error | FALSE |
+
+```
+FUNCTION SafeDiv : REAL
+VAR_INPUT
+  EN: BOOL := TRUE;
+  Num, Den: REAL;
+END_VAR
+VAR_OUTPUT
+  ENO: BOOL;
+END_VAR
+  IF Den = 0.0 THEN
+    ENO := FALSE;
+    SafeDiv := 0.0;
+  ELSE
+    SafeDiv := Num / Den;
+  END_IF;
+END_FUNCTION
+
+Result := SafeDiv(EN := Cond, Num := A, Den := B, ENO => Valid);
+```
+
 ### Return Value (Table 20)
 
 ```
@@ -559,43 +592,6 @@ END_VAR
 
 - USING directives are parsed and resolved for global, namespace, and POU scopes; only direct members of the imported namespace are made available. (IEC 61131-3 Ed.3, Section 6.9.4, Table 66)
 - INTERNAL access specifier is enforced at namespace boundaries. (IEC 61131-3 Ed.3, Tables 64-66)
-
-## 10. EN/ENO Mechanism (Section 6.6.1.6)
-
-EN/ENO are optional inputs/outputs that may be provided in the POU declaration:
-- `EN`: BOOL input, default TRUE (`BOOL := 1`) when declared
-- `ENO`: BOOL output
-
-### Behavior
-
-| EN | Execution | ENO |
-|----|-----------|-----|
-| FALSE | POU not executed | FALSE (reset) |
-| TRUE | POU executed normally | TRUE unless set FALSE by POU |
-| TRUE | POU has error | FALSE (system resets) |
-
-### Example
-
-```
-FUNCTION SafeDiv : REAL
-VAR_INPUT
-  EN: BOOL := TRUE;
-  Num, Den: REAL;
-END_VAR
-VAR_OUTPUT
-  ENO: BOOL;
-END_VAR
-  IF Den = 0.0 THEN
-    ENO := FALSE;
-    SafeDiv := 0.0;
-  ELSE
-    SafeDiv := Num / Den;
-  END_IF;
-END_FUNCTION
-
-// Usage
-Result := SafeDiv(EN := Cond, Num := A, Den := B, ENO => Valid);
-```
 
 ## Implementation Notes for trust-hir
 

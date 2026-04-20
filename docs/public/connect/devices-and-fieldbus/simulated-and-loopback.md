@@ -1,8 +1,5 @@
 # Simulated And Loopback
 
-Use this path first when you want hardware-free commissioning or deterministic
-local validation.
-
 ## Which one should you start with?
 
 | Driver | Start with it when | What it proves |

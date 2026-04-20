@@ -1,8 +1,5 @@
 # Debugging And Runtime Panel
 
-Use this page when you need breakpoints, stepping, live values, or the VS Code
-runtime panel.
-
 ## What this surface gives you
 
 - debugger

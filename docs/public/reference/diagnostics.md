@@ -1,8 +1,5 @@
 # Diagnostics
 
-Use this page when you need the public reference for truST diagnostic codes such
-as `E001`, `E201`, or `W003`.
-
 This page documents the current code set exposed by the semantic/compiler
 diagnostic layer in `crates/trust-hir/src/diagnostics.rs`.
 Use it when you are:

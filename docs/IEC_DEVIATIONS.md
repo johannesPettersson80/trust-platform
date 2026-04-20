@@ -52,7 +52,7 @@ This file tracks known, intentional deviations/extensions from strict IEC 61131-
   - Symbolic and direct-address references are syntactically mixed at profile level.
   - Additional validation is required to enforce strict declaration-driven addressing policies.
 - Mitigation:
-  - Normative spec defines symbolic-first policy; profile constraints are documented in `docs/specs/12-ladder-profile-trust.md`.
+  - Normative spec defines symbolic-first policy; profile constraints are documented in `docs/specs/16-ladder-profile-trust.md`.
 
 ## 2026-02-27 - Runtime forcing path symbolic support closure
 
@@ -189,5 +189,79 @@ This file tracks known, intentional deviations/extensions from strict IEC 61131-
   - Non-ASCII text behaves consistently across VM ref indexing and the shipped string stdlib, but the behavior is not raw IEC byte/code-unit indexing.
   - Existing projects that feed UTF-8 strings through file, MQTT, or fieldbus paths get stable element access semantics instead of mixed byte/scalar behavior.
 - Mitigation:
-  - The runtime and docs now use one explicit element model end-to-end.
-  - A future raw-byte/raw-code-unit storage rewrite would be a separate compatibility project because it would require changing the underlying runtime value representation.
+- The runtime and docs now use one explicit element model end-to-end.
+- A future raw-byte/raw-code-unit storage rewrite would be a separate compatibility project because it would require changing the underlying runtime value representation.
+
+## 2026-04-20 - POINTER TO support beyond IEC REF_TO
+
+- ID: DEV-018
+- Area: Structured Text pointer types and runtime pointer operations
+- IEC reference: `REF_TO` is standardized in IEC 61131-3 Ed.3 §6.4.4.10.2;
+  `POINTER TO`, `ADR`, and dereference-style pointer workflows are vendor
+  extensions.
+- Deviation:
+  - truST supports typed `POINTER TO` declarations in the language/type system.
+  - `ADR(...)`, dereference (`^`), `NULL`, and `?=` work for pointers in both
+    `trust-hir` and `trust-runtime`.
+  - `POINTER TO` shares the runtime reference storage model used by `REF_TO`.
+  - Pointer arithmetic is not supported.
+- Impact:
+  - Vendor-authored pointer-oriented ST can compile and execute in truST
+    without rewriting to IEC-only `REF_TO` forms.
+- Mitigation:
+  - The extension is documented explicitly in specs and remains typed and
+    non-arithmetic.
+
+## 2026-04-20 - Assertion helper functions for test POUs
+
+- ID: DEV-019
+- Area: Standard-library assertion helpers
+- IEC reference: IEC 61131-3 Ed.3 Tables 22-36 do not define assertion
+  functions such as `ASSERT_TRUE` / `ASSERT_FALSE`.
+- Deviation:
+  - truST ships `ASSERT_TRUE`, `ASSERT_FALSE`, `ASSERT_EQUAL`,
+    `ASSERT_NOT_EQUAL`, `ASSERT_GREATER`, `ASSERT_LESS`,
+    `ASSERT_GREATER_OR_EQUAL`, `ASSERT_LESS_OR_EQUAL`, and `ASSERT_NEAR`.
+  - These functions are executed by the runtime test framework and report
+    assertion context in failure output.
+- Impact:
+  - Test POUs can use built-in assertion helpers instead of encoding
+    expectations manually in ST control flow.
+- Mitigation:
+  - The helpers are documented as non-IEC test extensions and scoped to the
+    testing/runtime workflow.
+
+## 2026-04-20 - Reserved SFC keywords without textual SFC body syntax
+
+- ID: DEV-020
+- Area: Lexing and SFC authoring profile
+- IEC reference: IEC 61131-3 Ed.3 reserves SFC keywords and defines SFC
+  constructs, but truST currently ships visual SFC authoring rather than a
+  textual SFC body syntax inside the ST parser.
+- Deviation:
+  - truST reserves SFC keywords such as `STEP`, `TRANSITION`, and `ACTION`.
+  - truST ships a visual SFC editor/profile in the public docs.
+  - Textual SFC body syntax is not currently accepted as part of the ST parser.
+- Impact:
+  - SFC-related words remain unavailable as identifiers even though textual SFC
+    bodies are not yet part of the shipped ST grammar.
+- Mitigation:
+  - The reserved-keyword scope and authoring workflow are documented explicitly
+    in the lexer spec and visual-editor docs.
+
+## 2026-04-20 - Siemens SCL `#local` reference prefix
+
+- ID: DEV-034
+- Area: Structured Text name references
+- IEC reference: IEC 61131-3 Ed.3 does not define `#identifier` as a local-name
+  reference operator in ST expressions/statements.
+- Deviation:
+  - truST accepts `#identifier` and lowers it as the same local name reference
+    as `identifier`.
+  - Malformed uses still diagnose with `expected identifier after '#'`.
+- Impact:
+  - Siemens-authored SCL that prefixes local names with `#` compiles without
+    source rewriting.
+- Mitigation:
+  - The behavior is documented as a vendor-compatibility extension rather than
+    IEC core syntax.

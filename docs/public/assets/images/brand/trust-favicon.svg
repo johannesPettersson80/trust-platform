@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="truST favicon">
+  <rect width="512" height="512" rx="112" fill="#0f766e"/>
+  <text
+    x="256"
+    y="316"
+    text-anchor="middle"
+    font-family="Sora,Inter,Helvetica Neue,system-ui,sans-serif"
+    font-size="216"
+    font-weight="800"
+    letter-spacing="-12"
+    fill="#ffffff"
+  >ST</text>
+</svg>

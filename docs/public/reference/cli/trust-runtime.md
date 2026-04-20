@@ -126,7 +126,7 @@ Important control subcommands:
 ![`trust-runtime ctl --help`](../../assets/images/terminal/ctl-help.gif)
 
 *Figure:* The `ctl` command family and its subcommands. Use this when you need
-the canonical scriptable control surface.
+the scriptable control API.
 
 ## Common Flows
 
@@ -144,7 +144,7 @@ trust-runtime test --project ./my-plc --output json
 trust-runtime play --project ./my-plc
 ```
 
-### Run agent surface
+### Run agent API
 
 ```bash
 trust-runtime agent serve --project ./my-plc

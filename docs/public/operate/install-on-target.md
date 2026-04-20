@@ -1,16 +1,12 @@
 # Install On Target
 
-Use this page when you need `trust-runtime` running as a service on a real
-Linux host such as a Raspberry Pi.
-
-This is the Raspberry Pi install page for the public docs: use it when the
-question is "how do I install truST on a Pi or other small Linux target?"
+Install `trust-runtime` as a service on Raspberry Pi or another small Linux
+target.
 
 ## Raspberry Pi Quick Path
 
-Use this section when the question is exactly "how do I install truST on a
-Raspberry Pi?" The supported public-doc path is: download the latest release,
-install `trust-runtime`, install the service unit, reboot, and confirm the Pi
+The supported public-doc path is: download the latest release, install
+`trust-runtime`, install the service unit, reboot, and confirm the Pi
 auto-starts the runtime.
 
 ## 1. Download The Released Runtime Bundle
@@ -20,8 +16,7 @@ Start from the latest GitHub release:
 <https://github.com/johannesPettersson80/trust-platform/releases/latest>
 
 For Raspberry Pi and other ARM64 Linux targets, download the Linux ARM64
-runtime bundle. Until a dedicated Pi image or `.deb` package is published, the
-release bundle is the supported install path.
+runtime bundle. The release bundle is the supported install path.
 
 ## 2. Install The Runtime
 

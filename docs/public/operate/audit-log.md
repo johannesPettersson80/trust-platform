@@ -1,8 +1,5 @@
 # Audit Log
 
-Use this page when you need to understand what truST can record about control
-actions and how that fits into site-level audit expectations.
-
 ## What To Treat As Auditable
 
 - control actions

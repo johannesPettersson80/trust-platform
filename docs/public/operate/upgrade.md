@@ -1,8 +1,5 @@
 # Upgrade
 
-Use this page when you need to move an installed system from one truST version
-or project version to another without guesswork.
-
 ## Safe Upgrade Pattern
 
 1. build and validate the new project version first

@@ -1,19 +1,13 @@
 # HMI And Web UI
 
-Use this page for runtime-hosted HMI and browser-based operator surfaces. This
-is the operating view of HMI, while [Develop -> HMI Authoring](../develop/hmi-authoring.md)
-explains how the `hmi/` directory is authored.
-
-This page is for day-2 runtime use. If you were simply handed an HMI URL and
-need the first operator steps, start with
-[Operate In Browser HMI](../start/operate-in-browser.md).
+Operate and monitor a runtime-hosted HMI from the browser.
 
 ## HMI Workflow
 
 ![Browser HMI overview](../assets/images/browser/hmi-home.png)
 
 *Figure:* The runtime-hosted HMI dashboard. Look here first for connection
-state, alarms, live values, and operator-facing status.
+state, alarms, live values, and operator status.
 
 --8<-- "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
 

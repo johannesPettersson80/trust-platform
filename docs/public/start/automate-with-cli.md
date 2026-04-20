@@ -1,8 +1,6 @@
 # Automate With CLI / CI / agents
 
-Use this page when you want shell, CI, or agent-driven workflows.
-
-## First Success Loop
+## Quick start
 
 Use a small shipped project first:
 
@@ -54,7 +52,7 @@ bundle. This is the quickest shape check before running diagnostics or reloads.
 
 - build produces bytecode without errors
 - validate succeeds
-- tests report a real result
+- tests report a concrete result
 - `agent.describe` and `workspace.project_info` return JSON-RPC responses
 
 ## If It Fails

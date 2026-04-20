@@ -219,7 +219,7 @@ These still encode interpreter-oracle policy and must change with the architectu
 These are currently written for a “VM + interpreter oracle” architecture.
 
 - [x] [docs/guides/RUNTIME_EXECUTION_BACKEND_MIGRATION.md](/home/johannes/projects/trust-platform/docs/guides/RUNTIME_EXECUTION_BACKEND_MIGRATION.md)
-- [x] [docs/specs/10-runtime.md](/home/johannes/projects/trust-platform/docs/specs/10-runtime.md)
+- [x] [docs/specs/10-runtime-semantics.md](/home/johannes/projects/trust-platform/docs/specs/10-runtime-semantics.md)
 - [x] [docs/specs/README.md](/home/johannes/projects/trust-platform/docs/specs/README.md)
 - [x] [docs/internal/runtime-bytecode-vm-spec.md](/home/johannes/projects/trust-platform/docs/internal/runtime-bytecode-vm-spec.md)
 - [x] [docs/internal/masterPlan.md](/home/johannes/projects/trust-platform/docs/internal/masterPlan.md)

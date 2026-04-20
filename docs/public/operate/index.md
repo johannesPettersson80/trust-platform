@@ -1,8 +1,5 @@
 # Operate
 
-Use this section when the question is about running, validating, debugging,
-observing, deploying, or keeping a truST system alive in production.
-
 ## Daily Engineering Loop
 
 1. [Build, Validate, Test](build-validate-test.md)
@@ -53,7 +50,7 @@ observing, deploying, or keeping a truST system alive in production.
 
 | Question | Go to |
 | --- | --- |
-| How do I install and supervise the runtime on a real host? | [Install On Target](install-on-target.md) / [Supervision](supervision.md) |
+| How do I install and supervise the runtime on a target host? | [Install On Target](install-on-target.md) / [Supervision](supervision.md) |
 | How do I prove this project still builds and passes tests? | [Build, Validate, Test](build-validate-test.md) |
 | How do I edit and reload a running runtime safely? | [Compile, Validate, Reload](compile-validate-reload.md) |
 | How do I operate the runtime outside the editor? | [Runtime UI And Control](runtime-ui-and-control.md) |

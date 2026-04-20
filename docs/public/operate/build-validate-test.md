@@ -1,8 +1,5 @@
 # Build, Validate, Test
 
-Use this page for the normal correctness loop before you run or reload a
-runtime.
-
 ## The Core Loop
 
 ```bash
@@ -48,12 +45,12 @@ trust-runtime test --project ./examples/tutorials/10_unit_testing_101 --output j
 ![Validation success](../assets/images/terminal/validate-success.gif)
 
 *Figure:* A clean `validate` pass against a shipped project. Use this as the
-config/bundle safety gate before you start blaming runtime execution.
+config/bundle safety gate before you start troubleshooting the runtime.
 
-![Build failure with a real syntax error](../assets/images/terminal/build-failure.gif)
+![Build failure with a syntax error](../assets/images/terminal/build-failure.gif)
 
 *Figure:* A deliberate one-line build break in a temporary project copy. This is
-the shape of a truthful compile failure, not placeholder garbage syntax.
+the shape of a compile failure, not placeholder garbage syntax.
 
 ## Test JSON Output And JUnit Output
 

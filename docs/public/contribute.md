@@ -1,7 +1,5 @@
 # Contribute
 
-Use this page when you want to help build truST itself rather than just use it.
-
 ## Public Contribution Paths
 
 - file bugs and improvement requests in GitHub Issues

@@ -1,9 +1,8 @@
 # Create A New Project
 
-Use this page when you are starting from an empty folder. This page is for the
-current shipped bootstrap path, not an idealized future scaffold.
+Create a new project from an empty folder.
 
-## What Happens Today
+## What gets created
 
 `Structured Text: New Project` currently creates:
 
@@ -16,7 +15,7 @@ my-plc/
 
 It does **not** create a full runnable project yet.
 
-## Honest Current-State Workflow
+## Setup steps
 
 1. Run `Structured Text: New Project`.
 2. Confirm you got `src/Main.st` and `trust-lsp.toml`.
@@ -37,9 +36,9 @@ my-plc/
     configuration.st
 ```
 
-## Use A Shipped Tutorial If You Want Less Friction
+## Shortcut: start from a tutorial
 
-If you want first success faster than empty-folder bootstrapping, use:
+If you want a faster start than empty-folder bootstrapping, use:
 
 - [Program In VS Code](program-in-vscode.md)
 - [Program In Browser IDE](program-in-browser.md)

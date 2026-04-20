@@ -21,7 +21,7 @@ The runtime combines:
 - optional simulation config from `simulation.toml`
 - optional HMI descriptors from `hmi/`
 
-## Control Surfaces
+## Control Options
 
 The same underlying runtime can be driven through:
 
@@ -74,7 +74,7 @@ The runtime owns:
 - coordinating safe reload and lifecycle transitions
 
 It does not replace the language server or the harness; those are adjacent
-surfaces built on the same project semantics.
+tools built on the same project semantics.
 
 ## Related
 

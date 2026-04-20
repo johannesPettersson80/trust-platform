@@ -1,8 +1,5 @@
 # External Systems
 
-Use this section for protocols that bridge truST to other software or
-industrial systems.
-
 ## Quick Guide
 
 | Protocol | Best for | Go to |

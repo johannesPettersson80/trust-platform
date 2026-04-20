@@ -1,9 +1,8 @@
 # Maintain An Existing Project
 
-Use this page when you inherited a project and need to understand it before
-changing it.
+Start with the existing project tree before you edit anything.
 
-## Start With A Real Project Tree
+## Typical project layout
 
 An inherited truST project usually has this shape:
 
@@ -18,15 +17,15 @@ project/
   hmi/
 ```
 
-## Safe First Workflow
+## First steps
 
-1. open the project without editing anything yet
-2. inspect the tree and identify `src/`, `runtime.toml`, `io.toml`, and `hmi/`
-3. run build and validate before touching code
-4. inspect the runtime or HMI surface
-5. change one safe line only
-6. rerun or redeploy
-7. verify the effect
+1. Open the project without editing anything yet.
+2. Inspect the tree and identify `src/`, `runtime.toml`, `io.toml`, and `hmi/`.
+3. Run build and validate before touching code.
+4. Inspect the runtime UI or HMI.
+5. Change one safe line only.
+6. Rerun or redeploy.
+7. Verify the effect.
 
 ## Questions To Answer First
 
@@ -36,18 +35,18 @@ project/
 - is there an HMI folder?
 - which driver/backend is configured?
 
-## Good First Pages
+## Start with these
 
 - [Project Layout](../develop/project-layout.md)
 - [Build, Validate, Test](../operate/build-validate-test.md)
 - [Deploy And Rollback](../operate/deploy-rollback.md)
 - [Operator Guide](../operate/operator-guide.md)
 
-## Do Not Start Here
+## Avoid first:
 
-- do not start with a blank-folder bootstrap if you already have a project
-- do not change config and logic in the same first edit
-- do not deploy before you have a clean build/validate pass
+- Do not start with a blank-folder bootstrap if you already have a project.
+- Do not change config and logic in the same first edit.
+- Do not deploy before you have a clean build/validate pass.
 
 ## Next
 

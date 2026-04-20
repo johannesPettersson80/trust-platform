@@ -1,8 +1,5 @@
 # Offline Install
 
-Use this page when the target network is air-gapped or when the install must be
-performed from removable media.
-
 ## Offline Install Flow
 
 1. build the binaries on a connected machine

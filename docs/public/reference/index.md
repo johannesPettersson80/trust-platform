@@ -1,7 +1,5 @@
 # Reference
 
-Use reference pages when you need exact names, flags, config keys, or protocol shapes.
-
 ## Open Reference When You Need Exact Answers
 
 - [CLI](cli/trust-runtime.md): subcommands, flags, and machine-facing command examples

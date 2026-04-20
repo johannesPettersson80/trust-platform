@@ -1,8 +1,5 @@
 # Hardware Compatibility
 
-Use this page when you need the public compatibility summary for runtime hosts,
-tooling hosts, and common field-I/O assumptions.
-
 ## Runtime Host Guidance
 
 | Host class | Status | Notes |
@@ -20,11 +17,12 @@ tooling hosts, and common field-I/O assumptions.
 | EtherCAT | validate NIC/adapter and module chain on the real hardware path |
 | Modbus/MQTT/OPC UA | host support is usually straightforward; integration quality depends more on the peer device/service |
 
-## What This Page Does Not Promise
+## Validation Guidance
 
-- this page is not a substitute for plant-side validation
-- fieldbus and hardware timing always need target-host proof
-- use the example project plus the backend page together before production use
+- Validate on the exact target hardware before production use.
+- Run the relevant driver/backend page together with a project that exercises the real device path.
+- Prove permissions, restart behavior, storage durability, and hardware timing on the deployed host.
+- Treat fieldbus and GPIO support as hardware-specific until you have target-host evidence.
 
 ## Related
 

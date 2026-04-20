@@ -8,12 +8,26 @@ This specification defines standard function blocks for trust-hir.
 
 Standard function blocks are predefined FBs with internal state. They require instantiation and maintain state between calls.
 
+### FB Index
+
+| Name / Group | Category | Signature Shape | IEC ref | trust-hir | trust-runtime | Deviations |
+|--------------|----------|-----------------|---------|-----------|---------------|------------|
+| `SR`, `RS` | Bistable | fixed BOOL inputs/outputs | Table 43 | signature only | full stateful behavior | none |
+| `R_TRIG`, `F_TRIG` | Edge detection | fixed BOOL inputs/outputs | Table 44 | signature only | full stateful behavior | none |
+| `CTU`, `CTD`, `CTUD` | Counters | fixed or overloaded counter types | Table 45 | signature only | full stateful behavior | CTUD LD profile in `docs/IEC_DEVIATIONS.md` |
+| `TP`, `TON`, `TOF` and `*_LTIME` variants | Timers | fixed TIME/LTIME signatures | Table 46 | signature only | full stateful behavior | TP/TOF `ET` exposure in `docs/IEC_DEVIATIONS.md` |
+
 ### Common Characteristics
 
 - Must be instantiated to use
 - Internal variables persist between calls
 - Can be overloaded for different data types
 - Have standard timing/edge detection behaviors
+
+### Deviation Cross-References
+
+- Counter/timer runtime deviations are recorded in `docs/IEC_DEVIATIONS.md`.
+- `trust-hir` owns static signatures only; runtime execution owns the stateful behavior described below.
 
 ## 2. Bistable Function Blocks (Table 43)
 
@@ -495,9 +509,15 @@ Timer accuracy depends on execution rate:
 
 ## Implementation Notes for trust-hir
 
-trust-hir validates standard FB calls by signature and static types only; it does not model internal state or timing behavior. (IEC 61131-3 Ed.3, Section 6.6.3.5, Tables 43-46, Figure 15; DEV-010)
+trust-hir validates standard FB calls by signature and static types only; it
+does not model internal state or timing behavior. (IEC 61131-3 Ed.3,
+Section 6.6.3.5, Tables 43-46, Figure 15; DEV-010)
 
-The behavioral descriptions above are retained for reference; runtime semantics are not implemented in the LSP.
+The behavioral descriptions above are retained for reference; `trust-runtime`
+executes the stateful timer/counter/trigger behavior for `SR`, `RS`, `R_TRIG`,
+`F_TRIG`, `CTU`, `CTD`, `CTUD`, `TP`, `TON`, and `TOF`. Current runtime
+deviations are documented in `docs/IEC_DEVIATIONS.md`, including the CTUD
+single-input LD profile and TP/TOF ET exposure.
 
 ### FB Definitions
 
@@ -505,7 +525,9 @@ trust-hir provides built-in signatures for:
 1. Input variables with types and edge qualifiers
 2. Output variables with types
 
-Internal state variables and behavioral specifications are documented above but are not modeled in trust-hir. (IEC 61131-3 Ed.3, Tables 43-46)
+Internal state variables and behavioral specifications are documented above but
+are not modeled in trust-hir. Runtime execution covers that stateful behavior;
+see `docs/IEC_DEVIATIONS.md` and the runtime timer/counter implementations.
 
 ### Edge Detection Internal
 

@@ -1,30 +1,24 @@
 # Runtime Lifecycle
 
-Use this page when you need the whole runtime story in one place: start, stop,
-restart, reload, fault recovery, and cold start behavior.
+This page points to the lifecycle-specific operating paths so you can choose the
+right restart or recovery workflow.
 
-## Lifecycle Questions
+## Lifecycle Paths
 
-| Question | Go to |
+| Lifecycle concern | Start here |
 | --- | --- |
-| How do I start and stop the runtime? | [Runtime UI And Control](runtime-ui-and-control.md) |
-| How do I hot-reload after code changes? | [Compile, Validate, Reload](compile-validate-reload.md) |
-| How do I restart after deploy? | [Deploy And Rollback](deploy-rollback.md) |
-| What happens on faults and safe state? | [Safety And Commissioning](safety-and-commissioning.md) |
+| start, stop, and operator control | [Runtime UI And Control](runtime-ui-and-control.md) |
+| hot reload after source/config changes | [Compile, Validate, Reload](compile-validate-reload.md) |
+| deploy and restart after a release | [Deploy And Rollback](deploy-rollback.md) |
+| retain behavior, faults, and safe-state recovery | [Safety And Commissioning](safety-and-commissioning.md) |
 
-## Modes To Think About
+## Restart Modes
 
-- normal start
-- warm restart
-- cold restart
-- compile/reload loop
-- faulted runtime waiting for intervention
-
-## Retain And Recovery
-
-Warm restart generally preserves RETAIN state; cold restart resets more state.
-Use the exact runtime/config reference pages before depending on that behavior in
-production.
+- Normal start brings the runtime up from a stopped state.
+- Warm restart is the retain-preserving recovery path when the runtime/platform supports it.
+- Cold restart reinitializes more runtime state and should be treated as a stronger reset.
+- Compile/reload is the engineering loop for code or config changes.
+- Fault recovery starts from the relevant safety or rollback workflow, not from the normal start path.
 
 ## Related
 

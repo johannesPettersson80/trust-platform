@@ -1,10 +1,8 @@
 # Develop
 
-Use this section when you are writing PLC logic, HMI pages, visual-editor assets, reusable libraries, or vendor-oriented projects.
-
 ## Start Here
 
-- [Project Layout](project-layout.md): the canonical project structure and why each file exists
+- [Project Layout](project-layout.md): the project structure and why each file exists
 - [Vendor Profiles](vendor-profiles.md): select the right authoring profile before you write much code
 
 ## Choose By Task

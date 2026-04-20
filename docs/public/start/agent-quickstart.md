@@ -1,8 +1,5 @@
 # Agent Quickstart / `agent serve`
 
-Use this when you want Copilot or another agent to work against truST without
-repo-internal knowledge.
-
 The entry command is `trust-runtime agent serve`, so this is also the right
 page when you are searching for `agent serve`.
 

@@ -98,9 +98,6 @@ Each task needs:
 
 ### `[runtime.retain]` (retain policy)
 
-Use this section when you are deciding retain behavior or searching for the
-runtime retain policy.
-
 | Key | Type | Required | Default | Notes |
 | --- | --- | --- | --- | --- |
 | `mode` | string | yes | none | `none` or `file`. |
@@ -108,9 +105,6 @@ runtime retain policy.
 | `save_interval_ms` | integer | yes | none | Must be `>= 1`. |
 
 ### `[runtime.watchdog]` (watchdog and fault policy)
-
-Use this section when you need watchdog timeouts or want to understand how the
-runtime fault policy escalates overruns and hangs.
 
 | Key | Type | Required | Notes |
 | --- | --- | --- | --- |
@@ -120,13 +114,11 @@ runtime fault policy escalates overruns and hangs.
 
 ### `[runtime.fault]` (fault policy)
 
-This section is the canonical runtime fault policy reference.
-
 | Key | Type | Required | Notes |
 | --- | --- | --- | --- |
 | `policy` | string | yes | `halt`, `safe_halt`, or `restart`. |
 
-## Networked / Optional Surfaces
+## Networked / Optional Interfaces
 
 ### `[runtime.web]`
 
@@ -149,9 +141,11 @@ Accepted keys:
 
 Rules:
 
-- `auth = "token"` requires `runtime.control.auth_token`
-- `tls = true` requires `runtime.tls.mode != "disabled"`
-- if `runtime.tls.require_remote = true` and `listen` is remote, `tls` must be `true`
+| Condition | Requirement | Example |
+| --- | --- | --- |
+| `auth = "token"` | `runtime.control.auth_token` must be set | `auth = "token"` with `runtime.control.auth_token = "secret"` |
+| `tls = true` | `runtime.tls.mode` must not be `"disabled"` | enable `[runtime.tls]` before serving HTTPS |
+| remote listen + `runtime.tls.require_remote = true` | `tls` must be `true` | `listen = "0.0.0.0:8080"` requires `tls = true` |
 
 ### `[runtime.tls]`
 
@@ -173,8 +167,10 @@ Accepted keys:
 
 Rules:
 
-- any enabled TLS mode requires `cert_path` and `key_path`
-- `mode = "provisioned"` also requires `ca_path`
+| Condition | Requirement | Example |
+| --- | --- | --- |
+| `mode != "disabled"` | set both `cert_path` and `key_path` | `mode = "self-managed"` with PEM files |
+| `mode = "provisioned"` | set `ca_path` in addition to cert/key | provisioned PKI bundle |
 
 ### `[runtime.deploy]`
 
@@ -235,8 +231,10 @@ Accepted keys:
 
 Rules:
 
-- `runtime.mesh.tls = true` requires enabled runtime TLS
-- if `runtime.tls.require_remote = true` and mesh `listen` is remote, mesh TLS must be on
+| Condition | Requirement | Example |
+| --- | --- | --- |
+| `runtime.mesh.tls = true` | runtime TLS must be enabled | mesh listener using the runtime TLS certificate set |
+| remote mesh listen + `runtime.tls.require_remote = true` | mesh TLS must be on | `listen = "0.0.0.0:5200"` with `tls = true` |
 
 ### `[runtime.cloud]`
 
@@ -290,11 +288,13 @@ alerts = []
 
 Key rules:
 
-- `sample_interval_ms >= 1`
-- `max_entries >= 1`
-- `mode` is `all` or `allowlist`
-- when `mode = "allowlist"`, `include` must not be empty
-- `prometheus_path` must start with `/`
+| Condition | Requirement | Example |
+| --- | --- | --- |
+| always | `sample_interval_ms >= 1` | `sample_interval_ms = 1000` |
+| always | `max_entries >= 1` | `max_entries = 20000` |
+| always | `mode` is `all` or `allowlist` | `mode = "allowlist"` |
+| `mode = "allowlist"` | `include` must not be empty | `include = ["PROGRAM Main.Pressure"]` |
+| `prometheus_enabled = true` | `prometheus_path` must start with `/` | `prometheus_path = "/metrics"` |
 
 Alert entries support:
 
@@ -309,10 +309,12 @@ hook = "log"
 
 Each alert needs:
 
-- `name`
-- `variable`
-- at least one of `above` / `below`
-- `debounce_samples >= 1`
+| Field | Requirement | Example |
+| --- | --- | --- |
+| `name` | required | `"HighPressure"` |
+| `variable` | required | `"PROGRAM Main.Pressure"` |
+| `above` / `below` | provide at least one threshold | `above = 8.5` |
+| `debounce_samples` | must be `>= 1` | `debounce_samples = 3` |
 
 ### `[runtime.opcua]`
 
@@ -334,21 +336,17 @@ allow_anonymous = false
 
 Rules:
 
-- `listen`, `endpoint_path`, and `namespace_uri` must not be empty
-- `endpoint_path` must start with `/`
-- `publish_interval_ms >= 1`
-- `max_nodes >= 1`
-- if enabled, you must either allow anonymous access or provide both `username` and `password`
-- supported security policies:
-  - `none`
-  - `basic256sha256`
-  - `aes128sha256rsaoaep`
-- supported security modes:
-  - `none`
-  - `sign`
-  - `sign_and_encrypt`
+| Condition | Requirement | Example |
+| --- | --- | --- |
+| always | `listen`, `endpoint_path`, and `namespace_uri` must not be empty | `listen = "0.0.0.0:4840"` |
+| always | `endpoint_path` must start with `/` | `endpoint_path = "/"` |
+| always | `publish_interval_ms >= 1` | `publish_interval_ms = 250` |
+| always | `max_nodes >= 1` | `max_nodes = 128` |
+| `enabled = true` | allow anonymous access or set both `username` and `password` | authenticated endpoint with user/password |
+| `security_policy` | must be `none`, `basic256sha256`, or `aes128sha256rsaoaep` | `security_policy = "basic256sha256"` |
+| `security_mode` | must be `none`, `sign`, or `sign_and_encrypt` | `security_mode = "sign_and_encrypt"` |
 
-## Validation Checklist
+## Validation Workflow
 
 Use this loop whenever you edit `runtime.toml`:
 

@@ -45,7 +45,7 @@ inspection. Use the full runtime when you need:
 
 - web UI
 - runtime-cloud
-- real control endpoints
+- runtime control endpoints
 - browser IDE or HMI pages
 
 ## Why This Is A Core Platform Surface
@@ -53,7 +53,7 @@ inspection. Use the full runtime when you need:
 The harness is not just a test utility. It is the smallest trustworthy
 execution surface in the stack. That makes it valuable for:
 
-- documentation that should show real behavior instead of pseudocode
+- documentation that should show executable behavior instead of pseudocode
 - CI jobs that need stable, machine-readable results
 - agent loops that must write, validate, and repair deterministically
 - future local-model or hosted sandbox scenarios where a full runtime would be too heavy
@@ -69,7 +69,7 @@ Use the harness when you want to answer:
 Use the full runtime when you want to answer:
 
 - "What does this look like in the runtime UI or HMI?"
-- "How does this runtime behave under real control-plane management?"
+- "How does this runtime behave under runtime control-plane management?"
 - "How does this node participate in a larger distributed system?"
 
 ## Related

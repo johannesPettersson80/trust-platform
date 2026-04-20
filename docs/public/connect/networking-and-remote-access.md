@@ -1,9 +1,5 @@
 # Networking And Remote Access
 
-Use this page when the question is about exposure, firewalls, ports, and remote
-reachability rather than a specific protocol. This page is about network
-boundaries and access policy, not about how Modbus or MQTT work internally.
-
 Good questions for this page:
 
 - which endpoints need to be reachable?

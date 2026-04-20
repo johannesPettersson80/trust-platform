@@ -1,8 +1,5 @@
 # Troubleshooting
 
-Start here when something is not working and you do not yet know which
-subsystem is at fault.
-
 ## First three things to try
 
 1. run build/validate first

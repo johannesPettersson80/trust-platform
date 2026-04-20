@@ -1,8 +1,5 @@
 # Performance Tuning
 
-Use this page when your scan cycle, runtime responsiveness, or field I/O timing
-needs investigation.
-
 ## Start With Evidence
 
 1. prove the target cycle time

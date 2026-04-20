@@ -1,7 +1,5 @@
 # Connect
 
-Use this section when the question is "what can truST talk to and how do I wire it up?"
-
 ## Start Here
 
 - [Protocol Matrix](protocol-matrix.md): the fastest overview of all shipped communication surfaces

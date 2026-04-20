@@ -1,11 +1,8 @@
 # Statechart
 
-Use Statechart when your logic is state-heavy and you want explicit states,
-transitions, and events instead of deeply nested ST conditions.
-
 ![Statechart editor](../../assets/images/visual-editors/statechart.png)
 
-*Figure:* A real statechart editor session with named states and transitions
+*Figure:* A statechart editor session with named states and transitions
 visible on the canvas.
 
 ## What it gives you

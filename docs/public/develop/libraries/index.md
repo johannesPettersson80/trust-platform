@@ -1,7 +1,5 @@
 # Libraries
 
-Use this section when you want shipped reusable libraries or library consumption patterns.
-
 ## Shipped Library Families
 
 - [OSCAT](oscat.md)

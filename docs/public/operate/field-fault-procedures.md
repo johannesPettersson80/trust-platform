@@ -1,8 +1,5 @@
 # Field Fault Procedures
 
-Use this page when the issue is no longer just "what does the HMI say?" and a
-technician needs a safe troubleshooting path.
-
 ## Safe Generic Sequence
 
 1. identify the alarm or bad signal

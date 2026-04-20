@@ -1,8 +1,5 @@
 # API Lifecycle And Deprecation
 
-Use this page when you need the public compatibility expectations for CLI,
-config, and agent-facing contracts.
-
 ## Current Public Contract Anchors
 
 - [CLI reference](cli/trust-runtime.md)

@@ -1,8 +1,5 @@
 # Technician I/O Diagnosis
 
-Use this page when a technician needs to decide whether a bad value is caused by
-software, configuration, wiring, or the device itself.
-
 ## Read The Chain In Order
 
 1. what does the HMI show?

@@ -17,7 +17,7 @@ It covers:
 - Required diagnostics for invalid LD programs.
 
 This document is implementation-agnostic. JSON/webview/runtime profile constraints are
-defined separately in `docs/specs/12-ladder-profile-trust.md`.
+defined separately in `docs/specs/16-ladder-profile-trust.md`.
 
 ## 2. Conformance Language
 
@@ -154,6 +154,14 @@ Implementations MUST emit actionable diagnostics for at least:
 
 Diagnostics SHOULD identify the element/network and expected contract.
 
+| Diagnostic Area | Expected message focus |
+|-----------------|------------------------|
+| unresolved references | identify the missing symbol and the network element that referenced it |
+| invalid coil target | state that the target is not assignable and name the offending coil |
+| type mismatch | identify the LD element and incompatible operand types |
+| malformed topology | identify the broken branch/network structure |
+| unsupported interchange construct | identify the PLCopen/import/export construct that was rejected |
+
 ## 10. Edition 2 vs Edition 3 Compatibility
 
 For LD core behavior (contacts, coils, branching, and scan-cycle interpretation), this
@@ -197,7 +205,7 @@ This form is allowed for direct hardware binding but is not the preferred modeli
 The concrete truST LD profile (JSON schema, VS Code editor behavior, runtime panel wiring,
 interop subset, and current limitations) is specified in:
 
-- `docs/specs/12-ladder-profile-trust.md`
+- `docs/specs/16-ladder-profile-trust.md`
 
 Any profile-specific behavior that differs from this normative document MUST be tracked in:
 

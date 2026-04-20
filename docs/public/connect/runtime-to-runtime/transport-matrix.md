@@ -1,8 +1,5 @@
 # Runtime-To-Runtime Transport Matrix
 
-Use this page when you already know the problem is runtime-to-runtime and you
-need to choose the transport or coordination surface.
-
 | Surface | What it does | Best for | Not for | Docs |
 | --- | --- | --- | --- | --- |
 | `discovery` | advertises and finds runtimes on a LAN | first contact, browsing peers, pairing bootstrap | deterministic data exchange by itself | [Discovery And Pairing](discovery-and-pairing.md) |

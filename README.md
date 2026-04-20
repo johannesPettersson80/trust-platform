@@ -1,221 +1,72 @@
-# truST Platform — Structured Text tooling, runtime, browser IDE, and HMI
-
-📖 **Documentation:** <https://johannespettersson80.github.io/trust-platform/>
+# truST — IEC 61131-3 Structured Text toolchain, runtime, and HMI
 
 ![truST logo](docs/public/assets/images/brand/trust-logo.svg)
 
 [![Docs](https://img.shields.io/badge/docs-live-0f766e.svg)](https://johannespettersson80.github.io/trust-platform/)
+[![Marketplace](https://img.shields.io/visual-studio-marketplace/v/trust-platform.trust-lsp?label=marketplace)](https://marketplace.visualstudio.com/items?itemName=trust-platform.trust-lsp)
+[![Release](https://img.shields.io/github/v/release/johannesPettersson80/trust-platform?display_name=tag)](https://github.com/johannesPettersson80/trust-platform/releases/latest)
 [![CI](https://github.com/johannesPettersson80/trust-platform/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/johannesPettersson80/trust-platform/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE-MIT)
-[![Rust Version](https://img.shields.io/badge/rust-1.85%2B-orange.svg)](https://www.rust-lang.org)
+[![Rust](https://img.shields.io/badge/rust-1.85%2B-orange.svg)](Cargo.toml)
 
-**truST Platform** is an **IEC 61131-3 Structured Text** toolchain with first-class
-VS Code support and official LSP setup profiles for Neovim and Zed:
-- Language Server (**LSP**) + VS Code extension
-- Runtime execution engine
-- Debug Adapter (**DAP**) debugger
+Documentation: <https://johannespettersson80.github.io/trust-platform/>
 
-Stable shipped binaries: `trust-lsp`, `trust-runtime`, `trust-debug`, `trust-bundle-gen`.
+truST is an open-source IEC 61131-3 Structured Text toolchain with:
 
-> **Docs site:** <https://johannespettersson80.github.io/trust-platform/>
-> **Start here:** <https://johannespettersson80.github.io/trust-platform/start/>
-> **Install:** VS Code Marketplace → **truST LSP**
+- a VS Code extension and language server
+- `trust-runtime` for local and target execution
+- `trust-debug` for DAP debugging
+- browser IDE and HMI pages at `/ide` and `/hmi`
+- CLI, agent, and harness workflows for automation
 
-## Choose Your Workflow
+## Start
 
-- [Program in VS Code](https://johannespettersson80.github.io/trust-platform/start/program-in-vscode/)
-- [Program in Browser IDE](https://johannespettersson80.github.io/trust-platform/start/program-in-browser/)
-- [Operate in Browser HMI](https://johannespettersson80.github.io/trust-platform/start/operate-in-browser/)
-- [Automate with CLI / CI / agents](https://johannespettersson80.github.io/trust-platform/start/automate-with-cli/)
-- [Maintain an existing project](https://johannespettersson80.github.io/trust-platform/start/maintain-an-existing-project/)
+- Install truST: docs site -> `Start` -> `Installation`
+- Program in VS Code: docs site -> `Start` -> `Program In VS Code`
+- Operate in Browser HMI: docs site -> `Start` -> `Operate In Browser HMI`
 
----
+## Features
 
-## Demo
+- IEC-aware diagnostics, formatting, rename, navigation, and refactors
+- runtime panel with live values and I/O inspection
+- browser IDE and operator HMI backed by the same project/runtime
+- deterministic test and harness workflows
+- PLCopen XML import/export and visual editor support
 
-- Browser IDE static demo (GitHub Pages-ready, no server required): `docs/demo/`
-- Local GitHub Pages replica runner: `scripts/run_demo_local_replica.sh --port 4175 --repo trust-platform`
+## Install
 
-### Debug session with breakpoint + runtime
-![Debug session with breakpoint + runtime](docs/media/debug.png)
+1. Install `truST LSP` from the VS Code Marketplace.
+2. Download released binaries from the latest GitHub release if you need the runtime and debugger locally.
+3. Open the docs site for guided setup, examples, and target-host instructions.
 
-### Runtime panel and live I/O
-![Runtime panel and live I/O](docs/media/hero-runtime.png)
-
-### Rename across PLC code
-![Rename across PLC code](docs/media/rename.png)
-
-Capture/update media checklist: `editors/vscode/assets/README.md`
-
----
-
-## Quick Start (VS Code) — 2 minutes to first success
-
-1. Install **truST LSP** from the Marketplace.
-2. Open a folder containing `.st` or `.pou` files.
-3. Start editing — the language server starts automatically.
-4. Open the **Structured Text Runtime** panel:
-   - **Local** starts a local runtime for quick testing/debugging.
-   - **External** connects to a running runtime via its control endpoint.
-5. (Optional) Add a `trust-lsp.toml` at the workspace root for project settings.
-
-### Open the Runtime Panel (30 seconds)
-
-1. Open **Command Palette** (`Ctrl+Shift+P`).
-2. Run **`Structured Text: Open Runtime Panel`**.
-3. In the panel, choose mode:
-   - **Local**: starts local runtime automatically.
-   - **External**: connects to your configured endpoint.
-4. Press **Start** in the runtime panel.
-5. Set input values under **I/O → Inputs** and observe **Outputs** update live.
-
-### Import PLCopen XML from VS Code (60 seconds)
-
-1. Open **Command Palette** (`Ctrl+Shift+P`).
-2. Run **`Structured Text: Import PLCopen XML`**.
-3. Select the PLCopen XML file to import.
-4. Select the target project folder (new or existing).
-5. Confirm overwrite if the target folder is not empty.
-
-Example XML to try from this repository:
-
-- `examples/plcopen_xml_st_complete/interop/codesys-small.xml`
-
-Command line install:
+Command-line extension install:
 
 ```bash
 code --install-extension trust-platform.trust-lsp
 ```
 
-**Expected result:** you immediately get diagnostics, navigation, semantic tokens, formatting, and code actions.
-
----
-
-## Best Features
-
-- IEC 61131-3-aware diagnostics with spec references.
-- Semantic tokens, formatting, and smart code actions.
-- Refactors like **Move Namespace** and rename that updates file names.
-- Go to definition/references, call hierarchy, type hierarchy, and workspace symbols.
-- Inline values + I/O panel driven by the runtime control endpoint.
-- DAP debugging with breakpoints, stepping, and variables.
-- Deterministic conformance runner via `trust-runtime conformance`.
-- Official Neovim/Zed LSP setup profiles with CI smoke validation.
-
----
-
-## Try Debugging (Optional but recommended)
-
-### 1) Start the runtime
-
-```bash
-trust-runtime --project /path/to/project
-```
-
-### 2) Debug from VS Code
-
-In VS Code run:
-
-- **Structured Text: Start Debugging**
-  or
-- **Structured Text: Attach Debugger**
-
-Notes:
-
-- Ensure `trust-debug` is on PATH (or set `trust-lsp.debug.adapter.path` in config).
-- **External** mode connects to the runtime endpoint you configured.
-- **Local** mode starts a local runtime for debugging and inline values.
-
----
-
-## Configuration (`trust-lsp.toml`)
-
-Place `trust-lsp.toml` at the workspace root:
-
-```toml
-[project]
-include_paths = ["src"]
-vendor_profile = "codesys"
-
-[dependencies]
-MyMotionLib = { path = "libraries/my_motion_lib", version = "0.1.0" }
-
-[[libraries]]
-name = "vendor-stubs"
-path = "vendor/siemens"
-version = "0.1.0"
-
-[runtime]
-control_endpoint = "unix:///tmp/trust-runtime.sock"
-control_auth_token = "optional-token"
-```
-
-Use `src/` for project-owned code, `[dependencies]` for reusable truST
-Structured Text packages, and `[[libraries]]` for external/index-only stub
-libraries or attached vendor documentation packs.
-
-Inline values also work by setting the runtime endpoint from the VS Code **Structured Text Runtime** panel
-(gear icon → Runtime Settings). In **External** mode the panel connects to that endpoint; in **Local** mode it
-starts a local runtime for debugging and inline values.
-
----
-
 ## Components
 
 | Component | Binary | Purpose |
 |---|---|---|
-| Language Server | `trust-lsp` | Diagnostics, navigation, refactors, IDE features |
-| Runtime | `trust-runtime` | Runtime execution engine + bytecode |
-| Debug Adapter | `trust-debug` | DAP adapter for breakpoints, stepping, variables |
-| Bundle Tool | `trust-bundle-gen` | Generates STBC bundles |
-| VS Code Extension | (bundles `trust-lsp`/`trust-debug`) | Editor UX, commands, runtime panel |
-
----
-
-## Architecture
-
-![truST system architecture](docs/diagrams/generated/system-architecture.svg)
-
----
-
-## Documentation
-
-- docs site: <https://johannespettersson80.github.io/trust-platform/>
-- `docs/public/index.md` — canonical public docs source
-- `docs/README.md` — repo documentation index and diagram workflow
-- `docs/public/start/agent-quickstart.md` — quickest Copilot/agent path
-- `docs/public/connect/protocol-matrix.md` — where to look for supported protocols and transport families
-- `docs/public/examples/index.md` — curated runnable example catalog
-- `docs/guides/WEB_IDE_FULL_BROWSER_GUIDE.md` — runtime-hosted Browser IDE (`/ide`) usage and API surface
-- `docs/guides/HMI_DIRECTORY_WORKFLOW.md` — `hmi/` directory format, process SVG pages, and LM tool workflow
-- `docs/guides/RUNTIME_CLOUD_MANUAL.md` — runtime cloud onboarding manual (quickstart, profiles, federation, UI, troubleshooting)
-- `docs/guides/RUNTIME_EXECUTION_BACKEND_MIGRATION.md` — MP-060 backend mode controls, rollback workflow, and interpreter compatibility-window policy
-- `examples/README.md` — guided example/tutorial tracks with setup walkthroughs
-- `examples/runtime_cloud/README.md` — runtime cloud payload/config example pack
-- `docs/guides/PLC_QUICK_START.md` — hands-on quick start
-- `docs/guides/EDITOR_SETUP_NEOVIM_ZED.md` — Neovim + Zed setup and validation contract
-- `docs/specs/README.md` — IEC 61131-3 specs and tooling references
-- `conformance/README.md` — conformance suite MVP scope and contracts
-
----
+| Language Server | `trust-lsp` | Diagnostics, navigation, formatting, refactors |
+| Runtime | `trust-runtime` | Runtime execution engine, CLI workflows, web UI |
+| Debug Adapter | `trust-debug` | DAP debugging |
+| Bundle Tool | `trust-bundle-gen` | STBC bundle generation |
 
 ## Status
 
 - VS Code Marketplace: live
-- Neovim + Zed LSP setup docs/configs: shipped (`editors/neovim/`, `editors/zed/`)
-- Runtime + debugger: experimental, integrated in the platform workflow
-- canonical docs entry now routes by workflow instead of by repo file hunting
+- GitHub Releases: live
+- Runtime + debugger: experimental
+- Rust MSRV: 1.85
 
----
+## Help
 
-## Getting Help / Community
-
-- **GitHub Issues:** https://github.com/johannesPettersson80/trust-platform/issues
-- **Email:** johannes_salomon@hotmail.com
-- **LinkedIn:** https://linkedin.com/in/johannes-pettersson
-
----
+- GitHub Issues: <https://github.com/johannesPettersson80/trust-platform/issues>
+- Email: <johannes_salomon@hotmail.com>
+- LinkedIn: <https://linkedin.com/in/johannes-pettersson>
 
 ## License
 
-Licensed under **MIT OR Apache-2.0**. See `LICENSE-MIT` and `LICENSE-APACHE`.
+Licensed under MIT OR Apache-2.0. See `LICENSE-MIT` and `LICENSE-APACHE`.

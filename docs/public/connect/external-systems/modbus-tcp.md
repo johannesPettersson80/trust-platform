@@ -1,8 +1,5 @@
 # Modbus TCP
 
-Use Modbus TCP when the other side thinks in registers, unit IDs, and explicit
-timeout/error policy.
-
 ## Good fit vs bad fit
 
 | Good fit | Bad fit |

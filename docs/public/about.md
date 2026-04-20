@@ -1,10 +1,13 @@
 # About
 
+truST is an open IEC 61131-3 Structured Text toolchain with editor support, a
+runtime you can run locally or on target hardware, and browser UIs for
+engineering and operation.
+
 ## Project Purpose
 
-truST exists to provide an open IEC 61131-3 Structured Text toolchain with a
-real editor workflow, a runtime you can run locally or on a target, and browser
-surfaces for engineering and operation.
+truST combines language tooling, runtime execution, debugging, and
+browser-hosted operator flows in one open repository.
 
 ## Maintainer
 
@@ -23,7 +26,7 @@ truST is dual-licensed under:
 
 - Community support: GitHub issues and public docs
 - Direct maintainer contact: email
-- Paid support: not advertised as a formal commercial support contract today
+- Paid support: no formal commercial support contract
 
 ## Security Contact
 
@@ -35,7 +38,7 @@ Do not post exploit details publicly before coordination.
 
 ## Known Production Users
 
-- No public production-user references are published at this time.
+- Production users: none disclosed.
 
 ## Roadmap
 
@@ -59,10 +62,14 @@ Do not post exploit details publicly before coordination.
 
 ### Beta Or Evaluate Carefully
 
-- Browser IDE for day-to-day engineering in larger teams
-- Browser HMI for production-facing operator use
-- runtime-cloud and multi-runtime federation paths
-- visual-editor coverage outside the statechart/editor paths already documented
+- Browser IDE for day-to-day engineering in larger teams: validate session,
+  auth, and deployment setup before team rollout.
+- Browser HMI for production-facing operator use: verify your site-specific
+  alarm, auth, and runbook flows before live use.
+- runtime-cloud and multi-runtime federation paths: validate network topology,
+  auth, and recovery behavior per site.
+- visual-editor coverage outside the statechart/editor paths already
+  documented: confirm the generated ST and runtime behavior in your project.
 
 ## Related
 

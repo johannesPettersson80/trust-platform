@@ -1,8 +1,5 @@
 # Driver Matrix
 
-Use this page when the question is about the I/O driver itself rather than the
-overall network topology.
-
 | Driver | Use it for | Best first doc |
 | --- | --- | --- |
 | `simulated` | deterministic fake process I/O without hardware | [Simulated And Loopback](simulated-and-loopback.md) |

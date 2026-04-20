@@ -1,7 +1,5 @@
 # Config Files
 
-Use this section when you need exact file-level meaning.
-
 | File | Use when | Main surface |
 | --- | --- | --- |
 | `runtime.toml` | runtime timing, web, control, mesh, observability, retain | [runtime.toml](runtime-toml.md) |

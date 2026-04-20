@@ -43,7 +43,8 @@ same project semantics and execution model instead of inventing separate paths.
 
 ## One Project, Many Surfaces
 
-The same project should move through these surfaces without being rewritten for
+The same project should move through these interfaces without being rewritten
+for
 each tool:
 
 1. authoring in an editor or browser IDE
@@ -51,9 +52,9 @@ each tool:
 3. runtime execution
 4. deterministic harness or test execution
 5. diagnostics and repair through agents
-6. operator-facing HMI or runtime control surfaces
+6. operator-facing HMI or runtime control APIs
 
-If a feature only works in one surface because it depends on product-specific
+If a feature only works in one interface because it depends on product-specific
 glue, that is usually an architectural smell in truST.
 
 ## Shared Contracts

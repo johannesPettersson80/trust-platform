@@ -1,11 +1,10 @@
 # Program In VS Code
 
-Use this page when you want the main engineering workflow inside VS Code. This
-page is for programming and verification, not for operator-only use.
+Start with the shipped tutorial project in VS Code.
 
 ## Use A Shipped Project First
 
-The most truthful first success today is a real shipped tutorial:
+Start with a shipped tutorial:
 
 - `examples/tutorials/12_hmi_pid_process_dashboard`
 
@@ -17,11 +16,11 @@ code examples/tutorials/12_hmi_pid_process_dashboard
 
 ![truST workspace open in VS Code](../assets/images/vscode/workspace-shell.png)
 
-*Figure:* A real code-server-backed VS Code workspace with `Main.st` rendered in
-the editor. This is the engineering surface where diagnostics, runtime-panel
-commands, and project navigation begin.
+*Figure:* A code-server-backed VS Code workspace with `Main.st` rendered in the
+editor. This is where diagnostics, runtime-panel commands, and project
+navigation begin.
 
-## First Success Workflow
+## Quick Start
 
 1. Install `truST LSP`.
 2. Open the tutorial project in VS Code.
@@ -44,7 +43,7 @@ The tutorial already maps safe proof signals:
 - `%QX0.1` = `HighPressureAlarm`
 - `%QX0.4` = `BypassOpen`
 
-Good first proof:
+Verify it works:
 
 1. toggle `%IX0.0`
 2. confirm the runtime panel changes
@@ -53,8 +52,8 @@ Good first proof:
 ![Browser HMI for the tutorial project](../assets/images/browser/hmi-home.png)
 
 *Figure:* `/hmi` for the shipped tutorial project once the runtime is connected.
-Use it as the operator-facing surface you can open after toggling `%IX0.0` in
-the runtime panel.
+Use it as the operator UI you can open after toggling `%IX0.0` in the runtime
+panel.
 
 ## If It Fails
 

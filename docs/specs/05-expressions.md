@@ -27,26 +27,15 @@ The maximum allowed length of expressions is Implementer specific.
 |------------|-----------|--------|---------|---------------|
 | 11 (highest) | Parentheses | `(expr)` | `(A+B)/C` | N/A |
 | 10 | Function/Method call | `name(args)` | `SIN(X)`, `obj.method(Y)` | Left-to-right |
-| 9 | Dereference | `^` | `ptr^` | Left-to-right |
-| 8 | Negation (unary) | `-` | `-A` | Right-to-left |
-| 8 | Unary Plus | `+` | `+B` | Right-to-left |
-| 8 | Complement | `NOT` | `NOT C` | Right-to-left |
-| 7 | Exponentiation | `**` | `A**B` | Left-to-right |
-| 6 | Multiply | `*` | `A*B` | Left-to-right |
-| 6 | Divide | `/` | `A/B` | Left-to-right |
-| 6 | Modulo | `MOD` | `A MOD B` | Left-to-right |
-| 5 | Add | `+` | `A+B` | Left-to-right |
-| 5 | Subtract | `-` | `A-B` | Left-to-right |
-| 4 | Less than | `<` | `A<B` | Left-to-right |
-| 4 | Greater than | `>` | `A>B` | Left-to-right |
-| 4 | Less or equal | `<=` | `A<=B` | Left-to-right |
-| 4 | Greater or equal | `>=` | `A>=B` | Left-to-right |
-| 4 | Equality | `=` | `A=B` | Left-to-right |
-| 4 | Inequality | `<>` | `A<>B` | Left-to-right |
-| 3 | Boolean AND | `&` | `A&B` | Left-to-right |
-| 3 | Boolean AND | `AND` | `A AND B` | Left-to-right |
-| 2 | Boolean XOR | `XOR` | `A XOR B` | Left-to-right |
-| 1 (lowest) | Boolean OR | `OR` | `A OR B` | Left-to-right |
+| 9 | Dereference ([§4.4](#44-reference-operators)) | `^` | `ptr^` | Left-to-right |
+| 8 | Unary operators ([§4.1](#41-arithmetic-operators), [§4.3](#43-logicalboolean-operators)) | `-`, `+`, `NOT` | `-A`, `+B`, `NOT C` | Right-to-left |
+| 7 | Exponentiation ([§4.1](#41-arithmetic-operators)) | `**` | `A**B` | Left-to-right |
+| 6 | Multiplicative ([§4.1](#41-arithmetic-operators)) | `*`, `/`, `MOD` | `A*B`, `A/B`, `A MOD B` | Left-to-right |
+| 5 | Additive ([§4.1](#41-arithmetic-operators)) | `+`, `-` | `A+B`, `A-B` | Left-to-right |
+| 4 | Comparison ([§4.2](#42-comparison-operators)) | `<`, `>`, `<=`, `>=`, `=`, `<>` | `A<B`, `A=B` | Left-to-right |
+| 3 | Boolean AND ([§4.3](#43-logicalboolean-operators)) | `&`, `AND` | `A&B`, `A AND B` | Left-to-right |
+| 2 | Boolean XOR ([§4.3](#43-logicalboolean-operators)) | `XOR` | `A XOR B` | Left-to-right |
+| 1 (lowest) | Boolean OR ([§4.3](#43-logicalboolean-operators)) | `OR` | `A OR B` | Left-to-right |
 
 ## 3. Evaluation Rules
 
@@ -241,9 +230,8 @@ IEC 61131-3 Ed.3 §6.3.3 and Tables 5–9 define literal forms but do not mandat
 
 #### 5.2.2 Siemens SCL local-reference prefix (extension)
 
-- `#identifier` is accepted as a `NameRef` in expression and statement contexts.
-- Intended for Siemens SCL compatibility (for example `#sum := #sum + 1;`).
-- Diagnostics: malformed prefix usage reports `expected identifier after '#'`.
+`#identifier` is accepted as a `NameRef` in expression and statement contexts
+for Siemens SCL compatibility; see `docs/IEC_DEVIATIONS.md` DEV-034.
 
 ### 5.3 Postfix Expressions
 
@@ -351,15 +339,15 @@ Output := MIN(MAX(Input, LowLimit), HighLimit);
 Match := (Name = 'ADMIN') OR (Name = 'ROOT');
 ```
 
-## Implementation Notes for trust-syntax Parser
+## Implementation Notes
 
 ### Parser Requirements
 
-1. **Precedence climbing** or **Pratt parsing** for operator precedence
-2. Handle both symbols (`&`) and keywords (`AND`) for same operator
-3. Unary operators (-, +, NOT) have right-to-left associativity
-4. Support for chained comparisons: `A < B < C` (evaluate left-to-right)
-5. Function/method calls as primary expressions
+1. Use precedence climbing or Pratt parsing for operator precedence.
+2. Handle both symbols (`&`) and keywords (`AND`) for the same operator family.
+3. Keep unary operators (`-`, `+`, `NOT`) right-associative.
+4. Support chained comparisons such as `A < B < C` with left-to-right evaluation.
+5. Treat function/method calls as primary expressions.
 
 ### AST Node Types
 
@@ -377,25 +365,9 @@ Expression
 └── Parenthesized (inner: Expression)
 ```
 
-## Implementation Notes for trust-hir Type Checker
+### Type Checker Requirements
 
-### Type Inference
-
-1. Determine type of each operand
-2. Apply promotion rules
-3. Verify operator compatibility
-4. Determine result type
-
-### Promotion Rules
-
-```
-SINT → INT → DINT → LINT
-USINT → UINT → UDINT → ULINT
-REAL → LREAL
-```
-
-### Error Reporting
-
-- Report the specific operator and operand types
-- Suggest correct types or conversions
-- Identify the source location precisely
+1. Determine the type of each operand.
+2. Apply promotion rules before evaluating operator compatibility.
+3. Verify operator compatibility and determine the result type.
+4. Report the specific operator, operand types, and precise source location.

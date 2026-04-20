@@ -1,7 +1,6 @@
 # Start
 
-Use this section when you need first success quickly. Start is organized by
-workflow, not by component name.
+Choose the quickest path to your first working truST workflow.
 
 ## Recommended Order
 
@@ -20,14 +19,14 @@ workflow, not by component name.
 ## Which Page Answers Which Question?
 
 - [Installation](installation.md): what to install and how to know it worked.
-- [Choose Your Workflow](choose-your-workflow.md): route yourself to the right first-success page.
+- [Choose Your Workflow](choose-your-workflow.md): route yourself to the right getting-started page.
 - [Program In VS Code](program-in-vscode.md): the primary engineering workflow.
 - [Program In Browser IDE](program-in-browser.md): browser-hosted engineering with `/ide`.
 - [Operate In Browser HMI](operate-in-browser.md): operator/technician path when you were given an HMI URL.
 - [Automate With CLI / CI / agents](automate-with-cli.md): first success for shell, CI, and JSON-RPC users.
 - [Maintain An Existing Project](maintain-an-existing-project.md): inherited-system workflow.
-- [Create A New Project](create-new-project.md): the honest empty-folder bootstrap path.
-- [Editors](editors.md): compare VS Code, Browser IDE, Neovim, Zed, and HMI browser surfaces.
+- [Create A New Project](create-new-project.md): the empty-folder bootstrap path.
+- [Editors](editors.md): compare VS Code, Browser IDE, Neovim, Zed, and the browser HMI.
 
 ## Who Should Skip The Programmer-First Path?
 

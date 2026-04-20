@@ -1,10 +1,6 @@
 # Runtime Cloud
 
-Use this page for day-to-day runtime-cloud operations rather than the transport
-setup itself. If you are still deciding topology, start from
-[Connect -> Runtime Cloud Federation](../connect/runtime-to-runtime/runtime-cloud-federation.md).
-
-Use this page when:
+Use this manual when:
 
 - the cloud/federation wiring already exists
 - you need the operator/developer manual for daily use

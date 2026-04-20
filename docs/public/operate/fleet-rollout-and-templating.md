@@ -1,8 +1,5 @@
 # Fleet Rollout And Templating
 
-Use this page when you have more than one runtime or more than one plant and
-need a repeatable rollout model.
-
 ## What This Covers
 
 - per-site overrides

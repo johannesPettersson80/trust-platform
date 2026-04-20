@@ -1,15 +1,12 @@
 # MES And ERP
 
-Use this page when you need to bridge truST runtime state or plant events into
-MES, ERP, or other plant IT workflows.
-
 ## Boundary Rule
 
 truST is strongest at:
 
 - control/runtime execution
 - plant-facing protocols
-- browser and operator surfaces
+- browser and operator UIs
 - CLI/agent automation
 
 MES/ERP integration usually happens through one of these boundaries:

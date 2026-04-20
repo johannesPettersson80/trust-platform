@@ -625,10 +625,10 @@ docs/
         07-standard-functions.md
         08-standard-function-blocks.md
         09-semantic-rules.md
-        10-runtime.md
-        11-ladder-diagram.md
-        12-ladder-profile-trust.md
-        13-visual-editors-runtime-unification.md
+        10-runtime-semantics.md
+        15-ladder-diagram.md
+        16-ladder-profile-trust.md
+        17-visual-editors-runtime-unification.md
     concepts/
       index.md
       architecture.md
@@ -728,7 +728,7 @@ examples/
   - `editors/vscode/README.md`, `docs/guides/EDITOR_SETUP_NEOVIM_ZED.md`, `docs/guides/WEB_IDE_FULL_BROWSER_GUIDE.md` -> `docs/public/start/editors.md` with matrix + anchored sections
   - `examples/README.md` + `examples/tutorials/README.md` -> `docs/public/examples/index.md` + example category pages
   - `docs/guides/PLC_DEVELOPER_GUIDE.md` + `docs/guides/UX_GLOSSARY.md` -> `docs/public/develop/project-layout.md` + `docs/public/reference/config/*`
-  - `examples/ladder/README.md`, `examples/statecharts/README.md`, `examples/blockly/README.md`, `examples/sfc/**`, `docs/guides/PLCOPEN_LD_INTEROP.md`, `docs/specs/13-visual-editors-runtime-unification.md` -> `docs/public/develop/visual-editors/*` and `docs/public/develop/interoperability/plcopen.md`
+  - `examples/ladder/README.md`, `examples/statecharts/README.md`, `examples/blockly/README.md`, `examples/sfc/**`, `docs/guides/PLCOPEN_LD_INTEROP.md`, `docs/specs/17-visual-editors-runtime-unification.md` -> `docs/public/develop/visual-editors/*` and `docs/public/develop/interoperability/plcopen.md`
   - `docs/guides/HMI_DIRECTORY_WORKFLOW.md` + HMI tutorials/examples -> `docs/public/develop/hmi-authoring.md` and `docs/public/operate/hmi-and-web-ui.md`
   - `docs/guides/OSCAT_LIBRARY_GUIDE.md`, `PLCOPEN_MOTION_LIBRARY_GUIDE.md`, and matching examples -> `docs/public/develop/libraries/*`
   - `docs/guides/PLCOPEN_*`, `OPENPLC_INTEROP_V1.md`, `SIEMENS_*`, `MITSUBISHI_*`, `VENDOR_LIBRARY_COMPATIBILITY.md`, `examples/vendor_library_stubs/README.md`, `examples/plcopen_xml_st_complete/README.md` -> `docs/public/develop/interoperability/*`

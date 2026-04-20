@@ -7,7 +7,10 @@ Legend:
 - [x] implemented
 - [~] partial
 
-Status (current codebase; refactor-only check on 2026-01-23): All standard functions listed below are implemented in trust-hir. Runtime execution coverage is tracked in internal test checklists. As of 2026-01-30, trust-ide surfaces IEC-referenced standard function docs in hover/completion (`stdlib_docs`).
+Status (current codebase; refactor-only check): All standard functions listed
+below are implemented in trust-hir. Runtime execution coverage is tracked in
+internal test checklists. trust-ide surfaces IEC-referenced standard function
+docs in hover/completion (`stdlib_docs`).
 
 ## Table 22 - Data Type Conversion Function Forms
 - [x] `SRC_TO_DST` typed conversion

@@ -9,6 +9,12 @@ site_dir: site/public
 copyright: "© 2026 Johannes Pettersson — MIT/Apache-2.0 — johannes_salomon@hotmail.com"
 theme:
   name: material
+  logo: assets/images/brand/trust-logo.svg
+  favicon: assets/images/brand/trust-favicon.png
+  palette:
+    - scheme: default
+      primary: teal
+      accent: teal
   features:
     - navigation.sections
     - navigation.expand
@@ -171,10 +177,19 @@ nav:
           - 07 Standard Functions: reference/specifications/07-standard-functions.md
           - 08 Standard Function Blocks: reference/specifications/08-standard-function-blocks.md
           - 09 Semantic Rules: reference/specifications/09-semantic-rules.md
-          - 10 Runtime: reference/specifications/10-runtime.md
-          - 11 Ladder Diagram: reference/specifications/11-ladder-diagram.md
-          - 12 Ladder Profile truST: reference/specifications/12-ladder-profile-trust.md
-          - 13 Visual Editors Runtime Unification: reference/specifications/13-visual-editors-runtime-unification.md
+          - 10 Runtime Semantics: reference/specifications/10-runtime-semantics.md
+          - 11 Runtime Engine: reference/specifications/11-runtime-engine.md
+          - 12 Bytecode: reference/specifications/12-bytecode.md
+          - 13 Debug Adapter: reference/specifications/13-debug-adapter.md
+          - 14 LSP: reference/specifications/14-lsp.md
+          - 15 Ladder Diagram: reference/specifications/15-ladder-diagram.md
+          - 16 Ladder Profile truST: reference/specifications/16-ladder-profile-trust.md
+          - 17 Visual Editors Runtime Unification: reference/specifications/17-visual-editors-runtime-unification.md
+          - 18 Configurations, Resources, and Tasks: reference/specifications/18-configurations-resources-tasks.md
+          - 19 Project Model: reference/specifications/19-project-model.md
+          - 20 Agent API v1: reference/specifications/20-agent-api-v1.md
+          - 21 Harness Protocol: reference/specifications/21-harness-protocol.md
+          - SFC Profile: reference/specifications/14-sfc-profile.md
   - Concepts:
       - Overview: concepts/index.md
       - Architecture: concepts/architecture.md

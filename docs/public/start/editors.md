@@ -1,8 +1,5 @@
 # Editors
 
-Use this page when you need to compare editing and browser surfaces. This page
-is a chooser, not a first-success walkthrough.
-
 ## Editor matrix
 
 | Editor | Best for | Agent support | Status |
@@ -71,7 +68,7 @@ Reference files in the repo:
 
 ## Non-VS-Code setup guide
 
-The canonical Neovim/Zed setup guide is rendered below:
+The Neovim/Zed setup guide is rendered below:
 
 --8<-- "docs/guides/EDITOR_SETUP_NEOVIM_ZED.md"
 

@@ -561,7 +561,7 @@ Status: Done
 - [x] `DOC-02` Update `docs/PLCOPEN_DECISIONS.md` for every PLCopen-standard ambiguity resolved during motion implementation. Spec: Sections `2`, `6`, `10`, `12`.
 - [x] `DOC-03` Update `docs/PLCOPEN_DEVIATIONS.md` for every truST-specific behavior choice or non-standard PLCopen extension used by the motion library. Spec: Sections `2`, `6`, `10`, `12`.
 - [x] `DOC-04` Treat architecture and diagram sync as required for Phase A closure and Phase C closure: update the PLCopen motion PlantUML diagram, regenerate outputs, refresh `docs/diagrams/manifest.json`, and update `docs/internal/testing/checklists/architecture-improvements.md`. Spec: Sections `20`, `21`, `22`, `30`.
-- [x] `DOC-05` Update `docs/specs/10-runtime.md` when reusable runtime call-binding semantics or motion-runtime integration points materially change. Spec: Sections `28`, `30`.
+- [x] `DOC-05` Update `docs/specs/10-runtime-semantics.md` when reusable runtime call-binding semantics or motion-runtime integration points materially change. Spec: Sections `28`, `30`.
 - [x] `DOC-06` Create the user-facing guide and coverage table for the supported PLCopen motion FBs instead of exposing internal planning docs as public documentation. Spec: Sections `4`, `19`, `31`.
 - [x] `DOC-07` Audit examples and tutorial material so they demonstrate only the FBs and semantics that are actually shipped in the current profile. Spec: Sections `19`, `31`.
 

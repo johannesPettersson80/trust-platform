@@ -1,7 +1,7 @@
 # Specifications
 
 The public reference pages below render the maintained spec sources under
-`docs/specs/`. That keeps the canonical spec text searchable in the docs site
+`docs/specs/`. That keeps the full spec text searchable in the docs site
 instead of sending readers to GitHub.
 
 ## Which spec should you open?
@@ -9,9 +9,18 @@ instead of sending readers to GitHub.
 | If you are trying to answer... | Start here |
 | --- | --- |
 | “What does IEC Structured Text itself allow?” | the language chapters `01` through `09` |
-| “How does truST execute, debug, and bundle projects?” | [10 Runtime](10-runtime.md) |
-| “How does ladder fit into truST?” | [11 Ladder Diagram](11-ladder-diagram.md) and [12 Ladder Profile truST](12-ladder-profile-trust.md) |
-| “How do the visual editors map onto one runtime model?” | [13 Visual Editors Runtime Unification](13-visual-editors-runtime-unification.md) |
+| “How does truST execute ST programs?” | [10 Runtime Semantics](10-runtime-semantics.md) |
+| “How is the runtime platform structured?” | [11 Runtime Engine](11-runtime-engine.md) |
+| “What does the bytecode container look like?” | [12 Bytecode](12-bytecode.md) |
+| “How does debugging behave?” | [13 Debug Adapter](13-debug-adapter.md) |
+| “How does the editor/LSP layer behave?” | [14 LSP](14-lsp.md) |
+| “How does ladder fit into truST?” | [15 Ladder Diagram](15-ladder-diagram.md) and [16 Ladder Profile truST](16-ladder-profile-trust.md) |
+| “How do the visual editors map onto one runtime model?” | [17 Visual Editors Runtime Unification](17-visual-editors-runtime-unification.md) |
+| “What is the current SFC scope?” | [14 SFC Profile](14-sfc-profile.md) |
+| “How are CONFIGURATION / RESOURCE / TASK declarations modeled?” | [18 Configurations, Resources, and Tasks](18-configurations-resources-tasks.md) |
+| “What files make up a truST project?” | [19 Project Model](19-project-model.md) |
+| “What is the machine-facing runtime contract?” | [20 Agent API v1](20-agent-api-v1.md) |
+| “What is the deterministic harness wire protocol?” | [21 Harness Protocol](21-harness-protocol.md) |
 
 Use the specification pages for exact behavior and contracts. If you want the
 task-oriented guide first, go back to [Develop](../../develop/index.md),

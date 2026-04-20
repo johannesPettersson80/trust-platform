@@ -1,9 +1,5 @@
 # PLCopen Motion
 
-Use this page when you want the shipped PLCopen Motion profile, API surface,
-and reference examples. This is the right page when the question is about axis
-control vocabulary and shipped support, not generic IEC authoring.
-
 Use PLCopen Motion when:
 
 - you want the standard motion-model terminology

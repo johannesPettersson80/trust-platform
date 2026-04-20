@@ -8,6 +8,23 @@ This specification defines standard functions for trust-hir.
 
 Standard functions are predefined functions available in all IEC 61131-3 implementations.
 
+### Function Index
+
+| Name / Group | Category | Signature Shape | IEC ref | Status |
+|--------------|----------|-----------------|---------|--------|
+| `*_TO_*`, `TO_*`, `TRUNC_*`, `*_BCD_TO_*`, `*_TO_BCD_*` | Conversion | fixed or overloaded | Tables 22-27 | Implemented with documented extensions |
+| `ABS`, `SQRT`, `LN`, `LOG`, `EXP`, `SIN`, `COS`, `TAN`, `ASIN`, `ACOS`, `ATAN`, `ATAN2` | Numerical | fixed arity | Table 28 | Implemented |
+| `ADD`, `SUB`, `MUL`, `DIV`, `MOD`, `EXPT`, `MOVE` | Arithmetic | fixed/extensible | Table 29 | Implemented |
+| `SHL`, `SHR`, `ROL`, `ROR` | Bit shift / rotate | fixed arity | Table 30 | Implemented |
+| `AND`, `OR`, `XOR`, `NOT` | Bitwise boolean | fixed/extensible | Table 31 | Implemented |
+| `SEL`, `MAX`, `MIN`, `LIMIT`, `MUX` | Selection | fixed/extensible | Table 32 | Implemented |
+| `GT`, `GE`, `EQ`, `LE`, `LT`, `NE` | Comparison | fixed/extensible | Table 33 | Implemented |
+| `LEN`, `LEFT`, `RIGHT`, `MID`, `CONCAT`, `INSERT`, `DELETE`, `REPLACE`, `FIND` | String | fixed/extensible | Table 34 | Implemented |
+| `ADD_*`, `SUB_*`, `MUL_*`, `DIV_*`, `CONCAT_*`, `SPLIT_*`, `DAY_OF_WEEK` | Date / time | fixed or overloaded | Tables 35-36 | Implemented |
+| `REF` | Reference | fixed arity | Table 12 | Implemented |
+| `LOWER_BOUND`, `UPPER_BOUND` | Array bound | fixed arity | IEC extension set | Implemented |
+| `ASSERT_*` | Test assertions | fixed arity | non-IEC | Extension; see `docs/IEC_DEVIATIONS.md` DEV-019 |
+
 ### Function Characteristics
 
 - No internal state (stateless)
@@ -258,6 +275,9 @@ Different := NE(A, B);       // TRUE if A <> B
 
 ## 8. String Functions (Table 34)
 
+String declaration syntax (`STRING[n]`, `WSTRING[n]`) and character indexing are
+owned by `02-data-types.md`. This section owns the callable string functions.
+
 | Function | Description | Signature |
 |----------|-------------|-----------|
 | `LEN` | Length | `LEN(IN: ANY_STRING) : INT` |
@@ -465,6 +485,7 @@ The following functions are non-IEC additions for the user-facing ST test framew
 | `ASSERT_NEAR` | `ASSERT_NEAR(EXPECTED: ANY_NUM, ACTUAL: ANY_NUM, DELTA: ANY_NUM) : VOID` | Fails test when `ABS(EXPECTED-ACTUAL) > DELTA` |
 
 Compatibility notes:
-- These assertions are extension-only and not part of IEC 61131-3 Tables 22-36.
+- These assertions are extension-only and not part of IEC 61131-3 Tables 22-36
+  (see `docs/IEC_DEVIATIONS.md`, DEV-019).
 - They are intended for `TEST_PROGRAM` / `TEST_FUNCTION_BLOCK` execution paths.
 - Runtime failures include assertion context (`expected` / `actual` and tolerance data for `ASSERT_NEAR`).

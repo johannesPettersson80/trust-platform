@@ -3,7 +3,7 @@
 A truST project is a source tree plus a small set of config files that define
 authoring, runtime, I/O, simulation, and HMI behavior.
 
-## Canonical Files
+## Project Files
 
 ```text
 project/

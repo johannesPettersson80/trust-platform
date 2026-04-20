@@ -1,9 +1,5 @@
 # Siemens
 
-Use this path when you are authoring or migrating Siemens SCL-like projects.
-This page is for Siemens-specific syntax, migration, and import/export
-expectations, not generic IEC rules.
-
 Use it when:
 
 - the source code comes from Siemens/TIA

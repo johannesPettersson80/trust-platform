@@ -1,8 +1,5 @@
 # OPC UA
 
-Use OPC UA when truST needs to expose selected runtime variables to OPC UA
-clients.
-
 ## Important feature gate
 
 The shipped runtime config supports `[runtime.opcua]`, but wire-level server

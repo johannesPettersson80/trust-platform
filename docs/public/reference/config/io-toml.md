@@ -33,7 +33,7 @@ Rules:
 
 ## Built-in Driver Names
 
-The shipped canonical driver names are:
+The built-in driver names are:
 
 - `ethercat`
 - `gpio`
@@ -59,7 +59,7 @@ driver = "simulated"
 params = {}
 ```
 
-Use this when you want runtime execution without real hardware.
+Choose this driver when you want runtime execution without physical hardware.
 
 ### `loopback`
 

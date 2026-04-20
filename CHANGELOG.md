@@ -102,6 +102,15 @@ Target release: `v0.19.0`
 
 ### Fixed
 
+- The docs site now ships the truST wordmark, a dedicated favicon, and a teal
+  Material theme instead of the default MkDocs branding, and the public pages
+  were rewritten to remove boilerplate "use this page when..." framing and
+  similar filler so the rendered docs read as product documentation instead of
+  internal notes.
+- The docs-capture code-server launcher now keeps mutable user-data and
+  extension state inside container-local writable directories, avoiding the
+  GitHub Actions permission failure that previously blocked the code-server
+  capture lane on repo-mounted `.cache` paths.
 - The public docs Pages pipeline no longer hard-fails on runners without
   `ffmpeg` when all committed screenshot assets are already present, and the
   cross-platform `trust-runtime agent serve` contract tests now normalize

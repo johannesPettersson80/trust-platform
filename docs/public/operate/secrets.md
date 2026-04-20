@@ -1,8 +1,5 @@
 # Secrets
 
-Use this page when you need to manage auth tokens, certificates, or other
-deployment secrets around truST.
-
 ## Secrets You Are Likely To Handle
 
 - control auth tokens

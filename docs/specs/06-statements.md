@@ -19,11 +19,11 @@ The ST language statements are:
 | Empty | `;` |
 
 **Deviation**:
-- `JMP` statements are parsed and labels are resolved/validated; full control-flow validation (reachability/CFG checks) is not implemented. (IEC 61131-3 Ed.3, Table 72; DEV-008)
-
-### Debugger Safe Points
-
-Debugger safe points align with the statement boundaries enumerated in Table 72. The runtime may pause only before executing a statement and never within expression evaluation. (IEC 61131-3 Ed.3, §7.3.3.1, Table 72)
+- `JMP` statements are parsed and labels are resolved/validated. The current
+  diagnostics pass already reports unreachable statements after terminators and
+  constant-`IF` branches, but truST does not yet build a full control-flow
+  graph for whole-body reachability analysis. (IEC 61131-3 Ed.3, Table 72;
+  DEV-008)
 
 ### Statement Termination
 
@@ -32,6 +32,14 @@ All statements are terminated with a semicolon `;`.
 ### Maximum Length
 
 The maximum allowed length of statements is Implementer specific.
+
+Multiple statements form a sequence and execute in the order written:
+
+```text
+A := 1;
+B := A + 2;
+C := B * 3;
+```
 
 ## 2. Assignment Statement (Section 7.3.3.2)
 
@@ -72,7 +80,9 @@ Checks if assignment is valid (for interface references). If the instance implem
 - Assignment attempt may yield `NULL`; callers must check before dereference. (IEC 61131-3 Ed.3, 6.6.6.7.2, Table 52)
 - trust-hir does not enforce inheritance/interface compatibility for `?=`. (DEV-006)
 
-## 3. Function Call (Section 7.3.3.2.4)
+## 3. Call Statements (Section 7.3.3.2.4)
+
+### 3.1 Function Call
 
 ### Syntax
 
@@ -116,7 +126,7 @@ Result := SafeDivide(EN := Enabled, A := Num, B := Den, ENO => Success);
 - The `=>` operator is only used in call parameter lists to bind `VAR_OUTPUT` (including ENO) back to the caller. (IEC 61131-3 Ed.3, 6.6.1.2.2, Table 71)
 - `=>` is invalid for non-output parameters; use positional arguments or `:=`. (IEC 61131-3 Ed.3, 6.6.1.2.2, Table 71)
 
-## 4. Function Block Call (Section 7.3.3.2.4)
+### 3.2 Function Block Call
 
 ### Syntax
 
@@ -150,7 +160,7 @@ MyTimer();              // Call with preset inputs
 MyTimer(PT := T#10s);   // Only PT is assigned, IN keeps previous value
 ```
 
-## 5. Method Call (Section 7.3.3.2.4)
+### 3.3 Method Call
 
 ### Syntax
 
@@ -170,7 +180,7 @@ Status := Motor1.GetStatus();
 
 ```
 
-## 6. RETURN Statement (Section 7.3.3.2.4)
+## 4. RETURN Statement (Section 7.3.3.2.4)
 
 ### Syntax
 
@@ -203,7 +213,7 @@ END_IF;
 2. `RETURN;` is also valid for functions and methods when the implicit return variable has already been assigned on that control-flow path.
 3. In programs, function blocks, and procedures, `RETURN;` performs an early exit.
 
-## 7. IF Statement (Section 7.3.3.3.2)
+## 5. IF Statement (Section 7.3.3.3.2)
 
 ### Syntax
 
@@ -265,7 +275,7 @@ END_IF;
 3. ELSE is optional
 4. First TRUE condition's block executes; rest skipped
 
-## 8. CASE Statement (Section 7.3.3.3.3)
+## 6. CASE Statement (Section 7.3.3.3.3)
 
 ### Syntax
 
@@ -318,7 +328,7 @@ END_CASE;
 4. ELSE executes when the selector matches no label; otherwise no statements execute (ELSE optional). (IEC 61131-3 Ed.3, 7.3.3.3.3)
 5. trust-hir warns when ELSE is omitted unless the selector is an enum and the labels cover all enum values.
 
-## 9. FOR Statement (Section 7.3.3.4.2)
+## 7. FOR Statement (Section 7.3.3.4.2)
 
 ### Syntax
 
@@ -375,7 +385,7 @@ END_FOR;
 - Positive increment: terminates when `control_var > final`
 - Negative increment: terminates when `control_var < final`
 
-## 10. WHILE Statement (Section 7.3.3.4.3)
+## 8. WHILE Statement (Section 7.3.3.4.3)
 
 ### Syntax
 
@@ -410,7 +420,7 @@ END_WHILE;
 
 Implementation note (trust-hir): termination-guarantee analysis is not implemented; see `docs/IEC_DEVIATIONS.md`.
 
-## 11. REPEAT Statement (Section 7.3.3.4.4)
+## 9. REPEAT Statement (Section 7.3.3.4.4)
 
 ### Syntax
 
@@ -448,7 +458,7 @@ END_REPEAT;
 
 Implementation note (trust-hir): termination-guarantee analysis is not implemented; see `docs/IEC_DEVIATIONS.md`.
 
-## 12. EXIT Statement (Section 7.3.3.4.6)
+## 10. EXIT Statement (Section 7.3.3.4.6)
 
 ### Syntax
 
@@ -484,7 +494,7 @@ END_FOR;
 2. Only exits innermost loop
 3. If EXIT supported, it must work for all loop types (FOR, WHILE, REPEAT)
 
-## 13. CONTINUE Statement (Section 7.3.3.4.5)
+## 11. CONTINUE Statement (Section 7.3.3.4.5)
 
 ### Syntax
 
@@ -520,7 +530,7 @@ END_FOR;
 2. Affects only innermost loop
 3. If CONTINUE supported, it must work for all loop types
 
-## 14. Label Statement (Section 7.3.3, Table 72)
+## 12. Label Statement (Section 7.3.3, Table 72)
 
 ### Syntax
 
@@ -542,7 +552,29 @@ JMP Start;
 3. Labels must be unique within the same label scope
 4. JMP targets must resolve to a label in the same scope (Table 72)
 
-## 15. Empty Statement
+## 13. JMP Statement
+
+### Syntax
+
+```text
+JMP label;
+```
+
+### Rules
+
+1. `label` must resolve to a declared label in the same POU or ACTION body
+2. Forward and backward jumps are both allowed after label resolution
+3. Reachability diagnostics currently cover terminator-following statements and
+   constant-branch dead code; full CFG-based jump analysis is still pending
+
+### Example
+
+```text
+Start: X := 1;
+JMP Start;
+```
+
+## 14. Empty Statement
 
 ### Syntax
 
@@ -561,18 +593,6 @@ CASE Mode OF
   2: ProcessMode2();
 END_CASE;
 ```
-
-## 16. Statement Sequences
-
-Multiple statements form a sequence:
-
-```
-A := 1;
-B := A + 2;
-C := B * 3;
-```
-
-Statements execute sequentially in order written.
 
 ## Implementation Notes for trust-syntax Parser
 

@@ -1,10 +1,6 @@
 # Runtime Cloud Federation
 
-Use this when the runtime-to-runtime problem crosses site boundaries, fleet
-coordination, or runtime-cloud policy. This is the setup-and-wiring side of
-runtime-cloud; day-to-day use belongs under [Operate -> Runtime Cloud](../../operate/runtime-cloud.md).
-
-Read this when:
+Use this guide when:
 
 - you are still deciding topology
 - the system crosses one LAN/site boundary

@@ -1,8 +1,5 @@
 # Operator Alarm Handbook
 
-Use this page when an alarm is active and the operator needs the generic truST
-alarm workflow before following site-specific instructions.
-
 ## Generic Alarm Flow
 
 1. open the alarms page first
@@ -13,8 +10,8 @@ alarm workflow before following site-specific instructions.
 
 ## Important Boundary
 
-This page is generic. The real per-alarm action still belongs in the local
-site runbook.
+This page is generic. The site-specific per-alarm action still belongs in the
+local runbook.
 
 ## Related
 

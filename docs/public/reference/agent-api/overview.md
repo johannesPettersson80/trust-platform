@@ -6,14 +6,14 @@ The external agent contract is served by:
 trust-runtime agent serve --project ./my-plc
 ```
 
-## What it is for
+## Use cases
 
 - local agents
 - CI automation
 - shell tooling
 - future hosted backends that should reuse the same command handlers
 
-## Surface map
+## Capability matrix
 
 | Capability | Pure LSP | Agent contract | VS Code only |
 | --- | --- | --- | --- |
@@ -28,9 +28,9 @@ trust-runtime agent serve --project ./my-plc
 | compile + reload loop | no | yes | yes |
 | deterministic harness control | no | yes | no |
 
-## Current design rule
-
-Use LSP for language-standard editor features. Use the external agent contract for orchestration, runtime, test, and harness automation. Keep editor-specific panels and UX in VS Code.
+**Design principle:** Use LSP for language-standard editor features. Use the
+external agent contract for orchestration, runtime, test, and harness
+automation. Keep editor-specific panels and UX in VS Code.
 
 ## Current high-value methods
 

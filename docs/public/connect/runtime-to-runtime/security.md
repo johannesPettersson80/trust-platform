@@ -1,8 +1,5 @@
 # Security
 
-Use this page when the runtime-to-runtime question is about exposure, auth,
-pairing, or remote access.
-
 ## Key rules
 
 - default local and loopback-first flows are safest

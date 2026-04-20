@@ -1,12 +1,5 @@
 # Blockly
 
-Use Blockly when you want block-based editing tied to the same project and
-runtime model, especially for onboarding, demos, or teams easing into ST.
-
-The screenshot was removed until the capture pipeline reliably opens the
-Blockly canvas instead of a placeholder or raw file view. The workflow below is
-still the product workflow; the image will come back with a truthful capture.
-
 ## What it gives you
 
 - block-based authoring
@@ -35,7 +28,7 @@ still the product workflow; the image will come back with a truthful capture.
 
 ## Common mistakes
 
-- treating generated ST as optional instead of part of the real project output
+- treating generated ST as optional instead of part of the project output
 - building very large workflows that become harder to scan than ST
 - skipping address/mapping review when blocks read or write process values
 

@@ -1,12 +1,5 @@
 # Ladder
 
-Use Ladder when your logic is naturally rung-oriented and operators or PLC
-engineers already think in contacts, coils, timers, counters, and branches.
-
-The screenshot was removed until the capture pipeline reliably opens the ladder
-custom editor instead of raw JSON. The workflow below is still the product
-workflow; the image will come back with a truthful capture.
-
 ## What it gives you
 
 - rung-based visual authoring
@@ -47,5 +40,5 @@ workflow; the image will come back with a truthful capture.
 
 - [Companion ST](companion-st.md)
 - [PLCopen](../interoperability/plcopen.md)
-- [Ladder specification](../../reference/specifications/11-ladder-diagram.md)
-- [truST ladder profile](../../reference/specifications/12-ladder-profile-trust.md)
+- [Ladder specification](../../reference/specifications/15-ladder-diagram.md)
+- [truST ladder profile](../../reference/specifications/16-ladder-profile-trust.md)

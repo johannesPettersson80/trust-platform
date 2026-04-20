@@ -19,7 +19,7 @@ flowchart LR
 2. mapped variables are materialized for the running program/task
 3. Structured Text logic executes
 4. updated outputs and memory images are written back
-5. watchers, HMI, and control surfaces observe the resulting state
+5. watchers, HMI, and control APIs observe the resulting state
 
 ## Why it matters
 

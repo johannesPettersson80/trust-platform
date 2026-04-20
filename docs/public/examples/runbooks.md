@@ -1,14 +1,8 @@
 # Runbooks
 
-Use this page when you need a site-specific operator or technician handoff pack
-on top of the generic truST docs.
+Site-specific runbooks should include:
 
-## Why This Exists
-
-truST docs can tell you how the product works generically. A real plant still
-needs a local runbook with:
-
-- the real HMI URL
+- the HMI URL
 - local credentials or access path
 - escalation contacts
 - start-of-shift checks

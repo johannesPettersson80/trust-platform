@@ -167,22 +167,13 @@ END_CLASS
 
 **Default Access**:
 - PROTECTED is the default access specifier for variables
-- If inheritance is not supported, PROTECTED behaves like PRIVATE
+- `PROTECTED` members are visible to the declaring class and derived classes
 
-## 5. Debugger Variable Visibility (IEC-Aligned)
-
-Debugger scopes and variable visibility follow IEC variable sections and access rules.
-
-**Rules**:
-- Local scopes include variables declared in the active POU’s `VAR`, `VAR_TEMP`, `VAR_INPUT`, `VAR_OUTPUT`, and `VAR_IN_OUT` sections. (IEC 61131-3 Ed.3, Tables 13–14; §6.5.1–6.5.2)
-- Global scopes include `VAR_GLOBAL`, `VAR_EXTERNAL`, `VAR_ACCESS`, and `VAR_CONFIG` symbols resolved to their declared names, not raw access paths. (IEC 61131-3 Ed.3, §6.5.2.2, Tables 13–16)
-- Instance scopes expose the variables declared in the instance’s FB/CLASS `VAR` sections, respecting access specifiers. (IEC 61131-3 Ed.3, §6.5.2.3)
-- Access specifiers are not enforced for debugger inspection yet; `PRIVATE`/`PROTECTED`/`INTERNAL` members may be visible. (IEC 61131-3 Ed.3, §6.5.2.3; DEV-023)
-- Directly represented variables (`AT %I/%Q/%M`) are presented by symbolic name; the address may be shown as metadata, not as a separate scope. (IEC 61131-3 Ed.3, §6.5.5, Table 16)
-
-## 6. Directly Represented Variables (Table 16, Section 6.5.5)
+## 5. Directly Represented Variables (Table 16, Section 6.5.5)
 
 Directly represented variables map to physical I/O or memory locations.
+See `10-runtime-semantics.md` §9 for the language/runtime I/O contract and
+`11-runtime-engine.md` §6.4 for the process image/runtime engine view.
 
 ### Syntax
 
@@ -246,7 +237,7 @@ END_VAR
 - Incomplete direct addresses (`%I*`, `%Q*`, `%M*`) are not allowed in `VAR_INPUT` or `VAR_IN_OUT` sections. (IEC 61131-3 Ed.3, 6.5.5.4)
 - Each incomplete direct address must be fully specified in a `VAR_CONFIG` entry using `AT` and a concrete address (no `*`). (IEC 61131-3 Ed.3, 6.5.5.4)
 
-## 7. Variable-Length Arrays (Tables 15-16, Section 6.5.4.5)
+## 6. Variable-Length Arrays (Tables 15-16, Section 6.5.4.5)
 
 ### Declaration
 

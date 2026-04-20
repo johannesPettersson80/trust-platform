@@ -1,8 +1,5 @@
 # Backup And Restore
 
-Use this page when a production system must survive storage loss, host failure,
-or rollback to a known-good state.
-
 ## What To Back Up
 
 - project files

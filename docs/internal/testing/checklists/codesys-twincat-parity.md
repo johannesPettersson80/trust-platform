@@ -100,8 +100,8 @@ Out of scope for this checklist:
   Evidence: `crates/trust-hir/src/db/diagnostics/context.rs`, validated with `cargo test -p trust-hir test_var_external_matches_program_scoped_global -- --nocapture`.
   Target files: `crates/trust-hir/src/db/diagnostics/context.rs`, `crates/trust-hir/src/db/diagnostics/globals.rs`.
 - [x] B-PROG-003 IEC decision recorded and specs aligned.
-  Evidence: `docs/IEC_DECISIONS.md`, `docs/specs/03-variables.md`, `docs/specs/09-semantic-rules.md`, `docs/specs/10-runtime.md`.
-  Target files: `docs/IEC_DECISIONS.md`, `docs/specs/03-variables.md`, `docs/specs/09-semantic-rules.md`, `docs/specs/10-runtime.md`.
+  Evidence: `docs/IEC_DECISIONS.md`, `docs/specs/03-variables.md`, `docs/specs/09-semantic-rules.md`, `docs/specs/10-runtime-semantics.md`.
+  Target files: `docs/IEC_DECISIONS.md`, `docs/specs/03-variables.md`, `docs/specs/09-semantic-rules.md`, `docs/specs/10-runtime-semantics.md`.
 
 ### 2.2 File-Scope GVL
 
@@ -166,8 +166,8 @@ Out of scope for this checklist:
   Evidence: `docs/IEC_DEVIATIONS.md`.
   Target file: `docs/IEC_DEVIATIONS.md`.
 - [x] B-BARE-004 Docs/specs no longer claim explicit `VAR_EXTERNAL` is required by truST for all vendor-parity paths.
-  Evidence: `docs/specs/03-variables.md`, `docs/specs/09-semantic-rules.md`, `docs/specs/10-runtime.md`.
-  Target files: `docs/specs/03-variables.md`, `docs/specs/09-semantic-rules.md`, `docs/specs/10-runtime.md`.
+  Evidence: `docs/specs/03-variables.md`, `docs/specs/09-semantic-rules.md`, `docs/specs/10-runtime-semantics.md`.
+  Target files: `docs/specs/03-variables.md`, `docs/specs/09-semantic-rules.md`, `docs/specs/10-runtime-semantics.md`.
 - [x] B-BARE-005 Existing runtime fallback paths are retained intentionally.
   Evidence: `crates/trust-runtime/src/bytecode/encoder/refs.rs`, `crates/trust-runtime/src/eval/expr/access.rs`.
   Target files: `crates/trust-runtime/src/bytecode/encoder/refs.rs`, `crates/trust-runtime/src/eval/expr/access.rs`.
@@ -231,8 +231,8 @@ Out of scope for this checklist:
   Evidence: `crates/trust-runtime/src/eval/locals.rs`, `crates/trust-runtime/src/eval/expr/access.rs`, `crates/trust-runtime/src/eval/calls.rs`, `crates/trust-runtime/src/bytecode/encoder/refs.rs`, `crates/trust-runtime/src/bytecode/encoder/pou/build.rs`, `crates/trust-runtime/src/instance.rs`, validated with `cargo test -p trust-runtime --test var_stat -- --nocapture`.
   Target files: `crates/trust-runtime/src/eval/locals.rs`, `crates/trust-runtime/src/eval/expr/access.rs`, `crates/trust-runtime/src/eval/calls.rs`, `crates/trust-runtime/src/bytecode/encoder/refs.rs`, `crates/trust-runtime/src/bytecode/encoder/pou/build.rs`, `crates/trust-runtime/src/instance.rs`.
 - [x] C-STAT-005 Specs/docs reflect shipped runtime behavior.
-  Evidence: `docs/specs/01-lexical-elements.md`, `docs/specs/10-runtime.md`, `docs/IEC_DEVIATIONS.md`.
-  Target files: `docs/specs/01-lexical-elements.md`, `docs/specs/10-runtime.md`.
+  Evidence: `docs/specs/01-lexical-elements.md`, `docs/specs/10-runtime-semantics.md`, `docs/IEC_DEVIATIONS.md`.
+  Target files: `docs/specs/01-lexical-elements.md`, `docs/specs/10-runtime-semantics.md`.
 
 ### 3.3 PLCopen/CODESYS Import Simplification
 

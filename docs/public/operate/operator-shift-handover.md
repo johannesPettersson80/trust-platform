@@ -1,7 +1,5 @@
 # Operator Shift Handover
 
-Use this page when one operator is handing a running system to the next shift.
-
 ## What To Record
 
 - active or recently acknowledged alarms

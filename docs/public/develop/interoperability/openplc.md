@@ -1,9 +1,5 @@
 # OpenPLC
 
-Use this path when your interchange target is OpenPLC or OpenPLC-shaped
-PLCopen XML flows. This page exists to tell you what carries over, what needs
-manual cleanup, and what truST assumes about that ecosystem.
-
 If your target is Siemens, Mitsubishi, or CODESYS/TwinCAT, use the matching
 vendor page instead.
 
