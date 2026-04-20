@@ -88,6 +88,7 @@ jobs:
             docs/public/assets/images/**/*.gif
 
       - name: Create capture refresh PR
+        continue-on-error: true
         uses: peter-evans/create-pull-request@v7
         with:
           branch: automation/docs-captures
