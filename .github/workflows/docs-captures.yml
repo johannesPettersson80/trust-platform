@@ -52,6 +52,7 @@ jobs:
 
       - name: Install capture dependencies
         run: |
+          cargo install wasm-pack --locked
           npm --prefix scripts/captures ci
           npm --prefix scripts/captures run capture:install
 
