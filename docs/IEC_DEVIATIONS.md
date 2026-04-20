@@ -249,6 +249,158 @@ This file tracks known, intentional deviations/extensions from strict IEC 61131-
   - The reserved-keyword scope and authoring workflow are documented explicitly
     in the lexer spec and visual-editor docs.
 
+## 2026-04-20 - Simplified `VAR_ACCESS` / `VAR_CONFIG` path validation
+
+- ID: DEV-003
+- Area: Structured Text access-path and configuration-variable validation
+- IEC reference: IEC 61131-3 Ed.3 §6.5.2.2, Tables 13-16
+- Deviation:
+  - truST validates declared access-path shape and target-type compatibility.
+  - Cross-resource / cross-program-instance mapping is not modeled completely in
+    `trust-hir`.
+- Impact:
+  - Full IEC communication-service topology is not statically proven in the
+    language layer.
+- Mitigation:
+  - The supported subset is documented in the variables spec and enforced
+    consistently for the accepted forms.
+
+## 2026-04-20 - Assignment-attempt compatibility is runtime-oriented
+
+- ID: DEV-006
+- Area: `?=` assignment-attempt semantics
+- IEC reference: IEC 61131-3 Ed.3 §6.6.6.7.2, Table 71
+- Deviation:
+  - truST accepts `?=` for typed reference-style assignment attempts.
+  - `trust-hir` does not fully enforce inheritance/interface compatibility for
+    the source/target pair during static analysis.
+- Impact:
+  - Some compatibility failures are deferred to runtime null-result behavior
+    instead of being diagnosed statically.
+- Mitigation:
+  - The operator remains typed, null-producing behavior is documented, and
+    callers must check before dereference.
+
+## 2026-04-20 - `PERSISTENT` behaves like `RETAIN`
+
+- ID: DEV-007
+- Area: Variable persistence qualifiers
+- IEC reference: `PERSISTENT` is a vendor extension, not an IEC Ed.3 storage
+  qualifier.
+- Deviation:
+  - truST accepts `PERSISTENT` and validates it with the same storage semantics
+    as `RETAIN`.
+- Impact:
+  - Vendor-authored code using `PERSISTENT` compiles without rewriting to IEC
+    core qualifiers.
+- Mitigation:
+  - The qualifier is documented explicitly as a vendor extension.
+
+## 2026-04-20 - Standard FB semantic ownership split
+
+- ID: DEV-010
+- Area: Standard function-block modeling
+- IEC reference: IEC 61131-3 Ed.3 §6.6.3.5, Tables 43-46, Figure 15
+- Deviation:
+  - `trust-hir` validates standard FB signatures and static types only.
+  - `trust-runtime` executes the stateful timer/counter/trigger behavior.
+- Impact:
+  - Static docs/specs must distinguish language-level signature knowledge from
+    runtime behavior/state.
+- Mitigation:
+  - The standard-FB spec now documents the split explicitly and cross-links the
+    runtime-owned deviations.
+
+## 2026-04-20 - ASCII-only identifier validation
+
+- ID: DEV-013
+- Area: Lexical identifier support
+- IEC reference: IEC 61131-3 Ed.3 §6.1.1-6.1.2 permits broader character sets
+  than truST currently accepts.
+- Deviation:
+  - truST validates identifiers using ASCII letters, digits, and `_` only.
+  - Unicode identifiers are not currently accepted.
+- Impact:
+  - Some IEC-valid identifiers from broader character sets are rejected.
+- Mitigation:
+  - The lexer spec calls out the current limitation explicitly.
+
+## 2026-04-20 - Extra non-IEC conversion helpers
+
+- ID: DEV-021
+- Area: Standard-library conversion functions
+- IEC reference: IEC 61131-3 Ed.3 Tables 22-27 do not define `TIME_TO_DWORD`,
+  `DWORD_TO_TIME`, or direct character-to-bitstring conversions such as
+  `CHAR_TO_BYTE`.
+- Deviation:
+  - truST ships `TIME_TO_DWORD` / `DWORD_TO_TIME` using millisecond units.
+  - truST accepts direct character-to-bitstring conversions such as
+    `CHAR_TO_BYTE` and `WCHAR_TO_WORD`.
+- Impact:
+  - Vendor-oriented conversion workflows compile without custom wrappers.
+- Mitigation:
+  - These helpers are documented as non-IEC conversion extensions in the
+    standard-functions spec.
+
+## 2026-04-20 - Debugger visibility is broader than access-specifier rules
+
+- ID: DEV-023
+- Area: Debug-adapter variable visibility
+- IEC reference: IEC 61131-3 Ed.3 §6.5.2.3 access-specifier rules
+- Deviation:
+  - The debugger may expose `PRIVATE`, `PROTECTED`, and `INTERNAL` members for
+    inspection even when normal source-level access rules would hide them.
+- Impact:
+  - Debug inspection is more permissive than source-level member access.
+- Mitigation:
+  - The behavior is documented explicitly as a debug-surface deviation.
+
+## 2026-04-20 - Per-resource hot reload with retained globals
+
+- ID: DEV-024
+- Area: Runtime online change / hot reload
+- IEC reference: IEC 61131-3 does not standardize truST's runtime reload API.
+- Deviation:
+  - truST hot reload operates per resource rather than as a single-file-only
+    mechanism.
+  - Retained globals are preserved across the warm-restart style reload path.
+- Impact:
+  - The reload scope is broader and more runtime-oriented than earlier
+    single-file wording suggested.
+- Mitigation:
+  - The engine/LSP/debug docs now describe the real per-resource behavior.
+
+## 2026-04-20 - Debug forcing includes outputs as well as inputs
+
+- ID: DEV-025
+- Area: Runtime debug I/O forcing
+- IEC reference: IEC 61131-3 does not define truST's DAP/control forcing
+  surface.
+- Deviation:
+  - truST allows debugger/control forcing for output areas in addition to input
+    areas.
+- Impact:
+  - The debug/runtime control path can simulate or override both sides of the
+    process image.
+- Mitigation:
+  - The behavior is documented explicitly in runtime-engine/debug docs.
+
+## 2026-04-20 - Test-oriented POU declarations
+
+- ID: DEV-033
+- Area: POU declarations
+- IEC reference: IEC 61131-3 Ed.3 does not define `TEST_PROGRAM` or
+  `TEST_FUNCTION_BLOCK`.
+- Deviation:
+  - truST accepts `TEST_PROGRAM` and `TEST_FUNCTION_BLOCK` as test-oriented
+    declaration forms for the built-in test workflow.
+- Impact:
+  - Test POUs can be authored directly without wrapping test logic into regular
+    IEC POUs plus external harness glue.
+- Mitigation:
+  - The declarations are documented as explicit non-IEC extensions and paired
+    with the assertion-helper runtime workflow.
+
 ## 2026-04-20 - Siemens SCL `#local` reference prefix
 
 - ID: DEV-034

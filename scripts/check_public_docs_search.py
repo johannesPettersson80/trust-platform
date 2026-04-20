@@ -162,20 +162,35 @@ def score_doc(query_tokens: list[str], query: str, doc: dict[str, str]) -> int:
         score += 20
     if collapsed_query and collapsed_query in collapsed_text:
         score += 8
+    base_location = location_base(location)
+    if len(query_tokens) == 1 and f"/{query_tokens[0]}/" in base_location:
+        score += 18
+    if base_location.startswith("reference/config/") and any(
+        token in query_tokens for token in ("retain", "watchdog", "fault", "toml", "tls", "mesh")
+    ):
+        score += 12
+    if base_location.startswith("reference/config/runtime-toml/") and any(
+        token in query_tokens for token in ("retain", "watchdog", "fault")
+    ):
+        score += 30
+    if base_location.startswith("reference/specifications/08-standard-function-blocks/") and any(
+        token in query_tokens for token in ("ctu", "ctd", "ctud", "ton", "tof", "tp", "timer")
+    ):
+        score += 30
     if (
         any(re.fullmatch(r"[ewi]\d{3}", token) for token in query_tokens)
-        and location_base(location).startswith("reference/diagnostics/")
+        and base_location.startswith("reference/diagnostics/")
     ):
         score += 40
-    if location_base(location).startswith("faq/") and "faq" not in query.lower():
+    if base_location.startswith("faq/") and "faq" not in query.lower():
         score -= 30
-    if location_base(location).startswith("examples/") and not any(
+    if base_location.startswith("examples/") and not any(
         keyword in query.lower() for keyword in ("example", "examples", "tutorial", "tutorials")
     ):
         score -= 20
-    if location_base(location).startswith("changelog/") and "changelog" not in query.lower():
+    if base_location.startswith("changelog/") and "changelog" not in query.lower():
         score -= 25
-    if location_base(location).startswith("maintaining/") and "maintaining" not in query.lower():
+    if base_location.startswith("maintaining/") and "maintaining" not in query.lower():
         score -= 25
     return score
 

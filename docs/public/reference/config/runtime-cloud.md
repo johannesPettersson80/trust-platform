@@ -10,6 +10,12 @@ example profile files under `examples/runtime_cloud/`.
 profile = "dev"
 ```
 
+### `[runtime.cloud]`
+
+| Key | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `profile` | string | yes | `dev`, `plant`, or `wan`. |
+
 Accepted profiles:
 
 | Profile | Meaning |
@@ -29,10 +35,12 @@ allow_write = [
 ]
 ```
 
-Each rule needs:
+### `[[runtime.cloud.wan.allow_write]]`
 
-- `action`
-- `target`
+| Key | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `action` | string | yes | e.g. `cfg_apply` |
+| `target` | string | yes | runtime or site selector |
 
 ## Link Preference Rules
 
@@ -45,16 +53,26 @@ transports = [
 ]
 ```
 
+### `[[runtime.cloud.links.transports]]`
+
+| Key | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `source` | string | yes | source runtime/resource id |
+| `target` | string | yes | destination runtime/resource id |
+| `transport` | string | yes | preferred transport for this pair |
+
 Allowed transport values:
 
-- `realtime`
-- `zenoh`
-- `mesh`
-- `mqtt`
-- `modbus-tcp`
-- `opcua`
-- `discovery`
-- `web`
+| Value | Meaning |
+| --- | --- |
+| `realtime` | low-latency shared-memory / realtime link |
+| `zenoh` | zenoh-based mesh |
+| `mesh` | generic mesh transport |
+| `mqtt` | MQTT broker path |
+| `modbus-tcp` | Modbus TCP path |
+| `opcua` | OPC UA path |
+| `discovery` | discovery/control path |
+| `web` | web/control proxy path |
 
 ## Shipped Example Profiles
 

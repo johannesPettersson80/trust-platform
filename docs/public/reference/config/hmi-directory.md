@@ -28,6 +28,14 @@ hmi/
 
 ## Write Policy
 
+### `[write]`
+
+| Key | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `enabled` | bool | yes | Enables runtime-side writes from the HMI. |
+| `default_role` | string | yes | Default role for write-capable actions. |
+| `allowlist` | string array | yes | Explicit symbol allowlist. |
+
 | policy_mode | `enabled` | `default_role` | `allowlist` | Example |
 | --- | --- | --- | --- | --- |
 | read-only | `false` | `viewer` | `[]` | alarms/trends only |
@@ -69,6 +77,15 @@ attribute = "class"
 source = "PROGRAM PumpStation.Run"
 map = { "true" = "running", "false" = "stopped" }
 ```
+
+### `[[bind]]`
+
+| Key | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `selector` | string | yes | SVG/CSS selector to target. |
+| `attribute` | string | yes | Attribute to update. |
+| `source` | string | yes | Runtime symbol path. |
+| `map` | table | no | Value-to-attribute mapping. |
 
 ## Lifecycle Commands
 

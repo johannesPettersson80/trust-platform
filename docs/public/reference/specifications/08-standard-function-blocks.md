@@ -1,13 +1,13 @@
 # Standard Function Blocks
 
-This is the reference entry point for timer and counter searches such as `TON`,
-`TOF`, `TP`, `CTU`, and `CTD`.
+This public entry covers shipped bistables, edge detectors, counters, and
+timers such as `SR`, `R_TRIG`, `CTU`, `TON`, and `TOF`.
 
-## CTU Timer And Counter Reference
+Use the full spec below when you need exact signatures, runtime/statefulness
+boundaries, or documented timer/counter deviations.
 
-Search here when you are looking for `CTU` timer/counter behavior, `CTD`,
-`TON`, `TOF`, or `TP`. This page is the public reference for IEC
-timers, counters, and trigger function blocks.
+Key counter/timer families documented here include `CTU`, `CTD`, `CTUD`, `TP`,
+`TON`, and `TOF`.
 
 Related: [Standard Functions](07-standard-functions.md), [Runtime](10-runtime-semantics.md)
 

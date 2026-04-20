@@ -1,4 +1,7 @@
-# Ladder
+# Ladder Editor
+
+Use the ladder editor for rung-based PLC logic that still compiles into the same
+truST project, runtime, and debug workflow as Structured Text.
 
 ## What it gives you
 

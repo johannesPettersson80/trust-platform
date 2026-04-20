@@ -19,7 +19,8 @@ Program Organization Units (POUs) are the building blocks of IEC 61131-3 program
 
 ### Implementation Extension: Test POUs (DEV-033)
 
-The following declarations are implemented as non-IEC extensions for MP-014:
+truST accepts `TEST_PROGRAM` and `TEST_FUNCTION_BLOCK` as test-oriented,
+non-IEC declaration forms; see `docs/IEC_DEVIATIONS.md` (DEV-033).
 
 ```
 TEST_PROGRAM name

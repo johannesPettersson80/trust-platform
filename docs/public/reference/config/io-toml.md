@@ -7,6 +7,14 @@ Unknown fields are rejected.
 
 ## Two Supported Shapes
 
+### `[io]`
+
+| Key | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `driver` | string | single-driver form | Use one built-in driver name plus `[io.params]`. |
+| `params` | table | single-driver form | Driver-specific configuration for `driver`. |
+| `drivers` | array of tables | multi-driver form | Compose multiple named drivers in one runtime. |
+
 ### Single-driver form
 
 ```toml
@@ -25,29 +33,34 @@ drivers = [
 ]
 ```
 
-Rules:
+Selection rules:
 
-- use either `io.driver` / `io.params` or `io.drivers`
-- do not mix both forms in the same file
-- at least one driver must be configured unless you intentionally use `driver = "none"`
+| Condition | Requirement |
+| --- | --- |
+| single-driver file | use `io.driver` plus `io.params` |
+| multi-driver file | use `io.drivers` only |
+| mixed forms | invalid |
+| empty config | invalid unless you intentionally choose `driver = "none"` |
 
 ## Built-in Driver Names
 
-The built-in driver names are:
-
-- `ethercat`
-- `gpio`
-- `loopback`
-- `modbus-tcp`
-- `mqtt`
-- `simulated`
+| Driver | Purpose |
+| --- | --- |
+| `ethercat` | EtherCAT master / mock adapter workflows |
+| `gpio` | direct GPIO-backed I/O |
+| `loopback` | feed outputs back into inputs locally |
+| `modbus-tcp` | Modbus TCP client I/O |
+| `mqtt` | MQTT topic-backed I/O |
+| `simulated` | runtime without physical hardware |
 
 Accepted aliases also include:
 
-- `sim`, `noop` -> `simulated`
-- `modbus_tcp` -> `modbus-tcp`
-- `mqtt-tcp` -> `mqtt`
-- `ether-cat`, `ecat` -> `ethercat`
+| Alias | Canonical driver |
+| --- | --- |
+| `sim`, `noop` | `simulated` |
+| `modbus_tcp` | `modbus-tcp` |
+| `mqtt-tcp` | `mqtt` |
+| `ether-cat`, `ecat` | `ethercat` |
 
 ## Driver Patterns
 
@@ -150,17 +163,20 @@ address = "%QX0.0"
 value = "FALSE"
 ```
 
-Rules:
+### `[[io.safe_state]]`
 
-- `address` uses IEC `%Q...` form
-- `value` is parsed as a typed string literal for the target output
-- invalid safe-state values are rejected during validation
+| Key | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `address` | IEC output address | yes | Uses `%Q...` addressing. |
+| `value` | string | yes | Parsed as a typed value for the target output. |
 
 ## Validation Rules
 
-- `io.drivers[*].name` must not be empty
-- driver `params` must be a TOML table
-- `safe_state` values must match the output type
+| Condition | Requirement |
+| --- | --- |
+| `io.drivers[*].name` | must not be empty |
+| driver `params` | must be a TOML table |
+| `io.safe_state[*].value` | must match the output type |
 
 ## Related
 

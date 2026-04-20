@@ -82,102 +82,94 @@ Checks if assignment is valid (for interface references). If the instance implem
 
 ## 3. Call Statements (Section 7.3.3.2.4)
 
-### 3.1 Function Call
+Call statements share one syntax skeleton and then refine the callable target:
+function name, function-block instance, or method receiver.
 
-### Syntax
+### 3.1 Shared Call Syntax
 
+```text
+callable(arguments);
 ```
-// As statement (result discarded)
-function_name(parameters);
 
-// As expression (using result)
+| Call style | Syntax | Example |
+|------------|--------|---------|
+| Formal | `param := value`, `param => target` | `ADD(IN1 := A, IN2 := B)` |
+| Non-formal | positional | `ADD(A, B)` |
+
+Shared rules:
+
+- Formal calls assign inputs/in-outs with `:=` and outputs with `=>`; ordering
+  is not significant. (IEC 61131-3 Ed.3, 6.6.1.4.2, Table 71)
+- Formal calls may be incomplete; any unassigned parameters use their declared
+  initial value or the type default. (IEC 61131-3 Ed.3, 6.6.1.4.2)
+- Non-formal calls must provide all parameters in order, excluding execution
+  control parameters `EN` and `ENO`. (IEC 61131-3 Ed.3, 6.6.1.4.2; Table 50)
+- Do not mix formal and non-formal styles within the same call. (IEC 61131-3
+  Ed.3, 6.6.1.4.2)
+- `=>` is only valid for `VAR_OUTPUT` / `ENO` bindings and is invalid for
+  non-output parameters. (IEC 61131-3 Ed.3, 6.6.1.2.2, Table 71)
+
+### 3.2 Function Calls
+
+Functions may appear as standalone call statements or inside expressions:
+
+```text
+function_name(parameters);
 variable := function_name(parameters);
 ```
 
-### Call Types
-
-| Type | Syntax | Example |
-|------|--------|---------|
-| Formal | `param := value` | `Result := ADD(IN1 := A, IN2 := B);` |
-| Non-formal | positional | `Result := ADD(A, B);` |
-
-**Rules**:
-- Formal calls assign parameters using `:=` (inputs/in-outs) and `=>` (outputs); ordering is not significant. (IEC 61131-3 Ed.3, 6.6.1.4.2, Table 71)
-- Formal calls may be incomplete; any unassigned parameters use their declared initial value or the type default. (IEC 61131-3 Ed.3, 6.6.1.4.2)
-- Non-formal calls must provide all parameters in order, excluding execution control parameters `EN` and `ENO`. (IEC 61131-3 Ed.3, 6.6.1.4.2; Table 50)
-- Do not mix formal and non-formal styles within the same call. (IEC 61131-3 Ed.3, 6.6.1.4.2)
-
-### Examples
+Examples:
 
 ```
-// Function with result
 Y := SIN(X);
 Z := MAX(A, B, C);
 Distance := SQRT(X**2 + Y**2);
-
-// Function without result (procedure-like)
 LogMessage('System started');
-
-// With EN/ENO
 Result := SafeDivide(EN := Enabled, A := Num, B := Den, ENO => Success);
 ```
 
-**Rules**:
-- The `=>` operator is only used in call parameter lists to bind `VAR_OUTPUT` (including ENO) back to the caller. (IEC 61131-3 Ed.3, 6.6.1.2.2, Table 71)
-- `=>` is invalid for non-output parameters; use positional arguments or `:=`. (IEC 61131-3 Ed.3, 6.6.1.2.2, Table 71)
+### 3.3 Function Block Calls
 
-### 3.2 Function Block Call
+Function-block calls execute an instance and may update or read retained state:
 
-### Syntax
-
-```
+```text
 fb_instance(parameters);
 ```
 
-### Examples
+Examples:
 
 ```
-// Simple call
 MyTimer(IN := Start, PT := T#5s);
-
-// Access output
 Elapsed := MyTimer.ET;
 TimerDone := MyTimer.Q;
-
-// With EN/ENO
 MyFB(EN := Condition, Input := X, ENO => WasExecuted);
 ```
 
-### Separate Assignment
+Input assignment may happen inline or through the instance fields before the
+call:
 
 ```
-// Assign inputs separately
 MyTimer.IN := Start;
 MyTimer.PT := T#5s;
-MyTimer();              // Call with preset inputs
+MyTimer();
 
-// Or mixed
-MyTimer(PT := T#10s);   // Only PT is assigned, IN keeps previous value
+MyTimer(PT := T#10s);
 ```
 
-### 3.3 Method Call
+### 3.4 Method Calls
 
-### Syntax
+Methods are invoked on an instance receiver:
 
-```
+```text
 instance.method_name(parameters);
 ```
 
-### Examples
+Examples:
 
 ```
-// Call method
 Motor1.Start();
 Motor1.SetSpeed(NewSpeed := 1000);
-
-// With return value
 Status := Motor1.GetStatus();
-
 ```
 
 ## 4. RETURN Statement (Section 7.3.3.2.4)

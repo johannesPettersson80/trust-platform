@@ -45,6 +45,13 @@ Common `stdlib` forms:
 Use this for reusable truST packages that should participate in normal project
 compilation.
 
+| Key | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `<name>.path` | string | path dependency | Local package root. |
+| `<name>.git` | string | git dependency | Remote git URL. |
+| `<name>.version` | string | recommended | Resolver/version contract. |
+| `<name>.rev` / `tag` / `branch` | string | optional | Choose at most one git locator. |
+
 Path dependency:
 
 ```toml
@@ -59,11 +66,13 @@ Git dependency:
 MyLib = { git = "https://example.com/my-lib.git", tag = "v0.1.0", version = "0.1.0" }
 ```
 
-Rules:
+Dependency rules:
 
-- each dependency must set exactly one of `path` or `git`
-- at most one of `rev`, `tag`, or `branch`
-- locked/offline resolution behavior is controlled from `[build]`
+| Condition | Requirement |
+| --- | --- |
+| dependency source | set exactly one of `path` or `git` |
+| git locator | set at most one of `rev`, `tag`, or `branch` |
+| locked/offline behavior | configure from `[build]` |
 
 ## `[[libraries]]`
 
@@ -78,13 +87,13 @@ version = "0.1.0"
 docs = ["docs/vendor.md"]
 ```
 
-Supported keys:
-
-- `name`
-- `path`
-- `version`
-- `dependencies = [{ name = "Core", version = "2.0" }]`
-- `docs`
+| Key | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `name` | string | yes | Display/name key. |
+| `path` | string | yes | Library root. |
+| `version` | string | no | Informational or resolver hint. |
+| `dependencies` | array of tables | no | Index-only dependency metadata. |
+| `docs` | string array | no | Attached docs paths. |
 
 ## `[build]`
 
@@ -117,23 +126,20 @@ Supported keys:
 
 ## `[diagnostics]`
 
-Toggle categories directly:
-
-- `warn_unused`
-- `warn_unreachable`
-- `warn_missing_else`
-- `warn_implicit_conversion`
-- `warn_shadowed`
-- `warn_deprecated`
-- `warn_complexity`
-- `warn_nondeterminism`
-- `warn_numeric_hazards`
-
-Other keys:
-
-- `rule_pack`
-- `external_paths`
-- `severity_overrides = { W003 = "error" }`
+| Key | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `warn_unused` | bool | profile default | Toggle unused diagnostics. |
+| `warn_unreachable` | bool | profile default | Toggle unreachable-code warnings. |
+| `warn_missing_else` | bool | profile default | Toggle missing-ELSE warnings. |
+| `warn_implicit_conversion` | bool | profile default | Toggle implicit-conversion warnings. |
+| `warn_shadowed` | bool | profile default | Toggle shadowing warnings. |
+| `warn_deprecated` | bool | profile default | Toggle deprecation warnings. |
+| `warn_complexity` | bool | profile default | Toggle complexity warnings. |
+| `warn_nondeterminism` | bool | profile default | Toggle nondeterminism warnings. |
+| `warn_numeric_hazards` | bool | profile default | Toggle numeric-hazard warnings. |
+| `rule_pack` | string | none | Named diagnostic bundle. |
+| `external_paths` | string array | `[]` | Extra paths to analyze. |
+| `severity_overrides` | table | `{}` | Per-code overrides such as `W003 = "error"`. |
 
 Supported rule packs include:
 
@@ -185,6 +191,12 @@ allow_http = false
 allow_ssh = false
 ```
 
+| Key | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `allowed_git_hosts` | string array | `[]` | Explicit host allowlist. |
+| `allow_http` | bool | `false` | Permit insecure git/http transport. |
+| `allow_ssh` | bool | `false` | Permit SSH transport. |
+
 ## Optional `[package]`
 
 Reusable library manifests may also declare:
@@ -196,6 +208,10 @@ version = "0.1.0"
 
 That version is used by the dependency resolver when another project consumes
 the package.
+
+| Key | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `version` | string | yes | Package version exposed to dependents. |
 
 ## Related
 

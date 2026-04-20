@@ -1,4 +1,7 @@
-# Installation
+# Installation On Windows, macOS, And Linux
+
+Install the truST editor extension and runtime bundle on Windows, macOS, or
+Linux.
 
 ## Step 1: Install VS Code
 

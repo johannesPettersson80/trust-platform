@@ -1,20 +1,42 @@
 # Operator Alarm Handbook
 
-## Generic Alarm Flow
+Use this page for the generic operator alarm flow in truST. Site-specific alarm
+causes, reset conditions, and escalation contacts still belong in the local
+runbook.
 
-1. open the alarms page first
-2. identify which alarm is active
-3. acknowledge only if procedure allows it
-4. verify whether the physical condition is still present
-5. record the event in the local runbook if required
+## First Response
 
-## Important Boundary
+1. Open the alarms page first and identify the active alarm.
+2. Read the alarm text, area, and timestamp before acknowledging anything.
+3. Check the physical condition or process graphic that matches the alarm.
+4. Follow the local procedure for acknowledge, silence, or hold-to-run actions.
 
-This page is generic. The site-specific per-alarm action still belongs in the
-local runbook.
+## What Acknowledge Means
+
+- Acknowledge records that an operator saw the alarm.
+- Acknowledge does not prove the fault is cleared.
+- The alarm remains active until the runtime condition returns to normal.
+
+## Escalate Immediately When
+
+- the alarm blocks a safety function
+- the process condition is still present after acknowledge
+- the same alarm reappears repeatedly in one shift
+- the alarm text and the observed equipment state do not match
+
+## Shift Handover Record
+
+Record at least:
+
+- the alarm name or code
+- when it started
+- whether it was acknowledged
+- whether the condition cleared
+- what was handed over to the next operator or technician
 
 ## Related
 
 - [Operate In Browser HMI](../start/operate-in-browser.md)
 - [Field Fault Procedures](field-fault-procedures.md)
+- [Operator Shift Handover](operator-shift-handover.md)
 - [Runbooks](../examples/runbooks.md)

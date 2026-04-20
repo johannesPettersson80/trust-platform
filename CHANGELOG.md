@@ -107,6 +107,11 @@ Target release: `v0.19.0`
   were rewritten to remove boilerplate "use this page when..." framing and
   similar filler so the rendered docs read as product documentation instead of
   internal notes.
+- The docs search regression gate now routes `install mac`, `first project`,
+  `ladder`, and `retain` queries back to the intended public docs pages after
+  the docs IA/spec split, including a restored `Start -> First Project` page
+  and stronger canonical ranking for `runtime.toml` retain/watchdog/fault
+  queries.
 - The docs-capture code-server launcher now keeps mutable user-data and
   extension state inside container-local writable directories, avoiding the
   GitHub Actions permission failure that previously blocked the code-server

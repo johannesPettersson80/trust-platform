@@ -1,4 +1,4 @@
-# `runtime.toml`
+# `runtime.toml` Retain, Watchdog, And Fault Configuration
 
 `runtime.toml` defines how one truST runtime instance executes, exposes control
 surfaces, and participates in discovery, mesh, and runtime-cloud workflows.

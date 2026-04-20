@@ -10,11 +10,12 @@ Choose the quickest path to your first working truST workflow.
 4. [Program In Browser IDE](program-in-browser.md)
 5. [Operate In Browser HMI](operate-in-browser.md)
 6. [Automate With CLI / CI / agents](automate-with-cli.md)
-7. [Maintain An Existing Project](maintain-an-existing-project.md)
-8. [Create A New Project](create-new-project.md)
-9. [Editors](editors.md)
-10. [Install From Source](install-from-source.md) if you are building truST yourself
-11. [Agent Quickstart](agent-quickstart.md) if you want the deeper JSON-RPC path
+7. [First Project](first-project.md)
+8. [Maintain An Existing Project](maintain-an-existing-project.md)
+9. [Create A New Project](create-new-project.md)
+10. [Editors](editors.md)
+11. [Install From Source](install-from-source.md) if you are building truST yourself
+12. [Agent Quickstart](agent-quickstart.md) if you want the deeper JSON-RPC path
 
 ## Which Page Answers Which Question?
 
@@ -24,6 +25,7 @@ Choose the quickest path to your first working truST workflow.
 - [Program In Browser IDE](program-in-browser.md): browser-hosted engineering with `/ide`.
 - [Operate In Browser HMI](operate-in-browser.md): operator/technician path when you were given an HMI URL.
 - [Automate With CLI / CI / agents](automate-with-cli.md): first success for shell, CI, and JSON-RPC users.
+- [First Project](first-project.md): the quickest way to start from a known-good tutorial.
 - [Maintain An Existing Project](maintain-an-existing-project.md): inherited-system workflow.
 - [Create A New Project](create-new-project.md): the empty-folder bootstrap path.
 - [Editors](editors.md): compare VS Code, Browser IDE, Neovim, Zed, and the browser HMI.

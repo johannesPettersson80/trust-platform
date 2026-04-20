@@ -40,6 +40,8 @@ plugins:
   - search:
       separator: '[\s\-\.]+'
   - mermaid2
+extra:
+  social_image: assets/images/brand/trust-og.png
 nav:
   - Home: index.md
   - Start:
@@ -51,6 +53,7 @@ nav:
       - Program In Browser IDE: start/program-in-browser.md
       - Operate In Browser HMI: start/operate-in-browser.md
       - Automate With CLI / CI / Agents: start/automate-with-cli.md
+      - First Project: start/first-project.md
       - Maintain An Existing Project: start/maintain-an-existing-project.md
       - Create A New Project: start/create-new-project.md
       - Editors: start/editors.md
