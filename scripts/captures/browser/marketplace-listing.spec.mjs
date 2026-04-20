@@ -4,6 +4,7 @@ import { ensureParent, publicImagePath } from "../lib/paths.mjs";
 test("capture truST marketplace listing", async ({ page }) => {
   const output = publicImagePath("install/marketplace-listing.png");
   ensureParent(output);
+  await page.emulateMedia({ colorScheme: "dark" });
 
   const response = await page.goto(
     "https://marketplace.visualstudio.com/items?itemName=trust-platform.trust-lsp",

@@ -128,6 +128,12 @@ Target release: `v0.19.0`
   was not what the image actually showed. The installation docs also no longer
   tell users to run the nonexistent `cargo build -p trust-harness` package
   command; they now document the real package/build surface.
+- The automated public-doc capture lanes now produce stable dark-mode browser
+  and code-server screenshots from real app/theme controls, wait for the HMI
+  schema/export surface before capturing `/hmi`, and install/load the truST
+  VS Code extension through one consistent code-server profile so the
+  command-palette and workspace-shell captures stop regressing on fresh CI
+  boots.
 - The ST compiler/runtime build path now closes the remaining open regression
   cases around control-flow and declaration lowering: unqualified enum members
   now work as `CASE` labels in end-to-end runtime/bytecode builds, aggregate

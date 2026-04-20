@@ -3,7 +3,8 @@ import { ensureParent, publicImagePath } from "../lib/paths.mjs";
 import {
   dismissCodeServerChrome,
   openSmokeMainFile,
-  smokeMainEditorLines
+  smokeMainEditorLines,
+  waitForStructuredTextMode
 } from "./helpers.mjs";
 
 test("capture code-server workspace shell", async ({ page }) => {
@@ -19,6 +20,7 @@ test("capture code-server workspace shell", async ({ page }) => {
   await expect(page.locator(".monaco-workbench")).toContainText("trust-lsp-smoke (Workspace)");
   await dismissCodeServerChrome(page);
   await openSmokeMainFile(page);
+  await waitForStructuredTextMode(page);
   await expect(page.locator(".tabs-container")).toContainText("Main.st");
   await expect(smokeMainEditorLines(page)).toContainText("PROGRAM Main");
   await expect(smokeMainEditorLines(page)).toContainText("result := AddOne");

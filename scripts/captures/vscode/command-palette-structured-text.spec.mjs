@@ -3,7 +3,8 @@ import { ensureParent, publicImagePath } from "../lib/paths.mjs";
 import {
   dismissCodeServerChrome,
   openSmokeMainFile,
-  smokeMainEditorLines
+  smokeMainEditorLines,
+  waitForStructuredTextMode
 } from "./helpers.mjs";
 
 test("capture code-server structured text command palette", async ({ page }) => {
@@ -18,6 +19,7 @@ test("capture code-server structured text command palette", async ({ page }) => 
   await page.locator(".monaco-workbench").waitFor({ timeout: 120_000 });
   await dismissCodeServerChrome(page);
   await openSmokeMainFile(page);
+  await waitForStructuredTextMode(page);
   await expect(smokeMainEditorLines(page)).toContainText("PROGRAM Main");
   await page.locator(".monaco-workbench").click();
   await page.keyboard.press("Control+Shift+P");
@@ -27,9 +29,15 @@ test("capture code-server structured text command palette", async ({ page }) => 
   const input = quickInput.locator("input");
   await input.fill(">Structured Text:");
   await expect(input).toHaveValue(">Structured Text:");
-  await expect(quickInput).toContainText("Structured Text: Attach Debugger");
-  await expect(quickInput).toContainText("Structured Text: New Project");
-  await expect(quickInput).toContainText("Structured Text: Open HMI Preview");
+  await expect(quickInput).toContainText("Structured Text: Attach Debugger", {
+    timeout: 30_000
+  });
+  await expect(quickInput).toContainText("Structured Text: New Project", {
+    timeout: 30_000
+  });
+  await expect(quickInput).toContainText("Structured Text: Open HMI Preview", {
+    timeout: 30_000
+  });
 
   await page.screenshot({ path: output });
 });

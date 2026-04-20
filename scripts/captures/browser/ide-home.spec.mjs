@@ -9,6 +9,9 @@ test("capture browser ide with tutorial loaded", async ({ page }) => {
     repoRoot,
     "examples/tutorials/12_hmi_pid_process_dashboard"
   );
+  await page.addInitScript(() => {
+    window.localStorage.setItem("trustTheme", "dark");
+  });
 
   const response = await page.goto("http://127.0.0.1:18080/ide", {
     waitUntil: "commit"
@@ -65,6 +68,7 @@ test("capture browser ide with tutorial loaded", async ({ page }) => {
   await expect(page.locator("#statusProject")).toContainText(
     "12_hmi_pid_process_dashboard"
   );
+  await expect(page.locator("body")).toHaveAttribute("data-theme", "dark");
 
   await page.screenshot({ path: output });
 });

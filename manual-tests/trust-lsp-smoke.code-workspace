@@ -6,6 +6,25 @@
     "trust-lsp.server.path": "${workspaceFolder}/../../target/debug/trust-lsp",
     "trust-lsp.trace.server": "off",
     "trust-lsp.diagnostics.showIecReferences": true,
-    "git.openRepositoryInParentFolders": "never"
+    "git.openRepositoryInParentFolders": "never",
+    "security.workspace.trust.enabled": false,
+    "workbench.colorTheme": "Dark Modern",
+    "workbench.startupEditor": "none",
+    "workbench.welcome.enabled": false,
+    "workbench.tips.enabled": false,
+    "window.commandCenter": false,
+    "chat.commandCenter.enabled": false,
+    "workbench.sideBar.location": "left",
+    "workbench.activityBar.location": "left",
+    "workbench.editor.showTabs": "multiple",
+    "workbench.editor.enablePreview": false,
+    "workbench.secondarySideBar.defaultVisibility": "hidden",
+    "window.menuBarVisibility": "toggle",
+    "editor.minimap.enabled": false,
+    "editor.wordWrap": "off",
+    "breadcrumbs.enabled": false,
+    "problems.showCurrentInStatus": false,
+    "workbench.statusBar.visible": true,
+    "workbench.panel.defaultLocation": "bottom"
   }
 }

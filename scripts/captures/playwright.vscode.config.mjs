@@ -7,6 +7,7 @@ const reuseExistingServer = process.env.TRUST_CAPTURE_REUSE_EXISTING_SERVER === 
 export default defineConfig({
   testDir: path.join(repoRoot, "scripts/captures/vscode"),
   fullyParallel: false,
+  workers: 1,
   retries: process.env.CI ? 1 : 0,
   timeout: 180_000,
   reporter: [["list"]],
