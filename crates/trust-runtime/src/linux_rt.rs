@@ -1,12 +1,14 @@
 //! Linux `PREEMPT_RT` posture configuration and verification helpers.
 
 use std::collections::HashSet;
-use std::fs;
 use std::sync::{Arc, Mutex};
 
 use smol_str::SmolStr;
 
 use crate::error::RuntimeError;
+
+#[cfg(target_os = "linux")]
+use std::fs;
 
 /// Linux scheduler policy values supported by the runtime RT posture profile.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -359,11 +361,6 @@ fn detect_linux_realtime_kernel() -> Option<bool> {
         .or_else(read_proc_version_realtime)
 }
 
-#[cfg(not(target_os = "linux"))]
-fn detect_linux_realtime_kernel() -> Option<bool> {
-    None
-}
-
 #[cfg(target_os = "linux")]
 fn read_sys_kernel_realtime() -> Option<bool> {
     fs::read_to_string("/sys/kernel/realtime")
@@ -575,6 +572,7 @@ VmLck:\t     128 kB\n";
         );
     }
 
+    #[cfg(target_os = "linux")]
     #[test]
     fn scheduler_observation_accepts_matching_fifo_priority() {
         let config = LinuxRtConfig {

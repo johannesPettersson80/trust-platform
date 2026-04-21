@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.20.0`
+Target release: `v0.20.1`
 
 ### Added
 
@@ -109,6 +109,10 @@ Target release: `v0.20.0`
 
 ### Fixed
 
+- Linux `PREEMPT_RT` support no longer breaks non-Linux cargo builds and
+  warning gates: Linux-only helpers/imports in `trust-runtime` are now
+  target-scoped so macOS and Windows builds keep compiling cleanly while the
+  RT posture feature remains Linux-only.
 - The Linux cyclic runtime no longer rebuilds ready-task and background-program
   scratch vectors every scan cycle; those scratch buffers are now runtime-owned
   and reused so the `PREEMPT_RT` path reduces avoidable hot-path allocation
