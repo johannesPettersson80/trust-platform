@@ -78,6 +78,7 @@ struct RuntimeSection {
     discovery: Option<DiscoverySection>,
     mesh: Option<MeshSection>,
     cloud: Option<RuntimeCloudSection>,
+    realtime: Option<RealtimeSection>,
     observability: Option<ObservabilitySection>,
     opcua: Option<OpcUaSection>,
 }
@@ -221,6 +222,18 @@ struct RuntimeCloudLinkPreferenceRuleSection {
     source: String,
     target: String,
     transport: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RealtimeSection {
+    enabled: Option<bool>,
+    require_preempt_rt_kernel: Option<bool>,
+    lock_memory: Option<bool>,
+    scheduler: Option<String>,
+    priority: Option<u8>,
+    cpu_affinity: Option<Vec<usize>>,
+    strict: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]

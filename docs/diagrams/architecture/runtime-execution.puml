@@ -195,18 +195,28 @@ package "Lifecycle" as lifecyclePkg #LightGray {
         card "1. load_retain()" as start1
         card "2. init globals/IO" as start2
         card "2a. provision T0 SHM channels\n(map shared + initialize headers + pin pages)" as start2a
+        card "2b. apply Linux RT posture\n(verify PREEMPT_RT + mlockall + affinity)" as start2b
         card "3. start tasks" as start3
     }
 
     start1 --> start2
     start2 --> start2a
-    start2a --> start3
+    start2a --> start2b
+    start2b --> start3
 
     note right of start2a
         fail-fast contract:
         • required SHM create/open failure => startup abort
         • required page pinning failure => startup abort
         • publish readiness metadata for _meta/shm_channels
+    end note
+
+    note right of start2b
+        Linux PREEMPT_RT profile:
+        • verify /sys/kernel/realtime when requested
+        • call mlockall(MCL_CURRENT|MCL_FUTURE)
+        • pin scheduler thread affinity
+        • verify deployed scheduler policy/priority
     end note
 
     rectangle "shutdown()" as shutdownFlow #Wheat {

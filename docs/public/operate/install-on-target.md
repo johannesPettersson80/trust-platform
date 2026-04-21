@@ -54,6 +54,11 @@ Your deployed project should contain at least:
 The repo ships a service file at
 [`docs/deploy/systemd/trust-runtime.service`](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/deploy/systemd/trust-runtime.service).
 
+For `PREEMPT_RT` deployments, use the dedicated template instead:
+
+- [`docs/deploy/systemd/trust-runtime-preempt-rt.service`](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/deploy/systemd/trust-runtime-preempt-rt.service)
+- [PREEMPT_RT Deployment](preempt-rt.md)
+
 Install it:
 
 ```bash
@@ -62,6 +67,10 @@ sudo systemctl daemon-reload
 sudo systemctl enable trust-runtime
 sudo systemctl start trust-runtime
 ```
+
+If this target is meant to run under `PREEMPT_RT`, copy the RT template as the
+service unit instead of the baseline file and configure `[runtime.realtime]` in
+`runtime.toml`.
 
 ## 5. Verify Boot And Runtime Health
 
@@ -93,4 +102,5 @@ systemctl status trust-runtime --no-pager
 
 - [Lifecycle](lifecycle.md)
 - [Supervision](supervision.md)
+- [PREEMPT_RT Deployment](preempt-rt.md)
 - [Deploy And Rollback](deploy-rollback.md)

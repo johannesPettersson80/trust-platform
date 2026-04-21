@@ -9,6 +9,7 @@ use crate::config::{
     MeshRole, RuntimeCloudLinkPreferenceRule, RuntimeCloudProfile, RuntimeCloudWanAllowRule,
 };
 use crate::execution_backend::{ExecutionBackend, ExecutionBackendSource};
+use crate::linux_rt::LinuxRtConfig;
 use crate::value::Duration;
 use crate::watchdog::{FaultPolicy, RetainMode, WatchdogPolicy};
 
@@ -26,6 +27,7 @@ pub struct RuntimeSettings {
     pub discovery: DiscoverySettings,
     pub mesh: MeshSettings,
     pub runtime_cloud: RuntimeCloudSettings,
+    pub realtime: LinuxRtConfig,
     pub opcua: OpcUaSettings,
     pub simulation: SimulationSettings,
 }
@@ -52,6 +54,7 @@ impl RuntimeSettings {
             discovery,
             mesh,
             runtime_cloud: RuntimeCloudSettings::default(),
+            realtime: LinuxRtConfig::default(),
             opcua: OpcUaSettings::default(),
             simulation,
         }

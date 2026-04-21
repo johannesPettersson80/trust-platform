@@ -292,7 +292,7 @@ END_PROGRAM
     assert_eq!(
         response.error.as_deref(),
         Some(
-            "runtime.execution_backend is startup-only; change backend via startup CLI/config and restart"
+            "runtime.execution_backend is startup-only; change it via runtime.toml/service posture and restart"
         )
     );
 
@@ -304,6 +304,57 @@ END_PROGRAM
             .get("execution_backend")
             .and_then(serde_json::Value::as_str),
         Some("vm")
+    );
+    assert_eq!(
+        result
+            .get("realtime")
+            .and_then(|value| value.get("profile"))
+            .and_then(serde_json::Value::as_str),
+        Some("disabled")
+    );
+}
+
+#[test]
+fn status_and_config_get_surface_realtime_defaults() {
+    let source = r#"
+PROGRAM Main
+END_PROGRAM
+"#;
+    let state = hmi_test_state(source);
+
+    let status = handle_request_value(json!({"id": 26, "type": "status"}), &state, None);
+    assert!(status.ok, "status should succeed: {:?}", status.error);
+    let status_result = status.result.expect("status result");
+    assert_eq!(
+        status_result
+            .get("realtime")
+            .and_then(|value| value.get("enabled"))
+            .and_then(serde_json::Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        status_result
+            .get("realtime")
+            .and_then(|value| value.get("requested"))
+            .and_then(|value| value.get("scheduler"))
+            .and_then(serde_json::Value::as_str),
+        Some("other")
+    );
+
+    let config_get = handle_request_value(json!({"id": 27, "type": "config.get"}), &state, None);
+    assert!(config_get.ok, "config.get should succeed: {:?}", config_get.error);
+    let config_result = config_get.result.expect("config.get result");
+    assert_eq!(
+        config_result
+            .get("realtime.profile")
+            .and_then(serde_json::Value::as_str),
+        Some("disabled")
+    );
+    assert_eq!(
+        config_result
+            .get("realtime.scheduler")
+            .and_then(serde_json::Value::as_str),
+        Some("other")
     );
 }
 

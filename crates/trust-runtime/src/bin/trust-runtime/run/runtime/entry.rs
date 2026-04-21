@@ -101,6 +101,13 @@ pub fn run_runtime(
 
     let pending_restart = Arc::new(Mutex::new(None));
     let start_gate = Arc::new(StartGate::new());
+    let realtime_config = bundle
+        .as_ref()
+        .map(|bundle| bundle.runtime.realtime.clone())
+        .unwrap_or_default();
+    let realtime_status = Arc::new(Mutex::new(LinuxRtRuntimeStatus::from_config(
+        realtime_config.clone(),
+    )));
 
     let control_endpoint = parse_control_endpoint(bundle.as_ref())?;
     let tls_materials = if let Some(bundle) = bundle.as_ref() {
@@ -120,10 +127,50 @@ pub fn run_runtime(
         .with_restart_signal(pending_restart.clone())
         .with_start_gate(start_gate.clone())
         .with_time_scale(simulation_time_scale);
+    if realtime_config.enabled {
+        runner = runner.with_thread_init_hook(make_thread_init_hook(
+            realtime_config.clone(),
+            realtime_status.clone(),
+        ));
+    }
     if let Some(simulation) = simulation_controller {
         runner = runner.with_simulation(simulation);
     }
     let mut handle = runner.spawn("trust-runtime")?;
+    if let Ok(status) = realtime_status.lock() {
+        logger.log(
+            if status.active {
+                LogLevel::Info
+            } else if status.requested.enabled {
+                LogLevel::Warn
+            } else {
+                LogLevel::Info
+            },
+            "linux_rt_profile",
+            json!({
+                "profile": status.requested.profile_name(),
+                "enabled": status.requested.enabled,
+                "strict": status.requested.strict,
+                "kernel_realtime": status.kernel_realtime,
+                "memory_lock_applied": status.memory_lock_applied,
+                "affinity_applied": status.affinity_applied_by_runtime,
+                "scheduler": status.active_scheduler.map(|value| value.as_str()),
+                "priority": status.active_priority,
+                "cpu_affinity": status.active_cpu_affinity,
+                "memory_locked_kb": status.memory_locked_kb,
+                "warnings": status
+                    .warnings
+                    .iter()
+                    .map(|value| value.as_str())
+                    .collect::<Vec<_>>(),
+                "errors": status
+                    .errors
+                    .iter()
+                    .map(|value| value.as_str())
+                    .collect::<Vec<_>>(),
+            }),
+        );
+    }
     let control = handle.control();
 
     let settings = build_runtime_settings(
@@ -196,6 +243,7 @@ pub fn run_runtime(
         metrics: metrics.clone(),
         events: events.clone(),
         settings: Arc::new(Mutex::new(settings)),
+        realtime_status: realtime_status.clone(),
         project_root: bundle.as_ref().map(|bundle| bundle.root.clone()),
         resource_name: bundle
             .as_ref()

@@ -14,6 +14,7 @@ use crate::debug::{DebugVariableHandles, PendingVarTarget};
 use crate::error::RuntimeError;
 use crate::harness::TestHarness;
 use crate::historian::{AlertRule, HistorianConfig, HistorianService, RecordingMode};
+use crate::linux_rt::LinuxRtRuntimeStatus;
 use crate::metrics::RuntimeMetrics;
 use crate::scheduler::{ResourceCommand, ResourceControl, StdClock};
 use crate::security::AccessRole;
@@ -147,6 +148,9 @@ fn hmi_test_state(source: &str) -> ControlState {
         metrics: Arc::new(Mutex::new(RuntimeMetrics::default())),
         events: Arc::new(Mutex::new(VecDeque::new())),
         settings: Arc::new(Mutex::new(runtime_settings())),
+        realtime_status: Arc::new(Mutex::new(LinuxRtRuntimeStatus::from_config(
+            crate::linux_rt::LinuxRtConfig::default(),
+        ))),
         project_root: None,
         resource_name: SmolStr::new("RESOURCE"),
         io_health: Arc::new(Mutex::new(Vec::new())),

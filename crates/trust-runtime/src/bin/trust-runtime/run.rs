@@ -20,6 +20,7 @@ use trust_runtime::harness::CompileSession;
 use trust_runtime::historian::HistorianService;
 use trust_runtime::hmi::{HmiScaffoldMode, HmiSourceRef};
 use trust_runtime::io::IoDriverRegistry;
+use trust_runtime::linux_rt::{make_thread_init_hook, LinuxRtRuntimeStatus};
 use trust_runtime::mesh::start_mesh;
 use trust_runtime::metrics::RuntimeMetrics;
 use trust_runtime::opcua::{start_wire_server, OpcUaWireServer};

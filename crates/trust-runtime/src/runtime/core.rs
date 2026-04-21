@@ -50,6 +50,8 @@ pub struct Runtime {
     pub(super) programs: IndexMap<SmolStr, ProgramDef>,
     pub(super) globals: IndexMap<SmolStr, GlobalVarMeta>,
     pub(super) tasks: Vec<TaskConfig>,
+    pub(super) ready_tasks_scratch: Vec<super::types::ReadyTask>,
+    pub(super) background_program_names_scratch: Vec<SmolStr>,
     pub(super) task_state: IndexMap<SmolStr, TaskState>,
     pub(super) task_thread_ids: IndexMap<SmolStr, u32>,
     pub(super) next_thread_id: u32,

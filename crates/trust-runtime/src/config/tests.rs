@@ -230,6 +230,39 @@ fn runtime_schema_accepts_extended_cloud_link_transports() {
 }
 
 #[test]
+fn runtime_schema_accepts_preempt_rt_profile_section() {
+    let text = format!(
+        "{}\n[runtime.realtime]\nenabled = true\nrequire_preempt_rt_kernel = true\nlock_memory = true\nscheduler = \"fifo\"\npriority = 70\ncpu_affinity = [2]\nstrict = true\n",
+        runtime_toml()
+    );
+    validate_runtime_toml_text(&text).expect("preempt rt runtime section should validate");
+}
+
+#[test]
+fn runtime_schema_rejects_enabled_realtime_section_without_fifo_or_rr_scheduler() {
+    let text = format!(
+        "{}\n[runtime.realtime]\nenabled = true\nscheduler = \"other\"\npriority = 70\n",
+        runtime_toml()
+    );
+    let err = validate_runtime_toml_text(&text).expect_err("invalid realtime scheduler");
+    assert!(err
+        .to_string()
+        .contains("runtime.realtime.scheduler must be 'fifo' or 'rr'"));
+}
+
+#[test]
+fn runtime_schema_rejects_duplicate_realtime_cpu_affinity() {
+    let text = format!(
+        "{}\n[runtime.realtime]\nenabled = true\nscheduler = \"fifo\"\npriority = 70\ncpu_affinity = [2, 2]\n",
+        runtime_toml()
+    );
+    let err = validate_runtime_toml_text(&text).expect_err("duplicate cpu affinity");
+    assert!(err
+        .to_string()
+        .contains("runtime.realtime.cpu_affinity entries must be unique"));
+}
+
+#[test]
 fn runtime_schema_rejects_invalid_cloud_link_transport() {
     let text = format!(
         "{}\n[runtime.cloud.links]\ntransports = [{{ source = \"runtime-a\", target = \"runtime-b\", transport = \"udp\" }}]\n",

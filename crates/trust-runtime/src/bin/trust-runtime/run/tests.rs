@@ -61,6 +61,7 @@ fn bundle_with_backend(
             runtime_cloud_profile: trust_runtime::config::RuntimeCloudProfile::Dev,
             runtime_cloud_wan_allow_write: Vec::new(),
             runtime_cloud_link_preferences: Vec::new(),
+            realtime: trust_runtime::linux_rt::LinuxRtConfig::default(),
             observability: trust_runtime::historian::HistorianConfig::default(),
             opcua: trust_runtime::opcua::OpcUaRuntimeConfig::default(),
             tasks: None,

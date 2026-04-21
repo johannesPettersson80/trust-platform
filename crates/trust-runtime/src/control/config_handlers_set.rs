@@ -298,10 +298,21 @@ pub(super) fn handle_config_set(
                 updated.push("control.mode");
                 restart_required.push("control.mode");
             }
-            "runtime.execution_backend" | "runtime.execution_backend_source" => {
+            "runtime.execution_backend"
+            | "runtime.execution_backend_source"
+            | "realtime.profile"
+            | "realtime.enabled"
+            | "realtime.require_preempt_rt_kernel"
+            | "realtime.lock_memory"
+            | "realtime.scheduler"
+            | "realtime.priority"
+            | "realtime.cpu_affinity"
+            | "realtime.strict" => {
                 return ControlResponse::error(
                     id,
-                    "runtime.execution_backend is startup-only; change backend via startup CLI/config and restart".into(),
+                    format!(
+                        "{key} is startup-only; change it via runtime.toml/service posture and restart"
+                    ),
                 );
             }
             _ => {

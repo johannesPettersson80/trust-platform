@@ -6,6 +6,7 @@
 | --- | --- | --- |
 | Linux x86_64 | best-supported runtime path | natural host for `trust-runtime`, CLI control, and production services |
 | Raspberry Pi / edge Linux | common edge/runtime path | verify GPIO permissions, storage, and restart behavior on target |
+| Linux x86_64 / ARM64 with `PREEMPT_RT` | tuned soft-real-time path | same runtime binary, but support claims are tied to the measured hardware + kernel + workload combination |
 | macOS | tooling-friendly, runtime varies | good for editing/building; validate hardware-dependent paths locally |
 | Windows | tooling-friendly, runtime varies | good for VS Code and CLI authoring; validate service/runtime expectations locally |
 
@@ -27,6 +28,7 @@
 ## Related
 
 - [Install On Target](../operate/install-on-target.md)
+- [PREEMPT_RT Deployment](../operate/preempt-rt.md)
 - [GPIO](../connect/devices-and-fieldbus/gpio.md)
 - [EtherCAT](../connect/devices-and-fieldbus/ethercat.md)
 - [Networking And Remote Access](../connect/networking-and-remote-access.md)

@@ -1,6 +1,7 @@
 use std::sync::atomic::Ordering;
 
 use crate::io::{IoDriverHealth, IoDriverStatus};
+use crate::linux_rt::{LinuxRtConfig, LinuxRtRuntimeStatus};
 use serde_json::json;
 
 use super::types::{runtime_event_to_json, HistorianAlertsParams, HistorianQueryParams};
@@ -23,6 +24,12 @@ pub(super) fn handle_status(id: u64, state: &ControlState) -> ControlResponse {
         .ok()
         .map(|guard| guard.snapshot())
         .unwrap_or_default();
+    let realtime = state
+        .realtime_status
+        .lock()
+        .ok()
+        .map(|guard| guard.clone())
+        .unwrap_or_else(|| LinuxRtRuntimeStatus::from_config(LinuxRtConfig::default()));
     // Runtime settings are the single source of truth for selected backend mode/source.
     let execution_backend = settings
         .as_ref()
@@ -65,6 +72,10 @@ pub(super) fn handle_status(id: u64, state: &ControlState) -> ControlResponse {
                     "avg": metrics.cycle.avg_ms,
                     "max": metrics.cycle.max_ms,
                     "last": metrics.cycle.last_ms,
+                    "p50": metrics.cycle_percentiles.p50_ms,
+                    "p95": metrics.cycle_percentiles.p95_ms,
+                    "p99": metrics.cycle_percentiles.p99_ms,
+                    "window_samples": metrics.cycle_percentiles.window_samples,
                 },
                 "overruns": metrics.overruns,
                 "faults": metrics.faults,
@@ -88,6 +99,41 @@ pub(super) fn handle_status(id: u64, state: &ControlState) -> ControlResponse {
                         .collect::<Vec<_>>(),
                 },
                 "execution_backend": execution_backend,
+            },
+            "realtime": {
+                "profile": realtime.requested.profile_name(),
+                "enabled": realtime.requested.enabled,
+                "strict": realtime.requested.strict,
+                "require_preempt_rt_kernel": realtime.requested.require_preempt_rt_kernel,
+                "requested": {
+                    "lock_memory": realtime.requested.lock_memory,
+                    "scheduler": realtime.requested.scheduler.as_str(),
+                    "priority": realtime.requested.priority,
+                    "cpu_affinity": realtime.requested.cpu_affinity,
+                },
+                "observed": {
+                    "kernel_realtime": realtime.kernel_realtime,
+                    "scheduler": realtime.active_scheduler.map(|value| value.as_str()),
+                    "priority": realtime.active_priority,
+                    "cpu_affinity": realtime.active_cpu_affinity,
+                    "memory_locked_kb": realtime.memory_locked_kb,
+                },
+                "runtime_applied": {
+                    "memory_lock": realtime.memory_lock_applied,
+                    "affinity": realtime.affinity_applied_by_runtime,
+                    "scheduler": realtime.scheduler_applied_by_runtime,
+                },
+                "active": realtime.active,
+                "warnings": realtime
+                    .warnings
+                    .iter()
+                    .map(|value| value.as_str())
+                    .collect::<Vec<_>>(),
+                "errors": realtime
+                    .errors
+                    .iter()
+                    .map(|value| value.as_str())
+                    .collect::<Vec<_>>(),
             },
             "io_drivers": io_health,
         }),

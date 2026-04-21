@@ -123,6 +123,7 @@ fn build_runtime_settings(
             bundle.runtime.runtime_cloud_wan_allow_write.clone();
         settings.runtime_cloud.link_preferences =
             bundle.runtime.runtime_cloud_link_preferences.clone();
+        settings.realtime = bundle.runtime.realtime.clone();
     }
     settings.execution_backend = execution_backend;
     settings.execution_backend_source = execution_backend_source;

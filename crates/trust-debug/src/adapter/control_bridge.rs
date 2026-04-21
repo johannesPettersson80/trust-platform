@@ -17,6 +17,7 @@ use trust_runtime::control::{
 use trust_runtime::debug::{DebugVariableHandles, RuntimeEvent};
 use trust_runtime::error::RuntimeError;
 use trust_runtime::io::IoDriverStatus;
+use trust_runtime::linux_rt::{LinuxRtConfig, LinuxRtRuntimeStatus};
 use trust_runtime::metrics::RuntimeMetrics;
 use trust_runtime::scheduler::{ResourceCommand, ResourceControl, StdClock};
 use trust_runtime::settings::{
@@ -65,6 +66,9 @@ impl DebugControlServer {
             settings: Arc::new(Mutex::new(default_settings(session))),
             resource_name: SmolStr::new("RESOURCE"),
             io_health: Arc::new(Mutex::new(Vec::<IoDriverStatus>::new())),
+            realtime_status: Arc::new(Mutex::new(LinuxRtRuntimeStatus::from_config(
+                LinuxRtConfig::default(),
+            ))),
             debug_enabled: Arc::new(AtomicBool::new(true)),
             debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
             hmi_live: Arc::new(Mutex::new(trust_runtime::hmi::HmiLiveState::default())),

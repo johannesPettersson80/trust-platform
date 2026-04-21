@@ -6,10 +6,17 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.19.1`
+Target release: `v0.20.0`
 
 ### Added
 
+- `trust-runtime` now supports a Linux `runtime.realtime` startup profile for
+  `PREEMPT_RT` posture, including config-schema support, bundle-template
+  defaults, launcher-side kernel/scheduler/affinity/memory-lock verification,
+  richer runtime status/config surfaces, application-level cycle `p50` / `p95`
+  / `p99` metrics, a dedicated operator deployment guide, a reference
+  `systemd` unit template, and a shipped validation script for collecting
+  host/kernel/service evidence alongside release-mode benchmark artifacts.
 - The public docs now have a workflow-first entry model instead of a mixed
   "one start flow for everyone" structure. Home and Start now route five real
   user journeys directly: Program in VS Code, Program in Browser IDE, Operate
@@ -102,7 +109,19 @@ Target release: `v0.19.1`
 
 ### Fixed
 
-<<<<<<< Updated upstream
+- The Linux cyclic runtime no longer rebuilds ready-task and background-program
+  scratch vectors every scan cycle; those scratch buffers are now runtime-owned
+  and reused so the `PREEMPT_RT` path reduces avoidable hot-path allocation
+  churn while preserving existing Linux behavior.
+- Linux `PREEMPT_RT` posture verification now reads the scheduler thread's
+  user-space realtime priority from `/proc/thread-self/stat` instead of the
+  kernel-internal `/proc/.../sched` priority field, so correctly-configured
+  `SCHED_FIFO` / `SCHED_RR` deployments no longer report false priority
+  mismatches. The shipped validation script now also exposes whether a target
+  threshold was declared, records the approximate soak window, warns when a
+  `PREEMPT_RT` run falls back to the cycle budget, and fails gated RT evidence
+  runs when `cyclictest` or an explicit `TRUST_RT_CYCLE_P95_MAX_US` threshold
+  is missing.
 - The public docs and repo landing surfaces now lead with the strongest truST
   story instead of burying it behind browser-first proof shots: the homepage,
   `Program In VS Code`, `Debugging And Runtime Panel`, and `README.md` now show

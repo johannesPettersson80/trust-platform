@@ -14,6 +14,7 @@ use trust_runtime::control::{ControlState, HmiRuntimeDescriptor, SourceFile, Sou
 use trust_runtime::debug::DebugVariableHandles;
 use trust_runtime::error::RuntimeError;
 use trust_runtime::harness::TestHarness;
+use trust_runtime::linux_rt::LinuxRtRuntimeStatus;
 use trust_runtime::metrics::RuntimeMetrics;
 use trust_runtime::scheduler::{ResourceCommand, ResourceControl, StdClock};
 use trust_runtime::settings::{
@@ -118,6 +119,9 @@ fn control_state(source: &str, mode: ControlMode, auth_token: Option<&str>) -> A
         metrics: Arc::new(Mutex::new(RuntimeMetrics::default())),
         events: Arc::new(Mutex::new(VecDeque::new())),
         settings: Arc::new(Mutex::new(runtime_settings())),
+        realtime_status: Arc::new(Mutex::new(LinuxRtRuntimeStatus::from_config(
+            trust_runtime::linux_rt::LinuxRtConfig::default(),
+        ))),
         project_root: None,
         resource_name: SmolStr::new("RESOURCE"),
         io_health: Arc::new(Mutex::new(Vec::new())),

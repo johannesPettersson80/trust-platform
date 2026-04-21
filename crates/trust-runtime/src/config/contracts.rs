@@ -23,6 +23,7 @@ pub struct RuntimeConfig {
     pub runtime_cloud_profile: RuntimeCloudProfile,
     pub runtime_cloud_wan_allow_write: Vec<RuntimeCloudWanAllowRule>,
     pub runtime_cloud_link_preferences: Vec<RuntimeCloudLinkPreferenceRule>,
+    pub realtime: LinuxRtConfig,
     pub observability: HistorianConfig,
     pub opcua: OpcUaRuntimeConfig,
     pub tasks: Option<Vec<TaskOverride>>,

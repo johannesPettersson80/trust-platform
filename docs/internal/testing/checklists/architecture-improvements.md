@@ -15,3 +15,6 @@ Status: Done
 - [x] `ARCH-VM-07` Refresh the runtime execution diagrams so the shipped `SIZEOF` contract shows compile-time/static-type lowering and no longer presents `SIZEOF_VALUE` as part of normal ST codegen.
 - [x] `ARCH-VM-08` Regenerate the PlantUML outputs and refresh `docs/diagrams/manifest.json` after the `SIZEOF` contract update.
 - [x] `ARCH-VM-09` Split the `runtime/vm/register_ir` implementation into focused lowering/profile/tier1/test modules and consolidate composite ref-path walking into `value/reference.rs`; audit the existing VM diagrams and confirm no PlantUML refresh is required because execution/data flow and subsystem ownership stay unchanged.
+- [x] `ARCH-RTCORE-01` Add a dedicated runtime-core/native-host split checklist that freezes the core/host ownership decisions, behavior-lock gates, sync capability traits, Linux/PREEMPT_RT host expectations, and the STM32H7/Opta rollout plan.
+- [x] `ARCH-RTLINUX-01` Add a dedicated PREEMPT_RT Linux checklist and mark the broader native-host / embedded split plan deferred so the active runtime portability direction is explicit.
+- [x] `ARCH-RTLINUX-02` Refresh the runtime/system architecture diagrams so Linux `PREEMPT_RT` posture is shown as a launcher-owned scheduler-thread step with runtime.realtime config feeding verification/memlock/affinity behavior.

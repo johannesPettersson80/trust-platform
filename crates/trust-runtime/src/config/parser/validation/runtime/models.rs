@@ -31,3 +31,7 @@ struct ParsedRuntimeCloud {
     wan_allow_write: Vec<RuntimeCloudWanAllowRule>,
     link_preferences: Vec<RuntimeCloudLinkPreferenceRule>,
 }
+
+struct ParsedRealtime {
+    config: LinuxRtConfig,
+}

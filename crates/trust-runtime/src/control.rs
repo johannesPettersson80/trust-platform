@@ -29,6 +29,7 @@ use crate::config::ControlMode;
 use crate::debug::{DebugControl, DebugVariableHandles};
 use crate::error::RuntimeError;
 use crate::io::{IoDriverStatus, IoSnapshot};
+use crate::linux_rt::LinuxRtRuntimeStatus;
 use crate::metrics::RuntimeMetrics;
 use crate::runtime::RuntimeMetadata;
 use crate::scheduler::ResourceControl;
@@ -102,6 +103,7 @@ pub struct ControlState {
     pub metrics: Arc<Mutex<RuntimeMetrics>>,
     pub events: Arc<Mutex<VecDeque<crate::debug::RuntimeEvent>>>,
     pub settings: Arc<Mutex<RuntimeSettings>>,
+    pub realtime_status: Arc<Mutex<LinuxRtRuntimeStatus>>,
     pub project_root: Option<PathBuf>,
     pub resource_name: SmolStr,
     pub io_health: Arc<Mutex<Vec<IoDriverStatus>>>,

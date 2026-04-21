@@ -41,6 +41,8 @@ pub mod hmi;
 pub mod instance;
 /// Direct I/O mapping.
 pub mod io;
+/// Linux `PREEMPT_RT` posture config and verification helpers.
+pub mod linux_rt;
 /// Variable storage and instances.
 pub mod memory;
 /// Runtime-to-runtime mesh data sharing.

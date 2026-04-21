@@ -20,6 +20,7 @@ impl RuntimeToml {
             discovery,
             mesh,
             cloud,
+            realtime,
             observability,
             opcua,
         } = self.runtime;
@@ -58,6 +59,7 @@ impl RuntimeToml {
         let parsed_discovery = parse_discovery_section(discovery)?;
         let parsed_mesh = parse_mesh_section(mesh, parsed_tls.mode, parsed_tls.require_remote)?;
         let parsed_cloud = parse_runtime_cloud_section(cloud)?;
+        let parsed_realtime = parse_realtime_section(realtime)?;
         let observability = parse_observability_section(observability)?;
         let opcua = parse_opcua_section(opcua)?;
 
@@ -89,6 +91,7 @@ impl RuntimeToml {
             runtime_cloud_profile: parsed_cloud.profile,
             runtime_cloud_wan_allow_write: parsed_cloud.wan_allow_write,
             runtime_cloud_link_preferences: parsed_cloud.link_preferences,
+            realtime: parsed_realtime.config,
             observability,
             opcua,
             tasks,

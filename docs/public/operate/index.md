@@ -13,6 +13,7 @@
 - [Offline Install](offline-install.md)
 - [Runtime Lifecycle](lifecycle.md)
 - [Supervision](supervision.md)
+- [PREEMPT_RT Deployment](preempt-rt.md)
 - [Backup And Restore](backup-and-restore.md)
 - [Upgrade](upgrade.md)
 
@@ -22,6 +23,7 @@
 - [Offline Install](offline-install.md)
 - [Runtime Lifecycle](lifecycle.md)
 - [Supervision](supervision.md)
+- [PREEMPT_RT Deployment](preempt-rt.md)
 - [Backup And Restore](backup-and-restore.md)
 - [Upgrade](upgrade.md)
 - [Build, Validate, Test](build-validate-test.md)
@@ -51,6 +53,7 @@
 | Question | Go to |
 | --- | --- |
 | How do I install and supervise the runtime on a target host? | [Install On Target](install-on-target.md) / [Supervision](supervision.md) |
+| How do I run `truST` on a Linux PREEMPT_RT host? | [PREEMPT_RT Deployment](preempt-rt.md) |
 | How do I prove this project still builds and passes tests? | [Build, Validate, Test](build-validate-test.md) |
 | How do I edit and reload a running runtime safely? | [Compile, Validate, Reload](compile-validate-reload.md) |
 | How do I operate the runtime outside the editor? | [Runtime UI And Control](runtime-ui-and-control.md) |

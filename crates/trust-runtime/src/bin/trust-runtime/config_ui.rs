@@ -18,6 +18,7 @@ use trust_runtime::debug::{DebugSnapshot, DebugVariableHandles};
 use trust_runtime::discovery::DiscoveryState;
 use trust_runtime::error::RuntimeError;
 use trust_runtime::harness::TestHarness;
+use trust_runtime::linux_rt::LinuxRtRuntimeStatus;
 use trust_runtime::metrics::RuntimeMetrics;
 use trust_runtime::scheduler::{ResourceCommand, ResourceControl, StdClock};
 use trust_runtime::settings::{
@@ -207,6 +208,9 @@ fn build_config_mode_control_state(
         metrics: Arc::new(Mutex::new(RuntimeMetrics::default())),
         events: Arc::new(Mutex::new(VecDeque::new())),
         settings: Arc::new(Mutex::new(settings)),
+        realtime_status: Arc::new(Mutex::new(LinuxRtRuntimeStatus::from_config(
+            trust_runtime::linux_rt::LinuxRtConfig::default(),
+        ))),
         project_root: Some(project_root),
         resource_name,
         io_health: Arc::new(Mutex::new(Vec::new())),

@@ -9,6 +9,8 @@ use smol_str::SmolStr;
 
 use crate::execution_backend::ExecutionBackend;
 
+const CYCLE_LATENCY_WINDOW_SIZE: usize = 512;
+
 #[derive(Debug, Clone, Copy)]
 pub struct CycleStats {
     pub min_ms: f64,
@@ -48,6 +50,48 @@ impl Default for CycleStats {
             avg_ms: 0.0,
             last_ms: 0.0,
             samples: 0,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct CycleLatencyWindow {
+    values: [f64; CYCLE_LATENCY_WINDOW_SIZE],
+    len: usize,
+    next: usize,
+}
+
+impl CycleLatencyWindow {
+    fn record_ms(&mut self, value_ms: f64) {
+        self.values[self.next] = value_ms;
+        self.next = (self.next + 1) % CYCLE_LATENCY_WINDOW_SIZE;
+        if self.len < CYCLE_LATENCY_WINDOW_SIZE {
+            self.len += 1;
+        }
+    }
+
+    fn snapshot(&self) -> CyclePercentilesSnapshot {
+        if self.len == 0 {
+            return CyclePercentilesSnapshot::default();
+        }
+        let mut values = self.values[..self.len].to_vec();
+        values.sort_by(f64::total_cmp);
+        CyclePercentilesSnapshot {
+            p50_ms: percentile(&values, 0.50),
+            p95_ms: percentile(&values, 0.95),
+            p99_ms: percentile(&values, 0.99),
+            max_ms: *values.last().unwrap_or(&0.0),
+            window_samples: self.len as u64,
+        }
+    }
+}
+
+impl Default for CycleLatencyWindow {
+    fn default() -> Self {
+        Self {
+            values: [0.0; CYCLE_LATENCY_WINDOW_SIZE],
+            len: 0,
+            next: 0,
         }
     }
 }
@@ -159,6 +203,7 @@ pub struct RuntimeMetrics {
     start: Instant,
     execution_backend: ExecutionBackend,
     pub cycle: CycleStats,
+    cycle_window: CycleLatencyWindow,
     pub tasks: HashMap<SmolStr, TaskStats>,
     pub profiling_enabled: bool,
     profile_calls: HashMap<SmolStr, CallProfileEntry>,
@@ -173,6 +218,7 @@ impl RuntimeMetrics {
             start: Instant::now(),
             execution_backend: ExecutionBackend::BytecodeVm,
             cycle: CycleStats::default(),
+            cycle_window: CycleLatencyWindow::default(),
             tasks: HashMap::new(),
             profiling_enabled: true,
             profile_calls: HashMap::new(),
@@ -188,6 +234,7 @@ impl RuntimeMetrics {
 
     pub fn record_cycle(&mut self, duration: std::time::Duration) {
         self.cycle.record(duration);
+        self.cycle_window.record_ms(duration.as_secs_f64() * 1000.0);
     }
 
     pub fn record_task(&mut self, name: &SmolStr, duration: std::time::Duration) {
@@ -298,6 +345,7 @@ impl RuntimeMetrics {
             uptime_ms: self.uptime_ms(),
             execution_backend: self.execution_backend,
             cycle: self.cycle,
+            cycle_percentiles: self.cycle_window.snapshot(),
             faults: self.faults,
             overruns: self.overruns,
             tasks,
@@ -331,10 +379,20 @@ pub struct RuntimeMetricsSnapshot {
     pub uptime_ms: u64,
     pub execution_backend: ExecutionBackend,
     pub cycle: CycleStats,
+    pub cycle_percentiles: CyclePercentilesSnapshot,
     pub faults: u64,
     pub overruns: u64,
     pub tasks: Vec<TaskStatsSnapshot>,
     pub profiling: ProfilingSnapshot,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct CyclePercentilesSnapshot {
+    pub p50_ms: f64,
+    pub p95_ms: f64,
+    pub p99_ms: f64,
+    pub max_ms: f64,
+    pub window_samples: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -366,6 +424,18 @@ pub struct ProfilingSnapshot {
     pub enabled: bool,
     pub calls: Vec<CallStatsSnapshot>,
     pub top_contributors: Vec<BudgetContributorSnapshot>,
+}
+
+fn percentile(sorted_values: &[f64], quantile: f64) -> f64 {
+    if sorted_values.is_empty() {
+        return 0.0;
+    }
+    let clamped = quantile.clamp(0.0, 1.0);
+    let index = ((sorted_values.len().saturating_sub(1) as f64) * clamped).round() as usize;
+    sorted_values
+        .get(index)
+        .copied()
+        .unwrap_or_else(|| *sorted_values.last().unwrap_or(&0.0))
 }
 
 #[cfg(test)]
@@ -430,5 +500,19 @@ mod tests {
             .expect("expected top contributor");
         assert_eq!(top.key.as_str(), "program:MAIN");
         assert!(top.cycle_pct > 0.0);
+    }
+
+    #[test]
+    fn cycle_percentiles_track_recent_window() {
+        let mut metrics = RuntimeMetrics::new();
+        for duration_ms in [5_u64, 10, 15, 20, 25] {
+            metrics.record_cycle(Duration::from_millis(duration_ms));
+        }
+
+        let snapshot = metrics.snapshot();
+        assert_eq!(snapshot.cycle_percentiles.window_samples, 5);
+        assert!(snapshot.cycle_percentiles.p50_ms >= 10.0);
+        assert!(snapshot.cycle_percentiles.p95_ms >= snapshot.cycle_percentiles.p50_ms);
+        assert_eq!(snapshot.cycle_percentiles.max_ms, 25.0);
     }
 }

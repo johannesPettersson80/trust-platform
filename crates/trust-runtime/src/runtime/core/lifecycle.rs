@@ -22,6 +22,8 @@ impl Runtime {
             programs: IndexMap::new(),
             globals: IndexMap::new(),
             tasks: Vec::new(),
+            ready_tasks_scratch: Vec::new(),
+            background_program_names_scratch: Vec::new(),
             task_state: IndexMap::new(),
             task_thread_ids: IndexMap::new(),
             next_thread_id: 1,

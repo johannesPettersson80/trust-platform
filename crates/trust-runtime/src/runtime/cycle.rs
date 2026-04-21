@@ -2,7 +2,6 @@
 
 #![allow(missing_docs)]
 
-use indexmap::IndexMap;
 use smol_str::SmolStr;
 
 use crate::error;
@@ -80,24 +79,30 @@ impl Runtime {
             return Err(self.record_fault(err));
         }
 
-        let mut ready = match self.collect_ready_tasks() {
-            Ok(ready) => ready,
-            Err(err) => return Err(self.record_fault(err)),
-        };
+        let mut ready = std::mem::take(&mut self.ready_tasks_scratch);
+        ready.clear();
+        if let Err(err) = self.collect_ready_tasks_into(&mut ready) {
+            self.ready_tasks_scratch = ready;
+            return Err(self.record_fault(err));
+        }
         ready.sort_by_key(|entry| {
             let task = &self.tasks[entry.index];
             (task.priority, entry.due_at.as_nanos(), entry.index)
         });
-        for entry in ready {
+        for entry in &ready {
             let task = self.tasks[entry.index].clone();
             let task_timer = self.metrics.start_timer();
             if let Err(err) = self.execute_task(&task) {
+                ready.clear();
+                self.ready_tasks_scratch = ready;
                 return Err(self.record_fault(err));
             }
             if let Some(start) = task_timer {
                 self.metrics.record_task(&task.name, start.elapsed());
             }
         }
+        ready.clear();
+        self.ready_tasks_scratch = ready;
         if let Err(err) = self.execute_background_programs() {
             return Err(self.record_fault(err));
         }
@@ -235,20 +240,16 @@ impl Runtime {
     }
 
     fn execute_background_programs(&mut self) -> Result<(), error::RuntimeError> {
-        let mut scheduled = IndexMap::new();
-        for task in &self.tasks {
-            for program in &task.programs {
-                scheduled.insert(program.clone(), ());
-            }
-        }
-        let mut background = Vec::new();
-        for (name, program) in &self.programs {
-            if scheduled.contains_key(name) {
+        let mut background = std::mem::take(&mut self.background_program_names_scratch);
+        background.clear();
+        for name in self.programs.keys() {
+            if self.is_program_scheduled(name) {
                 continue;
             }
-            background.push(program.clone());
+            background.push(name.clone());
         }
         if background.is_empty() {
+            self.background_program_names_scratch = background;
             return Ok(());
         }
         let debug = self.debug.clone();
@@ -256,14 +257,24 @@ impl Runtime {
         if let Some(debug) = debug {
             debug.set_current_thread(thread_id);
         }
-        for program in background {
-            self.execute_program(&program)?;
+        for program_name in &background {
+            self.execute_program_by_name(program_name)?;
         }
+        background.clear();
+        self.background_program_names_scratch = background;
         Ok(())
     }
 
-    fn collect_ready_tasks(&mut self) -> Result<Vec<ReadyTask>, error::RuntimeError> {
-        let mut ready = Vec::new();
+    fn is_program_scheduled(&self, name: &SmolStr) -> bool {
+        self.tasks
+            .iter()
+            .any(|task| task.programs.iter().any(|program| program == name))
+    }
+
+    fn collect_ready_tasks_into(
+        &mut self,
+        ready: &mut Vec<ReadyTask>,
+    ) -> Result<(), error::RuntimeError> {
         let now = self.current_time;
         for (idx, task) in self.tasks.iter().enumerate() {
             let state = self
@@ -313,7 +324,7 @@ impl Runtime {
                 ready.push(ReadyTask { index: idx, due_at });
             }
         }
-        Ok(ready)
+        Ok(())
     }
 
     fn execute_function_block_ref(

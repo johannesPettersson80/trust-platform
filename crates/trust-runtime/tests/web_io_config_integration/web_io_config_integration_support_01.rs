@@ -112,6 +112,11 @@ pub(super) fn control_state_named_with_audit(
         metrics: Arc::new(Mutex::new(RuntimeMetrics::default())),
         events: Arc::new(Mutex::new(VecDeque::new())),
         settings: Arc::new(Mutex::new(runtime_settings())),
+        realtime_status: Arc::new(Mutex::new(
+            trust_runtime::linux_rt::LinuxRtRuntimeStatus::from_config(
+                trust_runtime::linux_rt::LinuxRtConfig::default(),
+            ),
+        )),
         project_root: None,
         resource_name: SmolStr::new(resource_name),
         io_health: Arc::new(Mutex::new(Vec::new())),

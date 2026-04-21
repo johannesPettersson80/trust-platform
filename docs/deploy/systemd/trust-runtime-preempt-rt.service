@@ -1,0 +1,25 @@
+[Unit]
+Description=truST PLC Runtime (PREEMPT_RT)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/trust/current
+ExecStart=/usr/local/bin/trust-runtime --project /opt/trust/current
+Restart=always
+RestartSec=2
+
+# Required to request RT priority and lock memory from the runtime process.
+AmbientCapabilities=CAP_SYS_NICE CAP_IPC_LOCK
+CapabilityBoundingSet=CAP_SYS_NICE CAP_IPC_LOCK
+LimitRTPRIO=95
+LimitMEMLOCK=infinity
+
+# Example RT posture. Adjust CPUAffinity and priority for the target host.
+CPUSchedulingPolicy=fifo
+CPUSchedulingPriority=70
+CPUAffinity=2
+
+[Install]
+WantedBy=multi-user.target

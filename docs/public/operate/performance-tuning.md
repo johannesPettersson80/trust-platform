@@ -10,6 +10,7 @@
 
 - [Observability](observability.md)
 - [Benchmarks](../reference/benchmarks.md)
+- [PREEMPT_RT Deployment](preempt-rt.md)
 - [Build, Validate, Test](build-validate-test.md)
 
 ## Typical Questions
@@ -22,4 +23,5 @@
 
 - [Observability](observability.md)
 - [Benchmarks](../reference/benchmarks.md)
+- [PREEMPT_RT Deployment](preempt-rt.md)
 - [Hardware Compatibility](../reference/hardware-compatibility.md)

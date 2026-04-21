@@ -40,6 +40,46 @@ pub fn render_prometheus(
         runtime.cycle.avg_ms
     );
 
+    body.push_str(
+        "# HELP trust_runtime_cycle_p50_ms Recent cycle duration p50 in milliseconds.\n",
+    );
+    body.push_str("# TYPE trust_runtime_cycle_p50_ms gauge\n");
+    let _ = writeln!(
+        body,
+        "trust_runtime_cycle_p50_ms {:.6}",
+        runtime.cycle_percentiles.p50_ms
+    );
+
+    body.push_str(
+        "# HELP trust_runtime_cycle_p95_ms Recent cycle duration p95 in milliseconds.\n",
+    );
+    body.push_str("# TYPE trust_runtime_cycle_p95_ms gauge\n");
+    let _ = writeln!(
+        body,
+        "trust_runtime_cycle_p95_ms {:.6}",
+        runtime.cycle_percentiles.p95_ms
+    );
+
+    body.push_str(
+        "# HELP trust_runtime_cycle_p99_ms Recent cycle duration p99 in milliseconds.\n",
+    );
+    body.push_str("# TYPE trust_runtime_cycle_p99_ms gauge\n");
+    let _ = writeln!(
+        body,
+        "trust_runtime_cycle_p99_ms {:.6}",
+        runtime.cycle_percentiles.p99_ms
+    );
+
+    body.push_str(
+        "# HELP trust_runtime_cycle_window_samples Recent cycle sample window size.\n",
+    );
+    body.push_str("# TYPE trust_runtime_cycle_window_samples gauge\n");
+    let _ = writeln!(
+        body,
+        "trust_runtime_cycle_window_samples {}",
+        runtime.cycle_percentiles.window_samples
+    );
+
     body.push_str("# HELP trust_runtime_task_last_ms Last task duration in milliseconds.\n");
     body.push_str("# TYPE trust_runtime_task_last_ms gauge\n");
     for task in &runtime.tasks {

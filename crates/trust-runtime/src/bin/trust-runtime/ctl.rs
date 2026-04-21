@@ -155,7 +155,19 @@ fn print_control_response(action: &ControlAction, response: &str) {
                         .get("fault")
                         .and_then(|v| v.as_str())
                         .unwrap_or("none");
-                    println!("state={state} fault={fault}");
+                    let rt_profile = result
+                        .get("realtime")
+                        .and_then(|v| v.get("profile"))
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("disabled");
+                    let rt_active = result
+                        .get("realtime")
+                        .and_then(|v| v.get("active"))
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(false);
+                    println!(
+                        "state={state} fault={fault} rt_profile={rt_profile} rt_active={rt_active}"
+                    );
                     return;
                 }
             }

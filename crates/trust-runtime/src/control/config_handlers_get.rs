@@ -130,6 +130,14 @@ pub(super) fn handle_config_get(id: u64, state: &ControlState) -> ControlRespons
                     })
                 })
                 .collect::<Vec<_>>(),
+            "realtime.profile": settings.realtime.profile_name(),
+            "realtime.enabled": settings.realtime.enabled,
+            "realtime.require_preempt_rt_kernel": settings.realtime.require_preempt_rt_kernel,
+            "realtime.lock_memory": settings.realtime.lock_memory,
+            "realtime.scheduler": settings.realtime.scheduler.as_str(),
+            "realtime.priority": settings.realtime.priority,
+            "realtime.cpu_affinity": settings.realtime.cpu_affinity,
+            "realtime.strict": settings.realtime.strict,
             "opcua.enabled": settings.opcua.enabled,
             "opcua.listen": settings.opcua.listen.as_str(),
             "opcua.endpoint_path": settings.opcua.endpoint_path.as_str(),

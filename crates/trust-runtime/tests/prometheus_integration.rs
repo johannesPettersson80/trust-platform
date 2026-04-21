@@ -14,6 +14,7 @@ use trust_runtime::debug::DebugVariableHandles;
 use trust_runtime::error::RuntimeError;
 use trust_runtime::harness::TestHarness;
 use trust_runtime::historian::{HistorianConfig, HistorianService, RecordingMode};
+use trust_runtime::linux_rt::LinuxRtRuntimeStatus;
 use trust_runtime::metrics::RuntimeMetrics;
 use trust_runtime::scheduler::{ResourceCommand, ResourceControl, StdClock};
 use trust_runtime::settings::{
@@ -152,6 +153,9 @@ fn control_state(
         metrics: Arc::new(Mutex::new(metrics)),
         events: Arc::new(Mutex::new(VecDeque::new())),
         settings: Arc::new(Mutex::new(runtime_settings())),
+        realtime_status: Arc::new(Mutex::new(LinuxRtRuntimeStatus::from_config(
+            trust_runtime::linux_rt::LinuxRtConfig::default(),
+        ))),
         project_root: None,
         resource_name: SmolStr::new("RESOURCE"),
         io_health: Arc::new(Mutex::new(Vec::new())),
@@ -205,6 +209,7 @@ fn prometheus_endpoint_exposes_runtime_and_historian_metrics() {
     let body = response.body_mut().read_to_string().expect("metrics body");
     assert!(body.contains("trust_runtime_uptime_ms"));
     assert!(body.contains("trust_runtime_cycle_last_ms"));
+    assert!(body.contains("trust_runtime_cycle_p95_ms"));
     assert!(body.contains("trust_runtime_historian_samples_total"));
 }
 

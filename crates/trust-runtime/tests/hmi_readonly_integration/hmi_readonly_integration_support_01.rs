@@ -98,6 +98,11 @@ pub(super) fn hmi_control_state_with_root(
         metrics: Arc::new(Mutex::new(RuntimeMetrics::default())),
         events: Arc::new(Mutex::new(VecDeque::new())),
         settings: Arc::new(Mutex::new(runtime_settings())),
+        realtime_status: Arc::new(Mutex::new(
+            trust_runtime::linux_rt::LinuxRtRuntimeStatus::from_config(
+                trust_runtime::linux_rt::LinuxRtConfig::default(),
+            ),
+        )),
         project_root,
         resource_name: SmolStr::new("RESOURCE"),
         io_health: Arc::new(Mutex::new(Vec::new())),

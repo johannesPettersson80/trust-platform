@@ -1,5 +1,4 @@
 /// Drives a runtime with a scheduling clock.
-#[derive(Debug)]
 pub struct ResourceRunner<C: Clock + Clone> {
     runtime: Runtime,
     clock: C,
@@ -9,6 +8,7 @@ pub struct ResourceRunner<C: Clock + Clone> {
     start_gate: Option<Arc<StartGate>>,
     command_rx: Option<std::sync::mpsc::Receiver<ResourceCommand>>,
     simulation: Option<crate::simulation::SimulationController>,
+    thread_init_hook: Option<Arc<dyn Fn() -> Result<(), RuntimeError> + Send + Sync>>,
 }
 
 impl<C: Clock + Clone> ResourceRunner<C> {
@@ -23,6 +23,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
             start_gate: None,
             command_rx: None,
             simulation: None,
+            thread_init_hook: None,
         }
     }
 
@@ -51,6 +52,16 @@ impl<C: Clock + Clone> ResourceRunner<C> {
     #[must_use]
     pub fn with_simulation(mut self, simulation: crate::simulation::SimulationController) -> Self {
         self.simulation = Some(simulation);
+        self
+    }
+
+    /// Run a thread-local startup hook before the scheduler loop begins.
+    #[must_use]
+    pub fn with_thread_init_hook(
+        mut self,
+        hook: Arc<dyn Fn() -> Result<(), RuntimeError> + Send + Sync>,
+    ) -> Self {
+        self.thread_init_hook = Some(hook);
         self
     }
 
@@ -102,12 +113,29 @@ impl<C: Clock + Clone> ResourceRunner<C> {
         let builder = thread::Builder::new().name(name.into());
         let join = builder
             .spawn(move || {
-                let _ = id_tx.send(thread::current().id());
+                if let Some(hook) = runner.thread_init_hook.as_ref() {
+                    if let Err(err) = hook() {
+                        *last_error_thread.lock().expect("resource error poisoned") =
+                            Some(err.clone());
+                        *state_thread.lock().expect("resource state poisoned") =
+                            ResourceState::Faulted;
+                        let _ = id_tx.send(Err(err));
+                        return;
+                    }
+                }
+                let _ = id_tx.send(Ok(thread::current().id()));
                 run_resource_loop(runner, stop_thread, state_thread, last_error_thread);
             })
             .map_err(|err| RuntimeError::ThreadSpawn(err.to_string().into()))?;
 
-        let thread_id = id_rx.recv().unwrap_or_else(|_| join.thread().id());
+        let thread_id = match id_rx.recv() {
+            Ok(Ok(thread_id)) => thread_id,
+            Ok(Err(err)) => {
+                let _ = join.join();
+                return Err(err);
+            }
+            Err(_) => join.thread().id(),
+        };
 
         Ok(ResourceHandle {
             stop,
@@ -143,7 +171,17 @@ impl<C: Clock + Clone> ResourceRunner<C> {
         let builder = thread::Builder::new().name(name.into());
         let join = builder
             .spawn(move || {
-                let _ = id_tx.send(thread::current().id());
+                if let Some(hook) = runner.thread_init_hook.as_ref() {
+                    if let Err(err) = hook() {
+                        *last_error_thread.lock().expect("resource error poisoned") =
+                            Some(err.clone());
+                        *state_thread.lock().expect("resource state poisoned") =
+                            ResourceState::Faulted;
+                        let _ = id_tx.send(Err(err));
+                        return;
+                    }
+                }
+                let _ = id_tx.send(Ok(thread::current().id()));
                 run_resource_loop_with_shared(
                     runner,
                     stop_thread,
@@ -154,7 +192,14 @@ impl<C: Clock + Clone> ResourceRunner<C> {
             })
             .map_err(|err| RuntimeError::ThreadSpawn(err.to_string().into()))?;
 
-        let thread_id = id_rx.recv().unwrap_or_else(|_| join.thread().id());
+        let thread_id = match id_rx.recv() {
+            Ok(Ok(thread_id)) => thread_id,
+            Ok(Err(err)) => {
+                let _ = join.join();
+                return Err(err);
+            }
+            Err(_) => join.thread().id(),
+        };
 
         Ok(ResourceHandle {
             stop,
