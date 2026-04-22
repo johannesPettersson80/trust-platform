@@ -21,6 +21,26 @@ async function readText(uri: vscode.Uri): Promise<string> {
   return Buffer.from(data).toString("utf8");
 }
 
+async function captureErrorMessages<T>(
+  run: () => Thenable<T> | Promise<T>
+): Promise<{ result: T; messages: string[] }> {
+  const windowLike = vscode.window as unknown as {
+    showErrorMessage: (...args: unknown[]) => Thenable<unknown>;
+  };
+  const original = windowLike.showErrorMessage;
+  const messages: string[] = [];
+  windowLike.showErrorMessage = (async (message: unknown) => {
+    messages.push(String(message));
+    return undefined;
+  }) as (...args: unknown[]) => Thenable<unknown>;
+  try {
+    const result = await run();
+    return { result, messages };
+  } finally {
+    windowLike.showErrorMessage = original;
+  }
+}
+
 async function resolveImportedMainSource(
   projectUri: vscode.Uri
 ): Promise<vscode.Uri | undefined> {
@@ -57,6 +77,24 @@ END_PROGRAM
     </pous>
   </types>
 </project>
+`;
+}
+
+function malformedPlcFixtureXml(): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://www.plcopen.org/xml/tc6_0200">
+  <types>
+    <pous>
+      <pou name="Main" pouType="PROGRAM">
+        <body>
+          <ST><![CDATA[
+PROGRAM Main
+END_PROGRAM
+]]></ST>
+        </body>
+      </pou>
+    </pous>
+  </types>
 `;
 }
 
@@ -225,5 +263,97 @@ suite("PLCopen import command (VS Code)", function () {
 
     assert.strictEqual(imported, false, "Expected missing input to fail import.");
     assert.strictEqual(await pathExists(targetUri), false);
+  });
+
+  test("malformed XML reports actionable import error message", async () => {
+    const fixtureUri = vscode.Uri.joinPath(fixturesRoot, "malformed.xml");
+    await vscode.workspace.fs.writeFile(
+      fixtureUri,
+      Buffer.from(malformedPlcFixtureXml(), "utf8")
+    );
+    const targetUri = vscode.Uri.joinPath(fixturesRoot, "malformed-target");
+
+    const { result, messages } = await captureErrorMessages(() =>
+      vscode.commands.executeCommand<boolean>(PLCOPEN_IMPORT_COMMAND, {
+        inputUri: fixtureUri,
+        projectUri: targetUri,
+        overwrite: true,
+        openProject: false,
+        openReport: false,
+      })
+    );
+
+    assert.strictEqual(result, false, "Expected malformed XML import to fail.");
+    assert.ok(
+      messages.some((message) => message.includes("input XML is malformed")),
+      `Expected malformed XML guidance, got: ${messages.join(" | ")}`
+    );
+    assert.ok(
+      messages.some((message) => message.includes("failed to parse PLCopen XML")),
+      `Expected parser detail in error message, got: ${messages.join(" | ")}`
+    );
+  });
+
+  test("missing runtime binary reports actionable import launch error", async () => {
+    const fixtureUri = vscode.Uri.joinPath(fixturesRoot, "missing-runtime.xml");
+    await vscode.workspace.fs.writeFile(
+      fixtureUri,
+      Buffer.from(openPlcFixtureXml(), "utf8")
+    );
+    const targetUri = vscode.Uri.joinPath(fixturesRoot, "missing-runtime-target");
+
+    const config = vscode.workspace.getConfiguration("trust-lsp");
+    const previousRuntimePath =
+      config.get<string>("runtime.cli.path") ?? "";
+    const previousEnvRuntime = process.env.ST_RUNTIME_TEST_BIN;
+    const missingRuntimePath = "/tmp/trust-runtime-does-not-exist";
+
+    process.env.ST_RUNTIME_TEST_BIN = missingRuntimePath;
+    await config.update(
+      "runtime.cli.path",
+      missingRuntimePath,
+      vscode.ConfigurationTarget.Workspace
+    );
+
+    try {
+      const { result, messages } = await captureErrorMessages(() =>
+        vscode.commands.executeCommand<boolean>(PLCOPEN_IMPORT_COMMAND, {
+          inputUri: fixtureUri,
+          projectUri: targetUri,
+          overwrite: true,
+          openProject: false,
+          openReport: false,
+        })
+      );
+
+      assert.strictEqual(
+        result,
+        false,
+        "Expected import to fail when trust-runtime is missing."
+      );
+      assert.ok(
+        messages.some((message) =>
+          message.includes("trust-runtime binary was not found")
+        ),
+        `Expected missing-runtime guidance, got: ${messages.join(" | ")}`
+      );
+      assert.ok(
+        messages.some((message) =>
+          message.includes("trust-lsp.runtime.cli.path")
+        ),
+        `Expected runtime path setting hint, got: ${messages.join(" | ")}`
+      );
+    } finally {
+      if (previousEnvRuntime === undefined) {
+        delete process.env.ST_RUNTIME_TEST_BIN;
+      } else {
+        process.env.ST_RUNTIME_TEST_BIN = previousEnvRuntime;
+      }
+      await config.update(
+        "runtime.cli.path",
+        previousRuntimePath || undefined,
+        vscode.ConfigurationTarget.Workspace
+      );
+    }
   });
 });

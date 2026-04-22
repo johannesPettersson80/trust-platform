@@ -100,6 +100,77 @@ async function waitForCompletions(
   throw new Error("Timed out waiting for completions.");
 }
 
+async function waitForSignatureHelp(
+  uri: vscode.Uri,
+  position: vscode.Position,
+  predicate: (help: vscode.SignatureHelp) => boolean,
+  timeoutMs = 10000
+): Promise<vscode.SignatureHelp> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const result = (await vscode.commands.executeCommand(
+      "vscode.executeSignatureHelpProvider",
+      uri,
+      position
+    )) as vscode.SignatureHelp | undefined;
+    if (result && predicate(result)) {
+      return result;
+    }
+    await delay(200);
+  }
+  throw new Error("Timed out waiting for signature help.");
+}
+
+async function waitForDiagnostics(
+  uri: vscode.Uri,
+  predicate: (diagnostics: vscode.Diagnostic[]) => boolean,
+  timeoutMs = 10000
+): Promise<vscode.Diagnostic[]> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const diagnostics = vscode.languages.getDiagnostics(uri);
+    if (predicate(diagnostics)) {
+      return diagnostics;
+    }
+    await delay(200);
+  }
+  const diagnostics = vscode.languages.getDiagnostics(uri);
+  throw new Error(
+    `Timed out waiting for diagnostics. Last diagnostics: ${diagnostics
+      .map((diag) => `${diag.code ?? ""} ${diag.message}`.trim())
+      .join("; ")}`
+  );
+}
+
+async function waitForNoErrors(
+  uri: vscode.Uri,
+  timeoutMs = 10000
+): Promise<void> {
+  await waitForDiagnostics(
+    uri,
+    (diagnostics) =>
+      diagnostics.filter(
+        (diag) => diag.severity === vscode.DiagnosticSeverity.Error
+      ).length === 0,
+    timeoutMs
+  );
+}
+
+async function replaceDocumentText(
+  uri: vscode.Uri,
+  contents: string
+): Promise<void> {
+  const doc = await vscode.workspace.openTextDocument(uri);
+  const fullRange = new vscode.Range(
+    new vscode.Position(0, 0),
+    doc.lineAt(doc.lineCount - 1).rangeIncludingLineBreak.end
+  );
+  const edit = new vscode.WorkspaceEdit();
+  edit.replace(uri, fullRange, contents);
+  const applied = await vscode.workspace.applyEdit(edit);
+  assert.ok(applied, "Expected document edit to apply.");
+}
+
 suite("LSP integration (VS Code)", function () {
   this.timeout(20000);
   let fixturesRoot: vscode.Uri;
@@ -166,6 +237,111 @@ suite("LSP integration (VS Code)", function () {
       items.some((item) => completionLabel(item) === "PROGRAM"),
       "Expected PROGRAM in completion list."
     );
+  });
+
+  test("method calls surface VAR_INPUT completions and signature help", async () => {
+    const source = [
+      "FUNCTION_BLOCK Motor",
+      "METHOD PUBLIC Start : BOOL",
+      "VAR_INPUT",
+      "    Var1 : BOOL;",
+      "    Var2 : BOOL;",
+      "END_VAR",
+      "    Start := Var1 AND Var2;",
+      "END_METHOD",
+      "END_FUNCTION_BLOCK",
+      "",
+      "PROGRAM Main",
+      "VAR",
+      "    motor : Motor;",
+      "    result : BOOL;",
+      "END_VAR",
+      "    result := motor.Start();",
+      "END_PROGRAM",
+      "",
+    ].join("\n");
+    const doc = await createDocument("method-call-params.st", source);
+    const cursorOffset =
+      source.indexOf("motor.Start(") + "motor.Start(".length;
+    const cursor = doc.positionAt(cursorOffset);
+
+    const items = await waitForCompletions(
+      doc.uri,
+      cursor,
+      (list) =>
+        list.some((item) => completionLabel(item).toLowerCase() === "var1") &&
+        list.some((item) => completionLabel(item).toLowerCase() === "var2")
+    );
+    const labels = items.map((item) => completionLabel(item));
+    assert.ok(
+      labels.some((label) => label.toLowerCase() === "var1"),
+      `Expected Var1 completion, got: ${labels.join(", ")}`
+    );
+    assert.ok(
+      labels.some((label) => label.toLowerCase() === "var2"),
+      `Expected Var2 completion, got: ${labels.join(", ")}`
+    );
+
+    const help = await waitForSignatureHelp(
+      doc.uri,
+      cursor,
+      (value) =>
+        value.signatures.some(
+          (signature) =>
+            signature.label.includes("Start(") &&
+            signature.label.includes("Var1: BOOL") &&
+            signature.label.includes("Var2: BOOL")
+        )
+    );
+    const labelsText = help.signatures.map((signature) => signature.label).join("\n");
+    assert.ok(labelsText.includes("Var1: BOOL"));
+    assert.ok(labelsText.includes("Var2: BOOL"));
+  });
+
+  test("dependent diagnostics refresh across open files after edits", async () => {
+    const dependencySource = [
+      "FUNCTION Helper : BOOL",
+      "    Helper := TRUE;",
+      "END_FUNCTION",
+      "",
+    ].join("\n");
+    const mainSource = [
+      "PROGRAM Main",
+      "VAR",
+      "    value : INT;",
+      "END_VAR",
+      "    value := Helper();",
+      "END_PROGRAM",
+      "",
+    ].join("\n");
+
+    const dependencyDoc = await createDocument(
+      "diagnostics-dependency.st",
+      dependencySource
+    );
+    const mainDoc = await createDocument("diagnostics-main.st", mainSource);
+    const initialDiagnostics = await waitForDiagnostics(
+      mainDoc.uri,
+      (diagnostics) =>
+        diagnostics.some(
+          (diag) => diag.severity === vscode.DiagnosticSeverity.Error
+        )
+    );
+    assert.ok(
+      initialDiagnostics.some(
+        (diag) => diag.severity === vscode.DiagnosticSeverity.Error
+      ),
+      "Expected type mismatch error before fixing dependency."
+    );
+
+    const fixedDependencySource = [
+      "FUNCTION Helper : INT",
+      "    Helper := INT#1;",
+      "END_FUNCTION",
+      "",
+    ].join("\n");
+    await replaceDocumentText(dependencyDoc.uri, fixedDependencySource);
+    await waitForNoErrors(mainDoc.uri);
   });
 
   test("formatting applies canonical layout", async () => {

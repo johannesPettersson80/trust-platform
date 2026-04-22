@@ -17,6 +17,7 @@ export function run(): Promise<void> {
   require("./plcopen-export.test");
   require("./plcopen-import.test");
   require("./plcopen-ld-interop.test");
+  require("./plcopen-runtime-errors.test");
   require("./blockly-engine.test");
   require("./ladder-engine.test");
   require("./ladder-schema.test");
