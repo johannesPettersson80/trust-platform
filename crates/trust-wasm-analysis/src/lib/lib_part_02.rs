@@ -62,6 +62,7 @@ impl BrowserAnalysisEngine {
                     .into_iter()
                     .map(|related| RelatedInfoItem {
                         range: lsp_range(source, related.range),
+                        span: byte_span(related.range),
                         message: related.message,
                     })
                     .collect::<Vec<_>>();
@@ -75,6 +76,7 @@ impl BrowserAnalysisEngine {
                     severity: severity_label(diagnostic.severity).to_string(),
                     message: diagnostic.message,
                     range: lsp_range(source, diagnostic.range),
+                    span: byte_span(diagnostic.range),
                     related,
                 }
             })
@@ -315,4 +317,3 @@ impl BrowserAnalysisEngine {
         Some(key.display())
     }
 }
-

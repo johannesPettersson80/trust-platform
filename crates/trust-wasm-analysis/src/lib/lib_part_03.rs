@@ -37,6 +37,24 @@ impl WasmAnalysisEngine {
 
     #[cfg_attr(
         all(target_arch = "wasm32", feature = "wasm"),
+        wasm_bindgen(js_name = canonicalAstJson)
+    )]
+    pub fn canonical_ast_json(&self, source: &str) -> Result<String, String> {
+        json_string(&canonical_ast_summary(source))
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", feature = "wasm"),
+        wasm_bindgen(js_name = astSimilarityJson)
+    )]
+    pub fn ast_similarity_json(&self, request_json: &str) -> Result<String, String> {
+        let request: AstSimilarityRequest = serde_json::from_str(request_json)
+            .map_err(|err| format!("invalid ast similarity request json: {err}"))?;
+        json_string(&canonical_ast_similarity(&request.left, &request.right))
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", feature = "wasm"),
         wasm_bindgen(js_name = hoverJson)
     )]
     pub fn hover_json(&self, request_json: &str) -> Result<String, String> {
@@ -115,4 +133,3 @@ impl Default for WasmAnalysisEngine {
         Self::new()
     }
 }
-

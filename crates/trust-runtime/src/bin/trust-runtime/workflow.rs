@@ -11,7 +11,14 @@ use toml::Value as TomlValue;
 use trust_runtime::bundle_builder::{inspect_project_layout, resolve_sources_root};
 use trust_runtime::config::{IoConfig, RuntimeConfig, WebAuthMode};
 use trust_runtime::web::ide::{IdeRole, WebIdeState};
-use trust_wasm_analysis::DiagnosticItem;
+use trust_wasm_analysis::{canonical_ast_similarity, canonical_ast_summary, DiagnosticItem};
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AgentIssueSpan {
+    start: u32,
+    end: u32,
+}
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -20,6 +27,9 @@ struct AgentIssue {
     file: String,
     line: u32,
     column: u32,
+    end_line: u32,
+    end_column: u32,
+    span: AgentIssueSpan,
     severity: String,
     message: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -34,6 +44,9 @@ struct AgentIssue {
 struct AgentIssueRelated {
     line: u32,
     column: u32,
+    end_line: u32,
+    end_column: u32,
+    span: AgentIssueSpan,
     message: String,
 }
 
@@ -81,6 +94,28 @@ pub(crate) fn diagnostics_payload(
     }
     let summary = collect_diagnostics_summary(project_root, sources_root, path, content)?;
     serde_json::to_value(summary).context("serialize diagnostics payload")
+}
+
+pub(crate) fn ast_canonicalize_payload(
+    project_root: &Path,
+    path: Option<&str>,
+    content: Option<String>,
+) -> anyhow::Result<JsonValue> {
+    let source = read_analysis_source(project_root, path, content, "canonical AST")?;
+    serde_json::to_value(canonical_ast_summary(&source)).context("serialize canonical AST payload")
+}
+
+pub(crate) fn ast_similarity_payload(
+    project_root: &Path,
+    left_path: Option<&str>,
+    left_content: Option<String>,
+    right_path: Option<&str>,
+    right_content: Option<String>,
+) -> anyhow::Result<JsonValue> {
+    let left = read_analysis_source(project_root, left_path, left_content, "left AST input")?;
+    let right = read_analysis_source(project_root, right_path, right_content, "right AST input")?;
+    serde_json::to_value(canonical_ast_similarity(&left, &right))
+        .context("serialize AST similarity payload")
 }
 
 pub(crate) fn format_payload(
@@ -371,6 +406,25 @@ fn collect_diagnostics_summary(
     })
 }
 
+fn read_analysis_source(
+    project_root: &Path,
+    path: Option<&str>,
+    content: Option<String>,
+    label: &str,
+) -> anyhow::Result<String> {
+    if let Some(content) = content {
+        return Ok(content);
+    }
+
+    let Some(path) = path else {
+        anyhow::bail!("{label} requires either inline content or a project-relative path");
+    };
+
+    let full_path = canonicalize_or_self(project_root).join(path);
+    std::fs::read_to_string(&full_path)
+        .with_context(|| format!("read {label} source '{}'", full_path.display()))
+}
+
 fn collect_project_source_paths(
     project_root: &Path,
     sources_root: Option<&Path>,
@@ -410,6 +464,12 @@ fn map_diagnostic(path: &str, file: &str, diagnostic: DiagnosticItem) -> AgentIs
         file: file.to_string(),
         line: diagnostic.range.start.line + 1,
         column: diagnostic.range.start.character + 1,
+        end_line: diagnostic.range.end.line + 1,
+        end_column: diagnostic.range.end.character + 1,
+        span: AgentIssueSpan {
+            start: diagnostic.span.start,
+            end: diagnostic.span.end,
+        },
         severity,
         message: diagnostic.message,
         code,
@@ -420,6 +480,12 @@ fn map_diagnostic(path: &str, file: &str, diagnostic: DiagnosticItem) -> AgentIs
             .map(|item| AgentIssueRelated {
                 line: item.range.start.line + 1,
                 column: item.range.start.character + 1,
+                end_line: item.range.end.line + 1,
+                end_column: item.range.end.character + 1,
+                span: AgentIssueSpan {
+                    start: item.span.start,
+                    end: item.span.end,
+                },
                 message: item.message,
             })
             .collect(),

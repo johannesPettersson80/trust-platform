@@ -17,6 +17,8 @@ wasm = ["dep:wasm-bindgen"]
 [dependencies]
 trust-hir.workspace = true
 trust-ide.workspace = true
+trust-syntax.workspace = true
+rowan.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 text-size.workspace = true
