@@ -9,8 +9,8 @@ use trust_syntax::parser::parse;
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode, SyntaxToken};
 
 use crate::util::{
-    name_from_name_node, name_from_name_ref, resolve_target_at_position_with_context,
-    scope_at_position, ResolvedTarget,
+    name_from_name_node, resolve_target_at_position_with_context, scope_at_position,
+    ResolvedTarget,
 };
 
 /// Signature help result for a call site.
@@ -96,12 +96,9 @@ pub(crate) fn signature_for_call_expr(
     let arg_list = call_expr
         .children()
         .find(|child| child.kind() == SyntaxKind::ArgList)?;
-    let callee = call_expr
-        .children()
-        .find(|child| child.kind() != SyntaxKind::ArgList)?;
 
     let symbols = db.file_symbols_with_project(file_id);
-    let callee_offset = callee_name_offset(&callee)?;
+    let callee_offset = callee_name_offset(call_expr)?;
     let target =
         resolve_target_at_position_with_context(db, file_id, callee_offset, source, root, &symbols);
 
@@ -115,11 +112,8 @@ pub(crate) fn signature_for_call_expr(
         None => None,
     }
     .or_else(|| {
-        if !matches!(callee.kind(), SyntaxKind::NameRef) {
-            return None;
-        }
-        let name = callee_name_text(&callee)?;
-        let scope_id = scope_at_position(&symbols, root, callee.text_range().start());
+        let name = callee_name_text(call_expr)?;
+        let scope_id = scope_at_position(&symbols, root, callee_offset);
         let symbol_id = symbols
             .resolve(name.as_str(), scope_id)
             .or_else(|| symbols.lookup_any(name.as_str()))?;
@@ -128,7 +122,7 @@ pub(crate) fn signature_for_call_expr(
             .or_else(|| signature_from_type(&symbols, symbol.type_id))
     })
     .or_else(|| {
-        let name = callee_name_text(&callee)?;
+        let name = callee_name_text(call_expr)?;
         let arg_count = collect_call_args(&arg_list).len();
         standard_signature(name.as_str(), arg_count)
     })?;

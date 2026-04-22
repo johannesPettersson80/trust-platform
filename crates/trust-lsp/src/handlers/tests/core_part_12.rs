@@ -119,6 +119,46 @@ END_PROGRAM
 }
 
 #[test]
+pub(super) fn lsp_signature_help_method_var_input_mentions_method_parameters() {
+    let source = r#"
+FUNCTION_BLOCK Motor
+METHOD PUBLIC Start : BOOL
+VAR_INPUT
+    Var1 : BOOL;
+    Var2 : BOOL;
+END_VAR
+    Start := Var1 AND Var2;
+END_METHOD
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    motor : Motor;
+    result : BOOL;
+END_VAR
+    result := motor.Start();
+END_PROGRAM
+"#;
+    let state = ServerState::new();
+    let uri = tower_lsp::lsp_types::Url::parse("file:///method-signature.st").unwrap();
+    state.open_document(uri.clone(), 1, source.to_string());
+    let cursor = source.find("motor.Start(").expect("method call") + "motor.Start(".len();
+
+    let params = tower_lsp::lsp_types::SignatureHelpParams {
+        text_document_position_params: tower_lsp::lsp_types::TextDocumentPositionParams {
+            text_document: tower_lsp::lsp_types::TextDocumentIdentifier { uri },
+            position: super::super::lsp_utils::offset_to_position(source, cursor as u32),
+        },
+        work_done_progress_params: Default::default(),
+        context: None,
+    };
+    let result = signature_help(&state, params).expect("signature help");
+    assert!(result.signatures[0].label.contains("Start("));
+    assert!(result.signatures[0].label.contains("Var1: BOOL"));
+    assert!(result.signatures[0].label.contains("Var2: BOOL"));
+}
+
+#[test]
 pub(super) fn lsp_workspace_symbols_mark_constant_parameters_as_constants() {
     let source = r#"
 FUNCTION_BLOCK Fb

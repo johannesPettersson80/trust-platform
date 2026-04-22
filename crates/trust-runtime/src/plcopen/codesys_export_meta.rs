@@ -135,6 +135,7 @@ fn build_codesys_project_structure_tree(
 
     for entry in entries {
         let mut path = entry.folder_segments.clone();
+        path.extend(entry.parent_segments.clone());
         path.push(entry.name.clone());
         insert_entry(&mut root_builder, &path, &entry.object_id);
     }
@@ -167,8 +168,32 @@ fn build_codesys_export_metadata(
                     name: decl.name.clone(),
                     object_id,
                     folder_segments,
+                    parent_segments: Vec::new(),
                 },
             )
+        })
+        .collect::<Vec<_>>();
+
+    let method_entries = declarations
+        .iter()
+        .flat_map(|decl| {
+            let source_path = PathBuf::from(&decl.source);
+            let folder_segments = source_folder_segments_for_codesys(&source_path);
+            decl.methods.iter().map(move |method| {
+                let mut object_path = folder_segments.clone();
+                object_path.push(decl.name.clone());
+                let object_id =
+                    deterministic_codesys_object_id("method", &method.name, &object_path);
+                (
+                    method.clone(),
+                    CodesysExportObjectEntry {
+                        name: method.name.clone(),
+                        object_id,
+                        folder_segments: folder_segments.clone(),
+                        parent_segments: vec![decl.name.clone()],
+                    },
+                )
+            })
         })
         .collect::<Vec<_>>();
 
@@ -188,6 +213,7 @@ fn build_codesys_export_metadata(
                 name: decl.name.clone(),
                 object_id,
                 folder_segments,
+                parent_segments: Vec::new(),
             },
         ));
     }
@@ -196,6 +222,7 @@ fn build_codesys_export_metadata(
         .iter()
         .map(|(_, entry)| entry.clone())
         .collect::<Vec<_>>();
+    all_entries.extend(method_entries.iter().map(|(_, entry)| entry.clone()));
     all_entries.extend(global_entries.iter().map(|(_, entry)| entry.clone()));
     let project_structure_root = build_codesys_project_structure_tree(&all_entries);
     let exported_project_structure_nodes = count_project_structure_nodes(&project_structure_root);
@@ -213,10 +240,185 @@ fn build_codesys_export_metadata(
     CodesysExportMetadata {
         global_var_lists: global_entries,
         pou_entries,
+        method_entries,
         project_structure_root,
         exported_project_structure_nodes,
         exported_folder_paths,
     }
+}
+
+fn append_codesys_variable_xml(
+    xml: &mut String,
+    variable: &InterfaceVariableDecl,
+    indent: usize,
+    warnings: &mut Vec<String>,
+    source: &str,
+    line: usize,
+) {
+    append_indent(xml, indent);
+    xml.push_str(&format!(
+        "<variable name=\"{}\">\n",
+        escape_xml_attr(&variable.name)
+    ));
+    append_indent(xml, indent + 2);
+    xml.push_str("<type>\n");
+    if let Some(type_xml) = type_expression_to_plcopen_base_type_xml(&variable.type_expr) {
+        for line_text in type_xml.lines() {
+            append_indent(xml, indent + 4);
+            xml.push_str(line_text);
+            xml.push('\n');
+        }
+    } else {
+        warnings.push(format!(
+            "{source}:{line} unsupported interface type '{}' in '{}'; exported as derived",
+            variable.type_expr, variable.name
+        ));
+        append_indent(xml, indent + 4);
+        xml.push_str(&format!(
+            "<derived name=\"{}\" />\n",
+            escape_xml_attr(&variable.type_expr)
+        ));
+    }
+    append_indent(xml, indent + 2);
+    xml.push_str("</type>\n");
+    if let Some(initial_value) = variable
+        .initial_value
+        .as_ref()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+    {
+        append_indent(xml, indent + 2);
+        xml.push_str("<initialValue>\n");
+        append_indent(xml, indent + 4);
+        xml.push_str(&format!(
+            "<simpleValue value=\"{}\" />\n",
+            escape_xml_attr(&initial_value)
+        ));
+        append_indent(xml, indent + 2);
+        xml.push_str("</initialValue>\n");
+    }
+    append_indent(xml, indent);
+    xml.push_str("</variable>\n");
+}
+
+fn append_codesys_method_xml(
+    xml: &mut String,
+    method: &CodesysMethodDecl,
+    object_entry: &CodesysExportObjectEntry,
+    indent: usize,
+    warnings: &mut Vec<String>,
+) {
+    append_indent(xml, indent);
+    xml.push_str(&format!(
+        "<Method name=\"{}\" ObjectId=\"{}\">\n",
+        escape_xml_attr(&method.name),
+        escape_xml_attr(&object_entry.object_id)
+    ));
+    append_indent(xml, indent + 2);
+    xml.push_str("<interface>\n");
+    if let Some(return_type) = method
+        .return_type
+        .as_ref()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+    {
+        append_indent(xml, indent + 4);
+        xml.push_str("<returnType>\n");
+        if let Some(type_xml) = type_expression_to_plcopen_base_type_xml(&return_type) {
+            for line_text in type_xml.lines() {
+                append_indent(xml, indent + 6);
+                xml.push_str(line_text);
+                xml.push('\n');
+            }
+        } else {
+            warnings.push(format!(
+                "{}:{} unsupported method return type '{}' in '{}.{}'; exported as derived",
+                method.source, method.line, return_type, method.owner_name, method.name
+            ));
+            append_indent(xml, indent + 6);
+            xml.push_str(&format!("<derived name=\"{}\" />\n", escape_xml_attr(&return_type)));
+        }
+        append_indent(xml, indent + 4);
+        xml.push_str("</returnType>\n");
+    }
+    for section in &method.sections {
+        append_indent(xml, indent + 4);
+        xml.push_str(&format!("<{}", section.xml_name));
+        if section.constant {
+            xml.push_str(" constant=\"true\"");
+        }
+        if section.retain {
+            xml.push_str(" retain=\"true\"");
+        }
+        if section.nonretain {
+            xml.push_str(" nonretain=\"true\"");
+        }
+        if section.persistent {
+            xml.push_str(" persistent=\"true\"");
+        }
+        if section.nonpersistent {
+            xml.push_str(" nonpersistent=\"true\"");
+        }
+        xml.push_str(">\n");
+        for variable in &section.variables {
+            append_codesys_variable_xml(
+                xml,
+                variable,
+                indent + 6,
+                warnings,
+                &method.source,
+                method.line,
+            );
+        }
+        append_indent(xml, indent + 4);
+        xml.push_str(&format!("</{}>\n", section.xml_name));
+    }
+    append_indent(xml, indent + 2);
+    xml.push_str("</interface>\n");
+    append_indent(xml, indent + 2);
+    xml.push_str("<body>\n");
+    append_indent(xml, indent + 4);
+    xml.push_str("<ST>\n");
+    append_indent(xml, indent + 6);
+    xml.push_str(&format!(
+        "<xhtml xmlns=\"http://www.w3.org/1999/xhtml\">{}</xhtml>\n",
+        escape_xml_attr(method.body.trim())
+    ));
+    append_indent(xml, indent + 4);
+    xml.push_str("</ST>\n");
+    append_indent(xml, indent + 2);
+    xml.push_str("</body>\n");
+    append_indent(xml, indent + 2);
+    xml.push_str("<addData>\n");
+    append_indent(xml, indent + 4);
+    xml.push_str(&format!(
+        "<data name=\"{}\" handleUnknown=\"implementation\">\n",
+        CODESYS_INTERFACE_PLAINTEXT_DATA_NAME
+    ));
+    append_indent(xml, indent + 6);
+    xml.push_str("<InterfaceAsPlainText>\n");
+    append_indent(xml, indent + 8);
+    xml.push_str(&format!(
+        "<xhtml xmlns=\"http://www.w3.org/1999/xhtml\">{}</xhtml>\n",
+        escape_xml_attr(&method.interface_plaintext)
+    ));
+    append_indent(xml, indent + 6);
+    xml.push_str("</InterfaceAsPlainText>\n");
+    append_indent(xml, indent + 4);
+    xml.push_str("</data>\n");
+    append_indent(xml, indent + 4);
+    xml.push_str(&format!(
+        "<data name=\"{}\" handleUnknown=\"discard\">\n",
+        CODESYS_OBJECT_ID_DATA_NAME
+    ));
+    append_indent(xml, indent + 6);
+    xml.push_str(&format!("<ObjectId>{}</ObjectId>\n", escape_xml_attr(&object_entry.object_id)));
+    append_indent(xml, indent + 4);
+    xml.push_str("</data>\n");
+    append_indent(xml, indent + 2);
+    xml.push_str("</addData>\n");
+    append_indent(xml, indent);
+    xml.push_str("</Method>\n");
 }
 
 fn append_codesys_project_structure_node(
@@ -330,6 +532,11 @@ fn append_codesys_export_add_data(
         if !metadata.pou_entries.is_empty() {
             xml.push_str("        <addData>\n");
             for (decl, object_entry) in &metadata.pou_entries {
+                let methods = metadata
+                    .method_entries
+                    .iter()
+                    .filter(|(method, _)| method.owner_name.eq_ignore_ascii_case(&decl.name))
+                    .collect::<Vec<_>>();
                 xml.push_str(&format!(
                     "          <data name=\"{}\" handleUnknown=\"implementation\">\n",
                     CODESYS_POU_DATA_NAME
@@ -359,6 +566,16 @@ fn append_codesys_export_add_data(
                 ));
                 xml.push_str("                  </InterfaceAsPlainText>\n");
                 xml.push_str("                </data>\n");
+                if !methods.is_empty() {
+                    xml.push_str(&format!(
+                        "                <data name=\"{}\" handleUnknown=\"implementation\">\n",
+                        CODESYS_METHOD_DATA_NAME
+                    ));
+                    for (method, method_entry) in methods {
+                        append_codesys_method_xml(xml, method, method_entry, 18, warnings);
+                    }
+                    xml.push_str("                </data>\n");
+                }
                 xml.push_str(&format!(
                     "                <data name=\"{}\" handleUnknown=\"discard\">\n",
                     CODESYS_OBJECT_ID_DATA_NAME

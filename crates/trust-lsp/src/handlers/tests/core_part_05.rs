@@ -194,6 +194,160 @@ END_PROGRAM
 }
 
 #[test]
+pub(super) fn lsp_push_sync_refreshes_dependent_open_document_diagnostics() {
+    let add_v1 = r#"
+FUNCTION Add : INT
+VAR_INPUT
+    A : INT;
+    B : INT;
+END_VAR
+    Add := A + B;
+END_FUNCTION
+"#;
+    let add_v2 = r#"
+FUNCTION Add : INT
+VAR_INPUT
+    A : INT;
+END_VAR
+    Add := A;
+END_FUNCTION
+"#;
+    let main = r#"
+PROGRAM Main
+VAR
+    Result : INT;
+END_VAR
+    Result := Add(1);
+END_PROGRAM
+"#;
+
+    let state = ServerState::new();
+    let client = test_client();
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("runtime");
+    let add_uri = tower_lsp::lsp_types::Url::parse("file:///workspace/Add.st").unwrap();
+    let main_uri = tower_lsp::lsp_types::Url::parse("file:///workspace/Main.st").unwrap();
+
+    runtime.block_on(async {
+        did_open(
+            &client,
+            &state,
+            tower_lsp::lsp_types::DidOpenTextDocumentParams {
+                text_document: tower_lsp::lsp_types::TextDocumentItem {
+                    uri: add_uri.clone(),
+                    language_id: "st".to_string(),
+                    version: 1,
+                    text: add_v1.to_string(),
+                },
+            },
+        )
+        .await;
+        did_open(
+            &client,
+            &state,
+            tower_lsp::lsp_types::DidOpenTextDocumentParams {
+                text_document: tower_lsp::lsp_types::TextDocumentItem {
+                    uri: main_uri.clone(),
+                    language_id: "st".to_string(),
+                    version: 1,
+                    text: main.to_string(),
+                },
+            },
+        )
+        .await;
+    });
+
+    let before_report = document_diagnostic(
+        &state,
+        tower_lsp::lsp_types::DocumentDiagnosticParams {
+            text_document: tower_lsp::lsp_types::TextDocumentIdentifier {
+                uri: main_uri.clone(),
+            },
+            identifier: None,
+            previous_result_id: None,
+            work_done_progress_params: Default::default(),
+            partial_result_params: Default::default(),
+        },
+    );
+    let before_items = match before_report {
+        tower_lsp::lsp_types::DocumentDiagnosticReportResult::Report(
+            tower_lsp::lsp_types::DocumentDiagnosticReport::Full(full),
+        ) => full.full_document_diagnostic_report.items,
+        _ => panic!("expected full document diagnostic report"),
+    };
+    assert!(
+        before_items
+            .iter()
+            .any(|diag| diag.message.contains("expected 2 arguments, found 1")),
+        "expected initial wrong-argument-count diagnostic, got {:?}",
+        before_items
+            .iter()
+            .map(|diag| diag.message.clone())
+            .collect::<Vec<_>>()
+    );
+
+    let before_result_id = state
+        .diagnostic_result_id(&main_uri)
+        .expect("diagnostic cache for dependent document");
+
+    runtime.block_on(async {
+        did_change(
+            &client,
+            &state,
+            tower_lsp::lsp_types::DidChangeTextDocumentParams {
+                text_document: tower_lsp::lsp_types::VersionedTextDocumentIdentifier {
+                    uri: add_uri,
+                    version: 2,
+                },
+                content_changes: vec![tower_lsp::lsp_types::TextDocumentContentChangeEvent {
+                    range: None,
+                    range_length: None,
+                    text: add_v2.to_string(),
+                }],
+            },
+        )
+        .await;
+    });
+
+    let after_result_id = state
+        .diagnostic_result_id(&main_uri)
+        .expect("refreshed diagnostic cache for dependent document");
+    assert_ne!(
+        before_result_id, after_result_id,
+        "dependent document diagnostics should be republished after source edits"
+    );
+
+    let after_report = document_diagnostic(
+        &state,
+        tower_lsp::lsp_types::DocumentDiagnosticParams {
+            text_document: tower_lsp::lsp_types::TextDocumentIdentifier { uri: main_uri },
+            identifier: None,
+            previous_result_id: None,
+            work_done_progress_params: Default::default(),
+            partial_result_params: Default::default(),
+        },
+    );
+    let after_items = match after_report {
+        tower_lsp::lsp_types::DocumentDiagnosticReportResult::Report(
+            tower_lsp::lsp_types::DocumentDiagnosticReport::Full(full),
+        ) => full.full_document_diagnostic_report.items,
+        _ => panic!("expected full document diagnostic report"),
+    };
+    assert!(
+        after_items
+            .iter()
+            .all(|diag| !diag.message.contains("expected 2 arguments, found 1")),
+        "dependent document should no longer carry the stale wrong-argument-count diagnostic, got {:?}",
+        after_items
+            .iter()
+            .map(|diag| diag.message.clone())
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
 pub(super) fn lsp_will_rename_files_updates_pou_name() {
     let source_decl = r#"
 FUNCTION_BLOCK OldName

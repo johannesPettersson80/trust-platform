@@ -95,6 +95,56 @@ END_PROGRAM
     }
 
     #[test]
+    fn test_parameter_name_completion_in_method_call() {
+        let source = r#"
+FUNCTION_BLOCK Motor
+METHOD PUBLIC Start : BOOL
+VAR_INPUT
+    Var1 : BOOL;
+    Var2 : BOOL;
+END_VAR
+    Start := Var1 AND Var2;
+END_METHOD
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    motor : Motor;
+    result : BOOL;
+END_VAR
+    result := motor.Start(|);
+END_PROGRAM
+"#;
+        let cursor = source.find('|').expect("cursor");
+        let mut cleaned = source.to_string();
+        cleaned.remove(cursor);
+
+        let mut db = Database::new();
+        let file_id = FileId(0);
+        db.set_source_text(file_id, cleaned);
+
+        let items = complete(&db, file_id, TextSize::from(cursor as u32));
+        assert!(items
+            .iter()
+            .any(|item| item.label.eq_ignore_ascii_case("Var1")));
+        assert!(items
+            .iter()
+            .any(|item| item.label.eq_ignore_ascii_case("Var2")));
+
+        let var1 = items
+            .iter()
+            .find(|item| item.label.eq_ignore_ascii_case("Var1"))
+            .expect("Var1 completion");
+        assert_eq!(var1.kind, CompletionKind::Variable);
+        assert!(
+            var1.insert_text
+                .as_ref()
+                .is_some_and(|insert| insert.contains("Var1 := ")),
+            "expected formal assignment insert text for method input"
+        );
+    }
+
+    #[test]
     fn test_standard_function_completion() {
         let source = r#"
 PROGRAM Main

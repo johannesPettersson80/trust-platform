@@ -38,9 +38,23 @@ fn extract_pou_name(node: roxmltree::Node<'_, '_>) -> Option<String> {
 }
 
 fn extract_st_body(node: roxmltree::Node<'_, '_>) -> Option<String> {
-    let body = node
+    let mut worksheets = Vec::new();
+    for body in node
         .children()
-        .find(|child| is_element_named_ci(*child, "body"))?;
+        .filter(|child| is_element_named_ci(*child, "body"))
+    {
+        if let Some(candidate) = extract_single_st_body(body) {
+            worksheets.push(candidate);
+        }
+    }
+    if worksheets.is_empty() {
+        None
+    } else {
+        Some(worksheets.join("\n\n"))
+    }
+}
+
+fn extract_single_st_body(body: roxmltree::Node<'_, '_>) -> Option<String> {
     for preferred in ["ST", "st", "text", "Text", "xhtml"] {
         if let Some(candidate) = body
             .descendants()
@@ -51,6 +65,30 @@ fn extract_st_body(node: roxmltree::Node<'_, '_>) -> Option<String> {
         }
     }
     extract_text_content(body)
+}
+
+fn extract_interface_plaintext(node: roxmltree::Node<'_, '_>) -> Option<String> {
+    let add_data = first_child_element_ci(node, "addData")?;
+    for data in add_data
+        .children()
+        .filter(|child| is_element_named_ci(*child, "data"))
+    {
+        let Some(name) = attribute_ci(data, "name") else {
+            continue;
+        };
+        if !name.to_ascii_lowercase().contains("interfaceasplaintext")
+            && !name.eq_ignore_ascii_case(CODESYS_INTERFACE_PLAINTEXT_DATA_NAME)
+        {
+            continue;
+        }
+        if let Some(text) = extract_text_content(data) {
+            let trimmed = text.trim();
+            if !trimmed.is_empty() {
+                return Some(trimmed.to_string());
+            }
+        }
+    }
+    None
 }
 
 fn extract_text_content(node: roxmltree::Node<'_, '_>) -> Option<String> {
@@ -110,10 +148,22 @@ fn sanitize_path_segment(name: &str, fallback: &str) -> String {
 }
 
 fn extract_object_id_from_node(node: roxmltree::Node<'_, '_>) -> Option<String> {
-    for data in node
-        .descendants()
-        .filter(|entry| is_element_named_ci(*entry, "data"))
-    {
+    let direct_add_data = first_child_element_ci(node, "addData");
+    let mut data_nodes = Vec::new();
+    if let Some(add_data) = direct_add_data {
+        data_nodes.extend(
+            add_data
+                .children()
+                .filter(|child| is_element_named_ci(*child, "data")),
+        );
+    } else {
+        data_nodes.extend(
+            node.descendants()
+                .filter(|entry| is_element_named_ci(*entry, "data")),
+        );
+    }
+
+    for data in data_nodes {
         let Some(name) = attribute_ci(data, "name") else {
             continue;
         };
@@ -146,4 +196,3 @@ fn extract_object_id_from_node(node: roxmltree::Node<'_, '_>) -> Option<String> 
     }
     None
 }
-

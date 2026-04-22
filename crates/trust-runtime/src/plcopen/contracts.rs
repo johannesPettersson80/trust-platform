@@ -5,6 +5,7 @@ const VENDOR_EXT_DATA_NAME: &str = "trust.vendorExtensions";
 const EXPORT_ADAPTER_DATA_NAME: &str = "trust.exportAdapter";
 const CODESYS_APPLICATION_DATA_NAME: &str = "http://www.3s-software.com/plcopenxml/application";
 const CODESYS_POU_DATA_NAME: &str = "http://www.3s-software.com/plcopenxml/pou";
+const CODESYS_METHOD_DATA_NAME: &str = "http://www.3s-software.com/plcopenxml/method";
 const CODESYS_PROJECTSTRUCTURE_DATA_NAME: &str =
     "http://www.3s-software.com/plcopenxml/projectstructure";
 const CODESYS_INTERFACE_PLAINTEXT_DATA_NAME: &str =
@@ -297,8 +298,39 @@ struct PouDecl {
     name: String,
     pou_type: PlcopenPouType,
     body: String,
+    methods: Vec<CodesysMethodDecl>,
     source: String,
     line: usize,
+}
+
+#[derive(Debug, Clone)]
+struct CodesysMethodDecl {
+    owner_name: String,
+    name: String,
+    return_type: Option<String>,
+    body: String,
+    interface_plaintext: String,
+    sections: Vec<CodesysMethodVarSection>,
+    source: String,
+    line: usize,
+}
+
+#[derive(Debug, Clone)]
+struct CodesysMethodVarSection {
+    xml_name: &'static str,
+    constant: bool,
+    retain: bool,
+    nonretain: bool,
+    persistent: bool,
+    nonpersistent: bool,
+    variables: Vec<InterfaceVariableDecl>,
+}
+
+#[derive(Debug, Clone)]
+struct InterfaceVariableDecl {
+    name: String,
+    type_expr: String,
+    initial_value: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -393,6 +425,7 @@ struct CodesysExportObjectEntry {
     name: String,
     object_id: String,
     folder_segments: Vec<String>,
+    parent_segments: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -406,6 +439,7 @@ struct CodesysProjectObjectNode {
 struct CodesysExportMetadata {
     global_var_lists: Vec<(GlobalVarDecl, CodesysExportObjectEntry)>,
     pou_entries: Vec<(PouDecl, CodesysExportObjectEntry)>,
+    method_entries: Vec<(CodesysMethodDecl, CodesysExportObjectEntry)>,
     project_structure_root: CodesysProjectObjectNode,
     exported_project_structure_nodes: usize,
     exported_folder_paths: usize,

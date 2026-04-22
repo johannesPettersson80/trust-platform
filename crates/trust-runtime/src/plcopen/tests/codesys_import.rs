@@ -377,3 +377,180 @@ END_VAR</xhtml>
 
         let _ = std::fs::remove_dir_all(project);
     }
+
+    #[test]
+    fn import_codesys_method_objects_into_function_block_source() {
+        let project = temp_dir("plcopen-import-codesys-methods");
+        let xml_path = project.join("input.xml");
+        write(
+            &xml_path,
+            r#"<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://www.plcopen.org/xml/tc6_0200">
+  <types>
+    <pous>
+      <pou name="Random" pouType="functionBlock">
+        <interface>
+          <localVars>
+            <variable name="xRandomActive">
+              <type>
+                <BOOL />
+              </type>
+              <initialValue>
+                <simpleValue value="TRUE" />
+              </initialValue>
+            </variable>
+          </localVars>
+        </interface>
+        <body>
+          <ST>
+            <xhtml xmlns="http://www.w3.org/1999/xhtml" />
+          </ST>
+        </body>
+        <addData>
+          <data name="http://www.3s-software.com/plcopenxml/method" handleUnknown="implementation">
+            <Method name="method1" ObjectId="a3138e68-c2ea-4656-a1dc-8e01cbca04d9">
+              <interface>
+                <returnType>
+                  <BOOL />
+                </returnType>
+                <inputVars>
+                  <variable name="var1">
+                    <type>
+                      <BOOL />
+                    </type>
+                  </variable>
+                  <variable name="var2">
+                    <type>
+                      <BOOL />
+                    </type>
+                  </variable>
+                </inputVars>
+                <localVars>
+                  <variable name="xStartImplementation">
+                    <type>
+                      <BOOL />
+                    </type>
+                  </variable>
+                </localVars>
+              </interface>
+              <body>
+                <ST>
+                  <xhtml xmlns="http://www.w3.org/1999/xhtml">IF var1 AND var2 THEN
+    method1 := TRUE;
+END_IF;</xhtml>
+                </ST>
+              </body>
+              <addData />
+            </Method>
+          </data>
+          <data name="http://www.3s-software.com/plcopenxml/objectid" handleUnknown="discard">
+            <ObjectId>57fd6ef9-f349-4608-8c39-0c8fd7700aa6</ObjectId>
+          </data>
+        </addData>
+      </pou>
+    </pous>
+  </types>
+  <instances>
+    <configurations />
+  </instances>
+  <addData>
+    <data name="http://www.3s-software.com/plcopenxml/projectstructure" handleUnknown="discard">
+      <ProjectStructure>
+        <Object Name="Random" ObjectId="57fd6ef9-f349-4608-8c39-0c8fd7700aa6">
+          <Object Name="method1" ObjectId="a3138e68-c2ea-4656-a1dc-8e01cbca04d9" />
+        </Object>
+      </ProjectStructure>
+    </data>
+  </addData>
+</project>
+"#,
+        );
+
+        let report = import_xml_to_project(&xml_path, &project).expect("import XML");
+        assert_eq!(report.imported_pous, 1);
+
+        let source = std::fs::read_to_string(project.join("src/Random.st")).expect("read Random");
+        assert!(source.contains("FUNCTION_BLOCK Random"));
+        assert!(source.contains("xRandomActive : BOOL := TRUE;"));
+        assert!(source.contains("METHOD PUBLIC method1 : BOOL"));
+        assert!(source.contains("VAR_INPUT"));
+        assert!(source.contains("var1 : BOOL;"));
+        assert!(source.contains("var2 : BOOL;"));
+        assert!(source.contains("xStartImplementation : BOOL;"));
+        assert!(source.contains("method1 := TRUE;"));
+        assert!(source.contains("END_METHOD"));
+
+        let _ = std::fs::remove_dir_all(project);
+    }
+
+    #[test]
+    fn import_tc6_multiple_bodies_and_extended_interface_sections() {
+        let project = temp_dir("plcopen-import-tc6-multi-body");
+        let xml_path = project.join("input.xml");
+        write(
+            &xml_path,
+            r#"<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://www.plcopen.org/xml/tc6_0200">
+  <types>
+    <pous>
+      <pou name="Main" pouType="program">
+        <interface>
+          <localVars retain="true">
+            <variable name="counter">
+              <type>
+                <INT />
+              </type>
+              <initialValue>
+                <simpleValue value="1" />
+              </initialValue>
+            </variable>
+          </localVars>
+          <globalVars>
+            <variable name="shared">
+              <type>
+                <INT />
+              </type>
+            </variable>
+          </globalVars>
+          <accessVars>
+            <accessVariable alias="A1" instancePathAndName="Cell_1.Station_1.P1.shared" direction="readOnly">
+              <type>
+                <INT />
+              </type>
+            </accessVariable>
+          </accessVars>
+        </interface>
+        <body WorksheetName="Sheet1">
+          <ST>
+            <xhtml xmlns="http://www.w3.org/1999/xhtml">counter := counter + 1;</xhtml>
+          </ST>
+        </body>
+        <body WorksheetName="Sheet2">
+          <ST>
+            <xhtml xmlns="http://www.w3.org/1999/xhtml">shared := counter;</xhtml>
+          </ST>
+        </body>
+      </pou>
+    </pous>
+  </types>
+</project>
+"#,
+        );
+
+        let report = import_xml_to_project(&xml_path, &project).expect("import XML");
+        assert_eq!(report.imported_pous, 1);
+
+        let source = std::fs::read_to_string(project.join("src/Main.st")).expect("read Main");
+        assert!(source.contains("PROGRAM Main"));
+        assert!(source.contains("VAR RETAIN"));
+        assert!(source.contains("counter : INT := 1;"));
+        assert!(source.contains("VAR_GLOBAL"));
+        assert!(source.contains("shared : INT;"));
+        assert!(source.contains("VAR_ACCESS"));
+        assert!(source.contains("A1 : Cell_1.Station_1.P1.shared : INT READ_ONLY;"));
+        assert!(source.contains("counter := counter + 1;"));
+        assert!(source.contains("shared := counter;"));
+        assert!(source.find("counter := counter + 1;") < source.find("shared := counter;"));
+
+        let _ = std::fs::remove_dir_all(project);
+    }

@@ -62,6 +62,12 @@ fn extract_pou_declarations(source: &LoadedSource) -> (Vec<PouDecl>, Vec<String>
 
         let line = line_for_node(&source.text, &node);
         declarations.push(PouDecl {
+            methods: extract_codesys_methods_from_pou(
+                &node,
+                &source.text,
+                &source.path.display().to_string(),
+                &name,
+            ),
             name,
             pou_type,
             body: normalize_body_text(node.text().to_string()),
@@ -200,6 +206,17 @@ fn parse_struct_type_declarations(source: &str) -> BTreeMap<String, Vec<GlobalVa
 }
 
 fn parse_global_var_entries_from_st_block(block: &str) -> Vec<GlobalVarVariableDecl> {
+    parse_var_entries_from_st_block(block)
+        .into_iter()
+        .map(|entry| GlobalVarVariableDecl {
+            name: entry.name,
+            type_expr: entry.type_expr,
+            initial_value: entry.initial_value,
+        })
+        .collect()
+}
+
+fn parse_var_entries_from_st_block(block: &str) -> Vec<InterfaceVariableDecl> {
     let mut entries = Vec::new();
     let mut in_block = false;
 
@@ -211,7 +228,7 @@ fn parse_global_var_entries_from_st_block(block: &str) -> Vec<GlobalVarVariableD
         if trimmed.starts_with('{') && trimmed.ends_with('}') {
             continue;
         }
-        if trimmed.to_ascii_uppercase().starts_with("VAR_GLOBAL") {
+        if trimmed.to_ascii_uppercase().starts_with("VAR") {
             in_block = true;
             continue;
         }
@@ -230,12 +247,18 @@ fn parse_global_var_entries_from_st_block(block: &str) -> Vec<GlobalVarVariableD
         if raw_name.is_empty() {
             continue;
         }
-        let var_name = raw_name
-            .split_whitespace()
-            .next()
-            .map(ToOwned::to_owned)
-            .unwrap_or_default();
-        if var_name.is_empty() {
+        let names = raw_name
+            .split(',')
+            .filter_map(|segment| {
+                let name = segment
+                    .split_whitespace()
+                    .next()
+                    .map(str::trim)
+                    .unwrap_or_default();
+                (!name.is_empty()).then(|| name.to_string())
+            })
+            .collect::<Vec<_>>();
+        if names.is_empty() {
             continue;
         }
         let (type_expr, initial_value) = match rhs.split_once(":=") {
@@ -248,14 +271,104 @@ fn parse_global_var_entries_from_st_block(block: &str) -> Vec<GlobalVarVariableD
         if type_expr.is_empty() {
             continue;
         }
-        entries.push(GlobalVarVariableDecl {
-            name: var_name,
-            type_expr,
-            initial_value,
-        });
+        for name in names {
+            entries.push(InterfaceVariableDecl {
+                name,
+                type_expr: type_expr.clone(),
+                initial_value: initial_value.clone(),
+            });
+        }
     }
 
     entries
+}
+
+fn extract_codesys_methods_from_pou(
+    node: &SyntaxNode,
+    source_text: &str,
+    source_path: &str,
+    owner_name: &str,
+) -> Vec<CodesysMethodDecl> {
+    node.children()
+        .filter(|child| child.kind() == SyntaxKind::Method)
+        .filter_map(|method| {
+            extract_codesys_method_decl(&method, source_text, source_path, owner_name)
+        })
+        .collect()
+}
+
+fn extract_codesys_method_decl(
+    method_node: &SyntaxNode,
+    source_text: &str,
+    source_path: &str,
+    owner_name: &str,
+) -> Option<CodesysMethodDecl> {
+    let name = declaration_name(method_node)?;
+    let body = method_node
+        .children()
+        .find(|child| child.kind() == SyntaxKind::StmtList)
+        .map(|child| normalize_body_text(child.text().to_string()))
+        .unwrap_or_default();
+    let return_type = method_node
+        .children()
+        .find(|child| child.kind() == SyntaxKind::TypeRef)
+        .map(|child| child.text().to_string().trim().to_string())
+        .filter(|text| !text.is_empty());
+    let sections = method_node
+        .children()
+        .filter(|child| child.kind() == SyntaxKind::VarBlock)
+        .filter_map(|block| extract_codesys_method_var_section(&block))
+        .collect::<Vec<_>>();
+
+    Some(CodesysMethodDecl {
+        owner_name: owner_name.to_string(),
+        name,
+        return_type,
+        body,
+        interface_plaintext: normalize_body_text(method_node.text().to_string()),
+        sections,
+        source: source_path.to_string(),
+        line: line_for_node(source_text, method_node),
+    })
+}
+
+fn extract_codesys_method_var_section(block: &SyntaxNode) -> Option<CodesysMethodVarSection> {
+    let block_text = block.text().to_string();
+    let header = block_text
+        .lines()
+        .map(str::trim)
+        .find(|line| !line.is_empty() && !line.starts_with('{'))?;
+    let upper = header.to_ascii_uppercase();
+    let xml_name = if upper.starts_with("VAR_INPUT") {
+        "inputVars"
+    } else if upper.starts_with("VAR_OUTPUT") {
+        "outputVars"
+    } else if upper.starts_with("VAR_IN_OUT") {
+        "inOutVars"
+    } else if upper.starts_with("VAR_EXTERNAL") {
+        "externalVars"
+    } else if upper.starts_with("VAR_TEMP") {
+        "tempVars"
+    } else if upper.starts_with("VAR") {
+        "localVars"
+    } else {
+        return None;
+    };
+
+    let variables = parse_var_entries_from_st_block(&block_text);
+    if variables.is_empty() {
+        return None;
+    }
+
+    Some(CodesysMethodVarSection {
+        xml_name,
+        constant: upper.contains(" CONSTANT"),
+        retain: upper.contains(" RETAIN"),
+        nonretain: upper.contains(" NON_RETAIN"),
+        persistent: upper.contains(" PERSISTENT"),
+        nonpersistent: upper.contains(" NON_PERSISTENT"),
+        variables,
+    })
 }
 
 fn node_to_pou_type(node: &SyntaxNode) -> Option<PlcopenPouType> {
@@ -345,4 +458,3 @@ fn normalize_body_text(text: impl Into<String>) -> String {
     }
     normalized
 }
-

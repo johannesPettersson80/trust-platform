@@ -131,38 +131,30 @@ fn is_execution_param_name(name: &str) -> bool {
     name.eq_ignore_ascii_case("EN") || name.eq_ignore_ascii_case("ENO")
 }
 
-fn callee_name_offset(node: &SyntaxNode) -> Option<TextSize> {
-    match node.kind() {
-        SyntaxKind::NameRef => node
-            .descendants_with_tokens()
-            .filter_map(|element| element.into_token())
-            .find(|token| token.kind() == SyntaxKind::Ident)
-            .map(|token| token.text_range().start()),
-        SyntaxKind::FieldExpr => node
-            .descendants()
-            .filter(|child| child.kind() == SyntaxKind::NameRef)
-            .last()
-            .and_then(|child| {
-                child
-                    .descendants_with_tokens()
-                    .filter_map(|element| element.into_token())
-                    .find(|token| token.kind() == SyntaxKind::Ident)
-                    .map(|token| token.text_range().start())
-            }),
-        _ => None,
-    }
+fn callee_name_offset(call_expr: &SyntaxNode) -> Option<TextSize> {
+    let arg_list = call_expr
+        .children()
+        .find(|child| child.kind() == SyntaxKind::ArgList)?;
+    let limit = arg_list.text_range().start();
+    call_expr
+        .descendants_with_tokens()
+        .filter_map(|element| element.into_token())
+        .filter(|token| token.kind() == SyntaxKind::Ident && token.text_range().end() <= limit)
+        .last()
+        .map(|token| token.text_range().start())
 }
 
-fn callee_name_text(node: &SyntaxNode) -> Option<SmolStr> {
-    match node.kind() {
-        SyntaxKind::NameRef => name_from_name_ref(node),
-        SyntaxKind::FieldExpr => node
-            .descendants()
-            .filter(|child| child.kind() == SyntaxKind::NameRef)
-            .last()
-            .and_then(|child| name_from_name_ref(&child)),
-        _ => None,
-    }
+fn callee_name_text(call_expr: &SyntaxNode) -> Option<SmolStr> {
+    let arg_list = call_expr
+        .children()
+        .find(|child| child.kind() == SyntaxKind::ArgList)?;
+    let limit = arg_list.text_range().start();
+    call_expr
+        .descendants_with_tokens()
+        .filter_map(|element| element.into_token())
+        .filter(|token| token.kind() == SyntaxKind::Ident && token.text_range().end() <= limit)
+        .last()
+        .map(|token| SmolStr::new(token.text()))
 }
 
 fn signature_from_symbol(symbols: &SymbolTable, symbol: &Symbol) -> Option<SignatureInfo> {

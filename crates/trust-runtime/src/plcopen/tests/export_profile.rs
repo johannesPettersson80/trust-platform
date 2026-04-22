@@ -271,3 +271,55 @@ END_FUNCTION
 
         let _ = std::fs::remove_dir_all(project);
     }
+
+    #[test]
+    fn export_emits_codesys_method_metadata_on_standard_pous_and_roundtrips() {
+        let project = temp_dir("plcopen-export-codesys-methods");
+        write(
+            &project.join("src/Application/Random.st"),
+            r#"
+FUNCTION_BLOCK Random
+VAR
+    xRandomActive : BOOL := TRUE;
+END_VAR
+
+METHOD PUBLIC method1 : BOOL
+VAR_INPUT
+    var1 : BOOL;
+    var2 : BOOL;
+END_VAR
+IF var1 AND var2 THEN
+    method1 := TRUE;
+END_IF
+END_METHOD
+
+END_FUNCTION_BLOCK
+"#,
+        );
+
+        let output = project.join("out/plcopen.xml");
+        let report = export_project_to_xml(&project, &output).expect("export XML");
+        assert!(report.exported_project_structure_nodes >= 3);
+
+        let xml = std::fs::read_to_string(&output).expect("read xml");
+        assert!(xml.contains(CODESYS_METHOD_DATA_NAME));
+        assert!(xml.contains("<Method name=\"method1\""));
+        assert!(xml.contains("Object Name=\"method1\""));
+        assert!(xml.contains(CODESYS_OBJECT_ID_DATA_NAME));
+        assert!(xml.contains(CODESYS_INTERFACE_PLAINTEXT_DATA_NAME));
+
+        let imported = temp_dir("plcopen-export-codesys-methods-import");
+        let import_report = import_xml_to_project(&output, &imported).expect("import exported xml");
+        assert_eq!(import_report.imported_pous, 1);
+
+        let source = std::fs::read_to_string(imported.join("src/Application/Random.st"))
+            .expect("read imported Random");
+        assert!(source.contains("FUNCTION_BLOCK Random"));
+        assert!(source.contains("METHOD PUBLIC method1 : BOOL"));
+        assert!(source.contains("var1 : BOOL;"));
+        assert!(source.contains("var2 : BOOL;"));
+        assert!(source.contains("method1 := TRUE;"));
+
+        let _ = std::fs::remove_dir_all(project);
+        let _ = std::fs::remove_dir_all(imported);
+    }

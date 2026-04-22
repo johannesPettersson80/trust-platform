@@ -398,6 +398,14 @@ impl ServerState {
         cache::store_diagnostics(self, uri, content_hash, diagnostic_hash)
     }
 
+    #[cfg(test)]
+    pub fn diagnostic_result_id(&self, uri: &Url) -> Option<String> {
+        self.diagnostics
+            .read()
+            .get(uri)
+            .map(|cache| cache.result_id.clone())
+    }
+
     /// Enforces the configured memory budget for closed documents.
     pub fn apply_memory_budget(&self) {
         documents::apply_memory_budget(self);

@@ -3,6 +3,10 @@ import * as path from "path";
 import { spawn } from "child_process";
 import * as vscode from "vscode";
 import { getBinaryPath } from "./binary";
+import {
+  formatPlcopenCommandFailure,
+  formatPlcopenLaunchError,
+} from "./plcopenRuntimeErrors";
 
 type SimulatedCancelAt = "input" | "project" | "overwrite";
 
@@ -261,7 +265,7 @@ export function registerPlcopenImportCommand(
           const message =
             error instanceof Error ? error.message : String(error ?? "unknown");
           vscode.window.showErrorMessage(
-            `Failed to run trust-runtime plcopen import: ${message}`
+            formatPlcopenLaunchError("import", message)
           );
           return false;
         }
@@ -269,7 +273,7 @@ export function registerPlcopenImportCommand(
         if (result.exitCode !== 0) {
           const detail = (result.stderr || result.stdout).trim();
           vscode.window.showErrorMessage(
-            `PLCopen import failed (exit ${result.exitCode}). ${detail || "No diagnostics returned."}`
+            formatPlcopenCommandFailure("import", result.exitCode, detail)
           );
           return false;
         }

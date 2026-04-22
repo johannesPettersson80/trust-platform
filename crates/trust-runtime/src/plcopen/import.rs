@@ -193,6 +193,7 @@ pub fn import_xml_to_project_with_options(
         }
 
         let Some(reconstructed_source) = synthesize_import_pou_source(
+            root,
             pou,
             pou_type,
             &name,

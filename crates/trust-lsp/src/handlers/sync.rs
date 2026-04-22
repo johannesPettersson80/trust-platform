@@ -6,8 +6,8 @@ use tracing::{info, warn};
 
 use crate::state::ServerState;
 
-use super::diagnostics::publish_diagnostics;
 use super::lsp_utils::position_to_offset;
+use super::refresh::refresh_diagnostics;
 
 pub async fn did_open(client: &Client, state: &ServerState, params: DidOpenTextDocumentParams) {
     let uri = params.text_document.uri;
@@ -17,11 +17,12 @@ pub async fn did_open(client: &Client, state: &ServerState, params: DidOpenTextD
     info!("Document opened: {}", uri);
     state.record_activity();
 
-    let file_id = state.open_document(uri.clone(), version, content.clone());
+    state.open_document(uri.clone(), version, content.clone());
 
-    // Parse and publish diagnostics for clients that don't support pull diagnostics.
+    // Push-based clients need a workspace refresh here so dependent open files do not keep
+    // stale cross-file diagnostics.
     if !state.use_pull_diagnostics() {
-        publish_diagnostics(client, state, &uri, &content, file_id).await;
+        refresh_diagnostics(client, state).await;
     }
 }
 
@@ -51,11 +52,10 @@ pub async fn did_change(client: &Client, state: &ServerState, params: DidChangeT
 
     state.update_document(&uri, version, updated);
 
-    // Get the file ID and publish diagnostics for clients that don't support pull diagnostics.
+    // Push-based clients need a workspace refresh here so dependent open files do not keep
+    // stale cross-file diagnostics.
     if !state.use_pull_diagnostics() {
-        if let Some(doc) = state.get_document(&uri) {
-            publish_diagnostics(client, state, &uri, &doc.content, doc.file_id).await;
-        }
+        refresh_diagnostics(client, state).await;
     }
 }
 
@@ -90,11 +90,10 @@ pub async fn did_save(client: &Client, state: &ServerState, params: DidSaveTextD
     info!("Document saved: {}", uri);
     state.record_activity();
 
-    // Re-analyze on save for clients that don't support pull diagnostics.
+    // Push-based clients need a workspace refresh here so dependent open files do not keep
+    // stale cross-file diagnostics.
     if !state.use_pull_diagnostics() {
-        if let Some(doc) = state.get_document(&uri) {
-            publish_diagnostics(client, state, &uri, &doc.content, doc.file_id).await;
-        }
+        refresh_diagnostics(client, state).await;
     }
 }
 

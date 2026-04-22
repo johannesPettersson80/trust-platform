@@ -121,7 +121,7 @@ fn resolve_codesys_folder_segments_for_node(
 
 #[derive(Debug, Clone)]
 struct InterfaceVarSection {
-    keyword: &'static str,
+    header: String,
     declarations: Vec<String>,
 }
 
@@ -142,4 +142,3 @@ impl PouInterfaceMetadata {
                 .any(|section| !section.declarations.is_empty())
     }
 }
-

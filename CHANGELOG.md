@@ -6,9 +6,16 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.20.1`
+Target release: `v0.21.0`
 
 ### Added
+
+- `trust-runtime plcopen` now imports official TC6 XML multi-worksheet ST
+  bodies in execution order, reconstructs all standard POU interface var
+  sections (`VAR`, `VAR_TEMP`, `VAR_INPUT`, `VAR_OUTPUT`, `VAR_IN_OUT`,
+  `VAR_EXTERNAL`, `VAR_GLOBAL`, `VAR_ACCESS`), and round-trips CODESYS
+  `addData/method` metadata for `FUNCTION_BLOCK` methods with deterministic
+  method object IDs/project-structure placement.
 
 - `trust-runtime` now supports a Linux `runtime.realtime` startup profile for
   `PREEMPT_RT` posture, including config-schema support, bundle-template
@@ -108,6 +115,15 @@ Target release: `v0.20.1`
   queries such as `E001`, `W003`, `implicit conversion`, and `missing else`.
 
 ### Fixed
+
+- `trust-lsp` push-diagnostics mode now refreshes dependent open documents
+  after `didOpen`, `didChange`, and `didSave` events, so cross-file call
+  diagnostics clear and update immediately instead of staying stale until a
+  reopen/save cycle.
+- Method-call completion and signature help now resolve `FUNCTION_BLOCK`
+  methods with `VAR_INPUT` parameters correctly, so formal parameter names are
+  offered for `fb.Method(...)` calls instead of falling back to the owning
+  instance call shape.
 
 - Linux `PREEMPT_RT` support no longer breaks non-Linux cargo builds and
   warning gates: Linux-only helpers/imports in `trust-runtime` are now

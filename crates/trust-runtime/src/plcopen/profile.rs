@@ -6,11 +6,13 @@ pub fn supported_profile() -> PlcopenProfile {
         strict_subset: vec![
             "project/fileHeader/contentHeader",
             "types/pous/pou[pouType=program|function|functionBlock]",
+            "pou/interface/{local|temp|input|output|inOut|external|global|access}Vars (import)",
             "types/dataTypes/dataType[baseType subset: elementary|derived|array|struct|enum|subrange] (import/export)",
             "instances/configurations/resources/tasks/program instances",
             "CODESYS addData/globalVars (import/export)",
+            "CODESYS addData/method for FUNCTION_BLOCK members (import/export)",
             "CODESYS addData/projectstructure folder mapping (import/export)",
-            "pou/body/ST plain-text bodies",
+            "pou/body/ST plain-text bodies (multi-worksheet import order preserved)",
             "addData/data[name=trust.sourceMap|trust.vendorExtensions|trust.exportAdapter]",
         ],
         unsupported_nodes: vec![
@@ -22,7 +24,7 @@ pub fn supported_profile() -> PlcopenProfile {
             PlcopenCompatibilityMatrixEntry {
                 capability: "POU import/export: PROGRAM/FUNCTION/FUNCTION_BLOCK with ST body",
                 status: "supported",
-                notes: "Aliases such as PRG/FC/FB are normalized on import.",
+                notes: "Aliases such as PRG/FC/FB are normalized on import. Import also reconstructs ordered TC6 body worksheets and standard interface sections, including globalVars/accessVars.",
             },
             PlcopenCompatibilityMatrixEntry {
                 capability: "Source mapping metadata",
@@ -60,6 +62,11 @@ pub fn supported_profile() -> PlcopenProfile {
                 notes: "Import prefers interface-as-plaintext for VAR_GLOBAL fidelity and falls back to variable node synthesis; export emits deterministic CODESYS globalVars metadata.",
             },
             PlcopenCompatibilityMatrixEntry {
+                capability: "CODESYS method members (addData/method on FUNCTION_BLOCK POUs)",
+                status: "supported",
+                notes: "Import reconstructs FUNCTION_BLOCK methods from vendor metadata and export emits deterministic Method objects/object IDs on the owning POU and project structure. Other vendor OOP objects such as properties remain out of scope.",
+            },
+            PlcopenCompatibilityMatrixEntry {
                 capability: "CODESYS project structure folder mapping (addData/projectstructure)",
                 status: "partial",
                 notes: "Import/export mirrors deterministic source-folder hierarchies for POUs/GVLs; unsupported library/device-tree object semantics remain metadata only.",
@@ -93,6 +100,7 @@ pub fn supported_profile() -> PlcopenProfile {
             "Round-trip guarantees preserve supported ST dataType signatures (name + supported baseType graph).",
             "Round-trip guarantees preserve supported configuration/resource/task/program-instance wiring intent.",
             "Round-trip preserves supported CODESYS globalVars declarations (plaintext-first import strategy).",
+            "Round-trip preserves supported CODESYS FUNCTION_BLOCK method metadata and deterministic method object placement.",
             "Round-trip preserves deterministic folder placement intent for supported CODESYS projectstructure object trees.",
             "Round-trip does not preserve vendor formatting/layout, graphical networks, or runtime deployment metadata.",
             "Round-trip can rename output source files to sanitized unique names inside src/.",
@@ -103,9 +111,9 @@ pub fn supported_profile() -> PlcopenProfile {
             "No import/export for SFC/LD/FBD bodies.",
             "Vendor library shim coverage is limited to the published baseline alias catalog.",
             "No semantic translation for vendor-specific AOI/FB internal behavior beyond simple symbol remapping.",
+            "Vendor-specific OOP objects beyond CODESYS methods (for example properties) are not yet semantically imported/exported.",
             "No guaranteed equivalence for vendor pragmas, safety metadata, or online deployment tags.",
             "Export adapters do not generate native vendor project archives (.L5X/.apxx/.project).",
         ],
     }
 }
-

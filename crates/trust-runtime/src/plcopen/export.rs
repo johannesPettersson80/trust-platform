@@ -162,6 +162,8 @@ pub fn export_project_to_xml_with_target(
             .collect(),
     };
     let source_map_json = serde_json::to_string_pretty(&source_map)?;
+    let codesys_metadata =
+        build_codesys_export_metadata(&declarations, &global_var_lists, &mut warnings);
 
     let project_name = project_root
         .file_name()
@@ -229,6 +231,58 @@ pub fn export_project_to_xml_with_target(
         xml.push_str(&escape_cdata(&decl.body));
         xml.push_str("]]></ST>\n");
         xml.push_str("        </body>\n");
+        if let Some((_meta_decl, object_entry)) = codesys_metadata.pou_entries.iter().find(
+            |(candidate, _entry)| {
+                candidate.name == decl.name
+                    && candidate.pou_type == decl.pou_type
+                    && candidate.source == decl.source
+                    && candidate.line == decl.line
+            },
+        ) {
+            let methods = codesys_metadata
+                .method_entries
+                .iter()
+                .filter(|(method, _entry)| method.owner_name.eq_ignore_ascii_case(&decl.name))
+                .collect::<Vec<_>>();
+            xml.push_str("        <addData>\n");
+            xml.push_str(&format!(
+                "          <data name=\"{}\" handleUnknown=\"implementation\">\n",
+                CODESYS_INTERFACE_PLAINTEXT_DATA_NAME
+            ));
+            xml.push_str("            <InterfaceAsPlainText>\n");
+            xml.push_str(&format!(
+                "              <xhtml xmlns=\"http://www.w3.org/1999/xhtml\">{}</xhtml>\n",
+                escape_xml_attr(&decl.body)
+            ));
+            xml.push_str("            </InterfaceAsPlainText>\n");
+            xml.push_str("          </data>\n");
+            if !methods.is_empty() {
+                xml.push_str(&format!(
+                    "          <data name=\"{}\" handleUnknown=\"implementation\">\n",
+                    CODESYS_METHOD_DATA_NAME
+                ));
+                for (method, method_entry) in methods {
+                    append_codesys_method_xml(
+                        &mut xml,
+                        method,
+                        method_entry,
+                        12,
+                        &mut warnings,
+                    );
+                }
+                xml.push_str("          </data>\n");
+            }
+            xml.push_str(&format!(
+                "          <data name=\"{}\" handleUnknown=\"discard\">\n",
+                CODESYS_OBJECT_ID_DATA_NAME
+            ));
+            xml.push_str(&format!(
+                "            <ObjectId>{}</ObjectId>\n",
+                escape_xml_attr(&object_entry.object_id)
+            ));
+            xml.push_str("          </data>\n");
+            xml.push_str("        </addData>\n");
+        }
         xml.push_str("      </pou>\n");
     }
 
@@ -304,8 +358,6 @@ pub fn export_project_to_xml_with_target(
         }
     }
 
-    let codesys_metadata =
-        build_codesys_export_metadata(&declarations, &global_var_lists, &mut warnings);
     xml.push_str("  <addData>\n");
     xml.push_str(&format!(
         "    <data name=\"{}\" handleUnknown=\"implementation\"><text><![CDATA[{}]]></text></data>\n",
@@ -434,4 +486,3 @@ pub fn export_project_to_xml_with_target(
         warnings,
     })
 }
-

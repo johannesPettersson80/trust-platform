@@ -20,11 +20,12 @@ multi-vendor export adapters).
 
 | Capability | Status | Notes |
 |---|---|---|
-| ST POU import/export (`PROGRAM`, `FUNCTION`, `FUNCTION_BLOCK`) | supported | Includes common aliases (`PRG`, `FC`, `FUN`, `FB`). |
+| ST POU import/export (`PROGRAM`, `FUNCTION`, `FUNCTION_BLOCK`) | supported | Includes common aliases (`PRG`, `FC`, `FUN`, `FB`). Import also reconstructs ordered TC6 body worksheets and standard interface var sections, including `globalVars` and `accessVars`. |
 | ST `types/dataTypes` import (`elementary`, `derived`, `array`, `struct`, `enum`, `subrange`) | supported | Imported into generated ST `TYPE` declarations under `src/`. |
 | ST `TYPE` export to `types/dataTypes` | partial | Supported ST declarations are emitted; unsupported forms are skipped with warnings. |
 | `instances/configurations/resources/tasks/program instances` import/export | supported | Deterministic ST mapping with name normalization and structured diagnostics. |
 | CODESYS `addData/globalVars` import/export | supported | Import prefers `interfaceasplaintext` for pragma fidelity and falls back to `<variable>` synthesis. Default import now materializes native truST vendor-parity globals (file-scope GVLs and namespaced GVLs for `qualified_only` lists) without mandatory `VAR_EXTERNAL` injection. Adapter callers can still request strict IEC reshaping through `PlcopenImportGlobalVarMode::StrictIecAdapter`, which restores the older wrapper + injected-`VAR_EXTERNAL` flow for external consumers that require it. Export emits deterministic CODESYS `globalVars` metadata. |
+| CODESYS `addData/method` on `FUNCTION_BLOCK` POUs | supported | Import reconstructs ST `METHOD` members from vendor metadata and export emits deterministic `Method` objects/object IDs on the owning POU and in `projectstructure`. Other vendor OOP objects such as properties remain out of scope. |
 | CODESYS `addData/projectstructure` folder mapping import/export | partial | Import/export mirrors deterministic folder placement for POUs/GVLs; library/device-tree semantics remain metadata-only. |
 | Source map metadata (`trust.sourceMap`) | supported | Embedded `addData` payload + sidecar `*.source-map.json`. |
 | Vendor extension preservation (`addData`) | partial | Preserved/re-injectable, but not semantically interpreted. |
@@ -144,9 +145,11 @@ ST-complete contract.
 Guaranteed for supported ST-project structures:
 
 - ST POU signature-level stability.
+- Ordered ST worksheet import for supported multi-`body` POU inputs.
 - Supported `dataTypes` signature stability.
 - Supported configuration/resource/task/program-instance wiring intent stability.
 - Supported CODESYS globalVars declaration stability.
+- Supported CODESYS `FUNCTION_BLOCK` method metadata stability.
 - Supported CODESYS folder-placement intent stability for deterministic projectstructure trees.
 - Deterministic fallback insertion for missing FUNCTION result assignments (`<FuncName> := <FuncName>;`) during import synthesis.
 - Stable source-map sidecar contract.
@@ -164,6 +167,7 @@ Not guaranteed:
 - Export-side `dataTypes` remains subset-based for supported ST `TYPE` forms; unsupported ST type syntax is skipped with warnings.
 - Vendor library shim coverage is intentionally limited to the baseline alias catalog.
 - No semantic translation for vendor-specific AOI/FB internals and pragmas.
+- Vendor OOP objects beyond CODESYS `METHOD` members, such as vendor `PROPERTY` metadata, are not yet semantically imported/exported.
 - Vendor extension nodes are preserved as opaque metadata, not executed.
 - Core truST does not yet enforce CODESYS `{attribute 'qualified_only'}` as a semantic restriction; qualified access works, but bare global access is still accepted by the vendor-parity language/runtime path.
 - Export adapters do not generate native vendor package formats (`.L5X`, TIA project archives, EcoStruxure project archives).

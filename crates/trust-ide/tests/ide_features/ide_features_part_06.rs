@@ -189,3 +189,36 @@ END_PROGRAM
         .label
         .contains("CONSTANT"));
 }
+
+#[test]
+fn test_signature_help_method_var_input_mentions_method_parameters() {
+    let source = r#"
+FUNCTION_BLOCK Motor
+METHOD PUBLIC Start : BOOL
+VAR_INPUT
+    Var1 : BOOL;
+    Var2 : BOOL;
+END_VAR
+    Start := Var1 AND Var2;
+END_METHOD
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    motor : Motor;
+    result : BOOL;
+END_VAR
+    result := motor.Start(|);
+END_PROGRAM
+"#;
+    let cursor = source.find('|').expect("cursor");
+    let mut cleaned = source.to_string();
+    cleaned.remove(cursor);
+    let (db, file) = setup(&cleaned);
+
+    let result = signature_help(&db, file, TextSize::from(cursor as u32)).expect("signature help");
+    assert!(result.signatures[0].label.contains("Start("));
+    assert!(result.signatures[0].label.contains("Var1: BOOL"));
+    assert!(result.signatures[0].label.contains("Var2: BOOL"));
+    assert_eq!(result.active_parameter, 0);
+}

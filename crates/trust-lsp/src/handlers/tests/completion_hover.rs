@@ -160,6 +160,64 @@ END_PROGRAM
 }
 
 #[test]
+fn lsp_completion_suggests_method_formal_parameters() {
+    let source = r#"
+FUNCTION_BLOCK Motor
+METHOD PUBLIC Start : BOOL
+VAR_INPUT
+    Var1 : BOOL;
+    Var2 : BOOL;
+END_VAR
+    Start := Var1 AND Var2;
+END_METHOD
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    motor : Motor;
+    result : BOOL;
+END_VAR
+    result := motor.Start();
+END_PROGRAM
+"#;
+    let state = ServerState::new();
+    let uri = tower_lsp::lsp_types::Url::parse("file:///workspace/method-completion.st").unwrap();
+    state.open_document(uri.clone(), 1, source.to_string());
+    let cursor = source.find("motor.Start(").expect("method call") + "motor.Start(".len();
+
+    let params = tower_lsp::lsp_types::CompletionParams {
+        text_document_position: tower_lsp::lsp_types::TextDocumentPositionParams {
+            text_document: tower_lsp::lsp_types::TextDocumentIdentifier { uri },
+            position: super::super::lsp_utils::offset_to_position(source, cursor as u32),
+        },
+        work_done_progress_params: Default::default(),
+        partial_result_params: Default::default(),
+        context: None,
+    };
+
+    let response = completion(&state, params).expect("completion response");
+    let items = match response {
+        tower_lsp::lsp_types::CompletionResponse::Array(items) => items,
+        tower_lsp::lsp_types::CompletionResponse::List(list) => list.items,
+    };
+    let labels: Vec<String> = items.iter().map(|item| item.label.clone()).collect();
+    assert!(
+        labels
+            .iter()
+            .any(|label| label.eq_ignore_ascii_case("Var1")),
+        "expected method parameter completion for Var1, got {:?}",
+        labels
+    );
+    assert!(
+        labels
+            .iter()
+            .any(|label| label.eq_ignore_ascii_case("Var2")),
+        "expected method parameter completion for Var2, got {:?}",
+        labels
+    );
+}
+
+#[test]
 fn lsp_hover_member_method_and_property() {
     let interface = r#"
 INTERFACE ICounter
