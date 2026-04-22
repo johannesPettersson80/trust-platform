@@ -69,8 +69,15 @@ pub struct EngineStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ByteSpan {
+    pub start: u32,
+    pub end: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RelatedInfoItem {
     pub range: Range,
+    pub span: ByteSpan,
     pub message: String,
 }
 
@@ -80,7 +87,37 @@ pub struct DiagnosticItem {
     pub severity: String,
     pub message: String,
     pub range: Range,
+    pub span: ByteSpan,
     pub related: Vec<RelatedInfoItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AstSimilarityRequest {
+    pub left: String,
+    pub right: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CanonicalAstSummary {
+    pub algorithm: String,
+    pub gram_size: usize,
+    pub parse_error_count: usize,
+    pub stream: Vec<String>,
+    pub five_grams: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AstSimilarityResult {
+    pub algorithm: String,
+    pub gram_size: usize,
+    pub score: f32,
+    pub shared_grams: usize,
+    pub left_grams: usize,
+    pub right_grams: usize,
+    pub threshold_070: bool,
+    pub threshold_095: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -176,4 +213,3 @@ pub struct BrowserAnalysisEngine {
     project: Project,
     documents: BTreeMap<String, String>,
 }
-

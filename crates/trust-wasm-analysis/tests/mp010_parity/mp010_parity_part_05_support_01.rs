@@ -110,6 +110,10 @@ pub(crate) fn native_diagnostics(
                     .into_iter()
                     .map(|item| RelatedInfoItem {
                         range: text_range_to_lsp(source, item.range),
+                        span: trust_wasm_analysis::ByteSpan {
+                            start: u32::from(item.range.start()),
+                            end: u32::from(item.range.end()),
+                        },
                         message: item.message,
                     })
                     .collect::<Vec<_>>();
@@ -123,6 +127,10 @@ pub(crate) fn native_diagnostics(
                     severity: severity_label(diagnostic.severity).to_string(),
                     message: diagnostic.message,
                     range: text_range_to_lsp(source, diagnostic.range),
+                    span: trust_wasm_analysis::ByteSpan {
+                        start: u32::from(diagnostic.range.start()),
+                        end: u32::from(diagnostic.range.end()),
+                    },
                     related,
                 }
             })

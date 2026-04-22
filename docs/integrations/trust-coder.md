@@ -1,0 +1,31 @@
+This file is a pointer. Authoritative state lives in the separate `trust-coder` repo under `plan/checklists/`. Do not duplicate item status here.
+
+# trust-coder Integration Pointer
+
+Purpose:
+
+- summarize which `trust-platform` features `trust-coder` depends on
+- record the currently frozen `TRUST_PLATFORM_COMMIT`
+- list open trust-platform-side PRs keyed to `trust-coder` checklist IDs
+- point readers at the standalone sibling repo root: `../trust-coder` from the `trust-platform` repo root
+
+Current frozen `TRUST_PLATFORM_COMMIT`:
+
+- `f37f22e434cddafcc0d0cc592da93a2abc8e5b09`
+- Authoritative file in sibling repo: `../trust-coder/TRUST_PLATFORM_COMMIT` from the `trust-platform` repo root
+- Local path from this file: `../../../trust-coder/TRUST_PLATFORM_COMMIT`
+
+Dependency surface summary:
+
+- parser + semantic diagnostics from `trust-syntax` / `trust-hir`
+- machine-readable diagnostics through `trust-runtime agent serve` `lsp.diagnostics`, including stable codes, severities, project-relative paths, and zero-based UTF-8 byte spans
+- canonical-AST normalization and similarity scoring through `trust-runtime agent serve` `lsp.ast_canonicalize` and `lsp.ast_similarity`
+- multi-file compile/build/runtime harness execution from the runtime stack, including the stateless `trust-runtime agent serve` `harness.execute` fixture wrapper for one-shot POU/system checks
+- OOP semantic/runtime grading only where the appendix paths in `§1.8` remain valid at the frozen commit
+- benchmark/datagen tooling stays in `trust-coder`; only verifier/compiler/runtime substrate lives here
+
+Open trust-platform-side PRs:
+
+| Checklist ID | PR URL | State | Scope |
+|---|---|---|---|
+| — | — | — | No open platform-side PRs recorded yet |

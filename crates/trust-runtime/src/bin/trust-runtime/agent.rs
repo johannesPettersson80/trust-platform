@@ -11,6 +11,7 @@ use trust_runtime::bundle_builder::collect_project_source_files;
 use trust_runtime::harness::{
     decode_json_value, encode_json_value, HarnessAutomation, HarnessAutomationError,
 };
+use trust_runtime::RestartMode;
 
 const JSON_RPC_VERSION: &str = "2.0";
 const ERROR_PATH_OUTSIDE_WORKSPACE: i32 = -32001;
@@ -109,6 +110,8 @@ impl AgentServer {
                     "workspace.write",
                     "workspace.project_info",
                     "lsp.diagnostics",
+                    "lsp.ast_canonicalize",
+                    "lsp.ast_similarity",
                     "lsp.format",
                     "runtime.build",
                     "runtime.compile_reload",
@@ -117,6 +120,7 @@ impl AgentServer {
                     "runtime.reload",
                     "harness.load",
                     "harness.reload",
+                    "harness.execute",
                     "harness.cycle",
                     "harness.set_input",
                     "harness.get_output",
@@ -127,8 +131,10 @@ impl AgentServer {
                     "Transport is stdio JSON-RPC only in v1.",
                     "Network listeners are intentionally unsupported in this initial agent surface.",
                     "lsp.diagnostics and lsp.format reuse the in-process Web IDE analysis/formatting services.",
+                    "lsp.ast_canonicalize and lsp.ast_similarity expose the canonical AST 5-gram normalization path used by contamination and dedup tooling.",
                     "runtime.compile_reload returns diagnostics plus build/reload status for iterative repair loops.",
                     "runtime.reload rebuilds program.stbc and sends bytecode.reload to the configured control endpoint.",
+                    "harness.execute runs a fresh deterministic fixture session and reports pass/fail plus reduced failure context for benchmark/datagen callers.",
                     "Source-aware attached-session reload flows remain future work.",
                 ],
             })),
@@ -136,6 +142,8 @@ impl AgentServer {
             "workspace.write" => self.workspace_write(parse_params(params)?),
             "workspace.project_info" => self.workspace_project_info(parse_optional_params(params)?),
             "lsp.diagnostics" => self.lsp_diagnostics(parse_optional_params(params)?),
+            "lsp.ast_canonicalize" => self.lsp_ast_canonicalize(parse_optional_params(params)?),
+            "lsp.ast_similarity" => self.lsp_ast_similarity(parse_optional_params(params)?),
             "lsp.format" => self.lsp_format(parse_params(params)?),
             "runtime.build" => self.runtime_build(parse_optional_params(params)?),
             "runtime.compile_reload" => self.runtime_compile_reload(parse_optional_params(params)?),
@@ -144,6 +152,7 @@ impl AgentServer {
             "runtime.reload" => self.runtime_reload(parse_optional_params(params)?),
             "harness.load" => self.harness_load(parse_optional_params(params)?),
             "harness.reload" => self.harness_reload(parse_optional_params(params)?),
+            "harness.execute" => self.harness_execute(parse_optional_params(params)?),
             "harness.cycle" => self.harness_cycle(parse_optional_params(params)?),
             "harness.set_input" => self.harness_set_input(parse_params(params)?),
             "harness.get_output" => self.harness_get_output(parse_params(params)?),
@@ -266,6 +275,48 @@ impl AgentServer {
         .map_err(AgentCommandError::from_anyhow)
     }
 
+    fn lsp_ast_canonicalize(
+        &self,
+        params: LspAstCanonicalizeParams,
+    ) -> Result<JsonValue, AgentCommandError> {
+        let project_root = self.resolve_project_root(params.project.as_deref())?;
+        let path = params
+            .path
+            .as_deref()
+            .map(normalize_workspace_path)
+            .transpose()?
+            .map(|path| path.to_string_lossy().replace('\\', "/"));
+        crate::workflow::ast_canonicalize_payload(&project_root, path.as_deref(), params.content)
+            .map_err(AgentCommandError::from_anyhow)
+    }
+
+    fn lsp_ast_similarity(
+        &self,
+        params: LspAstSimilarityParams,
+    ) -> Result<JsonValue, AgentCommandError> {
+        let project_root = self.resolve_project_root(params.project.as_deref())?;
+        let left_path = params
+            .left_path
+            .as_deref()
+            .map(normalize_workspace_path)
+            .transpose()?
+            .map(|path| path.to_string_lossy().replace('\\', "/"));
+        let right_path = params
+            .right_path
+            .as_deref()
+            .map(normalize_workspace_path)
+            .transpose()?
+            .map(|path| path.to_string_lossy().replace('\\', "/"));
+        crate::workflow::ast_similarity_payload(
+            &project_root,
+            left_path.as_deref(),
+            params.left_content,
+            right_path.as_deref(),
+            params.right_content,
+        )
+        .map_err(AgentCommandError::from_anyhow)
+    }
+
     fn runtime_validate(
         &self,
         params: CommonProjectParams,
@@ -377,6 +428,95 @@ impl AgentServer {
             "elapsed_ms": snapshot.elapsed_ms,
             "values": encode_watch_snapshot(&snapshot.values),
         }))
+    }
+
+    fn harness_execute(
+        &self,
+        params: HarnessExecuteParams,
+    ) -> Result<JsonValue, AgentCommandError> {
+        let source_texts = self.collect_harness_sources(&params.load)?;
+        let source_count = source_texts.len();
+        let mut harness = HarnessAutomation::new();
+        match harness.load_sources(&source_texts) {
+            Ok(_) => {}
+            Err(HarnessAutomationError::NotLoaded | HarnessAutomationError::InvalidArgument(_)) => {
+                return Err(HarnessAutomationError::InvalidArgument(
+                    "Harness fixture session failed to initialize due to invalid inputs."
+                        .to_string(),
+                )
+                .into())
+            }
+            Err(error) => {
+                return serde_json::to_value(build_harness_execute_result(
+                    source_count,
+                    0,
+                    0,
+                    0,
+                    empty_watch_snapshot(),
+                    vec![harness_execute_failure(None, None, error, None)],
+                ))
+                .map_err(anyhow::Error::from)
+                .map_err(AgentCommandError::from_anyhow);
+            }
+        }
+
+        let mut steps_run = 0;
+        for (step_index, step) in params.steps.iter().enumerate() {
+            if let Err(error) = apply_harness_execute_step(&mut harness, step) {
+                return match error {
+                    HarnessAutomationError::NotLoaded
+                    | HarnessAutomationError::InvalidArgument(_) => Err(error.into()),
+                    other => {
+                        let snapshot = harness
+                            .snapshot(&params.watch)
+                            .map(|summary| encode_harness_watch_snapshot(&summary))
+                            .unwrap_or_else(|_| empty_watch_snapshot());
+                        serde_json::to_value(build_harness_execute_result(
+                            source_count,
+                            steps_run,
+                            0,
+                            params.assertions.len(),
+                            snapshot,
+                            vec![harness_execute_failure(
+                                Some(step_index),
+                                Some(step),
+                                other,
+                                Some(&mut harness),
+                            )],
+                        ))
+                        .map_err(anyhow::Error::from)
+                        .map_err(AgentCommandError::from_anyhow)
+                    }
+                };
+            }
+            steps_run += 1;
+        }
+
+        let mut failures = Vec::new();
+        let mut assertions_passed = 0;
+        for assertion in &params.assertions {
+            if let Some(failure) = evaluate_harness_assertion(&mut harness, assertion)? {
+                failures.push(failure);
+            } else {
+                assertions_passed += 1;
+            }
+        }
+
+        let final_snapshot = harness
+            .snapshot(&params.watch)
+            .map(|summary| encode_harness_watch_snapshot(&summary))
+            .map_err(AgentCommandError::from)?;
+
+        serde_json::to_value(build_harness_execute_result(
+            source_count,
+            steps_run,
+            assertions_passed,
+            params.assertions.len(),
+            final_snapshot,
+            failures,
+        ))
+        .map_err(anyhow::Error::from)
+        .map_err(AgentCommandError::from_anyhow)
     }
 
     fn harness_set_input(
@@ -519,6 +659,228 @@ fn encode_watch_snapshot(
             .map(|(name, value)| (name.clone(), encode_json_value(value)))
             .collect::<serde_json::Map<String, JsonValue>>(),
     )
+}
+
+fn empty_watch_snapshot() -> JsonValue {
+    json!({
+        "cycleCount": 0,
+        "elapsedMs": 0,
+        "values": JsonValue::Object(serde_json::Map::new()),
+    })
+}
+
+fn encode_harness_watch_snapshot(
+    snapshot: &trust_runtime::harness::HarnessWatchSnapshot,
+) -> JsonValue {
+    json!({
+        "cycleCount": snapshot.cycle_count,
+        "elapsedMs": snapshot.elapsed_ms,
+        "values": encode_watch_snapshot(&snapshot.values),
+    })
+}
+
+fn build_harness_execute_result(
+    source_count: usize,
+    steps_run: usize,
+    assertions_passed: usize,
+    assertions_total: usize,
+    watch_snapshot: JsonValue,
+    failures: Vec<HarnessExecuteFailure>,
+) -> HarnessExecuteResult {
+    let assertion_failures = failures
+        .iter()
+        .filter(|failure| failure.kind == "assertion_failed")
+        .count();
+    HarnessExecuteResult {
+        source_count,
+        status: if failures.is_empty() { "pass" } else { "fail" },
+        passed: failures.is_empty(),
+        steps_run,
+        assertions: HarnessExecuteAssertionSummary {
+            total: assertions_total,
+            evaluated: assertions_passed + assertion_failures,
+            passed: assertions_passed,
+            failed: assertion_failures,
+        },
+        watch_snapshot,
+        failures,
+    }
+}
+
+fn apply_harness_execute_step(
+    harness: &mut HarnessAutomation,
+    step: &HarnessExecuteStep,
+) -> Result<(), HarnessAutomationError> {
+    match step {
+        HarnessExecuteStep::SetInput { name, value } => {
+            harness.set_input(name, decode_json_value(value)?)?;
+        }
+        HarnessExecuteStep::SetAccess { name, value } => {
+            harness.set_access(name, decode_json_value(value)?)?;
+        }
+        HarnessExecuteStep::BindDirect { name, address } => {
+            harness.bind_direct(name, address)?;
+        }
+        HarnessExecuteStep::SetDirectInput { address, value } => {
+            harness.set_direct_input(address, decode_json_value(value)?)?;
+        }
+        HarnessExecuteStep::AdvanceTime { duration_ms } => {
+            harness.advance_time(*duration_ms)?;
+        }
+        HarnessExecuteStep::Cycle { count, dt_ms } => {
+            harness.cycle(*count, dt_ms.unwrap_or(0), &[])?;
+        }
+        HarnessExecuteStep::RunUntil {
+            name,
+            equals,
+            max_cycles,
+            dt_ms,
+        } => {
+            harness.run_until(
+                name,
+                decode_json_value(equals)?,
+                dt_ms.unwrap_or(0),
+                max_cycles.unwrap_or(10_000),
+                &[],
+            )?;
+        }
+        HarnessExecuteStep::Restart { mode } => {
+            harness.restart(parse_restart_mode(mode.as_deref().unwrap_or("cold"))?)?;
+        }
+    }
+    Ok(())
+}
+
+fn parse_restart_mode(mode: &str) -> Result<RestartMode, HarnessAutomationError> {
+    match mode.to_ascii_lowercase().as_str() {
+        "cold" => Ok(RestartMode::Cold),
+        "warm" => Ok(RestartMode::Warm),
+        other => Err(HarnessAutomationError::InvalidArgument(format!(
+            "unsupported restart mode '{other}'"
+        ))),
+    }
+}
+
+fn evaluate_harness_assertion(
+    harness: &mut HarnessAutomation,
+    assertion: &HarnessAssertion,
+) -> Result<Option<HarnessExecuteFailure>, AgentCommandError> {
+    let (actual, expected, mismatch_label) = match assertion {
+        HarnessAssertion::OutputEquals { name, equals } => (
+            harness.get_output(name)?.value,
+            Some(decode_json_value(equals)?),
+            format!("output '{name}'"),
+        ),
+        HarnessAssertion::AccessEquals { name, equals } => (
+            harness.get_access(name)?.value,
+            Some(decode_json_value(equals)?),
+            format!("access '{name}'"),
+        ),
+        HarnessAssertion::DirectOutputEquals { address, equals } => (
+            harness.get_direct_output(address)?.value,
+            Some(decode_json_value(equals)?),
+            format!("direct output '{address}'"),
+        ),
+    };
+
+    let expected = expected.expect("expected value should exist");
+    if actual == Some(expected.clone()) {
+        return Ok(None);
+    }
+
+    Ok(Some(HarnessExecuteFailure {
+        kind: "assertion_failed",
+        step_index: None,
+        step: None,
+        assertion: Some(assertion.clone()),
+        message: Some(format!(
+            "{mismatch_label} did not match the expected value."
+        )),
+        expected: Some(encode_json_value(&expected)),
+        actual: actual.as_ref().map(encode_json_value),
+        errors: Vec::new(),
+    }))
+}
+
+fn harness_execute_failure(
+    step_index: Option<usize>,
+    step: Option<&HarnessExecuteStep>,
+    error: HarnessAutomationError,
+    harness: Option<&mut HarnessAutomation>,
+) -> HarnessExecuteFailure {
+    match error {
+        HarnessAutomationError::Compile(message) => HarnessExecuteFailure {
+            kind: "compile_error",
+            step_index,
+            step: step.cloned(),
+            assertion: None,
+            message: Some(message),
+            expected: None,
+            actual: None,
+            errors: Vec::new(),
+        },
+        HarnessAutomationError::Runtime(message) => HarnessExecuteFailure {
+            kind: "runtime_error",
+            step_index,
+            step: step.cloned(),
+            assertion: None,
+            message: Some(message),
+            expected: None,
+            actual: None,
+            errors: Vec::new(),
+        },
+        HarnessAutomationError::RuntimeCycle { message, errors } => HarnessExecuteFailure {
+            kind: "runtime_cycle_error",
+            step_index,
+            step: step.cloned(),
+            assertion: None,
+            message: Some(message),
+            expected: None,
+            actual: None,
+            errors,
+        },
+        HarnessAutomationError::RunUntilTimeout {
+            name,
+            max_cycles,
+            expected,
+        } => {
+            let actual = harness
+                .and_then(|loaded| loaded.get_output(&name).ok())
+                .and_then(|snapshot| snapshot.value);
+            HarnessExecuteFailure {
+                kind: "run_until_timeout",
+                step_index,
+                step: step.cloned(),
+                assertion: None,
+                message: Some(format!(
+                    "run_until exceeded {max_cycles} cycles before '{name}' matched the expected value."
+                )),
+                expected: Some(encode_json_value(&expected)),
+                actual: actual.as_ref().map(encode_json_value),
+                errors: Vec::new(),
+            }
+        }
+        HarnessAutomationError::NotLoaded => HarnessExecuteFailure {
+            kind: "not_loaded",
+            step_index,
+            step: step.cloned(),
+            assertion: None,
+            message: Some("Harness is not loaded. Call harness.load first.".to_string()),
+            expected: None,
+            actual: None,
+            errors: Vec::new(),
+        },
+        HarnessAutomationError::InvalidArgument(message) => HarnessExecuteFailure {
+            kind: "invalid_argument",
+            step_index,
+            step: step.cloned(),
+            assertion: None,
+            message: Some(message),
+            expected: None,
+            actual: None,
+            errors: Vec::new(),
+        },
+    }
 }
 
 fn parse_params<T>(params: Option<JsonValue>) -> Result<T, AgentCommandError>
@@ -760,6 +1122,22 @@ struct LspDiagnosticsParams {
     content: Option<String>,
 }
 
+#[derive(Debug, Default, Deserialize)]
+struct LspAstCanonicalizeParams {
+    project: Option<String>,
+    path: Option<String>,
+    content: Option<String>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct LspAstSimilarityParams {
+    project: Option<String>,
+    left_path: Option<String>,
+    left_content: Option<String>,
+    right_path: Option<String>,
+    right_content: Option<String>,
+}
+
 #[derive(Debug, Deserialize)]
 struct LspFormatParams {
     project: Option<String>,
@@ -792,11 +1170,112 @@ struct HarnessLoadParams {
     inline_sources: Option<Vec<InlineSource>>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
+struct HarnessExecuteParams {
+    #[serde(flatten)]
+    load: HarnessLoadParams,
+    #[serde(default)]
+    steps: Vec<HarnessExecuteStep>,
+    #[serde(default)]
+    assertions: Vec<HarnessAssertion>,
+    #[serde(default)]
+    watch: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 struct InlineSource {
     #[allow(dead_code)]
     path: Option<String>,
     text: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(tag = "op", rename_all = "snake_case")]
+enum HarnessExecuteStep {
+    SetInput {
+        name: String,
+        value: JsonValue,
+    },
+    SetAccess {
+        name: String,
+        value: JsonValue,
+    },
+    BindDirect {
+        name: String,
+        address: String,
+    },
+    SetDirectInput {
+        address: String,
+        value: JsonValue,
+    },
+    AdvanceTime {
+        duration_ms: i64,
+    },
+    Cycle {
+        #[serde(default = "default_cycle_count")]
+        count: u32,
+        dt_ms: Option<i64>,
+    },
+    RunUntil {
+        name: String,
+        equals: JsonValue,
+        max_cycles: Option<u64>,
+        dt_ms: Option<i64>,
+    },
+    Restart {
+        mode: Option<String>,
+    },
+}
+
+#[allow(clippy::enum_variant_names)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+enum HarnessAssertion {
+    OutputEquals { name: String, equals: JsonValue },
+    AccessEquals { name: String, equals: JsonValue },
+    DirectOutputEquals { address: String, equals: JsonValue },
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HarnessExecuteResult {
+    source_count: usize,
+    status: &'static str,
+    passed: bool,
+    steps_run: usize,
+    assertions: HarnessExecuteAssertionSummary,
+    watch_snapshot: JsonValue,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    failures: Vec<HarnessExecuteFailure>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HarnessExecuteAssertionSummary {
+    total: usize,
+    evaluated: usize,
+    passed: usize,
+    failed: usize,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HarnessExecuteFailure {
+    kind: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    step_index: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    step: Option<HarnessExecuteStep>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    assertion: Option<HarnessAssertion>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    message: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    expected: Option<JsonValue>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    actual: Option<JsonValue>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    errors: Vec<String>,
 }
 
 #[derive(Debug, Default, Deserialize)]

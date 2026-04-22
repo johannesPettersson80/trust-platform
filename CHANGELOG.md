@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.21.0`
+Target release: `v0.22.0`
 
 ### Added
 
@@ -54,6 +54,17 @@ Target release: `v0.21.0`
   machine-readable payload for `diagnose -> build -> reload`, including
   diagnostics counts/issues plus `runtimeStatus` / `runtimeMessage` and the
   optional nested build/reload results needed for iterative repair loops.
+- `trust-runtime agent serve` now exposes `lsp.ast_canonicalize` and
+  `lsp.ast_similarity` for the canonical-AST 5-gram normalization path used by
+  benchmark contamination checks, dedup, and self-improvement diversity gates.
+  The existing `lsp.diagnostics` payload now also includes end positions and
+  zero-based UTF-8 byte spans, so benchmark/datagen tooling can consume stable
+  machine-readable diagnostics without brittle text scraping.
+- `trust-runtime agent serve` now also exposes a stateless `harness.execute`
+  fixture wrapper that loads project or inline sources, runs deterministic
+  harness steps, evaluates output/access/direct-I/O assertions, and returns a
+  compact pass/fail report with reduced failure context for benchmark/datagen
+  callers that need one-shot POU or system-fixture execution.
 - `trust-runtime agent serve workspace.project_info` now returns a stable
   orientation payload for agents, including resolved source roots, source
   files, local dependency roots, runtime/io config presence, parsed runtime

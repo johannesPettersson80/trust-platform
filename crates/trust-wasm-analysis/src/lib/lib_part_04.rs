@@ -77,6 +77,13 @@ fn severity_label(severity: DiagnosticSeverity) -> &'static str {
     }
 }
 
+fn byte_span(range: TextRange) -> ByteSpan {
+    ByteSpan {
+        start: u32::from(range.start()),
+        end: u32::from(range.end()),
+    }
+}
+
 fn lsp_range(content: &str, range: TextRange) -> Range {
     Range {
         start: offset_to_position(content, u32::from(range.start())),
@@ -132,4 +139,3 @@ fn position_to_offset(content: &str, position: Position) -> Option<u32> {
         None
     }
 }
-
