@@ -11,9 +11,10 @@ Purpose:
 
 Current frozen `TRUST_PLATFORM_COMMIT`:
 
-- `f37f22e434cddafcc0d0cc592da93a2abc8e5b09`
+- `3d51290a4b886014e9200cab891843e5003e73cd`
 - Authoritative file in sibling repo: `../trust-coder/TRUST_PLATFORM_COMMIT` from the `trust-platform` repo root
 - Local path from this file: `../../../trust-coder/TRUST_PLATFORM_COMMIT`
+- This is the substrate commit currently frozen by `trust-coder`; it may intentionally differ from the latest `trust-platform` `main` tip once follow-up pointer-doc or release-hygiene commits land here.
 
 Dependency surface summary:
 
