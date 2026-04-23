@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.22.0`
+Target release: `v0.22.1`
 
 ### Added
 
@@ -127,6 +127,9 @@ Target release: `v0.22.0`
 
 ### Fixed
 
+- The shipped `examples/oscat_smoke` consumer now matches the current OSCAT
+  named-parameter surface (`DEG`, `DAYS`, and `DATA`), so the example builds
+  cleanly again instead of failing on stale `D := ...` calls.
 - `trust-lsp` push-diagnostics mode now refreshes dependent open documents
   after `didOpen`, `didChange`, and `didSave` events, so cross-file call
   diagnostics clear and update immediately instead of staying stale until a
