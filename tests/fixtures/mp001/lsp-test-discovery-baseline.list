@@ -18,6 +18,7 @@ handlers::tests::code_actions_and_commands::code_actions_and_commands_part_05::l
 handlers::tests::completion_hover::lsp_completion_respects_stdlib_allowlist: test
 handlers::tests::completion_hover::lsp_completion_respects_stdlib_profile_none: test
 handlers::tests::completion_hover::lsp_completion_returns_none_when_request_ticket_is_cancelled: test
+handlers::tests::completion_hover::lsp_completion_suggests_method_formal_parameters: test
 handlers::tests::completion_hover::lsp_hover_member_method_and_property: test
 handlers::tests::completion_hover::lsp_hover_respects_stdlib_filter: test
 handlers::tests::core::core_part_01::lsp_hover_variable: test
@@ -38,6 +39,7 @@ handlers::tests::core::core_part_04::lsp_external_diagnostics_provide_quick_fixe
 handlers::tests::core::core_part_04::lsp_workspace_symbols_include_dependency_sources: test
 handlers::tests::core::core_part_05::lsp_document_symbols_include_members: test
 handlers::tests::core::core_part_05::lsp_oop_access_diagnostics_include_explainer_and_hint: test
+handlers::tests::core::core_part_05::lsp_push_sync_refreshes_dependent_open_document_diagnostics: test
 handlers::tests::core::core_part_05::lsp_will_rename_files_updates_pou_name: test
 handlers::tests::core::core_part_05::lsp_workspace_diagnostics_supports_unchanged_reports: test
 handlers::tests::core::core_part_06::lsp_document_highlight_variable: test
@@ -61,6 +63,7 @@ handlers::tests::core::core_part_12::lsp_completion_constant_parameter_uses_cons
 handlers::tests::core::core_part_12::lsp_diagnostics_report_fb_instance_in_constant_sections: test
 handlers::tests::core::core_part_12::lsp_hover_constant_parameter_mentions_constant_and_array_star: test
 handlers::tests::core::core_part_12::lsp_signature_help_constant_parameter_mentions_constant: test
+handlers::tests::core::core_part_12::lsp_signature_help_method_var_input_mentions_method_parameters: test
 handlers::tests::core::core_part_12::lsp_workspace_symbols_mark_constant_parameters_as_constants: test
 handlers::tests::formatting_and_navigation::lsp_call_hierarchy_cross_file_incoming: test
 handlers::tests::formatting_and_navigation::lsp_call_hierarchy_cross_file_incoming_named_args: test
