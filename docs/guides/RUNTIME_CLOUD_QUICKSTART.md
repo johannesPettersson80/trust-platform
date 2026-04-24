@@ -32,6 +32,7 @@ If ports `18081`, `18082`, `5201`, or `5202` are already in use on your host, up
 `listen` values in the copied `runtime.toml` files before startup.
 
 The example configs include explicit mesh baseline keys:
+
 - `runtime.mesh.role = "peer"`
 - `runtime.mesh.connect = []`
 - `runtime.mesh.zenohd_version = "1.7.2"`
@@ -57,6 +58,7 @@ curl -s http://127.0.0.1:18081/api/runtime-cloud/state | jq '{context: .context,
 ```
 
 Expected:
+
 - `context.connected_via` exists
 - `topology.nodes` contains `runtime-a` and `runtime-b`
 - `topology.edges` shows communication links
@@ -70,6 +72,7 @@ curl -s http://127.0.0.1:18081/api/runtime-cloud/actions/preflight \
 ```
 
 Expected:
+
 - `allowed: true`
 - no `denial_code`
 
@@ -82,6 +85,7 @@ curl -s http://127.0.0.1:18081/api/runtime-cloud/actions/dispatch \
 ```
 
 Expected:
+
 - top-level `ok: true`
 - `results[0].runtime_id == "runtime-b"`
 - `results[0].audit_id` present
@@ -104,6 +108,7 @@ curl -s http://127.0.0.1:18081/api/runtime-cloud/actions/dispatch \
 ```
 
 Expected:
+
 - `ok: true`
 - per-target `audit_id` present
 

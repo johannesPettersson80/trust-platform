@@ -1,5 +1,9 @@
 # Visual Editors
 
+Visual examples show the open-artifact model: Ladder, SFC, Blockly, and
+Statechart sources live beside ST and still validate through the same runtime
+path.
+
 | Example folder | Best for | Related docs |
 | --- | --- | --- |
 | `examples/ladder` | rung-based logic and companion ST flow | [Ladder](../develop/visual-editors/ladder.md) |

@@ -1,9 +1,11 @@
 # Web IDE Accessibility Baseline
 
 Scope:
+
 - `/ide` browser authoring surface in `trust-runtime` web UI.
 
 Date:
+
 - 2026-02-15
 
 ## Baseline Coverage
@@ -18,6 +20,7 @@ Date:
 
 ## Keyboard-Only Validation
 Run `trust-runtime` web UI and open `/ide`, then verify:
+
 1. `Tab` reaches skip link, sidebar file tree, tab bar, editor, and insight cards.
 2. `Ctrl/Cmd+Shift+P` opens command palette; arrow keys change selection; `Enter` runs command; `Esc` closes.
 3. `Ctrl/Cmd+S` saves active file.

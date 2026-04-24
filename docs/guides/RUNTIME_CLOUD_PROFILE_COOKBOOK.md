@@ -3,6 +3,7 @@
 This cookbook defines when and how to use runtime cloud security profiles.
 
 Important:
+
 - The TOML blocks in this document are profile overlays, not complete `runtime.toml` files.
 - Start from a generated baseline (`trust-runtime wizard --path <project>`), then merge these sections.
 - For complete runnable examples, use `examples/runtime_cloud/runtime-*.toml`.
@@ -16,6 +17,7 @@ Important:
 | `wan` | cross-site/federated production | same as `plant` | remote write denied by default unless `runtime.cloud.wan.allow_write` rule matches |
 
 Mesh baseline for all profiles:
+
 - `runtime.mesh.zenohd_version` must stay on `1.7.2` unless an approved exception is documented.
 - Use explicit `runtime.mesh.role` + `runtime.mesh.connect` keys in profile overlays/examples.
 - `runtime.mesh.plugin_versions` is required for `role = "router"` deployments.
@@ -34,6 +36,7 @@ allow_write = []
 ```
 
 Notes:
+
 - Recommended only on trusted local networks
 - Keep this out of plant/WAN environments
 
@@ -70,6 +73,7 @@ openssl req -x509 -newkey rsa:4096 -sha256 -days 365 -nodes \
 ```
 
 Required behavior:
+
 - runtime cloud endpoints deny requests if token auth/TLS preconditions are not met
 - remote targets without secure transport metadata are denied in preflight/dispatch
 
@@ -99,6 +103,7 @@ allow_write = []
 ```
 
 Important default:
+
 - cross-runtime write actions (`cfg_apply`, `cmd_invoke`) are denied unless explicitly allowlisted
 
 ## 5) WAN Allowlist Rules
@@ -112,6 +117,7 @@ allow_write = [
 ```
 
 Target matching semantics:
+
 - `*` matches all targets
 - `site-b/*` prefix match
 - `*/runtime-1` suffix match
@@ -146,6 +152,7 @@ ps -eo pid,cls,rtprio,comm | head -n 20
 ```
 
 Deployment checks:
+
 - kernel should be PREEMPT_RT capable (`/sys/kernel/realtime` reports `1` when enabled)
 - realtime tasks should run with explicit RT scheduling class/priority policy
 - T0 comms contracts must still be treated as same-host only; do not claim hard determinism over generic IP mesh

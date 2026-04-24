@@ -3,6 +3,17 @@
 Use this page for the generic alarm flow in truST. Site-specific alarm causes,
 reset conditions, and contacts still belong in the local runbook.
 
+![Browser HMI alarm page](../assets/images/browser/hmi-operator-alarm-page.png)
+
+*Figure:* The Browser HMI alarm view gives operators the active alarm, process
+context, acknowledgement action, and recent history in one place.
+
+![Operator alarm response flow](../assets/images/hmi/operator-alarm-handbook.svg)
+
+*Figure:* Alarm work starts with process context, not the acknowledge button.
+The operator records what was seen, follows the site procedure, and escalates
+when the runtime condition remains active.
+
 ## Alarm Response Sequence
 
 | Step | What to check | Record |

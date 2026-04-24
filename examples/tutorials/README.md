@@ -240,7 +240,7 @@ For each tutorial:
 ### Guided Steps
 
 1. Open `09_simulation_coupling.st`.
-2. `Ctrl+Shift+P` -> `Structured Text: Open Runtime Panel`.
+2. `Ctrl/Cmd+Shift+P` -> `Structured Text: Open Runtime Panel`.
 3. Start runtime (Local mode).
 4. In I/O panel, write `%IW0` below threshold (for example `Word(300)`) and observe alarm output.
 5. Write `%IW0` above threshold (for example `Word(600)`) and observe alarm change.

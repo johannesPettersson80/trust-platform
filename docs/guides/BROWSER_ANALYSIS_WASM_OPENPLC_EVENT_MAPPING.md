@@ -1,9 +1,11 @@
 # Browser Analysis WASM OpenPLC Event Mapping
 
 Purpose:
+
 - Define how an OpenPLC-style web editor should map UI events to `WasmAnalysisEngine` calls.
 
 Scope:
+
 - Browser-side analysis only (`diagnostics`, `hover`, `completion`).
 - No runtime execution or debug control in browser.
 
@@ -23,6 +25,7 @@ Scope:
 1. Worker starts and creates `WasmAnalysisEngine`.
 2. Host applies initial document set via `applyDocuments`.
 3. Host enters live loop:
+
 - On edits: `applyDocuments` + `diagnostics`.
 - On hover: `hover`.
 - On typing/caret movement: `completion`.

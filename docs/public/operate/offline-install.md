@@ -20,6 +20,12 @@
 - log retention and restart policy
 - a restore path if the storage media fails
 
+## Verification
+
+Before the target is accepted, run the copied runtime with the project bundle on
+the isolated host, confirm local status without internet access, and record the
+exact binary version and project revision in the site runbook.
+
 ## Related
 
 - [Install On Target](install-on-target.md)

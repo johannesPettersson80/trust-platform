@@ -1,11 +1,7 @@
-# Mitsubishi
+# Mitsubishi Moved To Migrate
 
-## Compatibility Baseline
+The Mitsubishi migration guide now lives at
+[Migrate -> Mitsubishi](../../migrate/mitsubishi.md).
 
---8<-- "docs/guides/MITSUBISHI_GXWORKS3_COMPATIBILITY.md"
-
-## Related
-
-- [Interoperability overview](index.md)
-- [Vendor Profiles](../vendor-profiles.md)
-- [Vendor profile examples](../../examples/vendor-profiles.md)
+Use the new page for current GX Works compatibility guidance and related
+examples.

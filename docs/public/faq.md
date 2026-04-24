@@ -2,6 +2,10 @@
 
 Quick answers to common product, runtime, and workflow questions.
 
+Use this page when you are deciding what truST is, where to start, or which
+workflow fits. If a command, runtime, HMI page, or connection is already
+failing, use [Troubleshooting](troubleshooting.md) instead.
+
 ## Is truST safety-rated?
 
 No. Treat truST as an engineering/runtime platform, not a safety-rated PLC.
@@ -58,7 +62,7 @@ See:
 
 - [About](about.md)
 - [Concepts](concepts/index.md)
-- [Interoperability](develop/interoperability/index.md)
+- [Migrate Into truST](migrate/index.md)
 
 ## Where do I start if I inherited a project?
 

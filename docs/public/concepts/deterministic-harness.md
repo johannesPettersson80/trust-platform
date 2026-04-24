@@ -3,6 +3,12 @@
 The harness exists so scripts, tests, docs, and agents can drive cycle
 execution deterministically instead of treating the runtime as a black box.
 
+!!! note "Terms"
+    `trust-harness` = deterministic executor for cycle-by-cycle checks.
+    `NDJSON` = newline-delimited JSON requests and responses.
+    "Virtual time" = test-controlled time advanced by the harness instead of
+    waiting on wall-clock time.
+
 ## What it is
 
 `trust-harness` is the smallest executable surface that can:

@@ -3,6 +3,12 @@
 truST distinguishes three communication layers so users can answer the right
 question first.
 
+!!! note "Terms"
+    "Runtime-to-runtime" = one truST runtime communicating with another.
+    `MQTT`, `OPC UA`, and `Modbus TCP` = plant/external-system protocols.
+    "Fieldbus/local I/O" = direct device or driver wiring such as EtherCAT,
+    GPIO, simulated, or loopback I/O.
+
 ```mermaid
 flowchart TB
     A[Runtime-to-runtime<br/>discovery, mesh, realtime T0, runtime-cloud]

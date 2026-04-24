@@ -91,6 +91,7 @@ Use `adapter = "mock"` with `mock_inputs` to run deterministic integration tests
 without EtherCAT hardware.
 
 Hardware transport notes:
+
 - Non-mock adapters use EtherCrab transport and require a unix runtime target.
 - Raw-socket access is required on the selected NIC.
 

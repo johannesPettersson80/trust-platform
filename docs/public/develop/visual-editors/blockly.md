@@ -1,5 +1,11 @@
 # Blockly
 
+![Blockly LED blink workspace and generated ST](../../assets/images/visual-editors/blockly.svg)
+
+*Figure:* A block-based LED blink workflow next to the generated companion ST.
+Blockly is an authoring surface over reviewable project text, not a separate
+runtime model.
+
 ## What it gives you
 
 - block-based authoring
@@ -36,7 +42,7 @@
 
 - `examples/blockly`
 
-## Best docs to read next
+## Related
 
 - [Visual editor examples](../../examples/visual-editors.md)
 - [Companion ST](companion-st.md)

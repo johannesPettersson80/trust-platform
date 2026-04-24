@@ -2,10 +2,10 @@
 
 | Example folder | Use it for | Related docs |
 | --- | --- | --- |
-| `examples/siemens_scl_v1` | Siemens `#` symbol style, formatting, export path | [Siemens](../develop/interoperability/siemens.md) |
-| `examples/mitsubishi_gxworks3_v1` | Mitsubishi `DIFU` / `DIFD` style and profile behavior | [Mitsubishi](../develop/interoperability/mitsubishi.md) |
-| `examples/plcopen_xml_st_complete` | PLCopen XML import/export and round-trip workflows | [PLCopen](../develop/interoperability/plcopen.md) |
-| `examples/vendor_library_stubs` | local stub strategy for missing vendor libraries | [Vendor Libraries](../develop/interoperability/vendor-libraries.md) |
+| `examples/siemens_scl_v1` | Siemens `#` symbol style, formatting, export path | [Siemens](../migrate/siemens.md) |
+| `examples/mitsubishi_gxworks3_v1` | Mitsubishi `DIFU` / `DIFD` style and profile behavior | [Mitsubishi](../migrate/mitsubishi.md) |
+| `examples/plcopen_xml_st_complete` | PLCopen XML import/export and round-trip workflows | [PLCopen](../migrate/plcopen.md) |
+| `examples/vendor_library_stubs` | local stub strategy for missing vendor libraries | [Vendor Libraries](../migrate/vendor-libraries.md) |
 
 ## Recommended order
 

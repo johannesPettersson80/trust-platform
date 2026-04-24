@@ -9,7 +9,7 @@ lives in the curated catalog on [Examples overview](index.md).
 | --- | --- | --- |
 | first success with truST | [Tutorials](tutorials.md) | [Build, Validate, Test](../operate/build-validate-test.md) |
 | connect to external systems or hardware | [Connectivity](connectivity.md) | [Connect -> Protocol Matrix](../connect/protocol-matrix.md) |
-| migrate from vendor-specific tooling | [Vendor Profiles](vendor-profiles.md) | [Develop -> Interoperability](../develop/interoperability/index.md) |
+| migrate from vendor-specific tooling | [Vendor Profiles](vendor-profiles.md) | [Migrate Into truST](../migrate/index.md) |
 | learn visual editors | [Visual Editors](visual-editors.md) | [Develop -> Visual Editors](../develop/visual-editors/index.md) |
 | build HMI/operator workflows | [HMI](hmi.md) | [Operate -> HMI And Web UI](../operate/hmi-and-web-ui.md) |
 | motion and performance work | [Libraries And Motion](libraries-and-motion.md) | [Benchmarks](../reference/benchmarks.md) |

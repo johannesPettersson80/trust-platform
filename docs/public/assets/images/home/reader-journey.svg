@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="640" viewBox="0 0 1200 640" role="img" aria-labelledby="title desc">
+  <title id="title">truST reader journey map</title>
+  <desc id="desc">Five reader personas route to the most useful first documentation page.</desc>
+  <defs>
+    <style>
+      .bg { fill: #f8fafc; }
+      .panel { fill: #ffffff; stroke: #cbd5e1; stroke-width: 2; }
+      .hub { fill: #0f766e; }
+      .hubText { fill: #ffffff; font: 700 30px system-ui, sans-serif; }
+      .title { fill: #0f172a; font: 700 26px system-ui, sans-serif; }
+      .body { fill: #334155; font: 18px system-ui, sans-serif; }
+      .small { fill: #475569; font: 15px system-ui, sans-serif; }
+      .path { stroke: #0f766e; stroke-width: 4; fill: none; marker-end: url(#arrow); }
+      .badge { fill: #e0f2fe; stroke: #0284c7; stroke-width: 1.5; }
+      .badge2 { fill: #ecfdf5; stroke: #059669; stroke-width: 1.5; }
+      .badge3 { fill: #fef3c7; stroke: #d97706; stroke-width: 1.5; }
+      .badge4 { fill: #fce7f3; stroke: #be185d; stroke-width: 1.5; }
+      .badge5 { fill: #ede9fe; stroke: #7c3aed; stroke-width: 1.5; }
+    </style>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M 0 0 L 12 6 L 0 12 z" fill="#0f766e"/>
+    </marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1200" height="640" rx="18"/>
+  <rect class="hub" x="450" y="250" width="300" height="140" rx="16"/>
+  <text class="hubText" x="600" y="305" text-anchor="middle">truST docs</text>
+  <text class="hubText" x="600" y="345" text-anchor="middle">first click</text>
+
+  <path class="path" d="M 450 285 C 360 230, 270 145, 210 115"/>
+  <path class="path" d="M 450 330 C 350 345, 260 350, 205 350"/>
+  <path class="path" d="M 600 250 C 600 195, 600 145, 600 110"/>
+  <path class="path" d="M 750 285 C 840 230, 930 145, 990 115"/>
+  <path class="path" d="M 750 330 C 850 345, 940 350, 995 350"/>
+  <path class="path" d="M 600 390 C 600 455, 600 500, 600 535"/>
+
+  <rect class="panel" x="40" y="45" width="300" height="125" rx="12"/>
+  <rect class="badge" x="62" y="68" width="92" height="28" rx="14"/>
+  <text class="small" x="108" y="88" text-anchor="middle">New</text>
+  <text class="title" x="62" y="123">Install</text>
+  <text class="body" x="62" y="150">Get tools working first.</text>
+
+  <rect class="panel" x="40" y="285" width="320" height="135" rx="12"/>
+  <rect class="badge2" x="62" y="308" width="116" height="28" rx="14"/>
+  <text class="small" x="120" y="328" text-anchor="middle">Engineer</text>
+  <text class="title" x="62" y="363">Program in VS Code</text>
+  <text class="body" x="62" y="390">Edit, diagnose, debug, inspect.</text>
+
+  <rect class="panel" x="450" y="35" width="300" height="135" rx="12"/>
+  <rect class="badge3" x="472" y="58" width="116" height="28" rx="14"/>
+  <text class="small" x="530" y="78" text-anchor="middle">PLC user</text>
+  <text class="title" x="472" y="113">Migrate</text>
+  <text class="body" x="472" y="140">Check compatibility honestly.</text>
+
+  <rect class="panel" x="840" y="45" width="320" height="125" rx="12"/>
+  <rect class="badge4" x="862" y="68" width="118" height="28" rx="14"/>
+  <text class="small" x="921" y="88" text-anchor="middle">Operator</text>
+  <text class="title" x="862" y="123">Operate in HMI</text>
+  <text class="body" x="862" y="150">Check status, alarms, handover.</text>
+
+  <rect class="panel" x="840" y="285" width="320" height="135" rx="12"/>
+  <rect class="badge5" x="862" y="308" width="124" height="28" rx="14"/>
+  <text class="small" x="924" y="328" text-anchor="middle">Automation</text>
+  <text class="title" x="862" y="363">CLI / Agent API</text>
+  <text class="body" x="862" y="390">Script build, validate, repair.</text>
+
+  <rect class="panel" x="420" y="500" width="360" height="105" rx="12"/>
+  <rect class="badge2" x="442" y="523" width="86" height="28" rx="14"/>
+  <text class="small" x="485" y="543" text-anchor="middle">Model</text>
+  <text class="title" x="442" y="578">One Project, Every Surface</text>
+</svg>

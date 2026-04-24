@@ -3,13 +3,16 @@
 Status: Draft
 
 Primary target:
+
 - Under 5 minutes from first `trust-runtime run` to a curated, operator-ready HMI.
 
 This specification defines both:
+
 1. Operator UX contract
 2. Deterministic generation contract (code -> scaffold -> curation)
 
 Related:
+
 - `docs/internal/hmi_specification.md`
 - `docs/guides/HMI_DIRECTORY_WORKFLOW.md`
 - `docs/guides/HMI_OPERATOR_FIRST_IMPLEMENTATION_CHECKLIST.md`
@@ -17,6 +20,7 @@ Related:
 ## 1. Product Promise
 
 The first-run experience must be zero-config and impressive:
+
 1. Developer has only PLC code.
 2. Runtime scaffolds required HMI pages automatically (or prompts a single command if auto-scaffold is disabled).
 3. Terminal prints a clear ready line with URL and page count.
@@ -24,11 +28,13 @@ The first-run experience must be zero-config and impressive:
 5. Engineer can curate visually in-browser without editing TOML manually.
 
 Required startup output example:
+
 - `HMI ready: http://127.0.0.1:18082/hmi (5 pages scaffolded, edit mode available)`
 
 ## 2. Page Set and Purpose
 
 Required top-level pages:
+
 1. `Overview` - single-glance health and core KPIs
 2. `Process` - topology/P&ID context with live state
 3. `Control` - commands and setpoint writes
@@ -36,10 +42,12 @@ Required top-level pages:
 5. `Alarms` - triage, priority, acknowledgement
 
 Optional pages:
+
 - `Settings` (role-gated)
 - domain pages (`quality`, `energy`, `maintenance`)
 
 Bypass default behavior:
+
 - Represented as mode/state in `Process` + `Control`.
 - Separate `Bypass` page only when explicitly configured.
 
@@ -65,13 +73,16 @@ If `hmi/` exists but is incomplete, runtime must run `update` semantics, not sil
 ## 4. Input Scope for Generation
 
 Default eligible points:
+
 - `VAR_INPUT`, `VAR_OUTPUT`, `VAR_IN_OUT`, `VAR_GLOBAL`, `VAR_EXTERNAL`
 - properties with get/set semantics
 
 Default excluded points:
+
 - internal `VAR`, `VAR_TEMP`, `VAR_STAT`, constants
 
 Fallback for projects with only locals (no explicit external interface):
+
 - Allow scaffold with inferred visibility from discovered runtime points.
 - Mark these points as `inferred_interface = true` in scaffold metadata for user review.
 
@@ -103,10 +114,12 @@ Two modes:
   - Fall back to simplified canonical glyphs when symbol mapping is unknown.
 
 Minimum output quality:
+
 - A non-empty topology with at least one main flow path and anchored live values.
 - Never a raw unordered card grid on Process page.
 
 Promotion path:
+
 - Dropping user SVG + bindings upgrades page from `auto-schematic` to `custom-svg` with preserved signal mappings where possible.
 
 ### 5.2.1 Grid and Anchor Contract (mandatory for auto-schematic)
@@ -114,6 +127,7 @@ Promotion path:
 Auto-schematic Process pages must be generated from a deterministic grid contract, not free-pixel placement.
 
 Required placement rules:
+
 1. A single global process grid is declared in generated SVG metadata (`origin`, `cell_w`, `cell_h`).
 2. Equipment/symbol anchor points must land on integer grid cells only.
 3. Main process pipes must route through connector anchors only; no floating gaps or partial overlaps.
@@ -130,6 +144,7 @@ Required placement rules:
    - Percent-to-visual fill mapping must update both `y` and `height` so displayed percent and fill height remain consistent.
 
 Validation requirements:
+
 - Generated SVG includes hidden guide layer for debug/inspection.
 - Scaffold validation fails if anchor/grid rules are violated.
 - Snapshot tests assert deterministic coordinates for core instrument templates (`FIT`, `PT`, `pump`, `valve`, `tank`).
@@ -165,6 +180,7 @@ Validation requirements:
 ## 6. Deterministic Scoring and Slot Allocation
 
 Scoring weights (Overview):
+
 - safety/alarm state: `100`
 - command/mode state: `80`
 - KPI PV/SP: `60`
@@ -173,6 +189,7 @@ Scoring weights (Overview):
 - counters/diagnostics: `20`
 
 Slot caps (default budget 10):
+
 - safety/alarm: max 2
 - command/mode: max 2
 - KPI+SP/deviation groups: max 4
@@ -180,6 +197,7 @@ Slot caps (default budget 10):
 - diagnostics/fillers: max 2
 
 Tie-breakers (in order):
+
 1. explicit priority metadata
 2. declaration order
 3. stable lexical path order
@@ -187,6 +205,7 @@ Tie-breakers (in order):
 Overflow signals go to non-Overview pages.
 
 Trends selection weights:
+
 - start from Overview KPI set
 - add temporal-interest bonus from observed variance/change rate
 - cap static/rarely-changing config values
@@ -196,6 +215,7 @@ Trends selection weights:
 Auto-layout must use `widget_span` and structural rails, not flat equal cards.
 
 Overview structure:
+
 1. top status rail (connection/mode/alarm summary)
 2. prominent safety card/banner
 3. primary KPI cards
@@ -203,6 +223,7 @@ Overview structure:
 5. compact state indicators
 
 Default 12-column spans:
+
 - banner: 12
 - primary KPI: 3-4
 - PV/SP/deviation cluster: 4-6
@@ -248,15 +269,18 @@ The browser HMI must support engineering-role layout curation without manual TOM
 ## 9. Cross-Page Navigation and Drill-Down
 
 Required drill-downs:
+
 - Alarm row -> Process page focus/highlight
 - Overview KPI -> Trends page focused signal
 - Setpoint value click -> Control page target card
 
 Priority tiers:
+
 - P0: Alarm -> Process, KPI -> Trends
 - P1: Setpoint -> Control, context-preserving back navigation
 
 Deep-link examples:
+
 - `/hmi?page=process&focus=<id>`
 - `/hmi?page=trends&signal=<id>`
 - `/hmi?page=control&target=<id>`
@@ -264,29 +288,35 @@ Deep-link examples:
 ## 10. Operator vs Engineering Mode UX
 
 Operator mode default:
+
 - hide internal paths and raw types
 
 Engineering mode:
+
 - show path/type/quality/binding health
 - optional diagnostics overlay
 
 Mode switching:
+
 - topbar toggle button
 - keyboard shortcut (`g`)
 - optional URL param (`?mode=engineering`)
 
 Persistence:
+
 - per browser session/profile (localStorage default)
 
 ## 11. Settings Scope and Phase Split
 
 Phase 0 (within 5-minute target):
+
 - overview size preset
 - pin/unpin/move/hide
 - density
 - operator/engineering mode
 
 Phase 2 (extended admin):
+
 - shared-default publishing
 - role policy editing
 - advanced theme profile management
@@ -294,6 +324,7 @@ Phase 2 (extended admin):
 ## 12. Motion, Staleness, and Feedback Standards
 
 Default timing budgets:
+
 - value transition: 300ms ease-out
 - page transition: 200ms
 - value-update highlight: 1s fade
@@ -305,46 +336,54 @@ Per-widget quality state is mandatory (`good|stale|bad`), not global-only.
 ## 13. Transport and Live Data Contract
 
 Live transport:
+
 - WebSocket primary
 - Polling fallback when WebSocket unavailable
 - Automatic reconnect with exponential backoff
 
 Performance targets:
+
 - value update latency p95: < 100ms (local)
 - schema/live refresh after descriptor edit: < 500ms target
 
 ## 14. Developer Feedback Loop
 
 Must provide:
+
 1. runtime/schema hot refresh for descriptor edits
 2. clear malformed descriptor errors in browser and editor
 3. VS Code inline preview as first-class workflow
 4. binding diagnostics visible in both LSP diagnostics and engineering overlay
 
 Error UX requirement:
+
 - malformed TOML or invalid binds must surface actionable messages (file + field + reason), not silent failure.
 
 ## 15. Responsive and Kiosk Modes
 
 Minimum support:
+
 - tablet-usable layout at ~768px width
 - kiosk mode for wall displays (reduced chrome, persistent critical context)
 
 ## 16. Standalone Export
 
 HMI must support standalone/exported bundle generation and validation:
+
 - export includes schema, assets, and bootstrap route metadata
 - useful for demos, review, and offline inspection
 
 ## 17. Theme and Visual Identity
 
 Theme semantics are fixed:
+
 - green = normal
 - amber = warning/degraded/stale
 - red = critical alarm/fault
 - neutral grays = structure/inactive
 
 Design direction requirement:
+
 - modern, clean, minimal, professional visual identity
 - polished light default plus polished dark mode
 - dark mode must be designed, not naive inversion
@@ -354,17 +393,20 @@ Design direction requirement:
 Descriptor contract must be versioned.
 
 Requirements:
+
 - include descriptor version marker in config
 - forward-compatible read behavior where possible
 - migration tooling for scaffold format updates
 
 Re-scaffold behavior:
+
 - user edits preserved by default (`update` mode)
 - explicit `reset` required for destructive regeneration
 
 ## 19. Acceptance Criteria (5-Minute Success)
 
 A project with only PLC code passes when:
+
 1. Scaffold generation: < 2s target on local project
 2. Runtime startup to "HMI ready" output: < 5s target
 3. Browser first load on localhost: < 2s target

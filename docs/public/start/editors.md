@@ -70,7 +70,7 @@ Reference files in the repo:
 
 The Neovim/Zed setup guide is rendered below:
 
---8<-- "docs/guides/EDITOR_SETUP_NEOVIM_ZED.md"
+--8<-- "docs/guides/EDITOR_SETUP_NEOVIM_ZED.md:3"
 
 ## Browser IDE
 
@@ -91,7 +91,7 @@ Use it for:
 
 Detailed guide:
 
---8<-- "docs/guides/WEB_IDE_FULL_BROWSER_GUIDE.md"
+--8<-- "docs/guides/WEB_IDE_FULL_BROWSER_GUIDE.md:3"
 
 ## Browser HMI
 

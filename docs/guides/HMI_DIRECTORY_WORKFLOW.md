@@ -11,6 +11,7 @@ trust-runtime hmi init --root <project-root>
 ```
 
 VS Code command alternative:
+
 - `Structured Text: Initialize HMI Descriptor`
 
 Expected output directory shape:
@@ -49,6 +50,7 @@ allowlist = [
 ```
 
 Write guardrails remain strict:
+
 - writes are disabled unless explicitly enabled
 - target paths must be allowlisted
 - runtime authz still applies per request
@@ -81,11 +83,13 @@ map = { "true" = "running", "false" = "stopped" }
 ### `plant.svg` and `plant-minimal.svg` templates
 
 The repository includes production-ready templates:
+
 - `hmi/plant.svg`
 - `hmi/plant-minimal.svg`
 - `hmi/plant.bindings.example.toml`
 
 Typical usage:
+
 1. Start from `hmi/plant-minimal.svg` for compact dashboards or low-density screens.
 2. Start from `hmi/plant.svg` for a richer process board with more symbol anchors.
 3. Copy selector IDs into `[[bind]]` entries in your page TOML.
@@ -138,6 +142,7 @@ cd editors/vscode && ST_LSP_TEST_SERVER=<path>/trust-lsp npm test
 ```
 
 Open preview:
+
 - `Structured Text: Open HMI Preview`
 
 Live descriptor refresh is supported for `hmi/*.toml` and `hmi/*.svg` updates.

@@ -1,5 +1,9 @@
 # Visual Editors
 
+Ladder, SFC, Blockly, Statechart, and ST stay in one project, one build path,
+and open artifacts. Pick the visual shape that matches the logic, then validate
+the generated or companion behavior through the same truST runtime/debug loop.
+
 ## Pick the right editor
 
 | Editor | Best for | What it feels like | Good first file |
@@ -15,6 +19,8 @@
 - saving the visual source updates the companion ST path
 - build, validate, runtime, reload, and debug still go through truST
 - the visual editor is an authoring surface, not a second execution engine
+- AI can read and edit the underlying files, but dedicated visual-editor AI
+  tooling is not a separate surface yet
 
 ## Recommended reading order
 

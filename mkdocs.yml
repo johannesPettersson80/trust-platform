@@ -1,11 +1,13 @@
 site_name: truST Documentation
-site_description: Free, open-source IEC 61131-3 Structured Text IDE and runtime. VS Code extension, browser HMI, JSON-RPC API. Runs on Linux, macOS, Windows, and Raspberry Pi.
+site_description: Free, open-source IEC 61131-3 Structured Text IDE and runtime. VS Code extension, browser HMI, JSON-RPC API. Runs on Linux, including PREEMPT_RT soft-real-time deployments, macOS, Windows, and Raspberry Pi.
 site_url: https://johannespettersson80.github.io/trust-platform/
 repo_url: https://github.com/johannesPettersson80/trust-platform
 repo_name: johannesPettersson80/trust-platform
 edit_uri: edit/main/docs/public/
 docs_dir: docs/public
 site_dir: site/public
+not_in_nav: |
+  develop/interoperability/*.md
 copyright: "© 2026 Johannes Pettersson — MIT/Apache-2.0 — johannes_salomon@hotmail.com"
 theme:
   name: material
@@ -40,7 +42,9 @@ markdown_extensions:
 plugins:
   - search:
       separator: '[\s\-\.]+'
-  - mermaid2
+  - mermaid2:
+      version: "9.4.3"
+      javascript: assets/vendor/mermaid.min.js
 extra:
   social_image: assets/images/brand/trust-og.png
 nav:
@@ -48,8 +52,9 @@ nav:
   - Start:
       - Overview: start/index.md
       - Installation: start/installation.md
-      - Install From Source: start/install-from-source.md
       - Choose Your Workflow: start/choose-your-workflow.md
+      - Learning Paths: examples/learning-paths.md
+      - Install From Source: start/install-from-source.md
       - Program In VS Code: start/program-in-vscode.md
       - Program In Browser IDE: start/program-in-browser.md
       - Operate In Browser HMI: start/operate-in-browser.md
@@ -59,10 +64,19 @@ nav:
       - Create A New Project: start/create-new-project.md
       - Editors: start/editors.md
       - Agent Quickstart: start/agent-quickstart.md
+  - Migrate:
+      - Overview: migrate/index.md
+      - PLCopen: migrate/plcopen.md
+      - OpenPLC: migrate/openplc.md
+      - CODESYS And TwinCAT: migrate/codesys-twincat.md
+      - Siemens: migrate/siemens.md
+      - Mitsubishi: migrate/mitsubishi.md
+      - Vendor Libraries: migrate/vendor-libraries.md
   - Develop:
       - Overview: develop/index.md
       - Project Layout: develop/project-layout.md
       - Vendor Profiles: develop/vendor-profiles.md
+      - AI Assistance: develop/ai-assistance.md
       - HMI Authoring: develop/hmi-authoring.md
       - Package Registry: develop/package-registry.md
       - Generate Project Docs: develop/generate-project-docs.md
@@ -79,14 +93,9 @@ nav:
           - PLCopen Motion: develop/libraries/plcopen-motion.md
       - Interoperability:
           - Overview: develop/interoperability/index.md
-          - PLCopen: develop/interoperability/plcopen.md
-          - OpenPLC: develop/interoperability/openplc.md
-          - CODESYS and TwinCAT: develop/interoperability/codesys-twincat.md
-          - Siemens: develop/interoperability/siemens.md
-          - Mitsubishi: develop/interoperability/mitsubishi.md
-          - Vendor Libraries: develop/interoperability/vendor-libraries.md
   - Connect:
       - Overview: connect/index.md
+      - truST Mesh: concepts/trust-mesh.md
       - Protocol Matrix: connect/protocol-matrix.md
       - Networking And Remote Access: connect/networking-and-remote-access.md
       - Runtime To Runtime:
@@ -116,33 +125,38 @@ nav:
           - Simulated And Loopback: connect/devices-and-fieldbus/simulated-and-loopback.md
   - Operate:
       - Overview: operate/index.md
-      - Install On Target: operate/install-on-target.md
-      - Offline Install: operate/offline-install.md
-      - Runtime Lifecycle: operate/lifecycle.md
-      - Supervision: operate/supervision.md
-      - Backup And Restore: operate/backup-and-restore.md
-      - Upgrade: operate/upgrade.md
-      - Build, Validate, Test: operate/build-validate-test.md
-      - Compile, Validate, Reload: operate/compile-validate-reload.md
-      - Debugging And Runtime Panel: operate/debugging-and-runtime-panel.md
-      - Runtime UI And Control: operate/runtime-ui-and-control.md
-      - HMI And Web UI: operate/hmi-and-web-ui.md
-      - Secrets: operate/secrets.md
-      - Audit Log: operate/audit-log.md
-      - Simulation: operate/simulation.md
-      - Safety And Commissioning: operate/safety-and-commissioning.md
-      - Observability: operate/observability.md
-      - Performance Tuning: operate/performance-tuning.md
-      - Operator Guide: operate/operator-guide.md
-      - Operator Daily Checks: operate/operator-daily-checks.md
-      - Operator Alarm Handbook: operate/operator-alarm-handbook.md
-      - Operator Shift Handover: operate/operator-shift-handover.md
-      - Technician I/O Diagnosis: operate/technician-io-diagnosis.md
-      - Field Fault Procedures: operate/field-fault-procedures.md
-      - CI/CD: operate/ci-cd.md
-      - Deploy And Rollback: operate/deploy-rollback.md
-      - Runtime Cloud: operate/runtime-cloud.md
-      - Fleet Rollout And Templating: operate/fleet-rollout-and-templating.md
+      - Engineering Run Loop:
+          - Build, Validate, Test: operate/build-validate-test.md
+          - Compile, Validate, Reload: operate/compile-validate-reload.md
+          - Debugging And Runtime Panel: operate/debugging-and-runtime-panel.md
+          - Runtime UI And Control: operate/runtime-ui-and-control.md
+          - Simulation: operate/simulation.md
+      - Target Administration:
+          - Install On Target: operate/install-on-target.md
+          - Offline Install: operate/offline-install.md
+          - Runtime Lifecycle: operate/lifecycle.md
+          - Supervision: operate/supervision.md
+          - PREEMPT_RT: operate/preempt-rt.md
+          - Backup And Restore: operate/backup-and-restore.md
+          - Upgrade: operate/upgrade.md
+          - Secrets: operate/secrets.md
+          - Audit Log: operate/audit-log.md
+          - Observability: operate/observability.md
+          - Performance Tuning: operate/performance-tuning.md
+      - Operator And Technician:
+          - HMI And Web UI: operate/hmi-and-web-ui.md
+          - Operator Guide: operate/operator-guide.md
+          - Operator Daily Checks: operate/operator-daily-checks.md
+          - Operator Alarm Handbook: operate/operator-alarm-handbook.md
+          - Operator Shift Handover: operate/operator-shift-handover.md
+          - Technician I/O Diagnosis: operate/technician-io-diagnosis.md
+          - Field Fault Procedures: operate/field-fault-procedures.md
+          - Safety And Commissioning: operate/safety-and-commissioning.md
+      - Fleet And Delivery:
+          - CI/CD: operate/ci-cd.md
+          - Deploy And Rollback: operate/deploy-rollback.md
+          - Runtime Cloud: operate/runtime-cloud.md
+          - Fleet Rollout And Templating: operate/fleet-rollout-and-templating.md
   - Reference:
       - Overview: reference/index.md
       - CLI:
@@ -193,9 +207,11 @@ nav:
           - 19 Project Model: reference/specifications/19-project-model.md
           - 20 Agent API v1: reference/specifications/20-agent-api-v1.md
           - 21 Harness Protocol: reference/specifications/21-harness-protocol.md
-          - SFC Profile: reference/specifications/14-sfc-profile.md
+          - SFC Profile: reference/specifications/sfc-profile.md
   - Concepts:
       - Overview: concepts/index.md
+      - One Project, Every Surface: concepts/one-project.md
+      - truST Mesh: concepts/trust-mesh.md
       - Architecture: concepts/architecture.md
       - Project Model: concepts/project-model.md
       - Scan Cycle: concepts/scan-cycle.md
@@ -216,9 +232,11 @@ nav:
       - Libraries And Motion: examples/libraries-and-motion.md
       - Capstones: examples/capstones.md
       - Runbooks: examples/runbooks.md
-  - Troubleshooting: troubleshooting.md
-  - Changelog: changelog.md
-  - About: about.md
-  - FAQ: faq.md
-  - Contribute: contribute.md
-  - Maintaining Docs: MAINTAINING.md
+  - Project:
+      - Troubleshooting: troubleshooting.md
+      - Changelog: changelog.md
+      - About: about.md
+      - FAQ: faq.md
+      - Contributors:
+          - Contribute: contribute.md
+          - Maintaining Docs: MAINTAINING.md

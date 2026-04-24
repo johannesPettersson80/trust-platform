@@ -1,6 +1,18 @@
 # Examples
 
-Runnable example projects grouped by goal.
+Runnable example projects grouped by goal. Start with the smallest project that
+matches your question, then move to capstones when you want a multi-surface
+walkthrough.
+
+## Start Here If New
+
+1. [Tutorials](tutorials.md): learn the basic edit, test, deploy, simulation,
+   HMI, and CI/CD loop.
+2. [Test And Debug](test-and-debug.md): prove a runtime value or debugger path
+   with a small project.
+3. [HMI](hmi.md): add a live browser surface once the logic is running.
+
+## Pick By Goal
 
 | Category | Start Here | What It Teaches | Est. Time |
 | --- | --- | --- | --- |
@@ -15,4 +27,8 @@ Runnable example projects grouped by goal.
 | Capstones | [Capstones](capstones.md) | larger multi-file or hardware-leaning projects | 25-55 min |
 | Runbooks | [Runbooks](runbooks.md) | site-specific operator and technician templates | 10-20 min |
 
-See also: [Learning Paths](learning-paths.md).
+## Learning Paths
+
+Use [Learning Paths](learning-paths.md) when you know the outcome you want but
+not the example category: first project, HMI, connectivity, migration,
+CI/automation, or visual-editor work.

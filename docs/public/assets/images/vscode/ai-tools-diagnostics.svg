@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="680" viewBox="0 0 1200 680" role="img" aria-labelledby="title desc">
+  <title id="title">VS Code AI tools diagnostics flow</title>
+  <desc id="desc">A VS Code-style AI chat panel invokes trust_get_diagnostics, reads a Structured Text file, and proposes a validated edit.</desc>
+  <defs>
+    <style>
+      .window { fill: #0f172a; }
+      .sidebar { fill: #1e293b; }
+      .editor { fill: #111827; stroke: #334155; stroke-width: 1.5; }
+      .chat { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 1.5; }
+      .tool { fill: #dcfce7; stroke: #16a34a; stroke-width: 1.5; }
+      .warn { fill: #fef3c7; stroke: #d97706; stroke-width: 1.5; }
+      .text { fill: #e5e7eb; font: 16px ui-monospace, monospace; }
+      .muted { fill: #94a3b8; font: 14px system-ui, sans-serif; }
+      .darkTitle { fill: #ffffff; font: 700 20px system-ui, sans-serif; }
+      .chatTitle { fill: #0f172a; font: 700 22px system-ui, sans-serif; }
+      .chatText { fill: #334155; font: 17px system-ui, sans-serif; }
+      .toolText { fill: #166534; font: 700 15px system-ui, sans-serif; }
+    </style>
+  </defs>
+  <rect class="window" x="24" y="24" width="1152" height="632" rx="18"/>
+  <rect class="sidebar" x="24" y="24" width="210" height="632" rx="18"/>
+  <text class="darkTitle" x="60" y="70">truST workspace</text>
+  <text class="muted" x="60" y="120">src/main.st</text>
+  <text class="muted" x="60" y="152">src/config.st</text>
+  <text class="muted" x="60" y="184">hmi/pages.toml</text>
+  <text class="muted" x="60" y="216">runtime.toml</text>
+
+  <rect class="editor" x="260" y="60" width="470" height="560" rx="10"/>
+  <text class="darkTitle" x="290" y="102">main.st</text>
+  <text class="text" x="290" y="150">PROGRAM Main</text>
+  <text class="text" x="290" y="185">VAR</text>
+  <text class="text" x="320" y="220">PumpRuning : BOOL;</text>
+  <text class="text" x="290" y="255">END_VAR</text>
+  <text class="text" x="290" y="315">PumpRunning := StartCmd;</text>
+  <rect class="warn" x="290" y="340" width="395" height="58" rx="8"/>
+  <text class="chatText" x="312" y="374">diagnostic: unknown symbol PumpRunning</text>
+
+  <rect class="chat" x="760" y="60" width="380" height="560" rx="12"/>
+  <text class="chatTitle" x="790" y="105">AI Assistance</text>
+  <text class="chatText" x="790" y="150">Read diagnostics before editing.</text>
+  <rect class="tool" x="790" y="180" width="310" height="45" rx="8"/>
+  <text class="toolText" x="812" y="208">trust_get_diagnostics</text>
+  <rect class="tool" x="790" y="245" width="310" height="45" rx="8"/>
+  <text class="toolText" x="812" y="273">trust_get_definition</text>
+  <rect class="tool" x="790" y="310" width="310" height="45" rx="8"/>
+  <text class="toolText" x="812" y="338">trust_apply_edits</text>
+  <text class="chatText" x="790" y="405">Proposal:</text>
+  <text class="chatText" x="790" y="438">Rename PumpRuning to</text>
+  <text class="chatText" x="790" y="468">PumpRunning, then rerun</text>
+  <text class="chatText" x="790" y="498">diagnostics and validate.</text>
+  <text class="muted" x="790" y="565">Typed tools keep the edit auditable.</text>
+</svg>

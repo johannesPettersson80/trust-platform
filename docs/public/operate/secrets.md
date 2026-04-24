@@ -14,6 +14,12 @@
 - rotate tokens and certificates with an explicit procedure
 - record the location and owner of each secret in the site runbook
 
+## Verification
+
+For each deployment, a second person should be able to answer where each secret
+lives, who owns rotation, and which service will fail if the secret expires. If
+that audit trail is missing, treat the deployment as incomplete.
+
 ## Related
 
 - [Networking And Remote Access](../connect/networking-and-remote-access.md)

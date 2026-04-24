@@ -8,4 +8,4 @@ rules, or execution-control parameter details.
 
 Related: [Variables](03-variables.md), [Statements](06-statements.md)
 
---8<-- "docs/specs/04-pou-declarations.md"
+--8<-- "docs/specs/04-pou-declarations.md:3"

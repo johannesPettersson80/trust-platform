@@ -18,6 +18,17 @@ EXAMPLE_CODE_PATH_RE = re.compile(r"`(examples/[^`]+)`")
 EXAMPLE_SNIPPET_RE = re.compile(r'--8<--\s+"(examples/[^"]+)"')
 
 
+def snippet_file_target(target: str) -> str:
+    """Return the file part of a PyMdown snippet target.
+
+    Snippets can select line ranges or named sections with a suffix such as
+    `README.md:3` or `README.md:intro`. The catalog audit only needs to prove
+    that the referenced example file exists.
+    """
+
+    return target.split(":", 1)[0]
+
+
 def parse_audit_rows() -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
     in_table = False
@@ -84,7 +95,7 @@ def main() -> int:
         ]
         repo_links.extend(code_path_links)
         snippet_links = [
-            REPO_ROOT / match
+            REPO_ROOT / snippet_file_target(match)
             for match in EXAMPLE_SNIPPET_RE.findall(page.read_text(encoding="utf-8"))
         ]
         repo_links.extend(snippet_links)

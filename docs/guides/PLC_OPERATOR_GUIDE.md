@@ -36,6 +36,7 @@ trust-runtime ctl --project <project-folder> status
 ```
 
 You should see:
+
 - state: `running`
 - PLC name
 - cycle timing
@@ -58,10 +59,12 @@ http://<device-ip>:8080
 ```
 
 In the Web UI:
+
 - **I/O → Inputs/Outputs** shows live values.
 - **I/O → I/O configuration** lets you set driver, mappings, and safe state.
 
 In the hybrid console:
+
 - Type `/io`
 - Choose **Read value** to inspect I/O
 - Choose **Set value / Force value** to change outputs (debug only)
@@ -69,6 +72,7 @@ In the hybrid console:
 ## What Happens on a Fault
 
 If a fault occurs, the runtime:
+
 - stops the program
 - forces outputs to their configured **safe state**
 - logs a fault event
@@ -79,6 +83,7 @@ trust-runtime ctl --project <project-folder> restart --mode cold
 ```
 
 In the Web UI:
+
 - **Logs → Faults** shows active faults with suggested fixes.
 - Acknowledge once you’ve verified the fix.
 
@@ -94,6 +99,7 @@ No inputs mapped yet.
 Cause: missing `io.toml` or incorrect driver configuration.
 
 Fix:
+
 1. Check that `io.toml` exists in your project folder.
 2. If using system I/O, verify `/etc/trust/io.toml` exists.
 3. Re-run system I/O setup (if needed): `trust-runtime setup`.
@@ -109,6 +115,7 @@ No tasks configured yet.
 Cause: missing `config.st` with a task declaration.
 
 Fix:
+
 1. Ensure `src/config.st` exists.
 2. Rebuild: `trust-runtime build --project <project-folder>`.
 
@@ -122,6 +129,7 @@ auth required
 Cause: control endpoint uses token auth.
 
 Fix:
+
 1. In the Web UI, open **Network → Access PLC** to generate/claim a code.
 2. Or in the console: `/access start` then `/access claim <code>`.
 3. Or provide token: `trust-runtime ui --token <token>`.
@@ -134,6 +142,7 @@ Error: connect failed
 ```
 
 Fix:
+
 1. Confirm the PLC is running.
 2. Verify the project folder is correct.
 3. Check firewall rules if using TCP control.
@@ -146,6 +155,7 @@ invalid I/O driver 'spi'. Expected: loopback, gpio, simulated, modbus-tcp, mqtt,
 ```
 
 Fix:
+
 1. Re-run the wizard: `trust-runtime wizard`.
 2. Choose one supported driver: `loopback`, `simulated`, `gpio`, `modbus-tcp`, `mqtt`, or `ethercat`.
 
@@ -157,6 +167,7 @@ Error: invalid config 'failed to create /etc/trust: Permission denied'
 ```
 
 Tip:
+
 1. Run: `sudo trust-runtime setup --force`
 2. Or skip system I/O and use project I/O (`io.toml` in your project folder).
 
@@ -191,6 +202,7 @@ Deployment summary:
 ## Watch Variables (Debug mode)
 
 If debug mode is enabled in `runtime.toml`, you can:
+
 - Add variables in **Program → Variable watch**
 - See live values and force values for testing
 

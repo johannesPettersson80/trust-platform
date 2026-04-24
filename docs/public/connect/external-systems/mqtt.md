@@ -15,9 +15,12 @@
 - what reconnect/keep-alive policy is acceptable?
 - what TLS/auth requirements apply in this network?
 
+Success means the broker boundary, topic directions, reconnect policy, and
+TLS/auth requirements are explicit before messages are trusted as plant state.
+
 ## Example and commissioning guide
 
---8<-- "examples/communication/mqtt/README.md"
+--8<-- "examples/communication/mqtt/README.md:3"
 
 ## Common MQTT gotchas
 

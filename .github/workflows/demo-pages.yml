@@ -60,6 +60,7 @@ jobs:
           enablement: true
       - name: Check docs links
         run: |
+          python scripts/check_public_docs_ia.py
           python scripts/check_public_docs_links.py
           python scripts/check_example_catalog_links.py
       - name: Build docs site

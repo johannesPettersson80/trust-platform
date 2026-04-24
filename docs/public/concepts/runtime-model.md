@@ -3,6 +3,13 @@
 The runtime model covers build artifacts, execution, process image, control
 endpoint behavior, hot reload, and web/runtime-cloud surfaces.
 
+!!! note "Terms"
+    `program.stbc` = compiled bytecode artifact loaded by `trust-runtime`.
+    "Control endpoint" = the local or configured API used for status, reload,
+    and runtime control.
+    "Hot reload" = guarded bytecode replacement after diagnostics/build checks.
+    `HMI` = runtime-hosted browser operator surface.
+
 ## Build Artifact
 
 The executable runtime bundle centers on `program.stbc`, which is produced by:

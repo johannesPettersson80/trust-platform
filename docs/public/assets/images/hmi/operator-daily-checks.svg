@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="680" viewBox="0 0 1200 680" role="img" aria-labelledby="title desc">
+  <title id="title">Operator daily checks HMI overview</title>
+  <desc id="desc">A browser HMI daily check view with connection, freshness, alarms, live values, and shift record checks.</desc>
+  <defs>
+    <style>
+      .frame { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 2; }
+      .top { fill: #0f172a; }
+      .nav { fill: #e2e8f0; }
+      .card { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.5; }
+      .ok { fill: #dcfce7; stroke: #16a34a; }
+      .warn { fill: #fef3c7; stroke: #d97706; }
+      .title { fill: #0f172a; font: 700 28px system-ui, sans-serif; }
+      .body { fill: #334155; font: 18px system-ui, sans-serif; }
+      .small { fill: #64748b; font: 15px system-ui, sans-serif; }
+      .white { fill: #ffffff; font: 700 18px system-ui, sans-serif; }
+    </style>
+  </defs>
+  <rect class="frame" x="24" y="24" width="1152" height="632" rx="18"/>
+  <rect class="top" x="24" y="24" width="1152" height="64" rx="18"/>
+  <text class="white" x="58" y="64">truST HMI - Daily Checks</text>
+  <rect class="nav" x="24" y="88" width="185" height="568"/>
+  <text class="body" x="54" y="140">Overview</text>
+  <text class="body" x="54" y="182">Process</text>
+  <text class="body" x="54" y="224">Trends</text>
+  <text class="body" x="54" y="266">Alarms</text>
+  <text class="body" x="54" y="308">Runbook</text>
+
+  <text class="title" x="250" y="145">Start-of-shift status</text>
+  <rect class="card ok" x="250" y="180" width="250" height="110" rx="12"/>
+  <text class="title" x="280" y="225">Connected</text>
+  <text class="body" x="280" y="258">runtime healthy</text>
+  <rect class="card ok" x="530" y="180" width="250" height="110" rx="12"/>
+  <text class="title" x="560" y="225">Freshness</text>
+  <text class="body" x="560" y="258">42 ms</text>
+  <rect class="card warn" x="810" y="180" width="250" height="110" rx="12"/>
+  <text class="title" x="840" y="225">Alarms</text>
+  <text class="body" x="840" y="258">review page</text>
+
+  <rect class="card" x="250" y="330" width="390" height="220" rx="12"/>
+  <text class="title" x="280" y="375">Live values</text>
+  <text class="body" x="280" y="420">PumpRunning: TRUE</text>
+  <text class="body" x="280" y="455">Pressure: 4.2 bar</text>
+  <text class="body" x="280" y="490">BypassOpen: FALSE</text>
+  <rect class="card" x="680" y="330" width="380" height="220" rx="12"/>
+  <text class="title" x="710" y="375">Record before handover</text>
+  <text class="body" x="710" y="420">1. unexpected alarms</text>
+  <text class="body" x="710" y="455">2. stale values</text>
+  <text class="body" x="710" y="490">3. manual changes</text>
+  <text class="small" x="250" y="604">Use this view for healthy-state checks before opening procedure-specific pages.</text>
+</svg>

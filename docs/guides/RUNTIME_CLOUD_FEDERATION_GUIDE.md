@@ -3,6 +3,7 @@
 Goal: enable cross-site runtime cloud control safely with explicit allowlists and auditable outcomes.
 
 Important:
+
 - The TOML blocks in this document are policy overlays, not complete `runtime.toml` files.
 - Start from a generated baseline (`trust-runtime wizard --path <project>`), then merge these sections.
 - For complete runnable examples, use `examples/runtime_cloud/runtime-*.toml`.
@@ -55,6 +56,7 @@ curl -s http://127.0.0.1:18081/api/runtime-cloud/actions/preflight \
 ```
 
 Expected:
+
 - `allowed: false`
 - `denial_code: "permission_denied"`
 - reason references cross-site write + explicit allowlist requirement
@@ -78,6 +80,7 @@ curl -s http://127.0.0.1:18081/api/runtime-cloud/actions/preflight \
 ```
 
 Expected:
+
 - `allowed: true`
 - no `denial_code`
 
@@ -86,6 +89,7 @@ Expected:
 After preflight success, dispatch to `/api/runtime-cloud/actions/dispatch`.
 
 Required checks:
+
 - top-level `request_id` matches caller-generated ID
 - each target result contains `audit_id`
 - audit stream contains corresponding event with same request correlation
@@ -106,6 +110,7 @@ Required checks:
 ## 9) Evidence Requirements
 
 For each federation policy change:
+
 - capture preflight deny/allow output
 - capture dispatch output with `request_id` and `audit_id`
 - archive logs under your gate artifact path

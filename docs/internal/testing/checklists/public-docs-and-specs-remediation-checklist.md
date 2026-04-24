@@ -45,7 +45,7 @@ spec integrity, and docs-capture CI stability.
 
 - [x] Create missing specs: `18-configurations-resources-tasks.md`,
       `19-project-model.md`, `20-agent-api-v1.md`, `21-harness-protocol.md`,
-      and `14-sfc-profile.md` or an explicit retirement decision.
+      and `sfc-profile.md` or an explicit retirement decision.
 - [x] Expand or retire specification stubs under
       `docs/public/reference/specifications/01...13`.
 - [x] Populate or delete `operate/operator-alarm-handbook.md`.
@@ -171,7 +171,7 @@ spec integrity, and docs-capture CI stability.
 - [x] `19-project-model.md`
 - [x] `20-agent-api-v1.md`
 - [x] `21-harness-protocol.md`
-- [x] `14-sfc-profile.md` or explicit SFC retirement/limitation decision.
+- [x] `sfc-profile.md` or explicit SFC retirement/limitation decision.
 - [x] Rewrite `docs/specs/README.md` as a top-level ownership index.
 
 ## 5. Public Docs Global Prose Sweep

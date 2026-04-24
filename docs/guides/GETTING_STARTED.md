@@ -7,6 +7,7 @@ This guide walks you from installation to a running PLC, then shows how to confi
 Follow the install guide: `docs/deploy/INSTALL.md`.
 
 Expected outcome:
+
 - `trust-runtime` is on your PATH, or you can run `/path/to/trust-runtime`.
 
 ## 2) Start the PLC (first‑run setup)
@@ -18,6 +19,7 @@ trust-runtime
 ```
 
 Expected outcome:
+
 - If no project exists, the setup wizard starts and asks for your project folder.
 - After setup, the CLI prints a Web UI URL (for example `http://localhost:8080`).
 
@@ -44,6 +46,7 @@ Open the URL printed by the CLI. You should see the Overview page.
 ![Runtime overview](../internal/assets/ui-overview.png)
 
 Expected outcome:
+
 - State shows **running**.
 - Uptime increments.
 - Tasks and I/O panels show data (or empty states).
@@ -55,6 +58,7 @@ http://<device-ip>:8080/hmi
 ```
 
 Expected outcome:
+
 - Connection state shows **Connected** (or **Stale** while waiting for first cycle).
 - Freshness updates every poll.
 - Auto-discovered widgets render for program/global variables.
@@ -66,11 +70,13 @@ Use the Setup button in the top bar or the “Finish setup” banner.
 ![Setup wizard](../internal/assets/ui-setup.png)
 
 Recommended first‑run values:
+
 - PLC name: meaningful device name (example: `line_a_plc`)
 - Cycle time: 50–100 ms
 - I/O driver: `auto` (or `loopback` for simulation)
 
 Expected outcome:
+
 - “Setup complete” message.
 - Project files updated in your project folder.
 
@@ -81,6 +87,7 @@ Open the I/O page to confirm inputs/outputs are visible.
 ![I/O page](../internal/assets/ui-io.png)
 
 Expected outcome:
+
 - Inputs/Outputs are listed.
 - Driver health shows **ok**.
 
@@ -89,24 +96,28 @@ Expected outcome:
 Open **I/O → I/O configuration**.
 
 For Modbus/TCP:
+
 - Select `modbus-tcp`
 - Enter address + unit ID
 - Click **Test connection**
 - Save I/O config, then restart the runtime
 
 For MQTT:
+
 - Select `mqtt`
 - Enter broker (`host:port`) and `topic_in`/`topic_out`
 - Keep insecure mode local-only unless intentionally overridden
 - Save I/O config, then restart the runtime
 
 For GPIO:
+
 - Select `gpio`
 - Add inputs/outputs with IEC addresses and GPIO pins
 - Configure safe‑state outputs
 - Save I/O config, then restart the runtime
 
 For EtherCAT profile:
+
 - Select `ethercat`
 - Use `adapter = "mock"` for deterministic local/CI runs
 - Use a NIC name (for example `eth0`) for hardware transport

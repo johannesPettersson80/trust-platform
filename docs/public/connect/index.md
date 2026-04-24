@@ -2,6 +2,7 @@
 
 ## Start Here
 
+- [truST Mesh](../concepts/trust-mesh.md): the product-level model for brokerless-first runtime sharing, plant integrations, and operator lanes
 - [Protocol Matrix](protocol-matrix.md): the fastest overview of all shipped communication surfaces
 - [Networking And Remote Access](networking-and-remote-access.md): network topology, exposure, and remote access guidance
 
@@ -18,6 +19,7 @@
 
 ## Related
 
+- [truST Mesh](../concepts/trust-mesh.md)
 - [runtime.toml reference](../reference/config/runtime-toml.md)
 - [io.toml reference](../reference/config/io-toml.md)
 - [Simulation](../operate/simulation.md)

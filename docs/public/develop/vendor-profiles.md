@@ -29,9 +29,9 @@ expectations for real PLC ecosystems.
 
 ## Start here
 
-- [CODESYS and TwinCAT](interoperability/codesys-twincat.md)
-- [Siemens](interoperability/siemens.md)
-- [Mitsubishi](interoperability/mitsubishi.md)
+- [CODESYS and TwinCAT](../migrate/codesys-twincat.md)
+- [Siemens](../migrate/siemens.md)
+- [Mitsubishi](../migrate/mitsubishi.md)
 
 ## Exact config
 

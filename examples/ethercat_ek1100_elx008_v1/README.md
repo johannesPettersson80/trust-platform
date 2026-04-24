@@ -60,7 +60,7 @@ trust-runtime validate --project examples/ethercat_ek1100_elx008_v1
 
 ## Step 4: Run + Verify in Runtime Panel
 
-1. `Ctrl+Shift+P` -> `Structured Text: Open Runtime Panel`
+1. `Ctrl/Cmd+Shift+P` -> `Structured Text: Open Runtime Panel`
 2. Start runtime in Local mode.
 3. Observe `%IX0.0` behavior (driven by `mock_inputs`).
 4. Confirm `%QX0.0` response follows logic in `Main.st`.

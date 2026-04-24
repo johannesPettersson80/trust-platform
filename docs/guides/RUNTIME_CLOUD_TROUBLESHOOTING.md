@@ -11,11 +11,13 @@ curl -s http://<host>:<port>/api/runtime-cloud/state | jq
 ```
 
 Confirm:
+
 - runtime is healthy
 - config/profile matches intent
 - runtime cloud state/topology is populated
 
 HardRT truth (non-negotiable):
+
 - T0 HardRT is same-host only.
 - Generic IP mesh (`T1/T2/T3`) is non-HardRT by design and must never be treated as a deterministic fallback for T0.
 
@@ -50,6 +52,7 @@ HardRT truth (non-negotiable):
 ## 4) Preflight Before Dispatch
 
 Use `/api/runtime-cloud/actions/preflight` and inspect:
+
 - `allowed`
 - `denial_code`
 - `denial_reason`
@@ -70,17 +73,20 @@ cargo test -p trust-runtime --test runtime_reliability
 ## 6) Evidence Capture Pattern
 
 Store:
+
 - request payload (`request_id` retained)
 - preflight/dispatch responses
 - relevant `/api/runtime-cloud/state` snapshot
 - runtime logs and gate logs
 
 Recommended location:
+
 - `target/gate-artifacts/<timestamp>/...`
 
 ## 7) Escalation Criteria
 
 Escalate immediately if:
+
 - HA split-brain safeguards fail
 - cross-runtime writes bypass expected deny rules
 - realtime/T0 behavior appears to fall back to mesh/IP

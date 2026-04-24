@@ -65,7 +65,7 @@ from an empty folder.
 
 ## Developer Guide
 
---8<-- "docs/guides/PLC_DEVELOPER_GUIDE.md"
+--8<-- "docs/guides/PLC_DEVELOPER_GUIDE.md:3"
 
 ## Related
 

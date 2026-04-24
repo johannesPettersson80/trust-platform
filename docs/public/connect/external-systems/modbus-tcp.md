@@ -15,9 +15,12 @@
 - where do inputs and outputs start in register space?
 - should communication faults halt, warn, or degrade gracefully?
 
+Success means the device endpoint, `unit_id`, register map, byte order, and
+fault behavior are written down before runtime validation starts.
+
 ## Example and commissioning guide
 
---8<-- "examples/communication/modbus_tcp/README.md"
+--8<-- "examples/communication/modbus_tcp/README.md:3"
 
 ## Common Modbus gotchas
 

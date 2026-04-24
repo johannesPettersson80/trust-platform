@@ -1,9 +1,11 @@
 # Browser Analysis WASM Demo Script (5 Minutes)
 
 Audience:
+
 - Potential integration partners (for example web-based PLC editor teams).
 
 Goal:
+
 - Show live static analysis in browser with no server-side analyzer process.
 - Show hover on mouse and autocomplete while typing.
 - Show runtime UI parity styling with dark/light theme switching.
@@ -30,9 +32,11 @@ http://127.0.0.1:4173/web/openplc-shell.html
 ```
 
 Then force refresh once:
+
 - `Ctrl+Shift+R`
 
 Expected:
+
 - Status card shows `Worker ready. Live analysis active.`
 
 ## 2. Screenshot 1: Live Hover (60 seconds)
@@ -41,6 +45,7 @@ Expected:
 2. Keep cursor still for a moment.
 
 Capture:
+
 - Hover popover next to the cursor.
 - Hover card on the right populated with symbol/type details.
 
@@ -50,6 +55,7 @@ Capture:
 2. Click again to return to `Light mode` if needed.
 
 Capture:
+
 - Runtime-style sidebar/topbar/cards and truST logo.
 - Theme toggle visibly switching the full UI palette.
 
@@ -60,6 +66,7 @@ Capture:
 2. Wait a moment for live analysis.
 
 Capture:
+
 - Diagnostics badge > 0.
 - Diagnostics list shows unresolved symbol error.
 
@@ -71,6 +78,7 @@ Capture:
 3. Use `ArrowDown` and `Enter` (or `Tab`) to accept a suggestion.
 
 Capture:
+
 - Completion dropdown visible in editor.
 - Completion card on the right shows suggestion list.
 - Editor text updated after acceptance.
@@ -78,6 +86,7 @@ Capture:
 ## 6. Talk Track (60 seconds)
 
 Talking points:
+
 - Analyzer is Rust compiled to WASM in a browser worker.
 - Hover and completion are interactive in the browser editor itself.
 - Diagnostics update automatically on edits.

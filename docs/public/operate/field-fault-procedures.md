@@ -2,6 +2,11 @@
 
 Use this page for the generic decision flow after a field fault is detected.
 
+![Runtime UI overview](../assets/images/runtime/ui-overview.png)
+
+*Figure:* Compare field evidence with runtime state before deciding whether a
+fault is physical, mapping-related, or runtime-side.
+
 ## Safe Generic Sequence
 
 | Step | Action | Do not skip |

@@ -3,6 +3,7 @@
 Last updated: 2026-02-15
 
 This guide defines the Deliverable 10 browser-analysis spike contract:
+
 - worker-based browser transport
 - WASM analysis adapter API
 - parity/performance evidence versus native analysis
@@ -11,18 +12,21 @@ This guide defines the Deliverable 10 browser-analysis spike contract:
 ## Scope (v1 Spike)
 
 Supported workflows:
+
 - diagnostics
 - hover
 - completion
 - runtime-web-UI visual parity (shared palette/logo/layout) with dark/light theme toggle
 
 Supported transport model:
+
 - browser `Worker` message protocol with request IDs
 - timeout handling per request (`timeoutMs`)
 - cancellation token path (`cancel` by request ID)
 - startup/fatal error signaling
 
 Non-goals for this spike:
+
 - runtime/debug adapter integration in browser
 - semantic tokens, code actions, rename, formatting parity
 - filesystem-native workspace loading in sandboxed browser
@@ -31,10 +35,12 @@ Non-goals for this spike:
 ## Architecture
 
 Core adapter crate:
+
 - `crates/trust-wasm-analysis/`
 - exposes `BrowserAnalysisEngine` (native API) and `WasmAnalysisEngine` (JSON boundary for browser bindings)
 
 Browser host prototype assets:
+
 - `docs/internal/prototypes/browser_analysis_wasm_spike/`
 - worker transport shim:
   - `docs/internal/prototypes/browser_analysis_wasm_spike/web/worker.js`
@@ -46,6 +52,7 @@ Browser host prototype assets:
 ## API Boundary
 
 `WasmAnalysisEngine` JSON methods:
+
 - `applyDocumentsJson`
 - `diagnosticsJson`
 - `hoverJson`
@@ -109,6 +116,7 @@ http://127.0.0.1:4173/web/
 ```
 
 Partner demo docs:
+
 - `docs/guides/BROWSER_ANALYSIS_WASM_DEMO_SCRIPT.md`
 - `docs/guides/BROWSER_ANALYSIS_WASM_INTEGRATION_BRIEF.md`
 - `docs/guides/BROWSER_ANALYSIS_WASM_OPENPLC_EVENT_MAPPING.md`
@@ -124,6 +132,7 @@ Measured by `crates/trust-wasm-analysis/tests/mp010_parity.rs` on the
 - completion: adapter `88276us`, native `63500us`
 
 Spike budgets enforced by tests:
+
 - adapter latency <= `4x native + 120ms` headroom per workflow
 - absolute cap <= `2s` per measured workflow run
 
@@ -137,12 +146,14 @@ Spike budgets enforced by tests:
 ## Go/No-Go Decision
 
 Decision: **GO** for a production-scoped next phase limited to:
+
 - diagnostics
 - hover
 - completion
 - worker lifecycle hardening and transport reliability
 
 Deferred to later scope:
+
 - full LSP parity set
 - runtime/debug flows in-browser
 - advanced multi-file workspace indexing features requiring host capabilities

@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+  <title id="title">Ladder start stop seal-in circuit</title>
+  <desc id="desc">A truST ladder diagram showing a start contact, stop contact, seal-in branch, timer done contact, and motor run coil.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#f8fafc"/>
+      <stop offset="1" stop-color="#e0f2fe"/>
+    </linearGradient>
+    <filter id="shadow" color-interpolation-filters="sRGB" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#0f172a" flood-opacity="0.16"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="675" fill="url(#bg)"/>
+  <rect x="56" y="48" width="1088" height="579" rx="24" fill="#ffffff" filter="url(#shadow)"/>
+  <rect x="56" y="48" width="1088" height="92" rx="24" fill="#0f172a"/>
+  <text x="92" y="105" fill="#f8fafc" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="34" font-weight="700">Ladder Editor</text>
+  <text x="365" y="105" fill="#94a3b8" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="22">start/stop seal-in logic as an open project artifact</text>
+  <rect x="92" y="178" width="1016" height="370" rx="18" fill="#f8fafc" stroke="#cbd5e1"/>
+  <line x1="148" y1="218" x2="148" y2="508" stroke="#334155" stroke-width="7" stroke-linecap="round"/>
+  <line x1="1052" y1="218" x2="1052" y2="508" stroke="#334155" stroke-width="7" stroke-linecap="round"/>
+  <g fill="none" stroke="#0f172a" stroke-width="6" stroke-linecap="round">
+    <line x1="148" y1="284" x2="250" y2="284"/>
+    <line x1="330" y1="284" x2="430" y2="284"/>
+    <line x1="520" y1="284" x2="620" y2="284"/>
+    <line x1="710" y1="284" x2="805" y2="284"/>
+    <line x1="930" y1="284" x2="1052" y2="284"/>
+    <line x1="430" y1="284" x2="430" y2="398"/>
+    <line x1="430" y1="398" x2="620" y2="398"/>
+    <line x1="620" y1="398" x2="620" y2="284"/>
+  </g>
+  <g font-family="Inter, Segoe UI, Arial, sans-serif" text-anchor="middle">
+    <g stroke="#0f766e" stroke-width="7" stroke-linecap="round">
+      <line x1="262" y1="248" x2="262" y2="320"/>
+      <line x1="318" y1="248" x2="318" y2="320"/>
+    </g>
+    <text x="290" y="232" fill="#0f766e" font-size="22" font-weight="700">StartCmd</text>
+    <text x="290" y="346" fill="#64748b" font-size="17">NO contact</text>
+    <g stroke="#dc2626" stroke-width="7" stroke-linecap="round">
+      <line x1="452" y1="248" x2="452" y2="320"/>
+      <line x1="508" y1="248" x2="508" y2="320"/>
+      <line x1="448" y1="322" x2="512" y2="246"/>
+    </g>
+    <text x="480" y="232" fill="#dc2626" font-size="22" font-weight="700">StopCmd</text>
+    <text x="480" y="346" fill="#64748b" font-size="17">NC contact</text>
+    <g stroke="#2563eb" stroke-width="7" stroke-linecap="round">
+      <line x1="642" y1="248" x2="642" y2="320"/>
+      <line x1="698" y1="248" x2="698" y2="320"/>
+    </g>
+    <text x="670" y="232" fill="#2563eb" font-size="22" font-weight="700">TimerDone</text>
+    <text x="670" y="346" fill="#64748b" font-size="17">condition</text>
+    <g stroke="#7c3aed" stroke-width="7" stroke-linecap="round">
+      <path d="M822 247 C772 247 772 321 822 321"/>
+      <path d="M918 247 C968 247 968 321 918 321"/>
+    </g>
+    <text x="870" y="232" fill="#7c3aed" font-size="22" font-weight="700">MotorRun</text>
+    <text x="870" y="346" fill="#64748b" font-size="17">coil</text>
+    <g stroke="#0f766e" stroke-width="7" stroke-linecap="round">
+      <line x1="474" y1="362" x2="474" y2="434"/>
+      <line x1="530" y1="362" x2="530" y2="434"/>
+    </g>
+    <text x="502" y="462" fill="#0f766e" font-size="22" font-weight="700">RunLatch</text>
+    <text x="502" y="488" fill="#64748b" font-size="17">seal-in branch</text>
+  </g>
+  <g font-family="Inter, Segoe UI, Arial, sans-serif">
+    <rect x="92" y="570" width="310" height="36" rx="18" fill="#ccfbf1"/>
+    <text x="114" y="594" fill="#0f766e" font-size="19" font-weight="700">Visual source of truth</text>
+    <rect x="430" y="570" width="324" height="36" rx="18" fill="#dbeafe"/>
+    <text x="452" y="594" fill="#1d4ed8" font-size="19" font-weight="700">Companion ST generated</text>
+    <rect x="782" y="570" width="326" height="36" rx="18" fill="#ede9fe"/>
+    <text x="804" y="594" fill="#6d28d9" font-size="19" font-weight="700">Same runtime/debug path</text>
+  </g>
+</svg>

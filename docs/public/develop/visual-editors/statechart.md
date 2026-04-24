@@ -2,8 +2,8 @@
 
 ![Statechart editor](../../assets/images/visual-editors/statechart.png)
 
-*Figure:* A statechart editor session with named states and transitions
-visible on the canvas.
+*Figure:* A traffic-light statechart with named states (`Red`, `Green`,
+`Yellow`, and `Stand`) and explicit transitions visible on the editor canvas.
 
 ## What it gives you
 

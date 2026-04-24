@@ -22,9 +22,9 @@ this page or directly from VS Code.
 
 ## Step 3: Verify The Extension In VS Code
 
-Open VS Code, press `Ctrl+Shift+P`, and type `Structured Text:`. If the
-extension is healthy, the truST commands appear immediately in the Command
-Palette.
+Open VS Code, press `Ctrl/Cmd+Shift+P` (`Cmd+Shift+P` on macOS), and type
+`Structured Text:`. If the extension is healthy, the truST commands appear
+immediately in the Command Palette.
 
 ![VS Code Command Palette with Structured Text commands](../assets/images/install/command-palette-structured-text.png)
 

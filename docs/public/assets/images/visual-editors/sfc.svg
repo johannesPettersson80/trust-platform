@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+  <title id="title">Sequential Function Chart with parallel branches</title>
+  <desc id="desc">A truST SFC diagram showing initialization, a transition into parallel fill and heat steps, a join transition, and a completed step.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#f8fafc"/>
+      <stop offset="1" stop-color="#eef2ff"/>
+    </linearGradient>
+    <filter id="shadow" color-interpolation-filters="sRGB" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#0f172a" flood-opacity="0.16"/>
+    </filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#334155"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="675" fill="url(#bg)"/>
+  <rect x="56" y="48" width="1088" height="579" rx="24" fill="#ffffff" filter="url(#shadow)"/>
+  <rect x="56" y="48" width="1088" height="92" rx="24" fill="#111827"/>
+  <text x="92" y="105" fill="#f8fafc" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="34" font-weight="700">SFC Editor</text>
+  <text x="287" y="105" fill="#c7d2fe" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="22">steps, transitions, branches, and companion runtime behavior</text>
+  <rect x="92" y="176" width="1016" height="402" rx="18" fill="#f8fafc" stroke="#cbd5e1"/>
+  <g fill="none" stroke="#334155" stroke-width="5" marker-end="url(#arrow)">
+    <path d="M600 235 L600 278"/>
+    <path d="M600 326 L600 364"/>
+    <path d="M600 364 L420 364 L420 414"/>
+    <path d="M600 364 L780 364 L780 414"/>
+    <path d="M420 482 L420 520 L600 520"/>
+    <path d="M780 482 L780 520 L600 520"/>
+    <path d="M600 520 L600 556"/>
+  </g>
+  <g font-family="Inter, Segoe UI, Arial, sans-serif" text-anchor="middle">
+    <rect x="484" y="190" width="232" height="62" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="4"/>
+    <text x="600" y="229" fill="#1d4ed8" font-size="24" font-weight="700">Init</text>
+    <rect x="516" y="278" width="168" height="48" rx="6" fill="#0f172a"/>
+    <text x="600" y="309" fill="#ffffff" font-size="20" font-weight="700">StartReady</text>
+    <rect x="298" y="414" width="244" height="68" rx="12" fill="#ccfbf1" stroke="#0f766e" stroke-width="4"/>
+    <text x="420" y="442" fill="#0f766e" font-size="24" font-weight="700">Fill Tank</text>
+    <text x="420" y="468" fill="#475569" font-size="17">level &lt; setpoint</text>
+    <rect x="658" y="414" width="244" height="68" rx="12" fill="#fef3c7" stroke="#d97706" stroke-width="4"/>
+    <text x="780" y="442" fill="#b45309" font-size="24" font-weight="700">Heat Loop</text>
+    <text x="780" y="468" fill="#475569" font-size="17">temperature ramp</text>
+    <rect x="516" y="556" width="168" height="48" rx="6" fill="#0f172a"/>
+    <text x="600" y="587" fill="#ffffff" font-size="20" font-weight="700">BothDone</text>
+    <rect x="484" y="608" width="232" height="48" rx="12" fill="#ede9fe" stroke="#7c3aed" stroke-width="4"/>
+    <text x="600" y="639" fill="#6d28d9" font-size="22" font-weight="700">Complete</text>
+  </g>
+  <g font-family="Inter, Segoe UI, Arial, sans-serif">
+    <rect x="129" y="205" width="220" height="112" rx="16" fill="#ffffff" stroke="#cbd5e1"/>
+    <text x="153" y="240" fill="#0f172a" font-size="22" font-weight="700">Transition rules</text>
+    <text x="153" y="275" fill="#475569" font-size="18">Conditions are executable,</text>
+    <text x="153" y="303" fill="#475569" font-size="18">validated project artifacts.</text>
+    <rect x="851" y="205" width="220" height="112" rx="16" fill="#ffffff" stroke="#cbd5e1"/>
+    <text x="875" y="240" fill="#0f172a" font-size="22" font-weight="700">Parallel branches</text>
+    <text x="875" y="275" fill="#475569" font-size="18">Branch and join behavior</text>
+    <text x="875" y="303" fill="#475569" font-size="18">stays explicit in review.</text>
+  </g>
+</svg>

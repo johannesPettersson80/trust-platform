@@ -1,6 +1,7 @@
 # Browser Analysis WASM Partner Acceptance Checklist
 
 Purpose:
+
 - Shared acceptance list for evaluating integration into a partner web editor (for example OpenPLC-style shells).
 
 ## A. Functional Acceptance

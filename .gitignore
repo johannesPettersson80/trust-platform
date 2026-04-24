@@ -95,6 +95,8 @@ docs/internal/testing/checklists/*
 !docs/internal/testing/checklists/visual-editors-st-runtime-unification-checklist.md
 !docs/internal/testing/checklists/codesys-twincat-parity.md
 !docs/internal/testing/checklists/agent-platform-foundation-checklist.md
+!docs/internal/testing/checklists/docs-ia-visual-polish-checklist.md
+!docs/internal/testing/checklists/docs-ia-strategy.md
 !docs/internal/testing/evidence/
 docs/internal/testing/evidence/*
 !docs/internal/testing/evidence/web-ide-migration-parity-2026-02-15.md

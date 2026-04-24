@@ -1,13 +1,16 @@
 # HMI Operator-First V4 Implementation Checklist
 
 Primary specification:
+
 - `docs/guides/HMI_OPERATOR_FIRST_SPECIFICATION.md`
 
 Execution intent:
+
 - Turn the V4 specification into a testable, traceable delivery plan.
 - Every checklist item must reference a concrete spec section.
 
 Status legend:
+
 - `Not Started` | `In Progress` | `Blocked` | `Done`
 
 Current status: `Done` (implementation complete; validation gates recorded in repo checklist evidence).

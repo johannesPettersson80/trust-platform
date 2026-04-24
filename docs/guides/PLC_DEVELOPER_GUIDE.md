@@ -248,6 +248,7 @@ See `docs/guides/PLC_IO_BINDING_GUIDE.md` for full examples.
 Supported I/O backends are `loopback`, `simulated`, `gpio`, `modbus-tcp`, `mqtt`, and `ethercat`.
 
 `io.toml` supports:
+
 - single-driver form: `io.driver` + `io.params`
 - multi-driver form: `io.drivers = [{ name = \"...\", params = {...} }, ...]`
 
@@ -274,10 +275,12 @@ http://<device-ip>:8080
 ```
 
 Operations UI:
+
 - `http://<device-ip>:8080` for status, I/O, settings, deploy.
 - `http://<device-ip>:8080/hmi` for auto-generated read-only HMI.
 
 Dedicated HMI control API (via `POST /api/control`):
+
 - `hmi.schema.get`
 - `hmi.values.get`
 - `hmi.write` (phase-gated: enabled only when `[write].enabled = true` in `hmi.toml` and target is explicitly allowlisted)

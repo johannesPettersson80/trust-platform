@@ -48,7 +48,7 @@ trust-runtime validate --project examples/filling_line
 
 ## Step 4: Runtime Panel + Scenario Table
 
-1. `Ctrl+Shift+P` -> `Structured Text: Open Runtime Panel`.
+1. `Ctrl/Cmd+Shift+P` -> `Structured Text: Open Runtime Panel`.
 2. Start runtime (Local) or connect external runtime.
 3. Drive inputs according to table below.
 
@@ -63,7 +63,7 @@ trust-runtime validate --project examples/filling_line
 
 1. Open `src/LevelControllerFb.st`.
 2. Change `target : REAL := 70.0;` to `60.0;`.
-3. Run `Ctrl+Shift+P` -> `Structured Text: Hot Reload`.
+3. Run `Ctrl/Cmd+Shift+P` -> `Structured Text: Hot Reload`.
 4. Re-run scenario `%IW0=700` and observe neutral band shift.
 
 ## Step 6: Deep-Dive Debug

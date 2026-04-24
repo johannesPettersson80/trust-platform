@@ -30,7 +30,7 @@ Secondary flow: CLI commands for CI/automation.
 code /path/to/trust-platform
 ```
 
-2. `Ctrl+Shift+P` -> `Structured Text: Import PLCopen XML`
+2. `Ctrl/Cmd+Shift+P` -> `Structured Text: Import PLCopen XML`
 3. Select input XML:
    - start with `examples/plcopen_xml_st_complete/interop/codesys-small.xml`
 4. Select target folder (for example `/tmp/trust-plcopen-import`)

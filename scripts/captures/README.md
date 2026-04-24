@@ -32,6 +32,11 @@ These commands write checked-in assets directly to:
 - `docs/public/assets/images/terminal/`
 - `docs/public/assets/images/vscode/`
 
+Operator HMI pages (overview, daily checks, alarm, shift handover) are captured
+by `scripts/captures/browser/hmi-operator-pages.spec.mjs`, which runs as part of
+the `browser` mode. It navigates the live `/hmi` sidebar to Overview, Alarms,
+and Trends and captures each page in dark mode with live values.
+
 ## Local prerequisites
 
 - `cargo` with locally built binaries under `target/debug/`

@@ -35,4 +35,4 @@ you operate so you know which flag set the runtime expects.
 
 ## Worked tutorial
 
---8<-- "examples/tutorials/14_deploy_and_rollback/README.md"
+--8<-- "examples/tutorials/14_deploy_and_rollback/README.md:3"

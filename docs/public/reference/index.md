@@ -2,27 +2,19 @@
 
 ## Quick Lookup
 
-- [CLI](cli/trust-runtime.md): subcommands, flags, and machine-facing command examples
-- [Config](config/index.md): file shapes and exact keys
-- [Agent API](agent-api/overview.md): JSON-RPC methods and payloads
-- [Harness Protocol](harness/protocol.md): deterministic executor commands
-- [Diagnostics](diagnostics.md): `E...`, `W...`, and `I...` code meanings
-- [Hardware Compatibility](hardware-compatibility.md): host/runtime guidance
-- [API Lifecycle And Deprecation](api-lifecycle-and-deprecation.md): compatibility expectations
-
-## Full Reference Map
-
-- [CLI](cli/trust-runtime.md)
-- [Config](config/index.md)
-- [Agent API](agent-api/overview.md)
-- [Harness Protocol](harness/protocol.md)
-- [Diagnostics](diagnostics.md)
-- [Hardware Compatibility](hardware-compatibility.md)
-- [API Lifecycle And Deprecation](api-lifecycle-and-deprecation.md)
-- [Version History](version-history.md)
-- [Conformance](conformance.md)
-- [Benchmarks](benchmarks.md)
-- [Specifications](specifications/index.md)
+| Need | Start here |
+| --- | --- |
+| Runtime, LSP, debug, harness, or bundle command flags | [CLI](cli/trust-runtime.md) |
+| Exact config keys and file shapes | [Config](config/index.md) |
+| Machine-facing automation methods and payloads | [Agent API](agent-api/overview.md) |
+| Deterministic executor commands | [Harness Protocol](harness/protocol.md) |
+| `E...`, `W...`, and `I...` diagnostic meanings | [Diagnostics](diagnostics.md) |
+| Host/runtime assumptions | [Hardware Compatibility](hardware-compatibility.md) |
+| Compatibility guarantees and deprecation rules | [API Lifecycle And Deprecation](api-lifecycle-and-deprecation.md) |
+| Release and version history | [Version History](version-history.md) |
+| Language/protocol conformance status | [Conformance](conformance.md) |
+| Measured runtime, mesh, dispatch, and tooling behavior | [Benchmarks](benchmarks.md) |
+| Exact language, runtime, tooling, and integration specs | [Specifications](specifications/index.md) |
 
 ## If You Are Not Sure Where To Start
 

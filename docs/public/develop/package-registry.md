@@ -42,6 +42,12 @@ trust-runtime registry publish --registry ./registry --project ./libraries/my_mo
 The shipped workflow is centered on `trust-runtime registry ...` subcommands and
 `trust-lsp.toml` dependencies.
 
+## Verification
+
+After publishing a package, run `trust-runtime registry list` to confirm the
+package/version is discoverable, then run `trust-runtime registry verify` for the
+same name and version before consuming it from another project.
+
 ## Related pages
 
 - [Project Layout](project-layout.md)

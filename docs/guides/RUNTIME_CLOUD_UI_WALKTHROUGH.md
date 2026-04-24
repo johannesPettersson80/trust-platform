@@ -16,17 +16,20 @@ Always confirm both before write actions.
 ## 3) Fleet Visualization
 
 Use graph and table together:
+
 - graph shows runtime nodes and communication edges
 - table gives sortable operational details
 - selection is synchronized between graph and table
 
 Expected UX behavior:
+
 - stale/degraded/failed links are visually distinct
 - node badges show health, role, and state transitions
 
 ## 4) Communication Lens
 
 Filter by:
+
 - plane (`T1`, `T2`, `T3`)
 - keyspace/category
 
@@ -46,17 +49,20 @@ If revision/etag conflict appears, use rebase/retry flow. Do not silently force 
 ## 6) Rollout Center
 
 For multi-target updates:
+
 - create rollout
 - watch per-target states
 - pause/resume/abort as needed
 
 Expected behavior:
+
 - deterministic state transitions
 - explicit failure reasons and affected target list
 
 ## 7) Incident and Audit Timeline
 
 Correlate:
+
 - config writes
 - communication state changes
 - HA role transitions

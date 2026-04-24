@@ -1,15 +1,18 @@
 # Browser Analysis WASM Integration Brief (OpenPLC-style Web Editors)
 
 Purpose:
+
 - Define a low-risk integration path to embed truST static analysis in an existing browser editor.
 
 Scope of this integration:
+
 - `diagnostics`
 - `hover`
 - `completion`
 - browser-host event mapping compatible with OpenPLC-style web editors
 
 Out of scope:
+
 - Runtime execution model replacement.
 - Debug adapter/runtime stepping in browser.
 - Deploy/control workflows.
@@ -23,6 +26,7 @@ Out of scope:
 ## 2. Integration Architecture
 
 Host editor (for example OpenPLC web editor):
+
 1. Maintains open document text in browser memory.
 2. Sends updates to worker through request envelope:
    - `applyDocuments`
@@ -32,6 +36,7 @@ Host editor (for example OpenPLC web editor):
 3. Renders results in existing editor UX.
 
 Worker layer:
+
 - Loads `trust_wasm_analysis.js` + `.wasm`.
 - Owns engine lifecycle.
 - Enforces request IDs, timeout, and cancellation envelope.
@@ -39,6 +44,7 @@ Worker layer:
 ## 3. API Contract (Current)
 
 `WasmAnalysisEngine` methods:
+
 - `applyDocumentsJson`
 - `diagnosticsJson`
 - `hoverJson`
@@ -124,4 +130,5 @@ function send(request: Request): Promise<unknown> {
 ## 8. OpenPLC Event Mapping
 
 Detailed event-to-API mapping is documented in:
+
 - `docs/guides/BROWSER_ANALYSIS_WASM_OPENPLC_EVENT_MAPPING.md`

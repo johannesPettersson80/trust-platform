@@ -2,10 +2,15 @@
 
 Use this page as the generic per-shift checklist for a running truST HMI.
 
-![Browser HMI overview](../assets/images/browser/hmi-home.png)
+![Browser HMI daily checks](../assets/images/browser/hmi-operator-daily-checks.png)
 
-*Figure:* Example healthy overview page with a connected runtime, fresh data,
-and live process values.
+*Figure:* Daily checks start with the visible Browser HMI state: connection,
+freshness, read-only mode, alarm state, and live process values.
+
+![Operator daily checks overview](../assets/images/hmi/operator-daily-checks.svg)
+
+*Figure:* Daily checks focus on connection, freshness, alarms, live values, and
+the shift record before any procedure-specific work starts.
 
 ## Per-Shift Checklist
 

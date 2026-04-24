@@ -1,15 +1,6 @@
-# PLCopen
+# PLCopen Moved To Migrate
 
-Use this guide when:
+The PLCopen migration guide now lives at [Migrate -> PLCopen](../../migrate/plcopen.md).
 
-- you are importing or exporting PLCopen XML
-- you need to understand what survives a round trip
-- you want the ST-complete baseline plus Ladder profile notes
-
-## ST-Complete Compatibility
-
---8<-- "docs/guides/PLCOPEN_INTEROP_COMPATIBILITY.md"
-
-## Ladder Interop Profile
-
---8<-- "docs/guides/PLCOPEN_LD_INTEROP.md"
+Use the new page for current PLCopen XML import/export guidance, compatibility
+limits, and related examples.

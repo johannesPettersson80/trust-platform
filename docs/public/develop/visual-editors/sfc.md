@@ -1,5 +1,12 @@
 # SFC
 
+![SFC parallel fill and heat sequence](../../assets/images/visual-editors/sfc.svg)
+
+*Figure:* An SFC sequence with an `Init` step, a `StartReady` transition,
+parallel `Fill Tank` and `Heat Loop` branches, a `BothDone` join, and a
+`Complete` step. The graph is reviewed as an open project artifact and then
+validated through the same runtime loop.
+
 ## What it gives you
 
 - step/transition visual authoring

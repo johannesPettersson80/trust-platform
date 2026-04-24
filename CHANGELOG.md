@@ -10,6 +10,28 @@ Target release: `v0.22.1`
 
 ### Added
 
+- The public docs now include a `One Project, Every Surface` concept page that
+  positions VS Code, Editor AI tools, Browser IDE, Browser HMI, CLI/CI, Agent
+  API, LSP editors, and truST Mesh as live surfaces over the same project, with
+  an honest surface capability matrix and AI tooling evidence links. The docs
+  homepage, README, workflow chooser, visual-editor docs, and migration path
+  now point into the same narrative, and the README/homepage use a new
+  one-project surface-tour GIF built from real product captures. Migration
+  ecosystem pages now have canonical `migrate/*` URLs with compatibility pages
+  at their former `develop/interoperability/*` paths, visual-editor pages avoid
+  misleading empty captures by using accurate diagrams, and project/support
+  pages are grouped under one `Project` sidebar section. A full public-doc text
+  pass also expanded thin snippet wrappers with user-oriented framing,
+  separated HMI authoring from HMI operation, promoted Learning Paths into the
+  Start nav, clarified Troubleshooting vs FAQ, expanded First Project into a
+  real walkthrough, added jargon notes to concept pages, tightened the homepage
+  around a single reader-journey pattern, added richer example/category framing,
+  replaced repeated operator visuals with distinct maintained operator and
+  AI-assistance diagrams, kept AI Assistance grounded in diagram/source
+  evidence, added first-figure proof PNGs for the operator HMI overview,
+  daily-check, alarm, and handover pages, and tightened README platform/status
+  wording including Linux PREEMPT_RT support.
+
 - `trust-runtime plcopen` now imports official TC6 XML multi-worksheet ST
   bodies in execution order, reconstructs all standard POU interface var
   sections (`VAR`, `VAR_TEMP`, `VAR_INPUT`, `VAR_OUTPUT`, `VAR_IN_OUT`,
@@ -127,6 +149,22 @@ Target release: `v0.22.1`
 
 ### Fixed
 
+- Public docs navigation now exposes the PREEMPT_RT runbook from the Operate
+  sidebar, reuses the interoperability pages under Migrate without moving their
+  canonical URLs, groups Operate by engineering, target-administration,
+  operator/technician, and fleet-delivery personas, surfaces truST Mesh from
+  Connect, links README start paths directly, and avoids confirmed
+  snippet/list-rendering issues in included public documentation. Concept,
+  Reference, Specifications, and Examples indexes now use clearer task and
+  mental-model groupings, the docs maintenance guide codifies nav, snippet,
+  visual, verification, and proof rules, the SFC profile reference now uses a
+  non-numbered slug to avoid a spec-14 collision, visual-editor and operator
+  pages now include public visuals, the Migrate page includes a compatibility
+  matrix, and the example catalog audit understands PyMdown line-range snippet
+  targets used to skip included page titles. A new docs IA lint now enforces
+  section-index/nav coverage, snippet H1 safety, and CommonMark list spacing,
+  and the internal docs checklist records analytics, versioning, success-metric,
+  accessibility, and mobile-review decisions.
 - The shipped `examples/oscat_smoke` consumer now matches the current OSCAT
   named-parameter surface (`DEG`, `DAYS`, and `DATA`), so the example builds
   cleanly again instead of failing on stale `D := ...` calls.

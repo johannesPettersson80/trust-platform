@@ -2,4 +2,4 @@
 
 Related: [Ladder Diagram](15-ladder-diagram.md), [Develop -> Ladder](../../develop/visual-editors/ladder.md)
 
---8<-- "docs/specs/16-ladder-profile-trust.md"
+--8<-- "docs/specs/16-ladder-profile-trust.md:3"

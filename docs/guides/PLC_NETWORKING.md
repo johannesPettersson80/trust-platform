@@ -58,6 +58,7 @@ Rules enforced by runtime schema:
 ## Troubleshooting
 
 If remote access fails:
+
 - Check that the PLC is reachable by IP.
 - Verify firewall rules.
 - Confirm `runtime.control.auth_token` is set for TCP control.

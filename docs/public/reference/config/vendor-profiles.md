@@ -37,5 +37,5 @@ vendor_profile = "siemens"
 ## Related
 
 - [Vendor Profiles](../../develop/vendor-profiles.md)
-- [Siemens](../../develop/interoperability/siemens.md)
-- [Mitsubishi](../../develop/interoperability/mitsubishi.md)
+- [Siemens](../../migrate/siemens.md)
+- [Mitsubishi](../../migrate/mitsubishi.md)

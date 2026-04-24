@@ -11,4 +11,4 @@ Key counter/timer families documented here include `CTU`, `CTD`, `CTUD`, `TP`,
 
 Related: [Standard Functions](07-standard-functions.md), [Runtime](10-runtime-semantics.md)
 
---8<-- "docs/specs/08-standard-function-blocks.md"
+--8<-- "docs/specs/08-standard-function-blocks.md:3"

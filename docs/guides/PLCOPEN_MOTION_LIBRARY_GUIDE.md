@@ -50,12 +50,14 @@ Classic PLCopen Part 1 axis-control blocks. These are the normal starting point 
 ### `AXIS_REF`
 Public handle for one motion axis. You keep one of these per axis and pass it by `VAR_IN_OUT` into the axis-related function blocks.
 Fields:
+
 - `AxisId : UDINT`: Stable public identifier for the axis in your application.
 - `InternalIndex : UINT`: Runtime registry slot used by the library implementation.
 
 ### `MC_BUFFER_MODE`
 Controls whether a command aborts the current motion, waits in a queue, or blends with adjacent motion commands.
 Values:
+
 - `mcAborting`: Abort the currently active command and start the new command immediately.
 - `mcBuffered`: Queue the new command behind the active command.
 - `mcBlendingLow`: Blend using the lower transition velocity policy.
@@ -66,6 +68,7 @@ Values:
 ### `MC_DIRECTION`
 Selects how directional motion commands choose travel direction.
 Values:
+
 - `mcPositiveDirection`: Travel in the positive direction.
 - `mcShortestWay`: Choose the shortest path supported by the axis model.
 - `mcNegativeDirection`: Travel in the negative direction.
@@ -74,6 +77,7 @@ Values:
 ### `MC_EXECUTION_MODE`
 Controls how parameter, transform, and set-position style commands are applied.
 Values:
+
 - `mcImmediately`: Apply immediately when accepted.
 - `mcDelayed`: Delayed execution mode. The current shipped profile rejects unsupported delayed paths.
 - `mcQueued`: Queue behind already active/accepted work where supported.
@@ -81,6 +85,7 @@ Values:
 ### `MC_SOURCE`
 Chooses whether a readback or synchronization calculation uses commanded, set, or actual values.
 Values:
+
 - `mcCommandedValue`: Use the commanded/planned value.
 - `mcSetValue`: Use the setpoint value.
 - `mcActualValue`: Use the measured/actual value.
@@ -88,6 +93,7 @@ Values:
 ### `MC_AXIS_STATUS`
 Public axis-state enum used by the library state machine and exposed by status FBs.
 Values:
+
 - `mcErrorStop`: Axis is in error stop.
 - `mcDisabled`: Axis is disabled.
 - `mcStandstill`: Axis is powered and not moving.
@@ -103,10 +109,13 @@ Values:
 Enable or remove power-stage permission for one axis.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Axis : AXIS_REF`: Shared axis handle passed by reference.
 `VAR_INPUT`:
+
 - `Enable : BOOL`: Level-sensitive enable input. Keep it TRUE while you want the block active or the readback valid.
 `VAR_OUTPUT`:
+
 - `Status : BOOL`: Current achieved power/enabled state.
 - `Valid : BOOL`: TRUE when the readback outputs are valid this scan.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -117,12 +126,15 @@ Usage notes: Call every scan. `Enable` is level-sensitive; the block is not a on
 Run the basic PLCopen homing command and declare the homed position when the sequence completes.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Axis : AXIS_REF`: Shared axis handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `Position : REAL`: Target or reference position value.
 - `BufferMode : MC_BUFFER_MODE`: PLCopen buffering/blending mode for the command.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
@@ -135,12 +147,15 @@ Usage notes: Typical sequence is `MC_Power` -> `MC_Home` -> wait for `Done` -> m
 Force an immediate stop sequence for one axis.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Axis : AXIS_REF`: Shared axis handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `Deceleration : REAL`: Requested deceleration.
 - `Jerk : REAL`: Requested jerk.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command or stop condition.
@@ -152,13 +167,16 @@ Usage notes: Use for emergency or immediate stop handling. It does not rely on b
 Request a halt while preserving buffered-motion semantics.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Axis : AXIS_REF`: Shared axis handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `Deceleration : REAL`: Requested deceleration.
 - `Jerk : REAL`: Requested jerk.
 - `BufferMode : MC_BUFFER_MODE`: PLCopen buffering/blending mode for the command.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
@@ -171,8 +189,10 @@ Usage notes: Use when you want a controlled halt that still participates in the 
 Move one axis to an absolute target position.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Axis : AXIS_REF`: Shared axis handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `ContinuousUpdate : BOOL`: Allows the command parameters to be refreshed while the command is active where the profile supports it.
 - `Position : REAL`: Target or reference position value.
@@ -183,6 +203,7 @@ Type: `FUNCTION_BLOCK`
 - `Direction : MC_DIRECTION`: Requested travel direction policy.
 - `BufferMode : MC_BUFFER_MODE`: PLCopen buffering/blending mode for the command.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
@@ -195,8 +216,10 @@ Usage notes: Keep calling the block every scan after the rising edge; monitor `B
 Move one axis by a relative distance.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Axis : AXIS_REF`: Shared axis handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `ContinuousUpdate : BOOL`: Allows the command parameters to be refreshed while the command is active where the profile supports it.
 - `Distance : REAL`: Relative distance value.
@@ -206,6 +229,7 @@ Type: `FUNCTION_BLOCK`
 - `Jerk : REAL`: Requested jerk.
 - `BufferMode : MC_BUFFER_MODE`: PLCopen buffering/blending mode for the command.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
@@ -218,8 +242,10 @@ Usage notes: Use buffered mode when you want this command to queue behind anothe
 Add a relative distance onto the current commanded target.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Axis : AXIS_REF`: Shared axis handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `ContinuousUpdate : BOOL`: Allows the command parameters to be refreshed while the command is active where the profile supports it.
 - `Distance : REAL`: Relative distance value.
@@ -229,6 +255,7 @@ Type: `FUNCTION_BLOCK`
 - `Jerk : REAL`: Requested jerk.
 - `BufferMode : MC_BUFFER_MODE`: PLCopen buffering/blending mode for the command.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
@@ -241,8 +268,10 @@ Usage notes: Use when the next target should be relative to the current commande
 Run one axis in velocity mode.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Axis : AXIS_REF`: Shared axis handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `ContinuousUpdate : BOOL`: Allows the command parameters to be refreshed while the command is active where the profile supports it.
 - `Velocity : REAL`: Requested velocity.
@@ -252,6 +281,7 @@ Type: `FUNCTION_BLOCK`
 - `Direction : MC_DIRECTION`: Requested travel direction policy.
 - `BufferMode : MC_BUFFER_MODE`: PLCopen buffering/blending mode for the command.
 `VAR_OUTPUT`:
+
 - `InVelocity : BOOL`: TRUE when the commanded velocity is reached.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
@@ -264,8 +294,10 @@ Usage notes: Use `InVelocity` plus readback FBs when your state machine needs co
 Run an absolute move that aims to leave the segment with a requested end velocity.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Axis : AXIS_REF`: Shared axis handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `ContinuousUpdate : BOOL`: Allows the command parameters to be refreshed while the command is active where the profile supports it.
 - `Position : REAL`: Target or reference position value.
@@ -277,6 +309,7 @@ Type: `FUNCTION_BLOCK`
 - `Direction : MC_DIRECTION`: Requested travel direction policy.
 - `BufferMode : MC_BUFFER_MODE`: PLCopen buffering/blending mode for the command.
 `VAR_OUTPUT`:
+
 - `InEndVelocity : BOOL`: TRUE when the commanded end-velocity condition is reached.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
@@ -289,8 +322,10 @@ Usage notes: Use when segment-to-segment transitions need a non-zero end velocit
 Run a relative move that aims to leave the segment with a requested end velocity.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Axis : AXIS_REF`: Shared axis handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `ContinuousUpdate : BOOL`: Allows the command parameters to be refreshed while the command is active where the profile supports it.
 - `Distance : REAL`: Relative distance value.
@@ -301,6 +336,7 @@ Type: `FUNCTION_BLOCK`
 - `Jerk : REAL`: Requested jerk.
 - `BufferMode : MC_BUFFER_MODE`: PLCopen buffering/blending mode for the command.
 `VAR_OUTPUT`:
+
 - `InEndVelocity : BOOL`: TRUE when the commanded end-velocity condition is reached.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
@@ -313,13 +349,16 @@ Usage notes: Use for relative segments that should leave the segment with a spec
 Overwrite the current position reference without commanding a move.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Axis : AXIS_REF`: Shared axis handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `Position : REAL`: Target or reference position value.
 - `Relative : BOOL`: If TRUE, interpret the position as a relative offset.
 - `ExecutionMode : MC_EXECUTION_MODE`: Execution policy for the write/set operation.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -330,13 +369,16 @@ Usage notes: Use carefully; this changes the reference position rather than comm
 Apply velocity, acceleration, and jerk scaling factors.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Axis : AXIS_REF`: Shared axis handle passed by reference.
 `VAR_INPUT`:
+
 - `Enable : BOOL`: Level-sensitive enable input. Keep it TRUE while you want the block active or the readback valid.
 - `VelFactor : REAL`: Velocity override factor.
 - `AccFactor : REAL`: Acceleration override factor.
 - `JerkFactor : REAL`: Jerk override factor.
 `VAR_OUTPUT`:
+
 - `Enabled : BOOL`: TRUE while the override function is active.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -347,10 +389,13 @@ Usage notes: Keep the block enabled while you want the override factors applied.
 Read the actual position from the library axis state.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Axis : AXIS_REF`: Shared axis handle passed by reference.
 `VAR_INPUT`:
+
 - `Enable : BOOL`: Level-sensitive enable input. Keep it TRUE while you want the block active or the readback valid.
 `VAR_OUTPUT`:
+
 - `Valid : BOOL`: TRUE when the readback outputs are valid this scan.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -361,10 +406,13 @@ Type: `FUNCTION_BLOCK`
 Read the actual velocity from the library axis state.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Axis : AXIS_REF`: Shared axis handle passed by reference.
 `VAR_INPUT`:
+
 - `Enable : BOOL`: Level-sensitive enable input. Keep it TRUE while you want the block active or the readback valid.
 `VAR_OUTPUT`:
+
 - `Valid : BOOL`: TRUE when the readback outputs are valid this scan.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -375,10 +423,13 @@ Type: `FUNCTION_BLOCK`
 Read the actual torque from the library axis state.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Axis : AXIS_REF`: Shared axis handle passed by reference.
 `VAR_INPUT`:
+
 - `Enable : BOOL`: Level-sensitive enable input. Keep it TRUE while you want the block active or the readback valid.
 `VAR_OUTPUT`:
+
 - `Valid : BOOL`: TRUE when the readback outputs are valid this scan.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -389,10 +440,13 @@ Type: `FUNCTION_BLOCK`
 Read the high-level PLCopen axis-state bits.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Axis : AXIS_REF`: Shared axis handle passed by reference.
 `VAR_INPUT`:
+
 - `Enable : BOOL`: Level-sensitive enable input. Keep it TRUE while you want the block active or the readback valid.
 `VAR_OUTPUT`:
+
 - `Valid : BOOL`: TRUE when the readback outputs are valid this scan.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -410,11 +464,14 @@ Type: `FUNCTION_BLOCK`
 Read motion-phase flags such as accelerating or constant velocity.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Axis : AXIS_REF`: Shared axis handle passed by reference.
 `VAR_INPUT`:
+
 - `Enable : BOOL`: Level-sensitive enable input. Keep it TRUE while you want the block active or the readback valid.
 - `Source : MC_SOURCE`: Requested value source.
 `VAR_OUTPUT`:
+
 - `Valid : BOOL`: TRUE when the readback outputs are valid this scan.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -429,10 +486,13 @@ Type: `FUNCTION_BLOCK`
 Read axis readiness, switch states, homed state, and warnings.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Axis : AXIS_REF`: Shared axis handle passed by reference.
 `VAR_INPUT`:
+
 - `Enable : BOOL`: Level-sensitive enable input. Keep it TRUE while you want the block active or the readback valid.
 `VAR_OUTPUT`:
+
 - `Valid : BOOL`: TRUE when the readback outputs are valid this scan.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -451,10 +511,13 @@ Type: `FUNCTION_BLOCK`
 Read the current axis error code.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Axis : AXIS_REF`: Shared axis handle passed by reference.
 `VAR_INPUT`:
+
 - `Enable : BOOL`: Level-sensitive enable input. Keep it TRUE while you want the block active or the readback valid.
 `VAR_OUTPUT`:
+
 - `Valid : BOOL`: TRUE when the readback outputs are valid this scan.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -465,10 +528,13 @@ Type: `FUNCTION_BLOCK`
 Clear axis errors and leave error stop.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Axis : AXIS_REF`: Shared axis handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -478,11 +544,14 @@ Type: `FUNCTION_BLOCK`
 Read one numeric parameter from the axis parameter surface.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Axis : AXIS_REF`: Shared axis handle passed by reference.
 `VAR_INPUT`:
+
 - `Enable : BOOL`: Level-sensitive enable input. Keep it TRUE while you want the block active or the readback valid.
 - `ParameterNumber : INT`: Parameter identifier to read or write.
 `VAR_OUTPUT`:
+
 - `Valid : BOOL`: TRUE when the readback outputs are valid this scan.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -493,11 +562,14 @@ Type: `FUNCTION_BLOCK`
 Read one boolean parameter from the axis parameter surface.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Axis : AXIS_REF`: Shared axis handle passed by reference.
 `VAR_INPUT`:
+
 - `Enable : BOOL`: Level-sensitive enable input. Keep it TRUE while you want the block active or the readback valid.
 - `ParameterNumber : INT`: Parameter identifier to read or write.
 `VAR_OUTPUT`:
+
 - `Valid : BOOL`: TRUE when the readback outputs are valid this scan.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -508,13 +580,16 @@ Type: `FUNCTION_BLOCK`
 Write one numeric axis parameter.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Axis : AXIS_REF`: Shared axis handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `ParameterNumber : INT`: Parameter identifier to read or write.
 - `Value : REAL`: Value being read or written.
 - `ExecutionMode : MC_EXECUTION_MODE`: Execution policy for the write/set operation.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -524,13 +599,16 @@ Type: `FUNCTION_BLOCK`
 Write one boolean axis parameter.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Axis : AXIS_REF`: Shared axis handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `ParameterNumber : INT`: Parameter identifier to read or write.
 - `Value : BOOL`: Value being read or written.
 - `ExecutionMode : MC_EXECUTION_MODE`: Execution policy for the write/set operation.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -540,10 +618,13 @@ Type: `FUNCTION_BLOCK`
 Publish standardized parameter numbers and shipped motion error constants.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - none
 `VAR_INPUT`:
+
 - none
 `VAR_OUTPUT`:
+
 - `PN_CommandedPosition : INT`: `PN_CommandedPosition` value of type `INT`.
 - `PN_SWLimitPos : INT`: `PN_SWLimitPos` value of type `INT`.
 - `PN_SWLimitNeg : INT`: `PN_SWLimitNeg` value of type `INT`.
@@ -585,6 +666,7 @@ Master/slave cam and gear blocks built on top of the single-axis handle types.
 ### `MC_START_MODE`
 Defines how a synchronization command starts relative to the master axis.
 Values:
+
 - `mcAbsolute`: Synchronize using absolute master positioning.
 - `mcRelative`: Synchronize using relative positioning.
 - `mcRampIn`: Ramp into synchronization.
@@ -592,6 +674,7 @@ Values:
 ### `MC_SYNC_MODE`
 Defines how `MC_GearInPos` reaches synchronization.
 Values:
+
 - `mcShortest`: Reach sync with the shortest path policy.
 - `mcCatchUp`: Catch up to the master.
 - `mcSlowDown`: Slow down to reach synchronization.
@@ -603,6 +686,7 @@ Underlying type: `UINT`
 ### `MC_CAM_REF`
 Inline cam-table payload containing master/slave point pairs and table metadata.
 Fields:
+
 - `CamId : MC_CAM_ID`: Identifier of the cam table.
 - `NumberOfPairs : UINT`: Number of valid master/slave point pairs in the table.
 - `IsAbsolute : BOOL`: Whether the cam positions are absolute values.
@@ -629,16 +713,19 @@ Fields:
 Select the cam profile a slave axis will use.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Master : AXIS_REF`: Master axis handle.
 - `Slave : AXIS_REF`: Slave axis handle.
 - `CamTable : MC_CAM_REF`: Cam table payload passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `Periodic : BOOL`: TRUE when the cam table should wrap periodically.
 - `MasterAbsolute : BOOL`: Treat master positions as absolute values.
 - `SlaveAbsolute : BOOL`: Treat slave positions as absolute values.
 - `ExecutionMode : MC_EXECUTION_MODE`: Execution policy for the write/set operation.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -650,9 +737,11 @@ Usage notes: Select the cam table before triggering `MC_CamIn`.
 Enter cam synchronization between master and slave.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Master : AXIS_REF`: Master axis handle.
 - `Slave : AXIS_REF`: Slave axis handle.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `ContinuousUpdate : BOOL`: Allows the command parameters to be refreshed while the command is active where the profile supports it.
 - `MasterOffset : REAL`: Offset applied to the master value.
@@ -666,6 +755,7 @@ Type: `FUNCTION_BLOCK`
 - `CamTableID : MC_CAM_ID`: Identifier of the selected cam table.
 - `BufferMode : MC_BUFFER_MODE`: PLCopen buffering/blending mode for the command.
 `VAR_OUTPUT`:
+
 - `InSync : BOOL`: TRUE when synchronization is reached.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
@@ -679,10 +769,13 @@ Usage notes: A typical flow is `MC_CamTableSelect` -> `MC_CamIn` -> wait for `In
 Leave cam synchronization.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Slave : AXIS_REF`: Slave axis handle.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -692,9 +785,11 @@ Type: `FUNCTION_BLOCK`
 Start geared motion between master and slave.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Master : AXIS_REF`: Master axis handle.
 - `Slave : AXIS_REF`: Slave axis handle.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `ContinuousUpdate : BOOL`: Allows the command parameters to be refreshed while the command is active where the profile supports it.
 - `RatioNumerator : INT`: Gear ratio numerator.
@@ -705,6 +800,7 @@ Type: `FUNCTION_BLOCK`
 - `Jerk : REAL`: Requested jerk.
 - `BufferMode : MC_BUFFER_MODE`: PLCopen buffering/blending mode for the command.
 `VAR_OUTPUT`:
+
 - `InGear : BOOL`: TRUE when gearing is established.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
@@ -717,10 +813,13 @@ Usage notes: Use with one master and one slave that already share valid axis han
 Leave geared motion.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Slave : AXIS_REF`: Slave axis handle.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -730,9 +829,11 @@ Type: `FUNCTION_BLOCK`
 Synchronize a slave to a master at specified sync positions.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Master : AXIS_REF`: Master axis handle.
 - `Slave : AXIS_REF`: Slave axis handle.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `RatioNumerator : INT`: Gear ratio numerator.
 - `RatioDenominator : UINT`: Gear ratio denominator.
@@ -747,6 +848,7 @@ Type: `FUNCTION_BLOCK`
 - `Jerk : REAL`: Requested jerk.
 - `BufferMode : MC_BUFFER_MODE`: PLCopen buffering/blending mode for the command.
 `VAR_OUTPUT`:
+
 - `StartSync : BOOL`: TRUE when the sync approach has started.
 - `InSync : BOOL`: TRUE when synchronization is reached.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
@@ -765,12 +867,14 @@ Group-level handles, position payloads, transforms, and coordinated move blocks.
 ### `AXIS_REF`
 Public handle for one motion axis. You keep one of these per axis and pass it by `VAR_IN_OUT` into the axis-related function blocks.
 Fields:
+
 - `AxisId : UDINT`: Stable public identifier for the axis in your application.
 - `InternalIndex : UINT`: Runtime registry slot used by the library implementation.
 
 ### `MC_BUFFER_MODE`
 Controls whether a command aborts the current motion, waits in a queue, or blends with adjacent motion commands.
 Values:
+
 - `mcAborting`: Abort the currently active command and start the new command immediately.
 - `mcBuffered`: Queue the new command behind the active command.
 - `mcBlendingLow`: Blend using the lower transition velocity policy.
@@ -781,6 +885,7 @@ Values:
 ### `MC_EXECUTION_MODE`
 Controls how parameter, transform, and set-position style commands are applied.
 Values:
+
 - `mcImmediately`: Apply immediately when accepted.
 - `mcDelayed`: Delayed execution mode. The current shipped profile rejects unsupported delayed paths.
 - `mcQueued`: Queue behind already active/accepted work where supported.
@@ -788,6 +893,7 @@ Values:
 ### `MC_SOURCE`
 Chooses whether a readback or synchronization calculation uses commanded, set, or actual values.
 Values:
+
 - `mcCommandedValue`: Use the commanded/planned value.
 - `mcSetValue`: Use the setpoint value.
 - `mcActualValue`: Use the measured/actual value.
@@ -795,6 +901,7 @@ Values:
 ### `AXES_GROUP_REF`
 Public handle for one coordinated-motion group.
 Fields:
+
 - `GroupId : UDINT`: Stable public identifier for the group.
 - `InternalIndex : UINT`: Runtime registry slot used by the library implementation.
 
@@ -817,6 +924,7 @@ Underlying type: `UINT`
 ### `MC_GROUP_PARAMETER`
 Supported group parameter names for group parameter read/write blocks.
 Values:
+
 - `mcDynamicsMode`: Group dynamics mode parameter.
 - `mcTransitionReferencePoint`: Transition reference-point parameter.
 
@@ -831,6 +939,7 @@ Underlying type: `UINT`
 ### `MC_COORD_SYSTEM`
 Coordinate-space selector for group readback, transforms, and moves.
 Values:
+
 - `mcACS`: Axis coordinate system.
 - `mcMCS`: Machine coordinate system.
 - `mcWCS`: World coordinate system.
@@ -841,12 +950,14 @@ Values:
 ### `MC_DYNAMICS_MODE`
 Defines whether dynamics values are interpreted as absolute values or percentages.
 Values:
+
 - `mcAbsolute`: Interpret dynamics as absolute values.
 - `mcPercentage`: Interpret dynamics as percentages of reference/default dynamics.
 
 ### `MC_TRANSITION_MODE`
 Defines the transition/blending model between coordinated moves.
 Values:
+
 - `mcTMNone`: No transition blending.
 - `mcTMStartVelocity`: Blend using start velocity.
 - `mcTMConstantVelocity`: Blend using constant velocity.
@@ -856,6 +967,7 @@ Values:
 ### `MC_TRANSITION_VELOCITY`
 Defines the velocity policy at a coordinated-motion transition.
 Values:
+
 - `mcTVZero`: Use zero transition velocity.
 - `mcTVLow`: Use the lower velocity.
 - `mcTVPrevious`: Use the previous segment velocity.
@@ -865,12 +977,14 @@ Values:
 ### `MC_TRANSITION_REFERENCE`
 Defines whether a transition references the start or end of a segment.
 Values:
+
 - `mcStartPoint`: Reference the segment start point.
 - `mcEndPoint`: Reference the segment end point.
 
 ### `MC_ORIENTATION_MODE`
 Defines how orientation is handled during coordinated motion.
 Values:
+
 - `mcLinear`: Linearly interpolate orientation.
 - `mcJointInterpolated`: Interpolate in joint space.
 - `mcFixed`: Hold orientation fixed.
@@ -879,12 +993,14 @@ Values:
 ### `MC_COMMAND_STATE`
 Readback state for one coordinated-motion command.
 Values:
+
 - `mcAccepted`: Command has been accepted but may not be active yet.
 - `mcActive`: Command is the active motion command.
 
 ### `MC_GROUP_STATUS`
 Public group-state enum used by coordinated-motion readback blocks.
 Values:
+
 - `mcGroupErrorStop`: Group is in error stop.
 - `mcGroupDisabled`: Group is disabled.
 - `mcGroupStandby`: Group is enabled and waiting.
@@ -895,6 +1011,7 @@ Values:
 ### `MC_CART_REF`
 Cartesian position/orientation payload.
 Fields:
+
 - `X : REAL`: Translational X component.
 - `Y : REAL`: Translational Y component.
 - `Z : REAL`: Translational Z component.
@@ -905,6 +1022,7 @@ Fields:
 ### `MC_COORD_REF`
 Coordinate-transform payload with the same field shape as `MC_CART_REF`.
 Fields:
+
 - `X : REAL`: Translational X component.
 - `Y : REAL`: Translational Y component.
 - `Z : REAL`: Translational Z component.
@@ -915,6 +1033,7 @@ Fields:
 ### `MC_CONFIG_DATA`
 Configuration flags that accompany Cartesian positions.
 Fields:
+
 - `ConfigValid : BOOL`: TRUE when the configuration flags are valid.
 - `Shoulder : BOOL`: Configuration flag for the shoulder branch.
 - `Elbow : BOOL`: Configuration flag for the elbow branch.
@@ -923,11 +1042,13 @@ Fields:
 ### `MC_TURN_INFO`
 Auxiliary turn information for articulated systems.
 Fields:
+
 - `ATurns : ARRAY[1..4] OF SINT`: Auxiliary turn counters for additional axes.
 
 ### `MC_CART_POS_REF`
 Cartesian position payload including pose, configuration, turn info, and auxiliary axes.
 Fields:
+
 - `Tcp : MC_CART_REF`: Cartesian TCP pose.
 - `Cfg : MC_CONFIG_DATA`: Configuration flags.
 - `TurnInfo : MC_TURN_INFO`: Turn information for articulated systems.
@@ -936,11 +1057,13 @@ Fields:
 ### `MC_AXES_POS_REF`
 Axis-space position payload.
 Fields:
+
 - `Axes : ARRAY[1..4] OF REAL`: Axis-space position array.
 
 ### `MC_POS_REF`
 Combined Cartesian and axis-space position payload.
 Fields:
+
 - `C : MC_CART_POS_REF`: Cartesian representation.
 - `A : MC_AXES_POS_REF`: Axis-space representation.
 
@@ -951,6 +1074,7 @@ Underlying type: `MC_POS_REF`
 ### `MC_SWLIMIT`
 Positive and negative software limits for one group member.
 Fields:
+
 - `SWLimitPos : REAL`: Positive software limit.
 - `SWLimitNeg : REAL`: Negative software limit.
 
@@ -964,12 +1088,15 @@ Underlying type: `ARRAY[1..4] OF MC_SWLIMIT`
 Attach an axis to a coordinated-motion group.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 - `Axis : AXIS_REF`: Shared axis handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `IdentInGroup : IDENT_IN_GROUP_REF`: Stable group-member identifier.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -980,11 +1107,14 @@ Usage notes: Call once per member during group setup before enabling or moving t
 Detach one named axis from a group.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `IdentInGroup : IDENT_IN_GROUP_REF`: Stable group-member identifier.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -994,10 +1124,13 @@ Type: `FUNCTION_BLOCK`
 Remove every axis from a group.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -1007,12 +1140,15 @@ Type: `FUNCTION_BLOCK`
 Read one configured member of a group.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Enable : BOOL`: Level-sensitive enable input. Keep it TRUE while you want the block active or the readback valid.
 - `IdentInGroup : IDENT_IN_GROUP_REF`: Stable group-member identifier.
 - `CoordSystem : MC_COORD_SYSTEM`: Coordinate system used by the command or readback.
 `VAR_OUTPUT`:
+
 - `Valid : BOOL`: TRUE when the readback outputs are valid this scan.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -1024,10 +1160,13 @@ Type: `FUNCTION_BLOCK`
 Read the group membership information for one axis.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Axis : AXIS_REF`: Shared axis handle passed by reference.
 `VAR_INPUT`:
+
 - `Enable : BOOL`: Level-sensitive enable input. Keep it TRUE while you want the block active or the readback valid.
 `VAR_OUTPUT`:
+
 - `Valid : BOOL`: TRUE when the readback outputs are valid this scan.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -1040,10 +1179,13 @@ Type: `FUNCTION_BLOCK`
 Enable the coordinated-motion group.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -1054,10 +1196,13 @@ Usage notes: Enable the group after all required members and transforms are conf
 Disable the coordinated-motion group.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -1067,10 +1212,13 @@ Type: `FUNCTION_BLOCK`
 Apply power permission to the whole group.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Enable : BOOL`: Level-sensitive enable input. Keep it TRUE while you want the block active or the readback valid.
 `VAR_OUTPUT`:
+
 - `Status : BOOL`: Current achieved power/enabled state.
 - `Valid : BOOL`: TRUE when the readback outputs are valid this scan.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -1081,10 +1229,13 @@ Usage notes: Use this like `MC_Power`, but for the whole group handle.
 Read the high-level coordinated-motion group state.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Enable : BOOL`: Level-sensitive enable input. Keep it TRUE while you want the block active or the readback valid.
 `VAR_OUTPUT`:
+
 - `Valid : BOOL`: TRUE when the readback outputs are valid this scan.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -1100,10 +1251,13 @@ Type: `FUNCTION_BLOCK`
 Read the current group error code.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Enable : BOOL`: Level-sensitive enable input. Keep it TRUE while you want the block active or the readback valid.
 `VAR_OUTPUT`:
+
 - `Valid : BOOL`: TRUE when the readback outputs are valid this scan.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -1114,10 +1268,13 @@ Type: `FUNCTION_BLOCK`
 Clear group errors.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -1127,12 +1284,15 @@ Type: `FUNCTION_BLOCK`
 Read current group position in the requested coordinate system.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Enable : BOOL`: Level-sensitive enable input. Keep it TRUE while you want the block active or the readback valid.
 - `CoordSystem : MC_COORD_SYSTEM`: Coordinate system used by the command or readback.
 - `Source : MC_SOURCE`: Requested value source.
 `VAR_OUTPUT`:
+
 - `Valid : BOOL`: TRUE when the readback outputs are valid this scan.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -1143,12 +1303,15 @@ Type: `FUNCTION_BLOCK`
 Read current group velocity in the requested coordinate system.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Enable : BOOL`: Level-sensitive enable input. Keep it TRUE while you want the block active or the readback valid.
 - `CoordSystem : MC_COORD_SYSTEM`: Coordinate system used by the command or readback.
 - `Source : MC_SOURCE`: Requested value source.
 `VAR_OUTPUT`:
+
 - `Valid : BOOL`: TRUE when the readback outputs are valid this scan.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -1160,12 +1323,15 @@ Type: `FUNCTION_BLOCK`
 Read current group acceleration in the requested coordinate system.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Enable : BOOL`: Level-sensitive enable input. Keep it TRUE while you want the block active or the readback valid.
 - `CoordSystem : MC_COORD_SYSTEM`: Coordinate system used by the command or readback.
 - `Source : MC_SOURCE`: Requested value source.
 `VAR_OUTPUT`:
+
 - `Valid : BOOL`: TRUE when the readback outputs are valid this scan.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -1177,10 +1343,13 @@ Type: `FUNCTION_BLOCK`
 Read detailed motion flags and the active command ID for the group.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Enable : BOOL`: Level-sensitive enable input. Keep it TRUE while you want the block active or the readback valid.
 `VAR_OUTPUT`:
+
 - `Valid : BOOL`: TRUE when the readback outputs are valid this scan.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -1198,11 +1367,14 @@ Type: `FUNCTION_BLOCK`
 Read one group parameter.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Enable : BOOL`: Level-sensitive enable input. Keep it TRUE while you want the block active or the readback valid.
 - `ParameterNumber : MC_GROUP_PARAMETER`: Parameter identifier to read or write.
 `VAR_OUTPUT`:
+
 - `Valid : BOOL`: TRUE when the readback outputs are valid this scan.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -1213,13 +1385,16 @@ Type: `FUNCTION_BLOCK`
 Write one group parameter.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `ParameterNumber : MC_GROUP_PARAMETER`: Parameter identifier to read or write.
 - `Value : REAL`: Value being read or written.
 - `ExecutionMode : MC_EXECUTION_MODE`: Execution policy for the write/set operation.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `CommandAccepted : BOOL`: TRUE when the command has been accepted.
@@ -1232,10 +1407,13 @@ Type: `FUNCTION_BLOCK`
 Read the configured software limits for the group.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Enable : BOOL`: Level-sensitive enable input. Keep it TRUE while you want the block active or the readback valid.
 `VAR_OUTPUT`:
+
 - `Valid : BOOL`: TRUE when the readback outputs are valid this scan.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -1246,12 +1424,15 @@ Type: `FUNCTION_BLOCK`
 Write the configured software limits for the group.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `LimitValues : MC_GROUP_SWLIMITS`: Software-limit payload.
 - `ExecutionMode : MC_EXECUTION_MODE`: Execution policy for the write/set operation.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -1261,12 +1442,15 @@ Type: `FUNCTION_BLOCK`
 Select a kinematic transform profile for the group.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `KinTransform : MC_KIN_REF`: Kinematic transform handle.
 - `ExecutionMode : MC_EXECUTION_MODE`: Execution policy for the write/set operation.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
@@ -1280,8 +1464,10 @@ Type: `FUNCTION_BLOCK`
 Set a Cartesian transform by explicit translation and rotation fields.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `TransX : REAL`: Translation in X.
 - `TransY : REAL`: Translation in Y.
@@ -1292,6 +1478,7 @@ Type: `FUNCTION_BLOCK`
 - `CoordSystem : MC_COORD_SYSTEM`: Coordinate system used by the command or readback.
 - `ExecutionMode : MC_EXECUTION_MODE`: Execution policy for the write/set operation.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
@@ -1305,13 +1492,16 @@ Type: `FUNCTION_BLOCK`
 Set a Cartesian transform by a `MC_COORD_REF` payload.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `CoordTransform : MC_COORD_REF`: Coordinate-transform payload.
 - `CoordSystem : MC_COORD_SYSTEM`: Coordinate system used by the command or readback.
 - `ExecutionMode : MC_EXECUTION_MODE`: Execution policy for the write/set operation.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
@@ -1325,10 +1515,13 @@ Type: `FUNCTION_BLOCK`
 Read the currently selected kinematic transform.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Enable : BOOL`: Level-sensitive enable input. Keep it TRUE while you want the block active or the readback valid.
 `VAR_OUTPUT`:
+
 - `Valid : BOOL`: TRUE when the readback outputs are valid this scan.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -1339,11 +1532,14 @@ Type: `FUNCTION_BLOCK`
 Read the current Cartesian transform fields.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Enable : BOOL`: Level-sensitive enable input. Keep it TRUE while you want the block active or the readback valid.
 - `CoordSystem : MC_COORD_SYSTEM`: Coordinate system used by the command or readback.
 `VAR_OUTPUT`:
+
 - `Valid : BOOL`: TRUE when the readback outputs are valid this scan.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -1359,11 +1555,14 @@ Type: `FUNCTION_BLOCK`
 Read the current coordinate transform payload.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Enable : BOOL`: Level-sensitive enable input. Keep it TRUE while you want the block active or the readback valid.
 - `CoordSystem : MC_COORD_SYSTEM`: Coordinate system used by the command or readback.
 `VAR_OUTPUT`:
+
 - `Valid : BOOL`: TRUE when the readback outputs are valid this scan.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -1374,14 +1573,17 @@ Type: `FUNCTION_BLOCK`
 Overwrite the group position reference.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `Position : MC_POS_REF`: Target or reference position value.
 - `Relative : BOOL`: If TRUE, interpret the position as a relative offset.
 - `CoordSystem : MC_COORD_SYSTEM`: Coordinate system used by the command or readback.
 - `ExecutionMode : MC_EXECUTION_MODE`: Execution policy for the write/set operation.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `CommandAccepted : BOOL`: TRUE when the command has been accepted.
@@ -1394,8 +1596,10 @@ Type: `FUNCTION_BLOCK`
 Run a linear absolute coordinated move.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `Position : MC_POS_REF`: Target or reference position value.
 - `Velocity : REAL`: Requested velocity.
@@ -1409,6 +1613,7 @@ Type: `FUNCTION_BLOCK`
 - `TransitionParameter : MC_TRANSITION_PARAMETER`: Additional transition parameter.
 - `OrientationMode : MC_ORIENTATION_MODE`: Orientation interpolation mode.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
@@ -1423,8 +1628,10 @@ Usage notes: Use when path following matters and the move should be linear in th
 Run a linear relative coordinated move.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `Distance : MC_DISTANCE_REF`: Relative distance value.
 - `Velocity : REAL`: Requested velocity.
@@ -1438,6 +1645,7 @@ Type: `FUNCTION_BLOCK`
 - `TransitionParameter : MC_TRANSITION_PARAMETER`: Additional transition parameter.
 - `OrientationMode : MC_ORIENTATION_MODE`: Orientation interpolation mode.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
@@ -1452,8 +1660,10 @@ Usage notes: Use when the target is expressed as a relative delta rather than an
 Run a direct absolute coordinated move.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `Position : MC_POS_REF`: Target or reference position value.
 - `Velocity : REAL`: Requested velocity.
@@ -1467,6 +1677,7 @@ Type: `FUNCTION_BLOCK`
 - `TransitionParameter : MC_TRANSITION_PARAMETER`: Additional transition parameter.
 - `OrientationMode : MC_ORIENTATION_MODE`: Orientation interpolation mode.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
@@ -1481,8 +1692,10 @@ Usage notes: Use when a direct move is acceptable and path linearity is not requ
 Run a direct relative coordinated move.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `Distance : MC_DISTANCE_REF`: Relative distance value.
 - `Velocity : REAL`: Requested velocity.
@@ -1496,6 +1709,7 @@ Type: `FUNCTION_BLOCK`
 - `TransitionParameter : MC_TRANSITION_PARAMETER`: Additional transition parameter.
 - `OrientationMode : MC_ORIENTATION_MODE`: Orientation interpolation mode.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
@@ -1510,13 +1724,16 @@ Usage notes: Relative version of the direct coordinated move.
 Home a coordinated-motion group.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `Position : MC_POS_REF`: Target or reference position value.
 - `CoordSystem : MC_COORD_SYSTEM`: Coordinate system used by the command or readback.
 - `BufferMode : MC_BUFFER_MODE`: PLCopen buffering/blending mode for the command.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
@@ -1529,12 +1746,15 @@ Type: `FUNCTION_BLOCK`
 Stop the whole group immediately.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `Deceleration : REAL`: Requested deceleration.
 - `Jerk : REAL`: Requested jerk.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command or stop condition.
@@ -1545,13 +1765,16 @@ Type: `FUNCTION_BLOCK`
 Halt the group while preserving buffered semantics.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `Deceleration : REAL`: Requested deceleration.
 - `Jerk : REAL`: Requested jerk.
 - `BufferMode : MC_BUFFER_MODE`: PLCopen buffering/blending mode for the command.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
@@ -1565,12 +1788,15 @@ Type: `FUNCTION_BLOCK`
 Insert a timed wait command into the group command stream.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `Duration : TIME`: Requested dwell time.
 - `BufferMode : MC_BUFFER_MODE`: PLCopen buffering/blending mode for the command.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
@@ -1584,13 +1810,16 @@ Usage notes: Useful for inserting dwell periods into a buffered group-motion seq
 Apply group-wide override scaling factors.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Enable : BOOL`: Level-sensitive enable input. Keep it TRUE while you want the block active or the readback valid.
 - `VelFactor : REAL`: Velocity override factor.
 - `AccFactor : REAL`: Acceleration override factor.
 - `JerkFactor : REAL`: Jerk override factor.
 `VAR_OUTPUT`:
+
 - `Enabled : BOOL`: TRUE while the override function is active.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -1600,13 +1829,16 @@ Type: `FUNCTION_BLOCK`
 Transform one position payload between coordinate systems.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Enable : BOOL`: Level-sensitive enable input. Keep it TRUE while you want the block active or the readback valid.
 - `InputPosition : MC_POS_REF`: Position to transform.
 - `InputCoordSystem : MC_COORD_SYSTEM`: Coordinate system of the input position.
 - `OutputCoordSystem : MC_COORD_SYSTEM`: Coordinate system requested for the output position.
 `VAR_OUTPUT`:
+
 - `Valid : BOOL`: TRUE when the readback outputs are valid this scan.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -1620,11 +1852,14 @@ Usage notes: Use for coordinate conversion or preflight checks before issuing a 
 Read tracking/progress information for one coordinated-motion command.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Enable : BOOL`: Level-sensitive enable input. Keep it TRUE while you want the block active or the readback valid.
 - `CommandID : MC_COMMAND_ID`: Identifier assigned to the accepted command.
 `VAR_OUTPUT`:
+
 - `Valid : BOOL`: TRUE when the readback outputs are valid this scan.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -1642,14 +1877,17 @@ Usage notes: Use when you need progress or timing feedback for long-running grou
 Write the reference dynamics used by the group.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `Velocity : REAL`: Requested velocity.
 - `Acceleration : REAL`: Requested acceleration.
 - `Deceleration : REAL`: Requested deceleration.
 - `Jerk : REAL`: Requested jerk.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -1659,10 +1897,13 @@ Type: `FUNCTION_BLOCK`
 Read the reference dynamics used by the group.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Enable : BOOL`: Level-sensitive enable input. Keep it TRUE while you want the block active or the readback valid.
 `VAR_OUTPUT`:
+
 - `Valid : BOOL`: TRUE when the readback outputs are valid this scan.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -1676,14 +1917,17 @@ Type: `FUNCTION_BLOCK`
 Write the default group dynamics values.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `Velocity : REAL`: Requested velocity.
 - `Acceleration : REAL`: Requested acceleration.
 - `Deceleration : REAL`: Requested deceleration.
 - `Jerk : REAL`: Requested jerk.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -1693,10 +1937,13 @@ Type: `FUNCTION_BLOCK`
 Read the default group dynamics values.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `AxesGroup : AXES_GROUP_REF`: Shared group handle passed by reference.
 `VAR_INPUT`:
+
 - `Enable : BOOL`: Level-sensitive enable input. Keep it TRUE while you want the block active or the readback valid.
 `VAR_OUTPUT`:
+
 - `Valid : BOOL`: TRUE when the readback outputs are valid this scan.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
@@ -1715,6 +1962,7 @@ Part 5 homing toolkit blocks for step-by-step homing procedures beyond the basic
 ### `MC_HOME_DIRECTION`
 Direction selector used by the advanced homing step blocks.
 Values:
+
 - `mcPositiveDirection`: Travel in the positive direction.
 - `mcNegativeDirection`: Travel in the negative direction.
 - `mcSwitchPositive`: Determine direction from a positive switch interpretation.
@@ -1723,6 +1971,7 @@ Values:
 ### `MC_SWITCH_MODE`
 Defines how a switch or reference signal is interpreted during homing.
 Values:
+
 - `mcOn`: Trigger when the signal is ON.
 - `mcOff`: Trigger when the signal is OFF.
 - `mcRisingEdge`: Trigger on a rising edge.
@@ -1733,6 +1982,7 @@ Values:
 ### `MC_REF_SIGNAL_REF`
 Reference-signal payload containing the signal state and optional metadata.
 Fields:
+
 - `Signal : BOOL`: Current signal state.
 - `PositionStamp : REAL`: Position sampled with the signal.
 - `MarkerCode : UINT`: Optional marker/reference code.
@@ -1743,8 +1993,10 @@ Fields:
 Run a homing step that finishes when an absolute reference signal matches the requested switch mode.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Axis : AXIS_REF`: Shared axis handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `Direction : MC_HOME_DIRECTION`: Requested travel direction policy.
 - `SwitchMode : MC_SWITCH_MODE`: Reference-switch evaluation mode.
@@ -1756,6 +2008,7 @@ Type: `FUNCTION_BLOCK`
 - `DistanceLimit : REAL`: Maximum allowed homing-step travel distance.
 - `BufferMode : MC_BUFFER_MODE`: PLCopen buffering/blending mode for the command.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
@@ -1768,8 +2021,10 @@ Usage notes: Usually one part of a larger homing recipe.
 Run a homing step that finishes when the selected limit switch matches the requested mode.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Axis : AXIS_REF`: Shared axis handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `Direction : MC_HOME_DIRECTION`: Requested travel direction policy.
 - `LimitSwitchMode : MC_SWITCH_MODE`: Limit-switch evaluation mode.
@@ -1780,6 +2035,7 @@ Type: `FUNCTION_BLOCK`
 - `DistanceLimit : REAL`: Maximum allowed homing-step travel distance.
 - `BufferMode : MC_BUFFER_MODE`: PLCopen buffering/blending mode for the command.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
@@ -1792,8 +2048,10 @@ Usage notes: Choose the direction and switch mode so the step matches your machi
 Run a homing step that detects a block/hard-stop condition.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Axis : AXIS_REF`: Shared axis handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `Direction : MC_HOME_DIRECTION`: Requested travel direction policy.
 - `Velocity : REAL`: Requested velocity.
@@ -1805,6 +2063,7 @@ Type: `FUNCTION_BLOCK`
 - `DistanceLimit : REAL`: Maximum allowed homing-step travel distance.
 - `BufferMode : MC_BUFFER_MODE`: PLCopen buffering/blending mode for the command.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
@@ -1817,8 +2076,10 @@ Usage notes: Use when a hard-stop or torque-detection style homing step is requi
 Run a homing step that finishes on a reference pulse.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Axis : AXIS_REF`: Shared axis handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `Direction : MC_HOME_DIRECTION`: Requested travel direction policy.
 - `ReferenceSignal : MC_REF_SIGNAL_REF`: Reference signal payload.
@@ -1829,6 +2090,7 @@ Type: `FUNCTION_BLOCK`
 - `DistanceLimit : REAL`: Maximum allowed homing-step travel distance.
 - `BufferMode : MC_BUFFER_MODE`: PLCopen buffering/blending mode for the command.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
@@ -1841,8 +2103,10 @@ Usage notes: Use when your axis hardware provides a dedicated reference pulse.
 Run a homing step that relies on distance-coded movement.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Axis : AXIS_REF`: Shared axis handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `Direction : MC_HOME_DIRECTION`: Requested travel direction policy.
 - `Velocity : REAL`: Requested velocity.
@@ -1851,6 +2115,7 @@ Type: `FUNCTION_BLOCK`
 - `DistanceLimit : REAL`: Maximum allowed homing-step travel distance.
 - `BufferMode : MC_BUFFER_MODE`: PLCopen buffering/blending mode for the command.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
@@ -1862,12 +2127,15 @@ Type: `FUNCTION_BLOCK`
 Directly mark an axis as homed at a chosen position.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Axis : AXIS_REF`: Shared axis handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `SetPosition : REAL`: Position to stamp into the axis when the homing step finishes.
 - `BufferMode : MC_BUFFER_MODE`: PLCopen buffering/blending mode for the command.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
@@ -1880,11 +2148,14 @@ Usage notes: Use when an external mechanism has already established the absolute
 Finish homing by using the current absolute reference.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Axis : AXIS_REF`: Shared axis handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `BufferMode : MC_BUFFER_MODE`: PLCopen buffering/blending mode for the command.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
@@ -1896,8 +2167,10 @@ Type: `FUNCTION_BLOCK`
 Complete the final move after the earlier homing steps have found the reference.
 Type: `FUNCTION_BLOCK`
 `VAR_IN_OUT`:
+
 - `Axis : AXIS_REF`: Shared axis handle passed by reference.
 `VAR_INPUT`:
+
 - `Execute : BOOL`: Command trigger input. Use a rising edge to request a new command, then keep calling the FB every scan.
 - `Distance : REAL`: Relative distance value.
 - `Velocity : REAL`: Requested velocity.
@@ -1906,6 +2179,7 @@ Type: `FUNCTION_BLOCK`
 - `Jerk : REAL`: Requested jerk.
 - `BufferMode : MC_BUFFER_MODE`: PLCopen buffering/blending mode for the command.
 `VAR_OUTPUT`:
+
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.

@@ -2,6 +2,11 @@
 
 Use this sequence when a signal on the HMI does not match the field.
 
+![Runtime I/O read from the CLI](../assets/images/terminal/ctl-io-read.gif)
+
+*Figure:* Use runtime evidence such as `io-read` or the runtime panel to
+separate HMI refresh issues from mapping, runtime, or field wiring issues.
+
 ## Read The Chain In Order
 
 | Step | Evidence | Next action |

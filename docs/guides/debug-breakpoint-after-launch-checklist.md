@@ -11,6 +11,7 @@ Goal
 5. Expected: debugger stops at that breakpoint with reason `breakpoint`.
 
 Failure pattern:
+
 - breakpoint resolves in logs, but no stop and no DAP `stopped` event.
 
 ## 2. Runtime Instrumentation Markers
@@ -21,6 +22,7 @@ export ST_DEBUG_TRACE_LOG=/tmp/trust-debug-dap.log
 ```
 
 Must see, in order:
+
 - `hook.entry ...`
 - `hook.decision effective_mode=Running ...`
 - `hook.breakpoint.check ... matched_generation=Some(...)`
@@ -28,6 +30,7 @@ Must see, in order:
 - `stop reason=Breakpoint ...`
 
 Interpretation:
+
 - No `hook.entry`: statement hook boundary not reached.
 - `hook.entry` present + `matched_generation=None`: breakpoint match/resolution issue.
 - `hook.pause.enter` present + no adapter stop event: adapter stop coordination/emission issue.
@@ -40,6 +43,7 @@ export ST_DEBUG_DAP_LOG=/tmp/trust-debug-dap.log
 ```
 
 Must see:
+
 - `[trust-debug][stop] action=recv reason=breakpoint ...`
 - `[trust-debug][stop] action=emit reason=breakpoint ...`
 - outbound DAP payload with `"event":"stopped","reason":"breakpoint"`.

@@ -1,4 +1,4 @@
-# truST — IEC 61131-3 Structured Text toolchain, runtime, and HMI
+# truST — open IEC 61131-3 control workspace
 
 ![truST logo](docs/public/assets/images/brand/trust-logo.svg)
 
@@ -11,33 +11,44 @@
 
 Documentation: <https://johannespettersson80.github.io/trust-platform/>
 
-truST is an open-source IEC 61131-3 Structured Text toolchain with:
+truST is an open IEC 61131-3 control workspace: one project edited in VS Code,
+run by `trust-runtime`, observed through browser HMI, automated through CLI and
+Agent APIs, connected through truST Mesh, and assisted by AI tools that can read
+diagnostics and use typed truST surfaces.
 
-- a VS Code extension and IEC-aware language server
-- a live runtime panel and `trust-debug` debugger in the editor
-- `trust-runtime` for local and target execution
-- browser IDE and HMI pages at `/ide` and `/hmi`
-- CLI, agent, and harness workflows for automation
+Runs on Linux, including [PREEMPT_RT soft-real-time deployments](docs/public/operate/preempt-rt.md),
+macOS, Windows, and Raspberry Pi.
 
-![Desktop VS Code with the truST runtime panel](docs/public/assets/images/hero-runtime.png)
+![One project across VS Code, diagnostics, debug, Browser IDE, and Browser HMI](docs/public/assets/images/one-project-surface-tour.gif)
 
-Desktop VS Code is the primary truST engineering surface: edit Structured
-Text, inspect live I/O and memory, view compile diagnostics, and debug the same
-running project without leaving the editor.
+The same runtime also serves a browser IDE at `/ide` and an operator HMI at
+`/hmi`, so one project drives engineering, automation, and operation without
+separate project copies to reconcile.
+
+Read [One Project, Every Surface](docs/public/concepts/one-project.md) for the
+surface map and AI/tooling boundaries. Runtimes connect to each other and to
+plant systems through [truST Mesh](docs/public/concepts/trust-mesh.md): one
+runtime, the right wire for each job.
 
 ## Start
 
-- Install truST: docs site -> `Start` -> `Installation`
-- Program in VS Code: docs site -> `Start` -> `Program In VS Code`
-- Operate in Browser HMI: docs site -> `Start` -> `Operate In Browser HMI`
+- [Install truST](docs/public/start/installation.md)
+- [Choose your workflow](docs/public/start/choose-your-workflow.md)
+- [Program in VS Code](docs/public/start/program-in-vscode.md)
+- [Use AI assistance](docs/public/develop/ai-assistance.md)
+- [Operate in Browser HMI](docs/public/start/operate-in-browser.md)
+- [Migrate existing PLC work](docs/public/migrate/index.md)
 
 ## Features
 
 - IEC-aware diagnostics, formatting, rename, navigation, and refactors
-- runtime panel with live values, memory, and I/O inspection
-- debugger with breakpoints, stepping, locals, and call stack
-- browser IDE and operator HMI backed by the same project/runtime
-- deterministic test and harness workflows
+- Editor AI tools for typed diagnostics, navigation, file edits, HMI work,
+  telemetry, settings, and debug actions
+- Runtime panel with live values, memory, and I/O inspection
+- Debugger with breakpoints, stepping, locals, and call stack
+- Browser IDE and operator HMI backed by the same project/runtime
+- CLI, Agent API, deterministic test, and harness workflows
+- truST Mesh for runtime-to-runtime and plant connectivity
 - PLCopen XML import/export and visual editor support
 
 ## Install
@@ -65,8 +76,9 @@ code --install-extension trust-platform.trust-lsp
 
 - VS Code Marketplace: live
 - GitHub Releases: live
-- Runtime + debugger: experimental
-- Rust MSRV: 1.85
+- Supported platforms: Linux, Linux PREEMPT_RT, macOS, Windows, Raspberry Pi
+- Runtime + debugger: pre-1.0, behavior-locked by tests
+- Rust MSRV: 1.85+
 
 ## Help
 

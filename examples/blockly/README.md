@@ -188,7 +188,7 @@ line = 17  # Maps to %QX0.0
 ### 1. From VS Code
 
 ```
-Ctrl+Shift+P → Structured Text: New Blockly Program
+Ctrl/Cmd+Shift+P → Structured Text: New Blockly Program
 ```
 
 Enter name and save in `examples/blockly/`

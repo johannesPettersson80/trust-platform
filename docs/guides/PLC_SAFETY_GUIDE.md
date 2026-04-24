@@ -19,6 +19,7 @@ When a fault occurs, outputs are driven to these values before halting.
 ## 2) Watchdog Behavior
 
 Watchdog monitors cycle/task execution time. If the timeout is exceeded:
+
 - Resource transitions to **FAULT**
 - Outputs go to safe state
 - Execution halts until restart
@@ -62,11 +63,13 @@ runtime.control.debug_enabled = false
 ## 6) Operator Checklist
 
 Before commissioning:
+
 - Verify safe-state outputs.
 - Trigger a test fault and confirm outputs go safe.
 - Confirm watchdog timeout and restart behavior.
 - Confirm retain persistence for required values.
 
 During operation:
+
 - Monitor status and fault events.
 - Restart cold if safety is uncertain.

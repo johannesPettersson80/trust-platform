@@ -28,6 +28,7 @@ results when WASM requests fail or time out.
    `http://127.0.0.1:4175/trust-platform/`
 
 Alternative quick static host:
+
 - `python3 -m http.server 8000 -d docs/demo`
 - `http://127.0.0.1:8000/`
 
@@ -60,6 +61,7 @@ Workflow: `.github/workflows/demo-pages.yml`
   auto-enable Pages for first-time repos.
 
 If you still see `Get Pages site failed`:
+
 1. Open repository settings -> **Pages**.
 2. Ensure build/deploy source is **GitHub Actions**.
 3. Re-run the **Demo Pages** workflow.

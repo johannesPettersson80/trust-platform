@@ -1,16 +1,7 @@
-# Vendor Libraries
+# Vendor Libraries Moved To Migrate
 
-Use this guide when:
+The vendor-library migration guide now lives at
+[Migrate -> Vendor Libraries](../../migrate/vendor-libraries.md).
 
-- you need symbol visibility or migration help
-- you do not want to treat the imported pack as normal editable source
-
-## Compatibility Guide
-
---8<-- "docs/guides/VENDOR_LIBRARY_COMPATIBILITY.md"
-
-## Related
-
-- [Libraries overview](../libraries/index.md)
-- [Interoperability overview](index.md)
-- [Vendor profile examples](../../examples/vendor-profiles.md)
+Use the new page for current library-stub strategy, compatibility limits, and
+related examples.

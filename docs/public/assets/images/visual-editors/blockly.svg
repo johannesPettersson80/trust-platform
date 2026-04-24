@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+  <title id="title">Blockly workspace generating companion Structured Text</title>
+  <desc id="desc">A truST Blockly diagram showing block-based logic for LED blink control next to generated companion Structured Text.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#f8fafc"/>
+      <stop offset="1" stop-color="#f0fdf4"/>
+    </linearGradient>
+    <filter id="shadow" color-interpolation-filters="sRGB" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#0f172a" flood-opacity="0.16"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="675" fill="url(#bg)"/>
+  <rect x="56" y="48" width="1088" height="579" rx="24" fill="#ffffff" filter="url(#shadow)"/>
+  <rect x="56" y="48" width="1088" height="92" rx="24" fill="#052e16"/>
+  <text x="92" y="105" fill="#f8fafc" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="34" font-weight="700">Blockly Editor</text>
+  <text x="333" y="105" fill="#bbf7d0" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="22">training-friendly blocks with reviewable companion ST</text>
+  <rect x="92" y="176" width="642" height="402" rx="18" fill="#f8fafc" stroke="#cbd5e1"/>
+  <rect x="766" y="176" width="342" height="402" rx="18" fill="#0f172a"/>
+  <text x="128" y="220" fill="#0f172a" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="24" font-weight="700">Workspace</text>
+  <text x="798" y="220" fill="#f8fafc" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="24" font-weight="700">Generated ST</text>
+  <g font-family="Inter, Segoe UI, Arial, sans-serif" font-size="21" font-weight="700">
+    <path d="M130 252 h460 a18 18 0 0 1 18 18 v46 a18 18 0 0 1 -18 18 H130 a18 18 0 0 1 -18 -18 v-46 a18 18 0 0 1 18 -18 Z" fill="#2563eb"/>
+    <circle cx="154" cy="293" r="12" fill="#bfdbfe"/>
+    <text x="182" y="301" fill="#ffffff">every 500 ms</text>
+    <path d="M166 350 h474 a18 18 0 0 1 18 18 v54 a18 18 0 0 1 -18 18 H166 a18 18 0 0 1 -18 -18 v-54 a18 18 0 0 1 18 -18 Z" fill="#0f766e"/>
+    <circle cx="190" cy="395" r="12" fill="#99f6e4"/>
+    <text x="218" y="403" fill="#ffffff">toggle LED_OUTPUT</text>
+    <path d="M202 456 h438 a18 18 0 0 1 18 18 v54 a18 18 0 0 1 -18 18 H202 a18 18 0 0 1 -18 -18 v-54 a18 18 0 0 1 18 -18 Z" fill="#d97706"/>
+    <circle cx="226" cy="501" r="12" fill="#fde68a"/>
+    <text x="254" y="509" fill="#ffffff">write mapped process value</text>
+  </g>
+  <g font-family="SFMono-Regular, Consolas, Liberation Mono, monospace" font-size="18">
+    <text x="798" y="270" fill="#93c5fd">PROGRAM</text>
+    <text x="888" y="270" fill="#e2e8f0">LedBlink</text>
+    <text x="798" y="306" fill="#c4b5fd">VAR</text>
+    <text x="826" y="342" fill="#e2e8f0">timer : TON;</text>
+    <text x="826" y="378" fill="#e2e8f0">ledState : BOOL;</text>
+    <text x="798" y="414" fill="#c4b5fd">END_VAR</text>
+    <text x="798" y="462" fill="#e2e8f0">timer(IN := TRUE, PT := T#500ms);</text>
+    <text x="798" y="498" fill="#e2e8f0">IF timer.Q THEN</text>
+    <text x="826" y="534" fill="#e2e8f0">ledState := NOT ledState;</text>
+    <text x="798" y="570" fill="#e2e8f0">END_IF;</text>
+  </g>
+  <g font-family="Inter, Segoe UI, Arial, sans-serif">
+    <rect x="92" y="596" width="300" height="38" rx="19" fill="#dcfce7"/>
+    <text x="114" y="622" fill="#166534" font-size="19" font-weight="700">Blocks are the authoring view</text>
+    <rect x="416" y="596" width="342" height="38" rx="19" fill="#dbeafe"/>
+    <text x="438" y="622" fill="#1d4ed8" font-size="19" font-weight="700">Generated ST is reviewable text</text>
+    <rect x="782" y="596" width="326" height="38" rx="19" fill="#fef3c7"/>
+    <text x="804" y="622" fill="#92400e" font-size="19" font-weight="700">Runtime path stays the same</text>
+  </g>
+</svg>

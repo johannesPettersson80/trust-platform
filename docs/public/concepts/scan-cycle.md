@@ -2,6 +2,13 @@
 
 Structured Text execution in truST is cycle-driven.
 
+!!! note "Terms"
+    `%I` = input process image.
+    `%Q` = output process image.
+    `%M` = memory-marker process image.
+    `VAR_CONFIG` = configuration-time mapping from ST variables to addresses.
+    "Process image" = the sampled I/O/memory state a cycle reads and writes.
+
 ```mermaid
 flowchart LR
     A[Sample Inputs<br/>%I / driver image] --> B[Materialize Mapped Variables<br/>VAR_CONFIG and globals]

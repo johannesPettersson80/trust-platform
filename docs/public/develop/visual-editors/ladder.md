@@ -3,6 +3,12 @@
 Use the ladder editor for rung-based PLC logic that still compiles into the same
 truST project, runtime, and debug workflow as Structured Text.
 
+![Ladder start stop seal-in diagram](../../assets/images/visual-editors/ladder.svg)
+
+*Figure:* A start/stop seal-in rung with `StartCmd`, `StopCmd`, `TimerDone`,
+`RunLatch`, and `MotorRun`. The ladder model is the visual source of truth; the
+generated companion ST and runtime/debug path stay in the same truST project.
+
 ## What it gives you
 
 - rung-based visual authoring
@@ -42,6 +48,6 @@ truST project, runtime, and debug workflow as Structured Text.
 ## Related
 
 - [Companion ST](companion-st.md)
-- [PLCopen](../interoperability/plcopen.md)
+- [PLCopen](../../migrate/plcopen.md)
 - [Ladder specification](../../reference/specifications/15-ladder-diagram.md)
 - [truST ladder profile](../../reference/specifications/16-ladder-profile-trust.md)

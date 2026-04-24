@@ -33,6 +33,7 @@ message = "simulated sensor dropout"
 ```
 
 What this does:
+
 - `couplings`: output-to-input wiring rules for simulation.
 - `delay_ms`: delayed effect timing.
 - `disturbances`: scripted input changes and fault injection.

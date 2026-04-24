@@ -52,4 +52,4 @@ instead. Mesh is not the HardRT path.
 
 ## Worked tutorial
 
---8<-- "examples/tutorials/15_multi_plc_discovery_mesh/README.md"
+--8<-- "examples/tutorials/15_multi_plc_discovery_mesh/README.md:3"

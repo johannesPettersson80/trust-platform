@@ -32,7 +32,7 @@ trust-runtime validate --project examples/memory_marker_counter
 
 ## Step 2: Start Runtime + Panel
 
-1. In VS Code: `Ctrl+Shift+P` -> `Structured Text: Open Runtime Panel`
+1. In VS Code: `Ctrl/Cmd+Shift+P` -> `Structured Text: Open Runtime Panel`
 2. Start runtime (Local mode) or connect to running runtime.
 3. Open the panel sections:
    - `I/O -> Inputs` for writing `%M` values

@@ -2,15 +2,28 @@
 
 ## Start Here
 
+- [One Project, Every Surface](one-project.md): how one project stays live
+  across VS Code, runtime, HMI, browser, CLI/CI, agent, mesh, and AI surfaces
 - [Architecture](architecture.md): the major layers and why truST tries to reuse one model across all surfaces
-- [Project Model](project-model.md): the files that make up one project and how they relate
 - [Scan Cycle](scan-cycle.md): the execution mental model most PLC bugs reduce to
 
 ## Concept Map
 
-- [Architecture](architecture.md)
-- [Project Model](project-model.md)
-- [Scan Cycle](scan-cycle.md)
+### Core Mental Models
+
+- [One Project, Every Surface](one-project.md): one project edited, run,
+  observed, scripted, connected, and AI-assisted through different surfaces
+- [Architecture](architecture.md): the main system layers and ownership
+  boundaries
+- [truST Mesh](trust-mesh.md): the communication model for HardRT, mesh,
+  plant, and operator lanes
+- [Project Model](project-model.md): the files and artifacts that make a truST
+  project
+- [Scan Cycle](scan-cycle.md): the runtime execution model behind most PLC
+  behavior
+
+### Deep Dives
+
 - [Deterministic Harness](deterministic-harness.md)
 - [Runtime Model](runtime-model.md)
 - [Visual Companion Model](visual-companion-model.md)

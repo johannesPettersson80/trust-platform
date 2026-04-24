@@ -154,6 +154,7 @@ Shipped chapter coverage:
 Loaded into the global `MATH` carrier by `OSCAT_BASIC_Constants()`.
 
 Fields:
+
 - `PI`
 - `PI2`
 - `PI4`
@@ -169,6 +170,7 @@ Fields:
 Loaded into the global `PHYS` carrier by `OSCAT_BASIC_Constants()`.
 
 Fields:
+
 - `C`
 - `E`
 - `G`
@@ -181,6 +183,7 @@ Fields:
 Loaded into the global `LANGUAGE` carrier by `OSCAT_BASIC_Constants()`.
 
 Fields:
+
 - `DEFAULT : INT`: default language table index
 - `LMAX : INT`: highest shipped language table index
 - `DIRS : ARRAY[1..3, 0..15] OF STRING[3]`: compass-direction lookup table
@@ -195,6 +198,7 @@ can use it directly in addition to `DEG_TO_DIR` / `DIR_TO_DEG`.
 Type: `STRUCT`
 
 Important fields:
+
 - `UTC`
 - `LOCAL_DT`
 - `LOCAL_DATE`
@@ -214,6 +218,7 @@ Important fields:
 - `WORK_WEEK`
 
 Compatibility note:
+
 - Upstream OSCAT names the local date/time fields `LDT`, `LDATE`, and `LTOD`.
   truST keeps strict IEC keyword reservation, so the shipped port uses
   `LOCAL_DT`, `LOCAL_DATE`, and `LOCAL_TOD` instead.
@@ -223,10 +228,12 @@ Compatibility note:
 Type: `STRUCT`
 
 Fields:
+
 - `RE`
 - `IM`
 
 Usage notes:
+
 - Used by the Chapter 7 complex-mathematics helpers.
 
 ### `CONSTANTS_LOCATION`
@@ -234,12 +241,14 @@ Usage notes:
 Type: `STRUCT`
 
 Important fields:
+
 - `LATITUDE`
 - `LONGITUDE`
 - `HEIGHT`
 - `TIME_ZONE`
 
 Usage notes:
+
 - Upstream OSCAT uses this as a location/setup carrier for calendar/sunrise
   style helpers.
 
@@ -248,12 +257,14 @@ Usage notes:
 Type: `STRUCT`
 
 Important fields:
+
 - `DST_EN`
 - `DST_ON`
 - `DST_OFF`
 - `LANGUAGE`
 
 Usage notes:
+
 - Preserved as an upstream-compatible setup carrier instead of flattening the
   fields into unrelated globals.
 
@@ -262,6 +273,7 @@ Usage notes:
 Type: `STRUCT`
 
 Important fields:
+
 - `TYPE`
 - `CLS`
 - `ADR`
@@ -270,6 +282,7 @@ Important fields:
 - `DATA`
 
 Usage notes:
+
 - Used by the Chapter 4 ESR monitor/collector helpers.
 
 ### `FRACTION`
@@ -277,10 +290,12 @@ Usage notes:
 Type: `STRUCT`
 
 Fields:
+
 - `N`
 - `D`
 
 Usage notes:
+
 - Used by fraction helpers that return rational approximations.
 
 ### `HOLIDAY_DATA`
@@ -288,12 +303,14 @@ Usage notes:
 Type: `STRUCT`
 
 Important fields:
+
 - `MONTH`
 - `DAY`
 - `OFFSET`
 - `MODE`
 
 Usage notes:
+
 - Used by calendar/holiday helper logic.
 
 ### `REAL2`
@@ -301,10 +318,12 @@ Usage notes:
 Type: `STRUCT`
 
 Fields:
+
 - `R1`
 - `RX`
 
 Usage notes:
+
 - Carrier for the Chapter 8 double-precision helpers.
 
 ### `SDT`
@@ -312,6 +331,7 @@ Usage notes:
 Type: `STRUCT`
 
 Important fields:
+
 - `SEC`
 - `MIN`
 - `HOUR`
@@ -320,6 +340,7 @@ Important fields:
 - `YEAR`
 
 Usage notes:
+
 - Upstream split-date/time carrier preserved for formatted date parsing paths.
 
 ### `TIMER_EVENT`
@@ -327,11 +348,13 @@ Usage notes:
 Type: `STRUCT`
 
 Important fields:
+
 - `START`
 - `STOP`
 - `DAY`
 
 Usage notes:
+
 - Used by timer/scheduler-style helpers.
 
 ### `VECTOR_3`
@@ -339,11 +362,13 @@ Usage notes:
 Type: `STRUCT`
 
 Fields:
+
 - `X`
 - `Y`
 - `Z`
 
 Usage notes:
+
 - Used by Chapter 11 vector helpers.
 
 ### `OSCAT_BASIC_Constants`
@@ -357,11 +382,13 @@ OSCAT_BASIC_Constants() : BOOL
 ```
 
 Behavior:
+
 - populates `MATH`, `PHYS`, and `LANGUAGE` on first call
 - returns `TRUE`
 - leaves the already-loaded values in place on later calls
 
 Usage notes:
+
 - Call this before reading `LANGUAGE.DIRS`.
 - Call this before helpers that depend on `MATH.PI2` or `PHYS.T0`.
 
@@ -798,14 +825,17 @@ unit-conversion FBs.
 Type: `FUNCTION_BLOCK`
 
 `VAR_INPUT`:
+
 - `IN : REAL`
 - `N : INT`
 - `RST : BOOL`
 
 `VAR_OUTPUT`:
+
 - `OUT : REAL`
 
 Usage notes:
+
 - Retains up to 32 samples of `IN`.
 - `RST` reloads the internal ring buffer with the current input value and
   immediately sets `OUT := IN`.
@@ -816,15 +846,18 @@ Usage notes:
 Type: `FUNCTION_BLOCK`
 
 `VAR_INPUT`:
+
 - `IN : REAL`
 - `E : BOOL := TRUE`
 - `N : INT := 32`
 - `RST : BOOL`
 
 `VAR_OUTPUT`:
+
 - `AVG : REAL`
 
 Usage notes:
+
 - Maintains a moving average over the retained sample window.
 - `RST` and first-call initialization reload the average to the current input.
 - `E = FALSE` freezes the current average and does not advance the internal
@@ -839,16 +872,19 @@ scan.
 Type: `FUNCTION_BLOCK`
 
 `VAR_INPUT`:
+
 - `J : REAL`
 - `C : REAL`
 - `Wh : REAL`
 
 `VAR_OUTPUT`:
+
 - `YJ : REAL`
 - `YC : REAL`
 - `YWh : REAL`
 
 Usage notes:
+
 - Use this when you want to accept one or more upstream OSCAT energy-unit
   inputs and publish all supported outputs from a single block call.
 
@@ -857,6 +893,7 @@ Usage notes:
 Type: `FUNCTION_BLOCK`
 
 `VAR_INPUT`:
+
 - `m : REAL`
 - `p : REAL`
 - `inch : REAL`
@@ -867,6 +904,7 @@ Type: `FUNCTION_BLOCK`
 - `fm : REAL`
 
 `VAR_OUTPUT`:
+
 - `Ym : REAL`
 - `Yp : REAL`
 - `Yin : REAL`
@@ -877,6 +915,7 @@ Type: `FUNCTION_BLOCK`
 - `Yfm : REAL`
 
 Usage notes:
+
 - The field names intentionally match the upstream OSCAT naming instead of being
   renamed to new truST-specific aliases.
 
@@ -885,6 +924,7 @@ Usage notes:
 Type: `FUNCTION_BLOCK`
 
 `VAR_INPUT`:
+
 - `mws : REAL`
 - `torr : REAL`
 - `att : REAL`
@@ -893,6 +933,7 @@ Type: `FUNCTION_BLOCK`
 - `bar : REAL`
 
 `VAR_OUTPUT`:
+
 - `Ymws : REAL`
 - `Ytorr : REAL`
 - `Yatt : REAL`
@@ -905,12 +946,14 @@ Type: `FUNCTION_BLOCK`
 Type: `FUNCTION_BLOCK`
 
 `VAR_INPUT`:
+
 - `ms : REAL`
 - `kmh : REAL`
 - `kn : REAL`
 - `mh : REAL`
 
 `VAR_OUTPUT`:
+
 - `Yms : REAL`
 - `Ykmh : REAL`
 - `Ykn : REAL`
@@ -921,6 +964,7 @@ Type: `FUNCTION_BLOCK`
 Type: `FUNCTION_BLOCK`
 
 `VAR_INPUT`:
+
 - `K : REAL`
 - `C : REAL := -273.15`
 - `F : REAL := -459.67`
@@ -928,6 +972,7 @@ Type: `FUNCTION_BLOCK`
 - `Ra : REAL`
 
 `VAR_OUTPUT`:
+
 - `YK : REAL`
 - `YC : REAL`
 - `YF : REAL`
@@ -935,6 +980,7 @@ Type: `FUNCTION_BLOCK`
 - `YRa : REAL`
 
 Usage notes:
+
 - The shipped implementation supports the upstream omission-style defaults on
   the `C`, `F`, and `Re` inputs.
 

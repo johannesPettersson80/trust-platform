@@ -13,6 +13,54 @@
       "source": "/hmi for examples/tutorials/12_hmi_pid_process_dashboard"
     },
     {
+      "path": "images/browser/hmi-operator-guide-overview.png",
+      "class": "browser-product-surface",
+      "generator": "playwright",
+      "source": "live /hmi overview page capture against running trust-runtime with examples/tutorials/12_hmi_pid_process_dashboard in dark mode"
+    },
+    {
+      "path": "images/browser/hmi-operator-daily-checks.png",
+      "class": "browser-product-surface",
+      "generator": "playwright",
+      "source": "live /hmi overview page capture (same surface operators use for daily checks)"
+    },
+    {
+      "path": "images/browser/hmi-operator-alarm-page.png",
+      "class": "browser-product-surface",
+      "generator": "playwright",
+      "source": "live /hmi Alarms page capture with a raised Pressure Deviation BAR alarm"
+    },
+    {
+      "path": "images/browser/hmi-operator-shift-handover.png",
+      "class": "browser-product-surface",
+      "generator": "playwright",
+      "source": "live /hmi Trends page capture used at shift handover to compare recent values"
+    },
+    {
+      "path": "images/hmi/operator-guide.svg",
+      "class": "operator-diagram",
+      "generator": "hand-authored",
+      "source": "generic operator workflow from HMI URL through status, alarm context, and handover"
+    },
+    {
+      "path": "images/hmi/operator-daily-checks.svg",
+      "class": "operator-diagram",
+      "generator": "hand-authored",
+      "source": "daily HMI checks for connection, freshness, alarms, live values, and shift record"
+    },
+    {
+      "path": "images/hmi/operator-alarm-handbook.svg",
+      "class": "operator-diagram",
+      "generator": "hand-authored",
+      "source": "alarm response sequence emphasizing context before acknowledge"
+    },
+    {
+      "path": "images/hmi/operator-shift-handover.svg",
+      "class": "operator-diagram",
+      "generator": "hand-authored",
+      "source": "shift handover board for active alarms, unusual values, temporary modes, and open actions"
+    },
+    {
       "path": "images/install/marketplace-listing.png",
       "class": "browser-install-surface",
       "generator": "playwright",
@@ -121,6 +169,12 @@
       "source": "workflow overview from source files through artifacts into trust-runtime and browser surfaces"
     },
     {
+      "path": "images/home/reader-journey.svg",
+      "class": "diagram",
+      "generator": "hand-authored",
+      "source": "homepage reader journey map from persona to first documentation page"
+    },
+    {
       "path": "images/brand/trust-logo.svg",
       "class": "brand-asset",
       "generator": "hand-authored",
@@ -145,6 +199,24 @@
       "source": "desktop VS Code statechart editor screenshot"
     },
     {
+      "path": "images/visual-editors/ladder.svg",
+      "class": "diagram",
+      "generator": "hand-authored",
+      "source": "ladder start/stop seal-in circuit diagram used until custom-editor screenshots can be recaptured reliably"
+    },
+    {
+      "path": "images/visual-editors/sfc.svg",
+      "class": "diagram",
+      "generator": "hand-authored",
+      "source": "SFC init, parallel branch, join, and complete sequence diagram"
+    },
+    {
+      "path": "images/visual-editors/blockly.svg",
+      "class": "diagram",
+      "generator": "hand-authored",
+      "source": "Blockly LED blink workspace and generated Structured Text diagram"
+    },
+    {
       "path": "images/vscode/iec-diagnostics.png",
       "class": "vscode-desktop-surface",
       "generator": "synced-media",
@@ -167,6 +239,18 @@
       "class": "vscode-browser-surface",
       "generator": "playwright+code-server",
       "source": "code-server workspace with the truST extension installed and Main.st rendered in the editor"
+    },
+    {
+      "path": "images/vscode/ai-tools-diagnostics.svg",
+      "class": "vscode-ai-diagram",
+      "generator": "hand-authored",
+      "source": "VS Code-style AI assistance flow showing typed truST diagnostics and edit tools"
+    },
+    {
+      "path": "images/one-project-surface-tour.gif",
+      "class": "composite-surface-tour",
+      "generator": "scripts/captures/generate-one-project-surface-tour.sh",
+      "source": "animated tour generated from checked-in VS Code, diagnostics, debugger, Browser IDE, and Browser HMI captures"
     }
   ]
 }

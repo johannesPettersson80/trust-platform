@@ -690,7 +690,7 @@ examples/
   - "How do the visual editors relate to generated ST files?" -> `develop/visual-editors/companion-st.md`
   - "How do I scaffold or edit HMI pages?" -> `develop/hmi-authoring.md`
   - "How do I use OSCAT / PLCopen Motion / package registry / generated API docs?" -> `develop/libraries/`, `develop/package-registry.md`, and `develop/generate-project-docs.md`
-  - "How do I import/export PLCopen XML or work with Siemens / CODESYS / TwinCAT / Mitsubishi?" -> `develop/interoperability/`
+  - "How do I import/export PLCopen XML or work with Siemens / CODESYS / TwinCAT / Mitsubishi?" -> `migrate/`
   - "How do I connect two runtimes?" -> `connect/runtime-to-runtime/`
   - "How do I build a multi-runtime system that also uses EtherCAT or other hardware I/O?" -> `connect/index.md` with clear links to both `runtime-to-runtime/` and `devices-and-fieldbus/`
   - "How do I expose the runtime safely over the network?" -> `connect/networking-and-remote-access.md`
@@ -700,7 +700,7 @@ examples/
   - "How do I use loopback / simulated / multi-driver I/O?" -> `connect/devices-and-fieldbus/driver-matrix.md`, `multi-driver.md`, and `simulated-and-loopback.md`
   - "How do I connect to external systems like MQTT / Modbus / OPC UA?" -> `connect/external-systems/`
   - "What built-in I/O drivers exist?" -> `connect/devices-and-fieldbus/driver-matrix.md`
-  - "How do I write code for Siemens / CODESYS / TwinCAT / Mitsubishi?" -> `develop/interoperability/` and `develop/vendor-profiles.md`
+  - "How do I write code for Siemens / CODESYS / TwinCAT / Mitsubishi?" -> `migrate/` and `develop/vendor-profiles.md`
   - "How do I build / validate / test / hot-reload?" -> `operate/build-validate-test.md` and `operate/compile-validate-reload.md`
   - "How do I debug or use the runtime panel?" -> `operate/debugging-and-runtime-panel.md`
   - "How do I control a running runtime from terminal or CLI?" -> `operate/runtime-ui-and-control.md`
@@ -728,10 +728,10 @@ examples/
   - `editors/vscode/README.md`, `docs/guides/EDITOR_SETUP_NEOVIM_ZED.md`, `docs/guides/WEB_IDE_FULL_BROWSER_GUIDE.md` -> `docs/public/start/editors.md` with matrix + anchored sections
   - `examples/README.md` + `examples/tutorials/README.md` -> `docs/public/examples/index.md` + example category pages
   - `docs/guides/PLC_DEVELOPER_GUIDE.md` + `docs/guides/UX_GLOSSARY.md` -> `docs/public/develop/project-layout.md` + `docs/public/reference/config/*`
-  - `examples/ladder/README.md`, `examples/statecharts/README.md`, `examples/blockly/README.md`, `examples/sfc/**`, `docs/guides/PLCOPEN_LD_INTEROP.md`, `docs/specs/17-visual-editors-runtime-unification.md` -> `docs/public/develop/visual-editors/*` and `docs/public/develop/interoperability/plcopen.md`
+  - `examples/ladder/README.md`, `examples/statecharts/README.md`, `examples/blockly/README.md`, `examples/sfc/**`, `docs/guides/PLCOPEN_LD_INTEROP.md`, `docs/specs/17-visual-editors-runtime-unification.md` -> `docs/public/develop/visual-editors/*` and `docs/public/migrate/plcopen.md`
   - `docs/guides/HMI_DIRECTORY_WORKFLOW.md` + HMI tutorials/examples -> `docs/public/develop/hmi-authoring.md` and `docs/public/operate/hmi-and-web-ui.md`
   - `docs/guides/OSCAT_LIBRARY_GUIDE.md`, `PLCOPEN_MOTION_LIBRARY_GUIDE.md`, and matching examples -> `docs/public/develop/libraries/*`
-  - `docs/guides/PLCOPEN_*`, `OPENPLC_INTEROP_V1.md`, `SIEMENS_*`, `MITSUBISHI_*`, `VENDOR_LIBRARY_COMPATIBILITY.md`, `examples/vendor_library_stubs/README.md`, `examples/plcopen_xml_st_complete/README.md` -> `docs/public/develop/interoperability/*`
+  - `docs/guides/PLCOPEN_*`, `OPENPLC_INTEROP_V1.md`, `SIEMENS_*`, `MITSUBISHI_*`, `VENDOR_LIBRARY_COMPATIBILITY.md`, `examples/vendor_library_stubs/README.md`, `examples/plcopen_xml_st_complete/README.md` -> `docs/public/migrate/*`
   - `docs/guides/PLC_CI_CD.md` line for `trust-runtime docs` -> `docs/public/develop/generate-project-docs.md`
   - registry CLI/profile docs and package examples -> `docs/public/develop/package-registry.md`
   - `docs/guides/PLC_IO_BINDING_GUIDE.md` -> `docs/public/connect/devices-and-fieldbus/io-binding.md` + `driver-matrix.md`
@@ -826,7 +826,7 @@ examples/
   - `docs/public/develop/visual-editors/blockly.md`
   - `docs/public/develop/visual-editors/sfc.md`
   - `docs/public/develop/visual-editors/companion-st.md`
-  - `docs/public/develop/interoperability/vendor-libraries.md`
+  - `docs/public/migrate/vendor-libraries.md`
   - `docs/public/connect/protocol-matrix.md`
   - `docs/public/connect/networking-and-remote-access.md`
   - `docs/public/connect/runtime-to-runtime/index.md`

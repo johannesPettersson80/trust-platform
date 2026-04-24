@@ -3,7 +3,7 @@
 This directory contains the IEC 61131-3 Structured Text language specs
 (`01-09`), the split runtime/tooling specs (`10-14`), the Ladder/profile/editor
 specs (`15-17`), the project/runtime model specs (`18-21`), and the current
-SFC profile note (`14-sfc-profile`).
+non-numbered SFC profile note (`sfc-profile`).
 
 ## Document Index
 
@@ -23,7 +23,7 @@ SFC profile note (`14-sfc-profile`).
 | [12-bytecode.md](12-bytecode.md) | STBC container, sections, instruction set, versioning | trust-runtime |
 | [13-debug-adapter.md](13-debug-adapter.md) | Debug adapter semantics, breakpoints, variables, reload behavior | trust-debug, trust-runtime |
 | [14-lsp.md](14-lsp.md) | LSP architecture, IDE behavior, protocol, diagnostics, performance | trust-lsp, trust-ide, trust-hir |
-| [14-sfc-profile.md](14-sfc-profile.md) | Reserved SFC keywords, visual-editor scope, textual SFC boundary | editors/vscode, trust-syntax |
+| [sfc-profile.md](sfc-profile.md) | Reserved SFC keywords, visual-editor scope, textual SFC boundary | editors/vscode, trust-syntax |
 | [15-ladder-diagram.md](15-ladder-diagram.md) | Normative IEC-aligned LD language semantics and conformance rules | trust-runtime, trust-lsp, editors/vscode |
 | [16-ladder-profile-trust.md](16-ladder-profile-trust.md) | truST LD schema/runtime/editor profile and interoperability constraints | trust-runtime, trust-lsp, editors/vscode |
 | [17-visual-editors-runtime-unification.md](17-visual-editors-runtime-unification.md) | Shared ST-backed runtime/debug command path for Ladder/Statechart/Blockly | editors/vscode, trust-debug, trust-runtime |
@@ -58,7 +58,7 @@ These specifications are based on:
 - Ladder Diagram (LD) normative semantics (see `15-ladder-diagram.md`)
 - Ladder Diagram (LD) implementation profile and interop constraints (see `16-ladder-profile-trust.md`)
 - Visual editor runtime/debug ST-path unification contract (see `17-visual-editors-runtime-unification.md`)
-- Current SFC keyword/profile scope (see `14-sfc-profile.md`)
+- Current SFC keyword/profile scope (see `sfc-profile.md`)
 - Configuration/resource/task declarations (see `18-configurations-resources-tasks.md`)
 - Project model and build/run ownership (see `19-project-model.md`)
 - Agent API contract (see `20-agent-api-v1.md`)

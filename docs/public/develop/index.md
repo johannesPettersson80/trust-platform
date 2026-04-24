@@ -4,11 +4,13 @@
 
 - [Project Layout](project-layout.md): the project structure and why each file exists
 - [Vendor Profiles](vendor-profiles.md): select the right authoring profile before you write much code
+- [AI Assistance](ai-assistance.md): use Editor AI tools and the Agent API without blurring their scopes
 
 ## Choose By Task
 
 - [Project Layout](project-layout.md)
 - [Vendor Profiles](vendor-profiles.md)
+- [AI Assistance](ai-assistance.md)
 - [HMI Authoring](hmi-authoring.md)
 - [Package Registry](package-registry.md)
 - [Generate Project Docs](generate-project-docs.md)
@@ -22,6 +24,7 @@
 | --- | --- |
 | start a normal ST project | [Project Layout](project-layout.md) |
 | align formatting and syntax with a vendor ecosystem | [Vendor Profiles](vendor-profiles.md) |
+| use AI against diagnostics, HMI descriptors, or automation loops | [AI Assistance](ai-assistance.md) |
 | build HMI pages and bindings | [HMI Authoring](hmi-authoring.md) |
 | work with ladder, Blockly, SFC, or statecharts | [Visual Editors](visual-editors/index.md) |
 | consume shipped libraries | [Libraries](libraries/index.md) |
