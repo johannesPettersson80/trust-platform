@@ -1,9 +1,8 @@
 # Troubleshooting
 
-Use this page when something has already failed: a command exits with an error,
-the runtime does not connect, values do not move, or a browser/runtime surface
-does not match what you expected. Use [FAQ](faq.md) when the question is about
-which workflow, platform, or product boundary to choose before you start.
+For failed commands, runtime connection issues, stale values, or browser/runtime
+surfaces that do not match the expected state. For product questions, use
+[FAQ](faq.md).
 
 ## First three things to try
 
@@ -15,11 +14,11 @@ which workflow, platform, or product boundary to choose before you start.
 
 | If the problem sounds like... | Go to |
 | --- | --- |
-| runtime-to-runtime communication | [Connect -> Runtime To Runtime](connect/runtime-to-runtime/index.md) |
-| hardware or fieldbus issues | [Connect -> Devices And Fieldbus](connect/devices-and-fieldbus/index.md) |
-| editor/runtime panel issues | [Operate -> Debugging And Runtime Panel](operate/debugging-and-runtime-panel.md) |
-| HMI issues | [Operate -> HMI And Web UI](operate/hmi-and-web-ui.md) |
-| runtime-cloud issues | [Operate -> Runtime Cloud](operate/runtime-cloud.md) |
+| runtime-to-runtime communication | [Program / Communication / Runtime To Runtime](connect/runtime-to-runtime/index.md) |
+| hardware or fieldbus issues | [Program / I/O And Hardware](connect/devices-and-fieldbus/index.md) |
+| editor/runtime panel issues | [Program / PLC Programming / Debugging](operate/debugging-and-runtime-panel.md) |
+| HMI issues | [Run / Operator HMI](operate/hmi-and-web-ui.md) |
+| runtime-cloud issues | [Run / Runtime Cloud](operate/runtime-cloud.md) |
 
 ## Common symptoms
 

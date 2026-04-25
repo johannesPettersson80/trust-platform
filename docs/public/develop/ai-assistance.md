@@ -1,8 +1,8 @@
 # AI Assistance
 
 truST exposes project-aware AI tooling in the desktop extension and a separate external
-Agent API for scripted automation. Use this page to choose the right AI path
-without overextending either one.
+Agent API for scripted automation. The boundary is tool scope: editor AI works
+inside VS Code; Agent API serves external scripts, CI, and repair loops.
 
 ## Two AI Surfaces
 

@@ -44,6 +44,12 @@ pub trait SemanticDatabase: SourceDatabase {
     /// Find the expression ID that contains the given byte offset.
     fn expr_id_at_offset(&self, file_id: FileId, offset: u32) -> Option<u32>;
 
+    /// Find the expression ID that exactly matches the given byte range.
+    fn expr_id_for_range(&self, file_id: FileId, start: u32, end: u32) -> Option<u32> {
+        let _ = start;
+        self.expr_id_at_offset(file_id, end.saturating_sub(1))
+    }
+
     /// Get all diagnostics for a file.
     fn diagnostics(&self, file_id: FileId) -> Arc<Vec<Diagnostic>>;
 
@@ -62,6 +68,7 @@ pub struct Database {
 pub struct FileAnalysis {
     pub symbols: Arc<SymbolTable>,
     pub diagnostics: Arc<Vec<Diagnostic>>,
+    pub expression_types: Arc<FxHashMap<(u32, u32), TypeId>>,
 }
 
 impl Default for Database {

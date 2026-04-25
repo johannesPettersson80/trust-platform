@@ -43,6 +43,7 @@ pub struct TypeChecker<'a> {
     super_type: Option<TypeId>,
     loop_stack: Vec<LoopContext>,
     label_scopes: Vec<LabelScope>,
+    expression_types: FxHashMap<(u32, u32), TypeId>,
 }
 
 pub(crate) struct ExprChecker<'a, 'b> {
@@ -107,6 +108,17 @@ impl<'a> TypeChecker<'a> {
     /// Emits missing return diagnostics after statement checks.
     pub fn finish_return_checks(&mut self, node: &SyntaxNode) {
         self.stmt().finish_return_checks(node);
+    }
+
+    pub(crate) fn take_expression_types(&mut self) -> FxHashMap<(u32, u32), TypeId> {
+        std::mem::take(&mut self.expression_types)
+    }
+
+    fn record_expression_type(&mut self, node: &SyntaxNode, type_id: TypeId) -> TypeId {
+        let range = node.text_range();
+        self.expression_types
+            .insert((u32::from(range.start()), u32::from(range.end())), type_id);
+        type_id
     }
 }
 

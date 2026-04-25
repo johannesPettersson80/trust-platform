@@ -1,6 +1,6 @@
 # truST PLC Operator Guide
 
-This guide is for daily use on the shop floor. It avoids developer jargon.
+Daily shop-floor commands without developer jargon.
 
 ## First-Time Setup
 

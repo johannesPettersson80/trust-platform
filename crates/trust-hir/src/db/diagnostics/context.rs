@@ -53,18 +53,7 @@ pub(in crate::db) fn find_scope_for_symbol(
     symbols: &SymbolTable,
     symbol_id: SymbolId,
 ) -> Option<ScopeId> {
-    // Iterate through scopes to find one owned by this symbol
-    for i in 0..symbols.scope_count() {
-        let scope_id = ScopeId(i as u32);
-        if let Some(scope) = symbols.get_scope(scope_id) {
-            if scope.owner == Some(symbol_id) {
-                return Some(scope_id);
-            }
-        } else {
-            break;
-        }
-    }
-    None
+    symbols.scope_for_owner(symbol_id)
 }
 
 pub(in crate::db) fn find_symbol_by_name_range(
@@ -72,10 +61,7 @@ pub(in crate::db) fn find_symbol_by_name_range(
     name: &str,
     range: TextRange,
 ) -> Option<SymbolId> {
-    symbols
-        .iter()
-        .find(|sym| sym.range == range && sym.name.eq_ignore_ascii_case(name))
-        .map(|sym| sym.id)
+    symbols.lookup_by_name_range(name, range)
 }
 
 pub(in crate::db) fn property_type_for_node(

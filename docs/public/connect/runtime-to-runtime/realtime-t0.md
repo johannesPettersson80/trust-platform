@@ -13,7 +13,7 @@ Relevant contracts in the implementation:
 
 The code explicitly rejects using generic mesh/IP routes for T0-only traffic.
 
-## Use this when
+## T0 Fits
 
 - publisher and subscriber are on the same host
 - you need bounded shared-memory style behavior
@@ -38,7 +38,7 @@ T0 assumes:
 
 ## Benchmark surface
 
-Use the built-in benchmark if you need to evaluate T0 behavior directly:
+The built-in benchmark evaluates T0 behavior directly:
 
 ```bash
 trust-runtime bench t0-shm --samples 2000 --output json

@@ -2,12 +2,13 @@
 
 Structured Text execution in truST is cycle-driven.
 
-!!! note "Terms"
-    `%I` = input process image.
-    `%Q` = output process image.
-    `%M` = memory-marker process image.
-    `VAR_CONFIG` = configuration-time mapping from ST variables to addresses.
-    "Process image" = the sampled I/O/memory state a cycle reads and writes.
+| Term | Meaning |
+| --- | --- |
+| `%I` | Input process image. |
+| `%Q` | Output process image. |
+| `%M` | Memory-marker process image. |
+| `VAR_CONFIG` | Configuration-time mapping from ST variables to addresses. |
+| Process image | Sampled I/O/memory state a cycle reads and writes. |
 
 ```mermaid
 flowchart LR
@@ -28,7 +29,7 @@ flowchart LR
 4. updated outputs and memory images are written back
 5. watchers, HMI, and control APIs observe the resulting state
 
-## Why it matters
+## Common Bug Source
 
 Many PLC bugs are really scan-order misunderstandings. The docs, runtime panel,
 and deterministic harness all try to make that ordering visible instead of

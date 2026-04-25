@@ -24,5 +24,5 @@ Start with the shipped HMI tutorial project.
 
 ## Related
 
-- [Operate -> HMI And Web UI](../operate/hmi-and-web-ui.md)
+- [Run / Operator HMI](../operate/hmi-and-web-ui.md)
 - [Reference -> HMI Directory](../reference/config/hmi-directory.md)

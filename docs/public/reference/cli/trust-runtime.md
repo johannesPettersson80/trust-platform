@@ -125,8 +125,8 @@ Important control subcommands:
 
 ![`trust-runtime ctl --help`](../../assets/images/terminal/ctl-help.gif)
 
-*Figure:* The `ctl` command family and its subcommands. Use this when you need
-the scriptable control API.
+*Figure:* The `ctl` command family and its subcommands for the scriptable
+control API.
 
 ## Common Flows
 

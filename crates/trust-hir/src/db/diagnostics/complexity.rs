@@ -43,8 +43,10 @@ pub(in crate::db) fn check_cyclomatic_complexity(
 
 fn cyclomatic_complexity(pou: &SyntaxNode) -> (usize, Vec<TextRange>) {
     let mut decision_points = Vec::new();
-    for node in pou.descendants() {
-        if !belongs_to_pou(&node, pou) {
+    let mut stack = pou.children().collect::<Vec<_>>();
+    stack.reverse();
+    while let Some(node) = stack.pop() {
+        if is_pou_kind(node.kind()) {
             continue;
         }
         match node.kind() {
@@ -58,13 +60,9 @@ fn cyclomatic_complexity(pou: &SyntaxNode) -> (usize, Vec<TextRange>) {
             }
             _ => {}
         }
+        let mut children = node.children().collect::<Vec<_>>();
+        children.reverse();
+        stack.extend(children);
     }
     (1 + decision_points.len(), decision_points)
-}
-
-fn belongs_to_pou(node: &SyntaxNode, pou: &SyntaxNode) -> bool {
-    node.ancestors()
-        .find(|ancestor| is_pou_kind(ancestor.kind()))
-        .map(|ancestor| ancestor == *pou)
-        .unwrap_or(false)
 }

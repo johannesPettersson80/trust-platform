@@ -15,6 +15,34 @@ LINK_RE = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
 SNIPPET_RE = re.compile(r'--8<--\s+"([^"]+)"')
 NAV_MD_RE = re.compile(r":\s*([^#\n]+?\.md)\s*$")
 LIST_RE = re.compile(r"^([-*+]|\d+\.)\s+")
+FILLER_PATTERNS = [
+    (
+        re.compile(r"\buse this (page|guide)\s+(for|when|before|as)\b", re.I),
+        "avoid generic 'use this page/guide' routing prose",
+    ),
+    (re.compile(r"\buse it when\b", re.I), "avoid generic 'use it when' prose"),
+    (re.compile(r"\buse this when\b", re.I), "avoid generic 'use this when' prose"),
+    (re.compile(r"^#+\s*use this\b", re.I), "avoid 'Use this' section headings"),
+    (re.compile(r"\bafter reading\b", re.I), "avoid boilerplate outcome prose"),
+    (
+        re.compile(r"\byou should (leave|be able|know)\b", re.I),
+        "avoid boilerplate outcome prose",
+    ),
+    (re.compile(r"^#+\s*why it matters\b", re.I), "use concrete section headings"),
+    (re.compile(r"^#+\s*start here if\b", re.I), "use concrete section headings"),
+    (
+        re.compile(r"\bthe guide below teaches\b", re.I),
+        "avoid wrapper-page filler",
+    ),
+    (
+        re.compile(r"\bbudget\s+\d+\s*-?\s*\d*\s+minutes\b", re.I),
+        "avoid generic time-budget filler",
+    ),
+    (re.compile(r"\bthis public entry\b", re.I), "use direct reference prose"),
+    (re.compile(r"\bthis page points\b", re.I), "use direct reference prose"),
+    (re.compile(r"\bthis page documents\b", re.I), "use direct reference prose"),
+    (re.compile(r"\bthis page renders\b", re.I), "use direct reference prose"),
+]
 
 
 def nav_paths() -> set[str]:
@@ -32,6 +60,28 @@ def nav_paths() -> set[str]:
         target = match.group(1).strip().strip('"').strip("'")
         paths.add(target)
     return paths
+
+
+def not_in_nav_paths() -> set[str]:
+    patterns: list[str] = []
+    in_block = False
+    for raw_line in MKDOCS_YML.read_text(encoding="utf-8").splitlines():
+        if raw_line.strip() == "not_in_nav: |":
+            in_block = True
+            continue
+        if not in_block:
+            continue
+        if raw_line and not raw_line.startswith((" ", "\t")):
+            break
+        stripped = raw_line.strip()
+        if stripped:
+            patterns.append(stripped)
+
+    hidden: set[str] = set()
+    for pattern in patterns:
+        matches = DOCS_ROOT.glob(pattern)
+        hidden.update(path.relative_to(DOCS_ROOT).as_posix() for path in matches)
+    return hidden
 
 
 def normalize_public_target(source: Path, raw_target: str) -> str | None:
@@ -54,13 +104,14 @@ def normalize_public_target(source: Path, raw_target: str) -> str | None:
 
 def check_public_links_in_nav(failures: list[str]) -> None:
     nav = nav_paths()
+    hidden = not_in_nav_paths()
     for source in sorted(DOCS_ROOT.rglob("*.md")):
         text = source.read_text(encoding="utf-8")
         for raw_target in LINK_RE.findall(text):
             normalized = normalize_public_target(source, raw_target)
             if normalized is None:
                 continue
-            if normalized not in nav:
+            if normalized not in nav and normalized not in hidden:
                 failures.append(
                     f"{source}: linked public target is missing from nav: {raw_target}"
                 )
@@ -141,11 +192,28 @@ def check_blank_line_before_colon_lists(failures: list[str]) -> None:
                     )
 
 
+def check_public_filler_phrases(failures: list[str]) -> None:
+    for source in sorted(DOCS_ROOT.rglob("*.md")):
+        lines = source.read_text(encoding="utf-8").splitlines()
+        in_fence = False
+        for index, line in enumerate(lines, start=1):
+            stripped = line.strip()
+            if stripped.startswith("```") or stripped.startswith("~~~"):
+                in_fence = not in_fence
+                continue
+            if in_fence:
+                continue
+            for pattern, message in FILLER_PATTERNS:
+                if pattern.search(line):
+                    failures.append(f"{source}:{index}: {message}: {stripped}")
+
+
 def main() -> int:
     failures: list[str] = []
     check_public_links_in_nav(failures)
     check_snippet_h1_collisions(failures)
     check_blank_line_before_colon_lists(failures)
+    check_public_filler_phrases(failures)
 
     if failures:
         print("public docs IA check failed:", file=sys.stderr)

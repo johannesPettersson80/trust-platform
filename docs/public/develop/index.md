@@ -1,31 +1,22 @@
-# Develop
+# Program
 
-## Start Here
-
-- [Project Layout](project-layout.md): the project structure and why each file exists
-- [Vendor Profiles](vendor-profiles.md): select the right authoring profile before you write much code
-- [AI Assistance](ai-assistance.md): use Editor AI tools and the Agent API without blurring their scopes
-
-## Choose By Task
-
-- [Project Layout](project-layout.md)
-- [Vendor Profiles](vendor-profiles.md)
-- [AI Assistance](ai-assistance.md)
-- [HMI Authoring](hmi-authoring.md)
-- [Package Registry](package-registry.md)
-- [Generate Project Docs](generate-project-docs.md)
-- [Visual Editors](visual-editors/index.md)
-- [Libraries](libraries/index.md)
-- [Interoperability](interoperability/index.md)
-
-## Common Paths
-
-| If you need to... | Go to |
+| Need | Open |
 | --- | --- |
-| start a normal ST project | [Project Layout](project-layout.md) |
-| align formatting and syntax with a vendor ecosystem | [Vendor Profiles](vendor-profiles.md) |
-| use AI against diagnostics, HMI descriptors, or automation loops | [AI Assistance](ai-assistance.md) |
-| build HMI pages and bindings | [HMI Authoring](hmi-authoring.md) |
-| work with ladder, Blockly, SFC, or statecharts | [Visual Editors](visual-editors/index.md) |
-| consume shipped libraries | [Libraries](libraries/index.md) |
-| import/export with other ecosystems | [Interoperability](interoperability/index.md) |
+| learn by running examples | [Example Catalog](../examples/index.md) |
+| open the first guided tutorial | [First Tutorial](../examples/tutorials.md) |
+| choose a tutorial path | [Learning Paths](../examples/learning-paths.md) |
+| edit in VS Code | [Program In VS Code](../start/program-in-vscode.md) |
+| edit in the Browser IDE | [Program In Browser IDE](../start/program-in-browser.md) |
+| understand project files | [Project Layout](project-layout.md) |
+| build, validate, and test | [Build, Validate, Test](../operate/build-validate-test.md) |
+| compile and reload a running runtime | [Compile, Validate, Reload](../operate/compile-validate-reload.md) |
+| debug execution | [Debugging](../operate/debugging-and-runtime-panel.md) |
+| map variables to I/O | [I/O Binding](../connect/devices-and-fieldbus/io-binding.md) |
+| use Ladder, SFC, Blockly, or statecharts | [Visual Editors](visual-editors/index.md) |
+| author HMI pages | [HMI Authoring](hmi-authoring.md) |
+| choose a communication path | [Protocol Matrix](../connect/protocol-matrix.md) |
+| use Modbus, MQTT, OPC UA, EtherCAT, or GPIO | [Communication Overview](../connect/index.md) |
+| add libraries | [Libraries](libraries/index.md) |
+| bring existing PLC code into truST | [Migration Overview](../migrate/index.md) |
+| automate programming workflows | [CLI / CI / Agents](../start/automate-with-cli.md) |
+| use AI tools | [AI Assistance](ai-assistance.md) |

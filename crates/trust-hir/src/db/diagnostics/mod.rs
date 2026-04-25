@@ -16,7 +16,7 @@ mod tests;
 pub(super) use complexity::check_cyclomatic_complexity;
 pub(super) use configuration::check_configuration_semantics;
 pub(super) use context::{expression_context, is_pou_kind};
-pub(super) use expression::{expression_by_id, expression_id_at_offset, is_expression_kind};
+pub(super) use expression::{expression_by_id, is_expression_kind, ExpressionIndex};
 pub(super) use globals::{
     check_global_external_links_with_project, resolve_pending_types_with_table,
 };

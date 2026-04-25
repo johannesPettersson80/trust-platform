@@ -3,11 +3,11 @@
 truST visual editors are companion authoring surfaces over the same executable
 model, not separate runtimes with ad hoc translation.
 
-!!! note "Terms"
-    "Visual editor" = Ladder, Statechart, Blockly, or SFC authoring UI.
-    "Companion ST" = generated/reviewable Structured Text that bridges the
-    visual model into the normal build/runtime path.
-    "Source of truth" = the artifact the user should edit directly.
+| Term | Meaning |
+| --- | --- |
+| Visual editor | Ladder, Statechart, Blockly, or SFC authoring UI. |
+| Companion ST | Generated/reviewable Structured Text that bridges the visual model into the normal build/runtime path. |
+| Source of truth | Artifact the user should edit directly. |
 
 Use this mental model when you need the relationship between visual editors and
 companion ST. For operational authoring workflow, start with

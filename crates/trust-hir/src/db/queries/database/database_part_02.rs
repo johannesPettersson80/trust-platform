@@ -64,10 +64,19 @@ impl SemanticDatabase for Database {
         let (db, source) = self.source_handle_for_file(file_id)?;
 
         salsa::Cancelled::catch(|| {
-            let green = salsa_backend::parse_green(&db, source).clone();
-            let root = SyntaxNode::new_root(green);
-            let offset = TextSize::from(offset);
-            expression_id_at_offset(&root, offset)
+            let index = salsa_backend::expression_index_query(&db, source);
+            index.id_at_offset(TextSize::from(offset))
+        })
+        .ok()
+        .flatten()
+    }
+
+    fn expr_id_for_range(&self, file_id: FileId, start: u32, end: u32) -> Option<u32> {
+        let (db, source) = self.source_handle_for_file(file_id)?;
+
+        salsa::Cancelled::catch(|| {
+            let index = salsa_backend::expression_index_query(&db, source);
+            index.id_for_range(TextRange::new(TextSize::from(start), TextSize::from(end)))
         })
         .ok()
         .flatten()

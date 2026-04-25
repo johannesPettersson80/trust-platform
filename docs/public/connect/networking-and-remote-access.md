@@ -1,21 +1,12 @@
 # Networking And Remote Access
 
-Good questions for this page:
+Decide which endpoints stay loopback-only, which endpoints become reachable
+from another machine, and which firewall/TLS/token policy owns that exposure.
 
-- which endpoints need to be reachable?
-- which ones should stay loopback-only?
-- what firewall/TLS/token policy should I enforce?
+Every exposed endpoint needs an owner, transport, authentication expectation,
+and rollback plan before it leaves local development.
 
-The guide below is the practical network boundary checklist. After reading it,
-you should know which runtime surfaces can remain local, which remote path is
-intentional, and which security checks belong in the site runbook before remote
-access is enabled.
-
-Success means every exposed endpoint has an owner, transport, authentication
-expectation, and rollback plan before it leaves loopback-only development.
-
-Use this page before runtime-cloud, mesh, or remote HMI work whenever the
-question is "should another machine be able to reach this?"
+That question usually appears before runtime-cloud, mesh, or remote HMI work.
 
 ## Guide
 
@@ -23,5 +14,5 @@ question is "should another machine be able to reach this?"
 
 ## Related
 
-- [Runtime To Runtime -> Security](runtime-to-runtime/security.md)
-- [Operate -> Runtime UI And Control](../operate/runtime-ui-and-control.md)
+- [Runtime To Runtime / Security](runtime-to-runtime/security.md)
+- [Run / Runtime UI And Control](../operate/runtime-ui-and-control.md)

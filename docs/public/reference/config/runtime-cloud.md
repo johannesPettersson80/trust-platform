@@ -1,7 +1,7 @@
 # Runtime Cloud Profiles
 
-This page documents the runtime-cloud portion of `runtime.toml` and the shipped
-example profile files under `examples/runtime_cloud/`.
+Runtime-cloud config keys for `runtime.toml` and the shipped example profile
+files under `examples/runtime_cloud/`.
 
 ## Core Section
 

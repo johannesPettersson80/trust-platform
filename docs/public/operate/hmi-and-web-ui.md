@@ -2,9 +2,7 @@
 
 Operate and monitor a runtime-hosted HMI from the browser.
 
-Use this page when the HMI already exists and you need to know what an operator
-or technician should check in the running browser surface. Authoring descriptor
-files belongs in [HMI Authoring](../develop/hmi-authoring.md).
+Authoring descriptor files belongs in [HMI Authoring](../develop/hmi-authoring.md).
 
 ## First Screen Checks
 

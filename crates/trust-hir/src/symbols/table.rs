@@ -17,6 +17,10 @@ pub struct SymbolTable {
     current_scope: ScopeId,
     /// Global name lookup.
     global_names: FxHashMap<SmolStr, SymbolId>,
+    /// Local source symbol lookup by declaration range/name.
+    symbols_by_name_range: FxHashMap<(u32, u32, SmolStr), SymbolId>,
+    /// Scope lookup by owning symbol.
+    scope_by_owner: FxHashMap<SymbolId, ScopeId>,
     /// Type name lookup.
     type_names: FxHashMap<SmolStr, TypeId>,
     /// Type definitions by ID.
@@ -48,6 +52,8 @@ impl SymbolTable {
             scopes: Vec::new(),
             current_scope: ScopeId::GLOBAL,
             global_names: FxHashMap::default(),
+            symbols_by_name_range: FxHashMap::default(),
+            scope_by_owner: FxHashMap::default(),
             type_names: FxHashMap::default(),
             types: FxHashMap::default(),
             extends: FxHashMap::default(),
@@ -81,6 +87,9 @@ impl SymbolTable {
         let id = ScopeId(self.scopes.len() as u32);
         let parent = Some(self.current_scope);
         self.scopes.push(Scope::new(id, kind, parent, owner));
+        if let Some(owner) = owner {
+            self.scope_by_owner.insert(owner, id);
+        }
         self.current_scope = id;
         id
     }
@@ -121,12 +130,7 @@ impl SymbolTable {
     /// Finds the scope owned by the given symbol.
     #[must_use]
     pub fn scope_for_owner(&self, owner: SymbolId) -> Option<ScopeId> {
-        for (index, scope) in self.scopes.iter().enumerate() {
-            if scope.owner == Some(owner) {
-                return Some(ScopeId(index as u32));
-            }
-        }
-        None
+        self.scope_by_owner.get(&owner).copied()
     }
 
     /// Resolves a name through the scope chain, starting from the given scope.
@@ -196,6 +200,7 @@ impl SymbolTable {
         symbol.id = id;
 
         let name = symbol.name.clone();
+        self.index_source_symbol_by_name_range(&symbol);
 
         // Add to global lookup if it's in the global scope
         if self.current_scope == ScopeId::GLOBAL {
@@ -216,6 +221,7 @@ impl SymbolTable {
         let id = SymbolId(self.next_id);
         self.next_id += 1;
         symbol.id = id;
+        self.index_source_symbol_by_name_range(&symbol);
 
         // Add to global lookup if it's a top-level symbol, but don't override
         // existing definitions (keeps local/primary symbols stable).
@@ -226,6 +232,14 @@ impl SymbolTable {
 
         self.symbols.insert(id, symbol);
         id
+    }
+
+    fn index_source_symbol_by_name_range(&mut self, symbol: &Symbol) {
+        if symbol.origin.is_some() {
+            return;
+        }
+        let key = symbol_name_range_key(symbol.name.as_str(), symbol.range);
+        self.symbols_by_name_range.insert(key, symbol.id);
     }
 
     /// Defines an existing symbol ID in a scope.
@@ -299,6 +313,14 @@ impl SymbolTable {
             .values()
             .find(|sym| sym.name.as_str().eq_ignore_ascii_case(name))
             .map(|sym| sym.id)
+    }
+
+    /// Looks up a local source symbol by declaration name and range.
+    #[must_use]
+    pub fn lookup_by_name_range(&self, name: &str, range: TextRange) -> Option<SymbolId> {
+        self.symbols_by_name_range
+            .get(&symbol_name_range_key(name, range))
+            .copied()
     }
 
     /// Resolves a name, supporting namespace-qualified identifiers.
@@ -563,6 +585,14 @@ impl SymbolTable {
     }
 }
 
+fn symbol_name_range_key(name: &str, range: TextRange) -> (u32, u32, SmolStr) {
+    (
+        u32::from(range.start()),
+        u32::from(range.end()),
+        normalize_name(name),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::*;
@@ -585,5 +615,9 @@ mod tests {
 
         assert!(table.get(id).is_some());
         assert_eq!(table.lookup("TestProgram"), Some(id));
+        assert_eq!(
+            table.lookup_by_name_range("testprogram", TextRange::empty(0.into())),
+            Some(id)
+        );
     }
 }

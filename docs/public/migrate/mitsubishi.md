@@ -1,17 +1,11 @@
 # Mitsubishi
 
-Use this page when the source project follows Mitsubishi/GX Works style or uses
-edge aliases such as `DIFU` / `DIFD`. The compatibility baseline below explains
-what truST recognizes today, how to keep the migration review honest, and which
-parts still need manual project or runtime validation.
+Mitsubishi/GX Works style migration covers syntax style and edge aliases such
+as `DIFU` / `DIFD`. Hardware behavior and vendor-library semantics still need
+site-specific proof.
 
-Budget 15-20 minutes for the compatibility read, then validate a real sample
-project separately. Success means you can identify which GX Works style details
-truST understands, which profile/example to use next, and which hardware or
-vendor-library behavior still needs a site-specific proof.
-
-Use [Vendor Profiles](../develop/vendor-profiles.md) next when syntax style is
-the main migration issue.
+Use [Vendor Profiles](../develop/vendor-profiles.md) when syntax style is the
+main issue.
 
 ## Compatibility Baseline
 
@@ -19,6 +13,6 @@ the main migration issue.
 
 ## Related
 
-- [Migrate Into truST](index.md)
+- [Migration While Programming](index.md)
 - [Vendor Profiles](../develop/vendor-profiles.md)
 - [Vendor profile examples](../examples/vendor-profiles.md)

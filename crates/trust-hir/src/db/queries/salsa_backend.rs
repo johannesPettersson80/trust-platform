@@ -5,7 +5,7 @@ use super::diagnostics::{
     check_global_external_links_with_project, check_interface_conformance, check_nondeterminism,
     check_property_accessors, check_shared_global_task_hazards, check_unreachable_statements,
     check_using_directives, collect_used_symbols, expression_by_id, expression_context,
-    resolve_pending_types_with_table, type_check_file,
+    resolve_pending_types_with_table, type_check_file, ExpressionIndex,
 };
 use super::project_types::{
     build_project_type_catalog, collect_file_type_prelude, find_project_type_declaration,
@@ -220,6 +220,33 @@ pub(super) fn parse_green(db: &dyn salsa::Database, input: SourceInput) -> Green
 }
 
 #[salsa::tracked(returns(ref))]
+pub(super) fn expression_index_query(
+    db: &dyn salsa::Database,
+    input: SourceInput,
+) -> Arc<ExpressionIndex> {
+    let root = SyntaxNode::new_root(parse_green(db, input).clone());
+    Arc::new(ExpressionIndex::from_root(&root))
+}
+
+#[salsa::tracked]
+pub(super) fn project_has_task_configs_query(
+    db: &dyn salsa::Database,
+    project: ProjectInputs,
+) -> bool {
+    for (_, input) in project.files(db).iter().copied() {
+        cancellation_checkpoint(db);
+        let root = SyntaxNode::new_root(parse_green(db, input).clone());
+        if root
+            .descendants()
+            .any(|node| node.kind() == SyntaxKind::TaskConfig)
+        {
+            return true;
+        }
+    }
+    false
+}
+
+#[salsa::tracked(returns(ref))]
 pub(super) fn file_type_prelude_query(
     db: &dyn salsa::Database,
     input: SourceInput,
@@ -411,11 +438,11 @@ pub(super) fn analyze_query(
 
     let project_used = project_used_symbols_query(db, project);
     let mut builder = DiagnosticBuilder::new();
-    type_check_file(&mut symbols, &root, &mut builder);
+    let expression_types = type_check_file(&mut symbols, &root, &mut builder);
     check_unreachable_statements(&root, &mut builder);
     check_cyclomatic_complexity(&root, &mut builder);
     check_nondeterminism(&symbols, &mut builder);
-    if has_global_variables(&symbols) {
+    if has_global_variables(&symbols) && project_has_task_configs_query(db, project) {
         let project_roots = project_roots_from_inputs(db, &project_source_inputs);
         check_shared_global_task_hazards(&symbols, &project_roots, file_id, &mut builder);
     }
@@ -425,6 +452,7 @@ pub(super) fn analyze_query(
     Arc::new(FileAnalysis {
         symbols: Arc::new(symbols),
         diagnostics: Arc::new(diagnostics),
+        expression_types: Arc::new(expression_types),
     })
 }
 
@@ -450,6 +478,14 @@ pub(super) fn type_of_query(
         return TypeId::UNKNOWN;
     };
 
+    let expression_index = expression_index_query(db, target_input);
+    if let Some(range) = expression_index.range_key_for_id(expr_id) {
+        let analysis = analyze_query(db, project, file_id);
+        if let Some(type_id) = analysis.expression_types.get(&range) {
+            return *type_id;
+        }
+    }
+
     let root = SyntaxNode::new_root(parse_green(db, target_input).clone());
     let Some(expr_node) = expression_by_id(&root, expr_id) else {
         return TypeId::UNKNOWN;
@@ -471,6 +507,7 @@ fn empty_analysis() -> Arc<FileAnalysis> {
     Arc::new(FileAnalysis {
         symbols: Arc::new(SymbolTable::default()),
         diagnostics: Arc::new(Vec::new()),
+        expression_types: Arc::new(FxHashMap::default()),
     })
 }
 

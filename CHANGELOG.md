@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.22.1`
+Target release: `v0.22.2`
 
 ### Added
 
@@ -17,20 +17,24 @@ Target release: `v0.22.1`
   homepage, README, workflow chooser, visual-editor docs, and migration path
   now point into the same narrative, and the README/homepage use a new
   one-project surface-tour GIF built from real product captures. Migration
-  ecosystem pages now have canonical `migrate/*` URLs with compatibility pages
-  at their former `develop/interoperability/*` paths, visual-editor pages avoid
+  ecosystem pages now have canonical `migrate/*` URLs, visual-editor pages avoid
   misleading empty captures by using accurate diagrams, and project/support
-  pages are grouped under one `Project` sidebar section. A full public-doc text
-  pass also expanded thin snippet wrappers with user-oriented framing,
-  separated HMI authoring from HMI operation, promoted Learning Paths into the
-  Start nav, clarified Troubleshooting vs FAQ, expanded First Project into a
-  real walkthrough, added jargon notes to concept pages, tightened the homepage
-  around a single reader-journey pattern, added richer example/category framing,
-  replaced repeated operator visuals with distinct maintained operator and
-  AI-assistance diagrams, kept AI Assistance grounded in diagram/source
-  evidence, added first-figure proof PNGs for the operator HMI overview,
-  daily-check, alarm, and handover pages, and tightened README platform/status
-  wording including Linux PREEMPT_RT support.
+  pages stay outside the lookup-only Reference route. A full public-doc text
+  pass also removed thin wrapper prose, separated HMI authoring from HMI
+  operation, routed Learning Paths into Program, clarified Troubleshooting vs
+  FAQ, expanded First Project into a real walkthrough, added jargon notes to
+  concept pages, tightened the homepage around one route table plus real
+  product proof, added richer example/category routing, kept AI Assistance
+  grounded in diagram/source evidence, added first-figure proof PNGs for the
+  operator HMI overview, daily-check, alarm, and handover pages, and tightened
+  README platform/status wording including Linux PREEMPT_RT support. The public docs nav has since
+  been collapsed to six user-facing doors (`What Is truST?`, `Install`,
+  `Program`, `Run`, `Hardware`, `Reference`), with tutorials/examples,
+  communication, I/O, HMI authoring, migration, automation, and AI work routed
+  through `Program`; OpenPLC is no longer presented as a standalone truST
+  workflow; dense terms blocks and stock "use this guide when" boilerplate were
+  removed; and the one-project GIF was regenerated at higher resolution without
+  the dark banner overlay.
 
 - `trust-runtime plcopen` now imports official TC6 XML multi-worksheet ST
   bodies in execution order, reconstructs all standard POU interface var
@@ -149,6 +153,23 @@ Target release: `v0.22.1`
 
 ### Fixed
 
+- Runtime ST test compilation now reuses expression type information from the
+  HIR analysis pass, avoids repeated full-project symbol-table clones during
+  lowering, and skips shared-global task-hazard scans when a project has no
+  configured tasks. This keeps the full OSCAT timeout regression below the
+  test harness 60-second warning while preserving the runtime timeout budget.
+- Public docs IA now removes the duplicate Install/Verify Install route,
+  keeps Reference focused on lookup material by moving specifications higher
+  and hiding contributor-only pages, deletes dead interoperability stubs and
+  orphan/broken image assets, embeds the real one-project surface tour on the
+  docs homepage, and expands the IA checker to block generic filler phrases
+  such as "use this page", "after reading", and "you should be able".
+- Public docs visual chrome now uses a dark/light palette toggle, top-level
+  navigation tabs for the six main doors, a shorter GitHub repo label, a
+  distinct accent color, Inter/JetBrains Mono typography, and image overflow
+  safeguards so screenshots stay inside the content column. The docs homepage
+  also switches to a dark-mode wordmark variant so the brand stays legible on
+  the slate palette.
 - Public docs navigation now exposes the PREEMPT_RT runbook from the Operate
   sidebar, reuses the interoperability pages under Migrate without moving their
   canonical URLs, groups Operate by engineering, target-administration,
@@ -252,8 +273,7 @@ Target release: `v0.22.1`
   and code-server screenshots from real app/theme controls, wait for the HMI
   schema/export surface before capturing `/hmi`, and install/load the truST
   VS Code extension through one consistent code-server profile so the
-  command-palette and workspace-shell captures stop regressing on fresh CI
-  boots.
+  command-palette capture stops regressing on fresh CI boots.
 - Unqualified enum variant names now also resolve in three contexts outside
   `CASE` labels: `VAR` initializers (`state : Phase := IDLE`), the right-hand
   side of assignments (`state := RUNNING`), and operands of binary

@@ -5,17 +5,13 @@
 > truST keeps engineering, runtime, HMI, automation, and AI assistance tied to
 > the same project instead of splitting them into disconnected toolchains.
 
-!!! note "Terms"
-    "One project" = the same source, config, HMI, and bundle artifacts reused
-    across engineering, runtime, browser, automation, and AI surfaces.
-    "Editor AI tools" = typed VS Code language-model tools contributed by the
-    extension, not free-form screen scraping.
-    "Agent API" = the external JSON-RPC automation surface for scripts, CI, and
-    agent loops.
-    "truST Mesh" = the runtime/plant connectivity model that keeps local,
-    remote, and operator communication planes explicit.
-    "Open artifacts" = reviewable files such as ST sources, `runtime.toml`,
-    `io.toml`, `hmi/`, PLCopen XML, and generated bundles.
+| Term | Meaning |
+| --- | --- |
+| One project | The same source, config, HMI, and bundle artifacts reused across engineering, runtime, browser, automation, and AI surfaces. |
+| Editor AI tools | Typed VS Code language-model tools contributed by the extension, not free-form screen scraping. |
+| Agent API | External JSON-RPC automation for scripts, CI, and agent loops. |
+| truST Mesh | Runtime/plant connectivity model with explicit local, remote, and operator communication planes. |
+| Open artifacts | Reviewable files such as ST sources, `runtime.toml`, `io.toml`, `hmi/`, PLCopen XML, and generated bundles. |
 
 ```mermaid
 flowchart LR

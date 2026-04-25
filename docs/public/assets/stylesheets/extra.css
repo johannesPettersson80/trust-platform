@@ -1,0 +1,61 @@
+:root {
+  --md-text-font: "Inter", "Roboto", "Helvetica Neue", Arial, sans-serif;
+  --md-code-font: "JetBrains Mono", "Roboto Mono", "SFMono-Regular", Consolas, monospace;
+}
+
+.md-typeset {
+  line-height: 1.62;
+}
+
+.md-typeset a {
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.16em;
+}
+
+.md-typeset img,
+.md-typeset svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.md-typeset img {
+  border-radius: 6px;
+}
+
+.md-typeset p > img {
+  display: block;
+}
+
+.md-typeset img.brand-wordmark {
+  border-radius: 0;
+  margin-bottom: 0.5rem;
+}
+
+.md-typeset img.brand-wordmark--dark {
+  display: none;
+}
+
+[data-md-color-scheme="slate"] .md-typeset img.brand-wordmark--light {
+  display: none;
+}
+
+[data-md-color-scheme="slate"] .md-typeset img.brand-wordmark--dark {
+  display: block;
+}
+
+.md-typeset em {
+  color: var(--md-default-fg-color--light);
+}
+
+.md-header__source {
+  width: auto;
+  max-width: 12rem;
+}
+
+.md-tabs__link {
+  font-weight: 650;
+}
+
+.md-nav__title {
+  font-weight: 650;
+}

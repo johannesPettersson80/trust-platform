@@ -1,7 +1,7 @@
 # Runtime Lifecycle
 
-This page points to the lifecycle-specific operating paths so you can choose the
-right restart or recovery workflow.
+Runtime lifecycle decisions split across start/stop control, hot reload,
+release deploy, retain recovery, and safety recovery.
 
 ## Lifecycle Paths
 

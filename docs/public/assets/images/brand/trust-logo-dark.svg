@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 80">
+  <text x="20" y="50" font-family="Sora,Inter,Helvetica Neue,system-ui,sans-serif" font-size="48" font-weight="600" letter-spacing="-1.5" fill="#f8fafc">tru<tspan fill="#5eead4" font-weight="700">ST</tspan></text>
+  <text x="20" y="70" font-family="Sora,Inter,Helvetica Neue,system-ui,sans-serif" font-size="10" font-weight="500" fill="#cbd5e1">open source plc toolchain</text>
+</svg>

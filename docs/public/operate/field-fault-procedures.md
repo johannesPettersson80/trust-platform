@@ -1,6 +1,7 @@
 # Field Fault Procedures
 
-Use this page for the generic decision flow after a field fault is detected.
+Field fault work starts by comparing physical state with runtime evidence
+before any recovery action.
 
 ![Runtime UI overview](../assets/images/runtime/ui-overview.png)
 
@@ -19,7 +20,7 @@ fault is physical, mapping-related, or runtime-side.
 
 ## Important Boundary
 
-This page is generic. It does not replace:
+This sequence does not replace:
 
 - lockout/tagout
 - local electrical/mechanical procedure

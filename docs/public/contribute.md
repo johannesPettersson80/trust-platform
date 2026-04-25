@@ -35,4 +35,4 @@ Project home:
 
 - [About](about.md)
 - [FAQ](faq.md)
-- [Examples](examples/index.md)
+- [Program examples](examples/index.md)

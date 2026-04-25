@@ -2,7 +2,7 @@
 
 truST uses a Zenoh-backed mesh surface for explicit multi-runtime sharing.
 
-## Use this when
+## Mesh Fits
 
 - you want publish/subscribe-style data sharing between runtimes
 - you need explicit control over what a runtime publishes or subscribes to
@@ -47,8 +47,8 @@ publish = ["Status.PLCState"]
 - pairing establishes trust/access workflow
 - mesh moves selected runtime values between trusted peers
 
-If you need same-host deterministic transport, use [Realtime T0](realtime-t0.md)
-instead. Mesh is not the HardRT path.
+For same-host deterministic transport, use [Realtime T0](realtime-t0.md).
+Mesh is not the HardRT path.
 
 ## Worked tutorial
 

@@ -1,20 +1,13 @@
 # Conformance
 
-Use this page when you need the conformance suite map: what the checked corpus
-is meant to prove, which standards-facing claims it supports, and where to look
-before adding or changing a conformance case.
+Conformance suite map: checked corpus, standards-facing claims, and evidence
+surface for language/runtime compatibility.
 
-For day-to-day language questions, start with the specification index. For a
-release or compatibility claim, use this page to find the evidence surface that
-backs the claim.
+For day-to-day language questions, start with the specification index. Release
+or compatibility claims belong next to the evidence surface that backs them.
 
-Success means you can point a public claim at a suite, corpus, or reference
-page instead of leaving it as marketing text.
-
-Use this page during release review, compatibility review, or when a spec claim
-needs a repeatable check.
-
-It is part of the evidence trail, not a tutorial.
+Public claims should point at a suite, corpus, or reference page instead of
+marketing text.
 
 ## Suite Overview
 
@@ -24,4 +17,4 @@ It is part of the evidence trail, not a tutorial.
 
 - [Benchmarks](benchmarks.md)
 - [Specifications overview](specifications/index.md)
-- [Examples](../examples/index.md)
+- [Program examples](../examples/index.md)

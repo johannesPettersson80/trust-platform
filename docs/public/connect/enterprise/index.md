@@ -9,6 +9,6 @@
 
 ## Rule Of Thumb
 
-- if you need field/device communication, stay in [Connect](../index.md)
-- if you need operator views or alarms, stay in [Operate](../../operate/index.md)
+- field/device communication: [Program / Communication](../index.md)
+- operator views or alarms: [Run](../../operate/index.md)
 - if you need business-system exchange, start here

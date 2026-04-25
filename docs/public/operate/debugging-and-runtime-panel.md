@@ -88,8 +88,7 @@ control endpoint the rest of truST uses.
 
 ## Browser Runtime Overview
 
-If you need a browser-hosted runtime summary outside VS Code, use the runtime
-web UI.
+The runtime web UI gives a browser-hosted runtime summary outside VS Code.
 
 ![Runtime overview with live inputs and outputs](../assets/images/runtime/ui-overview.png)
 

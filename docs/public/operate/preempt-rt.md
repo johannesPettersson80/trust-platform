@@ -1,7 +1,6 @@
 # PREEMPT_RT Deployment
 
-Use this page when `truST` must run as a tuned Linux soft-real-time runtime on
-`PREEMPT_RT`.
+Linux soft-real-time runtime deployment with `PREEMPT_RT`.
 
 ## What This Supports
 

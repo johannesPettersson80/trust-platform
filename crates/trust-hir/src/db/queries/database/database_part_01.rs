@@ -1,4 +1,3 @@
-use super::diagnostics::expression_id_at_offset;
 use super::symbol_import::SymbolImporter;
 use super::*;
 use rustc_hash::FxHashSet;
@@ -159,6 +158,7 @@ impl Database {
             return Arc::new(FileAnalysis {
                 symbols: Arc::new(SymbolTable::default()),
                 diagnostics: Arc::new(Vec::new()),
+                expression_types: Arc::new(FxHashMap::default()),
             });
         };
 
@@ -167,6 +167,7 @@ impl Database {
                 Arc::new(FileAnalysis {
                     symbols: Arc::new(SymbolTable::default()),
                     diagnostics: Arc::new(Vec::new()),
+                    expression_types: Arc::new(FxHashMap::default()),
                 })
             })
     }
@@ -244,4 +245,3 @@ impl Database {
         Arc::new(symbols)
     }
 }
-

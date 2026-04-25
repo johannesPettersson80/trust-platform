@@ -46,7 +46,7 @@ QUERY_EXPECTATIONS: list[tuple[str, str]] = [
     ("siemens import", "migrate/siemens/"),
     ("mitsubishi", "migrate/mitsubishi/"),
     ("plcopen", "migrate/plcopen/"),
-    ("openplc", "migrate/openplc/"),
+    ("third party st", "migrate/"),
     ("package registry", "develop/package-registry/"),
     ("project layout", "develop/project-layout/"),
     ("vendor profile", "develop/vendor-profiles/"),

@@ -1,10 +1,7 @@
 # Semantic Rules
 
-This public entry summarizes cross-cutting semantic rules and points to the LSP
-diagnostics specification as the canonical home for error-code ownership.
-
-Use the full spec below when you need semantic-rule structure and cross-links,
-not the complete diagnostic registry.
+Semantic-rule lookup for cross-cutting checks and cross-links. The LSP
+diagnostics specification owns the complete error-code registry.
 
 Related: [Data Types](02-data-types.md), [Expressions](05-expressions.md)
 

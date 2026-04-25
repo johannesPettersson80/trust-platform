@@ -30,7 +30,7 @@ The standard project pack for motion-library benchmarking is:
 
 - `examples/plcopen_motion_single_axis_benchmarks`
 
-Use it when you need to compare:
+It compares:
 
 - runtime floor
 - constants-only library overhead

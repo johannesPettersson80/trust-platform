@@ -234,8 +234,13 @@ fn lower_sizeof_value_operand_type(
         _ => return Ok(None),
     };
 
-    let offset = offset_for_type_lookup(node);
-    let Some(expr_id) = semantic_db.expr_id_at_offset(semantic_file_id, offset) else {
+    let range = node.text_range();
+    let start = u32::from(range.start());
+    let end = u32::from(range.end());
+    let Some(expr_id) = semantic_db
+        .expr_id_for_range(semantic_file_id, start, end)
+        .or_else(|| semantic_db.expr_id_at_offset(semantic_file_id, offset_for_type_lookup(node)))
+    else {
         return Ok(None);
     };
     let hir_type_id = semantic_db.type_of(semantic_file_id, expr_id);

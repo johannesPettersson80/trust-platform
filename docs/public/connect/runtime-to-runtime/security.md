@@ -6,15 +6,10 @@
 - pairing and discovery are not the same as open remote execution
 - runtime-cloud and remote-access flows need explicit policy
 
-Use this page to decide what may communicate before you expose endpoints. The
-included guides cover the network model and a secure remote-access walkthrough;
-they are not a substitute for site firewall, TLS, token, and pairing policy.
-
-Success means discovery, pairing, remote access, and runtime-cloud each have an
-explicit policy owner before any endpoint is exposed beyond the local host.
-
-Use this page as a design review checklist, not as a replacement for site
-security policy.
+Before any endpoint leaves local host, discovery, pairing, remote access, and
+runtime-cloud each need a policy owner. The guides below explain network shape
+and secure remote-access mechanics; site firewall, TLS, token, and pairing
+policy still own production exposure.
 
 ## Start with the network model
 

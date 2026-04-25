@@ -16,23 +16,17 @@ trust-runtime test --project ./my-plc --output json
 - resolves project dependencies
 - emits `program.stbc`
 
-Use it when you changed source files.
-
 ### `validate`
 
 - validates `runtime.toml`
 - validates `io.toml`
 - validates the compiled bundle contract
 
-Use it when you changed config or want a pre-run safety gate.
-
 ### `test`
 
 - discovers ST tests in the project
 - runs them with configurable timeout and output format
 - can list tests without executing them
-
-Use it when you need behavioral proof instead of only build proof.
 
 ## Worked Example
 
@@ -44,8 +38,8 @@ trust-runtime test --project ./examples/tutorials/10_unit_testing_101 --output j
 
 ![Validation success](../assets/images/terminal/validate-success.gif)
 
-*Figure:* A clean `validate` pass against a shipped project. Use this as the
-config/bundle safety gate before you start troubleshooting the runtime.
+*Figure:* A clean `validate` pass against a shipped project. This is the
+config/bundle safety gate before runtime troubleshooting.
 
 ![Build failure with a syntax error](../assets/images/terminal/build-failure.gif)
 

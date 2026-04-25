@@ -3,7 +3,7 @@
 This is the day-to-day authoring path for the most important vendor-family
 surface in truST.
 
-## Use this page for
+## Fits
 
 - `vendor_profile = "codesys"`
 - `vendor_profile = "twincat"`
@@ -30,8 +30,8 @@ surface in truST.
 
 ## Library stub pattern
 
-If you need symbols from vendor libraries that truST does not ship, use the
-stub pattern shown in `examples/vendor_library_stubs`:
+For symbols from vendor libraries that truST does not ship, use the stub
+pattern shown in `examples/vendor_library_stubs`:
 
 - declare the symbols locally in ST
 - wire the folder through `[[libraries]]`

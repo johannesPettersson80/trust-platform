@@ -1,17 +1,13 @@
 # Operator Shift Handover
 
-Use this page to capture the minimum information the next shift needs.
+Shift handover records active alarms, unusual values, temporary modes, manual
+interventions, and open actions.
 
 ![Browser HMI trends during shift review](../assets/images/browser/hmi-operator-shift-handover.png)
 
 *Figure:* The Browser HMI Trends page at shift change. Review how values
 moved during the shift before recording active alarms, unusual values, and
 open actions in the handover log.
-
-![Operator shift handover board](../assets/images/hmi/operator-shift-handover.svg)
-
-*Figure:* Handover records active alarms, unusual values, temporary modes,
-manual interventions, and open actions so state does not live only in memory.
 
 ## Handover Checklist
 

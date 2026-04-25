@@ -1,11 +1,15 @@
 use super::super::*;
 use super::context::{action_context, is_top_level_stmt_list, pou_context, property_type_for_node};
 
+pub(in crate::db) type ExpressionTypeMap = FxHashMap<(u32, u32), TypeId>;
+
 pub(in crate::db) fn type_check_file(
     symbols: &mut SymbolTable,
     root: &SyntaxNode,
     diagnostics: &mut DiagnosticBuilder,
-) {
+) -> ExpressionTypeMap {
+    let mut expression_types = ExpressionTypeMap::default();
+
     // Find all POUs and type-check their bodies
     for node in root.descendants() {
         match node.kind() {
@@ -13,24 +17,41 @@ pub(in crate::db) fn type_check_file(
             | SyntaxKind::Function
             | SyntaxKind::FunctionBlock
             | SyntaxKind::Method => {
-                type_check_pou(symbols, &node, diagnostics);
+                type_check_pou_with_expression_types(
+                    symbols,
+                    &node,
+                    diagnostics,
+                    Some(&mut expression_types),
+                );
             }
             SyntaxKind::Action => {
-                type_check_action(symbols, &node, diagnostics);
+                type_check_action_with_expression_types(
+                    symbols,
+                    &node,
+                    diagnostics,
+                    Some(&mut expression_types),
+                );
             }
             SyntaxKind::Property => {
-                type_check_property(symbols, &node, diagnostics);
+                type_check_property_with_expression_types(
+                    symbols,
+                    &node,
+                    diagnostics,
+                    Some(&mut expression_types),
+                );
             }
             _ => {}
         }
     }
+    expression_types
 }
 
 /// Type checks a single POU (Program, Function, FunctionBlock, or Method).
-pub(in crate::db) fn type_check_pou(
+fn type_check_pou_with_expression_types(
     symbols: &mut SymbolTable,
     node: &SyntaxNode,
     diagnostics: &mut DiagnosticBuilder,
+    expression_types: Option<&mut ExpressionTypeMap>,
 ) {
     let context = pou_context(symbols, node);
 
@@ -66,12 +87,17 @@ pub(in crate::db) fn type_check_pou(
     }
 
     checker.finish_return_checks(node);
+
+    if let Some(expression_types) = expression_types {
+        expression_types.extend(checker.take_expression_types());
+    }
 }
 
-pub(in crate::db) fn type_check_property(
+fn type_check_property_with_expression_types(
     symbols: &mut SymbolTable,
     node: &SyntaxNode,
     diagnostics: &mut DiagnosticBuilder,
+    mut expression_types: Option<&mut ExpressionTypeMap>,
 ) {
     let context = pou_context(symbols, node);
     let prop_type = property_type_for_node(symbols, node);
@@ -101,13 +127,18 @@ pub(in crate::db) fn type_check_property(
             checker.set_current_pou(context.symbol_id);
         }
         checker.stmt().check_statement_list_with_labels(&stmt_list);
+
+        if let Some(expression_types) = expression_types.as_mut() {
+            expression_types.extend(checker.take_expression_types());
+        }
     }
 }
 
-pub(in crate::db) fn type_check_action(
+fn type_check_action_with_expression_types(
     symbols: &mut SymbolTable,
     node: &SyntaxNode,
     diagnostics: &mut DiagnosticBuilder,
+    expression_types: Option<&mut ExpressionTypeMap>,
 ) {
     let context = action_context(symbols, node);
     let mut checker = TypeChecker::new(symbols, diagnostics, context.scope_id);
@@ -117,5 +148,9 @@ pub(in crate::db) fn type_check_action(
 
     if let Some(stmt_list) = node.children().find(|n| n.kind() == SyntaxKind::StmtList) {
         checker.stmt().check_statement_list_with_labels(&stmt_list);
+    }
+
+    if let Some(expression_types) = expression_types {
+        expression_types.extend(checker.take_expression_types());
     }
 }

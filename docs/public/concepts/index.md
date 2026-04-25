@@ -1,36 +1,13 @@
-# Concepts
+# Concept Map
 
-## Start Here
-
-- [One Project, Every Surface](one-project.md): how one project stays live
-  across VS Code, runtime, HMI, browser, CLI/CI, agent, mesh, and AI surfaces
-- [Architecture](architecture.md): the major layers and why truST tries to reuse one model across all surfaces
-- [Scan Cycle](scan-cycle.md): the execution mental model most PLC bugs reduce to
-
-## Concept Map
-
-### Core Mental Models
-
-- [One Project, Every Surface](one-project.md): one project edited, run,
-  observed, scripted, connected, and AI-assisted through different surfaces
-- [Architecture](architecture.md): the main system layers and ownership
-  boundaries
-- [truST Mesh](trust-mesh.md): the communication model for HardRT, mesh,
-  plant, and operator lanes
-- [Project Model](project-model.md): the files and artifacts that make a truST
-  project
-- [Scan Cycle](scan-cycle.md): the runtime execution model behind most PLC
-  behavior
-
-### Deep Dives
-
-- [Deterministic Harness](deterministic-harness.md)
-- [Runtime Model](runtime-model.md)
-- [Visual Companion Model](visual-companion-model.md)
-- [Communication Planes](communication-planes.md)
-
-## When To Read Concepts
-
-- Read concepts when a command works but you do not yet trust the mental model.
-- Read reference when you already understand the model and need exact syntax.
-- Read examples when you want to see the model embodied in runnable projects.
+| Question | Open |
+| --- | --- |
+| what is the shared project model? | [One Project, Every Surface](one-project.md) |
+| how do the parts fit together? | [Architecture](architecture.md) |
+| what files define a project? | [Project Model](project-model.md) |
+| what does the runtime load and expose? | [Runtime Model](runtime-model.md) |
+| what happens in one PLC cycle? | [Scan Cycle](scan-cycle.md) |
+| how do Ladder, SFC, Blockly, and statecharts relate to ST? | [Visual Companion Model](visual-companion-model.md) |
+| how are runtime, plant, and operator communication lanes separated? | [Communication Planes](communication-planes.md) |
+| how does deterministic test execution work? | [Deterministic Harness](deterministic-harness.md) |
+| what is truST Mesh? | [truST Mesh](trust-mesh.md) |

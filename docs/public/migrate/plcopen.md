@@ -1,20 +1,14 @@
 # PLCopen
 
-Use this guide when:
+PLCopen is the open interchange path for XML import/export. The ST-complete
+baseline and Ladder profile are separate because they preserve different parts
+of the source model.
 
-- you are importing or exporting PLCopen XML
-- you need to understand what survives a round trip
-- you want the ST-complete baseline plus Ladder profile notes
-
-The two sections below separate general ST-oriented PLCopen interchange from
-the narrower Ladder profile. After reading them, you should know which XML
-parts truST preserves, which vendor metadata still needs review, and when to
-validate the generated project through build/runtime instead of trusting an XML
-round trip alone.
-
-Budget 20-30 minutes if you read both sections. Success means you can name what
-survives import/export, what must be checked after a vendor round trip, and
-which build/runtime proof is needed before claiming a migration is complete.
+| Question | Check |
+| --- | --- |
+| what survives import/export? | ST-complete compatibility |
+| what applies to Ladder? | Ladder interop profile |
+| is the migration complete? | build, validate, run, and inspect the generated project |
 
 ## ST-Complete Compatibility
 
@@ -26,7 +20,7 @@ which build/runtime proof is needed before claiming a migration is complete.
 
 ## Related
 
-- [Migrate Into truST](index.md)
+- [Migration While Programming](index.md)
 - [CODESYS And TwinCAT](codesys-twincat.md)
 - [Ladder Editor](../develop/visual-editors/ladder.md)
 - [PLCopen XML example](../examples/vendor-profiles.md)

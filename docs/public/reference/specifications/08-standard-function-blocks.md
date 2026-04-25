@@ -1,10 +1,8 @@
 # Standard Function Blocks
 
-This public entry covers shipped bistables, edge detectors, counters, and
-timers such as `SR`, `R_TRIG`, `CTU`, `TON`, and `TOF`.
-
-Use the full spec below when you need exact signatures, runtime/statefulness
-boundaries, or documented timer/counter deviations.
+Function-block lookup for shipped bistables, edge detectors, counters, timers,
+exact signatures, runtime/statefulness boundaries, and documented timer/counter
+deviations.
 
 Key counter/timer families documented here include `CTU`, `CTD`, `CTUD`, `TP`,
 `TON`, and `TOF`.

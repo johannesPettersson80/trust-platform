@@ -2,11 +2,6 @@
 
 Start with a shipped project before you create one from an empty folder.
 
-This page is for your first hands-on pass through truST. The goal is not to
-design your final project yet; it is to open a known-good project, see
-diagnostics, run the runtime, inspect live values, and confirm the HMI path
-before you make layout decisions.
-
 ## Recommended Project
 
 Use:

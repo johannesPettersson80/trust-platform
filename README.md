@@ -30,14 +30,15 @@ surface map and AI/tooling boundaries. Runtimes connect to each other and to
 plant systems through [truST Mesh](docs/public/concepts/trust-mesh.md): one
 runtime, the right wire for each job.
 
-## Start
+## Docs
 
 - [Install truST](docs/public/start/installation.md)
-- [Choose your workflow](docs/public/start/choose-your-workflow.md)
+- [What is truST?](docs/public/index.md)
 - [Program in VS Code](docs/public/start/program-in-vscode.md)
-- [Use AI assistance](docs/public/develop/ai-assistance.md)
+- [Program with examples, I/O, communication, HMI, and AI](docs/public/develop/index.md)
 - [Operate in Browser HMI](docs/public/start/operate-in-browser.md)
-- [Migrate existing PLC work](docs/public/migrate/index.md)
+- [Hardware support](docs/public/hardware/index.md)
+- [Reference](docs/public/reference/index.md)
 
 ## Features
 

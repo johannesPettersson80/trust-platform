@@ -4,12 +4,13 @@
 >
 > truST Mesh connects runtimes brokerless-first, keeps plant integrations native, and reserves deterministic claims for the paths that can actually prove them.
 
-!!! note "Terms"
-    `HardRT` = same-host deterministic transport lane.
-    `T0` = the lowest-latency shared-memory transport path in truST docs.
-    `Zenoh` = brokerless-first runtime-to-runtime mesh transport.
-    `mDNS` = local-network discovery mechanism.
-    "Broker" = a server that relays messages between clients.
+| Term | Meaning |
+| --- | --- |
+| `HardRT` | Same-host deterministic transport lane. |
+| `T0` | Lowest-latency shared-memory transport path in truST docs. |
+| `Zenoh` | Brokerless-first runtime-to-runtime mesh transport. |
+| `mDNS` | Local-network discovery mechanism. |
+| Broker | Server that relays messages between clients. |
 
 ```mermaid
 flowchart LR

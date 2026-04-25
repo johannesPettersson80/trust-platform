@@ -1,10 +1,8 @@
 # Debug Adapter
 
-This public entry covers the truST DAP bridge, safe points, variable
-visibility, hot-reload interaction, and runtime-control boundaries.
-
-Use the full spec below when you need exact request/response semantics or the
-debugger/runtime integration rules.
+Debug-adapter lookup for the truST DAP bridge, safe points, variable
+visibility, hot-reload interaction, runtime-control boundaries, and exact
+request/response semantics.
 
 Related: [Runtime Semantics](10-runtime-semantics.md), [LSP](14-lsp.md)
 

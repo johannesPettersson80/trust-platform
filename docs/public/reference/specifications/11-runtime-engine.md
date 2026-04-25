@@ -1,10 +1,7 @@
 # Runtime Engine
 
-This public entry covers the runtime host/engine side: clocks, tasks, retain,
-launching, process image handling, and online change plumbing.
-
-Use the full spec below when you need engine/deployment mechanics rather than
-language-level runtime semantics.
+Runtime-engine lookup for clocks, tasks, retain, launching, process image
+handling, online change plumbing, and deployment mechanics.
 
 Related: [Runtime Semantics](10-runtime-semantics.md), [Bytecode Format](12-bytecode.md)
 

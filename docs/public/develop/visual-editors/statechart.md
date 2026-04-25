@@ -44,5 +44,5 @@
 ## Related
 
 - [Companion ST](companion-st.md)
-- [Concepts -> Visual Companion Model](../../concepts/visual-companion-model.md)
+- [What Is truST? / Visual Companion Model](../../concepts/visual-companion-model.md)
 - [Visual editor examples](../../examples/visual-editors.md)

@@ -128,7 +128,6 @@ supported ST-project structures and fails CI on schema-drift regressions.
 
 Detected values currently include:
 
-- `openplc`
 - `codesys`
 - `beckhoff-twincat`
 - `siemens-tia`
@@ -177,8 +176,3 @@ Not guaranteed:
 A complete import/export walkthrough project is available in:
 
 - `examples/plcopen_xml_st_complete/`
-
-OpenPLC ST-focused migration guide and sample bundle:
-
-- `docs/guides/OPENPLC_INTEROP_V1.md`
-- `examples/plcopen_xml_st_complete/` (`interop/openplc.xml`)

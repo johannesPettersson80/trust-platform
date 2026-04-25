@@ -37,30 +37,6 @@
       "source": "live /hmi Trends page capture used at shift handover to compare recent values"
     },
     {
-      "path": "images/hmi/operator-guide.svg",
-      "class": "operator-diagram",
-      "generator": "hand-authored",
-      "source": "generic operator workflow from HMI URL through status, alarm context, and handover"
-    },
-    {
-      "path": "images/hmi/operator-daily-checks.svg",
-      "class": "operator-diagram",
-      "generator": "hand-authored",
-      "source": "daily HMI checks for connection, freshness, alarms, live values, and shift record"
-    },
-    {
-      "path": "images/hmi/operator-alarm-handbook.svg",
-      "class": "operator-diagram",
-      "generator": "hand-authored",
-      "source": "alarm response sequence emphasizing context before acknowledge"
-    },
-    {
-      "path": "images/hmi/operator-shift-handover.svg",
-      "class": "operator-diagram",
-      "generator": "hand-authored",
-      "source": "shift handover board for active alarms, unusual values, temporary modes, and open actions"
-    },
-    {
       "path": "images/install/marketplace-listing.png",
       "class": "browser-install-surface",
       "generator": "playwright",
@@ -169,16 +145,16 @@
       "source": "workflow overview from source files through artifacts into trust-runtime and browser surfaces"
     },
     {
-      "path": "images/home/reader-journey.svg",
-      "class": "diagram",
-      "generator": "hand-authored",
-      "source": "homepage reader journey map from persona to first documentation page"
-    },
-    {
       "path": "images/brand/trust-logo.svg",
       "class": "brand-asset",
       "generator": "hand-authored",
-      "source": "truST wordmark used on the docs homepage"
+      "source": "truST wordmark used on the docs homepage in light mode"
+    },
+    {
+      "path": "images/brand/trust-logo-dark.svg",
+      "class": "brand-asset",
+      "generator": "hand-authored",
+      "source": "truST wordmark used on the docs homepage in dark mode"
     },
     {
       "path": "images/hero-runtime.png",
@@ -233,12 +209,6 @@
       "class": "vscode-desktop-surface",
       "generator": "synced-media",
       "source": "desktop VS Code rename preview across files for a Structured Text symbol"
-    },
-    {
-      "path": "images/vscode/workspace-shell.png",
-      "class": "vscode-browser-surface",
-      "generator": "playwright+code-server",
-      "source": "code-server workspace with the truST extension installed and Main.st rendered in the editor"
     },
     {
       "path": "images/vscode/ai-tools-diagnostics.svg",

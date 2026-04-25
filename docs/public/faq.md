@@ -1,10 +1,7 @@
 # FAQ
 
-Quick answers to common product, runtime, and workflow questions.
-
-Use this page when you are deciding what truST is, where to start, or which
-workflow fits. If a command, runtime, HMI page, or connection is already
-failing, use [Troubleshooting](troubleshooting.md) instead.
+Quick answers to common product, runtime, and workflow questions. For failures,
+use [Troubleshooting](troubleshooting.md).
 
 ## Is truST safety-rated?
 
@@ -15,8 +12,7 @@ plant use.
 ## Can I use truST commercially?
 
 See the dual-license terms in [About](about.md) and the repository license
-files. If you need legal certainty for a deployment, review those license texts
-with your organization.
+files. Legal certainty belongs with your organization’s license review.
 
 ## Is truST VS Code only?
 
@@ -49,7 +45,7 @@ See [Hardware Compatibility](reference/hardware-compatibility.md). truST runs
 on Linux hosts including Raspberry Pi and other ARM64 systems. Windows and
 macOS are commonly used for tooling.
 
-## How is truST different from OpenPLC or vendor IDEs?
+## How is truST different from other PLC runtimes or vendor IDEs?
 
 truST combines:
 
@@ -61,8 +57,8 @@ truST combines:
 See:
 
 - [About](about.md)
-- [Concepts](concepts/index.md)
-- [Migrate Into truST](migrate/index.md)
+- [What Is truST?](concepts/index.md)
+- [Migration While Programming](migrate/index.md)
 
 ## Where do I start if I inherited a project?
 

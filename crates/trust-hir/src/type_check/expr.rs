@@ -24,6 +24,7 @@ impl<'a> TypeChecker<'a> {
             super_type: None,
             loop_stack: Vec::new(),
             label_scopes: Vec::new(),
+            expression_types: FxHashMap::default(),
         }
     }
 
@@ -52,7 +53,7 @@ impl<'a> TypeChecker<'a> {
 impl<'a, 'b> ExprChecker<'a, 'b> {
     /// Infers the type of an expression.
     pub(crate) fn check_expression(&mut self, node: &SyntaxNode) -> TypeId {
-        match node.kind() {
+        let type_id = match node.kind() {
             SyntaxKind::Literal => self.infer_literal(node),
             SyntaxKind::NameRef => self.infer_name_ref(node),
             SyntaxKind::BinaryExpr => self.infer_binary_expr(node),
@@ -67,7 +68,8 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
             SyntaxKind::SuperExpr => self.checker.infer_super_expr(node),
             SyntaxKind::SizeOfExpr => self.checker.infer_size_of_expr(node),
             _ => TypeId::UNKNOWN,
-        }
+        };
+        self.checker.record_expression_type(node, type_id)
     }
 
     fn infer_literal(&mut self, node: &SyntaxNode) -> TypeId {

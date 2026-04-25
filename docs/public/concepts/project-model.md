@@ -3,11 +3,12 @@
 A truST project is a source tree plus a small set of config files that define
 authoring, runtime, I/O, simulation, and HMI behavior.
 
-!!! note "Terms"
-    `ST` = Structured Text source.
-    `LSP` = Language Server Protocol/editor configuration.
-    `HMI` = browser operator pages under `hmi/`.
-    `.stbc` = compiled Structured Text bytecode bundle.
+| Term | Meaning |
+| --- | --- |
+| `ST` | Structured Text source. |
+| `LSP` | Language Server Protocol/editor configuration. |
+| `HMI` | Browser operator pages under `hmi/`. |
+| `.stbc` | Compiled Structured Text bytecode bundle. |
 
 ## Project Files
 

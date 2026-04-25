@@ -6,7 +6,7 @@ instead of sending readers to GitHub.
 
 ## Which spec should you open?
 
-| If you are trying to answer... | Start here |
+| Question | Open |
 | --- | --- |
 | “What does IEC Structured Text itself allow?” | the language chapters `01` through `09` |
 | “How does truST execute ST programs?” | [10 Runtime Semantics](10-runtime-semantics.md) |
@@ -22,9 +22,8 @@ instead of sending readers to GitHub.
 | “What is the machine-facing runtime contract?” | [20 Agent API v1](20-agent-api-v1.md) |
 | “What is the deterministic harness wire protocol?” | [21 Harness Protocol](21-harness-protocol.md) |
 
-Use the specification pages for exact behavior and contracts. If you want the
-task-oriented guide first, go back to [Develop](../../develop/index.md),
-[Connect](../../connect/index.md), or [Reference](../index.md).
+Use specification pages for exact behavior and contracts. Use [Program](../../develop/index.md)
+for task-oriented programming docs.
 
 ## Specification Set Overview
 

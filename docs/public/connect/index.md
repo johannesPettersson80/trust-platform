@@ -1,25 +1,16 @@
-# Connect
+# Communication
 
-## Start Here
-
-- [truST Mesh](../concepts/trust-mesh.md): the product-level model for brokerless-first runtime sharing, plant integrations, and operator lanes
-- [Protocol Matrix](protocol-matrix.md): the fastest overview of all shipped communication surfaces
-- [Networking And Remote Access](networking-and-remote-access.md): network topology, exposure, and remote access guidance
-
-## Pick The Right Branch
-
-| If your question is... | Go to |
+| Need | Open |
 | --- | --- |
-| How do I connect two truST runtimes? | [Runtime To Runtime](runtime-to-runtime/index.md) |
-| Which protocol should I use between runtimes? | [Runtime To Runtime -> Transport Matrix](runtime-to-runtime/transport-matrix.md) |
-| How do I talk to SCADA, brokers, or plant software? | [External Systems](external-systems/index.md) |
-| How do I use EtherCAT, GPIO, or simulated local I/O? | [Devices And Fieldbus](devices-and-fieldbus/index.md) |
-| What protocols are available at all? | [Protocol Matrix](protocol-matrix.md) |
-| How do I lock this down on a network? | [Networking And Remote Access](networking-and-remote-access.md) and [Runtime To Runtime -> Security](runtime-to-runtime/security.md) |
-
-## Related
-
-- [truST Mesh](../concepts/trust-mesh.md)
-- [runtime.toml reference](../reference/config/runtime-toml.md)
-- [io.toml reference](../reference/config/io-toml.md)
-- [Simulation](../operate/simulation.md)
+| choose the protocol or lane | [Protocol Matrix](protocol-matrix.md) |
+| connect truST runtimes | [Runtime To Runtime](runtime-to-runtime/index.md) |
+| compare runtime-to-runtime transports | [Transport Matrix](runtime-to-runtime/transport-matrix.md) |
+| use truST Mesh | [truST Mesh](../concepts/trust-mesh.md) |
+| use same-host deterministic transport | [Realtime T0](runtime-to-runtime/realtime-t0.md) |
+| design discovery and pairing | [Discovery And Pairing](runtime-to-runtime/discovery-and-pairing.md) |
+| expose remote access safely | [Networking And Remote Access](networking-and-remote-access.md) |
+| connect to SCADA, brokers, or plant software | [External Systems](external-systems/index.md) |
+| use Modbus TCP | [Modbus TCP](external-systems/modbus-tcp.md) |
+| use MQTT | [MQTT](external-systems/mqtt.md) |
+| use OPC UA | [OPC UA](external-systems/opc-ua.md) |
+| use EtherCAT, GPIO, simulated, or loopback I/O | [Devices And Fieldbus](devices-and-fieldbus/index.md) |

@@ -1,12 +1,7 @@
 # Simulation
 
-Use this page when you need a virtual process or fault-injection loop before
-touching real I/O. The workflow below explains how to connect simulated signals
-to the same build/runtime path so tests and HMI checks stay comparable.
-
-Success means one simulated signal can be driven through the same project,
-runtime, and HMI path you plan to use on target hardware, and the remaining
-gap to real I/O is explicit.
+Virtual process and fault-injection loop before real I/O. Simulated signals use
+the same project, runtime, and HMI path planned for target hardware.
 
 Use simulation first when the next question can be answered without energizing
 real equipment.

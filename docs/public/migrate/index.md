@@ -1,12 +1,8 @@
-# Migrate Into truST
+# Migration While Programming
 
-Use this path when you already have PLC code, vendor habits, or interchange
-files and need to evaluate what can move into truST cleanly.
-
-truST is strongest when migration starts from open artifacts and repeatable
-checks: import or model the project, validate diagnostics, stub vendor-only
-symbols when needed, then prove behavior through build, test, runtime, and HMI
-workflows.
+Migration means moving source, open interchange files, or vendor-shaped ST into
+a normal truST project and proving it with diagnostics, build, tests, runtime,
+and HMI checks.
 
 ## Start With Your Source
 
@@ -16,8 +12,8 @@ workflows.
 | CODESYS or TwinCAT-style ST | [CODESYS And TwinCAT](codesys-twincat.md) | vendor profiles, formatting expectations, PLCopen interchange, and library stub strategy |
 | Siemens/TIA SCL | [Siemens](siemens.md) | SCL compatibility baseline and import tutorial |
 | Mitsubishi/GX Works style code | [Mitsubishi](mitsubishi.md) | GX Works compatibility baseline |
-| OpenPLC projects | [OpenPLC](openplc.md) | OpenPLC interoperability guidance |
 | vendor libraries | [Vendor Libraries](vendor-libraries.md) | symbol/type stubs for authoring, completion, hover, and navigation |
+| other third-party ST | start with [Project Layout](../develop/project-layout.md) and [Build, Validate, Test](../operate/build-validate-test.md) | manual review unless there is a tested import path |
 
 ## Compatibility Matrix
 
@@ -27,8 +23,8 @@ workflows.
 | CODESYS / TwinCAT-style ST | supported for authoring and interchange | `vendor_profile`, PLCopen interchange, and library stubs | not a byte-for-byte clone of every vendor runtime behavior |
 | Siemens/TIA SCL | partial migration support | SCL compatibility baseline plus import tutorial | Siemens-specific libraries and project packaging require stubs or manual modeling |
 | Mitsubishi/GX Works style ST | partial migration support | compatibility baseline and vendor profile examples | GX Works project/runtime behavior is not fully reproduced |
-| OpenPLC projects | partial interoperability | OpenPLC ST-focused guide and PLCopen where available | target/runtime assumptions must be validated in truST |
 | Vendor libraries | authoring support through stubs | local symbol/type stubs for completion, hover, navigation, and diagnostics | stubs are contracts for engineering, not full vendor library semantics |
+| Other IEC ST | manual review | copy into a truST project, run diagnostics, then build/test | no named ecosystem support without a tested workflow |
 
 ## Migration Workflow
 
@@ -58,4 +54,4 @@ workflows.
 - [PLCopen interoperability](plcopen.md)
 - [Vendor profiles](../develop/vendor-profiles.md)
 - [Vendor library compatibility](vendor-libraries.md)
-- [Examples](../examples/index.md)
+- [Program examples](../examples/index.md)

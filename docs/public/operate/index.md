@@ -1,69 +1,21 @@
-# Operate
+# Run
 
-Use this section when the project is running, being prepared for a target, or
-being operated by someone other than the authoring engineer.
-
-## Engineering Run Loop
-
-For engineers validating a project before or during runtime work.
-
-1. [Build, Validate, Test](build-validate-test.md)
-2. [Compile, Validate, Reload](compile-validate-reload.md)
-3. [Debugging And Runtime Panel](debugging-and-runtime-panel.md)
-4. [Runtime UI And Control](runtime-ui-and-control.md)
-5. [Simulation](simulation.md)
-
-## Target Administration
-
-For the person responsible for installing, supervising, upgrading, and proving
-the runtime host.
-
-- [Install On Target](install-on-target.md)
-- [Offline Install](offline-install.md)
-- [Runtime Lifecycle](lifecycle.md)
-- [Supervision](supervision.md)
-- [PREEMPT_RT Deployment](preempt-rt.md)
-- [Backup And Restore](backup-and-restore.md)
-- [Upgrade](upgrade.md)
-- [Secrets](secrets.md)
-- [Audit Log](audit-log.md)
-- [Observability](observability.md)
-- [Performance Tuning](performance-tuning.md)
-
-## Operator And Technician
-
-For people watching the system, handling alarms, checking I/O, and handing over
-state between shifts.
-
-- [HMI And Web UI](hmi-and-web-ui.md)
-- [Operator Guide](operator-guide.md)
-- [Operator Daily Checks](operator-daily-checks.md)
-- [Operator Alarm Handbook](operator-alarm-handbook.md)
-- [Operator Shift Handover](operator-shift-handover.md)
-- [Technician I/O Diagnosis](technician-io-diagnosis.md)
-- [Field Fault Procedures](field-fault-procedures.md)
-- [Safety And Commissioning](safety-and-commissioning.md)
-
-## Fleet And Delivery
-
-For CI/CD, rollout, rollback, and runtime-cloud delivery workflows.
-
-- [CI/CD](ci-cd.md)
-- [Deploy And Rollback](deploy-rollback.md)
-- [Runtime Cloud](runtime-cloud.md)
-- [Fleet Rollout And Templating](fleet-rollout-and-templating.md)
-
-## Common Questions
-
-| Question | Go to |
+| Need | Open |
 | --- | --- |
-| How do I install and supervise the runtime on a target host? | [Install On Target](install-on-target.md) / [Supervision](supervision.md) |
-| How do I run `truST` on a Linux PREEMPT_RT host? | [PREEMPT_RT Deployment](preempt-rt.md) |
-| How do I prove this project still builds and passes tests? | [Build, Validate, Test](build-validate-test.md) |
-| How do I edit and reload a running runtime safely? | [Compile, Validate, Reload](compile-validate-reload.md) |
-| How do I operate the runtime outside the editor? | [Runtime UI And Control](runtime-ui-and-control.md) |
-| How do I debug execution state? | [Debugging And Runtime Panel](debugging-and-runtime-panel.md) |
-| How do I simulate without hardware? | [Simulation](simulation.md) |
-| How do I ship or roll back a bundle? | [Deploy And Rollback](deploy-rollback.md) |
-| How should an operator check a running system? | [Operator Daily Checks](operator-daily-checks.md) |
-| How should a technician diagnose I/O? | [Technician I/O Diagnosis](technician-io-diagnosis.md) |
+| operate the runtime outside the editor | [Runtime UI And Control](runtime-ui-and-control.md) |
+| install or supervise a target host | [Install On Target](install-on-target.md) / [Supervision](supervision.md) |
+| run on Linux PREEMPT_RT | [PREEMPT_RT](preempt-rt.md) |
+| ship or roll back a bundle | [Deploy And Rollback](deploy-rollback.md) |
+| operate Browser HMI | [HMI And Web UI](hmi-and-web-ui.md) |
+| follow the operator workflow | [Operator Guide](operator-guide.md) |
+| run daily operator checks | [Operator Daily Checks](operator-daily-checks.md) |
+| respond to alarms | [Operator Alarm Handbook](operator-alarm-handbook.md) |
+| hand over shift state | [Operator Shift Handover](operator-shift-handover.md) |
+| diagnose I/O from the runtime | [Technician I/O Diagnosis](technician-io-diagnosis.md) |
+| handle field faults | [Field Fault Procedures](field-fault-procedures.md) |
+| prepare safety/commissioning boundaries | [Safety And Commissioning](safety-and-commissioning.md) |
+| back up, restore, or upgrade | [Backup And Restore](backup-and-restore.md) / [Upgrade](upgrade.md) |
+| manage secrets or audit evidence | [Secrets](secrets.md) / [Audit Log](audit-log.md) |
+| collect operational evidence | [Observability](observability.md) |
+| tune runtime performance | [Performance Tuning](performance-tuning.md) |
+| deliver through CI/CD, runtime-cloud, or fleet templates | [CI/CD](ci-cd.md) / [Runtime Cloud](runtime-cloud.md) |

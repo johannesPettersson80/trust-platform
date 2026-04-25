@@ -1,8 +1,8 @@
 # Maintaining The Public Docs
 
-This page is for contributors who edit the docs site. Product readers should
-start from [Start](start/index.md), [Concepts](concepts/index.md), or
-[Migrate](migrate/index.md).
+Contributor rules for the public docs site. Product readers should use
+[What Is truST?](index.md), [Install](start/index.md), [Program](develop/index.md),
+[Run](operate/index.md), [Hardware](hardware/index.md), or [Reference](reference/index.md).
 
 ## Rules
 
@@ -16,25 +16,29 @@ start from [Start](start/index.md), [Concepts](concepts/index.md), or
 - UI-facing guides should include a maintained screenshot, GIF, diagram, or explicit reason why a visual is not useful
 - procedural pages should end with a visible success state, command, or verification step
 - public product claims should link to proof: tests, benchmarks, examples, screenshots, source, or an honest limits section
+- do not add stock guide-opening phrases, summary padding, or template
+  sections that do not change the reader's next action
+- `scripts/check_public_docs_ia.py` blocks generic wrapper boilerplate; write
+  the concrete fact or table instead
+- section indexes should route with tables; task pages should use commands, facts, decisions, warnings, limits, examples, and links
 
 ## Before you add a page
 
 1. Decide which user question it answers.
-2. Put it under `start`, `develop`, `connect`, `operate`, `reference`, `concepts`, or `examples`.
+2. Put it under the six-door nav: `What Is truST?`, `Install`, `Program`,
+   `Run`, `Hardware`, or `Reference`.
 3. Add it to `mkdocs.yml`.
 4. Link it from the nearest section index.
 5. If it needs a screenshot, make that screenshot come from an automated source or generated-media script, not a hand-dropped mystery file.
 
-## Wrapper page pattern
+## Public Page Standard
 
-Snippet-backed pages still need their own reader value before the include. Use
-this shape unless the page is a pure generated reference:
-
-1. one sentence saying who the page is for
-2. one short paragraph saying what the included guide/example teaches
-3. time/prerequisite guidance when the page is an example or tutorial route
-4. a visible success state or verification condition
-5. related links that send the reader to the next decision, not a duplicate page
+- Delete text that does not contain a fact, command, decision, warning, limit,
+  example, or link target.
+- Do not pad snippet-backed pages with audience boilerplate.
+- Replace generic prose with `Need -> Open`, `Symptom -> Check`, or
+  `File -> Purpose` tables when routing is the job.
+- Keep exact lookup pages terse.
 
 ## Build checks
 
@@ -60,7 +64,7 @@ source-of-truth inputs such as `docs/guides/**`, `docs/specs/**`,
 - Browser product-surface screenshots come from `scripts/captures/browser/*.spec.mjs`, captured live against a running `trust-runtime`. Operator overview, daily-checks, alarm, and shift-handover visuals come from `scripts/captures/browser/hmi-operator-pages.spec.mjs`.
 - Terminal captures come from `scripts/captures/terminal/*.tape`.
 - Code-server-based VS Code screenshots come from `scripts/captures/vscode/*.spec.mjs`.
-- The current code-server proof capture is `scripts/captures/vscode/workspace-shell.spec.mjs`; the runtime-panel command-palette capture stays disabled until that interaction path is stable under code-server.
+- Code-server proof captures remain available for pages that need browser-hosted VS Code evidence; the runtime-panel command-palette capture stays disabled until that interaction path is stable under code-server.
 - Do not ship fabricated composites (ImageMagick text or UI overlays on an existing screenshot) as product proof. If a capture cannot run, use a labeled diagram or skip the figure instead of pretending the composited image is a real product surface.
 - Use `scripts/captures/README.md` as the source of truth for capture classes, local prerequisites, and CI expectations.
 - Legacy desktop VS Code screenshots still come from `scripts/capture-readme-screenshots-auto.sh` when a capture truly requires native desktop VS Code rather than code-server.

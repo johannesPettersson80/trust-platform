@@ -1,18 +1,13 @@
 # Vendor Libraries
 
-Use this guide when:
+Vendor library migration is about engineering contracts, not pretending every
+vendor runtime library is implemented.
 
-- you need symbol visibility or migration help
-- you do not want to treat the imported pack as normal editable source
-
-The guide below is about engineering contracts, not pretending every vendor
-runtime library is implemented. After reading it, you should know when to use
-local stubs, what a stub can safely prove, and where real vendor behavior still
-needs site-specific validation.
-
-Budget 15-20 minutes. Success means you can decide whether a vendor dependency
-should become a local stub, a supported truST library dependency, or an
-explicit commissioning risk that cannot be proven by symbol visibility alone.
+| Dependency state | Action |
+| --- | --- |
+| symbols needed for editing/navigation | add local stubs |
+| behavior needed at runtime | use a supported truST library or implement it |
+| behavior depends on a vendor runtime or device | keep it as a commissioning risk until proven on target |
 
 ## Compatibility Guide
 
@@ -21,5 +16,5 @@ explicit commissioning risk that cannot be proven by symbol visibility alone.
 ## Related
 
 - [Libraries overview](../develop/libraries/index.md)
-- [Migrate Into truST](index.md)
+- [Migration While Programming](index.md)
 - [Vendor profile examples](../examples/vendor-profiles.md)

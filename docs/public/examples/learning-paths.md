@@ -1,20 +1,19 @@
 # Learning Paths
 
-This page is the high-level route map. The detailed repo-level progression still
-lives in the curated catalog on [Examples overview](index.md).
+Example routes for programming by doing.
 
 ## Recommended paths
 
-| Goal | Start here | Then continue with |
+| Goal | Open | Then continue with |
 | --- | --- | --- |
 | first success with truST | [Tutorials](tutorials.md) | [Build, Validate, Test](../operate/build-validate-test.md) |
-| connect to external systems or hardware | [Connectivity](connectivity.md) | [Connect -> Protocol Matrix](../connect/protocol-matrix.md) |
-| migrate from vendor-specific tooling | [Vendor Profiles](vendor-profiles.md) | [Migrate Into truST](../migrate/index.md) |
-| learn visual editors | [Visual Editors](visual-editors.md) | [Develop -> Visual Editors](../develop/visual-editors/index.md) |
-| build HMI/operator workflows | [HMI](hmi.md) | [Operate -> HMI And Web UI](../operate/hmi-and-web-ui.md) |
+| connect to external systems or hardware | [Connectivity](connectivity.md) | [Program / Communication](../connect/protocol-matrix.md) |
+| migrate from vendor-specific tooling | [Vendor Profiles](vendor-profiles.md) | [Program / Migration](../migrate/index.md) |
+| learn visual editors | [Visual Editors](visual-editors.md) | [Program / Visual Programming](../develop/visual-editors/index.md) |
+| build HMI/operator workflows | [HMI](hmi.md) | [Run / Operator HMI](../operate/hmi-and-web-ui.md) |
 | motion and performance work | [Libraries And Motion](libraries-and-motion.md) | [Benchmarks](../reference/benchmarks.md) |
-| federation/fleet workflows | [Runtime Cloud](runtime-cloud.md) | [Operate -> Runtime Cloud](../operate/runtime-cloud.md) |
-| larger end-to-end systems | [Capstones](capstones.md) | [Concepts](../concepts/index.md) |
+| federation/fleet workflows | [Runtime Cloud](runtime-cloud.md) | [Run / Runtime Cloud](../operate/runtime-cloud.md) |
+| larger end-to-end systems | [Capstones](capstones.md) | [What Is truST?](../concepts/index.md) |
 
 ## Default recommendation
 

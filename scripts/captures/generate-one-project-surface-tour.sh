@@ -21,60 +21,29 @@ fi
 rm -rf "${WORK}"
 mkdir -p "${WORK}/scenes" "${WORK}/frames"
 
-FONT_REGULAR="${TRUST_CAPTURE_FONT_REGULAR:-DejaVu-Sans}"
-FONT_BOLD="${TRUST_CAPTURE_FONT_BOLD:-DejaVu-Sans-Bold}"
-
-captioned_scene() {
+surface_scene() {
   local src="$1"
-  local title="$2"
-  local subtitle="$3"
-  local out="$4"
+  local out="$2"
 
   magick "${src}" \
-    -resize "960x540^" -gravity center -extent 960x540 \
-    \( -size 960x540 xc:none \
-      -fill "rgba(2,6,23,0.97)" -draw "rectangle 0,0 960,140" \
-      -fill "#f8fafc" -font "${FONT_BOLD}" -pointsize 28 -gravity northwest -annotate +48+38 "${title}" \
-      -fill "#cbd5e1" -font "${FONT_REGULAR}" -pointsize 18 -gravity northwest -annotate +48+78 "${subtitle}" \
-    \) -composite "${out}"
+    -resize "1280x720^" -gravity center -extent 1280x720 \
+    -strip "${out}"
 }
 
-title_scene() {
-  local out="$1"
-  magick -size 960x540 "gradient:#0f172a-#0f766e" -dither FloydSteinberg \
-    \( -size 960x540 xc:none \
-      -fill "rgba(2,6,23,0.42)" -draw "rectangle 0,0 960,540" \
-      -fill "#f8fafc" -font "${FONT_BOLD}" -pointsize 44 -gravity center -annotate +0-64 "One Project, Every Surface" \
-      -fill "#d1fae5" -font "${FONT_REGULAR}" -pointsize 25 -gravity center -annotate +0-10 "VS Code, Diagnostics, Debug, Browser IDE, Browser HMI" \
-      -fill "#f8fafc" -font "${FONT_BOLD}" -pointsize 24 -gravity center -annotate +0+52 "All live from the same truST project" \
-    \) -composite "${out}"
-}
-
-title_scene "${WORK}/scenes/00-title.png"
-captioned_scene \
+surface_scene \
   "${ROOT_DIR}/docs/public/assets/images/hero-runtime.png" \
-  "VS Code engineering surface" \
-  "Edit ST, inspect live I/O and memory, and debug beside the runtime panel." \
   "${WORK}/scenes/01-vscode.png"
-captioned_scene \
+surface_scene \
   "${ROOT_DIR}/docs/public/assets/images/vscode/iec-diagnostics.png" \
-  "Diagnostics as structured context" \
-  "The editor and AI tools can start from real IEC-aware diagnostics." \
   "${WORK}/scenes/02-diagnostics.png"
-captioned_scene \
+surface_scene \
   "${ROOT_DIR}/docs/public/assets/images/vscode/debugger-stopped-at-breakpoint.png" \
-  "Live debug state" \
-  "Breakpoints, locals, call stack, inline values, and runtime state stay together." \
   "${WORK}/scenes/03-debug.png"
-captioned_scene \
+surface_scene \
   "${ROOT_DIR}/docs/public/assets/images/browser/ide-tutorial-loaded.png" \
-  "Browser IDE" \
-  "The same project can be opened through the runtime-hosted browser surface." \
   "${WORK}/scenes/04-browser-ide.png"
-captioned_scene \
+surface_scene \
   "${ROOT_DIR}/docs/public/assets/images/browser/hmi-home.png" \
-  "Browser HMI" \
-  "Operators and technicians see the same running project from the HMI surface." \
   "${WORK}/scenes/05-hmi.png"
 
 mapfile -t SCENES < <(find "${WORK}/scenes" -maxdepth 1 -type f -name "*.png" | sort)
@@ -97,21 +66,21 @@ blend_frame() {
 }
 
 for ((i = 0; i < ${#SCENES[@]}; i++)); do
-  for _ in $(seq 1 22); do
+  for _ in $(seq 1 12); do
     add_frame "${SCENES[$i]}"
   done
   if (( i + 1 < ${#SCENES[@]} )); then
-    for pct in 15 30 45 60 75 90; do
+    for pct in 25 50 75; do
       blend_frame "${SCENES[$i]}" "${SCENES[$((i + 1))]}" "${pct}"
     done
   fi
 done
 
 mkdir -p "$(dirname "${OUT}")"
-magick -delay 8 "${WORK}/frames/"*.png -loop 0 -layers Optimize "${OUT}"
+magick -delay 14 "${WORK}/frames/"*.png -loop 0 -layers OptimizeTransparency "${OUT}"
 
 if [[ -n "${GIFSICLE_BIN}" ]]; then
-  "${GIFSICLE_BIN}" --batch --optimize=3 --lossy=30 --colors 160 --dither "${OUT}"
+  "${GIFSICLE_BIN}" --batch --optimize=3 --colors 256 "${OUT}"
 else
   echo "gifsicle not found; kept ImageMagick-optimized GIF." >&2
 fi

@@ -1,7 +1,7 @@
 # Diagnostics
 
-This page maps the current compiler and semantic diagnostic codes to their
-default severity, likely cause, user-visible symptom, and first fix.
+Compiler and semantic diagnostic codes with default severity, likely cause,
+user-visible symptom, and first fix.
 
 ## How to read this table
 

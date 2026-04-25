@@ -1,20 +1,9 @@
 # HMI Authoring
 
-Use this page when you are creating or changing the project-owned `hmi/`
-directory. It is the canonical authoring page for descriptor files, process SVG
-bindings, write policy, and AI-assisted HMI tooling.
+Create or change the project-owned `hmi/` directory: descriptor files, process
+SVG bindings, write policy, validation, preview, and AI-assisted HMI tooling.
 
-The guide below teaches:
-
-- HMI folder layout
-- widget/schema expectations
-- the path from project files to runtime-hosted UI
-- validation and preview order before accepting changes
-
-After reading it, you should be able to scaffold `hmi/`, bind live values to a
-page, keep writes disabled by default, and preview the result from the same
-project. If you only need to operate an already-running HMI, start with
-[HMI And Web UI](../operate/hmi-and-web-ui.md).
+For operating an already-running HMI, use [HMI And Web UI](../operate/hmi-and-web-ui.md).
 
 ## HMI Directory Workflow
 

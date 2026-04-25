@@ -1,10 +1,7 @@
 # Bytecode Format
 
-This public entry covers the truST bytecode container, versioning, sections,
-flags, validation, and instruction set.
-
-Use the full spec below when you need exact binary layout, opcode contracts, or
-version-gate rules.
+Bytecode lookup for the truST container format, versioning, sections, flags,
+validation, binary layout, opcode contracts, and version gates.
 
 Related: [Runtime Engine](11-runtime-engine.md), [Debug Adapter](13-debug-adapter.md)
 

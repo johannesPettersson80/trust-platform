@@ -1,6 +1,6 @@
 # truST PLC Developer Guide
 
-This guide is for automation engineers and developers building and deploying PLC project folders.
+Build and deploy PLC project folders.
 It assumes you already have the runtime installed.
 
 ## Project Layout (Structure)
@@ -217,10 +217,6 @@ For multi-vendor export adapter manual steps/limitations, see:
 For direct Siemens `.scl` export/import tutorial (TIA External source files path), see:
 
 `docs/guides/SIEMENS_TIA_SCL_IMPORT_TUTORIAL.md`
-
-For OpenPLC-specific migration expectations and sample flow, see:
-
-`docs/guides/OPENPLC_INTEROP_V1.md`
 
 Start runtime:
 ```

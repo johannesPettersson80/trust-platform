@@ -4,11 +4,6 @@ truST is an open IEC 61131-3 Structured Text toolchain with editor support, a
 runtime you can run locally or on target hardware, and browser UIs for
 engineering and operation.
 
-## Project Purpose
-
-truST combines language tooling, runtime execution, debugging, and
-browser-hosted operator flows in one open repository.
-
 ## Maintainer
 
 - Maintainer: Johannes Pettersson

@@ -7,9 +7,8 @@
 - allowlist-based variable recording
 - web-path exposure of observability endpoints
 
-Use this page when you need operational evidence over time instead of a single
-runtime status snapshot. The tutorial below shows the first historian/metrics
-path; production use still needs a site retention and access policy.
+Operational evidence over time: historian files, metrics, signal allowlists,
+retention, and access policy.
 
 ## Good first checks
 

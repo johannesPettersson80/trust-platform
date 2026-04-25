@@ -22,4 +22,4 @@
 run them once they are connected.
 
 - setup and exposure decisions: [Security](security.md)
-- day-to-day federation/operator work: [Operate -> Runtime Cloud](../../operate/runtime-cloud.md)
+- day-to-day federation/operator work: [Run / Runtime Cloud](../../operate/runtime-cloud.md)

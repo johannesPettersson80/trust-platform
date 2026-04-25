@@ -2,8 +2,8 @@
 
 ## Current Baseline
 
-- current repository baseline: `v0.22.1`
-- public docs in this tree describe the `v0.22.1` workspace version unless a
+- current repository baseline: `v0.22.2`
+- public docs in this tree describe the `v0.22.2` workspace version unless a
   page explicitly marks a feature as experimental, roadmap, or target-specific
 
 ## What Changed Recently
@@ -11,8 +11,8 @@
 ### `v0.22.x`
 
 - `One Project, Every Surface` and `truST Mesh` became named public concepts
-- the Start, Migrate, Operate, Concepts, Examples, and Reference sections were
-  reorganized around user journeys instead of repo internals
+- the public docs were collapsed to six user-facing doors: `What Is truST?`,
+  `Install`, `Program`, `Run`, `Hardware`, and `Reference`
 - Migrate now has canonical ecosystem pages under `migrate/*`
 - Editor AI tools and the Agent API have separate public scope boundaries
 - public docs checks now guard nav coverage, snippet H1 collisions, list
@@ -26,7 +26,7 @@
 - Browser IDE, HMI, examples, and operate runbooks were aligned into the docs
   site
 
-## How To Use This Page
+## Reading The Version History
 
 - if you are returning after a few weeks or months, start here
 - then open the full [Changelog](../changelog.md)
