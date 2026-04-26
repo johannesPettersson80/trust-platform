@@ -19,19 +19,19 @@ fn retain_store_roundtrip() {
     snapshot.insert("Count", Value::Int(42));
     snapshot.insert(
         "Array",
-        Value::Array(Box::new(ArrayValue {
-            elements: vec![Value::Int(1), Value::Int(2)],
-            dimensions: vec![(1, 2)],
-        })),
+        Value::Array(Box::new(
+            ArrayValue::from_untyped_parts(vec![Value::Int(1), Value::Int(2)], vec![(1, 2)])
+                .expect("valid raw retain array"),
+        )),
     );
     snapshot.insert(
         "Struct",
-        Value::Struct(std::sync::Arc::new(StructValue {
-            type_name: SmolStr::new("MyStruct"),
-            fields: [(SmolStr::new("FieldA"), Value::DInt(100))]
+        Value::Struct(std::sync::Arc::new(StructValue::from_untyped_parts(
+            SmolStr::new("MyStruct"),
+            [(SmolStr::new("FieldA"), Value::DInt(100))]
                 .into_iter()
                 .collect(),
-        })),
+        ))),
     );
 
     let path = temp_path("roundtrip");

@@ -97,9 +97,9 @@ fn enum_defaults() {
     let value = default_value_for_type_id(enum_id, &registry, &profile).unwrap();
     match value {
         Value::Enum(enum_value) => {
-            assert_eq!(enum_value.type_name, "Traffic");
-            assert_eq!(enum_value.variant_name, "Red");
-            assert_eq!(enum_value.numeric_value, 0);
+            assert_eq!(enum_value.type_name(), "Traffic");
+            assert_eq!(enum_value.variant_name(), "Red");
+            assert_eq!(enum_value.numeric_value(), 0);
         }
         _ => panic!("unexpected enum default"),
     }

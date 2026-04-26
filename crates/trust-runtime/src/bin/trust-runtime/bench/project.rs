@@ -140,19 +140,19 @@ fn value_to_json(value: &Value) -> serde_json::Value {
         Value::Char(value) => json!(format!("CHAR#{}", value)),
         Value::WChar(value) => json!(format!("WCHAR#{}", value)),
         Value::Array(value) => {
-            serde_json::Value::Array(value.elements.iter().map(value_to_json).collect())
+            serde_json::Value::Array(value.elements().iter().map(value_to_json).collect())
         }
         Value::Struct(value) => {
             let mut object = serde_json::Map::new();
-            for (name, field) in &value.fields {
+            for (name, field) in value.fields() {
                 object.insert(name.to_string(), value_to_json(field));
             }
             serde_json::Value::Object(object)
         }
         Value::Enum(value) => json!({
-            "type": value.type_name.as_str(),
-            "variant": value.variant_name.as_str(),
-            "value": value.numeric_value,
+            "type": value.type_name().as_str(),
+            "variant": value.variant_name().as_str(),
+            "value": value.numeric_value(),
         }),
         Value::Reference(_) => serde_json::Value::Null,
         Value::Instance(value) => json!({ "instance": value.0 }),

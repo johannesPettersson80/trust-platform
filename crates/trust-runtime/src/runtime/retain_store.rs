@@ -11,7 +11,7 @@ impl Runtime {
     /// Load retained values from the configured store.
     pub fn load_retain_store(&mut self) -> Result<(), RuntimeError> {
         let snapshot = self.retain.load()?;
-        self.apply_retain_snapshot(&snapshot);
+        self.apply_retain_snapshot(&snapshot)?;
         Ok(())
     }
 

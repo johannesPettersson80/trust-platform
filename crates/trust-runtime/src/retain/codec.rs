@@ -179,30 +179,30 @@ fn encode_value(out: &mut Vec<u8>, value: &Value) -> Result<(), RuntimeError> {
         }
         Value::Array(array) => {
             out.push(ValueTag::Array as u8);
-            out.extend_from_slice(&(array.elements.len() as u32).to_le_bytes());
-            out.extend_from_slice(&(array.dimensions.len() as u32).to_le_bytes());
-            for (lower, upper) in &array.dimensions {
+            out.extend_from_slice(&(array.elements().len() as u32).to_le_bytes());
+            out.extend_from_slice(&(array.dimensions().len() as u32).to_le_bytes());
+            for (lower, upper) in array.dimensions() {
                 out.extend_from_slice(&lower.to_le_bytes());
                 out.extend_from_slice(&upper.to_le_bytes());
             }
-            for element in &array.elements {
+            for element in array.elements() {
                 encode_value(out, element)?;
             }
         }
         Value::Struct(struct_value) => {
             out.push(ValueTag::Struct as u8);
-            encode_string(out, struct_value.type_name.as_str());
-            out.extend_from_slice(&(struct_value.fields.len() as u32).to_le_bytes());
-            for (name, field) in &struct_value.fields {
+            encode_string(out, struct_value.type_name().as_str());
+            out.extend_from_slice(&(struct_value.fields().len() as u32).to_le_bytes());
+            for (name, field) in struct_value.fields() {
                 encode_string(out, name.as_str());
                 encode_value(out, field)?;
             }
         }
         Value::Enum(enum_value) => {
             out.push(ValueTag::Enum as u8);
-            encode_string(out, enum_value.type_name.as_str());
-            encode_string(out, enum_value.variant_name.as_str());
-            out.extend_from_slice(&enum_value.numeric_value.to_le_bytes());
+            encode_string(out, enum_value.type_name().as_str());
+            encode_string(out, enum_value.variant_name().as_str());
+            out.extend_from_slice(&enum_value.numeric_value().to_le_bytes());
         }
         Value::Null => {
             out.push(ValueTag::Null as u8);
@@ -257,10 +257,11 @@ fn decode_value(reader: &mut RetainReader<'_>) -> Result<Value, RuntimeError> {
             for _ in 0..len {
                 elements.push(decode_value(reader)?);
             }
-            Value::Array(Box::new(ArrayValue {
-                elements,
-                dimensions,
-            }))
+            Value::Array(Box::new(
+                ArrayValue::from_untyped_parts(elements, dimensions).map_err(|error| {
+                    RuntimeError::RetainStore(format!("invalid retained array value: {error}").into())
+                })?,
+            ))
         }
         x if x == ValueTag::Struct as u8 => {
             let type_name = SmolStr::new(reader.read_string()?);
@@ -271,17 +272,19 @@ fn decode_value(reader: &mut RetainReader<'_>) -> Result<Value, RuntimeError> {
                 let value = decode_value(reader)?;
                 fields.insert(name, value);
             }
-            Value::Struct(std::sync::Arc::new(StructValue { type_name, fields }))
+            Value::Struct(std::sync::Arc::new(StructValue::from_untyped_parts(
+                type_name, fields,
+            )))
         }
         x if x == ValueTag::Enum as u8 => {
             let type_name = SmolStr::new(reader.read_string()?);
             let variant_name = SmolStr::new(reader.read_string()?);
             let numeric_value = reader.read_i64()?;
-            Value::Enum(Box::new(EnumValue {
+            Value::Enum(Box::new(EnumValue::from_canonical_parts(
                 type_name,
                 variant_name,
                 numeric_value,
-            }))
+            )))
         }
         x if x == ValueTag::Null as u8 => Value::Null,
         _ => return Err(RuntimeError::RetainStore("unknown retain value tag".into())),

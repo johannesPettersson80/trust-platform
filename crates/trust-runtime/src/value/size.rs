@@ -72,16 +72,16 @@ pub fn size_of_value(registry: &TypeRegistry, value: &Value) -> Result<u64, Size
         Value::String(value) => string_element_count(value.as_str()) as u64,
         Value::WString(value) => (string_element_count(value.as_str()) as u64) * 2,
         Value::Array(array) => {
-            let element_size = match array.elements.first() {
+            let element_size = match array.elements().first() {
                 Some(value) => size_of_value(registry, value)?,
                 None => 0,
             };
-            let len = array_len_bits(&array.dimensions).ok_or(SizeOfError::UnsupportedType)?;
+            let len = array_len_bits(array.dimensions()).ok_or(SizeOfError::UnsupportedType)?;
             element_size.checked_mul(len).ok_or(SizeOfError::Overflow)?
         }
         Value::Struct(struct_value) => {
             let mut total = 0u64;
-            for value in struct_value.fields.values() {
+            for value in struct_value.fields().values() {
                 let size = size_of_value(registry, value)?;
                 total = total.checked_add(size).ok_or(SizeOfError::Overflow)?;
             }
@@ -89,7 +89,7 @@ pub fn size_of_value(registry: &TypeRegistry, value: &Value) -> Result<u64, Size
         }
         Value::Enum(enum_value) => {
             let type_id = registry
-                .lookup(&enum_value.type_name)
+                .lookup(enum_value.type_name().as_str())
                 .ok_or(SizeOfError::UnsupportedType)?;
             size_of_type(type_id, registry)?
         }

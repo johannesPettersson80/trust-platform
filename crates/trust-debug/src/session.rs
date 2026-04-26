@@ -195,7 +195,9 @@ impl DebugSession {
         let compile = CompileSession::from_sources(source_files);
         let mut runtime = compile.build_runtime()?;
         runtime.set_debug_control(self.control.clone());
-        runtime.apply_retain_snapshot(&retained);
+        runtime
+            .apply_retain_snapshot(&retained)
+            .map_err(|error| CompileError::new(error.to_string()))?;
         runtime.set_current_time(current_time);
 
         let metadata = runtime.metadata_snapshot();

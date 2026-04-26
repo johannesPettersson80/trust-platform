@@ -192,7 +192,7 @@ package "Execution Cycle" as cyclePkg #LightBlue {
 ' ============================================================
 package "Lifecycle" as lifecyclePkg #LightGray {
     rectangle "startup()" as startupFlow #Wheat {
-        card "1. load_retain()" as start1
+        card "1. load_retain()\n(decode + value validation)" as start1
         card "2. init globals/IO" as start2
         card "2a. provision T0 SHM channels\n(map shared + initialize headers + pin pages)" as start2a
         card "2b. apply Linux RT posture\n(verify PREEMPT_RT + mlockall + affinity)" as start2b
@@ -217,6 +217,19 @@ package "Lifecycle" as lifecyclePkg #LightGray {
         • call mlockall(MCL_CURRENT|MCL_FUTURE)
         • pin scheduler thread affinity
         • verify deployed scheduler policy/priority
+    end note
+
+    note right of start1
+        Retain restore contract:
+        • decode persisted Value tree
+        • use declared GlobalVarMeta type
+          and TypeRegistry to canonicalize
+          retained compound values before storage
+        • stale serialized enum type casing
+          is repaired on load
+        • enum mismatches, struct field drift,
+          and array shape/type drift fail
+          startup instead of entering storage
     end note
 
     rectangle "shutdown()" as shutdownFlow #Wheat {
@@ -392,6 +405,88 @@ package "Variable Storage" as storagePkg #LightCoral {
 }
 
 runtime ..> opc4 : snapshot globals
+
+' ============================================================
+' VALUE CONTRACTS
+' ============================================================
+package "Runtime Value Contracts" as valuePkg #MistyRose {
+
+    class "Value" as valueEnum <<value/types.rs>> {
+        Bool, Integer, Float, String, Time
+        Enum(EnumValue)
+        Struct(StructValue)
+        Array(ArrayValue)
+        Reference, Null
+    }
+
+    class "EnumValue" as enumValue <<value/types.rs>> {
+        type_name: SmolStr
+        variant_name: SmolStr
+        numeric_value: i64
+        --
+        +new(registry, type_id, variant) -> Result
+        +from_serialized_parts(registry, type, variant, value) -> Result
+        +from_canonical_parts(type, variant, value)
+    }
+
+    note right of enumValue
+        Construction boundary owns enum identity:
+        • public constructors resolve Alias chains
+        • stored type_name is the underlying
+          enum's canonical Type name
+        • variant_name and numeric_value are
+          cross-validated against TypeRegistry
+        • equality compares canonical type_name
+          plus numeric_value
+    end note
+
+    class "StructValue" as structValue <<value/types.rs>> {
+        type_name: SmolStr
+        fields: IndexMap<SmolStr, Value>
+        --
+        +new(registry, type_id, fields) -> Result
+        +from_serialized_parts(registry, type, fields) -> Result
+        +fields() -> &IndexMap
+    }
+
+    note right of structValue
+        Struct construction validates declared identity:
+        • Alias chains resolve to the underlying
+          struct or union Type name
+        • field names are matched case-insensitively
+          and stored in declaration order
+        • missing, extra, or wrongly typed fields
+          return diagnostics at the entry point
+    end note
+
+    class "ArrayValue" as arrayValue <<value/types.rs>> {
+        elements: Vec<Value>
+        dimensions: Vec<(i64, i64)>
+        --
+        +new(registry, type_id, elements) -> Result
+        +from_serialized_parts(registry, type, dims, elements) -> Result
+        +elements() -> &[Value]
+        +dimensions() -> &[(i64, i64)]
+    }
+
+    note right of arrayValue
+        Array construction validates shape:
+        • Alias chains resolve before checking element type
+        • retained dimensions must match declared bounds
+        • element count and each element value type
+          are checked before storing the value
+    end note
+
+    valueEnum --> enumValue
+    valueEnum --> structValue
+    valueEnum --> arrayValue
+    structValue --> valueEnum : fields
+    arrayValue --> valueEnum : elements
+}
+
+varStorage --> valueEnum
+secConst ..> enumValue : enum constants
+start1 ..> valueEnum : validate retained values
 
 ' ============================================================
 ' EVALUATION CONTEXT

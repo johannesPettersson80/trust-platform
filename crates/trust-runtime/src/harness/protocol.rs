@@ -387,26 +387,26 @@ pub fn encode_json_value(value: &Value) -> JsonValue {
         }),
         Value::Array(array) => json!({
             "type": "ARRAY",
-            "dimensions": array.dimensions,
-            "elements": array.elements.iter().map(encode_json_value).collect::<Vec<_>>(),
+            "dimensions": array.dimensions(),
+            "elements": array.elements().iter().map(encode_json_value).collect::<Vec<_>>(),
         }),
         Value::Struct(value) => {
             let fields = value
-                .fields
+                .fields()
                 .iter()
                 .map(|(name, field)| (name.to_string(), encode_json_value(field)))
                 .collect::<serde_json::Map<String, JsonValue>>();
             json!({
                 "type": "STRUCT",
-                "type_name": value.type_name.to_string(),
+                "type_name": value.type_name().to_string(),
                 "fields": fields,
             })
         }
         Value::Enum(value) => json!({
             "type": "ENUM",
-            "type_name": value.type_name.to_string(),
-            "variant": value.variant_name.to_string(),
-            "numeric": value.numeric_value,
+            "type_name": value.type_name().to_string(),
+            "variant": value.variant_name().to_string(),
+            "numeric": value.numeric_value(),
         }),
         Value::Reference(reference) => json!({
             "type": "REFERENCE",
@@ -430,10 +430,17 @@ pub fn decode_json_value(value: &JsonValue) -> Result<Value, HarnessAutomationEr
                 .iter()
                 .map(decode_json_value)
                 .collect::<Result<Vec<_>, _>>()?;
-            Ok(Value::Array(Box::new(ArrayValue {
-                dimensions: vec![(0, elements.len().saturating_sub(1) as i64)],
-                elements,
-            })))
+            Ok(Value::Array(Box::new(
+                ArrayValue::from_untyped_parts(
+                    elements,
+                    vec![(0, values.len().saturating_sub(1) as i64)],
+                )
+                .map_err(|error| {
+                    HarnessAutomationError::InvalidArgument(format!(
+                        "Invalid JSON array value: {error}"
+                    ))
+                })?,
+            )))
         }
     }
 }
@@ -583,10 +590,11 @@ fn decode_array_value(
         .iter()
         .map(decode_json_value)
         .collect::<Result<Vec<_>, _>>()?;
-    Ok(Value::Array(Box::new(ArrayValue {
-        dimensions,
-        elements,
-    })))
+    Ok(Value::Array(Box::new(
+        ArrayValue::from_untyped_parts(elements, dimensions).map_err(|error| {
+            HarnessAutomationError::InvalidArgument(format!("Invalid ARRAY value: {error}"))
+        })?,
+    )))
 }
 
 fn decode_struct_value(
@@ -604,20 +612,19 @@ fn decode_struct_value(
         .iter()
         .map(|(name, field)| decode_json_value(field).map(|value| (name.clone().into(), value)))
         .collect::<Result<indexmap::IndexMap<_, _>, _>>()?;
-    Ok(Value::Struct(std::sync::Arc::new(StructValue {
-        type_name: type_name.into(),
-        fields,
-    })))
+    Ok(Value::Struct(std::sync::Arc::new(
+        StructValue::from_untyped_parts(type_name.into(), fields),
+    )))
 }
 
 fn decode_enum_value(
     object: &serde_json::Map<String, JsonValue>,
 ) -> Result<Value, HarnessAutomationError> {
-    Ok(Value::Enum(Box::new(EnumValue {
-        type_name: parse_string(object, "type_name", "ENUM")?.into(),
-        variant_name: parse_string(object, "variant", "ENUM")?.into(),
-        numeric_value: parse_signed(object, "numeric", "ENUM")?,
-    })))
+    Ok(Value::Enum(Box::new(EnumValue::from_canonical_parts(
+        parse_string(object, "type_name", "ENUM")?.into(),
+        parse_string(object, "variant", "ENUM")?.into(),
+        parse_signed(object, "numeric", "ENUM")?,
+    ))))
 }
 
 fn parse_bool(

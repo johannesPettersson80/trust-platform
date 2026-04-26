@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.22.2`
+Target release: `v0.22.3`
 
 ### Added
 
@@ -153,6 +153,15 @@ Target release: `v0.22.2`
 
 ### Fixed
 
+- Enum values loaded from `VAR` initializers now compare equal to the same enum
+  variant literal in VM execution, covering unqualified, qualified, and
+  literal-on-left equality checks for init-only state-machine selectors. Runtime
+  enum construction now canonicalizes alias-backed enum values and retained enum
+  state before comparison, preventing stale or case-variant type names from
+  silently turning valid enum equality checks into `FALSE`. Runtime compound
+  values now also validate struct field identity and array shape at construction
+  and retain-apply boundaries, so corrupted retained structs or arrays fail with
+  diagnostics instead of being silently coerced or defaulted.
 - Runtime ST test compilation now reuses expression type information from the
   HIR analysis pass, avoids repeated full-project symbol-table clones during
   lowering, and skips shared-global task-hazard scans when a project has no

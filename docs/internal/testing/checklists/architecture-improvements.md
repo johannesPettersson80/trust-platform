@@ -18,3 +18,6 @@ Status: Done
 - [x] `ARCH-RTCORE-01` Add a dedicated runtime-core/native-host split checklist that freezes the core/host ownership decisions, behavior-lock gates, sync capability traits, Linux/PREEMPT_RT host expectations, and the STM32H7/Opta rollout plan.
 - [x] `ARCH-RTLINUX-01` Add a dedicated PREEMPT_RT Linux checklist and mark the broader native-host / embedded split plan deferred so the active runtime portability direction is explicit.
 - [x] `ARCH-RTLINUX-02` Refresh the runtime/system architecture diagrams so Linux `PREEMPT_RT` posture is shown as a launcher-owned scheduler-thread step with runtime.realtime config feeding verification/memlock/affinity behavior.
+- [x] `ARCH-RTVALUE-01` Refresh the runtime execution architecture diagram so enum value identity is owned by validated construction, alias resolution, retained-state canonicalization, and explicit equality semantics.
+- [x] `ARCH-RTVALUE-02` Refresh the runtime execution architecture diagram so struct and array values own declared identity, field/type validation, shape validation, and retained-state failure diagnostics without a global value factory.
+- [x] `ARCH-RTVALUE-03` Regenerate the PlantUML outputs and refresh `docs/diagrams/manifest.json` after the runtime value contract updates.

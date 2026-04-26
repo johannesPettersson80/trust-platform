@@ -74,10 +74,13 @@ END_PROGRAM
     harness.assert_eq("out_c", 15i16);
     harness.assert_eq(
         "arr",
-        Value::Array(Box::new(ArrayValue {
-            elements: vec![5i16.into(), 6i16.into(), 7i16.into()],
-            dimensions: vec![(0, 2)],
-        })),
+        Value::Array(Box::new(
+            ArrayValue::from_untyped_parts(
+                vec![5i16.into(), 6i16.into(), 7i16.into()],
+                vec![(0, 2)],
+            )
+            .expect("valid expected array"),
+        )),
     );
 
     let mut vm = vm_harness(source);
@@ -90,9 +93,12 @@ END_PROGRAM
     vm.assert_eq("out_c", 15i16);
     vm.assert_eq(
         "arr",
-        Value::Array(Box::new(ArrayValue {
-            elements: vec![5i16.into(), 6i16.into(), 7i16.into()],
-            dimensions: vec![(0, 2)],
-        })),
+        Value::Array(Box::new(
+            ArrayValue::from_untyped_parts(
+                vec![5i16.into(), 6i16.into(), 7i16.into()],
+                vec![(0, 2)],
+            )
+            .expect("valid expected array"),
+        )),
     );
 }

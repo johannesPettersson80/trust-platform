@@ -15,17 +15,20 @@ fn dispatch_threads_stack_scopes_variables() {
     fields.insert(SmolStr::new("field"), RuntimeValue::Bool(true));
     runtime.storage_mut().set_local(
         "s",
-        RuntimeValue::Struct(std::sync::Arc::new(StructValue {
-            type_name: SmolStr::new("MY_STRUCT"),
+        RuntimeValue::Struct(std::sync::Arc::new(StructValue::from_untyped_parts(
+            SmolStr::new("MY_STRUCT"),
             fields,
-        })),
+        ))),
     );
     runtime.storage_mut().set_local(
         "arr",
-        RuntimeValue::Array(Box::new(ArrayValue {
-            elements: vec![RuntimeValue::Int(1), RuntimeValue::Int(2)],
-            dimensions: vec![(1, 2)],
-        })),
+        RuntimeValue::Array(Box::new(
+            ArrayValue::from_untyped_parts(
+                vec![RuntimeValue::Int(1), RuntimeValue::Int(2)],
+                vec![(1, 2)],
+            )
+            .expect("valid debug array"),
+        )),
     );
     let parent_id = runtime.storage_mut().create_instance("ParentFB");
     runtime

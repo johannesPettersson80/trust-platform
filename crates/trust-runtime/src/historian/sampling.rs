@@ -157,13 +157,13 @@ fn flatten_value(
     }
     match value {
         Value::Struct(value) => {
-            for (field, field_value) in &value.fields {
+            for (field, field_value) in value.fields() {
                 let nested = format!("{path}.{field}");
                 flatten_value(nested.as_str(), field_value, storage, config, patterns, out);
             }
         }
         Value::Array(value) => {
-            for (idx, element) in value.elements.iter().enumerate() {
+            for (idx, element) in value.elements().iter().enumerate() {
                 let nested = format!("{path}[{idx}]");
                 flatten_value(nested.as_str(), element, storage, config, patterns, out);
             }
@@ -219,7 +219,7 @@ fn to_historian_value(value: &Value) -> Option<HistorianValue> {
         Value::WChar(value) => {
             char::from_u32(u32::from(*value)).map(|ch| HistorianValue::String(ch.to_string()))
         }
-        Value::Enum(value) => Some(HistorianValue::String(value.variant_name.to_string())),
+        Value::Enum(value) => Some(HistorianValue::String(value.variant_name().to_string())),
         _ => None,
     }
 }

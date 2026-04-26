@@ -20,18 +20,18 @@
 //! commit so CI stays green until the lowering/runtime fix lands.
 
 use trust_runtime::harness::TestHarness;
-use trust_runtime::value::Value;
+use trust_runtime::value::{EnumValue, Value};
 
 fn enum_variant_name(value: &Option<Value>) -> Option<&str> {
     match value {
-        Some(Value::Enum(e)) => Some(e.variant_name.as_str()),
+        Some(Value::Enum(e)) => Some(e.variant_name().as_str()),
         _ => None,
     }
 }
 
 fn enum_numeric(value: &Option<Value>) -> Option<i64> {
     match value {
-        Some(Value::Enum(e)) => Some(e.numeric_value),
+        Some(Value::Enum(e)) => Some(e.numeric_value()),
         _ => None,
     }
 }
@@ -96,7 +96,12 @@ END_PROGRAM
 "#;
 
     let mut harness = TestHarness::from_source(source).expect("compile harness");
-    let _ = harness.cycle();
+    let result = harness.cycle();
+    assert!(
+        result.errors.is_empty(),
+        "unexpected runtime errors: {:?}",
+        result.errors
+    );
 
     let got = harness.get_output("state");
     assert_eq!(enum_variant_name(&got), Some("DONE"), "got {got:?}");
@@ -171,6 +176,86 @@ END_PROGRAM
     let _ = harness.cycle();
 
     assert_eq!(harness.get_output("flag"), Some(Value::DInt(1)));
+}
+
+#[test]
+fn var_initialized_enum_compares_equal_to_its_declared_variant() {
+    let source = r#"
+TYPE Solo : (S0, S1, S2)
+END_TYPE
+
+PROGRAM Main
+VAR
+    val : Solo := S1;
+    cmp_unqualified : BOOL := FALSE;
+    cmp_qualified : BOOL := FALSE;
+    cmp_literal : BOOL := FALSE;
+    cnt : DINT := 0;
+END_VAR
+cmp_unqualified := val = S1;
+cmp_qualified := val = Solo#S1;
+cmp_literal := Solo#S1 = Solo#S1;
+IF S1 = val THEN
+    cnt := 1;
+END_IF;
+END_PROGRAM
+"#;
+
+    let mut harness = TestHarness::from_source(source).expect("compile harness");
+    let _ = harness.cycle();
+
+    assert_eq!(
+        harness.get_output("val"),
+        Some(Value::Enum(Box::new(
+            EnumValue::from_serialized_parts(harness.runtime().registry(), "Solo", "S1", 1)
+                .expect("Solo#S1 enum value")
+        )))
+    );
+    assert_eq!(
+        harness.get_output("cmp_unqualified"),
+        Some(Value::Bool(true))
+    );
+    assert_eq!(harness.get_output("cmp_qualified"), Some(Value::Bool(true)));
+    assert_eq!(harness.get_output("cmp_literal"), Some(Value::Bool(true)));
+    assert_eq!(harness.get_output("cnt"), Some(Value::DInt(1)));
+}
+
+#[test]
+fn enum_alias_and_mixed_case_literals_share_canonical_identity() {
+    let source = r#"
+TYPE
+    Solo : (S0, S1, S2);
+    AliasSolo : Solo;
+END_TYPE
+
+PROGRAM Main
+VAR
+    base : Solo := S1;
+    alias : AliasSolo := s1;
+    cmp_alias : BOOL := FALSE;
+    cmp_literal : BOOL := FALSE;
+    cmp_left_literal : BOOL := FALSE;
+END_VAR
+cmp_alias := base = alias;
+cmp_literal := alias = AliasSolo#S1;
+cmp_left_literal := solo#s1 = alias;
+END_PROGRAM
+"#;
+
+    let mut harness = TestHarness::from_source(source).expect("compile harness");
+    let result = harness.cycle();
+    assert!(
+        result.errors.is_empty(),
+        "unexpected runtime errors: {:?}",
+        result.errors
+    );
+
+    assert_eq!(harness.get_output("cmp_alias"), Some(Value::Bool(true)));
+    assert_eq!(harness.get_output("cmp_literal"), Some(Value::Bool(true)));
+    assert_eq!(
+        harness.get_output("cmp_left_literal"),
+        Some(Value::Bool(true))
+    );
 }
 
 #[test]

@@ -58,7 +58,7 @@ pub(in crate::harness) fn const_int_from_node(
         Value::LWord(v) => {
             Ok(i64::try_from(v).map_err(|_| CompileError::new("integer constant out of range"))?)
         }
-        Value::Enum(enum_value) => Ok(enum_value.numeric_value),
+        Value::Enum(enum_value) => Ok(enum_value.numeric_value()),
         _ => Err(CompileError::new("expected integer constant")),
     }
 }

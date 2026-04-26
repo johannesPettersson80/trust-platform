@@ -74,11 +74,11 @@ fn decode_const_value(
                 .get(variant.name_idx as usize)
                 .cloned()
                 .ok_or_else(|| invalid_bytecode("enum const variant name index out of bounds"))?;
-            Ok(Value::Enum(Box::new(EnumValue {
-                type_name: enum_name,
+            Ok(Value::Enum(Box::new(EnumValue::from_canonical_parts(
+                enum_name,
                 variant_name,
                 numeric_value,
-            })))
+            ))))
         }
         TypeData::Primitive { prim_id, .. } => decode_primitive_constant(*prim_id, &entry.payload),
         _ => Err(invalid_bytecode("unsupported const type kind")),

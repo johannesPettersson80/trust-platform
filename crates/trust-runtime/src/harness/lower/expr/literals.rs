@@ -471,23 +471,9 @@ pub(in crate::harness) fn enum_literal_value(
     type_id: TypeId,
     registry: &TypeRegistry,
 ) -> Option<Value> {
-    let ty = registry.get(type_id)?;
-    if let trust_hir::Type::Enum {
-        name: enum_name,
-        values,
-        ..
-    } = ty
-    {
-        let (variant_name, numeric_value) = values
-            .iter()
-            .find(|(variant, _)| variant.eq_ignore_ascii_case(name))?;
-        return Some(Value::Enum(Box::new(EnumValue {
-            type_name: enum_name.clone(),
-            variant_name: variant_name.clone(),
-            numeric_value: *numeric_value,
-        })));
-    }
-    None
+    EnumValue::new(registry, type_id, name)
+        .ok()
+        .map(|value| Value::Enum(Box::new(value)))
 }
 
 fn first_ident_token(node: &SyntaxNode) -> Option<trust_syntax::syntax::SyntaxToken> {
@@ -726,17 +712,17 @@ pub(in crate::harness) fn resolve_initializer_enum_variant(
     expr: Expr,
     target_type_id: TypeId,
     ctx: &LoweringContext<'_>,
-) -> Expr {
+) -> Result<Expr, CompileError> {
     if node.kind() != SyntaxKind::NameRef {
-        return expr;
+        return Ok(expr);
     }
     let Expr::Name(name) = &expr else {
-        return expr;
+        return Ok(expr);
     };
 
     let (semantic_db, semantic_file_id) = match (ctx.semantic_db, ctx.semantic_file_id) {
         (Some(db), Some(file_id)) => (db, file_id),
-        _ => return expr,
+        _ => return Ok(expr),
     };
     let analysis = semantic_db.analyze(semantic_file_id);
     let symbols = analysis.symbols.as_ref();
@@ -748,27 +734,31 @@ pub(in crate::harness) fn resolve_initializer_enum_variant(
         scope_context.this_type,
         name.as_str(),
     ) else {
-        return expr;
+        return Ok(expr);
     };
     let Some(symbol) = symbols.get(symbol_id) else {
-        return expr;
+        return Ok(expr);
     };
     if !matches!(symbol.kind, SymbolKind::EnumValue { .. }) {
-        return expr;
+        return Ok(expr);
     }
 
     let Some(symbol_enum_name) = semantic_enum_type_name(symbols, symbol.type_id) else {
-        return expr;
+        return Err(CompileError::new(format!(
+            "resolved enum variant '{name}' has no enum type"
+        )));
     };
     let Some(target_enum_name) = runtime_enum_type_name(ctx.registry, target_type_id) else {
-        return expr;
+        return Ok(expr);
     };
     if !symbol_enum_name.eq_ignore_ascii_case(target_enum_name.as_str()) {
-        return expr;
+        return Ok(expr);
     }
 
     if let Some(value) = enum_literal_value(name.as_str(), target_type_id, ctx.registry) {
-        return Expr::Literal(value);
+        return Ok(Expr::Literal(value));
     }
-    expr
+    Err(CompileError::new(format!(
+        "failed to lower enum variant '{target_enum_name}#{name}'"
+    )))
 }

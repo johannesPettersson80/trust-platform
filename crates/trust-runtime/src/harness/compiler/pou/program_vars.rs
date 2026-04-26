@@ -19,11 +19,11 @@ fn lower_program_var_blocks(
             let type_id = lower_type_ref(&type_ref, ctx)?;
             let init_expr = initializer
                 .map(|expr| {
-                    lower_expr(&expr, ctx)
-                        .map(|lowered| resolve_initializer_enum_variant(&expr, lowered, type_id, ctx))
+                    lower_expr(&expr, ctx).and_then(|lowered| {
+                        resolve_initializer_enum_variant(&expr, lowered, type_id, ctx)
+                    })
                 })
-                .transpose()?
-                ;
+                .transpose()?;
             if qualifiers.constant
                 && matches!(
                     kind,

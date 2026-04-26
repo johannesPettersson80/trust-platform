@@ -44,8 +44,8 @@ pub(in crate::adapter) fn value_type_name(value: &RuntimeValue) -> Option<String
     }
     let type_name = match value {
         RuntimeValue::Array(_) => "ARRAY",
-        RuntimeValue::Struct(value) => return Some(value.type_name.to_string()),
-        RuntimeValue::Enum(value) => return Some(value.type_name.to_string()),
+        RuntimeValue::Struct(value) => return Some(value.type_name().to_string()),
+        RuntimeValue::Enum(value) => return Some(value.type_name().to_string()),
         RuntimeValue::Reference(_) => "REF",
         RuntimeValue::Instance(_) => "INSTANCE",
         RuntimeValue::Null => "NULL",
@@ -67,9 +67,9 @@ pub(in crate::adapter) fn format_value(value: &RuntimeValue) -> String {
         RuntimeValue::WString(value) => value.clone(),
         RuntimeValue::Char(value) => (*value as char).to_string(),
         RuntimeValue::WChar(value) => char::from_u32((*value).into()).unwrap_or('?').to_string(),
-        RuntimeValue::Array(value) => format!("[{}]", value.elements.len()),
-        RuntimeValue::Struct(value) => format!("{} {{...}}", value.type_name),
-        RuntimeValue::Enum(value) => format!("{}::{}", value.type_name, value.variant_name),
+        RuntimeValue::Array(value) => format!("[{}]", value.elements().len()),
+        RuntimeValue::Struct(value) => format!("{} {{...}}", value.type_name()),
+        RuntimeValue::Enum(value) => format!("{}::{}", value.type_name(), value.variant_name()),
         RuntimeValue::Reference(Some(_)) => "REF".to_string(),
         RuntimeValue::Reference(None) => "NULL_REF".to_string(),
         RuntimeValue::Instance(value) => format!("Instance({})", value.0),

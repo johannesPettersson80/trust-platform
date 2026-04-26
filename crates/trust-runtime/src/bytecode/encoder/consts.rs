@@ -9,10 +9,10 @@ impl<'a> BytecodeEncoder<'a> {
             Value::Enum(enum_value) => self
                 .runtime
                 .registry()
-                .lookup(&enum_value.type_name)
+                .lookup(enum_value.type_name().as_str())
                 .ok_or_else(|| {
                     BytecodeError::InvalidSection(
-                        format!("unsupported const enum type '{}'", enum_value.type_name).into(),
+                        format!("unsupported const enum type '{}'", enum_value.type_name()).into(),
                     )
                 })?,
             _ => type_id_for_value(value)
@@ -130,7 +130,7 @@ fn encode_const_payload(value: &Value) -> Result<Vec<u8>, BytecodeError> {
             payload.extend_from_slice(&value.nanos().to_le_bytes());
         }
         Value::Enum(value) => {
-            payload.extend_from_slice(&value.numeric_value.to_le_bytes());
+            payload.extend_from_slice(&value.numeric_value().to_le_bytes());
         }
         _ => {
             return Err(BytecodeError::InvalidSection(

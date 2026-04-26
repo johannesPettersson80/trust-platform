@@ -149,7 +149,7 @@ pub fn coerce_to_common(value: &Value, kind: &CommonKind) -> Result<Value, Runti
             _ => Err(RuntimeError::TypeMismatch),
         },
         CommonKind::Enum(type_name) => match value {
-            Value::Enum(enum_value) if &enum_value.type_name == type_name => Ok(value.clone()),
+            Value::Enum(enum_value) if enum_value.type_name() == type_name => Ok(value.clone()),
             _ => Err(RuntimeError::TypeMismatch),
         },
     }
@@ -215,11 +215,11 @@ pub fn compare_common(
         }
         CommonKind::Enum(type_name) => {
             let left = match a {
-                Value::Enum(value) if &value.type_name == type_name => value.numeric_value,
+                Value::Enum(value) if value.type_name() == type_name => value.numeric_value(),
                 _ => return Err(RuntimeError::TypeMismatch),
             };
             let right = match b {
-                Value::Enum(value) if &value.type_name == type_name => value.numeric_value,
+                Value::Enum(value) if value.type_name() == type_name => value.numeric_value(),
                 _ => return Err(RuntimeError::TypeMismatch),
             };
             Ok(compare_ord(left, right, op))
@@ -250,7 +250,7 @@ fn classify_value(value: &Value) -> Option<CommonKind> {
         Value::LTod(_) => Some(CommonKind::Time(TimeKind::LTod)),
         Value::Dt(_) => Some(CommonKind::Time(TimeKind::Dt)),
         Value::Ldt(_) => Some(CommonKind::Time(TimeKind::Ldt)),
-        Value::Enum(value) => Some(CommonKind::Enum(value.type_name.clone())),
+        Value::Enum(value) => Some(CommonKind::Enum(value.type_name().clone())),
         _ => None,
     }
 }

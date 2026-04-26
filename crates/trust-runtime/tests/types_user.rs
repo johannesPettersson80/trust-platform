@@ -35,7 +35,7 @@ END_PROGRAM
     let c = harness.get_output("c").unwrap();
     match c {
         Value::Enum(enum_value) => {
-            assert_eq!(enum_value.variant_name.as_str(), "Red");
+            assert_eq!(enum_value.variant_name().as_str(), "Red");
         }
         _ => panic!("expected enum value"),
     }
@@ -46,15 +46,15 @@ END_PROGRAM
     let Value::Struct(struct_value) = p else {
         panic!("expected struct value");
     };
-    assert_eq!(struct_value.fields.get("x"), Some(&Value::Int(1)));
-    assert_eq!(struct_value.fields.get("y"), Some(&Value::Int(2)));
+    assert_eq!(struct_value.fields().get("x"), Some(&Value::Int(1)));
+    assert_eq!(struct_value.fields().get("y"), Some(&Value::Int(2)));
 
     let a = harness.get_output("a").unwrap();
     let Value::Array(array_value) = a else {
         panic!("expected array value");
     };
-    assert_eq!(array_value.dimensions, vec![(1, 3)]);
-    assert_eq!(array_value.elements[0], Value::Int(10));
-    assert_eq!(array_value.elements[1], Value::Int(20));
-    assert_eq!(array_value.elements[2], Value::Int(30));
+    assert_eq!(array_value.dimensions(), vec![(1, 3)]);
+    assert_eq!(array_value.elements()[0], Value::Int(10));
+    assert_eq!(array_value.elements()[1], Value::Int(20));
+    assert_eq!(array_value.elements()[2], Value::Int(30));
 }

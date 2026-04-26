@@ -71,20 +71,20 @@ fn default_value_for_type(
             dimensions,
         } => {
             if dimensions.iter().any(ArrayDimensionExt::is_wildcard) {
-                return Ok(Value::Array(Box::new(ArrayValue {
-                    elements: Vec::new(),
-                    dimensions: dimensions.clone(),
-                })));
+                return Ok(Value::Array(Box::new(ArrayValue::from_canonical_parts(
+                    Vec::new(),
+                    dimensions.clone(),
+                ))));
             }
             let total = array_len(dimensions)?;
             let mut elements = Vec::with_capacity(total);
             for _ in 0..total {
                 elements.push(default_value_for_type_id(*element, registry, profile)?);
             }
-            Ok(Value::Array(Box::new(ArrayValue {
+            Ok(Value::Array(Box::new(ArrayValue::from_canonical_parts(
                 elements,
-                dimensions: dimensions.clone(),
-            })))
+                dimensions.clone(),
+            ))))
         }
         Type::Struct { name, fields } => {
             let mut values = IndexMap::new();
@@ -92,19 +92,18 @@ fn default_value_for_type(
                 let field_value = default_value_for_type_id(field.type_id, registry, profile)?;
                 values.insert(field.name.clone(), field_value);
             }
-            Ok(Value::Struct(std::sync::Arc::new(StructValue {
-                type_name: name.clone(),
-                fields: values,
-            })))
+            Ok(Value::Struct(std::sync::Arc::new(
+                StructValue::from_canonical_parts(name.clone(), values),
+            )))
         }
         Type::Enum { name, values, .. } => {
             let (variant_name, numeric_value) =
                 values.first().ok_or(DefaultValueError::EmptyEnum)?;
-            Ok(Value::Enum(Box::new(EnumValue {
-                type_name: name.clone(),
-                variant_name: variant_name.clone(),
-                numeric_value: *numeric_value,
-            })))
+            Ok(Value::Enum(Box::new(EnumValue::from_canonical_parts(
+                name.clone(),
+                variant_name.clone(),
+                *numeric_value,
+            ))))
         }
         Type::Alias { target, .. } => default_value_for_type_id(*target, registry, profile),
         Type::Reference { .. } | Type::Pointer { .. } => Ok(Value::Reference(None)),
@@ -116,10 +115,9 @@ fn default_value_for_type(
                 let variant_value = default_value_for_type_id(variant.type_id, registry, profile)?;
                 values.insert(variant.name.clone(), variant_value);
             }
-            Ok(Value::Struct(std::sync::Arc::new(StructValue {
-                type_name: name.clone(),
-                fields: values,
-            })))
+            Ok(Value::Struct(std::sync::Arc::new(
+                StructValue::from_canonical_parts(name.clone(), values),
+            )))
         }
         Type::Unknown
         | Type::Void

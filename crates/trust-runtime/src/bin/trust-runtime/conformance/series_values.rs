@@ -142,25 +142,25 @@ fn encode_value(value: &Value) -> serde_json::Value {
         Value::WChar(v) => json!({"type": "WCHAR", "value": v}),
         Value::Array(array) => json!({
             "type": "ARRAY",
-            "dimensions": array.dimensions,
-            "elements": array.elements.iter().map(encode_value).collect::<Vec<_>>()
+            "dimensions": array.dimensions(),
+            "elements": array.elements().iter().map(encode_value).collect::<Vec<_>>()
         }),
         Value::Struct(value) => {
             let mut fields = BTreeMap::new();
-            for (name, field_value) in &value.fields {
+            for (name, field_value) in value.fields() {
                 fields.insert(name.to_string(), encode_value(field_value));
             }
             json!({
                 "type": "STRUCT",
-                "type_name": value.type_name.to_string(),
+                "type_name": value.type_name().to_string(),
                 "fields": fields
             })
         }
         Value::Enum(value) => json!({
             "type": "ENUM",
-            "type_name": value.type_name.to_string(),
-            "variant": value.variant_name.to_string(),
-            "numeric": value.numeric_value
+            "type_name": value.type_name().to_string(),
+            "variant": value.variant_name().to_string(),
+            "numeric": value.numeric_value()
         }),
         Value::Reference(reference) => json!({
             "type": "REFERENCE",

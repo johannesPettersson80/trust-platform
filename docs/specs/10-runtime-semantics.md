@@ -151,25 +151,36 @@ pub struct ValueRef {
 /// Array value with bounds tracking.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ArrayValue {
-    pub elements: Vec<Value>,
-    pub dimensions: Vec<(i64, i64)>, // (lower, upper) bounds
+    elements: Vec<Value>,
+    dimensions: Vec<(i64, i64)>, // (lower, upper) bounds
 }
 
 /// Struct value with named fields.
 #[derive(Debug, Clone, PartialEq)]
 pub struct StructValue {
-    pub type_name: SmolStr,
-    pub fields: IndexMap<SmolStr, Value>, // Ordered for determinism
+    type_name: SmolStr,
+    fields: IndexMap<SmolStr, Value>, // Ordered for determinism
 }
 
-/// Enum value storing both name and numeric value.
-#[derive(Debug, Clone, PartialEq)]
+/// Enum value storing canonical type identity plus display variant data.
+/// Constructed through registry-backed helpers so aliases and case variants
+/// canonicalize to the underlying enum type before comparison or retention.
+#[derive(Debug, Clone)]
 pub struct EnumValue {
-    pub type_name: SmolStr,
-    pub variant_name: SmolStr,
-    pub numeric_value: i64,
+    type_name: SmolStr,
+    variant_name: SmolStr,
+    numeric_value: i64,
 }
 ```
+
+Compound runtime values own their own invariants at construction time. Public
+constructors resolve alias chains through `TypeRegistry`, canonicalize stored
+type names and declared field casing, validate enum numeric/variant pairs,
+validate struct field presence/order/value types, and validate array bounds,
+element count, and element value types. Raw decode helpers may preserve untyped
+wire/storage shape temporarily, but every entry point with declared type context
+must validate before storing or executing the value; validation failure returns
+a diagnostic error and never substitutes a default value.
 
 #### 2.3 Time/Date Representation
 

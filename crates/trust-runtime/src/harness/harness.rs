@@ -206,7 +206,10 @@ impl TestHarness {
         if let Some(control) = debug {
             rebuilt.runtime.set_debug_control(control);
         }
-        rebuilt.runtime.apply_retain_snapshot(&retained);
+        rebuilt
+            .runtime
+            .apply_retain_snapshot(&retained)
+            .map_err(|error| CompileError::new(error.to_string()))?;
         rebuilt.runtime.set_current_time(current_time);
         rebuilt.cycle_count = cycle_count;
 
@@ -225,7 +228,10 @@ impl TestHarness {
         if let Some(control) = debug {
             rebuilt.runtime.set_debug_control(control);
         }
-        rebuilt.runtime.apply_retain_snapshot(&retained);
+        rebuilt
+            .runtime
+            .apply_retain_snapshot(&retained)
+            .map_err(|error| CompileError::new(error.to_string()))?;
         rebuilt.runtime.set_current_time(current_time);
         rebuilt.cycle_count = cycle_count;
 

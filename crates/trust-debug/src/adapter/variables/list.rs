@@ -209,9 +209,9 @@ impl DebugAdapter {
 
     fn variables_from_struct(&mut self, value: StructValue) -> Vec<Variable> {
         let entries = value
-            .fields
-            .into_iter()
-            .map(|(name, value)| (name.to_string(), value))
+            .fields()
+            .iter()
+            .map(|(name, value)| (name.to_string(), value.clone()))
             .collect::<Vec<_>>();
         entries
             .into_iter()
@@ -220,12 +220,11 @@ impl DebugAdapter {
     }
 
     fn variables_from_array(&mut self, value: ArrayValue) -> Vec<Variable> {
-        let ArrayValue {
-            elements,
-            dimensions,
-        } = value;
-        elements
-            .into_iter()
+        let dimensions = value.dimensions().to_vec();
+        value
+            .elements()
+            .iter()
+            .cloned()
             .enumerate()
             .map(|(offset, element)| {
                 let indices = array_indices_for_offset(&dimensions, offset);

@@ -106,10 +106,13 @@ fn pointer_types_support_adr_deref_index_and_null_in_runtime_and_vm() {
     harness.assert_eq("x", 9i16);
     harness.assert_eq(
         "arr",
-        Value::Array(Box::new(ArrayValue {
-            elements: vec![11i16.into(), 44i16.into(), 33i16.into()],
-            dimensions: vec![(1, 3)],
-        })),
+        Value::Array(Box::new(
+            ArrayValue::from_untyped_parts(
+                vec![11i16.into(), 44i16.into(), 33i16.into()],
+                vec![(1, 3)],
+            )
+            .expect("valid expected array"),
+        )),
     );
     harness.assert_eq("out_x", 9i16);
     harness.assert_eq("out_arr", 44i16);
@@ -141,10 +144,13 @@ fn pointer_types_support_adr_deref_index_and_null_in_runtime_and_vm() {
     vm.assert_eq("x", 9i16);
     vm.assert_eq(
         "arr",
-        Value::Array(Box::new(ArrayValue {
-            elements: vec![11i16.into(), 44i16.into(), 33i16.into()],
-            dimensions: vec![(1, 3)],
-        })),
+        Value::Array(Box::new(
+            ArrayValue::from_untyped_parts(
+                vec![11i16.into(), 44i16.into(), 33i16.into()],
+                vec![(1, 3)],
+            )
+            .expect("valid expected array"),
+        )),
     );
     vm.assert_eq("out_x", 9i16);
     vm.assert_eq("out_arr", 44i16);

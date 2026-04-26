@@ -142,6 +142,9 @@ impl TypeRegistry {
         if let Some(name) = id.builtin_name() {
             return Some(SmolStr::new(name));
         }
+        if let Some(name) = self.types.get(&id).and_then(canonical_type_name) {
+            return Some(name);
+        }
         // Look up in registered names
         self.names
             .iter()
@@ -166,6 +169,19 @@ impl TypeRegistry {
     }
 }
 
+fn canonical_type_name(ty: &Type) -> Option<SmolStr> {
+    match ty {
+        Type::Struct { name, .. }
+        | Type::Union { name, .. }
+        | Type::Enum { name, .. }
+        | Type::FunctionBlock { name }
+        | Type::Class { name }
+        | Type::Interface { name }
+        | Type::Alias { name, .. } => Some(name.clone()),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -178,6 +194,19 @@ mod tests {
         assert_eq!(registry.lookup("INT"), Some(TypeId::INT));
         assert_eq!(registry.lookup("int"), Some(TypeId::INT));
         assert_eq!(registry.lookup("BOOL"), Some(TypeId::BOOL));
+    }
+
+    #[test]
+    fn type_name_prefers_canonical_user_type_name() {
+        let mut registry = TypeRegistry::new();
+        let type_id = registry.register_enum(
+            "Solo",
+            TypeId::INT,
+            vec![(SmolStr::new("S0"), 0), (SmolStr::new("S1"), 1)],
+        );
+
+        assert_eq!(registry.lookup("SOLO"), Some(type_id));
+        assert_eq!(registry.type_name(type_id).as_deref(), Some("Solo"));
     }
 
     #[test]

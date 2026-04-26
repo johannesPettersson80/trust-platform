@@ -36,10 +36,13 @@ END_PROGRAM
 
     assert_eq!(
         harness.get_output("a"),
-        Some(Value::Array(Box::new(trust_runtime::value::ArrayValue {
-            elements: vec![Value::Int(1), Value::Int(2), Value::Int(3)],
-            dimensions: vec![(1, 3)],
-        })))
+        Some(Value::Array(Box::new(
+            trust_runtime::value::ArrayValue::from_untyped_parts(
+                vec![Value::Int(1), Value::Int(2), Value::Int(3)],
+                vec![(1, 3)],
+            )
+            .expect("valid expected array"),
+        )))
     );
 }
 
@@ -58,16 +61,19 @@ END_PROGRAM
 
     assert_eq!(
         harness.get_output("a"),
-        Some(Value::Array(Box::new(trust_runtime::value::ArrayValue {
-            elements: vec![
-                Value::Int(1),
-                Value::Int(2),
-                Value::Int(0),
-                Value::Int(0),
-                Value::Int(0),
-            ],
-            dimensions: vec![(1, 5)],
-        })))
+        Some(Value::Array(Box::new(
+            trust_runtime::value::ArrayValue::from_untyped_parts(
+                vec![
+                    Value::Int(1),
+                    Value::Int(2),
+                    Value::Int(0),
+                    Value::Int(0),
+                    Value::Int(0),
+                ],
+                vec![(1, 5)],
+            )
+            .expect("valid expected array"),
+        )))
     );
 }
 
@@ -86,16 +92,19 @@ END_PROGRAM
 
     assert_eq!(
         harness.get_output("a"),
-        Some(Value::Array(Box::new(trust_runtime::value::ArrayValue {
-            elements: vec![
-                Value::Int(1),
-                Value::Int(2),
-                Value::Int(1),
-                Value::Int(2),
-                Value::Int(1),
-                Value::Int(2),
-            ],
-            dimensions: vec![(1, 6)],
-        })))
+        Some(Value::Array(Box::new(
+            trust_runtime::value::ArrayValue::from_untyped_parts(
+                vec![
+                    Value::Int(1),
+                    Value::Int(2),
+                    Value::Int(1),
+                    Value::Int(2),
+                    Value::Int(1),
+                    Value::Int(2),
+                ],
+                vec![(1, 6)],
+            )
+            .expect("valid expected array"),
+        )))
     );
 }

@@ -14,10 +14,9 @@ fn lower_global_var_block(
         let init_expr = initializer
             .map(|expr| {
                 lower_expr(&expr, ctx)
-                    .map(|lowered| resolve_initializer_enum_variant(&expr, lowered, type_id, ctx))
+                    .and_then(|lowered| resolve_initializer_enum_variant(&expr, lowered, type_id, ctx))
             })
-            .transpose()?
-            ;
+            .transpose()?;
         if qualifiers.constant && matches!(kind, VarBlockKind::Global | VarBlockKind::Var) {
             if let Some(expr) = init_expr.as_ref() {
                 let value = ctx.eval_compile_time_const_expr(expr)?;

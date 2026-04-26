@@ -31,11 +31,11 @@ END_PROGRAM
     let Value::Array(arr1) = a1 else {
         panic!("expected array");
     };
-    assert_eq!(arr1.elements[0], Value::Int(2));
+    assert_eq!(arr1.elements()[0], Value::Int(2));
 
     let a2 = harness.get_output("a2").unwrap();
     let Value::Array(arr2) = a2 else {
         panic!("expected array");
     };
-    assert_eq!(arr2.elements[0], Value::Int(6));
+    assert_eq!(arr2.elements()[0], Value::Int(6));
 }

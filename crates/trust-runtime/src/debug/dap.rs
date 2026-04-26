@@ -124,8 +124,8 @@ pub fn value_type_name(value: &Value) -> Option<String> {
         Value::Char(_) => "CHAR",
         Value::WChar(_) => "WCHAR",
         Value::Array(_) => "ARRAY",
-        Value::Struct(value) => return Some(value.type_name.to_string()),
-        Value::Enum(value) => return Some(value.type_name.to_string()),
+        Value::Struct(value) => return Some(value.type_name().to_string()),
+        Value::Enum(value) => return Some(value.type_name().to_string()),
         Value::Reference(_) => "REF",
         Value::Instance(_) => "INSTANCE",
         Value::Null => "NULL",
@@ -146,9 +146,9 @@ pub fn format_value(value: &Value) -> String {
         Value::WString(value) => value.clone(),
         Value::Char(value) => (*value as char).to_string(),
         Value::WChar(value) => char::from_u32((*value).into()).unwrap_or('?').to_string(),
-        Value::Array(value) => format!("[{}]", value.elements.len()),
-        Value::Struct(value) => format!("{} {{...}}", value.type_name),
-        Value::Enum(value) => format!("{}::{}", value.type_name, value.variant_name),
+        Value::Array(value) => format!("[{}]", value.elements().len()),
+        Value::Struct(value) => format!("{} {{...}}", value.type_name()),
+        Value::Enum(value) => format!("{}::{}", value.type_name(), value.variant_name()),
         Value::Reference(Some(_)) => "REF".to_string(),
         Value::Reference(None) => "NULL_REF".to_string(),
         Value::Instance(value) => format!("Instance({})", value.0),
@@ -188,10 +188,15 @@ pub fn variables_from_struct(
     value: StructValue,
 ) -> Vec<DebugVariable> {
     value
-        .fields
-        .into_iter()
+        .fields()
+        .iter()
         .map(|(name, value)| {
-            variable_from_value(handles, name.to_string(), value, Some(name.to_string()))
+            variable_from_value(
+                handles,
+                name.to_string(),
+                value.clone(),
+                Some(name.to_string()),
+            )
         })
         .collect()
 }
@@ -201,8 +206,9 @@ pub fn variables_from_array(
     value: ArrayValue,
 ) -> Vec<DebugVariable> {
     value
-        .elements
-        .into_iter()
+        .elements()
+        .iter()
+        .cloned()
         .enumerate()
         .map(|(idx, value)| {
             let name = format!("[{idx}]");

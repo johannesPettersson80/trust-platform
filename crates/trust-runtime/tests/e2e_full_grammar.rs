@@ -66,8 +66,8 @@ fn var_and_stmt_coverage() {
     let Value::Array(array) = arr else {
         panic!("expected array value");
     };
-    assert_eq!(array.dimensions, vec![(0, 1), (0, 2)]);
-    assert_eq!(array.elements[1], Value::DInt(4));
-    assert_eq!(array.elements[3], Value::DInt(4));
-    assert_eq!(array.elements[4], Value::DInt(5));
+    assert_eq!(array.dimensions(), vec![(0, 1), (0, 2)]);
+    assert_eq!(array.elements()[1], Value::DInt(4));
+    assert_eq!(array.elements()[3], Value::DInt(4));
+    assert_eq!(array.elements()[4], Value::DInt(5));
 }
