@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-pub(super) fn definition_for_fb_pump_type_with_plain_demo_uris_returns_target_uri() {
+pub(super) fn definition_for_pump_controller_type_with_plain_demo_uris_returns_target_uri() {
     let mut documents = load_plant_demo_documents();
     for doc in &mut documents {
         let file_name = doc
@@ -23,7 +23,9 @@ pub(super) fn definition_for_fb_pump_type_with_plain_demo_uris_returns_target_ur
         .replace_documents(documents)
         .expect("load plain-uri documents");
 
-    let offset = program_text.find("FB_Pump;").expect("FB_Pump use exists") as u32;
+    let offset = program_text
+        .find("PumpController;")
+        .expect("PumpController use exists") as u32;
     let definition = engine
         .definition(DefinitionRequest {
             uri: "program.st".to_string(),
@@ -34,7 +36,7 @@ pub(super) fn definition_for_fb_pump_type_with_plain_demo_uris_returns_target_ur
 
     assert_eq!(
         definition.uri, "fb_pump.st",
-        "FB_Pump definition should resolve to fb_pump.st"
+        "PumpController definition should resolve to fb_pump.st"
     );
 }
 
@@ -110,8 +112,8 @@ pub(super) fn document_highlight_for_local_symbol_returns_multiple_occurrences()
         .expect("load plain-uri documents");
 
     let ramp_offset = fb_text
-        .find("ramp := ramp + 0.2;")
-        .expect("ramp expression exists") as u32;
+        .find("Ramp := Ramp + 0.2;")
+        .expect("Ramp expression exists") as u32;
     let highlights = engine
         .document_highlight(DocumentHighlightRequest {
             uri: "fb_pump.st".to_string(),
@@ -121,7 +123,7 @@ pub(super) fn document_highlight_for_local_symbol_returns_multiple_occurrences()
 
     assert!(
         highlights.len() >= 3,
-        "expected multiple highlights for local symbol 'ramp', got {}",
+        "expected multiple highlights for local symbol 'Ramp', got {}",
         highlights.len()
     );
 }
@@ -156,9 +158,9 @@ pub(super) fn definition_references_and_rename_accept_punctuation_adjacent_curso
         .expect("load plain-uri documents");
 
     let ramp_plus_offset = fb_text
-        .find("ramp + 0.2")
-        .map(|idx| idx as u32 + "ramp +".len() as u32 - 1)
-        .expect("ramp expression anchor exists");
+        .find("Ramp + 0.2")
+        .map(|idx| idx as u32 + "Ramp +".len() as u32 - 1)
+        .expect("Ramp expression anchor exists");
     let enum_def = engine
         .definition(DefinitionRequest {
             uri: "fb_pump.st".to_string(),

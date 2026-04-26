@@ -8,6 +8,10 @@ If you want a runnable consumer first, start with
 `[dependencies]`, when to call `OSCAT_BASIC_Constants()`, and how to consume the
 helpers from scan-driven Structured Text.
 
+If you want the object-oriented facade over selected OSCAT domains, use
+`docs/guides/OSCAT_COMPONENTS_LIBRARY_GUIDE.md` and the paired
+`examples/oscat_components_*` projects.
+
 ## Package Layout
 
 - `libraries/oscat/src/03_data_types/oscat_data_types.st`:

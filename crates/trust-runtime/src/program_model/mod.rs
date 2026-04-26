@@ -15,4 +15,4 @@ pub use types::{
     ArgValue, CallArg, ClassDef, FunctionBlockBase, FunctionBlockDef, FunctionDef, InterfaceDef,
     MethodDef, Param, VarDef,
 };
-pub use util::{method_static_storage_owner, static_storage_name};
+pub use util::{method_static_storage_owner, property_setter_method_name, static_storage_name};

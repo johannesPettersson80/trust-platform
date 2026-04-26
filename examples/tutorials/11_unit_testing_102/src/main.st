@@ -1,4 +1,4 @@
-FUNCTION_BLOCK FB_TANK_CONTROL
+FUNCTION_BLOCK TankControl
 VAR_INPUT
     StartCmd : BOOL;
     StopCmd : BOOL;
@@ -44,7 +44,7 @@ VAR
     DrainValveOut : BOOL;
     PumpSpeedOut : INT;
 
-    Ctrl : FB_TANK_CONTROL;
+    Ctrl : TankControl;
 END_VAR
 
 Ctrl(StartCmd := StartCmd, StopCmd := StopCmd, LevelRaw := LevelRaw);

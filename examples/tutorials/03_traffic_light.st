@@ -1,48 +1,48 @@
 PROGRAM TrafficLight
 VAR
-    phase : INT := 0;
-    phase_pt : TIME := T#500ms;
-    phase_timer_enable : BOOL := TRUE;
-    phase_timer : TON;
-    red : BOOL := TRUE;
-    yellow : BOOL := FALSE;
-    green : BOOL := FALSE;
+    Phase : INT := 0;
+    PhasePeriod : TIME := T#500ms;
+    PhaseTimerEnable : BOOL := TRUE;
+    PhaseTimer : TON;
+    Red : BOOL := TRUE;
+    Yellow : BOOL := FALSE;
+    Green : BOOL := FALSE;
 END_VAR
 
-phase_timer(IN := phase_timer_enable, PT := phase_pt);
+PhaseTimer(IN := PhaseTimerEnable, PT := PhasePeriod);
 
-CASE phase OF
+CASE Phase OF
     0:
-        red := TRUE;
-        yellow := FALSE;
-        green := FALSE;
+        Red := TRUE;
+        Yellow := FALSE;
+        Green := FALSE;
     1:
-        red := TRUE;
-        yellow := TRUE;
-        green := FALSE;
+        Red := TRUE;
+        Yellow := TRUE;
+        Green := FALSE;
     2:
-        red := FALSE;
-        yellow := FALSE;
-        green := TRUE;
+        Red := FALSE;
+        Yellow := FALSE;
+        Green := TRUE;
     3:
-        red := FALSE;
-        yellow := TRUE;
-        green := FALSE;
+        Red := FALSE;
+        Yellow := TRUE;
+        Green := FALSE;
 END_CASE;
 
-IF phase_timer.Q THEN
-    CASE phase OF
+IF PhaseTimer.Q THEN
+    CASE Phase OF
         0:
-            phase := 1;
+            Phase := 1;
         1:
-            phase := 2;
+            Phase := 2;
         2:
-            phase := 3;
+            Phase := 3;
         3:
-            phase := 0;
+            Phase := 0;
     END_CASE;
-    phase_timer_enable := FALSE;
+    PhaseTimerEnable := FALSE;
 ELSE
-    phase_timer_enable := TRUE;
+    PhaseTimerEnable := TRUE;
 END_IF;
 END_PROGRAM

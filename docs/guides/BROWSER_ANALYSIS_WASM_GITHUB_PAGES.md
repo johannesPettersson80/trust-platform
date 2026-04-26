@@ -37,15 +37,15 @@ Alternative quick static host:
 1. Diagnostics:
    introduce a temporary typo in `program.st`; expected squiggle appears, and status bar diagnostic count increases.
 2. Hover:
-   open `fb_pump.st` and hover `FB_Pump`; expected signature includes `Command : ST_PumpCommand;` and `Status : ST_PumpStatus;` (no `?` placeholders).
+   open `fb_pump.st` and hover `PumpController`; expected signature includes `Command : PumpCommand;` and `Status : PumpStatus;` (no `?` placeholders).
 3. Completion:
    in `fb_pump.st`, type after `Status.` and press `Ctrl+Space`; expected members include `State`, `Running`, and `ActualSpeed`.
 4. Go to definition:
-   in `program.st`, left-click `E_PumpState`, then press `F12` (or `Ctrl+Left-click`); expected jump to `types.st` enum declaration.
+   in `program.st`, left-click `PumpState`, then press `F12` (or `Ctrl+Left-click`); expected jump to `types.st` enum declaration.
 5. Go to references:
    in `program.st`, left-click `Cmd.Enable`, then press `Shift+F12` (or use `Go to References`); expected references include `types.st`, `fb_pump.st`, and `program.st`.
 6. Document highlights:
-   click `ramp` in `fb_pump.st`; expected all occurrences in that file are highlighted.
+   click `Ramp` in `fb_pump.st`; expected all occurrences in that file are highlighted.
 7. Rename:
    in `types.st`, first left-click `ActualSpeed`, then press `F2` (or `Fn+F2`), rename to `ActualSpeedRpm`; expected edits across files.
 

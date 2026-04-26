@@ -1,3 +1,3 @@
 TYPE
-    E_Mode : (Stopped, Filling, Draining);
+    LevelMode : (Stopped, Filling, Draining);
 END_TYPE

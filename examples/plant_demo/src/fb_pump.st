@@ -1,46 +1,46 @@
-FUNCTION_BLOCK FB_Pump
+FUNCTION_BLOCK PumpController
 VAR_INPUT
-    Command : ST_PumpCommand;
+    Command : PumpCommand;
 END_VAR
 VAR_OUTPUT
-    Status : ST_PumpStatus;
+    Status : PumpStatus;
 END_VAR
 VAR
-    ramp_timer : TON;
-    ramp : REAL;
+    RampTimer : TON;
+    Ramp : REAL;
 END_VAR
 VAR CONSTANT
-    RAMP_TIME : TIME := T#1s;
+    RampTime : TIME := T#1s;
 END_VAR
 
 Status.Running := FALSE;
 Status.Alarm := 0;
 
 IF NOT Command.Enable THEN
-    Status.State := E_PumpState#Idle;
+    Status.State := PumpState#Idle;
     Status.ActualSpeed := 0.0;
-    ramp := 0.0;
-    ramp_timer(IN := FALSE);
+    Ramp := 0.0;
+    RampTimer(IN := FALSE);
 ELSE
     CASE Status.State OF
-        E_PumpState#Idle:
-            Status.State := E_PumpState#Starting;
-            ramp_timer(IN := TRUE, PT := RAMP_TIME);
-        E_PumpState#Starting:
-            ramp_timer(IN := TRUE, PT := RAMP_TIME);
-            IF ramp_timer.Q THEN
-                Status.State := E_PumpState#Running;
+        PumpState#Idle:
+            Status.State := PumpState#Starting;
+            RampTimer(IN := TRUE, PT := RampTime);
+        PumpState#Starting:
+            RampTimer(IN := TRUE, PT := RampTime);
+            IF RampTimer.Q THEN
+                Status.State := PumpState#Running;
             ELSE
-                ramp := ramp + 0.2;
+                Ramp := Ramp + 0.2;
             END_IF
-        E_PumpState#Running:
+        PumpState#Running:
             Status.Running := TRUE;
-            ramp := Command.TargetSpeed;
-        E_PumpState#Fault:
+            Ramp := Command.TargetSpeed;
+        PumpState#Fault:
             Status.Running := FALSE;
             Status.Alarm := 16#BEEF;
     END_CASE
 END_IF
 
-Status.ActualSpeed := ramp;
+Status.ActualSpeed := Ramp;
 END_FUNCTION_BLOCK

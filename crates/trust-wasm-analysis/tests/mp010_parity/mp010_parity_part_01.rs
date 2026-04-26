@@ -162,7 +162,9 @@ pub(super) fn hover_function_block_signature_in_wasm_uses_declared_types() {
         .find(|doc| doc.uri == fb_uri)
         .map(|doc| doc.text.as_str())
         .expect("fb source exists");
-    let hover_offset = fb_text.find("FB_Pump").expect("fb name exists") as u32;
+    let hover_offset = fb_text
+        .find("PumpController")
+        .expect("pump controller name exists") as u32;
 
     let request = HoverRequest {
         uri: fb_uri.to_string(),
@@ -178,12 +180,12 @@ pub(super) fn hover_function_block_signature_in_wasm_uses_declared_types() {
         .expect("hover payload should exist");
 
     assert!(
-        hover.contents.contains("Command : ST_PumpCommand;"),
+        hover.contents.contains("Command : PumpCommand;"),
         "hover should include declared input type; hover: {}",
         hover.contents
     );
     assert!(
-        hover.contents.contains("Status : ST_PumpStatus;"),
+        hover.contents.contains("Status : PumpStatus;"),
         "hover should include declared output type; hover: {}",
         hover.contents
     );

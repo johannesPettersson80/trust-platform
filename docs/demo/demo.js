@@ -40,18 +40,18 @@ const DEMO_FILES = [
     name: "types.st",
     uri: "types.st",
     content: `TYPE
-    E_PumpState : (Idle := 0, Starting := 1, Running := 2, Fault := 3);
+    PumpState : (Idle := 0, Starting := 1, Running := 2, Fault := 3);
 
-    ST_PumpCommand :
+    PumpCommand :
     STRUCT
         Enable : BOOL;
         TargetSpeed : REAL;
     END_STRUCT;
 
-    ST_PumpStatus :
+    PumpStatus :
     STRUCT
         Running : BOOL;
-        State : E_PumpState;
+        State : PumpState;
         ActualSpeed : REAL;
         Alarm : UDINT;
     END_STRUCT;
@@ -61,51 +61,51 @@ END_TYPE
   {
     name: "fb_pump.st",
     uri: "fb_pump.st",
-    content: `FUNCTION_BLOCK FB_Pump
+    content: `FUNCTION_BLOCK PumpController
 VAR_INPUT
-    Command : ST_PumpCommand;
+    Command : PumpCommand;
 END_VAR
 VAR_OUTPUT
-    Status : ST_PumpStatus;
+    Status : PumpStatus;
 END_VAR
 VAR
-    ramp_timer : TON;
-    ramp : REAL;
+    RampTimer : TON;
+    Ramp : REAL;
 END_VAR
 VAR CONSTANT
-    RAMP_TIME : TIME := T#1s;
+    RampTime : TIME := T#1s;
 END_VAR
 
 Status.Running := FALSE;
 Status.Alarm := 0;
 
 IF NOT Command.Enable THEN
-    Status.State := E_PumpState#Idle;
+    Status.State := PumpState#Idle;
     Status.ActualSpeed := 0.0;
-    ramp := 0.0;
-    ramp_timer(IN := FALSE);
+    Ramp := 0.0;
+    RampTimer(IN := FALSE);
 ELSE
     CASE Status.State OF
-        E_PumpState#Idle:
-            Status.State := E_PumpState#Starting;
-            ramp_timer(IN := TRUE, PT := RAMP_TIME);
-        E_PumpState#Starting:
-            ramp_timer(IN := TRUE, PT := RAMP_TIME);
-            IF ramp_timer.Q THEN
-                Status.State := E_PumpState#Running;
+        PumpState#Idle:
+            Status.State := PumpState#Starting;
+            RampTimer(IN := TRUE, PT := RampTime);
+        PumpState#Starting:
+            RampTimer(IN := TRUE, PT := RampTime);
+            IF RampTimer.Q THEN
+                Status.State := PumpState#Running;
             ELSE
-                ramp := ramp + 0.2;
+                Ramp := Ramp + 0.2;
             END_IF
-        E_PumpState#Running:
+        PumpState#Running:
             Status.Running := TRUE;
-            ramp := Command.TargetSpeed;
-        E_PumpState#Fault:
+            Ramp := Command.TargetSpeed;
+        PumpState#Fault:
             Status.Running := FALSE;
             Status.Alarm := 16#BEEF;
     END_CASE
 END_IF
 
-Status.ActualSpeed := ramp;
+Status.ActualSpeed := Ramp;
 END_FUNCTION_BLOCK
 `,
   },
@@ -114,9 +114,9 @@ END_FUNCTION_BLOCK
     uri: "program.st",
     content: `PROGRAM PlantProgram
 VAR
-    Pump : FB_Pump;
-    Cmd : ST_PumpCommand;
-    Status : ST_PumpStatus;
+    Pump : PumpController;
+    Cmd : PumpCommand;
+    Status : PumpStatus;
     StartCmd : BOOL;
     SpeedRaw : INT;
     SpeedSet : REAL;
@@ -130,7 +130,7 @@ Cmd.TargetSpeed := SpeedSet;
 Pump(Command := Cmd);
 Status := Pump.Status;
 HaltReq := FALSE;
-IF Status.State = E_PumpState#Fault THEN
+IF Status.State = PumpState#Fault THEN
     HaltReq := TRUE;
 END_IF
 END_PROGRAM
@@ -161,7 +161,7 @@ const WALKTHROUGH = [
   },
   {
     title: "Hover",
-    hint: "Hover over <kbd>FB_Pump</kbd> or <kbd>E_PumpState</kbd> to see type signatures and documentation.",
+    hint: "Hover over <kbd>PumpController</kbd> or <kbd>PumpState</kbd> to see type signatures and documentation.",
   },
   {
     title: "Completion",
@@ -169,7 +169,7 @@ const WALKTHROUGH = [
   },
   {
     title: "Go to Definition",
-    hint: "In <kbd>program.st</kbd>, left-click <kbd>E_PumpState</kbd>, then press <kbd>F12</kbd> (or <kbd>Ctrl+Left-click</kbd>) to jump to its definition in types.st.",
+    hint: "In <kbd>program.st</kbd>, left-click <kbd>PumpState</kbd>, then press <kbd>F12</kbd> (or <kbd>Ctrl+Left-click</kbd>) to jump to its definition in types.st.",
   },
   {
     title: "Find References",

@@ -1,5 +1,5 @@
 {
-  "docs/diagrams/architecture/plcopen-motion-library.puml": "af6554ca786fef5e268d7979b4f0aaae88c79936a121d2add4e27d31088d6de3",
+  "docs/diagrams/architecture/plcopen-motion-library.puml": "a946e8cdde0f4316302cab0ac1c3e13003b634f098264dc0f539240955aa31d4",
   "docs/diagrams/architecture/runtime-bytecode-vm-execution.puml": "7c8a6c1947ff26796466fab1a268bdff2cddc60de6828005a33c30b771272086",
   "docs/diagrams/architecture/runtime-cloud-planes.puml": "3c6dfac75e9ce0e77f1a503caf149d0ea611f5427e7c4e8bac7490fe2befeaf7",
   "docs/diagrams/architecture/runtime-execution.puml": "5332b88e882242e6e1d034a518fa7045fb703f58059cd9d4c121a55d37df47f2",

@@ -41,9 +41,9 @@ fn list_flag_lists_tutorial_10_tests_without_executing() {
     );
 
     let text = String::from_utf8_lossy(&output.stdout);
-    assert!(text.contains("TEST_PROGRAM::TEST_LIMIT_ADD_AND_SCALING"));
-    assert!(text.contains("TEST_FUNCTION_BLOCK::TEST_FB_START_STOP_SEQUENCE"));
-    assert!(text.contains("TEST_PROGRAM::TEST_COMPARISON_ASSERTIONS"));
+    assert!(text.contains("TEST_PROGRAM::LimitAddAndScaling"));
+    assert!(text.contains("TEST_FUNCTION_BLOCK::StartStopSequence"));
+    assert!(text.contains("TEST_PROGRAM::ComparisonAssertions"));
     assert!(text.contains("3 test(s) listed"));
 }
 

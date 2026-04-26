@@ -13,7 +13,7 @@ This gives fast tests, deterministic behavior, and easier debugging.
 
 - A production `PROGRAM` (`TankProgram`) with plain variables and wiring logic.
 - A `CONFIGURATION` (`TankControlConfig`) that binds `%I/%Q` addresses with `VAR_CONFIG`.
-- A logic block (`FB_TANK_CONTROL`) that can be tested without hardware.
+- A logic block (`TankControl`) that can be tested without hardware.
 - Tests that simulate low/high/stop conditions and verify outputs.
 
 ## Project layout
@@ -26,7 +26,7 @@ This gives fast tests, deterministic behavior, and easier debugging.
 
 Open `src/main.st`:
 
-- `FB_TANK_CONTROL` contains decision logic.
+- `TankControl` contains decision logic.
 - `PROGRAM TankProgram` wires process variables into the FB and copies outputs back.
 - `CONFIGURATION TankControlConfig` performs `%IX/%IW/%QX/%QW` mapping via `VAR_CONFIG`.
 
@@ -36,11 +36,11 @@ This separation is the key to mockable tests.
 
 Open `src/tests.st`:
 
-- `TEST_PROGRAM TEST_TANK_CONTROL_WITH_MOCK_IO`:
-  - instantiates the FB directly (`VAR DUT : FB_TANK_CONTROL;`)
+- `TEST_PROGRAM TankControlWithMockIo`:
+  - instantiates the FB directly (`VAR Dut : TankControl;`)
   - drives input scenarios (`StartCmd`, `StopCmd`, `LevelRaw`)
   - verifies expected outputs with `ASSERT_*`
-- `TEST_FUNCTION_BLOCK TEST_TANK_CONTROL_BAND`:
+- `TEST_FUNCTION_BLOCK TankControlBand`:
   - checks normal operating band behavior in a separate test case
 
 No physical addresses are needed in tests.
@@ -56,7 +56,7 @@ cargo run -p trust-runtime --bin trust-runtime -- test --project examples/tutori
 ## Step 4: Triage a failure (red-green-refactor)
 
 1. Introduce a bug on purpose:
-   - in `FB_TANK_CONTROL`, change `PumpSpeedCmd := INT#800;` to `INT#700;`
+   - in `TankControl`, change `PumpSpeedCmd := INT#800;` to `INT#700;`
 2. Run tests again.
 3. Read failure details:
    - test name (`TEST_PROGRAM::...`)

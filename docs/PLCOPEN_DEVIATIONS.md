@@ -33,3 +33,16 @@ This file tracks known, intentional deviations/extensions from strict PLCopen pr
   - The public FB surface remains PLCopen-shaped, but the deterministic test kernel expresses physical dwell-time behavior as scan-count confirmation instead of wall-clock timing.
 - Mitigation:
   - The simplification is recorded here, reflected in the compliance matrix notes, and locked by dedicated Phase D ST tests.
+
+## 2026-04-26 - OOP facade binding and unsupported command objects
+
+- Area: PLCopen Motion OOP facade
+- PLCopen reference: PLCopen "Application Examples for Motion Control - Porting into OOP" v1.0
+- Deviation:
+  - `MC_OopAxis.Bind(AxisId, InternalIndex)` is a truST-specific binding method. PLCopen's OOP example deliberately removes `AXIS_REF` from method signatures and expects vendors to add identification/binding in a vendor-specific way.
+  - Unsupported OOP methods return command objects with `Error = TRUE` and `ErrorId = mcERR_NotSupported` instead of being omitted from the interface.
+  - `itfContinousAxisCommand` is exposed as a compatibility alias for the PLCopen example spelling while `itfContinuousAxisCommand` is the canonical truST spelling.
+- Impact:
+  - OOP applications can bind object axes and compile against the full PLCopen OOP method surface, but unsupported methods must be checked through the returned command object status.
+- Mitigation:
+  - The OOP package guide documents the binding method and unsupported method behavior, and ST unit tests cover interface dispatch, command properties, classic-state delegation, and unsupported command-object returns.

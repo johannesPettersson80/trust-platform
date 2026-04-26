@@ -18,9 +18,9 @@ exercise I/O scenarios, and apply hot reload.
 
 - `src/Types.st`
 - `src/Interfaces.st`
-- `src/ValveFb.st`
-- `src/PumpFb.st`
-- `src/LevelControllerFb.st`
+- `src/ValveActuator.st`
+- `src/PumpDrive.st`
+- `src/LevelController.st`
 - `src/Main.st`
 - `src/Configuration.st`
 
@@ -36,9 +36,9 @@ trust-runtime validate --project examples/filling_line
 
 1. Open `src/Interfaces.st`.
 2. Right-click `IValve` -> `Show Type Hierarchy`.
-3. Confirm implementation path includes `ValveFb`.
-4. Ctrl+Click `IValve` usages in `src/ValveFb.st` and `src/Main.st`.
-5. Repeat for `IPump` and `PumpFb`.
+3. Confirm implementation path includes `ValveActuator`.
+4. Ctrl+Click `IValve` usages in `src/ValveActuator.st` and `src/Main.st`.
+5. Repeat for `IPump` and `PumpDrive`.
 
 ## Step 3: Formatting Profile Check
 
@@ -55,14 +55,14 @@ trust-runtime validate --project examples/filling_line
 | Input Writes | Expected Outputs | Troubleshooting |
 |---|---|---|
 | `%IX0.0=TRUE`, `%IX0.1=FALSE`, `%IW0=500` | `%QX0.0=TRUE`, `%QX0.1=FALSE`, `%QW0=800` | If no fill output, verify StartCmd mapping in `src/Configuration.st`. |
-| `%IX0.0=TRUE`, `%IX0.1=FALSE`, `%IW0=700` | `%QX0.0=FALSE`, `%QX0.1=FALSE`, `%QW0=0` | If valves still active, check hysteresis math in `LevelControllerFb2`. |
+| `%IX0.0=TRUE`, `%IX0.1=FALSE`, `%IW0=700` | `%QX0.0=FALSE`, `%QX0.1=FALSE`, `%QW0=0` | If valves still active, check hysteresis math in `LevelController`. |
 | `%IX0.0=TRUE`, `%IX0.1=FALSE`, `%IW0=900` | `%QX0.0=FALSE`, `%QX0.1=TRUE`, `%QW0=600` | If drain never opens, confirm `LevelPct` scaling from raw input. |
 | `%IX0.1=TRUE` (stop override) | stopped outputs (`FALSE/FALSE/0`) | If not stopping, check stop condition precedence in controller logic. |
 
 ## Step 5: Hot Reload Tuning Exercise
 
-1. Open `src/LevelControllerFb.st`.
-2. Change `target : REAL := 70.0;` to `60.0;`.
+1. Open `src/LevelController.st`.
+2. Change `Target : REAL := 70.0;` to `60.0;`.
 3. Run `Ctrl/Cmd+Shift+P` -> `Structured Text: Hot Reload`.
 4. Re-run scenario `%IW0=700` and observe neutral band shift.
 

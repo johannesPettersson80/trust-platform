@@ -2,11 +2,23 @@
 
 ## Current Baseline
 
-- current repository baseline: `v0.22.2`
-- public docs in this tree describe the `v0.22.2` workspace version unless a
+- current repository baseline: `v0.23.0`
+- public docs in this tree describe the `v0.23.0` workspace version unless a
   page explicitly marks a feature as experimental, roadmap, or target-specific
 
 ## What Changed Recently
+
+### `v0.23.x`
+
+- PLCopen Motion now has an object-oriented companion package with `itfAxis`,
+  command objects, Structured Text unit tests, and five runnable OOP motion
+  examples.
+- OSCAT now has an object-oriented Components companion package with
+  Structured Text parity tests, public docs, and 20 classic/components
+  comparison scenarios.
+- The public docs now define the default truST Structured Text naming standard
+  for new APIs, variables, constants, examples, and inherited-symbol
+  exceptions.
 
 ### `v0.22.x`
 

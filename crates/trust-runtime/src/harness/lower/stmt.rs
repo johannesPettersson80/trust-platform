@@ -1,5 +1,5 @@
 use crate::debug::SourceLocation;
-use crate::program_model::{CaseLabel, Expr, Stmt};
+use crate::program_model::{property_setter_method_name, ArgValue, CallArg, CaseLabel, Expr, Stmt};
 use crate::value::Value;
 use trust_hir::TypeId;
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
@@ -7,8 +7,8 @@ use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 use super::super::util::{direct_expr_children, first_expr_child, is_statement_kind, node_text};
 use super::super::{CompileError, LoweringContext};
 use super::expr::{
-    const_value_from_node, enum_literal_value, lower_expr, lower_expression_type, lower_lvalue,
-    resolve_initializer_enum_variant,
+    const_value_from_node, enum_literal_value, field_expr_property_accessor_name, lower_expr,
+    lower_expression_type, lower_lvalue, resolve_initializer_enum_variant, PropertyAccessor,
 };
 
 pub(in crate::harness) fn lower_stmt_list(
@@ -89,6 +89,7 @@ fn lower_assign(node: &SyntaxNode, ctx: &mut LoweringContext<'_>) -> Result<Stmt
         return Err(CompileError::new("invalid assignment"));
     }
     let target_type = lower_expression_type(&exprs[0], ctx)?;
+    let property_setter = field_expr_property_accessor_name(&exprs[0], ctx, PropertyAccessor::Set)?;
     let target = lower_lvalue(&exprs[0], ctx)?;
     let value = lower_expr(&exprs[1], ctx)?;
     let value = match target_type {
@@ -96,6 +97,25 @@ fn lower_assign(node: &SyntaxNode, ctx: &mut LoweringContext<'_>) -> Result<Stmt
         None => value,
     };
     let location = stmt_location(node, ctx);
+    if let Some(property_name) = property_setter {
+        let field_parts = direct_expr_children(&exprs[0]);
+        let receiver = field_parts
+            .first()
+            .ok_or_else(|| CompileError::new("invalid property assignment"))?;
+        return Ok(Stmt::Expr {
+            expr: Expr::Call {
+                target: Box::new(Expr::Field {
+                    target: Box::new(lower_expr(receiver, ctx)?),
+                    field: property_setter_method_name(&property_name),
+                }),
+                args: vec![CallArg {
+                    name: None,
+                    value: ArgValue::Expr(value),
+                }],
+            },
+            location,
+        });
+    }
     if assignment_is_attempt(node) {
         Ok(Stmt::AssignAttempt {
             target,

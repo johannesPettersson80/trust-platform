@@ -1,0 +1,9 @@
+[package]
+version = "0.1.0"
+
+[project]
+include_paths = ["src"]
+
+[dependencies]
+PLCopenMotionSingleAxis = { path = "../single_axis_core", version = "0.1.0" }
+PLCopenMotionSynchronization = { path = "../synchronization", version = "0.1.0" }

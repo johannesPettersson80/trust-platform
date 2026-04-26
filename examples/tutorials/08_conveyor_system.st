@@ -1,30 +1,30 @@
 PROGRAM ConveyorSystem
 VAR
-    start_cmd : BOOL := FALSE;
-    stop_cmd : BOOL := FALSE;
-    jam_sensor : BOOL := FALSE;
-    part_at_entry : BOOL := FALSE;
-    part_at_exit : BOOL := FALSE;
-    conveyor_run : BOOL := FALSE;
-    reject_gate : BOOL := FALSE;
-    part_counter : DINT := 0;
+    StartCmd : BOOL := FALSE;
+    StopCmd : BOOL := FALSE;
+    JamSensor : BOOL := FALSE;
+    PartAtEntry : BOOL := FALSE;
+    PartAtExit : BOOL := FALSE;
+    ConveyorRun : BOOL := FALSE;
+    RejectGate : BOOL := FALSE;
+    PartCounter : DINT := 0;
 END_VAR
 
-IF stop_cmd OR jam_sensor THEN
-    conveyor_run := FALSE;
-ELSIF start_cmd THEN
-    conveyor_run := TRUE;
+IF StopCmd OR JamSensor THEN
+    ConveyorRun := FALSE;
+ELSIF StartCmd THEN
+    ConveyorRun := TRUE;
 END_IF;
 
-IF conveyor_run AND part_at_entry THEN
-    reject_gate := FALSE;
+IF ConveyorRun AND PartAtEntry THEN
+    RejectGate := FALSE;
 END_IF;
 
-IF conveyor_run AND part_at_exit THEN
-    part_counter := part_counter + 1;
+IF ConveyorRun AND PartAtExit THEN
+    PartCounter := PartCounter + 1;
 END_IF;
 
-IF jam_sensor THEN
-    reject_gate := TRUE;
+IF JamSensor THEN
+    RejectGate := TRUE;
 END_IF;
 END_PROGRAM
