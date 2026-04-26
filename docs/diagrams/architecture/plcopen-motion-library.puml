@@ -19,6 +19,7 @@ package "Reusable Library Packages\n(libraries/plcopen_motion/*)" {
   component "Synchronization\nsynchronization" as sync
   component "Coordinated Motion Core\ncoordinated_motion" as group
   component "Homing Core\nhoming" as homing
+  component "OOP Facade\noop" as oop
 }
 
 package "Shared Internal ST Kernels" {
@@ -44,17 +45,22 @@ spec --> single
 spec --> sync
 spec --> group
 spec --> homing
+spec --> oop
 matrix --> single
 matrix --> sync
 matrix --> group
 matrix --> homing
+matrix --> oop
 logs --> single
 logs --> sync
 logs --> group
 logs --> homing
+logs --> oop
 
 single --> axisKernel
 sync --> syncSupport
+oop --> single
+oop --> sync
 syncSupport --> axisKernel
 group --> groupKernel
 homing --> homeSupport
@@ -69,10 +75,18 @@ positive --> single
 positive --> sync
 positive --> group
 positive --> homing
+positive --> oop
 negative --> single
 negative --> sync
 negative --> group
 negative --> homing
+negative --> oop
+
+note right of oop
+The OOP facade exposes itfAxis
+and command objects while delegating
+axis behavior to the classic kernels.
+end note
 
 note right of axisStore
 Internal shared-state carriers are

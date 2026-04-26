@@ -221,19 +221,19 @@ fn tutorial_blinker_ton_timing_behavior() {
     let mut harness = TestHarness::from_source(BLINKER).expect("compile blinker tutorial");
 
     harness.cycle();
-    harness.assert_eq("lamp", false);
+    harness.assert_eq("Lamp", false);
 
     harness.advance_time(Duration::from_millis(250));
     harness.cycle();
-    harness.assert_eq("lamp", true);
+    harness.assert_eq("Lamp", true);
 
     harness.advance_time(Duration::from_millis(1));
     harness.cycle();
-    harness.assert_eq("lamp", true);
+    harness.assert_eq("Lamp", true);
 
     harness.advance_time(Duration::from_millis(250));
     harness.cycle();
-    harness.assert_eq("lamp", false);
+    harness.assert_eq("Lamp", false);
 }
 
 fn advance_traffic_phase(harness: &mut TestHarness) {
@@ -245,9 +245,9 @@ fn advance_traffic_phase(harness: &mut TestHarness) {
 
 fn traffic_state(harness: &TestHarness) -> (Option<Value>, Option<Value>, Option<Value>) {
     (
-        harness.get_output("red"),
-        harness.get_output("yellow"),
-        harness.get_output("green"),
+        harness.get_output("Red"),
+        harness.get_output("Yellow"),
+        harness.get_output("Green"),
     )
 }
 
@@ -307,31 +307,31 @@ fn tutorial_motor_starter_latch_and_unlatch() {
     let mut harness = TestHarness::from_source(MOTOR_STARTER).expect("compile motor tutorial");
 
     harness.cycle();
-    harness.assert_eq("motor_run", false);
+    harness.assert_eq("MotorRun", false);
 
-    harness.set_input("start_pb", true);
+    harness.set_input("StartPb", true);
     harness.cycle();
-    harness.assert_eq("motor_run", true);
-    harness.assert_eq("seal_in_contact", true);
+    harness.assert_eq("MotorRun", true);
+    harness.assert_eq("SealInContact", true);
 
-    harness.set_input("start_pb", false);
+    harness.set_input("StartPb", false);
     harness.cycle();
-    harness.assert_eq("motor_run", true);
-    harness.assert_eq("seal_in_contact", true);
+    harness.assert_eq("MotorRun", true);
+    harness.assert_eq("SealInContact", true);
 
-    harness.set_input("stop_pb", true);
+    harness.set_input("StopPb", true);
     harness.cycle();
-    harness.assert_eq("motor_run", false);
-    harness.assert_eq("seal_in_contact", false);
+    harness.assert_eq("MotorRun", false);
+    harness.assert_eq("SealInContact", false);
 
-    harness.set_input("stop_pb", false);
-    harness.set_input("start_pb", true);
+    harness.set_input("StopPb", false);
+    harness.set_input("StartPb", true);
     harness.cycle();
-    harness.assert_eq("motor_run", true);
+    harness.assert_eq("MotorRun", true);
 
-    harness.set_input("start_pb", false);
-    harness.set_input("overload_trip", true);
+    harness.set_input("StartPb", false);
+    harness.set_input("OverloadTrip", true);
     harness.cycle();
-    harness.assert_eq("motor_run", false);
-    harness.assert_eq("seal_in_contact", false);
+    harness.assert_eq("MotorRun", false);
+    harness.assert_eq("SealInContact", false);
 }

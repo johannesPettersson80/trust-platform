@@ -1,30 +1,30 @@
-FUNCTION LIMIT_ADD : INT
+FUNCTION LimitAdd : INT
 VAR_INPUT
-    A : INT;
-    B : INT;
-    MAX_VALUE : INT;
+    AddendA : INT;
+    AddendB : INT;
+    MaxValue : INT;
 END_VAR
 VAR
-    SUM : INT;
+    Sum : INT;
 END_VAR
 
-SUM := A + B;
-IF SUM > MAX_VALUE THEN
-    LIMIT_ADD := MAX_VALUE;
+Sum := AddendA + AddendB;
+IF Sum > MaxValue THEN
+    LimitAdd := MaxValue;
 ELSE
-    LIMIT_ADD := SUM;
+    LimitAdd := Sum;
 END_IF;
 END_FUNCTION
 
-FUNCTION SCALE_RAW_TO_PERCENT : REAL
+FUNCTION ScaleRawToPercent : REAL
 VAR_INPUT
-    RAW : INT;
+    Raw : INT;
 END_VAR
 
-SCALE_RAW_TO_PERCENT := INT_TO_REAL(IN := RAW) * REAL#0.1;
+ScaleRawToPercent := INT_TO_REAL(IN := Raw) * REAL#0.1;
 END_FUNCTION
 
-FUNCTION_BLOCK FB_START_STOP
+FUNCTION_BLOCK StartStopLatch
 VAR_INPUT
     StartCmd : BOOL;
     StopCmd : BOOL;

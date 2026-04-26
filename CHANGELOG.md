@@ -6,9 +6,29 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.22.3`
+Target release: `v0.23.0`
 
 ### Added
+
+- PLCopen Motion now ships a second, object-oriented package at
+  `libraries/plcopen_motion/oop`, with ST interfaces and concrete objects for
+  `itfAxis`, command objects, and `MC_OopAxis`. The package delegates axis
+  behavior to the classic single-axis PLCopen package, includes deterministic
+  unsupported command-object returns for unimplemented OOP methods, and is
+  covered by Structured Text unit tests plus runtime integration drivers.
+- The public docs now include a PLCopen Motion OOP library guide and five
+  runnable real-world examples: warehouse shuttle, labeling conveyor,
+  pick-and-place lift, indexing table, and feeder axis.
+- OSCAT now ships an object-oriented Components companion package at
+  `libraries/oscat/components`, with narrow interfaces for automation context,
+  unit conversion, PT1 filtering, PID control, hysteresis switching, pulse
+  generation, FIFO/stack memory objects, and calendar/sun calculations. The
+  package is covered by Structured Text parity tests against classic OSCAT.
+- The examples catalog now includes 20 OSCAT comparison scenarios, shipped as
+  40 projects total: one classic OSCAT implementation and one OSCAT Components
+  implementation per scenario. Each project has a README and Structured Text
+  unit tests, and the public docs include a library guide plus the new truST
+  Structured Text naming standard.
 
 - The public docs now include a `One Project, Every Surface` concept page that
   positions VS Code, Editor AI tools, Browser IDE, Browser HMI, CLI/CI, Agent
@@ -96,6 +116,9 @@ Target release: `v0.22.3`
   files, local dependency roots, runtime/io config presence, parsed runtime
   control/web/mesh/discovery summary fields, and `trust-lsp.toml`
   `vendor_profile` when present.
+- `trust-runtime` now lowers ST `PROPERTY` implementations into runtime getter
+  and setter calls, so OOP interface references can dispatch property reads and
+  assignments across source files and package dependencies.
 - `trust-harness` is now a real programmable deterministic executor instead of
   a minimal `load` / `cycle` helper. It now supports `reload`, `set_input`,
   `get_output`, `set_access`, `get_access`, `bind_direct`,

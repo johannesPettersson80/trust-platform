@@ -50,13 +50,13 @@ For each tutorial:
 ### Guided Steps
 
 1. Open `01_hello_counter.st`.
-2. Hover `count`, `step`, and `enable` to inspect inferred types.
+2. Hover `Count`, `Increment`, and `Enable` to inspect inferred types.
 3. Intentionally remove one semicolon and confirm a red diagnostic.
 4. Restore the semicolon and confirm diagnostics clear.
 
 ### Challenge
 
-- Add `MAX_COUNT : INT := 100;` and wrap `count` to `0` when `count > MAX_COUNT`.
+- Add `MaxCount : INT := 100;` and wrap `Count` to `0` when `Count > MaxCount`.
 
 ### Common Pitfalls
 
@@ -148,12 +148,12 @@ For each tutorial:
 ### Guided Steps
 
 1. Open `05_motor_starter.st`.
-2. Run Find All References on `motor_run`.
+2. Run Find All References on `MotorRun`.
 3. Verify all latching/unlatching writes are visible in one place.
 
 ### Challenge
 
-- Add `fault_reset` behavior requiring explicit reset after overload.
+- Add `FaultReset` behavior requiring explicit reset after overload.
 
 ### Common Pitfalls
 
@@ -194,7 +194,7 @@ For each tutorial:
 ### Guided Steps
 
 1. Open `07_pid_loop.st`.
-2. Rename one control variable (for example `control_output` -> `u_cmd`) with `F2`.
+2. Rename one control variable (for example `ControlOutput` -> `CommandOutput`) with `F2`.
 3. Review rename preview before applying.
 
 ### Challenge

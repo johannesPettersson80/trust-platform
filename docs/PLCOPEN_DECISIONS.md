@@ -47,3 +47,17 @@ This file tracks implementation decisions made where PLCopen profiles or source 
   - The passive/flying Part 5 homing FBs (`MC_StepReferenceFlyingSwitch`, `MC_StepReferenceFlyingRefPulse`, `MC_AbortPassiveHoming`) remain deferred on the absent path in the current shipped profile.
 - Reason:
   - These decisions keep the public PLCopen surface aligned with the ST fixtures that are actually implemented and tested, while preserving the reserved names explicitly in the compliance matrix.
+
+## 2026-04-26 - PLCopen Motion OOP facade scope
+
+- Area: PLCopen Motion OOP application example surface
+- PLCopen context: PLCopen "Application Examples for Motion Control - Porting into OOP" v1.0 sections 2, 3, 5, 6, 7, and 8; PLCopen public download catalog entries for `OOP Motion Control Library` and `PLCopen OOP Motion Control Library`
+- Decision:
+  - truST ships `libraries/plcopen_motion/oop` as a second public motion package, while the classic PLCopen FB packages remain the primary compliance surface and behavior source of truth.
+  - The shipped OOP subset includes the PLCopen command interfaces, `itfAxis`, concrete command objects, and `MC_OopAxis`.
+  - `MC_OopAxis` adapts OOP method/property calls to the existing classic single-axis package instead of duplicating axis state, parameter storage, or queue logic.
+  - The PLCopen OOP document intentionally omits `AXIS_REF`; truST therefore adds the vendor-specific `MC_OopAxis.Bind(AxisId, InternalIndex)` method to connect an OOP axis object to a simulated or configured axis slot.
+  - The misspelled PLCopen example name `itfContinousAxisCommand` is published as a compatibility alias extending the corrected `itfContinuousAxisCommand`.
+  - OOP profile, probe, digital-cam, torque/superimposed, and synchronization methods that are not implemented by the current OOP facade remain present and return deterministic command objects with `mcERR_NotSupported`.
+- Reason:
+  - This matches the PLCopen OOP guidance that a standardized interface defines the user-facing axis surface, while implementation remains vendor-specific and may coexist with procedural FBs.

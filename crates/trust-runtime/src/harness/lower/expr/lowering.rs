@@ -118,9 +118,19 @@ pub(in crate::harness) fn lower_expr(
                 .children()
                 .find(|child| matches!(child.kind(), SyntaxKind::Name | SyntaxKind::Literal))
                 .ok_or_else(|| CompileError::new("missing field name"))?;
+            let field_name: SmolStr = node_text(&field).into();
+            if field_expr_property_accessor_name(node, ctx, PropertyAccessor::Get)?.is_some() {
+                return Ok(Expr::Call {
+                    target: Box::new(Expr::Field {
+                        target: Box::new(lower_expr(&exprs[0], ctx)?),
+                        field: field_name,
+                    }),
+                    args: Vec::new(),
+                });
+            }
             Ok(Expr::Field {
                 target: Box::new(lower_expr(&exprs[0], ctx)?),
-                field: node_text(&field).into(),
+                field: field_name,
             })
         }
         SyntaxKind::DerefExpr => {
@@ -140,6 +150,73 @@ pub(in crate::harness) fn lower_expr(
         SyntaxKind::InitializerList => Err(CompileError::new("initializer lists are not supported yet")),
         _ => Err(CompileError::new("unsupported expression")),
     }
+}
+
+#[derive(Clone, Copy)]
+pub(in crate::harness) enum PropertyAccessor {
+    Get,
+    Set,
+}
+
+pub(in crate::harness) fn field_expr_property_accessor_name(
+    node: &SyntaxNode,
+    ctx: &mut LoweringContext<'_>,
+    accessor: PropertyAccessor,
+) -> Result<Option<SmolStr>, CompileError> {
+    if node.kind() != SyntaxKind::FieldExpr {
+        return Ok(None);
+    }
+    let exprs = direct_expr_children(node);
+    let Some(receiver) = exprs.first() else {
+        return Ok(None);
+    };
+    let Some(field) = node
+        .children()
+        .find(|child| matches!(child.kind(), SyntaxKind::Name | SyntaxKind::Literal))
+    else {
+        return Ok(None);
+    };
+    let field_name: SmolStr = node_text(&field).into();
+    let Some((symbols, type_id)) = hir_expression_type(receiver, ctx) else {
+        return Ok(None);
+    };
+    let Some(symbol_id) = symbols.resolve_member_symbol_in_type(type_id, field_name.as_str())
+    else {
+        return Ok(None);
+    };
+    let Some(symbol) = symbols.get(symbol_id) else {
+        return Ok(None);
+    };
+    let SymbolKind::Property {
+        has_get, has_set, ..
+    } = symbol.kind
+    else {
+        return Ok(None);
+    };
+    let available = match accessor {
+        PropertyAccessor::Get => has_get,
+        PropertyAccessor::Set => has_set,
+    };
+    Ok(available.then_some(field_name))
+}
+
+fn hir_expression_type(
+    node: &SyntaxNode,
+    ctx: &mut LoweringContext<'_>,
+) -> Option<(std::sync::Arc<SymbolTable>, TypeId)> {
+    if node.kind() == SyntaxKind::ParenExpr {
+        let inner = first_expr_child(node)?;
+        return hir_expression_type(&inner, ctx);
+    }
+
+    let (semantic_db, semantic_file_id) = (ctx.semantic_db?, ctx.semantic_file_id?);
+    let expr_id = semantic_db.expr_id_at_offset(semantic_file_id, offset_for_type_lookup(node))?;
+    let type_id = semantic_db.type_of(semantic_file_id, expr_id);
+    if type_id == TypeId::UNKNOWN {
+        return None;
+    }
+    let analysis = semantic_db.analyze(semantic_file_id);
+    Some((analysis.symbols.clone(), type_id))
 }
 
 fn lower_array_initializer(
@@ -614,6 +691,9 @@ fn lower_call_arg(
         first_expr_child(node).ok_or_else(|| CompileError::new("missing call argument"))?;
     let value = if has_arrow {
         ArgValue::Target(lower_lvalue(&expr_node, ctx)?)
+    } else if field_expr_property_accessor_name(&expr_node, ctx, PropertyAccessor::Get)?.is_some()
+    {
+        ArgValue::Expr(lower_expr(&expr_node, ctx)?)
     } else {
         match lower_lvalue(&expr_node, ctx) {
             Ok(target) => ArgValue::Target(target),

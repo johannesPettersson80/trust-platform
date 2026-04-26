@@ -9,17 +9,17 @@ VAR
     DO6 : BOOL;
     DO7 : BOOL;
 
-    step_timer : TON;  (* Temporizador para cambio de paso *)
-    step_time : TIME := T#200MS;  (* Velocidad del efecto (200ms por paso) *)
+    StepTimer : TON;  (* Temporizador para cambio de paso *)
+    StepTime : TIME := T#200MS;  (* Velocidad del efecto (200ms por paso) *)
     position : INT := 0;  (* Posicion actual (0-15) *)
     direction : INT := 1;  (* Direccion: 1=adelante, -1=atras *)
 END_VAR
 
 (* Temporizador para el siguiente paso *)
-step_timer(IN := NOT step_timer.Q, PT := step_time);
+StepTimer(IN := NOT StepTimer.Q, PT := StepTime);
 
 (* Cuando el temporizador termina, avanzar al siguiente paso *)
-IF step_timer.Q THEN
+IF StepTimer.Q THEN
     position := position + direction;
 
     (* Si llegamos al final, invertir direccion *)

@@ -9,15 +9,15 @@ VAR
     DO6 : BOOL;
     DO7 : BOOL;
 
-    step_timer : TON;
-    step_time : TIME := T#200MS;
+    StepTimer : TON;
+    StepTime : TIME := T#200MS;
     position : INT := 0;
     direction : INT := 1;
 END_VAR
 
-step_timer(IN := NOT step_timer.Q, PT := step_time);
+StepTimer(IN := NOT StepTimer.Q, PT := StepTime);
 
-IF step_timer.Q THEN
+IF StepTimer.Q THEN
     position := position + direction;
     IF position >= 15 THEN
         direction := -1;

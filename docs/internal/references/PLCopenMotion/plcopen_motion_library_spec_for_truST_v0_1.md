@@ -7,8 +7,8 @@ This document defines a practical implementation profile for a PLCopen-based mot
 The primary design goal is:
 
 - **normative public API:** classic PLCopen function blocks and classic PLCopen-compatible data types
+- **second public API:** a shipped OOP single-axis facade for projects that prefer axis objects, interfaces, properties, and returned command objects
 - **implementation freedom:** internal command-kernel, adapter, and planner architecture may be vendor-specific
-- **optional second API:** an OOP facade MAY be added later, but it is not the normative compliance surface
 
 The specification is organized so the team can implement the library in phases:
 
@@ -16,7 +16,7 @@ The specification is organized so the team can implement the library in phases:
 - **Phase B**: Axis synchronization (cam/gear/phasing subset)
 - **Phase C**: Coordinated motion groups (selected PLCopen Part 4 profile)
 - **Phase D**: Homing extensions (selected PLCopen Part 5 profile)
-- **Phase E**: Optional OOP facade inspired by the PLCopen OOP example
+- **Phase E**: OOP facade inspired by the PLCopen OOP example
 
 This document does **not** currently claim full PLCopen certification coverage across all published motion-control parts. It defines the truST-selected profile and records what is required, deferred, or explicitly not targeted.
 
@@ -44,6 +44,8 @@ The following documents are informative and are used for examples, architecture 
 3. PLCopen Motion Control Part 6, Version 2.0 (reviewed for scoping only; explicitly not targeted in Phases A-E)
 4. truST platform documentation for runtime, debugger, PLCopen XML import, and configuration
 
+The shipped Phase E single-axis facade uses the PLCopen OOP example as an interface and architecture source. The classic FB sources above remain the normative behavioral source for axis state transitions, command completion, parameters, and readback.
+
 ## 3. Public API stance
 
 ### 3.1 Normative public API
@@ -69,15 +71,16 @@ Internally, truST MAY implement the library using:
 
 These internal design choices SHALL NOT change the normative classic FB behavior.
 
-### 3.3 Optional OOP facade
+### 3.3 Shipped OOP facade
 
-If truST supports the required OO constructs (`INTERFACE`, `METHOD`, `PROPERTY`, `EXTENDS`, interface references, object lifetime guarantees across scan boundaries) well enough for production use, the library MAY expose an additional OOP facade later.
+truST now ships an OOP single-axis facade because the runtime supports the required OO constructs (`INTERFACE`, `METHOD`, `PROPERTY`, `EXTENDS`, interface references, and command objects that remain valid across scan-like test cycles) well enough for the selected package scope.
 
 That OOP facade is:
 
-- **informative** in this draft
-- **optional** for implementation
+- **public** as a second API surface
+- **normative for its documented single-axis package behavior**
 - **derived from** the classic FB behavior rather than replacing it
+- **not** the primary PLCopen certification surface
 
 ## 4. Compliance and scope model
 
@@ -97,7 +100,7 @@ The library SHALL preserve the PLCopen Basic / Extended / Vendor-specific distin
 | Axis synchronization FBs | Part 1 v2.0 | Normative, targeted in Phase B | Cam/gear first, phasing/combine later |
 | Coordinated motion group FBs | Part 4 v2.0 RFC dated November 18, 2025 | Normative for the selected truST profile, targeted in Phase C | truST does not yet target the full Part 4 surface in one step |
 | Homing toolkit FBs | Part 5 v2.0 | Normative for the selected truST profile, targeted in Phase D | `MC_Home` remains in Phase A |
-| OOP facade | OOP Examples v1.0 | Informative, optional, deferred to Phase E | Never the primary compliance surface |
+| OOP facade | OOP Examples v1.0 | Shipped single-axis facade in Phase E | Second API over the classic FB behavior; never the primary compliance surface |
 | Fluid power extensions | Part 6 v2.0 | Explicitly not targeted in Phases A-E | Revisit only if a concrete hydraulic/pneumatic use case appears |
 
 ### 4.3 Machine-readable compliance matrix
@@ -291,7 +294,7 @@ For the classic FB API, all public FBs SHALL expose `ErrorID : WORD` exactly as 
 
 truST MAY define named public error constants such as `mcERR_InvalidParameter`, `mcERR_NotSupported`, and `mcERR_AxisGrouped`, but these constants SHALL map to stable `WORD` values.
 
-The name `MC_ERROR` is reserved for the optional OO facade only and SHALL NOT replace classic `ErrorID : WORD`.
+The name `MC_ERROR` is reserved for the shipped OO facade only and SHALL NOT replace classic `ErrorID : WORD`.
 
 ## 8. Public enums and canonical data types
 
@@ -1247,9 +1250,31 @@ Phase D notes:
 - In the current deterministic ST kernel, `MC_StepBlock.DetectionVelocityTime` is modeled as a consecutive-scan confirmation rule: `TIME#0ms` completes immediately when the block condition is met, while a nonzero value requires the same block condition on one additional active scan before completion.
 - Passive/flying homing FBs remain deferred on the absent path in the current shipped profile, and when they are later implemented they SHALL not themselves trigger motion-state transitions.
 
-### 19.6 Phase E - Optional OOP facade
+### 19.6 Phase E - OOP facade
 
-Phase E is informative and optional. The classic FB layer remains the normative public contract.
+Phase E ships a single-axis OOP facade package at `libraries/plcopen_motion/oop`.
+
+The classic FB layer remains the primary PLCopen compliance contract and the source of truth for axis behavior. The OOP package SHALL adapt method calls and property reads/writes to existing classic FB behavior instead of owning a separate motion state model.
+
+The shipped Phase E package SHALL include:
+
+- `itfCommand`
+- `itfAxisCommand`
+- `itfContinuousAxisCommand`
+- `itfContinousAxisCommand` compatibility alias
+- `itfSynchronizedAxisCommand`
+- `itfSynchronizedCommand` compatibility alias
+- `itfCamTable`
+- `itfAxis`
+- `MC_OopCommand`
+- `MC_OopAxisCommand`
+- `MC_OopContinuousAxisCommand`
+- `MC_OopSynchronizedAxisCommand`
+- `MC_OopAxis`
+
+Because the PLCopen OOP example intentionally removes `AXIS_REF` from method signatures and expects vendors to add identification in a vendor-specific way, `MC_OopAxis` SHALL expose `Bind(AxisId, InternalIndex) : MC_ERROR` as the truST binding point.
+
+OOP profile, probe, digital-cam, torque/superimposed, and synchronization methods that are outside the current shipped OOP behavior SHALL return command objects with `Error = TRUE` and `ErrorId = mcERR_NotSupported`.
 
 ### 19.7 Explicit non-target: Part 6 fluid power
 
@@ -1453,9 +1478,9 @@ The suite SHOULD include scenario-level regressions based on PLCopen examples:
 - cam + gear synchronization example
 - group stop/halt on-path interruption scenarios
 
-## 29. OOP facade mapping (informative only)
+## 29. OOP facade mapping
 
-If an OOP facade is implemented later, the mapping SHALL follow these rules:
+The shipped single-axis OOP facade SHALL follow these rules:
 
 - classic FB execution remains the source of truth
 - command objects wrap classic FB instances or kernel command IDs
@@ -1479,6 +1504,8 @@ The intended interface family is:
 - `itfPath`
 - `itfGroup`
 
+The shipped Phase E package includes the command and axis interfaces through `itfAxis`. Group interfaces remain a future expansion until truST ships a coordinated-motion OOP facade.
+
 Recommended command base interface:
 
 ```iecst
@@ -1498,7 +1525,7 @@ INTERFACE itfCommand
 END_INTERFACE
 ```
 
-Because object lifetime, pooling/reference semantics, and cross-scan validity are not yet fixed for truST, the OOP facade remains informative and deferred. The classic FB layer is the only normative API in this draft.
+Command-object status, axis binding, interface dispatch, property reads, property assignments, and unsupported method results SHALL be locked by Structured Text unit tests. The classic FB layer remains the primary PLCopen certification surface, but the documented OOP single-axis package behavior is now a shipped public API.
 
 ## 30. Recommended implementation order
 
@@ -1511,7 +1538,7 @@ Because object lifetime, pooling/reference semantics, and cross-scan validity ar
 7. Add cartesian group moves (`MoveLinear`, `MoveDirect`) with identity kinematics and the Part 4 transition model subset.
 8. Add dynamic coordinate transforms and conveyor tracking if the product scope needs them.
 9. Add custom homing step FBs if required.
-10. Only then evaluate an OOP facade.
+10. Maintain the shipped single-axis OOP facade over the classic FB kernels; expand to group OOP only after the classic coordinated-motion package proves the needed behavior.
 
 ## 31. Final recommendation
 
@@ -1522,7 +1549,7 @@ For truST, the most robust first release is:
 - **group conflict policy:** single-axis motion on grouped axes is not allowed
 - **numeric policy:** `REAL` outside, `LREAL` inside
 - **coordinated-motion scope:** linear/direct moves first, circular/path/tool/payload/jogging later
-- **OO support:** optional facade, not the initial contract
+- **OO support:** shipped single-axis facade as a second public API over the classic kernels
 - **fluid power:** explicit non-goal for Phases A-E
 
 This gives a library that is PLCopen-shaped, testable in truST, honest about scope, and still extensible toward broader Part 4 and Part 5 behavior later.

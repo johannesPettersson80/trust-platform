@@ -34,7 +34,7 @@ pub(super) fn definition_references_and_rename_work_with_plain_demo_uris() {
         .replace_documents(documents)
         .expect("load plain-uri documents");
 
-    let ramp_offset = fb_text.find("ramp + 0.2").expect("ramp use anchor exists") as u32;
+    let ramp_offset = fb_text.find("Ramp + 0.2").expect("Ramp use anchor exists") as u32;
     let ramp_def = engine
         .definition(DefinitionRequest {
             uri: "fb_pump.st".to_string(),
@@ -44,21 +44,21 @@ pub(super) fn definition_references_and_rename_work_with_plain_demo_uris() {
     assert!(ramp_def.is_some(), "local definition for ramp should exist");
 
     let fb_type_offset = program_text
-        .find("FB_Pump;")
-        .expect("FB_Pump type use anchor exists") as u32;
+        .find("PumpController;")
+        .expect("PumpController type use anchor exists") as u32;
     let fb_type_def = engine
         .definition(DefinitionRequest {
             uri: "program.st".to_string(),
             position: offset_to_position_utf16(&program_text, fb_type_offset),
         })
-        .expect("FB_Pump definition request should succeed");
+        .expect("PumpController definition request should succeed");
     assert!(
         fb_type_def.is_some(),
-        "definition for FB_Pump type use should exist"
+        "definition for PumpController type use should exist"
     );
 
     let def_offset = fb_text
-        .find("E_PumpState#Idle")
+        .find("PumpState#Idle")
         .expect("enum use anchor exists") as u32;
     let native = native_project(&[
         DocumentInput {
@@ -121,8 +121,8 @@ pub(super) fn definition_supports_boundary_cursor_positions_with_plain_demo_uris
         .expect("load plain-uri documents");
 
     let enum_hash_offset = fb_text
-        .find("E_PumpState#Idle")
-        .map(|idx| idx as u32 + "E_PumpState".len() as u32)
+        .find("PumpState#Idle")
+        .map(|idx| idx as u32 + "PumpState".len() as u32)
         .expect("enum typed-literal anchor exists");
     let enum_def = engine
         .definition(DefinitionRequest {
@@ -136,9 +136,9 @@ pub(super) fn definition_supports_boundary_cursor_positions_with_plain_demo_uris
     );
 
     let ramp_boundary_offset = fb_text
-        .find("ramp + 0.2")
-        .map(|idx| idx as u32 + "ramp".len() as u32)
-        .expect("ramp usage anchor exists");
+        .find("Ramp + 0.2")
+        .map(|idx| idx as u32 + "Ramp".len() as u32)
+        .expect("Ramp usage anchor exists");
     let ramp_def = engine
         .definition(DefinitionRequest {
             uri: "fb_pump.st".to_string(),

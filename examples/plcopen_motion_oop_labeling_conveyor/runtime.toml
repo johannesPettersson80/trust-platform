@@ -1,0 +1,41 @@
+[bundle]
+version = 1
+
+[resource]
+name = "MotionOopLabeling"
+cycle_interval_ms = 10
+
+[runtime]
+execution_backend = "vm"
+
+[runtime.control]
+endpoint = "unix:///tmp/trust-motion-oop-labeling.sock"
+mode = "production"
+debug_enabled = false
+
+[runtime.web]
+enabled = false
+listen = "127.0.0.1:8080"
+auth = "local"
+tls = false
+
+[runtime.discovery]
+enabled = false
+service_name = "truST"
+advertise = false
+interfaces = []
+
+[runtime.log]
+level = "info"
+
+[runtime.retain]
+mode = "none"
+save_interval_ms = 1000
+
+[runtime.watchdog]
+enabled = false
+timeout_ms = 1000
+action = "halt"
+
+[runtime.fault]
+policy = "halt"

@@ -1,16 +1,16 @@
 TYPE
-    E_PumpState : (Idle := 0, Starting := 1, Running := 2, Fault := 3);
+    PumpState : (Idle := 0, Starting := 1, Running := 2, Fault := 3);
 
-    ST_PumpCommand :
+    PumpCommand :
     STRUCT
         Enable : BOOL;
         TargetSpeed : REAL;
     END_STRUCT;
 
-    ST_PumpStatus :
+    PumpStatus :
     STRUCT
         Running : BOOL;
-        State : E_PumpState;
+        State : PumpState;
         ActualSpeed : REAL;
         Alarm : UDINT;
     END_STRUCT;

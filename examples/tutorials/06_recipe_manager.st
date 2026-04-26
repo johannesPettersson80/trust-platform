@@ -1,30 +1,30 @@
 PROGRAM RecipeManager
 VAR
-    selected_recipe : INT := 1;
-    apply_selection : BOOL := TRUE;
-    active_target_temp : REAL := 0.0;
-    active_mix_time : TIME := T#0s;
-    active_batch_size : INT := 0;
+    SelectedRecipe : INT := 1;
+    ApplySelection : BOOL := TRUE;
+    ActiveTargetTemperature : REAL := 0.0;
+    ActiveMixTime : TIME := T#0s;
+    ActiveBatchSize : INT := 0;
 END_VAR
 
-IF apply_selection THEN
-    CASE selected_recipe OF
+IF ApplySelection THEN
+    CASE SelectedRecipe OF
         1:
-            active_target_temp := 65.0;
-            active_mix_time := T#30s;
-            active_batch_size := 10;
+            ActiveTargetTemperature := 65.0;
+            ActiveMixTime := T#30s;
+            ActiveBatchSize := 10;
         2:
-            active_target_temp := 72.5;
-            active_mix_time := T#45s;
-            active_batch_size := 14;
+            ActiveTargetTemperature := 72.5;
+            ActiveMixTime := T#45s;
+            ActiveBatchSize := 14;
         3:
-            active_target_temp := 80.0;
-            active_mix_time := T#60s;
-            active_batch_size := 18;
+            ActiveTargetTemperature := 80.0;
+            ActiveMixTime := T#60s;
+            ActiveBatchSize := 18;
         ELSE
-            active_target_temp := 60.0;
-            active_mix_time := T#20s;
-            active_batch_size := 8;
+            ActiveTargetTemperature := 60.0;
+            ActiveMixTime := T#20s;
+            ActiveBatchSize := 8;
     END_CASE;
 END_IF;
 END_PROGRAM

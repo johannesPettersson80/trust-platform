@@ -1,49 +1,49 @@
-TEST_PROGRAM TEST_LIMIT_ADD_AND_SCALING
+TEST_PROGRAM LimitAddAndScaling
 ASSERT_EQUAL(
     EXPECTED := INT#7,
-    ACTUAL := LIMIT_ADD(A := INT#3, B := INT#4, MAX_VALUE := INT#10)
+    ACTUAL := LimitAdd(AddendA := INT#3, AddendB := INT#4, MaxValue := INT#10)
 );
 ASSERT_EQUAL(
     EXPECTED := INT#5,
-    ACTUAL := LIMIT_ADD(A := INT#3, B := INT#4, MAX_VALUE := INT#5)
+    ACTUAL := LimitAdd(AddendA := INT#3, AddendB := INT#4, MaxValue := INT#5)
 );
 ASSERT_EQUAL(
     EXPECTED := INT#-2,
-    ACTUAL := LIMIT_ADD(A := INT#-3, B := INT#1, MAX_VALUE := INT#100)
+    ACTUAL := LimitAdd(AddendA := INT#-3, AddendB := INT#1, MaxValue := INT#100)
 );
 (* REAL assertions should use tolerance for stable behavior. *)
 ASSERT_NEAR(
     EXPECTED := REAL#37.5,
-    ACTUAL := SCALE_RAW_TO_PERCENT(RAW := INT#375),
+    ACTUAL := ScaleRawToPercent(Raw := INT#375),
     DELTA := REAL#0.01
 );
-ASSERT_TRUE(IN := LIMIT_ADD(A := INT#2, B := INT#2, MAX_VALUE := INT#5) = INT#4);
-ASSERT_FALSE(IN := LIMIT_ADD(A := INT#2, B := INT#2, MAX_VALUE := INT#3) = INT#4);
+ASSERT_TRUE(IN := LimitAdd(AddendA := INT#2, AddendB := INT#2, MaxValue := INT#5) = INT#4);
+ASSERT_FALSE(IN := LimitAdd(AddendA := INT#2, AddendB := INT#2, MaxValue := INT#3) = INT#4);
 END_TEST_PROGRAM
 
-TEST_FUNCTION_BLOCK TEST_FB_START_STOP_SEQUENCE
+TEST_FUNCTION_BLOCK StartStopSequence
 VAR
-    DUT : FB_START_STOP;
+    Dut : StartStopLatch;
 END_VAR
 
 (* Cycle 1: idle state, output should stay FALSE. *)
-DUT(StartCmd := FALSE, StopCmd := FALSE);
-ASSERT_FALSE(DUT.Running);
+Dut(StartCmd := FALSE, StopCmd := FALSE);
+ASSERT_FALSE(Dut.Running);
 
 (* Cycle 2: start command latches Running TRUE. *)
-DUT(StartCmd := TRUE, StopCmd := FALSE);
-ASSERT_TRUE(DUT.Running);
+Dut(StartCmd := TRUE, StopCmd := FALSE);
+ASSERT_TRUE(Dut.Running);
 
 (* Cycle 3: no input change keeps the latched state. *)
-DUT(StartCmd := FALSE, StopCmd := FALSE);
-ASSERT_TRUE(DUT.Running);
+Dut(StartCmd := FALSE, StopCmd := FALSE);
+ASSERT_TRUE(Dut.Running);
 
 (* Cycle 4: stop command resets Running to FALSE. *)
-DUT(StartCmd := FALSE, StopCmd := TRUE);
-ASSERT_FALSE(DUT.Running);
+Dut(StartCmd := FALSE, StopCmd := TRUE);
+ASSERT_FALSE(Dut.Running);
 END_TEST_FUNCTION_BLOCK
 
-TEST_PROGRAM TEST_COMPARISON_ASSERTIONS
+TEST_PROGRAM ComparisonAssertions
 ASSERT_NOT_EQUAL(
     EXPECTED := INT#5,
     ACTUAL := INT#3

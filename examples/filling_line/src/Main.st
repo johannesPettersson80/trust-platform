@@ -8,7 +8,7 @@ VAR
     PumpSpeedOut : INT;
 
     LevelPct : REAL;
-    Ctrl : LevelControllerFb2;
+    Ctrl : LevelController;
 END_VAR
 
 LevelPct := INT_TO_REAL(LevelRaw) * 0.1;

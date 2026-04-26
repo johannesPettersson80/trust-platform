@@ -59,17 +59,17 @@ Note: `TEST_PROGRAM`, `TEST_FUNCTION_BLOCK`, and `ASSERT_*` are truST extensions
 
 Open `src/main.st`. It contains:
 
-- `LIMIT_ADD` (pure function with clamping),
-- `SCALE_RAW_TO_PERCENT` (integer-to-real conversion),
-- `FB_START_STOP` (stateful start/stop behavior).
+- `LimitAdd` (pure function with clamping),
+- `ScaleRawToPercent` (integer-to-real conversion),
+- `StartStopLatch` (stateful start/stop behavior).
 
 ## Step 2: Review test cases
 
 Open `src/tests.st`.
 
-- `TEST_PROGRAM TEST_LIMIT_ADD_AND_SCALING` tests pure function behavior.
-- `TEST_FUNCTION_BLOCK TEST_FB_START_STOP_SEQUENCE` tests state transitions across scan cycles.
-- `TEST_PROGRAM TEST_COMPARISON_ASSERTIONS` demonstrates comparison assertions.
+- `TEST_PROGRAM LimitAddAndScaling` tests pure function behavior.
+- `TEST_FUNCTION_BLOCK StartStopSequence` tests state transitions across scan cycles.
+- `TEST_PROGRAM ComparisonAssertions` demonstrates comparison assertions.
 
 ## Step 3: Run all tests
 

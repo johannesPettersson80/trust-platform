@@ -1,0 +1,10 @@
+TEST_PROGRAM WindSpeedAlarmClassicConvertsAndRaisesAlarm
+VAR
+    WindAlarm : HYST;
+END_VAR
+
+WindAlarm(In := REAL#10.0, HIGH_LIMIT := REAL#8.0, LOW_LIMIT := REAL#3.0);
+
+ASSERT_EQUAL(EXPECTED := MS_TO_BFT(MS := REAL#10.0), ACTUAL := MS_TO_BFT(MS := REAL#10.0));
+ASSERT_TRUE(IN := WindAlarm.Q);
+END_TEST_PROGRAM

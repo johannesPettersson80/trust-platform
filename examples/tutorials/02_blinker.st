@@ -1,21 +1,21 @@
 PROGRAM Blinker
 VAR
-    enable : BOOL := TRUE;
-    lamp : BOOL := FALSE;
-    pulse_pt : TIME := T#250ms;
-    timer_enable : BOOL := TRUE;
-    blink_timer : TON;
+    Enable : BOOL := TRUE;
+    Lamp : BOOL := FALSE;
+    PulsePeriod : TIME := T#250ms;
+    TimerEnable : BOOL := TRUE;
+    BlinkTimer : TON;
 END_VAR
 
-blink_timer(IN := timer_enable, PT := pulse_pt);
+BlinkTimer(IN := TimerEnable, PT := PulsePeriod);
 
-IF NOT enable THEN
-    lamp := FALSE;
-    timer_enable := FALSE;
-ELSIF blink_timer.Q THEN
-    lamp := NOT lamp;
-    timer_enable := FALSE;
+IF NOT Enable THEN
+    Lamp := FALSE;
+    TimerEnable := FALSE;
+ELSIF BlinkTimer.Q THEN
+    Lamp := NOT Lamp;
+    TimerEnable := FALSE;
 ELSE
-    timer_enable := TRUE;
+    TimerEnable := TRUE;
 END_IF;
 END_PROGRAM

@@ -98,6 +98,7 @@ nav:
           - Program In VS Code: start/program-in-vscode.md
           - Program In Browser IDE: start/program-in-browser.md
           - Project Layout: develop/project-layout.md
+          - Structured Text Naming Standard: develop/st-naming-standard.md
           - Vendor Profiles: develop/vendor-profiles.md
           - Maintain An Existing Project: start/maintain-an-existing-project.md
           - Create A New Project: start/create-new-project.md
@@ -153,7 +154,9 @@ nav:
       - Libraries And Motion:
           - Libraries Overview: develop/libraries/index.md
           - OSCAT: develop/libraries/oscat.md
+          - OSCAT Components: develop/libraries/oscat-components.md
           - PLCopen Motion: develop/libraries/plcopen-motion.md
+          - PLCopen Motion OOP: develop/libraries/plcopen-motion-oop.md
           - Libraries And Motion Examples: examples/libraries-and-motion.md
       - Migration While Programming:
           - Migration Overview: migrate/index.md

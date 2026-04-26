@@ -1,8 +1,8 @@
 PROGRAM PlantProgram
 VAR
-    Pump : FB_Pump;
-    Cmd : ST_PumpCommand;
-    Status : ST_PumpStatus;
+    Pump : PumpController;
+    Cmd : PumpCommand;
+    Status : PumpStatus;
     StartCmd : BOOL;
     SpeedRaw : INT;
     SpeedSet : REAL;
@@ -16,7 +16,7 @@ Cmd.TargetSpeed := SpeedSet;
 Pump(Command := Cmd);
 Status := Pump.Status;
 HaltReq := FALSE;
-IF Status.State = E_PumpState#Fault THEN
+IF Status.State = PumpState#Fault THEN
     HaltReq := TRUE;
 END_IF
 END_PROGRAM

@@ -15,7 +15,7 @@ Code.
 ## Project Structure
 
 - `src/types.st`: shared enums/structs
-- `src/fb_pump.st`: `FB_Pump` state machine
+- `src/fb_pump.st`: `PumpController` state machine
 - `src/program.st`: orchestration logic (`PlantProgram`)
 - `src/config.st`: `CONFIGURATION`, `TASK`, program binding
 - `trust-lsp.toml`: indexing/profile settings for editor/runtime features
@@ -31,11 +31,11 @@ trust-runtime validate --project examples/plant_demo
 ## Step 2: Cross-File Navigation (Exact Keystrokes)
 
 1. Open `src/program.st`.
-2. Hold `Ctrl` and click `FB_Pump` -> lands in `src/fb_pump.st`.
+2. Hold `Ctrl` and click `PumpController` -> lands in `src/fb_pump.st`.
 3. Press `Alt+Left` to go back.
 4. Place cursor on `SpeedSet`, press `F2`, enter `PumpSpeedSet`.
 5. Confirm rename preview includes all impacted references.
-6. Right-click `E_PumpState` -> `Find All References` (or `Shift+F12`).
+6. Right-click `PumpState` -> `Find All References` (or `Shift+F12`).
 7. Verify references appear across multiple files.
 
 ## Step 3: Debugger Walkthrough
@@ -45,7 +45,7 @@ trust-runtime validate --project examples/plant_demo
 3. Press `F5` (uses `.vscode/launch.json`).
 4. In Runtime Panel, toggle `%IX0.0` (start signal).
 5. Step through transitions (`Idle` -> `Starting` -> `Running`).
-6. Inspect Variables panel and inline values for `Status.State` and `ramp`.
+6. Inspect Variables panel and inline values for `Status.State` and `Ramp`.
 
 ## Step 4: Understand Configuration Relationship
 
@@ -61,7 +61,7 @@ This is the runtime wiring contract for your typed logic model.
 ## Step 5: Guided Change Exercise
 
 1. In `src/fb_pump.st`, change:
-   - `RAMP_TIME : TIME := T#1s;` -> `T#2s`
+   - `RampTime : TIME := T#1s;` -> `T#2s`
 2. Re-run debug.
 3. Observe longer time spent in `Starting` before `Running`.
 
