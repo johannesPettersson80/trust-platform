@@ -1,0 +1,5 @@
+[io]
+drivers = [
+  { name = "mqtt", params = { broker = "127.0.0.1:1883", topic_in = "district/pumps/remote/demand", topic_out = "district/pumps/local/snapshot", reconnect_ms = 500, keep_alive_s = 5, allow_insecure_remote = false } },
+  { name = "modbus-tcp", params = { address = "127.0.0.1:1515", unit_id = 61, input_start = 0, output_start = 0, timeout_ms = 500, on_error = "warn" } }
+]

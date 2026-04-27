@@ -1,5 +1,0 @@
-[project]
-include_paths = ["src"]
-
-[dependencies]
-AutomationComponents = { path = "../../../../../../libraries/oscat/components", version = "0.1.0" }

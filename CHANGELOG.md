@@ -6,7 +6,28 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.23.0`
+Target release: `v0.24.0`
+
+### Changed
+
+- OSCAT OOP now uses the settled `OscatOop` dependency alias,
+  concrete types in simple examples, `PidGains` plus `Configure(...)` for PID
+  setup, clearer PID/calendar/astronomy names, and example coverage for
+  `Snapshot()` and configuration error handling.
+
+### Fixed
+
+- `Pt1Filter.Reset()` now reinitializes the underlying OSCAT `FT_PT1` state on
+  the next update, and `HysteresisSwitch.Reset()` now resets the actual
+  hysteresis state instead of only clearing cached wrapper fields.
+- `UnitConverter` now delegates Celsius/Kelvin and energy/calorie conversions
+  to classic OSCAT functions/function blocks so the component facade cannot
+  silently diverge from the parity oracle.
+- OSCAT OOP tests now cover reset behavior, multi-scan PT1 parity,
+  invalid limit rejection, FIFO ordering, and the OSCAT version through
+  `OSCAT_VERSION(IN := FALSE)` instead of a hardcoded value.
+- Public docs links for PLCopen/Oscat example READMEs now resolve under MkDocs
+  strict mode.
 
 ### Added
 
@@ -20,15 +41,27 @@ Target release: `v0.23.0`
   runnable real-world examples: warehouse shuttle, labeling conveyor,
   pick-and-place lift, indexing table, and feeder axis.
 - OSCAT now ships an object-oriented Components companion package at
-  `libraries/oscat/components`, with narrow interfaces for automation context,
-  unit conversion, PT1 filtering, PID control, hysteresis switching, pulse
-  generation, FIFO/stack memory objects, and calendar/sun calculations. The
-  package is covered by Structured Text parity tests against classic OSCAT.
-- The examples catalog now includes 20 OSCAT comparison scenarios, shipped as
-  40 projects total: one classic OSCAT implementation and one OSCAT Components
-  implementation per scenario. Each project has a README and Structured Text
-  unit tests, and the public docs include a library guide plus the new truST
-  Structured Text naming standard.
+  `libraries/oscat/oop`, with narrow interfaces for automation context,
+  unit conversion, filtering, PI/PID/PWM control, hysteresis switching, signal
+  generation, FIFO/stack memory objects, latches/toggles/counters, measuring
+  components, calendar/RTC helpers, selected building-control objects, and a
+  single-output device driver. The package is covered by Structured Text
+  parity tests against classic OSCAT.
+- The OSCAT OOP example suite now includes 49 classic/OOP comparison
+  pairs under `examples/OSCAT/<example>/{non-oop,oop}`: 27 hand-written
+  process-first industrial pattern scenarios, 20 compact component-composition
+  showcases, and 2 compact pattern showcases. Each example folder has one
+  teaching README explaining the process, the OOP pattern, why it helps, how to
+  reuse it, and when classic ST is better. Each project has Structured Text
+  application code and Structured Text unit tests; OOP projects with
+  communication claims include runtime/IO
+  configuration and README integration maps naming `%I/%Q` bindings and exposed
+  runtime records. A Rust catalog gate now runs every project and checks that
+  the claimed OOP pattern is present in `src/Main.st`, covering Factory,
+  Template Method, Strategy, Mediator, Observer, Composite, Iterator-style
+  traversal, Decorator, Facade, Chain of Responsibility, State,
+  Command/Memento, Adapter, Proxy, polymorphism, and composition. Public docs
+  include a library guide plus the new truST Structured Text naming standard.
 
 - The public docs now include a `One Project, Every Surface` concept page that
   positions VS Code, Editor AI tools, Browser IDE, Browser HMI, CLI/CI, Agent

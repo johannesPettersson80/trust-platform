@@ -1,0 +1,37 @@
+[bundle]
+version = 1
+
+[resource]
+name = "ColdStoragePlantOop"
+cycle_interval_ms = 100
+
+[runtime.control]
+endpoint = "tcp://127.0.0.1:0"
+auth_token = "trust-oscat-oop-example-token"
+
+[runtime.opcua]
+enabled = true
+listen = "127.0.0.1:4840"
+endpoint_path = "/"
+namespace_uri = "urn:trust:examples:cold-storage-plant"
+publish_interval_ms = 250
+max_nodes = 128
+expose = ["Plant.RunningCompressorCount", "Plant.FreezerDemand", "Plant.ChillerDemand", "Plant.AlarmCount"]
+security_policy = "none"
+security_mode = "none"
+allow_anonymous = true
+
+[runtime.log]
+level = "info"
+
+[runtime.retain]
+mode = "none"
+save_interval_ms = 1000
+
+[runtime.watchdog]
+enabled = false
+timeout_ms = 1000
+action = "halt"
+
+[runtime.fault]
+policy = "halt"

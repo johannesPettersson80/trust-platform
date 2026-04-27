@@ -1,0 +1,9 @@
+[io]
+drivers = [
+  { name = "modbus-tcp", params = { address = "127.0.0.1:1505", unit_id = 70, input_start = 0, output_start = 0, timeout_ms = 500, on_error = "warn" } },
+  { name = "mqtt", params = { broker = "127.0.0.1:1883", topic_in = "coldstore/plant/cmd", topic_out = "coldstore/plant/event", reconnect_ms = 500, keep_alive_s = 5, allow_insecure_remote = false } }
+]
+
+[[io.safe_state]]
+address = "%QX0.0"
+value = "FALSE"

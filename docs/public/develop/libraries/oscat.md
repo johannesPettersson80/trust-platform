@@ -6,7 +6,7 @@ compatibility boundary.
 Use [Libraries](index.md) for package/project ownership. Use [Project Layout](../project-layout.md)
 for project structure.
 
-Use [OSCAT Components](oscat-components.md) when the same OSCAT-backed
+Use [OSCAT OOP](oscat-oop.md) when the same OSCAT-backed
 application logic should be written with objects, narrow interfaces, and
 Structured Text component tests.
 
@@ -17,6 +17,6 @@ Structured Text component tests.
 ## Related
 
 - [Libraries overview](index.md)
-- [OSCAT Components](oscat-components.md)
+- [OSCAT OOP](oscat-oop.md)
 - [Project Layout](../project-layout.md)
 - [Libraries and Motion examples](../../examples/libraries-and-motion.md)

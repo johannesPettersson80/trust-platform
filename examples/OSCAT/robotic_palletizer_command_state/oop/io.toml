@@ -1,0 +1,9 @@
+[io]
+drivers = [
+  { name = "ethercat", params = { master = "simulated", cycle_us = 1000, on_error = "warn" } },
+  { name = "mqtt", params = { broker = "127.0.0.1:1883", topic_in = "packaging/palletizer/01/cmd", topic_out = "packaging/palletizer/01/event", reconnect_ms = 500, keep_alive_s = 5, allow_insecure_remote = false } }
+]
+
+[[io.safe_state]]
+address = "%QX0.0"
+value = "FALSE"

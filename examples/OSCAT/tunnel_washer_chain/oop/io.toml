@@ -1,0 +1,5 @@
+[io]
+drivers = [
+  { name = "modbus-rtu", params = { device = "loop://washer-conductivity", baud = 19200, parity = "even", slave = 131, timeout_ms = 250, on_error = "warn" } },
+  { name = "mqtt", params = { broker = "127.0.0.1:1883", topic_in = "laundry/washer/01/cmd", topic_out = "laundry/washer/01/quality", reconnect_ms = 500, keep_alive_s = 5, allow_insecure_remote = false } }
+]

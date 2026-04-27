@@ -2,8 +2,10 @@
 
 Date: 2026-04-26
 
-Status: v0.1 kernel implemented. Core library ST tests and 20 classic/components
-example pairs are part of the acceptance surface.
+Status: v1.0 component surface implemented in the working tree. Core library
+ST tests and 49 classic/components comparison pairs are part of the acceptance
+surface: 27 industrial pattern pairs, 20 compact component-composition
+showcases, and 2 compact pattern showcases.
 
 Verdict: build a complete object-oriented component library as a staged,
 optional facade over the classic OSCAT package. Do not put `OOP`, `Object`,
@@ -100,7 +102,7 @@ object-oriented facade. OSCAT should follow the same coexistence rule.
 
 ## Naming Standard
 
-This section defines the default naming standard for the OSCAT Components
+This section defines the default naming standard for the OSCAT OOP
 library surface and its examples. It is also suitable as the default style for
 new truST-authored ST, but it does not rewrite inherited PLCopen, OSCAT, or
 vendor profile symbols.
@@ -126,9 +128,9 @@ Common software design rules applied here:
 
 Therefore:
 
-- package path: `libraries/oscat/components`
-- dependency alias: `AutomationComponents`
-- documentation name: `OSCAT Components`
+- package path: `libraries/oscat/oop`
+- dependency alias: `OscatOop`
+- documentation name: `OSCAT OOP`
 - source files: lower_snake package/domain files that match the existing
   library layout, for example `component_types.st`,
   `component_interfaces.st`, `control.st`, `memory.st`, and `calendar.st`
@@ -278,7 +280,7 @@ Long-term non-goal:
 Proposed directory:
 
 ```text
-libraries/oscat/components/
+libraries/oscat/oop/
   trust-lsp.toml
   README.md
   src/
@@ -310,7 +312,7 @@ Consumer dependency:
 
 ```toml
 [dependencies]
-AutomationComponents = { path = "../../libraries/oscat/components", version = "0.1.0" }
+OscatOop = { path = "../../libraries/oscat/oop", version = "0.1.0" }
 ```
 
 Version policy:
@@ -318,7 +320,7 @@ Version policy:
 - The component package is release-notable and should track the shipped OSCAT
   package version unless we add package-version indirection later.
 - If `libraries/oscat/trust-lsp.toml` changes version, keep
-  `libraries/oscat/components/trust-lsp.toml` and the dependency examples in
+  `libraries/oscat/oop/trust-lsp.toml` and the dependency examples in
   lockstep.
 - Do not use `version = "*"` in checked-in examples; exact local versions make
   examples and release evidence deterministic.
@@ -326,7 +328,7 @@ Version policy:
 Proposed test fixture:
 
 ```text
-crates/trust-runtime/tests/fixtures/oscat/components_core/
+crates/trust-runtime/tests/fixtures/oscat/oop_core/
   trust-lsp.toml
   src/
     Configuration.st
@@ -336,7 +338,7 @@ crates/trust-runtime/tests/fixtures/oscat/components_core/
 Proposed Rust test driver:
 
 ```text
-crates/trust-runtime/tests/oscat_components_library.rs
+crates/trust-runtime/tests/oscat_oop_library.rs
 ```
 
 The Rust driver should follow the same real shape as
@@ -431,15 +433,15 @@ END_TYPE
 TYPE SunPosition :
 STRUCT
     Azimuth : REAL;
-    Height : REAL;
-    RefractedHeight : REAL;
+    Elevation : REAL;
+    RefractedElevation : REAL;
 END_STRUCT
 END_TYPE
 
 TYPE SunTimes :
 STRUCT
-    Midday : TOD;
-    Rise : TOD;
+    SolarNoon : TOD;
+    Sunrise : TOD;
     Sunset : TOD;
     Declination : REAL;
 END_STRUCT
@@ -622,7 +624,7 @@ Read-only properties:
 - `ManualInput : REAL`
 - `Offset : REAL`
 - `Output : REAL`
-- `Difference : REAL`
+- `ControlError : REAL`
 - `Limited : BOOL`
 - `LowLimit : REAL`
 - `HighLimit : REAL`
@@ -635,7 +637,7 @@ Methods:
 - `SetKp(Kp : REAL)`
 - `SetIntegralTime(Tn : REAL)`
 - `SetDerivativeTime(Tv : REAL)`
-- `SetNoiseBand(SupervisionBand : REAL)`
+- `SetSupervisionBand(SupervisionBand : REAL)`
 - `SetOffset(Offset : REAL)`
 - `SetLimits(Limits : RealRange)`
 - `SetManual(Manual : BOOL, ManualInput : REAL)`
@@ -791,12 +793,12 @@ Read-only properties:
 - `LanguageIndex : INT`
 - `Longitude : REAL`
 - `Latitude : REAL`
-- `SunRise : TOD`
-- `SunSet : TOD`
-- `SunMidday : TOD`
-- `SunHeight : REAL`
-- `SunHorizontal : REAL`
-- `SunVertical : REAL`
+- `Sunrise : TOD`
+- `Sunset : TOD`
+- `SolarNoon : TOD`
+- `SolarElevation : REAL`
+- `SolarHorizontalProjection : REAL`
+- `SolarVerticalProjection : REAL`
 - `Night : BOOL`
 - `Holiday : BOOL`
 - `HolidayName : STRING[30]`
@@ -1022,19 +1024,19 @@ Mappings:
 | `09_arithmetic_functions` | filters/ramp FBs wrapped; pure functions classic-only |
 | `10_geometric_functions` | classic-only |
 | `11_vector_mathematics` | classic-only unless a vector object is requested |
-| `12_time_and_date` | calendar/holiday/event objects wrapped where stateful |
+| `12_time_and_date` | calendar, holiday, and RTC objects wrapped where stateful |
 | `13_string_functions` | classic-only in v1.0 unless a text workflow proves object value |
 | `14_memory_modules` | FIFO/stack objects wrapped |
 | `15_pulse_generators` | separate generator-family objects |
-| `16_logic_modules` | stateful/structured logic FBs considered in v0.5; pure bit functions classic-only |
+| `16_logic_modules` | pure bit functions classic-only; stateful logic is covered through chapter 17 objects |
 | `17_latches_flip_flop_and_shift_register` | latch/toggle/counter/shift-register objects |
 | `18_signal_generators` | separate generator-family objects |
-| `19_signal_processing` | filter/sample/selection objects where stateful |
+| `19_signal_processing` | classic-only unless a future workflow needs an owning processing object |
 | `20_sensors` | classic-only by default; stateful calibrated sensor object only if justified |
-| `21_measuring_modules` | meter/calibration/alarm objects |
+| `21_measuring_modules` | ontime, cycle-time, calibration, and bar-graph objects wrapped |
 | `22_calculations` | selected result-record service methods only |
 | `23_control_modules` | controller/filter/building-control objects |
-| `24_device_driver` | separate device-driver design pass |
+| `24_device_driver` | selected narrow device-driver objects wrapped; complex protocol/profile objects classic-only |
 | `25_buffer_management` | classic-only unless a true owning buffer object is added |
 | `26_list_processing` | classic-only unless a true owning list object is added |
 
@@ -1177,8 +1179,8 @@ fn assert_trust_runtime_test_passes(project: PathBuf) {
 }
 
 #[test]
-fn oscat_components_core_st_unit_tests_pass() {
-    assert_trust_runtime_test_passes(fixture_path("components_core"));
+fn oscat_oop_core_st_unit_tests_pass() {
+    assert_trust_runtime_test_passes(fixture_path("oop_core"));
 }
 ```
 
@@ -1190,37 +1192,28 @@ same scan sequence and assert equality after each step.
 
 If implemented, add:
 
-- `docs/guides/OSCAT_COMPONENTS_LIBRARY_GUIDE.md`
-- `docs/public/develop/libraries/oscat-components.md`
+- `docs/guides/OSCAT_OOP_LIBRARY_GUIDE.md`
+- `docs/public/develop/libraries/oscat-oop.md`
 - A link from `docs/public/develop/libraries/index.md`
 - A link from `docs/public/develop/libraries/oscat.md`
 - A link from `docs/public/examples/libraries-and-motion.md`
-- `libraries/oscat/components/README.md`
+- `libraries/oscat/oop/README.md`
 
-v0.1 ships comparison examples as pairs: one classic OSCAT project and one
-OSCAT Components project for the same scenario. The implemented target is 20
-real-world scenarios, 40 example projects total:
+The catalog ships comparison examples as pairs: one classic OSCAT project and
+one OSCAT OOP project for the same machine/process scenario. The
+implemented target is 49 comparison pairs: 27 hand-written process-first
+industrial pattern scenarios, 20 compact component-composition showcases, and 2
+compact pattern showcases. The industrial-pattern acceptance contract lives in
+`docs/internal/references/OSCAT/oscat_oop_realworld_pattern_catalog.md`.
 
-- tank level PID
-- greenhouse temperature
-- conveyor pulse
-- production queue
-- maintenance stack
-- ventilation filter
-- solar lighting clock
-- pump pressure
-- energy normalization
-- wind-speed alarm
-- cold-storage alarm
-- wastewater aeration
-- packaging reject pulse
-- recipe batch stack
-- shift order queue
-- irrigation sun clock
-- compressor pressure filter
-- chiller temperature PID
-- boiler feedwater alarm
-- weather-station conversion
+The catalog is intentionally not component-first. It demonstrates the OOP
+surface inside real machines: batch reactor, AHU, water booster station, tank
+farm, refinery signal conditioning, boiler room, pasteurizer, CIP skid,
+chemical dosing skid, VFD motor cell, cold storage plant, commissioning mode,
+filling line, palletizer, silo loading, tunnel oven, hoist cell, filter
+backwash, tunnel washer, battery cabinet, conveyor merge, cleanroom pressure
+cascade, cooling tower, kiln dryer, baggage diverter, dairy separator, district
+pump network, plus compact polymorphism and composition showcases.
 
 Each example should pass its Structured Text tests:
 
@@ -1232,8 +1225,8 @@ trust-runtime test --project examples/<example-name>
 
 Targeted gates:
 
-- `cargo test -p trust-runtime --test oscat_components_library`
-- `cargo test -p trust-runtime --test oscat_components_examples`
+- `cargo test -p trust-runtime --test oscat_oop_library`
+- `cargo test -p trust-runtime --test oscat_oop_examples`
 - `scripts/render_diagrams.sh`
 - `python scripts/check_diagram_drift.py`
 

@@ -1,0 +1,10 @@
+[io]
+drivers = [
+  { name = "modbus-rtu", params = { device = "loop://mixed-vfd-segment-a", baud = 19200, parity = "even", slave = 61, timeout_ms = 250, on_error = "warn" } },
+  { name = "modbus-rtu", params = { device = "loop://mixed-vfd-segment-b", baud = 19200, parity = "even", slave = 62, timeout_ms = 250, on_error = "warn" } },
+  { name = "mqtt", params = { broker = "127.0.0.1:1883", topic_in = "conveyor/motorcell/cmd", topic_out = "conveyor/motorcell/status", reconnect_ms = 500, keep_alive_s = 5, allow_insecure_remote = false } }
+]
+
+[[io.safe_state]]
+address = "%QX0.0"
+value = "FALSE"

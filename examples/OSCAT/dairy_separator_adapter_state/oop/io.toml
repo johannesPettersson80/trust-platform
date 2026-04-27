@@ -1,0 +1,5 @@
+[io]
+drivers = [
+  { name = "modbus-rtu", params = { port = "/dev/ttyUSB4", baud = 19200, parity = "even", unit_id = 41, timeout_ms = 500, on_error = "warn" } },
+  { name = "mqtt", params = { broker = "127.0.0.1:1883", topic_in = "dairy/separator/01/cmd", topic_out = "dairy/separator/01/event", reconnect_ms = 500, keep_alive_s = 5, allow_insecure_remote = false } }
+]

@@ -1,0 +1,6 @@
+[project]
+include_paths = ["src"]
+stdlib = "iec"
+
+[dependencies]
+OscatOop = { path = "../../../../libraries/oscat/oop", version = "0.1.0" }

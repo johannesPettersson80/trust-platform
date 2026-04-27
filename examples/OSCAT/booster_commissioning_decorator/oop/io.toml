@@ -1,0 +1,8 @@
+[io]
+drivers = [
+  { name = "modbus-rtu", params = { device = "loop://booster-vfd-commissioning", baud = 19200, parity = "even", slave = 71, timeout_ms = 250, on_error = "warn" } }
+]
+
+[[io.safe_state]]
+address = "%QX0.0"
+value = "FALSE"

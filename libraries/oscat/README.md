@@ -11,6 +11,7 @@ same chapter directory.
 Shipped scope:
 
 - manual chapter folders `03_data_types` through `26_list_processing`
+- OOP companion package under `libraries/oscat/oop`
 - matching runtime chapter fixtures under
   `crates/trust-runtime/tests/fixtures/oscat/core/src/<chapter>/tests.st`
 - full shipped core fixture currently validated as `126` tests / `0` failures /
@@ -29,7 +30,9 @@ Shipped scope:
 User-facing reference material lives in:
 
 - `docs/guides/OSCAT_LIBRARY_GUIDE.md`
+- `docs/guides/OSCAT_OOP_LIBRARY_GUIDE.md`
 - `examples/oscat_smoke/README.md`
+- `examples/OSCAT/README.md`
 
 Upstream reference source for this package lives in:
 
@@ -41,6 +44,7 @@ Upstream reference source for this package lives in:
 Conformance consumers live under:
 
 - `crates/trust-runtime/tests/fixtures/oscat/core`
+- `crates/trust-runtime/tests/fixtures/oscat/oop_core`
 - `crates/trust-runtime/tests/fixtures/oscat/negative_public_surface`
 
 Current public-surface parity snapshot against upstream OSCAT BASIC:

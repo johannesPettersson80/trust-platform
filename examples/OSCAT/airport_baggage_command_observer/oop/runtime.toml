@@ -1,0 +1,22 @@
+[bundle]
+version = 1
+
+[resource]
+name = "AirportBaggageCommandObserverOop"
+cycle_interval_ms = 50
+
+[runtime.control]
+endpoint = "tcp://127.0.0.1:0"
+auth_token = "trust-oscat-oop-example-token"
+
+[runtime.opcua]
+enabled = true
+listen = "127.0.0.1:4840"
+endpoint_path = "/"
+namespace_uri = "urn:trust:examples:airport-baggage-command-observer"
+publish_interval_ms = 250
+max_nodes = 128
+expose = ["Diverter.LastBagId", "Diverter.LastCommandId", "Diverter.EventCount"]
+security_policy = "none"
+security_mode = "none"
+allow_anonymous = true

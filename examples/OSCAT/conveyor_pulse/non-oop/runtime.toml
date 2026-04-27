@@ -1,0 +1,25 @@
+[bundle]
+version = 1
+
+[resource]
+name = "ConveyorPulseClassic"
+cycle_interval_ms = 100
+
+[runtime.control]
+endpoint = "tcp://127.0.0.1:0"
+auth_token = "trust-oscat-oop-example-token"
+
+[runtime.log]
+level = "info"
+
+[runtime.retain]
+mode = "none"
+save_interval_ms = 1000
+
+[runtime.watchdog]
+enabled = false
+timeout_ms = 1000
+action = "halt"
+
+[runtime.fault]
+policy = "halt"

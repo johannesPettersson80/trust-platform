@@ -1717,13 +1717,13 @@ ELSE
         cx(in := FALSE);
         STATUS := BYTE#100;
     END_IF;
-    tn(in := cx.out AND (MAX_VALVE_TIME > T#0s), PT := MAX_VALVE_TIME);
+    tn(in := cx.OUT AND (MAX_VALVE_TIME > T#0s), PT := MAX_VALVE_TIME);
     IF tn.Q THEN
         ALARM := TRUE;
         STATUS := BYTE#2;
         cx(in := FALSE);
     END_IF;
-    VALVE := cx.out;
+    VALVE := cx.OUT;
 END_IF;
 END_FUNCTION_BLOCK
 

@@ -1,0 +1,9 @@
+[io]
+drivers = [
+  { name = "modbus-rtu", params = { device = "loop://cip-conductivity-meter", baud = 19200, parity = "even", slave = 41, timeout_ms = 250, on_error = "warn" } },
+  { name = "mqtt", params = { broker = "127.0.0.1:1883", topic_in = "dairy/cip/01/cmd", topic_out = "dairy/cip/01/step_transition", reconnect_ms = 500, keep_alive_s = 5, allow_insecure_remote = false } }
+]
+
+[[io.safe_state]]
+address = "%QX0.0"
+value = "FALSE"

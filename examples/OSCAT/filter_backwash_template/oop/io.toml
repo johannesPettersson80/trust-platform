@@ -1,0 +1,5 @@
+[io]
+drivers = [
+  { name = "modbus-rtu", params = { device = "loop://filter-flow-pressure", baud = 19200, parity = "even", slave = 121, timeout_ms = 250, on_error = "warn" } },
+  { name = "mqtt", params = { broker = "127.0.0.1:1883", topic_in = "water/filter/01/cmd", topic_out = "water/filter/01/backwash", reconnect_ms = 500, keep_alive_s = 5, allow_insecure_remote = false } }
+]

@@ -154,7 +154,7 @@ nav:
       - Libraries And Motion:
           - Libraries Overview: develop/libraries/index.md
           - OSCAT: develop/libraries/oscat.md
-          - OSCAT Components: develop/libraries/oscat-components.md
+          - OSCAT OOP: develop/libraries/oscat-oop.md
           - PLCopen Motion: develop/libraries/plcopen-motion.md
           - PLCopen Motion OOP: develop/libraries/plcopen-motion-oop.md
           - Libraries And Motion Examples: examples/libraries-and-motion.md

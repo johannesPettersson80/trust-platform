@@ -2,11 +2,26 @@
 
 ## Current Baseline
 
-- current repository baseline: `v0.23.0`
-- public docs in this tree describe the `v0.23.0` workspace version unless a
+- current repository baseline: `v0.24.0`
+- public docs in this tree describe the `v0.24.0` workspace version unless a
   page explicitly marks a feature as experimental, roadmap, or target-specific
 
 ## What Changed Recently
+
+### `v0.24.x`
+
+- OSCAT OOP reset behavior, converter parity, API naming, dependency
+  alias, and comparison examples were hardened after external review.
+- The OSCAT OOP test fixture now covers reset, multi-scan parity,
+  invalid-limit rejection, FIFO ordering, and version lookup through classic
+  OSCAT.
+- OSCAT OOP now includes the v1.0 component surface for additional
+  controllers, filters, generators, memory, logic, measuring, calendar/RTC,
+  selected device-driver, and building-control objects, plus 49 classic/OOP
+  comparison pairs: 27 hand-written process-first industrial pattern scenarios,
+  20 compact component-composition showcases, and 2 compact pattern showcases
+  covering state machines, alarm handling, historian/logging records,
+  communication boundaries, and named OOP patterns.
 
 ### `v0.23.x`
 

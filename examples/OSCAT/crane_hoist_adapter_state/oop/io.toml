@@ -1,0 +1,9 @@
+[io]
+drivers = [
+  { name = "modbus-rtu", params = { device = "loop://crane-hoist-drive", baud = 19200, parity = "even", slave = 111, timeout_ms = 250, on_error = "warn" } },
+  { name = "ethercat", params = { master = "simulated", cycle_us = 1000, on_error = "warn" } }
+]
+
+[[io.safe_state]]
+address = "%QX0.0"
+value = "FALSE"

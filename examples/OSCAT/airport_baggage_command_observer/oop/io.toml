@@ -1,0 +1,5 @@
+[io]
+drivers = [
+  { name = "modbus-tcp", params = { address = "127.0.0.1:1514", unit_id = 190, input_start = 0, output_start = 0, timeout_ms = 500, on_error = "warn" } },
+  { name = "mqtt", params = { broker = "127.0.0.1:1883", topic_in = "airport/baggage/diverter/cmd", topic_out = "airport/baggage/diverter/event", reconnect_ms = 500, keep_alive_s = 5, allow_insecure_remote = false } }
+]

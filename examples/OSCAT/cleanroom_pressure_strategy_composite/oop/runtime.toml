@@ -1,0 +1,22 @@
+[bundle]
+version = 1
+
+[resource]
+name = "CleanroomPressureStrategyCompositeOop"
+cycle_interval_ms = 100
+
+[runtime.control]
+endpoint = "tcp://127.0.0.1:0"
+auth_token = "trust-oscat-oop-example-token"
+
+[runtime.opcua]
+enabled = true
+listen = "127.0.0.1:4840"
+endpoint_path = "/"
+namespace_uri = "urn:trust:examples:cleanroom-pressure-strategy-composite"
+publish_interval_ms = 250
+max_nodes = 128
+expose = ["Cascade.ActiveModeId", "Cascade.SupplyDamperCommand", "Cascade.AlarmCount"]
+security_policy = "none"
+security_mode = "none"
+allow_anonymous = true
