@@ -143,6 +143,7 @@ property, and variable of `BaseFb`. The subclass can add new methods, override
 existing ones, and call the parent's version with `SUPER^.Method()`.
 
 Used in OSCAT OOP for two cases:
+
 - **Adapter base class** plus vendor-specific subclasses (`AbbAcs580Adapter`
   base, `DanfossFc302Adapter EXTENDS AbbAcs580Adapter`).
 - **Template Method base class** that defines a workflow with overridable
