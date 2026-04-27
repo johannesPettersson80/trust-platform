@@ -280,6 +280,7 @@ fn expr_contains_call(expr: &crate::program_model::Expr) -> bool {
     match expr {
         Expr::Call { .. } => true,
         Expr::ArrayInitializer(elements) => elements.iter().any(expr_contains_call),
+        Expr::StructInitializer(fields) => fields.iter().any(|(_, value)| expr_contains_call(value)),
         Expr::Unary { expr, .. } => expr_contains_call(expr),
         Expr::Binary { left, right, .. } => expr_contains_call(left) || expr_contains_call(right),
         Expr::Index { target, indices } => {
@@ -377,6 +378,9 @@ fn expr_contains_sizeof(expr: &crate::program_model::Expr) -> bool {
     match expr {
         Expr::SizeOf(_) => true,
         Expr::ArrayInitializer(elements) => elements.iter().any(expr_contains_sizeof),
+        Expr::StructInitializer(fields) => {
+            fields.iter().any(|(_, value)| expr_contains_sizeof(value))
+        }
         Expr::Unary { expr, .. } | Expr::Deref(expr) => expr_contains_sizeof(expr),
         Expr::Binary { left, right, .. } => {
             expr_contains_sizeof(left) || expr_contains_sizeof(right)

@@ -180,6 +180,7 @@ impl Runtime {
             &self.function_blocks,
             &self.functions,
             &self.stdlib,
+            &self.initializer_catalog,
             &fb,
         )?;
 

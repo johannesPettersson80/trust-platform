@@ -6,6 +6,23 @@ Authoritative location:
 
 This file tracks known, intentional deviations/extensions from strict IEC 61131-3 behavior.
 
+## 2026-04-27 - `UNION` aggregate initialization as truST extension
+
+- Area: Structured Text data types and initializers
+- IEC reference: IEC 61131-3 Ed.3 defines structured aggregate initialization
+  for structures and FB declarations; `UNION` is not a core Ed.3 data-type
+  construct in the same way as `STRUCT`.
+- Deviation:
+  - truST accepts `UNION` / `END_UNION` as a vendor-style data type and routes
+    named union aggregate initializers through the same checked initializer
+    machinery as structures.
+- Impact:
+  - Projects can use named union defaults in truST, but strict IEC exporters may
+    need to lower or reject these declarations.
+- Mitigation:
+  - The behavior is explicit in parser/HIR/runtime tests and uses the same
+    unknown/duplicate-field diagnostics as structure initialization.
+
 ## 2026-02-25 - CTUD single-input profile in LD v2 node model
 
 - Area: Ladder Diagram counter node representation

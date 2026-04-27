@@ -45,6 +45,7 @@ fn debug_hook_fires_once_per_statement() {
     let mut ctx = EvalContext {
         storage: &mut storage,
         registry: &registry,
+        initializer_catalog: None,
         profile: DateTimeProfile::default(),
         now: Duration::ZERO,
         debug: Some(&mut hook),

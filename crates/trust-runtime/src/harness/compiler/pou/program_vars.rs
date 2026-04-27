@@ -15,12 +15,14 @@ fn lower_program_var_blocks(
             .children()
             .filter(|child| child.kind() == SyntaxKind::VarDecl)
         {
-            let (names, type_ref, initializer, address) = parse_var_decl(&var_decl)?;
-            let type_id = lower_type_ref(&type_ref, ctx)?;
-            let init_expr = initializer
+            let parts = parse_var_decl(&var_decl)?;
+            let type_id = lower_type_ref(&parts.type_ref, ctx)?;
+            let init_expr = parts
+                .initializer
+                .as_ref()
                 .map(|expr| {
-                    lower_expr(&expr, ctx).and_then(|lowered| {
-                        resolve_initializer_enum_variant(&expr, lowered, type_id, ctx)
+                    lower_expr(expr, ctx).and_then(|lowered| {
+                        resolve_initializer_enum_variant(expr, lowered, type_id, ctx)
                     })
                 })
                 .transpose()?;
@@ -31,14 +33,8 @@ fn lower_program_var_blocks(
                 )
             {
                 if let Some(expr) = init_expr.as_ref() {
-                    let value = ctx.eval_compile_time_const_expr(expr)?;
-                    let value = crate::harness::coerce_initializer_value_to_type(
-                        value,
-                        type_id,
-                        ctx.registry,
-                        &ctx.profile,
-                    )?;
-                    for name in &names {
+                    let value = ctx.eval_compile_time_const_initializer(expr, type_id)?;
+                    for name in &parts.names {
                         ctx.register_compile_time_const(name.as_str(), value.clone());
                         if matches!(kind, VarBlockKind::Global) {
                             let qualified = namespace_qualified_name(&var_block, name.as_str());
@@ -47,7 +43,8 @@ fn lower_program_var_blocks(
                     }
                 }
             }
-            let address_info = address
+            let address_info = parts
+                .address
                 .as_ref()
                 .map(|text| IoAddress::parse(text))
                 .transpose()
@@ -64,7 +61,7 @@ fn lower_program_var_blocks(
             }
             match kind {
                 VarBlockKind::Temp => {
-                    for name in names {
+                    for name in parts.names {
                         temps.push(VarDef {
                             name,
                             type_id,
@@ -81,13 +78,13 @@ fn lower_program_var_blocks(
                     continue;
                 }
                 VarBlockKind::Global => {
-                    for name in names {
+                    for name in parts.names {
                         globals.push(GlobalInit {
                             name: namespace_qualified_name(&var_block, name.as_str()),
                             type_id,
                             initializer: init_expr.clone(),
                             retain: qualifiers.retain,
-                            address: address.clone(),
+                            address: parts.address.clone(),
                         });
                     }
                 }
@@ -96,7 +93,7 @@ fn lower_program_var_blocks(
                 | VarBlockKind::InOut
                 | VarBlockKind::Var
                 | VarBlockKind::Stat => {
-                    for name in names {
+                    for name in parts.names {
                         vars.push(VarDef {
                             name,
                             type_id,

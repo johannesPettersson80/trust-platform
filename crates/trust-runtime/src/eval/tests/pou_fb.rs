@@ -56,6 +56,7 @@ fn fb_stateful() {
         &function_blocks,
         &functions,
         &StandardLibrary::new(),
+        &trust_runtime::program_model::InitializerCatalog::default(),
         &fb,
     )
     .unwrap();
@@ -128,6 +129,7 @@ fn fb_omitted_var_input_reuses_stored_value_after_explicit_update() {
         &function_blocks,
         &functions,
         &StandardLibrary::new(),
+        &trust_runtime::program_model::InitializerCatalog::default(),
         &fb,
     )
     .unwrap();
@@ -237,6 +239,7 @@ fn var_input_pointer_deref_write_mutates_callers_storage() {
         &function_blocks,
         &functions,
         &StandardLibrary::new(),
+        &trust_runtime::program_model::InitializerCatalog::default(),
         &fb,
     )
     .unwrap();
@@ -331,6 +334,7 @@ fn wildcard_array_var_in_out_writes_through_correctly() {
         &function_blocks,
         &functions,
         &StandardLibrary::new(),
+        &trust_runtime::program_model::InitializerCatalog::default(),
         &fb,
     )
     .unwrap();
@@ -428,6 +432,7 @@ fn pointer_to_wildcard_array_writes_through_correctly() {
         &function_blocks,
         &functions,
         &StandardLibrary::new(),
+        &trust_runtime::program_model::InitializerCatalog::default(),
         &fb,
     )
     .unwrap();

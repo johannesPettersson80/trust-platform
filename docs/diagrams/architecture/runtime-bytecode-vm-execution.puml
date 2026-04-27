@@ -102,19 +102,30 @@ package "Helper Evaluation\n(non-cycle helper flows only)" as helperPkg #MistyRo
     component "helper_eval::const_expr\ncompile-time const folding" as constEval
     component "helper_eval::storage_expr\ndebug/config/init reads" as storageEval
     component "helper_eval::storage_lvalue\ndebug pending writes" as storageWrite
+    component "harness::initializer\nstartup/default materialization" as initService
+    component "runtime/vm/local_init.rs\nVM local/static initializer plans" as vmLocalInit
     component "DebugRuntimeContext\n(debug/hook.rs)" as debugCtx
 
     runtimeEval --> storageEval
+    initService --> storageEval : evaluate default expressions
+    vmEntry --> vmLocalInit : first local/static materialization
+    vmLocalInit --> initService : default + aggregate values
     debugCtx --> storageEval
     cycle --> storageWrite : pending debug writes
     constEval --> storage
     storageEval --> storage
+    initService --> storage : materialize globals/instances
     storageWrite --> storage
 }
 
 note right of helperPkg
     These helpers exist for bounded
-    const/debug/config flows only.
+    const/debug/config/init flows only.
+    Startup materialization is
+    orchestrated by harness::initializer.
+    VM local/static initialization
+    consumes the same default/materialization
+    service through local init plans.
 
     Scheduled task/program execution
     does not pass through EvalContext or
@@ -131,7 +142,7 @@ legend right
        - call.rs
        - dispatch_refs.rs
        - memory.rs
-    4. `helper_eval` handles const/debug/config helpers only.
+    4. `helper_eval` handles const/debug/config/init helpers only.
     5. Remaining evaluator internals are test-only and are not part of the runtime scan-loop architecture.
 end legend
 

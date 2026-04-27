@@ -34,7 +34,7 @@ impl Parser<'_, '_> {
                 self.parse_type_def();
                 if self.at(TokenKind::Assign) {
                     self.bump();
-                    self.parse_expression();
+                    self.parse_var_initializer();
                 }
             } else {
                 self.error("expected ':' after type name");
@@ -366,7 +366,7 @@ impl Parser<'_, '_> {
         // Parse initializer
         if self.at(TokenKind::Assign) {
             self.bump();
-            self.parse_expression();
+            self.parse_var_initializer();
         }
 
         if self.at(TokenKind::Semicolon) {
@@ -374,6 +374,190 @@ impl Parser<'_, '_> {
         }
 
         self.finish_node();
+    }
+
+    /// Parse an initializer in a declaration/default context.
+    pub(crate) fn parse_var_initializer(&mut self) {
+        if self.at_aggregate_initializer_start() || self.at_empty_initializer_start() {
+            self.parse_initializer_list();
+        } else if self.at_positional_initializer_start() {
+            self.parse_positional_initializer_list();
+        } else {
+            self.parse_expression();
+        }
+    }
+
+    fn at_aggregate_initializer_start(&self) -> bool {
+        self.at(TokenKind::LParen)
+            && matches!(
+                self.peek_kind_n(1),
+                TokenKind::Ident | TokenKind::KwEn | TokenKind::KwEno
+            )
+            && self.peek_kind_n(2) == TokenKind::Assign
+    }
+
+    fn at_empty_initializer_start(&self) -> bool {
+        self.at(TokenKind::LParen) && self.peek_kind_n(1) == TokenKind::RParen
+    }
+
+    fn at_positional_initializer_start(&self) -> bool {
+        self.at(TokenKind::LParen)
+            && !self.at_aggregate_initializer_start()
+            && self.has_top_level_comma_before_rparen()
+    }
+
+    fn has_top_level_comma_before_rparen(&self) -> bool {
+        if !self.at(TokenKind::LParen) {
+            return false;
+        }
+
+        let mut depth = 0usize;
+        let mut offset = 1usize;
+        loop {
+            match self.peek_kind_n(offset) {
+                TokenKind::Eof
+                | TokenKind::Semicolon
+                | TokenKind::KwEndVar
+                | TokenKind::KwEndType
+                | TokenKind::KwEndStruct
+                | TokenKind::KwEndUnion
+                | TokenKind::KwEndProgram
+                | TokenKind::KwEndFunction
+                | TokenKind::KwEndFunctionBlock
+                | TokenKind::KwEndClass
+                | TokenKind::KwEndConfiguration => return false,
+                TokenKind::LParen | TokenKind::LBracket => depth += 1,
+                TokenKind::RParen => {
+                    if depth == 0 {
+                        return false;
+                    }
+                    depth -= 1;
+                }
+                TokenKind::RBracket => depth = depth.saturating_sub(1),
+                TokenKind::Comma if depth == 0 => return true,
+                _ => {}
+            }
+            offset += 1;
+        }
+    }
+
+    fn parse_positional_initializer_list(&mut self) {
+        let marker = self.start();
+        self.bump(); // (
+        self.error(
+            "positional struct initializers are not supported; use named field initializers",
+        );
+
+        let mut depth = 0usize;
+        while !self.at_end() {
+            match self.current() {
+                TokenKind::LParen | TokenKind::LBracket => {
+                    depth += 1;
+                    self.bump();
+                }
+                TokenKind::RParen => {
+                    if depth == 0 {
+                        self.bump();
+                        break;
+                    }
+                    depth -= 1;
+                    self.bump();
+                }
+                TokenKind::RBracket => {
+                    depth = depth.saturating_sub(1);
+                    self.bump();
+                }
+                TokenKind::Semicolon
+                | TokenKind::KwEndVar
+                | TokenKind::KwEndType
+                | TokenKind::KwEndStruct
+                | TokenKind::KwEndUnion
+                | TokenKind::KwEndProgram
+                | TokenKind::KwEndFunction
+                | TokenKind::KwEndFunctionBlock
+                | TokenKind::KwEndClass
+                | TokenKind::KwEndConfiguration
+                    if depth == 0 =>
+                {
+                    break;
+                }
+                _ => self.bump(),
+            }
+        }
+
+        marker.complete(self, SyntaxKind::InitializerList);
+    }
+
+    fn parse_initializer_list(&mut self) {
+        let marker = self.start();
+        self.bump(); // (
+
+        if self.at(TokenKind::RParen) {
+            self.error("empty aggregate initializers are not supported");
+        } else {
+            self.parse_initializer_element();
+            while self.at(TokenKind::Comma) {
+                self.bump();
+                if self.at(TokenKind::RParen) {
+                    self.error("expected initializer field");
+                    break;
+                }
+                self.parse_initializer_element();
+            }
+        }
+
+        if self.at(TokenKind::RParen) {
+            self.bump();
+        } else {
+            self.error("expected )");
+            while !self.at(TokenKind::RParen)
+                && !self.at(TokenKind::Semicolon)
+                && !self.at(TokenKind::KwEndVar)
+                && !self.at_end()
+            {
+                self.bump();
+            }
+            if self.at(TokenKind::RParen) {
+                self.bump();
+            }
+        }
+
+        marker.complete(self, SyntaxKind::InitializerList);
+    }
+
+    fn parse_initializer_element(&mut self) {
+        if matches!(
+            self.current(),
+            TokenKind::Ident | TokenKind::KwEn | TokenKind::KwEno
+        ) {
+            self.parse_name();
+            if self.at(TokenKind::Assign) {
+                self.bump();
+            } else {
+                self.error("expected := in aggregate initializer");
+            }
+            if self.at(TokenKind::Comma)
+                || self.at(TokenKind::RParen)
+                || self.at(TokenKind::Semicolon)
+                || self.at(TokenKind::KwEndVar)
+                || self.at_end()
+            {
+                self.error("expected aggregate initializer value");
+                return;
+            }
+            self.parse_var_initializer();
+        } else {
+            self.error(
+                "positional struct initializers are not supported; use named field initializers",
+            );
+            while !self.at(TokenKind::RParen)
+                && !self.at(TokenKind::Semicolon)
+                && !self.at(TokenKind::KwEndVar)
+                && !self.at_end()
+            {
+                self.bump();
+            }
+        }
     }
 
     /// Parse a type reference.

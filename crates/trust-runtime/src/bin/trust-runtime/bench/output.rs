@@ -145,6 +145,44 @@ fn render_table(report: &BenchReport) -> String {
             }
             render_histogram(&mut out, data.histogram.as_slice());
         }
+        BenchReport::Init(data) => {
+            let _ = writeln!(out, "Benchmark: {}", data.scenario);
+            let _ = writeln!(out, "project={}", data.project);
+            let _ = writeln!(
+                out,
+                "resource={} backend={} samples={} warmup_cycles={}",
+                data.resource_name, data.execution_backend, data.samples, data.warmup_cycles
+            );
+            render_latency_block(&mut out, "init-only latency", &data.init_only_latency);
+            render_latency_block(
+                &mut out,
+                "init+first-cycle latency",
+                &data.init_plus_first_cycle_latency,
+            );
+            render_latency_block(&mut out, "first-cycle latency", &data.first_cycle_latency);
+            render_latency_block(
+                &mut out,
+                "first-mutation latency",
+                &data.first_mutation_latency,
+            );
+            render_latency_block(
+                &mut out,
+                "retain-restart latency",
+                &data.retain_restart_latency,
+            );
+            render_latency_block(
+                &mut out,
+                "StructValue::new latency",
+                &data.struct_value_new_latency,
+            );
+            render_latency_block(
+                &mut out,
+                "StructValue::from_untyped_parts latency",
+                &data.struct_value_untyped_latency,
+            );
+            render_latency_block(&mut out, "steady-cycle latency", &data.steady_cycle_latency);
+            render_histogram(&mut out, data.histogram.as_slice());
+        }
         BenchReport::T0Shm(data) => {
             let _ = writeln!(out, "Benchmark: {}", data.scenario);
             render_latency_block(&mut out, "one-way latency", &data.one_way_latency);

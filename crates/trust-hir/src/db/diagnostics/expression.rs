@@ -66,20 +66,5 @@ pub(in crate::db) fn expression_by_id(root: &SyntaxNode, expr_id: u32) -> Option
 }
 
 pub(in crate::db) fn is_expression_kind(kind: SyntaxKind) -> bool {
-    matches!(
-        kind,
-        SyntaxKind::Literal
-            | SyntaxKind::NameRef
-            | SyntaxKind::BinaryExpr
-            | SyntaxKind::UnaryExpr
-            | SyntaxKind::CallExpr
-            | SyntaxKind::IndexExpr
-            | SyntaxKind::FieldExpr
-            | SyntaxKind::DerefExpr
-            | SyntaxKind::AddrExpr
-            | SyntaxKind::ParenExpr
-            | SyntaxKind::ThisExpr
-            | SyntaxKind::SuperExpr
-            | SyntaxKind::SizeOfExpr
-    )
+    kind.is_initializer_expression_node()
 }

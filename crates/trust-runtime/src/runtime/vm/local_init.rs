@@ -7,8 +7,7 @@ use smol_str::SmolStr;
 use trust_hir::{Type, TypeId};
 
 use crate::error::RuntimeError;
-use crate::helper_eval::eval_storage_expr_with_stdlib;
-use crate::instance::{create_class_instance, create_fb_instance};
+use crate::instance::{apply_fb_instance_initializer, create_class_instance, create_fb_instance};
 use crate::memory::InstanceId;
 use crate::program_model::{method_static_storage_owner, static_storage_name, Param, VarDef};
 use crate::value::{default_value_for_type_id, Value};
@@ -157,7 +156,6 @@ fn ensure_static_local(
     current_instance: Option<InstanceId>,
     local: &VarDef,
 ) -> Result<(), RuntimeError> {
-    let profile = runtime.profile();
     let static_owner = plan.static_owner();
     let key = static_storage_name(&static_owner, &local.name);
 
@@ -179,26 +177,7 @@ fn ensure_static_local(
     if runtime.storage().get_global(key.as_str()).is_some() {
         return Ok(());
     }
-    let value = if let Some(expr) = &local.initializer {
-        let value = eval_storage_expr_with_stdlib(
-            runtime.storage(),
-            runtime.registry(),
-            &profile,
-            current_instance,
-            Some(runtime.stdlib()),
-            expr,
-        )?;
-        crate::harness::coerce_initializer_value_to_type(
-            value,
-            local.type_id,
-            runtime.registry(),
-            &profile,
-        )
-        .map_err(|_| RuntimeError::TypeMismatch)?
-    } else {
-        default_value_for_type_id(local.type_id, runtime.registry(), &profile)
-            .unwrap_or(Value::Null)
-    };
+    let value = initialize_var_value(runtime, current_instance, local)?;
     runtime.storage_mut().set_global(key, value);
     Ok(())
 }
@@ -210,15 +189,13 @@ fn initialize_var_value(
 ) -> Result<Value, RuntimeError> {
     let profile = runtime.profile();
     if let Some(fb_name) = function_block_type_name(local.type_id, runtime.registry()) {
-        if local.initializer.is_some() {
-            return Err(RuntimeError::TypeMismatch);
-        }
         let fb_key = SmolStr::new(fb_name.to_ascii_uppercase());
         let fb = runtime
             .function_blocks()
             .get(&fb_key)
             .cloned()
             .ok_or_else(|| RuntimeError::UndefinedFunctionBlock(fb_name.clone()))?;
+        let initializer_catalog = runtime.initializer_catalog().clone();
         let (storage, registry, classes, function_blocks, functions, stdlib) =
             runtime.instance_init_context();
         let instance_id = create_fb_instance(
@@ -229,8 +206,24 @@ fn initialize_var_value(
             function_blocks,
             functions,
             stdlib,
+            &initializer_catalog,
             &fb,
         )?;
+        if let Some(expr) = &local.initializer {
+            let (storage, registry, _classes, _function_blocks, _functions, stdlib) =
+                runtime.instance_init_context();
+            apply_fb_instance_initializer(
+                storage,
+                registry,
+                &profile,
+                stdlib,
+                &initializer_catalog,
+                current_instance,
+                instance_id,
+                &fb,
+                expr,
+            )?;
+        }
         return Ok(Value::Instance(instance_id));
     }
     if let Some(class_name) = class_type_name(local.type_id, runtime.registry()) {
@@ -243,6 +236,7 @@ fn initialize_var_value(
             .get(&class_key)
             .cloned()
             .ok_or(RuntimeError::TypeMismatch)?;
+        let initializer_catalog = runtime.initializer_catalog().clone();
         let (storage, registry, classes, function_blocks, functions, stdlib) =
             runtime.instance_init_context();
         let instance_id = create_class_instance(
@@ -253,33 +247,35 @@ fn initialize_var_value(
             function_blocks,
             functions,
             stdlib,
+            &initializer_catalog,
             &class_def,
         )?;
         return Ok(Value::Instance(instance_id));
     }
 
     if let Some(expr) = &local.initializer {
-        let value = eval_storage_expr_with_stdlib(
+        return crate::harness::initializer::evaluate_initializer(
             runtime.storage(),
             runtime.registry(),
+            runtime.initializer_catalog(),
             &profile,
             current_instance,
-            Some(runtime.stdlib()),
+            runtime.stdlib(),
             expr,
-        )?;
-        return crate::harness::coerce_initializer_value_to_type(
-            value,
             local.type_id,
-            runtime.registry(),
-            &profile,
-        )
-        .map_err(|_| RuntimeError::TypeMismatch);
+        );
     }
 
-    Ok(
-        default_value_for_type_id(local.type_id, runtime.registry(), &profile)
-            .unwrap_or(Value::Null),
+    crate::harness::initializer::default_value_for_type_id(
+        runtime.storage(),
+        runtime.registry(),
+        runtime.initializer_catalog(),
+        &profile,
+        current_instance,
+        runtime.stdlib(),
+        local.type_id,
     )
+    .or(Ok(Value::Null))
 }
 
 fn can_initialize_directly(plan: &VmPouInitPlan) -> bool {

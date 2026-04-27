@@ -307,10 +307,10 @@ impl Parser<'_, '_> {
         self.bump(); // [
 
         if !self.at(TokenKind::RBracket) {
-            self.parse_expression();
+            self.parse_array_initializer_element();
             while self.at(TokenKind::Comma) {
                 self.bump();
-                self.parse_expression();
+                self.parse_array_initializer_element();
             }
         }
 
@@ -321,6 +321,44 @@ impl Parser<'_, '_> {
         }
 
         marker.complete(self, SyntaxKind::ArrayInitializer)
+    }
+
+    fn parse_array_initializer_element(&mut self) {
+        if self.at(TokenKind::IntLiteral) && self.peek_kind_n(1) == TokenKind::LParen {
+            let marker = self.start();
+            self.start_node(SyntaxKind::Literal);
+            self.bump();
+            self.finish_node();
+            self.parse_array_repetition_arg_list();
+            marker.complete(self, SyntaxKind::CallExpr);
+        } else {
+            self.parse_var_initializer();
+        }
+    }
+
+    fn parse_array_repetition_arg_list(&mut self) {
+        self.start_node(SyntaxKind::ArgList);
+        self.bump(); // (
+
+        while !self.at(TokenKind::RParen) && !self.at_end() {
+            self.start_node(SyntaxKind::Arg);
+            self.parse_var_initializer();
+            self.finish_node();
+
+            if self.at(TokenKind::Comma) {
+                self.bump();
+            } else {
+                break;
+            }
+        }
+
+        if self.at(TokenKind::RParen) {
+            self.bump();
+        } else {
+            self.error("expected )");
+        }
+
+        self.finish_node();
     }
 
     /// Parse argument list for function calls.

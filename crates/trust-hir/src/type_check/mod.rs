@@ -151,41 +151,11 @@ impl CaseLabelTracker {
 }
 
 fn is_expression_kind(kind: SyntaxKind) -> bool {
-    matches!(
-        kind,
-        SyntaxKind::Literal
-            | SyntaxKind::NameRef
-            | SyntaxKind::BinaryExpr
-            | SyntaxKind::UnaryExpr
-            | SyntaxKind::CallExpr
-            | SyntaxKind::IndexExpr
-            | SyntaxKind::FieldExpr
-            | SyntaxKind::DerefExpr
-            | SyntaxKind::AddrExpr
-            | SyntaxKind::ParenExpr
-            | SyntaxKind::ThisExpr
-            | SyntaxKind::SuperExpr
-            | SyntaxKind::SizeOfExpr
-    )
+    kind.is_initializer_expression_node()
 }
 
 fn is_statement_kind(kind: SyntaxKind) -> bool {
-    matches!(
-        kind,
-        SyntaxKind::AssignStmt
-            | SyntaxKind::IfStmt
-            | SyntaxKind::ForStmt
-            | SyntaxKind::WhileStmt
-            | SyntaxKind::RepeatStmt
-            | SyntaxKind::CaseStmt
-            | SyntaxKind::ReturnStmt
-            | SyntaxKind::ExprStmt
-            | SyntaxKind::ExitStmt
-            | SyntaxKind::ContinueStmt
-            | SyntaxKind::JmpStmt
-            | SyntaxKind::LabelStmt
-            | SyntaxKind::EmptyStmt
-    )
+    kind.is_statement_node()
 }
 
 fn first_expression_child(node: &SyntaxNode) -> Option<SyntaxNode> {

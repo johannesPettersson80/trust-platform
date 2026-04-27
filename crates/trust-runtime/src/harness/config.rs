@@ -1,9 +1,9 @@
 use indexmap::IndexMap;
 use smol_str::SmolStr;
 
-use crate::instance::{create_class_instance, create_fb_instance};
+use crate::instance::{apply_fb_instance_initializer, create_class_instance, create_fb_instance};
 use crate::task::ProgramDef;
-use crate::value::{default_value_for_type_id, Value};
+use crate::value::Value;
 use crate::Runtime;
 
 use super::io::{

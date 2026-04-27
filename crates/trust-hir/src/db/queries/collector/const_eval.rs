@@ -7,7 +7,17 @@ impl SymbolCollector<'_> {
         let keys: Vec<_> = self.const_exprs.keys().cloned().collect();
         let mut guard = FxHashSet::default();
         for (scope, name) in keys {
-            let _ = self.resolve_const_value_for_scope(name.as_str(), &scope, &mut guard);
+            if let Err(err) =
+                self.try_resolve_const_value_for_scope(name.as_str(), &scope, &mut guard)
+            {
+                if let Some(expr) = self
+                    .const_exprs
+                    .get(&const_key(&scope, name.as_str()))
+                    .cloned()
+                {
+                    self.report_const_eval_error(err, expr.text_range());
+                }
+            }
         }
     }
 
@@ -17,109 +27,127 @@ impl SymbolCollector<'_> {
         scopes: &[Option<SmolStr>],
     ) -> Option<i64> {
         let mut guard = FxHashSet::default();
-        self.eval_int_expr(node, scopes, &mut guard)
+        self.try_eval_int_expr(node, scopes, &mut guard).ok()
     }
 
-    pub(super) fn eval_int_expr(
+    pub(super) fn try_eval_int_expr(
         &mut self,
         node: &SyntaxNode,
         scopes: &[Option<SmolStr>],
         guard: &mut FxHashSet<(Option<SmolStr>, SmolStr)>,
-    ) -> Option<i64> {
+    ) -> Result<i64, ConstEvalError> {
         match node.kind() {
-            SyntaxKind::Literal => parse_int_literal_from_node(node),
-            SyntaxKind::SizeOfExpr => self.eval_sizeof_int_expr(node, scopes, guard),
+            SyntaxKind::Literal => {
+                parse_int_literal_from_node(node).ok_or(ConstEvalError::NotConstant)
+            }
+            SyntaxKind::SizeOfExpr => self.try_eval_sizeof_int_expr(node, scopes, guard),
             SyntaxKind::NameRef => {
-                let name = first_ident_token(node)?.text().to_string();
-                self.resolve_const_value(&name, scopes, guard)
-                    .or_else(|| self.table.enum_value_by_name(&name))
+                let name = first_ident_token(node)
+                    .map(|token| token.text().to_string())
+                    .ok_or(ConstEvalError::NotConstant)?;
+                match self.try_resolve_const_value(&name, scopes, guard) {
+                    Ok(value) => Ok(value),
+                    Err(ConstEvalError::UndefinedName(_)) => self
+                        .table
+                        .enum_value_by_name(&name)
+                        .ok_or_else(|| ConstEvalError::UndefinedName(SmolStr::new(name.as_str()))),
+                    Err(err) => Err(err),
+                }
             }
             SyntaxKind::ParenExpr => node
                 .children()
                 .next()
-                .and_then(|child| self.eval_int_expr(&child, scopes, guard)),
+                .ok_or(ConstEvalError::NotConstant)
+                .and_then(|child| self.try_eval_int_expr(&child, scopes, guard)),
             SyntaxKind::UnaryExpr => {
-                let op = unary_op_from_node(node)?;
-                let expr = node.children().next()?;
-                let value = self.eval_int_expr(&expr, scopes, guard)?;
+                let op = unary_op_from_node(node).ok_or(ConstEvalError::NotConstant)?;
+                let expr = node.children().next().ok_or(ConstEvalError::NotConstant)?;
+                let value = self.try_eval_int_expr(&expr, scopes, guard)?;
                 match op {
-                    IntUnaryOp::Plus => Some(value),
-                    IntUnaryOp::Minus => value.checked_neg(),
+                    IntUnaryOp::Plus => Ok(value),
+                    IntUnaryOp::Minus => value.checked_neg().ok_or(ConstEvalError::IntegerOverflow),
                 }
             }
             SyntaxKind::BinaryExpr => {
                 let children: Vec<_> = node.children().collect();
                 if children.len() < 2 {
-                    return None;
+                    return Err(ConstEvalError::NotConstant);
                 }
-                let lhs = self.eval_int_expr(&children[0], scopes, guard)?;
-                let rhs = self.eval_int_expr(&children[children.len() - 1], scopes, guard)?;
-                match binary_op_from_node(node)? {
-                    IntBinaryOp::Add => lhs.checked_add(rhs),
-                    IntBinaryOp::Sub => lhs.checked_sub(rhs),
-                    IntBinaryOp::Mul => lhs.checked_mul(rhs),
+                let lhs = self.try_eval_int_expr(&children[0], scopes, guard)?;
+                let rhs = self.try_eval_int_expr(&children[children.len() - 1], scopes, guard)?;
+                match binary_op_from_node(node).ok_or(ConstEvalError::NotConstant)? {
+                    IntBinaryOp::Add => lhs.checked_add(rhs).ok_or(ConstEvalError::IntegerOverflow),
+                    IntBinaryOp::Sub => lhs.checked_sub(rhs).ok_or(ConstEvalError::IntegerOverflow),
+                    IntBinaryOp::Mul => lhs.checked_mul(rhs).ok_or(ConstEvalError::IntegerOverflow),
                     IntBinaryOp::Div => {
                         if rhs == 0 {
-                            None
+                            Err(ConstEvalError::DivideByZero)
                         } else {
-                            lhs.checked_div(rhs)
+                            lhs.checked_div(rhs).ok_or(ConstEvalError::IntegerOverflow)
                         }
                     }
                     IntBinaryOp::Mod => {
                         if rhs == 0 {
-                            None
+                            Err(ConstEvalError::DivideByZero)
                         } else {
-                            lhs.checked_rem(rhs)
+                            lhs.checked_rem(rhs).ok_or(ConstEvalError::IntegerOverflow)
                         }
                     }
                     IntBinaryOp::Power => {
                         if rhs < 0 {
-                            None
+                            Err(ConstEvalError::NegativeExponent)
                         } else {
                             lhs.checked_pow(rhs as u32)
+                                .ok_or(ConstEvalError::IntegerOverflow)
                         }
                     }
                 }
             }
-            _ => None,
+            _ => Err(ConstEvalError::NotConstant),
         }
     }
 
-    fn eval_sizeof_int_expr(
+    fn try_eval_sizeof_int_expr(
         &mut self,
         node: &SyntaxNode,
         scopes: &[Option<SmolStr>],
         guard: &mut FxHashSet<(Option<SmolStr>, SmolStr)>,
-    ) -> Option<i64> {
+    ) -> Result<i64, ConstEvalError> {
         let type_id = if let Some(type_ref) = node
             .children()
             .find(|child| child.kind() == SyntaxKind::TypeRef)
         {
             self.resolve_type_from_ref(&type_ref)
         } else {
-            let expr = node.children().find(|child| {
-                matches!(
-                    child.kind(),
-                    SyntaxKind::Literal
-                        | SyntaxKind::NameRef
-                        | SyntaxKind::BinaryExpr
-                        | SyntaxKind::UnaryExpr
-                        | SyntaxKind::CallExpr
-                        | SyntaxKind::IndexExpr
-                        | SyntaxKind::FieldExpr
-                        | SyntaxKind::DerefExpr
-                        | SyntaxKind::AddrExpr
-                        | SyntaxKind::ParenExpr
-                        | SyntaxKind::ThisExpr
-                        | SyntaxKind::SuperExpr
-                        | SyntaxKind::SizeOfExpr
-                )
-            })?;
-            self.sizeof_operand_type_in_scope(&expr, scopes, guard)?
+            let expr = node
+                .children()
+                .find(|child| {
+                    matches!(
+                        child.kind(),
+                        SyntaxKind::Literal
+                            | SyntaxKind::NameRef
+                            | SyntaxKind::BinaryExpr
+                            | SyntaxKind::UnaryExpr
+                            | SyntaxKind::CallExpr
+                            | SyntaxKind::IndexExpr
+                            | SyntaxKind::FieldExpr
+                            | SyntaxKind::DerefExpr
+                            | SyntaxKind::AddrExpr
+                            | SyntaxKind::ParenExpr
+                            | SyntaxKind::ThisExpr
+                            | SyntaxKind::SuperExpr
+                            | SyntaxKind::SizeOfExpr
+                    )
+                })
+                .ok_or(ConstEvalError::NotConstant)?;
+            self.sizeof_operand_type_in_scope(&expr, scopes, guard)
+                .ok_or(ConstEvalError::NotConstant)?
         };
 
-        let size = self.sizeof_type_bytes(type_id)?;
-        i64::try_from(size).ok()
+        let size = self
+            .sizeof_type_bytes(type_id)
+            .ok_or(ConstEvalError::NotConstant)?;
+        i64::try_from(size).map_err(|_| ConstEvalError::IntegerOverflow)
     }
 
     fn sizeof_operand_type_in_scope(
@@ -223,40 +251,79 @@ impl SymbolCollector<'_> {
         result
     }
 
-    pub(super) fn resolve_const_value(
+    pub(super) fn try_resolve_const_value(
         &mut self,
         name: &str,
         scopes: &[Option<SmolStr>],
         guard: &mut FxHashSet<(Option<SmolStr>, SmolStr)>,
-    ) -> Option<i64> {
+    ) -> Result<i64, ConstEvalError> {
+        let mut last_err = ConstEvalError::UndefinedName(SmolStr::new(name));
         for scope in scopes {
-            if let Some(value) = self.resolve_const_value_for_scope(name, scope, guard) {
-                return Some(value);
+            match self.try_resolve_const_value_for_scope(name, scope, guard) {
+                Ok(value) => return Ok(value),
+                Err(ConstEvalError::UndefinedName(_)) => {
+                    last_err = ConstEvalError::UndefinedName(SmolStr::new(name));
+                }
+                Err(err) => return Err(err),
             }
         }
-        None
+        Err(last_err)
     }
 
-    pub(super) fn resolve_const_value_for_scope(
+    pub(super) fn try_resolve_const_value_for_scope(
         &mut self,
         name: &str,
         scope: &Option<SmolStr>,
         guard: &mut FxHashSet<(Option<SmolStr>, SmolStr)>,
-    ) -> Option<i64> {
+    ) -> Result<i64, ConstEvalError> {
         let key = const_key(scope, name);
         if let Some(value) = self.const_values.get(&key) {
-            return Some(*value);
+            return Ok(*value);
         }
-        let expr = self.const_exprs.get(&key).cloned()?;
+        let expr = self
+            .const_exprs
+            .get(&key)
+            .cloned()
+            .ok_or_else(|| ConstEvalError::UndefinedName(SmolStr::new(name)))?;
         if !guard.insert(key.clone()) {
-            return None;
+            return Err(ConstEvalError::CyclicDependency(key.1));
         }
         let scopes = scope_chain_for_node(&expr);
-        let value = self.eval_int_expr(&expr, &scopes, guard);
+        let value = self.try_eval_int_expr(&expr, &scopes, guard);
         guard.remove(&key);
-        if let Some(value) = value {
-            self.const_values.insert(key, value);
+        let value = value?;
+        self.const_values.insert(key, value);
+        Ok(value)
+    }
+
+    fn report_const_eval_error(&mut self, err: ConstEvalError, range: text_size::TextRange) {
+        match err {
+            ConstEvalError::CyclicDependency(name) => self.diagnostics.error(
+                DiagnosticCode::CyclicDependency,
+                range,
+                format!("cyclic constant reference involving '{name}'"),
+            ),
+            ConstEvalError::DivideByZero => self.diagnostics.error(
+                DiagnosticCode::InvalidOperation,
+                range,
+                "constant expression divides by zero",
+            ),
+            ConstEvalError::IntegerOverflow => self.diagnostics.error(
+                DiagnosticCode::InvalidOperation,
+                range,
+                "constant expression overflows",
+            ),
+            ConstEvalError::NegativeExponent => self.diagnostics.error(
+                DiagnosticCode::InvalidOperation,
+                range,
+                "integer exponent must be non-negative",
+            ),
+            ConstEvalError::UndefinedName(name) => self.diagnostics.error(
+                DiagnosticCode::UndefinedVariable,
+                range,
+                format!("undefined constant '{name}'"),
+            ),
+            ConstEvalError::NotConstant => {}
         }
-        value
     }
 }

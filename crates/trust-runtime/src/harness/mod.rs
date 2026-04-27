@@ -9,6 +9,7 @@ mod compiler;
 mod config;
 #[allow(clippy::module_inception)]
 mod harness;
+pub(crate) mod initializer;
 mod io;
 mod lower;
 mod parse;

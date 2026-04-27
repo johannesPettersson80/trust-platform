@@ -173,24 +173,7 @@ pub(in super::super) fn is_execution_param(name: &str) -> bool {
 }
 
 pub(in super::super) fn is_expression_kind(kind: SyntaxKind) -> bool {
-    matches!(
-        kind,
-        SyntaxKind::BinaryExpr
-            | SyntaxKind::UnaryExpr
-            | SyntaxKind::ParenExpr
-            | SyntaxKind::CallExpr
-            | SyntaxKind::IndexExpr
-            | SyntaxKind::FieldExpr
-            | SyntaxKind::DerefExpr
-            | SyntaxKind::AddrExpr
-            | SyntaxKind::SizeOfExpr
-            | SyntaxKind::NameRef
-            | SyntaxKind::Literal
-            | SyntaxKind::ThisExpr
-            | SyntaxKind::SuperExpr
-            | SyntaxKind::InitializerList
-            | SyntaxKind::ArrayInitializer
-    )
+    kind.is_initializer_expression_node()
 }
 
 pub(in super::super) fn is_pou_kind(kind: SyntaxKind) -> bool {

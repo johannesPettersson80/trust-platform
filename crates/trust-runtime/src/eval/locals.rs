@@ -39,8 +39,24 @@ pub(crate) fn init_locals(
                 function_blocks,
                 functions,
                 stdlib,
+                ctx.initializer_catalog
+                    .unwrap_or(&crate::program_model::InitializerCatalog::default()),
                 fb,
             )?;
+            if let Some(expr) = &local.initializer {
+                crate::instance::apply_fb_instance_initializer(
+                    ctx.storage,
+                    ctx.registry,
+                    &ctx.profile,
+                    stdlib,
+                    ctx.initializer_catalog
+                        .unwrap_or(&crate::program_model::InitializerCatalog::default()),
+                    ctx.current_instance,
+                    instance_id,
+                    fb,
+                    expr,
+                )?;
+            }
             ctx.storage
                 .set_local(local.name.clone(), Value::Instance(instance_id));
             continue;
@@ -60,6 +76,8 @@ pub(crate) fn init_locals(
                 function_blocks,
                 functions,
                 stdlib,
+                ctx.initializer_catalog
+                    .unwrap_or(&crate::program_model::InitializerCatalog::default()),
                 class_def,
             )?;
             ctx.storage
@@ -67,10 +85,29 @@ pub(crate) fn init_locals(
             continue;
         }
         let value = if let Some(expr) = &local.initializer {
-            eval_expr(ctx, expr)?
+            crate::harness::initializer::evaluate_initializer(
+                ctx.storage,
+                ctx.registry,
+                ctx.initializer_catalog
+                    .unwrap_or(&crate::program_model::InitializerCatalog::default()),
+                &ctx.profile,
+                ctx.current_instance,
+                ctx.stdlib.ok_or(RuntimeError::TypeMismatch)?,
+                expr,
+                local.type_id,
+            )?
         } else {
-            default_value_for_type_id(local.type_id, ctx.registry, &ctx.profile)
-                .unwrap_or(Value::Null)
+            crate::harness::initializer::default_value_for_type_id(
+                ctx.storage,
+                ctx.registry,
+                ctx.initializer_catalog
+                    .unwrap_or(&crate::program_model::InitializerCatalog::default()),
+                &ctx.profile,
+                ctx.current_instance,
+                ctx.stdlib.ok_or(RuntimeError::TypeMismatch)?,
+                local.type_id,
+            )
+            .unwrap_or(Value::Null)
         };
         ctx.storage.set_local(local.name.clone(), value);
     }
@@ -106,8 +143,24 @@ pub(crate) fn init_locals_in_frame(
                 function_blocks,
                 functions,
                 stdlib,
+                ctx.initializer_catalog
+                    .unwrap_or(&crate::program_model::InitializerCatalog::default()),
                 fb,
             )?;
+            if let Some(expr) = &local.initializer {
+                crate::instance::apply_fb_instance_initializer(
+                    ctx.storage,
+                    ctx.registry,
+                    &ctx.profile,
+                    stdlib,
+                    ctx.initializer_catalog
+                        .unwrap_or(&crate::program_model::InitializerCatalog::default()),
+                    ctx.current_instance,
+                    instance_id,
+                    fb,
+                    expr,
+                )?;
+            }
             ctx.storage
                 .set_local(local.name.clone(), Value::Instance(instance_id));
             continue;
@@ -127,6 +180,8 @@ pub(crate) fn init_locals_in_frame(
                 function_blocks,
                 functions,
                 stdlib,
+                ctx.initializer_catalog
+                    .unwrap_or(&crate::program_model::InitializerCatalog::default()),
                 class_def,
             )?;
             ctx.storage
@@ -134,10 +189,29 @@ pub(crate) fn init_locals_in_frame(
             continue;
         }
         let value = if let Some(expr) = &local.initializer {
-            eval_expr(ctx, expr)?
+            crate::harness::initializer::evaluate_initializer(
+                ctx.storage,
+                ctx.registry,
+                ctx.initializer_catalog
+                    .unwrap_or(&crate::program_model::InitializerCatalog::default()),
+                &ctx.profile,
+                ctx.current_instance,
+                ctx.stdlib.ok_or(RuntimeError::TypeMismatch)?,
+                expr,
+                local.type_id,
+            )?
         } else {
-            default_value_for_type_id(local.type_id, ctx.registry, &ctx.profile)
-                .unwrap_or(Value::Null)
+            crate::harness::initializer::default_value_for_type_id(
+                ctx.storage,
+                ctx.registry,
+                ctx.initializer_catalog
+                    .unwrap_or(&crate::program_model::InitializerCatalog::default()),
+                &ctx.profile,
+                ctx.current_instance,
+                ctx.stdlib.ok_or(RuntimeError::TypeMismatch)?,
+                local.type_id,
+            )
+            .unwrap_or(Value::Null)
         };
         ctx.storage.set_local(local.name.clone(), value);
     }
@@ -152,10 +226,29 @@ fn ensure_static_storage(ctx: &mut EvalContext<'_>, local: &VarDef) -> Result<()
     if let Some(instance_id) = instance_id {
         if ctx.storage.get_instance_var(instance_id, key.as_ref()).is_none() {
             let value = if let Some(expr) = &local.initializer {
-                eval_expr(ctx, expr)?
+                crate::harness::initializer::evaluate_initializer(
+                    ctx.storage,
+                    ctx.registry,
+                    ctx.initializer_catalog
+                        .unwrap_or(&crate::program_model::InitializerCatalog::default()),
+                    &ctx.profile,
+                    ctx.current_instance,
+                    ctx.stdlib.ok_or(RuntimeError::TypeMismatch)?,
+                    expr,
+                    local.type_id,
+                )?
             } else {
-                default_value_for_type_id(local.type_id, ctx.registry, &ctx.profile)
-                    .unwrap_or(Value::Null)
+                crate::harness::initializer::default_value_for_type_id(
+                    ctx.storage,
+                    ctx.registry,
+                    ctx.initializer_catalog
+                        .unwrap_or(&crate::program_model::InitializerCatalog::default()),
+                    &ctx.profile,
+                    ctx.current_instance,
+                    ctx.stdlib.ok_or(RuntimeError::TypeMismatch)?,
+                    local.type_id,
+                )
+                .unwrap_or(Value::Null)
             };
             ctx.storage.set_instance_var(instance_id, key, value);
         }
@@ -164,10 +257,29 @@ fn ensure_static_storage(ctx: &mut EvalContext<'_>, local: &VarDef) -> Result<()
 
     if ctx.storage.get_global(key.as_ref()).is_none() {
         let value = if let Some(expr) = &local.initializer {
-            eval_expr(ctx, expr)?
+            crate::harness::initializer::evaluate_initializer(
+                ctx.storage,
+                ctx.registry,
+                ctx.initializer_catalog
+                    .unwrap_or(&crate::program_model::InitializerCatalog::default()),
+                &ctx.profile,
+                ctx.current_instance,
+                ctx.stdlib.ok_or(RuntimeError::TypeMismatch)?,
+                expr,
+                local.type_id,
+            )?
         } else {
-            default_value_for_type_id(local.type_id, ctx.registry, &ctx.profile)
-                .unwrap_or(Value::Null)
+            crate::harness::initializer::default_value_for_type_id(
+                ctx.storage,
+                ctx.registry,
+                ctx.initializer_catalog
+                    .unwrap_or(&crate::program_model::InitializerCatalog::default()),
+                &ctx.profile,
+                ctx.current_instance,
+                ctx.stdlib.ok_or(RuntimeError::TypeMismatch)?,
+                local.type_id,
+            )
+            .unwrap_or(Value::Null)
         };
         ctx.storage.set_global(key, value);
     }

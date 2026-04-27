@@ -210,22 +210,7 @@ fn output_var_info(source: &str, _root: &SyntaxNode, node: &SyntaxNode) -> Optio
 }
 
 fn is_statement_kind(kind: SyntaxKind) -> bool {
-    matches!(
-        kind,
-        SyntaxKind::AssignStmt
-            | SyntaxKind::IfStmt
-            | SyntaxKind::CaseStmt
-            | SyntaxKind::ForStmt
-            | SyntaxKind::WhileStmt
-            | SyntaxKind::RepeatStmt
-            | SyntaxKind::ReturnStmt
-            | SyntaxKind::ExitStmt
-            | SyntaxKind::ContinueStmt
-            | SyntaxKind::JmpStmt
-            | SyntaxKind::LabelStmt
-            | SyntaxKind::ExprStmt
-            | SyntaxKind::EmptyStmt
-    )
+    kind.is_statement_node()
 }
 
 fn find_enclosing_owner_node(

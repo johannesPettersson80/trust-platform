@@ -68,6 +68,7 @@ package "Symbol Collection" as collection #LightCoral {
         program_instances: FxHashMap<SmolStr, SymbolId>
         --
         +collect(root) → (SymbolTable, Vec<Diagnostic>)
+        +check_aggregate_initializer_fields()
     }
 
     rectangle "Collection Phases" as phases #Wheat {
@@ -95,6 +96,10 @@ package "Symbol Collection" as collection #LightCoral {
         4. Resolve pending type references
         5. Check global/external links
         6. Variable block validation
+           - aggregate field names
+           - duplicate fields
+           - FB initializer target legality
+           - STRING/WSTRING field defaults
         7. Evaluate constant expressions
     end note
 
@@ -144,6 +149,7 @@ package "Symbol Table" as symTablePkg #LightBlue {
         extends: FxHashMap<SymbolId, SmolStr>
         implements: FxHashMap<SymbolId, Vec<SmolStr>>
         const_values: FxHashMap<...>
+        initializer_catalog: InitializerCatalog
         next_id: u32
         next_type_id: u32
         --
@@ -152,6 +158,9 @@ package "Symbol Table" as symTablePkg #LightBlue {
         +add_symbol(name, kind, range) → SymbolId
         +resolve_name(name) → Option<SymbolId>
         +get_type(id) → Option<Type>
+        +register_initializer(record) → InitializerId
+        +initializer(id) → Option<InitializerRecord>
+        +type_default_initializer(type_id) → Option<InitializerId>
     }
 
     class "Symbol" as symbol <<symbols/defs.rs:176-201>> {
@@ -177,8 +186,41 @@ package "Symbol Table" as symTablePkg #LightBlue {
         using_directives: Vec<UsingDirective>
     }
 
+    class "InitializerCatalog" as initCatalog <<types/defs.rs:223-260>> {
+        records: Vec<InitializerRecord>
+        type_defaults: FxHashMap<TypeId, InitializerId>
+        --
+        +insert(record) → InitializerId
+        +get(id) → Option<InitializerRecord>
+        +type_default(type_id) → Option<InitializerId>
+    }
+
+    class "InitializerRecord" as initRecord <<types/defs.rs:216-221>> {
+        range: TextRange
+    }
+
+    class "InitializerId" as initId <<types/defs.rs:214>> {
+        id: u32
+    }
+
     symTable --> symbol : contains
     symTable --> scope : manages
+    symTable --> initCatalog : owns in Salsa-tracked result
+    initCatalog --> initRecord : source-backed records
+    initCatalog --> initId : project-local handles
+
+    note right of initCatalog
+        HIR owns source/default metadata:
+        • TYPE-level defaults
+        • StructField.default_initializer
+        • UnionVariant.default_initializer
+        • source range for diagnostics/import
+
+        Runtime uses a separate lowered
+        program_model::InitializerCatalog
+        containing Expr records for materialization.
+        HIR never stores runtime Value.
+    end note
 }
 
 ' ============================================================
@@ -313,6 +355,13 @@ package "Type System" as typeSys #Lavender {
         Alias { name, target }
     }
 
+    class "StructField / UnionVariant" as typeMember <<types/defs.rs>> {
+        name: SmolStr
+        type_id: TypeId
+        address: Option<SmolStr>
+        default_initializer: Option<InitializerId>
+    }
+
     class "TypeRegistry" as typeReg {
         types: FxHashMap<TypeId, Type>
         --
@@ -323,6 +372,8 @@ package "Type System" as typeSys #Lavender {
 
     typeId --> typeEnum : identifies
     typeReg --> typeEnum : stores
+    typeEnum --> typeMember : struct/union members
+    typeMember --> initId : optional default handle
 }
 
 ' ============================================================

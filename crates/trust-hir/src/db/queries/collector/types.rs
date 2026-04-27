@@ -103,6 +103,23 @@ impl SymbolCollector<'_> {
         if let Some(sym) = self.table.get_mut(type_symbol_id) {
             sym.type_id = type_id;
         }
+
+        if let Some(type_decl) = type_def.parent() {
+            for initializer in type_decl.children().filter(|child| {
+                is_expression_kind(child.kind())
+                    && child.text_range().start() >= type_def.text_range().end()
+            }) {
+                self.check_aggregate_initializer_fields(type_id, &initializer);
+                self.check_required_default_expression(type_id, &initializer);
+                let initializer_id =
+                    self.table
+                        .register_initializer(crate::types::InitializerRecord {
+                            range: initializer.text_range(),
+                        });
+                self.table
+                    .set_type_default_initializer(type_id, initializer_id);
+            }
+        }
     }
 
     fn register_imported_carrier_type(
@@ -234,12 +251,25 @@ impl SymbolCollector<'_> {
 
         for var_decl in node.children().filter(|n| n.kind() == SyntaxKind::VarDecl) {
             let (field_names, field_type, direct_address) = self.extract_var_decl_info(&var_decl);
+            let initializer = var_decl.children().find(|n| is_expression_kind(n.kind()));
+            let default_initializer = initializer.as_ref().map(|expr| {
+                self.table
+                    .register_initializer(crate::types::InitializerRecord {
+                        range: expr.text_range(),
+                    })
+            });
+            if let Some(expr) = initializer.as_ref() {
+                self.check_string_initializer(field_type, expr);
+                self.check_aggregate_initializer_fields(field_type, expr);
+                self.check_required_default_expression(field_type, expr);
+            }
             for (field_name, range) in field_names {
                 self.validate_identifier(&field_name, range, false);
                 fields.push(StructField {
                     name: field_name,
                     type_id: field_type,
                     address: direct_address.clone(),
+                    default_initializer,
                 });
             }
         }
@@ -252,12 +282,25 @@ impl SymbolCollector<'_> {
 
         for var_decl in node.children().filter(|n| n.kind() == SyntaxKind::VarDecl) {
             let (field_names, field_type, direct_address) = self.extract_var_decl_info(&var_decl);
+            let initializer = var_decl.children().find(|n| is_expression_kind(n.kind()));
+            let default_initializer = initializer.as_ref().map(|expr| {
+                self.table
+                    .register_initializer(crate::types::InitializerRecord {
+                        range: expr.text_range(),
+                    })
+            });
+            if let Some(expr) = initializer.as_ref() {
+                self.check_string_initializer(field_type, expr);
+                self.check_aggregate_initializer_fields(field_type, expr);
+                self.check_required_default_expression(field_type, expr);
+            }
             for (field_name, range) in field_names {
                 self.validate_identifier(&field_name, range, false);
                 variants.push(UnionVariant {
                     name: field_name,
                     type_id: field_type,
                     address: direct_address.clone(),
+                    default_initializer,
                 });
             }
         }

@@ -10,6 +10,7 @@ use super::CallArg;
 pub enum Expr {
     Literal(Value),
     ArrayInitializer(Vec<Expr>),
+    StructInitializer(Vec<(SmolStr, Expr)>),
     This,
     Super,
     SizeOf(SizeOfTarget),

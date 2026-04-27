@@ -4,7 +4,10 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use smol_str::SmolStr;
 use text_size::TextRange;
 
-use crate::types::{ArrayDimensionExt, StructField, Type, TypeId, UnionVariant};
+use crate::types::{
+    ArrayDimensionExt, InitializerCatalog, InitializerId, InitializerRecord, StructField, Type,
+    TypeId, UnionVariant,
+};
 
 /// The symbol table containing all symbols and scopes.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -31,6 +34,8 @@ pub struct SymbolTable {
     implements: FxHashMap<SymbolId, Vec<SmolStr>>,
     /// Constant values by (scope, name).
     const_values: FxHashMap<(Option<SmolStr>, SmolStr), i64>,
+    /// Source-backed initializer records for declaration defaults.
+    initializer_catalog: InitializerCatalog,
     /// Next symbol ID to assign.
     next_id: u32,
     /// Next type ID to assign.
@@ -59,6 +64,7 @@ impl SymbolTable {
             extends: FxHashMap::default(),
             implements: FxHashMap::default(),
             const_values: FxHashMap::default(),
+            initializer_catalog: InitializerCatalog::default(),
             next_id: 0,
             next_type_id: TypeId::USER_TYPES_START,
         };
@@ -354,6 +360,46 @@ impl SymbolTable {
         self.type_names.insert(normalized, id);
         self.types.insert(id, ty);
         id
+    }
+
+    /// Registers a source-backed initializer record and returns a table-local ID.
+    pub fn register_initializer(&mut self, record: InitializerRecord) -> InitializerId {
+        self.initializer_catalog.insert(record)
+    }
+
+    /// Copies an initializer record from another symbol table and returns a fresh local ID.
+    pub fn import_initializer_from(
+        &mut self,
+        source: &SymbolTable,
+        id: InitializerId,
+    ) -> Option<InitializerId> {
+        source
+            .initializer(id)
+            .cloned()
+            .map(|record| self.register_initializer(record))
+    }
+
+    /// Associates a TYPE-level default initializer with a type.
+    pub fn set_type_default_initializer(&mut self, type_id: TypeId, id: InitializerId) {
+        self.initializer_catalog.set_type_default(type_id, id);
+    }
+
+    /// Returns a TYPE-level default initializer for a type.
+    #[must_use]
+    pub fn type_default_initializer(&self, type_id: TypeId) -> Option<InitializerId> {
+        self.initializer_catalog.type_default(type_id)
+    }
+
+    /// Returns the HIR initializer catalog.
+    #[must_use]
+    pub fn initializer_catalog(&self) -> &InitializerCatalog {
+        &self.initializer_catalog
+    }
+
+    /// Returns a HIR initializer record.
+    #[must_use]
+    pub fn initializer(&self, id: InitializerId) -> Option<&InitializerRecord> {
+        self.initializer_catalog.get(id)
     }
 
     /// Registers a struct type with fields.

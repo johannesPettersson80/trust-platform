@@ -3,7 +3,9 @@
 //! This module defines all types in the ST type system, including elementary
 //! types, compound types, and user-defined types.
 
+use rustc_hash::FxHashMap;
 use smol_str::SmolStr;
+use text_size::TextRange;
 
 /// A unique identifier for a type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -207,6 +209,56 @@ impl TypeId {
     }
 }
 
+/// Lightweight handle for a declaration/default initializer record.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct InitializerId(pub u32);
+
+/// Source-backed initializer metadata owned by HIR symbol analysis.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InitializerRecord {
+    /// Source range of the initializer expression.
+    pub range: TextRange,
+}
+
+/// Project-local initializer catalog.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct InitializerCatalog {
+    records: Vec<InitializerRecord>,
+    type_defaults: FxHashMap<TypeId, InitializerId>,
+}
+
+impl InitializerCatalog {
+    /// Inserts a source-backed initializer record and returns a project-local ID.
+    pub fn insert(&mut self, record: InitializerRecord) -> InitializerId {
+        let id = InitializerId(self.records.len() as u32);
+        self.records.push(record);
+        id
+    }
+
+    /// Returns an initializer record by project-local ID.
+    #[must_use]
+    pub fn get(&self, id: InitializerId) -> Option<&InitializerRecord> {
+        self.records.get(id.0 as usize)
+    }
+
+    /// Returns all initializer records in insertion order.
+    #[must_use]
+    pub fn records(&self) -> &[InitializerRecord] {
+        &self.records
+    }
+
+    /// Associates a TYPE-level default initializer with the derived type.
+    pub fn set_type_default(&mut self, type_id: TypeId, initializer: InitializerId) {
+        self.type_defaults.insert(type_id, initializer);
+    }
+
+    /// Returns the TYPE-level default initializer for a derived type.
+    #[must_use]
+    pub fn type_default(&self, type_id: TypeId) -> Option<InitializerId> {
+        self.type_defaults.get(&type_id).copied()
+    }
+}
+
 /// Field definition for structured types.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StructField {
@@ -216,6 +268,8 @@ pub struct StructField {
     pub type_id: TypeId,
     /// Optional direct address (`AT`) for the field.
     pub address: Option<SmolStr>,
+    /// Optional default initializer for this field.
+    pub default_initializer: Option<InitializerId>,
 }
 
 /// Variant definition for union types.
@@ -227,6 +281,8 @@ pub struct UnionVariant {
     pub type_id: TypeId,
     /// Optional direct address (`AT`) for the variant.
     pub address: Option<SmolStr>,
+    /// Optional default initializer for this variant.
+    pub default_initializer: Option<InitializerId>,
 }
 
 /// Helpers for array dimensions encoded as `(lower, upper)` pairs.

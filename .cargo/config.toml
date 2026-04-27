@@ -1,2 +1,5 @@
 [build]
 rustc-wrapper = "sccache"
+
+[alias]
+xtask = "run -p xtask --"

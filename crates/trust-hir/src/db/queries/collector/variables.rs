@@ -1,5 +1,6 @@
 use super::*;
 use crate::db::diagnostics::is_expression_kind;
+use crate::db::queries::collector::const_utils::{scope_chain_for_node, ConstEvalError};
 
 impl SymbolCollector<'_> {
     pub(super) fn extract_var_decl_info(
@@ -78,6 +79,7 @@ impl SymbolCollector<'_> {
 
         if let Some(expr) = node.children().find(|n| is_expression_kind(n.kind())) {
             self.check_string_initializer(type_id, &expr);
+            self.check_aggregate_initializer_fields(type_id, &expr);
         }
 
         let direct_address = var_decl_direct_address(node);
@@ -161,6 +163,372 @@ impl SymbolCollector<'_> {
                 );
             }
             _ => {}
+        }
+    }
+
+    pub(super) fn check_aggregate_initializer_fields(
+        &mut self,
+        type_id: TypeId,
+        expr: &SyntaxNode,
+    ) {
+        let resolved = self.table.resolve_alias_type(type_id);
+        if expr.kind() == SyntaxKind::CallExpr {
+            if matches!(self.table.type_by_id(resolved), Some(Type::Class { .. })) {
+                self.diagnostics.error(
+                    DiagnosticCode::InvalidOperation,
+                    expr.text_range(),
+                    "class types do not support aggregate initialization; use NEW T(...) for class instantiation",
+                );
+            }
+            return;
+        }
+        if expr.kind() != SyntaxKind::InitializerList {
+            return;
+        }
+
+        enum AggregateTarget {
+            Members(Vec<(SmolStr, TypeId)>),
+            FunctionBlock(TypeId),
+        }
+
+        let target = match self.table.type_by_id(resolved) {
+            Some(Type::Struct { fields, .. }) => AggregateTarget::Members(
+                fields
+                    .iter()
+                    .map(|field| (field.name.clone(), field.type_id))
+                    .collect::<Vec<_>>(),
+            ),
+            Some(Type::Union { variants, .. }) => AggregateTarget::Members(
+                variants
+                    .iter()
+                    .map(|variant| (variant.name.clone(), variant.type_id))
+                    .collect::<Vec<_>>(),
+            ),
+            Some(Type::FunctionBlock { .. }) => AggregateTarget::FunctionBlock(resolved),
+            Some(Type::Unknown) | None => return,
+            _ => {
+                self.diagnostics.error(
+                    DiagnosticCode::TypeMismatch,
+                    expr.text_range(),
+                    "aggregate initializer requires a STRUCT, UNION, or function block type",
+                );
+                return;
+            }
+        };
+
+        let mut seen = FxHashSet::default();
+        let mut children = expr.children().peekable();
+        while let Some(child) = children.next() {
+            if child.kind() != SyntaxKind::Name {
+                continue;
+            }
+            let Some((field_name, range)) = name_from_node(&child) else {
+                continue;
+            };
+            let normalized = SmolStr::new(field_name.to_ascii_uppercase());
+            let member_type = match &target {
+                AggregateTarget::Members(members) => {
+                    let member_type = members
+                        .iter()
+                        .find(|(name, _)| name.eq_ignore_ascii_case(field_name.as_str()))
+                        .map(|(_, member_type)| *member_type);
+                    if member_type.is_none() {
+                        self.diagnostics.error(
+                            DiagnosticCode::UndefinedField,
+                            range,
+                            format!("unknown aggregate field '{field_name}'"),
+                        );
+                    }
+                    member_type
+                }
+                AggregateTarget::FunctionBlock(type_id) => {
+                    self.function_block_initializer_member_type(*type_id, &field_name, range)
+                }
+            };
+            if member_type.is_none() {
+                continue;
+            }
+            if !seen.insert(normalized) {
+                self.diagnostics.error(
+                    DiagnosticCode::DuplicateField,
+                    range,
+                    format!("duplicate aggregate field '{field_name}'"),
+                );
+            }
+
+            let Some(value_node) = children.find(|candidate| is_expression_kind(candidate.kind()))
+            else {
+                continue;
+            };
+            if let Some(member_type) = member_type {
+                self.check_aggregate_initializer_fields(member_type, &value_node);
+            }
+        }
+    }
+
+    pub(super) fn check_required_default_expression(&mut self, type_id: TypeId, expr: &SyntaxNode) {
+        if type_id == TypeId::UNKNOWN {
+            return;
+        }
+        let resolved = self.table.resolve_alias_type(type_id);
+        match expr.kind() {
+            SyntaxKind::InitializerList => {
+                self.check_required_aggregate_default(resolved, expr);
+            }
+            SyntaxKind::ArrayInitializer => {
+                let Some(Type::Array { element, .. }) = self.table.type_by_id(resolved) else {
+                    return;
+                };
+                let element = *element;
+                for child in expr
+                    .children()
+                    .filter(|child| is_expression_kind(child.kind()))
+                {
+                    self.check_array_default_element(element, &child);
+                }
+            }
+            SyntaxKind::CallExpr if self.is_array_repeat_expr(expr) => {
+                self.check_array_default_element(type_id, expr);
+            }
+            _ => self.check_required_scalar_default(resolved, expr),
+        }
+    }
+
+    fn check_required_aggregate_default(&mut self, type_id: TypeId, expr: &SyntaxNode) {
+        let members = match self.table.type_by_id(type_id) {
+            Some(Type::Struct { fields, .. }) => fields
+                .iter()
+                .map(|field| (field.name.clone(), field.type_id))
+                .collect::<Vec<_>>(),
+            Some(Type::Union { variants, .. }) => variants
+                .iter()
+                .map(|variant| (variant.name.clone(), variant.type_id))
+                .collect::<Vec<_>>(),
+            _ => return,
+        };
+
+        let mut children = expr.children().peekable();
+        while let Some(child) = children.next() {
+            if child.kind() != SyntaxKind::Name {
+                continue;
+            }
+            let Some((field_name, _)) = name_from_node(&child) else {
+                continue;
+            };
+            let Some((_, member_type)) = members
+                .iter()
+                .find(|(name, _)| name.eq_ignore_ascii_case(field_name.as_str()))
+            else {
+                continue;
+            };
+            let Some(value_node) = children.find(|candidate| is_expression_kind(candidate.kind()))
+            else {
+                continue;
+            };
+            self.check_required_default_expression(*member_type, &value_node);
+        }
+    }
+
+    fn check_array_default_element(&mut self, element_type: TypeId, expr: &SyntaxNode) {
+        if self.is_array_repeat_expr(expr) {
+            for arg in expr
+                .descendants()
+                .filter(|node| node.kind() == SyntaxKind::Arg)
+            {
+                for value in arg
+                    .children()
+                    .filter(|node| is_expression_kind(node.kind()))
+                {
+                    self.check_required_default_expression(element_type, &value);
+                }
+            }
+            return;
+        }
+        self.check_required_default_expression(element_type, expr);
+    }
+
+    fn is_array_repeat_expr(&self, expr: &SyntaxNode) -> bool {
+        if expr.kind() != SyntaxKind::CallExpr {
+            return false;
+        }
+        expr.children()
+            .next()
+            .is_some_and(|child| child.kind() == SyntaxKind::Literal)
+    }
+
+    fn check_required_scalar_default(&mut self, type_id: TypeId, expr: &SyntaxNode) {
+        let Some(target) = self.table.type_by_id(type_id) else {
+            return;
+        };
+        match target {
+            Type::Bool if self.literal_is_integer(expr) => {
+                self.diagnostics.error(
+                    DiagnosticCode::TypeMismatch,
+                    expr.text_range(),
+                    "BOOL default initializer requires a Boolean value",
+                );
+            }
+            Type::Reference { .. } if !self.literal_is_null(expr) => {
+                self.diagnostics.error(
+                    DiagnosticCode::InvalidOperation,
+                    expr.text_range(),
+                    "reference type/member defaults must be NULL",
+                );
+            }
+            ty if ty.is_integer() => {
+                let scopes = scope_chain_for_node(expr);
+                let mut guard = FxHashSet::default();
+                match self.try_eval_int_expr(expr, &scopes, &mut guard) {
+                    Ok(value) => self.check_integer_default_range(type_id, value, expr),
+                    Err(err) => self.report_default_const_eval_error(err, expr.text_range()),
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn literal_is_integer(&self, expr: &SyntaxNode) -> bool {
+        expr.kind() == SyntaxKind::Literal
+            && expr
+                .descendants_with_tokens()
+                .filter_map(|element| element.into_token())
+                .any(|token| token.kind() == SyntaxKind::IntLiteral)
+    }
+
+    fn literal_is_null(&self, expr: &SyntaxNode) -> bool {
+        expr.kind() == SyntaxKind::Literal
+            && expr
+                .descendants_with_tokens()
+                .filter_map(|element| element.into_token())
+                .any(|token| token.kind() == SyntaxKind::KwNull)
+    }
+
+    fn check_integer_default_range(&mut self, type_id: TypeId, value: i64, expr: &SyntaxNode) {
+        let Some((lower, upper)) = self.integer_type_bounds(type_id) else {
+            return;
+        };
+        if value < lower || value > upper {
+            self.diagnostics.error(
+                DiagnosticCode::OutOfRange,
+                expr.text_range(),
+                format!("integer default {value} is outside target type range {lower}..{upper}"),
+            );
+        }
+    }
+
+    fn integer_type_bounds(&self, type_id: TypeId) -> Option<(i64, i64)> {
+        let resolved = self.table.resolve_alias_type(type_id);
+        match self.table.type_by_id(resolved)? {
+            Type::Subrange { lower, upper, .. } => Some((*lower, *upper)),
+            Type::SInt => Some((i64::from(i8::MIN), i64::from(i8::MAX))),
+            Type::Int => Some((i64::from(i16::MIN), i64::from(i16::MAX))),
+            Type::DInt => Some((i64::from(i32::MIN), i64::from(i32::MAX))),
+            Type::LInt => Some((i64::MIN, i64::MAX)),
+            Type::USInt => Some((0, i64::from(u8::MAX))),
+            Type::UInt => Some((0, i64::from(u16::MAX))),
+            Type::UDInt => Some((0, i64::from(u32::MAX))),
+            Type::ULInt => Some((0, i64::MAX)),
+            _ => None,
+        }
+    }
+
+    fn report_default_const_eval_error(&mut self, err: ConstEvalError, range: TextRange) {
+        match err {
+            ConstEvalError::CyclicDependency(name) => self.diagnostics.error(
+                DiagnosticCode::CyclicDependency,
+                range,
+                format!("cyclic constant/default reference involving '{name}'"),
+            ),
+            ConstEvalError::DivideByZero => self.diagnostics.error(
+                DiagnosticCode::InvalidOperation,
+                range,
+                "default constant expression divides by zero",
+            ),
+            ConstEvalError::IntegerOverflow => self.diagnostics.error(
+                DiagnosticCode::InvalidOperation,
+                range,
+                "default constant expression overflows",
+            ),
+            ConstEvalError::NegativeExponent => self.diagnostics.error(
+                DiagnosticCode::InvalidOperation,
+                range,
+                "integer exponent must be non-negative",
+            ),
+            ConstEvalError::UndefinedName(name) => self.diagnostics.error(
+                DiagnosticCode::UndefinedVariable,
+                range,
+                format!("undefined constant '{name}'"),
+            ),
+            ConstEvalError::NotConstant => self.diagnostics.error(
+                DiagnosticCode::InvalidOperation,
+                range,
+                "type/member default initializer must be a constant expression",
+            ),
+        }
+    }
+
+    fn function_block_initializer_member_type(
+        &mut self,
+        type_id: TypeId,
+        field_name: &SmolStr,
+        range: TextRange,
+    ) -> Option<TypeId> {
+        let Some(symbol_id) = self
+            .table
+            .resolve_member_symbol_in_type(type_id, field_name.as_str())
+        else {
+            self.diagnostics.error(
+                DiagnosticCode::UndefinedField,
+                range,
+                format!("unknown aggregate field '{field_name}'"),
+            );
+            return None;
+        };
+        let symbol = self.table.get(symbol_id)?;
+        let kind = symbol.kind.clone();
+        let symbol_type_id = symbol.type_id;
+        let visibility = symbol.visibility;
+        match kind {
+            SymbolKind::Parameter {
+                direction: ParamDirection::In | ParamDirection::Out,
+            } => Some(symbol_type_id),
+            SymbolKind::Parameter {
+                direction: ParamDirection::InOut,
+            } => {
+                self.diagnostics.error(
+                    DiagnosticCode::InvalidOperation,
+                    range,
+                    "VAR_IN_OUT members cannot be initialized through aggregate syntax",
+                );
+                None
+            }
+            SymbolKind::Variable {
+                qualifier: VarQualifier::Temp | VarQualifier::External | VarQualifier::InOut,
+            } => {
+                self.diagnostics.error(
+                    DiagnosticCode::InvalidOperation,
+                    range,
+                    "temporary and external members cannot be initialized through aggregate syntax",
+                );
+                None
+            }
+            SymbolKind::Variable { .. } if visibility == Visibility::Public => Some(symbol_type_id),
+            SymbolKind::Variable { .. } => {
+                self.diagnostics.error(
+                    DiagnosticCode::InvalidOperation,
+                    range,
+                    "private members cannot be initialized through aggregate syntax",
+                );
+                None
+            }
+            _ => {
+                self.diagnostics.error(
+                    DiagnosticCode::InvalidOperation,
+                    range,
+                    "member cannot be initialized through aggregate syntax",
+                );
+                None
+            }
         }
     }
 

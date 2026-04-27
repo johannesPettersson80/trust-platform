@@ -38,7 +38,7 @@ impl Parser<'_, '_> {
 
         if self.at(TokenKind::Assign) {
             self.bump();
-            self.parse_expression();
+            self.parse_var_initializer();
         }
 
         self.finish_node();

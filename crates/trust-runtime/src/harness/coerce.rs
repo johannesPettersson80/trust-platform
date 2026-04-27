@@ -1,7 +1,8 @@
 use smol_str::SmolStr;
 
-use crate::value::{default_value_for_type_id, DateTimeProfile, Value};
-use trust_hir::types::TypeRegistry;
+use crate::value::{default_value_for_type_id, DateTimeProfile, StructValue, Value};
+use indexmap::IndexMap;
+use trust_hir::types::{StructField, TypeRegistry, UnionVariant};
 use trust_hir::{Type, TypeId};
 
 use super::CompileError;
@@ -83,8 +84,85 @@ fn coerce_initializer_value_to_runtime_type(
         Type::Subrange { base, .. } => {
             coerce_initializer_value_to_type(value, *base, registry, profile)
         }
+        Type::Struct { fields, .. } => {
+            coerce_struct_initializer(value, type_id, fields, registry, profile)
+        }
+        Type::Union { variants, .. } => {
+            coerce_union_initializer(value, type_id, variants, registry, profile)
+        }
         _ => coerce_value_to_type(value, type_id),
     }
+}
+
+fn coerce_struct_initializer(
+    value: Value,
+    type_id: TypeId,
+    fields: &[StructField],
+    registry: &TypeRegistry,
+    profile: &DateTimeProfile,
+) -> Result<Value, CompileError> {
+    let Value::Struct(input) = value else {
+        return Err(CompileError::new("expected struct initializer"));
+    };
+    let mut values = default_struct_fields(type_id, registry, profile)?;
+    for (name, value) in input.fields() {
+        let Some(field) = fields
+            .iter()
+            .find(|field| field.name.eq_ignore_ascii_case(name.as_str()))
+        else {
+            return Err(CompileError::new(format!(
+                "unknown aggregate field '{name}'"
+            )));
+        };
+        let coerced =
+            coerce_initializer_value_to_type(value.clone(), field.type_id, registry, profile)?;
+        values.insert(field.name.clone(), coerced);
+    }
+    let value = StructValue::new(registry, type_id, values)
+        .map_err(|err| CompileError::new(format!("invalid struct initializer: {err}")))?;
+    Ok(Value::Struct(std::sync::Arc::new(value)))
+}
+
+fn coerce_union_initializer(
+    value: Value,
+    type_id: TypeId,
+    variants: &[UnionVariant],
+    registry: &TypeRegistry,
+    profile: &DateTimeProfile,
+) -> Result<Value, CompileError> {
+    let Value::Struct(input) = value else {
+        return Err(CompileError::new("expected union initializer"));
+    };
+    let mut values = default_struct_fields(type_id, registry, profile)?;
+    for (name, value) in input.fields() {
+        let Some(variant) = variants
+            .iter()
+            .find(|variant| variant.name.eq_ignore_ascii_case(name.as_str()))
+        else {
+            return Err(CompileError::new(format!(
+                "unknown aggregate field '{name}'"
+            )));
+        };
+        let coerced =
+            coerce_initializer_value_to_type(value.clone(), variant.type_id, registry, profile)?;
+        values.insert(variant.name.clone(), coerced);
+    }
+    let value = StructValue::new(registry, type_id, values)
+        .map_err(|err| CompileError::new(format!("invalid union initializer: {err}")))?;
+    Ok(Value::Struct(std::sync::Arc::new(value)))
+}
+
+fn default_struct_fields(
+    type_id: TypeId,
+    registry: &TypeRegistry,
+    profile: &DateTimeProfile,
+) -> Result<IndexMap<SmolStr, Value>, CompileError> {
+    let value = default_value_for_type_id(type_id, registry, profile)
+        .map_err(|_| CompileError::new("default value error for aggregate initializer"))?;
+    let Value::Struct(value) = value else {
+        return Err(CompileError::new("expected aggregate default value"));
+    };
+    Ok(value.fields().clone())
 }
 
 fn coerce_signed(value: Value, type_id: TypeId) -> Result<Value, CompileError> {

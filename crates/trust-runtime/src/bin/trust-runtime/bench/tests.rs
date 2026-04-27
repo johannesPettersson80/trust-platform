@@ -164,6 +164,60 @@ END_PROGRAM
 }
 
 #[test]
+fn init_bench_json_output_contains_startup_latency_fields() {
+    let project =
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/init_bench");
+
+    let (report, format) = execute_bench(BenchAction::Init {
+        project: project.clone(),
+        samples: 2,
+        warmup_cycles: 0,
+        output: BenchOutputFormat::Json,
+    })
+    .expect("run init benchmark");
+    let rendered = render_bench_output(&report, format).expect("render json");
+    let value: serde_json::Value = serde_json::from_str(&rendered).expect("parse bench json");
+    assert_eq!(
+        value.get("benchmark").and_then(serde_json::Value::as_str),
+        Some("init")
+    );
+    assert_eq!(
+        value
+            .pointer("/report/init_only_latency/samples")
+            .and_then(serde_json::Value::as_u64),
+        Some(2)
+    );
+    assert!(value
+        .pointer("/report/init_plus_first_cycle_latency/p95_us")
+        .and_then(serde_json::Value::as_f64)
+        .is_some());
+    assert!(value
+        .pointer("/report/first_cycle_latency/p99_us")
+        .and_then(serde_json::Value::as_f64)
+        .is_some());
+    assert!(value
+        .pointer("/report/steady_cycle_latency/p50_us")
+        .and_then(serde_json::Value::as_f64)
+        .is_some());
+    assert!(value
+        .pointer("/report/first_mutation_latency/p50_us")
+        .and_then(serde_json::Value::as_f64)
+        .is_some());
+    assert!(value
+        .pointer("/report/retain_restart_latency/p50_us")
+        .and_then(serde_json::Value::as_f64)
+        .is_some());
+    assert!(value
+        .pointer("/report/struct_value_new_latency/p50_us")
+        .and_then(serde_json::Value::as_f64)
+        .is_some());
+    assert!(value
+        .pointer("/report/struct_value_untyped_latency/p50_us")
+        .and_then(serde_json::Value::as_f64)
+        .is_some());
+}
+
+#[test]
 fn project_bench_json_output_contains_budget_and_watched_globals() {
     let project = unique_temp_dir("project-bench");
     write_project_bench_fixture(&project);

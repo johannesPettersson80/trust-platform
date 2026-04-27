@@ -1,0 +1,248 @@
+use std::fs;
+use std::path::{Path, PathBuf};
+
+fn workspace_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(Path::parent)
+        .expect("workspace root")
+        .to_path_buf()
+}
+
+fn read_workspace_file(relative: &str) -> String {
+    fs::read_to_string(workspace_root().join(relative))
+        .unwrap_or_else(|err| panic!("read {relative}: {err}"))
+        .replace("\r\n", "\n")
+}
+
+fn rust_files_under(relative: &str) -> Vec<PathBuf> {
+    fn visit(path: &Path, files: &mut Vec<PathBuf>) {
+        for entry in fs::read_dir(path).unwrap_or_else(|err| panic!("read dir {path:?}: {err}")) {
+            let entry = entry.expect("directory entry");
+            let path = entry.path();
+            if path.is_dir() {
+                visit(&path, files);
+            } else if path.extension().is_some_and(|ext| ext == "rs") {
+                files.push(path);
+            }
+        }
+    }
+
+    let mut files = Vec::new();
+    visit(&workspace_root().join(relative), &mut files);
+    files
+}
+
+#[test]
+fn syntax_classifier_helpers_delegate_to_central_api() {
+    let delegates = [
+        (
+            "crates/trust-ide/src/var_decl.rs",
+            "fn is_expression_kind(kind: SyntaxKind) -> bool {\n    kind.is_initializer_expression_node()\n}",
+        ),
+        (
+            "crates/trust-ide/src/refactor/operations/inline_and_namespace_helpers.rs",
+            "fn is_expression_kind(kind: SyntaxKind) -> bool {\n    kind.is_initializer_expression_node()\n}",
+        ),
+        (
+            "crates/trust-ide/src/refactor/operations/convert_callsite_updates.rs",
+            "fn is_statement_kind(kind: SyntaxKind) -> bool {\n    kind.is_statement_node()\n}",
+        ),
+        (
+            "crates/trust-hir/src/db/diagnostics/unreachable.rs",
+            "fn is_expression_kind(kind: SyntaxKind) -> bool {\n    kind.is_initializer_expression_node()\n}",
+        ),
+        (
+            "crates/trust-hir/src/db/diagnostics/unreachable.rs",
+            "fn is_statement_kind(kind: SyntaxKind) -> bool {\n    kind.is_statement_node()\n}",
+        ),
+        (
+            "crates/trust-hir/src/db/diagnostics/expression.rs",
+            "pub(in crate::db) fn is_expression_kind(kind: SyntaxKind) -> bool {\n    kind.is_initializer_expression_node()\n}",
+        ),
+        (
+            "crates/trust-hir/src/type_check/mod.rs",
+            "fn is_expression_kind(kind: SyntaxKind) -> bool {\n    kind.is_initializer_expression_node()\n}",
+        ),
+        (
+            "crates/trust-hir/src/type_check/mod.rs",
+            "fn is_statement_kind(kind: SyntaxKind) -> bool {\n    kind.is_statement_node()\n}",
+        ),
+        (
+            "crates/trust-lsp/src/handlers/features/core_impl/helpers/syntax_utils.rs",
+            "pub(in super::super) fn is_expression_kind(kind: SyntaxKind) -> bool {\n    kind.is_initializer_expression_node()\n}",
+        ),
+        (
+            "crates/trust-runtime/src/harness/util.rs",
+            "pub(super) fn is_expression_kind(kind: SyntaxKind) -> bool {\n    kind.is_initializer_expression_node()\n}",
+        ),
+        (
+            "crates/trust-runtime/src/harness/util.rs",
+            "pub(super) fn is_statement_kind(kind: SyntaxKind) -> bool {\n    kind.is_statement_node()\n}",
+        ),
+    ];
+
+    for (file, expected) in delegates {
+        let source = read_workspace_file(file);
+        assert!(
+            source.contains(expected),
+            "{file} must delegate to the central trust-syntax classifier"
+        );
+    }
+}
+
+#[test]
+fn hir_collection_and_import_do_not_drop_member_initializers() {
+    for file in [
+        "crates/trust-hir/src/db/queries/collector/types.rs",
+        "crates/trust-hir/src/db/symbol_import.rs",
+    ] {
+        let source = read_workspace_file(file);
+        assert!(
+            !source.contains("default_initializer: None"),
+            "{file} must translate or register initializer ids instead of dropping them"
+        );
+    }
+
+    let table = read_workspace_file("crates/trust-hir/src/symbols/table.rs");
+    assert!(
+        table.contains("initializer_catalog: InitializerCatalog"),
+        "initializer catalog must be owned by the Salsa-tracked SymbolTable"
+    );
+    assert!(
+        table.contains("pub fn initializer(&self, id: InitializerId)"),
+        "SymbolTable must expose narrow initializer lookup accessors"
+    );
+}
+
+#[test]
+fn runtime_initializer_service_is_the_source_level_funnel() {
+    let root = workspace_root();
+    let allowed = [
+        root.join("crates/trust-runtime/src/harness/coerce.rs"),
+        root.join("crates/trust-runtime/src/harness/initializer.rs"),
+    ];
+
+    for path in rust_files_under("crates/trust-runtime/src") {
+        let source = fs::read_to_string(&path).expect("read rust source");
+        if !source.contains("coerce_initializer_value_to_type(") {
+            continue;
+        }
+        assert!(
+            allowed.iter().any(|allowed_path| allowed_path == &path),
+            "{} calls coerce_initializer_value_to_type outside the initializer funnel",
+            path.display()
+        );
+    }
+}
+
+#[test]
+fn runtime_var_decl_parts_are_structural_not_positional_tuples() {
+    let vars = read_workspace_file("crates/trust-runtime/src/harness/compiler/vars.rs");
+    assert!(
+        vars.contains("pub(super) struct VarDeclParts"),
+        "runtime declaration lowering must expose named VarDeclParts"
+    );
+
+    for file in rust_files_under("crates/trust-runtime/src/harness") {
+        let source = fs::read_to_string(&file).expect("read harness source");
+        assert!(
+            !source.contains("let (names, type_ref, initializer, address) = parse_var_decl"),
+            "{} still destructures parse_var_decl positionally",
+            file.display()
+        );
+    }
+}
+
+#[test]
+fn dependency_boundaries_for_initializer_metadata_hold() {
+    for file in rust_files_under("crates/trust-hir/src") {
+        let source = fs::read_to_string(&file).expect("read HIR source");
+        assert!(
+            !source.contains("trust_runtime"),
+            "{} must not depend on trust-runtime",
+            file.display()
+        );
+        assert!(
+            !source.contains("crate::value::Value"),
+            "{} must not import runtime Value",
+            file.display()
+        );
+    }
+
+    for file in [
+        "crates/trust-runtime/src/harness/initializer.rs",
+        "crates/trust-runtime/src/harness/initializer/defaults.rs",
+    ] {
+        let source = read_workspace_file(file);
+        assert!(
+            !source.contains("SyntaxNode") && !source.contains("trust_syntax"),
+            "{file} must consume lowered Expr/catalog data, not raw CST"
+        );
+    }
+}
+
+#[test]
+fn initializer_service_size_caps_hold() {
+    for file in [
+        "crates/trust-runtime/src/harness/initializer.rs",
+        "crates/trust-runtime/src/harness/initializer/defaults.rs",
+    ] {
+        let source = read_workspace_file(file);
+        let line_count = source.lines().count();
+        assert!(
+            line_count <= 400,
+            "{file} has {line_count} lines; initializer service modules are capped at 400"
+        );
+
+        let lines: Vec<_> = source.lines().collect();
+        let function_starts: Vec<_> = lines
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, line)| {
+                let trimmed = line.trim_start();
+                (trimmed.starts_with("fn ")
+                    || trimmed.starts_with("pub(crate) fn ")
+                    || trimmed.starts_with("pub(super) fn "))
+                .then_some(idx)
+            })
+            .collect();
+
+        for (position, start) in function_starts.iter().copied().enumerate() {
+            let end = function_starts
+                .get(position + 1)
+                .copied()
+                .unwrap_or(lines.len());
+            let len = end.saturating_sub(start);
+            assert!(
+                len <= 60,
+                "{file}: function starting at line {} has {len} lines; cap is 60",
+                start + 1
+            );
+        }
+    }
+}
+
+#[test]
+fn init_benchmark_cli_and_fixture_are_reproducible() {
+    let cli = read_workspace_file("crates/trust-runtime/src/bin/trust-runtime/cli/bench.rs");
+    assert!(cli.contains("Init"), "bench CLI must expose an init action");
+    assert!(
+        cli.contains("warmup_cycles"),
+        "init bench CLI must keep the locked warmup_cycles field"
+    );
+
+    let bench = read_workspace_file("crates/trust-runtime/src/bin/trust-runtime/bench.rs");
+    assert!(
+        bench.contains("include!(\"bench/init.rs\")"),
+        "bench/init.rs must be included from the existing bench harness"
+    );
+
+    let fixture =
+        workspace_root().join("crates/trust-runtime/tests/fixtures/init_bench/runtime.toml");
+    assert!(fixture.exists(), "init bench fixture must be checked in");
+    let runtime_toml = fs::read_to_string(fixture).expect("read init bench runtime.toml");
+    assert!(runtime_toml.contains("[runtime]"));
+    assert!(runtime_toml.contains("execution_backend = \"vm\""));
+    assert!(runtime_toml.contains("auth_token = \"trust-init-bench-fixture-token\""));
+}

@@ -99,6 +99,229 @@ END_PROGRAM"#,
 }
 
 #[test]
+fn test_var_with_named_aggregate_initializer() {
+    let parsed = parse(
+        r#"PROGRAM Test
+VAR
+    cfg : StepCfg := (cyl := 1, ext := TRUE);
+END_VAR
+END_PROGRAM"#,
+    );
+    assert!(
+        parsed.ok(),
+        "expected named aggregate declaration initializer to parse, got: {:?}",
+        parsed.errors()
+    );
+    let syntax = parsed.syntax();
+    let aggregate_count = syntax
+        .descendants()
+        .filter(|node| node.kind() == SyntaxKind::InitializerList)
+        .count();
+    assert_eq!(
+        aggregate_count,
+        1,
+        "syntax:\n{}",
+        snapshot_parse(
+            r#"PROGRAM Test
+VAR
+    cfg : StepCfg := (cyl := 1, ext := TRUE);
+END_VAR
+END_PROGRAM"#
+        )
+    );
+}
+
+#[test]
+fn test_var_initializer_aggregate_shapes_and_recovery() {
+    let source = r#"PROGRAM Test
+VAR
+    single : StepCfg := (cyl := 1);
+    nested : OuterCfg := (inner := (cyl := 2, ext := TRUE));
+    partial : StepCfg := (cyl := 3);
+    arr : ARRAY[1..2] OF StepCfg := [(cyl := 4), (ext := TRUE)];
+    repeated : ARRAY[1..3] OF StepCfg := [3((cyl := 5))];
+    commented : StepCfg := (cyl := 6 (* comment *), ext := TRUE);
+END_VAR
+END_PROGRAM"#;
+    let parsed = parse(source);
+    assert!(
+        parsed.ok(),
+        "expected aggregate initializer shapes to parse, got: {:?}",
+        parsed.errors()
+    );
+    let syntax = parsed.syntax();
+    assert_eq!(
+        syntax
+            .descendants()
+            .filter(|node| node.kind() == SyntaxKind::InitializerList)
+            .count(),
+        8,
+        "expected all nested, array, repeated, and commented aggregates to remain initializer lists:\n{}",
+        snapshot_parse(source)
+    );
+}
+
+#[test]
+fn test_var_global_aggregate_initializer_parse() {
+    let source = r#"VAR_GLOBAL
+    cfg : StepCfg := (cyl := 1, ext := TRUE);
+END_VAR"#;
+    let parsed = parse(source);
+    assert!(
+        parsed.ok(),
+        "expected file-scope VAR_GLOBAL aggregate initializer to parse, got: {:?}",
+        parsed.errors()
+    );
+    assert!(parsed
+        .syntax()
+        .descendants()
+        .any(|node| node.kind() == SyntaxKind::InitializerList));
+}
+
+#[test]
+fn test_fb_instance_aggregate_initializer_parse() {
+    let source = r#"PROGRAM Test
+VAR
+    timer : TON := (PT := T#1s);
+END_VAR
+END_PROGRAM"#;
+    let parsed = parse(source);
+    assert!(
+        parsed.ok(),
+        "expected FB instance aggregate initializer to parse, got: {:?}",
+        parsed.errors()
+    );
+    assert!(parsed
+        .syntax()
+        .descendants()
+        .any(|node| node.kind() == SyntaxKind::InitializerList));
+}
+
+#[test]
+fn test_call_arguments_remain_call_arguments() {
+    let parsed = parse(
+        r#"PROGRAM Test
+f(a := 1);
+END_PROGRAM"#,
+    );
+    assert!(
+        parsed.ok(),
+        "expected named call argument to parse, got: {:?}",
+        parsed.errors()
+    );
+    let syntax = parsed.syntax();
+    assert!(
+        syntax
+            .descendants()
+            .any(|node| node.kind() == SyntaxKind::CallExpr),
+        "expected CallExpr, got:\n{}",
+        snapshot_parse(
+            r#"PROGRAM Test
+f(a := 1);
+END_PROGRAM"#
+        )
+    );
+    assert!(
+        !syntax
+            .descendants()
+            .any(|node| node.kind() == SyntaxKind::InitializerList),
+        "function-call arguments must not be parsed as aggregate initializers:\n{}",
+        snapshot_parse(
+            r#"PROGRAM Test
+f(a := 1);
+END_PROGRAM"#
+        )
+    );
+}
+
+#[test]
+fn test_initializer_parser_is_not_used_for_enum_values_or_calls() {
+    let source = r#"TYPE
+    State : (Idle := 0, Running := 1);
+END_TYPE
+
+PROGRAM Test
+f(a := 1);
+END_PROGRAM"#;
+    let parsed = parse(source);
+    assert!(
+        parsed.ok(),
+        "expected enum values and named call args to parse, got: {:?}",
+        parsed.errors()
+    );
+    assert!(
+        !parsed
+            .syntax()
+            .descendants()
+            .any(|node| node.kind() == SyntaxKind::InitializerList),
+        "initializer lists must not be emitted for enum value assignments or function-call arguments:\n{}",
+        snapshot_parse(source)
+    );
+}
+
+#[test]
+fn test_positional_and_empty_aggregate_recovery_is_bounded() {
+    const POSITIONAL_MESSAGE: &str =
+        "positional struct initializers are not supported; use named field initializers";
+
+    for (label, initializer) in [
+        ("integer", "(1, 2)"),
+        ("bool", "(TRUE, FALSE)"),
+        ("identifier", "(MyConst, 5)"),
+        ("string", "('a', 'b')"),
+    ] {
+        let positional = parse(&format!(
+            r#"PROGRAM Test
+VAR
+    cfg : StepCfg := {initializer};
+END_VAR
+END_PROGRAM"#
+        ));
+        assert_eq!(
+            positional.errors().len(),
+            1,
+            "{label} positional aggregate should produce one targeted diagnostic, got: {:?}",
+            positional.errors()
+        );
+        assert_eq!(
+            positional.errors()[0].message,
+            POSITIONAL_MESSAGE,
+            "{label} positional aggregate should use locked wording"
+        );
+    }
+
+    let empty = parse(
+        r#"PROGRAM Test
+VAR
+    cfg : Empty := ();
+END_VAR
+END_PROGRAM"#,
+    );
+    assert_eq!(
+        empty.errors().len(),
+        1,
+        "empty aggregate should produce one targeted diagnostic, got: {:?}",
+        empty.errors()
+    );
+
+    let malformed = parse(
+        r#"PROGRAM Test
+VAR
+    a : StepCfg := (cyl := );
+    b : StepCfg := (ext := );
+    c : StepCfg := (missing := );
+END_VAR
+END_PROGRAM"#,
+    );
+    assert_eq!(
+        malformed.errors().len(),
+        3,
+        "three malformed initializer declarations should produce one diagnostic each, got: {:?}",
+        malformed.errors()
+    );
+}
+
+#[test]
 fn test_var_with_partial_array_initializer() {
     let parsed = parse(
         r#"PROGRAM Test

@@ -24,6 +24,7 @@ impl<'a> BytecodeEncoder<'a> {
                 Ok(true)
             }
             crate::program_model::Expr::ArrayInitializer(_) => Ok(false),
+            crate::program_model::Expr::StructInitializer(_) => Ok(false),
             crate::program_model::Expr::SizeOf(target) => self.emit_sizeof_expr(ctx, target, code),
             crate::program_model::Expr::Name(name) => {
                 if let Some(reference) = ctx.local_ref(name) {
@@ -69,6 +70,17 @@ impl<'a> BytecodeEncoder<'a> {
                         if self.emit_partial_read_for_name(ctx, base, access, code)? {
                             return Ok(true);
                         }
+                    }
+                    if ctx.local_ref(base).is_some() {
+                        if !self.emit_ref_for_name(ctx, base, code)? {
+                            code.truncate(start_len);
+                            return Ok(false);
+                        }
+                        let field_idx = self.strings.intern(field.clone());
+                        code.push(0x30);
+                        code.extend_from_slice(&field_idx.to_le_bytes());
+                        code.push(0x32);
+                        return Ok(true);
                     }
                     if self.emit_dynamic_load_field(ctx, base, field, code)? {
                         return Ok(true);
