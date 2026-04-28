@@ -288,7 +288,18 @@ impl SymbolCollector<'_> {
                 }
             }
             SyntaxKind::CallExpr if self.is_array_repeat_expr(expr) => {
-                self.check_array_default_element(type_id, expr);
+                let Some(Type::Array { element, .. }) = self.table.type_by_id(resolved) else {
+                    self.check_required_scalar_default(resolved, expr);
+                    return;
+                };
+                self.check_array_default_element(*element, expr);
+            }
+            _ if matches!(self.table.type_by_id(resolved), Some(Type::Array { .. })) => {
+                self.diagnostics.error(
+                    DiagnosticCode::TypeMismatch,
+                    expr.text_range(),
+                    "array default initializer requires an array initializer or repetition expression",
+                );
             }
             _ => self.check_required_scalar_default(resolved, expr),
         }
@@ -423,7 +434,6 @@ impl SymbolCollector<'_> {
             Type::SInt => Some((i64::from(i8::MIN), i64::from(i8::MAX))),
             Type::Int => Some((i64::from(i16::MIN), i64::from(i16::MAX))),
             Type::DInt => Some((i64::from(i32::MIN), i64::from(i32::MAX))),
-            Type::LInt => Some((i64::MIN, i64::MAX)),
             Type::USInt => Some((0, i64::from(u8::MAX))),
             Type::UInt => Some((0, i64::from(u16::MAX))),
             Type::UDInt => Some((0, i64::from(u32::MAX))),

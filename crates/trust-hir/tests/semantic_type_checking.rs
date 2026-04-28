@@ -10,6 +10,8 @@ mod basics_and_warnings;
 mod control_flow_and_calls;
 #[path = "semantic_type_checking/enum_unqualified_in_expressions.rs"]
 mod enum_unqualified_in_expressions;
+#[path = "semantic_type_checking/hir_mutation_hardening.rs"]
+mod hir_mutation_hardening;
 #[path = "semantic_type_checking/parameter_constant_qualifier.rs"]
 mod parameter_constant_qualifier;
 #[path = "semantic_type_checking/pointer_param_write_through.rs"]

@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.1`
+Target release: `v0.24.2`
 
 ### Changed
 
@@ -17,6 +17,9 @@ Target release: `v0.24.1`
 
 ### Fixed
 
+- HIR validation now rejects non-repeat call expressions used as array defaults
+  and validates direct array repetition defaults against the repeated element
+  type, closing focused mutation-testing gaps in default initializer analysis.
 - VS Code activation no longer writes the default runtime control endpoint into
   workspace folder settings; runtime panels still use the built-in endpoint
   fallback when the setting is empty.

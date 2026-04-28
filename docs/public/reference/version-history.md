@@ -2,8 +2,8 @@
 
 ## Current Baseline
 
-- current repository baseline: `v0.24.0`
-- public docs in this tree describe the `v0.24.0` workspace version unless a
+- current repository baseline: `v0.24.2`
+- public docs in this tree describe the `v0.24.2` workspace version unless a
   page explicitly marks a feature as experimental, roadmap, or target-specific
 
 ## What Changed Recently
@@ -12,6 +12,9 @@
 
 - OSCAT OOP reset behavior, converter parity, API naming, dependency
   alias, and comparison examples were hardened after external review.
+- HIR default-initializer analysis now rejects non-repeat call expressions used
+  as array defaults and validates repeated array defaults against the element
+  type.
 - The OSCAT OOP test fixture now covers reset, multi-scan parity,
   invalid-limit rejection, FIFO ordering, and version lookup through classic
   OSCAT.

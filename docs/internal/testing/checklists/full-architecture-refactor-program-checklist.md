@@ -25,7 +25,7 @@ This is the umbrella checklist. Individual execution boards own the detailed wor
 ## Required Execution Boards
 
 - [x] `ARCHPROG-BOARD-01` Full-map architecture doctor: `architecture-doctor-full-map-execution-checklist.md`.
-- [ ] `ARCHPROG-BOARD-02` HIR mutation hardening: `hir-mutation-hardening-execution-checklist.md`.
+- [x] `ARCHPROG-BOARD-02` HIR mutation hardening: `hir-mutation-hardening-execution-checklist.md`.
 - [ ] `ARCHPROG-BOARD-03` Parser recovery hardening: `parser-recovery-hardening-execution-checklist.md`.
 - [ ] `ARCHPROG-BOARD-04` Runtime CLI product/workbench split: `runtime-cli-product-workbench-split-checklist.md`.
 - [ ] `ARCHPROG-BOARD-05` Runtime host surface ownership: `runtime-host-surface-ownership-checklist.md`.
@@ -48,10 +48,10 @@ This is the umbrella checklist. Individual execution boards own the detailed wor
 
 ### Phase B - Silent-Bug Hardening Before Large Runtime Movement
 
-- [ ] `ARCHPROG-B-01` Close HIR mutation gap for `symbol_import`.
-- [ ] `ARCHPROG-B-02` Close HIR mutation gap for `type_check::const_eval`.
-- [ ] `ARCHPROG-B-03` Close HIR mutation gap for aggregate initializer validation.
-- [ ] `ARCHPROG-B-04` Add mutation gate with zero unexplained survivors for the focused HIR shard.
+- [x] `ARCHPROG-B-01` Close HIR mutation gap for `symbol_import`.
+- [x] `ARCHPROG-B-02` Close HIR mutation gap for `type_check::const_eval`.
+- [x] `ARCHPROG-B-03` Close HIR mutation gap for aggregate initializer validation.
+- [x] `ARCHPROG-B-04` Add mutation gate with zero unexplained survivors for the focused HIR shard.
 - [ ] `ARCHPROG-B-05` Fix parser recovery bounded-scanner and fuzz/property tests.
 
 ### Phase C - Runtime Boundary Policy Before Runtime Extraction
@@ -81,7 +81,7 @@ This is the umbrella checklist. Individual execution boards own the detailed wor
 ## Program Exit Criteria
 
 - [ ] `ARCHPROG-EXIT-01` Full-map doctor runs and blocks known bad dependency/ownership patterns.
-- [ ] `ARCHPROG-EXIT-02` Focused HIR mutation shard has zero unexplained survivors.
+- [x] `ARCHPROG-EXIT-02` Focused HIR mutation shard has zero unexplained survivors.
 - [ ] `ARCHPROG-EXIT-03` Parser recovery has bounded scanner API plus fuzz/property coverage.
 - [ ] `ARCHPROG-EXIT-04` Product runtime binary no longer owns unclassified workbench/dev commands.
 - [ ] `ARCHPROG-EXIT-05` HMI/web/control/cloud ownership is enforced by ports and doctor rules.
