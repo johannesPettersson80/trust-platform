@@ -4,6 +4,8 @@ Status: In progress - tool substrate installed; Issue #51 architecture map/docto
 
 Purpose: replace hand-verified architecture claims with code-derived facts wherever possible. Diagrams remain useful views, but generated facts and doctor checks are the source of truth.
 
+Execution board for the full-map doctor command: `architecture-doctor-full-map-execution-checklist.md`. That board is the executable plan for the command; this tooling checklist remains the broader tool-install and automation inventory.
+
 ## Phase 0 - Tool Install Inventory
 
 - [x] `AUTO-TOOL-001` Install core cargo automation tools: `cargo-deny`, `cargo-audit`, `cargo-machete`, `cargo-semver-checks`, `cargo-public-api`, `cargo-llvm-cov`, `cargo-mutants`, `cargo-geiger`, `cargo-about`, `cargo-auditable`, `cargo-bloat`, `cargo-llvm-lines`.
@@ -50,7 +52,7 @@ Purpose: replace hand-verified architecture claims with code-derived facts where
 - [ ] `AUTO-TEST-001` Add `cargo llvm-cov` workspace coverage reporting.
 - [ ] `AUTO-TEST-002` Add `cargo mutants` focused jobs for parser, HIR diagnostics, runtime initializer, retain/restart, and VM local init.
 - [ ] `AUTO-TEST-003` Add `cargo fuzz` targets for parser, config, and initializer lowering inputs.
-- [ ] `AUTO-TEST-004` Add Miri/sanitizer/loom scheduled jobs for unsafe and concurrency-sensitive code.
+- [ ] `AUTO-TEST-004` Add Miri/sanitizer/loom scheduled jobs for unsafe and concurrency-sensitive code through `unsafe-concurrency-hardening-execution-checklist.md`.
 
 ## Phase 6 - Performance and Size Automation
 

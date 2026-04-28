@@ -1,4 +1,5 @@
 {
+  "docs/diagrams/architecture/full-software-map-generated.puml": "1864b0facc8f7a6777095408f72211bbb5cd4fc2f143f96aee0216643632dd32",
   "docs/diagrams/architecture/plcopen-motion-library.puml": "a946e8cdde0f4316302cab0ac1c3e13003b634f098264dc0f539240955aa31d4",
   "docs/diagrams/architecture/runtime-bytecode-vm-execution.puml": "d58b19669b58cd1361ffb95e98b79917def6b3b8a4909eea3777c73ee4ebce6f",
   "docs/diagrams/architecture/runtime-cloud-planes.puml": "3c6dfac75e9ce0e77f1a503caf149d0ea611f5427e7c4e8bac7490fe2befeaf7",

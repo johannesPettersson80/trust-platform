@@ -85,6 +85,9 @@ docs/internal/prototypes/browser_analysis_wasm_spike/npm/trust-wasm-analysis-cli
 !docs/internal/runtime/
 docs/internal/runtime/*
 !docs/internal/runtime/trust-runtime-web-ide-full-specification.md
+!docs/internal/architecture/
+docs/internal/architecture/*
+!docs/internal/architecture/full-software-map-audit-2026-04-28.md
 !docs/internal/testing/
 docs/internal/testing/*
 !docs/internal/testing/checklists/
@@ -96,6 +99,17 @@ docs/internal/testing/checklists/*
 !docs/internal/testing/checklists/codesys-twincat-parity.md
 !docs/internal/testing/checklists/agent-platform-foundation-checklist.md
 !docs/internal/testing/checklists/architecture-automation-tooling.md
+!docs/internal/testing/checklists/full-architecture-refactor-program-checklist.md
+!docs/internal/testing/checklists/architecture-doctor-full-map-execution-checklist.md
+!docs/internal/testing/checklists/hir-mutation-hardening-execution-checklist.md
+!docs/internal/testing/checklists/parser-recovery-hardening-execution-checklist.md
+!docs/internal/testing/checklists/runtime-cli-product-workbench-split-checklist.md
+!docs/internal/testing/checklists/runtime-host-surface-ownership-checklist.md
+!docs/internal/testing/checklists/runtime-core-host-split-execution-checklist.md
+!docs/internal/testing/checklists/dependency-hygiene-execution-checklist.md
+!docs/internal/testing/checklists/runtime-large-file-split-execution-checklist.md
+!docs/internal/testing/checklists/runtime-vm-mutation-hardening-execution-checklist.md
+!docs/internal/testing/checklists/unsafe-concurrency-hardening-execution-checklist.md
 !docs/internal/testing/checklists/docs-ia-visual-polish-checklist.md
 !docs/internal/testing/checklists/docs-ia-strategy.md
 !docs/internal/testing/evidence/

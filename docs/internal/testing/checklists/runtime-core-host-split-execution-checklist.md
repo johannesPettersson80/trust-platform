@@ -1,0 +1,351 @@
+# Runtime Core / Linux Host Split Execution Checklist
+
+Status: Planned
+Owner: Runtime team
+Scope: behavior-preserving split of portable runtime execution from the current Linux/product host.
+
+This checklist turns the architecture plan in `docs/internal/architecture/full-software-map-audit-2026-04-28.md` into an execution board.
+
+This work revives only the useful SOLID/KISS part of the deferred runtime-core/native-host split. It does not restart the embedded product roadmap.
+
+This checklist is not the whole architecture cleanup program. It preserves and extracts runtime execution behavior. It does not close the HIR mutation gap, parser recovery gap, product/workbench CLI split, or HMI/web/control/cloud ownership split by itself. Track the full program in `full-architecture-refactor-program-checklist.md`.
+
+## Goals
+
+- [ ] `RTSPLIT-GOAL-01` Extract a portable `trust-runtime-core` boundary without changing shipped Linux runtime behavior.
+- [ ] `RTSPLIT-GOAL-02` Keep `trust-runtime` as the Linux/product host during the first split.
+- [ ] `RTSPLIT-GOAL-03` Make runtime execution, host transport, UI/control/cloud, and workbench/dev tooling separate responsibilities.
+- [ ] `RTSPLIT-GOAL-04` Add automated doctor rules so the split cannot silently drift back.
+- [ ] `RTSPLIT-GOAL-05` Preserve bytecode/runtime behavior, scheduler behavior, retain behavior, value invariants, and runtime vertical tests throughout the split.
+
+## Explicit Non-Goals
+
+- [ ] `RTSPLIT-NOTNOW-01` No STM32H7 hardware bring-up in this branch family.
+- [ ] `RTSPLIT-NOTNOW-02` No Arduino Opta acceptance work in this branch family.
+- [ ] `RTSPLIT-NOTNOW-03` No ESP32 host follow-up in this branch family.
+- [ ] `RTSPLIT-NOTNOW-04` No embedded `T0` backend in this branch family.
+- [ ] `RTSPLIT-NOTNOW-05` No embedded EtherCAT backend in this branch family.
+- [ ] `RTSPLIT-NOTNOW-06` No `no_std` product promise in this branch family.
+- [ ] `RTSPLIT-NOTNOW-07` No MCU Modbus RTU/TCP or MQTT commitment in this branch family.
+- [ ] `RTSPLIT-NOTNOW-08` No marketing/support claim for embedded runtime support.
+- [ ] `RTSPLIT-NOTNOW-09` No broad user-visible runtime behavior change mixed into the split.
+
+## Stop Rules
+
+- [ ] `RTSPLIT-STOP-01` Stop if a moved module changes public runtime behavior without a dedicated behavior-change issue.
+- [ ] `RTSPLIT-STOP-02` Stop if `trust-runtime-core` pulls in host-only dependencies such as web, cloud, mesh, Tokio, EtherCrab, OPC UA, TUI, or IDE/LSP crates.
+- [ ] `RTSPLIT-STOP-03` Stop if behavior-lock tests are missing for the slice being moved.
+- [ ] `RTSPLIT-STOP-04` Stop if runtime vertical tests fail and the failure is not understood.
+- [ ] `RTSPLIT-STOP-05` Stop if diagrams or generated maps are refreshed before factual doctor checks pass.
+- [ ] `RTSPLIT-STOP-06` Stop if a slice requires embedded assumptions to compile or pass on the current Linux host.
+- [ ] `RTSPLIT-STOP-07` Stop if a file split is only cosmetic and does not create a clearer owner/test boundary.
+
+## Phase 0 - Scope Freeze And Baseline Evidence
+
+- [ ] `RTSPLIT-P0-001` Confirm this checklist is linked from the full-software audit and `architecture-improvements.md`; if a checklist index exists in the active branch, link it there too.
+- [ ] `RTSPLIT-P0-002` Confirm the full-software audit references this execution checklist.
+- [ ] `RTSPLIT-P0-003` Confirm the old deferred embedded checklist remains deferred and is not treated as active execution scope.
+- [ ] `RTSPLIT-P0-004` Capture current branch, commit, and dirty tree state before implementation begins.
+- [ ] `RTSPLIT-P0-005` Capture current `cargo metadata --no-deps --format-version=1` for workspace target/package shape.
+- [ ] `RTSPLIT-P0-006` Capture current `cargo tree -p trust-runtime --edges normal --depth 2`.
+- [ ] `RTSPLIT-P0-007` Capture current `cargo modules structure -p trust-runtime --lib --no-types`.
+- [ ] `RTSPLIT-P0-008` Capture current largest-file list for `crates/trust-runtime/src`.
+- [ ] `RTSPLIT-P0-009` Capture current public API snapshot for `trust-runtime` if `cargo public-api` is available.
+- [ ] `RTSPLIT-P0-010` Record unavailable tools and exact blockers instead of silently skipping them.
+- [ ] `RTSPLIT-P0-011` Run `cargo run -p xtask -- architecture-doctor --all` and attach output.
+- [ ] `RTSPLIT-P0-012` Run the current generated software map command if available and attach output.
+- [ ] `RTSPLIT-P0-013` Add a short implementation note explaining that this branch family is a Linux behavior-preserving extraction.
+- [ ] `RTSPLIT-P0-014` Hard prerequisite: `architecture-doctor --full-map` MVP exists and implements `FULLMAP-CHECK-01`, `FULLMAP-CHECK-02`, `FULLMAP-CHECK-05`, `FULLMAP-CHECK-06`, and `FULLMAP-CHECK-07`, or this checklist records an explicit owner-approved waiver before code movement.
+- [ ] `RTSPLIT-P0-015` Confirm the HIR mutation hardening and parser recovery boards are tracked separately so this behavior-preserving split is not misreported as "0 silent bugs".
+
+### Phase 0 Exit Gate
+
+- [ ] `RTSPLIT-P0-GATE-01` Baseline evidence exists.
+- [ ] `RTSPLIT-P0-GATE-02` Active/non-active scope is unambiguous.
+- [ ] `RTSPLIT-P0-GATE-03` No code movement has started.
+- [ ] `RTSPLIT-P0-GATE-04` Full-map doctor MVP prerequisite is met or waiver is recorded.
+
+## Phase 1 - Behavior-Lock Test Matrix
+
+These tests must exist before moving production code.
+
+### Bytecode / VM Equivalence
+
+- [ ] `RTSPLIT-P1-VM-001` Add a fixture with a pre-split `program.stbc` artifact or an equivalent stable bytecode fixture.
+- [ ] `RTSPLIT-P1-VM-002` Add a test proving the fixture loads after the split path is introduced.
+- [ ] `RTSPLIT-P1-VM-003` Add a deterministic VM execution test with fixed inputs and fixed initial memory.
+- [ ] `RTSPLIT-P1-VM-004` Assert bit-identical output image before/after the execution slice moves.
+- [ ] `RTSPLIT-P1-VM-005` Assert identical runtime status/fault result before/after the execution slice moves.
+- [ ] `RTSPLIT-P1-VM-006` Assert identical value identity/equality behavior for enums, structs, arrays, references, FB instances, and retained values used by the fixture.
+
+### Cycle Boundary Semantics
+
+- [ ] `RTSPLIT-P1-CYCLE-001` Add a test proving all inputs are latched before user logic runs.
+- [ ] `RTSPLIT-P1-CYCLE-002` Add a test proving outputs are committed only after all ready task/program execution completes.
+- [ ] `RTSPLIT-P1-CYCLE-003` Add a test proving no mid-cycle input refresh occurs during task execution.
+- [ ] `RTSPLIT-P1-CYCLE-004` Add a multi-driver test proving every driver follows the same pre-read/post-write boundary.
+- [ ] `RTSPLIT-P1-CYCLE-005` Add a marker-memory `%M` boundary test if marker sync code is touched.
+
+### Scheduler Semantics
+
+- [ ] `RTSPLIT-P1-SCHED-001` Add a test for periodic task interval ordering.
+- [ ] `RTSPLIT-P1-SCHED-002` Add a test for equal-ready-time FIFO ordering.
+- [ ] `RTSPLIT-P1-SCHED-003` Add a test for priority ordering when multiple tasks become ready in the same cycle.
+- [ ] `RTSPLIT-P1-SCHED-004` Add a test proving overrun accounting does not reorder later execution.
+- [ ] `RTSPLIT-P1-SCHED-005` Add a test for event task edge handling if event scheduling code moves.
+
+### Retain / Restart Semantics
+
+- [ ] `RTSPLIT-P1-RETAIN-001` Add a cold-start test proving non-retain state resets.
+- [ ] `RTSPLIT-P1-RETAIN-002` Add a warm-start test proving retain-backed values are restored before user logic runs.
+- [ ] `RTSPLIT-P1-RETAIN-003` Add a retain canonicalization test for struct/array/enum values.
+- [ ] `RTSPLIT-P1-RETAIN-004` Add a corrupted/invalid retain snapshot test if retain validation code moves.
+- [ ] `RTSPLIT-P1-RETAIN-005` Add a test proving retained state priority over defaults remains unchanged.
+
+### Watchdog / Fault Semantics
+
+- [ ] `RTSPLIT-P1-WDOG-001` Add watchdog timeout test.
+- [ ] `RTSPLIT-P1-WDOG-002` Add tests for every supported fault policy branch: halt, warn/degrade, restart, or explicit unsupported path.
+- [ ] `RTSPLIT-P1-WDOG-003` Add a test proving watchdog-triggered faults preserve the expected runtime snapshot/error contract.
+- [ ] `RTSPLIT-P1-WDOG-004` Add test coverage for watchdog backend no-op/mock behavior if a trait is introduced.
+
+### Initializer / Value Invariants
+
+- [ ] `RTSPLIT-P1-INIT-001` Keep Issue #51 initializer runtime tests green.
+- [ ] `RTSPLIT-P1-INIT-002` Keep initializer service funnel doctor checks green.
+- [ ] `RTSPLIT-P1-INIT-003` Keep HIR/runtime initializer dependency-boundary tests green.
+- [ ] `RTSPLIT-P1-INIT-004` Add value movement tests for `StructValue`, `ArrayValue`, enum identity, references, and FB instance IDs before moving value modules.
+
+### Phase 1 Exit Gate
+
+- [ ] `RTSPLIT-P1-GATE-01` Behavior-lock tests exist before code movement.
+- [ ] `RTSPLIT-P1-GATE-02` Behavior-lock tests fail on an intentionally broken local experiment or are otherwise proven meaningful.
+- [ ] `RTSPLIT-P1-GATE-03` Behavior-lock tests pass on the pre-move implementation.
+- [ ] `RTSPLIT-P1-GATE-04` Test commands are recorded in the checklist or linked evidence.
+
+## Phase 2 - Architecture Doctor Rules Before Extraction
+
+- [ ] `RTSPLIT-P2-001` Add a doctor rule that recognizes `trust-runtime-core` once introduced.
+- [ ] `RTSPLIT-P2-002` Add a dependency fence for `trust-runtime-core`.
+- [ ] `RTSPLIT-P2-003` Add forbidden dependency checks for `tokio`, `zenoh`, `rumqttc`, `rustls`, `tiny_http`, `tungstenite`, `mdns-sd`, `notify`, `opcua`, `ethercrab`, `ureq`, `ratatui`, `crossterm`, `home`.
+- [ ] `RTSPLIT-P2-004` Add forbidden workspace dependency checks from `trust-runtime-core` to `trust-ide`, `trust-lsp`, and `trust-debug`.
+- [ ] `RTSPLIT-P2-005` Add forbidden import checks for host modules: `web`, `hmi`, `control`, `runtime_cloud`, `mesh`, `discovery`, `io`, `opcua`, `debug`, `security`, `setup`, `simulation`, `ui`, `historian`.
+- [ ] `RTSPLIT-P2-006` Add a doctor rule requiring each new `trust-runtime` top-level module to have a subsystem decision note.
+- [ ] `RTSPLIT-P2-007` Add a doctor rule requiring runtime diagrams to reference generated/source-derived maps after ownership changes.
+- [ ] `RTSPLIT-P2-008` Add a public API snapshot rule or documented fallback if the tool is unavailable.
+- [ ] `RTSPLIT-P2-009` Add a rule preventing web/HMI/cloud/control modules from bypassing approved runtime value/snapshot ports once those ports exist.
+- [ ] `RTSPLIT-P2-010` Add these rules in warn/allowlist mode before the first move, then tighten after the relevant slice is complete.
+- [ ] `RTSPLIT-P2-011` Add KISS advisory checks for moved modules: file size, function size, public API growth, and top-level module growth.
+
+### Phase 2 Exit Gate
+
+- [ ] `RTSPLIT-P2-GATE-01` Doctor rules exist before extraction.
+- [ ] `RTSPLIT-P2-GATE-02` Rules are either passing or explicitly allowlisted with removal dates.
+- [ ] `RTSPLIT-P2-GATE-03` Known-bad local patterns are caught by at least one doctor rule.
+
+## Phase 3 - Core Crate Scaffold
+
+- [ ] `RTSPLIT-P3-001` Add `crates/trust-runtime-core`.
+- [ ] `RTSPLIT-P3-002` Add it as a workspace member.
+- [ ] `RTSPLIT-P3-003` Start with `std` if needed for low-risk extraction.
+- [ ] `RTSPLIT-P3-004` Keep APIs shaped so `no_std + alloc` remains possible later, without claiming product support.
+- [ ] `RTSPLIT-P3-005` Add crate docs describing core ownership and host exclusions.
+- [ ] `RTSPLIT-P3-006` Add `lib.rs` module map with only scaffold modules at first.
+- [ ] `RTSPLIT-P3-007` Re-export core APIs from `trust-runtime` only as a compatibility bridge.
+- [ ] `RTSPLIT-P3-008` Add a compile check for `trust-runtime-core`.
+- [ ] `RTSPLIT-P3-009` Add a minimal unit test proving the crate participates in workspace tests.
+- [ ] `RTSPLIT-P3-010` Ensure initial scaffold does not pull forbidden dependencies.
+
+### Phase 3 Exit Gate
+
+- [ ] `RTSPLIT-P3-GATE-01` `cargo check -p trust-runtime-core` passes.
+- [ ] `RTSPLIT-P3-GATE-02` `cargo test -p trust-runtime-core` passes.
+- [ ] `RTSPLIT-P3-GATE-03` Doctor dependency fence passes for the empty/scaffold core.
+- [ ] `RTSPLIT-P3-GATE-04` No public runtime behavior changed.
+
+## Phase 4 - Move Pure Data And Runtime Models
+
+Move lowest-risk portable pieces first.
+
+- [ ] `RTSPLIT-P4-001` Move or re-home `numeric` only if it has no host-only imports.
+- [ ] `RTSPLIT-P4-002` Move portable `value` model pieces in small commits.
+- [ ] `RTSPLIT-P4-003` Keep value constructors and validation invariants unchanged.
+- [ ] `RTSPLIT-P4-004` Move portable `program_model` records used by runtime execution.
+- [ ] `RTSPLIT-P4-005` Move bytecode container/decode/format/validation pieces needed after compile.
+- [ ] `RTSPLIT-P4-006` Keep compile/lowering harnesses in the Linux host unless separately justified.
+- [ ] `RTSPLIT-P4-007` Keep web/control/debug formatting helpers host-side.
+- [ ] `RTSPLIT-P4-008` Add tests for value serialization, equality, declared type identity, retained canonicalization, and bytecode validation after each moved cluster.
+- [ ] `RTSPLIT-P4-009` Avoid moving a giant module wholesale if it mixes host and core responsibilities; split by owner first.
+
+### Phase 4 Exit Gate
+
+- [ ] `RTSPLIT-P4-GATE-01` Focused value/model tests pass.
+- [ ] `RTSPLIT-P4-GATE-02` Runtime initializer/value tests pass.
+- [ ] `RTSPLIT-P4-GATE-03` Doctor dependency/import fence passes.
+- [ ] `RTSPLIT-P4-GATE-04` Public API snapshot differences are reviewed.
+
+## Phase 5 - Move VM Execution Core
+
+- [ ] `RTSPLIT-P5-001` Identify VM modules that are pure execution versus host assembly/lowering.
+- [ ] `RTSPLIT-P5-002` Move VM dispatch/execution pieces that do not require host services.
+- [ ] `RTSPLIT-P5-003` Keep host assembly, IO driver invocation, CLI project loading, and runtime config loading in `trust-runtime`.
+- [ ] `RTSPLIT-P5-004` Introduce service ports only where the VM truly needs host callbacks.
+- [ ] `RTSPLIT-P5-005` Do not let VM code import `web`, `control`, `debug`, `runtime_cloud`, or host IO implementations through the new core.
+- [ ] `RTSPLIT-P5-006` Split `runtime/vm/call.rs` only along real boundaries: call dispatch, FB/class method semantics, and error mapping.
+- [ ] `RTSPLIT-P5-007` Split register IR code only along real boundaries: lowering, profile, tier1, execution, test fixtures.
+- [ ] `RTSPLIT-P5-008` Keep test names stable where possible to avoid losing historical signal.
+- [ ] `RTSPLIT-P5-009` Run VM bytecode/core focused tests after every VM movement slice.
+
+### Phase 5 Exit Gate
+
+- [ ] `RTSPLIT-P5-GATE-01` Bytecode/VM behavior-lock tests pass.
+- [ ] `RTSPLIT-P5-GATE-02` `cargo test -p trust-runtime --test bytecode_vm_core` or the renamed equivalent passes.
+- [ ] `RTSPLIT-P5-GATE-03` Any surviving register IR parity/differential suite passes or the rename/removal is explicitly documented.
+- [ ] `RTSPLIT-P5-GATE-04` Doctor rules show no host-only imports in moved VM code.
+
+## Phase 6 - Move Scheduler, Cycle, Retain, And Watchdog Core
+
+- [ ] `RTSPLIT-P6-001` Move scheduler model only after scheduler behavior locks pass.
+- [ ] `RTSPLIT-P6-002` Move core cycle execution only after I/O boundary behavior locks pass.
+- [ ] `RTSPLIT-P6-003` Keep actual IO driver implementations host-owned.
+- [ ] `RTSPLIT-P6-004` Keep runtime process image exchange explicit and deterministic.
+- [ ] `RTSPLIT-P6-005` Move retain snapshot policy/model into core.
+- [ ] `RTSPLIT-P6-006` Keep actual retain persistence backend host-owned.
+- [ ] `RTSPLIT-P6-007` Introduce a minimal sync retain storage trait if needed.
+- [ ] `RTSPLIT-P6-008` Introduce a minimal sync watchdog trait if needed.
+- [ ] `RTSPLIT-P6-009` Keep Linux PREEMPT_RT setup, `mlockall`, CPU affinity, scheduler policy, and systemd deployment host-side.
+- [ ] `RTSPLIT-P6-010` Keep realtime/T0 host implementation host-side unless a separate T0 contract split is approved.
+
+### Phase 6 Exit Gate
+
+- [ ] `RTSPLIT-P6-GATE-01` Cycle boundary tests pass.
+- [ ] `RTSPLIT-P6-GATE-02` Scheduler tests pass.
+- [ ] `RTSPLIT-P6-GATE-03` Retain/restart tests pass.
+- [ ] `RTSPLIT-P6-GATE-04` Watchdog/fault tests pass.
+- [ ] `RTSPLIT-P6-GATE-05` Runtime vertical tests pass for touched surfaces.
+
+## Phase 7 - Linux Host Rewire
+
+- [ ] `RTSPLIT-P7-001` Rewire `trust-runtime` to consume `trust-runtime-core`.
+- [ ] `RTSPLIT-P7-002` Keep public CLI behavior stable.
+- [ ] `RTSPLIT-P7-003` Keep existing runtime config behavior stable.
+- [ ] `RTSPLIT-P7-004` Keep product commands in the Linux host.
+- [ ] `RTSPLIT-P7-005` Do not move workbench/dev command implementation in this phase unless the product/workbench branch is already complete.
+- [ ] `RTSPLIT-P7-006` Ensure web/HMI/control/cloud access runtime state through approved ports.
+- [ ] `RTSPLIT-P7-007` Ensure benchmarks and conformance harnesses run against the assembled Linux host, not a duplicate mini-runtime.
+- [ ] `RTSPLIT-P7-008` Ensure debug/control surfaces do not reach into core internals beyond approved APIs.
+- [ ] `RTSPLIT-P7-009` Preserve release artifacts and packaging behavior.
+
+### Phase 7 Exit Gate
+
+- [ ] `RTSPLIT-P7-GATE-01` Runtime product command smoke tests pass.
+- [ ] `RTSPLIT-P7-GATE-02` Runtime vertical tests pass.
+- [ ] `RTSPLIT-P7-GATE-03` Public API snapshot differences are reviewed.
+- [ ] `RTSPLIT-P7-GATE-04` Doctor rules prevent host/core boundary regressions.
+
+## Phase 8 - Product / Workbench Coordination
+
+This phase coordinates with the separate runtime CLI product/workbench split. It does not have to move commands itself.
+
+- [ ] `RTSPLIT-P8-001` Confirm subcommand ownership policy exists.
+- [ ] `RTSPLIT-P8-002` Confirm product runtime commands do not import workbench-only modules.
+- [ ] `RTSPLIT-P8-003` Confirm workbench/dev commands do not become the reason for core dependencies.
+- [ ] `RTSPLIT-P8-004` Confirm `bundle_builder` ownership is decided before any core import is allowed.
+- [ ] `RTSPLIT-P8-005` Confirm `agent`, `commit`, `git`, `docs`, `prompt`, `workflow`, and `style` remain outside core.
+- [ ] `RTSPLIT-P8-006` Add compatibility-wrapper plan if commands move to `xtask` or `trust-dev`.
+
+### Phase 8 Exit Gate
+
+- [ ] `RTSPLIT-P8-GATE-01` Product/workbench boundary is compatible with the core/host split.
+- [ ] `RTSPLIT-P8-GATE-02` No workbench command pulls host-only dependencies into core.
+
+## Phase 9 - Maps, Diagrams, And Documentation
+
+- [ ] `RTSPLIT-P9-001` Regenerate source-derived software map after each major ownership change.
+- [ ] `RTSPLIT-P9-002` Update PlantUML sources for changed ownership/data/execution flow.
+- [ ] `RTSPLIT-P9-003` Regenerate diagrams with `scripts/render_diagrams.sh`.
+- [ ] `RTSPLIT-P9-004` Verify diagram drift with `python scripts/check_diagram_drift.py`.
+- [ ] `RTSPLIT-P9-005` Add or update runtime-core/host split diagram.
+- [ ] `RTSPLIT-P9-006` Update `docs/specs/11-runtime-engine.md` if the architectural contract changes.
+- [ ] `RTSPLIT-P9-007` Update public/operator docs only if behavior or support claims change.
+- [ ] `RTSPLIT-P9-008` Update `docs/internal/testing/checklists/architecture-improvements.md`.
+- [ ] `RTSPLIT-P9-009` Record any unavoidable SOLID deviation in `docs/notes/runtime-refactor-notes.md` or the current equivalent.
+
+### Phase 9 Exit Gate
+
+- [ ] `RTSPLIT-P9-GATE-01` Diagrams are fresh.
+- [ ] `RTSPLIT-P9-GATE-02` Diagram claims are source-derived or explicitly documented.
+- [ ] `RTSPLIT-P9-GATE-03` Docs do not claim embedded support.
+
+## Phase 10 - Validation Gates
+
+### Focused Gates
+
+- [ ] `RTSPLIT-P10-FOCUS-001` `cargo check -p trust-runtime-core`.
+- [ ] `RTSPLIT-P10-FOCUS-002` `cargo test -p trust-runtime-core`.
+- [ ] `RTSPLIT-P10-FOCUS-003` Focused VM/bytecode tests.
+- [ ] `RTSPLIT-P10-FOCUS-004` Focused scheduler/cycle tests.
+- [ ] `RTSPLIT-P10-FOCUS-005` Focused retain/watchdog tests.
+- [ ] `RTSPLIT-P10-FOCUS-006` Focused initializer/value tests.
+- [ ] `RTSPLIT-P10-FOCUS-007` `cargo run -p xtask -- architecture-doctor --all`.
+- [ ] `RTSPLIT-P10-FOCUS-008` `cargo xtask architecture-doctor --full-map`.
+
+### Runtime Vertical Gates
+
+- [ ] `RTSPLIT-P10-RUNTIME-001` `cargo test -p trust-runtime --test api_smoke`.
+- [ ] `RTSPLIT-P10-RUNTIME-002` `cargo test -p trust-runtime --test debug_control`.
+- [ ] `RTSPLIT-P10-RUNTIME-003` `cargo test -p trust-runtime --test complete_program`.
+- [ ] `RTSPLIT-P10-RUNTIME-004` `cargo test -p trust-runtime --test runtime_reliability`.
+- [ ] `RTSPLIT-P10-RUNTIME-005` `cargo test -p trust-runtime --test realtime_t0_integration` if realtime/T0 ownership is touched.
+- [ ] `RTSPLIT-P10-RUNTIME-006` Run relevant runtime benchmark smoke if startup/runtime assembly code moves.
+
+### Workspace Gates
+
+- [ ] `RTSPLIT-P10-WS-001` `just fmt`.
+- [ ] `RTSPLIT-P10-WS-002` `just clippy`.
+- [ ] `RTSPLIT-P10-WS-003` `just test`.
+- [ ] `RTSPLIT-P10-WS-004` `just test-all` before declaring the split complete.
+
+### Optional Deep Gates
+
+- [ ] `RTSPLIT-P10-DEEP-001` Run mutation tests for moved core semantics where feasible.
+- [ ] `RTSPLIT-P10-DEEP-002` Run Miri on core tests where feasible.
+- [ ] `RTSPLIT-P10-DEEP-003` Run sanitizer or Valgrind/rr only where the moved code uses unsafe, FFI, threads, or memory-sensitive paths.
+- [ ] `RTSPLIT-P10-DEEP-004` Run benchmark sweeps only after behavior is stable enough that perf numbers mean something.
+
+### Phase 10 Exit Gate
+
+- [ ] `RTSPLIT-P10-GATE-01` Final focused gates pass.
+- [ ] `RTSPLIT-P10-GATE-02` Final runtime vertical gates pass.
+- [ ] `RTSPLIT-P10-GATE-03` Final workspace gates pass.
+- [ ] `RTSPLIT-P10-GATE-04` Any skipped optional deep gate has a written blocker or rationale.
+
+## Phase 11 - Release / Merge Readiness
+
+- [ ] `RTSPLIT-P11-001` Confirm whether the split is release-notable.
+- [ ] `RTSPLIT-P11-002` Update `CHANGELOG.md` if release-notable.
+- [ ] `RTSPLIT-P11-003` Bump workspace version only if release policy requires it for this branch.
+- [ ] `RTSPLIT-P11-004` Confirm no embedded support claim was added to public docs.
+- [ ] `RTSPLIT-P11-005` Confirm no user-visible CLI behavior changed unless separately documented.
+- [ ] `RTSPLIT-P11-006` Confirm all generated files are intentionally included.
+- [ ] `RTSPLIT-P11-007` Confirm branch diff contains no unrelated user changes.
+- [ ] `RTSPLIT-P11-008` Prepare PR/merge summary with:
+  - behavior-lock evidence,
+  - doctor evidence,
+  - runtime vertical evidence,
+  - public API snapshot summary,
+  - generated map/diagram evidence,
+  - explicit statement that embedded support remains deferred.
+
+## Final Exit Criteria
+
+- [ ] `RTSPLIT-EXIT-001` `trust-runtime-core` exists and owns portable execution concerns.
+- [ ] `RTSPLIT-EXIT-002` `trust-runtime` remains the Linux host and does not duplicate core execution logic.
+- [ ] `RTSPLIT-EXIT-003` Host-only dependency leakage into the core is blocked by automation.
+- [ ] `RTSPLIT-EXIT-004` Runtime behavior locks pass after the split.
+- [ ] `RTSPLIT-EXIT-005` Runtime vertical tests pass after the split.
+- [ ] `RTSPLIT-EXIT-006` Full workspace validation passes before merge.
+- [ ] `RTSPLIT-EXIT-007` Diagrams and source-derived maps reflect the new ownership.
+- [ ] `RTSPLIT-EXIT-008` No embedded runtime support is claimed.
+- [ ] `RTSPLIT-EXIT-009` Any remaining host/core compromise has a written follow-up with owner and reason.
+- [ ] `RTSPLIT-EXIT-010` Final summary explicitly states this split does not by itself close F2, F3, F10, or F11.
