@@ -8,6 +8,10 @@ pub struct SoftwareMap {
     pub packages: Vec<PackageSummary>,
     pub workspace_edges: Vec<WorkspaceEdge>,
     pub source_files: Vec<SourceFileSummary>,
+    pub runtime_top_level_modules: Vec<String>,
+    pub runtime_cli_commands: Vec<String>,
+    pub runtime_cli_actions: Vec<CliActionSummary>,
+    pub runtime_bin_modules: Vec<String>,
     pub tool_results: Vec<ToolResult>,
 }
 
@@ -36,6 +40,12 @@ pub struct WorkspaceEdge {
 pub struct SourceFileSummary {
     pub path: String,
     pub line_count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct CliActionSummary {
+    pub name: String,
+    pub variants: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -74,6 +84,10 @@ impl SoftwareMap {
             packages: Vec::new(),
             workspace_edges: Vec::new(),
             source_files: Vec::new(),
+            runtime_top_level_modules: Vec::new(),
+            runtime_cli_commands: Vec::new(),
+            runtime_cli_actions: Vec::new(),
+            runtime_bin_modules: Vec::new(),
             tool_results: Vec::new(),
         }
     }
@@ -105,6 +119,14 @@ impl SoftwareMap {
         });
         self.source_files
             .sort_by(|left, right| left.path.cmp(&right.path));
+        self.runtime_top_level_modules.sort();
+        self.runtime_cli_commands.sort();
+        self.runtime_cli_actions
+            .sort_by(|left, right| left.name.cmp(&right.name));
+        for action in &mut self.runtime_cli_actions {
+            action.variants.sort();
+        }
+        self.runtime_bin_modules.sort();
         self.tool_results
             .sort_by(|left, right| left.name.cmp(&right.name));
     }
@@ -180,6 +202,13 @@ mod tests {
                 line_count: 5,
             },
         ];
+        map.runtime_top_level_modules = vec!["web".to_string(), "control".to_string()];
+        map.runtime_cli_commands = vec!["Run".to_string(), "Agent".to_string()];
+        map.runtime_cli_actions = vec![CliActionSummary {
+            name: "BenchAction".to_string(),
+            variants: vec!["Project".to_string(), "Init".to_string()],
+        }];
+        map.runtime_bin_modules = vec!["run".to_string(), "agent".to_string()];
         map.tool_results = vec![
             ToolResult {
                 name: "zeta-tool".to_string(),
@@ -199,6 +228,13 @@ mod tests {
             }
             map.workspace_edges.reverse();
             map.source_files.reverse();
+            map.runtime_top_level_modules.reverse();
+            map.runtime_cli_commands.reverse();
+            map.runtime_cli_actions.reverse();
+            for action in &mut map.runtime_cli_actions {
+                action.variants.reverse();
+            }
+            map.runtime_bin_modules.reverse();
             map.tool_results.reverse();
         }
         map

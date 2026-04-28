@@ -6,8 +6,8 @@ use std::process::Command;
 use anyhow::{anyhow, bail, Context, Result};
 
 use crate::software_map::{
-    PackageSummary, SoftwareMap, SourceFileSummary, TargetSummary, ToolResult, ToolStatus,
-    WorkspaceEdge,
+    CliActionSummary, PackageSummary, SoftwareMap, SourceFileSummary, TargetSummary, ToolResult,
+    ToolStatus, WorkspaceEdge,
 };
 
 pub fn architecture_doctor_full_map(root: &Path) -> Result<()> {
@@ -104,6 +104,15 @@ fn build_software_map(root: &Path) -> Result<SoftwareMap> {
             line_count: source.lines().count(),
         });
     }
+    map.runtime_top_level_modules = collect_runtime_top_level_modules(root)?;
+    map.runtime_bin_modules = collect_runtime_bin_modules(root)?;
+    map.runtime_cli_commands = parse_enum_variants(
+        &fs::read_to_string(
+            root.join("crates/trust-runtime/src/bin/trust-runtime/cli/commands.rs"),
+        )?,
+        "Command",
+    );
+    map.runtime_cli_actions = collect_runtime_cli_actions(root)?;
     map.tool_results.push(ToolResult {
         name: "cargo metadata".to_string(),
         status: ToolStatus::Pass,
@@ -113,6 +122,15 @@ fn build_software_map(root: &Path) -> Result<SoftwareMap> {
         name: "source file scan".to_string(),
         status: ToolStatus::Pass,
         details: vec![format!("source files: {}", map.source_files.len())],
+    });
+    map.tool_results.push(ToolResult {
+        name: "runtime CLI scan".to_string(),
+        status: ToolStatus::Pass,
+        details: vec![
+            format!("commands: {}", map.runtime_cli_commands.len()),
+            format!("action enums: {}", map.runtime_cli_actions.len()),
+            format!("bin modules: {}", map.runtime_bin_modules.len()),
+        ],
     });
     map.tool_results.push(ToolResult {
         name: "full-map policy checks".to_string(),
@@ -165,6 +183,120 @@ fn collect_source_files(root: &Path) -> Result<Vec<PathBuf>> {
     Ok(files)
 }
 
+fn collect_runtime_top_level_modules(root: &Path) -> Result<Vec<String>> {
+    let runtime_src = root.join("crates/trust-runtime/src");
+    let mut modules = Vec::new();
+    for entry in
+        fs::read_dir(&runtime_src).with_context(|| format!("read {}", runtime_src.display()))?
+    {
+        let entry = entry?;
+        let path = entry.path();
+        let name = entry.file_name().to_string_lossy().to_string();
+        if path.is_dir() {
+            modules.push(name);
+        } else if path.extension().and_then(|ext| ext.to_str()) == Some("rs") {
+            let Some(stem) = path.file_stem().and_then(|stem| stem.to_str()) else {
+                continue;
+            };
+            if !matches!(stem, "lib" | "main") {
+                modules.push(stem.to_string());
+            }
+        }
+    }
+    Ok(modules)
+}
+
+fn collect_runtime_bin_modules(root: &Path) -> Result<Vec<String>> {
+    let bin_dir = root.join("crates/trust-runtime/src/bin/trust-runtime");
+    let mut modules = Vec::new();
+    for entry in fs::read_dir(&bin_dir).with_context(|| format!("read {}", bin_dir.display()))? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.extension().and_then(|ext| ext.to_str()) == Some("rs") {
+            if let Some(stem) = path.file_stem().and_then(|stem| stem.to_str()) {
+                modules.push(stem.to_string());
+            }
+        }
+    }
+    Ok(modules)
+}
+
+fn collect_runtime_cli_actions(root: &Path) -> Result<Vec<CliActionSummary>> {
+    let cli_dir = root.join("crates/trust-runtime/src/bin/trust-runtime/cli");
+    let mut actions = Vec::new();
+    for entry in fs::read_dir(&cli_dir).with_context(|| format!("read {}", cli_dir.display()))? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.extension().and_then(|ext| ext.to_str()) != Some("rs") {
+            continue;
+        }
+        let source = fs::read_to_string(&path)?;
+        for enum_name in action_enum_names(&source) {
+            actions.push(CliActionSummary {
+                variants: parse_enum_variants(&source, &enum_name),
+                name: enum_name,
+            });
+        }
+    }
+    Ok(actions)
+}
+
+fn action_enum_names(source: &str) -> Vec<String> {
+    source
+        .lines()
+        .filter_map(|line| line.trim().strip_prefix("pub enum "))
+        .filter_map(|tail| tail.split_whitespace().next())
+        .map(|name| name.trim_end_matches('{').to_string())
+        .filter(|name| name.ends_with("Action"))
+        .collect()
+}
+
+fn parse_enum_variants(source: &str, enum_name: &str) -> Vec<String> {
+    let mut variants = Vec::new();
+    let mut in_enum = false;
+    let mut brace_balance = 0isize;
+    for line in source.lines() {
+        let trimmed = line.trim();
+        if !in_enum {
+            if trimmed.starts_with(&format!("pub enum {enum_name}")) {
+                in_enum = true;
+                brace_balance += count_char(trimmed, '{') as isize;
+                brace_balance -= count_char(trimmed, '}') as isize;
+            }
+            continue;
+        }
+        brace_balance += count_char(trimmed, '{') as isize;
+        brace_balance -= count_char(trimmed, '}') as isize;
+        if trimmed.starts_with("#[") || trimmed.starts_with("//") || trimmed.is_empty() {
+            continue;
+        }
+        if let Some(name) = leading_identifier(trimmed) {
+            if name.chars().next().is_some_and(char::is_uppercase) && name != enum_name {
+                variants.push(name.to_string());
+            }
+        }
+        if brace_balance <= 0 {
+            break;
+        }
+    }
+    variants
+}
+
+fn leading_identifier(line: &str) -> Option<&str> {
+    let end = line
+        .find(|ch: char| !(ch.is_ascii_alphanumeric() || ch == '_'))
+        .unwrap_or(line.len());
+    if end == 0 {
+        None
+    } else {
+        Some(&line[..end])
+    }
+}
+
+fn count_char(value: &str, needle: char) -> usize {
+    value.chars().filter(|ch| *ch == needle).count()
+}
+
 fn collect_source_files_inner(path: &Path, files: &mut Vec<PathBuf>) -> Result<()> {
     for entry in fs::read_dir(path).with_context(|| format!("read {}", path.display()))? {
         let entry = entry?;
@@ -190,4 +322,46 @@ fn rel_path(root: &Path, path: &Path) -> String {
         .unwrap_or(path)
         .to_string_lossy()
         .replace('\\', "/")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_enum_variants_without_attributes() {
+        let source = r#"
+            pub enum Command {
+                #[command(alias = "serve")]
+                Run {
+                    project: Option<PathBuf>,
+                },
+                Bench {
+                    action: BenchAction,
+                },
+                Completions {
+                    shell: Shell,
+                },
+            }
+        "#;
+
+        assert_eq!(
+            parse_enum_variants(source, "Command"),
+            vec!["Run", "Bench", "Completions"]
+        );
+    }
+
+    #[test]
+    fn finds_action_enum_names() {
+        let source = r#"
+            pub enum BenchAction {
+                Project,
+            }
+            pub enum NotACommand {
+                Value,
+            }
+        "#;
+
+        assert_eq!(action_enum_names(source), vec!["BenchAction"]);
+    }
 }

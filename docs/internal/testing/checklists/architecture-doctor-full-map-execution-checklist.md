@@ -48,9 +48,9 @@ These IDs are referenced by downstream checklists as hard prerequisites.
 - [x] `FULLMAP-P1-003` Include direct workspace dependency edges.
 - [ ] `FULLMAP-P1-004` Include crate/module tree summaries.
 - [ ] `FULLMAP-P1-005` Include Rust file line counts and largest-file list.
-- [ ] `FULLMAP-P1-006` Include top-level `trust-runtime` modules.
-- [ ] `FULLMAP-P1-007` Include `trust-runtime` CLI command variants and bin modules.
-- [ ] `FULLMAP-P1-007A` Include nested CLI `*Action` enums and their parent command or explicit override.
+- [x] `FULLMAP-P1-006` Include top-level `trust-runtime` modules.
+- [x] `FULLMAP-P1-007` Include `trust-runtime` CLI command variants and bin modules.
+- [x] `FULLMAP-P1-007A` Include nested CLI `*Action` enums and their parent command or explicit override.
 - [ ] `FULLMAP-P1-008` Include selected import edges from source scans.
 - [x] `FULLMAP-P1-009` Include tool result statuses as `pass`, `finding`, `partial`, or `failed`.
 - [x] `FULLMAP-P1-010` Add deterministic serialization and stable sorting.
