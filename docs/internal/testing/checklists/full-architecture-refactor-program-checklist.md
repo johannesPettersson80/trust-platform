@@ -13,6 +13,14 @@ This is the umbrella checklist. Individual execution boards own the detailed wor
 - [ ] `ARCHPROG-RULE-03` Every architecture claim must be backed by source-derived facts, a doctor rule, mutation/fuzz evidence, or a documented manual exception.
 - [ ] `ARCHPROG-RULE-04` Each branch must state which audit finding it closes and which findings remain open.
 - [ ] `ARCHPROG-RULE-05` Do not merge a refactor branch that weakens an existing behavior lock, doctor rule, or generated-map check.
+- [x] `ARCHPROG-RULE-06` Use staged validation cadence: run focused tests and doctor checks during implementation, and reserve `just test-all` for merge/release readiness, board-completion gates, large cross-crate refactors, or rebases that touch shared APIs.
+
+## Validation Cadence
+
+- [x] `ARCHPROG-VAL-01` Every execution board must name its focused implementation-loop checks.
+- [x] `ARCHPROG-VAL-02` `just test-all` is required before merge, release/customer-facing readiness claims, or marking a board complete unless the board records an explicit owner-approved waiver.
+- [x] `ARCHPROG-VAL-03` Long suites such as OSCAT examples, mutation campaigns, fuzzing, Miri, Valgrind, sanitizer runs, and full benchmark sweeps are milestone/release/nightly gates unless the branch directly touches the covered behavior.
+- [x] `ARCHPROG-VAL-04` If a focused gate fails, fix it before escalating to broader gates; do not use a passing full suite to hide a failing focused doctor/test.
 
 ## Required Execution Boards
 

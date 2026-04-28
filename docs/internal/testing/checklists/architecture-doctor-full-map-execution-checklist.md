@@ -14,6 +14,13 @@ This checklist is a prerequisite for enforcing the runtime-core split, product/w
 - [x] `FULLMAP-STOP-04` Do not make downstream checklists depend on a full-map check that is not implemented.
 - [x] `FULLMAP-STOP-05` Do not silently widen allowlists; every allowlist entry needs owner, rationale, and review date.
 
+## Validation Cadence
+
+- [x] `FULLMAP-VAL-01` Implementation-loop checks are focused: `cargo test -p xtask`, `cargo clippy -p xtask --all-targets -- -D warnings`, and `cargo run -p xtask -- architecture-doctor --full-map`.
+- [x] `FULLMAP-VAL-02` Run `just fmt` and `just clippy` before committing full-map doctor implementation changes.
+- [x] `FULLMAP-VAL-03` Run `just test-all` only at strategic gates: before merge, release/customer-facing readiness, after large cross-crate changes, after risky rebases, or before marking the board complete.
+- [x] `FULLMAP-VAL-04` Long suites that are not affected by full-map doctor code, such as OSCAT example sweeps, are milestone evidence rather than the default edit loop.
+
 ## Phase 0 - MVP Scope Lock
 
 - [x] `FULLMAP-P0-001` Lock MVP command: `cargo xtask architecture-doctor --full-map`.
