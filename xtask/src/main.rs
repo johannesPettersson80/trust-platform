@@ -647,16 +647,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn full_map_mode_is_wired_and_fails_explicitly_until_implemented() {
-        let err = architecture_doctor(Path::new("."), "--full-map").unwrap_err();
-        let message = format!("{err:#}");
-
-        assert!(message.contains("architecture-doctor --full-map is not implemented yet"));
-        assert!(message.contains("FULLMAP-P1"));
+    fn usage_mentions_full_map_mode() {
+        assert!(usage().contains("cargo xtask architecture-doctor --full-map"));
     }
 
     #[test]
-    fn usage_mentions_full_map_mode() {
-        assert!(usage().contains("cargo xtask architecture-doctor --full-map"));
+    fn unknown_doctor_mode_error_mentions_full_map() {
+        let err = architecture_doctor(Path::new("."), "--unknown").unwrap_err();
+        let message = format!("{err:#}");
+
+        assert!(message.contains("--full-map"));
     }
 }

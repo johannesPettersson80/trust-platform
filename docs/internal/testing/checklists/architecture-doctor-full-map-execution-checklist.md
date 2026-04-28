@@ -1,6 +1,6 @@
 # Architecture Doctor Full-Map Execution Checklist
 
-Status: In progress - `--full-map` scaffold and `SoftwareMap` data model landed.
+Status: In progress - `--full-map` scaffold, `SoftwareMap` data model, and initial JSON map writer landed.
 Owner: Architecture automation
 Scope: implement a repeatable `cargo xtask architecture-doctor --full-map` command with source-derived facts, policies, fixtures, and reports.
 
@@ -17,8 +17,8 @@ This checklist is a prerequisite for enforcing the runtime-core split, product/w
 ## Phase 0 - MVP Scope Lock
 
 - [x] `FULLMAP-P0-001` Lock MVP command: `cargo xtask architecture-doctor --full-map`.
-- [ ] `FULLMAP-P0-002` Lock artifact root: `target/gate-artifacts/full-software-map-<date-or-commit>/`.
-- [ ] `FULLMAP-P0-003` Lock generated JSON path for source facts.
+- [x] `FULLMAP-P0-002` Lock artifact root: `target/gate-artifacts/full-software-map-<date-or-commit>/`.
+- [x] `FULLMAP-P0-003` Lock generated JSON path for source facts.
 - [ ] `FULLMAP-P0-004` Lock generated Markdown report path.
 - [ ] `FULLMAP-P0-005` Define MVP checks required before runtime-core extraction:
   - workspace edge policy,
@@ -44,15 +44,15 @@ These IDs are referenced by downstream checklists as hard prerequisites.
 ## Phase 1 - Data Model And JSON Map Writer
 
 - [x] `FULLMAP-P1-001` Define `SoftwareMap` JSON schema or Rust structs.
-- [ ] `FULLMAP-P1-002` Include workspace packages, targets, target kinds, and package paths from cargo metadata.
-- [ ] `FULLMAP-P1-003` Include direct workspace dependency edges.
+- [x] `FULLMAP-P1-002` Include workspace packages, targets, target kinds, and package paths from cargo metadata.
+- [x] `FULLMAP-P1-003` Include direct workspace dependency edges.
 - [ ] `FULLMAP-P1-004` Include crate/module tree summaries.
 - [ ] `FULLMAP-P1-005` Include Rust file line counts and largest-file list.
 - [ ] `FULLMAP-P1-006` Include top-level `trust-runtime` modules.
 - [ ] `FULLMAP-P1-007` Include `trust-runtime` CLI command variants and bin modules.
 - [ ] `FULLMAP-P1-007A` Include nested CLI `*Action` enums and their parent command or explicit override.
 - [ ] `FULLMAP-P1-008` Include selected import edges from source scans.
-- [ ] `FULLMAP-P1-009` Include tool result statuses as `pass`, `finding`, `partial`, or `failed`.
+- [x] `FULLMAP-P1-009` Include tool result statuses as `pass`, `finding`, `partial`, or `failed`.
 - [x] `FULLMAP-P1-010` Add deterministic serialization and stable sorting.
 - [x] `FULLMAP-P1-011` Add unit tests for serialization and stable ordering.
 
