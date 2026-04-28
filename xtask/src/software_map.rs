@@ -15,6 +15,7 @@ pub struct SoftwareMap {
     pub runtime_cli_commands: Vec<String>,
     pub runtime_cli_actions: Vec<CliActionSummary>,
     pub runtime_bin_modules: Vec<String>,
+    pub runtime_route_handlers: Vec<RuntimeRouteHandlerSummary>,
     pub unsafe_summary: UnsafeSummary,
     pub diagram_facts: Vec<DiagramFact>,
     pub tool_results: Vec<ToolResult>,
@@ -70,6 +71,13 @@ pub struct CliActionSummary {
     pub variants: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct RuntimeRouteHandlerSummary {
+    pub handler: String,
+    pub path: String,
+    pub line: usize,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 pub struct UnsafeSummary {
     pub unsafe_occurrences: usize,
@@ -121,7 +129,7 @@ impl ToolStatus {
 impl SoftwareMap {
     pub fn new(workspace_root: impl Into<String>) -> Self {
         Self {
-            schema_version: 1,
+            schema_version: 2,
             workspace_root: workspace_root.into(),
             generated_by: "cargo xtask architecture-doctor --full-map".to_string(),
             packages: Vec::new(),
@@ -134,6 +142,7 @@ impl SoftwareMap {
             runtime_cli_commands: Vec::new(),
             runtime_cli_actions: Vec::new(),
             runtime_bin_modules: Vec::new(),
+            runtime_route_handlers: Vec::new(),
             unsafe_summary: UnsafeSummary::default(),
             diagram_facts: Vec::new(),
             tool_results: Vec::new(),
@@ -195,6 +204,13 @@ impl SoftwareMap {
         }
         self.runtime_bin_modules.sort();
         self.runtime_bin_modules.dedup();
+        self.runtime_route_handlers.sort_by(|left, right| {
+            left.handler
+                .cmp(&right.handler)
+                .then_with(|| left.path.cmp(&right.path))
+                .then_with(|| left.line.cmp(&right.line))
+        });
+        self.runtime_route_handlers.dedup();
         self.diagram_facts
             .sort_by(|left, right| left.path.cmp(&right.path));
         for diagram in &mut self.diagram_facts {
@@ -222,7 +238,7 @@ mod tests {
         let reverse = sample_map(true).to_stable_json().unwrap();
 
         assert_eq!(forward, reverse);
-        assert!(forward.contains("\"schema_version\": 1"));
+        assert!(forward.contains("\"schema_version\": 2"));
         assert!(forward.contains("\"status\": \"not_run\""));
     }
 
@@ -312,6 +328,18 @@ mod tests {
             variants: vec!["Project".to_string(), "Init".to_string()],
         }];
         map.runtime_bin_modules = vec!["run".to_string(), "agent".to_string()];
+        map.runtime_route_handlers = vec![
+            RuntimeRouteHandlerSummary {
+                handler: "run::run_play".to_string(),
+                path: "crates/trust-runtime/src/bin/trust-runtime/run/commands.rs".to_string(),
+                line: 39,
+            },
+            RuntimeRouteHandlerSummary {
+                handler: "deploy::run_rollback".to_string(),
+                path: "crates/trust-runtime/src/bin/trust-runtime/deploy/commands.rs".to_string(),
+                line: 70,
+            },
+        ];
         map.unsafe_summary = UnsafeSummary {
             unsafe_occurrences: 1,
             panic_like_occurrences: 2,
@@ -355,6 +383,7 @@ mod tests {
                 action.variants.reverse();
             }
             map.runtime_bin_modules.reverse();
+            map.runtime_route_handlers.reverse();
             map.diagram_facts.reverse();
             map.tool_results.reverse();
         }

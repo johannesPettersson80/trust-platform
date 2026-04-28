@@ -109,6 +109,7 @@ These IDs are referenced by downstream checklists as hard prerequisites.
 - [x] `FULLMAP-P5-005` Report command-to-module mapping gaps and named route metadata for commands intentionally dispatched through another module.
 - [x] `FULLMAP-P5-006` Add fixtures or unit tests for unclassified command and unclassified module cases.
 - [x] `FULLMAP-P5-007` Parse or scan nested CLI `*Action` enums and fail unclassified action enums or explicit ownership overrides.
+- [x] `FULLMAP-P5-008` Verify policy-declared command route handlers against source symbols so stale route rationale cannot pass silently.
 
 ## Phase 6 - KISS And Public API Checks
 

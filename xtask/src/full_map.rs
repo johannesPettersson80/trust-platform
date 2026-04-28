@@ -8,8 +8,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::software_map::{
     CliActionSummary, DiagramEdge, DiagramFact, ImportEdge, ModuleSummary, PackageSummary,
-    SoftwareMap, SourceFileSummary, TargetSummary, ToolResult, ToolStatus, UnsafeSummary,
-    WorkspaceEdge,
+    RuntimeRouteHandlerSummary, SoftwareMap, SourceFileSummary, TargetSummary, ToolResult,
+    ToolStatus, UnsafeSummary, WorkspaceEdge,
 };
 
 pub fn architecture_doctor_full_map(root: &Path) -> Result<()> {
@@ -103,6 +103,7 @@ struct ClassifiedName {
 struct CommandModuleRoute {
     command: String,
     module: String,
+    handler: String,
     route_kind: String,
     owner: String,
     rationale: String,
@@ -371,6 +372,7 @@ fn build_software_map(root: &Path, policy: &FullMapPolicy) -> Result<SoftwareMap
         "Command",
     );
     map.runtime_cli_actions = collect_runtime_cli_actions(root)?;
+    map.runtime_route_handlers = collect_runtime_route_handlers(root, policy)?;
     map.unsafe_summary = collect_unsafe_summary(root, policy);
     map.diagram_facts = collect_diagram_facts(root, &policy.diagram_policy)?;
     map.tool_results.push(ToolResult {
@@ -390,6 +392,7 @@ fn build_software_map(root: &Path, policy: &FullMapPolicy) -> Result<SoftwareMap
             format!("commands: {}", map.runtime_cli_commands.len()),
             format!("action enums: {}", map.runtime_cli_actions.len()),
             format!("bin modules: {}", map.runtime_bin_modules.len()),
+            format!("route handlers: {}", map.runtime_route_handlers.len()),
         ],
     });
     let public_api_version = command_version("cargo", &["public-api", "--version"]);
@@ -482,13 +485,14 @@ fn check_policy_metadata(policy: &FullMapPolicy) -> FullMapCheck {
     for route in &policy.runtime_command_module_routes {
         if route.command.trim().is_empty()
             || route.module.trim().is_empty()
+            || route.handler.trim().is_empty()
             || route.route_kind.trim().is_empty()
             || route.owner.trim().is_empty()
             || route.rationale.trim().is_empty()
             || route.review_date.trim().is_empty()
         {
             failures.push(format!(
-                "command route Command::{} -> '{}' is missing module/route_kind/owner/rationale/review_date",
+                "command route Command::{} -> '{}' is missing module/handler/route_kind/owner/rationale/review_date",
                 route.command, route.module
             ));
         }
@@ -682,6 +686,11 @@ fn check_runtime_command_and_module_ownership(
         .iter()
         .map(|route| (route.command.as_str(), route))
         .collect::<BTreeMap<_, _>>();
+    let route_handlers = map
+        .runtime_route_handlers
+        .iter()
+        .map(|handler| (handler.handler.as_str(), handler))
+        .collect::<BTreeMap<_, _>>();
     let mut failures = Vec::new();
     let mut findings = Vec::new();
     let mut details = Vec::new();
@@ -723,14 +732,24 @@ fn check_runtime_command_and_module_ownership(
                         .any(|module| module == &route.module)
                     || route.module.contains("::");
                 if route_target_known {
-                    details.push(format!(
-                        "Command::{command} has no same-name bin module '{expected}'; routes through {} ({}) owner={} review_date={} rationale={}",
-                        route.module,
-                        route.route_kind,
-                        route.owner,
-                        route.review_date,
-                        route.rationale
-                    ));
+                    if let Some(handler) = route_handlers.get(route.handler.as_str()) {
+                        details.push(format!(
+                            "Command::{command} has no same-name bin module '{expected}'; routes through {} handler={} at {}:{} ({}) owner={} review_date={} rationale={}",
+                            route.module,
+                            route.handler,
+                            handler.path,
+                            handler.line,
+                            route.route_kind,
+                            route.owner,
+                            route.review_date,
+                            route.rationale
+                        ));
+                    } else {
+                        failures.push(format!(
+                            "Command::{command} route handler '{}' was not found in source",
+                            route.handler
+                        ));
+                    }
                 } else {
                     failures.push(format!(
                         "Command::{command} route target '{}' is not a bin module, runtime top-level module, or explicit path",
@@ -1676,6 +1695,98 @@ fn collect_runtime_cli_actions(root: &Path) -> Result<Vec<CliActionSummary>> {
     Ok(actions)
 }
 
+fn collect_runtime_route_handlers(
+    root: &Path,
+    policy: &FullMapPolicy,
+) -> Result<Vec<RuntimeRouteHandlerSummary>> {
+    let mut handlers = Vec::new();
+    let mut seen = BTreeSet::new();
+    for route in &policy.runtime_command_module_routes {
+        if !seen.insert(route.handler.clone()) {
+            continue;
+        }
+        if let Some(handler) = find_runtime_route_handler(root, &route.handler)? {
+            handlers.push(handler);
+        }
+    }
+    Ok(handlers)
+}
+
+fn find_runtime_route_handler(
+    root: &Path,
+    handler: &str,
+) -> Result<Option<RuntimeRouteHandlerSummary>> {
+    let segments = handler
+        .split("::")
+        .filter(|segment| !segment.is_empty())
+        .collect::<Vec<_>>();
+    if segments.len() < 2 {
+        return Ok(None);
+    }
+    let function_name = segments[segments.len() - 1];
+    let module_segments = &segments[..segments.len() - 1];
+    let (base_dir, module_segments) = if module_segments.first() == Some(&"trust_runtime") {
+        (root.join("crates/trust-runtime/src"), &module_segments[1..])
+    } else {
+        (
+            root.join("crates/trust-runtime/src/bin/trust-runtime"),
+            module_segments,
+        )
+    };
+    if module_segments.is_empty() {
+        return Ok(None);
+    }
+
+    for file in route_handler_candidate_files(&base_dir, module_segments)? {
+        let source = fs::read_to_string(&file).unwrap_or_default();
+        for (idx, line) in source.lines().enumerate() {
+            if line_defines_function(line, function_name) {
+                return Ok(Some(RuntimeRouteHandlerSummary {
+                    handler: handler.to_string(),
+                    path: rel_path(root, &file),
+                    line: idx + 1,
+                }));
+            }
+        }
+    }
+    Ok(None)
+}
+
+fn route_handler_candidate_files(
+    base_dir: &Path,
+    module_segments: &[&str],
+) -> Result<Vec<PathBuf>> {
+    let mut module_path = base_dir.to_path_buf();
+    for segment in module_segments {
+        module_path.push(segment);
+    }
+
+    let mut files = Vec::new();
+    let rs_file = module_path.with_extension("rs");
+    if rs_file.exists() {
+        files.push(rs_file);
+    }
+    if module_path.is_dir() {
+        collect_source_files_inner(&module_path, &mut files)?;
+    }
+    files.sort();
+    files.dedup();
+    Ok(files)
+}
+
+fn line_defines_function(line: &str, function_name: &str) -> bool {
+    let line = strip_line_comment(line).trim_start();
+    if line.is_empty() {
+        return false;
+    }
+    let needle = format!("fn {function_name}");
+    let Some(pos) = line.find(&needle) else {
+        return false;
+    };
+    let after = &line[pos + needle.len()..];
+    matches!(after.chars().next(), Some('(' | '<'))
+}
+
 fn action_enum_names(source: &str) -> Vec<String> {
     source
         .lines()
@@ -1872,21 +1983,54 @@ mod tests {
             .push(CommandModuleRoute {
                 command: "Play".to_string(),
                 module: "run".to_string(),
+                handler: "run::run_play".to_string(),
                 route_kind: "compatibility_alias".to_string(),
                 owner: "runtime CLI".to_string(),
                 rationale: "Command::Play dispatches to run::run_play".to_string(),
                 review_date: "2026-04-28".to_string(),
             });
+        map.runtime_route_handlers.push(RuntimeRouteHandlerSummary {
+            handler: "run::run_play".to_string(),
+            path: "crates/trust-runtime/src/bin/trust-runtime/run/commands.rs".to_string(),
+            line: 39,
+        });
 
         let check = check_runtime_command_and_module_ownership(&map, &policy);
 
         assert_eq!(check.status, CheckStatus::Pass);
         assert!(check.details.iter().any(|detail| detail
-            .contains("Command::Play has no same-name bin module 'play'; routes through run")));
+            .contains("Command::Play has no same-name bin module 'play'; routes through run handler=run::run_play")));
         assert!(!check
             .details
             .iter()
             .any(|detail| detail.contains("may be routed")));
+    }
+
+    #[test]
+    fn known_bad_stale_command_route_handler_fails() {
+        let mut map = base_map();
+        map.runtime_cli_commands.push("Play".to_string());
+
+        let mut policy = base_policy();
+        policy.runtime_command_classes.push(ClassifiedName {
+            name: "Play".to_string(),
+            class: "product".to_string(),
+            owner: "runtime".to_string(),
+            rationale: "runtime command".to_string(),
+        });
+        policy
+            .runtime_command_module_routes
+            .push(CommandModuleRoute {
+                command: "Play".to_string(),
+                module: "run".to_string(),
+                handler: "run::missing_play".to_string(),
+                route_kind: "compatibility_alias".to_string(),
+                owner: "runtime CLI".to_string(),
+                rationale: "stale handler".to_string(),
+                review_date: "2026-04-28".to_string(),
+            });
+
+        assert!(check_runtime_command_and_module_ownership(&map, &policy).is_fail());
     }
 
     #[test]
