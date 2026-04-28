@@ -1,0 +1,178 @@
+{
+  "policy_version": 1,
+  "review_date": "2026-04-28",
+  "allowed_workspace_edges": [
+    {"from": "trust-debug", "to": "trust-hir", "kind": "normal", "status": "allowed", "owner": "architecture", "rationale": "debug consumes HIR symbols"},
+    {"from": "trust-debug", "to": "trust-runtime", "kind": "normal", "status": "temporary", "owner": "runtime/debug", "rationale": "debug/runtime split tracked by architecture program"},
+    {"from": "trust-hir", "to": "trust-syntax", "kind": "normal", "status": "allowed", "owner": "HIR", "rationale": "HIR lowers syntax"},
+    {"from": "trust-ide", "to": "trust-hir", "kind": "normal", "status": "allowed", "owner": "IDE", "rationale": "IDE consumes HIR analysis"},
+    {"from": "trust-ide", "to": "trust-syntax", "kind": "normal", "status": "allowed", "owner": "IDE", "rationale": "IDE consumes syntax facts"},
+    {"from": "trust-lsp", "to": "trust-hir", "kind": "normal", "status": "allowed", "owner": "LSP", "rationale": "LSP consumes analysis"},
+    {"from": "trust-lsp", "to": "trust-ide", "kind": "normal", "status": "allowed", "owner": "LSP", "rationale": "LSP delegates IDE services"},
+    {"from": "trust-lsp", "to": "trust-runtime", "kind": "normal", "status": "temporary", "owner": "LSP/runtime", "rationale": "runtime-backed debug/protocol helpers tracked by boundary policy"},
+    {"from": "trust-lsp", "to": "trust-syntax", "kind": "normal", "status": "allowed", "owner": "LSP", "rationale": "LSP syntax integration"},
+    {"from": "trust-runtime", "to": "trust-hir", "kind": "normal", "status": "allowed", "owner": "runtime", "rationale": "runtime harness/compiler consumes HIR"},
+    {"from": "trust-runtime", "to": "trust-ide", "kind": "normal", "status": "temporary", "owner": "runtime/IDE", "rationale": "web IDE hosted from runtime until product/workbench split"},
+    {"from": "trust-runtime", "to": "trust-syntax", "kind": "normal", "status": "allowed", "owner": "runtime", "rationale": "runtime compiler consumes syntax"},
+    {"from": "trust-runtime", "to": "trust-wasm-analysis", "kind": "normal", "status": "temporary", "owner": "runtime/web", "rationale": "browser analysis surface tracked by runtime surface split"},
+    {"from": "trust-wasm-analysis", "to": "trust-hir", "kind": "normal", "status": "allowed", "owner": "wasm analysis", "rationale": "WASM analysis consumes HIR"},
+    {"from": "trust-wasm-analysis", "to": "trust-ide", "kind": "normal", "status": "temporary", "owner": "wasm analysis/IDE", "rationale": "WASM IDE integration tracked by boundary policy"},
+    {"from": "trust-wasm-analysis", "to": "trust-syntax", "kind": "normal", "status": "allowed", "owner": "wasm analysis", "rationale": "WASM analysis consumes syntax"}
+  ],
+  "forbidden_workspace_edges": [
+    {"from": "trust-hir", "to": "trust-runtime", "kind": "normal"}
+  ],
+  "runtime_core_forbidden_dependencies": [
+    "trust-runtime",
+    "trust-ide",
+    "trust-lsp",
+    "tokio",
+    "zenoh",
+    "rumqttc",
+    "ethercrab",
+    "opcua",
+    "ratatui",
+    "crossterm"
+  ],
+  "runtime_core_forbidden_import_modules": [
+    "web",
+    "hmi",
+    "ui",
+    "control",
+    "runtime_cloud",
+    "debug",
+    "setup",
+    "opcua",
+    "mesh",
+    "discovery",
+    "harness",
+    "historian",
+    "metrics",
+    "registry"
+  ],
+  "runtime_command_classes": [
+    {"name": "Run", "class": "product", "owner": "runtime", "rationale": "field runtime command"},
+    {"name": "Play", "class": "product", "owner": "runtime", "rationale": "field runtime command"},
+    {"name": "Ctl", "class": "product", "owner": "runtime", "rationale": "field runtime command"},
+    {"name": "Validate", "class": "product", "owner": "runtime", "rationale": "field runtime command"},
+    {"name": "Build", "class": "product", "owner": "runtime", "rationale": "field runtime command"},
+    {"name": "Hmi", "class": "product", "owner": "runtime/HMI", "rationale": "product HMI command"},
+    {"name": "Plcopen", "class": "product", "owner": "runtime", "rationale": "PLCopen import/export"},
+    {"name": "Registry", "class": "product", "owner": "runtime", "rationale": "runtime registry command"},
+    {"name": "Setup", "class": "product", "owner": "runtime", "rationale": "runtime setup command"},
+    {"name": "Deploy", "class": "product", "owner": "runtime", "rationale": "deployment command"},
+    {"name": "Rollback", "class": "product", "owner": "runtime", "rationale": "deployment command"},
+    {"name": "Ui", "class": "ui_product", "owner": "runtime/UI", "rationale": "local UI command"},
+    {"name": "Ide", "class": "ui_product", "owner": "runtime/web", "rationale": "hosted IDE surface"},
+    {"name": "ConfigUi", "class": "ui_product", "owner": "runtime/web", "rationale": "configuration UI"},
+    {"name": "Wizard", "class": "ui_product", "owner": "runtime/setup", "rationale": "setup wizard"},
+    {"name": "Bench", "class": "conformance_benchmark", "owner": "runtime/perf", "rationale": "benchmark command"},
+    {"name": "Conformance", "class": "conformance_benchmark", "owner": "runtime/conformance", "rationale": "conformance command"},
+    {"name": "Agent", "class": "workbench_dev", "owner": "dev tooling", "rationale": "agent/workbench command to split"},
+    {"name": "Commit", "class": "workbench_dev", "owner": "dev tooling", "rationale": "git helper command to split"},
+    {"name": "Docs", "class": "workbench_dev", "owner": "dev tooling", "rationale": "docs helper command to split"},
+    {"name": "Test", "class": "workbench_dev", "owner": "dev tooling", "rationale": "dev test helper command to split"},
+    {"name": "Completions", "class": "support", "owner": "CLI", "rationale": "shell completion support"}
+  ],
+  "runtime_bin_module_classes": [
+    {"name": "run", "class": "product", "owner": "runtime", "rationale": "runtime command"},
+    {"name": "ctl", "class": "product", "owner": "runtime", "rationale": "control command"},
+    {"name": "build", "class": "product", "owner": "runtime", "rationale": "build command"},
+    {"name": "hmi", "class": "product", "owner": "runtime/HMI", "rationale": "HMI command"},
+    {"name": "plcopen", "class": "product", "owner": "runtime", "rationale": "PLCopen command"},
+    {"name": "registry", "class": "product", "owner": "runtime", "rationale": "registry command"},
+    {"name": "setup", "class": "product", "owner": "runtime", "rationale": "setup command"},
+    {"name": "setup_web", "class": "product", "owner": "runtime", "rationale": "setup web helper"},
+    {"name": "deploy", "class": "product", "owner": "runtime", "rationale": "deploy command"},
+    {"name": "config_ui", "class": "ui_product", "owner": "runtime/web", "rationale": "configuration UI"},
+    {"name": "wizard", "class": "ui_product", "owner": "runtime/setup", "rationale": "setup wizard"},
+    {"name": "bench", "class": "conformance_benchmark", "owner": "runtime/perf", "rationale": "benchmark module"},
+    {"name": "conformance", "class": "conformance_benchmark", "owner": "runtime/conformance", "rationale": "conformance module"},
+    {"name": "agent", "class": "workbench_dev", "owner": "dev tooling", "rationale": "agent module to split"},
+    {"name": "commit", "class": "workbench_dev", "owner": "dev tooling", "rationale": "commit module to split"},
+    {"name": "git", "class": "infrastructure", "owner": "CLI", "rationale": "git helper used by setup and workbench commands; split decision tracked by runtime CLI board"},
+    {"name": "docs", "class": "workbench_dev", "owner": "dev tooling", "rationale": "docs helper to split"},
+    {"name": "prompt", "class": "infrastructure", "owner": "CLI", "rationale": "interactive prompt helper shared by setup and workbench commands"},
+    {"name": "workflow", "class": "workbench_dev", "owner": "dev tooling", "rationale": "workflow helper to split"},
+    {"name": "style", "class": "infrastructure", "owner": "CLI", "rationale": "terminal formatting helper shared by product and workbench commands"},
+    {"name": "ci", "class": "workbench_dev", "owner": "dev tooling", "rationale": "CI helper to split"},
+    {"name": "test", "class": "workbench_dev", "owner": "dev tooling", "rationale": "test helper to split"},
+    {"name": "cli", "class": "infrastructure", "owner": "CLI", "rationale": "CLI parser module"},
+    {"name": "completions", "class": "infrastructure", "owner": "CLI", "rationale": "completion generator"}
+  ],
+  "runtime_action_classes": [
+    {"name": "ControlAction", "class": "product", "owner": "runtime/control", "rationale": "control subcommands"},
+    {"name": "HmiAction", "class": "product", "owner": "runtime/HMI", "rationale": "HMI subcommands"},
+    {"name": "PlcopenAction", "class": "product", "owner": "runtime", "rationale": "PLCopen subcommands"},
+    {"name": "RegistryAction", "class": "product", "owner": "runtime", "rationale": "registry subcommands"},
+    {"name": "ConfigUiAction", "class": "ui_product", "owner": "runtime/web", "rationale": "UI subcommands"},
+    {"name": "BenchAction", "class": "conformance_benchmark", "owner": "runtime/perf", "rationale": "benchmark subcommands"},
+    {"name": "AgentAction", "class": "workbench_dev", "owner": "dev tooling", "rationale": "agent subcommands"}
+  ],
+  "host_surface": {
+    "approved_ports_active": false,
+    "forbidden_edges": [
+      {"from_module": "control", "to_module": "web", "owner": "runtime/web", "rationale": "control must not depend on web implementation"},
+      {"from_module": "hmi", "to_module": "web", "owner": "runtime/HMI", "rationale": "HMI domain must not depend on web transport"}
+    ],
+    "temporary_allowlist": [
+      {"from_module": "control", "to_module": "web", "path": "crates/trust-runtime/src/control.rs", "owner": "runtime/host-surface", "rationale": "PairingStore inversion is a known current architecture finding tracked by runtime-host-surface-ownership; new control->web imports still fail", "review_date": "2026-04-28"}
+    ]
+  },
+  "kiss": {
+    "new_file_line_limit": 1000,
+    "existing_file_note_limit": 1000,
+    "split_plan_line_limit": 1500,
+    "max_runtime_top_level_modules_current": 45,
+    "max_runtime_top_level_modules_after_boards": 18,
+    "enforce_after_boards_cap": false,
+    "large_file_allowlist": [
+      {"path": "crates/trust-runtime/src/runtime/vm/register_ir/tests.rs", "owner": "runtime/VM", "rationale": "test hotspot; split tracked by runtime-large-file board", "review_date": "2026-04-28", "split_plan": "runtime-large-file-split RTLARGE-HOT-01"},
+      {"path": "crates/trust-runtime/src/runtime/vm/call.rs", "owner": "runtime/VM", "rationale": "VM call semantics hotspot", "review_date": "2026-04-28", "split_plan": "runtime-large-file-split RTLARGE-HOT-02"},
+      {"path": "crates/trust-runtime/src/web/config_ui_routes.rs", "owner": "runtime/web", "rationale": "web route hotspot", "review_date": "2026-04-28", "split_plan": "runtime-large-file-split RTLARGE-HOT-03"},
+      {"path": "crates/trust-runtime/src/runtime/vm/register_ir.rs", "owner": "runtime/VM", "rationale": "register IR hotspot", "review_date": "2026-04-28", "split_plan": "runtime-large-file-split RTLARGE-HOT-05"},
+      {"path": "crates/trust-runtime/src/bin/trust-runtime/agent.rs", "owner": "dev tooling", "rationale": "workbench/dev command to split", "review_date": "2026-04-28", "split_plan": "runtime-cli-product-workbench split"},
+      {"path": "crates/trust-runtime/src/runtime/vm/register_ir/lower.rs", "owner": "runtime/VM", "rationale": "lowering hotspot", "review_date": "2026-04-28", "split_plan": "runtime-large-file-split RTLARGE-HOT-09"},
+      {"path": "crates/trust-runtime/src/memory.rs", "owner": "runtime/core", "rationale": "memory model hotspot", "review_date": "2026-04-28", "split_plan": "runtime-large-file-split RTLARGE-HOT-10"},
+      {"path": "crates/trust-runtime/src/value/types.rs", "owner": "runtime/value", "rationale": "value type hotspot", "review_date": "2026-04-28", "split_plan": "runtime-large-file-split RTLARGE-HOT-11"},
+      {"path": "crates/trust-runtime/src/runtime/vm/register_ir/tier1.rs", "owner": "runtime/VM", "rationale": "tier1 hotspot", "review_date": "2026-04-28", "split_plan": "runtime-large-file-split RTLARGE-HOT-12"}
+    ]
+  },
+  "dependency_hygiene_tools": [
+    {"name": "cargo audit", "status": "not_run", "owner": "release engineering", "rationale": "covered by dependency-hygiene execution board"},
+    {"name": "cargo machete", "status": "not_run", "owner": "architecture automation", "rationale": "covered by dependency-hygiene execution board"},
+    {"name": "cargo deny", "status": "not_run", "owner": "release engineering", "rationale": "policy board owns deny.toml"}
+  ],
+  "unsafe_concurrency": {
+    "owner": "runtime/HIR/release engineering",
+    "status": "tracked_by_unsafe_concurrency_hardening_board"
+  },
+  "diagram_policy": {
+    "selected_diagrams": [
+      "docs/diagrams/architecture/full-software-map-generated.puml"
+    ],
+    "allowed_alias_prefixes": [
+      "bin_",
+      "crate_",
+      "rt_",
+      "risk_",
+      "runtime_",
+      "cli_",
+      "root_",
+      "largest_",
+      "test_",
+      "ev_"
+    ],
+    "allowed_aliases": [
+      "operator",
+      "developer",
+      "lsp_client",
+      "product",
+      "workspace",
+      "runtime_surfaces",
+      "runtime_module_graph",
+      "risks",
+      "evidence"
+    ]
+  }
+}

@@ -7,11 +7,16 @@ pub struct SoftwareMap {
     pub generated_by: String,
     pub packages: Vec<PackageSummary>,
     pub workspace_edges: Vec<WorkspaceEdge>,
+    pub crate_module_summaries: Vec<ModuleSummary>,
     pub source_files: Vec<SourceFileSummary>,
+    pub largest_files: Vec<SourceFileSummary>,
+    pub import_edges: Vec<ImportEdge>,
     pub runtime_top_level_modules: Vec<String>,
     pub runtime_cli_commands: Vec<String>,
     pub runtime_cli_actions: Vec<CliActionSummary>,
     pub runtime_bin_modules: Vec<String>,
+    pub unsafe_summary: UnsafeSummary,
+    pub diagram_facts: Vec<DiagramFact>,
     pub tool_results: Vec<ToolResult>,
 }
 
@@ -37,15 +42,53 @@ pub struct WorkspaceEdge {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ModuleSummary {
+    pub crate_name: String,
+    pub module_name: String,
+    pub path: String,
+    pub file_count: usize,
+    pub line_count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SourceFileSummary {
     pub path: String,
     pub line_count: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ImportEdge {
+    pub from_file: String,
+    pub from_module: String,
+    pub to_module: String,
+    pub line: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct CliActionSummary {
     pub name: String,
     pub variants: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+pub struct UnsafeSummary {
+    pub unsafe_occurrences: usize,
+    pub panic_like_occurrences: usize,
+    pub owner: String,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct DiagramFact {
+    pub path: String,
+    pub components: Vec<String>,
+    pub edges: Vec<DiagramEdge>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct DiagramEdge {
+    pub from: String,
+    pub to: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -83,11 +126,16 @@ impl SoftwareMap {
             generated_by: "cargo xtask architecture-doctor --full-map".to_string(),
             packages: Vec::new(),
             workspace_edges: Vec::new(),
+            crate_module_summaries: Vec::new(),
             source_files: Vec::new(),
+            largest_files: Vec::new(),
+            import_edges: Vec::new(),
             runtime_top_level_modules: Vec::new(),
             runtime_cli_commands: Vec::new(),
             runtime_cli_actions: Vec::new(),
             runtime_bin_modules: Vec::new(),
+            unsafe_summary: UnsafeSummary::default(),
+            diagram_facts: Vec::new(),
             tool_results: Vec::new(),
         }
     }
@@ -117,9 +165,28 @@ impl SoftwareMap {
                 .then_with(|| left.to.cmp(&right.to))
                 .then_with(|| left.kind.cmp(&right.kind))
         });
+        self.crate_module_summaries.sort_by(|left, right| {
+            left.crate_name
+                .cmp(&right.crate_name)
+                .then_with(|| left.module_name.cmp(&right.module_name))
+                .then_with(|| left.path.cmp(&right.path))
+        });
         self.source_files
             .sort_by(|left, right| left.path.cmp(&right.path));
+        self.largest_files.sort_by(|left, right| {
+            right
+                .line_count
+                .cmp(&left.line_count)
+                .then_with(|| left.path.cmp(&right.path))
+        });
+        self.import_edges.sort_by(|left, right| {
+            left.from_file
+                .cmp(&right.from_file)
+                .then_with(|| left.line.cmp(&right.line))
+                .then_with(|| left.to_module.cmp(&right.to_module))
+        });
         self.runtime_top_level_modules.sort();
+        self.runtime_top_level_modules.dedup();
         self.runtime_cli_commands.sort();
         self.runtime_cli_actions
             .sort_by(|left, right| left.name.cmp(&right.name));
@@ -127,6 +194,19 @@ impl SoftwareMap {
             action.variants.sort();
         }
         self.runtime_bin_modules.sort();
+        self.runtime_bin_modules.dedup();
+        self.diagram_facts
+            .sort_by(|left, right| left.path.cmp(&right.path));
+        for diagram in &mut self.diagram_facts {
+            diagram.components.sort();
+            diagram.components.dedup();
+            diagram.edges.sort_by(|left, right| {
+                left.from
+                    .cmp(&right.from)
+                    .then_with(|| left.to.cmp(&right.to))
+            });
+            diagram.edges.dedup();
+        }
         self.tool_results
             .sort_by(|left, right| left.name.cmp(&right.name));
     }
@@ -192,6 +272,22 @@ mod tests {
                 kind: "dev".to_string(),
             },
         ];
+        map.crate_module_summaries = vec![
+            ModuleSummary {
+                crate_name: "zeta".to_string(),
+                module_name: "runtime".to_string(),
+                path: "crates/zeta/src/runtime".to_string(),
+                file_count: 2,
+                line_count: 20,
+            },
+            ModuleSummary {
+                crate_name: "alpha".to_string(),
+                module_name: "lib".to_string(),
+                path: "crates/alpha/src/lib.rs".to_string(),
+                file_count: 1,
+                line_count: 5,
+            },
+        ];
         map.source_files = vec![
             SourceFileSummary {
                 path: "crates/zeta/src/lib.rs".to_string(),
@@ -202,6 +298,13 @@ mod tests {
                 line_count: 5,
             },
         ];
+        map.largest_files = map.source_files.clone();
+        map.import_edges = vec![ImportEdge {
+            from_file: "crates/zeta/src/lib.rs".to_string(),
+            from_module: "zeta".to_string(),
+            to_module: "alpha".to_string(),
+            line: 1,
+        }];
         map.runtime_top_level_modules = vec!["web".to_string(), "control".to_string()];
         map.runtime_cli_commands = vec!["Run".to_string(), "Agent".to_string()];
         map.runtime_cli_actions = vec![CliActionSummary {
@@ -209,6 +312,20 @@ mod tests {
             variants: vec!["Project".to_string(), "Init".to_string()],
         }];
         map.runtime_bin_modules = vec!["run".to_string(), "agent".to_string()];
+        map.unsafe_summary = UnsafeSummary {
+            unsafe_occurrences: 1,
+            panic_like_occurrences: 2,
+            owner: "architecture".to_string(),
+            status: "tracked".to_string(),
+        };
+        map.diagram_facts = vec![DiagramFact {
+            path: "docs/diagrams/example.puml".to_string(),
+            components: vec!["crate_alpha".to_string(), "crate_zeta".to_string()],
+            edges: vec![DiagramEdge {
+                from: "crate_alpha".to_string(),
+                to: "crate_zeta".to_string(),
+            }],
+        }];
         map.tool_results = vec![
             ToolResult {
                 name: "zeta-tool".to_string(),
@@ -227,7 +344,10 @@ mod tests {
                 package.targets.reverse();
             }
             map.workspace_edges.reverse();
+            map.crate_module_summaries.reverse();
             map.source_files.reverse();
+            map.largest_files.reverse();
+            map.import_edges.reverse();
             map.runtime_top_level_modules.reverse();
             map.runtime_cli_commands.reverse();
             map.runtime_cli_actions.reverse();
@@ -235,6 +355,7 @@ mod tests {
                 action.variants.reverse();
             }
             map.runtime_bin_modules.reverse();
+            map.diagram_facts.reverse();
             map.tool_results.reverse();
         }
         map

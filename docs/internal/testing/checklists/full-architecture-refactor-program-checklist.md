@@ -1,6 +1,6 @@
 # Full Architecture Refactor Program Checklist
 
-Status: Planned
+Status: In progress
 Owner: Architecture/runtime/HIR team
 Scope: execution program for the full software-map audit findings, SOLID/KISS cleanup, and zero-silent-bug posture.
 
@@ -16,7 +16,7 @@ This is the umbrella checklist. Individual execution boards own the detailed wor
 
 ## Required Execution Boards
 
-- [ ] `ARCHPROG-BOARD-01` Full-map architecture doctor: `architecture-doctor-full-map-execution-checklist.md`.
+- [x] `ARCHPROG-BOARD-01` Full-map architecture doctor: `architecture-doctor-full-map-execution-checklist.md`.
 - [ ] `ARCHPROG-BOARD-02` HIR mutation hardening: `hir-mutation-hardening-execution-checklist.md`.
 - [ ] `ARCHPROG-BOARD-03` Parser recovery hardening: `parser-recovery-hardening-execution-checklist.md`.
 - [ ] `ARCHPROG-BOARD-04` Runtime CLI product/workbench split: `runtime-cli-product-workbench-split-checklist.md`.
@@ -24,7 +24,7 @@ This is the umbrella checklist. Individual execution boards own the detailed wor
 - [ ] `ARCHPROG-BOARD-06` Runtime core/Linux host split: `runtime-core-host-split-execution-checklist.md`.
 - [ ] `ARCHPROG-BOARD-07` Dependency hygiene: `dependency-hygiene-execution-checklist.md`.
 - [ ] `ARCHPROG-BOARD-08` Runtime large-file split: `runtime-large-file-split-execution-checklist.md`.
-- [ ] `ARCHPROG-BOARD-09` Diagram semantic enforcement is added before diagrams are trusted as acceptance evidence.
+- [x] `ARCHPROG-BOARD-09` Diagram semantic enforcement is added before diagrams are trusted as acceptance evidence.
 - [ ] `ARCHPROG-BOARD-10` Runtime VM mutation hardening: `runtime-vm-mutation-hardening-execution-checklist.md`.
 - [ ] `ARCHPROG-BOARD-11` Unsafe/concurrency hardening: `unsafe-concurrency-hardening-execution-checklist.md`.
 
@@ -32,11 +32,11 @@ This is the umbrella checklist. Individual execution boards own the detailed wor
 
 ### Phase A - Automation First, But Only The Needed Automation
 
-- [ ] `ARCHPROG-A-01` Implement `architecture-doctor --full-map` enough to enforce branch-relevant boundaries.
-- [ ] `ARCHPROG-A-02` Add generated/report artifact output so reviewers can inspect the software map.
-- [ ] `ARCHPROG-A-03` Add forbidden-edge and forbidden-import policy loading.
-- [ ] `ARCHPROG-A-04` Add size/API trend reporting with blocking thresholds for configured KISS gates; public API growth is advisory only until its baseline snapshot exists.
-- [ ] `ARCHPROG-A-05` Do not spend this phase building dashboards that do not block a real architecture risk.
+- [x] `ARCHPROG-A-01` Implement `architecture-doctor --full-map` enough to enforce branch-relevant boundaries.
+- [x] `ARCHPROG-A-02` Add generated/report artifact output so reviewers can inspect the software map.
+- [x] `ARCHPROG-A-03` Add forbidden-edge and forbidden-import policy loading.
+- [x] `ARCHPROG-A-04` Add size/API trend reporting with blocking thresholds for configured KISS gates; public API growth is advisory only until its baseline snapshot exists.
+- [x] `ARCHPROG-A-05` Do not spend this phase building dashboards that do not block a real architecture risk.
 
 ### Phase B - Silent-Bug Hardening Before Large Runtime Movement
 

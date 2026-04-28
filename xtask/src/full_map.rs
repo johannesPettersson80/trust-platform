@@ -1,31 +1,259 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use anyhow::{anyhow, bail, Context, Result};
+use serde::{Deserialize, Serialize};
 
 use crate::software_map::{
-    CliActionSummary, PackageSummary, SoftwareMap, SourceFileSummary, TargetSummary, ToolResult,
-    ToolStatus, WorkspaceEdge,
+    CliActionSummary, DiagramEdge, DiagramFact, ImportEdge, ModuleSummary, PackageSummary,
+    SoftwareMap, SourceFileSummary, TargetSummary, ToolResult, ToolStatus, UnsafeSummary,
+    WorkspaceEdge,
 };
 
 pub fn architecture_doctor_full_map(root: &Path) -> Result<()> {
-    let map = build_software_map(root)?;
+    let policy = FullMapPolicy::load(root)?;
+    let mut map = build_software_map(root, &policy)?;
+    let checks = run_policy_checks(&map, &policy);
+    let failed = checks.iter().filter(|check| check.is_fail()).count();
+    map.tool_results.push(ToolResult {
+        name: "full-map policy checks".to_string(),
+        status: if failed == 0 {
+            ToolStatus::Pass
+        } else {
+            ToolStatus::Failed
+        },
+        details: vec![format!("failed checks: {failed}")],
+    });
     let artifact_dir = full_map_artifact_dir(root)?;
     fs::create_dir_all(&artifact_dir)
         .with_context(|| format!("create {}", artifact_dir.display()))?;
     let json_path = artifact_dir.join("software-map.json");
     fs::write(&json_path, map.to_stable_json()?)
         .with_context(|| format!("write {}", json_path.display()))?;
+    write_reports(&artifact_dir, &map, &checks)?;
     println!("wrote {}", json_path.display());
+    println!(
+        "wrote {}",
+        artifact_dir.join("full-map-report.json").display()
+    );
+    println!(
+        "wrote {}",
+        artifact_dir.join("full-map-report.md").display()
+    );
 
-    bail!(
-        "architecture-doctor --full-map policy checks are not implemented yet; JSON map artifact was written"
-    )
+    for check in &checks {
+        println!("{}: {}", check.status.as_str().to_uppercase(), check.id);
+        for detail in &check.details {
+            println!("  - {detail}");
+        }
+    }
+    if failed > 0 {
+        bail!("architecture-doctor --full-map found {failed} failing check(s)");
+    }
+    Ok(())
 }
 
-fn build_software_map(root: &Path) -> Result<SoftwareMap> {
+#[derive(Debug, Deserialize)]
+struct FullMapPolicy {
+    policy_version: u32,
+    review_date: String,
+    allowed_workspace_edges: Vec<EdgePolicy>,
+    forbidden_workspace_edges: Vec<EdgeKey>,
+    runtime_core_forbidden_dependencies: Vec<String>,
+    runtime_core_forbidden_import_modules: Vec<String>,
+    runtime_command_classes: Vec<ClassifiedName>,
+    runtime_bin_module_classes: Vec<ClassifiedName>,
+    runtime_action_classes: Vec<ClassifiedName>,
+    host_surface: HostSurfacePolicy,
+    kiss: KissPolicy,
+    dependency_hygiene_tools: Vec<PolicyToolStatus>,
+    unsafe_concurrency: UnsafeConcurrencyPolicy,
+    diagram_policy: DiagramPolicy,
+}
+
+#[derive(Debug, Deserialize)]
+struct EdgePolicy {
+    from: String,
+    to: String,
+    kind: String,
+    status: String,
+    owner: String,
+    rationale: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct EdgeKey {
+    from: String,
+    to: String,
+    kind: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct ClassifiedName {
+    name: String,
+    class: String,
+    owner: String,
+    rationale: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct HostSurfacePolicy {
+    approved_ports_active: bool,
+    forbidden_edges: Vec<ForbiddenModuleEdge>,
+    temporary_allowlist: Vec<TemporaryHostSurfaceImport>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ForbiddenModuleEdge {
+    from_module: String,
+    to_module: String,
+    owner: String,
+    rationale: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct TemporaryHostSurfaceImport {
+    from_module: String,
+    to_module: String,
+    path: String,
+    owner: String,
+    rationale: String,
+    review_date: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct KissPolicy {
+    new_file_line_limit: usize,
+    existing_file_note_limit: usize,
+    split_plan_line_limit: usize,
+    max_runtime_top_level_modules_current: usize,
+    max_runtime_top_level_modules_after_boards: usize,
+    enforce_after_boards_cap: bool,
+    large_file_allowlist: Vec<LargeFilePolicy>,
+}
+
+#[derive(Debug, Deserialize)]
+struct LargeFilePolicy {
+    path: String,
+    owner: String,
+    rationale: String,
+    review_date: String,
+    split_plan: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct PolicyToolStatus {
+    name: String,
+    status: String,
+    owner: String,
+    rationale: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct UnsafeConcurrencyPolicy {
+    owner: String,
+    status: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct DiagramPolicy {
+    selected_diagrams: Vec<String>,
+    allowed_alias_prefixes: Vec<String>,
+    allowed_aliases: Vec<String>,
+}
+
+impl FullMapPolicy {
+    fn load(root: &Path) -> Result<Self> {
+        let path = root.join("xtask/config/full_map_policy.json");
+        let source =
+            fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))?;
+        serde_json::from_str(&source).with_context(|| format!("parse {}", path.display()))
+    }
+}
+
+#[derive(Debug, Serialize)]
+struct FullMapReport<'a> {
+    status: &'a str,
+    failed: usize,
+    commands: Vec<&'static str>,
+    tool_versions: Vec<String>,
+    artifacts: Vec<String>,
+    checks: &'a [FullMapCheck],
+}
+
+#[derive(Debug, Serialize)]
+struct FullMapCheck {
+    id: &'static str,
+    status: CheckStatus,
+    summary: String,
+    details: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+enum CheckStatus {
+    Pass,
+    Fail,
+    Finding,
+    Partial,
+}
+
+impl CheckStatus {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Pass => "pass",
+            Self::Fail => "fail",
+            Self::Finding => "finding",
+            Self::Partial => "partial",
+        }
+    }
+}
+
+impl FullMapCheck {
+    fn pass(id: &'static str, summary: impl Into<String>, details: Vec<String>) -> Self {
+        Self {
+            id,
+            status: CheckStatus::Pass,
+            summary: summary.into(),
+            details,
+        }
+    }
+
+    fn fail(id: &'static str, summary: impl Into<String>, details: Vec<String>) -> Self {
+        Self {
+            id,
+            status: CheckStatus::Fail,
+            summary: summary.into(),
+            details,
+        }
+    }
+
+    fn finding(id: &'static str, summary: impl Into<String>, details: Vec<String>) -> Self {
+        Self {
+            id,
+            status: CheckStatus::Finding,
+            summary: summary.into(),
+            details,
+        }
+    }
+
+    fn partial(id: &'static str, summary: impl Into<String>, details: Vec<String>) -> Self {
+        Self {
+            id,
+            status: CheckStatus::Partial,
+            summary: summary.into(),
+            details,
+        }
+    }
+
+    fn is_fail(&self) -> bool {
+        self.status == CheckStatus::Fail
+    }
+}
+
+fn build_software_map(root: &Path, policy: &FullMapPolicy) -> Result<SoftwareMap> {
     let _known_statuses = ToolStatus::ALL;
     let metadata = cargo_metadata(root)?;
     let workspace_members = metadata["workspace_members"]
@@ -57,12 +285,10 @@ fn build_software_map(root: &Path) -> Result<SoftwareMap> {
             continue;
         }
         let name = package["name"].as_str().unwrap_or_default().to_string();
+        let manifest_path = Path::new(package["manifest_path"].as_str().unwrap_or_default());
         map.packages.push(PackageSummary {
             name: name.clone(),
-            manifest_path: rel_path(
-                root,
-                Path::new(package["manifest_path"].as_str().unwrap_or_default()),
-            ),
+            manifest_path: rel_path(root, manifest_path),
             targets: package["targets"]
                 .as_array()
                 .into_iter()
@@ -83,6 +309,12 @@ fn build_software_map(root: &Path) -> Result<SoftwareMap> {
                 })
                 .collect(),
         });
+        collect_top_level_module_summaries(
+            root,
+            &name,
+            manifest_path,
+            &mut map.crate_module_summaries,
+        )?;
         for dependency in package["dependencies"].as_array().into_iter().flatten() {
             let Some(dep_name) = dependency["name"].as_str() else {
                 continue;
@@ -104,8 +336,23 @@ fn build_software_map(root: &Path) -> Result<SoftwareMap> {
             line_count: source.lines().count(),
         });
     }
+    map.largest_files = map.source_files.clone();
+    map.largest_files.sort_by(|left, right| {
+        right
+            .line_count
+            .cmp(&left.line_count)
+            .then_with(|| left.path.cmp(&right.path))
+    });
+    map.largest_files.truncate(50);
     map.runtime_top_level_modules = collect_runtime_top_level_modules(root)?;
     map.runtime_bin_modules = collect_runtime_bin_modules(root)?;
+    let known_import_modules = map
+        .runtime_top_level_modules
+        .iter()
+        .chain(map.runtime_bin_modules.iter())
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    map.import_edges = collect_import_edges(root, &known_import_modules)?;
     map.runtime_cli_commands = parse_enum_variants(
         &fs::read_to_string(
             root.join("crates/trust-runtime/src/bin/trust-runtime/cli/commands.rs"),
@@ -113,6 +360,8 @@ fn build_software_map(root: &Path) -> Result<SoftwareMap> {
         "Command",
     );
     map.runtime_cli_actions = collect_runtime_cli_actions(root)?;
+    map.unsafe_summary = collect_unsafe_summary(root, policy);
+    map.diagram_facts = collect_diagram_facts(root, &policy.diagram_policy)?;
     map.tool_results.push(ToolResult {
         name: "cargo metadata".to_string(),
         status: ToolStatus::Pass,
@@ -132,13 +381,1117 @@ fn build_software_map(root: &Path) -> Result<SoftwareMap> {
             format!("bin modules: {}", map.runtime_bin_modules.len()),
         ],
     });
+    let public_api_version = command_version("cargo", &["public-api", "--version"]);
     map.tool_results.push(ToolResult {
-        name: "full-map policy checks".to_string(),
-        status: ToolStatus::NotRun,
-        details: vec!["policy checks are implemented in later FULLMAP phases".to_string()],
+        name: "cargo public-api".to_string(),
+        status: if public_api_version.starts_with("cargo-public-api")
+            || public_api_version.starts_with("cargo public-api")
+        {
+            ToolStatus::Pass
+        } else {
+            ToolStatus::NotRun
+        },
+        details: vec![
+            public_api_version,
+            "public API baseline enforcement is tracked by the full architecture program"
+                .to_string(),
+        ],
     });
+    for tool in &policy.dependency_hygiene_tools {
+        map.tool_results.push(ToolResult {
+            name: tool.name.clone(),
+            status: policy_tool_status(&tool.status),
+            details: vec![format!("owner: {}; {}", tool.owner, tool.rationale)],
+        });
+    }
 
     Ok(map)
+}
+
+fn policy_tool_status(status: &str) -> ToolStatus {
+    match status {
+        "pass" => ToolStatus::Pass,
+        "finding" => ToolStatus::Finding,
+        "partial" => ToolStatus::Partial,
+        "failed" => ToolStatus::Failed,
+        _ => ToolStatus::NotRun,
+    }
+}
+
+fn run_policy_checks(map: &SoftwareMap, policy: &FullMapPolicy) -> Vec<FullMapCheck> {
+    vec![
+        check_policy_metadata(policy),
+        check_workspace_edge_policy(map, policy),
+        check_runtime_core_dependency_fence(map, policy),
+        check_runtime_command_and_module_ownership(map, policy),
+        check_host_surface_edges(map, policy),
+        check_dependency_hygiene_status(policy),
+        check_unsafe_concurrency_summary(map),
+        check_kiss_thresholds(map, policy),
+        check_public_api_snapshot_status(map),
+        check_diagram_claims(map, policy),
+    ]
+}
+
+fn check_policy_metadata(policy: &FullMapPolicy) -> FullMapCheck {
+    let mut failures = Vec::new();
+    if policy.policy_version == 0 {
+        failures.push("policy_version must be non-zero".to_string());
+    }
+    if policy.review_date.trim().is_empty() {
+        failures.push("review_date must be set".to_string());
+    }
+    for edge in &policy.allowed_workspace_edges {
+        if edge.owner.trim().is_empty() || edge.rationale.trim().is_empty() {
+            failures.push(format!(
+                "workspace edge {} -> {} ({}) is missing owner/rationale",
+                edge.from, edge.to, edge.kind
+            ));
+        }
+        if !matches!(edge.status.as_str(), "allowed" | "temporary") {
+            failures.push(format!(
+                "workspace edge {} -> {} ({}) has unsupported status '{}'",
+                edge.from, edge.to, edge.kind, edge.status
+            ));
+        }
+    }
+    for item in policy
+        .runtime_command_classes
+        .iter()
+        .chain(policy.runtime_bin_module_classes.iter())
+        .chain(policy.runtime_action_classes.iter())
+    {
+        if item.owner.trim().is_empty() || item.rationale.trim().is_empty() {
+            failures.push(format!(
+                "classification '{}' ({}) is missing owner/rationale",
+                item.name, item.class
+            ));
+        }
+    }
+    for item in &policy.host_surface.temporary_allowlist {
+        if item.owner.trim().is_empty()
+            || item.rationale.trim().is_empty()
+            || item.review_date.trim().is_empty()
+        {
+            failures.push(format!(
+                "host-surface temporary allowlist {} -> {} at '{}' is missing owner/rationale/review_date",
+                item.from_module, item.to_module, item.path
+            ));
+        }
+    }
+    for item in &policy.kiss.large_file_allowlist {
+        if item.owner.trim().is_empty()
+            || item.rationale.trim().is_empty()
+            || item.review_date.trim().is_empty()
+            || item.split_plan.trim().is_empty()
+        {
+            failures.push(format!(
+                "large-file allowlist entry '{}' is missing owner/rationale/review_date/split_plan",
+                item.path
+            ));
+        }
+    }
+    if failures.is_empty() {
+        FullMapCheck::pass(
+            "FULLMAP-CHECK-01",
+            "allowed workspace edge policy loaded with required metadata",
+            vec![
+                format!("policy version: {}", policy.policy_version),
+                format!("review date: {}", policy.review_date),
+                format!(
+                    "allowed workspace edges: {}",
+                    policy.allowed_workspace_edges.len()
+                ),
+            ],
+        )
+    } else {
+        FullMapCheck::fail(
+            "FULLMAP-CHECK-01",
+            "policy metadata is incomplete",
+            failures,
+        )
+    }
+}
+
+fn check_workspace_edge_policy(map: &SoftwareMap, policy: &FullMapPolicy) -> FullMapCheck {
+    let allowed = policy
+        .allowed_workspace_edges
+        .iter()
+        .map(|edge| edge_tuple(&edge.from, &edge.to, &edge.kind))
+        .collect::<BTreeSet<_>>();
+    let forbidden = policy
+        .forbidden_workspace_edges
+        .iter()
+        .map(|edge| edge_tuple(&edge.from, &edge.to, &edge.kind))
+        .collect::<BTreeSet<_>>();
+
+    let mut failures = Vec::new();
+    for edge in &map.workspace_edges {
+        let key = edge_tuple(&edge.from, &edge.to, &edge.kind);
+        if forbidden.contains(&key) {
+            failures.push(format!(
+                "forbidden workspace edge present: {} -> {} ({})",
+                edge.from, edge.to, edge.kind
+            ));
+        }
+        if !allowed.contains(&key) {
+            failures.push(format!(
+                "unclassified workspace edge: {} -> {} ({})",
+                edge.from, edge.to, edge.kind
+            ));
+        }
+    }
+
+    if failures.is_empty() {
+        let temporary = policy
+            .allowed_workspace_edges
+            .iter()
+            .filter(|edge| edge.status == "temporary")
+            .map(|edge| {
+                format!(
+                    "{} -> {} ({}) owner={}",
+                    edge.from, edge.to, edge.kind, edge.owner
+                )
+            })
+            .collect::<Vec<_>>();
+        FullMapCheck::pass(
+            "FULLMAP-CHECK-02",
+            "workspace edges match the allowlist and forbidden edges are absent",
+            vec![
+                format!("workspace edges observed: {}", map.workspace_edges.len()),
+                format!("temporary policy edges: {}", temporary.len()),
+            ]
+            .into_iter()
+            .chain(temporary)
+            .collect(),
+        )
+    } else {
+        FullMapCheck::fail(
+            "FULLMAP-CHECK-02",
+            "workspace edge policy rejected source-derived edges",
+            failures,
+        )
+    }
+}
+
+fn check_runtime_core_dependency_fence(map: &SoftwareMap, policy: &FullMapPolicy) -> FullMapCheck {
+    let core_present = map
+        .packages
+        .iter()
+        .any(|package| package.name == "trust-runtime-core");
+    let core_imports_present = map
+        .import_edges
+        .iter()
+        .any(|edge| edge.from_file.starts_with("crates/trust-runtime-core/src/"));
+    if !core_present && !core_imports_present {
+        return FullMapCheck::pass(
+            "FULLMAP-CHECK-05",
+            "trust-runtime-core dependency fence is armed; crate is not present yet",
+            vec!["crate not present in cargo metadata".to_string()],
+        );
+    }
+
+    let forbidden = policy
+        .runtime_core_forbidden_dependencies
+        .iter()
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    let forbidden_imports = policy
+        .runtime_core_forbidden_import_modules
+        .iter()
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    let mut violations = map
+        .workspace_edges
+        .iter()
+        .filter(|edge| edge.from == "trust-runtime-core" && forbidden.contains(&edge.to))
+        .map(|edge| {
+            format!(
+                "trust-runtime-core depends on forbidden crate {} ({})",
+                edge.to, edge.kind
+            )
+        })
+        .collect::<Vec<_>>();
+    violations.extend(
+        map.import_edges
+            .iter()
+            .filter(|edge| {
+                edge.from_file.starts_with("crates/trust-runtime-core/src/")
+                    && forbidden_imports.contains(&edge.to_module)
+            })
+            .map(|edge| {
+                format!(
+                    "trust-runtime-core imports host-only module '{}' at {}:{}",
+                    edge.to_module, edge.from_file, edge.line
+                )
+            }),
+    );
+
+    if violations.is_empty() {
+        FullMapCheck::pass(
+            "FULLMAP-CHECK-05",
+            "trust-runtime-core has no forbidden direct dependencies",
+            vec![
+                format!("forbidden dependencies: {}", forbidden.len()),
+                format!("forbidden import modules: {}", forbidden_imports.len()),
+            ],
+        )
+    } else {
+        FullMapCheck::fail(
+            "FULLMAP-CHECK-05",
+            "trust-runtime-core dependency fence failed",
+            violations,
+        )
+    }
+}
+
+fn check_runtime_command_and_module_ownership(
+    map: &SoftwareMap,
+    policy: &FullMapPolicy,
+) -> FullMapCheck {
+    let command_classes = class_map(&policy.runtime_command_classes);
+    let module_classes = class_map(&policy.runtime_bin_module_classes);
+    let action_classes = class_map(&policy.runtime_action_classes);
+    let mut failures = Vec::new();
+    let mut findings = Vec::new();
+
+    for command in &map.runtime_cli_commands {
+        if !command_classes.contains_key(command) {
+            failures.push(format!("unclassified Command variant: {command}"));
+        }
+    }
+    for module in &map.runtime_bin_modules {
+        if !module_classes.contains_key(module) {
+            failures.push(format!("unclassified bin module: {module}"));
+        }
+    }
+    for action in &map.runtime_cli_actions {
+        if !action_classes.contains_key(&action.name) {
+            failures.push(format!(
+                "unclassified nested CLI action enum: {}",
+                action.name
+            ));
+        }
+    }
+
+    for command in &map.runtime_cli_commands {
+        let expected = command_to_module_name(command);
+        if !map
+            .runtime_bin_modules
+            .iter()
+            .any(|module| module == &expected)
+        {
+            findings.push(format!(
+                "Command::{command} has no same-name bin module '{expected}' (may be routed through another command)"
+            ));
+        }
+    }
+
+    for edge in &map.import_edges {
+        if !is_runtime_bin_source(&edge.from_file) || is_test_source_file(&edge.from_file) {
+            continue;
+        }
+        let Some(from_class) = module_classes.get(&edge.from_module) else {
+            continue;
+        };
+        let Some(to_class) = module_classes.get(&edge.to_module) else {
+            continue;
+        };
+        if productish_class(from_class) && to_class == "workbench_dev" {
+            failures.push(format!(
+                "product bin module '{}' imports workbench module '{}' at {}:{}",
+                edge.from_module, edge.to_module, edge.from_file, edge.line
+            ));
+        }
+    }
+
+    if failures.is_empty() {
+        let mut details = vec![
+            format!(
+                "Command variants classified: {}",
+                map.runtime_cli_commands.len()
+            ),
+            format!("bin modules classified: {}", map.runtime_bin_modules.len()),
+            format!(
+                "nested action enums classified: {}",
+                map.runtime_cli_actions.len()
+            ),
+        ];
+        let has_findings = !findings.is_empty();
+        details.extend(findings);
+        if has_findings {
+            FullMapCheck::finding(
+                "FULLMAP-CHECK-06",
+                "runtime command/bin ownership is classified with mapping findings",
+                details,
+            )
+        } else {
+            FullMapCheck::pass(
+                "FULLMAP-CHECK-06",
+                "runtime command, nested action, and bin-module ownership is classified",
+                details,
+            )
+        }
+    } else {
+        FullMapCheck::fail(
+            "FULLMAP-CHECK-06",
+            "runtime command/bin ownership policy failed",
+            failures,
+        )
+    }
+}
+
+fn check_host_surface_edges(map: &SoftwareMap, policy: &FullMapPolicy) -> FullMapCheck {
+    let mut failures = Vec::new();
+    let mut details = Vec::new();
+    for forbidden in &policy.host_surface.forbidden_edges {
+        for edge in &map.import_edges {
+            if is_test_source_file(&edge.from_file) {
+                continue;
+            }
+            if edge.from_module == forbidden.from_module && edge.to_module == forbidden.to_module {
+                if let Some(allow) = policy
+                    .host_surface
+                    .temporary_allowlist
+                    .iter()
+                    .find(|allow| {
+                        allow.from_module == edge.from_module
+                            && allow.to_module == edge.to_module
+                            && allow.path == edge.from_file
+                    })
+                {
+                    details.push(format!(
+                        "temporary host-surface waiver {} -> {} at {}:{} owner={} review_date={} rationale={}",
+                        edge.from_module,
+                        edge.to_module,
+                        edge.from_file,
+                        edge.line,
+                        allow.owner,
+                        allow.review_date,
+                        allow.rationale
+                    ));
+                    continue;
+                }
+                failures.push(format!(
+                    "forbidden host-surface import {} -> {} at {}:{} (owner: {}; rationale: {})",
+                    forbidden.from_module,
+                    forbidden.to_module,
+                    edge.from_file,
+                    edge.line,
+                    forbidden.owner,
+                    forbidden.rationale
+                ));
+            }
+        }
+    }
+
+    if failures.is_empty() {
+        details.extend(vec![
+            format!(
+                "approved ports active: {}",
+                policy.host_surface.approved_ports_active
+            ),
+            format!(
+                "forbidden edge rules: {}",
+                policy.host_surface.forbidden_edges.len()
+            ),
+        ]);
+        FullMapCheck::pass(
+            "FULLMAP-CHECK-07",
+            "host-surface forbidden direct imports are absent or explicitly waivered in production files",
+            details,
+        )
+    } else {
+        FullMapCheck::fail(
+            "FULLMAP-CHECK-07",
+            "host-surface forbidden imports were found",
+            failures,
+        )
+    }
+}
+
+fn check_dependency_hygiene_status(policy: &FullMapPolicy) -> FullMapCheck {
+    let mut failed = Vec::new();
+    let mut details = Vec::new();
+    for tool in &policy.dependency_hygiene_tools {
+        let detail = format!(
+            "{} status={} owner={} rationale={}",
+            tool.name, tool.status, tool.owner, tool.rationale
+        );
+        if tool.status == "failed" {
+            failed.push(detail);
+        } else {
+            details.push(detail);
+        }
+    }
+    if !failed.is_empty() {
+        return FullMapCheck::fail(
+            "FULLMAP-CHECK-08",
+            "dependency hygiene policy contains failed tool status",
+            failed,
+        );
+    }
+    if policy
+        .dependency_hygiene_tools
+        .iter()
+        .any(|tool| tool.status != "pass")
+    {
+        FullMapCheck::partial(
+            "FULLMAP-CHECK-08",
+            "dependency hygiene status is emitted but not all tools have passing evidence yet",
+            details,
+        )
+    } else {
+        FullMapCheck::pass(
+            "FULLMAP-CHECK-08",
+            "dependency hygiene policy status is passing",
+            details,
+        )
+    }
+}
+
+fn check_unsafe_concurrency_summary(map: &SoftwareMap) -> FullMapCheck {
+    if map.unsafe_summary.owner.trim().is_empty() || map.unsafe_summary.status.trim().is_empty() {
+        return FullMapCheck::fail(
+            "FULLMAP-CHECK-09",
+            "unsafe/concurrency summary is missing owner/status metadata",
+            Vec::new(),
+        );
+    }
+    FullMapCheck::pass(
+        "FULLMAP-CHECK-09",
+        "unsafe/concurrency hotspot summary is emitted with owner/status",
+        vec![
+            format!("owner: {}", map.unsafe_summary.owner),
+            format!("status: {}", map.unsafe_summary.status),
+            format!(
+                "unsafe occurrences: {}",
+                map.unsafe_summary.unsafe_occurrences
+            ),
+            format!(
+                "panic-like occurrences: {}",
+                map.unsafe_summary.panic_like_occurrences
+            ),
+        ],
+    )
+}
+
+fn check_kiss_thresholds(map: &SoftwareMap, policy: &FullMapPolicy) -> FullMapCheck {
+    let allowlist = policy
+        .kiss
+        .large_file_allowlist
+        .iter()
+        .map(|item| (item.path.as_str(), item))
+        .collect::<BTreeMap<_, _>>();
+    let mut failures = Vec::new();
+    let mut details = Vec::new();
+
+    for file in &map.source_files {
+        if !file.path.starts_with("crates/trust-runtime/src/") || !file.path.ends_with(".rs") {
+            continue;
+        }
+        if file.line_count < policy.kiss.existing_file_note_limit {
+            continue;
+        }
+        let Some(entry) = allowlist.get(file.path.as_str()) else {
+            failures.push(format!(
+                "{} has {} lines and no owner/split note (threshold {})",
+                file.path, file.line_count, policy.kiss.existing_file_note_limit
+            ));
+            continue;
+        };
+        details.push(format!(
+            "{} lines={} owner={} split_plan={}",
+            file.path, file.line_count, entry.owner, entry.split_plan
+        ));
+        if file.line_count >= policy.kiss.split_plan_line_limit
+            && entry.split_plan.trim().is_empty()
+        {
+            failures.push(format!(
+                "{} has {} lines and no approved split plan (threshold {})",
+                file.path, file.line_count, policy.kiss.split_plan_line_limit
+            ));
+        }
+        if file.line_count >= policy.kiss.new_file_line_limit
+            && (entry.owner.trim().is_empty()
+                || entry.rationale.trim().is_empty()
+                || entry.review_date.trim().is_empty())
+        {
+            failures.push(format!(
+                "{} has {} lines and incomplete KISS metadata",
+                file.path, file.line_count
+            ));
+        }
+    }
+
+    let runtime_module_count = map
+        .runtime_top_level_modules
+        .iter()
+        .collect::<BTreeSet<_>>()
+        .len();
+    details.push(format!(
+        "trust-runtime top-level modules: {runtime_module_count} (current cap {}, final host cap {})",
+        policy.kiss.max_runtime_top_level_modules_current,
+        policy.kiss.max_runtime_top_level_modules_after_boards
+    ));
+    if runtime_module_count > policy.kiss.max_runtime_top_level_modules_current {
+        failures.push(format!(
+            "trust-runtime top-level module count {runtime_module_count} exceeds current cap {}",
+            policy.kiss.max_runtime_top_level_modules_current
+        ));
+    }
+    if policy.kiss.enforce_after_boards_cap
+        && runtime_module_count > policy.kiss.max_runtime_top_level_modules_after_boards
+    {
+        failures.push(format!(
+            "trust-runtime top-level module count {runtime_module_count} exceeds final host cap {}",
+            policy.kiss.max_runtime_top_level_modules_after_boards
+        ));
+    }
+
+    if failures.is_empty() {
+        FullMapCheck::pass(
+            "FULLMAP-CHECK-10",
+            "KISS large-file and runtime-host module-count thresholds are enforced",
+            details,
+        )
+    } else {
+        FullMapCheck::fail("FULLMAP-CHECK-10", "KISS threshold policy failed", failures)
+    }
+}
+
+fn check_public_api_snapshot_status(map: &SoftwareMap) -> FullMapCheck {
+    let public_api = map
+        .tool_results
+        .iter()
+        .find(|tool| tool.name == "cargo public-api");
+    match public_api {
+        Some(tool) if tool.status == ToolStatus::Pass => FullMapCheck::pass(
+            "FULLMAP-P6-API",
+            "public API snapshot tooling is available",
+            tool.details.clone(),
+        ),
+        Some(tool) => FullMapCheck::partial(
+            "FULLMAP-P6-API",
+            "public API growth gate is reported but no baseline is enforced yet",
+            tool.details.clone(),
+        ),
+        None => FullMapCheck::partial(
+            "FULLMAP-P6-API",
+            "public API growth gate is not configured yet",
+            vec!["cargo public-api tool result missing".to_string()],
+        ),
+    }
+}
+
+fn check_diagram_claims(map: &SoftwareMap, policy: &FullMapPolicy) -> FullMapCheck {
+    let mut failures = Vec::new();
+    let mut details = Vec::new();
+    let selected = policy
+        .diagram_policy
+        .selected_diagrams
+        .iter()
+        .collect::<BTreeSet<_>>();
+    let workspace_edges = map
+        .workspace_edges
+        .iter()
+        .map(|edge| (crate_alias(&edge.from), crate_alias(&edge.to)))
+        .collect::<BTreeSet<_>>();
+
+    for diagram in &map.diagram_facts {
+        if !selected.contains(&diagram.path) {
+            failures.push(format!(
+                "diagram fact emitted for unselected diagram {}",
+                diagram.path
+            ));
+        }
+        for component in &diagram.components {
+            if !diagram_alias_allowed(component, &policy.diagram_policy, map) {
+                failures.push(format!(
+                    "{} contains unsupported component alias '{}'",
+                    diagram.path, component
+                ));
+            }
+        }
+        let components = diagram.components.iter().collect::<BTreeSet<_>>();
+        for edge in &diagram.edges {
+            if !components.contains(&edge.from) {
+                failures.push(format!(
+                    "{} edge starts at undeclared alias '{}'",
+                    diagram.path, edge.from
+                ));
+            }
+            if !components.contains(&edge.to) {
+                failures.push(format!(
+                    "{} edge points at undeclared alias '{}'",
+                    diagram.path, edge.to
+                ));
+            }
+            if edge.from.starts_with("crate_")
+                && edge.to.starts_with("crate_")
+                && !workspace_edges.contains(&(edge.from.clone(), edge.to.clone()))
+            {
+                failures.push(format!(
+                    "{} has unsupported crate dependency claim {} -> {}",
+                    diagram.path, edge.from, edge.to
+                ));
+            }
+        }
+        details.push(format!(
+            "{} components={} edges={}",
+            diagram.path,
+            diagram.components.len(),
+            diagram.edges.len()
+        ));
+    }
+
+    if failures.is_empty() {
+        FullMapCheck::pass(
+            "FULLMAP-P7",
+            "selected diagram component aliases and crate dependency claims match map facts",
+            details,
+        )
+    } else {
+        FullMapCheck::fail(
+            "FULLMAP-P7",
+            "diagram semantic claim check failed",
+            failures,
+        )
+    }
+}
+
+fn write_reports(artifact_dir: &Path, map: &SoftwareMap, checks: &[FullMapCheck]) -> Result<()> {
+    let failed = checks.iter().filter(|check| check.is_fail()).count();
+    let status = if failed == 0 { "pass" } else { "fail" };
+    let artifacts = vec![
+        "software-map.json".to_string(),
+        "full-map-report.json".to_string(),
+        "full-map-report.md".to_string(),
+    ];
+    let tool_versions = vec![
+        command_version("cargo", &["--version"]),
+        command_version("rustc", &["--version"]),
+    ];
+    let report = FullMapReport {
+        status,
+        failed,
+        commands: vec!["cargo xtask architecture-doctor --full-map"],
+        tool_versions: tool_versions.clone(),
+        artifacts: artifacts.clone(),
+        checks,
+    };
+    let report_json = serde_json::to_string_pretty(&report)?;
+    fs::write(artifact_dir.join("full-map-report.json"), report_json)?;
+
+    let mut markdown = String::new();
+    markdown.push_str("# Full-Map Architecture Doctor Report\n\n");
+    markdown.push_str(&format!("Status: `{status}`\n\n"));
+    markdown.push_str("## Command\n\n");
+    markdown.push_str("- `cargo xtask architecture-doctor --full-map`\n\n");
+    markdown.push_str("## Tool Versions\n\n");
+    for version in &tool_versions {
+        markdown.push_str(&format!("- {version}\n"));
+    }
+    markdown.push_str("\n## Artifacts\n\n");
+    for artifact in &artifacts {
+        markdown.push_str(&format!("- `{artifact}`\n"));
+    }
+    markdown.push_str("\n## Source Facts\n\n");
+    markdown.push_str(&format!("- Packages: {}\n", map.packages.len()));
+    markdown.push_str(&format!(
+        "- Workspace edges: {}\n",
+        map.workspace_edges.len()
+    ));
+    markdown.push_str(&format!("- Source files: {}\n", map.source_files.len()));
+    markdown.push_str(&format!("- Import edges: {}\n", map.import_edges.len()));
+    markdown.push_str(&format!(
+        "- Runtime top-level modules: {}\n",
+        map.runtime_top_level_modules
+            .iter()
+            .collect::<BTreeSet<_>>()
+            .len()
+    ));
+    markdown.push_str("\n## Checks\n\n");
+    for check in checks {
+        markdown.push_str(&format!(
+            "### {} - {}\n\n{}\n\n",
+            check.status.as_str().to_uppercase(),
+            check.id,
+            check.summary
+        ));
+        for detail in &check.details {
+            markdown.push_str(&format!("- {detail}\n"));
+        }
+        markdown.push('\n');
+    }
+    fs::write(artifact_dir.join("full-map-report.md"), markdown)?;
+    Ok(())
+}
+
+fn collect_top_level_module_summaries(
+    root: &Path,
+    crate_name: &str,
+    manifest_path: &Path,
+    summaries: &mut Vec<ModuleSummary>,
+) -> Result<()> {
+    let Some(crate_dir) = manifest_path.parent() else {
+        return Ok(());
+    };
+    let src_dir = crate_dir.join("src");
+    if !src_dir.exists() {
+        return Ok(());
+    }
+    let mut by_module = BTreeMap::<String, (PathBuf, usize, usize)>::new();
+    for entry in fs::read_dir(&src_dir).with_context(|| format!("read {}", src_dir.display()))? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            let module_name = entry.file_name().to_string_lossy().to_string();
+            let (files, lines) = count_rs_files_and_lines(&path)?;
+            by_module
+                .entry(module_name)
+                .and_modify(|existing| {
+                    existing.1 += files;
+                    existing.2 += lines;
+                })
+                .or_insert((path, files, lines));
+        } else if path.extension().and_then(|ext| ext.to_str()) == Some("rs") {
+            let Some(stem) = path.file_stem().and_then(|stem| stem.to_str()) else {
+                continue;
+            };
+            let line_count = fs::read_to_string(&path)
+                .unwrap_or_default()
+                .lines()
+                .count();
+            by_module
+                .entry(stem.to_string())
+                .and_modify(|existing| {
+                    existing.1 += 1;
+                    existing.2 += line_count;
+                })
+                .or_insert((path, 1, line_count));
+        }
+    }
+    for (module_name, (path, file_count, line_count)) in by_module {
+        summaries.push(ModuleSummary {
+            crate_name: crate_name.to_string(),
+            module_name,
+            path: rel_path(root, &path),
+            file_count,
+            line_count,
+        });
+    }
+    Ok(())
+}
+
+fn count_rs_files_and_lines(path: &Path) -> Result<(usize, usize)> {
+    let mut file_count = 0;
+    let mut line_count = 0;
+    for entry in fs::read_dir(path).with_context(|| format!("read {}", path.display()))? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            let (nested_files, nested_lines) = count_rs_files_and_lines(&path)?;
+            file_count += nested_files;
+            line_count += nested_lines;
+        } else if path.extension().and_then(|ext| ext.to_str()) == Some("rs") {
+            file_count += 1;
+            line_count += fs::read_to_string(&path)
+                .unwrap_or_default()
+                .lines()
+                .count();
+        }
+    }
+    Ok((file_count, line_count))
+}
+
+fn collect_import_edges(root: &Path, known_modules: &BTreeSet<String>) -> Result<Vec<ImportEdge>> {
+    let mut edges = Vec::new();
+    let runtime_src = root.join("crates/trust-runtime/src");
+    let bin_root = runtime_src.join("bin/trust-runtime");
+    let mut files = Vec::new();
+    collect_source_files_inner(&runtime_src, &mut files)?;
+    for file in files {
+        if file.extension().and_then(|ext| ext.to_str()) != Some("rs") {
+            continue;
+        }
+        let from_module = runtime_module_for_path(&runtime_src, &bin_root, &file);
+        let source = fs::read_to_string(&file).unwrap_or_default();
+        for (idx, line) in source.lines().enumerate() {
+            let line = strip_line_comment(line);
+            for module in source_line_modules(line) {
+                if !known_modules.contains(&module) {
+                    continue;
+                }
+                if module != from_module {
+                    edges.push(ImportEdge {
+                        from_file: rel_path(root, &file),
+                        from_module: from_module.clone(),
+                        to_module: module,
+                        line: idx + 1,
+                    });
+                }
+            }
+        }
+    }
+    Ok(edges)
+}
+
+fn collect_unsafe_summary(root: &Path, policy: &FullMapPolicy) -> UnsafeSummary {
+    let mut unsafe_occurrences = 0;
+    let mut panic_like_occurrences = 0;
+    if let Ok(files) = collect_source_files(root) {
+        for file in files {
+            let source = fs::read_to_string(file).unwrap_or_default();
+            unsafe_occurrences += source.matches("unsafe").count();
+            for needle in ["unwrap(", "expect(", "panic!", "todo!", "unimplemented!"] {
+                panic_like_occurrences += source.matches(needle).count();
+            }
+        }
+    }
+    UnsafeSummary {
+        unsafe_occurrences,
+        panic_like_occurrences,
+        owner: policy.unsafe_concurrency.owner.clone(),
+        status: policy.unsafe_concurrency.status.clone(),
+    }
+}
+
+fn collect_diagram_facts(root: &Path, policy: &DiagramPolicy) -> Result<Vec<DiagramFact>> {
+    let mut facts = Vec::new();
+    for rel in &policy.selected_diagrams {
+        let path = root.join(rel);
+        let source =
+            fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))?;
+        let mut components = Vec::new();
+        let mut edges = Vec::new();
+        for line in source.lines() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.starts_with('\'') || trimmed.starts_with("@") {
+                continue;
+            }
+            if let Some(alias) = plantuml_alias(trimmed) {
+                components.push(alias.to_string());
+            }
+            if let Some((from, to)) = plantuml_edge(trimmed) {
+                edges.push(DiagramEdge { from, to });
+            }
+        }
+        facts.push(DiagramFact {
+            path: rel.clone(),
+            components,
+            edges,
+        });
+    }
+    Ok(facts)
+}
+
+fn edge_tuple(from: &str, to: &str, kind: &str) -> (String, String, String) {
+    (from.to_string(), to.to_string(), kind.to_string())
+}
+
+fn class_map(items: &[ClassifiedName]) -> BTreeMap<String, String> {
+    items
+        .iter()
+        .map(|item| (item.name.clone(), item.class.clone()))
+        .collect()
+}
+
+fn productish_class(class: &str) -> bool {
+    matches!(class, "product" | "ui_product" | "conformance_benchmark")
+}
+
+fn command_to_module_name(command: &str) -> String {
+    let mut out = String::new();
+    for (idx, ch) in command.chars().enumerate() {
+        if ch.is_ascii_uppercase() && idx > 0 {
+            out.push('_');
+        }
+        out.push(ch.to_ascii_lowercase());
+    }
+    out
+}
+
+fn runtime_module_for_path(runtime_src: &Path, bin_root: &Path, file: &Path) -> String {
+    if let Ok(rel) = file.strip_prefix(bin_root) {
+        return first_path_component_or_stem(rel);
+    }
+    if let Ok(rel) = file.strip_prefix(runtime_src) {
+        let parts = rel
+            .components()
+            .map(|component| component.as_os_str().to_string_lossy().to_string())
+            .collect::<Vec<_>>();
+        if parts.first().is_some_and(|part| part == "bin") {
+            if let Some(second) = parts.get(1) {
+                return second.trim_end_matches(".rs").to_string();
+            }
+        }
+        return first_path_component_or_stem(rel);
+    }
+    file.file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or_default()
+        .to_string()
+}
+
+fn first_path_component_or_stem(path: &Path) -> String {
+    let mut components = path.components();
+    let Some(first) = components.next() else {
+        return String::new();
+    };
+    let value = first.as_os_str().to_string_lossy();
+    if value.ends_with(".rs") {
+        value.trim_end_matches(".rs").to_string()
+    } else {
+        value.to_string()
+    }
+}
+
+fn source_line_modules(line: &str) -> Vec<String> {
+    let mut modules = Vec::new();
+    modules.extend(modules_after_marker(line, "crate::"));
+    modules.extend(modules_after_marker(line, "trust_runtime::"));
+    modules.sort();
+    modules.dedup();
+    modules
+}
+
+fn modules_after_marker(mut line: &str, marker: &str) -> Vec<String> {
+    let mut modules = Vec::new();
+    while let Some(idx) = line.find(marker) {
+        let tail = &line[idx + marker.len()..];
+        if let Some(inner) = tail.strip_prefix('{') {
+            if let Some(end) = inner.find('}') {
+                for item in inner[..end].split(',') {
+                    if let Some(module) = first_identifier(item) {
+                        if module != "self" && module != "super" {
+                            modules.push(module.to_string());
+                        }
+                    }
+                }
+                line = &inner[end + 1..];
+                continue;
+            }
+        }
+        if let Some(module) = first_identifier(tail) {
+            if module != "self" && module != "super" {
+                modules.push(module.to_string());
+            }
+        }
+        if tail.is_empty() {
+            break;
+        }
+        line = &tail[1..];
+    }
+    modules
+}
+
+fn first_identifier(value: &str) -> Option<&str> {
+    let trimmed = value.trim_start_matches(|ch: char| !is_ident_char(ch));
+    leading_identifier(trimmed)
+}
+
+fn strip_line_comment(line: &str) -> &str {
+    line.split_once("//").map_or(line, |(code, _)| code)
+}
+
+fn is_ident_char(ch: char) -> bool {
+    ch.is_ascii_alphanumeric() || ch == '_'
+}
+
+fn is_runtime_bin_source(path: &str) -> bool {
+    path.starts_with("crates/trust-runtime/src/bin/trust-runtime/")
+}
+
+fn is_test_source_file(path: &str) -> bool {
+    path.contains("/tests/") || path.ends_with("/tests.rs") || path.ends_with("_test.rs")
+}
+
+fn crate_alias(crate_name: &str) -> String {
+    format!("crate_{}", crate_name.replace('-', "_"))
+}
+
+fn diagram_alias_allowed(alias: &str, policy: &DiagramPolicy, map: &SoftwareMap) -> bool {
+    if policy
+        .allowed_aliases
+        .iter()
+        .any(|allowed| allowed == alias)
+    {
+        return true;
+    }
+    if policy
+        .allowed_alias_prefixes
+        .iter()
+        .any(|prefix| alias.starts_with(prefix))
+    {
+        return true;
+    }
+    map.packages
+        .iter()
+        .any(|package| alias == crate_alias(&package.name))
+        || map
+            .runtime_top_level_modules
+            .iter()
+            .any(|module| alias == format!("rt_mod_{module}"))
+        || map
+            .runtime_bin_modules
+            .iter()
+            .any(|module| alias == format!("bin_{module}"))
+}
+
+fn plantuml_alias(line: &str) -> Option<&str> {
+    let starters = [
+        "component ",
+        "package ",
+        "actor ",
+        "card ",
+        "artifact ",
+        "database ",
+        "node ",
+    ];
+    if !starters.iter().any(|starter| line.starts_with(starter)) {
+        return None;
+    }
+    let (_, alias_tail) = line.rsplit_once(" as ")?;
+    leading_identifier(alias_tail.trim())
+}
+
+fn plantuml_edge(line: &str) -> Option<(String, String)> {
+    let (left, right) = line.split_once("->").or_else(|| line.split_once("..>"))?;
+    let left = left.split("-[").next().unwrap_or(left);
+    let from = last_identifier(left)?;
+    let to = first_identifier(right)?;
+    Some((from.to_string(), to.to_string()))
+}
+
+fn last_identifier(value: &str) -> Option<&str> {
+    let bytes = value.as_bytes();
+    let mut end = bytes.len();
+    while end > 0 && !is_ident_char(bytes[end - 1] as char) {
+        end -= 1;
+    }
+    if end == 0 {
+        return None;
+    }
+    let mut start = end;
+    while start > 0 && is_ident_char(bytes[start - 1] as char) {
+        start -= 1;
+    }
+    Some(&value[start..end])
+}
+
+fn command_version(command: &str, args: &[&str]) -> String {
+    let output = Command::new(command).args(args).output();
+    match output {
+        Ok(output) if output.status.success() => {
+            String::from_utf8_lossy(&output.stdout).trim().to_string()
+        }
+        Ok(output) => format!(
+            "{command} unavailable: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        ),
+        Err(error) => format!("{command} unavailable: {error}"),
+    }
 }
 
 fn cargo_metadata(root: &Path) -> Result<serde_json::Value> {
@@ -363,5 +1716,281 @@ mod tests {
         "#;
 
         assert_eq!(action_enum_names(source), vec!["BenchAction"]);
+    }
+
+    #[test]
+    fn unknown_workspace_edge_fails_policy() {
+        let mut map = base_map();
+        map.workspace_edges.push(WorkspaceEdge {
+            from: "trust-hir".to_string(),
+            to: "trust-runtime".to_string(),
+            kind: "normal".to_string(),
+        });
+
+        assert!(check_workspace_edge_policy(&map, &base_policy()).is_fail());
+    }
+
+    #[test]
+    fn runtime_core_forbidden_dependency_fails() {
+        let mut map = base_map();
+        map.packages.push(PackageSummary {
+            name: "trust-runtime-core".to_string(),
+            manifest_path: "crates/trust-runtime-core/Cargo.toml".to_string(),
+            targets: Vec::new(),
+        });
+        map.workspace_edges.push(WorkspaceEdge {
+            from: "trust-runtime-core".to_string(),
+            to: "tokio".to_string(),
+            kind: "normal".to_string(),
+        });
+
+        assert!(check_runtime_core_dependency_fence(&map, &base_policy()).is_fail());
+    }
+
+    #[test]
+    fn runtime_core_forbidden_host_import_fails() {
+        let mut map = base_map();
+        map.import_edges.push(ImportEdge {
+            from_file: "crates/trust-runtime-core/src/lib.rs".to_string(),
+            from_module: "lib".to_string(),
+            to_module: "web".to_string(),
+            line: 3,
+        });
+
+        assert!(check_runtime_core_dependency_fence(&map, &base_policy()).is_fail());
+    }
+
+    #[test]
+    fn unclassified_command_module_and_action_fail() {
+        let mut map = base_map();
+        map.runtime_cli_commands.push("NewCommand".to_string());
+        map.runtime_bin_modules.push("new_module".to_string());
+        map.runtime_cli_actions.push(CliActionSummary {
+            name: "NewAction".to_string(),
+            variants: vec!["Run".to_string()],
+        });
+
+        assert!(check_runtime_command_and_module_ownership(&map, &base_policy()).is_fail());
+    }
+
+    #[test]
+    fn product_bin_importing_workbench_module_fails() {
+        let mut map = base_map();
+        map.import_edges.push(ImportEdge {
+            from_file: "crates/trust-runtime/src/bin/trust-runtime/run.rs".to_string(),
+            from_module: "run".to_string(),
+            to_module: "agent".to_string(),
+            line: 7,
+        });
+
+        assert!(check_runtime_command_and_module_ownership(&map, &base_policy()).is_fail());
+    }
+
+    #[test]
+    fn host_surface_forbidden_import_fails_without_waiver() {
+        let mut map = base_map();
+        map.import_edges.push(ImportEdge {
+            from_file: "crates/trust-runtime/src/control/hmi_handlers.rs".to_string(),
+            from_module: "control".to_string(),
+            to_module: "web".to_string(),
+            line: 11,
+        });
+
+        assert!(check_host_surface_edges(&map, &base_policy()).is_fail());
+    }
+
+    #[test]
+    fn host_surface_test_import_is_ignored() {
+        let mut map = base_map();
+        map.import_edges.push(ImportEdge {
+            from_file: "crates/trust-runtime/src/control/tests/helpers.rs".to_string(),
+            from_module: "control".to_string(),
+            to_module: "web".to_string(),
+            line: 11,
+        });
+
+        assert!(!check_host_surface_edges(&map, &base_policy()).is_fail());
+    }
+
+    #[test]
+    fn failed_dependency_tool_status_fails() {
+        let mut policy = base_policy();
+        policy.dependency_hygiene_tools[0].status = "failed".to_string();
+
+        assert!(check_dependency_hygiene_status(&policy).is_fail());
+    }
+
+    #[test]
+    fn large_runtime_file_without_owner_note_fails() {
+        let mut map = base_map();
+        map.source_files.push(SourceFileSummary {
+            path: "crates/trust-runtime/src/new_large.rs".to_string(),
+            line_count: 1001,
+        });
+
+        assert!(check_kiss_thresholds(&map, &base_policy()).is_fail());
+    }
+
+    #[test]
+    fn unsafe_summary_without_owner_fails() {
+        let mut map = base_map();
+        map.unsafe_summary.owner.clear();
+
+        assert!(check_unsafe_concurrency_summary(&map).is_fail());
+    }
+
+    #[test]
+    fn unsupported_diagram_alias_fails() {
+        let mut map = base_map();
+        map.diagram_facts.push(DiagramFact {
+            path: "docs/diagrams/architecture/full-software-map-generated.puml".to_string(),
+            components: vec!["made_up_component".to_string()],
+            edges: Vec::new(),
+        });
+
+        assert!(check_diagram_claims(&map, &base_policy()).is_fail());
+    }
+
+    #[test]
+    fn unsupported_diagram_crate_edge_fails() {
+        let mut map = base_map();
+        map.packages.push(PackageSummary {
+            name: "trust-hir".to_string(),
+            manifest_path: "crates/trust-hir/Cargo.toml".to_string(),
+            targets: Vec::new(),
+        });
+        map.diagram_facts.push(DiagramFact {
+            path: "docs/diagrams/architecture/full-software-map-generated.puml".to_string(),
+            components: vec![
+                "crate_trust_runtime".to_string(),
+                "crate_trust_hir".to_string(),
+            ],
+            edges: vec![DiagramEdge {
+                from: "crate_trust_hir".to_string(),
+                to: "crate_trust_runtime".to_string(),
+            }],
+        });
+
+        assert!(check_diagram_claims(&map, &base_policy()).is_fail());
+    }
+
+    fn base_map() -> SoftwareMap {
+        let mut map = SoftwareMap::new("/repo");
+        map.packages.push(PackageSummary {
+            name: "trust-runtime".to_string(),
+            manifest_path: "crates/trust-runtime/Cargo.toml".to_string(),
+            targets: Vec::new(),
+        });
+        map.workspace_edges.push(WorkspaceEdge {
+            from: "trust-runtime".to_string(),
+            to: "trust-hir".to_string(),
+            kind: "normal".to_string(),
+        });
+        map.source_files.push(SourceFileSummary {
+            path: "crates/trust-runtime/src/lib.rs".to_string(),
+            line_count: 10,
+        });
+        map.runtime_top_level_modules = vec!["control".to_string(), "web".to_string()];
+        map.runtime_cli_commands = vec!["Run".to_string()];
+        map.runtime_bin_modules = vec!["run".to_string(), "agent".to_string()];
+        map.runtime_cli_actions = vec![CliActionSummary {
+            name: "AgentAction".to_string(),
+            variants: vec!["Serve".to_string()],
+        }];
+        map.unsafe_summary = UnsafeSummary {
+            unsafe_occurrences: 1,
+            panic_like_occurrences: 1,
+            owner: "runtime".to_string(),
+            status: "tracked".to_string(),
+        };
+        map
+    }
+
+    fn base_policy() -> FullMapPolicy {
+        FullMapPolicy {
+            policy_version: 1,
+            review_date: "2026-04-28".to_string(),
+            allowed_workspace_edges: vec![EdgePolicy {
+                from: "trust-runtime".to_string(),
+                to: "trust-hir".to_string(),
+                kind: "normal".to_string(),
+                status: "allowed".to_string(),
+                owner: "runtime".to_string(),
+                rationale: "runtime consumes HIR".to_string(),
+            }],
+            forbidden_workspace_edges: vec![EdgeKey {
+                from: "trust-hir".to_string(),
+                to: "trust-runtime".to_string(),
+                kind: "normal".to_string(),
+            }],
+            runtime_core_forbidden_dependencies: vec!["tokio".to_string()],
+            runtime_core_forbidden_import_modules: vec!["web".to_string()],
+            runtime_command_classes: vec![ClassifiedName {
+                name: "Run".to_string(),
+                class: "product".to_string(),
+                owner: "runtime".to_string(),
+                rationale: "runtime command".to_string(),
+            }],
+            runtime_bin_module_classes: vec![
+                ClassifiedName {
+                    name: "run".to_string(),
+                    class: "product".to_string(),
+                    owner: "runtime".to_string(),
+                    rationale: "runtime command".to_string(),
+                },
+                ClassifiedName {
+                    name: "agent".to_string(),
+                    class: "workbench_dev".to_string(),
+                    owner: "dev tooling".to_string(),
+                    rationale: "workbench command".to_string(),
+                },
+            ],
+            runtime_action_classes: vec![ClassifiedName {
+                name: "AgentAction".to_string(),
+                class: "workbench_dev".to_string(),
+                owner: "dev tooling".to_string(),
+                rationale: "agent subcommands".to_string(),
+            }],
+            host_surface: HostSurfacePolicy {
+                approved_ports_active: false,
+                forbidden_edges: vec![ForbiddenModuleEdge {
+                    from_module: "control".to_string(),
+                    to_module: "web".to_string(),
+                    owner: "runtime/web".to_string(),
+                    rationale: "control must not depend on web".to_string(),
+                }],
+                temporary_allowlist: Vec::new(),
+            },
+            kiss: KissPolicy {
+                new_file_line_limit: 1000,
+                existing_file_note_limit: 1000,
+                split_plan_line_limit: 1500,
+                max_runtime_top_level_modules_current: 5,
+                max_runtime_top_level_modules_after_boards: 2,
+                enforce_after_boards_cap: false,
+                large_file_allowlist: Vec::new(),
+            },
+            dependency_hygiene_tools: vec![PolicyToolStatus {
+                name: "cargo audit".to_string(),
+                status: "not_run".to_string(),
+                owner: "release".to_string(),
+                rationale: "board owns it".to_string(),
+            }],
+            unsafe_concurrency: UnsafeConcurrencyPolicy {
+                owner: "runtime".to_string(),
+                status: "tracked".to_string(),
+            },
+            diagram_policy: DiagramPolicy {
+                selected_diagrams: vec![
+                    "docs/diagrams/architecture/full-software-map-generated.puml".to_string(),
+                ],
+                allowed_alias_prefixes: vec![
+                    "crate_".to_string(),
+                    "rt_".to_string(),
+                    "bin_".to_string(),
+                ],
+                allowed_aliases: Vec::new(),
+            },
+        }
     }
 }
