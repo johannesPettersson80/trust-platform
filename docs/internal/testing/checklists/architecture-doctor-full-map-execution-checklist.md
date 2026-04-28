@@ -1,6 +1,6 @@
 # Architecture Doctor Full-Map Execution Checklist
 
-Status: Planned
+Status: In progress - `--full-map` scaffold and `SoftwareMap` data model landed.
 Owner: Architecture automation
 Scope: implement a repeatable `cargo xtask architecture-doctor --full-map` command with source-derived facts, policies, fixtures, and reports.
 
@@ -16,7 +16,7 @@ This checklist is a prerequisite for enforcing the runtime-core split, product/w
 
 ## Phase 0 - MVP Scope Lock
 
-- [ ] `FULLMAP-P0-001` Lock MVP command: `cargo xtask architecture-doctor --full-map`.
+- [x] `FULLMAP-P0-001` Lock MVP command: `cargo xtask architecture-doctor --full-map`.
 - [ ] `FULLMAP-P0-002` Lock artifact root: `target/gate-artifacts/full-software-map-<date-or-commit>/`.
 - [ ] `FULLMAP-P0-003` Lock generated JSON path for source facts.
 - [ ] `FULLMAP-P0-004` Lock generated Markdown report path.
@@ -43,7 +43,7 @@ These IDs are referenced by downstream checklists as hard prerequisites.
 
 ## Phase 1 - Data Model And JSON Map Writer
 
-- [ ] `FULLMAP-P1-001` Define `SoftwareMap` JSON schema or Rust structs.
+- [x] `FULLMAP-P1-001` Define `SoftwareMap` JSON schema or Rust structs.
 - [ ] `FULLMAP-P1-002` Include workspace packages, targets, target kinds, and package paths from cargo metadata.
 - [ ] `FULLMAP-P1-003` Include direct workspace dependency edges.
 - [ ] `FULLMAP-P1-004` Include crate/module tree summaries.
@@ -53,8 +53,8 @@ These IDs are referenced by downstream checklists as hard prerequisites.
 - [ ] `FULLMAP-P1-007A` Include nested CLI `*Action` enums and their parent command or explicit override.
 - [ ] `FULLMAP-P1-008` Include selected import edges from source scans.
 - [ ] `FULLMAP-P1-009` Include tool result statuses as `pass`, `finding`, `partial`, or `failed`.
-- [ ] `FULLMAP-P1-010` Add deterministic serialization and stable sorting.
-- [ ] `FULLMAP-P1-011` Add unit tests for serialization and stable ordering.
+- [x] `FULLMAP-P1-010` Add deterministic serialization and stable sorting.
+- [x] `FULLMAP-P1-011` Add unit tests for serialization and stable ordering.
 
 ## Phase 2 - Policy Loader
 

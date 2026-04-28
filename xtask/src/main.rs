@@ -8,6 +8,11 @@ use anyhow::{anyhow, bail, Context, Result};
 use serde::Serialize;
 use serde_json::json;
 
+mod full_map;
+mod software_map;
+
+use full_map::architecture_doctor_full_map;
+
 fn main() -> ExitCode {
     match run() {
         Ok(()) => ExitCode::SUCCESS,
@@ -40,9 +45,11 @@ fn run() -> Result<()> {
 }
 
 fn print_usage() {
-    eprintln!(
-        "Usage:\n  cargo xtask architecture-map\n  cargo xtask architecture-doctor --all\n  cargo xtask architecture-doctor --changed"
-    );
+    eprintln!("{}", usage());
+}
+
+fn usage() -> &'static str {
+    "Usage:\n  cargo xtask architecture-map\n  cargo xtask architecture-doctor --all\n  cargo xtask architecture-doctor --changed\n  cargo xtask architecture-doctor --full-map"
 }
 
 fn workspace_root() -> Result<PathBuf> {
@@ -168,8 +175,11 @@ impl CheckResult {
 }
 
 fn architecture_doctor(root: &Path, mode: &str) -> Result<()> {
+    if mode == "--full-map" {
+        return architecture_doctor_full_map(root);
+    }
     if !matches!(mode, "--all" | "--changed") {
-        bail!("architecture-doctor expects --all or --changed, got '{mode}'");
+        bail!("architecture-doctor expects --all, --changed, or --full-map, got '{mode}'");
     }
     architecture_map(root)?;
 
@@ -630,4 +640,23 @@ fn rel_path(root: &Path, path: &Path) -> String {
         .unwrap_or(path)
         .to_string_lossy()
         .replace('\\', "/")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn full_map_mode_is_wired_and_fails_explicitly_until_implemented() {
+        let err = architecture_doctor(Path::new("."), "--full-map").unwrap_err();
+        let message = format!("{err:#}");
+
+        assert!(message.contains("architecture-doctor --full-map is not implemented yet"));
+        assert!(message.contains("FULLMAP-P1"));
+    }
+
+    #[test]
+    fn usage_mentions_full_map_mode() {
+        assert!(usage().contains("cargo xtask architecture-doctor --full-map"));
+    }
 }
