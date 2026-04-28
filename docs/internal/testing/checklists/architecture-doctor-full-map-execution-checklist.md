@@ -43,9 +43,9 @@ These IDs are referenced by downstream checklists as hard prerequisites.
 - [x] `FULLMAP-CHECK-02` New workspace edges fail unless explicitly classified.
 - [x] `FULLMAP-CHECK-05` `trust-runtime-core` dependency fence is enforced when the crate exists.
 - [x] `FULLMAP-CHECK-06` Product/workbench runtime command, nested action, and bin-module ownership is enforced.
-- [x] `FULLMAP-CHECK-07` HMI/web/control/cloud forbidden edges are enforced.
+- [x] `FULLMAP-CHECK-07` HMI/web/control/cloud forbidden direct edges are enforced, and approved-port bypass enforcement reports `partial` until ports exist.
 - [x] `FULLMAP-CHECK-08` Dependency hygiene policy status is emitted and failed tools cannot report as pass.
-- [x] `FULLMAP-CHECK-09` Unsafe/concurrency hotspot summary is emitted with owner/status fields.
+- [x] `FULLMAP-CHECK-09` Unsafe/concurrency hotspot summary is emitted with owner/status fields and reports a finding while hotspots remain nonzero.
 - [x] `FULLMAP-CHECK-10` KISS large-file and runtime-host module-count thresholds are enforced.
 
 ## Phase 1 - Data Model And JSON Map Writer
@@ -106,7 +106,7 @@ These IDs are referenced by downstream checklists as hard prerequisites.
 - [x] `FULLMAP-P5-002` Scan top-level bin modules under `crates/trust-runtime/src/bin/trust-runtime/*.rs`.
 - [x] `FULLMAP-P5-003` Fail unclassified command variants.
 - [x] `FULLMAP-P5-004` Fail unclassified bin modules.
-- [x] `FULLMAP-P5-005` Report command-to-module mapping gaps.
+- [x] `FULLMAP-P5-005` Report command-to-module mapping gaps and named route metadata for commands intentionally dispatched through another module.
 - [x] `FULLMAP-P5-006` Add fixtures or unit tests for unclassified command and unclassified module cases.
 - [x] `FULLMAP-P5-007` Parse or scan nested CLI `*Action` enums and fail unclassified action enums or explicit ownership overrides.
 

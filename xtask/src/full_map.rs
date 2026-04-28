@@ -66,6 +66,7 @@ struct FullMapPolicy {
     runtime_command_classes: Vec<ClassifiedName>,
     runtime_bin_module_classes: Vec<ClassifiedName>,
     runtime_action_classes: Vec<ClassifiedName>,
+    runtime_command_module_routes: Vec<CommandModuleRoute>,
     host_surface: HostSurfacePolicy,
     kiss: KissPolicy,
     dependency_hygiene_tools: Vec<PolicyToolStatus>,
@@ -96,6 +97,16 @@ struct ClassifiedName {
     class: String,
     owner: String,
     rationale: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct CommandModuleRoute {
+    command: String,
+    module: String,
+    route_kind: String,
+    owner: String,
+    rationale: String,
+    review_date: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -468,6 +479,20 @@ fn check_policy_metadata(policy: &FullMapPolicy) -> FullMapCheck {
             ));
         }
     }
+    for route in &policy.runtime_command_module_routes {
+        if route.command.trim().is_empty()
+            || route.module.trim().is_empty()
+            || route.route_kind.trim().is_empty()
+            || route.owner.trim().is_empty()
+            || route.rationale.trim().is_empty()
+            || route.review_date.trim().is_empty()
+        {
+            failures.push(format!(
+                "command route Command::{} -> '{}' is missing module/route_kind/owner/rationale/review_date",
+                route.command, route.module
+            ));
+        }
+    }
     for item in &policy.host_surface.temporary_allowlist {
         if item.owner.trim().is_empty()
             || item.rationale.trim().is_empty()
@@ -652,8 +677,14 @@ fn check_runtime_command_and_module_ownership(
     let command_classes = class_map(&policy.runtime_command_classes);
     let module_classes = class_map(&policy.runtime_bin_module_classes);
     let action_classes = class_map(&policy.runtime_action_classes);
+    let command_routes = policy
+        .runtime_command_module_routes
+        .iter()
+        .map(|route| (route.command.as_str(), route))
+        .collect::<BTreeMap<_, _>>();
     let mut failures = Vec::new();
     let mut findings = Vec::new();
+    let mut details = Vec::new();
 
     for command in &map.runtime_cli_commands {
         if !command_classes.contains_key(command) {
@@ -681,9 +712,36 @@ fn check_runtime_command_and_module_ownership(
             .iter()
             .any(|module| module == &expected)
         {
-            findings.push(format!(
-                "Command::{command} has no same-name bin module '{expected}' (may be routed through another command)"
-            ));
+            if let Some(route) = command_routes.get(command.as_str()) {
+                let route_target_known = map
+                    .runtime_bin_modules
+                    .iter()
+                    .any(|module| module == &route.module)
+                    || map
+                        .runtime_top_level_modules
+                        .iter()
+                        .any(|module| module == &route.module)
+                    || route.module.contains("::");
+                if route_target_known {
+                    details.push(format!(
+                        "Command::{command} has no same-name bin module '{expected}'; routes through {} ({}) owner={} review_date={} rationale={}",
+                        route.module,
+                        route.route_kind,
+                        route.owner,
+                        route.review_date,
+                        route.rationale
+                    ));
+                } else {
+                    failures.push(format!(
+                        "Command::{command} route target '{}' is not a bin module, runtime top-level module, or explicit path",
+                        route.module
+                    ));
+                }
+            } else {
+                findings.push(format!(
+                    "Command::{command} has no same-name bin module '{expected}' and no runtime_command_module_routes entry"
+                ));
+            }
         }
     }
 
@@ -706,7 +764,7 @@ fn check_runtime_command_and_module_ownership(
     }
 
     if failures.is_empty() {
-        let mut details = vec![
+        let mut check_details = vec![
             format!(
                 "Command variants classified: {}",
                 map.runtime_cli_commands.len()
@@ -718,18 +776,19 @@ fn check_runtime_command_and_module_ownership(
             ),
         ];
         let has_findings = !findings.is_empty();
-        details.extend(findings);
+        check_details.extend(details);
+        check_details.extend(findings);
         if has_findings {
             FullMapCheck::finding(
                 "FULLMAP-CHECK-06",
                 "runtime command/bin ownership is classified with mapping findings",
-                details,
+                check_details,
             )
         } else {
             FullMapCheck::pass(
                 "FULLMAP-CHECK-06",
                 "runtime command, nested action, and bin-module ownership is classified",
-                details,
+                check_details,
             )
         }
     } else {
@@ -796,11 +855,19 @@ fn check_host_surface_edges(map: &SoftwareMap, policy: &FullMapPolicy) -> FullMa
                 policy.host_surface.forbidden_edges.len()
             ),
         ]);
-        FullMapCheck::pass(
-            "FULLMAP-CHECK-07",
-            "host-surface forbidden direct imports are absent or explicitly waivered in production files",
-            details,
-        )
+        if policy.host_surface.approved_ports_active {
+            FullMapCheck::pass(
+                "FULLMAP-CHECK-07",
+                "host-surface forbidden direct imports are absent or explicitly waivered in production files",
+                details,
+            )
+        } else {
+            FullMapCheck::partial(
+                "FULLMAP-CHECK-07",
+                "host-surface direct-import rules are enforced; approved-port bypass rules are pending",
+                details,
+            )
+        }
     } else {
         FullMapCheck::fail(
             "FULLMAP-CHECK-07",
@@ -858,22 +925,31 @@ fn check_unsafe_concurrency_summary(map: &SoftwareMap) -> FullMapCheck {
             Vec::new(),
         );
     }
-    FullMapCheck::pass(
-        "FULLMAP-CHECK-09",
-        "unsafe/concurrency hotspot summary is emitted with owner/status",
-        vec![
-            format!("owner: {}", map.unsafe_summary.owner),
-            format!("status: {}", map.unsafe_summary.status),
-            format!(
-                "unsafe occurrences: {}",
-                map.unsafe_summary.unsafe_occurrences
-            ),
-            format!(
-                "panic-like occurrences: {}",
-                map.unsafe_summary.panic_like_occurrences
-            ),
-        ],
-    )
+    let details = vec![
+        format!("owner: {}", map.unsafe_summary.owner),
+        format!("status: {}", map.unsafe_summary.status),
+        format!(
+            "unsafe occurrences: {}",
+            map.unsafe_summary.unsafe_occurrences
+        ),
+        format!(
+            "panic-like occurrences: {}",
+            map.unsafe_summary.panic_like_occurrences
+        ),
+    ];
+    if map.unsafe_summary.unsafe_occurrences > 0 || map.unsafe_summary.panic_like_occurrences > 0 {
+        FullMapCheck::finding(
+            "FULLMAP-CHECK-09",
+            "unsafe/concurrency risk summary is emitted and remaining hotspots are tracked",
+            details,
+        )
+    } else {
+        FullMapCheck::pass(
+            "FULLMAP-CHECK-09",
+            "unsafe/concurrency hotspot summary is clean",
+            details,
+        )
+    }
 }
 
 fn check_kiss_thresholds(map: &SoftwareMap, policy: &FullMapPolicy) -> FullMapCheck {
@@ -945,6 +1021,12 @@ fn check_kiss_thresholds(map: &SoftwareMap, policy: &FullMapPolicy) -> FullMapCh
     {
         failures.push(format!(
             "trust-runtime top-level module count {runtime_module_count} exceeds final host cap {}",
+            policy.kiss.max_runtime_top_level_modules_after_boards
+        ));
+    }
+    if !policy.kiss.enforce_after_boards_cap {
+        details.push(format!(
+            "final host cap enforcement inactive until CLI/host-surface/runtime-core boards close; ARCHPROG-EXIT-11 must flip enforce_after_boards_cap=true or record a dated waiver for cap {}",
             policy.kiss.max_runtime_top_level_modules_after_boards
         ));
     }
@@ -1719,7 +1801,7 @@ mod tests {
     }
 
     #[test]
-    fn unknown_workspace_edge_fails_policy() {
+    fn known_bad_unknown_workspace_edge_fails_policy() {
         let mut map = base_map();
         map.workspace_edges.push(WorkspaceEdge {
             from: "trust-hir".to_string(),
@@ -1731,7 +1813,7 @@ mod tests {
     }
 
     #[test]
-    fn runtime_core_forbidden_dependency_fails() {
+    fn known_bad_runtime_core_forbidden_dependency_fails() {
         let mut map = base_map();
         map.packages.push(PackageSummary {
             name: "trust-runtime-core".to_string(),
@@ -1748,7 +1830,7 @@ mod tests {
     }
 
     #[test]
-    fn runtime_core_forbidden_host_import_fails() {
+    fn known_bad_runtime_core_forbidden_host_import_fails() {
         let mut map = base_map();
         map.import_edges.push(ImportEdge {
             from_file: "crates/trust-runtime-core/src/lib.rs".to_string(),
@@ -1761,7 +1843,7 @@ mod tests {
     }
 
     #[test]
-    fn unclassified_command_module_and_action_fail() {
+    fn known_bad_unclassified_command_module_and_action_fail() {
         let mut map = base_map();
         map.runtime_cli_commands.push("NewCommand".to_string());
         map.runtime_bin_modules.push("new_module".to_string());
@@ -1774,7 +1856,41 @@ mod tests {
     }
 
     #[test]
-    fn product_bin_importing_workbench_module_fails() {
+    fn documented_command_route_replaces_mapping_question() {
+        let mut map = base_map();
+        map.runtime_cli_commands.push("Play".to_string());
+
+        let mut policy = base_policy();
+        policy.runtime_command_classes.push(ClassifiedName {
+            name: "Play".to_string(),
+            class: "product".to_string(),
+            owner: "runtime".to_string(),
+            rationale: "runtime command".to_string(),
+        });
+        policy
+            .runtime_command_module_routes
+            .push(CommandModuleRoute {
+                command: "Play".to_string(),
+                module: "run".to_string(),
+                route_kind: "compatibility_alias".to_string(),
+                owner: "runtime CLI".to_string(),
+                rationale: "Command::Play dispatches to run::run_play".to_string(),
+                review_date: "2026-04-28".to_string(),
+            });
+
+        let check = check_runtime_command_and_module_ownership(&map, &policy);
+
+        assert_eq!(check.status, CheckStatus::Pass);
+        assert!(check.details.iter().any(|detail| detail
+            .contains("Command::Play has no same-name bin module 'play'; routes through run")));
+        assert!(!check
+            .details
+            .iter()
+            .any(|detail| detail.contains("may be routed")));
+    }
+
+    #[test]
+    fn known_bad_product_bin_importing_workbench_module_fails() {
         let mut map = base_map();
         map.import_edges.push(ImportEdge {
             from_file: "crates/trust-runtime/src/bin/trust-runtime/run.rs".to_string(),
@@ -1787,7 +1903,7 @@ mod tests {
     }
 
     #[test]
-    fn host_surface_forbidden_import_fails_without_waiver() {
+    fn known_bad_host_surface_forbidden_import_fails_without_waiver() {
         let mut map = base_map();
         map.import_edges.push(ImportEdge {
             from_file: "crates/trust-runtime/src/control/hmi_handlers.rs".to_string(),
@@ -1813,7 +1929,7 @@ mod tests {
     }
 
     #[test]
-    fn failed_dependency_tool_status_fails() {
+    fn known_bad_failed_dependency_tool_status_fails() {
         let mut policy = base_policy();
         policy.dependency_hygiene_tools[0].status = "failed".to_string();
 
@@ -1821,7 +1937,7 @@ mod tests {
     }
 
     #[test]
-    fn large_runtime_file_without_owner_note_fails() {
+    fn known_bad_large_runtime_file_without_owner_note_fails() {
         let mut map = base_map();
         map.source_files.push(SourceFileSummary {
             path: "crates/trust-runtime/src/new_large.rs".to_string(),
@@ -1832,7 +1948,7 @@ mod tests {
     }
 
     #[test]
-    fn unsafe_summary_without_owner_fails() {
+    fn known_bad_unsafe_summary_without_owner_fails() {
         let mut map = base_map();
         map.unsafe_summary.owner.clear();
 
@@ -1840,7 +1956,14 @@ mod tests {
     }
 
     #[test]
-    fn unsupported_diagram_alias_fails() {
+    fn unsafe_summary_with_remaining_hotspots_is_a_finding() {
+        let check = check_unsafe_concurrency_summary(&base_map());
+
+        assert_eq!(check.status, CheckStatus::Finding);
+    }
+
+    #[test]
+    fn known_bad_unsupported_diagram_alias_fails() {
         let mut map = base_map();
         map.diagram_facts.push(DiagramFact {
             path: "docs/diagrams/architecture/full-software-map-generated.puml".to_string(),
@@ -1852,7 +1975,7 @@ mod tests {
     }
 
     #[test]
-    fn unsupported_diagram_crate_edge_fails() {
+    fn known_bad_unsupported_diagram_crate_edge_fails() {
         let mut map = base_map();
         map.packages.push(PackageSummary {
             name: "trust-hir".to_string(),
@@ -1951,6 +2074,7 @@ mod tests {
                 owner: "dev tooling".to_string(),
                 rationale: "agent subcommands".to_string(),
             }],
+            runtime_command_module_routes: Vec::new(),
             host_surface: HostSurfacePolicy {
                 approved_ports_active: false,
                 forbidden_edges: vec![ForbiddenModuleEdge {

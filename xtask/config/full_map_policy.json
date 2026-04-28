@@ -109,6 +109,13 @@
     {"name": "BenchAction", "class": "conformance_benchmark", "owner": "runtime/perf", "rationale": "benchmark subcommands"},
     {"name": "AgentAction", "class": "workbench_dev", "owner": "dev tooling", "rationale": "agent subcommands"}
   ],
+  "runtime_command_module_routes": [
+    {"command": "Play", "module": "run", "route_kind": "compatibility_alias", "owner": "runtime CLI", "rationale": "Command::Play dispatches to run::run_play from the shared runtime launcher module", "review_date": "2026-04-28"},
+    {"command": "Ui", "module": "trust_runtime::ui", "route_kind": "library_surface", "owner": "runtime/UI", "rationale": "Command::Ui dispatches to trust_runtime::ui::run_ui from the runtime UI library surface", "review_date": "2026-04-28"},
+    {"command": "Validate", "module": "run", "route_kind": "shared_handler", "owner": "runtime CLI", "rationale": "Command::Validate dispatches to run::run_validate from the shared runtime launcher module", "review_date": "2026-04-28"},
+    {"command": "Ide", "module": "config_ui", "route_kind": "shared_handler", "owner": "runtime/web", "rationale": "Command::Ide dispatches to config_ui::run_ide_serve and shares ConfigUiAction with Command::ConfigUi", "review_date": "2026-04-28"},
+    {"command": "Rollback", "module": "deploy", "route_kind": "shared_handler", "owner": "runtime/deploy", "rationale": "Command::Rollback dispatches to deploy::run_rollback from the deployment module", "review_date": "2026-04-28"}
+  ],
   "host_surface": {
     "approved_ports_active": false,
     "forbidden_edges": [
