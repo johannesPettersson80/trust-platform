@@ -30,6 +30,16 @@ impl Runtime {
         &mut self.registry
     }
 
+    pub(crate) fn initializer_catalog(&self) -> &crate::program_model::InitializerCatalog {
+        &self.initializer_catalog
+    }
+
+    pub(crate) fn registry_and_initializer_catalog_mut(
+        &mut self,
+    ) -> (&mut TypeRegistry, &mut crate::program_model::InitializerCatalog) {
+        (&mut self.registry, &mut self.initializer_catalog)
+    }
+
     /// Access the registered functions.
     #[must_use]
     pub fn functions(&self) -> &IndexMap<SmolStr, FunctionDef> {

@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.0`
+Target release: `v0.24.1`
 
 ### Changed
 
@@ -17,6 +17,9 @@ Target release: `v0.24.0`
 
 ### Fixed
 
+- VS Code activation no longer writes the default runtime control endpoint into
+  workspace folder settings; runtime panels still use the built-in endpoint
+  fallback when the setting is empty.
 - `Pt1Filter.Reset()` now reinitializes the underlying OSCAT `FT_PT1` state on
   the next update, and `HysteresisSwitch.Reset()` now resets the actual
   hysteresis state instead of only clearing cached wrapper fields.
@@ -31,6 +34,12 @@ Target release: `v0.24.0`
 
 ### Added
 
+- Structured Text initializers now support named aggregate defaults for
+  `STRUCT`/`UNION` values at VAR, TYPE, and member-default sites, route those
+  defaults through a runtime initializer service, validate unknown/duplicate
+  fields with stable diagnostics, allow legal function-block member overrides,
+  and expose `trust-runtime bench init` for startup/first-cycle initialization
+  benchmark evidence.
 - PLCopen Motion now ships a second, object-oriented package at
   `libraries/plcopen_motion/oop`, with ST interfaces and concrete objects for
   `itfAxis`, command objects, and `MC_OopAxis`. The package delegates axis

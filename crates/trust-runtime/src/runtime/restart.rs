@@ -82,6 +82,7 @@ impl Runtime {
                         &self.function_blocks,
                         &self.functions,
                         &self.stdlib,
+                        &self.initializer_catalog,
                         fb,
                     )?;
                     self.storage
@@ -101,6 +102,7 @@ impl Runtime {
                         &self.function_blocks,
                         &self.functions,
                         &self.stdlib,
+                        &self.initializer_catalog,
                         class_def,
                     )?;
                     self.storage
@@ -119,6 +121,7 @@ impl Runtime {
                 &self.function_blocks,
                 &self.functions,
                 &self.stdlib,
+                &self.initializer_catalog,
                 &program,
             )?;
             self.storage

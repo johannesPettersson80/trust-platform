@@ -6,6 +6,7 @@ fn expr_supported(expr: &crate::program_model::Expr) -> bool {
             type_id_for_value(value).is_some() || matches!(value, crate::value::Value::Null)
         }
         Expr::ArrayInitializer(_) => false,
+        Expr::StructInitializer(_) => false,
         Expr::Name(_) => true,
         Expr::This | Expr::Super => true,
         Expr::SizeOf(crate::program_model::SizeOfTarget::Type(_)) => true,

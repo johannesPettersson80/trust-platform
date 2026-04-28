@@ -11,6 +11,7 @@ pub fn make_context<'a>(
     EvalContext {
         storage,
         registry,
+        initializer_catalog: None,
         profile: DateTimeProfile::default(),
         now: Duration::ZERO,
         debug: None,

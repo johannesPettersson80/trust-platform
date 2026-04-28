@@ -8,6 +8,8 @@ pub(super) fn apply_config_inits(
     }
     let registry = runtime.registry().clone();
     let profile = runtime.profile();
+    let stdlib = runtime.stdlib().clone();
+    let initializer_catalog = runtime.initializer_catalog().clone();
 
     for init in config_inits {
         let resolved = resolve_access_path(runtime, &init.path)?;
@@ -59,22 +61,17 @@ pub(super) fn apply_config_inits(
             continue;
         };
 
-        let value = {
-            let value = crate::helper_eval::eval_storage_expr(
-                runtime.storage(),
-                &registry,
-                &profile,
-                None,
-                expr,
-            )
-            .map_err(|err| CompileError::new(format!("VAR_CONFIG initializer error: {err}")))?;
-            super::coerce_initializer_value_to_type(
-                value,
-                init.type_id,
-                &registry,
-                &profile,
-            )?
-        };
+        let value = crate::harness::initializer::evaluate_initializer(
+            runtime.storage(),
+            &registry,
+            &initializer_catalog,
+            &profile,
+            None,
+            &stdlib,
+            expr,
+            init.type_id,
+        )
+        .map_err(|err| CompileError::new(format!("VAR_CONFIG initializer error: {err}")))?;
 
         match resolved {
             ResolvedAccess::Variable { reference, partial } => {

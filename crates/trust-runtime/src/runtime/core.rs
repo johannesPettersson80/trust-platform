@@ -7,7 +7,9 @@ use crate::execution_backend::ExecutionBackend;
 use crate::io::{IoDriver, IoDriverStatus, IoInterface, IoSafeState};
 use crate::memory::{AccessMap, FrameId, InstanceId, VariableStorage};
 use crate::metrics::RuntimeMetrics;
-use crate::program_model::{ClassDef, FunctionBlockDef, FunctionDef, InterfaceDef};
+use crate::program_model::{
+    ClassDef, FunctionBlockDef, FunctionDef, InitializerCatalog, InterfaceDef,
+};
 use crate::program_model::{Expr, LValue};
 use crate::retain::{RetainManager, RetainStore};
 use crate::stdlib::StandardLibrary;
@@ -36,6 +38,7 @@ pub struct Runtime {
     pub(super) profile: DateTimeProfile,
     pub(super) storage: VariableStorage,
     pub(super) registry: TypeRegistry,
+    pub(super) initializer_catalog: InitializerCatalog,
     pub(super) io: IoSubsystem,
     pub(super) access: AccessMap,
     pub(super) stdlib: StandardLibrary,
@@ -77,6 +80,7 @@ impl std::fmt::Debug for Runtime {
             .field("profile", &self.profile)
             .field("storage", &self.storage)
             .field("registry", &self.registry)
+            .field("initializer_catalog", &self.initializer_catalog)
             .field("io", &"<io>")
             .field("access", &self.access)
             .field("stdlib", &self.stdlib)

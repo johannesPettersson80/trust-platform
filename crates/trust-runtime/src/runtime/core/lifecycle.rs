@@ -8,6 +8,7 @@ impl Runtime {
             profile: DateTimeProfile::default(),
             storage: VariableStorage::default(),
             registry: TypeRegistry::new(),
+            initializer_catalog: InitializerCatalog::default(),
             io: IoSubsystem::new(),
             access: AccessMap::default(),
             stdlib: StandardLibrary::new(),

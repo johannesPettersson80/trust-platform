@@ -19,6 +19,7 @@ package "Runtime Core" as runtimeCore #LightGreen {
         profile: DateTimeProfile
         storage: VariableStorage
         registry: TypeRegistry
+        initializer_catalog: program_model::InitializerCatalog
         io: IoSubsystem
         access: AccessMap
         stdlib: StandardLibrary
@@ -51,7 +52,14 @@ package "Runtime Core" as runtimeCore #LightGreen {
     }
 
     component "online_change.rs\n(bytecode swap + warm-restart migration contract)" as runtimeOnlineChange
+    component "harness/initializer.rs\n(default + aggregate materialization)" as initializerService
+    component "HIR SymbolTable.initializer_catalog\n(source ranges + InitializerId handles)" as hirInitCatalog
+    component "program_model::InitializerCatalog\n(lowered Expr records)" as runtimeInitCatalog
     runtime ..> runtimeOnlineChange : hot-reload contract owner
+    runtime ..> initializerService : startup/default materialization
+    runtime --> runtimeInitCatalog : owns lowered catalog
+    hirInitCatalog ..> runtimeInitCatalog : compile-time lowering copies/ translates defaults
+    initializerService --> runtimeInitCatalog : reads TYPE/member defaults
 }
 
 package "Execution Engine" as backendPkg #LightYellow {
@@ -334,6 +342,23 @@ package "Control + HMI Contract" as hmiPkg #Lavender {
         web transport boundary:
         • accept loop + HTTP lifecycle in web/server.rs
         • route handlers split by concern in web/*_routes.rs
+    end note
+
+    note right of start2
+        Initializers flow through the
+        runtime initializer service:
+        TYPE/member defaults, aggregate
+        VAR initializers, VAR_CONFIG,
+        and FB member overrides.
+
+        Materialization priority:
+        retained value > VAR_CONFIG override
+        > variable initializer > TYPE/member
+        defaults > zero/type default.
+
+        Struct/union construction ends at
+        StructValue::new or an equivalent
+        validation boundary.
     end note
 }
 

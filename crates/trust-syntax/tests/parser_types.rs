@@ -56,6 +56,72 @@ END_TYPE"#
 }
 
 #[test]
+fn test_type_level_named_aggregate_defaults() {
+    let source = r#"TYPE
+    StepCfg : STRUCT
+        cyl : INT;
+        ext : BOOL;
+    END_STRUCT;
+    DefaultStep : StepCfg := (cyl := 1, ext := TRUE);
+    StepArray : ARRAY[1..2] OF StepCfg := [(cyl := 2, ext := FALSE), (cyl := 3, ext := TRUE)];
+END_TYPE"#;
+    let parsed = parse(source);
+    assert!(
+        parsed.ok(),
+        "expected TYPE-level aggregate defaults to parse, got: {:?}",
+        parsed.errors()
+    );
+    let syntax = parsed.syntax();
+    let aggregate_count = syntax
+        .descendants()
+        .filter(|node| node.kind() == SyntaxKind::InitializerList)
+        .count();
+    assert_eq!(
+        aggregate_count,
+        3,
+        "expected TYPE alias and array element aggregate initializers:\n{}",
+        snapshot_parse(source)
+    );
+}
+
+#[test]
+fn test_type_level_defaults_cover_directly_derived_shapes() {
+    let source = r#"TYPE
+    Limited : INT := 100;
+    IntArray : ARRAY[1..3] OF INT := [1, 2, 3];
+    StructAlias : StepCfg := (cyl := 1, ext := TRUE);
+    StructArray : ARRAY[1..1] OF StepCfg := [(cyl := 2, ext := FALSE)];
+    StepCfg : STRUCT
+        cyl : INT;
+        ext : BOOL;
+    END_STRUCT;
+END_TYPE"#;
+    let parsed = parse(source);
+    assert!(
+        parsed.ok(),
+        "expected all TYPE-level default shapes to parse, got: {:?}",
+        parsed.errors()
+    );
+    let syntax = parsed.syntax();
+    assert_eq!(
+        syntax
+            .descendants()
+            .filter(|node| node.kind() == SyntaxKind::InitializerList)
+            .count(),
+        2,
+        "expected the struct alias and array-of-struct defaults to use InitializerList"
+    );
+    assert_eq!(
+        syntax
+            .descendants()
+            .filter(|node| node.kind() == SyntaxKind::ArrayInitializer)
+            .count(),
+        2,
+        "expected scalar and struct array defaults to use ArrayInitializer"
+    );
+}
+
+#[test]
 // IEC 61131-3 Ed.3 Table 12 (reference and pointer types)
 fn test_pointer_type() {
     insta::assert_snapshot!(snapshot_parse(

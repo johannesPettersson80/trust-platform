@@ -4,72 +4,112 @@ use super::literals::{
 };
 use super::*;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum ConstEvalError {
+    NotConstant,
+    UndefinedName(SmolStr),
+    DivideByZero,
+    IntegerOverflow,
+    NegativeExponent,
+    CyclicDependency(SmolStr),
+}
+
 impl<'a> TypeChecker<'a> {
     pub(super) fn eval_const_int_expr(&self, node: &SyntaxNode) -> Option<i64> {
+        self.try_eval_const_int_expr(node).ok()
+    }
+
+    pub(super) fn try_eval_const_int_expr(&self, node: &SyntaxNode) -> Result<i64, ConstEvalError> {
+        let mut guard = FxHashSet::default();
+        self.try_eval_const_int_expr_inner(node, &mut guard)
+    }
+
+    fn try_eval_const_int_expr_inner(
+        &self,
+        node: &SyntaxNode,
+        guard: &mut FxHashSet<SmolStr>,
+    ) -> Result<i64, ConstEvalError> {
         match node.kind() {
             SyntaxKind::Literal => {
                 if let Some(value) = parse_int_literal_from_node(node) {
-                    return Some(value);
+                    return Ok(value);
                 }
                 self.enum_value_from_typed_literal(node)
+                    .ok_or(ConstEvalError::NotConstant)
             }
             SyntaxKind::NameRef => {
-                let name = self.resolve_ref().get_name_from_ref(node)?;
+                let name = self
+                    .resolve_ref()
+                    .get_name_from_ref(node)
+                    .ok_or(ConstEvalError::NotConstant)?;
+                let key = SmolStr::new(name.to_ascii_uppercase());
+                if !guard.insert(key.clone()) {
+                    return Err(ConstEvalError::CyclicDependency(key));
+                }
                 for scope in self.const_scope_chain() {
                     if let Some(value) = self.symbols.const_value(&scope, name.as_str()) {
-                        return Some(value);
+                        guard.remove(&key);
+                        return Ok(value);
                     }
                 }
-                self.symbols.enum_value_by_name(name.as_str())
+                let result = self
+                    .symbols
+                    .enum_value_by_name(name.as_str())
+                    .ok_or_else(|| ConstEvalError::UndefinedName(name.clone()));
+                guard.remove(&key);
+                result
             }
             SyntaxKind::ParenExpr => node
                 .children()
                 .next()
-                .and_then(|child| self.eval_const_int_expr(&child)),
+                .ok_or(ConstEvalError::NotConstant)
+                .and_then(|child| self.try_eval_const_int_expr_inner(&child, guard)),
             SyntaxKind::UnaryExpr => {
-                let op = int_unary_op_from_node(node)?;
-                let expr = node.children().next()?;
-                let value = self.eval_const_int_expr(&expr)?;
+                let op = int_unary_op_from_node(node).ok_or(ConstEvalError::NotConstant)?;
+                let expr = node.children().next().ok_or(ConstEvalError::NotConstant)?;
+                let value = self.try_eval_const_int_expr_inner(&expr, guard)?;
                 match op {
-                    IntUnaryOp::Plus => Some(value),
-                    IntUnaryOp::Minus => value.checked_neg(),
+                    IntUnaryOp::Plus => Ok(value),
+                    IntUnaryOp::Minus => value.checked_neg().ok_or(ConstEvalError::IntegerOverflow),
                 }
             }
             SyntaxKind::BinaryExpr => {
                 let children: Vec<_> = node.children().collect();
                 if children.len() < 2 {
-                    return None;
+                    return Err(ConstEvalError::NotConstant);
                 }
-                let lhs = self.eval_const_int_expr(&children[0])?;
-                let rhs = self.eval_const_int_expr(&children[children.len() - 1])?;
-                match int_binary_op_from_node(node)? {
-                    IntBinaryOp::Add => lhs.checked_add(rhs),
-                    IntBinaryOp::Sub => lhs.checked_sub(rhs),
-                    IntBinaryOp::Mul => lhs.checked_mul(rhs),
+                let lhs = self.try_eval_const_int_expr_inner(&children[0], guard)?;
+                let rhs =
+                    self.try_eval_const_int_expr_inner(&children[children.len() - 1], guard)?;
+                match int_binary_op_from_node(node).ok_or(ConstEvalError::NotConstant)? {
+                    IntBinaryOp::Add => lhs.checked_add(rhs).ok_or(ConstEvalError::IntegerOverflow),
+                    IntBinaryOp::Sub => lhs.checked_sub(rhs).ok_or(ConstEvalError::IntegerOverflow),
+                    IntBinaryOp::Mul => lhs.checked_mul(rhs).ok_or(ConstEvalError::IntegerOverflow),
                     IntBinaryOp::Div => {
                         if rhs == 0 {
-                            None
+                            Err(ConstEvalError::DivideByZero)
                         } else {
-                            lhs.checked_div(rhs)
+                            lhs.checked_div(rhs).ok_or(ConstEvalError::IntegerOverflow)
                         }
                     }
                     IntBinaryOp::Mod => {
                         if rhs == 0 {
-                            None
+                            Err(ConstEvalError::DivideByZero)
                         } else {
-                            lhs.checked_rem(rhs)
+                            lhs.checked_rem(rhs).ok_or(ConstEvalError::IntegerOverflow)
                         }
                     }
                     IntBinaryOp::Power => {
                         if rhs < 0 {
-                            None
+                            Err(ConstEvalError::NegativeExponent)
                         } else {
                             lhs.checked_pow(rhs as u32)
+                                .ok_or(ConstEvalError::IntegerOverflow)
                         }
                     }
                 }
             }
-            _ => None,
+            _ => Err(ConstEvalError::NotConstant),
         }
     }
 

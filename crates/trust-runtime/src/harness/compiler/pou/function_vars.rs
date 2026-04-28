@@ -17,12 +17,14 @@ fn lower_function_var_blocks(
             .children()
             .filter(|child| child.kind() == SyntaxKind::VarDecl)
         {
-            let (names, type_ref, initializer, address) = parse_var_decl(&var_decl)?;
-            let type_id = lower_type_ref(&type_ref, ctx)?;
-            let init_expr = initializer
+            let parts = parse_var_decl(&var_decl)?;
+            let type_id = lower_type_ref(&parts.type_ref, ctx)?;
+            let init_expr = parts
+                .initializer
+                .as_ref()
                 .map(|expr| {
-                    lower_expr(&expr, ctx).and_then(|lowered| {
-                        resolve_initializer_enum_variant(&expr, lowered, type_id, ctx)
+                    lower_expr(expr, ctx).and_then(|lowered| {
+                        resolve_initializer_enum_variant(expr, lowered, type_id, ctx)
                     })
                 })
                 .transpose()?;
@@ -30,19 +32,14 @@ fn lower_function_var_blocks(
                 && matches!(kind, VarBlockKind::Var | VarBlockKind::Stat | VarBlockKind::Temp)
             {
                 if let Some(expr) = init_expr.as_ref() {
-                    let value = ctx.eval_compile_time_const_expr(expr)?;
-                    let value = crate::harness::coerce_initializer_value_to_type(
-                        value,
-                        type_id,
-                        ctx.registry,
-                        &ctx.profile,
-                    )?;
-                    for name in &names {
+                    let value = ctx.eval_compile_time_const_initializer(expr, type_id)?;
+                    for name in &parts.names {
                         ctx.register_compile_time_const(name.as_str(), value.clone());
                     }
                 }
             }
-            let address_info = address
+            let address_info = parts
+                .address
                 .as_ref()
                 .map(|text| IoAddress::parse(text))
                 .transpose()
@@ -59,7 +56,7 @@ fn lower_function_var_blocks(
             }
             match kind {
                 VarBlockKind::Input => {
-                    for name in names {
+                    for name in parts.names {
                         params.push(Param {
                             name,
                             type_id,
@@ -70,7 +67,7 @@ fn lower_function_var_blocks(
                     }
                 }
                 VarBlockKind::Output => {
-                    for name in names {
+                    for name in parts.names {
                         params.push(Param {
                             name,
                             type_id,
@@ -81,7 +78,7 @@ fn lower_function_var_blocks(
                     }
                 }
                 VarBlockKind::InOut => {
-                    for name in names {
+                    for name in parts.names {
                         params.push(Param {
                             name,
                             type_id,
@@ -92,7 +89,7 @@ fn lower_function_var_blocks(
                     }
                 }
                 VarBlockKind::Var | VarBlockKind::Temp => {
-                    for name in names {
+                    for name in parts.names {
                         locals.push(VarDef {
                             name,
                             type_id,
@@ -106,7 +103,7 @@ fn lower_function_var_blocks(
                     }
                 }
                 VarBlockKind::Stat => {
-                    for name in names {
+                    for name in parts.names {
                         statics.push(VarDef {
                             name,
                             type_id,

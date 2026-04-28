@@ -1,6 +1,8 @@
 use smol_str::SmolStr;
 use trust_hir::types::TypeRegistry;
 
+use indexmap::IndexMap;
+
 use crate::error::RuntimeError;
 use crate::memory::{InstanceId, VariableStorage};
 use crate::program_model::{
@@ -9,7 +11,8 @@ use crate::program_model::{
 use crate::stdlib::{conversions, StandardLibrary, StdParams};
 use crate::value::{
     checked_array_offset_i64, parse_partial_access, read_partial_access, read_string_element,
-    size_of_type, ArrayValue, DateTimeProfile, PartialAccessError, SizeOfError, Value,
+    ref_indices_from_iter, size_of_type, ArrayValue, DateTimeProfile, PartialAccessError,
+    RefSegment, SizeOfError, StructValue, Value, ValueRef,
 };
 
 use super::storage_lvalue::read_storage_lvalue;
@@ -45,6 +48,9 @@ pub(crate) fn eval_storage_expr_with_stdlib(
                 elements,
             )?,
         }))),
+        Expr::StructInitializer(fields) => {
+            eval_struct_initializer(storage, registry, profile, current_instance, stdlib, fields)
+        }
         Expr::This => current_instance
             .map(Value::Instance)
             .ok_or(RuntimeError::TypeMismatch),
@@ -185,7 +191,10 @@ pub(crate) fn eval_storage_expr_with_stdlib(
             )?;
             read_field(storage, target_value, field)
         }
-        Expr::Ref(_) => Err(RuntimeError::TypeMismatch),
+        Expr::Ref(target) => {
+            resolve_lvalue_reference(storage, registry, profile, current_instance, stdlib, target)
+                .map(|reference| Value::Reference(Some(reference)))
+        }
         Expr::Deref(expr) => {
             let value = eval_storage_expr_with_stdlib(
                 storage,
@@ -204,6 +213,160 @@ pub(crate) fn eval_storage_expr_with_stdlib(
             }
         }
     }
+}
+
+fn resolve_lvalue_reference(
+    storage: &VariableStorage,
+    registry: &TypeRegistry,
+    profile: &DateTimeProfile,
+    current_instance: Option<InstanceId>,
+    stdlib: Option<&StandardLibrary>,
+    target: &crate::program_model::LValue,
+) -> Result<ValueRef, RuntimeError> {
+    match target {
+        crate::program_model::LValue::Name(name) => {
+            resolve_name_reference(storage, current_instance, name)
+                .ok_or_else(|| RuntimeError::UndefinedVariable(name.clone()))
+        }
+        crate::program_model::LValue::Index { target, indices } => {
+            let base = resolve_lvalue_reference(
+                storage,
+                registry,
+                profile,
+                current_instance,
+                stdlib,
+                target,
+            )?;
+            let array_value =
+                read_storage_lvalue(storage, registry, profile, current_instance, target)?;
+            let Value::Array(array) = &array_value else {
+                return Err(RuntimeError::TypeMismatch);
+            };
+            let index_values = indices
+                .iter()
+                .map(|expr| {
+                    eval_storage_expr_with_stdlib(
+                        storage,
+                        registry,
+                        profile,
+                        current_instance,
+                        stdlib,
+                        expr,
+                    )
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            checked_array_offset_i64(
+                &array.dimensions,
+                &index_values
+                    .iter()
+                    .cloned()
+                    .map(index_to_i64)
+                    .collect::<Result<Vec<_>, _>>()?,
+            )?;
+            let mut value_ref = base;
+            value_ref.path.push(RefSegment::Index(ref_indices_from_iter(
+                index_values
+                    .into_iter()
+                    .map(index_to_i64)
+                    .collect::<Result<Vec<_>, _>>()?,
+            )));
+            Ok(value_ref)
+        }
+        crate::program_model::LValue::Field { target, field } => {
+            if let Some(qualified) = target
+                .qualified_name()
+                .map(|prefix| SmolStr::new(format!("{prefix}.{field}")))
+            {
+                if let Some(reference) =
+                    resolve_name_reference(storage, current_instance, &qualified)
+                {
+                    return Ok(reference);
+                }
+            }
+            let base_value =
+                read_storage_lvalue(storage, registry, profile, current_instance, target)?;
+            match base_value {
+                Value::Instance(id) => storage
+                    .ref_for_instance_recursive(id, field.as_str())
+                    .ok_or_else(|| RuntimeError::UndefinedField(field.clone())),
+                Value::Struct(struct_value) => {
+                    if !struct_value.fields.contains_key(field) {
+                        return Err(RuntimeError::UndefinedField(field.clone()));
+                    }
+                    let mut value_ref = resolve_lvalue_reference(
+                        storage,
+                        registry,
+                        profile,
+                        current_instance,
+                        stdlib,
+                        target,
+                    )?;
+                    value_ref.path.push(RefSegment::Field(field.clone()));
+                    Ok(value_ref)
+                }
+                _ => Err(RuntimeError::TypeMismatch),
+            }
+        }
+        crate::program_model::LValue::Deref(expr) => match eval_storage_expr_with_stdlib(
+            storage,
+            registry,
+            profile,
+            current_instance,
+            stdlib,
+            expr,
+        )? {
+            Value::Reference(Some(reference)) => Ok(reference),
+            Value::Reference(None) => Err(RuntimeError::NullReference),
+            _ => Err(RuntimeError::TypeMismatch),
+        },
+    }
+}
+
+fn resolve_name_reference(
+    storage: &VariableStorage,
+    current_instance: Option<InstanceId>,
+    name: &SmolStr,
+) -> Option<ValueRef> {
+    if let Some(reference) = storage.ref_for_local(name.as_str()) {
+        return Some(reference);
+    }
+    if let Some(instance_id) = current_instance {
+        if let Some(reference) = storage.ref_for_instance_recursive(instance_id, name.as_str()) {
+            return Some(reference);
+        }
+    }
+    storage.ref_for_global(name.as_str())
+}
+
+fn eval_struct_initializer(
+    storage: &VariableStorage,
+    registry: &TypeRegistry,
+    profile: &DateTimeProfile,
+    current_instance: Option<InstanceId>,
+    stdlib: Option<&StandardLibrary>,
+    fields: &[(SmolStr, Expr)],
+) -> Result<Value, RuntimeError> {
+    let mut values = IndexMap::new();
+    for (field, expr) in fields {
+        if values
+            .keys()
+            .any(|existing: &SmolStr| existing.eq_ignore_ascii_case(field.as_str()))
+        {
+            return Err(RuntimeError::TypeMismatch);
+        }
+        let value = eval_storage_expr_with_stdlib(
+            storage,
+            registry,
+            profile,
+            current_instance,
+            stdlib,
+            expr,
+        )?;
+        values.insert(field.clone(), value);
+    }
+    Ok(Value::Struct(std::sync::Arc::new(
+        StructValue::from_untyped_parts("".into(), values),
+    )))
 }
 
 fn eval_array_initializer_elements(

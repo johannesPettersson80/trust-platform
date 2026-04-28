@@ -4,6 +4,10 @@
 - Current runtime (production): bytecode-VM execution over STBC modules (`ExecutionBackend::BytecodeVm`).
 - `run`/`play` accept `vm` only; `interpreter` is rejected in CLI/config startup selection.
 - Helper evaluation remains only for const-folding, initializer/config evaluation, and debug expression/write flows.
+- Runtime startup materializes TYPE defaults, struct/union member defaults,
+  aggregate VAR initializers, VAR_CONFIG overrides, and legal FB instance
+  member overrides through `harness::initializer` and the runtime
+  `InitializerCatalog`.
 - Debugger uses DAP plus the runtime control protocol; LSP/IDE technical spec is included below.
 - Salsa incremental queries are used in `trust-hir` (analysis/LSP path), not in the deterministic runtime scan loop.
 - IEC language specs remain in docs/specs/01-09-*.md.
@@ -34,6 +38,7 @@ crates/trust-runtime/
 │   ├── bytecode/         # STBC encode/decode + metadata/debug maps
 │   ├── eval/             # Shared model facade + test-only evaluator internals
 │   ├── helper_eval/      # Storage-native helper evaluators for const/debug/config flows
+│   ├── harness/initializer.rs # Runtime initializer materialization service
 │   ├── program_model/    # Shared runtime/program AST + operator contracts
 │   ├── runtime/          # Runtime core + VM dispatch/execution subsystems
 │   ├── stdlib/           # Standard functions + FBs

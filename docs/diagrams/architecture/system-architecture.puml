@@ -81,6 +81,7 @@ package "trust-hir crate" as sthir #LightCoral {
     component "SymbolTable" as symTable <<symbols/table.rs>>
     component "SymbolCollector" as collector <<db/queries/collector/mod.rs>>
     component "TypeChecker" as typeCheck <<type_check/mod.rs>>
+    component "HIR Initializer Catalog\n(SymbolTable-owned source metadata)" as hirInitCatalog <<types/defs.rs>>
 
     package "types/" as types {
         component "TypeId" as typeId <<types/defs.rs>>
@@ -100,6 +101,8 @@ package "trust-hir crate" as sthir #LightCoral {
     db --> collector : uses
     db --> typeCheck : uses
     symTable --> symbols
+    symTable --> hirInitCatalog : owns
+    collector --> hirInitCatalog : records TYPE/member defaults
     typeCheck --> types
 }
 
@@ -140,6 +143,7 @@ package "trust-runtime crate" as struntime #LightYellow {
     component "RuntimeConfig" as runtimeConfig
     component "VariableStorage" as varStorage <<memory.rs:63-71>>
     component "Program Model + Helper Eval" as evalCtx
+    component "Runtime Initializer Catalog + Service\n(lowered Expr defaults, aggregates, FB overrides)" as initSvc
     component "StandardLibrary" as stdlib <<stdlib/>>
     component "Harness Facade\n(CompileSession)" as harness <<harness/api.rs>>
     component "Runtime Launcher\n(trust-runtime CLI)" as launcher
@@ -178,10 +182,13 @@ package "trust-runtime crate" as struntime #LightYellow {
 
     runtime --> varStorage
     runtime --> evalCtx
+    runtime --> initSvc
     runtime --> stdlib
     runtime --> debug
     runtime --> watchdog
     harness --> runtime
+    harness --> hirInitCatalog : imports source/default handles
+    harness --> initSvc : lowers handles/CST to Expr records
     harness --> bytecode
     launcher --> bundleLoader
     bundleLoader --> runtimeConfig

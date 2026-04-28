@@ -91,6 +91,30 @@ note right
     • declarations.rs - VAR blocks, types
     • statements.rs - IF, FOR, CASE, etc.
     • expressions.rs - Pratt parser
+    • declarations.rs owns initializer-position
+      parsing through parse_var_initializer()
+end note
+
+note left
+    **Initializer-position gate**
+    parse_var_initializer() has six code-derived
+    call sites:
+    • parse_type_decl() after parse_type_def()
+    • parse_var_decl()
+    • VAR_CONFIG init declarations
+    • nested aggregate fields
+    • array initializer elements
+    • array repetition elements
+
+    It is not called from parse_arg_list(),
+    enum value assignments, subranges,
+    string-length expressions, statements,
+    or ordinary Pratt expression parsing.
+
+    `(` Name `:=` emits InitializerList.
+    Array defaults emit ArrayInitializer.
+    Malformed aggregate recovery stays local
+    to the declaration initializer.
 end note
 
 |Pratt Parser|
@@ -199,6 +223,13 @@ legend right
     • VarBlock, VarDecl, TypeSpec
     • IfStmt, ForStmt, WhileStmt, CaseStmt
     • BinaryExpr, UnaryExpr, CallExpr, FieldExpr
+    • InitializerList, ArrayInitializer
+
+    **Initializer Context Contract:**
+    • TYPE-level defaults and VAR defaults may
+      contain aggregate initializer nodes.
+    • Function-call named arguments remain CallExpr/Arg.
+    • Enum explicit values remain ordinary expressions.
 
     **Key Files:**
     • lexer/tokens.rs:44 - TokenKind enum

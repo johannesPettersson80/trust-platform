@@ -147,7 +147,7 @@ pub(in crate::harness) fn lower_expr(
         SyntaxKind::CallExpr => lower_call_expr(node, ctx),
         SyntaxKind::SizeOfExpr => lower_sizeof_expr(node, ctx),
         SyntaxKind::ArrayInitializer => lower_array_initializer(node, ctx),
-        SyntaxKind::InitializerList => Err(CompileError::new("initializer lists are not supported yet")),
+        SyntaxKind::InitializerList => lower_struct_initializer(node, ctx),
         _ => Err(CompileError::new("unsupported expression")),
     }
 }
@@ -230,6 +230,26 @@ fn lower_array_initializer(
         }
     }
     Ok(Expr::ArrayInitializer(elements))
+}
+
+fn lower_struct_initializer(
+    node: &SyntaxNode,
+    ctx: &mut LoweringContext<'_>,
+) -> Result<Expr, CompileError> {
+    let mut fields = Vec::new();
+    let mut children = node.children().peekable();
+    while let Some(child) = children.next() {
+        if child.kind() != SyntaxKind::Name {
+            continue;
+        }
+        let field = node_text(&child).into();
+        let Some(value_node) = children.find(|candidate| is_expression_kind(candidate.kind()))
+        else {
+            return Err(CompileError::new("missing aggregate initializer value"));
+        };
+        fields.push((field, lower_expr(&value_node, ctx)?));
+    }
+    Ok(Expr::StructInitializer(fields))
 }
 
 fn lower_sizeof_expr(
@@ -525,6 +545,7 @@ fn import_hir_type_to_runtime(
                     name: field.name,
                     type_id: import_hir_type_to_runtime(registry, symbols, field.type_id)?,
                     address: field.address,
+                    default_initializer: field.default_initializer,
                 });
             }
             Ok(registry.register_struct(name, lowered))
@@ -536,6 +557,7 @@ fn import_hir_type_to_runtime(
                     name: variant.name,
                     type_id: import_hir_type_to_runtime(registry, symbols, variant.type_id)?,
                     address: variant.address,
+                    default_initializer: variant.default_initializer,
                 });
             }
             Ok(registry.register_union(name, lowered))
@@ -639,13 +661,148 @@ fn type_name_for_anonymous_hir_type(registry: &TypeRegistry, ty: &Type) -> Strin
 }
 
 fn lower_call_expr(node: &SyntaxNode, ctx: &mut LoweringContext<'_>) -> Result<Expr, CompileError> {
-    let target = first_expr_child(node).ok_or_else(|| CompileError::new("missing call target"))?;
-    let target = lower_expr(&target, ctx)?;
+    let target_node =
+        first_expr_child(node).ok_or_else(|| CompileError::new("missing call target"))?;
+    if target_node.kind() == SyntaxKind::NameRef
+        && node_text(&target_node).eq_ignore_ascii_case("REF")
+    {
+        return lower_ref_call_expr(node, ctx);
+    }
+    if let Some(type_id) = aggregate_initializer_call_type(&target_node, ctx)? {
+        let fields = lower_aggregate_call_args(node, ctx, type_id)?;
+        return Ok(Expr::StructInitializer(fields));
+    }
+    let target = lower_expr(&target_node, ctx)?;
     let args = lower_call_args(node, ctx)?;
     Ok(Expr::Call {
         target: Box::new(target),
         args,
     })
+}
+
+fn lower_ref_call_expr(node: &SyntaxNode, ctx: &mut LoweringContext<'_>) -> Result<Expr, CompileError> {
+    let arg_list = node
+        .children()
+        .find(|child| child.kind() == SyntaxKind::ArgList)
+        .ok_or_else(|| CompileError::new("REF requires one target"))?;
+    let mut args = arg_list
+        .children()
+        .filter(|child| child.kind() == SyntaxKind::Arg);
+    let arg = args
+        .next()
+        .ok_or_else(|| CompileError::new("REF requires one target"))?;
+    if args.next().is_some() {
+        return Err(CompileError::new("REF requires exactly one target"));
+    }
+    if arg.children().any(|child| child.kind() == SyntaxKind::Name) {
+        return Err(CompileError::new("REF target must be positional"));
+    }
+    let expr = first_expr_child(&arg).ok_or_else(|| CompileError::new("REF target missing"))?;
+    Ok(Expr::Ref(lower_lvalue(&expr, ctx)?))
+}
+
+fn aggregate_initializer_call_type(
+    target: &SyntaxNode,
+    ctx: &LoweringContext<'_>,
+) -> Result<Option<TypeId>, CompileError> {
+    if target.kind() != SyntaxKind::NameRef {
+        return Ok(None);
+    }
+    if name_ref_resolves_to_value_symbol(target, ctx) {
+        return Ok(None);
+    }
+    let name = node_text(target);
+    let Ok(type_id) = resolve_type_name(name.as_str(), ctx) else {
+        return Ok(None);
+    };
+    if aggregate_runtime_type(type_id, ctx.registry).is_some() {
+        return Ok(Some(type_id));
+    }
+    if matches!(
+        ctx.registry.get(type_id),
+        Some(Type::Class { .. } | Type::Interface { .. } | Type::FunctionBlock { .. })
+    ) {
+        return Err(CompileError::new(
+            "class and function block types do not support call-style aggregate initialization here",
+        ));
+    }
+    Ok(None)
+}
+
+fn name_ref_resolves_to_value_symbol(target: &SyntaxNode, ctx: &LoweringContext<'_>) -> bool {
+    let (Some(semantic_db), Some(semantic_file_id)) = (ctx.semantic_db, ctx.semantic_file_id)
+    else {
+        return false;
+    };
+    let analysis = semantic_db.analyze(semantic_file_id);
+    let symbols = analysis.symbols.as_ref();
+    let scope_context = expression_scope_context(symbols, target);
+    let name = node_text(target);
+    let Some(symbol_id) = resolve_name_symbol_in_scope(
+        symbols,
+        scope_context.scope_id,
+        scope_context.current_pou_symbol,
+        scope_context.this_type,
+        name.as_str(),
+    ) else {
+        return false;
+    };
+    let Some(symbol) = symbols.get(symbol_id) else {
+        return false;
+    };
+    matches!(
+        symbol.kind,
+        SymbolKind::Variable { .. }
+            | SymbolKind::Constant
+            | SymbolKind::Parameter { .. }
+            | SymbolKind::Function { .. }
+            | SymbolKind::Method { .. }
+            | SymbolKind::Property { .. }
+    )
+}
+
+fn aggregate_runtime_type(type_id: TypeId, registry: &TypeRegistry) -> Option<TypeId> {
+    let mut current = type_id;
+    for _ in 0..16 {
+        match registry.get(current)? {
+            Type::Alias { target, .. } => current = *target,
+            Type::Struct { .. } | Type::Union { .. } => return Some(current),
+            _ => return None,
+        }
+    }
+    None
+}
+
+fn lower_aggregate_call_args(
+    node: &SyntaxNode,
+    ctx: &mut LoweringContext<'_>,
+    type_id: TypeId,
+) -> Result<Vec<(SmolStr, Expr)>, CompileError> {
+    let Some(arg_list) = node.children().find(|child| child.kind() == SyntaxKind::ArgList) else {
+        return Ok(Vec::new());
+    };
+    let mut fields = Vec::new();
+    for arg in arg_list
+        .children()
+        .filter(|child| child.kind() == SyntaxKind::Arg)
+    {
+        let name = arg
+            .children()
+            .find(|child| child.kind() == SyntaxKind::Name)
+            .map(|name| node_text(&name).into())
+            .ok_or_else(|| {
+                CompileError::new(
+                    "positional struct initializers are not supported; use named field initializers",
+                )
+            })?;
+        let expr_node =
+            first_expr_child(&arg).ok_or_else(|| CompileError::new("missing initializer value"))?;
+        let value = lower_expr(&expr_node, ctx).and_then(|lowered| {
+            resolve_initializer_enum_variant(&expr_node, lowered, type_id, ctx)
+        })?;
+        fields.push((name, value));
+    }
+    Ok(fields)
 }
 
 fn lower_call_args(

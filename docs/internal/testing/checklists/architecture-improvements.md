@@ -2,6 +2,24 @@
 
 Status: Done
 
+- [x] `ARCH-INIT-01` Centralize initializer syntax classification so aggregate initializer nodes are recognized only in initializer-aware paths, with trivia/pragma excluded from expression and statement classifiers.
+- [x] `ARCH-INIT-02` Preserve struct/union member initializer handles through HIR/runtime type metadata and route runtime default materialization through a dedicated initializer service instead of ad hoc zero defaults.
+- [x] `ARCH-INIT-03` Route aggregate VAR, TYPE-level, field-default, VAR_CONFIG, and function-block member override initialization through the runtime initializer catalog/service, with diagnostics for unknown/duplicate fields and illegal FB targets.
+- [x] `ARCH-INIT-04` Add `trust-runtime bench init` so startup/first-cycle initialization cost has a reproducible CLI benchmark surface with JSON/table reports.
+- [x] `ARCH-INIT-05` Refresh syntax, HIR, system, runtime execution, and VM helper-flow diagrams after adding aggregate initializer flow, exact TYPE/VAR initializer parser gates, HIR `SymbolTable` source catalog ownership, runtime lowered catalog ownership, and runtime/VM materialization flow.
+
+Issue #51 init benchmark baseline evidence (2026-04-28):
+
+- Command: `cargo run -p trust-runtime --bin trust-runtime -- bench init --project crates/trust-runtime/tests/fixtures/init_bench --samples 1000 --output json`
+- Machine: `raspberrypi`, `Linux 6.12.62+rpt-rpi-2712 aarch64`, best-effort local run, not CPU-pinned.
+- Fixture: `crates/trust-runtime/tests/fixtures/init_bench`, resource `InitBench`, execution backend `vm`, warmup cycles `0`.
+- Current supported-feature baseline medians: init-only `19974.007 us`, init-plus-first-cycle `19995.964 us`, first-cycle/first-mutation `13.889 us`, retain restart `375.094 us`, steady cycle `4.630 us`.
+- Current supported-feature p95/p99: init-only `23108.791 us` / `25647.193 us`, init-plus-first-cycle `23142.997 us` / `25681.064 us`, first-cycle `45.352 us` / `59.185 us`, retain restart `661.410 us` / `846.651 us`, steady cycle `18.556 us` / `33.482 us`.
+- Constructor microbench medians, 1000 constructions per sample: `StructValue::new` `313689.932 us`, untyped constructor proxy `68846.835 us`.
+- Report artifact: `docs/internal/testing/evidence/issue-51-init-benchmark-2026-04-28.md`; the generated JSON from the run is local under `docs/internal/architecture/generated/reports/issue51-init-bench-current.json`.
+- Pre-implementation same-fixture baseline status: unsupported/no measurement. `origin/main` has no `BenchAction::Init` / `bench init` CLI and does not contain `crates/trust-runtime/tests/fixtures/init_bench`; its declaration parser still sends `:=` initializers through `parse_expression()`, so the representative aggregate initializer fixture is not a valid pre-change workload. This makes a same-fixture 10% regression comparison non-applicable for Issue #51 itself. The numbers above are the first enforceable supported-feature baseline for future regressions on this fixture.
+- Diagram evidence: Issue #51 PlantUML now distinguishes the HIR source/default `InitializerCatalog` owned by `SymbolTable` from the runtime `program_model::InitializerCatalog` of lowered `Expr` records, and the syntax diagram locks aggregate initializer parsing to the six code-derived initializer-aware call sites rather than ordinary expression parsing.
+
 - [x] `ARCH-PLCOPEN-01` Add a dedicated PLCopen motion architecture diagram describing the shipped ST public profiles, shared kernels, internal carriers, and deferred-feature guard coverage.
 - [x] `ARCH-PLCOPEN-02` Regenerate the PlantUML outputs and refresh `docs/diagrams/manifest.json` after adding the PLCopen motion architecture diagram.
 - [x] `ARCH-PLCOPEN-03` Extend the PLCopen motion architecture diagram for the shipped OOP facade package and document that it delegates to the classic motion kernels instead of owning duplicate motion state.

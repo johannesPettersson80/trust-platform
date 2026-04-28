@@ -22,6 +22,22 @@ pub enum BenchAction {
         #[arg(long, value_enum, default_value_t = BenchOutputFormat::Table)]
         output: BenchOutputFormat,
     },
+    /// Benchmark runtime initialization and first-cycle startup cost.
+    #[command(name = "init")]
+    Init {
+        /// Project folder to compile and initialize.
+        #[arg(long = "project", alias = "bundle")]
+        project: PathBuf,
+        /// Number of measured initialization samples.
+        #[arg(long, default_value_t = 1_000)]
+        samples: usize,
+        /// Warmup cycles executed after the first cycle before steady-state sampling.
+        #[arg(long = "warmup-cycles", default_value_t = 0)]
+        warmup_cycles: usize,
+        /// Output format (`table`, `json`).
+        #[arg(long, value_enum, default_value_t = BenchOutputFormat::Table)]
+        output: BenchOutputFormat,
+    },
     /// Benchmark T0 SHM one-way/round-trip latency and overrun counters.
     #[command(name = "t0-shm")]
     T0Shm {

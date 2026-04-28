@@ -3,9 +3,12 @@ use trust_hir::{Type, TypeId};
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 
 use crate::debug::SourceLocation;
+use crate::program_model::InitializerCatalog;
 use crate::value::DateTimeProfile;
 
-use super::super::lower::{const_int_from_node, parse_subrange};
+use super::super::lower::{
+    const_int_from_node, lower_expr, parse_subrange, resolve_initializer_enum_variant,
+};
 use super::super::types::CompileError;
 use super::super::util::{
     builtin_type_name, collect_using_directives, is_expression_kind, node_text,
@@ -14,9 +17,11 @@ use super::model::LoweringContext;
 use super::qualified_pou_name;
 use super::vars::parse_var_decl;
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn lower_type_decls(
     syntax: &SyntaxNode,
     registry: &mut trust_hir::types::TypeRegistry,
+    initializer_catalog: &mut InitializerCatalog,
     profile: DateTimeProfile,
     semantic_db: &dyn trust_hir::db::SemanticDatabase,
     semantic_file_id: trust_hir::db::FileId,
@@ -30,6 +35,7 @@ pub(crate) fn lower_type_decls(
         lower_type_decl_node(
             &type_decl,
             registry,
+            initializer_catalog,
             profile,
             semantic_db,
             semantic_file_id,
@@ -95,9 +101,11 @@ pub(crate) fn predeclare_interfaces(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn lower_type_decl_node(
     node: &SyntaxNode,
     registry: &mut trust_hir::types::TypeRegistry,
+    initializer_catalog: &mut InitializerCatalog,
     profile: DateTimeProfile,
     semantic_db: &dyn trust_hir::db::SemanticDatabase,
     semantic_file_id: trust_hir::db::FileId,
@@ -116,6 +124,7 @@ fn lower_type_decl_node(
         compile_time_consts: Default::default(),
     };
     let mut pending_name: Option<SmolStr> = None;
+    let mut last_type_id: Option<TypeId> = None;
     for child in node.children() {
         match child.kind() {
             SyntaxKind::Name => {
@@ -129,8 +138,11 @@ fn lower_type_decl_node(
                 if ctx.registry.lookup(name.as_ref()).is_some() {
                     return Err(CompileError::new(format!("duplicate type name '{name}'")));
                 }
-                let fields = lower_struct_def(&child, &mut ctx)?;
-                ctx.registry.register_struct(name, fields);
+                let type_id = ctx.registry.reserve(name.clone());
+                let fields = lower_struct_def(&child, &mut ctx, initializer_catalog)?;
+                ctx.registry
+                    .replace(type_id, trust_hir::Type::Struct { name, fields });
+                last_type_id = Some(type_id);
             }
             SyntaxKind::UnionDef => {
                 let name = pending_name
@@ -139,16 +151,20 @@ fn lower_type_decl_node(
                 if ctx.registry.lookup(name.as_ref()).is_some() {
                     return Err(CompileError::new(format!("duplicate type name '{name}'")));
                 }
-                let fields = lower_struct_def(&child, &mut ctx)?;
+                let type_id = ctx.registry.reserve(name.clone());
+                let fields = lower_struct_def(&child, &mut ctx, initializer_catalog)?;
                 let variants = fields
                     .into_iter()
                     .map(|field| trust_hir::types::UnionVariant {
                         name: field.name,
                         type_id: field.type_id,
                         address: field.address,
+                        default_initializer: field.default_initializer,
                     })
                     .collect();
-                ctx.registry.register_union(name, variants);
+                ctx.registry
+                    .replace(type_id, trust_hir::Type::Union { name, variants });
+                last_type_id = Some(type_id);
             }
             SyntaxKind::EnumDef => {
                 let name = pending_name
@@ -158,7 +174,7 @@ fn lower_type_decl_node(
                     return Err(CompileError::new(format!("duplicate type name '{name}'")));
                 }
                 let (base, values) = lower_enum_def(&child, &mut ctx)?;
-                ctx.registry.register_enum(name, base, values);
+                last_type_id = Some(ctx.registry.register_enum(name, base, values));
             }
             SyntaxKind::ArrayType => {
                 let name = pending_name
@@ -168,13 +184,13 @@ fn lower_type_decl_node(
                     return Err(CompileError::new(format!("duplicate type name '{name}'")));
                 }
                 let target = lower_array_type_node(&child, &mut ctx)?;
-                ctx.registry.register(
+                last_type_id = Some(ctx.registry.register(
                     name.clone(),
                     trust_hir::Type::Alias {
                         name: name.clone(),
                         target,
                     },
-                );
+                ));
             }
             SyntaxKind::TypeRef => {
                 let name = pending_name
@@ -184,13 +200,23 @@ fn lower_type_decl_node(
                     return Err(CompileError::new(format!("duplicate type name '{name}'")));
                 }
                 let target = lower_type_ref(&child, &mut ctx)?;
-                ctx.registry.register(
+                last_type_id = Some(ctx.registry.register(
                     name.clone(),
                     trust_hir::Type::Alias {
                         name: name.clone(),
                         target,
                     },
-                );
+                ));
+            }
+            kind if is_expression_kind(kind) => {
+                let Some(type_id) = last_type_id else {
+                    continue;
+                };
+                let expr = lower_expr(&child, &mut ctx).and_then(|lowered| {
+                    resolve_initializer_enum_variant(&child, lowered, type_id, &ctx)
+                })?;
+                let initializer_id = initializer_catalog.insert(expr);
+                initializer_catalog.set_type_default(type_id, initializer_id);
             }
             _ => {}
         }
@@ -201,19 +227,32 @@ fn lower_type_decl_node(
 fn lower_struct_def(
     node: &SyntaxNode,
     ctx: &mut LoweringContext<'_>,
+    initializer_catalog: &mut InitializerCatalog,
 ) -> Result<Vec<trust_hir::types::StructField>, CompileError> {
     let mut fields = Vec::new();
     for var_decl in node
         .children()
         .filter(|child| child.kind() == SyntaxKind::VarDecl)
     {
-        let (names, type_ref, _initializer, address) = parse_var_decl(&var_decl)?;
-        let type_id = lower_type_ref(&type_ref, ctx)?;
-        for name in names {
+        let parts = parse_var_decl(&var_decl)?;
+        let type_id = lower_type_ref(&parts.type_ref, ctx)?;
+        let default_initializer = parts
+            .initializer
+            .as_ref()
+            .map(|expr| {
+                lower_expr(expr, ctx)
+                    .and_then(|lowered| {
+                        resolve_initializer_enum_variant(expr, lowered, type_id, ctx)
+                    })
+                    .map(|lowered| initializer_catalog.insert(lowered))
+            })
+            .transpose()?;
+        for name in parts.names {
             fields.push(trust_hir::types::StructField {
                 name,
                 type_id,
-                address: address.clone(),
+                address: parts.address.clone(),
+                default_initializer,
             });
         }
     }

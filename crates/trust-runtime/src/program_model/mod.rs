@@ -3,12 +3,14 @@
 #![allow(missing_docs)]
 
 pub mod expr;
+pub mod initializers;
 pub mod ops;
 pub mod stmt;
 mod types;
 mod util;
 
 pub use expr::{Expr, LValue, SizeOfTarget};
+pub use initializers::InitializerCatalog;
 pub use ops::{apply_binary, apply_unary, BinaryOp, UnaryOp};
 pub use stmt::{CaseLabel, Stmt, StmtResult};
 pub use types::{

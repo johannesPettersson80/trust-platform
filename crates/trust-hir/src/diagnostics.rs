@@ -42,6 +42,10 @@ pub enum DiagnosticCode {
     CannotResolve,
     /// Invalid identifier.
     InvalidIdentifier,
+    /// Undefined aggregate field/member.
+    UndefinedField,
+    /// Duplicate aggregate field/member.
+    DuplicateField,
 
     // Type errors (E200-E299)
     /// Type mismatch.
@@ -128,6 +132,8 @@ impl DiagnosticCode {
             Self::DuplicateDeclaration => "E104",
             Self::CannotResolve => "E105",
             Self::InvalidIdentifier => "E106",
+            Self::UndefinedField => "E107",
+            Self::DuplicateField => "E108",
             // Type errors
             Self::TypeMismatch => "E201",
             Self::InvalidOperation => "E202",
@@ -179,6 +185,8 @@ impl DiagnosticCode {
             | Self::DuplicateDeclaration
             | Self::CannotResolve
             | Self::InvalidIdentifier
+            | Self::UndefinedField
+            | Self::DuplicateField
             | Self::TypeMismatch
             | Self::InvalidOperation
             | Self::IncompatibleAssignment

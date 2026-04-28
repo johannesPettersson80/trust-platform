@@ -23,6 +23,14 @@ pub(super) struct VarBlockQualifiers {
     pub(super) constant: bool,
 }
 
+#[derive(Debug, Clone)]
+pub(super) struct VarDeclParts {
+    pub(super) names: Vec<SmolStr>,
+    pub(super) type_ref: SyntaxNode,
+    pub(super) initializer: Option<SyntaxNode>,
+    pub(super) address: Option<SmolStr>,
+}
+
 pub(super) fn var_block_kind(node: &SyntaxNode) -> Result<VarBlockKind, CompileError> {
     for token in node
         .children_with_tokens()
@@ -72,18 +80,7 @@ pub(super) fn var_block_qualifiers(node: &SyntaxNode) -> VarBlockQualifiers {
     qualifiers
 }
 
-#[allow(clippy::type_complexity)]
-pub(super) fn parse_var_decl(
-    var_decl: &SyntaxNode,
-) -> Result<
-    (
-        Vec<SmolStr>,
-        SyntaxNode,
-        Option<SyntaxNode>,
-        Option<SmolStr>,
-    ),
-    CompileError,
-> {
+pub(super) fn parse_var_decl(var_decl: &SyntaxNode) -> Result<VarDeclParts, CompileError> {
     let mut names = Vec::new();
     for child in var_decl.children() {
         if child.kind() == SyntaxKind::Name {
@@ -121,5 +118,10 @@ pub(super) fn parse_var_decl(
         }
     }
 
-    Ok((names, type_ref, initializer, address))
+    Ok(VarDeclParts {
+        names,
+        type_ref,
+        initializer,
+        address,
+    })
 }

@@ -4,7 +4,8 @@ use crate::error::RuntimeError;
 use crate::eval::ops::{apply_binary, apply_unary, BinaryOp};
 use crate::eval::EvalContext;
 use crate::stdlib::{conversions, time, StdParams};
-use crate::value::{size_of_type, ArrayValue, SizeOfError, Value};
+use crate::value::{size_of_type, ArrayValue, SizeOfError, StructValue, Value};
+use indexmap::IndexMap;
 
 use super::access::{eval_indices, read_field, read_indices, read_name};
 use super::ast::{Expr, SizeOfTarget};
@@ -22,6 +23,21 @@ pub fn eval_expr(ctx: &mut EvalContext<'_>, expr: &Expr) -> Result<Value, Runtim
             dimensions: vec![(1, elements.len() as i64)],
             elements: eval_array_initializer_elements(ctx, elements)?,
         }))),
+        Expr::StructInitializer(fields) => {
+            let mut values = IndexMap::new();
+            for (field, expr) in fields {
+                if values
+                    .keys()
+                    .any(|existing: &SmolStr| existing.eq_ignore_ascii_case(field.as_str()))
+                {
+                    return Err(RuntimeError::TypeMismatch);
+                }
+                values.insert(field.clone(), eval_expr(ctx, expr)?);
+            }
+            Ok(Value::Struct(std::sync::Arc::new(
+                StructValue::from_untyped_parts("".into(), values),
+            )))
+        }
         Expr::This => ctx
             .current_instance
             .map(Value::Instance)

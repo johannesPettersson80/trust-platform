@@ -139,6 +139,18 @@ IEC 61131-3 Ed.3 §6.6.1.4.1 requires VAR_IN_OUT parameters to be “properly ma
 | Non-formal calls | Positional argument count must match parameters (excluding EN/ENO) |
 | Mixed calls | Positional arguments must precede formal arguments (IEC 61131-3 Ed.3 §6.6.1.4.2; Table 50) |
 
+### 3.5 Aggregate Initializer Errors
+
+Named aggregate initializers are validated at HIR collection/type-check time.
+
+| Context | Error Condition | Diagnostic |
+|---------|-----------------|------------|
+| Struct/union/FB aggregate | Unknown field/member name | `E107 UndefinedField` |
+| Struct/union/FB aggregate | Duplicate field/member name | `E108 DuplicateField` |
+| Aggregate target | Non-aggregate target type | `E201 TypeMismatch` |
+| FB aggregate | `VAR_IN_OUT`, temp, external, or non-public target | `E202 InvalidOperation` |
+| String/WSTRING member default | Literal exceeds declared capacity | `E304 OutOfRange` |
+
 ### 3.5 Standard Function Call Errors
 
 Standard functions and conversions (Tables 22–36) have fixed or extensible signatures with defined type categories. The type checker resolves overloads by argument types and reports errors when no valid overload matches. (IEC 61131-3 Ed.3, Tables 22–36)

@@ -17,6 +17,15 @@ impl<'a> BytecodeEncoder<'a> {
             code.truncate(start_len);
             return Ok(false);
         }
+        if self.lvalue_root_is_local_field(ctx, target) {
+            if !self.emit_dynamic_ref_for_lvalue(ctx, target, code)? {
+                code.truncate(start_len);
+                return Ok(false);
+            }
+            code.push(0x13); // SWAP
+            code.push(0x33); // STORE
+            return Ok(true);
+        }
         if let Some(reference) = self.resolve_lvalue_ref(ctx, target)? {
             let ref_idx = self.ref_index_for(&reference)?;
             code.push(0x21);
@@ -131,6 +140,17 @@ impl<'a> BytecodeEncoder<'a> {
             return false;
         };
         ctx.self_field_name(name).is_some() && ctx.local_ref(name).is_none()
+    }
+
+    fn lvalue_root_is_local_field(
+        &self,
+        ctx: &CodegenContext,
+        target: &crate::program_model::LValue,
+    ) -> bool {
+        let Some(name) = target.root_name() else {
+            return false;
+        };
+        ctx.local_ref(name).is_some() && lvalue_contains_field(target)
     }
 
     fn emit_self_field_ref(
@@ -295,5 +315,13 @@ impl<'a> BytecodeEncoder<'a> {
         }
         code.push(0x32);
         Ok(true)
+    }
+}
+
+fn lvalue_contains_field(target: &crate::program_model::LValue) -> bool {
+    match target {
+        crate::program_model::LValue::Field { .. } => true,
+        crate::program_model::LValue::Index { target, .. } => lvalue_contains_field(target),
+        crate::program_model::LValue::Name(_) | crate::program_model::LValue::Deref(_) => false,
     }
 }

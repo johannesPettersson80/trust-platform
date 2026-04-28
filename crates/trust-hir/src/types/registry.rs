@@ -40,14 +40,37 @@ impl TypeRegistry {
         self.next_id += 1;
 
         let name = name.into();
+        self.insert_name(name, id);
+        self.types.insert(id, ty);
+
+        id
+    }
+
+    /// Reserves a named user type ID before the full type body is available.
+    ///
+    /// This is used by lowerers that need to resolve self-referential reference
+    /// fields such as `Node.next : REF_TO Node` while the `Node` struct body is
+    /// still being lowered.
+    pub fn reserve(&mut self, name: impl Into<SmolStr>) -> TypeId {
+        let id = TypeId(self.next_id);
+        self.next_id += 1;
+
+        self.insert_name(name.into(), id);
+        self.types.insert(id, Type::Unknown);
+        id
+    }
+
+    /// Replaces a previously reserved user type body.
+    pub fn replace(&mut self, id: TypeId, ty: Type) {
+        self.types.insert(id, ty);
+    }
+
+    fn insert_name(&mut self, name: SmolStr, id: TypeId) {
         self.names.insert(name.clone(), id);
         let upper = name.as_str().to_ascii_uppercase();
         if upper != name {
             self.names.insert(SmolStr::new(upper), id);
         }
-        self.types.insert(id, ty);
-
-        id
     }
 
     /// Registers a struct type with fields.
@@ -239,6 +262,7 @@ mod tests {
                 name: "x".into(),
                 type_id: TypeId::INT,
                 address: None,
+                default_initializer: None,
             }],
         );
         assert!(registry.is_assignable(TypeId::ANY_DERIVED, struct_id));

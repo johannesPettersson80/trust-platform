@@ -1,0 +1,75 @@
+[bundle]
+version = 1
+
+[resource]
+name = "InitBench"
+cycle_interval_ms = 10
+
+[runtime]
+execution_backend = "vm"
+
+[runtime.control]
+endpoint = "tcp://127.0.0.1:0"
+auth_token = "trust-init-bench-fixture-token"
+mode = "production"
+debug_enabled = false
+
+[runtime.web]
+enabled = false
+listen = "127.0.0.1:0"
+auth = "local"
+tls = false
+
+[runtime.tls]
+mode = "disabled"
+require_remote = false
+
+[runtime.discovery]
+enabled = false
+service_name = "truST"
+advertise = false
+interfaces = []
+
+[runtime.mesh]
+enabled = false
+listen = "127.0.0.1:0"
+tls = false
+auth_token = ""
+publish = []
+
+[runtime.opcua]
+enabled = false
+listen = "127.0.0.1:0"
+endpoint_path = "/"
+namespace_uri = "urn:trust:runtime:init-bench"
+publish_interval_ms = 250
+max_nodes = 128
+expose = []
+security_policy = "basic256sha256"
+security_mode = "sign_and_encrypt"
+allow_anonymous = false
+
+[runtime.observability]
+enabled = false
+sample_interval_ms = 1000
+mode = "all"
+include = []
+history_path = "history/historian.jsonl"
+max_entries = 1000
+prometheus_enabled = false
+prometheus_path = "/metrics"
+
+[runtime.log]
+level = "warn"
+
+[runtime.retain]
+mode = "none"
+save_interval_ms = 1000
+
+[runtime.watchdog]
+enabled = false
+timeout_ms = 1000
+action = "halt"
+
+[runtime.fault]
+policy = "halt"

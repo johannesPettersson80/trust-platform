@@ -11,7 +11,6 @@ import { registerIoPanel } from "./ioPanel";
 import { registerHmiPanel } from "./hmiPanel";
 import { registerLanguageModelTools } from "./lm-tools";
 import { augmentDiagnostic } from "./diagnostics";
-import { defaultRuntimeControlEndpoint } from "./runtimeDefaults";
 import { registerNewProjectCommand } from "./newProject";
 import { registerNewStatechartCommand } from "./statechart/newStatechart";
 import { registerImportStatechartCommand } from "./statechart/importStatechart";
@@ -44,36 +43,6 @@ let notifiedStartFailure = false;
 
 const MAX_START_ATTEMPTS = 3;
 const START_RETRY_DELAY_MS = 3000;
-
-const RUNTIME_ENDPOINT_SEEDED_KEY = "runtimeControlEndpointSeeded";
-
-async function seedDefaultRuntimeControlEndpoint(
-  context: vscode.ExtensionContext
-): Promise<void> {
-  const folders = vscode.workspace.workspaceFolders ?? [];
-  if (folders.length === 0) {
-    return;
-  }
-  const defaultEndpoint = defaultRuntimeControlEndpoint();
-  await Promise.all(
-    folders.map(async (folder) => {
-      const seedKey = `${RUNTIME_ENDPOINT_SEEDED_KEY}:${folder.uri.toString()}`;
-      if (context.workspaceState.get<boolean>(seedKey)) {
-        return;
-      }
-      const config = vscode.workspace.getConfiguration("trust-lsp", folder.uri);
-      const current = config.get<string>("runtime.controlEndpoint") ?? "";
-      if (!current.trim()) {
-        await config.update(
-          "runtime.controlEndpoint",
-          defaultEndpoint,
-          vscode.ConfigurationTarget.WorkspaceFolder
-        );
-      }
-      await context.workspaceState.update(seedKey, true);
-    })
-  );
-}
 
 function sendServerConfig(target: LanguageClient | undefined): void {
   if (!target) {
@@ -203,7 +172,6 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(registerVisualCustomEditorAutoOpen());
   context.subscriptions.push(registerVisualCompanionSync());
   registerStTestIntegration(context);
-  await seedDefaultRuntimeControlEndpoint(context);
   const config = vscode.workspace.getConfiguration("trust-lsp");
   showIecDiagnosticRefs = readIecDiagnosticsSetting(config);
   const command = resolveServerCommand(context);
@@ -307,12 +275,6 @@ export async function activate(context: vscode.ExtensionContext) {
           vscode.workspace.getConfiguration("trust-lsp")
         );
       }
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.workspace.onDidChangeWorkspaceFolders(async () => {
-      await seedDefaultRuntimeControlEndpoint(context);
     })
   );
 }

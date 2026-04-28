@@ -1,21 +1,17 @@
 {
   "docs/diagrams/architecture/plcopen-motion-library.puml": "a946e8cdde0f4316302cab0ac1c3e13003b634f098264dc0f539240955aa31d4",
-  "docs/diagrams/architecture/runtime-bytecode-vm-execution.puml": "7c8a6c1947ff26796466fab1a268bdff2cddc60de6828005a33c30b771272086",
+  "docs/diagrams/architecture/runtime-bytecode-vm-execution.puml": "d58b19669b58cd1361ffb95e98b79917def6b3b8a4909eea3777c73ee4ebce6f",
   "docs/diagrams/architecture/runtime-cloud-planes.puml": "3c6dfac75e9ce0e77f1a503caf149d0ea611f5427e7c4e8bac7490fe2befeaf7",
-  "docs/diagrams/architecture/runtime-execution.puml": "5332b88e882242e6e1d034a518fa7045fb703f58059cd9d4c121a55d37df47f2",
+  "docs/diagrams/architecture/runtime-execution.puml": "5cd357849f7a8aa862d2f3d6bd9dbd2a9908dd8fdba052c139a0dabf20f31990",
   "docs/diagrams/architecture/runtime-interpreter-removal-map.puml": "a988ae27d45fa3c2ff95698f491ff2f692d166c7d1dd566007a307bb18ba1663",
-  "docs/diagrams/architecture/system-architecture.puml": "a03e81cd69492babc9b8382522652b6344c5b4bd3f724d26681bd84e28c9ca3c",
+  "docs/diagrams/architecture/system-architecture.puml": "1f65e2a69191e6c8149f24006e7b2b305d01b35e043a036f52a921fc281550df",
   "docs/diagrams/debug/debug-architecture.puml": "7ac56c931f14700cd5324e9c363ca72180e560e8644e164f3d82192e5cb4ac58",
   "docs/diagrams/debug/debug-breakpoint-after-launch-actual-observed.puml": "26f721f18337bb329bff7587d829284e5cac207bdff52dc7dcc899b38ddb4173",
   "docs/diagrams/debug/debug-breakpoint-after-launch-intended.puml": "3ad28b011555187f43da1b5bb4a95f4a2d267e55d77daf1f9411008745d9b527",
   "docs/diagrams/debug/debug-state-machine.puml": "c1a7201b2d0d475f66fcaf3302927e0f7d1677a459595aee4c8222347dcc666a",
   "docs/diagrams/debug/debug-step-sequence.puml": "c35ff8307a78ce6c2801d353f481e755e1e1408dd530477ff8fede700c9c525d",
   "docs/diagrams/debug/debug-threads.puml": "8cd4754b4b26ae5762552283b06d02e2ed255c8189c49341e727891fc8b3f143",
-  "docs/diagrams/hir/hir-semantics.puml": "d7232648ff4cc0f84c12c89e7198e80685026ed6f5a9b83b38148ac7ad4a84b6",
+  "docs/diagrams/hir/hir-semantics.puml": "9d4b51b2ecdb6ee674ef8087b57c06fcb96b3733804017261ec562ab6c84f284",
   "docs/diagrams/lsp/lsp-request-flow.puml": "5cdabf270a7c9d0b35f601f38c4d20510b8fc8f2ab5e58e0f2773141d2f0577a",
-  "docs/diagrams/syntax/syntax-pipeline.puml": "93cecb3d620c51377e79677ba18e48c6acf79ea0f6b4c9f2ab75a52ca9d1b57b",
-  "docs/internal/design/vm-call-flow-after.puml": "5dd574116c4abf8e369eac1649008a53e6f254a6247a2dfdc9e51f38b251c74b",
-  "docs/internal/design/vm-call-flow-before.puml": "0e7f5e98ec714912f0fad7ed1bc0c79c24acc4a88fb51c02d87349df3631ad55",
-  "docs/internal/design/vm-call-flow-current.puml": "cda0770a11be738bf16a2ced2a4d18a5177e82293d85b551ff7c4c11ac937006",
-  "docs/internal/design/vm-call-flow-target.puml": "78d6f84c41c13fbd1bc0d9c176c6fc28176dd7204d3fae32cd679e6ff88b18d5"
+  "docs/diagrams/syntax/syntax-pipeline.puml": "6cd48f7f6c7b61b6164589441f0bd11bef30a1a4fd5cb0f4103f5bdcc2086b48"
 }

@@ -294,6 +294,73 @@ impl SyntaxKind {
     pub fn is_node(self) -> bool {
         !self.is_token()
     }
+
+    /// Returns `true` for generic expression syntax nodes.
+    ///
+    /// Aggregate-only initializer nodes are intentionally excluded here; callers
+    /// that operate in initializer position should use
+    /// [`SyntaxKind::is_initializer_expression_node`].
+    #[must_use]
+    pub fn is_expression_node(self) -> bool {
+        if self.is_trivia() {
+            return false;
+        }
+        matches!(
+            self,
+            Self::Literal
+                | Self::NameRef
+                | Self::BinaryExpr
+                | Self::UnaryExpr
+                | Self::CallExpr
+                | Self::IndexExpr
+                | Self::FieldExpr
+                | Self::DerefExpr
+                | Self::AddrExpr
+                | Self::ParenExpr
+                | Self::ThisExpr
+                | Self::SuperExpr
+                | Self::SizeOfExpr
+        )
+    }
+
+    /// Returns `true` for aggregate initializer nodes.
+    #[must_use]
+    pub fn is_aggregate_initializer_node(self) -> bool {
+        if self.is_trivia() {
+            return false;
+        }
+        matches!(self, Self::InitializerList | Self::ArrayInitializer)
+    }
+
+    /// Returns `true` for syntax that can appear as an initializer RHS.
+    #[must_use]
+    pub fn is_initializer_expression_node(self) -> bool {
+        self.is_expression_node() || self.is_aggregate_initializer_node()
+    }
+
+    /// Returns `true` for statement syntax nodes.
+    #[must_use]
+    pub fn is_statement_node(self) -> bool {
+        if self.is_trivia() {
+            return false;
+        }
+        matches!(
+            self,
+            Self::AssignStmt
+                | Self::IfStmt
+                | Self::ForStmt
+                | Self::WhileStmt
+                | Self::RepeatStmt
+                | Self::CaseStmt
+                | Self::ReturnStmt
+                | Self::ExprStmt
+                | Self::ExitStmt
+                | Self::ContinueStmt
+                | Self::JmpStmt
+                | Self::LabelStmt
+                | Self::EmptyStmt
+        )
+    }
 }
 
 macro_rules! map_token_kinds {
@@ -470,5 +537,24 @@ mod tests {
 
         assert!(!SyntaxKind::Ident.is_node());
         assert!(SyntaxKind::IfStmt.is_node());
+    }
+
+    #[test]
+    fn test_initializer_classifier_sets() {
+        assert!(SyntaxKind::Literal.is_expression_node());
+        assert!(SyntaxKind::NameRef.is_expression_node());
+        assert!(SyntaxKind::CallExpr.is_expression_node());
+        assert!(!SyntaxKind::InitializerList.is_expression_node());
+        assert!(!SyntaxKind::ArrayInitializer.is_expression_node());
+
+        assert!(SyntaxKind::InitializerList.is_aggregate_initializer_node());
+        assert!(SyntaxKind::ArrayInitializer.is_aggregate_initializer_node());
+        assert!(SyntaxKind::Literal.is_initializer_expression_node());
+        assert!(SyntaxKind::InitializerList.is_initializer_expression_node());
+        assert!(SyntaxKind::ArrayInitializer.is_initializer_expression_node());
+
+        assert!(!SyntaxKind::Pragma.is_expression_node());
+        assert!(!SyntaxKind::Pragma.is_statement_node());
+        assert!(!SyntaxKind::Pragma.is_initializer_expression_node());
     }
 }

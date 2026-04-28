@@ -71,6 +71,25 @@ struct ProjectBenchReport {
     vm_profile: Option<VmProfileReport>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+struct InitBenchReport {
+    scenario: &'static str,
+    project: String,
+    resource_name: String,
+    execution_backend: String,
+    samples: usize,
+    warmup_cycles: usize,
+    init_only_latency: LatencySummary,
+    init_plus_first_cycle_latency: LatencySummary,
+    first_cycle_latency: LatencySummary,
+    first_mutation_latency: LatencySummary,
+    retain_restart_latency: LatencySummary,
+    struct_value_new_latency: LatencySummary,
+    struct_value_untyped_latency: LatencySummary,
+    steady_cycle_latency: LatencySummary,
+    histogram: Vec<HistogramBucket>,
+}
+
 
 #[derive(Debug, Clone, Serialize)]
 struct VmProfileFallbackReasonReport {
@@ -184,6 +203,8 @@ enum BenchReport {
     T0Shm(T0ShmBenchReport),
     #[serde(rename = "project")]
     Project(ProjectBenchReport),
+    #[serde(rename = "init")]
+    Init(InitBenchReport),
     #[serde(rename = "mesh-zenoh")]
     MeshZenoh(MeshZenohBenchReport),
     #[serde(rename = "dispatch")]
@@ -240,6 +261,33 @@ impl ProjectBenchWorkload {
             warmup_cycles,
             watch,
             enable_tier1,
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+struct InitBenchWorkload {
+    project: std::path::PathBuf,
+    samples: usize,
+    warmup_cycles: usize,
+}
+
+impl InitBenchWorkload {
+    fn normalize(
+        project: std::path::PathBuf,
+        samples: usize,
+        warmup_cycles: usize,
+    ) -> anyhow::Result<Self> {
+        if samples == 0 {
+            anyhow::bail!("--samples must be greater than zero");
+        }
+        if !project.is_dir() {
+            anyhow::bail!("--project must point to an existing project folder");
+        }
+        Ok(Self {
+            project,
+            samples,
+            warmup_cycles,
         })
     }
 }

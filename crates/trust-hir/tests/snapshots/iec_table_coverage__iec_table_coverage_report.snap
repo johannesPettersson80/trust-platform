@@ -9,15 +9,23 @@ Tables 5-9 (docs/specs/01-lexical-elements.md)
 
 Table 11 (docs/specs/02-data-types.md)
   - iec_table11: ok [crates/trust-runtime/tests/types_user.rs]
+  - test_type_level_defaults_cover_directly_derived_shapes: ok [crates/trust-syntax/tests/parser_types.rs]
 
 Table 12 (docs/specs/02-data-types.md)
   - iec_table12: ok [crates/trust-runtime/tests/types_ref.rs]
 
 Table 13 (docs/specs/03-variables.md)
   - iec_table13: ok [crates/trust-hir/tests/var_sections.rs]
+  - multi_name_struct_initializer_values_are_independent: ok [crates/trust-runtime/tests/struct_initializers.rs]
 
 Table 14 (docs/specs/03-variables.md)
   - iec_table14: ok [crates/trust-runtime/tests/var_init.rs]
+  - named_struct_initializer_materializes_runtime_value: ok [crates/trust-runtime/tests/struct_initializers.rs]
+  - function_block_instance_initializer_applies_allowed_member_overrides: ok [crates/trust-runtime/tests/struct_initializers.rs]
+
+Table 41 (docs/specs/04-pou-declarations.md)
+  - function_block_instance_initializer_applies_allowed_member_overrides: ok [crates/trust-runtime/tests/struct_initializers.rs]
+  - function_local_fb_initializer_applies_in_vm_local_init: ok [crates/trust-runtime/tests/struct_initializers.rs]
 
 Table 15 (docs/specs/03-variables.md)
   - iec_table15: ok [crates/trust-runtime/tests/var_vla.rs]

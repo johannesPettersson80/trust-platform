@@ -302,7 +302,7 @@ impl<'a> SymbolImporter<'a> {
             return TypeId::UNKNOWN;
         }
 
-        let source = match self.sources.get(&source_file) {
+        let source = match self.sources.get(&source_file).cloned() {
             Some(table) => table,
             None => {
                 self.importing.remove(&(source_file, type_id));
@@ -323,26 +323,36 @@ impl<'a> SymbolImporter<'a> {
                 self.target.register_array_type(element, dimensions)
             }
             Type::Struct { name, fields } => {
-                let fields = fields
-                    .into_iter()
-                    .map(|field| StructField {
+                let mut imported_fields = Vec::with_capacity(fields.len());
+                for field in fields {
+                    let default_initializer = field
+                        .default_initializer
+                        .and_then(|id| self.target.import_initializer_from(source.as_ref(), id));
+                    imported_fields.push(StructField {
                         name: field.name,
                         type_id: self.import_type(source_file, field.type_id),
                         address: field.address,
-                    })
-                    .collect();
-                self.target.register_struct_type(name.clone(), fields)
+                        default_initializer,
+                    });
+                }
+                self.target
+                    .register_struct_type(name.clone(), imported_fields)
             }
             Type::Union { name, variants } => {
-                let variants = variants
-                    .into_iter()
-                    .map(|variant| UnionVariant {
+                let mut imported_variants = Vec::with_capacity(variants.len());
+                for variant in variants {
+                    let default_initializer = variant
+                        .default_initializer
+                        .and_then(|id| self.target.import_initializer_from(source.as_ref(), id));
+                    imported_variants.push(UnionVariant {
                         name: variant.name,
                         type_id: self.import_type(source_file, variant.type_id),
                         address: variant.address,
-                    })
-                    .collect();
-                self.target.register_union_type(name.clone(), variants)
+                        default_initializer,
+                    });
+                }
+                self.target
+                    .register_union_type(name.clone(), imported_variants)
             }
             Type::Enum { name, base, values } => {
                 let base = self.import_type(source_file, base);
@@ -390,6 +400,16 @@ impl<'a> SymbolImporter<'a> {
             },
             _ => type_id,
         };
+
+        if let Some(source_initializer) = source.type_default_initializer(type_id) {
+            if let Some(target_initializer) = self
+                .target
+                .import_initializer_from(source.as_ref(), source_initializer)
+            {
+                self.target
+                    .set_type_default_initializer(mapped, target_initializer);
+            }
+        }
 
         self.type_map.insert((source_file, type_id), mapped);
         self.importing.remove(&(source_file, type_id));

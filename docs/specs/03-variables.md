@@ -37,6 +37,16 @@ END_VAR
 | 5 | Structure init | `S: MyStruct := (field1 := 1, field2 := 2);` |
 | 6 | FB instance init | `Timer: TON := (PT := T#1s);` |
 
+For multi-name declarations, the declared initializer is materialized into
+independent storage for each declared name. Aggregate values rely on the runtime
+`Value::Struct` copy-on-write contract for subsequent field mutation.
+
+Function-block instance aggregate initializers may target `VAR_INPUT`,
+`VAR_OUTPUT`, and explicitly `VAR PUBLIC` members. `VAR_IN_OUT`, `VAR_TEMP`,
+`VAR_EXTERNAL`, and non-public members are rejected because in-out bindings are
+caller-supplied references and temporary/external/private storage is not an
+instance-initializer surface.
+
 ## 2. Variable Section Keywords (Figure 7, Section 6.5.2)
 
 ### Input/Output Variables

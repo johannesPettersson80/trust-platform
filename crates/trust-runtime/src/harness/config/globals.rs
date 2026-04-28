@@ -8,16 +8,12 @@ pub(super) fn apply_globals(
     let stdlib = runtime.stdlib().clone();
     let function_blocks = runtime.function_blocks().clone();
     let classes = runtime.classes().clone();
+    let initializer_catalog = runtime.initializer_catalog().clone();
     {
         let storage = runtime.storage_mut();
 
         for init in globals {
             if let Some(fb_name) = super::function_block_type_name(init.type_id, &registry) {
-                if init.initializer.is_some() {
-                    return Err(CompileError::new(
-                        "function block instances cannot have initializers",
-                    ));
-                }
                 let key = SmolStr::new(fb_name.to_ascii_uppercase());
                 let fb = function_blocks.get(&key).ok_or_else(|| {
                     CompileError::new(format!("unknown function block '{fb_name}'"))
@@ -30,10 +26,25 @@ pub(super) fn apply_globals(
                     &function_blocks,
                     &functions,
                     &stdlib,
+                    &initializer_catalog,
                     fb,
                 )
                 .map_err(|err| CompileError::new(err.to_string()))?;
                 storage.set_global(init.name.clone(), Value::Instance(instance_id));
+                if let Some(expr) = &init.initializer {
+                    apply_fb_instance_initializer(
+                        storage,
+                        &registry,
+                        &profile,
+                        &stdlib,
+                        &initializer_catalog,
+                        None,
+                        instance_id,
+                        fb,
+                        expr,
+                    )
+                    .map_err(|err| CompileError::new(err.to_string()))?;
+                }
                 continue;
             }
             if let Some(class_name) = super::class_type_name(init.type_id, &registry) {
@@ -54,6 +65,7 @@ pub(super) fn apply_globals(
                     &function_blocks,
                     &functions,
                     &stdlib,
+                    &initializer_catalog,
                     class_def,
                 )
                 .map_err(|err| CompileError::new(err.to_string()))?;
@@ -64,28 +76,38 @@ pub(super) fn apply_globals(
                 storage.set_global(init.name.clone(), Value::Null);
                 continue;
             }
-            let value = default_value_for_type_id(init.type_id, &registry, &profile)
-                .map_err(|err| CompileError::new(format!("default value error: {err:?}")))?;
+            let value = crate::harness::initializer::default_value_for_type_id(
+                storage,
+                &registry,
+                &initializer_catalog,
+                &profile,
+                None,
+                &stdlib,
+                init.type_id,
+            )
+            .map_err(|err| CompileError::new(format!("default value error: {err}")))?;
             storage.set_global(init.name.clone(), value);
         }
 
         for init in globals {
             if let Some(expr) = &init.initializer {
-                if super::function_block_type_name(init.type_id, &registry).is_some()
-                    || super::class_type_name(init.type_id, &registry).is_some()
-                {
+                if super::function_block_type_name(init.type_id, &registry).is_some() {
                     continue;
                 }
-                let value = crate::helper_eval::eval_storage_expr(
+                if super::class_type_name(init.type_id, &registry).is_some() {
+                    continue;
+                }
+                let value = crate::harness::initializer::evaluate_initializer(
                     storage,
                     &registry,
+                    &initializer_catalog,
                     &profile,
                     None,
+                    &stdlib,
                     expr,
+                    init.type_id,
                 )
                 .map_err(|err| CompileError::new(format!("initializer error: {err}")))?;
-                let value =
-                    super::coerce_initializer_value_to_type(value, init.type_id, &registry, &profile)?;
                 storage.set_global(init.name.clone(), value);
             }
         }

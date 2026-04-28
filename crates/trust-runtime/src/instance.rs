@@ -4,17 +4,19 @@
 
 use indexmap::IndexMap;
 use smol_str::SmolStr;
+use trust_hir::symbols::ParamDirection;
 use trust_hir::types::TypeRegistry;
 use trust_hir::Type;
 
 use crate::error::RuntimeError;
 use crate::memory::{InstanceId, VariableStorage};
 use crate::program_model::{
-    ClassDef, FunctionBlockBase, FunctionBlockDef, FunctionDef, Param, VarDef,
+    ClassDef, Expr, FunctionBlockBase, FunctionBlockDef, FunctionDef, InitializerCatalog, Param,
+    VarDef,
 };
 use crate::stdlib::StandardLibrary;
 use crate::task::ProgramDef;
-use crate::value::{default_value_for_type_id, DateTimeProfile, Value};
+use crate::value::{DateTimeProfile, Value};
 
 /// Create and initialize a function block instance.
 #[allow(clippy::too_many_arguments)]
@@ -26,6 +28,7 @@ pub fn create_fb_instance(
     function_blocks: &IndexMap<SmolStr, FunctionBlockDef>,
     functions: &IndexMap<SmolStr, FunctionDef>,
     stdlib: &StandardLibrary,
+    initializer_catalog: &InitializerCatalog,
     fb: &FunctionBlockDef,
 ) -> Result<InstanceId, RuntimeError> {
     let parent_id = if let Some(base) = &fb.base {
@@ -43,6 +46,7 @@ pub fn create_fb_instance(
                     function_blocks,
                     functions,
                     stdlib,
+                    initializer_catalog,
                     base_def,
                 )?)
             }
@@ -57,6 +61,7 @@ pub fn create_fb_instance(
                     function_blocks,
                     functions,
                     stdlib,
+                    initializer_catalog,
                     base_def,
                 )?)
             }
@@ -72,7 +77,15 @@ pub fn create_fb_instance(
         }
     }
 
-    init_param_defaults(storage, registry, profile, instance_id, &fb.params)?;
+    init_param_defaults(
+        storage,
+        registry,
+        profile,
+        stdlib,
+        initializer_catalog,
+        instance_id,
+        &fb.params,
+    )?;
     init_var_defaults(
         storage,
         registry,
@@ -81,6 +94,7 @@ pub fn create_fb_instance(
         function_blocks,
         functions,
         stdlib,
+        initializer_catalog,
         instance_id,
         &fb.vars,
     )?;
@@ -92,6 +106,7 @@ pub fn create_fb_instance(
         function_blocks,
         functions,
         stdlib,
+        initializer_catalog,
         instance_id,
         &fb.name,
         &fb.methods,
@@ -110,6 +125,7 @@ pub fn create_program_instance(
     function_blocks: &IndexMap<SmolStr, FunctionBlockDef>,
     functions: &IndexMap<SmolStr, FunctionDef>,
     stdlib: &StandardLibrary,
+    initializer_catalog: &InitializerCatalog,
     program: &ProgramDef,
 ) -> Result<InstanceId, RuntimeError> {
     let instance_id = storage.create_instance(program.name.clone());
@@ -121,6 +137,7 @@ pub fn create_program_instance(
         function_blocks,
         functions,
         stdlib,
+        initializer_catalog,
         instance_id,
         &program.vars,
     )?;
@@ -137,6 +154,7 @@ pub fn create_class_instance(
     function_blocks: &IndexMap<SmolStr, FunctionBlockDef>,
     functions: &IndexMap<SmolStr, FunctionDef>,
     stdlib: &StandardLibrary,
+    initializer_catalog: &InitializerCatalog,
     class_def: &ClassDef,
 ) -> Result<InstanceId, RuntimeError> {
     let parent_id = if let Some(base) = &class_def.base {
@@ -150,6 +168,7 @@ pub fn create_class_instance(
             function_blocks,
             functions,
             stdlib,
+            initializer_catalog,
             base_def,
         )?)
     } else {
@@ -171,6 +190,7 @@ pub fn create_class_instance(
         function_blocks,
         functions,
         stdlib,
+        initializer_catalog,
         instance_id,
         &class_def.vars,
     )?;
@@ -182,6 +202,7 @@ pub fn create_class_instance(
         function_blocks,
         functions,
         stdlib,
+        initializer_catalog,
         instance_id,
         &class_def.name,
         &class_def.methods,
@@ -194,12 +215,22 @@ fn init_param_defaults(
     storage: &mut VariableStorage,
     registry: &TypeRegistry,
     profile: &DateTimeProfile,
+    stdlib: &StandardLibrary,
+    initializer_catalog: &InitializerCatalog,
     instance_id: InstanceId,
     params: &[Param],
 ) -> Result<(), RuntimeError> {
     for param in params {
-        let value =
-            default_value_for_type_id(param.type_id, registry, profile).unwrap_or(Value::Null);
+        let value = crate::harness::initializer::default_value_for_type_id(
+            storage,
+            registry,
+            initializer_catalog,
+            profile,
+            Some(instance_id),
+            stdlib,
+            param.type_id,
+        )
+        .unwrap_or(Value::Null);
         storage.set_instance_var(instance_id, param.name.clone(), value);
     }
 
@@ -207,20 +238,16 @@ fn init_param_defaults(
         let Some(expr) = &param.default else {
             continue;
         };
-        let value = crate::helper_eval::eval_storage_expr(
+        let value = crate::harness::initializer::evaluate_initializer(
             storage,
             registry,
+            initializer_catalog,
             profile,
             Some(instance_id),
+            stdlib,
             expr,
-        )?;
-        let value = crate::harness::coerce_initializer_value_to_type(
-            value,
             param.type_id,
-            registry,
-            profile,
-        )
-        .map_err(|_| RuntimeError::TypeMismatch)?;
+        )?;
         storage.set_instance_var(instance_id, param.name.clone(), value);
     }
 
@@ -236,6 +263,7 @@ fn init_var_defaults(
     function_blocks: &IndexMap<SmolStr, FunctionBlockDef>,
     functions: &IndexMap<SmolStr, FunctionDef>,
     stdlib: &StandardLibrary,
+    initializer_catalog: &InitializerCatalog,
     instance_id: InstanceId,
     vars: &[VarDef],
 ) -> Result<(), RuntimeError> {
@@ -253,6 +281,7 @@ fn init_var_defaults(
                 function_blocks,
                 functions,
                 stdlib,
+                initializer_catalog,
                 fb,
             )?;
             storage.set_instance_var(instance_id, var.name.clone(), Value::Instance(nested_id));
@@ -269,6 +298,7 @@ fn init_var_defaults(
                 function_blocks,
                 functions,
                 stdlib,
+                initializer_catalog,
                 class_def,
             )?;
             storage.set_instance_var(instance_id, var.name.clone(), Value::Instance(nested_id));
@@ -277,14 +307,44 @@ fn init_var_defaults(
         if var.external {
             continue;
         }
-        let value =
-            default_value_for_type_id(var.type_id, registry, profile).unwrap_or(Value::Null);
+        let value = crate::harness::initializer::default_value_for_type_id(
+            storage,
+            registry,
+            initializer_catalog,
+            profile,
+            Some(instance_id),
+            stdlib,
+            var.type_id,
+        )
+        .unwrap_or(Value::Null);
         storage.set_instance_var(instance_id, var.name.clone(), value);
     }
     for var in vars {
         if function_block_type_name(var.type_id, registry).is_some() {
-            if var.initializer.is_some() {
-                return Err(RuntimeError::TypeMismatch);
+            if let Some(expr) = &var.initializer {
+                let Some(Value::Instance(nested_id)) = storage
+                    .get_instance_var(instance_id, var.name.as_str())
+                    .cloned()
+                else {
+                    return Err(RuntimeError::TypeMismatch);
+                };
+                let fb_name = function_block_type_name(var.type_id, registry)
+                    .ok_or(RuntimeError::TypeMismatch)?;
+                let fb_key = SmolStr::new(fb_name.to_ascii_uppercase());
+                let fb = function_blocks
+                    .get(&fb_key)
+                    .ok_or_else(|| RuntimeError::UndefinedFunctionBlock(fb_name.clone()))?;
+                apply_fb_instance_initializer(
+                    storage,
+                    registry,
+                    profile,
+                    stdlib,
+                    initializer_catalog,
+                    Some(instance_id),
+                    nested_id,
+                    fb,
+                    expr,
+                )?;
             }
             continue;
         }
@@ -300,16 +360,16 @@ fn init_var_defaults(
         if var.external {
             continue;
         }
-        let value = crate::helper_eval::eval_storage_expr(
+        let value = crate::harness::initializer::evaluate_initializer(
             storage,
             registry,
+            initializer_catalog,
             profile,
             Some(instance_id),
+            stdlib,
             expr,
+            var.type_id,
         )?;
-        let value =
-            crate::harness::coerce_initializer_value_to_type(value, var.type_id, registry, profile)
-                .map_err(|_| RuntimeError::TypeMismatch)?;
         storage.set_instance_var(instance_id, var.name.clone(), value);
     }
     Ok(())
@@ -324,6 +384,7 @@ fn init_method_static_defaults(
     function_blocks: &IndexMap<SmolStr, FunctionBlockDef>,
     functions: &IndexMap<SmolStr, FunctionDef>,
     stdlib: &StandardLibrary,
+    initializer_catalog: &InitializerCatalog,
     instance_id: InstanceId,
     owner: &SmolStr,
     methods: &[crate::program_model::MethodDef],
@@ -333,9 +394,6 @@ fn init_method_static_defaults(
         for local in &method.static_locals {
             let key = crate::program_model::static_storage_name(&method_owner, &local.name);
             if let Some(fb_name) = function_block_type_name(local.type_id, registry) {
-                if local.initializer.is_some() {
-                    return Err(RuntimeError::TypeMismatch);
-                }
                 let fb_key = SmolStr::new(fb_name.to_ascii_uppercase());
                 let fb = function_blocks
                     .get(&fb_key)
@@ -348,6 +406,7 @@ fn init_method_static_defaults(
                     function_blocks,
                     functions,
                     stdlib,
+                    initializer_catalog,
                     fb,
                 )?;
                 storage.set_instance_var(instance_id, key, Value::Instance(nested_id));
@@ -367,13 +426,22 @@ fn init_method_static_defaults(
                     function_blocks,
                     functions,
                     stdlib,
+                    initializer_catalog,
                     class_def,
                 )?;
                 storage.set_instance_var(instance_id, key, Value::Instance(nested_id));
                 continue;
             }
-            let value =
-                default_value_for_type_id(local.type_id, registry, profile).unwrap_or(Value::Null);
+            let value = crate::harness::initializer::default_value_for_type_id(
+                storage,
+                registry,
+                initializer_catalog,
+                profile,
+                Some(instance_id),
+                stdlib,
+                local.type_id,
+            )
+            .unwrap_or(Value::Null);
             storage.set_instance_var(instance_id, key, value);
         }
     }
@@ -382,6 +450,31 @@ fn init_method_static_defaults(
         let method_owner = crate::program_model::method_static_storage_owner(owner, &method.name);
         for local in &method.static_locals {
             if function_block_type_name(local.type_id, registry).is_some() {
+                if let Some(expr) = &local.initializer {
+                    let key = crate::program_model::static_storage_name(&method_owner, &local.name);
+                    let Some(Value::Instance(nested_id)) =
+                        storage.get_instance_var(instance_id, key.as_str()).cloned()
+                    else {
+                        return Err(RuntimeError::TypeMismatch);
+                    };
+                    let fb_name = function_block_type_name(local.type_id, registry)
+                        .ok_or(RuntimeError::TypeMismatch)?;
+                    let fb_key = SmolStr::new(fb_name.to_ascii_uppercase());
+                    let fb = function_blocks
+                        .get(&fb_key)
+                        .ok_or_else(|| RuntimeError::UndefinedFunctionBlock(fb_name.clone()))?;
+                    apply_fb_instance_initializer(
+                        storage,
+                        registry,
+                        profile,
+                        stdlib,
+                        initializer_catalog,
+                        Some(instance_id),
+                        nested_id,
+                        fb,
+                        expr,
+                    )?;
+                }
                 continue;
             }
             if class_type_name(local.type_id, registry).is_some() {
@@ -390,26 +483,105 @@ fn init_method_static_defaults(
             let Some(expr) = &local.initializer else {
                 continue;
             };
-            let value = crate::helper_eval::eval_storage_expr(
+            let value = crate::harness::initializer::evaluate_initializer(
                 storage,
                 registry,
+                initializer_catalog,
                 profile,
                 Some(instance_id),
+                stdlib,
                 expr,
-            )?;
-            let value = crate::harness::coerce_initializer_value_to_type(
-                value,
                 local.type_id,
-                registry,
-                profile,
-            )
-            .map_err(|_| RuntimeError::TypeMismatch)?;
+            )?;
             let key = crate::program_model::static_storage_name(&method_owner, &local.name);
             storage.set_instance_var(instance_id, key, value);
         }
     }
 
     Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn apply_fb_instance_initializer(
+    storage: &mut VariableStorage,
+    registry: &TypeRegistry,
+    profile: &DateTimeProfile,
+    stdlib: &StandardLibrary,
+    initializer_catalog: &InitializerCatalog,
+    parent_instance_id: Option<InstanceId>,
+    target_instance_id: InstanceId,
+    fb: &FunctionBlockDef,
+    expr: &Expr,
+) -> Result<(), RuntimeError> {
+    let Expr::StructInitializer(fields) = expr else {
+        return Err(RuntimeError::TypeMismatch);
+    };
+
+    let mut seen = Vec::<SmolStr>::new();
+    for (name, value_expr) in fields {
+        if seen
+            .iter()
+            .any(|existing| existing.eq_ignore_ascii_case(name.as_str()))
+        {
+            return Err(RuntimeError::TypeMismatch);
+        }
+        seen.push(name.clone());
+
+        let (canonical_name, type_id) = fb_initializer_target(fb, name)?;
+        let value = crate::harness::initializer::evaluate_initializer(
+            storage,
+            registry,
+            initializer_catalog,
+            profile,
+            parent_instance_id,
+            stdlib,
+            value_expr,
+            type_id,
+        )?;
+        let Some(reference) =
+            storage.ref_for_instance_recursive(target_instance_id, canonical_name.as_str())
+        else {
+            return Err(RuntimeError::TypeMismatch);
+        };
+        if !storage.write_by_ref(reference, value) {
+            return Err(RuntimeError::TypeMismatch);
+        }
+    }
+    Ok(())
+}
+
+fn fb_initializer_target(
+    fb: &FunctionBlockDef,
+    name: &SmolStr,
+) -> Result<(SmolStr, trust_hir::TypeId), RuntimeError> {
+    if let Some(param) = fb
+        .params
+        .iter()
+        .find(|param| param.name.eq_ignore_ascii_case(name.as_str()))
+    {
+        if param.direction == ParamDirection::InOut {
+            return Err(RuntimeError::TypeMismatch);
+        }
+        return Ok((param.name.clone(), param.type_id));
+    }
+    if let Some(var) = fb
+        .vars
+        .iter()
+        .find(|var| var.name.eq_ignore_ascii_case(name.as_str()))
+    {
+        if var.external {
+            return Err(RuntimeError::TypeMismatch);
+        }
+        return Ok((var.name.clone(), var.type_id));
+    }
+    if fb
+        .temps
+        .iter()
+        .any(|var| var.name.eq_ignore_ascii_case(name.as_str()))
+    {
+        return Err(RuntimeError::TypeMismatch);
+    }
+    Err(RuntimeError::TypeMismatch)
 }
 
 fn class_type_name(type_id: trust_hir::TypeId, registry: &TypeRegistry) -> Option<SmolStr> {
@@ -477,6 +649,7 @@ mod tests {
             &function_blocks,
             &functions,
             &StandardLibrary::new(),
+            &crate::program_model::InitializerCatalog::default(),
             &fb,
         )
         .expect("create fb instance");

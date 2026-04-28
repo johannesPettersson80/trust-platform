@@ -30,6 +30,7 @@ include!("bench/stats.rs");
 include!("bench/t0_shm.rs");
 include!("bench/mesh_zenoh.rs");
 include!("bench/dispatch.rs");
+include!("bench/init.rs");
 include!("bench/project.rs");
 include!("bench/output.rs");
 include!("bench/command.rs");

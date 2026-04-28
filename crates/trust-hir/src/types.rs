@@ -8,7 +8,10 @@ mod compat;
 mod defs;
 mod registry;
 
-pub use defs::{ArrayDimensionExt, StructField, Type, TypeId, UnionVariant};
+pub use defs::{
+    ArrayDimensionExt, InitializerCatalog, InitializerId, InitializerRecord, StructField, Type,
+    TypeId, UnionVariant,
+};
 pub use registry::TypeRegistry;
 
 /// User-visible `SIZEOF` result for `POINTER TO` / `REF_TO` storage operands.

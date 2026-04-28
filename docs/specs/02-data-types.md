@@ -200,6 +200,9 @@ END_VAR
 - Elements accessed with dot notation: `Config.MinScale`
 - FBs and classes can be structure elements
 - Two structured variables are assignment-compatible only if same type
+- Named aggregate initialization uses `field := value` entries. Missing fields
+  are materialized from member defaults or type defaults; unknown and duplicate
+  field names are diagnostics rather than runtime fallback.
 
 ### 3.6 Structures with Relative Addressing (Section 6.4.4.7)
 
@@ -237,8 +240,16 @@ TYPE
   Counter: UINT;
   Frequency: REAL := 50.0;
   MyAnalog: AnalogChannel := (MinScale := 0, MaxScale := 4000);
+  Channels: ARRAY[1..2] OF AnalogChannel := [
+    (Range := Bipolar, MinScale := 0),
+    (Range := Bipolar, MaxScale := 1023)
+  ];
 END_TYPE
 ```
+
+Directly derived TYPE-level defaults use the same initializer grammar as VAR
+declarations: scalar defaults, array defaults, and named aggregate defaults are
+preserved for runtime materialization.
 
 ## 4. Reference Types (Table 12, Section 6.4.4.6.2)
 

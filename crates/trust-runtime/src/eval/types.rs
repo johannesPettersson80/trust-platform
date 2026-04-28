@@ -2,6 +2,7 @@
 pub(crate) struct EvalContext<'a> {
     pub storage: &'a mut VariableStorage,
     pub registry: &'a TypeRegistry,
+    pub initializer_catalog: Option<&'a crate::program_model::InitializerCatalog>,
     pub profile: DateTimeProfile,
     pub now: Duration,
     pub debug: Option<&'a mut dyn crate::debug::DebugHook>,

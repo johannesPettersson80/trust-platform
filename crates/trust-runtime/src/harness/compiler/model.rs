@@ -183,4 +183,18 @@ impl LoweringContext<'_> {
         )
         .map_err(|err| CompileError::new(err.to_string()))
     }
+
+    pub(crate) fn eval_compile_time_const_initializer(
+        &self,
+        expr: &Expr,
+        type_id: TypeId,
+    ) -> Result<Value, CompileError> {
+        let value = self.eval_compile_time_const_expr(expr)?;
+        crate::harness::initializer::coerce_evaluated_initializer_value(
+            value,
+            type_id,
+            self.registry,
+            &self.profile,
+        )
+    }
 }

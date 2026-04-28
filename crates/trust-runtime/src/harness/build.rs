@@ -73,9 +73,11 @@ pub(super) fn build_runtime_from_source_files(
 
     for (idx, parse) in parses.iter().enumerate() {
         let syntax = parse.syntax();
+        let (registry, initializer_catalog) = runtime.registry_and_initializer_catalog_mut();
         super::lower_type_decls(
             &syntax,
-            runtime.registry_mut(),
+            registry,
+            initializer_catalog,
             profile,
             project.database(),
             file_ids[idx],
@@ -335,6 +337,7 @@ fn init_function_static_locals(runtime: &mut Runtime) -> Result<(), CompileError
     let stdlib = runtime.stdlib().clone();
     let function_blocks = runtime.function_blocks().clone();
     let classes = runtime.classes().clone();
+    let initializer_catalog = runtime.initializer_catalog().clone();
     let storage = runtime.storage_mut();
 
     for function in functions.values() {
@@ -358,6 +361,7 @@ fn init_function_static_locals(runtime: &mut Runtime) -> Result<(), CompileError
                     &function_blocks,
                     &functions,
                     &stdlib,
+                    &initializer_catalog,
                     fb,
                 )
                 .map_err(|err| CompileError::new(err.to_string()))?;
@@ -382,6 +386,7 @@ fn init_function_static_locals(runtime: &mut Runtime) -> Result<(), CompileError
                     &function_blocks,
                     &functions,
                     &stdlib,
+                    &initializer_catalog,
                     class_def,
                 )
                 .map_err(|err| CompileError::new(err.to_string()))?;
@@ -392,8 +397,16 @@ fn init_function_static_locals(runtime: &mut Runtime) -> Result<(), CompileError
                 storage.set_global(key, crate::value::Value::Null);
                 continue;
             }
-            let value = crate::value::default_value_for_type_id(local.type_id, &registry, &profile)
-                .map_err(|err| CompileError::new(format!("default value error: {err:?}")))?;
+            let value = crate::harness::initializer::default_value_for_type_id(
+                storage,
+                &registry,
+                &initializer_catalog,
+                &profile,
+                None,
+                &stdlib,
+                local.type_id,
+            )
+            .map_err(|err| CompileError::new(format!("default value error: {err}")))?;
             storage.set_global(key, value);
         }
     }
@@ -408,11 +421,17 @@ fn init_function_static_locals(runtime: &mut Runtime) -> Result<(), CompileError
             let Some(expr) = &local.initializer else {
                 continue;
             };
-            let value =
-                crate::helper_eval::eval_storage_expr(storage, &registry, &profile, None, expr)
-                    .map_err(|err| CompileError::new(format!("initializer error: {err}")))?;
-            let value =
-                super::coerce_initializer_value_to_type(value, local.type_id, &registry, &profile)?;
+            let value = crate::harness::initializer::evaluate_initializer(
+                storage,
+                &registry,
+                &initializer_catalog,
+                &profile,
+                None,
+                &stdlib,
+                expr,
+                local.type_id,
+            )
+            .map_err(|err| CompileError::new(format!("initializer error: {err}")))?;
             let key = crate::program_model::static_storage_name(&function.name, &local.name);
             storage.set_global(key, value);
         }

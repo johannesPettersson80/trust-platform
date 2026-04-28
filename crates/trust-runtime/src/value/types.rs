@@ -910,11 +910,13 @@ mod tests {
                     name: "x".into(),
                     type_id: TypeId::INT,
                     address: None,
+                    default_initializer: None,
                 },
                 StructField {
                     name: "y".into(),
                     type_id: TypeId::INT,
                     address: None,
+                    default_initializer: None,
                 },
             ],
         );
@@ -1027,6 +1029,7 @@ mod tests {
                 name: "x".into(),
                 type_id: TypeId::INT,
                 address: None,
+                default_initializer: None,
             }],
         );
         let point_array = registry.register_array(point, vec![(1, 2)]);

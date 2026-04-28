@@ -43,6 +43,16 @@ pub(super) fn parse_int_literal(text: &str) -> Option<i64> {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum ConstEvalError {
+    NotConstant,
+    UndefinedName(SmolStr),
+    DivideByZero,
+    IntegerOverflow,
+    NegativeExponent,
+    CyclicDependency(SmolStr),
+}
+
 #[derive(Clone, Copy)]
 pub(super) enum IntUnaryOp {
     Plus,
