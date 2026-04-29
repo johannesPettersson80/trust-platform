@@ -146,7 +146,7 @@
     ]
   },
   "dependency_hygiene_tools": [
-    {"name": "cargo audit", "status": "pass", "owner": "release engineering", "rationale": "raw advisories are fixed or explicitly ignored by policy metadata", "review_date": "2026-04-29", "evidence": "target/gate-artifacts/dependency-hygiene-v0.24.5/cargo-audit-after-policy.json"},
+    {"name": "cargo audit", "status": "pass", "owner": "release engineering", "rationale": "raw advisories are fixed or explicitly ignored by policy metadata", "review_date": "2026-04-29", "evidence": "target/gate-artifacts/dependency-hygiene-v0.24.6/cargo-audit-after-mqtt-tls.json"},
     {"name": "cargo machete", "status": "pass", "owner": "architecture automation", "rationale": "workspace member paths have no unused direct dependencies", "review_date": "2026-04-29", "evidence": "target/gate-artifacts/dependency-hygiene-v0.24.5/cargo-machete-workspace-after-fixes.txt"},
     {"name": "cargo deny", "status": "pass", "owner": "release engineering", "rationale": "project deny.toml policy is present and cargo deny check passes", "review_date": "2026-04-29", "evidence": "target/gate-artifacts/dependency-hygiene-v0.24.5/cargo-deny-final.txt"}
   ],
@@ -160,6 +160,7 @@
     },
     "audit_allowlist": [
       {"id": "RUSTSEC-2024-0421", "package": "idna", "owner": "runtime/opcua", "rationale": "optional opcua 0.12 pulls url 1.7/idna 0.1 and no newer opcua crate is available", "review_date": "2026-04-29", "removal_condition": "remove when opcua upgrades url/idna or the opcua-wire feature is replaced"},
+      {"id": "RUSTSEC-2024-0388", "package": "derivative", "owner": "runtime/opcua", "rationale": "optional opcua 0.12 pulls derivative 2.2.0 and no newer opcua crate is available", "review_date": "2026-04-29", "removal_condition": "remove when opcua removes derivative or the opcua-wire feature is replaced"},
       {"id": "RUSTSEC-2025-0009", "package": "ring", "owner": "runtime/web", "rationale": "tiny_http 0.12 ssl-rustls pulls rustls 0.20/ring 0.16 for the existing HTTPS server and no tiny_http rustls 0.23 release is available", "review_date": "2026-04-29", "removal_condition": "remove when HTTPS hosting moves off tiny_http ssl-rustls or tiny_http upgrades rustls"},
       {"id": "RUSTSEC-2023-0071", "package": "rsa", "owner": "runtime/mesh", "rationale": "zenoh 1.7.2 transport stack pulls rsa 0.9 and the pinned baseline is governed by the runtime mesh compatibility gate", "review_date": "2026-04-29", "removal_condition": "remove when the Zenoh baseline gate moves to a patched transport stack"},
       {"id": "RUSTSEC-2024-0336", "package": "rustls", "owner": "runtime/web", "rationale": "tiny_http 0.12 ssl-rustls pulls rustls 0.20 for the existing HTTPS server and no tiny_http rustls 0.23 release is available", "review_date": "2026-04-29", "removal_condition": "remove when HTTPS hosting moves off tiny_http ssl-rustls or tiny_http upgrades rustls"}

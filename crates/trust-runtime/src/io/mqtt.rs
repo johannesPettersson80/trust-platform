@@ -2,12 +2,14 @@
 
 #![allow(missing_docs)]
 
+use std::fs;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration as StdDuration, Instant};
 
-use rumqttc::{Client, Event, MqttOptions, Packet, QoS};
+use native_tls::{Certificate, Identity, TlsConnector};
+use rumqttc::{Client, Event, MqttOptions, Packet, QoS, TlsConfiguration, Transport};
 use serde::Deserialize;
 use smol_str::SmolStr;
 

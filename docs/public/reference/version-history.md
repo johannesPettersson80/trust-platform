@@ -2,14 +2,18 @@
 
 ## Current Baseline
 
-- current repository baseline: `v0.24.5`
-- public docs in this tree describe the `v0.24.5` workspace version unless a
+- current repository baseline: `v0.24.6`
+- public docs in this tree describe the `v0.24.6` workspace version unless a
   page explicitly marks a feature as experimental, roadmap, or target-specific
 
 ## What Changed Recently
 
 ### `v0.24.x`
 
+- MQTT I/O now has explicit TLS/mTLS configuration: `tls = true` requires a CA
+  trust file, optional client certificate/key files enable mTLS, `mqtts://` and
+  `ssl://` broker schemes imply TLS, and remote plaintext MQTT remains gated by
+  `allow_insecure_remote = true`.
 - Dependency hygiene now has project `cargo deny` policy, explicit
   advisory/allowlist metadata, workspace-scoped `cargo machete` cleanup,
   a Rust `1.95` MSRV baseline, patched `time` 0.3.47, `ratatui` 0.30, tracked

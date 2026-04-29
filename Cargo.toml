@@ -15,7 +15,7 @@ exclude = [
 ]
 
 [workspace.package]
-version = "0.24.5"
+version = "0.24.6"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/johannesPettersson80/trust-platform"
@@ -77,7 +77,8 @@ crossterm = "0.29"
 dialoguer = "0.12"
 indicatif = "0.18"
 owo-colors = "4"
-rumqttc = { version = "0.25", default-features = false }
+rumqttc = { version = "0.25", default-features = false, features = ["use-native-tls"] }
+native-tls = { version = "0.2.18", features = ["alpn"] }
 time = "0.3.47"
 
 # Internal crates

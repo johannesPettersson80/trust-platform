@@ -127,6 +127,32 @@ keep_alive_s = 5
 allow_insecure_remote = false
 ```
 
+Remote plaintext brokers are rejected unless `allow_insecure_remote = true` is
+set explicitly for a test or development exception. Production remote brokers
+should use TLS:
+
+```toml
+[io]
+driver = "mqtt"
+
+[io.params]
+broker = "mqtts://mqtt.example.test:8883"
+topic_in = "trust/site-a/in"
+topic_out = "trust/site-a/out"
+reconnect_ms = 500
+keep_alive_s = 5
+tls = true
+tls_ca_path = "/etc/trust/certs/mqtt-ca.pem"
+tls_client_cert_path = "/etc/trust/certs/runtime-client.pem"
+tls_client_key_path = "/etc/trust/private/runtime-client-key.pem"
+tls_alpn = ["mqtt"]
+```
+
+MQTT TLS uses the broker host name as the TLS server name/SNI value. Use a DNS
+name in `broker`; do not rely on a raw IP address matching a self-signed
+certificate. `tls_client_cert_path` and `tls_client_key_path` must be provided
+together when mutual TLS is required.
+
 ### `ethercat`
 
 ```toml

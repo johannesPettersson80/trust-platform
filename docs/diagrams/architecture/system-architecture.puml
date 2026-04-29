@@ -163,6 +163,7 @@ package "trust-runtime crate" as struntime #LightYellow {
     component "Historian Service\n(recording + alerts + hooks)" as historianSvc
     component "Prometheus Scrape\n(/metrics)" as promScrape
     component "OPC UA Gateway\n(server + probe client)" as opcuaGateway
+    component "MQTT Driver\n(TCP/TLS/mTLS)" as mqttDriver
 
     package "eval/" as eval {
         component "Stmt" as stmtAst <<eval/stmt.rs:30-95>>
@@ -196,6 +197,7 @@ package "trust-runtime crate" as struntime #LightYellow {
     launcher --> registryCli : delegates\nregistry subcommands
     registryCli --> bundleLoader : validates bundle
     launcher --> ioRegistry
+    ioRegistry --> mqttDriver : mqtt
     launcher --> retainMgr
     launcher --> runtime
     runtimeConfig --> runtime
@@ -248,6 +250,7 @@ package "Deployment" as deploy #LightGray {
     artifact "System IO Config\n(/etc/trust/io.toml)" as systemIo
     component "Retain Store\n(file/db)" as retainStore
     component "Hardware I/O\n(PLCs, Fieldbus)" as hardwareIo
+    component "MQTT Broker\n(remote I/O)" as mqttBroker
     component "Modbus TCP Driver" as modbusDriver
     component "CLI Control Client\n(trust-runtime ctl)" as ctlClient
     component "Browser UI\n(Local/Remote)" as browserUi
@@ -292,6 +295,7 @@ registryCli --> packageRegistry : publish/download/verify/index
 systemIo --> launcher : load (fallback)
 retainMgr --> retainStore : load/save
 runtime --> hardwareIo : drivers
+mqttDriver --> mqttBroker : MQTT\nplain local or TLS/mTLS remote
 ctlClient --> controlServer : JSON IPC
 browserUi --> webServer : HTTP/HTTPS (/hmi, /ide, /api/*)
 discovery --> browserUi : mDNS advertise

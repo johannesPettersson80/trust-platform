@@ -14,6 +14,7 @@ This is the umbrella checklist. Individual execution boards own the detailed wor
 - [ ] `ARCHPROG-RULE-04` Each branch must state which audit finding it closes and which findings remain open.
 - [ ] `ARCHPROG-RULE-05` Do not merge a refactor branch that weakens an existing behavior lock, doctor rule, or generated-map check.
 - [x] `ARCHPROG-RULE-06` Use staged validation cadence: run focused tests and doctor checks during implementation, and reserve `just test-all` for merge/release readiness, board-completion gates, large cross-crate refactors, or rebases that touch shared APIs.
+- [x] `ARCHPROG-RULE-07` Do not claim production-ready secure remote MQTT until `DEPHYG-FOLLOW-01` implements explicit MQTT TLS/mTLS. Closed in `v0.24.6`: MQTT TLS/mTLS config and `rumqttc` TLS transport wiring are implemented, and remote plaintext remains gated by `allow_insecure_remote = true`.
 
 ## Validation Cadence
 
@@ -77,6 +78,7 @@ This is the umbrella checklist. Individual execution boards own the detailed wor
 - [ ] `ARCHPROG-E-04` Add KISS gates for module size, function size, public API growth, and top-level module growth.
 - [ ] `ARCHPROG-E-05` Add runtime VM mutation gate before claiming zero silent bugs for runtime execution.
 - [ ] `ARCHPROG-E-06` Add unsafe/concurrency risk register and focused Miri/sanitizer/Loom/Valgrind evidence before claiming memory/concurrency safety.
+- [x] `ARCHPROG-E-07` Close `DEPHYG-FOLLOW-01` by implementing explicit MQTT TLS/mTLS and security tests before any release note, docs page, or architecture report describes remote MQTT as production-secure.
 
 ## Deferred End-Of-Program Modernization
 

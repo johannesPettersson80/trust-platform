@@ -3,6 +3,8 @@ fn parse_broker_endpoint(text: &str) -> Result<BrokerEndpoint, RuntimeError> {
     let stripped = trimmed
         .strip_prefix("tcp://")
         .or_else(|| trimmed.strip_prefix("mqtt://"))
+        .or_else(|| trimmed.strip_prefix("ssl://"))
+        .or_else(|| trimmed.strip_prefix("mqtts://"))
         .unwrap_or(trimmed);
     if let Some(rest) = stripped.strip_prefix('[') {
         let (host, port) = rest.split_once("]:").ok_or_else(|| {
@@ -45,4 +47,9 @@ fn parse_port(port: &str, full: &str) -> Result<u16, RuntimeError> {
 
 fn is_local_host(host: &str) -> bool {
     host.eq_ignore_ascii_case("localhost") || host == "127.0.0.1" || host == "::1"
+}
+
+fn broker_uses_tls_scheme(text: &str) -> bool {
+    let trimmed = text.trim();
+    trimmed.starts_with("ssl://") || trimmed.starts_with("mqtts://")
 }

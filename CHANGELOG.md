@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.5`
+Target release: `v0.24.6`
 
 ### Changed
 
@@ -14,16 +14,24 @@ Target release: `v0.24.5`
   concrete types in simple examples, `PidGains` plus `Configure(...)` for PID
   setup, clearer PID/calendar/astronomy names, and example coverage for
   `Snapshot()` and configuration error handling.
+- MQTT I/O now supports explicit TLS/mTLS configuration instead of carrying
+  unused default TLS dependencies: `io.params.tls = true` requires
+  `tls_ca_path`, optional `tls_client_cert_path`/`tls_client_key_path` enable
+  client authentication, `mqtts://` and `ssl://` broker schemes imply TLS, and
+  remote plaintext brokers still require `allow_insecure_remote = true`.
 
 ### Fixed
 
+- MQTT `keep_alive_s` is now applied to the `rumqttc` session options instead
+  of being parsed only at validation time.
 - Dependency hygiene now has explicit `cargo deny`, `cargo audit`, and
   `cargo machete` policy evidence: unused direct workspace dependencies were
   removed, the workspace MSRV was raised from Rust `1.85` to Rust `1.95`,
   `time` was updated to the patched `0.3.47`, `ratatui` was updated to `0.30`,
   `rumqttc` no longer enables unused default TLS dependencies, `qrcode` no
-  longer pulls its unused image backend, `Cargo.lock` is tracked for
-  reproducible CI dependency resolution, runtime modulo checks now use the
+  longer pulls its unused image backend, the optional `opcua-wire` advisory paths
+  are documented with owner/rationale/removal metadata, `Cargo.lock` is tracked
+  for reproducible CI dependency resolution, runtime modulo checks now use the
   Rust `1.95` `is_multiple_of` API so Clippy stays clean on the new MSRV,
   `third_party/tiverse-mmap` is an intentional workspace exclude, and the
   full-map doctor reports the dependency hygiene status with failing policy
