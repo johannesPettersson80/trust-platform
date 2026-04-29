@@ -1,7 +1,8 @@
 # Rust
 /target/
 **/*.rs.bk
-Cargo.lock
+**/Cargo.lock
+!/Cargo.lock
 /site/
 /.venv-docs/
 

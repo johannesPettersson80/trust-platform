@@ -175,7 +175,7 @@ fn decode_primitive_constant(prim_id: u16, payload: &[u8]) -> Result<Value, Runt
             Ok(Value::String(SmolStr::new(text)))
         }
         25 => {
-            if payload.len() % 2 != 0 {
+            if !payload.len().is_multiple_of(2) {
                 return Err(invalid_bytecode("invalid WSTRING const payload length"));
             }
             let units = payload

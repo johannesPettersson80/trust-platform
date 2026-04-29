@@ -1454,5 +1454,5 @@ fn deadline_exceeded(deadline: Option<Instant>) -> bool {
 
 #[inline]
 fn should_check_register_deadline(instruction_index: usize) -> bool {
-    instruction_index == 0 || instruction_index % REGISTER_DEADLINE_CHECK_STRIDE == 0
+    instruction_index == 0 || instruction_index.is_multiple_of(REGISTER_DEADLINE_CHECK_STRIDE)
 }

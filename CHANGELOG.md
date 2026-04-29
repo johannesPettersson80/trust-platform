@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.4`
+Target release: `v0.24.5`
 
 ### Changed
 
@@ -19,10 +19,15 @@ Target release: `v0.24.4`
 
 - Dependency hygiene now has explicit `cargo deny`, `cargo audit`, and
   `cargo machete` policy evidence: unused direct workspace dependencies were
-  removed, `time` was updated to `0.3.47`, `rumqttc` no longer enables unused
-  default TLS dependencies, `third_party/tiverse-mmap` is an intentional
-  workspace exclude, and the full-map doctor reports the dependency hygiene
-  status with failing policy fixtures.
+  removed, the workspace MSRV was raised from Rust `1.85` to Rust `1.95`,
+  `time` was updated to the patched `0.3.47`, `ratatui` was updated to `0.30`,
+  `rumqttc` no longer enables unused default TLS dependencies, `qrcode` no
+  longer pulls its unused image backend, `Cargo.lock` is tracked for
+  reproducible CI dependency resolution, runtime modulo checks now use the
+  Rust `1.95` `is_multiple_of` API so Clippy stays clean on the new MSRV,
+  `third_party/tiverse-mmap` is an intentional workspace exclude, and the
+  full-map doctor reports the dependency hygiene status with failing policy
+  fixtures.
 - Parser recovery for malformed aggregate/positional initializers is now
   bounded by shared top-level scan helpers, preserves following declarations at
   declaration boundaries, and is guarded by full-map doctor and focused

@@ -21,7 +21,7 @@ impl BytecodeModule {
                 "section table before header".into(),
             ));
         }
-        if section_table_off % 4 != 0 {
+        if !section_table_off.is_multiple_of(4) {
             return Err(BytecodeError::SectionAlignment);
         }
 

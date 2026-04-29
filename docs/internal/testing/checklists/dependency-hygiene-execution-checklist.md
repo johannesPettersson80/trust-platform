@@ -6,7 +6,7 @@ Scope: address audit F4 dependency hygiene findings.
 
 Completion evidence (2026-04-29):
 
-- `cargo audit --json` baseline and after-fix artifacts are stored under `target/gate-artifacts/dependency-hygiene-v0.24.4/`; the policy run passes with explicit ignores for the four remaining legacy transitive advisories.
+- `cargo audit --json` baseline and after-fix artifacts are stored under `target/gate-artifacts/dependency-hygiene-v0.24.5/`; the policy run passes with explicit ignores for the four remaining legacy transitive advisories after raising MSRV from Rust `1.85` to Rust `1.95` and updating patched dependencies where compatible.
 - `cargo machete --with-metadata` is clean for workspace members when scoped to `xtask` and `crates/*`; the recursive root scan still reports `third_party/tiverse-mmap`, which is now an explicit workspace exclude instead of an ambiguous member.
 - `cargo deny check` passes with project `deny.toml` policy and metadata-bearing advisory ignores/license policy.
 - `cargo geiger` root run fails on the virtual workspace manifest, and the package-manifest retry fails with package matching errors recorded in `cargo-geiger*.stderr`; this is recorded as advisory-only, not a pass.

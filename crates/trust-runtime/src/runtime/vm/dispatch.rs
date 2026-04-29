@@ -641,7 +641,7 @@ fn deadline_exceeded(deadline: Option<Instant>) -> bool {
 }
 
 fn should_check_stack_deadline(instruction_count: usize) -> bool {
-    instruction_count == 0 || instruction_count % STACK_DEADLINE_CHECK_STRIDE == 0
+    instruction_count == 0 || instruction_count.is_multiple_of(STACK_DEADLINE_CHECK_STRIDE)
 }
 
 fn vm_statement_location(

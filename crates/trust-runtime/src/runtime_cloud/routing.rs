@@ -534,17 +534,17 @@ mod tests {
             };
             let target = format!("runtime-{}", (next(&mut state) % 3) + 1);
             let request = RuntimeCloudActionRequest {
-                api_version: if next(&mut state) % 5 == 0 {
+                api_version: if next(&mut state).is_multiple_of(5) {
                     "2.0".to_string()
                 } else {
                     "1.0".to_string()
                 },
-                request_id: if next(&mut state) % 7 == 0 {
+                request_id: if next(&mut state).is_multiple_of(7) {
                     String::new()
                 } else {
                     format!("req-{idx}")
                 },
-                connected_via: if next(&mut state) % 9 == 0 {
+                connected_via: if next(&mut state).is_multiple_of(9) {
                     "runtime-z".to_string()
                 } else {
                     "runtime-a".to_string()
@@ -553,7 +553,7 @@ mod tests {
                 actor: "spiffe://trust/site-a/operator".to_string(),
                 action_type: action_type.to_string(),
                 query_budget_ms: Some((next(&mut state) % 4_000) + 1),
-                dry_run: next(&mut state) % 2 == 0,
+                dry_run: next(&mut state).is_multiple_of(2),
                 payload,
             };
 
@@ -561,9 +561,9 @@ mod tests {
             targets.insert(
                 target,
                 RuntimeCloudTargetStatus {
-                    reachable: next(&mut state) % 2 == 0,
-                    stale: next(&mut state) % 3 == 0,
-                    supports_secure_transport: next(&mut state) % 2 == 0,
+                    reachable: next(&mut state).is_multiple_of(2),
+                    stale: next(&mut state).is_multiple_of(3),
+                    supports_secure_transport: next(&mut state).is_multiple_of(2),
                 },
             );
 

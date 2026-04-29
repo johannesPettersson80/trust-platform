@@ -2,8 +2,8 @@
 
 ## Current Baseline
 
-- current repository baseline: `v0.24.4`
-- public docs in this tree describe the `v0.24.4` workspace version unless a
+- current repository baseline: `v0.24.5`
+- public docs in this tree describe the `v0.24.5` workspace version unless a
   page explicitly marks a feature as experimental, roadmap, or target-specific
 
 ## What Changed Recently
@@ -12,8 +12,10 @@
 
 - Dependency hygiene now has project `cargo deny` policy, explicit
   advisory/allowlist metadata, workspace-scoped `cargo machete` cleanup,
-  `time` 0.3.47, and full-map doctor reporting for the remaining
-  policy-managed transitive advisories.
+  a Rust `1.95` MSRV baseline, patched `time` 0.3.47, `ratatui` 0.30, tracked
+  `Cargo.lock`, Rust `1.95` `is_multiple_of` cleanup for runtime modulo checks,
+  and full-map doctor reporting for the remaining policy-managed transitive
+  advisories.
 - OSCAT OOP reset behavior, converter parity, API naming, dependency
   alias, and comparison examples were hardened after external review.
 - HIR default-initializer analysis now rejects non-repeat call expressions used
