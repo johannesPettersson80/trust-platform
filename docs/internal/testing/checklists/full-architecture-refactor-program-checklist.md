@@ -27,7 +27,7 @@ This is the umbrella checklist. Individual execution boards own the detailed wor
 - [x] `ARCHPROG-BOARD-01` Full-map architecture doctor: `architecture-doctor-full-map-execution-checklist.md`.
 - [x] `ARCHPROG-BOARD-02` HIR mutation hardening: `hir-mutation-hardening-execution-checklist.md`.
 - [x] `ARCHPROG-BOARD-03` Parser recovery hardening: `parser-recovery-hardening-execution-checklist.md`.
-- [ ] `ARCHPROG-BOARD-04` Runtime CLI product/workbench split: `runtime-cli-product-workbench-split-checklist.md`.
+- [ ] `ARCHPROG-BOARD-04` Runtime CLI product/workbench split: `runtime-cli-product-workbench-split-checklist.md` (in progress; Phase 1 inventory captured on 2026-04-29).
 - [ ] `ARCHPROG-BOARD-05` Runtime host surface ownership: `runtime-host-surface-ownership-checklist.md`.
 - [ ] `ARCHPROG-BOARD-06` Runtime core/Linux host split: `runtime-core-host-split-execution-checklist.md`.
 - [x] `ARCHPROG-BOARD-07` Dependency hygiene: `dependency-hygiene-execution-checklist.md`.
@@ -56,9 +56,9 @@ This is the umbrella checklist. Individual execution boards own the detailed wor
 
 ### Phase C - Runtime Boundary Policy Before Runtime Extraction
 
-- [ ] `ARCHPROG-C-01` Classify runtime binary commands as product, UI product, conformance/benchmark, or workbench/dev.
+- [x] `ARCHPROG-C-01` Classify runtime binary commands as product, UI product, conformance/benchmark, or workbench/dev.
 - [ ] `ARCHPROG-C-02` Classify `web`, `hmi`, `ui`, `control`, and `runtime_cloud` ownership.
-- [ ] `ARCHPROG-C-03` Add doctor rules for product/workbench command boundaries.
+- [x] `ARCHPROG-C-03` Add doctor rules for product/workbench command boundaries.
 - [ ] `ARCHPROG-C-04` Add doctor rules for host-surface forbidden imports and approved ports.
 - [ ] `ARCHPROG-C-05` Freeze "no new top-level runtime module without subsystem decision note".
 

@@ -1,42 +1,42 @@
 # Runtime CLI Product / Workbench Split Checklist
 
-Status: Planned
+Status: Phase 1 inventory captured
 Owner: Runtime/dev tooling
 Scope: address audit F10 by separating field/product runtime commands from developer/workbench commands.
 
 ## Command Variant Classes
 
-- [ ] `RTCLI-CLASS-01` Product runtime commands: `run`, `play`, `ctl`, `validate`, `build`, `hmi`, `plcopen`, `registry`, `setup`, `deploy`, `rollback`.
-- [ ] `RTCLI-CLASS-02` UI product commands: `ui`, `ide`, `config-ui`, `wizard` if retained as shipped product surfaces.
-- [ ] `RTCLI-CLASS-03` Conformance/benchmark commands: `bench`, `conformance`.
-- [ ] `RTCLI-CLASS-04` Workbench/dev command variants: `agent`, `commit`, `docs`, `test` unless explicitly reclassified.
-- [ ] `RTCLI-CLASS-05` Shell completion command: `completions`; decide whether it remains product-supporting or moves to tooling.
+- [x] `RTCLI-CLASS-01` Product runtime commands: `run`, `play`, `ctl`, `validate`, `build`, `hmi`, `plcopen`, `registry`, `setup`, `deploy`, `rollback`.
+- [x] `RTCLI-CLASS-02` UI product commands: `ui`, `ide`, `config-ui`, `wizard` retained as shipped product surfaces.
+- [x] `RTCLI-CLASS-03` Conformance/benchmark commands: `bench`, `conformance`.
+- [x] `RTCLI-CLASS-04` Workbench/dev command variants: `agent`, `commit`, `docs`, `test`.
+- [x] `RTCLI-CLASS-05` Shell completion command: `completions` remains CLI infrastructure / product-supporting until Phase 3 decides packaging exclusions.
 
 ## Bin Module Classes
 
 These are source modules under `crates/trust-runtime/src/bin/trust-runtime/`, not necessarily CLI enum variants.
 
-- [ ] `RTCLI-MOD-01` Product runtime modules: `run.rs`, `ctl.rs`, `build.rs`, `hmi.rs`, `plcopen.rs`, `registry.rs`, `setup.rs`, `setup_web.rs`, `deploy.rs`.
-- [ ] `RTCLI-MOD-02` UI product modules: `config_ui.rs`, `wizard.rs` if retained as shipped product surfaces.
-- [ ] `RTCLI-MOD-03` Conformance/benchmark modules: `bench.rs`, `conformance.rs`.
-- [ ] `RTCLI-MOD-04` Workbench/dev modules: `agent.rs`, `commit.rs`, `git.rs`, `docs.rs`, `prompt.rs`, `workflow.rs`, `style.rs`, `ci.rs`, `test.rs` unless explicitly reclassified.
-- [ ] `RTCLI-MOD-05` CLI infrastructure modules: `cli.rs`, `completions.rs`; classify ownership and allowed dependencies separately.
+- [x] `RTCLI-MOD-01` Product runtime modules: `run.rs`, `ctl.rs`, `build.rs`, `hmi.rs`, `plcopen.rs`, `registry.rs`, `setup.rs`, `setup_web.rs`, `deploy.rs`.
+- [x] `RTCLI-MOD-02` UI product modules: `config_ui.rs`, `wizard.rs`.
+- [x] `RTCLI-MOD-03` Conformance/benchmark modules: `bench.rs`, `conformance.rs`.
+- [x] `RTCLI-MOD-04` Workbench/dev modules: `agent.rs`, `commit.rs`, `docs.rs`, `workflow.rs`, `ci.rs`, `test.rs`; `git.rs`, `prompt.rs`, and `style.rs` are shared CLI infrastructure with split decisions recorded below.
+- [x] `RTCLI-MOD-05` CLI infrastructure modules: `cli.rs`, `completions.rs`, `git.rs`, `prompt.rs`, `style.rs`; allowed dependency rules remain explicit in Phase 2.
 
 ## Subcommand Action Classes
 
 Nested `*Action` enums inherit their parent command class unless a row below explicitly overrides them.
 
-- [ ] `RTCLI-ACTION-01` Product/runtime action enums: `ControlAction`, `HmiAction`, `PlcopenAction`, `RegistryAction`.
-- [ ] `RTCLI-ACTION-02` UI product action enum: `ConfigUiAction` when used through `ui`, `ide`, or `config-ui`.
-- [ ] `RTCLI-ACTION-03` Conformance/benchmark action enum: `BenchAction`.
-- [ ] `RTCLI-ACTION-04` Workbench/dev action enum: `AgentAction`.
+- [x] `RTCLI-ACTION-01` Product/runtime action enums: `ControlAction`, `HmiAction`, `PlcopenAction`, `RegistryAction`.
+- [x] `RTCLI-ACTION-02` UI product action enum: `ConfigUiAction` when used through `ide` or `config-ui`.
+- [x] `RTCLI-ACTION-03` Conformance/benchmark action enum: `BenchAction`.
+- [x] `RTCLI-ACTION-04` Workbench/dev action enum: `AgentAction`.
 - [ ] `RTCLI-ACTION-05` Any new nested `*Action` enum must either inherit a parent class or declare an explicit override before merge.
 
 ## Phase 0 - Full-Map Prerequisite
 
-- [ ] `RTCLI-P0-001` Hard prerequisite: `architecture-doctor --full-map` MVP implements `FULLMAP-CHECK-06` for runtime command, nested action, and bin-module ownership before Phase 2 or any command movement starts.
-- [ ] `RTCLI-P0-002` If `FULLMAP-CHECK-06` is unavailable, record an owner-approved waiver with the local replacement rule, fixture, owner, and expiration date.
-- [ ] `RTCLI-P0-GATE-01` Do not claim `ARCHPROG-C-01` or `ARCHPROG-C-03` complete until `FULLMAP-CHECK-06` or its waiver is recorded.
+- [x] `RTCLI-P0-001` Hard prerequisite: `architecture-doctor --full-map` MVP implements `FULLMAP-CHECK-06` for runtime command, nested action, and bin-module ownership before Phase 2 or any command movement starts.
+- [x] `RTCLI-P0-002` No waiver required: `FULLMAP-CHECK-06` passed on baseline `ade92b185` and wrote `target/gate-artifacts/full-software-map-ade92b185/full-map-report.json`.
+- [x] `RTCLI-P0-GATE-01` Do not claim `ARCHPROG-C-01` or `ARCHPROG-C-03` complete until `FULLMAP-CHECK-06` or its waiver is recorded.
 
 ## Stop Rules
 
@@ -49,26 +49,64 @@ Nested `*Action` enums inherit their parent command class unless a row below exp
 
 ## Phase 1 - Inventory
 
-- [ ] `RTCLI-P1-001` List every `BenchAction` and main `trust-runtime` command enum variant.
-- [ ] `RTCLI-P1-002` Map each command variant to its implementation file.
-- [ ] `RTCLI-P1-003` Record line counts for each command implementation file.
-- [ ] `RTCLI-P1-004` List every top-level bin module under `crates/trust-runtime/src/bin/trust-runtime/*.rs`.
-- [ ] `RTCLI-P1-005` Map each bin module to the command variant, helper, or internal infrastructure that uses it.
-- [ ] `RTCLI-P1-006` Identify modules that shell out to git, docs, CI, or source-bundling logic.
-- [ ] `RTCLI-P1-007` Identify modules safe for field-deployed runtime artifacts.
-- [ ] `RTCLI-P1-008` Record current CLI help output before moving anything.
-- [ ] `RTCLI-P1-009` List every nested CLI `*Action` enum and classify each as inherited or override.
+- [x] `RTCLI-P1-001` List every `BenchAction` and main `trust-runtime` command enum variant.
+- [x] `RTCLI-P1-002` Map each command variant to its implementation file.
+- [x] `RTCLI-P1-003` Record line counts for each command implementation file.
+- [x] `RTCLI-P1-004` List every top-level bin module under `crates/trust-runtime/src/bin/trust-runtime/*.rs`.
+- [x] `RTCLI-P1-005` Map each bin module to the command variant, helper, or internal infrastructure that uses it.
+- [x] `RTCLI-P1-006` Identify modules that shell out to git, docs, CI, or source-bundling logic.
+- [x] `RTCLI-P1-007` Identify modules safe for field-deployed runtime artifacts.
+- [x] `RTCLI-P1-008` Record current CLI help output before moving anything.
+- [x] `RTCLI-P1-009` List every nested CLI `*Action` enum and classify each as inherited or override.
+
+Phase 1 evidence captured on 2026-04-29 from released baseline `ade92b185`:
+
+- Full-map prerequisite: `RUSTUP_TOOLCHAIN=1.95 cargo run -p xtask -- architecture-doctor --full-map` passed `FULLMAP-CHECK-06` with 22 command variants, 24 top-level bin modules, and 7 nested action enums classified. Artifacts: `target/gate-artifacts/full-software-map-ade92b185/software-map.json` and `target/gate-artifacts/full-software-map-ade92b185/full-map-report.json`.
+- CLI help baseline: `RUSTUP_TOOLCHAIN=1.95 cargo run -p trust-runtime --bin trust-runtime -- --help > target/gate-artifacts/runtime-cli-product-workbench-split-ade92b185/trust-runtime-help.txt`.
+- Main command variants and dispatch:
+  - Product: `Run -> run::run_runtime` (`run.rs` / `run/`); `Play -> run::run_play` (`run/commands.rs`, compatibility alias, no `play.rs`); `Ctl -> ctl::run_control` (`ctl.rs`); `Validate -> run::run_validate` (`run/commands.rs`, no `validate.rs`); `Build -> build::run_build` (`build.rs`); `Hmi -> hmi::run_hmi` (`hmi.rs`); `Plcopen -> plcopen::run_plcopen` (`plcopen.rs`); `Registry -> registry::run_registry` (`registry.rs`); `Setup -> setup::run_setup` (`setup.rs`, `setup/`, `setup_web.rs`); `Deploy -> deploy::run_deploy` (`deploy.rs`, `deploy/`); `Rollback -> deploy::run_rollback` (`deploy/commands.rs`, no `rollback.rs`).
+  - UI product: `Ui -> trust_runtime::ui::run_ui` (`crates/trust-runtime/src/ui.rs`, library surface); `Ide -> config_ui::run_ide_serve` (`config_ui.rs`, shared handler, no `ide.rs`); `ConfigUi -> config_ui::run_config_ui_serve` (`config_ui.rs`); `Wizard -> wizard::run_wizard` (`wizard.rs`).
+  - Conformance/benchmark: `Bench -> bench::run_bench` (`bench.rs`, `bench/`); `Conformance -> conformance::run_conformance` (`conformance.rs`, `conformance/`).
+  - Workbench/dev: `Agent -> agent::run_agent_serve` (`agent.rs`); `Commit -> commit::run_commit` (`commit.rs`, `git.rs` helper); `Docs -> docs::run_docs` (`docs.rs`, `docs/`); `Test -> test::run_test` (`test.rs`, `test_cmd/`).
+  - CLI support: `Completions -> completions::run_completions` (`completions.rs`).
+- BenchAction inventory: `Project`, `Init`, `T0Shm`, `MeshZenoh`, `Dispatch`; all inherit `conformance_benchmark`.
+- Nested action inventory: `ControlAction` product (`BreakpointsClear`, `BreakpointsList`, `BreakpointsSet`, `ConfigGet`, `ConfigSet`, `Eval`, `Health`, `IoForce`, `IoRead`, `IoUnforce`, `IoWrite`, `Pause`, `Restart`, `Resume`, `Set`, `Shutdown`, `Stats`, `Status`, `StepIn`, `StepOut`, `StepOver`); `HmiAction` product (`Init`, `Reset`, `Update`); `PlcopenAction` product (`Export`, `Import`, `Profile`); `RegistryAction` product (`Download`, `Init`, `List`, `Profile`, `Publish`, `Verify`); `ConfigUiAction` UI product (`Serve`); `BenchAction` conformance/benchmark (`Project`, `Init`, `T0Shm`, `MeshZenoh`, `Dispatch`); `AgentAction` workbench/dev (`Serve`).
+- Top-level bin module line counts and ownership:
+  - Product: `run.rs` 53, `ctl.rs` 308, `build.rs` 75, `hmi.rs` 114, `plcopen.rs` 311, `registry.rs` 237, `setup.rs` 25, `setup_web.rs` 555, `deploy.rs` 19.
+  - UI product: `config_ui.rs` 251, `wizard.rs` 463.
+  - Conformance/benchmark: `bench.rs` 40 with `bench/` total 2013, `conformance.rs` 21 with `conformance/` total 821.
+  - Workbench/dev: `agent.rs` 1371, `commit.rs` 191, `docs.rs` 27 with `docs/` total 1061, `workflow.rs` 586, `ci.rs` 124, `test.rs` 150 with `test_cmd/` total 1281.
+  - CLI infrastructure: `cli.rs` 16 with `cli/commands.rs` 341 and `cli/tests.rs` 542; `completions.rs` 12; `git.rs` 58; `prompt.rs` 114; `style.rs` 53.
+- Shell-out / source-bundling / developer helper modules:
+  - `git.rs` shells out to `git` and is used by setup/product and workbench/dev paths; it needs Phase 2 allowed-dependency rules before movement.
+  - `commit.rs` is a workbench/dev command layered on `git.rs`.
+  - `agent.rs` uses `workflow.rs`, `build.rs`, and runtime harness/source collection for external agent workflows.
+  - `docs.rs` / `docs/` collect and render API docs from ST source comments; classified workbench/dev for split purposes.
+  - `test.rs` / `test_cmd/` discover and execute ST tests from project sources; classified workbench/dev until compatibility policy says otherwise.
+  - `ci.rs` classifies CI exit codes and is currently pulled by the main CLI error path; it needs an explicit Phase 2 rule because product commands use `--ci`.
+  - `prompt.rs` and `style.rs` are shared CLI infrastructure used by product setup/onboarding and workbench paths.
+- Field artifact safety at inventory time:
+  - Safe for field/runtime artifacts: `product`, `ui_product`, and `support`/shared CLI infrastructure modules when their dependencies stay within approved product/support boundaries.
+  - Runtime-adjacent but not field-minimal: `bench` and `conformance`; keep only if Phase 3 accepts benchmark/conformance commands in shipped runtime artifacts.
+  - Not field-minimal without an explicit retained rationale: `agent`, `commit`, `docs`, `workflow`, `test`, and dev-only parts of `ci`.
 
 ## Phase 2 - Policy And Doctor
 
-- [ ] `RTCLI-P2-001` Add command ownership metadata in code or a doctor config.
-- [ ] `RTCLI-P2-002` Add a doctor rule failing unclassified command variants.
-- [ ] `RTCLI-P2-003` Add bin-module ownership metadata in code or a doctor config.
-- [ ] `RTCLI-P2-004` Add a doctor rule failing unclassified bin modules.
-- [ ] `RTCLI-P2-005` Add forbidden import checks from product commands/modules to workbench modules.
+- [x] `RTCLI-P2-001` Add command ownership metadata in code or a doctor config.
+- [x] `RTCLI-P2-002` Add a doctor rule failing unclassified command variants.
+- [x] `RTCLI-P2-003` Add bin-module ownership metadata in code or a doctor config.
+- [x] `RTCLI-P2-004` Add a doctor rule failing unclassified bin modules.
+- [x] `RTCLI-P2-005` Add forbidden import checks from product commands/modules to workbench modules.
 - [ ] `RTCLI-P2-006` Add a packaging/profile rule if field runtime artifacts must exclude workbench commands/modules.
 - [ ] `RTCLI-P2-007` Add a compatibility/deprecation rule for moved commands.
-- [ ] `RTCLI-P2-008` Add a doctor rule failing unclassified nested `*Action` enums or action variants with explicit ownership overrides.
+- [x] `RTCLI-P2-008` Add a doctor rule failing unclassified nested `*Action` enums or action variants with explicit ownership overrides.
+
+Phase 2 policy evidence already present before command movement:
+
+- `xtask/config/full_map_policy.json` contains `runtime_command_classes`, `runtime_bin_module_classes`, `runtime_action_classes`, and explicit route exceptions in `runtime_command_module_routes`.
+- `FULLMAP-CHECK-06` fails unclassified runtime command variants, unclassified top-level runtime bin modules, and unclassified nested action enums.
+- `FULLMAP-P4-003` / `known_bad_product_bin_importing_workbench_module_fails` cover product command/module imports from workbench modules.
+- Remaining Phase 2 decisions are intentionally open: packaging/profile exclusion policy (`RTCLI-P2-006`) and compatibility/deprecation behavior for moved commands (`RTCLI-P2-007`).
 
 ## Phase 3 - Target Split
 
