@@ -48,7 +48,7 @@ use crate::runtime_cloud::routing::{
     map_action_to_control_request, preflight_action, RuntimeCloudActionPreflight,
     RuntimeCloudActionRequest, RuntimeCloudPreflightContext, RuntimeCloudTargetStatus,
 };
-use crate::security::{constant_time_eq, AccessRole, TlsMaterials};
+use crate::security::{constant_time_eq, pairing::PairingStore, AccessRole, TlsMaterials};
 use crate::setup::SetupOptions;
 
 mod auth_helpers;
@@ -62,7 +62,9 @@ mod ide_routes;
 mod ide_tasks;
 mod models;
 mod ops_routes;
-pub mod pairing;
+pub mod pairing {
+    pub use crate::security::pairing::*;
+}
 mod runtime_cloud_dispatch;
 mod runtime_cloud_helpers;
 mod runtime_cloud_policy;
@@ -84,7 +86,6 @@ use ide_routes::{handle_ide_route, IdeRouteContext, IdeRouteOutcome};
 use ide_tasks::*;
 use models::*;
 use ops_routes::{handle_ops_route, OpsRouteContext, OpsRouteOutcome};
-use pairing::PairingStore;
 use runtime_cloud_dispatch::{
     runtime_cloud_denied_results, runtime_cloud_peer_appears_live,
     runtime_cloud_preflight_for_action, runtime_cloud_target_control_url,

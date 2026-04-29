@@ -17,12 +17,11 @@ use crate::historian::{AlertRule, HistorianConfig, HistorianService, RecordingMo
 use crate::linux_rt::LinuxRtRuntimeStatus;
 use crate::metrics::RuntimeMetrics;
 use crate::scheduler::{ResourceCommand, ResourceControl, StdClock};
-use crate::security::AccessRole;
+use crate::security::{pairing::PairingStore, AccessRole};
 use crate::settings::{
     BaseSettings, DiscoverySettings, MeshSettings, RuntimeSettings, SimulationSettings, WebSettings,
 };
 use crate::watchdog::{FaultPolicy, RetainMode, WatchdogPolicy};
-use crate::web::pairing::PairingStore;
 
 fn temp_history_path(name: &str) -> PathBuf {
     let stamp = SystemTime::now()

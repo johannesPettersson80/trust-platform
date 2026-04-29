@@ -1,4 +1,4 @@
-//! Pairing token storage for web access.
+//! Pairing token storage for authenticated runtime access.
 
 #![allow(missing_docs)]
 

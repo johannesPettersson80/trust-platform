@@ -2,6 +2,8 @@
 
 #![allow(missing_docs)]
 
+pub mod pairing;
+
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};

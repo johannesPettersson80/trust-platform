@@ -26,13 +26,12 @@ use trust_runtime::metrics::RuntimeMetrics;
 use trust_runtime::opcua::{start_wire_server, OpcUaWireServer};
 use trust_runtime::retain::FileRetainStore;
 use trust_runtime::scheduler::{ResourceCommand, ResourceRunner, StartGate, StdClock};
-use trust_runtime::security::load_tls_materials;
+use trust_runtime::security::{load_tls_materials, pairing::PairingStore};
 use trust_runtime::settings::{
     BaseSettings, DiscoverySettings, MeshSettings, OpcUaSettings, RuntimeSettings,
     SimulationSettings, WebSettings,
 };
 use trust_runtime::value::Duration;
-use trust_runtime::web::pairing::PairingStore;
 use trust_runtime::web::start_web_server;
 use trust_runtime::{RestartMode, Runtime};
 

@@ -43,7 +43,7 @@ Scope: address audit F11 by defining and enforcing ownership for `web`, `hmi`, `
 Phase 1 evidence captured on 2026-04-29:
 
 - Inventory: `docs/internal/architecture/generated/runtime-host-surface-inventory.md`.
-- Important current inversion: `crates/trust-runtime/src/control.rs` imports `crate::web::pairing::PairingStore`; this remains temporarily allowlisted in `xtask/config/full_map_policy.json` and must be removed by the host-surface board.
+- Resolved inversion: `crates/trust-runtime/src/control.rs` no longer imports `crate::web::pairing::PairingStore`; pairing storage moved behind `crate::security::pairing`.
 - Important review candidates before Phase 4: `crates/trust-runtime/src/web/runtime_cloud_policy.rs`, `crates/trust-runtime/src/web/runtime_cloud_state/links.rs`, `crates/trust-runtime/src/web/runtime_cloud_state/rollouts.rs`, `crates/trust-runtime/src/web/runtime_cloud_routes/control_proxy.rs`, and HMI write/snapshot coupling in `crates/trust-runtime/src/control/hmi_handlers_write.rs` plus `crates/trust-runtime/src/hmi/runtime_views/values_writes.rs`.
 
 ## Phase 2 - Port Design
@@ -72,7 +72,7 @@ Port design constraints:
 - Ports are request/response contracts, not broad service objects; each first code-backed target above should stay independently testable.
 - Web adapters may perform HTTP auth, body parsing, TLS-origin checks, websocket transport, and response serialization.
 - HMI and runtime-cloud domain ports may depend on domain contracts and immutable runtime snapshots, but must not import `web`.
-- Control ports may own authorization/write side effects, but must not import web implementation types; the existing `PairingStore` inversion remains a removal item.
+- Control ports may own authorization/write side effects, but must not import web implementation types; the former `PairingStore` inversion was removed and must not be reintroduced.
 - `host_surface.approved_ports_active` remains `false` until at least the first code-backed port and matching doctor rule exist.
 
 ## Phase 3 - Doctor Rules
@@ -98,7 +98,7 @@ Named-file move table from `RTHOST-P1-008`:
 
 | Source file or glob | Current owner | Target owner | Action | Public API / behavior-lock / rollback | Required tests | Doctor rule |
 | --- | --- | --- | --- | --- | --- | --- |
-| `crates/trust-runtime/src/control.rs` `PairingStore` dependency | control root with temporary web import | control-neutral pairing/auth port or web-owned injection boundary | split | Public API: avoid exposing `web::pairing`; behavior lock: pairing/auth control requests keep current semantics; rollback: keep temporary CHECK-07 waiver until replacement passes. | `cargo test -p trust-runtime control::tests`, `cargo test -p trust-runtime --test web_ide_integration` focused pairing/auth cases | `FULLMAP-CHECK-07` must remove temporary `control -> web` allowlist after split. |
+| `crates/trust-runtime/src/control.rs` `PairingStore` dependency | control root, previously with temporary web import | `security::pairing` shared auth boundary | moved | Public API: `web::pairing` remains as compatibility re-export; behavior lock: pairing/auth control requests keep current semantics; rollback: restore re-exported store path while keeping CHECK-07 failing on direct control-to-web imports. | `cargo test -p trust-runtime control::tests`, `cargo test -p trust-runtime --test web_ide_integration` focused pairing/auth cases | `FULLMAP-CHECK-07` temporary `control -> web` allowlist removed after split. |
 | `crates/trust-runtime/src/control/hmi_handlers*.rs` | control HMI port | control port plus HMI-domain helpers where duplicated | split selectively | Public API: keep control request names stable; behavior lock: HMI schema/value/write JSON remains stable; rollback: keep existing handlers and do not move side effects until tests pass. | `cargo test -p trust-runtime --lib control::tests::hmi_`, `cargo test -p trust-runtime --test hmi_readonly_integration` | `host_surface.owned_paths`, `control -> web` forbidden edge. |
 | `crates/trust-runtime/src/hmi/runtime_views/values_writes.rs` | HMI domain coupled to runtime snapshot types | HMI domain using runtime value read/write ports | keep then narrow | Public API: HMI schema/value contracts stay stable; behavior lock: value quality/freshness/write-target resolution stable; rollback: port wrapper can delegate to current functions. | `cargo test -p trust-runtime --lib hmi::tests`, HMI control tests | `hmi -> web` forbidden edge and future approved-port rule. |
 | `crates/trust-runtime/src/web/hmi_ws.rs` | web HMI adapter | web adapter only | adapter-only | Public API: websocket event names stay stable; behavior lock: `hmi.values.delta`, `hmi.schema.revision`, and `hmi.alarms.event` payloads stable; rollback: keep current polling loop if delta port is not ready. | `cargo test -p trust-runtime --test hmi_readonly_integration`; Playwright required for browser-visible websocket/UI behavior changes | `host_surface.owned_paths`, future approved HMI event/delta port rule. |
@@ -133,7 +133,7 @@ Named-file move table from `RTHOST-P1-008`:
 ## Exit Criteria
 
 - [ ] `RTHOST-EXIT-01` HMI logic is not split three ways without ownership rules.
-- [ ] `RTHOST-EXIT-02` `control -> web` inversion is removed or explicitly justified with a removal ticket.
+- [x] `RTHOST-EXIT-02` `control -> web` inversion is removed or explicitly justified with a removal ticket.
 - [ ] `RTHOST-EXIT-03` Runtime-cloud does not own runtime execution.
 - [ ] `RTHOST-EXIT-04` Web route code is transport adapter code, not domain owner.
 - [ ] `RTHOST-EXIT-05` Doctor rules prevent drift back.

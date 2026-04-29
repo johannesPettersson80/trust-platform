@@ -13,7 +13,7 @@ move table in `docs/internal/testing/checklists/runtime-host-surface-ownership-c
 | Surface | Current role | Proposed owner | Boundary rule |
 | --- | --- | --- | --- |
 | `hmi` | HMI schema, descriptors, customization, scaffold generation, runtime HMI view projection. | HMI domain. | Must not import web transport. Runtime snapshot/value access should move behind narrow read/write/status ports before extraction. |
-| `control` HMI handlers | HTTP-neutral control requests for HMI schema, values, trends, alarms, descriptor reload, and writes. | Control port layer. | May depend on HMI contracts/domain helpers; must not depend on web implementation types. Existing `control.rs -> web::pairing::PairingStore` is a recorded temporary inversion. |
+| `control` HMI handlers | HTTP-neutral control requests for HMI schema, values, trends, alarms, descriptor reload, and writes. | Control port layer. | May depend on HMI contracts/domain helpers; must not depend on web implementation types. Former `control.rs -> web::pairing::PairingStore` inversion moved to `security::pairing`; `web::pairing` remains only as a compatibility re-export. |
 | `web` HMI files | HTTP routes, static browser assets, and websocket adapter. | Web transport/browser adapter. | Should call control/HMI ports and keep browser transport details; HMI domain logic belongs in `hmi` or control ports. |
 | `ui` | Terminal/local presentation client. | UI presentation. | May call control APIs; should not own runtime execution, HMI domain schema, or web/browser transport. |
 | `runtime_cloud` | Cloud contracts, routing/preflight contracts, HA policy, keyspace, and UI projection types. | Runtime-cloud domain. | Transport modules may depend on `runtime_cloud`; `runtime_cloud` must not depend on web/transport implementation. |
@@ -22,9 +22,9 @@ move table in `docs/internal/testing/checklists/runtime-host-surface-ownership-c
 ## Current Gate State
 
 - `FULLMAP-CHECK-07` exists in `architecture-doctor --full-map`.
-- Current policy forbids `control -> web` and `hmi -> web` production imports.
-- A temporary allowlist exists for `crates/trust-runtime/src/control.rs -> crate::web::pairing::PairingStore`; this is the known host-surface inversion to remove.
-- `host_surface.approved_ports_active` is currently `false`, so CHECK-07 remains a partial gate until Phase 2 ports are designed and Phase 3 rules are tightened.
+- Current policy forbids `control -> web`, `hmi -> web`, and `runtime_cloud -> web` production imports.
+- The former temporary allowlist for `crates/trust-runtime/src/control.rs -> crate::web::pairing::PairingStore` has been removed after moving pairing storage to `crate::security::pairing`.
+- `host_surface.approved_ports_active` is currently `false`, so CHECK-07 remains a partial gate until code-backed ports and direct runtime-state web-route checks are active.
 
 ## HMI Files
 
@@ -138,7 +138,7 @@ Production imports found by scanning `crate::{web,hmi,control,ui,runtime_cloud}`
 | From file | Imports | Classification |
 | --- | --- | --- |
 | `crates/trust-runtime/src/web.rs` | control, runtime_cloud | Allowed web adapter dependency on control and runtime-cloud contracts; keep as root/router glue only. |
-| `crates/trust-runtime/src/control.rs` | hmi, web | HMI dependency is expected for current control HMI port; web dependency is the temporary `PairingStore` inversion tracked by CHECK-07 allowlist. |
+| `crates/trust-runtime/src/control.rs` | hmi | HMI dependency is expected for current control HMI port; the former web pairing dependency moved to `security::pairing`. |
 | `crates/trust-runtime/src/ui.rs` | control | Allowed UI presentation dependency on control client API. |
 | `crates/trust-runtime/src/control/hmi_handlers_descriptor.rs` | hmi | Expected control-to-HMI domain call. |
 | `crates/trust-runtime/src/control/hmi_handlers_read.rs` | hmi | Expected control-to-HMI domain call. |

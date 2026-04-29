@@ -134,9 +134,7 @@
       {"from_module": "hmi", "to_module": "web", "owner": "runtime/HMI", "rationale": "HMI domain must not depend on web transport"},
       {"from_module": "runtime_cloud", "to_module": "web", "owner": "runtime-cloud", "rationale": "runtime-cloud domain must not depend on web transport implementation"}
     ],
-    "temporary_allowlist": [
-      {"from_module": "control", "to_module": "web", "path": "crates/trust-runtime/src/control.rs", "owner": "runtime/host-surface", "rationale": "PairingStore inversion is a known current architecture finding tracked by runtime-host-surface-ownership; new control->web imports still fail", "review_date": "2026-04-28"}
-    ]
+    "temporary_allowlist": []
   },
   "kiss": {
     "new_file_line_limit": 1000,
