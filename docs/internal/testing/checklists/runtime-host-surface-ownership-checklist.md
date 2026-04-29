@@ -81,14 +81,14 @@ Port design constraints:
 - [x] `RTHOST-P3-002` Forbid `hmi -> web` implementation imports.
 - [x] `RTHOST-P3-003` Forbid `runtime_cloud -> web` implementation imports unless explicitly route-adapter scoped.
 - [ ] `RTHOST-P3-004` Forbid direct runtime state access from web routes when approved ports exist.
-- [ ] `RTHOST-P3-005` Require new HMI/web/control/cloud files to declare owner category in subsystem map or config.
+- [x] `RTHOST-P3-005` Require new HMI/web/control/cloud files to declare owner category in subsystem map or config.
 
 Phase 3 evidence captured on 2026-04-29:
 
 - `xtask/config/full_map_policy.json` forbids production `control -> web`, `hmi -> web`, and `runtime_cloud -> web` implementation imports.
-- `xtask/src/full_map.rs` fixtures prove an unallowlisted host-surface import fails, test-only imports are ignored, and `runtime_cloud -> web` fails.
+- `xtask/config/full_map_policy.json` has `host_surface.owned_paths` owner categories for `control`, `hmi`, `web`, `ui`, and `runtime_cloud` roots/subtrees.
+- `xtask/src/full_map.rs` fixtures prove an unallowlisted host-surface import fails, test-only imports are ignored, `runtime_cloud -> web` fails, and host-surface files without owner category fail.
 - `RTHOST-P3-004` remains blocked until at least one approved runtime/HMI/cloud port is code-backed.
-- `RTHOST-P3-005` remains open for the subsystem map/config requirement for new files.
 
 ## Phase 4 - Named-File Extraction
 

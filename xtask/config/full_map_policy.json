@@ -118,6 +118,17 @@
   ],
   "host_surface": {
     "approved_ports_active": false,
+    "owned_paths": [
+      {"path_prefix": "crates/trust-runtime/src/control.rs", "category": "control_root", "owner": "runtime/control", "rationale": "control module root and ControlState live in the control boundary"},
+      {"path_prefix": "crates/trust-runtime/src/control/", "category": "control_port", "owner": "runtime/control", "rationale": "control handlers and policy own HTTP-neutral command/query ports"},
+      {"path_prefix": "crates/trust-runtime/src/hmi.rs", "category": "hmi_root", "owner": "runtime/HMI", "rationale": "HMI module root owns schema and descriptor exports"},
+      {"path_prefix": "crates/trust-runtime/src/hmi/", "category": "hmi_domain", "owner": "runtime/HMI", "rationale": "HMI contracts, descriptors, scaffold, and view projection remain domain-owned"},
+      {"path_prefix": "crates/trust-runtime/src/web.rs", "category": "web_root", "owner": "runtime/web", "rationale": "web module root owns HTTP server wiring and static asset routing"},
+      {"path_prefix": "crates/trust-runtime/src/web/", "category": "web_adapter", "owner": "runtime/web", "rationale": "web subtree owns HTTP routes, websocket transport, browser assets, and adapters"},
+      {"path_prefix": "crates/trust-runtime/src/ui.rs", "category": "ui_root", "owner": "runtime/UI", "rationale": "terminal/local UI module root owns presentation entrypoints"},
+      {"path_prefix": "crates/trust-runtime/src/ui/", "category": "ui_presentation", "owner": "runtime/UI", "rationale": "terminal/local UI subtree owns presentation state and rendering"},
+      {"path_prefix": "crates/trust-runtime/src/runtime_cloud/", "category": "runtime_cloud_domain", "owner": "runtime-cloud", "rationale": "runtime-cloud contracts, projection, routing, keyspace, and HA policy remain transport-neutral"}
+    ],
     "forbidden_edges": [
       {"from_module": "control", "to_module": "web", "owner": "runtime/web", "rationale": "control must not depend on web implementation"},
       {"from_module": "hmi", "to_module": "web", "owner": "runtime/HMI", "rationale": "HMI domain must not depend on web transport"},

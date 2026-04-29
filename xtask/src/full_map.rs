@@ -115,8 +115,17 @@ struct CommandModuleRoute {
 #[derive(Debug, Deserialize)]
 struct HostSurfacePolicy {
     approved_ports_active: bool,
+    owned_paths: Vec<HostSurfaceOwnedPath>,
     forbidden_edges: Vec<ForbiddenModuleEdge>,
     temporary_allowlist: Vec<TemporaryHostSurfaceImport>,
+}
+
+#[derive(Debug, Deserialize)]
+struct HostSurfaceOwnedPath {
+    path_prefix: String,
+    category: String,
+    owner: String,
+    rationale: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -654,6 +663,18 @@ fn check_policy_metadata(policy: &FullMapPolicy) -> FullMapCheck {
             ));
         }
     }
+    for item in &policy.host_surface.owned_paths {
+        if item.path_prefix.trim().is_empty()
+            || item.category.trim().is_empty()
+            || item.owner.trim().is_empty()
+            || item.rationale.trim().is_empty()
+        {
+            failures.push(format!(
+                "host-surface owned path '{}' is missing path_prefix/category/owner/rationale",
+                item.path_prefix
+            ));
+        }
+    }
     for item in &policy.kiss.large_file_allowlist {
         if item.owner.trim().is_empty()
             || item.rationale.trim().is_empty()
@@ -1009,6 +1030,8 @@ fn check_runtime_command_and_module_ownership(
 fn check_host_surface_edges(map: &SoftwareMap, policy: &FullMapPolicy) -> FullMapCheck {
     let mut failures = Vec::new();
     let mut details = Vec::new();
+    let mut covered_files = 0usize;
+    let mut categories = BTreeSet::new();
     for forbidden in &policy.host_surface.forbidden_edges {
         for edge in &map.import_edges {
             if is_test_source_file(&edge.from_file) {
@@ -1049,6 +1072,22 @@ fn check_host_surface_edges(map: &SoftwareMap, policy: &FullMapPolicy) -> FullMa
             }
         }
     }
+    for file in &map.source_files {
+        let path = file.path.as_str();
+        if !is_host_surface_source_file(path) {
+            continue;
+        }
+        match host_surface_owner_for_path(&policy.host_surface, path) {
+            Some(owner) => {
+                covered_files += 1;
+                categories.insert(format!("{} ({})", owner.category, owner.owner));
+            }
+            None => failures.push(format!(
+                "host-surface file '{}' has no owner category in policy.host_surface.owned_paths",
+                path
+            )),
+        }
+    }
 
     if failures.is_empty() {
         details.extend(vec![
@@ -1060,17 +1099,26 @@ fn check_host_surface_edges(map: &SoftwareMap, policy: &FullMapPolicy) -> FullMa
                 "forbidden edge rules: {}",
                 policy.host_surface.forbidden_edges.len()
             ),
+            format!(
+                "host-surface owner path rules: {}",
+                policy.host_surface.owned_paths.len()
+            ),
+            format!("host-surface files covered: {covered_files}"),
+            format!(
+                "host-surface owner categories: {}",
+                categories.into_iter().collect::<Vec<_>>().join(", ")
+            ),
         ]);
         if policy.host_surface.approved_ports_active {
             FullMapCheck::pass(
                 "FULLMAP-CHECK-07",
-                "host-surface forbidden direct imports are absent or explicitly waivered in production files",
+                "host-surface ownership and forbidden direct imports are enforced",
                 details,
             )
         } else {
             FullMapCheck::partial(
                 "FULLMAP-CHECK-07",
-                "host-surface direct-import rules are enforced; approved-port bypass rules are pending",
+                "host-surface ownership and direct-import rules are enforced; approved-port bypass rules are pending",
                 details,
             )
         }
@@ -1080,6 +1128,38 @@ fn check_host_surface_edges(map: &SoftwareMap, policy: &FullMapPolicy) -> FullMa
             "host-surface forbidden imports were found",
             failures,
         )
+    }
+}
+
+fn is_host_surface_source_file(path: &str) -> bool {
+    matches!(
+        path,
+        "crates/trust-runtime/src/control.rs"
+            | "crates/trust-runtime/src/hmi.rs"
+            | "crates/trust-runtime/src/ui.rs"
+            | "crates/trust-runtime/src/web.rs"
+    ) || path.starts_with("crates/trust-runtime/src/control/")
+        || path.starts_with("crates/trust-runtime/src/hmi/")
+        || path.starts_with("crates/trust-runtime/src/runtime_cloud/")
+        || path.starts_with("crates/trust-runtime/src/ui/")
+        || path.starts_with("crates/trust-runtime/src/web/")
+}
+
+fn host_surface_owner_for_path<'a>(
+    policy: &'a HostSurfacePolicy,
+    path: &str,
+) -> Option<&'a HostSurfaceOwnedPath> {
+    policy
+        .owned_paths
+        .iter()
+        .find(|entry| host_surface_path_matches(path, entry.path_prefix.as_str()))
+}
+
+fn host_surface_path_matches(path: &str, prefix: &str) -> bool {
+    if prefix.ends_with('/') {
+        path.starts_with(prefix)
+    } else {
+        path == prefix
     }
 }
 
@@ -2582,6 +2662,26 @@ mod tests {
     }
 
     #[test]
+    fn known_bad_host_surface_file_without_owner_category_fails() {
+        let mut map = base_map();
+        map.source_files.push(SourceFileSummary {
+            path: "crates/trust-runtime/src/control.rs".to_string(),
+            line_count: 120,
+        });
+        let mut policy = base_policy();
+        policy.host_surface.owned_paths.clear();
+
+        let check = check_host_surface_edges(&map, &policy);
+
+        assert!(check.is_fail());
+        assert!(check
+            .details
+            .iter()
+            .any(|detail| detail
+                .contains("crates/trust-runtime/src/control.rs' has no owner category")));
+    }
+
+    #[test]
     fn known_bad_failed_dependency_tool_status_fails() {
         let map = base_map();
         let mut policy = base_policy();
@@ -2924,6 +3024,62 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
             runtime_command_module_routes: Vec::new(),
             host_surface: HostSurfacePolicy {
                 approved_ports_active: false,
+                owned_paths: vec![
+                    HostSurfaceOwnedPath {
+                        path_prefix: "crates/trust-runtime/src/control.rs".to_string(),
+                        category: "control_root".to_string(),
+                        owner: "runtime/control".to_string(),
+                        rationale: "control root".to_string(),
+                    },
+                    HostSurfaceOwnedPath {
+                        path_prefix: "crates/trust-runtime/src/control/".to_string(),
+                        category: "control_port".to_string(),
+                        owner: "runtime/control".to_string(),
+                        rationale: "control subtree".to_string(),
+                    },
+                    HostSurfaceOwnedPath {
+                        path_prefix: "crates/trust-runtime/src/hmi.rs".to_string(),
+                        category: "hmi_root".to_string(),
+                        owner: "runtime/HMI".to_string(),
+                        rationale: "HMI root".to_string(),
+                    },
+                    HostSurfaceOwnedPath {
+                        path_prefix: "crates/trust-runtime/src/hmi/".to_string(),
+                        category: "hmi_domain".to_string(),
+                        owner: "runtime/HMI".to_string(),
+                        rationale: "HMI subtree".to_string(),
+                    },
+                    HostSurfaceOwnedPath {
+                        path_prefix: "crates/trust-runtime/src/web.rs".to_string(),
+                        category: "web_root".to_string(),
+                        owner: "runtime/web".to_string(),
+                        rationale: "web root".to_string(),
+                    },
+                    HostSurfaceOwnedPath {
+                        path_prefix: "crates/trust-runtime/src/web/".to_string(),
+                        category: "web_adapter".to_string(),
+                        owner: "runtime/web".to_string(),
+                        rationale: "web subtree".to_string(),
+                    },
+                    HostSurfaceOwnedPath {
+                        path_prefix: "crates/trust-runtime/src/ui.rs".to_string(),
+                        category: "ui_root".to_string(),
+                        owner: "runtime/UI".to_string(),
+                        rationale: "UI root".to_string(),
+                    },
+                    HostSurfaceOwnedPath {
+                        path_prefix: "crates/trust-runtime/src/ui/".to_string(),
+                        category: "ui_presentation".to_string(),
+                        owner: "runtime/UI".to_string(),
+                        rationale: "UI subtree".to_string(),
+                    },
+                    HostSurfaceOwnedPath {
+                        path_prefix: "crates/trust-runtime/src/runtime_cloud/".to_string(),
+                        category: "runtime_cloud_domain".to_string(),
+                        owner: "runtime-cloud".to_string(),
+                        rationale: "runtime-cloud subtree".to_string(),
+                    },
+                ],
                 forbidden_edges: vec![
                     ForbiddenModuleEdge {
                         from_module: "control".to_string(),
