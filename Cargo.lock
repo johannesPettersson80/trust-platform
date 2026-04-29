@@ -5040,7 +5040,7 @@ dependencies = [
 
 [[package]]
 name = "trust-debug"
-version = "0.24.6"
+version = "0.24.7"
 dependencies = [
  "glob",
  "indexmap 2.14.0",
@@ -5055,7 +5055,7 @@ dependencies = [
 
 [[package]]
 name = "trust-hir"
-version = "0.24.6"
+version = "0.24.7"
 dependencies = [
  "insta",
  "parking_lot",
@@ -5072,7 +5072,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ide"
-version = "0.24.6"
+version = "0.24.7"
 dependencies = [
  "expect-test",
  "once_cell",
@@ -5085,7 +5085,7 @@ dependencies = [
 
 [[package]]
 name = "trust-lsp"
-version = "0.24.6"
+version = "0.24.7"
 dependencies = [
  "anyhow",
  "expect-test",
@@ -5112,7 +5112,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime"
-version = "0.24.6"
+version = "0.24.7"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -5164,7 +5164,7 @@ dependencies = [
 
 [[package]]
 name = "trust-syntax"
-version = "0.24.6"
+version = "0.24.7"
 dependencies = [
  "drop_bomb",
  "insta",
@@ -5175,7 +5175,7 @@ dependencies = [
 
 [[package]]
 name = "trust-wasm-analysis"
-version = "0.24.6"
+version = "0.24.7"
 dependencies = [
  "rowan",
  "serde",
@@ -6295,7 +6295,7 @@ dependencies = [
 
 [[package]]
 name = "xtask"
-version = "0.24.6"
+version = "0.24.7"
 dependencies = [
  "anyhow",
  "serde",

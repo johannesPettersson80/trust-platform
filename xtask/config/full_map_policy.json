@@ -146,9 +146,9 @@
     ]
   },
   "dependency_hygiene_tools": [
-    {"name": "cargo audit", "status": "pass", "owner": "release engineering", "rationale": "raw advisories are fixed or explicitly ignored by policy metadata", "review_date": "2026-04-29", "evidence": "target/gate-artifacts/dependency-hygiene-v0.24.6/cargo-audit-after-mqtt-tls.json"},
+    {"name": "cargo audit", "status": "pass", "owner": "release engineering", "rationale": "raw advisories are fixed or explicitly ignored by policy metadata", "review_date": "2026-04-29", "evidence": "target/gate-artifacts/dependency-hygiene-v0.24.7/cargo-audit-after-mqtt-tls.json"},
     {"name": "cargo machete", "status": "pass", "owner": "architecture automation", "rationale": "workspace member paths have no unused direct dependencies", "review_date": "2026-04-29", "evidence": "target/gate-artifacts/dependency-hygiene-v0.24.5/cargo-machete-workspace-after-fixes.txt"},
-    {"name": "cargo deny", "status": "pass", "owner": "release engineering", "rationale": "project deny.toml policy is present and cargo deny check passes", "review_date": "2026-04-29", "evidence": "target/gate-artifacts/dependency-hygiene-v0.24.5/cargo-deny-final.txt"}
+    {"name": "cargo deny", "status": "pass", "owner": "release engineering", "rationale": "project deny.toml policy is present and cargo deny check passes", "review_date": "2026-04-29", "evidence": "target/gate-artifacts/dependency-hygiene-v0.24.7/cargo-deny-final.txt"}
   ],
   "dependency_hygiene": {
     "third_party_tiverse_mmap": {

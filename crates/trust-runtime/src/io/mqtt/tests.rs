@@ -70,8 +70,8 @@ fn tls_fixture_path(name: &str) -> String {
     std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests/fixtures/tls")
         .join(name)
-        .display()
-        .to_string()
+        .to_string_lossy()
+        .replace('\\', "/")
 }
 
 #[test]

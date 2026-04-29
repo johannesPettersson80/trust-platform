@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.6`
+Target release: `v0.24.7`
 
 ### Changed
 
@@ -17,13 +17,16 @@ Target release: `v0.24.6`
 - MQTT I/O now supports explicit TLS/mTLS configuration instead of carrying
   unused default TLS dependencies: `io.params.tls = true` requires
   `tls_ca_path`, optional `tls_client_cert_path`/`tls_client_key_path` enable
-  client authentication, `mqtts://` and `ssl://` broker schemes imply TLS, and
-  remote plaintext brokers still require `allow_insecure_remote = true`.
+  client authentication, `mqtts://` and `ssl://` broker schemes imply TLS,
+  Linux release builds use vendored OpenSSL for the selected native TLS backend,
+  and remote plaintext brokers still require `allow_insecure_remote = true`.
 
 ### Fixed
 
 - MQTT `keep_alive_s` is now applied to the `rumqttc` session options instead
   of being parsed only at validation time.
+- MQTT TLS fixture paths are normalized before being embedded in TOML so the
+  TLS config tests run on Windows paths as well as Unix paths.
 - Dependency hygiene now has explicit `cargo deny`, `cargo audit`, and
   `cargo machete` policy evidence: unused direct workspace dependencies were
   removed, the workspace MSRV was raised from Rust `1.85` to Rust `1.95`,
