@@ -2,14 +2,18 @@
 
 ## Current Baseline
 
-- current repository baseline: `v0.24.3`
-- public docs in this tree describe the `v0.24.3` workspace version unless a
+- current repository baseline: `v0.24.4`
+- public docs in this tree describe the `v0.24.4` workspace version unless a
   page explicitly marks a feature as experimental, roadmap, or target-specific
 
 ## What Changed Recently
 
 ### `v0.24.x`
 
+- Dependency hygiene now has project `cargo deny` policy, explicit
+  advisory/allowlist metadata, workspace-scoped `cargo machete` cleanup,
+  `time` 0.3.47, and full-map doctor reporting for the remaining
+  policy-managed transitive advisories.
 - OSCAT OOP reset behavior, converter parity, API naming, dependency
   alias, and comparison examples were hardened after external review.
 - HIR default-initializer analysis now rejects non-repeat call expressions used

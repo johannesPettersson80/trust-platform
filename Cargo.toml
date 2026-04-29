@@ -10,9 +10,12 @@ members = [
     "crates/trust-runtime",
     "crates/trust-wasm-analysis",
 ]
+exclude = [
+    "third_party/tiverse-mmap",
+]
 
 [workspace.package]
-version = "0.24.3"
+version = "0.24.4"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/johannesPettersson80/trust-platform"
@@ -74,8 +77,8 @@ crossterm = "0.29"
 dialoguer = "0.12"
 indicatif = "0.18"
 owo-colors = "4"
-rumqttc = "0.25"
-time = "=0.3.44"
+rumqttc = { version = "0.25", default-features = false }
+time = "=0.3.47"
 home = "=0.5.11"
 instability = "=0.3.10"
 

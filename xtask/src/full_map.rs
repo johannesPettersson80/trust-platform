@@ -7,9 +7,10 @@ use anyhow::{anyhow, bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::software_map::{
-    CliActionSummary, DiagramEdge, DiagramFact, ImportEdge, ModuleSummary, PackageSummary,
-    ParserRecoverySummary, RuntimeRouteHandlerSummary, SoftwareMap, SourceFileSummary,
-    SourcePatternSummary, TargetSummary, ToolResult, ToolStatus, UnsafeSummary, WorkspaceEdge,
+    CliActionSummary, DependencyHygieneSummary, DependencyPolicyEntry, DiagramEdge, DiagramFact,
+    ImportEdge, ModuleSummary, PackageSummary, ParserRecoverySummary, RuntimeRouteHandlerSummary,
+    SoftwareMap, SourceFileSummary, SourcePatternSummary, TargetSummary, ToolResult, ToolStatus,
+    UnsafeSummary, WorkspaceEdge,
 };
 
 pub fn architecture_doctor_full_map(root: &Path) -> Result<()> {
@@ -70,6 +71,7 @@ struct FullMapPolicy {
     host_surface: HostSurfacePolicy,
     kiss: KissPolicy,
     dependency_hygiene_tools: Vec<PolicyToolStatus>,
+    dependency_hygiene: DependencyHygienePolicy,
     unsafe_concurrency: UnsafeConcurrencyPolicy,
     diagram_policy: DiagramPolicy,
 }
@@ -161,6 +163,34 @@ struct PolicyToolStatus {
     status: String,
     owner: String,
     rationale: String,
+    review_date: String,
+    evidence: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct DependencyHygienePolicy {
+    third_party_tiverse_mmap: ThirdPartyWorkspacePolicy,
+    audit_allowlist: Vec<DependencyAllowlistEntry>,
+    machete_allowlist: Vec<DependencyAllowlistEntry>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ThirdPartyWorkspacePolicy {
+    path: String,
+    expected_status: String,
+    owner: String,
+    rationale: String,
+    review_date: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct DependencyAllowlistEntry {
+    id: String,
+    package: String,
+    owner: String,
+    rationale: String,
+    review_date: String,
+    removal_condition: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -374,6 +404,7 @@ fn build_software_map(root: &Path, policy: &FullMapPolicy) -> Result<SoftwareMap
     map.runtime_cli_actions = collect_runtime_cli_actions(root)?;
     map.runtime_route_handlers = collect_runtime_route_handlers(root, policy)?;
     map.parser_recovery = collect_parser_recovery_summary(root);
+    map.dependency_hygiene = collect_dependency_hygiene_summary(root, policy, &workspace_members)?;
     map.unsafe_summary = collect_unsafe_summary(root, policy);
     map.diagram_facts = collect_diagram_facts(root, &policy.diagram_policy)?;
     map.tool_results.push(ToolResult {
@@ -442,11 +473,98 @@ fn build_software_map(root: &Path, policy: &FullMapPolicy) -> Result<SoftwareMap
         map.tool_results.push(ToolResult {
             name: tool.name.clone(),
             status: policy_tool_status(&tool.status),
-            details: vec![format!("owner: {}; {}", tool.owner, tool.rationale)],
+            details: vec![
+                format!("owner: {}; {}", tool.owner, tool.rationale),
+                format!("review date: {}", tool.review_date),
+                format!("evidence: {}", tool.evidence),
+            ],
         });
     }
 
     Ok(map)
+}
+
+fn collect_dependency_hygiene_summary(
+    root: &Path,
+    policy: &FullMapPolicy,
+    workspace_members: &BTreeSet<String>,
+) -> Result<DependencyHygieneSummary> {
+    let manifest_source = fs::read_to_string(root.join("Cargo.toml")).context("read Cargo.toml")?;
+    let workspace_excludes = workspace_excludes_from_manifest_source(&manifest_source)?;
+    let third_party_path = policy
+        .dependency_hygiene
+        .third_party_tiverse_mmap
+        .path
+        .as_str();
+    let third_party_status = classify_workspace_path(
+        root,
+        workspace_members,
+        &workspace_excludes,
+        third_party_path,
+    );
+
+    Ok(DependencyHygieneSummary {
+        deny_policy_present: root.join("deny.toml").is_file(),
+        workspace_excludes,
+        third_party_tiverse_mmap_status: third_party_status,
+        audit_allowlist: policy
+            .dependency_hygiene
+            .audit_allowlist
+            .iter()
+            .map(dependency_policy_entry)
+            .collect(),
+        machete_allowlist: policy
+            .dependency_hygiene
+            .machete_allowlist
+            .iter()
+            .map(dependency_policy_entry)
+            .collect(),
+    })
+}
+
+fn dependency_policy_entry(entry: &DependencyAllowlistEntry) -> DependencyPolicyEntry {
+    DependencyPolicyEntry {
+        id: entry.id.clone(),
+        package: entry.package.clone(),
+        owner: entry.owner.clone(),
+        rationale: entry.rationale.clone(),
+        review_date: entry.review_date.clone(),
+        removal_condition: entry.removal_condition.clone(),
+    }
+}
+
+fn workspace_excludes_from_manifest_source(source: &str) -> Result<Vec<String>> {
+    let manifest: toml::Value = toml::from_str(source).context("parse Cargo.toml as TOML")?;
+    Ok(manifest
+        .get("workspace")
+        .and_then(|workspace| workspace.get("exclude"))
+        .and_then(toml::Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(toml::Value::as_str)
+        .map(ToOwned::to_owned)
+        .collect())
+}
+
+fn classify_workspace_path(
+    root: &Path,
+    workspace_members: &BTreeSet<String>,
+    workspace_excludes: &[String],
+    path: &str,
+) -> String {
+    let manifest = root.join(path).join("Cargo.toml");
+    let is_member = workspace_members
+        .iter()
+        .any(|member| member.contains(&format!("{path}#")) || member.contains(&format!("{path}/")));
+    if is_member {
+        "workspace_member".to_string()
+    } else if workspace_excludes.iter().any(|exclude| exclude == path) {
+        "workspace_exclude".to_string()
+    } else if manifest.is_file() {
+        "ambiguous".to_string()
+    } else {
+        "missing".to_string()
+    }
 }
 
 fn policy_tool_status(status: &str) -> ToolStatus {
@@ -466,7 +584,7 @@ fn run_policy_checks(map: &SoftwareMap, policy: &FullMapPolicy) -> Vec<FullMapCh
         check_runtime_core_dependency_fence(map, policy),
         check_runtime_command_and_module_ownership(map, policy),
         check_host_surface_edges(map, policy),
-        check_dependency_hygiene_status(policy),
+        check_dependency_hygiene_status(map, policy),
         check_unsafe_concurrency_summary(map),
         check_kiss_thresholds(map, policy),
         check_public_api_snapshot_status(map),
@@ -548,6 +666,47 @@ fn check_policy_metadata(policy: &FullMapPolicy) -> FullMapCheck {
             ));
         }
     }
+    for tool in &policy.dependency_hygiene_tools {
+        if tool.owner.trim().is_empty()
+            || tool.rationale.trim().is_empty()
+            || tool.review_date.trim().is_empty()
+            || tool.evidence.trim().is_empty()
+        {
+            failures.push(format!(
+                "dependency hygiene tool '{}' is missing owner/rationale/review_date/evidence",
+                tool.name
+            ));
+        }
+        if !matches!(
+            tool.status.as_str(),
+            "pass" | "finding" | "partial" | "failed" | "not_run"
+        ) {
+            failures.push(format!(
+                "dependency hygiene tool '{}' has unsupported status '{}'",
+                tool.name, tool.status
+            ));
+        }
+    }
+    let third_party = &policy.dependency_hygiene.third_party_tiverse_mmap;
+    if third_party.path.trim().is_empty()
+        || third_party.expected_status.trim().is_empty()
+        || third_party.owner.trim().is_empty()
+        || third_party.rationale.trim().is_empty()
+        || third_party.review_date.trim().is_empty()
+    {
+        failures.push(
+            "third_party/tiverse-mmap workspace policy is missing path/status/owner/rationale/review_date"
+                .to_string(),
+        );
+    }
+    failures.extend(dependency_allowlist_metadata_failures(
+        "audit",
+        &policy.dependency_hygiene.audit_allowlist,
+    ));
+    failures.extend(dependency_allowlist_metadata_failures(
+        "machete",
+        &policy.dependency_hygiene.machete_allowlist,
+    ));
     if failures.is_empty() {
         FullMapCheck::pass(
             "FULLMAP-CHECK-01",
@@ -924,7 +1083,30 @@ fn check_host_surface_edges(map: &SoftwareMap, policy: &FullMapPolicy) -> FullMa
     }
 }
 
-fn check_dependency_hygiene_status(policy: &FullMapPolicy) -> FullMapCheck {
+fn dependency_allowlist_metadata_failures(
+    list_name: &str,
+    entries: &[DependencyAllowlistEntry],
+) -> Vec<String> {
+    entries
+        .iter()
+        .filter(|entry| {
+            entry.id.trim().is_empty()
+                || entry.package.trim().is_empty()
+                || entry.owner.trim().is_empty()
+                || entry.rationale.trim().is_empty()
+                || entry.review_date.trim().is_empty()
+                || entry.removal_condition.trim().is_empty()
+        })
+        .map(|entry| {
+            format!(
+                "{list_name} dependency allowlist entry '{}' is missing id/package/owner/rationale/review_date/removal_condition",
+                entry.id
+            )
+        })
+        .collect()
+}
+
+fn check_dependency_hygiene_status(map: &SoftwareMap, policy: &FullMapPolicy) -> FullMapCheck {
     let mut failed = Vec::new();
     let mut details = Vec::new();
     for tool in &policy.dependency_hygiene_tools {
@@ -937,6 +1119,36 @@ fn check_dependency_hygiene_status(policy: &FullMapPolicy) -> FullMapCheck {
         } else {
             details.push(detail);
         }
+    }
+    let third_party = &policy.dependency_hygiene.third_party_tiverse_mmap;
+    details.push(format!(
+        "{} status={} expected={}",
+        third_party.path,
+        map.dependency_hygiene.third_party_tiverse_mmap_status,
+        third_party.expected_status
+    ));
+    details.push(format!(
+        "deny.toml present={}",
+        map.dependency_hygiene.deny_policy_present
+    ));
+    details.push(format!(
+        "audit allowlist entries={}",
+        map.dependency_hygiene.audit_allowlist.len()
+    ));
+    details.push(format!(
+        "machete allowlist entries={}",
+        map.dependency_hygiene.machete_allowlist.len()
+    ));
+    if !map.dependency_hygiene.deny_policy_present {
+        failed.push("deny.toml policy is missing".to_string());
+    }
+    if map.dependency_hygiene.third_party_tiverse_mmap_status != third_party.expected_status {
+        failed.push(format!(
+            "{} workspace status is '{}', expected '{}'",
+            third_party.path,
+            map.dependency_hygiene.third_party_tiverse_mmap_status,
+            third_party.expected_status
+        ));
     }
     if !failed.is_empty() {
         return FullMapCheck::fail(
@@ -2052,6 +2264,112 @@ fn rel_path(root: &Path, path: &Path) -> String {
 mod tests {
     use super::*;
 
+    fn audit_report_policy_failures(
+        report_json: &str,
+        allowlist: &[DependencyAllowlistEntry],
+    ) -> Result<Vec<String>> {
+        let report: serde_json::Value =
+            serde_json::from_str(report_json).context("parse canned cargo audit report")?;
+        let allowed = allowlist
+            .iter()
+            .map(|entry| (entry.id.clone(), entry.package.clone()))
+            .collect::<BTreeSet<_>>();
+        let mut failures = Vec::new();
+        let vulnerabilities = report
+            .pointer("/vulnerabilities/list")
+            .and_then(serde_json::Value::as_array)
+            .into_iter()
+            .flatten();
+        for vulnerability in vulnerabilities {
+            let id = vulnerability
+                .pointer("/advisory/id")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("<missing-id>");
+            let package = vulnerability
+                .pointer("/package/name")
+                .or_else(|| vulnerability.pointer("/advisory/package"))
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("<missing-package>");
+            if !allowed.contains(&(id.to_string(), package.to_string())) {
+                failures.push(format!(
+                    "cargo audit advisory {id} for {package} is not in audit_allowlist"
+                ));
+            }
+        }
+        Ok(failures)
+    }
+
+    fn machete_report_policy_failures(
+        report: &str,
+        allowlist: &[DependencyAllowlistEntry],
+    ) -> Vec<String> {
+        let mut current_package = None;
+        let mut failures = Vec::new();
+        for raw_line in report.lines() {
+            let line = raw_line.trim();
+            if let Some((package, manifest)) = line.split_once(" -- ") {
+                if manifest.ends_with("Cargo.toml:") {
+                    current_package = Some(package.to_string());
+                }
+                continue;
+            }
+            if !(raw_line.starts_with('\t') || raw_line.starts_with("    ")) || line.is_empty() {
+                continue;
+            }
+            let package = current_package.as_deref().unwrap_or("<unknown-package>");
+            let is_allowed = allowlist
+                .iter()
+                .any(|entry| entry.id == package && entry.package == line);
+            if !is_allowed {
+                failures.push(format!(
+                    "cargo machete finding {package}:{line} is not in machete_allowlist"
+                ));
+            }
+        }
+        failures
+    }
+
+    fn deny_policy_metadata_failures_from_source(source: &str) -> Vec<String> {
+        let manifest: toml::Value = match toml::from_str(source) {
+            Ok(value) => value,
+            Err(error) => return vec![format!("deny.toml is not valid TOML: {error}")],
+        };
+        let mut failures = Vec::new();
+        let license_allow = manifest
+            .get("licenses")
+            .and_then(|section| section.get("allow"))
+            .and_then(toml::Value::as_array);
+        if license_allow.is_none_or(Vec::is_empty) {
+            failures.push("[licenses].allow must be present and non-empty".to_string());
+        }
+        let Some(advisory_ignores) = manifest
+            .get("advisories")
+            .and_then(|section| section.get("ignore"))
+            .and_then(toml::Value::as_array)
+        else {
+            failures.push("[advisories].ignore must be present".to_string());
+            return failures;
+        };
+        for ignore in advisory_ignores {
+            let id = ignore
+                .get("id")
+                .and_then(toml::Value::as_str)
+                .unwrap_or("<missing-id>");
+            let reason = ignore
+                .get("reason")
+                .and_then(toml::Value::as_str)
+                .unwrap_or_default();
+            for required in ["owner=", "rationale=", "review=", "removal="] {
+                if !reason.contains(required) {
+                    failures.push(format!(
+                        "deny.toml advisory ignore {id} reason is missing {required}"
+                    ));
+                }
+            }
+        }
+        failures
+    }
+
     #[test]
     fn parses_enum_variants_without_attributes() {
         let source = r#"
@@ -2252,10 +2570,158 @@ mod tests {
 
     #[test]
     fn known_bad_failed_dependency_tool_status_fails() {
+        let map = base_map();
         let mut policy = base_policy();
         policy.dependency_hygiene_tools[0].status = "failed".to_string();
 
-        assert!(check_dependency_hygiene_status(&policy).is_fail());
+        assert!(check_dependency_hygiene_status(&map, &policy).is_fail());
+    }
+
+    #[test]
+    fn known_bad_dependency_allowlist_without_metadata_fails() {
+        let mut policy = base_policy();
+        policy.dependency_hygiene.audit_allowlist[0].owner.clear();
+
+        assert!(check_policy_metadata(&policy).is_fail());
+    }
+
+    #[test]
+    fn known_bad_unallowlisted_audit_report_fails() -> Result<()> {
+        let report = r#"{
+            "vulnerabilities": {
+                "list": [
+                    {
+                        "advisory": {"id": "RUSTSEC-2099-0001", "package": "demo-vulnerable"},
+                        "package": {"name": "demo-vulnerable"}
+                    }
+                ]
+            }
+        }"#;
+
+        assert!(!audit_report_policy_failures(
+            report,
+            &base_policy().dependency_hygiene.audit_allowlist,
+        )?
+        .is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn audit_report_allowlist_accepts_documented_advisory() -> Result<()> {
+        let report = r#"{
+            "vulnerabilities": {
+                "list": [
+                    {
+                        "advisory": {"id": "RUSTSEC-0000-0000", "package": "example"},
+                        "package": {"name": "example"}
+                    }
+                ]
+            }
+        }"#;
+
+        assert!(audit_report_policy_failures(
+            report,
+            &base_policy().dependency_hygiene.audit_allowlist,
+        )?
+        .is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn known_bad_unallowlisted_machete_report_fails() {
+        let report = "cargo-machete found the following unused dependencies in this directory:\n\
+trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
+\tunused-demo\n";
+
+        assert!(!machete_report_policy_failures(
+            report,
+            &base_policy().dependency_hygiene.machete_allowlist,
+        )
+        .is_empty());
+    }
+
+    #[test]
+    fn machete_report_allowlist_accepts_documented_dependency() {
+        let report = "cargo-machete found the following unused dependencies in this directory:\n\
+trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
+\tunused-demo\n";
+        let mut policy = base_policy();
+        policy
+            .dependency_hygiene
+            .machete_allowlist
+            .push(DependencyAllowlistEntry {
+                id: "trust-runtime".to_string(),
+                package: "unused-demo".to_string(),
+                owner: "runtime".to_string(),
+                rationale: "test fixture".to_string(),
+                review_date: "2026-04-29".to_string(),
+                removal_condition: "remove after fixture".to_string(),
+            });
+
+        assert!(machete_report_policy_failures(
+            report,
+            &policy.dependency_hygiene.machete_allowlist,
+        )
+        .is_empty());
+    }
+
+    #[test]
+    fn current_deny_policy_has_required_sections_and_metadata() {
+        let failures = deny_policy_metadata_failures_from_source(include_str!("../../deny.toml"));
+
+        assert_eq!(failures, Vec::<String>::new());
+    }
+
+    #[test]
+    fn known_bad_deny_policy_missing_metadata_fails() {
+        let failures = deny_policy_metadata_failures_from_source(
+            r#"
+            [advisories]
+            ignore = [
+                { id = "RUSTSEC-2099-0001", reason = "owner=runtime" },
+            ]
+
+            [licenses]
+            allow = ["MIT"]
+            "#,
+        );
+
+        assert!(failures
+            .iter()
+            .any(|failure| failure.contains("rationale=")));
+        assert!(failures.iter().any(|failure| failure.contains("review=")));
+        assert!(failures.iter().any(|failure| failure.contains("removal=")));
+    }
+
+    #[test]
+    fn known_bad_tiverse_workspace_status_mismatch_fails() {
+        let mut map = base_map();
+        map.dependency_hygiene.third_party_tiverse_mmap_status = "ambiguous".to_string();
+
+        assert!(check_dependency_hygiene_status(&map, &base_policy()).is_fail());
+    }
+
+    #[test]
+    fn workspace_exclude_manifest_marks_tiverse_standalone() {
+        let excludes = workspace_excludes_from_manifest_source(
+            r#"
+            [workspace]
+            members = ["crates/runtime"]
+            exclude = ["third_party/tiverse-mmap"]
+            "#,
+        )
+        .unwrap();
+        let members = BTreeSet::new();
+
+        assert_eq!(
+            classify_workspace_path(
+                Path::new("/repo"),
+                &members,
+                &excludes,
+                "third_party/tiverse-mmap",
+            ),
+            "workspace_exclude"
+        );
     }
 
     #[test]
@@ -2387,6 +2853,13 @@ mod tests {
             owner: "runtime".to_string(),
             status: "tracked".to_string(),
         };
+        map.dependency_hygiene = DependencyHygieneSummary {
+            deny_policy_present: true,
+            workspace_excludes: vec!["third_party/tiverse-mmap".to_string()],
+            third_party_tiverse_mmap_status: "workspace_exclude".to_string(),
+            audit_allowlist: Vec::new(),
+            machete_allowlist: Vec::new(),
+        };
         map
     }
 
@@ -2460,7 +2933,27 @@ mod tests {
                 status: "not_run".to_string(),
                 owner: "release".to_string(),
                 rationale: "board owns it".to_string(),
+                review_date: "2026-04-29".to_string(),
+                evidence: "target/gate-artifacts".to_string(),
             }],
+            dependency_hygiene: DependencyHygienePolicy {
+                third_party_tiverse_mmap: ThirdPartyWorkspacePolicy {
+                    path: "third_party/tiverse-mmap".to_string(),
+                    expected_status: "workspace_exclude".to_string(),
+                    owner: "release engineering".to_string(),
+                    rationale: "vendored patch crate is not a workspace member".to_string(),
+                    review_date: "2026-04-29".to_string(),
+                },
+                audit_allowlist: vec![DependencyAllowlistEntry {
+                    id: "RUSTSEC-0000-0000".to_string(),
+                    package: "example".to_string(),
+                    owner: "release".to_string(),
+                    rationale: "test fixture".to_string(),
+                    review_date: "2026-04-29".to_string(),
+                    removal_condition: "remove after fixture".to_string(),
+                }],
+                machete_allowlist: Vec::new(),
+            },
             unsafe_concurrency: UnsafeConcurrencyPolicy {
                 owner: "runtime".to_string(),
                 status: "tracked".to_string(),

@@ -11,11 +11,7 @@ rust-version.workspace = true
 logos.workspace = true
 rowan.workspace = true
 text-size.workspace = true
-smol_str.workspace = true
-rustc-hash.workspace = true
 drop_bomb.workspace = true
-thiserror.workspace = true
 
 [dev-dependencies]
-expect-test.workspace = true
 insta.workspace = true

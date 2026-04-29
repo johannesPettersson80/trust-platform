@@ -36,8 +36,6 @@ indicatif.workspace = true
 owo-colors.workspace = true
 rumqttc.workspace = true
 time.workspace = true
-home.workspace = true
-instability.workspace = true
 notify = "8"
 tiny_http = { version = "0.12", features = ["ssl-rustls"] }
 tungstenite = "0.28"

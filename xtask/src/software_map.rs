@@ -17,6 +17,7 @@ pub struct SoftwareMap {
     pub runtime_bin_modules: Vec<String>,
     pub runtime_route_handlers: Vec<RuntimeRouteHandlerSummary>,
     pub parser_recovery: ParserRecoverySummary,
+    pub dependency_hygiene: DependencyHygieneSummary,
     pub unsafe_summary: UnsafeSummary,
     pub diagram_facts: Vec<DiagramFact>,
     pub tool_results: Vec<ToolResult>,
@@ -95,6 +96,25 @@ pub struct SourcePatternSummary {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+pub struct DependencyHygieneSummary {
+    pub deny_policy_present: bool,
+    pub workspace_excludes: Vec<String>,
+    pub third_party_tiverse_mmap_status: String,
+    pub audit_allowlist: Vec<DependencyPolicyEntry>,
+    pub machete_allowlist: Vec<DependencyPolicyEntry>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct DependencyPolicyEntry {
+    pub id: String,
+    pub package: String,
+    pub owner: String,
+    pub rationale: String,
+    pub review_date: String,
+    pub removal_condition: String,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 pub struct UnsafeSummary {
     pub unsafe_occurrences: usize,
     pub panic_like_occurrences: usize,
@@ -145,7 +165,7 @@ impl ToolStatus {
 impl SoftwareMap {
     pub fn new(workspace_root: impl Into<String>) -> Self {
         Self {
-            schema_version: 3,
+            schema_version: 4,
             workspace_root: workspace_root.into(),
             generated_by: "cargo xtask architecture-doctor --full-map".to_string(),
             packages: Vec::new(),
@@ -160,6 +180,7 @@ impl SoftwareMap {
             runtime_bin_modules: Vec::new(),
             runtime_route_handlers: Vec::new(),
             parser_recovery: ParserRecoverySummary::default(),
+            dependency_hygiene: DependencyHygieneSummary::default(),
             unsafe_summary: UnsafeSummary::default(),
             diagram_facts: Vec::new(),
             tool_results: Vec::new(),
@@ -248,6 +269,16 @@ impl SoftwareMap {
             });
         self.parser_recovery.property_tests.sort();
         self.parser_recovery.property_tests.dedup();
+        self.dependency_hygiene.workspace_excludes.sort();
+        self.dependency_hygiene.workspace_excludes.dedup();
+        self.dependency_hygiene
+            .audit_allowlist
+            .sort_by(|left, right| left.id.cmp(&right.id));
+        self.dependency_hygiene.audit_allowlist.dedup();
+        self.dependency_hygiene
+            .machete_allowlist
+            .sort_by(|left, right| left.id.cmp(&right.id));
+        self.dependency_hygiene.machete_allowlist.dedup();
         self.diagram_facts
             .sort_by(|left, right| left.path.cmp(&right.path));
         for diagram in &mut self.diagram_facts {
@@ -275,7 +306,7 @@ mod tests {
         let reverse = sample_map(true).to_stable_json().unwrap();
 
         assert_eq!(forward, reverse);
-        assert!(forward.contains("\"schema_version\": 3"));
+        assert!(forward.contains("\"schema_version\": 4"));
         assert!(forward.contains("\"status\": \"not_run\""));
     }
 

@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.3`
+Target release: `v0.24.4`
 
 ### Changed
 
@@ -17,6 +17,12 @@ Target release: `v0.24.3`
 
 ### Fixed
 
+- Dependency hygiene now has explicit `cargo deny`, `cargo audit`, and
+  `cargo machete` policy evidence: unused direct workspace dependencies were
+  removed, `time` was updated to `0.3.47`, `rumqttc` no longer enables unused
+  default TLS dependencies, `third_party/tiverse-mmap` is an intentional
+  workspace exclude, and the full-map doctor reports the dependency hygiene
+  status with failing policy fixtures.
 - Parser recovery for malformed aggregate/positional initializers is now
   bounded by shared top-level scan helpers, preserves following declarations at
   declaration boundaries, and is guarded by full-map doctor and focused

@@ -13,7 +13,6 @@ trust-hir.workspace = true
 smol_str.workspace = true
 rustc-hash.workspace = true
 text-size.workspace = true
-tracing.workspace = true
 once_cell.workspace = true
 
 [dev-dependencies]
