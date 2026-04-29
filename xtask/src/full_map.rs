@@ -2556,6 +2556,19 @@ mod tests {
     }
 
     #[test]
+    fn known_bad_runtime_cloud_importing_web_module_fails() {
+        let mut map = base_map();
+        map.import_edges.push(ImportEdge {
+            from_file: "crates/trust-runtime/src/runtime_cloud/routing.rs".to_string(),
+            from_module: "runtime_cloud".to_string(),
+            to_module: "web".to_string(),
+            line: 12,
+        });
+
+        assert!(check_host_surface_edges(&map, &base_policy()).is_fail());
+    }
+
+    #[test]
     fn host_surface_test_import_is_ignored() {
         let mut map = base_map();
         map.import_edges.push(ImportEdge {
@@ -2911,12 +2924,26 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
             runtime_command_module_routes: Vec::new(),
             host_surface: HostSurfacePolicy {
                 approved_ports_active: false,
-                forbidden_edges: vec![ForbiddenModuleEdge {
-                    from_module: "control".to_string(),
-                    to_module: "web".to_string(),
-                    owner: "runtime/web".to_string(),
-                    rationale: "control must not depend on web".to_string(),
-                }],
+                forbidden_edges: vec![
+                    ForbiddenModuleEdge {
+                        from_module: "control".to_string(),
+                        to_module: "web".to_string(),
+                        owner: "runtime/web".to_string(),
+                        rationale: "control must not depend on web".to_string(),
+                    },
+                    ForbiddenModuleEdge {
+                        from_module: "hmi".to_string(),
+                        to_module: "web".to_string(),
+                        owner: "runtime/HMI".to_string(),
+                        rationale: "HMI domain must not depend on web".to_string(),
+                    },
+                    ForbiddenModuleEdge {
+                        from_module: "runtime_cloud".to_string(),
+                        to_module: "web".to_string(),
+                        owner: "runtime-cloud".to_string(),
+                        rationale: "runtime-cloud domain must not depend on web".to_string(),
+                    },
+                ],
                 temporary_allowlist: Vec::new(),
             },
             kiss: KissPolicy {
