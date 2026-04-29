@@ -1,6 +1,6 @@
 # Runtime Host Surface Ownership Checklist
 
-Status: Planned
+Status: Phase 2 port design captured; Phase 3 doctor rules next, with CHECK-07 still partial until ports are code-backed
 Owner: Runtime/web/HMI/control/cloud
 Scope: address audit F11 by defining and enforcing ownership for `web`, `hmi`, `ui`, `control`, and `runtime_cloud`.
 
@@ -15,7 +15,7 @@ Scope: address audit F11 by defining and enforcing ownership for `web`, `hmi`, `
 
 ## Phase 0 - Full-Map Prerequisite
 
-- [ ] `RTHOST-P0-001` Hard prerequisite: `architecture-doctor --full-map` MVP implements `FULLMAP-CHECK-07` for HMI/web/control/cloud ownership and forbidden edges before Phase 3 or Phase 4 starts.
+- [ ] `RTHOST-P0-001` Hard prerequisite: `architecture-doctor --full-map` MVP implements `FULLMAP-CHECK-07` for HMI/web/control/cloud ownership and forbidden edges before Phase 3 or Phase 4 starts. CHECK-07 exists and forbids the current `control -> web` / `hmi -> web` edge set, but `host_surface.approved_ports_active = false`; keep this open until Phase 2 ports are active or an owner-approved waiver is recorded.
 - [ ] `RTHOST-P0-002` If `FULLMAP-CHECK-07` is unavailable, record an owner-approved waiver with the local replacement rule, fixture, owner, and expiration date.
 - [ ] `RTHOST-P0-GATE-01` Do not claim `ARCHPROG-C-02` or `ARCHPROG-C-04` complete until `FULLMAP-CHECK-07` or its waiver is recorded.
 
@@ -29,26 +29,51 @@ Scope: address audit F11 by defining and enforcing ownership for `web`, `hmi`, `
 
 ## Phase 1 - Inventory
 
-- [ ] `RTHOST-P1-001` Map all `src/hmi/` files by responsibility.
-- [ ] `RTHOST-P1-002` Map all `src/control/hmi_handlers*.rs` files by responsibility.
-- [ ] `RTHOST-P1-003` Map `src/web/hmi_ws.rs` and HMI route files by responsibility.
-- [ ] `RTHOST-P1-004` Map `src/runtime_cloud/` files by responsibility.
-- [ ] `RTHOST-P1-005` Map `src/web/runtime_cloud_*`, `runtime_cloud_routes/*`, and `runtime_cloud_state/*`.
-- [ ] `RTHOST-P1-006` Record direct imports among `web`, `hmi`, `control`, `ui`, and `runtime_cloud`.
-- [ ] `RTHOST-P1-007` Identify duplicated DTOs, duplicated auth/write checks, duplicated schema projection, and duplicated runtime snapshot logic.
-- [ ] `RTHOST-P1-008` Produce `docs/internal/architecture/generated/runtime-host-surface-inventory.md`.
-- [ ] `RTHOST-P1-009` Inventory output must include per-file owner, current imports, proposed owner, and proposed action: keep, move, split, delete, or adapter-only.
+- [x] `RTHOST-P1-001` Map all `src/hmi/` files by responsibility.
+- [x] `RTHOST-P1-002` Map all `src/control/hmi_handlers*.rs` files by responsibility.
+- [x] `RTHOST-P1-003` Map `src/web/hmi_ws.rs` and HMI route files by responsibility.
+- [x] `RTHOST-P1-004` Map `src/runtime_cloud/` files by responsibility.
+- [x] `RTHOST-P1-005` Map `src/web/runtime_cloud_*`, `runtime_cloud_routes/*`, and `runtime_cloud_state/*`.
+- [x] `RTHOST-P1-006` Record direct imports among `web`, `hmi`, `control`, `ui`, and `runtime_cloud`.
+- [x] `RTHOST-P1-007` Identify duplicated DTOs, duplicated auth/write checks, duplicated schema projection, and duplicated runtime snapshot logic.
+- [x] `RTHOST-P1-008` Produce `docs/internal/architecture/generated/runtime-host-surface-inventory.md`.
+- [x] `RTHOST-P1-009` Inventory output must include per-file owner, current imports, proposed owner, and proposed action: keep, move, split, delete, or adapter-only.
 - [ ] `RTHOST-P1-010` Do not start Phase 4 until Phase 1 inventory is reviewed and this checklist is tightened with named-file moves.
+
+Phase 1 evidence captured on 2026-04-29:
+
+- Inventory: `docs/internal/architecture/generated/runtime-host-surface-inventory.md`.
+- Important current inversion: `crates/trust-runtime/src/control.rs` imports `crate::web::pairing::PairingStore`; this remains temporarily allowlisted in `xtask/config/full_map_policy.json` and must be removed by the host-surface board.
+- Important review candidates before Phase 4: `crates/trust-runtime/src/web/runtime_cloud_policy.rs`, `crates/trust-runtime/src/web/runtime_cloud_state/links.rs`, `crates/trust-runtime/src/web/runtime_cloud_state/rollouts.rs`, `crates/trust-runtime/src/web/runtime_cloud_routes/control_proxy.rs`, and HMI write/snapshot coupling in `crates/trust-runtime/src/control/hmi_handlers_write.rs` plus `crates/trust-runtime/src/hmi/runtime_views/values_writes.rs`.
 
 ## Phase 2 - Port Design
 
-- [ ] `RTHOST-P2-001` Define runtime value read port.
-- [ ] `RTHOST-P2-002` Define runtime value write port with authorization/write-policy hook.
-- [ ] `RTHOST-P2-003` Define runtime snapshot/status port.
-- [ ] `RTHOST-P2-004` Define HMI schema/descriptor port.
-- [ ] `RTHOST-P2-005` Define HMI event/delta stream port.
-- [ ] `RTHOST-P2-006` Define runtime-cloud projection port.
-- [ ] `RTHOST-P2-007` Keep ports narrow and testable; no web request/response types in domain ports.
+- [x] `RTHOST-P2-001` Define runtime value read port.
+- [x] `RTHOST-P2-002` Define runtime value write port with authorization/write-policy hook.
+- [x] `RTHOST-P2-003` Define runtime snapshot/status port.
+- [x] `RTHOST-P2-004` Define HMI schema/descriptor port.
+- [x] `RTHOST-P2-005` Define HMI event/delta stream port.
+- [x] `RTHOST-P2-006` Define runtime-cloud projection port.
+- [x] `RTHOST-P2-007` Keep ports narrow and testable; no web request/response types in domain ports.
+
+Phase 2 port definitions captured on 2026-04-29:
+
+| Port | Owner | Inputs | Outputs | Forbidden dependency | First code-backed target |
+| --- | --- | --- | --- | --- | --- |
+| Runtime value read port | Runtime/control boundary | Resource name, runtime metadata handle, optional immutable runtime snapshot, optional HMI point IDs. | HMI value result and quality/freshness metadata already shaped by HMI contracts. | No `tiny_http`, websocket, or web route types. | Replace direct `ControlState`/snapshot coupling in `control/hmi_handlers_read.rs` and `hmi/runtime_views/values_writes.rs`. |
+| Runtime value write port | Control/runtime boundary | HMI target id/path, typed value candidate, caller role, HMI customization write policy, runtime snapshot lookup. | Queued write command or structured rejection reason. | No web auth response types; no browser DTOs. | Split approval from side effect in `control/hmi_handlers_write.rs`. |
+| Runtime snapshot/status port | Runtime/control boundary | Resource/runtime id and optional discovery/runtime status context. | Stable runtime status and snapshot summary suitable for HMI and cloud projection. | No route-specific JSON body parsing or remote HTTP client. | Replace direct status/snapshot reads in web runtime-cloud state/proxy helpers before Phase 4 moves. |
+| HMI schema/descriptor port | HMI domain with control adapter | Project root/source registry, runtime metadata, optional snapshot, HMI customization/descriptor state. | HMI schema, descriptor revision/error, descriptor reload result. | No web server state and no websocket session state. | Keep `hmi` schema ownership while narrowing `control/hmi_handlers_descriptor.rs` and `control/hmi_handlers_state.rs`. |
+| HMI event/delta stream port | HMI/control semantics, web transport adapter | Previous observed HMI state, current schema/value/alarm results, polling/event clock. | Delta events such as `hmi.values.delta`, `hmi.schema.revision`, and `hmi.alarms.event`. | No tungstenite/tiny-http types in HMI/control logic. | Keep `web/hmi_ws.rs` as adapter; move delta payload calculation only if Phase 4 names it. |
+| Runtime-cloud projection/preflight port | Runtime-cloud domain with web adapter | Runtime-cloud action request, target status map, caller role, profile/TLS/allowlist policy, optional HA coordinator state. | Preflight report, target decisions, projected UI state, reason codes. | No direct web request/response types and no runtime execution side effects. | Split reusable policy from `web/runtime_cloud_policy.rs` and state logic from `web/runtime_cloud_state/*` only after Phase 4 rows are reviewed. |
+
+Port design constraints:
+
+- Ports are request/response contracts, not broad service objects; each first code-backed target above should stay independently testable.
+- Web adapters may perform HTTP auth, body parsing, TLS-origin checks, websocket transport, and response serialization.
+- HMI and runtime-cloud domain ports may depend on domain contracts and immutable runtime snapshots, but must not import `web`.
+- Control ports may own authorization/write side effects, but must not import web implementation types; the existing `PairingStore` inversion remains a removal item.
+- `host_surface.approved_ports_active` remains `false` until at least the first code-backed port and matching doctor rule exist.
 
 ## Phase 3 - Doctor Rules
 
