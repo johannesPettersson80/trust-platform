@@ -1,6 +1,6 @@
 # Runtime Host Surface Ownership Checklist
 
-Status: Phase 2 port design captured; Phase 3 doctor rules next, with CHECK-07 still partial until ports are code-backed
+Status: Phase 4 named-file table captured; first code-backed port/extraction row next, with CHECK-07 still partial until ports are code-backed
 Owner: Runtime/web/HMI/control/cloud
 Scope: address audit F11 by defining and enforcing ownership for `web`, `hmi`, `ui`, `control`, and `runtime_cloud`.
 
@@ -38,7 +38,7 @@ Scope: address audit F11 by defining and enforcing ownership for `web`, `hmi`, `
 - [x] `RTHOST-P1-007` Identify duplicated DTOs, duplicated auth/write checks, duplicated schema projection, and duplicated runtime snapshot logic.
 - [x] `RTHOST-P1-008` Produce `docs/internal/architecture/generated/runtime-host-surface-inventory.md`.
 - [x] `RTHOST-P1-009` Inventory output must include per-file owner, current imports, proposed owner, and proposed action: keep, move, split, delete, or adapter-only.
-- [ ] `RTHOST-P1-010` Do not start Phase 4 until Phase 1 inventory is reviewed and this checklist is tightened with named-file moves.
+- [x] `RTHOST-P1-010` Do not start Phase 4 until Phase 1 inventory is reviewed and this checklist is tightened with named-file moves.
 
 Phase 1 evidence captured on 2026-04-29:
 
@@ -92,16 +92,26 @@ Phase 3 evidence captured on 2026-04-29:
 
 ## Phase 4 - Named-File Extraction
 
-Phase 4 starts only after Phase 1 inventory adds exact named-file moves. The known F11 seed set below is the minimum starting point, not a complete move list.
+Phase 4 starts only after Phase 1 inventory adds exact named-file moves. The known F11 seed set below is the reviewed starting point from `RTHOST-P1-008`; code movement is still gated by the unchecked implementation rows below.
 
-Named-file move table template to fill from `RTHOST-P1-008` before code movement:
+Named-file move table from `RTHOST-P1-008`:
 
-| Source file or glob | Current owner | Target owner | Action | Required tests | Doctor rule |
-| --- | --- | --- | --- | --- | --- |
-| `TBD after RTHOST-P1-008` | `TBD` | `TBD` | `keep/move/split/delete/adapter-only` | `TBD` | `TBD` |
+| Source file or glob | Current owner | Target owner | Action | Public API / behavior-lock / rollback | Required tests | Doctor rule |
+| --- | --- | --- | --- | --- | --- | --- |
+| `crates/trust-runtime/src/control.rs` `PairingStore` dependency | control root with temporary web import | control-neutral pairing/auth port or web-owned injection boundary | split | Public API: avoid exposing `web::pairing`; behavior lock: pairing/auth control requests keep current semantics; rollback: keep temporary CHECK-07 waiver until replacement passes. | `cargo test -p trust-runtime control::tests`, `cargo test -p trust-runtime --test web_ide_integration` focused pairing/auth cases | `FULLMAP-CHECK-07` must remove temporary `control -> web` allowlist after split. |
+| `crates/trust-runtime/src/control/hmi_handlers*.rs` | control HMI port | control port plus HMI-domain helpers where duplicated | split selectively | Public API: keep control request names stable; behavior lock: HMI schema/value/write JSON remains stable; rollback: keep existing handlers and do not move side effects until tests pass. | `cargo test -p trust-runtime --lib control::tests::hmi_`, `cargo test -p trust-runtime --test hmi_readonly_integration` | `host_surface.owned_paths`, `control -> web` forbidden edge. |
+| `crates/trust-runtime/src/hmi/runtime_views/values_writes.rs` | HMI domain coupled to runtime snapshot types | HMI domain using runtime value read/write ports | keep then narrow | Public API: HMI schema/value contracts stay stable; behavior lock: value quality/freshness/write-target resolution stable; rollback: port wrapper can delegate to current functions. | `cargo test -p trust-runtime --lib hmi::tests`, HMI control tests | `hmi -> web` forbidden edge and future approved-port rule. |
+| `crates/trust-runtime/src/web/hmi_ws.rs` | web HMI adapter | web adapter only | adapter-only | Public API: websocket event names stay stable; behavior lock: `hmi.values.delta`, `hmi.schema.revision`, and `hmi.alarms.event` payloads stable; rollback: keep current polling loop if delta port is not ready. | `cargo test -p trust-runtime --test hmi_readonly_integration`; Playwright required for browser-visible websocket/UI behavior changes | `host_surface.owned_paths`, future approved HMI event/delta port rule. |
+| `crates/trust-runtime/src/web/ui_routes.rs` HMI route sections | web route/static adapter | web adapter only | adapter-only | Public API: `/hmi`, `/hmi/export.json`, `/hmi/app.js`, `/hmi/styles.css`, `/hmi/modules/*`, and `/ws/hmi` stay stable; rollback: keep route dispatch unchanged. | `cargo test -p trust-runtime --test hmi_readonly_integration`; Playwright for browser-visible changes | `host_surface.owned_paths`; no HMI domain logic in web routes. |
+| `crates/trust-runtime/src/web/runtime_cloud_policy.rs` | web cloud adapter/policy | runtime-cloud domain policy plus web auth/TLS adapter | split | Public API: preflight denial codes/reasons stay stable; behavior lock: WAN/profile/TLS policy cases stable; rollback: keep function in web until runtime-cloud port proves parity. | `cargo test -p trust-runtime --test web_io_config_integration runtime_cloud_preflight`, `cargo test -p trust-runtime --test runtime_cloud_architecture` | `runtime_cloud -> web` forbidden edge and future approved runtime-cloud projection/preflight port rule. |
+| `crates/trust-runtime/src/web/runtime_cloud_state/links.rs` | web cloud state adapter | split runtime-cloud link preference/projection logic from web persistence/HTTP adapter | split | Public API: link transport state endpoints and config keys stay stable; behavior lock: transport preference audit/roundtrip/projection stable; rollback: keep persistence in web and delegate only pure projection. | `cargo test -p trust-runtime --test web_io_config_integration runtime_cloud_link`, `cargo test -p trust-runtime --test web_ide_integration runtime_cloud` | `host_surface.owned_paths`, future runtime-cloud projection port rule. |
+| `crates/trust-runtime/src/web/runtime_cloud_state/rollouts.rs` | web cloud state adapter | runtime-cloud rollout state machine plus web persistence adapter | split | Public API: rollout route responses stay stable; behavior lock: queued/staging/applying/verified/failed/aborted transitions stable; rollback: move only pure state transition helpers first. | `cargo test -p trust-runtime --test web_io_config_integration runtime_cloud_rollout` | `host_surface.owned_paths`, future runtime-cloud projection port rule. |
+| `crates/trust-runtime/src/web/runtime_cloud_state/config.rs` | web cloud config state adapter | runtime-cloud config-agent state model plus web persistence adapter | split | Public API: desired/reported config JSON, ETag, revision, and status semantics stay stable; rollback: keep file in web and extract pure merge/hash/state helpers first. | `cargo test -p trust-runtime --test web_io_config_integration runtime_cloud_config` | `host_surface.owned_paths`, future runtime-cloud projection port rule. |
+| `crates/trust-runtime/src/web/runtime_cloud_routes/control_proxy.rs` | web route adapter with direct control dependency | web adapter using approved control proxy port | adapter-only then narrow | Public API: remote control proxy routes and ACL denials stay stable; behavior lock: viewer/engineer permission handling stable; rollback: keep direct control dependency until port tests pass. | `cargo test -p trust-runtime --test web_io_config_integration runtime_cloud_control_proxy` | future approved control proxy port rule. |
+| `crates/trust-runtime/src/web/runtime_cloud_routes/io_proxy.rs` | web route adapter | web adapter using approved IO/control proxy port | adapter-only then narrow | Public API: IO proxy routes and audit semantics stay stable; behavior lock: remote IO config reads/writes stable; rollback: keep direct request construction until port tests pass. | `cargo test -p trust-runtime --test web_io_config_integration runtime_cloud_io_config_proxy` | future approved control/IO proxy port rule. |
 
-- [ ] `RTHOST-P4-001` Replace the template row above with reviewed named-file rows from `RTHOST-P1-008`.
-- [ ] `RTHOST-P4-002` For every `move` or `split` row, record destination module, owner, public API change, behavior-lock tests, and rollback plan.
+- [x] `RTHOST-P4-001` Replace the template row above with reviewed named-file rows from `RTHOST-P1-008`.
+- [x] `RTHOST-P4-002` For every `move` or `split` row, record destination module, owner, public API change, behavior-lock tests, and rollback plan.
 - [ ] `RTHOST-P4-003` For every `adapter-only` web route row, replace direct domain/runtime access with approved control/HMI/cloud ports.
 - [ ] `RTHOST-P4-004` For every runtime-cloud route/state row, replace direct runtime execution ownership with runtime-cloud projection contracts.
 - [ ] `RTHOST-P4-005` For every duplicated DTO/schema/auth/write-check row, identify the canonical owner before deleting duplicates.
@@ -109,7 +119,7 @@ Named-file move table template to fill from `RTHOST-P1-008` before code movement
 - [ ] `RTHOST-P4-007` Decide exact action for `crates/trust-runtime/src/web/hmi_ws.rs`: keep as websocket adapter only or split domain logic out.
 - [ ] `RTHOST-P4-008` Decide exact action for `crates/trust-runtime/src/control/hmi_handlers*.rs`: keep HTTP-neutral control handlers or move HMI-domain pieces to `hmi`.
 - [ ] `RTHOST-P4-009` Decide exact action for `crates/trust-runtime/src/runtime_cloud/` files and `crates/trust-runtime/src/web/runtime_cloud_*` route/state files.
-- [ ] `RTHOST-P4-010` Add the reviewed named-file move table to this checklist before code movement.
+- [x] `RTHOST-P4-010` Add the reviewed named-file move table to this checklist before code movement.
 
 ## Phase 5 - Tests
 
