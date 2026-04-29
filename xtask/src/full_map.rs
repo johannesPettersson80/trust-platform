@@ -8,8 +8,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::software_map::{
     CliActionSummary, DiagramEdge, DiagramFact, ImportEdge, ModuleSummary, PackageSummary,
-    RuntimeRouteHandlerSummary, SoftwareMap, SourceFileSummary, TargetSummary, ToolResult,
-    ToolStatus, UnsafeSummary, WorkspaceEdge,
+    ParserRecoverySummary, RuntimeRouteHandlerSummary, SoftwareMap, SourceFileSummary,
+    SourcePatternSummary, TargetSummary, ToolResult, ToolStatus, UnsafeSummary, WorkspaceEdge,
 };
 
 pub fn architecture_doctor_full_map(root: &Path) -> Result<()> {
@@ -373,6 +373,7 @@ fn build_software_map(root: &Path, policy: &FullMapPolicy) -> Result<SoftwareMap
     );
     map.runtime_cli_actions = collect_runtime_cli_actions(root)?;
     map.runtime_route_handlers = collect_runtime_route_handlers(root, policy)?;
+    map.parser_recovery = collect_parser_recovery_summary(root);
     map.unsafe_summary = collect_unsafe_summary(root, policy);
     map.diagram_facts = collect_diagram_facts(root, &policy.diagram_policy)?;
     map.tool_results.push(ToolResult {
@@ -393,6 +394,32 @@ fn build_software_map(root: &Path, policy: &FullMapPolicy) -> Result<SoftwareMap
             format!("action enums: {}", map.runtime_cli_actions.len()),
             format!("bin modules: {}", map.runtime_bin_modules.len()),
             format!("route handlers: {}", map.runtime_route_handlers.len()),
+        ],
+    });
+    map.tool_results.push(ToolResult {
+        name: "parser recovery scan".to_string(),
+        status: if map
+            .parser_recovery
+            .declaration_scanner_violations
+            .is_empty()
+        {
+            ToolStatus::Pass
+        } else {
+            ToolStatus::Failed
+        },
+        details: vec![
+            format!(
+                "bounded helpers: {}",
+                map.parser_recovery.bounded_scan_helpers.len()
+            ),
+            format!(
+                "scanner violations: {}",
+                map.parser_recovery.declaration_scanner_violations.len()
+            ),
+            format!(
+                "property tests: {}",
+                map.parser_recovery.property_tests.len()
+            ),
         ],
     });
     let public_api_version = command_version("cargo", &["public-api", "--version"]);
@@ -443,6 +470,7 @@ fn run_policy_checks(map: &SoftwareMap, policy: &FullMapPolicy) -> Vec<FullMapCh
         check_unsafe_concurrency_summary(map),
         check_kiss_thresholds(map, policy),
         check_public_api_snapshot_status(map),
+        check_parser_recovery_rules(map),
         check_diagram_claims(map, policy),
     ]
 }
@@ -1085,6 +1113,87 @@ fn check_public_api_snapshot_status(map: &SoftwareMap) -> FullMapCheck {
     }
 }
 
+fn check_parser_recovery_rules(map: &SoftwareMap) -> FullMapCheck {
+    let mut failures = Vec::new();
+    let required_helpers = ["scan_top_level_ahead", "recover_top_level_until"];
+    for helper in required_helpers {
+        if !map
+            .parser_recovery
+            .bounded_scan_helpers
+            .iter()
+            .any(|name| name == helper)
+        {
+            failures.push(format!("missing bounded parser recovery helper `{helper}`"));
+        }
+    }
+    for violation in &map.parser_recovery.declaration_scanner_violations {
+        failures.push(format!(
+            "{}:{} ad hoc declaration scanner pattern `{}`",
+            violation.path, violation.line, violation.pattern
+        ));
+    }
+    if map.parser_recovery.positional_diagnostic_sites.len() != 1 {
+        failures.push(format!(
+            "expected exactly one parser-source positional diagnostic definition, found {}",
+            map.parser_recovery.positional_diagnostic_sites.len()
+        ));
+    }
+    let required_tests = [
+        "test_positional_initializer_recovery_preserves_declaration_boundaries",
+        "test_initializer_recovery_property_smoke_for_generated_positional_shapes",
+    ];
+    for test in required_tests {
+        if !map
+            .parser_recovery
+            .property_tests
+            .iter()
+            .any(|name| name == test)
+        {
+            failures.push(format!("missing parser recovery test `{test}`"));
+        }
+    }
+
+    let mut details = vec![
+        format!(
+            "bounded helpers: {}",
+            map.parser_recovery.bounded_scan_helpers.join(", ")
+        ),
+        format!(
+            "positional diagnostic source definitions: {}",
+            map.parser_recovery.positional_diagnostic_sites.len()
+        ),
+        format!(
+            "parser recovery tests: {}",
+            map.parser_recovery.property_tests.join(", ")
+        ),
+    ];
+    details.extend(
+        map.parser_recovery
+            .declaration_scanner_violations
+            .iter()
+            .map(|violation| {
+                format!(
+                    "violation {}:{} {}",
+                    violation.path, violation.line, violation.pattern
+                )
+            }),
+    );
+
+    if failures.is_empty() {
+        FullMapCheck::pass(
+            "FULLMAP-PARSERREC",
+            "parser recovery uses bounded helpers and locked tests",
+            details,
+        )
+    } else {
+        FullMapCheck::fail(
+            "FULLMAP-PARSERREC",
+            "parser recovery guardrail failed",
+            failures,
+        )
+    }
+}
+
 fn check_diagram_claims(map: &SoftwareMap, policy: &FullMapPolicy) -> FullMapCheck {
     let mut failures = Vec::new();
     let mut details = Vec::new();
@@ -1356,6 +1465,75 @@ fn collect_unsafe_summary(root: &Path, policy: &FullMapPolicy) -> UnsafeSummary 
         owner: policy.unsafe_concurrency.owner.clone(),
         status: policy.unsafe_concurrency.status.clone(),
     }
+}
+
+fn collect_parser_recovery_summary(root: &Path) -> ParserRecoverySummary {
+    let mut summary = ParserRecoverySummary::default();
+    let parser_path = root.join("crates/trust-syntax/src/parser/parser.rs");
+    let declarations_path = root.join("crates/trust-syntax/src/parser/grammar/declarations.rs");
+    let parser_variables_path = root.join("crates/trust-syntax/tests/parser_variables.rs");
+
+    if let Ok(source) = fs::read_to_string(&parser_path) {
+        for line in source.lines() {
+            if line.contains("fn scan_top_level_ahead") {
+                summary
+                    .bounded_scan_helpers
+                    .push("scan_top_level_ahead".to_string());
+            }
+            if line.contains("fn recover_top_level_until") {
+                summary
+                    .bounded_scan_helpers
+                    .push("recover_top_level_until".to_string());
+            }
+        }
+    }
+
+    if let Ok(source) = fs::read_to_string(&declarations_path) {
+        for (index, line) in source.lines().enumerate() {
+            let line_number = index + 1;
+            if line.contains("fn has_top_level_comma_before_rparen")
+                || line.contains("let mut depth")
+            {
+                summary
+                    .declaration_scanner_violations
+                    .push(SourcePatternSummary {
+                        path: rel_path(root, &declarations_path),
+                        line: line_number,
+                        pattern: line.trim().to_string(),
+                    });
+            }
+            if line.contains(
+                "positional struct initializers are not supported; use named field initializers",
+            ) {
+                summary
+                    .positional_diagnostic_sites
+                    .push(SourcePatternSummary {
+                        path: rel_path(root, &declarations_path),
+                        line: line_number,
+                        pattern: "POSITIONAL_INITIALIZER_DIAGNOSTIC".to_string(),
+                    });
+            }
+        }
+    }
+
+    if let Ok(source) = fs::read_to_string(&parser_variables_path) {
+        for line in source.lines() {
+            let Some(name) = line
+                .trim()
+                .strip_prefix("fn ")
+                .and_then(|rest| rest.split_once('(').map(|(name, _)| name))
+            else {
+                continue;
+            };
+            if name.contains("positional_initializer_recovery")
+                || name.contains("initializer_recovery_property")
+            {
+                summary.property_tests.push(name.to_string());
+            }
+        }
+    }
+
+    summary
 }
 
 fn collect_diagram_facts(root: &Path, policy: &DiagramPolicy) -> Result<Vec<DiagramFact>> {
@@ -2100,6 +2278,30 @@ mod tests {
     }
 
     #[test]
+    fn known_bad_parser_recovery_ad_hoc_scanner_fails() {
+        let mut map = base_map();
+        map.parser_recovery
+            .declaration_scanner_violations
+            .push(SourcePatternSummary {
+                path: "crates/trust-syntax/src/parser/grammar/declarations.rs".to_string(),
+                line: 409,
+                pattern: "let mut depth = 0usize;".to_string(),
+            });
+
+        assert!(check_parser_recovery_rules(&map).is_fail());
+    }
+
+    #[test]
+    fn known_bad_parser_recovery_missing_property_test_fails() {
+        let mut map = base_map();
+        map.parser_recovery
+            .property_tests
+            .retain(|name| !name.contains("property_smoke"));
+
+        assert!(check_parser_recovery_rules(&map).is_fail());
+    }
+
+    #[test]
     fn unsafe_summary_with_remaining_hotspots_is_a_finding() {
         let check = check_unsafe_concurrency_summary(&base_map());
 
@@ -2164,6 +2366,21 @@ mod tests {
             name: "AgentAction".to_string(),
             variants: vec!["Serve".to_string()],
         }];
+        map.parser_recovery.bounded_scan_helpers = vec![
+            "scan_top_level_ahead".to_string(),
+            "recover_top_level_until".to_string(),
+        ];
+        map.parser_recovery
+            .positional_diagnostic_sites
+            .push(SourcePatternSummary {
+                path: "crates/trust-syntax/src/parser/grammar/declarations.rs".to_string(),
+                line: 12,
+                pattern: "POSITIONAL_INITIALIZER_DIAGNOSTIC".to_string(),
+            });
+        map.parser_recovery.property_tests = vec![
+            "test_positional_initializer_recovery_preserves_declaration_boundaries".to_string(),
+            "test_initializer_recovery_property_smoke_for_generated_positional_shapes".to_string(),
+        ];
         map.unsafe_summary = UnsafeSummary {
             unsafe_occurrences: 1,
             panic_like_occurrences: 1,

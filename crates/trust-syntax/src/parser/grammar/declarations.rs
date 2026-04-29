@@ -8,9 +8,26 @@
 //! - Array, Pointer, Reference types
 
 use crate::lexer::TokenKind;
+use crate::parser::BoundedTopLevelScan;
 use crate::syntax::SyntaxKind;
 
 use super::super::Parser;
+
+const POSITIONAL_INITIALIZER_DIAGNOSTIC: &str =
+    "positional struct initializers are not supported; use named field initializers";
+const DECLARATION_RECOVERY_LIMIT: usize = 512;
+const DECLARATION_RECOVERY_BOUNDARIES: &[TokenKind] = &[
+    TokenKind::Semicolon,
+    TokenKind::KwEndVar,
+    TokenKind::KwEndType,
+    TokenKind::KwEndStruct,
+    TokenKind::KwEndUnion,
+    TokenKind::KwEndProgram,
+    TokenKind::KwEndFunction,
+    TokenKind::KwEndFunctionBlock,
+    TokenKind::KwEndClass,
+    TokenKind::KwEndConfiguration,
+];
 
 impl Parser<'_, '_> {
     /// Parse a TYPE declaration block.
@@ -208,25 +225,21 @@ impl Parser<'_, '_> {
             return false;
         }
 
-        let mut depth = 0usize;
-        let mut idx = offset + 1;
-        loop {
-            let kind = self.peek_kind_n(idx);
-            match kind {
-                TokenKind::Eof => return false,
-                TokenKind::LParen => depth += 1,
-                TokenKind::RParen => {
-                    if depth == 0 {
-                        return true;
-                    }
-                    depth -= 1;
-                }
-                TokenKind::DotDot if depth == 0 => return false,
-                TokenKind::Comma | TokenKind::Assign if depth == 0 => return true,
-                _ => {}
-            }
-            idx += 1;
-        }
+        matches!(
+            self.scan_top_level_ahead(
+                offset + 1,
+                &[TokenKind::Comma, TokenKind::Assign],
+                &[TokenKind::RParen],
+                &[
+                    TokenKind::DotDot,
+                    TokenKind::Semicolon,
+                    TokenKind::KwEndType
+                ],
+                DECLARATION_RECOVERY_LIMIT,
+            ),
+            BoundedTopLevelScan::Found(TokenKind::Comma | TokenKind::Assign)
+                | BoundedTopLevelScan::Closed(TokenKind::RParen)
+        )
     }
 
     /// Parse an ARRAY type.
@@ -403,87 +416,28 @@ impl Parser<'_, '_> {
     fn at_positional_initializer_start(&self) -> bool {
         self.at(TokenKind::LParen)
             && !self.at_aggregate_initializer_start()
-            && self.has_top_level_comma_before_rparen()
-    }
-
-    fn has_top_level_comma_before_rparen(&self) -> bool {
-        if !self.at(TokenKind::LParen) {
-            return false;
-        }
-
-        let mut depth = 0usize;
-        let mut offset = 1usize;
-        loop {
-            match self.peek_kind_n(offset) {
-                TokenKind::Eof
-                | TokenKind::Semicolon
-                | TokenKind::KwEndVar
-                | TokenKind::KwEndType
-                | TokenKind::KwEndStruct
-                | TokenKind::KwEndUnion
-                | TokenKind::KwEndProgram
-                | TokenKind::KwEndFunction
-                | TokenKind::KwEndFunctionBlock
-                | TokenKind::KwEndClass
-                | TokenKind::KwEndConfiguration => return false,
-                TokenKind::LParen | TokenKind::LBracket => depth += 1,
-                TokenKind::RParen => {
-                    if depth == 0 {
-                        return false;
-                    }
-                    depth -= 1;
-                }
-                TokenKind::RBracket => depth = depth.saturating_sub(1),
-                TokenKind::Comma if depth == 0 => return true,
-                _ => {}
-            }
-            offset += 1;
-        }
+            && matches!(
+                self.scan_top_level_ahead(
+                    1,
+                    &[TokenKind::Comma],
+                    &[TokenKind::RParen],
+                    DECLARATION_RECOVERY_BOUNDARIES,
+                    DECLARATION_RECOVERY_LIMIT,
+                ),
+                BoundedTopLevelScan::Found(TokenKind::Comma)
+            )
     }
 
     fn parse_positional_initializer_list(&mut self) {
         let marker = self.start();
         self.bump(); // (
-        self.error(
-            "positional struct initializers are not supported; use named field initializers",
+        self.error(POSITIONAL_INITIALIZER_DIAGNOSTIC);
+        self.recover_top_level_until(
+            &[TokenKind::RParen],
+            DECLARATION_RECOVERY_BOUNDARIES,
+            DECLARATION_RECOVERY_LIMIT,
+            true,
         );
-
-        let mut depth = 0usize;
-        while !self.at_end() {
-            match self.current() {
-                TokenKind::LParen | TokenKind::LBracket => {
-                    depth += 1;
-                    self.bump();
-                }
-                TokenKind::RParen => {
-                    if depth == 0 {
-                        self.bump();
-                        break;
-                    }
-                    depth -= 1;
-                    self.bump();
-                }
-                TokenKind::RBracket => {
-                    depth = depth.saturating_sub(1);
-                    self.bump();
-                }
-                TokenKind::Semicolon
-                | TokenKind::KwEndVar
-                | TokenKind::KwEndType
-                | TokenKind::KwEndStruct
-                | TokenKind::KwEndUnion
-                | TokenKind::KwEndProgram
-                | TokenKind::KwEndFunction
-                | TokenKind::KwEndFunctionBlock
-                | TokenKind::KwEndClass
-                | TokenKind::KwEndConfiguration
-                    if depth == 0 =>
-                {
-                    break;
-                }
-                _ => self.bump(),
-            }
-        }
 
         marker.complete(self, SyntaxKind::InitializerList);
     }
@@ -510,16 +464,12 @@ impl Parser<'_, '_> {
             self.bump();
         } else {
             self.error("expected )");
-            while !self.at(TokenKind::RParen)
-                && !self.at(TokenKind::Semicolon)
-                && !self.at(TokenKind::KwEndVar)
-                && !self.at_end()
-            {
-                self.bump();
-            }
-            if self.at(TokenKind::RParen) {
-                self.bump();
-            }
+            self.recover_top_level_until(
+                &[TokenKind::RParen],
+                DECLARATION_RECOVERY_BOUNDARIES,
+                DECLARATION_RECOVERY_LIMIT,
+                true,
+            );
         }
 
         marker.complete(self, SyntaxKind::InitializerList);
@@ -547,16 +497,13 @@ impl Parser<'_, '_> {
             }
             self.parse_var_initializer();
         } else {
-            self.error(
-                "positional struct initializers are not supported; use named field initializers",
+            self.error(POSITIONAL_INITIALIZER_DIAGNOSTIC);
+            self.recover_top_level_until(
+                &[TokenKind::RParen],
+                DECLARATION_RECOVERY_BOUNDARIES,
+                DECLARATION_RECOVERY_LIMIT,
+                false,
             );
-            while !self.at(TokenKind::RParen)
-                && !self.at(TokenKind::Semicolon)
-                && !self.at(TokenKind::KwEndVar)
-                && !self.at_end()
-            {
-                self.bump();
-            }
         }
     }
 

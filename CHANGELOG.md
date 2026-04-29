@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.2`
+Target release: `v0.24.3`
 
 ### Changed
 
@@ -17,6 +17,10 @@ Target release: `v0.24.2`
 
 ### Fixed
 
+- Parser recovery for malformed aggregate/positional initializers is now
+  bounded by shared top-level scan helpers, preserves following declarations at
+  declaration boundaries, and is guarded by full-map doctor and focused
+  mutation evidence.
 - HIR validation now rejects non-repeat call expressions used as array defaults
   and validates direct array repetition defaults against the repeated element
   type, closing focused mutation-testing gaps in default initializer analysis.

@@ -2,8 +2,8 @@
 
 ## Current Baseline
 
-- current repository baseline: `v0.24.2`
-- public docs in this tree describe the `v0.24.2` workspace version unless a
+- current repository baseline: `v0.24.3`
+- public docs in this tree describe the `v0.24.3` workspace version unless a
   page explicitly marks a feature as experimental, roadmap, or target-specific
 
 ## What Changed Recently
@@ -15,6 +15,9 @@
 - HIR default-initializer analysis now rejects non-repeat call expressions used
   as array defaults and validates repeated array defaults against the element
   type.
+- Parser recovery for malformed aggregate/positional initializers now uses
+  bounded declaration-aware helpers and mutation-checked recovery tests so bad
+  initializers do not consume following declarations.
 - The OSCAT OOP test fixture now covers reset, multi-scan parity,
   invalid-limit rejection, FIFO ordering, and version lookup through classic
   OSCAT.

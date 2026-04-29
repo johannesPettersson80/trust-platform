@@ -26,7 +26,7 @@ This is the umbrella checklist. Individual execution boards own the detailed wor
 
 - [x] `ARCHPROG-BOARD-01` Full-map architecture doctor: `architecture-doctor-full-map-execution-checklist.md`.
 - [x] `ARCHPROG-BOARD-02` HIR mutation hardening: `hir-mutation-hardening-execution-checklist.md`.
-- [ ] `ARCHPROG-BOARD-03` Parser recovery hardening: `parser-recovery-hardening-execution-checklist.md`.
+- [x] `ARCHPROG-BOARD-03` Parser recovery hardening: `parser-recovery-hardening-execution-checklist.md`.
 - [ ] `ARCHPROG-BOARD-04` Runtime CLI product/workbench split: `runtime-cli-product-workbench-split-checklist.md`.
 - [ ] `ARCHPROG-BOARD-05` Runtime host surface ownership: `runtime-host-surface-ownership-checklist.md`.
 - [ ] `ARCHPROG-BOARD-06` Runtime core/Linux host split: `runtime-core-host-split-execution-checklist.md`.
@@ -52,7 +52,7 @@ This is the umbrella checklist. Individual execution boards own the detailed wor
 - [x] `ARCHPROG-B-02` Close HIR mutation gap for `type_check::const_eval`.
 - [x] `ARCHPROG-B-03` Close HIR mutation gap for aggregate initializer validation.
 - [x] `ARCHPROG-B-04` Add mutation gate with zero unexplained survivors for the focused HIR shard.
-- [ ] `ARCHPROG-B-05` Fix parser recovery bounded-scanner and fuzz/property tests.
+- [x] `ARCHPROG-B-05` Fix parser recovery bounded-scanner and fuzz/property tests.
 
 ### Phase C - Runtime Boundary Policy Before Runtime Extraction
 
@@ -82,7 +82,7 @@ This is the umbrella checklist. Individual execution boards own the detailed wor
 
 - [ ] `ARCHPROG-EXIT-01` Full-map doctor runs and blocks known bad dependency/ownership patterns.
 - [x] `ARCHPROG-EXIT-02` Focused HIR mutation shard has zero unexplained survivors.
-- [ ] `ARCHPROG-EXIT-03` Parser recovery has bounded scanner API plus fuzz/property coverage.
+- [x] `ARCHPROG-EXIT-03` Parser recovery has bounded scanner API plus fuzz/property coverage.
 - [ ] `ARCHPROG-EXIT-04` Product runtime binary no longer owns unclassified workbench/dev commands.
 - [ ] `ARCHPROG-EXIT-05` HMI/web/control/cloud ownership is enforced by ports and doctor rules.
 - [ ] `ARCHPROG-EXIT-06` `trust-runtime-core` owns portable execution and blocks host-only dependencies.

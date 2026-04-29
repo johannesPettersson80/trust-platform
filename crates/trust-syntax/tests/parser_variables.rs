@@ -319,6 +319,119 @@ END_PROGRAM"#,
         "three malformed initializer declarations should produce one diagnostic each, got: {:?}",
         malformed.errors()
     );
+
+    for (label, source) in [
+        (
+            "end_var_boundary",
+            r#"PROGRAM Test
+VAR
+    cfg : StepCfg := (cyl :=
+END_VAR
+END_PROGRAM"#,
+        ),
+        (
+            "eof_boundary",
+            "PROGRAM Test\nVAR\n    cfg : StepCfg := (cyl :=",
+        ),
+    ] {
+        let parsed = parse(source);
+        assert!(
+            parsed
+                .errors()
+                .iter()
+                .any(|error| error.message == "expected aggregate initializer value"),
+            "{label} should report the missing aggregate initializer value at the declaration boundary, got: {:?}",
+            parsed.errors()
+        );
+    }
+}
+
+#[test]
+fn test_positional_initializer_recovery_preserves_declaration_boundaries() {
+    const POSITIONAL_MESSAGE: &str =
+        "positional struct initializers are not supported; use named field initializers";
+
+    for (label, initializer) in [
+        ("missing_close", "(TRUE, FALSE"),
+        ("nested_positional", "(inner := (TRUE, FALSE))"),
+        ("nested_missing_close", "(inner := (MyConst, 5)"),
+        ("array_nested", "([1, 2], [3, 4])"),
+    ] {
+        let source = format!(
+            r#"PROGRAM Test
+VAR
+    bad : StepCfg := {initializer};
+    next : INT := 1;
+END_VAR
+END_PROGRAM"#
+        );
+        let parsed = parse(&source);
+        assert!(
+            parsed
+                .errors()
+                .iter()
+                .any(|error| error.message == POSITIONAL_MESSAGE),
+            "{label} should emit the locked positional diagnostic, got: {:?}",
+            parsed.errors()
+        );
+        assert_eq!(
+            parsed
+                .syntax()
+                .descendants()
+                .filter(|node| node.kind() == SyntaxKind::VarDecl)
+                .count(),
+            2,
+            "{label} recovery must not consume the following declaration:\n{}",
+            snapshot_parse(&source)
+        );
+    }
+}
+
+#[test]
+fn test_initializer_recovery_property_smoke_for_generated_positional_shapes() {
+    const POSITIONAL_MESSAGE: &str =
+        "positional struct initializers are not supported; use named field initializers";
+    let atoms = [
+        "1", "TRUE", "MyConst", "'a'", "(1 + 2)", "[1, 2]", "F(1, 2)",
+    ];
+
+    for left in atoms {
+        for right in atoms {
+            let source = format!(
+                r#"PROGRAM Test
+VAR
+    bad : StepCfg := ({left} (* trivia *), {right});
+    next : INT := 1;
+END_VAR
+END_PROGRAM"#
+            );
+            let parsed = parse(&source);
+            assert!(
+                parsed
+                    .errors()
+                    .iter()
+                    .any(|error| error.message == POSITIONAL_MESSAGE),
+                "generated shape ({left}, {right}) should emit the locked positional diagnostic, got: {:?}",
+                parsed.errors()
+            );
+            assert!(
+                parsed.errors().len() <= 2,
+                "generated shape ({left}, {right}) should stay bounded, got: {:?}\n{}",
+                parsed.errors(),
+                snapshot_parse(&source)
+            );
+            assert_eq!(
+                parsed
+                    .syntax()
+                    .descendants()
+                    .filter(|node| node.kind() == SyntaxKind::VarDecl)
+                    .count(),
+                2,
+                "generated shape ({left}, {right}) consumed the following declaration:\n{}",
+                snapshot_parse(&source)
+            );
+        }
+    }
 }
 
 #[test]

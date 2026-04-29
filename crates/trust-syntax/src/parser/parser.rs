@@ -72,6 +72,14 @@ pub(crate) struct CompletedMarker {
     pub(crate) pos: usize,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BoundedTopLevelScan {
+    Found(TokenKind),
+    Closed(TokenKind),
+    Boundary(TokenKind),
+    Limit,
+}
+
 impl CompletedMarker {
     pub(crate) fn precede(self, parser: &mut Parser<'_, '_>) -> Marker {
         let new_pos = parser.events.len();
@@ -174,6 +182,82 @@ impl<'t, 'src> Parser<'t, 'src> {
 
     pub(crate) fn peek_kind_n(&self, n: usize) -> TokenKind {
         self.source.peek_kind_n(n)
+    }
+
+    pub(crate) fn scan_top_level_ahead(
+        &self,
+        start_offset: usize,
+        targets: &[TokenKind],
+        close_tokens: &[TokenKind],
+        boundaries: &[TokenKind],
+        max_lookahead: usize,
+    ) -> BoundedTopLevelScan {
+        let mut paren_depth = 0usize;
+        let mut bracket_depth = 0usize;
+
+        for offset in start_offset..=max_lookahead {
+            let kind = self.peek_kind_n(offset);
+            if kind == TokenKind::Eof {
+                return BoundedTopLevelScan::Boundary(kind);
+            }
+            if boundaries.contains(&kind) {
+                return BoundedTopLevelScan::Boundary(kind);
+            }
+            if paren_depth == 0 && bracket_depth == 0 {
+                if targets.contains(&kind) {
+                    return BoundedTopLevelScan::Found(kind);
+                }
+                if close_tokens.contains(&kind) {
+                    return BoundedTopLevelScan::Closed(kind);
+                }
+            }
+            match kind {
+                TokenKind::LParen => paren_depth += 1,
+                TokenKind::LBracket => bracket_depth += 1,
+                TokenKind::RParen => paren_depth = paren_depth.saturating_sub(1),
+                TokenKind::RBracket => bracket_depth = bracket_depth.saturating_sub(1),
+                _ => {}
+            }
+        }
+
+        BoundedTopLevelScan::Limit
+    }
+
+    pub(crate) fn recover_top_level_until(
+        &mut self,
+        close_tokens: &[TokenKind],
+        boundaries: &[TokenKind],
+        max_tokens: usize,
+        consume_close: bool,
+    ) -> BoundedTopLevelScan {
+        let mut paren_depth = 0usize;
+        let mut bracket_depth = 0usize;
+
+        for _ in 0..max_tokens {
+            let kind = self.current();
+            if kind == TokenKind::Eof {
+                return BoundedTopLevelScan::Boundary(kind);
+            }
+            if boundaries.contains(&kind) {
+                return BoundedTopLevelScan::Boundary(kind);
+            }
+            if paren_depth == 0 && bracket_depth == 0 && close_tokens.contains(&kind) {
+                if consume_close {
+                    self.bump();
+                }
+                return BoundedTopLevelScan::Closed(kind);
+            }
+            match kind {
+                TokenKind::LParen => paren_depth += 1,
+                TokenKind::LBracket => bracket_depth += 1,
+                TokenKind::RParen => paren_depth = paren_depth.saturating_sub(1),
+                TokenKind::RBracket => bracket_depth = bracket_depth.saturating_sub(1),
+                _ => {}
+            }
+            self.bump();
+        }
+
+        BoundedTopLevelScan::Limit
     }
 
     pub(crate) fn bump(&mut self) {
@@ -429,6 +513,87 @@ END_PROGRAM
             "errors: {:?}",
             parse.errors()
         );
+    }
+
+    #[test]
+    fn test_bounded_top_level_scan_ignores_commas_inside_brackets() {
+        let source = "([1, 2]);";
+        let tokens = lex(source);
+        let parser = Parser::new(&tokens, source);
+
+        assert_eq!(
+            parser.scan_top_level_ahead(
+                1,
+                &[TokenKind::Comma],
+                &[TokenKind::RParen],
+                &[TokenKind::Semicolon],
+                16,
+            ),
+            BoundedTopLevelScan::Closed(TokenKind::RParen)
+        );
+    }
+
+    #[test]
+    fn test_bounded_top_level_scan_stops_at_boundary_inside_unclosed_bracket() {
+        let source = "([1, 2;";
+        let tokens = lex(source);
+        let parser = Parser::new(&tokens, source);
+
+        assert_eq!(
+            parser.scan_top_level_ahead(
+                1,
+                &[TokenKind::Comma],
+                &[TokenKind::RParen],
+                &[TokenKind::Semicolon],
+                16,
+            ),
+            BoundedTopLevelScan::Boundary(TokenKind::Semicolon)
+        );
+    }
+
+    #[test]
+    fn test_bounded_recovery_does_not_close_on_rparen_inside_unclosed_bracket() {
+        let source = "([1, 2);";
+        let tokens = lex(source);
+        let mut parser = Parser::new(&tokens, source);
+        parser.bump(); // outer '('
+
+        assert_eq!(
+            parser
+                .recover_top_level_until(&[TokenKind::RParen], &[TokenKind::Semicolon], 16, true,),
+            BoundedTopLevelScan::Boundary(TokenKind::Semicolon)
+        );
+        assert_eq!(parser.current(), TokenKind::Semicolon);
+    }
+
+    #[test]
+    fn test_bounded_recovery_closes_after_nested_paren_is_balanced() {
+        let source = "((1), 2);";
+        let tokens = lex(source);
+        let mut parser = Parser::new(&tokens, source);
+        parser.bump(); // outer '('
+
+        assert_eq!(
+            parser
+                .recover_top_level_until(&[TokenKind::RParen], &[TokenKind::Semicolon], 16, true,),
+            BoundedTopLevelScan::Closed(TokenKind::RParen)
+        );
+        assert_eq!(parser.current(), TokenKind::Semicolon);
+    }
+
+    #[test]
+    fn test_bounded_recovery_closes_after_nested_bracket_is_balanced() {
+        let source = "([1], 2);";
+        let tokens = lex(source);
+        let mut parser = Parser::new(&tokens, source);
+        parser.bump(); // outer '('
+
+        assert_eq!(
+            parser
+                .recover_top_level_until(&[TokenKind::RParen], &[TokenKind::Semicolon], 16, true,),
+            BoundedTopLevelScan::Closed(TokenKind::RParen)
+        );
+        assert_eq!(parser.current(), TokenKind::Semicolon);
     }
 
     #[test]

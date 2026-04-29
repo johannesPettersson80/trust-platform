@@ -16,6 +16,7 @@ pub struct SoftwareMap {
     pub runtime_cli_actions: Vec<CliActionSummary>,
     pub runtime_bin_modules: Vec<String>,
     pub runtime_route_handlers: Vec<RuntimeRouteHandlerSummary>,
+    pub parser_recovery: ParserRecoverySummary,
     pub unsafe_summary: UnsafeSummary,
     pub diagram_facts: Vec<DiagramFact>,
     pub tool_results: Vec<ToolResult>,
@@ -79,6 +80,21 @@ pub struct RuntimeRouteHandlerSummary {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+pub struct ParserRecoverySummary {
+    pub bounded_scan_helpers: Vec<String>,
+    pub declaration_scanner_violations: Vec<SourcePatternSummary>,
+    pub positional_diagnostic_sites: Vec<SourcePatternSummary>,
+    pub property_tests: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SourcePatternSummary {
+    pub path: String,
+    pub line: usize,
+    pub pattern: String,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 pub struct UnsafeSummary {
     pub unsafe_occurrences: usize,
     pub panic_like_occurrences: usize,
@@ -129,7 +145,7 @@ impl ToolStatus {
 impl SoftwareMap {
     pub fn new(workspace_root: impl Into<String>) -> Self {
         Self {
-            schema_version: 2,
+            schema_version: 3,
             workspace_root: workspace_root.into(),
             generated_by: "cargo xtask architecture-doctor --full-map".to_string(),
             packages: Vec::new(),
@@ -143,6 +159,7 @@ impl SoftwareMap {
             runtime_cli_actions: Vec::new(),
             runtime_bin_modules: Vec::new(),
             runtime_route_handlers: Vec::new(),
+            parser_recovery: ParserRecoverySummary::default(),
             unsafe_summary: UnsafeSummary::default(),
             diagram_facts: Vec::new(),
             tool_results: Vec::new(),
@@ -211,6 +228,26 @@ impl SoftwareMap {
                 .then_with(|| left.line.cmp(&right.line))
         });
         self.runtime_route_handlers.dedup();
+        self.parser_recovery.bounded_scan_helpers.sort();
+        self.parser_recovery.bounded_scan_helpers.dedup();
+        self.parser_recovery
+            .declaration_scanner_violations
+            .sort_by(|left, right| {
+                left.path
+                    .cmp(&right.path)
+                    .then_with(|| left.line.cmp(&right.line))
+                    .then_with(|| left.pattern.cmp(&right.pattern))
+            });
+        self.parser_recovery
+            .positional_diagnostic_sites
+            .sort_by(|left, right| {
+                left.path
+                    .cmp(&right.path)
+                    .then_with(|| left.line.cmp(&right.line))
+                    .then_with(|| left.pattern.cmp(&right.pattern))
+            });
+        self.parser_recovery.property_tests.sort();
+        self.parser_recovery.property_tests.dedup();
         self.diagram_facts
             .sort_by(|left, right| left.path.cmp(&right.path));
         for diagram in &mut self.diagram_facts {
@@ -238,7 +275,7 @@ mod tests {
         let reverse = sample_map(true).to_stable_json().unwrap();
 
         assert_eq!(forward, reverse);
-        assert!(forward.contains("\"schema_version\": 2"));
+        assert!(forward.contains("\"schema_version\": 3"));
         assert!(forward.contains("\"status\": \"not_run\""));
     }
 
@@ -340,6 +377,20 @@ mod tests {
                 line: 70,
             },
         ];
+        map.parser_recovery.bounded_scan_helpers = vec![
+            "scan_top_level_ahead".to_string(),
+            "recover_top_level_until".to_string(),
+        ];
+        map.parser_recovery
+            .positional_diagnostic_sites
+            .push(SourcePatternSummary {
+                path: "crates/trust-syntax/src/parser/grammar/declarations.rs".to_string(),
+                line: 10,
+                pattern: "POSITIONAL_INITIALIZER_DIAGNOSTIC".to_string(),
+            });
+        map.parser_recovery.property_tests = vec![
+            "test_initializer_recovery_property_smoke_for_generated_positional_shapes".to_string(),
+        ];
         map.unsafe_summary = UnsafeSummary {
             unsafe_occurrences: 1,
             panic_like_occurrences: 2,
@@ -384,6 +435,10 @@ mod tests {
             }
             map.runtime_bin_modules.reverse();
             map.runtime_route_handlers.reverse();
+            map.parser_recovery.bounded_scan_helpers.reverse();
+            map.parser_recovery.declaration_scanner_violations.reverse();
+            map.parser_recovery.positional_diagnostic_sites.reverse();
+            map.parser_recovery.property_tests.reverse();
             map.diagram_facts.reverse();
             map.tool_results.reverse();
         }

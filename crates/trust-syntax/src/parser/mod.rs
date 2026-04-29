@@ -28,7 +28,7 @@ mod sink;
 mod source;
 
 pub use parser::parse;
-pub(crate) use parser::{CompletedMarker, Parser};
+pub(crate) use parser::{BoundedTopLevelScan, CompletedMarker, Parser};
 
 use crate::syntax::SyntaxNode;
 
