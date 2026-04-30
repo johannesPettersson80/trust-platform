@@ -12,6 +12,7 @@
 //! - transport modules depend on `runtime_cloud`, never the reverse.
 //! - realtime execution path is not called directly from runtime-cloud projection/contracts.
 
+pub(crate) mod config_policy;
 pub mod contracts;
 pub mod ha;
 pub mod keyspace;
