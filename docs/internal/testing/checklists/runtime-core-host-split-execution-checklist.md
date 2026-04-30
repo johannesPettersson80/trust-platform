@@ -159,23 +159,23 @@ Phase 1 focused test evidence, 2026-04-30:
 
 ## Phase 3 - Core Crate Scaffold
 
-- [ ] `RTSPLIT-P3-001` Add `crates/trust-runtime-core`.
-- [ ] `RTSPLIT-P3-002` Add it as a workspace member.
-- [ ] `RTSPLIT-P3-003` Start with `std` if needed for low-risk extraction.
-- [ ] `RTSPLIT-P3-004` Keep APIs shaped so `no_std + alloc` remains possible later, without claiming product support.
-- [ ] `RTSPLIT-P3-005` Add crate docs describing core ownership and host exclusions.
-- [ ] `RTSPLIT-P3-006` Add `lib.rs` module map with only scaffold modules at first.
-- [ ] `RTSPLIT-P3-007` Re-export core APIs from `trust-runtime` only as a compatibility bridge.
-- [ ] `RTSPLIT-P3-008` Add a compile check for `trust-runtime-core`.
-- [ ] `RTSPLIT-P3-009` Add a minimal unit test proving the crate participates in workspace tests.
-- [ ] `RTSPLIT-P3-010` Ensure initial scaffold does not pull forbidden dependencies.
+- [x] `RTSPLIT-P3-001` Add `crates/trust-runtime-core`. Evidence: `crates/trust-runtime-core/Cargo.toml`, `src/lib.rs`, and `src/scaffold.rs` exist.
+- [x] `RTSPLIT-P3-002` Add it as a workspace member. Evidence: root `Cargo.toml` includes `crates/trust-runtime-core` in `workspace.members` and a workspace dependency entry.
+- [x] `RTSPLIT-P3-003` Start with `std` if needed for low-risk extraction. Evidence: `crates/trust-runtime-core/Cargo.toml` defines default feature `std`.
+- [x] `RTSPLIT-P3-004` Keep APIs shaped so `no_std + alloc` remains possible later, without claiming product support. Evidence: `src/lib.rs` uses `#![cfg_attr(not(feature = "std"), no_std)]`; `cargo check -p trust-runtime-core --no-default-features` passes; the scaffold has no host dependency and makes no embedded support claim.
+- [x] `RTSPLIT-P3-005` Add crate docs describing core ownership and host exclusions. Evidence: `crates/trust-runtime-core/src/lib.rs` documents portable execution ownership and excludes web/HMI/control/cloud, Linux realtime setup, CLI wiring, harness compilation, and external I/O drivers.
+- [x] `RTSPLIT-P3-006` Add `lib.rs` module map with only scaffold modules at first. Evidence: `src/lib.rs` only exposes `pub mod scaffold`.
+- [x] `RTSPLIT-P3-007` Re-export core APIs from `trust-runtime` only as a compatibility bridge. Evidence: `crates/trust-runtime/src/lib.rs` re-exports `trust_runtime_core` as `runtime_core`; no runtime production code moved.
+- [x] `RTSPLIT-P3-008` Add a compile check for `trust-runtime-core`. Evidence: `cargo check -p trust-runtime-core` passes.
+- [x] `RTSPLIT-P3-009` Add a minimal unit test proving the crate participates in workspace tests. Evidence: `crates/trust-runtime-core/src/scaffold.rs::scaffold_stage_is_pre_move` passes under `cargo test -p trust-runtime-core -- --nocapture`.
+- [x] `RTSPLIT-P3-010` Ensure initial scaffold does not pull forbidden dependencies. Evidence: `cargo run -p xtask -- architecture-doctor --full-map` passes with `FULLMAP-CHECK-05` reporting 18 forbidden dependencies and 17 forbidden import modules checked.
 
 ### Phase 3 Exit Gate
 
-- [ ] `RTSPLIT-P3-GATE-01` `cargo check -p trust-runtime-core` passes.
-- [ ] `RTSPLIT-P3-GATE-02` `cargo test -p trust-runtime-core` passes.
-- [ ] `RTSPLIT-P3-GATE-03` Doctor dependency fence passes for the empty/scaffold core.
-- [ ] `RTSPLIT-P3-GATE-04` No public runtime behavior changed.
+- [x] `RTSPLIT-P3-GATE-01` `cargo check -p trust-runtime-core` passes.
+- [x] `RTSPLIT-P3-GATE-02` `cargo test -p trust-runtime-core` passes.
+- [x] `RTSPLIT-P3-GATE-03` Doctor dependency fence passes for the empty/scaffold core. Evidence: `FULLMAP-CHECK-05` passes after the crate is present.
+- [x] `RTSPLIT-P3-GATE-04` No public runtime behavior changed. Evidence: only a new scaffold crate and explicit compatibility re-export were added; no runtime execution modules or behavior paths moved.
 
 ## Phase 4 - Move Pure Data And Runtime Models
 

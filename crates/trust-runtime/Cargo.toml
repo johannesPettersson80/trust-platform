@@ -11,6 +11,7 @@ rust-version.workspace = true
 trust-syntax.workspace = true
 trust-hir.workspace = true
 trust-ide.workspace = true
+trust-runtime-core.workspace = true
 trust-wasm-analysis.workspace = true
 smol_str.workspace = true
 rustc-hash.workspace = true

@@ -7,6 +7,9 @@
 
 extern crate self as trust_runtime;
 
+/// Portable runtime-core compatibility surface.
+pub use trust_runtime_core as runtime_core;
+
 /// Bundle discovery helpers.
 pub mod bundle;
 /// Bundle build helpers.

@@ -5154,6 +5154,7 @@ dependencies = [
  "tracing",
  "trust-hir",
  "trust-ide",
+ "trust-runtime-core",
  "trust-syntax",
  "trust-wasm-analysis",
  "tungstenite 0.28.0",
@@ -5161,6 +5162,10 @@ dependencies = [
  "urlencoding",
  "zenoh",
 ]
+
+[[package]]
+name = "trust-runtime-core"
+version = "0.24.8"
 
 [[package]]
 name = "trust-syntax"
