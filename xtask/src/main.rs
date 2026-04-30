@@ -260,18 +260,7 @@ fn check_parser_initializer_call_sites(root: &Path) -> Result<CheckResult> {
 fn check_positional_parser_contract(root: &Path) -> Result<CheckResult> {
     let path = root.join("crates/trust-syntax/src/parser/grammar/declarations.rs");
     let source = fs::read_to_string(path)?;
-    let mut failures = Vec::new();
-    if !source.contains("parse_positional_initializer_list") {
-        failures.push("missing dedicated parse_positional_initializer_list branch".to_string());
-    }
-    if !source
-        .contains("positional struct initializers are not supported; use named field initializers")
-    {
-        failures.push("missing locked positional diagnostic wording".to_string());
-    }
-    if !source.contains("has_top_level_comma_before_rparen") {
-        failures.push("missing top-level comma scan for non-numeric positional starts".to_string());
-    }
+    let failures = positional_parser_contract_failures_from_source(&source);
     if failures.is_empty() {
         Ok(CheckResult::pass(
             "positional initializer parser contract",
@@ -283,6 +272,27 @@ fn check_positional_parser_contract(root: &Path) -> Result<CheckResult> {
             failures,
         ))
     }
+}
+
+fn positional_parser_contract_failures_from_source(source: &str) -> Vec<String> {
+    let mut failures = Vec::new();
+    if !source.contains("parse_positional_initializer_list") {
+        failures.push("missing dedicated parse_positional_initializer_list branch".to_string());
+    }
+    if !source
+        .contains("positional struct initializers are not supported; use named field initializers")
+    {
+        failures.push("missing locked positional diagnostic wording".to_string());
+    }
+    let has_legacy_comma_scan = source.contains("has_top_level_comma_before_rparen");
+    let has_bounded_comma_scan = source.contains("scan_top_level_ahead(")
+        && source.contains("BoundedTopLevelScan::Found(TokenKind::Comma)");
+    if !has_legacy_comma_scan && !has_bounded_comma_scan {
+        failures.push(
+            "missing bounded top-level comma scan for non-numeric positional starts".to_string(),
+        );
+    }
+    failures
 }
 
 fn check_hir_runtime_boundary(root: &Path) -> Result<CheckResult> {
@@ -657,5 +667,29 @@ mod tests {
         let message = format!("{err:#}");
 
         assert!(message.contains("--full-map"));
+    }
+
+    #[test]
+    fn positional_parser_contract_accepts_bounded_comma_scan() {
+        let source = include_str!("../../crates/trust-syntax/src/parser/grammar/declarations.rs");
+
+        assert_eq!(
+            positional_parser_contract_failures_from_source(source),
+            Vec::<String>::new()
+        );
+    }
+
+    #[test]
+    fn known_bad_positional_parser_contract_without_comma_scan_fails() {
+        let source = r#"
+            const POSITIONAL_INITIALIZER_DIAGNOSTIC: &str =
+                "positional struct initializers are not supported; use named field initializers";
+
+            fn parse_positional_initializer_list(&mut self) {}
+        "#;
+
+        assert!(positional_parser_contract_failures_from_source(source)
+            .iter()
+            .any(|failure| failure.contains("bounded top-level comma scan")));
     }
 }

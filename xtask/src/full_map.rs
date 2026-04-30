@@ -154,7 +154,18 @@ struct KissPolicy {
     max_runtime_top_level_modules_current: usize,
     max_runtime_top_level_modules_after_boards: usize,
     enforce_after_boards_cap: bool,
+    runtime_top_level_module_decisions: Vec<RuntimeTopLevelModuleDecision>,
     large_file_allowlist: Vec<LargeFilePolicy>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RuntimeTopLevelModuleDecision {
+    name: String,
+    subsystem: String,
+    owner: String,
+    rationale: String,
+    review_date: String,
+    decision_note: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -694,6 +705,27 @@ fn check_policy_metadata(policy: &FullMapPolicy) -> FullMapCheck {
             failures.push(format!(
                 "large-file allowlist entry '{}' is missing owner/rationale/review_date/split_plan",
                 item.path
+            ));
+        }
+    }
+    let mut runtime_module_decisions = BTreeSet::new();
+    for item in &policy.kiss.runtime_top_level_module_decisions {
+        if !runtime_module_decisions.insert(item.name.as_str()) {
+            failures.push(format!(
+                "runtime top-level module decision '{}' is duplicated",
+                item.name
+            ));
+        }
+        if item.name.trim().is_empty()
+            || item.subsystem.trim().is_empty()
+            || item.owner.trim().is_empty()
+            || item.rationale.trim().is_empty()
+            || item.review_date.trim().is_empty()
+            || item.decision_note.trim().is_empty()
+        {
+            failures.push(format!(
+                "runtime top-level module decision '{}' is missing name/subsystem/owner/rationale/review_date/decision_note",
+                item.name
             ));
         }
     }
@@ -1401,11 +1433,43 @@ fn check_kiss_thresholds(map: &SoftwareMap, policy: &FullMapPolicy) -> FullMapCh
             policy.kiss.max_runtime_top_level_modules_after_boards
         ));
     }
+    let module_decisions = policy
+        .kiss
+        .runtime_top_level_module_decisions
+        .iter()
+        .map(|item| (item.name.as_str(), item))
+        .collect::<BTreeMap<_, _>>();
+    let runtime_modules = map
+        .runtime_top_level_modules
+        .iter()
+        .collect::<BTreeSet<_>>();
+    for module in &runtime_modules {
+        let Some(decision) = module_decisions.get(module.as_str()) else {
+            failures.push(format!(
+                "runtime top-level module '{module}' has no subsystem decision note"
+            ));
+            continue;
+        };
+        details.push(format!(
+            "runtime module {module}: subsystem={} owner={} decision_note={}",
+            decision.subsystem, decision.owner, decision.decision_note
+        ));
+    }
+    for decision in module_decisions.keys() {
+        if !runtime_modules
+            .iter()
+            .any(|module| module.as_str() == *decision)
+        {
+            failures.push(format!(
+                "runtime top-level module decision '{decision}' does not match a current source module"
+            ));
+        }
+    }
 
     if failures.is_empty() {
         FullMapCheck::pass(
             "FULLMAP-CHECK-10",
-            "KISS large-file and runtime-host module-count thresholds are enforced",
+            "KISS large-file, runtime-host module-count, and top-level module decision thresholds are enforced",
             details,
         )
     } else {
@@ -3131,6 +3195,29 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
     }
 
     #[test]
+    fn known_bad_runtime_top_level_module_without_decision_note_fails() {
+        let mut map = base_map();
+        map.runtime_top_level_modules
+            .push("new_surface".to_string());
+
+        let check = check_kiss_thresholds(&map, &base_policy());
+
+        assert!(check.is_fail());
+        assert!(check.details.iter().any(|detail| detail
+            .contains("runtime top-level module 'new_surface' has no subsystem decision note")));
+    }
+
+    #[test]
+    fn known_bad_runtime_top_level_module_decision_without_metadata_fails() {
+        let mut policy = base_policy();
+        policy.kiss.runtime_top_level_module_decisions[0]
+            .decision_note
+            .clear();
+
+        assert!(check_policy_metadata(&policy).is_fail());
+    }
+
+    #[test]
     fn known_bad_unsafe_summary_without_owner_fails() {
         let mut map = base_map();
         map.unsafe_summary.owner.clear();
@@ -3427,6 +3514,24 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
                 max_runtime_top_level_modules_current: 5,
                 max_runtime_top_level_modules_after_boards: 2,
                 enforce_after_boards_cap: false,
+                runtime_top_level_module_decisions: vec![
+                    RuntimeTopLevelModuleDecision {
+                        name: "control".to_string(),
+                        subsystem: "host_surface".to_string(),
+                        owner: "runtime/control".to_string(),
+                        rationale: "control command/query boundary".to_string(),
+                        review_date: "2026-04-30".to_string(),
+                        decision_note: "ARCHPROG-C-05 baseline".to_string(),
+                    },
+                    RuntimeTopLevelModuleDecision {
+                        name: "web".to_string(),
+                        subsystem: "host_surface".to_string(),
+                        owner: "runtime/web".to_string(),
+                        rationale: "HTTP/web adapter boundary".to_string(),
+                        review_date: "2026-04-30".to_string(),
+                        decision_note: "ARCHPROG-C-05 baseline".to_string(),
+                    },
+                ],
                 large_file_allowlist: Vec::new(),
             },
             dependency_hygiene_tools: vec![PolicyToolStatus {

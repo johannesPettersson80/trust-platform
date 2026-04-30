@@ -13,7 +13,7 @@ def sha256(path: Path) -> str:
 
 def compute_manifest(root: Path) -> dict[str, str]:
     manifest: dict[str, str] = {}
-    for path in sorted(root.glob("docs/**/*.puml")):
+    for path in sorted(root.glob("docs/diagrams/**/*.puml")):
         manifest[str(path.relative_to(root))] = sha256(path)
     return manifest
 

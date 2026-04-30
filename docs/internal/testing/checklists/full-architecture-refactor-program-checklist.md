@@ -64,12 +64,12 @@ This is the umbrella checklist. Individual execution boards own the detailed wor
 - [x] `ARCHPROG-C-02` Classify `web`, `hmi`, `ui`, `control`, and `runtime_cloud` ownership. Evidence: `runtime-host-surface-ownership-checklist.md` records owner categories in `xtask/config/full_map_policy.json`.
 - [x] `ARCHPROG-C-03` Add doctor rules for product/workbench command boundaries.
 - [x] `ARCHPROG-C-04` Add doctor rules for host-surface forbidden imports and approved ports. Evidence: `FULLMAP-CHECK-07` now enforces forbidden host-surface imports, owner categories, and direct web runtime-state bypass checks when approved ports are active.
-- [ ] `ARCHPROG-C-05` Freeze "no new top-level runtime module without subsystem decision note".
+- [x] `ARCHPROG-C-05` Freeze "no new top-level runtime module without subsystem decision note". Evidence: `FULLMAP-CHECK-10` now loads `kiss.runtime_top_level_module_decisions`, requires every current `crates/trust-runtime/src` top-level module to have a subsystem/owner/rationale/review-date/decision-note entry, and fails any new unclassified top-level runtime module.
 
 ### Phase D - Runtime Core/Linux Host Split
 
-- [ ] `ARCHPROG-D-01` Run `runtime-core-host-split-execution-checklist.md` only after Phases A-C have the required rules or explicit waivers.
-- [ ] `ARCHPROG-D-02` Treat this phase as behavior-preserving; no embedded product support claims.
+- [x] `ARCHPROG-D-01` Run `runtime-core-host-split-execution-checklist.md` only after Phases A-C have the required rules or explicit waivers. Evidence: Phase A-C rules are active through `FULLMAP-CHECK-01`, `FULLMAP-CHECK-02`, `FULLMAP-CHECK-05`, `FULLMAP-CHECK-06`, `FULLMAP-CHECK-07`, and the `ARCHPROG-C-05` top-level runtime module decision freeze; runtime-core split Phase 0 is now captured in `runtime-core-host-split-execution-checklist.md`.
+- [x] `ARCHPROG-D-02` Treat this phase as behavior-preserving; no embedded product support claims. Evidence: runtime-core split Phase 0 note states the active scope is Linux behavior-preserving extraction and explicitly excludes STM32H7, Arduino Opta, ESP32, embedded T0, embedded EtherCAT, `no_std` product support, MCU protocol commitments, and embedded support claims.
 - [ ] `ARCHPROG-D-03` Keep behavior-lock tests ahead of code movement.
 - [ ] `ARCHPROG-D-04` Keep host crate responsibility shrinkage visible, not hidden behind re-exports.
 
