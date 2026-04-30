@@ -16,6 +16,7 @@ pub(crate) mod config_policy;
 pub mod contracts;
 pub(crate) mod control_proxy_policy;
 pub mod ha;
+pub(crate) mod io_proxy_policy;
 pub mod keyspace;
 pub(crate) mod link_policy;
 pub(crate) mod profile_policy;
