@@ -198,6 +198,9 @@ Move lowest-risk portable pieces first.
 - [x] `RTSPLIT-P4-DATETIME-003` Add focused tests for the moved value cluster. Evidence: `cargo test -p trust-runtime-core -- --nocapture` passes 5 tests, including date/time tick round-trip, duration unit views, timezone rejection, and out-of-range conversion rejection.
 - [x] `RTSPLIT-P4-DATETIME-004` Keep the moved value cluster compatible with the future `no_std` shape. Evidence: `cargo check -p trust-runtime-core --no-default-features` passes after the date/time move.
 - [x] `RTSPLIT-P4-DATETIME-005` Verify host crate compatibility and dependency fences after the date/time move. Evidence: `cargo test -p trust-runtime value:: --lib -- --nocapture` passes 19 value tests; `cargo clippy -p trust-runtime-core -p trust-runtime --lib -- -D warnings` passes; `cargo run -p xtask -- architecture-doctor --full-map` passes `FULLMAP-CHECK-05` with 18 forbidden dependencies and 17 forbidden import modules.
+- [x] `RTSPLIT-P4-MEMID-001` Move portable memory identity types into `trust-runtime-core`. Evidence: `crates/trust-runtime-core/src/memory.rs` now owns `MemoryLocation`, `IoArea`, `FrameId`, and `InstanceId`; `trust-runtime::memory` re-exports those types so existing call sites keep the same source path.
+- [x] `RTSPLIT-P4-MEMID-002` Verify memory/value compatibility after the identity move. Evidence: `cargo test -p trust-runtime-core -- --nocapture` passes 6 tests; `cargo test -p trust-runtime memory:: --lib -- --nocapture` passes 14 memory tests; `cargo check -p trust-runtime --lib`, `cargo check -p trust-runtime-core --no-default-features`, and `cargo clippy -p trust-runtime-core -p trust-runtime --lib -- -D warnings` pass.
+- [x] `RTSPLIT-P4-MEMID-003` Keep the dependency/import fence green after the identity move. Evidence: `cargo run -p xtask -- architecture-doctor --full-map` passes `FULLMAP-CHECK-05` with 18 forbidden dependencies and 17 forbidden import modules.
 
 ### Phase 4 Exit Gate
 

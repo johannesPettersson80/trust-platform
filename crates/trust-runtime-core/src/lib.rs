@@ -14,6 +14,8 @@
 #![warn(missing_docs)]
 #![allow(clippy::module_name_repetitions)]
 
+/// Portable runtime memory identity types.
+pub mod memory;
 /// Scaffold ownership markers for the pre-move core crate.
 pub mod scaffold;
 /// Portable runtime value model pieces.

@@ -12,40 +12,7 @@ use indexmap::IndexMap;
 use rustc_hash::FxHashMap;
 use smol_str::SmolStr;
 use std::sync::RwLock;
-
-/// Memory location identifier.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum MemoryLocation {
-    /// Global variable area.
-    Global,
-    /// Local variable area for a specific call frame.
-    Local(FrameId),
-    /// FB/Class instance storage.
-    Instance(InstanceId),
-    /// I/O area (direct addresses).
-    Io(IoArea),
-    /// Retain area (persistent across warm restart).
-    Retain,
-}
-
-/// I/O area identifiers per IEC 61131-3.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum IoArea {
-    /// Input area (%I).
-    Input,
-    /// Output area (%Q).
-    Output,
-    /// Memory area (%M).
-    Memory,
-}
-
-/// Frame identifier for call stack.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct FrameId(pub u32);
-
-/// Instance identifier for FB/Class instances.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct InstanceId(pub u32);
+pub use trust_runtime_core::memory::{FrameId, InstanceId, IoArea, MemoryLocation};
 
 /// A local variable frame for function/method calls.
 #[derive(Debug, Clone)]
