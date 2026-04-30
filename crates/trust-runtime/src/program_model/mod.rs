@@ -4,9 +4,12 @@
 
 pub mod expr;
 pub mod initializers;
-pub mod ops;
 pub mod stmt;
 mod types;
+
+pub mod ops {
+    pub use trust_runtime_core::program_model::ops::*;
+}
 
 pub use expr::{Expr, LValue, SizeOfTarget};
 pub use initializers::InitializerCatalog;
