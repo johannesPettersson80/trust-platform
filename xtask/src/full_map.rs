@@ -1096,6 +1096,12 @@ fn check_host_surface_edges(map: &SoftwareMap, policy: &FullMapPolicy) -> FullMa
                 bypass.path, bypass.line, bypass.pattern
             ));
         }
+        for bypass in &map.host_surface.direct_control_dispatch_bypasses {
+            failures.push(format!(
+                "web route bypasses approved control-dispatch port at {}:{} ({})",
+                bypass.path, bypass.line, bypass.pattern
+            ));
+        }
     }
 
     if failures.is_empty() {
@@ -1120,6 +1126,10 @@ fn check_host_surface_edges(map: &SoftwareMap, policy: &FullMapPolicy) -> FullMa
             format!(
                 "direct web runtime-state bypass findings: {}",
                 map.host_surface.direct_runtime_state_bypasses.len()
+            ),
+            format!(
+                "direct web control-dispatch bypass findings: {}",
+                map.host_surface.direct_control_dispatch_bypasses.len()
             ),
         ]);
         if policy.host_surface.approved_ports_active {
@@ -1777,9 +1787,23 @@ fn collect_host_surface_summary(root: &Path) -> Result<HostSurfaceSummary> {
                         pattern: format!("ControlState.{field} direct web access"),
                     });
             }
+            if direct_control_dispatch_bypass(line) {
+                summary
+                    .direct_control_dispatch_bypasses
+                    .push(SourcePatternSummary {
+                        path: rel.clone(),
+                        line: idx + 1,
+                        pattern: "handle_request_value direct web dispatch".to_string(),
+                    });
+            }
         }
     }
     Ok(summary)
+}
+
+fn direct_control_dispatch_bypass(line: &str) -> bool {
+    line.contains("handle_request_value(")
+        || line.contains("use crate::control::handle_request_value")
 }
 
 fn direct_control_state_field_bypass(line: &str) -> Option<&'static str> {
@@ -2777,6 +2801,28 @@ mod tests {
     }
 
     #[test]
+    fn known_bad_web_route_direct_control_dispatch_bypass_fails_when_ports_active() {
+        let mut map = base_map();
+        map.host_surface
+            .direct_control_dispatch_bypasses
+            .push(SourcePatternSummary {
+                path: "crates/trust-runtime/src/web/auth_helpers.rs".to_string(),
+                line: 82,
+                pattern: "handle_request_value direct web dispatch".to_string(),
+            });
+        let mut policy = base_policy();
+        policy.host_surface.approved_ports_active = true;
+
+        let check = check_host_surface_edges(&map, &policy);
+
+        assert!(check.is_fail());
+        assert!(check
+            .details
+            .iter()
+            .any(|detail| detail.contains("bypasses approved control-dispatch port")));
+    }
+
+    #[test]
     fn host_surface_ports_active_passes_without_direct_runtime_state_bypass() {
         let mut policy = base_policy();
         policy.host_surface.approved_ports_active = true;
@@ -2788,6 +2834,10 @@ mod tests {
             .details
             .iter()
             .any(|detail| detail.contains("direct web runtime-state bypass findings: 0")));
+        assert!(check
+            .details
+            .iter()
+            .any(|detail| detail.contains("direct web control-dispatch bypass findings: 0")));
     }
 
     #[test]
@@ -2802,6 +2852,19 @@ mod tests {
             ),
             None
         );
+    }
+
+    #[test]
+    fn direct_control_dispatch_bypass_detects_handle_request_value() {
+        assert!(direct_control_dispatch_bypass(
+            "let response = handle_request_value(payload, state, client);"
+        ));
+        assert!(direct_control_dispatch_bypass(
+            "use crate::control::handle_request_value;"
+        ));
+        assert!(!direct_control_dispatch_bypass(
+            "let response = dispatch_control_request(payload, state, client, token);"
+        ));
     }
 
     #[test]

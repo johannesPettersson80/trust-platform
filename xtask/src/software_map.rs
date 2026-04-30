@@ -84,6 +84,7 @@ pub struct RuntimeRouteHandlerSummary {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 pub struct HostSurfaceSummary {
     pub direct_runtime_state_bypasses: Vec<SourcePatternSummary>,
+    pub direct_control_dispatch_bypasses: Vec<SourcePatternSummary>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
@@ -171,7 +172,7 @@ impl ToolStatus {
 impl SoftwareMap {
     pub fn new(workspace_root: impl Into<String>) -> Self {
         Self {
-            schema_version: 5,
+            schema_version: 6,
             workspace_root: workspace_root.into(),
             generated_by: "cargo xtask architecture-doctor --full-map".to_string(),
             packages: Vec::new(),
@@ -264,6 +265,14 @@ impl SoftwareMap {
                     .then_with(|| left.line.cmp(&right.line))
                     .then_with(|| left.pattern.cmp(&right.pattern))
             });
+        self.host_surface
+            .direct_control_dispatch_bypasses
+            .sort_by(|left, right| {
+                left.path
+                    .cmp(&right.path)
+                    .then_with(|| left.line.cmp(&right.line))
+                    .then_with(|| left.pattern.cmp(&right.pattern))
+            });
         self.parser_recovery.bounded_scan_helpers.sort();
         self.parser_recovery.bounded_scan_helpers.dedup();
         self.parser_recovery
@@ -321,7 +330,7 @@ mod tests {
         let reverse = sample_map(true).to_stable_json().unwrap();
 
         assert_eq!(forward, reverse);
-        assert!(forward.contains("\"schema_version\": 5"));
+        assert!(forward.contains("\"schema_version\": 6"));
         assert!(forward.contains("\"status\": \"not_run\""));
     }
 

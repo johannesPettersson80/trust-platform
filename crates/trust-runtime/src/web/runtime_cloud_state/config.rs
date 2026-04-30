@@ -224,10 +224,11 @@ pub(in crate::web) fn runtime_cloud_config_reconcile_once(
         "request_id": format!("cfg-agent-{desired_revision}"),
         "params": desired,
     });
-    let control_response = handle_request_value(
+    let control_response = dispatch_control_request(
         control_payload,
         control_state,
         Some("runtime-cloud-config-agent"),
+        None,
     );
     let response_value = serde_json::to_value(control_response).unwrap_or_else(
         |_| json!({ "ok": false, "error": "config apply response serialization failed" }),
