@@ -351,10 +351,13 @@ mod tests {
         let mut storage = VariableStorage::new();
         storage.set_global(
             "arr",
-            Value::Array(Box::new(crate::value::ArrayValue {
-                elements: vec![Value::DInt(1), Value::DInt(2), Value::DInt(3)],
-                dimensions: vec![(0, 2)],
-            })),
+            Value::Array(Box::new(
+                crate::value::ArrayValue::from_untyped_parts(
+                    vec![Value::DInt(1), Value::DInt(2), Value::DInt(3)],
+                    vec![(0, 2)],
+                )
+                .unwrap(),
+            )),
         );
         let registry = TypeRegistry::new();
 
@@ -374,7 +377,7 @@ mod tests {
         let Value::Array(array) = storage.get_global("arr").cloned().unwrap() else {
             panic!("expected array");
         };
-        assert_eq!(array.elements[1], Value::DInt(9));
+        assert_eq!(array.elements()[1], Value::DInt(9));
     }
 
     #[test]
@@ -406,10 +409,10 @@ mod tests {
         fields.insert(SmolStr::new("x"), Value::DInt(1));
         storage.set_global(
             "st",
-            Value::Struct(Arc::new(crate::value::StructValue {
-                type_name: SmolStr::new("ST"),
+            Value::Struct(Arc::new(crate::value::StructValue::from_untyped_parts(
+                SmolStr::new("ST"),
                 fields,
-            })),
+            ))),
         );
         let registry = TypeRegistry::new();
 
@@ -429,7 +432,7 @@ mod tests {
         let Value::Struct(st) = storage.get_global("st").cloned().unwrap() else {
             panic!("expected struct");
         };
-        assert_eq!(st.fields.get("x"), Some(&Value::DInt(3)));
+        assert_eq!(st.field("x"), Some(&Value::DInt(3)));
     }
 
     #[test]
@@ -438,17 +441,20 @@ mod tests {
         let mut outer_fields = indexmap::IndexMap::new();
         outer_fields.insert(
             SmolStr::new("arr"),
-            Value::Array(Box::new(crate::value::ArrayValue {
-                elements: vec![Value::DInt(1), Value::DInt(2), Value::DInt(3)],
-                dimensions: vec![(0, 2)],
-            })),
+            Value::Array(Box::new(
+                crate::value::ArrayValue::from_untyped_parts(
+                    vec![Value::DInt(1), Value::DInt(2), Value::DInt(3)],
+                    vec![(0, 2)],
+                )
+                .unwrap(),
+            )),
         );
         storage.set_global(
             "outer",
-            Value::Struct(Arc::new(crate::value::StructValue {
-                type_name: SmolStr::new("Outer"),
-                fields: outer_fields,
-            })),
+            Value::Struct(Arc::new(crate::value::StructValue::from_untyped_parts(
+                SmolStr::new("Outer"),
+                outer_fields,
+            ))),
         );
         let registry = TypeRegistry::new();
 
@@ -471,10 +477,10 @@ mod tests {
         let Value::Struct(outer) = storage.get_global("outer").cloned().unwrap() else {
             panic!("expected struct");
         };
-        let Value::Array(array) = outer.fields.get("arr").cloned().unwrap() else {
+        let Value::Array(array) = outer.field("arr").cloned().unwrap() else {
             panic!("expected array field");
         };
-        assert_eq!(array.elements[1], Value::DInt(9));
+        assert_eq!(array.elements()[1], Value::DInt(9));
     }
 
     #[test]
@@ -482,19 +488,22 @@ mod tests {
         let mut storage = VariableStorage::new();
         storage.set_global(
             "items",
-            Value::Array(Box::new(crate::value::ArrayValue {
-                elements: vec![
-                    Value::Struct(Arc::new(crate::value::StructValue {
-                        type_name: SmolStr::new("Item"),
-                        fields: indexmap::IndexMap::from([(SmolStr::new("value"), Value::DInt(1))]),
-                    })),
-                    Value::Struct(Arc::new(crate::value::StructValue {
-                        type_name: SmolStr::new("Item"),
-                        fields: indexmap::IndexMap::from([(SmolStr::new("value"), Value::DInt(2))]),
-                    })),
-                ],
-                dimensions: vec![(0, 1)],
-            })),
+            Value::Array(Box::new(
+                crate::value::ArrayValue::from_untyped_parts(
+                    vec![
+                        Value::Struct(Arc::new(crate::value::StructValue::from_untyped_parts(
+                            SmolStr::new("Item"),
+                            indexmap::IndexMap::from([(SmolStr::new("value"), Value::DInt(1))]),
+                        ))),
+                        Value::Struct(Arc::new(crate::value::StructValue::from_untyped_parts(
+                            SmolStr::new("Item"),
+                            indexmap::IndexMap::from([(SmolStr::new("value"), Value::DInt(2))]),
+                        ))),
+                    ],
+                    vec![(0, 1)],
+                )
+                .unwrap(),
+            )),
         );
         let registry = TypeRegistry::new();
 
@@ -517,9 +526,9 @@ mod tests {
         let Value::Array(items) = storage.get_global("items").cloned().unwrap() else {
             panic!("expected array");
         };
-        let Value::Struct(item) = items.elements[1].clone() else {
+        let Value::Struct(item) = items.elements()[1].clone() else {
             panic!("expected struct element");
         };
-        assert_eq!(item.fields.get("value"), Some(&Value::DInt(7)));
+        assert_eq!(item.field("value"), Some(&Value::DInt(7)));
     }
 }

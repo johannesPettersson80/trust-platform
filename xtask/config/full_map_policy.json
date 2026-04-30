@@ -14,6 +14,7 @@
     {"from": "trust-runtime", "to": "trust-hir", "kind": "normal", "status": "allowed", "owner": "runtime", "rationale": "runtime harness/compiler consumes HIR"},
     {"from": "trust-runtime", "to": "trust-ide", "kind": "normal", "status": "temporary", "owner": "runtime/IDE", "rationale": "web IDE hosted from runtime until product/workbench split"},
     {"from": "trust-runtime", "to": "trust-runtime-core", "kind": "normal", "status": "allowed", "owner": "runtime/core", "rationale": "Linux host consumes portable runtime core through compatibility bridge"},
+    {"from": "trust-runtime-core", "to": "trust-hir", "kind": "normal", "status": "allowed", "owner": "runtime/core", "rationale": "optional hir feature preserves host-side value construction APIs; no-default core check proves pure core does not require HIR"},
     {"from": "trust-runtime", "to": "trust-syntax", "kind": "normal", "status": "allowed", "owner": "runtime", "rationale": "runtime compiler consumes syntax"},
     {"from": "trust-runtime", "to": "trust-wasm-analysis", "kind": "normal", "status": "temporary", "owner": "runtime/web", "rationale": "browser analysis surface tracked by runtime surface split"},
     {"from": "trust-wasm-analysis", "to": "trust-hir", "kind": "normal", "status": "allowed", "owner": "wasm analysis", "rationale": "WASM analysis consumes HIR"},

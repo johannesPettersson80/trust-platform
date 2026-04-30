@@ -406,10 +406,10 @@ mod tests {
         let mut runtime = Runtime::new();
         runtime.storage_mut().set_global(
             "CELL",
-            Value::Struct(std::sync::Arc::new(StructValue {
-                type_name: SmolStr::new("CELL_T"),
-                fields: IndexMap::from([(SmolStr::new("ACC"), Value::DInt(7))]),
-            })),
+            Value::Struct(std::sync::Arc::new(StructValue::from_untyped_parts(
+                SmolStr::new("CELL_T"),
+                IndexMap::from([(SmolStr::new("ACC"), Value::DInt(7))]),
+            ))),
         );
         let reference = runtime
             .storage()
@@ -437,10 +437,12 @@ mod tests {
                 code_end: 0,
                 local_ref_start: 0,
                 local_ref_count: 1,
-                locals: vec![Value::Struct(std::sync::Arc::new(StructValue {
-                    type_name: SmolStr::new("LOCAL_T"),
-                    fields: IndexMap::from([(SmolStr::new("ACC"), Value::DInt(11))]),
-                }))],
+                locals: vec![Value::Struct(std::sync::Arc::new(
+                    StructValue::from_untyped_parts(
+                        SmolStr::new("LOCAL_T"),
+                        IndexMap::from([(SmolStr::new("ACC"), Value::DInt(11))]),
+                    ),
+                ))],
                 runtime_instance: None,
                 instance_owner: None,
             })
@@ -494,15 +496,18 @@ mod tests {
         let mut runtime = Runtime::new();
         runtime.storage_mut().set_global(
             "GRID",
-            Value::Array(Box::new(ArrayValue {
-                elements: vec![
-                    Value::DInt(1),
-                    Value::DInt(2),
-                    Value::DInt(3),
-                    Value::DInt(4),
-                ],
-                dimensions: vec![(0, 1), (0, 1)],
-            })),
+            Value::Array(Box::new(
+                ArrayValue::from_untyped_parts(
+                    vec![
+                        Value::DInt(1),
+                        Value::DInt(2),
+                        Value::DInt(3),
+                        Value::DInt(4),
+                    ],
+                    vec![(0, 1), (0, 1)],
+                )
+                .unwrap(),
+            )),
         );
         let mut reference = runtime.storage().ref_for_global("GRID").expect("grid ref");
         reference.path.push(single_ref_index(0));
@@ -521,10 +526,10 @@ mod tests {
 
     #[test]
     fn read_and_write_value_path_handle_extreme_array_bounds_without_overflow() {
-        let mut value = Value::Array(Box::new(ArrayValue {
-            elements: vec![Value::DInt(7)],
-            dimensions: vec![(i64::MIN, i64::MAX)],
-        }));
+        let mut value = Value::Array(Box::new(ArrayValue::from_canonical_parts(
+            vec![Value::DInt(7)],
+            vec![(i64::MIN, i64::MAX)],
+        )));
         let path = [RefSegment::Index(ref_indices_from_iter([i64::MIN]))];
 
         let read = read_value_path_borrowed(&value, &path).expect("read extreme lower bound");

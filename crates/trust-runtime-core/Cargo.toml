@@ -10,7 +10,10 @@ rust-version.workspace = true
 [features]
 default = ["std"]
 std = []
+hir = ["std", "dep:trust-hir"]
 
 [dependencies]
+indexmap.workspace = true
 smol_str.workspace = true
 thiserror.workspace = true
+trust-hir = { workspace = true, optional = true }

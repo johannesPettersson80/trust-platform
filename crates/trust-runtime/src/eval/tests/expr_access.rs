@@ -9,18 +9,21 @@ use trust_runtime::value::{ArrayValue, StructValue, Value};
 #[test]
 fn index_and_field() {
     let mut storage = VariableStorage::new();
-    let array = Value::Array(Box::new(ArrayValue {
-        elements: vec![Value::Int(1), Value::Int(2), Value::Int(3)],
-        dimensions: vec![(0, 2)],
-    }));
+    let array = Value::Array(Box::new(
+        ArrayValue::from_untyped_parts(
+            vec![Value::Int(1), Value::Int(2), Value::Int(3)],
+            vec![(0, 2)],
+        )
+        .unwrap(),
+    ));
     storage.set_global("arr", array);
 
     let mut fields = IndexMap::new();
     fields.insert("a".into(), Value::Int(10));
-    let struct_value = Value::Struct(std::sync::Arc::new(StructValue {
-        type_name: "S".into(),
+    let struct_value = Value::Struct(std::sync::Arc::new(StructValue::from_untyped_parts(
+        "S".into(),
         fields,
-    }));
+    )));
     storage.set_global("st", struct_value);
 
     let registry = TypeRegistry::new();
@@ -45,31 +48,37 @@ fn index_and_field() {
 #[test]
 fn nested_index_and_field_chains() {
     let mut storage = VariableStorage::new();
-    let nested_structs = Value::Array(Box::new(ArrayValue {
-        elements: vec![
-            Value::Struct(std::sync::Arc::new(StructValue {
-                type_name: "Item".into(),
-                fields: IndexMap::from([("value".into(), Value::Int(10))]),
-            })),
-            Value::Struct(std::sync::Arc::new(StructValue {
-                type_name: "Item".into(),
-                fields: IndexMap::from([("value".into(), Value::Int(20))]),
-            })),
-        ],
-        dimensions: vec![(0, 1)],
-    }));
+    let nested_structs = Value::Array(Box::new(
+        ArrayValue::from_untyped_parts(
+            vec![
+                Value::Struct(std::sync::Arc::new(StructValue::from_untyped_parts(
+                    "Item".into(),
+                    IndexMap::from([("value".into(), Value::Int(10))]),
+                ))),
+                Value::Struct(std::sync::Arc::new(StructValue::from_untyped_parts(
+                    "Item".into(),
+                    IndexMap::from([("value".into(), Value::Int(20))]),
+                ))),
+            ],
+            vec![(0, 1)],
+        )
+        .unwrap(),
+    ));
     storage.set_global("items", nested_structs);
 
-    let nested_array = Value::Struct(std::sync::Arc::new(StructValue {
-        type_name: "Outer".into(),
-        fields: IndexMap::from([(
+    let nested_array = Value::Struct(std::sync::Arc::new(StructValue::from_untyped_parts(
+        "Outer".into(),
+        IndexMap::from([(
             "arr".into(),
-            Value::Array(Box::new(ArrayValue {
-                elements: vec![Value::Int(3), Value::Int(4), Value::Int(5)],
-                dimensions: vec![(0, 2)],
-            })),
+            Value::Array(Box::new(
+                ArrayValue::from_untyped_parts(
+                    vec![Value::Int(3), Value::Int(4), Value::Int(5)],
+                    vec![(0, 2)],
+                )
+                .unwrap(),
+            )),
         )]),
-    }));
+    )));
     storage.set_global("outer", nested_array);
 
     let registry = TypeRegistry::new();

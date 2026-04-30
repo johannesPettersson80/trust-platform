@@ -2503,10 +2503,10 @@ mod tests {
         struct_fields.insert(SmolStr::new("VALUE"), Value::DInt(8));
         runtime.storage.set_global(
             "STRUCT",
-            Value::Struct(std::sync::Arc::new(StructValue {
-                type_name: SmolStr::new("TEST_STRUCT"),
-                fields: struct_fields,
-            })),
+            Value::Struct(std::sync::Arc::new(StructValue::from_untyped_parts(
+                SmolStr::new("TEST_STRUCT"),
+                struct_fields,
+            ))),
         );
         let instance = runtime.storage.create_instance("FB");
         assert!(runtime

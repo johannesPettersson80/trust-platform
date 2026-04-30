@@ -1093,10 +1093,10 @@ mod tests {
     #[test]
     fn write_by_ref_path_preserves_struct_copy_on_write_isolation() {
         let mut storage = VariableStorage::new();
-        let shared = Value::Struct(std::sync::Arc::new(StructValue {
-            type_name: SmolStr::new("AXIS_REF"),
-            fields: IndexMap::from([(SmolStr::new("InternalIndex"), Value::UInt(1))]),
-        }));
+        let shared = Value::Struct(std::sync::Arc::new(StructValue::from_untyped_parts(
+            SmolStr::new("AXIS_REF"),
+            IndexMap::from([(SmolStr::new("InternalIndex"), Value::UInt(1))]),
+        )));
         storage.set_global("left", shared.clone());
         storage.set_global("right", shared);
 
@@ -1115,14 +1115,8 @@ mod tests {
         let Value::Struct(right_struct) = right else {
             panic!("right should be struct");
         };
-        assert_eq!(
-            left_struct.fields.get("InternalIndex"),
-            Some(&Value::UInt(7))
-        );
-        assert_eq!(
-            right_struct.fields.get("InternalIndex"),
-            Some(&Value::UInt(1))
-        );
+        assert_eq!(left_struct.field("InternalIndex"), Some(&Value::UInt(7)));
+        assert_eq!(right_struct.field("InternalIndex"), Some(&Value::UInt(1)));
     }
 
     #[test]
@@ -1130,10 +1124,10 @@ mod tests {
         let mut storage = VariableStorage::new();
         storage.set_global(
             "GRID",
-            Value::Array(Box::new(ArrayValue {
-                elements: vec![Value::DInt(7)],
-                dimensions: vec![(i64::MIN, i64::MAX)],
-            })),
+            Value::Array(Box::new(ArrayValue::from_canonical_parts(
+                vec![Value::DInt(7)],
+                vec![(i64::MIN, i64::MAX)],
+            ))),
         );
         let mut reference = storage.ref_for_global("GRID").expect("grid ref");
         reference

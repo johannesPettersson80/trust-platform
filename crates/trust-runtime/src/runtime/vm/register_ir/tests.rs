@@ -1392,10 +1392,10 @@ fn register_executor_profile_records_dynamic_ref_and_instance_lookup_counters() 
     let mut runtime = Runtime::new();
     runtime.storage_mut().set_global(
         "g0",
-        Value::Struct(std::sync::Arc::new(StructValue {
-            type_name: SmolStr::new("CELL_T"),
-            fields: IndexMap::from([(SmolStr::new("VALUE"), Value::DInt(7))]),
-        })),
+        Value::Struct(std::sync::Arc::new(StructValue::from_untyped_parts(
+            SmolStr::new("CELL_T"),
+            IndexMap::from([(SmolStr::new("VALUE"), Value::DInt(7))]),
+        ))),
     );
     runtime.storage_mut().set_global("g1", Value::DInt(0));
     runtime.storage_mut().set_global("g2", Value::DInt(0));
@@ -1414,10 +1414,12 @@ fn register_executor_profile_records_dynamic_ref_and_instance_lookup_counters() 
     assert_eq!(runtime.storage().get_global("g2"), Some(&Value::DInt(9)));
     assert_eq!(
         runtime.storage().get_global("g0"),
-        Some(&Value::Struct(std::sync::Arc::new(StructValue {
-            type_name: SmolStr::new("CELL_T"),
-            fields: IndexMap::from([(SmolStr::new("VALUE"), Value::DInt(11))]),
-        })))
+        Some(&Value::Struct(std::sync::Arc::new(
+            StructValue::from_untyped_parts(
+                SmolStr::new("CELL_T"),
+                IndexMap::from([(SmolStr::new("VALUE"), Value::DInt(11))]),
+            )
+        )))
     );
     assert_eq!(
         runtime.storage().get_instance_var(instance_id, "ACC"),
@@ -2059,16 +2061,16 @@ fn register_executor_runs_program_with_complex_local_fields_without_fallback() {
         debug_map: super::super::debug_map::VmDebugMap::default(),
         instruction_budget: super::super::DEFAULT_INSTRUCTION_BUDGET,
     };
-    let initial_outer = Value::Struct(std::sync::Arc::new(StructValue {
-        type_name: SmolStr::new("OUTER_T"),
-        fields: IndexMap::from([(
+    let initial_outer = Value::Struct(std::sync::Arc::new(StructValue::from_untyped_parts(
+        SmolStr::new("OUTER_T"),
+        IndexMap::from([(
             SmolStr::new("INNER"),
-            Value::Struct(std::sync::Arc::new(StructValue {
-                type_name: SmolStr::new("INNER_T"),
-                fields: IndexMap::from([(SmolStr::new("VALUE"), Value::DInt(0))]),
-            })),
+            Value::Struct(std::sync::Arc::new(StructValue::from_untyped_parts(
+                SmolStr::new("INNER_T"),
+                IndexMap::from([(SmolStr::new("VALUE"), Value::DInt(0))]),
+            ))),
         )]),
-    }));
+    )));
     let mut runtime = Runtime::new();
     runtime.storage_mut().set_global("g0", Value::DInt(0));
     runtime.set_vm_register_profile_enabled(true);
