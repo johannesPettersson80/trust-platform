@@ -153,6 +153,275 @@ END_PROGRAM
 }
 
 #[test]
+fn runtime_status_projection_contract_reports_resource_metrics_realtime_and_io_health() {
+    let source = r#"
+PROGRAM Main
+VAR
+    run : BOOL := TRUE;
+END_VAR
+END_PROGRAM
+"#;
+    let state = hmi_test_state(source);
+
+    {
+        let mut settings = state.settings.lock().expect("settings lock");
+        settings.simulation.enabled = true;
+        settings.simulation.time_scale = 4;
+        settings.simulation.mode_label = SmolStr::new("accelerated");
+        settings.simulation.warning = SmolStr::new("simulation clock scaled");
+    }
+    {
+        let mut metrics = state.metrics.lock().expect("metrics lock");
+        metrics.record_cycle(Duration::from_millis(12));
+        metrics.record_overrun(&SmolStr::new("Main"), 2);
+        metrics.record_fault();
+        metrics.record_call("function_block", &SmolStr::new("Pump"), Duration::from_millis(4));
+    }
+    {
+        let mut realtime = state.realtime_status.lock().expect("realtime status lock");
+        realtime.requested.enabled = true;
+        realtime.requested.require_preempt_rt_kernel = true;
+        realtime.requested.lock_memory = true;
+        realtime.requested.scheduler = crate::linux_rt::LinuxRtSchedulerPolicy::Fifo;
+        realtime.requested.priority = 80;
+        realtime.requested.cpu_affinity = vec![1, 2];
+        realtime.requested.strict = true;
+        realtime.kernel_realtime = Some(true);
+        realtime.active_scheduler = Some(crate::linux_rt::LinuxRtSchedulerPolicy::Fifo);
+        realtime.active_priority = Some(80);
+        realtime.active_cpu_affinity = vec![1, 2];
+        realtime.memory_locked_kb = Some(4096);
+        realtime.memory_lock_applied = true;
+        realtime.affinity_applied_by_runtime = true;
+        realtime.scheduler_applied_by_runtime = true;
+        realtime.active = true;
+        realtime.warnings = vec![SmolStr::new("rt warning")];
+        realtime.errors = vec![SmolStr::new("rt error")];
+    }
+    state
+        .io_health
+        .lock()
+        .expect("io health lock")
+        .extend([
+            crate::io::IoDriverStatus {
+                name: SmolStr::new("fieldbus"),
+                health: crate::io::IoDriverHealth::Ok,
+            },
+            crate::io::IoDriverStatus {
+                name: SmolStr::new("simulated"),
+                health: crate::io::IoDriverHealth::Degraded {
+                    error: SmolStr::new("slow cycle"),
+                },
+            },
+        ]);
+
+    let status = handle_request_value(json!({"id": 33, "type": "status"}), &state, None);
+    assert!(status.ok, "status should succeed: {:?}", status.error);
+    let result = status.result.expect("status result");
+
+    assert_eq!(
+        result.get("state").and_then(serde_json::Value::as_str),
+        Some("ready")
+    );
+    assert_eq!(
+        result.get("resource").and_then(serde_json::Value::as_str),
+        Some("RESOURCE")
+    );
+    assert_eq!(
+        result.get("plc_name").and_then(serde_json::Value::as_str),
+        Some("RESOURCE")
+    );
+    assert_eq!(
+        result.get("control_mode").and_then(serde_json::Value::as_str),
+        Some("debug")
+    );
+    assert_eq!(
+        result
+            .get("simulation_mode")
+            .and_then(serde_json::Value::as_str),
+        Some("accelerated")
+    );
+    assert_eq!(
+        result
+            .get("simulation_enabled")
+            .and_then(serde_json::Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        result
+            .get("simulation_time_scale")
+            .and_then(serde_json::Value::as_u64),
+        Some(4)
+    );
+    assert_eq!(
+        result
+            .get("simulation_warning")
+            .and_then(serde_json::Value::as_str),
+        Some("simulation clock scaled")
+    );
+
+    let metrics = result.get("metrics").expect("metrics object");
+    assert_eq!(
+        metrics
+            .get("cycle_ms")
+            .and_then(|cycle| cycle.get("last"))
+            .and_then(serde_json::Value::as_f64),
+        Some(12.0)
+    );
+    assert_eq!(
+        metrics
+            .get("cycle_ms")
+            .and_then(|cycle| cycle.get("window_samples"))
+            .and_then(serde_json::Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        metrics.get("overruns").and_then(serde_json::Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        metrics.get("faults").and_then(serde_json::Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        metrics
+            .get("profiling")
+            .and_then(|profiling| profiling.get("enabled"))
+            .and_then(serde_json::Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        metrics
+            .get("profiling")
+            .and_then(|profiling| profiling.get("top"))
+            .and_then(serde_json::Value::as_array)
+            .and_then(|top| top.first())
+            .and_then(|entry| entry.get("key"))
+            .and_then(serde_json::Value::as_str),
+        Some("function_block:Pump")
+    );
+
+    let realtime = result.get("realtime").expect("realtime object");
+    assert_eq!(
+        realtime.get("profile").and_then(serde_json::Value::as_str),
+        Some("preempt-rt")
+    );
+    assert_eq!(
+        realtime
+            .get("requested")
+            .and_then(|requested| requested.get("scheduler"))
+            .and_then(serde_json::Value::as_str),
+        Some("fifo")
+    );
+    assert_eq!(
+        realtime
+            .get("observed")
+            .and_then(|observed| observed.get("scheduler"))
+            .and_then(serde_json::Value::as_str),
+        Some("fifo")
+    );
+    assert_eq!(
+        realtime
+            .get("observed")
+            .and_then(|observed| observed.get("memory_locked_kb"))
+            .and_then(serde_json::Value::as_u64),
+        Some(4096)
+    );
+    assert_eq!(
+        realtime.get("active").and_then(serde_json::Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        realtime
+            .get("warnings")
+            .and_then(serde_json::Value::as_array)
+            .and_then(|items| items.first())
+            .and_then(serde_json::Value::as_str),
+        Some("rt warning")
+    );
+    assert_eq!(
+        realtime
+            .get("errors")
+            .and_then(serde_json::Value::as_array)
+            .and_then(|items| items.first())
+            .and_then(serde_json::Value::as_str),
+        Some("rt error")
+    );
+
+    let io_drivers = result
+        .get("io_drivers")
+        .and_then(serde_json::Value::as_array)
+        .expect("io driver statuses");
+    assert_eq!(io_drivers.len(), 2);
+    assert_eq!(
+        io_drivers[0].get("status").and_then(serde_json::Value::as_str),
+        Some("ok")
+    );
+    assert_eq!(
+        io_drivers[1].get("status").and_then(serde_json::Value::as_str),
+        Some("degraded")
+    );
+    assert_eq!(
+        io_drivers[1].get("error").and_then(serde_json::Value::as_str),
+        Some("slow cycle")
+    );
+}
+
+#[test]
+fn runtime_health_projection_contract_marks_faulted_driver_unhealthy() {
+    let source = r#"
+PROGRAM Main
+VAR
+    run : BOOL := TRUE;
+END_VAR
+END_PROGRAM
+"#;
+    let state = hmi_test_state(source);
+    state
+        .io_health
+        .lock()
+        .expect("io health lock")
+        .push(crate::io::IoDriverStatus {
+            name: SmolStr::new("fieldbus"),
+            health: crate::io::IoDriverHealth::Faulted {
+                error: SmolStr::new("wire break"),
+            },
+        });
+
+    let health = handle_request_value(json!({"id": 34, "type": "health"}), &state, None);
+    assert!(health.ok, "health should succeed: {:?}", health.error);
+    let result = health.result.expect("health result");
+
+    assert_eq!(
+        result.get("ok").and_then(serde_json::Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        result.get("state").and_then(serde_json::Value::as_str),
+        Some("ready")
+    );
+    assert!(result.get("fault").is_some_and(serde_json::Value::is_null));
+    assert_eq!(
+        result
+            .get("io_drivers")
+            .and_then(serde_json::Value::as_array)
+            .and_then(|drivers| drivers.first())
+            .and_then(|driver| driver.get("status"))
+            .and_then(serde_json::Value::as_str),
+        Some("faulted")
+    );
+    assert_eq!(
+        result
+            .get("io_drivers")
+            .and_then(serde_json::Value::as_array)
+            .and_then(|drivers| drivers.first())
+            .and_then(|driver| driver.get("error"))
+            .and_then(serde_json::Value::as_str),
+        Some("wire break")
+    );
+}
+
+#[test]
 fn config_set_reports_field_level_diagnostics_for_unknown_and_type_errors() {
     let source = r#"
 PROGRAM Main
