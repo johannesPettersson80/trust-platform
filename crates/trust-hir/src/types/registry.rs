@@ -267,4 +267,28 @@ mod tests {
         );
         assert!(registry.is_assignable(TypeId::ANY_DERIVED, struct_id));
     }
+
+    #[test]
+    fn missing_array_element_type_identity_is_not_assignable() {
+        let mut registry = TypeRegistry::new();
+        let target = registry.register(
+            "BadTargetArray",
+            Type::Array {
+                element: TypeId(9001),
+                dimensions: vec![(0, 1)],
+            },
+        );
+        let source = registry.register(
+            "BadSourceArray",
+            Type::Array {
+                element: TypeId(9002),
+                dimensions: vec![(0, 1)],
+            },
+        );
+
+        assert!(
+            !registry.is_assignable(target, source),
+            "missing array element TypeIds must not silently substitute Type::Unknown and become compatible"
+        );
+    }
 }

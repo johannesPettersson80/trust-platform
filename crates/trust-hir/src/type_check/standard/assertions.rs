@@ -52,15 +52,22 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         let call = self.builtin_call(node, params);
         call.check_formal_arg_count(self, node, 3);
         if call.arg_count() != 3 {
-            return TypeId::UNKNOWN;
+            return self
+                .checker
+                .legacy_suppressed_type(DiagnosticCode::WrongArgumentCount, node.text_range());
         }
         let inputs = call.args_from(0);
         if inputs.len() != 3 {
-            return TypeId::UNKNOWN;
+            return self
+                .checker
+                .legacy_suppressed_type(DiagnosticCode::WrongArgumentCount, node.text_range());
         }
         self.common_numeric_type_for_args(&inputs)
             .map(|_| TypeId::VOID)
-            .unwrap_or(TypeId::UNKNOWN)
+            .unwrap_or_else(|| {
+                self.checker
+                    .legacy_suppressed_type(DiagnosticCode::InvalidArgumentType, node.text_range())
+            })
     }
 
     fn infer_assert_bool_call(&mut self, node: &SyntaxNode, name: &str) -> TypeId {
@@ -68,18 +75,21 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         let call = self.builtin_call(node, params);
         call.check_formal_arg_count(self, node, 1);
         if call.arg_count() != 1 {
-            return TypeId::UNKNOWN;
+            return self
+                .checker
+                .legacy_suppressed_type(DiagnosticCode::WrongArgumentCount, node.text_range());
         }
         let Some((arg, arg_type)) = call.arg(0) else {
-            return TypeId::UNKNOWN;
+            return self
+                .checker
+                .legacy_suppressed_type(DiagnosticCode::WrongArgumentCount, node.text_range());
         };
         if !self.checker.is_assignable(TypeId::BOOL, arg_type) {
-            self.checker.diagnostics.error(
+            return self.checker.legacy_diagnostic_type(
                 DiagnosticCode::InvalidArgumentType,
                 arg.range,
                 format!("{name} expects BOOL input"),
             );
-            return TypeId::UNKNOWN;
         }
         TypeId::VOID
     }
@@ -97,14 +107,20 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         let call = self.builtin_call(node, params);
         call.check_formal_arg_count(self, node, 2);
         if call.arg_count() != 2 {
-            return TypeId::UNKNOWN;
+            return self
+                .checker
+                .legacy_suppressed_type(DiagnosticCode::WrongArgumentCount, node.text_range());
         }
         let inputs = call.args_from(0);
         if inputs.len() != 2 {
-            return TypeId::UNKNOWN;
+            return self
+                .checker
+                .legacy_suppressed_type(DiagnosticCode::WrongArgumentCount, node.text_range());
         }
         if !self.check_comparable_args(&inputs) {
-            return TypeId::UNKNOWN;
+            return self
+                .checker
+                .legacy_suppressed_type(DiagnosticCode::InvalidArgumentType, node.text_range());
         }
         TypeId::VOID
     }

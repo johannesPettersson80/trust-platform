@@ -160,7 +160,11 @@ pub(in crate::db) fn first_ident_token(node: &SyntaxNode) -> Option<SyntaxToken>
         .find(|token| {
             matches!(
                 token.kind(),
-                SyntaxKind::Ident | SyntaxKind::KwEn | SyntaxKind::KwEno
+                SyntaxKind::Ident
+                    | SyntaxKind::KwEn
+                    | SyntaxKind::KwEno
+                    | SyntaxKind::KwGet
+                    | SyntaxKind::KwSet
             )
         })
 }
@@ -553,10 +557,46 @@ pub(in crate::db) fn program_config_instance_and_type(
     Some((instance?, type_parts?))
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::db) enum ProgramInstanceTarget {
+    Resolved(SymbolId),
+    Ambiguous(Vec<SymbolId>),
+}
+
+impl ProgramInstanceTarget {
+    pub(in crate::db) fn symbol_id(&self) -> Option<SymbolId> {
+        match self {
+            ProgramInstanceTarget::Resolved(symbol_id) => Some(*symbol_id),
+            ProgramInstanceTarget::Ambiguous(_) => None,
+        }
+    }
+
+    pub(in crate::db) fn is_ambiguous(&self) -> bool {
+        matches!(self, ProgramInstanceTarget::Ambiguous(_))
+    }
+
+    pub(in crate::db) fn candidates(&self) -> &[SymbolId] {
+        match self {
+            ProgramInstanceTarget::Resolved(symbol_id) => std::slice::from_ref(symbol_id),
+            ProgramInstanceTarget::Ambiguous(candidates) => candidates,
+        }
+    }
+}
+
+pub(in crate::db) type ProgramInstanceMap = FxHashMap<SmolStr, ProgramInstanceTarget>;
+
+pub(in crate::db) fn lookup_program_instance<'a>(
+    program_instances: &'a ProgramInstanceMap,
+    name: &str,
+) -> Option<&'a ProgramInstanceTarget> {
+    let normalized = SmolStr::new(name.to_ascii_uppercase());
+    program_instances.get(&normalized)
+}
+
 pub(in crate::db) fn collect_program_instances(
     symbols: &SymbolTable,
     root: &SyntaxNode,
-) -> FxHashMap<SmolStr, SymbolId> {
+) -> ProgramInstanceMap {
     let mut program_instances = FxHashMap::default();
 
     for node in root
@@ -568,7 +608,7 @@ pub(in crate::db) fn collect_program_instances(
         };
         let symbol_id = symbols.resolve_qualified(&type_parts).or_else(|| {
             if type_parts.len() == 1 {
-                symbols.lookup_any(type_parts[0].as_str())
+                symbols.lookup(type_parts[0].as_str())
             } else {
                 None
             }
@@ -583,7 +623,15 @@ pub(in crate::db) fn collect_program_instances(
             continue;
         }
         let normalized_instance = SmolStr::new(instance.as_str().to_ascii_uppercase());
-        program_instances.insert(normalized_instance, symbol_id);
+        program_instances
+            .entry(normalized_instance)
+            .and_modify(|entry| match entry {
+                ProgramInstanceTarget::Resolved(existing) => {
+                    *entry = ProgramInstanceTarget::Ambiguous(vec![*existing, symbol_id]);
+                }
+                ProgramInstanceTarget::Ambiguous(candidates) => candidates.push(symbol_id),
+            })
+            .or_insert(ProgramInstanceTarget::Resolved(symbol_id));
     }
 
     program_instances
@@ -591,23 +639,30 @@ pub(in crate::db) fn collect_program_instances(
 
 pub(in crate::db) fn resolve_access_path_target(
     symbols: &SymbolTable,
-    program_instances: &FxHashMap<SmolStr, SymbolId>,
+    program_instances: &ProgramInstanceMap,
     node: &SyntaxNode,
 ) -> Option<AccessTarget> {
     let access = parse_access_path(node)?;
-    let normalized_root = SmolStr::new(access.root.as_str().to_ascii_uppercase());
-    let mut current_symbol = program_instances
-        .get(&normalized_root)
-        .copied()
-        .or_else(|| symbols.lookup_any(access.root.as_str()))?;
-    let mut current_type = symbols.resolve_alias_type(
-        symbols
-            .get(current_symbol)
-            .map(|symbol| symbol.type_id)
-            .unwrap_or(TypeId::UNKNOWN),
-    );
+    let current_symbol = match lookup_program_instance(program_instances, access.root.as_str()) {
+        Some(ProgramInstanceTarget::Resolved(symbol_id)) => *symbol_id,
+        Some(ProgramInstanceTarget::Ambiguous(_)) => return None,
+        None => match symbols.resolve_unique_symbol_name(access.root.as_str()) {
+            UniqueSymbolResolution::Single(symbol_id) => symbol_id,
+            UniqueSymbolResolution::NotFound | UniqueSymbolResolution::Ambiguous => return None,
+        },
+    };
+    resolve_access_path_target_from_symbol(symbols, current_symbol, &access.segments)
+}
 
-    for segment in access.segments {
+pub(in crate::db) fn resolve_access_path_target_from_symbol(
+    symbols: &SymbolTable,
+    root_symbol: SymbolId,
+    segments: &[AccessPathSegment],
+) -> Option<AccessTarget> {
+    let mut current_symbol = root_symbol;
+    let mut current_type = symbols.resolve_alias_type(symbols.get(current_symbol)?.type_id);
+
+    for segment in segments {
         match segment {
             AccessPathSegment::Index(count) => {
                 let resolved = symbols.resolve_alias_type(current_type);
@@ -618,7 +673,7 @@ pub(in crate::db) fn resolve_access_path_target(
                 else {
                     return None;
                 };
-                if count != dimensions.len() {
+                if *count != dimensions.len() {
                     return None;
                 }
                 current_type = *element;
@@ -629,12 +684,7 @@ pub(in crate::db) fn resolve_access_path_target(
                         let child = symbols
                             .resolve_member_symbol_in_hierarchy(current_symbol, name.as_str())?;
                         current_symbol = child;
-                        current_type = symbols.resolve_alias_type(
-                            symbols
-                                .get(child)
-                                .map(|symbol| symbol.type_id)
-                                .unwrap_or(TypeId::UNKNOWN),
-                        );
+                        current_type = symbols.resolve_alias_type(symbols.get(child)?.type_id);
                         continue;
                     }
                 }
@@ -661,12 +711,7 @@ pub(in crate::db) fn resolve_access_path_target(
                         let member =
                             symbols.resolve_member_symbol_in_type(current_type, name.as_str())?;
                         current_symbol = member;
-                        current_type = symbols.resolve_alias_type(
-                            symbols
-                                .get(member)
-                                .map(|symbol| symbol.type_id)
-                                .unwrap_or(TypeId::UNKNOWN),
-                        );
+                        current_type = symbols.resolve_alias_type(symbols.get(member)?.type_id);
                     }
                     _ => return None,
                 }

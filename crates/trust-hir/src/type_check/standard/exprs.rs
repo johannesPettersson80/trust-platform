@@ -1,3 +1,4 @@
+use super::super::calls::NameResolveOutcome;
 use super::super::*;
 
 impl<'a> TypeChecker<'a> {
@@ -5,7 +6,9 @@ impl<'a> TypeChecker<'a> {
         node.children()
             .next()
             .map(|child| self.expr().check_expression(&child))
-            .unwrap_or(TypeId::UNKNOWN)
+            .unwrap_or_else(|| {
+                self.legacy_type_from_outcome(self.unknown_type_outcome(node.text_range()))
+            })
     }
 
     pub(in crate::type_check) fn infer_this_expr(&mut self, node: &SyntaxNode) -> TypeId {
@@ -13,12 +16,11 @@ impl<'a> TypeChecker<'a> {
             return ty;
         }
 
-        self.diagnostics.error(
+        self.legacy_diagnostic_type(
             DiagnosticCode::CannotResolve,
             node.text_range(),
             "THIS is only valid inside function blocks or interfaces",
-        );
-        TypeId::UNKNOWN
+        )
     }
 
     pub(in crate::type_check) fn infer_super_expr(&mut self, node: &SyntaxNode) -> TypeId {
@@ -26,12 +28,11 @@ impl<'a> TypeChecker<'a> {
             return ty;
         }
 
-        self.diagnostics.error(
+        self.legacy_diagnostic_type(
             DiagnosticCode::CannotResolve,
             node.text_range(),
             "SUPER is only valid when a base type is declared with EXTENDS",
-        );
-        TypeId::UNKNOWN
+        )
     }
 
     pub(in crate::type_check) fn infer_size_of_expr(&mut self, node: &SyntaxNode) -> TypeId {
@@ -73,6 +74,7 @@ impl<'a> TypeChecker<'a> {
                         "SIZEOF expects a type name or storage operand",
                     );
                 }
+                Err(SizeOfOperandError::SuppressedCascade) => {}
             }
         }
 
@@ -83,10 +85,10 @@ impl<'a> TypeChecker<'a> {
         &mut self,
         node: &SyntaxNode,
     ) -> Result<TypeId, SizeOfOperandError> {
-        if let Some(type_id) = self.resolve_sizeof_value_operand_type(node) {
+        if let Some(type_id) = self.resolve_sizeof_value_operand_type(node)? {
             return Ok(type_id);
         }
-        if let Some(type_id) = self.resolve_sizeof_named_type_operand(node) {
+        if let Some(type_id) = self.resolve_sizeof_named_type_operand(node)? {
             return Ok(type_id);
         }
         if let Some(name) = self.sizeof_unknown_name(node) {
@@ -99,75 +101,108 @@ impl<'a> TypeChecker<'a> {
         Err(SizeOfOperandError::InvalidOperand)
     }
 
-    fn resolve_sizeof_value_operand_type(&mut self, node: &SyntaxNode) -> Option<TypeId> {
+    fn resolve_sizeof_value_operand_type(
+        &mut self,
+        node: &SyntaxNode,
+    ) -> Result<Option<TypeId>, SizeOfOperandError> {
         if node.kind() == SyntaxKind::ParenExpr {
             return node
                 .children()
                 .next()
-                .and_then(|inner| self.resolve_sizeof_value_operand_type(&inner));
+                .map(|inner| self.resolve_sizeof_value_operand_type(&inner))
+                .unwrap_or(Ok(None));
         }
 
         match node.kind() {
             SyntaxKind::NameRef => {
-                let name = self.resolve_ref().get_name_from_ref(node)?;
-                let resolved = self
+                let Some(name) = self.resolve_ref().get_name_from_ref(node) else {
+                    return Ok(None);
+                };
+                let resolved = match self
                     .resolve()
-                    .resolve_name_in_context(&name, node.text_range())?;
-                let symbol = self.symbols.get(resolved.id)?;
+                    .resolve_name_in_context_outcome(&name, node.text_range())
+                {
+                    NameResolveOutcome::Resolved(resolved) => resolved,
+                    NameResolveOutcome::Ambiguous => {
+                        return Err(SizeOfOperandError::SuppressedCascade);
+                    }
+                    NameResolveOutcome::NotFound => return Ok(None),
+                };
+                let Some(symbol) = self.symbols.get(resolved.id) else {
+                    return Ok(None);
+                };
                 if symbol.is_type() || matches!(symbol.kind, SymbolKind::Namespace) {
-                    return None;
+                    return Ok(None);
                 }
             }
             SyntaxKind::FieldExpr => {
                 if let Some(symbol_id) = self.resolve_ref().resolve_namespace_qualified_symbol(node)
                 {
-                    let symbol = self.symbols.get(symbol_id)?;
+                    let Some(symbol) = self.symbols.get(symbol_id) else {
+                        return Ok(None);
+                    };
                     if symbol.is_type() {
-                        return None;
+                        return Ok(None);
                     }
                 }
                 if !self.is_valid_lvalue(node) {
-                    return None;
+                    return Ok(None);
                 }
             }
             SyntaxKind::ThisExpr | SyntaxKind::SuperExpr => {}
             _ if self.is_valid_lvalue(node) => {}
-            _ => return None,
+            _ => return Ok(None),
         };
 
         let type_id = self.expr().check_expression(node);
 
-        (type_id != TypeId::UNKNOWN).then_some(type_id)
+        Ok((type_id != TypeId::UNKNOWN).then_some(type_id))
     }
 
-    fn resolve_sizeof_named_type_operand(&mut self, node: &SyntaxNode) -> Option<TypeId> {
+    fn resolve_sizeof_named_type_operand(
+        &mut self,
+        node: &SyntaxNode,
+    ) -> Result<Option<TypeId>, SizeOfOperandError> {
         if node.kind() == SyntaxKind::ParenExpr {
             return node
                 .children()
                 .next()
-                .and_then(|inner| self.resolve_sizeof_named_type_operand(&inner));
+                .map(|inner| self.resolve_sizeof_named_type_operand(&inner))
+                .unwrap_or(Ok(None));
         }
 
         match node.kind() {
             SyntaxKind::NameRef => {
-                let name = self.resolve_ref().get_name_from_ref(node)?;
-                if let Some(resolved) = self
+                let Some(name) = self.resolve_ref().get_name_from_ref(node) else {
+                    return Ok(None);
+                };
+                match self
                     .resolve()
-                    .resolve_name_in_context(&name, node.text_range())
+                    .resolve_name_in_context_outcome(&name, node.text_range())
                 {
-                    let symbol = self.symbols.get(resolved.id)?;
-                    return symbol.is_type().then_some(symbol.type_id);
+                    NameResolveOutcome::Resolved(resolved) => {
+                        let Some(symbol) = self.symbols.get(resolved.id) else {
+                            return Ok(None);
+                        };
+                        Ok(symbol.is_type().then_some(symbol.type_id))
+                    }
+                    NameResolveOutcome::Ambiguous => Err(SizeOfOperandError::SuppressedCascade),
+                    NameResolveOutcome::NotFound => {
+                        Ok(self.resolve_ref().resolve_type_by_name(name.as_str()))
+                    }
                 }
-                self.resolve_ref().resolve_type_by_name(name.as_str())
             }
             SyntaxKind::FieldExpr => {
-                let symbol_id = self
-                    .resolve_ref()
-                    .resolve_namespace_qualified_symbol(node)?;
-                let symbol = self.symbols.get(symbol_id)?;
-                symbol.is_type().then_some(symbol.type_id)
+                let Some(symbol_id) = self.resolve_ref().resolve_namespace_qualified_symbol(node)
+                else {
+                    return Ok(None);
+                };
+                let Some(symbol) = self.symbols.get(symbol_id) else {
+                    return Ok(None);
+                };
+                Ok(symbol.is_type().then_some(symbol.type_id))
             }
-            _ => None,
+            _ => Ok(None),
         }
     }
 
@@ -241,7 +276,10 @@ impl<'a> TypeChecker<'a> {
                 .children()
                 .find(|child| is_expression_kind(child.kind()))
             {
-                let len = self.eval_const_int_expr(&len_expr)?;
+                let len = self.require_const_int_expr(
+                    &len_expr,
+                    "STRING/WSTRING length must be a constant integer expression",
+                )?;
                 let len = u32::try_from(len).ok()?;
                 return Some(self.register_sized_string_type(is_wide, len));
             }
@@ -284,7 +322,7 @@ impl<'a> TypeChecker<'a> {
         Some(type_id)
     }
 
-    fn resolve_sizeof_subrange(&self, node: &SyntaxNode) -> Option<(i64, i64)> {
+    fn resolve_sizeof_subrange(&mut self, node: &SyntaxNode) -> Option<(i64, i64)> {
         let exprs: Vec<_> = node
             .children()
             .filter(|child| is_expression_kind(child.kind()))
@@ -293,7 +331,10 @@ impl<'a> TypeChecker<'a> {
             [] => None,
             [expr] if expr.text().to_string().trim() == "*" => Some((0, i64::MAX)),
             [expr] => {
-                let value = self.eval_const_int_expr(expr)?;
+                let value = self.require_const_int_expr(
+                    expr,
+                    "subrange bound must be a constant integer expression",
+                )?;
                 Some((value, value))
             }
             [lower, upper]
@@ -303,8 +344,14 @@ impl<'a> TypeChecker<'a> {
                 Some((0, i64::MAX))
             }
             [lower, upper] => Some((
-                self.eval_const_int_expr(lower)?,
-                self.eval_const_int_expr(upper)?,
+                self.require_const_int_expr(
+                    lower,
+                    "subrange lower bound must be a constant integer expression",
+                )?,
+                self.require_const_int_expr(
+                    upper,
+                    "subrange upper bound must be a constant integer expression",
+                )?,
             )),
             _ => None,
         }
@@ -406,4 +453,5 @@ impl<'a> TypeChecker<'a> {
 enum SizeOfOperandError {
     UnknownName(String),
     InvalidOperand,
+    SuppressedCascade,
 }

@@ -2,8 +2,10 @@ use super::super::queries::*;
 use super::super::*;
 use super::context::{
     find_symbol_by_name_range, is_global_symbol, namespace_path_for_symbol, normalized_name,
+    resolve_type_symbol_by_name_in_scope_outcome,
 };
 use super::expression::is_expression_kind;
+use crate::semantic::SemanticOutcome;
 
 pub(in crate::db) fn resolve_pending_types_with_table(
     symbols: &SymbolTable,
@@ -11,42 +13,70 @@ pub(in crate::db) fn resolve_pending_types_with_table(
     diagnostics: &mut DiagnosticBuilder,
 ) {
     for entry in pending {
-        if !is_type_defined_in_scope_with_table(symbols, entry.name.as_str(), entry.scope_id) {
-            diagnostics.error(
+        match resolve_type_symbol_by_name_in_scope_outcome(
+            symbols,
+            entry.name.as_str(),
+            entry.scope_id,
+        ) {
+            SemanticOutcome::Resolved(_) => {}
+            SemanticOutcome::WrongKind { symbol_id, .. } => {
+                let Some(symbol) = symbols.get(symbol_id) else {
+                    diagnostics.error(
+                        DiagnosticCode::CannotResolve,
+                        entry.range,
+                        format!("cannot resolve type '{}'", entry.name),
+                    );
+                    continue;
+                };
+                let role = non_type_role(&symbol.kind).unwrap_or("symbol");
+                diagnostics.error(
+                    DiagnosticCode::InvalidOperation,
+                    entry.range,
+                    format!("identifier '{}' is a {role}, not a type", symbol.name),
+                );
+            }
+            SemanticOutcome::Ambiguous { name, .. } => diagnostics.error(
+                DiagnosticCode::CannotResolve,
+                entry.range,
+                format!(
+                    "ambiguous type reference to '{}'; qualify the name",
+                    name.display()
+                ),
+            ),
+            SemanticOutcome::SuppressedCascade { .. } => {}
+            SemanticOutcome::InvariantViolation { message, .. } => diagnostics.error(
+                DiagnosticCode::CannotResolve,
+                entry.range,
+                message.to_string(),
+            ),
+            SemanticOutcome::Unknown { .. } => diagnostics.error(
                 DiagnosticCode::UndefinedType,
                 entry.range,
                 format!("cannot resolve type '{}'", entry.name),
-            );
+            ),
         }
     }
 }
 
-pub(in crate::db) fn is_type_defined_in_scope_with_table(
-    symbols: &SymbolTable,
-    name: &str,
-    scope_id: ScopeId,
-) -> bool {
-    if name.contains('.') {
-        let parts: Vec<SmolStr> = name.split('.').map(SmolStr::new).collect();
-        let Some(symbol_id) = symbols.resolve_qualified(&parts) else {
-            return false;
-        };
-        return symbols.get(symbol_id).is_some_and(|sym| sym.is_type());
+fn non_type_role(kind: &SymbolKind) -> Option<&'static str> {
+    match kind {
+        SymbolKind::Variable { .. } | SymbolKind::Parameter { .. } => Some("variable"),
+        SymbolKind::Constant => Some("constant"),
+        SymbolKind::EnumValue { .. } => Some("enum value"),
+        SymbolKind::Function { .. } => Some("function"),
+        SymbolKind::Method { .. } => Some("method"),
+        SymbolKind::Property { .. } => Some("property"),
+        SymbolKind::Namespace => Some("namespace"),
+        SymbolKind::Program => Some("program"),
+        SymbolKind::Configuration => Some("configuration"),
+        SymbolKind::Resource => Some("resource"),
+        SymbolKind::Task => Some("task"),
+        SymbolKind::ProgramInstance => Some("program instance"),
+        SymbolKind::Type
+        | SymbolKind::FunctionBlock
+        | SymbolKind::Class
+        | SymbolKind::Interface => None,
     }
-
-    if TypeId::from_builtin_name(name).is_some() {
-        return true;
-    }
-
-    if let Some(symbol_id) = symbols.resolve(name, scope_id) {
-        if let Some(symbol) = symbols.get(symbol_id) {
-            if symbol.is_type() {
-                return true;
-            }
-        }
-    }
-
-    symbols.lookup_type(name).is_some()
 }
 
 #[derive(Hash, PartialEq, Eq)]
@@ -68,6 +98,19 @@ pub(in crate::db) fn check_global_external_links_with_project(
     diagnostics: &mut DiagnosticBuilder,
     file_id: FileId,
 ) {
+    for collision in symbols.import_collisions() {
+        let diagnostic = Diagnostic::error(
+            DiagnosticCode::DuplicateDeclaration,
+            collision.duplicate_range,
+            format!("duplicate imported declaration of '{}'", collision.name),
+        )
+        .with_related(
+            collision.existing_range,
+            "previously imported or declared here",
+        );
+        diagnostics.add(diagnostic);
+    }
+
     let mut globals: FxHashMap<GlobalKey, GlobalInfo> = FxHashMap::default();
 
     for symbol in symbols.iter() {
@@ -117,10 +160,12 @@ pub(in crate::db) fn check_global_external_links_with_project(
                     continue;
                 };
                 let symbol_id = find_symbol_by_name_range(symbols, name.as_str(), range);
-                let type_id = symbol_id
+                let Some(type_id) = symbol_id
                     .and_then(|id| symbols.get(id))
                     .map(|sym| sym.type_id)
-                    .unwrap_or(TypeId::UNKNOWN);
+                else {
+                    continue;
+                };
                 let namespace = symbol_id
                     .map(|id| namespace_path_for_symbol(symbols, id))
                     .unwrap_or_default();

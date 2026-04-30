@@ -333,6 +333,9 @@ impl DiagnosticBuilder {
 
     /// Adds a diagnostic.
     pub fn add(&mut self, diagnostic: Diagnostic) {
+        if self.diagnostics.contains(&diagnostic) {
+            return;
+        }
         self.diagnostics.push(diagnostic);
     }
 

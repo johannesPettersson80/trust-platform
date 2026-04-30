@@ -211,7 +211,8 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         let params = vec![builtin_param("IN", ParamDirection::In)];
         let call = self.builtin_call(node, params);
         call.check_formal_arg_count(self, node, 1);
-        call.arg(0)
+        let (arg, arg_type) = call.arg(0)?;
+        (arg_type != TypeId::UNKNOWN).then_some((arg, arg_type))
     }
 
 
@@ -221,6 +222,9 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         arg: &CallArg,
         arg_type: TypeId,
     ) -> bool {
+        if arg_type == TypeId::UNKNOWN {
+            return false;
+        }
         if !self.checker.is_assignable(expected, arg_type) {
             self.checker.diagnostics.error(
                 DiagnosticCode::InvalidArgumentType,

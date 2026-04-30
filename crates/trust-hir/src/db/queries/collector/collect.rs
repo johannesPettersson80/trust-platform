@@ -1,4 +1,5 @@
 use super::*;
+use crate::semantic::LEGACY_UNKNOWN_TYPE_ID;
 
 impl SymbolCollector<'_> {
     pub(super) fn push_namespace_path(
@@ -68,7 +69,9 @@ impl SymbolCollector<'_> {
             SyntaxKind::TaskConfig => self.collect_task_config(node),
             SyntaxKind::ProgramConfig => self.collect_program_config(node),
             SyntaxKind::Function => {
-                let return_type = self.return_type_from_node(node).unwrap_or(TypeId::UNKNOWN);
+                let return_type = self
+                    .return_type_from_node(node)
+                    .unwrap_or(LEGACY_UNKNOWN_TYPE_ID);
                 self.collect_pou(
                     node,
                     SymbolKind::Function {
@@ -79,10 +82,10 @@ impl SymbolCollector<'_> {
                 );
             }
             SyntaxKind::FunctionBlock => {
-                self.collect_pou(node, SymbolKind::FunctionBlock, TypeId::UNKNOWN);
+                self.collect_pou(node, SymbolKind::FunctionBlock, TypeId::VOID);
             }
             SyntaxKind::Class => {
-                self.collect_pou(node, SymbolKind::Class, TypeId::UNKNOWN);
+                self.collect_pou(node, SymbolKind::Class, TypeId::VOID);
             }
             SyntaxKind::Namespace => {
                 self.collect_namespace(node);
@@ -99,7 +102,9 @@ impl SymbolCollector<'_> {
                 );
             }
             SyntaxKind::Property => {
-                let prop_type = self.return_type_from_node(node).unwrap_or(TypeId::UNKNOWN);
+                let prop_type = self
+                    .return_type_from_node(node)
+                    .unwrap_or(LEGACY_UNKNOWN_TYPE_ID);
                 let (has_get, has_set) = self.property_accessors(node);
                 self.collect_pou(
                     node,
@@ -112,7 +117,7 @@ impl SymbolCollector<'_> {
                 );
             }
             SyntaxKind::Interface => {
-                self.collect_pou(node, SymbolKind::Interface, TypeId::UNKNOWN);
+                self.collect_pou(node, SymbolKind::Interface, TypeId::VOID);
             }
             SyntaxKind::TypeDecl => {
                 self.collect_type_symbols(node);
@@ -334,19 +339,23 @@ impl SymbolCollector<'_> {
         };
         let mut program_type_id = TypeId::UNKNOWN;
         if let Some((_, type_parts)) = program_config_instance_and_type(node) {
-            let symbol_id = self.table.resolve_qualified(&type_parts).or_else(|| {
-                if type_parts.len() == 1 {
-                    self.table.lookup_any(type_parts[0].as_str())
-                } else {
-                    None
+            let symbol_id = if type_parts.len() == 1 {
+                self.table.lookup(type_parts[0].as_str())
+            } else {
+                self.table.resolve_qualified(&type_parts)
+            };
+            match symbol_id.and_then(|id| self.table.get(id)) {
+                Some(symbol) if matches!(symbol.kind, SymbolKind::Program) => {
+                    program_type_id = symbol.type_id;
                 }
-            });
-            if let Some(symbol_id) = symbol_id {
-                if let Some(symbol) = self.table.get(symbol_id) {
-                    if matches!(symbol.kind, SymbolKind::Program) {
-                        program_type_id = symbol.type_id;
-                    }
+                Some(symbol) => {
+                    self.diagnostics.error(
+                        DiagnosticCode::InvalidOperation,
+                        node.text_range(),
+                        format!("PROGRAM instance type '{}' is not a PROGRAM", symbol.name),
+                    );
                 }
+                None => {}
             }
         }
 
@@ -451,7 +460,7 @@ impl SymbolCollector<'_> {
         let name = qualified_name_string(&names);
         self.table.set_extends(owner, name.clone());
 
-        let type_id = self.resolve_type_path(&names);
+        let type_id = self.resolve_type_path_at(&names, Some(range));
         if type_id == TypeId::UNKNOWN {
             self.pending_types.push(PendingType {
                 name,
@@ -475,7 +484,7 @@ impl SymbolCollector<'_> {
 
         let mut interfaces = Vec::new();
         for (parts, range) in implements_clause_names(&clause) {
-            let type_id = self.resolve_type_path(&parts);
+            let type_id = self.resolve_type_path_at(&parts, Some(range));
             let name = if type_id == TypeId::UNKNOWN {
                 let qualified = qualified_name_string(&parts);
                 self.pending_types.push(PendingType {
@@ -501,8 +510,11 @@ impl SymbolCollector<'_> {
         let name = symbol.name.clone();
         let range = symbol.range;
 
-        let allow_reserved = matches!(symbol.kind, SymbolKind::Parameter { .. })
-            && matches!(name.to_ascii_uppercase().as_str(), "EN" | "ENO");
+        let upper_name = name.to_ascii_uppercase();
+        let allow_reserved = (matches!(symbol.kind, SymbolKind::Parameter { .. })
+            && matches!(upper_name.as_str(), "EN" | "ENO"))
+            || (matches!(symbol.kind, SymbolKind::Method { .. })
+                && matches!(upper_name.as_str(), "GET" | "SET"));
         self.validate_identifier(&name, range, allow_reserved);
 
         // Check for duplicate in current scope

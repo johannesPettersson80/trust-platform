@@ -1,8 +1,10 @@
 use super::super::queries::*;
 use super::super::*;
 use super::context::{
-    find_symbol_by_name_range, namespace_path_for_symbol, resolve_type_symbol_by_name_in_scope,
+    find_symbol_by_name_range, namespace_path_for_symbol,
+    resolve_type_symbol_by_name_in_scope_outcome,
 };
+use crate::semantic::SemanticOutcome;
 
 mod interfaces;
 mod modifiers;
@@ -143,7 +145,8 @@ pub(in crate::db) fn check_abstract_instantiations(
             let Some(Type::Class { name: class_name }) = symbols.type_by_id(resolved_type) else {
                 continue;
             };
-            let Some(class_id) = symbols.resolve_by_name(class_name.as_str()) else {
+            let Some(class_id) = symbols.resolve_global_or_qualified_name(class_name.as_str())
+            else {
                 continue;
             };
             let Some(class_symbol) = symbols.get(class_id) else {
@@ -217,7 +220,9 @@ pub(in crate::db) fn check_extends_implements_semantics(
                 else {
                     continue;
                 };
-                if let Some(base_id) = resolve_extends_symbol(symbols, interface_id) {
+                if let SemanticOutcome::Resolved(base_id) =
+                    resolve_extends_symbol_outcome(symbols, interface_id, Some(extends_range))
+                {
                     if let Some(base_symbol) = symbols.get(base_id) {
                         if !matches!(base_symbol.kind, SymbolKind::Interface) {
                             diagnostics.error(
@@ -297,54 +302,79 @@ pub(in crate::db) fn resolve_extends_symbol(
     symbols: &SymbolTable,
     owner: SymbolId,
 ) -> Option<SymbolId> {
-    let name = symbols.extends_name(owner)?;
-    let scope_id = symbols.scope_for_owner(owner).unwrap_or(ScopeId::GLOBAL);
-    resolve_type_symbol_by_name_in_scope(symbols, name.as_str(), scope_id)
+    match resolve_extends_symbol_outcome(symbols, owner, None) {
+        SemanticOutcome::Resolved(symbol_id) => Some(symbol_id),
+        _ => None,
+    }
+}
+
+pub(in crate::db) fn resolve_extends_symbol_outcome(
+    symbols: &SymbolTable,
+    owner: SymbolId,
+    range: Option<TextRange>,
+) -> SemanticOutcome<SymbolId> {
+    let Some(name) = symbols.extends_name(owner) else {
+        return SemanticOutcome::Unknown { name: None, range };
+    };
+    let Some(scope_id) = symbols.scope_for_owner(owner) else {
+        return SemanticOutcome::InvariantViolation {
+            message: SmolStr::new("cannot resolve owner scope for EXTENDS declaration"),
+            range,
+        };
+    };
+    match resolve_type_symbol_by_name_in_scope_outcome(symbols, name.as_str(), scope_id) {
+        SemanticOutcome::Resolved(symbol_id) => SemanticOutcome::Resolved(symbol_id),
+        SemanticOutcome::Unknown { name, .. } => SemanticOutcome::Unknown { name, range },
+        SemanticOutcome::Ambiguous { name, .. } => SemanticOutcome::Ambiguous { name, range },
+        SemanticOutcome::WrongKind {
+            symbol_id,
+            expected,
+            actual,
+            ..
+        } => SemanticOutcome::WrongKind {
+            symbol_id,
+            expected,
+            actual,
+            range,
+        },
+        SemanticOutcome::SuppressedCascade { primary, .. } => {
+            SemanticOutcome::SuppressedCascade { primary, range }
+        }
+        SemanticOutcome::InvariantViolation { message, .. } => {
+            SemanticOutcome::InvariantViolation { message, range }
+        }
+    }
 }
 
 pub(in crate::db) fn class_inheritance_cycle(symbols: &SymbolTable, class_id: SymbolId) -> bool {
-    let mut visited = FxHashSet::default();
-    let mut current = Some(class_id);
-    while let Some(symbol_id) = current {
-        if !visited.insert(symbol_id) {
-            return true;
-        }
-        current = resolve_extends_symbol(symbols, symbol_id);
-    }
-    false
+    extends_chain_cycle(symbols, class_id, |_| true)
 }
 
 pub(in crate::db) fn interface_inheritance_cycle(
     symbols: &SymbolTable,
     interface_id: SymbolId,
 ) -> bool {
-    let mut visited = FxHashSet::default();
-    let mut current = Some(interface_id);
-    while let Some(symbol_id) = current {
-        if !visited.insert(symbol_id) {
-            return true;
-        }
-        let base_id = resolve_extends_symbol(symbols, symbol_id);
-        let Some(base_id) = base_id else {
-            break;
-        };
-        let Some(base_symbol) = symbols.get(base_id) else {
-            break;
-        };
-        if !matches!(base_symbol.kind, SymbolKind::Interface) {
-            break;
-        }
-        current = Some(base_id);
-    }
-    false
+    extends_chain_cycle(symbols, interface_id, |kind| {
+        matches!(kind, SymbolKind::Interface)
+    })
 }
 
 pub(in crate::db) fn function_block_inheritance_cycle(
     symbols: &SymbolTable,
     fb_id: SymbolId,
 ) -> bool {
+    extends_chain_cycle(symbols, fb_id, |kind| {
+        matches!(kind, SymbolKind::FunctionBlock | SymbolKind::Class)
+    })
+}
+
+fn extends_chain_cycle(
+    symbols: &SymbolTable,
+    start_id: SymbolId,
+    mut should_follow: impl FnMut(&SymbolKind) -> bool,
+) -> bool {
     let mut visited = FxHashSet::default();
-    let mut current = Some(fb_id);
+    let mut current = Some(start_id);
     while let Some(symbol_id) = current {
         if !visited.insert(symbol_id) {
             return true;
@@ -356,7 +386,7 @@ pub(in crate::db) fn function_block_inheritance_cycle(
         let Some(base_symbol) = symbols.get(base_id) else {
             break;
         };
-        if !matches!(base_symbol.kind, SymbolKind::FunctionBlock) {
+        if !should_follow(&base_symbol.kind) {
             break;
         }
         current = Some(base_id);
@@ -437,5 +467,60 @@ pub(in crate::db) fn member_is_inherited(
                 == namespace_path_for_symbol(symbols, derived_id)
         }
         Visibility::Public | Visibility::Protected => true,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn function_block_cycle_detection_walks_mixed_class_links() {
+        let mut symbols = SymbolTable::new();
+        let fb = symbols.add_symbol(Symbol::new(
+            SymbolId::UNKNOWN,
+            "Fb",
+            SymbolKind::FunctionBlock,
+            TypeId(1000),
+            TextRange::empty(0.into()),
+        ));
+        let class = symbols.add_symbol(Symbol::new(
+            SymbolId::UNKNOWN,
+            "Base",
+            SymbolKind::Class,
+            TypeId(1001),
+            TextRange::empty(0.into()),
+        ));
+        let root_scope = symbols.current_scope();
+        symbols.push_scope(ScopeKind::FunctionBlock, Some(fb));
+        symbols.set_current_scope(root_scope);
+        symbols.push_scope(ScopeKind::Class, Some(class));
+        symbols.set_current_scope(root_scope);
+        symbols.set_extends(fb, "Base".into());
+        symbols.set_extends(class, "Fb".into());
+
+        assert!(function_block_inheritance_cycle(&symbols, fb));
+    }
+
+    #[test]
+    fn extends_resolution_does_not_fallback_to_global_when_owner_scope_is_missing() {
+        let mut symbols = SymbolTable::new();
+        let derived = symbols.add_symbol(Symbol::new(
+            SymbolId::UNKNOWN,
+            "Derived",
+            SymbolKind::FunctionBlock,
+            TypeId(1000),
+            TextRange::empty(0.into()),
+        ));
+        symbols.add_symbol(Symbol::new(
+            SymbolId::UNKNOWN,
+            "Base",
+            SymbolKind::Class,
+            TypeId(1001),
+            TextRange::empty(0.into()),
+        ));
+        symbols.set_extends(derived, "Base".into());
+
+        assert_eq!(resolve_extends_symbol(&symbols, derived), None);
     }
 }

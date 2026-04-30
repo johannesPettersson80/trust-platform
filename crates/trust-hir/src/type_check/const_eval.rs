@@ -3,6 +3,7 @@ use super::literals::{
     IntUnaryOp,
 };
 use super::*;
+use crate::symbols::EnumValueResolution;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum ConstEvalError {
@@ -12,11 +13,104 @@ pub(crate) enum ConstEvalError {
     IntegerOverflow,
     NegativeExponent,
     CyclicDependency(SmolStr),
+    AmbiguousName(SmolStr),
 }
 
 impl<'a> TypeChecker<'a> {
-    pub(super) fn eval_const_int_expr(&self, node: &SyntaxNode) -> Option<i64> {
-        self.try_eval_const_int_expr(node).ok()
+    pub(super) fn eval_const_int_expr_or_report(&mut self, node: &SyntaxNode) -> Option<i64> {
+        match self.try_eval_const_int_expr(node) {
+            Ok(value) => Some(value),
+            Err(ConstEvalError::NotConstant) => None,
+            Err(ConstEvalError::UndefinedName(name))
+                if self
+                    .symbols
+                    .resolve(name.as_str(), self.current_scope)
+                    .is_some() =>
+            {
+                None
+            }
+            Err(err) => {
+                self.report_const_int_eval_error(err, node.text_range(), None);
+                None
+            }
+        }
+    }
+
+    pub(super) fn require_const_int_expr(
+        &mut self,
+        node: &SyntaxNode,
+        not_constant_message: &'static str,
+    ) -> Option<i64> {
+        match self.try_eval_const_int_expr(node) {
+            Ok(value) => Some(value),
+            Err(ConstEvalError::UndefinedName(name))
+                if self
+                    .symbols
+                    .resolve(name.as_str(), self.current_scope)
+                    .is_some() =>
+            {
+                self.diagnostics.error(
+                    DiagnosticCode::InvalidOperation,
+                    node.text_range(),
+                    not_constant_message,
+                );
+                None
+            }
+            Err(err) => {
+                self.report_const_int_eval_error(
+                    err,
+                    node.text_range(),
+                    Some(not_constant_message),
+                );
+                None
+            }
+        }
+    }
+
+    fn report_const_int_eval_error(
+        &mut self,
+        err: ConstEvalError,
+        range: TextRange,
+        not_constant_message: Option<&'static str>,
+    ) {
+        match err {
+            ConstEvalError::CyclicDependency(name) => self.diagnostics.error(
+                DiagnosticCode::CyclicDependency,
+                range,
+                format!("cyclic constant reference involving '{name}'"),
+            ),
+            ConstEvalError::DivideByZero => self.diagnostics.error(
+                DiagnosticCode::InvalidOperation,
+                range,
+                "constant expression divides by zero",
+            ),
+            ConstEvalError::IntegerOverflow => self.diagnostics.error(
+                DiagnosticCode::InvalidOperation,
+                range,
+                "constant expression overflows",
+            ),
+            ConstEvalError::NegativeExponent => self.diagnostics.error(
+                DiagnosticCode::InvalidOperation,
+                range,
+                "integer exponent must be non-negative",
+            ),
+            ConstEvalError::UndefinedName(name) => self.diagnostics.error(
+                DiagnosticCode::UndefinedVariable,
+                range,
+                format!("undefined constant '{name}'"),
+            ),
+            ConstEvalError::AmbiguousName(name) => self.diagnostics.error(
+                DiagnosticCode::CannotResolve,
+                range,
+                format!("ambiguous enum value '{name}'"),
+            ),
+            ConstEvalError::NotConstant => {
+                if let Some(message) = not_constant_message {
+                    self.diagnostics
+                        .error(DiagnosticCode::InvalidOperation, range, message);
+                }
+            }
+        }
     }
 
     pub(super) fn try_eval_const_int_expr(&self, node: &SyntaxNode) -> Result<i64, ConstEvalError> {
@@ -52,10 +146,15 @@ impl<'a> TypeChecker<'a> {
                         return Ok(value);
                     }
                 }
-                let result = self
-                    .symbols
-                    .enum_value_by_name(name.as_str())
-                    .ok_or_else(|| ConstEvalError::UndefinedName(name.clone()));
+                let result = match self.symbols.resolve_enum_value_by_name(name.as_str()) {
+                    EnumValueResolution::Resolved(value) => Ok(value),
+                    EnumValueResolution::NotFound => {
+                        Err(ConstEvalError::UndefinedName(name.clone()))
+                    }
+                    EnumValueResolution::Ambiguous => {
+                        Err(ConstEvalError::AmbiguousName(name.clone()))
+                    }
+                };
                 guard.remove(&key);
                 result
             }
@@ -161,21 +260,10 @@ impl<'a> TypeChecker<'a> {
                 break;
             };
 
-            if matches!(
-                scope.kind,
-                ScopeKind::Program
-                    | ScopeKind::Function
-                    | ScopeKind::FunctionBlock
-                    | ScopeKind::Class
-                    | ScopeKind::Method
-                    | ScopeKind::Property
-                    | ScopeKind::Namespace
-                    | ScopeKind::Configuration
-                    | ScopeKind::Resource
-            ) {
-                if let Some(owner) = scope.owner {
-                    if let Some(symbol) = self.symbols.get(owner) {
-                        scopes.push(Some(symbol.name.clone()));
+            if const_named_scope_kind(scope.kind) {
+                if let Some(scope_name) = self.const_scope_name_for_scope(scope_id) {
+                    if scopes.last() != Some(&Some(scope_name.clone())) {
+                        scopes.push(Some(scope_name));
                     }
                 }
             }
@@ -186,4 +274,50 @@ impl<'a> TypeChecker<'a> {
         scopes.push(None);
         scopes
     }
+
+    fn const_scope_name_for_scope(&self, scope_id: ScopeId) -> Option<SmolStr> {
+        let mut parts = Vec::new();
+        let mut current = Some(scope_id);
+
+        while let Some(scope_id) = current {
+            let scope = self.symbols.get_scope(scope_id)?;
+            if const_named_scope_kind(scope.kind) {
+                if let Some(owner) = scope.owner {
+                    if let Some(symbol) = self.symbols.get(owner) {
+                        parts.push(symbol.name.clone());
+                    }
+                }
+            }
+            current = scope.parent;
+        }
+
+        parts.reverse();
+        (!parts.is_empty()).then(|| qualified_scope_name(&parts))
+    }
+}
+
+fn const_named_scope_kind(kind: ScopeKind) -> bool {
+    matches!(
+        kind,
+        ScopeKind::Program
+            | ScopeKind::Function
+            | ScopeKind::FunctionBlock
+            | ScopeKind::Class
+            | ScopeKind::Method
+            | ScopeKind::Property
+            | ScopeKind::Namespace
+            | ScopeKind::Configuration
+            | ScopeKind::Resource
+    )
+}
+
+fn qualified_scope_name(parts: &[SmolStr]) -> SmolStr {
+    let mut buf = String::new();
+    for (idx, part) in parts.iter().enumerate() {
+        if idx > 0 {
+            buf.push('.');
+        }
+        buf.push_str(part.as_str());
+    }
+    SmolStr::new(buf)
 }

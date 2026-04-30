@@ -42,7 +42,7 @@ impl Parser<'_, '_> {
             self.bump();
         }
 
-        if self.at(TokenKind::Ident) {
+        if self.at_name_token() {
             if self.peek_kind_n(1) == TokenKind::Dot {
                 self.parse_qualified_name();
             } else {
@@ -117,7 +117,7 @@ impl Parser<'_, '_> {
             self.bump();
         }
 
-        if self.at(TokenKind::Ident) {
+        if self.at_name_token() {
             self.parse_name();
         } else {
             self.error("expected method name");

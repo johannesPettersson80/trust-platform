@@ -3,8 +3,10 @@ use super::super::super::*;
 use super::super::context::{
     find_symbol_by_name_range, method_signature_from_table, method_signatures_match_with_table,
     property_signature_from_table, property_signatures_match_with_table,
+    resolve_type_symbol_by_name_in_scope_outcome,
 };
 use crate::diagnostics::Diagnostic;
+use crate::semantic::SemanticOutcome;
 
 pub(in crate::db) fn check_interface_conformance(
     symbols: &SymbolTable,
@@ -36,13 +38,24 @@ pub(in crate::db) fn check_interface_conformance(
 
         for (iface_parts, iface_range) in implements_clause_names(&clause) {
             let iface_name = qualified_name_string(&iface_parts);
-            let Some(interface_id) = symbols.resolve_qualified(&iface_parts) else {
+            let Some(owner_scope) = symbols.scope_for_owner(owner_id) else {
                 diagnostics.error(
-                    DiagnosticCode::UndefinedType,
+                    DiagnosticCode::CannotResolve,
                     iface_range,
-                    format!("cannot resolve interface '{}'", iface_name),
+                    format!("cannot resolve owner scope for '{}'", owner_name),
                 );
                 continue;
+            };
+            let interface_id = match resolve_type_symbol_by_name_in_scope_outcome(
+                symbols,
+                iface_name.as_str(),
+                owner_scope,
+            ) {
+                SemanticOutcome::Resolved(interface_id) => interface_id,
+                // Missing, ambiguous, and wrong-kind type references are reported by
+                // pending type resolution. The conformance pass only validates resolved
+                // type symbols that are not interfaces.
+                _ => continue,
             };
 
             let Some(interface_symbol) = symbols.get(interface_id) else {
@@ -124,10 +137,7 @@ fn collect_interface_members_with_table(
             }
         }
 
-        let Some(base_name) = symbols.extends_name(symbol_id) else {
-            continue;
-        };
-        let Some(base_id) = symbols.lookup(base_name) else {
+        let Some(base_id) = super::resolve_extends_symbol(symbols, symbol_id) else {
             continue;
         };
         let Some(base_symbol) = symbols.get(base_id) else {
@@ -188,9 +198,7 @@ fn collect_implementation_members_with_table(
             }
         }
 
-        current = symbols
-            .extends_name(symbol_id)
-            .and_then(|base_name| symbols.lookup(base_name));
+        current = super::resolve_extends_symbol(symbols, symbol_id);
     }
 
     (methods, properties)

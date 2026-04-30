@@ -338,7 +338,7 @@ END_TYPE
     );
 
     let symbols = db.file_symbols(file);
-    let type_id = symbols.lookup_type("U").expect("U type");
+    let type_id = symbols.lookup_registered_type_name("U").expect("U type");
     let Type::Union { variants, .. } = symbols.type_by_id(type_id).expect("U definition") else {
         panic!("expected union type");
     };
@@ -367,7 +367,7 @@ END_TYPE
 
     let symbols = db.file_symbols(file);
     let type_id = symbols
-        .lookup_type("DefaultStep")
+        .lookup_registered_type_name("DefaultStep")
         .expect("DefaultStep type");
     let initializer = symbols
         .type_default_initializer(type_id)
@@ -392,7 +392,9 @@ END_TYPE
     );
 
     let symbols = db.file_symbols(file);
-    let type_id = symbols.lookup_type("StepCfg").expect("StepCfg type");
+    let type_id = symbols
+        .lookup_registered_type_name("StepCfg")
+        .expect("StepCfg type");
     let Type::Struct { fields, .. } = symbols.type_by_id(type_id).expect("StepCfg definition")
     else {
         panic!("expected struct type");
@@ -435,7 +437,9 @@ END_PROGRAM
     );
 
     let symbols = db.file_symbols(file_main);
-    let type_id = symbols.lookup_type("LibCfg").expect("imported LibCfg type");
+    let type_id = symbols
+        .lookup_registered_type_name("LibCfg")
+        .expect("imported LibCfg type");
     let Type::Struct { fields, .. } = symbols.type_by_id(type_id).expect("LibCfg definition")
     else {
         panic!("expected imported struct type");
@@ -463,7 +467,9 @@ END_TYPE
     db.set_source_text(file, first_source.to_string());
 
     let before = db.file_symbols(file);
-    let before_type = before.lookup_type("StepCfg").expect("StepCfg type");
+    let before_type = before
+        .lookup_registered_type_name("StepCfg")
+        .expect("StepCfg type");
     let Type::Struct { fields, .. } = before.type_by_id(before_type).expect("StepCfg definition")
     else {
         panic!("expected struct type");
@@ -481,7 +487,7 @@ END_TYPE
         "editing a field default must invalidate the symbol table/catalog"
     );
     let after_type = after
-        .lookup_type("StepCfg")
+        .lookup_registered_type_name("StepCfg")
         .expect("StepCfg type after edit");
     let Type::Struct { fields, .. } = after.type_by_id(after_type).expect("StepCfg definition")
     else {

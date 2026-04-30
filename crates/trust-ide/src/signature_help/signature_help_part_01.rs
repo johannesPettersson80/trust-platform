@@ -116,7 +116,7 @@ pub(crate) fn signature_for_call_expr(
         let scope_id = scope_at_position(&symbols, root, callee_offset);
         let symbol_id = symbols
             .resolve(name.as_str(), scope_id)
-            .or_else(|| symbols.lookup_any(name.as_str()))?;
+            .or_else(|| symbols.lookup(name.as_str()))?;
         let symbol = symbols.get(symbol_id)?;
         signature_from_symbol(&symbols, symbol)
             .or_else(|| signature_from_type(&symbols, symbol.type_id))

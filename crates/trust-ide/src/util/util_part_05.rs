@@ -95,7 +95,7 @@ fn resolve_field_decl_target(
         .skip(1)
         .find(|n| n.kind() == SyntaxKind::TypeDecl)?;
     let type_name = type_name_for_type_body(&type_decl, &type_body)?;
-    let type_id = symbols.lookup_type(type_name.as_str())?;
+    let type_id = symbols.lookup_registered_type_name(type_name.as_str())?;
     let type_id = symbols.resolve_alias_type(type_id);
 
     match symbols.type_by_id(type_id)? {
@@ -196,7 +196,7 @@ pub(crate) fn field_declaration_ranges(
             let Some(type_name) = current_type_name.as_ref() else {
                 continue;
             };
-            let Some(declared_type_id) = symbols.lookup_type(type_name.as_str()) else {
+            let Some(declared_type_id) = symbols.lookup_registered_type_name(type_name.as_str()) else {
                 continue;
             };
             let declared_type_id = symbols.resolve_alias_type(declared_type_id);

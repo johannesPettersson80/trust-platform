@@ -413,7 +413,7 @@ END_VAR
 NEW(x);
 END_PROGRAM
 "#,
-        DiagnosticCode::UndefinedType,
+        DiagnosticCode::InvalidArgumentType,
     );
 }
 

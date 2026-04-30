@@ -7,6 +7,7 @@ use smol_str::SmolStr;
 use text_size::TextRange;
 
 use crate::diagnostics::{DiagnosticBuilder, DiagnosticCode};
+use crate::semantic::{SemanticOutcome, LEGACY_UNKNOWN_TYPE_ID};
 use crate::symbols::{
     ParamDirection, ScopeId, ScopeKind, SymbolId, SymbolKind, SymbolTable, UsingResolution,
     Visibility,
@@ -28,6 +29,26 @@ mod validation;
 
 pub(crate) use literals::string_literal_info;
 pub use ops::{BinaryOp, UnaryOp};
+
+fn non_value_role(kind: &SymbolKind) -> Option<&'static str> {
+    match kind {
+        SymbolKind::Type | SymbolKind::Class | SymbolKind::Interface => Some("type"),
+        SymbolKind::FunctionBlock => Some("function block type"),
+        SymbolKind::Function { .. } => Some("function"),
+        SymbolKind::Method { .. } => Some("method"),
+        SymbolKind::Namespace => Some("namespace"),
+        SymbolKind::Program => Some("program"),
+        SymbolKind::Configuration => Some("configuration"),
+        SymbolKind::Resource => Some("resource"),
+        SymbolKind::Task => Some("task"),
+        SymbolKind::ProgramInstance => Some("program instance"),
+        SymbolKind::Variable { .. }
+        | SymbolKind::Constant
+        | SymbolKind::EnumValue { .. }
+        | SymbolKind::Parameter { .. }
+        | SymbolKind::Property { .. } => None,
+    }
+}
 
 /// Type checker for expressions and statements.
 pub struct TypeChecker<'a> {
@@ -119,6 +140,59 @@ impl<'a> TypeChecker<'a> {
         self.expression_types
             .insert((u32::from(range.start()), u32::from(range.end())), type_id);
         type_id
+    }
+
+    fn legacy_type_from_outcome(&self, outcome: SemanticOutcome<TypeId>) -> TypeId {
+        match outcome {
+            SemanticOutcome::Resolved(type_id) => type_id,
+            SemanticOutcome::Unknown { .. }
+            | SemanticOutcome::Ambiguous { .. }
+            | SemanticOutcome::WrongKind { .. }
+            | SemanticOutcome::SuppressedCascade { .. }
+            | SemanticOutcome::InvariantViolation { .. } => LEGACY_UNKNOWN_TYPE_ID,
+        }
+    }
+
+    fn unknown_type_outcome(&self, range: TextRange) -> SemanticOutcome<TypeId> {
+        SemanticOutcome::Unknown {
+            name: None,
+            range: Some(range),
+        }
+    }
+
+    fn suppressed_type_outcome(
+        &self,
+        primary: DiagnosticCode,
+        range: TextRange,
+    ) -> SemanticOutcome<TypeId> {
+        SemanticOutcome::SuppressedCascade {
+            primary,
+            range: Some(range),
+        }
+    }
+
+    fn diagnostic_type_outcome(
+        &mut self,
+        code: DiagnosticCode,
+        range: TextRange,
+        message: impl Into<String>,
+    ) -> SemanticOutcome<TypeId> {
+        self.diagnostics.error(code, range, message);
+        self.suppressed_type_outcome(code, range)
+    }
+
+    fn legacy_suppressed_type(&self, primary: DiagnosticCode, range: TextRange) -> TypeId {
+        self.legacy_type_from_outcome(self.suppressed_type_outcome(primary, range))
+    }
+
+    fn legacy_diagnostic_type(
+        &mut self,
+        code: DiagnosticCode,
+        range: TextRange,
+        message: impl Into<String>,
+    ) -> TypeId {
+        let outcome = self.diagnostic_type_outcome(code, range, message);
+        self.legacy_type_from_outcome(outcome)
     }
 }
 

@@ -157,6 +157,9 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         let mut saw_untyped_real = false;
         for (arg, ty) in args {
             let base = self.base_type_id(*ty);
+            if base == TypeId::UNKNOWN {
+                return None;
+            }
             if !self.is_numeric_type(base) {
                 self.checker.diagnostics.error(
                     DiagnosticCode::InvalidArgumentType,
@@ -216,6 +219,9 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         let mut common: Option<TypeId> = None;
         for (arg, ty) in args {
             let base = self.base_type_id(*ty);
+            if base == TypeId::UNKNOWN {
+                return None;
+            }
             if !self.is_integer_type(base) {
                 self.checker.diagnostics.error(
                     DiagnosticCode::InvalidArgumentType,

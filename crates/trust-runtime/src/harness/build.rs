@@ -66,6 +66,10 @@ pub(super) fn build_runtime_from_source_files(
     if !diagnostics_errors.is_empty() {
         return Err(CompileError::new(diagnostics_errors.join("\n")));
     }
+    let analyses = file_ids
+        .iter()
+        .map(|file_id| project.database().analyze(*file_id))
+        .collect::<Vec<_>>();
 
     let mut runtime = Runtime::new();
     let profile = runtime.profile();
@@ -86,11 +90,11 @@ pub(super) fn build_runtime_from_source_files(
         )?;
     }
 
-    for parse in &parses {
-        let syntax = parse.syntax();
-        super::predeclare_function_blocks(&syntax, runtime.registry_mut())?;
-        super::predeclare_classes(&syntax, runtime.registry_mut())?;
-        super::predeclare_interfaces(&syntax, runtime.registry_mut())?;
+    for idx in 0..parses.len() {
+        let catalog = analyses[idx].declaration_catalog.as_ref();
+        super::predeclare_function_blocks(catalog, file_ids[idx], runtime.registry_mut())?;
+        super::predeclare_classes(catalog, file_ids[idx], runtime.registry_mut())?;
+        super::predeclare_interfaces(catalog, file_ids[idx], runtime.registry_mut())?;
     }
 
     let mut compile_time_consts = CompileTimeConsts::default();
@@ -121,7 +125,13 @@ pub(super) fn build_runtime_from_source_files(
             &mut statement_locations[idx],
             compile_time_consts.clone(),
         );
-        let interfaces = super::lower_interfaces(&syntax, runtime.registry_mut(), &mut inputs)?;
+        let interfaces = super::lower_interfaces(
+            &syntax,
+            analyses[idx].declaration_catalog.as_ref(),
+            file_ids[idx],
+            runtime.registry_mut(),
+            &mut inputs,
+        )?;
         for interface_def in interfaces {
             let key = interface_def.name.to_ascii_uppercase();
             if !interface_names.insert(key.clone()) {
@@ -145,7 +155,13 @@ pub(super) fn build_runtime_from_source_files(
             &mut statement_locations[idx],
             compile_time_consts.clone(),
         );
-        let classes = super::lower_classes(&syntax, runtime.registry_mut(), &mut inputs)?;
+        let classes = super::lower_classes(
+            &syntax,
+            analyses[idx].declaration_catalog.as_ref(),
+            file_ids[idx],
+            runtime.registry_mut(),
+            &mut inputs,
+        )?;
         for class_def in classes {
             let key = class_def.name.to_ascii_uppercase();
             if !class_names.insert(key.clone()) {
@@ -169,8 +185,13 @@ pub(super) fn build_runtime_from_source_files(
             &mut statement_locations[idx],
             compile_time_consts.clone(),
         );
-        let function_blocks =
-            super::lower_function_blocks(&syntax, runtime.registry_mut(), &mut inputs)?;
+        let function_blocks = super::lower_function_blocks(
+            &syntax,
+            analyses[idx].declaration_catalog.as_ref(),
+            file_ids[idx],
+            runtime.registry_mut(),
+            &mut inputs,
+        )?;
         for fb in function_blocks {
             let key = fb.name.to_ascii_uppercase();
             if !function_block_names.insert(key.clone()) {
@@ -194,7 +215,13 @@ pub(super) fn build_runtime_from_source_files(
             &mut statement_locations[idx],
             compile_time_consts.clone(),
         );
-        let functions = super::lower_functions(&syntax, runtime.registry_mut(), &mut inputs)?;
+        let functions = super::lower_functions(
+            &syntax,
+            analyses[idx].declaration_catalog.as_ref(),
+            file_ids[idx],
+            runtime.registry_mut(),
+            &mut inputs,
+        )?;
         for func in functions {
             let key = func.name.to_ascii_uppercase();
             if !function_names.insert(key.clone()) {
@@ -220,7 +247,13 @@ pub(super) fn build_runtime_from_source_files(
             &mut statement_locations[idx],
             compile_time_consts.clone(),
         );
-        let lowered = super::lower_programs(&syntax, runtime.registry_mut(), &mut inputs)?;
+        let lowered = super::lower_programs(
+            &syntax,
+            analyses[idx].declaration_catalog.as_ref(),
+            file_ids[idx],
+            runtime.registry_mut(),
+            &mut inputs,
+        )?;
         for program in lowered {
             let key = program.program.name.to_ascii_uppercase();
             if program_defs.contains_key(key.as_str()) {

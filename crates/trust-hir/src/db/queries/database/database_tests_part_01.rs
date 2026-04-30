@@ -124,11 +124,13 @@
 
     fn expr_id_for(db: &Database, file_id: FileId, needle: &str) -> u32 {
         let source = db.source_text(file_id);
-        let offset = source
+        let start = source
             .find(needle)
             .unwrap_or_else(|| panic!("missing needle '{needle}' in source"))
             as u32;
-        db.expr_id_at_offset(file_id, offset)
+        let end = start + needle.len() as u32;
+        db.expr_id_for_range(file_id, start, end)
+            .or_else(|| db.expr_id_at_offset(file_id, end.saturating_sub(1)))
             .unwrap_or_else(|| panic!("missing expression id for '{needle}'"))
     }
 

@@ -22,3 +22,5 @@ mod sizeof_semantics;
 mod struct_initializers;
 #[path = "semantic_type_checking/types_and_references.rs"]
 mod types_and_references;
+#[path = "semantic_type_checking/wrong_kind_resolution.rs"]
+mod wrong_kind_resolution;

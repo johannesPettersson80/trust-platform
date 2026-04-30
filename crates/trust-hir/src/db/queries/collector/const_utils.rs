@@ -2,17 +2,57 @@ use super::diagnostics::is_pou_kind;
 use super::*;
 
 pub(super) fn scope_chain_for_node(node: &SyntaxNode) -> Vec<Option<SmolStr>> {
+    let mut namespace = Vec::new();
+    let mut pou_stack = Vec::new();
+    let mut ancestors: Vec<_> = node.ancestors().collect();
+    ancestors.reverse();
+
+    for ancestor in ancestors {
+        if ancestor.kind() == SyntaxKind::Namespace {
+            if let Some((parts, _)) = qualified_name_parts(&ancestor) {
+                namespace.extend(parts.into_iter().map(|(name, _)| name));
+            }
+        } else if is_pou_kind(ancestor.kind()) {
+            pou_stack.extend(pou_scope_parts(&ancestor));
+        }
+    }
+
+    const_scope_chain_from_parts(&namespace, &pou_stack)
+}
+
+pub(super) fn const_scope_identity(
+    namespace: &[SmolStr],
+    pou_stack: &[SmolStr],
+) -> Option<SmolStr> {
+    let mut parts = Vec::with_capacity(namespace.len() + pou_stack.len());
+    parts.extend(namespace.iter().cloned());
+    parts.extend(pou_stack.iter().cloned());
+    (!parts.is_empty()).then(|| qualified_name_string(&parts))
+}
+
+pub(super) fn const_scope_chain_from_parts(
+    namespace: &[SmolStr],
+    pou_stack: &[SmolStr],
+) -> Vec<Option<SmolStr>> {
+    let mut parts = Vec::with_capacity(namespace.len() + pou_stack.len());
+    parts.extend(namespace.iter().cloned());
+    parts.extend(pou_stack.iter().cloned());
+
     let mut scopes = Vec::new();
-    for ancestor in node.ancestors() {
-        if !is_pou_kind(ancestor.kind()) {
-            continue;
-        }
-        if let Some((name, _)) = name_from_node(&ancestor) {
-            scopes.push(Some(name));
-        }
+    for len in (1..=parts.len()).rev() {
+        scopes.push(Some(qualified_name_string(&parts[..len])));
     }
     scopes.push(None);
     scopes
+}
+
+pub(super) fn pou_scope_parts(node: &SyntaxNode) -> Vec<SmolStr> {
+    if let Some((parts, _)) = qualified_name_parts(node) {
+        return parts.into_iter().map(|(name, _)| name).collect();
+    }
+    name_from_node(node)
+        .map(|(name, _)| vec![name])
+        .unwrap_or_default()
 }
 
 fn normalize_const_name(name: &str) -> SmolStr {
@@ -51,6 +91,7 @@ pub(super) enum ConstEvalError {
     IntegerOverflow,
     NegativeExponent,
     CyclicDependency(SmolStr),
+    AmbiguousName(SmolStr),
 }
 
 #[derive(Clone, Copy)]

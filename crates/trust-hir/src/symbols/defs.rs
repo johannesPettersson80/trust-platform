@@ -28,6 +28,17 @@ pub struct SymbolOrigin {
     pub symbol_id: SymbolId,
 }
 
+/// A project-import symbol name collision that was not merged into a scope.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImportCollision {
+    /// Colliding declaration name.
+    pub name: SmolStr,
+    /// Range of the declaration already visible in the target table.
+    pub existing_range: TextRange,
+    /// Range of the declaration skipped during import.
+    pub duplicate_range: TextRange,
+}
+
 /// A USING directive attached to a scope.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UsingDirective {

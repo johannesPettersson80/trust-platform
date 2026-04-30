@@ -1,5 +1,6 @@
 use super::*;
 use crate::db::diagnostics::is_expression_kind;
+use crate::semantic::LEGACY_UNKNOWN_TYPE_ID;
 
 impl SymbolCollector<'_> {
     pub(super) fn check_access_and_config(&mut self, root: &SyntaxNode) {
@@ -187,10 +188,13 @@ impl SymbolCollector<'_> {
         }
     }
 
-    pub(super) fn check_at_bindings(&mut self, root: &SyntaxNode) {
+    pub(super) fn check_at_bindings(&mut self, roots: &[SyntaxNode]) {
         let mut wildcard_vars = FxHashSet::default();
 
         for symbol in self.table.iter() {
+            if symbol.origin.is_some() {
+                continue;
+            }
             let Some(address) = symbol.direct_address.as_deref() else {
                 continue;
             };
@@ -217,16 +221,46 @@ impl SymbolCollector<'_> {
         }
 
         let mut configured = FxHashSet::default();
-        for config_init in root
-            .descendants()
-            .filter(|n| n.kind() == SyntaxKind::ConfigInit)
-        {
+        for config_init in roots.iter().flat_map(|root| {
+            root.descendants()
+                .filter(|n| n.kind() == SyntaxKind::ConfigInit)
+        }) {
             let Some(access_path) = config_init
                 .children()
                 .find(|n| n.kind() == SyntaxKind::AccessPath)
             else {
                 continue;
             };
+            if let Some(parsed) = parse_access_path(&access_path) {
+                if let Some(program_instance) =
+                    lookup_program_instance(&self.program_instances, parsed.root.as_str())
+                {
+                    if program_instance.is_ambiguous() {
+                        if let Some(address) = config_init_direct_address(&config_init) {
+                            if direct_address_has_wildcard(&address) {
+                                self.diagnostics.error(
+                                    DiagnosticCode::InvalidOperation,
+                                    access_path.text_range(),
+                                    "VAR_CONFIG must provide a fully specified direct address",
+                                );
+                            } else {
+                                for candidate in program_instance.candidates() {
+                                    if let Some(target) = resolve_access_path_target_from_symbol(
+                                        &self.table,
+                                        *candidate,
+                                        &parsed.segments,
+                                    ) {
+                                        if wildcard_vars.contains(&target.symbol_id) {
+                                            configured.insert(target.symbol_id);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        continue;
+                    }
+                }
+            }
             let Some(target) = self.resolve_access_path_target(&access_path) else {
                 continue;
             };
@@ -272,8 +306,17 @@ impl SymbolCollector<'_> {
             return;
         };
 
-        let Some(decl_id) = self.table.lookup_any(name.as_str()) else {
-            return;
+        let decl_id = match self.table.resolve_unique_symbol_name(name.as_str()) {
+            UniqueSymbolResolution::Single(id) => id,
+            UniqueSymbolResolution::Ambiguous => {
+                self.diagnostics.error(
+                    DiagnosticCode::CannotResolve,
+                    node.text_range(),
+                    format!("VAR_ACCESS declaration '{}' is ambiguous", name),
+                );
+                return;
+            }
+            UniqueSymbolResolution::NotFound => return,
         };
         let Some(decl_sym) = self.table.get(decl_id) else {
             return;
@@ -281,6 +324,30 @@ impl SymbolCollector<'_> {
         let declared_type = self.table.resolve_alias_type(decl_sym.type_id);
 
         let Some(target) = self.resolve_access_path_target(&access_path) else {
+            if let Some(parsed) = parse_access_path(&access_path) {
+                let program_instance =
+                    lookup_program_instance(&self.program_instances, parsed.root.as_str());
+                if program_instance.is_some_and(ProgramInstanceTarget::is_ambiguous) {
+                    self.diagnostics.error(
+                        DiagnosticCode::CannotResolve,
+                        access_path.text_range(),
+                        format!("program instance '{}' is ambiguous", parsed.root),
+                    );
+                    return;
+                }
+                let root_declared = program_instance.is_some()
+                    || !matches!(
+                        self.table.resolve_unique_symbol_name(parsed.root.as_str()),
+                        UniqueSymbolResolution::NotFound
+                    );
+                if !root_declared {
+                    self.diagnostics.error(
+                        DiagnosticCode::UndefinedVariable,
+                        access_path.text_range(),
+                        format!("VAR_ACCESS target '{}' is undefined", parsed.root),
+                    );
+                }
+            }
             return;
         };
         let target_type = self.table.resolve_alias_type(target.leaf_type);
@@ -310,6 +377,45 @@ impl SymbolCollector<'_> {
             return;
         };
         let Some(target) = self.resolve_access_path_target(&access_path) else {
+            if let Some(parsed) = parse_access_path(&access_path) {
+                let program_instance =
+                    lookup_program_instance(&self.program_instances, parsed.root.as_str());
+                if program_instance.is_some_and(ProgramInstanceTarget::is_ambiguous) {
+                    self.diagnostics.error(
+                        DiagnosticCode::CannotResolve,
+                        access_path.text_range(),
+                        format!("program instance '{}' is ambiguous", parsed.root),
+                    );
+                    return;
+                }
+                let root_declared = program_instance.is_some()
+                    || !matches!(
+                        self.table.resolve_unique_symbol_name(parsed.root.as_str()),
+                        UniqueSymbolResolution::NotFound
+                    );
+                if root_declared {
+                    self.diagnostics.error(
+                        DiagnosticCode::InvalidOperation,
+                        access_path.text_range(),
+                        format!(
+                            "VAR_CONFIG target '{}' cannot be resolved",
+                            access_path.text()
+                        ),
+                    );
+                } else {
+                    self.diagnostics.error(
+                        DiagnosticCode::UndefinedVariable,
+                        access_path.text_range(),
+                        format!("VAR_CONFIG target '{}' is undefined", parsed.root),
+                    );
+                }
+            } else {
+                self.diagnostics.error(
+                    DiagnosticCode::InvalidOperation,
+                    access_path.text_range(),
+                    "VAR_CONFIG target must be a variable access path",
+                );
+            }
             return;
         };
         let Some(target_sym) = self.table.get(target.symbol_id) else {
@@ -322,7 +428,7 @@ impl SymbolCollector<'_> {
             .children()
             .find(|n| n.kind() == SyntaxKind::TypeRef)
             .map(|n| self.resolve_type_from_ref(&n))
-            .unwrap_or(TypeId::UNKNOWN);
+            .unwrap_or(LEGACY_UNKNOWN_TYPE_ID);
         let declared_type = self.table.resolve_alias_type(declared_type);
 
         if declared_type != TypeId::UNKNOWN

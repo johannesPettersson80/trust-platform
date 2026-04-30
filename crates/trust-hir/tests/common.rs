@@ -20,8 +20,21 @@ pub fn check_errors(source: &str) -> Vec<DiagnosticCode> {
 
 /// Helper to assert no errors in source.
 pub fn check_no_errors(source: &str) {
-    let errors = check_errors(source);
-    assert!(errors.is_empty(), "Expected no errors, got: {:?}", errors);
+    let mut db = Database::new();
+    let file = FileId(0);
+    db.set_source_text(file, source.to_string());
+    let diagnostics = db
+        .diagnostics(file)
+        .iter()
+        .filter(|d| d.severity == DiagnosticSeverity::Error)
+        .cloned()
+        .collect::<Vec<_>>();
+    let errors = diagnostics.iter().map(|d| d.code).collect::<Vec<_>>();
+    assert!(
+        errors.is_empty(),
+        "Expected no errors, got: {:?}",
+        diagnostics
+    );
 }
 
 /// Helper to assert no errors across multiple source files.

@@ -251,7 +251,7 @@ suite("LSP integration (VS Code)", function () {
       "END_METHOD",
       "END_FUNCTION_BLOCK",
       "",
-      "PROGRAM Main",
+      "PROGRAM MethodCallParamsMain",
       "VAR",
       "    motor : Motor;",
       "    result : BOOL;",
@@ -306,7 +306,7 @@ suite("LSP integration (VS Code)", function () {
       "",
     ].join("\n");
     const mainSource = [
-      "PROGRAM Main",
+      "PROGRAM DiagnosticsRefreshMain",
       "VAR",
       "    value : INT;",
       "END_VAR",
@@ -345,9 +345,9 @@ suite("LSP integration (VS Code)", function () {
   });
 
   test("formatting applies canonical layout", async () => {
-    const source = "PROGRAM Test\nVAR\nx:INT;\nEND_VAR\nx:=1;\nEND_PROGRAM\n";
+    const source = "PROGRAM FormattingMain\nVAR\nx:INT;\nEND_VAR\nx:=1;\nEND_PROGRAM\n";
     const expected =
-      "PROGRAM Test\n    VAR\n        x: INT;\n    END_VAR\n    x := 1;\nEND_PROGRAM\n";
+      "PROGRAM FormattingMain\n    VAR\n        x: INT;\n    END_VAR\n    x := 1;\nEND_PROGRAM\n";
     const doc = await createDocument("formatting.st", source);
 
     const edits = (await vscode.commands.executeCommand(
@@ -364,7 +364,7 @@ suite("LSP integration (VS Code)", function () {
   });
 
   test("code actions surface undefined variable quick fix", async () => {
-    const source = "PROGRAM Test\n    foo := 1;\nEND_PROGRAM\n";
+    const source = "PROGRAM CodeActionsMain\n    foo := 1;\nEND_PROGRAM\n";
     const doc = await createDocument("code-actions.st", source);
 
     const diagnostic = new vscode.Diagnostic(
@@ -407,7 +407,7 @@ suite("LSP integration (VS Code)", function () {
       "",
     ].join("\n");
     const mainSource = [
-      "PROGRAM Main",
+      "PROGRAM NamespaceMoveMain",
       "    USING LibA;",
       "    VAR",
       "        x : LibA.Foo;",
@@ -503,7 +503,7 @@ suite("LSP integration (VS Code)", function () {
 
   test("code actions surface inline variable", async () => {
     const source = [
-      "PROGRAM Test",
+      "PROGRAM InlineVariableMain",
       "    VAR",
       "        x : INT := 1 + 2;",
       "        y : INT;",

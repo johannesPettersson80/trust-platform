@@ -109,3 +109,19 @@ END_PROGRAM
         DiagnosticCode::DuplicateDeclaration,
     );
 }
+
+#[test]
+fn duplicate_file_scope_global_names_are_rejected_by_collector_path() {
+    check_has_error(
+        r#"
+VAR_GLOBAL
+    G : INT;
+END_VAR
+
+VAR_GLOBAL
+    G : DINT;
+END_VAR
+"#,
+        DiagnosticCode::DuplicateDeclaration,
+    );
+}

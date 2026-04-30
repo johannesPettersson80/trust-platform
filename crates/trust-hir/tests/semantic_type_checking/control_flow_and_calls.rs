@@ -35,6 +35,24 @@ END_PROGRAM
 }
 
 #[test]
+fn test_struct_field_in_callee_position_is_not_callable() {
+    check_has_error(
+        r#"
+TYPE S : STRUCT
+    x : INT;
+END_STRUCT
+END_TYPE
+
+PROGRAM Test
+    VAR s : S; y : INT; END_VAR
+    y := s.x();
+END_PROGRAM
+"#,
+        DiagnosticCode::UndefinedFunction,
+    );
+}
+
+#[test]
 fn test_case_label_requires_literal_or_constant() {
     check_has_error(
         r#"
@@ -407,6 +425,34 @@ END_PROGRAM
 }
 
 #[test]
+fn test_call_argument_unknown_type_suppression_has_primary_diagnostic() {
+    let errors = check_errors(
+        r#"
+FUNCTION UseBool : BOOL
+    VAR_INPUT
+        b : BOOL;
+    END_VAR
+    UseBool := b;
+END_FUNCTION
+
+PROGRAM Test
+    VAR result : BOOL; END_VAR
+    result := UseBool(missingValue);
+END_PROGRAM
+"#,
+    );
+
+    assert!(
+        errors.contains(&DiagnosticCode::UndefinedVariable),
+        "expected UndefinedVariable primary diagnostic, got {errors:?}"
+    );
+    assert!(
+        !errors.contains(&DiagnosticCode::InvalidArgumentType),
+        "UNKNOWN cascade should not emit wrong-reason InvalidArgumentType, got {errors:?}"
+    );
+}
+
+#[test]
 fn test_non_formal_call_requires_complete_arguments() {
     check_has_error(
         r#"
@@ -473,6 +519,102 @@ PROGRAM Test
 END_PROGRAM
 "#,
         DiagnosticCode::WrongArgumentCount,
+    );
+}
+
+#[test]
+fn test_standard_numeric_unknown_argument_suppression_has_primary_diagnostic() {
+    let errors = check_errors(
+        r#"
+PROGRAM Test
+VAR
+    x : DINT;
+END_VAR
+x := ADD(Missing, 1);
+END_PROGRAM
+"#,
+    );
+
+    assert!(
+        errors.contains(&DiagnosticCode::UndefinedVariable),
+        "expected primary UndefinedVariable diagnostic, got {errors:?}"
+    );
+    assert!(
+        !errors.contains(&DiagnosticCode::InvalidArgumentType)
+            && !errors.contains(&DiagnosticCode::IncompatibleAssignment),
+        "unknown standard numeric argument must not emit wrong-reason argument or assignment cascades, got {errors:?}"
+    );
+}
+
+#[test]
+fn test_standard_unary_unknown_argument_suppression_has_primary_diagnostic() {
+    let errors = check_errors(
+        r#"
+PROGRAM Test
+VAR
+    x : DINT;
+END_VAR
+x := ABS(Missing);
+END_PROGRAM
+"#,
+    );
+
+    assert!(
+        errors.contains(&DiagnosticCode::UndefinedVariable),
+        "expected primary UndefinedVariable diagnostic, got {errors:?}"
+    );
+    assert!(
+        !errors.contains(&DiagnosticCode::InvalidArgumentType)
+            && !errors.contains(&DiagnosticCode::IncompatibleAssignment),
+        "unknown standard unary argument must not emit wrong-reason argument or assignment cascades, got {errors:?}"
+    );
+}
+
+#[test]
+fn test_standard_bit_unknown_argument_suppression_has_primary_diagnostic() {
+    let errors = check_errors(
+        r#"
+PROGRAM Test
+VAR
+    x : BYTE;
+END_VAR
+x := SHL(Missing, 1);
+END_PROGRAM
+"#,
+    );
+
+    assert!(
+        errors.contains(&DiagnosticCode::UndefinedVariable),
+        "expected primary UndefinedVariable diagnostic, got {errors:?}"
+    );
+    assert!(
+        !errors.contains(&DiagnosticCode::InvalidArgumentType)
+            && !errors.contains(&DiagnosticCode::IncompatibleAssignment),
+        "unknown standard bit argument must not emit wrong-reason argument or assignment cascades, got {errors:?}"
+    );
+}
+
+#[test]
+fn test_standard_string_unknown_argument_suppression_has_primary_diagnostic() {
+    let errors = check_errors(
+        r#"
+PROGRAM Test
+VAR
+    x : DINT;
+END_VAR
+x := LEN(Missing);
+END_PROGRAM
+"#,
+    );
+
+    assert!(
+        errors.contains(&DiagnosticCode::UndefinedVariable),
+        "expected primary UndefinedVariable diagnostic, got {errors:?}"
+    );
+    assert!(
+        !errors.contains(&DiagnosticCode::InvalidArgumentType)
+            && !errors.contains(&DiagnosticCode::IncompatibleAssignment),
+        "unknown standard string argument must not emit wrong-reason argument or assignment cascades, got {errors:?}"
     );
 }
 

@@ -33,6 +33,7 @@ impl<'a> BytecodeEncoder<'a> {
             let mut ctx = CodegenContext::new(
                 instance_id,
                 None,
+                program.using.clone(),
                 locals,
                 HashMap::new(),
                 HashMap::new(),
@@ -70,6 +71,7 @@ impl<'a> BytecodeEncoder<'a> {
             let mut ctx = CodegenContext::new(
                 None,
                 None,
+                fb.using.clone(),
                 locals,
                 HashMap::new(),
                 self_fields,
@@ -107,6 +109,7 @@ impl<'a> BytecodeEncoder<'a> {
             let mut ctx = CodegenContext::new(
                 None,
                 Some(func.name.clone()),
+                func.using.clone(),
                 locals,
                 static_refs,
                 HashMap::new(),
@@ -215,6 +218,7 @@ impl<'a> BytecodeEncoder<'a> {
         let mut ctx = CodegenContext::new(
             None,
             method.return_type.as_ref().map(|_| method.name.clone()),
+            method.using.clone(),
             locals,
             HashMap::new(),
             self_fields,

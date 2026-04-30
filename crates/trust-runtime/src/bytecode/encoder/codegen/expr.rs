@@ -304,8 +304,8 @@ impl<'a> BytecodeEncoder<'a> {
                         ));
                     }
                     (NativeTargetKind::FunctionBlock, name.clone(), true)
-                } else if self.runtime.functions().contains_key(&key) {
-                    (NativeTargetKind::Function, name.clone(), false)
+                } else if let Some(function_name) = self.resolve_function_call_name(ctx, name) {
+                    (NativeTargetKind::Function, function_name, false)
                 } else if self.runtime.stdlib().get(name.as_str()).is_some()
                     || crate::stdlib::time::is_runtime_clock_name(key.as_str())
                     || crate::stdlib::time::is_split_name(key.as_str())
@@ -370,6 +370,28 @@ impl<'a> BytecodeEncoder<'a> {
         code.extend_from_slice(&symbol_idx.to_le_bytes());
         code.extend_from_slice(&arg_count.to_le_bytes());
         Ok(true)
+    }
+
+    fn resolve_function_call_name(
+        &self,
+        ctx: &CodegenContext,
+        name: &SmolStr,
+    ) -> Option<SmolStr> {
+        let key = SmolStr::new(name.to_ascii_uppercase());
+        if let Some(function) = self.runtime.functions().get(&key) {
+            return Some(function.name.clone());
+        }
+        if name.contains('.') {
+            return None;
+        }
+        for namespace in &ctx.using {
+            let qualified = SmolStr::new(format!("{namespace}.{name}"));
+            let key = SmolStr::new(qualified.to_ascii_uppercase());
+            if let Some(function) = self.runtime.functions().get(&key) {
+                return Some(function.name.clone());
+            }
+        }
+        None
     }
 
     fn emit_ref_lvalue(

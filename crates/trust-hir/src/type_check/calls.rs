@@ -6,6 +6,8 @@ mod resolve;
 mod special;
 mod standard_fbs;
 
+pub(in crate::type_check) use self::resolve::{NameLookupResult, NameResolveOutcome};
+
 #[derive(Debug, Clone)]
 pub(super) struct CallArg {
     pub(super) name: Option<SmolStr>,
@@ -52,7 +54,9 @@ impl<'a, 'b> CallChecker<'a, 'b> {
     pub(super) fn infer_call_expr(&mut self, node: &SyntaxNode) -> TypeId {
         let children: Vec<_> = node.children().collect();
         if children.is_empty() {
-            return TypeId::UNKNOWN;
+            return self
+                .checker
+                .legacy_type_from_outcome(self.checker.unknown_type_outcome(node.text_range()));
         }
 
         let callee = &children[0];
@@ -78,27 +82,38 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                         return result;
                     }
                 }
-                if let Some(resolved) = self
+                match self
                     .checker
                     .resolve()
-                    .resolve_name_in_context(&name, callee.text_range())
+                    .resolve_name_in_context_outcome(&name, callee.text_range())
                 {
-                    if !resolved.accessible {
-                        return TypeId::UNKNOWN;
-                    }
-                    let Some(call_target) =
-                        self.checker.resolve_ref().resolve_call_target(resolved.id)
-                    else {
-                        self.checker.diagnostics.error(
-                            DiagnosticCode::UndefinedFunction,
-                            callee.text_range(),
-                            format!("'{}' is not callable", name),
-                        );
-                        return TypeId::UNKNOWN;
-                    };
+                    NameResolveOutcome::Resolved(resolved) => {
+                        if !resolved.accessible {
+                            return self.checker.legacy_suppressed_type(
+                                DiagnosticCode::CannotResolve,
+                                callee.text_range(),
+                            );
+                        }
+                        let Some(call_target) =
+                            self.checker.resolve_ref().resolve_call_target(resolved.id)
+                        else {
+                            return self.checker.legacy_diagnostic_type(
+                                DiagnosticCode::UndefinedFunction,
+                                callee.text_range(),
+                                format!("'{}' is not callable", name),
+                            );
+                        };
 
-                    self.check_call_arguments(call_target.param_owner, &call_target.kind, node);
-                    return call_target.return_type;
+                        self.check_call_arguments(call_target.param_owner, &call_target.kind, node);
+                        return call_target.return_type;
+                    }
+                    NameResolveOutcome::Ambiguous => {
+                        return self.checker.legacy_suppressed_type(
+                            DiagnosticCode::CannotResolve,
+                            callee.text_range(),
+                        );
+                    }
+                    NameResolveOutcome::NotFound => {}
                 }
 
                 if let Some(result) = self
@@ -109,12 +124,11 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                     return result;
                 }
 
-                self.checker.diagnostics.error(
+                return self.checker.legacy_diagnostic_type(
                     DiagnosticCode::UndefinedFunction,
                     callee.text_range(),
                     format!("undefined function '{}'", name),
                 );
-                return TypeId::UNKNOWN;
             }
         }
 
@@ -129,12 +143,11 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                     self.check_call_arguments(call_target.param_owner, &call_target.kind, node);
                     return call_target.return_type;
                 }
-                self.checker.diagnostics.error(
+                return self.checker.legacy_diagnostic_type(
                     DiagnosticCode::UndefinedFunction,
                     callee.text_range(),
                     "qualified name is not callable",
                 );
-                return TypeId::UNKNOWN;
             }
             let field_children: Vec<_> = callee.children().collect();
             if field_children.len() >= 2 {
@@ -148,17 +161,19 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                         member.text_range(),
                     ) {
                         if !resolved.accessible {
-                            return TypeId::UNKNOWN;
+                            return self.checker.legacy_suppressed_type(
+                                DiagnosticCode::CannotResolve,
+                                member.text_range(),
+                            );
                         }
                         let Some(call_target) =
                             self.checker.resolve_ref().resolve_call_target(resolved.id)
                         else {
-                            self.checker.diagnostics.error(
+                            return self.checker.legacy_diagnostic_type(
                                 DiagnosticCode::UndefinedFunction,
                                 member.text_range(),
                                 format!("'{}' is not callable", name),
                             );
-                            return TypeId::UNKNOWN;
                         };
 
                         self.check_call_arguments(call_target.param_owner, &call_target.kind, node);
@@ -167,8 +182,26 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                 }
             }
 
-            self.checker.expr().check_expression(callee);
-            return TypeId::UNKNOWN;
+            let callee_type = self.checker.expr().check_expression(callee);
+            if callee_type != TypeId::UNKNOWN {
+                if let Some(call_target) = self
+                    .checker
+                    .resolve_ref()
+                    .resolve_call_target_from_type(callee_type)
+                {
+                    self.check_call_arguments(call_target.param_owner, &call_target.kind, node);
+                    return call_target.return_type;
+                }
+
+                return self.checker.legacy_diagnostic_type(
+                    DiagnosticCode::UndefinedFunction,
+                    callee.text_range(),
+                    "field expression is not callable",
+                );
+            }
+            return self
+                .checker
+                .legacy_suppressed_type(DiagnosticCode::CannotResolve, callee.text_range());
         }
 
         let callee_type = self.checker.expr().check_expression(callee);
@@ -181,7 +214,16 @@ impl<'a, 'b> CallChecker<'a, 'b> {
             return call_target.return_type;
         }
 
-        TypeId::UNKNOWN
+        if callee_type != TypeId::UNKNOWN {
+            return self.checker.legacy_diagnostic_type(
+                DiagnosticCode::UndefinedFunction,
+                callee.text_range(),
+                "expression is not callable",
+            );
+        }
+
+        self.checker
+            .legacy_suppressed_type(DiagnosticCode::CannotResolve, callee.text_range())
     }
 
     pub(super) fn check_call_arguments(

@@ -186,7 +186,7 @@ fn classify_identifier(
     }
 
     // Fallback: try global lookup
-    if let Some(symbol) = filter.lookup_any(name) {
+    if let Some(symbol) = filter.lookup_global(name) {
         if symbol_is_constant(symbol) {
             modifiers.readonly = true;
         }

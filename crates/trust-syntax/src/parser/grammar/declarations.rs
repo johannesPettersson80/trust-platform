@@ -30,6 +30,17 @@ const DECLARATION_RECOVERY_BOUNDARIES: &[TokenKind] = &[
 ];
 
 impl Parser<'_, '_> {
+    pub(crate) fn at_name_token(&self) -> bool {
+        matches!(
+            self.current(),
+            TokenKind::Ident
+                | TokenKind::KwEn
+                | TokenKind::KwEno
+                | TokenKind::KwGet
+                | TokenKind::KwSet
+        )
+    }
+
     /// Parse a TYPE declaration block.
     pub(crate) fn parse_type_decl(&mut self) {
         self.start_node(SyntaxKind::TypeDecl);
@@ -581,7 +592,7 @@ impl Parser<'_, '_> {
     /// Parse a name (identifier).
     pub(crate) fn parse_name(&mut self) {
         self.start_node(SyntaxKind::Name);
-        if self.at(TokenKind::Ident) || self.at(TokenKind::KwEn) || self.at(TokenKind::KwEno) {
+        if self.at_name_token() {
             self.bump();
         }
         self.finish_node();
@@ -590,7 +601,7 @@ impl Parser<'_, '_> {
     /// Parse a qualified name (e.g., Namespace.Type).
     pub(crate) fn parse_qualified_name(&mut self) {
         self.start_node(SyntaxKind::QualifiedName);
-        if self.at(TokenKind::Ident) {
+        if self.at_name_token() {
             self.parse_name();
         } else {
             self.error("expected name");
@@ -598,7 +609,7 @@ impl Parser<'_, '_> {
 
         while self.at(TokenKind::Dot) {
             self.bump();
-            if self.at(TokenKind::Ident) {
+            if self.at_name_token() {
                 self.parse_name();
             } else {
                 self.error("expected name after '.'");

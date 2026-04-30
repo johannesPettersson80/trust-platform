@@ -165,7 +165,7 @@ fn collect_missing_interface_stubs(
         }
         let interface_id = symbols
             .resolve_qualified(parts)
-            .or_else(|| symbols.resolve_by_name(&join_namespace_path(parts)));
+            .or_else(|| symbols.resolve_global_or_qualified_name(&join_namespace_path(parts)));
         let Some(interface_id) = interface_id else {
             continue;
         };
@@ -243,8 +243,9 @@ fn collect_interface_stubs(
             }
         }
 
-        if let Some(base_name) = symbols.extends_name(current) {
-            if let Some(base_id) = symbols.resolve_by_name(base_name.as_str()) {
+        if let Some(base) = symbols.extends_reference(current) {
+            let base_name = base.name().display();
+            if let Some(base_id) = symbols.resolve_oop_reference_for_owner(current, base_name.as_str()) {
                 stack.push(base_id);
             }
         }
@@ -351,9 +352,10 @@ fn collect_implementation_members(symbols: &SymbolTable, owner_id: SymbolId) -> 
             }
         }
 
-        current = symbols
-            .extends_name(symbol_id)
-            .and_then(|base_name| symbols.resolve_by_name(base_name.as_str()));
+        current = symbols.extends_reference(symbol_id).and_then(|base| {
+            let base_name = base.name().display();
+            symbols.resolve_oop_reference_for_owner(symbol_id, base_name.as_str())
+        });
     }
 
     ImplementedMembers {
@@ -762,4 +764,3 @@ fn declared_symbols_in_range(symbols: &SymbolTable, range: TextRange) -> FxHashS
         .map(|symbol| symbol.id)
         .collect()
 }
-

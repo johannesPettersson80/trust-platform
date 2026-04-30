@@ -208,6 +208,31 @@ END_PROGRAM
 }
 
 #[test]
+fn hmi_runtime_read_port_is_code_backed_without_json_transport() {
+    let source = r#"
+PROGRAM Main
+VAR
+    run : BOOL := TRUE;
+END_VAR
+END_PROGRAM
+"#;
+    let state = hmi_test_state(source);
+    let ids = vec!["resource/RESOURCE/program/Main/field/run".to_string()];
+    let read = hmi_handlers::read_hmi_values_port(&state, Some(ids.as_slice()))
+        .expect("read hmi values through control port");
+
+    assert_eq!(read.schema.schema_revision, 0);
+    assert!(read.values.connected);
+    assert_eq!(
+        read.values
+            .values
+            .get("resource/RESOURCE/program/Main/field/run")
+            .map(|record| &record.v),
+        Some(&json!(true))
+    );
+}
+
+#[test]
 fn hmi_write_is_disabled_in_read_only_mode() {
     let source = r#"
 PROGRAM Main
@@ -231,6 +256,39 @@ END_PROGRAM
         response.error.as_deref(),
         Some("hmi.write disabled in read-only mode")
     );
+}
+
+#[test]
+fn hmi_runtime_write_port_queues_allowlisted_write_without_json_transport() {
+    let source = r#"
+PROGRAM Main
+VAR
+    run : BOOL := TRUE;
+END_VAR
+END_PROGRAM
+"#;
+    let root = temp_dir("hmi-port-write-program");
+    write_file(
+        &root.join("hmi.toml"),
+        r#"
+[write]
+enabled = true
+allow = ["Main.run"]
+"#,
+    );
+
+    let mut state = hmi_test_state(source);
+    set_hmi_project_root(&mut state, &root);
+
+    let queued = hmi_handlers::queue_hmi_runtime_write_port(&state, "Main.run", &json!(false))
+        .expect("queue hmi write through control port");
+    assert_eq!(queued.path, "Main.run");
+
+    let writes = state.debug.drain_var_writes();
+    assert_eq!(writes.len(), 1);
+    assert_eq!(writes[0].value, Value::Bool(false));
+
+    fs::remove_dir_all(root).ok();
 }
 
 #[test]
@@ -479,4 +537,3 @@ allow = ["resource/RESOURCE/program/Main/field/run"]
     );
     fs::remove_dir_all(root).ok();
 }
-

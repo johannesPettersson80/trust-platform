@@ -84,7 +84,8 @@ pub fn supertypes(db: &Database, item: &TypeHierarchyItem) -> Vec<TypeHierarchyI
         .unwrap_or(ScopeId::GLOBAL);
 
     let mut items = Vec::new();
-    if let Some(base_name) = symbols.extends_name(symbol.id) {
+    if let Some(base) = symbols.extends_reference(symbol.id) {
+        let base_name = base.name().display();
         if let Some(base_id) = resolve_type_symbol_in_scope(&symbols, base_name.as_str(), scope_id)
         {
             if let Some(key) = symbol_key(&symbols, base_id, item.file_id) {
@@ -95,15 +96,13 @@ pub fn supertypes(db: &Database, item: &TypeHierarchyItem) -> Vec<TypeHierarchyI
         }
     }
 
-    if let Some(names) = symbols.implements_names(symbol.id) {
-        for name in names {
-            if let Some(interface_id) =
-                resolve_type_symbol_in_scope(&symbols, name.as_str(), scope_id)
-            {
-                if let Some(key) = symbol_key(&symbols, interface_id, item.file_id) {
-                    if let Some(item) = type_hierarchy_item_for_key(db, key) {
-                        items.push(item);
-                    }
+    for interface in symbols.implements_references(symbol.id) {
+        let name = interface.name().display();
+        if let Some(interface_id) = resolve_type_symbol_in_scope(&symbols, name.as_str(), scope_id)
+        {
+            if let Some(key) = symbol_key(&symbols, interface_id, item.file_id) {
+                if let Some(item) = type_hierarchy_item_for_key(db, key) {
+                    items.push(item);
                 }
             }
         }
@@ -170,7 +169,8 @@ fn is_subtype_of(
     let scope_id = symbols
         .scope_for_owner(symbol.id)
         .unwrap_or(ScopeId::GLOBAL);
-    if let Some(base_name) = symbols.extends_name(symbol.id) {
+    if let Some(base) = symbols.extends_reference(symbol.id) {
+        let base_name = base.name().display();
         if let Some(base_id) = resolve_type_symbol_in_scope(symbols, base_name.as_str(), scope_id) {
             if let Some(key) = symbol_key(symbols, base_id, target_item.file_id) {
                 if key == target_key {
@@ -180,15 +180,12 @@ fn is_subtype_of(
         }
     }
 
-    if let Some(names) = symbols.implements_names(symbol.id) {
-        for name in names {
-            if let Some(interface_id) =
-                resolve_type_symbol_in_scope(symbols, name.as_str(), scope_id)
-            {
-                if let Some(key) = symbol_key(symbols, interface_id, target_item.file_id) {
-                    if key == target_key {
-                        return true;
-                    }
+    for interface in symbols.implements_references(symbol.id) {
+        let name = interface.name().display();
+        if let Some(interface_id) = resolve_type_symbol_in_scope(symbols, name.as_str(), scope_id) {
+            if let Some(key) = symbol_key(symbols, interface_id, target_item.file_id) {
+                if key == target_key {
+                    return true;
                 }
             }
         }

@@ -67,3 +67,28 @@ END_PROGRAM
 "#,
     );
 }
+
+#[test]
+fn test_ambiguous_unqualified_enum_variant_in_constant_initializer_is_rejected() {
+    check_has_error(
+        r#"
+TYPE
+NAMESPACE Paint
+TYPE PaintColor : (RED, BLUE)
+END_TYPE
+END_NAMESPACE
+
+NAMESPACE Alarm
+TYPE AlarmColor : (RED, GREEN)
+END_TYPE
+END_NAMESPACE
+
+PROGRAM Test
+    VAR CONSTANT
+        Selected : INT := RED;
+    END_VAR
+END_PROGRAM
+"#,
+        DiagnosticCode::CannotResolve,
+    );
+}

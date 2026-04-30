@@ -106,12 +106,12 @@ suite("Debug/IO DRY flows", function () {
     const projectRoot = vscode.Uri.joinPath(fixturesRoot, "auto-config-project");
     const srcRoot = vscode.Uri.joinPath(projectRoot, "src");
     await vscode.workspace.fs.createDirectory(srcRoot);
-    const mainUri = vscode.Uri.joinPath(srcRoot, "Main.st");
+    const mainUri = vscode.Uri.joinPath(srcRoot, "AutoConfigMain.st");
     await vscode.workspace.fs.writeFile(
       mainUri,
       Buffer.from(
         [
-          "PROGRAM Main",
+          "PROGRAM AutoConfigMain",
           "VAR",
           "    run : BOOL := TRUE;",
           "END_VAR",
@@ -122,12 +122,12 @@ suite("Debug/IO DRY flows", function () {
       )
     );
 
-    const created = await __testCreateDefaultConfigurationAuto("Main", mainUri);
+    const created = await __testCreateDefaultConfigurationAuto("AutoConfigMain", mainUri);
     assert.ok(created, "Expected auto configuration creation to return a URI.");
     assert.ok(await pathExists(created!), "Expected created configuration file.");
     const text = await readText(created!);
     assert.ok(text.includes("CONFIGURATION Conf"));
-    assert.ok(text.includes("PROGRAM P1 WITH MainTask : Main;"));
+    assert.ok(text.includes("PROGRAM P1 WITH MainTask : AutoConfigMain;"));
   });
 
   test("integration: settings update persists values", async () => {

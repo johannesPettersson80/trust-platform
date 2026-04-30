@@ -1,11 +1,17 @@
 use super::super::*;
 use super::*;
+use crate::semantic::SemanticOutcome;
 
 impl<'a, 'b> CallChecker<'a, 'b> {
     pub(in crate::type_check) fn infer_index_expr(&mut self, node: &SyntaxNode) -> TypeId {
+        let outcome = self.infer_index_expr_outcome(node);
+        self.checker.legacy_type_from_outcome(outcome)
+    }
+
+    fn infer_index_expr_outcome(&mut self, node: &SyntaxNode) -> SemanticOutcome<TypeId> {
         let children: Vec<_> = node.children().collect();
         if children.is_empty() {
-            return TypeId::UNKNOWN;
+            return self.checker.unknown_type_outcome(node.text_range());
         }
 
         let base_type = self.checker.expr().check_expression(&children[0]);
@@ -13,7 +19,7 @@ impl<'a, 'b> CallChecker<'a, 'b> {
         let index_count = children.len().saturating_sub(1);
         let mut index_exprs = Vec::new();
 
-        // Check index expression types (must be integers)
+        // Check index expression types (must be integers).
         for idx_expr in children.iter().skip(1) {
             let idx_type_raw = self.checker.expr().check_expression(idx_expr);
             let idx_type = self.checker.resolve_alias_type(idx_type_raw);
@@ -29,6 +35,12 @@ impl<'a, 'b> CallChecker<'a, 'b> {
             }
         }
 
+        if resolved_base == TypeId::UNKNOWN {
+            return self
+                .checker
+                .suppressed_type_outcome(DiagnosticCode::CannotResolve, children[0].text_range());
+        }
+
         if let Some(base_type) = self.checker.symbols.type_by_id(resolved_base) {
             match base_type {
                 Type::Array {
@@ -38,7 +50,7 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                     let element = *element;
                     let dimensions = dimensions.clone();
                     if index_count != dimensions.len() {
-                        self.checker.diagnostics.error(
+                        return self.checker.diagnostic_type_outcome(
                             DiagnosticCode::InvalidArrayIndex,
                             node.text_range(),
                             format!(
@@ -47,23 +59,21 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                                 index_count
                             ),
                         );
-                        return TypeId::UNKNOWN;
                     }
                     for ((expr, _, idx_type), (lower, upper)) in
                         index_exprs.iter().zip(dimensions.iter())
                     {
                         self.check_array_index_bounds(expr, *idx_type, *lower, *upper);
                     }
-                    return element;
+                    return SemanticOutcome::Resolved(element);
                 }
                 Type::String { max_len } => {
                     if index_count != 1 {
-                        self.checker.diagnostics.error(
+                        return self.checker.diagnostic_type_outcome(
                             DiagnosticCode::InvalidArrayIndex,
                             node.text_range(),
                             format!("expected 1 index value, found {index_count}"),
                         );
-                        return TypeId::UNKNOWN;
                     }
                     if let Some(max_len) = max_len {
                         self.check_array_index_bounds(
@@ -73,16 +83,15 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                             i64::from(*max_len),
                         );
                     }
-                    return TypeId::CHAR;
+                    return SemanticOutcome::Resolved(TypeId::CHAR);
                 }
                 Type::WString { max_len } => {
                     if index_count != 1 {
-                        self.checker.diagnostics.error(
+                        return self.checker.diagnostic_type_outcome(
                             DiagnosticCode::InvalidArrayIndex,
                             node.text_range(),
                             format!("expected 1 index value, found {index_count}"),
                         );
-                        return TypeId::UNKNOWN;
                     }
                     if let Some(max_len) = max_len {
                         self.check_array_index_bounds(
@@ -92,24 +101,28 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                             i64::from(*max_len),
                         );
                     }
-                    return TypeId::WCHAR;
+                    return SemanticOutcome::Resolved(TypeId::WCHAR);
                 }
                 _ => {}
             }
         }
 
-        self.checker.diagnostics.error(
+        self.checker.diagnostic_type_outcome(
             DiagnosticCode::TypeMismatch,
             node.text_range(),
             "indexing requires an array, STRING, or WSTRING type",
-        );
-        TypeId::UNKNOWN
+        )
     }
 
     pub(in crate::type_check) fn infer_field_expr(&mut self, node: &SyntaxNode) -> TypeId {
+        let outcome = self.infer_field_expr_outcome(node);
+        self.checker.legacy_type_from_outcome(outcome)
+    }
+
+    fn infer_field_expr_outcome(&mut self, node: &SyntaxNode) -> SemanticOutcome<TypeId> {
         let children: Vec<_> = node.children().collect();
         if children.len() < 2 {
-            return TypeId::UNKNOWN;
+            return self.checker.unknown_type_outcome(node.text_range());
         }
 
         if let Some(symbol_id) = self
@@ -118,7 +131,15 @@ impl<'a, 'b> CallChecker<'a, 'b> {
             .resolve_namespace_qualified_symbol(node)
         {
             if let Some(symbol) = self.checker.symbols.get(symbol_id) {
-                return symbol.type_id;
+                if let Some(role) = non_value_role(&symbol.kind) {
+                    let name = symbol.name.clone();
+                    return self.checker.diagnostic_type_outcome(
+                        DiagnosticCode::InvalidOperation,
+                        node.text_range(),
+                        format!("{role} '{name}' cannot be used as a value"),
+                    );
+                }
+                return SemanticOutcome::Resolved(symbol.type_id);
             }
         }
 
@@ -128,19 +149,22 @@ impl<'a, 'b> CallChecker<'a, 'b> {
         let field_name = self.checker.resolve_ref().get_name_from_ref(member);
 
         if field_name.is_none() {
-            if let Some(ty) = self.infer_partial_bit_access(base_type, member) {
-                return ty;
+            if let Some(outcome) = self.infer_partial_bit_access_outcome(base_type, member) {
+                return outcome;
             }
-            return TypeId::UNKNOWN;
+            return self.checker.unknown_type_outcome(member.text_range());
         }
 
         let field_name = field_name.unwrap();
+        let resolved_base = self.checker.resolve_alias_type(base_type);
 
-        if let Some(ty) = self
-            .checker
-            .symbols
-            .type_by_id(self.checker.resolve_alias_type(base_type))
-        {
+        if base_type == TypeId::UNKNOWN || resolved_base == TypeId::UNKNOWN {
+            return self
+                .checker
+                .suppressed_type_outcome(DiagnosticCode::CannotResolve, base.text_range());
+        }
+
+        if let Some(ty) = self.checker.symbols.type_by_id(resolved_base) {
             match ty {
                 Type::Struct { .. } | Type::Union { .. } => {
                     if let Some(field_type) = self
@@ -148,14 +172,13 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                         .resolve_ref()
                         .resolve_member_in_type(base_type, &field_name)
                     {
-                        return field_type;
+                        return SemanticOutcome::Resolved(field_type);
                     }
-                    self.checker.diagnostics.error(
+                    return self.checker.diagnostic_type_outcome(
                         DiagnosticCode::CannotResolve,
                         member.text_range(),
                         format!("no field '{}' on struct", field_name),
                     );
-                    return TypeId::UNKNOWN;
                 }
                 Type::FunctionBlock { .. } | Type::Class { .. } | Type::Interface { .. } => {
                     if let Some(resolved) = self.checker.resolve().resolve_member_symbol_in_type(
@@ -164,7 +187,7 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                         member.text_range(),
                     ) {
                         let Some(symbol) = self.checker.symbols.get(resolved.id) else {
-                            return TypeId::UNKNOWN;
+                            return self.checker.unknown_type_outcome(member.text_range());
                         };
                         if resolved.accessible {
                             if let SymbolKind::Property { has_get, .. } = symbol.kind {
@@ -177,37 +200,51 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                                 }
                             }
                         }
-                        return symbol.type_id;
+                        return SemanticOutcome::Resolved(symbol.type_id);
                     }
-                    self.checker.diagnostics.error(
+                    return self.checker.diagnostic_type_outcome(
                         DiagnosticCode::CannotResolve,
                         member.text_range(),
                         format!("no member '{}' on type", field_name),
                     );
-                    return TypeId::UNKNOWN;
                 }
                 _ => {
-                    self.checker.diagnostics.error(
+                    return self.checker.diagnostic_type_outcome(
                         DiagnosticCode::TypeMismatch,
                         node.text_range(),
                         "field access requires struct, function block, or class type",
                     );
-                    return TypeId::UNKNOWN;
                 }
             }
         }
 
-        TypeId::UNKNOWN
+        SemanticOutcome::InvariantViolation {
+            message: SmolStr::new(format!("type id {:?} has no registry entry", resolved_base)),
+            range: Some(base.text_range()),
+        }
     }
 
-    fn infer_partial_bit_access(
+    fn infer_partial_bit_access_outcome(
         &mut self,
         base_type: TypeId,
         member: &SyntaxNode,
-    ) -> Option<TypeId> {
+    ) -> Option<SemanticOutcome<TypeId>> {
         let access = parse_partial_access(member.text().to_string().trim())?;
         let resolved = self.checker.resolve_alias_type(base_type);
-        let ty = self.checker.symbols.type_by_id(resolved)?;
+        if base_type == TypeId::UNKNOWN || resolved == TypeId::UNKNOWN {
+            return Some(
+                self.checker
+                    .suppressed_type_outcome(DiagnosticCode::CannotResolve, member.text_range()),
+            );
+        }
+
+        let Some(ty) = self.checker.symbols.type_by_id(resolved) else {
+            return Some(SemanticOutcome::InvariantViolation {
+                message: SmolStr::new(format!("type id {:?} has no registry entry", resolved)),
+                range: Some(member.text_range()),
+            });
+        };
+
         let (result, max_index) = match (ty, access) {
             (Type::Byte, PartialAccess::Bit(_)) => (TypeId::BOOL, 7u8),
             (Type::Word, PartialAccess::Bit(_)) => (TypeId::BOOL, 15u8),
@@ -223,58 +260,69 @@ impl<'a, 'b> CallChecker<'a, 'b> {
         };
         let index = access.index();
         if index > max_index {
-            self.checker.diagnostics.error(
+            return Some(self.checker.diagnostic_type_outcome(
                 DiagnosticCode::OutOfRange,
                 member.text_range(),
                 "partial access index out of range",
-            );
-            return Some(TypeId::UNKNOWN);
+            ));
         }
-        Some(result)
+        Some(SemanticOutcome::Resolved(result))
     }
 
     pub(in crate::type_check) fn infer_deref_expr(&mut self, node: &SyntaxNode) -> TypeId {
+        let outcome = self.infer_deref_expr_outcome(node);
+        self.checker.legacy_type_from_outcome(outcome)
+    }
+
+    fn infer_deref_expr_outcome(&mut self, node: &SyntaxNode) -> SemanticOutcome<TypeId> {
         let operand = match node.children().next() {
             Some(child) => self.checker.expr().check_expression(&child),
-            None => return TypeId::UNKNOWN,
+            None => return self.checker.unknown_type_outcome(node.text_range()),
         };
 
         let operand = self.checker.resolve_alias_type(operand);
+        if operand == TypeId::UNKNOWN {
+            return self
+                .checker
+                .suppressed_type_outcome(DiagnosticCode::CannotResolve, node.text_range());
+        }
         if let Some(Type::Pointer { target } | Type::Reference { target }) =
             self.checker.symbols.type_by_id(operand)
         {
-            return *target;
+            return SemanticOutcome::Resolved(*target);
         }
 
-        self.checker.diagnostics.error(
+        self.checker.diagnostic_type_outcome(
             DiagnosticCode::TypeMismatch,
             node.text_range(),
             "dereference requires pointer type",
-        );
-        TypeId::UNKNOWN
+        )
     }
 
     pub(in crate::type_check) fn infer_addr_expr(&mut self, node: &SyntaxNode) -> TypeId {
+        let outcome = self.infer_addr_expr_outcome(node);
+        self.checker.legacy_type_from_outcome(outcome)
+    }
+
+    fn infer_addr_expr_outcome(&mut self, node: &SyntaxNode) -> SemanticOutcome<TypeId> {
         let operand = match node.children().next() {
             Some(child) => child,
-            None => return TypeId::UNKNOWN,
+            None => return self.checker.unknown_type_outcome(node.text_range()),
         };
 
         if !self.checker.is_valid_lvalue(&operand) {
-            self.checker.diagnostics.error(
+            return self.checker.diagnostic_type_outcome(
                 DiagnosticCode::InvalidOperation,
                 operand.text_range(),
                 "ADR expects an assignable operand",
             );
-            return TypeId::UNKNOWN;
         }
         if self.checker.is_constant_target(&operand) {
-            self.checker.diagnostics.error(
+            return self.checker.diagnostic_type_outcome(
                 DiagnosticCode::InvalidOperation,
                 operand.text_range(),
                 "ADR cannot take the address of a constant",
             );
-            return TypeId::UNKNOWN;
         }
 
         let operand = self.checker.expr().check_expression(&operand);
@@ -286,10 +334,12 @@ impl<'a, 'b> CallChecker<'a, 'b> {
         // `ARRAY[*]` is the only bound-agnostic form; implicit bound widening
         // between concrete arrays is intentionally not supported.
         if operand == TypeId::UNKNOWN {
-            return TypeId::UNKNOWN;
+            return self
+                .checker
+                .suppressed_type_outcome(DiagnosticCode::CannotResolve, node.text_range());
         }
 
-        self.checker.symbols.register_pointer_type(operand)
+        SemanticOutcome::Resolved(self.checker.symbols.register_pointer_type(operand))
     }
 
     fn check_array_index_bounds(
@@ -299,7 +349,7 @@ impl<'a, 'b> CallChecker<'a, 'b> {
         lower: i64,
         upper: i64,
     ) {
-        if let Some(value_int) = self.checker.eval_const_int_expr(expr) {
+        if let Some(value_int) = self.checker.eval_const_int_expr_or_report(expr) {
             if value_int < lower || value_int > upper {
                 self.checker.diagnostics.error(
                     DiagnosticCode::OutOfRange,

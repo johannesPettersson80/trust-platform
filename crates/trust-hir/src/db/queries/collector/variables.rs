@@ -1,6 +1,7 @@
 use super::*;
 use crate::db::diagnostics::is_expression_kind;
 use crate::db::queries::collector::const_utils::{scope_chain_for_node, ConstEvalError};
+use crate::semantic::LEGACY_UNKNOWN_TYPE_ID;
 
 impl SymbolCollector<'_> {
     pub(super) fn extract_var_decl_info(
@@ -469,6 +470,11 @@ impl SymbolCollector<'_> {
                 range,
                 format!("undefined constant '{name}'"),
             ),
+            ConstEvalError::AmbiguousName(name) => self.diagnostics.error(
+                DiagnosticCode::CannotResolve,
+                range,
+                format!("ambiguous enum value '{name}'"),
+            ),
             ConstEvalError::NotConstant => self.diagnostics.error(
                 DiagnosticCode::InvalidOperation,
                 range,
@@ -563,7 +569,7 @@ impl SymbolCollector<'_> {
                 .children()
                 .find(|n| n.kind() == SyntaxKind::TypeRef)
                 .map(|n| self.resolve_type_from_ref(&n))
-                .unwrap_or(TypeId::UNKNOWN);
+                .unwrap_or(LEGACY_UNKNOWN_TYPE_ID);
 
             let mode = access_decl_mode(&access_decl);
             let kind = match mode {
@@ -582,7 +588,42 @@ impl SymbolCollector<'_> {
         }
     }
 
-    pub(super) fn collect_var_config_block(&mut self, _node: &SyntaxNode) {}
+    pub(super) fn collect_var_config_block(&mut self, node: &SyntaxNode) {
+        if !self.in_configuration_scope() {
+            self.diagnostics.error(
+                DiagnosticCode::InvalidOperation,
+                node.text_range(),
+                "VAR_CONFIG is only valid inside CONFIGURATION or RESOURCE declarations",
+            );
+        }
+
+        for config_init in node
+            .children()
+            .filter(|n| n.kind() == SyntaxKind::ConfigInit)
+        {
+            if config_init
+                .children()
+                .all(|n| n.kind() != SyntaxKind::AccessPath)
+            {
+                self.diagnostics.error(
+                    DiagnosticCode::InvalidOperation,
+                    config_init.text_range(),
+                    "VAR_CONFIG entry requires a target access path",
+                );
+            }
+
+            if config_init
+                .children()
+                .all(|n| n.kind() != SyntaxKind::TypeRef)
+            {
+                self.diagnostics.error(
+                    DiagnosticCode::InvalidOperation,
+                    config_init.text_range(),
+                    "VAR_CONFIG entry requires a declared type",
+                );
+            }
+        }
+    }
 
     fn in_configuration_scope(&self) -> bool {
         self.table

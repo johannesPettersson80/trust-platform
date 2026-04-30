@@ -52,12 +52,22 @@ fn check_scope_tasks_and_programs(
         }
 
         if let Some((instance, type_parts)) = program_config_instance_and_type(&program) {
-            if resolve_program_type(symbols, &type_parts).is_none() {
-                diagnostics.error(
-                    DiagnosticCode::UndefinedType,
-                    range_for_program_name(&program).unwrap_or_else(|| program.text_range()),
-                    format!("unknown program type for '{instance}'"),
-                );
+            match resolve_program_type(symbols, &type_parts) {
+                ProgramTypeResolution::Program(_) => {}
+                ProgramTypeResolution::WrongKind(symbol_name) => {
+                    diagnostics.error(
+                        DiagnosticCode::InvalidOperation,
+                        range_for_program_name(&program).unwrap_or_else(|| program.text_range()),
+                        format!("PROGRAM instance type '{symbol_name}' is not a PROGRAM"),
+                    );
+                }
+                ProgramTypeResolution::Missing => {
+                    diagnostics.error(
+                        DiagnosticCode::UndefinedType,
+                        range_for_program_name(&program).unwrap_or_else(|| program.text_range()),
+                        format!("unknown program type for '{instance}'"),
+                    );
+                }
             }
         }
     }
@@ -272,18 +282,31 @@ fn range_for_program_name(node: &SyntaxNode) -> Option<TextRange> {
     name_from_node(node).map(|(_, range)| range)
 }
 
-fn resolve_program_type(symbols: &SymbolTable, parts: &[SmolStr]) -> Option<SymbolId> {
-    let symbol_id = symbols.resolve_qualified(parts).or_else(|| {
-        if parts.len() == 1 {
-            symbols.lookup_any(parts[0].as_str())
-        } else {
-            None
-        }
-    })?;
-    symbols
-        .get(symbol_id)
-        .filter(|symbol| matches!(symbol.kind, SymbolKind::Program))?;
-    Some(symbol_id)
+pub(super) enum ProgramTypeResolution {
+    Program(SymbolId),
+    WrongKind(SmolStr),
+    Missing,
+}
+
+pub(super) fn resolve_program_type(
+    symbols: &SymbolTable,
+    parts: &[SmolStr],
+) -> ProgramTypeResolution {
+    let Some(symbol_id) = (if parts.len() == 1 {
+        symbols.lookup(parts[0].as_str())
+    } else {
+        symbols.resolve_qualified(parts)
+    }) else {
+        return ProgramTypeResolution::Missing;
+    };
+    let Some(symbol) = symbols.get(symbol_id) else {
+        return ProgramTypeResolution::Missing;
+    };
+    if matches!(symbol.kind, SymbolKind::Program) {
+        ProgramTypeResolution::Program(symbol_id)
+    } else {
+        ProgramTypeResolution::WrongKind(symbol.name.clone())
+    }
 }
 
 pub(super) fn normalize_task_name(name: &str) -> SmolStr {

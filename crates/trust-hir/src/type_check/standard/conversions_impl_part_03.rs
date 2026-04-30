@@ -7,6 +7,9 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         let mut any_lreal = false;
         for (arg, ty) in args {
             let base = self.base_type_id(*ty);
+            if base == TypeId::UNKNOWN {
+                return None;
+            }
             if !self.is_real_type(base) {
                 self.checker.diagnostics.error(
                     DiagnosticCode::InvalidArgumentType,
@@ -42,6 +45,9 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         let mut common: Option<(TypeId, u32)> = None;
         for (arg, ty) in args {
             let base = self.base_type_id(*ty);
+            if base == TypeId::UNKNOWN {
+                return None;
+            }
             if !self.is_bit_string_type(base) {
                 self.checker.diagnostics.error(
                     DiagnosticCode::InvalidArgumentType,
@@ -83,6 +89,9 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         let mut common: Option<TypeId> = None;
         for (arg, ty) in args {
             let base = self.base_type_id(*ty);
+            if base == TypeId::UNKNOWN {
+                return None;
+            }
             if !self.is_string_type(base) {
                 self.checker.diagnostics.error(
                     DiagnosticCode::InvalidArgumentType,
@@ -128,6 +137,9 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         if args.is_empty() {
             return None;
         }
+        if args.iter().any(|(_, ty)| self.base_type_id(*ty) == TypeId::UNKNOWN) {
+            return None;
+        }
         if args.iter().all(|(_, ty)| self.is_elementary_type(*ty)) {
             return self.common_elementary_type_for_args(args);
         }
@@ -153,6 +165,9 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         args: &[(CallArg, TypeId)],
     ) -> Option<TypeId> {
         if args.is_empty() {
+            return None;
+        }
+        if args.iter().any(|(_, ty)| self.base_type_id(*ty) == TypeId::UNKNOWN) {
             return None;
         }
 

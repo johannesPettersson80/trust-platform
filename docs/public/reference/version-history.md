@@ -2,8 +2,8 @@
 
 ## Current Baseline
 
-- current repository baseline: `v0.24.7`
-- public docs in this tree describe the `v0.24.7` workspace version unless a
+- current repository baseline: `v0.24.8`
+- public docs in this tree describe the `v0.24.8` workspace version unless a
   page explicitly marks a feature as experimental, roadmap, or target-specific
 
 ## What Changed Recently
@@ -22,6 +22,9 @@
   advisories.
 - OSCAT OOP reset behavior, converter parity, API naming, dependency
   alias, and comparison examples were hardened after external review.
+- OSCAT OOP example validation keeps all catalog/layout/pattern checks in the
+  default Rust suite, while the full 98-project runtime CLI execution sweep is
+  an explicit ignored gate for release or targeted OSCAT validation.
 - HIR default-initializer analysis now rejects non-repeat call expressions used
   as array defaults and validates repeated array defaults against the element
   type.

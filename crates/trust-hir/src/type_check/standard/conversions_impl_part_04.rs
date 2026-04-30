@@ -7,6 +7,9 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         if args.len() < 2 {
             return true;
         }
+        if args.iter().any(|(_, ty)| self.base_type_id(*ty) == TypeId::UNKNOWN) {
+            return false;
+        }
 
         if args.iter().all(|(_, ty)| self.is_numeric_type(*ty)) {
             self.common_numeric_type_for_args(args);
@@ -82,6 +85,9 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
     pub(in crate::type_check) fn is_conversion_allowed(&self, src: TypeId, dst: TypeId) -> bool {
         let src = self.base_type_id(src);
         let dst = self.base_type_id(dst);
+        if src == TypeId::UNKNOWN || dst == TypeId::UNKNOWN {
+            return true;
+        }
 
         if src == dst {
             return true;

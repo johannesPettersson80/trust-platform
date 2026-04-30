@@ -15,6 +15,7 @@ This is the umbrella checklist. Individual execution boards own the detailed wor
 - [ ] `ARCHPROG-RULE-05` Do not merge a refactor branch that weakens an existing behavior lock, doctor rule, or generated-map check.
 - [x] `ARCHPROG-RULE-06` Use staged validation cadence: run focused tests and doctor checks during implementation, and reserve `just test-all` for merge/release readiness, board-completion gates, large cross-crate refactors, or rebases that touch shared APIs.
 - [x] `ARCHPROG-RULE-07` Do not claim production-ready secure remote MQTT until `DEPHYG-FOLLOW-01` implements explicit MQTT TLS/mTLS. Closed in `v0.24.7`: MQTT TLS/mTLS config and `rumqttc` TLS transport wiring are implemented, and remote plaintext remains gated by `allow_insecure_remote = true`.
+- [ ] `ARCHPROG-RULE-08` Do not treat the completed focused HIR mutation board as global HIR zero-silent-bug safety; all diagnostic-bearing HIR semantic decisions require the separate HIR zero-silent-bug board.
 
 ## Validation Cadence
 
@@ -36,6 +37,7 @@ This is the umbrella checklist. Individual execution boards own the detailed wor
 - [x] `ARCHPROG-BOARD-09` Diagram semantic enforcement is added before diagrams are trusted as acceptance evidence.
 - [ ] `ARCHPROG-BOARD-10` Runtime VM mutation hardening: `runtime-vm-mutation-hardening-execution-checklist.md`.
 - [ ] `ARCHPROG-BOARD-11` Unsafe/concurrency hardening: `unsafe-concurrency-hardening-execution-checklist.md`.
+- [ ] `ARCHPROG-BOARD-12` HIR zero-silent-bug refactor: `hir-zero-silent-bug-refactor-checklist.md`.
 
 ## Recommended Order
 
@@ -54,6 +56,7 @@ This is the umbrella checklist. Individual execution boards own the detailed wor
 - [x] `ARCHPROG-B-03` Close HIR mutation gap for aggregate initializer validation.
 - [x] `ARCHPROG-B-04` Add mutation gate with zero unexplained survivors for the focused HIR shard.
 - [x] `ARCHPROG-B-05` Fix parser recovery bounded-scanner and fuzz/property tests.
+- [ ] `ARCHPROG-B-06` Close the full HIR zero-silent-bug architecture gap with semantic kernel, explicit resolver/validation outcomes, full semantic identity keys, and runtime/HIR declaration parity.
 
 ### Phase C - Runtime Boundary Policy Before Runtime Extraction
 
@@ -115,3 +118,4 @@ This is the umbrella checklist. Individual execution boards own the detailed wor
 - [ ] `ARCHPROG-EXIT-10` Runtime VM mutation shard has zero unexplained survivors or a documented equivalent-mutant list.
 - [ ] `ARCHPROG-EXIT-11` `trust-runtime/src` host top-level module count is at or below the configured full-map cap after CLI, host-surface, and runtime-core boards complete, or a dated waiver names the next extraction branch.
 - [ ] `ARCHPROG-EXIT-12` Unsafe/concurrency register is complete and focused Miri/sanitizer/Loom/Valgrind evidence or exact blockers are attached.
+- [ ] `ARCHPROG-EXIT-13` HIR zero-silent-bug architecture is centralized, mutation-backed, doctor-guarded, and runtime declaration discovery is HIR catalog/parity driven.

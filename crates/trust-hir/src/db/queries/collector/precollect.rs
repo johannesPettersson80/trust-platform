@@ -62,20 +62,30 @@ impl SymbolCollector<'_> {
         }
     }
 
-    pub(super) fn precollect_constants(&mut self, node: &SyntaxNode, scope: Option<SmolStr>) {
-        let mut current_scope = scope;
-        if is_pou_kind(node.kind()) {
-            if let Some((name, _)) = name_from_node(node) {
-                current_scope = Some(name);
+    pub(super) fn precollect_constants(
+        &mut self,
+        node: &SyntaxNode,
+        namespace: &[SmolStr],
+        pou_stack: &[SmolStr],
+    ) {
+        let mut current_namespace: Vec<SmolStr> = namespace.to_vec();
+        let mut current_pou_stack: Vec<SmolStr> = pou_stack.to_vec();
+
+        if node.kind() == SyntaxKind::Namespace {
+            if let Some((parts, _)) = qualified_name_parts(node) {
+                current_namespace.extend(parts.into_iter().map(|(name, _)| name));
             }
+        } else if is_pou_kind(node.kind()) {
+            current_pou_stack.extend(pou_scope_parts(node));
         }
 
         if node.kind() == SyntaxKind::VarBlock && const_block_is_precollectable(node) {
+            let current_scope = const_scope_identity(&current_namespace, &current_pou_stack);
             self.collect_const_block(node, &current_scope);
         }
 
         for child in node.children() {
-            self.precollect_constants(&child, current_scope.clone());
+            self.precollect_constants(&child, &current_namespace, &current_pou_stack);
         }
     }
 

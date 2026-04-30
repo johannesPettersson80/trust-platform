@@ -13,6 +13,7 @@ use super::types::{
 };
 use super::{ControlResponse, ControlState, HmiRuntimeDescriptor, SourceRegistry};
 
+include!("hmi_runtime_ports.rs");
 include!("hmi_handlers_read.rs");
 include!("hmi_handlers_descriptor.rs");
 include!("hmi_handlers_write.rs");

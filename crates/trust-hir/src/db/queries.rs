@@ -69,6 +69,7 @@ pub struct FileAnalysis {
     pub symbols: Arc<SymbolTable>,
     pub diagnostics: Arc<Vec<Diagnostic>>,
     pub expression_types: Arc<FxHashMap<(u32, u32), TypeId>>,
+    pub declaration_catalog: Arc<DeclarationCatalog>,
 }
 
 impl Default for Database {
