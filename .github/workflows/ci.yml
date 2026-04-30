@@ -95,10 +95,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          PYTHON_BIN=python3
+          if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
+            PYTHON_BIN=python
+          fi
           LOG_PATH="gate-artifacts/test-${{ matrix.os }}.log"
           for attempt in 1 2; do
             echo "=== cargo build attempt ${attempt}/2 (${{ matrix.os }}) ===" | tee -a "${LOG_PATH}"
-            if python3 scripts/run_with_progress.py \
+            if "${PYTHON_BIN}" scripts/run_with_progress.py \
               --phase ci-cargo-build \
               --target "${{ matrix.os }} attempt ${attempt}/2" \
               --timeout-seconds "${CI_CARGO_BUILD_TIMEOUT_SECONDS:-1800}" \
@@ -117,8 +121,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          PYTHON_BIN=python3
+          if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
+            PYTHON_BIN=python
+          fi
           LOG_PATH="gate-artifacts/test-${{ matrix.os }}.log"
-          RUSTFLAGS=-Dwarnings python3 scripts/run_with_progress.py \
+          RUSTFLAGS=-Dwarnings "${PYTHON_BIN}" scripts/run_with_progress.py \
             --phase ci-runtime-warnings \
             --target "${{ matrix.os }} trust-runtime" \
             --timeout-seconds "${CI_RUNTIME_WARNINGS_TIMEOUT_SECONDS:-1200}" \
@@ -137,6 +145,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          PYTHON_BIN=python3
+          if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
+            PYTHON_BIN=python
+          fi
           mkdir -p gate-artifacts
           LOG_PATH="gate-artifacts/test-${{ matrix.os }}.log"
           : > "${LOG_PATH}"
@@ -147,7 +159,7 @@ jobs:
             else
               command=(cargo test --all-targets)
             fi
-            if python3 scripts/run_with_progress.py \
+            if "${PYTHON_BIN}" scripts/run_with_progress.py \
               --phase ci-full-test \
               --target "${{ matrix.os }} attempt ${attempt}/2" \
               --timeout-seconds "${CI_FULL_TEST_TIMEOUT_SECONDS:-2400}" \
