@@ -1,6 +1,6 @@
 # Runtime Host Surface Ownership Checklist
 
-Status: Phase 5 runtime snapshot/status contracts complete; runtime-cloud projection contracts next
+Status: Phase 5 runtime-cloud projection contracts complete; thin web adapter route tests next
 Owner: Runtime/web/HMI/control/cloud
 Scope: address audit F11 by defining and enforcing ownership for `web`, `hmi`, `ui`, `control`, and `runtime_cloud`.
 
@@ -213,7 +213,7 @@ Exit decision: Phase 4 runtime-cloud extraction is complete when the table above
 - [x] `RTHOST-P5-001` Contract tests for HMI schema/descriptor projection.
 - [x] `RTHOST-P5-002` Contract tests for HMI write authorization policy.
 - [x] `RTHOST-P5-003` Contract tests for runtime snapshot/status projection.
-- [ ] `RTHOST-P5-004` Contract tests for runtime-cloud projection.
+- [x] `RTHOST-P5-004` Contract tests for runtime-cloud projection.
 - [ ] `RTHOST-P5-005` Route tests prove web remains a thin adapter.
 - [ ] `RTHOST-P5-006` Browser-visible changes use Playwright verification in implementation branches.
 
@@ -228,6 +228,12 @@ Phase 5 runtime snapshot/status evidence captured on 2026-04-30:
 - `crates/trust-runtime/src/control/tests/core.rs::runtime_status_projection_contract_reports_resource_metrics_realtime_and_io_health` locks the control-owned runtime status payload for resource identity, PLC alias, control mode, simulation fields, cycle/fault/overrun/profiling metrics, realtime requested/observed posture, and IO driver health projection.
 - `crates/trust-runtime/src/control/tests/core.rs::runtime_health_projection_contract_marks_faulted_driver_unhealthy` locks the health payload so faulted IO drivers make `ok=false` while preserving state, fault, driver status, and driver error fields.
 - Validation: `RUSTUP_TOOLCHAIN=1.95 cargo test -p trust-runtime --lib control::tests::runtime_ -- --nocapture` passed both runtime snapshot/status contract tests.
+
+Phase 5 runtime-cloud projection evidence captured on 2026-04-30:
+
+- `crates/trust-runtime/src/runtime_cloud/projection.rs::runtime_cloud_projection_contract_reports_topology_edges_and_warnings` locks the runtime-cloud UI projection contract for local and peer node ordering, active/member roles, lifecycle/health/config state transitions, edge channel/state/metric fields, stale/offline flags, and communication warning timeline entries.
+- `crates/trust-runtime/src/runtime_cloud/projection.rs::presence_projection_contract_does_not_stale_future_heartbeat` locks the presence projection edge case where a future heartbeat timestamp must not underflow into a stale/partitioned result.
+- Validation: `RUSTUP_TOOLCHAIN=1.95 cargo test -p trust-runtime --lib runtime_cloud::projection::tests -- --nocapture` passed 10 runtime-cloud projection tests.
 
 ## Exit Criteria
 
