@@ -183,6 +183,49 @@ fn dependency_boundaries_for_initializer_metadata_hold() {
 }
 
 #[test]
+fn runtime_pou_registration_is_hir_catalog_driven() {
+    let entry_points =
+        read_workspace_file("crates/trust-runtime/src/harness/compiler/pou/entry_points.rs");
+    assert!(
+        entry_points.contains("DeclarationCatalog"),
+        "runtime POU registration must take the HIR declaration catalog as input"
+    );
+    assert!(
+        !entry_points.contains(
+            ".descendants()\n        .filter(|child| child.kind() == SyntaxKind::Program)"
+        ),
+        "PROGRAM registration must be driven by HIR catalog entries"
+    );
+    assert!(
+        !entry_points.contains(
+            ".descendants()\n        .filter(|child| child.kind() == SyntaxKind::Function)"
+        ),
+        "FUNCTION registration must be driven by HIR catalog entries"
+    );
+    assert!(
+        !entry_points.contains(
+            ".descendants()\n        .filter(|child| child.kind() == SyntaxKind::FunctionBlock)"
+        ),
+        "FUNCTION_BLOCK registration must be driven by HIR catalog entries"
+    );
+    assert!(
+        !entry_points
+            .contains(".descendants()\n        .filter(|child| child.kind() == SyntaxKind::Class)"),
+        "CLASS registration must be driven by HIR catalog entries"
+    );
+    assert!(
+        !entry_points.contains(
+            ".descendants()\n        .filter(|child| child.kind() == SyntaxKind::Interface)"
+        ),
+        "INTERFACE registration must be driven by HIR catalog entries"
+    );
+    assert!(
+        entry_points.contains("HIR declaration catalog/lowering mismatch"),
+        "catalog-driven registration must fail explicitly when a catalog entry cannot be matched for body lowering"
+    );
+}
+
+#[test]
 fn initializer_service_size_caps_hold() {
     for file in [
         "crates/trust-runtime/src/harness/initializer.rs",

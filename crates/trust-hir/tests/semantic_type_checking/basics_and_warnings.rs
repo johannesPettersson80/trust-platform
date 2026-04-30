@@ -183,14 +183,14 @@ END_TYPE
 }
 
 #[test]
-fn test_subrange_bounds_non_constant() {
+fn test_subrange_bounds_undefined_names_report_primary_diagnostic() {
     check_has_error(
         r#"
 TYPE
     BadRange : INT(A..B);
 END_TYPE
 "#,
-        DiagnosticCode::TypeMismatch,
+        DiagnosticCode::UndefinedVariable,
     );
 }
 

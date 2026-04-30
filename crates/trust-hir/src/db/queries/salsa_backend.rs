@@ -12,6 +12,7 @@ use super::project_types::{
 };
 use super::symbol_import::SymbolImporter;
 use super::*;
+use crate::semantic::LEGACY_UNKNOWN_TYPE_ID;
 use rowan::GreenNode;
 use rustc_hash::{FxHashMap, FxHashSet};
 use salsa::Setter;
@@ -384,6 +385,10 @@ pub(super) fn analyze_query(
         SymbolCollector::with_project_types(&provider)
             .collect_for_project_with_const_roots(&root, &const_roots);
     merge_project_symbols(file_id, &mut symbols, project_tables.as_ref());
+    let (checked_symbols, access_config_diagnostics) =
+        SymbolCollector::validate_project_after_merge(symbols, &root, &const_roots);
+    symbols = checked_symbols;
+    diagnostics.extend(access_config_diagnostics);
 
     if !catalog.duplicates.is_empty() {
         let mut builder = DiagnosticBuilder::new();
@@ -449,10 +454,12 @@ pub(super) fn analyze_query(
     add_unused_symbol_warnings(&symbols, file_id, project_used.as_ref(), &mut builder);
     diagnostics.extend(builder.finish());
 
+    let declaration_catalog = symbols.declaration_catalog(file_id);
     Arc::new(FileAnalysis {
         symbols: Arc::new(symbols),
         diagnostics: Arc::new(diagnostics),
         expression_types: Arc::new(expression_types),
+        declaration_catalog: Arc::new(declaration_catalog),
     })
 }
 
@@ -475,7 +482,7 @@ pub(super) fn type_of_query(
     cancellation_checkpoint(db);
     let Some(ProjectState { target_input, .. }) = collect_project_state(db, project, file_id)
     else {
-        return TypeId::UNKNOWN;
+        return LEGACY_UNKNOWN_TYPE_ID;
     };
 
     let expression_index = expression_index_query(db, target_input);
@@ -488,7 +495,7 @@ pub(super) fn type_of_query(
 
     let root = SyntaxNode::new_root(parse_green(db, target_input).clone());
     let Some(expr_node) = expression_by_id(&root, expr_id) else {
-        return TypeId::UNKNOWN;
+        return LEGACY_UNKNOWN_TYPE_ID;
     };
 
     let mut symbols = merged_project_symbols_query(db, project, file_id)
@@ -508,6 +515,7 @@ fn empty_analysis() -> Arc<FileAnalysis> {
         symbols: Arc::new(SymbolTable::default()),
         diagnostics: Arc::new(Vec::new()),
         expression_types: Arc::new(FxHashMap::default()),
+        declaration_catalog: Arc::new(DeclarationCatalog::default()),
     })
 }
 

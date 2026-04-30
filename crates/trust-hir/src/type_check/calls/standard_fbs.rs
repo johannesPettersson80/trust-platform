@@ -1,5 +1,6 @@
 use super::super::*;
 use super::*;
+use crate::semantic::LEGACY_UNKNOWN_TYPE_ID;
 
 impl<'a, 'b> StandardChecker<'a, 'b> {
     pub(in crate::type_check) fn check_standard_function_block_call(
@@ -124,7 +125,7 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         let cv_type =
             self.counter_value_type(typed.get(cv_index).and_then(|arg| arg.as_ref()), "CV");
 
-        let expected = pv_type.or(cv_type).unwrap_or(TypeId::UNKNOWN);
+        let expected = pv_type.or(cv_type).unwrap_or(LEGACY_UNKNOWN_TYPE_ID);
         params[pv_index].type_id = expected;
         params[cv_index].type_id = expected;
 
@@ -216,7 +217,7 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
             }
             fixed
         } else {
-            pt_type.or(et_type).unwrap_or(TypeId::UNKNOWN)
+            pt_type.or(et_type).unwrap_or(LEGACY_UNKNOWN_TYPE_ID)
         };
 
         params[1].type_id = expected;

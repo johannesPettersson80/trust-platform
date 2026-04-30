@@ -1,6 +1,5 @@
 ---
 source: crates/trust-lsp/src/handlers/tests/mod_part_01_part_01.rs
-assertion_line: 949
 expression: output
 ---
 {
@@ -517,6 +516,50 @@ expression: output
           },
           "start": {
             "character": 7,
+            "line": 30
+          }
+        },
+        "severity": 1,
+        "source": "trust-lsp"
+      },
+      {
+        "code": "E105",
+        "data": {
+          "explain": {
+            "iec": "IEC 61131-3 Ed.3 §6.5.2.2",
+            "spec": "docs/specs/09-semantic-rules.md"
+          }
+        },
+        "message": "cannot resolve semantic context for unnamed POU",
+        "range": {
+          "end": {
+            "character": 7,
+            "line": 22
+          },
+          "start": {
+            "character": 0,
+            "line": 22
+          }
+        },
+        "severity": 1,
+        "source": "trust-lsp"
+      },
+      {
+        "code": "E105",
+        "data": {
+          "explain": {
+            "iec": "IEC 61131-3 Ed.3 §6.5.2.2",
+            "spec": "docs/specs/09-semantic-rules.md"
+          }
+        },
+        "message": "cannot resolve semantic owner for POU context",
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 33
+          },
+          "start": {
+            "character": 0,
             "line": 30
           }
         },
@@ -2029,6 +2072,50 @@ expression: output
               },
               "start": {
                 "character": 7,
+                "line": 30
+              }
+            },
+            "severity": 1,
+            "source": "trust-lsp"
+          },
+          {
+            "code": "E105",
+            "data": {
+              "explain": {
+                "iec": "IEC 61131-3 Ed.3 §6.5.2.2",
+                "spec": "docs/specs/09-semantic-rules.md"
+              }
+            },
+            "message": "cannot resolve semantic context for unnamed POU",
+            "range": {
+              "end": {
+                "character": 7,
+                "line": 22
+              },
+              "start": {
+                "character": 0,
+                "line": 22
+              }
+            },
+            "severity": 1,
+            "source": "trust-lsp"
+          },
+          {
+            "code": "E105",
+            "data": {
+              "explain": {
+                "iec": "IEC 61131-3 Ed.3 §6.5.2.2",
+                "spec": "docs/specs/09-semantic-rules.md"
+              }
+            },
+            "message": "cannot resolve semantic owner for POU context",
+            "range": {
+              "end": {
+                "character": 0,
+                "line": 33
+              },
+              "start": {
+                "character": 0,
                 "line": 30
               }
             },

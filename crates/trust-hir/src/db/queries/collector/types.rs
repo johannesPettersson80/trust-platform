@@ -1,6 +1,8 @@
 use super::const_utils::*;
 use super::*;
 use crate::db::diagnostics::{is_expression_kind, resolve_pending_types_with_table};
+use crate::semantic::{QualifiedName, SemanticOutcome, SemanticRole, LEGACY_UNKNOWN_TYPE_ID};
+use crate::symbols::UsingResolution;
 use crate::types::{ArrayDimensionExt, StructField, UnionVariant};
 
 impl SymbolCollector<'_> {
@@ -137,15 +139,24 @@ impl SymbolCollector<'_> {
             ProjectTypeKind::Interface => Type::Interface {
                 name: qualified_name.clone(),
             },
-            ProjectTypeKind::Data => return TypeId::UNKNOWN,
+            ProjectTypeKind::Data => {
+                unreachable!("data project types are imported from TYPE declarations")
+            }
         };
         self.table
             .register_type(qualified_name.clone(), carrier_type)
     }
 
-    fn resolve_project_type_path(&mut self, parts: &[SmolStr]) -> TypeId {
+    fn resolve_project_type_path_outcome(
+        &mut self,
+        parts: &[SmolStr],
+        range: Option<TextRange>,
+    ) -> SemanticOutcome<TypeId> {
         let Some(provider) = self.project_types else {
-            return TypeId::UNKNOWN;
+            return SemanticOutcome::Unknown {
+                name: qualified_name_from_parts(parts),
+                range,
+            };
         };
 
         for candidate in self.project_type_candidates(parts) {
@@ -155,14 +166,18 @@ impl SymbolCollector<'_> {
             let imported = match entry.kind {
                 ProjectTypeKind::Data => {
                     if self.importing_project_types.contains(candidate.as_str()) {
-                        TypeId::UNKNOWN
+                        self.diagnose_project_type_import_cycle(&candidate, range);
+                        return SemanticOutcome::SuppressedCascade {
+                            primary: DiagnosticCode::CyclicDependency,
+                            range,
+                        };
                     } else {
                         self.importing_project_types.insert(candidate.clone());
                         let imported = provider
                             .load_type_declaration(candidate.as_str(), &entry)
                             .and_then(|decl| self.import_project_data_type(&candidate, &decl));
                         self.importing_project_types.remove(candidate.as_str());
-                        imported.unwrap_or(TypeId::UNKNOWN)
+                        imported.unwrap_or(LEGACY_UNKNOWN_TYPE_ID)
                     }
                 }
                 ProjectTypeKind::FunctionBlock
@@ -174,10 +189,37 @@ impl SymbolCollector<'_> {
             if imported == TypeId::UNKNOWN {
                 continue;
             }
-            return imported;
+            return SemanticOutcome::Resolved(imported);
         }
 
-        TypeId::UNKNOWN
+        SemanticOutcome::Unknown {
+            name: qualified_name_from_parts(parts),
+            range,
+        }
+    }
+
+    fn diagnose_project_type_import_cycle(
+        &mut self,
+        candidate: &SmolStr,
+        range: Option<TextRange>,
+    ) {
+        let should_emit = !self
+            .diagnosed_project_type_import_failures
+            .contains(candidate);
+        for active in self.importing_project_types.iter() {
+            self.diagnosed_project_type_import_failures
+                .insert(active.clone());
+        }
+        self.diagnosed_project_type_import_failures
+            .insert(candidate.clone());
+
+        if should_emit {
+            self.diagnostics.error(
+                DiagnosticCode::CyclicDependency,
+                range.unwrap_or_else(|| TextRange::empty(0.into())),
+                format!("cyclic project type import involving '{}'", candidate),
+            );
+        }
     }
 
     fn import_project_data_type(
@@ -242,7 +284,9 @@ impl SymbolCollector<'_> {
                     },
                 )
             }
-            _ => TypeId::UNKNOWN,
+            _ => unreachable!(
+                "unsupported TYPE declaration shape should not reach type registration"
+            ),
         }
     }
 
@@ -436,10 +480,15 @@ impl SymbolCollector<'_> {
         // Handle simple type name
         if let Some((parts, range)) = type_path_from_type_ref(node) {
             let names: Vec<SmolStr> = parts.iter().map(|(name, _)| name.clone()).collect();
-            let type_id = self.resolve_type_path(&names);
-            if type_id == TypeId::UNKNOWN {
+            let qualified_name = qualified_name_string(&names);
+            let type_id = self.resolve_type_path_at(&names, Some(range));
+            if type_id == TypeId::UNKNOWN
+                && !self
+                    .diagnosed_project_type_import_failures
+                    .contains(&qualified_name)
+            {
                 self.pending_types.push(PendingType {
-                    name: qualified_name_string(&names),
+                    name: qualified_name,
                     range,
                     scope_id: self.table.current_scope(),
                 });
@@ -556,49 +605,51 @@ impl SymbolCollector<'_> {
         // Look for length specification
         if let Some(expr) = node.children().find(|n| is_expression_kind(n.kind())) {
             let scopes = scope_chain_for_node(node);
-            if let Some(value) = self.eval_int_expr_in_scope(&expr, &scopes) {
-                if value <= 0 {
-                    self.diagnostics.error(
-                        DiagnosticCode::OutOfRange,
-                        expr.text_range(),
-                        "string length must be a positive integer",
-                    );
-                    return if is_wstring {
-                        TypeId::WSTRING
-                    } else {
-                        TypeId::STRING
+            match self.try_eval_optional_int_expr_in_scope(&expr, &scopes) {
+                Ok(Some(value)) => {
+                    if value <= 0 {
+                        self.diagnostics.error(
+                            DiagnosticCode::OutOfRange,
+                            expr.text_range(),
+                            "string length must be a positive integer",
+                        );
+                        return if is_wstring {
+                            TypeId::WSTRING
+                        } else {
+                            TypeId::STRING
+                        };
+                    }
+                    let Ok(len) = u32::try_from(value) else {
+                        self.diagnostics.error(
+                            DiagnosticCode::OutOfRange,
+                            expr.text_range(),
+                            "string length is out of range",
+                        );
+                        return if is_wstring {
+                            TypeId::WSTRING
+                        } else {
+                            TypeId::STRING
+                        };
                     };
+                    let name = if is_wstring {
+                        format!("WSTRING[{}]", len)
+                    } else {
+                        format!("STRING[{}]", len)
+                    };
+                    let ty = if is_wstring {
+                        Type::WString { max_len: Some(len) }
+                    } else {
+                        Type::String { max_len: Some(len) }
+                    };
+                    return self.table.register_type(name, ty);
                 }
-                let Ok(len) = u32::try_from(value) else {
-                    self.diagnostics.error(
-                        DiagnosticCode::OutOfRange,
-                        expr.text_range(),
-                        "string length is out of range",
-                    );
-                    return if is_wstring {
-                        TypeId::WSTRING
-                    } else {
-                        TypeId::STRING
-                    };
-                };
-                let name = if is_wstring {
-                    format!("WSTRING[{}]", len)
-                } else {
-                    format!("STRING[{}]", len)
-                };
-                let ty = if is_wstring {
-                    Type::WString { max_len: Some(len) }
-                } else {
-                    Type::String { max_len: Some(len) }
-                };
-                return self.table.register_type(name, ty);
+                Ok(None) => self.diagnostics.error(
+                    DiagnosticCode::TypeMismatch,
+                    expr.text_range(),
+                    "string length must be a constant expression",
+                ),
+                Err(err) => self.report_const_eval_error(err, expr.text_range()),
             }
-
-            self.diagnostics.error(
-                DiagnosticCode::TypeMismatch,
-                expr.text_range(),
-                "string length must be a constant expression",
-            );
         }
 
         // No length specified, return default STRING or WSTRING
@@ -640,14 +691,18 @@ impl SymbolCollector<'_> {
         let scopes = scope_chain_for_node(node);
         let mut values = Vec::new();
         for child in node.children().filter(|n| is_expression_kind(n.kind())) {
-            match self.eval_int_expr_in_scope(&child, &scopes) {
-                Some(value) => values.push(value),
-                None => {
+            match self.try_eval_optional_int_expr_in_scope(&child, &scopes) {
+                Ok(Some(value)) => values.push(value),
+                Ok(None) => {
                     self.diagnostics.error(
                         DiagnosticCode::TypeMismatch,
                         child.text_range(),
                         "subrange bounds must be constant expressions",
                     );
+                    return None;
+                }
+                Err(err) => {
+                    self.report_const_eval_error(err, child.text_range());
                     return None;
                 }
             }
@@ -676,42 +731,158 @@ impl SymbolCollector<'_> {
         Some((lower, upper))
     }
 
-    pub(super) fn resolve_type_path(&mut self, parts: &[SmolStr]) -> TypeId {
+    pub(super) fn resolve_type_path_at(
+        &mut self,
+        parts: &[SmolStr],
+        range: Option<TextRange>,
+    ) -> TypeId {
+        resolved_type_id(self.resolve_type_path_outcome(parts, range))
+    }
+
+    fn resolve_type_path_outcome(
+        &mut self,
+        parts: &[SmolStr],
+        range: Option<TextRange>,
+    ) -> SemanticOutcome<TypeId> {
         if parts.is_empty() {
-            return TypeId::UNKNOWN;
+            return SemanticOutcome::Unknown { name: None, range };
         }
         if parts.len() == 1 {
-            let type_id = self.resolve_type_in_scope(parts[0].as_str(), self.table.current_scope());
-            if type_id != TypeId::UNKNOWN {
-                return type_id;
+            let scoped_outcome = self.resolve_type_in_scope_outcome(
+                parts[0].as_str(),
+                self.table.current_scope(),
+                range,
+            );
+            match scoped_outcome.clone() {
+                SemanticOutcome::Resolved(type_id) => return SemanticOutcome::Resolved(type_id),
+                SemanticOutcome::Unknown { .. } => {
+                    return self.resolve_project_type_path_outcome(parts, range);
+                }
+                SemanticOutcome::WrongKind { .. } => {
+                    if let Some(type_id) = self.table.lookup_registered_type_name(parts[0].as_str())
+                    {
+                        return SemanticOutcome::Resolved(type_id);
+                    }
+                    match self.resolve_project_type_path_outcome(parts, range) {
+                        SemanticOutcome::Unknown { .. } => return scoped_outcome,
+                        outcome => return outcome,
+                    }
+                }
+                outcome => return outcome,
             }
-            return self.resolve_project_type_path(parts);
         }
 
         let symbol_id = self.table.resolve_qualified(parts);
         if let Some(symbol) = symbol_id.and_then(|id| self.table.get(id)) {
             if symbol.is_type() {
-                return symbol.type_id;
+                return SemanticOutcome::Resolved(symbol.type_id);
             }
+            return SemanticOutcome::WrongKind {
+                symbol_id: symbol.id,
+                expected: SemanticRole::Type,
+                actual: collector_semantic_role_for_symbol(symbol),
+                range,
+            };
         }
-        self.resolve_project_type_path(parts)
+        self.resolve_project_type_path_outcome(parts, range)
     }
 
-    pub(super) fn resolve_type_in_scope(&self, name: &str, scope_id: ScopeId) -> TypeId {
+    fn resolve_type_in_scope_outcome(
+        &self,
+        name: &str,
+        scope_id: ScopeId,
+        range: Option<TextRange>,
+    ) -> SemanticOutcome<TypeId> {
         if let Some(id) = TypeId::from_builtin_name(name) {
-            return id;
+            return SemanticOutcome::Resolved(id);
         }
-        if let Some(symbol_id) = self.table.resolve(name, scope_id) {
-            if let Some(symbol) = self.table.get(symbol_id) {
+
+        match self.resolve_symbol_in_scope_outcome(name, scope_id, range) {
+            SemanticOutcome::Resolved(symbol_id) => {
+                let Some(symbol) = self.table.get(symbol_id) else {
+                    return SemanticOutcome::InvariantViolation {
+                        message: SmolStr::new("resolved symbol is missing from table"),
+                        range,
+                    };
+                };
                 if symbol.is_type() {
-                    return symbol.type_id;
+                    SemanticOutcome::Resolved(symbol.type_id)
+                } else {
+                    SemanticOutcome::WrongKind {
+                        symbol_id,
+                        expected: SemanticRole::Type,
+                        actual: collector_semantic_role_for_symbol(symbol),
+                        range,
+                    }
                 }
             }
+            SemanticOutcome::Unknown { .. } => {
+                if let Some(id) = self.table.lookup_registered_type_name(name) {
+                    SemanticOutcome::Resolved(id)
+                } else {
+                    SemanticOutcome::Unknown {
+                        name: QualifiedName::new(vec![SmolStr::new(name)]),
+                        range,
+                    }
+                }
+            }
+            SemanticOutcome::Ambiguous { name, range } => {
+                SemanticOutcome::Ambiguous { name, range }
+            }
+            SemanticOutcome::WrongKind {
+                symbol_id,
+                expected,
+                actual,
+                range,
+            } => SemanticOutcome::WrongKind {
+                symbol_id,
+                expected,
+                actual,
+                range,
+            },
+            SemanticOutcome::SuppressedCascade { primary, range } => {
+                SemanticOutcome::SuppressedCascade { primary, range }
+            }
+            SemanticOutcome::InvariantViolation { message, range } => {
+                SemanticOutcome::InvariantViolation { message, range }
+            }
         }
-        if let Some(id) = self.table.lookup_type(name) {
-            return id;
+    }
+
+    fn resolve_symbol_in_scope_outcome(
+        &self,
+        name: &str,
+        scope_id: ScopeId,
+        range: Option<TextRange>,
+    ) -> SemanticOutcome<SymbolId> {
+        let mut current = Some(scope_id);
+        while let Some(current_scope) = current {
+            let Some(scope) = self.table.get_scope(current_scope) else {
+                break;
+            };
+            if let Some(symbol_id) = scope.lookup_local(name) {
+                return SemanticOutcome::Resolved(symbol_id);
+            }
+            match self.table.resolve_using_in_scope(scope, name) {
+                UsingResolution::Single(symbol_id) => {
+                    return SemanticOutcome::Resolved(symbol_id);
+                }
+                UsingResolution::Ambiguous => {
+                    return SemanticOutcome::Ambiguous {
+                        name: QualifiedName::new(vec![SmolStr::new(name)])
+                            .expect("single-part qualified name"),
+                        range,
+                    };
+                }
+                UsingResolution::None => {}
+            }
+            current = scope.parent;
         }
-        TypeId::UNKNOWN
+
+        SemanticOutcome::Unknown {
+            name: QualifiedName::new(vec![SmolStr::new(name)]),
+            range,
+        }
     }
 
     fn project_type_candidates(&self, parts: &[SmolStr]) -> Vec<SmolStr> {
@@ -804,6 +975,34 @@ fn split_imported_type_name(qualified_name: &SmolStr) -> Option<(SmolStr, Vec<Sm
     let leaf = parts.last()?.clone();
     let namespace = parts[..parts.len().saturating_sub(1)].to_vec();
     Some((leaf, namespace))
+}
+
+fn resolved_type_id(outcome: SemanticOutcome<TypeId>) -> TypeId {
+    match outcome {
+        SemanticOutcome::Resolved(type_id) => type_id,
+        _ => LEGACY_UNKNOWN_TYPE_ID,
+    }
+}
+
+fn qualified_name_from_parts(parts: &[SmolStr]) -> Option<QualifiedName> {
+    QualifiedName::new(parts.to_vec())
+}
+
+fn collector_semantic_role_for_symbol(symbol: &Symbol) -> SemanticRole {
+    match symbol.kind {
+        SymbolKind::Namespace => SemanticRole::Namespace,
+        SymbolKind::Function { .. } | SymbolKind::Method { .. } => SemanticRole::Callable,
+        SymbolKind::Type
+        | SymbolKind::FunctionBlock
+        | SymbolKind::Class
+        | SymbolKind::Interface => SemanticRole::Type,
+        SymbolKind::Program
+        | SymbolKind::Configuration
+        | SymbolKind::Resource
+        | SymbolKind::Task
+        | SymbolKind::ProgramInstance => SemanticRole::ScopeOwner,
+        _ => SemanticRole::Value,
+    }
 }
 
 fn subrange_is_exact_wildcard(node: &SyntaxNode) -> bool {

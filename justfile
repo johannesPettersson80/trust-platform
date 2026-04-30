@@ -8,40 +8,44 @@ clippy:
 
 test:
 	@if command -v cargo-nextest >/dev/null 2>&1; then \
-		cargo nextest run -p trust-runtime --lib; \
+		./scripts/cargo_test_fast_link.sh nextest run -p trust-runtime --lib; \
 	else \
 		echo "cargo-nextest missing; falling back to cargo test -p trust-runtime --lib"; \
-		cargo test -p trust-runtime --lib; \
+		./scripts/cargo_test_fast_link.sh test -p trust-runtime --lib; \
 	fi
 
 test-integration:
-	cargo test -p trust-runtime --tests
+	./scripts/cargo_test_fast_link.sh test -p trust-runtime --tests
 
 test-e2e:
-	cargo test -p trust-runtime --test complete_program
+	./scripts/cargo_test_fast_link.sh test -p trust-runtime --test complete_program
 
 test-all:
-	cargo test -p trust-runtime --test complete_program
-	cargo test --all
+	./scripts/cargo_test_fast_link.sh test --all
 
 test-fast:
-	cargo test -p trust-runtime --lib
+	./scripts/cargo_test_fast_link.sh test -p trust-runtime --lib
 
 test-runtime:
-	cargo test -p trust-runtime
+	./scripts/cargo_test_fast_link.sh test -p trust-runtime
 
 test-ui:
-	cargo test -p trust-runtime --test web_io_config_integration
+	./scripts/cargo_test_fast_link.sh test -p trust-runtime --test web_io_config_integration
 
 test-nextest:
 	@if ! command -v cargo-nextest >/dev/null 2>&1; then \
 		echo "cargo-nextest is not installed. Install with: cargo install cargo-nextest"; \
 		exit 1; \
 	fi
-	cargo nextest run -p trust-runtime --lib
+	./scripts/cargo_test_fast_link.sh nextest run -p trust-runtime --lib
 
 check:
 	cargo check --all
+
+test-hir-fast:
+	./scripts/cargo_test_fast_link.sh test -p trust-hir --lib
+	./scripts/cargo_test_fast_link.sh test -p trust-hir --test semantic_type_checking
+	./scripts/cargo_test_fast_link.sh test -p trust-hir --test namespaces
 
 editor-smoke:
 	./scripts/check_editor_integration_smoke.sh

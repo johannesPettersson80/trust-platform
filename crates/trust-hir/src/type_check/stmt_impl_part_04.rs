@@ -233,7 +233,7 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
             }
         }
 
-        if let Some(value_int) = self.checker.eval_const_int_expr(value) {
+        if let Some(value_int) = self.checker.eval_const_int_expr_or_report(value) {
             if value_int < lower || value_int > upper {
                 self.checker.diagnostics.error(
                     DiagnosticCode::OutOfRange,

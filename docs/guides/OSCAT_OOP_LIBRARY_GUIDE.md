@@ -407,10 +407,17 @@ communication boundary, state machine, alarms, OSCAT surface used, the OOP
 pattern, how to use that pattern, why it helps, and when the classic version is
 still the better choice.
 
-Run the complete example gate:
+Run the default example catalog gate:
 
 ```bash
 cargo test -p trust-runtime --test oscat_oop_examples
+```
+
+Run the full runtime execution sweep for all 98 paired example projects only
+when validating OSCAT changes or release evidence:
+
+```bash
+cargo test -p trust-runtime --test oscat_oop_examples oscat_oop_example_st_unit_tests_pass -- --ignored --nocapture
 ```
 
 ## Validation
@@ -421,7 +428,7 @@ Core library parity:
 cargo test -p trust-runtime --test oscat_oop_library
 ```
 
-Example parity:
+Example catalog checks:
 
 ```bash
 cargo test -p trust-runtime --test oscat_oop_examples

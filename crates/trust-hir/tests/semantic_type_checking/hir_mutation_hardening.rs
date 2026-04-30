@@ -119,7 +119,9 @@ END_TYPE
         ("ModSized", 1),
         ("PowerSized", 8),
     ] {
-        let type_id = symbols.lookup_type(name).expect("sized string type");
+        let type_id = symbols
+            .lookup_registered_type_name(name)
+            .expect("sized string type");
         let type_id = symbols.resolve_alias_type(type_id);
         let Type::String { max_len } = symbols.type_by_id(type_id).expect("string type") else {
             panic!("{name} should be a STRING type");
@@ -127,7 +129,9 @@ END_TYPE
         assert_eq!(*max_len, Some(expected), "{name}");
     }
 
-    let type_id = symbols.lookup_type("DivSized").expect("sized WSTRING type");
+    let type_id = symbols
+        .lookup_registered_type_name("DivSized")
+        .expect("sized WSTRING type");
     let type_id = symbols.resolve_alias_type(type_id);
     let Type::WString { max_len } = symbols.type_by_id(type_id).expect("wstring type") else {
         panic!("DivSized should be a WSTRING type");
@@ -135,7 +139,7 @@ END_TYPE
     assert_eq!(*max_len, Some(2));
 
     let range_id = symbols
-        .lookup_type("ZeroPowerRange")
+        .lookup_registered_type_name("ZeroPowerRange")
         .expect("subrange type");
     let range_id = symbols.resolve_alias_type(range_id);
     let Type::Subrange { lower, upper, .. } = symbols.type_by_id(range_id).expect("subrange type")
@@ -143,6 +147,20 @@ END_TYPE
         panic!("ZeroPowerRange should be a subrange type");
     };
     assert_eq!((*lower, *upper), (1, 8));
+}
+
+#[test]
+fn type_resolution_const_eval_errors_report_primary_diagnostic() {
+    let source = r#"
+TYPE
+    BadSized : STRING[4 / 0];
+END_TYPE
+"#;
+    assert_error_with_message(
+        source,
+        DiagnosticCode::InvalidOperation,
+        "constant expression divides by zero",
+    );
 }
 
 #[test]
@@ -496,8 +514,8 @@ END_PROGRAM
         "VAR_GLOBAL inside a PROGRAM outside CONFIGURATION must not enter global lookup"
     );
     let program_scoped = symbols
-        .lookup_any("programScoped")
-        .and_then(|id| symbols.get(id))
+        .iter()
+        .find(|symbol| symbol.name.eq_ignore_ascii_case("programScoped"))
         .expect("program-scoped VAR_GLOBAL symbol");
     assert!(matches!(
         program_scoped.kind,
@@ -615,7 +633,9 @@ END_PROGRAM
     );
 
     let symbols = db.file_symbols_with_project(main);
-    let array_id = symbols.lookup_type("LibArray").expect("imported array");
+    let array_id = symbols
+        .lookup_registered_type_name("LibArray")
+        .expect("imported array");
     let array_id = symbols.resolve_alias_type(array_id);
     let Type::Array {
         element,
@@ -627,14 +647,18 @@ END_PROGRAM
     assert_eq!(dimensions, &vec![(1, 2)]);
     assert_eq!(symbols.resolve_alias_type(*element), TypeId::DINT);
 
-    let struct_id = symbols.lookup_type("LibStruct").expect("imported struct");
+    let struct_id = symbols
+        .lookup_registered_type_name("LibStruct")
+        .expect("imported struct");
     let Type::Struct { fields, .. } = symbols.type_by_id(struct_id).expect("struct type") else {
         panic!("LibStruct should remain a struct after import");
     };
     assert_eq!(fields.len(), 1);
     assert_eq!(symbols.resolve_alias_type(fields[0].type_id), TypeId::DINT);
 
-    let union_id = symbols.lookup_type("LibUnion").expect("imported union");
+    let union_id = symbols
+        .lookup_registered_type_name("LibUnion")
+        .expect("imported union");
     let Type::Union { variants, .. } = symbols.type_by_id(union_id).expect("union type") else {
         panic!("LibUnion should remain a union after import");
     };
@@ -644,7 +668,9 @@ END_PROGRAM
         TypeId::DINT
     );
 
-    let alias_id = symbols.lookup_type("LibAlias2").expect("imported alias");
+    let alias_id = symbols
+        .lookup_registered_type_name("LibAlias2")
+        .expect("imported alias");
     assert_eq!(symbols.resolve_alias_type(alias_id), TypeId::DINT);
 }
 
@@ -738,7 +764,11 @@ END_PROGRAM
 
     let symbols = db.file_symbols_with_project(main);
 
-    let array_id = symbols.resolve_alias_type(symbols.lookup_type("LibArray").expect("LibArray"));
+    let array_id = symbols.resolve_alias_type(
+        symbols
+            .lookup_registered_type_name("LibArray")
+            .expect("LibArray"),
+    );
     let Type::Array {
         element,
         dimensions,
@@ -749,7 +779,11 @@ END_PROGRAM
     assert_eq!(symbols.resolve_alias_type(*element), TypeId::DINT);
     assert_eq!(dimensions, &vec![(1, 2)]);
 
-    let union_id = symbols.resolve_alias_type(symbols.lookup_type("LibUnion").expect("LibUnion"));
+    let union_id = symbols.resolve_alias_type(
+        symbols
+            .lookup_registered_type_name("LibUnion")
+            .expect("LibUnion"),
+    );
     let Type::Union { variants, .. } = symbols.type_by_id(union_id).expect("LibUnion type") else {
         panic!("LibUnion must import as a UNION");
     };
@@ -759,7 +793,11 @@ END_PROGRAM
         TypeId::BOOL
     );
 
-    let enum_id = symbols.resolve_alias_type(symbols.lookup_type("LibEnum").expect("LibEnum"));
+    let enum_id = symbols.resolve_alias_type(
+        symbols
+            .lookup_registered_type_name("LibEnum")
+            .expect("LibEnum"),
+    );
     let Type::Enum { base, values, .. } = symbols.type_by_id(enum_id).expect("LibEnum type") else {
         panic!("LibEnum must import as an ENUM");
     };
@@ -772,23 +810,32 @@ END_PROGRAM
         vec![("Idle", 1), ("Run", 2)]
     );
 
-    let pointer_id =
-        symbols.resolve_alias_type(symbols.lookup_type("LibPointer").expect("LibPointer"));
+    let pointer_id = symbols.resolve_alias_type(
+        symbols
+            .lookup_registered_type_name("LibPointer")
+            .expect("LibPointer"),
+    );
     let Type::Pointer { target } = symbols.type_by_id(pointer_id).expect("LibPointer type") else {
         panic!("LibPointer must import as a POINTER");
     };
     assert_eq!(symbols.resolve_alias_type(*target), TypeId::DINT);
 
-    let reference_id =
-        symbols.resolve_alias_type(symbols.lookup_type("LibReference").expect("LibReference"));
+    let reference_id = symbols.resolve_alias_type(
+        symbols
+            .lookup_registered_type_name("LibReference")
+            .expect("LibReference"),
+    );
     let Type::Reference { target } = symbols.type_by_id(reference_id).expect("LibReference type")
     else {
         panic!("LibReference must import as a REF_TO");
     };
     assert_eq!(symbols.resolve_alias_type(*target), TypeId::DINT);
 
-    let subrange_id =
-        symbols.resolve_alias_type(symbols.lookup_type("LibSubrange").expect("LibSubrange"));
+    let subrange_id = symbols.resolve_alias_type(
+        symbols
+            .lookup_registered_type_name("LibSubrange")
+            .expect("LibSubrange"),
+    );
     let Type::Subrange { base, lower, upper } =
         symbols.type_by_id(subrange_id).expect("LibSubrange type")
     else {
@@ -797,41 +844,56 @@ END_PROGRAM
     assert_eq!(symbols.resolve_alias_type(*base), TypeId::DINT);
     assert_eq!((*lower, *upper), (-2, 2));
 
-    let alias_id = symbols.resolve_alias_type(symbols.lookup_type("LibAlias").expect("LibAlias"));
+    let alias_id = symbols.resolve_alias_type(
+        symbols
+            .lookup_registered_type_name("LibAlias")
+            .expect("LibAlias"),
+    );
     assert!(matches!(
         symbols.type_by_id(alias_id).expect("LibAlias target"),
         Type::Array { .. }
     ));
 
-    let string_id =
-        symbols.resolve_alias_type(symbols.lookup_type("LibString").expect("LibString"));
+    let string_id = symbols.resolve_alias_type(
+        symbols
+            .lookup_registered_type_name("LibString")
+            .expect("LibString"),
+    );
     let Type::String { max_len } = symbols.type_by_id(string_id).expect("LibString type") else {
         panic!("LibString must import as STRING[7]");
     };
     assert_eq!(*max_len, Some(7));
 
-    let wstring_id =
-        symbols.resolve_alias_type(symbols.lookup_type("LibWString").expect("LibWString"));
+    let wstring_id = symbols.resolve_alias_type(
+        symbols
+            .lookup_registered_type_name("LibWString")
+            .expect("LibWString"),
+    );
     let Type::WString { max_len } = symbols.type_by_id(wstring_id).expect("LibWString type") else {
         panic!("LibWString must import as WSTRING[5]");
     };
     assert_eq!(*max_len, Some(5));
 
-    let fb_id = symbols.resolve_alias_type(symbols.lookup_type("LibFb").expect("LibFb"));
+    let fb_id =
+        symbols.resolve_alias_type(symbols.lookup_registered_type_name("LibFb").expect("LibFb"));
     assert!(matches!(
         symbols.type_by_id(fb_id).expect("LibFb type"),
         Type::FunctionBlock { .. }
     ));
 
-    let class_id = symbols.resolve_alias_type(symbols.lookup_type("LibClass").expect("LibClass"));
+    let class_id = symbols.resolve_alias_type(
+        symbols
+            .lookup_registered_type_name("LibClass")
+            .expect("LibClass"),
+    );
     assert!(matches!(
         symbols.type_by_id(class_id).expect("LibClass type"),
         Type::Class { .. }
     ));
 
     let interface_id = symbols
-        .lookup_any("LibInterface")
-        .and_then(|id| symbols.get(id))
+        .iter()
+        .find(|symbol| symbol.name.eq_ignore_ascii_case("LibInterface"))
         .expect("LibInterface symbol")
         .type_id;
     let interface_id = symbols.resolve_alias_type(interface_id);
@@ -842,8 +904,8 @@ END_PROGRAM
 
     let raw_type = |name: &str| {
         symbols
-            .lookup_any(name)
-            .and_then(|id| symbols.get(id))
+            .iter()
+            .find(|symbol| symbol.name.eq_ignore_ascii_case(name))
             .unwrap_or_else(|| panic!("imported variable {name}"))
             .type_id
     };
@@ -986,8 +1048,8 @@ END_PROGRAM
 
     let symbols = db.file_symbols_with_project(main);
     let imported = symbols
-        .lookup_any("ImportedValue")
-        .and_then(|id| symbols.get(id))
+        .iter()
+        .find(|symbol| symbol.name.eq_ignore_ascii_case("ImportedValue"))
         .expect("imported function should resolve through merged namespace scope");
     assert!(matches!(imported.kind, SymbolKind::Function { .. }));
     assert!(imported.origin.is_some());
@@ -1057,8 +1119,8 @@ END_PROGRAM
 
     let symbols = db.file_symbols_with_project(main);
     let imported = symbols
-        .lookup_any("ImportedValue")
-        .and_then(|id| symbols.get(id))
+        .iter()
+        .find(|symbol| symbol.name.eq_ignore_ascii_case("ImportedValue"))
         .expect("source-only namespace function should import");
     let namespace = imported
         .parent
@@ -1176,8 +1238,8 @@ END_PROGRAM
     };
 
     let function = symbols
-        .lookup_any("MakeText")
-        .and_then(|id| symbols.get(id))
+        .iter()
+        .find(|symbol| symbol.name.eq_ignore_ascii_case("MakeText"))
         .expect("imported function");
     let SymbolKind::Function { return_type, .. } = function.kind else {
         panic!("MakeText must import as a function");
@@ -1238,7 +1300,7 @@ END_PROGRAM
 
     let symbols = db.file_symbols_with_project(main);
     let type_id = symbols
-        .lookup_type("LibUnion")
+        .lookup_registered_type_name("LibUnion")
         .expect("imported LibUnion type");
     let Type::Union { variants, .. } = symbols.type_by_id(type_id).expect("LibUnion definition")
     else {

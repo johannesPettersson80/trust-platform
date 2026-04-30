@@ -34,6 +34,7 @@ pub mod diagnostics;
 pub mod ident;
 /// Project-wide source registry and database helpers.
 pub mod project;
+pub mod semantic;
 pub mod symbols;
 pub mod type_check;
 pub mod types;

@@ -44,6 +44,59 @@ END_CLASS
 }
 
 #[test]
+fn namespaced_function_block_implements_sibling_interface_not_global_bare_name() {
+    check_no_errors(
+        r#"
+INTERFACE IProbe
+    METHOD Wrong : INT
+    END_METHOD
+END_INTERFACE
+
+NAMESPACE CellA
+INTERFACE IProbe
+    METHOD Read : INT
+    END_METHOD
+END_INTERFACE
+
+FUNCTION_BLOCK Probe IMPLEMENTS IProbe
+    METHOD PUBLIC Read : INT
+        Read := INT#7;
+    END_METHOD
+END_FUNCTION_BLOCK
+END_NAMESPACE
+"#,
+    );
+}
+
+#[test]
+fn namespaced_interface_extends_sibling_interface_not_global_bare_name() {
+    check_no_errors(
+        r#"
+INTERFACE IBase
+    METHOD Wrong : INT
+    END_METHOD
+END_INTERFACE
+
+NAMESPACE CellA
+INTERFACE IBase
+    METHOD Read : INT
+    END_METHOD
+END_INTERFACE
+
+INTERFACE IChild EXTENDS IBase
+END_INTERFACE
+
+FUNCTION_BLOCK Probe IMPLEMENTS IChild
+    METHOD PUBLIC Read : INT
+        Read := INT#7;
+    END_METHOD
+END_FUNCTION_BLOCK
+END_NAMESPACE
+"#,
+    );
+}
+
+#[test]
 fn test_interface_conformance_cross_file() {
     let mut db = Database::new();
     db.set_source_text(
@@ -74,6 +127,33 @@ END_INTERFACE
         .map(|d| d.code)
         .collect();
     assert!(errors.is_empty(), "Expected no errors, got: {:?}", errors);
+}
+
+#[test]
+fn test_cross_file_concrete_implements_interface_assignment() {
+    check_no_errors_multi(&[
+        r#"
+TEST_PROGRAM Probe
+VAR
+    concrete : Motor;
+    contract : IDevice;
+END_VAR
+contract := concrete;
+contract.Start();
+END_TEST_PROGRAM
+"#,
+        r#"
+INTERFACE IDevice
+    METHOD Start
+    END_METHOD
+END_INTERFACE
+
+FUNCTION_BLOCK Motor IMPLEMENTS IDevice
+    METHOD PUBLIC Start
+    END_METHOD
+END_FUNCTION_BLOCK
+"#,
+    ]);
 }
 
 #[test]

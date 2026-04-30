@@ -199,8 +199,7 @@ fn lower_method_node(
         .children()
         .find(|child| child.kind() == SyntaxKind::Name)
         .ok_or_else(|| CompileError::new("missing method name"))?;
-    let raw = node_text(&name_node);
-    let name = qualify_with_namespaces(node, &raw);
+    let name: SmolStr = node_text(&name_node).into();
 
     let using = collect_using_directives(node);
     let mut method_ctx = LoweringContext {

@@ -11,9 +11,10 @@ use text_size::{TextRange, TextSize};
 
 use crate::diagnostics::{Diagnostic, DiagnosticBuilder, DiagnosticCode};
 use crate::ident::{is_reserved_keyword, is_valid_identifier};
+use crate::semantic::DeclarationCatalog;
 use crate::symbols::{
     ParamDirection, ScopeId, ScopeKind, Symbol, SymbolId, SymbolKind, SymbolModifiers,
-    SymbolOrigin, SymbolTable, VarQualifier, Visibility,
+    SymbolOrigin, SymbolTable, UniqueSymbolResolution, VarQualifier, Visibility,
 };
 use crate::type_check::{string_literal_info, TypeChecker};
 use crate::types::{Type, TypeId};

@@ -17,9 +17,10 @@ pub(super) struct SymbolCollector<'a> {
     parent_stack: Vec<SymbolId>,
     const_exprs: FxHashMap<(Option<SmolStr>, SmolStr), SyntaxNode>,
     const_values: FxHashMap<(Option<SmolStr>, SmolStr), i64>,
-    program_instances: FxHashMap<SmolStr, SymbolId>,
+    program_instances: ProgramInstanceMap,
     project_types: Option<&'a dyn ProjectTypeProvider>,
     importing_project_types: FxHashSet<SmolStr>,
+    diagnosed_project_type_import_failures: FxHashSet<SmolStr>,
     namespace_override: Option<Vec<SmolStr>>,
 }
 
@@ -39,6 +40,7 @@ impl<'a> SymbolCollector<'a> {
             program_instances: FxHashMap::default(),
             project_types,
             importing_project_types: FxHashSet::default(),
+            diagnosed_project_type_import_failures: FxHashSet::default(),
             namespace_override: None,
         }
     }
@@ -60,21 +62,31 @@ impl<'a> SymbolCollector<'a> {
         const_roots: &[SyntaxNode],
     ) -> (SymbolTable, Vec<Diagnostic>, Vec<PendingType>) {
         for project_root in const_roots {
-            self.precollect_constants(project_root, None);
+            self.precollect_constants(project_root, &[], &[]);
         }
         self.phase_precollect(root);
         self.phase_collect_symbols(root);
-        self.phase_access_and_config(root);
-        self.phase_var_validation(root);
         self.phase_constants();
         let pending_types = std::mem::take(&mut self.pending_types);
         (self.table, self.diagnostics.finish(), pending_types)
     }
 
+    pub(crate) fn validate_project_after_merge(
+        table: SymbolTable,
+        root: &SyntaxNode,
+        project_roots: &[SyntaxNode],
+    ) -> (SymbolTable, Vec<Diagnostic>) {
+        let mut collector = Self::build(None);
+        collector.table = table;
+        collector.phase_access_and_config(root);
+        collector.phase_var_validation_with_config_roots(root, project_roots);
+        (collector.table, collector.diagnostics.finish())
+    }
+
     fn phase_precollect(&mut self, root: &SyntaxNode) {
         self.precollect_pous(root, &[]);
         self.precollect_types(root, &[]);
-        self.precollect_constants(root, None);
+        self.precollect_constants(root, &[], &[]);
     }
 
     fn phase_collect_symbols(&mut self, root: &SyntaxNode) {
@@ -94,8 +106,16 @@ impl<'a> SymbolCollector<'a> {
     }
 
     fn phase_var_validation(&mut self, root: &SyntaxNode) {
+        self.phase_var_validation_with_config_roots(root, std::slice::from_ref(root));
+    }
+
+    fn phase_var_validation_with_config_roots(
+        &mut self,
+        root: &SyntaxNode,
+        config_roots: &[SyntaxNode],
+    ) {
         self.check_var_block_modifiers(root);
-        self.check_at_bindings(root);
+        self.check_at_bindings(config_roots);
     }
 
     fn phase_constants(&mut self) {

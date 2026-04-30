@@ -1,5 +1,6 @@
 use super::symbol_import::SymbolImporter;
 use super::*;
+use crate::semantic::LEGACY_UNKNOWN_TYPE_ID;
 use rustc_hash::FxHashSet;
 use salsa::Setter;
 use std::sync::atomic::Ordering;
@@ -159,6 +160,7 @@ impl Database {
                 symbols: Arc::new(SymbolTable::default()),
                 diagnostics: Arc::new(Vec::new()),
                 expression_types: Arc::new(FxHashMap::default()),
+                declaration_catalog: Arc::new(DeclarationCatalog::default()),
             });
         };
 
@@ -168,6 +170,7 @@ impl Database {
                     symbols: Arc::new(SymbolTable::default()),
                     diagnostics: Arc::new(Vec::new()),
                     expression_types: Arc::new(FxHashMap::default()),
+                    declaration_catalog: Arc::new(DeclarationCatalog::default()),
                 })
             })
     }
@@ -193,11 +196,11 @@ impl Database {
                 .contains_key(&file_id)
                 .then_some((state.db.clone(), salsa_backend::project_inputs(state)))
         }) else {
-            return TypeId::UNKNOWN;
+            return LEGACY_UNKNOWN_TYPE_ID;
         };
 
         salsa::Cancelled::catch(|| salsa_backend::type_of_query(&db, project, file_id, expr_id))
-            .unwrap_or(TypeId::UNKNOWN)
+            .unwrap_or(LEGACY_UNKNOWN_TYPE_ID)
     }
 
     fn prepare_salsa_project(&self, state: &mut salsa_backend::SalsaState) {

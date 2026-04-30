@@ -45,9 +45,9 @@ impl<'a> SymbolFilter<'a> {
             .and_then(|symbol_id| self.symbols.get(symbol_id))
     }
 
-    pub(crate) fn lookup_any(&self, name: &str) -> Option<&'a Symbol> {
+    pub(crate) fn lookup_global(&self, name: &str) -> Option<&'a Symbol> {
         self.symbols
-            .lookup_any(name)
+            .lookup(name)
             .and_then(|symbol_id| self.symbols.get(symbol_id))
     }
 
@@ -117,11 +117,16 @@ impl<'a> SymbolFilter<'a> {
                 }
                 items.push(symbol);
             }
-            let base_name = self.symbols.extends_name(owner_id).cloned();
-            current = base_name.and_then(|name| self.symbols.resolve_by_name(name.as_str()));
+            current = self
+                .symbols
+                .extends_reference(owner_id)
+                .and_then(|reference| {
+                    let name = reference.name().display();
+                    self.symbols
+                        .resolve_oop_reference_for_owner(owner_id, name.as_str())
+                });
         }
 
         items
     }
 }
-

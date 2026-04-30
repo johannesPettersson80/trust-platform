@@ -116,7 +116,6 @@ jobs:
             exit 0
           fi
           ./scripts/runtime_mesh_tls_stability_gate.sh --iterations 4
-      - run: cargo test -p trust-runtime --test complete_program
       - name: Run full test suite
         shell: bash
         run: |

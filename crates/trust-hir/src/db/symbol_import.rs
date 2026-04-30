@@ -1,5 +1,33 @@
 use super::*;
+use crate::diagnostics::DiagnosticCode;
+use crate::semantic::{SemanticOutcome, LEGACY_UNKNOWN_TYPE_ID};
 use crate::types::{StructField, UnionVariant};
+
+fn should_report_import_name_collision(kind: &SymbolKind) -> bool {
+    !matches!(
+        kind,
+        SymbolKind::Namespace
+            | SymbolKind::Type
+            | SymbolKind::FunctionBlock
+            | SymbolKind::Class
+            | SymbolKind::Interface
+    )
+}
+
+fn imported_owner_scope_kind(kind: &SymbolKind) -> Option<ScopeKind> {
+    match kind {
+        SymbolKind::Configuration => Some(ScopeKind::Configuration),
+        SymbolKind::Resource => Some(ScopeKind::Resource),
+        SymbolKind::Namespace | SymbolKind::Interface => Some(ScopeKind::Namespace),
+        SymbolKind::Program => Some(ScopeKind::Program),
+        SymbolKind::Function { .. } => Some(ScopeKind::Function),
+        SymbolKind::FunctionBlock => Some(ScopeKind::FunctionBlock),
+        SymbolKind::Class => Some(ScopeKind::Class),
+        SymbolKind::Method { .. } => Some(ScopeKind::Method),
+        SymbolKind::Property { .. } => Some(ScopeKind::Property),
+        _ => None,
+    }
+}
 
 pub(super) struct SymbolImporter<'a> {
     target: &'a mut SymbolTable,
@@ -61,7 +89,19 @@ impl<'a> SymbolImporter<'a> {
                 importable_roots.insert(symbol.id);
                 continue;
             }
-            if self.target.lookup(symbol.name.as_str()).is_some() {
+            if let Some(existing_id) = self.target.lookup(symbol.name.as_str()) {
+                if should_report_import_name_collision(&symbol.kind) {
+                    let existing_range = self
+                        .target
+                        .get(existing_id)
+                        .map(|existing| existing.range)
+                        .unwrap_or_else(|| TextRange::empty(0.into()));
+                    self.target.record_import_collision(
+                        symbol.name.clone(),
+                        existing_range,
+                        symbol.range,
+                    );
+                }
                 continue;
             }
             importable_roots.insert(symbol.id);
@@ -131,20 +171,27 @@ impl<'a> SymbolImporter<'a> {
             }
         }
 
+        let mut imported_owner_ids: Vec<SymbolId> = id_map.values().copied().collect();
+        imported_owner_ids.sort_by_key(|id| id.0);
+        for new_id in imported_owner_ids {
+            let Some(scope_kind) = self
+                .target
+                .get(new_id)
+                .and_then(|symbol| imported_owner_scope_kind(&symbol.kind))
+            else {
+                continue;
+            };
+            self.target.ensure_scope_for_owner(new_id, scope_kind);
+        }
+
         for (old_id, new_id) in id_map.iter() {
             if parent_map.get(old_id).copied().flatten().is_none() {
                 if let Some(symbol) = self.target.get(*new_id) {
-                    if self
-                        .target
-                        .lookup_in_scope(ScopeId::GLOBAL, symbol.name.as_str())
-                        .is_none()
-                    {
-                        let _ = self.target.define_in_scope(
-                            ScopeId::GLOBAL,
-                            symbol.name.clone(),
-                            *new_id,
-                        );
-                    }
+                    self.define_imported_symbol_in_scope(
+                        ScopeId::GLOBAL,
+                        symbol.name.clone(),
+                        *new_id,
+                    );
                 }
             } else {
                 let parent_id = self.target.get(*new_id).and_then(|symbol| symbol.parent);
@@ -157,8 +204,7 @@ impl<'a> SymbolImporter<'a> {
                             if let (Some(scope_id), Some(name)) =
                                 (self.target.scope_for_owner(parent_id), name)
                             {
-                                let _ =
-                                    self.target.define_in_scope(scope_id, name.clone(), *new_id);
+                                self.define_imported_symbol_in_scope(scope_id, name, *new_id);
                             }
                         }
                         Some(SymbolKind::Configuration | SymbolKind::Resource) => {
@@ -180,12 +226,20 @@ impl<'a> SymbolImporter<'a> {
                                 let name =
                                     self.target.get(*new_id).map(|symbol| symbol.name.clone());
                                 if let Some(name) = name {
-                                    let _ = self.target.define_in_scope(
+                                    self.define_imported_symbol_in_scope(
                                         ScopeId::GLOBAL,
-                                        name.clone(),
+                                        name,
                                         *new_id,
                                     );
                                 }
+                            }
+                        }
+                        Some(kind) if imported_owner_scope_kind(&kind).is_some() => {
+                            let name = self.target.get(*new_id).map(|symbol| symbol.name.clone());
+                            if let (Some(scope_id), Some(name)) =
+                                (self.target.scope_for_owner(parent_id), name)
+                            {
+                                self.define_imported_symbol_in_scope(scope_id, name, *new_id);
                             }
                         }
                         _ => {}
@@ -196,7 +250,8 @@ impl<'a> SymbolImporter<'a> {
                 self.target.set_extends(*new_id, base.clone());
             }
             if let Some(interfaces) = source.implements_names(*old_id) {
-                self.target.set_implements(*new_id, interfaces.to_vec());
+                self.target
+                    .set_implements(*new_id, interfaces.into_iter().cloned().collect());
             }
         }
 
@@ -207,6 +262,46 @@ impl<'a> SymbolImporter<'a> {
                 }
             }
         }
+    }
+
+    fn define_imported_symbol_in_scope(
+        &mut self,
+        scope_id: ScopeId,
+        name: SmolStr,
+        new_id: SymbolId,
+    ) {
+        if let Some(existing_id) = self.target.lookup_in_scope(scope_id, name.as_str()) {
+            self.record_import_scope_collision(&name, existing_id, new_id);
+            return;
+        }
+
+        if let Some(existing_id) = self.target.define_in_scope(scope_id, name.clone(), new_id) {
+            self.record_import_scope_collision(&name, existing_id, new_id);
+        }
+    }
+
+    fn record_import_scope_collision(
+        &mut self,
+        name: &SmolStr,
+        existing_id: SymbolId,
+        duplicate_id: SymbolId,
+    ) {
+        if existing_id == duplicate_id {
+            return;
+        }
+        let Some(duplicate) = self.target.get(duplicate_id) else {
+            return;
+        };
+        if !should_report_import_name_collision(&duplicate.kind) {
+            return;
+        }
+        let existing_range = self
+            .target
+            .get(existing_id)
+            .map(|existing| existing.range)
+            .unwrap_or_else(|| TextRange::empty(0.into()));
+        self.target
+            .record_import_collision(name.clone(), existing_range, duplicate.range);
     }
 
     fn namespace_path(table: &SymbolTable, symbol_id: SymbolId) -> Option<Vec<SmolStr>> {
@@ -290,28 +385,48 @@ impl<'a> SymbolImporter<'a> {
     }
 
     fn import_type(&mut self, source_file: FileId, type_id: TypeId) -> TypeId {
+        match self.import_type_outcome(source_file, type_id) {
+            SemanticOutcome::Resolved(type_id) => type_id,
+            _ => LEGACY_UNKNOWN_TYPE_ID,
+        }
+    }
+
+    fn import_type_outcome(
+        &mut self,
+        source_file: FileId,
+        type_id: TypeId,
+    ) -> SemanticOutcome<TypeId> {
         if type_id.builtin_name().is_some() {
-            return type_id;
+            return SemanticOutcome::Resolved(type_id);
         }
 
         if let Some(mapped) = self.type_map.get(&(source_file, type_id)).copied() {
-            return mapped;
+            return SemanticOutcome::Resolved(mapped);
         }
 
         if !self.importing.insert((source_file, type_id)) {
-            return TypeId::UNKNOWN;
+            return SemanticOutcome::SuppressedCascade {
+                primary: DiagnosticCode::CyclicDependency,
+                range: None,
+            };
         }
 
         let source = match self.sources.get(&source_file).cloned() {
             Some(table) => table,
             None => {
                 self.importing.remove(&(source_file, type_id));
-                return TypeId::UNKNOWN;
+                return SemanticOutcome::InvariantViolation {
+                    message: SmolStr::new("missing source symbol table during type import"),
+                    range: None,
+                };
             }
         };
         let Some(ty) = source.type_by_id(type_id).cloned() else {
             self.importing.remove(&(source_file, type_id));
-            return TypeId::UNKNOWN;
+            return SemanticOutcome::Unknown {
+                name: None,
+                range: None,
+            };
         };
 
         let mapped = match ty {
@@ -413,6 +528,6 @@ impl<'a> SymbolImporter<'a> {
 
         self.type_map.insert((source_file, type_id), mapped);
         self.importing.remove(&(source_file, type_id));
-        mapped
+        SemanticOutcome::Resolved(mapped)
     }
 }

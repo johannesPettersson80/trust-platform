@@ -17,7 +17,6 @@ pub(super) use model::{
 };
 pub(super) use pou::{
     lower_classes, lower_function_blocks, lower_functions, lower_interfaces, lower_programs,
-    qualified_pou_name,
 };
 pub(super) use types::{
     class_type_name, function_block_type_name, interface_type_name, lower_type_decls,

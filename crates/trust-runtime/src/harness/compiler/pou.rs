@@ -1,4 +1,6 @@
 use smol_str::SmolStr;
+use trust_hir::db::FileId;
+use trust_hir::semantic::{DeclarationCatalog, DeclarationKind};
 use trust_hir::symbols::ParamDirection;
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 
@@ -13,7 +15,6 @@ use super::super::lower::{lower_expr, lower_stmt_list, resolve_initializer_enum_
 use super::super::types::CompileError;
 use super::super::util::{collect_using_directives, namespace_qualified_name, node_text};
 use super::model::{GlobalInit, LoweredProgram, LoweringContext, LoweringInputs, ProgramVars};
-use super::types::qualify_with_namespaces;
 use super::vars::{parse_var_decl, var_block_kind, var_block_qualifiers, VarBlockKind};
 use super::{lower_type_ref, resolve_named_type};
 

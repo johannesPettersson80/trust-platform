@@ -1,6 +1,6 @@
 # Runtime Host Surface Ownership Checklist
 
-Status: Phase 4 named-file table captured; first code-backed port/extraction row next, with CHECK-07 still partial until ports are code-backed
+Status: First code-backed HMI runtime read/write control port landed; CHECK-07 still partial until the matching direct web runtime-state doctor rule is active
 Owner: Runtime/web/HMI/control/cloud
 Scope: address audit F11 by defining and enforcing ownership for `web`, `hmi`, `ui`, `control`, and `runtime_cloud`.
 
@@ -73,7 +73,8 @@ Port design constraints:
 - Web adapters may perform HTTP auth, body parsing, TLS-origin checks, websocket transport, and response serialization.
 - HMI and runtime-cloud domain ports may depend on domain contracts and immutable runtime snapshots, but must not import `web`.
 - Control ports may own authorization/write side effects, but must not import web implementation types; the former `PairingStore` inversion was removed and must not be reintroduced.
-- `host_surface.approved_ports_active` remains `false` until at least the first code-backed port and matching doctor rule exist.
+- Code-backed target landed on 2026-04-29: `crates/trust-runtime/src/control/hmi_runtime_ports.rs` owns the narrow HMI runtime read/write control port. `control/hmi_handlers_read.rs` and `control/hmi_handlers_write.rs` now delegate to it, preserving `hmi.schema.get`, `hmi.values.get`, `hmi.trends.get`, `hmi.alarms.get`, and `hmi.write` response contracts.
+- `host_surface.approved_ports_active` remains `false` until the matching direct web runtime-state doctor rule exists.
 
 ## Phase 3 - Doctor Rules
 
@@ -88,7 +89,7 @@ Phase 3 evidence captured on 2026-04-29:
 - `xtask/config/full_map_policy.json` forbids production `control -> web`, `hmi -> web`, and `runtime_cloud -> web` implementation imports.
 - `xtask/config/full_map_policy.json` has `host_surface.owned_paths` owner categories for `control`, `hmi`, `web`, `ui`, and `runtime_cloud` roots/subtrees.
 - `xtask/src/full_map.rs` fixtures prove an unallowlisted host-surface import fails, test-only imports are ignored, `runtime_cloud -> web` fails, and host-surface files without owner category fail.
-- `RTHOST-P3-004` remains blocked until at least one approved runtime/HMI/cloud port is code-backed.
+- `RTHOST-P3-004` is unblocked by the first code-backed HMI runtime read/write port; next step is adding the matching doctor rule before setting `host_surface.approved_ports_active = true`.
 
 ## Phase 4 - Named-File Extraction
 
@@ -99,7 +100,7 @@ Named-file move table from `RTHOST-P1-008`:
 | Source file or glob | Current owner | Target owner | Action | Public API / behavior-lock / rollback | Required tests | Doctor rule |
 | --- | --- | --- | --- | --- | --- | --- |
 | `crates/trust-runtime/src/control.rs` `PairingStore` dependency | control root, previously with temporary web import | `security::pairing` shared auth boundary | moved | Public API: `web::pairing` remains as compatibility re-export; behavior lock: pairing/auth control requests keep current semantics; rollback: restore re-exported store path while keeping CHECK-07 failing on direct control-to-web imports. | `cargo test -p trust-runtime control::tests`, `cargo test -p trust-runtime --test web_ide_integration` focused pairing/auth cases | `FULLMAP-CHECK-07` temporary `control -> web` allowlist removed after split. |
-| `crates/trust-runtime/src/control/hmi_handlers*.rs` | control HMI port | control port plus HMI-domain helpers where duplicated | split selectively | Public API: keep control request names stable; behavior lock: HMI schema/value/write JSON remains stable; rollback: keep existing handlers and do not move side effects until tests pass. | `cargo test -p trust-runtime --lib control::tests::hmi_`, `cargo test -p trust-runtime --test hmi_readonly_integration` | `host_surface.owned_paths`, `control -> web` forbidden edge. |
+| `crates/trust-runtime/src/control/hmi_handlers*.rs` | control HMI port | control port plus HMI-domain helpers where duplicated | split selectively | Public API: keep control request names stable; behavior lock: HMI schema/value/write JSON remains stable; rollback: keep existing handlers and do not move side effects until tests pass. Current code-backed port: `control/hmi_runtime_ports.rs` handles HMI runtime reads/writes without web types. | `cargo test -p trust-runtime --lib control::tests::hmi_`, `cargo test -p trust-runtime --test hmi_readonly_integration` | `host_surface.owned_paths`, `control -> web` forbidden edge. |
 | `crates/trust-runtime/src/hmi/runtime_views/values_writes.rs` | HMI domain coupled to runtime snapshot types | HMI domain using runtime value read/write ports | keep then narrow | Public API: HMI schema/value contracts stay stable; behavior lock: value quality/freshness/write-target resolution stable; rollback: port wrapper can delegate to current functions. | `cargo test -p trust-runtime --lib hmi::tests`, HMI control tests | `hmi -> web` forbidden edge and future approved-port rule. |
 | `crates/trust-runtime/src/web/hmi_ws.rs` | web HMI adapter | web adapter only | adapter-only | Public API: websocket event names stay stable; behavior lock: `hmi.values.delta`, `hmi.schema.revision`, and `hmi.alarms.event` payloads stable; rollback: keep current polling loop if delta port is not ready. | `cargo test -p trust-runtime --test hmi_readonly_integration`; Playwright required for browser-visible websocket/UI behavior changes | `host_surface.owned_paths`, future approved HMI event/delta port rule. |
 | `crates/trust-runtime/src/web/ui_routes.rs` HMI route sections | web route/static adapter | web adapter only | adapter-only | Public API: `/hmi`, `/hmi/export.json`, `/hmi/app.js`, `/hmi/styles.css`, `/hmi/modules/*`, and `/ws/hmi` stay stable; rollback: keep route dispatch unchanged. | `cargo test -p trust-runtime --test hmi_readonly_integration`; Playwright for browser-visible changes | `host_surface.owned_paths`; no HMI domain logic in web routes. |
@@ -117,18 +118,24 @@ Named-file move table from `RTHOST-P1-008`:
 - [ ] `RTHOST-P4-005` For every duplicated DTO/schema/auth/write-check row, identify the canonical owner before deleting duplicates.
 - [ ] `RTHOST-P4-006` Keep browser assets and websocket details in web; any browser-visible row requires Playwright evidence in the implementation branch.
 - [ ] `RTHOST-P4-007` Decide exact action for `crates/trust-runtime/src/web/hmi_ws.rs`: keep as websocket adapter only or split domain logic out.
-- [ ] `RTHOST-P4-008` Decide exact action for `crates/trust-runtime/src/control/hmi_handlers*.rs`: keep HTTP-neutral control handlers or move HMI-domain pieces to `hmi`.
+- [x] `RTHOST-P4-008` Decide exact action for `crates/trust-runtime/src/control/hmi_handlers*.rs`: keep HTTP-neutral control handlers, with runtime value read/write access delegated to `control/hmi_runtime_ports.rs`; HMI schema/contracts stay in `hmi`.
 - [ ] `RTHOST-P4-009` Decide exact action for `crates/trust-runtime/src/runtime_cloud/` files and `crates/trust-runtime/src/web/runtime_cloud_*` route/state files.
 - [x] `RTHOST-P4-010` Add the reviewed named-file move table to this checklist before code movement.
 
 ## Phase 5 - Tests
 
-- [ ] `RTHOST-P5-001` Contract tests for HMI schema/descriptor projection.
-- [ ] `RTHOST-P5-002` Contract tests for HMI write authorization policy.
+- [x] `RTHOST-P5-001` Contract tests for HMI schema/descriptor projection.
+- [x] `RTHOST-P5-002` Contract tests for HMI write authorization policy.
 - [ ] `RTHOST-P5-003` Contract tests for runtime snapshot/status projection.
 - [ ] `RTHOST-P5-004` Contract tests for runtime-cloud projection.
 - [ ] `RTHOST-P5-005` Route tests prove web remains a thin adapter.
 - [ ] `RTHOST-P5-006` Browser-visible changes use Playwright verification in implementation branches.
+
+Phase 5 HMI control evidence captured on 2026-04-29:
+
+- `RUSTUP_TOOLCHAIN=1.95 cargo test -p trust-runtime --lib control::tests::hmi_` passed 17/17.
+- Direct port behavior-lock tests: `hmi_runtime_read_port_is_code_backed_without_json_transport` and `hmi_runtime_write_port_queues_allowlisted_write_without_json_transport`.
+- Existing HMI contract tests in the same run cover schema mapping, values quality/timestamps, descriptor update/reload, write allowlist, write type mismatch, and read-only rejection.
 
 ## Exit Criteria
 

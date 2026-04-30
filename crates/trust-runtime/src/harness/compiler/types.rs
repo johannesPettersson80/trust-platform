@@ -1,4 +1,6 @@
 use smol_str::SmolStr;
+use trust_hir::db::FileId;
+use trust_hir::semantic::{DeclarationCatalog, DeclarationKind};
 use trust_hir::{Type, TypeId};
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 
@@ -14,7 +16,6 @@ use super::super::util::{
     builtin_type_name, collect_using_directives, is_expression_kind, node_text,
 };
 use super::model::LoweringContext;
-use super::qualified_pou_name;
 use super::vars::parse_var_decl;
 
 #[allow(clippy::too_many_arguments)]
@@ -47,14 +48,11 @@ pub(crate) fn lower_type_decls(
 }
 
 pub(crate) fn predeclare_function_blocks(
-    syntax: &SyntaxNode,
+    catalog: &DeclarationCatalog,
+    file_id: FileId,
     registry: &mut trust_hir::types::TypeRegistry,
 ) -> Result<(), CompileError> {
-    for fb_node in syntax
-        .descendants()
-        .filter(|child| child.kind() == SyntaxKind::FunctionBlock)
-    {
-        let name = qualified_pou_name(&fb_node)?;
+    for name in catalog_pou_names(catalog, file_id, DeclarationKind::FunctionBlock) {
         if registry.lookup(&name).is_some() {
             return Err(CompileError::new(format!(
                 "duplicate FUNCTION_BLOCK name '{name}'"
@@ -66,14 +64,11 @@ pub(crate) fn predeclare_function_blocks(
 }
 
 pub(crate) fn predeclare_classes(
-    syntax: &SyntaxNode,
+    catalog: &DeclarationCatalog,
+    file_id: FileId,
     registry: &mut trust_hir::types::TypeRegistry,
 ) -> Result<(), CompileError> {
-    for class_node in syntax
-        .descendants()
-        .filter(|child| child.kind() == SyntaxKind::Class)
-    {
-        let name = qualified_pou_name(&class_node)?;
+    for name in catalog_pou_names(catalog, file_id, DeclarationKind::Class) {
         if registry.lookup(&name).is_some() {
             return Err(CompileError::new(format!("duplicate CLASS name '{name}'")));
         }
@@ -83,14 +78,11 @@ pub(crate) fn predeclare_classes(
 }
 
 pub(crate) fn predeclare_interfaces(
-    syntax: &SyntaxNode,
+    catalog: &DeclarationCatalog,
+    file_id: FileId,
     registry: &mut trust_hir::types::TypeRegistry,
 ) -> Result<(), CompileError> {
-    for interface_node in syntax
-        .descendants()
-        .filter(|child| child.kind() == SyntaxKind::Interface)
-    {
-        let name = qualified_pou_name(&interface_node)?;
+    for name in catalog_pou_names(catalog, file_id, DeclarationKind::Interface) {
         if registry.lookup(&name).is_some() {
             return Err(CompileError::new(format!(
                 "duplicate INTERFACE name '{name}'"
@@ -99,6 +91,19 @@ pub(crate) fn predeclare_interfaces(
         registry.register(name.clone(), Type::Interface { name });
     }
     Ok(())
+}
+
+fn catalog_pou_names(
+    catalog: &DeclarationCatalog,
+    file_id: FileId,
+    kind: DeclarationKind,
+) -> Vec<SmolStr> {
+    catalog
+        .entries()
+        .iter()
+        .filter(|entry| entry.source().file_id() == file_id && entry.kind() == kind)
+        .map(|entry| SmolStr::new(entry.qualified_name().display()))
+        .collect()
 }
 
 #[allow(clippy::too_many_arguments)]

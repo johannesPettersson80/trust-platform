@@ -53,7 +53,12 @@ impl SemanticDatabase for Database {
 
     fn resolve_name(&self, file_id: FileId, name: &str) -> Option<SymbolId> {
         let symbols = self.file_symbols(file_id);
-        symbols.lookup_any(name)
+        if name.contains('.') {
+            let parts = name.split('.').map(SmolStr::new).collect::<Vec<_>>();
+            symbols.resolve_qualified(&parts)
+        } else {
+            symbols.lookup(name)
+        }
     }
 
     fn type_of(&self, file_id: FileId, expr_id: u32) -> TypeId {

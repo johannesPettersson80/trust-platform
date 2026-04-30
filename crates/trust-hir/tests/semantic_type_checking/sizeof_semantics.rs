@@ -41,6 +41,24 @@ END_PROGRAM
 }
 
 #[test]
+fn test_sizeof_string_length_const_eval_error_reports_primary_diagnostic() {
+    let messages = error_messages(
+        r#"
+PROGRAM Test
+    VAR size : DINT; END_VAR
+    size := SIZEOF(STRING[1 / 0]);
+END_PROGRAM
+"#,
+    );
+    assert!(
+        messages
+            .iter()
+            .any(|message| message.contains("constant expression divides by zero")),
+        "expected divide-by-zero const-eval diagnostic, got {messages:?}"
+    );
+}
+
+#[test]
 fn test_sizeof_accepts_this_field_operand_inside_method() {
     check_no_errors(
         r#"
@@ -194,6 +212,49 @@ END_PROGRAM
             .iter()
             .any(|message| message.contains("SIZEOF") && message.contains("DoesNotExist")),
         "expected SIZEOF-specific unknown-identifier diagnostic, got {messages:?}"
+    );
+}
+
+#[test]
+fn test_sizeof_ambiguous_using_value_reports_primary_only() {
+    let codes = check_errors(
+        r#"
+NAMESPACE A
+VAR_GLOBAL
+    Shared : INT;
+END_VAR
+END_NAMESPACE
+
+NAMESPACE B
+VAR_GLOBAL
+    Shared : INT;
+END_VAR
+END_NAMESPACE
+
+USING A;
+USING B;
+
+PROGRAM Test
+    VAR size : DINT; END_VAR
+    size := SIZEOF(Shared);
+END_PROGRAM
+"#,
+    );
+    assert!(
+        codes.contains(&DiagnosticCode::CannotResolve),
+        "expected CannotResolve for ambiguous SIZEOF operand, got {codes:?}"
+    );
+    assert_eq!(
+        codes
+            .iter()
+            .filter(|code| **code == DiagnosticCode::CannotResolve)
+            .count(),
+        1,
+        "ambiguous SIZEOF operand must emit one primary CannotResolve, got {codes:?}"
+    );
+    assert!(
+        !codes.contains(&DiagnosticCode::InvalidOperation),
+        "ambiguous SIZEOF operand must not degrade into InvalidOperation, got {codes:?}"
     );
 }
 

@@ -222,7 +222,7 @@ pub(crate) fn lsp_symbol_kind(symbols: &SymbolTable, symbol: &Symbol) -> SymbolK
                 .type_by_id(symbol.type_id)
                 .is_some_and(|ty| matches!(ty, Type::Enum { .. }))
                 || symbols
-                    .lookup_type(&symbol.name)
+                    .lookup_registered_type_name(&symbol.name)
                     .and_then(|type_id| symbols.type_by_id(type_id))
                     .is_some_and(|ty| matches!(ty, Type::Enum { .. }))
                 || symbols.iter().any(|child| {
@@ -271,7 +271,7 @@ fn type_label(symbols: &SymbolTable, symbol: &Symbol) -> Option<&'static str> {
     let type_id = symbols
         .type_by_id(symbol.type_id)
         .map(|_| symbol.type_id)
-        .or_else(|| symbols.lookup_type(&symbol.name));
+        .or_else(|| symbols.lookup_registered_type_name(&symbol.name));
     let ty = type_id.and_then(|id| symbols.type_by_id(id));
     match ty {
         Some(Type::Enum { .. }) => Some("ENUM"),

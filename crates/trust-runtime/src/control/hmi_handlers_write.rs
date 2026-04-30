@@ -46,82 +46,17 @@ pub(super) fn handle_hmi_write(
         return ControlResponse::error(id, "missing params.id".into());
     }
 
-    let descriptor = hmi_descriptor_snapshot(state);
-    let customization = descriptor.customization;
-    if !customization.write_enabled() {
-        return ControlResponse::error(id, "hmi.write disabled in read-only mode".into());
-    }
-    if customization.write_allowlist().is_empty() {
-        return ControlResponse::error(id, "hmi.write allowlist is empty".into());
-    }
-
-    let metadata = match state.metadata.lock() {
-        Ok(guard) => guard,
-        Err(_) => return ControlResponse::error(id, "metadata unavailable".into()),
+    let queued = match queue_hmi_runtime_write_port(state, target, &params.value) {
+        Ok(queued) => queued,
+        Err(err) => return ControlResponse::error(id, err),
     };
-    let snapshot = match load_runtime_snapshot(state) {
-        Some(snapshot) => snapshot,
-        None => return ControlResponse::error(id, "runtime snapshot unavailable".into()),
-    };
-    let point = match crate::hmi::resolve_write_point(
-        state.resource_name.as_str(),
-        &metadata,
-        Some(&snapshot),
-        target,
-    ) {
-        Some(point) => point,
-        None => return ControlResponse::error(id, format!("unknown hmi target '{target}'")),
-    };
-    let allowed = customization.write_target_allowed(point.id.as_str())
-        || customization.write_target_allowed(point.path.as_str());
-    if !allowed {
-        return ControlResponse::error(id, "hmi.write target is not in allowlist".into());
-    }
-    let template = match crate::hmi::resolve_write_value_template(&point, &snapshot) {
-        Some(value) => value,
-        None => {
-            return ControlResponse::error(
-                id,
-                format!("hmi.write target '{}' is currently unavailable", point.id),
-            )
-        }
-    };
-    let value = match parse_hmi_write_value(&params.value, &template) {
-        Some(value) => value,
-        None => {
-            return ControlResponse::error(
-                id,
-                format!("invalid hmi.write value for target '{}'", point.id),
-            )
-        }
-    };
-
-    match &point.binding {
-        crate::hmi::HmiWriteBinding::ProgramVar { program, variable } => {
-            let instance_id = match snapshot.storage.get_global(program.as_str()) {
-                Some(Value::Instance(instance_id)) => *instance_id,
-                _ => {
-                    return ControlResponse::error(
-                        id,
-                        format!("hmi.write target '{}' is currently unavailable", point.id),
-                    )
-                }
-            };
-            state
-                .debug
-                .enqueue_instance_write(instance_id, variable.clone(), value);
-        }
-        crate::hmi::HmiWriteBinding::Global { name } => {
-            state.debug.enqueue_global_write(name.clone(), value);
-        }
-    }
 
     ControlResponse::ok(
         id,
         json!({
             "status": "queued",
-            "id": point.id,
-            "path": point.path,
+            "id": queued.id,
+            "path": queued.path,
         }),
     )
 }

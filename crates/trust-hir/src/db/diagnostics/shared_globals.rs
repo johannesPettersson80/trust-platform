@@ -1,6 +1,9 @@
 use super::super::queries::*;
 use super::super::*;
-use super::configuration::{collect_tasks_in_scope, normalize_task_name, program_config_task_name};
+use super::configuration::{
+    collect_tasks_in_scope, normalize_task_name, program_config_task_name, resolve_program_type,
+    ProgramTypeResolution,
+};
 use super::context::{
     expression_context, find_symbol_by_name_range, is_pou_kind, namespace_path_for_symbol,
     normalized_name,
@@ -198,8 +201,11 @@ fn collect_program_task_assignments(
                 let Some((_, type_parts)) = program_config_instance_and_type(&program) else {
                     continue;
                 };
-                let Some(program_id) = resolve_program_type(symbols, &type_parts) else {
-                    continue;
+                let program_id = match resolve_program_type(symbols, &type_parts) {
+                    ProgramTypeResolution::Program(program_id) => program_id,
+                    ProgramTypeResolution::WrongKind(_) | ProgramTypeResolution::Missing => {
+                        continue;
+                    }
                 };
 
                 let (task_id, task_label) = task_id_and_label(
@@ -336,7 +342,7 @@ fn resolve_name_ref_global(
     let name = name_from_name_ref(node)?;
     let symbol_id = symbols
         .resolve(name.as_str(), scope_id)
-        .or_else(|| symbols.lookup_any(name.as_str()))?;
+        .or_else(|| symbols.lookup(name.as_str()))?;
     resolve_global_symbol(symbols, globals_by_key, symbol_id)
 }
 
@@ -351,7 +357,7 @@ fn resolve_field_expr_global(
         let symbol_id = if len == 1 {
             symbols
                 .resolve(parts[0].as_str(), scope_id)
-                .or_else(|| symbols.lookup_any(parts[0].as_str()))
+                .or_else(|| symbols.lookup(parts[0].as_str()))
         } else {
             symbols.resolve_qualified(&parts[..len])
         };
@@ -517,18 +523,4 @@ fn is_write_context(expr: &SyntaxNode) -> bool {
         break;
     }
     false
-}
-
-fn resolve_program_type(symbols: &SymbolTable, parts: &[SmolStr]) -> Option<SymbolId> {
-    let symbol_id = symbols.resolve_qualified(parts).or_else(|| {
-        if parts.len() == 1 {
-            symbols.lookup_any(parts[0].as_str())
-        } else {
-            None
-        }
-    })?;
-    symbols
-        .get(symbol_id)
-        .filter(|symbol| matches!(symbol.kind, SymbolKind::Program))?;
-    Some(symbol_id)
 }

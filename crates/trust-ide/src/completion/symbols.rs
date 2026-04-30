@@ -260,9 +260,10 @@ fn is_same_or_derived(symbols: &SymbolTable, derived_id: SymbolId, base_id: Symb
         return true;
     }
     let mut visited: FxHashSet<SymbolId> = FxHashSet::default();
-    let mut current = symbols
-        .extends_name(derived_id)
-        .and_then(|name| symbols.resolve_by_name(name.as_str()));
+    let mut current = symbols.extends_reference(derived_id).and_then(|reference| {
+        let name = reference.name().display();
+        symbols.resolve_oop_reference_for_owner(derived_id, name.as_str())
+    });
     while let Some(symbol_id) = current {
         if !visited.insert(symbol_id) {
             break;
@@ -270,9 +271,10 @@ fn is_same_or_derived(symbols: &SymbolTable, derived_id: SymbolId, base_id: Symb
         if symbol_id == base_id {
             return true;
         }
-        current = symbols
-            .extends_name(symbol_id)
-            .and_then(|name| symbols.resolve_by_name(name.as_str()));
+        current = symbols.extends_reference(symbol_id).and_then(|reference| {
+            let name = reference.name().display();
+            symbols.resolve_oop_reference_for_owner(symbol_id, name.as_str())
+        });
     }
     false
 }

@@ -520,19 +520,6 @@ fn find_scope_for_symbol(symbols: &SymbolTable, symbol_id: SymbolId) -> Option<S
     None
 }
 
-fn is_pou_kind(kind: SyntaxKind) -> bool {
-    matches!(
-        kind,
-        SyntaxKind::Program
-            | SyntaxKind::Function
-            | SyntaxKind::FunctionBlock
-            | SyntaxKind::Class
-            | SyntaxKind::Method
-            | SyntaxKind::Property
-            | SyntaxKind::Interface
-    )
-}
-
 #[derive(Clone, Copy)]
 struct ExpressionScopeContext {
     scope_id: ScopeId,
@@ -559,7 +546,10 @@ fn receiver_type_for_pou(
 }
 
 fn expression_scope_context(symbols: &SymbolTable, node: &SyntaxNode) -> ExpressionScopeContext {
-    let Some(pou_node) = node.ancestors().find(|ancestor| is_pou_kind(ancestor.kind())) else {
+    let Some(pou_node) = node
+        .ancestors()
+        .find(|ancestor| ancestor.kind().is_pou_declaration())
+    else {
         return ExpressionScopeContext {
             scope_id: ScopeId::GLOBAL,
             current_pou_symbol: None,
@@ -588,7 +578,7 @@ fn class_owner_from_type(symbols: &SymbolTable, type_id: TypeId, allow_interface
         Type::Interface { name } if allow_interface => name,
         _ => return None,
     };
-    symbols.resolve_by_name(name.as_str())
+    symbols.resolve_global_or_qualified_name(name.as_str())
 }
 
 fn current_class_owner(

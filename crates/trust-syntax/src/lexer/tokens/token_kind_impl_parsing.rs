@@ -26,6 +26,8 @@ impl TokenKind {
                 | Self::Ident
                 | Self::KwEn
                 | Self::KwEno
+                | Self::KwGet
+                | Self::KwSet
                 | Self::IntLiteral
                 | Self::RealLiteral
                 | Self::StringLiteral

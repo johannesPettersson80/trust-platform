@@ -316,7 +316,7 @@ pub(crate) fn resolve_type_symbol(
             }
         }
     }
-    let type_id = symbols.lookup_type(parts[0].as_str())?;
+    let type_id = symbols.lookup_registered_type_name(parts[0].as_str())?;
     symbols
         .iter()
         .find(|sym| sym.is_type() && sym.type_id == type_id)

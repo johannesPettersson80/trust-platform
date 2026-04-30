@@ -9,20 +9,18 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
     ) -> TypeId {
         let arg_count = self.checker.calls().collect_call_args(node).len();
         if arg_count < 2 {
-            self.checker.diagnostics.error(
+            return self.checker.legacy_diagnostic_type(
                 DiagnosticCode::WrongArgumentCount,
                 node.text_range(),
                 format!("expected at least 2 arguments, found {}", arg_count),
             );
-            return TypeId::UNKNOWN;
         }
         if name.eq_ignore_ascii_case("NE") && arg_count != 2 {
-            self.checker.diagnostics.error(
+            return self.checker.legacy_diagnostic_type(
                 DiagnosticCode::WrongArgumentCount,
                 node.text_range(),
                 format!("expected 2 arguments, found {}", arg_count),
             );
-            return TypeId::UNKNOWN;
         }
         let params = builtin_in_params("IN", 1, arg_count);
         let call = self.builtin_call(node, params);

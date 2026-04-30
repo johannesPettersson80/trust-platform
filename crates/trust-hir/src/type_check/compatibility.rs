@@ -1,25 +1,21 @@
 use super::*;
+use crate::semantic::SemanticOutcome;
 use crate::types::ArrayDimensionExt;
 
 impl<'a> TypeChecker<'a> {
     pub(super) fn resolve_alias_type(&self, type_id: TypeId) -> TypeId {
-        let mut current = type_id;
-        let mut guard = 0;
-        while guard < 16 {
-            let Some(Type::Alias { target, .. }) = self.symbols.type_by_id(current) else {
-                break;
-            };
-            if *target == current {
-                break;
-            }
-            current = *target;
-            guard += 1;
-        }
-        current
+        self.symbols.resolve_alias_type(type_id)
+    }
+
+    pub(super) fn resolve_alias_type_outcome(&self, type_id: TypeId) -> SemanticOutcome<TypeId> {
+        self.symbols.resolve_alias_type_outcome(type_id)
     }
 
     pub(super) fn resolve_subrange_base(&self, type_id: TypeId) -> TypeId {
-        let resolved = self.resolve_alias_type(type_id);
+        let resolved = match self.resolve_alias_type_outcome(type_id) {
+            SemanticOutcome::Resolved(type_id) => type_id,
+            _ => type_id,
+        };
         match self.symbols.type_by_id(resolved) {
             Some(Type::Subrange { base, .. }) => *base,
             _ => resolved,
@@ -128,21 +124,22 @@ impl<'a> TypeChecker<'a> {
                         return false;
                     }
                 }
-                self.types_compatible(
-                    self.symbols.type_by_id(*te).unwrap_or(&Type::Unknown),
-                    self.symbols.type_by_id(*se).unwrap_or(&Type::Unknown),
-                )
+                let Some(target_element) = self.symbols.type_by_id(*te) else {
+                    return false;
+                };
+                let Some(source_element) = self.symbols.type_by_id(*se) else {
+                    return false;
+                };
+                self.types_compatible(target_element, source_element)
             }
 
             (Type::Pointer { target: tt }, Type::Pointer { target: ts }) => {
-                let target = self
-                    .symbols
-                    .type_by_id(self.resolve_alias_type(*tt))
-                    .unwrap_or(&Type::Unknown);
-                let source = self
-                    .symbols
-                    .type_by_id(self.resolve_alias_type(*ts))
-                    .unwrap_or(&Type::Unknown);
+                let Some(target) = self.symbols.type_by_id(self.resolve_alias_type(*tt)) else {
+                    return false;
+                };
+                let Some(source) = self.symbols.type_by_id(self.resolve_alias_type(*ts)) else {
+                    return false;
+                };
                 self.types_compatible(target, source)
             }
 
@@ -161,10 +158,16 @@ impl<'a> TypeChecker<'a> {
                 | Type::FunctionBlock { name: source }
                 | Type::Interface { name: source },
             ) => {
-                let Some(target_id) = self.symbols.resolve_by_name(target.as_str()) else {
+                let Some(target_id) = self
+                    .symbols
+                    .resolve_global_or_qualified_name(target.as_str())
+                else {
                     return false;
                 };
-                let Some(source_id) = self.symbols.resolve_by_name(source.as_str()) else {
+                let Some(source_id) = self
+                    .symbols
+                    .resolve_global_or_qualified_name(source.as_str())
+                else {
                     return false;
                 };
                 self.is_interface_assignable(target_id, source_id)
@@ -237,7 +240,7 @@ impl<'a> TypeChecker<'a> {
             Type::Class { name } | Type::FunctionBlock { name } | Type::Interface { name } => name,
             _ => return None,
         };
-        self.symbols.resolve_by_name(name.as_str())
+        self.symbols.resolve_global_or_qualified_name(name.as_str())
     }
 
     fn is_interface_assignable(&self, target_id: SymbolId, source_id: SymbolId) -> bool {
@@ -267,7 +270,10 @@ impl<'a> TypeChecker<'a> {
 
             if let Some(interfaces) = self.symbols.implements_names(symbol_id) {
                 for name in interfaces {
-                    let Some(iface_id) = self.symbols.resolve_by_name(name.as_str()) else {
+                    let Some(iface_id) = self
+                        .symbols
+                        .resolve_oop_reference_for_owner(symbol_id, name.as_str())
+                    else {
                         continue;
                     };
                     if self
@@ -279,12 +285,68 @@ impl<'a> TypeChecker<'a> {
                 }
             }
 
-            current = self
-                .symbols
-                .extends_name(symbol_id)
-                .and_then(|name| self.symbols.resolve_by_name(name.as_str()));
+            current = self.symbols.extends_name(symbol_id).and_then(|name| {
+                self.symbols
+                    .resolve_oop_reference_for_owner(symbol_id, name.as_str())
+            });
         }
 
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::diagnostics::DiagnosticBuilder;
+
+    #[test]
+    fn missing_array_element_type_identity_is_not_assignment_compatible() {
+        let mut symbols = SymbolTable::new();
+        let target = symbols.register_type(
+            "BadTargetArray",
+            Type::Array {
+                element: TypeId(9001),
+                dimensions: vec![(0, 1)],
+            },
+        );
+        let source = symbols.register_type(
+            "BadSourceArray",
+            Type::Array {
+                element: TypeId(9002),
+                dimensions: vec![(0, 1)],
+            },
+        );
+        let mut diagnostics = DiagnosticBuilder::new();
+        let checker = TypeChecker::new(&mut symbols, &mut diagnostics, ScopeId::GLOBAL);
+
+        assert!(
+            !checker.is_assignable(target, source),
+            "missing array element TypeIds must not silently substitute Type::Unknown and become compatible"
+        );
+    }
+
+    #[test]
+    fn missing_pointer_target_type_identity_is_not_assignment_compatible() {
+        let mut symbols = SymbolTable::new();
+        let target = symbols.register_type(
+            "BadTargetPointer",
+            Type::Pointer {
+                target: TypeId(9101),
+            },
+        );
+        let source = symbols.register_type(
+            "BadSourcePointer",
+            Type::Pointer {
+                target: TypeId(9102),
+            },
+        );
+        let mut diagnostics = DiagnosticBuilder::new();
+        let checker = TypeChecker::new(&mut symbols, &mut diagnostics, ScopeId::GLOBAL);
+
+        assert!(
+            !checker.is_assignable(target, source),
+            "missing pointer target TypeIds must not silently substitute Type::Unknown and become compatible"
+        );
     }
 }

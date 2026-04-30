@@ -79,7 +79,7 @@ impl Parser<'_, '_> {
             TokenKind::Dot => {
                 let marker = lhs.precede(self);
                 self.bump();
-                if self.at(TokenKind::Ident) {
+                if self.at_name_token() {
                     self.parse_name();
                 } else if self.at(TokenKind::IntLiteral) || self.at(TokenKind::DirectAddress) {
                     self.start_node(SyntaxKind::Literal);
@@ -171,6 +171,8 @@ impl Parser<'_, '_> {
                                 | TokenKind::Ident
                                 | TokenKind::KwEn
                                 | TokenKind::KwEno
+                                | TokenKind::KwGet
+                                | TokenKind::KwSet
                         ) {
                             self.bump();
                         }
@@ -190,6 +192,8 @@ impl Parser<'_, '_> {
                         | TokenKind::Ident
                         | TokenKind::KwEn
                         | TokenKind::KwEno
+                        | TokenKind::KwGet
+                        | TokenKind::KwSet
                 ) {
                     self.bump();
                 } else {
@@ -200,6 +204,8 @@ impl Parser<'_, '_> {
             TokenKind::Ident
             | TokenKind::KwEn
             | TokenKind::KwEno
+            | TokenKind::KwGet
+            | TokenKind::KwSet
             | TokenKind::KwTime
             | TokenKind::KwRef
             | TokenKind::KwNew
@@ -214,7 +220,11 @@ impl Parser<'_, '_> {
                 self.bump();
                 if matches!(
                     self.current(),
-                    TokenKind::Ident | TokenKind::KwEn | TokenKind::KwEno
+                    TokenKind::Ident
+                        | TokenKind::KwEn
+                        | TokenKind::KwEno
+                        | TokenKind::KwGet
+                        | TokenKind::KwSet
                 ) {
                     self.bump();
                 } else {
@@ -370,7 +380,7 @@ impl Parser<'_, '_> {
             self.start_node(SyntaxKind::Arg);
 
             // Check for named argument
-            if (self.at(TokenKind::Ident) || self.at(TokenKind::KwEn) || self.at(TokenKind::KwEno))
+            if self.at_name_token()
                 && matches!(
                     self.peek_kind_n(1),
                     TokenKind::Assign | TokenKind::Arrow | TokenKind::RefAssign

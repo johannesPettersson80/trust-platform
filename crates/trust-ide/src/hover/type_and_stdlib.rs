@@ -350,8 +350,8 @@ fn inheritance_lines(
     symbol_range: TextRange,
 ) -> Vec<String> {
     let mut lines = Vec::new();
-    if let Some(base) = symbols.extends_name(symbol.id) {
-        lines.push(format!("EXTENDS {}", base));
+    if let Some(base) = symbols.extends_reference(symbol.id) {
+        lines.push(format!("EXTENDS {}", base.name().display()));
     }
     if matches!(symbol.kind, SymbolKind::FunctionBlock | SymbolKind::Class) {
         let implements = implements_names_for_symbol(root, symbol, symbol_range);

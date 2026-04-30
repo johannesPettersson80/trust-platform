@@ -1,5 +1,6 @@
 use super::super::queries::*;
 use super::super::*;
+use crate::semantic::{QualifiedName, SemanticOutcome, SemanticRole};
 
 pub(in crate::db) fn is_global_symbol(symbols: &SymbolTable, symbol: &Symbol) -> bool {
     let parent_ok = match symbol.parent {
@@ -97,16 +98,16 @@ pub(in crate::db) fn stmt_list_belongs_to_pou(stmt_list: &SyntaxNode, pou: &Synt
 }
 
 pub(in crate::db) fn is_pou_kind(kind: SyntaxKind) -> bool {
-    matches!(
-        kind,
-        SyntaxKind::Program
-            | SyntaxKind::Function
-            | SyntaxKind::FunctionBlock
-            | SyntaxKind::Class
-            | SyntaxKind::Method
-            | SyntaxKind::Property
-            | SyntaxKind::Interface
-    )
+    kind.is_pou_declaration()
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(in crate::db) enum PouContextResolution {
+    Resolved,
+    NoPouAncestor,
+    MissingName,
+    MissingOwnerSymbol,
+    MissingOwnerScope,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -116,6 +117,7 @@ pub(in crate::db) struct PouContext {
     pub(in crate::db) this_type: Option<TypeId>,
     pub(in crate::db) super_type: Option<TypeId>,
     pub(in crate::db) symbol_id: Option<SymbolId>,
+    pub(in crate::db) resolution: PouContextResolution,
 }
 
 impl PouContext {
@@ -126,6 +128,7 @@ impl PouContext {
             this_type: None,
             super_type: None,
             symbol_id: None,
+            resolution: PouContextResolution::NoPouAncestor,
         }
     }
 }
@@ -152,13 +155,21 @@ pub(in crate::db) fn action_context(symbols: &SymbolTable, node: &SyntaxNode) ->
 pub(in crate::db) fn pou_context(symbols: &SymbolTable, pou_node: &SyntaxNode) -> PouContext {
     let (pou_name, pou_range) = match name_from_node(pou_node) {
         Some((name, range)) => (name, range),
-        None => return PouContext::global(),
+        None => {
+            return PouContext {
+                resolution: PouContextResolution::MissingName,
+                ..PouContext::global()
+            };
+        }
     };
 
     let pou_symbol_id = find_symbol_by_name_range(symbols, pou_name.as_str(), pou_range);
-    let scope_id = pou_symbol_id
-        .and_then(|id| find_scope_for_symbol(symbols, id))
-        .unwrap_or(ScopeId::GLOBAL);
+    let scope_id = pou_symbol_id.and_then(|id| find_scope_for_symbol(symbols, id));
+    let resolution = match (pou_symbol_id, scope_id) {
+        (None, _) => PouContextResolution::MissingOwnerSymbol,
+        (Some(_), None) => PouContextResolution::MissingOwnerScope,
+        (Some(_), Some(_)) => PouContextResolution::Resolved,
+    };
 
     let return_type = pou_symbol_id.and_then(|id| {
         symbols.get(id).and_then(|sym| match &sym.kind {
@@ -171,11 +182,12 @@ pub(in crate::db) fn pou_context(symbols: &SymbolTable, pou_node: &SyntaxNode) -
     let (this_type, super_type) = receiver_types_for_pou(symbols, pou_symbol_id, pou_node);
 
     PouContext {
-        scope_id,
+        scope_id: scope_id.unwrap_or(ScopeId::GLOBAL),
         return_type,
         this_type,
         super_type,
         symbol_id: pou_symbol_id,
+        resolution,
     }
 }
 
@@ -214,65 +226,107 @@ pub(in crate::db) fn extends_type_for_symbol(
     owner: SymbolId,
 ) -> Option<TypeId> {
     let name = symbols.extends_name(owner)?;
-    let scope_id = symbols.scope_for_owner(owner).unwrap_or(ScopeId::GLOBAL);
-    resolve_type_by_name_in_scope(symbols, name.as_str(), scope_id)
+    let scope_id = symbols.scope_for_owner(owner)?;
+    match resolve_type_by_name_in_scope_outcome(symbols, name, scope_id) {
+        SemanticOutcome::Resolved(type_id) => Some(type_id),
+        _ => None,
+    }
 }
 
-pub(in crate::db) fn resolve_type_by_name_in_scope(
+pub(in crate::db) fn resolve_type_by_name_in_scope_outcome(
     symbols: &SymbolTable,
     name: &str,
     scope_id: ScopeId,
-) -> Option<TypeId> {
+) -> SemanticOutcome<TypeId> {
     if let Some(id) = TypeId::from_builtin_name(name) {
-        return Some(id);
+        return SemanticOutcome::Resolved(id);
     }
-    if name.contains('.') {
-        let parts: Vec<SmolStr> = name.split('.').map(SmolStr::new).collect();
-        let symbol_id = symbols.resolve_qualified(&parts)?;
-        let symbol = symbols.get(symbol_id)?;
-        return symbol.is_type().then_some(symbol.type_id);
-    }
-    if let Some(symbol_id) = symbols.resolve(name, scope_id) {
-        if let Some(symbol) = symbols.get(symbol_id) {
-            if symbol.is_type() {
-                return Some(symbol.type_id);
-            }
+
+    match resolve_type_symbol_by_name_in_scope_outcome(symbols, name, scope_id) {
+        SemanticOutcome::Resolved(symbol_id) => {
+            let Some(symbol) = symbols.get(symbol_id) else {
+                return SemanticOutcome::InvariantViolation {
+                    message: SmolStr::new("resolved type symbol is missing from table"),
+                    range: None,
+                };
+            };
+            SemanticOutcome::Resolved(symbol.type_id)
+        }
+        SemanticOutcome::Unknown { name, range } => SemanticOutcome::Unknown { name, range },
+        SemanticOutcome::Ambiguous { name, range } => SemanticOutcome::Ambiguous { name, range },
+        SemanticOutcome::WrongKind {
+            symbol_id,
+            expected,
+            actual,
+            range,
+        } => SemanticOutcome::WrongKind {
+            symbol_id,
+            expected,
+            actual,
+            range,
+        },
+        SemanticOutcome::SuppressedCascade { primary, range } => {
+            SemanticOutcome::SuppressedCascade { primary, range }
+        }
+        SemanticOutcome::InvariantViolation { message, range } => {
+            SemanticOutcome::InvariantViolation { message, range }
         }
     }
-    symbols.lookup_type(name)
 }
 
-pub(in crate::db) fn resolve_type_symbol_by_name_in_scope(
+pub(in crate::db) fn resolve_type_symbol_by_name_in_scope_outcome(
     symbols: &SymbolTable,
     name: &str,
     scope_id: ScopeId,
-) -> Option<SymbolId> {
-    if name.contains('.') {
-        let parts: Vec<SmolStr> = name.split('.').map(SmolStr::new).collect();
-        let symbol_id = symbols.resolve_qualified(&parts)?;
-        return symbols
-            .get(symbol_id)
-            .and_then(|sym| sym.is_type().then_some(symbol_id));
+) -> SemanticOutcome<SymbolId> {
+    let qualified = QualifiedName::from_dotted(name);
+    let symbol_id =
+        if let Some(qualified) = qualified.as_ref().filter(|name| name.parts().len() > 1) {
+            symbols.resolve_qualified(qualified.parts())
+        } else {
+            symbols
+                .resolve(name, scope_id)
+                .or_else(|| symbols.lookup(name))
+        };
+
+    let Some(symbol_id) = symbol_id else {
+        return SemanticOutcome::Unknown {
+            name: qualified,
+            range: None,
+        };
+    };
+    let Some(symbol) = symbols.get(symbol_id) else {
+        return SemanticOutcome::InvariantViolation {
+            message: SmolStr::new("resolved symbol is missing from table"),
+            range: None,
+        };
+    };
+    if symbol.is_type() {
+        return SemanticOutcome::Resolved(symbol_id);
     }
-    if let Some(symbol_id) = symbols.resolve(name, scope_id) {
-        if symbols
-            .get(symbol_id)
-            .map(|sym| sym.is_type())
-            .unwrap_or(false)
-        {
-            return Some(symbol_id);
-        }
+    SemanticOutcome::WrongKind {
+        symbol_id,
+        expected: SemanticRole::Type,
+        actual: semantic_role_for_symbol(symbol),
+        range: None,
     }
-    if let Some(symbol_id) = symbols.lookup(name) {
-        if symbols
-            .get(symbol_id)
-            .map(|sym| sym.is_type())
-            .unwrap_or(false)
-        {
-            return Some(symbol_id);
-        }
+}
+
+fn semantic_role_for_symbol(symbol: &Symbol) -> SemanticRole {
+    match symbol.kind {
+        SymbolKind::Namespace => SemanticRole::Namespace,
+        SymbolKind::Function { .. } | SymbolKind::Method { .. } => SemanticRole::Callable,
+        SymbolKind::Type
+        | SymbolKind::FunctionBlock
+        | SymbolKind::Class
+        | SymbolKind::Interface => SemanticRole::Type,
+        SymbolKind::Program
+        | SymbolKind::Configuration
+        | SymbolKind::Resource
+        | SymbolKind::Task
+        | SymbolKind::ProgramInstance => SemanticRole::ScopeOwner,
+        _ => SemanticRole::Value,
     }
-    None
 }
 
 pub(in crate::db) fn method_signature_from_table(
@@ -386,4 +440,206 @@ pub(in crate::db) fn property_signatures_match_with_table(
         return false;
     }
     true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use trust_syntax::parser::parse;
+
+    fn root(source: &str) -> SyntaxNode {
+        parse(source).syntax()
+    }
+
+    #[test]
+    fn pou_context_classifies_missing_owner_symbol() {
+        let root = root("PROGRAM Main\nEND_PROGRAM\n");
+        let program = root
+            .descendants()
+            .find(|node| node.kind() == SyntaxKind::Program)
+            .expect("program node");
+        let symbols = SymbolTable::new();
+
+        let context = pou_context(&symbols, &program);
+
+        assert_eq!(context.resolution, PouContextResolution::MissingOwnerSymbol);
+        assert_eq!(context.scope_id, ScopeId::GLOBAL);
+    }
+
+    #[test]
+    fn pou_context_classifies_missing_name() {
+        let root = root("PROGRAM\nEND_PROGRAM\n");
+        let program = root
+            .descendants()
+            .find(|node| node.kind() == SyntaxKind::Program)
+            .expect("program node");
+        let symbols = SymbolTable::new();
+
+        let context = pou_context(&symbols, &program);
+
+        assert_eq!(context.resolution, PouContextResolution::MissingName);
+        assert_eq!(context.scope_id, ScopeId::GLOBAL);
+    }
+
+    #[test]
+    fn pou_context_classifies_missing_owner_scope() {
+        let root = root("PROGRAM Main\nEND_PROGRAM\n");
+        let program = root
+            .descendants()
+            .find(|node| node.kind() == SyntaxKind::Program)
+            .expect("program node");
+        let (name, range) = name_from_node(&program).expect("program name");
+        let mut symbols = SymbolTable::new();
+        symbols.add_symbol_raw(Symbol::new(
+            SymbolId::UNKNOWN,
+            name,
+            SymbolKind::Program,
+            TypeId::VOID,
+            range,
+        ));
+
+        let context = pou_context(&symbols, &program);
+
+        assert_eq!(context.resolution, PouContextResolution::MissingOwnerScope);
+        assert_eq!(context.scope_id, ScopeId::GLOBAL);
+    }
+
+    #[test]
+    fn pou_context_resolves_function_return_type() {
+        let root = root("FUNCTION Fn : INT\nEND_FUNCTION\n");
+        let function = root
+            .descendants()
+            .find(|node| node.kind() == SyntaxKind::Function)
+            .expect("function node");
+        let (name, range) = name_from_node(&function).expect("function name");
+        let mut symbols = SymbolTable::new();
+        let function_id = symbols.add_symbol_raw(Symbol::new(
+            SymbolId::UNKNOWN,
+            name,
+            SymbolKind::Function {
+                return_type: TypeId::INT,
+                parameters: Vec::new(),
+            },
+            TypeId::INT,
+            range,
+        ));
+        let scope_id = symbols.push_scope(ScopeKind::Function, Some(function_id));
+
+        let context = pou_context(&symbols, &function);
+
+        assert_eq!(context.resolution, PouContextResolution::Resolved);
+        assert_eq!(context.scope_id, scope_id);
+        assert_eq!(context.symbol_id, Some(function_id));
+        assert_eq!(context.return_type, Some(TypeId::INT));
+    }
+
+    #[test]
+    fn pou_context_resolves_method_return_type() {
+        let root = root(
+            r#"
+CLASS C
+METHOD M : DINT
+END_METHOD
+END_CLASS
+"#,
+        );
+        let class = root
+            .descendants()
+            .find(|node| node.kind() == SyntaxKind::Class)
+            .expect("class node");
+        let method = root
+            .descendants()
+            .find(|node| node.kind() == SyntaxKind::Method)
+            .expect("method node");
+        let (class_name, class_range) = name_from_node(&class).expect("class name");
+        let (method_name, method_range) = name_from_node(&method).expect("method name");
+        let mut symbols = SymbolTable::new();
+        let class_id = symbols.add_symbol_raw(Symbol::new(
+            SymbolId::UNKNOWN,
+            class_name,
+            SymbolKind::Class,
+            TypeId::UNKNOWN,
+            class_range,
+        ));
+        let mut method_symbol = Symbol::new(
+            SymbolId::UNKNOWN,
+            method_name,
+            SymbolKind::Method {
+                return_type: Some(TypeId::DINT),
+                parameters: Vec::new(),
+            },
+            TypeId::DINT,
+            method_range,
+        );
+        method_symbol.parent = Some(class_id);
+        let method_id = symbols.add_symbol_raw(method_symbol);
+        let scope_id = symbols.push_scope(ScopeKind::Method, Some(method_id));
+
+        let context = pou_context(&symbols, &method);
+
+        assert_eq!(context.resolution, PouContextResolution::Resolved);
+        assert_eq!(context.scope_id, scope_id);
+        assert_eq!(context.symbol_id, Some(method_id));
+        assert_eq!(context.return_type, Some(TypeId::DINT));
+    }
+
+    #[test]
+    fn expression_context_classifies_missing_pou_owner() {
+        let root = root("PROGRAM Main\nVAR x : INT; END_VAR\nx := 1;\nEND_PROGRAM\n");
+        let expr = root
+            .descendants()
+            .find(|node| node.kind() == SyntaxKind::Literal)
+            .expect("literal expression");
+        let symbols = SymbolTable::new();
+
+        let context = expression_context(&symbols, &expr);
+
+        assert_eq!(context.resolution, PouContextResolution::MissingOwnerSymbol);
+    }
+
+    #[test]
+    fn action_context_classifies_missing_owner() {
+        let root = root(
+            r#"
+FUNCTION_BLOCK FB
+ACTION Step
+END_ACTION
+END_FUNCTION_BLOCK
+"#,
+        );
+        let action = root
+            .descendants()
+            .find(|node| node.kind() == SyntaxKind::Action)
+            .expect("action node");
+        let symbols = SymbolTable::new();
+
+        let context = action_context(&symbols, &action);
+
+        assert_eq!(context.resolution, PouContextResolution::MissingOwnerSymbol);
+    }
+
+    #[test]
+    fn type_resolution_outcome_classifies_wrong_kind() {
+        let mut symbols = SymbolTable::new();
+        let program_id = symbols.add_symbol(Symbol::new(
+            SymbolId::UNKNOWN,
+            "Main",
+            SymbolKind::Program,
+            TypeId::VOID,
+            TextRange::empty(0.into()),
+        ));
+
+        let outcome =
+            resolve_type_symbol_by_name_in_scope_outcome(&symbols, "Main", ScopeId::GLOBAL);
+
+        assert_eq!(
+            outcome,
+            SemanticOutcome::WrongKind {
+                symbol_id: program_id,
+                expected: SemanticRole::Type,
+                actual: SemanticRole::ScopeOwner,
+                range: None,
+            }
+        );
+    }
 }

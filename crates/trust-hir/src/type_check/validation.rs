@@ -1,3 +1,4 @@
+use super::calls::NameResolveOutcome;
 use super::calls::ResolvedSymbol;
 use super::*;
 use crate::symbols::Symbol;
@@ -86,9 +87,9 @@ impl<'a> TypeChecker<'a> {
             }
 
             if let Some(name) = self.resolve_ref().get_name_from_ref(node) {
-                if let Some(resolved) = self
+                if let NameResolveOutcome::Resolved(resolved) = self
                     .resolve()
-                    .resolve_name_in_context(&name, node.text_range())
+                    .resolve_name_in_context_outcome(&name, node.text_range())
                 {
                     if !resolved.accessible {
                         return false;
@@ -186,8 +187,13 @@ impl<'a> TypeChecker<'a> {
         match node.kind() {
             SyntaxKind::NameRef => {
                 let name = self.resolve_ref().get_name_from_ref(node)?;
-                self.resolve()
-                    .resolve_name_in_context(&name, node.text_range())
+                match self
+                    .resolve()
+                    .resolve_name_in_context_outcome(&name, node.text_range())
+                {
+                    NameResolveOutcome::Resolved(resolved) => Some(resolved),
+                    NameResolveOutcome::Ambiguous | NameResolveOutcome::NotFound => None,
+                }
             }
             SyntaxKind::FieldExpr => {
                 if let Some(symbol_id) = self.resolve_ref().resolve_namespace_qualified_symbol(node)
@@ -226,6 +232,9 @@ impl<'a> TypeChecker<'a> {
         node: &SyntaxNode,
         resolved: Option<&ResolvedSymbol>,
     ) -> TypeId {
+        if self.is_return_target(node) {
+            return self.current_function_return.unwrap_or(TypeId::VOID);
+        }
         if let Some(resolved) = resolved {
             if let Some(symbol) = self.symbols.get(resolved.id) {
                 if matches!(symbol.kind, SymbolKind::Property { .. }) {
@@ -247,6 +256,13 @@ impl<'a> TypeChecker<'a> {
         }
         if node.kind() == SyntaxKind::NameRef {
             if let Some(name) = self.resolve_ref().get_name_from_ref(node) {
+                if self
+                    .symbols
+                    .get(current_id)
+                    .is_some_and(|symbol| symbol.name.eq_ignore_ascii_case(name.as_str()))
+                {
+                    return true;
+                }
                 if let Some(symbol_id) = self.symbols.resolve(&name, self.current_scope) {
                     return symbol_id == current_id;
                 }

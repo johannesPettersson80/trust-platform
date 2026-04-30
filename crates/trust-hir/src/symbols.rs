@@ -9,4 +9,5 @@ mod helpers;
 mod table;
 
 pub use defs::*;
-pub use table::SymbolTable;
+pub(crate) use table::UniqueSymbolResolution;
+pub use table::{EnumValueResolution, SymbolTable};

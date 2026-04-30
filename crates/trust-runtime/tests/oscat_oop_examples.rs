@@ -1,8 +1,64 @@
 use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::process::{Command, Stdio};
 use std::thread;
+use std::time::{Duration, Instant};
+
+const EXAMPLE_TEST_TIMEOUT: Duration = Duration::from_secs(120);
+const EXAMPLE_TEST_PROGRESS_INTERVAL: Duration = Duration::from_secs(10);
+const OSCAT_AGGREGATE_TRIGGER_EXAMPLE: &str = "airport_baggage_command_observer";
+const OSCAT_AGGREGATE_TRIGGER_NAMESPACE: &str = "OSCAT_airport_baggage_command_observer_oop";
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum ExampleGateEvent {
+    Started {
+        index: usize,
+        total: usize,
+        project: PathBuf,
+    },
+    Passed {
+        index: usize,
+        total: usize,
+        project: PathBuf,
+    },
+    Failed {
+        index: usize,
+        total: usize,
+        project: PathBuf,
+        message: String,
+    },
+}
+
+impl ExampleGateEvent {
+    fn log_line(&self) -> String {
+        match self {
+            ExampleGateEvent::Started {
+                index,
+                total,
+                project,
+            } => format!(
+                "[oscat examples] starting {index}/{total}: {}",
+                project.display()
+            ),
+            ExampleGateEvent::Passed {
+                index,
+                total,
+                project,
+            } => format!(
+                "[oscat examples] passed {index}/{total}: {}",
+                project.display()
+            ),
+            ExampleGateEvent::Failed {
+                index,
+                total,
+                project,
+                ..
+            } => format!(
+                "[oscat examples] failed {index}/{total}: {}",
+                project.display()
+            ),
+        }
+    }
+}
 
 const STRUCTURAL_EXPECTATIONS: &[(&str, &[&str])] = &[
     (
@@ -463,23 +519,263 @@ fn example_oop_path(slug: &str) -> PathBuf {
     oscat_examples_root().join(slug).join("oop")
 }
 
-fn run_example_st_tests_at(project: &Path) -> Result<(), String> {
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args(["test", "--project"])
-        .arg(project)
-        .output()
-        .expect("run trust-runtime test");
+struct TempProject {
+    path: PathBuf,
+}
 
-    if output.status.success() {
-        return Ok(());
+impl TempProject {
+    fn new(name: &str) -> Self {
+        let path = std::env::temp_dir().join(format!(
+            "trust-runtime-{name}-{}-{}",
+            std::process::id(),
+            std::thread::current().name().unwrap_or("test")
+        ));
+        let _ = std::fs::remove_dir_all(&path);
+        std::fs::create_dir_all(path.join("src"))
+            .unwrap_or_else(|err| panic!("create temp project {}: {err}", path.display()));
+        Self { path }
     }
 
-    Err(format!(
-        "expected ST example tests to pass at {}\nstdout:\n{}\nstderr:\n{}",
+    fn path(&self) -> &Path {
+        &self.path
+    }
+}
+
+impl Drop for TempProject {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.path);
+    }
+}
+
+fn source_line_starts_with_keyword(line: &str, keyword: &str) -> bool {
+    line.split_whitespace()
+        .next()
+        .is_some_and(|word| word.eq_ignore_ascii_case(keyword))
+}
+
+fn source_without_configuration_blocks(source: &str) -> String {
+    let mut output = String::new();
+    let mut skipping_configuration = false;
+    for line in source.lines() {
+        if source_line_starts_with_keyword(line, "CONFIGURATION") {
+            skipping_configuration = true;
+            continue;
+        }
+        if skipping_configuration {
+            if source_line_starts_with_keyword(line, "END_CONFIGURATION") {
+                skipping_configuration = false;
+            }
+            continue;
+        }
+        output.push_str(line);
+        output.push('\n');
+    }
+    output
+}
+
+fn dependency_manifest_path(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
+}
+
+fn aggregate_dependency_manifest(workspace_root: &Path) -> String {
+    let oscat_path = workspace_root.join("libraries").join("oscat");
+    let oscat_oop_path = oscat_path.join("oop");
+    format!(
+        r#"[project]
+include_paths = ["src"]
+stdlib = "iec"
+
+[dependencies]
+OSCAT = {{ path = "{}", version = "0.1.0" }}
+OscatOop = {{ path = "{}", version = "0.1.0" }}
+"#,
+        dependency_manifest_path(&oscat_path),
+        dependency_manifest_path(&oscat_oop_path)
+    )
+}
+
+fn write_oscat_namespace_aggregate_project(slug: &str, namespace: &str) -> TempProject {
+    let temp = TempProject::new(slug);
+    let workspace_root = examples_root()
+        .parent()
+        .expect("examples dir has workspace parent")
+        .to_path_buf();
+    let manifest = aggregate_dependency_manifest(&workspace_root);
+    std::fs::write(temp.path().join("trust-lsp.toml"), manifest)
+        .unwrap_or_else(|err| panic!("write aggregate manifest: {err}"));
+
+    let source_dir = example_oop_path(slug).join("src");
+    let mut source_files = std::fs::read_dir(&source_dir)
+        .unwrap_or_else(|err| panic!("read {}: {err}", source_dir.display()))
+        .map(|entry| entry.expect("read OSCAT aggregate source entry").path())
+        .filter(|path| {
+            path.extension()
+                .and_then(|ext| ext.to_str())
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("st"))
+        })
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .is_none_or(|name| !name.eq_ignore_ascii_case("Configuration.st"))
+        })
+        .collect::<Vec<_>>();
+    source_files.sort();
+
+    let mut aggregate = format!("NAMESPACE {namespace}\nUSING {namespace};\n");
+    for source_file in source_files {
+        let source = std::fs::read_to_string(&source_file)
+            .unwrap_or_else(|err| panic!("read {}: {err}", source_file.display()));
+        aggregate.push_str(&source_without_configuration_blocks(&source));
+        aggregate.push('\n');
+    }
+    aggregate.push_str("END_NAMESPACE\n");
+    std::fs::write(temp.path().join("src").join("Aggregate.st"), aggregate)
+        .unwrap_or_else(|err| panic!("write aggregate source: {err}"));
+
+    temp
+}
+
+fn example_child_started_line(child_id: u32, project: &Path) -> String {
+    format!(
+        "[oscat examples] child pid={child_id} command=trust-runtime test --project {} timeout={}s",
         project.display(),
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    ))
+        EXAMPLE_TEST_TIMEOUT.as_secs()
+    )
+}
+
+fn example_child_progress_line(child_id: u32, project: &Path, elapsed: Duration) -> String {
+    format!(
+        "[oscat examples] child pid={child_id} still running elapsed={}s project={}",
+        elapsed.as_secs(),
+        project.display()
+    )
+}
+
+fn run_example_st_tests_at(project: &Path) -> Result<(), String> {
+    let mut child = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .args(["test", "--project"])
+        .arg(project)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("run trust-runtime test");
+
+    let started = Instant::now();
+    let child_id = child.id();
+    let mut next_progress = EXAMPLE_TEST_PROGRESS_INTERVAL;
+    eprintln!("{}", example_child_started_line(child_id, project));
+    loop {
+        if child
+            .try_wait()
+            .expect("poll trust-runtime example test")
+            .is_some()
+        {
+            let output = child
+                .wait_with_output()
+                .expect("collect trust-runtime example test output");
+            let elapsed = started.elapsed();
+            if output.status.success() {
+                eprintln!(
+                    "[oscat examples] child pid={child_id} completed status={} elapsed={}ms project={}",
+                    output.status,
+                    elapsed.as_millis(),
+                    project.display()
+                );
+                return Ok(());
+            }
+
+            return Err(format!(
+                "expected ST example tests to pass at {}\nchild pid: {}\nelapsed: {}ms\nstatus: {}\nstdout:\n{}\nstderr:\n{}",
+                project.display(),
+                child_id,
+                elapsed.as_millis(),
+                output.status,
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            ));
+        }
+
+        if started.elapsed() >= EXAMPLE_TEST_TIMEOUT {
+            let _ = child.kill();
+            let output = child
+                .wait_with_output()
+                .expect("collect timed-out trust-runtime example test output");
+            return Err(format!(
+                "timed out after {}s running ST example tests at {}\nchild pid: {}\nstatus: {}\nstdout:\n{}\nstderr:\n{}",
+                EXAMPLE_TEST_TIMEOUT.as_secs(),
+                project.display(),
+                child_id,
+                output.status,
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            ));
+        }
+
+        let elapsed = started.elapsed();
+        if elapsed >= next_progress {
+            eprintln!(
+                "{}",
+                example_child_progress_line(child_id, project, elapsed)
+            );
+            next_progress += EXAMPLE_TEST_PROGRESS_INTERVAL;
+        }
+
+        thread::sleep(Duration::from_millis(100));
+    }
+}
+
+fn assert_example_project_tests_pass_with<RunProject, Report>(
+    projects: &[PathBuf],
+    mut run_project: RunProject,
+    mut report: Report,
+) where
+    RunProject: FnMut(&Path) -> Result<(), String>,
+    Report: FnMut(ExampleGateEvent),
+{
+    assert!(
+        !projects.is_empty(),
+        "expected at least one OSCAT example project"
+    );
+    let mut failures = Vec::new();
+    let total = projects.len();
+
+    for (offset, project) in projects.iter().enumerate() {
+        let index = offset + 1;
+        report(ExampleGateEvent::Started {
+            index,
+            total,
+            project: project.clone(),
+        });
+        match run_project(project) {
+            Ok(()) => report(ExampleGateEvent::Passed {
+                index,
+                total,
+                project: project.clone(),
+            }),
+            Err(message) => {
+                report(ExampleGateEvent::Failed {
+                    index,
+                    total,
+                    project: project.clone(),
+                    message: message.clone(),
+                });
+                failures.push(message);
+            }
+        }
+    }
+
+    assert!(
+        failures.is_empty(),
+        "{} OSCAT OOP example project(s) failed:\n{}",
+        failures.len(),
+        failures.join("\n\n")
+    );
+}
+
+fn assert_example_project_tests_pass(projects: &[PathBuf]) {
+    assert_example_project_tests_pass_with(projects, run_example_st_tests_at, |event| {
+        eprintln!("{}", event.log_line());
+    });
 }
 
 fn assert_pattern_structure(name: &str, needles: &[&str]) {
@@ -571,40 +867,112 @@ fn oscat_examples_use_grouped_oop_non_oop_layout() {
 }
 
 #[test]
+fn oscat_example_gate_reports_active_project_before_running_child() {
+    use std::cell::RefCell;
+
+    let projects = vec![
+        PathBuf::from("/tmp/oscat-example-a"),
+        PathBuf::from("/tmp/oscat-example-b"),
+    ];
+    let events = RefCell::new(Vec::new());
+
+    assert_example_project_tests_pass_with(
+        &projects,
+        |project| {
+            let expected_index = if project == projects[0] { 1 } else { 2 };
+            assert_eq!(
+                events.borrow().last(),
+                Some(&ExampleGateEvent::Started {
+                    index: expected_index,
+                    total: projects.len(),
+                    project: project.to_path_buf(),
+                }),
+                "OSCAT gate must report the active project before running the child command"
+            );
+            Ok(())
+        },
+        |event| events.borrow_mut().push(event),
+    );
+
+    assert_eq!(
+        events.into_inner(),
+        vec![
+            ExampleGateEvent::Started {
+                index: 1,
+                total: 2,
+                project: projects[0].clone(),
+            },
+            ExampleGateEvent::Passed {
+                index: 1,
+                total: 2,
+                project: projects[0].clone(),
+            },
+            ExampleGateEvent::Started {
+                index: 2,
+                total: 2,
+                project: projects[1].clone(),
+            },
+            ExampleGateEvent::Passed {
+                index: 2,
+                total: 2,
+                project: projects[1].clone(),
+            },
+        ],
+    );
+}
+
+#[test]
+fn oscat_example_child_lines_include_pid_project_and_elapsed_context() {
+    let project = PathBuf::from("/tmp/oscat-example-a");
+
+    assert_eq!(
+        example_child_started_line(42, &project),
+        format!(
+            "[oscat examples] child pid=42 command=trust-runtime test --project {} timeout={}s",
+            project.display(),
+            EXAMPLE_TEST_TIMEOUT.as_secs()
+        )
+    );
+    assert_eq!(
+        example_child_progress_line(42, &project, Duration::from_secs(31)),
+        format!(
+            "[oscat examples] child pid=42 still running elapsed=31s project={}",
+            project.display()
+        )
+    );
+}
+
+#[test]
+fn oscat_airport_baggage_namespace_aggregate_trigger_passes() {
+    let aggregate = write_oscat_namespace_aggregate_project(
+        OSCAT_AGGREGATE_TRIGGER_EXAMPLE,
+        OSCAT_AGGREGATE_TRIGGER_NAMESPACE,
+    );
+    run_example_st_tests_at(aggregate.path()).unwrap_or_else(|message| panic!("{message}"));
+}
+
+#[test]
+fn oscat_aggregate_manifest_uses_toml_safe_dependency_paths() {
+    let workspace_root = PathBuf::from(r"C:\Users\runneradmin\work\trust-platform");
+    let manifest = aggregate_dependency_manifest(&workspace_root);
+    let parsed: toml::Value =
+        toml::from_str(&manifest).expect("aggregate dependency manifest must parse as TOML");
+
+    assert_eq!(
+        parsed["dependencies"]["OSCAT"]["path"].as_str(),
+        Some("C:/Users/runneradmin/work/trust-platform/libraries/oscat")
+    );
+    assert_eq!(
+        parsed["dependencies"]["OscatOop"]["path"].as_str(),
+        Some("C:/Users/runneradmin/work/trust-platform/libraries/oscat/oop")
+    );
+}
+
+#[test]
+#[ignore = "expensive OSCAT gate runs all 98 paired example projects through trust-runtime CLI"]
 fn oscat_oop_example_st_unit_tests_pass() {
     let projects = oscat_example_projects();
-    let next = Arc::new(AtomicUsize::new(0));
-    let failures = Arc::new(Mutex::new(Vec::new()));
-    let worker_count = std::thread::available_parallelism()
-        .map(usize::from)
-        .unwrap_or(4)
-        .clamp(1, 6)
-        .min(projects.len());
-
-    thread::scope(|scope| {
-        for _ in 0..worker_count {
-            let next = Arc::clone(&next);
-            let failures = Arc::clone(&failures);
-            let projects = &projects;
-            scope.spawn(move || loop {
-                let index = next.fetch_add(1, Ordering::Relaxed);
-                let Some(project) = projects.get(index) else {
-                    break;
-                };
-                if let Err(message) = run_example_st_tests_at(project) {
-                    failures.lock().expect("failure lock").push(message);
-                }
-            });
-        }
-    });
-
-    let failures = failures.lock().expect("failure lock");
-    assert!(
-        failures.is_empty(),
-        "{} OSCAT OOP example project(s) failed:\n{}",
-        failures.len(),
-        failures.join("\n\n")
-    );
+    assert_example_project_tests_pass(&projects);
 }
 
 #[test]

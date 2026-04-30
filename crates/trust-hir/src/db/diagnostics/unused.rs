@@ -31,8 +31,10 @@ pub(in crate::db) fn collect_used_symbols(
 ) -> FxHashSet<SymbolId> {
     let mut used = FxHashSet::default();
     let program_instances = collect_program_instances(symbols, root);
-    for symbol_id in program_instances.values() {
-        used.insert(*symbol_id);
+    for target in program_instances.values() {
+        if let Some(symbol_id) = target.symbol_id() {
+            used.insert(symbol_id);
+        }
     }
     for node in root
         .descendants()
@@ -64,7 +66,7 @@ pub(in crate::db) fn collect_used_symbols(
         let symbol_id = if type_parts.len() == 1 {
             symbols
                 .resolve(type_parts[0].as_str(), scope_id)
-                .or_else(|| symbols.lookup_any(type_parts[0].as_str()))
+                .or_else(|| symbols.lookup(type_parts[0].as_str()))
         } else {
             symbols.resolve_qualified(&type_parts)
         };

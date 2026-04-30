@@ -1,3 +1,4 @@
+use super::calls::NameResolveOutcome;
 use super::helpers::direct_address_type;
 use super::literals::{
     int_literal_info, is_long_date_literal, is_long_dt_literal, is_long_time_literal,
@@ -67,7 +68,9 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
             SyntaxKind::ThisExpr => self.checker.infer_this_expr(node),
             SyntaxKind::SuperExpr => self.checker.infer_super_expr(node),
             SyntaxKind::SizeOfExpr => self.checker.infer_size_of_expr(node),
-            _ => TypeId::UNKNOWN,
+            _ => self
+                .checker
+                .legacy_type_from_outcome(self.checker.unknown_type_outcome(node.text_range())),
         };
         self.checker.record_expression_type(node, type_id)
     }
@@ -86,10 +89,14 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
             if let Some(type_id) = TypeId::from_builtin_name(type_name) {
                 return type_id;
             }
-            if let Some(type_id) = self.checker.symbols.lookup_type(type_name) {
+            if let Some(type_id) = self.checker.symbols.lookup_registered_type_name(type_name) {
                 return type_id;
             }
-            return TypeId::UNKNOWN;
+            return self.checker.legacy_diagnostic_type(
+                DiagnosticCode::UndefinedType,
+                node.text_range(),
+                format!("undefined typed literal prefix '{}'", type_name),
+            );
         }
 
         // Infer from literal token type
@@ -140,7 +147,8 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
                 _ => continue,
             }
         }
-        TypeId::UNKNOWN
+        self.checker
+            .legacy_type_from_outcome(self.checker.unknown_type_outcome(node.text_range()))
     }
 
     fn infer_name_ref(&mut self, node: &SyntaxNode) -> TypeId {
@@ -154,18 +162,36 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
 
         let name = match self.checker.resolve_ref().get_name_from_ref(node) {
             Some(n) => n,
-            None => return TypeId::UNKNOWN,
+            None => {
+                return self.checker.legacy_type_from_outcome(
+                    self.checker.unknown_type_outcome(node.text_range()),
+                );
+            }
         };
 
         match self
             .checker
             .resolve()
-            .resolve_name_in_context(&name, node.text_range())
+            .resolve_name_in_context_outcome(&name, node.text_range())
         {
-            Some(resolved) => {
+            NameResolveOutcome::Resolved(resolved) => {
                 let Some(symbol) = self.checker.symbols.get(resolved.id) else {
-                    return TypeId::UNKNOWN;
+                    return self.checker.legacy_type_from_outcome(
+                        self.checker.unknown_type_outcome(node.text_range()),
+                    );
                 };
+                if self.checker.is_return_target(node) {
+                    if let Some(return_type) = self.checker.current_function_return {
+                        return return_type;
+                    }
+                }
+                if let Some(role) = non_value_role(&symbol.kind) {
+                    return self.checker.legacy_diagnostic_type(
+                        DiagnosticCode::InvalidOperation,
+                        node.text_range(),
+                        format!("{role} '{}' cannot be used as a value", symbol.name),
+                    );
+                }
                 if resolved.accessible {
                     if let SymbolKind::Property { has_get, .. } = symbol.kind {
                         if !has_get {
@@ -179,21 +205,23 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
                 }
                 symbol.type_id
             }
-            None => {
-                self.checker.diagnostics.error(
-                    DiagnosticCode::UndefinedVariable,
-                    node.text_range(),
-                    format!("undefined identifier '{}'", name),
-                );
-                TypeId::UNKNOWN
-            }
+            NameResolveOutcome::Ambiguous => self
+                .checker
+                .legacy_suppressed_type(DiagnosticCode::CannotResolve, node.text_range()),
+            NameResolveOutcome::NotFound => self.checker.legacy_diagnostic_type(
+                DiagnosticCode::UndefinedVariable,
+                node.text_range(),
+                format!("undefined identifier '{}'", name),
+            ),
         }
     }
 
     fn infer_binary_expr(&mut self, node: &SyntaxNode) -> TypeId {
         let children: Vec<_> = node.children().collect();
         if children.len() < 2 {
-            return TypeId::UNKNOWN;
+            return self
+                .checker
+                .legacy_type_from_outcome(self.checker.unknown_type_outcome(node.text_range()));
         }
 
         let lhs_node = &children[0];
@@ -234,34 +262,45 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
             }
             self.common_numeric_type(lhs_type, rhs_type, node.text_range())
         } else {
-            TypeId::UNKNOWN
+            self.checker
+                .legacy_type_from_outcome(self.checker.unknown_type_outcome(node.text_range()))
         }
     }
 
     fn infer_unary_expr(&mut self, node: &SyntaxNode) -> TypeId {
         let operand = match node.children().next() {
             Some(child) => self.check_expression(&child),
-            None => return TypeId::UNKNOWN,
+            None => {
+                return self.checker.legacy_type_from_outcome(
+                    self.checker.unknown_type_outcome(node.text_range()),
+                );
+            }
         };
 
         let op = UnaryOp::from_node(node);
 
         match op {
             UnaryOp::Neg => {
+                if operand == TypeId::UNKNOWN {
+                    return self
+                        .checker
+                        .legacy_suppressed_type(DiagnosticCode::CannotResolve, node.text_range());
+                }
                 if let Some(ty) = self.checker.resolved_type(operand) {
                     if ty.is_numeric() {
                         return operand;
                     }
                 }
-                self.checker.diagnostics.error(
+                self.checker.legacy_diagnostic_type(
                     DiagnosticCode::TypeMismatch,
                     node.text_range(),
                     "negation requires numeric type",
-                );
-                TypeId::UNKNOWN
+                )
             }
             UnaryOp::Not => self.unary_bit_string_type(operand, node.text_range()),
-            UnaryOp::Unknown => TypeId::UNKNOWN,
+            UnaryOp::Unknown => self
+                .checker
+                .legacy_type_from_outcome(self.checker.unknown_type_outcome(node.text_range())),
         }
     }
 
@@ -326,6 +365,11 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
     ) -> TypeId {
         let lhs = self.checker.resolve_subrange_base(lhs);
         let rhs = self.checker.resolve_subrange_base(rhs);
+        if lhs == TypeId::UNKNOWN || rhs == TypeId::UNKNOWN {
+            return self
+                .checker
+                .legacy_suppressed_type(DiagnosticCode::CannotResolve, range);
+        }
         let lhs_ty = self.checker.resolved_type(lhs);
         let rhs_ty = self.checker.resolved_type(rhs);
 
@@ -346,31 +390,34 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
 
                 common
             }
-            (None, _) | (_, None) => TypeId::UNKNOWN,
-            _ => {
-                self.checker.diagnostics.error(
-                    DiagnosticCode::TypeMismatch,
-                    range,
-                    "operands must be BOOL or bit-string types",
-                );
-                TypeId::UNKNOWN
-            }
+            (None, _) | (_, None) => self
+                .checker
+                .legacy_type_from_outcome(self.checker.unknown_type_outcome(range)),
+            _ => self.checker.legacy_diagnostic_type(
+                DiagnosticCode::TypeMismatch,
+                range,
+                "operands must be BOOL or bit-string types",
+            ),
         }
     }
 
     pub(super) fn unary_bit_string_type(&mut self, operand: TypeId, range: TextRange) -> TypeId {
         let operand = self.checker.resolve_subrange_base(operand);
+        if operand == TypeId::UNKNOWN {
+            return self
+                .checker
+                .legacy_suppressed_type(DiagnosticCode::CannotResolve, range);
+        }
         match self.checker.resolved_type(operand) {
             Some(ty) if ty.is_bit_string() => operand,
-            None => TypeId::UNKNOWN,
-            _ => {
-                self.checker.diagnostics.error(
-                    DiagnosticCode::TypeMismatch,
-                    range,
-                    "NOT requires BOOL or bit-string type",
-                );
-                TypeId::UNKNOWN
-            }
+            None => self
+                .checker
+                .legacy_type_from_outcome(self.checker.unknown_type_outcome(range)),
+            _ => self.checker.legacy_diagnostic_type(
+                DiagnosticCode::TypeMismatch,
+                range,
+                "NOT requires BOOL or bit-string type",
+            ),
         }
     }
 
@@ -418,6 +465,11 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
     ) -> TypeId {
         let lhs = self.checker.resolve_alias_type(lhs);
         let rhs = self.checker.resolve_alias_type(rhs);
+        if lhs == TypeId::UNKNOWN || rhs == TypeId::UNKNOWN {
+            return self
+                .checker
+                .legacy_suppressed_type(DiagnosticCode::CannotResolve, range);
+        }
         let lhs_ty = self.checker.symbols.type_by_id(lhs);
         let rhs_ty = self.checker.symbols.type_by_id(rhs);
 
@@ -426,18 +478,14 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
                 // Return the wider type
                 self.checker.wider_numeric(lhs, rhs)
             }
-            (None, _) | (_, None) => {
-                // Unknown types - return UNKNOWN
-                TypeId::UNKNOWN
-            }
-            _ => {
-                self.checker.diagnostics.error(
-                    DiagnosticCode::TypeMismatch,
-                    range,
-                    "operands must be numeric types",
-                );
-                TypeId::UNKNOWN
-            }
+            (None, _) | (_, None) => self
+                .checker
+                .legacy_type_from_outcome(self.checker.unknown_type_outcome(range)),
+            _ => self.checker.legacy_diagnostic_type(
+                DiagnosticCode::TypeMismatch,
+                range,
+                "operands must be numeric types",
+            ),
         }
     }
 }

@@ -115,6 +115,141 @@ END_PROGRAM
 }
 
 #[test]
+fn test_type_position_uses_type_namespace_when_value_has_same_name() {
+    check_no_errors_multi(&[
+        r#"
+FUNCTION_BLOCK ONTIME
+END_FUNCTION_BLOCK
+"#,
+        r#"
+PROGRAM Test
+    VAR
+        Ontime : DINT;
+        ClassicOntime : ONTIME;
+    END_VAR
+
+    ClassicOntime();
+END_PROGRAM
+"#,
+    ]);
+}
+
+#[test]
+fn test_unknown_typed_literal_prefix_reports_undefined_type() {
+    let errors = check_errors(
+        r#"
+PROGRAM Test
+VAR
+    x : DINT;
+END_VAR
+x := MissingType#1;
+END_PROGRAM
+"#,
+    );
+
+    assert!(
+        errors.contains(&DiagnosticCode::UndefinedType),
+        "expected UndefinedType for unknown typed literal prefix, got {errors:?}"
+    );
+    assert!(
+        !errors.contains(&DiagnosticCode::IncompatibleAssignment)
+            && !errors.contains(&DiagnosticCode::TypeMismatch),
+        "unknown typed literal prefix must not degrade into wrong-reason assignment/type diagnostics, got {errors:?}"
+    );
+}
+
+#[test]
+fn test_deep_alias_chain_resolves_to_base_type() {
+    let mut db = Database::new();
+    let file = FileId(0);
+    db.set_source_text(
+        file,
+        r#"
+TYPE
+    Alias00 : DINT;
+    Alias01 : Alias00;
+    Alias02 : Alias01;
+    Alias03 : Alias02;
+    Alias04 : Alias03;
+    Alias05 : Alias04;
+    Alias06 : Alias05;
+    Alias07 : Alias06;
+    Alias08 : Alias07;
+    Alias09 : Alias08;
+    Alias10 : Alias09;
+    Alias11 : Alias10;
+    Alias12 : Alias11;
+    Alias13 : Alias12;
+    Alias14 : Alias13;
+    Alias15 : Alias14;
+    Alias16 : Alias15;
+    Alias17 : Alias16;
+    Alias18 : Alias17;
+    Alias19 : Alias18;
+    Alias20 : Alias19;
+END_TYPE
+
+PROGRAM Test
+    VAR x : Alias20; END_VAR
+END_PROGRAM
+"#
+        .to_string(),
+    );
+
+    let symbols = db.file_symbols(file);
+    let x = symbols.iter().find(|s| s.name == "x").unwrap();
+    let type_id = symbols.resolve_alias_type(x.type_id);
+    assert_eq!(symbols.type_by_id(type_id), Some(&Type::DInt));
+}
+
+#[test]
+fn test_cyclic_cross_file_type_import_reports_primary_diagnostic() {
+    let mut db = Database::new();
+    db.set_source_text(
+        FileId(0),
+        r#"
+TYPE A : B;
+END_TYPE
+"#
+        .to_string(),
+    );
+    db.set_source_text(
+        FileId(1),
+        r#"
+TYPE B : A;
+END_TYPE
+"#
+        .to_string(),
+    );
+    db.set_source_text(
+        FileId(2),
+        r#"
+PROGRAM Main
+VAR
+    x : A;
+END_VAR
+END_PROGRAM
+"#
+        .to_string(),
+    );
+
+    let errors = db
+        .diagnostics(FileId(2))
+        .iter()
+        .filter(|diagnostic| diagnostic.severity == DiagnosticSeverity::Error)
+        .map(|diagnostic| diagnostic.code)
+        .collect::<Vec<_>>();
+    assert!(
+        errors.contains(&DiagnosticCode::CyclicDependency),
+        "expected cyclic project type import diagnostic, got {errors:?}"
+    );
+    assert!(
+        !errors.contains(&DiagnosticCode::UndefinedType),
+        "cycle must not degrade into UndefinedType cascade, got {errors:?}"
+    );
+}
+
+#[test]
 fn test_sizeof_expression() {
     check_no_errors(
         r#"
@@ -132,7 +267,7 @@ fn test_method_call_on_instance() {
     check_no_errors(
         r#"
 FUNCTION_BLOCK Counter
-    METHOD Get : DINT
+    METHOD PUBLIC Get : DINT
         Get := 1;
     END_METHOD
 END_FUNCTION_BLOCK
@@ -182,6 +317,89 @@ PROGRAM Test
 END_PROGRAM
 "#,
         DiagnosticCode::InvalidOperation,
+    );
+}
+
+#[test]
+fn test_deref_unknown_operand_suppression_has_primary_diagnostic() {
+    let errors = check_errors(
+        r#"
+PROGRAM Test
+VAR
+    x : INT;
+END_VAR
+x := Missing^;
+END_PROGRAM
+"#,
+    );
+
+    assert!(
+        errors.contains(&DiagnosticCode::UndefinedVariable),
+        "expected primary UndefinedVariable diagnostic, got {errors:?}"
+    );
+    assert!(
+        !errors.contains(&DiagnosticCode::TypeMismatch)
+            && !errors.contains(&DiagnosticCode::IncompatibleAssignment),
+        "unknown dereference operand must not emit wrong-reason pointer or assignment cascades, got {errors:?}"
+    );
+}
+
+#[test]
+fn test_delete_unknown_operand_suppression_has_primary_diagnostic() {
+    let errors = check_errors(
+        r#"
+PROGRAM Test
+__DELETE(Missing);
+END_PROGRAM
+"#,
+    );
+
+    assert!(
+        errors.contains(&DiagnosticCode::UndefinedVariable),
+        "expected primary UndefinedVariable diagnostic, got {errors:?}"
+    );
+    assert!(
+        !errors.contains(&DiagnosticCode::InvalidArgumentType),
+        "unknown __DELETE operand must not emit wrong-reason argument diagnostics, got {errors:?}"
+    );
+}
+
+#[test]
+fn test_new_ambiguous_using_type_reports_cannot_resolve_not_undefined_type() {
+    let errors = check_errors(
+        r#"
+NAMESPACE A
+TYPE Thing : STRUCT
+    value : INT;
+END_STRUCT
+END_TYPE
+END_NAMESPACE
+
+NAMESPACE B
+TYPE Thing : STRUCT
+    value : INT;
+END_STRUCT
+END_TYPE
+END_NAMESPACE
+
+USING A;
+USING B;
+
+PROGRAM Test
+VAR
+    item : REF_TO A.Thing;
+END_VAR
+item := NEW(Thing);
+END_PROGRAM
+"#,
+    );
+    assert!(
+        errors.contains(&DiagnosticCode::CannotResolve),
+        "expected CannotResolve for ambiguous NEW type operand, got {errors:?}"
+    );
+    assert!(
+        !errors.contains(&DiagnosticCode::UndefinedType),
+        "ambiguous NEW type operand must not degrade into UndefinedType, got {errors:?}"
     );
 }
 

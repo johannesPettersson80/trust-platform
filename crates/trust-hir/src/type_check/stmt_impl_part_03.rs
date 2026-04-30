@@ -98,8 +98,13 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
                     "case label type must match selector type",
                 );
             }
-            if let Some(value) = self.checker.eval_const_int_expr(&child) {
-                bounds.push(value);
+            if self.case_label_tracks_integer_value(selector_type) {
+                if let Some(value) = self.checker.require_const_int_expr(
+                    &child,
+                    "case label must be a literal, enum value, or constant",
+                ) {
+                    bounds.push(value);
+                }
             }
         }
 
@@ -146,8 +151,13 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
             );
         }
 
-        if let Some(value) = self.checker.eval_const_int_expr(expr) {
-            self.record_case_label_value(tracker, value, expr.text_range());
+        if self.case_label_tracks_integer_value(selector_type) {
+            if let Some(value) = self.checker.require_const_int_expr(
+                expr,
+                "case label must be a literal, enum value, or constant",
+            ) {
+                self.record_case_label_value(tracker, value, expr.text_range());
+            }
         }
     }
 
@@ -236,6 +246,32 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
                     | Type::AnyBit
                     | Type::AnyString
                     | Type::AnyDate
+            )
+        )
+    }
+
+    fn case_label_tracks_integer_value(&self, type_id: TypeId) -> bool {
+        let resolved = self.checker.resolve_alias_type(type_id);
+        matches!(
+            self.checker.symbols.type_by_id(resolved),
+            Some(
+                Type::Bool
+                    | Type::SInt
+                    | Type::Int
+                    | Type::DInt
+                    | Type::LInt
+                    | Type::USInt
+                    | Type::UInt
+                    | Type::UDInt
+                    | Type::ULInt
+                    | Type::Byte
+                    | Type::Word
+                    | Type::DWord
+                    | Type::LWord
+                    | Type::Enum { .. }
+                    | Type::Subrange { .. }
+                    | Type::AnyInt
+                    | Type::AnyBit
             )
         )
     }

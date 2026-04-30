@@ -25,7 +25,7 @@ END_TYPE
     assert!(matches!(point_sym.kind, SymbolKind::Type));
 
     // Check that the type was registered
-    let type_id = symbols.lookup_type("Point");
+    let type_id = symbols.lookup_registered_type_name("Point");
     assert!(type_id.is_some(), "Point type should be registered");
 }
 
@@ -66,7 +66,7 @@ END_TYPE
     assert!(matches!(color_sym.kind, SymbolKind::Type));
 
     // Check that the type was registered
-    let type_id = symbols.lookup_type("Color");
+    let type_id = symbols.lookup_registered_type_name("Color");
     assert!(type_id.is_some(), "Color type should be registered");
 }
 
@@ -95,7 +95,7 @@ END_CLASS
     let speed_sym = symbols.iter().find(|s| s.name == "Speed").unwrap();
     assert_eq!(speed_sym.parent, Some(class_sym.id));
 
-    let type_id = symbols.lookup_type("Motor");
+    let type_id = symbols.lookup_registered_type_name("Motor");
     assert!(type_id.is_some(), "Motor type should be registered");
     let ty = symbols.type_by_id(type_id.unwrap()).unwrap();
     assert!(matches!(ty, Type::Class { .. }));

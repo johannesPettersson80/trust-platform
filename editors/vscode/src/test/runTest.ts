@@ -1,8 +1,23 @@
 import * as path from "path";
 import * as fs from "fs";
 import * as os from "os";
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 import { runTests } from "@vscode/test-electron";
+
+function cargoExecutable(repoRoot: string): string {
+  const fastLinkWrapper = path.join(repoRoot, "scripts", "cargo_test_fast_link.sh");
+  if (process.platform === "linux" && fs.existsSync(fastLinkWrapper)) {
+    return fastLinkWrapper;
+  }
+  return "cargo";
+}
+
+function buildRustPackage(repoRoot: string, packageName: string): void {
+  execFileSync(cargoExecutable(repoRoot), ["build", "-p", packageName], {
+    cwd: repoRoot,
+    stdio: "inherit",
+  });
+}
 
 async function main(): Promise<void> {
   const extensionDevelopmentPath = path.resolve(__dirname, "../../");
@@ -34,18 +49,13 @@ async function main(): Promise<void> {
   const runtimePath = path.join(repoRoot, "target", "debug", runtimeName);
 
   if (!configured) {
-    execSync("cargo build -p trust-lsp", {
-      cwd: repoRoot,
-      stdio: "inherit",
-    });
+    buildRustPackage(repoRoot, "trust-lsp");
   } else if (!fs.existsSync(serverPath)) {
     throw new Error(`ST_LSP_TEST_SERVER not found at ${serverPath}`);
   }
 
-  execSync("cargo build -p trust-runtime", {
-    cwd: repoRoot,
-    stdio: "inherit",
-  });
+  buildRustPackage(repoRoot, "trust-runtime");
+  buildRustPackage(repoRoot, "trust-debug");
 
   await runTests({
     extensionDevelopmentPath,

@@ -76,7 +76,11 @@ impl SourceRegistry {
             return existing;
         }
         if self.keys_by_id.contains_key(&file_id) {
-            return self.ensure_file_id(key);
+            panic!(
+                "source file id collision for {}: FileId({}) is already registered",
+                key.display(),
+                file_id.0
+            );
         }
         self.next_id = self.next_id.max(file_id.0.saturating_add(1));
         self.ids_by_key.insert(key.clone(), file_id);
@@ -177,13 +181,14 @@ fn normalize_path(path: &Path) -> PathBuf {
     if let Ok(canon) = path.canonicalize() {
         return strip_windows_device_prefix(canon);
     }
+    normalize_path_lossy_without_canonicalize(path)
+}
+
+fn normalize_path_lossy_without_canonicalize(path: &Path) -> PathBuf {
     let mut normalized = PathBuf::new();
     for component in path.components() {
         match component {
             Component::CurDir => {}
-            Component::ParentDir => {
-                normalized.pop();
-            }
             _ => normalized.push(component.as_os_str()),
         }
     }
@@ -223,4 +228,62 @@ fn strip_windows_device_prefix(path: PathBuf) -> PathBuf {
 #[cfg(not(windows))]
 fn strip_windows_device_prefix(path: PathBuf) -> PathBuf {
     path
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    #[should_panic(expected = "source file id collision")]
+    fn insert_with_id_rejects_file_id_collision() {
+        let mut registry = SourceRegistry::new();
+        let first = SourceKey::from_virtual("first.st");
+        let second = SourceKey::from_virtual("second.st");
+
+        assert_eq!(registry.insert_with_id(first, FileId(7)), FileId(7));
+        registry.insert_with_id(second, FileId(7));
+    }
+
+    #[test]
+    fn insert_with_id_existing_key_returns_existing_id() {
+        let mut registry = SourceRegistry::new();
+        let key = SourceKey::from_virtual("main.st");
+
+        assert_eq!(registry.insert_with_id(key.clone(), FileId(7)), FileId(7));
+        assert_eq!(registry.insert_with_id(key, FileId(9)), FileId(7));
+    }
+
+    #[test]
+    fn noncanonical_fallback_path_does_not_collide_with_canonical_path() {
+        let root =
+            std::env::temp_dir().join(format!("trust-hir-path-collision-{}", std::process::id()));
+        let real_dir = root.join("real");
+        fs::create_dir_all(&real_dir).expect("create temp source dir");
+        let real_file = real_dir.join("main.st");
+        fs::write(&real_file, "PROGRAM Main\nEND_PROGRAM\n").expect("write temp source");
+
+        let canonical = SourceKey::from_path(&real_file);
+        let fallback_path = real_dir.join("missing").join("..").join("main.st");
+        let noncanonical =
+            SourceKey::Path(normalize_path_lossy_without_canonicalize(&fallback_path));
+        fs::remove_dir_all(&root).ok();
+
+        assert_ne!(
+            canonical, noncanonical,
+            "a path that cannot be canonicalized must not collapse to an existing canonical source key"
+        );
+    }
+
+    #[test]
+    fn noncanonical_fallback_path_removes_current_dir_components() {
+        let root = format!("trust-hir-current-dir-fallback-{}", std::process::id());
+        let input = PathBuf::from(".").join(&root).join("main.st");
+        let expected = PathBuf::from(root).join("main.st");
+        let normalized = normalize_path(&input);
+
+        assert_eq!(normalized, expected);
+        assert_eq!(normalized.to_string_lossy(), expected.to_string_lossy());
+    }
 }

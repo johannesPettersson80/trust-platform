@@ -1,7 +1,7 @@
 # Runtime Host Surface Inventory
 
 Generated for `RTHOST-P1-008` on 2026-04-29 from branch
-`architecture/runtime-cli-product-workbench-split` at release baseline `v0.24.7`.
+`architecture/runtime-cli-product-workbench-split` at release baseline `v0.24.8`.
 
 Scope: `web`, `hmi`, `ui`, `control`, and `runtime_cloud` ownership before
 runtime host-surface extraction. This inventory is classification evidence only;
@@ -24,7 +24,7 @@ move table in `docs/internal/testing/checklists/runtime-host-surface-ownership-c
 - `FULLMAP-CHECK-07` exists in `architecture-doctor --full-map`.
 - Current policy forbids `control -> web`, `hmi -> web`, and `runtime_cloud -> web` production imports.
 - The former temporary allowlist for `crates/trust-runtime/src/control.rs -> crate::web::pairing::PairingStore` has been removed after moving pairing storage to `crate::security::pairing`.
-- `host_surface.approved_ports_active` is currently `false`, so CHECK-07 remains a partial gate until code-backed ports and direct runtime-state web-route checks are active.
+- `host_surface.approved_ports_active` is currently `false`, so CHECK-07 remains a partial gate until the direct runtime-state web-route rule is active. The first code-backed HMI runtime read/write control port now exists in `crates/trust-runtime/src/control/hmi_runtime_ports.rs`.
 
 ## HMI Files
 
@@ -80,12 +80,13 @@ move table in `docs/internal/testing/checklists/runtime-host-surface-ownership-c
 
 | File | Lines | Current cross-surface imports | Current owner | Proposed owner / action |
 | --- | ---: | --- | --- | --- |
-| `crates/trust-runtime/src/control/hmi_handlers.rs` | 20 | - | control-hmi-port | Keep as control request dispatcher. |
+| `crates/trust-runtime/src/control/hmi_handlers.rs` | 21 | - | control-hmi-port | Keep as control request dispatcher. |
 | `crates/trust-runtime/src/control/hmi_handlers_descriptor.rs` | 192 | hmi | control-hmi-port | Keep as control port; Phase 4 should move descriptor-domain logic only if it duplicates HMI ownership. |
 | `crates/trust-runtime/src/control/hmi_handlers_parse.rs` | 118 | - | control-hmi-port | Keep as control request parsing. |
-| `crates/trust-runtime/src/control/hmi_handlers_read.rs` | 159 | hmi | control-hmi-port | Keep as control read port; Phase 2 should define the runtime value/snapshot inputs used by HMI projection. |
+| `crates/trust-runtime/src/control/hmi_handlers_read.rs` | 99 | - | control-hmi-port | Keep as HTTP-neutral control request adapter; delegates runtime value/schema reads to `control/hmi_runtime_ports.rs`. |
+| `crates/trust-runtime/src/control/hmi_runtime_ports.rs` | 139 | hmi | control-hmi-port | Code-backed HMI runtime read/write control port; no web request/response types. |
 | `crates/trust-runtime/src/control/hmi_handlers_state.rs` | 247 | hmi | control-hmi-port | Keep as control state bridge; review live-state mutation for Phase 4 HMI-domain extraction. |
-| `crates/trust-runtime/src/control/hmi_handlers_write.rs` | 127 | hmi | control-hmi-port | Keep as control write port; HMI write allowlist and value-template logic should become an explicit Phase 2 write-policy hook. |
+| `crates/trust-runtime/src/control/hmi_handlers_write.rs` | 62 | - | control-hmi-port | Keep as HTTP-neutral control request adapter; delegates HMI runtime write validation/queueing to `control/hmi_runtime_ports.rs`. |
 
 ## Web HMI Files
 
@@ -166,8 +167,8 @@ Test-only imports:
 
 | Area | Current location | Risk | Proposed next action |
 | --- | --- | --- | --- |
-| HMI schema/value projection | HMI projection lives in `hmi/runtime_views/*`; control handlers call it directly with runtime metadata/snapshot. | Runtime snapshot access is still coupled to control state and debug snapshot types. | Phase 2 should define narrow runtime value read, value write, and snapshot/status ports before moving code. |
-| HMI write authorization | HMI customization owns write enable/allowlist; `control/hmi_handlers_write.rs` enforces it during control request handling. | Write policy is split between HMI customization data and control write side effects. | Phase 2 should define the write-policy hook and keep side effects in control/runtime execution. |
+| HMI schema/value projection | HMI projection lives in `hmi/runtime_views/*`; control handlers delegate runtime metadata/snapshot access to `control/hmi_runtime_ports.rs`. | Runtime snapshot access is now isolated in a control port, but the direct web runtime-state doctor rule is not active yet. | Add the matching Phase 3 doctor rule before setting `host_surface.approved_ports_active = true`. |
+| HMI write authorization | HMI customization owns write enable/allowlist; `control/hmi_runtime_ports.rs` enforces target/value approval and queues runtime writes. | Write policy remains split by design: HMI owns customization data, control owns side effects. | Keep this split and enforce no web types in the control write port. |
 | HMI websocket deltas | `web/hmi_ws.rs` polls control HMI requests and computes websocket deltas. | Delta transport is web-owned, but polling cadence and payload shape can become hidden domain logic. | Keep as adapter for now; Phase 4 should split only if HMI event/delta stream port is added. |
 | Runtime-cloud profile/allowlist policy | `web/runtime_cloud_policy.rs` uses `runtime_cloud` reason codes and routing types. | WAN/profile policy may be reusable domain policy but is currently tied to web auth/TLS context. | Phase 2 should define the runtime-cloud projection/preflight port before moving. |
 | Runtime-cloud rollout/config/link state | `web/runtime_cloud_state/*` persists desired/reported state, link transport preference state, and rollout manager state. | Persistent state machine code is web-owned today and may outgrow route-adapter responsibility. | Phase 4 should name exact state files to keep under web or extract to runtime-cloud domain/state service. |
@@ -175,8 +176,8 @@ Test-only imports:
 
 ## Proposed Phase 2 Port List
 
-- Runtime value read port: HMI schema/value projection reads runtime metadata plus optional snapshot without taking `ControlState`.
-- Runtime value write port: HMI writes enqueue through a control/runtime side-effect boundary after HMI write policy approves target/value.
+- Runtime value read port: HMI schema/value projection reads runtime metadata plus optional snapshot through `control/hmi_runtime_ports.rs`.
+- Runtime value write port: HMI writes enqueue through `control/hmi_runtime_ports.rs` after HMI write policy approves target/value.
 - Runtime snapshot/status port: HMI and runtime-cloud projections read status without direct web route access to execution internals.
 - HMI schema/descriptor port: web and control expose schema/descriptor data without duplicating descriptor parsing.
 - HMI event/delta stream port: websocket code remains web transport, with HMI/control owning payload semantics if the current polling helper is split.
@@ -187,3 +188,4 @@ Test-only imports:
 - `RTHOST-P1-001` through `RTHOST-P1-009` are satisfied by this inventory.
 - `RTHOST-P1-010` remains open: Phase 4 must not start until this inventory is reviewed and the checklist gains a named-file move table.
 - `ARCHPROG-C-02` should remain open until `FULLMAP-CHECK-07` is recorded as the active gate or a waiver is accepted, because `host_surface.approved_ports_active` is still `false`.
+- First code-backed port evidence: `RUSTUP_TOOLCHAIN=1.95 cargo test -p trust-runtime --lib control::tests::hmi_` passed after adding direct HMI runtime read/write port tests.

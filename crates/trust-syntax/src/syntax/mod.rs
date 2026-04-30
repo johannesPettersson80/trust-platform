@@ -273,6 +273,17 @@ macro_rules! define_syntax_kind {
 
 for_each_token_kind!(define_syntax_kind);
 
+/// Syntax node kinds that declare a POU-like semantic owner.
+pub const POU_DECLARATION_KINDS: &[SyntaxKind] = &[
+    SyntaxKind::Program,
+    SyntaxKind::Function,
+    SyntaxKind::FunctionBlock,
+    SyntaxKind::Class,
+    SyntaxKind::Method,
+    SyntaxKind::Property,
+    SyntaxKind::Interface,
+];
+
 impl SyntaxKind {
     /// Returns `true` if this is a trivia kind.
     #[must_use]
@@ -336,6 +347,12 @@ impl SyntaxKind {
     #[must_use]
     pub fn is_initializer_expression_node(self) -> bool {
         self.is_expression_node() || self.is_aggregate_initializer_node()
+    }
+
+    /// Returns `true` for syntax nodes that declare a POU-like semantic owner.
+    #[must_use]
+    pub fn is_pou_declaration(self) -> bool {
+        POU_DECLARATION_KINDS.contains(&self)
     }
 
     /// Returns `true` for statement syntax nodes.
@@ -556,5 +573,36 @@ mod tests {
         assert!(!SyntaxKind::Pragma.is_expression_node());
         assert!(!SyntaxKind::Pragma.is_statement_node());
         assert!(!SyntaxKind::Pragma.is_initializer_expression_node());
+    }
+
+    #[test]
+    fn test_pou_declaration_classifier_set() {
+        let expected = &[
+            SyntaxKind::Program,
+            SyntaxKind::Function,
+            SyntaxKind::FunctionBlock,
+            SyntaxKind::Class,
+            SyntaxKind::Method,
+            SyntaxKind::Property,
+            SyntaxKind::Interface,
+        ];
+
+        assert_eq!(POU_DECLARATION_KINDS, expected);
+        for kind in expected {
+            assert!(kind.is_pou_declaration(), "{kind:?} should be a POU");
+        }
+        for kind in [
+            SyntaxKind::PropertyGet,
+            SyntaxKind::PropertySet,
+            SyntaxKind::ProgramConfig,
+            SyntaxKind::Namespace,
+            SyntaxKind::Configuration,
+            SyntaxKind::Resource,
+        ] {
+            assert!(
+                !kind.is_pou_declaration(),
+                "{kind:?} is not a POU declaration"
+            );
+        }
     }
 }

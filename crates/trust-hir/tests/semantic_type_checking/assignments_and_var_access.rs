@@ -26,6 +26,21 @@ END_PROGRAM
 }
 
 #[test]
+fn test_numeric_widening_assignment_uses_compatibility_matrix() {
+    check_no_errors(
+        r#"
+PROGRAM Test
+VAR
+    small : INT;
+    wide : DINT;
+END_VAR
+wide := small;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
 fn test_direct_address_binding_recorded() {
     let mut db = Database::new();
     let file = FileId(0);
@@ -192,6 +207,44 @@ END_FUNCTION
 }
 
 #[test]
+fn test_function_return_variable_can_be_read_inside_function() {
+    check_no_errors(
+        r#"
+FUNCTION CeilLike : DINT
+    VAR_INPUT
+        x : DINT;
+    END_VAR
+    CeilLike := x;
+    IF CeilLike < DINT#10 THEN
+        CeilLike := CeilLike + 1;
+    END_IF
+END_FUNCTION
+"#,
+    );
+}
+
+#[test]
+fn test_method_return_variable_can_be_read_inside_method() {
+    check_no_errors(
+        r#"
+FUNCTION CheckLoaded : BOOL
+    VAR_INPUT
+        Loaded : BOOL;
+    END_VAR
+    CheckLoaded := Loaded;
+END_FUNCTION
+
+CLASS Context
+    METHOD PUBLIC LoadConstants : BOOL
+        LoadConstants := TRUE;
+        LoadConstants := CheckLoaded(Loaded := LoadConstants);
+    END_METHOD
+END_CLASS
+"#,
+    );
+}
+
+#[test]
 fn test_function_return_expr_sets_return_value() {
     check_no_errors(
         r#"
@@ -309,6 +362,19 @@ END_PROGRAM
 }
 
 #[test]
+fn test_array_index_const_eval_error_reports_primary_diagnostic() {
+    check_has_error(
+        r#"
+PROGRAM Test
+    VAR arr : ARRAY[0..3] OF DINT; x : DINT; END_VAR
+    x := arr[1 / 0];
+END_PROGRAM
+"#,
+        DiagnosticCode::InvalidOperation,
+    );
+}
+
+#[test]
 // IEC 61131-3 Ed.3 Tables 11, 15-16 (array bounds and indexing)
 fn test_array_index_subrange_out_of_bounds() {
     check_has_error(
@@ -322,6 +388,24 @@ PROGRAM Test
 END_PROGRAM
 "#,
         DiagnosticCode::OutOfRange,
+    );
+}
+
+#[test]
+fn test_subrange_assignment_const_eval_error_reports_primary_diagnostic() {
+    check_has_error(
+        r#"
+TYPE Small : INT (0..10);
+END_TYPE
+
+PROGRAM Test
+VAR
+    value : Small;
+END_VAR
+value := MissingConstant;
+END_PROGRAM
+"#,
+        DiagnosticCode::UndefinedVariable,
     );
 }
 
@@ -445,6 +529,80 @@ END_PROGRAM
 }
 
 #[test]
+fn test_var_access_undefined_target_error() {
+    check_has_error(
+        r#"
+CONFIGURATION Conf
+VAR_ACCESS
+    A : MissingGlobal : INT READ_WRITE;
+END_VAR
+END_CONFIGURATION
+"#,
+        DiagnosticCode::UndefinedVariable,
+    );
+}
+
+#[test]
+fn test_var_config_undefined_target_error() {
+    check_has_error(
+        r#"
+CONFIGURATION Conf
+VAR_CONFIG
+    MissingGlobal AT %QW0 : INT;
+END_VAR
+END_CONFIGURATION
+"#,
+        DiagnosticCode::UndefinedVariable,
+    );
+}
+
+#[test]
+fn test_cross_file_global_import_collision_reports_duplicate() {
+    let mut db = Database::new();
+    db.set_source_text(
+        FileId(0),
+        r#"
+VAR_GLOBAL
+    Shared : INT;
+END_VAR
+"#
+        .to_string(),
+    );
+    db.set_source_text(
+        FileId(1),
+        r#"
+VAR_GLOBAL
+    Shared : DINT;
+END_VAR
+"#
+        .to_string(),
+    );
+    db.set_source_text(
+        FileId(2),
+        r#"
+PROGRAM Main
+VAR
+    x : DINT;
+END_VAR
+x := Shared;
+END_PROGRAM
+"#
+        .to_string(),
+    );
+
+    let errors = db
+        .diagnostics(FileId(2))
+        .iter()
+        .filter(|diagnostic| diagnostic.severity == DiagnosticSeverity::Error)
+        .map(|diagnostic| diagnostic.code)
+        .collect::<Vec<_>>();
+    assert!(
+        errors.contains(&DiagnosticCode::DuplicateDeclaration),
+        "expected duplicate imported global diagnostic, got {errors:?}"
+    );
+}
+
+#[test]
 fn test_var_config_type_mismatch() {
     check_has_error(
         r#"
@@ -535,6 +693,31 @@ END_RESOURCE
 END_CONFIGURATION
 "#,
         DiagnosticCode::UnknownTask,
+    );
+}
+
+#[test]
+fn test_program_config_wrong_kind_type_reports_diagnostic() {
+    let errors = check_errors(
+        r#"
+FUNCTION_BLOCK NotAProgram
+END_FUNCTION_BLOCK
+
+CONFIGURATION Conf
+RESOURCE R ON CPU
+    PROGRAM P1 : NotAProgram;
+END_RESOURCE
+END_CONFIGURATION
+"#,
+    );
+    assert!(
+        errors.contains(&DiagnosticCode::InvalidOperation),
+        "expected wrong-kind InvalidOperation diagnostic, got {errors:?}"
+    );
+    assert!(
+        !errors.contains(&DiagnosticCode::UndefinedType)
+            && !errors.contains(&DiagnosticCode::CannotResolve),
+        "program config wrong-kind must not degrade into wrong-reason unresolved diagnostics, got {errors:?}"
     );
 }
 
@@ -749,6 +932,104 @@ END_CLASS
 }
 
 #[test]
+fn test_assignment_unknown_source_suppression_has_primary_diagnostic() {
+    let errors = check_errors(
+        r#"
+PROGRAM Main
+VAR
+    LocalCopy : INT;
+END_VAR
+LocalCopy := Missing;
+END_PROGRAM
+"#,
+    );
+
+    assert!(
+        errors.contains(&DiagnosticCode::UndefinedVariable),
+        "expected primary UndefinedVariable diagnostic, got {errors:?}"
+    );
+    assert!(
+        !errors.contains(&DiagnosticCode::IncompatibleAssignment)
+            && !errors.contains(&DiagnosticCode::TypeMismatch),
+        "unknown assignment source must not emit wrong-reason assignment/type mismatch cascades, got {errors:?}"
+    );
+}
+
+#[test]
+fn test_binary_unknown_operand_suppression_has_primary_diagnostic() {
+    let errors = check_errors(
+        r#"
+PROGRAM Main
+VAR
+    LocalCopy : INT;
+END_VAR
+LocalCopy := Missing + TRUE;
+END_PROGRAM
+"#,
+    );
+
+    assert!(
+        errors.contains(&DiagnosticCode::UndefinedVariable),
+        "expected primary UndefinedVariable diagnostic, got {errors:?}"
+    );
+    assert!(
+        !errors.contains(&DiagnosticCode::InvalidArgumentType)
+            && !errors.contains(&DiagnosticCode::TypeMismatch)
+            && !errors.contains(&DiagnosticCode::IncompatibleAssignment),
+        "unknown binary operand must not emit wrong-reason operator or assignment cascades, got {errors:?}"
+    );
+}
+
+#[test]
+fn test_unary_unknown_operand_suppression_has_primary_diagnostic() {
+    let errors = check_errors(
+        r#"
+PROGRAM Main
+VAR
+    LocalCopy : INT;
+END_VAR
+LocalCopy := -Missing;
+END_PROGRAM
+"#,
+    );
+
+    assert!(
+        errors.contains(&DiagnosticCode::UndefinedVariable),
+        "expected primary UndefinedVariable diagnostic, got {errors:?}"
+    );
+    assert!(
+        !errors.contains(&DiagnosticCode::TypeMismatch)
+            && !errors.contains(&DiagnosticCode::IncompatibleAssignment),
+        "unknown unary operand must not emit wrong-reason type or assignment cascades, got {errors:?}"
+    );
+}
+
+#[test]
+fn test_index_unknown_base_suppression_has_primary_diagnostic() {
+    let errors = check_errors(
+        r#"
+PROGRAM Main
+VAR
+    LocalCopy : INT;
+END_VAR
+LocalCopy := Missing[0];
+END_PROGRAM
+"#,
+    );
+
+    assert!(
+        errors.contains(&DiagnosticCode::UndefinedVariable),
+        "expected primary UndefinedVariable diagnostic, got {errors:?}"
+    );
+    assert!(
+        !errors.contains(&DiagnosticCode::TypeMismatch)
+            && !errors.contains(&DiagnosticCode::InvalidArrayIndex)
+            && !errors.contains(&DiagnosticCode::IncompatibleAssignment),
+        "unknown index base must not emit wrong-reason index or assignment cascades, got {errors:?}"
+    );
+}
+
+#[test]
 // IEC 61131-3 Ed.3 Section 6.5.6 (RETAIN/NON_RETAIN qualifiers)
 fn test_var_retain_non_retain_conflict() {
     check_has_error(
@@ -895,5 +1176,85 @@ VAR
 END_VAR
 END_PROGRAM
 "#,
+    );
+}
+
+#[test]
+fn test_var_config_cross_file_program_instance_target_resolves_after_project_merge() {
+    check_no_errors_multi(&[
+        r#"
+CONFIGURATION Conf
+RESOURCE R1 ON CPU
+    TASK MainTask (INTERVAL := T#100ms, PRIORITY := 1);
+    PROGRAM P1 WITH MainTask : Main;
+END_RESOURCE
+VAR_CONFIG
+    P1.DI0 AT %IX0.0 : BOOL;
+    P1.DO0 AT %QX0.0 : BOOL;
+END_VAR
+END_CONFIGURATION
+"#,
+        r#"
+PROGRAM Main
+VAR
+    DI0 : BOOL;
+    DO0 : BOOL;
+END_VAR
+DO0 := DI0;
+END_PROGRAM
+"#,
+    ]);
+}
+
+#[test]
+fn test_var_config_duplicate_program_instance_name_is_ambiguous() {
+    let errors = check_errors(
+        r#"
+FUNCTION_BLOCK BoolFb
+VAR_OUTPUT
+    out AT %Q*: BOOL;
+END_VAR
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK IntFb
+VAR_OUTPUT
+    out AT %Q*: INT;
+END_VAR
+END_FUNCTION_BLOCK
+
+PROGRAM MainA
+VAR
+    fb : BoolFb;
+END_VAR
+END_PROGRAM
+
+PROGRAM MainB
+VAR
+    fb : IntFb;
+END_VAR
+END_PROGRAM
+
+CONFIGURATION Conf
+RESOURCE R1 ON CPU
+    PROGRAM P1 : MainA;
+END_RESOURCE
+RESOURCE R2 ON CPU
+    PROGRAM P1 : MainB;
+END_RESOURCE
+VAR_CONFIG
+    P1.fb.out AT %QX0.1 : BOOL;
+END_VAR
+END_CONFIGURATION
+"#,
+    );
+
+    assert!(
+        errors.contains(&DiagnosticCode::CannotResolve),
+        "duplicate PROGRAM instance names must be ambiguous, got {errors:?}"
+    );
+    assert!(
+        !errors.contains(&DiagnosticCode::TypeMismatch)
+            && !errors.contains(&DiagnosticCode::InvalidOperation),
+        "duplicate PROGRAM instance names must not silently choose one instance and report a wrong-reason cascade, got {errors:?}"
     );
 }

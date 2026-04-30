@@ -32,15 +32,29 @@ pub(super) fn node_text(node: &SyntaxNode) -> String {
 pub(super) fn collect_using_directives(node: &SyntaxNode) -> Vec<SmolStr> {
     let mut ancestors: Vec<SyntaxNode> = node.ancestors().collect();
     ancestors.reverse();
-    let mut names = Vec::new();
+    let mut implicit_namespaces = Vec::new();
+    let mut explicit_usings = Vec::new();
+    let mut namespace_parts = Vec::new();
     for ancestor in ancestors {
+        if ancestor.kind() == SyntaxKind::Namespace {
+            if let Some(namespace_name) = ancestor
+                .children()
+                .find(|child| matches!(child.kind(), SyntaxKind::QualifiedName | SyntaxKind::Name))
+            {
+                namespace_parts.push(node_text(&namespace_name));
+                implicit_namespaces.push(SmolStr::new(namespace_parts.join(".")));
+            }
+        }
         for using in ancestor
             .children()
             .filter(|child| child.kind() == SyntaxKind::UsingDirective)
         {
-            names.extend(using_directive_names(&using));
+            explicit_usings.extend(using_directive_names(&using));
         }
     }
+    implicit_namespaces.reverse();
+    let mut names = implicit_namespaces;
+    names.extend(explicit_usings);
     names
 }
 

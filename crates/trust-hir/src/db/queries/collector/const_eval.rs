@@ -1,5 +1,6 @@
 use super::const_utils::*;
 use super::*;
+use crate::symbols::EnumValueResolution;
 use crate::types::POINTER_REFERENCE_HANDLE_SIZE_BYTES;
 
 impl SymbolCollector<'_> {
@@ -26,8 +27,26 @@ impl SymbolCollector<'_> {
         node: &SyntaxNode,
         scopes: &[Option<SmolStr>],
     ) -> Option<i64> {
+        match self.try_eval_optional_int_expr_in_scope(node, scopes) {
+            Ok(value) => value,
+            Err(err) => {
+                self.report_const_eval_error(err, node.text_range());
+                None
+            }
+        }
+    }
+
+    pub(super) fn try_eval_optional_int_expr_in_scope(
+        &mut self,
+        node: &SyntaxNode,
+        scopes: &[Option<SmolStr>],
+    ) -> Result<Option<i64>, ConstEvalError> {
         let mut guard = FxHashSet::default();
-        self.try_eval_int_expr(node, scopes, &mut guard).ok()
+        match self.try_eval_int_expr(node, scopes, &mut guard) {
+            Ok(value) => Ok(Some(value)),
+            Err(ConstEvalError::NotConstant) => Ok(None),
+            Err(err) => Err(err),
+        }
     }
 
     pub(super) fn try_eval_int_expr(
@@ -47,10 +66,17 @@ impl SymbolCollector<'_> {
                     .ok_or(ConstEvalError::NotConstant)?;
                 match self.try_resolve_const_value(&name, scopes, guard) {
                     Ok(value) => Ok(value),
-                    Err(ConstEvalError::UndefinedName(_)) => self
-                        .table
-                        .enum_value_by_name(&name)
-                        .ok_or_else(|| ConstEvalError::UndefinedName(SmolStr::new(name.as_str()))),
+                    Err(ConstEvalError::UndefinedName(_)) => {
+                        match self.table.resolve_enum_value_by_name(&name) {
+                            EnumValueResolution::Resolved(value) => Ok(value),
+                            EnumValueResolution::NotFound => {
+                                Err(ConstEvalError::UndefinedName(SmolStr::new(name.as_str())))
+                            }
+                            EnumValueResolution::Ambiguous => {
+                                Err(ConstEvalError::AmbiguousName(SmolStr::new(name.as_str())))
+                            }
+                        }
+                    }
                     Err(err) => Err(err),
                 }
             }
@@ -170,7 +196,8 @@ impl SymbolCollector<'_> {
                     }
                 }
                 let name = SmolStr::new(name);
-                let type_id = self.resolve_type_path(std::slice::from_ref(&name));
+                let type_id =
+                    self.resolve_type_path_at(std::slice::from_ref(&name), Some(node.text_range()));
                 (type_id != TypeId::UNKNOWN).then_some(type_id)
             }
             _ => {
@@ -296,7 +323,11 @@ impl SymbolCollector<'_> {
         Ok(value)
     }
 
-    fn report_const_eval_error(&mut self, err: ConstEvalError, range: text_size::TextRange) {
+    pub(super) fn report_const_eval_error(
+        &mut self,
+        err: ConstEvalError,
+        range: text_size::TextRange,
+    ) {
         match err {
             ConstEvalError::CyclicDependency(name) => self.diagnostics.error(
                 DiagnosticCode::CyclicDependency,
@@ -322,6 +353,11 @@ impl SymbolCollector<'_> {
                 DiagnosticCode::UndefinedVariable,
                 range,
                 format!("undefined constant '{name}'"),
+            ),
+            ConstEvalError::AmbiguousName(name) => self.diagnostics.error(
+                DiagnosticCode::CannotResolve,
+                range,
+                format!("ambiguous enum value '{name}'"),
             ),
             ConstEvalError::NotConstant => {}
         }

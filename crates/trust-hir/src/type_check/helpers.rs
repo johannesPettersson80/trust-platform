@@ -1,6 +1,7 @@
 use super::literals::string_literal_info;
 use super::literals::{is_untyped_int_literal_expr, is_untyped_real_literal_expr};
 use super::*;
+use crate::semantic::LEGACY_UNKNOWN_TYPE_ID;
 
 impl<'a> TypeChecker<'a> {
     // ========== Helper Methods ==========
@@ -30,7 +31,7 @@ impl<'a> TypeChecker<'a> {
             (Some(pa), Some(pb)) => WIDENING_ORDER[pa.max(pb)],
             (Some(_), None) => a,
             (None, Some(_)) => b,
-            (None, None) => TypeId::UNKNOWN,
+            (None, None) => LEGACY_UNKNOWN_TYPE_ID,
         }
     }
 
@@ -148,7 +149,7 @@ impl<'a> TypeChecker<'a> {
 pub(super) fn direct_address_type(text: &str) -> TypeId {
     let bytes = text.as_bytes();
     if bytes.len() < 2 || bytes[0] != b'%' {
-        return TypeId::UNKNOWN;
+        return LEGACY_UNKNOWN_TYPE_ID;
     }
 
     let size = bytes
@@ -162,7 +163,7 @@ pub(super) fn direct_address_type(text: &str) -> TypeId {
         Some(b'W') => TypeId::WORD,
         Some(b'D') => TypeId::DWORD,
         Some(b'L') => TypeId::LWORD,
-        Some(_) => TypeId::UNKNOWN,
+        Some(_) => LEGACY_UNKNOWN_TYPE_ID,
         None => TypeId::BOOL,
     }
 }

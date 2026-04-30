@@ -150,6 +150,62 @@
     }
 
     #[test]
+    fn semantic_kernel_cross_file_resolution_tracks_lsp_style_dependency_edits() {
+        let mut db = Database::new();
+        let file_lib = FileId(46);
+        let file_main = FileId(47);
+
+        db.set_source_text(
+            file_lib,
+            "FUNCTION Pick : INT\nVAR_INPUT\n    x : INT;\nEND_VAR\nPick := x + 1;\nEND_FUNCTION\n"
+                .to_string(),
+        );
+        db.set_source_text(
+            file_main,
+            "PROGRAM Main\nVAR\n    value : INT;\nEND_VAR\nvalue := Pick(1);\nEND_PROGRAM\n"
+                .to_string(),
+        );
+
+        let first = db.analyze_salsa(file_main);
+        assert!(
+            first.diagnostics.iter().all(|diagnostic| !diagnostic.is_error()),
+            "initial dependency should resolve cleanly: {:?}",
+            first.diagnostics
+        );
+
+        db.set_source_text(
+            file_lib,
+            "FUNCTION Pick : BOOL\nVAR_INPUT\n    x : INT;\nEND_VAR\nPick := x > 0;\nEND_FUNCTION\n"
+                .to_string(),
+        );
+
+        let after_return_type_edit = db.analyze_salsa(file_main);
+        assert!(
+            after_return_type_edit.diagnostics.iter().any(|diagnostic| {
+                diagnostic.code == crate::diagnostics::DiagnosticCode::IncompatibleAssignment
+            }),
+            "edited dependency should invalidate semantic resolution and report an assignment mismatch: {:?}",
+            after_return_type_edit.diagnostics
+        );
+
+        db.set_source_text(
+            file_lib,
+            "FUNCTION Pick : INT\nVAR_INPUT\n    x : INT;\nEND_VAR\nPick := x + 2;\nEND_FUNCTION\n"
+                .to_string(),
+        );
+
+        let after_fix = db.analyze_salsa(file_main);
+        assert!(
+            after_fix
+                .diagnostics
+                .iter()
+                .all(|diagnostic| !diagnostic.is_error()),
+            "fixing the dependency should clear the stale semantic error: {:?}",
+            after_fix.diagnostics
+        );
+    }
+
+    #[test]
     fn cancellation_requests_keep_queries_stable() {
         let mut setup_db = Database::new_with_salsa_observability();
         let file = FileId(40);

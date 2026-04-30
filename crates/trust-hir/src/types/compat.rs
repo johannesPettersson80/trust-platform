@@ -49,10 +49,13 @@ impl TypeRegistry {
                         return false;
                     }
                 }
-                self.types_compatible(
-                    self.get(*te).unwrap_or(&Type::Unknown),
-                    self.get(*se).unwrap_or(&Type::Unknown),
-                )
+                let Some(target_element) = self.get(*te) else {
+                    return false;
+                };
+                let Some(source_element) = self.get(*se) else {
+                    return false;
+                };
+                self.types_compatible(target_element, source_element)
             }
 
             // NULL assignment to references/pointers

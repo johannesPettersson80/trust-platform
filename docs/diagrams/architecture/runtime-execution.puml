@@ -262,6 +262,7 @@ package "Lifecycle" as lifecyclePkg #LightGray {
 ' ============================================================
 package "Control + HMI Contract" as hmiPkg #Lavender {
     rectangle "Control API (control/transport.rs + control/* handlers)" as hmiControl #Wheat {
+        card "control/hmi_runtime_ports.rs\n(narrow runtime read/write port)" as hmiRuntimePort
         card "hmi.schema.get\n(read-only schema from metadata)" as hmiSchema
         card "load customization\n(@hmi + hmi.toml)" as hmiCustomize
         card "merge precedence:\ndefaults < annotation < file" as hmiMerge
@@ -300,6 +301,9 @@ package "Control + HMI Contract" as hmiPkg #Lavender {
         card "render.rs:\npanel/prompt presentation" as tuiRender
     }
 
+    hmiRuntimePort --> hmiSchema
+    hmiRuntimePort --> hmiValues
+    hmiRuntimePort --> hmiWrite
     hmiSchema --> hmiCustomize
     hmiCustomize --> hmiMerge
     hmiMerge --> hmiEmit

@@ -6,10 +6,17 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.7`
+Target release: `v0.24.8`
 
 ### Changed
 
+- Local Rust test recipes now use the `mold` linker on Linux when it is
+  installed, `just test-all` and CI no longer run `complete_program` twice, and
+  `just test-hir-fast` provides a focused HIR refactor loop before the final
+  full workspace gate.
+- VS Code extension tests now build and resolve the required local
+  `trust-debug` adapter and reuse the Linux fast-link Rust wrapper for local
+  Rust build steps.
 - OSCAT OOP now uses the settled `OscatOop` dependency alias,
   concrete types in simple examples, `PidGains` plus `Configure(...)` for PID
   setup, clearer PID/calendar/astronomy names, and example coverage for
@@ -20,6 +27,11 @@ Target release: `v0.24.7`
   client authentication, `mqtts://` and `ssl://` broker schemes imply TLS,
   Linux release builds use vendored OpenSSL for the selected native TLS backend,
   and remote plaintext brokers still require `allow_insecure_remote = true`.
+- The default OSCAT OOP example catalog test now keeps the all-example folder,
+  README, source-layout, and pattern checks in the normal Rust suite while
+  moving the expensive 98-project `trust-runtime test --project` sweep behind
+  an explicit ignored gate with per-project progress, child PID/elapsed
+  reporting, and timeout diagnostics.
 
 ### Fixed
 
@@ -46,6 +58,89 @@ Target release: `v0.24.7`
 - HIR validation now rejects non-repeat call expressions used as array defaults
   and validates direct array repetition defaults against the repeated element
   type, closing focused mutation-testing gaps in default initializer analysis.
+- HIR validation now reports `UndefinedVariable` when a `VAR_ACCESS` access
+  path points at a missing target instead of silently accepting the declaration.
+- HIR constant evaluation now reports `CannotResolve` for ambiguous unqualified
+  enum value names instead of picking the first matching enum member from the
+  symbol table.
+- HIR alias resolution no longer silently stops after sixteen alias hops, so
+  deep but valid alias chains resolve to their base type.
+- HIR call checking now reports `UndefinedFunction` when a resolved field or
+  non-callable expression is used as a callee instead of silently returning an
+  unknown type.
+- HIR global symbol lookup now uses the same first-writer collision policy for
+  normal collector inserts and raw/import inserts, avoiding order-dependent
+  duplicate-name lookup drift.
+- Project source registration now rejects explicit `FileId` collisions instead
+  of silently reallocating a different file identity.
+- HIR type-check context construction now classifies missing POU owners/scopes
+  and reports `CannotResolve` instead of silently falling back to global scope.
+- HIR OOP diagnostics now use a shared extends-chain walker so mixed
+  function-block/class inheritance cycles cannot bypass cycle detection.
+- HIR diagnostics now distinguish existing symbols used in the wrong semantic
+  role: values used as types, types used as values, and callables used as
+  variables report primary wrong-kind diagnostics instead of silent unknowns or
+  wrong-reason undefined diagnostics.
+- HIR expression checking now applies the same wrong-kind diagnostics to
+  namespace-qualified project imports, so imported types used as values no
+  longer type-check silently through field-expression resolution.
+- HIR/parser name handling now treats `GET` and `SET` as contextual names in
+  method/member expression positions, so methods such as `Get()` can be
+  collected, type checked, and called without fallback to global scope.
+- HIR expression inference now suppresses numeric/bit/unary/index/dereference
+  and `__DELETE` follow-on type errors when an operand or indexed base already
+  has a primary unresolved-name diagnostic.
+- HIR validation now reports unresolved or malformed `VAR_CONFIG` targets
+  explicitly instead of letting invalid configuration entries disappear during
+  collection/validation.
+- Cross-project HIR symbol imports now report duplicate imported global names
+  instead of silently keeping the first imported binding.
+- Cross-project HIR type imports now report cyclic aliases with
+  `CyclicDependency` and avoid degrading the cycle into silent unknown-type
+  suppression.
+- HIR type checking now reports constant-evaluation failures at array bounds,
+  subrange assignments, CASE label duplicate tracking, and `SIZEOF` type
+  operands instead of collapsing `ConstEvalError` into `None`.
+- HIR assignment compatibility no longer substitutes missing array element or
+  pointer target `TypeId`s with `Type::Unknown`, preventing malformed type
+  identities from being accepted as compatible.
+- HIR typed literals now report `UndefinedType` when their type prefix cannot
+  be resolved instead of silently inferring an unknown expression type.
+- Project source registration now preserves noncanonical fallback paths when
+  OS canonicalization fails, preventing lexical paths from silently colliding
+  with existing canonical source keys.
+- HIR OOP `EXTENDS`/`IMPLEMENTS` resolution no longer treats a missing owner
+  scope as global scope when resolving inherited or implemented types.
+- HIR interface conformance now resolves inherited interface members through
+  the owner's namespace scope instead of falling back to a global bare name.
+- HIR call inference now preserves ambiguous `USING` resolution as the primary
+  `CannotResolve` diagnostic instead of adding a wrong `UndefinedFunction`.
+- HIR value/type expression inference now preserves ambiguous `USING`
+  resolution as the primary `CannotResolve` diagnostic for value reads,
+  assignment targets, `SIZEOF`, and `NEW` type operands instead of degrading
+  into wrong-reason undefined diagnostics.
+- HIR standard function type checking now suppresses wrong-reason argument
+  diagnostics when an argument already has a primary unresolved-name diagnostic.
+- HIR diagnostics now deduplicate exact duplicate diagnostics by full diagnostic
+  identity, preventing repeated semantic probes from reporting the same primary
+  error multiple times while preserving distinct diagnostics.
+- HIR `SymbolTable` broad lookup helpers are no longer public API; external
+  callers now use explicit global, qualified-name, or registered-type lookup
+  contracts.
+- HIR constant precollection now keys constants by full namespace/POU scope
+  identity, so same-named POUs in different namespaces cannot share local
+  constant values for array, subrange, or string bounds.
+- HIR `VAR_CONFIG` validation now treats duplicate bare program instance names
+  across resources as ambiguous and reports `CannotResolve` instead of choosing
+  one instance and emitting follow-on type/address diagnostics.
+- HIR member and compatibility resolution for raw `EXTENDS`/`IMPLEMENTS`
+  references now resolves bare base/interface names from the owning POU scope
+  instead of falling back to a global bare-name lookup.
+- HIR analysis now exposes a declaration catalog with qualified names, source
+  identity, semantic roles, project-import origin, translated type identities,
+  and classified OOP reference outcomes; runtime POU registration is driven by
+  that catalog and reports catalog/lowering mismatches instead of silently
+  skipping accepted declarations.
 - VS Code activation no longer writes the default runtime control endpoint into
   workspace folder settings; runtime panels still use the built-in endpoint
   fallback when the setting is empty.
@@ -60,6 +155,13 @@ Target release: `v0.24.7`
   `OSCAT_VERSION(IN := FALSE)` instead of a hardcoded value.
 - Public docs links for PLCopen/Oscat example READMEs now resolve under MkDocs
   strict mode.
+- Runtime compilation now registers namespaced `PROGRAM` declarations and
+  resolves sibling namespace types for local OOP `IMPLEMENTS` checks, so
+  namespaced runtime programs and same-namespace interfaces are handled
+  consistently with functions, function blocks, classes, and type declarations.
+- Runtime bytecode generation now preserves POU namespace context for sibling
+  function calls, keeps method names owner-local inside namespaced class-like
+  POUs, and exposes bare return-variable aliases for namespaced functions.
 
 ### Added
 

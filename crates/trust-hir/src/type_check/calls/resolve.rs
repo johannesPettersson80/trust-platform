@@ -10,6 +10,13 @@ pub(in crate::type_check) enum NameLookupResult {
     NotFound,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub(in crate::type_check) enum NameResolveOutcome {
+    Resolved(ResolvedSymbol),
+    Ambiguous,
+    NotFound,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum MemberAccessStatus {
     Allowed,
@@ -27,7 +34,9 @@ impl<'a, 'b> ResolveCheckerRef<'a, 'b> {
             _ => return None,
         };
 
-        self.checker.symbols.resolve_by_name(name.as_str())
+        self.checker
+            .symbols
+            .resolve_global_or_qualified_name(name.as_str())
     }
 
     fn member_owner_from_type(&self, type_id: TypeId) -> Option<SymbolId> {
@@ -94,7 +103,10 @@ impl<'a, 'b> ResolveCheckerRef<'a, 'b> {
             return None;
         };
 
-        let fb_symbol_id = self.checker.symbols.resolve_by_name(name.as_str())?;
+        let fb_symbol_id = self
+            .checker
+            .symbols
+            .resolve_global_or_qualified_name(name.as_str())?;
         let fb_kind = self.checker.symbols.get(fb_symbol_id)?.kind.clone();
         Some((fb_symbol_id, fb_kind))
     }
@@ -104,26 +116,9 @@ impl<'a, 'b> ResolveCheckerRef<'a, 'b> {
         root_id: SymbolId,
         field_name: &str,
     ) -> Option<SymbolId> {
-        let mut visited = FxHashSet::default();
-        let mut current = Some(root_id);
-
-        while let Some(symbol_id) = current {
-            if !visited.insert(symbol_id) {
-                break;
-            }
-
-            for sym in self.checker.symbols.iter() {
-                if sym.parent == Some(symbol_id) && sym.name.eq_ignore_ascii_case(field_name) {
-                    return Some(sym.id);
-                }
-            }
-
-            let base_name = self.checker.symbols.extends_name(symbol_id)?;
-            let base_id = self.checker.symbols.resolve_by_name(base_name.as_str())?;
-            current = Some(base_id);
-        }
-
-        None
+        self.checker
+            .symbols
+            .resolve_member_symbol_in_hierarchy(root_id, field_name)
     }
 
     pub(in crate::type_check) fn resolve_namespace_qualified_symbol(
@@ -275,15 +270,15 @@ impl<'a, 'b> ResolveChecker<'a, 'b> {
         })
     }
 
-    pub(in crate::type_check) fn resolve_name_in_context(
+    pub(in crate::type_check) fn resolve_name_in_context_outcome(
         &mut self,
         name: &str,
         range: TextRange,
-    ) -> Option<ResolvedSymbol> {
+    ) -> NameResolveOutcome {
         match self.checker.resolve_ref().lookup_name_symbol(name) {
             NameLookupResult::Found(symbol_id) => {
                 let accessible = self.check_member_access(symbol_id, range);
-                Some(ResolvedSymbol {
+                NameResolveOutcome::Resolved(ResolvedSymbol {
                     id: symbol_id,
                     accessible,
                 })
@@ -294,9 +289,9 @@ impl<'a, 'b> ResolveChecker<'a, 'b> {
                     range,
                     format!("ambiguous reference to '{}'; qualify the name", name),
                 );
-                None
+                NameResolveOutcome::Ambiguous
             }
-            NameLookupResult::NotFound => None,
+            NameLookupResult::NotFound => NameResolveOutcome::NotFound,
         }
     }
 
@@ -487,7 +482,11 @@ impl<'a, 'b> ResolveCheckerRef<'a, 'b> {
             .checker
             .symbols
             .extends_name(derived_id)
-            .and_then(|name| self.checker.symbols.resolve_by_name(name.as_str()));
+            .and_then(|name| {
+                self.checker
+                    .symbols
+                    .resolve_oop_reference_for_owner(derived_id, name.as_str())
+            });
 
         while let Some(symbol_id) = current {
             if !visited.insert(symbol_id) {
@@ -500,7 +499,11 @@ impl<'a, 'b> ResolveCheckerRef<'a, 'b> {
                 .checker
                 .symbols
                 .extends_name(symbol_id)
-                .and_then(|name| self.checker.symbols.resolve_by_name(name.as_str()));
+                .and_then(|name| {
+                    self.checker
+                        .symbols
+                        .resolve_oop_reference_for_owner(symbol_id, name.as_str())
+                });
         }
 
         false

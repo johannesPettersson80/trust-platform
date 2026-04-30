@@ -22,7 +22,9 @@ export function getBinaryPath(
     return resolveConfiguredPath(configuredRaw);
   }
 
-  const isDevMode = context.extensionMode === vscode.ExtensionMode.Development;
+  const isDevMode =
+    context.extensionMode === vscode.ExtensionMode.Development ||
+    context.extensionMode === vscode.ExtensionMode.Test;
   if (isDevMode) {
     const devBinary = getDevelopmentBinaryPath(context, binaryName);
     if (devBinary && fs.existsSync(devBinary)) {
