@@ -1,6 +1,6 @@
 # Runtime Host Surface Ownership Checklist
 
-Status: Phase 3 doctor rules active; Phase 4 adapter port narrowing in progress
+Status: Phase 3 doctor rules active; Phase 4 runtime-cloud projection extraction in progress
 Owner: Runtime/web/HMI/control/cloud
 Scope: address audit F11 by defining and enforcing ownership for `web`, `hmi`, `ui`, `control`, and `runtime_cloud`.
 
@@ -138,6 +138,11 @@ Phase 4 adapter-port evidence captured on 2026-04-30:
 - `crates/trust-runtime/src/web/ui_routes.rs` `/hmi/export.json` and `crates/trust-runtime/src/web/runtime_cloud_state/config.rs` config-agent apply flow now use the approved web dispatch helper.
 - `xtask/src/full_map.rs` records `direct web control-dispatch bypass findings: 0` and has a known-bad CHECK-07 fixture for direct web `handle_request_value` dispatch.
 - Validation: `RUSTUP_TOOLCHAIN=1.95 cargo run -p xtask -- architecture-doctor --full-map`, `RUSTUP_TOOLCHAIN=1.95 cargo test -p xtask direct_control_dispatch -- --nocapture`, `RUSTUP_TOOLCHAIN=1.95 cargo test -p trust-runtime --test web_io_config_integration runtime_cloud_config_agent -- --nocapture`, and `RUSTUP_TOOLCHAIN=1.95 cargo test -p trust-runtime --test hmi_readonly_integration hmi_standalone_export -- --nocapture` pass.
+
+Phase 4 runtime-cloud extraction evidence captured on 2026-04-30:
+
+- `crates/trust-runtime/src/web/runtime_cloud_policy.rs` moved to `crates/trust-runtime/src/runtime_cloud/profile_policy.rs`; web now imports the profile/TLS/WAN allowlist policy as a runtime-cloud domain contract instead of owning it.
+- `crates/trust-runtime/tests/runtime_cloud_architecture.rs` includes `runtime_cloud/profile_policy.rs` in the runtime-cloud no-transport-import assertion.
 
 ## Phase 5 - Tests
 

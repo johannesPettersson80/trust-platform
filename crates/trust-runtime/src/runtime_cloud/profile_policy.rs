@@ -1,4 +1,4 @@
-//! Runtime-cloud profile policy evaluation for web handlers.
+//! Runtime-cloud profile, transport, and WAN allowlist policy evaluation.
 
 #![allow(missing_docs)]
 
@@ -12,7 +12,7 @@ use crate::runtime_cloud::routing::{
 
 const RUNTIME_CLOUD_DEFAULT_SITE: &str = "default-site";
 
-pub(super) fn runtime_cloud_apply_profile_policy(
+pub(crate) fn runtime_cloud_apply_profile_policy(
     mut preflight: RuntimeCloudActionPreflight,
     action: &RuntimeCloudActionRequest,
     targets: &BTreeMap<String, RuntimeCloudTargetStatus>,
@@ -65,7 +65,7 @@ pub(super) fn runtime_cloud_apply_profile_policy(
     preflight
 }
 
-pub(super) fn runtime_cloud_profile_precondition(
+pub(crate) fn runtime_cloud_profile_precondition(
     profile: RuntimeCloudProfile,
     auth_mode: WebAuthMode,
     web_tls_enabled: bool,

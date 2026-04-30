@@ -39,6 +39,9 @@ use crate::runtime_cloud::ha::{
     RuntimeCloudHaDispatchGate, RuntimeCloudHaDispatchRecord, RuntimeCloudHaDispatchTicket,
     RuntimeCloudHaRequest,
 };
+use crate::runtime_cloud::profile_policy::{
+    runtime_cloud_apply_profile_policy, runtime_cloud_profile_precondition,
+};
 use crate::runtime_cloud::projection::{
     presence_record_from_observation, project_runtime_cloud_state, ChannelState, ChannelType,
     FleetEdge, PresenceThresholds, RuntimeCloudUiState, RuntimePeerObservation,
@@ -67,7 +70,6 @@ pub mod pairing {
 }
 mod runtime_cloud_dispatch;
 mod runtime_cloud_helpers;
-mod runtime_cloud_policy;
 mod runtime_cloud_routes;
 mod runtime_cloud_state;
 mod server;
@@ -92,9 +94,6 @@ use runtime_cloud_dispatch::{
     runtime_cloud_target_web_base_url, RuntimeCloudPreflightPolicy,
 };
 use runtime_cloud_helpers::*;
-use runtime_cloud_policy::{
-    runtime_cloud_apply_profile_policy, runtime_cloud_profile_precondition,
-};
 use runtime_cloud_routes::{
     handle_runtime_cloud_route, RuntimeCloudRouteContext, RuntimeCloudRouteOutcome,
 };
