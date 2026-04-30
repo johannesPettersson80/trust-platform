@@ -1,12 +1,17 @@
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
+
 use crate::error::RuntimeError;
 
 use super::Value;
 
-pub(crate) fn string_element_count(text: &str) -> usize {
+pub fn string_element_count(text: &str) -> usize {
     text.chars().count()
 }
 
-pub(crate) fn string_element_position(text: &str, index: i64) -> Result<usize, RuntimeError> {
+pub fn string_element_position(text: &str, index: i64) -> Result<usize, RuntimeError> {
     if index < 1 {
         return Err(RuntimeError::IndexOutOfBounds {
             index,
@@ -26,11 +31,7 @@ pub(crate) fn string_element_position(text: &str, index: i64) -> Result<usize, R
     Ok(position)
 }
 
-pub(crate) fn read_string_element(
-    text: &str,
-    index: i64,
-    wide: bool,
-) -> Result<Value, RuntimeError> {
+pub fn read_string_element(text: &str, index: i64, wide: bool) -> Result<Value, RuntimeError> {
     let position = string_element_position(text, index)?;
     let ch = text
         .chars()
@@ -49,7 +50,7 @@ pub(crate) fn read_string_element(
     }
 }
 
-pub(crate) fn write_string_element(
+pub fn write_string_element(
     text: &str,
     index: i64,
     value: Value,
@@ -61,7 +62,7 @@ pub(crate) fn write_string_element(
     Ok(chars.into_iter().collect())
 }
 
-pub(crate) fn string_left(text: &str, count: i64) -> String {
+pub fn string_left(text: &str, count: i64) -> String {
     let chars: Vec<char> = text.chars().collect();
     let take = if count <= 0 {
         0
@@ -71,7 +72,7 @@ pub(crate) fn string_left(text: &str, count: i64) -> String {
     chars.into_iter().take(take).collect()
 }
 
-pub(crate) fn string_right(text: &str, count: i64) -> String {
+pub fn string_right(text: &str, count: i64) -> String {
     let chars: Vec<char> = text.chars().collect();
     let take = if count <= 0 {
         0
@@ -82,7 +83,7 @@ pub(crate) fn string_right(text: &str, count: i64) -> String {
     chars.into_iter().skip(start).collect()
 }
 
-pub(crate) fn string_mid(text: &str, length: i64, position: i64) -> String {
+pub fn string_mid(text: &str, length: i64, position: i64) -> String {
     let chars: Vec<char> = text.chars().collect();
     let start = if position <= 1 {
         0
@@ -96,7 +97,7 @@ pub(crate) fn string_mid(text: &str, length: i64, position: i64) -> String {
     chars.into_iter().skip(start).take(end - start).collect()
 }
 
-pub(crate) fn string_insert(input: &str, insert: &str, position: i64) -> String {
+pub fn string_insert(input: &str, insert: &str, position: i64) -> String {
     let chars: Vec<char> = input.chars().collect();
     let idx = if position <= 0 {
         0
@@ -112,7 +113,7 @@ pub(crate) fn string_insert(input: &str, insert: &str, position: i64) -> String 
     result
 }
 
-pub(crate) fn string_delete(input: &str, length: i64, position: i64) -> String {
+pub fn string_delete(input: &str, length: i64, position: i64) -> String {
     if length <= 0 {
         return input.to_string();
     }
@@ -132,7 +133,7 @@ pub(crate) fn string_delete(input: &str, length: i64, position: i64) -> String {
     result
 }
 
-pub(crate) fn string_replace(input: &str, repl: &str, length: i64, position: i64) -> String {
+pub fn string_replace(input: &str, repl: &str, length: i64, position: i64) -> String {
     let chars: Vec<char> = input.chars().collect();
     let start = if position <= 1 {
         0
@@ -154,7 +155,7 @@ pub(crate) fn string_replace(input: &str, repl: &str, length: i64, position: i64
     result
 }
 
-pub(crate) fn string_find(haystack: &str, needle: &str) -> Result<i16, RuntimeError> {
+pub fn string_find(haystack: &str, needle: &str) -> Result<i16, RuntimeError> {
     let pos = haystack
         .find(needle)
         .map(|idx| haystack[..idx].chars().count() + 1)
@@ -187,7 +188,7 @@ fn value_to_char(value: Value, wide: bool) -> Result<char, RuntimeError> {
     if !wide && code > u32::from(u8::MAX) {
         return Err(RuntimeError::Overflow);
     }
-    std::char::from_u32(code).ok_or(RuntimeError::TypeMismatch)
+    core::char::from_u32(code).ok_or(RuntimeError::TypeMismatch)
 }
 
 #[cfg(test)]
