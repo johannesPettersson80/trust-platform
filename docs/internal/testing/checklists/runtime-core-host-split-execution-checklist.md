@@ -191,6 +191,14 @@ Move lowest-risk portable pieces first.
 - [ ] `RTSPLIT-P4-008` Add tests for value serialization, equality, declared type identity, retained canonicalization, and bytecode validation after each moved cluster.
 - [ ] `RTSPLIT-P4-009` Avoid moving a giant module wholesale if it mixes host and core responsibilities; split by owner first.
 
+### Phase 4 Progress
+
+- [x] `RTSPLIT-P4-DATETIME-001` Move standalone date/time value primitives into `trust-runtime-core`. Evidence: `crates/trust-runtime-core/src/value/datetime.rs` now owns `Duration`, date/time tick wrappers, long date/time wrappers, and `combine_date_and_tod*`; `trust-runtime::value` re-exports the same API through `trust_runtime_core::value::datetime`.
+- [x] `RTSPLIT-P4-DATETIME-002` Keep the first value-model move behavior-preserving and avoid a giant value-module move. Evidence: only the standalone date/time value primitives moved; `Value`, reference paths, partial access, defaults, sizing, memory IDs, and HIR-backed constructors remain in `trust-runtime` until their dependencies are split.
+- [x] `RTSPLIT-P4-DATETIME-003` Add focused tests for the moved value cluster. Evidence: `cargo test -p trust-runtime-core -- --nocapture` passes 5 tests, including date/time tick round-trip, duration unit views, timezone rejection, and out-of-range conversion rejection.
+- [x] `RTSPLIT-P4-DATETIME-004` Keep the moved value cluster compatible with the future `no_std` shape. Evidence: `cargo check -p trust-runtime-core --no-default-features` passes after the date/time move.
+- [x] `RTSPLIT-P4-DATETIME-005` Verify host crate compatibility and dependency fences after the date/time move. Evidence: `cargo test -p trust-runtime value:: --lib -- --nocapture` passes 19 value tests; `cargo clippy -p trust-runtime-core -p trust-runtime --lib -- -D warnings` passes; `cargo run -p xtask -- architecture-doctor --full-map` passes `FULLMAP-CHECK-05` with 18 forbidden dependencies and 17 forbidden import modules.
+
 ### Phase 4 Exit Gate
 
 - [ ] `RTSPLIT-P4-GATE-01` Focused value/model tests pass.

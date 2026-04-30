@@ -16,3 +16,5 @@
 
 /// Scaffold ownership markers for the pre-move core crate.
 pub mod scaffold;
+/// Portable runtime value model pieces.
+pub mod value;

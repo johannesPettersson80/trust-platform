@@ -219,3 +219,59 @@ pub fn combine_date_and_tod_with_tz(
     }
     combine_date_and_tod(date, tod)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        combine_date_and_tod, combine_date_and_tod_with_tz, DateTimeError, DateTimeValue,
+        DateValue, Duration, LDateTimeValue, LDateValue, LTimeOfDayValue, TimeOfDayValue,
+    };
+
+    #[test]
+    fn duration_preserves_nanosecond_and_millisecond_views() {
+        let duration = Duration::from_millis(42);
+
+        assert_eq!(duration.as_nanos(), 42_000_000);
+        assert_eq!(duration.as_millis(), 42);
+        assert_eq!(Duration::from_micros(7).as_nanos(), 7_000);
+        assert_eq!(Duration::from_secs(2).as_nanos(), 2_000_000_000);
+    }
+
+    #[test]
+    fn date_time_ticks_and_long_values_round_trip() {
+        assert_eq!(DateValue::new(11).ticks(), 11);
+        assert_eq!(TimeOfDayValue::new(12).ticks(), 12);
+        assert_eq!(DateTimeValue::new(23).ticks(), 23);
+        assert_eq!(LDateValue::new(13).nanos(), 13);
+        assert_eq!(LTimeOfDayValue::new(14).nanos(), 14);
+        assert_eq!(LDateTimeValue::new(15).nanos(), 15);
+    }
+
+    #[test]
+    fn combine_date_and_tod_rejects_timezone_metadata() {
+        let date = DateValue::new(10);
+        let tod = TimeOfDayValue::new(5);
+
+        assert_eq!(combine_date_and_tod(date, tod), Ok(DateTimeValue::new(15)));
+        assert_eq!(
+            combine_date_and_tod_with_tz(date, tod, Some(60)),
+            Err(DateTimeError::TimezoneNotSupported)
+        );
+    }
+
+    #[test]
+    fn tick_conversion_rejects_out_of_range_values() {
+        assert_eq!(
+            DateValue::try_from_ticks(i128::from(i64::MAX) + 1),
+            Err(DateTimeError::OutOfRange)
+        );
+        assert_eq!(
+            TimeOfDayValue::try_from_ticks(i128::from(i64::MIN) - 1),
+            Err(DateTimeError::OutOfRange)
+        );
+        assert_eq!(
+            DateTimeValue::try_from_ticks(99),
+            Ok(DateTimeValue::new(99))
+        );
+    }
+}
