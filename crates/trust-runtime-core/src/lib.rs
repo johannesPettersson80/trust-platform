@@ -22,6 +22,8 @@ pub mod datetime;
 pub mod error;
 /// Portable runtime memory identity types.
 pub mod memory;
+/// Portable numeric conversion helpers.
+pub mod numeric;
 /// Scaffold ownership markers for the pre-move core crate.
 pub mod scaffold;
 /// Portable runtime value model pieces.

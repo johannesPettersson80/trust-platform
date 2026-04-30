@@ -56,7 +56,9 @@ pub mod memory;
 pub mod mesh;
 /// Runtime metrics collection.
 pub mod metrics;
-mod numeric;
+mod numeric {
+    pub use trust_runtime_core::numeric::*;
+}
 /// OPC UA profile and IEC-to-OPC UA mapping helpers.
 pub mod opcua;
 /// PLCopen XML import/export helpers (strict subset profile).

@@ -181,7 +181,7 @@ Phase 1 focused test evidence, 2026-04-30:
 
 Move lowest-risk portable pieces first.
 
-- [ ] `RTSPLIT-P4-001` Move or re-home `numeric` only if it has no host-only imports.
+- [x] `RTSPLIT-P4-001` Move or re-home `numeric` only if it has no host-only imports.
 - [ ] `RTSPLIT-P4-002` Move portable `value` model pieces in small commits.
 - [ ] `RTSPLIT-P4-003` Keep value constructors and validation invariants unchanged.
 - [ ] `RTSPLIT-P4-004` Move portable `program_model` records used by runtime execution.
@@ -219,6 +219,9 @@ Move lowest-risk portable pieces first.
 - [x] `RTSPLIT-P4-VALUE-003` Replace remaining runtime direct-field coupling exposed by the move. Evidence: eval access/lvalue helpers, eval tests, helper-eval tests, memory tests, VM dynamic-reference tests, VM call/register tests, and array/struct fixtures now use `from_untyped_parts`, `from_canonical_parts`, `elements`, `elements_mut`, `dimensions`, `field`, `contains_field`, or `set_existing_field` instead of private compound-value fields.
 - [x] `RTSPLIT-P4-VALUE-004` Verify the moved value model across core and host compatibility gates. Evidence: `cargo test -p trust-runtime-core -- --nocapture` passes 14 default-feature tests; `cargo test -p trust-runtime-core --features hir -- --nocapture` passes 19 tests including HIR-backed constructor tests; `cargo test -p trust-runtime value:: --lib -- --nocapture` passes 14 runtime value tests; `cargo test -p trust-runtime eval::tests::expr_access --lib -- --nocapture`, `cargo test -p trust-runtime eval::tests::pou_fb --lib -- --nocapture`, `cargo test -p trust-runtime runtime::vm::dispatch_refs --lib -- --nocapture`, and `cargo test -p trust-runtime memory:: --lib -- --nocapture` pass.
 - [x] `RTSPLIT-P4-VALUE-005` Keep architecture automation green after the ownership move. Evidence: `cargo check -p trust-runtime --lib`, `cargo clippy -p trust-runtime-core -p trust-runtime --lib -- -D warnings`, `cargo run -p xtask -- architecture-doctor --full-map`, `scripts/render_diagrams.sh`, and `python scripts/check_diagram_drift.py` pass; `FULLMAP-CHECK-02` classifies the new `trust-runtime-core -> trust-hir` edge as optional host-side HIR construction support and `FULLMAP-CHECK-05` still reports 18 forbidden dependencies and 17 forbidden import modules with no findings.
+- [x] `RTSPLIT-P4-NUMERIC-001` Move portable numeric conversion helpers into `trust-runtime-core`. Evidence: `crates/trust-runtime-core/src/numeric.rs` now owns `NumericKind`, numeric rank selection, integer/float extractors, and signed/unsigned constructors; `trust-runtime` keeps a private compatibility module re-exporting the core API for existing internal paths.
+- [x] `RTSPLIT-P4-NUMERIC-002` Add focused numeric behavior locks in core. Evidence: `cargo test -p trust-runtime-core numeric -- --nocapture` passes 2 tests covering numeric-kind/rank behavior, signedness errors, and overflow preservation; `cargo test -p trust-runtime-core -- --nocapture` passes the 16-test core suite after the move.
+- [x] `RTSPLIT-P4-NUMERIC-003` Verify host compatibility and architecture policy after the numeric move. Evidence: `cargo check -p trust-runtime-core --no-default-features`, `cargo check -p trust-runtime --lib`, `cargo clippy -p trust-runtime-core -p trust-runtime --lib -- -D warnings`, `cargo run -p xtask -- architecture-doctor --full-map`, `cargo test -p xtask full_map -- --nocapture`, `scripts/render_diagrams.sh`, and `python scripts/check_diagram_drift.py` pass; targeted runtime filters for `stdlib::conversions` and `program_model::ops` compile successfully but currently match 0 tests; the stale `numeric` runtime top-level module policy row was removed after the file moved.
 
 ### Phase 4 Exit Gate
 

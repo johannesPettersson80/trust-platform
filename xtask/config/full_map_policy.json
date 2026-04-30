@@ -179,7 +179,6 @@
       {"name": "memory", "subsystem": "portable_runtime_core", "owner": "runtime/memory", "rationale": "runtime memory model and addressing", "review_date": "2026-04-30", "decision_note": "ARCHPROG-C-05 baseline freeze"},
       {"name": "mesh", "subsystem": "host_networking", "owner": "runtime/mesh", "rationale": "runtime mesh transport and coordination", "review_date": "2026-04-30", "decision_note": "ARCHPROG-C-05 baseline freeze"},
       {"name": "metrics", "subsystem": "host_observability", "owner": "runtime/metrics", "rationale": "runtime metrics collection and reporting", "review_date": "2026-04-30", "decision_note": "ARCHPROG-C-05 baseline freeze"},
-      {"name": "numeric", "subsystem": "portable_runtime_core", "owner": "runtime/numeric", "rationale": "numeric conversion and arithmetic helpers", "review_date": "2026-04-30", "decision_note": "ARCHPROG-C-05 baseline freeze"},
       {"name": "opcua", "subsystem": "host_protocols", "owner": "runtime/OPCUA", "rationale": "OPC UA host protocol integration", "review_date": "2026-04-30", "decision_note": "ARCHPROG-C-05 baseline freeze"},
       {"name": "plcopen", "subsystem": "runtime_import_export", "owner": "runtime/PLCopen", "rationale": "PLCopen import/export support", "review_date": "2026-04-30", "decision_note": "ARCHPROG-C-05 baseline freeze"},
       {"name": "program_model", "subsystem": "portable_runtime_core", "owner": "runtime/model", "rationale": "runtime program/resource model", "review_date": "2026-04-30", "decision_note": "ARCHPROG-C-05 baseline freeze"},
