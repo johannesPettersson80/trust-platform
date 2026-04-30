@@ -43,8 +43,7 @@ use tracing::warn;
 
 use self::audit::{record_audit, ControlAuditRecord};
 use self::auth::resolve_request_role;
-use self::policy::is_debug_request;
-pub(crate) use self::policy::required_role_for_control_request;
+use self::policy::{is_debug_request, required_role_for_control_request};
 pub(crate) use self::types::ControlResponse;
 use self::types::*;
 
@@ -316,6 +315,13 @@ pub(crate) fn hmi_asset_project_root_port(state: &ControlState) -> Option<PathBu
 
 pub(crate) fn runtime_resource_name_port(state: &ControlState) -> SmolStr {
     state.resource_name.clone()
+}
+
+pub(crate) fn control_request_required_role_port(
+    kind: &str,
+    params: Option<&serde_json::Value>,
+) -> crate::security::AccessRole {
+    required_role_for_control_request(kind, params)
 }
 
 pub(crate) fn dispatch_web_control_request_port(

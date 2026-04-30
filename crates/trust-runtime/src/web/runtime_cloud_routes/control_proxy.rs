@@ -1,5 +1,9 @@
 use super::*;
-use crate::control::required_role_for_control_request;
+use crate::control::control_request_required_role_port;
+use crate::runtime_cloud::control_proxy_policy::{
+    runtime_cloud_control_proxy_plan, runtime_cloud_control_proxy_role_denial,
+    RuntimeCloudControlProxyPlan,
+};
 
 pub(super) fn handle_post_control_proxy(
     mut request: tiny_http::Request,
@@ -31,30 +35,44 @@ pub(super) fn handle_post_control_proxy(
             }
         };
 
-    if let Some(response) = validate_proxy_payload(&payload) {
-        let _ = request.respond(response);
-        return;
-    }
-
     let kind = payload.control_request.r#type.trim();
     let params = payload.control_request.params.clone();
-    let required_role = required_role_for_control_request(kind, params.as_ref());
+    let required_role = control_request_required_role_port(kind, params.as_ref());
+    let local_runtime = local_runtime_id(ctx);
+    let plan = match runtime_cloud_control_proxy_plan(
+        payload.api_version.as_str(),
+        payload.actor.as_str(),
+        payload.target_runtime.as_str(),
+        kind,
+        params.as_ref(),
+        payload.control_request.request_id.as_deref(),
+        local_runtime.as_str(),
+        required_role,
+        now_ns(),
+    ) {
+        Ok(plan) => plan,
+        Err(error) => {
+            let response = Response::from_string(
+                json!({
+                    "ok": false,
+                    "denial_code": error.code,
+                    "error": error.message,
+                })
+                .to_string(),
+            )
+            .with_status_code(StatusCode(400))
+            .with_header(Header::from_bytes("Content-Type", "application/json").unwrap());
+            let _ = request.respond(response);
+            return;
+        }
+    };
     if !web_role.allows(required_role) {
-        let denial_code = if kind == "config.set" {
-            ReasonCode::AclDeniedCfgWrite
-        } else {
-            ReasonCode::PermissionDenied
-        };
+        let denial = runtime_cloud_control_proxy_role_denial(web_role, required_role, kind);
         let response = Response::from_string(
             json!({
                 "ok": false,
-                "denial_code": denial_code,
-                "error": format!(
-                    "role '{}' does not satisfy required role '{}' for '{}'",
-                    web_role.as_str(),
-                    required_role.as_str(),
-                    kind,
-                ),
+                "denial_code": denial.code,
+                "error": denial.message,
             })
             .to_string(),
         )
@@ -64,24 +82,12 @@ pub(super) fn handle_post_control_proxy(
         return;
     }
 
-    let local_runtime = local_runtime_id(ctx);
-    let target_runtime = payload.target_runtime.trim().to_string();
-    let action_type = proxy_action_type(kind, required_role);
-    let action = RuntimeCloudActionRequest {
-        api_version: payload.api_version.clone(),
-        request_id: payload
-            .control_request
-            .request_id
-            .clone()
-            .unwrap_or_else(|| format!("proxy-{}", now_ns())),
-        connected_via: local_runtime.clone(),
-        target_runtimes: vec![target_runtime.clone()],
-        actor: payload.actor.trim().to_string(),
-        action_type: action_type.to_string(),
-        query_budget_ms: Some(1_500),
-        dry_run: false,
-        payload: proxy_action_payload(action_type, kind, params.as_ref()),
-    };
+    let RuntimeCloudControlProxyPlan {
+        target_runtime,
+        action_type,
+        action,
+        control_payload,
+    } = plan;
     let (preflight, _ha_request, _known_targets) = runtime_cloud_preflight_for_action(
         &action,
         local_runtime.as_str(),
@@ -117,7 +123,6 @@ pub(super) fn handle_post_control_proxy(
         return;
     }
 
-    let control_payload = proxy_control_payload(kind, params.as_ref(), action.request_id.as_str());
     let response = if target_runtime == local_runtime {
         let control_response = dispatch_control_request(
             control_payload,
@@ -137,7 +142,7 @@ pub(super) fn handle_post_control_proxy(
                     .get("error")
                     .and_then(serde_json::Value::as_str)
                     .unwrap_or("control proxy failed"),
-                action_type,
+                action_type.as_str(),
             ))
             .unwrap_or(serde_json::Value::String("transport_failure".to_string()));
         }
@@ -178,7 +183,7 @@ pub(super) fn handle_post_control_proxy(
                     body["ok"] = serde_json::Value::Bool(false);
                     if body.get("denial_code").is_none() {
                         body["denial_code"] = serde_json::to_value(
-                            runtime_cloud_map_remote_http_status(status, action_type),
+                            runtime_cloud_map_remote_http_status(status, action_type.as_str()),
                         )
                         .unwrap_or(serde_json::Value::String("transport_failure".to_string()));
                     }
@@ -217,159 +222,4 @@ pub(super) fn handle_post_control_proxy(
     };
 
     let _ = request.respond(response);
-}
-
-fn validate_proxy_payload(
-    payload: &RuntimeCloudControlProxyRequest,
-) -> Option<Response<std::io::Cursor<Vec<u8>>>> {
-    let compatibility =
-        evaluate_compatibility(payload.api_version.as_str(), RUNTIME_CLOUD_API_VERSION);
-    match compatibility {
-        Ok(ContractCompatibility::Exact | ContractCompatibility::AdditiveWithinMajor) => {}
-        Ok(ContractCompatibility::BreakingMajor) => {
-            let response = Response::from_string(
-                json!({
-                    "ok": false,
-                    "denial_code": "contract_violation",
-                    "error": format!(
-                        "unsupported api_version '{}' for runtime cloud {}",
-                        payload.api_version, RUNTIME_CLOUD_API_VERSION
-                    ),
-                })
-                .to_string(),
-            )
-            .with_status_code(StatusCode(400))
-            .with_header(Header::from_bytes("Content-Type", "application/json").unwrap());
-            return Some(response);
-        }
-        Err(error) => {
-            let response = Response::from_string(
-                json!({
-                    "ok": false,
-                    "denial_code": "contract_violation",
-                    "error": error.to_string(),
-                })
-                .to_string(),
-            )
-            .with_status_code(StatusCode(400))
-            .with_header(Header::from_bytes("Content-Type", "application/json").unwrap());
-            return Some(response);
-        }
-    }
-    if payload.actor.trim().is_empty() {
-        let response = Response::from_string(
-            json!({
-                "ok": false,
-                "denial_code": ReasonCode::ContractViolation,
-                "error": "actor must not be empty",
-            })
-            .to_string(),
-        )
-        .with_status_code(StatusCode(400))
-        .with_header(Header::from_bytes("Content-Type", "application/json").unwrap());
-        return Some(response);
-    }
-    if payload.target_runtime.trim().is_empty() {
-        let response = Response::from_string(
-            json!({
-                "ok": false,
-                "denial_code": ReasonCode::ContractViolation,
-                "error": "target_runtime must not be empty",
-            })
-            .to_string(),
-        )
-        .with_status_code(StatusCode(400))
-        .with_header(Header::from_bytes("Content-Type", "application/json").unwrap());
-        return Some(response);
-    }
-    if payload.control_request.r#type.trim().is_empty() {
-        let response = Response::from_string(
-            json!({
-                "ok": false,
-                "denial_code": ReasonCode::ContractViolation,
-                "error": "control_request.type must not be empty",
-            })
-            .to_string(),
-        )
-        .with_status_code(StatusCode(400))
-        .with_header(Header::from_bytes("Content-Type", "application/json").unwrap());
-        return Some(response);
-    }
-    None
-}
-
-fn proxy_action_type(kind: &str, required_role: AccessRole) -> &'static str {
-    if kind == "config.set" {
-        return "cfg_apply";
-    }
-    if required_role == AccessRole::Viewer {
-        return "status_read";
-    }
-    "cmd_invoke"
-}
-
-fn proxy_action_payload(
-    action_type: &str,
-    kind: &str,
-    params: Option<&serde_json::Value>,
-) -> serde_json::Value {
-    if action_type == "cfg_apply" {
-        let config_params = params.cloned().unwrap_or_else(|| json!({}));
-        return json!({ "params": config_params });
-    }
-    if action_type == "status_read" {
-        return json!({});
-    }
-    let mut payload = json!({
-        "command": kind,
-    });
-    if let Some(params) = params {
-        payload["params"] = params.clone();
-    }
-    payload
-}
-
-fn proxy_control_payload(
-    kind: &str,
-    params: Option<&serde_json::Value>,
-    request_id: &str,
-) -> serde_json::Value {
-    let mut payload = json!({
-        "id": 1_u64,
-        "type": kind,
-        "request_id": request_id,
-    });
-    if let Some(params) = params {
-        payload["params"] = params.clone();
-    }
-    payload
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn proxy_action_type_uses_status_read_for_viewer() {
-        assert_eq!(
-            proxy_action_type("status", AccessRole::Viewer),
-            "status_read"
-        );
-    }
-
-    #[test]
-    fn proxy_action_type_uses_cfg_apply_for_config_set() {
-        assert_eq!(
-            proxy_action_type("config.set", AccessRole::Engineer),
-            "cfg_apply"
-        );
-    }
-
-    #[test]
-    fn proxy_control_payload_keeps_request_shape() {
-        let payload = proxy_control_payload("events", Some(&json!({ "limit": 20 })), "proxy-1");
-        assert_eq!(payload["type"], json!("events"));
-        assert_eq!(payload["request_id"], json!("proxy-1"));
-        assert_eq!(payload["params"]["limit"], json!(20));
-    }
 }
