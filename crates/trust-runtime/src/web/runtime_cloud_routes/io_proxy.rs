@@ -1,4 +1,8 @@
 use super::*;
+use crate::runtime_cloud::io_proxy_policy::{
+    runtime_cloud_io_proxy_plan, RuntimeCloudIoProxyOperation, RuntimeCloudIoProxyPlan,
+    RUNTIME_CLOUD_IO_PROXY_ACTOR,
+};
 
 fn json_response(status: u16, body: serde_json::Value) -> Response<std::io::Cursor<Vec<u8>>> {
     Response::from_string(body.to_string())
@@ -24,31 +28,12 @@ fn denied_preflight_response(
 fn runtime_cloud_io_preflight(
     ctx: &RuntimeCloudRouteContext<'_>,
     web_role: AccessRole,
-    target_runtime: &str,
-    action_type: &str,
-    api_version: &str,
-    actor: &str,
+    local_runtime: &str,
+    action: &RuntimeCloudActionRequest,
 ) -> RuntimeCloudActionPreflight {
-    let local_runtime = local_runtime_id(ctx);
-    let payload = if action_type == "cfg_apply" {
-        json!({ "params": {} })
-    } else {
-        json!({})
-    };
-    let action = RuntimeCloudActionRequest {
-        api_version: api_version.to_string(),
-        request_id: format!("io-proxy-{}", now_ns()),
-        connected_via: local_runtime.clone(),
-        target_runtimes: vec![target_runtime.to_string()],
-        actor: actor.to_string(),
-        action_type: action_type.to_string(),
-        query_budget_ms: Some(1_500),
-        dry_run: false,
-        payload,
-    };
     let (preflight, _ha_request, _known_targets) = runtime_cloud_preflight_for_action(
-        &action,
-        local_runtime.as_str(),
+        action,
+        local_runtime,
         ctx.discovery.as_ref(),
         RuntimeCloudPreflightPolicy {
             role: web_role,
@@ -102,36 +87,41 @@ pub(super) fn handle_get_io_config(
         }
     };
 
-    let target_runtime = query_value(url, "target")
-        .unwrap_or_else(|| local_runtime_id(ctx))
-        .trim()
-        .to_string();
-    if target_runtime.is_empty() {
-        let _ = request.respond(json_response(
-            400,
-            json!({
-                "ok": false,
-                "denial_code": ReasonCode::ContractViolation,
-                "error": "target runtime is required",
-            }),
-        ));
-        return;
-    }
-
-    let preflight = runtime_cloud_io_preflight(
-        ctx,
-        web_role,
+    let local_runtime = local_runtime_id(ctx);
+    let target_runtime = query_value(url, "target").unwrap_or_else(|| local_runtime.clone());
+    let plan = match runtime_cloud_io_proxy_plan(
+        RuntimeCloudIoProxyOperation::ReadConfig,
+        RUNTIME_CLOUD_API_VERSION,
+        RUNTIME_CLOUD_IO_PROXY_ACTOR,
         target_runtime.as_str(),
-        "status_read",
-        "1.0",
-        "runtime-cloud-io-proxy",
-    );
+        local_runtime.as_str(),
+        now_ns(),
+    ) {
+        Ok(plan) => plan,
+        Err(error) => {
+            let _ = request.respond(json_response(
+                400,
+                json!({
+                    "ok": false,
+                    "denial_code": error.code,
+                    "error": error.message,
+                }),
+            ));
+            return;
+        }
+    };
+
+    let RuntimeCloudIoProxyPlan {
+        target_runtime,
+        action_type,
+        action,
+    } = plan;
+    let preflight = runtime_cloud_io_preflight(ctx, web_role, local_runtime.as_str(), &action);
     if !preflight.allowed {
         let _ = request.respond(denied_preflight_response(preflight));
         return;
     }
 
-    let local_runtime = local_runtime_id(ctx);
     if target_runtime == local_runtime {
         let response = match load_io_config(ctx.bundle_root) {
             Ok(config) => json_response(
@@ -187,7 +177,7 @@ pub(super) fn handle_get_io_config(
                 value["ok"] = serde_json::Value::Bool(false);
                 if value.get("denial_code").is_none() {
                     value["denial_code"] = serde_json::to_value(
-                        runtime_cloud_map_remote_http_status(status, "status_read"),
+                        runtime_cloud_map_remote_http_status(status, action_type.as_str()),
                     )
                     .unwrap_or(serde_json::Value::String("transport_failure".to_string()));
                 }
@@ -239,45 +229,41 @@ pub(super) fn handle_post_io_config(
             }
         };
 
-    let target_runtime = payload.target_runtime.trim().to_string();
-    if target_runtime.is_empty() {
-        let _ = request.respond(json_response(
-            400,
-            json!({
-                "ok": false,
-                "denial_code": ReasonCode::ContractViolation,
-                "error": "target_runtime is required",
-            }),
-        ));
-        return;
-    }
-    if payload.actor.trim().is_empty() {
-        let _ = request.respond(json_response(
-            400,
-            json!({
-                "ok": false,
-                "denial_code": ReasonCode::ContractViolation,
-                "error": "actor is required",
-            }),
-        ));
-        return;
-    }
-
-    let preflight = runtime_cloud_io_preflight(
-        ctx,
-        web_role,
-        target_runtime.as_str(),
-        "cfg_apply",
+    let local_runtime = local_runtime_id(ctx);
+    let plan = match runtime_cloud_io_proxy_plan(
+        RuntimeCloudIoProxyOperation::WriteConfig,
         payload.api_version.as_str(),
         payload.actor.as_str(),
-    );
+        payload.target_runtime.as_str(),
+        local_runtime.as_str(),
+        now_ns(),
+    ) {
+        Ok(plan) => plan,
+        Err(error) => {
+            let _ = request.respond(json_response(
+                400,
+                json!({
+                    "ok": false,
+                    "denial_code": error.code,
+                    "error": error.message,
+                }),
+            ));
+            return;
+        }
+    };
+
+    let RuntimeCloudIoProxyPlan {
+        target_runtime,
+        action_type,
+        action,
+    } = plan;
+    let preflight = runtime_cloud_io_preflight(ctx, web_role, local_runtime.as_str(), &action);
     if !preflight.allowed {
         let _ = request.respond(denied_preflight_response(preflight));
         return;
     }
 
     let io_request = payload.to_io_config_request();
-    let local_runtime = local_runtime_id(ctx);
     if target_runtime == local_runtime {
         let response = match save_io_config(ctx.bundle_root, &io_request) {
             Ok(message) => json_response(200, json!({ "ok": true, "message": message })),
@@ -287,7 +273,7 @@ pub(super) fn handle_post_io_config(
                     400,
                     json!({
                         "ok": false,
-                        "denial_code": runtime_cloud_map_control_error(error_text.as_str(), "cfg_apply"),
+                        "denial_code": runtime_cloud_map_control_error(error_text.as_str(), action_type.as_str()),
                         "error": error_text,
                     }),
                 )
@@ -342,7 +328,7 @@ pub(super) fn handle_post_io_config(
                     status,
                     json!({
                         "ok": false,
-                        "denial_code": runtime_cloud_map_remote_http_status(status, "cfg_apply"),
+                        "denial_code": runtime_cloud_map_remote_http_status(status, action_type.as_str()),
                         "error": if text.trim().is_empty() { format!("http status {status}") } else { text },
                     }),
                 )
