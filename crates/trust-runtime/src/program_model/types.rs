@@ -91,17 +91,3 @@ pub struct InterfaceDef {
     pub using: Vec<SmolStr>,
     pub methods: Vec<MethodDef>,
 }
-
-/// Call argument value.
-#[derive(Debug, Clone)]
-pub enum ArgValue {
-    Expr(expr::Expr),
-    Target(expr::LValue),
-}
-
-/// Named call argument.
-#[derive(Debug, Clone)]
-pub struct CallArg {
-    pub name: Option<SmolStr>,
-    pub value: ArgValue,
-}
