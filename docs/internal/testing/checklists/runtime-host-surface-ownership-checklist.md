@@ -142,7 +142,10 @@ Phase 4 adapter-port evidence captured on 2026-04-30:
 Phase 4 runtime-cloud extraction evidence captured on 2026-04-30:
 
 - `crates/trust-runtime/src/web/runtime_cloud_policy.rs` moved to `crates/trust-runtime/src/runtime_cloud/profile_policy.rs`; web now imports the profile/TLS/WAN allowlist policy as a runtime-cloud domain contract instead of owning it.
+- `crates/trust-runtime/src/runtime_cloud/link_policy.rs` now owns link transport preference state, TOML preference seeding, topology channel projection, feature flags, and host-group grouping policy. `crates/trust-runtime/src/web/runtime_cloud_state/links.rs` remains the web adapter for filesystem persistence, mutex locking, and discovery-backed same-host checks.
 - `crates/trust-runtime/tests/runtime_cloud_architecture.rs` includes `runtime_cloud/profile_policy.rs` in the runtime-cloud no-transport-import assertion.
+- `crates/trust-runtime/tests/runtime_cloud_architecture.rs` includes `runtime_cloud/link_policy.rs` in the runtime-cloud no-transport-import assertion.
+- Validation: `RUSTUP_TOOLCHAIN=1.95 cargo test -p trust-runtime --lib web::runtime_cloud_state::links -- --nocapture`, `RUSTUP_TOOLCHAIN=1.95 cargo test -p trust-runtime --test web_io_config_integration runtime_cloud_link -- --nocapture`, `RUSTUP_TOOLCHAIN=1.95 cargo test -p trust-runtime --test web_ide_integration runtime_cloud -- --nocapture`, `RUSTUP_TOOLCHAIN=1.95 cargo test -p trust-runtime --test runtime_cloud_architecture -- --nocapture`, `RUSTUP_TOOLCHAIN=1.95 cargo run -p xtask -- architecture-doctor --full-map`, and `RUSTUP_TOOLCHAIN=1.95 cargo clippy -p trust-runtime --all-targets -- -D warnings` pass.
 
 ## Phase 5 - Tests
 

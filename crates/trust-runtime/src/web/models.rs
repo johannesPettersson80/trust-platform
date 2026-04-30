@@ -7,6 +7,9 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::runtime_cloud::contracts::{ConfigMeta, ConfigStatus, ReasonCode};
+use crate::runtime_cloud::link_policy::{
+    RuntimeCloudLinkTransport, RuntimeCloudLinkTransportPreference,
+};
 use crate::runtime_cloud::routing::RuntimeCloudActionPreflight;
 
 #[derive(Debug, Deserialize)]
@@ -115,21 +118,6 @@ pub(super) struct RuntimeCloudDesiredWriteRequest {
     pub(super) expected_etag: Option<String>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub(super) enum RuntimeCloudLinkTransport {
-    Realtime,
-    Zenoh,
-    Mesh,
-    Mqtt,
-    #[serde(rename = "modbus-tcp")]
-    ModbusTcp,
-    #[serde(rename = "opcua")]
-    OpcUa,
-    Discovery,
-    Web,
-}
-
 #[derive(Debug, Deserialize)]
 pub(super) struct RuntimeCloudLinkTransportSetRequest {
     pub(super) api_version: String,
@@ -137,20 +125,6 @@ pub(super) struct RuntimeCloudLinkTransportSetRequest {
     pub(super) source: String,
     pub(super) target: String,
     pub(super) transport: RuntimeCloudLinkTransport,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(super) struct RuntimeCloudLinkTransportPreference {
-    pub(super) source: String,
-    pub(super) target: String,
-    pub(super) transport: RuntimeCloudLinkTransport,
-    pub(super) actor: String,
-    pub(super) updated_at_ns: u64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub(super) struct RuntimeCloudLinkTransportState {
-    pub(super) links: BTreeMap<String, RuntimeCloudLinkTransportPreference>,
 }
 
 #[derive(Debug, Clone, Serialize)]

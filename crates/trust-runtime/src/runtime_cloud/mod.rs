@@ -15,6 +15,7 @@
 pub mod contracts;
 pub mod ha;
 pub mod keyspace;
+pub(crate) mod link_policy;
 pub(crate) mod profile_policy;
 pub mod projection;
 pub mod routing;

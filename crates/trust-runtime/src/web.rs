@@ -39,6 +39,9 @@ use crate::runtime_cloud::ha::{
     RuntimeCloudHaDispatchGate, RuntimeCloudHaDispatchRecord, RuntimeCloudHaDispatchTicket,
     RuntimeCloudHaRequest,
 };
+use crate::runtime_cloud::link_policy::{
+    RuntimeCloudLinkTransport, RuntimeCloudLinkTransportPreference, RuntimeCloudLinkTransportState,
+};
 use crate::runtime_cloud::profile_policy::{
     runtime_cloud_apply_profile_policy, runtime_cloud_profile_precondition,
 };
