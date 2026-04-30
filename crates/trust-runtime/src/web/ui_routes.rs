@@ -367,12 +367,13 @@ pub(super) fn handle_ui_route(
         return UiRouteOutcome::Handled;
     }
     if *method == Method::Get && url == "/hmi/export.json" {
-        let schema_response = handle_request_value(
+        let schema_response = dispatch_control_request(
             json!({
                 "id": 1_u64,
                 "type": "hmi.schema.get"
             }),
             ctx.control_state,
+            None,
             None,
         );
         let schema_payload =

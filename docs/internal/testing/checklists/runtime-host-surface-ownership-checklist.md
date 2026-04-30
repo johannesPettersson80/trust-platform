@@ -1,6 +1,6 @@
 # Runtime Host Surface Ownership Checklist
 
-Status: Phase 3 doctor rules active; Phase 4 named-file extraction remains open
+Status: Phase 3 doctor rules active; Phase 4 adapter port narrowing in progress
 Owner: Runtime/web/HMI/control/cloud
 Scope: address audit F11 by defining and enforcing ownership for `web`, `hmi`, `ui`, `control`, and `runtime_cloud`.
 
@@ -122,7 +122,7 @@ Named-file move table from `RTHOST-P1-008`:
 
 - [x] `RTHOST-P4-001` Replace the template row above with reviewed named-file rows from `RTHOST-P1-008`.
 - [x] `RTHOST-P4-002` For every `move` or `split` row, record destination module, owner, public API change, behavior-lock tests, and rollback plan.
-- [ ] `RTHOST-P4-003` For every `adapter-only` web route row, replace direct domain/runtime access with approved control/HMI/cloud ports.
+- [x] `RTHOST-P4-003` For every `adapter-only` web route row, replace direct domain/runtime access with approved control/HMI/cloud ports. Evidence: web route/control helpers now use `dispatch_web_control_request_port`, `runtime_resource_name_port`, and `hmi_asset_project_root_port`; `FULLMAP-CHECK-07` fails direct web `handle_request_value` dispatch and direct runtime-state field access when approved ports are active.
 - [ ] `RTHOST-P4-004` For every runtime-cloud route/state row, replace direct runtime execution ownership with runtime-cloud projection contracts.
 - [ ] `RTHOST-P4-005` For every duplicated DTO/schema/auth/write-check row, identify the canonical owner before deleting duplicates.
 - [ ] `RTHOST-P4-006` Keep browser assets and websocket details in web; any browser-visible row requires Playwright evidence in the implementation branch.
@@ -130,6 +130,14 @@ Named-file move table from `RTHOST-P1-008`:
 - [x] `RTHOST-P4-008` Decide exact action for `crates/trust-runtime/src/control/hmi_handlers*.rs`: keep HTTP-neutral control handlers, with runtime value read/write access delegated to `control/hmi_runtime_ports.rs`; HMI schema/contracts stay in `hmi`.
 - [ ] `RTHOST-P4-009` Decide exact action for `crates/trust-runtime/src/runtime_cloud/` files and `crates/trust-runtime/src/web/runtime_cloud_*` route/state files.
 - [x] `RTHOST-P4-010` Add the reviewed named-file move table to this checklist before code movement.
+
+Phase 4 adapter-port evidence captured on 2026-04-30:
+
+- `crates/trust-runtime/src/control.rs::dispatch_web_control_request_port` is the approved control-owned bridge for web routes that need authenticated local control dispatch.
+- `crates/trust-runtime/src/web/auth_helpers.rs::dispatch_control_request` now delegates to the control-owned port instead of calling `handle_request_value` directly.
+- `crates/trust-runtime/src/web/ui_routes.rs` `/hmi/export.json` and `crates/trust-runtime/src/web/runtime_cloud_state/config.rs` config-agent apply flow now use the approved web dispatch helper.
+- `xtask/src/full_map.rs` records `direct web control-dispatch bypass findings: 0` and has a known-bad CHECK-07 fixture for direct web `handle_request_value` dispatch.
+- Validation: `RUSTUP_TOOLCHAIN=1.95 cargo run -p xtask -- architecture-doctor --full-map`, `RUSTUP_TOOLCHAIN=1.95 cargo test -p xtask direct_control_dispatch -- --nocapture`, `RUSTUP_TOOLCHAIN=1.95 cargo test -p trust-runtime --test web_io_config_integration runtime_cloud_config_agent -- --nocapture`, and `RUSTUP_TOOLCHAIN=1.95 cargo test -p trust-runtime --test hmi_readonly_integration hmi_standalone_export -- --nocapture` pass.
 
 ## Phase 5 - Tests
 

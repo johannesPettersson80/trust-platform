@@ -24,7 +24,7 @@ use crate::config::{
     load_system_io_config, IoConfig, IoDriverConfig, RuntimeCloudProfile, RuntimeCloudWanAllowRule,
     RuntimeConfig, WebAuthMode, WebConfig,
 };
-use crate::control::{handle_request_value, ControlState};
+use crate::control::ControlState;
 use crate::debug::dap::format_value;
 use crate::discovery::DiscoveryState;
 use crate::error::RuntimeError;

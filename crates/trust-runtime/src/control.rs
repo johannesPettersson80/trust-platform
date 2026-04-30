@@ -318,6 +318,20 @@ pub(crate) fn runtime_resource_name_port(state: &ControlState) -> SmolStr {
     state.resource_name.clone()
 }
 
+pub(crate) fn dispatch_web_control_request_port(
+    mut payload: serde_json::Value,
+    state: &ControlState,
+    client: Option<&str>,
+    request_token: Option<&str>,
+) -> ControlResponse {
+    if payload.get("auth").is_none() {
+        if let Some(token) = request_token {
+            payload["auth"] = serde_json::Value::String(token.to_string());
+        }
+    }
+    handle_request_value(payload, state, client)
+}
+
 pub(crate) fn handle_request_line(
     line: &str,
     state: &ControlState,

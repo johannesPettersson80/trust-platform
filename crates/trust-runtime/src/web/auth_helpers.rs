@@ -71,17 +71,12 @@ pub(super) fn auth_error_response(error: &str) -> Response<std::io::Cursor<Vec<u
 }
 
 pub(super) fn dispatch_control_request(
-    mut payload: serde_json::Value,
+    payload: serde_json::Value,
     control_state: &ControlState,
     client: Option<&str>,
     request_token: Option<&str>,
 ) -> crate::control::ControlResponse {
-    if payload.get("auth").is_none() {
-        if let Some(token) = request_token {
-            payload["auth"] = serde_json::Value::String(token.to_string());
-        }
-    }
-    handle_request_value(payload, control_state, client)
+    crate::control::dispatch_web_control_request_port(payload, control_state, client, request_token)
 }
 
 pub(super) fn ide_session_token(request: &tiny_http::Request) -> Option<String> {
