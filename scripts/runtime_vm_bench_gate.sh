@@ -30,7 +30,19 @@ mkdir -p "${BENCH_OUT_DIR}"
 unset OUT_DIR
 
 echo "[vm-bench-gate] capturing VM syntax corpus benchmark (profile=${PROFILE}, tier=${TIER}, host_codegen=${HOST_CODEGEN})"
-TRUST_RUNTIME_HOST_CODEGEN="${HOST_CODEGEN}" OUT_DIR="${BENCH_OUT_DIR}" TRUST_VM_SYNTAX_CORPUS_SAMPLES="${SAMPLES}" TRUST_VM_SYNTAX_CORPUS_WARMUP_CYCLES="${WARMUP_CYCLES}" TRUST_VM_SYNTAX_CORPUS_TIER="${TIER}" ./scripts/runtime_vm_syntax_corpus.sh | tee "${BENCH_OUT_DIR}/gate.log"
+python3 ./scripts/run_with_progress.py \
+  --phase runtime-vm-bench \
+  --target "syntax-corpus-${PROFILE}-${TIER}" \
+  --timeout-seconds "${GATE_BENCH_TIMEOUT_SECONDS:-1800}" \
+  --progress-interval-seconds "${GATE_PROGRESS_INTERVAL_SECONDS:-30}" \
+  --log "${BENCH_OUT_DIR}/gate.log" \
+  -- env \
+    TRUST_RUNTIME_HOST_CODEGEN="${HOST_CODEGEN}" \
+    OUT_DIR="${BENCH_OUT_DIR}" \
+    TRUST_VM_SYNTAX_CORPUS_SAMPLES="${SAMPLES}" \
+    TRUST_VM_SYNTAX_CORPUS_WARMUP_CYCLES="${WARMUP_CYCLES}" \
+    TRUST_VM_SYNTAX_CORPUS_TIER="${TIER}" \
+    ./scripts/runtime_vm_syntax_corpus.sh
 
 BENCH_OUT_DIR_ENV="${BENCH_OUT_DIR}" PROFILE_ENV="${PROFILE}" TIER_ENV="${TIER}" SAMPLES_ENV="${SAMPLES}" WARMUP_ENV="${WARMUP_CYCLES}" python3 - <<'PY2'
 import json

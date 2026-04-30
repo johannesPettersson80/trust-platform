@@ -13,20 +13,33 @@ DISPATCH_P95_MAX_US="${TRUST_COMMS_DISPATCH_P95_MAX_US:-3000}"
 
 mkdir -p "${OUT_DIR}"
 
+run_json_case() {
+  local case_id="$1"
+  local json_path="$2"
+  shift 2
+  python3 ./scripts/run_with_progress.py \
+    --phase runtime-comms-bench \
+    --target "${case_id}" \
+    --timeout-seconds "${GATE_BENCH_TIMEOUT_SECONDS:-600}" \
+    --progress-interval-seconds "${GATE_PROGRESS_INTERVAL_SECONDS:-30}" \
+    --log "${OUT_DIR}/${case_id}.log" \
+    -- "$@" > "${json_path}"
+}
+
 echo "[bench-gate] running trust-runtime bench t0-shm"
-cargo run -p trust-runtime --bin trust-runtime -- \
-  bench t0-shm --samples "${SAMPLES}" --payload-bytes 32 --output json \
-  > "${OUT_DIR}/t0-shm.json"
+run_json_case "t0-shm" "${OUT_DIR}/t0-shm.json" \
+  cargo run -p trust-runtime --bin trust-runtime -- \
+    bench t0-shm --samples "${SAMPLES}" --payload-bytes 32 --output json
 
 echo "[bench-gate] running trust-runtime bench mesh-zenoh"
-cargo run -p trust-runtime --bin trust-runtime -- \
-  bench mesh-zenoh --samples "${SAMPLES}" --payload-bytes 64 --output json \
-  > "${OUT_DIR}/mesh-zenoh.json"
+run_json_case "mesh-zenoh" "${OUT_DIR}/mesh-zenoh.json" \
+  cargo run -p trust-runtime --bin trust-runtime -- \
+    bench mesh-zenoh --samples "${SAMPLES}" --payload-bytes 64 --output json
 
 echo "[bench-gate] running trust-runtime bench dispatch"
-cargo run -p trust-runtime --bin trust-runtime -- \
-  bench dispatch --samples "${SAMPLES}" --payload-bytes 32 --fanout 3 --output json \
-  > "${OUT_DIR}/dispatch.json"
+run_json_case "dispatch" "${OUT_DIR}/dispatch.json" \
+  cargo run -p trust-runtime --bin trust-runtime -- \
+    bench dispatch --samples "${SAMPLES}" --payload-bytes 32 --fanout 3 --output json
 
 read_json_number() {
   local file="$1"
