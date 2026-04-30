@@ -64,7 +64,7 @@ This is the umbrella checklist. Individual execution boards own the detailed wor
 - [x] `ARCHPROG-C-02` Classify `web`, `hmi`, `ui`, `control`, and `runtime_cloud` ownership. Evidence: `runtime-host-surface-ownership-checklist.md` records owner categories in `xtask/config/full_map_policy.json`.
 - [x] `ARCHPROG-C-03` Add doctor rules for product/workbench command boundaries.
 - [x] `ARCHPROG-C-04` Add doctor rules for host-surface forbidden imports and approved ports. Evidence: `FULLMAP-CHECK-07` now enforces forbidden host-surface imports, owner categories, and direct web runtime-state bypass checks when approved ports are active.
-- [ ] `ARCHPROG-C-05` Freeze "no new top-level runtime module without subsystem decision note".
+- [x] `ARCHPROG-C-05` Freeze "no new top-level runtime module without subsystem decision note". Evidence: `FULLMAP-CHECK-10` now loads `kiss.runtime_top_level_module_decisions`, requires every current `crates/trust-runtime/src` top-level module to have a subsystem/owner/rationale/review-date/decision-note entry, and fails any new unclassified top-level runtime module.
 
 ### Phase D - Runtime Core/Linux Host Split
 
