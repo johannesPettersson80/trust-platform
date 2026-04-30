@@ -1,6 +1,6 @@
 # Runtime Host Surface Ownership Checklist
 
-Status: Phase 5 runtime-cloud projection contracts complete; thin web adapter route tests next
+Status: Phase 5 thin web adapter route tests complete; browser verification branch evidence next
 Owner: Runtime/web/HMI/control/cloud
 Scope: address audit F11 by defining and enforcing ownership for `web`, `hmi`, `ui`, `control`, and `runtime_cloud`.
 
@@ -214,7 +214,7 @@ Exit decision: Phase 4 runtime-cloud extraction is complete when the table above
 - [x] `RTHOST-P5-002` Contract tests for HMI write authorization policy.
 - [x] `RTHOST-P5-003` Contract tests for runtime snapshot/status projection.
 - [x] `RTHOST-P5-004` Contract tests for runtime-cloud projection.
-- [ ] `RTHOST-P5-005` Route tests prove web remains a thin adapter.
+- [x] `RTHOST-P5-005` Route tests prove web remains a thin adapter.
 - [ ] `RTHOST-P5-006` Browser-visible changes use Playwright verification in implementation branches.
 
 Phase 5 HMI control evidence captured on 2026-04-29:
@@ -234,6 +234,12 @@ Phase 5 runtime-cloud projection evidence captured on 2026-04-30:
 - `crates/trust-runtime/src/runtime_cloud/projection.rs::runtime_cloud_projection_contract_reports_topology_edges_and_warnings` locks the runtime-cloud UI projection contract for local and peer node ordering, active/member roles, lifecycle/health/config state transitions, edge channel/state/metric fields, stale/offline flags, and communication warning timeline entries.
 - `crates/trust-runtime/src/runtime_cloud/projection.rs::presence_projection_contract_does_not_stale_future_heartbeat` locks the presence projection edge case where a future heartbeat timestamp must not underflow into a stale/partitioned result.
 - Validation: `RUSTUP_TOOLCHAIN=1.95 cargo test -p trust-runtime --lib runtime_cloud::projection::tests -- --nocapture` passed 10 runtime-cloud projection tests.
+
+Phase 5 thin web adapter route evidence captured on 2026-04-30:
+
+- `crates/trust-runtime/tests/runtime_cloud_architecture.rs::runtime_cloud_proxy_routes_are_policy_first_adapters` locks route order so runtime-cloud action dispatch, control proxy, and IO proxy routes run policy/preflight planning before control dispatch, local IO config load, or local IO config save side effects.
+- `crates/trust-runtime/tests/runtime_cloud_architecture.rs::runtime_cloud_state_adapters_delegate_domain_state_to_policy_modules` locks the web state adapters as persistence/locking shells over `runtime_cloud::config_policy`, `runtime_cloud::link_policy`, and `runtime_cloud::rollout_policy`.
+- Validation: `RUSTUP_TOOLCHAIN=1.95 cargo test -p trust-runtime --test runtime_cloud_architecture -- --nocapture` passed 5 runtime-cloud architecture tests.
 
 ## Exit Criteria
 
