@@ -1,6 +1,6 @@
 # Runtime Host Surface Ownership Checklist
 
-Status: Phase 5 thin web adapter route tests complete; browser verification branch evidence next
+Status: Phase 5 complete; exit criteria next
 Owner: Runtime/web/HMI/control/cloud
 Scope: address audit F11 by defining and enforcing ownership for `web`, `hmi`, `ui`, `control`, and `runtime_cloud`.
 
@@ -215,7 +215,7 @@ Exit decision: Phase 4 runtime-cloud extraction is complete when the table above
 - [x] `RTHOST-P5-003` Contract tests for runtime snapshot/status projection.
 - [x] `RTHOST-P5-004` Contract tests for runtime-cloud projection.
 - [x] `RTHOST-P5-005` Route tests prove web remains a thin adapter.
-- [ ] `RTHOST-P5-006` Browser-visible changes use Playwright verification in implementation branches.
+- [x] `RTHOST-P5-006` Browser-visible changes use Playwright verification in implementation branches.
 
 Phase 5 HMI control evidence captured on 2026-04-29:
 
@@ -240,6 +240,12 @@ Phase 5 thin web adapter route evidence captured on 2026-04-30:
 - `crates/trust-runtime/tests/runtime_cloud_architecture.rs::runtime_cloud_proxy_routes_are_policy_first_adapters` locks route order so runtime-cloud action dispatch, control proxy, and IO proxy routes run policy/preflight planning before control dispatch, local IO config load, or local IO config save side effects.
 - `crates/trust-runtime/tests/runtime_cloud_architecture.rs::runtime_cloud_state_adapters_delegate_domain_state_to_policy_modules` locks the web state adapters as persistence/locking shells over `runtime_cloud::config_policy`, `runtime_cloud::link_policy`, and `runtime_cloud::rollout_policy`.
 - Validation: `RUSTUP_TOOLCHAIN=1.95 cargo test -p trust-runtime --test runtime_cloud_architecture -- --nocapture` passed 5 runtime-cloud architecture tests.
+
+Phase 5 browser-visible verification evidence captured on 2026-04-30:
+
+- Browser-visible HMI websocket/event-stream work in this host-surface slice used a live `/hmi` Playwright pass against `http://127.0.0.1:18082/hmi`; the pass observed `hmi.values.delta` and `hmi.alarms.event` websocket frames, verified connected/fresh UI state without placeholder values, and wrote screenshot evidence to `target/playwright/hmi-event-stream.png`.
+- `RTHOST-P5-003`, `RTHOST-P5-004`, and `RTHOST-P5-005` branches did not change browser assets, browser-side JavaScript/CSS, `/hmi` static route behavior, or VS Code webviews; they changed Rust contract/architecture tests and checklist evidence only.
+- Browser-visible host-surface changes remain gated by `RTHOST-STOP-05`, the repo `AGENTS.md` browser verification rule, and the existing Playwright browser capture entrypoint `scripts/captures/run-playwright-captures.sh browser`; CI browser analysis gates are useful signal but do not replace a live Playwright pass when `/hmi`, web UI, webview, or browser-side assets change.
 
 ## Exit Criteria
 
