@@ -233,9 +233,28 @@ impl ArrayValue {
         &self.elements
     }
 
+    pub fn elements_mut(&mut self) -> &mut [Value] {
+        &mut self.elements
+    }
+
     #[must_use]
     pub fn dimensions(&self) -> &[(i64, i64)] {
         &self.dimensions
+    }
+
+    pub fn set_dimensions(
+        &mut self,
+        dimensions: Vec<(i64, i64)>,
+    ) -> Result<(), ValueConstructionError> {
+        let expected_len = array_len(&dimensions)?;
+        if self.elements.len() != expected_len {
+            return Err(ValueConstructionError::ArrayElementCountMismatch {
+                expected: expected_len,
+                actual: self.elements.len(),
+            });
+        }
+        self.dimensions = dimensions;
+        Ok(())
     }
 }
 
@@ -315,6 +334,28 @@ impl StructValue {
     #[must_use]
     pub fn fields(&self) -> &IndexMap<SmolStr, Value> {
         &self.fields
+    }
+
+    #[must_use]
+    pub fn field(&self, name: &str) -> Option<&Value> {
+        self.fields.get(name)
+    }
+
+    pub fn field_mut(&mut self, name: &str) -> Option<&mut Value> {
+        self.fields.get_mut(name)
+    }
+
+    #[must_use]
+    pub fn contains_field(&self, name: &str) -> bool {
+        self.fields.contains_key(name)
+    }
+
+    pub fn set_existing_field(&mut self, name: SmolStr, value: Value) -> bool {
+        let Some(slot) = self.fields.get_mut(name.as_str()) else {
+            return false;
+        };
+        *slot = value;
+        true
     }
 }
 
@@ -981,6 +1022,26 @@ mod tests {
     }
 
     #[test]
+    fn struct_value_mutator_updates_existing_fields_only() {
+        let mut value = StructValue::from_untyped_parts(
+            "Point".into(),
+            [
+                (SmolStr::new("x"), Value::Int(1)),
+                (SmolStr::new("y"), Value::Int(2)),
+            ]
+            .into_iter()
+            .collect(),
+        );
+
+        assert!(value.contains_field("x"));
+        assert_eq!(value.field("x"), Some(&Value::Int(1)));
+        assert!(value.set_existing_field("x".into(), Value::Int(10)));
+        assert!(!value.set_existing_field("z".into(), Value::Int(99)));
+        assert_eq!(value.field("x"), Some(&Value::Int(10)));
+        assert!(!value.contains_field("z"));
+    }
+
+    #[test]
     fn array_value_new_canonicalizes_alias_and_rejects_shape_or_type_drift() {
         let mut registry = TypeRegistry::new();
         let base = registry.register_array(TypeId::INT, vec![(1, 2)]);
@@ -1017,6 +1078,28 @@ mod tests {
         assert!(matches!(
             bounds_error,
             ValueConstructionError::InvalidArrayBounds { .. }
+        ));
+    }
+
+    #[test]
+    fn array_value_mutators_preserve_shape_contract() {
+        let mut value =
+            ArrayValue::from_untyped_parts(vec![Value::Int(1), Value::Int(2)], vec![(1, 2)])
+                .expect("array value");
+
+        value.elements_mut()[1] = Value::Int(20);
+        assert_eq!(value.elements(), &[Value::Int(1), Value::Int(20)]);
+        value
+            .set_dimensions(vec![(0, 1)])
+            .expect("same element count dimensions");
+        assert_eq!(value.dimensions(), &[(0, 1)]);
+
+        let error = value
+            .set_dimensions(vec![(0, 2)])
+            .expect_err("different element count must fail");
+        assert!(matches!(
+            error,
+            ValueConstructionError::ArrayElementCountMismatch { .. }
         ));
     }
 

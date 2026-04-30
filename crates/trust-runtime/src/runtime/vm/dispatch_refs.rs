@@ -162,7 +162,7 @@ pub(super) fn dynamic_ref_field(
     let target = peek_dynamic_ref(runtime, frames, &reference)?;
     match target {
         Value::Struct(struct_value) => {
-            if !struct_value.fields.contains_key(field.as_str()) {
+            if !struct_value.contains_field(field.as_str()) {
                 return Err(VmTrap::Runtime(RuntimeError::UndefinedField(field)));
             }
             reference.path.push(RefSegment::Field(field));
@@ -188,8 +188,8 @@ pub(super) fn dynamic_ref_index(
         let mut base_reference = reference.clone();
         let _ = base_reference.path.pop();
         if let Value::Array(array) = peek_dynamic_ref(runtime, frames, &base_reference)? {
-            if existing.len() < array.dimensions.len() {
-                let (lower, upper) = array.dimensions[existing.len()];
+            if existing.len() < array.dimensions().len() {
+                let (lower, upper) = array.dimensions()[existing.len()];
                 if index < lower || index > upper {
                     return Err(VmTrap::Runtime(RuntimeError::IndexOutOfBounds {
                         index,
@@ -210,7 +210,7 @@ pub(super) fn dynamic_ref_index(
     let target = peek_dynamic_ref(runtime, frames, &reference)?;
     match target {
         Value::Array(array) => {
-            let Some((lower, upper)) = array.dimensions.first().copied() else {
+            let Some((lower, upper)) = array.dimensions().first().copied() else {
                 return Err(VmTrap::Runtime(RuntimeError::TypeMismatch));
             };
             if index < lower || index > upper {

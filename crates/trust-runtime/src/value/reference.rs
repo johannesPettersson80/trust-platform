@@ -17,16 +17,15 @@ pub(crate) fn read_value_path_borrowed<'a>(
     match &path[0] {
         RefSegment::Field(name) => match value {
             Value::Struct(struct_value) => struct_value
-                .fields
-                .get(name.as_str())
+                .field(name.as_str())
                 .and_then(|field| read_value_path_borrowed(field, &path[1..])),
             _ => None,
         },
         RefSegment::Index(indices) => match value {
             Value::Array(array) => {
-                let offset = array_offset_i64(&array.dimensions, indices)?;
+                let offset = array_offset_i64(array.dimensions(), indices)?;
                 array
-                    .elements
+                    .elements()
                     .get(offset)
                     .and_then(|element| read_value_path_borrowed(element, &path[1..]))
             }
@@ -44,16 +43,15 @@ pub(crate) fn materialize_value_path(value: &Value, path: &[RefSegment]) -> Opti
     match &path[0] {
         RefSegment::Field(name) => match value {
             Value::Struct(struct_value) => struct_value
-                .fields
-                .get(name.as_str())
+                .field(name.as_str())
                 .and_then(|field| materialize_value_path(field, &path[1..])),
             _ => None,
         },
         RefSegment::Index(indices) => match value {
             Value::Array(array) => {
-                let offset = array_offset_i64(&array.dimensions, indices)?;
+                let offset = array_offset_i64(array.dimensions(), indices)?;
                 array
-                    .elements
+                    .elements()
                     .get(offset)
                     .and_then(|element| materialize_value_path(element, &path[1..]))
             }
@@ -86,20 +84,19 @@ pub(crate) fn write_value_path(target: &mut Value, path: &[RefSegment], value: V
     match &path[0] {
         RefSegment::Field(name) => match target {
             Value::Struct(struct_value) => std::sync::Arc::make_mut(struct_value)
-                .fields
-                .get_mut(name.as_str())
+                .field_mut(name.as_str())
                 .map(|field| write_value_path(field, &path[1..], value))
                 .unwrap_or(false),
             _ => false,
         },
         RefSegment::Index(indices) => match target {
             Value::Array(array) => {
-                let offset = match array_offset_i64(&array.dimensions, indices) {
+                let offset = match array_offset_i64(array.dimensions(), indices) {
                     Some(offset) => offset,
                     None => return false,
                 };
                 array
-                    .elements
+                    .elements_mut()
                     .get_mut(offset)
                     .map(|element| write_value_path(element, &path[1..], value))
                     .unwrap_or(false)

@@ -62,10 +62,9 @@ pub(crate) fn eval_const_expr_with_resolver_and_registry(
         Expr::ArrayInitializer(elements) => {
             let values =
                 eval_array_initializer_elements(elements, profile, registry, resolve_name)?;
-            Ok(Value::Array(Box::new(ArrayValue {
-                dimensions: vec![(1, values.len() as i64)],
-                elements: values,
-            })))
+            ArrayValue::from_untyped_parts(values, vec![(1, elements.len() as i64)])
+                .map(|value| Value::Array(Box::new(value)))
+                .map_err(|_| RuntimeError::TypeMismatch.into())
         }
         Expr::Unary { op, expr } => {
             let value = eval_const_expr_with_resolver(expr, profile, resolve_name)?;

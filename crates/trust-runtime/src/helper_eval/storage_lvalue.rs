@@ -139,8 +139,8 @@ fn write_name(
 fn write_indices(target: Value, indices: &[Value], value: Value) -> Result<Value, RuntimeError> {
     match target {
         Value::Array(mut array) => {
-            let offset = array_offset(&array.dimensions, indices)?;
-            if let Some(slot) = array.elements.get_mut(offset) {
+            let offset = array_offset(array.dimensions(), indices)?;
+            if let Some(slot) = array.elements_mut().get_mut(offset) {
                 *slot = value;
                 Ok(Value::Array(array))
             } else {
@@ -159,8 +159,7 @@ fn write_field(target: Value, field: &SmolStr, value: Value) -> Result<Value, Ru
     match target {
         Value::Struct(mut struct_value) => {
             let struct_value_mut = Arc::make_mut(&mut struct_value);
-            if struct_value_mut.fields.contains_key(field) {
-                struct_value_mut.fields.insert(field.clone(), value);
+            if struct_value_mut.set_existing_field(field.clone(), value) {
                 Ok(Value::Struct(struct_value))
             } else {
                 Err(RuntimeError::UndefinedField(field.clone()))
@@ -211,7 +210,7 @@ fn resolve_lvalue_reference(
                 .iter()
                 .map(|expr| eval_storage_expr(storage, registry, profile, current_instance, expr))
                 .collect::<Result<Vec<_>, _>>()?;
-            array_offset(&array.dimensions, &index_values)?;
+            array_offset(array.dimensions(), &index_values)?;
             let mut index_path = Vec::with_capacity(index_values.len());
             for value in index_values {
                 index_path.push(index_to_i64(value)?);
@@ -240,7 +239,7 @@ fn resolve_lvalue_reference(
                     .ref_for_instance_recursive(id, field.as_str())
                     .ok_or_else(|| RuntimeError::UndefinedField(field.clone())),
                 Value::Struct(struct_value) => {
-                    if !struct_value.fields.contains_key(field) {
+                    if !struct_value.contains_field(field.as_str()) {
                         return Err(RuntimeError::UndefinedField(field.clone()));
                     }
                     let mut value_ref = resolve_lvalue_reference(

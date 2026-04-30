@@ -69,15 +69,27 @@ fn coerce_initializer_value_to_runtime_type(
             let Value::Array(ref mut target_array) = coerced else {
                 return Err(CompileError::new("expected array initializer"));
             };
-            if array.elements.len() > target_array.elements.len() {
+            if array.elements().len() > target_array.elements().len() {
                 return Err(CompileError::new("too many array initializer elements"));
             }
-            if target_array.dimensions != *dimensions {
-                target_array.dimensions = dimensions.clone();
+            if target_array.dimensions() != dimensions.as_slice() {
+                target_array
+                    .set_dimensions(dimensions.clone())
+                    .map_err(|err| {
+                        CompileError::new(format!("invalid array initializer shape: {err}"))
+                    })?;
             }
-            for (slot, element_value) in target_array.elements.iter_mut().zip(array.elements) {
-                *slot =
-                    coerce_initializer_value_to_type(element_value, *element, registry, profile)?;
+            for (slot, element_value) in target_array
+                .elements_mut()
+                .iter_mut()
+                .zip(array.elements().iter())
+            {
+                *slot = coerce_initializer_value_to_type(
+                    element_value.clone(),
+                    *element,
+                    registry,
+                    profile,
+                )?;
             }
             Ok(coerced)
         }
