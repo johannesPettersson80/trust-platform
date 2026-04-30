@@ -5,6 +5,7 @@ Owner: Architecture automation
 Scope: implement a repeatable `cargo xtask architecture-doctor --full-map` command with source-derived facts, policies, fixtures, and reports.
 
 This checklist is a prerequisite for enforcing the runtime-core split, product/workbench split, host-surface ownership rules, KISS thresholds, API trend checks, and diagram semantic checks.
+It also runs the HIR zero-silent-bug doctor as a full-map gate after the HIR semantic-kernel board closes.
 
 ## Stop Rules
 
@@ -47,6 +48,7 @@ These IDs are referenced by downstream checklists as hard prerequisites.
 - [x] `FULLMAP-CHECK-08` Dependency hygiene policy status is emitted and failed tools cannot report as pass.
 - [x] `FULLMAP-CHECK-09` Unsafe/concurrency hotspot summary is emitted with owner/status fields and reports a finding while hotspots remain nonzero.
 - [x] `FULLMAP-CHECK-10` KISS large-file and runtime-host module-count thresholds are enforced.
+- [x] `FULLMAP-HIRZSB` HIR zero-silent-bug doctor runs with `--fail` and fails full-map when HIR broad lookup, sentinel return, duplicated resolver, silent discard, allowlist, public raw API, or runtime declaration-bypass findings appear.
 
 ## Phase 1 - Data Model And JSON Map Writer
 
