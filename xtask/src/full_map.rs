@@ -16,7 +16,7 @@ use crate::software_map::{
 pub fn architecture_doctor_full_map(root: &Path) -> Result<()> {
     let policy = FullMapPolicy::load(root)?;
     let mut map = build_software_map(root, &policy)?;
-    let checks = run_policy_checks(&map, &policy);
+    let checks = run_policy_checks(root, &map, &policy);
     let failed = checks.iter().filter(|check| check.is_fail()).count();
     map.tool_results.push(ToolResult {
         name: "full-map policy checks".to_string(),
@@ -240,6 +240,14 @@ struct FullMapCheck {
     status: CheckStatus,
     summary: String,
     details: Vec<String>,
+}
+
+#[derive(Debug)]
+struct CommandCheckOutput {
+    success: bool,
+    code: Option<i32>,
+    stdout: String,
+    stderr: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -587,7 +595,7 @@ fn policy_tool_status(status: &str) -> ToolStatus {
     }
 }
 
-fn run_policy_checks(map: &SoftwareMap, policy: &FullMapPolicy) -> Vec<FullMapCheck> {
+fn run_policy_checks(root: &Path, map: &SoftwareMap, policy: &FullMapPolicy) -> Vec<FullMapCheck> {
     vec![
         check_policy_metadata(policy),
         check_workspace_edge_policy(map, policy),
@@ -599,6 +607,7 @@ fn run_policy_checks(map: &SoftwareMap, policy: &FullMapPolicy) -> Vec<FullMapCh
         check_kiss_thresholds(map, policy),
         check_public_api_snapshot_status(map),
         check_parser_recovery_rules(map),
+        check_hir_zero_silent_bug_doctor(root),
         check_diagram_claims(map, policy),
     ]
 }
@@ -1507,6 +1516,93 @@ fn check_parser_recovery_rules(map: &SoftwareMap) -> FullMapCheck {
             failures,
         )
     }
+}
+
+fn check_hir_zero_silent_bug_doctor(root: &Path) -> FullMapCheck {
+    let script = Path::new("scripts/hir_zero_silent_bug_doctor.py");
+    let script_path = root.join(script);
+    let command = "python3 scripts/hir_zero_silent_bug_doctor.py --fail";
+    if !script_path.is_file() {
+        return FullMapCheck::fail(
+            "FULLMAP-HIRZSB",
+            "HIR zero-silent-bug doctor script is missing",
+            vec![format!("missing {}", script.display())],
+        );
+    }
+
+    match Command::new("python3")
+        .arg(script)
+        .arg("--fail")
+        .current_dir(root)
+        .output()
+    {
+        Ok(output) => hir_zero_silent_bug_doctor_check_from_output(
+            command,
+            CommandCheckOutput {
+                success: output.status.success(),
+                code: output.status.code(),
+                stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+                stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+            },
+        ),
+        Err(error) => FullMapCheck::fail(
+            "FULLMAP-HIRZSB",
+            "HIR zero-silent-bug doctor could not run",
+            vec![format!("command: {command}"), format!("error: {error}")],
+        ),
+    }
+}
+
+fn hir_zero_silent_bug_doctor_check_from_output(
+    command: &str,
+    output: CommandCheckOutput,
+) -> FullMapCheck {
+    let exit_code = output.code.map_or_else(
+        || "terminated by signal".to_string(),
+        |code| code.to_string(),
+    );
+    let mut details = vec![
+        format!("command: {command}"),
+        format!("exit code: {exit_code}"),
+    ];
+    details.extend(command_stream_details("stdout", &output.stdout));
+    details.extend(command_stream_details("stderr", &output.stderr));
+
+    if output.success
+        && output
+            .stdout
+            .contains("HIR zero-silent-bug doctor: no findings")
+    {
+        FullMapCheck::pass(
+            "FULLMAP-HIRZSB",
+            "HIR zero-silent-bug doctor reported no findings",
+            details,
+        )
+    } else {
+        FullMapCheck::fail(
+            "FULLMAP-HIRZSB",
+            "HIR zero-silent-bug doctor reported findings or failed",
+            details,
+        )
+    }
+}
+
+fn command_stream_details(label: &str, stream: &str) -> Vec<String> {
+    let mut details = stream
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .take(20)
+        .map(|line| format!("{label}: {line}"))
+        .collect::<Vec<_>>();
+    if stream
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .count()
+        > 20
+    {
+        details.push(format!("{label}: ... truncated"));
+    }
+    details
 }
 
 fn check_diagram_claims(map: &SoftwareMap, policy: &FullMapPolicy) -> FullMapCheck {
@@ -3064,6 +3160,42 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
             .retain(|name| !name.contains("property_smoke"));
 
         assert!(check_parser_recovery_rules(&map).is_fail());
+    }
+
+    #[test]
+    fn known_bad_hir_zero_doctor_finding_fails_full_map_check() {
+        let check = hir_zero_silent_bug_doctor_check_from_output(
+            "python3 scripts/hir_zero_silent_bug_doctor.py --fail",
+            CommandCheckOutput {
+                success: false,
+                code: Some(1),
+                stdout: "HIR zero-silent-bug doctor: 1 warn-only finding(s)\n\
+                    HIRZSB-WARN-BROAD-LOOKUP crates/trust-hir/src/demo.rs:12: symbols.lookup_any(name)"
+                    .to_string(),
+                stderr: String::new(),
+            },
+        );
+
+        assert!(check.is_fail());
+        assert!(check
+            .details
+            .iter()
+            .any(|detail| detail.contains("HIRZSB-WARN-BROAD-LOOKUP")));
+    }
+
+    #[test]
+    fn hir_zero_doctor_no_findings_passes_full_map_check() {
+        let check = hir_zero_silent_bug_doctor_check_from_output(
+            "python3 scripts/hir_zero_silent_bug_doctor.py --fail",
+            CommandCheckOutput {
+                success: true,
+                code: Some(0),
+                stdout: "HIR zero-silent-bug doctor: no findings\n".to_string(),
+                stderr: String::new(),
+            },
+        );
+
+        assert_eq!(check.status, CheckStatus::Pass);
     }
 
     #[test]

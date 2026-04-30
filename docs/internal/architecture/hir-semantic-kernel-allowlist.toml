@@ -1,0 +1,41 @@
+# HIR semantic-kernel compatibility allowlist.
+#
+# One entry is one named function or one Rust file:line range. Keep this list at
+# or below max_entries; broad subsystem categories are not allowed.
+
+max_entries = 5
+
+[[entries]]
+function = "trust_hir::symbols::table::SymbolTable::resolve_alias_type"
+owner = "HIR"
+review_date = "2026-04-29"
+rationale = "Legacy TypeId-returning compatibility wrapper; resolve_alias_type_outcome owns the classified semantic outcome."
+focused_test = "RUSTUP_TOOLCHAIN=1.95 cargo test -p trust-hir --test semantic_type_checking basics_and_warnings -- --nocapture"
+
+[[entries]]
+function = "trust_hir::type_check::TypeChecker::resolve_alias_type"
+owner = "HIR/type-check"
+review_date = "2026-04-29"
+rationale = "Type-check compatibility wrapper around SymbolTable::resolve_alias_type_outcome for callers that still require TypeId."
+focused_test = "RUSTUP_TOOLCHAIN=1.95 cargo test -p trust-hir --test semantic_type_checking basics_and_warnings -- --nocapture"
+
+[[entries]]
+function = "trust_hir::db::queries::collector::SymbolCollector::resolve_type_path_at"
+owner = "HIR/collector"
+review_date = "2026-04-29"
+rationale = "Collector storage boundary that lowers a classified type-path outcome into a TypeId for existing type records."
+focused_test = "RUSTUP_TOOLCHAIN=1.95 cargo test -p trust-hir --test semantic_type_checking type_resolution_const_eval_errors_report_primary_diagnostic -- --nocapture"
+
+[[entries]]
+function = "trust_hir::db::symbol_import::SymbolImporter::import_type"
+owner = "HIR/project-import"
+review_date = "2026-04-29"
+rationale = "Project import storage boundary that maps classified import_type_outcome results into imported TypeId records."
+focused_test = "RUSTUP_TOOLCHAIN=1.95 cargo test -p trust-hir --test semantic_type_checking test_cyclic_cross_file_type_import_reports_primary_diagnostic -- --nocapture"
+
+[[entries]]
+function = "trust_hir::db::diagnostics::oop::resolve_extends_symbol"
+owner = "HIR/OOP diagnostics"
+review_date = "2026-04-29"
+rationale = "OOP diagnostics compatibility wrapper for existing Option-based inheritance walkers; resolve_extends_symbol_outcome owns the classified outcome."
+focused_test = "RUSTUP_TOOLCHAIN=1.95 cargo test -p trust-hir db::diagnostics::oop::tests::function_block_cycle_detection_walks_mixed_class_links -- --nocapture"
