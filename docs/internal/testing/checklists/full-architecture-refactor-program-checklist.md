@@ -68,8 +68,8 @@ This is the umbrella checklist. Individual execution boards own the detailed wor
 
 ### Phase D - Runtime Core/Linux Host Split
 
-- [ ] `ARCHPROG-D-01` Run `runtime-core-host-split-execution-checklist.md` only after Phases A-C have the required rules or explicit waivers.
-- [ ] `ARCHPROG-D-02` Treat this phase as behavior-preserving; no embedded product support claims.
+- [x] `ARCHPROG-D-01` Run `runtime-core-host-split-execution-checklist.md` only after Phases A-C have the required rules or explicit waivers. Evidence: Phase A-C rules are active through `FULLMAP-CHECK-01`, `FULLMAP-CHECK-02`, `FULLMAP-CHECK-05`, `FULLMAP-CHECK-06`, `FULLMAP-CHECK-07`, and the `ARCHPROG-C-05` top-level runtime module decision freeze; runtime-core split Phase 0 is now captured in `runtime-core-host-split-execution-checklist.md`.
+- [x] `ARCHPROG-D-02` Treat this phase as behavior-preserving; no embedded product support claims. Evidence: runtime-core split Phase 0 note states the active scope is Linux behavior-preserving extraction and explicitly excludes STM32H7, Arduino Opta, ESP32, embedded T0, embedded EtherCAT, `no_std` product support, MCU protocol commitments, and embedded support claims.
 - [ ] `ARCHPROG-D-03` Keep behavior-lock tests ahead of code movement.
 - [ ] `ARCHPROG-D-04` Keep host crate responsibility shrinkage visible, not hidden behind re-exports.
 

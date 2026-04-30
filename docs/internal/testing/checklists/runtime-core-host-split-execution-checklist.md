@@ -50,8 +50,8 @@ This checklist is not the whole architecture cleanup program. It preserves and e
 - [x] `RTSPLIT-P0-006` Capture current `cargo tree -p trust-runtime --edges normal --depth 2`. Evidence: `target/gate-artifacts/runtime-core-host-split-baseline-1ffec4ab0/cargo-tree-trust-runtime-depth2.txt`.
 - [x] `RTSPLIT-P0-007` Capture current `cargo modules structure -p trust-runtime --lib --no-types`. Evidence: `target/gate-artifacts/runtime-core-host-split-baseline-1ffec4ab0/cargo-modules-structure-trust-runtime-lib.txt`.
 - [x] `RTSPLIT-P0-008` Capture current largest-file list for `crates/trust-runtime/src`. Evidence: `target/gate-artifacts/runtime-core-host-split-baseline-1ffec4ab0/trust-runtime-largest-files.txt`.
-- [ ] `RTSPLIT-P0-009` Capture current public API snapshot for `trust-runtime` if `cargo public-api` is available. Blocked locally on 2026-04-30: both `cargo public-api -p trust-runtime --all-features --color never` and the default-feature command pulled the runtime network stack plus vendored OpenSSL C build on this ARM64 host. Exact blocker recorded in `target/gate-artifacts/runtime-core-host-split-baseline-1ffec4ab0/public-api-blocker.txt`; rerun as a milestone/nightly API job or after a narrower API feature profile exists.
-- [x] `RTSPLIT-P0-010` Record unavailable tools and exact blockers instead of silently skipping them. Evidence: `public-api-blocker.txt` records the local `cargo public-api` blocker; no blocker for `cargo metadata`, `cargo tree`, `cargo modules`, `architecture-doctor --all`, or `architecture-doctor --full-map`.
+- [x] `RTSPLIT-P0-009` Capture current public API snapshot for `trust-runtime` if `cargo public-api` is available. Evidence: `target/gate-artifacts/runtime-core-host-split-baseline-1ffec4ab0/public-api-trust-runtime-default-features.txt` from `cargo public-api -p trust-runtime --color never`; the progress log records the 155.9s local run and timeout guard.
+- [x] `RTSPLIT-P0-010` Record unavailable tools and exact blockers instead of silently skipping them. Evidence: no unavailable tool remains for Phase 0; `public-api-progress.log` records why the API snapshot is expensive on this ARM64 host, and `public-api-blocker.txt` records the aborted overbroad `--all-features` attempt so it is not mistaken for a silent skip.
 - [x] `RTSPLIT-P0-011` Run `cargo run -p xtask -- architecture-doctor --all` and attach output. Evidence: `target/gate-artifacts/runtime-core-host-split-baseline-1ffec4ab0/architecture-doctor-all.txt` passes after fixing stale legacy doctor checks for bounded positional-initializer scanning and ignored internal diagram scratch files.
 - [x] `RTSPLIT-P0-012` Run the current generated software map command if available and attach output. Evidence: `target/gate-artifacts/runtime-core-host-split-baseline-1ffec4ab0/architecture-doctor-full-map.txt` and `target/gate-artifacts/full-software-map-1ffec4ab0/software-map.json`.
 - [x] `RTSPLIT-P0-013` Add a short implementation note explaining that this branch family is a Linux behavior-preserving extraction. Evidence: Phase 0 note below states the active scope and non-scope.
@@ -66,7 +66,7 @@ Phase 0 implementation note, 2026-04-30:
 
 ### Phase 0 Exit Gate
 
-- [ ] `RTSPLIT-P0-GATE-01` Baseline evidence exists. Blocked only on `RTSPLIT-P0-009` public API snapshot; blocker is recorded under `RTSPLIT-P0-010`.
+- [x] `RTSPLIT-P0-GATE-01` Baseline evidence exists.
 - [x] `RTSPLIT-P0-GATE-02` Active/non-active scope is unambiguous.
 - [x] `RTSPLIT-P0-GATE-03` No code movement has started.
 - [x] `RTSPLIT-P0-GATE-04` Full-map doctor MVP prerequisite is met or waiver is recorded.
