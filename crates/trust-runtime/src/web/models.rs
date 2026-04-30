@@ -4,7 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::runtime_cloud::contracts::{ConfigMeta, ConfigStatus, ReasonCode};
+use crate::runtime_cloud::contracts::ReasonCode;
 use crate::runtime_cloud::link_policy::{
     RuntimeCloudLinkTransport, RuntimeCloudLinkTransportPreference,
 };
@@ -302,29 +302,4 @@ pub(super) struct RuntimeCloudDispatchResponse {
     pub(super) ok: bool,
     pub(super) preflight: RuntimeCloudActionPreflight,
     pub(super) results: Vec<RuntimeCloudDispatchTargetResult>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub(super) struct RuntimeCloudConfigSnapshot {
-    pub(super) api_version: String,
-    pub(super) runtime_id: String,
-    pub(super) desired: serde_json::Value,
-    pub(super) reported: serde_json::Value,
-    pub(super) meta: ConfigMeta,
-    pub(super) status: ConfigStatus,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(super) struct RuntimeCloudConfigAgentState {
-    pub(super) desired: serde_json::Value,
-    pub(super) reported: serde_json::Value,
-    pub(super) meta: ConfigMeta,
-    pub(super) status: ConfigStatus,
-}
-
-#[derive(Debug, Clone)]
-pub(super) struct RuntimeCloudConfigWriteError {
-    pub(super) code: ReasonCode,
-    pub(super) message: String,
-    pub(super) snapshot: Box<RuntimeCloudConfigAgentState>,
 }

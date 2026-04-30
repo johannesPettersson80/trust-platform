@@ -9,6 +9,7 @@ fn read_source(path: &str) -> String {
 #[test]
 fn runtime_cloud_core_modules_do_not_import_transport_layers() {
     let sources = [
+        "src/runtime_cloud/config_policy.rs",
         "src/runtime_cloud/contracts.rs",
         "src/runtime_cloud/ha.rs",
         "src/runtime_cloud/link_policy.rs",
