@@ -22,7 +22,9 @@ pub mod bytecode;
 pub mod config;
 /// Control server and protocol.
 pub mod control;
-mod datetime;
+pub(crate) mod datetime {
+    pub(crate) use trust_runtime_core::datetime::*;
+}
 /// Debugging and tracing support.
 pub mod debug;
 /// Local discovery (mDNS) for runtimes.
