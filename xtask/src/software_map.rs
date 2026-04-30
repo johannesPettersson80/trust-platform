@@ -6,10 +6,12 @@ pub struct SoftwareMap {
     pub workspace_root: String,
     pub generated_by: String,
     pub packages: Vec<PackageSummary>,
+    pub direct_dependencies: Vec<DependencyEdge>,
     pub workspace_edges: Vec<WorkspaceEdge>,
     pub crate_module_summaries: Vec<ModuleSummary>,
     pub source_files: Vec<SourceFileSummary>,
     pub largest_files: Vec<SourceFileSummary>,
+    pub largest_functions: Vec<FunctionSummary>,
     pub import_edges: Vec<ImportEdge>,
     pub runtime_top_level_modules: Vec<String>,
     pub runtime_cli_commands: Vec<String>,
@@ -46,6 +48,13 @@ pub struct WorkspaceEdge {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct DependencyEdge {
+    pub from: String,
+    pub to: String,
+    pub kind: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ModuleSummary {
     pub crate_name: String,
     pub module_name: String,
@@ -57,6 +66,14 @@ pub struct ModuleSummary {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SourceFileSummary {
     pub path: String,
+    pub line_count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct FunctionSummary {
+    pub path: String,
+    pub line: usize,
+    pub name: String,
     pub line_count: usize,
 }
 
@@ -172,14 +189,16 @@ impl ToolStatus {
 impl SoftwareMap {
     pub fn new(workspace_root: impl Into<String>) -> Self {
         Self {
-            schema_version: 6,
+            schema_version: 8,
             workspace_root: workspace_root.into(),
             generated_by: "cargo xtask architecture-doctor --full-map".to_string(),
             packages: Vec::new(),
+            direct_dependencies: Vec::new(),
             workspace_edges: Vec::new(),
             crate_module_summaries: Vec::new(),
             source_files: Vec::new(),
             largest_files: Vec::new(),
+            largest_functions: Vec::new(),
             import_edges: Vec::new(),
             runtime_top_level_modules: Vec::new(),
             runtime_cli_commands: Vec::new(),
@@ -220,6 +239,12 @@ impl SoftwareMap {
                 .then_with(|| left.to.cmp(&right.to))
                 .then_with(|| left.kind.cmp(&right.kind))
         });
+        self.direct_dependencies.sort_by(|left, right| {
+            left.from
+                .cmp(&right.from)
+                .then_with(|| left.to.cmp(&right.to))
+                .then_with(|| left.kind.cmp(&right.kind))
+        });
         self.crate_module_summaries.sort_by(|left, right| {
             left.crate_name
                 .cmp(&right.crate_name)
@@ -233,6 +258,14 @@ impl SoftwareMap {
                 .line_count
                 .cmp(&left.line_count)
                 .then_with(|| left.path.cmp(&right.path))
+        });
+        self.largest_functions.sort_by(|left, right| {
+            right
+                .line_count
+                .cmp(&left.line_count)
+                .then_with(|| left.path.cmp(&right.path))
+                .then_with(|| left.line.cmp(&right.line))
+                .then_with(|| left.name.cmp(&right.name))
         });
         self.import_edges.sort_by(|left, right| {
             left.from_file

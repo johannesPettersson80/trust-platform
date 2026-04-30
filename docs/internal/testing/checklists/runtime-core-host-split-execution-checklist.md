@@ -139,23 +139,23 @@ Phase 1 focused test evidence, 2026-04-30:
 
 ## Phase 2 - Architecture Doctor Rules Before Extraction
 
-- [ ] `RTSPLIT-P2-001` Add a doctor rule that recognizes `trust-runtime-core` once introduced.
-- [ ] `RTSPLIT-P2-002` Add a dependency fence for `trust-runtime-core`.
-- [ ] `RTSPLIT-P2-003` Add forbidden dependency checks for `tokio`, `zenoh`, `rumqttc`, `rustls`, `tiny_http`, `tungstenite`, `mdns-sd`, `notify`, `opcua`, `ethercrab`, `ureq`, `ratatui`, `crossterm`, `home`.
-- [ ] `RTSPLIT-P2-004` Add forbidden workspace dependency checks from `trust-runtime-core` to `trust-ide`, `trust-lsp`, and `trust-debug`.
-- [ ] `RTSPLIT-P2-005` Add forbidden import checks for host modules: `web`, `hmi`, `control`, `runtime_cloud`, `mesh`, `discovery`, `io`, `opcua`, `debug`, `security`, `setup`, `simulation`, `ui`, `historian`.
-- [ ] `RTSPLIT-P2-006` Add a doctor rule requiring each new `trust-runtime` top-level module to have a subsystem decision note.
-- [ ] `RTSPLIT-P2-007` Add a doctor rule requiring runtime diagrams to reference generated/source-derived maps after ownership changes.
-- [ ] `RTSPLIT-P2-008` Add a public API snapshot rule or documented fallback if the tool is unavailable.
-- [ ] `RTSPLIT-P2-009` Add a rule preventing web/HMI/cloud/control modules from bypassing approved runtime value/snapshot ports once those ports exist.
-- [ ] `RTSPLIT-P2-010` Add these rules in warn/allowlist mode before the first move, then tighten after the relevant slice is complete.
-- [ ] `RTSPLIT-P2-011` Add KISS advisory checks for moved modules: file size, function size, public API growth, and top-level module growth.
+- [x] `RTSPLIT-P2-001` Add a doctor rule that recognizes `trust-runtime-core` once introduced. Evidence: `xtask/src/full_map.rs::check_runtime_core_dependency_fence` switches from "crate not present" armed mode to package/import validation when cargo metadata or imports show `trust-runtime-core`; known-bad tests cover forbidden core dependency and host import cases.
+- [x] `RTSPLIT-P2-002` Add a dependency fence for `trust-runtime-core`. Evidence: `FULLMAP-CHECK-05` is the dependency/import fence and passed in armed mode on `cargo run -p xtask -- architecture-doctor --full-map` at `62156e7e9`.
+- [x] `RTSPLIT-P2-003` Add forbidden dependency checks for `tokio`, `zenoh`, `rumqttc`, `rustls`, `tiny_http`, `tungstenite`, `mdns-sd`, `notify`, `opcua`, `ethercrab`, `ureq`, `ratatui`, `crossterm`, `home`. Evidence: `xtask/config/full_map_policy.json::runtime_core_forbidden_dependencies` includes the full list, `SoftwareMap::direct_dependencies` now records all direct Cargo dependencies from metadata, and `repo_runtime_core_policy_covers_runtime_split_forbidden_sets` fails if any named dependency is removed.
+- [x] `RTSPLIT-P2-004` Add forbidden workspace dependency checks from `trust-runtime-core` to `trust-ide`, `trust-lsp`, and `trust-debug`. Evidence: `runtime_core_forbidden_dependencies` includes `trust-ide`, `trust-lsp`, and `trust-debug`; `FULLMAP-CHECK-05` checks source-derived direct dependencies from `trust-runtime-core` against that set.
+- [x] `RTSPLIT-P2-005` Add forbidden import checks for host modules: `web`, `hmi`, `control`, `runtime_cloud`, `mesh`, `discovery`, `io`, `opcua`, `debug`, `security`, `setup`, `simulation`, `ui`, `historian`. Evidence: `xtask/config/full_map_policy.json::runtime_core_forbidden_import_modules` includes the full list, `repo_runtime_core_policy_covers_runtime_split_forbidden_sets` locks the list, and `known_bad_runtime_core_forbidden_host_import_fails` proves the rule fails a core import of a host module.
+- [x] `RTSPLIT-P2-006` Add a doctor rule requiring each new `trust-runtime` top-level module to have a subsystem decision note. Evidence: `FULLMAP-CHECK-10` validates every source-derived top-level `trust-runtime` module against `kiss.runtime_top_level_module_decisions`; `known_bad_runtime_top_level_module_without_decision_note_fails` locks the failure.
+- [x] `RTSPLIT-P2-007` Add a doctor rule requiring runtime diagrams to reference generated/source-derived maps after ownership changes. Evidence: `FULLMAP-P7` checks selected PlantUML diagram aliases and crate dependency claims against source-derived map facts; known-bad unsupported alias and crate-edge tests fail.
+- [x] `RTSPLIT-P2-008` Add a public API snapshot rule or documented fallback if the tool is unavailable. Evidence: `FULLMAP-P6-API` reports `cargo-public-api 0.51.0`, and Phase 0 recorded the `trust-runtime` public API snapshot artifact at `target/gate-artifacts/runtime-core-host-split-baseline-1ffec4ab0/public-api-trust-runtime-default-features.txt`.
+- [x] `RTSPLIT-P2-009` Add a rule preventing web/HMI/cloud/control modules from bypassing approved runtime value/snapshot ports once those ports exist. Evidence: `FULLMAP-CHECK-07` has active approved-port drift checks and reports zero direct web runtime-state bypasses and zero direct web control-dispatch bypasses; host-surface owner path rules cover `web`, `hmi`, `ui`, `control`, and `runtime_cloud`.
+- [x] `RTSPLIT-P2-010` Add these rules in warn/allowlist mode before the first move, then tighten after the relevant slice is complete. Evidence: before `trust-runtime-core` exists, `FULLMAP-CHECK-05` passes in armed mode with "crate not present"; once the crate or imports appear, the same check becomes a failing dependency/import fence. `FULLMAP-CHECK-10` reports the final host cap as inactive until the CLI/host-surface/runtime-core boards close.
+- [x] `RTSPLIT-P2-011` Add KISS advisory checks for moved modules: file size, function size, public API growth, and top-level module growth. Evidence: `FULLMAP-CHECK-10` enforces large-file owner/split notes, top-level module decision notes, and a new function-size advisory that fails oversized `trust-runtime-core` functions; `FULLMAP-P6-API` reports public API snapshot tooling status.
 
 ### Phase 2 Exit Gate
 
-- [ ] `RTSPLIT-P2-GATE-01` Doctor rules exist before extraction.
-- [ ] `RTSPLIT-P2-GATE-02` Rules are either passing or explicitly allowlisted with removal dates.
-- [ ] `RTSPLIT-P2-GATE-03` Known-bad local patterns are caught by at least one doctor rule.
+- [x] `RTSPLIT-P2-GATE-01` Doctor rules exist before extraction. Evidence: Phase 2 rows `RTSPLIT-P2-001` through `RTSPLIT-P2-011` are backed by `architecture-doctor --full-map` before `crates/trust-runtime-core` exists.
+- [x] `RTSPLIT-P2-GATE-02` Rules are either passing or explicitly allowlisted with removal dates. Evidence: `cargo run -p xtask -- architecture-doctor --full-map` passed at `62156e7e9`; reported findings are tracked by separate unsafe/concurrency policy, while dependency hygiene allowlists carry owner/rationale/review/removal metadata.
+- [x] `RTSPLIT-P2-GATE-03` Known-bad local patterns are caught by at least one doctor rule. Evidence: `cargo test -p xtask full_map -- --nocapture` passed 44 tests, including known-bad runtime-core forbidden dependency/import, stale route handler, direct port bypass, missing top-level module decision, unsupported diagram alias/edge, and oversized runtime-core function fixtures.
 
 ## Phase 3 - Core Crate Scaffold
 
