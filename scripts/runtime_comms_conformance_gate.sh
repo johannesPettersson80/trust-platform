@@ -7,12 +7,28 @@ cd "${ROOT_DIR}"
 OUT_DIR="${OUT_DIR:-target/gate-artifacts/runtime-comms-conformance}"
 mkdir -p "${OUT_DIR}"
 
+run_observed() {
+  local phase="$1"
+  local target="$2"
+  local timeout="$3"
+  local log_path="$4"
+  shift 4
+  python3 ./scripts/run_with_progress.py \
+    --phase "${phase}" \
+    --target "${target}" \
+    --timeout-seconds "${timeout}" \
+    --progress-interval-seconds "${GATE_PROGRESS_INTERVAL_SECONDS:-30}" \
+    --log "${log_path}" \
+    -- "$@"
+}
+
 run_lib_case() {
   local case_id="$1"
   local test_filter="$2"
   local log_path="${OUT_DIR}/${case_id}.log"
   echo "[conformance-gate] running lib case ${case_id}"
-  cargo test -p trust-runtime --lib "${test_filter}" -- --nocapture | tee "${log_path}"
+  run_observed "runtime-comms-conformance" "${case_id}" "${GATE_TEST_TIMEOUT_SECONDS:-900}" "${log_path}" \
+    cargo test -p trust-runtime --lib "${test_filter}" -- --nocapture
 }
 
 run_it_case() {
@@ -21,7 +37,8 @@ run_it_case() {
   local test_filter="$3"
   local log_path="${OUT_DIR}/${case_id}.log"
   echo "[conformance-gate] running integration case ${case_id}"
-  cargo test -p trust-runtime --test "${test_target}" "${test_filter}" -- --nocapture | tee "${log_path}"
+  run_observed "runtime-comms-conformance" "${case_id}" "${GATE_TEST_TIMEOUT_SECONDS:-900}" "${log_path}" \
+    cargo test -p trust-runtime --test "${test_target}" "${test_filter}" -- --nocapture
 }
 
 echo "[conformance-gate] suite: t0-shm"

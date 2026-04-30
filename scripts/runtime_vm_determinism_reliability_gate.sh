@@ -10,6 +10,21 @@ TEST_THREADS="${TRUST_VM_DETERMINISM_TEST_THREADS:-1}"
 
 mkdir -p "${OUT_DIR}"
 
+run_observed() {
+  local phase="$1"
+  local target="$2"
+  local timeout="$3"
+  local log_path="$4"
+  shift 4
+  python3 ./scripts/run_with_progress.py \
+    --phase "${phase}" \
+    --target "${target}" \
+    --timeout-seconds "${timeout}" \
+    --progress-interval-seconds "${GATE_PROGRESS_INTERVAL_SECONDS:-30}" \
+    --log "${log_path}" \
+    -- "$@"
+}
+
 if [[ "${ITERATIONS}" -lt 2 ]]; then
   echo "[vm-determinism-gate] FAIL: TRUST_VM_DETERMINISM_ITERATIONS must be >= 2"
   exit 1
@@ -28,7 +43,8 @@ for run in $(seq 1 "${ITERATIONS}"); do
   json_path="${OUT_DIR}/vm-behavior-run-${run}.json"
 
   started_ns="$(date +%s%N)"
-  cargo test -p trust-runtime --test api_smoke --test complete_program -- --test-threads="${TEST_THREADS}"     | tee "${log_path}"
+  run_observed "runtime-vm-determinism" "behavior-run-${run}" "${GATE_TEST_TIMEOUT_SECONDS:-1200}" "${log_path}" \
+    cargo test -p trust-runtime --test api_smoke --test complete_program -- --test-threads="${TEST_THREADS}"
   ended_ns="$(date +%s%N)"
   duration_ms="$(( (ended_ns - started_ns) / 1000000 ))"
 
@@ -64,11 +80,13 @@ runtime_reliability_log="${OUT_DIR}/runtime-reliability.log"
 hot_reload_log="${OUT_DIR}/hot-reload.log"
 
 started_ns="$(date +%s%N)"
-cargo test -p trust-runtime --test runtime_reliability -- --test-threads=1 | tee "${runtime_reliability_log}"
+run_observed "runtime-vm-determinism" "runtime-reliability" "${GATE_TEST_TIMEOUT_SECONDS:-1200}" "${runtime_reliability_log}" \
+  cargo test -p trust-runtime --test runtime_reliability -- --test-threads=1
 runtime_reliability_ms="$(( ($(date +%s%N) - started_ns) / 1000000 ))"
 
 started_ns="$(date +%s%N)"
-cargo test -p trust-runtime --test hot_reload -- --test-threads=1 | tee "${hot_reload_log}"
+run_observed "runtime-vm-determinism" "hot-reload" "${GATE_TEST_TIMEOUT_SECONDS:-1200}" "${hot_reload_log}" \
+  cargo test -p trust-runtime --test hot_reload -- --test-threads=1
 hot_reload_ms="$(( ($(date +%s%N) - started_ns) / 1000000 ))"
 
 cat > "${OUT_DIR}/summary.md" <<MD

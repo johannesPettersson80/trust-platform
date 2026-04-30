@@ -23,6 +23,8 @@ jobs:
           components: rustfmt
       - name: Guard IEC log paths
         run: python3 ./scripts/check_iec_log_paths.py
+      - name: Guard expensive gate observability
+        run: python3 ./scripts/check_gate_observability.py
       - run: cargo fmt --all -- --check
       - name: Mark gate success
         if: ${{ success() }}
@@ -96,7 +98,13 @@ jobs:
           LOG_PATH="gate-artifacts/test-${{ matrix.os }}.log"
           for attempt in 1 2; do
             echo "=== cargo build attempt ${attempt}/2 (${{ matrix.os }}) ===" | tee -a "${LOG_PATH}"
-            if cargo build --all-targets 2>&1 | tee -a "${LOG_PATH}"; then
+            if python3 scripts/run_with_progress.py \
+              --phase ci-cargo-build \
+              --target "${{ matrix.os }} attempt ${attempt}/2" \
+              --timeout-seconds "${CI_CARGO_BUILD_TIMEOUT_SECONDS:-1800}" \
+              --progress-interval-seconds "${GATE_PROGRESS_INTERVAL_SECONDS:-30}" \
+              --log "${LOG_PATH}" \
+              -- cargo build --all-targets; then
               exit 0
             fi
             if [[ "${attempt}" -lt 2 ]]; then
@@ -107,7 +115,16 @@ jobs:
           exit 1
       - name: trust-runtime warnings denied
         shell: bash
-        run: RUSTFLAGS=-Dwarnings cargo check -p trust-runtime --all-targets
+        run: |
+          set -euo pipefail
+          LOG_PATH="gate-artifacts/test-${{ matrix.os }}.log"
+          RUSTFLAGS=-Dwarnings python3 scripts/run_with_progress.py \
+            --phase ci-runtime-warnings \
+            --target "${{ matrix.os }} trust-runtime" \
+            --timeout-seconds "${CI_RUNTIME_WARNINGS_TIMEOUT_SECONDS:-1200}" \
+            --progress-interval-seconds "${GATE_PROGRESS_INTERVAL_SECONDS:-30}" \
+            --log "${LOG_PATH}" \
+            -- cargo check -p trust-runtime --all-targets
       - name: Mesh TLS stability gate
         shell: bash
         run: |
@@ -123,16 +140,20 @@ jobs:
           mkdir -p gate-artifacts
           LOG_PATH="gate-artifacts/test-${{ matrix.os }}.log"
           : > "${LOG_PATH}"
-          run_full_suite() {
-            if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-              cargo test --all-targets -- --test-threads=1
-            else
-              cargo test --all-targets
-            fi
-          }
           for attempt in 1 2; do
             echo "=== full test suite attempt ${attempt}/2 (${{ matrix.os }}) ===" | tee -a "${LOG_PATH}"
-            if run_full_suite 2>&1 | tee -a "${LOG_PATH}"; then
+            if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+              command=(cargo test --all-targets -- --test-threads=1)
+            else
+              command=(cargo test --all-targets)
+            fi
+            if python3 scripts/run_with_progress.py \
+              --phase ci-full-test \
+              --target "${{ matrix.os }} attempt ${attempt}/2" \
+              --timeout-seconds "${CI_FULL_TEST_TIMEOUT_SECONDS:-2400}" \
+              --progress-interval-seconds "${GATE_PROGRESS_INTERVAL_SECONDS:-30}" \
+              --log "${LOG_PATH}" \
+              -- "${command[@]}"; then
               exit 0
             fi
             if [[ "${attempt}" -lt 2 ]]; then
@@ -170,13 +191,25 @@ jobs:
       - name: Run conformance suite (pass 1)
         run: |
           mkdir -p gate-artifacts
-          cargo run -p trust-runtime --bin trust-runtime -- \
+          python3 scripts/run_with_progress.py \
+            --phase ci-conformance-pass-1 \
+            --target conformance-pass-1 \
+            --timeout-seconds "${CI_CONFORMANCE_TIMEOUT_SECONDS:-1800}" \
+            --progress-interval-seconds "${GATE_PROGRESS_INTERVAL_SECONDS:-30}" \
+            --log gate-artifacts/conformance-pass-1.log \
+            -- cargo run -p trust-runtime --bin trust-runtime -- \
             conformance \
             --suite-root conformance \
             --output gate-artifacts/conformance-pass-1.json
       - name: Run conformance suite (pass 2)
         run: |
-          cargo run -p trust-runtime --bin trust-runtime -- \
+          python3 scripts/run_with_progress.py \
+            --phase ci-conformance-pass-2 \
+            --target conformance-pass-2 \
+            --timeout-seconds "${CI_CONFORMANCE_TIMEOUT_SECONDS:-1800}" \
+            --progress-interval-seconds "${GATE_PROGRESS_INTERVAL_SECONDS:-30}" \
+            --log gate-artifacts/conformance-pass-2.log \
+            -- cargo run -p trust-runtime --bin trust-runtime -- \
             conformance \
             --suite-root conformance \
             --output gate-artifacts/conformance-pass-2.json
@@ -343,7 +376,16 @@ jobs:
       - run: npm run lint
       - run: npm run compile
       - name: Build trust-lsp + trust-debug test binaries
-        run: cargo build -p trust-lsp -p trust-debug
+        run: |
+          set -euo pipefail
+          mkdir -p gate-artifacts
+          python3 scripts/run_with_progress.py \
+            --phase ci-vscode-binaries \
+            --target trust-lsp-trust-debug \
+            --timeout-seconds "${CI_VSCODE_BINARIES_TIMEOUT_SECONDS:-1200}" \
+            --progress-interval-seconds "${GATE_PROGRESS_INTERVAL_SECONDS:-30}" \
+            --log gate-artifacts/vscode-binaries.log \
+            -- cargo build -p trust-lsp -p trust-debug
         working-directory: ${{ github.workspace }}
       - name: Add trust-lsp binary directory to PATH
         run: echo "${{ github.workspace }}/target/debug" >> "$GITHUB_PATH"
@@ -360,7 +402,13 @@ jobs:
           : > "${LOG_PATH}"
           for attempt in 1 2; do
             echo "=== VS Code integration attempt ${attempt}/2 ===" | tee -a "${LOG_PATH}"
-            if xvfb-run -a npm test 2>&1 | tee -a "${LOG_PATH}"; then
+            if python3 ../../scripts/run_with_progress.py \
+              --phase ci-vscode-extension \
+              --target "npm-test attempt ${attempt}/2" \
+              --timeout-seconds "${CI_VSCODE_TEST_TIMEOUT_SECONDS:-1800}" \
+              --progress-interval-seconds "${GATE_PROGRESS_INTERVAL_SECONDS:-30}" \
+              --log "${LOG_PATH}" \
+              -- xvfb-run -a npm test; then
               exit 0
             fi
             if [[ "${attempt}" -lt 2 ]]; then
