@@ -1,6 +1,6 @@
 # Runtime Host Surface Ownership Checklist
 
-Status: Phase 3 doctor rules active; Phase 4 runtime-cloud projection extraction in progress
+Status: Phase 4 exact-action ownership complete; Phase 5 contract tests in progress
 Owner: Runtime/web/HMI/control/cloud
 Scope: address audit F11 by defining and enforcing ownership for `web`, `hmi`, `ui`, `control`, and `runtime_cloud`.
 
@@ -128,7 +128,7 @@ Named-file move table from `RTHOST-P1-008`:
 - [x] `RTHOST-P4-006` Keep browser assets and websocket details in web; any browser-visible row requires Playwright evidence in the implementation branch.
 - [x] `RTHOST-P4-007` Decide exact action for `crates/trust-runtime/src/web/hmi_ws.rs`: keep websocket handshake/session/tungstenite/poll timers in web; split HMI event/delta semantics into the HMI domain.
 - [x] `RTHOST-P4-008` Decide exact action for `crates/trust-runtime/src/control/hmi_handlers*.rs`: keep HTTP-neutral control handlers, with runtime value read/write access delegated to `control/hmi_runtime_ports.rs`; HMI schema/contracts stay in `hmi`.
-- [ ] `RTHOST-P4-009` Decide exact action for `crates/trust-runtime/src/runtime_cloud/` files and `crates/trust-runtime/src/web/runtime_cloud_*` route/state files.
+- [x] `RTHOST-P4-009` Decide exact action for `crates/trust-runtime/src/runtime_cloud/` files and `crates/trust-runtime/src/web/runtime_cloud_*` route/state files.
 - [x] `RTHOST-P4-010` Add the reviewed named-file move table to this checklist before code movement.
 
 Phase 4 adapter-port evidence captured on 2026-04-30:
@@ -187,6 +187,26 @@ Phase 4 HMI websocket/event-stream evidence captured on 2026-04-30:
 - Validation: `RUSTUP_TOOLCHAIN=1.95 cargo test -p trust-runtime --lib hmi::tests::hmi_event_stream -- --nocapture` passed 3 event-stream unit tests.
 - Validation: `RUSTUP_TOOLCHAIN=1.95 cargo test -p trust-runtime --test hmi_readonly_integration hmi_websocket -- --nocapture` passed the 5 websocket integration tests covering value/schema/alarm events, local latency, forced failure recovery, reconnect churn, and slow consumers.
 - Browser evidence: live `/hmi` Playwright pass against `http://127.0.0.1:18082/hmi` observed `hmi.values.delta` and `hmi.alarms.event` websocket frames, verified connected/fresh UI state with no placeholder values, and wrote screenshot evidence to `target/playwright/hmi-event-stream.png`.
+
+Phase 4 runtime-cloud exact action decisions captured on 2026-04-30:
+
+| Surface | Exact action | Canonical owner | Guard before future deletion/move |
+| --- | --- | --- | --- |
+| `crates/trust-runtime/src/runtime_cloud/mod.rs`, `contracts.rs`, `routing.rs`, `projection.rs`, `ha.rs`, `keyspace.rs` | Keep in runtime-cloud domain. These files define public contracts, reason codes, action routing, HA policy contracts, keyspace, and UI projection rules. | Runtime-cloud domain. | `runtime_cloud_core_modules_do_not_import_transport_layers` must continue to reject web/discovery/mesh/runtime transport imports. |
+| `runtime_cloud/profile_policy.rs`, `link_policy.rs`, `rollout_policy.rs`, `config_policy.rs`, `control_proxy_policy.rs`, `io_proxy_policy.rs` | Keep as runtime-cloud policy/state/action-planning modules. They are the extracted pure owners from Phase 4. | Runtime-cloud domain with `pub(crate)` policy surfaces unless an external API requires promotion. | Keep each focused unit test plus the matching route integration test before deleting any route-local fallback. |
+| `web/runtime_cloud_routes/mod.rs` | Keep as HTTP route dispatcher and route context owner. It owns tiny-http request matching, web auth context, TLS state, control/discovery/state handles, and adapter wiring. | Web adapter. | Do not move `tiny_http`, auth token, pairing, `Arc<Mutex<_>>`, or route matching into runtime-cloud. |
+| `web/runtime_cloud_routes/actions.rs` | Keep as HTTP preflight/dispatch adapter. It reads route bodies, resolves web roles, calls runtime-cloud preflight/profile/HA policy, maps to local control dispatch or remote HTTP forwarding, and serializes aggregate dispatch responses. | Web adapter, with action contracts in `runtime_cloud/routing.rs` and profile policy in `runtime_cloud/profile_policy.rs`. | `runtime_cloud_dispatch_route_uses_contract_preflight_before_dispatch_mapping` must keep preflight before control mapping; future moves need a discovery-neutral dispatch port first. |
+| `web/runtime_cloud_dispatch.rs` | Keep as web/discovery adapter for target status maps, preferred URL selection, live socket probes, and HA dispatch gating context. It intentionally touches `DiscoveryState`, mesh reachability, sockets, and HA coordinator locks. | Web adapter feeding runtime-cloud routing/profile/HA policy. | Split only after a narrow discovery/status provider exists; never import discovery/socket probing into `runtime_cloud`. |
+| `web/runtime_cloud_helpers.rs` | Keep as route response mapping helper for control errors, remote HTTP status, HA result records, and audit IDs. | Web adapter. | Promote to runtime-cloud only if a non-web caller needs the same mapping and route status-code concerns are removed. |
+| `web/runtime_cloud_routes/config.rs` and `web/runtime_cloud_state/config.rs` | Keep route/persistence/locking/control-dispatch side effects in web; `runtime_cloud/config_policy.rs` owns config-agent state shape, desired/reported merge/hash behavior, reconcile action, and error classification. | Runtime-cloud config policy plus web adapter. | Keep config-policy tests and `runtime_cloud_config` / `runtime_cloud_config_agent` route tests before deleting any adapter code. |
+| `web/runtime_cloud_routes/links.rs` and `web/runtime_cloud_state/links.rs` | Keep route body parsing, filesystem persistence, mutex locking, discovery same-host checks, and HTTP serialization in web; `runtime_cloud/link_policy.rs` owns preference/projection/grouping policy. | Runtime-cloud link policy plus web adapter. | Keep link route tests, web IDE runtime-cloud tests, and same-host transport denial behavior before future deletion. |
+| `web/runtime_cloud_routes/rollouts.rs` and `web/runtime_cloud_state/rollouts.rs` | Keep route payload translation, persistence, locking, and config-state view assembly in web; `runtime_cloud/rollout_policy.rs` owns rollout records, state machine, action handling, and reconciliation policy. | Runtime-cloud rollout policy plus web adapter. | Keep rollout policy tests and rollout route tests before moving or deleting web helpers. |
+| `web/runtime_cloud_routes/control_proxy.rs` | Keep HTTP auth, POST/TLS policy, body decoding, local control dispatch, remote HTTP forwarding, and response serialization in web; `runtime_cloud/control_proxy_policy.rs` owns validation/action/control-payload planning. | Runtime-cloud control-proxy policy plus web/control adapters. | Keep control-proxy policy tests and `runtime_cloud_control_proxy` route tests before future deletion. |
+| `web/runtime_cloud_routes/io_proxy.rs` | Keep HTTP auth, POST/TLS policy, query/body parsing, local `io.toml` load/save, remote HTTP forwarding, filesystem and transport errors in web; `runtime_cloud/io_proxy_policy.rs` owns target/actor validation and read/write action planning. | Runtime-cloud IO-proxy policy plus web adapter. | Keep IO-proxy policy tests and `runtime_cloud_io_config_proxy` route tests before future deletion. |
+| `web/models.rs` runtime-cloud request/response structs | Keep route-private request DTOs in web for now. Public runtime-cloud API contracts remain in `runtime_cloud/contracts.rs`, `routing.rs`, and `projection.rs`. | Web adapter for route bodies; runtime-cloud for public contracts. | Promote a DTO into runtime-cloud only when it is reused outside web or becomes part of a documented external contract. |
+| `web/config_ui_routes.rs` runtime-cloud config-mode endpoints | Keep as config-UI adapter. It owns config-mode workspace/file/runtime lifecycle HTTP behavior and uses runtime-cloud projection/policy helpers where needed. | Web/config UI adapter. | Treat large-file splitting separately under runtime-large-file work; do not use `RTHOST-P4-009` as permission to move config-UI transport into runtime-cloud. |
+
+Exit decision: Phase 4 runtime-cloud extraction is complete when the table above remains true and `FULLMAP-CHECK-07` plus `runtime_cloud_architecture` tests pass. Any later movement must be opened as a new named row with behavior-lock tests.
 
 ## Phase 5 - Tests
 
