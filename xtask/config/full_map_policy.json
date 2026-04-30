@@ -117,7 +117,7 @@
     {"command": "Rollback", "module": "deploy", "handler": "deploy::run_rollback", "route_kind": "shared_handler", "owner": "runtime/deploy", "rationale": "Command::Rollback dispatches to deploy::run_rollback from the deployment module", "review_date": "2026-04-28"}
   ],
   "host_surface": {
-    "approved_ports_active": false,
+    "approved_ports_active": true,
     "owned_paths": [
       {"path_prefix": "crates/trust-runtime/src/control.rs", "category": "control_root", "owner": "runtime/control", "rationale": "control module root and ControlState live in the control boundary"},
       {"path_prefix": "crates/trust-runtime/src/control/", "category": "control_port", "owner": "runtime/control", "rationale": "control handlers and policy own HTTP-neutral command/query ports"},

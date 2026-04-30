@@ -8,9 +8,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::software_map::{
     CliActionSummary, DependencyHygieneSummary, DependencyPolicyEntry, DiagramEdge, DiagramFact,
-    ImportEdge, ModuleSummary, PackageSummary, ParserRecoverySummary, RuntimeRouteHandlerSummary,
-    SoftwareMap, SourceFileSummary, SourcePatternSummary, TargetSummary, ToolResult, ToolStatus,
-    UnsafeSummary, WorkspaceEdge,
+    HostSurfaceSummary, ImportEdge, ModuleSummary, PackageSummary, ParserRecoverySummary,
+    RuntimeRouteHandlerSummary, SoftwareMap, SourceFileSummary, SourcePatternSummary,
+    TargetSummary, ToolResult, ToolStatus, UnsafeSummary, WorkspaceEdge,
 };
 
 pub fn architecture_doctor_full_map(root: &Path) -> Result<()> {
@@ -404,6 +404,7 @@ fn build_software_map(root: &Path, policy: &FullMapPolicy) -> Result<SoftwareMap
         .cloned()
         .collect::<BTreeSet<_>>();
     map.import_edges = collect_import_edges(root, &known_import_modules)?;
+    map.host_surface = collect_host_surface_summary(root)?;
     map.runtime_cli_commands = parse_enum_variants(
         &fs::read_to_string(
             root.join("crates/trust-runtime/src/bin/trust-runtime/cli/commands.rs"),
@@ -1088,6 +1089,14 @@ fn check_host_surface_edges(map: &SoftwareMap, policy: &FullMapPolicy) -> FullMa
             )),
         }
     }
+    if policy.host_surface.approved_ports_active {
+        for bypass in &map.host_surface.direct_runtime_state_bypasses {
+            failures.push(format!(
+                "web route bypasses approved host-surface port at {}:{} ({})",
+                bypass.path, bypass.line, bypass.pattern
+            ));
+        }
+    }
 
     if failures.is_empty() {
         details.extend(vec![
@@ -1107,6 +1116,10 @@ fn check_host_surface_edges(map: &SoftwareMap, policy: &FullMapPolicy) -> FullMa
             format!(
                 "host-surface owner categories: {}",
                 categories.into_iter().collect::<Vec<_>>().join(", ")
+            ),
+            format!(
+                "direct web runtime-state bypass findings: {}",
+                map.host_surface.direct_runtime_state_bypasses.len()
             ),
         ]);
         if policy.host_surface.approved_ports_active {
@@ -1737,6 +1750,66 @@ fn collect_import_edges(root: &Path, known_modules: &BTreeSet<String>) -> Result
         }
     }
     Ok(edges)
+}
+
+fn collect_host_surface_summary(root: &Path) -> Result<HostSurfaceSummary> {
+    let web_root = root.join("crates/trust-runtime/src/web");
+    let mut files = Vec::new();
+    collect_source_files_inner(&web_root, &mut files)?;
+    let mut summary = HostSurfaceSummary::default();
+    for file in files {
+        if file.extension().and_then(|ext| ext.to_str()) != Some("rs") {
+            continue;
+        }
+        let rel = rel_path(root, &file);
+        if is_test_source_file(&rel) {
+            continue;
+        }
+        let source = fs::read_to_string(&file).unwrap_or_default();
+        for (idx, line) in source.lines().enumerate() {
+            let line = strip_line_comment(line);
+            if let Some(field) = direct_control_state_field_bypass(line) {
+                summary
+                    .direct_runtime_state_bypasses
+                    .push(SourcePatternSummary {
+                        path: rel.clone(),
+                        line: idx + 1,
+                        pattern: format!("ControlState.{field} direct web access"),
+                    });
+            }
+        }
+    }
+    Ok(summary)
+}
+
+fn direct_control_state_field_bypass(line: &str) -> Option<&'static str> {
+    const FORBIDDEN_FIELDS: &[&str] = &[
+        "debug",
+        "resource",
+        "metadata",
+        "sources",
+        "io_snapshot",
+        "pending_restart",
+        "metrics",
+        "events",
+        "settings",
+        "realtime_status",
+        "project_root",
+        "resource_name",
+        "io_health",
+        "debug_variables",
+        "hmi_live",
+        "hmi_descriptor",
+        "historian",
+    ];
+    for field in FORBIDDEN_FIELDS {
+        let direct = format!("control_state.{field}");
+        let context = format!("control_state.as_ref().{field}");
+        if line.contains(&direct) || line.contains(&context) {
+            return Some(field);
+        }
+    }
+    None
 }
 
 fn collect_unsafe_summary(root: &Path, policy: &FullMapPolicy) -> UnsafeSummary {
@@ -2679,6 +2752,56 @@ mod tests {
             .iter()
             .any(|detail| detail
                 .contains("crates/trust-runtime/src/control.rs' has no owner category")));
+    }
+
+    #[test]
+    fn known_bad_web_route_direct_runtime_state_bypass_fails_when_ports_active() {
+        let mut map = base_map();
+        map.host_surface
+            .direct_runtime_state_bypasses
+            .push(SourcePatternSummary {
+                path: "crates/trust-runtime/src/web/ui_routes.rs".to_string(),
+                line: 51,
+                pattern: "ControlState.project_root direct web access".to_string(),
+            });
+        let mut policy = base_policy();
+        policy.host_surface.approved_ports_active = true;
+
+        let check = check_host_surface_edges(&map, &policy);
+
+        assert!(check.is_fail());
+        assert!(check
+            .details
+            .iter()
+            .any(|detail| detail.contains("bypasses approved host-surface port")));
+    }
+
+    #[test]
+    fn host_surface_ports_active_passes_without_direct_runtime_state_bypass() {
+        let mut policy = base_policy();
+        policy.host_surface.approved_ports_active = true;
+
+        let check = check_host_surface_edges(&base_map(), &policy);
+
+        assert_eq!(check.status, CheckStatus::Pass);
+        assert!(check
+            .details
+            .iter()
+            .any(|detail| detail.contains("direct web runtime-state bypass findings: 0")));
+    }
+
+    #[test]
+    fn direct_control_state_field_bypass_detects_runtime_state_fields() {
+        assert_eq!(
+            direct_control_state_field_bypass("ctx.control_state.project_root.clone()"),
+            Some("project_root")
+        );
+        assert_eq!(
+            direct_control_state_field_bypass(
+                "dispatch_control_request(payload, control_state, None)"
+            ),
+            None
+        );
     }
 
     #[test]

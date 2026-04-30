@@ -19,10 +19,8 @@ pub(super) fn handle_get_config(request: tiny_http::Request, ctx: &RuntimeCloudR
         ctx.control_state.as_ref(),
         ctx.config_path,
     );
-    let snapshot = runtime_cloud_config_snapshot(
-        ctx.config_state.as_ref(),
-        ctx.control_state.resource_name.as_str(),
-    );
+    let snapshot =
+        runtime_cloud_config_snapshot(ctx.config_state.as_ref(), local_runtime_id(ctx).as_str());
     let response = Response::from_string(
         serde_json::to_string(&snapshot).unwrap_or_else(|_| "{}".to_string()),
     )

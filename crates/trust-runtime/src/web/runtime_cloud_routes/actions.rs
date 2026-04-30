@@ -29,7 +29,7 @@ pub(super) fn handle_post_preflight(
                 return;
             }
         };
-    let local_runtime = ctx.control_state.resource_name.to_string();
+    let local_runtime = local_runtime_id(ctx);
     let (preflight, _ha_request, _known_targets) = runtime_cloud_preflight_for_action(
         &action,
         local_runtime.as_str(),
@@ -79,7 +79,7 @@ pub(super) fn handle_post_dispatch(
                 return;
             }
         };
-    let local_runtime = ctx.control_state.resource_name.to_string();
+    let local_runtime = local_runtime_id(ctx);
     let (preflight, ha_request, _known_targets) = runtime_cloud_preflight_for_action(
         &action,
         local_runtime.as_str(),

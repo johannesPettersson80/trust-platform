@@ -16,6 +16,7 @@ pub struct SoftwareMap {
     pub runtime_cli_actions: Vec<CliActionSummary>,
     pub runtime_bin_modules: Vec<String>,
     pub runtime_route_handlers: Vec<RuntimeRouteHandlerSummary>,
+    pub host_surface: HostSurfaceSummary,
     pub parser_recovery: ParserRecoverySummary,
     pub dependency_hygiene: DependencyHygieneSummary,
     pub unsafe_summary: UnsafeSummary,
@@ -78,6 +79,11 @@ pub struct RuntimeRouteHandlerSummary {
     pub handler: String,
     pub path: String,
     pub line: usize,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+pub struct HostSurfaceSummary {
+    pub direct_runtime_state_bypasses: Vec<SourcePatternSummary>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
@@ -165,7 +171,7 @@ impl ToolStatus {
 impl SoftwareMap {
     pub fn new(workspace_root: impl Into<String>) -> Self {
         Self {
-            schema_version: 4,
+            schema_version: 5,
             workspace_root: workspace_root.into(),
             generated_by: "cargo xtask architecture-doctor --full-map".to_string(),
             packages: Vec::new(),
@@ -179,6 +185,7 @@ impl SoftwareMap {
             runtime_cli_actions: Vec::new(),
             runtime_bin_modules: Vec::new(),
             runtime_route_handlers: Vec::new(),
+            host_surface: HostSurfaceSummary::default(),
             parser_recovery: ParserRecoverySummary::default(),
             dependency_hygiene: DependencyHygieneSummary::default(),
             unsafe_summary: UnsafeSummary::default(),
@@ -249,6 +256,14 @@ impl SoftwareMap {
                 .then_with(|| left.line.cmp(&right.line))
         });
         self.runtime_route_handlers.dedup();
+        self.host_surface
+            .direct_runtime_state_bypasses
+            .sort_by(|left, right| {
+                left.path
+                    .cmp(&right.path)
+                    .then_with(|| left.line.cmp(&right.line))
+                    .then_with(|| left.pattern.cmp(&right.pattern))
+            });
         self.parser_recovery.bounded_scan_helpers.sort();
         self.parser_recovery.bounded_scan_helpers.dedup();
         self.parser_recovery
@@ -306,7 +321,7 @@ mod tests {
         let reverse = sample_map(true).to_stable_json().unwrap();
 
         assert_eq!(forward, reverse);
-        assert!(forward.contains("\"schema_version\": 4"));
+        assert!(forward.contains("\"schema_version\": 5"));
         assert!(forward.contains("\"status\": \"not_run\""));
     }
 

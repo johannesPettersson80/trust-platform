@@ -310,6 +310,14 @@ pub fn spawn_hmi_descriptor_watcher(state: Arc<ControlState>) {
     }
 }
 
+pub(crate) fn hmi_asset_project_root_port(state: &ControlState) -> Option<PathBuf> {
+    state.project_root.clone()
+}
+
+pub(crate) fn runtime_resource_name_port(state: &ControlState) -> SmolStr {
+    state.resource_name.clone()
+}
+
 pub(crate) fn handle_request_line(
     line: &str,
     state: &ControlState,

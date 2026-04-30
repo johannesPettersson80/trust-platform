@@ -140,7 +140,9 @@ pub fn start_web_server_with_mode(
                     auth_token: &auth_token,
                     pairing: pairing.as_deref(),
                     control_state: &control_state,
-                    bundle_root: &bundle_root,
+                    hmi_asset_root: bundle_root.clone().or_else(|| {
+                        crate::control::hmi_asset_project_root_port(control_state.as_ref())
+                    }),
                 },
             ) {
                 UiRouteOutcome::Handled => continue,
