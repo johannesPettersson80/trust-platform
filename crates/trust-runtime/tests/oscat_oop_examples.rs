@@ -651,6 +651,15 @@ fn example_child_progress_line(child_id: u32, project: &Path, elapsed: Duration)
     )
 }
 
+fn example_child_timeout_line(child_id: u32, project: &Path, elapsed: Duration) -> String {
+    format!(
+        "[oscat examples] child pid={child_id} timed out reason=timeout elapsed={}s timeout={}s project={}",
+        elapsed.as_secs(),
+        EXAMPLE_TEST_TIMEOUT.as_secs(),
+        project.display()
+    )
+}
+
 fn run_example_st_tests_at(project: &Path) -> Result<(), String> {
     let mut child = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
         .args(["test", "--project"])
@@ -696,15 +705,15 @@ fn run_example_st_tests_at(project: &Path) -> Result<(), String> {
         }
 
         if started.elapsed() >= EXAMPLE_TEST_TIMEOUT {
+            let elapsed = started.elapsed();
+            let timeout_line = example_child_timeout_line(child_id, project, elapsed);
+            eprintln!("{timeout_line}");
             let _ = child.kill();
             let output = child
                 .wait_with_output()
                 .expect("collect timed-out trust-runtime example test output");
             return Err(format!(
-                "timed out after {}s running ST example tests at {}\nchild pid: {}\nstatus: {}\nstdout:\n{}\nstderr:\n{}",
-                EXAMPLE_TEST_TIMEOUT.as_secs(),
-                project.display(),
-                child_id,
+                "{timeout_line}\nstatus: {}\nstdout:\n{}\nstderr:\n{}",
                 output.status,
                 String::from_utf8_lossy(&output.stdout),
                 String::from_utf8_lossy(&output.stderr)
@@ -937,6 +946,14 @@ fn oscat_example_child_lines_include_pid_project_and_elapsed_context() {
         example_child_progress_line(42, &project, Duration::from_secs(31)),
         format!(
             "[oscat examples] child pid=42 still running elapsed=31s project={}",
+            project.display()
+        )
+    );
+    assert_eq!(
+        example_child_timeout_line(42, &project, Duration::from_secs(121)),
+        format!(
+            "[oscat examples] child pid=42 timed out reason=timeout elapsed=121s timeout={}s project={}",
+            EXAMPLE_TEST_TIMEOUT.as_secs(),
             project.display()
         )
     );
