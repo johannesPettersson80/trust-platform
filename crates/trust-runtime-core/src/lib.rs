@@ -14,6 +14,8 @@
 #![warn(missing_docs)]
 #![allow(clippy::module_name_repetitions)]
 
+extern crate alloc;
+
 /// Portable date/time calculation helpers.
 pub mod datetime;
 /// Portable runtime errors.
