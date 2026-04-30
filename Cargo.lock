@@ -5166,6 +5166,10 @@ dependencies = [
 [[package]]
 name = "trust-runtime-core"
 version = "0.24.8"
+dependencies = [
+ "smol_str",
+ "thiserror 2.0.18",
+]
 
 [[package]]
 name = "trust-syntax"

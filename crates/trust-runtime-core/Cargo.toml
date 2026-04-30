@@ -12,3 +12,5 @@ default = ["std"]
 std = []
 
 [dependencies]
+smol_str.workspace = true
+thiserror.workspace = true

@@ -16,6 +16,8 @@
 
 /// Portable date/time calculation helpers.
 pub mod datetime;
+/// Portable runtime errors.
+pub mod error;
 /// Portable runtime memory identity types.
 pub mod memory;
 /// Scaffold ownership markers for the pre-move core crate.

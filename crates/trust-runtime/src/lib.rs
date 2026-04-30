@@ -30,7 +30,9 @@ pub mod debug;
 /// Local discovery (mDNS) for runtimes.
 pub mod discovery;
 /// Runtime errors and configuration.
-pub mod error;
+pub mod error {
+    pub use trust_runtime_core::error::*;
+}
 /// Expression and statement evaluation.
 pub mod eval;
 /// Runtime execution backend selection and provenance.

@@ -166,7 +166,6 @@
       {"name": "control", "subsystem": "host_surface_control", "owner": "runtime/control", "rationale": "HTTP-neutral control command/query boundary", "review_date": "2026-04-30", "decision_note": "ARCHPROG-C-05 baseline freeze"},
       {"name": "debug", "subsystem": "debug_protocol", "owner": "runtime/debug", "rationale": "runtime debug protocol and state", "review_date": "2026-04-30", "decision_note": "ARCHPROG-C-05 baseline freeze"},
       {"name": "discovery", "subsystem": "host_networking", "owner": "runtime/discovery", "rationale": "host discovery and peer visibility", "review_date": "2026-04-30", "decision_note": "ARCHPROG-C-05 baseline freeze"},
-      {"name": "error", "subsystem": "runtime_error_model", "owner": "runtime", "rationale": "shared runtime error types", "review_date": "2026-04-30", "decision_note": "ARCHPROG-C-05 baseline freeze"},
       {"name": "eval", "subsystem": "portable_runtime_core", "owner": "runtime/eval", "rationale": "runtime expression evaluation support", "review_date": "2026-04-30", "decision_note": "ARCHPROG-C-05 baseline freeze"},
       {"name": "execution_backend", "subsystem": "portable_runtime_core", "owner": "runtime/execution", "rationale": "runtime execution backend selection", "review_date": "2026-04-30", "decision_note": "ARCHPROG-C-05 baseline freeze"},
       {"name": "harness", "subsystem": "runtime_test_harness", "owner": "runtime/harness", "rationale": "runtime harness and test support", "review_date": "2026-04-30", "decision_note": "ARCHPROG-C-05 baseline freeze"},
