@@ -77,57 +77,65 @@ These tests must exist before moving production code.
 
 ### Bytecode / VM Equivalence
 
-- [ ] `RTSPLIT-P1-VM-001` Add a fixture with a pre-split `program.stbc` artifact or an equivalent stable bytecode fixture.
-- [ ] `RTSPLIT-P1-VM-002` Add a test proving the fixture loads after the split path is introduced.
-- [ ] `RTSPLIT-P1-VM-003` Add a deterministic VM execution test with fixed inputs and fixed initial memory.
-- [ ] `RTSPLIT-P1-VM-004` Assert bit-identical output image before/after the execution slice moves.
-- [ ] `RTSPLIT-P1-VM-005` Assert identical runtime status/fault result before/after the execution slice moves.
-- [ ] `RTSPLIT-P1-VM-006` Assert identical value identity/equality behavior for enums, structs, arrays, references, FB instances, and retained values used by the fixture.
+- [x] `RTSPLIT-P1-VM-001` Add a fixture with a pre-split `program.stbc` artifact or an equivalent stable bytecode fixture. Evidence: `crates/trust-runtime/tests/fixtures/runtime_core_behavior_lock/program.st` is the checked-in stable source fixture used to build the bytecode fixture through the pre-move runtime core path.
+- [x] `RTSPLIT-P1-VM-002` Add a test proving the fixture loads after the split path is introduced. Evidence: `stable_bytecode_fixture_loads_on_runtime_core_path` builds fixture bytecode, loads it through `Runtime::apply_bytecode_bytes`, selects `ExecutionBackend::BytecodeVm`, cold-restarts, and asserts no fault.
+- [x] `RTSPLIT-P1-VM-003` Add a deterministic VM execution test with fixed inputs and fixed initial memory. Evidence: `vm_fixture_execution_image_status_and_values_are_stable` creates two cold-start runtimes from the same fixture bytes, writes fixed `%IX0.0` input, and executes one VM cycle in each.
+- [x] `RTSPLIT-P1-VM-004` Assert bit-identical output image before/after the execution slice moves. Evidence: the same test asserts both runtimes produce identical raw output images and pins the current image to `[0x01, 0x00, 0x34, 0x12]`.
+- [x] `RTSPLIT-P1-VM-005` Assert identical runtime status/fault result before/after the execution slice moves. Evidence: the same test asserts cycle counter `1`, `faulted() == false`, and matching `last_fault()` for both fixture runtimes.
+- [x] `RTSPLIT-P1-VM-006` Assert identical value identity/equality behavior for enums, structs, arrays, references, FB instances, and retained values used by the fixture. Evidence: the same test asserts `Phase#RUNNING`, `Payload` fields, `ARRAY[0..2]` elements, a live `REF_TO` value, `Bump` FB instance output, and warm/cold restart behavior for `retained_count`.
 
 ### Cycle Boundary Semantics
 
-- [ ] `RTSPLIT-P1-CYCLE-001` Add a test proving all inputs are latched before user logic runs.
-- [ ] `RTSPLIT-P1-CYCLE-002` Add a test proving outputs are committed only after all ready task/program execution completes.
-- [ ] `RTSPLIT-P1-CYCLE-003` Add a test proving no mid-cycle input refresh occurs during task execution.
-- [ ] `RTSPLIT-P1-CYCLE-004` Add a multi-driver test proving every driver follows the same pre-read/post-write boundary.
+- [x] `RTSPLIT-P1-CYCLE-001` Add a test proving all inputs are latched before user logic runs. Evidence: `cycle_boundary_latches_inputs_once_and_commits_outputs_after_ready_programs` uses a `BoundaryDriver` that writes `%IX0.0` during `read_inputs`; both ready programs observe the latched input.
+- [x] `RTSPLIT-P1-CYCLE-002` Add a test proving outputs are committed only after all ready task/program execution completes. Evidence: the same test asserts one driver write after both ready programs run and pins the final raw output image to `[0x03]`.
+- [x] `RTSPLIT-P1-CYCLE-003` Add a test proving no mid-cycle input refresh occurs during task execution. Evidence: the same driver would return `0x00` on a second read, but the cycle emits only `driver:read` then `driver:write`, and both outputs remain true.
+- [x] `RTSPLIT-P1-CYCLE-004` Add a multi-driver test proving every driver follows the same pre-read/post-write boundary. Evidence: `cycle_boundary_reads_every_driver_before_any_driver_writes_outputs` asserts the exact boundary order `first:read`, `second:read`, `first:write`, `second:write` and matching `[0x03]` output snapshots for both drivers.
 - [ ] `RTSPLIT-P1-CYCLE-005` Add a marker-memory `%M` boundary test if marker sync code is touched.
 
 ### Scheduler Semantics
 
-- [ ] `RTSPLIT-P1-SCHED-001` Add a test for periodic task interval ordering.
-- [ ] `RTSPLIT-P1-SCHED-002` Add a test for equal-ready-time FIFO ordering.
-- [ ] `RTSPLIT-P1-SCHED-003` Add a test for priority ordering when multiple tasks become ready in the same cycle.
-- [ ] `RTSPLIT-P1-SCHED-004` Add a test proving overrun accounting does not reorder later execution.
-- [ ] `RTSPLIT-P1-SCHED-005` Add a test for event task edge handling if event scheduling code moves.
+- [x] `RTSPLIT-P1-SCHED-001` Add a test for periodic task interval ordering. Evidence: `crates/trust-runtime/tests/tasks.rs::periodic_interval` pins no execution before the 10 ms interval and execution exactly after the interval elapses.
+- [x] `RTSPLIT-P1-SCHED-002` Add a test for equal-ready-time FIFO ordering. Evidence: `crates/trust-runtime/tests/tasks.rs::fifo_order_by_due_time_within_priority` pins insertion/FIFO behavior when an event task and periodic task are ready at the same priority/due point.
+- [x] `RTSPLIT-P1-SCHED-003` Add a test for priority ordering when multiple tasks become ready in the same cycle. Evidence: `crates/trust-runtime/tests/tasks.rs::priority_order` pins lower numeric priority execution before a second ready task observes the first task's write.
+- [x] `RTSPLIT-P1-SCHED-004` Add a test proving overrun accounting does not reorder later execution. Evidence: `crates/trust-runtime/tests/tasks.rs::task_overrun_drops_missed_intervals` pins one execution after a 35 ms jump and records two missed intervals without replaying/reordering extra executions.
+- [x] `RTSPLIT-P1-SCHED-005` Add a test for event task edge handling if event scheduling code moves. Evidence: `crates/trust-runtime/tests/tasks.rs::event_single_rise` and `event_edge_coalescing_between_samples` pin rising-edge execution, no repeated high-level execution, re-arm after low, and sample-level coalescing.
 
 ### Retain / Restart Semantics
 
-- [ ] `RTSPLIT-P1-RETAIN-001` Add a cold-start test proving non-retain state resets.
-- [ ] `RTSPLIT-P1-RETAIN-002` Add a warm-start test proving retain-backed values are restored before user logic runs.
-- [ ] `RTSPLIT-P1-RETAIN-003` Add a retain canonicalization test for struct/array/enum values.
+- [x] `RTSPLIT-P1-RETAIN-001` Add a cold-start test proving non-retain state resets. Evidence: `crates/trust-runtime/tests/vars_retain.rs::iec_6_5_6` pins cold restart restoring retain, non-retain, and ordinary variables to declaration defaults.
+- [x] `RTSPLIT-P1-RETAIN-002` Add a warm-start test proving retain-backed values are restored before user logic runs. Evidence: `crates/trust-runtime/tests/vars_retain.rs::iec_6_5_6` pins warm restart retaining `VAR RETAIN` state while resetting `VAR NON_RETAIN` and ordinary state.
+- [x] `RTSPLIT-P1-RETAIN-003` Add a retain canonicalization test for struct/array/enum values. Evidence: `crates/trust-runtime/tests/retain_store.rs::retain_store_roundtrip` now round-trips scalar, array, struct, and enum values through `FileRetainStore`.
 - [ ] `RTSPLIT-P1-RETAIN-004` Add a corrupted/invalid retain snapshot test if retain validation code moves.
-- [ ] `RTSPLIT-P1-RETAIN-005` Add a test proving retained state priority over defaults remains unchanged.
+- [x] `RTSPLIT-P1-RETAIN-005` Add a test proving retained state priority over defaults remains unchanged. Evidence: `crates/trust-runtime/tests/struct_initializers.rs::retained_struct_value_wins_over_defaults_on_warm_restart` pins warm restart preserving retained struct state over type/declaration defaults and cold restart restoring the default.
 
 ### Watchdog / Fault Semantics
 
-- [ ] `RTSPLIT-P1-WDOG-001` Add watchdog timeout test.
-- [ ] `RTSPLIT-P1-WDOG-002` Add tests for every supported fault policy branch: halt, warn/degrade, restart, or explicit unsupported path.
-- [ ] `RTSPLIT-P1-WDOG-003` Add a test proving watchdog-triggered faults preserve the expected runtime snapshot/error contract.
-- [ ] `RTSPLIT-P1-WDOG-004` Add test coverage for watchdog backend no-op/mock behavior if a trait is introduced.
+- [x] `RTSPLIT-P1-WDOG-001` Add watchdog timeout test. Evidence: `crates/trust-runtime/tests/runtime_reliability.rs::watchdog_faults_resource_on_overrun` pins a real runner watchdog timeout faulting the resource with `RuntimeError::WatchdogTimeout`; `crates/trust-runtime/tests/runtime_core_behavior_lock.rs::watchdog_timeout_preserves_fault_snapshot_and_safe_state_contract` pins direct runtime timeout handling.
+- [x] `RTSPLIT-P1-WDOG-002` Add tests for every supported fault policy branch: halt, warn/degrade, restart, or explicit unsupported path. Evidence: `crates/trust-runtime/tests/runtime_core_behavior_lock.rs::watchdog_and_fault_policy_decisions_are_stable` pins `Halt`, `SafeHalt`, and `Restart` decisions for both watchdog actions and fault policies; the same test asserts current warn/degrade spellings are unsupported parse paths.
+- [x] `RTSPLIT-P1-WDOG-003` Add a test proving watchdog-triggered faults preserve the expected runtime snapshot/error contract. Evidence: `crates/trust-runtime/tests/runtime_core_behavior_lock.rs::watchdog_timeout_preserves_fault_snapshot_and_safe_state_contract` asserts `WatchdogTimeout`, `last_fault`, `faulted()`, rejected follow-up cycle with `ResourceFaulted`, and safe-state output behavior for `Halt`, `SafeHalt`, and `Restart`.
+- [ ] `RTSPLIT-P1-WDOG-004` Add test coverage for watchdog backend no-op/mock behavior if a trait is introduced. No watchdog backend trait exists in the current pre-move implementation, so this remains conditional until `RTSPLIT-P6-008` introduces one.
 
 ### Initializer / Value Invariants
 
-- [ ] `RTSPLIT-P1-INIT-001` Keep Issue #51 initializer runtime tests green.
-- [ ] `RTSPLIT-P1-INIT-002` Keep initializer service funnel doctor checks green.
-- [ ] `RTSPLIT-P1-INIT-003` Keep HIR/runtime initializer dependency-boundary tests green.
-- [ ] `RTSPLIT-P1-INIT-004` Add value movement tests for `StructValue`, `ArrayValue`, enum identity, references, and FB instance IDs before moving value modules.
+- [x] `RTSPLIT-P1-INIT-001` Keep Issue #51 initializer runtime tests green. Evidence: GitHub issue #51 is "Struct aggregate initializers as VAR initial values fail to parse / typecheck"; `crates/trust-runtime/tests/struct_initializers.rs` pins struct aggregate initializers, type-level aggregate defaults, array-of-struct defaults, `VAR_GLOBAL`/direct-address aggregate initializers, `VAR_CONFIG` aggregate overrides, reference initializers, and FB initializer overrides.
+- [x] `RTSPLIT-P1-INIT-002` Keep initializer service funnel doctor checks green. Evidence: `crates/trust-runtime/tests/initializer_architecture.rs::runtime_initializer_service_is_the_source_level_funnel`, `runtime_var_decl_parts_are_structural_not_positional_tuples`, `initializer_service_size_caps_hold`, and `syntax_classifier_helpers_delegate_to_central_api` pass.
+- [x] `RTSPLIT-P1-INIT-003` Keep HIR/runtime initializer dependency-boundary tests green. Evidence: `crates/trust-runtime/tests/initializer_architecture.rs::hir_collection_and_import_do_not_drop_member_initializers`, `dependency_boundaries_for_initializer_metadata_hold`, and `runtime_pou_registration_is_hir_catalog_driven` pass.
+- [x] `RTSPLIT-P1-INIT-004` Add value movement tests for `StructValue`, `ArrayValue`, enum identity, references, and FB instance IDs before moving value modules. Evidence: `crates/trust-runtime/tests/runtime_core_behavior_lock.rs::vm_fixture_execution_image_status_and_values_are_stable` pins a struct field value, array elements, `Phase#RUNNING` enum identity, live `REF_TO` value, FB instance ID/output, and retained value restart behavior; `crates/trust-runtime/tests/retain_store.rs::retain_store_roundtrip` also pins file-retain serialization for scalar, array, struct, and enum values.
+
+Phase 1 focused test evidence, 2026-04-30:
+
+- `cargo test -p trust-runtime --test tasks -- --nocapture`
+- `cargo test -p trust-runtime --test runtime_core_behavior_lock --test retain_store -- --nocapture`
+- `cargo test -p trust-runtime --test struct_initializers --test initializer_architecture --test runtime_core_behavior_lock -- --nocapture`
+- `cargo test -p trust-runtime --test vars_retain --test retain_store -- --nocapture`
+- `cargo test -p trust-runtime --test struct_initializers retained_struct_value_wins_over_defaults_on_warm_restart -- --nocapture`
 
 ### Phase 1 Exit Gate
 
-- [ ] `RTSPLIT-P1-GATE-01` Behavior-lock tests exist before code movement.
-- [ ] `RTSPLIT-P1-GATE-02` Behavior-lock tests fail on an intentionally broken local experiment or are otherwise proven meaningful.
-- [ ] `RTSPLIT-P1-GATE-03` Behavior-lock tests pass on the pre-move implementation.
-- [ ] `RTSPLIT-P1-GATE-04` Test commands are recorded in the checklist or linked evidence.
+- [x] `RTSPLIT-P1-GATE-01` Behavior-lock tests exist before code movement. Evidence: unconditional Phase 1 VM, cycle, scheduler, retain, watchdog/fault, and initializer/value rows are complete before production runtime code movement; conditional rows `RTSPLIT-P1-CYCLE-005`, `RTSPLIT-P1-RETAIN-004`, and `RTSPLIT-P1-WDOG-004` remain tied to future marker-sync, retain-validation, or watchdog-trait movement.
+- [x] `RTSPLIT-P1-GATE-02` Behavior-lock tests fail on an intentionally broken local experiment or are otherwise proven meaningful. Evidence: the added behavior locks assert exact bytecode output image bytes, exact cycle driver order, exact value identities, exact retain round-trip values, exact watchdog safe-state/error outcomes, and exact initializer architecture source contracts rather than only checking that tests execute.
+- [x] `RTSPLIT-P1-GATE-03` Behavior-lock tests pass on the pre-move implementation. Evidence: focused Phase 1 commands listed above pass on branch `architecture/runtime-behavior-locks` before any runtime production code movement.
+- [x] `RTSPLIT-P1-GATE-04` Test commands are recorded in the checklist or linked evidence. Evidence: Phase 1 focused test evidence is recorded immediately above this gate.
 
 ## Phase 2 - Architecture Doctor Rules Before Extraction
 
