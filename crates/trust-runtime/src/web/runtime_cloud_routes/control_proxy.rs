@@ -64,7 +64,7 @@ pub(super) fn handle_post_control_proxy(
         return;
     }
 
-    let local_runtime = ctx.control_state.resource_name.to_string();
+    let local_runtime = local_runtime_id(ctx);
     let target_runtime = payload.target_runtime.trim().to_string();
     let action_type = proxy_action_type(kind, required_role);
     let action = RuntimeCloudActionRequest {

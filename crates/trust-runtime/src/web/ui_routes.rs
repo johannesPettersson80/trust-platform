@@ -9,7 +9,7 @@ pub(super) struct UiRouteContext<'a> {
     pub auth_token: &'a Arc<Mutex<Option<SmolStr>>>,
     pub pairing: Option<&'a PairingStore>,
     pub control_state: &'a Arc<ControlState>,
-    pub bundle_root: &'a Option<PathBuf>,
+    pub hmi_asset_root: Option<PathBuf>,
 }
 
 pub(super) enum UiRouteOutcome {
@@ -45,11 +45,7 @@ pub(super) fn handle_ui_route(
         return UiRouteOutcome::Handled;
     }
     if *method == Method::Get && url_path.starts_with("/hmi/assets/") {
-        let Some(project_root) = ctx
-            .bundle_root
-            .clone()
-            .or_else(|| ctx.control_state.project_root.clone())
-        else {
+        let Some(project_root) = ctx.hmi_asset_root else {
             let response = Response::from_string(
                 json!({ "ok": false, "error": "project root unavailable" }).to_string(),
             )

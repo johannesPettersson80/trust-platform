@@ -1338,7 +1338,8 @@ fn resolve_runtime_target<'a>(
         return resolve_runtime_by_id(workspace, requested);
     }
 
-    let connected_via = control_state.resource_name.to_string();
+    let connected_via =
+        crate::control::runtime_resource_name_port(control_state.as_ref()).to_string();
     if !connected_via.is_empty() {
         if let Ok(runtime) = resolve_runtime_by_id(workspace, connected_via.as_str()) {
             return Ok(runtime);

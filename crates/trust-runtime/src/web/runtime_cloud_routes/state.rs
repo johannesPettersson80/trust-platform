@@ -32,8 +32,7 @@ pub(super) fn handle_get_state(request: tiny_http::Request, ctx: &RuntimeCloudRo
         return;
     }
     let now_ns = now_ns();
-    let local_runtime = ctx.control_state.resource_name.clone();
-    let local_runtime_text = local_runtime.to_string();
+    let local_runtime_text = local_runtime_id(ctx);
     let site = RUNTIME_CLOUD_DEFAULT_SITE;
     let mut peers_by_runtime = BTreeMap::<String, RuntimePresenceRecord>::new();
     for entry in ctx.discovery.snapshot() {
@@ -78,8 +77,8 @@ pub(super) fn handle_get_state(request: tiny_http::Request, ctx: &RuntimeCloudRo
             acting_on.push(peer.runtime_id.clone());
         }
     }
-    if !acting_on.iter().any(|id| id == local_runtime.as_str()) {
-        acting_on.push(local_runtime.to_string());
+    if !acting_on.iter().any(|id| id == local_runtime_text.as_str()) {
+        acting_on.push(local_runtime_text.clone());
     }
     let mode = if web_role.allows(AccessRole::Engineer) {
         UiMode::Edit
@@ -92,7 +91,7 @@ pub(super) fn handle_get_state(request: tiny_http::Request, ctx: &RuntimeCloudRo
         format!("local://{}", web_role.as_str())
     };
     let context = UiContext {
-        connected_via: local_runtime.to_string(),
+        connected_via: local_runtime_text.clone(),
         acting_on,
         site_scope: vec![site.to_string()],
         identity,

@@ -84,7 +84,7 @@ pub(super) fn handle_post_link_transport(
         return;
     }
 
-    let local_runtime = ctx.control_state.resource_name.to_string();
+    let local_runtime = local_runtime_id(ctx);
     if source != local_runtime {
         let response = Response::from_string(
             serde_json::to_string(&RuntimeCloudLinkTransportSetResponse {

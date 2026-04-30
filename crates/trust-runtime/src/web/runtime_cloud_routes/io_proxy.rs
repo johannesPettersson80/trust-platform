@@ -29,7 +29,7 @@ fn runtime_cloud_io_preflight(
     api_version: &str,
     actor: &str,
 ) -> RuntimeCloudActionPreflight {
-    let local_runtime = ctx.control_state.resource_name.to_string();
+    let local_runtime = local_runtime_id(ctx);
     let payload = if action_type == "cfg_apply" {
         json!({ "params": {} })
     } else {
@@ -103,7 +103,7 @@ pub(super) fn handle_get_io_config(
     };
 
     let target_runtime = query_value(url, "target")
-        .unwrap_or_else(|| ctx.control_state.resource_name.to_string())
+        .unwrap_or_else(|| local_runtime_id(ctx))
         .trim()
         .to_string();
     if target_runtime.is_empty() {
@@ -131,7 +131,7 @@ pub(super) fn handle_get_io_config(
         return;
     }
 
-    let local_runtime = ctx.control_state.resource_name.to_string();
+    let local_runtime = local_runtime_id(ctx);
     if target_runtime == local_runtime {
         let response = match load_io_config(ctx.bundle_root) {
             Ok(config) => json_response(
@@ -277,7 +277,7 @@ pub(super) fn handle_post_io_config(
     }
 
     let io_request = payload.to_io_config_request();
-    let local_runtime = ctx.control_state.resource_name.to_string();
+    let local_runtime = local_runtime_id(ctx);
     if target_runtime == local_runtime {
         let response = match save_io_config(ctx.bundle_root, &io_request) {
             Ok(message) => json_response(200, json!({ "ok": true, "message": message })),

@@ -1,6 +1,6 @@
 # Runtime Host Surface Ownership Checklist
 
-Status: First code-backed HMI runtime read/write control port landed; CHECK-07 still partial until the matching direct web runtime-state doctor rule is active
+Status: Phase 3 doctor rules active; Phase 4 named-file extraction remains open
 Owner: Runtime/web/HMI/control/cloud
 Scope: address audit F11 by defining and enforcing ownership for `web`, `hmi`, `ui`, `control`, and `runtime_cloud`.
 
@@ -15,9 +15,9 @@ Scope: address audit F11 by defining and enforcing ownership for `web`, `hmi`, `
 
 ## Phase 0 - Full-Map Prerequisite
 
-- [ ] `RTHOST-P0-001` Hard prerequisite: `architecture-doctor --full-map` MVP implements `FULLMAP-CHECK-07` for HMI/web/control/cloud ownership and forbidden edges before Phase 3 or Phase 4 starts. CHECK-07 exists and forbids the current `control -> web` / `hmi -> web` edge set, but `host_surface.approved_ports_active = false`; keep this open until Phase 2 ports are active or an owner-approved waiver is recorded.
+- [x] `RTHOST-P0-001` Hard prerequisite: `architecture-doctor --full-map` MVP implements `FULLMAP-CHECK-07` for HMI/web/control/cloud ownership and forbidden edges before Phase 3 or Phase 4 starts. CHECK-07 now enforces owner categories, forbidden `control -> web` / `hmi -> web` / `runtime_cloud -> web` implementation imports, and direct web runtime-state bypasses with `host_surface.approved_ports_active = true`.
 - [ ] `RTHOST-P0-002` If `FULLMAP-CHECK-07` is unavailable, record an owner-approved waiver with the local replacement rule, fixture, owner, and expiration date.
-- [ ] `RTHOST-P0-GATE-01` Do not claim `ARCHPROG-C-02` or `ARCHPROG-C-04` complete until `FULLMAP-CHECK-07` or its waiver is recorded.
+- [x] `RTHOST-P0-GATE-01` Do not claim `ARCHPROG-C-02` or `ARCHPROG-C-04` complete until `FULLMAP-CHECK-07` or its waiver is recorded.
 
 ## Stop Rules
 
@@ -74,14 +74,14 @@ Port design constraints:
 - HMI and runtime-cloud domain ports may depend on domain contracts and immutable runtime snapshots, but must not import `web`.
 - Control ports may own authorization/write side effects, but must not import web implementation types; the former `PairingStore` inversion was removed and must not be reintroduced.
 - Code-backed target landed on 2026-04-29: `crates/trust-runtime/src/control/hmi_runtime_ports.rs` owns the narrow HMI runtime read/write control port. `control/hmi_handlers_read.rs` and `control/hmi_handlers_write.rs` now delegate to it, preserving `hmi.schema.get`, `hmi.values.get`, `hmi.trends.get`, `hmi.alarms.get`, and `hmi.write` response contracts.
-- `host_surface.approved_ports_active` remains `false` until the matching direct web runtime-state doctor rule exists.
+- `host_surface.approved_ports_active` is now `true`: the matching direct web runtime-state doctor rule is active and fails web route code that reaches into runtime/control state fields instead of going through approved ports.
 
 ## Phase 3 - Doctor Rules
 
 - [x] `RTHOST-P3-001` Forbid `control -> web` implementation imports.
 - [x] `RTHOST-P3-002` Forbid `hmi -> web` implementation imports.
 - [x] `RTHOST-P3-003` Forbid `runtime_cloud -> web` implementation imports unless explicitly route-adapter scoped.
-- [ ] `RTHOST-P3-004` Forbid direct runtime state access from web routes when approved ports exist.
+- [x] `RTHOST-P3-004` Forbid direct runtime state access from web routes when approved ports exist.
 - [x] `RTHOST-P3-005` Require new HMI/web/control/cloud files to declare owner category in subsystem map or config.
 
 Phase 3 evidence captured on 2026-04-29:
@@ -89,7 +89,16 @@ Phase 3 evidence captured on 2026-04-29:
 - `xtask/config/full_map_policy.json` forbids production `control -> web`, `hmi -> web`, and `runtime_cloud -> web` implementation imports.
 - `xtask/config/full_map_policy.json` has `host_surface.owned_paths` owner categories for `control`, `hmi`, `web`, `ui`, and `runtime_cloud` roots/subtrees.
 - `xtask/src/full_map.rs` fixtures prove an unallowlisted host-surface import fails, test-only imports are ignored, `runtime_cloud -> web` fails, and host-surface files without owner category fail.
-- `RTHOST-P3-004` is unblocked by the first code-backed HMI runtime read/write port; next step is adding the matching doctor rule before setting `host_surface.approved_ports_active = true`.
+- `RTHOST-P3-004` is enforced by `xtask/src/full_map.rs`: web route files that directly access `ControlState` runtime fields such as `debug`, `metadata`, `io_snapshot`, `project_root`, `resource_name`, `hmi_descriptor`, or `historian` fail `FULLMAP-CHECK-07` when approved ports are active. `crates/trust-runtime/src/web/ui_routes.rs` now receives HMI asset roots through the control-owned `hmi_asset_project_root_port`, and runtime-cloud/config UI routes use `runtime_resource_name_port` instead of reading `ControlState` fields directly.
+
+Validation evidence captured on 2026-04-30:
+
+- `RUSTUP_TOOLCHAIN=1.95 cargo run -p xtask -- architecture-doctor --full-map` passes `FULLMAP-CHECK-07` with `approved ports active: true` and `direct web runtime-state bypass findings: 0`.
+- `RUSTUP_TOOLCHAIN=1.95 cargo test -p xtask host_surface -- --nocapture` passes the known-bad and no-bypass CHECK-07 fixtures.
+- `RUSTUP_TOOLCHAIN=1.95 cargo test -p trust-runtime --lib control::tests::hmi_ -- --nocapture` passes 17 HMI control-port tests.
+- `RUSTUP_TOOLCHAIN=1.95 cargo test -p trust-runtime --test web_io_config_integration runtime_cloud -- --nocapture` passes 40 runtime-cloud route/proxy tests.
+- `RUSTUP_TOOLCHAIN=1.95 cargo test -p trust-runtime --test hmi_readonly_integration -- --nocapture` passes 19 HMI route/asset integration tests.
+- `RUSTUP_TOOLCHAIN=1.95 cargo clippy -p xtask --all-targets -- -D warnings` and `RUSTUP_TOOLCHAIN=1.95 cargo clippy -p trust-runtime --all-targets -- -D warnings` pass for the touched crates.
 
 ## Phase 4 - Named-File Extraction
 

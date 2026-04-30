@@ -36,6 +36,10 @@ pub(super) enum RuntimeCloudRouteOutcome {
     NotHandled(tiny_http::Request),
 }
 
+pub(super) fn local_runtime_id(ctx: &RuntimeCloudRouteContext<'_>) -> String {
+    crate::control::runtime_resource_name_port(ctx.control_state.as_ref()).to_string()
+}
+
 pub(super) fn handle_runtime_cloud_route(
     request: tiny_http::Request,
     method: &Method,
