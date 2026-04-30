@@ -1,17 +1,17 @@
 # Runtime Host Surface Ownership Checklist
 
-Status: Phase 5 complete; exit criteria next
+Status: Runtime host-surface ownership board complete; post-merge CI watch next
 Owner: Runtime/web/HMI/control/cloud
 Scope: address audit F11 by defining and enforcing ownership for `web`, `hmi`, `ui`, `control`, and `runtime_cloud`.
 
 ## Ownership Target
 
-- [ ] `RTHOST-OWN-01` Runtime/core owns execution state and value/snapshot ports.
-- [ ] `RTHOST-OWN-02` Control owns HTTP-neutral command/query contracts and authorization/write policy.
-- [ ] `RTHOST-OWN-03` HMI owns schema/contracts/descriptors, not route transport.
-- [ ] `RTHOST-OWN-04` Web owns HTTP routes, websocket serving, static assets, and browser transport adapters.
-- [ ] `RTHOST-OWN-05` UI owns terminal/local presentation only where it remains.
-- [ ] `RTHOST-OWN-06` Runtime-cloud owns cloud projection/contracts and does not own runtime execution.
+- [x] `RTHOST-OWN-01` Runtime/core owns execution state and value/snapshot ports.
+- [x] `RTHOST-OWN-02` Control owns HTTP-neutral command/query contracts and authorization/write policy.
+- [x] `RTHOST-OWN-03` HMI owns schema/contracts/descriptors, not route transport.
+- [x] `RTHOST-OWN-04` Web owns HTTP routes, websocket serving, static assets, and browser transport adapters.
+- [x] `RTHOST-OWN-05` UI owns terminal/local presentation only where it remains.
+- [x] `RTHOST-OWN-06` Runtime-cloud owns cloud projection/contracts and does not own runtime execution.
 
 ## Phase 0 - Full-Map Prerequisite
 
@@ -249,8 +249,16 @@ Phase 5 browser-visible verification evidence captured on 2026-04-30:
 
 ## Exit Criteria
 
-- [ ] `RTHOST-EXIT-01` HMI logic is not split three ways without ownership rules.
+- [x] `RTHOST-EXIT-01` HMI logic is not split three ways without ownership rules.
 - [x] `RTHOST-EXIT-02` `control -> web` inversion is removed or explicitly justified with a removal ticket.
-- [ ] `RTHOST-EXIT-03` Runtime-cloud does not own runtime execution.
-- [ ] `RTHOST-EXIT-04` Web route code is transport adapter code, not domain owner.
-- [ ] `RTHOST-EXIT-05` Doctor rules prevent drift back.
+- [x] `RTHOST-EXIT-03` Runtime-cloud does not own runtime execution.
+- [x] `RTHOST-EXIT-04` Web route code is transport adapter code, not domain owner.
+- [x] `RTHOST-EXIT-05` Doctor rules prevent drift back.
+
+Exit evidence captured on 2026-04-30:
+
+- `RTHOST-EXIT-01`: HMI ownership is now split by contract, not by duplicated logic. `control/hmi_runtime_ports.rs` owns the HTTP-neutral runtime read/write port, `hmi/runtime_views/events.rs` owns HMI websocket event/delta semantics, HMI schema/descriptor contracts remain in `hmi`, and `web/hmi_ws.rs` remains websocket transport only.
+- `RTHOST-EXIT-03`: runtime-cloud owns profile/link/rollout/config/control-proxy/IO-proxy policy and projection contracts in `runtime_cloud::*_policy` plus `runtime_cloud::projection`; route/state side effects remain in `web/runtime_cloud_*`. `runtime_cloud_core_modules_do_not_import_transport_layers` prevents runtime-cloud domain modules from importing web/discovery/mesh transport layers.
+- `RTHOST-EXIT-04`: `runtime_cloud_proxy_routes_are_policy_first_adapters` and `runtime_cloud_state_adapters_delegate_domain_state_to_policy_modules` lock web route/state files as policy-first adapters before dispatch, local IO load/save, or persistence side effects.
+- `RTHOST-EXIT-05`: `FULLMAP-CHECK-07` is active with `approved ports active: true`, host-surface owner path rules, forbidden `control -> web` / `hmi -> web` / `runtime_cloud -> web` implementation imports, and direct web runtime-state/control-dispatch bypass findings at zero.
+- Final local validation: `RUSTUP_TOOLCHAIN=1.95 cargo run -p xtask -- architecture-doctor --full-map` passed on merge base `55c510b85` with `FULLMAP-CHECK-07` green.
