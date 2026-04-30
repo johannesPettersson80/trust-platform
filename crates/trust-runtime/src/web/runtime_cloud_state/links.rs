@@ -1,9 +1,10 @@
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 
 use super::*;
-use crate::runtime_cloud::projection::{ChannelType, RuntimeCloudUiState};
+use crate::runtime_cloud::link_policy;
+use crate::runtime_cloud::projection::RuntimeCloudUiState;
 
 pub(in crate::web) fn runtime_cloud_links_state_path(
     bundle_root: Option<&PathBuf>,
@@ -43,14 +44,14 @@ pub(in crate::web) fn runtime_cloud_links_store_state(
     }
 }
 
+#[cfg(test)]
 pub(in crate::web) fn runtime_cloud_link_transport_for(
     state: &Mutex<RuntimeCloudLinkTransportState>,
     source: &str,
     target: &str,
 ) -> Option<RuntimeCloudLinkTransport> {
-    let key = runtime_cloud_link_key(source, target)?;
     let guard = state.lock().ok()?;
-    guard.links.get(key.as_str()).map(|entry| entry.transport)
+    link_policy::runtime_cloud_link_transport_for(&guard, source, target)
 }
 
 pub(in crate::web) fn runtime_cloud_link_set_transport(
@@ -61,21 +62,15 @@ pub(in crate::web) fn runtime_cloud_link_set_transport(
     actor: &str,
     persist_path: Option<&Path>,
 ) -> Result<RuntimeCloudLinkTransportPreference, ReasonCode> {
-    if actor.trim().is_empty() {
-        return Err(ReasonCode::ContractViolation);
-    }
-    let Some(key) = runtime_cloud_link_key(source, target) else {
-        return Err(ReasonCode::ContractViolation);
-    };
     let mut guard = state.lock().map_err(|_| ReasonCode::TransportFailure)?;
-    let preference = RuntimeCloudLinkTransportPreference {
-        source: source.trim().to_string(),
-        target: target.trim().to_string(),
+    let preference = link_policy::runtime_cloud_set_link_transport(
+        &mut guard,
+        source,
+        target,
         transport,
-        actor: actor.trim().to_string(),
-        updated_at_ns: now_ns(),
-    };
-    guard.links.insert(key, preference.clone());
+        actor,
+        now_ns(),
+    )?;
     runtime_cloud_links_store_state(persist_path, &guard);
     Ok(preference)
 }
@@ -85,65 +80,7 @@ pub(in crate::web) fn runtime_cloud_seed_link_transport_preferences(
     preferences: &[crate::config::RuntimeCloudLinkPreferenceRule],
     actor: &str,
 ) -> bool {
-    let actor = actor.trim();
-    if actor.is_empty() {
-        return false;
-    }
-    let mut changed = false;
-    let mut configured_keys = HashSet::<String>::new();
-    let updated_at_ns = now_ns();
-
-    for rule in preferences {
-        let Some(key) = runtime_cloud_link_key(rule.source.as_str(), rule.target.as_str()) else {
-            continue;
-        };
-        configured_keys.insert(key.clone());
-        let transport = runtime_cloud_config_transport(rule.transport);
-        let source = rule.source.trim().to_string();
-        let target = rule.target.trim().to_string();
-
-        let should_update = match state.links.get(key.as_str()) {
-            Some(existing) => {
-                existing.source != source
-                    || existing.target != target
-                    || existing.transport != transport
-                    || existing.actor != actor
-            }
-            None => true,
-        };
-        if !should_update {
-            continue;
-        }
-        state.links.insert(
-            key,
-            RuntimeCloudLinkTransportPreference {
-                source,
-                target,
-                transport,
-                actor: actor.to_string(),
-                updated_at_ns,
-            },
-        );
-        changed = true;
-    }
-
-    let stale_keys = state
-        .links
-        .iter()
-        .filter_map(|(key, value)| {
-            if value.actor == actor && !configured_keys.contains(key) {
-                Some(key.clone())
-            } else {
-                None
-            }
-        })
-        .collect::<Vec<_>>();
-    for key in stale_keys {
-        state.links.remove(key.as_str());
-        changed = true;
-    }
-
-    changed
+    link_policy::runtime_cloud_seed_link_transport_preferences(state, preferences, actor, now_ns())
 }
 
 pub(in crate::web) fn runtime_cloud_apply_link_transport_preferences(
@@ -151,40 +88,20 @@ pub(in crate::web) fn runtime_cloud_apply_link_transport_preferences(
     state: &Mutex<RuntimeCloudLinkTransportState>,
     discovery: Option<&DiscoveryState>,
 ) {
-    let mut realtime_overlays = Vec::new();
-    for edge in &mut ui_state.topology.edges {
-        let Some(transport) =
-            runtime_cloud_link_transport_for(state, edge.source.as_str(), edge.target.as_str())
-        else {
-            continue;
-        };
-
-        if transport == RuntimeCloudLinkTransport::Realtime {
-            if let Some(discovery_state) = discovery {
-                if !runtime_cloud_link_is_same_host(
-                    discovery_state,
-                    edge.source.as_str(),
-                    edge.target.as_str(),
-                ) {
-                    continue;
-                }
-            }
-            let mut realtime = edge.clone();
-            realtime.channel_type = ChannelType::T0HardRt;
-            // Mesh packet-loss metrics are not meaningful for local SHM realtime lanes.
-            realtime.loss_pct = None;
-            realtime.latency_ms_p95 = None;
-            realtime_overlays.push(realtime);
-            continue;
-        }
-
-        edge.channel_type = runtime_cloud_link_channel_type(transport);
-        if edge.channel_type != ChannelType::MeshT2Ops {
-            edge.loss_pct = None;
-            edge.latency_ms_p95 = None;
-        }
-    }
-    ui_state.topology.edges.extend(realtime_overlays);
+    let Ok(guard) = state.lock() else {
+        return;
+    };
+    link_policy::runtime_cloud_apply_link_transport_preferences(
+        ui_state,
+        &guard,
+        |source, target| {
+            discovery
+                .map(|discovery_state| {
+                    runtime_cloud_link_is_same_host(discovery_state, source, target)
+                })
+                .unwrap_or(true)
+        },
+    );
 }
 
 pub(in crate::web) fn runtime_cloud_link_is_same_host(
@@ -215,7 +132,10 @@ pub(in crate::web) fn runtime_cloud_link_is_same_host(
         .get(target)
         .cloned()
         .unwrap_or_default();
-    runtime_cloud_addresses_share_host(source_addresses.as_slice(), target_addresses.as_slice())
+    link_policy::runtime_cloud_addresses_share_host(
+        source_addresses.as_slice(),
+        target_addresses.as_slice(),
+    )
 }
 
 pub(in crate::web) fn runtime_cloud_compute_host_groups(
@@ -225,78 +145,24 @@ pub(in crate::web) fn runtime_cloud_compute_host_groups(
     if nodes.is_empty() {
         return Vec::new();
     }
-    let mut ids: Vec<&str> = nodes.iter().map(|n| n.runtime_id.as_str()).collect();
-    ids.sort();
-
     let Some(discovery) = discovery else {
-        return ids.into_iter().map(|id| vec![id.to_string()]).collect();
+        let mut groups = nodes
+            .iter()
+            .map(|node| vec![node.runtime_id.clone()])
+            .collect::<Vec<_>>();
+        groups.sort_by(|a, b| a[0].cmp(&b[0]));
+        return groups;
     };
 
-    if ids.len() == 1 {
-        return vec![vec![ids[0].to_string()]];
-    }
-
-    // Union-Find
-    let mut parent: Vec<usize> = (0..ids.len()).collect();
-    fn find(parent: &mut [usize], mut i: usize) -> usize {
-        while parent[i] != i {
-            parent[i] = parent[parent[i]];
-            i = parent[i];
-        }
-        i
-    }
-    for i in 0..ids.len() {
-        for j in (i + 1)..ids.len() {
-            if runtime_cloud_link_is_same_host(discovery, ids[i], ids[j]) {
-                let ri = find(&mut parent, i);
-                let rj = find(&mut parent, j);
-                if ri != rj {
-                    parent[ri] = rj;
-                }
-            }
-        }
-    }
-    // Collect groups
-    let mut groups_map = BTreeMap::<usize, Vec<String>>::new();
-    for (i, id) in ids.iter().enumerate() {
-        let root = find(&mut parent, i);
-        groups_map.entry(root).or_default().push((*id).to_string());
-    }
-    // Include singleton groups and sort deterministically
-    let mut groups: Vec<Vec<String>> = groups_map.into_values().collect();
-    for group in &mut groups {
-        group.sort();
-    }
-    groups.sort_by(|a, b| a[0].cmp(&b[0]));
-    groups
+    link_policy::runtime_cloud_compute_host_groups(nodes, |source, target| {
+        runtime_cloud_link_is_same_host(discovery, source, target)
+    })
 }
 
 pub(in crate::web) fn runtime_cloud_topology_feature_flags(
     profile: crate::config::RuntimeCloudProfile,
 ) -> BTreeMap<String, bool> {
-    use crate::config::RuntimeCloudProfile;
-    let mut flags = BTreeMap::new();
-    match profile {
-        RuntimeCloudProfile::Dev => {
-            flags.insert("host_containers".to_string(), true);
-            flags.insert("device_discovery".to_string(), true);
-            flags.insert("edit_mode".to_string(), true);
-            flags.insert("module_slots".to_string(), true);
-        }
-        RuntimeCloudProfile::Plant | RuntimeCloudProfile::Wan => {
-            flags.insert("host_containers".to_string(), true);
-        }
-    }
-    flags
-}
-
-fn runtime_cloud_link_key(source: &str, target: &str) -> Option<String> {
-    let source = source.trim();
-    let target = target.trim();
-    if source.is_empty() || target.is_empty() {
-        return None;
-    }
-    Some(format!("{source}->{target}"))
+    link_policy::runtime_cloud_topology_feature_flags(profile)
 }
 
 fn runtime_cloud_discovery_addresses_by_runtime(
@@ -351,51 +217,6 @@ fn runtime_cloud_host_group_match(
             .iter()
             .any(|group| target_groups.contains(group)),
     )
-}
-
-fn runtime_cloud_config_transport(
-    transport: crate::config::RuntimeCloudPreferredTransport,
-) -> RuntimeCloudLinkTransport {
-    match transport {
-        crate::config::RuntimeCloudPreferredTransport::Realtime => {
-            RuntimeCloudLinkTransport::Realtime
-        }
-        crate::config::RuntimeCloudPreferredTransport::Zenoh => RuntimeCloudLinkTransport::Zenoh,
-        crate::config::RuntimeCloudPreferredTransport::Mesh => RuntimeCloudLinkTransport::Mesh,
-        crate::config::RuntimeCloudPreferredTransport::Mqtt => RuntimeCloudLinkTransport::Mqtt,
-        crate::config::RuntimeCloudPreferredTransport::ModbusTcp => {
-            RuntimeCloudLinkTransport::ModbusTcp
-        }
-        crate::config::RuntimeCloudPreferredTransport::OpcUa => RuntimeCloudLinkTransport::OpcUa,
-        crate::config::RuntimeCloudPreferredTransport::Discovery => {
-            RuntimeCloudLinkTransport::Discovery
-        }
-        crate::config::RuntimeCloudPreferredTransport::Web => RuntimeCloudLinkTransport::Web,
-    }
-}
-
-fn runtime_cloud_link_channel_type(transport: RuntimeCloudLinkTransport) -> ChannelType {
-    match transport {
-        RuntimeCloudLinkTransport::Realtime => ChannelType::T0HardRt,
-        RuntimeCloudLinkTransport::Zenoh => ChannelType::MeshT2Ops,
-        RuntimeCloudLinkTransport::Mesh => ChannelType::MeshT1Fast,
-        RuntimeCloudLinkTransport::Discovery => ChannelType::MeshT3Diag,
-        RuntimeCloudLinkTransport::Mqtt
-        | RuntimeCloudLinkTransport::ModbusTcp
-        | RuntimeCloudLinkTransport::OpcUa
-        | RuntimeCloudLinkTransport::Web => ChannelType::FederationBridge,
-    }
-}
-
-fn runtime_cloud_addresses_share_host(source: &[IpAddr], target: &[IpAddr]) -> bool {
-    if target.iter().any(IpAddr::is_loopback) {
-        return true;
-    }
-    if source.is_empty() || target.is_empty() {
-        return false;
-    }
-    let source_set = source.iter().copied().collect::<HashSet<_>>();
-    target.iter().any(|address| source_set.contains(address))
 }
 
 #[cfg(test)]
