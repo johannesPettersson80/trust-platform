@@ -262,3 +262,49 @@ pub fn write_partial_access(
         _ => Err(PartialAccessError::TypeMismatch),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{read_partial_access, write_partial_access};
+    use crate::value::{PartialAccess, PartialAccessError, Value};
+
+    #[test]
+    fn reads_partial_bits_and_words_with_bounds_errors() {
+        assert_eq!(
+            read_partial_access(&Value::Byte(0b0000_0010), PartialAccess::Bit(1)),
+            Ok(Value::Bool(true))
+        );
+        assert_eq!(
+            read_partial_access(&Value::DWord(0xAABB_CCDD), PartialAccess::Word(1)),
+            Ok(Value::Word(0xAABB))
+        );
+        assert_eq!(
+            read_partial_access(&Value::Byte(0), PartialAccess::Bit(8)),
+            Err(PartialAccessError::IndexOutOfBounds {
+                index: 8,
+                lower: 0,
+                upper: 7,
+            })
+        );
+    }
+
+    #[test]
+    fn writes_partial_bits_and_bytes_without_touching_other_bits() {
+        assert_eq!(
+            write_partial_access(Value::Byte(0), PartialAccess::Bit(2), Value::Bool(true)),
+            Ok(Value::Byte(0b0000_0100))
+        );
+        assert_eq!(
+            write_partial_access(
+                Value::Word(0xABCD),
+                PartialAccess::Byte(0),
+                Value::Byte(0x12)
+            ),
+            Ok(Value::Word(0xAB12))
+        );
+        assert_eq!(
+            write_partial_access(Value::Word(0), PartialAccess::DWord(0), Value::DWord(1)),
+            Err(PartialAccessError::TypeMismatch)
+        );
+    }
+}
