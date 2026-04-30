@@ -166,3 +166,106 @@ fn alarm_deadband_requires_reentry_window_before_clear() {
     let cleared = build_alarm_view(&live, 10);
     assert!(cleared.active.is_empty());
 }
+
+#[test]
+fn hmi_event_stream_emits_changed_values_only() {
+    let mut stream = HmiEventStreamState::default();
+    let first_values = json!({
+        "connected": true,
+        "timestamp_ms": 1_000,
+        "values": {
+            "speed": { "v": 42.0, "q": "good", "ts_ms": 1_000 },
+            "level": { "v": 10.0, "q": "good", "ts_ms": 1_000 }
+        }
+    });
+
+    let first = stream
+        .observe_values(&first_values)
+        .expect("initial values delta");
+    assert_eq!(first.event_type, "hmi.values.delta");
+    assert_eq!(first.result["connected"], json!(true));
+    assert_eq!(first.result["timestamp_ms"], json!(1_000));
+    assert_eq!(first.result["values"].as_object().map(|values| values.len()), Some(2));
+
+    assert!(stream.observe_values(&first_values).is_none());
+
+    let changed_values = json!({
+        "connected": true,
+        "timestamp_ms": 1_100,
+        "values": {
+            "speed": { "v": 43.0, "q": "good", "ts_ms": 1_100 },
+            "level": { "v": 10.0, "q": "good", "ts_ms": 1_000 }
+        }
+    });
+    let changed = stream
+        .observe_values(&changed_values)
+        .expect("changed values delta");
+    let delta = changed.result["values"].as_object().expect("delta values");
+    assert_eq!(delta.len(), 1);
+    assert_eq!(delta["speed"]["v"], json!(43.0));
+}
+
+#[test]
+fn hmi_event_stream_tracks_schema_revision_and_widget_ids() {
+    let mut stream = HmiEventStreamState::default();
+    let schema = json!({
+        "schema_revision": 1,
+        "widgets": [
+            { "id": "speed" },
+            { "id": "level" }
+        ]
+    });
+    stream.prime_schema(&schema);
+
+    assert_eq!(
+        stream.values_request_params(),
+        Some(json!({ "ids": ["speed", "level"] }))
+    );
+    assert!(stream.observe_schema(&schema).is_none());
+
+    let changed_schema = json!({
+        "schema_revision": 2,
+        "widgets": [
+            { "id": "temperature" }
+        ]
+    });
+    let event = stream
+        .observe_schema(&changed_schema)
+        .expect("schema revision event");
+    assert_eq!(event.event_type, "hmi.schema.revision");
+    assert_eq!(event.result["schema_revision"], json!(2));
+    assert_eq!(
+        stream.values_request_params(),
+        Some(json!({ "ids": ["temperature"] }))
+    );
+}
+
+#[test]
+fn hmi_event_stream_deduplicates_alarm_payloads() {
+    let mut stream = HmiEventStreamState::default();
+    let empty = json!({
+        "connected": true,
+        "timestamp_ms": 1_000,
+        "active": [],
+        "history": []
+    });
+
+    let first = stream.observe_alarms(&empty).expect("initial alarm event");
+    assert_eq!(first.event_type, "hmi.alarms.event");
+    assert_eq!(first.result, empty);
+    assert!(stream.observe_alarms(&empty).is_none());
+
+    let raised = json!({
+        "connected": true,
+        "timestamp_ms": 1_100,
+        "active": [
+            { "id": "speed_high", "state": "raised" }
+        ],
+        "history": []
+    });
+    let changed = stream
+        .observe_alarms(&raised)
+        .expect("changed alarm event");
+    assert_eq!(changed.event_type, "hmi.alarms.event");
+    assert_eq!(changed.result, raised);
+}

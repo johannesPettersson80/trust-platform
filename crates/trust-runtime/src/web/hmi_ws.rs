@@ -38,10 +38,7 @@ fn run_hmi_websocket_session(
 
     let mut socket = tungstenite::protocol::WebSocket::from_raw_socket(stream, Role::Server, None);
     let mut request_id = 10_000_u64;
-    let mut last_schema_revision = 0_u64;
-    let mut widget_ids = Vec::new();
-    let mut last_values = serde_json::Map::new();
-    let mut last_alarm_payload: Option<serde_json::Value> = None;
+    let mut event_stream = crate::hmi::HmiEventStreamState::default();
     let mut next_schema_poll = Instant::now();
     let mut next_alarm_poll = Instant::now();
 
@@ -52,19 +49,11 @@ fn run_hmi_websocket_session(
         None,
         request_token.as_deref(),
     ) {
-        last_schema_revision = schema_result
-            .get("schema_revision")
-            .and_then(serde_json::Value::as_u64)
-            .unwrap_or(0);
-        widget_ids = hmi_widget_ids(&schema_result);
+        event_stream.prime_schema(&schema_result);
     }
 
     loop {
-        let values_params = if widget_ids.is_empty() {
-            None
-        } else {
-            Some(json!({ "ids": widget_ids }))
-        };
+        let values_params = event_stream.values_request_params();
         let values_result = hmi_control_result(
             control_state.as_ref(),
             &mut request_id,
@@ -74,14 +63,8 @@ fn run_hmi_websocket_session(
         )
         .ok_or_else(|| "hmi.values.get failed".to_string())?;
 
-        if let Some(delta) = hmi_values_delta(&values_result, &mut last_values) {
-            hmi_ws_send_json(
-                &mut socket,
-                &json!({
-                    "type": "hmi.values.delta",
-                    "result": delta,
-                }),
-            )?;
+        if let Some(event) = event_stream.observe_values(&values_result) {
+            hmi_ws_send_event(&mut socket, &event)?;
         }
 
         let now = Instant::now();
@@ -94,20 +77,8 @@ fn run_hmi_websocket_session(
                 None,
                 request_token.as_deref(),
             ) {
-                let revision = schema_result
-                    .get("schema_revision")
-                    .and_then(serde_json::Value::as_u64)
-                    .unwrap_or(last_schema_revision);
-                if revision != last_schema_revision {
-                    last_schema_revision = revision;
-                    widget_ids = hmi_widget_ids(&schema_result);
-                    hmi_ws_send_json(
-                        &mut socket,
-                        &json!({
-                            "type": "hmi.schema.revision",
-                            "result": { "schema_revision": revision }
-                        }),
-                    )?;
+                if let Some(event) = event_stream.observe_schema(&schema_result) {
+                    hmi_ws_send_event(&mut socket, &event)?;
                 }
             }
         }
@@ -121,15 +92,8 @@ fn run_hmi_websocket_session(
                 Some(json!({ "limit": 50_u64 })),
                 request_token.as_deref(),
             ) {
-                if last_alarm_payload.as_ref() != Some(&alarms_result) {
-                    last_alarm_payload = Some(alarms_result.clone());
-                    hmi_ws_send_json(
-                        &mut socket,
-                        &json!({
-                            "type": "hmi.alarms.event",
-                            "result": alarms_result
-                        }),
-                    )?;
+                if let Some(event) = event_stream.observe_alarms(&alarms_result) {
+                    hmi_ws_send_event(&mut socket, &event)?;
                 }
             }
         }
@@ -165,46 +129,15 @@ fn hmi_control_result(
     response.get("result").cloned()
 }
 
-fn hmi_widget_ids(schema: &serde_json::Value) -> Vec<String> {
-    schema
-        .get("widgets")
-        .and_then(serde_json::Value::as_array)
-        .map(|widgets| {
-            widgets
-                .iter()
-                .filter_map(|widget| widget.get("id").and_then(serde_json::Value::as_str))
-                .map(std::string::ToString::to_string)
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default()
-}
-
-fn hmi_values_delta(
-    values_result: &serde_json::Value,
-    last_values: &mut serde_json::Map<String, serde_json::Value>,
-) -> Option<serde_json::Value> {
-    let values = values_result.get("values")?.as_object()?;
-    let mut delta = serde_json::Map::new();
-    for (id, entry) in values {
-        if last_values.get(id) != Some(entry) {
-            delta.insert(id.clone(), entry.clone());
-        }
-    }
-    last_values.retain(|id, _| values.contains_key(id));
-    for (id, entry) in values {
-        last_values.insert(id.clone(), entry.clone());
-    }
-    if delta.is_empty() {
-        return None;
-    }
-    Some(json!({
-        "connected": values_result
-            .get("connected")
-            .and_then(serde_json::Value::as_bool)
-            .unwrap_or(false),
-        "timestamp_ms": values_result.get("timestamp_ms").cloned().unwrap_or(serde_json::Value::Null),
-        "values": delta,
-    }))
+fn hmi_ws_send_event<S>(
+    socket: &mut tungstenite::protocol::WebSocket<S>,
+    event: &crate::hmi::HmiEventStreamEvent,
+) -> Result<(), String>
+where
+    S: std::io::Read + std::io::Write,
+{
+    let payload = serde_json::to_value(event).map_err(|err| err.to_string())?;
+    hmi_ws_send_json(socket, &payload)
 }
 
 fn hmi_ws_send_json<S>(
