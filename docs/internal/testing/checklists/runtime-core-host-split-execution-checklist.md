@@ -182,8 +182,8 @@ Phase 1 focused test evidence, 2026-04-30:
 Move lowest-risk portable pieces first.
 
 - [x] `RTSPLIT-P4-001` Move or re-home `numeric` only if it has no host-only imports.
-- [ ] `RTSPLIT-P4-002` Move portable `value` model pieces in small commits.
-- [ ] `RTSPLIT-P4-003` Keep value constructors and validation invariants unchanged.
+- [x] `RTSPLIT-P4-002` Move portable `value` model pieces in small commits.
+- [x] `RTSPLIT-P4-003` Keep value constructors and validation invariants unchanged.
 - [ ] `RTSPLIT-P4-004` Move portable `program_model` records used by runtime execution.
 - [ ] `RTSPLIT-P4-005` Move bytecode container/decode/format/validation pieces needed after compile.
 - [ ] `RTSPLIT-P4-006` Keep compile/lowering harnesses in the Linux host unless separately justified.
@@ -234,6 +234,10 @@ Move lowest-risk portable pieces first.
 - [x] `RTSPLIT-P4-DEFAULTS-001` Move HIR-backed runtime default-value construction into `trust-runtime-core` behind the optional HIR feature. Evidence: `crates/trust-runtime-core/src/value/defaults.rs` now owns `DefaultValueError` and `default_value_for_type_id`; `trust-runtime::value` re-exports the core defaults API through the existing compatibility surface while enabling `trust-runtime-core/hir`.
 - [x] `RTSPLIT-P4-DEFAULTS-002` Preserve the pure core boundary by keeping default construction feature-gated. Evidence: `crates/trust-runtime-core/src/value/mod.rs` gates the `defaults` module and re-export with `#[cfg(feature = "hir")]`; `cargo check -p trust-runtime-core --no-default-features` passes after the move.
 - [x] `RTSPLIT-P4-DEFAULTS-003` Verify host compatibility and architecture policy after the default-construction move. Evidence: `cargo test -p trust-runtime-core --features hir defaults -- --nocapture` passes 2 focused defaults tests; `cargo test -p trust-runtime-core --features hir -- --nocapture` passes the 30-test HIR-feature core suite; `cargo check -p trust-runtime --lib`, `cargo test -p trust-runtime --test value_defaults -- --nocapture`, `cargo test -p trust-runtime eval::tests::reference --lib -- --nocapture`, `cargo clippy -p trust-runtime-core -p trust-runtime --lib -- -D warnings`, `cargo run -p xtask -- architecture-doctor --full-map`, `scripts/render_diagrams.sh`, and `python scripts/check_diagram_drift.py` pass.
+- [x] `RTSPLIT-P4-VALUE-GATE-001` Close the small-commit value-model movement row. Evidence: portable date/time values, memory identities, reference identities, partial-access parsing/read/write, value types, numeric helpers, string semantics, HIR-backed sizing, and HIR-backed default construction now live in `trust-runtime-core`; `trust-runtime/src/value` now keeps only the runtime compatibility module and `Value`-dependent reference walkers that still belong to the host path.
+- [x] `RTSPLIT-P4-VALUE-GATE-002` Close the constructor/invariant preservation row. Evidence: focused core suites, `value_defaults`, `types_bit_access`, `sizeof_semantics`, bytecode `SIZEOF`, eval/reference, helper-eval, and runtime value/reference checks passed across the moved clusters; no public behavior-change row or changelog/version bump is required because this is behavior-preserving architecture movement.
+- [x] `RTSPLIT-P4-PROGMODEL-UTIL-001` Move pure program-model static-name helpers into `trust-runtime-core`. Evidence: `crates/trust-runtime-core/src/program_model/util.rs` now owns `static_storage_name`, `method_static_storage_owner`, and `property_setter_method_name`; `trust-runtime::program_model` re-exports the core helpers through the existing compatibility API.
+- [x] `RTSPLIT-P4-PROGMODEL-UTIL-002` Verify host compatibility and architecture policy after the program-model utility move. Evidence: `cargo test -p trust-runtime-core program_model -- --nocapture`, `cargo test -p trust-runtime-core -- --nocapture`, `cargo check -p trust-runtime-core --no-default-features`, `cargo check -p trust-runtime --lib`, `cargo test -p trust-runtime --test stdlib_split_locals function_local_initializer_runs_in_runtime_and_vm -- --nocapture`, `cargo clippy -p trust-runtime-core -p trust-runtime --lib -- -D warnings`, `cargo run -p xtask -- architecture-doctor --full-map`, `scripts/render_diagrams.sh`, and `python scripts/check_diagram_drift.py` pass.
 
 ### Phase 4 Exit Gate
 

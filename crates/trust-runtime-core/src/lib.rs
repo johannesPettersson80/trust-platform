@@ -24,6 +24,8 @@ pub mod error;
 pub mod memory;
 /// Portable numeric conversion helpers.
 pub mod numeric;
+/// Portable runtime program model helpers.
+pub mod program_model;
 /// Scaffold ownership markers for the pre-move core crate.
 pub mod scaffold;
 /// Portable runtime value model pieces.
