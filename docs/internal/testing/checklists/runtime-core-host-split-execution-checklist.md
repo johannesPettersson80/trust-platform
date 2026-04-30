@@ -42,28 +42,34 @@ This checklist is not the whole architecture cleanup program. It preserves and e
 
 ## Phase 0 - Scope Freeze And Baseline Evidence
 
-- [ ] `RTSPLIT-P0-001` Confirm this checklist is linked from the full-software audit and `architecture-improvements.md`; if a checklist index exists in the active branch, link it there too.
-- [ ] `RTSPLIT-P0-002` Confirm the full-software audit references this execution checklist.
-- [ ] `RTSPLIT-P0-003` Confirm the old deferred embedded checklist remains deferred and is not treated as active execution scope.
-- [ ] `RTSPLIT-P0-004` Capture current branch, commit, and dirty tree state before implementation begins.
-- [ ] `RTSPLIT-P0-005` Capture current `cargo metadata --no-deps --format-version=1` for workspace target/package shape.
-- [ ] `RTSPLIT-P0-006` Capture current `cargo tree -p trust-runtime --edges normal --depth 2`.
-- [ ] `RTSPLIT-P0-007` Capture current `cargo modules structure -p trust-runtime --lib --no-types`.
-- [ ] `RTSPLIT-P0-008` Capture current largest-file list for `crates/trust-runtime/src`.
-- [ ] `RTSPLIT-P0-009` Capture current public API snapshot for `trust-runtime` if `cargo public-api` is available.
-- [ ] `RTSPLIT-P0-010` Record unavailable tools and exact blockers instead of silently skipping them.
-- [ ] `RTSPLIT-P0-011` Run `cargo run -p xtask -- architecture-doctor --all` and attach output.
-- [ ] `RTSPLIT-P0-012` Run the current generated software map command if available and attach output.
-- [ ] `RTSPLIT-P0-013` Add a short implementation note explaining that this branch family is a Linux behavior-preserving extraction.
-- [ ] `RTSPLIT-P0-014` Hard prerequisite: `architecture-doctor --full-map` MVP exists and implements `FULLMAP-CHECK-01`, `FULLMAP-CHECK-02`, `FULLMAP-CHECK-05`, `FULLMAP-CHECK-06`, and `FULLMAP-CHECK-07`, or this checklist records an explicit owner-approved waiver before code movement.
-- [ ] `RTSPLIT-P0-015` Confirm the HIR mutation hardening and parser recovery boards are tracked separately so this behavior-preserving split is not misreported as "0 silent bugs".
+- [x] `RTSPLIT-P0-001` Confirm this checklist is linked from the full-software audit and `architecture-improvements.md`; if a checklist index exists in the active branch, link it there too. Evidence: `full-software-map-audit-2026-04-28.md` links this checklist in F5/F7/F12 execution-board sections, and `architecture-improvements.md` records `ARCH-RTCORE-03`.
+- [x] `RTSPLIT-P0-002` Confirm the full-software audit references this execution checklist. Evidence: `full-software-map-audit-2026-04-28.md` references `runtime-core-host-split-execution-checklist.md` in the Phase 6/7 runtime core/host split sections.
+- [x] `RTSPLIT-P0-003` Confirm the old deferred embedded checklist remains deferred and is not treated as active execution scope. Evidence: `runtime-core-native-host-split-checklist.md` status remains `Deferred` and says it is parked reference material only.
+- [x] `RTSPLIT-P0-004` Capture current branch, commit, and dirty tree state before implementation begins. Evidence: baseline captured on branch `architecture/runtime-module-decision-freeze` at commit `1ffec4ab0`; dirty state during capture contained only doctor/checklist maintenance, and no runtime production code movement had started.
+- [x] `RTSPLIT-P0-005` Capture current `cargo metadata --no-deps --format-version=1` for workspace target/package shape. Evidence: `target/gate-artifacts/runtime-core-host-split-baseline-1ffec4ab0/cargo-metadata-no-deps.json`.
+- [x] `RTSPLIT-P0-006` Capture current `cargo tree -p trust-runtime --edges normal --depth 2`. Evidence: `target/gate-artifacts/runtime-core-host-split-baseline-1ffec4ab0/cargo-tree-trust-runtime-depth2.txt`.
+- [x] `RTSPLIT-P0-007` Capture current `cargo modules structure -p trust-runtime --lib --no-types`. Evidence: `target/gate-artifacts/runtime-core-host-split-baseline-1ffec4ab0/cargo-modules-structure-trust-runtime-lib.txt`.
+- [x] `RTSPLIT-P0-008` Capture current largest-file list for `crates/trust-runtime/src`. Evidence: `target/gate-artifacts/runtime-core-host-split-baseline-1ffec4ab0/trust-runtime-largest-files.txt`.
+- [ ] `RTSPLIT-P0-009` Capture current public API snapshot for `trust-runtime` if `cargo public-api` is available. Blocked locally on 2026-04-30: both `cargo public-api -p trust-runtime --all-features --color never` and the default-feature command pulled the runtime network stack plus vendored OpenSSL C build on this ARM64 host. Exact blocker recorded in `target/gate-artifacts/runtime-core-host-split-baseline-1ffec4ab0/public-api-blocker.txt`; rerun as a milestone/nightly API job or after a narrower API feature profile exists.
+- [x] `RTSPLIT-P0-010` Record unavailable tools and exact blockers instead of silently skipping them. Evidence: `public-api-blocker.txt` records the local `cargo public-api` blocker; no blocker for `cargo metadata`, `cargo tree`, `cargo modules`, `architecture-doctor --all`, or `architecture-doctor --full-map`.
+- [x] `RTSPLIT-P0-011` Run `cargo run -p xtask -- architecture-doctor --all` and attach output. Evidence: `target/gate-artifacts/runtime-core-host-split-baseline-1ffec4ab0/architecture-doctor-all.txt` passes after fixing stale legacy doctor checks for bounded positional-initializer scanning and ignored internal diagram scratch files.
+- [x] `RTSPLIT-P0-012` Run the current generated software map command if available and attach output. Evidence: `target/gate-artifacts/runtime-core-host-split-baseline-1ffec4ab0/architecture-doctor-full-map.txt` and `target/gate-artifacts/full-software-map-1ffec4ab0/software-map.json`.
+- [x] `RTSPLIT-P0-013` Add a short implementation note explaining that this branch family is a Linux behavior-preserving extraction. Evidence: Phase 0 note below states the active scope and non-scope.
+- [x] `RTSPLIT-P0-014` Hard prerequisite: `architecture-doctor --full-map` MVP exists and implements `FULLMAP-CHECK-01`, `FULLMAP-CHECK-02`, `FULLMAP-CHECK-05`, `FULLMAP-CHECK-06`, and `FULLMAP-CHECK-07`, or this checklist records an explicit owner-approved waiver before code movement. Evidence: `architecture-doctor-full-map.txt` has PASS for `FULLMAP-CHECK-01`, `FULLMAP-CHECK-02`, `FULLMAP-CHECK-05`, `FULLMAP-CHECK-06`, and `FULLMAP-CHECK-07`.
+- [x] `RTSPLIT-P0-015` Confirm the HIR mutation hardening and parser recovery boards are tracked separately so this behavior-preserving split is not misreported as "0 silent bugs". Evidence: `full-architecture-refactor-program-checklist.md` keeps HIR mutation, parser recovery, HIR zero-silent-bug, runtime VM mutation, and unsafe/concurrency boards separate from this runtime-core split.
+
+Phase 0 implementation note, 2026-04-30:
+
+- Active scope: Linux behavior-preserving extraction of portable runtime execution into a future `trust-runtime-core` boundary.
+- Not active scope: STM32H7, Arduino Opta, ESP32, embedded T0, embedded EtherCAT, `no_std` product support, MCU protocol commitments, or marketing/support claims for embedded runtime support.
+- No runtime production code has moved in Phase 0; the only code changes in this slice are doctor/checker fixes needed to make the baseline gates truthful.
 
 ### Phase 0 Exit Gate
 
-- [ ] `RTSPLIT-P0-GATE-01` Baseline evidence exists.
-- [ ] `RTSPLIT-P0-GATE-02` Active/non-active scope is unambiguous.
-- [ ] `RTSPLIT-P0-GATE-03` No code movement has started.
-- [ ] `RTSPLIT-P0-GATE-04` Full-map doctor MVP prerequisite is met or waiver is recorded.
+- [ ] `RTSPLIT-P0-GATE-01` Baseline evidence exists. Blocked only on `RTSPLIT-P0-009` public API snapshot; blocker is recorded under `RTSPLIT-P0-010`.
+- [x] `RTSPLIT-P0-GATE-02` Active/non-active scope is unambiguous.
+- [x] `RTSPLIT-P0-GATE-03` No code movement has started.
+- [x] `RTSPLIT-P0-GATE-04` Full-map doctor MVP prerequisite is met or waiver is recorded.
 
 ## Phase 1 - Behavior-Lock Test Matrix
 
