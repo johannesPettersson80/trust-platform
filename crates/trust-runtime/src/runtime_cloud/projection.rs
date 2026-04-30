@@ -371,6 +371,193 @@ mod tests {
     }
 
     #[test]
+    fn runtime_cloud_projection_contract_reports_topology_edges_and_warnings() {
+        let context = UiContext {
+            connected_via: "runtime-a".to_string(),
+            acting_on: vec![
+                "runtime-a".to_string(),
+                "runtime-b".to_string(),
+                "runtime-c".to_string(),
+                "runtime-d".to_string(),
+                "runtime-z".to_string(),
+            ],
+            site_scope: vec!["site-a".to_string(), "site-b".to_string()],
+            identity: "spiffe://trust/site-a/operator".to_string(),
+            role: "engineer".to_string(),
+            mode: UiMode::Edit,
+        };
+        let peers = vec![
+            RuntimePresenceRecord {
+                runtime_id: "runtime-b".to_string(),
+                site: "site-a".to_string(),
+                display_name: "Mixer-02".to_string(),
+                mesh_reachable: true,
+                last_seen_ns: 950,
+                stale: false,
+                partitioned: false,
+            },
+            RuntimePresenceRecord {
+                runtime_id: "runtime-c".to_string(),
+                site: "site-a".to_string(),
+                display_name: "Mixer-03".to_string(),
+                mesh_reachable: true,
+                last_seen_ns: 800,
+                stale: true,
+                partitioned: false,
+            },
+            RuntimePresenceRecord {
+                runtime_id: "runtime-d".to_string(),
+                site: "site-b".to_string(),
+                display_name: "Mixer-04".to_string(),
+                mesh_reachable: false,
+                last_seen_ns: 700,
+                stale: true,
+                partitioned: true,
+            },
+            RuntimePresenceRecord {
+                runtime_id: "runtime-z".to_string(),
+                site: "site-b".to_string(),
+                display_name: "Offline-Z".to_string(),
+                mesh_reachable: false,
+                last_seen_ns: 0,
+                stale: true,
+                partitioned: false,
+            },
+        ];
+
+        let state = project_runtime_cloud_state(context, "runtime-a", "site-a", 1_000, &peers);
+
+        assert_eq!(state.api_version, RUNTIME_CLOUD_API_VERSION);
+        assert_eq!(state.context.connected_via, "runtime-a");
+        assert_eq!(state.context.role, "engineer");
+        assert_eq!(state.context.mode, UiMode::Edit);
+        assert_eq!(state.topology.nodes.len(), 5);
+        assert_eq!(state.topology.edges.len(), 4);
+        assert_eq!(
+            state
+                .topology
+                .nodes
+                .iter()
+                .map(|node| node.runtime_id.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "runtime-a",
+                "runtime-b",
+                "runtime-c",
+                "runtime-d",
+                "runtime-z"
+            ]
+        );
+
+        let local = state
+            .topology
+            .nodes
+            .iter()
+            .find(|node| node.runtime_id == "runtime-a")
+            .expect("local node");
+        assert_eq!(local.role, FleetRole::Active);
+        assert_eq!(local.lifecycle_state, LifecycleState::Online);
+        assert_eq!(local.health_state, HealthState::Healthy);
+        assert_eq!(local.trust_state, TrustState::Trusted);
+        assert_eq!(local.config_state, ConfigState::InSync);
+        assert_eq!(local.last_seen_ns, 1_000);
+
+        let healthy = state
+            .topology
+            .nodes
+            .iter()
+            .find(|node| node.runtime_id == "runtime-b")
+            .expect("healthy peer");
+        assert_eq!(healthy.role, FleetRole::Member);
+        assert_eq!(healthy.lifecycle_state, LifecycleState::Online);
+        assert_eq!(healthy.health_state, HealthState::Healthy);
+        assert_eq!(healthy.config_state, ConfigState::InSync);
+
+        let stale = state
+            .topology
+            .nodes
+            .iter()
+            .find(|node| node.runtime_id == "runtime-c")
+            .expect("stale peer");
+        assert_eq!(stale.lifecycle_state, LifecycleState::Stale);
+        assert_eq!(stale.health_state, HealthState::Degraded);
+        assert_eq!(stale.config_state, ConfigState::Pending);
+
+        let partitioned = state
+            .topology
+            .nodes
+            .iter()
+            .find(|node| node.runtime_id == "runtime-d")
+            .expect("partitioned peer");
+        assert_eq!(partitioned.lifecycle_state, LifecycleState::Partitioned);
+        assert_eq!(partitioned.health_state, HealthState::Degraded);
+        assert_eq!(partitioned.config_state, ConfigState::Pending);
+
+        let offline = state
+            .topology
+            .nodes
+            .iter()
+            .find(|node| node.runtime_id == "runtime-z")
+            .expect("offline peer");
+        assert_eq!(offline.lifecycle_state, LifecycleState::Offline);
+        assert_eq!(offline.health_state, HealthState::Degraded);
+        assert_eq!(offline.config_state, ConfigState::Pending);
+
+        let edge_to_b = state
+            .topology
+            .edges
+            .iter()
+            .find(|edge| edge.target == "runtime-b")
+            .expect("edge to runtime-b");
+        assert_eq!(edge_to_b.channel_type, ChannelType::MeshT2Ops);
+        assert_eq!(edge_to_b.state, ChannelState::Healthy);
+        assert!(!edge_to_b.stale);
+        assert_eq!(edge_to_b.latency_ms_p95, Some(12.0));
+        assert_eq!(edge_to_b.loss_pct, Some(0.0));
+
+        let edge_to_c = state
+            .topology
+            .edges
+            .iter()
+            .find(|edge| edge.target == "runtime-c")
+            .expect("edge to runtime-c");
+        assert_eq!(edge_to_c.state, ChannelState::Stale);
+        assert!(edge_to_c.stale);
+        assert_eq!(edge_to_c.latency_ms_p95, None);
+        assert_eq!(edge_to_c.loss_pct, None);
+
+        let edge_to_d = state
+            .topology
+            .edges
+            .iter()
+            .find(|edge| edge.target == "runtime-d")
+            .expect("edge to runtime-d");
+        assert_eq!(edge_to_d.state, ChannelState::Failed);
+        assert!(edge_to_d.stale);
+
+        let edge_to_z = state
+            .topology
+            .edges
+            .iter()
+            .find(|edge| edge.target == "runtime-z")
+            .expect("edge to runtime-z");
+        assert_eq!(edge_to_z.state, ChannelState::Failed);
+        assert!(edge_to_z.stale);
+        assert_eq!(edge_to_z.last_ok_ns, 0);
+
+        assert_eq!(state.timeline.len(), 3);
+        assert!(state.timeline.iter().all(|event| {
+            event.category == TimelineCategory::Communication
+                && event.severity == TimelineSeverity::Warning
+                && event.timestamp_ns == 1_000
+        }));
+        assert!(state
+            .timeline
+            .iter()
+            .any(|event| event.summary == "runtime-z is offline (no discovery heartbeat)"));
+    }
+
+    #[test]
     fn projection_marks_unseen_unreachable_peer_offline() {
         let context = UiContext {
             connected_via: "runtime-a".to_string(),
@@ -423,6 +610,27 @@ mod tests {
         let partitioned = presence_record_from_observation(&observation, 200, thresholds);
         assert!(partitioned.stale);
         assert!(partitioned.partitioned);
+    }
+
+    #[test]
+    fn presence_projection_contract_does_not_stale_future_heartbeat() {
+        let observation = RuntimePeerObservation {
+            runtime_id: "runtime-b".to_string(),
+            site: "site-a".to_string(),
+            display_name: "Mixer-02".to_string(),
+            mesh_reachable: true,
+            last_seen_ns: 200,
+        };
+        let thresholds = PresenceThresholds {
+            stale_timeout_ns: 10,
+            partition_timeout_ns: 50,
+        };
+
+        let record = presence_record_from_observation(&observation, 100, thresholds);
+
+        assert!(!record.stale);
+        assert!(!record.partitioned);
+        assert_eq!(record.last_seen_ns, 200);
     }
 
     #[test]
