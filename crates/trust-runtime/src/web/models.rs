@@ -2,8 +2,6 @@
 
 #![allow(missing_docs)]
 
-use std::collections::BTreeMap;
-
 use serde::{Deserialize, Serialize};
 
 use crate::runtime_cloud::contracts::{ConfigMeta, ConfigStatus, ReasonCode};
@@ -329,71 +327,4 @@ pub(super) struct RuntimeCloudConfigWriteError {
     pub(super) code: ReasonCode,
     pub(super) message: String,
     pub(super) snapshot: Box<RuntimeCloudConfigAgentState>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub(super) enum RuntimeCloudRolloutState {
-    Queued,
-    Staging,
-    Staged,
-    Applying,
-    Applied,
-    Verifying,
-    Verified,
-    Completed,
-    Failed,
-    Aborted,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub(super) enum RuntimeCloudRolloutTargetState {
-    Queued,
-    Staging,
-    Staged,
-    Applying,
-    Applied,
-    Verifying,
-    Verified,
-    Failed,
-    Aborted,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(super) struct RuntimeCloudRolloutTargetRecord {
-    pub(super) runtime_id: String,
-    pub(super) state: RuntimeCloudRolloutTargetState,
-    pub(super) verification: Option<String>,
-    pub(super) blocked_reason: Option<ReasonCode>,
-    pub(super) error: Option<String>,
-    pub(super) updated_at_ns: u64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(super) struct RuntimeCloudRolloutRecord {
-    pub(super) api_version: String,
-    pub(super) rollout_id: String,
-    pub(super) actor: String,
-    pub(super) desired_revision: u64,
-    pub(super) state: RuntimeCloudRolloutState,
-    pub(super) paused: bool,
-    pub(super) created_at_ns: u64,
-    pub(super) updated_at_ns: u64,
-    pub(super) targets: Vec<RuntimeCloudRolloutTargetRecord>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(super) struct RuntimeCloudRolloutManagerState {
-    pub(super) next_id: u64,
-    pub(super) rollouts: BTreeMap<String, RuntimeCloudRolloutRecord>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub(super) struct RuntimeCloudRolloutActionResponse {
-    pub(super) ok: bool,
-    pub(super) action: String,
-    pub(super) denial_code: Option<ReasonCode>,
-    pub(super) error: Option<String>,
-    pub(super) rollout: Option<RuntimeCloudRolloutRecord>,
 }

@@ -50,6 +50,10 @@ use crate::runtime_cloud::projection::{
     FleetEdge, PresenceThresholds, RuntimeCloudUiState, RuntimePeerObservation,
     RuntimePresenceRecord, UiContext, UiMode,
 };
+use crate::runtime_cloud::rollout_policy::{
+    RuntimeCloudRolloutActionResponse, RuntimeCloudRolloutConfigView,
+    RuntimeCloudRolloutManagerState, RuntimeCloudRolloutRecord,
+};
 use crate::runtime_cloud::routing::{
     map_action_to_control_request, preflight_action, RuntimeCloudActionPreflight,
     RuntimeCloudActionRequest, RuntimeCloudPreflightContext, RuntimeCloudTargetStatus,
@@ -218,5 +222,4 @@ impl WebServerMode {
 // Runtime-cloud peer liveliness should not flap under normal mDNS refresh cadence.
 const RUNTIME_CLOUD_STALE_TIMEOUT_NS: u64 = 30_000_000_000;
 const RUNTIME_CLOUD_PARTITION_TIMEOUT_NS: u64 = 120_000_000_000;
-const RUNTIME_CLOUD_ROLLOUT_APPLY_TIMEOUT_NS: u64 = 30_000_000_000;
 const RUNTIME_CLOUD_DEFAULT_SITE: &str = "default-site";

@@ -14,6 +14,7 @@ fn runtime_cloud_core_modules_do_not_import_transport_layers() {
         "src/runtime_cloud/link_policy.rs",
         "src/runtime_cloud/profile_policy.rs",
         "src/runtime_cloud/projection.rs",
+        "src/runtime_cloud/rollout_policy.rs",
         "src/runtime_cloud/routing.rs",
     ];
     let forbidden = [
