@@ -64,6 +64,8 @@ Target release: `v0.24.9`
 - Runtime and constant-expression array repetition initializers now shape arrays
   from the expanded value count, so declarations such as `[3(1, 2)]` materialize
   as six elements instead of failing type validation as a one-element array.
+- Bytecode validation now rejects duplicate `POU_INDEX` ids instead of allowing
+  the VM module loader's id map to silently overwrite one POU entry.
 - HIR validation now reports `UndefinedVariable` when a `VAR_ACCESS` access
   path points at a missing target instead of silently accepting the declaration.
 - HIR constant evaluation now reports `CannotResolve` for ambiguous unqualified

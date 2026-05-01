@@ -1217,6 +1217,32 @@ fn vm_validator_rejects_invalid_const_index_operand() {
 }
 
 #[test]
+fn vm_validator_rejects_duplicate_pou_ids() {
+    let source = r#"
+        FUNCTION Helper : DINT
+            Helper := DINT#1;
+        END_FUNCTION
+
+        PROGRAM Main
+        VAR
+            value : DINT := DINT#0;
+        END_VAR
+            value := Helper();
+        END_PROGRAM
+    "#;
+    let mut module = bytecode_module_from_source(source).expect("compile module");
+    if let Some(SectionData::PouIndex(index)) = module.section_mut(SectionId::PouIndex) {
+        assert!(index.entries.len() >= 2, "expected multiple POU entries");
+        let duplicate_id = index.entries[0].id;
+        index.entries[1].id = duplicate_id;
+    } else {
+        panic!("missing POU_INDEX");
+    }
+
+    assert_apply_invalid_bytecode_contains(&module, "duplicate POU id");
+}
+
+#[test]
 fn vm_rejects_invalid_opcode() {
     let source = r#"
         PROGRAM Main

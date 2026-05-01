@@ -6,7 +6,13 @@ fn validate_pou_index(
     index: &PouIndex,
     bodies: &[u8],
 ) -> Result<(), BytecodeError> {
+    let mut seen_pou_ids = HashSet::new();
     for entry in &index.entries {
+        if !seen_pou_ids.insert(entry.id) {
+            return Err(BytecodeError::InvalidSection(
+                format!("duplicate POU id {}", entry.id).into(),
+            ));
+        }
         ensure_string_index(strings, entry.name_idx)?;
         if let Some(return_type_id) = entry.return_type_id {
             ensure_type_index(types, return_type_id)?;
