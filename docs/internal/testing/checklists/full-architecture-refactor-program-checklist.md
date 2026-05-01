@@ -35,7 +35,7 @@ Navigation guard: use `architecture-workboard-index.md` before resuming after a 
 - [x] `ARCHPROG-BOARD-05` Runtime host surface ownership: `runtime-host-surface-ownership-checklist.md`. Evidence: the detail board is complete with `RTHOST-EXIT-01` through `RTHOST-EXIT-05` checked, `FULLMAP-CHECK-07` active with approved ports, and final local full-map validation passing.
 - [x] `ARCHPROG-BOARD-06` Runtime core/Linux host split: `runtime-core-host-split-execution-checklist.md`. Evidence: the detail board is closed with `RTSPLIT-EXIT-001` through `RTSPLIT-EXIT-010` checked, runtime-core split final workspace/release-readiness recorded in `ARCH-RTCORE-43`, and embedded support still explicitly deferred.
 - [x] `ARCHPROG-BOARD-07` Dependency hygiene: `dependency-hygiene-execution-checklist.md`.
-- [ ] `ARCHPROG-BOARD-08` Runtime large-file split: `runtime-large-file-split-execution-checklist.md`. Status: in progress; Phase 0 and Phase 1 owner/split inventory complete, `FULLMAP-CHECK-10` covers runtime `src` and runtime `tests`, but the top-risk split rows remain open.
+- [ ] `ARCHPROG-BOARD-08` Runtime large-file split: `runtime-large-file-split-execution-checklist.md`. Status: in progress; Phase 0 and Phase 1 owner/split inventory complete, `FULLMAP-CHECK-10` covers runtime `src` and runtime `tests`, `RTLARGE-P2-001` is complete, and `RTLARGE-P2-002` is next.
 - [x] `ARCHPROG-BOARD-09` Diagram semantic enforcement is added before diagrams are trusted as acceptance evidence.
 - [ ] `ARCHPROG-BOARD-10` Runtime VM mutation hardening: `runtime-vm-mutation-hardening-execution-checklist.md`.
 - [ ] `ARCHPROG-BOARD-11` Unsafe/concurrency hardening: `unsafe-concurrency-hardening-execution-checklist.md`.
