@@ -1,14 +1,14 @@
 # Runtime Large-File Split Execution Checklist
 
-Status: In progress; Phase 0 and Phase 1 owner/split inventory complete, `RTLARGE-P2-001` call split complete
+Status: In progress; Phase 0 and Phase 1 owner/split inventory complete, `RTLARGE-P2-001` and `RTLARGE-P2-002` complete
 Owner: Runtime architecture
 Scope: address audit F8 and KISS risks from very large runtime files.
 
 ## Quantitative Rules
 
 - [x] `RTLARGE-RULE-01` No new Rust source file over 1,000 lines without owner/split note. Evidence: `FULLMAP-CHECK-10` fails runtime `src` and runtime `tests` Rust files over 1,000 lines without a `kiss.large_file_allowlist` owner/split entry; locked by `known_bad_large_runtime_file_without_owner_note_fails` and `known_bad_large_runtime_test_file_without_owner_note_fails`.
-- [x] `RTLARGE-RULE-02` Every existing Rust source file over 1,000 lines must have owner, responsibility statement, and split plan or waiver. Evidence: current `FULLMAP-CHECK-10` pass lists all 10 remaining runtime hotspots over 1,000 lines with owner and split plan after `runtime/vm/call.rs` was split below the threshold.
-- [x] `RTLARGE-RULE-03` Every Rust source file over 1,500 lines must have an approved split branch, completed split, or dated waiver. Evidence: current `FULLMAP-CHECK-10` pass lists all five remaining files over 1,500 lines with `runtime-large-file-split` split plans after `runtime/vm/call.rs` was split below the threshold.
+- [x] `RTLARGE-RULE-02` Every existing Rust source file over 1,000 lines must have owner, responsibility statement, and split plan or waiver. Evidence: current `FULLMAP-CHECK-10` pass lists all 9 remaining runtime hotspots over 1,000 lines with owner and split plan after `runtime/vm/call.rs` and `web/config_ui_routes.rs` were split below the threshold.
+- [x] `RTLARGE-RULE-03` Every Rust source file over 1,500 lines must have an approved split branch, completed split, or dated waiver. Evidence: current `FULLMAP-CHECK-10` pass lists all four remaining files over 1,500 lines with `runtime-large-file-split` split plans after `runtime/vm/call.rs` and `web/config_ui_routes.rs` were split below the threshold.
 - [ ] `RTLARGE-RULE-04` Files over 2,500 lines are release-blocking for unrelated growth until split or waiver.
 - [ ] `RTLARGE-RULE-05` Public API growth caused by splits requires review, not automatic acceptance.
 
@@ -16,7 +16,7 @@ Scope: address audit F8 and KISS risks from very large runtime files.
 
 - [ ] `RTLARGE-HOT-01` `crates/trust-runtime/src/runtime/vm/register_ir/tests.rs`.
 - [x] `RTLARGE-HOT-02` `crates/trust-runtime/src/runtime/vm/call.rs`. Completed 2026-05-01: split into `call.rs` dispatch entry plus `call/bindings.rs`, `call/stdlib.rs`, `call/symbols.rs`, and `call/tests.rs`; all split files are under 1,000 lines and the stale `FULLMAP-CHECK-10` allowlist entry was removed.
-- [ ] `RTLARGE-HOT-03` `crates/trust-runtime/src/web/config_ui_routes.rs`.
+- [x] `RTLARGE-HOT-03` `crates/trust-runtime/src/web/config_ui_routes.rs`. Completed 2026-05-01: split into a 67-line route entry point plus request models, response helpers, workspace persistence/services, runtime-cloud projection, live/lifecycle services, and focused route-group modules; all split files are under 1,000 lines and the stale `FULLMAP-CHECK-10` allowlist entry was removed.
 - [ ] `RTLARGE-HOT-04` `crates/trust-runtime/tests/agent_command.rs`.
 - [ ] `RTLARGE-HOT-05` `crates/trust-runtime/src/runtime/vm/register_ir.rs`.
 - [ ] `RTLARGE-HOT-06` `crates/trust-runtime/tests/bytecode_vm_core.rs`.
@@ -66,7 +66,7 @@ Non-hotspot note: `crates/trust-runtime/tests/oscat_oop_examples.rs` is exactly 
 ## Phase 2 - First High-Risk Splits
 
 - [x] `RTLARGE-P2-001` Split `runtime/vm/call.rs` by dispatch, FB/class method semantics, and error mapping. Evidence: `wc -l crates/trust-runtime/src/runtime/vm/call.rs crates/trust-runtime/src/runtime/vm/call/*.rs` reports `call.rs` 465, `bindings.rs` 917, `stdlib.rs` 452, `symbols.rs` 70, `tests.rs` 957; `cargo test -p trust-runtime --lib runtime::vm::call::tests -- --nocapture` passed with 27 tests; `cargo test -p trust-runtime --test bytecode_vm_core call_native -- --nocapture` passed with 7 tests; `cargo test -p trust-runtime --lib function_block_call -- --nocapture` passed with 2 tests; `cargo clippy -p trust-runtime --lib -- -D warnings` passed; `RUSTUP_TOOLCHAIN=1.95 cargo run -p xtask -- architecture-doctor --full-map` passed with the stale `call.rs` allowlist row removed.
-- [ ] `RTLARGE-P2-002` Split `web/config_ui_routes.rs` by routing, persistence, request models, response models, and domain services.
+- [x] `RTLARGE-P2-002` Split `web/config_ui_routes.rs` by routing, persistence, request models, response models, and domain services. Evidence: `wc -l crates/trust-runtime/src/web/config_ui_routes.rs crates/trust-runtime/src/web/config_ui_routes/*.rs crates/trust-runtime/src/web/config_ui_routes/routes/*.rs` reports every split file under 1,000 lines; `cargo check -p trust-runtime --lib` passed; `cargo test -p trust-runtime --test web_io_config_integration config_ui -- --nocapture` passed with 6 tests; `cargo clippy -p trust-runtime --lib -- -D warnings` passed; `RUSTUP_TOOLCHAIN=1.95 cargo run -p xtask -- architecture-doctor --full-map` passed with the stale `config_ui_routes.rs` allowlist row removed.
 - [ ] `RTLARGE-P2-003` Split `runtime/vm/register_ir/tests.rs` by feature/domain without losing test names unnecessarily.
 - [ ] `RTLARGE-P2-004` Split `memory.rs` by layout, access, retain interaction, and tests if ownership analysis confirms mixed responsibilities.
 
@@ -79,7 +79,7 @@ Non-hotspot note: `crates/trust-runtime/tests/oscat_oop_examples.rs` is exactly 
 
 ## Exit Criteria
 
-- [x] `RTLARGE-EXIT-01` Every >1,000-line runtime file has owner/split note. Evidence: `FULLMAP-CHECK-10` passed on 2026-05-01 with all 10 remaining runtime hotspots listed after the `call.rs` split.
-- [x] `RTLARGE-EXIT-02` Every >1,500-line runtime file has split plan, completed split, or dated waiver. Evidence: `FULLMAP-CHECK-10` passed on 2026-05-01 with split plans for the five remaining files over 1,500 lines after the `call.rs` split.
-- [ ] `RTLARGE-EXIT-03` At least the top two risk-ranked files have concrete split branches or completed splits. Current state: top-risk `runtime/vm/call.rs` is complete; second-ranked `web/config_ui_routes.rs` remains open under `RTLARGE-P2-002`.
+- [x] `RTLARGE-EXIT-01` Every >1,000-line runtime file has owner/split note. Evidence: `FULLMAP-CHECK-10` passed on 2026-05-01 with all 9 remaining runtime hotspots listed after the `call.rs` and `config_ui_routes.rs` splits.
+- [x] `RTLARGE-EXIT-02` Every >1,500-line runtime file has split plan, completed split, or dated waiver. Evidence: `FULLMAP-CHECK-10` passed on 2026-05-01 with split plans for the four remaining files over 1,500 lines after the `call.rs` and `config_ui_routes.rs` splits.
+- [x] `RTLARGE-EXIT-03` At least the top two risk-ranked files have concrete split branches or completed splits. Evidence: `RTLARGE-P2-001` split `runtime/vm/call.rs` and `RTLARGE-P2-002` split `web/config_ui_routes.rs`; both stale large-file allowlist rows were removed and `FULLMAP-CHECK-10` passed.
 - [x] `RTLARGE-EXIT-04` Doctor blocks new large-file regressions. Evidence: `FULLMAP-CHECK-10` blocks missing notes for runtime `src` and runtime `tests`, blocks stale allowlist paths, and passed after policy cleanup.

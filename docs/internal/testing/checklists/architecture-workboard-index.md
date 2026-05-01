@@ -1,7 +1,7 @@
 # Architecture Workboard Index
 
 Status: Active navigation guard
-Last verified: 2026-05-01 during the BOARD-08 `runtime/vm/call.rs` split.
+Last verified: 2026-05-01 during the BOARD-08 `web/config_ui_routes.rs` split.
 Owner: Architecture/runtime/HIR team
 Scope: reset-safe pointer to the right architecture checklists so future sessions do not swap boards.
 
@@ -26,7 +26,7 @@ The umbrella checklist is `full-architecture-refactor-program-checklist.md`. If 
 - [x] `ARCHPROG-BOARD-05` Runtime host surface ownership: `runtime-host-surface-ownership-checklist.md`.
 - [x] `ARCHPROG-BOARD-06` Runtime core/Linux host split: `runtime-core-host-split-execution-checklist.md`. Status: closed in the current tracked branch.
 - [x] `ARCHPROG-BOARD-07` Dependency hygiene: `dependency-hygiene-execution-checklist.md`.
-- [ ] `ARCHPROG-BOARD-08` Runtime large-file split: `runtime-large-file-split-execution-checklist.md`. Status: in progress; Phase 0 and Phase 1 owner/split inventory complete, `RTLARGE-P2-001` complete, next top-risk split is `RTLARGE-P2-002`.
+- [ ] `ARCHPROG-BOARD-08` Runtime large-file split: `runtime-large-file-split-execution-checklist.md`. Status: in progress; Phase 0 and Phase 1 owner/split inventory complete, `RTLARGE-P2-001` and `RTLARGE-P2-002` complete, next top-risk split is `RTLARGE-P2-003`.
 - [x] `ARCHPROG-BOARD-09` Diagram semantic enforcement: covered by the full-map doctor work.
 - [ ] `ARCHPROG-BOARD-10` Runtime VM mutation hardening: `runtime-vm-mutation-hardening-execution-checklist.md`.
 - [ ] `ARCHPROG-BOARD-11` Unsafe/concurrency hardening: `unsafe-concurrency-hardening-execution-checklist.md`.
@@ -36,7 +36,7 @@ The umbrella checklist is `full-architecture-refactor-program-checklist.md`. If 
 
 - [x] `ARCHIDX-NEXT-01` BOARD-04 is complete in the tracked checklist; do not resume it unless a new explicit scope reopens `runtime-cli-product-workbench-split-checklist.md`.
 - [x] `ARCHIDX-NEXT-02` After the `v0.24.12` BOARD-04 release gate, use the umbrella checklist to pick the next open architecture-program row. Evidence: BOARD-08 was selected from the tracked umbrella checklist after BOARD-04 completion.
-- [ ] `ARCHIDX-NEXT-05` Continue the active BOARD-08 top-risk split work in `runtime-large-file-split-execution-checklist.md`; next open detail row is `RTLARGE-P2-002` unless a smaller behavior-lock split is needed first.
+- [ ] `ARCHIDX-NEXT-05` Continue the active BOARD-08 top-risk split work in `runtime-large-file-split-execution-checklist.md`; next open detail row is `RTLARGE-P2-003` unless a smaller behavior-lock split is needed first.
 - [ ] `ARCHIDX-NEXT-03` Do not restart BOARD-06 or BOARD-12 unless the tracked dedicated checklist is reopened with a new explicit scope.
 - [ ] `ARCHIDX-NEXT-04` Keep non-program boards secondary unless the user explicitly redirects away from the architecture-program path.
 
