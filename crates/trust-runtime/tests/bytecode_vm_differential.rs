@@ -1,3 +1,4 @@
+use trust_runtime::error::RuntimeError;
 use trust_runtime::execution_backend::{ExecutionBackend, VmRegisterProfileSnapshot};
 use trust_runtime::harness::TestHarness;
 use trust_runtime::value::Value;
@@ -100,6 +101,111 @@ END_PROGRAM
     assert_eq!(register.get_output("second"), Some(Value::Char(b'B')));
 
     assert_register_path(&register.runtime().vm_register_profile_snapshot());
+    assert_stack_fallback(&stack.runtime().vm_register_profile_snapshot());
+}
+
+#[test]
+fn register_and_stack_paths_match_for_deep_ref_chain_field_index_parity() {
+    let source = r#"
+TYPE Cell :
+STRUCT
+    value : DINT;
+END_STRUCT
+END_TYPE
+
+TYPE Row :
+STRUCT
+    cells : ARRAY[0..1] OF Cell;
+END_STRUCT
+END_TYPE
+
+TYPE Matrix :
+STRUCT
+    rows : ARRAY[0..1] OF Row;
+END_STRUCT
+END_TYPE
+
+PROGRAM Main
+VAR
+    matrix : Matrix;
+    row_idx : DINT := 1;
+    cell_idx : DINT := 0;
+    outv : DINT := 0;
+END_VAR
+matrix.rows[1].cells[0].value := 41;
+matrix.rows[row_idx].cells[cell_idx].value := matrix.rows[row_idx].cells[cell_idx].value + 1;
+outv := matrix.rows[1].cells[0].value;
+END_PROGRAM
+"#;
+
+    let mut register = vm_harness(source, false);
+    let mut stack = vm_harness(source, true);
+
+    let register_cycle = register.cycle();
+    let stack_cycle = stack.cycle();
+
+    assert_eq!(register_cycle.errors, stack_cycle.errors);
+    assert!(
+        register_cycle.errors.is_empty(),
+        "register errors: {:?}",
+        register_cycle.errors
+    );
+    assert_eq!(register.get_output("outv"), stack.get_output("outv"));
+    assert_eq!(register.get_output("outv"), Some(Value::DInt(42)));
+
+    assert_register_path(&register.runtime().vm_register_profile_snapshot());
+    assert_stack_fallback(&stack.runtime().vm_register_profile_snapshot());
+}
+
+#[test]
+fn register_and_stack_paths_surface_same_deep_ref_chain_index_trap() {
+    let source = r#"
+TYPE Cell :
+STRUCT
+    value : DINT;
+END_STRUCT
+END_TYPE
+
+TYPE Row :
+STRUCT
+    cells : ARRAY[0..1] OF Cell;
+END_STRUCT
+END_TYPE
+
+TYPE Matrix :
+STRUCT
+    rows : ARRAY[0..1] OF Row;
+END_STRUCT
+END_TYPE
+
+PROGRAM Main
+VAR
+    matrix : Matrix;
+    row_idx : DINT := 1;
+    cell_idx : DINT := 2;
+    outv : DINT := 0;
+END_VAR
+outv := matrix.rows[row_idx].cells[cell_idx].value;
+END_PROGRAM
+"#;
+
+    let mut register = vm_harness(source, false);
+    let mut stack = vm_harness(source, true);
+
+    let register_cycle = register.cycle();
+    let stack_cycle = stack.cycle();
+
+    assert_eq!(register_cycle.errors, stack_cycle.errors);
+    assert_eq!(
+        register_cycle.errors,
+        vec![RuntimeError::IndexOutOfBounds {
+            index: 2,
+            lower: 0,
+            upper: 1,
+        }]
+    );
+
+    assert_register_started_without_fallback(&register.runtime().vm_register_profile_snapshot());
     assert_stack_fallback(&stack.runtime().vm_register_profile_snapshot());
 }
 
