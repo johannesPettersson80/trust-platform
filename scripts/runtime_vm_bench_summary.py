@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 METRICS = ("p50_us", "p95_us", "p99_us", "max_us", "measured_duration_ms")
+FIXTURE_REGRESSION_METRICS = ("p95_us", "p99_us", "measured_duration_ms")
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -123,6 +124,55 @@ def compare_fixtures(
     }
 
 
+def evaluate_fixture_regressions(
+    compare: dict[str, Any] | None, budget_pct: float
+) -> dict[str, Any]:
+    if compare is None:
+        return {
+            "status": "not-run",
+            "budget_pct": budget_pct,
+            "metrics": list(FIXTURE_REGRESSION_METRICS),
+            "fixtures": [],
+        }
+
+    fixtures = []
+    failed = False
+    for row in compare["fixtures"]:
+        fixture = {
+            "name": row["name"],
+            "status": "pass",
+            "regressions": [],
+        }
+        if row["status"] != "compared":
+            fixture["status"] = row["status"]
+            failed = True
+            fixtures.append(fixture)
+            continue
+
+        for metric in FIXTURE_REGRESSION_METRICS:
+            delta = row["metrics"][metric]["delta_pct"]
+            if delta is not None and delta > budget_pct:
+                fixture["regressions"].append(
+                    {
+                        "metric": metric,
+                        "delta_pct": delta,
+                        "budget_pct": budget_pct,
+                    }
+                )
+
+        if fixture["regressions"]:
+            fixture["status"] = "fail"
+            failed = True
+        fixtures.append(fixture)
+
+    return {
+        "status": "fail" if failed else "pass",
+        "budget_pct": budget_pct,
+        "metrics": list(FIXTURE_REGRESSION_METRICS),
+        "fixtures": fixtures,
+    }
+
+
 def render_markdown(summary: dict[str, Any]) -> str:
     confidence = summary["confidence"]
     aggregate = summary["aggregate"]
@@ -178,6 +228,25 @@ def render_markdown(summary: dict[str, Any]) -> str:
                 f"{fmt('measured_duration_ms')} |"
             )
 
+    fixture_gate = summary.get("fixture_regression_gate")
+    if fixture_gate:
+        lines.extend(
+            [
+                "",
+                f"Fixture regression gate: `{fixture_gate['status']}` "
+                f"(budget +{fixture_gate['budget_pct']:.3f}%)",
+                "",
+                "| workload | status | regressions |",
+                "|---|---|---|",
+            ]
+        )
+        for row in fixture_gate["fixtures"]:
+            regressions = ", ".join(
+                f"{item['metric']} +{item['delta_pct']:.3f}%"
+                for item in row["regressions"]
+            )
+            lines.append(f"| {row['name']} | {row['status']} | {regressions or '-'} |")
+
     lines.extend(["", "Result: RECORDED", ""])
     return "\n".join(lines)
 
@@ -186,6 +255,12 @@ def build_summary(args: argparse.Namespace) -> dict[str, Any]:
     corpus_paths = [Path(path) for path in args.corpus_summary]
     fixtures = aggregate_corpus_summaries(corpus_paths)
     first = load_json(corpus_paths[0])
+    compare = compare_fixtures(
+        fixtures, Path(args.compare_baseline) if args.compare_baseline else None
+    )
+    fixture_regression_budget_pct = float(
+        getattr(args, "fixture_regression_budget_pct", 5.0)
+    )
     summary = {
         "profile": args.profile,
         "tier": args.tier,
@@ -198,8 +273,9 @@ def build_summary(args: argparse.Namespace) -> dict[str, Any]:
         },
         "aggregate": aggregate_gate(fixtures),
         "fixtures": fixtures,
-        "compare": compare_fixtures(
-            fixtures, Path(args.compare_baseline) if args.compare_baseline else None
+        "compare": compare,
+        "fixture_regression_gate": evaluate_fixture_regressions(
+            compare, fixture_regression_budget_pct
         ),
         "result": "recorded",
     }
@@ -232,13 +308,29 @@ def self_test() -> None:
                     "fallbacks": 0,
                     "vm_highlight": "vm-clean",
                     "measured_duration_ms": 100.0,
+                },
+                {
+                    "name": "string_stdlib",
+                    "project": "string",
+                    "p50_us": 40.0,
+                    "p95_us": 56.0,
+                    "p99_us": 60.0,
+                    "max_us": 70.0,
+                    "overruns": 0,
+                    "completed": 1,
+                    "last_error": 0,
+                    "fallbacks": 0,
+                    "vm_highlight": "vm-clean",
+                    "measured_duration_ms": 160.0,
                 }
             ],
         }
         repeat = json.loads(json.dumps(current))
         repeat["rows"][0]["p95_us"] = 22.0
+        repeat["rows"][1]["p95_us"] = 58.0
         baseline = json.loads(json.dumps(current))
         baseline["rows"][0]["p95_us"] = 25.0
+        baseline["rows"][1]["p95_us"] = 50.0
         (root / "current.json").write_text(json.dumps(current))
         (root / "repeat.json").write_text(json.dumps(repeat))
         (root / "baseline.json").write_text(json.dumps(baseline))
@@ -252,6 +344,7 @@ def self_test() -> None:
             samples=4,
             warmup_cycles=1,
             low_noise_runs=2,
+            fixture_regression_budget_pct=5.0,
         )
         summary = build_summary(args)
         assert summary["confidence"]["low_noise_runs"] == 2
@@ -259,9 +352,21 @@ def self_test() -> None:
         assert fixture["p95_us"] == 21.0
         delta = summary["compare"]["fixtures"][0]["metrics"]["p95_us"]["delta_pct"]
         assert round(delta, 3) == -16.0
+        assert summary["fixture_regression_gate"]["status"] == "fail"
+        regression_rows = {
+            row["name"]: row for row in summary["fixture_regression_gate"]["fixtures"]
+        }
+        assert regression_rows["loop_arith"]["status"] == "pass"
+        assert regression_rows["string_stdlib"]["status"] == "fail"
+        assert (
+            regression_rows["string_stdlib"]["regressions"][0]["metric"] == "p95_us"
+        )
         write_outputs(summary, Path(args.out_dir))
         assert (Path(args.out_dir) / "summary.json").exists()
         assert "Compare baseline" in (Path(args.out_dir) / "summary.md").read_text()
+        assert "Fixture regression gate: `fail`" in (
+            Path(args.out_dir) / "summary.md"
+        ).read_text()
 
 
 def parse_args() -> argparse.Namespace:
@@ -274,6 +379,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--samples", type=int, default=32)
     parser.add_argument("--warmup-cycles", type=int, default=8)
     parser.add_argument("--low-noise-runs", type=int, default=1)
+    parser.add_argument("--fixture-regression-budget-pct", type=float, default=5.0)
     parser.add_argument("--self-test", action="store_true")
     return parser.parse_args()
 
