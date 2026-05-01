@@ -5,7 +5,7 @@
 use smol_str::SmolStr;
 
 use crate::program_model::{Stmt, VarDef};
-use crate::value::{Duration, ValueRef};
+use crate::value::Duration;
 
 /// Program definition for execution.
 #[derive(Debug, Clone)]
@@ -17,16 +17,7 @@ pub struct ProgramDef {
     pub body: Vec<Stmt>,
 }
 
-/// Configuration for a task (periodic and/or event-driven).
-#[derive(Debug, Clone)]
-pub struct TaskConfig {
-    pub name: SmolStr,
-    pub interval: Duration,
-    pub single: Option<SmolStr>,
-    pub priority: u32,
-    pub programs: Vec<SmolStr>,
-    pub fb_instances: Vec<ValueRef>,
-}
+pub use trust_runtime_core::task::TaskConfig;
 
 /// Scheduling state for a task.
 #[derive(Debug, Clone)]

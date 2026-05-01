@@ -4,8 +4,10 @@
 
 use smol_str::SmolStr;
 use thiserror::Error;
-
-use crate::task::TaskConfig;
+pub use trust_runtime_core::bytecode::{
+    BytecodeMetadata, BytecodeVersion, ProcessImageConfig, ResourceMetadata,
+    SUPPORTED_MAJOR_VERSION, SUPPORTED_MINOR_VERSION,
+};
 
 include!("format/header.rs");
 include!("format/types.rs");

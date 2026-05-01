@@ -16,6 +16,8 @@
 
 extern crate alloc;
 
+/// Portable bytecode metadata records.
+pub mod bytecode;
 /// Portable date/time calculation helpers.
 pub mod datetime;
 /// Portable runtime errors.
@@ -28,5 +30,7 @@ pub mod numeric;
 pub mod program_model;
 /// Scaffold ownership markers for the pre-move core crate.
 pub mod scaffold;
+/// Portable task configuration records.
+pub mod task;
 /// Portable runtime value model pieces.
 pub mod value;

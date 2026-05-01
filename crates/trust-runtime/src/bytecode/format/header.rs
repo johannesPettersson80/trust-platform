@@ -1,64 +1,7 @@
-/// Bytecode format version.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct BytecodeVersion {
-    pub major: u16,
-    pub minor: u16,
-}
-
-impl BytecodeVersion {
-    #[must_use]
-    pub const fn new(major: u16, minor: u16) -> Self {
-        Self { major, minor }
-    }
-}
-
-/// Supported major bytecode version.
-pub const SUPPORTED_MAJOR_VERSION: u16 = 1;
-pub const SUPPORTED_MINOR_VERSION: u16 = 1;
-
 pub(crate) const MAGIC: [u8; 4] = *b"STBC";
 pub(crate) const HEADER_SIZE: u16 = 24;
 pub(crate) const SECTION_ENTRY_SIZE: usize = 12;
 pub(crate) const HEADER_FLAG_CRC32: u32 = 0x0001;
-
-/// Process image sizing derived from bytecode metadata.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct ProcessImageConfig {
-    pub inputs: usize,
-    pub outputs: usize,
-    pub memory: usize,
-}
-
-/// Resource metadata captured in a bytecode module.
-#[derive(Debug, Clone)]
-pub struct ResourceMetadata {
-    pub name: SmolStr,
-    pub process_image: ProcessImageConfig,
-    pub tasks: Vec<TaskConfig>,
-}
-
-/// Bytecode metadata for a configuration.
-#[derive(Debug, Clone)]
-pub struct BytecodeMetadata {
-    pub version: BytecodeVersion,
-    pub resources: Vec<ResourceMetadata>,
-}
-
-impl BytecodeMetadata {
-    /// Lookup a resource by name.
-    #[must_use]
-    pub fn resource(&self, name: &str) -> Option<&ResourceMetadata> {
-        self.resources
-            .iter()
-            .find(|resource| resource.name.eq_ignore_ascii_case(name))
-    }
-
-    /// Return the first resource, if any.
-    #[must_use]
-    pub fn primary_resource(&self) -> Option<&ResourceMetadata> {
-        self.resources.first()
-    }
-}
 
 /// Bytecode decoder errors.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
