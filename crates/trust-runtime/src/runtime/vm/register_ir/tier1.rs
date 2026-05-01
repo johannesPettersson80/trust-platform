@@ -726,7 +726,7 @@ fn execute_tier1_compiled_block(
                     .record_ref_op(RegisterRefOpKind::RefField);
                 let next = match read_register_ref(registers, *base)? {
                     Value::Reference(Some(reference)) => {
-                        dynamic_ref_field(runtime, frames, reference.clone(), field.clone())
+                        dynamic_ref_field_borrowed(runtime, frames, reference, field.clone())
                             .map_err(VmTrap::into_runtime_error)?
                     }
                     Value::Reference(None) => {

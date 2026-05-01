@@ -181,6 +181,25 @@ fn vm_function_block_ref_execution_reads_reference_without_clone() {
 }
 
 #[test]
+fn tier1_dynamic_ref_field_borrows_reference_registers() {
+    let source = read_workspace_file("crates/trust-runtime/src/runtime/vm/register_ir/tier1.rs");
+    let body = source
+        .split_once("Tier1CompiledInstr::RefField { base, field, dest } => {")
+        .and_then(|(_, rest)| rest.split_once("Tier1CompiledInstr::RefIndex"))
+        .map(|(body, _)| body)
+        .expect("tier1 RefField body");
+
+    assert!(
+        body.contains("dynamic_ref_field_borrowed(runtime, frames, reference, field.clone())"),
+        "tier-1 RefField must use the borrowed dynamic-ref helper"
+    );
+    assert!(
+        !body.contains("reference.clone()"),
+        "tier-1 RefField must not clone the whole ValueRef before resolving the field"
+    );
+}
+
+#[test]
 fn runtime_var_decl_parts_are_structural_not_positional_tuples() {
     let vars = read_workspace_file("crates/trust-runtime/src/harness/compiler/vars.rs");
     assert!(

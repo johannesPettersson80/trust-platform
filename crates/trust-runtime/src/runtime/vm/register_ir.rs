@@ -18,8 +18,8 @@ use crate::value::{size_of_value, Value};
 use super::super::core::Runtime;
 use super::call::{execute_native_call, push_call_frame};
 use super::dispatch_refs::{
-    dynamic_load_ref, dynamic_ref_field, dynamic_ref_index, dynamic_store_ref, index_to_i64,
-    load_ref_addr, peek_ref, store_ref,
+    dynamic_load_ref, dynamic_ref_field, dynamic_ref_field_borrowed, dynamic_ref_index,
+    dynamic_store_ref, index_to_i64, load_ref_addr, peek_ref, store_ref,
 };
 use super::dispatch_sizeof::{sizeof_error_to_runtime, sizeof_type_from_table};
 use super::errors::VmTrap;

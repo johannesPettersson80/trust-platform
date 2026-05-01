@@ -176,6 +176,30 @@ pub(super) fn dynamic_ref_field(
     }
 }
 
+pub(super) fn dynamic_ref_field_borrowed(
+    runtime: &Runtime,
+    frames: &FrameStack,
+    reference: &ValueRef,
+    field: SmolStr,
+) -> Result<ValueRef, VmTrap> {
+    let target = peek_dynamic_ref(runtime, frames, reference)?;
+    match target {
+        Value::Struct(struct_value) => {
+            if !struct_value.contains_field(field.as_str()) {
+                return Err(VmTrap::Runtime(RuntimeError::UndefinedField(field)));
+            }
+            let mut next = reference.clone();
+            next.path.push(RefSegment::Field(field));
+            Ok(next)
+        }
+        Value::Instance(instance_id) => runtime
+            .storage
+            .resolved_instance_field_ref(*instance_id, field.as_str())
+            .ok_or(VmTrap::Runtime(RuntimeError::UndefinedField(field))),
+        _ => Err(VmTrap::Runtime(RuntimeError::TypeMismatch)),
+    }
+}
+
 pub(super) fn dynamic_ref_index(
     runtime: &Runtime,
     frames: &FrameStack,
