@@ -37,6 +37,9 @@ Target release: `v0.24.9`
   `full-low-noise` repeated-run profiles in its artifacts.
 - The runtime VM malformed-bytecode fuzz smoke gate now records progress-visible
   logs and summary artifacts for deterministic bytecode mutation coverage.
+- The runtime VM default-switch readiness ledger now records production-guard,
+  differential, malformed-bytecode fuzz, benchmark, residual-risk, and rollback
+  evidence without pretending blocked performance thresholds are ready.
 
 ### Fixed
 
