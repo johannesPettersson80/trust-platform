@@ -1,10 +1,14 @@
 //! Portable bytecode metadata records.
 
+mod format;
+
 use alloc::vec::Vec;
 use smol_str::SmolStr;
 use thiserror::Error;
 
 use crate::task::TaskConfig;
+
+pub use format::*;
 
 /// Bytecode format version.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -298,5 +302,25 @@ mod tests {
         let mut bytes = vec![1, 2, 3];
         super::pad_to(&mut bytes, 6);
         assert_eq!(bytes, vec![1, 2, 3, 0, 0, 0]);
+    }
+
+    #[test]
+    fn bytecode_format_records_preserve_raw_discriminants() {
+        assert_eq!(
+            super::SectionId::from_raw(0x0001),
+            Some(super::SectionId::StringTable)
+        );
+        assert_eq!(
+            super::TypeKind::from_raw(8),
+            Some(super::TypeKind::FunctionBlock)
+        );
+        assert_eq!(
+            super::RefLocation::from_raw(3),
+            Some(super::RefLocation::Io)
+        );
+        assert_eq!(super::PouKind::from_raw(3), Some(super::PouKind::Class));
+        assert!(super::PouKind::FunctionBlock.is_class_like());
+        assert!(super::PouKind::Class.is_class_like());
+        assert!(!super::PouKind::Function.is_class_like());
     }
 }

@@ -1,7 +1,7 @@
-pub(crate) const MAGIC: [u8; 4] = *b"STBC";
-pub(crate) const HEADER_SIZE: u16 = 24;
-pub(crate) const SECTION_ENTRY_SIZE: usize = 12;
-pub(crate) const HEADER_FLAG_CRC32: u32 = 0x0001;
+pub const MAGIC: [u8; 4] = *b"STBC";
+pub const HEADER_SIZE: u16 = 24;
+pub const SECTION_ENTRY_SIZE: usize = 12;
+pub const HEADER_FLAG_CRC32: u32 = 0x0001;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SectionId {

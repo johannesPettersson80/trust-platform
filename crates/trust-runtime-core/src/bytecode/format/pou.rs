@@ -33,7 +33,8 @@ pub enum PouKind {
 }
 
 impl PouKind {
-    pub(crate) fn from_raw(value: u8) -> Option<Self> {
+    #[must_use]
+    pub fn from_raw(value: u8) -> Option<Self> {
         match value {
             0 => Some(Self::Program),
             1 => Some(Self::FunctionBlock),
@@ -44,7 +45,8 @@ impl PouKind {
         }
     }
 
-    pub(crate) fn is_class_like(self) -> bool {
+    #[must_use]
+    pub fn is_class_like(self) -> bool {
         matches!(self, Self::FunctionBlock | Self::Class)
     }
 }
