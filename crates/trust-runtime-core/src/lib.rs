@@ -30,9 +30,13 @@ pub mod numeric;
 pub mod program_model;
 /// Scaffold ownership markers for the pre-move core crate.
 pub mod scaffold;
+/// Portable scheduler model records.
+pub mod scheduler;
 /// Portable task configuration records.
 pub mod task;
 /// Portable runtime value model pieces.
 pub mod value;
 /// Portable VM execution helpers.
 pub mod vm;
+/// Portable watchdog, retain-mode, and fault-policy model records.
+pub mod watchdog;

@@ -306,7 +306,7 @@ Move lowest-risk portable pieces first.
 
 ## Phase 6 - Move Scheduler, Cycle, Retain, And Watchdog Core
 
-- [ ] `RTSPLIT-P6-001` Move scheduler model only after scheduler behavior locks pass.
+- [x] `RTSPLIT-P6-001` Move scheduler model only after scheduler behavior locks pass. Evidence: `cargo test -p trust-runtime --test scheduler_state -- --nocapture` and `cargo test -p trust-runtime scheduler::tests --lib -- --nocapture` passed before moving `ResourceState`; `trust-runtime-core::scheduler::ResourceState` now owns the portable state enum while `ResourceCommand`, clocks, `StartGate`, and runner loops remain host-side.
 - [ ] `RTSPLIT-P6-002` Move core cycle execution only after I/O boundary behavior locks pass.
 - [ ] `RTSPLIT-P6-003` Keep actual IO driver implementations host-owned.
 - [ ] `RTSPLIT-P6-004` Keep runtime process image exchange explicit and deterministic.
@@ -316,6 +316,12 @@ Move lowest-risk portable pieces first.
 - [ ] `RTSPLIT-P6-008` Introduce a minimal sync watchdog trait if needed.
 - [ ] `RTSPLIT-P6-009` Keep Linux PREEMPT_RT setup, `mlockall`, CPU affinity, scheduler policy, and systemd deployment host-side.
 - [ ] `RTSPLIT-P6-010` Keep realtime/T0 host implementation host-side unless a separate T0 contract split is approved.
+
+### Phase 6 Progress
+
+- [x] `RTSPLIT-P6-MODEL-001` Move the portable scheduler state enum into `trust-runtime-core`. Evidence: `crates/trust-runtime-core/src/scheduler.rs` owns `ResourceState`; `trust-runtime::scheduler::ResourceState` remains available through a compatibility re-export; host-thread scheduling pieces stay in `trust-runtime`.
+- [x] `RTSPLIT-P6-MODEL-002` Move portable watchdog, retain-mode, and fault-policy records into `trust-runtime-core`. Evidence: `crates/trust-runtime-core/src/watchdog.rs` owns `WatchdogAction`, `RetainMode`, `FaultPolicy`, `WatchdogPolicy`, `FaultAction`, `FaultDecision`, and `FaultInfo`; `trust-runtime/src/watchdog.rs` is a compatibility re-export for existing config, control, scheduler, and runtime call sites.
+- [x] `RTSPLIT-P6-MODEL-003` Verify the Phase 6 model movement slice. Evidence: `just fmt`, `cargo test -p trust-runtime-core -- --nocapture`, `cargo check -p trust-runtime-core --no-default-features`, `cargo test -p trust-runtime --test scheduler_state -- --nocapture`, `cargo test -p trust-runtime scheduler::tests --lib -- --nocapture`, `cargo test -p trust-runtime --test runtime_core_behavior_lock watchdog -- --nocapture`, `cargo clippy -p trust-runtime-core -p trust-runtime --lib -- -D warnings`, `cargo run -p xtask -- architecture-doctor --full-map`, `scripts/render_diagrams.sh`, and `python scripts/check_diagram_drift.py` pass.
 
 ### Phase 6 Exit Gate
 
