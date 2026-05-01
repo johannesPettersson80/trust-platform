@@ -5,7 +5,9 @@ use trust_runtime::bytecode::{
 };
 use trust_runtime::error::RuntimeError;
 use trust_runtime::execution_backend::ExecutionBackend;
-use trust_runtime::harness::{bytecode_module_from_source, TestHarness};
+use trust_runtime::harness::{
+    bytecode_bytes_from_source, bytecode_module_from_source, TestHarness,
+};
 use trust_runtime::value::Value;
 use trust_runtime::Runtime;
 
@@ -578,6 +580,175 @@ fn vm_call_native_method_polymorphic_receiver_dispatch_remains_correct() {
     harness.assert_eq("out_a1", 1i16);
     harness.assert_eq("out_b1", 20i16);
     harness.assert_eq("out_a2", 4i16);
+}
+
+#[test]
+fn vm_call_native_direct_binding_preserves_named_default_out_and_inout_contracts() {
+    let source = r#"
+        FUNCTION MixFn : INT
+        VAR_INPUT
+            a : INT;
+            b : INT := INT#5;
+        END_VAR
+        VAR_OUTPUT
+            out_sum : INT;
+        END_VAR
+        VAR_IN_OUT
+            acc : INT;
+        END_VAR
+        out_sum := a + b;
+        acc := acc + out_sum;
+        MixFn := acc;
+        END_FUNCTION
+
+        FUNCTION_BLOCK MixFb
+        VAR_INPUT
+            in_a : INT;
+            in_b : INT := INT#4;
+        END_VAR
+        VAR_OUTPUT
+            out_sum : INT;
+        END_VAR
+        VAR_IN_OUT
+            acc : INT;
+        END_VAR
+        out_sum := in_a + in_b;
+        acc := acc + out_sum;
+        END_FUNCTION_BLOCK
+
+        CLASS MixClass
+        METHOD PUBLIC Apply : INT
+        VAR_INPUT
+            a : INT;
+            b : INT := INT#6;
+        END_VAR
+        VAR_OUTPUT
+            out_sum : INT;
+        END_VAR
+        VAR_IN_OUT
+            acc : INT;
+        END_VAR
+        out_sum := a + b;
+        acc := acc + out_sum;
+        Apply := acc;
+        END_METHOD
+        END_CLASS
+
+        PROGRAM Main
+        VAR
+            fb : MixFb;
+            obj : MixClass;
+            total_fn : INT := INT#10;
+            total_fb : INT := INT#20;
+            total_method : INT := INT#30;
+            out_fn : INT := INT#0;
+            out_fb : INT := INT#0;
+            out_method : INT := INT#0;
+            result_fn : INT := INT#0;
+            result_method : INT := INT#0;
+        END_VAR
+        result_fn := MixFn(a := INT#2, out_sum => out_fn, acc := total_fn);
+        fb(in_a := INT#3, out_sum => out_fb, acc := total_fb);
+        result_method := obj.Apply(a := INT#4, out_sum => out_method, acc := total_method);
+        END_PROGRAM
+    "#;
+    let module = bytecode_module_from_source(source).expect("compile bytecode module");
+    let body = main_body_bytes(&module);
+    assert!(
+        body.contains(&0x09),
+        "expected CALL_NATIVE opcode in main body"
+    );
+
+    let mut harness = vm_harness(source);
+    let cycle = harness.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "CALL_NATIVE direct binding parity failed: {:?}",
+        cycle.errors
+    );
+    harness.assert_eq("out_fn", 7i16);
+    harness.assert_eq("total_fn", 17i16);
+    harness.assert_eq("result_fn", 17i16);
+    harness.assert_eq("out_fb", 7i16);
+    harness.assert_eq("total_fb", 27i16);
+    harness.assert_eq("out_method", 10i16);
+    harness.assert_eq("total_method", 40i16);
+    harness.assert_eq("result_method", 40i16);
+}
+
+#[test]
+fn vm_call_native_direct_binding_module_swap_reloads_default_metadata() {
+    let source_v1 = r#"
+        FUNCTION AddDefault : INT
+        VAR_INPUT
+            a : INT;
+            b : INT := INT#5;
+        END_VAR
+        AddDefault := a + b;
+        END_FUNCTION
+
+        PROGRAM Main
+        VAR
+            result : INT := INT#0;
+        END_VAR
+        result := AddDefault(a := INT#2);
+        END_PROGRAM
+    "#;
+    let source_v2 = r#"
+        FUNCTION AddDefault : INT
+        VAR_INPUT
+            a : INT;
+            b : INT := INT#50;
+        END_VAR
+        AddDefault := a + b;
+        END_FUNCTION
+
+        PROGRAM Main
+        VAR
+            result : INT := INT#0;
+        END_VAR
+        result := AddDefault(a := INT#2);
+        END_PROGRAM
+    "#;
+    let bytes_v1 = bytecode_bytes_from_source(source_v1).expect("build bytecode v1");
+    let bytes_v2 = bytecode_bytes_from_source(source_v2).expect("build bytecode v2");
+
+    let mut harness = TestHarness::from_source(source_v1).expect("compile runtime");
+    harness
+        .runtime_mut()
+        .apply_bytecode_bytes(&bytes_v1, None)
+        .expect("apply bytecode v1");
+    harness
+        .runtime_mut()
+        .set_execution_backend(ExecutionBackend::BytecodeVm)
+        .expect("select vm backend");
+    harness
+        .runtime_mut()
+        .restart(trust_runtime::RestartMode::Cold)
+        .expect("restart runtime v1");
+    let first = harness.cycle();
+    assert!(
+        first.errors.is_empty(),
+        "CALL_NATIVE v1 failed: {:?}",
+        first.errors
+    );
+    harness.assert_eq("result", 7i16);
+
+    harness
+        .runtime_mut()
+        .apply_bytecode_bytes(&bytes_v2, None)
+        .expect("apply bytecode v2");
+    harness
+        .runtime_mut()
+        .restart(trust_runtime::RestartMode::Cold)
+        .expect("restart runtime v2");
+    let second = harness.cycle();
+    assert!(
+        second.errors.is_empty(),
+        "CALL_NATIVE v2 failed after module swap: {:?}",
+        second.errors
+    );
+    harness.assert_eq("result", 52i16);
 }
 
 #[test]
