@@ -115,16 +115,17 @@ jobs:
         run: |
           mkdir -p dist/runtime-${{ matrix.platform }}
           cp target/${{ matrix.target }}/release/trust-runtime dist/runtime-${{ matrix.platform }}/
+          cp target/${{ matrix.target }}/release/trust-dev dist/runtime-${{ matrix.platform }}/
           cp target/${{ matrix.target }}/release/trust-bundle-gen dist/runtime-${{ matrix.platform }}/
           cp docs/deploy/INSTALL.md dist/runtime-${{ matrix.platform }}/
           cp docs/deploy/systemd/trust-runtime.service dist/runtime-${{ matrix.platform }}/
           cat > dist/runtime-${{ matrix.platform }}/README.txt <<'README'
           truST Runtime
 
-          This bundle contains the trust-runtime and trust-bundle-gen binaries.
+          This bundle contains the trust-runtime, trust-dev, and trust-bundle-gen binaries.
 
           Quick start:
-          - Put trust-runtime and trust-bundle-gen on your PATH
+          - Put trust-runtime, trust-dev, and trust-bundle-gen on your PATH
           - Run: trust-runtime --project <your-project>
 
           See INSTALL.md for full setup details.
@@ -137,16 +138,17 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path dist\runtime-${{ matrix.platform }} | Out-Null
           Copy-Item target/${{ matrix.target }}/release/trust-runtime.exe dist/runtime-${{ matrix.platform }}/
+          Copy-Item target/${{ matrix.target }}/release/trust-dev.exe dist/runtime-${{ matrix.platform }}/
           Copy-Item target/${{ matrix.target }}/release/trust-bundle-gen.exe dist/runtime-${{ matrix.platform }}/
           Copy-Item docs/deploy/INSTALL.md dist/runtime-${{ matrix.platform }}/
           Copy-Item docs/deploy/systemd/trust-runtime.service dist/runtime-${{ matrix.platform }}/
           @'
           truST Runtime
 
-          This bundle contains the trust-runtime and trust-bundle-gen binaries.
+          This bundle contains the trust-runtime, trust-dev, and trust-bundle-gen binaries.
 
           Quick start:
-          - Put trust-runtime.exe and trust-bundle-gen.exe on your PATH
+          - Put trust-runtime.exe, trust-dev.exe, and trust-bundle-gen.exe on your PATH
           - Run: trust-runtime --project <your-project>
 
           See INSTALL.md for full setup details.

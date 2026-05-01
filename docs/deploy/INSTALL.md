@@ -12,6 +12,7 @@ git clone <repo> trust-platform
 cd trust-platform
 cargo build -p trust-runtime --release
 sudo install -m 0755 target/release/trust-runtime /usr/local/bin/trust-runtime
+sudo install -m 0755 target/release/trust-dev /usr/local/bin/trust-dev
 ```
 
 Optional system I/O setup (GPIO / hardware drivers):
@@ -35,6 +36,7 @@ Build and install:
 ```
 cargo build -p trust-runtime --release
 sudo install -m 0755 target/release/trust-runtime /usr/local/bin/trust-runtime
+sudo install -m 0755 target/release/trust-dev /usr/local/bin/trust-dev
 ```
 
 ## Windows
@@ -44,16 +46,20 @@ Build and install:
 cargo build -p trust-runtime --release
 ```
 
-Copy `target\\release\\trust-runtime.exe` into a folder on your PATH.
+Copy `target\\release\\trust-runtime.exe` and `target\\release\\trust-dev.exe`
+into a folder on your PATH.
 
 ## Offline Install (USB/SD Card)
 
 1) Build `trust-runtime` on a connected machine.
 2) Copy the binary and service template to removable media:
    - `target/release/trust-runtime`
+   - `target/release/trust-dev`
    - `docs/deploy/systemd/trust-runtime.service`
 3) On the target device:
    - Copy `trust-runtime` to `/usr/local/bin/`
+   - Copy `trust-dev` to `/usr/local/bin/` if developer/workbench commands are
+     needed on the target
    - Copy the service file to `/etc/systemd/system/`
    - Run `sudo trust-runtime setup --force`
    - Enable and start the service:

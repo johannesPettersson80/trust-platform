@@ -103,6 +103,7 @@
     {"name": "conformance", "class": "conformance_benchmark", "owner": "runtime/conformance", "rationale": "conformance module"},
     {"name": "agent", "class": "workbench_dev", "owner": "dev tooling", "rationale": "agent module to split"},
     {"name": "commit", "class": "workbench_dev", "owner": "dev tooling", "rationale": "commit module to split"},
+    {"name": "dev_forward", "class": "infrastructure", "owner": "CLI", "rationale": "deprecated trust-runtime workbench aliases forward to trust-dev"},
     {"name": "git", "class": "infrastructure", "owner": "CLI", "rationale": "git helper used by setup and workbench commands; split decision tracked by runtime CLI board"},
     {"name": "docs", "class": "workbench_dev", "owner": "dev tooling", "rationale": "docs helper to split"},
     {"name": "prompt", "class": "infrastructure", "owner": "CLI", "rationale": "interactive prompt helper shared by setup and workbench commands"},
@@ -133,11 +134,11 @@
     {
       "name": "release-host-runtime",
       "class": "host_runtime",
-      "binaries": ["trust-runtime", "trust-bundle-gen"],
+      "binaries": ["trust-runtime", "trust-dev", "trust-bundle-gen"],
       "include_classes": ["product", "ui_product", "conformance_benchmark", "support", "infrastructure", "workbench_dev"],
       "exclude_classes": [],
       "owner": "release engineering",
-      "rationale": "current release bundle preserves the existing trust-runtime command surface until workbench aliases move behind trust-dev forwarding wrappers",
+      "rationale": "current release bundle preserves the existing trust-runtime command surface and ships trust-dev as the workbench destination during the forwarding-alias migration window",
       "review_date": "2026-05-01"
     },
     {

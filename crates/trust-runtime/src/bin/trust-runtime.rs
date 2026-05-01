@@ -22,6 +22,8 @@ mod conformance;
 mod ctl;
 #[path = "trust-runtime/deploy.rs"]
 mod deploy;
+#[path = "trust-runtime/dev_forward.rs"]
+mod dev_forward;
 #[path = "trust-runtime/docs.rs"]
 mod docs;
 #[path = "trust-runtime/git.rs"]

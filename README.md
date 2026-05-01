@@ -7,14 +7,14 @@
 [![Release](https://img.shields.io/github/v/release/johannesPettersson80/trust-platform?display_name=tag)](https://github.com/johannesPettersson80/trust-platform/releases/latest)
 [![CI](https://github.com/johannesPettersson80/trust-platform/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/johannesPettersson80/trust-platform/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE-MIT)
-[![Rust](https://img.shields.io/badge/rust-1.85%2B-orange.svg)](Cargo.toml)
+[![Rust](https://img.shields.io/badge/rust-1.95%2B-orange.svg)](Cargo.toml)
 
 Documentation: <https://johannespettersson80.github.io/trust-platform/>
 
 truST is an open IEC 61131-3 control workspace: one project edited in VS Code,
-run by `trust-runtime`, observed through browser HMI, automated through CLI and
-Agent APIs, connected through truST Mesh, and assisted by AI tools that can read
-diagnostics and use typed truST surfaces.
+run by `trust-runtime`, observed through browser HMI, automated through product
+CLI, Agent APIs, and `trust-dev` workbench tools, connected through truST Mesh,
+and assisted by AI tools that can read diagnostics and use typed truST surfaces.
 
 Runs on Linux, including [PREEMPT_RT soft-real-time deployments](docs/public/operate/preempt-rt.md),
 macOS, Windows, and Raspberry Pi.
@@ -70,6 +70,7 @@ code --install-extension trust-platform.trust-lsp
 |---|---|---|
 | Language Server | `trust-lsp` | Diagnostics, navigation, formatting, refactors |
 | Runtime | `trust-runtime` | Runtime execution engine, CLI workflows, web UI |
+| Developer Workbench | `trust-dev` | Developer/workbench commands such as project commit helpers |
 | Debug Adapter | `trust-debug` | DAP debugging |
 | Bundle Tool | `trust-bundle-gen` | STBC bundle generation |
 
@@ -79,7 +80,7 @@ code --install-extension trust-platform.trust-lsp
 - GitHub Releases: live
 - Supported platforms: Linux, Linux PREEMPT_RT, macOS, Windows, Raspberry Pi
 - Runtime + debugger: pre-1.0, behavior-locked by tests
-- Rust MSRV: 1.85+
+- Rust MSRV: 1.95+
 
 ## Help
 

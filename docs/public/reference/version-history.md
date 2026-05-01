@@ -2,14 +2,18 @@
 
 ## Current Baseline
 
-- current repository baseline: `v0.24.9`
-- public docs in this tree describe the `v0.24.9` workspace version unless a
+- current repository baseline: `v0.24.10`
+- public docs in this tree describe the `v0.24.10` workspace version unless a
   page explicitly marks a feature as experimental, roadmap, or target-specific
 
 ## What Changed Recently
 
 ### `v0.24.x`
 
+- Runtime release archives now include `trust-dev` as the developer/workbench
+  CLI. `trust-dev commit` owns the project commit workflow, while
+  `trust-runtime commit` remains as a deprecated forwarding alias during the
+  product/workbench CLI split.
 - MQTT I/O now has explicit TLS/mTLS configuration: `tls = true` requires a CA
   trust file, optional client certificate/key files enable mTLS, `mqtts://` and
   `ssl://` broker schemes imply TLS, and remote plaintext MQTT remains gated by

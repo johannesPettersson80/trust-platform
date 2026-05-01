@@ -44,24 +44,67 @@ def run(args: list[str]) -> str:
 def read_line_counts() -> dict[str, dict[str, int]]:
     path = ARTIFACT_ROOT / "static/rust-file-line-counts.tsv"
     counts: dict[str, dict[str, int]] = {}
-    for line in path.read_text().splitlines():
-        crate_path, files, rust_lines, test_files, tests = line.split("\t")
+    if path.exists():
+        for line in path.read_text().splitlines():
+            crate_path, files, rust_lines, test_files, tests = line.split("\t")
+            counts[crate_path] = {
+                "files": int(files),
+                "rust_lines": int(rust_lines),
+                "test_files": int(test_files),
+                "tests": int(tests),
+            }
+        return counts
+
+    software_map = read_json(GENERATED / "software-map.json")
+    for package in software_map["packages"]:
+        crate_path = package_path(package)
+        root = ROOT / crate_path
+        rust_files = list(root.rglob("*.rs"))
+        test_files = [
+            source
+            for source in rust_files
+            if "tests" in source.relative_to(root).parts or source.name.endswith("_test.rs")
+        ]
         counts[crate_path] = {
-            "files": int(files),
-            "rust_lines": int(rust_lines),
-            "test_files": int(test_files),
-            "tests": int(tests),
+            "files": len(rust_files),
+            "rust_lines": sum(
+                len(source.read_text(errors="replace").splitlines()) for source in rust_files
+            ),
+            "test_files": len(test_files),
+            "tests": sum(
+                source.read_text(errors="replace").count("#[test]") for source in rust_files
+            ),
         }
     return counts
 
 
 def read_workspace_edges() -> list[tuple[str, str, str]]:
     path = ARTIFACT_ROOT / "static/workspace-direct-deps.tsv"
+    if not path.exists():
+        software_map = read_json(GENERATED / "software-map.json")
+        return [
+            (package["name"], dependency, "direct")
+            for package in software_map["packages"]
+            for dependency in package["trust_dependencies"]
+        ]
     return [tuple(line.split("\t")) for line in path.read_text().splitlines() if line.strip()]
 
 
 def read_hotspots() -> dict[str, int]:
     path = ARTIFACT_ROOT / "static/hotspot-summary.tsv"
+    if not path.exists():
+        rust_text = "\n".join(
+            source.read_text(errors="replace")
+            for root in [ROOT / "crates", ROOT / "xtask/src"]
+            for source in root.rglob("*.rs")
+        )
+        return {
+            "unsafe_sites": len(re.findall(r"\bunsafe\b", rust_text)),
+            "panic_hotspots": len(re.findall(r"\b(?:unwrap|expect)\s*\(|panic!", rust_text)),
+            "boundary_hotspots": len(
+                re.findall(r"\b(?:boundary|compatibility|deprecated)\b", rust_text)
+            ),
+        }
     return {
         key: int(value)
         for key, value in (line.split("\t") for line in path.read_text().splitlines())
@@ -70,6 +113,13 @@ def read_hotspots() -> dict[str, int]:
 
 def read_largest_files(limit: int = 12) -> list[tuple[int, str]]:
     path = ARTIFACT_ROOT / "static/largest-rust-files.txt"
+    if not path.exists():
+        entries = [
+            (len(source.read_text(errors="replace").splitlines()), rel(source))
+            for root in [ROOT / "crates", ROOT / "xtask"]
+            for source in root.rglob("*.rs")
+        ]
+        return sorted(entries, reverse=True)[:limit]
     entries: list[tuple[int, str]] = []
     for raw in path.read_text().splitlines():
         parts = raw.split()
@@ -308,12 +358,14 @@ def write_diagram() -> None:
             "  actor \"Developer\" as developer",
             "  actor \"IDE/LSP client\" as lsp_client",
             "  component \"trust-runtime binary\\n(source: cli/commands.rs)\" as bin_trust_runtime #FFF0D6",
+            "  component \"trust-dev binary\\n(workbench/dev CLI)\" as bin_trust_dev #FFF8E1",
             "  component \"trust-lsp binary\" as bin_trust_lsp #E8F5E9",
             "  component \"trust-debug binary\" as bin_trust_debug #E8F5E9",
             "  component \"trust-harness binary\" as bin_trust_harness #FFF8E1",
             "  component \"trust-bundle-gen binary\" as bin_trust_bundle_gen #FFF8E1",
             "  operator --> bin_trust_runtime",
             "  developer --> bin_trust_runtime",
+            "  developer --> bin_trust_dev",
             "  lsp_client --> bin_trust_lsp",
             "}",
             "",

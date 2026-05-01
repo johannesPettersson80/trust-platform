@@ -1,191 +1,24 @@
-//! Git commit helper for PLC bundles.
+//! Deprecated compatibility wrapper for `trust-dev commit`.
 
-use std::io::IsTerminal;
-use std::path::{Path, PathBuf};
-
-use crate::git::{git_available, git_output, git_repo_root};
-use crate::prompt::{prompt_string, prompt_yes_no};
+use std::ffi::OsString;
+use std::path::PathBuf;
 
 pub fn run_commit(
-    bundle: Option<PathBuf>,
+    project: Option<PathBuf>,
     message: Option<String>,
     dry_run: bool,
 ) -> anyhow::Result<()> {
-    if !git_available() {
-        anyhow::bail!("git not found; install git to use `trust-runtime commit`");
+    let mut args = vec![OsString::from("commit")];
+    if let Some(project) = project {
+        args.push(OsString::from("--project"));
+        args.push(project.into_os_string());
     }
-
-    let bundle_root = bundle.unwrap_or(std::env::current_dir()?);
-    let repo_root = git_repo_root(&bundle_root).ok_or_else(|| {
-        anyhow::anyhow!(
-            "no git repository found in {} (run `git init` or `trust-runtime wizard`)",
-            bundle_root.display()
-        )
-    })?;
-
-    let bundle_rel = bundle_rel_path(&bundle_root, &repo_root)?;
-    let status = git_status(&repo_root, &bundle_rel)?;
-    if status.is_empty() {
-        println!("No changes to commit.");
-        return Ok(());
+    if let Some(message) = message {
+        args.push(OsString::from("--message"));
+        args.push(OsString::from(message));
     }
-
-    let summary = CommitSummary::from_status(&status);
-    summary.print();
-
     if dry_run {
-        return Ok(());
+        args.push(OsString::from("--dry-run"));
     }
-
-    let commit_message = if let Some(message) = message {
-        message
-    } else {
-        ensure_interactive()?;
-        let default = summary.default_message();
-        prompt_string("Commit message", &default)?
-    };
-
-    if commit_message.trim().is_empty() {
-        anyhow::bail!("commit message cannot be empty");
-    }
-
-    let confirm = if std::io::stdin().is_terminal() {
-        prompt_yes_no("Stage and commit these changes?", true)?
-    } else {
-        true
-    };
-
-    if confirm {
-        git_output(&repo_root, &["add", "--", bundle_rel.to_str().unwrap()])?;
-        git_output(&repo_root, &["commit", "-m", commit_message.trim()])?;
-        println!("Commit created.");
-    } else {
-        println!("Commit cancelled.");
-    }
-
-    Ok(())
-}
-
-fn ensure_interactive() -> anyhow::Result<()> {
-    if !std::io::stdin().is_terminal() {
-        anyhow::bail!("no TTY available; pass --message to commit non-interactively");
-    }
-    Ok(())
-}
-
-#[derive(Debug, Clone)]
-struct StatusEntry {
-    path: String,
-}
-
-fn git_status(repo_root: &Path, bundle_rel: &Path) -> anyhow::Result<Vec<StatusEntry>> {
-    let output = git_output(
-        repo_root,
-        &["status", "--porcelain", "--", bundle_rel.to_str().unwrap()],
-    )?;
-    let mut entries = Vec::new();
-    for line in output.lines() {
-        if line.trim().is_empty() {
-            continue;
-        }
-        let mut path = line.get(3..).unwrap_or("").trim().to_string();
-        if let Some((_, new_path)) = path.split_once(" -> ") {
-            path = new_path.trim().to_string();
-        }
-        entries.push(StatusEntry { path });
-    }
-    Ok(entries)
-}
-
-fn bundle_rel_path(bundle: &Path, repo_root: &Path) -> anyhow::Result<PathBuf> {
-    let bundle = bundle
-        .canonicalize()
-        .unwrap_or_else(|_| bundle.to_path_buf());
-    let repo_root = repo_root
-        .canonicalize()
-        .unwrap_or_else(|_| repo_root.to_path_buf());
-    let rel = bundle
-        .strip_prefix(&repo_root)
-        .map(|path| path.to_path_buf())
-        .unwrap_or_else(|_| bundle.clone());
-    Ok(rel)
-}
-
-#[derive(Debug, Clone)]
-struct CommitSummary {
-    total: usize,
-    st_files: Vec<String>,
-    config_files: Vec<String>,
-    other_files: Vec<String>,
-}
-
-impl CommitSummary {
-    fn from_status(entries: &[StatusEntry]) -> Self {
-        let mut st_files = Vec::new();
-        let mut config_files = Vec::new();
-        let mut other_files = Vec::new();
-        for entry in entries {
-            let path = entry.path.clone();
-            if is_st_file(&path) {
-                st_files.push(path);
-            } else if is_config_file(&path) {
-                config_files.push(path);
-            } else {
-                other_files.push(path);
-            }
-        }
-        Self {
-            total: entries.len(),
-            st_files,
-            config_files,
-            other_files,
-        }
-    }
-
-    fn default_message(&self) -> String {
-        match (
-            self.st_files.is_empty(),
-            self.config_files.is_empty(),
-            self.other_files.is_empty(),
-        ) {
-            (false, true, true) => format!("Update PLC program ({} files)", self.st_files.len()),
-            (true, false, true) => "Update PLC configuration".to_string(),
-            (false, false, _) => "Update PLC program + configuration".to_string(),
-            _ => "Update PLC project".to_string(),
-        }
-    }
-
-    fn print(&self) {
-        println!("Changes detected: {} file(s)", self.total);
-        if !self.config_files.is_empty() {
-            println!("Config: {}", summarize_list(&self.config_files, 4));
-        }
-        if !self.st_files.is_empty() {
-            println!("Sources: {}", summarize_list(&self.st_files, 6));
-        }
-        if !self.other_files.is_empty() {
-            println!("Other: {}", summarize_list(&self.other_files, 4));
-        }
-    }
-}
-
-fn summarize_list(items: &[String], limit: usize) -> String {
-    if items.len() <= limit {
-        return items.join(", ");
-    }
-    let mut out = items[..limit].join(", ");
-    out.push_str(&format!(", +{} more", items.len() - limit));
-    out
-}
-
-fn is_st_file(path: &str) -> bool {
-    let path = path.to_ascii_lowercase();
-    path.ends_with(".st") || path.ends_with(".pou")
-}
-
-fn is_config_file(path: &str) -> bool {
-    matches!(
-        path,
-        "runtime.toml" | "io.toml" | "program.stbc" | ".gitignore"
-    )
+    crate::dev_forward::run_trust_dev_with_warning("commit", args)
 }

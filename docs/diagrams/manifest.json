@@ -1,11 +1,11 @@
 {
-  "docs/diagrams/architecture/full-software-map-generated.puml": "1864b0facc8f7a6777095408f72211bbb5cd4fc2f143f96aee0216643632dd32",
+  "docs/diagrams/architecture/full-software-map-generated.puml": "5eea1a2db26f4bcafd6101a1ee8bf0de1ca9d78a59a67e70fbc6a3021bc3dbda",
   "docs/diagrams/architecture/plcopen-motion-library.puml": "a946e8cdde0f4316302cab0ac1c3e13003b634f098264dc0f539240955aa31d4",
   "docs/diagrams/architecture/runtime-bytecode-vm-execution.puml": "2738b2dddd662eba7a6130b6461d450af61d5a3ec3001396aa381e3738a4c9bc",
   "docs/diagrams/architecture/runtime-cloud-planes.puml": "3c6dfac75e9ce0e77f1a503caf149d0ea611f5427e7c4e8bac7490fe2befeaf7",
   "docs/diagrams/architecture/runtime-execution.puml": "fffafb5d7f4fa2a6ad9457de9ca8848ca6c90d6a3ac52dc681414a25a58205bf",
   "docs/diagrams/architecture/runtime-interpreter-removal-map.puml": "a988ae27d45fa3c2ff95698f491ff2f692d166c7d1dd566007a307bb18ba1663",
-  "docs/diagrams/architecture/system-architecture.puml": "bcbaca7e0a75c4ac99c2b071b9db33709caf60e377c17d39263b1b461262504e",
+  "docs/diagrams/architecture/system-architecture.puml": "b43bfc2176a0861142671d24045d747849ba0bf6e4a6496d81c928688460050d",
   "docs/diagrams/debug/debug-architecture.puml": "7ac56c931f14700cd5324e9c363ca72180e560e8644e164f3d82192e5cb4ac58",
   "docs/diagrams/debug/debug-breakpoint-after-launch-actual-observed.puml": "26f721f18337bb329bff7587d829284e5cac207bdff52dc7dcc899b38ddb4173",
   "docs/diagrams/debug/debug-breakpoint-after-launch-intended.puml": "3ad28b011555187f43da1b5bb4a95f4a2d267e55d77daf1f9411008745d9b527",
