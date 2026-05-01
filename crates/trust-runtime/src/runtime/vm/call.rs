@@ -350,22 +350,25 @@ pub(super) fn execute_native_call(
     arg_count: u32,
 ) -> Result<Value, VmTrap> {
     let spec = module.native_symbol_spec(symbol_idx)?;
-    let (target_name, normalized_target_name, resolved_function_pou_id, arg_specs) = match spec {
-        VmNativeSymbolSpec::Parsed {
-            target_name,
-            normalized_target_name,
-            resolved_function_pou_id,
-            arg_specs,
-        } => (
-            target_name,
-            normalized_target_name,
-            *resolved_function_pou_id,
-            arg_specs.as_slice(),
-        ),
-        VmNativeSymbolSpec::ParseError(message) => {
-            return Err(VmTrap::InvalidNativeCall(message.clone()));
-        }
-    };
+    let (target_name, normalized_target_name, resolved_function_pou_id, conversion_spec, arg_specs) =
+        match spec {
+            VmNativeSymbolSpec::Parsed {
+                target_name,
+                normalized_target_name,
+                resolved_function_pou_id,
+                conversion_spec,
+                arg_specs,
+            } => (
+                target_name,
+                normalized_target_name,
+                *resolved_function_pou_id,
+                *conversion_spec,
+                arg_specs.as_slice(),
+            ),
+            VmNativeSymbolSpec::ParseError(message) => {
+                return Err(VmTrap::InvalidNativeCall(message.clone()));
+            }
+        };
     let receiver_count = native_receiver_count(kind)?;
     let total = usize::try_from(arg_count)
         .map_err(|_| VmTrap::InvalidNativeCall("arg_count overflow".into()))?;
@@ -417,6 +420,7 @@ pub(super) fn execute_native_call(
             frame,
             target_name,
             normalized_target_name,
+            conversion_spec,
             &vm_args,
         ),
         NATIVE_CALL_KIND_FUNCTION | NATIVE_CALL_KIND_FUNCTION_BLOCK | NATIVE_CALL_KIND_METHOD => {
@@ -1158,6 +1162,7 @@ fn dispatch_native_stdlib_call(
     frame: &mut VmFrame,
     target_name: &SmolStr,
     normalized_target_name: &SmolStr,
+    conversion_spec: Option<conversions::ConversionSpec>,
     args: &[VmNativeArg],
 ) -> Result<Value, VmTrap> {
     if time::is_runtime_clock_name(normalized_target_name.as_str()) {
@@ -1178,12 +1183,10 @@ fn dispatch_native_stdlib_call(
         let values = bind_stdlib_values(runtime, frame, &params, args)?;
         return func(&values).map_err(VmTrap::Runtime);
     }
-    if conversions::is_conversion_name(normalized_target_name.as_str()) {
+    if let Some(conversion_spec) = conversion_spec {
         let params = StdParams::Fixed(vec![SmolStr::new("IN")]);
         let values = bind_stdlib_values(runtime, frame, &params, args)?;
-        return runtime
-            .stdlib()
-            .call(normalized_target_name.as_str(), &values)
+        return conversions::call_conversion_spec(conversion_spec, &values)
             .map_err(VmTrap::Runtime);
     }
     Err(VmTrap::Runtime(RuntimeError::UndefinedFunction(
@@ -1649,12 +1652,17 @@ fn native_receiver_count(kind: u32) -> Result<usize, VmTrap> {
 
 pub(super) fn preparse_native_symbol_spec(symbol: &SmolStr) -> VmNativeSymbolSpec {
     match parse_native_symbol(symbol) {
-        Ok((target_name, arg_specs)) => VmNativeSymbolSpec::Parsed {
-            normalized_target_name: SmolStr::new(target_name.to_ascii_uppercase()),
-            resolved_function_pou_id: None,
-            target_name,
-            arg_specs,
-        },
+        Ok((target_name, arg_specs)) => {
+            let normalized_target_name = SmolStr::new(target_name.to_ascii_uppercase());
+            let conversion_spec = conversions::conversion_spec(normalized_target_name.as_str());
+            VmNativeSymbolSpec::Parsed {
+                normalized_target_name,
+                resolved_function_pou_id: None,
+                conversion_spec,
+                target_name,
+                arg_specs,
+            }
+        }
         Err(err) => VmNativeSymbolSpec::ParseError(err),
     }
 }
@@ -2060,16 +2068,36 @@ mod tests {
                 target_name,
                 normalized_target_name,
                 resolved_function_pou_id,
+                conversion_spec,
                 arg_specs,
             } => {
                 assert_eq!(target_name, SmolStr::new("Add"));
                 assert_eq!(normalized_target_name, SmolStr::new("ADD"));
                 assert_eq!(resolved_function_pou_id, None);
+                assert!(conversion_spec.is_none());
                 assert_eq!(arg_specs.len(), 2);
                 assert_eq!(arg_specs[0].name.as_deref(), Some("a"));
                 assert!(!arg_specs[0].is_target);
                 assert_eq!(arg_specs[1].name.as_deref(), Some("out"));
                 assert!(arg_specs[1].is_target);
+            }
+            VmNativeSymbolSpec::ParseError(err) => {
+                panic!("unexpected parse error: {err}");
+            }
+        }
+    }
+
+    #[test]
+    fn preparse_native_symbol_spec_caches_conversion_spec() {
+        let entry = preparse_native_symbol_spec(&SmolStr::new("INT_TO_UDINT|E:IN"));
+        match entry {
+            VmNativeSymbolSpec::Parsed {
+                normalized_target_name,
+                conversion_spec,
+                ..
+            } => {
+                assert_eq!(normalized_target_name, SmolStr::new("INT_TO_UDINT"));
+                assert!(conversion_spec.is_some());
             }
             VmNativeSymbolSpec::ParseError(err) => {
                 panic!("unexpected parse error: {err}");

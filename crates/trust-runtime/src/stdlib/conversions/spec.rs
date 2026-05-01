@@ -1,7 +1,7 @@
 use trust_hir::TypeId;
 
-#[derive(Debug, Clone, Copy)]
-pub(super) enum ConversionSpec {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ConversionSpec {
     Convert { src: Option<TypeId>, dst: TypeId },
     Trunc { src: Option<TypeId>, dst: TypeId },
     ToBcd { src: Option<TypeId>, dst: TypeId },

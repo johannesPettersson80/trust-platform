@@ -95,6 +95,7 @@ pub(super) enum VmNativeSymbolSpec {
         target_name: SmolStr,
         normalized_target_name: SmolStr,
         resolved_function_pou_id: Option<u32>,
+        conversion_spec: Option<crate::stdlib::conversions::ConversionSpec>,
         arg_specs: Vec<VmNativeArgSpec>,
     },
     ParseError(SmolStr),
