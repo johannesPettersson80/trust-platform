@@ -1,13 +1,3 @@
-//! Small bytecode helpers.
+//! Bytecode helper compatibility surface.
 
-#![allow(missing_docs)]
-
-pub(crate) fn align4(value: usize) -> usize {
-    (value + 3) & !3
-}
-
-pub(crate) fn pad_to(bytes: &mut Vec<u8>, target: usize) {
-    if bytes.len() < target {
-        bytes.resize(target, 0);
-    }
-}
+pub(crate) use trust_runtime_core::bytecode::{align4, pad_to};

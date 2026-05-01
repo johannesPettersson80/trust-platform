@@ -3,9 +3,8 @@
 #![allow(missing_docs)]
 
 use smol_str::SmolStr;
-use thiserror::Error;
 pub use trust_runtime_core::bytecode::{
-    BytecodeMetadata, BytecodeVersion, ProcessImageConfig, ResourceMetadata,
+    BytecodeError, BytecodeMetadata, BytecodeVersion, ProcessImageConfig, ResourceMetadata,
     SUPPORTED_MAJOR_VERSION, SUPPORTED_MINOR_VERSION,
 };
 
