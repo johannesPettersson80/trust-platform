@@ -1177,21 +1177,48 @@ fn dispatch_native_stdlib_call(
     if time::is_split_name(normalized_target_name.as_str()) {
         return dispatch_native_split_call(runtime, frame, normalized_target_name.as_str(), args);
     }
+    if let Some(conversion_spec) = conversion_spec {
+        let value = bind_conversion_value(runtime, frame, args)?;
+        return conversions::call_conversion_spec(conversion_spec, std::slice::from_ref(&value))
+            .map_err(VmTrap::Runtime);
+    }
     if let Some(entry) = runtime.stdlib().get(normalized_target_name.as_str()) {
         let params = entry.params.clone();
         let func = entry.func;
         let values = bind_stdlib_values(runtime, frame, &params, args)?;
         return func(&values).map_err(VmTrap::Runtime);
     }
-    if let Some(conversion_spec) = conversion_spec {
-        let params = StdParams::Fixed(vec![SmolStr::new("IN")]);
-        let values = bind_stdlib_values(runtime, frame, &params, args)?;
-        return conversions::call_conversion_spec(conversion_spec, &values)
-            .map_err(VmTrap::Runtime);
-    }
     Err(VmTrap::Runtime(RuntimeError::UndefinedFunction(
         target_name.clone(),
     )))
+}
+
+fn bind_conversion_value(
+    runtime: &mut super::super::core::Runtime,
+    frame: &VmFrame,
+    args: &[VmNativeArg],
+) -> Result<Value, VmTrap> {
+    let positional = args.iter().all(|arg| arg.name.is_none());
+    if !positional && args.iter().any(|arg| arg.name.is_none()) {
+        return Err(VmTrap::Runtime(RuntimeError::InvalidArgumentName(
+            "<unnamed>".into(),
+        )));
+    }
+    if args.len() != 1 {
+        return Err(VmTrap::Runtime(RuntimeError::InvalidArgumentCount {
+            expected: 1,
+            got: args.len(),
+        }));
+    }
+    let arg = &args[0];
+    if let Some(name) = arg.name.as_ref() {
+        if !name.eq_ignore_ascii_case("IN") {
+            return Err(VmTrap::Runtime(RuntimeError::InvalidArgumentName(
+                name.clone(),
+            )));
+        }
+    }
+    resolve_vm_arg_value(runtime, frame, arg)
 }
 
 fn dispatch_native_split_call(
@@ -1734,6 +1761,7 @@ mod tests {
     use crate::value::{RefPath, RefSegment, StructValue, Value, ValueRef};
     use crate::Runtime;
 
+    use super::super::errors::VmTrap;
     use super::super::frames::VmFrame;
     use super::super::stack::OperandStack;
     use super::super::{VmModule, VmNativeArgSpec, VmNativeSymbolSpec, VmParamMeta, VmPouEntry};
@@ -2103,6 +2131,43 @@ mod tests {
                 panic!("unexpected parse error: {err}");
             }
         }
+    }
+
+    #[test]
+    fn bind_conversion_value_accepts_positional_and_named_in_only() {
+        let mut runtime = Runtime::new();
+        let frame = empty_caller_frame();
+
+        let positional = [expr_arg(None, Value::DInt(7))];
+        assert_eq!(
+            super::bind_conversion_value(&mut runtime, &frame, &positional).unwrap(),
+            Value::DInt(7)
+        );
+
+        let named = [expr_arg(Some("in"), Value::DInt(8))];
+        assert_eq!(
+            super::bind_conversion_value(&mut runtime, &frame, &named).unwrap(),
+            Value::DInt(8)
+        );
+
+        let wrong_name = [expr_arg(Some("OUT"), Value::DInt(9))];
+        let err = super::bind_conversion_value(&mut runtime, &frame, &wrong_name)
+            .expect_err("conversion only accepts IN");
+        assert!(matches!(
+            err,
+            VmTrap::Runtime(RuntimeError::InvalidArgumentName(name)) if name == "OUT"
+        ));
+
+        let mixed = [
+            expr_arg(None, Value::DInt(1)),
+            expr_arg(Some("IN"), Value::DInt(2)),
+        ];
+        let err = super::bind_conversion_value(&mut runtime, &frame, &mixed)
+            .expect_err("mixed named and positional args should fail before arity");
+        assert!(matches!(
+            err,
+            VmTrap::Runtime(RuntimeError::InvalidArgumentName(name)) if name == "<unnamed>"
+        ));
     }
 
     #[test]
