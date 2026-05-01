@@ -100,10 +100,15 @@ fn validate_instruction_stream(
         let pc = reader.pos();
         starts.push(pc as i32);
         let opcode = reader.read_u8()?;
+        if let Some(name) = unsupported_runtime_opcode_name(opcode) {
+            return Err(BytecodeError::InvalidSection(
+                format!("unsupported runtime opcode {name} (0x{opcode:02X})").into(),
+            ));
+        }
         match opcode {
-            0x00 | 0x01 | 0x06 | 0x11 | 0x12 | 0x13 | 0x14 | 0x15 | 0x25 | 0x31 | 0x32 | 0x33 | 0x40
-            | 0x41 | 0x42 | 0x43 | 0x44 | 0x45 | 0x46 | 0x47 | 0x48 | 0x49 | 0x4A | 0x4B | 0x4C
-            | 0x4D | 0x4E | 0x50 | 0x51 | 0x52 | 0x53 | 0x54 | 0x55 => {}
+            0x00 | 0x01 | 0x06 | 0x11 | 0x12 | 0x13 | 0x25 | 0x31 | 0x32 | 0x33 | 0x40
+            | 0x41 | 0x42 | 0x43 | 0x44 | 0x45 | 0x46 | 0x47 | 0x48 | 0x49 | 0x4C | 0x50
+            | 0x51 | 0x52 | 0x53 | 0x54 | 0x55 => {}
             0x02..=0x04 => {
                 let offset = reader.read_i32()?;
                 jumps.push((pc as i32, offset));
@@ -165,9 +170,6 @@ fn validate_instruction_stream(
                 let const_idx = reader.read_u32()?;
                 ensure_const_index(const_pool, const_idx)?;
             }
-            0x16 => {
-                reader.read_u8()?;
-            }
             0x20..=0x22 => {
                 let ref_idx = reader.read_u32()?;
                 ensure_ref_index(ref_table, ref_idx)?;
@@ -204,6 +206,21 @@ fn validate_instruction_stream(
         }
     }
     Ok(())
+}
+
+fn unsupported_runtime_opcode_name(opcode: u8) -> Option<&'static str> {
+    match opcode {
+        0x07 => Some("CALL_METHOD"),
+        0x08 => Some("CALL_VIRTUAL"),
+        0x14 => Some("ROT3"),
+        0x15 => Some("ROT4"),
+        0x16 => Some("CAST_IMPLICIT"),
+        0x4A => Some("SHL"),
+        0x4B => Some("SHR"),
+        0x4D => Some("ROL"),
+        0x4E => Some("ROR"),
+        _ => None,
+    }
 }
 
 fn validate_partial_access_operand(operand: u32) -> Result<(), BytecodeError> {

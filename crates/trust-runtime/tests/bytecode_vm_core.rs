@@ -1292,7 +1292,7 @@ fn vm_rejects_invalid_jump_target() {
 }
 
 #[test]
-fn vm_traps_unsupported_call_method_opcode() {
+fn vm_validator_rejects_unsupported_call_method_opcode() {
     let source = r#"
         PROGRAM Main
         END_PROGRAM
@@ -1304,9 +1304,7 @@ fn vm_traps_unsupported_call_method_opcode() {
     body.push(0x06);
     replace_main_body(&mut module, &body);
 
-    let mut harness = vm_harness_from_module(source, &module);
-    let cycle = harness.cycle();
-    assert_invalid_bytecode_contains(&cycle.errors, "vm unsupported opcode CALL_METHOD");
+    assert_apply_invalid_bytecode_contains(&module, "unsupported runtime opcode CALL_METHOD");
 }
 
 #[test]
