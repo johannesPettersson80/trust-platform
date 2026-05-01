@@ -210,6 +210,124 @@ END_PROGRAM
 }
 
 #[test]
+fn register_and_stack_paths_match_for_string_wstring_edge_indices() {
+    let source = r#"
+PROGRAM Main
+VAR
+    text_value : STRING[8] := 'ÄBC';
+    wide_value : WSTRING[8] := "ÅZ";
+    text_first : CHAR;
+    text_last : CHAR;
+    wide_first : WCHAR;
+    wide_last : WCHAR;
+END_VAR
+text_first := text_value[1];
+text_last := text_value[3];
+wide_first := wide_value[1];
+wide_last := wide_value[2];
+END_PROGRAM
+"#;
+
+    let mut register = vm_harness(source, false);
+    let mut stack = vm_harness(source, true);
+
+    let register_cycle = register.cycle();
+    let stack_cycle = stack.cycle();
+
+    assert_eq!(register_cycle.errors, stack_cycle.errors);
+    assert!(
+        register_cycle.errors.is_empty(),
+        "register errors: {:?}",
+        register_cycle.errors
+    );
+    assert_eq!(
+        register.get_output("text_first"),
+        stack.get_output("text_first")
+    );
+    assert_eq!(
+        register.get_output("text_last"),
+        stack.get_output("text_last")
+    );
+    assert_eq!(
+        register.get_output("wide_first"),
+        stack.get_output("wide_first")
+    );
+    assert_eq!(
+        register.get_output("wide_last"),
+        stack.get_output("wide_last")
+    );
+    assert_eq!(register.get_output("text_first"), Some(Value::Char(0xC4)));
+    assert_eq!(register.get_output("text_last"), Some(Value::Char(b'C')));
+    assert_eq!(
+        register.get_output("wide_first"),
+        Some(Value::WChar(0x00C5))
+    );
+    assert_eq!(
+        register.get_output("wide_last"),
+        Some(Value::WChar(b'Z' as u16))
+    );
+
+    assert_register_path(&register.runtime().vm_register_profile_snapshot());
+    assert_stack_fallback(&stack.runtime().vm_register_profile_snapshot());
+}
+
+#[test]
+fn register_and_stack_paths_surface_same_string_wstring_index_traps() {
+    let cases = [
+        (
+            r#"
+PROGRAM Main
+VAR
+    text_value : STRING[8] := 'ABC';
+    idx : DINT := 0;
+    out_char : CHAR;
+END_VAR
+out_char := text_value[idx];
+END_PROGRAM
+"#,
+            RuntimeError::IndexOutOfBounds {
+                index: 0,
+                lower: 1,
+                upper: i64::MAX,
+            },
+        ),
+        (
+            r#"
+PROGRAM Main
+VAR
+    wide_value : WSTRING[8] := "AZ";
+    idx : DINT := 3;
+    out_wchar : WCHAR;
+END_VAR
+out_wchar := wide_value[idx];
+END_PROGRAM
+"#,
+            RuntimeError::IndexOutOfBounds {
+                index: 3,
+                lower: 1,
+                upper: 2,
+            },
+        ),
+    ];
+
+    for (source, expected) in cases {
+        let mut register = vm_harness(source, false);
+        let mut stack = vm_harness(source, true);
+
+        let register_cycle = register.cycle();
+        let stack_cycle = stack.cycle();
+
+        assert_eq!(register_cycle.errors, stack_cycle.errors);
+        assert_eq!(register_cycle.errors, vec![expected]);
+
+        assert_register_started_without_fallback(
+            &register.runtime().vm_register_profile_snapshot(),
+        );
+        assert_stack_fallback(&stack.runtime().vm_register_profile_snapshot());
+    }
+}
+
+#[test]
 fn register_and_stack_paths_surface_same_modulo_by_zero_error() {
     let source = r#"
 PROGRAM Main
