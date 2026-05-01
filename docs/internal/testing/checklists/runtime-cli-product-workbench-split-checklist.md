@@ -1,6 +1,6 @@
 # Runtime CLI Product / Workbench Split Checklist
 
-Status: Phase 1 inventory captured
+Status: Phase 2 policy complete; Phase 3 destination decided
 Owner: Runtime/dev tooling
 Scope: address audit F10 by separating field/product runtime commands from developer/workbench commands.
 
@@ -97,8 +97,8 @@ Phase 1 evidence captured on 2026-04-29 from released baseline `ade92b185`:
 - [x] `RTCLI-P2-003` Add bin-module ownership metadata in code or a doctor config.
 - [x] `RTCLI-P2-004` Add a doctor rule failing unclassified bin modules.
 - [x] `RTCLI-P2-005` Add forbidden import checks from product commands/modules to workbench modules.
-- [ ] `RTCLI-P2-006` Add a packaging/profile rule if field runtime artifacts must exclude workbench commands/modules.
-- [ ] `RTCLI-P2-007` Add a compatibility/deprecation rule for moved commands.
+- [x] `RTCLI-P2-006` Add a packaging/profile rule if field runtime artifacts must exclude workbench commands/modules.
+- [x] `RTCLI-P2-007` Add a compatibility/deprecation rule for moved commands.
 - [x] `RTCLI-P2-008` Add a doctor rule failing unclassified nested `*Action` enums or action variants with explicit ownership overrides.
 
 Phase 2 policy evidence already present before command movement:
@@ -106,11 +106,12 @@ Phase 2 policy evidence already present before command movement:
 - `xtask/config/full_map_policy.json` contains `runtime_command_classes`, `runtime_bin_module_classes`, `runtime_action_classes`, and explicit route exceptions in `runtime_command_module_routes`.
 - `FULLMAP-CHECK-06` fails unclassified runtime command variants, unclassified top-level runtime bin modules, and unclassified nested action enums.
 - `FULLMAP-P4-003` / `known_bad_product_bin_importing_workbench_module_fails` cover product command/module imports from workbench modules.
-- Remaining Phase 2 decisions are intentionally open: packaging/profile exclusion policy (`RTCLI-P2-006`) and compatibility/deprecation behavior for moved commands (`RTCLI-P2-007`).
+- `xtask/config/full_map_policy.json` now declares two runtime artifact profiles: `release-host-runtime` preserves the current release bundle surface during migration, while `field-runtime-minimal` excludes `workbench_dev` and `conformance_benchmark` classes. `known_bad_field_runtime_profile_including_workbench_fails` proves the doctor fails if the field profile includes workbench/dev behavior.
+- `xtask/config/full_map_policy.json` now declares the workbench command migration policy for `Agent`, `Commit`, `Docs`, and `Test`: current binary `trust-runtime`, destination binary `trust-dev`, compatibility plan `deprecated_forwarding_alias`. `known_bad_workbench_command_without_migration_policy_fails` and `documented_workbench_command_migration_policy_passes` lock the rule.
 
 ## Phase 3 - Target Split
 
-- [ ] `RTCLI-P3-001` Decide destination for workbench commands: `xtask`, `trust-dev`, or another explicit tool binary.
+- [x] `RTCLI-P3-001` Decide destination for workbench commands: `xtask`, `trust-dev`, or another explicit tool binary. Decision: `trust-dev`, with `trust-runtime` retaining deprecated forwarding aliases during the migration window so current public commands do not disappear abruptly.
 - [ ] `RTCLI-P3-002` Move `agent` implementation out of product runtime binary or wrap it behind a deprecated forwarding alias.
 - [ ] `RTCLI-P3-003` Move `commit` command implementation and `git.rs` helper implementation out of product runtime binary or wrap them behind deprecated forwarding aliases.
 - [ ] `RTCLI-P3-004` Move `docs` command implementation and `prompt.rs`, `workflow.rs`, `style.rs`, `ci.rs`, and dev-only `test` module implementation as decided.

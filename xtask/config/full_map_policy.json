@@ -129,6 +129,34 @@
     {"command": "Ide", "module": "config_ui", "handler": "config_ui::run_ide_serve", "route_kind": "shared_handler", "owner": "runtime/web", "rationale": "Command::Ide dispatches to config_ui::run_ide_serve and shares ConfigUiAction with Command::ConfigUi", "review_date": "2026-04-28"},
     {"command": "Rollback", "module": "deploy", "handler": "deploy::run_rollback", "route_kind": "shared_handler", "owner": "runtime/deploy", "rationale": "Command::Rollback dispatches to deploy::run_rollback from the deployment module", "review_date": "2026-04-28"}
   ],
+  "runtime_artifact_profiles": [
+    {
+      "name": "release-host-runtime",
+      "class": "host_runtime",
+      "binaries": ["trust-runtime", "trust-bundle-gen"],
+      "include_classes": ["product", "ui_product", "conformance_benchmark", "support", "infrastructure", "workbench_dev"],
+      "exclude_classes": [],
+      "owner": "release engineering",
+      "rationale": "current release bundle preserves the existing trust-runtime command surface until workbench aliases move behind trust-dev forwarding wrappers",
+      "review_date": "2026-05-01"
+    },
+    {
+      "name": "field-runtime-minimal",
+      "class": "field_runtime",
+      "binaries": ["trust-runtime", "trust-bundle-gen"],
+      "include_classes": ["product", "ui_product", "support", "infrastructure"],
+      "exclude_classes": ["workbench_dev", "conformance_benchmark"],
+      "owner": "release engineering",
+      "rationale": "field runtime artifacts must exclude workbench/dev command implementations; benchmark/conformance commands are runtime-adjacent but not field-minimal",
+      "review_date": "2026-05-01"
+    }
+  ],
+  "runtime_workbench_command_migrations": [
+    {"command": "Agent", "current_binary": "trust-runtime", "destination_binary": "trust-dev", "compatibility_plan": "deprecated_forwarding_alias", "owner": "dev tooling", "rationale": "agent serve remains available through trust-runtime during the deprecation window while the implementation moves to trust-dev", "review_date": "2026-05-01"},
+    {"command": "Commit", "current_binary": "trust-runtime", "destination_binary": "trust-dev", "compatibility_plan": "deprecated_forwarding_alias", "owner": "dev tooling", "rationale": "project git helper belongs to the developer/workbench tool and keeps a trust-runtime compatibility alias during migration", "review_date": "2026-05-01"},
+    {"command": "Docs", "current_binary": "trust-runtime", "destination_binary": "trust-dev", "compatibility_plan": "deprecated_forwarding_alias", "owner": "dev tooling", "rationale": "ST API documentation generation belongs to the developer/workbench tool and keeps a trust-runtime compatibility alias during migration", "review_date": "2026-05-01"},
+    {"command": "Test", "current_binary": "trust-runtime", "destination_binary": "trust-dev", "compatibility_plan": "deprecated_forwarding_alias", "owner": "dev tooling", "rationale": "ST test discovery/execution belongs to the developer/workbench tool and keeps a trust-runtime compatibility alias during migration", "review_date": "2026-05-01"}
+  ],
   "host_surface": {
     "approved_ports_active": true,
     "owned_paths": [

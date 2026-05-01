@@ -68,6 +68,8 @@ struct FullMapPolicy {
     runtime_bin_module_classes: Vec<ClassifiedName>,
     runtime_action_classes: Vec<ClassifiedName>,
     runtime_command_module_routes: Vec<CommandModuleRoute>,
+    runtime_artifact_profiles: Vec<RuntimeArtifactProfile>,
+    runtime_workbench_command_migrations: Vec<RuntimeWorkbenchCommandMigration>,
     host_surface: HostSurfacePolicy,
     kiss: KissPolicy,
     dependency_hygiene_tools: Vec<PolicyToolStatus>,
@@ -107,6 +109,29 @@ struct CommandModuleRoute {
     module: String,
     handler: String,
     route_kind: String,
+    owner: String,
+    rationale: String,
+    review_date: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct RuntimeArtifactProfile {
+    name: String,
+    class: String,
+    binaries: Vec<String>,
+    include_classes: Vec<String>,
+    exclude_classes: Vec<String>,
+    owner: String,
+    rationale: String,
+    review_date: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct RuntimeWorkbenchCommandMigration {
+    command: String,
+    current_binary: String,
+    destination_binary: String,
+    compatibility_plan: String,
     owner: String,
     rationale: String,
     review_date: String,
@@ -1056,6 +1081,9 @@ fn check_runtime_command_and_module_ownership(
         }
     }
 
+    validate_runtime_artifact_profiles(policy, &mut failures, &mut details);
+    validate_workbench_command_migrations(&command_classes, policy, &mut failures, &mut details);
+
     if failures.is_empty() {
         let mut check_details = vec![
             format!(
@@ -1090,6 +1118,125 @@ fn check_runtime_command_and_module_ownership(
             "runtime command/bin ownership policy failed",
             failures,
         )
+    }
+}
+
+fn validate_runtime_artifact_profiles(
+    policy: &FullMapPolicy,
+    failures: &mut Vec<String>,
+    details: &mut Vec<String>,
+) {
+    if policy.runtime_artifact_profiles.is_empty() {
+        failures.push("no runtime artifact profiles are declared".to_string());
+        return;
+    }
+
+    let mut has_field_runtime_profile = false;
+    for profile in &policy.runtime_artifact_profiles {
+        if profile.class == "field_runtime" {
+            has_field_runtime_profile = true;
+            if profile
+                .include_classes
+                .iter()
+                .any(|class| class == "workbench_dev")
+            {
+                failures.push(format!(
+                    "field runtime artifact profile '{}' includes workbench_dev",
+                    profile.name
+                ));
+            }
+            if !profile
+                .exclude_classes
+                .iter()
+                .any(|class| class == "workbench_dev")
+            {
+                failures.push(format!(
+                    "field runtime artifact profile '{}' does not exclude workbench_dev",
+                    profile.name
+                ));
+            }
+        }
+        details.push(format!(
+            "runtime artifact profile '{}' class={} binaries=[{}] include=[{}] exclude=[{}] owner={} review_date={} rationale={}",
+            profile.name,
+            profile.class,
+            profile.binaries.join(","),
+            profile.include_classes.join(","),
+            profile.exclude_classes.join(","),
+            profile.owner,
+            profile.review_date,
+            profile.rationale
+        ));
+    }
+
+    if !has_field_runtime_profile {
+        failures.push("no field_runtime artifact profile is declared".to_string());
+    }
+}
+
+fn validate_workbench_command_migrations(
+    command_classes: &BTreeMap<String, String>,
+    policy: &FullMapPolicy,
+    failures: &mut Vec<String>,
+    details: &mut Vec<String>,
+) {
+    const ALLOWED_COMPATIBILITY_PLANS: &[&str] = &[
+        "deprecated_forwarding_alias",
+        "retained_until_destination_ships",
+        "explicit_removal_after_deprecation",
+    ];
+
+    let migrations = policy
+        .runtime_workbench_command_migrations
+        .iter()
+        .map(|migration| (migration.command.as_str(), migration))
+        .collect::<BTreeMap<_, _>>();
+
+    for (command, class) in command_classes {
+        if class == "workbench_dev" && !migrations.contains_key(command.as_str()) {
+            failures.push(format!(
+                "workbench command '{command}' has no migration/deprecation policy"
+            ));
+        }
+    }
+
+    for migration in &policy.runtime_workbench_command_migrations {
+        match command_classes.get(&migration.command) {
+            Some(class) if class == "workbench_dev" => {}
+            Some(class) => failures.push(format!(
+                "migration policy for '{}' targets class '{}' instead of workbench_dev",
+                migration.command, class
+            )),
+            None => failures.push(format!(
+                "migration policy references unknown command '{}'",
+                migration.command
+            )),
+        }
+        if migration.current_binary == migration.destination_binary {
+            failures.push(format!(
+                "migration policy for '{}' keeps implementation in '{}'",
+                migration.command, migration.current_binary
+            ));
+        }
+        if !ALLOWED_COMPATIBILITY_PLANS
+            .iter()
+            .any(|plan| *plan == migration.compatibility_plan)
+        {
+            failures.push(format!(
+                "migration policy for '{}' uses unsupported compatibility plan '{}'",
+                migration.command, migration.compatibility_plan
+            ));
+        }
+        details.push(format!(
+            "workbench command '{}' migrates {} -> {} compatibility={} owner={} review_date={} rationale={}",
+            migration.command,
+            migration.current_binary,
+            migration.destination_binary,
+            migration.compatibility_plan,
+            migration.owner,
+            migration.review_date,
+            migration.rationale
+        ));
     }
 }
 
@@ -3138,6 +3285,68 @@ mod tests {
     }
 
     #[test]
+    fn known_bad_field_runtime_profile_including_workbench_fails() {
+        let mut policy = base_policy();
+        let profile = policy
+            .runtime_artifact_profiles
+            .iter_mut()
+            .find(|profile| profile.class == "field_runtime")
+            .expect("field runtime profile");
+        profile.include_classes.push("workbench_dev".to_string());
+        profile.exclude_classes.clear();
+
+        assert!(check_runtime_command_and_module_ownership(&base_map(), &policy).is_fail());
+    }
+
+    #[test]
+    fn known_bad_workbench_command_without_migration_policy_fails() {
+        let mut map = base_map();
+        map.runtime_cli_commands.push("Agent".to_string());
+
+        let mut policy = base_policy();
+        policy.runtime_command_classes.push(ClassifiedName {
+            name: "Agent".to_string(),
+            class: "workbench_dev".to_string(),
+            owner: "dev tooling".to_string(),
+            rationale: "agent command".to_string(),
+        });
+
+        assert!(check_runtime_command_and_module_ownership(&map, &policy).is_fail());
+    }
+
+    #[test]
+    fn documented_workbench_command_migration_policy_passes() {
+        let mut map = base_map();
+        map.runtime_cli_commands.push("Agent".to_string());
+
+        let mut policy = base_policy();
+        policy.runtime_command_classes.push(ClassifiedName {
+            name: "Agent".to_string(),
+            class: "workbench_dev".to_string(),
+            owner: "dev tooling".to_string(),
+            rationale: "agent command".to_string(),
+        });
+        policy
+            .runtime_workbench_command_migrations
+            .push(RuntimeWorkbenchCommandMigration {
+                command: "Agent".to_string(),
+                current_binary: "trust-runtime".to_string(),
+                destination_binary: "trust-dev".to_string(),
+                compatibility_plan: "deprecated_forwarding_alias".to_string(),
+                owner: "dev tooling".to_string(),
+                rationale: "agent serve remains available through a compatibility alias"
+                    .to_string(),
+                review_date: "2026-05-01".to_string(),
+            });
+
+        let check = check_runtime_command_and_module_ownership(&map, &policy);
+
+        assert_eq!(check.status, CheckStatus::Pass);
+        assert!(check.details.iter().any(|detail| detail
+            .contains("workbench command 'Agent' migrates trust-runtime -> trust-dev")));
+    }
+
+    #[test]
     fn known_bad_host_surface_forbidden_import_fails_without_waiver() {
         let mut map = base_map();
         map.import_edges.push(ImportEdge {
@@ -3690,6 +3899,23 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
                 rationale: "agent subcommands".to_string(),
             }],
             runtime_command_module_routes: Vec::new(),
+            runtime_artifact_profiles: vec![RuntimeArtifactProfile {
+                name: "field-runtime-minimal".to_string(),
+                class: "field_runtime".to_string(),
+                binaries: vec!["trust-runtime".to_string(), "trust-bundle-gen".to_string()],
+                include_classes: vec![
+                    "product".to_string(),
+                    "ui_product".to_string(),
+                    "support".to_string(),
+                    "infrastructure".to_string(),
+                ],
+                exclude_classes: vec!["workbench_dev".to_string()],
+                owner: "release engineering".to_string(),
+                rationale: "field runtime artifacts must not grow workbench/dev command surface"
+                    .to_string(),
+                review_date: "2026-05-01".to_string(),
+            }],
+            runtime_workbench_command_migrations: Vec::new(),
             host_surface: HostSurfacePolicy {
                 approved_ports_active: false,
                 owned_paths: vec![
