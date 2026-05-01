@@ -3,10 +3,12 @@
 #![allow(missing_docs)]
 
 mod errors;
+mod frames;
 mod helpers;
 mod stack;
 
 pub use errors::VmTrap;
+pub use frames::{ensure_global_call_depth, FrameStack, VmFrame, VM_MAX_CALL_DEPTH};
 pub use helpers::{materialize_borrowed_value, opcode_operand_len};
 pub use stack::OperandStack;
 
@@ -14,9 +16,9 @@ pub use stack::OperandStack;
 mod tests {
     use smol_str::SmolStr;
 
-    use crate::{error::RuntimeError, value::Value};
+    use crate::{error::RuntimeError, memory::InstanceId, value::Value};
 
-    use super::{OperandStack, VmTrap};
+    use super::{FrameStack, OperandStack, VmFrame, VmTrap, VM_MAX_CALL_DEPTH};
 
     #[test]
     fn operand_stack_preserves_lifo_pair_and_swap_contracts() {
@@ -65,5 +67,79 @@ mod tests {
             super::materialize_borrowed_value(&Value::String("x".into())),
             (Value::String("x".into()), true)
         );
+    }
+
+    fn test_frame() -> VmFrame {
+        VmFrame {
+            pou_id: 7,
+            return_pc: 11,
+            code_start: 3,
+            code_end: 19,
+            local_ref_start: 40,
+            local_ref_count: 2,
+            locals: vec![Value::DInt(1), Value::String("local".into())],
+            runtime_instance: Some(InstanceId(5)),
+            instance_owner: Some(6),
+        }
+    }
+
+    #[test]
+    fn vm_frame_preserves_local_slot_bounds_and_materialization_contracts() {
+        let mut frame = test_frame();
+
+        assert_eq!(frame.local_slot_index(40).unwrap(), 0);
+        assert_eq!(frame.local_slot_index(41).unwrap(), 1);
+        assert_eq!(frame.load_local(40).unwrap(), Value::DInt(1));
+        assert_eq!(frame.load_local(41).unwrap(), Value::String("local".into()));
+
+        frame.store_local(40, Value::DInt(9)).unwrap();
+        assert_eq!(frame.load_local(40).unwrap(), Value::DInt(9));
+
+        assert!(matches!(
+            frame.local_slot_index(39),
+            Err(VmTrap::InvalidLocalRef {
+                ref_index: 39,
+                start: 40,
+                count: 2
+            })
+        ));
+        assert!(matches!(
+            frame.load_local(42),
+            Err(VmTrap::InvalidLocalRef {
+                ref_index: 42,
+                start: 40,
+                count: 2
+            })
+        ));
+    }
+
+    #[test]
+    fn frame_stack_preserves_lifo_and_call_depth_contracts() {
+        let mut frames = FrameStack::default();
+        assert!(frames.is_empty());
+
+        frames.push(test_frame()).unwrap();
+        assert_eq!(frames.len(), 1);
+        assert_eq!(frames.current().unwrap().pou_id, 7);
+        frames.current_mut().unwrap().return_pc = 99;
+        assert_eq!(frames.pop().unwrap().return_pc, 99);
+        assert!(matches!(frames.pop(), Err(VmTrap::CallStackUnderflow)));
+
+        for _ in 0..VM_MAX_CALL_DEPTH {
+            frames.push(test_frame()).unwrap();
+        }
+        assert_eq!(frames.len(), VM_MAX_CALL_DEPTH);
+        assert!(matches!(
+            frames.push(test_frame()),
+            Err(VmTrap::CallStackOverflow)
+        ));
+
+        frames.clear();
+        assert!(frames.is_empty());
+        assert!(super::ensure_global_call_depth(0, VM_MAX_CALL_DEPTH).is_ok());
+        assert!(matches!(
+            super::ensure_global_call_depth(1, VM_MAX_CALL_DEPTH),
+            Err(VmTrap::CallStackOverflow)
+        ));
     }
 }
