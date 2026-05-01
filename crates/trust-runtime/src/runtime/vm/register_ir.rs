@@ -220,7 +220,7 @@ impl RegisterExecutionBuffers {
         let mut registers = VM_REGISTER_FILE_POOL
             .with(|pool| pool.borrow_mut().pop())
             .unwrap_or_default();
-        registers.resize(max_registers, Value::Null);
+        prepare_register_file(&mut registers, max_registers);
         let mut remaining_register_reads = VM_REGISTER_READ_COUNTS_POOL
             .with(|pool| pool.borrow_mut().pop())
             .unwrap_or_default();
@@ -274,7 +274,7 @@ impl Drop for RegisterExecutionBuffers {
             });
         }
         if let Some(mut registers) = self.registers.take() {
-            registers.clear();
+            reset_register_file(&mut registers);
             VM_REGISTER_FILE_POOL.with(|pool| {
                 let mut pool = pool.borrow_mut();
                 if pool.len() < REGISTER_EXECUTION_POOL_LIMIT {
@@ -299,6 +299,22 @@ impl Drop for RegisterExecutionBuffers {
                     pool.push(native_call_stack);
                 }
             });
+        }
+    }
+}
+
+fn prepare_register_file(registers: &mut Vec<Value>, max_registers: usize) {
+    if registers.len() < max_registers {
+        registers.resize(max_registers, Value::Null);
+    } else if registers.len() > max_registers {
+        registers.truncate(max_registers);
+    }
+}
+
+fn reset_register_file(registers: &mut [Value]) {
+    for slot in registers {
+        if !matches!(slot, Value::Null) {
+            *slot = Value::Null;
         }
     }
 }
