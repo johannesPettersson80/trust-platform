@@ -32,6 +32,9 @@ Target release: `v0.24.9`
   moving the expensive 98-project `trust-runtime test --project` sweep behind
   an explicit ignored gate with per-project progress, child PID/elapsed
   reporting, and timeout diagnostics.
+- The runtime VM benchmark gate now records per-fixture metrics, confidence
+  spread, optional baseline compare deltas, and `quick-low-noise` /
+  `full-low-noise` repeated-run profiles in its artifacts.
 
 ### Fixed
 
