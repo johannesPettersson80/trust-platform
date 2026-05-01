@@ -351,7 +351,7 @@ impl Runtime {
 
     fn build_vm_module(&self) -> Result<crate::bytecode::BytecodeModule, error::RuntimeError> {
         if self.source_text_index.is_empty() {
-            return crate::bytecode::BytecodeModule::from_runtime(self).map_err(|err| {
+            return crate::bytecode::build_module_from_runtime(self).map_err(|err| {
                 error::RuntimeError::InvalidBytecode(
                     format!("vm module build failed: {err}").into(),
                 )
@@ -367,7 +367,7 @@ impl Runtime {
                     .unwrap_or("")
             })
             .collect::<Vec<_>>();
-        crate::bytecode::BytecodeModule::from_runtime_with_sources(self, &sources).map_err(|err| {
+        crate::bytecode::build_module_from_runtime_with_sources(self, &sources).map_err(|err| {
             error::RuntimeError::InvalidBytecode(format!("vm module build failed: {err}").into())
         })
     }

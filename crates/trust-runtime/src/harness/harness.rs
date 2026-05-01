@@ -273,14 +273,14 @@ fn build_runtime_aligned_bytecode(
             .iter()
             .map(|source| source.path.as_deref().unwrap_or_default())
             .collect::<Vec<_>>();
-        crate::bytecode::BytecodeModule::from_runtime_with_sources_and_paths(
+        crate::bytecode::build_module_from_runtime_with_sources_and_paths(
             runtime,
             &source_refs,
             &paths,
         )
         .map_err(|err| CompileError::new(err.to_string()))?
     } else {
-        crate::bytecode::BytecodeModule::from_runtime_with_sources(runtime, &source_refs)
+        crate::bytecode::build_module_from_runtime_with_sources(runtime, &source_refs)
             .map_err(|err| CompileError::new(err.to_string()))?
     };
     module

@@ -28,16 +28,40 @@ use super::{
     TypeEntry, TypeTable, SUPPORTED_MAJOR_VERSION, SUPPORTED_MINOR_VERSION,
 };
 
+/// Build a bytecode module from the current host runtime state.
+pub fn build_module_from_runtime(
+    runtime: &crate::Runtime,
+) -> Result<BytecodeModule, BytecodeError> {
+    BytecodeEncoder::new(runtime).build()
+}
+
+/// Build a bytecode module from runtime state and source text used for debug maps.
+pub fn build_module_from_runtime_with_sources(
+    runtime: &crate::Runtime,
+    sources: &[&str],
+) -> Result<BytecodeModule, BytecodeError> {
+    BytecodeEncoder::with_sources(runtime, sources).build()
+}
+
+/// Build a bytecode module from runtime state, source text, and source paths used for debug maps.
+pub fn build_module_from_runtime_with_sources_and_paths(
+    runtime: &crate::Runtime,
+    sources: &[&str],
+    paths: &[&str],
+) -> Result<BytecodeModule, BytecodeError> {
+    BytecodeEncoder::with_sources_and_paths(runtime, sources, paths).build()
+}
+
 impl BytecodeModule {
     pub fn from_runtime(runtime: &crate::Runtime) -> Result<Self, BytecodeError> {
-        BytecodeEncoder::new(runtime).build()
+        build_module_from_runtime(runtime)
     }
 
     pub fn from_runtime_with_sources(
         runtime: &crate::Runtime,
         sources: &[&str],
     ) -> Result<Self, BytecodeError> {
-        BytecodeEncoder::with_sources(runtime, sources).build()
+        build_module_from_runtime_with_sources(runtime, sources)
     }
 
     pub fn from_runtime_with_sources_and_paths(
@@ -45,7 +69,7 @@ impl BytecodeModule {
         sources: &[&str],
         paths: &[&str],
     ) -> Result<Self, BytecodeError> {
-        BytecodeEncoder::with_sources_and_paths(runtime, sources, paths).build()
+        build_module_from_runtime_with_sources_and_paths(runtime, sources, paths)
     }
 }
 
