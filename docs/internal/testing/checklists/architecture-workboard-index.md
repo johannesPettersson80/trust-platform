@@ -1,7 +1,7 @@
 # Architecture Workboard Index
 
 Status: Active navigation guard
-Last verified: 2026-05-01 after the BOARD-08 final `register_ir/tier1.rs` split.
+Last verified: 2026-05-01 after starting BOARD-10 runtime VM mutation command locking.
 Owner: Architecture/runtime/HIR team
 Scope: reset-safe pointer to the right architecture checklists so future sessions do not swap boards.
 
@@ -28,7 +28,7 @@ The umbrella checklist is `full-architecture-refactor-program-checklist.md`. If 
 - [x] `ARCHPROG-BOARD-07` Dependency hygiene: `dependency-hygiene-execution-checklist.md`.
 - [x] `ARCHPROG-BOARD-08` Runtime large-file split: `runtime-large-file-split-execution-checklist.md`. Status: complete; `FULLMAP-CHECK-10` reports zero remaining runtime `src` or runtime `tests` files over 1,000 lines after all measured BOARD-08 hotspots were split.
 - [x] `ARCHPROG-BOARD-09` Diagram semantic enforcement: covered by the full-map doctor work.
-- [ ] `ARCHPROG-BOARD-10` Runtime VM mutation hardening: `runtime-vm-mutation-hardening-execution-checklist.md`.
+- [ ] `ARCHPROG-BOARD-10` Runtime VM mutation hardening: `runtime-vm-mutation-hardening-execution-checklist.md`. Status: in progress; Phase 0 command lock captured with `scripts/runtime_vm_mutation_shards.sh`.
 - [ ] `ARCHPROG-BOARD-11` Unsafe/concurrency hardening: `unsafe-concurrency-hardening-execution-checklist.md`.
 - [x] `ARCHPROG-BOARD-12` HIR zero-silent-bug refactor: `hir-zero-silent-bug-refactor-checklist.md`.
 
@@ -40,7 +40,8 @@ The umbrella checklist is `full-architecture-refactor-program-checklist.md`. If 
 - [x] `ARCHIDX-NEXT-06` Continue active BOARD-08 work in `runtime-large-file-split-execution-checklist.md`; completed `RTLARGE-HOT-09` (`crates/trust-runtime/src/runtime/vm/register_ir/lower.rs`) by extracting decoder, fusion, and verifier helpers.
 - [x] `ARCHIDX-NEXT-07` Continue active BOARD-08 work in `runtime-large-file-split-execution-checklist.md`; completed `RTLARGE-HOT-08` (`crates/trust-runtime/tests/web_ide_integration/web_ide_integration_part_09.rs`) by splitting scenario groups while preserving all test names.
 - [x] `ARCHIDX-NEXT-08` Continue active BOARD-08 work in `runtime-large-file-split-execution-checklist.md`; completed `RTLARGE-HOT-12` (`crates/trust-runtime/src/runtime/vm/register_ir/tier1.rs`) by splitting state/cache, compile lowering, and compiled execution into child modules.
-- [ ] `ARCHIDX-NEXT-09` Continue with `ARCHPROG-BOARD-10` Runtime VM mutation hardening (`runtime-vm-mutation-hardening-execution-checklist.md`) unless the user redirects.
+- [x] `ARCHIDX-NEXT-09` Continue with `ARCHPROG-BOARD-10` Runtime VM mutation hardening (`runtime-vm-mutation-hardening-execution-checklist.md`) unless the user redirects. Evidence: Phase 0 command lock started with `scripts/runtime_vm_mutation_shards.sh --list`.
+- [ ] `ARCHIDX-NEXT-10` Continue BOARD-10 Phase 1 baseline mutation runs from `runtime-vm-mutation-hardening-execution-checklist.md`.
 - [ ] `ARCHIDX-NEXT-03` Do not restart BOARD-06 or BOARD-12 unless the tracked dedicated checklist is reopened with a new explicit scope.
 - [ ] `ARCHIDX-NEXT-04` Keep non-program boards secondary unless the user explicitly redirects away from the architecture-program path.
 
