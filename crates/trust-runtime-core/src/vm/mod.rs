@@ -2,11 +2,13 @@
 
 #![allow(missing_docs)]
 
+mod dispatch_ops;
 mod errors;
 mod frames;
 mod helpers;
 mod stack;
 
+pub use dispatch_ops::{apply_jump, execute_binary, execute_unary, read_i32, read_u32};
 pub use errors::VmTrap;
 pub use frames::{ensure_global_call_depth, FrameStack, VmFrame, VM_MAX_CALL_DEPTH};
 pub use helpers::{materialize_borrowed_value, opcode_operand_len};
@@ -16,7 +18,12 @@ pub use stack::OperandStack;
 mod tests {
     use smol_str::SmolStr;
 
-    use crate::{error::RuntimeError, memory::InstanceId, value::Value};
+    use crate::{
+        error::RuntimeError,
+        memory::InstanceId,
+        program_model::{BinaryOp, UnaryOp},
+        value::{DateTimeProfile, Value},
+    };
 
     use super::{FrameStack, OperandStack, VmFrame, VmTrap, VM_MAX_CALL_DEPTH};
 
@@ -110,6 +117,39 @@ mod tests {
                 start: 40,
                 count: 2
             })
+        ));
+    }
+
+    #[test]
+    fn vm_dispatch_ops_preserve_stack_jump_and_operand_decode_contracts() {
+        let profile = DateTimeProfile::default();
+        let mut stack = OperandStack::default();
+        stack.push(Value::Int(2)).unwrap();
+        stack.push(Value::Int(3)).unwrap();
+        super::execute_binary(&profile, &mut stack, BinaryOp::Add).unwrap();
+        assert_eq!(stack.pop().unwrap(), Value::Int(5));
+
+        stack.push(Value::Int(3)).unwrap();
+        super::execute_unary(&mut stack, UnaryOp::Neg).unwrap();
+        assert_eq!(stack.pop().unwrap(), Value::Int(-3));
+
+        let mut pc = 11;
+        super::apply_jump(&mut pc, 2, &test_frame()).unwrap();
+        assert_eq!(pc, 13);
+        assert!(matches!(
+            super::apply_jump(&mut pc, -20, &test_frame()),
+            Err(VmTrap::InvalidJumpTarget(-7))
+        ));
+
+        let bytes = [0x78, 0x56, 0x34, 0x12, 0xff, 0xff, 0xff, 0xff];
+        let mut read_pc = 0;
+        assert_eq!(super::read_u32(&bytes, &mut read_pc).unwrap(), 0x1234_5678);
+        assert_eq!(read_pc, 4);
+        assert_eq!(super::read_i32(&bytes, &mut read_pc).unwrap(), -1);
+        assert_eq!(read_pc, 8);
+        assert!(matches!(
+            super::read_u32(&bytes, &mut read_pc),
+            Err(VmTrap::BytecodeDecode(message)) if message.as_str().contains("u32")
         ));
     }
 

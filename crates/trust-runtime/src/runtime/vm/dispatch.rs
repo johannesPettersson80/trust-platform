@@ -515,45 +515,45 @@ pub(super) fn execute_pou_stack_with_locals(
                 dynamic_store_ref(runtime, frames, &reference, value)
                     .map_err(VmTrap::into_runtime_error)?;
             }
-            0x40 => execute_binary(runtime, operand_stack, BinaryOp::Add)
+            0x40 => execute_binary(&runtime.profile, operand_stack, BinaryOp::Add)
                 .map_err(VmTrap::into_runtime_error)?,
-            0x41 => execute_binary(runtime, operand_stack, BinaryOp::Sub)
+            0x41 => execute_binary(&runtime.profile, operand_stack, BinaryOp::Sub)
                 .map_err(VmTrap::into_runtime_error)?,
-            0x42 => execute_binary(runtime, operand_stack, BinaryOp::Mul)
+            0x42 => execute_binary(&runtime.profile, operand_stack, BinaryOp::Mul)
                 .map_err(VmTrap::into_runtime_error)?,
-            0x43 => execute_binary(runtime, operand_stack, BinaryOp::Div)
+            0x43 => execute_binary(&runtime.profile, operand_stack, BinaryOp::Div)
                 .map_err(VmTrap::into_runtime_error)?,
-            0x44 => execute_binary(runtime, operand_stack, BinaryOp::Mod)
+            0x44 => execute_binary(&runtime.profile, operand_stack, BinaryOp::Mod)
                 .map_err(VmTrap::into_runtime_error)?,
             0x45 => {
                 execute_unary(operand_stack, UnaryOp::Neg).map_err(VmTrap::into_runtime_error)?
             }
-            0x46 => execute_binary(runtime, operand_stack, BinaryOp::And)
+            0x46 => execute_binary(&runtime.profile, operand_stack, BinaryOp::And)
                 .map_err(VmTrap::into_runtime_error)?,
-            0x47 => execute_binary(runtime, operand_stack, BinaryOp::Or)
+            0x47 => execute_binary(&runtime.profile, operand_stack, BinaryOp::Or)
                 .map_err(VmTrap::into_runtime_error)?,
-            0x48 => execute_binary(runtime, operand_stack, BinaryOp::Xor)
+            0x48 => execute_binary(&runtime.profile, operand_stack, BinaryOp::Xor)
                 .map_err(VmTrap::into_runtime_error)?,
             0x49 => {
                 execute_unary(operand_stack, UnaryOp::Not).map_err(VmTrap::into_runtime_error)?
             }
             0x4A => return Err(VmTrap::UnsupportedOpcode("SHL").into_runtime_error()),
             0x4B => return Err(VmTrap::UnsupportedOpcode("SHR").into_runtime_error()),
-            0x4C => execute_binary(runtime, operand_stack, BinaryOp::Pow)
+            0x4C => execute_binary(&runtime.profile, operand_stack, BinaryOp::Pow)
                 .map_err(VmTrap::into_runtime_error)?,
             0x4D => return Err(VmTrap::UnsupportedOpcode("ROL").into_runtime_error()),
             0x4E => return Err(VmTrap::UnsupportedOpcode("ROR").into_runtime_error()),
-            0x50 => execute_binary(runtime, operand_stack, BinaryOp::Eq)
+            0x50 => execute_binary(&runtime.profile, operand_stack, BinaryOp::Eq)
                 .map_err(VmTrap::into_runtime_error)?,
-            0x51 => execute_binary(runtime, operand_stack, BinaryOp::Ne)
+            0x51 => execute_binary(&runtime.profile, operand_stack, BinaryOp::Ne)
                 .map_err(VmTrap::into_runtime_error)?,
-            0x52 => execute_binary(runtime, operand_stack, BinaryOp::Lt)
+            0x52 => execute_binary(&runtime.profile, operand_stack, BinaryOp::Lt)
                 .map_err(VmTrap::into_runtime_error)?,
-            0x53 => execute_binary(runtime, operand_stack, BinaryOp::Le)
+            0x53 => execute_binary(&runtime.profile, operand_stack, BinaryOp::Le)
                 .map_err(VmTrap::into_runtime_error)?,
-            0x54 => execute_binary(runtime, operand_stack, BinaryOp::Gt)
+            0x54 => execute_binary(&runtime.profile, operand_stack, BinaryOp::Gt)
                 .map_err(VmTrap::into_runtime_error)?,
-            0x55 => execute_binary(runtime, operand_stack, BinaryOp::Ge)
+            0x55 => execute_binary(&runtime.profile, operand_stack, BinaryOp::Ge)
                 .map_err(VmTrap::into_runtime_error)?,
             0x60 => {
                 let type_idx =
