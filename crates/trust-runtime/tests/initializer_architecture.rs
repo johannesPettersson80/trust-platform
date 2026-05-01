@@ -182,7 +182,8 @@ fn vm_function_block_ref_execution_reads_reference_without_clone() {
 
 #[test]
 fn tier1_dynamic_ref_field_borrows_reference_registers() {
-    let source = read_workspace_file("crates/trust-runtime/src/runtime/vm/register_ir/tier1.rs");
+    let source =
+        read_workspace_file("crates/trust-runtime/src/runtime/vm/register_ir/tier1/execute.rs");
     let body = source
         .split_once("Tier1CompiledInstr::RefField { base, field, dest } => {")
         .and_then(|(_, rest)| rest.split_once("Tier1CompiledInstr::RefIndex"))
@@ -201,7 +202,8 @@ fn tier1_dynamic_ref_field_borrows_reference_registers() {
 
 #[test]
 fn register_ir_decode_uses_inline_operand_storage() {
-    let source = read_workspace_file("crates/trust-runtime/src/runtime/vm/register_ir/lower.rs");
+    let source =
+        read_workspace_file("crates/trust-runtime/src/runtime/vm/register_ir/lower/decode.rs");
     let decode_body = source
         .split_once("fn decode_pou(")
         .and_then(|(_, rest)| rest.split_once("fn opcode_operand_len_for_lowering"))

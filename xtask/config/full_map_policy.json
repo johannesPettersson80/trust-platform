@@ -228,9 +228,7 @@
       {"name": "watchdog", "subsystem": "portable_runtime_core", "owner": "runtime/watchdog", "rationale": "runtime watchdog and deadline handling", "review_date": "2026-04-30", "decision_note": "ARCHPROG-C-05 baseline freeze"},
       {"name": "web", "subsystem": "host_surface_web", "owner": "runtime/web", "rationale": "HTTP routes, websocket transport, and browser assets", "review_date": "2026-04-30", "decision_note": "ARCHPROG-C-05 baseline freeze"}
     ],
-    "large_file_allowlist": [
-      {"path": "crates/trust-runtime/src/runtime/vm/register_ir/tier1.rs", "owner": "runtime/VM", "rationale": "tier1 hotspot", "review_date": "2026-04-28", "split_plan": "runtime-large-file-split RTLARGE-HOT-12"}
-    ]
+    "large_file_allowlist": []
   },
   "dependency_hygiene_tools": [
     {"name": "cargo audit", "status": "pass", "owner": "release engineering", "rationale": "raw advisories are fixed or explicitly ignored by policy metadata", "review_date": "2026-04-29", "evidence": "target/gate-artifacts/dependency-hygiene-v0.24.7/cargo-audit-after-mqtt-tls.json"},
