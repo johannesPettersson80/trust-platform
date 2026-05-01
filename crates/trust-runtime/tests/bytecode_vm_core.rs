@@ -1348,6 +1348,101 @@ fn vm_validator_rejects_unsupported_call_method_opcode() {
 }
 
 #[test]
+fn vm_malformed_bytecode_fuzz_smoke_budget() {
+    let source = r#"
+        FUNCTION AddOne : DINT
+        VAR_INPUT
+            x : DINT;
+        END_VAR
+        VAR
+            y : DINT;
+        END_VAR
+            y := x + 1;
+            AddOne := y;
+        END_FUNCTION
+
+        PROGRAM Main
+        VAR
+            count : DINT := 0;
+            s : STRING := '';
+            ws : WSTRING := "";
+        END_VAR
+            count := AddOne(count);
+            s := 'A';
+            ws := "A";
+        END_PROGRAM
+    "#;
+
+    for seed in 0..8 {
+        let mut module = bytecode_module_from_source(source).expect("compile module");
+        let expected = match seed {
+            0 => {
+                if let Some(SectionData::PouIndex(index)) = module.section_mut(SectionId::PouIndex)
+                {
+                    let duplicate_id = index.entries[0].id;
+                    index.entries[1].id = duplicate_id;
+                }
+                "duplicate POU id"
+            }
+            1 => {
+                replace_main_body(&mut module, &[0x07]);
+                "unsupported runtime opcode CALL_METHOD"
+            }
+            2 => {
+                let mut body = vec![0x10];
+                body.extend_from_slice(&255_u32.to_le_bytes());
+                replace_main_body(&mut module, &body);
+                "invalid index 255 for const"
+            }
+            3 => {
+                replace_main_body(&mut module, &[0x20]);
+                "unexpected end of input"
+            }
+            4 => {
+                let mut body = vec![0x20];
+                body.extend_from_slice(&255_u32.to_le_bytes());
+                replace_main_body(&mut module, &body);
+                "invalid index 255 for ref"
+            }
+            5 => {
+                let mut body = vec![0x02];
+                body.extend_from_slice(&(4_096_i32).to_le_bytes());
+                body.push(0x06);
+                replace_main_body(&mut module, &body);
+                "invalid jump target"
+            }
+            6 => {
+                let strings = match module.section(SectionId::StringTable) {
+                    Some(SectionData::StringTable(strings)) => strings.clone(),
+                    _ => panic!("missing STRING_TABLE"),
+                };
+                if let Some(SectionData::PouIndex(index)) = module.section_mut(SectionId::PouIndex)
+                {
+                    let function = index
+                        .entries
+                        .iter_mut()
+                        .find(|entry| {
+                            entry.kind == PouKind::Function
+                                && strings.entries[entry.name_idx as usize]
+                                    .eq_ignore_ascii_case("ADDONE")
+                        })
+                        .expect("AddOne function");
+                    function.local_ref_count = 0;
+                }
+                "local ref outside POU local range"
+            }
+            7 => {
+                mutate_first_const_payload_for_primitive(&mut module, 24, vec![0xFF]);
+                "invalid STRING const UTF-8"
+            }
+            _ => unreachable!(),
+        };
+
+        assert_apply_invalid_bytecode_contains(&module, expected);
+    }
+}
+
+#[test]
 fn vm_rejects_stack_underflow() {
     let source = r#"
         PROGRAM Main

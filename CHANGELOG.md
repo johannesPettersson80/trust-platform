@@ -35,6 +35,8 @@ Target release: `v0.24.9`
 - The runtime VM benchmark gate now records per-fixture metrics, confidence
   spread, optional baseline compare deltas, and `quick-low-noise` /
   `full-low-noise` repeated-run profiles in its artifacts.
+- The runtime VM malformed-bytecode fuzz smoke gate now records progress-visible
+  logs and summary artifacts for deterministic bytecode mutation coverage.
 
 ### Fixed
 
