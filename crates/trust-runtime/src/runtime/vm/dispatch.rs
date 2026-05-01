@@ -132,7 +132,7 @@ pub(super) fn execute_function_block_ref(
         )
     })?;
 
-    let instance_id = match runtime.storage.read_by_ref(reference.clone()) {
+    let instance_id = match runtime.storage.read_by_ref_ref(reference) {
         Some(Value::Instance(id)) => *id,
         Some(_) => return Err(RuntimeError::TypeMismatch),
         None => return Err(RuntimeError::NullReference),

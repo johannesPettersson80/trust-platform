@@ -166,6 +166,21 @@ fn dynamic_ref_partial_index_does_not_clone_entire_value_ref() {
 }
 
 #[test]
+fn vm_function_block_ref_execution_reads_reference_without_clone() {
+    let source = read_workspace_file("crates/trust-runtime/src/runtime/vm/dispatch.rs");
+    let body = source
+        .split_once("pub(super) fn execute_function_block_ref(")
+        .and_then(|(_, rest)| rest.split_once("fn execute_pou("))
+        .map(|(body, _)| body)
+        .expect("execute_function_block_ref body");
+
+    assert!(
+        !body.contains("read_by_ref(reference.clone())"),
+        "VM function-block ref execution must borrow ValueRef for storage reads"
+    );
+}
+
+#[test]
 fn runtime_var_decl_parts_are_structural_not_positional_tuples() {
     let vars = read_workspace_file("crates/trust-runtime/src/harness/compiler/vars.rs");
     assert!(
