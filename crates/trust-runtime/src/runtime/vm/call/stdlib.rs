@@ -241,7 +241,7 @@ fn bind_stdlib_values(
     bind_stdlib_named_values(runtime, frame, params, args)
 }
 
-fn bind_stdlib_positional_values(
+pub(super) fn bind_stdlib_positional_values(
     runtime: &mut super::super::super::core::Runtime,
     frame: &VmFrame,
     params: &StdParams,
@@ -430,23 +430,16 @@ fn bind_stdlib_named_values_variadic(
     }
 
     let mut resolved = Vec::with_capacity(fixed.len() + count);
-    for value in fixed_values {
-        let Some(value) = value else {
-            return Err(VmTrap::Runtime(RuntimeError::InvalidArgumentCount {
-                expected: fixed.len() + count,
-                got: args.len(),
-            }));
-        };
-        resolved.push(value);
-    }
-    for value in variadic_values.into_iter().take(count) {
-        let Some(value) = value else {
-            return Err(VmTrap::Runtime(RuntimeError::InvalidArgumentCount {
-                expected: fixed.len() + count,
-                got: args.len(),
-            }));
-        };
-        resolved.push(value);
-    }
+    resolved.extend(
+        fixed_values
+            .into_iter()
+            .map(|value| value.expect("fixed variadic values were validated")),
+    );
+    resolved.extend(
+        variadic_values
+            .into_iter()
+            .take(count)
+            .map(|value| value.expect("variadic values were validated")),
+    );
     Ok(resolved)
 }

@@ -225,7 +225,11 @@ impl VmFbFieldBinding {
         }
     }
 
-    fn write(&self, runtime: &mut super::super::super::core::Runtime, value: Value) -> bool {
+    pub(super) fn write(
+        &self,
+        runtime: &mut super::super::super::core::Runtime,
+        value: Value,
+    ) -> bool {
         match self {
             Self::Direct {
                 instance_id,
@@ -316,9 +320,12 @@ pub(super) fn resolve_named_arg_index(
     param_name: &SmolStr,
     ordered_named_index: &mut usize,
 ) -> Option<usize> {
-    while *ordered_named_index < args.len() && consumed[*ordered_named_index] {
-        *ordered_named_index += 1;
-    }
+    *ordered_named_index = consumed
+        .iter()
+        .enumerate()
+        .skip(*ordered_named_index)
+        .find_map(|(index, consumed)| (!*consumed).then_some(index))
+        .unwrap_or(args.len());
 
     if let Some(arg) = args.get(*ordered_named_index) {
         if arg
@@ -758,30 +765,10 @@ pub(super) fn write_output_int(
         Value::Int(_) => Value::Int(i16::try_from(value).map_err(|_| RuntimeError::Overflow)?),
         Value::DInt(_) => Value::DInt(i32::try_from(value).map_err(|_| RuntimeError::Overflow)?),
         Value::LInt(_) => Value::LInt(value),
-        Value::USInt(_) => {
-            if value < 0 {
-                return Err(VmTrap::Runtime(RuntimeError::Overflow));
-            }
-            Value::USInt(u8::try_from(value).map_err(|_| RuntimeError::Overflow)?)
-        }
-        Value::UInt(_) => {
-            if value < 0 {
-                return Err(VmTrap::Runtime(RuntimeError::Overflow));
-            }
-            Value::UInt(u16::try_from(value).map_err(|_| RuntimeError::Overflow)?)
-        }
-        Value::UDInt(_) => {
-            if value < 0 {
-                return Err(VmTrap::Runtime(RuntimeError::Overflow));
-            }
-            Value::UDInt(u32::try_from(value).map_err(|_| RuntimeError::Overflow)?)
-        }
-        Value::ULInt(_) => {
-            if value < 0 {
-                return Err(VmTrap::Runtime(RuntimeError::Overflow));
-            }
-            Value::ULInt(value as u64)
-        }
+        Value::USInt(_) => Value::USInt(u8::try_from(value).map_err(|_| RuntimeError::Overflow)?),
+        Value::UInt(_) => Value::UInt(u16::try_from(value).map_err(|_| RuntimeError::Overflow)?),
+        Value::UDInt(_) => Value::UDInt(u32::try_from(value).map_err(|_| RuntimeError::Overflow)?),
+        Value::ULInt(_) => Value::ULInt(u64::try_from(value).map_err(|_| RuntimeError::Overflow)?),
         _ => return Err(VmTrap::Runtime(RuntimeError::TypeMismatch)),
     };
     target.write(runtime, frame, converted)

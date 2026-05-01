@@ -94,6 +94,39 @@ fn vm_opcode_positive_path_covers_call_native_stdlib_dispatch() {
 }
 
 #[test]
+fn vm_call_native_builtin_function_block_executes_body_and_copies_outputs() {
+    let source = r#"
+        PROGRAM Main
+        VAR
+            counter : CTU;
+            pulse : BOOL := TRUE;
+            reset : BOOL := FALSE;
+            preset : INT := INT#2;
+            reached : BOOL := FALSE;
+            count : INT := INT#-1;
+        END_VAR
+        counter(CU := pulse, R := reset, PV := preset, Q => reached, CV => count);
+        END_PROGRAM
+    "#;
+    let module = bytecode_module_from_source(source).expect("compile bytecode module");
+    let body = main_body_bytes(&module);
+    assert!(
+        body.contains(&0x09),
+        "expected CALL_NATIVE opcode in main body"
+    );
+
+    let mut harness = vm_harness(source);
+    let cycle = harness.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "CALL_NATIVE builtin function-block dispatch failed: {:?}",
+        cycle.errors
+    );
+    harness.assert_eq("count", 1i16);
+    harness.assert_eq("reached", false);
+}
+
+#[test]
 fn vm_opcode_positive_path_covers_call_native_oop_dispatch() {
     let source = r#"
         INTERFACE ICounter
@@ -723,4 +756,3 @@ fn vm_opcode_positive_path_covers_sizeof_type_and_storage_operands() {
     harness.assert_eq("out_size_type_int", 2i32);
     harness.assert_eq("out_size_var_s", 5i32);
 }
-

@@ -1,6 +1,6 @@
 # Runtime VM Mutation Hardening Execution Checklist
 
-Status: In progress; Phase 0 mutation command lock captured for the current post-large-file-split VM module layout.
+Status: In progress; Phase 1 VM call-dispatch baseline closed with zero missed/timeout mutants; register IR baseline is next.
 Owner: Runtime VM team
 Scope: add mutation-backed semantic tests for high-risk VM execution paths before claiming zero silent bugs for runtime execution.
 
@@ -33,11 +33,11 @@ Scope: add mutation-backed semantic tests for high-risk VM execution paths befor
 
 ## Phase 1 - Baseline
 
-- [ ] `RTVMMUT-P1-001` Run the exact `RTVMMUT-P0-002` command for VM call dispatch.
+- [x] `RTVMMUT-P1-001` Run the exact `RTVMMUT-P0-002` command for VM call dispatch. Evidence: in-place reruns from clean tracked commits closed all call-dispatch shards under `target/gate-artifacts/runtime-vm-mutants/`: `call-root` 25 total / 22 caught / 3 unviable / 0 missed / 0 timeout; `call-bindings` 83 total / 59 caught / 24 unviable / 0 missed / 0 timeout; `call-stdlib` 58 total / 48 caught / 10 unviable / 0 missed / 0 timeout; `call-symbols` 4 total / 2 caught / 2 unviable / 0 missed / 0 timeout.
 - [ ] `RTVMMUT-P1-002` Run the exact `RTVMMUT-P0-003` and `RTVMMUT-P0-004` commands for register IR root/lowering.
 - [ ] `RTVMMUT-P1-003` Run the exact `RTVMMUT-P0-005` command for tier1/register execution if the active branch contains the file.
-- [ ] `RTVMMUT-P1-004` Store survivor lists and `--list --json` mutant lists as artifacts.
-- [ ] `RTVMMUT-P1-005` Classify survivors by semantic area and by test target that should have killed them.
+- [ ] `RTVMMUT-P1-004` Store survivor lists and `--list --json` mutant lists as artifacts. Partial evidence: Phase 0 list artifacts are present under `target/gate-artifacts/runtime-vm-mutants/lists/`; Phase 1 call-dispatch survivor files are present under each call shard's `mutants.out/` directory and all four call-shard `missed.txt` / `timeout.txt` files are empty.
+- [ ] `RTVMMUT-P1-005` Classify survivors by semantic area and by test target that should have killed them. Partial evidence: call-dispatch survivors were reduced to zero after adding semantic tests for builtin FB call execution, stdlib fixed/variadic argument binding, split-time output dispatch, VM/native output binding, local reference writes, and integer output conversion; no equivalent-mutant rationale remains for call dispatch.
 
 ## Phase 2 - Semantic Matrix
 

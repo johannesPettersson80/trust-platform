@@ -36,7 +36,9 @@ use self::bindings::{
     VmFbFieldBinding, VmFbOutSource, VmNativeArgValue, VmWriteTarget,
 };
 #[cfg(test)]
-use self::stdlib::{bind_conversion_value, bind_stdlib_named_values};
+use self::stdlib::{
+    bind_conversion_value, bind_stdlib_named_values, bind_stdlib_positional_values,
+};
 
 pub(super) const VM_LOCAL_SENTINEL_FRAME_ID: u32 = u32::MAX;
 
