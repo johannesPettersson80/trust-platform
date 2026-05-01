@@ -30,6 +30,8 @@ pub mod memory;
 pub mod numeric;
 /// Portable runtime program model helpers.
 pub mod program_model;
+/// Portable retain and restart policy records.
+pub mod retain;
 /// Scaffold ownership markers for the pre-move core crate.
 pub mod scaffold;
 /// Portable scheduler model records.

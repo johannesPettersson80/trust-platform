@@ -8,29 +8,7 @@ use smol_str::SmolStr;
 use crate::value::Value;
 
 pub(super) use trust_runtime_core::cycle::ReadyTask;
-
-/// Retentive behavior for variables.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum RetainPolicy {
-    /// Retentive across warm restarts.
-    Retain,
-    /// Always reinitialized on restart.
-    NonRetain,
-    /// No explicit qualifier; treat as non-retentive on warm restart.
-    #[default]
-    Unspecified,
-    /// Persistent across warm restarts.
-    Persistent,
-}
-
-/// Restart mode for a resource/configuration.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RestartMode {
-    /// Cold restart: reinitialize all variables.
-    Cold,
-    /// Warm restart: retain RETAIN/PERSISTENT variables.
-    Warm,
-}
+pub(super) use trust_runtime_core::retain::{RestartMode, RetainPolicy};
 
 /// Snapshot of retained global values for hot reload.
 #[derive(Debug, Clone, Default, PartialEq)]
