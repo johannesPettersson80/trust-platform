@@ -184,10 +184,10 @@ pub(super) fn dynamic_ref_index(
 ) -> Result<ValueRef, VmTrap> {
     // Support chained indexing for multidimensional arrays by extending a trailing
     // partial index segment (e.g. [i] -> [i, j]) against the base array dimensions.
-    if let Some(RefSegment::Index(existing)) = reference.path.last().cloned() {
-        let mut base_reference = reference.clone();
-        let _ = base_reference.path.pop();
-        if let Value::Array(array) = peek_dynamic_ref(runtime, frames, &base_reference)? {
+    if let Some(RefSegment::Index(existing)) = reference.path.last() {
+        let base_path = &reference.path[..reference.path.len().saturating_sub(1)];
+        if let Value::Array(array) = peek_dynamic_ref_path(runtime, frames, &reference, base_path)?
+        {
             if existing.len() < array.dimensions().len() {
                 let (lower, upper) = array.dimensions()[existing.len()];
                 if index < lower || index > upper {
@@ -197,7 +197,7 @@ pub(super) fn dynamic_ref_index(
                         upper,
                     }));
                 }
-                let mut combined = existing;
+                let mut combined = existing.clone();
                 combined.push(index);
                 if let Some(RefSegment::Index(indices)) = reference.path.last_mut() {
                     *indices = combined;
@@ -242,6 +242,15 @@ pub(super) fn peek_dynamic_ref<'a>(
     frames: &'a FrameStack,
     reference: &ValueRef,
 ) -> Result<&'a Value, VmTrap> {
+    peek_dynamic_ref_path(runtime, frames, reference, &reference.path)
+}
+
+fn peek_dynamic_ref_path<'a>(
+    runtime: &'a Runtime,
+    frames: &'a FrameStack,
+    reference: &ValueRef,
+    path: &[RefSegment],
+) -> Result<&'a Value, VmTrap> {
     if matches!(
         reference.location,
         MemoryLocation::Local(FrameId(VM_LOCAL_SENTINEL_FRAME_ID))
@@ -251,11 +260,11 @@ pub(super) fn peek_dynamic_ref<'a>(
             .locals
             .get(reference.offset)
             .ok_or(VmTrap::NullReference)?;
-        return read_value_path_borrowed(root, &reference.path).ok_or(VmTrap::NullReference);
+        return read_value_path_borrowed(root, path).ok_or(VmTrap::NullReference);
     }
     runtime
         .storage
-        .read_by_ref_ref(reference)
+        .read_by_ref_parts(reference.location, reference.offset, path)
         .ok_or(VmTrap::NullReference)
 }
 
@@ -521,6 +530,52 @@ mod tests {
             [RefSegment::Index(ref_indices_from_iter([0, 1]))]
                 .into_iter()
                 .collect::<RefPath>()
+        );
+    }
+
+    #[test]
+    fn dynamic_ref_index_extends_nested_partial_index_against_array_shape() {
+        let mut runtime = Runtime::new();
+        runtime.storage_mut().set_global(
+            "HOLDER",
+            Value::Struct(std::sync::Arc::new(StructValue::from_untyped_parts(
+                SmolStr::new("GRID_HOLDER"),
+                IndexMap::from([(
+                    SmolStr::new("GRID"),
+                    Value::Array(Box::new(
+                        ArrayValue::from_untyped_parts(
+                            vec![
+                                Value::DInt(1),
+                                Value::DInt(2),
+                                Value::DInt(3),
+                                Value::DInt(4),
+                            ],
+                            vec![(0, 1), (0, 1)],
+                        )
+                        .unwrap(),
+                    )),
+                )]),
+            ))),
+        );
+        let mut reference = runtime
+            .storage()
+            .ref_for_global("HOLDER")
+            .expect("holder ref");
+        reference.path.push(RefSegment::Field(SmolStr::new("GRID")));
+        reference.path.push(single_ref_index(0));
+        let frames = FrameStack::default();
+
+        let resolved = dynamic_ref_index(&runtime, &frames, reference, 1)
+            .expect("extend nested partial index");
+
+        assert_eq!(
+            resolved.path,
+            [
+                RefSegment::Field(SmolStr::new("GRID")),
+                RefSegment::Index(ref_indices_from_iter([0, 1])),
+            ]
+            .into_iter()
+            .collect::<RefPath>()
         );
     }
 

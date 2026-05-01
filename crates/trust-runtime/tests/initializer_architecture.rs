@@ -147,6 +147,25 @@ fn vm_local_init_does_not_create_runtime_storage_frames() {
 }
 
 #[test]
+fn dynamic_ref_partial_index_does_not_clone_entire_value_ref() {
+    let source = read_workspace_file("crates/trust-runtime/src/runtime/vm/dispatch_refs.rs");
+    let body = source
+        .split_once("pub(super) fn dynamic_ref_index(")
+        .and_then(|(_, rest)| rest.split_once("pub(super) fn peek_dynamic_ref"))
+        .map(|(body, _)| body)
+        .expect("dynamic_ref_index body");
+
+    assert!(
+        !body.contains("reference.path.last().cloned()"),
+        "partial multidimensional index handling must borrow the trailing index segment"
+    );
+    assert!(
+        !body.contains("reference.clone()"),
+        "partial multidimensional index handling must borrow the base path instead of cloning the whole ValueRef"
+    );
+}
+
+#[test]
 fn runtime_var_decl_parts_are_structural_not_positional_tuples() {
     let vars = read_workspace_file("crates/trust-runtime/src/harness/compiler/vars.rs");
     assert!(
