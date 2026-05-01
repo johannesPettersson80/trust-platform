@@ -230,8 +230,28 @@ fn validate_pou_local_ref_range(ref_table: &RefTable, pou: &PouEntry) -> Result<
                 "POU local ref range contains non-local ref".into(),
             ));
         }
+        if !ref_entry.segments.is_empty() {
+            return Err(BytecodeError::InvalidSection(
+                "POU local ref range contains path ref".into(),
+            ));
+        }
+        if ref_entry.offset != ref_idx.saturating_sub(start) {
+            return Err(BytecodeError::InvalidSection(
+                "POU local ref range contains non-contiguous local offset".into(),
+            ));
+        }
     }
     Ok(())
+}
+
+fn pou_local_owner(ref_table: &RefTable, pou: &PouEntry) -> Option<u32> {
+    if pou.local_ref_count == 0 {
+        return None;
+    }
+    ref_table
+        .entries
+        .get(pou.local_ref_start as usize)
+        .map(|entry| entry.owner_id)
 }
 
 fn ensure_pou_ref_operand(
@@ -240,11 +260,18 @@ fn ensure_pou_ref_operand(
     ref_idx: u32,
 ) -> Result<(), BytecodeError> {
     ensure_ref_index(ref_table, ref_idx)?;
-    if ref_table.entries[ref_idx as usize].location == RefLocation::Local {
+    let ref_entry = &ref_table.entries[ref_idx as usize];
+    if ref_entry.location == RefLocation::Local {
         let end = pou.local_ref_start.checked_add(pou.local_ref_count).ok_or_else(|| {
             BytecodeError::InvalidSection("POU local ref range overflow".into())
         })?;
         if ref_idx < pou.local_ref_start || ref_idx >= end {
+            if !ref_entry.segments.is_empty()
+                && pou_local_owner(ref_table, pou) == Some(ref_entry.owner_id)
+                && ref_entry.offset < pou.local_ref_count
+            {
+                return Ok(());
+            }
             return Err(BytecodeError::InvalidSection(
                 "local ref outside POU local range".into(),
             ));

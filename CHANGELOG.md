@@ -81,7 +81,8 @@ Target release: `v0.24.9`
   mixes instance references with bit/byte/word/dword access.
 - Bytecode validation now rejects POU bytecode that uses a local reference
   outside that POU's declared local-ref range, so malformed local slots fail
-  before VM frame execution.
+  before VM frame execution, while still accepting owned derived local path
+  references such as local array elements and struct fields.
 - HIR validation now reports `UndefinedVariable` when a `VAR_ACCESS` access
   path points at a missing target instead of silently accepting the declaration.
 - HIR constant evaluation now reports `CannotResolve` for ambiguous unqualified

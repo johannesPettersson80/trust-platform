@@ -1,7 +1,8 @@
 use std::time::{Duration as StdDuration, Instant};
 
 use trust_runtime::bytecode::{
-    BytecodeModule, PouKind, SectionData, SectionId, TypeData, TypeEntry, TypeKind,
+    BytecodeModule, PouKind, RefEntry, RefLocation, RefSegment, SectionData, SectionId, TypeData,
+    TypeEntry, TypeKind,
 };
 use trust_runtime::error::RuntimeError;
 use trust_runtime::execution_backend::ExecutionBackend;
@@ -1482,6 +1483,97 @@ fn vm_validator_rejects_local_ref_outside_pou_local_range() {
     }
 
     assert_apply_invalid_bytecode_contains(&module, "local ref outside POU local range");
+}
+
+#[test]
+fn vm_validator_accepts_local_path_ref_for_pou_owned_local_slot() {
+    let source = r#"
+        FUNCTION ReadCell : DINT
+        VAR
+            cells : ARRAY[0..1] OF DINT;
+        END_VAR
+            ReadCell := 0;
+        END_FUNCTION
+
+        PROGRAM Main
+        END_PROGRAM
+    "#;
+    let mut module = bytecode_module_from_source(source).expect("compile module");
+    let strings = match module.section(SectionId::StringTable) {
+        Some(SectionData::StringTable(strings)) => strings.clone(),
+        _ => panic!("missing STRING_TABLE"),
+    };
+    let (function_id, local_ref_start, local_ref_count) = match module.section(SectionId::PouIndex)
+    {
+        Some(SectionData::PouIndex(index)) => {
+            let function = index
+                .entries
+                .iter()
+                .find(|entry| {
+                    entry.kind == PouKind::Function
+                        && strings.entries[entry.name_idx as usize].eq_ignore_ascii_case("READCELL")
+                })
+                .expect("ReadCell function");
+            (
+                function.id,
+                function.local_ref_start,
+                function.local_ref_count,
+            )
+        }
+        _ => panic!("missing POU_INDEX"),
+    };
+    assert!(
+        local_ref_count > 0,
+        "expected ReadCell to own at least one local slot"
+    );
+
+    let path_ref_idx = match module.section_mut(SectionId::RefTable) {
+        Some(SectionData::RefTable(ref_table)) => {
+            let owner_id = ref_table.entries[local_ref_start as usize].owner_id;
+            let idx = ref_table.entries.len() as u32;
+            ref_table.entries.push(RefEntry {
+                location: RefLocation::Local,
+                owner_id,
+                offset: 0,
+                segments: vec![RefSegment::Index(vec![0])],
+            });
+            idx
+        }
+        _ => panic!("missing REF_TABLE"),
+    };
+
+    let mut body = vec![0x20];
+    body.extend_from_slice(&path_ref_idx.to_le_bytes());
+    body.push(0x06);
+    let new_offset =
+        if let Some(SectionData::PouBodies(code)) = module.section_mut(SectionId::PouBodies) {
+            let offset = code.len() as u32;
+            code.extend_from_slice(&body);
+            offset
+        } else {
+            panic!("missing POU_BODIES");
+        };
+    if let Some(SectionData::PouIndex(index)) = module.section_mut(SectionId::PouIndex) {
+        let function = index
+            .entries
+            .iter_mut()
+            .find(|entry| entry.id == function_id)
+            .expect("ReadCell function entry");
+        function.code_offset = new_offset;
+        function.code_length = body.len() as u32;
+    } else {
+        panic!("missing POU_INDEX");
+    }
+    module.sections.retain(|section| {
+        section.id != SectionId::DebugMap.as_raw()
+            && section.id != SectionId::DebugStringTable.as_raw()
+    });
+
+    let bytes = module.encode().expect("encode module");
+    let mut runtime = Runtime::new();
+    runtime
+        .apply_bytecode_bytes(&bytes, None)
+        .expect("local path refs owned by the POU local frame should validate");
 }
 
 #[test]
