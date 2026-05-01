@@ -3,12 +3,14 @@
 #![allow(missing_docs)]
 
 mod dispatch_ops;
+mod dispatch_sizeof;
 mod errors;
 mod frames;
 mod helpers;
 mod stack;
 
 pub use dispatch_ops::{apply_jump, execute_binary, execute_unary, read_i32, read_u32};
+pub use dispatch_sizeof::sizeof_type_from_table;
 pub use errors::VmTrap;
 pub use frames::{ensure_global_call_depth, FrameStack, VmFrame, VM_MAX_CALL_DEPTH};
 pub use helpers::{materialize_borrowed_value, opcode_operand_len};
@@ -19,6 +21,7 @@ mod tests {
     use smol_str::SmolStr;
 
     use crate::{
+        bytecode::{Field, TypeData, TypeEntry, TypeKind, TypeTable},
         error::RuntimeError,
         memory::InstanceId,
         program_model::{BinaryOp, UnaryOp},
@@ -150,6 +153,81 @@ mod tests {
         assert!(matches!(
             super::read_u32(&bytes, &mut read_pc),
             Err(VmTrap::BytecodeDecode(message)) if message.as_str().contains("u32")
+        ));
+    }
+
+    fn type_entry(kind: TypeKind, data: TypeData) -> TypeEntry {
+        TypeEntry {
+            kind,
+            name_idx: None,
+            data,
+        }
+    }
+
+    #[test]
+    fn vm_sizeof_helpers_preserve_type_table_contracts() {
+        let types = TypeTable {
+            offsets: vec![],
+            entries: vec![
+                type_entry(
+                    TypeKind::Primitive,
+                    TypeData::Primitive {
+                        prim_id: 8,
+                        max_length: 0,
+                    },
+                ),
+                type_entry(
+                    TypeKind::Array,
+                    TypeData::Array {
+                        elem_type_id: 0,
+                        dims: vec![(1, 3)],
+                    },
+                ),
+                type_entry(
+                    TypeKind::Struct,
+                    TypeData::Struct {
+                        fields: vec![
+                            Field {
+                                name_idx: 0,
+                                type_id: 0,
+                            },
+                            Field {
+                                name_idx: 1,
+                                type_id: 1,
+                            },
+                        ],
+                    },
+                ),
+                type_entry(
+                    TypeKind::Reference,
+                    TypeData::Reference { target_type_id: 0 },
+                ),
+                type_entry(TypeKind::Alias, TypeData::Alias { target_type_id: 2 }),
+            ],
+        };
+
+        assert_eq!(super::sizeof_type_from_table(&types, 0).unwrap(), 4);
+        assert_eq!(super::sizeof_type_from_table(&types, 1).unwrap(), 12);
+        assert_eq!(super::sizeof_type_from_table(&types, 2).unwrap(), 16);
+        assert_eq!(
+            super::sizeof_type_from_table(&types, 3).unwrap(),
+            core::mem::size_of::<usize>() as u64
+        );
+        assert_eq!(super::sizeof_type_from_table(&types, 4).unwrap(), 16);
+        let recursive = TypeTable {
+            offsets: vec![],
+            entries: vec![type_entry(
+                TypeKind::Alias,
+                TypeData::Alias { target_type_id: 0 },
+            )],
+        };
+        assert!(matches!(
+            super::sizeof_type_from_table(&recursive, 0),
+            Err(RuntimeError::InvalidBytecode(message)) if message.as_str().contains("recursion")
+        ));
+        assert!(matches!(
+            super::sizeof_type_from_table(&types, 99),
+            Err(RuntimeError::InvalidBytecode(message)) if message.as_str().contains("invalid type index")
         ));
     }
 
