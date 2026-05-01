@@ -21,7 +21,7 @@ before you move to CI or `agent serve`.
 
 ## Describe the Agent API
 
-`trust-runtime agent serve` is the stdio JSON-RPC entry point for shell tools,
+`trust-dev agent serve` is the stdio JSON-RPC entry point for shell tools,
 CI jobs, and automation.
 
 Ask the runtime what the JSON-RPC API supports:
@@ -29,7 +29,7 @@ Ask the runtime what the JSON-RPC API supports:
 ```bash
 printf '%s\n' \
   '{"jsonrpc":"2.0","id":1,"method":"agent.describe","params":{}}' \
-  | trust-runtime agent serve --project ./examples/memory_marker_counter
+  | trust-dev agent serve --project ./examples/memory_marker_counter
 ```
 
 Then inspect the project:
@@ -37,7 +37,7 @@ Then inspect the project:
 ```bash
 printf '%s\n' \
   '{"jsonrpc":"2.0","id":1,"method":"workspace.project_info","params":{}}' \
-  | trust-runtime agent serve --project ./examples/memory_marker_counter
+  | trust-dev agent serve --project ./examples/memory_marker_counter
 ```
 
 ![JSON-RPC `agent.describe` response](../assets/images/terminal/agent-describe.gif)

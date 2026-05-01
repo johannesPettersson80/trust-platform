@@ -46,8 +46,6 @@ mod style;
 mod test;
 #[path = "trust-runtime/wizard.rs"]
 mod wizard;
-#[path = "trust-runtime/workflow.rs"]
-mod workflow;
 
 use clap::error::ErrorKind;
 use clap::Parser;

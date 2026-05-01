@@ -1,6 +1,8 @@
 # `trust-runtime`
 
-`trust-runtime` is the main operator, developer, and automation CLI for truST.
+`trust-runtime` is the main operator/runtime CLI for truST. Developer and
+automation workbench commands are moving to `trust-dev`; deprecated
+`trust-runtime` aliases remain during the migration window.
 
 ![Top-level `trust-runtime --help`](../../assets/images/terminal/runtime-help.gif)
 
@@ -16,14 +18,14 @@ binary reports them.
 | `ctl` | send control requests to a running runtime |
 | `build` | generate `program.stbc` |
 | `validate` | validate project config + bundle |
-| `test` | run ST tests |
-| `docs` | generate API docs from tagged ST comments |
+| `test` | run ST tests; workbench split pending |
+| `docs` | generate API docs; workbench split pending |
 | `hmi` | scaffold/update/reset `hmi/` |
 | `plcopen` | PLCopen import/export/profile |
 | `registry` | package registry workflows |
 | `setup` | initialize system I/O config |
 | `ide` | serve the browser IDE |
-| `agent` | serve the external agent contract |
+| `agent` | deprecated alias for `trust-dev agent serve` |
 | `wizard` | create a new project folder |
 | `deploy` / `rollback` | versioned deployment and rollback |
 | `bench` | communication/runtime benchmark surfaces |
@@ -75,9 +77,11 @@ Primary options:
 Usage: trust-runtime agent [OPTIONS] <COMMAND>
 ```
 
-Current stable subcommand:
+Compatibility subcommand:
 
 - `serve`
+
+This forwards to `trust-dev agent serve` and prints a deprecation warning.
 
 ### HMI
 
@@ -147,10 +151,13 @@ trust-runtime play --project ./my-plc
 ### Run agent API
 
 ```bash
-trust-runtime agent serve --project ./my-plc
+trust-dev agent serve --project ./my-plc
 ```
 
-![`trust-runtime agent serve --help`](../../assets/images/terminal/agent-serve-help.gif)
+`trust-runtime agent serve --project ./my-plc` remains a compatibility alias
+during the product/workbench split.
+
+![`trust-dev agent serve --help`](../../assets/images/terminal/agent-serve-help.gif)
 
 *Figure:* The `agent serve` entrypoint and its current stable flags. This is the
 CLI contract agents and wrappers should target first.
@@ -164,5 +171,6 @@ trust-runtime ide serve --project ./my-plc --listen 127.0.0.1:18080
 ## Related
 
 - [Build, Validate, Test](../../operate/build-validate-test.md)
+- [trust-dev CLI](trust-dev.md)
 - [Agent API v1](../agent-api/v1.md)
 - [runtime.toml](../config/runtime-toml.md)

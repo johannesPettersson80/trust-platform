@@ -9,18 +9,6 @@ use trust_runtime::bundle_builder::{build_program_stbc, BundleBuildReport};
 
 use crate::style;
 
-pub(crate) fn build_json_payload(
-    bundle: Option<PathBuf>,
-    sources: Option<PathBuf>,
-) -> anyhow::Result<JsonValue> {
-    let bundle_root = match bundle {
-        Some(path) => path,
-        None => detect_bundle_path(None).unwrap_or(std::env::current_dir()?),
-    };
-    let report = build_program_stbc(&bundle_root, sources.as_deref())?;
-    Ok(build_payload_from_report(&bundle_root, report))
-}
-
 fn build_payload_from_report(bundle_root: &Path, report: BundleBuildReport) -> JsonValue {
     json!({
         "version": 1,

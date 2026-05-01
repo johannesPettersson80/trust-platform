@@ -22,7 +22,7 @@ The preferred machine-facing loop is:
 ## Example JSON-RPC Session
 
 ```bash
-cat <<'EOF' | trust-runtime agent serve --project ./examples/memory_marker_counter
+cat <<'EOF' | trust-dev agent serve --project ./examples/memory_marker_counter
 {"jsonrpc":"2.0","id":1,"method":"workspace.project_info","params":{}}
 {"jsonrpc":"2.0","id":2,"method":"lsp.diagnostics","params":{}}
 {"jsonrpc":"2.0","id":3,"method":"runtime.compile_reload","params":{}}

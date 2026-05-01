@@ -1,7 +1,7 @@
 # Agent API v1
 
 This specification owns the JSON-RPC contract exposed by
-`trust-runtime agent serve`.
+`trust-dev agent serve`.
 
 ## 1. Scope
 

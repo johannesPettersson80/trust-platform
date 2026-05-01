@@ -35,7 +35,7 @@ The same underlying runtime can be driven through:
 - `trust-runtime ctl`
 - the runtime UI / web UI
 - the VS Code Runtime Panel
-- `trust-runtime agent serve`
+- `trust-dev agent serve`
 
 ## Reload Path
 

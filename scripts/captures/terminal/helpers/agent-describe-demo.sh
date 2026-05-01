@@ -3,4 +3,4 @@ set -euo pipefail
 
 printf '%s\n' \
   '{"jsonrpc":"2.0","id":1,"method":"agent.describe","params":{}}' \
-  | ./target/debug/trust-runtime agent serve --project ./examples/memory_marker_counter
+  | ./target/debug/trust-dev agent serve --project ./examples/memory_marker_counter

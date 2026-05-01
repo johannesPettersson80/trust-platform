@@ -36,7 +36,7 @@ Status legend: `Not Started` | `In Progress` | `Blocked` | `Done`
 | --- | --- | --- | --- |
 | Global Locks + Baseline Audit | Done | Week 0 | Transport/auth/test/scope locks agreed and current-state evidence captured |
 | Phase 0 - VS Code Contract Drift | Done | Week 1 | `package.json` / registrations / activation events aligned with regression coverage |
-| Phase 1 - External Agent Contract | Done | Weeks 1-3 | `trust-runtime agent serve` stdio JSON-RPC contract merged with integration tests |
+| Phase 1 - External Agent Contract | Done | Weeks 1-3 | `trust-dev agent serve` stdio JSON-RPC contract merged with integration tests |
 | Phase 2 - Deterministic Harness Protocol | Done | Weeks 2-4 | `trust-harness` exposes programmable executor surface with docs + tests |
 | Phase 3 - Compile / Diagnose / Reload Loop | In Progress | Weeks 3-5 | One machine-readable command closes the core edit/validate/reload loop |
 | Phase 4 - Clean Workflow Surfaces | Done | Weeks 4-6 | Stable documented surface split between LSP, agent contract, and VS Code-only paths |
@@ -188,7 +188,7 @@ Status legend: `Not Started` | `In Progress` | `Blocked` | `Done`
 ### Scope
 
 - [x] `P1-01` Add a `trust-runtime` external agent entrypoint, preferred form:
-  - `trust-runtime agent serve`
+  - `trust-dev agent serve`
 - [x] `P1-02` Implement `JSON-RPC over stdio` transport first.
 - [x] `P1-03` Define the v1 command set:
   - `workspace.read`

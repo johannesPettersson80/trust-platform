@@ -136,7 +136,7 @@
       "path": "images/terminal/agent-serve-help.gif",
       "class": "terminal-capture",
       "generator": "vhs",
-      "source": "trust-runtime agent serve help output"
+      "source": "trust-dev agent serve help output"
     },
     {
       "path": "images/architecture/workflow-overview.svg",

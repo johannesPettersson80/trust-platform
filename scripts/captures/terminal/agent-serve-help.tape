@@ -11,6 +11,6 @@ Set BorderRadius 12
 Set WindowBar Colorful
 Set TypingSpeed 16ms
 
-Type "./target/debug/trust-runtime agent serve --help"
+Type "./target/debug/trust-dev agent serve --help"
 Enter
 Sleep 2000ms

@@ -1,6 +1,6 @@
 # Agent Contract v1
 
-`trust-runtime agent serve` is the first stable automation surface outside VS Code.
+`trust-dev agent serve` is the first stable automation surface outside VS Code.
 
 It exists to let agents, shell automation, and future hosted workers drive truST
 without depending on editor internals.

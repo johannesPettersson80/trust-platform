@@ -34,7 +34,7 @@ Do not use `trust-lsp` when you need:
 - compile -> build -> reload loops
 - deterministic harness control
 
-Use `trust-runtime agent serve` for those workflows.
+Use `trust-dev agent serve` for those workflows.
 
 ## Config
 

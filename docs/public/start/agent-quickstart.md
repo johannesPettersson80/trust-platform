@@ -1,6 +1,6 @@
 # Agent Quickstart / `agent serve`
 
-The entry command is `trust-runtime agent serve`, so this is also the right
+The entry command is `trust-dev agent serve`, so this is also the right
 page when you are searching for `agent serve`.
 
 ## What an agent needs first
@@ -17,7 +17,7 @@ At minimum, an agent should know how to:
 ## Start `agent serve`
 
 ```bash
-trust-runtime agent serve --project ./my-plc
+trust-dev agent serve --project ./my-plc
 ```
 
 Transport details:
@@ -34,7 +34,7 @@ Transport details:
 ```bash
 printf '%s\n' \
   '{"jsonrpc":"2.0","id":1,"method":"agent.describe","params":{}}' \
-  | trust-runtime agent serve --project ./examples/memory_marker_counter
+  | trust-dev agent serve --project ./examples/memory_marker_counter
 ```
 
 ### 2. Inspect the project
@@ -42,7 +42,7 @@ printf '%s\n' \
 ```bash
 printf '%s\n' \
   '{"jsonrpc":"2.0","id":1,"method":"workspace.project_info","params":{}}' \
-  | trust-runtime agent serve --project ./examples/memory_marker_counter
+  | trust-dev agent serve --project ./examples/memory_marker_counter
 ```
 
 ### 3. Read diagnostics
@@ -50,7 +50,7 @@ printf '%s\n' \
 ```bash
 printf '%s\n' \
   '{"jsonrpc":"2.0","id":1,"method":"lsp.diagnostics","params":{}}' \
-  | trust-runtime agent serve --project ./examples/memory_marker_counter
+  | trust-dev agent serve --project ./examples/memory_marker_counter
 ```
 
 ### 4. Preview formatting without mutating disk
@@ -58,7 +58,7 @@ printf '%s\n' \
 ```bash
 printf '%s\n' \
   '{"jsonrpc":"2.0","id":1,"method":"lsp.format","params":{"path":"src/Main.st"}}' \
-  | trust-runtime agent serve --project ./examples/memory_marker_counter
+  | trust-dev agent serve --project ./examples/memory_marker_counter
 ```
 
 ### 5. Close the write -> validate -> reload loop
@@ -66,7 +66,7 @@ printf '%s\n' \
 ```bash
 printf '%s\n' \
   '{"jsonrpc":"2.0","id":1,"method":"runtime.compile_reload","params":{}}' \
-  | trust-runtime agent serve --project ./examples/memory_marker_counter
+  | trust-dev agent serve --project ./examples/memory_marker_counter
 ```
 
 ## Methods most agents use first

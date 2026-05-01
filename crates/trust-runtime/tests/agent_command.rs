@@ -70,6 +70,16 @@ fn fixture_root(name: &str) -> PathBuf {
         .join(name)
 }
 
+fn trust_dev_command() -> Command {
+    Command::new(env!("CARGO_BIN_EXE_trust-dev"))
+}
+
+fn trust_runtime_command_with_dev_alias() -> Command {
+    let mut command = Command::new(env!("CARGO_BIN_EXE_trust-runtime"));
+    command.env("TRUST_DEV_BIN", env!("CARGO_BIN_EXE_trust-dev"));
+    command
+}
+
 fn copy_file_with_retry(src: &Path, dst: &Path) {
     for attempt in 0..5 {
         match fs::copy(src, dst) {
@@ -245,14 +255,14 @@ fn agent_serve_supports_describe_write_and_read_roundtrip() {
     let source_text = "PROGRAM Main\nEND_PROGRAM\n";
     fs::create_dir_all(&project).expect("create workspace root");
 
-    let mut child = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+    let mut child = trust_dev_command()
         .args(["agent", "serve", "--project"])
         .arg(&project)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("spawn trust-runtime agent serve");
+        .expect("spawn trust-dev agent serve");
 
     let mut stdin = child.stdin.take().expect("agent stdin");
     let stdout = child.stdout.take().expect("agent stdout");
@@ -339,18 +349,63 @@ fn agent_serve_supports_describe_write_and_read_roundtrip() {
 }
 
 #[test]
-fn agent_serve_reports_method_and_path_errors_with_stable_codes() {
-    let project = unique_temp_dir("agent-errors");
+fn trust_runtime_agent_alias_forwards_to_trust_dev() {
+    let project = unique_temp_dir("agent-forward");
     fs::create_dir_all(&project).expect("create workspace root");
 
-    let mut child = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+    let mut child = trust_runtime_command_with_dev_alias()
         .args(["agent", "serve", "--project"])
         .arg(&project)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("spawn trust-runtime agent serve");
+        .expect("spawn trust-runtime agent forwarding alias");
+
+    let mut stdin = child.stdin.take().expect("agent stdin");
+    let stdout = child.stdout.take().expect("agent stdout");
+    let mut reader = BufReader::new(stdout);
+    write_request(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "agent.describe"
+        }),
+    );
+    let response = read_response(&mut reader);
+    assert_eq!(response["result"]["transport"], json!("stdio"));
+    drop(stdin);
+
+    let output = child.wait_with_output().expect("wait for agent process");
+    assert!(
+        output.status.success(),
+        "agent forwarding alias should exit cleanly.\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("trust-runtime agent serve") && stderr.contains("trust-dev agent serve"),
+        "forwarding alias should print deprecation warning, got: {stderr}"
+    );
+
+    let _ = fs::remove_dir_all(project);
+}
+
+#[test]
+fn agent_serve_reports_method_and_path_errors_with_stable_codes() {
+    let project = unique_temp_dir("agent-errors");
+    fs::create_dir_all(&project).expect("create workspace root");
+
+    let mut child = trust_dev_command()
+        .args(["agent", "serve", "--project"])
+        .arg(&project)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn trust-dev agent serve");
 
     let mut stdin = child.stdin.take().expect("agent stdin");
     let stdout = child.stdout.take().expect("agent stdout");
@@ -430,14 +485,14 @@ ton_fb(IN := in1, PT := T#30MS, Q => q, ET => et);
 END_PROGRAM
 "#;
 
-    let mut child = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+    let mut child = trust_dev_command()
         .args(["agent", "serve", "--project"])
         .arg(&project)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("spawn trust-runtime agent serve");
+        .expect("spawn trust-dev agent serve");
 
     let mut stdin = child.stdin.take().expect("agent stdin");
     let stdout = child.stdout.take().expect("agent stdout");
@@ -583,14 +638,14 @@ fn agent_serve_supports_lsp_diagnostics_and_format_preview() {
     )
     .expect("write seed source");
 
-    let mut child = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+    let mut child = trust_dev_command()
         .args(["agent", "serve", "--project"])
         .arg(&project)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("spawn trust-runtime agent serve");
+        .expect("spawn trust-dev agent serve");
 
     let mut stdin = child.stdin.take().expect("agent stdin");
     let stdout = child.stdout.take().expect("agent stdout");
@@ -703,14 +758,14 @@ fn agent_serve_supports_ast_canonicalize_and_similarity() {
     let project = unique_temp_dir("agent-ast");
     fs::create_dir_all(&project).expect("create workspace root");
 
-    let mut child = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+    let mut child = trust_dev_command()
         .args(["agent", "serve", "--project"])
         .arg(&project)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("spawn trust-runtime agent serve");
+        .expect("spawn trust-dev agent serve");
 
     let mut stdin = child.stdin.take().expect("agent stdin");
     let stdout = child.stdout.take().expect("agent stdout");
@@ -851,14 +906,14 @@ LibA = { path = "deps/lib-a", version = "1.0.0" }
     )
     .expect("write dependency manifest");
 
-    let mut child = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+    let mut child = trust_dev_command()
         .args(["agent", "serve", "--project"])
         .arg(&project)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("spawn trust-runtime agent serve");
+        .expect("spawn trust-dev agent serve");
 
     let mut stdin = child.stdin.take().expect("agent stdin");
     let stdout = child.stdout.take().expect("agent stdout");
@@ -931,14 +986,14 @@ END_VAR
 END_PROGRAM
 "#;
 
-    let mut child = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+    let mut child = trust_dev_command()
         .args(["agent", "serve", "--project"])
         .arg(&project)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("spawn trust-runtime agent serve");
+        .expect("spawn trust-dev agent serve");
 
     let mut stdin = child.stdin.take().expect("agent stdin");
     let stdout = child.stdout.take().expect("agent stdout");
@@ -1047,14 +1102,14 @@ END_PROGRAM
     )
     .expect("write project source");
 
-    let mut child = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+    let mut child = trust_dev_command()
         .args(["agent", "serve", "--project"])
         .arg(&project)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("spawn trust-runtime agent serve");
+        .expect("spawn trust-dev agent serve");
 
     let mut stdin = child.stdin.take().expect("agent stdin");
     let stdout = child.stdout.take().expect("agent stdout");
@@ -1241,14 +1296,14 @@ END_PROGRAM
 
     fs::write(project.join("src").join("main.st"), source_true).expect("write updated source");
 
-    let mut child = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+    let mut child = trust_dev_command()
         .args(["agent", "serve", "--project"])
         .arg(&project)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("spawn trust-runtime agent serve");
+        .expect("spawn trust-dev agent serve");
 
     let mut stdin = child.stdin.take().expect("agent stdin");
     let stdout = child.stdout.take().expect("agent stdout");
@@ -1298,14 +1353,14 @@ fn agent_serve_runtime_compile_reload_blocks_on_diagnostics() {
     )
     .expect("write broken source");
 
-    let mut child = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+    let mut child = trust_dev_command()
         .args(["agent", "serve", "--project"])
         .arg(&project)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("spawn trust-runtime agent serve");
+        .expect("spawn trust-dev agent serve");
 
     let mut stdin = child.stdin.take().expect("agent stdin");
     let stdout = child.stdout.take().expect("agent stdout");
@@ -1362,14 +1417,14 @@ fn agent_serve_runtime_compile_reload_blocks_on_diagnostics() {
 fn agent_serve_runtime_compile_reload_reports_reload_failure() {
     let project = copy_fixture("green");
 
-    let mut child = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+    let mut child = trust_dev_command()
         .args(["agent", "serve", "--project"])
         .arg(&project)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("spawn trust-runtime agent serve");
+        .expect("spawn trust-dev agent serve");
 
     let mut stdin = child.stdin.take().expect("agent stdin");
     let stdout = child.stdout.take().expect("agent stdout");
@@ -1456,14 +1511,14 @@ END_PROGRAM
 
     fs::write(project.join("src").join("main.st"), source_true).expect("write updated source");
 
-    let mut child = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+    let mut child = trust_dev_command()
         .args(["agent", "serve", "--project"])
         .arg(&project)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("spawn trust-runtime agent serve");
+        .expect("spawn trust-dev agent serve");
 
     let mut stdin = child.stdin.take().expect("agent stdin");
     let stdout = child.stdout.take().expect("agent stdout");

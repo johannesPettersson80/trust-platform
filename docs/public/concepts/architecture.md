@@ -42,7 +42,7 @@ same project semantics and execution model instead of inventing separate paths.
 - `trust-lsp` serves standard LSP editor workflows
 - `trust-debug` serves DAP over stdio for debugger integration
 - `trust-harness` provides deterministic in-process cycle execution
-- `trust-runtime agent serve` exposes a stable automation contract outside VS Code
+- `trust-dev agent serve` exposes a stable automation contract outside VS Code
 
 ### 4. Browser-hosted interfaces
 

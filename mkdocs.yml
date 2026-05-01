@@ -208,6 +208,7 @@ nav:
       - Overview: reference/index.md
       - CLI:
           - trust-runtime: reference/cli/trust-runtime.md
+          - trust-dev: reference/cli/trust-dev.md
           - trust-lsp: reference/cli/trust-lsp.md
           - trust-debug: reference/cli/trust-debug.md
           - trust-harness: reference/cli/trust-harness.md

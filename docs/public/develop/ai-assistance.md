@@ -82,11 +82,11 @@ Evidence:
 
 ## Agent API
 
-Use `trust-runtime agent serve` when the AI workflow should be scriptable
+Use `trust-dev agent serve` when the AI workflow should be scriptable
 outside the editor:
 
 ```bash
-trust-runtime agent serve --project ./my-plc
+trust-dev agent serve --project ./my-plc
 ```
 
 The Agent API is the right path for:

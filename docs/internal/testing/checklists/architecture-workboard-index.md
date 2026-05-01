@@ -1,7 +1,7 @@
 # Architecture Workboard Index
 
 Status: Active navigation guard
-Last verified: 2026-05-01 during the BOARD-04 `v0.24.10` split validation.
+Last verified: 2026-05-01 during the BOARD-04 `v0.24.11` agent split validation.
 Owner: Architecture/runtime/HIR team
 Scope: reset-safe pointer to the right architecture checklists so future sessions do not swap boards.
 
@@ -22,7 +22,7 @@ The umbrella checklist is `full-architecture-refactor-program-checklist.md`. If 
 - [x] `ARCHPROG-BOARD-01` Full-map architecture doctor: `architecture-doctor-full-map-execution-checklist.md`.
 - [x] `ARCHPROG-BOARD-02` HIR mutation hardening: `hir-mutation-hardening-execution-checklist.md`.
 - [x] `ARCHPROG-BOARD-03` Parser recovery hardening: `parser-recovery-hardening-execution-checklist.md`.
-- [ ] `ARCHPROG-BOARD-04` Runtime CLI product/workbench split: `runtime-cli-product-workbench-split-checklist.md`. Status: active board; Phase 3 commit-command split implemented, with agent/docs/test still open.
+- [ ] `ARCHPROG-BOARD-04` Runtime CLI product/workbench split: `runtime-cli-product-workbench-split-checklist.md`. Status: active board; Phase 3 agent and commit command splits implemented, with docs/test and remaining shared helpers still open.
 - [x] `ARCHPROG-BOARD-05` Runtime host surface ownership: `runtime-host-surface-ownership-checklist.md`.
 - [x] `ARCHPROG-BOARD-06` Runtime core/Linux host split: `runtime-core-host-split-execution-checklist.md`. Status: closed in the current tracked branch.
 - [x] `ARCHPROG-BOARD-07` Dependency hygiene: `dependency-hygiene-execution-checklist.md`.
@@ -34,7 +34,7 @@ The umbrella checklist is `full-architecture-refactor-program-checklist.md`. If 
 
 ## Work Order
 
-- [ ] `ARCHIDX-NEXT-01` Continue `ARCHPROG-BOARD-04` first: `runtime-cli-product-workbench-split-checklist.md`.
+- [ ] `ARCHIDX-NEXT-01` Continue `ARCHPROG-BOARD-04` first: `runtime-cli-product-workbench-split-checklist.md`; next detail item after the `v0.24.11` agent split is `RTCLI-P3-004`.
 - [ ] `ARCHIDX-NEXT-02` After BOARD-04, use the umbrella checklist to pick the next open architecture-program row.
 - [ ] `ARCHIDX-NEXT-03` Do not restart BOARD-06 or BOARD-12 unless the tracked dedicated checklist is reopened with a new explicit scope.
 - [ ] `ARCHIDX-NEXT-04` Keep non-program boards secondary unless the user explicitly redirects away from the architecture-program path.

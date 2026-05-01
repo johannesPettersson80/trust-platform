@@ -31,7 +31,7 @@ Navigation guard: use `architecture-workboard-index.md` before resuming after a 
 - [x] `ARCHPROG-BOARD-01` Full-map architecture doctor: `architecture-doctor-full-map-execution-checklist.md`.
 - [x] `ARCHPROG-BOARD-02` HIR mutation hardening: `hir-mutation-hardening-execution-checklist.md`.
 - [x] `ARCHPROG-BOARD-03` Parser recovery hardening: `parser-recovery-hardening-execution-checklist.md`.
-- [ ] `ARCHPROG-BOARD-04` Runtime CLI product/workbench split: `runtime-cli-product-workbench-split-checklist.md` (in progress; Phase 3 commit-command split implemented, with agent/docs/test still open).
+- [ ] `ARCHPROG-BOARD-04` Runtime CLI product/workbench split: `runtime-cli-product-workbench-split-checklist.md` (in progress; Phase 3 agent and commit command splits implemented, with docs/test and remaining shared helpers still open).
 - [x] `ARCHPROG-BOARD-05` Runtime host surface ownership: `runtime-host-surface-ownership-checklist.md`. Evidence: the detail board is complete with `RTHOST-EXIT-01` through `RTHOST-EXIT-05` checked, `FULLMAP-CHECK-07` active with approved ports, and final local full-map validation passing.
 - [x] `ARCHPROG-BOARD-06` Runtime core/Linux host split: `runtime-core-host-split-execution-checklist.md`. Evidence: the detail board is closed with `RTSPLIT-EXIT-001` through `RTSPLIT-EXIT-010` checked, runtime-core split final workspace/release-readiness recorded in `ARCH-RTCORE-43`, and embedded support still explicitly deferred.
 - [x] `ARCHPROG-BOARD-07` Dependency hygiene: `dependency-hygiene-execution-checklist.md`.

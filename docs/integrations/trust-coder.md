@@ -19,9 +19,9 @@ Current frozen `TRUST_PLATFORM_COMMIT`:
 Dependency surface summary:
 
 - parser + semantic diagnostics from `trust-syntax` / `trust-hir`
-- machine-readable diagnostics through `trust-runtime agent serve` `lsp.diagnostics`, including stable codes, severities, project-relative paths, and zero-based UTF-8 byte spans
-- canonical-AST normalization and similarity scoring through `trust-runtime agent serve` `lsp.ast_canonicalize` and `lsp.ast_similarity`
-- multi-file compile/build/runtime harness execution from the runtime stack, including the stateless `trust-runtime agent serve` `harness.execute` fixture wrapper for one-shot POU/system checks
+- machine-readable diagnostics through `trust-dev agent serve` `lsp.diagnostics`, including stable codes, severities, project-relative paths, and zero-based UTF-8 byte spans
+- canonical-AST normalization and similarity scoring through `trust-dev agent serve` `lsp.ast_canonicalize` and `lsp.ast_similarity`
+- multi-file compile/build/runtime harness execution from the runtime stack, including the stateless `trust-dev agent serve` `harness.execute` fixture wrapper for one-shot POU/system checks
 - OOP semantic/runtime grading only where the appendix paths in `§1.8` remain valid at the frozen commit
 - benchmark/datagen tooling stays in `trust-coder`; only verifier/compiler/runtime substrate lives here
 

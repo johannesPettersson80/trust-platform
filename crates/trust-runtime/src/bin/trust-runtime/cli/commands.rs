@@ -235,9 +235,9 @@ pub enum Command {
         #[command(subcommand)]
         action: ConfigUiAction,
     },
-    /// Serve the external agent contract over stdio JSON-RPC.
+    /// Deprecated alias for `trust-dev agent serve`.
     #[command(
-        after_help = "Examples:\n  trust-runtime agent serve --project ./my-plc\n  trust-runtime agent serve"
+        after_help = "Examples:\n  trust-dev agent serve --project ./my-plc\n  trust-runtime agent serve --project ./my-plc"
     )]
     Agent {
         #[command(subcommand)]

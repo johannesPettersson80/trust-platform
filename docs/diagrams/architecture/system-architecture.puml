@@ -149,6 +149,7 @@ package "trust-runtime crate" as struntime #LightYellow {
     component "Runtime Launcher\n(trust-runtime CLI)" as launcher
     component "Developer Workbench CLI\n(trust-dev)" as devCli
     component "Project Commit Workflow\n(trust-dev commit)" as commitWorkflow
+    component "Agent JSON-RPC Workflow\n(trust-dev agent serve)" as agentWorkflow
     component "Registry Workflows\n(trust-runtime registry)" as registryCli
     component "BundleLoader" as bundleLoader
     component "IoDriverRegistry" as ioRegistry
@@ -198,7 +199,8 @@ package "trust-runtime crate" as struntime #LightYellow {
     launcher --> harness : loads bytecode
     launcher --> registryCli : delegates\nregistry subcommands
     devCli --> commitWorkflow : owns workbench command
-    launcher ..> devCli : deprecated commit alias\nforwards during migration
+    devCli --> agentWorkflow : owns agent command
+    launcher ..> devCli : deprecated commit/agent aliases\nforward during migration
     registryCli --> bundleLoader : validates bundle
     launcher --> ioRegistry
     ioRegistry --> mqttDriver : mqtt

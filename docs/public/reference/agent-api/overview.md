@@ -3,7 +3,7 @@
 The external agent contract is served by:
 
 ```bash
-trust-runtime agent serve --project ./my-plc
+trust-dev agent serve --project ./my-plc
 ```
 
 ## Use cases

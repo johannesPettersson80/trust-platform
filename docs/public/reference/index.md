@@ -2,7 +2,7 @@
 
 | Need | Start here |
 | --- | --- |
-| Runtime, LSP, debug, harness, or bundle command flags | [CLI](cli/trust-runtime.md) |
+| Runtime, developer, LSP, debug, harness, or bundle command flags | [CLI](cli/trust-runtime.md) and [trust-dev](cli/trust-dev.md) |
 | Exact config keys and file shapes | [Config](config/index.md) |
 | Machine-facing automation methods and payloads | [Agent API](agent-api/overview.md) |
 | Deterministic executor commands | [Harness Protocol](harness/protocol.md) |

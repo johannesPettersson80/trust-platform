@@ -6,19 +6,25 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.10`
+Target release: `v0.24.11`
 
 ### Added
 
 - Added a `trust-dev` developer/workbench CLI binary. The first migrated
   command is `trust-dev commit`, and release runtime archives now ship
   `trust-dev` beside `trust-runtime` and `trust-bundle-gen`.
+- `trust-dev agent serve` now owns the external agent JSON-RPC server. The
+  legacy `trust-runtime agent serve` entrypoint remains as a deprecated
+  forwarding alias during the product/workbench CLI split.
 
 ### Changed
 
 - `trust-runtime commit` is now a deprecated compatibility alias that forwards
   to `trust-dev commit`, preserving the existing command while the product
   runtime CLI is split from workbench/dev commands.
+- Public docs and terminal capture scripts now point agent automation workflows
+  at `trust-dev agent serve`, with `trust-runtime agent serve` documented as a
+  compatibility alias.
 - Local Rust test recipes now use the `mold` linker on Linux when it is
   installed, `just test-all` and CI no longer run `complete_program` twice, and
   `just test-hir-fast` provides a focused HIR refactor loop before the final

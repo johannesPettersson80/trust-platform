@@ -1,6 +1,6 @@
 #[derive(Debug, Subcommand)]
 pub enum AgentAction {
-    /// Serve the external agent contract over stdio JSON-RPC.
+    /// Deprecated alias for `trust-dev agent serve`.
     Serve {
         /// Workspace/project root (defaults to current directory).
         #[arg(long = "project", alias = "bundle")]
