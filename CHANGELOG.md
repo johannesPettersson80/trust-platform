@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.8`
+Target release: `v0.24.9`
 
 ### Changed
 
@@ -58,6 +58,9 @@ Target release: `v0.24.8`
 - HIR validation now rejects non-repeat call expressions used as array defaults
   and validates direct array repetition defaults against the repeated element
   type, closing focused mutation-testing gaps in default initializer analysis.
+- Runtime and constant-expression array repetition initializers now shape arrays
+  from the expanded value count, so declarations such as `[3(1, 2)]` materialize
+  as six elements instead of failing type validation as a one-element array.
 - HIR validation now reports `UndefinedVariable` when a `VAR_ACCESS` access
   path points at a missing target instead of silently accepting the declaration.
 - HIR constant evaluation now reports `CannotResolve` for ambiguous unqualified

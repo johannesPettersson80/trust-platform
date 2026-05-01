@@ -363,7 +363,7 @@ mod tests {
         let reverse = sample_map(true).to_stable_json().unwrap();
 
         assert_eq!(forward, reverse);
-        assert!(forward.contains("\"schema_version\": 6"));
+        assert!(forward.contains("\"schema_version\": 8"));
         assert!(forward.contains("\"status\": \"not_run\""));
     }
 

@@ -46,7 +46,8 @@ pub(crate) fn eval_storage_expr_with_stdlib(
                 stdlib,
                 elements,
             )?;
-            ArrayValue::from_untyped_parts(values, vec![(1, elements.len() as i64)])
+            let len = values.len() as i64;
+            ArrayValue::from_untyped_parts(values, vec![(1, len)])
                 .map(|value| Value::Array(Box::new(value)))
                 .map_err(|_| RuntimeError::TypeMismatch)
         }
@@ -941,5 +942,44 @@ mod tests {
             eval_storage_expr_with_stdlib(&storage, &registry, &profile, None, None, &expr),
             Err(RuntimeError::TypeMismatch)
         ));
+    }
+
+    #[test]
+    fn array_repetition_initializer_uses_expanded_value_shape() {
+        let expr = Expr::ArrayInitializer(vec![Expr::Call {
+            target: Box::new(Expr::Literal(Value::Int(3))),
+            args: vec![
+                CallArg {
+                    name: None,
+                    value: ArgValue::Expr(Expr::Literal(Value::Int(1))),
+                },
+                CallArg {
+                    name: None,
+                    value: ArgValue::Expr(Expr::Literal(Value::Int(2))),
+                },
+            ],
+        }]);
+
+        let storage = VariableStorage::new();
+        let registry = TypeRegistry::default();
+        let profile = DateTimeProfile::default();
+
+        let value = eval_storage_expr_with_stdlib(&storage, &registry, &profile, None, None, &expr)
+            .unwrap();
+        let Value::Array(array) = value else {
+            panic!("expected array value");
+        };
+        assert_eq!(array.dimensions(), &[(1, 6)]);
+        assert_eq!(
+            array.elements(),
+            &[
+                Value::Int(1),
+                Value::Int(2),
+                Value::Int(1),
+                Value::Int(2),
+                Value::Int(1),
+                Value::Int(2),
+            ]
+        );
     }
 }
