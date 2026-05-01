@@ -14,6 +14,7 @@ hir = ["std", "dep:trust-hir"]
 
 [dependencies]
 indexmap.workspace = true
+rustc-hash.workspace = true
 smol_str.workspace = true
 thiserror.workspace = true
 trust-hir = { workspace = true, optional = true }

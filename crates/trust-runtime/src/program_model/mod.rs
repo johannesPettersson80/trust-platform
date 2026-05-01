@@ -2,12 +2,15 @@
 
 #![allow(missing_docs)]
 
-pub mod initializers;
 pub mod stmt;
 mod types;
 
 pub mod expr {
     pub use trust_runtime_core::program_model::expr::*;
+}
+
+pub mod initializers {
+    pub use trust_runtime_core::program_model::initializers::*;
 }
 
 pub mod ops {
