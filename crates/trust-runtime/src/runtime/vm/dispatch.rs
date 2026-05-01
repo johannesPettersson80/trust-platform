@@ -101,20 +101,27 @@ pub(super) fn execute_program(
     runtime: &mut Runtime,
     program: &ProgramDef,
 ) -> Result<(), RuntimeError> {
+    execute_program_by_name(runtime, &program.name)
+}
+
+pub(super) fn execute_program_by_name(
+    runtime: &mut Runtime,
+    program_name: &SmolStr,
+) -> Result<(), RuntimeError> {
     let module = runtime.vm_module.clone().ok_or_else(|| {
         RuntimeError::InvalidConfig(
             "runtime.execution_backend='vm' requires loaded bytecode module".into(),
         )
     })?;
 
-    let key = SmolStr::new(program.name.to_ascii_uppercase());
+    let key = SmolStr::new(program_name.to_ascii_uppercase());
     let pou_id = module
         .program_ids
         .get(&key)
         .copied()
-        .ok_or_else(|| VmTrap::MissingProgram(program.name.clone()).into_runtime_error())?;
+        .ok_or_else(|| VmTrap::MissingProgram(program_name.clone()).into_runtime_error())?;
 
-    let instance_id = match runtime.storage.get_global(program.name.as_ref()) {
+    let instance_id = match runtime.storage.get_global(program_name.as_ref()) {
         Some(Value::Instance(id)) => Some(*id),
         _ => None,
     };

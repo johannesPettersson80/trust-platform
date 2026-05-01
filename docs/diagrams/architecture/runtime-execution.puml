@@ -63,7 +63,7 @@ package "Runtime Core" as runtimeCore #LightGreen {
 }
 
 package "Execution Engine" as backendPkg #LightYellow {
-    component "execute_program() / execute_function_block_ref()\n(runtime/cycle.rs)" as runtimeDispatch
+    component "execute_program_by_name() / execute_function_block_ref()\n(runtime/cycle.rs)" as runtimeDispatch
     component "ensure_vm_module_loaded() / build_vm_module()\n(runtime/cycle.rs)" as vmEnsure
 
     runtime ..> runtimeDispatch : program/FB dispatch

@@ -199,12 +199,11 @@ impl Runtime {
 
     fn execute_program_by_name(&mut self, name: &SmolStr) -> Result<(), error::RuntimeError> {
         let timer = self.metrics.start_timer();
-        let program = self
-            .programs
-            .get(name)
-            .cloned()
-            .ok_or_else(|| error::RuntimeError::UndefinedProgram(name.clone()))?;
-        let result = self.execute_program(&program);
+        if !self.programs.contains_key(name) {
+            return Err(error::RuntimeError::UndefinedProgram(name.clone()));
+        }
+        self.ensure_vm_module_loaded()?;
+        let result = super::vm::execute_program_by_name(self, name);
         if let Some(start) = timer {
             self.metrics
                 .record_profile_call("program", name, start.elapsed());

@@ -56,6 +56,13 @@ pub(super) fn execute_program(
     dispatch::execute_program(runtime, program)
 }
 
+pub(super) fn execute_program_by_name(
+    runtime: &mut Runtime,
+    program_name: &SmolStr,
+) -> Result<(), RuntimeError> {
+    dispatch::execute_program_by_name(runtime, program_name)
+}
+
 pub(super) fn execute_function_block_ref(
     runtime: &mut Runtime,
     reference: &ValueRef,
