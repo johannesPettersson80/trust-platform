@@ -6,9 +6,9 @@ use std::collections::HashSet;
 
 use super::reader::BytecodeReader;
 use super::{
-    BytecodeError, BytecodeModule, ConstEntry, ConstPool, DebugMap, IoMap, PouIndex, PouKind,
-    RefSegment, RefTable, ResourceMeta, RetainInit, SectionData, SectionId, StringTable, TypeData,
-    TypeEntry, TypeKind, TypeTable, VarMeta,
+    BytecodeError, BytecodeModule, ConstEntry, ConstPool, DebugMap, IoMap, PouEntry, PouIndex,
+    PouKind, RefLocation, RefSegment, RefTable, ResourceMeta, RetainInit, SectionData, SectionId,
+    StringTable, TypeData, TypeEntry, TypeKind, TypeTable, VarMeta,
 };
 
 include!("validate/module_validate.rs");

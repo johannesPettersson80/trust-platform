@@ -13,6 +13,7 @@ fn validate_pou_index(
                 format!("duplicate POU id {}", entry.id).into(),
             ));
         }
+        validate_pou_local_ref_range(ref_table, entry)?;
         ensure_string_index(strings, entry.name_idx)?;
         if let Some(return_type_id) = entry.return_type_id {
             ensure_type_index(types, return_type_id)?;
@@ -74,6 +75,7 @@ fn validate_pou_index(
         validate_instruction_stream(
             strings,
             index,
+            entry,
             types,
             const_pool,
             ref_table,
@@ -87,6 +89,7 @@ fn validate_pou_index(
 fn validate_instruction_stream(
     strings: &StringTable,
     index: &PouIndex,
+    pou: &PouEntry,
     types: &TypeTable,
     const_pool: &ConstPool,
     ref_table: &RefTable,
@@ -172,7 +175,7 @@ fn validate_instruction_stream(
             }
             0x20..=0x22 => {
                 let ref_idx = reader.read_u32()?;
-                ensure_ref_index(ref_table, ref_idx)?;
+                ensure_pou_ref_operand(ref_table, pou, ref_idx)?;
             }
             0x23 | 0x24 => {}
             0x30 => {
@@ -203,6 +206,46 @@ fn validate_instruction_stream(
         }
         if target != code_len && !start_set.contains(&target) {
             return Err(BytecodeError::InvalidJumpTarget(target));
+        }
+    }
+    Ok(())
+}
+
+fn validate_pou_local_ref_range(ref_table: &RefTable, pou: &PouEntry) -> Result<(), BytecodeError> {
+    let start = pou.local_ref_start;
+    let end = start.checked_add(pou.local_ref_count).ok_or_else(|| {
+        BytecodeError::InvalidSection("POU local ref range overflow".into())
+    })?;
+    if end as usize > ref_table.entries.len() {
+        return Err(BytecodeError::InvalidSection(
+            "POU local ref range out of bounds".into(),
+        ));
+    }
+    for ref_idx in start..end {
+        let ref_entry = &ref_table.entries[ref_idx as usize];
+        if ref_entry.location != RefLocation::Local {
+            return Err(BytecodeError::InvalidSection(
+                "POU local ref range contains non-local ref".into(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn ensure_pou_ref_operand(
+    ref_table: &RefTable,
+    pou: &PouEntry,
+    ref_idx: u32,
+) -> Result<(), BytecodeError> {
+    ensure_ref_index(ref_table, ref_idx)?;
+    if ref_table.entries[ref_idx as usize].location == RefLocation::Local {
+        let end = pou.local_ref_start.checked_add(pou.local_ref_count).ok_or_else(|| {
+            BytecodeError::InvalidSection("POU local ref range overflow".into())
+        })?;
+        if ref_idx < pou.local_ref_start || ref_idx >= end {
+            return Err(BytecodeError::InvalidSection(
+                "local ref outside POU local range".into(),
+            ));
         }
     }
     Ok(())

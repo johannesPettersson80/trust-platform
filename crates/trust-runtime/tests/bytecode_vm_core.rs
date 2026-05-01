@@ -1201,6 +1201,46 @@ fn vm_validator_rejects_invalid_ref_index_operand() {
 }
 
 #[test]
+fn vm_validator_rejects_local_ref_outside_pou_local_range() {
+    let source = r#"
+        FUNCTION AddOne : DINT
+        VAR_INPUT
+            x : DINT;
+        END_VAR
+        VAR
+            y : DINT;
+        END_VAR
+            y := x + 1;
+            AddOne := y;
+        END_FUNCTION
+
+        PROGRAM Main
+        END_PROGRAM
+    "#;
+    let mut module = bytecode_module_from_source(source).expect("compile module");
+    let strings = match module.section(SectionId::StringTable) {
+        Some(SectionData::StringTable(strings)) => strings.clone(),
+        _ => panic!("missing STRING_TABLE"),
+    };
+    if let Some(SectionData::PouIndex(index)) = module.section_mut(SectionId::PouIndex) {
+        let function = index
+            .entries
+            .iter_mut()
+            .find(|entry| {
+                entry.kind == PouKind::Function
+                    && strings.entries[entry.name_idx as usize].eq_ignore_ascii_case("ADDONE")
+            })
+            .expect("AddOne function");
+        assert!(function.local_ref_count > 0, "expected function local refs");
+        function.local_ref_count = 0;
+    } else {
+        panic!("missing POU_INDEX");
+    }
+
+    assert_apply_invalid_bytecode_contains(&module, "local ref outside POU local range");
+}
+
+#[test]
 fn vm_validator_rejects_invalid_const_index_operand() {
     let source = r#"
         PROGRAM Main
