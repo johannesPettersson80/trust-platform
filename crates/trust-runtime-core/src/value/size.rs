@@ -1,7 +1,7 @@
 use trust_hir::types::{TypeRegistry, POINTER_REFERENCE_HANDLE_SIZE_BYTES};
 use trust_hir::{Type, TypeId};
 
-use super::{string_element_count, Value};
+use crate::value::{string_element_count, Value};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SizeOfError {
@@ -94,7 +94,7 @@ pub fn size_of_value(registry: &TypeRegistry, value: &Value) -> Result<u64, Size
             size_of_type(type_id, registry)?
         }
         Value::Reference(_) => POINTER_REFERENCE_HANDLE_SIZE_BYTES,
-        Value::Instance(_) => u64::try_from(std::mem::size_of::<crate::memory::InstanceId>())
+        Value::Instance(_) => u64::try_from(core::mem::size_of::<crate::memory::InstanceId>())
             .map_err(|_| SizeOfError::Overflow)?,
         Value::Null => return Err(SizeOfError::UnsupportedType),
     };

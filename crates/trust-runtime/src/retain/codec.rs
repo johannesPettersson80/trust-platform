@@ -2,8 +2,8 @@ fn encode_snapshot(snapshot: &RetainSnapshot) -> Result<Vec<u8>, RuntimeError> {
     let mut out = Vec::new();
     out.extend_from_slice(RETAIN_MAGIC);
     out.extend_from_slice(&RETAIN_VERSION.to_le_bytes());
-    out.extend_from_slice(&(snapshot.values.len() as u32).to_le_bytes());
-    for (name, value) in &snapshot.values {
+    out.extend_from_slice(&(snapshot.values().len() as u32).to_le_bytes());
+    for (name, value) in snapshot.values() {
         encode_string(&mut out, name.as_str());
         encode_value(&mut out, value)?;
     }
@@ -29,7 +29,7 @@ fn decode_snapshot(bytes: &[u8]) -> Result<RetainSnapshot, RuntimeError> {
         let value = decode_value(&mut reader)?;
         values.insert(name, value);
     }
-    Ok(RetainSnapshot { values })
+    Ok(RetainSnapshot::from_values(values))
 }
 
 #[derive(Debug, Clone, Copy)]

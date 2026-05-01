@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.8`
+Target release: `v0.24.9`
 
 ### Changed
 
@@ -32,6 +32,18 @@ Target release: `v0.24.8`
   moving the expensive 98-project `trust-runtime test --project` sweep behind
   an explicit ignored gate with per-project progress, child PID/elapsed
   reporting, and timeout diagnostics.
+- The runtime VM benchmark gate now records per-fixture metrics, confidence
+  spread, optional baseline compare deltas, and `quick-low-noise` /
+  `full-low-noise` repeated-run profiles in its artifacts.
+- The runtime VM malformed-bytecode fuzz smoke gate now records progress-visible
+  logs and summary artifacts for deterministic bytecode mutation coverage.
+- The runtime VM default-switch readiness ledger now records production-guard,
+  differential, malformed-bytecode fuzz, benchmark, residual-risk, and rollback
+  evidence without pretending blocked performance thresholds are ready.
+- VM function and method local initialization now populates VM frame slots
+  directly for initialized locals, static locals, and function-block local
+  member overrides instead of creating a temporary runtime storage frame on the
+  native-call path.
 
 ### Fixed
 
@@ -58,6 +70,19 @@ Target release: `v0.24.8`
 - HIR validation now rejects non-repeat call expressions used as array defaults
   and validates direct array repetition defaults against the repeated element
   type, closing focused mutation-testing gaps in default initializer analysis.
+- Runtime and constant-expression array repetition initializers now shape arrays
+  from the expanded value count, so declarations such as `[3(1, 2)]` materialize
+  as six elements instead of failing type validation as a one-element array.
+- Bytecode validation now rejects duplicate `POU_INDEX` ids and unsupported
+  runtime-only opcodes before VM module construction/dispatch instead of
+  silently allowing map overwrites or late runtime traps.
+- VM instance-owner inference now scans partial-access opcodes with their
+  correct operand width, avoiding a silent owner-context drop in bytecode that
+  mixes instance references with bit/byte/word/dword access.
+- Bytecode validation now rejects POU bytecode that uses a local reference
+  outside that POU's declared local-ref range, so malformed local slots fail
+  before VM frame execution, while still accepting owned derived local path
+  references such as local array elements and struct fields.
 - HIR validation now reports `UndefinedVariable` when a `VAR_ACCESS` access
   path points at a missing target instead of silently accepting the declaration.
 - HIR constant evaluation now reports `CannotResolve` for ambiguous unqualified

@@ -350,22 +350,25 @@ pub(super) fn execute_native_call(
     arg_count: u32,
 ) -> Result<Value, VmTrap> {
     let spec = module.native_symbol_spec(symbol_idx)?;
-    let (target_name, normalized_target_name, resolved_function_pou_id, arg_specs) = match spec {
-        VmNativeSymbolSpec::Parsed {
-            target_name,
-            normalized_target_name,
-            resolved_function_pou_id,
-            arg_specs,
-        } => (
-            target_name,
-            normalized_target_name,
-            *resolved_function_pou_id,
-            arg_specs.as_slice(),
-        ),
-        VmNativeSymbolSpec::ParseError(message) => {
-            return Err(VmTrap::InvalidNativeCall(message.clone()));
-        }
-    };
+    let (target_name, normalized_target_name, resolved_function_pou_id, conversion_spec, arg_specs) =
+        match spec {
+            VmNativeSymbolSpec::Parsed {
+                target_name,
+                normalized_target_name,
+                resolved_function_pou_id,
+                conversion_spec,
+                arg_specs,
+            } => (
+                target_name,
+                normalized_target_name,
+                *resolved_function_pou_id,
+                *conversion_spec,
+                arg_specs.as_slice(),
+            ),
+            VmNativeSymbolSpec::ParseError(message) => {
+                return Err(VmTrap::InvalidNativeCall(message.clone()));
+            }
+        };
     let receiver_count = native_receiver_count(kind)?;
     let total = usize::try_from(arg_count)
         .map_err(|_| VmTrap::InvalidNativeCall("arg_count overflow".into()))?;
@@ -417,6 +420,7 @@ pub(super) fn execute_native_call(
             frame,
             target_name,
             normalized_target_name,
+            conversion_spec,
             &vm_args,
         ),
         NATIVE_CALL_KIND_FUNCTION | NATIVE_CALL_KIND_FUNCTION_BLOCK | NATIVE_CALL_KIND_METHOD => {
@@ -1158,6 +1162,7 @@ fn dispatch_native_stdlib_call(
     frame: &mut VmFrame,
     target_name: &SmolStr,
     normalized_target_name: &SmolStr,
+    conversion_spec: Option<conversions::ConversionSpec>,
     args: &[VmNativeArg],
 ) -> Result<Value, VmTrap> {
     if time::is_runtime_clock_name(normalized_target_name.as_str()) {
@@ -1172,23 +1177,48 @@ fn dispatch_native_stdlib_call(
     if time::is_split_name(normalized_target_name.as_str()) {
         return dispatch_native_split_call(runtime, frame, normalized_target_name.as_str(), args);
     }
+    if let Some(conversion_spec) = conversion_spec {
+        let value = bind_conversion_value(runtime, frame, args)?;
+        return conversions::call_conversion_spec(conversion_spec, std::slice::from_ref(&value))
+            .map_err(VmTrap::Runtime);
+    }
     if let Some(entry) = runtime.stdlib().get(normalized_target_name.as_str()) {
         let params = entry.params.clone();
         let func = entry.func;
         let values = bind_stdlib_values(runtime, frame, &params, args)?;
         return func(&values).map_err(VmTrap::Runtime);
     }
-    if conversions::is_conversion_name(normalized_target_name.as_str()) {
-        let params = StdParams::Fixed(vec![SmolStr::new("IN")]);
-        let values = bind_stdlib_values(runtime, frame, &params, args)?;
-        return runtime
-            .stdlib()
-            .call(normalized_target_name.as_str(), &values)
-            .map_err(VmTrap::Runtime);
-    }
     Err(VmTrap::Runtime(RuntimeError::UndefinedFunction(
         target_name.clone(),
     )))
+}
+
+fn bind_conversion_value(
+    runtime: &mut super::super::core::Runtime,
+    frame: &VmFrame,
+    args: &[VmNativeArg],
+) -> Result<Value, VmTrap> {
+    let positional = args.iter().all(|arg| arg.name.is_none());
+    if !positional && args.iter().any(|arg| arg.name.is_none()) {
+        return Err(VmTrap::Runtime(RuntimeError::InvalidArgumentName(
+            "<unnamed>".into(),
+        )));
+    }
+    if args.len() != 1 {
+        return Err(VmTrap::Runtime(RuntimeError::InvalidArgumentCount {
+            expected: 1,
+            got: args.len(),
+        }));
+    }
+    let arg = &args[0];
+    if let Some(name) = arg.name.as_ref() {
+        if !name.eq_ignore_ascii_case("IN") {
+            return Err(VmTrap::Runtime(RuntimeError::InvalidArgumentName(
+                name.clone(),
+            )));
+        }
+    }
+    resolve_vm_arg_value(runtime, frame, arg)
 }
 
 fn dispatch_native_split_call(
@@ -1649,12 +1679,17 @@ fn native_receiver_count(kind: u32) -> Result<usize, VmTrap> {
 
 pub(super) fn preparse_native_symbol_spec(symbol: &SmolStr) -> VmNativeSymbolSpec {
     match parse_native_symbol(symbol) {
-        Ok((target_name, arg_specs)) => VmNativeSymbolSpec::Parsed {
-            normalized_target_name: SmolStr::new(target_name.to_ascii_uppercase()),
-            resolved_function_pou_id: None,
-            target_name,
-            arg_specs,
-        },
+        Ok((target_name, arg_specs)) => {
+            let normalized_target_name = SmolStr::new(target_name.to_ascii_uppercase());
+            let conversion_spec = conversions::conversion_spec(normalized_target_name.as_str());
+            VmNativeSymbolSpec::Parsed {
+                normalized_target_name,
+                resolved_function_pou_id: None,
+                conversion_spec,
+                target_name,
+                arg_specs,
+            }
+        }
         Err(err) => VmNativeSymbolSpec::ParseError(err),
     }
 }
@@ -1726,6 +1761,7 @@ mod tests {
     use crate::value::{RefPath, RefSegment, StructValue, Value, ValueRef};
     use crate::Runtime;
 
+    use super::super::errors::VmTrap;
     use super::super::frames::VmFrame;
     use super::super::stack::OperandStack;
     use super::super::{VmModule, VmNativeArgSpec, VmNativeSymbolSpec, VmParamMeta, VmPouEntry};
@@ -2060,11 +2096,13 @@ mod tests {
                 target_name,
                 normalized_target_name,
                 resolved_function_pou_id,
+                conversion_spec,
                 arg_specs,
             } => {
                 assert_eq!(target_name, SmolStr::new("Add"));
                 assert_eq!(normalized_target_name, SmolStr::new("ADD"));
                 assert_eq!(resolved_function_pou_id, None);
+                assert!(conversion_spec.is_none());
                 assert_eq!(arg_specs.len(), 2);
                 assert_eq!(arg_specs[0].name.as_deref(), Some("a"));
                 assert!(!arg_specs[0].is_target);
@@ -2075,6 +2113,61 @@ mod tests {
                 panic!("unexpected parse error: {err}");
             }
         }
+    }
+
+    #[test]
+    fn preparse_native_symbol_spec_caches_conversion_spec() {
+        let entry = preparse_native_symbol_spec(&SmolStr::new("INT_TO_UDINT|E:IN"));
+        match entry {
+            VmNativeSymbolSpec::Parsed {
+                normalized_target_name,
+                conversion_spec,
+                ..
+            } => {
+                assert_eq!(normalized_target_name, SmolStr::new("INT_TO_UDINT"));
+                assert!(conversion_spec.is_some());
+            }
+            VmNativeSymbolSpec::ParseError(err) => {
+                panic!("unexpected parse error: {err}");
+            }
+        }
+    }
+
+    #[test]
+    fn bind_conversion_value_accepts_positional_and_named_in_only() {
+        let mut runtime = Runtime::new();
+        let frame = empty_caller_frame();
+
+        let positional = [expr_arg(None, Value::DInt(7))];
+        assert_eq!(
+            super::bind_conversion_value(&mut runtime, &frame, &positional).unwrap(),
+            Value::DInt(7)
+        );
+
+        let named = [expr_arg(Some("in"), Value::DInt(8))];
+        assert_eq!(
+            super::bind_conversion_value(&mut runtime, &frame, &named).unwrap(),
+            Value::DInt(8)
+        );
+
+        let wrong_name = [expr_arg(Some("OUT"), Value::DInt(9))];
+        let err = super::bind_conversion_value(&mut runtime, &frame, &wrong_name)
+            .expect_err("conversion only accepts IN");
+        assert!(matches!(
+            err,
+            VmTrap::Runtime(RuntimeError::InvalidArgumentName(name)) if name == "OUT"
+        ));
+
+        let mixed = [
+            expr_arg(None, Value::DInt(1)),
+            expr_arg(Some("IN"), Value::DInt(2)),
+        ];
+        let err = super::bind_conversion_value(&mut runtime, &frame, &mixed)
+            .expect_err("mixed named and positional args should fail before arity");
+        assert!(matches!(
+            err,
+            VmTrap::Runtime(RuntimeError::InvalidArgumentName(name)) if name == "<unnamed>"
+        ));
     }
 
     #[test]
@@ -2503,10 +2596,10 @@ mod tests {
         struct_fields.insert(SmolStr::new("VALUE"), Value::DInt(8));
         runtime.storage.set_global(
             "STRUCT",
-            Value::Struct(std::sync::Arc::new(StructValue {
-                type_name: SmolStr::new("TEST_STRUCT"),
-                fields: struct_fields,
-            })),
+            Value::Struct(std::sync::Arc::new(StructValue::from_untyped_parts(
+                SmolStr::new("TEST_STRUCT"),
+                struct_fields,
+            ))),
         );
         let instance = runtime.storage.create_instance("FB");
         assert!(runtime

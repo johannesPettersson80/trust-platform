@@ -7,6 +7,9 @@
 
 extern crate self as trust_runtime;
 
+/// Portable runtime-core compatibility surface.
+pub use trust_runtime_core as runtime_core;
+
 /// Bundle discovery helpers.
 pub mod bundle;
 /// Bundle build helpers.
@@ -19,13 +22,17 @@ pub mod bytecode;
 pub mod config;
 /// Control server and protocol.
 pub mod control;
-mod datetime;
+pub(crate) mod datetime {
+    pub(crate) use trust_runtime_core::datetime::*;
+}
 /// Debugging and tracing support.
 pub mod debug;
 /// Local discovery (mDNS) for runtimes.
 pub mod discovery;
 /// Runtime errors and configuration.
-pub mod error;
+pub mod error {
+    pub use trust_runtime_core::error::*;
+}
 /// Expression and statement evaluation.
 pub mod eval;
 /// Runtime execution backend selection and provenance.
@@ -49,7 +56,9 @@ pub mod memory;
 pub mod mesh;
 /// Runtime metrics collection.
 pub mod metrics;
-mod numeric;
+mod numeric {
+    pub use trust_runtime_core::numeric::*;
+}
 /// OPC UA profile and IEC-to-OPC UA mapping helpers.
 pub mod opcua;
 /// PLCopen XML import/export helpers (strict subset profile).

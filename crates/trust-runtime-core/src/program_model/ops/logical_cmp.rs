@@ -19,9 +19,9 @@ fn logical_or_bitwise(op: BinaryOp, left: Value, right: Value) -> Result<Value, 
 
 fn bit_op<T>(op: BinaryOp, left: T, right: T) -> Result<T, RuntimeError>
 where
-    T: std::ops::BitAnd<Output = T>
-        + std::ops::BitOr<Output = T>
-        + std::ops::BitXor<Output = T>
+    T: core::ops::BitAnd<Output = T>
+        + core::ops::BitOr<Output = T>
+        + core::ops::BitXor<Output = T>
         + Copy,
 {
     let result = match op {

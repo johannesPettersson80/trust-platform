@@ -161,3 +161,43 @@ pub fn unsigned_from_u128(target: NumericKind, value: u128) -> Result<Value, Run
         _ => Err(RuntimeError::TypeMismatch),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        numeric_kind, signed_from_i128, to_i64, to_u64, unsigned_from_u128, wider_numeric,
+        NumericKind,
+    };
+    use crate::error::RuntimeError;
+    use crate::value::Value;
+
+    #[test]
+    fn numeric_kind_and_rank_preserve_existing_widening_order() {
+        assert_eq!(numeric_kind(&Value::DInt(1)), Some(NumericKind::DInt));
+        assert_eq!(
+            wider_numeric(NumericKind::Int, NumericKind::LReal),
+            NumericKind::LReal
+        );
+        assert_eq!(
+            wider_numeric(NumericKind::ULInt, NumericKind::Real),
+            NumericKind::Real
+        );
+    }
+
+    #[test]
+    fn integer_conversions_preserve_overflow_and_signedness_errors() {
+        assert_eq!(
+            to_i64(&Value::ULInt(i64::MAX as u64 + 1)),
+            Err(RuntimeError::Overflow)
+        );
+        assert_eq!(to_u64(&Value::DInt(-1)), Err(RuntimeError::TypeMismatch));
+        assert_eq!(
+            signed_from_i128(NumericKind::SInt, i128::from(i8::MAX) + 1),
+            Err(RuntimeError::Overflow)
+        );
+        assert_eq!(
+            unsigned_from_u128(NumericKind::USInt, u128::from(u8::MAX) + 1),
+            Err(RuntimeError::Overflow)
+        );
+    }
+}

@@ -30,8 +30,8 @@ This is the umbrella checklist. Individual execution boards own the detailed wor
 - [x] `ARCHPROG-BOARD-02` HIR mutation hardening: `hir-mutation-hardening-execution-checklist.md`.
 - [x] `ARCHPROG-BOARD-03` Parser recovery hardening: `parser-recovery-hardening-execution-checklist.md`.
 - [ ] `ARCHPROG-BOARD-04` Runtime CLI product/workbench split: `runtime-cli-product-workbench-split-checklist.md` (in progress; Phase 1 inventory captured on 2026-04-29).
-- [ ] `ARCHPROG-BOARD-05` Runtime host surface ownership: `runtime-host-surface-ownership-checklist.md`.
-- [ ] `ARCHPROG-BOARD-06` Runtime core/Linux host split: `runtime-core-host-split-execution-checklist.md`.
+- [x] `ARCHPROG-BOARD-05` Runtime host surface ownership: `runtime-host-surface-ownership-checklist.md`. Evidence: the detail board is complete with `RTHOST-EXIT-01` through `RTHOST-EXIT-05` checked, `FULLMAP-CHECK-07` active with approved ports, and final local full-map validation passing.
+- [x] `ARCHPROG-BOARD-06` Runtime core/Linux host split: `runtime-core-host-split-execution-checklist.md`. Evidence: the detail board is closed with `RTSPLIT-EXIT-001` through `RTSPLIT-EXIT-010` checked, runtime-core split final workspace/release-readiness recorded in `ARCH-RTCORE-43`, and embedded support still explicitly deferred.
 - [x] `ARCHPROG-BOARD-07` Dependency hygiene: `dependency-hygiene-execution-checklist.md`.
 - [ ] `ARCHPROG-BOARD-08` Runtime large-file split: `runtime-large-file-split-execution-checklist.md`.
 - [x] `ARCHPROG-BOARD-09` Diagram semantic enforcement is added before diagrams are trusted as acceptance evidence.
@@ -70,13 +70,13 @@ This is the umbrella checklist. Individual execution boards own the detailed wor
 
 - [x] `ARCHPROG-D-01` Run `runtime-core-host-split-execution-checklist.md` only after Phases A-C have the required rules or explicit waivers. Evidence: Phase A-C rules are active through `FULLMAP-CHECK-01`, `FULLMAP-CHECK-02`, `FULLMAP-CHECK-05`, `FULLMAP-CHECK-06`, `FULLMAP-CHECK-07`, and the `ARCHPROG-C-05` top-level runtime module decision freeze; runtime-core split Phase 0 is now captured in `runtime-core-host-split-execution-checklist.md`.
 - [x] `ARCHPROG-D-02` Treat this phase as behavior-preserving; no embedded product support claims. Evidence: runtime-core split Phase 0 note states the active scope is Linux behavior-preserving extraction and explicitly excludes STM32H7, Arduino Opta, ESP32, embedded T0, embedded EtherCAT, `no_std` product support, MCU protocol commitments, and embedded support claims.
-- [ ] `ARCHPROG-D-03` Keep behavior-lock tests ahead of code movement.
-- [ ] `ARCHPROG-D-04` Keep host crate responsibility shrinkage visible, not hidden behind re-exports.
+- [x] `ARCHPROG-D-03` Keep behavior-lock tests ahead of code movement. Evidence: `runtime-core-host-split-execution-checklist.md` Phase 1 exit gates are complete before any production runtime code movement; VM/bytecode, cycle-boundary, scheduler, retain, watchdog/fault, and initializer/value behavior-lock rows are complete, with only explicitly conditional future movement rows left open.
+- [x] `ARCHPROG-D-04` Keep host crate responsibility shrinkage visible, not hidden behind re-exports. Evidence: `runtime-core-host-split-execution-checklist.md` final exit criteria state the portable execution concerns owned by `trust-runtime-core`, the Linux-host concerns still owned by `trust-runtime`, and the remaining host/core compromises with owner/reason.
 
 ### Phase E - Remaining Runtime Host Cleanup
 
 - [ ] `ARCHPROG-E-01` Split workbench/dev command implementation after compatibility policy is decided.
-- [ ] `ARCHPROG-E-02` Split HMI/web/control/cloud surfaces behind ports/adapters.
+- [x] `ARCHPROG-E-02` Split HMI/web/control/cloud surfaces behind ports/adapters. Evidence: `runtime-host-surface-ownership-checklist.md` is complete; HMI runtime access is behind control ports, HMI websocket event semantics are HMI-owned, runtime-cloud policy/projection modules own domain decisions, web routes remain transport adapters, and `FULLMAP-CHECK-07` prevents drift.
 - [ ] `ARCHPROG-E-03` Add owner/split notes for every runtime Rust file over 1,000 lines.
 - [ ] `ARCHPROG-E-04` Add KISS gates for module size, function size, public API growth, and top-level module growth.
 - [ ] `ARCHPROG-E-05` Add runtime VM mutation gate before claiming zero silent bugs for runtime execution.
@@ -110,8 +110,8 @@ This is the umbrella checklist. Individual execution boards own the detailed wor
 - [x] `ARCHPROG-EXIT-02` Focused HIR mutation shard has zero unexplained survivors.
 - [x] `ARCHPROG-EXIT-03` Parser recovery has bounded scanner API plus fuzz/property coverage.
 - [ ] `ARCHPROG-EXIT-04` Product runtime binary no longer owns unclassified workbench/dev commands.
-- [ ] `ARCHPROG-EXIT-05` HMI/web/control/cloud ownership is enforced by ports and doctor rules.
-- [ ] `ARCHPROG-EXIT-06` `trust-runtime-core` owns portable execution and blocks host-only dependencies.
+- [x] `ARCHPROG-EXIT-05` HMI/web/control/cloud ownership is enforced by ports and doctor rules. Evidence: `runtime-host-surface-ownership-checklist.md` closes `RTHOST-EXIT-01` through `RTHOST-EXIT-05`, with approved ports active and `FULLMAP-CHECK-07` reporting zero direct web runtime-state/control-dispatch bypass findings.
+- [x] `ARCHPROG-EXIT-06` `trust-runtime-core` owns portable execution and blocks host-only dependencies. Evidence: `runtime-core-host-split-execution-checklist.md` closes `RTSPLIT-EXIT-001` through `RTSPLIT-EXIT-010`; `trust-runtime-core` owns portable execution concerns and full-map doctor dependency/import fences block host-only leakage.
 - [ ] `ARCHPROG-EXIT-07` Every runtime Rust file over 1,000 lines has an owner/split note; every file over 1,500 lines has an approved split plan, completed split, or dated waiver.
 - [ ] `ARCHPROG-EXIT-08` Diagrams are source-checked, not only render-fresh.
 - [ ] `ARCHPROG-EXIT-09` Final report states what is fixed, what remains risky, and which gates prove each claim.

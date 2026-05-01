@@ -1,8 +1,12 @@
-use std::sync::Arc;
+#![allow(missing_docs)]
 
+use alloc::{boxed::Box, string::String, sync::Arc, vec::Vec};
+use core::fmt;
 use indexmap::IndexMap;
 use smol_str::SmolStr;
+#[cfg(feature = "hir")]
 use trust_hir::types::TypeRegistry;
+#[cfg(feature = "hir")]
 use trust_hir::{Type, TypeId};
 
 use crate::memory::InstanceId;
@@ -29,16 +33,24 @@ pub struct StructValue {
 /// Error produced when constructing a compound runtime value from raw data.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ValueConstructionError {
+    #[cfg(feature = "hir")]
     UnknownType(TypeId),
+    #[cfg(feature = "hir")]
     UnknownTypeName(SmolStr),
+    #[cfg(feature = "hir")]
     AliasCycle(TypeId),
+    #[cfg(feature = "hir")]
     NotStruct(TypeId),
+    #[cfg(feature = "hir")]
     NotArray(TypeId),
+    #[cfg(feature = "hir")]
     NotStructOrUnion(TypeId),
+    #[cfg(feature = "hir")]
     UnsupportedType(TypeId),
     InvalidArrayBounds {
         dimensions: Vec<(i64, i64)>,
     },
+    #[cfg(feature = "hir")]
     ArrayDimensionsMismatch {
         expected: Vec<(i64, i64)>,
         actual: Vec<(i64, i64)>,
@@ -47,45 +59,58 @@ pub enum ValueConstructionError {
         expected: usize,
         actual: usize,
     },
+    #[cfg(feature = "hir")]
     ArrayElementTypeMismatch {
         index: usize,
         expected: TypeId,
         actual: &'static str,
     },
+    #[cfg(feature = "hir")]
     MissingField {
         type_name: SmolStr,
         field_name: SmolStr,
     },
+    #[cfg(feature = "hir")]
     ExtraField {
         type_name: SmolStr,
         field_name: SmolStr,
     },
+    #[cfg(feature = "hir")]
     FieldTypeMismatch {
         type_name: SmolStr,
         field_name: SmolStr,
         expected: TypeId,
         actual: &'static str,
     },
+    #[cfg(feature = "hir")]
     TypeMismatch {
         expected: TypeId,
         actual: &'static str,
     },
+    #[cfg(feature = "hir")]
     Enum(EnumValueError),
 }
 
-impl std::fmt::Display for ValueConstructionError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for ValueConstructionError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            #[cfg(feature = "hir")]
             Self::UnknownType(type_id) => write!(f, "unknown type id {}", type_id.0),
+            #[cfg(feature = "hir")]
             Self::UnknownTypeName(type_name) => write!(f, "unknown type '{type_name}'"),
+            #[cfg(feature = "hir")]
             Self::AliasCycle(type_id) => {
                 write!(f, "alias cycle while resolving type id {}", type_id.0)
             }
+            #[cfg(feature = "hir")]
             Self::NotStruct(type_id) => write!(f, "type id {} is not a struct", type_id.0),
+            #[cfg(feature = "hir")]
             Self::NotArray(type_id) => write!(f, "type id {} is not an array", type_id.0),
+            #[cfg(feature = "hir")]
             Self::NotStructOrUnion(type_id) => {
                 write!(f, "type id {} is not a struct or union", type_id.0)
             }
+            #[cfg(feature = "hir")]
             Self::UnsupportedType(type_id) => {
                 write!(
                     f,
@@ -96,6 +121,7 @@ impl std::fmt::Display for ValueConstructionError {
             Self::InvalidArrayBounds { dimensions } => {
                 write!(f, "invalid array dimensions {dimensions:?}")
             }
+            #[cfg(feature = "hir")]
             Self::ArrayDimensionsMismatch { expected, actual } => {
                 write!(
                     f,
@@ -108,6 +134,7 @@ impl std::fmt::Display for ValueConstructionError {
                     "array element count mismatch: expected {expected}, got {actual}"
                 )
             }
+            #[cfg(feature = "hir")]
             Self::ArrayElementTypeMismatch {
                 index,
                 expected,
@@ -117,14 +144,17 @@ impl std::fmt::Display for ValueConstructionError {
                 "array element {index} type mismatch: expected type id {}, got {actual}",
                 expected.0
             ),
+            #[cfg(feature = "hir")]
             Self::MissingField {
                 type_name,
                 field_name,
             } => write!(f, "missing field '{type_name}.{field_name}'"),
+            #[cfg(feature = "hir")]
             Self::ExtraField {
                 type_name,
                 field_name,
             } => write!(f, "extra field '{type_name}.{field_name}'"),
+            #[cfg(feature = "hir")]
             Self::FieldTypeMismatch {
                 type_name,
                 field_name,
@@ -135,6 +165,7 @@ impl std::fmt::Display for ValueConstructionError {
                 "field '{type_name}.{field_name}' type mismatch: expected type id {}, got {actual}",
                 expected.0
             ),
+            #[cfg(feature = "hir")]
             Self::TypeMismatch { expected, actual } => {
                 write!(
                     f,
@@ -142,13 +173,16 @@ impl std::fmt::Display for ValueConstructionError {
                     expected.0
                 )
             }
+            #[cfg(feature = "hir")]
             Self::Enum(error) => write!(f, "{error}"),
         }
     }
 }
 
+#[cfg(feature = "std")]
 impl std::error::Error for ValueConstructionError {}
 
+#[cfg(feature = "hir")]
 impl From<EnumValueError> for ValueConstructionError {
     fn from(error: EnumValueError) -> Self {
         Self::Enum(error)
@@ -156,6 +190,7 @@ impl From<EnumValueError> for ValueConstructionError {
 }
 
 impl ArrayValue {
+    #[cfg(feature = "hir")]
     pub fn new(
         registry: &TypeRegistry,
         type_id: TypeId,
@@ -175,6 +210,7 @@ impl ArrayValue {
         Ok(value)
     }
 
+    #[cfg(feature = "hir")]
     pub fn from_serialized_parts(
         registry: &TypeRegistry,
         type_id: TypeId,
@@ -221,7 +257,7 @@ impl ArrayValue {
         Ok(Self::from_canonical_parts(elements, dimensions))
     }
 
-    pub(crate) fn from_canonical_parts(elements: Vec<Value>, dimensions: Vec<(i64, i64)>) -> Self {
+    pub fn from_canonical_parts(elements: Vec<Value>, dimensions: Vec<(i64, i64)>) -> Self {
         Self {
             elements,
             dimensions,
@@ -233,13 +269,33 @@ impl ArrayValue {
         &self.elements
     }
 
+    pub fn elements_mut(&mut self) -> &mut [Value] {
+        &mut self.elements
+    }
+
     #[must_use]
     pub fn dimensions(&self) -> &[(i64, i64)] {
         &self.dimensions
     }
+
+    pub fn set_dimensions(
+        &mut self,
+        dimensions: Vec<(i64, i64)>,
+    ) -> Result<(), ValueConstructionError> {
+        let expected_len = array_len(&dimensions)?;
+        if self.elements.len() != expected_len {
+            return Err(ValueConstructionError::ArrayElementCountMismatch {
+                expected: expected_len,
+                actual: self.elements.len(),
+            });
+        }
+        self.dimensions = dimensions;
+        Ok(())
+    }
 }
 
 impl StructValue {
+    #[cfg(feature = "hir")]
     pub fn new(
         registry: &TypeRegistry,
         type_id: TypeId,
@@ -285,6 +341,7 @@ impl StructValue {
         ))
     }
 
+    #[cfg(feature = "hir")]
     pub fn from_serialized_parts(
         registry: &TypeRegistry,
         type_name: &str,
@@ -300,10 +357,7 @@ impl StructValue {
         Self::from_canonical_parts(type_name, fields)
     }
 
-    pub(crate) fn from_canonical_parts(
-        type_name: SmolStr,
-        fields: IndexMap<SmolStr, Value>,
-    ) -> Self {
+    pub fn from_canonical_parts(type_name: SmolStr, fields: IndexMap<SmolStr, Value>) -> Self {
         Self { type_name, fields }
     }
 
@@ -316,9 +370,32 @@ impl StructValue {
     pub fn fields(&self) -> &IndexMap<SmolStr, Value> {
         &self.fields
     }
+
+    #[must_use]
+    pub fn field(&self, name: &str) -> Option<&Value> {
+        self.fields.get(name)
+    }
+
+    pub fn field_mut(&mut self, name: &str) -> Option<&mut Value> {
+        self.fields.get_mut(name)
+    }
+
+    #[must_use]
+    pub fn contains_field(&self, name: &str) -> bool {
+        self.fields.contains_key(name)
+    }
+
+    pub fn set_existing_field(&mut self, name: SmolStr, value: Value) -> bool {
+        let Some(slot) = self.fields.get_mut(name.as_str()) else {
+            return false;
+        };
+        *slot = value;
+        true
+    }
 }
 
 /// Error produced when constructing a runtime enum value from non-canonical data.
+#[cfg(feature = "hir")]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EnumValueError {
     UnknownType(TypeId),
@@ -337,8 +414,9 @@ pub enum EnumValueError {
     },
 }
 
-impl std::fmt::Display for EnumValueError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+#[cfg(feature = "hir")]
+impl fmt::Display for EnumValueError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::UnknownType(type_id) => write!(f, "unknown enum type id {}", type_id.0),
             Self::UnknownTypeName(type_name) => write!(f, "unknown enum type '{type_name}'"),
@@ -363,6 +441,8 @@ impl std::fmt::Display for EnumValueError {
     }
 }
 
+#[cfg(feature = "std")]
+#[cfg(feature = "hir")]
 impl std::error::Error for EnumValueError {}
 
 /// Enum value storing canonical type identity plus display variant data.
@@ -373,12 +453,14 @@ pub struct EnumValue {
     numeric_value: i64,
 }
 
+#[cfg(feature = "hir")]
 struct EnumTypeParts<'a> {
     name: SmolStr,
     values: &'a [(SmolStr, i64)],
 }
 
 impl EnumValue {
+    #[cfg(feature = "hir")]
     pub fn new(
         registry: &TypeRegistry,
         type_id: TypeId,
@@ -400,6 +482,7 @@ impl EnumValue {
         ))
     }
 
+    #[cfg(feature = "hir")]
     pub fn from_serialized_parts(
         registry: &TypeRegistry,
         type_name: &str,
@@ -412,6 +495,7 @@ impl EnumValue {
         Self::new_with_numeric(registry, type_id, variant_name, numeric_value)
     }
 
+    #[cfg(feature = "hir")]
     pub fn new_with_numeric(
         registry: &TypeRegistry,
         type_id: TypeId,
@@ -430,7 +514,7 @@ impl EnumValue {
         Ok(value)
     }
 
-    pub(crate) fn from_canonical_parts(
+    pub fn from_canonical_parts(
         type_name: SmolStr,
         variant_name: SmolStr,
         numeric_value: i64,
@@ -466,6 +550,7 @@ impl PartialEq for EnumValue {
 
 impl Eq for EnumValue {}
 
+#[cfg(feature = "hir")]
 fn enum_type_parts(
     registry: &TypeRegistry,
     type_id: TypeId,
@@ -491,16 +576,19 @@ fn enum_type_parts(
     }
 }
 
+#[cfg(feature = "hir")]
 struct StructTypeParts {
     name: SmolStr,
     fields: Vec<StructFieldSpec>,
 }
 
+#[cfg(feature = "hir")]
 struct StructFieldSpec {
     name: SmolStr,
     type_id: TypeId,
 }
 
+#[cfg(feature = "hir")]
 fn struct_type_parts(
     registry: &TypeRegistry,
     type_id: TypeId,
@@ -544,6 +632,7 @@ fn struct_type_parts(
     }
 }
 
+#[cfg(feature = "hir")]
 fn array_type_parts(
     registry: &TypeRegistry,
     type_id: TypeId,
@@ -582,6 +671,7 @@ fn array_len(dimensions: &[(i64, i64)]) -> Result<usize, ValueConstructionError>
     })
 }
 
+#[cfg(feature = "hir")]
 fn value_matches_type(registry: &TypeRegistry, type_id: TypeId, value: &Value) -> bool {
     let Some(ty) = registry.get(type_id) else {
         return false;
@@ -648,6 +738,7 @@ fn value_matches_type(registry: &TypeRegistry, type_id: TypeId, value: &Value) -
     }
 }
 
+#[cfg(feature = "hir")]
 fn integer_value_in_range(value: &Value, base: TypeId, lower: i64, upper: i64) -> bool {
     let Some(value) = integer_value(value, base) else {
         return false;
@@ -655,6 +746,7 @@ fn integer_value_in_range(value: &Value, base: TypeId, lower: i64, upper: i64) -
     (lower..=upper).contains(&value)
 }
 
+#[cfg(feature = "hir")]
 fn integer_value(value: &Value, base: TypeId) -> Option<i64> {
     match (base, value) {
         (TypeId::SINT, Value::SInt(value)) => Some(i64::from(*value)),
@@ -669,6 +761,7 @@ fn integer_value(value: &Value, base: TypeId) -> Option<i64> {
     }
 }
 
+#[cfg(feature = "hir")]
 fn matches_enum_type(registry: &TypeRegistry, type_id: TypeId, value: &Value) -> bool {
     let Value::Enum(enum_value) = value else {
         return false;
@@ -682,6 +775,7 @@ fn matches_enum_type(registry: &TypeRegistry, type_id: TypeId, value: &Value) ->
     .is_ok_and(|declared| declared.type_name() == enum_value.type_name())
 }
 
+#[cfg(feature = "hir")]
 fn matches_struct_type(registry: &TypeRegistry, type_id: TypeId, value: &Value) -> bool {
     let Value::Struct(struct_value) = value else {
         return false;
@@ -703,6 +797,7 @@ fn matches_struct_type(registry: &TypeRegistry, type_id: TypeId, value: &Value) 
     })
 }
 
+#[cfg(feature = "hir")]
 fn matches_array_type(registry: &TypeRegistry, type_id: TypeId, value: &Value) -> bool {
     let Value::Array(array_value) = value else {
         return false;
@@ -723,6 +818,7 @@ fn matches_array_type(registry: &TypeRegistry, type_id: TypeId, value: &Value) -
             .all(|element| value_matches_type(registry, element_type, element))
 }
 
+#[cfg(feature = "hir")]
 fn value_kind(value: &Value) -> &'static str {
     match value {
         Value::Bool(_) => "BOOL",
@@ -808,7 +904,7 @@ pub enum Value {
     Null,
 }
 
-pub(crate) fn normalize_assignment_for_target(target: &Value, value: Value) -> Value {
+pub fn normalize_assignment_for_target(target: &Value, value: Value) -> Value {
     match (target, value) {
         (Value::Reference(_), Value::Null) => Value::Reference(None),
         (_, value) => value,
@@ -854,8 +950,10 @@ impl From<u16> for Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature = "hir")]
     use trust_hir::types::StructField;
 
+    #[cfg(feature = "hir")]
     #[test]
     fn enum_value_new_resolves_alias_to_canonical_enum_type() {
         let mut registry = TypeRegistry::new();
@@ -881,6 +979,7 @@ mod tests {
         assert_eq!(from_alias, from_base);
     }
 
+    #[cfg(feature = "hir")]
     #[test]
     fn enum_value_from_serialized_parts_canonicalizes_and_validates_numeric_value() {
         let mut registry = TypeRegistry::new();
@@ -900,6 +999,7 @@ mod tests {
         assert!(matches!(error, EnumValueError::NumericMismatch { .. }));
     }
 
+    #[cfg(feature = "hir")]
     #[test]
     fn struct_value_new_canonicalizes_alias_fields_and_rejects_type_drift() {
         let mut registry = TypeRegistry::new();
@@ -981,6 +1081,27 @@ mod tests {
     }
 
     #[test]
+    fn struct_value_mutator_updates_existing_fields_only() {
+        let mut value = StructValue::from_untyped_parts(
+            "Point".into(),
+            [
+                (SmolStr::new("x"), Value::Int(1)),
+                (SmolStr::new("y"), Value::Int(2)),
+            ]
+            .into_iter()
+            .collect(),
+        );
+
+        assert!(value.contains_field("x"));
+        assert_eq!(value.field("x"), Some(&Value::Int(1)));
+        assert!(value.set_existing_field("x".into(), Value::Int(10)));
+        assert!(!value.set_existing_field("z".into(), Value::Int(99)));
+        assert_eq!(value.field("x"), Some(&Value::Int(10)));
+        assert!(!value.contains_field("z"));
+    }
+
+    #[cfg(feature = "hir")]
+    #[test]
     fn array_value_new_canonicalizes_alias_and_rejects_shape_or_type_drift() {
         let mut registry = TypeRegistry::new();
         let base = registry.register_array(TypeId::INT, vec![(1, 2)]);
@@ -1020,6 +1141,29 @@ mod tests {
         ));
     }
 
+    #[test]
+    fn array_value_mutators_preserve_shape_contract() {
+        let mut value =
+            ArrayValue::from_untyped_parts(vec![Value::Int(1), Value::Int(2)], vec![(1, 2)])
+                .expect("array value");
+
+        value.elements_mut()[1] = Value::Int(20);
+        assert_eq!(value.elements(), &[Value::Int(1), Value::Int(20)]);
+        value
+            .set_dimensions(vec![(0, 1)])
+            .expect("same element count dimensions");
+        assert_eq!(value.dimensions(), &[(0, 1)]);
+
+        let error = value
+            .set_dimensions(vec![(0, 2)])
+            .expect_err("different element count must fail");
+        assert!(matches!(
+            error,
+            ValueConstructionError::ArrayElementCountMismatch { .. }
+        ));
+    }
+
+    #[cfg(feature = "hir")]
     #[test]
     fn array_value_new_validates_array_of_struct_elements() {
         let mut registry = TypeRegistry::new();

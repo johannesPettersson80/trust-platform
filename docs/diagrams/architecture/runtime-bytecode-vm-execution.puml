@@ -15,7 +15,7 @@ package "Production Cycle Entry" as entryPkg #LightBlue {
     component "ensure_vm_module_loaded() /\nbuild_vm_module()\n(runtime/cycle.rs)" as ensureVm
 
     cycle --> taskDispatch
-    taskDispatch --> ensureVm : execute_program / execute_function_block_ref
+    taskDispatch --> ensureVm : execute_program_by_name / execute_function_block_ref
 }
 
 package "Lazy VM Module Materialization" as modulePkg #LightYellow {
@@ -42,7 +42,7 @@ note right of vmModuleState
 end note
 
 package "Program / FB Execution Inside VM" as vmExecPkg #LightCyan {
-    component "vm::dispatch::execute_program() /\nexecute_function_block_ref()" as vmEntry
+    component "vm::dispatch::execute_program_by_name() /\nexecute_function_block_ref()" as vmEntry
     component "try_execute_pou_with_register_ir_with_locals()\n(register path + lowering cache)" as regTry
     component "execute_register_program()\n(register executor + tier1)" as regExec
     component "execute_pou_stack_with_locals()\n(stack-bytecode execution path)" as stackExec

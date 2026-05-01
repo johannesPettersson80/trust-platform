@@ -1,15 +1,3 @@
-/// Resource execution state.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum ResourceState {
-    #[default]
-    Boot,
-    Ready,
-    Running,
-    Paused,
-    Faulted,
-    Stopped,
-}
-
 /// Commands applied to a running resource.
 #[derive(Debug, Clone)]
 pub enum ResourceCommand {

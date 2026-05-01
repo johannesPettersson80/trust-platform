@@ -128,9 +128,9 @@ pub(super) fn resolve_reference(ctx: &EvalContext<'_>, name: &SmolStr) -> Option
 pub(super) fn read_indices(target: Value, indices: &[Value]) -> Result<Value, RuntimeError> {
     match target {
         Value::Array(array) => {
-            let offset = array_offset(&array.dimensions, indices)?;
+            let offset = array_offset(array.dimensions(), indices)?;
             array
-                .elements
+                .elements()
                 .get(offset)
                 .cloned()
                 .ok_or(RuntimeError::TypeMismatch)
@@ -148,8 +148,8 @@ pub(super) fn write_indices(
 ) -> Result<Value, RuntimeError> {
     match target {
         Value::Array(mut array) => {
-            let offset = array_offset(&array.dimensions, indices)?;
-            if let Some(slot) = array.elements.get_mut(offset) {
+            let offset = array_offset(array.dimensions(), indices)?;
+            if let Some(slot) = array.elements_mut().get_mut(offset) {
                 *slot = value;
                 Ok(Value::Array(array))
             } else {
@@ -172,8 +172,7 @@ pub(super) fn read_field(
     }
     match target {
         Value::Struct(struct_value) => struct_value
-            .fields
-            .get(field)
+            .field(field.as_str())
             .cloned()
             .ok_or_else(|| RuntimeError::UndefinedField(field.clone())),
         Value::Instance(id) => ctx
@@ -198,8 +197,7 @@ pub(super) fn write_field(
     match target {
         Value::Struct(mut struct_value) => {
             let struct_value_mut = std::sync::Arc::make_mut(&mut struct_value);
-            if struct_value_mut.fields.contains_key(field) {
-                struct_value_mut.fields.insert(field.clone(), value);
+            if struct_value_mut.set_existing_field(field.clone(), value) {
                 Ok(Value::Struct(struct_value))
             } else {
                 Err(RuntimeError::UndefinedField(field.clone()))

@@ -63,10 +63,10 @@ fn index_and_null_ref() {
     let mut storage = VariableStorage::new();
     storage.set_global(
         "arr",
-        Value::Array(Box::new(ArrayValue {
-            elements: vec![Value::Int(1), Value::Int(2)],
-            dimensions: vec![(1, 2)],
-        })),
+        Value::Array(Box::new(
+            ArrayValue::from_untyped_parts(vec![Value::Int(1), Value::Int(2)], vec![(1, 2)])
+                .unwrap(),
+        )),
     );
     let registry = TypeRegistry::new();
     let mut ctx = common::make_context(&mut storage, &registry);

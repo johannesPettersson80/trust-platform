@@ -70,7 +70,7 @@ END_CONFIGURATION
 "#;
 
     let mut runtime = TestHarness::from_source(source).unwrap().into_runtime();
-    let module = BytecodeModule::from_runtime(&runtime).unwrap();
+    let module = build_module_from_runtime(&runtime).unwrap();
     let bytes = module.encode().unwrap();
 
     runtime.apply_bytecode_bytes(&bytes, None).unwrap();

@@ -155,7 +155,7 @@ impl Runtime {
                 continue;
             };
             if value_is_retainable(value) {
-                snapshot.values.insert(name.clone(), value.clone());
+                snapshot.insert(name.clone(), value.clone());
             }
         }
         snapshot
@@ -166,7 +166,7 @@ impl Runtime {
         &mut self,
         snapshot: &RetainSnapshot,
     ) -> Result<(), error::RuntimeError> {
-        for (name, value) in &snapshot.values {
+        for (name, value) in snapshot.values() {
             let Some(meta) = self.globals.get(name) else {
                 continue;
             };

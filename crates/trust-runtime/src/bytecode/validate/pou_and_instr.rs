@@ -6,7 +6,14 @@ fn validate_pou_index(
     index: &PouIndex,
     bodies: &[u8],
 ) -> Result<(), BytecodeError> {
+    let mut seen_pou_ids = HashSet::new();
     for entry in &index.entries {
+        if !seen_pou_ids.insert(entry.id) {
+            return Err(BytecodeError::InvalidSection(
+                format!("duplicate POU id {}", entry.id).into(),
+            ));
+        }
+        validate_pou_local_ref_range(ref_table, entry)?;
         ensure_string_index(strings, entry.name_idx)?;
         if let Some(return_type_id) = entry.return_type_id {
             ensure_type_index(types, return_type_id)?;
@@ -65,26 +72,29 @@ fn validate_pou_index(
                 "POU code out of bounds".into(),
             ));
         }
-        validate_instruction_stream(
+        let tables = InstructionValidationTables {
             strings,
             index,
             types,
             const_pool,
             ref_table,
-            start,
-            &bodies[start..end],
-        )?;
+        };
+        validate_instruction_stream(&tables, entry, &bodies[start..end])?;
     }
     Ok(())
 }
 
+struct InstructionValidationTables<'a> {
+    strings: &'a StringTable,
+    index: &'a PouIndex,
+    types: &'a TypeTable,
+    const_pool: &'a ConstPool,
+    ref_table: &'a RefTable,
+}
+
 fn validate_instruction_stream(
-    strings: &StringTable,
-    index: &PouIndex,
-    types: &TypeTable,
-    const_pool: &ConstPool,
-    ref_table: &RefTable,
-    _base: usize,
+    tables: &InstructionValidationTables<'_>,
+    pou: &PouEntry,
     code: &[u8],
 ) -> Result<(), BytecodeError> {
     let mut reader = BytecodeReader::new(code);
@@ -94,17 +104,22 @@ fn validate_instruction_stream(
         let pc = reader.pos();
         starts.push(pc as i32);
         let opcode = reader.read_u8()?;
+        if let Some(name) = unsupported_runtime_opcode_name(opcode) {
+            return Err(BytecodeError::InvalidSection(
+                format!("unsupported runtime opcode {name} (0x{opcode:02X})").into(),
+            ));
+        }
         match opcode {
-            0x00 | 0x01 | 0x06 | 0x11 | 0x12 | 0x13 | 0x14 | 0x15 | 0x25 | 0x31 | 0x32 | 0x33 | 0x40
-            | 0x41 | 0x42 | 0x43 | 0x44 | 0x45 | 0x46 | 0x47 | 0x48 | 0x49 | 0x4A | 0x4B | 0x4C
-            | 0x4D | 0x4E | 0x50 | 0x51 | 0x52 | 0x53 | 0x54 | 0x55 => {}
+            0x00 | 0x01 | 0x06 | 0x11 | 0x12 | 0x13 | 0x25 | 0x31 | 0x32 | 0x33 | 0x40
+            | 0x41 | 0x42 | 0x43 | 0x44 | 0x45 | 0x46 | 0x47 | 0x48 | 0x49 | 0x4C | 0x50
+            | 0x51 | 0x52 | 0x53 | 0x54 | 0x55 => {}
             0x02..=0x04 => {
                 let offset = reader.read_i32()?;
                 jumps.push((pc as i32, offset));
             }
             0x05 => {
                 let pou_id = reader.read_u32()?;
-                if !index.entries.iter().any(|pou| pou.id == pou_id) {
+                if !tables.index.entries.iter().any(|pou| pou.id == pou_id) {
                     return Err(BytecodeError::InvalidPouId(pou_id));
                 }
             }
@@ -114,7 +129,8 @@ fn validate_instruction_stream(
             0x08 => {
                 let interface_type_id = reader.read_u32()?;
                 let slot = reader.read_u32()?;
-                let entry = types
+                let entry = tables
+                    .types
                     .entries
                     .get(interface_type_id as usize)
                     .ok_or_else(|| BytecodeError::InvalidIndex {
@@ -143,7 +159,7 @@ fn validate_instruction_stream(
                         "CALL_NATIVE kind out of range".into(),
                     ));
                 }
-                if symbol_idx as usize >= strings.entries.len() {
+                if symbol_idx as usize >= tables.strings.entries.len() {
                     return Err(BytecodeError::InvalidIndex {
                         kind: "native symbol".into(),
                         index: symbol_idx,
@@ -157,23 +173,20 @@ fn validate_instruction_stream(
             }
             0x10 => {
                 let const_idx = reader.read_u32()?;
-                ensure_const_index(const_pool, const_idx)?;
-            }
-            0x16 => {
-                reader.read_u8()?;
+                ensure_const_index(tables.const_pool, const_idx)?;
             }
             0x20..=0x22 => {
                 let ref_idx = reader.read_u32()?;
-                ensure_ref_index(ref_table, ref_idx)?;
+                ensure_pou_ref_operand(tables.ref_table, pou, ref_idx)?;
             }
             0x23 | 0x24 => {}
             0x30 => {
                 let name_idx = reader.read_u32()?;
-                ensure_string_index(strings, name_idx)?;
+                ensure_string_index(tables.strings, name_idx)?;
             }
             0x60 => {
                 let type_id = reader.read_u32()?;
-                ensure_type_index(types, type_id)?;
+                ensure_type_index(tables.types, type_id)?;
             }
             0x61 => {}
             0x62 | 0x63 => {
@@ -198,6 +211,88 @@ fn validate_instruction_stream(
         }
     }
     Ok(())
+}
+
+fn validate_pou_local_ref_range(ref_table: &RefTable, pou: &PouEntry) -> Result<(), BytecodeError> {
+    let start = pou.local_ref_start;
+    let end = start.checked_add(pou.local_ref_count).ok_or_else(|| {
+        BytecodeError::InvalidSection("POU local ref range overflow".into())
+    })?;
+    if end as usize > ref_table.entries.len() {
+        return Err(BytecodeError::InvalidSection(
+            "POU local ref range out of bounds".into(),
+        ));
+    }
+    for ref_idx in start..end {
+        let ref_entry = &ref_table.entries[ref_idx as usize];
+        if ref_entry.location != RefLocation::Local {
+            return Err(BytecodeError::InvalidSection(
+                "POU local ref range contains non-local ref".into(),
+            ));
+        }
+        if !ref_entry.segments.is_empty() {
+            return Err(BytecodeError::InvalidSection(
+                "POU local ref range contains path ref".into(),
+            ));
+        }
+        if ref_entry.offset != ref_idx.saturating_sub(start) {
+            return Err(BytecodeError::InvalidSection(
+                "POU local ref range contains non-contiguous local offset".into(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn pou_local_owner(ref_table: &RefTable, pou: &PouEntry) -> Option<u32> {
+    if pou.local_ref_count == 0 {
+        return None;
+    }
+    ref_table
+        .entries
+        .get(pou.local_ref_start as usize)
+        .map(|entry| entry.owner_id)
+}
+
+fn ensure_pou_ref_operand(
+    ref_table: &RefTable,
+    pou: &PouEntry,
+    ref_idx: u32,
+) -> Result<(), BytecodeError> {
+    ensure_ref_index(ref_table, ref_idx)?;
+    let ref_entry = &ref_table.entries[ref_idx as usize];
+    if ref_entry.location == RefLocation::Local {
+        let end = pou.local_ref_start.checked_add(pou.local_ref_count).ok_or_else(|| {
+            BytecodeError::InvalidSection("POU local ref range overflow".into())
+        })?;
+        if ref_idx < pou.local_ref_start || ref_idx >= end {
+            if !ref_entry.segments.is_empty()
+                && pou_local_owner(ref_table, pou) == Some(ref_entry.owner_id)
+                && ref_entry.offset < pou.local_ref_count
+            {
+                return Ok(());
+            }
+            return Err(BytecodeError::InvalidSection(
+                "local ref outside POU local range".into(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn unsupported_runtime_opcode_name(opcode: u8) -> Option<&'static str> {
+    match opcode {
+        0x07 => Some("CALL_METHOD"),
+        0x08 => Some("CALL_VIRTUAL"),
+        0x14 => Some("ROT3"),
+        0x15 => Some("ROT4"),
+        0x16 => Some("CAST_IMPLICIT"),
+        0x4A => Some("SHL"),
+        0x4B => Some("SHR"),
+        0x4D => Some("ROL"),
+        0x4E => Some("ROR"),
+        _ => None,
+    }
 }
 
 fn validate_partial_access_operand(operand: u32) -> Result<(), BytecodeError> {

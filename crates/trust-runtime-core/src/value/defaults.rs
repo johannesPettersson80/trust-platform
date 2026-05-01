@@ -1,3 +1,5 @@
+use alloc::{string::String, sync::Arc, vec::Vec};
+
 use indexmap::IndexMap;
 use smol_str::SmolStr;
 use trust_hir::types::{ArrayDimensionExt, TypeRegistry};
@@ -92,9 +94,10 @@ fn default_value_for_type(
                 let field_value = default_value_for_type_id(field.type_id, registry, profile)?;
                 values.insert(field.name.clone(), field_value);
             }
-            Ok(Value::Struct(std::sync::Arc::new(
-                StructValue::from_canonical_parts(name.clone(), values),
-            )))
+            Ok(Value::Struct(Arc::new(StructValue::from_canonical_parts(
+                name.clone(),
+                values,
+            ))))
         }
         Type::Enum { name, values, .. } => {
             let (variant_name, numeric_value) =
@@ -115,9 +118,10 @@ fn default_value_for_type(
                 let variant_value = default_value_for_type_id(variant.type_id, registry, profile)?;
                 values.insert(variant.name.clone(), variant_value);
             }
-            Ok(Value::Struct(std::sync::Arc::new(
-                StructValue::from_canonical_parts(name.clone(), values),
-            )))
+            Ok(Value::Struct(Arc::new(StructValue::from_canonical_parts(
+                name.clone(),
+                values,
+            ))))
         }
         Type::Unknown
         | Type::Void
@@ -165,5 +169,43 @@ fn int_value_of_base(base: TypeId, value: i64) -> Result<Value, DefaultValueErro
         TypeId::UDINT => Ok(Value::UDInt(value as u32)),
         TypeId::ULINT => Ok(Value::ULInt(value as u64)),
         _ => Err(DefaultValueError::UnsupportedType),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{default_value_for_type_id, DefaultValueError};
+    use crate::value::{DateTimeProfile, Duration, Value};
+    use trust_hir::types::TypeRegistry;
+    use trust_hir::TypeId;
+
+    #[test]
+    fn defaults_for_core_elementary_values_match_runtime_contract() {
+        let registry = TypeRegistry::new();
+        let profile = DateTimeProfile::default();
+
+        assert_eq!(
+            default_value_for_type_id(TypeId::BOOL, &registry, &profile),
+            Ok(Value::Bool(false))
+        );
+        assert_eq!(
+            default_value_for_type_id(TypeId::TIME, &registry, &profile),
+            Ok(Value::Time(Duration::ZERO))
+        );
+        assert_eq!(
+            default_value_for_type_id(TypeId::STRING, &registry, &profile),
+            Ok(Value::String("".into()))
+        );
+    }
+
+    #[test]
+    fn defaults_reject_unknown_type_ids() {
+        let registry = TypeRegistry::new();
+        let profile = DateTimeProfile::default();
+
+        assert_eq!(
+            default_value_for_type_id(TypeId(u32::MAX), &registry, &profile),
+            Err(DefaultValueError::UnknownType)
+        );
     }
 }

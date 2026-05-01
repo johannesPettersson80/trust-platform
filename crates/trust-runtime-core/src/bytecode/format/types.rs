@@ -32,7 +32,8 @@ pub enum TypeKind {
 }
 
 impl TypeKind {
-    pub(crate) fn from_raw(value: u8) -> Option<Self> {
+    #[must_use]
+    pub fn from_raw(value: u8) -> Option<Self> {
         match value {
             0 => Some(Self::Primitive),
             1 => Some(Self::Array),

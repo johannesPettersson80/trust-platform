@@ -45,6 +45,7 @@ pub(super) use local_init::VmLocalInitPlanCacheState;
 pub(super) use register_ir::{
     RegisterLoweringCacheState, RegisterProfileState, RegisterTier1SpecializedExecutorState,
 };
+pub(super) use trust_runtime_core::vm::{materialize_borrowed_value, opcode_operand_len};
 
 pub(super) const DEFAULT_INSTRUCTION_BUDGET: usize = 1_000_000;
 
@@ -53,6 +54,13 @@ pub(super) fn execute_program(
     program: &ProgramDef,
 ) -> Result<(), RuntimeError> {
     dispatch::execute_program(runtime, program)
+}
+
+pub(super) fn execute_program_by_name(
+    runtime: &mut Runtime,
+    program_name: &SmolStr,
+) -> Result<(), RuntimeError> {
+    dispatch::execute_program_by_name(runtime, program_name)
 }
 
 pub(super) fn execute_function_block_ref(
@@ -94,6 +102,7 @@ pub(super) enum VmNativeSymbolSpec {
         target_name: SmolStr,
         normalized_target_name: SmolStr,
         resolved_function_pou_id: Option<u32>,
+        conversion_spec: Option<crate::stdlib::conversions::ConversionSpec>,
         arg_specs: Vec<VmNativeArgSpec>,
     },
     ParseError(SmolStr),
@@ -357,68 +366,8 @@ pub(super) enum VmRef {
     },
 }
 
-pub(super) fn opcode_operand_len(opcode: u8) -> Option<usize> {
-    match opcode {
-        0x00
-        | 0x01
-        | 0x06
-        | 0x11
-        | 0x12
-        | 0x13
-        | 0x14
-        | 0x15
-        | 0x23
-        | 0x24
-        | 0x31
-        | 0x32
-        | 0x33
-        | 0x61
-        | 0x40..=0x4E
-        | 0x50..=0x55 => Some(0),
-        0x02..=0x05 | 0x07 | 0x10 | 0x20..=0x22 | 0x30 | 0x60 | 0x70 => Some(4),
-        0x08 => Some(8),
-        0x09 => Some(12),
-        0x16 => Some(1),
-        _ => None,
-    }
-}
-
 pub(super) fn invalid_bytecode(message: impl Into<SmolStr>) -> RuntimeError {
     RuntimeError::InvalidBytecode(message.into())
-}
-
-pub(super) fn materialize_borrowed_value(value: &Value) -> (Value, bool) {
-    match value {
-        Value::Bool(value) => (Value::Bool(*value), false),
-        Value::SInt(value) => (Value::SInt(*value), false),
-        Value::Int(value) => (Value::Int(*value), false),
-        Value::DInt(value) => (Value::DInt(*value), false),
-        Value::LInt(value) => (Value::LInt(*value), false),
-        Value::USInt(value) => (Value::USInt(*value), false),
-        Value::UInt(value) => (Value::UInt(*value), false),
-        Value::UDInt(value) => (Value::UDInt(*value), false),
-        Value::ULInt(value) => (Value::ULInt(*value), false),
-        Value::Real(value) => (Value::Real(*value), false),
-        Value::LReal(value) => (Value::LReal(*value), false),
-        Value::Byte(value) => (Value::Byte(*value), false),
-        Value::Word(value) => (Value::Word(*value), false),
-        Value::DWord(value) => (Value::DWord(*value), false),
-        Value::LWord(value) => (Value::LWord(*value), false),
-        Value::Time(value) => (Value::Time(*value), false),
-        Value::LTime(value) => (Value::LTime(*value), false),
-        Value::Date(value) => (Value::Date(*value), false),
-        Value::LDate(value) => (Value::LDate(*value), false),
-        Value::Tod(value) => (Value::Tod(*value), false),
-        Value::LTod(value) => (Value::LTod(*value), false),
-        Value::Dt(value) => (Value::Dt(*value), false),
-        Value::Ldt(value) => (Value::Ldt(*value), false),
-        Value::Char(value) => (Value::Char(*value), false),
-        Value::WChar(value) => (Value::WChar(*value), false),
-        Value::Struct(value) => (Value::Struct(value.clone()), false),
-        Value::Instance(value) => (Value::Instance(*value), false),
-        Value::Null => (Value::Null, false),
-        _ => (value.clone(), true),
-    }
 }
 
 fn decode_ref_table(
@@ -511,5 +460,34 @@ fn infer_primary_instance_owner(entry: &VmPouEntry, code: &[u8], refs: &[VmRef])
         owners.iter().copied().next()
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn infer_primary_instance_owner_scans_partial_access_operands() {
+        let mut code = vec![0x22];
+        code.extend_from_slice(&0_u32.to_le_bytes());
+        code.push(0x62);
+        code.extend_from_slice(&0_u32.to_le_bytes());
+
+        let entry = VmPouEntry {
+            name: SmolStr::new("Main"),
+            code_start: 0,
+            code_end: code.len(),
+            local_ref_start: 0,
+            local_ref_count: 0,
+            primary_instance_owner: None,
+        };
+        let refs = vec![VmRef::Instance {
+            owner_instance_id: 42,
+            offset: 0,
+            path: RefPath::new(),
+        }];
+
+        assert_eq!(infer_primary_instance_owner(&entry, &code, &refs), Some(42));
     }
 }

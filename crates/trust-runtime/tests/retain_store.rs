@@ -1,8 +1,10 @@
 use std::env;
 
 use smol_str::SmolStr;
+use trust_hir::types::TypeRegistry;
+use trust_hir::TypeId;
 use trust_runtime::retain::{FileRetainStore, RetainStore};
-use trust_runtime::value::{ArrayValue, StructValue, Value};
+use trust_runtime::value::{ArrayValue, EnumValue, StructValue, Value};
 use trust_runtime::RetainSnapshot;
 
 fn temp_path(name: &str) -> std::path::PathBuf {
@@ -14,6 +16,12 @@ fn temp_path(name: &str) -> std::path::PathBuf {
 
 #[test]
 fn retain_store_roundtrip() {
+    let mut registry = TypeRegistry::new();
+    let phase_type = registry.register_enum(
+        "Phase",
+        TypeId::INT,
+        vec![("Idle".into(), 0), ("Running".into(), 1)],
+    );
     let mut snapshot = RetainSnapshot::default();
     snapshot.insert("Flag", Value::Bool(true));
     snapshot.insert("Count", Value::Int(42));
@@ -32,6 +40,12 @@ fn retain_store_roundtrip() {
                 .into_iter()
                 .collect(),
         ))),
+    );
+    snapshot.insert(
+        "Enum",
+        Value::Enum(Box::new(
+            EnumValue::new(&registry, phase_type, "Running").expect("valid retain enum"),
+        )),
     );
 
     let path = temp_path("roundtrip");

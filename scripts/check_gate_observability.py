@@ -26,6 +26,7 @@ REQUIRED_MARKERS = {
     "scripts/runtime_mesh_tls_stability_gate.sh": ["run_with_progress.py"],
     "scripts/runtime_vm_bench_gate.sh": ["run_with_progress.py"],
     "scripts/runtime_vm_determinism_reliability_gate.sh": ["run_with_progress.py"],
+    "scripts/runtime_vm_malformed_bytecode_fuzz_gate.sh": ["run_with_progress.py"],
 }
 
 

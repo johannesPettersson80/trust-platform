@@ -196,10 +196,13 @@ fn var_input_pointer_deref_write_mutates_callers_storage() {
     let mut storage = VariableStorage::new();
     storage.set_global(
         "Local",
-        Value::Array(Box::new(ArrayValue {
-            elements: vec![Value::Int(0), Value::Int(0), Value::Int(0), Value::Int(0)],
-            dimensions: vec![(0, 3)],
-        })),
+        Value::Array(Box::new(
+            ArrayValue::from_untyped_parts(
+                vec![Value::Int(0), Value::Int(0), Value::Int(0), Value::Int(0)],
+                vec![(0, 3)],
+            )
+            .unwrap(),
+        )),
     );
 
     let fb = FunctionBlockDef {
@@ -261,7 +264,7 @@ fn var_input_pointer_deref_write_mutates_callers_storage() {
     let Some(Value::Array(local)) = ctx.storage.get_global("Local") else {
         panic!("expected Local array");
     };
-    assert_eq!(local.elements[1], Value::Int(123));
+    assert_eq!(local.elements()[1], Value::Int(123));
 }
 
 #[test]
@@ -272,31 +275,37 @@ fn wildcard_array_var_in_out_writes_through_correctly() {
     let mut storage = VariableStorage::new();
     storage.set_global(
         "Small",
-        Value::Array(Box::new(ArrayValue {
-            elements: vec![
-                Value::Byte(0),
-                Value::Byte(0),
-                Value::Byte(0),
-                Value::Byte(0),
-            ],
-            dimensions: vec![(0, 3)],
-        })),
+        Value::Array(Box::new(
+            ArrayValue::from_untyped_parts(
+                vec![
+                    Value::Byte(0),
+                    Value::Byte(0),
+                    Value::Byte(0),
+                    Value::Byte(0),
+                ],
+                vec![(0, 3)],
+            )
+            .unwrap(),
+        )),
     );
     storage.set_global(
         "Large",
-        Value::Array(Box::new(ArrayValue {
-            elements: vec![
-                Value::Byte(0),
-                Value::Byte(0),
-                Value::Byte(0),
-                Value::Byte(0),
-                Value::Byte(0),
-                Value::Byte(0),
-                Value::Byte(0),
-                Value::Byte(0),
-            ],
-            dimensions: vec![(0, 7)],
-        })),
+        Value::Array(Box::new(
+            ArrayValue::from_untyped_parts(
+                vec![
+                    Value::Byte(0),
+                    Value::Byte(0),
+                    Value::Byte(0),
+                    Value::Byte(0),
+                    Value::Byte(0),
+                    Value::Byte(0),
+                    Value::Byte(0),
+                    Value::Byte(0),
+                ],
+                vec![(0, 7)],
+            )
+            .unwrap(),
+        )),
     );
 
     let fb = FunctionBlockDef {
@@ -371,8 +380,8 @@ fn wildcard_array_var_in_out_writes_through_correctly() {
     let Some(Value::Array(large)) = ctx.storage.get_global("Large") else {
         panic!("expected Large array");
     };
-    assert_eq!(small.elements[1], Value::Byte(9));
-    assert_eq!(large.elements[1], Value::Byte(9));
+    assert_eq!(small.elements()[1], Value::Byte(9));
+    assert_eq!(large.elements()[1], Value::Byte(9));
 }
 
 #[test]
@@ -384,15 +393,18 @@ fn pointer_to_wildcard_array_writes_through_correctly() {
     let mut storage = VariableStorage::new();
     storage.set_global(
         "Local",
-        Value::Array(Box::new(ArrayValue {
-            elements: vec![
-                Value::Byte(0),
-                Value::Byte(0),
-                Value::Byte(0),
-                Value::Byte(0),
-            ],
-            dimensions: vec![(0, 3)],
-        })),
+        Value::Array(Box::new(
+            ArrayValue::from_untyped_parts(
+                vec![
+                    Value::Byte(0),
+                    Value::Byte(0),
+                    Value::Byte(0),
+                    Value::Byte(0),
+                ],
+                vec![(0, 3)],
+            )
+            .unwrap(),
+        )),
     );
 
     let fb = FunctionBlockDef {
@@ -454,5 +466,5 @@ fn pointer_to_wildcard_array_writes_through_correctly() {
     let Some(Value::Array(local)) = ctx.storage.get_global("Local") else {
         panic!("expected Local array");
     };
-    assert_eq!(local.elements[2], Value::Byte(11));
+    assert_eq!(local.elements()[2], Value::Byte(11));
 }

@@ -38,7 +38,7 @@ pub(super) fn resolve_reference_for_lvalue(
             let Value::Array(array) = &array_value else {
                 return Err(RuntimeError::TypeMismatch);
             };
-            let dimensions = &array.dimensions;
+            let dimensions = array.dimensions();
             let index_values = eval_indices(ctx, indices)?;
             array_offset(dimensions, &index_values)?;
             let mut index_path = Vec::with_capacity(index_values.len());
@@ -67,8 +67,7 @@ pub(super) fn resolve_reference_for_lvalue(
                     .ref_for_instance_recursive(id, field.as_ref())
                     .ok_or_else(|| RuntimeError::UndefinedField(field.clone())),
                 Value::Struct(struct_value) => {
-                    let fields = &struct_value.fields;
-                    if !fields.contains_key(field) {
+                    if !struct_value.contains_field(field.as_str()) {
                         return Err(RuntimeError::UndefinedField(field.clone()));
                     }
                     let mut value_ref = resolve_reference_for_lvalue(ctx, target)?;

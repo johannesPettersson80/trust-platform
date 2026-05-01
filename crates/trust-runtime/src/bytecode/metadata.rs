@@ -69,7 +69,7 @@ fn resource_to_metadata(
                     index: *idx,
                 }
             })?;
-            fb_instances.push(entry.to_value_ref(strings)?);
+            fb_instances.push(ref_entry_to_value_ref(entry, strings)?);
         }
         tasks.push(TaskConfig {
             name: task_name,
@@ -92,43 +92,44 @@ fn resource_to_metadata(
     })
 }
 
-impl RefEntry {
-    fn to_value_ref(&self, strings: &StringTable) -> Result<ValueRef, BytecodeError> {
-        let location = match self.location {
-            RefLocation::Global => MemoryLocation::Global,
-            RefLocation::Local => MemoryLocation::Local(FrameId(self.owner_id)),
-            RefLocation::Instance => MemoryLocation::Instance(InstanceId(self.owner_id)),
-            RefLocation::Retain => MemoryLocation::Retain,
-            RefLocation::Io => {
-                let area = match self.owner_id {
-                    0 => IoArea::Input,
-                    1 => IoArea::Output,
-                    2 => IoArea::Memory,
-                    _ => return Err(BytecodeError::InvalidSection("invalid IO area".into())),
-                };
-                MemoryLocation::Io(area)
+fn ref_entry_to_value_ref(
+    entry: &RefEntry,
+    strings: &StringTable,
+) -> Result<ValueRef, BytecodeError> {
+    let location = match entry.location {
+        RefLocation::Global => MemoryLocation::Global,
+        RefLocation::Local => MemoryLocation::Local(FrameId(entry.owner_id)),
+        RefLocation::Instance => MemoryLocation::Instance(InstanceId(entry.owner_id)),
+        RefLocation::Retain => MemoryLocation::Retain,
+        RefLocation::Io => {
+            let area = match entry.owner_id {
+                0 => IoArea::Input,
+                1 => IoArea::Output,
+                2 => IoArea::Memory,
+                _ => return Err(BytecodeError::InvalidSection("invalid IO area".into())),
+            };
+            MemoryLocation::Io(area)
+        }
+    };
+    let mut path = RefPath::new();
+    for segment in &entry.segments {
+        match segment {
+            RefSegment::Index(indices) => {
+                path.push(ValueRefSegment::Index(ref_indices_from_iter(
+                    indices.iter().copied(),
+                )));
             }
-        };
-        let mut path = RefPath::new();
-        for segment in &self.segments {
-            match segment {
-                RefSegment::Index(indices) => {
-                    path.push(ValueRefSegment::Index(ref_indices_from_iter(
-                        indices.iter().copied(),
-                    )));
-                }
-                RefSegment::Field { name_idx } => {
-                    let name = lookup_string(strings, *name_idx)?;
-                    path.push(ValueRefSegment::Field(name));
-                }
+            RefSegment::Field { name_idx } => {
+                let name = lookup_string(strings, *name_idx)?;
+                path.push(ValueRefSegment::Field(name));
             }
         }
-        Ok(ValueRef {
-            location,
-            offset: self.offset as usize,
-            path,
-        })
     }
+    Ok(ValueRef {
+        location,
+        offset: entry.offset as usize,
+        path,
+    })
 }
 
 fn lookup_string(strings: &StringTable, idx: u32) -> Result<SmolStr, BytecodeError> {

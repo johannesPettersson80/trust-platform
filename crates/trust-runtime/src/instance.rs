@@ -550,7 +550,7 @@ pub(crate) fn apply_fb_instance_initializer(
     Ok(())
 }
 
-fn fb_initializer_target(
+pub(crate) fn fb_initializer_target(
     fb: &FunctionBlockDef,
     name: &SmolStr,
 ) -> Result<(SmolStr, trust_hir::TypeId), RuntimeError> {

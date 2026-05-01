@@ -7,10 +7,10 @@ use anyhow::{anyhow, bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::software_map::{
-    CliActionSummary, DependencyHygieneSummary, DependencyPolicyEntry, DiagramEdge, DiagramFact,
-    HostSurfaceSummary, ImportEdge, ModuleSummary, PackageSummary, ParserRecoverySummary,
-    RuntimeRouteHandlerSummary, SoftwareMap, SourceFileSummary, SourcePatternSummary,
-    TargetSummary, ToolResult, ToolStatus, UnsafeSummary, WorkspaceEdge,
+    CliActionSummary, DependencyEdge, DependencyHygieneSummary, DependencyPolicyEntry, DiagramEdge,
+    DiagramFact, FunctionSummary, HostSurfaceSummary, ImportEdge, ModuleSummary, PackageSummary,
+    ParserRecoverySummary, RuntimeRouteHandlerSummary, SoftwareMap, SourceFileSummary,
+    SourcePatternSummary, TargetSummary, ToolResult, ToolStatus, UnsafeSummary, WorkspaceEdge,
 };
 
 pub fn architecture_doctor_full_map(root: &Path) -> Result<()> {
@@ -150,6 +150,7 @@ struct TemporaryHostSurfaceImport {
 struct KissPolicy {
     new_file_line_limit: usize,
     existing_file_note_limit: usize,
+    function_note_limit: usize,
     split_plan_line_limit: usize,
     max_runtime_top_level_modules_current: usize,
     max_runtime_top_level_modules_after_boards: usize,
@@ -389,11 +390,17 @@ fn build_software_map(root: &Path, policy: &FullMapPolicy) -> Result<SoftwareMap
             let Some(dep_name) = dependency["name"].as_str() else {
                 continue;
             };
+            let kind = dependency["kind"].as_str().unwrap_or("normal").to_string();
+            map.direct_dependencies.push(DependencyEdge {
+                from: name.clone(),
+                to: dep_name.to_string(),
+                kind: kind.clone(),
+            });
             if workspace_package_names.contains(dep_name) {
                 map.workspace_edges.push(WorkspaceEdge {
                     from: name.clone(),
                     to: dep_name.to_string(),
-                    kind: dependency["kind"].as_str().unwrap_or("normal").to_string(),
+                    kind,
                 });
             }
         }
@@ -414,6 +421,7 @@ fn build_software_map(root: &Path, policy: &FullMapPolicy) -> Result<SoftwareMap
             .then_with(|| left.path.cmp(&right.path))
     });
     map.largest_files.truncate(50);
+    map.largest_functions = collect_runtime_function_summaries(root)?;
     map.runtime_top_level_modules = collect_runtime_top_level_modules(root)?;
     map.runtime_bin_modules = collect_runtime_bin_modules(root)?;
     let known_import_modules = map
@@ -439,7 +447,10 @@ fn build_software_map(root: &Path, policy: &FullMapPolicy) -> Result<SoftwareMap
     map.tool_results.push(ToolResult {
         name: "cargo metadata".to_string(),
         status: ToolStatus::Pass,
-        details: vec![format!("workspace packages: {}", map.packages.len())],
+        details: vec![
+            format!("workspace packages: {}", map.packages.len()),
+            format!("direct dependencies: {}", map.direct_dependencies.len()),
+        ],
     });
     map.tool_results.push(ToolResult {
         name: "source file scan".to_string(),
@@ -630,6 +641,19 @@ fn check_policy_metadata(policy: &FullMapPolicy) -> FullMapCheck {
     }
     if policy.review_date.trim().is_empty() {
         failures.push("review_date must be set".to_string());
+    }
+    if policy.runtime_core_forbidden_dependencies.is_empty()
+        || policy.runtime_core_forbidden_import_modules.is_empty()
+    {
+        failures.push(
+            "runtime-core forbidden dependency/import policies must be non-empty".to_string(),
+        );
+    }
+    if policy.kiss.max_runtime_top_level_modules_current == 0
+        || policy.kiss.max_runtime_top_level_modules_after_boards == 0
+        || policy.kiss.function_note_limit == 0
+    {
+        failures.push("KISS module/function caps must be non-zero".to_string());
     }
     for edge in &policy.allowed_workspace_edges {
         if edge.owner.trim().is_empty() || edge.rationale.trim().is_empty() {
@@ -881,7 +905,7 @@ fn check_runtime_core_dependency_fence(map: &SoftwareMap, policy: &FullMapPolicy
         .cloned()
         .collect::<BTreeSet<_>>();
     let mut violations = map
-        .workspace_edges
+        .direct_dependencies
         .iter()
         .filter(|edge| edge.from == "trust-runtime-core" && forbidden.contains(&edge.to))
         .map(|edge| {
@@ -1465,6 +1489,32 @@ fn check_kiss_thresholds(map: &SoftwareMap, policy: &FullMapPolicy) -> FullMapCh
             ));
         }
     }
+    let large_functions = map
+        .largest_functions
+        .iter()
+        .filter(|function| function.line_count >= policy.kiss.function_note_limit)
+        .collect::<Vec<_>>();
+    details.push(format!(
+        "runtime/core functions at or above {} lines: {}",
+        policy.kiss.function_note_limit,
+        large_functions.len()
+    ));
+    for function in large_functions.iter().take(10) {
+        details.push(format!(
+            "large function advisory: {}:{} {} lines={}",
+            function.path, function.line, function.name, function.line_count
+        ));
+        if function.path.starts_with("crates/trust-runtime-core/src/") {
+            failures.push(format!(
+                "trust-runtime-core function {}:{} {} has {} lines (limit {})",
+                function.path,
+                function.line,
+                function.name,
+                function.line_count,
+                policy.kiss.function_note_limit
+            ));
+        }
+    }
 
     if failures.is_empty() {
         FullMapCheck::pass(
@@ -1888,6 +1938,108 @@ fn count_rs_files_and_lines(path: &Path) -> Result<(usize, usize)> {
         }
     }
     Ok((file_count, line_count))
+}
+
+fn collect_runtime_function_summaries(root: &Path) -> Result<Vec<FunctionSummary>> {
+    let mut functions = Vec::new();
+    for rel in ["crates/trust-runtime/src", "crates/trust-runtime-core/src"] {
+        let path = root.join(rel);
+        if !path.exists() {
+            continue;
+        }
+        let mut files = Vec::new();
+        collect_source_files_inner(&path, &mut files)?;
+        for file in files {
+            if file.extension().and_then(|ext| ext.to_str()) != Some("rs") {
+                continue;
+            }
+            let source = fs::read_to_string(&file).unwrap_or_default();
+            functions.extend(function_summaries_from_source(
+                &rel_path(root, &file),
+                &source,
+            ));
+        }
+    }
+    functions.sort_by(|left, right| {
+        right
+            .line_count
+            .cmp(&left.line_count)
+            .then_with(|| left.path.cmp(&right.path))
+            .then_with(|| left.line.cmp(&right.line))
+            .then_with(|| left.name.cmp(&right.name))
+    });
+    Ok(functions)
+}
+
+fn function_summaries_from_source(path: &str, source: &str) -> Vec<FunctionSummary> {
+    let lines = source.lines().collect::<Vec<_>>();
+    let mut functions = Vec::new();
+    let mut index = 0usize;
+    while index < lines.len() {
+        let line = lines[index];
+        let Some(name) = function_name_from_line(line) else {
+            index += 1;
+            continue;
+        };
+        let start = index;
+        let mut cursor = index;
+        let mut saw_body = false;
+        let mut brace_depth = 0isize;
+        while cursor < lines.len() {
+            let body_line = strip_line_comment(lines[cursor]);
+            for ch in body_line.chars() {
+                match ch {
+                    '{' => {
+                        saw_body = true;
+                        brace_depth += 1;
+                    }
+                    '}' if saw_body => {
+                        brace_depth -= 1;
+                    }
+                    _ => {}
+                }
+            }
+            if saw_body && brace_depth <= 0 {
+                break;
+            }
+            cursor += 1;
+        }
+        if saw_body {
+            functions.push(FunctionSummary {
+                path: path.to_string(),
+                line: start + 1,
+                name,
+                line_count: cursor.saturating_sub(start) + 1,
+            });
+            index = cursor.saturating_add(1);
+        } else {
+            index += 1;
+        }
+    }
+    functions
+}
+
+fn function_name_from_line(line: &str) -> Option<String> {
+    let trimmed = line.trim_start();
+    if trimmed.starts_with("//") {
+        return None;
+    }
+    let position = trimmed.find("fn ")?;
+    if position > 0 {
+        let before = &trimmed[..position];
+        let valid_prefix = before
+            .split_whitespace()
+            .all(|token| matches!(token, "pub" | "async" | "const" | "unsafe" | "extern"));
+        if !valid_prefix && !before.contains("pub(") {
+            return None;
+        }
+    }
+    let rest = &trimmed[position + 3..];
+    let name = rest
+        .chars()
+        .take_while(|ch| ch.is_ascii_alphanumeric() || *ch == '_')
+        .collect::<String>();
+    (!name.is_empty()).then_some(name)
 }
 
 fn collect_import_edges(root: &Path, known_modules: &BTreeSet<String>) -> Result<Vec<ImportEdge>> {
@@ -2764,7 +2916,7 @@ mod tests {
             manifest_path: "crates/trust-runtime-core/Cargo.toml".to_string(),
             targets: Vec::new(),
         });
-        map.workspace_edges.push(WorkspaceEdge {
+        map.direct_dependencies.push(DependencyEdge {
             from: "trust-runtime-core".to_string(),
             to: "tokio".to_string(),
             kind: "normal".to_string(),
@@ -2784,6 +2936,112 @@ mod tests {
         });
 
         assert!(check_runtime_core_dependency_fence(&map, &base_policy()).is_fail());
+    }
+
+    #[test]
+    fn repo_runtime_core_policy_covers_runtime_split_forbidden_sets() {
+        let policy: FullMapPolicy =
+            serde_json::from_str(include_str!("../config/full_map_policy.json"))
+                .expect("parse repository full-map policy");
+        let dependencies = policy
+            .runtime_core_forbidden_dependencies
+            .iter()
+            .map(String::as_str)
+            .collect::<BTreeSet<_>>();
+        for dependency in [
+            "trust-runtime",
+            "trust-ide",
+            "trust-lsp",
+            "trust-debug",
+            "tokio",
+            "zenoh",
+            "rumqttc",
+            "rustls",
+            "tiny_http",
+            "tungstenite",
+            "mdns-sd",
+            "notify",
+            "opcua",
+            "ethercrab",
+            "ureq",
+            "ratatui",
+            "crossterm",
+            "home",
+        ] {
+            assert!(
+                dependencies.contains(dependency),
+                "runtime-core forbidden dependency policy missing {dependency}"
+            );
+        }
+
+        let imports = policy
+            .runtime_core_forbidden_import_modules
+            .iter()
+            .map(String::as_str)
+            .collect::<BTreeSet<_>>();
+        for module in [
+            "web",
+            "hmi",
+            "control",
+            "runtime_cloud",
+            "mesh",
+            "discovery",
+            "io",
+            "opcua",
+            "debug",
+            "security",
+            "setup",
+            "simulation",
+            "ui",
+            "historian",
+        ] {
+            assert!(
+                imports.contains(module),
+                "runtime-core forbidden import policy missing {module}"
+            );
+        }
+    }
+
+    #[test]
+    fn function_size_summaries_count_multiline_function_bodies() {
+        let source = r#"
+            pub(crate) fn tiny() {
+                helper();
+            }
+
+            fn multiline_signature(
+                value: i32,
+            ) -> i32 {
+                if value > 0 {
+                    value
+                } else {
+                    0
+                }
+            }
+        "#;
+
+        let functions = function_summaries_from_source("crates/trust-runtime/src/demo.rs", source);
+
+        assert_eq!(functions.len(), 2);
+        assert!(functions
+            .iter()
+            .any(|function| function.name == "tiny" && function.line_count == 3));
+        assert!(functions.iter().any(|function| {
+            function.name == "multiline_signature" && function.line_count == 9
+        }));
+    }
+
+    #[test]
+    fn known_bad_runtime_core_large_function_fails_kiss_check() {
+        let mut map = base_map();
+        map.largest_functions.push(FunctionSummary {
+            path: "crates/trust-runtime-core/src/value.rs".to_string(),
+            line: 10,
+            name: "oversized".to_string(),
+            line_count: 250,
+        });
+
+        assert!(check_kiss_thresholds(&map, &base_policy()).is_fail());
     }
 
     #[test]
@@ -3339,6 +3597,11 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
             to: "trust-hir".to_string(),
             kind: "normal".to_string(),
         });
+        map.direct_dependencies.push(DependencyEdge {
+            from: "trust-runtime".to_string(),
+            to: "trust-hir".to_string(),
+            kind: "normal".to_string(),
+        });
         map.source_files.push(SourceFileSummary {
             path: "crates/trust-runtime/src/lib.rs".to_string(),
             line_count: 10,
@@ -3510,6 +3773,7 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
             kiss: KissPolicy {
                 new_file_line_limit: 1000,
                 existing_file_note_limit: 1000,
+                function_note_limit: 200,
                 split_plan_line_limit: 1500,
                 max_runtime_top_level_modules_current: 5,
                 max_runtime_top_level_modules_after_boards: 2,

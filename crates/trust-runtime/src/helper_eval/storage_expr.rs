@@ -37,17 +37,20 @@ pub(crate) fn eval_storage_expr_with_stdlib(
 ) -> Result<Value, RuntimeError> {
     match expr {
         Expr::Literal(value) => Ok(value.clone()),
-        Expr::ArrayInitializer(elements) => Ok(Value::Array(Box::new(ArrayValue {
-            dimensions: vec![(1, elements.len() as i64)],
-            elements: eval_array_initializer_elements(
+        Expr::ArrayInitializer(elements) => {
+            let values = eval_array_initializer_elements(
                 storage,
                 registry,
                 profile,
                 current_instance,
                 stdlib,
                 elements,
-            )?,
-        }))),
+            )?;
+            let len = values.len() as i64;
+            ArrayValue::from_untyped_parts(values, vec![(1, len)])
+                .map(|value| Value::Array(Box::new(value)))
+                .map_err(|_| RuntimeError::TypeMismatch)
+        }
         Expr::StructInitializer(fields) => {
             eval_struct_initializer(storage, registry, profile, current_instance, stdlib, fields)
         }
@@ -256,7 +259,7 @@ fn resolve_lvalue_reference(
                 })
                 .collect::<Result<Vec<_>, _>>()?;
             checked_array_offset_i64(
-                &array.dimensions,
+                array.dimensions(),
                 &index_values
                     .iter()
                     .cloned()
@@ -290,7 +293,7 @@ fn resolve_lvalue_reference(
                     .ref_for_instance_recursive(id, field.as_str())
                     .ok_or_else(|| RuntimeError::UndefinedField(field.clone())),
                 Value::Struct(struct_value) => {
-                    if !struct_value.fields.contains_key(field) {
+                    if !struct_value.contains_field(field.as_str()) {
                         return Err(RuntimeError::UndefinedField(field.clone()));
                     }
                     let mut value_ref = resolve_lvalue_reference(
@@ -790,8 +793,7 @@ fn read_field(
     }
     match target {
         Value::Struct(struct_value) => struct_value
-            .fields
-            .get(field)
+            .field(field.as_str())
             .cloned()
             .ok_or_else(|| RuntimeError::UndefinedField(field.clone())),
         Value::Instance(id) => storage
@@ -805,9 +807,9 @@ fn read_field(
 fn read_indices(target: Value, indices: &[Value]) -> Result<Value, RuntimeError> {
     match target {
         Value::Array(array) => {
-            let offset = array_offset(&array.dimensions, indices)?;
+            let offset = array_offset(array.dimensions(), indices)?;
             array
-                .elements
+                .elements()
                 .get(offset)
                 .cloned()
                 .ok_or(RuntimeError::TypeMismatch)
@@ -940,5 +942,44 @@ mod tests {
             eval_storage_expr_with_stdlib(&storage, &registry, &profile, None, None, &expr),
             Err(RuntimeError::TypeMismatch)
         ));
+    }
+
+    #[test]
+    fn array_repetition_initializer_uses_expanded_value_shape() {
+        let expr = Expr::ArrayInitializer(vec![Expr::Call {
+            target: Box::new(Expr::Literal(Value::Int(3))),
+            args: vec![
+                CallArg {
+                    name: None,
+                    value: ArgValue::Expr(Expr::Literal(Value::Int(1))),
+                },
+                CallArg {
+                    name: None,
+                    value: ArgValue::Expr(Expr::Literal(Value::Int(2))),
+                },
+            ],
+        }]);
+
+        let storage = VariableStorage::new();
+        let registry = TypeRegistry::default();
+        let profile = DateTimeProfile::default();
+
+        let value = eval_storage_expr_with_stdlib(&storage, &registry, &profile, None, None, &expr)
+            .unwrap();
+        let Value::Array(array) = value else {
+            panic!("expected array value");
+        };
+        assert_eq!(array.dimensions(), &[(1, 6)]);
+        assert_eq!(
+            array.elements(),
+            &[
+                Value::Int(1),
+                Value::Int(2),
+                Value::Int(1),
+                Value::Int(2),
+                Value::Int(1),
+                Value::Int(2),
+            ]
+        );
     }
 }

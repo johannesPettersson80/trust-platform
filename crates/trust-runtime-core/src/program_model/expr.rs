@@ -1,9 +1,11 @@
+use alloc::{boxed::Box, format, vec::Vec};
+
 use smol_str::SmolStr;
+use trust_hir::TypeId;
 
 use crate::value::Value;
 
 use super::ops::{BinaryOp, UnaryOp};
-use super::CallArg;
 
 /// Expression node.
 #[derive(Debug, Clone)]
@@ -43,7 +45,7 @@ pub enum Expr {
 /// SIZEOF target.
 #[derive(Debug, Clone)]
 pub enum SizeOfTarget {
-    Type(trust_hir::TypeId),
+    Type(TypeId),
 }
 
 /// Assignment target.
@@ -59,6 +61,20 @@ pub enum LValue {
         field: SmolStr,
     },
     Deref(Box<Expr>),
+}
+
+/// Call argument value.
+#[derive(Debug, Clone)]
+pub enum ArgValue {
+    Expr(Expr),
+    Target(LValue),
+}
+
+/// Named call argument.
+#[derive(Debug, Clone)]
+pub struct CallArg {
+    pub name: Option<SmolStr>,
+    pub value: ArgValue,
 }
 
 impl LValue {
@@ -91,5 +107,26 @@ impl LValue {
             LValue::Field { target, .. } => target.contains_index(),
             LValue::Deref(_) => false,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::LValue;
+    use smol_str::SmolStr;
+
+    #[test]
+    fn lvalue_root_and_qualified_name_contracts_hold() {
+        let lvalue = LValue::Field {
+            target: Box::new(LValue::Field {
+                target: Box::new(LValue::Name(SmolStr::new("fb"))),
+                field: SmolStr::new("nested"),
+            }),
+            field: SmolStr::new("field"),
+        };
+
+        assert_eq!(lvalue.root_name().map(SmolStr::as_str), Some("fb"));
+        assert_eq!(lvalue.qualified_name().as_deref(), Some("fb.nested.field"));
+        assert!(!lvalue.contains_index());
     }
 }

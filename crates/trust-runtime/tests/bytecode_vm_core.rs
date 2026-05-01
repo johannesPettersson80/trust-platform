@@ -1,11 +1,14 @@
 use std::time::{Duration as StdDuration, Instant};
 
 use trust_runtime::bytecode::{
-    BytecodeModule, PouKind, SectionData, SectionId, TypeData, TypeEntry, TypeKind,
+    BytecodeModule, PouKind, RefEntry, RefLocation, RefSegment, SectionData, SectionId, TypeData,
+    TypeEntry, TypeKind,
 };
 use trust_runtime::error::RuntimeError;
 use trust_runtime::execution_backend::ExecutionBackend;
-use trust_runtime::harness::{bytecode_module_from_source, TestHarness};
+use trust_runtime::harness::{
+    bytecode_bytes_from_source, bytecode_module_from_source, TestHarness,
+};
 use trust_runtime::value::Value;
 use trust_runtime::Runtime;
 
@@ -505,6 +508,248 @@ fn vm_opcode_positive_path_covers_call_native_oop_dispatch() {
     harness.assert_eq("out_super", 10i16);
     harness.assert_eq("out_iface", 1i16);
     harness.assert_eq("out_direct", 3i16);
+}
+
+#[test]
+fn vm_call_native_method_polymorphic_receiver_dispatch_remains_correct() {
+    let source = r#"
+        INTERFACE ICounter
+        METHOD Inc : INT
+        VAR_INPUT
+            delta : INT;
+        END_VAR
+        END_METHOD
+        END_INTERFACE
+
+        CLASS CounterA IMPLEMENTS ICounter
+        VAR PUBLIC
+            value : INT := INT#0;
+        END_VAR
+        METHOD PUBLIC Inc : INT
+        VAR_INPUT
+            delta : INT;
+        END_VAR
+        value := value + delta;
+        Inc := value;
+        END_METHOD
+        END_CLASS
+
+        CLASS CounterB IMPLEMENTS ICounter
+        VAR PUBLIC
+            value : INT := INT#0;
+        END_VAR
+        METHOD PUBLIC Inc : INT
+        VAR_INPUT
+            delta : INT;
+        END_VAR
+        value := value + (delta * INT#10);
+        Inc := value;
+        END_METHOD
+        END_CLASS
+
+        PROGRAM Main
+        VAR
+            i : ICounter;
+            a : CounterA;
+            b : CounterB;
+            out_a1 : INT := INT#0;
+            out_b1 : INT := INT#0;
+            out_a2 : INT := INT#0;
+        END_VAR
+        i := a;
+        out_a1 := i.Inc(INT#1);
+        i := b;
+        out_b1 := i.Inc(INT#2);
+        i := a;
+        out_a2 := i.Inc(INT#3);
+        END_PROGRAM
+    "#;
+    let module = bytecode_module_from_source(source).expect("compile bytecode module");
+    let body = main_body_bytes(&module);
+    assert!(
+        body.contains(&0x09),
+        "expected CALL_NATIVE opcode in main body"
+    );
+
+    let mut harness = vm_harness(source);
+    let cycle = harness.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "CALL_NATIVE polymorphic method dispatch failed: {:?}",
+        cycle.errors
+    );
+    harness.assert_eq("out_a1", 1i16);
+    harness.assert_eq("out_b1", 20i16);
+    harness.assert_eq("out_a2", 4i16);
+}
+
+#[test]
+fn vm_call_native_direct_binding_preserves_named_default_out_and_inout_contracts() {
+    let source = r#"
+        FUNCTION MixFn : INT
+        VAR_INPUT
+            a : INT;
+            b : INT := INT#5;
+        END_VAR
+        VAR_OUTPUT
+            out_sum : INT;
+        END_VAR
+        VAR_IN_OUT
+            acc : INT;
+        END_VAR
+        out_sum := a + b;
+        acc := acc + out_sum;
+        MixFn := acc;
+        END_FUNCTION
+
+        FUNCTION_BLOCK MixFb
+        VAR_INPUT
+            in_a : INT;
+            in_b : INT := INT#4;
+        END_VAR
+        VAR_OUTPUT
+            out_sum : INT;
+        END_VAR
+        VAR_IN_OUT
+            acc : INT;
+        END_VAR
+        out_sum := in_a + in_b;
+        acc := acc + out_sum;
+        END_FUNCTION_BLOCK
+
+        CLASS MixClass
+        METHOD PUBLIC Apply : INT
+        VAR_INPUT
+            a : INT;
+            b : INT := INT#6;
+        END_VAR
+        VAR_OUTPUT
+            out_sum : INT;
+        END_VAR
+        VAR_IN_OUT
+            acc : INT;
+        END_VAR
+        out_sum := a + b;
+        acc := acc + out_sum;
+        Apply := acc;
+        END_METHOD
+        END_CLASS
+
+        PROGRAM Main
+        VAR
+            fb : MixFb;
+            obj : MixClass;
+            total_fn : INT := INT#10;
+            total_fb : INT := INT#20;
+            total_method : INT := INT#30;
+            out_fn : INT := INT#0;
+            out_fb : INT := INT#0;
+            out_method : INT := INT#0;
+            result_fn : INT := INT#0;
+            result_method : INT := INT#0;
+        END_VAR
+        result_fn := MixFn(a := INT#2, out_sum => out_fn, acc := total_fn);
+        fb(in_a := INT#3, out_sum => out_fb, acc := total_fb);
+        result_method := obj.Apply(a := INT#4, out_sum => out_method, acc := total_method);
+        END_PROGRAM
+    "#;
+    let module = bytecode_module_from_source(source).expect("compile bytecode module");
+    let body = main_body_bytes(&module);
+    assert!(
+        body.contains(&0x09),
+        "expected CALL_NATIVE opcode in main body"
+    );
+
+    let mut harness = vm_harness(source);
+    let cycle = harness.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "CALL_NATIVE direct binding parity failed: {:?}",
+        cycle.errors
+    );
+    harness.assert_eq("out_fn", 7i16);
+    harness.assert_eq("total_fn", 17i16);
+    harness.assert_eq("result_fn", 17i16);
+    harness.assert_eq("out_fb", 7i16);
+    harness.assert_eq("total_fb", 27i16);
+    harness.assert_eq("out_method", 10i16);
+    harness.assert_eq("total_method", 40i16);
+    harness.assert_eq("result_method", 40i16);
+}
+
+#[test]
+fn vm_call_native_direct_binding_module_swap_reloads_default_metadata() {
+    let source_v1 = r#"
+        FUNCTION AddDefault : INT
+        VAR_INPUT
+            a : INT;
+            b : INT := INT#5;
+        END_VAR
+        AddDefault := a + b;
+        END_FUNCTION
+
+        PROGRAM Main
+        VAR
+            result : INT := INT#0;
+        END_VAR
+        result := AddDefault(a := INT#2);
+        END_PROGRAM
+    "#;
+    let source_v2 = r#"
+        FUNCTION AddDefault : INT
+        VAR_INPUT
+            a : INT;
+            b : INT := INT#50;
+        END_VAR
+        AddDefault := a + b;
+        END_FUNCTION
+
+        PROGRAM Main
+        VAR
+            result : INT := INT#0;
+        END_VAR
+        result := AddDefault(a := INT#2);
+        END_PROGRAM
+    "#;
+    let bytes_v1 = bytecode_bytes_from_source(source_v1).expect("build bytecode v1");
+    let bytes_v2 = bytecode_bytes_from_source(source_v2).expect("build bytecode v2");
+
+    let mut harness = TestHarness::from_source(source_v1).expect("compile runtime");
+    harness
+        .runtime_mut()
+        .apply_bytecode_bytes(&bytes_v1, None)
+        .expect("apply bytecode v1");
+    harness
+        .runtime_mut()
+        .set_execution_backend(ExecutionBackend::BytecodeVm)
+        .expect("select vm backend");
+    harness
+        .runtime_mut()
+        .restart(trust_runtime::RestartMode::Cold)
+        .expect("restart runtime v1");
+    let first = harness.cycle();
+    assert!(
+        first.errors.is_empty(),
+        "CALL_NATIVE v1 failed: {:?}",
+        first.errors
+    );
+    harness.assert_eq("result", 7i16);
+
+    harness
+        .runtime_mut()
+        .apply_bytecode_bytes(&bytes_v2, None)
+        .expect("apply bytecode v2");
+    harness
+        .runtime_mut()
+        .restart(trust_runtime::RestartMode::Cold)
+        .expect("restart runtime v2");
+    let second = harness.cycle();
+    assert!(
+        second.errors.is_empty(),
+        "CALL_NATIVE v2 failed after module swap: {:?}",
+        second.errors
+    );
+    harness.assert_eq("result", 52i16);
 }
 
 #[test]
@@ -1201,6 +1446,137 @@ fn vm_validator_rejects_invalid_ref_index_operand() {
 }
 
 #[test]
+fn vm_validator_rejects_local_ref_outside_pou_local_range() {
+    let source = r#"
+        FUNCTION AddOne : DINT
+        VAR_INPUT
+            x : DINT;
+        END_VAR
+        VAR
+            y : DINT;
+        END_VAR
+            y := x + 1;
+            AddOne := y;
+        END_FUNCTION
+
+        PROGRAM Main
+        END_PROGRAM
+    "#;
+    let mut module = bytecode_module_from_source(source).expect("compile module");
+    let strings = match module.section(SectionId::StringTable) {
+        Some(SectionData::StringTable(strings)) => strings.clone(),
+        _ => panic!("missing STRING_TABLE"),
+    };
+    if let Some(SectionData::PouIndex(index)) = module.section_mut(SectionId::PouIndex) {
+        let function = index
+            .entries
+            .iter_mut()
+            .find(|entry| {
+                entry.kind == PouKind::Function
+                    && strings.entries[entry.name_idx as usize].eq_ignore_ascii_case("ADDONE")
+            })
+            .expect("AddOne function");
+        assert!(function.local_ref_count > 0, "expected function local refs");
+        function.local_ref_count = 0;
+    } else {
+        panic!("missing POU_INDEX");
+    }
+
+    assert_apply_invalid_bytecode_contains(&module, "local ref outside POU local range");
+}
+
+#[test]
+fn vm_validator_accepts_local_path_ref_for_pou_owned_local_slot() {
+    let source = r#"
+        FUNCTION ReadCell : DINT
+        VAR
+            cells : ARRAY[0..1] OF DINT;
+        END_VAR
+            ReadCell := 0;
+        END_FUNCTION
+
+        PROGRAM Main
+        END_PROGRAM
+    "#;
+    let mut module = bytecode_module_from_source(source).expect("compile module");
+    let strings = match module.section(SectionId::StringTable) {
+        Some(SectionData::StringTable(strings)) => strings.clone(),
+        _ => panic!("missing STRING_TABLE"),
+    };
+    let (function_id, local_ref_start, local_ref_count) = match module.section(SectionId::PouIndex)
+    {
+        Some(SectionData::PouIndex(index)) => {
+            let function = index
+                .entries
+                .iter()
+                .find(|entry| {
+                    entry.kind == PouKind::Function
+                        && strings.entries[entry.name_idx as usize].eq_ignore_ascii_case("READCELL")
+                })
+                .expect("ReadCell function");
+            (
+                function.id,
+                function.local_ref_start,
+                function.local_ref_count,
+            )
+        }
+        _ => panic!("missing POU_INDEX"),
+    };
+    assert!(
+        local_ref_count > 0,
+        "expected ReadCell to own at least one local slot"
+    );
+
+    let path_ref_idx = match module.section_mut(SectionId::RefTable) {
+        Some(SectionData::RefTable(ref_table)) => {
+            let owner_id = ref_table.entries[local_ref_start as usize].owner_id;
+            let idx = ref_table.entries.len() as u32;
+            ref_table.entries.push(RefEntry {
+                location: RefLocation::Local,
+                owner_id,
+                offset: 0,
+                segments: vec![RefSegment::Index(vec![0])],
+            });
+            idx
+        }
+        _ => panic!("missing REF_TABLE"),
+    };
+
+    let mut body = vec![0x20];
+    body.extend_from_slice(&path_ref_idx.to_le_bytes());
+    body.push(0x06);
+    let new_offset =
+        if let Some(SectionData::PouBodies(code)) = module.section_mut(SectionId::PouBodies) {
+            let offset = code.len() as u32;
+            code.extend_from_slice(&body);
+            offset
+        } else {
+            panic!("missing POU_BODIES");
+        };
+    if let Some(SectionData::PouIndex(index)) = module.section_mut(SectionId::PouIndex) {
+        let function = index
+            .entries
+            .iter_mut()
+            .find(|entry| entry.id == function_id)
+            .expect("ReadCell function entry");
+        function.code_offset = new_offset;
+        function.code_length = body.len() as u32;
+    } else {
+        panic!("missing POU_INDEX");
+    }
+    module.sections.retain(|section| {
+        section.id != SectionId::DebugMap.as_raw()
+            && section.id != SectionId::DebugStringTable.as_raw()
+    });
+
+    let bytes = module.encode().expect("encode module");
+    let mut runtime = Runtime::new();
+    runtime
+        .apply_bytecode_bytes(&bytes, None)
+        .expect("local path refs owned by the POU local frame should validate");
+}
+
+#[test]
 fn vm_validator_rejects_invalid_const_index_operand() {
     let source = r#"
         PROGRAM Main
@@ -1214,6 +1590,32 @@ fn vm_validator_rejects_invalid_const_index_operand() {
     replace_main_body(&mut module, &body);
 
     assert_apply_invalid_bytecode_contains(&module, "invalid index 255 for const");
+}
+
+#[test]
+fn vm_validator_rejects_duplicate_pou_ids() {
+    let source = r#"
+        FUNCTION Helper : DINT
+            Helper := DINT#1;
+        END_FUNCTION
+
+        PROGRAM Main
+        VAR
+            value : DINT := DINT#0;
+        END_VAR
+            value := Helper();
+        END_PROGRAM
+    "#;
+    let mut module = bytecode_module_from_source(source).expect("compile module");
+    if let Some(SectionData::PouIndex(index)) = module.section_mut(SectionId::PouIndex) {
+        assert!(index.entries.len() >= 2, "expected multiple POU entries");
+        let duplicate_id = index.entries[0].id;
+        index.entries[1].id = duplicate_id;
+    } else {
+        panic!("missing POU_INDEX");
+    }
+
+    assert_apply_invalid_bytecode_contains(&module, "duplicate POU id");
 }
 
 #[test]
@@ -1266,7 +1668,7 @@ fn vm_rejects_invalid_jump_target() {
 }
 
 #[test]
-fn vm_traps_unsupported_call_method_opcode() {
+fn vm_validator_rejects_unsupported_call_method_opcode() {
     let source = r#"
         PROGRAM Main
         END_PROGRAM
@@ -1278,9 +1680,102 @@ fn vm_traps_unsupported_call_method_opcode() {
     body.push(0x06);
     replace_main_body(&mut module, &body);
 
-    let mut harness = vm_harness_from_module(source, &module);
-    let cycle = harness.cycle();
-    assert_invalid_bytecode_contains(&cycle.errors, "vm unsupported opcode CALL_METHOD");
+    assert_apply_invalid_bytecode_contains(&module, "unsupported runtime opcode CALL_METHOD");
+}
+
+#[test]
+fn vm_malformed_bytecode_fuzz_smoke_budget() {
+    let source = r#"
+        FUNCTION AddOne : DINT
+        VAR_INPUT
+            x : DINT;
+        END_VAR
+        VAR
+            y : DINT;
+        END_VAR
+            y := x + 1;
+            AddOne := y;
+        END_FUNCTION
+
+        PROGRAM Main
+        VAR
+            count : DINT := 0;
+            s : STRING := '';
+            ws : WSTRING := "";
+        END_VAR
+            count := AddOne(count);
+            s := 'A';
+            ws := "A";
+        END_PROGRAM
+    "#;
+
+    for seed in 0..8 {
+        let mut module = bytecode_module_from_source(source).expect("compile module");
+        let expected = match seed {
+            0 => {
+                if let Some(SectionData::PouIndex(index)) = module.section_mut(SectionId::PouIndex)
+                {
+                    let duplicate_id = index.entries[0].id;
+                    index.entries[1].id = duplicate_id;
+                }
+                "duplicate POU id"
+            }
+            1 => {
+                replace_main_body(&mut module, &[0x07]);
+                "unsupported runtime opcode CALL_METHOD"
+            }
+            2 => {
+                let mut body = vec![0x10];
+                body.extend_from_slice(&255_u32.to_le_bytes());
+                replace_main_body(&mut module, &body);
+                "invalid index 255 for const"
+            }
+            3 => {
+                replace_main_body(&mut module, &[0x20]);
+                "unexpected end of input"
+            }
+            4 => {
+                let mut body = vec![0x20];
+                body.extend_from_slice(&255_u32.to_le_bytes());
+                replace_main_body(&mut module, &body);
+                "invalid index 255 for ref"
+            }
+            5 => {
+                let mut body = vec![0x02];
+                body.extend_from_slice(&(4_096_i32).to_le_bytes());
+                body.push(0x06);
+                replace_main_body(&mut module, &body);
+                "invalid jump target"
+            }
+            6 => {
+                let strings = match module.section(SectionId::StringTable) {
+                    Some(SectionData::StringTable(strings)) => strings.clone(),
+                    _ => panic!("missing STRING_TABLE"),
+                };
+                if let Some(SectionData::PouIndex(index)) = module.section_mut(SectionId::PouIndex)
+                {
+                    let function = index
+                        .entries
+                        .iter_mut()
+                        .find(|entry| {
+                            entry.kind == PouKind::Function
+                                && strings.entries[entry.name_idx as usize]
+                                    .eq_ignore_ascii_case("ADDONE")
+                        })
+                        .expect("AddOne function");
+                    function.local_ref_count = 0;
+                }
+                "local ref outside POU local range"
+            }
+            7 => {
+                mutate_first_const_payload_for_primitive(&mut module, 24, vec![0xFF]);
+                "invalid STRING const UTF-8"
+            }
+            _ => unreachable!(),
+        };
+
+        assert_apply_invalid_bytecode_contains(&module, expected);
+    }
 }
 
 #[test]

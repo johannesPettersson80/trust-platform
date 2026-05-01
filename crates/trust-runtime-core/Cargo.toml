@@ -1,0 +1,20 @@
+[package]
+name = "trust-runtime-core"
+description = "Portable execution core scaffold for the truST runtime"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[features]
+default = ["std"]
+std = []
+hir = ["std", "dep:trust-hir"]
+
+[dependencies]
+indexmap.workspace = true
+rustc-hash.workspace = true
+smol_str.workspace = true
+thiserror.workspace = true
+trust-hir = { workspace = true, optional = true }

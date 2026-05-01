@@ -18,8 +18,8 @@ use crate::value::{size_of_value, Value};
 use super::super::core::Runtime;
 use super::call::{execute_native_call, push_call_frame};
 use super::dispatch_refs::{
-    dynamic_load_ref, dynamic_ref_field, dynamic_ref_index, dynamic_store_ref, index_to_i64,
-    load_ref_addr, peek_ref, store_ref,
+    dynamic_load_ref, dynamic_ref_field, dynamic_ref_field_borrowed, dynamic_ref_index,
+    dynamic_store_ref, index_to_i64, load_ref_addr, peek_ref, store_ref,
 };
 use super::dispatch_sizeof::{sizeof_error_to_runtime, sizeof_type_from_table};
 use super::errors::VmTrap;
@@ -69,6 +69,14 @@ pub(super) enum RegisterInstr {
     },
     LoadSuper {
         dest: RegisterId,
+    },
+    LoadSelfFieldDynamic {
+        field_idx: u32,
+        dest: RegisterId,
+    },
+    StoreSelfFieldDynamic {
+        field_idx: u32,
+        value: RegisterId,
     },
     Move {
         src: RegisterId,
@@ -212,7 +220,7 @@ impl RegisterExecutionBuffers {
         let mut registers = VM_REGISTER_FILE_POOL
             .with(|pool| pool.borrow_mut().pop())
             .unwrap_or_default();
-        registers.resize(max_registers, Value::Null);
+        prepare_register_file(&mut registers, max_registers);
         let mut remaining_register_reads = VM_REGISTER_READ_COUNTS_POOL
             .with(|pool| pool.borrow_mut().pop())
             .unwrap_or_default();
@@ -266,7 +274,7 @@ impl Drop for RegisterExecutionBuffers {
             });
         }
         if let Some(mut registers) = self.registers.take() {
-            registers.clear();
+            reset_register_file(&mut registers);
             VM_REGISTER_FILE_POOL.with(|pool| {
                 let mut pool = pool.borrow_mut();
                 if pool.len() < REGISTER_EXECUTION_POOL_LIMIT {
@@ -291,6 +299,22 @@ impl Drop for RegisterExecutionBuffers {
                     pool.push(native_call_stack);
                 }
             });
+        }
+    }
+}
+
+fn prepare_register_file(registers: &mut Vec<Value>, max_registers: usize) {
+    if registers.len() < max_registers {
+        registers.resize(max_registers, Value::Null);
+    } else if registers.len() > max_registers {
+        registers.truncate(max_registers);
+    }
+}
+
+fn reset_register_file(registers: &mut [Value]) {
+    for slot in registers {
+        if !matches!(slot, Value::Null) {
+            *slot = Value::Null;
         }
     }
 }
@@ -691,6 +715,43 @@ fn execute_register_block_interpreted(
                     VmTrap::Runtime(RuntimeError::TypeMismatch).into_runtime_error()
                 })?;
                 write_register(registers, *dest, Value::Instance(super_instance))?;
+            }
+            RegisterInstr::LoadSelfFieldDynamic { field_idx, dest } => {
+                runtime
+                    .vm_register_profile
+                    .record_ref_op(RegisterRefOpKind::RefField);
+                runtime
+                    .vm_register_profile
+                    .record_ref_op(RegisterRefOpKind::InstanceFieldLookup);
+                runtime
+                    .vm_register_profile
+                    .record_ref_op(RegisterRefOpKind::LoadDynamic);
+                let field = register_field_name(module, *field_idx)?;
+                let self_instance = current_self_instance(frames)?;
+                let value = load_instance_field_dynamic(runtime, frames, self_instance, field)?;
+                write_register(registers, *dest, value)?;
+            }
+            RegisterInstr::StoreSelfFieldDynamic { field_idx, value } => {
+                runtime
+                    .vm_register_profile
+                    .record_ref_op(RegisterRefOpKind::RefField);
+                runtime
+                    .vm_register_profile
+                    .record_ref_op(RegisterRefOpKind::InstanceFieldLookup);
+                runtime
+                    .vm_register_profile
+                    .record_ref_op(RegisterRefOpKind::StoreDynamic);
+                let field = register_field_name(module, *field_idx)?;
+                let self_instance = current_self_instance(frames)?;
+                let reference = resolve_instance_field_ref(runtime, self_instance, field)?;
+                let value = read_register_with_counts(
+                    &mut runtime.vm_register_profile,
+                    registers,
+                    remaining_register_reads,
+                    *value,
+                )?;
+                dynamic_store_ref(runtime, frames, &reference, value)
+                    .map_err(VmTrap::into_runtime_error)?;
             }
             RegisterInstr::Move { src, dest } => {
                 let value = read_register_with_counts(
@@ -1180,6 +1241,9 @@ fn register_read_counts_for_block(max_registers: u32, block: &RegisterBlock) -> 
                 increment_register_read_count(&mut counts, *reference);
                 increment_register_read_count(&mut counts, *value);
             }
+            RegisterInstr::StoreSelfFieldDynamic { value, .. } => {
+                increment_register_read_count(&mut counts, *value);
+            }
             RegisterInstr::Unary { src, .. } => {
                 increment_register_read_count(&mut counts, *src);
             }
@@ -1203,6 +1267,7 @@ fn register_read_counts_for_block(max_registers: u32, block: &RegisterBlock) -> 
             | RegisterInstr::LoadNull { .. }
             | RegisterInstr::LoadSelf { .. }
             | RegisterInstr::LoadSuper { .. }
+            | RegisterInstr::LoadSelfFieldDynamic { .. }
             | RegisterInstr::SizeOfType { .. }
             | RegisterInstr::BinaryRefToRef { .. }
             | RegisterInstr::BinaryRefConstToRef { .. }
@@ -1263,6 +1328,48 @@ fn read_register_with_counts(
         profile.record_value_op(RegisterValueOpKind::RegisterReadClone);
         Ok(slot.clone())
     }
+}
+
+fn register_field_name(
+    module: &VmModule,
+    field_idx: u32,
+) -> Result<&smol_str::SmolStr, RuntimeError> {
+    module.strings.get(field_idx as usize).ok_or_else(|| {
+        VmTrap::BytecodeDecode(format!("invalid index {field_idx} for string").into())
+            .into_runtime_error()
+    })
+}
+
+fn current_self_instance(frames: &FrameStack) -> Result<InstanceId, RuntimeError> {
+    let frame = frames
+        .current()
+        .ok_or_else(|| VmTrap::CallStackUnderflow.into_runtime_error())?;
+    frame
+        .runtime_instance
+        .ok_or_else(|| VmTrap::Runtime(RuntimeError::TypeMismatch).into_runtime_error())
+}
+
+fn resolve_instance_field_ref(
+    runtime: &Runtime,
+    instance_id: InstanceId,
+    field: &smol_str::SmolStr,
+) -> Result<crate::value::ValueRef, RuntimeError> {
+    runtime
+        .storage
+        .resolved_instance_field_ref(instance_id, field.as_str())
+        .ok_or_else(|| {
+            VmTrap::Runtime(RuntimeError::UndefinedField(field.clone())).into_runtime_error()
+        })
+}
+
+fn load_instance_field_dynamic(
+    runtime: &Runtime,
+    frames: &FrameStack,
+    instance_id: InstanceId,
+    field: &smol_str::SmolStr,
+) -> Result<Value, RuntimeError> {
+    let reference = resolve_instance_field_ref(runtime, instance_id, field)?;
+    dynamic_load_ref(runtime, frames, &reference).map_err(VmTrap::into_runtime_error)
 }
 
 fn read_bool_register_with_counts(

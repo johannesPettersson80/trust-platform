@@ -12,40 +12,7 @@ use indexmap::IndexMap;
 use rustc_hash::FxHashMap;
 use smol_str::SmolStr;
 use std::sync::RwLock;
-
-/// Memory location identifier.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum MemoryLocation {
-    /// Global variable area.
-    Global,
-    /// Local variable area for a specific call frame.
-    Local(FrameId),
-    /// FB/Class instance storage.
-    Instance(InstanceId),
-    /// I/O area (direct addresses).
-    Io(IoArea),
-    /// Retain area (persistent across warm restart).
-    Retain,
-}
-
-/// I/O area identifiers per IEC 61131-3.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum IoArea {
-    /// Input area (%I).
-    Input,
-    /// Output area (%Q).
-    Output,
-    /// Memory area (%M).
-    Memory,
-}
-
-/// Frame identifier for call stack.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct FrameId(pub u32);
-
-/// Instance identifier for FB/Class instances.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct InstanceId(pub u32);
+pub use trust_runtime_core::memory::{FrameId, InstanceId, IoArea, MemoryLocation};
 
 /// A local variable frame for function/method calls.
 #[derive(Debug, Clone)]
@@ -548,6 +515,10 @@ impl VariableStorage {
         }
     }
 
+    pub(crate) fn read_global_slot_by_offset(&self, offset: usize) -> Option<&Value> {
+        self.globals.get_index(offset).map(|(_, value)| value)
+    }
+
     pub(crate) fn write_direct_slot_by_location(
         &mut self,
         location: MemoryLocation,
@@ -583,6 +554,15 @@ impl VariableStorage {
                 .is_some(),
             MemoryLocation::Io(_) | MemoryLocation::Retain => false,
         }
+    }
+
+    pub(crate) fn write_global_slot_by_offset(&mut self, offset: usize, value: Value) -> bool {
+        self.globals
+            .get_index_mut(offset)
+            .map(|(_, slot)| {
+                *slot = crate::value::normalize_assignment_for_target(slot, value);
+            })
+            .is_some()
     }
 
     pub fn read_by_ref(&self, value_ref: crate::value::ValueRef) -> Option<&Value> {
@@ -1126,10 +1106,10 @@ mod tests {
     #[test]
     fn write_by_ref_path_preserves_struct_copy_on_write_isolation() {
         let mut storage = VariableStorage::new();
-        let shared = Value::Struct(std::sync::Arc::new(StructValue {
-            type_name: SmolStr::new("AXIS_REF"),
-            fields: IndexMap::from([(SmolStr::new("InternalIndex"), Value::UInt(1))]),
-        }));
+        let shared = Value::Struct(std::sync::Arc::new(StructValue::from_untyped_parts(
+            SmolStr::new("AXIS_REF"),
+            IndexMap::from([(SmolStr::new("InternalIndex"), Value::UInt(1))]),
+        )));
         storage.set_global("left", shared.clone());
         storage.set_global("right", shared);
 
@@ -1148,14 +1128,8 @@ mod tests {
         let Value::Struct(right_struct) = right else {
             panic!("right should be struct");
         };
-        assert_eq!(
-            left_struct.fields.get("InternalIndex"),
-            Some(&Value::UInt(7))
-        );
-        assert_eq!(
-            right_struct.fields.get("InternalIndex"),
-            Some(&Value::UInt(1))
-        );
+        assert_eq!(left_struct.field("InternalIndex"), Some(&Value::UInt(7)));
+        assert_eq!(right_struct.field("InternalIndex"), Some(&Value::UInt(1)));
     }
 
     #[test]
@@ -1163,10 +1137,10 @@ mod tests {
         let mut storage = VariableStorage::new();
         storage.set_global(
             "GRID",
-            Value::Array(Box::new(ArrayValue {
-                elements: vec![Value::DInt(7)],
-                dimensions: vec![(i64::MIN, i64::MAX)],
-            })),
+            Value::Array(Box::new(ArrayValue::from_canonical_parts(
+                vec![Value::DInt(7)],
+                vec![(i64::MIN, i64::MAX)],
+            ))),
         );
         let mut reference = storage.ref_for_global("GRID").expect("grid ref");
         reference

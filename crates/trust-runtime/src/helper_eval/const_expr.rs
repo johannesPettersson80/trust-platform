@@ -62,10 +62,10 @@ pub(crate) fn eval_const_expr_with_resolver_and_registry(
         Expr::ArrayInitializer(elements) => {
             let values =
                 eval_array_initializer_elements(elements, profile, registry, resolve_name)?;
-            Ok(Value::Array(Box::new(ArrayValue {
-                dimensions: vec![(1, values.len() as i64)],
-                elements: values,
-            })))
+            let len = values.len() as i64;
+            ArrayValue::from_untyped_parts(values, vec![(1, len)])
+                .map(|value| Value::Array(Box::new(value)))
+                .map_err(|_| RuntimeError::TypeMismatch.into())
         }
         Expr::Unary { op, expr } => {
             let value = eval_const_expr_with_resolver(expr, profile, resolve_name)?;
@@ -216,5 +216,39 @@ mod tests {
         })
         .unwrap();
         assert_eq!(value, Value::Int(12));
+    }
+
+    #[test]
+    fn array_repetition_initializer_uses_expanded_value_shape() {
+        let expr = Expr::ArrayInitializer(vec![Expr::Call {
+            target: Box::new(Expr::Literal(Value::Int(3))),
+            args: vec![
+                crate::program_model::CallArg {
+                    name: None,
+                    value: crate::program_model::ArgValue::Expr(Expr::Literal(Value::Int(1))),
+                },
+                crate::program_model::CallArg {
+                    name: None,
+                    value: crate::program_model::ArgValue::Expr(Expr::Literal(Value::Int(2))),
+                },
+            ],
+        }]);
+
+        let value = eval_const_expr(&expr, &DateTimeProfile::default()).unwrap();
+        let Value::Array(array) = value else {
+            panic!("expected array value");
+        };
+        assert_eq!(array.dimensions(), &[(1, 6)]);
+        assert_eq!(
+            array.elements(),
+            &[
+                Value::Int(1),
+                Value::Int(2),
+                Value::Int(1),
+                Value::Int(2),
+                Value::Int(1),
+                Value::Int(2),
+            ]
+        );
     }
 }

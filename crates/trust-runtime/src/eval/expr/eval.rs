@@ -19,10 +19,12 @@ use super::lvalue::resolve_reference_for_lvalue;
 pub fn eval_expr(ctx: &mut EvalContext<'_>, expr: &Expr) -> Result<Value, RuntimeError> {
     match expr {
         Expr::Literal(value) => Ok(value.clone()),
-        Expr::ArrayInitializer(elements) => Ok(Value::Array(Box::new(ArrayValue {
-            dimensions: vec![(1, elements.len() as i64)],
-            elements: eval_array_initializer_elements(ctx, elements)?,
-        }))),
+        Expr::ArrayInitializer(elements) => {
+            let values = eval_array_initializer_elements(ctx, elements)?;
+            ArrayValue::from_untyped_parts(values, vec![(1, elements.len() as i64)])
+                .map(|value| Value::Array(Box::new(value)))
+                .map_err(|_| RuntimeError::TypeMismatch)
+        }
         Expr::StructInitializer(fields) => {
             let mut values = IndexMap::new();
             for (field, expr) in fields {

@@ -15,6 +15,8 @@ use crate::value::Value;
 use crate::Runtime;
 use crate::RuntimeMetadata;
 
+pub use trust_runtime_core::scheduler::ResourceState;
+
 include!("scheduler/clock.rs");
 include!("scheduler/model.rs");
 include!("scheduler/runner_api.rs");

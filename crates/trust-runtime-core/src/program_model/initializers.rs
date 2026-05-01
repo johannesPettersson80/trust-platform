@@ -30,3 +30,25 @@ impl InitializerCatalog {
         self.type_defaults.get(&type_id).copied()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::InitializerCatalog;
+    use crate::program_model::Expr;
+    use crate::value::Value;
+    use trust_hir::TypeId;
+
+    #[test]
+    fn initializer_catalog_preserves_record_and_type_default_lookup() {
+        let mut catalog = InitializerCatalog::default();
+
+        let initializer = catalog.insert(Expr::Literal(Value::Int(7)));
+        catalog.set_type_default(TypeId::INT, initializer);
+
+        assert!(matches!(
+            catalog.initializer(initializer),
+            Some(Expr::Literal(Value::Int(7)))
+        ));
+        assert_eq!(catalog.type_default(TypeId::INT), Some(initializer));
+    }
+}

@@ -52,6 +52,14 @@ pub(super) fn peek_ref<'a>(
         .ok_or(VmTrap::InvalidRefIndex(ref_idx))?;
 
     match reference {
+        VmRef::Global { offset, path } if path.is_empty() => runtime
+            .storage
+            .read_global_slot_by_offset(*offset)
+            .ok_or(VmTrap::NullReference),
+        VmRef::Global { offset, path } => runtime
+            .storage
+            .read_by_ref_parts(MemoryLocation::Global, *offset, path)
+            .ok_or(VmTrap::NullReference),
         VmRef::Local { offset, path, .. } => {
             let frame = frames.current().ok_or(VmTrap::CallStackUnderflow)?;
             if path.is_empty() {
@@ -120,6 +128,23 @@ pub(super) fn store_ref(
         .ok_or(VmTrap::InvalidRefIndex(ref_idx))?;
 
     match reference {
+        VmRef::Global { offset, path } if path.is_empty() => {
+            if runtime.storage.write_global_slot_by_offset(*offset, value) {
+                Ok(())
+            } else {
+                Err(VmTrap::NullReference)
+            }
+        }
+        VmRef::Global { offset, path } => {
+            if runtime
+                .storage
+                .write_by_ref_parts(MemoryLocation::Global, *offset, path, value)
+            {
+                Ok(())
+            } else {
+                Err(VmTrap::NullReference)
+            }
+        }
         VmRef::Local { offset, path, .. } => {
             let frame = frames.current_mut().ok_or(VmTrap::CallStackUnderflow)?;
             if path.is_empty() {
@@ -162,11 +187,35 @@ pub(super) fn dynamic_ref_field(
     let target = peek_dynamic_ref(runtime, frames, &reference)?;
     match target {
         Value::Struct(struct_value) => {
-            if !struct_value.fields.contains_key(field.as_str()) {
+            if !struct_value.contains_field(field.as_str()) {
                 return Err(VmTrap::Runtime(RuntimeError::UndefinedField(field)));
             }
             reference.path.push(RefSegment::Field(field));
             Ok(reference)
+        }
+        Value::Instance(instance_id) => runtime
+            .storage
+            .resolved_instance_field_ref(*instance_id, field.as_str())
+            .ok_or(VmTrap::Runtime(RuntimeError::UndefinedField(field))),
+        _ => Err(VmTrap::Runtime(RuntimeError::TypeMismatch)),
+    }
+}
+
+pub(super) fn dynamic_ref_field_borrowed(
+    runtime: &Runtime,
+    frames: &FrameStack,
+    reference: &ValueRef,
+    field: SmolStr,
+) -> Result<ValueRef, VmTrap> {
+    let target = peek_dynamic_ref(runtime, frames, reference)?;
+    match target {
+        Value::Struct(struct_value) => {
+            if !struct_value.contains_field(field.as_str()) {
+                return Err(VmTrap::Runtime(RuntimeError::UndefinedField(field)));
+            }
+            let mut next = reference.clone();
+            next.path.push(RefSegment::Field(field));
+            Ok(next)
         }
         Value::Instance(instance_id) => runtime
             .storage
@@ -184,12 +233,12 @@ pub(super) fn dynamic_ref_index(
 ) -> Result<ValueRef, VmTrap> {
     // Support chained indexing for multidimensional arrays by extending a trailing
     // partial index segment (e.g. [i] -> [i, j]) against the base array dimensions.
-    if let Some(RefSegment::Index(existing)) = reference.path.last().cloned() {
-        let mut base_reference = reference.clone();
-        let _ = base_reference.path.pop();
-        if let Value::Array(array) = peek_dynamic_ref(runtime, frames, &base_reference)? {
-            if existing.len() < array.dimensions.len() {
-                let (lower, upper) = array.dimensions[existing.len()];
+    if let Some(RefSegment::Index(existing)) = reference.path.last() {
+        let base_path = &reference.path[..reference.path.len().saturating_sub(1)];
+        if let Value::Array(array) = peek_dynamic_ref_path(runtime, frames, &reference, base_path)?
+        {
+            if existing.len() < array.dimensions().len() {
+                let (lower, upper) = array.dimensions()[existing.len()];
                 if index < lower || index > upper {
                     return Err(VmTrap::Runtime(RuntimeError::IndexOutOfBounds {
                         index,
@@ -197,7 +246,7 @@ pub(super) fn dynamic_ref_index(
                         upper,
                     }));
                 }
-                let mut combined = existing;
+                let mut combined = existing.clone();
                 combined.push(index);
                 if let Some(RefSegment::Index(indices)) = reference.path.last_mut() {
                     *indices = combined;
@@ -210,7 +259,7 @@ pub(super) fn dynamic_ref_index(
     let target = peek_dynamic_ref(runtime, frames, &reference)?;
     match target {
         Value::Array(array) => {
-            let Some((lower, upper)) = array.dimensions.first().copied() else {
+            let Some((lower, upper)) = array.dimensions().first().copied() else {
                 return Err(VmTrap::Runtime(RuntimeError::TypeMismatch));
             };
             if index < lower || index > upper {
@@ -242,6 +291,15 @@ pub(super) fn peek_dynamic_ref<'a>(
     frames: &'a FrameStack,
     reference: &ValueRef,
 ) -> Result<&'a Value, VmTrap> {
+    peek_dynamic_ref_path(runtime, frames, reference, &reference.path)
+}
+
+fn peek_dynamic_ref_path<'a>(
+    runtime: &'a Runtime,
+    frames: &'a FrameStack,
+    reference: &ValueRef,
+    path: &[RefSegment],
+) -> Result<&'a Value, VmTrap> {
     if matches!(
         reference.location,
         MemoryLocation::Local(FrameId(VM_LOCAL_SENTINEL_FRAME_ID))
@@ -251,11 +309,11 @@ pub(super) fn peek_dynamic_ref<'a>(
             .locals
             .get(reference.offset)
             .ok_or(VmTrap::NullReference)?;
-        return read_value_path_borrowed(root, &reference.path).ok_or(VmTrap::NullReference);
+        return read_value_path_borrowed(root, path).ok_or(VmTrap::NullReference);
     }
     runtime
         .storage
-        .read_by_ref_ref(reference)
+        .read_by_ref_parts(reference.location, reference.offset, path)
         .ok_or(VmTrap::NullReference)
 }
 
@@ -406,10 +464,10 @@ mod tests {
         let mut runtime = Runtime::new();
         runtime.storage_mut().set_global(
             "CELL",
-            Value::Struct(std::sync::Arc::new(StructValue {
-                type_name: SmolStr::new("CELL_T"),
-                fields: IndexMap::from([(SmolStr::new("ACC"), Value::DInt(7))]),
-            })),
+            Value::Struct(std::sync::Arc::new(StructValue::from_untyped_parts(
+                SmolStr::new("CELL_T"),
+                IndexMap::from([(SmolStr::new("ACC"), Value::DInt(7))]),
+            ))),
         );
         let reference = runtime
             .storage()
@@ -437,10 +495,12 @@ mod tests {
                 code_end: 0,
                 local_ref_start: 0,
                 local_ref_count: 1,
-                locals: vec![Value::Struct(std::sync::Arc::new(StructValue {
-                    type_name: SmolStr::new("LOCAL_T"),
-                    fields: IndexMap::from([(SmolStr::new("ACC"), Value::DInt(11))]),
-                }))],
+                locals: vec![Value::Struct(std::sync::Arc::new(
+                    StructValue::from_untyped_parts(
+                        SmolStr::new("LOCAL_T"),
+                        IndexMap::from([(SmolStr::new("ACC"), Value::DInt(11))]),
+                    ),
+                ))],
                 runtime_instance: None,
                 instance_owner: None,
             })
@@ -494,15 +554,18 @@ mod tests {
         let mut runtime = Runtime::new();
         runtime.storage_mut().set_global(
             "GRID",
-            Value::Array(Box::new(ArrayValue {
-                elements: vec![
-                    Value::DInt(1),
-                    Value::DInt(2),
-                    Value::DInt(3),
-                    Value::DInt(4),
-                ],
-                dimensions: vec![(0, 1), (0, 1)],
-            })),
+            Value::Array(Box::new(
+                ArrayValue::from_untyped_parts(
+                    vec![
+                        Value::DInt(1),
+                        Value::DInt(2),
+                        Value::DInt(3),
+                        Value::DInt(4),
+                    ],
+                    vec![(0, 1), (0, 1)],
+                )
+                .unwrap(),
+            )),
         );
         let mut reference = runtime.storage().ref_for_global("GRID").expect("grid ref");
         reference.path.push(single_ref_index(0));
@@ -520,11 +583,57 @@ mod tests {
     }
 
     #[test]
+    fn dynamic_ref_index_extends_nested_partial_index_against_array_shape() {
+        let mut runtime = Runtime::new();
+        runtime.storage_mut().set_global(
+            "HOLDER",
+            Value::Struct(std::sync::Arc::new(StructValue::from_untyped_parts(
+                SmolStr::new("GRID_HOLDER"),
+                IndexMap::from([(
+                    SmolStr::new("GRID"),
+                    Value::Array(Box::new(
+                        ArrayValue::from_untyped_parts(
+                            vec![
+                                Value::DInt(1),
+                                Value::DInt(2),
+                                Value::DInt(3),
+                                Value::DInt(4),
+                            ],
+                            vec![(0, 1), (0, 1)],
+                        )
+                        .unwrap(),
+                    )),
+                )]),
+            ))),
+        );
+        let mut reference = runtime
+            .storage()
+            .ref_for_global("HOLDER")
+            .expect("holder ref");
+        reference.path.push(RefSegment::Field(SmolStr::new("GRID")));
+        reference.path.push(single_ref_index(0));
+        let frames = FrameStack::default();
+
+        let resolved = dynamic_ref_index(&runtime, &frames, reference, 1)
+            .expect("extend nested partial index");
+
+        assert_eq!(
+            resolved.path,
+            [
+                RefSegment::Field(SmolStr::new("GRID")),
+                RefSegment::Index(ref_indices_from_iter([0, 1])),
+            ]
+            .into_iter()
+            .collect::<RefPath>()
+        );
+    }
+
+    #[test]
     fn read_and_write_value_path_handle_extreme_array_bounds_without_overflow() {
-        let mut value = Value::Array(Box::new(ArrayValue {
-            elements: vec![Value::DInt(7)],
-            dimensions: vec![(i64::MIN, i64::MAX)],
-        }));
+        let mut value = Value::Array(Box::new(ArrayValue::from_canonical_parts(
+            vec![Value::DInt(7)],
+            vec![(i64::MIN, i64::MAX)],
+        )));
         let path = [RefSegment::Index(ref_indices_from_iter([i64::MIN]))];
 
         let read = read_value_path_borrowed(&value, &path).expect("read extreme lower bound");

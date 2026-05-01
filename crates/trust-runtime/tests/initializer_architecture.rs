@@ -137,6 +137,88 @@ fn runtime_initializer_service_is_the_source_level_funnel() {
 }
 
 #[test]
+fn vm_local_init_does_not_create_runtime_storage_frames() {
+    let source = read_workspace_file("crates/trust-runtime/src/runtime/vm/local_init.rs");
+    assert!(
+        !source.contains("runtime\n            .storage_mut()\n            .push_frame_with_instance")
+            && !source.contains("runtime.storage_mut().push_frame("),
+        "VM local initialization must populate VM frame slots directly instead of creating temporary runtime storage frames"
+    );
+}
+
+#[test]
+fn dynamic_ref_partial_index_does_not_clone_entire_value_ref() {
+    let source = read_workspace_file("crates/trust-runtime/src/runtime/vm/dispatch_refs.rs");
+    let body = source
+        .split_once("pub(super) fn dynamic_ref_index(")
+        .and_then(|(_, rest)| rest.split_once("pub(super) fn peek_dynamic_ref"))
+        .map(|(body, _)| body)
+        .expect("dynamic_ref_index body");
+
+    assert!(
+        !body.contains("reference.path.last().cloned()"),
+        "partial multidimensional index handling must borrow the trailing index segment"
+    );
+    assert!(
+        !body.contains("reference.clone()"),
+        "partial multidimensional index handling must borrow the base path instead of cloning the whole ValueRef"
+    );
+}
+
+#[test]
+fn vm_function_block_ref_execution_reads_reference_without_clone() {
+    let source = read_workspace_file("crates/trust-runtime/src/runtime/vm/dispatch.rs");
+    let body = source
+        .split_once("pub(super) fn execute_function_block_ref(")
+        .and_then(|(_, rest)| rest.split_once("fn execute_pou("))
+        .map(|(body, _)| body)
+        .expect("execute_function_block_ref body");
+
+    assert!(
+        !body.contains("read_by_ref(reference.clone())"),
+        "VM function-block ref execution must borrow ValueRef for storage reads"
+    );
+}
+
+#[test]
+fn tier1_dynamic_ref_field_borrows_reference_registers() {
+    let source = read_workspace_file("crates/trust-runtime/src/runtime/vm/register_ir/tier1.rs");
+    let body = source
+        .split_once("Tier1CompiledInstr::RefField { base, field, dest } => {")
+        .and_then(|(_, rest)| rest.split_once("Tier1CompiledInstr::RefIndex"))
+        .map(|(body, _)| body)
+        .expect("tier1 RefField body");
+
+    assert!(
+        body.contains("dynamic_ref_field_borrowed(runtime, frames, reference, field.clone())"),
+        "tier-1 RefField must use the borrowed dynamic-ref helper"
+    );
+    assert!(
+        !body.contains("reference.clone()"),
+        "tier-1 RefField must not clone the whole ValueRef before resolving the field"
+    );
+}
+
+#[test]
+fn register_ir_decode_uses_inline_operand_storage() {
+    let source = read_workspace_file("crates/trust-runtime/src/runtime/vm/register_ir/lower.rs");
+    let decode_body = source
+        .split_once("fn decode_pou(")
+        .and_then(|(_, rest)| rest.split_once("fn opcode_operand_len_for_lowering"))
+        .map(|(body, _)| body)
+        .expect("decode_pou body");
+
+    assert!(
+        !source.contains("operands: Vec<u8>"),
+        "register-IR decoded instructions must not allocate operand Vecs"
+    );
+    assert!(
+        !decode_body.contains(".to_vec()"),
+        "register-IR decode must copy operand bytes into inline storage"
+    );
+}
+
+#[test]
 fn runtime_var_decl_parts_are_structural_not_positional_tuples() {
     let vars = read_workspace_file("crates/trust-runtime/src/harness/compiler/vars.rs");
     assert!(
