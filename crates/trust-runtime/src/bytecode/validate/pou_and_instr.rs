@@ -72,28 +72,29 @@ fn validate_pou_index(
                 "POU code out of bounds".into(),
             ));
         }
-        validate_instruction_stream(
+        let tables = InstructionValidationTables {
             strings,
             index,
-            entry,
             types,
             const_pool,
             ref_table,
-            start,
-            &bodies[start..end],
-        )?;
+        };
+        validate_instruction_stream(&tables, entry, &bodies[start..end])?;
     }
     Ok(())
 }
 
+struct InstructionValidationTables<'a> {
+    strings: &'a StringTable,
+    index: &'a PouIndex,
+    types: &'a TypeTable,
+    const_pool: &'a ConstPool,
+    ref_table: &'a RefTable,
+}
+
 fn validate_instruction_stream(
-    strings: &StringTable,
-    index: &PouIndex,
+    tables: &InstructionValidationTables<'_>,
     pou: &PouEntry,
-    types: &TypeTable,
-    const_pool: &ConstPool,
-    ref_table: &RefTable,
-    _base: usize,
     code: &[u8],
 ) -> Result<(), BytecodeError> {
     let mut reader = BytecodeReader::new(code);
@@ -118,7 +119,7 @@ fn validate_instruction_stream(
             }
             0x05 => {
                 let pou_id = reader.read_u32()?;
-                if !index.entries.iter().any(|pou| pou.id == pou_id) {
+                if !tables.index.entries.iter().any(|pou| pou.id == pou_id) {
                     return Err(BytecodeError::InvalidPouId(pou_id));
                 }
             }
@@ -128,7 +129,8 @@ fn validate_instruction_stream(
             0x08 => {
                 let interface_type_id = reader.read_u32()?;
                 let slot = reader.read_u32()?;
-                let entry = types
+                let entry = tables
+                    .types
                     .entries
                     .get(interface_type_id as usize)
                     .ok_or_else(|| BytecodeError::InvalidIndex {
@@ -157,7 +159,7 @@ fn validate_instruction_stream(
                         "CALL_NATIVE kind out of range".into(),
                     ));
                 }
-                if symbol_idx as usize >= strings.entries.len() {
+                if symbol_idx as usize >= tables.strings.entries.len() {
                     return Err(BytecodeError::InvalidIndex {
                         kind: "native symbol".into(),
                         index: symbol_idx,
@@ -171,20 +173,20 @@ fn validate_instruction_stream(
             }
             0x10 => {
                 let const_idx = reader.read_u32()?;
-                ensure_const_index(const_pool, const_idx)?;
+                ensure_const_index(tables.const_pool, const_idx)?;
             }
             0x20..=0x22 => {
                 let ref_idx = reader.read_u32()?;
-                ensure_pou_ref_operand(ref_table, pou, ref_idx)?;
+                ensure_pou_ref_operand(tables.ref_table, pou, ref_idx)?;
             }
             0x23 | 0x24 => {}
             0x30 => {
                 let name_idx = reader.read_u32()?;
-                ensure_string_index(strings, name_idx)?;
+                ensure_string_index(tables.strings, name_idx)?;
             }
             0x60 => {
                 let type_id = reader.read_u32()?;
-                ensure_type_index(types, type_id)?;
+                ensure_type_index(tables.types, type_id)?;
             }
             0x61 => {}
             0x62 | 0x63 => {

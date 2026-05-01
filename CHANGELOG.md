@@ -40,6 +40,10 @@ Target release: `v0.24.9`
 - The runtime VM default-switch readiness ledger now records production-guard,
   differential, malformed-bytecode fuzz, benchmark, residual-risk, and rollback
   evidence without pretending blocked performance thresholds are ready.
+- VM function and method local initialization now populates VM frame slots
+  directly for initialized locals, static locals, and function-block local
+  member overrides instead of creating a temporary runtime storage frame on the
+  native-call path.
 
 ### Fixed
 

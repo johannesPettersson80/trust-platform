@@ -7,13 +7,16 @@ use smol_str::SmolStr;
 use trust_hir::{Type, TypeId};
 
 use crate::error::RuntimeError;
-use crate::instance::{apply_fb_instance_initializer, create_class_instance, create_fb_instance};
-use crate::memory::InstanceId;
+use crate::instance::{create_class_instance, create_fb_instance};
 use crate::program_model::{method_static_storage_owner, static_storage_name, Param, VarDef};
 use crate::value::{default_value_for_type_id, Value};
 
 use super::frames::VmFrame;
 use super::VmModule;
+
+mod expr;
+
+use self::expr::{apply_fb_instance_initializer_from_vm_frame, evaluate_initializer_from_vm_frame};
 
 pub(super) fn initialize_declared_locals(
     runtime: &mut crate::Runtime,
@@ -29,93 +32,7 @@ pub(super) fn initialize_declared_locals(
     if frame.locals.is_empty() {
         return Ok(());
     }
-    if can_initialize_directly(plan.as_ref()) {
-        return initialize_declared_locals_direct(runtime, plan.as_ref(), frame);
-    }
-
-    let temp_frame_id = if let Some(instance_id) = frame.runtime_instance {
-        runtime
-            .storage_mut()
-            .push_frame_with_instance(plan.frame_owner().clone(), instance_id)
-    } else {
-        runtime.storage_mut().push_frame(plan.frame_owner().clone())
-    };
-
-    let result = initialize_declared_locals_inner(runtime, plan.as_ref(), frame);
-    runtime.storage_mut().remove_frame(temp_frame_id);
-    result
-}
-
-fn initialize_declared_locals_inner(
-    runtime: &mut crate::Runtime,
-    plan: &VmPouInitPlan,
-    frame: &mut VmFrame,
-) -> Result<(), RuntimeError> {
-    let profile = runtime.profile();
-    let current_instance = frame.runtime_instance;
-    let mut slot = 0usize;
-
-    if let Some((return_name, return_type)) = plan.return_slot() {
-        let value = frame
-            .locals
-            .get(slot)
-            .cloned()
-            .filter(|value| !matches!(value, Value::Null))
-            .unwrap_or_else(|| {
-                default_value_for_type_id(return_type, runtime.registry(), &profile)
-                    .unwrap_or(Value::Null)
-            });
-        runtime.storage_mut().set_local(return_name.clone(), value);
-        slot = slot.saturating_add(1);
-    }
-
-    for param in plan.params() {
-        let value = frame.locals.get(slot).cloned().unwrap_or_else(|| {
-            default_value_for_type_id(param.type_id, runtime.registry(), &profile)
-                .unwrap_or(Value::Null)
-        });
-        runtime.storage_mut().set_local(param.name.clone(), value);
-        slot = slot.saturating_add(1);
-    }
-
-    for local in plan.static_locals() {
-        ensure_static_local(runtime, plan, current_instance, local)?;
-    }
-
-    for local in plan.locals() {
-        let value = initialize_var_value(runtime, current_instance, local)?;
-        runtime.storage_mut().set_local(local.name.clone(), value);
-    }
-
-    slot = 0usize;
-    if let Some((return_name, _)) = plan.return_slot() {
-        if let Some(value) = runtime.storage().get_local(return_name.as_str()).cloned() {
-            if let Some(slot_ref) = frame.locals.get_mut(slot) {
-                *slot_ref = value;
-            }
-        }
-        slot = slot.saturating_add(1);
-    }
-
-    for param in plan.params() {
-        if let Some(value) = runtime.storage().get_local(param.name.as_str()).cloned() {
-            if let Some(slot_ref) = frame.locals.get_mut(slot) {
-                *slot_ref = value;
-            }
-        }
-        slot = slot.saturating_add(1);
-    }
-
-    for local in plan.locals() {
-        if let Some(value) = runtime.storage().get_local(local.name.as_str()).cloned() {
-            if let Some(slot_ref) = frame.locals.get_mut(slot) {
-                *slot_ref = value;
-            }
-        }
-        slot = slot.saturating_add(1);
-    }
-
-    Ok(())
+    initialize_declared_locals_direct(runtime, plan.as_ref(), frame)
 }
 
 fn initialize_declared_locals_direct(
@@ -137,11 +54,17 @@ fn initialize_declared_locals_direct(
     }
 
     slot = slot.saturating_add(plan.params().len());
+    let local_start_slot = slot;
+
+    for local in plan.static_locals() {
+        ensure_static_local(runtime, plan, frame, local_start_slot, local)?;
+    }
 
     for local in plan.locals() {
         if !local.external {
+            let value = initialize_var_value(runtime, plan, frame, slot, local)?;
             if let Some(slot_ref) = frame.locals.get_mut(slot) {
-                *slot_ref = initialize_var_value(runtime, frame.runtime_instance, local)?;
+                *slot_ref = value;
             }
         }
         slot = slot.saturating_add(1);
@@ -153,11 +76,13 @@ fn initialize_declared_locals_direct(
 fn ensure_static_local(
     runtime: &mut crate::Runtime,
     plan: &VmPouInitPlan,
-    current_instance: Option<InstanceId>,
+    frame: &VmFrame,
+    visible_slots: usize,
     local: &VarDef,
 ) -> Result<(), RuntimeError> {
     let static_owner = plan.static_owner();
     let key = static_storage_name(&static_owner, &local.name);
+    let current_instance = frame.runtime_instance;
 
     if let Some(instance_id) = current_instance {
         if runtime
@@ -167,7 +92,7 @@ fn ensure_static_local(
         {
             return Ok(());
         }
-        let value = initialize_var_value(runtime, current_instance, local)?;
+        let value = initialize_var_value(runtime, plan, frame, visible_slots, local)?;
         runtime
             .storage_mut()
             .set_instance_var(instance_id, key, value);
@@ -177,17 +102,20 @@ fn ensure_static_local(
     if runtime.storage().get_global(key.as_str()).is_some() {
         return Ok(());
     }
-    let value = initialize_var_value(runtime, current_instance, local)?;
+    let value = initialize_var_value(runtime, plan, frame, visible_slots, local)?;
     runtime.storage_mut().set_global(key, value);
     Ok(())
 }
 
 fn initialize_var_value(
     runtime: &mut crate::Runtime,
-    current_instance: Option<InstanceId>,
+    plan: &VmPouInitPlan,
+    frame: &VmFrame,
+    visible_slots: usize,
     local: &VarDef,
 ) -> Result<Value, RuntimeError> {
     let profile = runtime.profile();
+    let current_instance = frame.runtime_instance;
     if let Some(fb_name) = function_block_type_name(local.type_id, runtime.registry()) {
         let fb_key = SmolStr::new(fb_name.to_ascii_uppercase());
         let fb = runtime
@@ -210,15 +138,11 @@ fn initialize_var_value(
             &fb,
         )?;
         if let Some(expr) = &local.initializer {
-            let (storage, registry, _classes, _function_blocks, _functions, stdlib) =
-                runtime.instance_init_context();
-            apply_fb_instance_initializer(
-                storage,
-                registry,
-                &profile,
-                stdlib,
-                &initializer_catalog,
-                current_instance,
+            apply_fb_instance_initializer_from_vm_frame(
+                runtime,
+                plan,
+                frame,
+                visible_slots,
                 instance_id,
                 &fb,
                 expr,
@@ -254,13 +178,11 @@ fn initialize_var_value(
     }
 
     if let Some(expr) = &local.initializer {
-        return crate::harness::initializer::evaluate_initializer(
-            runtime.storage(),
-            runtime.registry(),
-            runtime.initializer_catalog(),
-            &profile,
-            current_instance,
-            runtime.stdlib(),
+        return evaluate_initializer_from_vm_frame(
+            runtime,
+            plan,
+            frame,
+            visible_slots,
             expr,
             local.type_id,
         );
@@ -276,16 +198,6 @@ fn initialize_var_value(
         local.type_id,
     )
     .or(Ok(Value::Null))
-}
-
-fn can_initialize_directly(plan: &VmPouInitPlan) -> bool {
-    if !plan.static_locals().is_empty() {
-        return false;
-    }
-    plan.locals()
-        .iter()
-        .filter(|local| !local.external)
-        .all(|local| !local.static_storage && local.initializer.is_none())
 }
 
 #[derive(Debug, Clone)]
@@ -316,15 +228,6 @@ enum VmPouInitPlan {
 }
 
 impl VmPouInitPlan {
-    fn frame_owner(&self) -> &SmolStr {
-        match self {
-            Self::Program { frame_owner, .. }
-            | Self::Function { frame_owner, .. }
-            | Self::FunctionBlock { frame_owner, .. }
-            | Self::Method { frame_owner, .. } => frame_owner,
-        }
-    }
-
     fn static_owner(&self) -> SmolStr {
         match self {
             Self::Program { frame_owner, .. }

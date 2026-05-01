@@ -541,6 +541,34 @@ END_PROGRAM
 }
 
 #[test]
+fn function_local_initializers_can_read_vm_frame_params_and_prior_locals() {
+    let source = r#"
+FUNCTION Probe : INT
+VAR_INPUT
+    seed : INT;
+END_VAR
+VAR
+    first : INT := seed + INT#2;
+    second : INT := first + INT#3;
+END_VAR
+Probe := second;
+END_FUNCTION
+
+PROGRAM Main
+VAR
+    observed : INT;
+END_VAR
+observed := Probe(INT#5);
+END_PROGRAM
+"#;
+
+    let mut harness = TestHarness::from_source(source).expect("program should compile");
+    harness.cycle();
+
+    assert_eq!(harness.get_output("observed"), Some(Value::Int(10)));
+}
+
+#[test]
 fn multi_name_fb_initializer_instances_are_independent() {
     let source = r#"
 FUNCTION_BLOCK InitFb

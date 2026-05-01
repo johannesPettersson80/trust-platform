@@ -137,6 +137,16 @@ fn runtime_initializer_service_is_the_source_level_funnel() {
 }
 
 #[test]
+fn vm_local_init_does_not_create_runtime_storage_frames() {
+    let source = read_workspace_file("crates/trust-runtime/src/runtime/vm/local_init.rs");
+    assert!(
+        !source.contains("runtime\n            .storage_mut()\n            .push_frame_with_instance")
+            && !source.contains("runtime.storage_mut().push_frame("),
+        "VM local initialization must populate VM frame slots directly instead of creating temporary runtime storage frames"
+    );
+}
+
+#[test]
 fn runtime_var_decl_parts_are_structural_not_positional_tuples() {
     let vars = read_workspace_file("crates/trust-runtime/src/harness/compiler/vars.rs");
     assert!(
