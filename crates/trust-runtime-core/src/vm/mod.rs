@@ -2,6 +2,7 @@
 
 #![allow(missing_docs)]
 
+mod const_pool;
 mod dispatch_ops;
 mod dispatch_sizeof;
 mod errors;
@@ -9,6 +10,7 @@ mod frames;
 mod helpers;
 mod stack;
 
+pub use const_pool::decode_const_pool_entries;
 pub use dispatch_ops::{apply_jump, execute_binary, execute_unary, read_i32, read_u32};
 pub use dispatch_sizeof::sizeof_type_from_table;
 pub use errors::VmTrap;
@@ -21,7 +23,10 @@ mod tests {
     use smol_str::SmolStr;
 
     use crate::{
-        bytecode::{Field, TypeData, TypeEntry, TypeKind, TypeTable},
+        bytecode::{
+            ConstEntry, ConstPool, EnumVariant, Field, StringTable, TypeData, TypeEntry, TypeKind,
+            TypeTable,
+        },
         error::RuntimeError,
         memory::InstanceId,
         program_model::{BinaryOp, UnaryOp},
@@ -162,6 +167,134 @@ mod tests {
             name_idx: None,
             data,
         }
+    }
+
+    fn const_entry(type_id: u32, payload: Vec<u8>) -> ConstEntry {
+        ConstEntry { type_id, payload }
+    }
+
+    #[test]
+    fn vm_const_pool_decoder_preserves_primitive_enum_and_alias_contracts() {
+        let strings = StringTable {
+            entries: vec![SmolStr::new("Color"), SmolStr::new("Red")],
+        };
+        let types = TypeTable {
+            offsets: vec![],
+            entries: vec![
+                type_entry(
+                    TypeKind::Primitive,
+                    TypeData::Primitive {
+                        prim_id: 1,
+                        max_length: 0,
+                    },
+                ),
+                type_entry(
+                    TypeKind::Primitive,
+                    TypeData::Primitive {
+                        prim_id: 8,
+                        max_length: 0,
+                    },
+                ),
+                type_entry(
+                    TypeKind::Primitive,
+                    TypeData::Primitive {
+                        prim_id: 24,
+                        max_length: 16,
+                    },
+                ),
+                type_entry(
+                    TypeKind::Primitive,
+                    TypeData::Primitive {
+                        prim_id: 25,
+                        max_length: 16,
+                    },
+                ),
+                TypeEntry {
+                    kind: TypeKind::Enum,
+                    name_idx: Some(0),
+                    data: TypeData::Enum {
+                        base_type_id: 1,
+                        variants: vec![EnumVariant {
+                            name_idx: 1,
+                            value: 2,
+                        }],
+                    },
+                },
+                type_entry(TypeKind::Alias, TypeData::Alias { target_type_id: 1 }),
+                type_entry(
+                    TypeKind::Subrange,
+                    TypeData::Subrange {
+                        base_type_id: 1,
+                        lower: -10,
+                        upper: 10,
+                    },
+                ),
+            ],
+        };
+        let const_pool = ConstPool {
+            entries: vec![
+                const_entry(0, vec![1]),
+                const_entry(1, 42_i32.to_le_bytes().to_vec()),
+                const_entry(2, b"abc".to_vec()),
+                const_entry(3, vec![b'A', 0]),
+                const_entry(4, 2_i64.to_le_bytes().to_vec()),
+                const_entry(5, (-7_i32).to_le_bytes().to_vec()),
+                const_entry(6, 5_i32.to_le_bytes().to_vec()),
+            ],
+        };
+
+        let decoded = super::decode_const_pool_entries(&const_pool, &types, &strings).unwrap();
+        assert_eq!(decoded[0], Value::Bool(true));
+        assert_eq!(decoded[1], Value::DInt(42));
+        assert_eq!(decoded[2], Value::String("abc".into()));
+        assert_eq!(decoded[3], Value::WString("A".into()));
+        assert_eq!(
+            decoded[4],
+            Value::Enum(Box::new(crate::value::EnumValue::from_canonical_parts(
+                "Color".into(),
+                "Red".into(),
+                2
+            )))
+        );
+        assert_eq!(decoded[5], Value::DInt(-7));
+        assert_eq!(decoded[6], Value::DInt(5));
+    }
+
+    #[test]
+    fn vm_const_pool_decoder_rejects_bad_payload_and_type_shapes() {
+        let strings = StringTable::default();
+        let string_types = TypeTable {
+            offsets: vec![],
+            entries: vec![type_entry(
+                TypeKind::Primitive,
+                TypeData::Primitive {
+                    prim_id: 24,
+                    max_length: 16,
+                },
+            )],
+        };
+        let bad_utf8 = ConstPool {
+            entries: vec![const_entry(0, vec![0xff])],
+        };
+        assert!(matches!(
+            super::decode_const_pool_entries(&bad_utf8, &string_types, &strings),
+            Err(RuntimeError::InvalidBytecode(message)) if message.as_str().contains("UTF-8")
+        ));
+
+        let unsupported_types = TypeTable {
+            offsets: vec![],
+            entries: vec![type_entry(
+                TypeKind::Struct,
+                TypeData::Struct { fields: vec![] },
+            )],
+        };
+        let unsupported = ConstPool {
+            entries: vec![const_entry(0, vec![])],
+        };
+        assert!(matches!(
+            super::decode_const_pool_entries(&unsupported, &unsupported_types, &strings),
+            Err(RuntimeError::InvalidBytecode(message)) if message.as_str().contains("unsupported const type kind")
+        ));
     }
 
     #[test]
