@@ -1526,6 +1526,12 @@ fn check_unsafe_concurrency_summary(map: &SoftwareMap) -> FullMapCheck {
     }
 }
 
+fn is_runtime_large_file_scope(path: &str) -> bool {
+    path.ends_with(".rs")
+        && (path.starts_with("crates/trust-runtime/src/")
+            || path.starts_with("crates/trust-runtime/tests/"))
+}
+
 fn check_kiss_thresholds(map: &SoftwareMap, policy: &FullMapPolicy) -> FullMapCheck {
     let allowlist = policy
         .kiss
@@ -1533,14 +1539,20 @@ fn check_kiss_thresholds(map: &SoftwareMap, policy: &FullMapPolicy) -> FullMapCh
         .iter()
         .map(|item| (item.path.as_str(), item))
         .collect::<BTreeMap<_, _>>();
+    let runtime_file_line_counts = map
+        .source_files
+        .iter()
+        .filter(|file| is_runtime_large_file_scope(&file.path))
+        .map(|file| (file.path.as_str(), file.line_count))
+        .collect::<BTreeMap<_, _>>();
     let mut failures = Vec::new();
     let mut details = Vec::new();
 
     for file in &map.source_files {
-        if !file.path.starts_with("crates/trust-runtime/src/") || !file.path.ends_with(".rs") {
+        if !is_runtime_large_file_scope(&file.path) {
             continue;
         }
-        if file.line_count < policy.kiss.existing_file_note_limit {
+        if file.line_count <= policy.kiss.existing_file_note_limit {
             continue;
         }
         let Some(entry) = allowlist.get(file.path.as_str()) else {
@@ -1554,15 +1566,14 @@ fn check_kiss_thresholds(map: &SoftwareMap, policy: &FullMapPolicy) -> FullMapCh
             "{} lines={} owner={} split_plan={}",
             file.path, file.line_count, entry.owner, entry.split_plan
         ));
-        if file.line_count >= policy.kiss.split_plan_line_limit
-            && entry.split_plan.trim().is_empty()
+        if file.line_count > policy.kiss.split_plan_line_limit && entry.split_plan.trim().is_empty()
         {
             failures.push(format!(
                 "{} has {} lines and no approved split plan (threshold {})",
                 file.path, file.line_count, policy.kiss.split_plan_line_limit
             ));
         }
-        if file.line_count >= policy.kiss.new_file_line_limit
+        if file.line_count > policy.kiss.new_file_line_limit
             && (entry.owner.trim().is_empty()
                 || entry.rationale.trim().is_empty()
                 || entry.review_date.trim().is_empty())
@@ -1570,6 +1581,28 @@ fn check_kiss_thresholds(map: &SoftwareMap, policy: &FullMapPolicy) -> FullMapCh
             failures.push(format!(
                 "{} has {} lines and incomplete KISS metadata",
                 file.path, file.line_count
+            ));
+        }
+    }
+    for item in &policy.kiss.large_file_allowlist {
+        if !is_runtime_large_file_scope(&item.path) {
+            failures.push(format!(
+                "large-file allowlist entry '{}' is outside the runtime large-file scope",
+                item.path
+            ));
+            continue;
+        }
+        let Some(line_count) = runtime_file_line_counts.get(item.path.as_str()) else {
+            failures.push(format!(
+                "large-file allowlist entry '{}' does not match a current source file",
+                item.path
+            ));
+            continue;
+        };
+        if *line_count <= policy.kiss.existing_file_note_limit {
+            failures.push(format!(
+                "large-file allowlist entry '{}' has {} lines, at or below threshold {}",
+                item.path, line_count, policy.kiss.existing_file_note_limit
             ));
         }
     }
@@ -3659,6 +3692,42 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
         });
 
         assert!(check_kiss_thresholds(&map, &base_policy()).is_fail());
+    }
+
+    #[test]
+    fn known_bad_large_runtime_test_file_without_owner_note_fails() {
+        let mut map = base_map();
+        map.source_files.push(SourceFileSummary {
+            path: "crates/trust-runtime/tests/new_large.rs".to_string(),
+            line_count: 1001,
+        });
+
+        let check = check_kiss_thresholds(&map, &base_policy());
+
+        assert!(check.is_fail());
+        assert!(check
+            .details
+            .iter()
+            .any(|detail| detail.contains("crates/trust-runtime/tests/new_large.rs")));
+    }
+
+    #[test]
+    fn known_bad_stale_large_file_allowlist_entry_fails() {
+        let mut policy = base_policy();
+        policy.kiss.large_file_allowlist.push(LargeFilePolicy {
+            path: "crates/trust-runtime/src/missing_large.rs".to_string(),
+            owner: "runtime".to_string(),
+            rationale: "stale entry should not be accepted".to_string(),
+            review_date: "2026-05-01".to_string(),
+            split_plan: "RTLARGE test".to_string(),
+        });
+
+        let check = check_kiss_thresholds(&base_map(), &policy);
+
+        assert!(check.is_fail());
+        assert!(check.details.iter().any(|detail| detail.contains(
+            "large-file allowlist entry 'crates/trust-runtime/src/missing_large.rs' does not match a current source file"
+        )));
     }
 
     #[test]
