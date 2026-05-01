@@ -18,8 +18,8 @@ binary reports them.
 | `ctl` | send control requests to a running runtime |
 | `build` | generate `program.stbc` |
 | `validate` | validate project config + bundle |
-| `test` | run ST tests; workbench split pending |
-| `docs` | generate API docs; workbench split pending |
+| `test` | deprecated alias for `trust-dev test` |
+| `docs` | deprecated alias for `trust-dev docs` |
 | `hmi` | scaffold/update/reset `hmi/` |
 | `plcopen` | PLCopen import/export/profile |
 | `registry` | package registry workflows |
@@ -62,6 +62,8 @@ Primary options:
 Usage: trust-runtime test [OPTIONS]
 ```
 
+This forwards to `trust-dev test` and prints a deprecation warning.
+
 Primary options:
 
 - `--project`
@@ -70,6 +72,20 @@ Primary options:
 - `--timeout`
 - `--output`
 - `--ci`
+
+### Docs
+
+```text
+Usage: trust-runtime docs [OPTIONS]
+```
+
+This forwards to `trust-dev docs` and prints a deprecation warning.
+
+Primary options:
+
+- `--project`
+- `--out-dir`
+- `--format`
 
 ### Agent
 
@@ -139,7 +155,7 @@ control API.
 ```bash
 trust-runtime build --project ./my-plc --sources src
 trust-runtime validate --project ./my-plc
-trust-runtime test --project ./my-plc --output json
+trust-dev test --project ./my-plc --output json
 ```
 
 ### Start runtime

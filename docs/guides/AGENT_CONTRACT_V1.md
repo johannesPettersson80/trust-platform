@@ -61,7 +61,7 @@ Failure:
 | `runtime.build` | Reuse the `trust-runtime build --ci` payload path |
 | `runtime.compile_reload` | Run the full diagnose -> build -> reload loop and return a single structured result |
 | `runtime.validate` | Reuse the `trust-runtime validate --ci` payload path |
-| `runtime.test` | Reuse the `trust-runtime test --output json` payload path |
+| `runtime.test` | Reuse the `trust-dev test --output json` payload path |
 | `runtime.reload` | Rebuild `program.stbc` and issue `bytecode.reload` to a running runtime control endpoint |
 | `harness.load` | Load inline/project sources into a deterministic in-process harness |
 | `harness.reload` | Reload harness sources while preserving retain semantics when supported |
@@ -191,7 +191,7 @@ Optional params:
 {"project":"runtime-a","filter":"CI_","list":false,"timeout_seconds":5}
 ```
 
-Returns the same JSON summary shape as `trust-runtime test --output json`.
+Returns the same JSON summary shape as `trust-dev test --output json`.
 
 ### `runtime.compile_reload`
 

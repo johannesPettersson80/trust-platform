@@ -5,7 +5,7 @@ truST can generate project-facing documentation from tagged ST comments.
 ## Core command
 
 ```bash
-trust-runtime docs --project ./my-plc --format both --out-dir ./docs/api
+trust-dev docs --project ./my-plc --format both --out-dir ./docs/api
 ```
 
 ## Supported doc tags
@@ -43,10 +43,10 @@ Generated docs surface:
 ## CI example
 
 ```bash
-trust-runtime docs --project ./my-plc --format markdown --out-dir ./docs/api
+trust-dev docs --project ./my-plc --format markdown --out-dir ./docs/api
 ```
 
 Use this together with:
 
 - [CI/CD](../operate/ci-cd.md)
-- [trust-runtime CLI](../reference/cli/trust-runtime.md)
+- [trust-dev CLI](../reference/cli/trust-dev.md)

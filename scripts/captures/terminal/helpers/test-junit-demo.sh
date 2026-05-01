@@ -12,4 +12,4 @@ cp examples/memory_marker_counter/runtime.toml "$tmpdir/"
 cp examples/memory_marker_counter/io.toml "$tmpdir/"
 
 ./target/debug/trust-runtime build --project "$tmpdir" --sources src >/dev/null
-./target/debug/trust-runtime test --project "$tmpdir" --output junit
+./target/debug/trust-dev test --project "$tmpdir" --output junit

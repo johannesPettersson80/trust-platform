@@ -2,8 +2,8 @@
 
 ## Current Baseline
 
-- current repository baseline: `v0.24.11`
-- public docs in this tree describe the `v0.24.11` workspace version unless a
+- current repository baseline: `v0.24.12`
+- public docs in this tree describe the `v0.24.12` workspace version unless a
   page explicitly marks a feature as experimental, roadmap, or target-specific
 
 ## What Changed Recently
@@ -12,7 +12,8 @@
 
 - Runtime release archives include `trust-dev` as the developer/workbench CLI.
   `trust-dev agent serve` now owns the external agent JSON-RPC server and
-  `trust-dev commit` owns the project commit workflow, while the matching
+  `trust-dev commit`, `trust-dev docs`, and `trust-dev test` own the project
+  commit, ST API documentation, and ST test workflows, while the matching
   `trust-runtime` commands remain deprecated forwarding aliases during the
   product/workbench CLI split.
 - MQTT I/O now has explicit TLS/mTLS configuration: `tls = true` requires a CA

@@ -23,15 +23,25 @@ fn runtime_fixture_path(name: &str) -> PathBuf {
     manifest_dir.join("tests/fixtures").join(name)
 }
 
+fn trust_dev_command() -> Command {
+    Command::new(env!("CARGO_BIN_EXE_trust-dev"))
+}
+
+fn trust_runtime_command_with_dev_alias() -> Command {
+    let mut command = Command::new(env!("CARGO_BIN_EXE_trust-runtime"));
+    command.env("TRUST_DEV_BIN", env!("CARGO_BIN_EXE_trust-dev"));
+    command
+}
+
 #[test]
 fn list_flag_lists_tutorial_10_tests_without_executing() {
     let tutorial = tutorial_project_path("10_unit_testing_101");
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+    let output = trust_dev_command()
         .args(["test", "--project"])
         .arg(&tutorial)
         .arg("--list")
         .output()
-        .expect("run trust-runtime test --list");
+        .expect("run trust-dev test --list");
 
     assert!(
         output.status.success(),
@@ -48,14 +58,36 @@ fn list_flag_lists_tutorial_10_tests_without_executing() {
 }
 
 #[test]
+fn trust_runtime_test_alias_forwards_to_trust_dev() {
+    let tutorial = tutorial_project_path("10_unit_testing_101");
+    let output = trust_runtime_command_with_dev_alias()
+        .args(["test", "--project"])
+        .arg(&tutorial)
+        .arg("--list")
+        .output()
+        .expect("run trust-runtime test alias");
+
+    assert!(
+        output.status.success(),
+        "expected alias success.\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("trust-runtime test"));
+    assert!(stderr.contains("trust-dev test"));
+    assert!(String::from_utf8_lossy(&output.stdout).contains("3 test(s) listed"));
+}
+
+#[test]
 fn filter_zero_message_is_clear_in_human_output() {
     let tutorial = tutorial_project_path("10_unit_testing_101");
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+    let output = trust_dev_command()
         .args(["test", "--project"])
         .arg(&tutorial)
         .args(["--filter", "NONEXISTENT_CASE"])
         .output()
-        .expect("run trust-runtime test --filter NONEXISTENT_CASE");
+        .expect("run trust-dev test --filter NONEXISTENT_CASE");
 
     assert!(
         output.status.success(),
@@ -85,7 +117,7 @@ END_TEST_PROGRAM
     )
     .expect("write timeout test source");
 
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+    let output = trust_dev_command()
         .args([
             "test",
             "--project",
@@ -94,7 +126,7 @@ END_TEST_PROGRAM
             "1",
         ])
         .output()
-        .expect("run trust-runtime test --timeout 1");
+        .expect("run trust-dev test --timeout 1");
 
     assert!(
         !output.status.success(),
@@ -112,7 +144,7 @@ END_TEST_PROGRAM
 #[test]
 fn timeout_budget_does_not_count_project_recompilation_per_case() {
     let fixture = runtime_fixture_path("oscat/core");
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+    let output = trust_dev_command()
         .args(["test", "--project"])
         .arg(&fixture)
         .args([
@@ -122,7 +154,7 @@ fn timeout_budget_does_not_count_project_recompilation_per_case() {
             "2",
         ])
         .output()
-        .expect("run trust-runtime test on OSCAT core fixture with tight timeout");
+        .expect("run trust-dev test on OSCAT core fixture with tight timeout");
 
     assert!(
         output.status.success(),
@@ -138,12 +170,12 @@ fn timeout_budget_does_not_count_project_recompilation_per_case() {
 #[test]
 fn json_output_includes_duration_fields() {
     let tutorial = tutorial_project_path("10_unit_testing_101");
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+    let output = trust_dev_command()
         .args(["test", "--project"])
         .arg(&tutorial)
         .args(["--output", "json"])
         .output()
-        .expect("run trust-runtime test --output json");
+        .expect("run trust-dev test --output json");
 
     assert!(
         output.status.success(),
@@ -190,12 +222,12 @@ END_TEST_PROGRAM
     )
     .expect("write config + test source");
 
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+    let output = trust_dev_command()
         .args(["test", "--project"])
         .arg(&project)
         .args(["--filter", "Probe"])
         .output()
-        .expect("run trust-runtime test with configuration");
+        .expect("run trust-dev test with configuration");
 
     assert!(
         output.status.success(),

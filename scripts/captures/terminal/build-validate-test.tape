@@ -19,6 +19,6 @@ Type "./target/debug/trust-runtime validate --project examples/memory_marker_cou
 Enter
 Sleep 1200ms
 
-Type "./target/debug/trust-runtime test --project examples/memory_marker_counter --output human"
+Type "./target/debug/trust-dev test --project examples/memory_marker_counter --output human"
 Enter
 Sleep 2200ms

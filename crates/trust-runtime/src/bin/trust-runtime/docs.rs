@@ -1,27 +1,33 @@
-//! API documentation generation from tagged ST comments.
+//! Deprecated compatibility wrapper for `trust-dev docs`.
 
-use std::collections::{BTreeSet, HashMap, HashSet};
-use std::fmt::Write;
-use std::path::{Path, PathBuf};
-
-use anyhow::Context;
-use smol_str::SmolStr;
-use trust_runtime::bundle::detect_bundle_path;
-use trust_runtime::bundle_builder::resolve_sources_root;
-use trust_syntax::lexer::{self, Token, TokenKind};
-use trust_syntax::parser;
-use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
+use std::ffi::OsString;
+use std::path::PathBuf;
 
 use crate::cli::DocsFormat;
-use crate::style;
 
-include!("docs/models.rs");
-include!("docs/command.rs");
-include!("docs/source_collect.rs");
-include!("docs/syntax_helpers.rs");
-include!("docs/tag_parser.rs");
-include!("docs/render.rs");
+pub fn run_docs(
+    project: Option<PathBuf>,
+    out_dir: Option<PathBuf>,
+    format: DocsFormat,
+) -> anyhow::Result<()> {
+    let mut args = vec![OsString::from("docs")];
+    if let Some(project) = project {
+        args.push(OsString::from("--project"));
+        args.push(project.into_os_string());
+    }
+    if let Some(out_dir) = out_dir {
+        args.push(OsString::from("--out-dir"));
+        args.push(out_dir.into_os_string());
+    }
+    args.push(OsString::from("--format"));
+    args.push(OsString::from(docs_format_arg(format)));
+    crate::dev_forward::run_trust_dev_with_warning("docs", args)
+}
 
-#[cfg(test)]
-#[path = "docs/tests.rs"]
-mod tests;
+fn docs_format_arg(format: DocsFormat) -> &'static str {
+    match format {
+        DocsFormat::Markdown => "markdown",
+        DocsFormat::Html => "html",
+        DocsFormat::Both => "both",
+    }
+}

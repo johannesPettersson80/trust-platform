@@ -362,6 +362,10 @@ fn ci_template_file_contains_expected_command_sequence() {
         .join("trust-runtime-project-ci.yml");
     let text = std::fs::read_to_string(&template).expect("read CI template");
     assert!(
+        text.contains("cargo build -p trust-runtime --bin trust-runtime --bin trust-dev"),
+        "template must build both runtime and dev CLIs"
+    );
+    assert!(
         text.contains("target/debug/trust-runtime build --project . --ci"),
         "template must include build --ci step"
     );
@@ -370,7 +374,7 @@ fn ci_template_file_contains_expected_command_sequence() {
         "template must include validate --ci step"
     );
     assert!(
-        text.contains("target/debug/trust-runtime test --project . --ci --output junit"),
+        text.contains("target/debug/trust-dev test --project . --ci --output junit"),
         "template must include junit test step"
     );
     assert!(
@@ -393,8 +397,8 @@ fn ci_flake_probe_script_emits_machine_readable_sample() {
         .join("probe_st_test_flake.py");
     let output = Command::new("python3")
         .arg(&script)
-        .arg("--runtime-bin")
-        .arg(env!("CARGO_BIN_EXE_trust-runtime"))
+        .arg("--test-bin")
+        .arg(env!("CARGO_BIN_EXE_trust-dev"))
         .arg("--project")
         .arg(&project)
         .arg("--runs")

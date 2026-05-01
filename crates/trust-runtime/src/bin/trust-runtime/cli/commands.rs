@@ -127,7 +127,8 @@ pub enum Command {
         #[arg(long, action = ArgAction::SetTrue)]
         ci: bool,
     },
-    /// Discover and execute ST tests in a project.
+    /// Deprecated alias for `trust-dev test`.
+    #[command(after_help = "Examples:\n  trust-dev test --project ./my-plc\n  trust-runtime test --project ./my-plc")]
     Test {
         /// Project folder directory (defaults to auto-detect or current directory).
         #[arg(long = "project", alias = "bundle")]
@@ -148,7 +149,8 @@ pub enum Command {
         #[arg(long, action = ArgAction::SetTrue)]
         ci: bool,
     },
-    /// Generate API documentation from tagged ST comments.
+    /// Deprecated alias for `trust-dev docs`.
+    #[command(after_help = "Examples:\n  trust-dev docs --project ./my-plc\n  trust-runtime docs --project ./my-plc")]
     Docs {
         /// Project folder directory (defaults to auto-detect or current directory).
         #[arg(long = "project", alias = "bundle")]

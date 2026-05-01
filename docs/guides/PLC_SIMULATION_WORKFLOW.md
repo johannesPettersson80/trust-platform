@@ -54,7 +54,7 @@ Recommended checks before touching hardware:
 ```bash
 trust-runtime build --project <project-folder>
 trust-runtime validate --project <project-folder>
-trust-runtime test --project <project-folder> --output junit
+trust-dev test --project <project-folder> --output junit
 ```
 
 ## 4) Understand mode indicators

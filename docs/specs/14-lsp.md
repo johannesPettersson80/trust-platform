@@ -436,7 +436,7 @@ Range: 0.0 to 3000.0
   - local: `Name = "path"` or `Name = { path = "...", version? = "..." }`
   - git: `Name = { git = "<url-or-local-repo>", rev? = "...", tag? = "...", branch? = "...", version? = "..." }`
 - Intended usage split:
-  - `[dependencies]` is for reusable truST ST packages that participate in source resolution, `trust-runtime build`, and `trust-runtime test --project`.
+  - `[dependencies]` is for reusable truST ST packages that participate in source resolution, `trust-runtime build`, and `trust-dev test --project`.
   - `[[libraries]]` is for external/indexed library trees, stub packs, and attached vendor docs used for compatibility/indexing.
 - Dependency pinning/lock behavior:
   - `rev`/`tag`/`branch` pin git dependencies explicitly.

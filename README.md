@@ -70,7 +70,7 @@ code --install-extension trust-platform.trust-lsp
 |---|---|---|
 | Language Server | `trust-lsp` | Diagnostics, navigation, formatting, refactors |
 | Runtime | `trust-runtime` | Runtime execution engine, CLI workflows, web UI |
-| Developer Workbench | `trust-dev` | Developer/workbench commands such as agent and project commit helpers |
+| Developer Workbench | `trust-dev` | Developer/workbench commands such as agent, test, docs, and project commit helpers |
 | Debug Adapter | `trust-debug` | DAP debugging |
 | Bundle Tool | `trust-bundle-gen` | STBC bundle generation |
 

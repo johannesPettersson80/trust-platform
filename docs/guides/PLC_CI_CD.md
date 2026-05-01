@@ -19,19 +19,19 @@ trust-runtime validate --project <project-folder> --ci
 Run ST tests in CI mode (defaults to JUnit if `--output` is omitted):
 
 ```bash
-trust-runtime test --project <project-folder> --ci --output junit
+trust-dev test --project <project-folder> --ci --output junit
 ```
 
 Run ST tests with stable machine-readable JSON summary output:
 
 ```bash
-trust-runtime test --project <project-folder> --ci --output json
+trust-dev test --project <project-folder> --ci --output json
 ```
 
 Generate markdown docs for API review artifacts:
 
 ```bash
-trust-runtime docs --project <project-folder> --format markdown --out-dir <project-folder>/docs/api
+trust-dev docs --project <project-folder> --format markdown --out-dir <project-folder>/docs/api
 ```
 
 ## Exit codes (`--ci`)

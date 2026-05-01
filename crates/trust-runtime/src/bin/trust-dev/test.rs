@@ -1,4 +1,4 @@
-//! Agent-facing ST test JSON helpers.
+//! ST test runner command and agent-facing JSON helpers.
 
 #![allow(dead_code)]
 
@@ -21,10 +21,15 @@ use trust_syntax::syntax::{SyntaxKind, SyntaxNode, SyntaxToken};
 use crate::cli::TestOutput;
 use crate::style;
 
-include!("../trust-runtime/test_cmd/models.rs");
-include!("../trust-runtime/test_cmd/output.rs");
-include!("../trust-runtime/test_cmd/execute.rs");
-include!("../trust-runtime/test_cmd/discovery.rs");
+include!("test_cmd/models.rs");
+include!("test_cmd/command.rs");
+include!("test_cmd/output.rs");
+include!("test_cmd/execute.rs");
+include!("test_cmd/discovery.rs");
+
+#[cfg(test)]
+#[path = "test_cmd/tests.rs"]
+mod tests;
 
 pub(crate) fn run_test_json(
     project: Option<PathBuf>,

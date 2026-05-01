@@ -637,7 +637,7 @@ fn write_oscat_namespace_aggregate_project(slug: &str, namespace: &str) -> TempP
 
 fn example_child_started_line(child_id: u32, project: &Path) -> String {
     format!(
-        "[oscat examples] child pid={child_id} command=trust-runtime test --project {} timeout={}s",
+        "[oscat examples] child pid={child_id} command=trust-dev test --project {} timeout={}s",
         project.display(),
         EXAMPLE_TEST_TIMEOUT.as_secs()
     )
@@ -661,13 +661,13 @@ fn example_child_timeout_line(child_id: u32, project: &Path, elapsed: Duration) 
 }
 
 fn run_example_st_tests_at(project: &Path) -> Result<(), String> {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+    let mut child = Command::new(env!("CARGO_BIN_EXE_trust-dev"))
         .args(["test", "--project"])
         .arg(project)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("run trust-runtime test");
+        .expect("run trust-dev test");
 
     let started = Instant::now();
     let child_id = child.id();
@@ -676,12 +676,12 @@ fn run_example_st_tests_at(project: &Path) -> Result<(), String> {
     loop {
         if child
             .try_wait()
-            .expect("poll trust-runtime example test")
+            .expect("poll trust-dev example test")
             .is_some()
         {
             let output = child
                 .wait_with_output()
-                .expect("collect trust-runtime example test output");
+                .expect("collect trust-dev example test output");
             let elapsed = started.elapsed();
             if output.status.success() {
                 eprintln!(
@@ -937,7 +937,7 @@ fn oscat_example_child_lines_include_pid_project_and_elapsed_context() {
     assert_eq!(
         example_child_started_line(42, &project),
         format!(
-            "[oscat examples] child pid=42 command=trust-runtime test --project {} timeout={}s",
+            "[oscat examples] child pid=42 command=trust-dev test --project {} timeout={}s",
             project.display(),
             EXAMPLE_TEST_TIMEOUT.as_secs()
         )

@@ -9,12 +9,12 @@ fn fixture_path(name: &str) -> PathBuf {
         .join(name)
 }
 
-fn assert_trust_runtime_test_passes(project: PathBuf) {
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+fn assert_trust_dev_test_passes(project: PathBuf) {
+    let output = Command::new(env!("CARGO_BIN_EXE_trust-dev"))
         .args(["test", "--project"])
         .arg(&project)
         .output()
-        .expect("run trust-runtime test");
+        .expect("run trust-dev test");
 
     assert!(
         output.status.success(),
@@ -27,5 +27,5 @@ fn assert_trust_runtime_test_passes(project: PathBuf) {
 
 #[test]
 fn plcopen_motion_oop_single_axis_st_unit_tests_pass() {
-    assert_trust_runtime_test_passes(fixture_path("oop_single_axis"));
+    assert_trust_dev_test_passes(fixture_path("oop_single_axis"));
 }

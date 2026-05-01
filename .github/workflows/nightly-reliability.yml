@@ -99,10 +99,10 @@ jobs:
 
       - name: Probe ST test flake sample
         env:
-          ST_RUNTIME: ${{ github.workspace }}/target/debug/trust-runtime
+          ST_TEST_BIN: ${{ github.workspace }}/target/debug/trust-dev
         run: |
           python3 scripts/probe_st_test_flake.py \
-            --runtime-bin "${ST_RUNTIME}" \
+            --test-bin "${ST_TEST_BIN}" \
             --project crates/trust-runtime/tests/fixtures/ci/green \
             --runs 20 \
             --filter CI_Passes \

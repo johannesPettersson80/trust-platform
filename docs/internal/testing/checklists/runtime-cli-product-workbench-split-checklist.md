@@ -1,6 +1,6 @@
 # Runtime CLI Product / Workbench Split Checklist
 
-Status: Phase 3 agent and commit split implemented
+Status: Complete; final full merge gate passed for `v0.24.12`
 Owner: Runtime/dev tooling
 Scope: address audit F10 by separating field/product runtime commands from developer/workbench commands.
 
@@ -19,8 +19,8 @@ These are source modules under `crates/trust-runtime/src/bin/trust-runtime/`, no
 - [x] `RTCLI-MOD-01` Product runtime modules: `run.rs`, `ctl.rs`, `build.rs`, `hmi.rs`, `plcopen.rs`, `registry.rs`, `setup.rs`, `setup_web.rs`, `deploy.rs`.
 - [x] `RTCLI-MOD-02` UI product modules: `config_ui.rs`, `wizard.rs`.
 - [x] `RTCLI-MOD-03` Conformance/benchmark modules: `bench.rs`, `conformance.rs`.
-- [x] `RTCLI-MOD-04` Workbench/dev modules: `agent.rs`, `commit.rs`, `docs.rs`, `workflow.rs`, `ci.rs`, `test.rs`; `git.rs`, `prompt.rs`, and `style.rs` are shared CLI infrastructure with split decisions recorded below.
-- [x] `RTCLI-MOD-05` CLI infrastructure modules: `cli.rs`, `completions.rs`, `git.rs`, `prompt.rs`, `style.rs`; allowed dependency rules remain explicit in Phase 2.
+- [x] `RTCLI-MOD-04` Workbench/dev implementation modules: `agent.rs`, `commit.rs`, `docs.rs`, `workflow.rs`, and `test.rs`; moved implementations belong under `trust-dev` with deprecated `trust-runtime` forwarding wrappers during the migration window.
+- [x] `RTCLI-MOD-05` CLI infrastructure modules: `cli.rs`, `completions.rs`, `git.rs`, `prompt.rs`, `style.rs`, and `ci.rs`; allowed dependency rules remain explicit in Phase 2.
 
 ## Subcommand Action Classes
 
@@ -114,30 +114,34 @@ Phase 2 policy evidence already present before command movement:
 - [x] `RTCLI-P3-001` Decide destination for workbench commands: `xtask`, `trust-dev`, or another explicit tool binary. Decision: `trust-dev`, with `trust-runtime` retaining deprecated forwarding aliases during the migration window so current public commands do not disappear abruptly.
 - [x] `RTCLI-P3-002` Move `agent` implementation out of product runtime binary or wrap it behind a deprecated forwarding alias. Evidence: `trust-dev agent serve` now owns the JSON-RPC agent server and workflow helper under `crates/trust-runtime/src/bin/trust-dev/`; `trust-runtime agent serve` is a deprecated forwarding wrapper through `dev_forward.rs`; product `build`, `ctl`, and `test` no longer retain agent-only JSON helper functions.
 - [x] `RTCLI-P3-003` Move `commit` command implementation and `git.rs` helper implementation out of product runtime binary or wrap them behind deprecated forwarding aliases. Evidence: `trust-dev commit` now owns the commit implementation and dev-only git repo/status helpers under `crates/trust-runtime/src/bin/trust-dev/`; `trust-runtime commit` is a deprecated forwarding wrapper through `dev_forward.rs`; product `git.rs` only retains `git_init` for wizard/setup flows.
-- [ ] `RTCLI-P3-004` Move `docs` command implementation and remaining `prompt.rs`, `style.rs`, `ci.rs`, and dev-only `test` command implementation as decided. `workflow.rs` and the agent-facing JSON test helper moved with `RTCLI-P3-002`; the public `trust-runtime test` command remains to split.
-- [ ] `RTCLI-P3-005` Keep product runtime commands behavior-compatible.
-- [ ] `RTCLI-P3-006` Keep benchmark/conformance commands only if explicitly accepted as runtime-adjacent.
+- [x] `RTCLI-P3-004` Move `docs` command implementation and remaining `prompt.rs`, `style.rs`, `ci.rs`, and dev-only `test` command implementation as decided. Evidence: `trust-dev docs` now owns the ST API documentation generator under `crates/trust-runtime/src/bin/trust-dev/docs.rs` and `trust-dev/docs/`; `trust-dev test` now owns the ST test runner under `crates/trust-runtime/src/bin/trust-dev/test.rs` and `trust-dev/test_cmd/`; `trust-runtime docs` and `trust-runtime test` are deprecated forwarding wrappers. `prompt.rs` and `style.rs` remain CLI infrastructure because product setup/wizard/runtime flows still use them, and `ci.rs` remains shared CLI infrastructure so product `build`/`validate` and workbench `test --ci` keep stable exit-code classification.
+- [x] `RTCLI-P3-005` Keep product runtime commands behavior-compatible. Evidence: `trust-runtime docs` and `trust-runtime test` forwarding aliases are covered by focused compatibility tests; `trust-dev test --ci` preserves the deterministic CI failure code `12`; CI templates still run product `trust-runtime build/validate --ci` and workbench `trust-dev test --ci`.
+- [x] `RTCLI-P3-006` Keep benchmark/conformance commands only if explicitly accepted as runtime-adjacent. Evidence: `xtask/config/full_map_policy.json` classifies `Bench` and `Conformance` as `conformance_benchmark`; `release-host-runtime` currently includes that class for compatibility, while `field-runtime-minimal` excludes `conformance_benchmark` and `workbench_dev`.
 
 ## Phase 4 - Tests
 
-- [ ] `RTCLI-P4-001` CLI help snapshot or assertion covers command list/classes.
-- [ ] `RTCLI-P4-002` Product command smoke tests still pass.
-- [ ] `RTCLI-P4-003` Moved command compatibility wrappers are tested if retained.
-- [ ] `RTCLI-P4-004` Doctor rejects a synthetic unclassified command.
-- [ ] `RTCLI-P4-005` Doctor rejects a synthetic unclassified bin module.
-- [ ] `RTCLI-P4-006` Doctor rejects product command/module import of workbench module.
-- [ ] `RTCLI-P4-007` Doctor rejects a synthetic nested `*Action` enum or action variant with no inherited or explicit class.
+- [x] `RTCLI-P4-001` CLI help snapshot or assertion covers command list/classes.
+- [x] `RTCLI-P4-002` Product command smoke tests still pass.
+- [x] `RTCLI-P4-003` Moved command compatibility wrappers are tested if retained.
+- [x] `RTCLI-P4-004` Doctor rejects a synthetic unclassified command.
+- [x] `RTCLI-P4-005` Doctor rejects a synthetic unclassified bin module.
+- [x] `RTCLI-P4-006` Doctor rejects product command/module import of workbench module.
+- [x] `RTCLI-P4-007` Doctor rejects a synthetic nested `*Action` enum or action variant with no inherited or explicit class.
 
-Phase 4 evidence in progress:
+Phase 4 evidence:
 
 - `cargo test -p trust-runtime --test commit_command -- --nocapture` covers `trust-dev commit --dry-run` and the retained `trust-runtime commit` forwarding alias with the deprecation warning.
 - `cargo test -p trust-runtime --test agent_command -- --nocapture` covers `trust-dev agent serve` for the full JSON-RPC agent contract and the retained `trust-runtime agent serve` forwarding alias with the deprecation warning.
+- `cargo test -p trust-runtime --test docs_command --test st_test_cli_command --test ci_cicd_contract --test oscat_oop_library --test plcopen_motion_oop_library -- --nocapture` covers `trust-dev docs`, `trust-dev test`, retained `trust-runtime docs/test` aliases, stable `--ci` exit codes, and OSCAT/PLCopen ST test execution through the new workbench binary.
+- `cargo test -p xtask full_map -- --nocapture` covers known-bad doctor fixtures for unclassified command variants, unclassified bin modules, product imports of workbench modules, unclassified nested action enums, stale command routes, and missing workbench migration policy.
+- `RUSTUP_TOOLCHAIN=1.95 cargo run -p xtask -- architecture-doctor --full-map` passes `FULLMAP-CHECK-06` with 22 command variants, 24 bin modules, 7 nested action enums, explicit workbench migrations for `Agent`/`Commit`/`Docs`/`Test`, and runtime artifact profile policy for `release-host-runtime` versus `field-runtime-minimal`.
+- `just fmt`, `just clippy`, and `just test-all` passed for the `v0.24.12` release gate after freeing generated cache space; the earlier `just test-all` attempt failed only because the filesystem filled during `mold` linking.
 
 ## Exit Criteria
 
-- [ ] `RTCLI-EXIT-01` Every command is classified.
-- [ ] `RTCLI-EXIT-02` Every bin module is classified.
-- [ ] `RTCLI-EXIT-03` Product runtime binary no longer silently grows workbench/dev behavior.
-- [ ] `RTCLI-EXIT-04` Workbench/dev commands and modules have an explicit home or explicit retained rationale.
-- [ ] `RTCLI-EXIT-05` Runtime-core split is not blocked by CLI workbench dependencies.
-- [ ] `RTCLI-EXIT-06` Every nested CLI action enum is classified by inheritance or explicit override.
+- [x] `RTCLI-EXIT-01` Every command is classified.
+- [x] `RTCLI-EXIT-02` Every bin module is classified.
+- [x] `RTCLI-EXIT-03` Product runtime binary no longer silently grows workbench/dev behavior.
+- [x] `RTCLI-EXIT-04` Workbench/dev commands and modules have an explicit home or explicit retained rationale.
+- [x] `RTCLI-EXIT-05` Runtime-core split is not blocked by CLI workbench dependencies.
+- [x] `RTCLI-EXIT-06` Every nested CLI action enum is classified by inheritance or explicit override.

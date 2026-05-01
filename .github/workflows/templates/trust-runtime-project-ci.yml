@@ -27,8 +27,8 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Build trust-runtime CLI
-        run: cargo build -p trust-runtime --bin trust-runtime
+      - name: Build truST CLIs
+        run: cargo build -p trust-runtime --bin trust-runtime --bin trust-dev
 
       - name: Build project bytecode (CI mode)
         run: target/debug/trust-runtime build --project . --ci
@@ -37,7 +37,7 @@ jobs:
         run: target/debug/trust-runtime validate --project . --ci
 
       - name: Run ST tests (JUnit output)
-        run: target/debug/trust-runtime test --project . --ci --output junit > st-tests.junit.xml
+        run: target/debug/trust-dev test --project . --ci --output junit > st-tests.junit.xml
 
       - name: Upload JUnit report
         uses: actions/upload-artifact@v7

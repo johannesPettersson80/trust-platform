@@ -88,7 +88,7 @@ ported in truST.
 
 Primary conformance evidence for the current port is the ST core fixture:
 
-- `target/debug/trust-runtime test --project crates/trust-runtime/tests/fixtures/oscat/core --timeout 120 --ci`
+- `target/debug/trust-dev test --project crates/trust-runtime/tests/fixtures/oscat/core --timeout 120 --ci`
 
 Current conformance status of the full core fixture:
 

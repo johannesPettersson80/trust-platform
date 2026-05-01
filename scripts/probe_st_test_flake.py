@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Probe ST test flake rate by repeating trust-runtime test runs."""
+"""Probe ST test flake rate by repeating trust-dev test runs."""
 
 from __future__ import annotations
 
@@ -14,12 +14,18 @@ from typing import Any
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run repeated trust-runtime test invocations and report flake sample stats."
+        description="Run repeated trust-dev test invocations and report flake sample stats."
     )
-    parser.add_argument("--runtime-bin", required=True, help="Path to trust-runtime executable")
+    parser.add_argument(
+        "--test-bin",
+        "--runtime-bin",
+        dest="runtime_bin",
+        required=True,
+        help="Path to trust-dev executable; --runtime-bin is retained as a compatibility alias.",
+    )
     parser.add_argument("--project", required=True, help="Project directory passed to --project")
     parser.add_argument("--runs", type=int, default=20, help="Number of repeated runs (default: 20)")
-    parser.add_argument("--filter", default=None, help="Optional --filter value for trust-runtime test")
+    parser.add_argument("--filter", default=None, help="Optional --filter value for trust-dev test")
     parser.add_argument(
         "--output-json", required=True, help="Path to output JSON report file"
     )

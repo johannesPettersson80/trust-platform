@@ -11,7 +11,7 @@ Run:
 ```bash
 trust-runtime build --project examples/memory_marker_counter --sources src
 trust-runtime validate --project examples/memory_marker_counter
-trust-runtime test --project examples/memory_marker_counter --output human
+trust-dev test --project examples/memory_marker_counter --output human
 ```
 
 ![CLI build, validate, test](../assets/images/terminal/build-validate-test.gif)

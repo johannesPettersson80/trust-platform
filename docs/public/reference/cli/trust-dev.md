@@ -10,6 +10,8 @@ binary.
 | --- | --- |
 | `agent serve` | serve the external agent JSON-RPC contract over stdio |
 | `commit` | summarize and commit project changes |
+| `docs` | generate API documentation from tagged ST comments |
+| `test` | discover and execute ST tests |
 
 ## Agent
 
@@ -43,6 +45,39 @@ Primary options:
 - `--dry-run`
 
 `trust-runtime commit` is a deprecated forwarding alias during the
+product/workbench split.
+
+## Docs
+
+```text
+Usage: trust-dev docs [OPTIONS]
+```
+
+Primary options:
+
+- `--project`
+- `--out-dir`
+- `--format`
+
+`trust-runtime docs` is a deprecated forwarding alias during the
+product/workbench split.
+
+## Test
+
+```text
+Usage: trust-dev test [OPTIONS]
+```
+
+Primary options:
+
+- `--project`
+- `--filter`
+- `--list`
+- `--timeout`
+- `--output`
+- `--ci`
+
+`trust-runtime test` is a deprecated forwarding alias during the
 product/workbench split.
 
 ## Related

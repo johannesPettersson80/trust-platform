@@ -5,7 +5,7 @@
 ```bash
 trust-runtime build --project ./my-plc --sources src
 trust-runtime validate --project ./my-plc
-trust-runtime test --project ./my-plc --output json
+trust-dev test --project ./my-plc --output json
 ```
 
 ## What each command proves
@@ -33,7 +33,7 @@ trust-runtime test --project ./my-plc --output json
 ```bash
 trust-runtime build --project ./examples/tutorials/10_unit_testing_101 --sources src
 trust-runtime validate --project ./examples/tutorials/10_unit_testing_101
-trust-runtime test --project ./examples/tutorials/10_unit_testing_101 --output json
+trust-dev test --project ./examples/tutorials/10_unit_testing_101 --output json
 ```
 
 ![Validation success](../assets/images/terminal/validate-success.gif)
@@ -51,13 +51,13 @@ the shape of a compile failure, not placeholder garbage syntax.
 Use JSON output when an agent or CI parser needs machine-readable results:
 
 ```bash
-trust-runtime test --project ./my-plc --output json
+trust-dev test --project ./my-plc --output json
 ```
 
 Use JUnit output when your CI system expects test-report artifacts:
 
 ```bash
-trust-runtime test --project ./my-plc --output junit
+trust-dev test --project ./my-plc --output junit
 ```
 
 ![JUnit test output](../assets/images/terminal/test-junit.gif)
@@ -80,7 +80,7 @@ For CI or automation:
 ```bash
 trust-runtime build --project ./my-plc --ci
 trust-runtime validate --project ./my-plc --ci
-trust-runtime test --project ./my-plc --ci --output junit
+trust-dev test --project ./my-plc --ci --output junit
 ```
 
 ## Typical Failure Pattern
@@ -96,4 +96,5 @@ trust-runtime test --project ./my-plc --ci --output junit
 
 - [Compile, Validate, Reload](compile-validate-reload.md)
 - [trust-runtime CLI](../reference/cli/trust-runtime.md)
+- [trust-dev CLI](../reference/cli/trust-dev.md)
 - [Tutorials](../examples/tutorials.md)

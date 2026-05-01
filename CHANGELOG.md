@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.11`
+Target release: `v0.24.12`
 
 ### Added
 
@@ -16,6 +16,12 @@ Target release: `v0.24.11`
 - `trust-dev agent serve` now owns the external agent JSON-RPC server. The
   legacy `trust-runtime agent serve` entrypoint remains as a deprecated
   forwarding alias during the product/workbench CLI split.
+- `trust-dev docs` now owns ST API documentation generation, and
+  `trust-runtime docs` remains as a deprecated forwarding alias during the
+  product/workbench CLI split.
+- `trust-dev test` now owns ST test discovery/execution, and `trust-runtime
+  test` remains as a deprecated forwarding alias during the product/workbench
+  CLI split.
 
 ### Changed
 
@@ -25,6 +31,9 @@ Target release: `v0.24.11`
 - Public docs and terminal capture scripts now point agent automation workflows
   at `trust-dev agent serve`, with `trust-runtime agent serve` documented as a
   compatibility alias.
+- Public docs, CI templates, flake probes, and terminal capture scripts now
+  point ST test and ST documentation workflows at `trust-dev test` and
+  `trust-dev docs`.
 - Local Rust test recipes now use the `mold` linker on Linux when it is
   installed, `just test-all` and CI no longer run `complete_program` twice, and
   `just test-hir-fast` provides a focused HIR refactor loop before the final

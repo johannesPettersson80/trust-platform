@@ -57,7 +57,7 @@ Consumers reference reusable packages from their own `trust-lsp.toml`:
 MyMotionLib = { path = "../libraries/my_motion_lib", version = "0.1.0" }
 ```
 
-`trust-runtime build --project ...` and `trust-runtime test --project ...`
+`trust-runtime build --project ...` and `trust-dev test --project ...`
 compile the project's own `src/` plus any local `[dependencies]` packages.
 
 Use `[[libraries]]` for external/index-only library trees, vendor stub packs,
@@ -182,7 +182,7 @@ Current Raspberry Pi 5 evidence on the `full_demo` motion path:
 
 Generate API docs from tagged ST comments (`@brief`, `@param`, `@return`):
 ```
-trust-runtime docs --project <project-folder> --format both --out-dir <project-folder>/docs/api
+trust-dev docs --project <project-folder> --format both --out-dir <project-folder>/docs/api
 ```
 
 PLCopen XML interchange (strict ST subset profile):

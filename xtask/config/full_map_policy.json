@@ -109,7 +109,7 @@
     {"name": "prompt", "class": "infrastructure", "owner": "CLI", "rationale": "interactive prompt helper shared by setup and workbench commands"},
     {"name": "workflow", "class": "workbench_dev", "owner": "dev tooling", "rationale": "workflow helper to split"},
     {"name": "style", "class": "infrastructure", "owner": "CLI", "rationale": "terminal formatting helper shared by product and workbench commands"},
-    {"name": "ci", "class": "workbench_dev", "owner": "dev tooling", "rationale": "CI helper to split"},
+    {"name": "ci", "class": "infrastructure", "owner": "CLI", "rationale": "stable --ci exit-code mapping used by product build/validate aliases and workbench commands"},
     {"name": "test", "class": "workbench_dev", "owner": "dev tooling", "rationale": "test helper to split"},
     {"name": "cli", "class": "infrastructure", "owner": "CLI", "rationale": "CLI parser module"},
     {"name": "completions", "class": "infrastructure", "owner": "CLI", "rationale": "completion generator"}
