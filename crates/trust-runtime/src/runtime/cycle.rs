@@ -5,8 +5,8 @@
 use smol_str::SmolStr;
 
 use crate::error;
-use crate::task::{ProgramDef, TaskConfig};
-use crate::value::{Duration, Value};
+use crate::task::{evaluate_task_readiness, ProgramDef, TaskConfig};
+use crate::value::Value;
 use std::sync::Arc;
 use trust_runtime_core::cycle::sort_ready_tasks_by_priority;
 
@@ -288,38 +288,19 @@ impl Runtime {
                 },
                 None => false,
             };
-            let event_due = !state.last_single && single_now;
-            let interval_nanos = task.interval.as_nanos();
-            let elapsed = now.as_nanos().saturating_sub(state.last_run.as_nanos());
-            let periodic_due = interval_nanos > 0 && !single_now && elapsed >= interval_nanos;
-            let mut due_at = None;
-            if event_due {
-                due_at = Some(now);
-            }
-            if periodic_due {
-                let intervals = elapsed / interval_nanos;
-                if intervals > 1 {
-                    let missed = (intervals - 1) as u64;
-                    state.overrun_count = state.overrun_count.saturating_add(missed);
-                    if let Some(debug) = &self.debug {
-                        debug.push_runtime_event(crate::debug::RuntimeEvent::TaskOverrun {
-                            name: task.name.clone(),
-                            missed,
-                            time: now,
-                        });
-                    }
-                    self.metrics.record_overrun(&task.name, missed);
+            let readiness = evaluate_task_readiness(state, task.interval, single_now, now);
+            if readiness.missed_intervals > 0 {
+                if let Some(debug) = &self.debug {
+                    debug.push_runtime_event(crate::debug::RuntimeEvent::TaskOverrun {
+                        name: task.name.clone(),
+                        missed: readiness.missed_intervals,
+                        time: now,
+                    });
                 }
-                let due_time =
-                    Duration::from_nanos(state.last_run.as_nanos().saturating_add(interval_nanos));
-                due_at = Some(match due_at {
-                    Some(existing) if existing.as_nanos() <= due_time.as_nanos() => existing,
-                    _ => due_time,
-                });
-                state.last_run = now;
+                self.metrics
+                    .record_overrun(&task.name, readiness.missed_intervals);
             }
-            state.last_single = single_now;
-            if let Some(due_at) = due_at {
+            if let Some(due_at) = readiness.due_at {
                 ready.push(ReadyTask { index: idx, due_at });
             }
         }
