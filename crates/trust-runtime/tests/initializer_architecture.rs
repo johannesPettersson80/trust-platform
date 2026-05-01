@@ -200,6 +200,25 @@ fn tier1_dynamic_ref_field_borrows_reference_registers() {
 }
 
 #[test]
+fn register_ir_decode_uses_inline_operand_storage() {
+    let source = read_workspace_file("crates/trust-runtime/src/runtime/vm/register_ir/lower.rs");
+    let decode_body = source
+        .split_once("fn decode_pou(")
+        .and_then(|(_, rest)| rest.split_once("fn opcode_operand_len_for_lowering"))
+        .map(|(body, _)| body)
+        .expect("decode_pou body");
+
+    assert!(
+        !source.contains("operands: Vec<u8>"),
+        "register-IR decoded instructions must not allocate operand Vecs"
+    );
+    assert!(
+        !decode_body.contains(".to_vec()"),
+        "register-IR decode must copy operand bytes into inline storage"
+    );
+}
+
+#[test]
 fn runtime_var_decl_parts_are_structural_not_positional_tuples() {
     let vars = read_workspace_file("crates/trust-runtime/src/harness/compiler/vars.rs");
     assert!(

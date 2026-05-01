@@ -1,5 +1,7 @@
 use super::*;
 
+const MAX_INLINE_OPERAND_BYTES: usize = 12;
+
 fn canonical_stack_register(slot: u32) -> RegisterId {
     RegisterId(slot)
 }
@@ -317,7 +319,7 @@ pub(super) fn lower_pou_to_register_ir(
             if opaque_mode {
                 instructions.push(RegisterInstr::VmFallback {
                     opcode: instr.opcode,
-                    operands: instr.operands.clone(),
+                    operands: instr.owned_operands(),
                 });
                 continue;
             }
@@ -590,7 +592,7 @@ pub(super) fn lower_pou_to_register_ir(
                 _ => {
                     instructions.push(RegisterInstr::VmFallback {
                         opcode: instr.opcode,
-                        operands: instr.operands.clone(),
+                        operands: instr.owned_operands(),
                     });
                     opaque_mode = true;
                 }
@@ -1084,11 +1086,18 @@ fn decode_pou(
                 "register-ir decode unexpected end of input while reading operands",
             ));
         }
-        let operands = module.code[(pc + 1)..next_pc].to_vec();
+        if operand_len > MAX_INLINE_OPERAND_BYTES {
+            return Err(invalid_bytecode(format!(
+                "register-ir decode opcode 0x{opcode:02X} operand length {operand_len} exceeds inline storage"
+            )));
+        }
+        let mut operands = [0_u8; MAX_INLINE_OPERAND_BYTES];
+        operands[..operand_len].copy_from_slice(&module.code[(pc + 1)..next_pc]);
         decoded.push(DecodedInstr {
             pc,
             next_pc,
             opcode,
+            operand_len,
             operands,
         });
         pc = next_pc;
@@ -1158,7 +1167,7 @@ fn pc_to_block_target(
 }
 
 fn operand_u32(instr: &DecodedInstr) -> Result<u32, RuntimeError> {
-    if instr.operands.len() != 4 {
+    if instr.operands().len() != 4 {
         return Err(invalid_bytecode(format!(
             "register-ir opcode 0x{:02X} expected 4-byte operand",
             instr.opcode
@@ -1168,7 +1177,7 @@ fn operand_u32(instr: &DecodedInstr) -> Result<u32, RuntimeError> {
 }
 
 fn operand_native_call(instr: &DecodedInstr) -> Result<(u32, u32, u32), RuntimeError> {
-    if instr.operands.len() != 12 {
+    if instr.operands().len() != 12 {
         return Err(invalid_bytecode(format!(
             "register-ir opcode 0x{:02X} expected 12-byte operand",
             instr.opcode
@@ -1182,34 +1191,31 @@ fn operand_native_call(instr: &DecodedInstr) -> Result<(u32, u32, u32), RuntimeE
 }
 
 fn operand_i32(instr: &DecodedInstr) -> Result<i32, RuntimeError> {
-    if instr.operands.len() != 4 {
+    let operands = instr.operands();
+    if operands.len() != 4 {
         return Err(invalid_bytecode(format!(
             "register-ir opcode 0x{:02X} expected 4-byte operand",
             instr.opcode
         )));
     }
-    let bytes = [
-        instr.operands[0],
-        instr.operands[1],
-        instr.operands[2],
-        instr.operands[3],
-    ];
+    let bytes = [operands[0], operands[1], operands[2], operands[3]];
     Ok(i32::from_le_bytes(bytes))
 }
 
 fn operand_u32_slice(instr: &DecodedInstr, offset: usize) -> Result<u32, RuntimeError> {
     let end = offset.saturating_add(4);
-    if instr.operands.len() < end {
+    let operands = instr.operands();
+    if operands.len() < end {
         return Err(invalid_bytecode(format!(
             "register-ir opcode 0x{:02X} missing operand bytes at offset {offset}",
             instr.opcode
         )));
     }
     let bytes = [
-        instr.operands[offset],
-        instr.operands[offset + 1],
-        instr.operands[offset + 2],
-        instr.operands[offset + 3],
+        operands[offset],
+        operands[offset + 1],
+        operands[offset + 2],
+        operands[offset + 3],
     ];
     Ok(u32::from_le_bytes(bytes))
 }
@@ -1219,5 +1225,16 @@ struct DecodedInstr {
     pc: usize,
     next_pc: usize,
     opcode: u8,
-    operands: Vec<u8>,
+    operand_len: usize,
+    operands: [u8; MAX_INLINE_OPERAND_BYTES],
+}
+
+impl DecodedInstr {
+    fn operands(&self) -> &[u8] {
+        &self.operands[..self.operand_len]
+    }
+
+    fn owned_operands(&self) -> Vec<u8> {
+        self.operands().to_vec()
+    }
 }
