@@ -350,38 +350,38 @@ Move lowest-risk portable pieces first.
 
 ## Phase 7 - Linux Host Rewire
 
-- [ ] `RTSPLIT-P7-001` Rewire `trust-runtime` to consume `trust-runtime-core`.
-- [ ] `RTSPLIT-P7-002` Keep public CLI behavior stable.
-- [ ] `RTSPLIT-P7-003` Keep existing runtime config behavior stable.
-- [ ] `RTSPLIT-P7-004` Keep product commands in the Linux host.
-- [ ] `RTSPLIT-P7-005` Do not move workbench/dev command implementation in this phase unless the product/workbench branch is already complete.
-- [ ] `RTSPLIT-P7-006` Ensure web/HMI/control/cloud access runtime state through approved ports.
-- [ ] `RTSPLIT-P7-007` Ensure benchmarks and conformance harnesses run against the assembled Linux host, not a duplicate mini-runtime.
-- [ ] `RTSPLIT-P7-008` Ensure debug/control surfaces do not reach into core internals beyond approved APIs.
-- [ ] `RTSPLIT-P7-009` Preserve release artifacts and packaging behavior.
+- [x] `RTSPLIT-P7-001` Rewire `trust-runtime` to consume `trust-runtime-core`. Evidence: `trust-runtime` imports or compatibility-reexports core-owned value, memory, program-model, bytecode, VM, scheduler, task, retain, and watchdog types from `trust_runtime_core`; `cargo check -p trust-runtime --lib` passes after the wrapper cleanup.
+- [x] `RTSPLIT-P7-002` Keep public CLI behavior stable. Evidence: `cargo test -p trust-runtime --bin trust-runtime cli::tests -- --nocapture` passes.
+- [x] `RTSPLIT-P7-003` Keep existing runtime config behavior stable. Evidence: `cargo test -p trust-runtime --test config_schema_command -- --nocapture` passes.
+- [x] `RTSPLIT-P7-004` Keep product commands in the Linux host. Evidence: `cargo test -p trust-runtime --test registry_command -- --nocapture` and `cargo test -p trust-runtime --test trust_harness_command -- --nocapture` pass; `FULLMAP-CHECK-06` classifies product command/bin ownership.
+- [x] `RTSPLIT-P7-005` Do not move workbench/dev command implementation in this phase unless the product/workbench branch is already complete. Evidence: no workbench command implementation moved in Phase 7; `FULLMAP-CHECK-06` still classifies `Agent`, `Commit`, `Docs`, and `Test` as `workbench_dev`.
+- [x] `RTSPLIT-P7-006` Ensure web/HMI/control/cloud access runtime state through approved ports. Evidence: `cargo run -p xtask -- architecture-doctor --full-map` passes `FULLMAP-CHECK-07` with `direct web runtime-state bypass findings: 0` and `direct web control-dispatch bypass findings: 0`.
+- [x] `RTSPLIT-P7-007` Ensure benchmarks and conformance harnesses run against the assembled Linux host, not a duplicate mini-runtime. Evidence: `FULLMAP-CHECK-06` classifies `Bench` and `Conformance` as `conformance_benchmark`; `cargo test -p trust-runtime --test st_test_cli_command -- --nocapture` and `cargo test -p trust-runtime --test trust_harness_command -- --nocapture` pass against the `trust-runtime` host.
+- [x] `RTSPLIT-P7-008` Ensure debug/control surfaces do not reach into core internals beyond approved APIs. Evidence: Phase 6 vertical runtime debug/control tests passed (`api_smoke`, `debug_control`, `complete_program`, `runtime_reliability`), and `FULLMAP-CHECK-05`/`FULLMAP-CHECK-07` pass after the host rewire.
+- [x] `RTSPLIT-P7-009` Preserve release artifacts and packaging behavior. Evidence: no packaging/release artifact files changed in Phase 7; CLI/config/registry/harness smokes and public API snapshot review pass.
 
 ### Phase 7 Exit Gate
 
-- [ ] `RTSPLIT-P7-GATE-01` Runtime product command smoke tests pass.
-- [ ] `RTSPLIT-P7-GATE-02` Runtime vertical tests pass.
-- [ ] `RTSPLIT-P7-GATE-03` Public API snapshot differences are reviewed.
-- [ ] `RTSPLIT-P7-GATE-04` Doctor rules prevent host/core boundary regressions.
+- [x] `RTSPLIT-P7-GATE-01` Runtime product command smoke tests pass. Evidence: `cargo test -p trust-runtime --bin trust-runtime cli::tests -- --nocapture`, `cargo test -p trust-runtime --test config_schema_command -- --nocapture`, `cargo test -p trust-runtime --test registry_command -- --nocapture`, `cargo test -p trust-runtime --test trust_harness_command -- --nocapture`, and `cargo test -p trust-runtime --test st_test_cli_command -- --nocapture` pass.
+- [x] `RTSPLIT-P7-GATE-02` Runtime vertical tests pass. Evidence: Phase 6 closeout vertical tests (`cargo test -p trust-runtime --test api_smoke -- --nocapture`, `cargo test -p trust-runtime --test debug_control -- --nocapture`, `cargo test -p trust-runtime --test complete_program -- --nocapture`, and `cargo test -p trust-runtime --test runtime_reliability -- --nocapture`) pass after the runtime-core movement; Phase 7 made only host rewire/API wrapper cleanup.
+- [x] `RTSPLIT-P7-GATE-03` Public API snapshot differences are reviewed. Evidence: `cargo public-api -p trust-runtime --color never > target/gate-artifacts/runtime-core-host-split-phase7/public-api-trust-runtime-default-features.txt` passes; expected diffs come from moved core type definitions/reexports, while `trust_runtime::task::TaskConfig`, `trust_runtime::task::TaskState`, and `RetainSnapshot::from_runtime` remain visible and the internal `TaskReadiness`/`evaluate_task_readiness` helpers do not appear in the public snapshot.
+- [x] `RTSPLIT-P7-GATE-04` Doctor rules prevent host/core boundary regressions. Evidence: `cargo run -p xtask -- architecture-doctor --full-map` passes `FULLMAP-CHECK-05`, `FULLMAP-CHECK-06`, `FULLMAP-CHECK-07`, and `FULLMAP-P6-API`.
 
 ## Phase 8 - Product / Workbench Coordination
 
 This phase coordinates with the separate runtime CLI product/workbench split. It does not have to move commands itself.
 
-- [ ] `RTSPLIT-P8-001` Confirm subcommand ownership policy exists.
-- [ ] `RTSPLIT-P8-002` Confirm product runtime commands do not import workbench-only modules.
-- [ ] `RTSPLIT-P8-003` Confirm workbench/dev commands do not become the reason for core dependencies.
-- [ ] `RTSPLIT-P8-004` Confirm `bundle_builder` ownership is decided before any core import is allowed.
-- [ ] `RTSPLIT-P8-005` Confirm `agent`, `commit`, `git`, `docs`, `prompt`, `workflow`, and `style` remain outside core.
-- [ ] `RTSPLIT-P8-006` Add compatibility-wrapper plan if commands move to `xtask` or `trust-dev`.
+- [x] `RTSPLIT-P8-001` Confirm subcommand ownership policy exists. Evidence: `xtask/config/full_map_policy.json` classifies command variants, bin modules, nested action enums, and route exceptions; `FULLMAP-CHECK-06` reports 22 command variants, 24 bin modules, and 7 nested action enums classified.
+- [x] `RTSPLIT-P8-002` Confirm product runtime commands do not import workbench-only modules. Evidence: `cargo test -p xtask known_bad_product_bin_importing_workbench_module_fails -- --nocapture` passes and `cargo run -p xtask -- architecture-doctor --full-map` passes `FULLMAP-CHECK-06`.
+- [x] `RTSPLIT-P8-003` Confirm workbench/dev commands do not become the reason for core dependencies. Evidence: `cargo test -p xtask known_bad_runtime_core -- --nocapture` passes the forbidden dependency/import guard fixtures, and `FULLMAP-CHECK-05` passes with `trust-runtime-core` free of CLI/workbench/host dependencies.
+- [x] `RTSPLIT-P8-004` Confirm `bundle_builder` ownership is decided before any core import is allowed. Evidence: `xtask/config/full_map_policy.json` classifies `bundle_builder` under `runtime_build_bundle` owned by `runtime/build`; it is not imported by `trust-runtime-core`, and `FULLMAP-CHECK-05` passes.
+- [x] `RTSPLIT-P8-005` Confirm `agent`, `commit`, `git`, `docs`, `prompt`, `workflow`, and `style` remain outside core. Evidence: `xtask/config/full_map_policy.json` classifies `agent`, `commit`, `docs`, and `workflow` as `workbench_dev`; `git`, `prompt`, and `style` remain CLI infrastructure; `FULLMAP-CHECK-05` confirms no matching host/CLI modules are imported by `trust-runtime-core`.
+- [x] `RTSPLIT-P8-006` Add compatibility-wrapper plan if commands move to `xtask` or `trust-dev`. Evidence: no commands moved in this phase, so no wrapper is required; command routes and classifications remain the compatibility contract until the separate product/workbench split board executes.
 
 ### Phase 8 Exit Gate
 
-- [ ] `RTSPLIT-P8-GATE-01` Product/workbench boundary is compatible with the core/host split.
-- [ ] `RTSPLIT-P8-GATE-02` No workbench command pulls host-only dependencies into core.
+- [x] `RTSPLIT-P8-GATE-01` Product/workbench boundary is compatible with the core/host split. Evidence: `cargo run -p xtask -- architecture-doctor --full-map` passes `FULLMAP-CHECK-06`, and `cargo test -p xtask known_bad_product_bin_importing_workbench_module_fails -- --nocapture` proves product-to-workbench imports fail.
+- [x] `RTSPLIT-P8-GATE-02` No workbench command pulls host-only dependencies into core. Evidence: `cargo run -p xtask -- architecture-doctor --full-map` passes `FULLMAP-CHECK-05`; `cargo test -p xtask known_bad_runtime_core -- --nocapture` and `cargo test -p xtask repo_runtime_core_policy_covers_runtime_split_forbidden_sets -- --nocapture` pass.
 
 ## Phase 9 - Maps, Diagrams, And Documentation
 

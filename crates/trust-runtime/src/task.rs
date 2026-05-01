@@ -16,4 +16,5 @@ pub struct ProgramDef {
     pub body: Vec<Stmt>,
 }
 
-pub use trust_runtime_core::task::{evaluate_task_readiness, TaskConfig, TaskReadiness, TaskState};
+pub(crate) use trust_runtime_core::task::evaluate_task_readiness;
+pub use trust_runtime_core::task::{TaskConfig, TaskState};
