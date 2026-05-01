@@ -14,7 +14,6 @@ COMMON_ARGS=(
   --timeout 120
   --minimum-test-timeout 20
   --baseline skip
-  --gitignore true
   --caught
   --unviable
   --no-times
@@ -27,7 +26,7 @@ if [[ "${TRUST_VM_MUTANTS_IN_PLACE:-0}" == "1" ]]; then
   fi
   COMMON_ARGS+=(--in-place)
 else
-  COMMON_ARGS+=(--jobs 1)
+  COMMON_ARGS+=(--gitignore true --jobs 1)
 fi
 
 list_shard() {
