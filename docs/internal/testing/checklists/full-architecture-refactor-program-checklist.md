@@ -6,6 +6,8 @@ Scope: execution program for the full software-map audit findings, SOLID/KISS cl
 
 This is the umbrella checklist. Individual execution boards own the detailed work. A single runtime-core split is not enough to satisfy the architecture goal.
 
+Navigation guard: use `architecture-workboard-index.md` before resuming after a crash, context reset, or branch switch.
+
 ## Program Rule
 
 - [ ] `ARCHPROG-RULE-01` Do not claim "0 silent bugs" from behavior-preserving refactors alone.
