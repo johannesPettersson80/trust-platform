@@ -1099,7 +1099,6 @@ fn decode_pou(
 fn opcode_operand_len_for_lowering(opcode: u8) -> Option<usize> {
     opcode_operand_len(opcode).or(match opcode {
         0x25 => Some(0),
-        0x62 | 0x63 => Some(4),
         _ => None,
     })
 }

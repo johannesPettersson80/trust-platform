@@ -67,6 +67,9 @@ Target release: `v0.24.9`
 - Bytecode validation now rejects duplicate `POU_INDEX` ids and unsupported
   runtime-only opcodes before VM module construction/dispatch instead of
   silently allowing map overwrites or late runtime traps.
+- VM instance-owner inference now scans partial-access opcodes with their
+  correct operand width, avoiding a silent owner-context drop in bytecode that
+  mixes instance references with bit/byte/word/dword access.
 - HIR validation now reports `UndefinedVariable` when a `VAR_ACCESS` access
   path points at a missing target instead of silently accepting the declaration.
 - HIR constant evaluation now reports `CannotResolve` for ambiguous unqualified

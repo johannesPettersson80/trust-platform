@@ -454,3 +454,32 @@ fn infer_primary_instance_owner(entry: &VmPouEntry, code: &[u8], refs: &[VmRef])
         None
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn infer_primary_instance_owner_scans_partial_access_operands() {
+        let mut code = vec![0x22];
+        code.extend_from_slice(&0_u32.to_le_bytes());
+        code.push(0x62);
+        code.extend_from_slice(&0_u32.to_le_bytes());
+
+        let entry = VmPouEntry {
+            name: SmolStr::new("Main"),
+            code_start: 0,
+            code_end: code.len(),
+            local_ref_start: 0,
+            local_ref_count: 0,
+            primary_instance_owner: None,
+        };
+        let refs = vec![VmRef::Instance {
+            owner_instance_id: 42,
+            offset: 0,
+            path: RefPath::new(),
+        }];
+
+        assert_eq!(infer_primary_instance_owner(&entry, &code, &refs), Some(42));
+    }
+}
