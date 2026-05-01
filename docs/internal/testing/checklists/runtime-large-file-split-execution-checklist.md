@@ -1,16 +1,16 @@
 # Runtime Large-File Split Execution Checklist
 
-Status: In progress; Phase 0 and Phase 1 owner/split inventory complete, `RTLARGE-P2-001` through `RTLARGE-P2-004` complete; next open detail row is `RTLARGE-P3-004`
+Status: In progress; Phase 0 through Phase 3 complete; remaining hotspot rows track optional follow-on splits, and the next risk-ranked hotspot is `RTLARGE-HOT-04` (`crates/trust-runtime/tests/agent_command.rs`)
 Owner: Runtime architecture
 Scope: address audit F8 and KISS risks from very large runtime files.
 
 ## Quantitative Rules
 
 - [x] `RTLARGE-RULE-01` No new Rust source file over 1,000 lines without owner/split note. Evidence: `FULLMAP-CHECK-10` fails runtime `src` and runtime `tests` Rust files over 1,000 lines without a `kiss.large_file_allowlist` owner/split entry; locked by `known_bad_large_runtime_file_without_owner_note_fails` and `known_bad_large_runtime_test_file_without_owner_note_fails`.
-- [x] `RTLARGE-RULE-02` Every existing Rust source file over 1,000 lines must have owner, responsibility statement, and split plan or waiver. Evidence: current `FULLMAP-CHECK-10` pass lists all 7 remaining runtime hotspots over 1,000 lines with owner and split plan after `runtime/vm/call.rs`, `web/config_ui_routes.rs`, `runtime/vm/register_ir/tests.rs`, and `memory.rs` were split below the threshold.
-- [x] `RTLARGE-RULE-03` Every Rust source file over 1,500 lines must have an approved split branch, completed split, or dated waiver. Evidence: current `FULLMAP-CHECK-10` pass lists all three remaining files over 1,500 lines with `runtime-large-file-split` split plans after `runtime/vm/call.rs`, `web/config_ui_routes.rs`, `runtime/vm/register_ir/tests.rs`, and `memory.rs` were split below the threshold.
-- [ ] `RTLARGE-RULE-04` Files over 2,500 lines are release-blocking for unrelated growth until split or waiver.
-- [ ] `RTLARGE-RULE-05` Public API growth caused by splits requires review, not automatic acceptance.
+- [x] `RTLARGE-RULE-02` Every existing Rust source file over 1,000 lines must have owner, responsibility statement, and split plan or waiver. Evidence: current `FULLMAP-CHECK-10` pass lists all 6 remaining runtime hotspots over 1,000 lines with owner and split plan after `runtime/vm/call.rs`, `web/config_ui_routes.rs`, `runtime/vm/register_ir/tests.rs`, `memory.rs`, and `bytecode_vm_core.rs` were split below the threshold.
+- [x] `RTLARGE-RULE-03` Every Rust source file over 1,500 lines must have an approved split branch, completed split, or dated waiver. Evidence: current `FULLMAP-CHECK-10` pass lists both remaining files over 1,500 lines with `runtime-large-file-split` split plans after `runtime/vm/call.rs`, `web/config_ui_routes.rs`, `runtime/vm/register_ir/tests.rs`, `memory.rs`, and `bytecode_vm_core.rs` were split below the threshold.
+- [x] `RTLARGE-RULE-04` Files over 2,500 lines are release-blocking for unrelated growth until split or waiver. Evidence: `rg --files crates/trust-runtime/src crates/trust-runtime/tests -g '*.rs' | xargs wc -l | sort -nr | sed -n '1,20p'` reports the largest remaining runtime file is `crates/trust-runtime/tests/agent_command.rs` at 1,566 lines after the Phase 2 and `RTLARGE-HOT-06` splits, so no >2,500-line runtime file remains.
+- [x] `RTLARGE-RULE-05` Public API growth caused by splits requires review, not automatic acceptance. Evidence: `cargo public-api -p trust-runtime diff bdf7808f6828dfd631ef3dab35fa05e1ecc74d95..c0578b7fac390dd75f96b9ed982592d5bb07c3e8 --color never` was captured at `target/gate-artifacts/runtime-large-file-split-p3-004/public-api-trust-runtime-board08-p2-splits.diff`; review found no removed or changed public items and only three added `impl trust_runtime::memory::VariableStorage` grouping entries from splitting inherent impl blocks, with no exported method/type growth.
 
 ## Initial Hotspot Set
 
@@ -19,7 +19,7 @@ Scope: address audit F8 and KISS risks from very large runtime files.
 - [x] `RTLARGE-HOT-03` `crates/trust-runtime/src/web/config_ui_routes.rs`. Completed 2026-05-01: split into a 67-line route entry point plus request models, response helpers, workspace persistence/services, runtime-cloud projection, live/lifecycle services, and focused route-group modules; all split files are under 1,000 lines and the stale `FULLMAP-CHECK-10` allowlist entry was removed.
 - [ ] `RTLARGE-HOT-04` `crates/trust-runtime/tests/agent_command.rs`.
 - [ ] `RTLARGE-HOT-05` `crates/trust-runtime/src/runtime/vm/register_ir.rs`.
-- [ ] `RTLARGE-HOT-06` `crates/trust-runtime/tests/bytecode_vm_core.rs`.
+- [x] `RTLARGE-HOT-06` `crates/trust-runtime/tests/bytecode_vm_core.rs`. Completed 2026-05-01: split into a 7-line include root plus support, positive-path, deadline, call/SIZEOF validation, lowering/constants, reference-validation, and fuzz/stack/call fragments; all split files are under 1,000 lines and the stale `FULLMAP-CHECK-10` allowlist entry was removed.
 - [ ] `RTLARGE-HOT-07` `crates/trust-runtime/src/bin/trust-dev/agent.rs` after BOARD-04 moved the implementation out of `trust-runtime`; `trust-runtime/agent.rs` is now a 13-line forwarding alias.
 - [ ] `RTLARGE-HOT-08` `crates/trust-runtime/tests/web_ide_integration/web_ide_integration_part_09.rs`.
 - [ ] `RTLARGE-HOT-09` `crates/trust-runtime/src/runtime/vm/register_ir/lower.rs`.
@@ -75,11 +75,11 @@ Non-hotspot note: `crates/trust-runtime/tests/oscat_oop_examples.rs` is exactly 
 - [x] `RTLARGE-P3-001` Add full-map doctor report for files >1,000 lines. Evidence: `FULLMAP-CHECK-10` report lists all current runtime `src` and runtime `tests` large files with line counts, owners, and split plans.
 - [x] `RTLARGE-P3-002` Fail new files >1,000 lines without note. Evidence: `known_bad_large_runtime_file_without_owner_note_fails` and `known_bad_large_runtime_test_file_without_owner_note_fails`.
 - [x] `RTLARGE-P3-003` Fail files >1,500 lines without split plan or waiver. Evidence: `FULLMAP-CHECK-10` enforces split-plan metadata for files over the configured split-plan line limit.
-- [ ] `RTLARGE-P3-004` Report public API growth from splits.
+- [x] `RTLARGE-P3-004` Report public API growth from splits. Evidence: `target/gate-artifacts/runtime-large-file-split-p3-004/public-api-trust-runtime-board08-p2-splits.diff` reports no removed or changed public API items across the BOARD-08 Phase 2 split range (`bdf7808f6..c0578b7fa`); the only additions are three `impl trust_runtime::memory::VariableStorage` rustdoc grouping entries caused by splitting methods across child modules.
 
 ## Exit Criteria
 
-- [x] `RTLARGE-EXIT-01` Every >1,000-line runtime file has owner/split note. Evidence: `FULLMAP-CHECK-10` passed on 2026-05-01 with all 7 remaining runtime hotspots listed after the `call.rs`, `config_ui_routes.rs`, `register_ir/tests.rs`, and `memory.rs` splits.
-- [x] `RTLARGE-EXIT-02` Every >1,500-line runtime file has split plan, completed split, or dated waiver. Evidence: `FULLMAP-CHECK-10` passed on 2026-05-01 with split plans for the three remaining files over 1,500 lines after the `call.rs`, `config_ui_routes.rs`, `register_ir/tests.rs`, and `memory.rs` splits.
+- [x] `RTLARGE-EXIT-01` Every >1,000-line runtime file has owner/split note. Evidence: `FULLMAP-CHECK-10` passed on 2026-05-01 with all 6 remaining runtime hotspots listed after the `call.rs`, `config_ui_routes.rs`, `register_ir/tests.rs`, `memory.rs`, and `bytecode_vm_core.rs` splits.
+- [x] `RTLARGE-EXIT-02` Every >1,500-line runtime file has split plan, completed split, or dated waiver. Evidence: `FULLMAP-CHECK-10` passed on 2026-05-01 with split plans for the two remaining files over 1,500 lines after the `call.rs`, `config_ui_routes.rs`, `register_ir/tests.rs`, `memory.rs`, and `bytecode_vm_core.rs` splits.
 - [x] `RTLARGE-EXIT-03` At least the top two risk-ranked files have concrete split branches or completed splits. Evidence: `RTLARGE-P2-001` split `runtime/vm/call.rs` and `RTLARGE-P2-002` split `web/config_ui_routes.rs`; both stale large-file allowlist rows were removed and `FULLMAP-CHECK-10` passed.
 - [x] `RTLARGE-EXIT-04` Doctor blocks new large-file regressions. Evidence: `FULLMAP-CHECK-10` blocks missing notes for runtime `src` and runtime `tests`, blocks stale allowlist paths, and passed after policy cleanup.

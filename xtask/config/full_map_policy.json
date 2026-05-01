@@ -229,7 +229,6 @@
       {"name": "web", "subsystem": "host_surface_web", "owner": "runtime/web", "rationale": "HTTP routes, websocket transport, and browser assets", "review_date": "2026-04-30", "decision_note": "ARCHPROG-C-05 baseline freeze"}
     ],
     "large_file_allowlist": [
-      {"path": "crates/trust-runtime/tests/bytecode_vm_core.rs", "owner": "runtime/VM", "rationale": "VM integration-test hotspot; split tracked by runtime-large-file board", "review_date": "2026-05-01", "split_plan": "runtime-large-file-split RTLARGE-HOT-06"},
       {"path": "crates/trust-runtime/tests/agent_command.rs", "owner": "dev tooling", "rationale": "agent command integration-test hotspot; split tracked by runtime-large-file board", "review_date": "2026-05-01", "split_plan": "runtime-large-file-split RTLARGE-HOT-04"},
       {"path": "crates/trust-runtime/src/runtime/vm/register_ir.rs", "owner": "runtime/VM", "rationale": "register IR hotspot", "review_date": "2026-04-28", "split_plan": "runtime-large-file-split RTLARGE-HOT-05"},
       {"path": "crates/trust-runtime/src/bin/trust-dev/agent.rs", "owner": "dev tooling", "rationale": "workbench/dev agent command implementation moved to trust-dev; further size split remains tracked by runtime large-file board", "review_date": "2026-05-01", "split_plan": "runtime-large-file-split RTLARGE-HOT-07"},
