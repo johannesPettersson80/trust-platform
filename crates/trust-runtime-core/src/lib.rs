@@ -34,3 +34,5 @@ pub mod scaffold;
 pub mod task;
 /// Portable runtime value model pieces.
 pub mod value;
+/// Portable VM execution helpers.
+pub mod vm;

@@ -186,10 +186,10 @@ Move lowest-risk portable pieces first.
 - [x] `RTSPLIT-P4-003` Keep value constructors and validation invariants unchanged.
 - [x] `RTSPLIT-P4-004` Move portable `program_model` records used by runtime execution. Evidence: pure utility helpers, shared operator semantics, HIR-backed expression/lvalue/call-argument records, and HIR-backed initializer catalog records now live in `trust-runtime-core`; `stmt.rs` and `types.rs` remain in `trust-runtime` because they still carry host/debug/source-location and IO/retain policy dependencies that require a separate owner split.
 - [ ] `RTSPLIT-P4-005` Move bytecode container/decode/format/validation pieces needed after compile. Progress: bytecode metadata/version/process-image records, bytecode error/reader/alignment helpers, pure bytecode format records, portable task configuration, and host-owned bytecode builder functions are split out; full `BytecodeModule` container/decode/validate movement remains open until the temporary `BytecodeModule::from_runtime*` compatibility shims can be retired.
-- [ ] `RTSPLIT-P4-006` Keep compile/lowering harnesses in the Linux host unless separately justified.
-- [ ] `RTSPLIT-P4-007` Keep web/control/debug formatting helpers host-side.
-- [ ] `RTSPLIT-P4-008` Add tests for value serialization, equality, declared type identity, retained canonicalization, and bytecode validation after each moved cluster.
-- [ ] `RTSPLIT-P4-009` Avoid moving a giant module wholesale if it mixes host and core responsibilities; split by owner first.
+- [x] `RTSPLIT-P4-006` Keep compile/lowering harnesses in the Linux host unless separately justified. Evidence: `trust-runtime::harness`, compile/build helpers, and `trust-runtime::bytecode::encoder` remain host-side; only portable records/helpers moved to `trust-runtime-core`.
+- [x] `RTSPLIT-P4-007` Keep web/control/debug formatting helpers host-side. Evidence: Phase 4 did not move `web`, `control`, UI/HMI, or runtime debug transport/formatting modules; bytecode debug map records moved only as portable container data.
+- [x] `RTSPLIT-P4-008` Add tests for value serialization, equality, declared type identity, retained canonicalization, and bytecode validation after each moved cluster. Evidence: each moved value/program-model/bytecode cluster records focused core/runtime tests in the Phase 4 progress rows, including bytecode container, sections, validation, metadata, initializer, value/default, reference, partial-access, size, and operator gates.
+- [x] `RTSPLIT-P4-009` Avoid moving a giant module wholesale if it mixes host and core responsibilities; split by owner first. Evidence: Phase 4 moved portable records and pure semantics as small slices while leaving host-bound `stmt.rs`, `types.rs`, harness/build, encoder, VM assembly, web/control/debug, and the host-owned `BytecodeModule` compatibility surface in `trust-runtime`.
 
 ### Phase 4 Progress
 
@@ -269,8 +269,8 @@ Move lowest-risk portable pieces first.
 
 ## Phase 5 - Move VM Execution Core
 
-- [ ] `RTSPLIT-P5-001` Identify VM modules that are pure execution versus host assembly/lowering.
-- [ ] `RTSPLIT-P5-002` Move VM dispatch/execution pieces that do not require host services.
+- [x] `RTSPLIT-P5-001` Identify VM modules that are pure execution versus host assembly/lowering. Evidence: pure leaf modules ready for core are VM trap/error mapping and operand stack; pure candidates needing additional seams are dispatch ops, SIZEOF helpers, const-pool decode, and frame stack pieces; runtime-coupled modules are dispatch, dispatch refs, call, local init, and register IR execution because they still take `Runtime`, debug hooks, or host storage/initializer services; lowering/profile/tier1/test-fixture modules stay split by their existing ownership boundaries.
+- [ ] `RTSPLIT-P5-002` Move VM dispatch/execution pieces that do not require host services. Progress: VM trap/error mapping and operand stack moved to `trust-runtime-core`; larger dispatch, call, local init, and register IR execution remain host-side until their `Runtime` and debug/initializer dependencies are split.
 - [ ] `RTSPLIT-P5-003` Keep host assembly, IO driver invocation, CLI project loading, and runtime config loading in `trust-runtime`.
 - [ ] `RTSPLIT-P5-004` Introduce service ports only where the VM truly needs host callbacks.
 - [ ] `RTSPLIT-P5-005` Do not let VM code import `web`, `control`, `debug`, `runtime_cloud`, or host IO implementations through the new core.
@@ -278,6 +278,12 @@ Move lowest-risk portable pieces first.
 - [ ] `RTSPLIT-P5-007` Split register IR code only along real boundaries: lowering, profile, tier1, execution, test fixtures.
 - [ ] `RTSPLIT-P5-008` Keep test names stable where possible to avoid losing historical signal.
 - [ ] `RTSPLIT-P5-009` Run VM bytecode/core focused tests after every VM movement slice.
+
+### Phase 5 Progress
+
+- [x] `RTSPLIT-P5-VM-LEAF-001` Move the VM trap taxonomy and operand stack into `trust-runtime-core`. Evidence: `crates/trust-runtime-core/src/vm/{errors.rs, stack.rs}` now owns `VmTrap` and `OperandStack`; `trust-runtime/src/runtime/vm/{errors.rs, stack.rs}` are compatibility re-export modules for existing VM code.
+- [x] `RTSPLIT-P5-VM-LEAF-002` Keep the first VM move free of host callbacks and host services. Evidence: the moved core VM slice depends only on core-owned `RuntimeError`, `Value`, and `alloc`; it does not import `Runtime`, debug hooks, web/control/HMI/cloud modules, IO drivers, harness code, or config loading.
+- [x] `RTSPLIT-P5-VM-LEAF-003` Verify the first VM core movement slice. Evidence: `just fmt`, `cargo test -p trust-runtime-core vm -- --nocapture`, `cargo check -p trust-runtime-core --no-default-features`, `cargo check -p trust-runtime --lib`, `cargo test -p trust-runtime --test bytecode_vm_core -- --nocapture`, `cargo test -p trust-runtime runtime::vm:: --lib -- --nocapture`, `cargo clippy -p trust-runtime-core -p trust-runtime --lib -- -D warnings`, `cargo run -p xtask -- architecture-doctor --full-map`, `scripts/render_diagrams.sh`, and `python scripts/check_diagram_drift.py` pass.
 
 ### Phase 5 Exit Gate
 
