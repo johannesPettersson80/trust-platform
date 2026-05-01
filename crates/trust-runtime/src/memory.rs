@@ -515,6 +515,10 @@ impl VariableStorage {
         }
     }
 
+    pub(crate) fn read_global_slot_by_offset(&self, offset: usize) -> Option<&Value> {
+        self.globals.get_index(offset).map(|(_, value)| value)
+    }
+
     pub(crate) fn write_direct_slot_by_location(
         &mut self,
         location: MemoryLocation,
@@ -550,6 +554,15 @@ impl VariableStorage {
                 .is_some(),
             MemoryLocation::Io(_) | MemoryLocation::Retain => false,
         }
+    }
+
+    pub(crate) fn write_global_slot_by_offset(&mut self, offset: usize, value: Value) -> bool {
+        self.globals
+            .get_index_mut(offset)
+            .map(|(_, slot)| {
+                *slot = crate::value::normalize_assignment_for_target(slot, value);
+            })
+            .is_some()
     }
 
     pub fn read_by_ref(&self, value_ref: crate::value::ValueRef) -> Option<&Value> {

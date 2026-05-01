@@ -52,6 +52,14 @@ pub(super) fn peek_ref<'a>(
         .ok_or(VmTrap::InvalidRefIndex(ref_idx))?;
 
     match reference {
+        VmRef::Global { offset, path } if path.is_empty() => runtime
+            .storage
+            .read_global_slot_by_offset(*offset)
+            .ok_or(VmTrap::NullReference),
+        VmRef::Global { offset, path } => runtime
+            .storage
+            .read_by_ref_parts(MemoryLocation::Global, *offset, path)
+            .ok_or(VmTrap::NullReference),
         VmRef::Local { offset, path, .. } => {
             let frame = frames.current().ok_or(VmTrap::CallStackUnderflow)?;
             if path.is_empty() {
@@ -120,6 +128,23 @@ pub(super) fn store_ref(
         .ok_or(VmTrap::InvalidRefIndex(ref_idx))?;
 
     match reference {
+        VmRef::Global { offset, path } if path.is_empty() => {
+            if runtime.storage.write_global_slot_by_offset(*offset, value) {
+                Ok(())
+            } else {
+                Err(VmTrap::NullReference)
+            }
+        }
+        VmRef::Global { offset, path } => {
+            if runtime
+                .storage
+                .write_by_ref_parts(MemoryLocation::Global, *offset, path, value)
+            {
+                Ok(())
+            } else {
+                Err(VmTrap::NullReference)
+            }
+        }
         VmRef::Local { offset, path, .. } => {
             let frame = frames.current_mut().ok_or(VmTrap::CallStackUnderflow)?;
             if path.is_empty() {
