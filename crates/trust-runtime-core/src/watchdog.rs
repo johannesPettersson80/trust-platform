@@ -165,11 +165,117 @@ pub struct FaultInfo {
     pub reason: SmolStr,
 }
 
+/// Stateful watchdog policy holder.
+pub struct WatchdogSubsystem {
+    policy: WatchdogPolicy,
+}
+
+impl WatchdogSubsystem {
+    /// Create a subsystem with the default disabled watchdog policy.
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            policy: WatchdogPolicy::default(),
+        }
+    }
+
+    /// Replace the active watchdog policy.
+    pub fn set_policy(&mut self, policy: WatchdogPolicy) {
+        self.policy = policy;
+    }
+
+    /// Return the active watchdog policy.
+    #[must_use]
+    pub fn policy(&self) -> WatchdogPolicy {
+        self.policy
+    }
+
+    /// Return the fault decision implied by the active watchdog policy.
+    #[must_use]
+    pub fn decision(&self) -> FaultDecision {
+        FaultDecision::from_watchdog(self.policy.action)
+    }
+}
+
+impl Default for WatchdogSubsystem {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Stateful runtime fault holder.
+pub struct FaultSubsystem {
+    policy: FaultPolicy,
+    faulted: bool,
+    last_fault: Option<RuntimeError>,
+}
+
+impl FaultSubsystem {
+    /// Create a subsystem with the default halt-on-fault policy.
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            policy: FaultPolicy::Halt,
+            faulted: false,
+            last_fault: None,
+        }
+    }
+
+    /// Return the active fault policy.
+    #[must_use]
+    pub fn policy(&self) -> FaultPolicy {
+        self.policy
+    }
+
+    /// Replace the active fault policy.
+    pub fn set_policy(&mut self, policy: FaultPolicy) {
+        self.policy = policy;
+    }
+
+    /// Return the fault decision implied by the active policy.
+    #[must_use]
+    pub fn decision(&self) -> FaultDecision {
+        FaultDecision::from_fault_policy(self.policy)
+    }
+
+    /// Record a runtime fault.
+    pub fn record(&mut self, err: RuntimeError) {
+        self.faulted = true;
+        self.last_fault = Some(err);
+    }
+
+    /// Clear the faulted state and last fault.
+    pub fn clear(&mut self) {
+        self.faulted = false;
+        self.last_fault = None;
+    }
+
+    /// Return whether the runtime is currently faulted.
+    #[must_use]
+    pub fn is_faulted(&self) -> bool {
+        self.faulted
+    }
+
+    /// Return the last recorded fault, if any.
+    #[must_use]
+    pub fn last_fault(&self) -> Option<&RuntimeError> {
+        self.last_fault.as_ref()
+    }
+}
+
+impl Default for FaultSubsystem {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        FaultAction, FaultDecision, FaultPolicy, RetainMode, WatchdogAction, WatchdogPolicy,
+        FaultAction, FaultDecision, FaultPolicy, FaultSubsystem, RetainMode, WatchdogAction,
+        WatchdogPolicy, WatchdogSubsystem,
     };
+    use crate::error::RuntimeError;
     use crate::value::Duration;
 
     #[test]
@@ -255,5 +361,42 @@ mod tests {
                 action: WatchdogAction::SafeHalt,
             }
         );
+    }
+
+    #[test]
+    fn watchdog_and_fault_subsystems_preserve_state_contracts() {
+        let mut watchdog = WatchdogSubsystem::new();
+        assert_eq!(watchdog.policy(), WatchdogPolicy::default());
+        watchdog.set_policy(WatchdogPolicy {
+            enabled: true,
+            timeout: Duration::from_millis(5),
+            action: WatchdogAction::Restart,
+        });
+        assert_eq!(
+            watchdog.decision(),
+            FaultDecision {
+                action: FaultAction::Restart,
+                apply_safe_state: false,
+            }
+        );
+
+        let mut faults = FaultSubsystem::new();
+        assert_eq!(faults.policy(), FaultPolicy::Halt);
+        assert!(!faults.is_faulted());
+        assert!(faults.last_fault().is_none());
+        faults.set_policy(FaultPolicy::SafeHalt);
+        assert_eq!(
+            faults.decision(),
+            FaultDecision {
+                action: FaultAction::SafeHalt,
+                apply_safe_state: true,
+            }
+        );
+        faults.record(RuntimeError::WatchdogTimeout);
+        assert!(faults.is_faulted());
+        assert_eq!(faults.last_fault(), Some(&RuntimeError::WatchdogTimeout));
+        faults.clear();
+        assert!(!faults.is_faulted());
+        assert!(faults.last_fault().is_none());
     }
 }
