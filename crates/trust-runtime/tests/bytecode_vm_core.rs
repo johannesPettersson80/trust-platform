@@ -508,6 +508,79 @@ fn vm_opcode_positive_path_covers_call_native_oop_dispatch() {
 }
 
 #[test]
+fn vm_call_native_method_polymorphic_receiver_dispatch_remains_correct() {
+    let source = r#"
+        INTERFACE ICounter
+        METHOD Inc : INT
+        VAR_INPUT
+            delta : INT;
+        END_VAR
+        END_METHOD
+        END_INTERFACE
+
+        CLASS CounterA IMPLEMENTS ICounter
+        VAR PUBLIC
+            value : INT := INT#0;
+        END_VAR
+        METHOD PUBLIC Inc : INT
+        VAR_INPUT
+            delta : INT;
+        END_VAR
+        value := value + delta;
+        Inc := value;
+        END_METHOD
+        END_CLASS
+
+        CLASS CounterB IMPLEMENTS ICounter
+        VAR PUBLIC
+            value : INT := INT#0;
+        END_VAR
+        METHOD PUBLIC Inc : INT
+        VAR_INPUT
+            delta : INT;
+        END_VAR
+        value := value + (delta * INT#10);
+        Inc := value;
+        END_METHOD
+        END_CLASS
+
+        PROGRAM Main
+        VAR
+            i : ICounter;
+            a : CounterA;
+            b : CounterB;
+            out_a1 : INT := INT#0;
+            out_b1 : INT := INT#0;
+            out_a2 : INT := INT#0;
+        END_VAR
+        i := a;
+        out_a1 := i.Inc(INT#1);
+        i := b;
+        out_b1 := i.Inc(INT#2);
+        i := a;
+        out_a2 := i.Inc(INT#3);
+        END_PROGRAM
+    "#;
+    let module = bytecode_module_from_source(source).expect("compile bytecode module");
+    let body = main_body_bytes(&module);
+    assert!(
+        body.contains(&0x09),
+        "expected CALL_NATIVE opcode in main body"
+    );
+
+    let mut harness = vm_harness(source);
+    let cycle = harness.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "CALL_NATIVE polymorphic method dispatch failed: {:?}",
+        cycle.errors
+    );
+    harness.assert_eq("out_a1", 1i16);
+    harness.assert_eq("out_b1", 20i16);
+    harness.assert_eq("out_a2", 4i16);
+}
+
+#[test]
 fn vm_opcode_positive_path_covers_string_and_wstring_literals() {
     let source = r#"
         PROGRAM Main
