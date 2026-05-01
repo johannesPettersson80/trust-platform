@@ -13,17 +13,23 @@ pub(super) use trust_runtime_core::retain::{RestartMode, RetainPolicy};
 /// Snapshot of retained global values for hot reload.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct RetainSnapshot {
-    pub(crate) values: IndexMap<SmolStr, Value>,
+    pub(crate) inner: trust_runtime_core::retain::RetainSnapshot,
 }
 
 impl RetainSnapshot {
+    pub(crate) fn from_values(values: IndexMap<SmolStr, Value>) -> Self {
+        Self {
+            inner: trust_runtime_core::retain::RetainSnapshot::from_values(values),
+        }
+    }
+
     pub fn insert(&mut self, name: impl Into<SmolStr>, value: Value) {
-        self.values.insert(name.into(), value);
+        self.inner.insert(name, value);
     }
 
     #[must_use]
     pub fn values(&self) -> &IndexMap<SmolStr, Value> {
-        &self.values
+        self.inner.values()
     }
 }
 
