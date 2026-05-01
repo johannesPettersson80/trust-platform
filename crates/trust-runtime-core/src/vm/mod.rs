@@ -3,9 +3,11 @@
 #![allow(missing_docs)]
 
 mod errors;
+mod helpers;
 mod stack;
 
 pub use errors::VmTrap;
+pub use helpers::{materialize_borrowed_value, opcode_operand_len};
 pub use stack::OperandStack;
 
 #[cfg(test)]
@@ -44,5 +46,24 @@ mod tests {
             VmTrap::InvalidOpcode(0xFF).into_runtime_error(),
             RuntimeError::InvalidBytecode(message) if message.contains("0xFF")
         ));
+    }
+
+    #[test]
+    fn vm_helpers_preserve_opcode_and_borrow_materialization_contracts() {
+        assert_eq!(super::opcode_operand_len(0x00), Some(0));
+        assert_eq!(super::opcode_operand_len(0x02), Some(4));
+        assert_eq!(super::opcode_operand_len(0x08), Some(8));
+        assert_eq!(super::opcode_operand_len(0x09), Some(12));
+        assert_eq!(super::opcode_operand_len(0x16), Some(1));
+        assert_eq!(super::opcode_operand_len(0xFF), None);
+
+        assert_eq!(
+            super::materialize_borrowed_value(&Value::DInt(7)),
+            (Value::DInt(7), false)
+        );
+        assert_eq!(
+            super::materialize_borrowed_value(&Value::String("x".into())),
+            (Value::String("x".into()), true)
+        );
     }
 }
