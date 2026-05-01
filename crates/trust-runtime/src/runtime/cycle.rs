@@ -8,6 +8,7 @@ use crate::error;
 use crate::task::{ProgramDef, TaskConfig};
 use crate::value::{Duration, Value};
 use std::sync::Arc;
+use trust_runtime_core::cycle::sort_ready_tasks_by_priority;
 
 use super::core::Runtime;
 use super::types::ReadyTask;
@@ -85,10 +86,7 @@ impl Runtime {
             self.ready_tasks_scratch = ready;
             return Err(self.record_fault(err));
         }
-        ready.sort_by_key(|entry| {
-            let task = &self.tasks[entry.index];
-            (task.priority, entry.due_at.as_nanos(), entry.index)
-        });
+        sort_ready_tasks_by_priority(&mut ready, |index| self.tasks[index].priority);
         for entry in &ready {
             let task = self.tasks[entry.index].clone();
             let task_timer = self.metrics.start_timer();

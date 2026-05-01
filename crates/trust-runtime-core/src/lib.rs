@@ -18,6 +18,8 @@ extern crate alloc;
 
 /// Portable bytecode metadata records.
 pub mod bytecode;
+/// Portable cycle scheduling helpers.
+pub mod cycle;
 /// Portable date/time calculation helpers.
 pub mod datetime;
 /// Portable runtime errors.

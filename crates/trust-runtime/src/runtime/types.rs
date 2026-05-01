@@ -5,13 +5,9 @@
 use indexmap::IndexMap;
 use smol_str::SmolStr;
 
-use crate::value::{Duration, Value};
+use crate::value::Value;
 
-#[derive(Debug, Clone)]
-pub(super) struct ReadyTask {
-    pub index: usize,
-    pub due_at: Duration,
-}
+pub(super) use trust_runtime_core::cycle::ReadyTask;
 
 /// Retentive behavior for variables.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
