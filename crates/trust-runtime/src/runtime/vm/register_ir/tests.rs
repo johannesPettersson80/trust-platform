@@ -538,7 +538,9 @@ fn execute_register_subset(
                 | RegisterInstr::RefField { .. }
                 | RegisterInstr::RefIndex { .. }
                 | RegisterInstr::LoadDynamic { .. }
-                | RegisterInstr::StoreDynamic { .. } => {
+                | RegisterInstr::StoreDynamic { .. }
+                | RegisterInstr::LoadSelfFieldDynamic { .. }
+                | RegisterInstr::StoreSelfFieldDynamic { .. } => {
                     return Err(invalid_bytecode(
                             "parity register executor does not support native-call/sizeof/dynamic-ref ops",
                         ));
@@ -1856,25 +1858,77 @@ fn tier1_compiler_accepts_function_block_self_field_dynamic_ops() {
         .blocks
         .iter()
         .find(|block| {
-            block
-                .instructions
-                .iter()
-                .any(|instruction| matches!(instruction, RegisterInstr::RefField { .. }))
-                && block
-                    .instructions
-                    .iter()
-                    .any(|instruction| matches!(instruction, RegisterInstr::LoadDynamic { .. }))
-                && block
-                    .instructions
-                    .iter()
-                    .any(|instruction| matches!(instruction, RegisterInstr::StoreDynamic { .. }))
+            block.instructions.iter().any(|instruction| {
+                matches!(instruction, RegisterInstr::LoadSelfFieldDynamic { .. })
+            }) && block.instructions.iter().any(|instruction| {
+                matches!(instruction, RegisterInstr::StoreSelfFieldDynamic { .. })
+            })
         })
-        .expect("function block ref/dynamic block");
+        .expect("function block fused self-field dynamic block");
     let key = super::tier1_block_key(&vm_module, fb_pou_id, block);
     assert!(
         super::compile_tier1_block(&vm_module, block, key).is_ok(),
         "expected tier-1 compiler to accept self-field dynamic block: {:?}",
         block.instructions
+    );
+}
+
+#[test]
+fn register_ir_lowering_fuses_self_field_dynamic_load_store() {
+    let source = r#"
+            FUNCTION_BLOCK Counter
+            VAR_OUTPUT
+                Value : DINT;
+            END_VAR
+
+            Value := Value + DINT#1;
+            END_FUNCTION_BLOCK
+
+            PROGRAM Main
+            VAR
+                fb : Counter;
+            END_VAR
+
+            fb();
+            END_PROGRAM
+        "#;
+
+    let bytecode = bytecode_module_from_source(source).expect("compile bytecode");
+    let vm_module = VmModule::from_bytecode(&bytecode).expect("decode vm module");
+    let fb_pou_id = vm_module
+        .function_block_ids
+        .get(&SmolStr::new("COUNTER"))
+        .copied()
+        .expect("counter pou id");
+    let lowered = lower_pou_to_register_ir(&vm_module, fb_pou_id).expect("lower register ir");
+    verify_register_program(&lowered).expect("verify register ir");
+    assert_no_fallback(&lowered);
+
+    let has_unfused_self_field_dynamic = lowered.blocks.iter().any(|block| {
+        block.instructions.windows(3).any(|window| {
+            let [RegisterInstr::LoadSelf { dest: self_reg }, RegisterInstr::RefField {
+                base,
+                dest: field_reg,
+                ..
+            }, third] = window
+            else {
+                return false;
+            };
+            base == self_reg
+                && matches!(
+                    third,
+                    RegisterInstr::LoadDynamic { reference, .. }
+                    | RegisterInstr::StoreDynamic {
+                        reference,
+                        ..
+                    } if reference == field_reg
+                )
+        })
+    });
+
+    assert!(
+        !has_unfused_self_field_dynamic,
+        "SELF.field dynamic access should lower to a fused register instruction: {lowered:#?}"
     );
 }
 

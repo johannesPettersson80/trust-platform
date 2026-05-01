@@ -30,6 +30,14 @@ pub(super) enum Tier1CompiledInstr {
     LoadSuper {
         dest: RegisterId,
     },
+    LoadSelfFieldDynamic {
+        field: smol_str::SmolStr,
+        dest: RegisterId,
+    },
+    StoreSelfFieldDynamic {
+        field: smol_str::SmolStr,
+        value: RegisterId,
+    },
     Move {
         src: RegisterId,
         dest: RegisterId,
@@ -417,6 +425,25 @@ pub(super) fn compile_tier1_block(
             RegisterInstr::LoadNull { dest } => Tier1CompiledInstr::LoadNull { dest: *dest },
             RegisterInstr::LoadSelf { dest } => Tier1CompiledInstr::LoadSelf { dest: *dest },
             RegisterInstr::LoadSuper { dest } => Tier1CompiledInstr::LoadSuper { dest: *dest },
+            RegisterInstr::LoadSelfFieldDynamic { field_idx, dest } => {
+                let field = module
+                    .strings
+                    .get(*field_idx as usize)
+                    .cloned()
+                    .ok_or_else(|| format!("invalid_string_index:{field_idx}"))?;
+                Tier1CompiledInstr::LoadSelfFieldDynamic { field, dest: *dest }
+            }
+            RegisterInstr::StoreSelfFieldDynamic { field_idx, value } => {
+                let field = module
+                    .strings
+                    .get(*field_idx as usize)
+                    .cloned()
+                    .ok_or_else(|| format!("invalid_string_index:{field_idx}"))?;
+                Tier1CompiledInstr::StoreSelfFieldDynamic {
+                    field,
+                    value: *value,
+                }
+            }
             RegisterInstr::Move { src, dest } => Tier1CompiledInstr::Move {
                 src: *src,
                 dest: *dest,
@@ -648,6 +675,36 @@ fn execute_tier1_compiled_block(
                     VmTrap::Runtime(RuntimeError::TypeMismatch).into_runtime_error()
                 })?;
                 write_register(registers, *dest, Value::Instance(super_instance))?;
+            }
+            Tier1CompiledInstr::LoadSelfFieldDynamic { field, dest } => {
+                runtime
+                    .vm_register_profile
+                    .record_ref_op(RegisterRefOpKind::RefField);
+                runtime
+                    .vm_register_profile
+                    .record_ref_op(RegisterRefOpKind::InstanceFieldLookup);
+                runtime
+                    .vm_register_profile
+                    .record_ref_op(RegisterRefOpKind::LoadDynamic);
+                let self_instance = current_self_instance(frames)?;
+                let value = load_instance_field_dynamic(runtime, frames, self_instance, field)?;
+                write_register(registers, *dest, value)?;
+            }
+            Tier1CompiledInstr::StoreSelfFieldDynamic { field, value } => {
+                runtime
+                    .vm_register_profile
+                    .record_ref_op(RegisterRefOpKind::RefField);
+                runtime
+                    .vm_register_profile
+                    .record_ref_op(RegisterRefOpKind::InstanceFieldLookup);
+                runtime
+                    .vm_register_profile
+                    .record_ref_op(RegisterRefOpKind::StoreDynamic);
+                let self_instance = current_self_instance(frames)?;
+                let reference = resolve_instance_field_ref(runtime, self_instance, field)?;
+                let value = read_register(registers, *value)?;
+                dynamic_store_ref(runtime, frames, &reference, value)
+                    .map_err(VmTrap::into_runtime_error)?;
             }
             Tier1CompiledInstr::Move { src, dest } => {
                 let value = read_register(registers, *src)?;

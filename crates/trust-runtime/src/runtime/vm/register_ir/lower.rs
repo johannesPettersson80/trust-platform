@@ -651,6 +651,64 @@ fn try_fuse_instruction_window(
     instructions: &[RegisterInstr],
     index: usize,
 ) -> Option<(RegisterInstr, usize)> {
+    if index + 2 < instructions.len() {
+        if let (
+            RegisterInstr::LoadSelf { dest: self_reg },
+            RegisterInstr::RefField {
+                base,
+                field_idx,
+                dest: field_reg,
+            },
+            RegisterInstr::LoadDynamic { reference, dest },
+        ) = (
+            &instructions[index],
+            &instructions[index + 1],
+            &instructions[index + 2],
+        ) {
+            if base == self_reg
+                && reference == field_reg
+                && !register_used_after(instructions, index + 3, *self_reg)
+                && !register_used_after(instructions, index + 3, *field_reg)
+            {
+                return Some((
+                    RegisterInstr::LoadSelfFieldDynamic {
+                        field_idx: *field_idx,
+                        dest: *dest,
+                    },
+                    3,
+                ));
+            }
+        }
+
+        if let (
+            RegisterInstr::LoadSelf { dest: self_reg },
+            RegisterInstr::RefField {
+                base,
+                field_idx,
+                dest: field_reg,
+            },
+            RegisterInstr::StoreDynamic { reference, value },
+        ) = (
+            &instructions[index],
+            &instructions[index + 1],
+            &instructions[index + 2],
+        ) {
+            if base == self_reg
+                && reference == field_reg
+                && !register_used_after(instructions, index + 3, *self_reg)
+                && !register_used_after(instructions, index + 3, *field_reg)
+            {
+                return Some((
+                    RegisterInstr::StoreSelfFieldDynamic {
+                        field_idx: *field_idx,
+                        value: *value,
+                    },
+                    3,
+                ));
+            }
+        }
+    }
+
     if index + 3 >= instructions.len() {
         return None;
     }
@@ -845,6 +903,7 @@ fn instruction_reads_register(instruction: &RegisterInstr, register: RegisterId)
         RegisterInstr::RefField { base, .. } => *base == register,
         RegisterInstr::RefIndex { base, index, .. } => *base == register || *index == register,
         RegisterInstr::LoadDynamic { reference, .. } => *reference == register,
+        RegisterInstr::StoreSelfFieldDynamic { value, .. } => *value == register,
         RegisterInstr::StoreDynamic { reference, value } => {
             *reference == register || *value == register
         }
@@ -891,6 +950,7 @@ pub(super) fn verify_register_program(program: &RegisterProgram) -> Result<(), R
                 | RegisterInstr::LoadNull { dest }
                 | RegisterInstr::LoadSelf { dest }
                 | RegisterInstr::LoadSuper { dest }
+                | RegisterInstr::LoadSelfFieldDynamic { dest, .. }
                 | RegisterInstr::SizeOfType { dest, .. } => {
                     verify_dest(dest, program.max_registers, &mut defined)?;
                 }
@@ -919,6 +979,9 @@ pub(super) fn verify_register_program(program: &RegisterProgram) -> Result<(), R
                 }
                 RegisterInstr::StoreDynamic { reference, value } => {
                     verify_src(reference, &defined)?;
+                    verify_src(value, &defined)?;
+                }
+                RegisterInstr::StoreSelfFieldDynamic { value, .. } => {
                     verify_src(value, &defined)?;
                 }
                 RegisterInstr::CallNative { args, dest, .. } => {
