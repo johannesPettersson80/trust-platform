@@ -4,6 +4,8 @@ Status: Complete; final full merge gate passed for `v0.24.12`
 Owner: Runtime/dev tooling
 Scope: address audit F10 by separating field/product runtime commands from developer/workbench commands.
 
+Boundary note: `trust-dev` is currently a separate shipped binary and implementation tree inside the `trust-runtime` Cargo package (`crates/trust-runtime/src/bin/trust-dev/`). It is not a separate `crates/trust-dev` package. A future crate/package extraction decision is tracked by `ARCHPOST-DEV-01` in `architecture-post-closeout-gap-closure-checklist.md`.
+
 ## Command Variant Classes
 
 - [x] `RTCLI-CLASS-01` Product runtime commands: `run`, `play`, `ctl`, `validate`, `build`, `hmi`, `plcopen`, `registry`, `setup`, `deploy`, `rollback`.
@@ -19,7 +21,7 @@ These are source modules under `crates/trust-runtime/src/bin/trust-runtime/`, no
 - [x] `RTCLI-MOD-01` Product runtime modules: `run.rs`, `ctl.rs`, `build.rs`, `hmi.rs`, `plcopen.rs`, `registry.rs`, `setup.rs`, `setup_web.rs`, `deploy.rs`.
 - [x] `RTCLI-MOD-02` UI product modules: `config_ui.rs`, `wizard.rs`.
 - [x] `RTCLI-MOD-03` Conformance/benchmark modules: `bench.rs`, `conformance.rs`.
-- [x] `RTCLI-MOD-04` Workbench/dev implementation modules: `agent.rs`, `commit.rs`, `docs.rs`, `workflow.rs`, and `test.rs`; moved implementations belong under `trust-dev` with deprecated `trust-runtime` forwarding wrappers during the migration window.
+- [x] `RTCLI-MOD-04` Workbench/dev implementation modules: `agent.rs`, `commit.rs`, `docs.rs`, `workflow.rs`, and `test.rs`; moved implementations belong under the `trust-dev` binary implementation tree with deprecated `trust-runtime` forwarding wrappers during the migration window.
 - [x] `RTCLI-MOD-05` CLI infrastructure modules: `cli.rs`, `completions.rs`, `git.rs`, `prompt.rs`, `style.rs`, and `ci.rs`; allowed dependency rules remain explicit in Phase 2.
 
 ## Subcommand Action Classes
@@ -111,7 +113,7 @@ Phase 2 policy evidence already present before command movement:
 
 ## Phase 3 - Target Split
 
-- [x] `RTCLI-P3-001` Decide destination for workbench commands: `xtask`, `trust-dev`, or another explicit tool binary. Decision: `trust-dev`, with `trust-runtime` retaining deprecated forwarding aliases during the migration window so current public commands do not disappear abruptly.
+- [x] `RTCLI-P3-001` Decide destination for workbench commands: `xtask`, `trust-dev`, or another explicit tool binary. Decision: `trust-dev` binary inside the `trust-runtime` package, with `trust-runtime` retaining deprecated forwarding aliases during the migration window so current public commands do not disappear abruptly.
 - [x] `RTCLI-P3-002` Move `agent` implementation out of product runtime binary or wrap it behind a deprecated forwarding alias. Evidence: `trust-dev agent serve` now owns the JSON-RPC agent server and workflow helper under `crates/trust-runtime/src/bin/trust-dev/`; `trust-runtime agent serve` is a deprecated forwarding wrapper through `dev_forward.rs`; product `build`, `ctl`, and `test` no longer retain agent-only JSON helper functions.
 - [x] `RTCLI-P3-003` Move `commit` command implementation and `git.rs` helper implementation out of product runtime binary or wrap them behind deprecated forwarding aliases. Evidence: `trust-dev commit` now owns the commit implementation and dev-only git repo/status helpers under `crates/trust-runtime/src/bin/trust-dev/`; `trust-runtime commit` is a deprecated forwarding wrapper through `dev_forward.rs`; product `git.rs` only retains `git_init` for wizard/setup flows.
 - [x] `RTCLI-P3-004` Move `docs` command implementation and remaining `prompt.rs`, `style.rs`, `ci.rs`, and dev-only `test` command implementation as decided. Evidence: `trust-dev docs` now owns the ST API documentation generator under `crates/trust-runtime/src/bin/trust-dev/docs.rs` and `trust-dev/docs/`; `trust-dev test` now owns the ST test runner under `crates/trust-runtime/src/bin/trust-dev/test.rs` and `trust-dev/test_cmd/`; `trust-runtime docs` and `trust-runtime test` are deprecated forwarding wrappers. `prompt.rs` and `style.rs` remain CLI infrastructure because product setup/wizard/runtime flows still use them, and `ci.rs` remains shared CLI infrastructure so product `build`/`validate` and workbench `test --ci` keep stable exit-code classification.
