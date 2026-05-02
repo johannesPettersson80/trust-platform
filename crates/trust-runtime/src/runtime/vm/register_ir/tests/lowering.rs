@@ -126,6 +126,167 @@ fn register_ir_stack_normalization_preserves_protected_registers_and_cycles() {
 }
 
 #[test]
+fn register_ir_decode_rejects_rot_underflow_and_accepts_exact_depth() {
+    for (opcode, available, label) in [(0x14, 2_usize, "ROT3"), (0x15, 3_usize, "ROT4")] {
+        let mut code = Vec::new();
+        for const_idx in 0..available {
+            code.push(0x10);
+            emit_u32(&mut code, const_idx as u32);
+        }
+        code.push(opcode);
+        code.push(0x06);
+        let consts = (0..available)
+            .map(|value| Value::DInt(value as i32))
+            .collect::<Vec<_>>();
+        let (module, pou_id) = manual_vm_module(code, consts, 0);
+        let pou = module.pou(pou_id).expect("manual pou");
+        let decoded = decode_pou(&module, pou.code_start, pou.code_end).expect("decode pou");
+        let leaders =
+            collect_block_leaders(&decoded, pou.code_start, pou.code_end).expect("leaders");
+        let err = compute_block_entry_stack_depths(
+            &decoded,
+            &leaders,
+            pou.code_start,
+            pou.code_end,
+        )
+        .expect_err("ROT underflow must fail stack-depth analysis");
+        let RuntimeError::InvalidBytecode(message) = err else {
+            panic!("expected invalid bytecode for {label} underflow");
+        };
+        assert!(
+            message.contains(label),
+            "expected {label} underflow message, got {message}",
+        );
+    }
+
+    let mut code = Vec::new();
+    for const_idx in 0..3 {
+        code.push(0x10);
+        emit_u32(&mut code, const_idx);
+    }
+    code.push(0x14);
+    code.push(0x10);
+    emit_u32(&mut code, 3);
+    code.push(0x15);
+    code.push(0x06);
+    let consts = (0..4).map(Value::DInt).collect::<Vec<_>>();
+    let (module, pou_id) = manual_vm_module(code, consts, 0);
+    let pou = module.pou(pou_id).expect("manual pou");
+    let decoded = decode_pou(&module, pou.code_start, pou.code_end).expect("decode pou");
+    let leaders = collect_block_leaders(&decoded, pou.code_start, pou.code_end).expect("leaders");
+    compute_block_entry_stack_depths(&decoded, &leaders, pou.code_start, pou.code_end)
+        .expect("ROT exact stack depth should be accepted");
+}
+
+#[test]
+fn register_ir_decode_rejects_conflicting_block_entry_depths() {
+    let mut code = Vec::new();
+    code.push(0x10);
+    emit_u32(&mut code, 0);
+    let branch_pc = code.len();
+    code.push(0x04);
+    emit_i32(&mut code, 0);
+    code.push(0x10);
+    emit_u32(&mut code, 1);
+    let jump_pc = code.len();
+    code.push(0x02);
+    emit_i32(&mut code, 0);
+    let target_pc = code.len();
+    code.push(0x06);
+    patch_i32(
+        &mut code,
+        branch_pc + 1,
+        target_pc as i32 - (branch_pc + 5) as i32,
+    );
+    patch_i32(
+        &mut code,
+        jump_pc + 1,
+        target_pc as i32 - (jump_pc + 5) as i32,
+    );
+
+    let (module, pou_id) = manual_vm_module(code, vec![Value::DInt(0), Value::DInt(1)], 0);
+    let err =
+        lower_pou_to_register_ir(&module, pou_id).expect_err("conflicting entry depth must fail");
+    let RuntimeError::InvalidBytecode(message) = err else {
+        panic!("expected invalid bytecode for conflicting entry depth");
+    };
+    assert!(
+        message.contains("inconsistent block-entry stack depth"),
+        "unexpected conflicting-depth message: {message}",
+    );
+}
+
+#[test]
+fn register_ir_decode_leaders_exclude_exit_and_unconditional_fallthrough() {
+    let mut conditional_to_exit = Vec::new();
+    conditional_to_exit.push(0x10);
+    emit_u32(&mut conditional_to_exit, 0);
+    conditional_to_exit.push(0x03);
+    emit_i32(&mut conditional_to_exit, 0);
+    let (module, pou_id) = manual_vm_module(conditional_to_exit, vec![Value::Bool(true)], 0);
+    let pou = module.pou(pou_id).expect("manual pou");
+    let decoded = decode_pou(&module, pou.code_start, pou.code_end).expect("decode pou");
+    let leaders = collect_block_leaders(&decoded, pou.code_start, pou.code_end).expect("leaders");
+    assert_eq!(leaders, vec![pou.code_start]);
+    compute_block_entry_stack_depths(&decoded, &leaders, pou.code_start, pou.code_end)
+        .expect("conditional branch at code_end should not require an exit leader");
+
+    let mut jump_over_trailing = Vec::new();
+    jump_over_trailing.push(0x02);
+    emit_i32(&mut jump_over_trailing, 0);
+    jump_over_trailing.push(0x00);
+    jump_over_trailing.push(0x06);
+    let jump_target = jump_over_trailing.len();
+    patch_i32(&mut jump_over_trailing, 1, jump_target as i32 - 5);
+    let (module, pou_id) = manual_vm_module(jump_over_trailing, Vec::new(), 0);
+    let pou = module.pou(pou_id).expect("manual pou");
+    let decoded = decode_pou(&module, pou.code_start, pou.code_end).expect("decode pou");
+    let leaders = collect_block_leaders(&decoded, pou.code_start, pou.code_end).expect("leaders");
+    assert_eq!(leaders, vec![pou.code_start]);
+}
+
+#[test]
+fn register_ir_decode_return_stops_entry_depth_propagation() {
+    let mut code = Vec::new();
+    code.push(0x06);
+    code.push(0x10);
+    emit_u32(&mut code, 0);
+    let (module, pou_id) = manual_vm_module(code, vec![Value::DInt(0)], 0);
+    let pou = module.pou(pou_id).expect("manual pou");
+    let decoded = decode_pou(&module, pou.code_start, pou.code_end).expect("decode pou");
+    let entry_depths =
+        compute_block_entry_stack_depths(&decoded, &[pou.code_start, 1], pou.code_start, pou.code_end)
+            .expect("entry stack depths");
+    assert_eq!(entry_depths.get(&pou.code_start), Some(&0));
+    assert!(
+        !entry_depths.contains_key(&1),
+        "RETURN must not propagate stack depth into the following block: {entry_depths:?}",
+    );
+}
+
+#[test]
+fn register_ir_lowering_preserves_fallback_operands() {
+    let mut code = Vec::new();
+    code.push(0x10);
+    emit_u32(&mut code, 0);
+    code.push(0x62);
+    emit_u32(&mut code, 0x1234_5678);
+    code.push(0x06);
+    let (module, pou_id) = manual_vm_module(code, vec![Value::DInt(1)], 0);
+    let lowered = lower_pou_to_register_ir(&module, pou_id).expect("lower fallback opcode");
+    let fallback_operands = lowered
+        .blocks
+        .iter()
+        .flat_map(|block| block.instructions.iter())
+        .find_map(|instruction| match instruction {
+            RegisterInstr::VmFallback { opcode: 0x62, operands } => Some(operands),
+            _ => None,
+        })
+        .expect("0x62 fallback instruction");
+    assert_eq!(fallback_operands.as_slice(), [0x78, 0x56, 0x34, 0x12]);
+}
+
+#[test]
 fn register_ir_lowering_covers_nop_null_and_full_binary_opcode_family() {
     let mut code = Vec::new();
     code.push(0x00);

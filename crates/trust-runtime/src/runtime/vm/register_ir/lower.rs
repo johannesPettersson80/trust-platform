@@ -4,9 +4,14 @@ mod decode;
 mod fuse;
 mod verify;
 
+#[cfg(test)]
+pub(super) use self::decode::{
+    collect_block_leaders, compute_block_entry_stack_depths, decode_pou,
+};
+#[cfg(not(test))]
+use self::decode::{collect_block_leaders, compute_block_entry_stack_depths, decode_pou};
 use self::decode::{
-    collect_block_leaders, compute_block_entry_stack_depths, decode_pou, jump_target_pc,
-    operand_i32, operand_native_call, operand_u32, pc_to_block_target,
+    jump_target_pc, operand_i32, operand_native_call, operand_u32, pc_to_block_target,
 };
 use self::fuse::fuse_register_block_instructions;
 pub(super) use self::fuse::is_cmp_binary_op;

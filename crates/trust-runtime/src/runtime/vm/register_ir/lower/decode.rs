@@ -106,7 +106,7 @@ fn apply_decoded_stack_effect(depth: &mut u32, instr: &DecodedInstr) -> Result<(
     Ok(())
 }
 
-pub(super) fn compute_block_entry_stack_depths(
+pub(in crate::runtime::vm::register_ir) fn compute_block_entry_stack_depths(
     decoded: &[DecodedInstr],
     leaders: &[usize],
     code_start: usize,
@@ -223,7 +223,7 @@ pub(super) fn compute_block_entry_stack_depths(
     Ok(resolved)
 }
 
-pub(super) fn decode_pou(
+pub(in crate::runtime::vm::register_ir) fn decode_pou(
     module: &VmModule,
     code_start: usize,
     code_end: usize,
@@ -269,7 +269,7 @@ fn opcode_operand_len_for_lowering(opcode: u8) -> Option<usize> {
     })
 }
 
-pub(super) fn collect_block_leaders(
+pub(in crate::runtime::vm::register_ir) fn collect_block_leaders(
     decoded: &[DecodedInstr],
     code_start: usize,
     code_end: usize,
@@ -378,7 +378,7 @@ fn operand_u32_slice(instr: &DecodedInstr, offset: usize) -> Result<u32, Runtime
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct DecodedInstr {
+pub(in crate::runtime::vm::register_ir) struct DecodedInstr {
     pub(super) pc: usize,
     pub(super) next_pc: usize,
     pub(super) opcode: u8,
