@@ -304,11 +304,7 @@ impl Drop for RegisterExecutionBuffers {
 }
 
 fn prepare_register_file(registers: &mut Vec<Value>, max_registers: usize) {
-    if registers.len() < max_registers {
-        registers.resize(max_registers, Value::Null);
-    } else if registers.len() > max_registers {
-        registers.truncate(max_registers);
-    }
+    registers.resize(max_registers, Value::Null);
 }
 
 fn reset_register_file(registers: &mut [Value]) {
@@ -514,6 +510,12 @@ fn execute_register_program(
         }
         let block_index = block_index_from_id(program, current_block)?;
         let block = &program.blocks[block_index];
+        if block.id != current_block {
+            return Err(invalid_bytecode(format!(
+                "register-ir executor resolved block id {current_block} to index {block_index} containing block id {}",
+                block.id
+            )));
+        }
         if *block_has_register_reads.get(block_index).unwrap_or(&false) {
             remaining_register_reads.copy_from_slice(&register_read_counts_by_block[block_index]);
         }
@@ -597,10 +599,7 @@ fn execute_register_program(
             RegisterBlockExecutionOutcome::Continue(control_target) => {
                 let next_target = match control_target {
                     Some(target) => target,
-                    None => match program.blocks.get(block_index + 1) {
-                        Some(next) => BlockTarget::Block(next.id),
-                        None => BlockTarget::Exit,
-                    },
+                    None => next_linear_block_target(program, block_index),
                 };
                 match next_target {
                     BlockTarget::Block(next_block) => current_block = next_block,
@@ -615,6 +614,14 @@ fn execute_register_program(
             }
         }
     }
+}
+
+fn next_linear_block_target(program: &RegisterProgram, block_index: usize) -> BlockTarget {
+    program
+        .blocks
+        .get(block_index..)
+        .and_then(|blocks| blocks.get(1))
+        .map_or(BlockTarget::Exit, |next| BlockTarget::Block(next.id))
 }
 
 fn read_register_ref(registers: &[Value], register: RegisterId) -> Result<&Value, RuntimeError> {

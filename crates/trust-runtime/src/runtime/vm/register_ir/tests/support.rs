@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
+use std::time::{Duration, Instant};
 
 use indexmap::IndexMap;
 use smol_str::SmolStr;
@@ -16,10 +17,14 @@ use crate::{RestartMode, Runtime};
 
 use super::super::{VmPouEntry, VmRef};
 use super::{
-    invalid_bytecode, lower_pou_to_register_ir, read_register_with_counts,
+    block_index_from_id, consume_loop_budget, consume_loop_budget_for_block_target,
+    deadline_exceeded, invalid_bytecode, lower_pou_to_register_ir, next_linear_block_target,
+    parse_env_bool, prepare_register_file, read_bool_register, read_reference_register,
+    read_reference_register_with_counts, read_register_with_counts, register_statement_location,
     try_execute_pou_with_register_ir, try_execute_pou_with_register_ir_with_locals,
-    verify_register_program, BlockTarget, RegisterExecutionOutcome, RegisterId, RegisterInstr,
-    RegisterProfileState, RegisterProgram, VmModule,
+    verify_register_program, BlockTarget, RegisterBlock, RegisterExecutionBuffers,
+    RegisterExecutionOutcome, RegisterId, RegisterInstr, RegisterProfileState, RegisterProgram,
+    VmModule,
 };
 
 fn vm_module_and_main_pou(source: &str) -> (VmModule, u32) {
@@ -596,4 +601,308 @@ fn assert_no_fallback(program: &RegisterProgram) {
             .all(|instruction| !matches!(instruction, RegisterInstr::VmFallback { .. })),
         "parity program unexpectedly lowered unsupported opcodes to VmFallback",
     );
+}
+
+fn test_register_block(id: u32, start_pc: usize, instructions: Vec<RegisterInstr>) -> RegisterBlock {
+    RegisterBlock {
+        id,
+        start_pc,
+        end_pc: start_pc + 1,
+        entry_stack_depth: 0,
+        instructions,
+    }
+}
+
+fn test_register_program(blocks: Vec<RegisterBlock>) -> RegisterProgram {
+    RegisterProgram {
+        pou_id: 1,
+        entry_block: 0,
+        max_registers: 2,
+        blocks,
+    }
+}
+
+fn clear_register_execution_pools() {
+    super::VM_REGISTER_FRAME_STACK_POOL.with(|pool| pool.borrow_mut().clear());
+    super::VM_REGISTER_FILE_POOL.with(|pool| pool.borrow_mut().clear());
+    super::VM_REGISTER_READ_COUNTS_POOL.with(|pool| pool.borrow_mut().clear());
+    super::VM_REGISTER_NATIVE_CALL_STACK_POOL.with(|pool| pool.borrow_mut().clear());
+}
+
+fn register_execution_pool_lengths() -> (usize, usize, usize, usize) {
+    let frames = super::VM_REGISTER_FRAME_STACK_POOL.with(|pool| pool.borrow().len());
+    let registers = super::VM_REGISTER_FILE_POOL.with(|pool| pool.borrow().len());
+    let reads = super::VM_REGISTER_READ_COUNTS_POOL.with(|pool| pool.borrow().len());
+    let native = super::VM_REGISTER_NATIVE_CALL_STACK_POOL.with(|pool| pool.borrow().len());
+    (frames, registers, reads, native)
+}
+
+fn fill_register_execution_pools_to_limit() {
+    super::VM_REGISTER_FRAME_STACK_POOL.with(|pool| {
+        let mut pool = pool.borrow_mut();
+        pool.clear();
+        pool.resize_with(super::REGISTER_EXECUTION_POOL_LIMIT, Default::default);
+    });
+    super::VM_REGISTER_FILE_POOL.with(|pool| {
+        let mut pool = pool.borrow_mut();
+        pool.clear();
+        pool.resize_with(super::REGISTER_EXECUTION_POOL_LIMIT, Vec::new);
+    });
+    super::VM_REGISTER_READ_COUNTS_POOL.with(|pool| {
+        let mut pool = pool.borrow_mut();
+        pool.clear();
+        pool.resize_with(super::REGISTER_EXECUTION_POOL_LIMIT, Vec::new);
+    });
+    super::VM_REGISTER_NATIVE_CALL_STACK_POOL.with(|pool| {
+        let mut pool = pool.borrow_mut();
+        pool.clear();
+        pool.resize_with(super::REGISTER_EXECUTION_POOL_LIMIT, Default::default);
+    });
+}
+
+fn assert_invalid_bytecode_contains(err: RuntimeError, needle: &str) {
+    assert!(
+        matches!(&err, RuntimeError::InvalidBytecode(message) if message.contains(needle)),
+        "unexpected error: {err:?}"
+    );
+}
+
+#[test]
+fn register_execution_buffers_return_clean_buffers_and_respect_pool_limit() {
+    clear_register_execution_pools();
+    {
+        let mut buffers = RegisterExecutionBuffers::acquire(3);
+        let (_frames, registers, remaining_reads, _native_stack) = buffers.buffers_mut();
+        registers[0] = Value::DInt(41);
+        remaining_reads[0] = 7;
+    }
+    assert_eq!(register_execution_pool_lengths(), (1, 1, 1, 1));
+
+    {
+        let mut buffers = RegisterExecutionBuffers::acquire(2);
+        let (_frames, registers, remaining_reads, _native_stack) = buffers.buffers_mut();
+        assert_eq!(registers, [Value::Null, Value::Null]);
+        assert_eq!(remaining_reads, [0, 0]);
+    }
+
+    fill_register_execution_pools_to_limit();
+    {
+        let _extra = RegisterExecutionBuffers {
+            frames: Some(Default::default()),
+            registers: Some(Vec::new()),
+            remaining_register_reads: Some(Vec::new()),
+            native_call_stack: Some(Default::default()),
+        };
+    }
+    assert_eq!(
+        register_execution_pool_lengths(),
+        (
+            super::REGISTER_EXECUTION_POOL_LIMIT,
+            super::REGISTER_EXECUTION_POOL_LIMIT,
+            super::REGISTER_EXECUTION_POOL_LIMIT,
+            super::REGISTER_EXECUTION_POOL_LIMIT,
+        )
+    );
+    clear_register_execution_pools();
+}
+
+#[test]
+fn prepare_register_file_resizes_truncates_and_preserves_values() {
+    let mut grow = vec![Value::DInt(1), Value::DInt(2)];
+    prepare_register_file(&mut grow, 4);
+    assert_eq!(
+        grow,
+        vec![Value::DInt(1), Value::DInt(2), Value::Null, Value::Null]
+    );
+
+    let mut shrink = vec![Value::DInt(1), Value::DInt(2), Value::DInt(3)];
+    prepare_register_file(&mut shrink, 2);
+    assert_eq!(shrink, vec![Value::DInt(1), Value::DInt(2)]);
+
+    let mut exact = vec![Value::DInt(1), Value::DInt(2)];
+    prepare_register_file(&mut exact, 2);
+    assert_eq!(exact, vec![Value::DInt(1), Value::DInt(2)]);
+}
+
+#[test]
+fn parse_env_bool_accepts_explicit_true_false_and_defaults() {
+    let key = "TRUST_TEST_REGISTER_IR_PARSE_ENV_BOOL";
+    std::env::remove_var(key);
+    assert!(parse_env_bool(key, true));
+    assert!(!parse_env_bool(key, false));
+
+    for value in ["1", "true", "YES", " on "] {
+        std::env::set_var(key, value);
+        assert!(parse_env_bool(key, false), "expected true for {value:?}");
+    }
+    for value in ["0", "false", "NO", " off "] {
+        std::env::set_var(key, value);
+        assert!(!parse_env_bool(key, true), "expected false for {value:?}");
+    }
+    std::env::set_var(key, "maybe");
+    assert!(parse_env_bool(key, true));
+    assert!(!parse_env_bool(key, false));
+    std::env::remove_var(key);
+}
+
+#[test]
+fn register_execution_rejects_initial_locals_beyond_frame_capacity() {
+    let (module, pou_id) = manual_vm_module(vec![0x06], Vec::new(), 0);
+    let mut runtime = Runtime::new();
+
+    let err = try_execute_pou_with_register_ir_with_locals(
+        &mut runtime,
+        &module,
+        pou_id,
+        None,
+        Some(&[Value::DInt(1)]),
+        false,
+        0,
+        None,
+    )
+    .expect_err("initial locals beyond frame capacity must fail");
+
+    assert_invalid_bytecode_contains(err, "initial local payload exceeds frame local capacity");
+}
+
+#[test]
+fn next_linear_block_target_uses_following_block_not_current_block() {
+    let program = test_register_program(vec![
+        test_register_block(0, 0, vec![RegisterInstr::Nop]),
+        test_register_block(1, 10, vec![RegisterInstr::Nop]),
+        test_register_block(2, 20, vec![RegisterInstr::Nop]),
+        test_register_block(3, 30, vec![RegisterInstr::Return]),
+    ]);
+
+    assert_eq!(next_linear_block_target(&program, 2), BlockTarget::Block(3));
+    assert_eq!(next_linear_block_target(&program, 3), BlockTarget::Exit);
+}
+
+#[test]
+fn register_read_helpers_preserve_bool_and_null_reference_errors() {
+    let bool_registers = vec![Value::Bool(true), Value::Bool(false), Value::DInt(1)];
+    assert_eq!(read_bool_register(&bool_registers, RegisterId(0)), Ok(true));
+    assert_eq!(read_bool_register(&bool_registers, RegisterId(1)), Ok(false));
+    assert!(matches!(
+        read_bool_register(&bool_registers, RegisterId(2)),
+        Err(RuntimeError::ConditionNotBool)
+    ));
+
+    let reference_registers = vec![Value::Reference(None)];
+    assert!(matches!(
+        read_reference_register(&reference_registers, RegisterId(0)),
+        Err(RuntimeError::NullReference)
+    ));
+
+    let mut profile = RegisterProfileState::default();
+    let mut counted_registers = vec![Value::Reference(None)];
+    let mut remaining_reads = vec![1];
+    assert!(matches!(
+        read_reference_register_with_counts(
+            &mut profile,
+            &mut counted_registers,
+            &mut remaining_reads,
+            RegisterId(0),
+        ),
+        Err(RuntimeError::NullReference)
+    ));
+}
+
+#[test]
+fn loop_budget_helpers_consume_only_backward_block_targets() {
+    let program = test_register_program(vec![
+        test_register_block(0, 5, vec![RegisterInstr::Nop]),
+        test_register_block(1, 20, vec![RegisterInstr::Nop]),
+        test_register_block(2, 30, vec![RegisterInstr::Nop]),
+    ]);
+    let source = &program.blocks[1];
+
+    let mut direct_budget = 2;
+    consume_loop_budget(&mut direct_budget).expect("first budget consume");
+    assert_eq!(direct_budget, 1);
+    consume_loop_budget(&mut direct_budget).expect("second budget consume");
+    assert_eq!(direct_budget, 0);
+    assert!(matches!(
+        consume_loop_budget(&mut direct_budget),
+        Err(RuntimeError::ExecutionTimeout)
+    ));
+
+    let mut backward_budget = 1;
+    consume_loop_budget_for_block_target(
+        &program,
+        source,
+        BlockTarget::Block(0),
+        &mut backward_budget,
+    )
+    .expect("backward target consumes budget");
+    assert_eq!(backward_budget, 0);
+
+    let mut forward_budget = 1;
+    consume_loop_budget_for_block_target(
+        &program,
+        source,
+        BlockTarget::Block(2),
+        &mut forward_budget,
+    )
+    .expect("forward target does not consume budget");
+    assert_eq!(forward_budget, 1);
+
+    consume_loop_budget_for_block_target(&program, source, BlockTarget::Exit, &mut forward_budget)
+        .expect("exit target does not consume budget");
+    assert_eq!(forward_budget, 1);
+}
+
+#[test]
+fn block_index_from_id_rejects_missing_and_mismatched_blocks() {
+    let program = test_register_program(vec![
+        test_register_block(0, 0, vec![RegisterInstr::Nop]),
+        test_register_block(1, 10, vec![RegisterInstr::Return]),
+    ]);
+    assert_eq!(block_index_from_id(&program, 0), Ok(0));
+    assert_eq!(block_index_from_id(&program, 1), Ok(1));
+    assert_invalid_bytecode_contains(
+        block_index_from_id(&program, 2).expect_err("missing block id must fail"),
+        "missing block id 2",
+    );
+
+    let mismatched = test_register_program(vec![test_register_block(
+        7,
+        0,
+        vec![RegisterInstr::Return],
+    )]);
+    assert_invalid_bytecode_contains(
+        block_index_from_id(&mismatched, 0).expect_err("mismatched block id must fail"),
+        "block id/index mismatch",
+    );
+}
+
+#[test]
+fn register_statement_location_resolves_vm_debug_map_entries() {
+    let (mut module, pou_id) = manual_vm_module(vec![0x06], Vec::new(), 0);
+    module.debug_map.source_by_pc.insert(
+        (pou_id, 0),
+        super::super::debug_map::VmSourceLocation {
+            file: SmolStr::new("unit.st"),
+            line: 1,
+            column: 1,
+        },
+    );
+    let mut runtime = Runtime::new();
+    let location = crate::debug::SourceLocation::new(0, 0, 6);
+    runtime.register_source_label(0, "unit.st");
+    runtime.register_source_text(0, "x := 1;\n");
+    runtime.register_statement_locations(0, vec![location]);
+
+    assert_eq!(
+        register_statement_location(&runtime, &module, pou_id, 0),
+        Some(location)
+    );
+    assert_eq!(register_statement_location(&runtime, &module, pou_id, 99), None);
+}
+
+#[test]
+fn deadline_exceeded_distinguishes_missing_past_and_future_deadlines() {
+    assert!(!deadline_exceeded(None));
+    assert!(deadline_exceeded(Some(Instant::now() - Duration::from_secs(1))));
+    assert!(!deadline_exceeded(Some(Instant::now() + Duration::from_secs(3600))));
 }
