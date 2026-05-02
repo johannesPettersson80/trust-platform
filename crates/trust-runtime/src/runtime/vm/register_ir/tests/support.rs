@@ -18,13 +18,13 @@ use crate::{RestartMode, Runtime};
 use super::super::{VmPouEntry, VmRef};
 use super::{
     block_index_from_id, consume_loop_budget, consume_loop_budget_for_block_target,
-    deadline_exceeded, invalid_bytecode, lower_pou_to_register_ir, next_linear_block_target,
-    parse_env_bool, prepare_register_file, read_bool_register, read_reference_register,
-    read_reference_register_with_counts, read_register_with_counts, register_statement_location,
-    try_execute_pou_with_register_ir, try_execute_pou_with_register_ir_with_locals,
-    verify_register_program, BlockTarget, RegisterBlock, RegisterExecutionBuffers,
-    RegisterExecutionOutcome, RegisterId, RegisterInstr, RegisterProfileState, RegisterProgram,
-    VmModule,
+    deadline_exceeded, execute_register_block_interpreted, invalid_bytecode,
+    lower_pou_to_register_ir, next_linear_block_target, parse_env_bool, prepare_register_file,
+    read_bool_register, read_reference_register, read_reference_register_with_counts,
+    read_register_with_counts, register_statement_location, try_execute_pou_with_register_ir,
+    try_execute_pou_with_register_ir_with_locals, verify_register_program, BlockTarget,
+    RegisterBlock, RegisterExecutionBuffers, RegisterExecutionOutcome, RegisterId, RegisterInstr,
+    RegisterProfileState, RegisterProgram, VmModule,
 };
 
 fn vm_module_and_main_pou(source: &str) -> (VmModule, u32) {
@@ -806,6 +806,44 @@ fn register_read_helpers_preserve_bool_and_null_reference_errors() {
         ),
         Err(RuntimeError::NullReference)
     ));
+}
+
+#[test]
+fn interpreted_ref_field_reports_null_reference_base() {
+    let (mut module, _pou_id) = manual_vm_module(Vec::new(), Vec::new(), 0);
+    module.strings.push(SmolStr::new("FIELD"));
+    let program = test_register_program(vec![test_register_block(
+        0,
+        0,
+        vec![RegisterInstr::RefField {
+            base: RegisterId(0),
+            field_idx: 0,
+            dest: RegisterId(1),
+        }],
+    )]);
+    let block = &program.blocks[0];
+    let mut runtime = Runtime::new();
+    let mut frames = Default::default();
+    let mut registers = vec![Value::Reference(None), Value::Null];
+    let mut remaining_reads = vec![1, 0];
+    let mut native_call_stack = Default::default();
+    let mut budget = 10;
+
+    let err = execute_register_block_interpreted(
+        &mut runtime,
+        &module,
+        &program,
+        &mut frames,
+        &mut registers,
+        &mut remaining_reads,
+        &mut native_call_stack,
+        block,
+        &mut budget,
+        0,
+    )
+    .expect_err("null reference base must fail");
+
+    assert!(matches!(err, RuntimeError::NullReference));
 }
 
 #[test]
