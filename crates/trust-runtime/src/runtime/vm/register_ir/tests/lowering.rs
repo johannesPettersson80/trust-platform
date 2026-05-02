@@ -47,6 +47,188 @@ fn register_ir_lowering_handles_linear_arithmetic_main() {
 }
 
 #[test]
+fn register_ir_stack_normalization_preserves_protected_registers_and_cycles() {
+    let mut next_register = 2;
+    let mut instructions = Vec::new();
+    let protected = normalize_stack_for_block_exit(
+        &mut next_register,
+        &mut instructions,
+        &[RegisterId(1)],
+        Some(RegisterId(0)),
+    )
+    .expect("normalize clobbering stack")
+    .expect("protected register must move to temp");
+    assert_ne!(protected, RegisterId(0));
+    assert!(matches!(
+        instructions.first(),
+        Some(RegisterInstr::Move {
+            src: RegisterId(0),
+            dest,
+        }) if *dest == protected
+    ));
+
+    let mut no_clobber_next = 3;
+    let mut no_clobber = Vec::new();
+    let preserved = normalize_stack_for_block_exit(
+        &mut no_clobber_next,
+        &mut no_clobber,
+        &[RegisterId(0), RegisterId(1)],
+        Some(RegisterId(2)),
+    )
+    .expect("normalize non-clobbering stack");
+    assert_eq!(preserved, Some(RegisterId(2)));
+    assert!(
+        no_clobber
+            .iter()
+            .all(|instruction| !matches!(instruction, RegisterInstr::Move { src: RegisterId(2), .. })),
+        "non-clobbered protected register should not be moved: {no_clobber:?}",
+    );
+
+    let mut cycle_next = 2;
+    let mut cycle_moves = Vec::new();
+    normalize_stack_for_block_exit(
+        &mut cycle_next,
+        &mut cycle_moves,
+        &[RegisterId(1), RegisterId(0)],
+        None,
+    )
+    .expect("normalize register cycle");
+    let mut symbolic = ["slot1", "slot0", "scratch"];
+    for instruction in &cycle_moves {
+        let RegisterInstr::Move { src, dest } = instruction else {
+            panic!("expected only move instructions, got {instruction:?}");
+        };
+        symbolic[dest.index() as usize] = symbolic[src.index() as usize];
+    }
+    assert_eq!(symbolic[0], "slot0");
+    assert_eq!(symbolic[1], "slot1");
+
+    let mut two_cycle_next = 4;
+    let mut two_cycle_moves = Vec::new();
+    normalize_stack_for_block_exit(
+        &mut two_cycle_next,
+        &mut two_cycle_moves,
+        &[RegisterId(1), RegisterId(0), RegisterId(3), RegisterId(2)],
+        None,
+    )
+    .expect("normalize two independent register cycles");
+    let mut two_cycle_symbolic = ["slot1", "slot0", "slot3", "slot2", "scratch"];
+    for instruction in &two_cycle_moves {
+        let RegisterInstr::Move { src, dest } = instruction else {
+            panic!("expected only move instructions, got {instruction:?}");
+        };
+        two_cycle_symbolic[dest.index() as usize] = two_cycle_symbolic[src.index() as usize];
+    }
+    assert_eq!(two_cycle_symbolic[0], "slot0");
+    assert_eq!(two_cycle_symbolic[1], "slot1");
+    assert_eq!(two_cycle_symbolic[2], "slot2");
+    assert_eq!(two_cycle_symbolic[3], "slot3");
+}
+
+#[test]
+fn register_ir_lowering_covers_nop_null_and_full_binary_opcode_family() {
+    let mut code = Vec::new();
+    code.push(0x00);
+    code.push(0x25);
+    code.push(0x12);
+    for opcode in [0x42, 0x43, 0x44, 0x48] {
+        code.push(0x10);
+        emit_u32(&mut code, 0);
+        code.push(0x10);
+        emit_u32(&mut code, 1);
+        code.push(opcode);
+        code.push(0x12);
+    }
+    code.push(0x06);
+    let (module, pou_id) = manual_vm_module(code, vec![Value::DInt(12), Value::DInt(3)], 0);
+    let lowered = lower_pou_to_register_ir(&module, pou_id).expect("lower register ir");
+    verify_register_program(&lowered).expect("verify register ir");
+
+    let all_instr = lowered
+        .blocks
+        .iter()
+        .flat_map(|block| block.instructions.iter())
+        .collect::<Vec<_>>();
+    assert!(all_instr.iter().any(|instr| matches!(instr, RegisterInstr::Nop)));
+    assert!(all_instr
+        .iter()
+        .any(|instr| matches!(instr, RegisterInstr::LoadNull { .. })));
+    for op in [BinaryOp::Mul, BinaryOp::Div, BinaryOp::Mod, BinaryOp::Xor] {
+        assert!(
+            all_instr.iter().any(|instr| matches!(instr, RegisterInstr::Binary { op: actual, .. } if *actual == op)),
+            "expected lowered binary op {op:?}, got {all_instr:?}",
+        );
+    }
+}
+
+#[test]
+fn register_ir_lowering_accepts_valid_call_native_and_swap_stack_depths() {
+    let mut call_code = Vec::new();
+    call_code.push(0x10);
+    emit_u32(&mut call_code, 0);
+    call_code.push(0x10);
+    emit_u32(&mut call_code, 1);
+    call_code.push(0x09);
+    emit_u32(&mut call_code, 0);
+    emit_u32(&mut call_code, 0);
+    emit_u32(&mut call_code, 1);
+    call_code.push(0x12);
+    call_code.push(0x12);
+    call_code.push(0x06);
+    let (call_module, call_pou_id) =
+        manual_vm_module(call_code, vec![Value::DInt(1), Value::DInt(2)], 0);
+    let lowered_call =
+        lower_pou_to_register_ir(&call_module, call_pou_id).expect("lower CALL_NATIVE");
+    assert!(lowered_call
+        .blocks
+        .iter()
+        .flat_map(|block| block.instructions.iter())
+        .any(|instr| matches!(instr, RegisterInstr::CallNative { args, .. } if args.len() == 1)));
+
+    let mut swap_code = Vec::new();
+    for const_idx in 0..3 {
+        swap_code.push(0x10);
+        emit_u32(&mut swap_code, const_idx);
+    }
+    swap_code.push(0x13);
+    swap_code.push(0x12);
+    swap_code.push(0x12);
+    swap_code.push(0x12);
+    swap_code.push(0x06);
+    let (swap_module, swap_pou_id) = manual_vm_module(
+        swap_code,
+        vec![Value::DInt(1), Value::DInt(2), Value::DInt(3)],
+        0,
+    );
+    lower_pou_to_register_ir(&swap_module, swap_pou_id).expect("lower SWAP with depth 3");
+}
+
+#[test]
+fn register_ir_lowering_does_not_normalize_after_return() {
+    let mut code = Vec::new();
+    code.push(0x10);
+    emit_u32(&mut code, 0);
+    code.push(0x10);
+    emit_u32(&mut code, 1);
+    code.push(0x13);
+    code.push(0x12);
+    code.push(0x06);
+    let (module, pou_id) = manual_vm_module(code, vec![Value::DInt(1), Value::DInt(2)], 0);
+    let lowered = lower_pou_to_register_ir(&module, pou_id).expect("lower register ir");
+    let block = lowered.blocks.first().expect("lowered block");
+    let return_index = block
+        .instructions
+        .iter()
+        .position(|instruction| matches!(instruction, RegisterInstr::Return))
+        .expect("return instruction");
+    assert!(
+        block.instructions[return_index + 1..].is_empty(),
+        "return must terminate lowering without trailing normalization moves: {:?}",
+        block.instructions
+    );
+}
+
+#[test]
 fn register_ir_lowering_emits_control_flow_blocks_for_loops() {
     let source = r#"
             PROGRAM Main

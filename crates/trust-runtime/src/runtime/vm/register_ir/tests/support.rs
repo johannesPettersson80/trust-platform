@@ -19,12 +19,13 @@ use super::super::{VmPouEntry, VmRef};
 use super::{
     block_index_from_id, consume_loop_budget, consume_loop_budget_for_block_target,
     deadline_exceeded, execute_register_block_interpreted, invalid_bytecode,
-    lower_pou_to_register_ir, next_linear_block_target, parse_env_bool, prepare_register_file,
-    read_bool_register, read_reference_register, read_reference_register_with_counts,
-    read_register_with_counts, register_statement_location, try_execute_pou_with_register_ir,
-    try_execute_pou_with_register_ir_with_locals, verify_register_program, BlockTarget,
-    RegisterBlock, RegisterExecutionBuffers, RegisterExecutionOutcome, RegisterId, RegisterInstr,
-    RegisterProfileState, RegisterProgram, VmModule,
+    lower_pou_to_register_ir, next_linear_block_target, normalize_stack_for_block_exit,
+    parse_env_bool, prepare_register_file, read_bool_register, read_reference_register,
+    read_reference_register_with_counts, read_register_with_counts, register_statement_location,
+    try_execute_pou_with_register_ir, try_execute_pou_with_register_ir_with_locals,
+    verify_register_program, BlockTarget, RegisterBlock, RegisterExecutionBuffers,
+    RegisterExecutionOutcome, RegisterId, RegisterInstr, RegisterProfileState, RegisterProgram,
+    VmModule,
 };
 
 fn vm_module_and_main_pou(source: &str) -> (VmModule, u32) {

@@ -16,12 +16,12 @@ fn canonical_stack_register(slot: u32) -> RegisterId {
     RegisterId(slot)
 }
 
-fn normalize_stack_for_block_exit(
+pub(super) fn normalize_stack_for_block_exit(
     next_register: &mut u32,
     instructions: &mut Vec<RegisterInstr>,
     stack: &[RegisterId],
     protected: Option<RegisterId>,
-) -> Option<RegisterId> {
+) -> Result<Option<RegisterId>, RuntimeError> {
     let mut protected = protected;
     if let Some(register) = protected {
         let clobbered = stack.iter().enumerate().any(|(slot, src)| {
@@ -47,8 +47,11 @@ fn normalize_stack_for_block_exit(
         })
         .collect::<Vec<_>>();
     let mut scratch = None;
-
-    while !pending.is_empty() {
+    let max_steps = pending.len().saturating_mul(2).saturating_add(1);
+    for _ in 0..max_steps {
+        if pending.is_empty() {
+            return Ok(protected);
+        }
         if let Some(index) = pending
             .iter()
             .position(|(_, dest)| !pending.iter().any(|(other_src, _)| *other_src == *dest))
@@ -69,7 +72,13 @@ fn normalize_stack_for_block_exit(
         pending.push((temp, dest));
     }
 
-    protected
+    if pending.is_empty() {
+        Ok(protected)
+    } else {
+        Err(invalid_bytecode(
+            "register-ir stack normalization did not converge",
+        ))
+    }
 }
 
 pub(super) fn lower_pou_to_register_ir(
@@ -102,7 +111,7 @@ pub(super) fn lower_pou_to_register_ir(
 
         for instr in decoded
             .iter()
-            .filter(|instr| instr.pc >= start_pc && instr.pc < end_pc)
+            .filter(|instr| (start_pc..end_pc).contains(&instr.pc))
         {
             if opaque_mode {
                 instructions.push(RegisterInstr::VmFallback {
@@ -124,7 +133,7 @@ pub(super) fn lower_pou_to_register_ir(
                         &mut instructions,
                         &stack,
                         None,
-                    );
+                    )?;
                     instructions.push(RegisterInstr::Jump { target });
                 }
                 0x03 | 0x04 => {
@@ -138,7 +147,7 @@ pub(super) fn lower_pou_to_register_ir(
                         &mut instructions,
                         &stack,
                         Some(cond),
-                    )
+                    )?
                     .unwrap_or(cond);
                     instructions.push(RegisterInstr::JumpIf {
                         cond,
@@ -394,7 +403,7 @@ pub(super) fn lower_pou_to_register_ir(
             )
         });
         if !terminates_control_flow {
-            normalize_stack_for_block_exit(&mut next_register, &mut instructions, &stack, None);
+            normalize_stack_for_block_exit(&mut next_register, &mut instructions, &stack, None)?;
         }
 
         let instructions = fuse_register_block_instructions(&instructions);

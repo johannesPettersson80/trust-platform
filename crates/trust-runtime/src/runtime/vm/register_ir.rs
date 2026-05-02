@@ -329,7 +329,7 @@ use self::interpreter::{
 use self::lower::is_cmp_binary_op;
 use self::lower::lower_pou_to_register_ir;
 #[cfg(test)]
-use self::lower::verify_register_program;
+use self::lower::{normalize_stack_for_block_exit, verify_register_program};
 use self::profile::{CachedRegisterProgram, RegisterLoweringCacheEntry};
 pub(in crate::runtime::vm) use self::profile::{
     RegisterCallOpKind, RegisterRefOpKind, RegisterValueOpKind,
