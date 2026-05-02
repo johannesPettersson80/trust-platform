@@ -2,6 +2,23 @@ use super::*;
 use crate::value::{ref_indices_from_iter, ArrayValue, StructValue};
 
 #[test]
+fn variable_storage_clone_recovers_from_poisoned_cache_lock() {
+    let storage = std::sync::Arc::new(VariableStorage::new());
+    let poisoned = std::sync::Arc::clone(&storage);
+    let _ = std::thread::spawn(move || {
+        let _guard = poisoned
+            .instance_field_offsets
+            .write()
+            .expect("test cache lock");
+        panic!("poison instance field cache");
+    })
+    .join();
+
+    let cloned = (*storage).clone();
+    assert!(cloned.globals.is_empty());
+}
+
+#[test]
 fn instance_field_cache_is_scoped_per_instance() {
     let mut storage = VariableStorage::new();
     let first = storage.create_instance("FB");

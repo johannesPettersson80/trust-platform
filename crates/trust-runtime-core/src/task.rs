@@ -97,7 +97,7 @@ pub fn evaluate_task_readiness(
 mod tests {
     use super::{evaluate_task_readiness, TaskConfig, TaskState};
     use crate::value::Duration;
-    use alloc::vec;
+    use alloc::{vec, vec::Vec};
     use smol_str::SmolStr;
 
     #[test]

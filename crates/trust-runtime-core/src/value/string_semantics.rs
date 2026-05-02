@@ -199,6 +199,7 @@ mod tests {
     };
     use crate::error::RuntimeError;
     use crate::value::Value;
+    use alloc::string::String;
 
     #[test]
     fn narrow_string_semantics_count_elements_not_utf8_bytes() {

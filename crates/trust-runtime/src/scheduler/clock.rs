@@ -132,14 +132,14 @@ impl ManualClock {
     #[must_use]
     pub fn current_time(&self) -> Duration {
         let (lock, _) = &*self.inner;
-        let state = lock.lock().expect("manual clock lock poisoned");
+        let state = recover_manual_clock_lock(lock.lock());
         state.now
     }
 
     /// Advance time by the given delta.
     pub fn advance(&self, delta: Duration) -> Duration {
         let (lock, cvar) = &*self.inner;
-        let mut state = lock.lock().expect("manual clock lock poisoned");
+        let mut state = recover_manual_clock_lock(lock.lock());
         let next = state.now.as_nanos().saturating_add(delta.as_nanos());
         state.now = Duration::from_nanos(next);
         cvar.notify_all();
@@ -149,7 +149,7 @@ impl ManualClock {
     /// Set the current time explicitly.
     pub fn set_time(&self, time: Duration) {
         let (lock, cvar) = &*self.inner;
-        let mut state = lock.lock().expect("manual clock lock poisoned");
+        let mut state = recover_manual_clock_lock(lock.lock());
         state.now = time;
         cvar.notify_all();
     }
@@ -158,17 +158,23 @@ impl ManualClock {
     #[must_use]
     pub fn sleep_calls(&self) -> u64 {
         let (lock, _) = &*self.inner;
-        let state = lock.lock().expect("manual clock lock poisoned");
+        let state = recover_manual_clock_lock(lock.lock());
         state.sleep_calls
     }
 
     /// Interrupt sleepers so they can exit.
     pub fn interrupt(&self) {
         let (lock, cvar) = &*self.inner;
-        let mut state = lock.lock().expect("manual clock lock poisoned");
+        let mut state = recover_manual_clock_lock(lock.lock());
         state.interrupted = true;
         cvar.notify_all();
     }
+}
+
+fn recover_manual_clock_lock<T>(
+    result: std::sync::LockResult<std::sync::MutexGuard<'_, T>>,
+) -> std::sync::MutexGuard<'_, T> {
+    result.unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
 impl Default for ManualClock {
@@ -184,14 +190,38 @@ impl Clock for ManualClock {
 
     fn sleep_until(&self, deadline: Duration) {
         let (lock, cvar) = &*self.inner;
-        let mut state = lock.lock().expect("manual clock lock poisoned");
+        let mut state = recover_manual_clock_lock(lock.lock());
         state.sleep_calls = state.sleep_calls.saturating_add(1);
         while !state.interrupted && state.now.as_nanos() < deadline.as_nanos() {
-            state = cvar.wait(state).expect("manual clock wait poisoned");
+            state = recover_manual_clock_lock(cvar.wait(state));
         }
     }
 
     fn wake(&self) {
         self.interrupt();
+    }
+}
+
+#[cfg(test)]
+mod clock_poison_tests {
+    use super::*;
+
+    #[test]
+    fn manual_clock_recovers_from_poisoned_lock() {
+        let clock = ManualClock::new();
+        let inner = Arc::clone(&clock.inner);
+        let _ = std::thread::spawn(move || {
+            let (lock, _) = &*inner;
+            let mut state = lock.lock().expect("test lock should be available");
+            state.now = Duration::from_millis(7);
+            panic!("poison manual clock lock");
+        })
+        .join();
+
+        assert_eq!(clock.current_time(), Duration::from_millis(7));
+        assert_eq!(
+            clock.advance(Duration::from_millis(5)),
+            Duration::from_millis(12)
+        );
     }
 }

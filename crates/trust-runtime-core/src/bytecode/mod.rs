@@ -241,7 +241,7 @@ mod tests {
     };
     use crate::task::TaskConfig;
     use crate::value::Duration;
-    use alloc::vec;
+    use alloc::{vec, vec::Vec};
     use smol_str::SmolStr;
 
     #[test]

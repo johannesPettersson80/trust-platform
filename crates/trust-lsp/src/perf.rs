@@ -37,6 +37,8 @@ mod tests {
     static GLOBAL_ALLOCATOR: CountingAllocator = CountingAllocator;
 
     #[cfg(all(target_os = "linux", feature = "perf_alloc_metrics"))]
+    // SAFETY: CountingAllocator preserves GlobalAlloc's pointer/layout contract by
+    // forwarding every operation to System and only updating atomic counters.
     unsafe impl GlobalAlloc for CountingAllocator {
         unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
             ALLOC_CALLS.fetch_add(1, Ordering::Relaxed);

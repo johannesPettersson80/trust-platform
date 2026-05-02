@@ -58,17 +58,17 @@ fn run_resource_loop_core<C, F>(
 {
     let mut paused = false;
     if let Some(gate) = runner.start_gate.as_ref() {
-        *state.lock().expect("resource state poisoned") = ResourceState::Ready;
+        set_resource_state(&state, ResourceState::Ready);
         if !gate.wait_open(&stop) {
-            *state.lock().expect("resource state poisoned") = ResourceState::Stopped;
+            set_resource_state(&state, ResourceState::Stopped);
             return;
         }
     }
-    *state.lock().expect("resource state poisoned") = ResourceState::Running;
+    set_resource_state(&state, ResourceState::Running);
     loop {
         if stop.load(Ordering::SeqCst) {
             let _ = runner.runtime.save_retain_store();
-            *state.lock().expect("resource state poisoned") = ResourceState::Stopped;
+            set_resource_state(&state, ResourceState::Stopped);
             break;
         }
 
@@ -77,11 +77,11 @@ fn run_resource_loop_core<C, F>(
                 match command {
                     ResourceCommand::Pause => {
                         paused = true;
-                        *state.lock().expect("resource state poisoned") = ResourceState::Paused;
+                        set_resource_state(&state, ResourceState::Paused);
                     }
                     ResourceCommand::Resume => {
                         paused = false;
-                        *state.lock().expect("resource state poisoned") = ResourceState::Running;
+                        set_resource_state(&state, ResourceState::Running);
                     }
                     other => apply_resource_command(&mut runner.runtime, other),
                 }
@@ -89,18 +89,17 @@ fn run_resource_loop_core<C, F>(
         }
 
         if let Some(signal) = runner.restart_signal.as_ref() {
-            if let Ok(mut guard) = signal.lock() {
-                if let Some(mode) = guard.take() {
-                    if let Err(err) = runner.runtime.restart(mode) {
-                        *last_error.lock().expect("resource error poisoned") = Some(err);
-                        *state.lock().expect("resource state poisoned") = ResourceState::Faulted;
-                        break;
-                    }
-                    if let Err(err) = runner.runtime.load_retain_store() {
-                        *last_error.lock().expect("resource error poisoned") = Some(err);
-                        *state.lock().expect("resource state poisoned") = ResourceState::Faulted;
-                        break;
-                    }
+            let mut guard = recover_mutex_lock(signal.lock());
+            if let Some(mode) = guard.take() {
+                if let Err(err) = runner.runtime.restart(mode) {
+                    set_last_error(&last_error, err);
+                    set_resource_state(&state, ResourceState::Faulted);
+                    break;
+                }
+                if let Err(err) = runner.runtime.load_retain_store() {
+                    set_last_error(&last_error, err);
+                    set_resource_state(&state, ResourceState::Faulted);
+                    break;
                 }
             }
         }
@@ -132,14 +131,14 @@ fn run_resource_loop_core<C, F>(
                     crate::watchdog::FaultPolicy::Restart
                 ) {
                     if let Err(restart_err) = runner.runtime.restart(crate::RestartMode::Warm) {
-                        *last_error.lock().expect("resource error poisoned") = Some(restart_err);
-                        *state.lock().expect("resource state poisoned") = ResourceState::Faulted;
+                        set_last_error(&last_error, restart_err);
+                        set_resource_state(&state, ResourceState::Faulted);
                         break;
                     }
                     continue;
                 }
-                *last_error.lock().expect("resource error poisoned") = Some(err);
-                *state.lock().expect("resource state poisoned") = ResourceState::Faulted;
+                set_last_error(&last_error, err);
+                set_resource_state(&state, ResourceState::Faulted);
                 break;
             }
         }
@@ -155,14 +154,14 @@ fn run_resource_loop_core<C, F>(
                 crate::watchdog::FaultPolicy::Restart
             ) {
                 if let Err(restart_err) = runner.runtime.restart(crate::RestartMode::Warm) {
-                    *last_error.lock().expect("resource error poisoned") = Some(restart_err);
-                    *state.lock().expect("resource state poisoned") = ResourceState::Faulted;
+                    set_last_error(&last_error, restart_err);
+                    set_resource_state(&state, ResourceState::Faulted);
                     break;
                 }
                 continue;
             }
-            *last_error.lock().expect("resource error poisoned") = Some(err);
-            *state.lock().expect("resource state poisoned") = ResourceState::Faulted;
+            set_last_error(&last_error, err);
+            set_resource_state(&state, ResourceState::Faulted);
             break;
         }
         let watchdog = runner.runtime.watchdog_policy();
@@ -171,14 +170,14 @@ fn run_resource_loop_core<C, F>(
             if elapsed > watchdog.timeout.as_nanos() {
                 if matches!(watchdog.action, crate::watchdog::WatchdogAction::Restart) {
                     if let Err(restart_err) = runner.runtime.restart(crate::RestartMode::Warm) {
-                        *last_error.lock().expect("resource error poisoned") = Some(restart_err);
-                        *state.lock().expect("resource state poisoned") = ResourceState::Faulted;
+                        set_last_error(&last_error, restart_err);
+                        set_resource_state(&state, ResourceState::Faulted);
                         break;
                     }
                 } else {
                     let err = runner.runtime.watchdog_timeout();
-                    *last_error.lock().expect("resource error poisoned") = Some(err);
-                    *state.lock().expect("resource state poisoned") = ResourceState::Faulted;
+                    set_last_error(&last_error, err);
+                    set_resource_state(&state, ResourceState::Faulted);
                     break;
                 }
             }
@@ -193,6 +192,55 @@ fn run_resource_loop_core<C, F>(
         let deadline =
             Duration::from_nanos(now_raw.as_nanos().saturating_add(sleep_interval.as_nanos()));
         runner.clock.sleep_until(deadline);
+    }
+}
+
+fn recover_mutex_lock<T>(
+    result: std::sync::LockResult<std::sync::MutexGuard<'_, T>>,
+) -> std::sync::MutexGuard<'_, T> {
+    result.unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+fn set_resource_state(state: &Arc<Mutex<ResourceState>>, next: ResourceState) {
+    *recover_mutex_lock(state.lock()) = next;
+}
+
+fn set_last_error(last_error: &Arc<Mutex<Option<RuntimeError>>>, err: RuntimeError) {
+    *recover_mutex_lock(last_error.lock()) = Some(err);
+}
+
+#[cfg(test)]
+mod runner_loop_poison_tests {
+    use super::*;
+
+    #[test]
+    fn state_and_error_helpers_recover_poisoned_mutexes() {
+        let state = Arc::new(Mutex::new(ResourceState::Ready));
+        let poisoned_state = Arc::clone(&state);
+        let _ = std::thread::spawn(move || {
+            let mut guard = poisoned_state.lock().expect("test state lock");
+            *guard = ResourceState::Paused;
+            panic!("poison resource state");
+        })
+        .join();
+
+        set_resource_state(&state, ResourceState::Running);
+        assert_eq!(*recover_mutex_lock(state.lock()), ResourceState::Running);
+
+        let last_error = Arc::new(Mutex::new(None));
+        let poisoned_error = Arc::clone(&last_error);
+        let _ = std::thread::spawn(move || {
+            let mut guard = poisoned_error.lock().expect("test error lock");
+            *guard = Some(RuntimeError::TypeMismatch);
+            panic!("poison resource error");
+        })
+        .join();
+
+        set_last_error(&last_error, RuntimeError::DivisionByZero);
+        assert_eq!(
+            *recover_mutex_lock(last_error.lock()),
+            Some(RuntimeError::DivisionByZero)
+        );
     }
 }
 

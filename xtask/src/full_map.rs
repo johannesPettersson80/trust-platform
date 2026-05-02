@@ -9,8 +9,9 @@ use serde::{Deserialize, Serialize};
 use crate::software_map::{
     CliActionSummary, DependencyEdge, DependencyHygieneSummary, DependencyPolicyEntry, DiagramEdge,
     DiagramFact, FunctionSummary, HostSurfaceSummary, ImportEdge, ModuleSummary, PackageSummary,
-    ParserRecoverySummary, RuntimeRouteHandlerSummary, SoftwareMap, SourceFileSummary,
-    SourcePatternSummary, TargetSummary, ToolResult, ToolStatus, UnsafeSummary, WorkspaceEdge,
+    ParserRecoverySummary, RuntimeRouteHandlerSummary, SafetyToolGateSummary, SoftwareMap,
+    SourceFileSummary, SourcePatternSummary, TargetSummary, ToolResult, ToolStatus, UnsafeSummary,
+    WorkspaceEdge,
 };
 
 pub fn architecture_doctor_full_map(root: &Path) -> Result<()> {
@@ -176,12 +177,18 @@ struct KissPolicy {
     new_file_line_limit: usize,
     existing_file_note_limit: usize,
     function_note_limit: usize,
+    module_note_limit: usize,
+    module_split_plan_line_limit: usize,
     split_plan_line_limit: usize,
     max_runtime_top_level_modules_current: usize,
     max_runtime_top_level_modules_after_boards: usize,
     enforce_after_boards_cap: bool,
+    runtime_top_level_module_cap_waiver: Option<RuntimeTopLevelModuleCapWaiver>,
     runtime_top_level_module_decisions: Vec<RuntimeTopLevelModuleDecision>,
     large_file_allowlist: Vec<LargeFilePolicy>,
+    module_size_allowlist: Vec<ModuleSizePolicy>,
+    function_size_allowlist: Vec<FunctionSizePolicy>,
+    public_api_snapshots: Vec<PublicApiSnapshotPolicy>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -195,12 +202,53 @@ struct RuntimeTopLevelModuleDecision {
 }
 
 #[derive(Debug, Deserialize)]
+struct RuntimeTopLevelModuleCapWaiver {
+    target_cap: usize,
+    owner: String,
+    rationale: String,
+    review_date: String,
+    extraction_branch: String,
+    removal_condition: String,
+}
+
+#[derive(Debug, Deserialize)]
 struct LargeFilePolicy {
     path: String,
     owner: String,
     rationale: String,
     review_date: String,
     split_plan: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct ModuleSizePolicy {
+    crate_name: String,
+    module_name: String,
+    path: String,
+    owner: String,
+    rationale: String,
+    review_date: String,
+    split_plan: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct FunctionSizePolicy {
+    path: String,
+    name: String,
+    owner: String,
+    rationale: String,
+    review_date: String,
+    split_plan: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct PublicApiSnapshotPolicy {
+    package: String,
+    baseline: String,
+    command: String,
+    owner: String,
+    rationale: String,
+    review_date: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -243,6 +291,62 @@ struct DependencyAllowlistEntry {
 struct UnsafeConcurrencyPolicy {
     owner: String,
     status: String,
+    unsafe_site_register: Vec<UnsafeSitePolicy>,
+    delegated_unsafe_path_register: Vec<DelegatedUnsafePathPolicy>,
+    panic_like_classifications: Vec<PanicLikeClassificationPolicy>,
+    concurrency_boundaries: Vec<ConcurrencyBoundaryPolicy>,
+    tool_gates: Vec<SafetyToolGatePolicy>,
+}
+
+#[derive(Debug, Deserialize)]
+struct UnsafeSitePolicy {
+    path: String,
+    line: usize,
+    owner: String,
+    invariant: String,
+    test_evidence: String,
+    review_date: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct DelegatedUnsafePathPolicy {
+    path_prefix: String,
+    owner: String,
+    invariant: String,
+    test_evidence: String,
+    review_date: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct PanicLikeClassificationPolicy {
+    path_prefix: String,
+    pattern: String,
+    classification: String,
+    owner: String,
+    rationale: String,
+    review_date: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct ConcurrencyBoundaryPolicy {
+    path_prefix: String,
+    primitive: String,
+    owner: String,
+    shared_state: String,
+    invariant: String,
+    test_evidence: String,
+    review_date: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct SafetyToolGatePolicy {
+    name: String,
+    status: String,
+    command: String,
+    evidence: String,
+    blocker: String,
+    owner: String,
+    review_date: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -652,7 +756,7 @@ fn run_policy_checks(root: &Path, map: &SoftwareMap, policy: &FullMapPolicy) -> 
         check_dependency_hygiene_status(map, policy),
         check_unsafe_concurrency_summary(map),
         check_kiss_thresholds(map, policy),
-        check_public_api_snapshot_status(map),
+        check_public_api_snapshot_status(root, map, policy),
         check_parser_recovery_rules(map),
         check_hir_zero_silent_bug_doctor(root),
         check_runtime_vm_mutation_evidence(root),
@@ -678,8 +782,10 @@ fn check_policy_metadata(policy: &FullMapPolicy) -> FullMapCheck {
     if policy.kiss.max_runtime_top_level_modules_current == 0
         || policy.kiss.max_runtime_top_level_modules_after_boards == 0
         || policy.kiss.function_note_limit == 0
+        || policy.kiss.module_note_limit == 0
+        || policy.kiss.module_split_plan_line_limit == 0
     {
-        failures.push("KISS module/function caps must be non-zero".to_string());
+        failures.push("KISS file/module/function caps must be non-zero".to_string());
     }
     for edge in &policy.allowed_workspace_edges {
         if edge.owner.trim().is_empty() || edge.rationale.trim().is_empty() {
@@ -758,6 +864,63 @@ fn check_policy_metadata(policy: &FullMapPolicy) -> FullMapCheck {
             ));
         }
     }
+    for item in &policy.kiss.module_size_allowlist {
+        if item.crate_name.trim().is_empty()
+            || item.module_name.trim().is_empty()
+            || item.path.trim().is_empty()
+            || item.owner.trim().is_empty()
+            || item.rationale.trim().is_empty()
+            || item.review_date.trim().is_empty()
+            || item.split_plan.trim().is_empty()
+        {
+            failures.push(format!(
+                "module-size allowlist entry '{}::{}' is missing crate/module/path/owner/rationale/review_date/split_plan",
+                item.crate_name, item.module_name
+            ));
+        }
+    }
+    for item in &policy.kiss.function_size_allowlist {
+        if item.path.trim().is_empty()
+            || item.name.trim().is_empty()
+            || item.owner.trim().is_empty()
+            || item.rationale.trim().is_empty()
+            || item.review_date.trim().is_empty()
+            || item.split_plan.trim().is_empty()
+        {
+            failures.push(format!(
+                "function-size allowlist entry '{}::{}' is missing path/name/owner/rationale/review_date/split_plan",
+                item.path, item.name
+            ));
+        }
+    }
+    for item in &policy.kiss.public_api_snapshots {
+        if item.package.trim().is_empty()
+            || item.baseline.trim().is_empty()
+            || item.command.trim().is_empty()
+            || item.owner.trim().is_empty()
+            || item.rationale.trim().is_empty()
+            || item.review_date.trim().is_empty()
+        {
+            failures.push(format!(
+                "public API snapshot policy for '{}' is missing package/baseline/command/owner/rationale/review_date",
+                item.package
+            ));
+        }
+    }
+    if let Some(waiver) = &policy.kiss.runtime_top_level_module_cap_waiver {
+        if waiver.target_cap == 0
+            || waiver.owner.trim().is_empty()
+            || waiver.rationale.trim().is_empty()
+            || waiver.review_date.trim().is_empty()
+            || waiver.extraction_branch.trim().is_empty()
+            || waiver.removal_condition.trim().is_empty()
+        {
+            failures.push(
+                "runtime top-level module cap waiver is missing target_cap/owner/rationale/review_date/extraction_branch/removal_condition"
+                    .to_string(),
+            );
+        }
+    }
     let mut runtime_module_decisions = BTreeSet::new();
     for item in &policy.kiss.runtime_top_level_module_decisions {
         if !runtime_module_decisions.insert(item.name.as_str()) {
@@ -820,6 +983,110 @@ fn check_policy_metadata(policy: &FullMapPolicy) -> FullMapCheck {
         "machete",
         &policy.dependency_hygiene.machete_allowlist,
     ));
+    if policy.unsafe_concurrency.owner.trim().is_empty()
+        || policy.unsafe_concurrency.status.trim().is_empty()
+    {
+        failures.push("unsafe/concurrency policy is missing owner/status".to_string());
+    }
+    let mut unsafe_sites = BTreeSet::new();
+    for site in &policy.unsafe_concurrency.unsafe_site_register {
+        if !unsafe_sites.insert((site.path.as_str(), site.line)) {
+            failures.push(format!(
+                "unsafe site register entry '{}:{}' is duplicated",
+                site.path, site.line
+            ));
+        }
+        if site.path.trim().is_empty()
+            || site.line == 0
+            || site.owner.trim().is_empty()
+            || site.invariant.trim().is_empty()
+            || site.test_evidence.trim().is_empty()
+            || site.review_date.trim().is_empty()
+        {
+            failures.push(format!(
+                "unsafe site register entry '{}:{}' is missing path/line/owner/invariant/evidence/review_date",
+                site.path, site.line
+            ));
+        }
+    }
+    for item in &policy.unsafe_concurrency.delegated_unsafe_path_register {
+        if item.path_prefix.trim().is_empty()
+            || item.owner.trim().is_empty()
+            || item.invariant.trim().is_empty()
+            || item.test_evidence.trim().is_empty()
+            || item.review_date.trim().is_empty()
+        {
+            failures.push(format!(
+                "delegated unsafe path '{}' is missing path_prefix/owner/invariant/evidence/review_date",
+                item.path_prefix
+            ));
+        }
+    }
+    for item in &policy.unsafe_concurrency.panic_like_classifications {
+        if item.path_prefix.trim().is_empty()
+            || item.pattern.trim().is_empty()
+            || item.classification.trim().is_empty()
+            || item.owner.trim().is_empty()
+            || item.rationale.trim().is_empty()
+            || item.review_date.trim().is_empty()
+        {
+            failures.push(format!(
+                "panic-like classification '{}' / '{}' is missing path_prefix/pattern/classification/owner/rationale/review_date",
+                item.path_prefix, item.pattern
+            ));
+        }
+    }
+    for item in &policy.unsafe_concurrency.concurrency_boundaries {
+        if item.path_prefix.trim().is_empty()
+            || item.primitive.trim().is_empty()
+            || item.owner.trim().is_empty()
+            || item.shared_state.trim().is_empty()
+            || item.invariant.trim().is_empty()
+            || item.test_evidence.trim().is_empty()
+            || item.review_date.trim().is_empty()
+        {
+            failures.push(format!(
+                "concurrency boundary '{}' / '{}' is missing path_prefix/primitive/owner/shared_state/invariant/evidence/review_date",
+                item.path_prefix, item.primitive
+            ));
+        }
+    }
+    for tool in &policy.unsafe_concurrency.tool_gates {
+        if tool.name.trim().is_empty()
+            || tool.status.trim().is_empty()
+            || tool.command.trim().is_empty()
+            || tool.owner.trim().is_empty()
+            || tool.review_date.trim().is_empty()
+        {
+            failures.push(format!(
+                "unsafe/concurrency tool gate '{}' is missing name/status/command/owner/review_date",
+                tool.name
+            ));
+        }
+        if !matches!(
+            tool.status.as_str(),
+            "pass" | "finding" | "partial" | "failed" | "not_run"
+        ) {
+            failures.push(format!(
+                "unsafe/concurrency tool gate '{}' has unsupported status '{}'",
+                tool.name, tool.status
+            ));
+        }
+        if tool.status == "pass" && tool.evidence.trim().is_empty() {
+            failures.push(format!(
+                "unsafe/concurrency tool gate '{}' is passing without evidence",
+                tool.name
+            ));
+        }
+        if matches!(tool.status.as_str(), "partial" | "failed" | "not_run")
+            && tool.blocker.trim().is_empty()
+        {
+            failures.push(format!(
+                "unsafe/concurrency tool gate '{}' is '{}' without a blocker",
+                tool.name, tool.status
+            ));
+        }
+    }
     if failures.is_empty() {
         FullMapCheck::pass(
             "FULLMAP-CHECK-01",
@@ -1500,19 +1767,104 @@ fn check_unsafe_concurrency_summary(map: &SoftwareMap) -> FullMapCheck {
             Vec::new(),
         );
     }
-    let details = vec![
+    let mut details = vec![
         format!("owner: {}", map.unsafe_summary.owner),
         format!("status: {}", map.unsafe_summary.status),
         format!(
-            "unsafe occurrences: {}",
+            "production unsafe occurrences: {}",
             map.unsafe_summary.unsafe_occurrences
         ),
         format!(
-            "panic-like occurrences: {}",
+            "production panic-like occurrences: {}",
             map.unsafe_summary.panic_like_occurrences
         ),
+        format!(
+            "concurrency boundary occurrences: {}",
+            map.unsafe_summary.concurrency_boundary_occurrences
+        ),
+        format!(
+            "tool gates: {}",
+            map.unsafe_summary
+                .tool_gates
+                .iter()
+                .map(|tool| format!("{}={}", tool.name, tool.status))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
     ];
-    if map.unsafe_summary.unsafe_occurrences > 0 || map.unsafe_summary.panic_like_occurrences > 0 {
+    let mut failures = Vec::new();
+    if !map.unsafe_summary.unregistered_unsafe_sites.is_empty() {
+        failures.push(format!(
+            "unregistered unsafe sites: {}",
+            map.unsafe_summary.unregistered_unsafe_sites.len()
+        ));
+        failures.extend(
+            map.unsafe_summary
+                .unregistered_unsafe_sites
+                .iter()
+                .take(10)
+                .map(source_pattern_detail),
+        );
+    }
+    if !map.unsafe_summary.unclassified_panic_like_sites.is_empty() {
+        failures.push(format!(
+            "unclassified panic-like sites: {}",
+            map.unsafe_summary.unclassified_panic_like_sites.len()
+        ));
+        failures.extend(
+            map.unsafe_summary
+                .unclassified_panic_like_sites
+                .iter()
+                .take(10)
+                .map(source_pattern_detail),
+        );
+    }
+    if !map
+        .unsafe_summary
+        .unregistered_concurrency_boundaries
+        .is_empty()
+    {
+        failures.push(format!(
+            "unregistered concurrency boundaries: {}",
+            map.unsafe_summary.unregistered_concurrency_boundaries.len()
+        ));
+        failures.extend(
+            map.unsafe_summary
+                .unregistered_concurrency_boundaries
+                .iter()
+                .take(10)
+                .map(source_pattern_detail),
+        );
+    }
+    if map.unsafe_summary.tool_gates.is_empty() {
+        failures.push("unsafe/concurrency tool gates are missing".to_string());
+    }
+    for tool in &map.unsafe_summary.tool_gates {
+        if matches!(tool.status.as_str(), "failed" | "not_run") {
+            failures.push(format!(
+                "unsafe/concurrency tool gate '{}' is '{}': {}",
+                tool.name, tool.status, tool.blocker
+            ));
+        }
+    }
+    if !failures.is_empty() {
+        return FullMapCheck::fail(
+            "FULLMAP-CHECK-09",
+            "unsafe/concurrency register has unowned or unclassified hotspots",
+            failures,
+        );
+    }
+    let has_partial_tools = map
+        .unsafe_summary
+        .tool_gates
+        .iter()
+        .any(|tool| matches!(tool.status.as_str(), "partial" | "finding"));
+    if map.unsafe_summary.unsafe_occurrences > 0
+        || map.unsafe_summary.panic_like_occurrences > 0
+        || map.unsafe_summary.concurrency_boundary_occurrences > 0
+        || has_partial_tools
+    {
+        details.push("all production hotspots are registered or classified".to_string());
         FullMapCheck::finding(
             "FULLMAP-CHECK-09",
             "unsafe/concurrency risk summary is emitted and remaining hotspots are tracked",
@@ -1525,6 +1877,10 @@ fn check_unsafe_concurrency_summary(map: &SoftwareMap) -> FullMapCheck {
             details,
         )
     }
+}
+
+fn source_pattern_detail(site: &SourcePatternSummary) -> String {
+    format!("{}:{}: {}", site.path, site.line, site.pattern)
 }
 
 fn is_runtime_large_file_scope(path: &str) -> bool {
@@ -1608,6 +1964,89 @@ fn check_kiss_thresholds(map: &SoftwareMap, policy: &FullMapPolicy) -> FullMapCh
         }
     }
 
+    let module_allowlist = policy
+        .kiss
+        .module_size_allowlist
+        .iter()
+        .map(|item| ((item.crate_name.as_str(), item.module_name.as_str()), item))
+        .collect::<BTreeMap<_, _>>();
+    let current_modules = map
+        .crate_module_summaries
+        .iter()
+        .map(|module| {
+            (
+                (module.crate_name.as_str(), module.module_name.as_str()),
+                module,
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
+    let large_modules = map
+        .crate_module_summaries
+        .iter()
+        .filter(|module| module.line_count >= policy.kiss.module_note_limit)
+        .collect::<Vec<_>>();
+    details.push(format!(
+        "workspace top-level modules at or above {} lines: {}",
+        policy.kiss.module_note_limit,
+        large_modules.len()
+    ));
+    for module in large_modules {
+        let key = (module.crate_name.as_str(), module.module_name.as_str());
+        let Some(entry) = module_allowlist.get(&key) else {
+            failures.push(format!(
+                "{}::{} at {} has {} lines and no module-size owner/split note (threshold {})",
+                module.crate_name,
+                module.module_name,
+                module.path,
+                module.line_count,
+                policy.kiss.module_note_limit
+            ));
+            continue;
+        };
+        if entry.path != module.path {
+            failures.push(format!(
+                "module-size allowlist entry {}::{} path '{}' does not match current path '{}'",
+                entry.crate_name, entry.module_name, entry.path, module.path
+            ));
+        }
+        details.push(format!(
+            "large module {}::{} lines={} files={} owner={} split_plan={}",
+            module.crate_name,
+            module.module_name,
+            module.line_count,
+            module.file_count,
+            entry.owner,
+            entry.split_plan
+        ));
+        if module.line_count >= policy.kiss.module_split_plan_line_limit
+            && entry.split_plan.trim().is_empty()
+        {
+            failures.push(format!(
+                "{}::{} has {} lines and no approved module split plan (threshold {})",
+                module.crate_name,
+                module.module_name,
+                module.line_count,
+                policy.kiss.module_split_plan_line_limit
+            ));
+        }
+    }
+    for item in &policy.kiss.module_size_allowlist {
+        let key = (item.crate_name.as_str(), item.module_name.as_str());
+        let Some(module) = current_modules.get(&key) else {
+            failures.push(format!(
+                "module-size allowlist entry '{}::{}' does not match a current top-level module",
+                item.crate_name, item.module_name
+            ));
+            continue;
+        };
+        if module.line_count < policy.kiss.module_note_limit {
+            failures.push(format!(
+                "module-size allowlist entry '{}::{}' has {} lines, below threshold {}",
+                item.crate_name, item.module_name, module.line_count, policy.kiss.module_note_limit
+            ));
+        }
+    }
+
     let runtime_module_count = map
         .runtime_top_level_modules
         .iter()
@@ -1633,10 +2072,31 @@ fn check_kiss_thresholds(map: &SoftwareMap, policy: &FullMapPolicy) -> FullMapCh
         ));
     }
     if !policy.kiss.enforce_after_boards_cap {
-        details.push(format!(
-            "final host cap enforcement inactive until CLI/host-surface/runtime-core boards close; ARCHPROG-EXIT-11 must flip enforce_after_boards_cap=true or record a dated waiver for cap {}",
-            policy.kiss.max_runtime_top_level_modules_after_boards
-        ));
+        if runtime_module_count > policy.kiss.max_runtime_top_level_modules_after_boards {
+            match &policy.kiss.runtime_top_level_module_cap_waiver {
+                Some(waiver)
+                    if waiver.target_cap == policy.kiss.max_runtime_top_level_modules_after_boards =>
+                {
+                    details.push(format!(
+                        "final host cap waiver active: current={runtime_module_count} target={} owner={} branch={} removal={}",
+                        waiver.target_cap,
+                        waiver.owner,
+                        waiver.extraction_branch,
+                        waiver.removal_condition
+                    ));
+                }
+                Some(waiver) => failures.push(format!(
+                    "runtime top-level module cap waiver target {} does not match configured final cap {}",
+                    waiver.target_cap, policy.kiss.max_runtime_top_level_modules_after_boards
+                )),
+                None => failures.push(format!(
+                    "trust-runtime top-level module count {runtime_module_count} exceeds final host cap {} and no dated waiver names the next extraction branch",
+                    policy.kiss.max_runtime_top_level_modules_after_boards
+                )),
+            }
+        } else {
+            details.push("final host cap is satisfied; no waiver needed".to_string());
+        }
     }
     let module_decisions = policy
         .kiss
@@ -1670,6 +2130,17 @@ fn check_kiss_thresholds(map: &SoftwareMap, policy: &FullMapPolicy) -> FullMapCh
             ));
         }
     }
+    let function_allowlist = policy
+        .kiss
+        .function_size_allowlist
+        .iter()
+        .map(|item| ((item.path.as_str(), item.name.as_str()), item))
+        .collect::<BTreeMap<_, _>>();
+    let current_functions = map
+        .largest_functions
+        .iter()
+        .map(|function| ((function.path.as_str(), function.name.as_str()), function))
+        .collect::<BTreeMap<_, _>>();
     let large_functions = map
         .largest_functions
         .iter()
@@ -1680,19 +2151,42 @@ fn check_kiss_thresholds(map: &SoftwareMap, policy: &FullMapPolicy) -> FullMapCh
         policy.kiss.function_note_limit,
         large_functions.len()
     ));
-    for function in large_functions.iter().take(10) {
-        details.push(format!(
-            "large function advisory: {}:{} {} lines={}",
-            function.path, function.line, function.name, function.line_count
-        ));
-        if function.path.starts_with("crates/trust-runtime-core/src/") {
+    for function in &large_functions {
+        let key = (function.path.as_str(), function.name.as_str());
+        let Some(entry) = function_allowlist.get(&key) else {
             failures.push(format!(
-                "trust-runtime-core function {}:{} {} has {} lines (limit {})",
+                "{}:{} {} has {} lines and no function-size owner/split note (threshold {})",
                 function.path,
                 function.line,
                 function.name,
                 function.line_count,
                 policy.kiss.function_note_limit
+            ));
+            continue;
+        };
+        details.push(format!(
+            "large function {}:{} {} lines={} owner={} split_plan={}",
+            function.path,
+            function.line,
+            function.name,
+            function.line_count,
+            entry.owner,
+            entry.split_plan
+        ));
+    }
+    for item in &policy.kiss.function_size_allowlist {
+        let key = (item.path.as_str(), item.name.as_str());
+        let Some(function) = current_functions.get(&key) else {
+            failures.push(format!(
+                "function-size allowlist entry '{}::{}' does not match a current runtime/core function",
+                item.path, item.name
+            ));
+            continue;
+        };
+        if function.line_count < policy.kiss.function_note_limit {
+            failures.push(format!(
+                "function-size allowlist entry '{}::{}' has {} lines, below threshold {}",
+                item.path, item.name, function.line_count, policy.kiss.function_note_limit
             ));
         }
     }
@@ -1700,7 +2194,7 @@ fn check_kiss_thresholds(map: &SoftwareMap, policy: &FullMapPolicy) -> FullMapCh
     if failures.is_empty() {
         FullMapCheck::pass(
             "FULLMAP-CHECK-10",
-            "KISS large-file, runtime-host module-count, and top-level module decision thresholds are enforced",
+            "KISS file, module, function, public API, and runtime top-level growth thresholds are enforced",
             details,
         )
     } else {
@@ -1708,27 +2202,76 @@ fn check_kiss_thresholds(map: &SoftwareMap, policy: &FullMapPolicy) -> FullMapCh
     }
 }
 
-fn check_public_api_snapshot_status(map: &SoftwareMap) -> FullMapCheck {
+fn check_public_api_snapshot_status(
+    root: &Path,
+    map: &SoftwareMap,
+    policy: &FullMapPolicy,
+) -> FullMapCheck {
     let public_api = map
         .tool_results
         .iter()
         .find(|tool| tool.name == "cargo public-api");
+    let mut failures = Vec::new();
+    let mut details = Vec::new();
+
     match public_api {
-        Some(tool) if tool.status == ToolStatus::Pass => FullMapCheck::pass(
+        Some(tool) if tool.status == ToolStatus::Pass => {
+            details.extend(tool.details.clone());
+        }
+        Some(tool) => {
+            details.extend(tool.details.clone());
+            failures.push("cargo public-api is not available".to_string());
+        }
+        None => failures.push("cargo public-api tool result missing".to_string()),
+    }
+
+    if policy.kiss.public_api_snapshots.is_empty() {
+        failures.push("no public API snapshots are configured".to_string());
+    }
+    let mut seen_packages = BTreeSet::new();
+    for snapshot in &policy.kiss.public_api_snapshots {
+        if !seen_packages.insert(snapshot.package.as_str()) {
+            failures.push(format!(
+                "public API snapshot for '{}' is duplicated",
+                snapshot.package
+            ));
+        }
+        let baseline = root.join(&snapshot.baseline);
+        if !baseline.is_file() {
+            failures.push(format!(
+                "public API baseline for '{}' is missing at {}",
+                snapshot.package, snapshot.baseline
+            ));
+            continue;
+        }
+        let line_count = fs::read_to_string(&baseline)
+            .unwrap_or_default()
+            .lines()
+            .count();
+        if line_count == 0 {
+            failures.push(format!(
+                "public API baseline for '{}' is empty at {}",
+                snapshot.package, snapshot.baseline
+            ));
+        }
+        details.push(format!(
+            "{} baseline={} lines={} command={}",
+            snapshot.package, snapshot.baseline, line_count, snapshot.command
+        ));
+    }
+
+    if failures.is_empty() {
+        FullMapCheck::pass(
             "FULLMAP-P6-API",
-            "public API snapshot tooling is available",
-            tool.details.clone(),
-        ),
-        Some(tool) => FullMapCheck::partial(
+            "public API growth baselines are configured and the snapshot tool is available",
+            details,
+        )
+    } else {
+        FullMapCheck::fail(
             "FULLMAP-P6-API",
-            "public API growth gate is reported but no baseline is enforced yet",
-            tool.details.clone(),
-        ),
-        None => FullMapCheck::partial(
-            "FULLMAP-P6-API",
-            "public API growth gate is not configured yet",
-            vec!["cargo public-api tool result missing".to_string()],
-        ),
+            "public API growth baseline policy failed",
+            failures,
+        )
     }
 }
 
@@ -2470,23 +3013,248 @@ fn direct_control_state_field_bypass(line: &str) -> Option<&'static str> {
 }
 
 fn collect_unsafe_summary(root: &Path, policy: &FullMapPolicy) -> UnsafeSummary {
-    let mut unsafe_occurrences = 0;
-    let mut panic_like_occurrences = 0;
-    if let Ok(files) = collect_source_files(root) {
+    const PANIC_LIKE_NEEDLES: [&str; 5] =
+        ["unwrap(", "expect(", "panic!", "todo!", "unimplemented!"];
+    const CONCURRENCY_NEEDLES: [&str; 18] = [
+        "thread::spawn",
+        "std::thread",
+        "tokio::spawn",
+        "spawn_blocking",
+        "JoinHandle",
+        "mpsc",
+        "channel(",
+        "Mutex",
+        "RwLock",
+        "Arc<",
+        "Atomic",
+        "Ordering::",
+        "shared_memory",
+        "SharedMemory",
+        "WebSocket",
+        "tungstenite",
+        "parking_lot",
+        "Condvar",
+    ];
+
+    let mut production_unsafe_sites = Vec::new();
+    let mut production_panic_like_sites = Vec::new();
+    let mut concurrency_boundary_sites = Vec::new();
+
+    if let Ok(files) = collect_safety_scan_files(root) {
         for file in files {
-            let source = fs::read_to_string(file).unwrap_or_default();
-            unsafe_occurrences += source.matches("unsafe").count();
-            for needle in ["unwrap(", "expect(", "panic!", "todo!", "unimplemented!"] {
-                panic_like_occurrences += source.matches(needle).count();
+            let rel = rel_path(root, &file);
+            if is_test_like_source_path(&rel) {
+                continue;
+            }
+            let source = fs::read_to_string(&file).unwrap_or_default();
+            for (idx, line, production_line) in production_source_lines(&source) {
+                if !production_line {
+                    continue;
+                }
+                let line_without_comment = strip_line_comment(line);
+                if line_without_comment.contains("unsafe")
+                    && !line_without_comment.contains("forbid(unsafe_code)")
+                    && !line_without_comment.contains("deny(unsafe_code)")
+                {
+                    production_unsafe_sites.push(SourcePatternSummary {
+                        path: rel.clone(),
+                        line: idx,
+                        pattern: line.trim().to_string(),
+                    });
+                }
+                if is_panic_like_scan_path(&rel)
+                    && PANIC_LIKE_NEEDLES
+                        .iter()
+                        .any(|needle| line_without_comment.contains(needle))
+                {
+                    production_panic_like_sites.push(SourcePatternSummary {
+                        path: rel.clone(),
+                        line: idx,
+                        pattern: line.trim().to_string(),
+                    });
+                }
+                if is_concurrency_scan_path(&rel)
+                    && CONCURRENCY_NEEDLES
+                        .iter()
+                        .any(|needle| line_without_comment.contains(needle))
+                {
+                    concurrency_boundary_sites.push(SourcePatternSummary {
+                        path: rel.clone(),
+                        line: idx,
+                        pattern: line.trim().to_string(),
+                    });
+                }
             }
         }
     }
+
+    let unregistered_unsafe_sites = production_unsafe_sites
+        .iter()
+        .filter(|site| !unsafe_site_is_registered(site, &policy.unsafe_concurrency))
+        .cloned()
+        .collect::<Vec<_>>();
+    let unclassified_panic_like_sites = production_panic_like_sites
+        .iter()
+        .filter(|site| !panic_like_site_is_classified(site, &policy.unsafe_concurrency))
+        .cloned()
+        .collect::<Vec<_>>();
+    let unregistered_concurrency_boundaries = concurrency_boundary_sites
+        .iter()
+        .filter(|site| !concurrency_boundary_is_registered(site, &policy.unsafe_concurrency))
+        .cloned()
+        .collect::<Vec<_>>();
+
+    let tool_gates = policy
+        .unsafe_concurrency
+        .tool_gates
+        .iter()
+        .map(|tool| SafetyToolGateSummary {
+            name: tool.name.clone(),
+            status: tool.status.clone(),
+            command: tool.command.clone(),
+            evidence: tool.evidence.clone(),
+            blocker: tool.blocker.clone(),
+        })
+        .collect();
+
     UnsafeSummary {
-        unsafe_occurrences,
-        panic_like_occurrences,
+        unsafe_occurrences: production_unsafe_sites.len(),
+        panic_like_occurrences: production_panic_like_sites.len(),
+        concurrency_boundary_occurrences: concurrency_boundary_sites.len(),
         owner: policy.unsafe_concurrency.owner.clone(),
         status: policy.unsafe_concurrency.status.clone(),
+        production_unsafe_sites,
+        production_panic_like_sites,
+        concurrency_boundary_sites,
+        unregistered_unsafe_sites,
+        unclassified_panic_like_sites,
+        unregistered_concurrency_boundaries,
+        tool_gates,
     }
+}
+
+fn collect_safety_scan_files(root: &Path) -> Result<Vec<PathBuf>> {
+    let mut files = Vec::new();
+    for rel in ["crates", "third_party"] {
+        let dir = root.join(rel);
+        if dir.exists() {
+            collect_safety_scan_files_inner(&dir, &mut files)?;
+        }
+    }
+    Ok(files)
+}
+
+fn collect_safety_scan_files_inner(path: &Path, files: &mut Vec<PathBuf>) -> Result<()> {
+    for entry in fs::read_dir(path).with_context(|| format!("read {}", path.display()))? {
+        let entry = entry?;
+        let path = entry.path();
+        let name = entry.file_name();
+        if name == "target" || name == "node_modules" || name == "__pycache__" {
+            continue;
+        }
+        if path.is_dir() {
+            collect_safety_scan_files_inner(&path, files)?;
+        } else if path.extension().and_then(|ext| ext.to_str()) == Some("rs") {
+            files.push(path);
+        }
+    }
+    Ok(())
+}
+
+fn is_test_like_source_path(path: &str) -> bool {
+    path.contains("/tests/")
+        || path.contains("/test/")
+        || path.contains("_tests")
+        || path.ends_with("tests.rs")
+        || path.ends_with("_test.rs")
+}
+
+fn is_panic_like_scan_path(path: &str) -> bool {
+    path.starts_with("crates/trust-runtime/src/")
+        || path.starts_with("crates/trust-hir/src/")
+        || path.starts_with("crates/trust-lsp/src/")
+        || path.starts_with("crates/trust-ide/src/")
+}
+
+fn is_concurrency_scan_path(path: &str) -> bool {
+    is_panic_like_scan_path(path)
+}
+
+fn production_source_lines(source: &str) -> Vec<(usize, &str, bool)> {
+    let mut result = Vec::new();
+    let mut pending_cfg_test = false;
+    let mut cfg_test_depth: Option<isize> = None;
+
+    for (idx, line) in source.lines().enumerate() {
+        let line_no = idx + 1;
+        let trimmed = line.trim();
+        if let Some(depth) = cfg_test_depth.as_mut() {
+            *depth += count_char(line, '{') as isize;
+            *depth -= count_char(line, '}') as isize;
+            result.push((line_no, line, false));
+            if *depth <= 0 {
+                cfg_test_depth = None;
+            }
+            continue;
+        }
+        if trimmed.starts_with("#[cfg(test)]") {
+            pending_cfg_test = true;
+            result.push((line_no, line, false));
+            continue;
+        }
+        if pending_cfg_test
+            && (trimmed.starts_with("mod tests") || trimmed.starts_with("pub mod tests"))
+        {
+            let mut depth = count_char(line, '{') as isize - count_char(line, '}') as isize;
+            if depth <= 0 {
+                depth = 1;
+            }
+            cfg_test_depth = Some(depth);
+            pending_cfg_test = false;
+            result.push((line_no, line, false));
+            continue;
+        }
+        if pending_cfg_test && !trimmed.is_empty() && !trimmed.starts_with("#[") {
+            pending_cfg_test = false;
+        }
+        result.push((line_no, line, true));
+    }
+
+    result
+}
+
+fn unsafe_site_is_registered(
+    site: &SourcePatternSummary,
+    policy: &UnsafeConcurrencyPolicy,
+) -> bool {
+    policy
+        .unsafe_site_register
+        .iter()
+        .any(|entry| entry.path == site.path && entry.line == site.line)
+        || policy
+            .delegated_unsafe_path_register
+            .iter()
+            .any(|entry| site.path.starts_with(&entry.path_prefix))
+}
+
+fn panic_like_site_is_classified(
+    site: &SourcePatternSummary,
+    policy: &UnsafeConcurrencyPolicy,
+) -> bool {
+    policy.panic_like_classifications.iter().any(|entry| {
+        site.path.starts_with(&entry.path_prefix)
+            && (entry.pattern == "*" || site.pattern.contains(&entry.pattern))
+    })
+}
+
+fn concurrency_boundary_is_registered(
+    site: &SourcePatternSummary,
+    policy: &UnsafeConcurrencyPolicy,
+) -> bool {
+    policy.concurrency_boundaries.iter().any(|entry| {
+        site.path.starts_with(&entry.path_prefix)
+            && (entry.primitive == "*" || site.pattern.contains(&entry.primitive))
+    })
 }
 
 fn collect_parser_recovery_summary(root: &Path) -> ParserRecoverySummary {
@@ -3366,6 +4134,92 @@ mod tests {
     }
 
     #[test]
+    fn known_bad_large_module_without_owner_note_fails_kiss_check() {
+        let mut map = base_map();
+        map.crate_module_summaries.push(ModuleSummary {
+            crate_name: "trust-runtime".to_string(),
+            module_name: "giant".to_string(),
+            path: "crates/trust-runtime/src/giant".to_string(),
+            file_count: 7,
+            line_count: 5000,
+        });
+
+        let check = check_kiss_thresholds(&map, &base_policy());
+
+        assert!(check.is_fail());
+        assert!(check
+            .details
+            .iter()
+            .any(|detail| detail.contains("trust-runtime::giant")));
+    }
+
+    #[test]
+    fn runtime_top_level_final_cap_waiver_allows_recorded_over_cap_baseline() {
+        let mut map = base_map();
+        map.runtime_top_level_modules.push("debug".to_string());
+        let mut policy = base_policy();
+        policy
+            .kiss
+            .runtime_top_level_module_decisions
+            .push(RuntimeTopLevelModuleDecision {
+                name: "debug".to_string(),
+                subsystem: "debug_protocol".to_string(),
+                owner: "runtime/debug".to_string(),
+                rationale: "debug protocol surface".to_string(),
+                review_date: "2026-05-02".to_string(),
+                decision_note: "test decision".to_string(),
+            });
+        policy.kiss.runtime_top_level_module_cap_waiver = Some(RuntimeTopLevelModuleCapWaiver {
+            target_cap: 2,
+            owner: "runtime".to_string(),
+            rationale: "test cap waiver".to_string(),
+            review_date: "2026-05-02".to_string(),
+            extraction_branch: "architecture/runtime-host-module-collapse".to_string(),
+            removal_condition: "collapse debug under host modules".to_string(),
+        });
+
+        let check = check_kiss_thresholds(&map, &policy);
+
+        assert!(!check.is_fail());
+        assert!(check
+            .details
+            .iter()
+            .any(|detail| detail.contains("final host cap waiver active")));
+    }
+
+    #[test]
+    fn known_bad_missing_public_api_baseline_fails() {
+        let mut map = base_map();
+        map.tool_results.push(ToolResult {
+            name: "cargo public-api".to_string(),
+            status: ToolStatus::Pass,
+            details: vec!["cargo-public-api test".to_string()],
+        });
+        let mut policy = base_policy();
+        policy
+            .kiss
+            .public_api_snapshots
+            .push(PublicApiSnapshotPolicy {
+                package: "trust-runtime".to_string(),
+                baseline: "docs/internal/architecture/public-api/missing.txt".to_string(),
+                command:
+                    "cargo public-api --manifest-path crates/trust-runtime/Cargo.toml --color never"
+                        .to_string(),
+                owner: "architecture automation".to_string(),
+                rationale: "test baseline".to_string(),
+                review_date: "2026-05-02".to_string(),
+            });
+
+        let check = check_public_api_snapshot_status(Path::new("/repo"), &map, &policy);
+
+        assert!(check.is_fail());
+        assert!(check
+            .details
+            .iter()
+            .any(|detail| detail.contains("public API baseline")));
+    }
+
+    #[test]
     fn known_bad_unclassified_command_module_and_action_fail() {
         let mut map = base_map();
         map.runtime_cli_commands.push("NewCommand".to_string());
@@ -4028,6 +4882,56 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
     }
 
     #[test]
+    fn known_bad_unregistered_unsafe_site_fails() {
+        let mut map = base_map();
+        map.unsafe_summary
+            .unregistered_unsafe_sites
+            .push(SourcePatternSummary {
+                path: "crates/trust-runtime/src/new_unsafe.rs".to_string(),
+                line: 12,
+                pattern: "unsafe { unchecked() }".to_string(),
+            });
+
+        assert!(check_unsafe_concurrency_summary(&map).is_fail());
+    }
+
+    #[test]
+    fn known_bad_unclassified_runtime_panic_like_site_fails() {
+        let mut map = base_map();
+        map.unsafe_summary
+            .unclassified_panic_like_sites
+            .push(SourcePatternSummary {
+                path: "crates/trust-runtime/src/runtime/vm/new_hot_path.rs".to_string(),
+                line: 34,
+                pattern: "value.unwrap()".to_string(),
+            });
+
+        assert!(check_unsafe_concurrency_summary(&map).is_fail());
+    }
+
+    #[test]
+    fn known_bad_unregistered_concurrency_boundary_fails() {
+        let mut map = base_map();
+        map.unsafe_summary
+            .unregistered_concurrency_boundaries
+            .push(SourcePatternSummary {
+                path: "crates/trust-runtime/src/control/new_shared.rs".to_string(),
+                line: 56,
+                pattern: "Arc<Mutex<State>>".to_string(),
+            });
+
+        assert!(check_unsafe_concurrency_summary(&map).is_fail());
+    }
+
+    #[test]
+    fn known_bad_missing_safety_tool_gate_fails() {
+        let mut map = base_map();
+        map.unsafe_summary.tool_gates.clear();
+
+        assert!(check_unsafe_concurrency_summary(&map).is_fail());
+    }
+
+    #[test]
     fn known_bad_unsupported_diagram_alias_fails() {
         let mut map = base_map();
         map.diagram_facts.push(DiagramFact {
@@ -4108,8 +5012,35 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
         map.unsafe_summary = UnsafeSummary {
             unsafe_occurrences: 1,
             panic_like_occurrences: 1,
+            concurrency_boundary_occurrences: 1,
             owner: "runtime".to_string(),
             status: "tracked".to_string(),
+            production_unsafe_sites: vec![SourcePatternSummary {
+                path: "crates/trust-runtime/src/unsafe_owner.rs".to_string(),
+                line: 10,
+                pattern: "unsafe { ffi_call() }".to_string(),
+            }],
+            production_panic_like_sites: vec![SourcePatternSummary {
+                path: "crates/trust-runtime/src/web/ui_routes.rs".to_string(),
+                line: 20,
+                pattern: "Header::from_bytes(\"Content-Type\", \"application/json\").unwrap()"
+                    .to_string(),
+            }],
+            concurrency_boundary_sites: vec![SourcePatternSummary {
+                path: "crates/trust-runtime/src/scheduler/runner_loop.rs".to_string(),
+                line: 30,
+                pattern: "Arc<Mutex<ResourceState>>".to_string(),
+            }],
+            unregistered_unsafe_sites: Vec::new(),
+            unclassified_panic_like_sites: Vec::new(),
+            unregistered_concurrency_boundaries: Vec::new(),
+            tool_gates: vec![SafetyToolGateSummary {
+                name: "Miri focused shard".to_string(),
+                status: "pass".to_string(),
+                command: "scripts/unsafe_concurrency_miri_gate.sh".to_string(),
+                evidence: "target/gate-artifacts".to_string(),
+                blocker: String::new(),
+            }],
         };
         map.dependency_hygiene = DependencyHygieneSummary {
             deny_policy_present: true,
@@ -4268,10 +5199,13 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
                 new_file_line_limit: 1000,
                 existing_file_note_limit: 1000,
                 function_note_limit: 200,
+                module_note_limit: 5000,
+                module_split_plan_line_limit: 10000,
                 split_plan_line_limit: 1500,
                 max_runtime_top_level_modules_current: 5,
                 max_runtime_top_level_modules_after_boards: 2,
                 enforce_after_boards_cap: false,
+                runtime_top_level_module_cap_waiver: None,
                 runtime_top_level_module_decisions: vec![
                     RuntimeTopLevelModuleDecision {
                         name: "control".to_string(),
@@ -4291,6 +5225,9 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
                     },
                 ],
                 large_file_allowlist: Vec::new(),
+                module_size_allowlist: Vec::new(),
+                function_size_allowlist: Vec::new(),
+                public_api_snapshots: Vec::new(),
             },
             dependency_hygiene_tools: vec![PolicyToolStatus {
                 name: "cargo audit".to_string(),
@@ -4321,6 +5258,47 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
             unsafe_concurrency: UnsafeConcurrencyPolicy {
                 owner: "runtime".to_string(),
                 status: "tracked".to_string(),
+                unsafe_site_register: vec![UnsafeSitePolicy {
+                    path: "crates/trust-runtime/src/unsafe_owner.rs".to_string(),
+                    line: 10,
+                    owner: "runtime".to_string(),
+                    invariant: "test unsafe invariant".to_string(),
+                    test_evidence: "cargo test -p trust-runtime".to_string(),
+                    review_date: "2026-05-02".to_string(),
+                }],
+                delegated_unsafe_path_register: vec![DelegatedUnsafePathPolicy {
+                    path_prefix: "third_party/tiverse-mmap/".to_string(),
+                    owner: "release engineering".to_string(),
+                    invariant: "vendored unsafe is isolated behind typed mmap APIs".to_string(),
+                    test_evidence: "cargo test -p tiverse-mmap".to_string(),
+                    review_date: "2026-05-02".to_string(),
+                }],
+                panic_like_classifications: vec![PanicLikeClassificationPolicy {
+                    path_prefix: "crates/trust-runtime/src/web/".to_string(),
+                    pattern: "Header::from_bytes".to_string(),
+                    classification: "static-header-construction".to_string(),
+                    owner: "runtime/web".to_string(),
+                    rationale: "test fixture".to_string(),
+                    review_date: "2026-05-02".to_string(),
+                }],
+                concurrency_boundaries: vec![ConcurrencyBoundaryPolicy {
+                    path_prefix: "crates/trust-runtime/src/scheduler/".to_string(),
+                    primitive: "Mutex".to_string(),
+                    owner: "runtime/scheduler".to_string(),
+                    shared_state: "resource state".to_string(),
+                    invariant: "state transitions are serialized".to_string(),
+                    test_evidence: "cargo test -p trust-runtime scheduler".to_string(),
+                    review_date: "2026-05-02".to_string(),
+                }],
+                tool_gates: vec![SafetyToolGatePolicy {
+                    name: "Miri focused shard".to_string(),
+                    status: "pass".to_string(),
+                    command: "scripts/unsafe_concurrency_miri_gate.sh".to_string(),
+                    evidence: "target/gate-artifacts".to_string(),
+                    blocker: String::new(),
+                    owner: "runtime".to_string(),
+                    review_date: "2026-05-02".to_string(),
+                }],
             },
             diagram_policy: DiagramPolicy {
                 selected_diagrams: vec![

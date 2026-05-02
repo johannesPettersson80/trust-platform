@@ -89,7 +89,10 @@ docs/internal/runtime/*
 !docs/internal/architecture/
 docs/internal/architecture/*
 !docs/internal/architecture/full-software-map-audit-2026-04-28.md
+!docs/internal/architecture/full-architecture-refactor-final-report-2026-05-02.md
 !docs/internal/architecture/hir-zero-silent-bug-refactor-investigation-2026-04-29.md
+!docs/internal/architecture/public-api/
+!docs/internal/architecture/public-api/*.txt
 !docs/internal/testing/
 docs/internal/testing/*
 !docs/internal/testing/checklists/

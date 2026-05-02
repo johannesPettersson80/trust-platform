@@ -1,7 +1,7 @@
 # Architecture Workboard Index
 
 Status: Active navigation guard
-Last verified: 2026-05-02 after BOARD-10 runtime VM mutation hardening landed on `main` as `df90e38e6` and GitHub CI run `25253932423` passed.
+Last verified: 2026-05-02 after umbrella cleanup and `ARCHPROG-FOLLOW-01` modernization audit completed locally with KISS/public-API gates, source-checked diagrams, final report, and top-level module cap waiver recorded.
 Owner: Architecture/runtime/HIR team
 Scope: reset-safe pointer to the right architecture checklists so future sessions do not swap boards.
 
@@ -9,8 +9,8 @@ Unchecked `ARCHIDX-*` rows are recurring guard checks for each resume, not archi
 
 ## Current Board Pointer
 
-- Current active board: BOARD-11 unsafe/concurrency hardening (`unsafe-concurrency-hardening-execution-checklist.md`).
-- Previous completed board: BOARD-10 runtime VM mutation hardening (`runtime-vm-mutation-hardening-execution-checklist.md`).
+- Current active board: no open required architecture-program board; architecture-program checklist is locally closed.
+- Previous completed board: umbrella cleanup plus deferred modernization audit (`ARCHPROG-E-04`, `ARCHPROG-EXIT-08`, `ARCHPROG-EXIT-09`, `ARCHPROG-EXIT-11`, `ARCHPROG-FOLLOW-01`).
 - Do not use `docs/internal/masterPlan.md` to sequence this architecture program.
 - Resume path: read this index, then `full-architecture-refactor-program-checklist.md`, then the active dedicated board checklist.
 
@@ -36,7 +36,7 @@ The umbrella checklist is `full-architecture-refactor-program-checklist.md`. If 
 - [x] `ARCHPROG-BOARD-08` Runtime large-file split: `runtime-large-file-split-execution-checklist.md`. Status: complete; `FULLMAP-CHECK-10` reports zero remaining runtime `src` or runtime `tests` files over 1,000 lines after all measured BOARD-08 hotspots were split.
 - [x] `ARCHPROG-BOARD-09` Diagram semantic enforcement: covered by the full-map doctor work.
 - [x] `ARCHPROG-BOARD-10` Runtime VM mutation hardening: `runtime-vm-mutation-hardening-execution-checklist.md`. Status: complete; focused call/register-IR/tier1 mutation shards have zero missed/timeout mutants, `FULLMAP-RUNTIMEVM-MUT` reports the evidence, and GitHub CI passed for `df90e38e6`.
-- [ ] `ARCHPROG-BOARD-11` Unsafe/concurrency hardening: `unsafe-concurrency-hardening-execution-checklist.md`. Status: active; start with Phase 1 baseline map.
+- [x] `ARCHPROG-BOARD-11` Unsafe/concurrency hardening: `unsafe-concurrency-hardening-execution-checklist.md`. Status: complete; full-map unsafe/concurrency register is active, focused Miri/sanitizer/Valgrind gates pass, and geiger is advisory-partial with an exact blocker.
 - [x] `ARCHPROG-BOARD-12` HIR zero-silent-bug refactor: `hir-zero-silent-bug-refactor-checklist.md`.
 
 ## Work Order
@@ -49,7 +49,9 @@ The umbrella checklist is `full-architecture-refactor-program-checklist.md`. If 
 - [x] `ARCHIDX-NEXT-08` Continue active BOARD-08 work in `runtime-large-file-split-execution-checklist.md`; completed `RTLARGE-HOT-12` (`crates/trust-runtime/src/runtime/vm/register_ir/tier1.rs`) by splitting state/cache, compile lowering, and compiled execution into child modules.
 - [x] `ARCHIDX-NEXT-09` Continue with `ARCHPROG-BOARD-10` Runtime VM mutation hardening (`runtime-vm-mutation-hardening-execution-checklist.md`) unless the user redirects. Evidence: Phase 0 command lock started with `scripts/runtime_vm_mutation_shards.sh --list`.
 - [x] `ARCHIDX-NEXT-10` BOARD-10 runtime VM mutation hardening is complete; do not resume it unless a new explicit scope reopens `runtime-vm-mutation-hardening-execution-checklist.md`.
-- [ ] `ARCHIDX-NEXT-11` Continue with BOARD-11 unsafe/concurrency hardening Phase 1 baseline map from `unsafe-concurrency-hardening-execution-checklist.md`.
+- [x] `ARCHIDX-NEXT-11` BOARD-11 unsafe/concurrency hardening is complete; do not resume it unless a new explicit scope reopens `unsafe-concurrency-hardening-execution-checklist.md`.
+- [x] `ARCHIDX-NEXT-12` Continue umbrella cleanup in `full-architecture-refactor-program-checklist.md`: close `ARCHPROG-E-04`, then `ARCHPROG-EXIT-08`, `ARCHPROG-EXIT-09`, and `ARCHPROG-EXIT-11` before deferred modernization. Evidence: `FULLMAP-CHECK-10`, `FULLMAP-P6-API`, `FULLMAP-P7`, `python scripts/check_diagram_drift.py`, and `docs/internal/architecture/full-architecture-refactor-final-report-2026-05-02.md`.
+- [x] `ARCHIDX-NEXT-13` Run deferred `ARCHPROG-FOLLOW-01` Rust 1.95 modernization audit. Evidence: removed unused direct `trust-runtime` `thiserror` dependency; scoped `cargo machete --with-metadata crates`, `cargo audit --ignore ...`, `cargo deny check`, and `RUSTUP_TOOLCHAIN=1.95 cargo check --all-targets` pass locally.
 - [ ] `ARCHIDX-NEXT-03` Do not restart BOARD-06 or BOARD-12 unless the tracked dedicated checklist is reopened with a new explicit scope.
 - [ ] `ARCHIDX-NEXT-04` Keep non-program boards secondary unless the user explicitly redirects away from the architecture-program path.
 

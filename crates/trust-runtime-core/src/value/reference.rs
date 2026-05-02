@@ -146,6 +146,7 @@ mod tests {
         single_ref_index, PartialAccess, RefPath, RefSegment,
     };
     use crate::error::RuntimeError;
+    use alloc::vec;
 
     #[test]
     fn array_offset_handles_extreme_bounds_without_overflow() {

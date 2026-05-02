@@ -950,6 +950,7 @@ impl From<u16> for Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::vec;
     #[cfg(feature = "hir")]
     use trust_hir::types::StructField;
 

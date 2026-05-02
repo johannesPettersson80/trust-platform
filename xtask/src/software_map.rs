@@ -142,8 +142,25 @@ pub struct DependencyPolicyEntry {
 pub struct UnsafeSummary {
     pub unsafe_occurrences: usize,
     pub panic_like_occurrences: usize,
+    pub concurrency_boundary_occurrences: usize,
     pub owner: String,
     pub status: String,
+    pub production_unsafe_sites: Vec<SourcePatternSummary>,
+    pub production_panic_like_sites: Vec<SourcePatternSummary>,
+    pub concurrency_boundary_sites: Vec<SourcePatternSummary>,
+    pub unregistered_unsafe_sites: Vec<SourcePatternSummary>,
+    pub unclassified_panic_like_sites: Vec<SourcePatternSummary>,
+    pub unregistered_concurrency_boundaries: Vec<SourcePatternSummary>,
+    pub tool_gates: Vec<SafetyToolGateSummary>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SafetyToolGateSummary {
+    pub name: String,
+    pub status: String,
+    pub command: String,
+    pub evidence: String,
+    pub blocker: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -482,8 +499,16 @@ mod tests {
         map.unsafe_summary = UnsafeSummary {
             unsafe_occurrences: 1,
             panic_like_occurrences: 2,
+            concurrency_boundary_occurrences: 1,
             owner: "architecture".to_string(),
             status: "tracked".to_string(),
+            production_unsafe_sites: Vec::new(),
+            production_panic_like_sites: Vec::new(),
+            concurrency_boundary_sites: Vec::new(),
+            unregistered_unsafe_sites: Vec::new(),
+            unclassified_panic_like_sites: Vec::new(),
+            unregistered_concurrency_boundaries: Vec::new(),
+            tool_gates: Vec::new(),
         };
         map.diagram_facts = vec![DiagramFact {
             path: "docs/diagrams/example.puml".to_string(),

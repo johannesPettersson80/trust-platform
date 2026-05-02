@@ -20,6 +20,7 @@ pub use stack::OperandStack;
 
 #[cfg(test)]
 mod tests {
+    use alloc::{boxed::Box, vec, vec::Vec};
     use smol_str::SmolStr;
 
     use crate::{

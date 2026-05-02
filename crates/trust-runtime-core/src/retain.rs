@@ -63,6 +63,7 @@ impl RetainSnapshot {
 mod tests {
     use super::{RestartMode, RetainPolicy, RetainSnapshot};
     use crate::value::Value;
+    use alloc::vec::Vec;
 
     #[test]
     fn retain_policy_preserves_default_and_warm_restart_contract() {

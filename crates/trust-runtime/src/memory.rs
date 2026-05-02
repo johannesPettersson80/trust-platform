@@ -61,27 +61,24 @@ impl Clone for VariableStorage {
             instances: self.instances.clone(),
             retain: self.retain.clone(),
             instance_field_offsets: RwLock::new(
-                self.instance_field_offsets
-                    .read()
-                    .expect("instance_field_offsets poisoned")
-                    .clone(),
+                recover_read_lock(self.instance_field_offsets.read()).clone(),
             ),
             recursive_instance_field_resolutions: RwLock::new(
-                self.recursive_instance_field_resolutions
-                    .read()
-                    .expect("recursive_instance_field_resolutions poisoned")
-                    .clone(),
+                recover_read_lock(self.recursive_instance_field_resolutions.read()).clone(),
             ),
             declared_instance_field_offsets: RwLock::new(
-                self.declared_instance_field_offsets
-                    .read()
-                    .expect("declared_instance_field_offsets poisoned")
-                    .clone(),
+                recover_read_lock(self.declared_instance_field_offsets.read()).clone(),
             ),
             next_frame_id: self.next_frame_id,
             next_instance_id: self.next_instance_id,
         }
     }
+}
+
+fn recover_read_lock<T>(
+    result: std::sync::LockResult<std::sync::RwLockReadGuard<'_, T>>,
+) -> std::sync::RwLockReadGuard<'_, T> {
+    result.unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
 mod access;

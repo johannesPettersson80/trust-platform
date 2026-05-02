@@ -17,7 +17,6 @@ smol_str.workspace = true
 rustc-hash.workspace = true
 text-size.workspace = true
 indexmap = { workspace = true, features = ["serde"] }
-thiserror.workspace = true
 tracing.workspace = true
 crc32fast.workspace = true
 serde.workspace = true

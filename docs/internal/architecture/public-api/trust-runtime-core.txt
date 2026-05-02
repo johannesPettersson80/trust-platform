@@ -1,0 +1,929 @@
+pub mod trust_runtime_core
+pub mod trust_runtime_core::bytecode
+pub enum trust_runtime_core::bytecode::BytecodeError
+pub trust_runtime_core::bytecode::BytecodeError::InvalidChecksum
+pub trust_runtime_core::bytecode::BytecodeError::InvalidChecksum::actual: u32
+pub trust_runtime_core::bytecode::BytecodeError::InvalidChecksum::expected: u32
+pub trust_runtime_core::bytecode::BytecodeError::InvalidHeader(smol_str::SmolStr)
+pub trust_runtime_core::bytecode::BytecodeError::InvalidIndex
+pub trust_runtime_core::bytecode::BytecodeError::InvalidIndex::index: u32
+pub trust_runtime_core::bytecode::BytecodeError::InvalidIndex::kind: smol_str::SmolStr
+pub trust_runtime_core::bytecode::BytecodeError::InvalidJumpTarget(i32)
+pub trust_runtime_core::bytecode::BytecodeError::InvalidMagic
+pub trust_runtime_core::bytecode::BytecodeError::InvalidOpcode(u8)
+pub trust_runtime_core::bytecode::BytecodeError::InvalidPouId(u32)
+pub trust_runtime_core::bytecode::BytecodeError::InvalidSection(smol_str::SmolStr)
+pub trust_runtime_core::bytecode::BytecodeError::InvalidSectionTable(smol_str::SmolStr)
+pub trust_runtime_core::bytecode::BytecodeError::MissingSection(smol_str::SmolStr)
+pub trust_runtime_core::bytecode::BytecodeError::SectionAlignment
+pub trust_runtime_core::bytecode::BytecodeError::SectionOutOfBounds
+pub trust_runtime_core::bytecode::BytecodeError::SectionOverlap
+pub trust_runtime_core::bytecode::BytecodeError::UnexpectedEof
+pub trust_runtime_core::bytecode::BytecodeError::UnsupportedVersion
+pub trust_runtime_core::bytecode::BytecodeError::UnsupportedVersion::major: u16
+pub trust_runtime_core::bytecode::BytecodeError::UnsupportedVersion::minor: u16
+pub enum trust_runtime_core::bytecode::PouKind
+pub trust_runtime_core::bytecode::PouKind::Class = 3
+pub trust_runtime_core::bytecode::PouKind::Function = 2
+pub trust_runtime_core::bytecode::PouKind::FunctionBlock = 1
+pub trust_runtime_core::bytecode::PouKind::Method = 4
+pub trust_runtime_core::bytecode::PouKind::Program = 0
+impl trust_runtime_core::bytecode::PouKind
+pub fn trust_runtime_core::bytecode::PouKind::from_raw(value: u8) -> core::option::Option<Self>
+pub fn trust_runtime_core::bytecode::PouKind::is_class_like(self) -> bool
+pub enum trust_runtime_core::bytecode::RefLocation
+pub trust_runtime_core::bytecode::RefLocation::Global = 0
+pub trust_runtime_core::bytecode::RefLocation::Instance = 2
+pub trust_runtime_core::bytecode::RefLocation::Io = 3
+pub trust_runtime_core::bytecode::RefLocation::Local = 1
+pub trust_runtime_core::bytecode::RefLocation::Retain = 4
+impl trust_runtime_core::bytecode::RefLocation
+pub fn trust_runtime_core::bytecode::RefLocation::from_raw(value: u8) -> core::option::Option<Self>
+pub enum trust_runtime_core::bytecode::RefSegment
+pub trust_runtime_core::bytecode::RefSegment::Field
+pub trust_runtime_core::bytecode::RefSegment::Field::name_idx: u32
+pub trust_runtime_core::bytecode::RefSegment::Index(alloc::vec::Vec<i64>)
+pub enum trust_runtime_core::bytecode::SectionData
+pub trust_runtime_core::bytecode::SectionData::ConstPool(trust_runtime_core::bytecode::ConstPool)
+pub trust_runtime_core::bytecode::SectionData::DebugMap(trust_runtime_core::bytecode::DebugMap)
+pub trust_runtime_core::bytecode::SectionData::DebugStringTable(trust_runtime_core::bytecode::StringTable)
+pub trust_runtime_core::bytecode::SectionData::IoMap(trust_runtime_core::bytecode::IoMap)
+pub trust_runtime_core::bytecode::SectionData::PouBodies(alloc::vec::Vec<u8>)
+pub trust_runtime_core::bytecode::SectionData::PouIndex(trust_runtime_core::bytecode::PouIndex)
+pub trust_runtime_core::bytecode::SectionData::Raw(alloc::vec::Vec<u8>)
+pub trust_runtime_core::bytecode::SectionData::RefTable(trust_runtime_core::bytecode::RefTable)
+pub trust_runtime_core::bytecode::SectionData::ResourceMeta(trust_runtime_core::bytecode::ResourceMeta)
+pub trust_runtime_core::bytecode::SectionData::RetainInit(trust_runtime_core::bytecode::RetainInit)
+pub trust_runtime_core::bytecode::SectionData::StringTable(trust_runtime_core::bytecode::StringTable)
+pub trust_runtime_core::bytecode::SectionData::TypeTable(trust_runtime_core::bytecode::TypeTable)
+pub trust_runtime_core::bytecode::SectionData::VarMeta(trust_runtime_core::bytecode::VarMeta)
+pub enum trust_runtime_core::bytecode::SectionId
+pub trust_runtime_core::bytecode::SectionId::ConstPool = 3
+pub trust_runtime_core::bytecode::SectionId::DebugMap = 9
+pub trust_runtime_core::bytecode::SectionId::DebugStringTable = 10
+pub trust_runtime_core::bytecode::SectionId::IoMap = 8
+pub trust_runtime_core::bytecode::SectionId::PouBodies = 6
+pub trust_runtime_core::bytecode::SectionId::PouIndex = 5
+pub trust_runtime_core::bytecode::SectionId::RefTable = 4
+pub trust_runtime_core::bytecode::SectionId::ResourceMeta = 7
+pub trust_runtime_core::bytecode::SectionId::RetainInit = 12
+pub trust_runtime_core::bytecode::SectionId::StringTable = 1
+pub trust_runtime_core::bytecode::SectionId::TypeTable = 2
+pub trust_runtime_core::bytecode::SectionId::VarMeta = 11
+impl trust_runtime_core::bytecode::SectionId
+pub fn trust_runtime_core::bytecode::SectionId::as_raw(self) -> u16
+pub fn trust_runtime_core::bytecode::SectionId::from_raw(id: u16) -> core::option::Option<Self>
+pub enum trust_runtime_core::bytecode::TypeData
+pub trust_runtime_core::bytecode::TypeData::Alias
+pub trust_runtime_core::bytecode::TypeData::Alias::target_type_id: u32
+pub trust_runtime_core::bytecode::TypeData::Array
+pub trust_runtime_core::bytecode::TypeData::Array::dims: alloc::vec::Vec<(i64, i64)>
+pub trust_runtime_core::bytecode::TypeData::Array::elem_type_id: u32
+pub trust_runtime_core::bytecode::TypeData::Enum
+pub trust_runtime_core::bytecode::TypeData::Enum::base_type_id: u32
+pub trust_runtime_core::bytecode::TypeData::Enum::variants: alloc::vec::Vec<trust_runtime_core::bytecode::EnumVariant>
+pub trust_runtime_core::bytecode::TypeData::Interface
+pub trust_runtime_core::bytecode::TypeData::Interface::methods: alloc::vec::Vec<trust_runtime_core::bytecode::InterfaceMethod>
+pub trust_runtime_core::bytecode::TypeData::Pou
+pub trust_runtime_core::bytecode::TypeData::Pou::pou_id: u32
+pub trust_runtime_core::bytecode::TypeData::Primitive
+pub trust_runtime_core::bytecode::TypeData::Primitive::max_length: u16
+pub trust_runtime_core::bytecode::TypeData::Primitive::prim_id: u16
+pub trust_runtime_core::bytecode::TypeData::Reference
+pub trust_runtime_core::bytecode::TypeData::Reference::target_type_id: u32
+pub trust_runtime_core::bytecode::TypeData::Struct
+pub trust_runtime_core::bytecode::TypeData::Struct::fields: alloc::vec::Vec<trust_runtime_core::bytecode::Field>
+pub trust_runtime_core::bytecode::TypeData::Subrange
+pub trust_runtime_core::bytecode::TypeData::Subrange::base_type_id: u32
+pub trust_runtime_core::bytecode::TypeData::Subrange::lower: i64
+pub trust_runtime_core::bytecode::TypeData::Subrange::upper: i64
+pub trust_runtime_core::bytecode::TypeData::Union
+pub trust_runtime_core::bytecode::TypeData::Union::fields: alloc::vec::Vec<trust_runtime_core::bytecode::Field>
+pub enum trust_runtime_core::bytecode::TypeKind
+pub trust_runtime_core::bytecode::TypeKind::Alias = 4
+pub trust_runtime_core::bytecode::TypeKind::Array = 1
+pub trust_runtime_core::bytecode::TypeKind::Class = 9
+pub trust_runtime_core::bytecode::TypeKind::Enum = 3
+pub trust_runtime_core::bytecode::TypeKind::FunctionBlock = 8
+pub trust_runtime_core::bytecode::TypeKind::Interface = 10
+pub trust_runtime_core::bytecode::TypeKind::Primitive = 0
+pub trust_runtime_core::bytecode::TypeKind::Reference = 6
+pub trust_runtime_core::bytecode::TypeKind::Struct = 2
+pub trust_runtime_core::bytecode::TypeKind::Subrange = 5
+pub trust_runtime_core::bytecode::TypeKind::Union = 7
+impl trust_runtime_core::bytecode::TypeKind
+pub fn trust_runtime_core::bytecode::TypeKind::from_raw(value: u8) -> core::option::Option<Self>
+pub struct trust_runtime_core::bytecode::BytecodeMetadata
+pub trust_runtime_core::bytecode::BytecodeMetadata::resources: alloc::vec::Vec<trust_runtime_core::bytecode::ResourceMetadata>
+pub trust_runtime_core::bytecode::BytecodeMetadata::version: trust_runtime_core::bytecode::BytecodeVersion
+impl trust_runtime_core::bytecode::BytecodeMetadata
+pub fn trust_runtime_core::bytecode::BytecodeMetadata::primary_resource(&self) -> core::option::Option<&trust_runtime_core::bytecode::ResourceMetadata>
+pub fn trust_runtime_core::bytecode::BytecodeMetadata::resource(&self, name: &str) -> core::option::Option<&trust_runtime_core::bytecode::ResourceMetadata>
+pub struct trust_runtime_core::bytecode::BytecodeReader<'a>
+impl<'a> trust_runtime_core::bytecode::BytecodeReader<'a>
+pub const fn trust_runtime_core::bytecode::BytecodeReader<'a>::new(data: &'a [u8]) -> Self
+pub const fn trust_runtime_core::bytecode::BytecodeReader<'a>::pos(&self) -> usize
+pub fn trust_runtime_core::bytecode::BytecodeReader<'a>::read_bytes(&mut self, len: usize) -> core::result::Result<&'a [u8], trust_runtime_core::bytecode::BytecodeError>
+pub fn trust_runtime_core::bytecode::BytecodeReader<'a>::read_i32(&mut self) -> core::result::Result<i32, trust_runtime_core::bytecode::BytecodeError>
+pub fn trust_runtime_core::bytecode::BytecodeReader<'a>::read_i64(&mut self) -> core::result::Result<i64, trust_runtime_core::bytecode::BytecodeError>
+pub fn trust_runtime_core::bytecode::BytecodeReader<'a>::read_u16(&mut self) -> core::result::Result<u16, trust_runtime_core::bytecode::BytecodeError>
+pub fn trust_runtime_core::bytecode::BytecodeReader<'a>::read_u32(&mut self) -> core::result::Result<u32, trust_runtime_core::bytecode::BytecodeError>
+pub fn trust_runtime_core::bytecode::BytecodeReader<'a>::read_u64(&mut self) -> core::result::Result<u64, trust_runtime_core::bytecode::BytecodeError>
+pub fn trust_runtime_core::bytecode::BytecodeReader<'a>::read_u8(&mut self) -> core::result::Result<u8, trust_runtime_core::bytecode::BytecodeError>
+pub fn trust_runtime_core::bytecode::BytecodeReader<'a>::remaining(&self) -> usize
+pub struct trust_runtime_core::bytecode::BytecodeVersion
+pub trust_runtime_core::bytecode::BytecodeVersion::major: u16
+pub trust_runtime_core::bytecode::BytecodeVersion::minor: u16
+impl trust_runtime_core::bytecode::BytecodeVersion
+pub const fn trust_runtime_core::bytecode::BytecodeVersion::new(major: u16, minor: u16) -> Self
+pub struct trust_runtime_core::bytecode::ConstEntry
+pub trust_runtime_core::bytecode::ConstEntry::payload: alloc::vec::Vec<u8>
+pub trust_runtime_core::bytecode::ConstEntry::type_id: u32
+pub struct trust_runtime_core::bytecode::ConstPool
+pub trust_runtime_core::bytecode::ConstPool::entries: alloc::vec::Vec<trust_runtime_core::bytecode::ConstEntry>
+pub struct trust_runtime_core::bytecode::DebugEntry
+pub trust_runtime_core::bytecode::DebugEntry::code_offset: u32
+pub trust_runtime_core::bytecode::DebugEntry::column: u32
+pub trust_runtime_core::bytecode::DebugEntry::file_idx: u32
+pub trust_runtime_core::bytecode::DebugEntry::kind: u8
+pub trust_runtime_core::bytecode::DebugEntry::line: u32
+pub trust_runtime_core::bytecode::DebugEntry::pou_id: u32
+pub struct trust_runtime_core::bytecode::DebugMap
+pub trust_runtime_core::bytecode::DebugMap::entries: alloc::vec::Vec<trust_runtime_core::bytecode::DebugEntry>
+pub struct trust_runtime_core::bytecode::EnumVariant
+pub trust_runtime_core::bytecode::EnumVariant::name_idx: u32
+pub trust_runtime_core::bytecode::EnumVariant::value: i64
+pub struct trust_runtime_core::bytecode::Field
+pub trust_runtime_core::bytecode::Field::name_idx: u32
+pub trust_runtime_core::bytecode::Field::type_id: u32
+pub struct trust_runtime_core::bytecode::InterfaceImpl
+pub trust_runtime_core::bytecode::InterfaceImpl::interface_type_id: u32
+pub trust_runtime_core::bytecode::InterfaceImpl::vtable_slots: alloc::vec::Vec<u32>
+pub struct trust_runtime_core::bytecode::InterfaceMethod
+pub trust_runtime_core::bytecode::InterfaceMethod::name_idx: u32
+pub trust_runtime_core::bytecode::InterfaceMethod::slot: u32
+pub struct trust_runtime_core::bytecode::IoBinding
+pub trust_runtime_core::bytecode::IoBinding::address_str_idx: u32
+pub trust_runtime_core::bytecode::IoBinding::ref_idx: u32
+pub trust_runtime_core::bytecode::IoBinding::type_id: core::option::Option<u32>
+pub struct trust_runtime_core::bytecode::IoMap
+pub trust_runtime_core::bytecode::IoMap::bindings: alloc::vec::Vec<trust_runtime_core::bytecode::IoBinding>
+pub struct trust_runtime_core::bytecode::MethodEntry
+pub trust_runtime_core::bytecode::MethodEntry::access: u8
+pub trust_runtime_core::bytecode::MethodEntry::flags: u8
+pub trust_runtime_core::bytecode::MethodEntry::name_idx: u32
+pub trust_runtime_core::bytecode::MethodEntry::pou_id: u32
+pub trust_runtime_core::bytecode::MethodEntry::vtable_slot: u32
+pub struct trust_runtime_core::bytecode::ParamEntry
+pub trust_runtime_core::bytecode::ParamEntry::default_const_idx: core::option::Option<u32>
+pub trust_runtime_core::bytecode::ParamEntry::direction: u8
+pub trust_runtime_core::bytecode::ParamEntry::name_idx: u32
+pub trust_runtime_core::bytecode::ParamEntry::type_id: u32
+pub struct trust_runtime_core::bytecode::PouClassMeta
+pub trust_runtime_core::bytecode::PouClassMeta::interfaces: alloc::vec::Vec<trust_runtime_core::bytecode::InterfaceImpl>
+pub trust_runtime_core::bytecode::PouClassMeta::methods: alloc::vec::Vec<trust_runtime_core::bytecode::MethodEntry>
+pub trust_runtime_core::bytecode::PouClassMeta::parent_pou_id: core::option::Option<u32>
+pub struct trust_runtime_core::bytecode::PouEntry
+pub trust_runtime_core::bytecode::PouEntry::class_meta: core::option::Option<trust_runtime_core::bytecode::PouClassMeta>
+pub trust_runtime_core::bytecode::PouEntry::code_length: u32
+pub trust_runtime_core::bytecode::PouEntry::code_offset: u32
+pub trust_runtime_core::bytecode::PouEntry::id: u32
+pub trust_runtime_core::bytecode::PouEntry::kind: trust_runtime_core::bytecode::PouKind
+pub trust_runtime_core::bytecode::PouEntry::local_ref_count: u32
+pub trust_runtime_core::bytecode::PouEntry::local_ref_start: u32
+pub trust_runtime_core::bytecode::PouEntry::name_idx: u32
+pub trust_runtime_core::bytecode::PouEntry::owner_pou_id: core::option::Option<u32>
+pub trust_runtime_core::bytecode::PouEntry::params: alloc::vec::Vec<trust_runtime_core::bytecode::ParamEntry>
+pub trust_runtime_core::bytecode::PouEntry::return_type_id: core::option::Option<u32>
+pub struct trust_runtime_core::bytecode::PouIndex
+pub trust_runtime_core::bytecode::PouIndex::entries: alloc::vec::Vec<trust_runtime_core::bytecode::PouEntry>
+pub struct trust_runtime_core::bytecode::ProcessImageConfig
+pub trust_runtime_core::bytecode::ProcessImageConfig::inputs: usize
+pub trust_runtime_core::bytecode::ProcessImageConfig::memory: usize
+pub trust_runtime_core::bytecode::ProcessImageConfig::outputs: usize
+pub struct trust_runtime_core::bytecode::RefEntry
+pub trust_runtime_core::bytecode::RefEntry::location: trust_runtime_core::bytecode::RefLocation
+pub trust_runtime_core::bytecode::RefEntry::offset: u32
+pub trust_runtime_core::bytecode::RefEntry::owner_id: u32
+pub trust_runtime_core::bytecode::RefEntry::segments: alloc::vec::Vec<trust_runtime_core::bytecode::RefSegment>
+pub struct trust_runtime_core::bytecode::RefTable
+pub trust_runtime_core::bytecode::RefTable::entries: alloc::vec::Vec<trust_runtime_core::bytecode::RefEntry>
+pub struct trust_runtime_core::bytecode::ResourceEntry
+pub trust_runtime_core::bytecode::ResourceEntry::inputs_size: u32
+pub trust_runtime_core::bytecode::ResourceEntry::memory_size: u32
+pub trust_runtime_core::bytecode::ResourceEntry::name_idx: u32
+pub trust_runtime_core::bytecode::ResourceEntry::outputs_size: u32
+pub trust_runtime_core::bytecode::ResourceEntry::tasks: alloc::vec::Vec<trust_runtime_core::bytecode::TaskEntry>
+pub struct trust_runtime_core::bytecode::ResourceMeta
+pub trust_runtime_core::bytecode::ResourceMeta::resources: alloc::vec::Vec<trust_runtime_core::bytecode::ResourceEntry>
+pub struct trust_runtime_core::bytecode::ResourceMetadata
+pub trust_runtime_core::bytecode::ResourceMetadata::name: smol_str::SmolStr
+pub trust_runtime_core::bytecode::ResourceMetadata::process_image: trust_runtime_core::bytecode::ProcessImageConfig
+pub trust_runtime_core::bytecode::ResourceMetadata::tasks: alloc::vec::Vec<trust_runtime_core::task::TaskConfig>
+pub struct trust_runtime_core::bytecode::RetainInit
+pub trust_runtime_core::bytecode::RetainInit::entries: alloc::vec::Vec<trust_runtime_core::bytecode::RetainInitEntry>
+pub struct trust_runtime_core::bytecode::RetainInitEntry
+pub trust_runtime_core::bytecode::RetainInitEntry::const_idx: u32
+pub trust_runtime_core::bytecode::RetainInitEntry::ref_idx: u32
+pub struct trust_runtime_core::bytecode::Section
+pub trust_runtime_core::bytecode::Section::data: trust_runtime_core::bytecode::SectionData
+pub trust_runtime_core::bytecode::Section::flags: u16
+pub trust_runtime_core::bytecode::Section::id: u16
+pub struct trust_runtime_core::bytecode::SectionEntry
+pub trust_runtime_core::bytecode::SectionEntry::flags: u16
+pub trust_runtime_core::bytecode::SectionEntry::id: u16
+pub trust_runtime_core::bytecode::SectionEntry::length: u32
+pub trust_runtime_core::bytecode::SectionEntry::offset: u32
+pub struct trust_runtime_core::bytecode::StringTable
+pub trust_runtime_core::bytecode::StringTable::entries: alloc::vec::Vec<smol_str::SmolStr>
+pub struct trust_runtime_core::bytecode::TaskEntry
+pub trust_runtime_core::bytecode::TaskEntry::fb_ref_idx: alloc::vec::Vec<u32>
+pub trust_runtime_core::bytecode::TaskEntry::interval_nanos: i64
+pub trust_runtime_core::bytecode::TaskEntry::name_idx: u32
+pub trust_runtime_core::bytecode::TaskEntry::priority: u32
+pub trust_runtime_core::bytecode::TaskEntry::program_name_idx: alloc::vec::Vec<u32>
+pub trust_runtime_core::bytecode::TaskEntry::single_name_idx: core::option::Option<u32>
+pub struct trust_runtime_core::bytecode::TypeEntry
+pub trust_runtime_core::bytecode::TypeEntry::data: trust_runtime_core::bytecode::TypeData
+pub trust_runtime_core::bytecode::TypeEntry::kind: trust_runtime_core::bytecode::TypeKind
+pub trust_runtime_core::bytecode::TypeEntry::name_idx: core::option::Option<u32>
+pub struct trust_runtime_core::bytecode::TypeTable
+pub trust_runtime_core::bytecode::TypeTable::entries: alloc::vec::Vec<trust_runtime_core::bytecode::TypeEntry>
+pub trust_runtime_core::bytecode::TypeTable::offsets: alloc::vec::Vec<u32>
+pub struct trust_runtime_core::bytecode::VarMeta
+pub trust_runtime_core::bytecode::VarMeta::entries: alloc::vec::Vec<trust_runtime_core::bytecode::VarMetaEntry>
+pub struct trust_runtime_core::bytecode::VarMetaEntry
+pub trust_runtime_core::bytecode::VarMetaEntry::init_const_idx: core::option::Option<u32>
+pub trust_runtime_core::bytecode::VarMetaEntry::name_idx: u32
+pub trust_runtime_core::bytecode::VarMetaEntry::ref_idx: u32
+pub trust_runtime_core::bytecode::VarMetaEntry::retain: u8
+pub trust_runtime_core::bytecode::VarMetaEntry::type_id: u32
+pub const trust_runtime_core::bytecode::HEADER_FLAG_CRC32: u32
+pub const trust_runtime_core::bytecode::HEADER_SIZE: u16
+pub const trust_runtime_core::bytecode::MAGIC: [u8; 4]
+pub const trust_runtime_core::bytecode::NATIVE_CALL_KIND_FUNCTION: u32
+pub const trust_runtime_core::bytecode::NATIVE_CALL_KIND_FUNCTION_BLOCK: u32
+pub const trust_runtime_core::bytecode::NATIVE_CALL_KIND_METHOD: u32
+pub const trust_runtime_core::bytecode::NATIVE_CALL_KIND_STDLIB: u32
+pub const trust_runtime_core::bytecode::SECTION_ENTRY_SIZE: usize
+pub const trust_runtime_core::bytecode::SUPPORTED_MAJOR_VERSION: u16
+pub const trust_runtime_core::bytecode::SUPPORTED_MINOR_VERSION: u16
+pub const fn trust_runtime_core::bytecode::align4(value: usize) -> usize
+pub fn trust_runtime_core::bytecode::pad_to(bytes: &mut alloc::vec::Vec<u8>, target: usize)
+pub mod trust_runtime_core::cycle
+pub struct trust_runtime_core::cycle::ReadyTask
+pub trust_runtime_core::cycle::ReadyTask::due_at: trust_runtime_core::value::Duration
+pub trust_runtime_core::cycle::ReadyTask::index: usize
+pub fn trust_runtime_core::cycle::sort_ready_tasks_by_priority(ready: &mut [trust_runtime_core::cycle::ReadyTask], priority_for_index: impl core::ops::function::FnMut(usize) -> u32)
+pub mod trust_runtime_core::datetime
+pub enum trust_runtime_core::datetime::DateTimeCalcError
+pub trust_runtime_core::datetime::DateTimeCalcError::InvalidDate
+pub trust_runtime_core::datetime::DateTimeCalcError::InvalidResolution
+pub trust_runtime_core::datetime::DateTimeCalcError::Overflow
+impl core::convert::From<trust_runtime_core::datetime::DateTimeCalcError> for trust_runtime_core::error::RuntimeError
+pub fn trust_runtime_core::error::RuntimeError::from(_: trust_runtime_core::datetime::DateTimeCalcError) -> Self
+pub enum trust_runtime_core::datetime::DivisionMode
+pub trust_runtime_core::datetime::DivisionMode::Euclid
+pub trust_runtime_core::datetime::DivisionMode::Trunc
+pub const trust_runtime_core::datetime::NANOS_PER_DAY: i64
+pub fn trust_runtime_core::datetime::days_from_civil(year: i64, month: i64, day: i64) -> core::result::Result<i64, trust_runtime_core::datetime::DateTimeCalcError>
+pub fn trust_runtime_core::datetime::days_to_ticks(days: i64, profile: trust_runtime_core::value::DateTimeProfile) -> core::result::Result<i64, trust_runtime_core::datetime::DateTimeCalcError>
+pub fn trust_runtime_core::datetime::nanos_to_ticks(nanos: i64, profile: trust_runtime_core::value::DateTimeProfile, mode: trust_runtime_core::datetime::DivisionMode) -> core::result::Result<i64, trust_runtime_core::datetime::DateTimeCalcError>
+pub fn trust_runtime_core::datetime::ticks_per_day(profile: trust_runtime_core::value::DateTimeProfile) -> core::result::Result<i64, trust_runtime_core::datetime::DateTimeCalcError>
+pub mod trust_runtime_core::error
+pub enum trust_runtime_core::error::RuntimeError
+pub trust_runtime_core::error::RuntimeError::AssertionFailed(smol_str::SmolStr)
+pub trust_runtime_core::error::RuntimeError::CaseSelectorType
+pub trust_runtime_core::error::RuntimeError::ConditionNotBool
+pub trust_runtime_core::error::RuntimeError::ControlError(smol_str::SmolStr)
+pub trust_runtime_core::error::RuntimeError::DateTimeRange(trust_runtime_core::value::DateTimeError)
+pub trust_runtime_core::error::RuntimeError::DivisionByZero
+pub trust_runtime_core::error::RuntimeError::ExecutionTimeout
+pub trust_runtime_core::error::RuntimeError::ForStepZero
+pub trust_runtime_core::error::RuntimeError::IndexOutOfBounds
+pub trust_runtime_core::error::RuntimeError::IndexOutOfBounds::index: i64
+pub trust_runtime_core::error::RuntimeError::IndexOutOfBounds::lower: i64
+pub trust_runtime_core::error::RuntimeError::IndexOutOfBounds::upper: i64
+pub trust_runtime_core::error::RuntimeError::InvalidArgumentCount
+pub trust_runtime_core::error::RuntimeError::InvalidArgumentCount::expected: usize
+pub trust_runtime_core::error::RuntimeError::InvalidArgumentCount::got: usize
+pub trust_runtime_core::error::RuntimeError::InvalidArgumentName(smol_str::SmolStr)
+pub trust_runtime_core::error::RuntimeError::InvalidBundle(smol_str::SmolStr)
+pub trust_runtime_core::error::RuntimeError::InvalidBytecode(smol_str::SmolStr)
+pub trust_runtime_core::error::RuntimeError::InvalidBytecodeMetadata(smol_str::SmolStr)
+pub trust_runtime_core::error::RuntimeError::InvalidConfig(smol_str::SmolStr)
+pub trust_runtime_core::error::RuntimeError::InvalidControlFlow
+pub trust_runtime_core::error::RuntimeError::InvalidFrame(u32)
+pub trust_runtime_core::error::RuntimeError::InvalidIoAddress(smol_str::SmolStr)
+pub trust_runtime_core::error::RuntimeError::InvalidTaskSingle(smol_str::SmolStr)
+pub trust_runtime_core::error::RuntimeError::IoDriver(smol_str::SmolStr)
+pub trust_runtime_core::error::RuntimeError::ModuloByZero
+pub trust_runtime_core::error::RuntimeError::NullReference
+pub trust_runtime_core::error::RuntimeError::Overflow
+pub trust_runtime_core::error::RuntimeError::ResourceFaulted
+pub trust_runtime_core::error::RuntimeError::RetainStore(smol_str::SmolStr)
+pub trust_runtime_core::error::RuntimeError::SimulationFault(smol_str::SmolStr)
+pub trust_runtime_core::error::RuntimeError::ThreadSpawn(smol_str::SmolStr)
+pub trust_runtime_core::error::RuntimeError::TypeMismatch
+pub trust_runtime_core::error::RuntimeError::UndefinedField(smol_str::SmolStr)
+pub trust_runtime_core::error::RuntimeError::UndefinedFunction(smol_str::SmolStr)
+pub trust_runtime_core::error::RuntimeError::UndefinedFunctionBlock(smol_str::SmolStr)
+pub trust_runtime_core::error::RuntimeError::UndefinedLabel(smol_str::SmolStr)
+pub trust_runtime_core::error::RuntimeError::UndefinedProgram(smol_str::SmolStr)
+pub trust_runtime_core::error::RuntimeError::UndefinedTask(smol_str::SmolStr)
+pub trust_runtime_core::error::RuntimeError::UndefinedVariable(smol_str::SmolStr)
+pub trust_runtime_core::error::RuntimeError::UnsupportedBytecodeVersion
+pub trust_runtime_core::error::RuntimeError::UnsupportedBytecodeVersion::major: u16
+pub trust_runtime_core::error::RuntimeError::UnsupportedBytecodeVersion::minor: u16
+pub trust_runtime_core::error::RuntimeError::WatchdogTimeout
+impl core::convert::From<trust_runtime_core::datetime::DateTimeCalcError> for trust_runtime_core::error::RuntimeError
+pub fn trust_runtime_core::error::RuntimeError::from(_: trust_runtime_core::datetime::DateTimeCalcError) -> Self
+impl core::convert::From<trust_runtime_core::error::RuntimeError> for trust_runtime_core::vm::VmTrap
+pub fn trust_runtime_core::vm::VmTrap::from(value: trust_runtime_core::error::RuntimeError) -> Self
+impl core::convert::From<trust_runtime_core::value::DateTimeError> for trust_runtime_core::error::RuntimeError
+pub fn trust_runtime_core::error::RuntimeError::from(value: trust_runtime_core::value::DateTimeError) -> Self
+pub mod trust_runtime_core::memory
+pub enum trust_runtime_core::memory::IoArea
+pub trust_runtime_core::memory::IoArea::Input
+pub trust_runtime_core::memory::IoArea::Memory
+pub trust_runtime_core::memory::IoArea::Output
+pub enum trust_runtime_core::memory::MemoryLocation
+pub trust_runtime_core::memory::MemoryLocation::Global
+pub trust_runtime_core::memory::MemoryLocation::Instance(trust_runtime_core::memory::InstanceId)
+pub trust_runtime_core::memory::MemoryLocation::Io(trust_runtime_core::memory::IoArea)
+pub trust_runtime_core::memory::MemoryLocation::Local(trust_runtime_core::memory::FrameId)
+pub trust_runtime_core::memory::MemoryLocation::Retain
+pub struct trust_runtime_core::memory::FrameId(pub u32)
+pub struct trust_runtime_core::memory::InstanceId(pub u32)
+pub mod trust_runtime_core::numeric
+pub enum trust_runtime_core::numeric::NumericKind
+pub trust_runtime_core::numeric::NumericKind::DInt
+pub trust_runtime_core::numeric::NumericKind::Int
+pub trust_runtime_core::numeric::NumericKind::LInt
+pub trust_runtime_core::numeric::NumericKind::LReal
+pub trust_runtime_core::numeric::NumericKind::Real
+pub trust_runtime_core::numeric::NumericKind::SInt
+pub trust_runtime_core::numeric::NumericKind::UDInt
+pub trust_runtime_core::numeric::NumericKind::UInt
+pub trust_runtime_core::numeric::NumericKind::ULInt
+pub trust_runtime_core::numeric::NumericKind::USInt
+pub fn trust_runtime_core::numeric::numeric_kind(value: &trust_runtime_core::value::Value) -> core::option::Option<trust_runtime_core::numeric::NumericKind>
+pub fn trust_runtime_core::numeric::signed_from_i128(target: trust_runtime_core::numeric::NumericKind, value: i128) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::numeric::to_f64(value: &trust_runtime_core::value::Value) -> core::result::Result<f64, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::numeric::to_i64(value: &trust_runtime_core::value::Value) -> core::result::Result<i64, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::numeric::to_u64(value: &trust_runtime_core::value::Value) -> core::result::Result<u64, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::numeric::unsigned_from_u128(target: trust_runtime_core::numeric::NumericKind, value: u128) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::numeric::wider_numeric(left: trust_runtime_core::numeric::NumericKind, right: trust_runtime_core::numeric::NumericKind) -> trust_runtime_core::numeric::NumericKind
+pub mod trust_runtime_core::program_model
+pub mod trust_runtime_core::program_model::ops
+pub enum trust_runtime_core::program_model::ops::BinaryOp
+pub trust_runtime_core::program_model::ops::BinaryOp::Add
+pub trust_runtime_core::program_model::ops::BinaryOp::And
+pub trust_runtime_core::program_model::ops::BinaryOp::Div
+pub trust_runtime_core::program_model::ops::BinaryOp::Eq
+pub trust_runtime_core::program_model::ops::BinaryOp::Ge
+pub trust_runtime_core::program_model::ops::BinaryOp::Gt
+pub trust_runtime_core::program_model::ops::BinaryOp::Le
+pub trust_runtime_core::program_model::ops::BinaryOp::Lt
+pub trust_runtime_core::program_model::ops::BinaryOp::Mod
+pub trust_runtime_core::program_model::ops::BinaryOp::Mul
+pub trust_runtime_core::program_model::ops::BinaryOp::Ne
+pub trust_runtime_core::program_model::ops::BinaryOp::Or
+pub trust_runtime_core::program_model::ops::BinaryOp::Pow
+pub trust_runtime_core::program_model::ops::BinaryOp::Sub
+pub trust_runtime_core::program_model::ops::BinaryOp::Xor
+pub enum trust_runtime_core::program_model::ops::UnaryOp
+pub trust_runtime_core::program_model::ops::UnaryOp::Neg
+pub trust_runtime_core::program_model::ops::UnaryOp::Not
+pub trust_runtime_core::program_model::ops::UnaryOp::Pos
+pub fn trust_runtime_core::program_model::ops::apply_binary(op: trust_runtime_core::program_model::ops::BinaryOp, left: trust_runtime_core::value::Value, right: trust_runtime_core::value::Value, profile: &trust_runtime_core::value::DateTimeProfile) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::program_model::ops::apply_unary(op: trust_runtime_core::program_model::ops::UnaryOp, value: trust_runtime_core::value::Value) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>
+pub mod trust_runtime_core::program_model::util
+pub fn trust_runtime_core::program_model::util::method_static_storage_owner(owner: &smol_str::SmolStr, method: &smol_str::SmolStr) -> smol_str::SmolStr
+pub fn trust_runtime_core::program_model::util::property_setter_method_name(property: &smol_str::SmolStr) -> smol_str::SmolStr
+pub fn trust_runtime_core::program_model::util::static_storage_name(owner: &smol_str::SmolStr, name: &smol_str::SmolStr) -> smol_str::SmolStr
+pub enum trust_runtime_core::program_model::BinaryOp
+pub trust_runtime_core::program_model::BinaryOp::Add
+pub trust_runtime_core::program_model::BinaryOp::And
+pub trust_runtime_core::program_model::BinaryOp::Div
+pub trust_runtime_core::program_model::BinaryOp::Eq
+pub trust_runtime_core::program_model::BinaryOp::Ge
+pub trust_runtime_core::program_model::BinaryOp::Gt
+pub trust_runtime_core::program_model::BinaryOp::Le
+pub trust_runtime_core::program_model::BinaryOp::Lt
+pub trust_runtime_core::program_model::BinaryOp::Mod
+pub trust_runtime_core::program_model::BinaryOp::Mul
+pub trust_runtime_core::program_model::BinaryOp::Ne
+pub trust_runtime_core::program_model::BinaryOp::Or
+pub trust_runtime_core::program_model::BinaryOp::Pow
+pub trust_runtime_core::program_model::BinaryOp::Sub
+pub trust_runtime_core::program_model::BinaryOp::Xor
+pub enum trust_runtime_core::program_model::UnaryOp
+pub trust_runtime_core::program_model::UnaryOp::Neg
+pub trust_runtime_core::program_model::UnaryOp::Not
+pub trust_runtime_core::program_model::UnaryOp::Pos
+pub fn trust_runtime_core::program_model::apply_binary(op: trust_runtime_core::program_model::ops::BinaryOp, left: trust_runtime_core::value::Value, right: trust_runtime_core::value::Value, profile: &trust_runtime_core::value::DateTimeProfile) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::program_model::apply_unary(op: trust_runtime_core::program_model::ops::UnaryOp, value: trust_runtime_core::value::Value) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::program_model::method_static_storage_owner(owner: &smol_str::SmolStr, method: &smol_str::SmolStr) -> smol_str::SmolStr
+pub fn trust_runtime_core::program_model::property_setter_method_name(property: &smol_str::SmolStr) -> smol_str::SmolStr
+pub fn trust_runtime_core::program_model::static_storage_name(owner: &smol_str::SmolStr, name: &smol_str::SmolStr) -> smol_str::SmolStr
+pub mod trust_runtime_core::retain
+pub enum trust_runtime_core::retain::RestartMode
+pub trust_runtime_core::retain::RestartMode::Cold
+pub trust_runtime_core::retain::RestartMode::Warm
+pub enum trust_runtime_core::retain::RetainPolicy
+pub trust_runtime_core::retain::RetainPolicy::NonRetain
+pub trust_runtime_core::retain::RetainPolicy::Persistent
+pub trust_runtime_core::retain::RetainPolicy::Retain
+pub trust_runtime_core::retain::RetainPolicy::Unspecified
+pub struct trust_runtime_core::retain::RetainSnapshot
+impl trust_runtime_core::retain::RetainSnapshot
+pub fn trust_runtime_core::retain::RetainSnapshot::from_values(values: indexmap::map::IndexMap<smol_str::SmolStr, trust_runtime_core::value::Value>) -> Self
+pub fn trust_runtime_core::retain::RetainSnapshot::insert(&mut self, name: impl core::convert::Into<smol_str::SmolStr>, value: trust_runtime_core::value::Value)
+pub fn trust_runtime_core::retain::RetainSnapshot::into_values(self) -> indexmap::map::IndexMap<smol_str::SmolStr, trust_runtime_core::value::Value>
+pub fn trust_runtime_core::retain::RetainSnapshot::values(&self) -> &indexmap::map::IndexMap<smol_str::SmolStr, trust_runtime_core::value::Value>
+pub mod trust_runtime_core::scaffold
+pub enum trust_runtime_core::scaffold::CoreScaffoldStage
+pub trust_runtime_core::scaffold::CoreScaffoldStage::PreMove
+pub const fn trust_runtime_core::scaffold::scaffold_stage() -> trust_runtime_core::scaffold::CoreScaffoldStage
+pub mod trust_runtime_core::scheduler
+pub enum trust_runtime_core::scheduler::ResourceState
+pub trust_runtime_core::scheduler::ResourceState::Boot
+pub trust_runtime_core::scheduler::ResourceState::Faulted
+pub trust_runtime_core::scheduler::ResourceState::Paused
+pub trust_runtime_core::scheduler::ResourceState::Ready
+pub trust_runtime_core::scheduler::ResourceState::Running
+pub trust_runtime_core::scheduler::ResourceState::Stopped
+pub mod trust_runtime_core::task
+pub struct trust_runtime_core::task::TaskConfig
+pub trust_runtime_core::task::TaskConfig::fb_instances: alloc::vec::Vec<trust_runtime_core::value::ValueRef>
+pub trust_runtime_core::task::TaskConfig::interval: trust_runtime_core::value::Duration
+pub trust_runtime_core::task::TaskConfig::name: smol_str::SmolStr
+pub trust_runtime_core::task::TaskConfig::priority: u32
+pub trust_runtime_core::task::TaskConfig::programs: alloc::vec::Vec<smol_str::SmolStr>
+pub trust_runtime_core::task::TaskConfig::single: core::option::Option<smol_str::SmolStr>
+pub struct trust_runtime_core::task::TaskReadiness
+pub trust_runtime_core::task::TaskReadiness::due_at: core::option::Option<trust_runtime_core::value::Duration>
+pub trust_runtime_core::task::TaskReadiness::missed_intervals: u64
+pub struct trust_runtime_core::task::TaskState
+pub trust_runtime_core::task::TaskState::last_run: trust_runtime_core::value::Duration
+pub trust_runtime_core::task::TaskState::last_single: bool
+pub trust_runtime_core::task::TaskState::overrun_count: u64
+impl trust_runtime_core::task::TaskState
+pub fn trust_runtime_core::task::TaskState::new(current_time: trust_runtime_core::value::Duration) -> Self
+pub fn trust_runtime_core::task::evaluate_task_readiness(state: &mut trust_runtime_core::task::TaskState, interval: trust_runtime_core::value::Duration, single_now: bool, now: trust_runtime_core::value::Duration) -> trust_runtime_core::task::TaskReadiness
+pub mod trust_runtime_core::value
+pub mod trust_runtime_core::value::datetime
+pub enum trust_runtime_core::value::datetime::DateTimeError
+pub trust_runtime_core::value::datetime::DateTimeError::OutOfRange
+pub trust_runtime_core::value::datetime::DateTimeError::TimezoneNotSupported
+impl core::convert::From<trust_runtime_core::value::DateTimeError> for trust_runtime_core::error::RuntimeError
+pub fn trust_runtime_core::error::RuntimeError::from(value: trust_runtime_core::value::DateTimeError) -> Self
+pub struct trust_runtime_core::value::datetime::DateTimeProfile
+pub trust_runtime_core::value::datetime::DateTimeProfile::epoch: trust_runtime_core::value::DateValue
+pub trust_runtime_core::value::datetime::DateTimeProfile::resolution: trust_runtime_core::value::Duration
+impl core::default::Default for trust_runtime_core::value::DateTimeProfile
+pub fn trust_runtime_core::value::DateTimeProfile::default() -> Self
+pub struct trust_runtime_core::value::datetime::DateTimeValue
+impl trust_runtime_core::value::DateTimeValue
+pub fn trust_runtime_core::value::DateTimeValue::new(ticks: i64) -> Self
+pub fn trust_runtime_core::value::DateTimeValue::ticks(self) -> i64
+impl trust_runtime_core::value::DateTimeValue
+pub fn trust_runtime_core::value::DateTimeValue::try_from_ticks(ticks: i128) -> core::result::Result<Self, trust_runtime_core::value::DateTimeError>
+pub struct trust_runtime_core::value::datetime::DateValue
+impl trust_runtime_core::value::DateValue
+pub fn trust_runtime_core::value::DateValue::new(ticks: i64) -> Self
+pub fn trust_runtime_core::value::DateValue::ticks(self) -> i64
+impl trust_runtime_core::value::DateValue
+pub fn trust_runtime_core::value::DateValue::try_from_ticks(ticks: i128) -> core::result::Result<Self, trust_runtime_core::value::DateTimeError>
+pub struct trust_runtime_core::value::datetime::Duration
+impl trust_runtime_core::value::Duration
+pub const trust_runtime_core::value::Duration::ZERO: Self
+pub fn trust_runtime_core::value::Duration::as_millis(self) -> i64
+pub fn trust_runtime_core::value::Duration::as_nanos(self) -> i64
+pub fn trust_runtime_core::value::Duration::from_micros(micros: i64) -> Self
+pub fn trust_runtime_core::value::Duration::from_millis(millis: i64) -> Self
+pub fn trust_runtime_core::value::Duration::from_nanos(nanos: i64) -> Self
+pub fn trust_runtime_core::value::Duration::from_secs(secs: i64) -> Self
+pub struct trust_runtime_core::value::datetime::LDateTimeValue
+impl trust_runtime_core::value::LDateTimeValue
+pub fn trust_runtime_core::value::LDateTimeValue::nanos(self) -> i64
+pub fn trust_runtime_core::value::LDateTimeValue::new(nanos: i64) -> Self
+pub struct trust_runtime_core::value::datetime::LDateValue
+impl trust_runtime_core::value::LDateValue
+pub fn trust_runtime_core::value::LDateValue::nanos(self) -> i64
+pub fn trust_runtime_core::value::LDateValue::new(nanos: i64) -> Self
+pub struct trust_runtime_core::value::datetime::LTimeOfDayValue
+impl trust_runtime_core::value::LTimeOfDayValue
+pub fn trust_runtime_core::value::LTimeOfDayValue::nanos(self) -> i64
+pub fn trust_runtime_core::value::LTimeOfDayValue::new(nanos: i64) -> Self
+pub struct trust_runtime_core::value::datetime::TimeOfDayValue
+impl trust_runtime_core::value::TimeOfDayValue
+pub fn trust_runtime_core::value::TimeOfDayValue::new(ticks: i64) -> Self
+pub fn trust_runtime_core::value::TimeOfDayValue::ticks(self) -> i64
+impl trust_runtime_core::value::TimeOfDayValue
+pub fn trust_runtime_core::value::TimeOfDayValue::try_from_ticks(ticks: i128) -> core::result::Result<Self, trust_runtime_core::value::DateTimeError>
+pub fn trust_runtime_core::value::datetime::combine_date_and_tod(date: trust_runtime_core::value::DateValue, tod: trust_runtime_core::value::TimeOfDayValue) -> core::result::Result<trust_runtime_core::value::DateTimeValue, trust_runtime_core::value::DateTimeError>
+pub fn trust_runtime_core::value::datetime::combine_date_and_tod_with_tz(date: trust_runtime_core::value::DateValue, tod: trust_runtime_core::value::TimeOfDayValue, tz_offset_minutes: core::option::Option<i32>) -> core::result::Result<trust_runtime_core::value::DateTimeValue, trust_runtime_core::value::DateTimeError>
+pub mod trust_runtime_core::value::partial_access
+pub fn trust_runtime_core::value::partial_access::read_partial_access(target: &trust_runtime_core::value::Value, access: trust_runtime_core::value::PartialAccess) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::value::PartialAccessError>
+pub fn trust_runtime_core::value::partial_access::write_partial_access(target: trust_runtime_core::value::Value, access: trust_runtime_core::value::PartialAccess, value: trust_runtime_core::value::Value) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::value::PartialAccessError>
+pub mod trust_runtime_core::value::string_semantics
+pub fn trust_runtime_core::value::string_semantics::read_string_element(text: &str, index: i64, wide: bool) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::value::string_semantics::string_delete(input: &str, length: i64, position: i64) -> alloc::string::String
+pub fn trust_runtime_core::value::string_semantics::string_element_count(text: &str) -> usize
+pub fn trust_runtime_core::value::string_semantics::string_element_position(text: &str, index: i64) -> core::result::Result<usize, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::value::string_semantics::string_find(haystack: &str, needle: &str) -> core::result::Result<i16, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::value::string_semantics::string_insert(input: &str, insert: &str, position: i64) -> alloc::string::String
+pub fn trust_runtime_core::value::string_semantics::string_left(text: &str, count: i64) -> alloc::string::String
+pub fn trust_runtime_core::value::string_semantics::string_mid(text: &str, length: i64, position: i64) -> alloc::string::String
+pub fn trust_runtime_core::value::string_semantics::string_replace(input: &str, repl: &str, length: i64, position: i64) -> alloc::string::String
+pub fn trust_runtime_core::value::string_semantics::string_right(text: &str, count: i64) -> alloc::string::String
+pub fn trust_runtime_core::value::string_semantics::write_string_element(text: &str, index: i64, value: trust_runtime_core::value::Value, wide: bool) -> core::result::Result<alloc::string::String, trust_runtime_core::error::RuntimeError>
+pub mod trust_runtime_core::value::types
+pub enum trust_runtime_core::value::types::Value
+pub trust_runtime_core::value::types::Value::Array(alloc::boxed::Box<trust_runtime_core::value::ArrayValue>)
+pub trust_runtime_core::value::types::Value::Bool(bool)
+pub trust_runtime_core::value::types::Value::Byte(u8)
+pub trust_runtime_core::value::types::Value::Char(u8)
+pub trust_runtime_core::value::types::Value::DInt(i32)
+pub trust_runtime_core::value::types::Value::DWord(u32)
+pub trust_runtime_core::value::types::Value::Date(trust_runtime_core::value::DateValue)
+pub trust_runtime_core::value::types::Value::Dt(trust_runtime_core::value::DateTimeValue)
+pub trust_runtime_core::value::types::Value::Enum(alloc::boxed::Box<trust_runtime_core::value::EnumValue>)
+pub trust_runtime_core::value::types::Value::Instance(trust_runtime_core::memory::InstanceId)
+pub trust_runtime_core::value::types::Value::Int(i16)
+pub trust_runtime_core::value::types::Value::LDate(trust_runtime_core::value::LDateValue)
+pub trust_runtime_core::value::types::Value::LInt(i64)
+pub trust_runtime_core::value::types::Value::LReal(f64)
+pub trust_runtime_core::value::types::Value::LTime(trust_runtime_core::value::Duration)
+pub trust_runtime_core::value::types::Value::LTod(trust_runtime_core::value::LTimeOfDayValue)
+pub trust_runtime_core::value::types::Value::LWord(u64)
+pub trust_runtime_core::value::types::Value::Ldt(trust_runtime_core::value::LDateTimeValue)
+pub trust_runtime_core::value::types::Value::Null
+pub trust_runtime_core::value::types::Value::Real(f32)
+pub trust_runtime_core::value::types::Value::Reference(core::option::Option<trust_runtime_core::value::ValueRef>)
+pub trust_runtime_core::value::types::Value::SInt(i8)
+pub trust_runtime_core::value::types::Value::String(smol_str::SmolStr)
+pub trust_runtime_core::value::types::Value::Struct(alloc::sync::Arc<trust_runtime_core::value::StructValue>)
+pub trust_runtime_core::value::types::Value::Time(trust_runtime_core::value::Duration)
+pub trust_runtime_core::value::types::Value::Tod(trust_runtime_core::value::TimeOfDayValue)
+pub trust_runtime_core::value::types::Value::UDInt(u32)
+pub trust_runtime_core::value::types::Value::UInt(u16)
+pub trust_runtime_core::value::types::Value::ULInt(u64)
+pub trust_runtime_core::value::types::Value::USInt(u8)
+pub trust_runtime_core::value::types::Value::WChar(u16)
+pub trust_runtime_core::value::types::Value::WString(alloc::string::String)
+pub trust_runtime_core::value::types::Value::Word(u16)
+impl core::convert::From<bool> for trust_runtime_core::value::Value
+pub fn trust_runtime_core::value::Value::from(value: bool) -> Self
+impl core::convert::From<i16> for trust_runtime_core::value::Value
+pub fn trust_runtime_core::value::Value::from(value: i16) -> Self
+impl core::convert::From<i32> for trust_runtime_core::value::Value
+pub fn trust_runtime_core::value::Value::from(value: i32) -> Self
+impl core::convert::From<i64> for trust_runtime_core::value::Value
+pub fn trust_runtime_core::value::Value::from(value: i64) -> Self
+impl core::convert::From<u16> for trust_runtime_core::value::Value
+pub fn trust_runtime_core::value::Value::from(value: u16) -> Self
+impl core::convert::From<u8> for trust_runtime_core::value::Value
+pub fn trust_runtime_core::value::Value::from(value: u8) -> Self
+pub enum trust_runtime_core::value::types::ValueConstructionError
+pub trust_runtime_core::value::types::ValueConstructionError::ArrayElementCountMismatch
+pub trust_runtime_core::value::types::ValueConstructionError::ArrayElementCountMismatch::actual: usize
+pub trust_runtime_core::value::types::ValueConstructionError::ArrayElementCountMismatch::expected: usize
+pub trust_runtime_core::value::types::ValueConstructionError::InvalidArrayBounds
+pub trust_runtime_core::value::types::ValueConstructionError::InvalidArrayBounds::dimensions: alloc::vec::Vec<(i64, i64)>
+impl core::error::Error for trust_runtime_core::value::ValueConstructionError
+impl core::fmt::Display for trust_runtime_core::value::ValueConstructionError
+pub fn trust_runtime_core::value::ValueConstructionError::fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct trust_runtime_core::value::types::ArrayValue
+impl trust_runtime_core::value::ArrayValue
+pub fn trust_runtime_core::value::ArrayValue::dimensions(&self) -> &[(i64, i64)]
+pub fn trust_runtime_core::value::ArrayValue::elements(&self) -> &[trust_runtime_core::value::Value]
+pub fn trust_runtime_core::value::ArrayValue::elements_mut(&mut self) -> &mut [trust_runtime_core::value::Value]
+pub fn trust_runtime_core::value::ArrayValue::from_canonical_parts(elements: alloc::vec::Vec<trust_runtime_core::value::Value>, dimensions: alloc::vec::Vec<(i64, i64)>) -> Self
+pub fn trust_runtime_core::value::ArrayValue::from_untyped_parts(elements: alloc::vec::Vec<trust_runtime_core::value::Value>, dimensions: alloc::vec::Vec<(i64, i64)>) -> core::result::Result<Self, trust_runtime_core::value::ValueConstructionError>
+pub fn trust_runtime_core::value::ArrayValue::set_dimensions(&mut self, dimensions: alloc::vec::Vec<(i64, i64)>) -> core::result::Result<(), trust_runtime_core::value::ValueConstructionError>
+pub struct trust_runtime_core::value::types::EnumValue
+impl trust_runtime_core::value::EnumValue
+pub fn trust_runtime_core::value::EnumValue::from_canonical_parts(type_name: smol_str::SmolStr, variant_name: smol_str::SmolStr, numeric_value: i64) -> Self
+pub fn trust_runtime_core::value::EnumValue::numeric_value(&self) -> i64
+pub fn trust_runtime_core::value::EnumValue::type_name(&self) -> &smol_str::SmolStr
+pub fn trust_runtime_core::value::EnumValue::variant_name(&self) -> &smol_str::SmolStr
+impl core::cmp::Eq for trust_runtime_core::value::EnumValue
+impl core::cmp::PartialEq for trust_runtime_core::value::EnumValue
+pub fn trust_runtime_core::value::EnumValue::eq(&self, other: &Self) -> bool
+pub struct trust_runtime_core::value::types::StructValue
+impl trust_runtime_core::value::StructValue
+pub fn trust_runtime_core::value::StructValue::contains_field(&self, name: &str) -> bool
+pub fn trust_runtime_core::value::StructValue::field(&self, name: &str) -> core::option::Option<&trust_runtime_core::value::Value>
+pub fn trust_runtime_core::value::StructValue::field_mut(&mut self, name: &str) -> core::option::Option<&mut trust_runtime_core::value::Value>
+pub fn trust_runtime_core::value::StructValue::fields(&self) -> &indexmap::map::IndexMap<smol_str::SmolStr, trust_runtime_core::value::Value>
+pub fn trust_runtime_core::value::StructValue::from_canonical_parts(type_name: smol_str::SmolStr, fields: indexmap::map::IndexMap<smol_str::SmolStr, trust_runtime_core::value::Value>) -> Self
+pub fn trust_runtime_core::value::StructValue::from_untyped_parts(type_name: smol_str::SmolStr, fields: indexmap::map::IndexMap<smol_str::SmolStr, trust_runtime_core::value::Value>) -> Self
+pub fn trust_runtime_core::value::StructValue::set_existing_field(&mut self, name: smol_str::SmolStr, value: trust_runtime_core::value::Value) -> bool
+pub fn trust_runtime_core::value::StructValue::type_name(&self) -> &smol_str::SmolStr
+pub fn trust_runtime_core::value::types::normalize_assignment_for_target(target: &trust_runtime_core::value::Value, value: trust_runtime_core::value::Value) -> trust_runtime_core::value::Value
+pub enum trust_runtime_core::value::DateTimeError
+pub trust_runtime_core::value::DateTimeError::OutOfRange
+pub trust_runtime_core::value::DateTimeError::TimezoneNotSupported
+impl core::convert::From<trust_runtime_core::value::DateTimeError> for trust_runtime_core::error::RuntimeError
+pub fn trust_runtime_core::error::RuntimeError::from(value: trust_runtime_core::value::DateTimeError) -> Self
+pub enum trust_runtime_core::value::PartialAccess
+pub trust_runtime_core::value::PartialAccess::Bit(u8)
+pub trust_runtime_core::value::PartialAccess::Byte(u8)
+pub trust_runtime_core::value::PartialAccess::DWord(u8)
+pub trust_runtime_core::value::PartialAccess::Word(u8)
+pub enum trust_runtime_core::value::PartialAccessError
+pub trust_runtime_core::value::PartialAccessError::IndexOutOfBounds
+pub trust_runtime_core::value::PartialAccessError::IndexOutOfBounds::index: i64
+pub trust_runtime_core::value::PartialAccessError::IndexOutOfBounds::lower: i64
+pub trust_runtime_core::value::PartialAccessError::IndexOutOfBounds::upper: i64
+pub trust_runtime_core::value::PartialAccessError::TypeMismatch
+pub enum trust_runtime_core::value::RefSegment
+pub trust_runtime_core::value::RefSegment::Field(smol_str::SmolStr)
+pub trust_runtime_core::value::RefSegment::Index(trust_runtime_core::value::RefIndices)
+pub enum trust_runtime_core::value::Value
+pub trust_runtime_core::value::Value::Array(alloc::boxed::Box<trust_runtime_core::value::ArrayValue>)
+pub trust_runtime_core::value::Value::Bool(bool)
+pub trust_runtime_core::value::Value::Byte(u8)
+pub trust_runtime_core::value::Value::Char(u8)
+pub trust_runtime_core::value::Value::DInt(i32)
+pub trust_runtime_core::value::Value::DWord(u32)
+pub trust_runtime_core::value::Value::Date(trust_runtime_core::value::DateValue)
+pub trust_runtime_core::value::Value::Dt(trust_runtime_core::value::DateTimeValue)
+pub trust_runtime_core::value::Value::Enum(alloc::boxed::Box<trust_runtime_core::value::EnumValue>)
+pub trust_runtime_core::value::Value::Instance(trust_runtime_core::memory::InstanceId)
+pub trust_runtime_core::value::Value::Int(i16)
+pub trust_runtime_core::value::Value::LDate(trust_runtime_core::value::LDateValue)
+pub trust_runtime_core::value::Value::LInt(i64)
+pub trust_runtime_core::value::Value::LReal(f64)
+pub trust_runtime_core::value::Value::LTime(trust_runtime_core::value::Duration)
+pub trust_runtime_core::value::Value::LTod(trust_runtime_core::value::LTimeOfDayValue)
+pub trust_runtime_core::value::Value::LWord(u64)
+pub trust_runtime_core::value::Value::Ldt(trust_runtime_core::value::LDateTimeValue)
+pub trust_runtime_core::value::Value::Null
+pub trust_runtime_core::value::Value::Real(f32)
+pub trust_runtime_core::value::Value::Reference(core::option::Option<trust_runtime_core::value::ValueRef>)
+pub trust_runtime_core::value::Value::SInt(i8)
+pub trust_runtime_core::value::Value::String(smol_str::SmolStr)
+pub trust_runtime_core::value::Value::Struct(alloc::sync::Arc<trust_runtime_core::value::StructValue>)
+pub trust_runtime_core::value::Value::Time(trust_runtime_core::value::Duration)
+pub trust_runtime_core::value::Value::Tod(trust_runtime_core::value::TimeOfDayValue)
+pub trust_runtime_core::value::Value::UDInt(u32)
+pub trust_runtime_core::value::Value::UInt(u16)
+pub trust_runtime_core::value::Value::ULInt(u64)
+pub trust_runtime_core::value::Value::USInt(u8)
+pub trust_runtime_core::value::Value::WChar(u16)
+pub trust_runtime_core::value::Value::WString(alloc::string::String)
+pub trust_runtime_core::value::Value::Word(u16)
+impl core::convert::From<bool> for trust_runtime_core::value::Value
+pub fn trust_runtime_core::value::Value::from(value: bool) -> Self
+impl core::convert::From<i16> for trust_runtime_core::value::Value
+pub fn trust_runtime_core::value::Value::from(value: i16) -> Self
+impl core::convert::From<i32> for trust_runtime_core::value::Value
+pub fn trust_runtime_core::value::Value::from(value: i32) -> Self
+impl core::convert::From<i64> for trust_runtime_core::value::Value
+pub fn trust_runtime_core::value::Value::from(value: i64) -> Self
+impl core::convert::From<u16> for trust_runtime_core::value::Value
+pub fn trust_runtime_core::value::Value::from(value: u16) -> Self
+impl core::convert::From<u8> for trust_runtime_core::value::Value
+pub fn trust_runtime_core::value::Value::from(value: u8) -> Self
+pub enum trust_runtime_core::value::ValueConstructionError
+pub trust_runtime_core::value::ValueConstructionError::ArrayElementCountMismatch
+pub trust_runtime_core::value::ValueConstructionError::ArrayElementCountMismatch::actual: usize
+pub trust_runtime_core::value::ValueConstructionError::ArrayElementCountMismatch::expected: usize
+pub trust_runtime_core::value::ValueConstructionError::InvalidArrayBounds
+pub trust_runtime_core::value::ValueConstructionError::InvalidArrayBounds::dimensions: alloc::vec::Vec<(i64, i64)>
+impl core::error::Error for trust_runtime_core::value::ValueConstructionError
+impl core::fmt::Display for trust_runtime_core::value::ValueConstructionError
+pub fn trust_runtime_core::value::ValueConstructionError::fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct trust_runtime_core::value::ArrayValue
+impl trust_runtime_core::value::ArrayValue
+pub fn trust_runtime_core::value::ArrayValue::dimensions(&self) -> &[(i64, i64)]
+pub fn trust_runtime_core::value::ArrayValue::elements(&self) -> &[trust_runtime_core::value::Value]
+pub fn trust_runtime_core::value::ArrayValue::elements_mut(&mut self) -> &mut [trust_runtime_core::value::Value]
+pub fn trust_runtime_core::value::ArrayValue::from_canonical_parts(elements: alloc::vec::Vec<trust_runtime_core::value::Value>, dimensions: alloc::vec::Vec<(i64, i64)>) -> Self
+pub fn trust_runtime_core::value::ArrayValue::from_untyped_parts(elements: alloc::vec::Vec<trust_runtime_core::value::Value>, dimensions: alloc::vec::Vec<(i64, i64)>) -> core::result::Result<Self, trust_runtime_core::value::ValueConstructionError>
+pub fn trust_runtime_core::value::ArrayValue::set_dimensions(&mut self, dimensions: alloc::vec::Vec<(i64, i64)>) -> core::result::Result<(), trust_runtime_core::value::ValueConstructionError>
+pub struct trust_runtime_core::value::DateTimeProfile
+pub trust_runtime_core::value::DateTimeProfile::epoch: trust_runtime_core::value::DateValue
+pub trust_runtime_core::value::DateTimeProfile::resolution: trust_runtime_core::value::Duration
+impl core::default::Default for trust_runtime_core::value::DateTimeProfile
+pub fn trust_runtime_core::value::DateTimeProfile::default() -> Self
+pub struct trust_runtime_core::value::DateTimeValue
+impl trust_runtime_core::value::DateTimeValue
+pub fn trust_runtime_core::value::DateTimeValue::new(ticks: i64) -> Self
+pub fn trust_runtime_core::value::DateTimeValue::ticks(self) -> i64
+impl trust_runtime_core::value::DateTimeValue
+pub fn trust_runtime_core::value::DateTimeValue::try_from_ticks(ticks: i128) -> core::result::Result<Self, trust_runtime_core::value::DateTimeError>
+pub struct trust_runtime_core::value::DateValue
+impl trust_runtime_core::value::DateValue
+pub fn trust_runtime_core::value::DateValue::new(ticks: i64) -> Self
+pub fn trust_runtime_core::value::DateValue::ticks(self) -> i64
+impl trust_runtime_core::value::DateValue
+pub fn trust_runtime_core::value::DateValue::try_from_ticks(ticks: i128) -> core::result::Result<Self, trust_runtime_core::value::DateTimeError>
+pub struct trust_runtime_core::value::Duration
+impl trust_runtime_core::value::Duration
+pub const trust_runtime_core::value::Duration::ZERO: Self
+pub fn trust_runtime_core::value::Duration::as_millis(self) -> i64
+pub fn trust_runtime_core::value::Duration::as_nanos(self) -> i64
+pub fn trust_runtime_core::value::Duration::from_micros(micros: i64) -> Self
+pub fn trust_runtime_core::value::Duration::from_millis(millis: i64) -> Self
+pub fn trust_runtime_core::value::Duration::from_nanos(nanos: i64) -> Self
+pub fn trust_runtime_core::value::Duration::from_secs(secs: i64) -> Self
+pub struct trust_runtime_core::value::EnumValue
+impl trust_runtime_core::value::EnumValue
+pub fn trust_runtime_core::value::EnumValue::from_canonical_parts(type_name: smol_str::SmolStr, variant_name: smol_str::SmolStr, numeric_value: i64) -> Self
+pub fn trust_runtime_core::value::EnumValue::numeric_value(&self) -> i64
+pub fn trust_runtime_core::value::EnumValue::type_name(&self) -> &smol_str::SmolStr
+pub fn trust_runtime_core::value::EnumValue::variant_name(&self) -> &smol_str::SmolStr
+impl core::cmp::Eq for trust_runtime_core::value::EnumValue
+impl core::cmp::PartialEq for trust_runtime_core::value::EnumValue
+pub fn trust_runtime_core::value::EnumValue::eq(&self, other: &Self) -> bool
+pub struct trust_runtime_core::value::LDateTimeValue
+impl trust_runtime_core::value::LDateTimeValue
+pub fn trust_runtime_core::value::LDateTimeValue::nanos(self) -> i64
+pub fn trust_runtime_core::value::LDateTimeValue::new(nanos: i64) -> Self
+pub struct trust_runtime_core::value::LDateValue
+impl trust_runtime_core::value::LDateValue
+pub fn trust_runtime_core::value::LDateValue::nanos(self) -> i64
+pub fn trust_runtime_core::value::LDateValue::new(nanos: i64) -> Self
+pub struct trust_runtime_core::value::LTimeOfDayValue
+impl trust_runtime_core::value::LTimeOfDayValue
+pub fn trust_runtime_core::value::LTimeOfDayValue::nanos(self) -> i64
+pub fn trust_runtime_core::value::LTimeOfDayValue::new(nanos: i64) -> Self
+pub struct trust_runtime_core::value::StructValue
+impl trust_runtime_core::value::StructValue
+pub fn trust_runtime_core::value::StructValue::contains_field(&self, name: &str) -> bool
+pub fn trust_runtime_core::value::StructValue::field(&self, name: &str) -> core::option::Option<&trust_runtime_core::value::Value>
+pub fn trust_runtime_core::value::StructValue::field_mut(&mut self, name: &str) -> core::option::Option<&mut trust_runtime_core::value::Value>
+pub fn trust_runtime_core::value::StructValue::fields(&self) -> &indexmap::map::IndexMap<smol_str::SmolStr, trust_runtime_core::value::Value>
+pub fn trust_runtime_core::value::StructValue::from_canonical_parts(type_name: smol_str::SmolStr, fields: indexmap::map::IndexMap<smol_str::SmolStr, trust_runtime_core::value::Value>) -> Self
+pub fn trust_runtime_core::value::StructValue::from_untyped_parts(type_name: smol_str::SmolStr, fields: indexmap::map::IndexMap<smol_str::SmolStr, trust_runtime_core::value::Value>) -> Self
+pub fn trust_runtime_core::value::StructValue::set_existing_field(&mut self, name: smol_str::SmolStr, value: trust_runtime_core::value::Value) -> bool
+pub fn trust_runtime_core::value::StructValue::type_name(&self) -> &smol_str::SmolStr
+pub struct trust_runtime_core::value::TimeOfDayValue
+impl trust_runtime_core::value::TimeOfDayValue
+pub fn trust_runtime_core::value::TimeOfDayValue::new(ticks: i64) -> Self
+pub fn trust_runtime_core::value::TimeOfDayValue::ticks(self) -> i64
+impl trust_runtime_core::value::TimeOfDayValue
+pub fn trust_runtime_core::value::TimeOfDayValue::try_from_ticks(ticks: i128) -> core::result::Result<Self, trust_runtime_core::value::DateTimeError>
+pub struct trust_runtime_core::value::ValueRef
+pub trust_runtime_core::value::ValueRef::location: trust_runtime_core::memory::MemoryLocation
+pub trust_runtime_core::value::ValueRef::offset: usize
+pub trust_runtime_core::value::ValueRef::path: trust_runtime_core::value::RefPath
+pub fn trust_runtime_core::value::array_offset_i64(dimensions: &[(i64, i64)], indices: &[i64]) -> core::option::Option<usize>
+pub fn trust_runtime_core::value::checked_array_offset_i64(dimensions: &[(i64, i64)], indices: &[i64]) -> core::result::Result<usize, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::value::combine_date_and_tod(date: trust_runtime_core::value::DateValue, tod: trust_runtime_core::value::TimeOfDayValue) -> core::result::Result<trust_runtime_core::value::DateTimeValue, trust_runtime_core::value::DateTimeError>
+pub fn trust_runtime_core::value::combine_date_and_tod_with_tz(date: trust_runtime_core::value::DateValue, tod: trust_runtime_core::value::TimeOfDayValue, tz_offset_minutes: core::option::Option<i32>) -> core::result::Result<trust_runtime_core::value::DateTimeValue, trust_runtime_core::value::DateTimeError>
+pub fn trust_runtime_core::value::normalize_assignment_for_target(target: &trust_runtime_core::value::Value, value: trust_runtime_core::value::Value) -> trust_runtime_core::value::Value
+pub fn trust_runtime_core::value::parse_partial_access(text: &str) -> core::option::Option<trust_runtime_core::value::PartialAccess>
+pub fn trust_runtime_core::value::read_partial_access(target: &trust_runtime_core::value::Value, access: trust_runtime_core::value::PartialAccess) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::value::PartialAccessError>
+pub fn trust_runtime_core::value::read_string_element(text: &str, index: i64, wide: bool) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::value::ref_indices_from_iter<I>(indices: I) -> trust_runtime_core::value::RefIndices where I: core::iter::traits::collect::IntoIterator<Item = i64>
+pub fn trust_runtime_core::value::single_ref_index(index: i64) -> trust_runtime_core::value::RefSegment
+pub fn trust_runtime_core::value::string_delete(input: &str, length: i64, position: i64) -> alloc::string::String
+pub fn trust_runtime_core::value::string_element_count(text: &str) -> usize
+pub fn trust_runtime_core::value::string_element_position(text: &str, index: i64) -> core::result::Result<usize, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::value::string_find(haystack: &str, needle: &str) -> core::result::Result<i16, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::value::string_insert(input: &str, insert: &str, position: i64) -> alloc::string::String
+pub fn trust_runtime_core::value::string_left(text: &str, count: i64) -> alloc::string::String
+pub fn trust_runtime_core::value::string_mid(text: &str, length: i64, position: i64) -> alloc::string::String
+pub fn trust_runtime_core::value::string_replace(input: &str, repl: &str, length: i64, position: i64) -> alloc::string::String
+pub fn trust_runtime_core::value::string_right(text: &str, count: i64) -> alloc::string::String
+pub fn trust_runtime_core::value::write_partial_access(target: trust_runtime_core::value::Value, access: trust_runtime_core::value::PartialAccess, value: trust_runtime_core::value::Value) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::value::PartialAccessError>
+pub fn trust_runtime_core::value::write_string_element(text: &str, index: i64, value: trust_runtime_core::value::Value, wide: bool) -> core::result::Result<alloc::string::String, trust_runtime_core::error::RuntimeError>
+pub type trust_runtime_core::value::RefIndices = alloc::vec::Vec<i64>
+pub type trust_runtime_core::value::RefPath = alloc::vec::Vec<trust_runtime_core::value::RefSegment>
+pub mod trust_runtime_core::vm
+pub enum trust_runtime_core::vm::VmTrap
+pub trust_runtime_core::vm::VmTrap::BudgetExceeded
+pub trust_runtime_core::vm::VmTrap::BytecodeDecode(smol_str::SmolStr)
+pub trust_runtime_core::vm::VmTrap::CallStackOverflow
+pub trust_runtime_core::vm::VmTrap::CallStackUnderflow
+pub trust_runtime_core::vm::VmTrap::ConditionNotBool
+pub trust_runtime_core::vm::VmTrap::DeadlineExceeded
+pub trust_runtime_core::vm::VmTrap::ForStepZero
+pub trust_runtime_core::vm::VmTrap::InvalidConstIndex(u32)
+pub trust_runtime_core::vm::VmTrap::InvalidJumpTarget(i64)
+pub trust_runtime_core::vm::VmTrap::InvalidLocalRef
+pub trust_runtime_core::vm::VmTrap::InvalidLocalRef::count: u32
+pub trust_runtime_core::vm::VmTrap::InvalidLocalRef::ref_index: u32
+pub trust_runtime_core::vm::VmTrap::InvalidLocalRef::start: u32
+pub trust_runtime_core::vm::VmTrap::InvalidNativeCall(smol_str::SmolStr)
+pub trust_runtime_core::vm::VmTrap::InvalidNativeCallKind(u32)
+pub trust_runtime_core::vm::VmTrap::InvalidNativeSymbolIndex(u32)
+pub trust_runtime_core::vm::VmTrap::InvalidOpcode(u8)
+pub trust_runtime_core::vm::VmTrap::InvalidRefIndex(u32)
+pub trust_runtime_core::vm::VmTrap::MissingFunctionBlock(smol_str::SmolStr)
+pub trust_runtime_core::vm::VmTrap::MissingPou(u32)
+pub trust_runtime_core::vm::VmTrap::MissingProgram(smol_str::SmolStr)
+pub trust_runtime_core::vm::VmTrap::NullReference
+pub trust_runtime_core::vm::VmTrap::Runtime(trust_runtime_core::error::RuntimeError)
+pub trust_runtime_core::vm::VmTrap::StackOverflow
+pub trust_runtime_core::vm::VmTrap::StackUnderflow
+pub trust_runtime_core::vm::VmTrap::UnsupportedOpcode(&'static str)
+pub trust_runtime_core::vm::VmTrap::UnsupportedRefLocation(&'static str)
+impl trust_runtime_core::vm::VmTrap
+pub fn trust_runtime_core::vm::VmTrap::into_runtime_error(self) -> trust_runtime_core::error::RuntimeError
+impl core::convert::From<trust_runtime_core::error::RuntimeError> for trust_runtime_core::vm::VmTrap
+pub fn trust_runtime_core::vm::VmTrap::from(value: trust_runtime_core::error::RuntimeError) -> Self
+pub struct trust_runtime_core::vm::FrameStack
+impl trust_runtime_core::vm::FrameStack
+pub fn trust_runtime_core::vm::FrameStack::clear(&mut self)
+pub fn trust_runtime_core::vm::FrameStack::current(&self) -> core::option::Option<&trust_runtime_core::vm::VmFrame>
+pub fn trust_runtime_core::vm::FrameStack::current_mut(&mut self) -> core::option::Option<&mut trust_runtime_core::vm::VmFrame>
+pub fn trust_runtime_core::vm::FrameStack::is_empty(&self) -> bool
+pub fn trust_runtime_core::vm::FrameStack::len(&self) -> usize
+pub fn trust_runtime_core::vm::FrameStack::pop(&mut self) -> core::result::Result<trust_runtime_core::vm::VmFrame, trust_runtime_core::vm::VmTrap>
+pub fn trust_runtime_core::vm::FrameStack::push(&mut self, frame: trust_runtime_core::vm::VmFrame) -> core::result::Result<(), trust_runtime_core::vm::VmTrap>
+pub struct trust_runtime_core::vm::OperandStack
+impl trust_runtime_core::vm::OperandStack
+pub fn trust_runtime_core::vm::OperandStack::clear(&mut self)
+pub fn trust_runtime_core::vm::OperandStack::duplicate_top(&mut self) -> core::result::Result<(), trust_runtime_core::vm::VmTrap>
+pub fn trust_runtime_core::vm::OperandStack::pop(&mut self) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::vm::VmTrap>
+pub fn trust_runtime_core::vm::OperandStack::pop_pair(&mut self) -> core::result::Result<(trust_runtime_core::value::Value, trust_runtime_core::value::Value), trust_runtime_core::vm::VmTrap>
+pub fn trust_runtime_core::vm::OperandStack::push(&mut self, value: trust_runtime_core::value::Value) -> core::result::Result<(), trust_runtime_core::vm::VmTrap>
+pub fn trust_runtime_core::vm::OperandStack::swap_top(&mut self) -> core::result::Result<(), trust_runtime_core::vm::VmTrap>
+pub struct trust_runtime_core::vm::VmFrame
+pub trust_runtime_core::vm::VmFrame::code_end: usize
+pub trust_runtime_core::vm::VmFrame::code_start: usize
+pub trust_runtime_core::vm::VmFrame::instance_owner: core::option::Option<u32>
+pub trust_runtime_core::vm::VmFrame::local_ref_count: u32
+pub trust_runtime_core::vm::VmFrame::local_ref_start: u32
+pub trust_runtime_core::vm::VmFrame::locals: alloc::vec::Vec<trust_runtime_core::value::Value>
+pub trust_runtime_core::vm::VmFrame::pou_id: u32
+pub trust_runtime_core::vm::VmFrame::return_pc: usize
+pub trust_runtime_core::vm::VmFrame::runtime_instance: core::option::Option<trust_runtime_core::memory::InstanceId>
+impl trust_runtime_core::vm::VmFrame
+pub fn trust_runtime_core::vm::VmFrame::load_local(&self, ref_index: u32) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::vm::VmTrap>
+pub fn trust_runtime_core::vm::VmFrame::local_slot_index(&self, ref_index: u32) -> core::result::Result<usize, trust_runtime_core::vm::VmTrap>
+pub fn trust_runtime_core::vm::VmFrame::store_local(&mut self, ref_index: u32, value: trust_runtime_core::value::Value) -> core::result::Result<(), trust_runtime_core::vm::VmTrap>
+pub const trust_runtime_core::vm::VM_MAX_CALL_DEPTH: usize
+pub fn trust_runtime_core::vm::apply_jump(pc: &mut usize, offset: i32, frame: &trust_runtime_core::vm::VmFrame) -> core::result::Result<(), trust_runtime_core::vm::VmTrap>
+pub fn trust_runtime_core::vm::decode_const_pool_entries(const_pool: &trust_runtime_core::bytecode::ConstPool, types: &trust_runtime_core::bytecode::TypeTable, strings: &trust_runtime_core::bytecode::StringTable) -> core::result::Result<alloc::vec::Vec<trust_runtime_core::value::Value>, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::ensure_global_call_depth(depth_offset: u32, local_depth: usize) -> core::result::Result<(), trust_runtime_core::vm::VmTrap>
+pub fn trust_runtime_core::vm::execute_binary(profile: &trust_runtime_core::value::DateTimeProfile, stack: &mut trust_runtime_core::vm::OperandStack, op: trust_runtime_core::program_model::ops::BinaryOp) -> core::result::Result<(), trust_runtime_core::vm::VmTrap>
+pub fn trust_runtime_core::vm::execute_unary(stack: &mut trust_runtime_core::vm::OperandStack, op: trust_runtime_core::program_model::ops::UnaryOp) -> core::result::Result<(), trust_runtime_core::vm::VmTrap>
+pub fn trust_runtime_core::vm::materialize_borrowed_value(value: &trust_runtime_core::value::Value) -> (trust_runtime_core::value::Value, bool)
+pub const fn trust_runtime_core::vm::opcode_operand_len(opcode: u8) -> core::option::Option<usize>
+pub fn trust_runtime_core::vm::read_i32(code: &[u8], pc: &mut usize) -> core::result::Result<i32, trust_runtime_core::vm::VmTrap>
+pub fn trust_runtime_core::vm::read_u32(code: &[u8], pc: &mut usize) -> core::result::Result<u32, trust_runtime_core::vm::VmTrap>
+pub fn trust_runtime_core::vm::sizeof_type_from_table(types: &trust_runtime_core::bytecode::TypeTable, type_idx: u32) -> core::result::Result<u64, trust_runtime_core::error::RuntimeError>
+pub mod trust_runtime_core::watchdog
+pub enum trust_runtime_core::watchdog::FaultAction
+pub trust_runtime_core::watchdog::FaultAction::Halt
+pub trust_runtime_core::watchdog::FaultAction::Restart
+pub trust_runtime_core::watchdog::FaultAction::SafeHalt
+pub enum trust_runtime_core::watchdog::FaultPolicy
+pub trust_runtime_core::watchdog::FaultPolicy::Halt
+pub trust_runtime_core::watchdog::FaultPolicy::Restart
+pub trust_runtime_core::watchdog::FaultPolicy::SafeHalt
+impl trust_runtime_core::watchdog::FaultPolicy
+pub fn trust_runtime_core::watchdog::FaultPolicy::parse(text: &str) -> core::result::Result<Self, trust_runtime_core::error::RuntimeError>
+pub enum trust_runtime_core::watchdog::RetainMode
+pub trust_runtime_core::watchdog::RetainMode::File
+pub trust_runtime_core::watchdog::RetainMode::None
+impl trust_runtime_core::watchdog::RetainMode
+pub fn trust_runtime_core::watchdog::RetainMode::parse(text: &str) -> core::result::Result<Self, trust_runtime_core::error::RuntimeError>
+pub enum trust_runtime_core::watchdog::WatchdogAction
+pub trust_runtime_core::watchdog::WatchdogAction::Halt
+pub trust_runtime_core::watchdog::WatchdogAction::Restart
+pub trust_runtime_core::watchdog::WatchdogAction::SafeHalt
+impl trust_runtime_core::watchdog::WatchdogAction
+pub fn trust_runtime_core::watchdog::WatchdogAction::parse(text: &str) -> core::result::Result<Self, trust_runtime_core::error::RuntimeError>
+pub struct trust_runtime_core::watchdog::FaultDecision
+pub trust_runtime_core::watchdog::FaultDecision::action: trust_runtime_core::watchdog::FaultAction
+pub trust_runtime_core::watchdog::FaultDecision::apply_safe_state: bool
+impl trust_runtime_core::watchdog::FaultDecision
+pub fn trust_runtime_core::watchdog::FaultDecision::from_fault_policy(policy: trust_runtime_core::watchdog::FaultPolicy) -> Self
+pub fn trust_runtime_core::watchdog::FaultDecision::from_watchdog(action: trust_runtime_core::watchdog::WatchdogAction) -> Self
+pub struct trust_runtime_core::watchdog::FaultInfo
+pub trust_runtime_core::watchdog::FaultInfo::reason: smol_str::SmolStr
+pub struct trust_runtime_core::watchdog::FaultSubsystem
+impl trust_runtime_core::watchdog::FaultSubsystem
+pub fn trust_runtime_core::watchdog::FaultSubsystem::clear(&mut self)
+pub fn trust_runtime_core::watchdog::FaultSubsystem::decision(&self) -> trust_runtime_core::watchdog::FaultDecision
+pub fn trust_runtime_core::watchdog::FaultSubsystem::is_faulted(&self) -> bool
+pub fn trust_runtime_core::watchdog::FaultSubsystem::last_fault(&self) -> core::option::Option<&trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::watchdog::FaultSubsystem::new() -> Self
+pub fn trust_runtime_core::watchdog::FaultSubsystem::policy(&self) -> trust_runtime_core::watchdog::FaultPolicy
+pub fn trust_runtime_core::watchdog::FaultSubsystem::record(&mut self, err: trust_runtime_core::error::RuntimeError)
+pub fn trust_runtime_core::watchdog::FaultSubsystem::set_policy(&mut self, policy: trust_runtime_core::watchdog::FaultPolicy)
+impl core::default::Default for trust_runtime_core::watchdog::FaultSubsystem
+pub fn trust_runtime_core::watchdog::FaultSubsystem::default() -> Self
+pub struct trust_runtime_core::watchdog::WatchdogPolicy
+pub trust_runtime_core::watchdog::WatchdogPolicy::action: trust_runtime_core::watchdog::WatchdogAction
+pub trust_runtime_core::watchdog::WatchdogPolicy::enabled: bool
+pub trust_runtime_core::watchdog::WatchdogPolicy::timeout: trust_runtime_core::value::Duration
+impl core::default::Default for trust_runtime_core::watchdog::WatchdogPolicy
+pub fn trust_runtime_core::watchdog::WatchdogPolicy::default() -> Self
+pub struct trust_runtime_core::watchdog::WatchdogSubsystem
+impl trust_runtime_core::watchdog::WatchdogSubsystem
+pub fn trust_runtime_core::watchdog::WatchdogSubsystem::decision(&self) -> trust_runtime_core::watchdog::FaultDecision
+pub fn trust_runtime_core::watchdog::WatchdogSubsystem::new() -> Self
+pub fn trust_runtime_core::watchdog::WatchdogSubsystem::policy(&self) -> trust_runtime_core::watchdog::WatchdogPolicy
+pub fn trust_runtime_core::watchdog::WatchdogSubsystem::set_policy(&mut self, policy: trust_runtime_core::watchdog::WatchdogPolicy)
+impl core::default::Default for trust_runtime_core::watchdog::WatchdogSubsystem
+pub fn trust_runtime_core::watchdog::WatchdogSubsystem::default() -> Self
