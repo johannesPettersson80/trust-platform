@@ -301,7 +301,7 @@ impl RegisterTier1SpecializedExecutorState {
     }
 }
 
-fn parse_env_bool(name: &str, default: bool) -> bool {
+pub(in crate::runtime::vm::register_ir) fn parse_env_bool(name: &str, default: bool) -> bool {
     match std::env::var(name) {
         Ok(value) => match value.trim().to_ascii_lowercase().as_str() {
             "1" | "true" | "yes" | "on" => true,
@@ -319,7 +319,7 @@ fn parse_env_u64(name: &str, default: u64) -> u64 {
         .unwrap_or(default)
 }
 
-fn parse_env_usize(name: &str, default: usize) -> usize {
+pub(in crate::runtime::vm::register_ir) fn parse_env_usize(name: &str, default: usize) -> usize {
     std::env::var(name)
         .ok()
         .and_then(|value| value.trim().parse::<usize>().ok())

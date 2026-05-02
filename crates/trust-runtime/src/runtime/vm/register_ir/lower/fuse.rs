@@ -1,6 +1,26 @@
 use super::*;
 
-pub(super) fn fuse_register_block_instructions(
+macro_rules! advance_fuse_index {
+    ($index:expr, $consumed:expr, $instruction_count:expr) => {{
+        let index = $index;
+        let consumed = $consumed;
+        let instruction_count = $instruction_count;
+        assert!(
+            consumed > 0,
+            "register-ir fuse must consume at least one instruction"
+        );
+        let next_index = index
+            .checked_add(consumed)
+            .expect("register-ir fuse index overflow");
+        assert!(
+            next_index > index && next_index <= instruction_count,
+            "register-ir fuse advanced from {index} by {consumed} past {instruction_count}"
+        );
+        next_index
+    }};
+}
+
+pub(in crate::runtime::vm::register_ir) fn fuse_register_block_instructions(
     instructions: &[RegisterInstr],
 ) -> Vec<RegisterInstr> {
     if instructions.len() < 4 {
@@ -11,11 +31,11 @@ pub(super) fn fuse_register_block_instructions(
     while index < instructions.len() {
         if let Some((instruction, consumed)) = try_fuse_instruction_window(instructions, index) {
             fused.push(instruction);
-            index += consumed;
+            index = advance_fuse_index!(index, consumed, instructions.len());
             continue;
         }
         fused.push(instructions[index].clone());
-        index += 1;
+        index = advance_fuse_index!(index, 1, instructions.len());
     }
     fused
 }
@@ -269,7 +289,10 @@ fn register_used_after(
         .any(|instruction| instruction_reads_register(instruction, register))
 }
 
-fn instruction_reads_register(instruction: &RegisterInstr, register: RegisterId) -> bool {
+pub(in crate::runtime::vm::register_ir) fn instruction_reads_register(
+    instruction: &RegisterInstr,
+    register: RegisterId,
+) -> bool {
     match instruction {
         RegisterInstr::CallNative { args, .. } => args.contains(&register),
         RegisterInstr::SizeOfValue { src, .. } => *src == register,

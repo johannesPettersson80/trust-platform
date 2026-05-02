@@ -105,65 +105,45 @@ pub(in crate::runtime::vm::register_ir) fn compile_tier1_block(
                 left,
                 right,
                 dest,
-            } => {
-                if !is_tier1_supported_binary_op(*op) {
-                    return Err(format!("unsupported_binary_op:{op:?}").to_ascii_lowercase());
-                }
-                Tier1CompiledInstr::BinaryDIntGuard {
-                    op: *op,
-                    left: *left,
-                    right: *right,
-                    dest: *dest,
-                }
-            }
+            } => Tier1CompiledInstr::BinaryDIntGuard {
+                op: *op,
+                left: *left,
+                right: *right,
+                dest: *dest,
+            },
             RegisterInstr::BinaryRefToRef {
                 op,
                 left_ref_idx,
                 right_ref_idx,
                 dest_ref_idx,
-            } => {
-                if !is_tier1_supported_binary_op(*op) {
-                    return Err(format!("unsupported_binary_op:{op:?}").to_ascii_lowercase());
-                }
-                Tier1CompiledInstr::BinaryRefToRefDIntGuard {
-                    op: *op,
-                    left_ref_idx: *left_ref_idx,
-                    right_ref_idx: *right_ref_idx,
-                    dest_ref_idx: *dest_ref_idx,
-                }
-            }
+            } => Tier1CompiledInstr::BinaryRefToRefDIntGuard {
+                op: *op,
+                left_ref_idx: *left_ref_idx,
+                right_ref_idx: *right_ref_idx,
+                dest_ref_idx: *dest_ref_idx,
+            },
             RegisterInstr::BinaryRefConstToRef {
                 op,
                 left_ref_idx,
                 const_idx,
                 dest_ref_idx,
-            } => {
-                if !is_tier1_supported_binary_op(*op) {
-                    return Err(format!("unsupported_binary_op:{op:?}").to_ascii_lowercase());
-                }
-                Tier1CompiledInstr::BinaryRefConstToRefDIntGuard {
-                    op: *op,
-                    left_ref_idx: *left_ref_idx,
-                    const_idx: *const_idx,
-                    dest_ref_idx: *dest_ref_idx,
-                }
-            }
+            } => Tier1CompiledInstr::BinaryRefConstToRefDIntGuard {
+                op: *op,
+                left_ref_idx: *left_ref_idx,
+                const_idx: *const_idx,
+                dest_ref_idx: *dest_ref_idx,
+            },
             RegisterInstr::BinaryConstRefToRef {
                 op,
                 const_idx,
                 right_ref_idx,
                 dest_ref_idx,
-            } => {
-                if !is_tier1_supported_binary_op(*op) {
-                    return Err(format!("unsupported_binary_op:{op:?}").to_ascii_lowercase());
-                }
-                Tier1CompiledInstr::BinaryConstRefToRefDIntGuard {
-                    op: *op,
-                    const_idx: *const_idx,
-                    right_ref_idx: *right_ref_idx,
-                    dest_ref_idx: *dest_ref_idx,
-                }
-            }
+            } => Tier1CompiledInstr::BinaryConstRefToRefDIntGuard {
+                op: *op,
+                const_idx: *const_idx,
+                right_ref_idx: *right_ref_idx,
+                dest_ref_idx: *dest_ref_idx,
+            },
             RegisterInstr::CmpRefConstJumpIf {
                 op,
                 ref_idx,
@@ -209,25 +189,4 @@ pub(in crate::runtime::vm::register_ir) fn compile_tier1_block(
     }
 
     Ok(Tier1CompiledBlock { key, instructions })
-}
-
-fn is_tier1_supported_binary_op(op: BinaryOp) -> bool {
-    matches!(
-        op,
-        BinaryOp::Add
-            | BinaryOp::Sub
-            | BinaryOp::Mul
-            | BinaryOp::Div
-            | BinaryOp::Mod
-            | BinaryOp::Pow
-            | BinaryOp::And
-            | BinaryOp::Or
-            | BinaryOp::Xor
-            | BinaryOp::Eq
-            | BinaryOp::Ne
-            | BinaryOp::Lt
-            | BinaryOp::Le
-            | BinaryOp::Gt
-            | BinaryOp::Ge
-    )
 }

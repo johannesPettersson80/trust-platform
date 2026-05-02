@@ -85,6 +85,290 @@ fn register_executor_tier1_specialized_executor_keeps_startup_path_cold_until_ho
 }
 
 #[test]
+fn tier1_dint_binary_guard_returns_exact_arithmetic_results() {
+    let cases = [
+        (BinaryOp::Add, 7, 5, Value::DInt(12)),
+        (BinaryOp::Sub, 7, 5, Value::DInt(2)),
+        (BinaryOp::Mul, 7, 5, Value::DInt(35)),
+        (BinaryOp::Div, 8, 2, Value::DInt(4)),
+        (BinaryOp::Mod, 8, 3, Value::DInt(2)),
+    ];
+
+    for (op, left, right, expected) in cases {
+        assert_eq!(
+            super::apply_dint_binary_guard_borrowed(
+                op,
+                &Value::DInt(left),
+                &Value::DInt(right),
+            )
+            .expect("guard result"),
+            Some(expected),
+            "unexpected guard result for {op:?}",
+        );
+    }
+
+    let div_zero = super::apply_dint_binary_guard_borrowed(
+        BinaryOp::Div,
+        &Value::DInt(8),
+        &Value::DInt(0),
+    )
+    .expect_err("division by zero should fail");
+    assert!(matches!(div_zero, RuntimeError::DivisionByZero));
+}
+
+#[test]
+fn tier1_dint_binary_guard_returns_exact_comparison_results() {
+    let cases = [
+        (BinaryOp::Eq, 7, 7, Value::Bool(true)),
+        (BinaryOp::Ne, 7, 5, Value::Bool(true)),
+        (BinaryOp::Lt, 5, 7, Value::Bool(true)),
+        (BinaryOp::Lt, 7, 7, Value::Bool(false)),
+        (BinaryOp::Le, 7, 7, Value::Bool(true)),
+        (BinaryOp::Gt, 7, 5, Value::Bool(true)),
+        (BinaryOp::Gt, 7, 7, Value::Bool(false)),
+        (BinaryOp::Ge, 7, 7, Value::Bool(true)),
+    ];
+
+    for (op, left, right, expected) in cases {
+        assert_eq!(
+            super::apply_dint_binary_guard_borrowed(
+                op,
+                &Value::DInt(left),
+                &Value::DInt(right),
+            )
+            .expect("guard result"),
+            Some(expected),
+            "unexpected guard result for {op:?}",
+        );
+    }
+}
+
+#[test]
+fn tier1_dint_binary_guard_declines_unsupported_inputs() {
+    assert_eq!(
+        super::apply_dint_binary_guard_borrowed(
+            BinaryOp::Add,
+            &Value::Bool(true),
+            &Value::DInt(1),
+        )
+        .expect("guard result"),
+        None
+    );
+    assert_eq!(
+        super::apply_dint_binary_guard_borrowed(
+            BinaryOp::And,
+            &Value::DInt(1),
+            &Value::DInt(1),
+        )
+        .expect("guard result"),
+        None
+    );
+}
+
+#[test]
+fn tier1_compiler_accepts_all_fused_binary_register_forms() {
+    let instructions = [
+        RegisterInstr::BinaryRefToRef {
+            op: BinaryOp::Add,
+            left_ref_idx: 0,
+            right_ref_idx: 1,
+            dest_ref_idx: 2,
+        },
+        RegisterInstr::BinaryRefConstToRef {
+            op: BinaryOp::Sub,
+            left_ref_idx: 0,
+            const_idx: 0,
+            dest_ref_idx: 2,
+        },
+        RegisterInstr::BinaryConstRefToRef {
+            op: BinaryOp::Mul,
+            const_idx: 0,
+            right_ref_idx: 1,
+            dest_ref_idx: 2,
+        },
+    ];
+
+    for instruction in instructions {
+        compile_single_tier1_instruction(instruction).expect("fused binary should compile");
+    }
+}
+
+#[test]
+fn tier1_compiler_accepts_cmp_ref_const_jump_only_for_comparisons() {
+    compile_single_tier1_instruction(RegisterInstr::CmpRefConstJumpIf {
+        op: BinaryOp::Lt,
+        ref_idx: 0,
+        const_idx: 0,
+        jump_if_true: true,
+        target: BlockTarget::Exit,
+    })
+    .expect("comparison branch should compile");
+
+    let err =
+        compile_single_tier1_instruction(RegisterInstr::CmpRefConstJumpIf {
+            op: BinaryOp::Add,
+            ref_idx: 0,
+            const_idx: 0,
+            jump_if_true: true,
+            target: BlockTarget::Exit,
+        })
+        .expect_err("non-comparison branch should be rejected");
+    assert!(
+        err.contains("unsupported_cmp_op:add"),
+        "unexpected compile error: {err}",
+    );
+}
+
+fn compile_single_tier1_instruction(instruction: RegisterInstr) -> Result<(), String> {
+    let (module, pou_id) = manual_vm_module(Vec::new(), vec![Value::DInt(1)], 3);
+    let block = RegisterBlock {
+        id: 0,
+        start_pc: 0,
+        end_pc: 0,
+        entry_stack_depth: 0,
+        instructions: vec![instruction],
+    };
+    let key = super::tier1_block_key(&module, pou_id, &block);
+    super::compile_tier1_block(&module, &block, key).map(|_| ())
+}
+
+#[test]
+fn tier1_executor_rejects_null_reference_ref_field() {
+    let (module, pou_id) = manual_vm_module(Vec::new(), Vec::new(), 0);
+    let (program, source_block) = tier1_two_block_program(pou_id, 2);
+    let mut runtime = Runtime::new();
+    let mut registers = vec![Value::Reference(None), Value::Null];
+
+    let err = execute_single_compiled_tier1_instruction(
+        &module,
+        &program,
+        &source_block,
+        Tier1CompiledInstr::RefField {
+            base: RegisterId(0),
+            field: SmolStr::new("FIELD"),
+            dest: RegisterId(1),
+        },
+        &mut runtime,
+        &mut registers,
+    )
+    .expect_err("null ref field should fail");
+
+    assert!(matches!(err, RuntimeError::NullReference));
+}
+
+#[test]
+fn tier1_executor_cmp_ref_const_jump_takes_matching_branch() {
+    let (module, pou_id) = manual_vm_module(Vec::new(), vec![Value::DInt(5)], 1);
+    let (program, source_block) = tier1_two_block_program(pou_id, 0);
+    let mut runtime = Runtime::new();
+    runtime.storage_mut().set_global("g0", Value::DInt(3));
+    let mut registers = Vec::new();
+
+    let outcome = execute_single_compiled_tier1_instruction(
+        &module,
+        &program,
+        &source_block,
+        Tier1CompiledInstr::CmpRefConstJumpIfDIntGuard {
+            op: BinaryOp::Lt,
+            ref_idx: 0,
+            const_idx: 0,
+            jump_if_true: true,
+            target: BlockTarget::Block(1),
+        },
+        &mut runtime,
+        &mut registers,
+    )
+    .expect("comparison branch should execute");
+
+    assert_eq!(
+        outcome,
+        RegisterBlockExecutionOutcome::Continue(Some(BlockTarget::Block(1)))
+    );
+}
+
+#[test]
+fn tier1_executor_jump_if_takes_matching_branch() {
+    let (module, pou_id) = manual_vm_module(Vec::new(), Vec::new(), 0);
+    let (program, source_block) = tier1_two_block_program(pou_id, 1);
+    let mut runtime = Runtime::new();
+    let mut registers = vec![Value::Bool(true)];
+
+    let outcome = execute_single_compiled_tier1_instruction(
+        &module,
+        &program,
+        &source_block,
+        Tier1CompiledInstr::JumpIf {
+            cond: RegisterId(0),
+            jump_if_true: true,
+            target: BlockTarget::Block(1),
+        },
+        &mut runtime,
+        &mut registers,
+    )
+    .expect("jump-if should execute");
+
+    assert_eq!(
+        outcome,
+        RegisterBlockExecutionOutcome::Continue(Some(BlockTarget::Block(1)))
+    );
+}
+
+fn tier1_two_block_program(pou_id: u32, max_registers: u32) -> (RegisterProgram, RegisterBlock) {
+    let source_block = RegisterBlock {
+        id: 0,
+        start_pc: 0,
+        end_pc: 1,
+        entry_stack_depth: 0,
+        instructions: Vec::new(),
+    };
+    let target_block = RegisterBlock {
+        id: 1,
+        start_pc: 1,
+        end_pc: 1,
+        entry_stack_depth: 0,
+        instructions: Vec::new(),
+    };
+    let program = RegisterProgram {
+        pou_id,
+        entry_block: 0,
+        max_registers,
+        blocks: vec![source_block.clone(), target_block],
+    };
+    (program, source_block)
+}
+
+fn execute_single_compiled_tier1_instruction(
+    module: &VmModule,
+    program: &RegisterProgram,
+    source_block: &RegisterBlock,
+    instruction: Tier1CompiledInstr,
+    runtime: &mut Runtime,
+    registers: &mut [Value],
+) -> Result<RegisterBlockExecutionOutcome, RuntimeError> {
+    let key = super::tier1_block_key(module, program.pou_id, source_block);
+    let compiled = Tier1CompiledBlock {
+        key,
+        instructions: vec![instruction],
+    };
+    let mut frames = super::FrameStack::default();
+    let mut native_call_stack = super::OperandStack::default();
+    let mut budget = 16;
+    let Tier1BlockExecutionOutcome::Executed(outcome) = execute_tier1_compiled_block(
+        runtime,
+        module,
+        program,
+        source_block,
+        &mut frames,
+        registers,
+        &mut native_call_stack,
+        &compiled,
+        &mut budget,
+        0,
+    )?;
+    Ok(outcome)
+}
+
+#[test]
 fn tier1_compiler_accepts_load_ref_addr_dynamic_block() {
     let mut code = Vec::new();
     code.push(0x22);
@@ -650,6 +934,123 @@ fn register_executor_tier1_specialized_executor_cache_hits_reuse_compiled_block_
     let fetched = state.compiled_block(&key).cloned().expect("compiled block");
 
     assert!(std::sync::Arc::ptr_eq(&compiled, &fetched));
+}
+
+#[test]
+fn register_executor_tier1_state_defaults_disabled() {
+    let state = super::RegisterTier1SpecializedExecutorState::default();
+
+    assert!(!state.enabled());
+    assert!(!state.snapshot().enabled);
+}
+
+#[test]
+fn register_executor_tier1_state_from_env_reads_threshold_and_cache() {
+    const ENABLED: &str = "TRUST_VM_TIER1_SPECIALIZED_EXECUTOR";
+    const THRESHOLD: &str = "TRUST_VM_TIER1_SPECIALIZED_EXECUTOR_HOT_THRESHOLD";
+    const CACHE_CAP: &str = "TRUST_VM_TIER1_SPECIALIZED_EXECUTOR_CACHE_CAP";
+
+    let saved = [
+        (ENABLED, std::env::var_os(ENABLED)),
+        (THRESHOLD, std::env::var_os(THRESHOLD)),
+        (CACHE_CAP, std::env::var_os(CACHE_CAP)),
+    ];
+    std::env::set_var(ENABLED, "false");
+    std::env::set_var(THRESHOLD, "7");
+    std::env::set_var(CACHE_CAP, "9");
+
+    let snapshot = super::RegisterTier1SpecializedExecutorState::from_env().snapshot();
+    restore_env_vars(saved);
+
+    assert!(!snapshot.enabled);
+    assert_eq!(snapshot.hot_block_threshold, 7);
+    assert_eq!(snapshot.cache_capacity, 9);
+}
+
+#[test]
+fn register_executor_tier1_env_parsers_accept_tokens_and_defaults() {
+    let bool_key = "TRUST_TEST_TIER1_ENV_BOOL";
+    std::env::remove_var(bool_key);
+    assert!(parse_tier1_env_bool(bool_key, true));
+    assert!(!parse_tier1_env_bool(bool_key, false));
+
+    for value in ["1", "true", "YES", " on "] {
+        std::env::set_var(bool_key, value);
+        assert!(
+            parse_tier1_env_bool(bool_key, false),
+            "expected true for {value:?}"
+        );
+    }
+    for value in ["0", "false", "NO", " off "] {
+        std::env::set_var(bool_key, value);
+        assert!(
+            !parse_tier1_env_bool(bool_key, true),
+            "expected false for {value:?}"
+        );
+    }
+    std::env::set_var(bool_key, "maybe");
+    assert!(parse_tier1_env_bool(bool_key, true));
+    assert!(!parse_tier1_env_bool(bool_key, false));
+    std::env::remove_var(bool_key);
+
+    let usize_key = "TRUST_TEST_TIER1_ENV_USIZE";
+    std::env::remove_var(usize_key);
+    assert_eq!(parse_tier1_env_usize(usize_key, 128), 128);
+    std::env::set_var(usize_key, "9");
+    assert_eq!(parse_tier1_env_usize(usize_key, 128), 9);
+    std::env::set_var(usize_key, "bad");
+    assert_eq!(parse_tier1_env_usize(usize_key, 128), 128);
+    std::env::remove_var(usize_key);
+}
+
+#[test]
+fn register_executor_tier1_state_reset_clears_cache_and_counters() {
+    let mut code = Vec::new();
+    code.push(0x20);
+    emit_u32(&mut code, 0);
+    code.push(0x10);
+    emit_u32(&mut code, 0);
+    code.push(0x40);
+    code.push(0x21);
+    emit_u32(&mut code, 0);
+    code.push(0x06);
+    let (module, pou_id) = manual_vm_module(code, vec![Value::DInt(1)], 1);
+
+    let mut runtime = Runtime::new();
+    runtime.storage_mut().set_global("g0", Value::DInt(1));
+    runtime.vm_tier1_specialized_executor.set_enabled(true);
+    runtime.vm_tier1_specialized_executor.hot_block_threshold = 1;
+
+    let outcome = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
+        .expect("execute register program");
+    assert_eq!(outcome, RegisterExecutionOutcome::Executed);
+
+    let before = runtime.vm_tier1_specialized_executor_snapshot();
+    assert!(before.cached_blocks >= 1, "snapshot={before:?}");
+    assert!(before.compile_attempts >= 1, "snapshot={before:?}");
+    assert!(before.compile_successes >= 1, "snapshot={before:?}");
+    assert!(before.block_executions >= 1, "snapshot={before:?}");
+
+    runtime.reset_vm_tier1_specialized_executor();
+
+    let after = runtime.vm_tier1_specialized_executor_snapshot();
+    assert!(after.enabled);
+    assert_eq!(after.cached_blocks, 0, "snapshot={after:?}");
+    assert_eq!(after.compile_attempts, 0, "snapshot={after:?}");
+    assert_eq!(after.compile_successes, 0, "snapshot={after:?}");
+    assert_eq!(after.compile_failures, 0, "snapshot={after:?}");
+    assert_eq!(after.cache_evictions, 0, "snapshot={after:?}");
+    assert_eq!(after.block_executions, 0, "snapshot={after:?}");
+    assert!(after.compile_failure_reasons.is_empty(), "snapshot={after:?}");
+}
+
+fn restore_env_vars<const N: usize>(saved: [(&'static str, Option<std::ffi::OsString>); N]) {
+    for (key, value) in saved {
+        match value {
+            Some(value) => std::env::set_var(key, value),
+            None => std::env::remove_var(key),
+        }
+    }
 }
 
 #[test]

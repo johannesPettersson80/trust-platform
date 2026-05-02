@@ -13,8 +13,11 @@ use self::decode::{collect_block_leaders, compute_block_entry_stack_depths, deco
 use self::decode::{
     jump_target_pc, operand_i32, operand_native_call, operand_u32, pc_to_block_target,
 };
+#[cfg(not(test))]
 use self::fuse::fuse_register_block_instructions;
 pub(super) use self::fuse::is_cmp_binary_op;
+#[cfg(test)]
+pub(super) use self::fuse::{fuse_register_block_instructions, instruction_reads_register};
 pub(super) use self::verify::verify_register_program;
 
 fn canonical_stack_register(slot: u32) -> RegisterId {

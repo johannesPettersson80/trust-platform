@@ -1,6 +1,6 @@
 # Runtime VM Mutation Hardening Execution Checklist
 
-Status: In progress; Phase 1 VM call-dispatch, register-IR root/interpreter, and register-IR lower-root baselines closed with zero missed/timeout mutants; remaining register-IR lowering baselines are next.
+Status: Complete; focused runtime VM mutation shards for call dispatch, register IR root/interpreter/lowering, and tier1 compile/execute/state are closed with zero missed/timeout mutants, and full-map doctor output includes the runtime VM mutation evidence.
 Owner: Runtime VM team
 Scope: add mutation-backed semantic tests for high-risk VM execution paths before claiming zero silent bugs for runtime execution.
 
@@ -15,10 +15,10 @@ Scope: add mutation-backed semantic tests for high-risk VM execution paths befor
 
 ## Stop Rules
 
-- [ ] `RTVMMUT-STOP-01` Do not claim VM behavior is protected because integration tests are broad.
-- [ ] `RTVMMUT-STOP-02` Do not accept surviving mutants without equivalent-mutant rationale.
-- [ ] `RTVMMUT-STOP-03` Do not mutate-test only unreachable or test-only code and call the VM covered.
-- [ ] `RTVMMUT-STOP-04` Do not weaken existing VM parity/differential tests to make mutation pass.
+- [x] `RTVMMUT-STOP-01` Do not claim VM behavior is protected because integration tests are broad. Evidence: the closed claim is based on the exact `scripts/runtime_vm_mutation_shards.sh --run <shard>` artifacts, not on broad integration-test presence.
+- [x] `RTVMMUT-STOP-02` Do not accept surviving mutants without equivalent-mutant rationale. Evidence: all selected shard `missed.txt` and `timeout.txt` files are empty; the redundant always-true tier1 binary-op guard was removed instead of accepting an equivalent missed mutant.
+- [x] `RTVMMUT-STOP-03` Do not mutate-test only unreachable or test-only code and call the VM covered. Evidence: selected shards target production VM call dispatch, register-IR lowering/interpreter, and tier1 compile/execute/state files; test-only helpers are supporting coverage only.
+- [x] `RTVMMUT-STOP-04` Do not weaken existing VM parity/differential tests to make mutation pass. Evidence: changes add focused semantic tests and full-map reporting; existing parity/differential assertions remain active and `cargo test -p trust-runtime --lib register_ir::tests -- --nocapture` passes.
 
 ## Phase 0 - Exact Mutation Command Lock
 
@@ -34,31 +34,31 @@ Scope: add mutation-backed semantic tests for high-risk VM execution paths befor
 ## Phase 1 - Baseline
 
 - [x] `RTVMMUT-P1-001` Run the exact `RTVMMUT-P0-002` command for VM call dispatch. Evidence: in-place reruns from clean tracked commits closed all call-dispatch shards under `target/gate-artifacts/runtime-vm-mutants/`: `call-root` 25 total / 22 caught / 3 unviable / 0 missed / 0 timeout; `call-bindings` 83 total / 59 caught / 24 unviable / 0 missed / 0 timeout; `call-stdlib` 58 total / 48 caught / 10 unviable / 0 missed / 0 timeout; `call-symbols` 4 total / 2 caught / 2 unviable / 0 missed / 0 timeout.
-- [ ] `RTVMMUT-P1-002` Run the exact `RTVMMUT-P0-003` and `RTVMMUT-P0-004` commands for register IR root/lowering. Partial evidence: `register-ir-root` was rerun in-place from clean tracked commit `3471286b2` and closed at 92 total / 74 caught / 18 unviable / 0 missed / 0 timeout under `target/gate-artifacts/runtime-vm-mutants/register-ir-root/mutants.out/`; `register-ir-interpreter` was rerun in-place from clean tracked commit `f3f4727c1` and closed at 9 total / 6 caught / 3 unviable / 0 missed / 0 timeout under `target/gate-artifacts/runtime-vm-mutants/register-ir-interpreter/mutants.out/`; `register-ir-lower-root` was rerun in-place from clean tracked commit `cbd028f6c` and closed at 68 total / 63 caught / 5 unviable / 0 missed / 0 timeout under `target/gate-artifacts/runtime-vm-mutants/register-ir-lower-root/mutants.out/`; `register-ir-lower-decode` was rerun in-place from clean tracked commit `1722687ec` and closed at 138 total / 136 caught / 2 unviable / 0 missed / 0 timeout under `target/gate-artifacts/runtime-vm-mutants/register-ir-lower-decode/mutants.out/`; remaining P1-002 shards are `register-ir-lower-fuse` and `register-ir-lower-verify`.
-- [ ] `RTVMMUT-P1-003` Run the exact `RTVMMUT-P0-005` command for tier1/register execution if the active branch contains the file.
-- [ ] `RTVMMUT-P1-004` Store survivor lists and `--list --json` mutant lists as artifacts. Partial evidence: Phase 0 list artifacts are present under `target/gate-artifacts/runtime-vm-mutants/lists/`; Phase 1 call-dispatch, `register-ir-root`, `register-ir-interpreter`, `register-ir-lower-root`, and `register-ir-lower-decode` survivor files are present under each shard's `mutants.out/` directory and their `missed.txt` / `timeout.txt` files are empty.
-- [ ] `RTVMMUT-P1-005` Classify survivors by semantic area and by test target that should have killed them. Partial evidence: call-dispatch survivors were reduced to zero after adding semantic tests for builtin FB call execution, stdlib fixed/variadic argument binding, split-time output dispatch, VM/native output binding, local reference writes, and integer output conversion; `register-ir-root` survivors were reduced to zero after adding semantic tests for execution-buffer pool return/limits, register-file preparation, env bool parsing, initial-local capacity, linear fallthrough target selection, bool/reference helper errors, loop budget, block-id lookup, debug statement mapping, and deadline boundaries plus a deterministic block-id invariant for corrupted helper resolution; `register-ir-interpreter` survivor was reduced to zero by adding an interpreted `RefField` null-reference-base test; `register-ir-lower-root` survivors were reduced to zero by adding stack-normalization tests for protected registers and independent register cycles, opcode-family lowering tests for NOP/LoadNull/binary operators, call-native/swap stack-depth tests, and a return-termination test, plus a bounded normalization loop that converts non-converging lowering mutations into explicit invalid-bytecode errors; `register-ir-lower-decode` survivors were reduced to zero by adding decode tests for conflicting block-entry stack depths, ROT3/ROT4 underflow and exact-depth acceptance, exit/fallthrough leader exclusion, RETURN termination of entry-depth propagation, conditional fallthrough at `code_end`, and fallback operand preservation.
+- [x] `RTVMMUT-P1-002` Run the exact `RTVMMUT-P0-003` and `RTVMMUT-P0-004` commands for register IR root/lowering. Evidence: `register-ir-root` 92 total / 74 caught / 18 unviable / 0 missed / 0 timeout; `register-ir-interpreter` 9 total / 6 caught / 3 unviable / 0 missed / 0 timeout; `register-ir-lower-root` 68 total / 63 caught / 5 unviable / 0 missed / 0 timeout; `register-ir-lower-decode` 138 total / 136 caught / 2 unviable / 0 missed / 0 timeout; `register-ir-lower-fuse` 175 total / 172 caught / 3 unviable / 0 missed / 0 timeout; `register-ir-lower-verify` 11 total / 11 caught / 0 unviable / 0 missed / 0 timeout.
+- [x] `RTVMMUT-P1-003` Run the exact `RTVMMUT-P0-005` command for tier1/register execution if the active branch contains the file. Evidence: `register-ir-tier1-root` 32 total / 27 caught / 5 unviable / 0 missed / 0 timeout; `register-ir-tier1-compile` 2 total / 1 caught / 1 unviable / 0 missed / 0 timeout; `register-ir-tier1-execute` 8 total / 6 caught / 2 unviable / 0 missed / 0 timeout; `register-ir-tier1-state` 32 total / 31 caught / 1 unviable / 0 missed / 0 timeout.
+- [x] `RTVMMUT-P1-004` Store survivor lists and `--list --json` mutant lists as artifacts. Evidence: Phase 0 list artifacts are present under `target/gate-artifacts/runtime-vm-mutants/lists/`; all selected Phase 1 shard outcome/survivor artifacts are present under `target/gate-artifacts/runtime-vm-mutants/<shard>/mutants.out/`, and their `missed.txt` / `timeout.txt` files are empty.
+- [x] `RTVMMUT-P1-005` Classify survivors by semantic area and by test target that should have killed them. Evidence: previous call-dispatch, register-IR root/interpreter, lower-root, and lower-decode survivors remain closed; lower-fuse survivors were closed by direct fusion-window, guard-failure, compare-jump, and `instruction_reads_register` operand tests; lower-verify survivors were closed by undefined-source and move-destination verifier tests; tier1 survivors were closed by DINT guard arithmetic/comparison tests, fused binary and compare compile tests, direct compiled execute branch/null-reference tests, and tier1 state/env/reset tests.
 
 ## Phase 2 - Semantic Matrix
 
-- [ ] `RTVMMUT-P2-001` Arithmetic and comparison opcode behavior.
-- [ ] `RTVMMUT-P2-002` Branch/jump/control-flow behavior.
-- [ ] `RTVMMUT-P2-003` FB/class method call behavior.
-- [ ] `RTVMMUT-P2-004` String/array/struct access behavior.
-- [ ] `RTVMMUT-P2-005` Reference and pointer behavior.
-- [ ] `RTVMMUT-P2-006` Error mapping behavior.
-- [ ] `RTVMMUT-P2-007` Register IR lowering behavior for supported instruction families.
-- [ ] `RTVMMUT-P2-008` Tier1 fallback/deopt behavior where applicable.
+- [x] `RTVMMUT-P2-001` Arithmetic and comparison opcode behavior. Evidence: `register_ir::tests` covers DINT tier1 guard exact arithmetic/comparison results, binary opcode-family lowering, ref/const fused binary variants, and comparison jump guards.
+- [x] `RTVMMUT-P2-002` Branch/jump/control-flow behavior. Evidence: decode tests cover branch leaders, fallthrough, return termination, invalid targets, and block-entry depths; tier1 direct execution tests cover compare-jump and `JumpIf` branch conditions.
+- [x] `RTVMMUT-P2-003` FB/class method call behavior. Evidence: register-IR and tier1 tests cover function calls, function block calls, self-field dynamic ops, load-super dynamic blocks, and call-native function-block paths without fallback.
+- [x] `RTVMMUT-P2-004` String/array/struct access behavior. Evidence: register-IR corpus diagnostics execute string stdlib/case fixtures without fallback; tier1 tests cover array reference blocks and struct/function-block IN_OUT clone behavior.
+- [x] `RTVMMUT-P2-005` Reference and pointer behavior. Evidence: tests cover load-ref-address, ref-field/ref-index, dynamic load/store, null-reference read helpers, borrowed ref/ref and ref/const binary guards, and fused ref-to-ref operations.
+- [x] `RTVMMUT-P2-006` Error mapping behavior. Evidence: tests cover verifier invalid bytecode, invalid jump targets, null reference, condition-not-bool, division/modulo by zero, unsupported opcode fallback reasons, and lowering-cache error caching.
+- [x] `RTVMMUT-P2-007` Register IR lowering behavior for supported instruction families. Evidence: lower-root/decode/fuse/verify shards are closed with zero missed/timeouts, and `register_ir::tests` covers NOP/null/full binary opcode families, stack normalization, call-native/swap depth, return termination, fallback operand preservation, and fuse windows.
+- [x] `RTVMMUT-P2-008` Tier1 fallback/deopt behavior where applicable. Evidence: tier1 tests cover cold/hot thresholds, compile failure reasons, bool/non-DINT execution without deopt, cache hits/evictions, reset/env state, and full tier1 shards are closed with zero missed/timeouts.
 
 ## Phase 3 - Mutation Gate
 
-- [ ] `RTVMMUT-P3-001` Rerun focused VM mutation shards.
-- [ ] `RTVMMUT-P3-002` Reduce unexplained survivors to zero for selected shards.
-- [ ] `RTVMMUT-P3-003` Document equivalent mutants.
-- [ ] `RTVMMUT-P3-004` Add scheduled or manual gate command.
+- [x] `RTVMMUT-P3-001` Rerun focused VM mutation shards. Evidence: all 14 selected shards are represented in `FULLMAP-RUNTIMEVM-MUT` from `target/gate-artifacts/full-software-map-14b2200b7/full-map-report.json`.
+- [x] `RTVMMUT-P3-002` Reduce unexplained survivors to zero for selected shards. Evidence: `FULLMAP-RUNTIMEVM-MUT` reports 0 missed and 0 timeout mutants for every selected shard.
+- [x] `RTVMMUT-P3-003` Document equivalent mutants. Evidence: no selected shard has a remaining missed/equivalent mutant; the redundant tier1 all-`BinaryOp` support guard was removed rather than documented as an accepted equivalent.
+- [x] `RTVMMUT-P3-004` Add scheduled or manual gate command. Evidence: manual shard gate remains `TRUST_VM_MUTANTS_IN_PLACE=1 scripts/runtime_vm_mutation_shards.sh --run <shard>` from a clean tracked tree; `cargo xtask architecture-doctor --full-map` now reports selected shard evidence through `FULLMAP-RUNTIMEVM-MUT`.
 
 ## Exit Criteria
 
-- [ ] `RTVMMUT-EXIT-01` Focused VM semantic tests pass.
-- [ ] `RTVMMUT-EXIT-02` Focused VM mutation shard has zero unexplained survivors.
-- [ ] `RTVMMUT-EXIT-03` VM mutation evidence is included in full-map doctor/report output.
+- [x] `RTVMMUT-EXIT-01` Focused VM semantic tests pass. Evidence: `cargo test -p trust-runtime --lib register_ir::tests -- --nocapture` passed 94 tests.
+- [x] `RTVMMUT-EXIT-02` Focused VM mutation shard has zero unexplained survivors. Evidence: `FULLMAP-RUNTIMEVM-MUT` reports all 14 selected shards with 0 missed and 0 timeout mutants.
+- [x] `RTVMMUT-EXIT-03` VM mutation evidence is included in full-map doctor/report output. Evidence: `cargo xtask architecture-doctor --full-map` passed and wrote `target/gate-artifacts/full-software-map-14b2200b7/full-map-report.json` / `.md` with `PASS: FULLMAP-RUNTIMEVM-MUT`.

@@ -228,7 +228,36 @@
       {"name": "watchdog", "subsystem": "portable_runtime_core", "owner": "runtime/watchdog", "rationale": "runtime watchdog and deadline handling", "review_date": "2026-04-30", "decision_note": "ARCHPROG-C-05 baseline freeze"},
       {"name": "web", "subsystem": "host_surface_web", "owner": "runtime/web", "rationale": "HTTP routes, websocket transport, and browser assets", "review_date": "2026-04-30", "decision_note": "ARCHPROG-C-05 baseline freeze"}
     ],
-    "large_file_allowlist": []
+    "large_file_allowlist": [
+      {
+        "path": "crates/trust-runtime/src/runtime/vm/register_ir.rs",
+        "owner": "runtime/VM",
+        "rationale": "register-IR executor root is temporarily over the KISS note threshold while the mutation hardening board closes the current baseline",
+        "review_date": "2026-05-02",
+        "split_plan": "After RTVMMUT closes, split root execution orchestration from register-file helpers and profile/cache glue behind the existing register_ir child modules."
+      },
+      {
+        "path": "crates/trust-runtime/src/runtime/vm/register_ir/tests/lowering.rs",
+        "owner": "runtime/VM tests",
+        "rationale": "lowering mutation-hardening tests intentionally keep related register-IR lowering fixtures together until the baseline is closed",
+        "review_date": "2026-05-02",
+        "split_plan": "Split lowering tests by decode, fuse, verify, and stack-normalization domains after the mutation checklist baseline is complete."
+      },
+      {
+        "path": "crates/trust-runtime/src/runtime/vm/register_ir/tests/tier1.rs",
+        "owner": "runtime/VM tests",
+        "rationale": "tier1 mutation-hardening tests intentionally keep compile, execute, and state cases together until the baseline is closed",
+        "review_date": "2026-05-02",
+        "split_plan": "Split tier1 tests into compile, execute, state, and integration files after the mutation checklist baseline is complete."
+      },
+      {
+        "path": "crates/trust-runtime/src/runtime/vm/call/tests.rs",
+        "owner": "runtime/VM tests",
+        "rationale": "call-dispatch mutation-hardening tests predate the full-map KISS gate and need explicit ownership before a later split",
+        "review_date": "2026-05-02",
+        "split_plan": "Split call-dispatch tests by bindings, stdlib, symbols, and output-binding domains after the VM mutation board closes."
+      }
+    ]
   },
   "dependency_hygiene_tools": [
     {"name": "cargo audit", "status": "pass", "owner": "release engineering", "rationale": "raw advisories are fixed or explicitly ignored by policy metadata", "review_date": "2026-04-29", "evidence": "target/gate-artifacts/dependency-hygiene-v0.24.7/cargo-audit-after-mqtt-tls.json"},

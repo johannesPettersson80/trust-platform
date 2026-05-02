@@ -19,14 +19,16 @@ use super::super::{VmPouEntry, VmRef};
 use super::{
     block_index_from_id, collect_block_leaders, compute_block_entry_stack_depths,
     consume_loop_budget, consume_loop_budget_for_block_target, deadline_exceeded, decode_pou,
-    execute_register_block_interpreted, invalid_bytecode, lower_pou_to_register_ir,
-    next_linear_block_target, normalize_stack_for_block_exit, parse_env_bool,
-    prepare_register_file, read_bool_register, read_reference_register,
-    read_reference_register_with_counts, read_register_with_counts, register_statement_location,
-    try_execute_pou_with_register_ir, try_execute_pou_with_register_ir_with_locals,
-    verify_register_program, BlockTarget, RegisterBlock, RegisterExecutionBuffers,
+    execute_register_block_interpreted, execute_tier1_compiled_block,
+    fuse_register_block_instructions, instruction_reads_register, invalid_bytecode,
+    lower_pou_to_register_ir, next_linear_block_target, normalize_stack_for_block_exit,
+    parse_env_bool, parse_tier1_env_bool, parse_tier1_env_usize, prepare_register_file,
+    read_bool_register, read_reference_register, read_reference_register_with_counts,
+    read_register_with_counts, register_statement_location, try_execute_pou_with_register_ir,
+    try_execute_pou_with_register_ir_with_locals, verify_register_program, BlockTarget,
+    RegisterBlock, RegisterBlockExecutionOutcome, RegisterExecutionBuffers,
     RegisterExecutionOutcome, RegisterId, RegisterInstr, RegisterProfileState, RegisterProgram,
-    VmModule,
+    Tier1BlockExecutionOutcome, Tier1CompiledBlock, Tier1CompiledInstr, VmModule,
 };
 
 fn vm_module_and_main_pou(source: &str) -> (VmModule, u32) {

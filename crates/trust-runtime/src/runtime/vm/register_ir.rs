@@ -331,7 +331,8 @@ use self::lower::lower_pou_to_register_ir;
 #[cfg(test)]
 use self::lower::{
     collect_block_leaders, compute_block_entry_stack_depths, decode_pou,
-    normalize_stack_for_block_exit, verify_register_program,
+    fuse_register_block_instructions, instruction_reads_register, normalize_stack_for_block_exit,
+    verify_register_program,
 };
 use self::profile::{CachedRegisterProgram, RegisterLoweringCacheEntry};
 pub(in crate::runtime::vm) use self::profile::{
@@ -340,7 +341,11 @@ pub(in crate::runtime::vm) use self::profile::{
 pub(in crate::runtime) use self::profile::{RegisterLoweringCacheState, RegisterProfileState};
 pub(in crate::runtime) use self::tier1::RegisterTier1SpecializedExecutorState;
 #[cfg(test)]
-use self::tier1::{apply_dint_binary_guard_borrowed, compile_tier1_block, tier1_block_key};
+use self::tier1::{
+    apply_dint_binary_guard_borrowed, compile_tier1_block, execute_tier1_compiled_block,
+    parse_tier1_env_bool, parse_tier1_env_usize, tier1_block_key, Tier1CompiledBlock,
+    Tier1CompiledInstr,
+};
 use self::tier1::{maybe_execute_tier1_block, prepare_borrowed_binary_eval};
 
 fn parse_env_bool(name: &str, default: bool) -> bool {

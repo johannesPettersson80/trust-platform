@@ -1,7 +1,7 @@
 use super::*;
 
 #[allow(clippy::too_many_arguments)]
-pub(super) fn execute_tier1_compiled_block(
+pub(in crate::runtime::vm::register_ir) fn execute_tier1_compiled_block(
     runtime: &mut Runtime,
     module: &VmModule,
     program: &RegisterProgram,
