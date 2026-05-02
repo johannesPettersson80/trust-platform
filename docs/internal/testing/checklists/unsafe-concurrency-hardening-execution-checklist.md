@@ -1,6 +1,6 @@
 # Unsafe / Concurrency Hardening Execution Checklist
 
-Status: Planned
+Status: Active; Phase 1 baseline map is next after BOARD-10 completion.
 Owner: Runtime/HIR/release engineering
 Scope: turn unsafe, panic, unwrap/expect, and concurrency-sensitive code into an explicit risk register with focused Miri, sanitizer, Loom, and Valgrind evidence where those tools apply.
 

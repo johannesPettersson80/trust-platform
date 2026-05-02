@@ -37,8 +37,8 @@ Navigation guard: use `architecture-workboard-index.md` before resuming after a 
 - [x] `ARCHPROG-BOARD-07` Dependency hygiene: `dependency-hygiene-execution-checklist.md`.
 - [x] `ARCHPROG-BOARD-08` Runtime large-file split: `runtime-large-file-split-execution-checklist.md`. Evidence: the detail board is complete, all 11 measured runtime `src` and runtime `tests` large-file hotspots were split below 1,000 lines, the `kiss.large_file_allowlist` is empty, and `FULLMAP-CHECK-10` reports zero remaining runtime files over 1,000 lines while still blocking regressions.
 - [x] `ARCHPROG-BOARD-09` Diagram semantic enforcement is added before diagrams are trusted as acceptance evidence.
-- [ ] `ARCHPROG-BOARD-10` Runtime VM mutation hardening: `runtime-vm-mutation-hardening-execution-checklist.md`. Status: in progress; Phase 0 command lock captured for the current post-large-file-split VM module layout.
-- [ ] `ARCHPROG-BOARD-11` Unsafe/concurrency hardening: `unsafe-concurrency-hardening-execution-checklist.md`.
+- [x] `ARCHPROG-BOARD-10` Runtime VM mutation hardening: `runtime-vm-mutation-hardening-execution-checklist.md`. Evidence: the detail board is complete with `RTVMMUT-EXIT-01` through `RTVMMUT-EXIT-03` checked; selected call/register-IR/tier1 mutation shards have zero missed/timeout mutants; `FULLMAP-RUNTIMEVM-MUT` is reported by full-map doctor; and GitHub CI run `25253932423` passed for `df90e38e6`.
+- [ ] `ARCHPROG-BOARD-11` Unsafe/concurrency hardening: `unsafe-concurrency-hardening-execution-checklist.md`. Status: active; Phase 1 baseline map is next.
 - [x] `ARCHPROG-BOARD-12` HIR zero-silent-bug refactor: `hir-zero-silent-bug-refactor-checklist.md`.
 
 ## Recommended Order
@@ -81,8 +81,8 @@ Navigation guard: use `architecture-workboard-index.md` before resuming after a 
 - [x] `ARCHPROG-E-02` Split HMI/web/control/cloud surfaces behind ports/adapters. Evidence: `runtime-host-surface-ownership-checklist.md` is complete; HMI runtime access is behind control ports, HMI websocket event semantics are HMI-owned, runtime-cloud policy/projection modules own domain decisions, web routes remain transport adapters, and `FULLMAP-CHECK-07` prevents drift.
 - [x] `ARCHPROG-E-03` Add owner/split notes for every runtime Rust file over 1,000 lines. Evidence: `runtime-large-file-split-execution-checklist.md` Phase 1 records the measured 2026-05-01 inventory, all 11 measured runtime `src` and runtime `tests` large-file hotspots were split below 1,000 lines, and the empty `kiss.large_file_allowlist` plus `FULLMAP-CHECK-10` still blocks new regressions.
 - [ ] `ARCHPROG-E-04` Add KISS gates for module size, function size, public API growth, and top-level module growth.
-- [ ] `ARCHPROG-E-05` Add runtime VM mutation gate before claiming zero silent bugs for runtime execution. Status: in progress via `runtime-vm-mutation-hardening-execution-checklist.md`; Phase 0 locks current VM mutation shards and records 1,035 candidate mutants before baseline runs.
-- [ ] `ARCHPROG-E-06` Add unsafe/concurrency risk register and focused Miri/sanitizer/Loom/Valgrind evidence before claiming memory/concurrency safety.
+- [x] `ARCHPROG-E-05` Add runtime VM mutation gate before claiming zero silent bugs for runtime execution. Evidence: `runtime-vm-mutation-hardening-execution-checklist.md` is complete; manual shard gate command remains `TRUST_VM_MUTANTS_IN_PLACE=1 scripts/runtime_vm_mutation_shards.sh --run <shard>` from a clean tracked tree; and `cargo xtask architecture-doctor --full-map` reports selected runtime VM mutation evidence through `FULLMAP-RUNTIMEVM-MUT`.
+- [ ] `ARCHPROG-E-06` Add unsafe/concurrency risk register and focused Miri/sanitizer/Loom/Valgrind evidence before claiming memory/concurrency safety. Status: active via `unsafe-concurrency-hardening-execution-checklist.md`; Phase 1 baseline map is next.
 - [x] `ARCHPROG-E-07` Close `DEPHYG-FOLLOW-01` by implementing explicit MQTT TLS/mTLS and security tests before any release note, docs page, or architecture report describes remote MQTT as production-secure.
 
 ## Deferred End-Of-Program Modernization
@@ -117,7 +117,7 @@ Navigation guard: use `architecture-workboard-index.md` before resuming after a 
 - [x] `ARCHPROG-EXIT-07` Every runtime Rust file over 1,000 lines has an owner/split note; every file over 1,500 lines has an approved split plan, completed split, or dated waiver. Evidence: `FULLMAP-CHECK-10` passed on 2026-05-01 with zero remaining runtime `src` or runtime `tests` files over 1,000 lines after BOARD-08, and the runtime large-file allowlist is empty while regression blocking remains active.
 - [ ] `ARCHPROG-EXIT-08` Diagrams are source-checked, not only render-fresh.
 - [ ] `ARCHPROG-EXIT-09` Final report states what is fixed, what remains risky, and which gates prove each claim.
-- [ ] `ARCHPROG-EXIT-10` Runtime VM mutation shard has zero unexplained survivors or a documented equivalent-mutant list.
+- [x] `ARCHPROG-EXIT-10` Runtime VM mutation shard has zero unexplained survivors or a documented equivalent-mutant list. Evidence: `runtime-vm-mutation-hardening-execution-checklist.md` records all selected shards with `0` missed and `0` timeout mutants, no accepted equivalent survivors, full-map doctor `PASS: FULLMAP-RUNTIMEVM-MUT`, and passing GitHub CI for `df90e38e6`.
 - [ ] `ARCHPROG-EXIT-11` `trust-runtime/src` host top-level module count is at or below the configured full-map cap after CLI, host-surface, and runtime-core boards complete, or a dated waiver names the next extraction branch.
 - [ ] `ARCHPROG-EXIT-12` Unsafe/concurrency register is complete and focused Miri/sanitizer/Loom/Valgrind evidence or exact blockers are attached.
 - [x] `ARCHPROG-EXIT-13` HIR zero-silent-bug architecture is centralized, mutation-backed, doctor-guarded, and runtime declaration discovery is HIR catalog/parity driven.

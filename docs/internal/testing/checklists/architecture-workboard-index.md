@@ -1,15 +1,22 @@
 # Architecture Workboard Index
 
 Status: Active navigation guard
-Last verified: 2026-05-01 after starting BOARD-10 runtime VM mutation command locking.
+Last verified: 2026-05-02 after BOARD-10 runtime VM mutation hardening landed on `main` as `df90e38e6` and GitHub CI run `25253932423` passed.
 Owner: Architecture/runtime/HIR team
 Scope: reset-safe pointer to the right architecture checklists so future sessions do not swap boards.
 
 Unchecked `ARCHIDX-*` rows are recurring guard checks for each resume, not architecture board tasks to close.
 
+## Current Board Pointer
+
+- Current active board: BOARD-11 unsafe/concurrency hardening (`unsafe-concurrency-hardening-execution-checklist.md`).
+- Previous completed board: BOARD-10 runtime VM mutation hardening (`runtime-vm-mutation-hardening-execution-checklist.md`).
+- Do not use `docs/internal/masterPlan.md` to sequence this architecture program.
+- Resume path: read this index, then `full-architecture-refactor-program-checklist.md`, then the active dedicated board checklist.
+
 ## Source Of Truth
 
-- [ ] `ARCHIDX-RULE-01` Start architecture-program work from `full-architecture-refactor-program-checklist.md`.
+- [ ] `ARCHIDX-RULE-01` After this navigation guard, read `full-architecture-refactor-program-checklist.md` before opening the active dedicated board.
 - [ ] `ARCHIDX-RULE-02` Treat each board's dedicated checklist as the owner of detailed tasks and exit evidence.
 - [ ] `ARCHIDX-RULE-03` Do not use ignored or untracked local files as board authority. `docs/internal/masterPlan.md` currently exists locally but is ignored by `.gitignore`; for this architecture program it is not the sequencing source of truth.
 - [ ] `ARCHIDX-RULE-04` Before accepting an external board map, re-check the current branch with `git status --short --branch` and the tracked checklist rows.
@@ -28,8 +35,8 @@ The umbrella checklist is `full-architecture-refactor-program-checklist.md`. If 
 - [x] `ARCHPROG-BOARD-07` Dependency hygiene: `dependency-hygiene-execution-checklist.md`.
 - [x] `ARCHPROG-BOARD-08` Runtime large-file split: `runtime-large-file-split-execution-checklist.md`. Status: complete; `FULLMAP-CHECK-10` reports zero remaining runtime `src` or runtime `tests` files over 1,000 lines after all measured BOARD-08 hotspots were split.
 - [x] `ARCHPROG-BOARD-09` Diagram semantic enforcement: covered by the full-map doctor work.
-- [ ] `ARCHPROG-BOARD-10` Runtime VM mutation hardening: `runtime-vm-mutation-hardening-execution-checklist.md`. Status: in progress; Phase 0 command lock captured with `scripts/runtime_vm_mutation_shards.sh`.
-- [ ] `ARCHPROG-BOARD-11` Unsafe/concurrency hardening: `unsafe-concurrency-hardening-execution-checklist.md`.
+- [x] `ARCHPROG-BOARD-10` Runtime VM mutation hardening: `runtime-vm-mutation-hardening-execution-checklist.md`. Status: complete; focused call/register-IR/tier1 mutation shards have zero missed/timeout mutants, `FULLMAP-RUNTIMEVM-MUT` reports the evidence, and GitHub CI passed for `df90e38e6`.
+- [ ] `ARCHPROG-BOARD-11` Unsafe/concurrency hardening: `unsafe-concurrency-hardening-execution-checklist.md`. Status: active; start with Phase 1 baseline map.
 - [x] `ARCHPROG-BOARD-12` HIR zero-silent-bug refactor: `hir-zero-silent-bug-refactor-checklist.md`.
 
 ## Work Order
@@ -41,7 +48,8 @@ The umbrella checklist is `full-architecture-refactor-program-checklist.md`. If 
 - [x] `ARCHIDX-NEXT-07` Continue active BOARD-08 work in `runtime-large-file-split-execution-checklist.md`; completed `RTLARGE-HOT-08` (`crates/trust-runtime/tests/web_ide_integration/web_ide_integration_part_09.rs`) by splitting scenario groups while preserving all test names.
 - [x] `ARCHIDX-NEXT-08` Continue active BOARD-08 work in `runtime-large-file-split-execution-checklist.md`; completed `RTLARGE-HOT-12` (`crates/trust-runtime/src/runtime/vm/register_ir/tier1.rs`) by splitting state/cache, compile lowering, and compiled execution into child modules.
 - [x] `ARCHIDX-NEXT-09` Continue with `ARCHPROG-BOARD-10` Runtime VM mutation hardening (`runtime-vm-mutation-hardening-execution-checklist.md`) unless the user redirects. Evidence: Phase 0 command lock started with `scripts/runtime_vm_mutation_shards.sh --list`.
-- [ ] `ARCHIDX-NEXT-10` Continue BOARD-10 Phase 1 baseline mutation runs from `runtime-vm-mutation-hardening-execution-checklist.md`.
+- [x] `ARCHIDX-NEXT-10` BOARD-10 runtime VM mutation hardening is complete; do not resume it unless a new explicit scope reopens `runtime-vm-mutation-hardening-execution-checklist.md`.
+- [ ] `ARCHIDX-NEXT-11` Continue with BOARD-11 unsafe/concurrency hardening Phase 1 baseline map from `unsafe-concurrency-hardening-execution-checklist.md`.
 - [ ] `ARCHIDX-NEXT-03` Do not restart BOARD-06 or BOARD-12 unless the tracked dedicated checklist is reopened with a new explicit scope.
 - [ ] `ARCHIDX-NEXT-04` Keep non-program boards secondary unless the user explicitly redirects away from the architecture-program path.
 
