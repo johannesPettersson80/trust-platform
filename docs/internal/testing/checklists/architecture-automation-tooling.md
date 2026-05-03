@@ -46,6 +46,7 @@ Execution board for the full-map doctor command: `architecture-doctor-full-map-e
 - [ ] `AUTO-STATIC-001` Add PR gates for `cargo deny check`, `cargo audit`, `cargo machete`, and architecture doctor changed-area checks.
 - [ ] `AUTO-STATIC-002` Add scheduled gates for `cargo udeps`, `cargo geiger`, `cargo public-api`, and `cargo semver-checks`.
 - [ ] `AUTO-STATIC-003` Add Semgrep or Dylint rules for forbidden imports/calls that are awkward to express in the architecture doctor.
+- [x] `AUTO-STATIC-004` Add a CI-enforced external unsafe AST scanner to replace unreliable `cargo geiger` enforcement. Evidence: `scripts/architecture_external_safety_ast_grep_gate.sh` uses `ast-grep 0.42.1` to structurally scan Rust unsafe constructs, compares matches against the full-map unsafe register and delegated unsafe path register, writes artifacts under `target/gate-artifacts/architecture-external-safety-*`, and runs in the CI `Architecture Safety` job.
 
 ## Phase 5 - Test Adequacy and Bug Discovery
 

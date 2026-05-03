@@ -1,7 +1,7 @@
 # Architecture Workboard Index
 
 Status: Active navigation guard
-Last verified: 2026-05-03 after the external safety/dependency raw audit cleanup was validated locally; the remaining active gap is external unsafe scanner reliability.
+Last verified: 2026-05-03 after the external safety/dependency follow-up was closed with a CI-enforced `ast-grep` unsafe AST gate.
 Owner: Architecture/runtime/HIR team
 Scope: reset-safe pointer to the right architecture checklists so future sessions do not swap boards.
 
@@ -9,11 +9,11 @@ Unchecked `ARCHIDX-*` rows are recurring guard checks for each resume, not archi
 
 ## Current Board Pointer
 
-- Current active follow-up board: `architecture-external-safety-dependency-follow-up-checklist.md`.
-- Current concrete step: finish the remaining external unsafe scanner reliability gap; raw audit paths for OPC UA, tiny_http TLS, and Zenoh have been pruned where safe and renewed where upstream replacement remains required.
+- Current active follow-up board: none; `architecture-external-safety-dependency-follow-up-checklist.md` is complete.
+- Current concrete step: no remaining open architecture-program or post-closeout external-safety board item is tracked here. Start a new dedicated board for any new architecture wave instead of reopening the closed umbrella or this completed follow-up.
 - Previous completed board: `architecture-post-closeout-gap-closure-checklist.md` at commit `91255e672`, plus umbrella cleanup and deferred modernization audit (`ARCHPROG-E-04`, `ARCHPROG-EXIT-08`, `ARCHPROG-EXIT-09`, `ARCHPROG-EXIT-11`, `ARCHPROG-FOLLOW-01`).
 - Do not use `docs/internal/masterPlan.md` to sequence this architecture program.
-- Resume path: read this index, confirm the architecture program remains closed in `full-architecture-refactor-program-checklist.md`, then work from `architecture-external-safety-dependency-follow-up-checklist.md`.
+- Resume path: read this index, confirm the architecture program remains closed in `full-architecture-refactor-program-checklist.md`, then open a new dedicated checklist for any new architecture work.
 
 ## Source Of Truth
 

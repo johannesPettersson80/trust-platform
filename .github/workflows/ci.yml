@@ -303,6 +303,46 @@ jobs:
           name: gate-conformance
           path: gate-artifacts/conformance.txt
 
+  architecture-safety:
+    name: Architecture Safety
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install ast-grep
+        run: |
+          if command -v sg >/dev/null 2>&1; then
+            sg --version
+          else
+            cargo install ast-grep --version 0.42.1 --locked
+          fi
+      - name: Run external unsafe AST scanner gate
+        run: ./scripts/architecture_external_safety_ast_grep_gate.sh
+      - name: Run full-map architecture doctor
+        run: cargo run -p xtask -- architecture-doctor --full-map
+      - name: Upload architecture safety artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: architecture-safety
+          path: |
+            target/gate-artifacts/architecture-external-safety-*/**
+            target/gate-artifacts/full-software-map-*/software-map.json
+            target/gate-artifacts/full-software-map-*/full-map-report.json
+            target/gate-artifacts/full-software-map-*/full-map-report.md
+      - name: Mark gate success
+        if: ${{ success() }}
+        run: |
+          mkdir -p gate-artifacts
+          echo "job=architecture-safety result=success" > gate-artifacts/architecture-safety.txt
+      - name: Upload gate marker
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: gate-architecture-safety
+          path: gate-artifacts/architecture-safety.txt
+
   msrv:
     name: MSRV (1.95)
     runs-on: ubuntu-latest
