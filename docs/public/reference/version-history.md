@@ -2,8 +2,8 @@
 
 ## Current Baseline
 
-- current repository baseline: `v0.24.12`
-- public docs in this tree describe the `v0.24.12` workspace version unless a
+- current repository baseline: `v0.24.13`
+- public docs in this tree describe the `v0.24.13` workspace version unless a
   page explicitly marks a feature as experimental, roadmap, or target-specific
 
 ## What Changed Recently

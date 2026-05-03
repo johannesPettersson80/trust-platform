@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.12`
+Target release: `v0.24.13`
 
 ### Added
 
@@ -87,6 +87,12 @@ Target release: `v0.24.12`
   `third_party/tiverse-mmap` is an intentional workspace exclude, and the
   full-map doctor reports the dependency hygiene status with failing policy
   fixtures.
+- External safety follow-up now prunes the Zenoh default-feature dependency
+  surface to remove the transitive `rsa` advisory path, removes direct
+  `rustls-pemfile` use from runtime TLS PEM parsing, refreshes owned
+  `cargo deny` advisory metadata for the remaining OPC UA, tiny_http TLS, and
+  Zenoh `paste` paths, and records the remaining external unsafe-scanner gap in
+  the architecture follow-up checklist.
 - Parser recovery for malformed aggregate/positional initializers is now
   bounded by shared top-level scan helpers, preserves following declarations at
   declaration boundaries, and is guarded by full-map doctor and focused
