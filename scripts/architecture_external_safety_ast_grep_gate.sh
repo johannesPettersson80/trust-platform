@@ -14,10 +14,10 @@ UNSUPPORTED_TXT="$ARTIFACT_DIR/ast-grep-unsupported-unsafe-forms.txt"
 
 mkdir -p "$ARTIFACT_DIR"
 
-if command -v sg >/dev/null 2>&1; then
-  AST_GREP_BIN="${AST_GREP_BIN:-sg}"
-elif command -v ast-grep >/dev/null 2>&1; then
+if command -v ast-grep >/dev/null 2>&1 && ast-grep --version 2>/dev/null | grep -qi 'ast-grep'; then
   AST_GREP_BIN="${AST_GREP_BIN:-ast-grep}"
+elif command -v sg >/dev/null 2>&1 && sg --version 2>/dev/null | grep -qi 'ast-grep'; then
+  AST_GREP_BIN="${AST_GREP_BIN:-sg}"
 else
   echo "error: ast-grep is required for the external unsafe scanner gate" >&2
   echo "install: cargo install ast-grep --version 0.42.1 --locked" >&2
