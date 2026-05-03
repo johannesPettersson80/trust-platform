@@ -4,10 +4,10 @@
 
 pub mod pairing;
 
-use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 
+use rustls::pki_types::pem::PemObject;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use serde::{Deserialize, Serialize};
 
@@ -190,8 +190,7 @@ fn resolve_tls_path(path: &Path, project_root: Option<&Path>) -> Result<PathBuf,
 }
 
 fn parse_pem_certs(pem: &[u8], label: &str) -> Result<Vec<CertificateDer<'static>>, RuntimeError> {
-    let mut reader = Cursor::new(pem);
-    let certs = rustls_pemfile::certs(&mut reader)
+    let certs = CertificateDer::pem_slice_iter(pem)
         .collect::<Result<Vec<_>, _>>()
         .map_err(|err| RuntimeError::ControlError(format!("parse {label}: {err}").into()))?;
     if certs.is_empty() {
@@ -203,13 +202,6 @@ fn parse_pem_certs(pem: &[u8], label: &str) -> Result<Vec<CertificateDer<'static
 }
 
 fn parse_pem_key(pem: &[u8], label: &str) -> Result<PrivateKeyDer<'static>, RuntimeError> {
-    let mut reader = Cursor::new(pem);
-    if let Some(key) = rustls_pemfile::private_key(&mut reader)
-        .map_err(|err| RuntimeError::ControlError(format!("parse {label}: {err}").into()))?
-    {
-        return Ok(key);
-    }
-    Err(RuntimeError::ControlError(
-        format!("parse {label}: no supported private key found").into(),
-    ))
+    PrivateKeyDer::from_pem_slice(pem)
+        .map_err(|err| RuntimeError::ControlError(format!("parse {label}: {err}").into()))
 }

@@ -16,7 +16,7 @@ expected = sys.argv[1].strip()
 exception_file = sys.argv[2].strip()
 root = pathlib.Path(".")
 
-version_rs = root / "crates" / "trust-runtime" / "src" / "mesh" / "version.rs"
+version_rs = root / "crates" / "trust-runtime" / "src" / "host" / "mesh" / "version.rs"
 text = version_rs.read_text(encoding="utf-8")
 constant_pattern = re.compile(r'pub const (ZENOH|ZENOHD)_BASELINE_VERSION: &str = "([^"]+)";')
 constants = {name: value for name, value in constant_pattern.findall(text)}
