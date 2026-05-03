@@ -401,11 +401,11 @@ jobs:
           mkdir -p gate-artifacts
           python3 scripts/run_with_progress.py \
             --phase ci-vscode-binaries \
-            --target trust-lsp-trust-debug-trust-runtime \
+            --target trust-lsp-trust-debug-trust-runtime-trust-dev \
             --timeout-seconds "${CI_VSCODE_BINARIES_TIMEOUT_SECONDS:-1200}" \
             --progress-interval-seconds "${GATE_PROGRESS_INTERVAL_SECONDS:-30}" \
             --log gate-artifacts/vscode-binaries.log \
-            -- cargo build -p trust-lsp -p trust-debug -p trust-runtime
+            -- cargo build -p trust-lsp -p trust-debug -p trust-runtime -p trust-dev
         working-directory: ${{ github.workspace }}
       - name: Add trust-lsp binary directory to PATH
         run: echo "${{ github.workspace }}/target/debug" >> "$GITHUB_PATH"
@@ -439,6 +439,7 @@ jobs:
           exit 1
         env:
           ST_LSP_TEST_SERVER: ${{ github.workspace }}/target/debug/trust-lsp
+          ST_RUNTIME_TEST_BIN: ${{ github.workspace }}/target/debug/trust-dev
       - name: Upload VS Code integration test log
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
