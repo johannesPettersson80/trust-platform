@@ -10,6 +10,9 @@ extern crate self as trust_runtime;
 /// Portable runtime-core compatibility surface.
 pub use trust_runtime_core as runtime_core;
 
+/// Fail-closed external boundary value resolution.
+#[path = "host/boundary/mod.rs"]
+pub mod boundary;
 /// Bundle discovery helpers.
 #[path = "host/bundle.rs"]
 pub mod bundle;

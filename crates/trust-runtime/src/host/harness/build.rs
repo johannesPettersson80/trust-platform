@@ -306,6 +306,12 @@ pub(super) fn build_runtime_from_source_files(
             &config.programs,
             extra_program_instances,
         )?;
+        ensure_all_program_declarations_bound(
+            &program_defs,
+            &config.programs,
+            &extra_programs,
+            &config.using,
+        )?;
         register_program_instances(
             &mut runtime,
             &program_defs,
@@ -519,6 +525,37 @@ fn build_extra_program_instances(
     }
 
     Ok(extra_programs)
+}
+
+fn ensure_all_program_declarations_bound(
+    program_defs: &IndexMap<SmolStr, ProgramDef>,
+    configured_programs: &[super::ProgramInstanceConfig],
+    extra_programs: &[super::ProgramInstanceConfig],
+    using: &[SmolStr],
+) -> Result<(), CompileError> {
+    if program_defs.is_empty() {
+        return Ok(());
+    }
+
+    let mut bound_types = std::collections::BTreeSet::new();
+    for program in configured_programs.iter().chain(extra_programs.iter()) {
+        let type_name = super::resolve_program_type_name(program_defs, &program.type_name, using)?;
+        bound_types.insert(type_name.to_ascii_uppercase());
+    }
+
+    let unbound = program_defs
+        .values()
+        .filter(|program| !bound_types.contains(&program.name.to_ascii_uppercase()))
+        .map(|program| program.name.as_str())
+        .collect::<Vec<_>>();
+    if unbound.is_empty() {
+        return Ok(());
+    }
+
+    Err(CompileError::new(format!(
+        "unbound PROGRAM declaration(s) under CONFIGURATION: {}. Bind each declared PROGRAM with RESOURCE ... PROGRAM ... WITH, or register explicit extra program instances for test builders.",
+        unbound.join(", ")
+    )))
 }
 
 fn build_bytecode_module_from_runtime_and_sources(

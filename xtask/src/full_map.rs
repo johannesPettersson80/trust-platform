@@ -759,6 +759,7 @@ fn run_policy_checks(root: &Path, map: &SoftwareMap, policy: &FullMapPolicy) -> 
         check_public_api_snapshot_status(root, map, policy),
         check_parser_recovery_rules(map),
         check_hir_zero_silent_bug_doctor(root),
+        check_runtime_boundary_fail_closed_doctor(root),
         check_runtime_vm_mutation_evidence(root),
         check_diagram_claims(map, policy),
     ]
@@ -2420,6 +2421,70 @@ fn hir_zero_silent_bug_doctor_check_from_output(
         FullMapCheck::fail(
             "FULLMAP-HIRZSB",
             "HIR zero-silent-bug doctor reported findings or failed",
+            details,
+        )
+    }
+}
+
+fn check_runtime_boundary_fail_closed_doctor(root: &Path) -> FullMapCheck {
+    let script = Path::new("scripts/runtime_boundary_fail_closed_ast_grep_gate.sh");
+    let script_path = root.join(script);
+    let command = "./scripts/runtime_boundary_fail_closed_ast_grep_gate.sh";
+    if !script_path.is_file() {
+        return FullMapCheck::fail(
+            "FULLMAP-RUNTIMEBOUND",
+            "runtime boundary fail-closed gate script is missing",
+            vec![format!("missing {}", script.display())],
+        );
+    }
+
+    match Command::new(script).current_dir(root).output() {
+        Ok(output) => runtime_boundary_fail_closed_check_from_output(
+            command,
+            CommandCheckOutput {
+                success: output.status.success(),
+                code: output.status.code(),
+                stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+                stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+            },
+        ),
+        Err(error) => FullMapCheck::fail(
+            "FULLMAP-RUNTIMEBOUND",
+            "runtime boundary fail-closed gate could not run",
+            vec![format!("command: {command}"), format!("error: {error}")],
+        ),
+    }
+}
+
+fn runtime_boundary_fail_closed_check_from_output(
+    command: &str,
+    output: CommandCheckOutput,
+) -> FullMapCheck {
+    let exit_code = output.code.map_or_else(
+        || "terminated by signal".to_string(),
+        |code| code.to_string(),
+    );
+    let mut details = vec![
+        format!("command: {command}"),
+        format!("exit code: {exit_code}"),
+    ];
+    details.extend(command_stream_details("stdout", &output.stdout));
+    details.extend(command_stream_details("stderr", &output.stderr));
+
+    if output.success
+        && output
+            .stdout
+            .contains("runtime boundary fail-closed gate: no findings")
+    {
+        FullMapCheck::pass(
+            "FULLMAP-RUNTIMEBOUND",
+            "runtime boundary fail-closed gate reported no findings",
+            details,
+        )
+    } else {
+        FullMapCheck::fail(
+            "FULLMAP-RUNTIMEBOUND",
+            "runtime boundary fail-closed gate reported findings or failed",
             details,
         )
     }

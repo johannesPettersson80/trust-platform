@@ -38,6 +38,7 @@ use crate::settings::RuntimeSettings;
 use crate::value::Value;
 use crate::RestartMode;
 use notify::{Event, RecursiveMode, Watcher};
+use serde_json::json;
 use smol_str::SmolStr;
 use tracing::warn;
 
@@ -347,7 +348,14 @@ pub(crate) fn handle_request_line(
         Ok(value) => handle_request_value(value, state, client),
         Err(err) => ControlResponse::error(0, format!("invalid request: {err}")),
     };
-    serde_json::to_string(&response).ok()
+    Some(serde_json::to_string(&response).unwrap_or_else(|err| {
+        json!({
+            "id": 0_u64,
+            "ok": false,
+            "error": format!("response serialization failed: {err}"),
+        })
+        .to_string()
+    }))
 }
 
 pub(crate) fn handle_request_value(

@@ -328,6 +328,8 @@ jobs:
           fi
       - name: Run external unsafe AST scanner gate
         run: ./scripts/architecture_external_safety_ast_grep_gate.sh
+      - name: Run runtime boundary fail-closed gate
+        run: ./scripts/runtime_boundary_fail_closed_ast_grep_gate.sh
       - name: Run full-map architecture doctor
         run: cargo run -p xtask -- architecture-doctor --full-map
       - name: Upload architecture safety artifacts
@@ -337,6 +339,7 @@ jobs:
           name: architecture-safety
           path: |
             target/gate-artifacts/architecture-external-safety-*/**
+            target/gate-artifacts/runtime-boundary-fail-closed-*/**
             target/gate-artifacts/full-software-map-*/software-map.json
             target/gate-artifacts/full-software-map-*/full-map-report.json
             target/gate-artifacts/full-software-map-*/full-map-report.md

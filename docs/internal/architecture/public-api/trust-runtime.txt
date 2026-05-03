@@ -2,6 +2,46 @@ pub mod trust_runtime
 pub use trust_runtime::RestartMode
 pub use trust_runtime::RetainPolicy
 pub use trust_runtime::runtime_core
+pub mod trust_runtime::boundary
+pub enum trust_runtime::boundary::BoundaryEntryStatus
+pub trust_runtime::boundary::BoundaryEntryStatus::Error
+pub trust_runtime::boundary::BoundaryEntryStatus::Ok
+pub enum trust_runtime::boundary::BoundaryError
+pub trust_runtime::boundary::BoundaryError::AmbiguousName
+pub trust_runtime::boundary::BoundaryError::AmbiguousName::candidates: alloc::vec::Vec<smol_str::SmolStr>
+pub trust_runtime::boundary::BoundaryError::AmbiguousName::path: smol_str::SmolStr
+pub trust_runtime::boundary::BoundaryError::InternalFailure
+pub trust_runtime::boundary::BoundaryError::InternalFailure::context: &'static str
+pub trust_runtime::boundary::BoundaryError::InternalLockFailure
+pub trust_runtime::boundary::BoundaryError::InternalLockFailure::context: &'static str
+pub trust_runtime::boundary::BoundaryError::UnboundProgram
+pub trust_runtime::boundary::BoundaryError::UnboundProgram::program: smol_str::SmolStr
+pub trust_runtime::boundary::BoundaryError::UndeclaredBinding
+pub trust_runtime::boundary::BoundaryError::UndeclaredBinding::path: smol_str::SmolStr
+pub trust_runtime::boundary::BoundaryError::UnresolvedName
+pub trust_runtime::boundary::BoundaryError::UnresolvedName::path: smol_str::SmolStr
+pub trust_runtime::boundary::BoundaryError::UnsupportedPathSyntax
+pub trust_runtime::boundary::BoundaryError::UnsupportedPathSyntax::path: smol_str::SmolStr
+pub trust_runtime::boundary::BoundaryError::UnsupportedPathSyntax::reason: alloc::string::String
+pub trust_runtime::boundary::BoundaryError::WrongKind
+pub trust_runtime::boundary::BoundaryError::WrongKind::actual: &'static str
+pub trust_runtime::boundary::BoundaryError::WrongKind::expected: &'static str
+pub trust_runtime::boundary::BoundaryError::WrongKind::path: smol_str::SmolStr
+impl trust_runtime::boundary::BoundaryError
+pub fn trust_runtime::boundary::BoundaryError::candidates(&self) -> &[smol_str::SmolStr]
+pub fn trust_runtime::boundary::BoundaryError::code(&self) -> &'static str
+pub fn trust_runtime::boundary::BoundaryError::path(&self) -> core::option::Option<&str>
+impl core::error::Error for trust_runtime::boundary::BoundaryError
+impl core::fmt::Display for trust_runtime::boundary::BoundaryError
+pub fn trust_runtime::boundary::BoundaryError::fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct trust_runtime::boundary::BoundaryEntry
+pub trust_runtime::boundary::BoundaryEntry::error: core::option::Option<trust_runtime::boundary::BoundaryError>
+pub trust_runtime::boundary::BoundaryEntry::status: trust_runtime::boundary::BoundaryEntryStatus
+pub trust_runtime::boundary::BoundaryEntry::value: core::option::Option<trust_runtime_core::value::types::Value>
+impl trust_runtime::boundary::BoundaryEntry
+pub fn trust_runtime::boundary::BoundaryEntry::error(error: trust_runtime::boundary::BoundaryError) -> Self
+pub fn trust_runtime::boundary::BoundaryEntry::is_ok(&self) -> bool
+pub fn trust_runtime::boundary::BoundaryEntry::ok(value: trust_runtime_core::value::types::Value) -> Self
 pub mod trust_runtime::bundle
 pub fn trust_runtime::bundle::detect_bundle_path(bundle: core::option::Option<std::path::PathBuf>) -> core::result::Result<std::path::PathBuf, trust_runtime_core::error::RuntimeError>
 pub mod trust_runtime::bundle_builder
@@ -794,7 +834,36 @@ pub trust_runtime::execution_backend::VmTier1SpecializedExecutorSnapshot::deopt_
 pub trust_runtime::execution_backend::VmTier1SpecializedExecutorSnapshot::enabled: bool
 pub trust_runtime::execution_backend::VmTier1SpecializedExecutorSnapshot::hot_block_threshold: u64
 pub mod trust_runtime::harness
+pub enum trust_runtime::harness::BoundaryError
+pub trust_runtime::harness::BoundaryError::AmbiguousName
+pub trust_runtime::harness::BoundaryError::AmbiguousName::candidates: alloc::vec::Vec<smol_str::SmolStr>
+pub trust_runtime::harness::BoundaryError::AmbiguousName::path: smol_str::SmolStr
+pub trust_runtime::harness::BoundaryError::InternalFailure
+pub trust_runtime::harness::BoundaryError::InternalFailure::context: &'static str
+pub trust_runtime::harness::BoundaryError::InternalLockFailure
+pub trust_runtime::harness::BoundaryError::InternalLockFailure::context: &'static str
+pub trust_runtime::harness::BoundaryError::UnboundProgram
+pub trust_runtime::harness::BoundaryError::UnboundProgram::program: smol_str::SmolStr
+pub trust_runtime::harness::BoundaryError::UndeclaredBinding
+pub trust_runtime::harness::BoundaryError::UndeclaredBinding::path: smol_str::SmolStr
+pub trust_runtime::harness::BoundaryError::UnresolvedName
+pub trust_runtime::harness::BoundaryError::UnresolvedName::path: smol_str::SmolStr
+pub trust_runtime::harness::BoundaryError::UnsupportedPathSyntax
+pub trust_runtime::harness::BoundaryError::UnsupportedPathSyntax::path: smol_str::SmolStr
+pub trust_runtime::harness::BoundaryError::UnsupportedPathSyntax::reason: alloc::string::String
+pub trust_runtime::harness::BoundaryError::WrongKind
+pub trust_runtime::harness::BoundaryError::WrongKind::actual: &'static str
+pub trust_runtime::harness::BoundaryError::WrongKind::expected: &'static str
+pub trust_runtime::harness::BoundaryError::WrongKind::path: smol_str::SmolStr
+impl trust_runtime::boundary::BoundaryError
+pub fn trust_runtime::boundary::BoundaryError::candidates(&self) -> &[smol_str::SmolStr]
+pub fn trust_runtime::boundary::BoundaryError::code(&self) -> &'static str
+pub fn trust_runtime::boundary::BoundaryError::path(&self) -> core::option::Option<&str>
+impl core::error::Error for trust_runtime::boundary::BoundaryError
+impl core::fmt::Display for trust_runtime::boundary::BoundaryError
+pub fn trust_runtime::boundary::BoundaryError::fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 pub enum trust_runtime::harness::HarnessAutomationError
+pub trust_runtime::harness::HarnessAutomationError::Boundary(trust_runtime::boundary::BoundaryError)
 pub trust_runtime::harness::HarnessAutomationError::Compile(alloc::string::String)
 pub trust_runtime::harness::HarnessAutomationError::InvalidArgument(alloc::string::String)
 pub trust_runtime::harness::HarnessAutomationError::NotLoaded
@@ -809,6 +878,14 @@ pub trust_runtime::harness::HarnessAutomationError::RuntimeCycle::message: alloc
 impl core::error::Error for trust_runtime::harness::HarnessAutomationError
 impl core::fmt::Display for trust_runtime::harness::HarnessAutomationError
 pub fn trust_runtime::harness::HarnessAutomationError::fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct trust_runtime::harness::BoundaryEntry
+pub trust_runtime::harness::BoundaryEntry::error: core::option::Option<trust_runtime::boundary::BoundaryError>
+pub trust_runtime::harness::BoundaryEntry::status: trust_runtime::boundary::BoundaryEntryStatus
+pub trust_runtime::harness::BoundaryEntry::value: core::option::Option<trust_runtime_core::value::types::Value>
+impl trust_runtime::boundary::BoundaryEntry
+pub fn trust_runtime::boundary::BoundaryEntry::error(error: trust_runtime::boundary::BoundaryError) -> Self
+pub fn trust_runtime::boundary::BoundaryEntry::is_ok(&self) -> bool
+pub fn trust_runtime::boundary::BoundaryEntry::ok(value: trust_runtime_core::value::types::Value) -> Self
 pub struct trust_runtime::harness::CompileError
 impl trust_runtime::harness::CompileError
 pub fn trust_runtime::harness::CompileError::new(message: impl core::convert::Into<alloc::string::String>) -> Self
@@ -855,19 +932,19 @@ pub struct trust_runtime::harness::HarnessRunUntilSummary
 pub trust_runtime::harness::HarnessRunUntilSummary::cycle_count: u64
 pub trust_runtime::harness::HarnessRunUntilSummary::cycles_ran: u64
 pub trust_runtime::harness::HarnessRunUntilSummary::elapsed_ms: i64
-pub trust_runtime::harness::HarnessRunUntilSummary::matched_value: core::option::Option<trust_runtime_core::value::types::Value>
+pub trust_runtime::harness::HarnessRunUntilSummary::matched_value: trust_runtime_core::value::types::Value
 pub trust_runtime::harness::HarnessRunUntilSummary::name: alloc::string::String
-pub trust_runtime::harness::HarnessRunUntilSummary::values: alloc::collections::btree::map::BTreeMap<alloc::string::String, trust_runtime_core::value::types::Value>
+pub trust_runtime::harness::HarnessRunUntilSummary::values: alloc::collections::btree::map::BTreeMap<alloc::string::String, trust_runtime::boundary::BoundaryEntry>
 pub struct trust_runtime::harness::HarnessStateSummary
 pub trust_runtime::harness::HarnessStateSummary::cycle_count: u64
 pub trust_runtime::harness::HarnessStateSummary::elapsed_ms: i64
 pub struct trust_runtime::harness::HarnessValueSnapshot
 pub trust_runtime::harness::HarnessValueSnapshot::name: alloc::string::String
-pub trust_runtime::harness::HarnessValueSnapshot::value: core::option::Option<trust_runtime_core::value::types::Value>
+pub trust_runtime::harness::HarnessValueSnapshot::value: trust_runtime_core::value::types::Value
 pub struct trust_runtime::harness::HarnessWatchSnapshot
 pub trust_runtime::harness::HarnessWatchSnapshot::cycle_count: u64
 pub trust_runtime::harness::HarnessWatchSnapshot::elapsed_ms: i64
-pub trust_runtime::harness::HarnessWatchSnapshot::values: alloc::collections::btree::map::BTreeMap<alloc::string::String, trust_runtime_core::value::types::Value>
+pub trust_runtime::harness::HarnessWatchSnapshot::values: alloc::collections::btree::map::BTreeMap<alloc::string::String, trust_runtime::boundary::BoundaryEntry>
 pub struct trust_runtime::harness::SourceFile
 pub trust_runtime::harness::SourceFile::path: core::option::Option<alloc::string::String>
 pub trust_runtime::harness::SourceFile::text: alloc::string::String
@@ -878,7 +955,7 @@ pub struct trust_runtime::harness::TestHarness
 impl trust_runtime::harness::TestHarness
 pub fn trust_runtime::harness::TestHarness::advance_time(&mut self, duration: trust_runtime_core::value::datetime::Duration)
 pub fn trust_runtime::harness::TestHarness::assert_eq(&self, name: &str, expected: impl core::convert::Into<trust_runtime_core::value::types::Value>)
-pub fn trust_runtime::harness::TestHarness::bind_direct(&mut self, name: &str, address: &str) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime::harness::TestHarness::bind_direct(&mut self, name: &str, address: &str) -> core::result::Result<(), trust_runtime::boundary::BoundaryError>
 pub fn trust_runtime::harness::TestHarness::current_time(&self) -> trust_runtime_core::value::datetime::Duration
 pub fn trust_runtime::harness::TestHarness::cycle(&mut self) -> trust_runtime::harness::CycleResult
 pub fn trust_runtime::harness::TestHarness::cycle_count(&self) -> u64
@@ -900,6 +977,8 @@ pub fn trust_runtime::harness::TestHarness::runtime_mut(&mut self) -> &mut trust
 pub fn trust_runtime::harness::TestHarness::set_access(&mut self, name: &str, value: impl core::convert::Into<trust_runtime_core::value::types::Value>) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime::harness::TestHarness::set_direct_input(&mut self, address: &str, value: impl core::convert::Into<trust_runtime_core::value::types::Value>) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime::harness::TestHarness::set_input(&mut self, name: &str, value: impl core::convert::Into<trust_runtime_core::value::types::Value>)
+pub fn trust_runtime::harness::TestHarness::try_get_output(&self, name: &str) -> core::result::Result<trust_runtime_core::value::types::Value, trust_runtime::boundary::BoundaryError>
+pub fn trust_runtime::harness::TestHarness::try_set_input(&mut self, name: &str, value: impl core::convert::Into<trust_runtime_core::value::types::Value>) -> core::result::Result<(), trust_runtime::boundary::BoundaryError>
 pub fn trust_runtime::harness::bytecode_bytes_from_source(source: &str) -> core::result::Result<alloc::vec::Vec<u8>, trust_runtime::harness::CompileError>
 pub fn trust_runtime::harness::bytecode_bytes_from_source_with_path(source: &str, path: &str) -> core::result::Result<alloc::vec::Vec<u8>, trust_runtime::harness::CompileError>
 pub fn trust_runtime::harness::bytecode_bytes_from_sources(sources: &[&str]) -> core::result::Result<alloc::vec::Vec<u8>, trust_runtime::harness::CompileError>

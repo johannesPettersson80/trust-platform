@@ -6,10 +6,15 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.13`
+Target release: `v0.24.14`
 
 ### Added
 
+- Added fail-closed runtime boundary watch envelopes for `trust-harness` protocol
+  v2 and `trust-dev` agent harness snapshots. Unresolved watch paths now carry
+  structured `status: "error"` entries instead of silently becoming `NULL`.
+- Added a runtime boundary fail-closed architecture gate wired into
+  `architecture-doctor --full-map` and CI.
 - Added a `trust-dev` developer/workbench CLI binary. The first migrated
   command is `trust-dev commit`, and release runtime archives now ship
   `trust-dev` beside `trust-runtime` and `trust-bundle-gen`.
@@ -25,6 +30,9 @@ Target release: `v0.24.13`
 
 ### Changed
 
+- `trust-harness` now defaults to JSON protocol version 2 and accepts
+  `--protocol-version 1` or `TRUST_HARNESS_PROTOCOL_VERSION=1` for the legacy
+  watch-value map shape during migration.
 - `trust-runtime commit` is now a deprecated compatibility alias that forwards
   to `trust-dev commit`, preserving the existing command while the product
   runtime CLI is split from workbench/dev commands.
@@ -71,6 +79,12 @@ Target release: `v0.24.13`
 
 ### Fixed
 
+- Harness boundary inputs now fail closed: typoed `set_input` names and
+  `bind_direct` targets return structured boundary errors instead of creating
+  hidden globals or undeclared I/O bindings.
+- `CONFIGURATION` builds now reject declared top-level `PROGRAM`s that are not
+  bound by the configuration, unless a test builder explicitly opts in through
+  extra program instances.
 - MQTT `keep_alive_s` is now applied to the `rumqttc` session options instead
   of being parsed only at validation time.
 - MQTT TLS fixture paths are normalized before being embedded in TOML so the

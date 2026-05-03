@@ -2,9 +2,9 @@
 
 #![allow(missing_docs)]
 
+use crate::boundary::{resolve_bind, resolve_read, resolve_write, BoundaryError};
 use crate::error::RuntimeError;
 use crate::io::IoAddress;
-use crate::memory::InstanceId;
 use crate::value::{Duration, Value};
 use crate::Runtime;
 
@@ -68,27 +68,28 @@ impl TestHarness {
 
     /// Sets an input value.
     pub fn set_input(&mut self, name: &str, value: impl Into<Value>) {
-        let value = value.into();
-        if self.runtime.storage().get_global(name).is_some() {
-            self.runtime.storage_mut().set_global(name, value);
-            return;
-        }
-        if let Some(instance_id) = self.find_program_var_instance(name) {
-            self.runtime
-                .storage_mut()
-                .set_instance_var(instance_id, name, value);
-        } else {
-            self.runtime.storage_mut().set_global(name, value);
-        }
+        self.try_set_input(name, value)
+            .unwrap_or_else(|error| panic!("{error}"));
+    }
+
+    /// Sets an input value and reports missing or ambiguous boundary names.
+    pub fn try_set_input(
+        &mut self,
+        name: &str,
+        value: impl Into<Value>,
+    ) -> Result<(), BoundaryError> {
+        resolve_write(&mut self.runtime, name, value.into())
     }
 
     /// Gets an output value.
     #[must_use]
     pub fn get_output(&self, name: &str) -> Option<Value> {
-        if let Some(value) = self.runtime.storage().get_global(name) {
-            return Some(value.clone());
-        }
-        self.read_program_var(name)
+        self.try_get_output(name).ok()
+    }
+
+    /// Gets an output value and reports missing or ambiguous boundary names.
+    pub fn try_get_output(&self, name: &str) -> Result<Value, BoundaryError> {
+        resolve_read(&self.runtime, name)
     }
 
     /// Gets a VAR_ACCESS value.
@@ -119,24 +120,10 @@ impl TestHarness {
     }
 
     /// Binds a variable name to a direct address.
-    pub fn bind_direct(&mut self, name: &str, address: &str) -> Result<(), RuntimeError> {
-        let addr = IoAddress::parse(address)?;
-        if self.runtime.storage().get_global(name).is_some() {
-            self.runtime.io_mut().bind(name, addr);
-            return Ok(());
-        }
-        if let Some(instance_id) = self.find_program_var_instance(name) {
-            if let Some(reference) = self
-                .runtime
-                .storage()
-                .ref_for_instance_recursive(instance_id, name)
-            {
-                self.runtime.io_mut().bind_ref(reference, addr);
-                return Ok(());
-            }
-        }
-        self.runtime.io_mut().bind(name, addr);
-        Ok(())
+    pub fn bind_direct(&mut self, name: &str, address: &str) -> Result<(), BoundaryError> {
+        let addr = IoAddress::parse(address)
+            .map_err(|error| BoundaryError::from_runtime(address, error))?;
+        resolve_bind(&mut self.runtime, name, addr)
     }
 
     /// Runs one cycle.
@@ -286,40 +273,4 @@ fn build_runtime_aligned_bytecode(
     module
         .encode()
         .map_err(|err| CompileError::new(err.to_string()))
-}
-
-impl TestHarness {
-    fn find_program_var_instance(&self, name: &str) -> Option<InstanceId> {
-        let storage = self.runtime.storage();
-        let mut match_id = None;
-        for program in self.runtime.programs().values() {
-            let Some(Value::Instance(id)) = storage.get_global(program.name.as_ref()) else {
-                continue;
-            };
-            if storage.get_instance_var(*id, name).is_some() {
-                if match_id.is_some() {
-                    return None;
-                }
-                match_id = Some(*id);
-            }
-        }
-        match_id
-    }
-
-    fn read_program_var(&self, name: &str) -> Option<Value> {
-        let storage = self.runtime.storage();
-        let mut match_value = None;
-        for program in self.runtime.programs().values() {
-            let Some(Value::Instance(id)) = storage.get_global(program.name.as_ref()) else {
-                continue;
-            };
-            if let Some(value) = storage.get_instance_var(*id, name) {
-                if match_value.is_some() {
-                    return None;
-                }
-                match_value = Some(value.clone());
-            }
-        }
-        match_value
-    }
 }

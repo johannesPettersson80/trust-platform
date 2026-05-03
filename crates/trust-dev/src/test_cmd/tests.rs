@@ -234,7 +234,12 @@ END_TEST_PROGRAM
         sources[0].text.clone(),
     )]);
     let err = execute_test_case(&session, &tests[0], None).unwrap_err();
-    assert!(matches!(err, RuntimeError::UndefinedProgram(name) if name == "Probe"));
+    assert!(
+        matches!(&err, RuntimeError::ControlError(message)
+            if message.contains("unbound PROGRAM declaration(s) under CONFIGURATION")
+                && message.contains("Probe")),
+        "unexpected error: {err}"
+    );
 }
 
 #[test]

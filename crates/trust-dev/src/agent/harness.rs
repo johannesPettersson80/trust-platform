@@ -149,7 +149,7 @@ impl AgentServer {
         let snapshot = self.harness.get_output(&params.name)?;
         Ok(json!({
             "name": snapshot.name,
-            "value": snapshot.value.as_ref().map(encode_json_value).unwrap_or(JsonValue::Null),
+            "value": encode_json_value(&snapshot.value),
         }))
     }
 
@@ -181,7 +181,7 @@ impl AgentServer {
             "cycles_ran": summary.cycles_ran,
             "cycle_count": summary.cycle_count,
             "elapsed_ms": summary.elapsed_ms,
-            "matched_value": summary.matched_value.as_ref().map(encode_json_value).unwrap_or(JsonValue::Null),
+            "matched_value": encode_json_value(&summary.matched_value),
             "values": encode_watch_snapshot(&summary.values),
         }))
     }
@@ -265,14 +265,37 @@ impl AgentServer {
 }
 
 fn encode_watch_snapshot(
-    values: &std::collections::BTreeMap<String, trust_runtime::value::Value>,
+    values: &std::collections::BTreeMap<String, trust_runtime::harness::BoundaryEntry>,
 ) -> JsonValue {
     JsonValue::Object(
         values
             .iter()
-            .map(|(name, value)| (name.clone(), encode_json_value(value)))
+            .map(|(name, entry)| (name.clone(), encode_boundary_entry(entry)))
             .collect::<serde_json::Map<String, JsonValue>>(),
     )
+}
+
+fn encode_boundary_entry(entry: &trust_runtime::harness::BoundaryEntry) -> JsonValue {
+    if let Some(value) = entry.value.as_ref() {
+        return json!({
+            "status": "ok",
+            "value": encode_json_value(value),
+        });
+    }
+    let Some(error) = entry.error.as_ref() else {
+        return json!({
+            "status": "error",
+            "code": "internal_failure",
+            "message": "watch entry missing value and error",
+        });
+    };
+    json!({
+        "status": "error",
+        "code": error.code(),
+        "message": error.to_string(),
+        "path": error.path(),
+        "candidates": error.candidates().iter().map(|candidate| candidate.as_str()).collect::<Vec<_>>(),
+    })
 }
 
 fn empty_watch_snapshot() -> JsonValue {
@@ -382,23 +405,22 @@ fn evaluate_harness_assertion(
     let (actual, expected, mismatch_label) = match assertion {
         HarnessAssertion::OutputEquals { name, equals } => (
             harness.get_output(name)?.value,
-            Some(decode_json_value(equals)?),
+            decode_json_value(equals)?,
             format!("output '{name}'"),
         ),
         HarnessAssertion::AccessEquals { name, equals } => (
             harness.get_access(name)?.value,
-            Some(decode_json_value(equals)?),
+            decode_json_value(equals)?,
             format!("access '{name}'"),
         ),
         HarnessAssertion::DirectOutputEquals { address, equals } => (
             harness.get_direct_output(address)?.value,
-            Some(decode_json_value(equals)?),
+            decode_json_value(equals)?,
             format!("direct output '{address}'"),
         ),
     };
 
-    let expected = expected.expect("expected value should exist");
-    if actual == Some(expected.clone()) {
+    if actual == expected {
         return Ok(None);
     }
 
@@ -411,7 +433,7 @@ fn evaluate_harness_assertion(
             "{mismatch_label} did not match the expected value."
         )),
         expected: Some(encode_json_value(&expected)),
-        actual: actual.as_ref().map(encode_json_value),
+        actual: Some(encode_json_value(&actual)),
         errors: Vec::new(),
     }))
 }
@@ -453,6 +475,20 @@ fn harness_execute_failure(
             actual: None,
             errors,
         },
+        HarnessAutomationError::Boundary(error) => HarnessExecuteFailure {
+            kind: error.code(),
+            step_index,
+            step: step.cloned(),
+            assertion: None,
+            message: Some(error.to_string()),
+            expected: None,
+            actual: None,
+            errors: error
+                .candidates()
+                .iter()
+                .map(|candidate| format!("candidate: {candidate}"))
+                .collect(),
+        },
         HarnessAutomationError::RunUntilTimeout {
             name,
             max_cycles,
@@ -460,7 +496,7 @@ fn harness_execute_failure(
         } => {
             let actual = harness
                 .and_then(|loaded| loaded.get_output(&name).ok())
-                .and_then(|snapshot| snapshot.value);
+                .map(|snapshot| snapshot.value);
             HarnessExecuteFailure {
                 kind: "run_until_timeout",
                 step_index,

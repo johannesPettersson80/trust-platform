@@ -2,6 +2,10 @@
 
 Status: In progress - zero-silent-error follow-ups are open
 
+- [x] `ARCH-RUNTIMEBOUND-01` Add the runtime boundary fail-closed contract and gate after issue #77 exposed harness watch/input/direct-bind surfaces that could return `ok=true` for unresolved names. Evidence: `docs/internal/architecture/runtime-boundary-fail-closed-contract.md`, `scripts/runtime_boundary_fail_closed_ast_grep_gate.sh`, and `FULLMAP-RUNTIMEBOUND`.
+- [x] `ARCH-RUNTIMEBOUND-02` Replace harness boundary missing-name fallbacks with `BoundaryError` / `BoundaryEntry` so typoed inputs, direct bindings, watch paths, ambiguous names, and unbound `CONFIGURATION` programs fail closed. Evidence: `cargo test -p trust-runtime --test boundary_resolver --test harness_fail_closed --test build_unbound_program --test protocol_envelope` passed.
+- [x] `ARCH-RUNTIMEBOUND-03` Finish debug/control and web/HMI boundary cleanup from `runtime-boundary-fail-closed-safety-checklist.md` Phase 5/6 before claiming all external observation/control surfaces are covered. Evidence: debug/control fail-closed tests pass, HMI WebSocket control failures now emit structured error frames, runtime-cloud/HMI export serialization fallbacks return explicit errors, and `FULLMAP-RUNTIMEBOUND` scans the expanded surface set.
+
 - [x] `ARCH-INIT-01` Centralize initializer syntax classification so aggregate initializer nodes are recognized only in initializer-aware paths, with trivia/pragma excluded from expression and statement classifiers.
 - [x] `ARCH-INIT-02` Preserve struct/union member initializer handles through HIR/runtime type metadata and route runtime default materialization through a dedicated initializer service instead of ad hoc zero defaults.
 - [x] `ARCH-INIT-03` Route aggregate VAR, TYPE-level, field-default, VAR_CONFIG, and function-block member override initialization through the runtime initializer catalog/service, with diagnostics for unknown/duplicate fields and illegal FB targets.

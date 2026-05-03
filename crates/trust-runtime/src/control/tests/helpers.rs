@@ -100,6 +100,7 @@ fn hmi_test_state(source: &str) -> ControlState {
         storage: harness.runtime().storage().clone(),
         now: harness.runtime().current_time(),
     };
+    debug.refresh_snapshot_from_storage(&snapshot.storage, snapshot.now);
 
     let (resource, cmd_rx) = ResourceControl::stub(StdClock::new());
     std::thread::spawn(move || {

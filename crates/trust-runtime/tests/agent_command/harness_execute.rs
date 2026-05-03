@@ -128,11 +128,11 @@ END_PROGRAM
     assert_eq!(pou["result"]["watchSnapshot"]["cycleCount"], json!(4));
     assert_eq!(
         pou["result"]["watchSnapshot"]["values"]["q"],
-        json!({"type": "BOOL", "value": true})
+        json!({"status": "ok", "value": {"type": "BOOL", "value": true}})
     );
     assert_eq!(
         pou["result"]["watchSnapshot"]["values"]["et"],
-        json!({"type": "TIME", "nanos": 30_000_000})
+        json!({"status": "ok", "value": {"type": "TIME", "nanos": 30_000_000}})
     );
 
     write_request(
@@ -174,7 +174,7 @@ END_PROGRAM
     assert_eq!(system["result"]["watchSnapshot"]["cycleCount"], json!(2));
     assert_eq!(
         system["result"]["watchSnapshot"]["values"]["output"],
-        json!({"type": "BOOL", "value": true})
+        json!({"status": "ok", "value": {"type": "BOOL", "value": true}})
     );
 
     drop(stdin);
@@ -188,4 +188,3 @@ END_PROGRAM
 
     let _ = fs::remove_dir_all(project);
 }
-

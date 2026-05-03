@@ -7,6 +7,7 @@ use std::fmt;
 
 use serde_json::{json, Value as JsonValue};
 
+use crate::boundary::{BoundaryEntry, BoundaryError};
 use crate::error::RuntimeError;
 use crate::value::{
     ArrayValue, DateTimeValue, DateValue, Duration, EnumValue, LDateTimeValue, LDateValue,
@@ -42,14 +43,14 @@ pub struct HarnessLoadSummary {
 pub struct HarnessWatchSnapshot {
     pub cycle_count: u64,
     pub elapsed_ms: i64,
-    pub values: BTreeMap<String, Value>,
+    pub values: BTreeMap<String, BoundaryEntry>,
 }
 
 /// Output lookup result for a named variable.
 #[derive(Debug, Clone, PartialEq)]
 pub struct HarnessValueSnapshot {
     pub name: String,
-    pub value: Option<Value>,
+    pub value: Value,
 }
 
 /// Result of a bounded `run_until` loop.
@@ -59,8 +60,8 @@ pub struct HarnessRunUntilSummary {
     pub cycles_ran: u64,
     pub cycle_count: u64,
     pub elapsed_ms: i64,
-    pub matched_value: Option<Value>,
-    pub values: BTreeMap<String, Value>,
+    pub matched_value: Value,
+    pub values: BTreeMap<String, BoundaryEntry>,
 }
 
 /// Stable error model for harness automation surfaces.
@@ -74,6 +75,7 @@ pub enum HarnessAutomationError {
         message: String,
         errors: Vec<String>,
     },
+    Boundary(BoundaryError),
     RunUntilTimeout {
         name: String,
         max_cycles: u64,
@@ -95,6 +97,7 @@ impl fmt::Display for HarnessAutomationError {
                     write!(f, "{message}: {}", errors.join("; "))
                 }
             }
+            Self::Boundary(error) => write!(f, "{error}"),
             Self::RunUntilTimeout {
                 name, max_cycles, ..
             } => write!(
@@ -188,7 +191,9 @@ impl HarnessAutomation {
     /// Set an input variable.
     pub fn set_input(&mut self, name: &str, value: Value) -> Result<(), HarnessAutomationError> {
         let harness = self.harness_mut()?;
-        harness.set_input(name, value);
+        harness
+            .try_set_input(name, value)
+            .map_err(HarnessAutomationError::Boundary)?;
         Ok(())
     }
 
@@ -198,9 +203,12 @@ impl HarnessAutomation {
         name: &str,
     ) -> Result<HarnessValueSnapshot, HarnessAutomationError> {
         let harness = self.harness_mut()?;
+        let value = harness
+            .try_get_output(name)
+            .map_err(HarnessAutomationError::Boundary)?;
         Ok(HarnessValueSnapshot {
             name: name.to_string(),
-            value: harness.get_output(name),
+            value,
         })
     }
 
@@ -217,9 +225,13 @@ impl HarnessAutomation {
         name: &str,
     ) -> Result<HarnessValueSnapshot, HarnessAutomationError> {
         let harness = self.harness_mut()?;
+        let value = harness
+            .get_access(name)
+            .ok_or_else(|| BoundaryError::UnresolvedName { path: name.into() })
+            .map_err(HarnessAutomationError::Boundary)?;
         Ok(HarnessValueSnapshot {
             name: name.to_string(),
-            value: harness.get_access(name),
+            value,
         })
     }
 
@@ -228,7 +240,7 @@ impl HarnessAutomation {
         let harness = self.harness_mut()?;
         harness
             .bind_direct(name, address)
-            .map_err(runtime_to_error)?;
+            .map_err(HarnessAutomationError::Boundary)?;
         Ok(())
     }
 
@@ -256,7 +268,7 @@ impl HarnessAutomation {
             .map_err(runtime_to_error)?;
         Ok(HarnessValueSnapshot {
             name: address.to_string(),
-            value: Some(value),
+            value,
         })
     }
 
@@ -310,7 +322,11 @@ impl HarnessAutomation {
 
         let mut cycles_ran = 0_u64;
         loop {
-            if harness.get_output(name) == Some(expected.clone()) {
+            if harness
+                .try_get_output(name)
+                .map_err(HarnessAutomationError::Boundary)?
+                == expected
+            {
                 break;
             }
             if cycles_ran >= max_cycles {
@@ -334,12 +350,15 @@ impl HarnessAutomation {
         }
 
         let snapshot = snapshot_for_watch(harness, watch);
+        let matched_value = harness
+            .try_get_output(name)
+            .map_err(HarnessAutomationError::Boundary)?;
         Ok(HarnessRunUntilSummary {
             name: name.to_string(),
             cycles_ran,
             cycle_count: snapshot.cycle_count,
             elapsed_ms: snapshot.elapsed_ms,
-            matched_value: harness.get_output(name),
+            matched_value,
             values: snapshot.values,
         })
     }
@@ -796,7 +815,10 @@ fn snapshot_for_watch(harness: &TestHarness, watch: &[String]) -> HarnessWatchSn
         .map(|name| {
             (
                 name.clone(),
-                harness.get_output(name).unwrap_or(Value::Null),
+                harness
+                    .try_get_output(name)
+                    .map(BoundaryEntry::ok)
+                    .unwrap_or_else(BoundaryEntry::error),
             )
         })
         .collect::<BTreeMap<_, _>>();

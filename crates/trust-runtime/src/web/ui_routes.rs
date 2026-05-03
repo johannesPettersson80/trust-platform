@@ -376,8 +376,21 @@ pub(super) fn handle_ui_route(
             None,
             None,
         );
-        let schema_payload =
-            serde_json::to_value(schema_response).unwrap_or_else(|_| json!({ "ok": false }));
+        let schema_payload = match serde_json::to_value(schema_response) {
+            Ok(value) => value,
+            Err(err) => {
+                let response = Response::from_string(
+                    json!({
+                        "error": format!("schema response serialization failed: {err}")
+                    })
+                    .to_string(),
+                )
+                .with_status_code(503)
+                .with_header(Header::from_bytes("Content-Type", "application/json").unwrap());
+                let _ = request.respond(response);
+                return UiRouteOutcome::Handled;
+            }
+        };
         let ok = schema_payload
             .get("ok")
             .and_then(serde_json::Value::as_bool)

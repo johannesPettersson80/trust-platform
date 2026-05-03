@@ -353,6 +353,26 @@
       {"name": "Loom/model equivalent", "status": "pass", "command": "cargo test -p trust-runtime --lib poison -- --nocapture", "evidence": "3 deterministic poison-recovery tests passed for scheduler clock, scheduler runner loop, and memory cache clone", "blocker": "", "owner": "runtime/scheduler", "review_date": "2026-05-02"}
     ]
   },
+  "runtime_boundary_fail_closed": {
+    "owner": "runtime/harness-control",
+    "status": "active",
+    "contract": "docs/internal/architecture/runtime-boundary-fail-closed-contract.md",
+    "allowlist": "docs/internal/architecture/runtime-boundary-fail-closed-allowlist.toml",
+    "gate": "scripts/runtime_boundary_fail_closed_ast_grep_gate.sh",
+    "boundary_paths": [
+      "crates/trust-runtime/src/host/harness/harness.rs",
+      "crates/trust-runtime/src/host/harness/protocol.rs",
+      "crates/trust-runtime/src/bin/trust-harness.rs",
+      "crates/trust-dev/src/agent/harness.rs",
+      "crates/trust-runtime/src/control/debug_handlers_variables.rs",
+      "crates/trust-runtime/src/control/debug_handlers_eval.rs",
+      "crates/trust-runtime/src/control.rs",
+      "crates/trust-runtime/src/web/hmi_ws.rs",
+      "crates/trust-runtime/src/web/runtime_cloud_routes/control_proxy.rs",
+      "crates/trust-runtime/src/web/ui_routes.rs"
+    ],
+    "max_allowlist_entries": 5
+  },
   "diagram_policy": {
     "selected_diagrams": [
       "docs/diagrams/architecture/full-software-map-generated.puml"

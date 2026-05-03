@@ -42,26 +42,33 @@ fn run_hmi_websocket_session(
     let mut next_schema_poll = Instant::now();
     let mut next_alarm_poll = Instant::now();
 
-    if let Some(schema_result) = hmi_control_result(
+    match hmi_control_result(
         control_state.as_ref(),
         &mut request_id,
         "hmi.schema.get",
         None,
         request_token.as_deref(),
     ) {
-        event_stream.prime_schema(&schema_result);
+        Ok(schema_result) => event_stream.prime_schema(&schema_result),
+        Err(err) => hmi_ws_send_control_error(&mut socket, "hmi.schema.get", &err)?,
     }
 
     loop {
         let values_params = event_stream.values_request_params();
-        let values_result = hmi_control_result(
+        let values_result = match hmi_control_result(
             control_state.as_ref(),
             &mut request_id,
             "hmi.values.get",
             values_params,
             request_token.as_deref(),
-        )
-        .ok_or_else(|| "hmi.values.get failed".to_string())?;
+        ) {
+            Ok(result) => result,
+            Err(err) => {
+                hmi_ws_send_control_error(&mut socket, "hmi.values.get", &err)?;
+                std::thread::sleep(HMI_WS_VALUES_POLL_INTERVAL);
+                continue;
+            }
+        };
 
         if let Some(event) = event_stream.observe_values(&values_result) {
             hmi_ws_send_event(&mut socket, &event)?;
@@ -70,31 +77,37 @@ fn run_hmi_websocket_session(
         let now = Instant::now();
         if now >= next_schema_poll {
             next_schema_poll = now + HMI_WS_SCHEMA_POLL_INTERVAL;
-            if let Some(schema_result) = hmi_control_result(
+            match hmi_control_result(
                 control_state.as_ref(),
                 &mut request_id,
                 "hmi.schema.get",
                 None,
                 request_token.as_deref(),
             ) {
-                if let Some(event) = event_stream.observe_schema(&schema_result) {
-                    hmi_ws_send_event(&mut socket, &event)?;
+                Ok(schema_result) => {
+                    if let Some(event) = event_stream.observe_schema(&schema_result) {
+                        hmi_ws_send_event(&mut socket, &event)?;
+                    }
                 }
+                Err(err) => hmi_ws_send_control_error(&mut socket, "hmi.schema.get", &err)?,
             }
         }
 
         if now >= next_alarm_poll {
             next_alarm_poll = now + HMI_WS_ALARMS_POLL_INTERVAL;
-            if let Some(alarms_result) = hmi_control_result(
+            match hmi_control_result(
                 control_state.as_ref(),
                 &mut request_id,
                 "hmi.alarms.get",
                 Some(json!({ "limit": 50_u64 })),
                 request_token.as_deref(),
             ) {
-                if let Some(event) = event_stream.observe_alarms(&alarms_result) {
-                    hmi_ws_send_event(&mut socket, &event)?;
+                Ok(alarms_result) => {
+                    if let Some(event) = event_stream.observe_alarms(&alarms_result) {
+                        hmi_ws_send_event(&mut socket, &event)?;
+                    }
                 }
+                Err(err) => hmi_ws_send_control_error(&mut socket, "hmi.alarms.get", &err)?,
             }
         }
 
@@ -108,7 +121,7 @@ fn hmi_control_result(
     request_type: &str,
     params: Option<serde_json::Value>,
     request_token: Option<&str>,
-) -> Option<serde_json::Value> {
+) -> Result<serde_json::Value, String> {
     *request_id = request_id.saturating_add(1);
     let mut payload = json!({
         "id": *request_id,
@@ -118,15 +131,44 @@ fn hmi_control_result(
         payload["params"] = params;
     }
     let response = dispatch_control_request(payload, control_state, Some("web/ws"), request_token);
-    let response = serde_json::to_value(response).ok()?;
+    let response = serde_json::to_value(response)
+        .map_err(|err| format!("{request_type} response serialization failed: {err}"))?;
     if !response
         .get("ok")
         .and_then(serde_json::Value::as_bool)
         .unwrap_or(false)
     {
-        return None;
+        let message = response
+            .get("error")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("control request failed");
+        return Err(message.to_string());
     }
-    response.get("result").cloned()
+    response
+        .get("result")
+        .cloned()
+        .ok_or_else(|| format!("{request_type} response did not include result"))
+}
+
+fn hmi_ws_send_control_error<S>(
+    socket: &mut tungstenite::protocol::WebSocket<S>,
+    request_type: &str,
+    message: &str,
+) -> Result<(), String>
+where
+    S: std::io::Read + std::io::Write,
+{
+    hmi_ws_send_json(socket, &hmi_control_error_payload(request_type, message))
+}
+
+fn hmi_control_error_payload(request_type: &str, message: &str) -> serde_json::Value {
+    json!({
+        "type": "error",
+        "code": "control_request_failed",
+        "request_type": request_type,
+        "message": message,
+        "compat_legacy_payload": null,
+    })
 }
 
 fn hmi_ws_send_event<S>(
@@ -150,4 +192,31 @@ where
     socket
         .send(tungstenite::Message::Text(payload.to_string().into()))
         .map_err(|err| err.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn hmi_control_error_payload_is_structured() {
+        let payload = super::hmi_control_error_payload("hmi.values.get", "serialization failed");
+        assert_eq!(
+            payload.get("type").and_then(|value| value.as_str()),
+            Some("error")
+        );
+        assert_eq!(
+            payload.get("code").and_then(|value| value.as_str()),
+            Some("control_request_failed")
+        );
+        assert_eq!(
+            payload.get("request_type").and_then(|value| value.as_str()),
+            Some("hmi.values.get")
+        );
+        assert_eq!(
+            payload.get("message").and_then(|value| value.as_str()),
+            Some("serialization failed")
+        );
+        assert!(payload
+            .get("compat_legacy_payload")
+            .is_some_and(|value| value.is_null()));
+    }
 }

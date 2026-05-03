@@ -130,8 +130,23 @@ pub(super) fn handle_post_control_proxy(
             Some("runtime-cloud-proxy"),
             request_token.as_deref(),
         );
-        let mut value = serde_json::to_value(&control_response)
-            .unwrap_or_else(|_| json!({ "ok": false, "error": "serialize error" }));
+        let mut value = match serde_json::to_value(&control_response) {
+            Ok(value) => value,
+            Err(err) => {
+                let response = Response::from_string(
+                    json!({
+                        "ok": false,
+                        "denial_code": ReasonCode::TransportFailure,
+                        "error": format!("control proxy serialization failed: {err}"),
+                    })
+                    .to_string(),
+                )
+                .with_status_code(StatusCode(502))
+                .with_header(Header::from_bytes("Content-Type", "application/json").unwrap());
+                let _ = request.respond(response);
+                return;
+            }
+        };
         let ok = value
             .get("ok")
             .and_then(serde_json::Value::as_bool)

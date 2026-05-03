@@ -17,6 +17,7 @@ mod protocol;
 mod types;
 mod util;
 
+pub use crate::boundary::{BoundaryEntry, BoundaryError};
 pub use api::{
     bytecode_bytes_from_source, bytecode_bytes_from_source_with_path, bytecode_bytes_from_sources,
     bytecode_bytes_from_sources_with_paths, bytecode_module_from_source,

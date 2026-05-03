@@ -589,6 +589,15 @@ impl From<HarnessAutomationError> for AgentCommandError {
                 message,
                 data: Some(json!({ "errors": errors })),
             },
+            HarnessAutomationError::Boundary(error) => Self {
+                code: ERROR_IO,
+                message: error.to_string(),
+                data: Some(json!({
+                    "kind": error.code(),
+                    "path": error.path(),
+                    "candidates": error.candidates().iter().map(|candidate| candidate.as_str()).collect::<Vec<_>>(),
+                })),
+            },
             HarnessAutomationError::RunUntilTimeout {
                 name,
                 max_cycles,

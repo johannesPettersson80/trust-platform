@@ -25,18 +25,30 @@ pub(super) fn handle_debug_evaluate(
             return ControlResponse::error(id, "unknown frame id".into());
         }
     }
-    let metadata = match state.metadata.lock() {
-        Ok(guard) => guard,
-        Err(_) => return ControlResponse::error(id, "metadata unavailable".into()),
+    let (using, mut registry, profile) = {
+        let metadata = match state.metadata.lock() {
+            Ok(guard) => guard,
+            Err(_) => return ControlResponse::error(id, "metadata unavailable".into()),
+        };
+        let using = if let Some(frame_id) = frame_id {
+            match metadata.using_for_frame(&snapshot.storage, frame_id) {
+                Some(using) => using,
+                None => {
+                    return ControlResponse::error(
+                        id,
+                        format!("debug scope unavailable for frame id {}", frame_id.0),
+                    );
+                }
+            }
+        } else {
+            Vec::new()
+        };
+        (using, metadata.registry().clone(), metadata.profile())
     };
-    let using = frame_id
-        .and_then(|frame_id| metadata.using_for_frame(&snapshot.storage, frame_id))
-        .unwrap_or_default();
-    let mut registry = metadata.registry().clone();
     let expr = match crate::harness::parse_debug_expression(
         &params.expression,
         &mut registry,
-        metadata.profile(),
+        profile,
         &using,
     ) {
         Ok(expr) => expr,
@@ -106,4 +118,3 @@ pub(super) fn handle_debug_breakpoint_locations(
     }
     ControlResponse::ok(id, json!({ "breakpoints": breakpoints }))
 }
-

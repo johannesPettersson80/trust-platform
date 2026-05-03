@@ -1,0 +1,8 @@
+# Runtime boundary fail-closed allowlist.
+# Entries are intentionally empty. If an external boundary surface needs an
+# exception, add one narrowly-scoped entry with owner, rationale, review_date,
+# and test_evidence. The policy maximum is 5 entries.
+
+max_entries = 5
+
+entries = []

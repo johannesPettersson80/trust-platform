@@ -48,7 +48,12 @@ END_PROGRAM
 }
 
 fn run_harness(requests: &[JsonValue]) -> (Vec<JsonValue>, String) {
+    run_harness_with_args(&[], requests)
+}
+
+fn run_harness_with_args(args: &[&str], requests: &[JsonValue]) -> (Vec<JsonValue>, String) {
     let mut child = Command::new(env!("CARGO_BIN_EXE_trust-harness"))
+        .args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -107,15 +112,16 @@ fn trust_harness_cycle_dt_ms_advances_virtual_time() {
 
     assert_eq!(responses.len(), 3, "stderr was:\n{stderr}");
     assert_eq!(responses[0]["ok"], json!(true));
+    assert_eq!(responses[0]["protocol_version"], json!(2));
     assert_eq!(responses[1]["ok"], json!(true));
     assert_eq!(responses[2]["ok"], json!(true));
     assert_eq!(
         responses[2]["data"]["values"]["q"],
-        json!({"type": "BOOL", "value": true})
+        json!({"status": "ok", "value": {"type": "BOOL", "value": true}})
     );
     assert_eq!(
         responses[2]["data"]["values"]["et"],
-        json!({"type": "TIME", "nanos": 100_000_000})
+        json!({"status": "ok", "value": {"type": "TIME", "nanos": 100_000_000}})
     );
 }
 
@@ -145,11 +151,36 @@ fn trust_harness_set_input_then_get_output_roundtrips() {
     assert_eq!(responses.len(), 4, "stderr was:\n{stderr}");
     assert_eq!(
         responses[2]["data"]["values"]["latched"],
-        json!({"type": "BOOL", "value": true})
+        json!({"status": "ok", "value": {"type": "BOOL", "value": true}})
     );
     assert_eq!(
         responses[3]["data"]["value"],
         json!({"type": "BOOL", "value": true})
+    );
+}
+
+#[test]
+fn trust_harness_protocol_version_1_keeps_legacy_watch_shape() {
+    let (responses, stderr) = run_harness_with_args(
+        &["--protocol-version", "1"],
+        &[
+            json!({
+                "cmd": "load",
+                "source": latch_program(),
+            }),
+            json!({
+                "cmd": "cycle",
+                "count": 1,
+                "watch": ["latched"],
+            }),
+        ],
+    );
+
+    assert_eq!(responses.len(), 2, "stderr was:\n{stderr}");
+    assert_eq!(responses[1]["protocol_version"], json!(1));
+    assert_eq!(
+        responses[1]["data"]["values"]["latched"],
+        json!({"type": "BOOL", "value": false})
     );
 }
 
@@ -179,11 +210,11 @@ fn trust_harness_advance_time_then_cycle_exposes_timer_progress() {
     assert_eq!(responses[2]["data"]["elapsed_ms"], json!(25));
     assert_eq!(
         responses[3]["data"]["values"]["q"],
-        json!({"type": "BOOL", "value": false})
+        json!({"status": "ok", "value": {"type": "BOOL", "value": false}})
     );
     assert_eq!(
         responses[3]["data"]["values"]["et"],
-        json!({"type": "TIME", "nanos": 25_000_000})
+        json!({"status": "ok", "value": {"type": "TIME", "nanos": 25_000_000}})
     );
 }
 

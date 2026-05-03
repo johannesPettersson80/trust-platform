@@ -124,7 +124,7 @@ END_PROGRAM
     );
     assert_eq!(
         run_until["result"]["values"]["et"],
-        json!({"type": "TIME", "nanos": 30_000_000})
+        json!({"status": "ok", "value": {"type": "TIME", "nanos": 30_000_000}})
     );
 
     write_request(
@@ -155,4 +155,3 @@ END_PROGRAM
 
     let _ = fs::remove_dir_all(project);
 }
-
