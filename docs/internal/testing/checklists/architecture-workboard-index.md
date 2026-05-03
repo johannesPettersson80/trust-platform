@@ -1,7 +1,7 @@
 # Architecture Workboard Index
 
 Status: Active navigation guard
-Last verified: 2026-05-03 after post-closeout gap implementation moved `trust-dev` and PLCopen into separate packages, collapsed host modules to the final cap, split remaining oversized runtime/runtime-core files, and refreshed source-derived architecture evidence.
+Last verified: 2026-05-03 after commit `91255e672` landed the post-closeout gap implementation on `origin/main` and the external safety/dependency follow-up moved into Phase 1.
 Owner: Architecture/runtime/HIR team
 Scope: reset-safe pointer to the right architecture checklists so future sessions do not swap boards.
 
@@ -9,11 +9,11 @@ Unchecked `ARCHIDX-*` rows are recurring guard checks for each resume, not archi
 
 ## Current Board Pointer
 
-- Current active follow-up board: `architecture-post-closeout-gap-closure-checklist.md`.
-- Current concrete step: finish final validation gates for the post-closeout gap closure and keep the external unsafe/dependency residuals on `architecture-external-safety-dependency-follow-up-checklist.md`.
-- Previous completed board: umbrella cleanup plus deferred modernization audit (`ARCHPROG-E-04`, `ARCHPROG-EXIT-08`, `ARCHPROG-EXIT-09`, `ARCHPROG-EXIT-11`, `ARCHPROG-FOLLOW-01`).
+- Current active follow-up board: `architecture-external-safety-dependency-follow-up-checklist.md`.
+- Current concrete step: close the raw audit upgrade paths for OPC UA, tiny_http TLS, and Zenoh after the bounded geiger advisory probe work.
+- Previous completed board: `architecture-post-closeout-gap-closure-checklist.md` at commit `91255e672`, plus umbrella cleanup and deferred modernization audit (`ARCHPROG-E-04`, `ARCHPROG-EXIT-08`, `ARCHPROG-EXIT-09`, `ARCHPROG-EXIT-11`, `ARCHPROG-FOLLOW-01`).
 - Do not use `docs/internal/masterPlan.md` to sequence this architecture program.
-- Resume path: read this index, confirm the architecture program remains closed in `full-architecture-refactor-program-checklist.md`, then work from `architecture-post-closeout-gap-closure-checklist.md`.
+- Resume path: read this index, confirm the architecture program remains closed in `full-architecture-refactor-program-checklist.md`, then work from `architecture-external-safety-dependency-follow-up-checklist.md`.
 
 ## Source Of Truth
 
