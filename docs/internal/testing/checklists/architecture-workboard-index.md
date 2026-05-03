@@ -1,7 +1,7 @@
 # Architecture Workboard Index
 
 Status: Active navigation guard
-Last verified: 2026-05-02 after architecture-program closeout was pushed to `origin/main`, stale sibling worktrees were removed, and post-closeout gaps were promoted into their own follow-up checklist.
+Last verified: 2026-05-03 after post-closeout gap implementation moved `trust-dev` and PLCopen into separate packages, collapsed host modules to the final cap, split remaining oversized runtime/runtime-core files, and refreshed source-derived architecture evidence.
 Owner: Architecture/runtime/HIR team
 Scope: reset-safe pointer to the right architecture checklists so future sessions do not swap boards.
 
@@ -10,7 +10,7 @@ Unchecked `ARCHIDX-*` rows are recurring guard checks for each resume, not archi
 ## Current Board Pointer
 
 - Current active follow-up board: `architecture-post-closeout-gap-closure-checklist.md`.
-- Next concrete follow-up: establish performance, compile-time, and binary-size baselines before starting `runtime-host-module-collapse-execution-checklist.md`.
+- Current concrete step: finish final validation gates for the post-closeout gap closure and keep the external unsafe/dependency residuals on `architecture-external-safety-dependency-follow-up-checklist.md`.
 - Previous completed board: umbrella cleanup plus deferred modernization audit (`ARCHPROG-E-04`, `ARCHPROG-EXIT-08`, `ARCHPROG-EXIT-09`, `ARCHPROG-EXIT-11`, `ARCHPROG-FOLLOW-01`).
 - Do not use `docs/internal/masterPlan.md` to sequence this architecture program.
 - Resume path: read this index, confirm the architecture program remains closed in `full-architecture-refactor-program-checklist.md`, then work from `architecture-post-closeout-gap-closure-checklist.md`.
@@ -30,11 +30,11 @@ The umbrella checklist is `full-architecture-refactor-program-checklist.md`. If 
 - [x] `ARCHPROG-BOARD-01` Full-map architecture doctor: `architecture-doctor-full-map-execution-checklist.md`.
 - [x] `ARCHPROG-BOARD-02` HIR mutation hardening: `hir-mutation-hardening-execution-checklist.md`.
 - [x] `ARCHPROG-BOARD-03` Parser recovery hardening: `parser-recovery-hardening-execution-checklist.md`.
-- [x] `ARCHPROG-BOARD-04` Runtime CLI product/workbench split: `runtime-cli-product-workbench-split-checklist.md`. Status: complete; the `trust-dev` binary implementation tree owns agent/commit/docs/test, `trust-runtime` keeps deprecated forwarding aliases, and shared helpers have explicit infrastructure rationales. `trust-dev` is not a separate Cargo package yet.
+- [x] `ARCHPROG-BOARD-04` Runtime CLI product/workbench split: `runtime-cli-product-workbench-split-checklist.md`. Status: complete; post-closeout follow-up promoted `trust-dev` into a separate Cargo package at `crates/trust-dev`, `trust-runtime` keeps deprecated forwarding aliases, and shared helpers have explicit infrastructure rationales.
 - [x] `ARCHPROG-BOARD-05` Runtime host surface ownership: `runtime-host-surface-ownership-checklist.md`.
 - [x] `ARCHPROG-BOARD-06` Runtime core/Linux host split: `runtime-core-host-split-execution-checklist.md`. Status: closed in the current tracked branch.
 - [x] `ARCHPROG-BOARD-07` Dependency hygiene: `dependency-hygiene-execution-checklist.md`.
-- [x] `ARCHPROG-BOARD-08` Runtime large-file split: `runtime-large-file-split-execution-checklist.md`. Status: complete for the measured BOARD-08 hotspot set; `FULLMAP-CHECK-10` now blocks unregistered large-file regressions and reports remaining registered runtime `src`/`tests` large files with owner/split metadata.
+- [x] `ARCHPROG-BOARD-08` Runtime large-file split: `runtime-large-file-split-execution-checklist.md`. Status: complete for the measured BOARD-08 hotspot set; post-closeout follow-up split the remaining oversized runtime/runtime-core files and `FULLMAP-CHECK-10` still blocks unregistered large-file regressions.
 - [x] `ARCHPROG-BOARD-09` Diagram semantic enforcement: covered by the full-map doctor work.
 - [x] `ARCHPROG-BOARD-10` Runtime VM mutation hardening: `runtime-vm-mutation-hardening-execution-checklist.md`. Status: complete; focused call/register-IR/tier1 mutation shards have zero missed/timeout mutants, `FULLMAP-RUNTIMEVM-MUT` reports the evidence, and GitHub CI passed for `df90e38e6`.
 - [x] `ARCHPROG-BOARD-11` Unsafe/concurrency hardening: `unsafe-concurrency-hardening-execution-checklist.md`. Status: complete; full-map unsafe/concurrency register is active, focused Miri/sanitizer/Valgrind gates pass, and geiger is advisory-partial with an exact blocker.
@@ -53,7 +53,7 @@ The umbrella checklist is `full-architecture-refactor-program-checklist.md`. If 
 - [x] `ARCHIDX-NEXT-11` BOARD-11 unsafe/concurrency hardening is complete; do not resume it unless a new explicit scope reopens `unsafe-concurrency-hardening-execution-checklist.md`.
 - [x] `ARCHIDX-NEXT-12` Continue umbrella cleanup in `full-architecture-refactor-program-checklist.md`: close `ARCHPROG-E-04`, then `ARCHPROG-EXIT-08`, `ARCHPROG-EXIT-09`, and `ARCHPROG-EXIT-11` before deferred modernization. Evidence: `FULLMAP-CHECK-10`, `FULLMAP-P6-API`, `FULLMAP-P7`, `python scripts/check_diagram_drift.py`, and `docs/internal/architecture/full-architecture-refactor-final-report-2026-05-02.md`.
 - [x] `ARCHIDX-NEXT-13` Run deferred `ARCHPROG-FOLLOW-01` Rust 1.95 modernization audit. Evidence: removed unused direct `trust-runtime` `thiserror` dependency; scoped `cargo machete --with-metadata crates`, `cargo audit --ignore ...`, `cargo deny check`, and `RUSTUP_TOOLCHAIN=1.95 cargo check --all-targets` pass locally.
-- [ ] `ARCHIDX-NEXT-14` Use `architecture-post-closeout-gap-closure-checklist.md` for new architecture work instead of reopening the closed umbrella.
+- [x] `ARCHIDX-NEXT-14` Use `architecture-post-closeout-gap-closure-checklist.md` for new architecture work instead of reopening the closed umbrella. Evidence: post-closeout trust-dev package extraction, PLCopen extraction, host-module collapse, large-file cleanup, and performance evidence are tracked there, while third-party unsafe/dependency residuals are tracked by `architecture-external-safety-dependency-follow-up-checklist.md`.
 - [ ] `ARCHIDX-NEXT-03` Do not restart BOARD-06 or BOARD-12 unless the tracked dedicated checklist is reopened with a new explicit scope.
 - [ ] `ARCHIDX-NEXT-04` Keep non-program boards secondary unless the user explicitly redirects away from the architecture-program path.
 

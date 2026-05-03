@@ -237,13 +237,13 @@ Out of scope for this checklist:
 ### 3.3 PLCopen/CODESYS Import Simplification
 
 - [x] C-IMPORT-001 Red regressions prove CODESYS GVL import works without mandatory wrapper + `VAR_EXTERNAL` injection.
-  Evidence: `crates/trust-runtime/src/plcopen/tests/codesys_import.rs`, validated with `cargo test -p trust-runtime --lib plcopen::tests::import_ -- --nocapture`.
+  Evidence: `crates/trust-runtime/tests/plcopen_codesys_import_runtime.rs`, validated with `cargo test -p trust-runtime --test plcopen_codesys_import_runtime -- --nocapture`.
   Tests/files: `crates/trust-runtime/tests/plcopen_migration.rs`, `crates/trust-runtime/tests/plcopen_st_complete_parity.rs`, or focused importer tests.
 - [x] C-IMPORT-002 Regression covers both qualified access and bare-access POUs.
-  Evidence: `crates/trust-runtime/src/plcopen/tests/codesys_import.rs` covers namespaced qualified access without injected externals and the default bare-global vendor-parity path; validated with `cargo test -p trust-runtime --lib plcopen::tests::import_ -- --nocapture`.
+  Evidence: `crates/trust-runtime/tests/plcopen_codesys_import_runtime.rs` covers namespaced qualified access without injected externals and the default bare-global vendor-parity path; validated with `cargo test -p trust-runtime --test plcopen_codesys_import_runtime -- --nocapture`.
 - [x] C-IMPORT-003 Strict-IEC injection path remains available as optional export/adapter behavior.
-  Evidence: `crates/trust-runtime/src/plcopen/import.rs`, `crates/trust-runtime/src/plcopen/import_data_globals.rs`, `crates/trust-runtime/src/plcopen/pou_externals.rs`, `docs/guides/PLCOPEN_INTEROP_COMPATIBILITY.md`, validated with `cargo test -p trust-runtime --lib plcopen::tests::import_ -- --nocapture`.
-  Target files: `crates/trust-runtime/src/plcopen/import.rs`, `crates/trust-runtime/src/plcopen/import_data_globals.rs`, `crates/trust-runtime/src/plcopen/pou_externals.rs`, `docs/guides/PLCOPEN_INTEROP_COMPATIBILITY.md`.
+  Evidence: `crates/trust-plcopen/src/plcopen/import.rs`, `crates/trust-plcopen/src/plcopen/import_data_globals.rs`, `crates/trust-plcopen/src/plcopen/pou_externals.rs`, `docs/guides/PLCOPEN_INTEROP_COMPATIBILITY.md`, validated with `cargo test -p trust-runtime --test plcopen_codesys_import_runtime -- --nocapture`.
+  Target files: `crates/trust-plcopen/src/plcopen/import.rs`, `crates/trust-plcopen/src/plcopen/import_data_globals.rs`, `crates/trust-plcopen/src/plcopen/pou_externals.rs`, `docs/guides/PLCOPEN_INTEROP_COMPATIBILITY.md`.
 
 ### 3.4 Milestone C Validation
 

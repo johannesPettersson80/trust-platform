@@ -93,6 +93,21 @@ fn run_trust_runtime(project: &Path, args: &[&str]) -> Output {
     command.output().expect("run trust-runtime")
 }
 
+fn trust_dev_bin() -> PathBuf {
+    if let Some(path) = option_env!("CARGO_BIN_EXE_trust-dev") {
+        return path.into();
+    }
+    if let Ok(path) = std::env::var("TRUST_DEV_BIN") {
+        return path.into();
+    }
+    let exe = std::env::current_exe().expect("current test exe path");
+    let debug_dir = exe
+        .parent()
+        .and_then(|deps| deps.parent())
+        .expect("target debug dir");
+    debug_dir.join(format!("trust-dev{}", std::env::consts::EXE_SUFFIX))
+}
+
 fn run_release_gate_report(
     output_dir: &Path,
     gate_artifacts_dir: &Path,
@@ -362,7 +377,9 @@ fn ci_template_file_contains_expected_command_sequence() {
         .join("trust-runtime-project-ci.yml");
     let text = std::fs::read_to_string(&template).expect("read CI template");
     assert!(
-        text.contains("cargo build -p trust-runtime --bin trust-runtime --bin trust-dev"),
+        text.contains(
+            "cargo build -p trust-runtime --bin trust-runtime -p trust-dev --bin trust-dev"
+        ),
         "template must build both runtime and dev CLIs"
     );
     assert!(
@@ -398,7 +415,7 @@ fn ci_flake_probe_script_emits_machine_readable_sample() {
     let output = Command::new("python3")
         .arg(&script)
         .arg("--test-bin")
-        .arg(env!("CARGO_BIN_EXE_trust-dev"))
+        .arg(trust_dev_bin())
         .arg("--project")
         .arg(&project)
         .arg("--runs")

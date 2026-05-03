@@ -73,11 +73,11 @@ fn syntax_classifier_helpers_delegate_to_central_api() {
             "pub(in super::super) fn is_expression_kind(kind: SyntaxKind) -> bool {\n    kind.is_initializer_expression_node()\n}",
         ),
         (
-            "crates/trust-runtime/src/harness/util.rs",
+            "crates/trust-runtime/src/host/harness/util.rs",
             "pub(super) fn is_expression_kind(kind: SyntaxKind) -> bool {\n    kind.is_initializer_expression_node()\n}",
         ),
         (
-            "crates/trust-runtime/src/harness/util.rs",
+            "crates/trust-runtime/src/host/harness/util.rs",
             "pub(super) fn is_statement_kind(kind: SyntaxKind) -> bool {\n    kind.is_statement_node()\n}",
         ),
     ];
@@ -119,8 +119,8 @@ fn hir_collection_and_import_do_not_drop_member_initializers() {
 fn runtime_initializer_service_is_the_source_level_funnel() {
     let root = workspace_root();
     let allowed = [
-        root.join("crates/trust-runtime/src/harness/coerce.rs"),
-        root.join("crates/trust-runtime/src/harness/initializer.rs"),
+        root.join("crates/trust-runtime/src/host/harness/coerce.rs"),
+        root.join("crates/trust-runtime/src/host/harness/initializer.rs"),
     ];
 
     for path in rust_files_under("crates/trust-runtime/src") {
@@ -222,13 +222,13 @@ fn register_ir_decode_uses_inline_operand_storage() {
 
 #[test]
 fn runtime_var_decl_parts_are_structural_not_positional_tuples() {
-    let vars = read_workspace_file("crates/trust-runtime/src/harness/compiler/vars.rs");
+    let vars = read_workspace_file("crates/trust-runtime/src/host/harness/compiler/vars.rs");
     assert!(
         vars.contains("pub(super) struct VarDeclParts"),
         "runtime declaration lowering must expose named VarDeclParts"
     );
 
-    for file in rust_files_under("crates/trust-runtime/src/harness") {
+    for file in rust_files_under("crates/trust-runtime/src/host/harness") {
         let source = fs::read_to_string(&file).expect("read harness source");
         assert!(
             !source.contains("let (names, type_ref, initializer, address) = parse_var_decl"),
@@ -255,8 +255,8 @@ fn dependency_boundaries_for_initializer_metadata_hold() {
     }
 
     for file in [
-        "crates/trust-runtime/src/harness/initializer.rs",
-        "crates/trust-runtime/src/harness/initializer/defaults.rs",
+        "crates/trust-runtime/src/host/harness/initializer.rs",
+        "crates/trust-runtime/src/host/harness/initializer/defaults.rs",
     ] {
         let source = read_workspace_file(file);
         assert!(
@@ -269,7 +269,7 @@ fn dependency_boundaries_for_initializer_metadata_hold() {
 #[test]
 fn runtime_pou_registration_is_hir_catalog_driven() {
     let entry_points =
-        read_workspace_file("crates/trust-runtime/src/harness/compiler/pou/entry_points.rs");
+        read_workspace_file("crates/trust-runtime/src/host/harness/compiler/pou/entry_points.rs");
     assert!(
         entry_points.contains("DeclarationCatalog"),
         "runtime POU registration must take the HIR declaration catalog as input"
@@ -312,8 +312,8 @@ fn runtime_pou_registration_is_hir_catalog_driven() {
 #[test]
 fn initializer_service_size_caps_hold() {
     for file in [
-        "crates/trust-runtime/src/harness/initializer.rs",
-        "crates/trust-runtime/src/harness/initializer/defaults.rs",
+        "crates/trust-runtime/src/host/harness/initializer.rs",
+        "crates/trust-runtime/src/host/harness/initializer/defaults.rs",
     ] {
         let source = read_workspace_file(file);
         let line_count = source.lines().count();

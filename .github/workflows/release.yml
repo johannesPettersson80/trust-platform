@@ -88,9 +88,9 @@ jobs:
         run: |
           if [ "${{ matrix.cross }}" = "true" ]; then
             CROSS_CONTAINER_OPTS="--env RUSTC_WRAPPER=" \
-              cross build --release --target ${{ matrix.target }} -p trust-lsp -p trust-debug -p trust-runtime
+              cross build --release --target ${{ matrix.target }} -p trust-lsp -p trust-debug -p trust-runtime -p trust-dev
           else
-            cargo build --release --target ${{ matrix.target }} -p trust-lsp -p trust-debug -p trust-runtime
+            cargo build --release --target ${{ matrix.target }} -p trust-lsp -p trust-debug -p trust-runtime -p trust-dev
           fi
         shell: bash
 

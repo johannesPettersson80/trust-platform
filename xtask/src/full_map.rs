@@ -3737,6 +3737,17 @@ fn route_handler_candidate_files(
     if module_path.is_dir() {
         collect_source_files_inner(&module_path, &mut files)?;
     }
+    if base_dir.ends_with("crates/trust-runtime/src") && module_segments.len() == 1 {
+        let host_module = base_dir.join("host").join(module_segments[0]);
+        let host_rs = host_module.with_extension("rs");
+        if host_rs.exists() {
+            files.push(host_rs);
+        }
+        let host_mod = host_module.join("mod.rs");
+        if host_mod.exists() {
+            files.push(host_mod);
+        }
+    }
     files.sort();
     files.dedup();
     Ok(files)

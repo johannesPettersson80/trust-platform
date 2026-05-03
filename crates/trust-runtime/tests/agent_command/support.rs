@@ -71,13 +71,28 @@ fn fixture_root(name: &str) -> PathBuf {
 }
 
 fn trust_dev_command() -> Command {
-    Command::new(env!("CARGO_BIN_EXE_trust-dev"))
+    Command::new(trust_dev_bin())
 }
 
 fn trust_runtime_command_with_dev_alias() -> Command {
     let mut command = Command::new(env!("CARGO_BIN_EXE_trust-runtime"));
-    command.env("TRUST_DEV_BIN", env!("CARGO_BIN_EXE_trust-dev"));
+    command.env("TRUST_DEV_BIN", trust_dev_bin());
     command
+}
+
+fn trust_dev_bin() -> PathBuf {
+    if let Some(path) = option_env!("CARGO_BIN_EXE_trust-dev") {
+        return path.into();
+    }
+    if let Ok(path) = std::env::var("TRUST_DEV_BIN") {
+        return path.into();
+    }
+    let exe = std::env::current_exe().expect("current test exe path");
+    let debug_dir = exe
+        .parent()
+        .and_then(|deps| deps.parent())
+        .expect("target debug dir");
+    debug_dir.join(format!("trust-dev{}", std::env::consts::EXE_SUFFIX))
 }
 
 fn copy_file_with_retry(src: &Path, dst: &Path) {
@@ -248,4 +263,3 @@ fn wait_for_output_bool(
     }
     panic!("timed out waiting for {address}={expected} at {endpoint}");
 }
-

@@ -5054,6 +5054,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "trust-dev"
+version = "0.24.12"
+dependencies = [
+ "anyhow",
+ "base64 0.22.1",
+ "clap",
+ "dialoguer",
+ "glob",
+ "owo-colors",
+ "serde",
+ "serde_json",
+ "smol_str",
+ "toml",
+ "trust-runtime",
+ "trust-syntax",
+ "trust-wasm-analysis",
+]
+
+[[package]]
 name = "trust-hir"
 version = "0.24.12"
 dependencies = [
@@ -5111,6 +5130,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "trust-plcopen"
+version = "0.24.12"
+dependencies = [
+ "anyhow",
+ "crc32fast",
+ "glob",
+ "roxmltree",
+ "serde",
+ "serde_json",
+ "trust-syntax",
+]
+
+[[package]]
 name = "trust-runtime"
 version = "0.24.12"
 dependencies = [
@@ -5153,6 +5185,7 @@ dependencies = [
  "tracing",
  "trust-hir",
  "trust-ide",
+ "trust-plcopen",
  "trust-runtime-core",
  "trust-syntax",
  "trust-wasm-analysis",

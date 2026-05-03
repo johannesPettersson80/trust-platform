@@ -1,0 +1,17 @@
+[package]
+name = "trust-plcopen"
+description = "PLCopen XML import/export helpers for truST"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+crc32fast.workspace = true
+glob.workspace = true
+roxmltree.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+trust-syntax.workspace = true

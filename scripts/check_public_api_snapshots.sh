@@ -46,4 +46,5 @@ check_snapshot() {
 }
 
 check_snapshot trust-runtime "$ROOT_DIR/crates/trust-runtime/Cargo.toml"
+check_snapshot trust-plcopen "$ROOT_DIR/crates/trust-plcopen/Cargo.toml"
 check_snapshot trust-runtime-core "$ROOT_DIR/crates/trust-runtime-core/Cargo.toml"

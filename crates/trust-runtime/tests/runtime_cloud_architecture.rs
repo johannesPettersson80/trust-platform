@@ -194,7 +194,7 @@ fn runtime_cloud_state_adapters_delegate_domain_state_to_policy_modules() {
 
 #[test]
 fn realtime_t0_hot_path_keeps_mesh_apis_and_key_parsing_out_of_band() {
-    let source_path = "src/realtime/transport.rs";
+    let source_path = "src/host/realtime/transport.rs";
     let source_text = read_source(source_path);
     let forbidden = [
         "crate::mesh",

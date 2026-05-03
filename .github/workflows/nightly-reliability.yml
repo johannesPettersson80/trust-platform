@@ -67,8 +67,8 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Build trust-runtime
-        run: cargo build -p trust-runtime
+      - name: Build runtime and dev CLIs
+        run: cargo build -p trust-runtime -p trust-dev
 
       - name: Prepare artifact directory
         run: mkdir -p artifacts/nightly

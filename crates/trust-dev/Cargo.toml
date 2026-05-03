@@ -1,0 +1,23 @@
+[package]
+name = "trust-dev"
+description = "Developer and workbench CLI for truST"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+base64 = "0.22"
+clap.workspace = true
+dialoguer.workspace = true
+glob.workspace = true
+owo-colors.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+smol_str.workspace = true
+toml.workspace = true
+trust-runtime.workspace = true
+trust-syntax.workspace = true
+trust-wasm-analysis.workspace = true

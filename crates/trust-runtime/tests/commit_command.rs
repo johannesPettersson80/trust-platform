@@ -89,6 +89,21 @@ END_PROGRAM
     project
 }
 
+fn trust_dev_bin() -> PathBuf {
+    if let Some(path) = option_env!("CARGO_BIN_EXE_trust-dev") {
+        return path.into();
+    }
+    if let Ok(path) = std::env::var("TRUST_DEV_BIN") {
+        return path.into();
+    }
+    let exe = std::env::current_exe().expect("current test exe path");
+    let debug_dir = exe
+        .parent()
+        .and_then(|deps| deps.parent())
+        .expect("target debug dir");
+    debug_dir.join(format!("trust-dev{}", std::env::consts::EXE_SUFFIX))
+}
+
 #[test]
 fn trust_dev_commit_dry_run_reports_project_changes() {
     if !git_available() {
@@ -98,7 +113,7 @@ fn trust_dev_commit_dry_run_reports_project_changes() {
 
     let repo = unique_temp_dir("commit-dev");
     let project = write_dirty_project(&repo);
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-dev"))
+    let output = Command::new(trust_dev_bin())
         .args(["commit", "--project"])
         .arg(&project)
         .args(["--message", "Update PLC project", "--dry-run"])
@@ -128,7 +143,7 @@ fn trust_runtime_commit_alias_forwards_to_trust_dev_with_deprecation_warning() {
     let repo = unique_temp_dir("commit-alias");
     let project = write_dirty_project(&repo);
     let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .env("TRUST_DEV_BIN", env!("CARGO_BIN_EXE_trust-dev"))
+        .env("TRUST_DEV_BIN", trust_dev_bin())
         .args(["commit", "--project"])
         .arg(&project)
         .args(["--message", "Update PLC project", "--dry-run"])

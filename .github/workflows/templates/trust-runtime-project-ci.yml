@@ -28,7 +28,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Build truST CLIs
-        run: cargo build -p trust-runtime --bin trust-runtime --bin trust-dev
+        run: cargo build -p trust-runtime --bin trust-runtime -p trust-dev --bin trust-dev
 
       - name: Build project bytecode (CI mode)
         run: target/debug/trust-runtime build --project . --ci

@@ -9,8 +9,23 @@ fn fixture_path(name: &str) -> PathBuf {
         .join(name)
 }
 
+fn trust_dev_bin() -> PathBuf {
+    if let Some(path) = option_env!("CARGO_BIN_EXE_trust-dev") {
+        return path.into();
+    }
+    if let Ok(path) = std::env::var("TRUST_DEV_BIN") {
+        return path.into();
+    }
+    let exe = std::env::current_exe().expect("current test exe path");
+    let debug_dir = exe
+        .parent()
+        .and_then(|deps| deps.parent())
+        .expect("target debug dir");
+    debug_dir.join(format!("trust-dev{}", std::env::consts::EXE_SUFFIX))
+}
+
 fn assert_trust_dev_test_passes(project: PathBuf) {
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-dev"))
+    let output = Command::new(trust_dev_bin())
         .args(["test", "--project"])
         .arg(&project)
         .output()

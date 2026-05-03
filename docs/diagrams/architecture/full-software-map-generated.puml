@@ -26,7 +26,7 @@ package "Product / User Entry Points" as product #EEF6FF {
   actor "Developer" as developer
   actor "IDE/LSP client" as lsp_client
   component "trust-runtime binary\n(source: cli/commands.rs)" as bin_trust_runtime #FFF0D6
-  component "trust-dev binary\n(workbench/dev CLI)" as bin_trust_dev #FFF8E1
+  component "trust-dev binary\n(package: trust-dev)" as bin_trust_dev #FFF8E1
   component "trust-lsp binary" as bin_trust_lsp #E8F5E9
   component "trust-debug binary" as bin_trust_debug #E8F5E9
   component "trust-harness binary" as bin_trust_harness #FFF8E1
@@ -39,18 +39,23 @@ package "Product / User Entry Points" as product #EEF6FF {
 
 package "Workspace Crates (cargo metadata)" as workspace #F8F8F8 {
   component "trust-debug\ncrates/trust-debug\nfiles:49 lines:10991 tests:43\ntargets:bin:1, lib:1" as crate_trust_debug #EDE7F6
+  component "trust-dev\ncrates/trust-dev\nfiles:28 lines:5315 tests:34\ntargets:bin:1, test:1" as crate_trust_dev #FFF8E1
   component "trust-hir\ncrates/trust-hir\nfiles:114 lines:33920 tests:469\ntargets:lib:1, test:13" as crate_trust_hir #FFECEC
   component "trust-ide\ncrates/trust-ide\nfiles:57 lines:14394 tests:99\ntargets:lib:1, test:3" as crate_trust_ide #FFF4D6
-  component "trust-lsp\ncrates/trust-lsp\nfiles:89 lines:22357 tests:141\ntargets:bin:1, test:1" as crate_trust_lsp #E9F2FF
-  component "trust-runtime\ncrates/trust-runtime\nfiles:796 lines:159018 tests:1118\ntargets:bin:4, lib:1, test:136" as crate_trust_runtime #FFF9C4
-  component "trust-runtime-core\ncrates/trust-runtime-core\nfiles:43 lines:6812 tests:61\ntargets:lib:1" as crate_trust_runtime_core #FFFFFF
+  component "trust-lsp\ncrates/trust-lsp\nfiles:89 lines:22359 tests:141\ntargets:bin:1, test:1" as crate_trust_lsp #E9F2FF
+  component "trust-plcopen\ncrates/trust-plcopen\nfiles:25 lines:7117 tests:13\ntargets:lib:1" as crate_trust_plcopen #E0F2F1
+  component "trust-runtime\ncrates/trust-runtime\nfiles:822 lines:150541 tests:1149\ntargets:bin:3, lib:1, test:137" as crate_trust_runtime #FFF9C4
+  component "trust-runtime-core\ncrates/trust-runtime-core\nfiles:44 lines:6859 tests:63\ntargets:lib:1" as crate_trust_runtime_core #E8F5E9
   component "trust-syntax\ncrates/trust-syntax\nfiles:47 lines:8935 tests:150\ntargets:lib:1, test:13" as crate_trust_syntax #E8F5E9
   component "trust-wasm-analysis\ncrates/trust-wasm-analysis\nfiles:16 lines:2385 tests:23\ntargets:cdylib:1, rlib:1, test:1" as crate_trust_wasm_analysis #E0F7FA
-  component "xtask\nxtask\nfiles:3 lines:5300 tests:51\ntargets:bin:1" as crate_xtask #EEEEEE
+  component "xtask\nxtask\nfiles:3 lines:6582 tests:63\ntargets:bin:1" as crate_xtask #EEEEEE
 }
 
 crate_trust_debug --> crate_trust_hir : direct dep
 crate_trust_debug -[#Red,thickness=2]-> crate_trust_runtime : direct dep / needs boundary policy
+crate_trust_dev --> crate_trust_runtime : direct dep
+crate_trust_dev --> crate_trust_syntax : direct dep
+crate_trust_dev --> crate_trust_wasm_analysis : direct dep
 crate_trust_hir --> crate_trust_syntax : direct dep
 crate_trust_ide --> crate_trust_hir : direct dep
 crate_trust_ide --> crate_trust_syntax : direct dep
@@ -58,8 +63,10 @@ crate_trust_lsp --> crate_trust_hir : direct dep
 crate_trust_lsp --> crate_trust_ide : direct dep
 crate_trust_lsp -[#Red,thickness=2]-> crate_trust_runtime : direct dep / needs boundary policy
 crate_trust_lsp --> crate_trust_syntax : direct dep
+crate_trust_plcopen --> crate_trust_syntax : direct dep
 crate_trust_runtime --> crate_trust_hir : direct dep
 crate_trust_runtime -[#Red,thickness=2]-> crate_trust_ide : direct dep / needs boundary policy
+crate_trust_runtime --> crate_trust_plcopen : direct dep
 crate_trust_runtime --> crate_trust_runtime_core : direct dep
 crate_trust_runtime --> crate_trust_syntax : direct dep
 crate_trust_runtime --> crate_trust_wasm_analysis : direct dep
@@ -98,47 +105,45 @@ note right of rt_eval
 end note
 
 package "trust-runtime Top-Level Module Use Graph (generated crate::<module> scan)" as runtime_module_graph #FAFAFA {
-  component "bundle\nfiles:1 lines:29" as rt_mod_bundle #F5F5F5
-  component "bundle_builder\nfiles:5 lines:745" as rt_mod_bundle_builder #F5F5F5
-  component "bundle_template\nfiles:1 lines:194" as rt_mod_bundle_template #F5F5F5
+  component "bundle\nfiles:0 lines:0" as rt_mod_bundle #F5F5F5
+  component "bundle_builder\nfiles:0 lines:0" as rt_mod_bundle_builder #F5F5F5
+  component "bundle_template\nfiles:0 lines:0" as rt_mod_bundle_template #F5F5F5
   component "bytecode\nfiles:39 lines:6153" as rt_mod_bytecode #FFE0B2
   component "config\nfiles:16 lines:2294" as rt_mod_config #FFF4D6
   component "control\nfiles:40 lines:6683" as rt_mod_control #FFE0B2
-  component "debug\nfiles:16 lines:2206" as rt_mod_debug #FFF4D6
-  component "discovery\nfiles:1 lines:361" as rt_mod_discovery #F5F5F5
-  component "eval\nfiles:40 lines:4486" as rt_mod_eval #FFF4D6
-  component "execution_backend\nfiles:1 lines:213" as rt_mod_execution_backend #F5F5F5
-  component "harness\nfiles:49 lines:9303" as rt_mod_harness #FFE0B2
-  component "helper_eval\nfiles:4 lines:1786" as rt_mod_helper_eval #FFF4D6
-  component "historian\nfiles:7 lines:1051" as rt_mod_historian #FFF4D6
+  component "debug\nfiles:0 lines:0" as rt_mod_debug #F5F5F5
+  component "discovery\nfiles:0 lines:0" as rt_mod_discovery #F5F5F5
+  component "eval\nfiles:0 lines:0" as rt_mod_eval #F5F5F5
+  component "execution_backend\nfiles:0 lines:0" as rt_mod_execution_backend #F5F5F5
+  component "harness\nfiles:0 lines:0" as rt_mod_harness #F5F5F5
+  component "helper_eval\nfiles:0 lines:0" as rt_mod_helper_eval #F5F5F5
+  component "historian\nfiles:0 lines:0" as rt_mod_historian #F5F5F5
   component "hmi\nfiles:47 lines:7346" as rt_mod_hmi #FFE0B2
-  component "instance\nfiles:1 lines:662" as rt_mod_instance #F5F5F5
+  component "instance\nfiles:0 lines:0" as rt_mod_instance #F5F5F5
   component "io\nfiles:22 lines:3647" as rt_mod_io #FFF4D6
-  component "linux_rt\nfiles:1 lines:614" as rt_mod_linux_rt #F5F5F5
-  component "memory\nfiles:1 lines:1186" as rt_mod_memory #FFF4D6
-  component "mesh\nfiles:6 lines:1045" as rt_mod_mesh #FFF4D6
-  component "metrics\nfiles:1 lines:518" as rt_mod_metrics #F5F5F5
-  component "opcua\nfiles:5 lines:1098" as rt_mod_opcua #FFF4D6
-  component "plcopen\nfiles:26 lines:7673" as rt_mod_plcopen #FFE0B2
+  component "linux_rt\nfiles:0 lines:0" as rt_mod_linux_rt #F5F5F5
+  component "memory\nfiles:7 lines:1217" as rt_mod_memory #FFF4D6
+  component "mesh\nfiles:0 lines:0" as rt_mod_mesh #F5F5F5
+  component "metrics\nfiles:0 lines:0" as rt_mod_metrics #F5F5F5
+  component "opcua\nfiles:0 lines:0" as rt_mod_opcua #F5F5F5
+  component "plcopen\nfiles:0 lines:0" as rt_mod_plcopen #F5F5F5
   component "program_model\nfiles:3 lines:236" as rt_mod_program_model #F5F5F5
-  component "realtime\nfiles:8 lines:1969" as rt_mod_realtime #FFF4D6
-  component "registry\nfiles:10 lines:739" as rt_mod_registry #F5F5F5
+  component "realtime\nfiles:0 lines:0" as rt_mod_realtime #F5F5F5
+  component "registry\nfiles:0 lines:0" as rt_mod_registry #F5F5F5
   component "retain\nfiles:5 lines:555" as rt_mod_retain #F5F5F5
   component "runtime_cloud\nfiles:14 lines:4743" as rt_mod_runtime_cloud #FFF4D6
-  component "scheduler\nfiles:7 lines:965" as rt_mod_scheduler #F5F5F5
-  component "security\nfiles:2 lines:616" as rt_mod_security #F5F5F5
-  component "settings\nfiles:1 lines:160" as rt_mod_settings #F5F5F5
-  component "setup\nfiles:1 lines:215" as rt_mod_setup #F5F5F5
-  component "simulation\nfiles:1 lines:492" as rt_mod_simulation #F5F5F5
+  component "scheduler\nfiles:7 lines:1043" as rt_mod_scheduler #FFF4D6
+  component "security\nfiles:0 lines:0" as rt_mod_security #F5F5F5
+  component "settings\nfiles:0 lines:0" as rt_mod_settings #F5F5F5
+  component "setup\nfiles:0 lines:0" as rt_mod_setup #F5F5F5
+  component "simulation\nfiles:0 lines:0" as rt_mod_simulation #F5F5F5
   component "stdlib\nfiles:27 lines:4321" as rt_mod_stdlib #FFF4D6
   component "task\nfiles:1 lines:20" as rt_mod_task #F5F5F5
-  component "ui\nfiles:15 lines:4938" as rt_mod_ui #FFF4D6
+  component "ui\nfiles:0 lines:0" as rt_mod_ui #F5F5F5
   component "value\nfiles:2 lines:189" as rt_mod_value #F5F5F5
   component "watchdog\nfiles:1 lines:3" as rt_mod_watchdog #F5F5F5
-  component "web\nfiles:49 lines:14874" as rt_mod_web #FFCCBC
-  component "runtime\nfiles:37 lines:16120" as rt_mod_runtime #FFCCBC
-  rt_mod_bundle --> rt_mod_config : 1
-  rt_mod_bundle_builder --> rt_mod_harness : 1
+  component "web\nfiles:60 lines:14968" as rt_mod_web #FFCCBC
+  component "runtime\nfiles:69 lines:18927" as rt_mod_runtime #FFCCBC
   rt_mod_bytecode --> rt_mod_debug : 1
   rt_mod_bytecode --> rt_mod_helper_eval : 3
   rt_mod_bytecode --> rt_mod_io : 8
@@ -172,84 +177,34 @@ package "trust-runtime Top-Level Module Use Graph (generated crate::<module> sca
   rt_mod_control --> rt_mod_settings : 2
   rt_mod_control --> rt_mod_value : 6
   rt_mod_control --> rt_mod_watchdog : 4
-  rt_mod_debug --> rt_mod_helper_eval : 6
-  rt_mod_debug --> rt_mod_io : 2
-  rt_mod_debug --> rt_mod_memory : 5
-  rt_mod_debug --> rt_mod_program_model : 3
-  rt_mod_debug --> rt_mod_stdlib : 2
-  rt_mod_debug --> rt_mod_value : 6
-  rt_mod_discovery --> rt_mod_config : 1
-  rt_mod_discovery --> rt_mod_control : 1
-  rt_mod_eval --> rt_mod_debug : 3
-  rt_mod_eval --> rt_mod_harness : 8
-  rt_mod_eval --> rt_mod_instance : 3
-  rt_mod_eval --> rt_mod_memory : 5
-  rt_mod_eval --> rt_mod_program_model : 32
-  rt_mod_eval --> rt_mod_stdlib : 5
-  rt_mod_eval --> rt_mod_value : 9
-  rt_mod_harness --> rt_mod_bytecode : 11
-  rt_mod_harness --> rt_mod_debug : 4
-  rt_mod_harness --> rt_mod_helper_eval : 3
-  rt_mod_harness --> rt_mod_instance : 3
-  rt_mod_harness --> rt_mod_io : 17
-  rt_mod_harness --> rt_mod_memory : 4
-  rt_mod_harness --> rt_mod_program_model : 14
-  rt_mod_harness --> rt_mod_stdlib : 3
-  rt_mod_harness --> rt_mod_task : 11
-  rt_mod_harness --> rt_mod_value : 45
-  rt_mod_helper_eval --> rt_mod_memory : 2
-  rt_mod_helper_eval --> rt_mod_program_model : 19
-  rt_mod_helper_eval --> rt_mod_stdlib : 2
-  rt_mod_helper_eval --> rt_mod_value : 11
-  rt_mod_historian --> rt_mod_debug : 3
-  rt_mod_historian --> rt_mod_memory : 2
-  rt_mod_historian --> rt_mod_metrics : 1
-  rt_mod_historian --> rt_mod_value : 2
   rt_mod_hmi --> rt_mod_debug : 6
   rt_mod_hmi --> rt_mod_harness : 1
   rt_mod_hmi --> rt_mod_runtime : 1
   rt_mod_hmi --> rt_mod_value : 1
-  rt_mod_instance --> rt_mod_harness : 7
-  rt_mod_instance --> rt_mod_memory : 2
-  rt_mod_instance --> rt_mod_program_model : 11
-  rt_mod_instance --> rt_mod_stdlib : 2
-  rt_mod_instance --> rt_mod_task : 1
-  rt_mod_instance --> rt_mod_value : 2
   rt_mod_io --> rt_mod_memory : 4
   rt_mod_io --> rt_mod_value : 2
-  rt_mod_memory --> rt_mod_value : 27
-  rt_mod_mesh --> rt_mod_config : 4
-  rt_mod_mesh --> rt_mod_runtime_cloud : 2
-  rt_mod_mesh --> rt_mod_scheduler : 3
-  rt_mod_mesh --> rt_mod_value : 2
-  rt_mod_metrics --> rt_mod_execution_backend : 1
-  rt_mod_opcua --> rt_mod_debug : 1
-  rt_mod_opcua --> rt_mod_value : 3
-  rt_mod_plcopen --> rt_mod_harness : 1
-  rt_mod_plcopen --> rt_mod_value : 1
+  rt_mod_memory --> rt_mod_value : 26
   rt_mod_program_model --> rt_mod_debug : 1
   rt_mod_program_model --> rt_mod_io : 1
   rt_mod_program_model --> rt_mod_value : 1
-  rt_mod_realtime --> rt_mod_runtime_cloud : 1
-  rt_mod_registry --> rt_mod_config : 1
   rt_mod_retain --> rt_mod_runtime : 1
   rt_mod_retain --> rt_mod_value : 1
   rt_mod_runtime --> rt_mod_bundle_builder : 1
   rt_mod_runtime --> rt_mod_bytecode : 15
   rt_mod_runtime --> rt_mod_config : 1
-  rt_mod_runtime --> rt_mod_debug : 34
+  rt_mod_runtime --> rt_mod_debug : 35
   rt_mod_runtime --> rt_mod_execution_backend : 12
   rt_mod_runtime --> rt_mod_harness : 6
   rt_mod_runtime --> rt_mod_helper_eval : 5
   rt_mod_runtime --> rt_mod_instance : 7
   rt_mod_runtime --> rt_mod_io : 2
-  rt_mod_runtime --> rt_mod_memory : 12
+  rt_mod_runtime --> rt_mod_memory : 15
   rt_mod_runtime --> rt_mod_metrics : 2
-  rt_mod_runtime --> rt_mod_program_model : 15
+  rt_mod_runtime --> rt_mod_program_model : 16
   rt_mod_runtime --> rt_mod_retain : 1
-  rt_mod_runtime --> rt_mod_stdlib : 7
+  rt_mod_runtime --> rt_mod_stdlib : 10
   rt_mod_runtime --> rt_mod_task : 8
-  rt_mod_runtime --> rt_mod_value : 38
+  rt_mod_runtime --> rt_mod_value : 40
   rt_mod_runtime --> rt_mod_watchdog : 1
   rt_mod_runtime_cloud --> rt_mod_config : 2
   rt_mod_runtime_cloud --> rt_mod_security : 2
@@ -258,26 +213,10 @@ package "trust-runtime Top-Level Module Use Graph (generated crate::<module> sca
   rt_mod_scheduler --> rt_mod_simulation : 2
   rt_mod_scheduler --> rt_mod_value : 3
   rt_mod_scheduler --> rt_mod_watchdog : 5
-  rt_mod_security --> rt_mod_config : 1
-  rt_mod_settings --> rt_mod_config : 1
-  rt_mod_settings --> rt_mod_execution_backend : 1
-  rt_mod_settings --> rt_mod_linux_rt : 1
-  rt_mod_settings --> rt_mod_value : 1
-  rt_mod_settings --> rt_mod_watchdog : 1
-  rt_mod_setup --> rt_mod_bundle_template : 2
-  rt_mod_setup --> rt_mod_config : 2
-  rt_mod_setup --> rt_mod_io : 1
-  rt_mod_simulation --> rt_mod_io : 1
-  rt_mod_simulation --> rt_mod_memory : 1
-  rt_mod_simulation --> rt_mod_value : 1
   rt_mod_stdlib --> rt_mod_memory : 6
   rt_mod_stdlib --> rt_mod_program_model : 3
   rt_mod_stdlib --> rt_mod_value : 23
   rt_mod_task --> rt_mod_program_model : 1
-  rt_mod_ui --> rt_mod_bundle : 1
-  rt_mod_ui --> rt_mod_bundle_builder : 1
-  rt_mod_ui --> rt_mod_config : 2
-  rt_mod_ui --> rt_mod_control : 1
   rt_mod_web --> rt_mod_bundle_template : 10
   rt_mod_web --> rt_mod_config : 22
   rt_mod_web --> rt_mod_control : 7
@@ -295,17 +234,17 @@ package "trust-runtime Top-Level Module Use Graph (generated crate::<module> sca
 }
 
 package "Runtime Surface Size Overlay (source scan)" as runtime_size #FFF3E0 {
-  component "web\nfiles:49 lines:14874" as rt_size_web
+  component "web\nfiles:60 lines:14968" as rt_size_web
   component "hmi\nfiles:47 lines:7346" as rt_size_hmi
-  component "ui\nfiles:15 lines:4938" as rt_size_ui
+  component "ui\nfiles:0 lines:0" as rt_size_ui
   component "control\nfiles:40 lines:6683" as rt_size_control
   component "runtime_cloud\nfiles:14 lines:4743" as rt_size_runtime_cloud
 }
 
 package "trust-runtime CLI Commands (parsed from Command enum)" as cli_commands #FFF0D6 {
-  component "runtime/product\nRun (line 21)\\nPlay (line 48)\\nCtl (line 96)\\nValidate (line 110)\\nBuild (line 119)\\nHmi (line 164)\\nPlcopen (line 172)\\nRegistry (line 177)\\nSetup (line 185)\\nDeploy (line 269)\\nRollback (line 284)\\nCompletions (line 290)\\nBench (line 301)\\nConformance (line 309)" as cli_runtime_product #E8F5E9
-  component "ui/product\nUi (line 75)\\nIde (line 225)\\nConfigUi (line 234)\\nWizard (line 248)" as cli_ui_product #FFF4D6
-  component "workbench/dev\nTest (line 131)\\nDocs (line 152)\\nAgent (line 242)\\nCommit (line 257)" as cli_workbench_dev #FFCCBC
+  component "runtime/product\nRun (line 21)\\nPlay (line 48)\\nCtl (line 96)\\nValidate (line 110)\\nBuild (line 119)\\nHmi (line 166)\\nPlcopen (line 174)\\nRegistry (line 179)\\nSetup (line 187)\\nDeploy (line 271)\\nRollback (line 286)\\nCompletions (line 292)\\nBench (line 303)\\nConformance (line 311)" as cli_runtime_product #E8F5E9
+  component "ui/product\nUi (line 75)\\nIde (line 227)\\nConfigUi (line 236)\\nWizard (line 250)" as cli_ui_product #FFF4D6
+  component "workbench/dev\nTest (line 132)\\nDocs (line 154)\\nAgent (line 244)\\nCommit (line 259)" as cli_workbench_dev #FFCCBC
 }
 bin_trust_runtime --> cli_runtime_product
 bin_trust_runtime --> cli_ui_product
@@ -319,25 +258,25 @@ root_tracked -[#Orange]-> bin_trust_runtime : repo-root project fixture
 root_ignored -[#Orange,dashed]-> bin_trust_runtime : local runtime working-dir coupling
 
 package "Architecture Risk Overlays (generated counts)" as risks #FFECEC {
-  component "Hotspots\nunsafe occurrences:14\npanic/unwrap/etc:4852\nboundary markers:71" as risk_hotspots #FFCDD2
-  component "Architecture doctor\nxtask/src/main.rs:5300 lines\nsingle binary automation surface" as risk_doctor #FFCDD2
+  component "Hotspots\nunsafe occurrences:30\npanic/unwrap/etc:4955\nboundary markers:76" as risk_hotspots #FFCDD2
+  component "Architecture doctor\nxtask/src/main.rs:6582 lines\nsingle binary automation surface" as risk_doctor #FFCDD2
   component "Runtime modules\n39 top-level modules" as risk_runtime_modules #FFCDD2
   component "Largest files" as risk_largest #FFCDD2
-  component "4070 lines\nxtask/src/full_map.rs" as largest_1 #FFECB3
+  component "5327 lines\nxtask/src/full_map.rs" as largest_1 #FFECB3
   risk_largest --> largest_1
-  component "3202 lines\ncrates/trust-runtime/src/runtime/vm/register_ir/tests.rs" as largest_2 #FFECB3
+  component "1316 lines\ncrates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" as largest_2 #FFECB3
   risk_largest --> largest_2
-  component "2809 lines\ncrates/trust-runtime/src/runtime/vm/call.rs" as largest_3 #FFECB3
+  component "1260 lines\ncrates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" as largest_3 #FFECB3
   risk_largest --> largest_3
-  component "2540 lines\ncrates/trust-runtime/src/web/config_ui_routes.rs" as largest_4 #FFECB3
+  component "1136 lines\ncrates/trust-hir/src/symbols/table.rs" as largest_4 #FFECB3
   risk_largest --> largest_4
-  component "1920 lines\ncrates/trust-runtime/tests/bytecode_vm_core.rs" as largest_5 #FFECB3
+  component "1022 lines\ncrates/trust-hir/src/db/queries/collector/types.rs" as largest_5 #FFECB3
   risk_largest --> largest_5
-  component "1565 lines\ncrates/trust-runtime/src/runtime/vm/register_ir.rs" as largest_6 #FFECB3
+  component "985 lines\ncrates/trust-runtime/src/host/helper_eval/storage_expr.rs" as largest_6 #FFECB3
   risk_largest --> largest_6
-  component "1511 lines\ncrates/trust-runtime/tests/agent_command.rs" as largest_7 #FFECB3
+  component "951 lines\ncrates/trust-runtime-core/src/value/types.rs" as largest_7 #FFECB3
   risk_largest --> largest_7
-  component "1371 lines\ncrates/trust-runtime/src/bin/trust-runtime/agent.rs" as largest_8 #FFECB3
+  component "951 lines\ncrates/trust-lsp/src/handlers/tests/mod_part_01_part_01.rs" as largest_8 #FFECB3
   risk_largest --> largest_8
 }
 risk_runtime_modules -[#Red]-> crate_trust_runtime : KISS risk
@@ -345,7 +284,7 @@ risk_doctor -[#Orange]-> crate_xtask : monolithic doctor
 risk_hotspots -[#Orange]-> workspace : triage map
 
 package "Test Architecture Surface" as test_surface #EEF6FF {
-  component "trust-runtime integration targets\n136 cargo test targets" as test_runtime
+  component "trust-runtime integration targets\n137 cargo test targets" as test_runtime
   component "part-split test files\n43 files" as test_parts
   component "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_01.rs" as test_part_1 #E3F2FD
   test_parts --> test_part_1

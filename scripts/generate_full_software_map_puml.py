@@ -9,6 +9,7 @@ metadata, line-count maps, module maps, and shallow source scans.
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 from collections import Counter, defaultdict
@@ -17,8 +18,22 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 GENERATED = ROOT / "docs/internal/architecture/generated"
-ARTIFACT_ROOT = ROOT / "target/gate-artifacts/full-software-map-2026-04-28"
 OUT = ROOT / "docs/diagrams/architecture/full-software-map-generated.puml"
+
+
+def full_map_artifact_root() -> Path:
+    if env_path := os.environ.get("FULL_SOFTWARE_MAP_ARTIFACT"):
+        return Path(env_path)
+    artifact_dir = ROOT / "target/gate-artifacts"
+    candidates = sorted(
+        artifact_dir.glob("full-software-map-*"),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+    return candidates[0] if candidates else artifact_dir / "full-software-map-2026-04-28"
+
+
+ARTIFACT_ROOT = full_map_artifact_root()
 
 
 def read_json(path: Path) -> dict:
@@ -358,7 +373,7 @@ def write_diagram() -> None:
             "  actor \"Developer\" as developer",
             "  actor \"IDE/LSP client\" as lsp_client",
             "  component \"trust-runtime binary\\n(source: cli/commands.rs)\" as bin_trust_runtime #FFF0D6",
-            "  component \"trust-dev binary\\n(workbench/dev CLI)\" as bin_trust_dev #FFF8E1",
+            "  component \"trust-dev binary\\n(package: trust-dev)\" as bin_trust_dev #FFF8E1",
             "  component \"trust-lsp binary\" as bin_trust_lsp #E8F5E9",
             "  component \"trust-debug binary\" as bin_trust_debug #E8F5E9",
             "  component \"trust-harness binary\" as bin_trust_harness #FFF8E1",
@@ -378,6 +393,9 @@ def write_diagram() -> None:
         "trust-hir": "#FFECEC",
         "trust-ide": "#FFF4D6",
         "trust-lsp": "#E9F2FF",
+        "trust-dev": "#FFF8E1",
+        "trust-plcopen": "#E0F2F1",
+        "trust-runtime-core": "#E8F5E9",
         "trust-runtime": "#FFF9C4",
         "trust-debug": "#EDE7F6",
         "trust-wasm-analysis": "#E0F7FA",

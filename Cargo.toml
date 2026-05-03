@@ -7,6 +7,8 @@ members = [
     "crates/trust-hir",
     "crates/trust-ide",
     "crates/trust-lsp",
+    "crates/trust-dev",
+    "crates/trust-plcopen",
     "crates/trust-runtime-core",
     "crates/trust-runtime",
     "crates/trust-wasm-analysis",
@@ -86,6 +88,8 @@ time = "0.3.47"
 trust-syntax = { path = "crates/trust-syntax" }
 trust-hir = { path = "crates/trust-hir" }
 trust-ide = { path = "crates/trust-ide" }
+trust-dev = { path = "crates/trust-dev" }
+trust-plcopen = { path = "crates/trust-plcopen" }
 trust-runtime-core = { path = "crates/trust-runtime-core" }
 trust-runtime = { path = "crates/trust-runtime" }
 trust-wasm-analysis = { path = "crates/trust-wasm-analysis" }

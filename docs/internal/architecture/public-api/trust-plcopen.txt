@@ -1,0 +1,149 @@
+pub mod trust_plcopen
+pub enum trust_plcopen::PlcopenExportTarget
+pub trust_plcopen::PlcopenExportTarget::AllenBradley
+pub trust_plcopen::PlcopenExportTarget::Generic
+pub trust_plcopen::PlcopenExportTarget::Schneider
+pub trust_plcopen::PlcopenExportTarget::Siemens
+impl trust_plcopen::PlcopenExportTarget
+pub fn trust_plcopen::PlcopenExportTarget::file_suffix(self) -> &'static str
+pub fn trust_plcopen::PlcopenExportTarget::id(self) -> &'static str
+pub fn trust_plcopen::PlcopenExportTarget::label(self) -> &'static str
+pub enum trust_plcopen::PlcopenImportGlobalVarMode
+pub trust_plcopen::PlcopenImportGlobalVarMode::NativeVendorParity
+pub trust_plcopen::PlcopenImportGlobalVarMode::StrictIecAdapter
+pub struct trust_plcopen::PlcopenCompatibilityCoverage
+pub trust_plcopen::PlcopenCompatibilityCoverage::partial_items: usize
+pub trust_plcopen::PlcopenCompatibilityCoverage::support_percent: f64
+pub trust_plcopen::PlcopenCompatibilityCoverage::supported_items: usize
+pub trust_plcopen::PlcopenCompatibilityCoverage::unsupported_items: usize
+pub trust_plcopen::PlcopenCompatibilityCoverage::verdict: alloc::string::String
+pub struct trust_plcopen::PlcopenCompatibilityMatrixEntry
+pub trust_plcopen::PlcopenCompatibilityMatrixEntry::capability: &'static str
+pub trust_plcopen::PlcopenCompatibilityMatrixEntry::notes: &'static str
+pub trust_plcopen::PlcopenCompatibilityMatrixEntry::status: &'static str
+pub struct trust_plcopen::PlcopenExportAdapterDiagnostic
+pub trust_plcopen::PlcopenExportAdapterDiagnostic::action: alloc::string::String
+pub trust_plcopen::PlcopenExportAdapterDiagnostic::code: alloc::string::String
+pub trust_plcopen::PlcopenExportAdapterDiagnostic::message: alloc::string::String
+pub trust_plcopen::PlcopenExportAdapterDiagnostic::severity: alloc::string::String
+pub struct trust_plcopen::PlcopenExportAdapterReport
+pub trust_plcopen::PlcopenExportAdapterReport::diagnostics: alloc::vec::Vec<trust_plcopen::PlcopenExportAdapterDiagnostic>
+pub trust_plcopen::PlcopenExportAdapterReport::limitations: alloc::vec::Vec<alloc::string::String>
+pub trust_plcopen::PlcopenExportAdapterReport::manual_steps: alloc::vec::Vec<alloc::string::String>
+pub trust_plcopen::PlcopenExportAdapterReport::siemens_scl_bundle_dir: core::option::Option<std::path::PathBuf>
+pub trust_plcopen::PlcopenExportAdapterReport::siemens_scl_files: alloc::vec::Vec<std::path::PathBuf>
+pub trust_plcopen::PlcopenExportAdapterReport::source_map_path: std::path::PathBuf
+pub trust_plcopen::PlcopenExportAdapterReport::source_xml: std::path::PathBuf
+pub trust_plcopen::PlcopenExportAdapterReport::target: alloc::string::String
+pub trust_plcopen::PlcopenExportAdapterReport::target_label: alloc::string::String
+pub struct trust_plcopen::PlcopenExportReport
+pub trust_plcopen::PlcopenExportReport::adapter_diagnostics: alloc::vec::Vec<trust_plcopen::PlcopenExportAdapterDiagnostic>
+pub trust_plcopen::PlcopenExportReport::adapter_limitations: alloc::vec::Vec<alloc::string::String>
+pub trust_plcopen::PlcopenExportReport::adapter_manual_steps: alloc::vec::Vec<alloc::string::String>
+pub trust_plcopen::PlcopenExportReport::adapter_report_path: core::option::Option<std::path::PathBuf>
+pub trust_plcopen::PlcopenExportReport::configuration_count: usize
+pub trust_plcopen::PlcopenExportReport::data_type_count: usize
+pub trust_plcopen::PlcopenExportReport::exported_folder_paths: usize
+pub trust_plcopen::PlcopenExportReport::exported_global_var_lists: usize
+pub trust_plcopen::PlcopenExportReport::exported_project_structure_nodes: usize
+pub trust_plcopen::PlcopenExportReport::output_path: std::path::PathBuf
+pub trust_plcopen::PlcopenExportReport::pou_count: usize
+pub trust_plcopen::PlcopenExportReport::program_instance_count: usize
+pub trust_plcopen::PlcopenExportReport::resource_count: usize
+pub trust_plcopen::PlcopenExportReport::siemens_scl_bundle_dir: core::option::Option<std::path::PathBuf>
+pub trust_plcopen::PlcopenExportReport::siemens_scl_files: alloc::vec::Vec<std::path::PathBuf>
+pub trust_plcopen::PlcopenExportReport::source_count: usize
+pub trust_plcopen::PlcopenExportReport::source_map_path: std::path::PathBuf
+pub trust_plcopen::PlcopenExportReport::target: alloc::string::String
+pub trust_plcopen::PlcopenExportReport::task_count: usize
+pub trust_plcopen::PlcopenExportReport::warnings: alloc::vec::Vec<alloc::string::String>
+pub struct trust_plcopen::PlcopenImportOptions
+pub trust_plcopen::PlcopenImportOptions::global_var_mode: trust_plcopen::PlcopenImportGlobalVarMode
+pub struct trust_plcopen::PlcopenImportReport
+pub trust_plcopen::PlcopenImportReport::applied_library_shims: alloc::vec::Vec<trust_plcopen::PlcopenLibraryShimApplication>
+pub trust_plcopen::PlcopenImportReport::compatibility_coverage: trust_plcopen::PlcopenCompatibilityCoverage
+pub trust_plcopen::PlcopenImportReport::detected_ecosystem: alloc::string::String
+pub trust_plcopen::PlcopenImportReport::discovered_configurations: usize
+pub trust_plcopen::PlcopenImportReport::discovered_global_var_lists: usize
+pub trust_plcopen::PlcopenImportReport::discovered_pous: usize
+pub trust_plcopen::PlcopenImportReport::imported_configurations: usize
+pub trust_plcopen::PlcopenImportReport::imported_data_types: usize
+pub trust_plcopen::PlcopenImportReport::imported_folder_paths: usize
+pub trust_plcopen::PlcopenImportReport::imported_global_var_lists: usize
+pub trust_plcopen::PlcopenImportReport::imported_pous: usize
+pub trust_plcopen::PlcopenImportReport::imported_program_instances: usize
+pub trust_plcopen::PlcopenImportReport::imported_project_structure_nodes: usize
+pub trust_plcopen::PlcopenImportReport::imported_resources: usize
+pub trust_plcopen::PlcopenImportReport::imported_tasks: usize
+pub trust_plcopen::PlcopenImportReport::migration_report_path: std::path::PathBuf
+pub trust_plcopen::PlcopenImportReport::preserved_vendor_extensions: core::option::Option<std::path::PathBuf>
+pub trust_plcopen::PlcopenImportReport::project_root: std::path::PathBuf
+pub trust_plcopen::PlcopenImportReport::semantic_loss_percent: f64
+pub trust_plcopen::PlcopenImportReport::source_coverage_percent: f64
+pub trust_plcopen::PlcopenImportReport::unsupported_diagnostics: alloc::vec::Vec<trust_plcopen::PlcopenUnsupportedDiagnostic>
+pub trust_plcopen::PlcopenImportReport::unsupported_nodes: alloc::vec::Vec<alloc::string::String>
+pub trust_plcopen::PlcopenImportReport::warnings: alloc::vec::Vec<alloc::string::String>
+pub trust_plcopen::PlcopenImportReport::written_sources: alloc::vec::Vec<std::path::PathBuf>
+pub struct trust_plcopen::PlcopenLibraryShimApplication
+pub trust_plcopen::PlcopenLibraryShimApplication::notes: alloc::string::String
+pub trust_plcopen::PlcopenLibraryShimApplication::occurrences: usize
+pub trust_plcopen::PlcopenLibraryShimApplication::replacement_symbol: alloc::string::String
+pub trust_plcopen::PlcopenLibraryShimApplication::source_symbol: alloc::string::String
+pub trust_plcopen::PlcopenLibraryShimApplication::vendor: alloc::string::String
+pub struct trust_plcopen::PlcopenMigrationEntry
+pub trust_plcopen::PlcopenMigrationEntry::name: alloc::string::String
+pub trust_plcopen::PlcopenMigrationEntry::pou_type_raw: core::option::Option<alloc::string::String>
+pub trust_plcopen::PlcopenMigrationEntry::reason: core::option::Option<alloc::string::String>
+pub trust_plcopen::PlcopenMigrationEntry::resolved_pou_type: core::option::Option<alloc::string::String>
+pub trust_plcopen::PlcopenMigrationEntry::status: alloc::string::String
+pub struct trust_plcopen::PlcopenMigrationReport
+pub trust_plcopen::PlcopenMigrationReport::applied_library_shims: alloc::vec::Vec<trust_plcopen::PlcopenLibraryShimApplication>
+pub trust_plcopen::PlcopenMigrationReport::compatibility_coverage: trust_plcopen::PlcopenCompatibilityCoverage
+pub trust_plcopen::PlcopenMigrationReport::detected_ecosystem: alloc::string::String
+pub trust_plcopen::PlcopenMigrationReport::discovered_configurations: usize
+pub trust_plcopen::PlcopenMigrationReport::discovered_global_var_lists: usize
+pub trust_plcopen::PlcopenMigrationReport::discovered_pous: usize
+pub trust_plcopen::PlcopenMigrationReport::entries: alloc::vec::Vec<trust_plcopen::PlcopenMigrationEntry>
+pub trust_plcopen::PlcopenMigrationReport::importable_pous: usize
+pub trust_plcopen::PlcopenMigrationReport::imported_configurations: usize
+pub trust_plcopen::PlcopenMigrationReport::imported_data_types: usize
+pub trust_plcopen::PlcopenMigrationReport::imported_folder_paths: usize
+pub trust_plcopen::PlcopenMigrationReport::imported_global_var_lists: usize
+pub trust_plcopen::PlcopenMigrationReport::imported_pous: usize
+pub trust_plcopen::PlcopenMigrationReport::imported_program_instances: usize
+pub trust_plcopen::PlcopenMigrationReport::imported_project_structure_nodes: usize
+pub trust_plcopen::PlcopenMigrationReport::imported_resources: usize
+pub trust_plcopen::PlcopenMigrationReport::imported_tasks: usize
+pub trust_plcopen::PlcopenMigrationReport::namespace: alloc::string::String
+pub trust_plcopen::PlcopenMigrationReport::profile: alloc::string::String
+pub trust_plcopen::PlcopenMigrationReport::project_root: std::path::PathBuf
+pub trust_plcopen::PlcopenMigrationReport::semantic_loss_percent: f64
+pub trust_plcopen::PlcopenMigrationReport::skipped_pous: usize
+pub trust_plcopen::PlcopenMigrationReport::source_coverage_percent: f64
+pub trust_plcopen::PlcopenMigrationReport::source_xml: std::path::PathBuf
+pub trust_plcopen::PlcopenMigrationReport::unsupported_diagnostics: alloc::vec::Vec<trust_plcopen::PlcopenUnsupportedDiagnostic>
+pub trust_plcopen::PlcopenMigrationReport::unsupported_nodes: alloc::vec::Vec<alloc::string::String>
+pub trust_plcopen::PlcopenMigrationReport::warnings: alloc::vec::Vec<alloc::string::String>
+pub struct trust_plcopen::PlcopenProfile
+pub trust_plcopen::PlcopenProfile::compatibility_matrix: alloc::vec::Vec<trust_plcopen::PlcopenCompatibilityMatrixEntry>
+pub trust_plcopen::PlcopenProfile::known_gaps: alloc::vec::Vec<&'static str>
+pub trust_plcopen::PlcopenProfile::namespace: &'static str
+pub trust_plcopen::PlcopenProfile::profile: &'static str
+pub trust_plcopen::PlcopenProfile::round_trip_limits: alloc::vec::Vec<&'static str>
+pub trust_plcopen::PlcopenProfile::source_mapping: &'static str
+pub trust_plcopen::PlcopenProfile::strict_subset: alloc::vec::Vec<&'static str>
+pub trust_plcopen::PlcopenProfile::unsupported_nodes: alloc::vec::Vec<&'static str>
+pub trust_plcopen::PlcopenProfile::vendor_extension_hook: &'static str
+pub trust_plcopen::PlcopenProfile::version: &'static str
+pub struct trust_plcopen::PlcopenUnsupportedDiagnostic
+pub trust_plcopen::PlcopenUnsupportedDiagnostic::action: alloc::string::String
+pub trust_plcopen::PlcopenUnsupportedDiagnostic::code: alloc::string::String
+pub trust_plcopen::PlcopenUnsupportedDiagnostic::message: alloc::string::String
+pub trust_plcopen::PlcopenUnsupportedDiagnostic::node: alloc::string::String
+pub trust_plcopen::PlcopenUnsupportedDiagnostic::pou: core::option::Option<alloc::string::String>
+pub trust_plcopen::PlcopenUnsupportedDiagnostic::severity: alloc::string::String
+pub fn trust_plcopen::export_project_to_xml(project_root: &std::path::Path, output_path: &std::path::Path) -> anyhow::Result<trust_plcopen::PlcopenExportReport>
+pub fn trust_plcopen::export_project_to_xml_with_target(project_root: &std::path::Path, output_path: &std::path::Path, target: trust_plcopen::PlcopenExportTarget) -> anyhow::Result<trust_plcopen::PlcopenExportReport>
+pub fn trust_plcopen::import_xml_to_project(xml_path: &std::path::Path, project_root: &std::path::Path) -> anyhow::Result<trust_plcopen::PlcopenImportReport>
+pub fn trust_plcopen::import_xml_to_project_with_options(xml_path: &std::path::Path, project_root: &std::path::Path, options: trust_plcopen::PlcopenImportOptions) -> anyhow::Result<trust_plcopen::PlcopenImportReport>
+pub fn trust_plcopen::supported_profile() -> trust_plcopen::PlcopenProfile
