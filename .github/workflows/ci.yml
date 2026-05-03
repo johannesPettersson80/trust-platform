@@ -318,6 +318,14 @@ jobs:
             cargo install ast-grep --version 0.42.1 --locked
             ast-grep --version
           fi
+      - name: Install cargo-public-api
+        run: |
+          if cargo public-api --version >/dev/null 2>&1; then
+            cargo public-api --version
+          else
+            cargo install cargo-public-api --version 0.51.0 --locked
+            cargo public-api --version
+          fi
       - name: Run external unsafe AST scanner gate
         run: ./scripts/architecture_external_safety_ast_grep_gate.sh
       - name: Run full-map architecture doctor

@@ -2750,6 +2750,7 @@ fn collect_top_level_module_summaries(
             by_module
                 .entry(module_name)
                 .and_modify(|existing| {
+                    existing.0 = path.clone();
                     existing.1 += files;
                     existing.2 += lines;
                 })
@@ -4698,6 +4699,41 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
         });
 
         assert!(check_kiss_thresholds(&map, &base_policy()).is_fail());
+    }
+
+    #[test]
+    fn top_level_module_summary_prefers_directory_for_split_module() -> Result<()> {
+        let suffix = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!(
+            "trust-full-map-module-summary-{}-{suffix}",
+            std::process::id()
+        ));
+        let crate_dir = root.join("crates/demo");
+        let src_dir = crate_dir.join("src");
+        fs::create_dir_all(src_dir.join("web"))?;
+        fs::write(src_dir.join("web.rs"), "mod routes;\npub fn serve() {}\n")?;
+        fs::write(src_dir.join("web/routes.rs"), "pub fn route() {}\n")?;
+
+        let mut summaries = Vec::new();
+        collect_top_level_module_summaries(
+            &root,
+            "demo",
+            &crate_dir.join("Cargo.toml"),
+            &mut summaries,
+        )?;
+        fs::remove_dir_all(&root).ok();
+
+        let web = summaries
+            .iter()
+            .find(|summary| summary.module_name == "web")
+            .expect("web module summary");
+        assert_eq!(web.path, "crates/demo/src/web");
+        assert_eq!(web.file_count, 2);
+        assert_eq!(web.line_count, 3);
+        Ok(())
     }
 
     #[test]
