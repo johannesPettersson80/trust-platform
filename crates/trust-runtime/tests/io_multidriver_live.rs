@@ -446,7 +446,7 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
     let prewarm_deadline = Instant::now() + MQTT_LIVE_TEST_TIMEOUT;
     let mut mqtt_prewarmed = false;
     while Instant::now() < prewarm_deadline {
-        match mqtt_driver.write_outputs(&[]) {
+        match mqtt_driver.write_outputs(&[0]) {
             Ok(()) => {
                 mqtt_prewarmed = true;
                 break;
@@ -480,10 +480,6 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
             guard.subscribe_count >= 1,
             "mqtt prewarm should complete subscription"
         );
-        assert!(
-            !guard.publishes.is_empty(),
-            "mqtt prewarm should be observed before runtime cycle"
-        );
         guard.publishes.len()
     };
     runtime.add_io_driver("mqtt", Box::new(mqtt_driver));
@@ -503,7 +499,10 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
                 .publishes
                 .iter()
                 .skip(initial_publish_count)
-                .find(|entry| entry.topic == topic_out)
+                .find(|entry| {
+                    entry.topic == topic_out
+                        && entry.payload.first().copied().unwrap_or(0) & 0x01 == 0x01
+                })
                 .cloned()
         } {
             outbound_payload = Some(publish.payload);

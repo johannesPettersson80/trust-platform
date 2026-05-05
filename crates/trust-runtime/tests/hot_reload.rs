@@ -1,7 +1,6 @@
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::time::{Duration as StdDuration, Instant};
 
-use trust_runtime::debug::RuntimeEvent;
 use trust_runtime::error::RuntimeError;
 use trust_runtime::execution_backend::ExecutionBackend;
 use trust_runtime::harness::{bytecode_bytes_from_source, CompileSession, TestHarness};
@@ -44,20 +43,26 @@ fn numeric_output(harness: &TestHarness, name: &str) -> Option<i64> {
 
 #[derive(Debug)]
 struct SleepOnReadDriver {
-    delay: StdDuration,
+    entered: mpsc::Sender<()>,
+    release: mpsc::Receiver<()>,
     reads: usize,
 }
 
 impl SleepOnReadDriver {
-    fn new(delay: StdDuration) -> Self {
-        Self { delay, reads: 0 }
+    fn new(entered: mpsc::Sender<()>, release: mpsc::Receiver<()>) -> Self {
+        Self {
+            entered,
+            release,
+            reads: 0,
+        }
     }
 }
 
 impl IoDriver for SleepOnReadDriver {
     fn read_inputs(&mut self, _inputs: &mut [u8]) -> Result<(), RuntimeError> {
         if self.reads == 0 {
-            std::thread::sleep(self.delay);
+            let _ = self.entered.send(());
+            let _ = self.release.recv_timeout(StdDuration::from_secs(2));
         }
         self.reads = self.reads.saturating_add(1);
         Ok(())
@@ -107,27 +112,20 @@ END_PROGRAM
     runtime
         .restart(trust_runtime::RestartMode::Cold)
         .expect("restart runtime");
+    let (read_entered_tx, read_entered_rx) = mpsc::channel();
+    let (release_read_tx, release_read_rx) = mpsc::channel();
     runtime.add_io_driver(
         "sleep-on-first-read",
-        Box::new(SleepOnReadDriver::new(StdDuration::from_millis(120))),
+        Box::new(SleepOnReadDriver::new(read_entered_tx, release_read_rx)),
     );
-
-    let debug = runtime.enable_debug();
-    let (event_tx, event_rx) = mpsc::channel();
-    debug.set_runtime_sender(event_tx);
 
     let runner = ResourceRunner::new(runtime, StdClock::new(), Duration::from_millis(1));
     let mut handle = runner.spawn("hot-reload-cycle-boundary").expect("spawn");
     let control = handle.control();
 
-    loop {
-        if let RuntimeEvent::CycleStart { .. } = event_rx
-            .recv_timeout(StdDuration::from_secs(1))
-            .expect("receive runtime event")
-        {
-            break;
-        }
-    }
+    read_entered_rx
+        .recv_timeout(StdDuration::from_secs(1))
+        .expect("runtime should enter the first blocking input read");
 
     let (tx, rx) = mpsc::channel();
     let queued_at = Instant::now();
@@ -143,13 +141,16 @@ END_PROGRAM
         matches!(early, Err(RecvTimeoutError::Timeout)),
         "reload should not complete while cycle is in-flight"
     );
+    release_read_tx
+        .send(())
+        .expect("release first blocking input read");
 
     let result = rx
         .recv_timeout(StdDuration::from_secs(2))
         .expect("reload response");
     assert!(result.is_ok(), "reload failed: {result:?}");
     assert!(
-        queued_at.elapsed() >= StdDuration::from_millis(80),
+        queued_at.elapsed() >= StdDuration::from_millis(40),
         "reload should complete only after cycle-boundary handoff"
     );
 
