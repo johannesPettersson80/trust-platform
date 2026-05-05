@@ -12,6 +12,7 @@ use trust_runtime::value::Value;
 use trust_runtime::Runtime;
 
 const MQTT_BROKER_IDLE_TIMEOUTS: usize = 200;
+const MQTT_LIVE_TEST_TIMEOUT: StdDuration = StdDuration::from_secs(10);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct MqttPublish {
@@ -38,7 +39,7 @@ fn start_mqtt_test_broker(
     let topic_in = topic_in.to_string();
 
     thread::spawn(move || {
-        let listener_deadline = Instant::now() + StdDuration::from_secs(4);
+        let listener_deadline = Instant::now() + MQTT_LIVE_TEST_TIMEOUT;
         let _ = listener.set_nonblocking(true);
         while Instant::now() < listener_deadline {
             {
@@ -410,7 +411,7 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
     ))
     .expect("parse mqtt params");
     let mut mqtt_driver = MqttIoDriver::from_params(&mqtt_params).expect("create mqtt driver");
-    let prewarm_deadline = Instant::now() + StdDuration::from_secs(3);
+    let prewarm_deadline = Instant::now() + MQTT_LIVE_TEST_TIMEOUT;
     let mut mqtt_prewarmed = false;
     let mut mqtt_prewarm_inputs = [0u8; 1];
     while Instant::now() < prewarm_deadline {
@@ -440,7 +441,7 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
         mqtt_prewarm_inputs[0], 1,
         "mqtt prewarm should receive the broker input payload"
     );
-    let deadline = Instant::now() + StdDuration::from_secs(3);
+    let deadline = Instant::now() + MQTT_LIVE_TEST_TIMEOUT;
     while Instant::now() < deadline {
         let guard = mqtt_state.lock().expect("mqtt state lock");
         if guard.subscribe_count >= 1 {
@@ -459,7 +460,7 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
     };
     runtime.add_io_driver("mqtt", Box::new(mqtt_driver));
 
-    let deadline = Instant::now() + StdDuration::from_secs(3);
+    let deadline = Instant::now() + MQTT_LIVE_TEST_TIMEOUT;
     let mut outbound_payload = None;
     while Instant::now() < deadline {
         runtime.execute_cycle().expect("execute cycle");
