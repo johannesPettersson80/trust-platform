@@ -1,4 +1,4 @@
-use std::sync::mpsc::{self, Receiver};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
 use std::time::{Duration as StdDuration, SystemTime, UNIX_EPOCH};
 
 use indexmap::IndexMap;
@@ -19,6 +19,21 @@ fn mesh_snapshot_timeout() -> StdDuration {
 }
 
 pub(crate) const DEFAULT_SITE: &str = "default-site";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum MeshSnapshotError {
+    Command(String),
+    Timeout,
+}
+
+impl std::fmt::Display for MeshSnapshotError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Command(message) => write!(f, "mesh snapshot command failed: {message}"),
+            Self::Timeout => write!(f, "mesh snapshot timed out"),
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct MeshEnvelope {
@@ -73,17 +88,27 @@ pub(crate) fn parse_subscribe_mapping(remote: &str) -> Option<(SmolStr, SmolStr)
 pub(crate) fn snapshot_globals(
     resource: &ResourceControl<StdClock>,
     names: &[SmolStr],
-) -> IndexMap<SmolStr, Value> {
+) -> Result<IndexMap<SmolStr, Value>, MeshSnapshotError> {
     let (tx, rx) = mpsc::channel();
-    let _ = resource.send_command(ResourceCommand::MeshSnapshot {
-        names: names.to_vec(),
-        respond_to: tx,
-    });
+    resource
+        .send_command(ResourceCommand::MeshSnapshot {
+            names: names.to_vec(),
+            respond_to: tx,
+        })
+        .map_err(|err| MeshSnapshotError::Command(err.to_string()))?;
     wait_snapshot(rx)
 }
 
-fn wait_snapshot(rx: Receiver<IndexMap<SmolStr, Value>>) -> IndexMap<SmolStr, Value> {
-    rx.recv_timeout(mesh_snapshot_timeout()).unwrap_or_default()
+fn wait_snapshot(
+    rx: Receiver<IndexMap<SmolStr, Value>>,
+) -> Result<IndexMap<SmolStr, Value>, MeshSnapshotError> {
+    rx.recv_timeout(mesh_snapshot_timeout())
+        .map_err(|err| match err {
+            RecvTimeoutError::Timeout => MeshSnapshotError::Timeout,
+            RecvTimeoutError::Disconnected => MeshSnapshotError::Command(
+                "mesh snapshot response channel disconnected".to_string(),
+            ),
+        })
 }
 
 #[must_use]

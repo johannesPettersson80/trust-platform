@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 use trust_hir::types::TypeRegistry;
 use trust_runtime::debug::{
     offset_to_line_col, resolve_breakpoint_location, DebugBreakpoint, DebugControl, DebugHook,
-    DebugRuntimeContext, DebugStopReason, HitCondition, LogFragment, SourceLocation,
+    DebugRuntimeContext, DebugStopReason, HitCondition, LogFragment, RuntimeEvent, SourceLocation,
 };
 use trust_runtime::harness::parse_debug_expression;
 use trust_runtime::harness::TestHarness;
@@ -564,4 +564,65 @@ fn logpoint_emits_output_without_pausing() {
     let logs = control.drain_logs();
     assert_eq!(logs.len(), 1);
     assert!(logs[0].message.contains("x=DInt(41)"));
+}
+
+#[test]
+#[ignore = "red test for runtime-safety fail-closed Phase 8"]
+fn runtime_event_sender_drop_buffers_event_in_debug_control() {
+    let control = DebugControl::new();
+    let (tx, rx) = channel();
+    drop(rx);
+    control.set_runtime_sender(tx);
+
+    control.push_runtime_event(RuntimeEvent::Fault {
+        error: "first fault".to_string(),
+        time: trust_runtime::value::Duration::ZERO,
+    });
+
+    let events = control.drain_runtime_events();
+    assert!(
+        events.iter().any(
+            |event| matches!(event, RuntimeEvent::Fault { error, .. } if error == "first fault")
+        ),
+        "dropped runtime event sender must not lose the first fault, got {events:?}"
+    );
+}
+
+#[test]
+#[ignore = "red test for runtime-safety fail-closed Phase 8"]
+fn logpoint_sender_drop_buffers_log_in_debug_control() {
+    let control = DebugControl::new();
+    let (log_tx, log_rx) = channel();
+    drop(log_rx);
+    control.set_log_sender(log_tx);
+    let location = SourceLocation::new(0, 0, 1);
+
+    control.set_breakpoints_for_file(
+        0,
+        vec![DebugBreakpoint {
+            location,
+            condition: None,
+            hit_condition: None,
+            log_message: Some(vec![LogFragment::Text("fault log".to_string())]),
+            hits: 0,
+            generation: 0,
+        }],
+    );
+
+    let mut hook = control.clone();
+    let handle = thread::spawn(move || {
+        let mut storage = VariableStorage::new();
+        storage.push_frame("MAIN");
+        let registry = TypeRegistry::new();
+        let mut ctx = make_debug_context(&mut storage, &registry);
+        hook.on_statement_with_context(&mut ctx, Some(&location), 0);
+    });
+    handle.join().unwrap();
+
+    let logs = control.drain_logs();
+    assert_eq!(
+        logs.first().map(|log| log.message.as_str()),
+        Some("fault log"),
+        "dropped log sender must fall back to the in-memory debug log buffer"
+    );
 }

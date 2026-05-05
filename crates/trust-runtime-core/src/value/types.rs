@@ -715,11 +715,11 @@ fn value_matches_type(registry: &TypeRegistry, type_id: TypeId, value: &Value) -
         Type::Struct { .. } | Type::Union { .. } => matches_struct_type(registry, type_id, value),
         Type::Array { .. } => matches_array_type(registry, type_id, value),
         Type::Null => matches!(value, Value::Null),
+        Type::Interface { .. } => matches!(value, Value::Instance(_) | Value::Null),
         Type::Unknown
         | Type::Void
         | Type::FunctionBlock { .. }
         | Type::Class { .. }
-        | Type::Interface { .. }
         | Type::Any
         | Type::AnyDerived
         | Type::AnyElementary

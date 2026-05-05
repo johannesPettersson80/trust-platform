@@ -291,6 +291,72 @@ for path, needle, evidence in required:
 PY
 }
 
+emit_mesh_timeout_empty_findings() {
+  python3 - "$ROOT" <<'PY' >>"$FINDINGS"
+import pathlib
+import re
+import sys
+
+root = pathlib.Path(sys.argv[1])
+path = root / "crates/trust-runtime/src/host/mesh/mapping.rs"
+if not path.exists():
+    raise SystemExit
+text = path.read_text(encoding="utf-8")
+rel = path.relative_to(root).as_posix()
+
+def line_for(pattern: str) -> int:
+    idx = text.find(pattern)
+    if idx == -1:
+        return 0
+    return text.count("\n", 0, idx) + 1
+
+if re.search(r"recv_timeout\([^;]*\)\.unwrap_or_default\(\)", text, re.S):
+    print(
+        "RUNTIMESAFE-MESH-TIMEOUT-EMPTY owner=runtime/mesh "
+        f"{rel}:{line_for('recv_timeout')}: mesh snapshot timeout becomes empty map"
+    )
+if "let _ = resource.send_command(ResourceCommand::MeshSnapshot" in text:
+    print(
+        "RUNTIMESAFE-MESH-TIMEOUT-EMPTY owner=runtime/mesh "
+        f"{rel}:{line_for('ResourceCommand::MeshSnapshot')}: mesh snapshot command failure is ignored"
+    )
+match = re.search(r"fn\s+snapshot_globals\b[^{]*", text)
+if match and "Result<IndexMap" not in match.group(0):
+    print(
+        "RUNTIMESAFE-MESH-TIMEOUT-EMPTY owner=runtime/mesh "
+        f"{rel}:{text.count(chr(10), 0, match.start()) + 1}: mesh snapshot API cannot distinguish timeout from empty snapshot"
+    )
+PY
+}
+
+emit_feature_disabled_findings() {
+  python3 - "$ROOT" <<'PY' >>"$FINDINGS"
+import pathlib
+import sys
+
+root = pathlib.Path(sys.argv[1])
+control = root / "crates/trust-runtime/src/control.rs"
+types = root / "crates/trust-runtime/src/host/debug/types.rs"
+
+def emit(path: pathlib.Path, message: str, needle: str = "debug disabled"):
+    rel = path.relative_to(root).as_posix()
+    text = path.read_text(encoding="utf-8") if path.exists() else ""
+    idx = text.find(needle)
+    line = text.count("\n", 0, idx) + 1 if idx != -1 else 0
+    print(f"RUNTIMESAFE-FEATURE-DISABLED-SILENT owner=runtime/debug-control {rel}:{line}: {message}")
+
+if control.exists():
+    text = control.read_text(encoding="utf-8")
+    if "debug disabled" in text and "feature_disabled" not in text:
+        emit(control, "debug-disabled control response lacks structured feature_disabled code")
+    if "debug disabled" in text and "RuntimeEvent::FeatureDisabled" not in text:
+        emit(control, "debug-disabled control response lacks observable FeatureDisabled event")
+
+if types.exists() and "FeatureDisabled" not in types.read_text(encoding="utf-8"):
+    emit(types, "runtime event taxonomy lacks FeatureDisabled")
+PY
+}
+
 emit_ethercat_policy_findings() {
   python3 - "$ROOT" <<'PY' >>"$FINDINGS"
 import pathlib
@@ -443,11 +509,7 @@ emit_findings \
   "crates/trust-runtime/src/host/debug" \
   '\.send\([^;]*\)\.ok\(\)|let _ = [^;]*\.send\('
 
-emit_findings \
-  "RUNTIMESAFE-MESH-TIMEOUT-EMPTY" \
-  "runtime/mesh" \
-  "crates/trust-runtime/src/host/mesh/mapping.rs" \
-  'recv_timeout\([^;]*\)\.unwrap_or_default\(\)|MeshSnapshot'
+emit_mesh_timeout_empty_findings
 
 emit_retain_commit_order_findings
 
@@ -460,17 +522,7 @@ emit_absence_if_missing \
   'orphan|RetainOrphan' \
   "retain orphan event/reporting"
 
-emit_findings \
-  "RUNTIMESAFE-FEATURE-DISABLED-SILENT" \
-  "runtime/debug-control" \
-  "crates/trust-runtime/src/control" \
-  'debug disabled|cfg\(not\(feature = "debug"\)\)|feature_disabled'
-
-emit_findings \
-  "RUNTIMESAFE-FEATURE-DISABLED-SILENT" \
-  "runtime/debug-control" \
-  "crates/trust-runtime/src/bin/trust-runtime.rs" \
-  'debug disabled|cfg\(not\(feature = "debug"\)\)|feature_disabled'
+emit_feature_disabled_findings
 
 emit_coerce_warning_only_findings
 
@@ -488,7 +540,7 @@ fi
 
 {
   echo "gate=runtime-safety-fail-closed"
-  echo "phase=warn_only_inventory"
+  echo "phase=fail_class"
   echo "commit=$COMMIT"
   echo "finding_count=$finding_count"
   echo "allowlisted_count=$allowlisted_count"
@@ -509,3 +561,7 @@ else
   echo "runtime safety fail-closed gate: findings"
 fi
 cat "$SUMMARY"
+
+if [[ "$finding_count" != "0" ]]; then
+  exit 1
+fi

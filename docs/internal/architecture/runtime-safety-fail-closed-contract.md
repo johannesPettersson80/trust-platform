@@ -1,6 +1,6 @@
 # Runtime Safety Fail-Closed Contract
 
-Status: Phase 0 warn-only inventory active
+Status: Blocking full-map gate active
 Owner: runtime safety
 Date: 2026-05-05
 
@@ -14,12 +14,13 @@ Runtime-internal safety paths must fail closed by default. A runtime path that c
 
 The source-derived gate is `scripts/runtime_safety_fail_closed_ast_grep_gate.sh`. It is surfaced by `cargo run -p xtask -- architecture-doctor --full-map` as `FULLMAP-RUNTIMESAFE`.
 
-Phase 0 starts warn-only:
+The gate is blocking:
 
 - The script records findings under `target/gate-artifacts/runtime-safety-fail-closed-<commit>/`.
-- The full-map doctor reports `FULLMAP-RUNTIMESAFE` as `finding` when the script reports findings.
-- CI runs the script and uploads runtime-safety artifacts, but Phase 0 findings do not fail CI.
-- The gate may flip to fail-class only after every finding is fixed or narrowly allowlisted.
+- The script exits non-zero when findings are present.
+- The full-map doctor reports `FULLMAP-RUNTIMESAFE` as `fail` when the script reports findings.
+- CI runs the script and uploads runtime-safety artifacts.
+- The gate may remain blocking only while every finding is fixed or narrowly allowlisted.
 
 ## Initial Rule Families
 

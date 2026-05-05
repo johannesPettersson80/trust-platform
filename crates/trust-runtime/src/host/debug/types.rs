@@ -277,6 +277,26 @@ pub enum RuntimeEvent {
         /// Time when the migration was applied.
         time: Duration,
     },
+    /// A control audit event could not be delivered to the configured audit sink.
+    AuditDropped {
+        /// Control request id associated with the dropped audit event.
+        request_id: u64,
+        /// Control request type associated with the dropped audit event.
+        request_type: SmolStr,
+        /// Send/write failure detail.
+        error: String,
+        /// Time when the audit drop was observed.
+        time: Duration,
+    },
+    /// A request reached a surface that is disabled by feature/configuration.
+    FeatureDisabled {
+        /// Disabled feature name.
+        feature: SmolStr,
+        /// Optional request type that attempted to use the feature.
+        request_type: Option<SmolStr>,
+        /// Time when the disabled feature request was observed.
+        time: Duration,
+    },
 }
 
 /// Stop reason for debugger events.

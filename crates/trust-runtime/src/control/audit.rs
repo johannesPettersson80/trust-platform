@@ -35,7 +35,7 @@ pub(super) fn record_audit(
         event_id: event_id.clone(),
         timestamp_ms,
         request_id: record.request_id,
-        request_type: record.request_type,
+        request_type: record.request_type.clone(),
         correlation_id: record.correlation_id.map(SmolStr::new),
         ok: record.ok,
         error: record.error,
@@ -43,7 +43,18 @@ pub(super) fn record_audit(
         client: record.client.map(SmolStr::new),
     };
     if let Some(sender) = &state.audit_tx {
-        let _ = sender.send(event);
+        if let Err(err) = sender.send(event) {
+            if let Ok(mut events) = state.events.lock() {
+                events.push_back(crate::debug::RuntimeEvent::AuditDropped {
+                    request_id: record.request_id,
+                    request_type: record.request_type,
+                    error: err.to_string(),
+                    time: crate::value::Duration::from_millis(
+                        timestamp_ms.min(i64::MAX as u128) as i64
+                    ),
+                });
+            }
+        }
     }
     Some(event_id)
 }

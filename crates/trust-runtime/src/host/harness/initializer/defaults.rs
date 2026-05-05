@@ -31,6 +31,8 @@ pub(super) fn materialize_default_value(
         } => materialize_array_default(ctx, *element, dimensions, depth + 1),
         Type::Struct { name, fields } => materialize_struct_default(ctx, name, fields, depth),
         Type::Union { name, variants } => materialize_union_default(ctx, name, variants, depth),
+        // Unresolved generic counter FB slots are typed by the call argument on execution.
+        Type::AnyInt => Ok(Value::Null),
         _ => crate::value::default_value_for_type_id(type_id, ctx.registry, ctx.profile)
             .map_err(|_| RuntimeError::TypeMismatch),
     }

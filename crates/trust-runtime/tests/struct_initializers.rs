@@ -283,7 +283,7 @@ END_PROGRAM
     harness.cycle();
 
     assert_eq!(harness.get_output("observed"), Some(Value::Int(5)));
-    assert_eq!(harness.get_output("target"), Some(Value::DInt(8)));
+    assert_eq!(harness.get_output("target"), Some(Value::Int(8)));
     assert!(matches!(
         harness.get_output("ref_value"),
         Some(Value::Reference(Some(_)))
@@ -361,13 +361,13 @@ END_PROGRAM
     harness.cycle();
     assert_eq!(
         struct_field(&harness.get_output("cfg").expect("cfg"), "x"),
-        &Value::DInt(6)
+        &Value::Int(6)
     );
 
     harness.restart(RestartMode::Warm).expect("warm restart");
     assert_eq!(
         struct_field(&harness.get_output("cfg").expect("cfg"), "x"),
-        &Value::DInt(6)
+        &Value::Int(6)
     );
 
     harness.restart(RestartMode::Cold).expect("cold restart");
@@ -590,6 +590,6 @@ END_PROGRAM
 
     let a = harness.get_output("a").expect("a should exist");
     let b = harness.get_output("b").expect("b should exist");
-    assert_eq!(instance_field(&harness, &a, "local"), &Value::DInt(5));
+    assert_eq!(instance_field(&harness, &a, "local"), &Value::Int(5));
     assert_eq!(instance_field(&harness, &b, "local"), &Value::Int(1));
 }

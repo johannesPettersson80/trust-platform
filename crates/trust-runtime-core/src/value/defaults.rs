@@ -111,7 +111,7 @@ fn default_value_for_type(
         Type::Alias { target, .. } => default_value_for_type_id(*target, registry, profile),
         Type::Reference { .. } | Type::Pointer { .. } => Ok(Value::Reference(None)),
         Type::Subrange { base, lower, .. } => int_value_of_base(*base, *lower),
-        Type::Null => Ok(Value::Null),
+        Type::Null | Type::Interface { .. } => Ok(Value::Null),
         Type::Union { name, variants } => {
             let mut values = IndexMap::new();
             for variant in variants {
@@ -127,7 +127,6 @@ fn default_value_for_type(
         | Type::Void
         | Type::FunctionBlock { .. }
         | Type::Class { .. }
-        | Type::Interface { .. }
         | Type::Any
         | Type::AnyDerived
         | Type::AnyElementary
@@ -177,7 +176,7 @@ mod tests {
     use super::{default_value_for_type_id, DefaultValueError};
     use crate::value::{DateTimeProfile, Duration, Value};
     use trust_hir::types::TypeRegistry;
-    use trust_hir::TypeId;
+    use trust_hir::{Type, TypeId};
 
     #[test]
     fn defaults_for_core_elementary_values_match_runtime_contract() {
@@ -206,6 +205,23 @@ mod tests {
         assert_eq!(
             default_value_for_type_id(TypeId(u32::MAX), &registry, &profile),
             Err(DefaultValueError::UnknownType)
+        );
+    }
+
+    #[test]
+    fn interface_defaults_to_explicit_null_reference() {
+        let mut registry = TypeRegistry::new();
+        let profile = DateTimeProfile::default();
+        let interface = registry.register(
+            "IService",
+            Type::Interface {
+                name: "IService".into(),
+            },
+        );
+
+        assert_eq!(
+            default_value_for_type_id(interface, &registry, &profile),
+            Ok(Value::Null)
         );
     }
 }

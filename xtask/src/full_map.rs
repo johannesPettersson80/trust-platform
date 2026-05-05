@@ -2557,9 +2557,9 @@ fn runtime_safety_fail_closed_check_from_output(
         .stdout
         .contains("runtime safety fail-closed gate: findings")
     {
-        FullMapCheck::finding(
+        FullMapCheck::fail(
             "FULLMAP-RUNTIMESAFE",
-            "runtime safety fail-closed gate is in warn-only inventory mode",
+            "runtime safety fail-closed gate reported findings",
             details,
         )
     } else {
@@ -5010,7 +5010,7 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
     }
 
     #[test]
-    fn runtime_safety_gate_findings_are_warn_only_full_map_finding() {
+    fn runtime_safety_gate_findings_fail_full_map_check() {
         let check = runtime_safety_fail_closed_check_from_output(
             "./scripts/runtime_safety_fail_closed_ast_grep_gate.sh",
             CommandCheckOutput {
@@ -5018,14 +5018,14 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
                 code: Some(0),
                 stdout: "runtime safety fail-closed gate: findings\n\
                     gate=runtime-safety-fail-closed\n\
-                    phase=warn_only_inventory\n\
+                    phase=fail_class\n\
                     finding_count=3\n"
                     .to_string(),
                 stderr: String::new(),
             },
         );
 
-        assert_eq!(check.status, CheckStatus::Finding);
+        assert_eq!(check.status, CheckStatus::Fail);
         assert!(check
             .details
             .iter()

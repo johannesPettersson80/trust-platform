@@ -14,14 +14,34 @@ pub(in crate::web) fn runtime_cloud_rollouts_state_path(
 
 pub(in crate::web) fn runtime_cloud_rollouts_load_state(
     path: Option<&Path>,
-) -> RuntimeCloudRolloutManagerState {
+) -> Result<RuntimeCloudRolloutManagerState, RuntimeError> {
     let Some(path) = path else {
-        return RuntimeCloudRolloutManagerState::default();
+        return Ok(RuntimeCloudRolloutManagerState::default());
     };
-    let Ok(text) = std::fs::read_to_string(path) else {
-        return RuntimeCloudRolloutManagerState::default();
+    let text = match std::fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(RuntimeCloudRolloutManagerState::default());
+        }
+        Err(err) => {
+            return Err(RuntimeError::ControlError(
+                format!(
+                    "load runtime-cloud rollouts state '{}': {err}",
+                    path.display()
+                )
+                .into(),
+            ));
+        }
     };
-    serde_json::from_str::<RuntimeCloudRolloutManagerState>(&text).unwrap_or_default()
+    serde_json::from_str::<RuntimeCloudRolloutManagerState>(&text).map_err(|err| {
+        RuntimeError::ControlError(
+            format!(
+                "corrupt persisted runtime-cloud rollouts state '{}': {err}",
+                path.display()
+            )
+            .into(),
+        )
+    })
 }
 
 pub(in crate::web) fn runtime_cloud_rollouts_store_state(

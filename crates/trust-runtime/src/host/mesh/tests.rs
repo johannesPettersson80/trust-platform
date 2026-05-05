@@ -7,6 +7,7 @@ use smol_str::SmolStr;
 
 use super::mapping::{
     build_mesh_payload, decode_mesh_payload, mesh_qos_profile_for_key, parse_subscribe_mapping,
+    snapshot_globals,
 };
 use super::models::{MeshPeerRegistry, MeshReadiness, MeshService};
 use super::version::{validate_zenoh_version_policy, ZENOHD_BASELINE_VERSION};
@@ -135,6 +136,19 @@ fn mesh_cloud_ready_wait_times_out_for_degraded_state() {
     assert!(error
         .as_str()
         .contains("mesh cloud readiness timed out"));
+}
+
+#[test]
+#[ignore = "red test for runtime-safety fail-closed Phase 8"]
+fn mesh_snapshot_timeout_is_not_a_successful_empty_snapshot() {
+    let (resource, _cmd_rx) = ResourceControl::stub(StdClock::new());
+    let err = snapshot_globals(&resource, &[SmolStr::new("Main.value")])
+        .expect_err("mesh snapshot timeout must be an error");
+
+    assert!(
+        err.to_string().contains("timed out"),
+        "mesh snapshot timeout must not be indistinguishable from a successful empty snapshot: {err}"
+    );
 }
 
 #[test]
