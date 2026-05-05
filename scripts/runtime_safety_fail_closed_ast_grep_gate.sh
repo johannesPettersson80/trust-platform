@@ -166,6 +166,72 @@ if "sync_all" not in text:
 PY
 }
 
+emit_evaluator_silent_global_findings() {
+  python3 - "$ROOT" <<'PY' >>"$FINDINGS"
+import pathlib
+import re
+import sys
+
+root = pathlib.Path(sys.argv[1])
+targets = [
+    root / "crates/trust-runtime/src/host/helper_eval/storage_lvalue.rs",
+    root / "crates/trust-runtime/src/host/eval/expr/access.rs",
+    root / "crates/trust-runtime/src/runtime/cycle.rs",
+]
+
+def line_for(text: str, offset: int) -> int:
+    return text.count("\n", 0, offset) + 1
+
+def function_body(text: str, name: str):
+    match = re.search(rf"fn\s+{re.escape(name)}\b[^\{{]*\{{", text)
+    if not match:
+        return None, ""
+    depth = 1
+    idx = match.end()
+    while idx < len(text) and depth:
+        if text[idx] == "{":
+            depth += 1
+        elif text[idx] == "}":
+            depth -= 1
+        idx += 1
+    return match.start(), text[match.end():idx - 1]
+
+for path in targets:
+    if not path.exists():
+        continue
+    rel = path.relative_to(root).as_posix()
+    text = path.read_text(encoding="utf-8")
+    if rel.endswith("storage_lvalue.rs"):
+        start, body = function_body(text, "write_name")
+        if start is not None and "storage.set_global(name.clone(), value)" in body and "UndefinedVariable" not in body:
+            print(
+                "RUNTIMESAFE-EVALUATOR-SILENT-GLOBAL owner=runtime/eval "
+                f"{rel}:{line_for(text, start)}: helper evaluator creates missing global on assignment"
+            )
+    elif rel.endswith("access.rs"):
+        start, body = function_body(text, "write_name")
+        if start is not None and "ctx.storage.set_global(name.clone(), value)" in body and "UndefinedVariable" not in body:
+            print(
+                "RUNTIMESAFE-EVALUATOR-SILENT-GLOBAL owner=runtime/eval "
+                f"{rel}:{line_for(text, start)}: evaluator creates missing global on assignment"
+            )
+    elif rel.endswith("cycle.rs"):
+        for fn_name in ("apply_pending_debug_writes", "apply_forced_values"):
+            start, body = function_body(text, fn_name)
+            if start is None:
+                print(
+                    "RUNTIMESAFE-EVALUATOR-SILENT-GLOBAL owner=runtime/eval "
+                    f"{rel}:0: missing debug write validation function {fn_name}"
+                )
+                continue
+            if "set_global" in body and "get_global" not in body:
+                print(
+                    "RUNTIMESAFE-EVALUATOR-SILENT-GLOBAL owner=runtime/eval "
+                    f"{rel}:{line_for(text, start)}: debug write path can create missing global"
+                )
+PY
+}
+
 emit_ethercat_policy_findings() {
   python3 - "$ROOT" <<'PY' >>"$FINDINGS"
 import pathlib
@@ -212,11 +278,35 @@ emit_gpio_health_findings() {
   fi
 }
 
-emit_findings \
-  "RUNTIMESAFE-INIT-NULL-FALLBACK" \
-  "runtime/init" \
-  "crates/trust-runtime/src" \
-  'unwrap_or\(Value::Null\)'
+emit_init_null_fallback_findings() {
+  python3 - "$ROOT" <<'PY' >>"$FINDINGS"
+import pathlib
+import sys
+
+root = pathlib.Path(sys.argv[1])
+paths = [
+    root / "crates/trust-runtime/src/host/instance.rs",
+    root / "crates/trust-runtime/src/runtime/vm/local_init.rs",
+    root / "crates/trust-runtime/src/host/harness/config/globals.rs",
+    root / "crates/trust-runtime/src/host/eval/bindings.rs",
+    root / "crates/trust-runtime/src/host/eval/locals.rs",
+    root / "crates/trust-runtime/src/host/eval/calls.rs",
+]
+patterns = ("unwrap_or(Value::Null)", "or(Ok(Value::Null))")
+for path in paths:
+    if not path.exists():
+        continue
+    rel = path.relative_to(root).as_posix()
+    for idx, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        if any(pattern in line for pattern in patterns):
+            print(
+                "RUNTIMESAFE-INIT-NULL-FALLBACK owner=runtime/init "
+                f"{rel}:{idx}: {line.strip()}"
+            )
+PY
+}
+
+emit_init_null_fallback_findings
 
 emit_io_driver_fault_ok_findings
 
@@ -250,23 +340,7 @@ emit_absence_if_missing \
   'is_finished|expect_finished|remaining|trailing|offset == .*len|len\(\) == .*offset' \
   "retain decoder trailing-data rejection"
 
-emit_findings \
-  "RUNTIMESAFE-EVALUATOR-SILENT-GLOBAL" \
-  "runtime/eval" \
-  "crates/trust-runtime/src/host/helper_eval/storage_lvalue.rs" \
-  'storage(_mut)?\(\)?\.set_global\(|storage\.set_global\('
-
-emit_findings \
-  "RUNTIMESAFE-EVALUATOR-SILENT-GLOBAL" \
-  "runtime/eval" \
-  "crates/trust-runtime/src/host/eval" \
-  'storage(_mut)?\(\)?\.set_global\(|storage\.set_global\('
-
-emit_findings \
-  "RUNTIMESAFE-EVALUATOR-SILENT-GLOBAL" \
-  "runtime/eval" \
-  "crates/trust-runtime/src/runtime/cycle.rs" \
-  'storage(_mut)?\(\)?\.set_global\(|storage\.set_global\('
+emit_evaluator_silent_global_findings
 
 emit_findings \
   "RUNTIMESAFE-SAFE-STATE-DISCARD" \

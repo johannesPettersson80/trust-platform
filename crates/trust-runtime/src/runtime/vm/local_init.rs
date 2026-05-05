@@ -46,8 +46,11 @@ fn initialize_declared_locals_direct(
     if let Some((_, return_type)) = plan.return_slot() {
         if matches!(frame.locals.get(slot), Some(Value::Null) | None) {
             if let Some(slot_ref) = frame.locals.get_mut(slot) {
+                let (return_name, _) = plan
+                    .return_slot()
+                    .expect("return slot checked before default initialization");
                 *slot_ref = default_value_for_type_id(return_type, runtime.registry(), &profile)
-                    .unwrap_or(Value::Null);
+                    .map_err(|err| init_failed_debug(plan.frame_owner(), return_name, err))?;
             }
         }
         slot = slot.saturating_add(1);
@@ -197,7 +200,7 @@ fn initialize_var_value(
         runtime.stdlib(),
         local.type_id,
     )
-    .or(Ok(Value::Null))
+    .map_err(|err| init_failed_display(plan.frame_owner(), &local.name, err))
 }
 
 #[derive(Debug, Clone)]
@@ -228,6 +231,15 @@ enum VmPouInitPlan {
 }
 
 impl VmPouInitPlan {
+    fn frame_owner(&self) -> &SmolStr {
+        match self {
+            Self::Program { frame_owner, .. }
+            | Self::Function { frame_owner, .. }
+            | Self::FunctionBlock { frame_owner, .. }
+            | Self::Method { frame_owner, .. } => frame_owner,
+        }
+    }
+
     fn static_owner(&self) -> SmolStr {
         match self {
             Self::Program { frame_owner, .. }
@@ -274,6 +286,30 @@ impl VmPouInitPlan {
             }
             Self::Program { .. } | Self::FunctionBlock { .. } => &[],
         }
+    }
+}
+
+fn init_failed_display(
+    owner: &SmolStr,
+    variable: &SmolStr,
+    error: impl core::fmt::Display,
+) -> RuntimeError {
+    RuntimeError::InitFailed {
+        owner: owner.clone(),
+        variable: variable.clone(),
+        error: SmolStr::new(error.to_string()),
+    }
+}
+
+fn init_failed_debug(
+    owner: &SmolStr,
+    variable: &SmolStr,
+    error: impl core::fmt::Debug,
+) -> RuntimeError {
+    RuntimeError::InitFailed {
+        owner: owner.clone(),
+        variable: variable.clone(),
+        error: SmolStr::new(format!("{error:?}")),
     }
 }
 
@@ -423,5 +459,98 @@ fn function_block_type_name(
         Type::FunctionBlock { name } => Some(name.clone()),
         Type::Alias { target, .. } => function_block_type_name(*target, registry),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::value::Value;
+    use trust_hir::Type;
+
+    #[test]
+    #[ignore = "red test for runtime-safety fail-closed Phase 1"]
+    fn vm_return_slot_default_failure_returns_init_failed() {
+        let mut runtime = crate::Runtime::new();
+        let interface = register_interface(&mut runtime);
+        let plan = VmPouInitPlan::Function {
+            frame_owner: "ReturnSvc".into(),
+            params: Vec::new(),
+            locals: Vec::new(),
+            static_locals: Vec::new(),
+            return_slot: ("ReturnSvc".into(), interface),
+        };
+        let mut frame = frame_with_slots(1);
+
+        let err = initialize_declared_locals_direct(&mut runtime, &plan, &mut frame)
+            .expect_err("unsupported VM return default must fail closed");
+
+        assert_init_failed(err, "ReturnSvc", "ReturnSvc");
+        assert_eq!(frame.locals[0], Value::Null);
+    }
+
+    #[test]
+    #[ignore = "red test for runtime-safety fail-closed Phase 1"]
+    fn vm_local_default_failure_returns_init_failed() {
+        let mut runtime = crate::Runtime::new();
+        let interface = register_interface(&mut runtime);
+        let plan = VmPouInitPlan::Program {
+            frame_owner: "Main".into(),
+            locals: vec![VarDef {
+                name: "Svc".into(),
+                type_id: interface,
+                initializer: None,
+                retain: crate::RetainPolicy::Unspecified,
+                static_storage: false,
+                external: false,
+                constant: false,
+                address: None,
+            }],
+        };
+        let mut frame = frame_with_slots(1);
+
+        let err = initialize_declared_locals_direct(&mut runtime, &plan, &mut frame)
+            .expect_err("unsupported VM local default must fail closed");
+
+        assert_init_failed(err, "Main", "Svc");
+        assert_eq!(frame.locals[0], Value::Null);
+    }
+
+    fn register_interface(runtime: &mut crate::Runtime) -> TypeId {
+        runtime.registry_mut().register(
+            "I_Svc",
+            Type::Interface {
+                name: "I_Svc".into(),
+            },
+        )
+    }
+
+    fn frame_with_slots(count: usize) -> VmFrame {
+        VmFrame {
+            pou_id: 1,
+            return_pc: 0,
+            code_start: 0,
+            code_end: 0,
+            local_ref_start: 0,
+            local_ref_count: count as u32,
+            locals: vec![Value::Null; count],
+            runtime_instance: None,
+            instance_owner: None,
+        }
+    }
+
+    fn assert_init_failed(err: RuntimeError, owner: &str, variable: &str) {
+        match err {
+            RuntimeError::InitFailed {
+                owner: actual_owner,
+                variable: actual_variable,
+                ..
+            } => {
+                assert_eq!(actual_owner, owner);
+                assert_eq!(actual_variable, variable);
+            }
+            other => panic!("expected InitFailed for {owner}.{variable}, got {other:?}"),
+        }
     }
 }

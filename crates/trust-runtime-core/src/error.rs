@@ -127,6 +127,17 @@ pub enum RuntimeError {
     #[error("i/o freshness error '{0}'")]
     IoFreshness(SmolStr),
 
+    /// Runtime initialization failed for a variable, parameter, or instance member.
+    #[error("init failed for {owner}.{variable}: {error}")]
+    InitFailed {
+        /// Owning POU, instance, or static scope.
+        owner: SmolStr,
+        /// Variable/member that failed to initialize.
+        variable: SmolStr,
+        /// Root initialization error.
+        error: SmolStr,
+    },
+
     /// Unsupported bytecode version.
     #[error("unsupported bytecode version {major}.{minor}")]
     UnsupportedBytecodeVersion { major: u16, minor: u16 },

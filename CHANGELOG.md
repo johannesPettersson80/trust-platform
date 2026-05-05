@@ -88,6 +88,11 @@ Target release: `v0.24.15`
   and parent directory sync, and retain snapshots now use a length-delimited
   CRC/trailer-protected codec with legacy v1 read support plus explicit
   retain migration/orphan events.
+- Runtime initialization, evaluator assignments, and queued debug writes now
+  fail closed for the covered safety paths: default materialization failures
+  return `InitFailed` instead of becoming `NULL`, undefined evaluator/debug
+  targets are rejected instead of creating globals, and queued debug write
+  failures fault the cycle visibly.
 - Harness boundary inputs now fail closed: typoed `set_input` names and
   `bind_direct` targets return structured boundary errors instead of creating
   hidden globals or undeclared I/O bindings.

@@ -56,8 +56,15 @@ pub(super) fn write_name(
             return Err(RuntimeError::NullReference);
         }
     }
-    ctx.storage.set_global(name.clone(), value);
-    Ok(())
+    if ctx.storage.get_global(name.as_ref()).is_some() {
+        ctx.storage.set_global(name.clone(), value.clone());
+        return Ok(());
+    }
+    if ctx.storage.get_retain(name.as_ref()).is_some() {
+        ctx.storage.set_retain(name.clone(), value);
+        return Ok(());
+    }
+    Err(RuntimeError::UndefinedVariable(name.clone()))
 }
 
 pub(super) fn read_name(ctx: &EvalContext<'_>, name: &SmolStr) -> Result<Value, RuntimeError> {

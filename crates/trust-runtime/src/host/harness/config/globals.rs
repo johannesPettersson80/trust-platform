@@ -178,7 +178,12 @@ pub(super) fn apply_globals(
             .storage()
             .get_global(init.name.as_ref())
             .cloned()
-            .unwrap_or(Value::Null);
+            .ok_or_else(|| {
+                CompileError::new(format!(
+                    "global '{}' was not initialized before metadata registration",
+                    init.name
+                ))
+            })?;
         runtime.register_global_meta(
             init.name.clone(),
             init.type_id,

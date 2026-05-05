@@ -132,8 +132,7 @@ fn write_name(
         storage.set_retain(name.clone(), value);
         return Ok(());
     }
-    storage.set_global(name.clone(), value);
-    Ok(())
+    Err(RuntimeError::UndefinedVariable(name.clone()))
 }
 
 fn write_indices(target: Value, indices: &[Value], value: Value) -> Result<Value, RuntimeError> {
@@ -344,6 +343,26 @@ mod tests {
         .unwrap();
 
         assert_eq!(storage.get_local("x"), Some(&Value::DInt(7)));
+    }
+
+    #[test]
+    #[ignore = "red test for runtime-safety fail-closed Phase 1"]
+    fn unknown_name_write_fails_without_creating_global() {
+        let mut storage = VariableStorage::new();
+        let registry = TypeRegistry::new();
+
+        let err = write_storage_lvalue(
+            &mut storage,
+            &registry,
+            &DateTimeProfile::default(),
+            None,
+            &LValue::Name("missing".into()),
+            Value::DInt(7),
+        )
+        .expect_err("unknown lvalue write must fail");
+
+        assert_eq!(err, RuntimeError::UndefinedVariable("missing".into()));
+        assert!(storage.get_global("missing").is_none());
     }
 
     #[test]

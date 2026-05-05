@@ -1,5 +1,6 @@
 fn prepare_bindings(
     ctx: &mut EvalContext<'_>,
+    owner: &SmolStr,
     params: &[Param],
     args: &[CallArg],
     mode: BindingMode,
@@ -56,7 +57,7 @@ fn prepare_bindings(
             && matches!(param.direction, ParamDirection::Out)
         {
             let value = default_value_for_type_id(param.type_id, ctx.registry, &ctx.profile)
-                .unwrap_or(Value::Null);
+                .map_err(|err| init_failed_debug(owner, &param.name, err))?;
             param_values.push((param.name.clone(), value));
             continue;
         }
@@ -77,13 +78,13 @@ fn prepare_bindings(
                         expr::eval_expr(ctx, default)?
                     } else {
                         default_value_for_type_id(param.type_id, ctx.registry, &ctx.profile)
-                            .unwrap_or(Value::Null)
+                            .map_err(|err| init_failed_debug(owner, &param.name, err))?
                     }
                 } else if let Some(default) = &param.default {
                     expr::eval_expr(ctx, default)?
                 } else {
                     default_value_for_type_id(param.type_id, ctx.registry, &ctx.profile)
-                        .unwrap_or(Value::Null)
+                        .map_err(|err| init_failed_debug(owner, &param.name, err))?
                 };
                 let value = coerce_input_value_to_param_type(value, param.type_id)?;
                 param_values.push((param.name.clone(), value));
@@ -92,7 +93,7 @@ fn prepare_bindings(
                 if matches!(mode, BindingMode::Function) {
                     let value =
                         default_value_for_type_id(param.type_id, ctx.registry, &ctx.profile)
-                            .unwrap_or(Value::Null);
+                            .map_err(|err| init_failed_debug(owner, &param.name, err))?;
                     param_values.push((param.name.clone(), value));
                 }
                 if let Some(arg) = arg {

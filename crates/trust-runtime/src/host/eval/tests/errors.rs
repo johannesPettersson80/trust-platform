@@ -1,5 +1,6 @@
 use super::common;
 
+use crate::eval::expr::write_lvalue;
 use trust_hir::types::TypeRegistry;
 use trust_runtime::error::RuntimeError;
 use trust_runtime::eval::expr::Expr;
@@ -85,6 +86,20 @@ fn index_and_null_ref() {
     let bad_target = Expr::Ref(LValue::Name("missing".into()));
     let err = eval_expr(&mut ctx, &bad_target).unwrap_err();
     assert_eq!(err, RuntimeError::UndefinedVariable("missing".into()));
+}
+
+#[test]
+#[ignore = "red test for runtime-safety fail-closed Phase 1"]
+fn evaluator_unknown_assignment_fails_without_creating_global() {
+    let mut storage = VariableStorage::new();
+    let registry = TypeRegistry::new();
+    let mut ctx = common::make_context(&mut storage, &registry);
+
+    let err = write_lvalue(&mut ctx, &LValue::Name("missing".into()), Value::DInt(7))
+        .expect_err("unknown evaluator assignment must fail");
+
+    assert_eq!(err, RuntimeError::UndefinedVariable("missing".into()));
+    assert!(ctx.storage.get_global("missing").is_none());
 }
 
 #[test]

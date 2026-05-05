@@ -1,6 +1,6 @@
 # Runtime Safety Fail-Closed Checklist
 
-Status: Phase 5 retain-integrity slice complete; later-phase findings remain warn-only.
+Status: Phase 6 init/evaluator/debug-write slice complete; later-phase findings remain warn-only.
 Owner: runtime safety
 Contract: `docs/internal/architecture/runtime-safety-fail-closed-contract.md`
 Gate: `scripts/runtime_safety_fail_closed_ast_grep_gate.sh`
@@ -110,6 +110,17 @@ phase=warn_only_inventory
 
 Result: retain direct-write, checksum/trailer/trailing-data, and orphan evidence classes are no longer reported by the doctor. Remaining findings are later-phase init/eval/audit/mesh/debug/HIR classes.
 
+Phase 6 init/evaluator/debug-write slice inventory:
+
+```text
+./scripts/runtime_safety_fail_closed_ast_grep_gate.sh
+finding_count=31
+allowlisted_count=0
+phase=warn_only_inventory
+```
+
+Result: init null fallback, evaluator silent global creation, and debug write discard classes are no longer reported by the doctor. Remaining findings are later-phase audit/event, mesh, debug feature-disabled, and HIR coercion evidence classes.
+
 ## Phase 1 - Red Tests
 
 - [x] `RTSAFE-P1-001` I/O fail-closed tests cover MQTT freshness/publish/connect, EtherCAT image-size/policy faults, Modbus transport/exception taxonomy, and GPIO health. Red evidence:
@@ -122,7 +133,10 @@ Result: retain direct-write, checksum/trailer/trailing-data, and orphan evidence
 - [x] `RTSAFE-P1-003` Retain integrity tests cover corrupt data, trailing data, orphan globals, scalar widening, legacy v1 load, and struct add/remove migration. Red evidence:
   - `cargo test -p trust-runtime --test retain_integrity -- --ignored --nocapture` failed 4 tests because trailing garbage and payload mutation loaded successfully, orphan retained globals emitted no event, and scalar widening left an `INT` value in a `DINT` retained global.
   - `cargo test -p trust-runtime --test retain_integrity retain_struct_ -- --ignored --nocapture` failed 2 tests because added struct fields were not materialized from declared defaults and removed struct fields caused an error instead of an explicit migration event.
-- [ ] `RTSAFE-P1-004` Init/evaluator/debug tests cover init default failures, unknown assignment rejection, and queued debug write failure.
+- [x] `RTSAFE-P1-004` Init/evaluator/debug tests cover init default failures, unknown assignment rejection, and queued debug write failure. Red evidence:
+  - `cargo test -p trust-runtime --test init_fail_closed -- --ignored --nocapture` failed 3 tests because interface default init succeeded and queued debug writes returned `Ok(())`.
+  - `cargo test -p trust-runtime --lib default_failure_returns_init_failed -- --ignored --nocapture` failed 5 tests because evaluator and VM init paths substituted `NULL` or continued execution.
+  - `cargo test -p trust-runtime --lib unknown_name_write_fails_without_creating_global -- --ignored --nocapture` and `cargo test -p trust-runtime --lib evaluator_unknown_assignment_fails_without_creating_global -- --ignored --nocapture` failed because missing assignments created globals.
 - [ ] `RTSAFE-P1-005` Audit/event/runtime-cloud/mesh/HMI tests cover event durability, audit drop evidence, corrupt persisted state, mesh timeout, slow WebSocket clients, and structured `feature_disabled`.
 - [ ] `RTSAFE-P1-006` Coercion proof tests cover HIR-allowed widening and runtime bytecode results before any coercion refactor.
 
@@ -174,9 +188,17 @@ Result: retain direct-write, checksum/trailer/trailing-data, and orphan evidence
 
 ## Phase 6 - Init, Evaluator, Debug Writes
 
-- [ ] `RTSAFE-P6-001` Runtime init propagates default/materialization errors as `InitFailed`, not `Value::Null`.
-- [ ] `RTSAFE-P6-002` Evaluator writes reject undefined targets instead of creating globals outside explicit setup APIs.
-- [ ] `RTSAFE-P6-003` Queued debug writes validate/report failures through the cycle/control path.
+- [x] `RTSAFE-P6-001` Runtime init propagates default/materialization errors as `InitFailed`, not `Value::Null`. Evidence:
+  - `cargo test -p trust-runtime --test init_fail_closed -- --ignored --nocapture`
+  - `cargo test -p trust-runtime --lib default_failure_returns_init_failed -- --ignored --nocapture`
+  - `./scripts/runtime_safety_fail_closed_ast_grep_gate.sh`
+- [x] `RTSAFE-P6-002` Evaluator writes reject undefined targets instead of creating globals outside explicit setup APIs. Evidence:
+  - `cargo test -p trust-runtime --lib unknown_name_write_fails_without_creating_global -- --ignored --nocapture`
+  - `cargo test -p trust-runtime --lib evaluator_unknown_assignment_fails_without_creating_global -- --ignored --nocapture`
+  - `./scripts/runtime_safety_fail_closed_ast_grep_gate.sh`
+- [x] `RTSAFE-P6-003` Queued debug writes validate/report failures through the cycle/control path. Evidence:
+  - `cargo test -p trust-runtime --test init_fail_closed -- --ignored --nocapture`
+  - `./scripts/runtime_safety_fail_closed_ast_grep_gate.sh`
 
 ## Phase 7 - HIR/Runtime Coercion Proof
 

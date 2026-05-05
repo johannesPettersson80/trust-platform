@@ -10,6 +10,10 @@ use trust_runtime::value::Value;
 #[test]
 fn loop_control() {
     let mut storage = VariableStorage::new();
+    storage.set_global("sum", Value::Int(0));
+    storage.set_global("i", Value::Int(0));
+    storage.set_global("w", Value::Int(0));
+    storage.set_global("r", Value::Int(0));
     let registry = TypeRegistry::new();
     let mut ctx = common::make_context(&mut storage, &registry);
 

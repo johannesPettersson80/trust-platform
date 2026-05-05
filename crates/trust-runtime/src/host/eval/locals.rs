@@ -107,7 +107,10 @@ pub(crate) fn init_locals(
                 ctx.stdlib.ok_or(RuntimeError::TypeMismatch)?,
                 local.type_id,
             )
-            .unwrap_or(Value::Null)
+            .map_err(|err| {
+                let owner = current_init_owner(ctx);
+                init_failed_display(&owner, &local.name, err)
+            })?
         };
         ctx.storage.set_local(local.name.clone(), value);
     }
@@ -211,7 +214,10 @@ pub(crate) fn init_locals_in_frame(
                 ctx.stdlib.ok_or(RuntimeError::TypeMismatch)?,
                 local.type_id,
             )
-            .unwrap_or(Value::Null)
+            .map_err(|err| {
+                let owner = current_init_owner(ctx);
+                init_failed_display(&owner, &local.name, err)
+            })?
         };
         ctx.storage.set_local(local.name.clone(), value);
     }
@@ -248,7 +254,7 @@ fn ensure_static_storage(ctx: &mut EvalContext<'_>, local: &VarDef) -> Result<()
                     ctx.stdlib.ok_or(RuntimeError::TypeMismatch)?,
                     local.type_id,
                 )
-                .unwrap_or(Value::Null)
+                .map_err(|err| init_failed_display(&owner, &local.name, err))?
             };
             ctx.storage.set_instance_var(instance_id, key, value);
         }
@@ -279,7 +285,7 @@ fn ensure_static_storage(ctx: &mut EvalContext<'_>, local: &VarDef) -> Result<()
                 ctx.stdlib.ok_or(RuntimeError::TypeMismatch)?,
                 local.type_id,
             )
-            .unwrap_or(Value::Null)
+            .map_err(|err| init_failed_display(&owner, &local.name, err))?
         };
         ctx.storage.set_global(key, value);
     }
