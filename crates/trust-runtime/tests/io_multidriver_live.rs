@@ -437,9 +437,8 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
     let mut mqtt_driver = MqttIoDriver::from_params(&mqtt_params).expect("create mqtt driver");
     let prewarm_deadline = Instant::now() + MQTT_LIVE_TEST_TIMEOUT;
     let mut mqtt_prewarmed = false;
-    let mut mqtt_prewarm_inputs = [0u8; 1];
     while Instant::now() < prewarm_deadline {
-        match mqtt_driver.read_inputs(&mut mqtt_prewarm_inputs) {
+        match mqtt_driver.write_outputs(&[]) {
             Ok(()) => {
                 mqtt_prewarmed = true;
                 break;
@@ -456,16 +455,12 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
     }
     assert!(
         mqtt_prewarmed,
-        "mqtt prewarm should establish a subscribed session with fresh input"
-    );
-    assert_eq!(
-        mqtt_prewarm_inputs[0], 1,
-        "mqtt prewarm should receive the broker input payload"
+        "mqtt prewarm should establish a subscribed session without consuming input"
     );
     let deadline = Instant::now() + MQTT_LIVE_TEST_TIMEOUT;
     while Instant::now() < deadline {
         let guard = mqtt_state.lock().expect("mqtt state lock");
-        if guard.subscribe_count >= 1 {
+        if guard.subscribe_count >= 1 && !guard.publishes.is_empty() {
             break;
         }
         drop(guard);
@@ -477,21 +472,23 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
             guard.subscribe_count >= 1,
             "mqtt prewarm should complete subscription"
         );
+        assert!(
+            !guard.publishes.is_empty(),
+            "mqtt prewarm should be observed before runtime cycle"
+        );
         guard.publishes.len()
     };
     runtime.add_io_driver("mqtt", Box::new(mqtt_driver));
 
     let deadline = Instant::now() + MQTT_LIVE_TEST_TIMEOUT;
     let mut outbound_payload = None;
+    runtime.execute_cycle().unwrap_or_else(|err| {
+        let last_fault = runtime
+            .last_fault()
+            .map_or_else(|| "<none>".to_string(), ToString::to_string);
+        panic!("execute cycle: {err}; last_fault={last_fault}");
+    });
     while Instant::now() < deadline {
-        if let Err(err) = runtime.execute_cycle() {
-            let text = err.to_string();
-            if is_retryable_mqtt_live_error(&text) {
-                thread::sleep(StdDuration::from_millis(20));
-                continue;
-            }
-            panic!("execute cycle: {err}");
-        }
         if let Some(publish) = {
             let guard = mqtt_state.lock().expect("mqtt state lock");
             guard
