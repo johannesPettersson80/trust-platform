@@ -115,6 +115,29 @@ pub enum RuntimeError {
     #[error("i/o driver error '{0}'")]
     IoDriver(SmolStr),
 
+    /// I/O transport/session error.
+    #[error("i/o transport error '{0}'")]
+    IoTransport(SmolStr),
+
+    /// I/O protocol/address error.
+    #[error("i/o address error '{0}'")]
+    IoAddress(SmolStr),
+
+    /// I/O input freshness error.
+    #[error("i/o freshness error '{0}'")]
+    IoFreshness(SmolStr),
+
+    /// Runtime initialization failed for a variable, parameter, or instance member.
+    #[error("init failed for {owner}.{variable}: {error}")]
+    InitFailed {
+        /// Owning POU, instance, or static scope.
+        owner: SmolStr,
+        /// Variable/member that failed to initialize.
+        variable: SmolStr,
+        /// Root initialization error.
+        error: SmolStr,
+    },
+
     /// Unsupported bytecode version.
     #[error("unsupported bytecode version {major}.{minor}")]
     UnsupportedBytecodeVersion { major: u16, minor: u16 },
@@ -135,6 +158,15 @@ pub enum RuntimeError {
     #[error("watchdog timeout")]
     WatchdogTimeout,
 
+    /// Safe-state output application failed while handling a root fault.
+    #[error("safe-state failed after '{root}': {error}")]
+    SafeStateFailed {
+        /// Original runtime fault being handled.
+        root: SmolStr,
+        /// Safe-state write/application failure.
+        error: SmolStr,
+    },
+
     /// Script/test execution exceeded the configured time budget.
     #[error("execution timed out")]
     ExecutionTimeout,
@@ -154,6 +186,14 @@ pub enum RuntimeError {
     /// Retain storage error.
     #[error("retain store error '{0}'")]
     RetainStore(SmolStr),
+
+    /// Retain data failed integrity validation.
+    #[error("retain corruption '{0}'")]
+    RetainCorruption(SmolStr),
+
+    /// Retain schema migration failed or was applied explicitly.
+    #[error("retain migration error '{0}'")]
+    RetainMigration(SmolStr),
 
     /// Control protocol error.
     #[error("control error '{0}'")]

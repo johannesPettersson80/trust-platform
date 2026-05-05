@@ -9,6 +9,7 @@ use trust_runtime::value::Value;
 #[test]
 fn case_labels() {
     let mut storage = VariableStorage::new();
+    storage.set_global("x", Value::Int(0));
     let registry = TypeRegistry::new();
     let mut ctx = common::make_context(&mut storage, &registry);
 
@@ -43,6 +44,7 @@ fn case_labels() {
 #[test]
 fn case_string_labels() {
     let mut storage = VariableStorage::new();
+    storage.set_global("x", Value::Int(0));
     let registry = TypeRegistry::new();
     let mut ctx = common::make_context(&mut storage, &registry);
 

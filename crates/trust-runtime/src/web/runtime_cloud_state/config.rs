@@ -21,8 +21,25 @@ pub(in crate::web) fn runtime_cloud_config_load_state(
     let Ok(text) = std::fs::read_to_string(path) else {
         return runtime_cloud_config_initial_state();
     };
-    serde_json::from_str::<RuntimeCloudConfigAgentState>(&text)
-        .unwrap_or_else(|_| runtime_cloud_config_initial_state())
+    match serde_json::from_str::<RuntimeCloudConfigAgentState>(&text) {
+        Ok(state) => state,
+        Err(err) => runtime_cloud_corrupt_config_state(path, &err),
+    }
+}
+
+fn runtime_cloud_corrupt_config_state(
+    path: &Path,
+    err: &serde_json::Error,
+) -> RuntimeCloudConfigAgentState {
+    let mut state = runtime_cloud_config_initial_state();
+    state.status.state = crate::runtime_cloud::contracts::ConfigState::Error;
+    state.status.blocked_reason = Some(ReasonCode::ContractViolation);
+    state.status.required_action = Some("repair_runtime_cloud_state".to_string());
+    state.status.errors.push(format!(
+        "corrupt persisted runtime-cloud config state '{}': {err}",
+        path.display()
+    ));
+    state
 }
 
 pub(in crate::web) fn runtime_cloud_config_store_state(
@@ -150,4 +167,43 @@ pub(in crate::web) fn runtime_cloud_config_reconcile_once(
         .to_string();
     config_policy::runtime_cloud_config_apply_failure(&mut guard, error_text);
     runtime_cloud_config_store_state(persist_path, &guard);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn temp_state_path(name: &str) -> PathBuf {
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos();
+        std::env::temp_dir().join(format!("trust-runtime-cloud-{name}-{stamp}.json"))
+    }
+
+    #[test]
+    #[ignore = "red test for runtime-safety fail-closed Phase 8"]
+    fn runtime_cloud_corrupt_config_state_does_not_reset_to_default() {
+        let path = temp_state_path("corrupt-config");
+        std::fs::write(&path, "{not valid json").expect("write corrupt state");
+
+        let state = runtime_cloud_config_load_state(Some(path.as_path()));
+
+        assert_eq!(
+            state.status.state,
+            crate::runtime_cloud::contracts::ConfigState::Error,
+            "corrupt persisted config state must become an explicit error state, not default InSync"
+        );
+        assert!(
+            state
+                .status
+                .errors
+                .iter()
+                .any(|error| error.contains("corrupt")),
+            "corrupt persisted config state must keep parse-failure evidence: {:?}",
+            state.status.errors
+        );
+
+        let _ = std::fs::remove_file(path);
+    }
 }

@@ -34,6 +34,40 @@ pub mod ops;
 pub mod stmt;
 
 #[cfg(test)]
+fn init_failed_display(
+    owner: &SmolStr,
+    variable: &SmolStr,
+    error: impl core::fmt::Display,
+) -> RuntimeError {
+    RuntimeError::InitFailed {
+        owner: owner.clone(),
+        variable: variable.clone(),
+        error: SmolStr::new(error.to_string()),
+    }
+}
+
+#[cfg(test)]
+fn init_failed_debug(
+    owner: &SmolStr,
+    variable: &SmolStr,
+    error: impl core::fmt::Debug,
+) -> RuntimeError {
+    RuntimeError::InitFailed {
+        owner: owner.clone(),
+        variable: variable.clone(),
+        error: SmolStr::new(format!("{error:?}")),
+    }
+}
+
+#[cfg(test)]
+fn current_init_owner(ctx: &EvalContext<'_>) -> SmolStr {
+    ctx.storage
+        .current_frame()
+        .map(|frame| frame.owner.clone())
+        .unwrap_or_else(|| SmolStr::new("eval"))
+}
+
+#[cfg(test)]
 include!("types.rs");
 #[cfg(test)]
 include!("calls.rs");

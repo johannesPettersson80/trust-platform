@@ -313,3 +313,27 @@ fn array_value_new_validates_array_of_struct_elements() {
         ValueConstructionError::ArrayElementTypeMismatch { .. }
     ));
 }
+
+#[cfg(feature = "hir")]
+#[test]
+fn interface_type_accepts_null_and_instance_values() {
+    let mut registry = TypeRegistry::new();
+    let interface = registry.register(
+        "IService",
+        Type::Interface {
+            name: "IService".into(),
+        },
+    );
+
+    assert!(value_matches_type(&registry, interface, &Value::Null));
+    assert!(value_matches_type(
+        &registry,
+        interface,
+        &Value::Instance(InstanceId(7))
+    ));
+    assert!(!value_matches_type(
+        &registry,
+        interface,
+        &Value::Bool(false)
+    ));
+}

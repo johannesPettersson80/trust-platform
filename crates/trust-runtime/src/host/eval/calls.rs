@@ -22,7 +22,7 @@ pub(crate) fn call_function<'a>(
         should_execute,
         param_values,
         out_targets,
-    } = match prepare_bindings(ctx, &func.params, args, BindingMode::Function) {
+    } = match prepare_bindings(ctx, &func.name, &func.params, args, BindingMode::Function) {
         Ok(value) => value,
         Err(err) => {
             ctx.return_name = saved_return;
@@ -31,11 +31,11 @@ pub(crate) fn call_function<'a>(
         }
     };
 
+    let return_default = default_value_for_type_id(func.return_type, ctx.registry, &ctx.profile)
+        .map_err(|err| init_failed_debug(&func.name, &func.name, err))?;
     ctx.using = Some(&func.using);
     ctx.storage.push_frame(func.name.clone());
     ctx.return_name = Some(func.name.clone());
-    let return_default = default_value_for_type_id(func.return_type, ctx.registry, &ctx.profile)
-        .unwrap_or(Value::Null);
     ctx.storage.set_local(func.name.clone(), return_default);
     for (name, value) in param_values {
         ctx.storage.set_local(name, value);
@@ -47,10 +47,8 @@ pub(crate) fn call_function<'a>(
         ctx.return_name = saved_return;
         ctx.using = saved_using;
         write_output_values(ctx, output_values)?;
-        return Ok(
-            default_value_for_type_id(func.return_type, ctx.registry, &ctx.profile)
-                .unwrap_or(Value::Null),
-        );
+        return default_value_for_type_id(func.return_type, ctx.registry, &ctx.profile)
+            .map_err(|err| init_failed_debug(&func.name, &func.name, err));
     }
 
     let saved_call_depth = ctx.call_depth;
@@ -87,10 +85,13 @@ pub(crate) fn call_function<'a>(
             .storage
             .current_frame()
             .and_then(|frame| frame.return_value.clone())
-            .unwrap_or_else(|| {
-                default_value_for_type_id(func.return_type, ctx.registry, &ctx.profile)
-                    .unwrap_or(Value::Null)
-            }),
+            .map_or_else(
+                || {
+                    default_value_for_type_id(func.return_type, ctx.registry, &ctx.profile)
+                        .map_err(|err| init_failed_debug(&func.name, &func.name, err))
+                },
+                Ok,
+            )?,
     };
 
     let output_values = match collect_outputs(ctx, &out_targets) {
@@ -129,7 +130,7 @@ pub(crate) fn call_method(
         should_execute,
         param_values,
         out_targets,
-    } = match prepare_bindings(ctx, &method.params, args, BindingMode::Function) {
+    } = match prepare_bindings(ctx, &method.name, &method.params, args, BindingMode::Function) {
         Ok(value) => value,
         Err(err) => {
             ctx.return_name = saved_return;
@@ -138,13 +139,18 @@ pub(crate) fn call_method(
             return Err(err);
         }
     };
+    let return_default = method
+        .return_type
+        .map(|return_type| {
+            default_value_for_type_id(return_type, ctx.registry, &ctx.profile)
+                .map_err(|err| init_failed_debug(&method.name, &method.name, err))
+        })
+        .transpose()?;
     ctx.current_instance = Some(instance_id);
     ctx.storage
         .push_frame_with_instance(method.name.clone(), instance_id);
     ctx.return_name = method.return_type.map(|_| method.name.clone());
-    if let Some(return_type) = method.return_type {
-        let return_default = default_value_for_type_id(return_type, ctx.registry, &ctx.profile)
-            .unwrap_or(Value::Null);
+    if let Some(return_default) = return_default {
         ctx.storage.set_local(method.name.clone(), return_default);
     }
     for (name, value) in param_values {
@@ -158,10 +164,11 @@ pub(crate) fn call_method(
         ctx.using = saved_using;
         ctx.current_instance = saved_instance;
         write_output_values(ctx, output_values)?;
-        return Ok(method
-            .return_type
-            .and_then(|ty| default_value_for_type_id(ty, ctx.registry, &ctx.profile).ok())
-            .unwrap_or(Value::Null));
+        return match method.return_type {
+            Some(return_type) => default_value_for_type_id(return_type, ctx.registry, &ctx.profile)
+                .map_err(|err| init_failed_debug(&method.name, &method.name, err)),
+            None => Ok(Value::Null),
+        };
     }
 
     let saved_call_depth = ctx.call_depth;
@@ -202,10 +209,13 @@ pub(crate) fn call_method(
                 .storage
                 .current_frame()
                 .and_then(|frame| frame.return_value.clone())
-                .unwrap_or_else(|| {
-                    default_value_for_type_id(return_type, ctx.registry, &ctx.profile)
-                        .unwrap_or(Value::Null)
-                }),
+                .map_or_else(
+                    || {
+                        default_value_for_type_id(return_type, ctx.registry, &ctx.profile)
+                            .map_err(|err| init_failed_debug(&method.name, &method.name, err))
+                    },
+                    Ok,
+                )?,
         }
     } else {
         Value::Null
@@ -249,6 +259,7 @@ pub(crate) fn call_function_block<'a>(
         out_targets,
     } = match prepare_bindings(
         ctx,
+        &fb.name,
         &fb.params,
         args,
         BindingMode::FunctionBlock { instance_id },

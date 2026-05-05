@@ -310,7 +310,7 @@ END_PROGRAM
 fn breakpoint_set_while_running_hits_on_subsequent_cycle() {
     let source = r#"PROGRAM Main
 VAR
-    Count : INT := 0;
+    Count : DINT := 0;
 END_VAR
     Count := Count + 1;
 END_PROGRAM

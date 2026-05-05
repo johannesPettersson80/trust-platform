@@ -234,7 +234,9 @@ fn emit_stop(
         breakpoint_generation,
     };
     if let Some(sender) = &state.stop_tx {
-        let _ = sender.send(stop.clone());
+        if sender.send(stop.clone()).is_err() {
+            trace_debug("stop sender closed; retaining stop in debug control buffer");
+        }
     }
     state.last_stop = Some(stop.clone());
     state.stops.push(stop);
@@ -268,4 +270,3 @@ fn update_snapshot(state: &mut DebugState, ctx: &mut DebugRuntimeContext<'_>) {
         now: ctx.now,
     });
 }
-

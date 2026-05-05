@@ -1,7 +1,18 @@
 fn encode_snapshot(snapshot: &RetainSnapshot) -> Result<Vec<u8>, RuntimeError> {
-    let mut out = Vec::new();
+    let payload = encode_snapshot_payload(snapshot)?;
+    let checksum = crc32fast::hash(&payload);
+    let mut out = Vec::with_capacity(4 + 2 + 8 + payload.len() + 4 + 4);
     out.extend_from_slice(RETAIN_MAGIC);
     out.extend_from_slice(&RETAIN_VERSION.to_le_bytes());
+    out.extend_from_slice(&(payload.len() as u64).to_le_bytes());
+    out.extend_from_slice(&payload);
+    out.extend_from_slice(&checksum.to_le_bytes());
+    out.extend_from_slice(RETAIN_TRAILER);
+    Ok(out)
+}
+
+fn encode_snapshot_payload(snapshot: &RetainSnapshot) -> Result<Vec<u8>, RuntimeError> {
+    let mut out = Vec::new();
     out.extend_from_slice(&(snapshot.values().len() as u32).to_le_bytes());
     for (name, value) in snapshot.values() {
         encode_string(&mut out, name.as_str());
@@ -14,19 +25,59 @@ fn decode_snapshot(bytes: &[u8]) -> Result<RetainSnapshot, RuntimeError> {
     let mut reader = RetainReader::new(bytes);
     let magic = reader.read_bytes(4)?;
     if magic != RETAIN_MAGIC {
-        return Err(RuntimeError::RetainStore("invalid retain magic".into()));
-    }
-    let version = reader.read_u16()?;
-    if version != RETAIN_VERSION {
-        return Err(RuntimeError::RetainStore(
-            format!("unsupported retain version {version}").into(),
+        return Err(RuntimeError::RetainCorruption(
+            "invalid retain magic".into(),
         ));
     }
+    let version = reader.read_u16()?;
+    match version {
+        RETAIN_V1_VERSION => {
+            let snapshot = decode_snapshot_payload(&mut reader)?;
+            reader.expect_finished("retain v1 payload")?;
+            Ok(snapshot)
+        }
+        RETAIN_VERSION => decode_snapshot_v2(&mut reader),
+        _ => Err(RuntimeError::RetainCorruption(
+            format!("unsupported retain version {version}").into(),
+        )),
+    }
+}
+
+fn decode_snapshot_v2(reader: &mut RetainReader<'_>) -> Result<RetainSnapshot, RuntimeError> {
+    let payload_len = reader.read_u64()?;
+    let payload_len: usize = payload_len.try_into().map_err(|_| {
+        RuntimeError::RetainCorruption("retain payload length exceeds platform size".into())
+    })?;
+    let payload = reader.read_bytes(payload_len)?;
+    let expected_checksum = reader.read_u32()?;
+    let trailer = reader.read_bytes(RETAIN_TRAILER.len())?;
+    if trailer != RETAIN_TRAILER {
+        return Err(RuntimeError::RetainCorruption(
+            "invalid retain trailer".into(),
+        ));
+    }
+    reader.expect_finished("retain v2 container")?;
+    let actual_checksum = crc32fast::hash(payload);
+    if actual_checksum != expected_checksum {
+        return Err(RuntimeError::RetainCorruption(
+            format!(
+                "retain checksum mismatch expected {expected_checksum:#010x} got {actual_checksum:#010x}"
+            )
+            .into(),
+        ));
+    }
+    let mut payload_reader = RetainReader::new(payload);
+    let snapshot = decode_snapshot_payload(&mut payload_reader)?;
+    payload_reader.expect_finished("retain v2 payload")?;
+    Ok(snapshot)
+}
+
+fn decode_snapshot_payload(reader: &mut RetainReader<'_>) -> Result<RetainSnapshot, RuntimeError> {
     let count = reader.read_u32()? as usize;
     let mut values = IndexMap::new();
     for _ in 0..count {
         let name = SmolStr::new(reader.read_string()?);
-        let value = decode_value(&mut reader)?;
+        let value = decode_value(reader)?;
         values.insert(name, value);
     }
     Ok(RetainSnapshot::from_values(values))
@@ -287,7 +338,7 @@ fn decode_value(reader: &mut RetainReader<'_>) -> Result<Value, RuntimeError> {
             )))
         }
         x if x == ValueTag::Null as u8 => Value::Null,
-        _ => return Err(RuntimeError::RetainStore("unknown retain value tag".into())),
+        _ => return Err(RuntimeError::RetainCorruption("unknown retain value tag".into())),
     };
     Ok(value)
 }

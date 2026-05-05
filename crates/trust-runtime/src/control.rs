@@ -58,6 +58,15 @@ fn hmi_descriptor_watch_startup_timeout() -> Duration {
     }
 }
 
+fn control_event_time_now() -> crate::value::Duration {
+    let timestamp_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis()
+        .min(i64::MAX as u128) as i64;
+    crate::value::Duration::from_millis(timestamp_ms)
+}
+
 #[derive(Debug, Clone)]
 pub enum ControlEndpoint {
     Tcp(SocketAddr),
@@ -222,11 +231,15 @@ pub fn spawn_hmi_descriptor_watcher(state: Arc<ControlState>) {
     std::thread::spawn(move || {
         let (tx, rx) = std::sync::mpsc::channel::<notify::Result<Event>>();
         let mut watcher = match notify::recommended_watcher(move |result| {
-            let _ = tx.send(result);
+            if tx.send(result).is_err() {
+                warn!("hmi watcher event channel closed");
+            }
         }) {
             Ok(watcher) => watcher,
             Err(err) => {
-                let _ = ready_tx.send(Err(err.to_string()));
+                if ready_tx.send(Err(err.to_string())).is_err() {
+                    warn!("hmi watcher ready channel closed after init failure");
+                }
                 warn!("hmi watcher init failed: {err}");
                 return;
             }
@@ -234,14 +247,18 @@ pub fn spawn_hmi_descriptor_watcher(state: Arc<ControlState>) {
 
         if let Err(err) = watcher.watch(project_root_for_thread.as_path(), RecursiveMode::Recursive)
         {
-            let _ = ready_tx.send(Err(err.to_string()));
+            if ready_tx.send(Err(err.to_string())).is_err() {
+                warn!("hmi watcher ready channel closed after watch failure");
+            }
             warn!(
                 "hmi watcher failed to watch '{}': {err}",
                 project_root_for_thread.display()
             );
             return;
         }
-        let _ = ready_tx.send(Ok(()));
+        if ready_tx.send(Ok(())).is_err() {
+            warn!("hmi watcher ready channel closed after startup");
+        }
 
         loop {
             let mut should_reload = match rx.recv() {
@@ -421,7 +438,18 @@ pub(crate) fn handle_request_value(
         return response.with_audit_id(audit_id);
     }
     if !state.debug_enabled.load(Ordering::Relaxed) && is_debug_request(request.r#type.as_str()) {
-        let response = ControlResponse::error(request.id, "debug disabled".into());
+        if let Ok(mut events) = state.events.lock() {
+            events.push_back(crate::debug::RuntimeEvent::FeatureDisabled {
+                feature: SmolStr::new("debug"),
+                request_type: Some(SmolStr::new(request.r#type.as_str())),
+                time: control_event_time_now(),
+            });
+        }
+        let response = ControlResponse::error_with_code(
+            request.id,
+            "debug disabled".into(),
+            "feature_disabled",
+        );
         let audit_id = record_audit(
             state,
             ControlAuditRecord {

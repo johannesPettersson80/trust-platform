@@ -11,12 +11,14 @@ title truST Runtime Cloud Planes (Zenoh + SHM + Gateway Plugins)
 package "Runtime (site-a/runtime-a)" as runtimeA #LightBlue {
   component "T0 HardRT Plane\nOS-backed SHM ring\n(same host only)" as t0A
   component "Runtime Cloud Service\npreflight/dispatch/config/rollout" as cloudA
+  database "Persisted Cloud State\nconfig/link/rollout JSON" as stateA
   component "Zenoh Mesh Session\n(T1/T2/T3)" as meshA
 }
 
 package "Runtime (site-a/runtime-b)" as runtimeB #LightBlue {
   component "T0 HardRT Plane\nOS-backed SHM ring\n(same host only)" as t0B
   component "Runtime Cloud Service\npreflight/dispatch/config/rollout" as cloudB
+  database "Persisted Cloud State\nconfig/link/rollout JSON" as stateB
   component "Zenoh Mesh Session\n(T1/T2/T3)" as meshB
 }
 
@@ -37,9 +39,11 @@ package "Fleet Web UI (browser)" as fleetUi #AliceBlue {
 
 cloudA --> t0A : handle-only T0 APIs
 cloudB --> t0B : handle-only T0 APIs
+cloudA --> stateA : load/store\ncorrupt config => Error\ncorrupt link/rollout => startup error
+cloudB --> stateB : load/store\ncorrupt config => Error\ncorrupt link/rollout => startup error
 
-cloudA --> meshA : publish/query
-cloudB --> meshB : publish/query
+cloudA --> meshA : publish/query\nsnapshot timeout => error
+cloudB --> meshB : publish/query\nsnapshot timeout => error
 meshA <--> meshB : Zenoh keyspace + liveliness
 
 meshA --> bridgePlugin : gateway-assisted federation

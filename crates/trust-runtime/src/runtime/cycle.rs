@@ -22,50 +22,8 @@ impl Runtime {
         let cycle_timer = self.metrics.start_timer();
         let debug = self.debug.clone();
         if let Some(debug) = debug.as_ref() {
-            for write in debug.drain_var_writes() {
-                match write.target {
-                    crate::debug::PendingVarTarget::Global(name) => {
-                        self.storage.set_global(name, write.value);
-                    }
-                    crate::debug::PendingVarTarget::Retain(name) => {
-                        self.storage.set_retain(name, write.value);
-                    }
-                    crate::debug::PendingVarTarget::Instance(id, name) => {
-                        self.storage.set_instance_var(id, name, write.value);
-                    }
-                    crate::debug::PendingVarTarget::Local(frame_id, name) => {
-                        let _ = self
-                            .storage
-                            .with_frame(frame_id, |storage| storage.set_local(name, write.value));
-                    }
-                }
-            }
-            for write in debug.drain_lvalue_writes() {
-                let _ = if let Some(frame_id) = write.frame_id {
-                    self.storage
-                        .with_frame(frame_id, |storage| {
-                            let instance_id =
-                                storage.current_frame().and_then(|frame| frame.instance_id);
-                            crate::helper_eval::write_storage_lvalue(
-                                storage,
-                                &self.registry,
-                                &self.profile,
-                                instance_id,
-                                &write.target,
-                                write.value.clone(),
-                            )
-                        })
-                        .unwrap_or(Err(error::RuntimeError::InvalidFrame(frame_id.0)))
-                } else {
-                    crate::helper_eval::write_storage_lvalue(
-                        &mut self.storage,
-                        &self.registry,
-                        &self.profile,
-                        None,
-                        &write.target,
-                        write.value.clone(),
-                    )
-                };
+            if let Err(err) = self.apply_pending_debug_writes(debug) {
+                return Err(self.record_fault(err));
             }
         }
 
@@ -105,15 +63,15 @@ impl Runtime {
             return Err(self.record_fault(err));
         }
 
-        if let Err(err) = self.write_cycle_outputs() {
-            return Err(self.record_fault(err));
-        }
-
         if self.retain.has_store() {
             self.retain.mark_dirty();
             if let Err(err) = self.maybe_save_retain_store() {
                 return Err(self.record_fault(err));
             }
+        }
+
+        if let Err(err) = self.write_cycle_outputs() {
+            return Err(self.record_fault(err));
         }
 
         if let Some(debug) = &self.debug {
@@ -140,14 +98,92 @@ impl Runtime {
         for entry in forced.vars {
             match entry.target {
                 crate::debug::ForcedVarTarget::Global(name) => {
+                    if self.storage.get_global(name.as_str()).is_none() {
+                        return Err(error::RuntimeError::UndefinedVariable(name));
+                    }
                     self.storage.set_global(name, entry.value);
                 }
                 crate::debug::ForcedVarTarget::Retain(name) => {
+                    if self.storage.get_retain(name.as_str()).is_none() {
+                        return Err(error::RuntimeError::UndefinedVariable(name));
+                    }
                     self.storage.set_retain(name, entry.value);
                 }
                 crate::debug::ForcedVarTarget::Instance(id, name) => {
+                    if self.storage.get_instance_var(id, name.as_str()).is_none() {
+                        return Err(error::RuntimeError::UndefinedVariable(name));
+                    }
                     self.storage.set_instance_var(id, name, entry.value);
                 }
+            }
+        }
+        Ok(())
+    }
+
+    fn apply_pending_debug_writes(
+        &mut self,
+        debug: &crate::debug::DebugControl,
+    ) -> Result<(), error::RuntimeError> {
+        for write in debug.drain_var_writes() {
+            match write.target {
+                crate::debug::PendingVarTarget::Global(name) => {
+                    if self.storage.get_global(name.as_str()).is_none() {
+                        return Err(error::RuntimeError::UndefinedVariable(name));
+                    }
+                    self.storage.set_global(name, write.value);
+                }
+                crate::debug::PendingVarTarget::Retain(name) => {
+                    if self.storage.get_retain(name.as_str()).is_none() {
+                        return Err(error::RuntimeError::UndefinedVariable(name));
+                    }
+                    self.storage.set_retain(name, write.value);
+                }
+                crate::debug::PendingVarTarget::Instance(id, name) => {
+                    if self.storage.get_instance_var(id, name.as_str()).is_none() {
+                        return Err(error::RuntimeError::UndefinedVariable(name));
+                    }
+                    self.storage.set_instance_var(id, name, write.value);
+                }
+                crate::debug::PendingVarTarget::Local(frame_id, name) => {
+                    let result = self.storage.with_frame(frame_id, |storage| {
+                        if storage.get_local(name.as_str()).is_none() {
+                            return Err(error::RuntimeError::UndefinedVariable(name));
+                        }
+                        if storage.set_local(name.clone(), write.value) {
+                            Ok(())
+                        } else {
+                            Err(error::RuntimeError::InvalidFrame(frame_id.0))
+                        }
+                    });
+                    result.ok_or(error::RuntimeError::InvalidFrame(frame_id.0))??;
+                }
+            }
+        }
+        for write in debug.drain_lvalue_writes() {
+            if let Some(frame_id) = write.frame_id {
+                self.storage
+                    .with_frame(frame_id, |storage| {
+                        let instance_id =
+                            storage.current_frame().and_then(|frame| frame.instance_id);
+                        crate::helper_eval::write_storage_lvalue(
+                            storage,
+                            &self.registry,
+                            &self.profile,
+                            instance_id,
+                            &write.target,
+                            write.value.clone(),
+                        )
+                    })
+                    .unwrap_or(Err(error::RuntimeError::InvalidFrame(frame_id.0)))?;
+            } else {
+                crate::helper_eval::write_storage_lvalue(
+                    &mut self.storage,
+                    &self.registry,
+                    &self.profile,
+                    None,
+                    &write.target,
+                    write.value.clone(),
+                )?;
             }
         }
         Ok(())
@@ -377,6 +413,7 @@ impl Runtime {
         }
         #[cfg(feature = "debug")]
         self.emit_io_snapshot();
+        self.check_output_commit_deadline()?;
         {
             let (interface, drivers) = self.io.interface_and_drivers_mut();
             for entry in drivers {
@@ -384,6 +421,16 @@ impl Runtime {
             }
         }
         self.update_io_health();
+        Ok(())
+    }
+
+    fn check_output_commit_deadline(&self) -> Result<(), error::RuntimeError> {
+        if self
+            .output_commit_deadline
+            .is_some_and(|deadline| std::time::Instant::now() >= deadline)
+        {
+            return Err(error::RuntimeError::WatchdogTimeout);
+        }
         Ok(())
     }
 

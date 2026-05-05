@@ -33,8 +33,13 @@ pub(crate) fn trace_debug(message: &str) {
         eprintln!("[trust-runtime][debug] {message}");
         if let Some(file) = trace_log_file() {
             if let Ok(mut file) = file.lock() {
-                let _ = writeln!(file, "## [trust-runtime][debug] {message}");
-                let _ = file.flush();
+                if let Err(err) = writeln!(file, "## [trust-runtime][debug] {message}") {
+                    eprintln!("[trust-runtime][debug] trace write failed: {err}");
+                    return;
+                }
+                if let Err(err) = file.flush() {
+                    eprintln!("[trust-runtime][debug] trace flush failed: {err}");
+                }
             }
         }
     }

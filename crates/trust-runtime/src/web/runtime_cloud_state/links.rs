@@ -19,14 +19,34 @@ pub(in crate::web) fn runtime_cloud_links_state_path(
 
 pub(in crate::web) fn runtime_cloud_links_load_state(
     path: Option<&Path>,
-) -> RuntimeCloudLinkTransportState {
+) -> Result<RuntimeCloudLinkTransportState, RuntimeError> {
     let Some(path) = path else {
-        return RuntimeCloudLinkTransportState::default();
+        return Ok(RuntimeCloudLinkTransportState::default());
     };
-    let Ok(text) = std::fs::read_to_string(path) else {
-        return RuntimeCloudLinkTransportState::default();
+    let text = match std::fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(RuntimeCloudLinkTransportState::default());
+        }
+        Err(err) => {
+            return Err(RuntimeError::ControlError(
+                format!(
+                    "load runtime-cloud link transport state '{}': {err}",
+                    path.display()
+                )
+                .into(),
+            ));
+        }
     };
-    serde_json::from_str::<RuntimeCloudLinkTransportState>(&text).unwrap_or_default()
+    serde_json::from_str::<RuntimeCloudLinkTransportState>(&text).map_err(|err| {
+        RuntimeError::ControlError(
+            format!(
+                "corrupt persisted runtime-cloud link transport state '{}': {err}",
+                path.display()
+            )
+            .into(),
+        )
+    })
 }
 
 pub(in crate::web) fn runtime_cloud_links_store_state(

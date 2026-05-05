@@ -311,7 +311,14 @@ fn declare_subscribers(
         let _ = session
             .declare_subscriber(key_expr.as_str())
             .callback(move |sample| {
-                let templates = snapshot_globals(&resource, std::slice::from_ref(&local_name));
+                let templates = match snapshot_globals(&resource, std::slice::from_ref(&local_name))
+                {
+                    Ok(templates) => templates,
+                    Err(err) => {
+                        tracing::warn!("mesh subscribe skipped update: {err}");
+                        return;
+                    }
+                };
                 let Some(template) = templates.get(&local_name) else {
                     return;
                 };
@@ -349,7 +356,14 @@ fn spawn_publish_loop(
     let runtime_id = runtime_id.to_string();
     Some(thread::spawn(move || {
         while !stop_flag.load(Ordering::Relaxed) {
-            let snapshot = snapshot_globals(&resource, &publish);
+            let snapshot = match snapshot_globals(&resource, &publish) {
+                Ok(snapshot) => snapshot,
+                Err(err) => {
+                    tracing::warn!("mesh publish skipped snapshot: {err}");
+                    thread::sleep(MESH_PUBLISH_INTERVAL);
+                    continue;
+                }
+            };
             for (name, value) in snapshot {
                 let sequence_value = sequence.fetch_add(1, Ordering::Relaxed);
                 let key_expr = mesh_data_key(DEFAULT_SITE, runtime_id.as_str(), name.as_str());

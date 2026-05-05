@@ -84,6 +84,7 @@ pub fn create_fb_instance(
         stdlib,
         initializer_catalog,
         instance_id,
+        &fb.name,
         &fb.params,
     )?;
     init_var_defaults(
@@ -96,6 +97,7 @@ pub fn create_fb_instance(
         stdlib,
         initializer_catalog,
         instance_id,
+        &fb.name,
         &fb.vars,
     )?;
     init_method_static_defaults(
@@ -139,6 +141,7 @@ pub fn create_program_instance(
         stdlib,
         initializer_catalog,
         instance_id,
+        &program.name,
         &program.vars,
     )?;
     Ok(instance_id)
@@ -192,6 +195,7 @@ pub fn create_class_instance(
         stdlib,
         initializer_catalog,
         instance_id,
+        &class_def.name,
         &class_def.vars,
     )?;
     init_method_static_defaults(
@@ -211,6 +215,7 @@ pub fn create_class_instance(
     Ok(instance_id)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn init_param_defaults(
     storage: &mut VariableStorage,
     registry: &TypeRegistry,
@@ -218,6 +223,7 @@ fn init_param_defaults(
     stdlib: &StandardLibrary,
     initializer_catalog: &InitializerCatalog,
     instance_id: InstanceId,
+    owner: &SmolStr,
     params: &[Param],
 ) -> Result<(), RuntimeError> {
     for param in params {
@@ -230,7 +236,7 @@ fn init_param_defaults(
             stdlib,
             param.type_id,
         )
-        .unwrap_or(Value::Null);
+        .map_err(|err| init_failed(owner, &param.name, err))?;
         storage.set_instance_var(instance_id, param.name.clone(), value);
     }
 
@@ -265,6 +271,7 @@ fn init_var_defaults(
     stdlib: &StandardLibrary,
     initializer_catalog: &InitializerCatalog,
     instance_id: InstanceId,
+    owner: &SmolStr,
     vars: &[VarDef],
 ) -> Result<(), RuntimeError> {
     for var in vars {
@@ -316,7 +323,7 @@ fn init_var_defaults(
             stdlib,
             var.type_id,
         )
-        .unwrap_or(Value::Null);
+        .map_err(|err| init_failed(owner, &var.name, err))?;
         storage.set_instance_var(instance_id, var.name.clone(), value);
     }
     for var in vars {
@@ -441,7 +448,7 @@ fn init_method_static_defaults(
                 stdlib,
                 local.type_id,
             )
-            .unwrap_or(Value::Null);
+            .map_err(|err| init_failed(owner, &local.name, err))?;
             storage.set_instance_var(instance_id, key, value);
         }
     }
@@ -499,6 +506,14 @@ fn init_method_static_defaults(
     }
 
     Ok(())
+}
+
+fn init_failed(owner: &SmolStr, variable: &SmolStr, error: RuntimeError) -> RuntimeError {
+    RuntimeError::InitFailed {
+        owner: owner.clone(),
+        variable: variable.clone(),
+        error: SmolStr::new(error.to_string()),
+    }
 }
 
 #[allow(clippy::too_many_arguments)]

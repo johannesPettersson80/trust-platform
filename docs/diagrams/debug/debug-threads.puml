@@ -64,6 +64,8 @@ threadMap ..> taskRegistry : map tasks → DAP threadId
 debugControl --> logChan : DebugLog
 debugControl --> ioChan : IoSnapshot
 hook --> stopChan : DebugStop
+logChan ..> debugControl : closed receiver fallback\nretains DebugLog
+stopChan ..> debugControl : closed receiver fallback\nretains DebugStop
 
 logChan --> logRecv
 ioChan --> ioRecv
@@ -88,6 +90,8 @@ note right of runtime
     • Arc<Mutex<Runtime>>
     • Arc<AtomicBool> stop flags
     • Condvar for pause/resume
+    • RuntimeEvent sender drops fall back
+      to DebugControl's event buffer
 end note
 
 note right of stopCoord

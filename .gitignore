@@ -92,6 +92,8 @@ docs/internal/architecture/*
 !docs/internal/architecture/full-architecture-refactor-final-report-2026-05-02.md
 !docs/internal/architecture/architecture-post-closeout-performance-baseline-2026-05-02.md
 !docs/internal/architecture/hir-zero-silent-bug-refactor-investigation-2026-04-29.md
+!docs/internal/architecture/runtime-safety-fail-closed-contract.md
+!docs/internal/architecture/runtime-safety-fail-closed-allowlist.toml
 !docs/internal/architecture/public-api/
 !docs/internal/architecture/public-api/*.txt
 !docs/internal/testing/
@@ -120,6 +122,7 @@ docs/internal/testing/checklists/*
 !docs/internal/testing/checklists/architecture-post-closeout-gap-closure-checklist.md
 !docs/internal/testing/checklists/runtime-host-module-collapse-execution-checklist.md
 !docs/internal/testing/checklists/architecture-external-safety-dependency-follow-up-checklist.md
+!docs/internal/testing/checklists/runtime-safety-fail-closed-checklist.md
 !docs/internal/testing/checklists/docs-ia-visual-polish-checklist.md
 !docs/internal/testing/checklists/docs-ia-strategy.md
 !docs/internal/testing/evidence/

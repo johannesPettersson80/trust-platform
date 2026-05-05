@@ -97,7 +97,7 @@ impl ModbusTcpDriver {
             return Ok(());
         }
         let stream = TcpStream::connect_timeout(&self.address, self.timeout).map_err(|err| {
-            RuntimeError::IoDriver(format!("modbus tcp connect {}: {err}", self.address).into())
+            RuntimeError::IoTransport(format!("modbus tcp connect {}: {err}", self.address).into())
         })?;
         let _ = stream.set_nodelay(true);
         let _ = stream.set_read_timeout(Some(self.timeout));
@@ -127,7 +127,7 @@ impl ModbusTcpDriver {
         }
         if response[0] & 0x80 != 0 {
             let code = response.get(1).copied().unwrap_or(0);
-            return Err(RuntimeError::IoDriver(
+            return Err(RuntimeError::IoAddress(
                 format!("modbus exception code {code}").into(),
             ));
         }
@@ -156,7 +156,7 @@ impl ModbusTcpDriver {
         }
         if response[0] & 0x80 != 0 {
             let code = response.get(1).copied().unwrap_or(0);
-            return Err(RuntimeError::IoDriver(
+            return Err(RuntimeError::IoAddress(
                 format!("modbus exception code {code}").into(),
             ));
         }
@@ -174,19 +174,21 @@ impl ModbusTcpDriver {
 
         if let Some(stream) = self.stream.as_mut() {
             stream.write_all(&header).map_err(|err| {
-                RuntimeError::IoDriver(format!("modbus write header: {err}").into())
+                RuntimeError::IoTransport(format!("modbus write header: {err}").into())
             })?;
             stream.write_all(&[self.unit_id]).map_err(|err| {
-                RuntimeError::IoDriver(format!("modbus write unit id: {err}").into())
+                RuntimeError::IoTransport(format!("modbus write unit id: {err}").into())
+            })?;
+            stream.write_all(pdu).map_err(|err| {
+                RuntimeError::IoTransport(format!("modbus write pdu: {err}").into())
             })?;
             stream
-                .write_all(pdu)
-                .map_err(|err| RuntimeError::IoDriver(format!("modbus write pdu: {err}").into()))?;
-            stream.flush().ok();
+                .flush()
+                .map_err(|err| RuntimeError::IoTransport(format!("modbus flush: {err}").into()))?;
 
             let mut resp_header = [0u8; 6];
             stream.read_exact(&mut resp_header).map_err(|err| {
-                RuntimeError::IoDriver(format!("modbus read header: {err}").into())
+                RuntimeError::IoTransport(format!("modbus read header: {err}").into())
             })?;
             let resp_tx = u16::from_be_bytes([resp_header[0], resp_header[1]]);
             if resp_tx != tx {
@@ -196,15 +198,15 @@ impl ModbusTcpDriver {
             }
             let length = u16::from_be_bytes([resp_header[4], resp_header[5]]) as usize;
             let mut resp_body = vec![0u8; length];
-            stream
-                .read_exact(&mut resp_body)
-                .map_err(|err| RuntimeError::IoDriver(format!("modbus read body: {err}").into()))?;
+            stream.read_exact(&mut resp_body).map_err(|err| {
+                RuntimeError::IoTransport(format!("modbus read body: {err}").into())
+            })?;
             if resp_body.is_empty() {
                 return Err(RuntimeError::IoDriver("modbus response empty".into()));
             }
             Ok(resp_body[1..].to_vec())
         } else {
-            Err(RuntimeError::IoDriver("modbus tcp not connected".into()))
+            Err(RuntimeError::IoTransport("modbus tcp not connected".into()))
         }
     }
 
@@ -215,13 +217,13 @@ impl ModbusTcpDriver {
                 error: message.clone(),
             };
             self.stream = None;
-            return Err(RuntimeError::IoDriver(message));
+            return Err(err);
         }
         self.health = IoDriverHealth::Degraded {
             error: message.clone(),
         };
         self.stream = None;
-        Ok(())
+        Err(err)
     }
 
     fn mark_ok(&mut self) {

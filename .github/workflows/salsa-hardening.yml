@@ -34,7 +34,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@nightly
       - uses: Swatinem/rust-cache@v2
       - name: Install cargo-fuzz
-        run: cargo install cargo-fuzz --locked
+        run: |
+          rustup toolchain install stable --profile minimal --no-self-update
+          cargo +stable install cargo-fuzz --locked
       - name: Run PR smoke fuzz targets
         run: ./scripts/salsa_fuzz_gate.sh smoke
       - name: Upload fuzz artifacts
@@ -69,7 +71,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@nightly
       - uses: Swatinem/rust-cache@v2
       - name: Install cargo-fuzz
-        run: cargo install cargo-fuzz --locked
+        run: |
+          rustup toolchain install stable --profile minimal --no-self-update
+          cargo +stable install cargo-fuzz --locked
       - name: Run extended fuzz targets
         env:
           SALSA_FUZZ_EXTENDED_SECONDS: "900"

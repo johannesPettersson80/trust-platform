@@ -79,7 +79,7 @@ slot = 2
     }
 
     #[test]
-    fn ethercat_driver_warn_policy_degrades_without_failing() {
+    fn ethercat_driver_warn_policy_degrades_and_reports_error() {
         let params: toml::Value = toml::from_str(
             r#"
 adapter = "mock"
@@ -102,13 +102,13 @@ slot = 2
         driver.read_inputs(&mut inputs).expect("read");
         driver
             .write_outputs(&[0x01])
-            .expect("warn policy should keep cycle running");
+            .expect_err("warn policy should report write failure");
         assert!(matches!(driver.health(), IoDriverHealth::Degraded { .. }));
     }
 
     #[cfg(all(feature = "ethercat-wire", unix))]
     #[test]
-    fn ethercat_hardware_open_failure_degrades_without_blocking_startup() {
+    fn ethercat_hardware_open_failure_faults_without_blocking_startup() {
         let params: toml::Value = toml::from_str(
             r#"
 adapter = "definitely-missing-adapter"
@@ -121,7 +121,7 @@ on_error = "warn"
         let mut inputs = [0u8; 1];
         driver
             .read_inputs(&mut inputs)
-            .expect("warn policy should keep cycle running");
-        assert!(matches!(driver.health(), IoDriverHealth::Degraded { .. }));
+            .expect_err("warn policy should report missing hardware");
+        assert!(matches!(driver.health(), IoDriverHealth::Faulted { .. }));
     }
 }

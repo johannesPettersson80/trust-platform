@@ -92,7 +92,7 @@ pub fn start_web_server_with_mode(
         runtime_cloud_config_path.as_deref(),
     )));
     let mut runtime_cloud_link_transport_state =
-        runtime_cloud_links_load_state(runtime_cloud_link_transport_path.as_deref());
+        runtime_cloud_links_load_state(runtime_cloud_link_transport_path.as_deref())?;
     if runtime_cloud_seed_link_transport_preferences(
         &mut runtime_cloud_link_transport_state,
         runtime_cloud_link_preferences.as_slice(),
@@ -106,7 +106,7 @@ pub fn start_web_server_with_mode(
     let runtime_cloud_link_transport = Arc::new(Mutex::new(runtime_cloud_link_transport_state));
     let runtime_cloud_rollouts = Arc::new(Mutex::new(runtime_cloud_rollouts_load_state(
         runtime_cloud_rollouts_path.as_deref(),
-    )));
+    )?));
     let runtime_cloud_ha = Arc::new(Mutex::new(RuntimeCloudHaCoordinator::default()));
     let web_tls_enabled = config.tls;
     let handle = thread::spawn(move || {

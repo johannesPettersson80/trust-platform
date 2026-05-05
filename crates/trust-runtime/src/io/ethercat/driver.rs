@@ -30,7 +30,13 @@ impl EthercatIoDriver {
         if self.discovered {
             return Ok(());
         }
-        let discovery = self.bus.discover(&self.config)?;
+        let discovery = self.bus.discover(&self.config).map_err(|err| {
+            let message = SmolStr::new(format!("ethercat discover: {err}"));
+            self.health = IoDriverHealth::Faulted {
+                error: message.clone(),
+            };
+            RuntimeError::IoTransport(message)
+        })?;
         let module_summary = discovery
             .modules
             .iter()
@@ -45,17 +51,18 @@ impl EthercatIoDriver {
         if discovery.input_bytes != self.config.expected_input_bytes
             || discovery.output_bytes != self.config.expected_output_bytes
         {
-            self.health = IoDriverHealth::Degraded {
-                error: SmolStr::new(format!(
-                    "{}; config expects I={}B O={}B",
-                    self.discovery_message,
-                    self.config.expected_input_bytes,
-                    self.config.expected_output_bytes
-                )),
+            let message = SmolStr::new(format!(
+                "{}; config expects I={}B O={}B",
+                self.discovery_message,
+                self.config.expected_input_bytes,
+                self.config.expected_output_bytes
+            ));
+            self.health = IoDriverHealth::Faulted {
+                error: message.clone(),
             };
-        } else {
-            self.health = IoDriverHealth::Ok;
+            return Err(RuntimeError::IoAddress(message));
         }
+        self.health = IoDriverHealth::Ok;
         Ok(())
     }
 
@@ -66,27 +73,29 @@ impl EthercatIoDriver {
                 self.health = IoDriverHealth::Faulted {
                     error: message.clone(),
                 };
-                Err(RuntimeError::IoDriver(message))
+                Err(RuntimeError::IoTransport(message))
             }
             IoDriverErrorPolicy::Warn | IoDriverErrorPolicy::Ignore => {
                 self.health = IoDriverHealth::Degraded {
                     error: message.clone(),
                 };
-                Ok(())
+                Err(RuntimeError::IoTransport(message))
             }
         }
     }
 
     fn note_cycle_latency(&mut self, operation: &str, elapsed: StdDuration) {
         if elapsed > self.config.cycle_warn {
-            self.health = IoDriverHealth::Degraded {
-                error: SmolStr::new(format!(
-                    "ethercat {operation} cycle {:.3}ms exceeded {:.3}ms",
-                    elapsed.as_secs_f64() * 1000.0,
-                    self.config.cycle_warn.as_secs_f64() * 1000.0
-                )),
-            };
-        } else if self.discovered {
+            if matches!(self.health, IoDriverHealth::Ok) {
+                self.health = IoDriverHealth::Degraded {
+                    error: SmolStr::new(format!(
+                        "ethercat {operation} cycle {:.3}ms exceeded {:.3}ms",
+                        elapsed.as_secs_f64() * 1000.0,
+                        self.config.cycle_warn.as_secs_f64() * 1000.0
+                    )),
+                };
+            }
+        } else if self.discovered && matches!(self.health, IoDriverHealth::Ok) {
             self.health = IoDriverHealth::Ok;
         }
     }
@@ -114,19 +123,17 @@ impl EthercatIoDriver {
 
 impl IoDriver for EthercatIoDriver {
     fn read_inputs(&mut self, inputs: &mut [u8]) -> Result<(), RuntimeError> {
-        if let Err(err) = self.ensure_discovered() {
-            return self.handle_io_error("discover", err);
-        }
+        self.ensure_discovered()?;
         if inputs.len() < self.config.expected_input_bytes {
-            let err = RuntimeError::IoDriver(
-                format!(
-                    "input image too small: got {}B, expected at least {}B",
-                    inputs.len(),
-                    self.config.expected_input_bytes
-                )
-                .into(),
-            );
-            return self.handle_io_error("read", err);
+            let message = SmolStr::new(format!(
+                "input image too small: got {}B, expected at least {}B",
+                inputs.len(),
+                self.config.expected_input_bytes
+            ));
+            self.health = IoDriverHealth::Faulted {
+                error: message.clone(),
+            };
+            return Err(RuntimeError::IoAddress(message));
         }
         let start = Instant::now();
         match self.bus.read_inputs(inputs.len()) {
@@ -140,19 +147,17 @@ impl IoDriver for EthercatIoDriver {
     }
 
     fn write_outputs(&mut self, outputs: &[u8]) -> Result<(), RuntimeError> {
-        if let Err(err) = self.ensure_discovered() {
-            return self.handle_io_error("discover", err);
-        }
+        self.ensure_discovered()?;
         if outputs.len() < self.config.expected_output_bytes {
-            let err = RuntimeError::IoDriver(
-                format!(
-                    "output image too small: got {}B, expected at least {}B",
-                    outputs.len(),
-                    self.config.expected_output_bytes
-                )
-                .into(),
-            );
-            return self.handle_io_error("write", err);
+            let message = SmolStr::new(format!(
+                "output image too small: got {}B, expected at least {}B",
+                outputs.len(),
+                self.config.expected_output_bytes
+            ));
+            self.health = IoDriverHealth::Faulted {
+                error: message.clone(),
+            };
+            return Err(RuntimeError::IoAddress(message));
         }
         let start = Instant::now();
         match self.bus.write_outputs(outputs) {
@@ -162,13 +167,7 @@ impl IoDriver for EthercatIoDriver {
     }
 
     fn health(&self) -> IoDriverHealth {
-        if self.discovered {
-            self.health.clone()
-        } else {
-            IoDriverHealth::Degraded {
-                error: self.discovery_message.clone(),
-            }
-        }
+        self.health.clone()
     }
 }
 

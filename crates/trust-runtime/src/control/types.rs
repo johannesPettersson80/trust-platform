@@ -24,6 +24,8 @@ pub(crate) struct ControlResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) error: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) error_code: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     audit_id: Option<String>,
 }
 
@@ -34,6 +36,7 @@ impl ControlResponse {
             ok: true,
             result: Some(result),
             error: None,
+            error_code: None,
             audit_id: None,
         }
     }
@@ -44,6 +47,18 @@ impl ControlResponse {
             ok: false,
             result: None,
             error: Some(error),
+            error_code: None,
+            audit_id: None,
+        }
+    }
+
+    pub(super) fn error_with_code(id: u64, error: String, error_code: &'static str) -> Self {
+        Self {
+            id,
+            ok: false,
+            result: None,
+            error: Some(error),
+            error_code: Some(error_code.to_string()),
             audit_id: None,
         }
     }
@@ -296,6 +311,45 @@ pub(super) fn runtime_event_to_json(event: RuntimeEvent) -> serde_json::Value {
         RuntimeEvent::Fault { error, time } => json!({
             "type": "fault",
             "error": error,
+            "time_ns": time.as_nanos(),
+        }),
+        RuntimeEvent::SafeStateFailed { root, error, time } => json!({
+            "type": "safe_state_failed",
+            "root": root,
+            "error": error,
+            "time_ns": time.as_nanos(),
+        }),
+        RuntimeEvent::RetainOrphanDropped { name, time } => json!({
+            "type": "retain_orphan_dropped",
+            "name": name.as_str(),
+            "time_ns": time.as_nanos(),
+        }),
+        RuntimeEvent::RetainMigrationApplied { name, detail, time } => json!({
+            "type": "retain_migration_applied",
+            "name": name.as_str(),
+            "detail": detail,
+            "time_ns": time.as_nanos(),
+        }),
+        RuntimeEvent::AuditDropped {
+            request_id,
+            request_type,
+            error,
+            time,
+        } => json!({
+            "type": "audit_dropped",
+            "request_id": request_id,
+            "request_type": request_type.as_str(),
+            "error": error,
+            "time_ns": time.as_nanos(),
+        }),
+        RuntimeEvent::FeatureDisabled {
+            feature,
+            request_type,
+            time,
+        } => json!({
+            "type": "feature_disabled",
+            "feature": feature.as_str(),
+            "request_type": request_type.as_deref(),
             "time_ns": time.as_nanos(),
         }),
     }

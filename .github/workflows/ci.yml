@@ -310,6 +310,10 @@ jobs:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      - name: Install architecture scanner dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ripgrep
       - name: Install ast-grep
         run: |
           if command -v ast-grep >/dev/null 2>&1; then
@@ -330,6 +334,8 @@ jobs:
         run: ./scripts/architecture_external_safety_ast_grep_gate.sh
       - name: Run runtime boundary fail-closed gate
         run: ./scripts/runtime_boundary_fail_closed_ast_grep_gate.sh
+      - name: Run runtime safety fail-closed gate
+        run: ./scripts/runtime_safety_fail_closed_ast_grep_gate.sh
       - name: Run full-map architecture doctor
         run: cargo run -p xtask -- architecture-doctor --full-map
       - name: Upload architecture safety artifacts
@@ -340,6 +346,7 @@ jobs:
           path: |
             target/gate-artifacts/architecture-external-safety-*/**
             target/gate-artifacts/runtime-boundary-fail-closed-*/**
+            target/gate-artifacts/runtime-safety-fail-closed-*/**
             target/gate-artifacts/full-software-map-*/software-map.json
             target/gate-artifacts/full-software-map-*/full-map-report.json
             target/gate-artifacts/full-software-map-*/full-map-report.md

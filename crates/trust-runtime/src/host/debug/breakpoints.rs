@@ -49,7 +49,9 @@ pub(crate) fn matches_breakpoint(
                     location: Some(*location),
                 };
                 if let Some(sender) = log_tx {
-                    let _ = sender.send(log);
+                    if sender.send(log.clone()).is_err() {
+                        logs.push(log);
+                    }
                 } else {
                     logs.push(log);
                 }

@@ -154,3 +154,26 @@ fn counter_variants() {
     harness.assert_eq("qu_ud", Value::Bool(false));
     harness.assert_eq("qd_ud", Value::Bool(true));
 }
+
+#[test]
+fn generic_counter_uses_call_value_type_after_null_default() {
+    let source = r#"
+        PROGRAM Test
+        VAR
+            ctu : CTU;
+            cu : BOOL := TRUE;
+            reset : BOOL := FALSE;
+            pv : DINT := DINT#2;
+            q : BOOL;
+            cv : DINT;
+        END_VAR
+        ctu(CU := cu, R := reset, PV := pv, Q => q, CV => cv);
+        END_PROGRAM
+    "#;
+
+    let mut harness = TestHarness::from_source(source).unwrap();
+
+    harness.cycle();
+    harness.assert_eq("cv", Value::DInt(1));
+    harness.assert_eq("q", Value::Bool(false));
+}

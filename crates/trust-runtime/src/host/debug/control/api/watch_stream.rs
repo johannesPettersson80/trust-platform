@@ -84,7 +84,9 @@ impl DebugControl {
         let (lock, _) = &*self.state;
         let state = lock.lock().expect("debug state poisoned");
         if let Some(sender) = &state.io_tx {
-            let _ = sender.send(snapshot);
+            if sender.send(snapshot).is_err() {
+                tracing::debug!("debug I/O snapshot sender closed");
+            }
         }
     }
 
@@ -93,7 +95,10 @@ impl DebugControl {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
         if let Some(sender) = &state.runtime_tx {
-            let _ = sender.send(event.clone());
+            if sender.send(event.clone()).is_err() {
+                state.runtime_tx = None;
+                state.runtime_events.push(event);
+            }
         } else {
             state.runtime_events.push(event);
         }

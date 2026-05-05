@@ -86,6 +86,41 @@ fn log_runtime_event(logger: &RuntimeLogger, event: &trust_runtime::debug::Runti
                 }),
             );
         }
+        trust_runtime::debug::RuntimeEvent::SafeStateFailed { root, error, time } => {
+            logger.log(
+                LogLevel::Error,
+                "runtime_safe_state_failed",
+                json!({
+                    "event_id": "TRUST-RT-SAFE-STATE-001",
+                    "root": root,
+                    "error": error,
+                    "time_ms": time.as_millis(),
+                }),
+            );
+        }
+        trust_runtime::debug::RuntimeEvent::RetainOrphanDropped { name, time } => {
+            logger.log(
+                LogLevel::Warn,
+                "runtime_retain_orphan_dropped",
+                json!({
+                    "event_id": "TRUST-RT-RETAIN-ORPHAN-001",
+                    "name": name.as_str(),
+                    "time_ms": time.as_millis(),
+                }),
+            );
+        }
+        trust_runtime::debug::RuntimeEvent::RetainMigrationApplied { name, detail, time } => {
+            logger.log(
+                LogLevel::Info,
+                "runtime_retain_migration_applied",
+                json!({
+                    "event_id": "TRUST-RT-RETAIN-MIGRATION-001",
+                    "name": name.as_str(),
+                    "detail": detail,
+                    "time_ms": time.as_millis(),
+                }),
+            );
+        }
         _ => {}
     }
 }

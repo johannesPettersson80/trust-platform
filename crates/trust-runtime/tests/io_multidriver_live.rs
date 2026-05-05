@@ -6,10 +6,13 @@ use std::time::{Duration as StdDuration, Instant};
 
 use trust_runtime::eval::expr::{Expr, LValue};
 use trust_runtime::eval::stmt::Stmt;
-use trust_runtime::io::{IoAddress, ModbusTcpDriver, MqttIoDriver};
+use trust_runtime::io::{IoAddress, IoDriver, ModbusTcpDriver, MqttIoDriver};
 use trust_runtime::task::ProgramDef;
 use trust_runtime::value::Value;
 use trust_runtime::Runtime;
+
+const MQTT_BROKER_IDLE_TIMEOUTS: usize = 600;
+const MQTT_LIVE_TEST_TIMEOUT: StdDuration = StdDuration::from_secs(10);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct MqttPublish {
@@ -36,89 +39,136 @@ fn start_mqtt_test_broker(
     let topic_in = topic_in.to_string();
 
     thread::spawn(move || {
-        let (mut stream, _) = listener.accept().expect("accept mqtt client");
-        let _ = stream.set_read_timeout(Some(StdDuration::from_millis(200)));
-        let _ = stream.set_write_timeout(Some(StdDuration::from_secs(2)));
-
-        let mut sent_inbound = false;
-        let mut idle_timeouts = 0usize;
-        loop {
-            match read_mqtt_packet(&mut stream) {
-                Ok((header, packet)) => {
-                    idle_timeouts = 0;
-                    match header >> 4 {
-                        1 => {
-                            if write_mqtt_connack(&mut stream).is_err() {
-                                break;
-                            }
-                            let mut guard = state_ref
-                                .lock()
-                                .unwrap_or_else(|poison| poison.into_inner());
-                            guard.connect_count += 1;
-                        }
-                        3 => {
-                            if let Some(publish) = parse_publish(header, &packet) {
-                                let mut guard = state_ref
-                                    .lock()
-                                    .unwrap_or_else(|poison| poison.into_inner());
-                                guard.publishes.push(publish);
-                                if expected_publishes > 0
-                                    && guard.publishes.len() >= expected_publishes
-                                {
-                                    break;
-                                }
-                            }
-                        }
-                        8 => {
-                            let Some((packet_id, topic_count)) = parse_subscribe(&packet) else {
-                                break;
-                            };
-                            if write_mqtt_suback(&mut stream, packet_id, topic_count).is_err() {
-                                break;
-                            }
-                            let mut guard = state_ref
-                                .lock()
-                                .unwrap_or_else(|poison| poison.into_inner());
-                            guard.subscribe_count += topic_count;
-                            drop(guard);
-
-                            if !sent_inbound {
-                                if let Some(payload) = inbound_payload.as_ref() {
-                                    if write_mqtt_publish(&mut stream, &topic_in, payload).is_err()
-                                    {
-                                        break;
-                                    }
-                                }
-                                sent_inbound = true;
-                            }
-                        }
-                        12 if write_mqtt_pingresp(&mut stream).is_err() => break,
-                        14 => break,
-                        _ => {}
-                    }
+        let listener_deadline = Instant::now() + MQTT_LIVE_TEST_TIMEOUT;
+        let _ = listener.set_nonblocking(true);
+        while Instant::now() < listener_deadline {
+            {
+                let guard = state_ref
+                    .lock()
+                    .unwrap_or_else(|poison| poison.into_inner());
+                if expected_publishes > 0 && guard.publishes.len() >= expected_publishes {
+                    break;
                 }
-                Err(err) if matches!(err.kind(), ErrorKind::TimedOut | ErrorKind::WouldBlock) => {
-                    idle_timeouts += 1;
-                    if idle_timeouts > 20 {
-                        break;
-                    }
-                }
-                Err(err) if err.kind() == ErrorKind::UnexpectedEof => break,
-                Err(_) => break,
             }
+            let Ok((stream, _)) = listener.accept() else {
+                thread::sleep(StdDuration::from_millis(5));
+                continue;
+            };
+            let state_client = Arc::clone(&state_ref);
+            let topic_client = topic_in.clone();
+            let inbound_client = inbound_payload.clone();
+            thread::spawn(move || {
+                handle_mqtt_client(
+                    stream,
+                    state_client,
+                    topic_client,
+                    inbound_client,
+                    expected_publishes,
+                );
+            });
         }
     });
 
     (addr, state)
 }
 
+fn handle_mqtt_client(
+    mut stream: TcpStream,
+    state_ref: Arc<Mutex<MqttBrokerState>>,
+    topic_in: String,
+    inbound_payload: Option<Vec<u8>>,
+    expected_publishes: usize,
+) {
+    let _ = stream.set_read_timeout(Some(StdDuration::from_millis(20)));
+    let _ = stream.set_write_timeout(Some(StdDuration::from_secs(2)));
+
+    let mut idle_timeouts = 0usize;
+    loop {
+        match read_mqtt_packet(&mut stream) {
+            Ok((header, packet)) => {
+                idle_timeouts = 0;
+                match header >> 4 {
+                    1 => {
+                        if write_mqtt_connack(&mut stream).is_err() {
+                            break;
+                        }
+                        let mut guard = state_ref
+                            .lock()
+                            .unwrap_or_else(|poison| poison.into_inner());
+                        guard.connect_count += 1;
+                    }
+                    3 => {
+                        if let Some(publish) = parse_publish(header, &packet) {
+                            let mut guard = state_ref
+                                .lock()
+                                .unwrap_or_else(|poison| poison.into_inner());
+                            guard.publishes.push(publish);
+                            if expected_publishes > 0 && guard.publishes.len() >= expected_publishes
+                            {
+                                break;
+                            }
+                        }
+                    }
+                    8 => {
+                        let Some((packet_id, topic_count)) = parse_subscribe(&packet) else {
+                            break;
+                        };
+                        if write_mqtt_suback(&mut stream, packet_id, topic_count).is_err() {
+                            break;
+                        }
+                        let mut guard = state_ref
+                            .lock()
+                            .unwrap_or_else(|poison| poison.into_inner());
+                        guard.subscribe_count += topic_count;
+                        drop(guard);
+
+                        if let Some(payload) = inbound_payload.as_ref() {
+                            if write_mqtt_publish(&mut stream, &topic_in, payload).is_err() {
+                                break;
+                            }
+                        }
+                    }
+                    12 if write_mqtt_pingresp(&mut stream).is_err() => break,
+                    14 => break,
+                    _ => {}
+                }
+            }
+            Err(err) if matches!(err.kind(), ErrorKind::TimedOut | ErrorKind::WouldBlock) => {
+                idle_timeouts += 1;
+                if idle_timeouts > MQTT_BROKER_IDLE_TIMEOUTS {
+                    break;
+                }
+            }
+            Err(err) if err.kind() == ErrorKind::UnexpectedEof => break,
+            Err(_) => break,
+        }
+    }
+}
+
+fn is_retryable_mqtt_live_error(text: &str) -> bool {
+    text.contains("mqtt connect")
+        || text.contains("mqtt disconnected")
+        || text.contains("mqtt input not fresh")
+        || text.contains("Connection refused")
+        || text.contains("Connection reset by peer")
+        || text.contains("Connection closed by peer abruptly")
+}
+
 fn read_mqtt_packet(stream: &mut TcpStream) -> io::Result<(u8, Vec<u8>)> {
     let mut header = [0u8; 1];
     stream.read_exact(&mut header)?;
+    let idle_timeout = stream.read_timeout().ok().flatten();
+    stream.set_read_timeout(Some(StdDuration::from_secs(2)))?;
+    let result = read_mqtt_packet_after_header(stream, header[0]);
+    let _ = stream.set_read_timeout(idle_timeout);
+    result
+}
+
+fn read_mqtt_packet_after_header(stream: &mut TcpStream, header: u8) -> io::Result<(u8, Vec<u8>)> {
     let len = read_remaining_length(stream)?;
     let mut packet = vec![0u8; len];
     stream.read_exact(&mut packet)?;
-    Ok((header[0], packet))
+    Ok((header, packet))
 }
 
 fn read_remaining_length(stream: &mut TcpStream) -> io::Result<usize> {
@@ -341,7 +391,7 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
 
     let topic_in = "trust/test/in";
     let topic_out = "trust/test/out";
-    let (mqtt_addr, mqtt_state) = start_mqtt_test_broker(topic_in, None, 1);
+    let (mqtt_addr, mqtt_state) = start_mqtt_test_broker(topic_in, Some(vec![1]), 0);
 
     let mut runtime = Runtime::new();
     runtime.io_mut().resize(1, 1, 0);
@@ -381,21 +431,106 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
         "broker = \"{mqtt_addr}\"\ntopic_in = \"{topic_in}\"\ntopic_out = \"{topic_out}\"\nreconnect_ms = 10\n"
     ))
     .expect("parse mqtt params");
-    runtime.add_io_driver(
-        "mqtt",
-        Box::new(MqttIoDriver::from_params(&mqtt_params).expect("create mqtt driver")),
+    let mut mqtt_driver = MqttIoDriver::from_params(&mqtt_params).expect("create mqtt driver");
+    let prewarm_deadline = Instant::now() + MQTT_LIVE_TEST_TIMEOUT;
+    let mut mqtt_prewarmed = false;
+    while Instant::now() < prewarm_deadline {
+        match mqtt_driver.write_outputs(&[0]) {
+            Ok(()) => {
+                mqtt_prewarmed = true;
+                break;
+            }
+            Err(err) => {
+                let text = err.to_string();
+                if is_retryable_mqtt_live_error(&text) {
+                    thread::sleep(StdDuration::from_millis(20));
+                    continue;
+                }
+                panic!("mqtt prewarm: {err}");
+            }
+        }
+    }
+    assert!(
+        mqtt_prewarmed,
+        "mqtt prewarm should establish a subscribed session without consuming input"
     );
-
-    let deadline = Instant::now() + StdDuration::from_secs(3);
-    let mut outbound_payload = None;
+    let deadline = Instant::now() + MQTT_LIVE_TEST_TIMEOUT;
     while Instant::now() < deadline {
-        runtime.execute_cycle().expect("execute cycle");
+        let guard = mqtt_state.lock().expect("mqtt state lock");
+        if guard.subscribe_count >= 1 && !guard.publishes.is_empty() {
+            break;
+        }
+        drop(guard);
+        thread::sleep(StdDuration::from_millis(10));
+    }
+    let initial_publish_count = {
+        let guard = mqtt_state.lock().expect("mqtt state lock");
+        assert!(
+            guard.subscribe_count >= 1,
+            "mqtt prewarm should complete subscription"
+        );
+        guard.publishes.len()
+    };
+    runtime.add_io_driver("mqtt", Box::new(mqtt_driver));
+
+    let deadline = Instant::now() + MQTT_LIVE_TEST_TIMEOUT;
+    let mut outbound_payload = None;
+    let mut cycle_executed = false;
+    let mut last_cycle_error = None;
+    while Instant::now() < deadline {
+        match runtime.execute_cycle() {
+            Ok(()) => {
+                cycle_executed = true;
+                break;
+            }
+            Err(err) => {
+                let text = err.to_string();
+                let last_fault = runtime
+                    .last_fault()
+                    .map_or_else(|| "<none>".to_string(), ToString::to_string);
+                let retry_text = format!("{text}; last_fault={last_fault}");
+                if !retry_text.contains("i/o freshness")
+                    || !is_retryable_mqtt_live_error(&retry_text)
+                {
+                    panic!("execute cycle: {err}; last_fault={last_fault}");
+                }
+                let premature_output = {
+                    let guard = mqtt_state.lock().expect("mqtt state lock");
+                    guard
+                        .publishes
+                        .iter()
+                        .skip(initial_publish_count)
+                        .any(|entry| {
+                            entry.topic == topic_out
+                                && entry.payload.first().copied().unwrap_or(0) & 0x01 == 0x01
+                        })
+                };
+                assert!(
+                    !premature_output,
+                    "retryable mqtt input failure must not publish output"
+                );
+                runtime.clear_fault();
+                last_cycle_error = Some(retry_text);
+                thread::sleep(StdDuration::from_millis(20));
+            }
+        }
+    }
+    assert!(
+        cycle_executed,
+        "runtime cycle should execute after mqtt startup settles; last_error={}",
+        last_cycle_error.unwrap_or_else(|| "<none>".to_string())
+    );
+    while Instant::now() < deadline {
         if let Some(publish) = {
             let guard = mqtt_state.lock().expect("mqtt state lock");
             guard
                 .publishes
                 .iter()
-                .find(|entry| entry.topic == topic_out)
+                .skip(initial_publish_count)
+                .find(|entry| {
+                    entry.topic == topic_out
+                        && entry.payload.first().copied().unwrap_or(0) & 0x01 == 0x01
+                })
                 .cloned()
         } {
             outbound_payload = Some(publish.payload);

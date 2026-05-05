@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.14`
+Target release: `v0.24.15`
 
 ### Added
 
@@ -79,6 +79,35 @@ Target release: `v0.24.14`
 
 ### Fixed
 
+- Runtime I/O drivers now fail closed for the covered safety paths: MQTT
+  disconnected/stale reads and publish/connect failures return structured
+  runtime errors, EtherCAT discovery and image-size mismatches fault under every
+  policy, Modbus flush/transport failures and Modbus exceptions remain
+  distinguishable, and GPIO read/write failures are reflected in driver health.
+- Retain persistence now writes through a temp file, flush/fsync, atomic rename,
+  and parent directory sync, and retain snapshots now use a length-delimited
+  CRC/trailer-protected codec with legacy v1 read support plus explicit
+  retain migration/orphan events.
+- Runtime initialization, evaluator assignments, and queued debug writes now
+  fail closed for the covered safety paths: default materialization failures
+  return `InitFailed` instead of becoming `NULL`, undefined evaluator/debug
+  targets are rejected instead of creating globals, and queued debug write
+  failures fault the cycle visibly.
+- Interface-typed runtime variables now materialize as explicit `NULL`
+  references during default initialization, and generic `ANY_INT` counter
+  slots defer to the call argument type instead of failing runtime startup.
+- Runtime bytecode lowering now materializes HIR-allowed contextual widening at
+  assignment boundaries using the target runtime type, with proof coverage for
+  function inputs/outputs, assignments, initializers, return values, InOut
+  rejection, and narrowing rejection.
+- Runtime audit/event, mesh, debug, and runtime-cloud safety paths now fail
+  closed for the covered cases: closed audit sinks emit `AuditDropped`, closed
+  debug event/log streams fall back to in-memory buffers, mesh snapshot timeouts
+  are errors instead of empty maps, corrupt runtime-cloud config state becomes
+  an explicit error state, corrupt link/rollout state prevents web startup, and
+  disabled debug-control requests return structured `feature_disabled`.
+- `FULLMAP-RUNTIMESAFE` now runs as a blocking architecture-doctor/CI gate with
+  zero findings and zero allowlist entries.
 - Harness boundary inputs now fail closed: typoed `set_input` names and
   `bind_direct` targets return structured boundary errors instead of creating
   hidden globals or undeclared I/O bindings.

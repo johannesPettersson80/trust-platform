@@ -50,8 +50,16 @@ pub(in crate::harness) fn lower_expr(
     node: &SyntaxNode,
     ctx: &mut LoweringContext<'_>,
 ) -> Result<Expr, CompileError> {
+    lower_expr_with_context(node, ctx, None)
+}
+
+pub(in crate::harness) fn lower_expr_with_context(
+    node: &SyntaxNode,
+    ctx: &mut LoweringContext<'_>,
+    expected_type: Option<TypeId>,
+) -> Result<Expr, CompileError> {
     match node.kind() {
-        SyntaxKind::Literal => lower_literal(node, ctx),
+        SyntaxKind::Literal => lower_literal_with_context(node, ctx, expected_type),
         SyntaxKind::NameRef => Ok(Expr::Name(node_text(node).into())),
         SyntaxKind::ThisExpr => Ok(Expr::This),
         SyntaxKind::SuperExpr => Ok(Expr::Super),
@@ -61,7 +69,7 @@ pub(in crate::harness) fn lower_expr(
                 first_expr_child(node).ok_or_else(|| CompileError::new("missing unary operand"))?;
             Ok(Expr::Unary {
                 op,
-                expr: Box::new(lower_expr(&expr, ctx)?),
+                expr: Box::new(lower_expr_with_context(&expr, ctx, expected_type)?),
             })
         }
         SyntaxKind::BinaryExpr => {
@@ -72,8 +80,9 @@ pub(in crate::harness) fn lower_expr(
             }
             let left_type = lower_expression_type(&exprs[0], ctx)?;
             let right_type = lower_expression_type(&exprs[1], ctx)?;
-            let mut left = lower_expr(&exprs[0], ctx)?;
-            let mut right = lower_expr(&exprs[1], ctx)?;
+            let operand_context = binary_operand_context(op, expected_type, node, ctx)?;
+            let mut left = lower_expr_with_context(&exprs[0], ctx, operand_context)?;
+            let mut right = lower_expr_with_context(&exprs[1], ctx, operand_context)?;
             // Let a bare enum variant name on one side resolve against the
             // other side's enum type. Mirrors the v0.18.4 CASE-label fix
             // (commit 8d7f069) for symmetric binary operands such as
@@ -93,7 +102,7 @@ pub(in crate::harness) fn lower_expr(
         SyntaxKind::ParenExpr => {
             let expr = first_expr_child(node)
                 .ok_or_else(|| CompileError::new("missing parenthesized expression"))?;
-            lower_expr(&expr, ctx)
+            lower_expr_with_context(&expr, ctx, expected_type)
         }
         SyntaxKind::IndexExpr => {
             let exprs = direct_expr_children(node);
@@ -149,6 +158,28 @@ pub(in crate::harness) fn lower_expr(
         SyntaxKind::ArrayInitializer => lower_array_initializer(node, ctx),
         SyntaxKind::InitializerList => lower_struct_initializer(node, ctx),
         _ => Err(CompileError::new("unsupported expression")),
+    }
+}
+
+fn binary_operand_context(
+    op: BinaryOp,
+    expected_type: Option<TypeId>,
+    node: &SyntaxNode,
+    ctx: &mut LoweringContext<'_>,
+) -> Result<Option<TypeId>, CompileError> {
+    match op {
+        BinaryOp::Add
+        | BinaryOp::Sub
+        | BinaryOp::Mul
+        | BinaryOp::Div
+        | BinaryOp::Mod
+        | BinaryOp::Pow
+        | BinaryOp::And
+        | BinaryOp::Or
+        | BinaryOp::Xor => Ok(expected_type.or(lower_expression_type(node, ctx)?)),
+        BinaryOp::Eq | BinaryOp::Ne | BinaryOp::Lt | BinaryOp::Le | BinaryOp::Gt | BinaryOp::Ge => {
+            Ok(None)
+        }
     }
 }
 

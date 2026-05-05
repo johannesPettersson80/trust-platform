@@ -252,6 +252,51 @@ pub enum RuntimeEvent {
         /// Time when the fault was recorded.
         time: Duration,
     },
+    /// Safe-state application failed while handling a resource fault.
+    SafeStateFailed {
+        /// Original fault message.
+        root: String,
+        /// Safe-state failure message.
+        error: String,
+        /// Time when the safe-state failure was recorded.
+        time: Duration,
+    },
+    /// A retained value no longer has a matching retained global and was dropped.
+    RetainOrphanDropped {
+        /// Retained variable name.
+        name: SmolStr,
+        /// Time when the orphan was dropped.
+        time: Duration,
+    },
+    /// A retained value was explicitly migrated to the current declared type.
+    RetainMigrationApplied {
+        /// Retained variable name.
+        name: SmolStr,
+        /// Migration detail.
+        detail: String,
+        /// Time when the migration was applied.
+        time: Duration,
+    },
+    /// A control audit event could not be delivered to the configured audit sink.
+    AuditDropped {
+        /// Control request id associated with the dropped audit event.
+        request_id: u64,
+        /// Control request type associated with the dropped audit event.
+        request_type: SmolStr,
+        /// Send/write failure detail.
+        error: String,
+        /// Time when the audit drop was observed.
+        time: Duration,
+    },
+    /// A request reached a surface that is disabled by feature/configuration.
+    FeatureDisabled {
+        /// Disabled feature name.
+        feature: SmolStr,
+        /// Optional request type that attempted to use the feature.
+        request_type: Option<SmolStr>,
+        /// Time when the disabled feature request was observed.
+        time: Duration,
+    },
 }
 
 /// Stop reason for debugger events.
