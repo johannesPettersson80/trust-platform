@@ -408,15 +408,19 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
     let mut mqtt_driver = MqttIoDriver::from_params(&mqtt_params).expect("create mqtt driver");
     let prewarm_deadline = Instant::now() + StdDuration::from_secs(3);
     let mut mqtt_prewarmed = false;
+    let mut mqtt_prewarm_inputs = [0u8; 1];
     while Instant::now() < prewarm_deadline {
-        match mqtt_driver.write_outputs(&[0]) {
+        match mqtt_driver.read_inputs(&mut mqtt_prewarm_inputs) {
             Ok(()) => {
                 mqtt_prewarmed = true;
                 break;
             }
             Err(err) => {
                 let text = err.to_string();
-                if text.contains("mqtt connect") || text.contains("mqtt disconnected") {
+                if text.contains("mqtt connect")
+                    || text.contains("mqtt disconnected")
+                    || text.contains("mqtt input not fresh")
+                {
                     thread::sleep(StdDuration::from_millis(20));
                     continue;
                 }
@@ -424,11 +428,18 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
             }
         }
     }
-    assert!(mqtt_prewarmed, "mqtt prewarm should establish a session");
+    assert!(
+        mqtt_prewarmed,
+        "mqtt prewarm should establish a subscribed session with fresh input"
+    );
+    assert_eq!(
+        mqtt_prewarm_inputs[0], 1,
+        "mqtt prewarm should receive the broker input payload"
+    );
     let deadline = Instant::now() + StdDuration::from_secs(3);
     while Instant::now() < deadline {
         let guard = mqtt_state.lock().expect("mqtt state lock");
-        if guard.subscribe_count >= 1 && !guard.publishes.is_empty() {
+        if guard.subscribe_count >= 1 {
             break;
         }
         drop(guard);
@@ -439,10 +450,6 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
         assert!(
             guard.subscribe_count >= 1,
             "mqtt prewarm should complete subscription"
-        );
-        assert!(
-            !guard.publishes.is_empty(),
-            "mqtt prewarm publish should be observed before runtime cycle"
         );
         guard.publishes.len()
     };
