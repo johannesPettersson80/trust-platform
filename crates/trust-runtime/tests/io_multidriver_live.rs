@@ -11,6 +11,8 @@ use trust_runtime::task::ProgramDef;
 use trust_runtime::value::Value;
 use trust_runtime::Runtime;
 
+const MQTT_BROKER_IDLE_TIMEOUTS: usize = 200;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct MqttPublish {
     topic: String,
@@ -56,6 +58,7 @@ fn start_mqtt_test_broker(
 
             let mut idle_timeouts = 0usize;
             let mut inbound_sent_count = 0usize;
+            let mut subscribed = false;
             loop {
                 match read_mqtt_packet(&mut stream) {
                     Ok((header, packet)) => {
@@ -95,6 +98,7 @@ fn start_mqtt_test_broker(
                                     .lock()
                                     .unwrap_or_else(|poison| poison.into_inner());
                                 guard.subscribe_count += topic_count;
+                                subscribed = true;
                                 drop(guard);
 
                                 if let Some(payload) = inbound_payload.as_ref() {
@@ -113,7 +117,7 @@ fn start_mqtt_test_broker(
                     Err(err)
                         if matches!(err.kind(), ErrorKind::TimedOut | ErrorKind::WouldBlock) =>
                     {
-                        if inbound_sent_count < 16 {
+                        if subscribed && inbound_sent_count < 16 {
                             if let Some(payload) = inbound_payload.as_ref() {
                                 if write_mqtt_publish(&mut stream, &topic_in, payload).is_err() {
                                     break;
@@ -122,7 +126,7 @@ fn start_mqtt_test_broker(
                             }
                         }
                         idle_timeouts += 1;
-                        if idle_timeouts > 20 {
+                        if idle_timeouts > MQTT_BROKER_IDLE_TIMEOUTS {
                             break;
                         }
                     }
