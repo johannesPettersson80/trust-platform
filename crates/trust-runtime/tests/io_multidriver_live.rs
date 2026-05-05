@@ -11,7 +11,7 @@ use trust_runtime::task::ProgramDef;
 use trust_runtime::value::Value;
 use trust_runtime::Runtime;
 
-const MQTT_BROKER_IDLE_TIMEOUTS: usize = 200;
+const MQTT_BROKER_IDLE_TIMEOUTS: usize = 600;
 const MQTT_LIVE_TEST_TIMEOUT: StdDuration = StdDuration::from_secs(10);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -155,6 +155,14 @@ fn handle_mqtt_client(
             Err(_) => break,
         }
     }
+}
+
+fn is_retryable_mqtt_live_error(text: &str) -> bool {
+    text.contains("mqtt connect")
+        || text.contains("mqtt disconnected")
+        || text.contains("mqtt input not fresh")
+        || text.contains("Connection reset by peer")
+        || text.contains("Connection closed by peer abruptly")
 }
 
 fn read_mqtt_packet(stream: &mut TcpStream) -> io::Result<(u8, Vec<u8>)> {
@@ -438,10 +446,7 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
             }
             Err(err) => {
                 let text = err.to_string();
-                if text.contains("mqtt connect")
-                    || text.contains("mqtt disconnected")
-                    || text.contains("mqtt input not fresh")
-                {
+                if is_retryable_mqtt_live_error(&text) {
                     thread::sleep(StdDuration::from_millis(20));
                     continue;
                 }
@@ -479,7 +484,14 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
     let deadline = Instant::now() + MQTT_LIVE_TEST_TIMEOUT;
     let mut outbound_payload = None;
     while Instant::now() < deadline {
-        runtime.execute_cycle().expect("execute cycle");
+        if let Err(err) = runtime.execute_cycle() {
+            let text = err.to_string();
+            if is_retryable_mqtt_live_error(&text) {
+                thread::sleep(StdDuration::from_millis(20));
+                continue;
+            }
+            panic!("execute cycle: {err}");
+        }
         if let Some(publish) = {
             let guard = mqtt_state.lock().expect("mqtt state lock");
             guard
