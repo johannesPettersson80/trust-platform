@@ -474,12 +474,47 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
 
     let deadline = Instant::now() + MQTT_LIVE_TEST_TIMEOUT;
     let mut outbound_payload = None;
-    runtime.execute_cycle().unwrap_or_else(|err| {
-        let last_fault = runtime
-            .last_fault()
-            .map_or_else(|| "<none>".to_string(), ToString::to_string);
-        panic!("execute cycle: {err}; last_fault={last_fault}");
-    });
+    let mut cycle_executed = false;
+    let mut last_cycle_error = None;
+    while Instant::now() < deadline {
+        match runtime.execute_cycle() {
+            Ok(()) => {
+                cycle_executed = true;
+                break;
+            }
+            Err(err) => {
+                let text = err.to_string();
+                let last_fault = runtime
+                    .last_fault()
+                    .map_or_else(|| "<none>".to_string(), ToString::to_string);
+                if !text.contains("i/o freshness") || !is_retryable_mqtt_live_error(&text) {
+                    panic!("execute cycle: {err}; last_fault={last_fault}");
+                }
+                let premature_output = {
+                    let guard = mqtt_state.lock().expect("mqtt state lock");
+                    guard
+                        .publishes
+                        .iter()
+                        .skip(initial_publish_count)
+                        .any(|entry| {
+                            entry.topic == topic_out
+                                && entry.payload.first().copied().unwrap_or(0) & 0x01 == 0x01
+                        })
+                };
+                assert!(
+                    !premature_output,
+                    "retryable mqtt input failure must not publish output"
+                );
+                last_cycle_error = Some(format!("{err}; last_fault={last_fault}"));
+                thread::sleep(StdDuration::from_millis(20));
+            }
+        }
+    }
+    assert!(
+        cycle_executed,
+        "runtime cycle should execute after mqtt startup settles; last_error={}",
+        last_cycle_error.unwrap_or_else(|| "<none>".to_string())
+    );
     while Instant::now() < deadline {
         if let Some(publish) = {
             let guard = mqtt_state.lock().expect("mqtt state lock");
