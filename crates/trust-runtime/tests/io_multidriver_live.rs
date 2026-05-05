@@ -50,95 +50,111 @@ fn start_mqtt_test_broker(
                     break;
                 }
             }
-            let Ok((mut stream, _)) = listener.accept() else {
+            let Ok((stream, _)) = listener.accept() else {
                 thread::sleep(StdDuration::from_millis(5));
                 continue;
             };
-            let _ = stream.set_read_timeout(Some(StdDuration::from_millis(20)));
-            let _ = stream.set_write_timeout(Some(StdDuration::from_secs(2)));
-
-            let mut idle_timeouts = 0usize;
-            let mut inbound_sent_count = 0usize;
-            let mut subscribed = false;
-            loop {
-                match read_mqtt_packet(&mut stream) {
-                    Ok((header, packet)) => {
-                        idle_timeouts = 0;
-                        match header >> 4 {
-                            1 => {
-                                if write_mqtt_connack(&mut stream).is_err() {
-                                    break;
-                                }
-                                let mut guard = state_ref
-                                    .lock()
-                                    .unwrap_or_else(|poison| poison.into_inner());
-                                guard.connect_count += 1;
-                            }
-                            3 => {
-                                if let Some(publish) = parse_publish(header, &packet) {
-                                    let mut guard = state_ref
-                                        .lock()
-                                        .unwrap_or_else(|poison| poison.into_inner());
-                                    guard.publishes.push(publish);
-                                    if expected_publishes > 0
-                                        && guard.publishes.len() >= expected_publishes
-                                    {
-                                        break;
-                                    }
-                                }
-                            }
-                            8 => {
-                                let Some((packet_id, topic_count)) = parse_subscribe(&packet)
-                                else {
-                                    break;
-                                };
-                                if write_mqtt_suback(&mut stream, packet_id, topic_count).is_err() {
-                                    break;
-                                }
-                                let mut guard = state_ref
-                                    .lock()
-                                    .unwrap_or_else(|poison| poison.into_inner());
-                                guard.subscribe_count += topic_count;
-                                subscribed = true;
-                                drop(guard);
-
-                                if let Some(payload) = inbound_payload.as_ref() {
-                                    if write_mqtt_publish(&mut stream, &topic_in, payload).is_err()
-                                    {
-                                        break;
-                                    }
-                                    inbound_sent_count += 1;
-                                }
-                            }
-                            12 if write_mqtt_pingresp(&mut stream).is_err() => break,
-                            14 => break,
-                            _ => {}
-                        }
-                    }
-                    Err(err)
-                        if matches!(err.kind(), ErrorKind::TimedOut | ErrorKind::WouldBlock) =>
-                    {
-                        if subscribed && inbound_sent_count < 16 {
-                            if let Some(payload) = inbound_payload.as_ref() {
-                                if write_mqtt_publish(&mut stream, &topic_in, payload).is_err() {
-                                    break;
-                                }
-                                inbound_sent_count += 1;
-                            }
-                        }
-                        idle_timeouts += 1;
-                        if idle_timeouts > MQTT_BROKER_IDLE_TIMEOUTS {
-                            break;
-                        }
-                    }
-                    Err(err) if err.kind() == ErrorKind::UnexpectedEof => break,
-                    Err(_) => break,
-                }
-            }
+            let state_client = Arc::clone(&state_ref);
+            let topic_client = topic_in.clone();
+            let inbound_client = inbound_payload.clone();
+            thread::spawn(move || {
+                handle_mqtt_client(
+                    stream,
+                    state_client,
+                    topic_client,
+                    inbound_client,
+                    expected_publishes,
+                );
+            });
         }
     });
 
     (addr, state)
+}
+
+fn handle_mqtt_client(
+    mut stream: TcpStream,
+    state_ref: Arc<Mutex<MqttBrokerState>>,
+    topic_in: String,
+    inbound_payload: Option<Vec<u8>>,
+    expected_publishes: usize,
+) {
+    let _ = stream.set_read_timeout(Some(StdDuration::from_millis(20)));
+    let _ = stream.set_write_timeout(Some(StdDuration::from_secs(2)));
+
+    let mut idle_timeouts = 0usize;
+    let mut inbound_sent_count = 0usize;
+    let mut subscribed = false;
+    loop {
+        match read_mqtt_packet(&mut stream) {
+            Ok((header, packet)) => {
+                idle_timeouts = 0;
+                match header >> 4 {
+                    1 => {
+                        if write_mqtt_connack(&mut stream).is_err() {
+                            break;
+                        }
+                        let mut guard = state_ref
+                            .lock()
+                            .unwrap_or_else(|poison| poison.into_inner());
+                        guard.connect_count += 1;
+                    }
+                    3 => {
+                        if let Some(publish) = parse_publish(header, &packet) {
+                            let mut guard = state_ref
+                                .lock()
+                                .unwrap_or_else(|poison| poison.into_inner());
+                            guard.publishes.push(publish);
+                            if expected_publishes > 0 && guard.publishes.len() >= expected_publishes
+                            {
+                                break;
+                            }
+                        }
+                    }
+                    8 => {
+                        let Some((packet_id, topic_count)) = parse_subscribe(&packet) else {
+                            break;
+                        };
+                        if write_mqtt_suback(&mut stream, packet_id, topic_count).is_err() {
+                            break;
+                        }
+                        let mut guard = state_ref
+                            .lock()
+                            .unwrap_or_else(|poison| poison.into_inner());
+                        guard.subscribe_count += topic_count;
+                        subscribed = true;
+                        drop(guard);
+
+                        if let Some(payload) = inbound_payload.as_ref() {
+                            if write_mqtt_publish(&mut stream, &topic_in, payload).is_err() {
+                                break;
+                            }
+                            inbound_sent_count += 1;
+                        }
+                    }
+                    12 if write_mqtt_pingresp(&mut stream).is_err() => break,
+                    14 => break,
+                    _ => {}
+                }
+            }
+            Err(err) if matches!(err.kind(), ErrorKind::TimedOut | ErrorKind::WouldBlock) => {
+                if subscribed && inbound_sent_count < 16 {
+                    if let Some(payload) = inbound_payload.as_ref() {
+                        if write_mqtt_publish(&mut stream, &topic_in, payload).is_err() {
+                            break;
+                        }
+                        inbound_sent_count += 1;
+                    }
+                }
+                idle_timeouts += 1;
+                if idle_timeouts > MQTT_BROKER_IDLE_TIMEOUTS {
+                    break;
+                }
+            }
+            Err(err) if err.kind() == ErrorKind::UnexpectedEof => break,
+            Err(_) => break,
+        }
+    }
 }
 
 fn read_mqtt_packet(stream: &mut TcpStream) -> io::Result<(u8, Vec<u8>)> {
