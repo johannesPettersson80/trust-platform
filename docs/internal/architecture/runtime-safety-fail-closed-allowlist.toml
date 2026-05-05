@@ -1,0 +1,8 @@
+# Runtime safety fail-closed allowlist.
+#
+# Entries are intentionally empty until a compatibility path has a named owner,
+# rationale, test evidence, and removal condition.
+
+max_entries = 5
+
+entries = []

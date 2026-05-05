@@ -373,6 +373,15 @@
     ],
     "max_allowlist_entries": 5
   },
+  "runtime_safety_fail_closed": {
+    "owner": "runtime safety",
+    "status": "warn_only_inventory",
+    "contract": "docs/internal/architecture/runtime-safety-fail-closed-contract.md",
+    "allowlist": "docs/internal/architecture/runtime-safety-fail-closed-allowlist.toml",
+    "gate": "scripts/runtime_safety_fail_closed_ast_grep_gate.sh",
+    "full_map_check": "FULLMAP-RUNTIMESAFE",
+    "max_allowlist_entries": 5
+  },
   "diagram_policy": {
     "selected_diagrams": [
       "docs/diagrams/architecture/full-software-map-generated.puml"

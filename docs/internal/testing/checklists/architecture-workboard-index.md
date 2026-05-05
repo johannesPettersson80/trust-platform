@@ -1,7 +1,7 @@
 # Architecture Workboard Index
 
 Status: Active navigation guard
-Last verified: 2026-05-03 after completing the runtime boundary fail-closed safety board for GitHub issue #77 class bugs.
+Last verified: 2026-05-05 after opening the tracked runtime safety fail-closed board from clean `v0.24.14`.
 Owner: Architecture/runtime/HIR team
 Scope: reset-safe pointer to the right architecture checklists so future sessions do not swap boards.
 
@@ -9,8 +9,8 @@ Unchecked `ARCHIDX-*` rows are recurring guard checks for each resume, not archi
 
 ## Current Board Pointer
 
-- Current active follow-up board: none. `runtime-boundary-fail-closed-safety-checklist.md` is complete; next work should open a dedicated board instead of reopening this one.
-- Current concrete step: commit the runtime boundary fail-closed work, then run the release/tag flow for `v0.24.14`.
+- Current active follow-up board: `runtime-safety-fail-closed-checklist.md`.
+- Current concrete step: Phase 0 doctor/checklist/contract inventory for runtime-internal safety paths; do not apply old ignored drafts or stash patches as source of truth.
 - Previous completed board: `architecture-post-closeout-gap-closure-checklist.md` at commit `91255e672`, plus umbrella cleanup and deferred modernization audit (`ARCHPROG-E-04`, `ARCHPROG-EXIT-08`, `ARCHPROG-EXIT-09`, `ARCHPROG-EXIT-11`, `ARCHPROG-FOLLOW-01`).
 - Do not use `docs/internal/masterPlan.md` to sequence this architecture program.
 - Resume path: read this index, confirm the architecture program remains closed in `full-architecture-refactor-program-checklist.md`, then open a new dedicated checklist for any new architecture work.

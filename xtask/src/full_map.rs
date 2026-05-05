@@ -760,6 +760,7 @@ fn run_policy_checks(root: &Path, map: &SoftwareMap, policy: &FullMapPolicy) -> 
         check_parser_recovery_rules(map),
         check_hir_zero_silent_bug_doctor(root),
         check_runtime_boundary_fail_closed_doctor(root),
+        check_runtime_safety_fail_closed_doctor(root),
         check_runtime_vm_mutation_evidence(root),
         check_diagram_claims(map, policy),
     ]
@@ -2485,6 +2486,86 @@ fn runtime_boundary_fail_closed_check_from_output(
         FullMapCheck::fail(
             "FULLMAP-RUNTIMEBOUND",
             "runtime boundary fail-closed gate reported findings or failed",
+            details,
+        )
+    }
+}
+
+fn check_runtime_safety_fail_closed_doctor(root: &Path) -> FullMapCheck {
+    let script = Path::new("scripts/runtime_safety_fail_closed_ast_grep_gate.sh");
+    let script_path = root.join(script);
+    let command = "./scripts/runtime_safety_fail_closed_ast_grep_gate.sh";
+    if !script_path.is_file() {
+        return FullMapCheck::fail(
+            "FULLMAP-RUNTIMESAFE",
+            "runtime safety fail-closed gate script is missing",
+            vec![format!("missing {}", script.display())],
+        );
+    }
+
+    match Command::new(script).current_dir(root).output() {
+        Ok(output) => runtime_safety_fail_closed_check_from_output(
+            command,
+            CommandCheckOutput {
+                success: output.status.success(),
+                code: output.status.code(),
+                stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+                stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+            },
+        ),
+        Err(error) => FullMapCheck::fail(
+            "FULLMAP-RUNTIMESAFE",
+            "runtime safety fail-closed gate could not run",
+            vec![format!("command: {command}"), format!("error: {error}")],
+        ),
+    }
+}
+
+fn runtime_safety_fail_closed_check_from_output(
+    command: &str,
+    output: CommandCheckOutput,
+) -> FullMapCheck {
+    let exit_code = output.code.map_or_else(
+        || "terminated by signal".to_string(),
+        |code| code.to_string(),
+    );
+    let mut details = vec![
+        format!("command: {command}"),
+        format!("exit code: {exit_code}"),
+    ];
+    details.extend(command_stream_details("stdout", &output.stdout));
+    details.extend(command_stream_details("stderr", &output.stderr));
+
+    if !output.success {
+        return FullMapCheck::fail(
+            "FULLMAP-RUNTIMESAFE",
+            "runtime safety fail-closed gate failed to run",
+            details,
+        );
+    }
+
+    if output
+        .stdout
+        .contains("runtime safety fail-closed gate: no findings")
+    {
+        FullMapCheck::pass(
+            "FULLMAP-RUNTIMESAFE",
+            "runtime safety fail-closed gate reported no findings",
+            details,
+        )
+    } else if output
+        .stdout
+        .contains("runtime safety fail-closed gate: findings")
+    {
+        FullMapCheck::finding(
+            "FULLMAP-RUNTIMESAFE",
+            "runtime safety fail-closed gate is in warn-only inventory mode",
+            details,
+        )
+    } else {
+        FullMapCheck::fail(
+            "FULLMAP-RUNTIMESAFE",
+            "runtime safety fail-closed gate returned unrecognized output",
             details,
         )
     }
@@ -4926,6 +5007,66 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
         );
 
         assert_eq!(check.status, CheckStatus::Pass);
+    }
+
+    #[test]
+    fn runtime_safety_gate_findings_are_warn_only_full_map_finding() {
+        let check = runtime_safety_fail_closed_check_from_output(
+            "./scripts/runtime_safety_fail_closed_ast_grep_gate.sh",
+            CommandCheckOutput {
+                success: true,
+                code: Some(0),
+                stdout: "runtime safety fail-closed gate: findings\n\
+                    gate=runtime-safety-fail-closed\n\
+                    phase=warn_only_inventory\n\
+                    finding_count=3\n"
+                    .to_string(),
+                stderr: String::new(),
+            },
+        );
+
+        assert_eq!(check.status, CheckStatus::Finding);
+        assert!(check
+            .details
+            .iter()
+            .any(|detail| detail.contains("finding_count=3")));
+    }
+
+    #[test]
+    fn runtime_safety_gate_no_findings_passes_full_map_check() {
+        let check = runtime_safety_fail_closed_check_from_output(
+            "./scripts/runtime_safety_fail_closed_ast_grep_gate.sh",
+            CommandCheckOutput {
+                success: true,
+                code: Some(0),
+                stdout: "runtime safety fail-closed gate: no findings\n\
+                    gate=runtime-safety-fail-closed\n\
+                    finding_count=0\n"
+                    .to_string(),
+                stderr: String::new(),
+            },
+        );
+
+        assert_eq!(check.status, CheckStatus::Pass);
+    }
+
+    #[test]
+    fn runtime_safety_gate_execution_error_fails_full_map_check() {
+        let check = runtime_safety_fail_closed_check_from_output(
+            "./scripts/runtime_safety_fail_closed_ast_grep_gate.sh",
+            CommandCheckOutput {
+                success: false,
+                code: Some(2),
+                stdout: String::new(),
+                stderr: "allowlist exceeds max entries\n".to_string(),
+            },
+        );
+
+        assert!(check.is_fail());
+        assert!(check
+            .details
+            .iter()
+            .any(|detail| detail.contains("allowlist exceeds max entries")));
     }
 
     #[test]

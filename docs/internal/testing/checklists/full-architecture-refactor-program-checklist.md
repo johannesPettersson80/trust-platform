@@ -8,6 +8,8 @@ This is the umbrella checklist. Individual execution boards own the detailed wor
 
 Navigation guard: use `architecture-workboard-index.md` before resuming after a crash, context reset, or branch switch.
 
+Post-closeout runtime safety follow-up: `runtime-safety-fail-closed-checklist.md` is the active dedicated board for runtime-internal fail-closed inventory and fixes. It is outside the already-complete required architecture-program boards, but it inherits the same doctor-first, tests-first, and source-derived evidence rules.
+
 ## Program Rule
 
 Unchecked `ARCHPROG-RULE-*` rows are recurring guardrails for future branches, not open implementation boards.
