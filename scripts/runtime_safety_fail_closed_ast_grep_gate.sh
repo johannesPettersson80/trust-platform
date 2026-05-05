@@ -65,34 +65,68 @@ def function_bodies(text: str):
             elif text[idx] == "}":
                 depth -= 1
             idx += 1
-        yield match.start(), text[match.end():idx - 1]
+        yield match.start(), body_lines(text, match.end(), idx - 1)
 
-bad_patterns = [
-    re.compile(
-        r"Err\s*\([^)]*\)\s*=>\s*\{(?:(?!\n\s*}\s*,).)*"
-        r"IoDriverHealth::(?:Degraded|Faulted)(?:(?!\n\s*}\s*,).)*"
-        r"(?:return\s+)?Ok\s*\(\s*\(\s*\)\s*\)",
-        re.S,
-    ),
-    re.compile(
-        r"if\s+let\s+Err\b.*?\{.*?"
-        r"IoDriverHealth::(?:Degraded|Faulted).*?"
-        r"(?:return\s+)?Ok\s*\(\s*\(\s*\)\s*\)",
-        re.S,
-    ),
-]
+def body_lines(text: str, start: int, end: int):
+    base_line = line_for(text, start)
+    return [(base_line + offset, line) for offset, line in enumerate(text[start:end].splitlines())]
+
+def health_then_ok_without_err(lines):
+    for idx, (_, line) in enumerate(lines):
+        if "IoDriverHealth::Degraded" not in line and "IoDriverHealth::Faulted" not in line:
+            continue
+        saw_err = False
+        for _, next_line in lines[idx:idx + 12]:
+            if "return Err" in next_line or re.search(r"\bErr\s*\(", next_line):
+                saw_err = True
+            if re.search(r"(?:return\s+)?Ok\s*\(\s*\(\s*\)\s*\)", next_line):
+                if not saw_err:
+                    return True
+                break
+    return False
 
 for path in sorted(io_root.rglob("*.rs")):
     rel = path.relative_to(root).as_posix()
     if "/tests/" in rel or rel.endswith("/tests.rs"):
         continue
     text = path.read_text(encoding="utf-8")
-    for start, body in function_bodies(text):
-        if any(pattern.search(body) for pattern in bad_patterns):
+    for start, lines in function_bodies(text):
+        if health_then_ok_without_err(lines):
             print(
                 "RUNTIMESAFE-DRIVER-FAULT-OK owner=runtime/IO "
                 f"{rel}:{line_for(text, start)}: driver failure path records health but returns Ok(())"
             )
+PY
+}
+
+emit_retain_commit_order_findings() {
+  python3 - "$ROOT" <<'PY' >>"$FINDINGS"
+import pathlib
+import sys
+
+root = pathlib.Path(sys.argv[1])
+path = root / "crates/trust-runtime/src/runtime/cycle.rs"
+if not path.exists():
+    raise SystemExit
+text = path.read_text(encoding="utf-8")
+rel = path.relative_to(root).as_posix()
+
+def line_for(offset: int) -> int:
+    return text.count("\n", 0, offset) + 1
+
+save_pos = text.find("maybe_save_retain_store")
+write_cycle_pos = text.find("write_cycle_outputs()")
+if save_pos == -1:
+    print(f"RUNTIMESAFE-RETAIN-COMMIT-ORDER owner=runtime/cycle {rel}:0: missing due retain save before output commit")
+elif write_cycle_pos != -1 and write_cycle_pos < save_pos:
+    print(f"RUNTIMESAFE-RETAIN-COMMIT-ORDER owner=runtime/cycle {rel}:{line_for(write_cycle_pos)}: output commit occurs before due retain save")
+
+deadline_pos = text.find("check_output_commit_deadline()")
+driver_write_pos = text.find("entry.driver.write_outputs")
+if deadline_pos == -1:
+    print(f"RUNTIMESAFE-RETAIN-COMMIT-ORDER owner=runtime/cycle {rel}:0: missing watchdog deadline check before output driver writes")
+elif driver_write_pos != -1 and driver_write_pos < deadline_pos:
+    print(f"RUNTIMESAFE-RETAIN-COMMIT-ORDER owner=runtime/cycle {rel}:{line_for(driver_write_pos)}: output driver write occurs before watchdog deadline check")
 PY
 }
 
@@ -250,11 +284,7 @@ emit_findings \
   "crates/trust-runtime/src/host/mesh/mapping.rs" \
   'recv_timeout\([^;]*\)\.unwrap_or_default\(\)|MeshSnapshot'
 
-emit_findings \
-  "RUNTIMESAFE-RETAIN-COMMIT-ORDER" \
-  "runtime/cycle" \
-  "crates/trust-runtime/src/runtime/cycle.rs" \
-  'write_outputs\(|maybe_save_retain_store'
+emit_retain_commit_order_findings
 
 emit_gpio_health_findings
 

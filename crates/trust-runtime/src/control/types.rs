@@ -298,5 +298,11 @@ pub(super) fn runtime_event_to_json(event: RuntimeEvent) -> serde_json::Value {
             "error": error,
             "time_ns": time.as_nanos(),
         }),
+        RuntimeEvent::SafeStateFailed { root, error, time } => json!({
+            "type": "safe_state_failed",
+            "root": root,
+            "error": error,
+            "time_ns": time.as_nanos(),
+        }),
     }
 }

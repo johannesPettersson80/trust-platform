@@ -252,6 +252,15 @@ pub enum RuntimeEvent {
         /// Time when the fault was recorded.
         time: Duration,
     },
+    /// Safe-state application failed while handling a resource fault.
+    SafeStateFailed {
+        /// Original fault message.
+        root: String,
+        /// Safe-state failure message.
+        error: String,
+        /// Time when the safe-state failure was recorded.
+        time: Duration,
+    },
 }
 
 /// Stop reason for debugger events.

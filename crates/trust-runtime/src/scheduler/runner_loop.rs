@@ -18,6 +18,17 @@ fn scaled_sleep_interval(interval: Duration, scale: u32) -> Duration {
     Duration::from_nanos(scaled)
 }
 
+fn cycle_deadline_from(
+    start: std::time::Instant,
+    timeout: Duration,
+) -> Option<std::time::Instant> {
+    if timeout.as_nanos() <= 0 {
+        return Some(start);
+    }
+    let nanos = u64::try_from(timeout.as_nanos()).unwrap_or(u64::MAX);
+    Some(start + std::time::Duration::from_nanos(nanos))
+}
+
 fn run_resource_loop<C: Clock + Clone>(
     runner: ResourceRunner<C>,
     stop: Arc<AtomicBool>,
@@ -124,8 +135,18 @@ fn run_resource_loop_core<C, F>(
         let now = scaled_time(now_raw, runner.time_scale);
         runner.runtime.set_current_time(now);
         let wall_start = std::time::Instant::now();
+        let watchdog = runner.runtime.watchdog_policy();
+        let previous_output_deadline = runner.runtime.output_commit_deadline();
+        if watchdog.enabled {
+            runner
+                .runtime
+                .set_output_commit_deadline(cycle_deadline_from(wall_start, watchdog.timeout));
+        }
         if let Some(simulation) = runner.simulation.as_mut() {
             if let Err(err) = simulation.apply_pre_cycle(now, &mut runner.runtime) {
+                runner
+                    .runtime
+                    .set_output_commit_deadline(previous_output_deadline);
                 if matches!(
                     runner.runtime.fault_policy(),
                     crate::watchdog::FaultPolicy::Restart
@@ -148,7 +169,20 @@ fn run_resource_loop_core<C, F>(
                 result = simulation.apply_post_cycle(now, &runner.runtime);
             }
         }
+        runner
+            .runtime
+            .set_output_commit_deadline(previous_output_deadline);
         if let Err(err) = result {
+            if matches!(err, RuntimeError::WatchdogTimeout)
+                && matches!(watchdog.action, crate::watchdog::WatchdogAction::Restart)
+            {
+                if let Err(restart_err) = runner.runtime.restart(crate::RestartMode::Warm) {
+                    set_last_error(&last_error, restart_err);
+                    set_resource_state(&state, ResourceState::Faulted);
+                    break;
+                }
+                continue;
+            }
             if matches!(
                 runner.runtime.fault_policy(),
                 crate::watchdog::FaultPolicy::Restart
@@ -164,7 +198,6 @@ fn run_resource_loop_core<C, F>(
             set_resource_state(&state, ResourceState::Faulted);
             break;
         }
-        let watchdog = runner.runtime.watchdog_policy();
         if watchdog.enabled {
             let elapsed = i64::try_from(wall_start.elapsed().as_nanos()).unwrap_or(i64::MAX);
             if elapsed > watchdog.timeout.as_nanos() {

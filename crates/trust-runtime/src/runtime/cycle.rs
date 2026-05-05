@@ -105,15 +105,15 @@ impl Runtime {
             return Err(self.record_fault(err));
         }
 
-        if let Err(err) = self.write_cycle_outputs() {
-            return Err(self.record_fault(err));
-        }
-
         if self.retain.has_store() {
             self.retain.mark_dirty();
             if let Err(err) = self.maybe_save_retain_store() {
                 return Err(self.record_fault(err));
             }
+        }
+
+        if let Err(err) = self.write_cycle_outputs() {
+            return Err(self.record_fault(err));
         }
 
         if let Some(debug) = &self.debug {
@@ -377,6 +377,7 @@ impl Runtime {
         }
         #[cfg(feature = "debug")]
         self.emit_io_snapshot();
+        self.check_output_commit_deadline()?;
         {
             let (interface, drivers) = self.io.interface_and_drivers_mut();
             for entry in drivers {
@@ -384,6 +385,16 @@ impl Runtime {
             }
         }
         self.update_io_health();
+        Ok(())
+    }
+
+    fn check_output_commit_deadline(&self) -> Result<(), error::RuntimeError> {
+        if self
+            .output_commit_deadline
+            .is_some_and(|deadline| std::time::Instant::now() >= deadline)
+        {
+            return Err(error::RuntimeError::WatchdogTimeout);
+        }
         Ok(())
     }
 

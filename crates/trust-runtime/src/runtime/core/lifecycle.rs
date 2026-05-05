@@ -36,6 +36,7 @@ impl Runtime {
             watchdog: WatchdogSubsystem::new(),
             faults: FaultSubsystem::new(),
             execution_deadline: None,
+            output_commit_deadline: None,
             vm_local_init_plan_cache: super::vm::VmLocalInitPlanCacheState::default(),
             vm_register_lowering_cache: super::vm::RegisterLoweringCacheState::from_env(),
             vm_register_profile: super::vm::RegisterProfileState::default(),
@@ -142,6 +143,15 @@ impl Runtime {
         self.execution_deadline
     }
 
+    pub(crate) fn set_output_commit_deadline(&mut self, deadline: Option<std::time::Instant>) {
+        self.output_commit_deadline = deadline;
+    }
+
+    #[must_use]
+    pub(crate) fn output_commit_deadline(&self) -> Option<std::time::Instant> {
+        self.output_commit_deadline
+    }
+
     /// Update configured safe-state outputs.
     pub fn set_io_safe_state(&mut self, safe_state: IoSafeState) {
         self.io.set_safe_state(safe_state);
@@ -183,8 +193,21 @@ impl Runtime {
         err: error::RuntimeError,
         decision: FaultDecision,
     ) -> error::RuntimeError {
+        let mut reported = err.clone();
         if decision.apply_safe_state {
-            let _ = self.io.apply_safe_state();
+            if let Err(safe_state_err) = self.io.apply_safe_state() {
+                reported = error::RuntimeError::SafeStateFailed {
+                    root: smol_str::SmolStr::new(err.to_string()),
+                    error: smol_str::SmolStr::new(safe_state_err.to_string()),
+                };
+                if let Some(debug) = &self.debug {
+                    debug.push_runtime_event(crate::debug::RuntimeEvent::SafeStateFailed {
+                        root: err.to_string(),
+                        error: safe_state_err.to_string(),
+                        time: self.current_time,
+                    });
+                }
+            }
         }
         self.faults.record(err.clone());
         self.metrics.record_fault();
@@ -194,7 +217,7 @@ impl Runtime {
                 time: self.current_time,
             });
         }
-        err
+        reported
     }
 
 }

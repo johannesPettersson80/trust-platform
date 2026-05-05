@@ -147,6 +147,15 @@ pub enum RuntimeError {
     #[error("watchdog timeout")]
     WatchdogTimeout,
 
+    /// Safe-state output application failed while handling a root fault.
+    #[error("safe-state failed after '{root}': {error}")]
+    SafeStateFailed {
+        /// Original runtime fault being handled.
+        root: SmolStr,
+        /// Safe-state write/application failure.
+        error: SmolStr,
+    },
+
     /// Script/test execution exceeded the configured time budget.
     #[error("execution timed out")]
     ExecutionTimeout,

@@ -66,6 +66,7 @@ pub struct Runtime {
     pub(super) watchdog: WatchdogSubsystem,
     pub(super) faults: FaultSubsystem,
     pub(super) execution_deadline: Option<std::time::Instant>,
+    pub(super) output_commit_deadline: Option<std::time::Instant>,
     pub(super) vm_local_init_plan_cache: super::vm::VmLocalInitPlanCacheState,
     pub(super) vm_register_lowering_cache: super::vm::RegisterLoweringCacheState,
     pub(super) vm_register_profile: super::vm::RegisterProfileState,

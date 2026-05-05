@@ -88,6 +88,17 @@ phase=warn_only_inventory
 
 Result: the I/O-specific fixed classes are no longer reported by the doctor. Remaining findings are later-phase init/eval/retain/cycle/audit/mesh/debug/HIR classes.
 
+Phase 4 cycle-order slice inventory:
+
+```text
+./scripts/runtime_safety_fail_closed_ast_grep_gate.sh
+finding_count=67
+allowlisted_count=0
+phase=warn_only_inventory
+```
+
+Result: watchdog-before-output, due-retain-before-output, safe-state discard, and fixed I/O classes are no longer reported by the doctor. Remaining findings are later-phase init/eval/retain-integrity/audit/mesh/debug/HIR classes.
+
 ## Phase 1 - Red Tests
 
 - [x] `RTSAFE-P1-001` I/O fail-closed tests cover MQTT freshness/publish/connect, EtherCAT image-size/policy faults, Modbus transport/exception taxonomy, and GPIO health. Red evidence:
@@ -95,7 +106,8 @@ Result: the I/O-specific fixed classes are no longer reported by the doctor. Rem
   - `cargo test -p trust-runtime --test ethercat_driver ethercat_ -- --ignored --nocapture` fails 2 EtherCAT tests because warn policy turns write failure and image-size mismatch into `Ok(())`.
   - `cargo test -p trust-runtime --test modbus_driver modbus_ -- --ignored --nocapture` fails 2 Modbus tests because warn policy transport failure returns `Ok(())` and Modbus exception uses the generic I/O driver error.
   - `cargo test -p trust-runtime --lib io::gpio::tests::gpio_ -- --ignored --nocapture` fails 2 GPIO tests because read/write errors leave health as `Ok`.
-- [ ] `RTSAFE-P1-002` Cycle ordering tests cover watchdog-before-output, retain-before-output, and safe-state write failure reporting.
+- [x] `RTSAFE-P1-002` Cycle ordering tests cover watchdog-before-output, retain-before-output, and safe-state write failure reporting. Red evidence:
+  - `cargo test -p trust-runtime --test runtime_safety_fail_closed -- --ignored --nocapture` fails 3 tests because watchdog timeout is post-output, due retain save happens after output commit, and safe-state write failure is discarded.
 - [ ] `RTSAFE-P1-003` Retain integrity tests cover corrupt data, trailing data, orphan globals, scalar widening, and struct add/remove migration.
 - [ ] `RTSAFE-P1-004` Init/evaluator/debug tests cover init default failures, unknown assignment rejection, and queued debug write failure.
 - [ ] `RTSAFE-P1-005` Audit/event/runtime-cloud/mesh/HMI tests cover event durability, audit drop evidence, corrupt persisted state, mesh timeout, slow WebSocket clients, and structured `feature_disabled`.
@@ -125,9 +137,15 @@ Result: the I/O-specific fixed classes are no longer reported by the doctor. Rem
 
 ## Phase 4 - Cycle Ordering, Retain Commit, Safe State
 
-- [ ] `RTSAFE-P4-001` Watchdog deadline breach before physical output commit prevents output writes.
-- [ ] `RTSAFE-P4-002` Due retain save happens before physical output commit; retain save failure prevents output writes.
-- [ ] `RTSAFE-P4-003` Safe-state write failures report `SafeStateFailed` while preserving the root fault.
+- [x] `RTSAFE-P4-001` Watchdog deadline breach before physical output commit prevents output writes. Evidence:
+  - `cargo test -p trust-runtime --test runtime_safety_fail_closed -- --ignored --nocapture`
+  - `cargo test -p trust-runtime --test runtime_reliability -- --nocapture`
+- [x] `RTSAFE-P4-002` Due retain save happens before physical output commit; retain save failure prevents output writes. Evidence:
+  - `cargo test -p trust-runtime --test runtime_safety_fail_closed -- --ignored --nocapture`
+  - `cargo test -p trust-runtime --test runtime_reliability -- --nocapture`
+- [x] `RTSAFE-P4-003` Safe-state write failures report `SafeStateFailed` while preserving the root fault. Evidence:
+  - `cargo test -p trust-runtime --test runtime_safety_fail_closed -- --ignored --nocapture`
+  - `cargo test -p trust-runtime --test runtime_core_behavior_lock -- --nocapture`
 
 ## Phase 5 - Retain Integrity And Migration
 

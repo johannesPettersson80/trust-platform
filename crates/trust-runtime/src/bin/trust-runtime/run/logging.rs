@@ -86,6 +86,18 @@ fn log_runtime_event(logger: &RuntimeLogger, event: &trust_runtime::debug::Runti
                 }),
             );
         }
+        trust_runtime::debug::RuntimeEvent::SafeStateFailed { root, error, time } => {
+            logger.log(
+                LogLevel::Error,
+                "runtime_safe_state_failed",
+                json!({
+                    "event_id": "TRUST-RT-SAFE-STATE-001",
+                    "root": root,
+                    "error": error,
+                    "time_ms": time.as_millis(),
+                }),
+            );
+        }
         _ => {}
     }
 }
