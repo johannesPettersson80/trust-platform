@@ -11,6 +11,11 @@ ALLOWLIST="$ROOT/docs/internal/architecture/runtime-safety-fail-closed-allowlist
 mkdir -p "$ARTIFACT_DIR"
 : >"$FINDINGS"
 
+if ! command -v rg >/dev/null 2>&1; then
+  echo "error: ripgrep (rg) is required for the runtime safety fail-closed gate" >&2
+  exit 2
+fi
+
 emit_findings() {
   local rule="$1"
   local owner="$2"

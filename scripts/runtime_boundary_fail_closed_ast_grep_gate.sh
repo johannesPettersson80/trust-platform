@@ -10,6 +10,11 @@ SUMMARY="$ARTIFACT_DIR/runtime-boundary-summary.txt"
 mkdir -p "$ARTIFACT_DIR"
 : >"$FINDINGS"
 
+if ! command -v rg >/dev/null 2>&1; then
+  echo "error: ripgrep (rg) is required for the runtime boundary fail-closed gate" >&2
+  exit 2
+fi
+
 scan_file() {
   local file="$1"
   local pattern="$2"

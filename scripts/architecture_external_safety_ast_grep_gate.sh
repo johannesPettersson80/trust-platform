@@ -29,6 +29,11 @@ if ! command -v jq >/dev/null 2>&1; then
   exit 2
 fi
 
+if ! command -v rg >/dev/null 2>&1; then
+  echo "error: ripgrep (rg) is required for the external unsafe scanner gate" >&2
+  exit 2
+fi
+
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 RAW_TMP_DIR="$TMP_DIR/raw"
