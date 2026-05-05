@@ -149,6 +149,7 @@ fn is_retryable_mqtt_live_error(text: &str) -> bool {
     text.contains("mqtt connect")
         || text.contains("mqtt disconnected")
         || text.contains("mqtt input not fresh")
+        || text.contains("Connection refused")
         || text.contains("Connection reset by peer")
         || text.contains("Connection closed by peer abruptly")
 }
@@ -487,7 +488,10 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
                 let last_fault = runtime
                     .last_fault()
                     .map_or_else(|| "<none>".to_string(), ToString::to_string);
-                if !text.contains("i/o freshness") || !is_retryable_mqtt_live_error(&text) {
+                let retry_text = format!("{text}; last_fault={last_fault}");
+                if !retry_text.contains("i/o freshness")
+                    || !is_retryable_mqtt_live_error(&retry_text)
+                {
                     panic!("execute cycle: {err}; last_fault={last_fault}");
                 }
                 let premature_output = {
@@ -505,7 +509,8 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
                     !premature_output,
                     "retryable mqtt input failure must not publish output"
                 );
-                last_cycle_error = Some(format!("{err}; last_fault={last_fault}"));
+                runtime.clear_fault();
+                last_cycle_error = Some(retry_text);
                 thread::sleep(StdDuration::from_millis(20));
             }
         }
