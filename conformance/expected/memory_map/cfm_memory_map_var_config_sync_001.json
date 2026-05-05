@@ -16,7 +16,7 @@
       "errors": [],
       "globals": {
         "counter": {
-          "type": "DINT",
+          "type": "INT",
           "value": 42
         },
         "observed": {
