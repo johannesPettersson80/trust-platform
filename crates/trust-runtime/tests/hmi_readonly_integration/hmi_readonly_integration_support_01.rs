@@ -144,19 +144,30 @@ pub(super) fn reserve_loopback_port() -> u16 {
 }
 
 pub(super) fn start_test_server(state: Arc<ControlState>) -> String {
-    let port = reserve_loopback_port();
-    let listen = format!("127.0.0.1:{port}");
-    let config = WebConfig {
-        enabled: true,
-        listen: SmolStr::new(listen.clone()),
-        auth: WebAuthMode::Local,
-        tls: false,
-    };
-    let _server =
-        start_web_server(&config, state, None, None, None, None).expect("start web server");
-    let base = format!("http://{listen}");
-    wait_for_server(&base);
-    base
+    for _ in 0..16 {
+        let port = reserve_loopback_port();
+        let listen = format!("127.0.0.1:{port}");
+        let config = WebConfig {
+            enabled: true,
+            listen: SmolStr::new(listen.clone()),
+            auth: WebAuthMode::Local,
+            tls: false,
+        };
+        match start_web_server(&config, Arc::clone(&state), None, None, None, None) {
+            Ok(_server) => {
+                let base = format!("http://{listen}");
+                wait_for_server(&base);
+                return base;
+            }
+            Err(RuntimeError::ControlError(message))
+                if message.contains("Address already in use") =>
+            {
+                thread::sleep(Duration::from_millis(10));
+            }
+            Err(err) => panic!("start web server: {err}"),
+        }
+    }
+    panic!("start web server: no free loopback port after retries");
 }
 
 pub(super) fn wait_for_server(base: &str) {
