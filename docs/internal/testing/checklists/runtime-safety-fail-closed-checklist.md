@@ -77,9 +77,24 @@ cargo run -p xtask -- architecture-doctor --full-map
 
 Result: all commands exited 0. `FULLMAP-RUNTIMESAFE` is a warn-only `FINDING` with 82 current source findings and no allowlist entries.
 
+Phase 3 I/O slice inventory:
+
+```text
+./scripts/runtime_safety_fail_closed_ast_grep_gate.sh
+finding_count=73
+allowlisted_count=0
+phase=warn_only_inventory
+```
+
+Result: the I/O-specific fixed classes are no longer reported by the doctor. Remaining findings are later-phase init/eval/retain/cycle/audit/mesh/debug/HIR classes.
+
 ## Phase 1 - Red Tests
 
-- [ ] `RTSAFE-P1-001` I/O fail-closed tests cover MQTT freshness/publish/connect, EtherCAT discovery/image-size/health severity, Modbus flush/transport/exception taxonomy, GPIO health, and control health aggregation.
+- [x] `RTSAFE-P1-001` I/O fail-closed tests cover MQTT freshness/publish/connect, EtherCAT image-size/policy faults, Modbus transport/exception taxonomy, and GPIO health. Red evidence:
+  - `cargo test -p trust-runtime --lib fail_closed_ -- --ignored --nocapture` fails 3 MQTT tests because disconnected reads, connect failures, and publish failures return `Ok(())`.
+  - `cargo test -p trust-runtime --test ethercat_driver ethercat_ -- --ignored --nocapture` fails 2 EtherCAT tests because warn policy turns write failure and image-size mismatch into `Ok(())`.
+  - `cargo test -p trust-runtime --test modbus_driver modbus_ -- --ignored --nocapture` fails 2 Modbus tests because warn policy transport failure returns `Ok(())` and Modbus exception uses the generic I/O driver error.
+  - `cargo test -p trust-runtime --lib io::gpio::tests::gpio_ -- --ignored --nocapture` fails 2 GPIO tests because read/write errors leave health as `Ok`.
 - [ ] `RTSAFE-P1-002` Cycle ordering tests cover watchdog-before-output, retain-before-output, and safe-state write failure reporting.
 - [ ] `RTSAFE-P1-003` Retain integrity tests cover corrupt data, trailing data, orphan globals, scalar widening, and struct add/remove migration.
 - [ ] `RTSAFE-P1-004` Init/evaluator/debug tests cover init default failures, unknown assignment rejection, and queued debug write failure.
@@ -94,11 +109,19 @@ Result: all commands exited 0. `FULLMAP-RUNTIMESAFE` is a warn-only `FINDING` wi
 
 ## Phase 3 - I/O Fail-Closed Fixes
 
-- [ ] `RTSAFE-P3-001` MQTT disconnected/stale reads fail with freshness errors by default; publish/connect failures fail with transport errors.
-- [ ] `RTSAFE-P3-002` EtherCAT discovery and image-size mismatches fault under every policy; health uses max-severity semantics.
-- [ ] `RTSAFE-P3-003` Modbus flush and transport errors propagate; Modbus exceptions are distinguishable from transport failures.
-- [ ] `RTSAFE-P3-004` GPIO exposes last read/write failure through driver health.
-- [ ] `RTSAFE-P3-005` Runtime/control health remains unhealthy while any driver is faulted.
+- [x] `RTSAFE-P3-001` MQTT disconnected/stale reads fail with freshness errors by default; publish/connect failures fail with transport errors. Evidence:
+  - `cargo test -p trust-runtime --lib fail_closed_ -- --ignored --nocapture`
+  - `cargo test -p trust-runtime --test io_multidriver_live -- --nocapture`
+- [x] `RTSAFE-P3-002` EtherCAT discovery and image-size mismatches fault under every policy; health uses max-severity semantics. Evidence:
+  - `cargo test -p trust-runtime --lib io::ethercat::tests:: -- --nocapture`
+  - `cargo test -p trust-runtime --test ethercat_driver -- --nocapture`
+  - `cargo test -p trust-runtime --test ethercat_driver ethercat_ -- --ignored --nocapture`
+- [x] `RTSAFE-P3-003` Modbus flush and transport errors propagate; Modbus exceptions are distinguishable from transport failures. Evidence:
+  - `cargo test -p trust-runtime --test modbus_driver -- --nocapture`
+  - `cargo test -p trust-runtime --test modbus_driver modbus_ -- --ignored --nocapture`
+- [x] `RTSAFE-P3-004` GPIO exposes last read/write failure through driver health. Evidence:
+  - `cargo test -p trust-runtime --lib io::gpio::tests::gpio_ -- --ignored --nocapture`
+- [ ] `RTSAFE-P3-005` Runtime/control health remains unhealthy while any driver is faulted and faulted drivers emit structured `IoFault` evidence.
 
 ## Phase 4 - Cycle Ordering, Retain Commit, Safe State
 

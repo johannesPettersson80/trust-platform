@@ -8,12 +8,13 @@ use std::time::Instant;
 use smol_str::SmolStr;
 
 use crate::error::RuntimeError;
-use crate::io::{IoAddress, IoDriver, IoSize};
+use crate::io::{IoAddress, IoDriver, IoDriverHealth, IoSize};
 
 pub struct GpioDriver {
     backend: Box<dyn GpioBackend>,
     inputs: Vec<GpioInput>,
     outputs: Vec<GpioOutput>,
+    health: IoDriverHealth,
 }
 
 impl std::fmt::Debug for GpioDriver {
@@ -47,6 +48,7 @@ impl GpioDriver {
             backend,
             inputs,
             outputs,
+            health: IoDriverHealth::Ok,
         })
     }
 
@@ -60,7 +62,15 @@ impl IoDriver for GpioDriver {
     fn read_inputs(&mut self, inputs: &mut [u8]) -> Result<(), RuntimeError> {
         let now = Instant::now();
         for entry in &mut self.inputs {
-            let raw = self.backend.read(entry.line)?;
+            let raw = match self.backend.read(entry.line) {
+                Ok(value) => value,
+                Err(err) => {
+                    self.health = IoDriverHealth::Faulted {
+                        error: SmolStr::new(err.to_string()),
+                    };
+                    return Err(err);
+                }
+            };
             let mut value = if entry.invert { !raw } else { raw };
             if entry.debounce_ms > 0 {
                 match entry.last_change {
@@ -81,21 +91,45 @@ impl IoDriver for GpioDriver {
                     }
                 }
             }
-            write_bit(inputs, entry.byte, entry.bit, value)?;
+            if let Err(err) = write_bit(inputs, entry.byte, entry.bit, value) {
+                self.health = IoDriverHealth::Faulted {
+                    error: SmolStr::new(err.to_string()),
+                };
+                return Err(err);
+            }
         }
+        self.health = IoDriverHealth::Ok;
         Ok(())
     }
 
     fn write_outputs(&mut self, outputs: &[u8]) -> Result<(), RuntimeError> {
         for entry in &mut self.outputs {
-            let raw = read_bit(outputs, entry.byte, entry.bit)?;
+            let raw = match read_bit(outputs, entry.byte, entry.bit) {
+                Ok(value) => value,
+                Err(err) => {
+                    self.health = IoDriverHealth::Faulted {
+                        error: SmolStr::new(err.to_string()),
+                    };
+                    return Err(err);
+                }
+            };
             let value = if entry.invert { !raw } else { raw };
             if entry.last_written != Some(value) {
-                self.backend.write(entry.line, value)?;
+                if let Err(err) = self.backend.write(entry.line, value) {
+                    self.health = IoDriverHealth::Faulted {
+                        error: SmolStr::new(err.to_string()),
+                    };
+                    return Err(err);
+                }
                 entry.last_written = Some(value);
             }
         }
+        self.health = IoDriverHealth::Ok;
         Ok(())
+    }
+
+    fn health(&self) -> IoDriverHealth {
+        self.health.clone()
     }
 }
 
@@ -449,6 +483,7 @@ impl GpioBackend for SysfsBackend {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use smol_str::SmolStr;
 
     #[test]
     fn parse_gpio_config_accepts_basic_inputs() {
@@ -471,5 +506,95 @@ outputs = [ { address = "%QX0.1", line = 27, invert = false, initial = true } ]
             toml::from_str(r#"inputs = [ { address = "%IW0", line = 5 } ]"#).unwrap();
         let err = GpioConfig::parse(&params).unwrap_err();
         assert!(format!("{err}").contains("bit"));
+    }
+
+    #[derive(Default)]
+    struct FailingBackend {
+        fail_read: bool,
+        fail_write: bool,
+    }
+
+    impl GpioBackend for FailingBackend {
+        fn configure_input(&mut self, _line: u32) -> Result<(), RuntimeError> {
+            Ok(())
+        }
+
+        fn configure_output(&mut self, _line: u32, _initial: bool) -> Result<(), RuntimeError> {
+            Ok(())
+        }
+
+        fn read(&mut self, _line: u32) -> Result<bool, RuntimeError> {
+            if self.fail_read {
+                return Err(RuntimeError::IoDriver(SmolStr::new("gpio read failed")));
+            }
+            Ok(true)
+        }
+
+        fn write(&mut self, _line: u32, _value: bool) -> Result<(), RuntimeError> {
+            if self.fail_write {
+                return Err(RuntimeError::IoDriver(SmolStr::new("gpio write failed")));
+            }
+            Ok(())
+        }
+    }
+
+    fn driver_with_backend(backend: FailingBackend) -> GpioDriver {
+        GpioDriver {
+            backend: Box::new(backend),
+            inputs: vec![GpioInput {
+                line: 17,
+                byte: 0,
+                bit: 0,
+                invert: false,
+                debounce_ms: 0,
+                last_state: false,
+                last_change: None,
+            }],
+            outputs: vec![GpioOutput {
+                line: 27,
+                byte: 0,
+                bit: 0,
+                invert: false,
+                last_written: None,
+            }],
+            health: IoDriverHealth::Ok,
+        }
+    }
+
+    #[test]
+    #[ignore = "red test for runtime-safety fail-closed Phase 1"]
+    fn gpio_read_failure_updates_driver_health() {
+        let mut driver = driver_with_backend(FailingBackend {
+            fail_read: true,
+            fail_write: false,
+        });
+        let mut inputs = [0u8; 1];
+
+        let err = driver
+            .read_inputs(&mut inputs)
+            .expect_err("GPIO read failure must be returned");
+        assert!(err.to_string().contains("gpio read"));
+        assert!(
+            !matches!(driver.health(), IoDriverHealth::Ok),
+            "GPIO health must report the last read failure"
+        );
+    }
+
+    #[test]
+    #[ignore = "red test for runtime-safety fail-closed Phase 1"]
+    fn gpio_write_failure_updates_driver_health() {
+        let mut driver = driver_with_backend(FailingBackend {
+            fail_read: false,
+            fail_write: true,
+        });
+
+        let err = driver
+            .write_outputs(&[1])
+            .expect_err("GPIO write failure must be returned");
+        assert!(err.to_string().contains("gpio write"));
+        assert!(
+            !matches!(driver.health(), IoDriverHealth::Ok),
+            "GPIO health must report the last write failure"
+        );
     }
 }

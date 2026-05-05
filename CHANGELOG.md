@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.14`
+Target release: `v0.24.15`
 
 ### Added
 
@@ -79,6 +79,11 @@ Target release: `v0.24.14`
 
 ### Fixed
 
+- Runtime I/O drivers now fail closed for the covered safety paths: MQTT
+  disconnected/stale reads and publish/connect failures return structured
+  runtime errors, EtherCAT discovery and image-size mismatches fault under every
+  policy, Modbus flush/transport failures and Modbus exceptions remain
+  distinguishable, and GPIO read/write failures are reflected in driver health.
 - Harness boundary inputs now fail closed: typoed `set_input` names and
   `bind_direct` targets return structured boundary errors instead of creating
   hidden globals or undeclared I/O bindings.

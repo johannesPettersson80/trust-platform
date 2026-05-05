@@ -115,6 +115,18 @@ pub enum RuntimeError {
     #[error("i/o driver error '{0}'")]
     IoDriver(SmolStr),
 
+    /// I/O transport/session error.
+    #[error("i/o transport error '{0}'")]
+    IoTransport(SmolStr),
+
+    /// I/O protocol/address error.
+    #[error("i/o address error '{0}'")]
+    IoAddress(SmolStr),
+
+    /// I/O input freshness error.
+    #[error("i/o freshness error '{0}'")]
+    IoFreshness(SmolStr),
+
     /// Unsupported bytecode version.
     #[error("unsupported bytecode version {major}.{minor}")]
     UnsupportedBytecodeVersion { major: u16, minor: u16 },

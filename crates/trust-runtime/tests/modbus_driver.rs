@@ -125,7 +125,7 @@ fn modbus_driver_reads_and_writes() {
 }
 
 #[test]
-fn modbus_driver_warn_policy_does_not_fault() {
+fn modbus_driver_warn_policy_reports_transport_error() {
     let params: toml::Value = toml::from_str(
         "address = \"127.0.0.1:65000\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\non_error = \"warn\"\n",
     )
@@ -133,10 +133,55 @@ fn modbus_driver_warn_policy_does_not_fault() {
     let mut driver = ModbusTcpDriver::from_params(&params).expect("driver");
     let mut inputs = vec![0u8; 2];
     let result = driver.read_inputs(&mut inputs);
-    assert!(result.is_ok(), "warn policy should not fault runtime");
+    assert!(result.is_err(), "warn policy should report runtime error");
     let health = driver.health();
     match health {
         trust_runtime::io::IoDriverHealth::Degraded { .. } => {}
         other => panic!("expected degraded health, got {other:?}"),
     }
+}
+
+#[test]
+#[ignore = "red test for runtime-safety fail-closed Phase 1"]
+fn modbus_warn_policy_transport_failure_still_returns_error() {
+    let params: toml::Value = toml::from_str(
+        "address = \"127.0.0.1:65000\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\non_error = \"warn\"\n",
+    )
+    .expect("params");
+    let mut driver = ModbusTcpDriver::from_params(&params).expect("driver");
+    let mut inputs = vec![0u8; 2];
+
+    let err = driver
+        .read_inputs(&mut inputs)
+        .expect_err("warn policy must not turn transport failure into success");
+    assert!(
+        err.to_string().contains("connect") || err.to_string().contains("transport"),
+        "expected transport/connect error, got {err}"
+    );
+}
+
+#[test]
+#[ignore = "red test for runtime-safety fail-closed Phase 1"]
+fn modbus_exception_is_not_reported_as_generic_transport() {
+    let regs = Arc::new(Mutex::new(vec![0u16; 1]));
+    let addr = start_modbus_server(regs, 1);
+    let params: toml::Value = toml::from_str(&format!(
+        "address = \"{addr}\"\nunit_id = 1\ninput_start = 7\noutput_start = 0\n"
+    ))
+    .expect("params");
+    let mut driver = ModbusTcpDriver::from_params(&params).expect("driver");
+    let mut inputs = vec![0u8; 2];
+
+    let err = driver
+        .read_inputs(&mut inputs)
+        .expect_err("Modbus exception must be observable");
+    let text = err.to_string();
+    assert!(
+        text.contains("exception"),
+        "expected Modbus exception, got {err}"
+    );
+    assert!(
+        !text.starts_with("i/o driver error"),
+        "Modbus exception should not use the generic transport error variant: {err}"
+    );
 }

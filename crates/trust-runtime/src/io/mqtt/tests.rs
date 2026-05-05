@@ -97,7 +97,7 @@ topic_in = "line/in"
 topic_out = "line/out"
 "#,
         ),
-        factory,
+        factory.clone(),
     )
     .expect("construct mqtt driver");
 
@@ -132,14 +132,20 @@ broker = "127.0.0.1:1883"
 reconnect_ms = 1
 "#,
         ),
-        factory,
+        factory.clone(),
     )
     .expect("construct mqtt driver");
 
     let mut inputs = [0u8; 1];
-    driver.read_inputs(&mut inputs).expect("first read");
+    driver
+        .read_inputs(&mut inputs)
+        .expect_err("first read should report connect failure");
     assert!(matches!(driver.health(), IoDriverHealth::Degraded { .. }));
     thread::sleep(StdDuration::from_millis(2));
+    {
+        let mut guard = factory.state.lock().unwrap_or_else(|e| e.into_inner());
+        guard.payloads.push_back(vec![1]);
+    }
     driver.read_inputs(&mut inputs).expect("second read");
     assert!(
         attempts.load(Ordering::SeqCst) >= 2,
@@ -330,12 +336,114 @@ reconnect_ms = 1
     let started = Instant::now();
     let mut inputs = [0u8; 8];
     for _ in 0..400 {
-        driver.read_inputs(&mut inputs).expect("read");
-        driver.write_outputs(&[1, 2, 3, 4]).expect("write");
+        let _ = driver.read_inputs(&mut inputs);
+        let _ = driver.write_outputs(&[1, 2, 3, 4]);
     }
     let elapsed = started.elapsed();
     assert!(
         elapsed < StdDuration::from_millis(250),
         "driver calls should stay non-blocking, elapsed={elapsed:?}"
+    );
+}
+
+#[test]
+#[ignore = "red test for runtime-safety fail-closed Phase 1"]
+fn fail_closed_disconnected_read_returns_freshness_error() {
+    let state = Arc::new(Mutex::new(MockState {
+        connected: false,
+        last_error: Some(SmolStr::new("broker disconnected")),
+        ..MockState::default()
+    }));
+    let attempts = Arc::new(AtomicUsize::new(0));
+    let factory = Arc::new(MockFactory {
+        state,
+        attempts,
+        fail_first: false,
+        always_fail: false,
+    });
+    let mut driver = MqttIoDriver::from_params_with_factory(
+        &params(
+            r#"
+broker = "127.0.0.1:1883"
+reconnect_ms = 1
+"#,
+        ),
+        factory,
+    )
+    .expect("construct mqtt driver");
+
+    let mut inputs = [0u8; 1];
+    let err = driver
+        .read_inputs(&mut inputs)
+        .expect_err("disconnected MQTT read must fail closed");
+    assert!(
+        err.to_string().contains("fresh") || err.to_string().contains("disconnect"),
+        "expected freshness/disconnect error, got {err}"
+    );
+}
+
+#[test]
+#[ignore = "red test for runtime-safety fail-closed Phase 1"]
+fn fail_closed_publish_failure_returns_output_error() {
+    let state = Arc::new(Mutex::new(MockState {
+        connected: true,
+        fail_publish_once: true,
+        ..MockState::default()
+    }));
+    let attempts = Arc::new(AtomicUsize::new(0));
+    let factory = Arc::new(MockFactory {
+        state,
+        attempts,
+        fail_first: false,
+        always_fail: false,
+    });
+    let mut driver = MqttIoDriver::from_params_with_factory(
+        &params(
+            r#"
+broker = "127.0.0.1:1883"
+"#,
+        ),
+        factory,
+    )
+    .expect("construct mqtt driver");
+
+    let err = driver
+        .write_outputs(&[1, 2, 3])
+        .expect_err("MQTT publish failure must fail closed");
+    assert!(
+        err.to_string().contains("publish"),
+        "expected publish error, got {err}"
+    );
+}
+
+#[test]
+#[ignore = "red test for runtime-safety fail-closed Phase 1"]
+fn fail_closed_connect_failure_is_observable() {
+    let state = Arc::new(Mutex::new(MockState::default()));
+    let attempts = Arc::new(AtomicUsize::new(0));
+    let factory = Arc::new(MockFactory {
+        state,
+        attempts,
+        fail_first: false,
+        always_fail: true,
+    });
+    let mut driver = MqttIoDriver::from_params_with_factory(
+        &params(
+            r#"
+broker = "127.0.0.1:1883"
+reconnect_ms = 1
+"#,
+        ),
+        factory,
+    )
+    .expect("construct mqtt driver");
+
+    let mut inputs = [0u8; 1];
+    let err = driver
+        .read_inputs(&mut inputs)
+        .expect_err("MQTT connect failure must be observable");
+    assert!(
+        err.to_string().contains("connect"),
+        "expected connect error, got {err}"
     );
 }

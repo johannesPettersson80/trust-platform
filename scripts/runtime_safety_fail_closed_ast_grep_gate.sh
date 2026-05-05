@@ -43,23 +43,114 @@ emit_absence_if_missing() {
   fi
 }
 
+emit_io_driver_fault_ok_findings() {
+  python3 - "$ROOT" <<'PY' >>"$FINDINGS"
+import pathlib
+import re
+import sys
+
+root = pathlib.Path(sys.argv[1])
+io_root = root / "crates/trust-runtime/src/io"
+
+def line_for(text: str, offset: int) -> int:
+    return text.count("\n", 0, offset) + 1
+
+def function_bodies(text: str):
+    for match in re.finditer(r"fn\s+(read_inputs|write_outputs|handle_io_error)\b[^{]*\{", text):
+        depth = 1
+        idx = match.end()
+        while idx < len(text) and depth:
+            if text[idx] == "{":
+                depth += 1
+            elif text[idx] == "}":
+                depth -= 1
+            idx += 1
+        yield match.start(), text[match.end():idx - 1]
+
+bad_patterns = [
+    re.compile(
+        r"Err\s*\([^)]*\)\s*=>\s*\{(?:(?!\n\s*}\s*,).)*"
+        r"IoDriverHealth::(?:Degraded|Faulted)(?:(?!\n\s*}\s*,).)*"
+        r"(?:return\s+)?Ok\s*\(\s*\(\s*\)\s*\)",
+        re.S,
+    ),
+    re.compile(
+        r"if\s+let\s+Err\b.*?\{.*?"
+        r"IoDriverHealth::(?:Degraded|Faulted).*?"
+        r"(?:return\s+)?Ok\s*\(\s*\(\s*\)\s*\)",
+        re.S,
+    ),
+]
+
+for path in sorted(io_root.rglob("*.rs")):
+    rel = path.relative_to(root).as_posix()
+    if "/tests/" in rel or rel.endswith("/tests.rs"):
+        continue
+    text = path.read_text(encoding="utf-8")
+    for start, body in function_bodies(text):
+        if any(pattern.search(body) for pattern in bad_patterns):
+            print(
+                "RUNTIMESAFE-DRIVER-FAULT-OK owner=runtime/IO "
+                f"{rel}:{line_for(text, start)}: driver failure path records health but returns Ok(())"
+            )
+PY
+}
+
+emit_ethercat_policy_findings() {
+  python3 - "$ROOT" <<'PY' >>"$FINDINGS"
+import pathlib
+import sys
+
+root = pathlib.Path(sys.argv[1])
+path = root / "crates/trust-runtime/src/io/ethercat/driver.rs"
+if not path.exists():
+    raise SystemExit
+text = path.read_text(encoding="utf-8")
+rel = path.relative_to(root).as_posix()
+
+def emit(line: int, message: str):
+    print(f"RUNTIMESAFE-DISCOVERY-CONFIG-POLICY-OPEN owner=runtime/IO {rel}:{line}: {message}")
+
+if 'handle_io_error("discover"' in text:
+    line = text[:text.index('handle_io_error("discover"')].count("\n") + 1
+    emit(line, "discovery error is routed through Warn/Ignore policy")
+
+ensure_start = text.find("fn ensure_discovered")
+ensure_end = text.find("\n    fn handle_io_error", ensure_start)
+ensure_body = text[ensure_start:ensure_end] if ensure_start != -1 and ensure_end != -1 else ""
+if "self.bus.discover" in ensure_body and "IoDriverHealth::Faulted" not in ensure_body:
+    line = text[:ensure_start].count("\n") + 1 if ensure_start != -1 else 0
+    emit(line, "discovery failure does not set faulted health")
+if "discovery.input_bytes !=" in ensure_body:
+    mismatch = ensure_body[ensure_body.find("discovery.input_bytes !="):]
+    if "IoDriverHealth::Faulted" not in mismatch or "RuntimeError::IoAddress" not in mismatch:
+        line = text[:ensure_start].count("\n") + 1 if ensure_start != -1 else 0
+        emit(line, "image-size mismatch is not a faulting IoAddress path")
+PY
+}
+
+emit_gpio_health_findings() {
+  local path="crates/trust-runtime/src/io/gpio.rs"
+  if [[ ! -e "$ROOT/$path" ]]; then
+    return
+  fi
+  if ! rg -q 'health:\s*IoDriverHealth' "$ROOT/$path"; then
+    echo "RUNTIMESAFE-GPIO-NO-HEALTH owner=runtime/IO ${path}:0: missing GPIO driver health field" >>"$FINDINGS"
+  fi
+  if ! rg -q 'fn health\(&self\) -> IoDriverHealth' "$ROOT/$path"; then
+    echo "RUNTIMESAFE-GPIO-NO-HEALTH owner=runtime/IO ${path}:0: missing GPIO IoDriver health override" >>"$FINDINGS"
+  fi
+}
+
 emit_findings \
   "RUNTIMESAFE-INIT-NULL-FALLBACK" \
   "runtime/init" \
   "crates/trust-runtime/src" \
   'unwrap_or\(Value::Null\)'
 
-emit_findings \
-  "RUNTIMESAFE-DRIVER-FAULT-OK" \
-  "runtime/IO" \
-  "crates/trust-runtime/src/io" \
-  'health[^;]*=( HealthState::)?(Degraded|Faulted)|record_.*(fault|error)|last_error[^;]*='
+emit_io_driver_fault_ok_findings
 
-emit_findings \
-  "RUNTIMESAFE-DISCOVERY-CONFIG-POLICY-OPEN" \
-  "runtime/IO" \
-  "crates/trust-runtime/src/io/ethercat/driver.rs" \
-  'IoDriverErrorPolicy::Warn|IoDriverErrorPolicy::Ignore|health = IoDriverHealth::Degraded'
+emit_ethercat_policy_findings
 
 emit_findings \
   "RUNTIMESAFE-IGNORED-FLUSH" \
@@ -165,11 +256,7 @@ emit_findings \
   "crates/trust-runtime/src/runtime/cycle.rs" \
   'write_outputs\(|maybe_save_retain_store'
 
-emit_findings \
-  "RUNTIMESAFE-GPIO-NO-HEALTH" \
-  "runtime/IO" \
-  "crates/trust-runtime/src/io/gpio.rs" \
-  'pub struct GpioDriver|impl IoDriver for GpioDriver'
+emit_gpio_health_findings
 
 emit_findings \
   "RUNTIMESAFE-RETAIN-ORPHAN-SILENT" \

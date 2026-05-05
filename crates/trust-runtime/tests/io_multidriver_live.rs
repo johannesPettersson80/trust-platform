@@ -6,7 +6,7 @@ use std::time::{Duration as StdDuration, Instant};
 
 use trust_runtime::eval::expr::{Expr, LValue};
 use trust_runtime::eval::stmt::Stmt;
-use trust_runtime::io::{IoAddress, ModbusTcpDriver, MqttIoDriver};
+use trust_runtime::io::{IoAddress, IoDriver, ModbusTcpDriver, MqttIoDriver};
 use trust_runtime::task::ProgramDef;
 use trust_runtime::value::Value;
 use trust_runtime::Runtime;
@@ -36,75 +36,99 @@ fn start_mqtt_test_broker(
     let topic_in = topic_in.to_string();
 
     thread::spawn(move || {
-        let (mut stream, _) = listener.accept().expect("accept mqtt client");
-        let _ = stream.set_read_timeout(Some(StdDuration::from_millis(200)));
-        let _ = stream.set_write_timeout(Some(StdDuration::from_secs(2)));
+        let listener_deadline = Instant::now() + StdDuration::from_secs(4);
+        let _ = listener.set_nonblocking(true);
+        while Instant::now() < listener_deadline {
+            {
+                let guard = state_ref
+                    .lock()
+                    .unwrap_or_else(|poison| poison.into_inner());
+                if expected_publishes > 0 && guard.publishes.len() >= expected_publishes {
+                    break;
+                }
+            }
+            let Ok((mut stream, _)) = listener.accept() else {
+                thread::sleep(StdDuration::from_millis(5));
+                continue;
+            };
+            let _ = stream.set_read_timeout(Some(StdDuration::from_millis(20)));
+            let _ = stream.set_write_timeout(Some(StdDuration::from_secs(2)));
 
-        let mut sent_inbound = false;
-        let mut idle_timeouts = 0usize;
-        loop {
-            match read_mqtt_packet(&mut stream) {
-                Ok((header, packet)) => {
-                    idle_timeouts = 0;
-                    match header >> 4 {
-                        1 => {
-                            if write_mqtt_connack(&mut stream).is_err() {
-                                break;
-                            }
-                            let mut guard = state_ref
-                                .lock()
-                                .unwrap_or_else(|poison| poison.into_inner());
-                            guard.connect_count += 1;
-                        }
-                        3 => {
-                            if let Some(publish) = parse_publish(header, &packet) {
+            let mut idle_timeouts = 0usize;
+            let mut inbound_sent_count = 0usize;
+            loop {
+                match read_mqtt_packet(&mut stream) {
+                    Ok((header, packet)) => {
+                        idle_timeouts = 0;
+                        match header >> 4 {
+                            1 => {
+                                if write_mqtt_connack(&mut stream).is_err() {
+                                    break;
+                                }
                                 let mut guard = state_ref
                                     .lock()
                                     .unwrap_or_else(|poison| poison.into_inner());
-                                guard.publishes.push(publish);
-                                if expected_publishes > 0
-                                    && guard.publishes.len() >= expected_publishes
-                                {
-                                    break;
+                                guard.connect_count += 1;
+                            }
+                            3 => {
+                                if let Some(publish) = parse_publish(header, &packet) {
+                                    let mut guard = state_ref
+                                        .lock()
+                                        .unwrap_or_else(|poison| poison.into_inner());
+                                    guard.publishes.push(publish);
+                                    if expected_publishes > 0
+                                        && guard.publishes.len() >= expected_publishes
+                                    {
+                                        break;
+                                    }
                                 }
                             }
-                        }
-                        8 => {
-                            let Some((packet_id, topic_count)) = parse_subscribe(&packet) else {
-                                break;
-                            };
-                            if write_mqtt_suback(&mut stream, packet_id, topic_count).is_err() {
-                                break;
-                            }
-                            let mut guard = state_ref
-                                .lock()
-                                .unwrap_or_else(|poison| poison.into_inner());
-                            guard.subscribe_count += topic_count;
-                            drop(guard);
+                            8 => {
+                                let Some((packet_id, topic_count)) = parse_subscribe(&packet)
+                                else {
+                                    break;
+                                };
+                                if write_mqtt_suback(&mut stream, packet_id, topic_count).is_err() {
+                                    break;
+                                }
+                                let mut guard = state_ref
+                                    .lock()
+                                    .unwrap_or_else(|poison| poison.into_inner());
+                                guard.subscribe_count += topic_count;
+                                drop(guard);
 
-                            if !sent_inbound {
                                 if let Some(payload) = inbound_payload.as_ref() {
                                     if write_mqtt_publish(&mut stream, &topic_in, payload).is_err()
                                     {
                                         break;
                                     }
+                                    inbound_sent_count += 1;
                                 }
-                                sent_inbound = true;
+                            }
+                            12 if write_mqtt_pingresp(&mut stream).is_err() => break,
+                            14 => break,
+                            _ => {}
+                        }
+                    }
+                    Err(err)
+                        if matches!(err.kind(), ErrorKind::TimedOut | ErrorKind::WouldBlock) =>
+                    {
+                        if inbound_sent_count < 16 {
+                            if let Some(payload) = inbound_payload.as_ref() {
+                                if write_mqtt_publish(&mut stream, &topic_in, payload).is_err() {
+                                    break;
+                                }
+                                inbound_sent_count += 1;
                             }
                         }
-                        12 if write_mqtt_pingresp(&mut stream).is_err() => break,
-                        14 => break,
-                        _ => {}
+                        idle_timeouts += 1;
+                        if idle_timeouts > 20 {
+                            break;
+                        }
                     }
+                    Err(err) if err.kind() == ErrorKind::UnexpectedEof => break,
+                    Err(_) => break,
                 }
-                Err(err) if matches!(err.kind(), ErrorKind::TimedOut | ErrorKind::WouldBlock) => {
-                    idle_timeouts += 1;
-                    if idle_timeouts > 20 {
-                        break;
-                    }
-                }
-                Err(err) if err.kind() == ErrorKind::UnexpectedEof => break,
-                Err(_) => break,
             }
         }
     });
@@ -341,7 +365,7 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
 
     let topic_in = "trust/test/in";
     let topic_out = "trust/test/out";
-    let (mqtt_addr, mqtt_state) = start_mqtt_test_broker(topic_in, None, 1);
+    let (mqtt_addr, mqtt_state) = start_mqtt_test_broker(topic_in, Some(vec![1]), 0);
 
     let mut runtime = Runtime::new();
     runtime.io_mut().resize(1, 1, 0);
@@ -381,10 +405,48 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
         "broker = \"{mqtt_addr}\"\ntopic_in = \"{topic_in}\"\ntopic_out = \"{topic_out}\"\nreconnect_ms = 10\n"
     ))
     .expect("parse mqtt params");
-    runtime.add_io_driver(
-        "mqtt",
-        Box::new(MqttIoDriver::from_params(&mqtt_params).expect("create mqtt driver")),
-    );
+    let mut mqtt_driver = MqttIoDriver::from_params(&mqtt_params).expect("create mqtt driver");
+    let prewarm_deadline = Instant::now() + StdDuration::from_secs(3);
+    let mut mqtt_prewarmed = false;
+    while Instant::now() < prewarm_deadline {
+        match mqtt_driver.write_outputs(&[0]) {
+            Ok(()) => {
+                mqtt_prewarmed = true;
+                break;
+            }
+            Err(err) => {
+                let text = err.to_string();
+                if text.contains("mqtt connect") || text.contains("mqtt disconnected") {
+                    thread::sleep(StdDuration::from_millis(20));
+                    continue;
+                }
+                panic!("mqtt prewarm: {err}");
+            }
+        }
+    }
+    assert!(mqtt_prewarmed, "mqtt prewarm should establish a session");
+    let deadline = Instant::now() + StdDuration::from_secs(3);
+    while Instant::now() < deadline {
+        let guard = mqtt_state.lock().expect("mqtt state lock");
+        if guard.subscribe_count >= 1 && !guard.publishes.is_empty() {
+            break;
+        }
+        drop(guard);
+        thread::sleep(StdDuration::from_millis(10));
+    }
+    let initial_publish_count = {
+        let guard = mqtt_state.lock().expect("mqtt state lock");
+        assert!(
+            guard.subscribe_count >= 1,
+            "mqtt prewarm should complete subscription"
+        );
+        assert!(
+            !guard.publishes.is_empty(),
+            "mqtt prewarm publish should be observed before runtime cycle"
+        );
+        guard.publishes.len()
+    };
+    runtime.add_io_driver("mqtt", Box::new(mqtt_driver));
 
     let deadline = Instant::now() + StdDuration::from_secs(3);
     let mut outbound_payload = None;
@@ -395,6 +457,7 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
             guard
                 .publishes
                 .iter()
+                .skip(initial_publish_count)
                 .find(|entry| entry.topic == topic_out)
                 .cloned()
         } {
