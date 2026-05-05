@@ -17,11 +17,27 @@ impl<'a> RetainReader<'a> {
     fn read_bytes(&mut self, len: usize) -> Result<&'a [u8], RuntimeError> {
         let end = self.offset.saturating_add(len);
         if end > self.data.len() {
-            return Err(RuntimeError::RetainStore("retain data truncated".into()));
+            return Err(RuntimeError::RetainCorruption(
+                "retain data truncated".into(),
+            ));
         }
         let slice = &self.data[self.offset..end];
         self.offset = end;
         Ok(slice)
+    }
+
+    fn is_finished(&self) -> bool {
+        self.offset == self.data.len()
+    }
+
+    fn expect_finished(&self, context: &str) -> Result<(), RuntimeError> {
+        if self.is_finished() {
+            Ok(())
+        } else {
+            Err(RuntimeError::RetainCorruption(
+                format!("{context} has trailing retain data").into(),
+            ))
+        }
     }
 
     fn read_u8(&mut self) -> Result<u8, RuntimeError> {
@@ -77,6 +93,6 @@ impl<'a> RetainReader<'a> {
         let len = self.read_u32()? as usize;
         let bytes = self.read_bytes(len)?;
         String::from_utf8(bytes.to_vec())
-            .map_err(|_| RuntimeError::RetainStore("invalid utf-8 in retain".into()))
+            .map_err(|_| RuntimeError::RetainCorruption("invalid utf-8 in retain".into()))
     }
 }

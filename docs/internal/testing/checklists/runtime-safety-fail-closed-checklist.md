@@ -1,6 +1,6 @@
 # Runtime Safety Fail-Closed Checklist
 
-Status: Phase 0 active - tracked board opened from clean `v0.24.14` baseline.
+Status: Phase 5 retain-integrity slice complete; later-phase findings remain warn-only.
 Owner: runtime safety
 Contract: `docs/internal/architecture/runtime-safety-fail-closed-contract.md`
 Gate: `scripts/runtime_safety_fail_closed_ast_grep_gate.sh`
@@ -99,6 +99,17 @@ phase=warn_only_inventory
 
 Result: watchdog-before-output, due-retain-before-output, safe-state discard, and fixed I/O classes are no longer reported by the doctor. Remaining findings are later-phase init/eval/retain-integrity/audit/mesh/debug/HIR classes.
 
+Phase 5 retain-integrity slice inventory:
+
+```text
+./scripts/runtime_safety_fail_closed_ast_grep_gate.sh
+finding_count=63
+allowlisted_count=0
+phase=warn_only_inventory
+```
+
+Result: retain direct-write, checksum/trailer/trailing-data, and orphan evidence classes are no longer reported by the doctor. Remaining findings are later-phase init/eval/audit/mesh/debug/HIR classes.
+
 ## Phase 1 - Red Tests
 
 - [x] `RTSAFE-P1-001` I/O fail-closed tests cover MQTT freshness/publish/connect, EtherCAT image-size/policy faults, Modbus transport/exception taxonomy, and GPIO health. Red evidence:
@@ -108,7 +119,9 @@ Result: watchdog-before-output, due-retain-before-output, safe-state discard, an
   - `cargo test -p trust-runtime --lib io::gpio::tests::gpio_ -- --ignored --nocapture` fails 2 GPIO tests because read/write errors leave health as `Ok`.
 - [x] `RTSAFE-P1-002` Cycle ordering tests cover watchdog-before-output, retain-before-output, and safe-state write failure reporting. Red evidence:
   - `cargo test -p trust-runtime --test runtime_safety_fail_closed -- --ignored --nocapture` fails 3 tests because watchdog timeout is post-output, due retain save happens after output commit, and safe-state write failure is discarded.
-- [ ] `RTSAFE-P1-003` Retain integrity tests cover corrupt data, trailing data, orphan globals, scalar widening, and struct add/remove migration.
+- [x] `RTSAFE-P1-003` Retain integrity tests cover corrupt data, trailing data, orphan globals, scalar widening, legacy v1 load, and struct add/remove migration. Red evidence:
+  - `cargo test -p trust-runtime --test retain_integrity -- --ignored --nocapture` failed 4 tests because trailing garbage and payload mutation loaded successfully, orphan retained globals emitted no event, and scalar widening left an `INT` value in a `DINT` retained global.
+  - `cargo test -p trust-runtime --test retain_integrity retain_struct_ -- --ignored --nocapture` failed 2 tests because added struct fields were not materialized from declared defaults and removed struct fields caused an error instead of an explicit migration event.
 - [ ] `RTSAFE-P1-004` Init/evaluator/debug tests cover init default failures, unknown assignment rejection, and queued debug write failure.
 - [ ] `RTSAFE-P1-005` Audit/event/runtime-cloud/mesh/HMI tests cover event durability, audit drop evidence, corrupt persisted state, mesh timeout, slow WebSocket clients, and structured `feature_disabled`.
 - [ ] `RTSAFE-P1-006` Coercion proof tests cover HIR-allowed widening and runtime bytecode results before any coercion refactor.
@@ -149,9 +162,15 @@ Result: watchdog-before-output, due-retain-before-output, safe-state discard, an
 
 ## Phase 5 - Retain Integrity And Migration
 
-- [ ] `RTSAFE-P5-001` Retain writes use temp file, flush, fsync, atomic rename, and parent directory sync.
-- [ ] `RTSAFE-P5-002` Retain codec validates payload length, checksum, and trailer; v1 remains read-only migration input if needed.
-- [ ] `RTSAFE-P5-003` Retain migration handles allowed widenings, declared defaults for added fields, named failures for unsafe changes, and orphan evidence.
+- [x] `RTSAFE-P5-001` Retain writes use temp file, flush, fsync, atomic rename, and parent directory sync. Evidence:
+  - `cargo test -p trust-runtime --test retain_store -- --nocapture`
+  - `./scripts/runtime_safety_fail_closed_ast_grep_gate.sh`
+- [x] `RTSAFE-P5-002` Retain codec validates payload length, checksum, and trailer; v1 remains read-only migration input. Evidence:
+  - `cargo test -p trust-runtime --test retain_integrity -- --ignored --nocapture`
+  - `cargo test -p trust-runtime --test retain_integrity -- --nocapture`
+- [x] `RTSAFE-P5-003` Retain migration handles allowed scalar widenings, declared defaults for added struct fields, dropped removed struct fields with migration evidence, named failures for unsafe scalar changes, and orphan evidence. Evidence:
+  - `cargo test -p trust-runtime --test retain_integrity -- --ignored --nocapture`
+  - `cargo test -p trust-runtime --test runtime_reliability -- --nocapture`
 
 ## Phase 6 - Init, Evaluator, Debug Writes
 

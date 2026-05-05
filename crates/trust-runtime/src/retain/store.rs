@@ -4,6 +4,8 @@ impl RetainSnapshot {
     }
 }
 
+static RETAIN_TMP_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
 /// File-based retain store.
 #[derive(Debug, Clone)]
 pub struct FileRetainStore {
@@ -17,10 +19,42 @@ impl FileRetainStore {
     }
 
     fn write_bytes(path: &Path, bytes: &[u8]) -> Result<(), RuntimeError> {
-        let mut file = fs::File::create(path)
-            .map_err(|err| RuntimeError::RetainStore(format!("create {path:?}: {err}").into()))?;
-        file.write_all(bytes)
-            .map_err(|err| RuntimeError::RetainStore(format!("write {path:?}: {err}").into()))
+        let parent = path.parent().unwrap_or_else(|| Path::new("."));
+        fs::create_dir_all(parent).map_err(|err| {
+            RuntimeError::RetainStore(format!("create retain dir {parent:?}: {err}").into())
+        })?;
+        let tmp_path = temp_retain_path(path);
+        let write_result = (|| {
+            let mut file = fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(&tmp_path)
+                .map_err(|err| {
+                    RuntimeError::RetainStore(format!("create temp retain {tmp_path:?}: {err}").into())
+                })?;
+            file.write_all(bytes).map_err(|err| {
+                RuntimeError::RetainStore(format!("write temp retain {tmp_path:?}: {err}").into())
+            })?;
+            file.flush().map_err(|err| {
+                RuntimeError::RetainStore(format!("flush temp retain {tmp_path:?}: {err}").into())
+            })?;
+            file.sync_all().map_err(|err| {
+                RuntimeError::RetainStore(format!("fsync temp retain {tmp_path:?}: {err}").into())
+            })?;
+            drop(file);
+            fs::rename(&tmp_path, path).map_err(|err| {
+                RuntimeError::RetainStore(
+                    format!("atomic rename retain {tmp_path:?} to {path:?}: {err}").into(),
+                )
+            })?;
+            sync_parent_dir(parent)?;
+            Ok(())
+        })();
+        if write_result.is_err() {
+            let _ = fs::remove_file(&tmp_path);
+        }
+        write_result
     }
 
     fn read_bytes(path: &Path) -> Result<Vec<u8>, RuntimeError> {
@@ -31,6 +65,33 @@ impl FileRetainStore {
             .map_err(|err| RuntimeError::RetainStore(format!("read {path:?}: {err}").into()))?;
         Ok(buf)
     }
+}
+
+fn temp_retain_path(path: &Path) -> PathBuf {
+    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("retain");
+    let seq = RETAIN_TMP_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    parent.join(format!(".{file_name}.{}.{seq}.tmp", std::process::id()))
+}
+
+fn sync_parent_dir(path: &Path) -> Result<(), RuntimeError> {
+    #[cfg(unix)]
+    {
+        let dir = fs::File::open(path).map_err(|err| {
+            RuntimeError::RetainStore(format!("open retain dir {path:?}: {err}").into())
+        })?;
+        dir.sync_all().map_err(|err| {
+            RuntimeError::RetainStore(format!("fsync retain dir {path:?}: {err}").into())
+        })?;
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+    }
+    Ok(())
 }
 
 impl RetainStore for FileRetainStore {

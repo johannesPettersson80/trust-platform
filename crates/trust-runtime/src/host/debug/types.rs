@@ -261,6 +261,22 @@ pub enum RuntimeEvent {
         /// Time when the safe-state failure was recorded.
         time: Duration,
     },
+    /// A retained value no longer has a matching retained global and was dropped.
+    RetainOrphanDropped {
+        /// Retained variable name.
+        name: SmolStr,
+        /// Time when the orphan was dropped.
+        time: Duration,
+    },
+    /// A retained value was explicitly migrated to the current declared type.
+    RetainMigrationApplied {
+        /// Retained variable name.
+        name: SmolStr,
+        /// Migration detail.
+        detail: String,
+        /// Time when the migration was applied.
+        time: Duration,
+    },
 }
 
 /// Stop reason for debugger events.

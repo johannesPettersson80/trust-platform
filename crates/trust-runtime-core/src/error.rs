@@ -176,6 +176,14 @@ pub enum RuntimeError {
     #[error("retain store error '{0}'")]
     RetainStore(SmolStr),
 
+    /// Retain data failed integrity validation.
+    #[error("retain corruption '{0}'")]
+    RetainCorruption(SmolStr),
+
+    /// Retain schema migration failed or was applied explicitly.
+    #[error("retain migration error '{0}'")]
+    RetainMigration(SmolStr),
+
     /// Control protocol error.
     #[error("control error '{0}'")]
     ControlError(SmolStr),

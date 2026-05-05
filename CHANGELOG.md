@@ -84,6 +84,10 @@ Target release: `v0.24.15`
   runtime errors, EtherCAT discovery and image-size mismatches fault under every
   policy, Modbus flush/transport failures and Modbus exceptions remain
   distinguishable, and GPIO read/write failures are reflected in driver health.
+- Retain persistence now writes through a temp file, flush/fsync, atomic rename,
+  and parent directory sync, and retain snapshots now use a length-delimited
+  CRC/trailer-protected codec with legacy v1 read support plus explicit
+  retain migration/orphan events.
 - Harness boundary inputs now fail closed: typoed `set_input` names and
   `bind_direct` targets return structured boundary errors instead of creating
   hidden globals or undeclared I/O bindings.

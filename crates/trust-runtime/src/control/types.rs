@@ -304,5 +304,16 @@ pub(super) fn runtime_event_to_json(event: RuntimeEvent) -> serde_json::Value {
             "error": error,
             "time_ns": time.as_nanos(),
         }),
+        RuntimeEvent::RetainOrphanDropped { name, time } => json!({
+            "type": "retain_orphan_dropped",
+            "name": name.as_str(),
+            "time_ns": time.as_nanos(),
+        }),
+        RuntimeEvent::RetainMigrationApplied { name, detail, time } => json!({
+            "type": "retain_migration_applied",
+            "name": name.as_str(),
+            "detail": detail,
+            "time_ns": time.as_nanos(),
+        }),
     }
 }

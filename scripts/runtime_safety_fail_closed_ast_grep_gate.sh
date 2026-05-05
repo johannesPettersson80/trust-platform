@@ -130,6 +130,42 @@ elif driver_write_pos != -1 and driver_write_pos < deadline_pos:
 PY
 }
 
+emit_retain_durability_findings() {
+  python3 - "$ROOT" <<'PY' >>"$FINDINGS"
+import pathlib
+import re
+import sys
+
+root = pathlib.Path(sys.argv[1])
+store = root / "crates/trust-runtime/src/retain/store.rs"
+if not store.exists():
+    raise SystemExit
+text = store.read_text(encoding="utf-8")
+rel = store.relative_to(root).as_posix()
+
+if re.search(r"File::create\s*\(\s*path\s*\)|fs::write\s*\(\s*path\s*,", text):
+    print(
+        "RUNTIMESAFE-RETAIN-DIRECT-WRITE owner=runtime/retain "
+        f"{rel}:0: retain store writes directly to final path"
+    )
+if "OpenOptions::new" not in text:
+    print(
+        "RUNTIMESAFE-RETAIN-DIRECT-WRITE owner=runtime/retain "
+        f"{rel}:0: retain store does not use an explicit temp-file writer"
+    )
+if "fs::rename" not in text:
+    print(
+        "RUNTIMESAFE-RETAIN-DIRECT-WRITE owner=runtime/retain "
+        f"{rel}:0: retain store does not atomically rename temp file"
+    )
+if "sync_all" not in text:
+    print(
+        "RUNTIMESAFE-RETAIN-DIRECT-WRITE owner=runtime/retain "
+        f"{rel}:0: retain store does not fsync temp file or parent directory"
+    )
+PY
+}
+
 emit_ethercat_policy_findings() {
   python3 - "$ROOT" <<'PY' >>"$FINDINGS"
 import pathlib
@@ -192,11 +228,7 @@ emit_findings \
   "crates/trust-runtime/src" \
   'flush\(\)\.ok\(\)|let _ = [^;]*flush\(\)'
 
-emit_findings \
-  "RUNTIMESAFE-RETAIN-DIRECT-WRITE" \
-  "runtime/retain" \
-  "crates/trust-runtime/src/retain" \
-  'File::create|OpenOptions::new\(\)[^;]*truncate|fs::write'
+emit_retain_durability_findings
 
 emit_findings \
   "RUNTIMESAFE-RETAIN-NO-CHECKSUM" \
@@ -208,14 +240,14 @@ emit_absence_if_missing \
   "RUNTIMESAFE-RETAIN-NO-CHECKSUM" \
   "runtime/retain" \
   "crates/trust-runtime/src/retain.rs" \
-  'crc|checksum|trailer' \
+  'crc|checksum|trailer|TRAILER|crc32fast' \
   "retain codec checksum/trailer validation"
 
 emit_absence_if_missing \
   "RUNTIMESAFE-RETAIN-NO-CHECKSUM" \
   "runtime/retain" \
   "crates/trust-runtime/src/retain/codec.rs" \
-  'is_finished|remaining|trailing|offset == .*len|len\(\) == .*offset' \
+  'is_finished|expect_finished|remaining|trailing|offset == .*len|len\(\) == .*offset' \
   "retain decoder trailing-data rejection"
 
 emit_findings \
@@ -288,16 +320,10 @@ emit_retain_commit_order_findings
 
 emit_gpio_health_findings
 
-emit_findings \
-  "RUNTIMESAFE-RETAIN-ORPHAN-SILENT" \
-  "runtime/retain" \
-  "crates/trust-runtime/src/runtime/retain_store.rs" \
-  'retain.*orphan|orphan.*retain|retain.*drop|drop.*retain'
-
 emit_absence_if_missing \
   "RUNTIMESAFE-RETAIN-ORPHAN-SILENT" \
   "runtime/retain" \
-  "crates/trust-runtime/src/runtime/retain_store.rs" \
+  "crates/trust-runtime/src/runtime/restart.rs" \
   'orphan|RetainOrphan' \
   "retain orphan event/reporting"
 
