@@ -232,6 +232,65 @@ for path in targets:
 PY
 }
 
+emit_coerce_warning_only_findings() {
+  python3 - "$ROOT" <<'PY' >>"$FINDINGS"
+import pathlib
+import sys
+
+root = pathlib.Path(sys.argv[1])
+hir_root = root / "crates/trust-hir/src"
+
+warning_site = None
+if hir_root.exists():
+    for path in sorted(hir_root.rglob("*.rs")):
+        rel = path.relative_to(root).as_posix()
+        if "/tests/" in rel or rel.endswith("/tests.rs"):
+            continue
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for idx, line in enumerate(lines, start=1):
+            if "warn_implicit_conversion" in line:
+                warning_site = (rel, idx)
+                break
+        if warning_site is not None:
+            break
+
+if warning_site is None:
+    raise SystemExit
+
+def contains(path: pathlib.Path, needle: str) -> bool:
+    return path.exists() and needle in path.read_text(encoding="utf-8")
+
+proof = root / "crates/trust-runtime/tests/coercion_proof.rs"
+lowering = root / "crates/trust-runtime/src/host/harness/lower/expr/lowering.rs"
+literals = root / "crates/trust-runtime/src/host/harness/lower/expr/literals.rs"
+stmt = root / "crates/trust-runtime/src/host/harness/lower/stmt.rs"
+
+required = [
+    (proof, "function_input_parameter_widening", "function input widening proof"),
+    (proof, "function_output_parameter_widening", "function output widening proof"),
+    (proof, "assignment_widening", "assignment widening runtime proof"),
+    (proof, "initializer_widening", "initializer widening runtime proof"),
+    (proof, "return_value_widening", "return-value widening runtime proof"),
+    (proof, "inout_narrowing", "InOut narrowing rejection proof"),
+    (proof, "narrowing_assignment", "narrowing rejection proof"),
+    (lowering, "lower_expr_with_context", "contextual expression lowering hook"),
+    (lowering, "binary_operand_context", "contextual binary operand lowering policy"),
+    (literals, "lower_literal_with_context", "contextual literal lowering hook"),
+    (literals, "coerce_value_to_type(value, type_id)?", "literal target-type coercion"),
+    (stmt, "lower_expr_with_context(&exprs[1], ctx, target_type)?", "assignment target-type lowering"),
+]
+
+rel, line = warning_site
+for path, needle, evidence in required:
+    if contains(path, needle):
+        continue
+    print(
+        "RUNTIMESAFE-COERCE-WARNING-ONLY owner=runtime/HIR "
+        f"{rel}:{line}: implicit-conversion warnings require runtime proof/evidence: missing {evidence}"
+    )
+PY
+}
+
 emit_ethercat_policy_findings() {
   python3 - "$ROOT" <<'PY' >>"$FINDINGS"
 import pathlib
@@ -413,17 +472,7 @@ emit_findings \
   "crates/trust-runtime/src/bin/trust-runtime.rs" \
   'debug disabled|cfg\(not\(feature = "debug"\)\)|feature_disabled'
 
-emit_findings \
-  "RUNTIMESAFE-COERCE-WARNING-ONLY" \
-  "runtime/HIR" \
-  "crates/trust-hir/src" \
-  'implicit.*conversion|conversion.*warning|allowed.*widen'
-
-emit_findings \
-  "RUNTIMESAFE-COERCE-WARNING-ONLY" \
-  "runtime/HIR" \
-  "crates/trust-runtime/src/host/harness/lower" \
-  'implicit.*conversion|conversion.*warning|allowed.*widen'
+emit_coerce_warning_only_findings
 
 finding_count="$(grep -c . "$FINDINGS" || true)"
 allowlisted_count=0

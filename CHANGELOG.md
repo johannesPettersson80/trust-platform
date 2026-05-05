@@ -93,6 +93,10 @@ Target release: `v0.24.15`
   return `InitFailed` instead of becoming `NULL`, undefined evaluator/debug
   targets are rejected instead of creating globals, and queued debug write
   failures fault the cycle visibly.
+- Runtime bytecode lowering now materializes HIR-allowed contextual widening at
+  assignment boundaries using the target runtime type, with proof coverage for
+  function inputs/outputs, assignments, initializers, return values, InOut
+  rejection, and narrowing rejection.
 - Harness boundary inputs now fail closed: typoed `set_input` names and
   `bind_direct` targets return structured boundary errors instead of creating
   hidden globals or undeclared I/O bindings.

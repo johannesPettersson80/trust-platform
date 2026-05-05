@@ -1,6 +1,6 @@
 # Runtime Safety Fail-Closed Checklist
 
-Status: Phase 6 init/evaluator/debug-write slice complete; later-phase findings remain warn-only.
+Status: Phase 7 coercion-proof slice complete; Phase 8 audit/event/mesh/debug findings remain warn-only.
 Owner: runtime safety
 Contract: `docs/internal/architecture/runtime-safety-fail-closed-contract.md`
 Gate: `scripts/runtime_safety_fail_closed_ast_grep_gate.sh`
@@ -121,6 +121,17 @@ phase=warn_only_inventory
 
 Result: init null fallback, evaluator silent global creation, and debug write discard classes are no longer reported by the doctor. Remaining findings are later-phase audit/event, mesh, debug feature-disabled, and HIR coercion evidence classes.
 
+Phase 7 coercion-proof slice inventory:
+
+```text
+./scripts/runtime_safety_fail_closed_ast_grep_gate.sh
+finding_count=13
+allowlisted_count=0
+phase=warn_only_inventory
+```
+
+Result: HIR coercion-warning callsites are no longer reported when the runtime coercion proof suite and contextual lowering hooks are present. Remaining findings are Phase 8 audit/event send drops, debug trace flush discard, mesh timeout-to-empty behavior, and feature-disabled debug reporting.
+
 ## Phase 1 - Red Tests
 
 - [x] `RTSAFE-P1-001` I/O fail-closed tests cover MQTT freshness/publish/connect, EtherCAT image-size/policy faults, Modbus transport/exception taxonomy, and GPIO health. Red evidence:
@@ -138,7 +149,8 @@ Result: init null fallback, evaluator silent global creation, and debug write di
   - `cargo test -p trust-runtime --lib default_failure_returns_init_failed -- --ignored --nocapture` failed 5 tests because evaluator and VM init paths substituted `NULL` or continued execution.
   - `cargo test -p trust-runtime --lib unknown_name_write_fails_without_creating_global -- --ignored --nocapture` and `cargo test -p trust-runtime --lib evaluator_unknown_assignment_fails_without_creating_global -- --ignored --nocapture` failed because missing assignments created globals.
 - [ ] `RTSAFE-P1-005` Audit/event/runtime-cloud/mesh/HMI tests cover event durability, audit drop evidence, corrupt persisted state, mesh timeout, slow WebSocket clients, and structured `feature_disabled`.
-- [ ] `RTSAFE-P1-006` Coercion proof tests cover HIR-allowed widening and runtime bytecode results before any coercion refactor.
+- [x] `RTSAFE-P1-006` Coercion proof tests cover HIR-allowed widening and runtime bytecode results before any coercion refactor. Red evidence:
+  - `cargo test -p trust-runtime --test coercion_proof -- --ignored --nocapture` initially failed because assignment widening materialized `LINT := 1` as `Value::DInt(1)` instead of `Value::LInt(1)`.
 
 ## Phase 2 - Shared Safety Contracts
 
@@ -202,8 +214,16 @@ Result: init null fallback, evaluator silent global creation, and debug write di
 
 ## Phase 7 - HIR/Runtime Coercion Proof
 
-- [ ] `RTSAFE-P7-001` Prove allowed widening and narrowing rejection across function input, output, InOut, assignment, initializer, return value, and bytecode execution.
-- [ ] `RTSAFE-P7-002` If proof shows a gap, add explicit lowering/runtime coercion; otherwise record evidence and do not refactor.
+- [x] `RTSAFE-P7-001` Prove allowed widening and narrowing rejection across function input, output, InOut, assignment, initializer, return value, and bytecode execution. Evidence:
+  - `cargo test -p trust-runtime --test coercion_proof -- --ignored --nocapture`
+  - `cargo test -p trust-runtime --test bytecode_vm_differential -- --nocapture`
+  - `cargo test -p trust-runtime --lib runtime::vm::call::tests -- --nocapture`
+  - `cargo test -p trust-hir --test semantic_type_checking -- --nocapture`
+- [x] `RTSAFE-P7-002` If proof shows a gap, add explicit lowering/runtime coercion; otherwise record evidence and do not refactor. Evidence:
+  - `crates/trust-runtime/src/host/harness/lower/expr/lowering.rs` lowers expressions with optional target-type context.
+  - `crates/trust-runtime/src/host/harness/lower/expr/literals.rs` materializes untyped literals through the expected runtime type when one exists.
+  - `crates/trust-runtime/src/host/harness/lower/stmt.rs` passes assignment target type into expression lowering.
+  - `./scripts/runtime_safety_fail_closed_ast_grep_gate.sh` reports `finding_count=13` with no coercion-warning findings.
 
 ## Phase 8 - Audit, Event, Runtime-Cloud, Mesh, HMI Robustness
 

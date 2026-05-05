@@ -8,7 +8,8 @@ use super::super::util::{direct_expr_children, first_expr_child, is_statement_ki
 use super::super::{CompileError, LoweringContext};
 use super::expr::{
     const_value_from_node, enum_literal_value, field_expr_property_accessor_name, lower_expr,
-    lower_expression_type, lower_lvalue, resolve_initializer_enum_variant, PropertyAccessor,
+    lower_expr_with_context, lower_expression_type, lower_lvalue, resolve_initializer_enum_variant,
+    PropertyAccessor,
 };
 
 pub(in crate::harness) fn lower_stmt_list(
@@ -91,7 +92,7 @@ fn lower_assign(node: &SyntaxNode, ctx: &mut LoweringContext<'_>) -> Result<Stmt
     let target_type = lower_expression_type(&exprs[0], ctx)?;
     let property_setter = field_expr_property_accessor_name(&exprs[0], ctx, PropertyAccessor::Set)?;
     let target = lower_lvalue(&exprs[0], ctx)?;
-    let value = lower_expr(&exprs[1], ctx)?;
+    let value = lower_expr_with_context(&exprs[1], ctx, target_type)?;
     let value = match target_type {
         Some(type_id) => resolve_initializer_enum_variant(&exprs[1], value, type_id, ctx)?,
         None => value,

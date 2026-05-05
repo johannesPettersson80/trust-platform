@@ -1,4 +1,8 @@
-fn lower_literal(node: &SyntaxNode, ctx: &LoweringContext<'_>) -> Result<Expr, CompileError> {
+fn lower_literal_with_context(
+    node: &SyntaxNode,
+    ctx: &LoweringContext<'_>,
+    expected_type: Option<TypeId>,
+) -> Result<Expr, CompileError> {
     let mut sign: i64 = 1;
     let mut int_literal: Option<i64> = None;
     let mut bool_literal: Option<bool> = None;
@@ -107,6 +111,10 @@ fn lower_literal(node: &SyntaxNode, ctx: &LoweringContext<'_>) -> Result<Expr, C
             return Err(CompileError::new("invalid typed literal"));
         }
         value = coerce_value_to_type(value, type_id)?;
+    } else if let Some(type_id) = expected_type {
+        if value != Value::Null {
+            value = coerce_value_to_type(value, type_id)?;
+        }
     }
 
     Ok(Expr::Literal(value))
