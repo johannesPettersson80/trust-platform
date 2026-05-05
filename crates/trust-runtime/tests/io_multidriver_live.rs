@@ -168,10 +168,18 @@ fn is_retryable_mqtt_live_error(text: &str) -> bool {
 fn read_mqtt_packet(stream: &mut TcpStream) -> io::Result<(u8, Vec<u8>)> {
     let mut header = [0u8; 1];
     stream.read_exact(&mut header)?;
+    let idle_timeout = stream.read_timeout().ok().flatten();
+    stream.set_read_timeout(Some(StdDuration::from_secs(2)))?;
+    let result = read_mqtt_packet_after_header(stream, header[0]);
+    let _ = stream.set_read_timeout(idle_timeout);
+    result
+}
+
+fn read_mqtt_packet_after_header(stream: &mut TcpStream, header: u8) -> io::Result<(u8, Vec<u8>)> {
     let len = read_remaining_length(stream)?;
     let mut packet = vec![0u8; len];
     stream.read_exact(&mut packet)?;
-    Ok((header[0], packet))
+    Ok((header, packet))
 }
 
 fn read_remaining_length(stream: &mut TcpStream) -> io::Result<usize> {
