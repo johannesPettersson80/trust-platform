@@ -489,9 +489,9 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
                     .last_fault()
                     .map_or_else(|| "<none>".to_string(), ToString::to_string);
                 let retry_text = format!("{text}; last_fault={last_fault}");
-                if !retry_text.contains("i/o freshness")
-                    || !is_retryable_mqtt_live_error(&retry_text)
-                {
+                let is_transient_class = retry_text.contains("i/o freshness")
+                    || retry_text.contains("i/o transport error");
+                if !is_transient_class || !is_retryable_mqtt_live_error(&retry_text) {
                     panic!("execute cycle: {err}; last_fault={last_fault}");
                 }
                 let premature_output = {
