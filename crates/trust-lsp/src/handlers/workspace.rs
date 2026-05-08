@@ -112,6 +112,10 @@ pub async fn index_workspace(client: &Client, state: &ServerState) {
 pub fn index_workspace_background_with_refresh(client: Client, state: Arc<ServerState>) {
     tokio::spawn(async move {
         state.run_background(index_workspace(&client, &state)).await;
+        // Unblock any did_open / pull-diagnostic handlers that were waiting for the
+        // first index pass. After this point, cross-file types are visible and any
+        // diagnostics published or returned will reflect the full project state.
+        state.mark_index_first_pass_done();
         refresh_diagnostics(&client, &state).await;
         refresh_semantic_tokens(&client, &state).await;
     });

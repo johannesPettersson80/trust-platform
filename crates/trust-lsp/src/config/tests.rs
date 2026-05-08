@@ -463,6 +463,65 @@ Floating = {{ git = "{repo}" }}
 }
 
 #[test]
+fn indexing_roots_replaces_root_when_include_paths_set() {
+    // When `include_paths` is configured, the workspace root must not be added
+    // to the indexer roots. Otherwise the indexer scans everything under the
+    // root regardless of the explicit scoping, causing cross-project diagnostic
+    // pollution (e.g. E104 duplicate imports from sibling examples).
+    let root = temp_dir("trustlsp-config-include-paths-scope");
+    fs::write(
+        root.join("trust-lsp.toml"),
+        r#"
+[project]
+include_paths = ["src"]
+"#,
+    )
+    .expect("write config");
+    fs::create_dir_all(root.join("src")).expect("create src dir");
+
+    let config = ProjectConfig::load(&root);
+    let roots = config.indexing_roots();
+
+    assert!(
+        !roots.iter().any(|p| p == &config.root),
+        "indexing_roots must not include the workspace root when include_paths is explicit; got {:?}",
+        roots
+    );
+    assert!(
+        roots.iter().any(|p| p.ends_with("src")),
+        "indexing_roots should include the configured include_paths; got {:?}",
+        roots
+    );
+
+    fs::remove_dir_all(root).ok();
+}
+
+#[test]
+fn indexing_roots_uses_root_when_no_include_paths() {
+    // Without `include_paths`, the indexer falls back to scanning the workspace
+    // root so that loose .st files at the top level are still discovered.
+    let root = temp_dir("trustlsp-config-no-include-paths");
+    fs::write(
+        root.join("trust-lsp.toml"),
+        r#"
+[project]
+"#,
+    )
+    .expect("write config");
+
+    let config = ProjectConfig::load(&root);
+    let roots = config.indexing_roots();
+
+    assert!(
+        roots.iter().any(|p| p == &config.root),
+        "indexing_roots should fall back to the workspace root when include_paths is empty; got {:?}",
+        roots
+    );
+
+    fs::remove_dir_all(root).ok();
+}
+
+#[test]
 fn enforces_git_host_allowlist_policy() {
     let root = temp_dir("trustlsp-config-policy");
     fs::write(

@@ -11,7 +11,7 @@ use std::future::Future;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::Semaphore;
+use tokio::sync::{watch, Semaphore};
 use tower_lsp::lsp_types::{SemanticToken, Url};
 
 use crate::config::ProjectConfig;
@@ -143,6 +143,10 @@ pub struct ServerState {
     telemetry: TelemetryCollector,
     /// Limits concurrency for background workspace scans.
     request_limiter: RequestLimiter,
+    /// Signals when the first workspace-index pass has completed. Until this fires,
+    /// cross-file types from un-indexed files are invisible to the analyzer, which
+    /// would surface as false-positive `cannot resolve type` diagnostics.
+    index_first_pass: watch::Sender<bool>,
 }
 
 impl ServerState {
@@ -168,7 +172,35 @@ impl ServerState {
             library_docs: RwLock::new(FxHashMap::default()),
             telemetry: TelemetryCollector::new(),
             request_limiter: RequestLimiter::new(BACKGROUND_REQUEST_LIMIT),
+            index_first_pass: watch::channel(false).0,
         }
+    }
+
+    /// Marks the first workspace-index pass as complete. Idempotent.
+    pub fn mark_index_first_pass_done(&self) {
+        // `send_replace` updates the value unconditionally, including when no
+        // receivers are currently subscribed. Plain `send` returns Err without
+        // updating the value when receiver count is zero, which would let later
+        // `subscribe()` calls observe the stale `false`.
+        self.index_first_pass.send_replace(true);
+    }
+
+    /// Waits up to 10 seconds for the first workspace-index pass to complete.
+    /// Returns immediately if already complete. After the timeout returns regardless
+    /// so the server can't deadlock if indexing never runs.
+    pub async fn wait_for_index_first_pass(&self) {
+        let mut rx = self.index_first_pass.subscribe();
+        if *rx.borrow_and_update() {
+            return;
+        }
+        let _ = tokio::time::timeout(Duration::from_secs(10), async {
+            while !*rx.borrow_and_update() {
+                if rx.changed().await.is_err() {
+                    break;
+                }
+            }
+        })
+        .await;
     }
 
     /// Stores the workspace folders.
@@ -729,5 +761,48 @@ docs = ["lib-docs.md"]
         let uri_str = uri.as_str();
         assert!(!uri_str.contains("%3F"), "uri should not include ? host");
         assert!(uri_str.contains("c:/") || uri_str.contains("C:/"));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn wait_for_index_first_pass_returns_immediately_when_already_marked() {
+        let state = ServerState::new();
+        state.mark_index_first_pass_done();
+        timeout(Duration::from_millis(50), state.wait_for_index_first_pass())
+            .await
+            .expect("wait should return immediately when already marked");
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn wait_for_index_first_pass_blocks_until_marked() {
+        let state = Arc::new(ServerState::new());
+        let waiter = tokio::spawn({
+            let state = Arc::clone(&state);
+            async move {
+                state.wait_for_index_first_pass().await;
+            }
+        });
+
+        // Give the waiter a moment to start polling, then confirm it's still
+        // pending (i.e. genuinely blocked on the signal, not racing to return).
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        assert!(!waiter.is_finished(), "waiter should still be pending");
+
+        state.mark_index_first_pass_done();
+
+        timeout(Duration::from_millis(50), waiter)
+            .await
+            .expect("waiter should resume within 50ms after mark")
+            .expect("waiter task should not panic");
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn mark_index_first_pass_done_is_idempotent() {
+        let state = ServerState::new();
+        state.mark_index_first_pass_done();
+        state.mark_index_first_pass_done();
+        // A second wait must still return promptly (no deadlock from re-firing).
+        timeout(Duration::from_millis(50), state.wait_for_index_first_pass())
+            .await
+            .expect("second wait should still resolve");
     }
 }

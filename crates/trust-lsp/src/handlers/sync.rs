@@ -20,8 +20,11 @@ pub async fn did_open(client: &Client, state: &ServerState, params: DidOpenTextD
     state.open_document(uri.clone(), version, content.clone());
 
     // Push-based clients need a workspace refresh here so dependent open files do not keep
-    // stale cross-file diagnostics.
+    // stale cross-file diagnostics. Wait for the first workspace-index pass first; clients
+    // that don't honor `workspace/diagnostic/refresh` (e.g. Claude Code's LSP tool) latch
+    // onto the first publish, so it must already reflect cross-file type resolution.
     if !state.use_pull_diagnostics() {
+        state.wait_for_index_first_pass().await;
         refresh_diagnostics(client, state).await;
     }
 }

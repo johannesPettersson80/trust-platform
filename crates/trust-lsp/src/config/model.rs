@@ -43,8 +43,18 @@ pub struct ProjectConfig {
 impl ProjectConfig {
     pub fn indexing_roots(&self) -> Vec<PathBuf> {
         let mut roots = Vec::new();
-        roots.push(self.root.clone());
-        roots.extend(self.include_paths.iter().cloned());
+        // `include_paths` is meant to scope what the indexer walks — when set,
+        // it replaces the workspace root rather than extending it. Otherwise a
+        // user with `include_paths = ["src"]` still gets the entire workspace
+        // root scanned, which on a multi-project tree (e.g. trust-platform/
+        // hosting many examples/) leaks cross-project symbols and produces
+        // spurious E104 duplicate-import diagnostics. Falling back to the root
+        // when `include_paths` is empty preserves the unconfigured-project case.
+        if self.include_paths.is_empty() {
+            roots.push(self.root.clone());
+        } else {
+            roots.extend(self.include_paths.iter().cloned());
+        }
         for lib in &self.libraries {
             roots.push(lib.path.clone());
         }
