@@ -404,6 +404,11 @@ impl LanguageServer for StLanguageServer {
     ) -> Result<DocumentDiagnosticReportResult> {
         let uri = params.text_document.uri.clone();
         let start = Instant::now();
+        // Without this wait, a pull-mode client polling immediately after did_open
+        // would receive diagnostics computed before the workspace index has loaded
+        // sibling files (e.g. Types.st), surfacing as false-positive `cannot resolve
+        // type` errors.
+        self.state.wait_for_index_first_pass().await;
         let result = handlers::document_diagnostic(&self.state, params);
         self.state
             .record_telemetry(TelemetryEvent::Diagnostic, start.elapsed(), Some(&uri));
@@ -415,6 +420,7 @@ impl LanguageServer for StLanguageServer {
         params: WorkspaceDiagnosticParams,
     ) -> Result<WorkspaceDiagnosticReportResult> {
         let start = Instant::now();
+        self.state.wait_for_index_first_pass().await;
         let result = self
             .state
             .run_background(async { handlers::workspace_diagnostic(&self.state, params) })

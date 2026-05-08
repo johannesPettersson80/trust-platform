@@ -11,7 +11,7 @@ use std::future::Future;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::Semaphore;
+use tokio::sync::{watch, Semaphore};
 use tower_lsp::lsp_types::{SemanticToken, Url};
 
 use crate::config::ProjectConfig;
@@ -143,6 +143,10 @@ pub struct ServerState {
     telemetry: TelemetryCollector,
     /// Limits concurrency for background workspace scans.
     request_limiter: RequestLimiter,
+    /// Signals when the first workspace-index pass has completed. Until this fires,
+    /// cross-file types from un-indexed files are invisible to the analyzer, which
+    /// would surface as false-positive `cannot resolve type` diagnostics.
+    index_first_pass: watch::Sender<bool>,
 }
 
 impl ServerState {
@@ -168,7 +172,31 @@ impl ServerState {
             library_docs: RwLock::new(FxHashMap::default()),
             telemetry: TelemetryCollector::new(),
             request_limiter: RequestLimiter::new(BACKGROUND_REQUEST_LIMIT),
+            index_first_pass: watch::channel(false).0,
         }
+    }
+
+    /// Marks the first workspace-index pass as complete. Idempotent.
+    pub fn mark_index_first_pass_done(&self) {
+        let _ = self.index_first_pass.send(true);
+    }
+
+    /// Waits up to 10 seconds for the first workspace-index pass to complete.
+    /// Returns immediately if already complete. After the timeout returns regardless
+    /// so the server can't deadlock if indexing never runs.
+    pub async fn wait_for_index_first_pass(&self) {
+        let mut rx = self.index_first_pass.subscribe();
+        if *rx.borrow_and_update() {
+            return;
+        }
+        let _ = tokio::time::timeout(Duration::from_secs(10), async {
+            while !*rx.borrow_and_update() {
+                if rx.changed().await.is_err() {
+                    break;
+                }
+            }
+        })
+        .await;
     }
 
     /// Stores the workspace folders.
