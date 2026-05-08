@@ -178,7 +178,11 @@ impl ServerState {
 
     /// Marks the first workspace-index pass as complete. Idempotent.
     pub fn mark_index_first_pass_done(&self) {
-        let _ = self.index_first_pass.send(true);
+        // `send_replace` updates the value unconditionally, including when no
+        // receivers are currently subscribed. Plain `send` returns Err without
+        // updating the value when receiver count is zero, which would let later
+        // `subscribe()` calls observe the stale `false`.
+        self.index_first_pass.send_replace(true);
     }
 
     /// Waits up to 10 seconds for the first workspace-index pass to complete.
@@ -757,5 +761,48 @@ docs = ["lib-docs.md"]
         let uri_str = uri.as_str();
         assert!(!uri_str.contains("%3F"), "uri should not include ? host");
         assert!(uri_str.contains("c:/") || uri_str.contains("C:/"));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn wait_for_index_first_pass_returns_immediately_when_already_marked() {
+        let state = ServerState::new();
+        state.mark_index_first_pass_done();
+        timeout(Duration::from_millis(50), state.wait_for_index_first_pass())
+            .await
+            .expect("wait should return immediately when already marked");
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn wait_for_index_first_pass_blocks_until_marked() {
+        let state = Arc::new(ServerState::new());
+        let waiter = tokio::spawn({
+            let state = Arc::clone(&state);
+            async move {
+                state.wait_for_index_first_pass().await;
+            }
+        });
+
+        // Give the waiter a moment to start polling, then confirm it's still
+        // pending (i.e. genuinely blocked on the signal, not racing to return).
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        assert!(!waiter.is_finished(), "waiter should still be pending");
+
+        state.mark_index_first_pass_done();
+
+        timeout(Duration::from_millis(50), waiter)
+            .await
+            .expect("waiter should resume within 50ms after mark")
+            .expect("waiter task should not panic");
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn mark_index_first_pass_done_is_idempotent() {
+        let state = ServerState::new();
+        state.mark_index_first_pass_done();
+        state.mark_index_first_pass_done();
+        // A second wait must still return promptly (no deadlock from re-firing).
+        timeout(Duration::from_millis(50), state.wait_for_index_first_pass())
+            .await
+            .expect("second wait should still resolve");
     }
 }

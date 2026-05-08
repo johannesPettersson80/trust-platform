@@ -439,6 +439,7 @@ impl LanguageServer for StLanguageServer {
     // =========================================================================
 
     async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
+        self.state.wait_for_index_first_pass().await;
         let uri = params
             .text_document_position_params
             .text_document
@@ -452,6 +453,7 @@ impl LanguageServer for StLanguageServer {
     }
 
     async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
+        self.state.wait_for_index_first_pass().await;
         let uri = params.text_document_position.text_document.uri.clone();
         let start = Instant::now();
         let result = handlers::completion(&self.state, params);
@@ -465,6 +467,7 @@ impl LanguageServer for StLanguageServer {
     }
 
     async fn signature_help(&self, params: SignatureHelpParams) -> Result<Option<SignatureHelp>> {
+        self.state.wait_for_index_first_pass().await;
         let uri = params
             .text_document_position_params
             .text_document
@@ -481,6 +484,7 @@ impl LanguageServer for StLanguageServer {
         &self,
         params: GotoDefinitionParams,
     ) -> Result<Option<GotoDefinitionResponse>> {
+        self.state.wait_for_index_first_pass().await;
         let uri = params
             .text_document_position_params
             .text_document
@@ -497,6 +501,7 @@ impl LanguageServer for StLanguageServer {
         &self,
         params: GotoDeclarationParams,
     ) -> Result<Option<GotoDeclarationResponse>> {
+        self.state.wait_for_index_first_pass().await;
         let uri = params
             .text_document_position_params
             .text_document
@@ -513,6 +518,7 @@ impl LanguageServer for StLanguageServer {
         &self,
         params: GotoTypeDefinitionParams,
     ) -> Result<Option<GotoTypeDefinitionResponse>> {
+        self.state.wait_for_index_first_pass().await;
         let uri = params
             .text_document_position_params
             .text_document
@@ -529,6 +535,7 @@ impl LanguageServer for StLanguageServer {
         &self,
         params: GotoImplementationParams,
     ) -> Result<Option<GotoImplementationResponse>> {
+        self.state.wait_for_index_first_pass().await;
         let uri = params
             .text_document_position_params
             .text_document
@@ -542,6 +549,7 @@ impl LanguageServer for StLanguageServer {
     }
 
     async fn references(&self, params: ReferenceParams) -> Result<Option<Vec<Location>>> {
+        self.state.wait_for_index_first_pass().await;
         let uri = params.text_document_position.text_document.uri.clone();
         let start = Instant::now();
         let result = self
@@ -580,6 +588,7 @@ impl LanguageServer for StLanguageServer {
         &self,
         params: WorkspaceSymbolParams,
     ) -> Result<Option<Vec<SymbolInformation>>> {
+        self.state.wait_for_index_first_pass().await;
         let start = Instant::now();
         let result = self
             .state
@@ -595,6 +604,7 @@ impl LanguageServer for StLanguageServer {
     }
 
     async fn code_action(&self, params: CodeActionParams) -> Result<Option<CodeActionResponse>> {
+        self.state.wait_for_index_first_pass().await;
         let uri = params.text_document.uri.clone();
         let start = Instant::now();
         let result = handlers::code_action(&self.state, params);
@@ -615,6 +625,7 @@ impl LanguageServer for StLanguageServer {
         &self,
         params: CallHierarchyPrepareParams,
     ) -> Result<Option<Vec<CallHierarchyItem>>> {
+        self.state.wait_for_index_first_pass().await;
         Ok(handlers::prepare_call_hierarchy(&self.state, params))
     }
 
@@ -622,6 +633,7 @@ impl LanguageServer for StLanguageServer {
         &self,
         params: CallHierarchyIncomingCallsParams,
     ) -> Result<Option<Vec<CallHierarchyIncomingCall>>> {
+        self.state.wait_for_index_first_pass().await;
         Ok(handlers::incoming_calls(&self.state, params))
     }
 
@@ -629,6 +641,7 @@ impl LanguageServer for StLanguageServer {
         &self,
         params: CallHierarchyOutgoingCallsParams,
     ) -> Result<Option<Vec<CallHierarchyOutgoingCall>>> {
+        self.state.wait_for_index_first_pass().await;
         Ok(handlers::outgoing_calls(&self.state, params))
     }
 
@@ -636,6 +649,7 @@ impl LanguageServer for StLanguageServer {
         &self,
         params: TypeHierarchyPrepareParams,
     ) -> Result<Option<Vec<TypeHierarchyItem>>> {
+        self.state.wait_for_index_first_pass().await;
         Ok(handlers::prepare_type_hierarchy(&self.state, params))
     }
 
@@ -643,6 +657,7 @@ impl LanguageServer for StLanguageServer {
         &self,
         params: TypeHierarchySupertypesParams,
     ) -> Result<Option<Vec<TypeHierarchyItem>>> {
+        self.state.wait_for_index_first_pass().await;
         Ok(handlers::type_hierarchy_supertypes(&self.state, params))
     }
 
@@ -650,10 +665,12 @@ impl LanguageServer for StLanguageServer {
         &self,
         params: TypeHierarchySubtypesParams,
     ) -> Result<Option<Vec<TypeHierarchyItem>>> {
+        self.state.wait_for_index_first_pass().await;
         Ok(handlers::type_hierarchy_subtypes(&self.state, params))
     }
 
     async fn rename(&self, params: RenameParams) -> Result<Option<WorkspaceEdit>> {
+        self.state.wait_for_index_first_pass().await;
         let uri = params.text_document_position.text_document.uri.clone();
         let start = Instant::now();
         let result = handlers::rename(&self.state, params);
@@ -666,6 +683,7 @@ impl LanguageServer for StLanguageServer {
         &self,
         params: TextDocumentPositionParams,
     ) -> Result<Option<PrepareRenameResponse>> {
+        self.state.wait_for_index_first_pass().await;
         let uri = params.text_document.uri.clone();
         let start = Instant::now();
         let result = handlers::prepare_rename(&self.state, params);
