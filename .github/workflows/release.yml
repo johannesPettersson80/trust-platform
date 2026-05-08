@@ -132,6 +132,20 @@ jobs:
           README
           tar -czf trust-runtime-${{ matrix.platform }}.tar.gz -C dist/runtime-${{ matrix.platform }} .
 
+      - name: Package trust-lsp (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p dist/trust-lsp-${{ matrix.platform }}
+          cp target/${{ matrix.target }}/release/trust-lsp dist/trust-lsp-${{ matrix.platform }}/
+          cat > dist/trust-lsp-${{ matrix.platform }}/README.txt <<'README'
+          truST IEC 61131-3 Structured Text Language Server
+
+          Put trust-lsp on your PATH and configure your editor for .st files.
+          Claude Code users: install the trust-st-lsp plugin from
+          https://github.com/johannesPettersson80/trust-claude-plugins
+          README
+          tar -czf trust-lsp-${{ matrix.platform }}.tar.gz -C dist/trust-lsp-${{ matrix.platform }} .
+
       - name: Package runtime (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -154,6 +168,21 @@ jobs:
           See INSTALL.md for full setup details.
           '@ | Set-Content -Path dist/runtime-${{ matrix.platform }}/README.txt
           Compress-Archive -Path dist/runtime-${{ matrix.platform }}/* -DestinationPath trust-runtime-${{ matrix.platform }}.zip
+
+      - name: Package trust-lsp (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist\trust-lsp-${{ matrix.platform }} | Out-Null
+          Copy-Item target/${{ matrix.target }}/release/trust-lsp.exe dist/trust-lsp-${{ matrix.platform }}/
+          @'
+          truST IEC 61131-3 Structured Text Language Server
+
+          Put trust-lsp.exe on your PATH and configure your editor for .st files.
+          Claude Code users: install the trust-st-lsp plugin from
+          https://github.com/johannesPettersson80/trust-claude-plugins
+          '@ | Set-Content -Path dist/trust-lsp-${{ matrix.platform }}/README.txt
+          Compress-Archive -Path dist/trust-lsp-${{ matrix.platform }}/* -DestinationPath trust-lsp-${{ matrix.platform }}.zip
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -188,6 +217,14 @@ jobs:
             trust-runtime-${{ matrix.platform }}.tar.gz
             trust-runtime-${{ matrix.platform }}.zip
 
+      - name: Upload trust-lsp artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: trust-lsp-${{ matrix.platform }}
+          path: |
+            trust-lsp-${{ matrix.platform }}.tar.gz
+            trust-lsp-${{ matrix.platform }}.zip
+
   publish:
     name: Publish
     needs: [build, runtime-vm-validation]
@@ -209,6 +246,13 @@ jobs:
         with:
           path: runtime-artifacts
           pattern: runtime-*
+          merge-multiple: true
+
+      - name: Download trust-lsp artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: trust-lsp-artifacts
+          pattern: trust-lsp-*
           merge-multiple: true
 
       - name: Setup Node.js
@@ -279,4 +323,6 @@ jobs:
             vsix-artifacts/*.vsix
             runtime-artifacts/*.tar.gz
             runtime-artifacts/*.zip
+            trust-lsp-artifacts/*.tar.gz
+            trust-lsp-artifacts/*.zip
           generate_release_notes: true
