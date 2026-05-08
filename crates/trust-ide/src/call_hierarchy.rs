@@ -7,7 +7,8 @@ use text_size::{TextRange, TextSize};
 
 use rustc_hash::FxHashSet;
 use trust_hir::db::{FileId, SemanticDatabase, SourceDatabase};
-use trust_hir::symbols::{SymbolId, SymbolKind, SymbolTable};
+use trust_hir::symbols::{Symbol, SymbolId, SymbolKind, SymbolTable};
+use trust_hir::types::Type;
 use trust_hir::Database;
 use trust_syntax::parser::parse;
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
@@ -218,6 +219,22 @@ fn call_hierarchy_item_for_key(db: &Database, key: SymbolKey) -> Option<CallHier
     })
 }
 
+fn fb_callee_for_instance_variable(
+    symbols: &SymbolTable,
+    var_symbol: &Symbol,
+    file_id: FileId,
+) -> Option<SymbolKey> {
+    let resolved_type = symbols.resolve_alias_type(var_symbol.type_id);
+    let type_name = match symbols.type_by_id(resolved_type)? {
+        Type::FunctionBlock { name } | Type::Class { name } | Type::Interface { name } => {
+            name.clone()
+        }
+        _ => return None,
+    };
+    let owner_id = symbols.resolve_global_or_qualified_name(type_name.as_str())?;
+    symbol_key(symbols, owner_id, file_id)
+}
+
 fn symbol_key(symbols: &SymbolTable, symbol_id: SymbolId, file_id: FileId) -> Option<SymbolKey> {
     let symbol = symbols.get(symbol_id)?;
     if let Some(origin) = symbol.origin {
@@ -285,6 +302,13 @@ fn collect_call_edges_in_files(
                 if let Some(symbol) = symbols.get(symbol_id) {
                     if is_pou_symbol_kind(&symbol.kind) {
                         callee_key = symbol_key(&symbols, symbol_id, file_id);
+                    } else {
+                        // FB-instance call (`var(...)` where `var : SomeFB`).
+                        // The call expression resolves to a Variable, not a
+                        // callable — but the call target is the underlying
+                        // FB/Class/Interface type. This is the dominant
+                        // invocation pattern in IEC 61131-3.
+                        callee_key = fb_callee_for_instance_variable(&symbols, symbol, file_id);
                     }
                 }
             }
@@ -432,6 +456,54 @@ END_PROGRAM
         let outgoing = outgoing_calls(&db, &item);
         assert_eq!(outgoing.len(), 1);
         assert!(outgoing[0].to.name.eq_ignore_ascii_case("Add"));
+    }
+
+    #[test]
+    fn call_hierarchy_tracks_fb_instance_calls() {
+        // FB-instance calls (`var(...)` where `var : SomeFB`) are the dominant
+        // invocation pattern in IEC 61131-3. They must surface as call edges
+        // pointing to the FB itself, not get dropped because the call-expr
+        // resolves to a Variable rather than a callable. Without this, call
+        // hierarchy on an FB returns empty incoming calls in any real ST
+        // project that uses FB instances.
+        let source = r#"
+FUNCTION_BLOCK LevelController
+VAR_INPUT
+    Speed : INT;
+END_VAR
+    ;
+END_FUNCTION_BLOCK
+
+PROGRAM MainProgram
+VAR
+    Ctrl : LevelController;
+END_VAR
+    Ctrl(Speed := 5);
+END_PROGRAM
+"#;
+        let mut db = Database::new();
+        let file_id = FileId(0);
+        db.set_source_text(file_id, source.to_string());
+
+        let position = TextSize::from(source.find("LevelController").expect("FB name") as u32);
+        let item = prepare_call_hierarchy(&db, file_id, position).expect("prepare");
+
+        let incoming = incoming_calls(&db, &item);
+        assert_eq!(
+            incoming.len(),
+            1,
+            "expected one incoming call from MainProgram via Ctrl(...) but got {} ({:?})",
+            incoming.len(),
+            incoming
+                .iter()
+                .map(|c| c.from.name.as_str())
+                .collect::<Vec<_>>()
+        );
+        assert!(
+            incoming[0].from.name.eq_ignore_ascii_case("MainProgram"),
+            "expected caller to be MainProgram, got {}",
+            incoming[0].from.name
+        );
     }
 
     #[test]
