@@ -13,6 +13,26 @@ use trust_runtime::Runtime;
 
 const MQTT_BROKER_IDLE_TIMEOUTS: usize = 600;
 const MQTT_LIVE_TEST_TIMEOUT: StdDuration = StdDuration::from_secs(10);
+/// The broker listener thread exits after this duration. It must outlive the
+/// sum of test-phase deadlines (prewarm + subscribe wait + cycle loop, each
+/// bounded by `MQTT_LIVE_TEST_TIMEOUT`); otherwise late connection attempts
+/// from the cycle phase get `ECONNREFUSED` and the cycle assertion fails on
+/// slow runners (observed on macOS CI).
+const MQTT_LIVE_BROKER_LIFETIME: StdDuration = StdDuration::from_secs(60);
+
+#[test]
+fn broker_lifetime_outlasts_test_phases() {
+    // The cycle test runs up to three sequential MQTT_LIVE_TEST_TIMEOUT
+    // phases: prewarm, subscribe-count wait, and cycle execution. The broker
+    // listener must outlive all three or late connects hit ECONNREFUSED.
+    assert!(
+        MQTT_LIVE_BROKER_LIFETIME >= MQTT_LIVE_TEST_TIMEOUT * 3,
+        "broker lifetime ({:?}) must outlast the cumulative test-phase budget \
+         (3 × {:?}); otherwise late cycle-phase connects hit ECONNREFUSED.",
+        MQTT_LIVE_BROKER_LIFETIME,
+        MQTT_LIVE_TEST_TIMEOUT,
+    );
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct MqttPublish {
@@ -39,7 +59,7 @@ fn start_mqtt_test_broker(
     let topic_in = topic_in.to_string();
 
     thread::spawn(move || {
-        let listener_deadline = Instant::now() + MQTT_LIVE_TEST_TIMEOUT;
+        let listener_deadline = Instant::now() + MQTT_LIVE_BROKER_LIFETIME;
         let _ = listener.set_nonblocking(true);
         while Instant::now() < listener_deadline {
             {
