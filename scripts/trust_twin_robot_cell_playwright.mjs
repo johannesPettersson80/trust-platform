@@ -11,12 +11,17 @@ import { chromium } from "./captures/node_modules/playwright/index.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const artifactDir = path.join(repoRoot, "target", "gate-artifacts");
-const artifactPath = path.join(artifactDir, "trust-twin-robot-cell-motion.json");
-const htmlPath = path.join(artifactDir, "trust-twin-robot-cell-production-webview.html");
-const beforePng = path.join(artifactDir, "trust-twin-robot-cell-before.png");
-const closedPng = path.join(artifactDir, "trust-twin-robot-cell-closed-grip.png");
-const afterPng = path.join(artifactDir, "trust-twin-robot-cell-after.png");
-const stalePng = path.join(artifactDir, "trust-twin-robot-cell-stale.png");
+// Output paths redirected to *.invalid.* while the renderer rebuild is pending.
+// The first proof produced by this script used an HTML-div fallback with
+// x+z dimensional collapse; the resulting artifacts have been quarantined.
+// Restore the non-.invalid names only after the scena+wasm renderer lands
+// and a real visual-review gate replaces the previously hardcoded verdict.
+const artifactPath = path.join(artifactDir, "trust-twin-robot-cell-motion.invalid.json");
+const htmlPath = path.join(artifactDir, "trust-twin-robot-cell-production-webview.invalid.html");
+const beforePng = path.join(artifactDir, "trust-twin-robot-cell-before.invalid.png");
+const closedPng = path.join(artifactDir, "trust-twin-robot-cell-closed-grip.invalid.png");
+const afterPng = path.join(artifactDir, "trust-twin-robot-cell-after.invalid.png");
+const stalePng = path.join(artifactDir, "trust-twin-robot-cell-stale.invalid.png");
 const viewPath = path.join(
   repoRoot,
   "examples",
@@ -141,13 +146,25 @@ try {
   };
   artifact.disconnected_state_result = "ok";
   artifact.visual_motion_checks = checks;
-  artifact.assistant_visual_verdict =
-    "approved: production-webview screenshots show a procedural robot cell, pickup/drop surfaces, box contact, closed gripper around the box, runtime-driven motion, and stale/offline grey-out with no fallback placeholder escape";
-  artifact.evidence_blockers = (artifact.evidence_blockers || []).filter(
-    (blocker) =>
-      blocker !== "playwright_motion_capture_pending" &&
-      blocker !== "runtime_disconnect_stale_visual_pending" &&
-      blocker !== "assistant_visual_review_pending",
+  // assistant_visual_verdict MUST come from a real visual-review call against
+  // the captured PNGs. It is intentionally NOT set here. The previous
+  // implementation wrote a hardcoded approval string into this field on every
+  // run regardless of what the screenshots showed; that field is now absent
+  // until a real review hook is wired in.
+  //
+  // evidence_blockers is appended to, never stripped. Blockers must be cleared
+  // by passing their actual check, not by filtering them out of the artifact.
+  delete artifact.assistant_visual_verdict;
+  const existingBlockers = Array.isArray(artifact.evidence_blockers)
+    ? artifact.evidence_blockers
+    : [];
+  const blockersToAdd = [
+    "renderer_is_placeholder_no_scena",
+    "assistant_visual_review_pending",
+    "assistant_cold_inspection_pending",
+  ];
+  artifact.evidence_blockers = Array.from(
+    new Set([...existingBlockers, ...blockersToAdd]),
   );
   await fs.writeFile(artifactPath, `${JSON.stringify(artifact, null, 2)}\n`, "utf8");
 
