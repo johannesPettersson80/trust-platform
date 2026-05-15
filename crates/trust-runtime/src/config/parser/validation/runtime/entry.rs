@@ -22,6 +22,7 @@ impl RuntimeToml {
             cloud,
             realtime,
             observability,
+            hmi_persistence,
             opcua,
         } = self.runtime;
         let (execution_backend, execution_backend_source) =
@@ -61,6 +62,7 @@ impl RuntimeToml {
         let parsed_cloud = parse_runtime_cloud_section(cloud)?;
         let parsed_realtime = parse_realtime_section(realtime)?;
         let observability = parse_observability_section(observability)?;
+        let hmi_persistence = parse_hmi_persistence_section(hmi_persistence)?;
         let opcua = parse_opcua_section(opcua)?;
 
         Ok(RuntimeConfig {
@@ -93,6 +95,7 @@ impl RuntimeToml {
             runtime_cloud_link_preferences: parsed_cloud.link_preferences,
             realtime: parsed_realtime.config,
             observability,
+            hmi_persistence,
             opcua,
             tasks,
         })

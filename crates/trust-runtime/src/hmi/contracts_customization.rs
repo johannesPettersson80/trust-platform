@@ -152,6 +152,7 @@ struct HmiDirPageToml {
     kind: Option<String>,
     duration_s: Option<u64>,
     svg: Option<String>,
+    view: Option<String>,
     #[serde(default)]
     hidden: Option<bool>,
     #[serde(default)]
@@ -160,6 +161,8 @@ struct HmiDirPageToml {
     sections: Vec<HmiDirSectionToml>,
     #[serde(default, rename = "bind")]
     bindings: Vec<HmiDirProcessBindingToml>,
+    #[serde(default, rename = "bind3d")]
+    bindings3d: Vec<HmiDirSceneBindingToml>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -198,6 +201,38 @@ struct HmiDirProcessBindingToml {
     #[serde(default)]
     map: BTreeMap<String, String>,
     scale: Option<HmiProcessScaleToml>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct HmiDirSceneBindingToml {
+    node: Option<String>,
+    property: Option<HmiScenePropertyToml>,
+    source: Option<String>,
+    format: Option<String>,
+    #[serde(default)]
+    map: BTreeMap<String, String>,
+    scale: Option<HmiProcessScaleToml>,
+}
+
+#[derive(Debug, Clone)]
+struct HmiScenePropertyToml(String);
+
+impl HmiScenePropertyToml {
+    fn into_inner(self) -> String {
+        self.0
+    }
+}
+
+impl<'de> Deserialize<'de> for HmiScenePropertyToml {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        normalize_scene_binding_property(value.as_str())
+            .map(Self)
+            .map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]

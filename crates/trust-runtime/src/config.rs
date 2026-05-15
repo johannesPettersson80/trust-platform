@@ -12,6 +12,7 @@ use smol_str::SmolStr;
 use crate::error::RuntimeError;
 use crate::execution_backend::{ExecutionBackend, ExecutionBackendSource};
 use crate::historian::{AlertRule, HistorianConfig, RecordingMode};
+use crate::hmi::HmiPersistenceConfig;
 use crate::io::{IoAddress, IoSafeState, IoSize};
 use crate::linux_rt::{LinuxRtConfig, LinuxRtSchedulerPolicy};
 use crate::opcua::{

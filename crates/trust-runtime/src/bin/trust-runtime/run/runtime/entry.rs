@@ -212,6 +212,19 @@ pub fn run_runtime(
         None
     };
 
+    let hmi_persistence = if let Some(bundle) = &bundle {
+        if bundle.runtime.hmi_persistence.enabled {
+            Some(HmiPersistenceService::new(
+                bundle.runtime.hmi_persistence.clone(),
+                Some(bundle.root.as_path()),
+            )?)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
     let (audit_tx, audit_rx) = std::sync::mpsc::channel();
     let audit_logger = logger.clone();
     std::thread::spawn(move || {
@@ -257,7 +270,14 @@ pub fn run_runtime(
                 .unwrap_or(true),
         )),
         debug_variables: Arc::new(Mutex::new(trust_runtime::debug::DebugVariableHandles::new())),
-        hmi_live: Arc::new(Mutex::new(trust_runtime::hmi::HmiLiveState::default())),
+        hmi_live: Arc::new(Mutex::new(
+            hmi_persistence
+                .as_ref()
+                .map(|service| service.load_state())
+                .transpose()?
+                .unwrap_or_default(),
+        )),
+        hmi_persistence: hmi_persistence.clone(),
         hmi_descriptor,
         historian: historian.clone(),
         pairing: pairing.clone(),

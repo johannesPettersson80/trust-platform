@@ -270,6 +270,7 @@ package "Control + HMI Contract" as hmiPkg #Lavender {
         card "hmi.values.get\n(typed values + quality + timestamp)" as hmiValues
         card "hmi.trends.get\n(sample buffers + downsample)" as hmiTrends
         card "hmi.alarms.get / hmi.alarm.ack\n(raise -> ack -> clear + history)" as hmiAlarms
+        card "HMI persistence\n(JSONL append + bounded restart window)" as hmiPersistence
         card "historian.query / historian.alerts\n(persistent samples + alert transitions)" as hmiHistorian
         card "hmi.write\n(explicit allowlist + authz,\nqueued writes; no force semantics)" as hmiWrite
     }
@@ -310,6 +311,9 @@ package "Control + HMI Contract" as hmiPkg #Lavender {
     hmiEmit --> hmiValues
     hmiValues --> hmiTrends
     hmiValues --> hmiAlarms
+    hmiValues --> hmiPersistence
+    hmiTrends --> hmiPersistence
+    hmiAlarms --> hmiPersistence
     hmiValues --> hmiHistorian
     hmiValues --> hmiWrite
     hmiAlarms --> hmiWrite

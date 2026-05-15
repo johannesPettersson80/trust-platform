@@ -18,7 +18,7 @@ use trust_runtime::control::{
 use trust_runtime::discovery::{start_discovery, DiscoveryState};
 use trust_runtime::harness::CompileSession;
 use trust_runtime::historian::HistorianService;
-use trust_runtime::hmi::{HmiScaffoldMode, HmiSourceRef};
+use trust_runtime::hmi::{HmiPersistenceService, HmiScaffoldMode, HmiSourceRef};
 use trust_runtime::io::IoDriverRegistry;
 use trust_runtime::linux_rt::{make_thread_init_hook, LinuxRtRuntimeStatus};
 use trust_runtime::mesh::start_mesh;

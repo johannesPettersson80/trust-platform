@@ -13,6 +13,7 @@ use trust_hir::types::Type;
 
 use crate::debug::dap::value_type_name;
 use crate::debug::DebugSnapshot;
+use crate::error::RuntimeError;
 use crate::runtime::RuntimeMetadata;
 use crate::value::Value;
 
@@ -20,7 +21,7 @@ mod descriptor;
 mod scaffold;
 
 use descriptor::{apply_hmi_dir_descriptor, load_hmi_toml};
-pub use descriptor::{load_hmi_dir, write_hmi_dir_descriptor};
+pub use descriptor::{load_hmi_dir, load_hmi_scene_view, write_hmi_dir_descriptor};
 use descriptor::{load_hmi_dir_impl, map_hmi_dir_page, render_hmi_dir_page_toml};
 #[cfg(test)]
 use scaffold::parse_hmi_annotation_payload;
@@ -46,9 +47,11 @@ const HMI_DIAG_TYPE_MISMATCH: &str = "HMI_BIND_TYPE_MISMATCH";
 const HMI_DIAG_UNKNOWN_WIDGET: &str = "HMI_UNKNOWN_WIDGET_KIND";
 
 include!("hmi/contracts.rs");
+include!("hmi/persistence.rs");
 include!("hmi/customization.rs");
 include!("hmi/runtime_views.rs");
 include!("hmi/points.rs");
+include!("hmi/trust_twin_scene.rs");
 include!("hmi/layout.rs");
 include!("hmi/catalog.rs");
 #[cfg(test)]

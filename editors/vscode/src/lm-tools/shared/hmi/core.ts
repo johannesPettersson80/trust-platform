@@ -100,6 +100,8 @@ export function parseHmiSchemaPayload(value: unknown): HmiSchemaResult | undefin
           ? page.order
           : 0,
       kind: typeof page.kind === "string" ? page.kind : undefined,
+      view: typeof page.view === "string" ? page.view : undefined,
+      bind3d: parseHmiSceneBindings(page.bind3d),
       sections: sections.length > 0 ? sections : undefined,
     });
   }
@@ -118,6 +120,33 @@ export function parseHmiSchemaPayload(value: unknown): HmiSchemaResult | undefin
     ),
     widgets: widgets.sort((left, right) => left.id.localeCompare(right.id)),
   };
+}
+
+function parseHmiSceneBindings(value: unknown): HmiSchemaResult["pages"][number]["bind3d"] {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const bindings = value
+    .map((entry) => {
+      const binding = asRecord(entry);
+      if (
+        !binding ||
+        typeof binding.node !== "string" ||
+        typeof binding.property !== "string" ||
+        typeof binding.source !== "string"
+      ) {
+        return undefined;
+      }
+      return {
+        node: binding.node,
+        property: binding.property,
+        source: binding.source,
+      };
+    })
+    .filter(
+      (entry): entry is { node: string; property: string; source: string } => !!entry,
+    );
+  return bindings.length > 0 ? bindings : undefined;
 }
 
 export function parseHmiValuesPayload(value: unknown): HmiValuesResult | undefined {
@@ -288,11 +317,7 @@ export async function readHmiLayoutSnapshot(
   }
 
   const tomlFiles = entries
-    .filter(
-      ([name, kind]) =>
-        kind === vscode.FileType.File &&
-        name.toLowerCase().endsWith(".toml"),
-    )
+    .filter(([name, kind]) => kind === vscode.FileType.File && isHmiTomlFileName(name))
     .map(([name]) => name)
     .sort((left, right) => left.localeCompare(right));
   const svgFiles = entries
@@ -320,7 +345,7 @@ export async function readHmiLayoutSnapshot(
 
   const config = files.find((entry) => entry.name === "_config.toml") ?? null;
   const pages = files
-    .filter((entry) => entry.name !== "_config.toml")
+    .filter((entry) => isHmiPageTomlFileName(entry.name))
     .sort((left, right) => left.name.localeCompare(right.name));
 
   return {
@@ -334,6 +359,15 @@ export async function readHmiLayoutSnapshot(
       assets: svgFiles,
     },
   };
+}
+
+export function isHmiTomlFileName(name: string): boolean {
+  return name.toLowerCase().endsWith(".toml");
+}
+
+export function isHmiPageTomlFileName(name: string): boolean {
+  const lower = name.toLowerCase();
+  return isHmiTomlFileName(name) && lower !== "_config.toml" && !lower.endsWith(".view.toml");
 }
 
 export async function writeUtf8File(uri: vscode.Uri, text: string): Promise<void> {

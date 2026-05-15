@@ -3,6 +3,8 @@ import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 
+import { isHmiPageTomlFileName } from "../../lm-tools/shared/hmi/core";
+
 type PackageJsonContract = {
   activationEvents?: string[];
   contributes?: { languageModelTools?: Array<{ name?: string }> };
@@ -106,5 +108,11 @@ suite("Language model tool contract (VS Code)", () => {
       declaredToolNames,
       "Synthetic LM tool drift should be detected by the contract matcher.",
     );
+  });
+
+  test("HMI page listing excludes scene view payload TOML", () => {
+    assert.strictEqual(isHmiPageTomlFileName("overview.toml"), true);
+    assert.strictEqual(isHmiPageTomlFileName("_config.toml"), false);
+    assert.strictEqual(isHmiPageTomlFileName("drive-cell.view.toml"), false);
   });
 });

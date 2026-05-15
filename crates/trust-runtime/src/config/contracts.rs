@@ -25,6 +25,7 @@ pub struct RuntimeConfig {
     pub runtime_cloud_link_preferences: Vec<RuntimeCloudLinkPreferenceRule>,
     pub realtime: LinuxRtConfig,
     pub observability: HistorianConfig,
+    pub hmi_persistence: HmiPersistenceConfig,
     pub opcua: OpcUaRuntimeConfig,
     pub tasks: Option<Vec<TaskOverride>>,
 }

@@ -38,6 +38,54 @@ type HmiProcessScaleSchema = {
   output_max: number;
 };
 
+export type HmiSceneBindingSchema = {
+  node: string;
+  property: string;
+  source: string;
+  format?: string | null;
+  map?: Record<string, string>;
+  scale?: HmiProcessScaleSchema | null;
+};
+
+export type HmiSceneInteractionSchema = {
+  event: "click" | "touch" | "toggle" | string;
+  action: "hmi.write" | string;
+  id: string;
+  value: unknown;
+  required_role: string;
+  confirmation?: {
+    title: string;
+    message: string;
+  } | null;
+};
+
+export type HmiSceneNodeSchema = {
+  id: string;
+  asset?: string | null;
+  primitive?: string | null;
+  label?: string | null;
+  transform?: {
+    position?: [number, number, number] | null;
+    rotation?: [number, number, number] | null;
+    scale?: [number, number, number] | null;
+  } | null;
+  material?: {
+    base_color?: string | null;
+    emissive?: string | null;
+    opacity?: number | null;
+  } | null;
+  interaction?: HmiSceneInteractionSchema[];
+  interactions?: HmiSceneInteractionSchema[];
+};
+
+export type HmiSceneViewPayload = {
+  asset?: unknown[];
+  node?: HmiSceneNodeSchema[];
+  camera?: unknown[];
+  light?: unknown[];
+  bind3d?: HmiSceneBindingSchema[];
+};
+
 export type HmiProcessBindingSchema = {
   selector: string;
   attribute: string;
@@ -62,9 +110,12 @@ export type HmiPageSchema = {
   duration_ms?: number | null;
   svg?: string | null;
   svg_content?: string | null;
+  view?: string | null;
+  scene_view?: HmiSceneViewPayload | null;
   signals?: string[];
   sections?: HmiSectionSchema[];
   bindings?: HmiProcessBindingSchema[];
+  bind3d?: HmiSceneBindingSchema[];
 };
 
 export type HmiSchemaResult = {
@@ -89,6 +140,60 @@ export type HmiValuesResult = {
   timestamp_ms: number;
   freshness_ms?: number | null;
   values: Record<string, { v: unknown; q: string; ts_ms: number }>;
+};
+
+export type HmiTrendPoint = {
+  ts_ms: number;
+  value: number;
+  min: number;
+  max: number;
+  samples: number;
+};
+
+export type HmiTrendSeries = {
+  id: string;
+  label: string;
+  unit?: string | null;
+  points: HmiTrendPoint[];
+};
+
+export type HmiTrendResult = {
+  connected: boolean;
+  timestamp_ms: number;
+  duration_ms: number;
+  buckets: number;
+  series: HmiTrendSeries[];
+};
+
+export type HmiAlarmRecord = {
+  id: string;
+  widget_id: string;
+  path: string;
+  label: string;
+  state: string;
+  acknowledged: boolean;
+  raised_at_ms: number;
+  last_change_ms: number;
+  value: number;
+  min?: number | null;
+  max?: number | null;
+};
+
+export type HmiAlarmHistoryRecord = {
+  id: string;
+  widget_id: string;
+  path: string;
+  label: string;
+  event: string;
+  timestamp_ms: number;
+  value: number;
+};
+
+export type HmiAlarmResult = {
+  connected: boolean;
+  timestamp_ms: number;
+  active: HmiAlarmRecord[];
+  history: HmiAlarmHistoryRecord[];
 };
 
 export type LayoutWidgetOverride = {

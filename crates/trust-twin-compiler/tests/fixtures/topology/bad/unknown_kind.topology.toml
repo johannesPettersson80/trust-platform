@@ -1,0 +1,4 @@
+[[components]]
+id = "TK-101"
+kind = "unknown-tank"
+at = { grid = "A1" }

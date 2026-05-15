@@ -186,7 +186,7 @@ export function applyLayoutOverrides(
 
 function normalizePageKind(value: string | null | undefined): string {
   const kind = typeof value === "string" ? value.trim().toLowerCase() : "";
-  if (kind === "process" || kind === "trend" || kind === "alarm") {
+  if (kind === "process" || kind === "trend" || kind === "alarm" || kind === "scene3d") {
     return kind;
   }
   return "dashboard";

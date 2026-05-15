@@ -3,7 +3,7 @@
   "displayName": "truST LSP",
   "description": "truST LSP \u2014 IEC 61131-3 Structured Text language support",
   "icon": "icon.png",
-  "version": "0.24.17",
+  "version": "0.24.18",
   "publisher": "trust-platform",
   "license": "MIT OR Apache-2.0",
   "engines": {
@@ -37,6 +37,8 @@
     "onCommand:trust-lsp.hmi.openPreview",
     "onCommand:trust-lsp.hmi.refreshFromDescriptor",
     "onCommand:trust-lsp.hmi.init",
+    "onCommand:trust-lsp.trustTwin.openPanel",
+    "onCommand:trust-lsp.trustTwin.refreshPanel",
     "onCommand:trust-lsp.debug.reload",
     "onCommand:trust-lsp.moveNamespace.ui",
     "onLanguageModelTool:trust_lsp_request",
@@ -87,6 +89,7 @@
     "onLanguageModelTool:trust_hmi_run_journey",
     "onLanguageModelTool:trust_hmi_explain_widget",
     "onLanguageModelTool:trust_hmi_init",
+    "onLanguageModelTool:trust_twin_topology_propose",
     "onLanguageModelTool:trust_workspace_rename_file",
     "onLanguageModelTool:trust_update_settings",
     "onLanguageModelTool:trust_read_telemetry",
@@ -270,6 +273,17 @@
           "default": 500,
           "minimum": 100,
           "description": "Polling interval for the HMI preview panel value refresh (milliseconds).",
+          "scope": "resource"
+        },
+        "trust-lsp.trustTwin.aiProvider": {
+          "type": "string",
+          "enum": [
+            "disabled",
+            "local",
+            "cloud"
+          ],
+          "default": "local",
+          "description": "Provider mode for trust-twin AI topology authoring. Local keeps project content in the workspace; cloud is opt-in and requires a future provider adapter.",
           "scope": "resource"
         }
       }
@@ -1329,6 +1343,46 @@
         }
       },
       {
+        "name": "trust_twin_topology_propose",
+        "displayName": "trust-twin Topology Propose",
+        "toolReferenceName": "trustTwinTopologyPropose",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(sparkle)",
+        "userDescription": "Propose a reviewed trust-twin topology diff from natural language.",
+        "modelDescription": "Creates a topology.toml diff from a natural-language intent, validates it through the trust-twin topology compiler in dry-run mode, and returns reviewable diff plus doctor evidence. Do not emit raw coordinates or hand-authored bind3d in the normal path.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "rootPath": {
+              "type": "string",
+              "description": "Optional workspace root path/URI."
+            },
+            "description": {
+              "type": "string",
+              "description": "Natural-language topology intent, for example 'Conveyor with 2 sensors and a pusher'."
+            },
+            "reference_page_id": {
+              "type": "string",
+              "description": "Optional page id used to choose hmi/views/<id>.topology.toml."
+            },
+            "component_kind_constraints": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Optional allowed built-in component kinds such as motor, transmitter, valve, pump, tank, or vfd."
+            },
+            "write_gate_artifact": {
+              "type": "boolean",
+              "description": "When true, write target/gate-artifacts/trust-twin-p4-ai-author.json for checklist evidence."
+            }
+          },
+          "required": [
+            "description"
+          ]
+        }
+      },
+      {
         "name": "trust_get_inline_values",
         "displayName": "ST Inline Values",
         "toolReferenceName": "stInlineValues",
@@ -2206,6 +2260,16 @@
         "category": "Structured Text"
       },
       {
+        "command": "trust-lsp.trustTwin.openPanel",
+        "title": "Structured Text: Open trust-twin 3D Panel",
+        "category": "Structured Text"
+      },
+      {
+        "command": "trust-lsp.trustTwin.refreshPanel",
+        "title": "Structured Text: Refresh trust-twin 3D Panel",
+        "category": "Structured Text"
+      },
+      {
         "command": "trust-lsp.debug.reload",
         "title": "Structured Text: Hot Reload",
         "category": "Structured Text"
@@ -2413,8 +2477,10 @@
     "build:blockly": "node ./scripts/build-blockly-webview.js",
     "build:ladder": "node ./scripts/build-ladder-webview.js",
     "build:sfc": "node ./scripts/build-sfc-webview.js",
+    "build:trust-twin": "node ./scripts/build-trust-twin-webview.js",
+    "package:trust-twin-smoke": "node ./scripts/check-trust-twin-package-assets.js",
     "typecheck:webview": "tsc -p ./tsconfig.webview.json",
-    "compile": "npm run build:panel && npm run build:statechart && npm run build:blockly && npm run build:ladder && npm run build:sfc && tsc -p ./ && npm run typecheck:webview",
+    "compile": "npm run build:panel && npm run build:statechart && npm run build:blockly && npm run build:ladder && npm run build:sfc && npm run build:trust-twin && tsc -p ./ && npm run typecheck:webview",
     "watch": "concurrently \"node ./scripts/watch-io-panel.js\" \"node ./scripts/build-statechart-webview.js --watch\" \"node ./scripts/build-blockly-webview.js --watch\" \"node ./scripts/build-ladder-webview.js --watch\" \"node ./scripts/build-sfc-webview.js --watch\"",
     "lint": "eslint src --ext ts,tsx",
     "test": "npm run compile && node ./out/test/runTest.js"

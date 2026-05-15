@@ -1,0 +1,8 @@
+[grid]
+cell_size = 0.5
+origin = [0.0, 0.0, 0.0]
+
+[[components]]
+id = "ROBOT-1"
+kind = "robot_arm"
+at = { grid = "A1" }

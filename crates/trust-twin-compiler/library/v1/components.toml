@@ -1,0 +1,409 @@
+version = 1
+
+[grid]
+cell_size = 2.0
+origin = [0.0, 0.0, 0.0]
+
+[[kind]]
+name = "tank"
+default_mesh_asset = "trust-twin/components/tank.gltf"
+primitive = "box"
+material = "#64748b"
+scale = [1.2, 2.0, 1.2]
+
+[[kind.ports]]
+name = "inlet"
+domain = "water"
+direction = "in"
+size = "DN50"
+origin = [-0.75, 0.0, 0.0]
+axis = [-1.0, 0.0, 0.0]
+
+[[kind.ports]]
+name = "outlet"
+domain = "water"
+direction = "out"
+size = "DN50"
+origin = [0.75, 0.0, 0.0]
+axis = [1.0, 0.0, 0.0]
+
+[[kind.signals]]
+name = "level"
+node_suffix = "level"
+property = "transform.scale.y"
+binding_scale = { min = 0.0, max = 100.0, output_min = 0.05, output_max = 1.0 }
+
+[kind.signals.visual_node]
+primitive = "box"
+label_suffix = "level"
+position_offset = [0.0, -0.4, 0.0]
+scale = [1.0, 0.2, 1.0]
+material = "#38bdf8"
+opacity = 0.85
+
+[[kind]]
+name = "pump"
+default_mesh_asset = "trust-twin/components/pump.gltf"
+primitive = "box"
+material = "#22c55e"
+scale = [1.2, 1.0, 1.2]
+
+[[kind.ports]]
+name = "inlet"
+domain = "water"
+direction = "in"
+size = "DN50"
+origin = [-0.75, 0.0, 0.0]
+axis = [-1.0, 0.0, 0.0]
+
+[[kind.ports]]
+name = "outlet"
+domain = "water"
+direction = "out"
+size = "DN50"
+origin = [0.75, 0.0, 0.0]
+axis = [1.0, 0.0, 0.0]
+
+[[kind.signals]]
+name = "running"
+property = "material.emissive"
+
+[[kind]]
+name = "valve"
+default_mesh_asset = "trust-twin/components/valve.gltf"
+primitive = "box"
+material = "#f59e0b"
+scale = [0.8, 0.8, 0.8]
+
+[[kind.ports]]
+name = "inlet"
+domain = "water"
+direction = "in"
+size = "DN50"
+origin = [-0.6, 0.0, 0.0]
+axis = [-1.0, 0.0, 0.0]
+
+[[kind.ports]]
+name = "outlet"
+domain = "water"
+direction = "out"
+size = "DN50"
+origin = [0.6, 0.0, 0.0]
+axis = [1.0, 0.0, 0.0]
+
+[[kind.signals]]
+name = "position"
+property = "transform.rotation.y"
+binding_scale = { min = 0.0, max = 100.0, output_min = 0.0, output_max = 1.570796 }
+
+[[kind]]
+name = "motor"
+default_mesh_asset = "trust-twin/components/motor.gltf"
+primitive = "box"
+material = "#3b82f6"
+scale = [1.4, 0.8, 0.8]
+
+[[kind.ports]]
+name = "shaft"
+domain = "mechanical"
+direction = "out"
+size = "shaft-std"
+origin = [0.8, 0.0, 0.0]
+axis = [1.0, 0.0, 0.0]
+
+[[kind.ports]]
+name = "power_in"
+domain = "electric"
+direction = "in"
+size = "480vac"
+origin = [-0.8, 0.0, 0.0]
+axis = [-1.0, 0.0, 0.0]
+
+[[kind.signals]]
+name = "running"
+property = "material.emissive"
+
+[[kind.signals]]
+name = "speed"
+property = "transform.rotation.y"
+binding_scale = { min = 0.0, max = 3600.0, output_min = 0.0, output_max = 6.283185 }
+
+[[kind]]
+name = "vfd"
+default_mesh_asset = "trust-twin/components/vfd.gltf"
+primitive = "box"
+material = "#8b5cf6"
+scale = [1.0, 1.2, 0.6]
+
+[[kind.ports]]
+name = "power_in"
+domain = "electric"
+direction = "in"
+size = "480vac"
+origin = [-0.6, 0.0, 0.0]
+axis = [-1.0, 0.0, 0.0]
+
+[[kind.ports]]
+name = "power_out"
+domain = "electric"
+direction = "out"
+size = "480vac"
+origin = [0.6, 0.0, 0.0]
+axis = [1.0, 0.0, 0.0]
+
+[[kind.signals]]
+name = "enabled"
+property = "visible"
+
+[[kind.signals]]
+name = "frequency"
+property = "transform.scale.y"
+binding_scale = { min = 0.0, max = 60.0, output_min = 0.2, output_max = 1.0 }
+
+[[kind]]
+name = "transmitter"
+default_mesh_asset = "trust-twin/components/transmitter.gltf"
+primitive = "box"
+material = "#14b8a6"
+scale = [0.6, 1.0, 0.6]
+
+[[kind.ports]]
+name = "process"
+domain = "water"
+direction = "in_out"
+size = "DN25"
+origin = [0.0, -0.5, 0.0]
+axis = [0.0, -1.0, 0.0]
+
+[[kind.ports]]
+name = "signal"
+domain = "instrument"
+direction = "out"
+size = "4-20ma"
+origin = [0.5, 0.0, 0.0]
+axis = [1.0, 0.0, 0.0]
+
+[[kind.signals]]
+name = "value"
+property = "text.value"
+
+[[kind]]
+name = "robot_arm"
+default_mesh_asset = "trust-twin/components/robot-arm.gltf"
+primitive = "box"
+material = "#2563eb"
+scale = [0.7, 0.5, 0.7]
+bounds = { size = [1.5, 1.8, 1.5] }
+
+[[kind.surfaces]]
+name = "base_top"
+origin = [0.0, 0.25, 0.0]
+normal = [0.0, 1.0, 0.0]
+extents = [0.7, 0.7]
+
+[[kind.mounts]]
+name = "tool"
+origin = [0.0, 1.2, 0.75]
+axis = [0.0, 0.0, 1.0]
+up = [0.0, 1.0, 0.0]
+
+[[kind.visual_nodes]]
+suffix = "shoulder"
+primitive = "box"
+label_suffix = "shoulder link"
+position_offset = [-0.35, 0.85, 0.0]
+scale = [1.05, 0.20, 0.24]
+material = "#2563eb"
+
+[[kind.visual_nodes]]
+suffix = "elbow"
+primitive = "box"
+label_suffix = "elbow link"
+position_offset = [0.35, 1.20, 0.0]
+scale = [0.9, 0.18, 0.22]
+material = "#38bdf8"
+
+[[kind.visual_nodes]]
+suffix = "wrist"
+primitive = "box"
+label_suffix = "wrist link"
+position_offset = [0.82, 1.05, 0.0]
+scale = [0.45, 0.16, 0.18]
+material = "#22c55e"
+
+[[kind.signals]]
+name = "shoulder_angle"
+node_suffix = "shoulder"
+property = "transform.rotation.z"
+binding_scale = { min = -1.570796, max = 1.570796, output_min = -1.570796, output_max = 1.570796 }
+
+[[kind.signals]]
+name = "elbow_angle"
+node_suffix = "elbow"
+property = "transform.rotation.z"
+binding_scale = { min = -1.570796, max = 1.570796, output_min = -1.570796, output_max = 1.570796 }
+
+[[kind.signals]]
+name = "wrist_angle"
+node_suffix = "wrist"
+property = "transform.rotation.z"
+binding_scale = { min = -1.570796, max = 1.570796, output_min = -1.570796, output_max = 1.570796 }
+
+[[kind.signals]]
+name = "status"
+property = "material.emissive"
+
+[[kind]]
+name = "gripper"
+default_mesh_asset = "trust-twin/components/gripper.gltf"
+primitive = "box"
+material = "#475569"
+scale = [0.16, 0.18, 0.36]
+bounds = { size = [0.45, 0.25, 0.35] }
+
+[[kind.mounts]]
+name = "wrist"
+origin = [0.0, 0.0, -0.175]
+axis = [0.0, 0.0, 1.0]
+up = [0.0, 1.0, 0.0]
+
+[[kind.mounts]]
+name = "pick_target"
+origin = [0.0, -0.2, 0.2]
+axis = [0.0, -1.0, 0.0]
+up = [0.0, 0.0, 1.0]
+
+[[kind.visual_nodes]]
+suffix = "left_jaw"
+primitive = "box"
+label_suffix = "left jaw"
+position_offset = [0.0, 0.0, 0.16]
+scale = [0.12, 0.42, 0.10]
+material = "#e2e8f0"
+
+[[kind.visual_nodes]]
+suffix = "right_jaw"
+primitive = "box"
+label_suffix = "right jaw"
+position_offset = [0.0, 0.0, -0.16]
+scale = [0.12, 0.42, 0.10]
+material = "#e2e8f0"
+
+[[kind.signals]]
+name = "open_left"
+node_suffix = "left_jaw"
+property = "transform.position.z"
+map = { "true" = "0.22", "false" = "0.09" }
+
+[[kind.signals]]
+name = "open_right"
+node_suffix = "right_jaw"
+property = "transform.position.z"
+map = { "true" = "-0.22", "false" = "-0.09" }
+
+[[kind.signals]]
+name = "x"
+property = "transform.position.x"
+
+[[kind.signals]]
+name = "y"
+property = "transform.position.y"
+
+[[kind.signals]]
+name = "z"
+property = "transform.position.z"
+
+[[kind]]
+name = "workpiece"
+default_mesh_asset = "trust-twin/components/workpiece.gltf"
+primitive = "box"
+material = "#f97316"
+scale = [0.4, 0.4, 0.4]
+bounds = { size = [0.4, 0.4, 0.4] }
+
+[[kind.surfaces]]
+name = "bottom"
+origin = [0.0, -0.2, 0.0]
+normal = [0.0, -1.0, 0.0]
+extents = [0.4, 0.4]
+
+[[kind.surfaces]]
+name = "top"
+origin = [0.0, 0.2, 0.0]
+normal = [0.0, 1.0, 0.0]
+extents = [0.4, 0.4]
+
+[[kind.surfaces]]
+name = "grip_left"
+origin = [-0.2, 0.0, 0.0]
+normal = [-1.0, 0.0, 0.0]
+extents = [0.4, 0.4]
+
+[[kind.surfaces]]
+name = "grip_right"
+origin = [0.2, 0.0, 0.0]
+normal = [1.0, 0.0, 0.0]
+extents = [0.4, 0.4]
+
+[[kind.signals]]
+name = "carried"
+property = "visible"
+
+[[kind.signals]]
+name = "x"
+property = "transform.position.x"
+
+[[kind.signals]]
+name = "y"
+property = "transform.position.y"
+
+[[kind.signals]]
+name = "z"
+property = "transform.position.z"
+
+[[kind]]
+name = "pickup_zone"
+default_mesh_asset = "trust-twin/components/pickup-zone.gltf"
+primitive = "box"
+material = "#94a3b8"
+scale = [1.4, 0.3, 1.0]
+bounds = { size = [1.4, 0.3, 1.0] }
+
+[[kind.surfaces]]
+name = "top"
+origin = [0.0, 0.15, 0.0]
+normal = [0.0, 1.0, 0.0]
+extents = [1.4, 1.0]
+
+[[kind]]
+name = "drop_zone"
+default_mesh_asset = "trust-twin/components/drop-zone.gltf"
+primitive = "box"
+material = "#64748b"
+scale = [1.4, 0.3, 1.0]
+bounds = { size = [1.4, 0.3, 1.0] }
+
+[[kind.surfaces]]
+name = "top"
+origin = [0.0, 0.15, 0.0]
+normal = [0.0, 1.0, 0.0]
+extents = [1.4, 1.0]
+
+[[kind]]
+name = "safety_light"
+default_mesh_asset = "trust-twin/components/safety-light.gltf"
+primitive = "box"
+material = "#ef4444"
+scale = [0.25, 0.5, 0.25]
+bounds = { size = [0.25, 0.5, 0.25] }
+
+[[kind.mounts]]
+name = "body"
+origin = [0.0, -0.25, 0.0]
+axis = [0.0, 1.0, 0.0]
+up = [0.0, 0.0, 1.0]
+
+[[kind.signals]]
+name = "state"
+property = "material.emissive"
+map = { "true" = "#22c55e", "false" = "#f59e0b" }
