@@ -86,7 +86,7 @@ owo-colors = "4"
 rumqttc = { version = "0.25", default-features = false, features = ["use-native-tls"] }
 native-tls = { version = "0.2.18", features = ["alpn", "vendored"] }
 time = "0.3.47"
-scena = "1.0.1"
+scena = "1.4.0"
 rapier3d = { version = "0.32.0", default-features = false, features = ["dim3", "f32", "enhanced-determinism"] }
 
 # Internal crates

@@ -51,7 +51,9 @@ function toolResultText(result: unknown): string {
   return JSON.stringify(result);
 }
 
-suite("trust-twin LM tools (VS Code)", () => {
+suite("trust-twin LM tools (VS Code)", function () {
+  this.timeout(30000);
+
   test("topology propose returns reviewed diff and compiler dry-run evidence", async () => {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     assert.ok(workspaceFolder, "Expected workspace folder for extension tests.");

@@ -1,0 +1,153 @@
+{
+  "asset": {
+    "generator": "glTF-Transform v4.3.0",
+    "version": "2.0"
+  },
+  "accessors": [
+    {
+      "type": "SCALAR",
+      "componentType": 5123,
+      "count": 3600,
+      "bufferView": 0,
+      "byteOffset": 0
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5126,
+      "count": 1502,
+      "max": [
+        0.04496634006500244,
+        0.04600000008940697,
+        -0.061590731143951416
+      ],
+      "min": [
+        -0.04496634006500244,
+        -0.04407000169157982,
+        -0.09209077805280685
+      ],
+      "bufferView": 1,
+      "byteOffset": 0
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5126,
+      "count": 1502,
+      "bufferView": 1,
+      "byteOffset": 12
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 0,
+      "componentType": 5126,
+      "count": 1502,
+      "type": "VEC2",
+      "min": [
+        0,
+        0
+      ],
+      "max": [
+        0,
+        0
+      ]
+    },
+    {
+      "bufferView": 3,
+      "byteOffset": 0,
+      "componentType": 5126,
+      "count": 1502,
+      "type": "VEC4",
+      "min": [
+        0.278,
+        0.333,
+        0.412,
+        1
+      ],
+      "max": [
+        0.278,
+        0.333,
+        0.412,
+        1
+      ]
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 7200,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 7200,
+      "byteLength": 36048,
+      "byteStride": 24,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 43248,
+      "byteLength": 12016,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 55264,
+      "byteLength": 24032,
+      "target": 34962
+    }
+  ],
+  "buffers": [
+    {
+      "uri": "wrist3.bin",
+      "byteLength": 79296
+    }
+  ],
+  "materials": [
+    {
+      "name": "SWMaterial-2_003-material",
+      "doubleSided": true,
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.4643137,
+          0.4643137,
+          0.4643137,
+          1
+        ],
+        "roughnessFactor": 0.65,
+        "metallicFactor": 0.1
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "wrist3",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 1,
+            "NORMAL": 2,
+            "TEXCOORD_0": 3
+          },
+          "mode": 4,
+          "material": 0,
+          "indices": 0
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "wrist3",
+      "mesh": 0
+    }
+  ],
+  "scenes": [
+    {
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "scene": 0
+}

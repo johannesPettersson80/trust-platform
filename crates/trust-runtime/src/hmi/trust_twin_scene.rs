@@ -12,13 +12,17 @@ pub struct TrustTwinScene {
     scene: scena::Scene,
     assets: scena::Assets,
     nodes: BTreeMap<String, TrustTwinSceneNodeRuntime>,
+    cameras: Vec<HmiSceneCameraSchema>,
+    lights: Vec<HmiSceneLightSchema>,
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct TrustTwinSceneNodeState {
+    pub parent: Option<String>,
     pub position: [f32; 3],
     pub rotation: [f32; 3],
     pub scale: [f32; 3],
+    pub pivot: [f32; 3],
     pub visible: bool,
     pub material: TrustTwinMaterialState,
     pub text: Option<String>,
@@ -33,8 +37,12 @@ pub struct TrustTwinMaterialState {
 
 #[derive(Debug)]
 struct TrustTwinSceneNodeRuntime {
-    key: scena::NodeKey,
+    key: Option<scena::NodeKey>,
+    mesh_key: Option<scena::NodeKey>,
     material: Option<scena::MaterialHandle>,
+    primitive: Option<String>,
+    asset: Option<String>,
+    parent_poses: BTreeMap<String, [f32; 3]>,
     state: TrustTwinSceneNodeState,
 }
 
@@ -113,8 +121,6 @@ pub struct TrustTwinBindingArtifact {
 }
 
 pub fn build_trust_twin_scene(view: &HmiSceneViewPayload) -> anyhow::Result<TrustTwinScene> {
-    let assets = scena::Assets::new();
-    let mut scene = scena::Scene::new();
     let mut nodes = BTreeMap::new();
 
     for node in &view.nodes {
@@ -126,104 +132,39 @@ pub fn build_trust_twin_scene(view: &HmiSceneViewPayload) -> anyhow::Result<Trus
             anyhow::bail!("duplicate scene3d node id '{id}'");
         }
         let state = node_state_from_schema(node)?;
-        let transform = scene_transform(&state);
-        let (key, material) = if let Some(primitive) = node.primitive.as_deref() {
-            let geometry = assets.create_geometry(geometry_for_primitive(primitive)?);
-            let material = assets.create_material(material_desc_from_state(&state.material)?);
-            let key = scene.mesh(geometry, material).transform(transform).add()?;
-            (key, Some(material))
-        } else if node.asset.is_some() {
-            anyhow::bail!(
-                "scene3d node '{id}' uses an asset reference; P1 renderer bridge supports primitive nodes only"
-            );
-        } else {
-            (scene.add_empty(scene.root(), transform)?, None)
-        };
-        scene.set_visible(key, state.visible)?;
-        scene.add_tag(key, id)?;
+        let parent_poses = node
+            .parent_poses
+            .iter()
+            .map(|pose| {
+                (
+                    pose.parent.trim().to_string(),
+                    vec3_to_f32(pose.local_position),
+                )
+            })
+            .collect::<BTreeMap<_, _>>();
         nodes.insert(
             id.to_string(),
             TrustTwinSceneNodeRuntime {
-                key,
-                material,
+                key: None,
+                mesh_key: None,
+                material: None,
+                primitive: node.primitive.clone(),
+                asset: node.asset.clone(),
+                parent_poses,
                 state,
             },
         );
     }
 
-    if view.cameras.is_empty() {
-        let camera = scene.add_default_camera()?;
-        if view.nodes.iter().any(|node| node.primitive.is_some()) {
-            scene.frame_all_with_assets(camera, &assets)?;
-        }
-    } else {
-        let mut active_camera = None;
-        for camera in &view.cameras {
-            let position = camera.position.unwrap_or([0.0, 0.0, 4.0]);
-            let mut descriptor = scena::PerspectiveCamera::default();
-            if let Some(fov_degrees) = camera.fov_degrees {
-                if fov_degrees.is_finite() && fov_degrees > 0.0 {
-                    descriptor.vertical_fov = scena::Angle::from_degrees(fov_degrees as f32);
-                }
-            }
-            let key = scene.add_perspective_camera(
-                scene.root(),
-                descriptor,
-                scena::Transform::at(vec3(position)),
-            )?;
-            active_camera.get_or_insert(key);
-        }
-        if let Some(camera) = active_camera {
-            scene.set_active_camera(camera)?;
-        }
-    }
-
-    for light in &view.lights {
-        let color = parse_color(light.color.as_deref().unwrap_or("#ffffff"))?;
-        let intensity = light.intensity.unwrap_or(1.0).max(0.0) as f32;
-        let transform =
-            scena::Transform::at(vec3(light.position.unwrap_or([0.0, 2.0, 2.0])))
-                .rotate_x_deg(-30.0)
-                .rotate_y_deg(20.0);
-        match light.kind.as_deref().unwrap_or("directional") {
-            "point" => {
-                scene
-                    .point_light(
-                        scena::PointLight::default()
-                            .with_color(color)
-                            .with_intensity_candela(intensity * 100.0),
-                    )
-                    .transform(transform)
-                    .add()?;
-            }
-            "spot" => {
-                scene
-                    .spot_light(
-                        scena::SpotLight::default()
-                            .with_color(color)
-                            .with_intensity_candela(intensity * 100.0),
-                    )
-                    .transform(transform)
-                    .add()?;
-            }
-            _ => {
-                scene
-                    .directional_light(
-                        scena::DirectionalLight::default()
-                            .with_color(color)
-                            .with_illuminance_lux(intensity * 10_000.0),
-                    )
-                    .transform(transform)
-                    .add()?;
-            }
-        }
-    }
-
-    Ok(TrustTwinScene {
-        scene,
-        assets,
+    let mut scene = TrustTwinScene {
+        scene: scena::Scene::new(),
+        assets: scena::Assets::new(),
         nodes,
-    })
+        cameras: view.cameras.clone(),
+        lights: view.lights.clone(),
+    };
+    scene.rebuild_scene_graph()?;
+    Ok(scene)
 }
 
 pub fn write_trust_twin_static_view_proof(
@@ -294,11 +235,194 @@ impl TrustTwinScene {
     }
 
     pub fn node_key(&self, id: &str) -> Option<scena::NodeKey> {
-        self.nodes.get(id).map(|node| node.key)
+        self.nodes.get(id).and_then(|node| node.key)
     }
 
     pub fn node_state(&self, id: &str) -> Option<&TrustTwinSceneNodeState> {
         self.nodes.get(id).map(|node| &node.state)
+    }
+
+    pub fn node_parent_id(&self, id: &str) -> Option<&str> {
+        self.nodes
+            .get(id)
+            .and_then(|node| node.state.parent.as_deref())
+    }
+
+    pub fn node_world_position(&self, id: &str) -> Option<[f32; 3]> {
+        let key = self.node_key(id)?;
+        let transform = self.scene.world_transform(key)?;
+        Some([
+            transform.translation.x,
+            transform.translation.y,
+            transform.translation.z,
+        ])
+    }
+
+    fn rebuild_scene_graph(&mut self) -> anyhow::Result<()> {
+        self.scene = scena::Scene::new();
+        self.assets = scena::Assets::new();
+        for runtime in self.nodes.values_mut() {
+            runtime.key = None;
+            runtime.mesh_key = None;
+            runtime.material = None;
+        }
+
+        let mut pending = self.nodes.keys().cloned().collect::<BTreeSet<_>>();
+        while !pending.is_empty() {
+            let before = pending.len();
+            let ids = pending.iter().cloned().collect::<Vec<_>>();
+            for id in ids {
+                let parent_id = self
+                    .nodes
+                    .get(&id)
+                    .and_then(|runtime| runtime.state.parent.as_deref())
+                    .filter(|parent| !parent.is_empty());
+                let parent_key = match parent_id {
+                    Some(parent) => {
+                        let Some(parent_runtime) = self.nodes.get(parent) else {
+                            anyhow::bail!("scene3d node '{id}' references missing parent '{parent}'");
+                        };
+                        match parent_runtime.key {
+                            Some(key) => key,
+                            None => continue,
+                        }
+                    }
+                    None => self.scene.root(),
+                };
+                let key = self.insert_scene_node(&id, parent_key)?;
+                self.scene.add_tag(key, &id)?;
+                self.scene.set_visible(
+                    key,
+                    self.nodes
+                        .get(&id)
+                        .expect("node exists")
+                        .state
+                        .visible,
+                )?;
+                self.nodes.get_mut(&id).expect("node exists").key = Some(key);
+                pending.remove(&id);
+            }
+            if pending.len() == before {
+                anyhow::bail!(
+                    "scene3d parent graph contains a cycle or unresolved parent: {:?}",
+                    pending
+                );
+            }
+        }
+
+        self.install_cameras()?;
+        self.install_lights()?;
+        Ok(())
+    }
+
+    fn insert_scene_node(
+        &mut self,
+        id: &str,
+        parent_key: scena::NodeKey,
+    ) -> anyhow::Result<scena::NodeKey> {
+        let runtime = self.nodes.get(id).expect("node exists");
+        let transform = node_group_transform(&runtime.state);
+        let group_key = self.scene.add_empty(parent_key, transform)?;
+        if let Some(primitive) = runtime.primitive.as_deref() {
+            let geometry = self.assets.create_geometry(geometry_for_primitive(primitive)?);
+            let material = self
+                .assets
+                .create_material(material_desc_for_primitive(
+                    primitive,
+                    &runtime.state.material,
+                )?);
+            let mesh_key = self
+                .scene
+                .mesh(geometry, material)
+                .parent(group_key)
+                .transform(node_mesh_transform(&runtime.state))
+                .add()?;
+            let runtime = self.nodes.get_mut(id).expect("node exists");
+            runtime.mesh_key = Some(mesh_key);
+            runtime.material = Some(material);
+            Ok(group_key)
+        } else if runtime.asset.is_some() {
+            anyhow::bail!(
+                "scene3d node '{id}' uses an asset reference; P1 renderer bridge supports primitive nodes only"
+            );
+        } else {
+            Ok(group_key)
+        }
+    }
+
+    fn install_cameras(&mut self) -> anyhow::Result<()> {
+        if self.cameras.is_empty() {
+            let camera = self.scene.add_default_camera()?;
+            if self.nodes.values().any(|node| node.primitive.is_some()) {
+                self.scene.frame_all_with_assets(camera, &self.assets)?;
+            }
+            return Ok(());
+        }
+
+        let mut active_camera = None;
+        for camera in &self.cameras {
+            let position = camera.position.unwrap_or([0.0, 0.0, 4.0]);
+            let mut descriptor = scena::PerspectiveCamera::default();
+            if let Some(fov_degrees) = camera.fov_degrees {
+                if fov_degrees.is_finite() && fov_degrees > 0.0 {
+                    descriptor.vertical_fov = scena::Angle::from_degrees(fov_degrees as f32);
+                }
+            }
+            let key = self.scene.add_perspective_camera(
+                self.scene.root(),
+                descriptor,
+                scena::Transform::at(vec3(position)),
+            )?;
+            active_camera.get_or_insert(key);
+        }
+        if let Some(camera) = active_camera {
+            self.scene.set_active_camera(camera)?;
+        }
+        Ok(())
+    }
+
+    fn install_lights(&mut self) -> anyhow::Result<()> {
+        for light in &self.lights {
+            let color = parse_color(light.color.as_deref().unwrap_or("#ffffff"))?;
+            let intensity = light.intensity.unwrap_or(1.0).max(0.0) as f32;
+            let transform =
+                scena::Transform::at(vec3(light.position.unwrap_or([0.0, 2.0, 2.0])))
+                    .rotate_x_deg(-30.0)
+                    .rotate_y_deg(20.0);
+            match light.kind.as_deref().unwrap_or("directional") {
+                "point" => {
+                    self.scene
+                        .point_light(
+                            scena::PointLight::default()
+                                .with_color(color)
+                                .with_intensity_candela(intensity * 100.0),
+                        )
+                        .transform(transform)
+                        .add()?;
+                }
+                "spot" => {
+                    self.scene
+                        .spot_light(
+                            scena::SpotLight::default()
+                                .with_color(color)
+                                .with_intensity_candela(intensity * 100.0),
+                        )
+                        .transform(transform)
+                        .add()?;
+                }
+                _ => {
+                    self.scene
+                        .directional_light(
+                            scena::DirectionalLight::default()
+                                .with_color(color)
+                                .with_illuminance_lux(intensity * 10_000.0),
+                        )
+                        .transform(transform)
+                        .add()?;
+                }
+            }
+        }
+        Ok(())
     }
 
     pub fn apply_bindings(
@@ -335,6 +459,7 @@ impl TrustTwinScene {
         }
         match binding.property.as_str() {
             "visible" => self.set_visible(&binding.node, binding_bool_value(binding, value)?),
+            "parent" => self.set_parent(&binding.node, binding_text_value(binding, value)?),
             "transform.position" => self.set_position(&binding.node, binding_vec3_value(binding, value)?),
             "transform.position.x" => {
                 self.set_position_axis(&binding.node, 0, binding_numeric_value(binding, value)?)
@@ -381,8 +506,49 @@ impl TrustTwinScene {
     fn set_visible(&mut self, node: &str, visible: bool) -> anyhow::Result<()> {
         let runtime = self.nodes.get_mut(node).expect("node existence checked");
         runtime.state.visible = visible;
-        self.scene.set_visible(runtime.key, visible)?;
+        let key = runtime.key.expect("scene graph built");
+        self.scene.set_visible(key, visible)?;
         Ok(())
+    }
+
+    fn set_parent(&mut self, node: &str, parent: String) -> anyhow::Result<()> {
+        let parent = normalize_parent_id(parent);
+        if parent.as_deref() == Some(node) {
+            anyhow::bail!("scene3d node '{node}' cannot parent itself");
+        }
+        if let Some(parent_id) = parent.as_deref() {
+            if !self.nodes.contains_key(parent_id) {
+                anyhow::bail!("scene3d node '{node}' references missing parent '{parent_id}'");
+            }
+            if self.node_is_descendant_of(parent_id, node) {
+                anyhow::bail!(
+                    "scene3d node '{node}' cannot reparent under descendant '{parent_id}'"
+                );
+            }
+        }
+
+        let runtime = self.nodes.get_mut(node).expect("node existence checked");
+        if let Some(parent_id) = parent.as_deref() {
+            if let Some(local_position) = runtime.parent_poses.get(parent_id).copied() {
+                runtime.state.position = local_position;
+            }
+        }
+        runtime.state.parent = parent;
+        self.rebuild_scene_graph()
+    }
+
+    fn node_is_descendant_of(&self, candidate: &str, ancestor: &str) -> bool {
+        let mut current = Some(candidate);
+        while let Some(id) = current {
+            if id == ancestor {
+                return true;
+            }
+            current = self
+                .nodes
+                .get(id)
+                .and_then(|node| node.state.parent.as_deref());
+        }
+        false
     }
 
     fn set_position(&mut self, node: &str, position: [f32; 3]) -> anyhow::Result<()> {
@@ -412,9 +578,14 @@ impl TrustTwinScene {
     ) -> anyhow::Result<()> {
         let runtime = self.nodes.get_mut(node).expect("node existence checked");
         update(&mut runtime.state);
-        let key = runtime.key;
-        let transform = scene_transform(&runtime.state);
-        self.scene.set_transform(key, transform)?;
+        let key = runtime.key.expect("scene graph built");
+        let mesh_key = runtime.mesh_key;
+        let group_transform = node_group_transform(&runtime.state);
+        let mesh_transform = node_mesh_transform(&runtime.state);
+        self.scene.set_transform(key, group_transform)?;
+        if let Some(mesh_key) = mesh_key {
+            self.scene.set_transform(mesh_key, mesh_transform)?;
+        }
         Ok(())
     }
 
@@ -440,11 +611,11 @@ impl TrustTwinScene {
             anyhow::bail!("scene3d node '{node}' has no mesh material");
         }
         update(&mut runtime.state.material);
-        let key = runtime.key;
+        let mesh_key = runtime.mesh_key.expect("mesh material checked");
         let material = material_desc_from_state(&runtime.state.material)?;
         let handle = self.assets.create_material(material);
         runtime.material = Some(handle);
-        self.scene.set_mesh_material(key, handle)?;
+        self.scene.set_mesh_material(mesh_key, handle)?;
         Ok(())
     }
 
@@ -459,9 +630,15 @@ fn node_state_from_schema(node: &HmiSceneNodeSchema) -> anyhow::Result<TrustTwin
     let transform = node.transform.clone().unwrap_or_default();
     let material = node.material.clone().unwrap_or_default();
     Ok(TrustTwinSceneNodeState {
-        position: transform.position.map(vec3_to_f32).unwrap_or([0.0, 0.0, 0.0]),
+        parent: node.parent.clone().and_then(normalize_parent_id),
+        position: node
+            .local_position
+            .or(transform.position)
+            .map(vec3_to_f32)
+            .unwrap_or([0.0, 0.0, 0.0]),
         rotation: transform.rotation.map(vec3_to_f32).unwrap_or([0.0, 0.0, 0.0]),
         scale: transform.scale.map(vec3_to_f32).unwrap_or([1.0, 1.0, 1.0]),
+        pivot: node.pivot.map(vec3_to_f32).unwrap_or([0.0, 0.0, 0.0]),
         visible: true,
         material: TrustTwinMaterialState {
             base_color: material
@@ -474,21 +651,42 @@ fn node_state_from_schema(node: &HmiSceneNodeSchema) -> anyhow::Result<TrustTwin
     })
 }
 
+fn normalize_parent_id(parent: String) -> Option<String> {
+    let parent = parent.trim();
+    if parent.is_empty() {
+        None
+    } else {
+        Some(parent.to_string())
+    }
+}
+
 fn geometry_for_primitive(value: &str) -> anyhow::Result<scena::GeometryDesc> {
     match value.trim().to_ascii_lowercase().as_str() {
         "box" | "cube" | "motor" | "shaft" => Ok(scena::GeometryDesc::box_xyz(1.0, 1.0, 1.0)),
         "plate" => Ok(scena::GeometryDesc::box_xyz(1.4, 0.12, 0.9)),
         "grid" | "floor" => Ok(scena::GeometryDesc::grid(2.0, 8)),
+        "depth-sentinel-line" => Ok(scena::GeometryDesc::line(
+            scena::Vec3::new(0.0, 0.0, 0.0),
+            scena::Vec3::new(0.001, 0.0, 0.0),
+        )),
         other => anyhow::bail!("unsupported scene3d primitive '{other}'"),
     }
 }
 
-fn scene_transform(state: &TrustTwinSceneNodeState) -> scena::Transform {
+fn node_group_transform(state: &TrustTwinSceneNodeState) -> scena::Transform {
     scena::Transform {
         translation: scena::Vec3::new(state.position[0], state.position[1], state.position[2]),
         rotation: scena::Quat::from_rotation_x(state.rotation[0])
             * scena::Quat::from_rotation_y(state.rotation[1])
             * scena::Quat::from_rotation_z(state.rotation[2]),
+        scale: scena::Vec3::new(1.0, 1.0, 1.0),
+    }
+}
+
+fn node_mesh_transform(state: &TrustTwinSceneNodeState) -> scena::Transform {
+    scena::Transform {
+        translation: scena::Vec3::new(-state.pivot[0], -state.pivot[1], -state.pivot[2]),
+        rotation: scena::Quat::IDENTITY,
         scale: scena::Vec3::new(state.scale[0], state.scale[1], state.scale[2]),
     }
 }
@@ -504,6 +702,16 @@ fn material_desc_from_state(state: &TrustTwinMaterialState) -> anyhow::Result<sc
             scena::AlphaMode::Opaque
         });
     Ok(material)
+}
+
+fn material_desc_for_primitive(
+    primitive: &str,
+    state: &TrustTwinMaterialState,
+) -> anyhow::Result<scena::MaterialDesc> {
+    if primitive.trim().eq_ignore_ascii_case("depth-sentinel-line") {
+        return Ok(scena::MaterialDesc::line(parse_color(&state.base_color)?, 1.0));
+    }
+    material_desc_from_state(state)
 }
 
 fn binding_numeric_value(binding: &HmiSceneBindingSchema, value: &Value) -> anyhow::Result<f32> {

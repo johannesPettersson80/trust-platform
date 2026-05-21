@@ -189,10 +189,10 @@ property = "text.value"
 
 [[kind]]
 name = "robot_arm"
-default_mesh_asset = "trust-twin/components/robot-arm.gltf"
+default_mesh_asset = "trust-twin/components/ur10/visual/base.gltf"
 primitive = "box"
-material = "#2563eb"
-scale = [0.7, 0.5, 0.7]
+material = "#475569"
+scale = [1.8, 1.8, 1.8]
 bounds = { size = [1.5, 1.8, 1.5] }
 
 [[kind.surfaces]]
@@ -203,33 +203,80 @@ extents = [0.7, 0.7]
 
 [[kind.mounts]]
 name = "tool"
-origin = [0.0, 1.2, 0.75]
+origin = [2.25, 0.88, 0.12]
 axis = [0.0, 0.0, 1.0]
 up = [0.0, 1.0, 0.0]
 
 [[kind.visual_nodes]]
 suffix = "shoulder"
 primitive = "box"
-label_suffix = "shoulder link"
-position_offset = [-0.35, 0.85, 0.0]
-scale = [1.05, 0.20, 0.24]
-material = "#2563eb"
+mesh_asset = "trust-twin/components/ur10/visual/shoulder.gltf"
+label_suffix = "UR10 shoulder joint housing"
+position_offset = [0.0, 0.46, 0.0]
+scale = [1.8, 1.8, 1.8]
+material = "#475569"
 
 [[kind.visual_nodes]]
 suffix = "elbow"
 primitive = "box"
-label_suffix = "elbow link"
-position_offset = [0.35, 1.20, 0.0]
-scale = [0.9, 0.18, 0.22]
-material = "#38bdf8"
+mesh_asset = "trust-twin/components/ur10/visual/upperarm.gltf"
+label_suffix = "UR10 shoulder-to-elbow upper-arm link"
+position_offset = [0.78, 0.94, 0.0]
+scale = [1.65, 1.65, 1.65]
+asset_rotation = [0.0, 0.0, -1.570796]
+material = "#ef4444"
+parent_suffix = "shoulder"
+
+[[kind.visual_nodes]]
+suffix = "elbow_housing"
+primitive = "box"
+mesh_asset = "trust-twin/components/ur10/visual/shoulder.gltf"
+label_suffix = "UR10 elbow joint housing"
+position_offset = [0.78, 0.94, 0.0]
+scale = [1.75, 1.75, 1.75]
+material = "#475569"
+parent_suffix = "elbow"
+
+[[kind.visual_nodes]]
+suffix = "forearm"
+primitive = "box"
+mesh_asset = "trust-twin/components/ur10/visual/forearm.gltf"
+label_suffix = "UR10 elbow-to-wrist forearm link"
+position_offset = [1.34, 0.86, 0.0]
+scale = [1.65, 1.65, 1.65]
+asset_rotation = [0.0, 0.0, -1.570796]
+material = "#ef4444"
+parent_suffix = "elbow"
 
 [[kind.visual_nodes]]
 suffix = "wrist"
 primitive = "box"
-label_suffix = "wrist link"
-position_offset = [0.82, 1.05, 0.0]
-scale = [0.45, 0.16, 0.18]
-material = "#22c55e"
+mesh_asset = "trust-twin/components/ur10/visual/wrist1.gltf"
+label_suffix = "UR10 wrist joint 1"
+position_offset = [1.74, 0.86, 0.0]
+scale = [1.7, 1.7, 1.7]
+material = "#475569"
+parent_suffix = "forearm"
+
+[[kind.visual_nodes]]
+suffix = "wrist_housing"
+primitive = "box"
+mesh_asset = "trust-twin/components/ur10/visual/wrist2.gltf"
+label_suffix = "UR10 wrist joint 2"
+position_offset = [1.90, 0.86, 0.0]
+scale = [1.65, 1.65, 1.65]
+material = "#475569"
+parent_suffix = "wrist"
+
+[[kind.visual_nodes]]
+suffix = "wrist_flange"
+primitive = "box"
+mesh_asset = "trust-twin/components/ur10/visual/wrist3.gltf"
+label_suffix = "UR10 wrist flange"
+position_offset = [2.02, 0.86, 0.0]
+scale = [1.6, 1.6, 1.6]
+material = "#475569"
+parent_suffix = "wrist_housing"
 
 [[kind.signals]]
 name = "shoulder_angle"
@@ -255,15 +302,15 @@ property = "material.emissive"
 
 [[kind]]
 name = "gripper"
-default_mesh_asset = "trust-twin/components/gripper.gltf"
+default_mesh_asset = "trust-twin/components/schunk-wsg50/meshes/wsg_body.gltf"
 primitive = "box"
 material = "#475569"
-scale = [0.16, 0.18, 0.36]
+scale = [2.3, 2.3, 2.3]
 bounds = { size = [0.45, 0.25, 0.35] }
 
 [[kind.mounts]]
 name = "wrist"
-origin = [0.0, 0.0, -0.175]
+origin = [0.0, 0.0, 0.0]
 axis = [0.0, 0.0, 1.0]
 up = [0.0, 1.0, 0.0]
 
@@ -276,30 +323,50 @@ up = [0.0, 0.0, 1.0]
 [[kind.visual_nodes]]
 suffix = "left_jaw"
 primitive = "box"
-label_suffix = "left jaw"
-position_offset = [0.0, 0.0, 0.16]
-scale = [0.12, 0.42, 0.10]
-material = "#e2e8f0"
+mesh_asset = "trust-twin/components/schunk-wsg50/meshes/finger_with_tip.gltf"
+label_suffix = "Schunk WSG-50 left finger"
+position_offset = [-0.13, -0.02, 0.0]
+scale = [2.3, 2.3, 2.3]
+material = "#38bdf8"
 
 [[kind.visual_nodes]]
 suffix = "right_jaw"
 primitive = "box"
-label_suffix = "right jaw"
-position_offset = [0.0, 0.0, -0.16]
-scale = [0.12, 0.42, 0.10]
-material = "#e2e8f0"
+mesh_asset = "trust-twin/components/schunk-wsg50/meshes/finger_with_tip.gltf"
+label_suffix = "Schunk WSG-50 right finger"
+position_offset = [0.13, -0.02, 0.0]
+scale = [2.3, 2.3, 2.3]
+material = "#38bdf8"
+
+[[kind.visual_nodes]]
+suffix = "left_jaw_pad"
+primitive = "box"
+label_suffix = "visible left gripper jaw pad"
+position_offset = [-0.13, -0.02, 0.09]
+scale = [0.08, 0.34, 0.18]
+material = "#38bdf8"
+parent_suffix = "left_jaw"
+
+[[kind.visual_nodes]]
+suffix = "right_jaw_pad"
+primitive = "box"
+label_suffix = "visible right gripper jaw pad"
+position_offset = [0.13, -0.02, 0.09]
+scale = [0.08, 0.34, 0.18]
+material = "#38bdf8"
+parent_suffix = "right_jaw"
 
 [[kind.signals]]
 name = "open_left"
 node_suffix = "left_jaw"
-property = "transform.position.z"
-map = { "true" = "0.22", "false" = "0.09" }
+property = "transform.position.x"
+map = { "true" = "-0.28", "false" = "0.0" }
 
 [[kind.signals]]
 name = "open_right"
 node_suffix = "right_jaw"
-property = "transform.position.z"
-map = { "true" = "-0.22", "false" = "-0.09" }
+property = "transform.position.x"
+map = { "true" = "0.20", "false" = "0.0" }
 
 [[kind.signals]]
 name = "x"
@@ -315,10 +382,10 @@ property = "transform.position.z"
 
 [[kind]]
 name = "workpiece"
-default_mesh_asset = "trust-twin/components/workpiece.gltf"
+default_mesh_asset = "trust-twin/components/ycb/meshes/003_cracker_box_textured.gltf"
 primitive = "box"
-material = "#f97316"
-scale = [0.4, 0.4, 0.4]
+material = "#f59e0b"
+scale = [1.9, 1.9, 1.9]
 bounds = { size = [0.4, 0.4, 0.4] }
 
 [[kind.surfaces]]
@@ -350,6 +417,11 @@ name = "carried"
 property = "visible"
 
 [[kind.signals]]
+name = "parent_state"
+property = "parent"
+map = { "0" = "PICKUP-1", "1" = "GRIPPER-1", "2" = "DROP-1" }
+
+[[kind.signals]]
 name = "x"
 property = "transform.position.x"
 
@@ -363,10 +435,10 @@ property = "transform.position.z"
 
 [[kind]]
 name = "pickup_zone"
-default_mesh_asset = "trust-twin/components/pickup-zone.gltf"
+default_mesh_asset = "trust-twin/components/manipulation-station/assets/table_wide.gltf"
 primitive = "box"
-material = "#94a3b8"
-scale = [1.4, 0.3, 1.0]
+material = "#475569"
+scale = [0.78, 0.28, 0.42]
 bounds = { size = [1.4, 0.3, 1.0] }
 
 [[kind.surfaces]]
@@ -377,10 +449,10 @@ extents = [1.4, 1.0]
 
 [[kind]]
 name = "drop_zone"
-default_mesh_asset = "trust-twin/components/drop-zone.gltf"
+default_mesh_asset = "trust-twin/components/manipulation-station/assets/table_wide.gltf"
 primitive = "box"
 material = "#64748b"
-scale = [1.4, 0.3, 1.0]
+scale = [0.78, 0.28, 0.42]
 bounds = { size = [1.4, 0.3, 1.0] }
 
 [[kind.surfaces]]
@@ -391,10 +463,10 @@ extents = [1.4, 1.0]
 
 [[kind]]
 name = "safety_light"
-default_mesh_asset = "trust-twin/components/safety-light.gltf"
+default_mesh_asset = "trust-twin/components/ycb/meshes/005_tomato_soup_can_textured.gltf"
 primitive = "box"
 material = "#ef4444"
-scale = [0.25, 0.5, 0.25]
+scale = [0.7, 0.7, 0.7]
 bounds = { size = [0.25, 0.5, 0.25] }
 
 [[kind.mounts]]

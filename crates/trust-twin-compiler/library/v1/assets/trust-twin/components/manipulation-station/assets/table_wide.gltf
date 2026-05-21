@@ -1,0 +1,160 @@
+{
+  "asset": {
+    "generator": "glTF-Transform v4.3.0",
+    "version": "2.0"
+  },
+  "accessors": [
+    {
+      "type": "SCALAR",
+      "componentType": 5123,
+      "count": 444,
+      "bufferView": 0,
+      "byteOffset": 0
+    },
+    {
+      "name": "KitchenTable_02_Cube.118-Mesh_0_positions",
+      "type": "VEC3",
+      "componentType": 5126,
+      "count": 228,
+      "max": [
+        0.75,
+        0.0032939999364316463,
+        1.0893770456314087
+      ],
+      "min": [
+        -0.75,
+        -0.9967060089111328,
+        -1.0926530361175537
+      ],
+      "bufferView": 1,
+      "byteOffset": 0
+    },
+    {
+      "name": "KitchenTable_02_Cube.118-Mesh_0_normals",
+      "type": "VEC3",
+      "componentType": 5126,
+      "count": 228,
+      "bufferView": 1,
+      "byteOffset": 12
+    },
+    {
+      "name": "KitchenTable_02_Cube.118-Mesh_0_texcoords",
+      "type": "VEC2",
+      "componentType": 5126,
+      "count": 228,
+      "bufferView": 1,
+      "byteOffset": 24
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 0,
+      "componentType": 5126,
+      "count": 228,
+      "type": "VEC4",
+      "min": [
+        0.278,
+        0.333,
+        0.412,
+        1
+      ],
+      "max": [
+        0.278,
+        0.333,
+        0.412,
+        1
+      ]
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 888,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 888,
+      "byteLength": 7296,
+      "byteStride": 32,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 8184,
+      "byteLength": 3648,
+      "target": 34962
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9986,
+      "wrapS": 10497,
+      "wrapT": 10497
+    }
+  ],
+  "textures": [
+    {
+      "sampler": 0,
+      "source": 0
+    }
+  ],
+  "images": [
+    {
+      "name": "table_wide",
+      "mimeType": "image/png",
+      "uri": "table_wide.png"
+    }
+  ],
+  "buffers": [
+    {
+      "name": "table_wide",
+      "uri": "table_wide.bin",
+      "byteLength": 11832
+    }
+  ],
+  "materials": [
+    {
+      "name": "InteriorPack_01.008",
+      "pbrMetallicRoughness": {
+        "roughnessFactor": 0.775,
+        "metallicFactor": 0,
+        "baseColorTexture": {
+          "index": 0
+        }
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "KitchenTable_02_Cube.118-Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 1,
+            "NORMAL": 2,
+            "TEXCOORD_0": 3
+          },
+          "mode": 4,
+          "material": 0,
+          "indices": 0
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "KitchenTable_02_Cube.118",
+      "mesh": 0
+    }
+  ],
+  "scenes": [
+    {
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "scene": 0
+}

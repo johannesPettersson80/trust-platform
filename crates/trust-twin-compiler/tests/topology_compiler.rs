@@ -124,7 +124,7 @@ fn compiler_emits_deterministic_view_with_hash_header_and_bind3d() {
     assert_eq!(compiled.stats.generated_node_count, 5);
 
     let expected = format!(
-        "# trust-twin-topology-hash:v1:sha256:{}\n{}",
+        "# trust-twin-topology-hash:v2:sha256:{}\n{}",
         compiled.topology_hash, EXPECTED_VIEW_BODY
     );
     assert_eq!(compiled.view_toml, expected);
@@ -222,7 +222,18 @@ fn compiler_emits_robot_cell_metadata_child_nodes_and_robot_bindings() {
         .expect("compiled view metadata");
     assert_eq!(
         metadata.get("asset_state").and_then(toml::Value::as_str),
-        Some("procedural_robot")
+        Some("packaged_asset")
+    );
+    let assets = view
+        .get("asset")
+        .and_then(toml::Value::as_array)
+        .expect("compiled asset blocks");
+    assert!(
+        assets.iter().any(|asset| {
+            asset.get("id").and_then(toml::Value::as_str)
+                == Some("trust-twin/components/ur10/visual/base.gltf")
+        }),
+        "compiled robot-cell view should declare packaged industrial robot glTF asset"
     );
 
     for node_id in [
@@ -381,9 +392,11 @@ fn compiler_cli_writes_view_when_output_is_set() {
     );
 
     let written = fs::read_to_string(&view_path).expect("compiled view was written");
-    assert!(written.starts_with("# trust-twin-topology-hash:v1:sha256:"));
+    assert!(written.starts_with("# trust-twin-topology-hash:v2:sha256:"));
     assert!(written.contains("[metadata]"));
     assert!(written.contains("id = \"ROBOT-1.shoulder\""));
+    assert!(written.contains("parent = \"ROBOT-1\""));
+    assert!(written.contains("local_position = "));
     assert!(written.contains("node = \"ROBOT-1.wrist\""));
 }
 
@@ -623,6 +636,9 @@ const EXPECTED_VIEW_BODY: &str = r##"[[node]]
 id = "TK-101"
 primitive = "box"
 label = "TK-101"
+parent = ""
+local_position = [0.0, 0.0, 0.0]
+pivot = [0.0, 0.0, 0.0]
 
 [node.transform]
 position = [0.0, 0.0, 0.0]
@@ -635,6 +651,9 @@ base_color = "#64748b"
 id = "TK-101.level"
 primitive = "box"
 label = "TK-101 level"
+parent = "TK-101"
+local_position = [0.0, -0.4, 0.0]
+pivot = [0.0, 0.0, 0.0]
 
 [node.transform]
 position = [0.0, -0.4, 0.0]
@@ -648,6 +667,9 @@ opacity = 0.85
 id = "P-101"
 primitive = "box"
 label = "P-101"
+parent = ""
+local_position = [4.0, 0.0, 0.0]
+pivot = [0.0, 0.0, 0.0]
 
 [node.transform]
 position = [4.0, 0.0, 0.0]
@@ -660,6 +682,9 @@ base_color = "#22c55e"
 id = "V-101"
 primitive = "box"
 label = "V-101"
+parent = ""
+local_position = [8.0, 0.0, 0.0]
+pivot = [0.0, 0.0, 0.0]
 
 [node.transform]
 position = [8.0, 0.0, 0.0]
@@ -672,6 +697,9 @@ base_color = "#f59e0b"
 id = "line-101.pipe"
 primitive = "box"
 label = "line-101"
+parent = ""
+local_position = [2.0, 0.0, 0.0]
+pivot = [0.0, 0.0, 0.0]
 
 [node.transform]
 position = [2.0, 0.0, 0.0]
@@ -761,7 +789,7 @@ at = { attach_to = "PICKUP-1.top", placement = "top_center" }
 
 const ROBOT_CELL_GENERATED_TOPOLOGY: &str = r#"
 [metadata]
-asset_state = "procedural_robot"
+asset_state = "packaged_asset"
 design_decision = "Q-H"
 
 [[components]]

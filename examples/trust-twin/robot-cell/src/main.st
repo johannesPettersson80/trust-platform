@@ -6,12 +6,7 @@ VAR
     RobotElbowAngle : REAL := 0.35;
     RobotWristAngle : REAL := 0.25;
     RobotGripperOpen : BOOL := TRUE;
-    RobotGripperX : REAL := 0.00;
-    RobotGripperY : REAL := 0.80;
-    RobotGripperZ : REAL := 0.00;
-    RobotBoxX : REAL := 0.00;
-    RobotBoxY : REAL := 0.35;
-    RobotBoxZ : REAL := 0.00;
+    RobotBoxParentState : INT := 0;
     RobotEnabled : BOOL := TRUE;
     RobotStatusLight : BOOL := FALSE;
 END_VAR
@@ -28,12 +23,7 @@ IF RobotCycleTick < 10 THEN
     RobotElbowAngle := 0.42;
     RobotWristAngle := 0.25;
     RobotGripperOpen := TRUE;
-    RobotGripperX := 0.00;
-    RobotGripperY := 0.80;
-    RobotGripperZ := 0.00;
-    RobotBoxX := 0.00;
-    RobotBoxY := 0.35;
-    RobotBoxZ := 0.00;
+    RobotBoxParentState := 0;
     RobotStatusLight := FALSE;
 ELSIF RobotCycleTick < 20 THEN
     (* close gripper *)
@@ -42,12 +32,7 @@ ELSIF RobotCycleTick < 20 THEN
     RobotElbowAngle := 0.42;
     RobotWristAngle := 0.25;
     RobotGripperOpen := FALSE;
-    RobotGripperX := 0.00;
-    RobotGripperY := 0.55;
-    RobotGripperZ := 0.00;
-    RobotBoxX := 0.00;
-    RobotBoxY := 0.35;
-    RobotBoxZ := 0.00;
+    RobotBoxParentState := 1;
     RobotStatusLight := TRUE;
 ELSIF RobotCycleTick < 30 THEN
     (* lift *)
@@ -56,12 +41,7 @@ ELSIF RobotCycleTick < 30 THEN
     RobotElbowAngle := 0.72;
     RobotWristAngle := -0.45;
     RobotGripperOpen := FALSE;
-    RobotGripperX := 0.80;
-    RobotGripperY := 1.15;
-    RobotGripperZ := 0.00;
-    RobotBoxX := 0.80;
-    RobotBoxY := 1.15;
-    RobotBoxZ := 0.00;
+    RobotBoxParentState := 1;
     RobotStatusLight := TRUE;
 ELSIF RobotCycleTick < 40 THEN
     (* translate *)
@@ -70,40 +50,25 @@ ELSIF RobotCycleTick < 40 THEN
     RobotElbowAngle := 0.70;
     RobotWristAngle := -0.85;
     RobotGripperOpen := FALSE;
-    RobotGripperX := 2.40;
-    RobotGripperY := 1.15;
-    RobotGripperZ := 0.00;
-    RobotBoxX := 2.40;
-    RobotBoxY := 1.15;
-    RobotBoxZ := 0.00;
+    RobotBoxParentState := 1;
     RobotStatusLight := TRUE;
 ELSIF RobotCycleTick < 50 THEN
     (* lower *)
     RobotMotionStep := 5;
-    RobotShoulderAngle := 0.72;
-    RobotElbowAngle := 0.40;
-    RobotWristAngle := 0.85;
+    RobotShoulderAngle := 0.42;
+    RobotElbowAngle := 0.44;
+    RobotWristAngle := -0.20;
     RobotGripperOpen := FALSE;
-    RobotGripperX := 4.00;
-    RobotGripperY := 0.55;
-    RobotGripperZ := 0.00;
-    RobotBoxX := 4.00;
-    RobotBoxY := 0.35;
-    RobotBoxZ := 0.00;
+    RobotBoxParentState := 1;
     RobotStatusLight := TRUE;
 ELSIF RobotCycleTick < 60 THEN
     (* open gripper *)
     RobotMotionStep := 6;
-    RobotShoulderAngle := 0.72;
-    RobotElbowAngle := 0.40;
-    RobotWristAngle := 0.85;
+    RobotShoulderAngle := 0.42;
+    RobotElbowAngle := 0.44;
+    RobotWristAngle := -0.20;
     RobotGripperOpen := TRUE;
-    RobotGripperX := 4.00;
-    RobotGripperY := 0.80;
-    RobotGripperZ := 0.00;
-    RobotBoxX := 4.00;
-    RobotBoxY := 0.35;
-    RobotBoxZ := 0.00;
+    RobotBoxParentState := 2;
     RobotStatusLight := FALSE;
 ELSE
     (* return *)
@@ -112,12 +77,7 @@ ELSE
     RobotElbowAngle := 0.55;
     RobotWristAngle := 0.00;
     RobotGripperOpen := TRUE;
-    RobotGripperX := 2.00;
-    RobotGripperY := 1.20;
-    RobotGripperZ := 0.00;
-    RobotBoxX := 4.00;
-    RobotBoxY := 0.35;
-    RobotBoxZ := 0.00;
+    RobotBoxParentState := 2;
     RobotStatusLight := FALSE;
 END_IF;
 

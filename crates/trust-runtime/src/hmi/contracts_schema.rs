@@ -134,6 +134,8 @@ pub struct HmiProcessScaleSchema {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct HmiSceneViewPayload {
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub metadata: BTreeMap<String, toml::Value>,
     #[serde(default, rename = "asset")]
     pub assets: Vec<HmiSceneAssetSchema>,
     #[serde(default, rename = "node")]
@@ -159,6 +161,12 @@ pub struct HmiSceneAssetSchema {
 pub struct HmiSceneNodeSchema {
     pub id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local_position: Option<[f64; 3]>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pivot: Option<[f64; 3]>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub asset: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub primitive: Option<String>,
@@ -170,6 +178,16 @@ pub struct HmiSceneNodeSchema {
     pub material: Option<HmiSceneMaterialSchema>,
     #[serde(default, rename = "interaction", skip_serializing_if = "Vec::is_empty")]
     pub interactions: Vec<HmiSceneInteractionSchema>,
+    #[serde(default, rename = "parent_pose", skip_serializing_if = "Vec::is_empty")]
+    pub parent_poses: Vec<HmiSceneParentPoseSchema>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct HmiSceneParentPoseSchema {
+    pub parent: String,
+    pub local_position: [f64; 3],
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pivot: Option<[f64; 3]>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -266,6 +284,7 @@ fn normalize_scene_binding_property(value: &str) -> Result<String, String> {
     let allowed = matches!(
         normalized.as_str(),
         "visible"
+            | "parent"
             | "transform.position"
             | "transform.position.x"
             | "transform.position.y"

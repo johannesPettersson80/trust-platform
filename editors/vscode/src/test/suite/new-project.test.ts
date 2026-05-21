@@ -28,6 +28,14 @@ async function readText(uri: vscode.Uri): Promise<string> {
   return Buffer.from(data).toString("utf8");
 }
 
+async function deletePathIfExists(uri: vscode.Uri): Promise<void> {
+  try {
+    await vscode.workspace.fs.delete(uri, { recursive: true, useTrash: false });
+  } catch {
+    // Missing paths are fine for test cleanup.
+  }
+}
+
 async function waitForNoErrors(
   uri: vscode.Uri,
   timeoutMs = 10000
@@ -163,6 +171,7 @@ suite("New project command (VS Code)", function () {
       'include_paths = ["src"]',
       "Expected include path scaffold."
     );
+    await deletePathIfExists(targetUri);
   });
 
   test("cancel at each prompt stage leaves filesystem unchanged", async () => {
@@ -251,6 +260,7 @@ suite("New project command (VS Code)", function () {
       await pathExists(vscode.Uri.joinPath(targetUri, "src", "Main.st")),
       true
     );
+    await deletePathIfExists(targetUri);
   });
 
   test("generated ST parses cleanly and TOML is usable by build", async function () {
@@ -298,6 +308,7 @@ suite("New project command (VS Code)", function () {
         buildResult.stderr ?? "",
       ].join("\n")
     );
+    await deletePathIfExists(targetUri);
   });
 
   test("works in single-root and multi-root workspace setups", async () => {

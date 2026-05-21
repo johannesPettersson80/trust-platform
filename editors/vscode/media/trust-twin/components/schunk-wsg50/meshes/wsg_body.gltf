@@ -1,0 +1,155 @@
+{
+  "asset": {
+    "generator": "glTF-Transform v4.3.0",
+    "version": "2.0"
+  },
+  "accessors": [
+    {
+      "type": "SCALAR",
+      "componentType": 5123,
+      "count": 702,
+      "bufferView": 0,
+      "byteOffset": 0
+    },
+    {
+      "name": "Node-Mesh_0_positions",
+      "type": "VEC3",
+      "componentType": 5126,
+      "count": 365,
+      "max": [
+        0.0729999989271164,
+        0.02500000037252903,
+        0.036249998956918716
+      ],
+      "min": [
+        -0.0729999989271164,
+        -0.02500000037252903,
+        -0.036249998956918716
+      ],
+      "bufferView": 1,
+      "byteOffset": 0
+    },
+    {
+      "name": "Node-Mesh_0_normals",
+      "type": "VEC3",
+      "componentType": 5126,
+      "count": 365,
+      "bufferView": 1,
+      "byteOffset": 12
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 0,
+      "componentType": 5126,
+      "count": 365,
+      "type": "VEC2",
+      "min": [
+        0,
+        0
+      ],
+      "max": [
+        0,
+        0
+      ]
+    },
+    {
+      "bufferView": 3,
+      "byteOffset": 0,
+      "componentType": 5126,
+      "count": 365,
+      "type": "VEC4",
+      "min": [
+        0.219,
+        0.741,
+        0.973,
+        1
+      ],
+      "max": [
+        0.219,
+        0.741,
+        0.973,
+        1
+      ]
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 1404,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 1404,
+      "byteLength": 8760,
+      "byteStride": 24,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 10164,
+      "byteLength": 2920,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 13084,
+      "byteLength": 5840,
+      "target": 34962
+    }
+  ],
+  "buffers": [
+    {
+      "name": "wsg_body",
+      "uri": "wsg_body.bin",
+      "byteLength": 18924
+    }
+  ],
+  "materials": [
+    {
+      "name": "default",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.2,
+          0.2,
+          0.2,
+          1
+        ],
+        "roughnessFactor": 0.5,
+        "metallicFactor": 0
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Node-Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 1,
+            "NORMAL": 2,
+            "TEXCOORD_0": 3
+          },
+          "mode": 4,
+          "material": 0,
+          "indices": 0
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "Node",
+      "mesh": 0
+    }
+  ],
+  "scenes": [
+    {
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "scene": 0
+}

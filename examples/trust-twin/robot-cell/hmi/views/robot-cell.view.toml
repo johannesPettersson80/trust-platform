@@ -1,146 +1,397 @@
-# trust-twin-topology-hash:v1:sha256:936b070f1d9b44583ae47a655de1ebfef58873ed48b8b73593211ad80cde374a
+# trust-twin-topology-hash:v2:sha256:aaf0b0900df7e5ef71a98b2d5d482ae626eeef3be58bbd0a1f23f565984580e5
 [metadata]
-asset_state = "procedural_robot"
+view_contract_version = 2
+renderer_contract_version = 2
+asset_license = "BSD-3-Clause for UR10, Schunk WSG-50, and Drake manipulation table meshes; CC-BY-4.0 for YCB object meshes"
+asset_manifest_sha256 = "99dfc722f035472e684122fa8e77c3361242c103f7fe52dfacfaf845d1b470e5"
+asset_original_author = "UR10 meshes: Universal Robots ROS2 Description authors/Universal Robots A/S; Schunk WSG-50 meshes: Toyota Research Institute; table meshes: Robot Locomotion Group at CSAIL; workpiece/beacon meshes: YCB Object and Model Set"
+asset_package_path = "crates/trust-twin-compiler/library/v1/assets/trust-twin/components/"
+asset_source = "Universal Robots ROS2 Description UR10 visual meshes converted to glTF, plus Schunk WSG-50, Drake manipulation table, and YCB object glTF mesh set"
+asset_source_url = "https://github.com/UniversalRobots/Universal_Robots_ROS2_Description/tree/18dea90dedf24adea05d920d0d441e4523a41e50"
+asset_state = "packaged_asset"
+asset_version = "Universal Robots ROS2 Description commit 18dea90dedf24adea05d920d0d441e4523a41e50 and RobotLocomotion/models commit 5c942636d18013870403c17c8209558799122abd imported 2026-05-16"
 description = "Canonical robot-cell digital twin with PLC-driven pick-and-place motion."
 design_decision = "Q-H"
 
+[[asset]]
+id = "trust-twin/components/manipulation-station/assets/table_wide.gltf"
+uri = "trust-twin/components/manipulation-station/assets/table_wide.gltf"
+kind = "gltf"
+
+[[asset]]
+id = "trust-twin/components/schunk-wsg50/meshes/finger_with_tip.gltf"
+uri = "trust-twin/components/schunk-wsg50/meshes/finger_with_tip.gltf"
+kind = "gltf"
+
+[[asset]]
+id = "trust-twin/components/schunk-wsg50/meshes/wsg_body.gltf"
+uri = "trust-twin/components/schunk-wsg50/meshes/wsg_body.gltf"
+kind = "gltf"
+
+[[asset]]
+id = "trust-twin/components/ur10/visual/base.gltf"
+uri = "trust-twin/components/ur10/visual/base.gltf"
+kind = "gltf"
+
+[[asset]]
+id = "trust-twin/components/ur10/visual/forearm.gltf"
+uri = "trust-twin/components/ur10/visual/forearm.gltf"
+kind = "gltf"
+
+[[asset]]
+id = "trust-twin/components/ur10/visual/shoulder.gltf"
+uri = "trust-twin/components/ur10/visual/shoulder.gltf"
+kind = "gltf"
+
+[[asset]]
+id = "trust-twin/components/ur10/visual/upperarm.gltf"
+uri = "trust-twin/components/ur10/visual/upperarm.gltf"
+kind = "gltf"
+
+[[asset]]
+id = "trust-twin/components/ur10/visual/wrist1.gltf"
+uri = "trust-twin/components/ur10/visual/wrist1.gltf"
+kind = "gltf"
+
+[[asset]]
+id = "trust-twin/components/ur10/visual/wrist2.gltf"
+uri = "trust-twin/components/ur10/visual/wrist2.gltf"
+kind = "gltf"
+
+[[asset]]
+id = "trust-twin/components/ur10/visual/wrist3.gltf"
+uri = "trust-twin/components/ur10/visual/wrist3.gltf"
+kind = "gltf"
+
+[[asset]]
+id = "trust-twin/components/ycb/meshes/003_cracker_box_textured.gltf"
+uri = "trust-twin/components/ycb/meshes/003_cracker_box_textured.gltf"
+kind = "gltf"
+
+[[asset]]
+id = "trust-twin/components/ycb/meshes/005_tomato_soup_can_textured.gltf"
+uri = "trust-twin/components/ycb/meshes/005_tomato_soup_can_textured.gltf"
+kind = "gltf"
+
 [[node]]
 id = "ROBOT-1"
+asset = "trust-twin/components/ur10/visual/base.gltf"
 primitive = "box"
 label = "ROBOT-1"
+parent = ""
+local_position = [0.0, 0.0, 2.0]
+pivot = [0.0, 0.0, 0.0]
 
 [node.transform]
 position = [0.0, 0.0, 2.0]
-scale = [0.7, 0.5, 0.7]
+scale = [1.8, 1.8, 1.8]
 
 [node.material]
-base_color = "#2563eb"
+base_color = "#475569"
 
 [[node]]
 id = "ROBOT-1.shoulder"
+asset = "trust-twin/components/ur10/visual/shoulder.gltf"
 primitive = "box"
-label = "ROBOT-1 shoulder link"
+label = "ROBOT-1 UR10 shoulder joint housing"
+parent = "ROBOT-1"
+local_position = [0.0, 0.46, 0.0]
+pivot = [0.0, 0.0, 0.0]
 
 [node.transform]
-position = [-0.35, 0.85, 2.0]
-scale = [1.05, 0.2, 0.24]
+position = [0.0, 0.46, 0.0]
+scale = [1.8, 1.8, 1.8]
 
 [node.material]
-base_color = "#2563eb"
+base_color = "#475569"
 
 [[node]]
 id = "ROBOT-1.elbow"
+asset = "trust-twin/components/ur10/visual/upperarm.gltf"
 primitive = "box"
-label = "ROBOT-1 elbow link"
+label = "ROBOT-1 UR10 shoulder-to-elbow upper-arm link"
+parent = "ROBOT-1.shoulder"
+local_position = [0.78, 0.48, 0.0]
+pivot = [0.0, 0.0, 0.0]
+asset_rotation = [0.0, 0.0, -1.570796]
 
 [node.transform]
-position = [0.35, 1.2, 2.0]
-scale = [0.9, 0.18, 0.22]
+position = [0.78, 0.48, 0.0]
+scale = [1.65, 1.65, 1.65]
 
 [node.material]
-base_color = "#38bdf8"
+base_color = "#ef4444"
 
 [[node]]
-id = "ROBOT-1.wrist"
+id = "ROBOT-1.elbow_housing"
+asset = "trust-twin/components/ur10/visual/shoulder.gltf"
 primitive = "box"
-label = "ROBOT-1 wrist link"
-
-[node.transform]
-position = [0.82, 1.05, 2.0]
-scale = [0.45, 0.16, 0.18]
-
-[node.material]
-base_color = "#22c55e"
-
-[[node]]
-id = "PICKUP-1"
-primitive = "box"
-label = "PICKUP-1"
+label = "ROBOT-1 UR10 elbow joint housing"
+parent = "ROBOT-1.elbow"
+local_position = [0.0, 0.0, 0.0]
+pivot = [0.0, 0.0, 0.0]
 
 [node.transform]
 position = [0.0, 0.0, 0.0]
-scale = [1.4, 0.3, 1.0]
+scale = [1.75, 1.75, 1.75]
 
 [node.material]
-base_color = "#94a3b8"
+base_color = "#475569"
+
+[[node]]
+id = "ROBOT-1.forearm"
+asset = "trust-twin/components/ur10/visual/forearm.gltf"
+primitive = "box"
+label = "ROBOT-1 UR10 elbow-to-wrist forearm link"
+parent = "ROBOT-1.elbow"
+local_position = [0.56, -0.08, 0.0]
+pivot = [0.0, 0.0, 0.0]
+asset_rotation = [0.0, 0.0, -1.570796]
+
+[node.transform]
+position = [0.56, -0.08, 0.0]
+scale = [1.65, 1.65, 1.65]
+
+[node.material]
+base_color = "#ef4444"
+
+[[node]]
+id = "ROBOT-1.wrist"
+asset = "trust-twin/components/ur10/visual/wrist1.gltf"
+primitive = "box"
+label = "ROBOT-1 UR10 wrist joint 1"
+parent = "ROBOT-1.forearm"
+local_position = [0.4, 0.0, 0.0]
+pivot = [0.0, 0.0, 0.0]
+
+[node.transform]
+position = [0.4, 0.0, 0.0]
+scale = [1.7, 1.7, 1.7]
+
+[node.material]
+base_color = "#475569"
+
+[[node]]
+id = "ROBOT-1.wrist_housing"
+asset = "trust-twin/components/ur10/visual/wrist2.gltf"
+primitive = "box"
+label = "ROBOT-1 UR10 wrist joint 2"
+parent = "ROBOT-1.wrist"
+local_position = [0.16, 0.0, 0.0]
+pivot = [0.0, 0.0, 0.0]
+
+[node.transform]
+position = [0.16, 0.0, 0.0]
+scale = [1.65, 1.65, 1.65]
+
+[node.material]
+base_color = "#475569"
+
+[[node]]
+id = "ROBOT-1.wrist_flange"
+asset = "trust-twin/components/ur10/visual/wrist3.gltf"
+primitive = "box"
+label = "ROBOT-1 UR10 wrist flange"
+parent = "ROBOT-1.wrist_housing"
+local_position = [0.12, 0.0, 0.0]
+pivot = [0.0, 0.0, 0.0]
+
+[node.transform]
+position = [0.12, 0.0, 0.0]
+scale = [1.6, 1.6, 1.6]
+
+[node.material]
+base_color = "#475569"
+
+[[node]]
+id = "PICKUP-1"
+asset = "trust-twin/components/manipulation-station/assets/table_wide.gltf"
+primitive = "box"
+label = "PICKUP-1"
+parent = ""
+local_position = [0.0, 0.0, 0.0]
+pivot = [0.0, 0.0, 0.0]
+
+[node.transform]
+position = [0.0, 0.0, 0.0]
+scale = [0.78, 0.28, 0.42]
+
+[node.material]
+base_color = "#475569"
 
 [[node]]
 id = "BOX-1"
+asset = "trust-twin/components/ycb/meshes/003_cracker_box_textured.gltf"
 primitive = "box"
 label = "BOX-1"
+parent = "PICKUP-1"
+local_position = [0.0, 0.35, 0.0]
+pivot = [0.0, 0.0, 0.0]
 
 [node.transform]
 position = [0.0, 0.35, 0.0]
-scale = [0.4, 0.4, 0.4]
+scale = [1.9, 1.9, 1.9]
 
 [node.material]
-base_color = "#f97316"
+base_color = "#f59e0b"
+
+[[node.parent_pose]]
+parent = "PICKUP-1"
+local_position = [0.0, 0.35, 0.0]
+
+[[node.parent_pose]]
+parent = "GRIPPER-1"
+local_position = [0.0, 0.0, 0.0]
+
+[[node.parent_pose]]
+parent = "DROP-1"
+local_position = [0.0, 0.35, 0.0]
 
 [[node]]
 id = "GRIPPER-1"
+asset = "trust-twin/components/schunk-wsg50/meshes/wsg_body.gltf"
 primitive = "box"
 label = "GRIPPER-1"
+parent = "ROBOT-1.wrist"
+local_position = [0.51, 0.02, 0.12]
+pivot = [0.0, 0.0, 0.0]
 
 [node.transform]
-position = [0.0, 1.2, 2.925]
-scale = [0.16, 0.18, 0.36]
+position = [0.51, 0.02, 0.12]
+scale = [2.3, 2.3, 2.3]
 
 [node.material]
 base_color = "#475569"
 
 [[node]]
 id = "GRIPPER-1.left_jaw"
+asset = "trust-twin/components/schunk-wsg50/meshes/finger_with_tip.gltf"
 primitive = "box"
-label = "GRIPPER-1 left jaw"
+label = "GRIPPER-1 Schunk WSG-50 left finger"
+parent = "GRIPPER-1"
+local_position = [-0.13, -0.02, 0.0]
+pivot = [0.0, 0.0, 0.0]
 
 [node.transform]
-position = [0.0, 1.2, 3.085]
-scale = [0.12, 0.42, 0.1]
+position = [-0.13, -0.02, 0.0]
+scale = [2.3, 2.3, 2.3]
 
 [node.material]
-base_color = "#e2e8f0"
+base_color = "#38bdf8"
 
 [[node]]
 id = "GRIPPER-1.right_jaw"
+asset = "trust-twin/components/schunk-wsg50/meshes/finger_with_tip.gltf"
 primitive = "box"
-label = "GRIPPER-1 right jaw"
+label = "GRIPPER-1 Schunk WSG-50 right finger"
+parent = "GRIPPER-1"
+local_position = [0.13, -0.02, 0.0]
+pivot = [0.0, 0.0, 0.0]
 
 [node.transform]
-position = [0.0, 1.2, 2.765]
-scale = [0.12, 0.42, 0.1]
+position = [0.13, -0.02, 0.0]
+scale = [2.3, 2.3, 2.3]
 
 [node.material]
-base_color = "#e2e8f0"
+base_color = "#38bdf8"
+
+[[node]]
+id = "GRIPPER-1.left_jaw_pad"
+primitive = "box"
+label = "GRIPPER-1 visible left gripper jaw pad"
+parent = "GRIPPER-1.left_jaw"
+local_position = [0.0, 0.0, 0.09]
+pivot = [0.0, 0.0, 0.0]
+
+[node.transform]
+position = [0.0, 0.0, 0.09]
+scale = [0.08, 0.34, 0.18]
+
+[node.material]
+base_color = "#38bdf8"
+
+[[node]]
+id = "GRIPPER-1.right_jaw_pad"
+primitive = "box"
+label = "GRIPPER-1 visible right gripper jaw pad"
+parent = "GRIPPER-1.right_jaw"
+local_position = [0.0, 0.0, 0.09]
+pivot = [0.0, 0.0, 0.0]
+
+[node.transform]
+position = [0.0, 0.0, 0.09]
+scale = [0.08, 0.34, 0.18]
+
+[node.material]
+base_color = "#38bdf8"
 
 [[node]]
 id = "DROP-1"
+asset = "trust-twin/components/manipulation-station/assets/table_wide.gltf"
 primitive = "box"
 label = "DROP-1"
+parent = ""
+local_position = [4.0, 0.0, 0.0]
+pivot = [0.0, 0.0, 0.0]
 
 [node.transform]
 position = [4.0, 0.0, 0.0]
-scale = [1.4, 0.3, 1.0]
+scale = [0.78, 0.28, 0.42]
 
 [node.material]
 base_color = "#64748b"
 
 [[node]]
 id = "LIGHT-1"
+asset = "trust-twin/components/ycb/meshes/005_tomato_soup_can_textured.gltf"
 primitive = "box"
 label = "LIGHT-1"
+parent = ""
+local_position = [2.0, 0.0, 2.0]
+pivot = [0.0, 0.0, 0.0]
 
 [node.transform]
 position = [2.0, 0.0, 2.0]
-scale = [0.25, 0.5, 0.25]
+scale = [0.7, 0.7, 0.7]
 
 [node.material]
 base_color = "#ef4444"
 
+[[node]]
+id = "CELL-FLOOR"
+primitive = "plate"
+label = "Robot cell floor"
+parent = ""
+local_position = [2.0, -0.12, 0.75]
+pivot = [0.0, 0.0, 0.0]
+
+[node.transform]
+position = [2.0, -0.12, 0.75]
+scale = [4.8, 0.03, 1.4]
+
+[node.material]
+base_color = "#dbe3ea"
+
+[[node]]
+id = "RENDER-DEPTH-SENTINEL"
+primitive = "depth-sentinel-line"
+label = "RENDER-DEPTH-SENTINEL"
+parent = ""
+local_position = [0.0, 0.02, 0.0]
+pivot = [0.0, 0.0, 0.0]
+
+[node.transform]
+position = [0.0, 0.02, 0.0]
+scale = [1.0, 1.0, 1.0]
+
+[node.material]
+base_color = "#f8fafc"
+
 [[camera]]
 id = "main"
-position = [2.0, 4.0, 8.0]
-target = [2.0, 0.0, 0.0]
-fov_degrees = 45.0
+position = [3.3, 4.35, 5.05]
+target = [1.75, 0.1, 1.1]
+fov_degrees = 34.0
 
 [[light]]
 id = "key"
@@ -165,26 +416,14 @@ source = "Main.RobotWristAngle"
 scale = { min = -1.570796, max = 1.570796, output_min = -1.570796, output_max = 1.570796 }
 [[bind3d]]
 node = "GRIPPER-1.left_jaw"
-property = "transform.position.z"
+property = "transform.position.x"
 source = "Main.RobotGripperOpen"
-map = { "false" = "0.09", "true" = "0.22" }
+map = { "false" = "0.0", "true" = "-0.28" }
 [[bind3d]]
 node = "GRIPPER-1.right_jaw"
-property = "transform.position.z"
-source = "Main.RobotGripperOpen"
-map = { "false" = "-0.09", "true" = "-0.22" }
-[[bind3d]]
-node = "GRIPPER-1"
 property = "transform.position.x"
-source = "Main.RobotGripperX"
-[[bind3d]]
-node = "GRIPPER-1"
-property = "transform.position.y"
-source = "Main.RobotGripperY"
-[[bind3d]]
-node = "GRIPPER-1"
-property = "transform.position.z"
-source = "Main.RobotGripperZ"
+source = "Main.RobotGripperOpen"
+map = { "false" = "0.0", "true" = "0.20" }
 [[bind3d]]
 node = "LIGHT-1"
 property = "material.emissive"
@@ -192,13 +431,6 @@ source = "Main.RobotStatusLight"
 map = { "false" = "#f59e0b", "true" = "#22c55e" }
 [[bind3d]]
 node = "BOX-1"
-property = "transform.position.x"
-source = "Main.RobotBoxX"
-[[bind3d]]
-node = "BOX-1"
-property = "transform.position.y"
-source = "Main.RobotBoxY"
-[[bind3d]]
-node = "BOX-1"
-property = "transform.position.z"
-source = "Main.RobotBoxZ"
+property = "parent"
+source = "Main.RobotBoxParentState"
+map = { "0" = "PICKUP-1", "1" = "GRIPPER-1", "2" = "DROP-1" }

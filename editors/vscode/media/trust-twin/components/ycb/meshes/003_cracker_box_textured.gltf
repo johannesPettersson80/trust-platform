@@ -1,0 +1,134 @@
+{
+  "asset": {
+    "generator": "glTF-Transform v4.3.0",
+    "version": "2.0"
+  },
+  "accessors": [
+    {
+      "type": "SCALAR",
+      "componentType": 5123,
+      "count": 49152,
+      "bufferView": 0,
+      "byteOffset": 0
+    },
+    {
+      "name": "Node-Mesh_0_positions",
+      "type": "VEC3",
+      "componentType": 5126,
+      "count": 8427,
+      "max": [
+        0.02301499992609024,
+        0.21019400656223297,
+        0.09616000205278397
+      ],
+      "min": [
+        -0.048785001039505005,
+        -0.0032430000137537718,
+        -0.06787600368261337
+      ],
+      "bufferView": 1,
+      "byteOffset": 0
+    },
+    {
+      "name": "Node-Mesh_0_normals",
+      "type": "VEC3",
+      "componentType": 5126,
+      "count": 8427,
+      "bufferView": 1,
+      "byteOffset": 12
+    },
+    {
+      "name": "Node-Mesh_0_texcoords",
+      "type": "VEC2",
+      "componentType": 5126,
+      "count": 8427,
+      "bufferView": 1,
+      "byteOffset": 24
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 98304,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 98304,
+      "byteLength": 269664,
+      "byteStride": 32,
+      "target": 34962
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9986,
+      "wrapS": 10497,
+      "wrapT": 10497
+    }
+  ],
+  "textures": [
+    {
+      "sampler": 0,
+      "source": 0
+    }
+  ],
+  "images": [
+    {
+      "name": "003_cracker_box_textured",
+      "mimeType": "image/png",
+      "uri": "003_cracker_box_textured.png"
+    }
+  ],
+  "buffers": [
+    {
+      "name": "003_cracker_box_textured",
+      "uri": "003_cracker_box_textured.bin",
+      "byteLength": 367968
+    }
+  ],
+  "materials": [
+    {
+      "name": "material_0",
+      "pbrMetallicRoughness": {
+        "metallicFactor": 0,
+        "baseColorTexture": {
+          "index": 0
+        }
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Node-Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 1,
+            "NORMAL": 2,
+            "TEXCOORD_0": 3
+          },
+          "mode": 4,
+          "material": 0,
+          "indices": 0
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "Node",
+      "mesh": 0
+    }
+  ],
+  "scenes": [
+    {
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "scene": 0
+}
