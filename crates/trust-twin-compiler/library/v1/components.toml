@@ -203,7 +203,7 @@ extents = [0.7, 0.7]
 
 [[kind.mounts]]
 name = "tool"
-origin = [2.25, 0.88, 0.12]
+origin = [2.35, 0.23, 0.0]
 axis = [0.0, 0.0, 1.0]
 up = [0.0, 1.0, 0.0]
 
@@ -212,7 +212,7 @@ suffix = "shoulder"
 primitive = "box"
 mesh_asset = "trust-twin/components/ur10/visual/shoulder.gltf"
 label_suffix = "UR10 shoulder joint housing"
-position_offset = [0.0, 0.46, 0.0]
+position_offset = [0.0, 0.23, 0.0]
 scale = [1.8, 1.8, 1.8]
 material = "#475569"
 
@@ -221,8 +221,8 @@ suffix = "elbow"
 primitive = "box"
 mesh_asset = "trust-twin/components/ur10/visual/upperarm.gltf"
 label_suffix = "UR10 shoulder-to-elbow upper-arm link"
-position_offset = [0.78, 0.94, 0.0]
-scale = [1.65, 1.65, 1.65]
+position_offset = [0.0, 0.23, 0.0]
+scale = [1.55, 1.55, 1.55]
 asset_rotation = [0.0, 0.0, -1.570796]
 material = "#ef4444"
 parent_suffix = "shoulder"
@@ -232,8 +232,8 @@ suffix = "elbow_housing"
 primitive = "box"
 mesh_asset = "trust-twin/components/ur10/visual/shoulder.gltf"
 label_suffix = "UR10 elbow joint housing"
-position_offset = [0.78, 0.94, 0.0]
-scale = [1.75, 1.75, 1.75]
+position_offset = [1.04, 0.23, 0.0]
+scale = [1.35, 1.35, 1.35]
 material = "#475569"
 parent_suffix = "elbow"
 
@@ -242,8 +242,8 @@ suffix = "forearm"
 primitive = "box"
 mesh_asset = "trust-twin/components/ur10/visual/forearm.gltf"
 label_suffix = "UR10 elbow-to-wrist forearm link"
-position_offset = [1.34, 0.86, 0.0]
-scale = [1.65, 1.65, 1.65]
+position_offset = [1.04, 0.23, 0.0]
+scale = [1.55, 1.55, 1.55]
 asset_rotation = [0.0, 0.0, -1.570796]
 material = "#ef4444"
 parent_suffix = "elbow"
@@ -253,8 +253,8 @@ suffix = "wrist"
 primitive = "box"
 mesh_asset = "trust-twin/components/ur10/visual/wrist1.gltf"
 label_suffix = "UR10 wrist joint 1"
-position_offset = [1.74, 0.86, 0.0]
-scale = [1.7, 1.7, 1.7]
+position_offset = [2.02, 0.23, 0.0]
+scale = [1.45, 1.45, 1.45]
 material = "#475569"
 parent_suffix = "forearm"
 
@@ -263,8 +263,8 @@ suffix = "wrist_housing"
 primitive = "box"
 mesh_asset = "trust-twin/components/ur10/visual/wrist2.gltf"
 label_suffix = "UR10 wrist joint 2"
-position_offset = [1.90, 0.86, 0.0]
-scale = [1.65, 1.65, 1.65]
+position_offset = [2.15, 0.23, 0.0]
+scale = [1.45, 1.45, 1.45]
 material = "#475569"
 parent_suffix = "wrist"
 
@@ -273,8 +273,8 @@ suffix = "wrist_flange"
 primitive = "box"
 mesh_asset = "trust-twin/components/ur10/visual/wrist3.gltf"
 label_suffix = "UR10 wrist flange"
-position_offset = [2.02, 0.86, 0.0]
-scale = [1.6, 1.6, 1.6]
+position_offset = [2.27, 0.23, 0.0]
+scale = [1.45, 1.45, 1.45]
 material = "#475569"
 parent_suffix = "wrist_housing"
 
@@ -305,7 +305,7 @@ name = "gripper"
 default_mesh_asset = "trust-twin/components/schunk-wsg50/meshes/wsg_body.gltf"
 primitive = "box"
 material = "#475569"
-scale = [2.3, 2.3, 2.3]
+scale = [1.25, 1.25, 1.25]
 bounds = { size = [0.45, 0.25, 0.35] }
 
 [[kind.mounts]]
@@ -316,7 +316,7 @@ up = [0.0, 1.0, 0.0]
 
 [[kind.mounts]]
 name = "pick_target"
-origin = [0.0, -0.2, 0.2]
+origin = [0.0, 0.0, 0.18]
 axis = [0.0, -1.0, 0.0]
 up = [0.0, 0.0, 1.0]
 
@@ -325,25 +325,25 @@ suffix = "left_jaw"
 primitive = "box"
 mesh_asset = "trust-twin/components/schunk-wsg50/meshes/finger_with_tip.gltf"
 label_suffix = "Schunk WSG-50 left finger"
-position_offset = [-0.13, -0.02, 0.0]
-scale = [2.3, 2.3, 2.3]
-material = "#38bdf8"
+position_offset = [-0.035, 0.0, 0.0]
+scale = [1.25, 1.25, 1.25]
+material = "#111827"
 
 [[kind.visual_nodes]]
 suffix = "right_jaw"
 primitive = "box"
 mesh_asset = "trust-twin/components/schunk-wsg50/meshes/finger_with_tip.gltf"
 label_suffix = "Schunk WSG-50 right finger"
-position_offset = [0.13, -0.02, 0.0]
-scale = [2.3, 2.3, 2.3]
-material = "#38bdf8"
+position_offset = [0.035, 0.0, 0.0]
+scale = [1.25, 1.25, 1.25]
+material = "#111827"
 
 [[kind.visual_nodes]]
 suffix = "left_jaw_pad"
 primitive = "box"
 label_suffix = "visible left gripper jaw pad"
-position_offset = [-0.13, -0.02, 0.09]
-scale = [0.08, 0.34, 0.18]
+position_offset = [-0.035, -0.1, 0.18]
+scale = [0.055, 0.3, 0.16]
 material = "#38bdf8"
 parent_suffix = "left_jaw"
 
@@ -351,8 +351,8 @@ parent_suffix = "left_jaw"
 suffix = "right_jaw_pad"
 primitive = "box"
 label_suffix = "visible right gripper jaw pad"
-position_offset = [0.13, -0.02, 0.09]
-scale = [0.08, 0.34, 0.18]
+position_offset = [0.035, -0.04, 0.18]
+scale = [0.055, 0.28, 0.16]
 material = "#38bdf8"
 parent_suffix = "right_jaw"
 
@@ -360,13 +360,13 @@ parent_suffix = "right_jaw"
 name = "open_left"
 node_suffix = "left_jaw"
 property = "transform.position.x"
-map = { "true" = "-0.28", "false" = "0.0" }
+map = { "true" = "-0.15", "false" = "-0.035" }
 
 [[kind.signals]]
 name = "open_right"
 node_suffix = "right_jaw"
 property = "transform.position.x"
-map = { "true" = "0.20", "false" = "0.0" }
+map = { "true" = "0.15", "false" = "0.035" }
 
 [[kind.signals]]
 name = "x"

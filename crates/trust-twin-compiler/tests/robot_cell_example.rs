@@ -19,7 +19,11 @@ const REQUIRED_NODES: &[&str] = &[
     "ROBOT-1",
     "ROBOT-1.shoulder",
     "ROBOT-1.elbow",
+    "ROBOT-1.elbow_housing",
+    "ROBOT-1.forearm",
     "ROBOT-1.wrist",
+    "ROBOT-1.wrist_housing",
+    "ROBOT-1.wrist_flange",
     "GRIPPER-1",
     "GRIPPER-1.left_jaw",
     "GRIPPER-1.right_jaw",
@@ -312,12 +316,38 @@ fn robot_cell_view_schema_carries_parent_edges_and_local_frames() {
     assert_eq!(parent_of("ROBOT-1"), "");
     assert_eq!(parent_of("ROBOT-1.shoulder"), "ROBOT-1");
     assert_eq!(parent_of("ROBOT-1.elbow"), "ROBOT-1.shoulder");
+    assert_eq!(parent_of("ROBOT-1.elbow_housing"), "ROBOT-1.elbow");
     assert_eq!(parent_of("ROBOT-1.forearm"), "ROBOT-1.elbow");
     assert_eq!(parent_of("ROBOT-1.wrist"), "ROBOT-1.forearm");
-    assert_eq!(parent_of("GRIPPER-1"), "ROBOT-1.wrist");
+    assert_eq!(parent_of("ROBOT-1.wrist_housing"), "ROBOT-1.wrist");
+    assert_eq!(parent_of("ROBOT-1.wrist_flange"), "ROBOT-1.wrist_housing");
+    assert_eq!(parent_of("GRIPPER-1"), "ROBOT-1.wrist_flange");
     assert_eq!(parent_of("GRIPPER-1.left_jaw"), "GRIPPER-1");
     assert_eq!(parent_of("GRIPPER-1.right_jaw"), "GRIPPER-1");
     assert_eq!(parent_of("BOX-1"), "PICKUP-1");
+
+    let local_position_of = |id: &str| {
+        nodes
+            .iter()
+            .find(|node| str_field(node, "id") == Some(id))
+            .and_then(|node| vec3_field(node, "local_position"))
+            .unwrap_or_else(|| panic!("missing local_position for {id}"))
+    };
+    assert_close_vec3(
+        local_position_of("ROBOT-1.elbow"),
+        [0.0, 0.0, 0.0],
+        "upper-arm mesh starts at shoulder joint",
+    );
+    assert_close_vec3(
+        local_position_of("ROBOT-1.forearm"),
+        [1.04, 0.0, 0.0],
+        "forearm starts at elbow joint",
+    );
+    assert_close_vec3(
+        local_position_of("GRIPPER-1"),
+        [0.08, 0.0, 0.0],
+        "gripper mounts close to wrist flange",
+    );
 
     let box_node = nodes
         .iter()
@@ -332,6 +362,16 @@ fn robot_cell_view_schema_carries_parent_edges_and_local_frames() {
             "BOX-1 must define a local pose for reparenting under {parent}"
         );
     }
+    let gripper_box_pose = parent_poses
+        .iter()
+        .find(|pose| str_field(pose, "parent") == Some("GRIPPER-1"))
+        .and_then(|pose| vec3_field(pose, "local_position"))
+        .expect("BOX-1 gripper parent pose");
+    assert_close_vec3(
+        gripper_box_pose,
+        [0.0, 0.0, 0.18],
+        "carried box sits at gripper pick target",
+    );
 }
 
 #[test]
@@ -412,4 +452,33 @@ fn array<'a>(value: &'a toml::Value, key: &str) -> &'a [toml::Value] {
 
 fn str_field<'a>(value: &'a toml::Value, key: &str) -> Option<&'a str> {
     value.get(key).and_then(toml::Value::as_str)
+}
+
+fn vec3_field(value: &toml::Value, key: &str) -> Option<[f64; 3]> {
+    let values = value.get(key)?.as_array()?;
+    if values.len() != 3 {
+        return None;
+    }
+    Some([
+        values[0]
+            .as_float()
+            .or_else(|| values[0].as_integer().map(|v| v as f64))?,
+        values[1]
+            .as_float()
+            .or_else(|| values[1].as_integer().map(|v| v as f64))?,
+        values[2]
+            .as_float()
+            .or_else(|| values[2].as_integer().map(|v| v as f64))?,
+    ])
+}
+
+fn assert_close_vec3(actual: [f64; 3], expected: [f64; 3], context: &str) {
+    for axis in 0..3 {
+        assert!(
+            (actual[axis] - expected[axis]).abs() < 0.001,
+            "{context}: axis {axis} expected {}, got {}",
+            expected[axis],
+            actual[axis]
+        );
+    }
 }
