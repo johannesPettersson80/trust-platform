@@ -3,8 +3,10 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use trust_runtime::world::{
-    assert_world_actuator_smoke_trace, assert_world_smoke_trace, run_world_actuator_smoke,
-    run_world_smoke, ActuatorState, WorldActuatorSmokeConfig, WorldSmokeConfig, WorldSmokeTrace,
+    assert_world_actuator_smoke_trace, assert_world_multi_actuator_smoke_trace,
+    assert_world_smoke_trace, record_determinism_hash_stability, run_world_actuator_smoke,
+    run_world_multi_actuator_smoke, run_world_smoke, ActuatorState, WorldActuatorSmokeConfig,
+    WorldMultiActuatorScenario, WorldMultiActuatorSmokeConfig, WorldSmokeConfig, WorldSmokeTrace,
 };
 
 #[test]
@@ -48,7 +50,6 @@ fn cube_floor_world_smoke_trace_proves_physics_and_handoff() -> anyhow::Result<(
 #[test]
 fn workpiece_fixture_actuator_smoke_trace_proves_joint_driven_carry() -> anyhow::Result<()> {
     let trace = run_actuator_trace(WorldActuatorSmokeConfig::default())?;
-    write_trace_artifact(&trace)?;
 
     assert_p1_positive_assertions(&trace);
     assert_eq!(trace.world_abstraction.type_name, "World");
@@ -78,6 +79,33 @@ fn workpiece_fixture_actuator_smoke_trace_proves_joint_driven_carry() -> anyhow:
 
     let repeat = run_actuator_trace(WorldActuatorSmokeConfig::default())?;
     assert_eq!(trace.determinism_trace_hash, repeat.determinism_trace_hash);
+
+    Ok(())
+}
+
+#[test]
+fn multi_actuator_handoff_smoke_trace_proves_atomic_transfer() -> anyhow::Result<()> {
+    let mut trace = run_multi_trace(WorldMultiActuatorSmokeConfig::default())?;
+    let repeat = run_multi_trace(WorldMultiActuatorSmokeConfig::default())?;
+    assert_eq!(trace.determinism_trace_hash, repeat.determinism_trace_hash);
+    record_determinism_hash_stability(&mut trace, repeat.determinism_trace_hash);
+    write_trace_artifact(&trace)?;
+
+    assert_p2_positive_assertions(&trace);
+    let handoff_plan = trace.handoff_plan.as_ref().expect("P2 handoff plan exists");
+    let handoff_tick = handoff_plan.atomic_tick.expect("handoff tick recorded");
+    let handoff_sample = trace
+        .per_tick_trace
+        .iter()
+        .find(|sample| sample.tick == handoff_tick)
+        .expect("handoff tick sample exists");
+    let observed = handoff_sample
+        .tick_events
+        .iter()
+        .filter(|event| event.starts_with("joint_") || event.starts_with("state_transition("))
+        .cloned()
+        .collect::<Vec<_>>();
+    assert_eq!(observed, handoff_plan.atomic_event_order);
 
     Ok(())
 }
@@ -149,6 +177,109 @@ fn workpiece_fixture_floor_removed_triggers_above_floor_assertions() -> anyhow::
 }
 
 #[test]
+fn multi_actuator_simultaneous_grip_without_plan_is_deterministic() -> anyhow::Result<()> {
+    let config = WorldMultiActuatorSmokeConfig {
+        scenario: WorldMultiActuatorScenario::SimultaneousGripNoHandoff,
+        tick_count: 200,
+        ..WorldMultiActuatorSmokeConfig::default()
+    };
+    let trace = run_multi_trace(config)?;
+    let repeat = run_multi_trace(config)?;
+    assert_eq!(trace.determinism_trace_hash, repeat.determinism_trace_hash);
+    assert!(
+        trace.per_tick_trace.iter().any(|tick| {
+            tick.ownership
+                .as_ref()
+                .and_then(|ownership| ownership.owner.as_deref())
+                == Some("carrier_a")
+        }),
+        "lower actuator id carrier_a must win simultaneous grip"
+    );
+    assert!(
+        trace.per_tick_trace.iter().any(|tick| {
+            tick.contention_faults.iter().any(|fault| {
+                fault.actuator == "carrier_b"
+                    && fault.code == "grip_denied_workpiece_owned_by(carrier_a)"
+            })
+        }),
+        "carrier_b must receive contention fault"
+    );
+    let assertions = assert_world_multi_actuator_smoke_trace(&trace.per_tick_trace);
+    assert_eq!(
+        assertions
+            .exclusive_ownership
+            .expect("exclusive assertion exists")
+            .ticks_with_two_joints,
+        0
+    );
+    Ok(())
+}
+
+#[test]
+fn multi_actuator_second_joint_while_owned_is_rejected() -> anyhow::Result<()> {
+    let config = WorldMultiActuatorSmokeConfig {
+        scenario: WorldMultiActuatorScenario::SecondGripWhileOwned,
+        ..WorldMultiActuatorSmokeConfig::default()
+    };
+    let trace = run_multi_trace(config)?;
+    assert!(
+        trace.per_tick_trace.iter().any(|tick| {
+            tick.contention_faults.iter().any(|fault| {
+                fault.actuator == "carrier_b"
+                    && fault.code == "grip_denied_workpiece_owned_by(carrier_a)"
+            })
+        }),
+        "carrier_b grip must be denied while carrier_a owns the workpiece"
+    );
+    let assertions = assert_world_multi_actuator_smoke_trace(&trace.per_tick_trace);
+    let exclusive = assertions
+        .exclusive_ownership
+        .expect("exclusive ownership assertion exists");
+    assert!(exclusive.ok);
+    assert_eq!(exclusive.ticks_with_two_joints, 0);
+    Ok(())
+}
+
+#[test]
+fn multi_actuator_reversed_registration_keeps_trace_hash_stable() -> anyhow::Result<()> {
+    let canonical = run_multi_trace(WorldMultiActuatorSmokeConfig::default())?;
+    let reversed = run_multi_trace(WorldMultiActuatorSmokeConfig {
+        reverse_actuator_registration: true,
+        ..WorldMultiActuatorSmokeConfig::default()
+    })?;
+    assert_eq!(
+        canonical.determinism_trace_hash,
+        reversed.determinism_trace_hash
+    );
+    Ok(())
+}
+
+#[test]
+fn multi_actuator_floor_removed_triggers_above_floor_assertions() -> anyhow::Result<()> {
+    let trace = run_multi_trace(WorldMultiActuatorSmokeConfig {
+        include_floor: false,
+        drive_actuators: false,
+        ..WorldMultiActuatorSmokeConfig::default()
+    })?;
+    let assertions = assert_world_multi_actuator_smoke_trace(&trace.per_tick_trace);
+    assert!(
+        !assertions
+            .workpiece_above_floor
+            .expect("workpiece assertion exists")
+            .ok,
+        "floor-removed variant must let the workpiece fall below y=0"
+    );
+    assert!(
+        !assertions
+            .carrier_above_floor
+            .expect("carrier assertion exists")
+            .ok,
+        "floor-removed variant must let carriers fall below y=0"
+    );
+    Ok(())
+}
+
+#[test]
 fn cube_floor_world_smoke_bypass_fixture_is_rejected_by_lint() {
     assert_fixture_rejected(
         "crates/trust-runtime/tests/fixtures/world_smoke_transform_bypass.rs",
@@ -201,6 +332,20 @@ fn run_actuator_trace(config: WorldActuatorSmokeConfig) -> anyhow::Result<WorldS
     let carrier_node = scene.add_empty(scene.root(), scena::Transform::IDENTITY)?;
     let workpiece_node = scene.add_empty(scene.root(), scena::Transform::IDENTITY)?;
     run_world_actuator_smoke(config, &mut scene, carrier_node, workpiece_node)
+}
+
+fn run_multi_trace(config: WorldMultiActuatorSmokeConfig) -> anyhow::Result<WorldSmokeTrace> {
+    let mut scene = scena::Scene::new();
+    let carrier_a_node = scene.add_empty(scene.root(), scena::Transform::IDENTITY)?;
+    let carrier_b_node = scene.add_empty(scene.root(), scena::Transform::IDENTITY)?;
+    let workpiece_node = scene.add_empty(scene.root(), scena::Transform::IDENTITY)?;
+    run_world_multi_actuator_smoke(
+        config,
+        &mut scene,
+        carrier_a_node,
+        carrier_b_node,
+        workpiece_node,
+    )
 }
 
 fn write_trace_artifact(trace: &WorldSmokeTrace) -> anyhow::Result<()> {
@@ -267,6 +412,51 @@ fn assert_p1_positive_assertions(trace: &WorldSmokeTrace) {
             .expect("settle assertion exists")
             .ok,
         "workpiece must settle on the fixture"
+    );
+}
+
+fn assert_p2_positive_assertions(trace: &WorldSmokeTrace) {
+    assert_p1_positive_assertions(trace);
+    let assertions = &trace.assertions;
+    assert!(
+        assertions
+            .exclusive_ownership
+            .as_ref()
+            .expect("exclusive assertion exists")
+            .ok,
+        "workpiece ownership must be exclusive"
+    );
+    assert!(
+        assertions
+            .ownership_transfer_atomic
+            .as_ref()
+            .expect("atomic transfer assertion exists")
+            .ok,
+        "ownership transfer must be atomic"
+    );
+    assert!(
+        assertions
+            .handoff_order_deterministic
+            .as_ref()
+            .expect("handoff order assertion exists")
+            .ok,
+        "handoff event order must match the contract"
+    );
+    assert!(
+        assertions
+            .no_phantom_carry
+            .as_ref()
+            .expect("phantom carry assertion exists")
+            .ok,
+        "actuator carry states must agree with active joints"
+    );
+    assert!(
+        assertions
+            .determinism_hash_stable
+            .as_ref()
+            .expect("determinism assertion exists")
+            .ok,
+        "repeated P2 run must produce the same trace hash"
     );
 }
 

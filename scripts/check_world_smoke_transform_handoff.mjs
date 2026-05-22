@@ -11,6 +11,7 @@ const teleportPattern = /\.(set_position|set_translation|set_next_kinematic_posi
 const kinematicPositionPattern = /KinematicPositionBased|kinematic_position_based\s*\(/;
 const sceneReparentPattern = /\.(set_parent|reparent)\s*\(/;
 const poseCopyPattern = /copy_carrier_pose_to_workpiece|workpiece\.set_position\s*\([^;]*carrier\.position\s*\(/;
+const fixedJointPattern = /FixedJointBuilder::new|\.impulse_joints\s*\.\s*(insert|remove)\s*\(/;
 
 function usage() {
   console.error("usage: node scripts/check_world_smoke_transform_handoff.mjs --repo | --fixture <path>");
@@ -27,6 +28,36 @@ function lineNumbersWith(source, pattern) {
     .map((line, index) => ({ line, number: index + 1 }))
     .filter(({ line }) => pattern.test(line))
     .map(({ number }) => number);
+}
+
+function sourceFiles(rootDir) {
+  const absoluteRoot = path.join(root, rootDir);
+  if (!fs.existsSync(absoluteRoot)) {
+    return [];
+  }
+  const files = [];
+  for (const entry of fs.readdirSync(absoluteRoot, { withFileTypes: true })) {
+    if (["target", "node_modules", ".git"].includes(entry.name)) {
+      continue;
+    }
+    const absolute = path.join(absoluteRoot, entry.name);
+    const relative = path.relative(root, absolute).split(path.sep).join("/");
+    if (entry.isDirectory()) {
+      files.push(...sourceFiles(relative));
+    } else if (/\.(rs|mjs|js)$/.test(entry.name)) {
+      files.push(relative);
+    }
+  }
+  return files;
+}
+
+function forbiddenJointSitesOutsideWorld() {
+  return sourceFiles("crates")
+    .filter((file) => file !== allowedFile)
+    .flatMap((file) => {
+      const lines = lineNumbersWith(read(file), fixedJointPattern);
+      return lines.map((line) => `${file}:${line}`);
+    });
 }
 
 if (args[0] === "--repo" && args.length === 1) {
@@ -59,6 +90,13 @@ if (args[0] === "--repo" && args.length === 1) {
   }
   if (poseCopyLines.length > 0) {
     console.error(`forbidden carrier-to-workpiece pose copy in ${allowedFile}: ${poseCopyLines.join(", ")}`);
+    process.exit(1);
+  }
+  const outsideJointSites = forbiddenJointSitesOutsideWorld();
+  if (outsideJointSites.length > 0) {
+    console.error(
+      `forbidden world-smoke workpiece joint construction outside ${allowedFile}: ${outsideJointSites.join(", ")}`
+    );
     process.exit(1);
   }
   console.log(`${allowedFile}:${setTransformLines[0]} is the only world-smoke dynamic-body transform handoff`);

@@ -14,6 +14,8 @@ const htmlPath = path.join(artifactDir, "world_smoke_renderer.html");
 const screenshotInitial = path.join(artifactDir, "world_smoke_initial.png");
 const screenshotGrip = path.join(artifactDir, "world_smoke_grip.png");
 const screenshotCarry = path.join(artifactDir, "world_smoke_carry.png");
+const screenshotTransfer = path.join(artifactDir, "world_smoke_transfer.png");
+const screenshotHandoff = path.join(artifactDir, "world_smoke_handoff.png");
 const screenshotFinal = path.join(artifactDir, "world_smoke_final.png");
 
 const trace = JSON.parse(await fs.readFile(tracePath, "utf8"));
@@ -55,8 +57,18 @@ try {
   await page.locator("#scene").screenshot({ path: screenshotInitial });
   await renderAt(page, frames.grip);
   await page.locator("#scene").screenshot({ path: screenshotGrip });
-  await renderAt(page, frames.carry);
-  await page.locator("#scene").screenshot({ path: screenshotCarry });
+  if (frames.carry) {
+    await renderAt(page, frames.carry);
+    await page.locator("#scene").screenshot({ path: screenshotCarry });
+  }
+  if (frames.transfer) {
+    await renderAt(page, frames.transfer);
+    await page.locator("#scene").screenshot({ path: screenshotTransfer });
+  }
+  if (frames.handoff) {
+    await renderAt(page, frames.handoff);
+    await page.locator("#scene").screenshot({ path: screenshotHandoff });
+  }
   await renderAt(page, frames.release);
   await page.locator("#scene").screenshot({ path: screenshotFinal });
   const fatalBrowserErrors = browserErrors.filter((message) =>
@@ -68,7 +80,15 @@ try {
   trace.renderer_origin = origin;
   trace.screenshot_initial_png = "target/gate-artifacts/world_smoke_initial.png";
   trace.screenshot_grip_png = "target/gate-artifacts/world_smoke_grip.png";
-  trace.screenshot_carry_png = "target/gate-artifacts/world_smoke_carry.png";
+  if (frames.carry) {
+    trace.screenshot_carry_png = "target/gate-artifacts/world_smoke_carry.png";
+  }
+  if (frames.transfer) {
+    trace.screenshot_transfer_png = "target/gate-artifacts/world_smoke_transfer.png";
+  }
+  if (frames.handoff) {
+    trace.screenshot_handoff_png = "target/gate-artifacts/world_smoke_handoff.png";
+  }
   trace.screenshot_final_png = "target/gate-artifacts/world_smoke_final.png";
   await fs.writeFile(tracePath, `${JSON.stringify(trace, null, 2)}\n`, "utf8");
   console.log(`world smoke rendered with renderer_origin=${origin}`);
@@ -80,12 +100,19 @@ try {
 }
 
 async function renderAt(page, tick) {
+  const positions = tick.carrier_a?.center
+    ? {
+        carrier_a: tick.carrier_a.center,
+        carrier_b: tick.carrier_b.center,
+        workpiece: tick.workpiece.center,
+      }
+    : {
+        carrier: tick.carrier.center,
+        workpiece: tick.workpiece.center,
+      };
   await page.evaluate(
     async (positions) => window.__worldSmokeRender(positions),
-    {
-      carrier: tick.carrier.center,
-      workpiece: tick.workpiece.center,
-    },
+    positions,
   );
   await page.waitForTimeout(100);
 }
@@ -99,7 +126,7 @@ function assertTraceReady(value) {
       throw new Error(`world smoke assertion ${name} is not true`);
     }
   }
-  const required = [
+  const p1Required = [
     "workpiece_above_floor",
     "carrier_above_floor",
     "no_fixture_interpenetration",
@@ -108,20 +135,48 @@ function assertTraceReady(value) {
     "release_destroyed_joint",
     "workpiece_settled_on_fixture",
   ];
+  const p2Required = [
+    "exclusive_ownership",
+    "ownership_transfer_atomic",
+    "handoff_order_deterministic",
+    "no_phantom_carry",
+    "determinism_hash_stable",
+  ];
+  const required = value.actuators ? [...p1Required, ...p2Required] : p1Required;
   for (const name of required) {
     if (value.assertions?.[name]?.ok !== true) {
-      throw new Error(`P1 assertion ${name} is not true`);
+      throw new Error(`world smoke assertion ${name} is not true`);
     }
   }
   if (!Array.isArray(value.per_tick_trace) || value.per_tick_trace.length < 2) {
     throw new Error("world_smoke_trace.json has no usable per_tick_trace");
   }
-  if (!value.per_tick_trace.every((tick) => tick.carrier?.center && tick.workpiece?.center)) {
+  const hasP2Positions = value.per_tick_trace.every((tick) =>
+    tick.carrier_a?.center && tick.carrier_b?.center && tick.workpiece?.center
+  );
+  const hasP1Positions = value.per_tick_trace.every((tick) => tick.carrier?.center && tick.workpiece?.center);
+  if (!hasP1Positions && !hasP2Positions) {
     throw new Error("world_smoke_trace.json does not contain P1 carrier/workpiece positions");
   }
 }
 
 function selectFrames(value) {
+  if (value.actuators) {
+    const initial = value.per_tick_trace[0];
+    const grip = value.per_tick_trace.find((tick) =>
+      tick.tick_events?.includes("joint_create(carrier_a, workpiece)")
+    );
+    const transfer = value.per_tick_trace.find((tick) =>
+      stateIs(tick, "carrier_a", "Held") && stateIs(tick, "carrier_b", "AcceptingHandoff")
+    );
+    const handoffTick = value.handoff_plan?.atomic_tick;
+    const handoff = value.per_tick_trace.find((tick) => tick.tick === handoffTick + 1);
+    const release = value.per_tick_trace[value.per_tick_trace.length - 1];
+    if (!initial || !grip || !transfer || !handoff || !release) {
+      throw new Error("trace does not contain P2 initial/grip/transfer/handoff/final frames");
+    }
+    return { initial, grip, transfer, handoff, release };
+  }
   const initial = value.per_tick_trace[0];
   const grip = value.per_tick_trace.find((tick) => tick.actuator_state === "Carrying" && hasContact(tick, "carrier", "workpiece"));
   const releaseTransition = value.per_tick_trace.find((tick) => tick.actuator_state === "Releasing");
@@ -134,6 +189,10 @@ function selectFrames(value) {
   return { initial, grip, carry, release };
 }
 
+function stateIs(tick, name, state) {
+  return (tick.actuator_states ?? []).some((sample) => sample.name === name && sample.state === state);
+}
+
 function hasContact(tick, a, b) {
   return (tick.contacts ?? []).some((contact) =>
     (contact.a === a && contact.b === b) || (contact.a === b && contact.b === a)
@@ -141,6 +200,114 @@ function hasContact(tick, a, b) {
 }
 
 function scenePayload() {
+  const isP2 = Boolean(trace.actuators);
+  const nodes = [
+    {
+      id: "floor",
+      primitive: "box",
+      local_position: [0.0, 0.0, 0.0],
+      transform: { scale: [6.0, 0.1, 6.0] },
+      material: { base_color: "#2f3b4f" },
+    },
+    {
+      id: "fixture",
+      primitive: "box",
+      local_position: [2.0, 0.3, 0.0],
+      transform: { scale: [1.5, 0.5, 1.5] },
+      material: { base_color: "#64748b", emissive: "#000000", opacity: 1.0 },
+    },
+    {
+      id: "workpiece",
+      primitive: "cube",
+      local_position: [0.0, 0.3, 0.0],
+      transform: { scale: [0.5, 0.5, 0.5] },
+      material: { base_color: "#f97316", emissive: "#000000", opacity: 1.0 },
+    },
+    ...(isP2
+      ? [
+          {
+            id: "transfer_zone",
+            primitive: "box",
+            local_position: [1.0, 0.08, 0.0],
+            transform: { scale: [0.5, 0.04, 0.5] },
+            material: { base_color: "#facc15", emissive: "#000000", opacity: 1.0 },
+          },
+          {
+            id: "carrier_a",
+            primitive: "box",
+            local_position: [0.0, 1.4, 0.0],
+            transform: { scale: [0.9, 0.3, 0.9] },
+            material: { base_color: "#38bdf8", emissive: "#000000", opacity: 1.0 },
+          },
+          {
+            id: "carrier_a_tool",
+            parent: "carrier_a",
+            primitive: "cube",
+            local_position: [0.0, -0.22, 0.0],
+            transform: { scale: [0.16, 0.12, 0.16] },
+            material: { base_color: "#facc15", emissive: "#000000", opacity: 1.0 },
+          },
+          {
+            id: "carrier_b",
+            primitive: "box",
+            local_position: [1.0, 1.8, 0.7],
+            transform: { scale: [0.9, 0.3, 0.9] },
+            material: { base_color: "#a78bfa", emissive: "#000000", opacity: 1.0 },
+          },
+          {
+            id: "carrier_b_tool",
+            parent: "carrier_b",
+            primitive: "cube",
+            local_position: [0.0, 0.0, -0.52],
+            transform: { scale: [0.16, 0.16, 0.12] },
+            material: { base_color: "#fde047", emissive: "#000000", opacity: 1.0 },
+          },
+        ]
+      : [
+          {
+            id: "carrier",
+            primitive: "box",
+            local_position: [0.0, 1.4, 0.0],
+            transform: { scale: [0.9, 0.3, 0.9] },
+            material: { base_color: "#38bdf8", emissive: "#000000", opacity: 1.0 },
+          },
+          {
+            id: "carrier-tool",
+            parent: "carrier",
+            primitive: "cube",
+            local_position: [0.0, -0.22, 0.0],
+            transform: { scale: [0.16, 0.12, 0.16] },
+            material: { base_color: "#facc15", emissive: "#000000", opacity: 1.0 },
+          },
+        ]),
+  ];
+  const bindings = [
+    {
+      node: "workpiece",
+      property: "transform.position",
+      source: "World.WorkpiecePosition",
+    },
+    ...(isP2
+      ? [
+          {
+            node: "carrier_a",
+            property: "transform.position",
+            source: "World.CarrierAPosition",
+          },
+          {
+            node: "carrier_b",
+            property: "transform.position",
+            source: "World.CarrierBPosition",
+          },
+        ]
+      : [
+          {
+            node: "carrier",
+            property: "transform.position",
+            source: "World.CarrierPosition",
+          },
+        ]),
+  ];
   return {
     render: {
       background: "#101827",
@@ -157,44 +324,7 @@ function scenePayload() {
       line_color: "#5e718f",
       roughness: 0.85,
     },
-    node: [
-      {
-        id: "floor",
-        primitive: "box",
-        local_position: [0.0, 0.0, 0.0],
-        transform: { scale: [6.0, 0.1, 6.0] },
-        material: { base_color: "#2f3b4f" },
-      },
-      {
-        id: "fixture",
-        primitive: "box",
-        local_position: [2.0, 0.3, 0.0],
-        transform: { scale: [1.5, 0.5, 1.5] },
-        material: { base_color: "#64748b", emissive: "#000000", opacity: 1.0 },
-      },
-      {
-        id: "workpiece",
-        primitive: "cube",
-        local_position: [0.0, 0.3, 0.0],
-        transform: { scale: [0.5, 0.5, 0.5] },
-        material: { base_color: "#f97316", emissive: "#000000", opacity: 1.0 },
-      },
-      {
-        id: "carrier",
-        primitive: "box",
-        local_position: [0.0, 1.4, 0.0],
-        transform: { scale: [0.9, 0.3, 0.9] },
-        material: { base_color: "#38bdf8", emissive: "#000000", opacity: 1.0 },
-      },
-      {
-        id: "carrier-tool",
-        parent: "carrier",
-        primitive: "cube",
-        local_position: [0.0, -0.22, 0.0],
-        transform: { scale: [0.16, 0.12, 0.16] },
-        material: { base_color: "#facc15", emissive: "#000000", opacity: 1.0 },
-      },
-    ],
+    node: nodes,
     camera: [
       {
         id: "main",
@@ -208,18 +338,7 @@ function scenePayload() {
     light: [
       { kind: "directional", position: [2.0, 5.0, 3.0], intensity: 1.2 },
     ],
-    bind3d: [
-      {
-        node: "workpiece",
-        property: "transform.position",
-        source: "World.WorkpiecePosition",
-      },
-      {
-        node: "carrier",
-        property: "transform.position",
-        source: "World.CarrierPosition",
-      },
-    ],
+    bind3d: bindings,
   };
 }
 
@@ -251,6 +370,8 @@ function htmlSource() {
     window.__worldSmokeRender = async (positions) => {
       if (!handle) throw new Error("world smoke renderer not initialized");
       apply_values(handle, JSON.stringify({
+        "World.CarrierAPosition": positions.carrier_a,
+        "World.CarrierBPosition": positions.carrier_b,
         "World.CarrierPosition": positions.carrier,
         "World.WorkpiecePosition": positions.workpiece,
       }));
