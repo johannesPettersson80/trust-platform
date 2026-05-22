@@ -1,12 +1,5 @@
 [metadata]
-asset_state = "packaged_asset"
-asset_source = "Universal Robots ROS2 Description UR10 visual meshes converted to glTF, plus Schunk WSG-50, Drake manipulation table, and YCB object glTF mesh set"
-asset_source_url = "https://github.com/UniversalRobots/Universal_Robots_ROS2_Description/tree/18dea90dedf24adea05d920d0d441e4523a41e50"
-asset_original_author = "UR10 meshes: Universal Robots ROS2 Description authors/Universal Robots A/S; Schunk WSG-50 meshes: Toyota Research Institute; table meshes: Robot Locomotion Group at CSAIL; workpiece/beacon meshes: YCB Object and Model Set"
-asset_license = "BSD-3-Clause for UR10, Schunk WSG-50, and Drake manipulation table meshes; CC-BY-4.0 for YCB object meshes"
-asset_manifest_sha256 = "99dfc722f035472e684122fa8e77c3361242c103f7fe52dfacfaf845d1b470e5"
-asset_package_path = "crates/trust-twin-compiler/library/v1/assets/trust-twin/components/"
-asset_version = "Universal Robots ROS2 Description commit 18dea90dedf24adea05d920d0d441e4523a41e50 and RobotLocomotion/models commit 5c942636d18013870403c17c8209558799122abd imported 2026-05-16"
+asset_state = "procedural_robot"
 design_decision = "Q-H"
 description = "Canonical robot-cell digital twin with PLC-driven pick-and-place motion."
 
@@ -75,6 +68,24 @@ source = "Main.RobotGripperOpen"
 access = "read"
 
 [[bindings]]
+component = "GRIPPER-1"
+signal = "x"
+source = "Main.RobotGripperX"
+access = "read"
+
+[[bindings]]
+component = "GRIPPER-1"
+signal = "y"
+source = "Main.RobotGripperY"
+access = "read"
+
+[[bindings]]
+component = "GRIPPER-1"
+signal = "z"
+source = "Main.RobotGripperZ"
+access = "read"
+
+[[bindings]]
 component = "LIGHT-1"
 signal = "state"
 source = "Main.RobotStatusLight"
@@ -82,6 +93,18 @@ access = "read"
 
 [[bindings]]
 component = "BOX-1"
-signal = "parent_state"
-source = "Main.RobotBoxParentState"
+signal = "x"
+source = "Main.RobotBoxX"
+access = "read"
+
+[[bindings]]
+component = "BOX-1"
+signal = "y"
+source = "Main.RobotBoxY"
+access = "read"
+
+[[bindings]]
+component = "BOX-1"
+signal = "z"
+source = "Main.RobotBoxZ"
 access = "read"

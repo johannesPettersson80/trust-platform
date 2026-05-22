@@ -9,43 +9,8 @@ use sha2::{Digest, Sha256};
 use thiserror::Error;
 
 const BUILTIN_LIBRARY: &str = include_str!("../library/v1/components.toml");
-const VIEW_CONTRACT_VERSION: u32 = 2;
-const RENDERER_CONTRACT_VERSION: u32 = 2;
-const TOPOLOGY_HASH_DOMAIN: &str = "trust-twin-topology:v2";
-const TOPOLOGY_HASH_HEADER_PREFIX: &str = "# trust-twin-topology-hash:v2:sha256:";
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-struct CameraProfile {
-    target_x_offset: f64,
-    eye_x_offset: f64,
-    height: f64,
-    distance: f64,
-    target_y: f64,
-    target_z: f64,
-    fov_degrees: f64,
-}
-
-impl CameraProfile {
-    const DEFAULT: Self = Self {
-        target_x_offset: 0.0,
-        eye_x_offset: 0.0,
-        height: 4.0,
-        distance: 8.0,
-        target_y: 0.0,
-        target_z: 0.0,
-        fov_degrees: 45.0,
-    };
-
-    const ROBOT_CELL: Self = Self {
-        target_x_offset: -0.25,
-        eye_x_offset: 1.55,
-        height: 4.35,
-        distance: 5.05,
-        target_y: 0.1,
-        target_z: 1.1,
-        fov_degrees: 34.0,
-    };
-}
+const TOPOLOGY_HASH_DOMAIN: &str = "trust-twin-topology:v1";
+const TOPOLOGY_HASH_HEADER_PREFIX: &str = "# trust-twin-topology-hash:v1:sha256:";
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ComponentLibrary {
@@ -68,8 +33,6 @@ pub struct ComponentKind {
     pub primitive: String,
     pub material: String,
     pub scale: [f64; 3],
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub asset_rotation: Option<[f64; 3]>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<BoundsDefinition>,
     #[serde(default, rename = "surfaces")]
@@ -109,18 +72,10 @@ pub struct MountDefinition {
 pub struct ComponentVisualNode {
     pub suffix: String,
     pub primitive: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mesh_asset: Option<String>,
     pub label_suffix: String,
     pub position_offset: [f64; 3],
     pub scale: [f64; 3],
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub asset_rotation: Option<[f64; 3]>,
     pub material: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub parent_suffix: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub pivot: Option<[f64; 3]>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<f64>,
 }
@@ -371,9 +326,6 @@ struct ResolvedComponent<'a> {
     source: &'a TopologyComponent,
     kind: &'a ComponentKind,
     position: [f64; 3],
-    parent: Option<String>,
-    local_position: [f64; 3],
-    pivot: [f64; 3],
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -620,16 +572,10 @@ impl TopologyValidation<'_> {
             .iter()
             .map(|component| component.kind.visual_nodes.len())
             .sum::<usize>();
-        let contextual_nodes = if is_robot_cell_view(&self.metadata) {
-            2
-        } else {
-            0
-        };
         self.components.len()
             + component_visual_nodes
             + self.connections.len()
             + visual_binding_nodes
-            + contextual_nodes
     }
 }
 
@@ -712,20 +658,10 @@ fn validate_topology<'a>(
     for component in &document.components {
         if let Some((_, kind)) = components_by_id.get(&component.id) {
             if let Some(position) = positions.get(&component.id).copied() {
-                let (parent, local_position) = component_parent_frame(
-                    component,
-                    kind,
-                    position,
-                    &positions,
-                    &components_by_id,
-                );
                 validation.components.push(ResolvedComponent {
                     source: component,
                     kind,
                     position,
-                    parent,
-                    local_position,
-                    pivot: [0.0, 0.0, 0.0],
                 });
             }
         }
@@ -1317,54 +1253,6 @@ fn resolve_attachment_position(
     }
 }
 
-fn component_parent_frame(
-    component: &TopologyComponent,
-    _kind: &ComponentKind,
-    position: [f64; 3],
-    positions: &BTreeMap<String, [f64; 3]>,
-    components_by_id: &BTreeMap<String, (&TopologyComponent, &ComponentKind)>,
-) -> (Option<String>, [f64; 3]) {
-    let Some(target) = component.at.attach_to.as_deref() else {
-        return (None, position);
-    };
-    let Some((parent_id, target_name)) = parse_endpoint(target) else {
-        return (None, position);
-    };
-    let Some((_, parent_kind)) = components_by_id.get(&parent_id) else {
-        return (None, position);
-    };
-    let Some(parent_position) = positions.get(&parent_id).copied() else {
-        return (None, position);
-    };
-    let (parent_node_id, parent_frame_position) =
-        attachment_parent_frame(&parent_id, &target_name, parent_kind, parent_position);
-    (
-        Some(parent_node_id),
-        sub_vec3(position, parent_frame_position),
-    )
-}
-
-fn attachment_parent_frame(
-    parent_id: &str,
-    target_name: &str,
-    parent_kind: &ComponentKind,
-    parent_position: [f64; 3],
-) -> (String, [f64; 3]) {
-    if parent_kind.name == "robot_arm" && target_name == "tool" {
-        if let Some(wrist) = parent_kind
-            .visual_nodes
-            .iter()
-            .find(|node| node.suffix == "wrist")
-        {
-            return (
-                format!("{parent_id}.{}", wrist.suffix),
-                add_vec3(parent_position, wrist.position_offset),
-            );
-        }
-    }
-    (parent_id.to_string(), parent_position)
-}
-
 fn validate_physical_scene<'a>(
     document: &'a TopologyDocument,
     library: &'a ComponentLibrary,
@@ -1432,43 +1320,19 @@ fn validate_physical_scene<'a>(
 
 fn render_view(topology_hash: &str, validation: &TopologyValidation<'_>) -> String {
     let mut output = String::new();
-    let use_packaged_assets = is_packaged_asset_view(&validation.metadata);
     writeln!(output, "{TOPOLOGY_HASH_HEADER_PREFIX}{topology_hash}").expect("write to string");
     if !validation.metadata.is_empty() {
         writeln!(output, "[metadata]").expect("write to string");
-        writeln!(output, "view_contract_version = {VIEW_CONTRACT_VERSION}")
-            .expect("write to string");
-        writeln!(
-            output,
-            "renderer_contract_version = {RENDERER_CONTRACT_VERSION}"
-        )
-        .expect("write to string");
         for (key, value) in &validation.metadata {
-            if matches!(
-                key.as_str(),
-                "view_contract_version" | "renderer_contract_version"
-            ) {
-                continue;
-            }
             writeln!(output, "{key} = {}", toml_value_literal(value)).expect("write to string");
         }
         writeln!(output).expect("write to string");
     }
 
-    if use_packaged_assets {
-        write_asset_catalog(&mut output, validation);
-    }
-
     for component in &validation.components {
-        write_component_node(
-            &mut output,
-            component,
-            &validation.components,
-            &validation.interactions,
-            use_packaged_assets,
-        );
+        write_component_node(&mut output, component, &validation.interactions);
         for visual_node in &component.kind.visual_nodes {
-            write_component_visual_node(&mut output, component, visual_node, use_packaged_assets);
+            write_component_visual_node(&mut output, component, visual_node);
         }
         for binding in validation
             .bindings
@@ -1490,39 +1354,26 @@ fn render_view(topology_hash: &str, validation: &TopologyValidation<'_>) -> Stri
         write_pipe_node(&mut output, connection, &validation.interactions);
     }
 
-    if is_robot_cell_view(&validation.metadata) {
-        write_robot_cell_floor_node(&mut output);
-        write_depth_sentinel_node(&mut output);
-    }
-
     let camera_target = camera_target(&validation.components);
-    let camera_profile = camera_profile(&validation.metadata);
-    let target_x = camera_target[0] + camera_profile.target_x_offset;
-    let camera_x = target_x + camera_profile.eye_x_offset;
     writeln!(output, "[[camera]]").expect("write to string");
     writeln!(output, "id = \"main\"").expect("write to string");
     writeln!(
         output,
         "position = [{}, {}, {}]",
-        number(camera_x),
-        number(camera_profile.height),
-        number(camera_profile.distance)
+        number(camera_target[0]),
+        number(4.0),
+        number(8.0)
     )
     .expect("write to string");
     writeln!(
         output,
         "target = [{}, {}, {}]",
-        number(target_x),
-        number(camera_profile.target_y),
-        number(camera_profile.target_z)
+        number(camera_target[0]),
+        number(camera_target[1]),
+        number(camera_target[2])
     )
     .expect("write to string");
-    writeln!(
-        output,
-        "fov_degrees = {}",
-        number(camera_profile.fov_degrees)
-    )
-    .expect("write to string");
+    writeln!(output, "fov_degrees = {}", number(45.0)).expect("write to string");
     writeln!(output).expect("write to string");
 
     writeln!(output, "[[light]]").expect("write to string");
@@ -1546,57 +1397,23 @@ fn render_view(topology_hash: &str, validation: &TopologyValidation<'_>) -> Stri
     output
 }
 
-fn write_asset_catalog(output: &mut String, validation: &TopologyValidation<'_>) {
-    let mut assets = BTreeSet::new();
-    for component in &validation.components {
-        assets.insert(component.kind.default_mesh_asset.as_str());
-        for visual_node in &component.kind.visual_nodes {
-            if let Some(asset) = visual_node.mesh_asset.as_deref() {
-                assets.insert(asset);
-            }
-        }
-    }
-    for asset in assets {
-        writeln!(output, "[[asset]]").expect("write to string");
-        write_string_field(output, "id", asset);
-        write_string_field(output, "uri", asset);
-        write_string_field(output, "kind", "gltf");
-        writeln!(output).expect("write to string");
-    }
-}
-
 fn write_component_node(
     output: &mut String,
     component: &ResolvedComponent<'_>,
-    components: &[ResolvedComponent<'_>],
     interactions: &[ResolvedInteraction<'_>],
-    use_packaged_assets: bool,
 ) {
     writeln!(output, "[[node]]").expect("write to string");
     write_string_field(output, "id", &component.source.id);
-    if use_packaged_assets {
-        write_string_field(output, "asset", &component.kind.default_mesh_asset);
-    }
     write_string_field(output, "primitive", &component.kind.primitive);
     write_string_field(output, "label", &component.source.id);
-    write_node_frame(
-        output,
-        component.parent.as_deref(),
-        component.local_position,
-        component.pivot,
-    );
-    if let Some(asset_rotation) = component.kind.asset_rotation {
-        write_vec3_field(output, "asset_rotation", asset_rotation);
-    }
     writeln!(output).expect("write to string");
     writeln!(output, "[node.transform]").expect("write to string");
-    write_vec3_field(output, "position", component.local_position);
+    write_vec3_field(output, "position", component.position);
     write_vec3_field(output, "scale", component.kind.scale);
     writeln!(output).expect("write to string");
     writeln!(output, "[node.material]").expect("write to string");
     write_string_field(output, "base_color", &component.kind.material);
     writeln!(output).expect("write to string");
-    write_workpiece_parent_poses(output, component, components);
     write_interactions(output, &component.source.id, interactions);
 }
 
@@ -1604,39 +1421,20 @@ fn write_component_visual_node(
     output: &mut String,
     component: &ResolvedComponent<'_>,
     visual_node: &ComponentVisualNode,
-    use_packaged_assets: bool,
 ) {
     let node_id = format!("{}.{}", component.source.id, visual_node.suffix);
-    let parent = visual_node.parent_suffix.as_ref().map_or_else(
-        || component.source.id.clone(),
-        |suffix| format!("{}.{}", component.source.id, suffix),
-    );
-    let local_position = visual_node_local_position(component.kind, visual_node);
+    let position = add_vec3(component.position, visual_node.position_offset);
     writeln!(output, "[[node]]").expect("write to string");
     write_string_field(output, "id", &node_id);
-    if use_packaged_assets {
-        if let Some(asset) = visual_node.mesh_asset.as_deref() {
-            write_string_field(output, "asset", asset);
-        }
-    }
     write_string_field(output, "primitive", &visual_node.primitive);
     write_string_field(
         output,
         "label",
         &format!("{} {}", component.source.id, visual_node.label_suffix),
     );
-    write_node_frame(
-        output,
-        Some(&parent),
-        local_position,
-        visual_node.pivot.unwrap_or([0.0, 0.0, 0.0]),
-    );
-    if let Some(asset_rotation) = visual_node.asset_rotation {
-        write_vec3_field(output, "asset_rotation", asset_rotation);
-    }
     writeln!(output).expect("write to string");
     writeln!(output, "[node.transform]").expect("write to string");
-    write_vec3_field(output, "position", local_position);
+    write_vec3_field(output, "position", position);
     write_vec3_field(output, "scale", visual_node.scale);
     writeln!(output).expect("write to string");
     writeln!(output, "[node.material]").expect("write to string");
@@ -1654,6 +1452,7 @@ fn write_signal_visual_node(
     interactions: &[ResolvedInteraction<'_>],
 ) {
     let node_id = binding_node_id(binding);
+    let position = add_vec3(binding.component_position, visual_node.position_offset);
     writeln!(output, "[[node]]").expect("write to string");
     write_string_field(output, "id", &node_id);
     write_string_field(output, "primitive", &visual_node.primitive);
@@ -1662,15 +1461,9 @@ fn write_signal_visual_node(
         "label",
         &format!("{} {}", binding.component_id, visual_node.label_suffix),
     );
-    write_node_frame(
-        output,
-        Some(&binding.component_id),
-        visual_node.position_offset,
-        [0.0, 0.0, 0.0],
-    );
     writeln!(output).expect("write to string");
     writeln!(output, "[node.transform]").expect("write to string");
-    write_vec3_field(output, "position", visual_node.position_offset);
+    write_vec3_field(output, "position", position);
     write_vec3_field(output, "scale", visual_node.scale);
     writeln!(output).expect("write to string");
     writeln!(output, "[node.material]").expect("write to string");
@@ -1701,7 +1494,6 @@ fn write_pipe_node(
     write_string_field(output, "id", &node_id);
     write_string_field(output, "primitive", "box");
     write_string_field(output, "label", &connection.source.id);
-    write_node_frame(output, None, midpoint, [0.0, 0.0, 0.0]);
     writeln!(output).expect("write to string");
     writeln!(output, "[node.transform]").expect("write to string");
     write_vec3_field(output, "position", midpoint);
@@ -1711,94 +1503,6 @@ fn write_pipe_node(
     write_string_field(output, "base_color", "#0ea5e9");
     writeln!(output).expect("write to string");
     write_interactions(output, &node_id, interactions);
-}
-
-fn write_robot_cell_floor_node(output: &mut String) {
-    writeln!(output, "[[node]]").expect("write to string");
-    write_string_field(output, "id", "CELL-FLOOR");
-    write_string_field(output, "primitive", "plate");
-    write_string_field(output, "label", "Robot cell floor");
-    write_node_frame(output, None, [2.0, -0.12, 0.75], [0.0, 0.0, 0.0]);
-    writeln!(output).expect("write to string");
-    writeln!(output, "[node.transform]").expect("write to string");
-    write_vec3_field(output, "position", [2.0, -0.12, 0.75]);
-    write_vec3_field(output, "scale", [4.8, 0.03, 1.4]);
-    writeln!(output).expect("write to string");
-    writeln!(output, "[node.material]").expect("write to string");
-    write_string_field(output, "base_color", "#dbe3ea");
-    writeln!(output).expect("write to string");
-}
-
-fn write_depth_sentinel_node(output: &mut String) {
-    writeln!(output, "[[node]]").expect("write to string");
-    write_string_field(output, "id", "RENDER-DEPTH-SENTINEL");
-    write_string_field(output, "primitive", "depth-sentinel-line");
-    write_string_field(output, "label", "RENDER-DEPTH-SENTINEL");
-    write_node_frame(output, None, [0.0, 0.02, 0.0], [0.0, 0.0, 0.0]);
-    writeln!(output).expect("write to string");
-    writeln!(output, "[node.transform]").expect("write to string");
-    write_vec3_field(output, "position", [0.0, 0.02, 0.0]);
-    write_vec3_field(output, "scale", [1.0, 1.0, 1.0]);
-    writeln!(output).expect("write to string");
-    writeln!(output, "[node.material]").expect("write to string");
-    write_string_field(output, "base_color", "#f8fafc");
-    writeln!(output).expect("write to string");
-}
-
-fn write_node_frame(
-    output: &mut String,
-    parent: Option<&str>,
-    local_position: [f64; 3],
-    pivot: [f64; 3],
-) {
-    write_string_field(output, "parent", parent.unwrap_or(""));
-    write_vec3_field(output, "local_position", local_position);
-    write_vec3_field(output, "pivot", pivot);
-}
-
-fn visual_node_local_position(kind: &ComponentKind, visual_node: &ComponentVisualNode) -> [f64; 3] {
-    if let Some(parent_suffix) = visual_node.parent_suffix.as_deref() {
-        if let Some(parent) = kind
-            .visual_nodes
-            .iter()
-            .find(|candidate| candidate.suffix == parent_suffix)
-        {
-            return sub_vec3(visual_node.position_offset, parent.position_offset);
-        }
-    }
-    visual_node.position_offset
-}
-
-fn write_workpiece_parent_poses(
-    output: &mut String,
-    component: &ResolvedComponent<'_>,
-    components: &[ResolvedComponent<'_>],
-) {
-    if component.kind.name != "workpiece" {
-        return;
-    }
-    if let Some(parent) = component.parent.as_deref() {
-        write_parent_pose(output, parent, component.local_position);
-    }
-    for gripper in components
-        .iter()
-        .filter(|candidate| candidate.kind.name == "gripper")
-    {
-        write_parent_pose(output, &gripper.source.id, [0.0, 0.0, 0.0]);
-    }
-    for drop_zone in components
-        .iter()
-        .filter(|candidate| candidate.kind.name == "drop_zone")
-    {
-        write_parent_pose(output, &drop_zone.source.id, [0.0, 0.35, 0.0]);
-    }
-}
-
-fn write_parent_pose(output: &mut String, parent: &str, local_position: [f64; 3]) {
-    writeln!(output, "[[node.parent_pose]]").expect("write to string");
-    write_string_field(output, "parent", parent);
-    write_vec3_field(output, "local_position", local_position);
-    writeln!(output).expect("write to string");
 }
 
 fn write_interactions(
@@ -1919,24 +1623,6 @@ fn camera_target(components: &[ResolvedComponent<'_>]) -> [f64; 3] {
         .map(|component| component.position[0])
         .fold(f64::NEG_INFINITY, f64::max);
     [(min_x + max_x) / 2.0, 0.0, 0.0]
-}
-
-fn camera_profile(metadata: &BTreeMap<String, toml::Value>) -> CameraProfile {
-    if is_robot_cell_view(metadata) {
-        return CameraProfile::ROBOT_CELL;
-    }
-    CameraProfile::DEFAULT
-}
-
-fn is_robot_cell_view(metadata: &BTreeMap<String, toml::Value>) -> bool {
-    matches!(
-        metadata.get("asset_state").and_then(toml::Value::as_str),
-        Some("procedural_robot" | "packaged_asset")
-    )
-}
-
-fn is_packaged_asset_view(metadata: &BTreeMap<String, toml::Value>) -> bool {
-    metadata.get("asset_state").and_then(toml::Value::as_str) == Some("packaged_asset")
 }
 
 fn parse_endpoint(endpoint: &str) -> Option<(String, String)> {

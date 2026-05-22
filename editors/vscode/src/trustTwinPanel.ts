@@ -638,7 +638,7 @@ function buildTrustTwinCsp(cspSource: string, scriptNonce: string): string {
     "default-src 'none'",
     `img-src ${cspSource} data:`,
     `style-src ${cspSource} 'unsafe-inline'`,
-    `script-src ${cspSource} 'nonce-${scriptNonce}' 'wasm-unsafe-eval'`,
+    `script-src 'nonce-${scriptNonce}' 'wasm-unsafe-eval'`,
     `connect-src ${cspSource}`,
   ].join("; ");
 }
@@ -655,7 +655,6 @@ function getTrustTwinPanelHtml(
   const rendererWasmUri = webview.asWebviewUri(
     vscode.Uri.joinPath(assetRoot, "trust-twin-renderer.wasm"),
   );
-  const assetRootUri = webview.asWebviewUri(assetRoot);
   const csp = buildTrustTwinCsp(webview.cspSource, scriptNonce);
   return `<!DOCTYPE html>
 <html lang="en">
@@ -722,10 +721,77 @@ function getTrustTwinPanelHtml(
         repeating-linear-gradient(90deg, transparent 0 47px, color-mix(in srgb, var(--vscode-panel-border) 34%, transparent) 48px),
         repeating-linear-gradient(0deg, transparent 0 47px, color-mix(in srgb, var(--vscode-panel-border) 34%, transparent) 48px);
     }
-    #trust-twin-canvas {
-      display: block;
-      width: 100%;
-      height: 100%;
+    .node {
+      position: absolute;
+      min-width: 76px;
+      max-width: 150px;
+      min-height: 38px;
+      padding: 7px 10px;
+      border: 1px solid var(--vscode-panel-border);
+      border-radius: 6px;
+      transform: translate(-50%, -50%);
+      box-sizing: border-box;
+      text-align: center;
+      overflow-wrap: anywhere;
+      background: color-mix(in srgb, var(--vscode-button-secondaryBackground) 64%, var(--vscode-editor-background));
+      transition: left 180ms linear, top 180ms linear, transform 180ms linear, background-color 180ms linear, box-shadow 180ms linear;
+    }
+    .node.robot-base {
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+    .node.robot-link,
+    .node.robot-wrist,
+    .node.robot-gripper {
+      min-width: 34px;
+      min-height: 14px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      transform-origin: 50% 50%;
+    }
+    .node.robot-jaw {
+      min-width: 18px;
+      min-height: 30px;
+      padding: 2px;
+      border-radius: 3px;
+      font-size: 0;
+    }
+    .node.robot-box {
+      min-width: 42px;
+      min-height: 42px;
+      padding: 4px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+    .node.robot-zone {
+      min-width: 92px;
+      min-height: 30px;
+      padding: 4px;
+      border-style: dashed;
+      font-size: 10px;
+      font-weight: 600;
+    }
+    .node.robot-light {
+      min-width: 28px;
+      min-height: 28px;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border-radius: 999px;
+      font-size: 0;
+      border-color: color-mix(in srgb, var(--vscode-panel-border) 50%, #ffffff);
+    }
+    button.node:hover {
+      border-color: var(--vscode-focusBorder);
+      background: color-mix(in srgb, var(--vscode-focusBorder) 18%, var(--vscode-button-secondaryBackground));
+    }
+    .offline .node {
+      opacity: 0.6;
+      filter: grayscale(0.72);
     }
     .empty {
       padding: 14px;
@@ -792,17 +858,9 @@ function getTrustTwinPanelHtml(
     <nav id="pages" aria-label="HMI pages"></nav>
     <span id="status">Loading trust-twin panel...</span>
   </header>
-  <main id="surface"><canvas id="trust-twin-canvas"></canvas></main>
-  <script type="module" nonce="${scriptNonce}">
-    import initWasm, {
-      init as createRenderer,
-      apply_scene,
-      apply_values,
-      render_frame,
-      set_offline,
-      dispose,
-      renderer_origin
-    } from "${rendererScriptUri}";
+  <main id="surface" class="offline"></main>
+  <script nonce="${scriptNonce}" src="${rendererScriptUri}" data-wasm-uri="${rendererWasmUri}"></script>
+  <script nonce="${scriptNonce}">
     const vscode = acquireVsCodeApi();
     const state = {
       page: null,
@@ -824,139 +882,258 @@ function getTrustTwinPanelHtml(
     function setStatus(text) {
       status.textContent = String(text || "");
     }
-    const canvas = document.getElementById("trust-twin-canvas");
-    let rendererHandle = null;
-    let rendererReady = false;
-    let renderLoopStarted = false;
-    let renderFramePending = false;
-    let sceneSyncSerial = 0;
-    const trustTwinAssetRootUri = "${assetRootUri}";
-    window.__trustTwinRendererOrigin = "";
-    window.__trustTwinAssetProof = null;
-    window.__trustTwinRenderFrameCount = 0;
-    window.__trustTwinRenderedSceneApplyCount = 0;
-    window.__trustTwinRenderError = "";
-    window.__trustTwinSceneApplyCount = 0;
-    function resizeCanvas() {
-      const rect = surface.getBoundingClientRect();
-      const ratio = Math.max(1, window.devicePixelRatio || 1);
-      const width = Math.max(1, Math.floor(rect.width * ratio));
-      const height = Math.max(1, Math.floor(rect.height * ratio));
-      if (canvas.width !== width) canvas.width = width;
-      if (canvas.height !== height) canvas.height = height;
-    }
-    async function initializeRenderer() {
-      try {
-        resizeCanvas();
-        await initWasm("${rendererWasmUri}");
-        rendererHandle = await createRenderer(canvas);
-        window.__trustTwinRendererOrigin = renderer_origin(rendererHandle);
-        rendererReady = true;
-        window.dispatchEvent(new CustomEvent("trustTwinRendererWasmReady", {
-          detail: {
-            ok: true,
-            renderer: "trust-twin-renderer",
-            origin: window.__trustTwinRendererOrigin,
-            contract: 2
-          }
-        }));
-        vscode.postMessage({ type: "ready" });
-        startRenderLoop();
-        render();
-      } catch (error) {
-        const message = String(error && error.message ? error.message : error);
-        setStatus("trust-twin renderer failed: " + message);
-        window.dispatchEvent(new CustomEvent("trustTwinRendererWasmReady", {
-          detail: { ok: false, error: message }
-        }));
+    function nodePosition(node, axis, fallback) {
+      const position = node && node.transform && Array.isArray(node.transform.position)
+        ? node.transform.position
+        : null;
+      if (!position || position.length < 3) {
+        return fallback;
       }
+      const value = Number(position[axis]);
+      return Number.isFinite(value) ? value : fallback;
     }
-    function startRenderLoop() {
-      if (renderLoopStarted) return;
-      renderLoopStarted = true;
-      const tick = () => {
-        if (rendererReady && rendererHandle) {
-          if (renderFramePending) {
-            renderFramePending = false;
-            try {
-              render_frame(rendererHandle);
-              window.__trustTwinRenderFrameCount += 1;
-              window.__trustTwinRenderedSceneApplyCount = window.__trustTwinSceneApplyCount;
-              window.__trustTwinRenderError = "";
-            } catch (error) {
-              const message = String(error && error.message ? error.message : error);
-              window.__trustTwinRenderError = message;
-              setStatus("trust-twin render failed: " + message);
-            }
+    function projectedNodeX(node, fallback) {
+      return nodePosition(node, 0, fallback) + nodePosition(node, 2, 0);
+    }
+    function interactions(node) {
+      if (Array.isArray(node && node.interaction)) {
+        return node.interaction;
+      }
+      if (Array.isArray(node && node.interactions)) {
+        return node.interactions;
+      }
+      return [];
+    }
+    function cloneNode(node) {
+      return JSON.parse(JSON.stringify(node || {}));
+    }
+    function ensureTransform(node) {
+      if (!node.transform || typeof node.transform !== "object") {
+        node.transform = {};
+      }
+      if (!Array.isArray(node.transform.position)) {
+        node.transform.position = [0, 0, 0];
+      }
+      if (!Array.isArray(node.transform.rotation)) {
+        node.transform.rotation = [0, 0, 0];
+      }
+      if (!Array.isArray(node.transform.scale)) {
+        node.transform.scale = [1, 1, 1];
+      }
+      return node.transform;
+    }
+    function ensureMaterial(node) {
+      if (!node.material || typeof node.material !== "object") {
+        node.material = {};
+      }
+      return node.material;
+    }
+    function mapKey(value) {
+      if (typeof value === "boolean") {
+        return value ? "true" : "false";
+      }
+      return String(value);
+    }
+    function mappedBindingValue(binding, raw) {
+      if (!binding || !binding.map || typeof binding.map !== "object") {
+        return raw;
+      }
+      const key = mapKey(raw);
+      if (Object.prototype.hasOwnProperty.call(binding.map, key)) {
+        return binding.map[key];
+      }
+      const lower = key.toLowerCase();
+      if (Object.prototype.hasOwnProperty.call(binding.map, lower)) {
+        return binding.map[lower];
+      }
+      return raw;
+    }
+    function numericBindingValue(binding, raw) {
+      const mapped = mappedBindingValue(binding, raw);
+      const numeric = Number(mapped);
+      if (!Number.isFinite(numeric)) {
+        return undefined;
+      }
+      const scale = binding && binding.scale;
+      if (!scale || !Number.isFinite(Number(scale.min)) || !Number.isFinite(Number(scale.max))) {
+        return numeric;
+      }
+      const min = Number(scale.min);
+      const max = Number(scale.max);
+      if (max === min) {
+        return numeric;
+      }
+      const ratio = Math.max(0, Math.min(1, (numeric - min) / (max - min)));
+      return Number(scale.output_min || 0) + ratio * (Number(scale.output_max || 0) - Number(scale.output_min || 0));
+    }
+    function boolBindingValue(binding, raw) {
+      const mapped = mappedBindingValue(binding, raw);
+      if (typeof mapped === "boolean") {
+        return mapped;
+      }
+      const text = String(mapped).trim().toLowerCase();
+      return text === "true" || text === "1" || text === "on" || text === "yes";
+    }
+    function textBindingValue(binding, raw) {
+      const mapped = mappedBindingValue(binding, raw);
+      return mapped == null ? "" : String(mapped);
+    }
+    function applySceneBindings(nodes, bindings, valuesBySource) {
+      const nextNodes = nodes.map(cloneNode);
+      const originalNodes = nodes.map(cloneNode);
+      const byId = new Map(nextNodes.map((node) => [String(node.id || ""), node]));
+      const originalById = new Map(originalNodes.map((node) => [String(node.id || ""), node]));
+      const boundPositionAxes = new Map();
+      function markBoundPositionAxis(nodeId, axis) {
+        const axes = boundPositionAxes.get(nodeId) || new Set();
+        axes.add(axis);
+        boundPositionAxes.set(nodeId, axes);
+      }
+      (Array.isArray(bindings) ? bindings : []).forEach((binding) => {
+        if (!binding || typeof binding.node !== "string" || typeof binding.property !== "string") {
+          return;
+        }
+        const node = byId.get(binding.node);
+        if (!node || !valuesBySource || !Object.prototype.hasOwnProperty.call(valuesBySource, binding.source)) {
+          return;
+        }
+        const raw = valuesBySource[binding.source];
+        const property = binding.property.trim().toLowerCase();
+        const transform = ensureTransform(node);
+        const material = ensureMaterial(node);
+        if (property === "visible") {
+          node.visible = boolBindingValue(binding, raw);
+          return;
+        }
+        if (property === "transform.position.x") {
+          const value = numericBindingValue(binding, raw);
+          if (value !== undefined) {
+            transform.position[0] = value;
+            markBoundPositionAxis(binding.node, 0);
+          }
+          return;
+        }
+        if (property === "transform.position.y") {
+          const value = numericBindingValue(binding, raw);
+          if (value !== undefined) {
+            transform.position[1] = value;
+            markBoundPositionAxis(binding.node, 1);
+          }
+          return;
+        }
+        if (property === "transform.position.z") {
+          const value = numericBindingValue(binding, raw);
+          if (value !== undefined) {
+            transform.position[2] = value;
+            markBoundPositionAxis(binding.node, 2);
+          }
+          return;
+        }
+        if (property === "transform.rotation.x") {
+          const value = numericBindingValue(binding, raw);
+          if (value !== undefined) transform.rotation[0] = value;
+          return;
+        }
+        if (property === "transform.rotation.y") {
+          const value = numericBindingValue(binding, raw);
+          if (value !== undefined) transform.rotation[1] = value;
+          return;
+        }
+        if (property === "transform.rotation.z") {
+          const value = numericBindingValue(binding, raw);
+          if (value !== undefined) transform.rotation[2] = value;
+          return;
+        }
+        if (property === "material.base_color") {
+          material.base_color = textBindingValue(binding, raw);
+          return;
+        }
+        if (property === "material.emissive") {
+          material.emissive = textBindingValue(binding, raw);
+        }
+      });
+      nextNodes.forEach((node) => {
+        const nodeId = String(node.id || "");
+        const separator = nodeId.lastIndexOf(".");
+        if (separator <= 0) {
+          return;
+        }
+        const parentId = nodeId.slice(0, separator);
+        const parent = byId.get(parentId);
+        const originalParent = originalById.get(parentId);
+        const originalNode = originalById.get(nodeId);
+        if (!parent || !originalParent || !originalNode) {
+          return;
+        }
+        const transform = ensureTransform(node);
+        const parentPosition = ensureTransform(parent).position;
+        const originalParentPosition = ensureTransform(originalParent).position;
+        const originalPosition = ensureTransform(originalNode).position;
+        const boundAxes = boundPositionAxes.get(nodeId) || new Set();
+        for (const axis of [0, 1, 2]) {
+          const local = boundAxes.has(axis)
+            ? Number(transform.position[axis])
+            : Number(originalPosition[axis]) - Number(originalParentPosition[axis]);
+          if (Number.isFinite(local) && Number.isFinite(Number(parentPosition[axis]))) {
+            transform.position[axis] = Number(parentPosition[axis]) + local;
           }
         }
-        window.requestAnimationFrame(tick);
-      };
-      window.requestAnimationFrame(tick);
+      });
+      return nextNodes;
     }
-    function currentScenePayload() {
-      const renderPage = state.scenePage || state.page;
-      return renderPage && renderPage.scene_view ? rewriteSceneAssetUris(renderPage.scene_view) : null;
+    function isTrustTwinPrimitiveNode(nodeId) {
+      return (
+        nodeId.startsWith("robot.") ||
+        nodeId.startsWith("box.") ||
+        nodeId.startsWith("zone.") ||
+        nodeId === "ROBOT-1" ||
+        nodeId.startsWith("ROBOT-1.") ||
+        nodeId === "GRIPPER-1" ||
+        nodeId.startsWith("GRIPPER-1.") ||
+        nodeId === "BOX-1" ||
+        nodeId === "PICKUP-1" ||
+        nodeId === "DROP-1"
+      );
     }
-    function rewriteSceneAssetUris(scenePayload) {
-      if (!scenePayload || typeof scenePayload !== "object") return null;
-      const cloned = JSON.parse(JSON.stringify(scenePayload));
-      const assetRootBase = trustTwinAssetRootUri.endsWith("/") ? trustTwinAssetRootUri : trustTwinAssetRootUri + "/";
-      const assets = Array.isArray(cloned.asset)
-        ? cloned.asset
-        : (Array.isArray(cloned.assets) ? cloned.assets : []);
-      const resolved = [];
-      for (const asset of assets) {
-        if (!asset || typeof asset !== "object") continue;
-        const sourceUri = typeof asset.uri === "string" && asset.uri.trim()
-          ? asset.uri.trim()
-          : (typeof asset.id === "string" ? asset.id.trim() : "");
-        if (sourceUri.startsWith("trust-twin/")) {
-          asset.uri = new URL(sourceUri.slice("trust-twin/".length), assetRootBase).toString();
-        }
-        resolved.push({
-          id: typeof asset.id === "string" ? asset.id : "",
-          uri: typeof asset.uri === "string" ? asset.uri : sourceUri,
-          kind: typeof asset.kind === "string" ? asset.kind : "",
-        });
-      }
-      window.__trustTwinAssetProof = {
-        asset_state: cloned.metadata && cloned.metadata.asset_state,
-        metadata: cloned.metadata && typeof cloned.metadata === "object"
-          ? { ...cloned.metadata }
-          : {},
-        asset_count: resolved.length,
-        assets: resolved,
-      };
-      return cloned;
+    function nodeClass(nodeId) {
+      if (nodeId === "ROBOT-1") return "node robot-base";
+      if (nodeId === "ROBOT-1.shoulder" || nodeId === "ROBOT-1.elbow") return "node robot-link";
+      if (nodeId === "ROBOT-1.wrist") return "node robot-wrist";
+      if (nodeId === "GRIPPER-1") return "node robot-gripper";
+      if (nodeId === "GRIPPER-1.left_jaw" || nodeId === "GRIPPER-1.right_jaw") return "node robot-jaw";
+      if (nodeId === "BOX-1") return "node robot-box";
+      if (nodeId === "PICKUP-1" || nodeId === "DROP-1") return "node robot-zone";
+      if (nodeId === "LIGHT-1") return "node robot-light";
+      if (nodeId === "robot.base") return "node robot-base";
+      if (nodeId === "robot.shoulder" || nodeId === "robot.elbow") return "node robot-link";
+      if (nodeId === "robot.wrist") return "node robot-wrist";
+      if (nodeId === "robot.gripper") return "node robot-gripper";
+      if (nodeId === "robot.gripper.left" || nodeId === "robot.gripper.right") return "node robot-jaw";
+      if (nodeId.startsWith("box.")) return "node robot-box";
+      if (nodeId.startsWith("zone.")) return "node robot-zone";
+      if (nodeId === "robot.status_light") return "node robot-light";
+      return "node";
     }
-    async function syncRendererScene() {
-      if (!rendererReady || !rendererHandle) return false;
-      const scenePayload = currentScenePayload();
-      const nodes = Array.isArray(scenePayload && scenePayload.node) ? scenePayload.node : [];
-      if (!scenePayload || !nodes.length) return false;
-      const sceneJson = JSON.stringify(scenePayload);
-      const serial = ++sceneSyncSerial;
-      try {
-        await apply_scene(rendererHandle, sceneJson);
-        if (serial !== sceneSyncSerial) return false;
-        setStatus("");
-        apply_values(rendererHandle, JSON.stringify(state.valuesBySource || {}));
-        set_offline(rendererHandle, !state.connected);
-        window.__trustTwinRendererOrigin = renderer_origin(rendererHandle);
-        window.__trustTwinSceneApplyCount += 1;
-        window.__trustTwinRenderError = "";
-        renderFramePending = true;
-        return true;
-      } catch (error) {
-        const message = String(error && error.message ? error.message : error);
-        window.__trustTwinRenderError = message;
-        setStatus("trust-twin scene failed: " + message);
-        return false;
-      }
+    function nodeScale(node) {
+      const scale = node && node.transform && Array.isArray(node.transform.scale) ? node.transform.scale : [1, 1, 1];
+      return scale.map((value) => Number.isFinite(Number(value)) ? Number(value) : 1);
     }
-    function clearOverlays() {
-      surface.querySelectorAll("#breadcrumbs,#alarmBar,#trendOverlay,#meta,.empty").forEach((element) => element.remove());
+    function nodeRotationZ(node) {
+      const rotation = node && node.transform && Array.isArray(node.transform.rotation) ? node.transform.rotation : [0, 0, 0];
+      const value = Number(rotation[2]);
+      return Number.isFinite(value) ? value : 0;
+    }
+    function nodeColor(node) {
+      const material = node && node.material && typeof node.material === "object" ? node.material : {};
+      return material.emissive || material.base_color || "";
+    }
+    function surfacePixelsPerMeter() {
+      const height = surface && Number.isFinite(surface.clientHeight) ? surface.clientHeight : 600;
+      return Math.max(42, Math.min(72, height * 0.085));
+    }
+    function surfaceFloorTop(pixelsPerMeter) {
+      const height = surface && Number.isFinite(surface.clientHeight) ? surface.clientHeight : 600;
+      return height - Math.max(42, pixelsPerMeter * 0.9);
     }
     function renderPages() {
       pages.innerHTML = "";
@@ -1034,9 +1211,17 @@ function getTrustTwinPanelHtml(
     }
     function render() {
       renderPages();
-      clearOverlays();
-      const scenePayload = currentScenePayload();
-      const nodes = Array.isArray(scenePayload && scenePayload.node) ? scenePayload.node : [];
+      surface.classList.toggle("offline", !state.connected);
+      surface.innerHTML = "";
+      const renderPage = state.scenePage || state.page;
+      const rawNodes = Array.isArray(renderPage && renderPage.scene_view && renderPage.scene_view.node)
+        ? renderPage.scene_view.node
+        : [];
+      const nodes = applySceneBindings(
+        rawNodes,
+        renderPage && renderPage.scene_view ? renderPage.scene_view.bind3d : [],
+        state.valuesBySource
+      ).filter((node) => node.visible !== false);
       if (!nodes.length) {
         const empty = document.createElement("div");
         empty.className = "empty";
@@ -1045,7 +1230,63 @@ function getTrustTwinPanelHtml(
         renderOverlays();
         return;
       }
-      void syncRendererScene();
+      const pixelsPerMeter = surfacePixelsPerMeter();
+      const floorTop = surfaceFloorTop(pixelsPerMeter);
+      let minX = Infinity, maxX = -Infinity;
+      nodes.forEach((node, index) => {
+        const x = projectedNodeX(node, index * 1.5);
+        minX = Math.min(minX, x);
+        maxX = Math.max(maxX, x);
+      });
+      const spanX = Math.max(1, maxX - minX);
+      nodes.forEach((node, index) => {
+        const firstWrite = interactions(node).find((entry) =>
+          entry && typeof entry.action === "string" && entry.action.toLowerCase() === "hmi.write"
+        );
+        const element = firstWrite ? document.createElement("button") : document.createElement("div");
+        const nodeId = typeof node.id === "string" && node.id.trim() ? node.id.trim() : "node-" + index;
+        element.className = nodeClass(nodeId);
+        element.textContent = typeof node.label === "string" && node.label.trim() ? node.label.trim() : nodeId;
+        element.dataset.trustTwinNode = nodeId;
+        const x = projectedNodeX(node, index * 1.5);
+        const y = nodePosition(node, 1, 0);
+        element.style.left = 8 + ((x - minX) / spanX) * 84 + "%";
+        element.style.top = Math.round(floorTop - y * pixelsPerMeter) + "px";
+        const scale = nodeScale(node);
+        if (isTrustTwinPrimitiveNode(nodeId)) {
+          element.style.minWidth = "0";
+          element.style.minHeight = "0";
+          element.style.width = Math.max(12, pixelsPerMeter * Math.abs(scale[0])) + "px";
+          element.style.height = Math.max(8, pixelsPerMeter * Math.abs(scale[1])) + "px";
+        }
+        element.style.transform = "translate(-50%, -50%) rotate(" + nodeRotationZ(node).toFixed(4) + "rad)";
+        const color = nodeColor(node);
+        if (color) {
+          element.style.backgroundColor = color;
+        }
+        const material = node.material && typeof node.material === "object" ? node.material : {};
+        if (material.emissive && material.emissive !== "#000000") {
+          element.style.boxShadow = "0 0 16px " + material.emissive;
+        }
+        if (firstWrite) {
+          element.addEventListener("click", () => {
+            const confirmation = firstWrite.confirmation;
+            if (
+              confirmation &&
+              typeof confirmation.message === "string" &&
+              confirmation.message.trim() &&
+              !window.confirm(confirmation.message.trim())
+            ) {
+              return;
+            }
+            vscode.postMessage({
+              type: "trustTwinInteraction",
+              payload: { page: state.page && state.page.id, node: nodeId, interaction: firstWrite },
+            });
+          });
+        }
+        surface.appendChild(element);
+      });
       const meta = document.createElement("div");
       meta.id = "meta";
       const view = state.workspaceView && state.workspaceView.path ? state.workspaceView.path : "runtime schema";
@@ -1076,15 +1317,12 @@ function getTrustTwinPanelHtml(
         render();
       }
     });
-    window.addEventListener("resize", () => {
-      resizeCanvas();
-    });
-    window.addEventListener("beforeunload", () => {
-      if (rendererHandle) {
-        dispose(rendererHandle);
+    window.addEventListener("trustTwinRendererWasmReady", (event) => {
+      if (event.detail && event.detail.ok) {
+        vscode.postMessage({ type: "ready" });
       }
     });
-    void initializeRenderer();
+    vscode.postMessage({ type: "ready" });
   </script>
 </body>
 </html>`;
@@ -1154,13 +1392,10 @@ export function __testGetTrustTwinPanelWebviewContract(
   };
 }
 
-export function __testGetTrustTwinPanelHtmlForPlaywright(
-  extensionRoot: string,
-  cspSource = "file:",
-): string {
+export function __testGetTrustTwinPanelHtmlForPlaywright(extensionRoot: string): string {
   const extensionUri = vscode.Uri.file(extensionRoot);
   const webview = {
-    cspSource,
+    cspSource: "file:",
     asWebviewUri: (uri: vscode.Uri) => uri,
   } as vscode.Webview;
   const context = { extensionUri } as vscode.ExtensionContext;
@@ -1175,26 +1410,6 @@ export function __testGetTrustTwinPanelPackageProof(): TrustTwinPackageProof {
     "media/trust-twin/components/motor.gltf",
     "media/trust-twin/components/pump.gltf",
     "media/trust-twin/components/valve.gltf",
-    "media/trust-twin/components/ur10/visual/base.gltf",
-    "media/trust-twin/components/ur10/visual/base.bin",
-    "media/trust-twin/components/ur10/visual/shoulder.gltf",
-    "media/trust-twin/components/ur10/visual/shoulder.bin",
-    "media/trust-twin/components/ur10/visual/upperarm.gltf",
-    "media/trust-twin/components/ur10/visual/upperarm.bin",
-    "media/trust-twin/components/ur10/visual/forearm.gltf",
-    "media/trust-twin/components/ur10/visual/forearm.bin",
-    "media/trust-twin/components/ur10/visual/wrist1.gltf",
-    "media/trust-twin/components/ur10/visual/wrist1.bin",
-    "media/trust-twin/components/ur10/visual/wrist2.gltf",
-    "media/trust-twin/components/ur10/visual/wrist2.bin",
-    "media/trust-twin/components/ur10/visual/wrist3.gltf",
-    "media/trust-twin/components/ur10/visual/wrist3.bin",
-    "media/trust-twin/components/schunk-wsg50/meshes/wsg_body.gltf",
-    "media/trust-twin/components/schunk-wsg50/meshes/wsg_body.bin",
-    "media/trust-twin/components/schunk-wsg50/meshes/finger_with_tip.gltf",
-    "media/trust-twin/components/schunk-wsg50/meshes/finger_with_tip.bin",
-    "media/trust-twin/components/ycb/meshes/003_cracker_box_textured.gltf",
-    "media/trust-twin/components/ycb/meshes/003_cracker_box_textured.bin",
   ];
   const assets = required.filter((relativePath) =>
     fs.existsSync(path.join(extensionRoot, relativePath)),

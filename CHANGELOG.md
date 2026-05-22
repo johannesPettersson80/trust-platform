@@ -10,10 +10,6 @@ Target release: `v0.24.18`
 
 ### Added
 
-- trust-twin: moving robot-cell proof now renders through the Scena 1.4.0
-  WASM renderer in the VS Code webview canvas, with parented scene graph
-  transforms, runtime-driven box re-parenting, Playwright canvas evidence,
-  and a real visual-review artifact instead of HTML-div fallback evidence.
 - trust-twin: topology authoring now supports surface/contact placement
   metadata (`attach_to`, named surfaces, mount frames, and bounds), robot-cell
   component kinds, physical-scene doctor fixtures, and LM-tool regression
@@ -118,10 +114,6 @@ Target release: `v0.24.18`
 
 ### Fixed
 
-- trust-twin: packaged browser proof now rejects WebGL2-unsafe source
-  textures and Scena/wgpu validation-console errors, and the robot-cell YCB
-  texture package is capped at 2048px so the live source-material webview
-  frames do not go blank on WebGL2 hosts.
 - `architecture-doctor --changed` now follows the current
   `crates/trust-runtime/src/host/...` runtime host layout for initializer and
   evaluation checks.

@@ -89,17 +89,19 @@ fn sample_robot_cell_scene(
     let elbow_angle = real_value(values.get("Main.RobotElbowAngle").expect("elbow value"))?;
     let wrist_angle = real_value(values.get("Main.RobotWristAngle").expect("wrist value"))?;
     let gripper_open = bool_value(values.get("Main.RobotGripperOpen").expect("gripper value"))?;
-    let box_parent_state = int_value(
-        values
-            .get("Main.RobotBoxParentState")
-            .expect("box parent state"),
-    )?;
+    let gripper_x = real_value(values.get("Main.RobotGripperX").expect("gripper x"))?;
+    let gripper_y = real_value(values.get("Main.RobotGripperY").expect("gripper y"))?;
+    let gripper_z = real_value(values.get("Main.RobotGripperZ").expect("gripper z"))?;
+    let box_x = real_value(values.get("Main.RobotBoxX").expect("box x"))?;
+    let box_y = real_value(values.get("Main.RobotBoxY").expect("box y"))?;
+    let box_z = real_value(values.get("Main.RobotBoxZ").expect("box z"))?;
 
     let shoulder = scene
         .node_state("ROBOT-1.shoulder")
         .expect("shoulder state");
     let elbow = scene.node_state("ROBOT-1.elbow").expect("elbow state");
     let wrist = scene.node_state("ROBOT-1.wrist").expect("wrist state");
+    let gripper = scene.node_state("GRIPPER-1").expect("gripper state");
     let left_jaw = scene
         .node_state("GRIPPER-1.left_jaw")
         .expect("left jaw state");
@@ -108,30 +110,16 @@ fn sample_robot_cell_scene(
         .expect("right jaw state");
     let workpiece = scene.node_state("BOX-1").expect("workpiece state");
     let status_light = scene.node_state("LIGHT-1").expect("status light state");
-    let gripper_world_position = scene
-        .node_world_position("GRIPPER-1")
-        .expect("gripper world position");
-    let box_world_position = scene
-        .node_world_position("BOX-1")
-        .expect("box world position");
-    let box_parent = scene
-        .node_parent_id("BOX-1")
-        .expect("box parent")
-        .to_string();
 
     assert_close(shoulder.rotation[2], shoulder_angle, "shoulder rotation");
     assert_close(elbow.rotation[2], elbow_angle, "elbow rotation");
     assert_close(wrist.rotation[2], wrist_angle, "wrist rotation");
-    assert_eq!(
-        box_parent.as_str(),
-        match box_parent_state {
-            0 => "PICKUP-1",
-            1 => "GRIPPER-1",
-            2 => "DROP-1",
-            other => anyhow::bail!("unexpected RobotBoxParentState {other}"),
-        },
-        "RobotBoxParentState must drive BOX-1 parent"
-    );
+    assert_close(gripper.position[0], gripper_x, "gripper x");
+    assert_close(gripper.position[1], gripper_y, "gripper y");
+    assert_close(gripper.position[2], gripper_z, "gripper z");
+    assert_close(workpiece.position[0], box_x, "box x");
+    assert_close(workpiece.position[1], box_y, "box y");
+    assert_close(workpiece.position[2], box_z, "box z");
     assert!(
         matches!(
             status_light.material.emissive.as_str(),
@@ -148,25 +136,10 @@ fn sample_robot_cell_scene(
         elbow_angle: rounded(elbow_angle),
         wrist_angle: rounded(wrist_angle),
         gripper_open,
-        gripper_world_position: [
-            rounded(f64::from(gripper_world_position[0])),
-            rounded(f64::from(gripper_world_position[1])),
-            rounded(f64::from(gripper_world_position[2])),
-        ],
-        left_jaw_x: rounded(left_jaw.position[0] as f64),
-        right_jaw_x: rounded(right_jaw.position[0] as f64),
-        box_parent_state,
-        box_parent,
-        box_world_position: [
-            rounded(f64::from(box_world_position[0])),
-            rounded(f64::from(box_world_position[1])),
-            rounded(f64::from(box_world_position[2])),
-        ],
-        box_local_position: [
-            rounded(f64::from(workpiece.position[0])),
-            rounded(f64::from(workpiece.position[1])),
-            rounded(f64::from(workpiece.position[2])),
-        ],
+        gripper_position: [rounded(gripper_x), rounded(gripper_y), rounded(gripper_z)],
+        left_jaw_z: rounded(left_jaw.position[2] as f64),
+        right_jaw_z: rounded(right_jaw.position[2] as f64),
+        box_position: [rounded(box_x), rounded(box_y), rounded(box_z)],
         status_emissive: status_light.material.emissive.clone(),
         applied_binding_count: report.applied.len(),
     })
@@ -181,7 +154,12 @@ fn robot_cell_values(runtime: &Runtime) -> anyhow::Result<BTreeMap<String, Value
         "RobotElbowAngle",
         "RobotWristAngle",
         "RobotGripperOpen",
-        "RobotBoxParentState",
+        "RobotGripperX",
+        "RobotGripperY",
+        "RobotGripperZ",
+        "RobotBoxX",
+        "RobotBoxY",
+        "RobotBoxZ",
         "RobotEnabled",
         "RobotStatusLight",
     ] {
@@ -206,11 +184,7 @@ fn assert_robot_motion_is_visible_in_scene_state(run: &RobotCellRun) -> anyhow::
     let shoulder_range = value_range(run.samples.iter().map(|sample| sample.shoulder_angle));
     let elbow_range = value_range(run.samples.iter().map(|sample| sample.elbow_angle));
     let wrist_range = value_range(run.samples.iter().map(|sample| sample.wrist_angle));
-    let box_x_range = value_range(
-        run.samples
-            .iter()
-            .map(|sample| sample.box_world_position[0]),
-    );
+    let box_x_range = value_range(run.samples.iter().map(|sample| sample.box_position[0]));
     assert!(
         shoulder_range > 1.0,
         "shoulder must move through a visible range, got {shoulder_range}"
@@ -245,7 +219,7 @@ fn assert_robot_motion_is_visible_in_scene_state(run: &RobotCellRun) -> anyhow::
     assert!(
         run.samples
             .iter()
-            .all(|sample| sample.applied_binding_count >= 7),
+            .all(|sample| sample.applied_binding_count >= 12),
         "all robot-cell scene bindings must apply in every sample"
     );
     assert_surface_aligned_pick_and_drop(run)?;
@@ -263,22 +237,16 @@ fn assert_surface_aligned_pick_and_drop(run: &RobotCellRun) -> anyhow::Result<()
         .iter()
         .find(|sample| sample.step == 6)
         .ok_or_else(|| anyhow::anyhow!("missing open-gripper drop sample"))?;
-    assert_eq!(pickup.box_parent, "PICKUP-1");
-    assert_close_f64(pickup.box_world_position[0], 0.0, "pickup box x");
+    assert_close_f64(pickup.box_position[0], 0.0, "pickup box x");
     assert_close_f64(
-        pickup.box_world_position[1],
+        pickup.box_position[1],
         0.35,
         "pickup box y on pickup surface",
     );
-    assert_close_f64(pickup.box_world_position[2], 0.0, "pickup box z");
-    assert_eq!(drop.box_parent, "DROP-1");
-    assert_close_f64(drop.box_world_position[0], 4.0, "drop box x");
-    assert_close_f64(
-        drop.box_world_position[1],
-        0.35,
-        "drop box y on drop surface",
-    );
-    assert_close_f64(drop.box_world_position[2], 0.0, "drop box z");
+    assert_close_f64(pickup.box_position[2], 0.0, "pickup box z");
+    assert_close_f64(drop.box_position[0], 4.0, "drop box x");
+    assert_close_f64(drop.box_position[1], 0.35, "drop box y on drop surface");
+    assert_close_f64(drop.box_position[2], 0.0, "drop box z");
     Ok(())
 }
 
@@ -305,7 +273,6 @@ fn write_robot_cell_gate_artifact(
         "playwright_motion_capture_pending".to_string(),
         "assistant_visual_review_pending".to_string(),
         "runtime_disconnect_stale_visual_pending".to_string(),
-        "packaged_asset_available_pending".to_string(),
     ];
     let artifact = json!({
         "scene_path": "examples/trust-twin/robot-cell/hmi/views/robot-cell.view.toml",
@@ -325,7 +292,12 @@ fn write_robot_cell_gate_artifact(
             "Main.RobotElbowAngle",
             "Main.RobotWristAngle",
             "Main.RobotGripperOpen",
-            "Main.RobotBoxParentState",
+            "Main.RobotGripperX",
+            "Main.RobotGripperY",
+            "Main.RobotGripperZ",
+            "Main.RobotBoxX",
+            "Main.RobotBoxY",
+            "Main.RobotBoxZ",
             "Main.RobotEnabled",
             "Main.RobotStatusLight"
         ],
@@ -347,14 +319,11 @@ fn write_robot_cell_gate_artifact(
         },
         "assistant_visual_verdict": "pending",
         "asset_state": {
-            "state": "packaged_asset",
-            "source": "Universal Robots ROS2 Description UR10 visual meshes converted to glTF, plus Schunk WSG-50, Drake manipulation table, and YCB object glTF mesh set",
-            "source_url": "https://github.com/UniversalRobots/Universal_Robots_ROS2_Description/tree/18dea90dedf24adea05d920d0d441e4523a41e50",
-            "original_author": "UR10 meshes: Universal Robots ROS2 Description authors/Universal Robots A/S; Schunk WSG-50 meshes: Toyota Research Institute; table meshes: Robot Locomotion Group at CSAIL; workpiece/beacon meshes: YCB Object and Model Set",
-            "license": "BSD-3-Clause for UR10, Schunk WSG-50, and Drake manipulation table meshes; CC-BY-4.0 for YCB object meshes",
-            "manifest_sha256": "99dfc722f035472e684122fa8e77c3361242c103f7fe52dfacfaf845d1b470e5",
-            "package_path": "crates/trust-twin-compiler/library/v1/assets/trust-twin/components/; copied to editors/vscode/media/trust-twin/components/",
-            "version": "Universal Robots ROS2 Description commit 18dea90dedf24adea05d920d0d441e4523a41e50 and RobotLocomotion/models commit 5c942636d18013870403c17c8209558799122abd imported 2026-05-16"
+            "state": "procedural_robot",
+            "source": "repo-authored procedural primitives",
+            "license": "workspace license",
+            "package_path": "examples/trust-twin/robot-cell/hmi/views/robot-cell.view.toml",
+            "version": 1
         },
         "fps_latency": {
             "fps": serde_json::Value::Null,
@@ -452,13 +421,10 @@ struct RobotCellSample {
     elbow_angle: f64,
     wrist_angle: f64,
     gripper_open: bool,
-    gripper_world_position: [f64; 3],
-    left_jaw_x: f64,
-    right_jaw_x: f64,
-    box_parent_state: i32,
-    box_parent: String,
-    box_world_position: [f64; 3],
-    box_local_position: [f64; 3],
+    gripper_position: [f64; 3],
+    left_jaw_z: f64,
+    right_jaw_z: f64,
+    box_position: [f64; 3],
     status_emissive: String,
     applied_binding_count: usize,
 }

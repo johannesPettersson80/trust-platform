@@ -9,7 +9,6 @@ import {
   __testForceTrustTwinSelectPage,
   __testGetTrustTwinPanelPackageProof,
   __testGetTrustTwinPanelState,
-  __testGetTrustTwinPanelHtmlForPlaywright,
   __testGetTrustTwinPanelWebviewContract,
   __testResetTrustTwinPanelState,
   __testSetTrustTwinControlRequestHandler,
@@ -131,7 +130,7 @@ suite("trust-twin VS Code panel", function () {
     assert.ok(contract.localResourceRoots.some((entry) => entry.endsWith("media/trust-twin")));
     assert.ok(contract.localResourceRoots.some((entry) => entry.endsWith("hmi")));
     assert.match(contract.csp, /default-src 'none'/);
-    assert.match(contract.csp, /script-src \$\{webview\.cspSource\} 'nonce-\$\{nonce\}' 'wasm-unsafe-eval'/);
+    assert.match(contract.csp, /script-src 'nonce-\$\{nonce\}' 'wasm-unsafe-eval'/);
     assert.doesNotMatch(contract.csp, /script-src[^;]*https:/);
     assert.doesNotMatch(contract.csp, /connect-src[^;]*https:/);
 
@@ -140,19 +139,8 @@ suite("trust-twin VS Code panel", function () {
     assert.ok(packageProof.assets.includes("media/trust-twin/trust-twin-renderer.wasm"));
     assert.ok(packageProof.assets.includes("media/trust-twin/trust-twin-renderer.js"));
     assert.ok(packageProof.assets.some((entry) => entry.endsWith("components/motor.gltf")));
-    assert.ok(packageProof.assets.some((entry) => entry.endsWith("components/ur10/visual/base.gltf")));
-    assert.ok(packageProof.assets.some((entry) => entry.endsWith("components/ur10/visual/wrist3.bin")));
-    assert.ok(packageProof.assets.some((entry) => entry.endsWith("components/schunk-wsg50/meshes/finger_with_tip.gltf")));
 
     const extensionRoot = path.resolve(__dirname, "..", "..", "..");
-    const html = __testGetTrustTwinPanelHtmlForPlaywright(extensionRoot);
-    assert.match(html, /<canvas id="trust-twin-canvas"/);
-    assert.match(html, /window\.__trustTwinRendererOrigin/);
-    assert.match(html, /window\.__trustTwinAssetProof/);
-    assert.match(html, /rewriteSceneAssetUris/);
-    assert.doesNotMatch(html, /data-trust-twin-node/);
-    assert.doesNotMatch(html, new RegExp(["projected", "Node", "X"].join("")));
-
     const packageJson = JSON.parse(
       fs.readFileSync(path.join(extensionRoot, "package.json"), "utf8"),
     ) as {
