@@ -11,10 +11,10 @@ const root = process.cwd();
 const artifactDir = path.join(root, "target/gate-artifacts");
 const tracePath = path.join(artifactDir, "world_smoke_trace.json");
 const htmlPath = path.join(artifactDir, "world_smoke_renderer.html");
-const screenshotInitial = path.join(artifactDir, "world_smoke_t_initial.png");
-const screenshotGrip = path.join(artifactDir, "world_smoke_t_grip.png");
-const screenshotCarry = path.join(artifactDir, "world_smoke_t_carry.png");
-const screenshotRelease = path.join(artifactDir, "world_smoke_t_release.png");
+const screenshotInitial = path.join(artifactDir, "world_smoke_initial.png");
+const screenshotGrip = path.join(artifactDir, "world_smoke_grip.png");
+const screenshotCarry = path.join(artifactDir, "world_smoke_carry.png");
+const screenshotFinal = path.join(artifactDir, "world_smoke_final.png");
 
 const trace = JSON.parse(await fs.readFile(tracePath, "utf8"));
 assertTraceReady(trace);
@@ -58,7 +58,7 @@ try {
   await renderAt(page, frames.carry);
   await page.locator("#scene").screenshot({ path: screenshotCarry });
   await renderAt(page, frames.release);
-  await page.locator("#scene").screenshot({ path: screenshotRelease });
+  await page.locator("#scene").screenshot({ path: screenshotFinal });
   const fatalBrowserErrors = browserErrors.filter((message) =>
     /webgl|webgpu|wgpu|validation|trust-twin renderer failed/i.test(message)
   );
@@ -66,12 +66,10 @@ try {
     throw new Error(`browser renderer reported errors:\n${fatalBrowserErrors.join("\n")}`);
   }
   trace.renderer_origin = origin;
-  trace.screenshot_t0_png = "target/gate-artifacts/world_smoke_t_initial.png";
-  trace.screenshot_t_n_png = "target/gate-artifacts/world_smoke_t_release.png";
-  trace.screenshot_t_initial_png = "target/gate-artifacts/world_smoke_t_initial.png";
-  trace.screenshot_t_grip_png = "target/gate-artifacts/world_smoke_t_grip.png";
-  trace.screenshot_t_carry_png = "target/gate-artifacts/world_smoke_t_carry.png";
-  trace.screenshot_t_release_png = "target/gate-artifacts/world_smoke_t_release.png";
+  trace.screenshot_initial_png = "target/gate-artifacts/world_smoke_initial.png";
+  trace.screenshot_grip_png = "target/gate-artifacts/world_smoke_grip.png";
+  trace.screenshot_carry_png = "target/gate-artifacts/world_smoke_carry.png";
+  trace.screenshot_final_png = "target/gate-artifacts/world_smoke_final.png";
   await fs.writeFile(tracePath, `${JSON.stringify(trace, null, 2)}\n`, "utf8");
   console.log(`world smoke rendered with renderer_origin=${origin}`);
 } finally {

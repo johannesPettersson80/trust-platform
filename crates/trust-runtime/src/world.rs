@@ -96,22 +96,18 @@ pub struct WorldSmokeTrace {
     /// Renderer origin reported by the production Scena WASM renderer.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub renderer_origin: Option<String>,
-    /// Path to the initial screenshot.
-    pub screenshot_t0_png: String,
-    /// Path to the settled screenshot.
-    pub screenshot_t_n_png: String,
-    /// Path to the P1 initial screenshot.
+    /// Path to the initial-state screenshot. Required for every smoke proof.
+    /// P0: cube hovering above floor. P1: carrier above workpiece, fixture empty.
+    pub screenshot_initial_png: String,
+    /// Path to the grip-event screenshot. P1 only.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub screenshot_t_initial_png: Option<String>,
-    /// Path to the P1 grip screenshot.
+    pub screenshot_grip_png: Option<String>,
+    /// Path to the mid-carry screenshot. P1 only.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub screenshot_t_grip_png: Option<String>,
-    /// Path to the P1 carry screenshot.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub screenshot_t_carry_png: Option<String>,
-    /// Path to the P1 release screenshot.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub screenshot_t_release_png: Option<String>,
+    pub screenshot_carry_png: Option<String>,
+    /// Path to the settled-final-state screenshot. Required for every smoke proof.
+    /// P0: cube on floor. P1: workpiece on fixture after release.
+    pub screenshot_final_png: String,
     /// P1 actuator trace, present only for the workpiece/fixture proof.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub actuator: Option<WorldActuatorTrace>,
@@ -1021,12 +1017,10 @@ pub fn run_world_smoke(
             write_target: "scena scene-node transform for body 'cube'".to_string(),
         },
         renderer_origin: None,
-        screenshot_t0_png: "target/gate-artifacts/world_smoke_t0.png".to_string(),
-        screenshot_t_n_png: "target/gate-artifacts/world_smoke_tN.png".to_string(),
-        screenshot_t_initial_png: None,
-        screenshot_t_grip_png: None,
-        screenshot_t_carry_png: None,
-        screenshot_t_release_png: None,
+        screenshot_initial_png: "target/gate-artifacts/world_smoke_initial.png".to_string(),
+        screenshot_grip_png: None,
+        screenshot_carry_png: None,
+        screenshot_final_png: "target/gate-artifacts/world_smoke_final.png".to_string(),
         actuator: None,
         joints: None,
         per_tick_trace,
@@ -1113,16 +1107,10 @@ pub fn run_world_actuator_smoke(
                 .to_string(),
         },
         renderer_origin: None,
-        screenshot_t0_png: "target/gate-artifacts/world_smoke_t_initial.png".to_string(),
-        screenshot_t_n_png: "target/gate-artifacts/world_smoke_t_release.png".to_string(),
-        screenshot_t_initial_png: Some(
-            "target/gate-artifacts/world_smoke_t_initial.png".to_string(),
-        ),
-        screenshot_t_grip_png: Some("target/gate-artifacts/world_smoke_t_grip.png".to_string()),
-        screenshot_t_carry_png: Some("target/gate-artifacts/world_smoke_t_carry.png".to_string()),
-        screenshot_t_release_png: Some(
-            "target/gate-artifacts/world_smoke_t_release.png".to_string(),
-        ),
+        screenshot_initial_png: "target/gate-artifacts/world_smoke_initial.png".to_string(),
+        screenshot_grip_png: Some("target/gate-artifacts/world_smoke_grip.png".to_string()),
+        screenshot_carry_png: Some("target/gate-artifacts/world_smoke_carry.png".to_string()),
+        screenshot_final_png: "target/gate-artifacts/world_smoke_final.png".to_string(),
         actuator: Some(actuator.trace()),
         joints: Some(actuator.joint_trace()),
         per_tick_trace,
