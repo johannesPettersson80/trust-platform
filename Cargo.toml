@@ -20,7 +20,7 @@ exclude = [
 ]
 
 [workspace.package]
-version = "0.24.18"
+version = "0.24.19"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/johannesPettersson80/trust-platform"
@@ -86,7 +86,7 @@ owo-colors = "4"
 rumqttc = { version = "0.25", default-features = false, features = ["use-native-tls"] }
 native-tls = { version = "0.2.18", features = ["alpn", "vendored"] }
 time = "0.3.47"
-scena = "1.4.0"
+scena = "1.5.0"
 rapier3d = { version = "0.32.0", default-features = false, features = ["dim3", "f32", "enhanced-determinism"] }
 
 # Internal crates
