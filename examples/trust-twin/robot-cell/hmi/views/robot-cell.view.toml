@@ -95,11 +95,11 @@ asset = "trust-twin/components/ur10/visual/shoulder.gltf"
 primitive = "box"
 label = "ROBOT-1 UR10 shoulder joint housing"
 parent = "ROBOT-1"
-local_position = [0.0, 0.23, 0.0]
+local_position = [0.0, 0.46, 0.0]
 pivot = [0.0, 0.0, 0.0]
 
 [node.transform]
-position = [0.0, 0.23, 0.0]
+position = [0.0, 0.46, 0.0]
 scale = [1.8, 1.8, 1.8]
 
 [node.material]
@@ -111,13 +111,13 @@ asset = "trust-twin/components/ur10/visual/upperarm.gltf"
 primitive = "box"
 label = "ROBOT-1 UR10 shoulder-to-elbow upper-arm link"
 parent = "ROBOT-1.shoulder"
-local_position = [0.0, 0.0, 0.0]
+local_position = [0.78, 0.48, 0.0]
 pivot = [0.0, 0.0, 0.0]
 asset_rotation = [0.0, 0.0, -1.570796]
 
 [node.transform]
-position = [0.0, 0.0, 0.0]
-scale = [1.55, 1.55, 1.55]
+position = [0.78, 0.48, 0.0]
+scale = [1.65, 1.65, 1.65]
 
 [node.material]
 base_color = "#ef4444"
@@ -128,12 +128,12 @@ asset = "trust-twin/components/ur10/visual/shoulder.gltf"
 primitive = "box"
 label = "ROBOT-1 UR10 elbow joint housing"
 parent = "ROBOT-1.elbow"
-local_position = [1.04, 0.0, 0.0]
+local_position = [0.0, 0.0, 0.0]
 pivot = [0.0, 0.0, 0.0]
 
 [node.transform]
-position = [1.04, 0.0, 0.0]
-scale = [1.35, 1.35, 1.35]
+position = [0.0, 0.0, 0.0]
+scale = [1.75, 1.75, 1.75]
 
 [node.material]
 base_color = "#475569"
@@ -144,13 +144,13 @@ asset = "trust-twin/components/ur10/visual/forearm.gltf"
 primitive = "box"
 label = "ROBOT-1 UR10 elbow-to-wrist forearm link"
 parent = "ROBOT-1.elbow"
-local_position = [1.04, 0.0, 0.0]
+local_position = [0.56, -0.08, 0.0]
 pivot = [0.0, 0.0, 0.0]
 asset_rotation = [0.0, 0.0, -1.570796]
 
 [node.transform]
-position = [1.04, 0.0, 0.0]
-scale = [1.55, 1.55, 1.55]
+position = [0.56, -0.08, 0.0]
+scale = [1.65, 1.65, 1.65]
 
 [node.material]
 base_color = "#ef4444"
@@ -161,12 +161,12 @@ asset = "trust-twin/components/ur10/visual/wrist1.gltf"
 primitive = "box"
 label = "ROBOT-1 UR10 wrist joint 1"
 parent = "ROBOT-1.forearm"
-local_position = [0.98, 0.0, 0.0]
+local_position = [0.4, 0.0, 0.0]
 pivot = [0.0, 0.0, 0.0]
 
 [node.transform]
-position = [0.98, 0.0, 0.0]
-scale = [1.45, 1.45, 1.45]
+position = [0.4, 0.0, 0.0]
+scale = [1.7, 1.7, 1.7]
 
 [node.material]
 base_color = "#475569"
@@ -177,12 +177,12 @@ asset = "trust-twin/components/ur10/visual/wrist2.gltf"
 primitive = "box"
 label = "ROBOT-1 UR10 wrist joint 2"
 parent = "ROBOT-1.wrist"
-local_position = [0.13, 0.0, 0.0]
+local_position = [0.16, 0.0, 0.0]
 pivot = [0.0, 0.0, 0.0]
 
 [node.transform]
-position = [0.13, 0.0, 0.0]
-scale = [1.45, 1.45, 1.45]
+position = [0.16, 0.0, 0.0]
+scale = [1.65, 1.65, 1.65]
 
 [node.material]
 base_color = "#475569"
@@ -198,7 +198,7 @@ pivot = [0.0, 0.0, 0.0]
 
 [node.transform]
 position = [0.12, 0.0, 0.0]
-scale = [1.45, 1.45, 1.45]
+scale = [1.6, 1.6, 1.6]
 
 [node.material]
 base_color = "#475569"
@@ -241,7 +241,7 @@ local_position = [0.0, 0.35, 0.0]
 
 [[node.parent_pose]]
 parent = "GRIPPER-1"
-local_position = [0.0, 0.0, 0.18]
+local_position = [0.0, 0.0, 0.0]
 
 [[node.parent_pose]]
 parent = "DROP-1"
@@ -252,13 +252,13 @@ id = "GRIPPER-1"
 asset = "trust-twin/components/schunk-wsg50/meshes/wsg_body.gltf"
 primitive = "box"
 label = "GRIPPER-1"
-parent = "ROBOT-1.wrist_flange"
-local_position = [0.08, 0.0, 0.0]
+parent = "ROBOT-1.wrist"
+local_position = [0.51, 0.02, 0.12]
 pivot = [0.0, 0.0, 0.0]
 
 [node.transform]
-position = [0.08, 0.0, 0.0]
-scale = [1.25, 1.25, 1.25]
+position = [0.51, 0.02, 0.12]
+scale = [2.3, 2.3, 2.3]
 
 [node.material]
 base_color = "#475569"
@@ -269,15 +269,15 @@ asset = "trust-twin/components/schunk-wsg50/meshes/finger_with_tip.gltf"
 primitive = "box"
 label = "GRIPPER-1 Schunk WSG-50 left finger"
 parent = "GRIPPER-1"
-local_position = [-0.035, 0.0, 0.0]
+local_position = [-0.13, -0.02, 0.0]
 pivot = [0.0, 0.0, 0.0]
 
 [node.transform]
-position = [-0.035, 0.0, 0.0]
-scale = [1.25, 1.25, 1.25]
+position = [-0.13, -0.02, 0.0]
+scale = [2.3, 2.3, 2.3]
 
 [node.material]
-base_color = "#111827"
+base_color = "#38bdf8"
 
 [[node]]
 id = "GRIPPER-1.right_jaw"
@@ -285,27 +285,27 @@ asset = "trust-twin/components/schunk-wsg50/meshes/finger_with_tip.gltf"
 primitive = "box"
 label = "GRIPPER-1 Schunk WSG-50 right finger"
 parent = "GRIPPER-1"
-local_position = [0.035, 0.0, 0.0]
+local_position = [0.13, -0.02, 0.0]
 pivot = [0.0, 0.0, 0.0]
 
 [node.transform]
-position = [0.035, 0.0, 0.0]
-scale = [1.25, 1.25, 1.25]
+position = [0.13, -0.02, 0.0]
+scale = [2.3, 2.3, 2.3]
 
 [node.material]
-base_color = "#111827"
+base_color = "#38bdf8"
 
 [[node]]
 id = "GRIPPER-1.left_jaw_pad"
 primitive = "box"
 label = "GRIPPER-1 visible left gripper jaw pad"
 parent = "GRIPPER-1.left_jaw"
-local_position = [0.0, -0.1, 0.18]
+local_position = [0.0, 0.0, 0.09]
 pivot = [0.0, 0.0, 0.0]
 
 [node.transform]
-position = [0.0, -0.1, 0.18]
-scale = [0.055, 0.3, 0.16]
+position = [0.0, 0.0, 0.09]
+scale = [0.08, 0.34, 0.18]
 
 [node.material]
 base_color = "#38bdf8"
@@ -315,12 +315,12 @@ id = "GRIPPER-1.right_jaw_pad"
 primitive = "box"
 label = "GRIPPER-1 visible right gripper jaw pad"
 parent = "GRIPPER-1.right_jaw"
-local_position = [0.0, -0.04, 0.18]
+local_position = [0.0, 0.0, 0.09]
 pivot = [0.0, 0.0, 0.0]
 
 [node.transform]
-position = [0.0, -0.04, 0.18]
-scale = [0.055, 0.28, 0.16]
+position = [0.0, 0.0, 0.09]
+scale = [0.08, 0.34, 0.18]
 
 [node.material]
 base_color = "#38bdf8"
@@ -389,7 +389,7 @@ base_color = "#f8fafc"
 
 [[camera]]
 id = "main"
-position = [2.3, 4.35, 5.05]
+position = [3.3, 4.35, 5.05]
 target = [1.75, 0.1, 1.1]
 fov_degrees = 34.0
 
@@ -418,12 +418,12 @@ scale = { min = -1.570796, max = 1.570796, output_min = -1.570796, output_max = 
 node = "GRIPPER-1.left_jaw"
 property = "transform.position.x"
 source = "Main.RobotGripperOpen"
-map = { "false" = "-0.035", "true" = "-0.15" }
+map = { "false" = "0.0", "true" = "-0.28" }
 [[bind3d]]
 node = "GRIPPER-1.right_jaw"
 property = "transform.position.x"
 source = "Main.RobotGripperOpen"
-map = { "false" = "0.035", "true" = "0.15" }
+map = { "false" = "0.0", "true" = "0.20" }
 [[bind3d]]
 node = "LIGHT-1"
 property = "material.emissive"

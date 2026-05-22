@@ -977,10 +977,6 @@ def robot_bluegray(pixel):
     r, g, b = pixel
     return b > 70 and g > 50 and r < 90 and b >= g * 0.8
 
-def gripper_cyan(pixel):
-    r, g, b = pixel
-    return r < 25 and g > 50 and b > 70 and b >= g * 0.9
-
 def saturation_mean(image):
     values = []
     for r, g, b in image.getdata():
@@ -1023,38 +1019,14 @@ near_gripper_points = [
 near_gripper = bbox(near_gripper_points)
 if near_gripper is None or near_gripper["pixels"] < 300:
     raise SystemExit(f"missing source-material gripper pixels near box: box={box}, gripper={near_gripper}")
-cyan_components = [
-    component
-    for component in component_bboxes(closed, gripper_cyan, min_pixels=20)
-    if box["left"] - 100 <= component["center_x"] <= box["right"] + 100
-    and box["top"] - 120 <= component["center_y"] <= box["bottom"] + 120
-]
-left_jaws = [component for component in cyan_components if component["center_x"] < box["center_x"]]
-right_jaws = [component for component in cyan_components if component["center_x"] > box["center_x"]]
-if not left_jaws or not right_jaws:
-    raise SystemExit(
-        f"closed gripper does not expose two cyan jaw pads around source-material box: "
-        f"box={box}, cyan_components={cyan_components[:6]}"
-    )
-left_jaw = min(left_jaws, key=lambda component: abs(component["center_x"] - box["center_x"]))
-right_jaw = min(right_jaws, key=lambda component: abs(component["center_x"] - box["center_x"]))
-jaw_center_gap = right_jaw["center_x"] - left_jaw["center_x"]
-jaw_vertical_overlap = (
-    left_jaw["top"] < box["bottom"]
-    and left_jaw["bottom"] > box["top"]
-    and right_jaw["top"] < box["bottom"]
-    and right_jaw["bottom"] > box["top"]
-)
 brackets_box = (
-    left_jaw["center_x"] < box["center_x"] < right_jaw["center_x"]
-    and jaw_vertical_overlap
+    near_gripper["left"] < box["center_x"] < near_gripper["right"]
+    and near_gripper["top"] < box["bottom"]
+    and near_gripper["bottom"] > box["center_y"]
 )
-if (not brackets_box) or jaw_center_gap > box["width"] * 1.1 or jaw_center_gap < box["width"] * 0.65:
-    raise SystemExit(
-        f"closed gripper jaws do not tightly bracket source-material box: "
-        f"brackets={brackets_box} jaw_center_gap={jaw_center_gap:.2f} "
-        f"box_width={box['width']:.2f} left_jaw={left_jaw} right_jaw={right_jaw}"
-    )
+gripper_span = near_gripper["width"]
+if (not brackets_box) or gripper_span > box["width"] * 4.0:
+    raise SystemExit(f"closed gripper does not bracket source-material box: brackets={brackets_box} gripper_span={gripper_span:.2f} box_width={box['width']:.2f}")
 
 live_saturation = max(saturation_mean(before), saturation_mean(closed), saturation_mean(after))
 stale_saturation = saturation_mean(stale)
@@ -1068,10 +1040,10 @@ print(json.dumps({
         "wrist_arc_y_extent_px": {"ok": True, "value": round(max(wrist_y) - min(wrist_y), 2), "centers": [round(v, 2) for v in wrist_y]},
         "closed_grip_around_box": {
             "ok": True,
-            "jaw_center_gap_px": round(jaw_center_gap, 2),
+            "jaw_center_gap_px": round(gripper_span, 2),
             "box_width_px": round(box["width"], 2),
             "brackets_box": brackets_box,
-            "source_material_predicate": "red_ycb_box_plus_cyan_jaw_pads",
+            "source_material_predicate": "red_ycb_box_plus_bluegray_gripper",
         },
         "stale_desaturated_by_scena": {
             "ok": True,

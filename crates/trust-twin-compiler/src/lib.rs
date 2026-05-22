@@ -38,7 +38,7 @@ impl CameraProfile {
 
     const ROBOT_CELL: Self = Self {
         target_x_offset: -0.25,
-        eye_x_offset: 0.55,
+        eye_x_offset: 1.55,
         height: 4.35,
         distance: 5.05,
         target_y: 0.1,
@@ -1351,18 +1351,14 @@ fn attachment_parent_frame(
     parent_position: [f64; 3],
 ) -> (String, [f64; 3]) {
     if parent_kind.name == "robot_arm" && target_name == "tool" {
-        if let Some(tool_frame) = ["wrist_flange", "tool", "wrist_housing", "wrist"]
+        if let Some(wrist) = parent_kind
+            .visual_nodes
             .iter()
-            .find_map(|suffix| {
-                parent_kind
-                    .visual_nodes
-                    .iter()
-                    .find(|node| node.suffix == *suffix)
-            })
+            .find(|node| node.suffix == "wrist")
         {
             return (
-                format!("{parent_id}.{}", tool_frame.suffix),
-                add_vec3(parent_position, tool_frame.position_offset),
+                format!("{parent_id}.{}", wrist.suffix),
+                add_vec3(parent_position, wrist.position_offset),
             );
         }
     }
@@ -1788,11 +1784,7 @@ fn write_workpiece_parent_poses(
         .iter()
         .filter(|candidate| candidate.kind.name == "gripper")
     {
-        let local_position = gripper
-            .kind
-            .mount("pick_target")
-            .map_or([0.0, 0.0, 0.0], |mount| mount.origin);
-        write_parent_pose(output, &gripper.source.id, local_position);
+        write_parent_pose(output, &gripper.source.id, [0.0, 0.0, 0.0]);
     }
     for drop_zone in components
         .iter()
