@@ -11,8 +11,10 @@ const root = process.cwd();
 const artifactDir = path.join(root, "target/gate-artifacts");
 const tracePath = path.join(artifactDir, "world_smoke_trace.json");
 const htmlPath = path.join(artifactDir, "world_smoke_renderer.html");
-const screenshotT0 = path.join(artifactDir, "world_smoke_t0.png");
-const screenshotTN = path.join(artifactDir, "world_smoke_tN.png");
+const screenshotInitial = path.join(artifactDir, "world_smoke_t_initial.png");
+const screenshotGrip = path.join(artifactDir, "world_smoke_t_grip.png");
+const screenshotCarry = path.join(artifactDir, "world_smoke_t_carry.png");
+const screenshotRelease = path.join(artifactDir, "world_smoke_t_release.png");
 
 const trace = JSON.parse(await fs.readFile(tracePath, "utf8"));
 assertTraceReady(trace);
@@ -23,7 +25,15 @@ const server = await startStaticServer(root);
 let browser;
 try {
   const url = `http://127.0.0.1:${server.port}/target/gate-artifacts/world_smoke_renderer.html`;
-  browser = await playwrightBrowser.launch({ headless: true });
+  browser = await playwrightBrowser.launch({
+    headless: true,
+    args: [
+      "--enable-webgl",
+      "--ignore-gpu-blocklist",
+      "--use-gl=angle",
+      "--use-angle=swiftshader",
+    ],
+  });
   const page = await browser.newPage({ viewport: { width: 960, height: 640 } });
   const browserErrors = [];
   page.on("console", (message) => {
@@ -33,16 +43,22 @@ try {
   });
   page.on("pageerror", (error) => browserErrors.push(error.message));
   await page.goto(url, { waitUntil: "networkidle" });
+  await page.waitForFunction(() => typeof window.__worldSmokeInit === "function", null, {
+    timeout: 15_000,
+  });
   const origin = await page.evaluate(async (scene) => window.__worldSmokeInit(scene), scenePayload());
   if (origin !== "scena_webgl" && origin !== "scena_webgpu") {
     throw new Error(`renderer_origin must be scena_webgl or scena_webgpu, got ${origin}`);
   }
-  const first = trace.per_tick_trace[0];
-  const last = trace.per_tick_trace[trace.per_tick_trace.length - 1];
-  await renderAt(page, first);
-  await page.locator("#scene").screenshot({ path: screenshotT0 });
-  await renderAt(page, last);
-  await page.locator("#scene").screenshot({ path: screenshotTN });
+  const frames = selectFrames(trace);
+  await renderAt(page, frames.initial);
+  await page.locator("#scene").screenshot({ path: screenshotInitial });
+  await renderAt(page, frames.grip);
+  await page.locator("#scene").screenshot({ path: screenshotGrip });
+  await renderAt(page, frames.carry);
+  await page.locator("#scene").screenshot({ path: screenshotCarry });
+  await renderAt(page, frames.release);
+  await page.locator("#scene").screenshot({ path: screenshotRelease });
   const fatalBrowserErrors = browserErrors.filter((message) =>
     /webgl|webgpu|wgpu|validation|trust-twin renderer failed/i.test(message)
   );
@@ -50,8 +66,12 @@ try {
     throw new Error(`browser renderer reported errors:\n${fatalBrowserErrors.join("\n")}`);
   }
   trace.renderer_origin = origin;
-  trace.screenshot_t0_png = "target/gate-artifacts/world_smoke_t0.png";
-  trace.screenshot_t_n_png = "target/gate-artifacts/world_smoke_tN.png";
+  trace.screenshot_t0_png = "target/gate-artifacts/world_smoke_t_initial.png";
+  trace.screenshot_t_n_png = "target/gate-artifacts/world_smoke_t_release.png";
+  trace.screenshot_t_initial_png = "target/gate-artifacts/world_smoke_t_initial.png";
+  trace.screenshot_t_grip_png = "target/gate-artifacts/world_smoke_t_grip.png";
+  trace.screenshot_t_carry_png = "target/gate-artifacts/world_smoke_t_carry.png";
+  trace.screenshot_t_release_png = "target/gate-artifacts/world_smoke_t_release.png";
   await fs.writeFile(tracePath, `${JSON.stringify(trace, null, 2)}\n`, "utf8");
   console.log(`world smoke rendered with renderer_origin=${origin}`);
 } finally {
@@ -63,8 +83,11 @@ try {
 
 async function renderAt(page, tick) {
   await page.evaluate(
-    async (position) => window.__worldSmokeRender(position),
-    [0.0, tick.cube_center_y, 0.0],
+    async (positions) => window.__worldSmokeRender(positions),
+    {
+      carrier: tick.carrier.center,
+      workpiece: tick.workpiece.center,
+    },
   );
   await page.waitForTimeout(100);
 }
@@ -74,13 +97,49 @@ function assertTraceReady(value) {
     throw new Error("world_smoke_trace.json does not contain a World abstraction trace");
   }
   for (const [name, assertion] of Object.entries(value.assertions ?? {})) {
-    if (assertion?.ok !== true) {
+    if (assertion && typeof assertion === "object" && "ok" in assertion && assertion.ok !== true) {
       throw new Error(`world smoke assertion ${name} is not true`);
+    }
+  }
+  const required = [
+    "workpiece_above_floor",
+    "carrier_above_floor",
+    "no_fixture_interpenetration",
+    "grip_event_has_contact",
+    "carry_constraint_driven",
+    "release_destroyed_joint",
+    "workpiece_settled_on_fixture",
+  ];
+  for (const name of required) {
+    if (value.assertions?.[name]?.ok !== true) {
+      throw new Error(`P1 assertion ${name} is not true`);
     }
   }
   if (!Array.isArray(value.per_tick_trace) || value.per_tick_trace.length < 2) {
     throw new Error("world_smoke_trace.json has no usable per_tick_trace");
   }
+  if (!value.per_tick_trace.every((tick) => tick.carrier?.center && tick.workpiece?.center)) {
+    throw new Error("world_smoke_trace.json does not contain P1 carrier/workpiece positions");
+  }
+}
+
+function selectFrames(value) {
+  const initial = value.per_tick_trace[0];
+  const grip = value.per_tick_trace.find((tick) => tick.actuator_state === "Carrying" && hasContact(tick, "carrier", "workpiece"));
+  const releaseTransition = value.per_tick_trace.find((tick) => tick.actuator_state === "Releasing");
+  const active = value.per_tick_trace.filter((tick) => tick.active_joints?.length > 0);
+  const carry = active[Math.floor(active.length / 2)];
+  const release = value.per_tick_trace[value.per_tick_trace.length - 1];
+  if (!initial || !grip || !carry || !releaseTransition || !release) {
+    throw new Error("trace does not contain initial/grip/carry/release frames");
+  }
+  return { initial, grip, carry, release };
+}
+
+function hasContact(tick, a, b) {
+  return (tick.contacts ?? []).some((contact) =>
+    (contact.a === a && contact.b === b) || (contact.a === b && contact.b === a)
+  );
 }
 
 function scenePayload() {
@@ -102,18 +161,40 @@ function scenePayload() {
     },
     node: [
       {
-        id: "floor-solid",
+        id: "floor",
         primitive: "box",
         local_position: [0.0, 0.0, 0.0],
         transform: { scale: [6.0, 0.1, 6.0] },
-        material: { base_color: "#2f3b4f", roughness: 0.8 },
+        material: { base_color: "#2f3b4f" },
       },
       {
-        id: "cube",
+        id: "fixture",
+        primitive: "box",
+        local_position: [2.0, 0.3, 0.0],
+        transform: { scale: [1.5, 0.5, 1.5] },
+        material: { base_color: "#64748b", emissive: "#000000", opacity: 1.0 },
+      },
+      {
+        id: "workpiece",
         primitive: "cube",
-        local_position: [0.0, 2.5, 0.0],
-        transform: { scale: [1.0, 1.0, 1.0] },
+        local_position: [0.0, 0.3, 0.0],
+        transform: { scale: [0.5, 0.5, 0.5] },
         material: { base_color: "#f97316", emissive: "#000000", opacity: 1.0 },
+      },
+      {
+        id: "carrier",
+        primitive: "box",
+        local_position: [0.0, 1.4, 0.0],
+        transform: { scale: [0.9, 0.3, 0.9] },
+        material: { base_color: "#38bdf8", emissive: "#000000", opacity: 1.0 },
+      },
+      {
+        id: "carrier-tool",
+        parent: "carrier",
+        primitive: "cube",
+        local_position: [0.0, -0.22, 0.0],
+        transform: { scale: [0.16, 0.12, 0.16] },
+        material: { base_color: "#facc15", emissive: "#000000", opacity: 1.0 },
       },
     ],
     camera: [
@@ -121,8 +202,8 @@ function scenePayload() {
         id: "main",
         kind: "perspective",
         lens: "standard",
-        position: [4.0, 3.2, 7.0],
-        target: [0.0, 1.2, 0.0],
+        position: [4.5, 3.0, 6.5],
+        target: [1.0, 0.8, 0.0],
         fov_degrees: 58.0,
       },
     ],
@@ -131,9 +212,14 @@ function scenePayload() {
     ],
     bind3d: [
       {
-        node: "cube",
+        node: "workpiece",
         property: "transform.position",
-        source: "World.CubePosition",
+        source: "World.WorkpiecePosition",
+      },
+      {
+        node: "carrier",
+        property: "transform.position",
+        source: "World.CarrierPosition",
       },
     ],
   };
@@ -164,9 +250,12 @@ function htmlSource() {
       window.__trustTwinRendererOrigin = origin;
       return origin;
     };
-    window.__worldSmokeRender = async (position) => {
+    window.__worldSmokeRender = async (positions) => {
       if (!handle) throw new Error("world smoke renderer not initialized");
-      apply_values(handle, JSON.stringify({ "World.CubePosition": position }));
+      apply_values(handle, JSON.stringify({
+        "World.CarrierPosition": positions.carrier,
+        "World.WorkpiecePosition": positions.workpiece,
+      }));
       render_frame(handle);
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     };

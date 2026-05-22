@@ -6,7 +6,11 @@ const root = process.cwd();
 const args = process.argv.slice(2);
 const allowedFile = "crates/trust-runtime/src/world.rs";
 const allowedMarker = "WORLD_DYNAMIC_TRANSFORM_HANDOFF_ALLOWED";
-const forbiddenPattern = /\.set_transform\s*\(/;
+const setTransformPattern = /\.set_transform\s*\(/;
+const teleportPattern = /\.(set_position|set_translation|set_next_kinematic_position|set_next_kinematic_translation|set_next_kinematic_rotation)\s*\(/;
+const kinematicPositionPattern = /KinematicPositionBased|kinematic_position_based\s*\(/;
+const sceneReparentPattern = /\.(set_parent|reparent)\s*\(/;
+const poseCopyPattern = /copy_carrier_pose_to_workpiece|workpiece\.set_position\s*\([^;]*carrier\.position\s*\(/;
 
 function usage() {
   console.error("usage: node scripts/check_world_smoke_transform_handoff.mjs --repo | --fixture <path>");
@@ -28,7 +32,11 @@ function lineNumbersWith(source, pattern) {
 if (args[0] === "--repo" && args.length === 1) {
   const source = read(allowedFile);
   const markerCount = (source.match(new RegExp(allowedMarker, "g")) || []).length;
-  const setTransformLines = lineNumbersWith(source, forbiddenPattern);
+  const setTransformLines = lineNumbersWith(source, setTransformPattern);
+  const teleportLines = lineNumbersWith(source, teleportPattern);
+  const kinematicLines = lineNumbersWith(source, kinematicPositionPattern);
+  const reparentLines = lineNumbersWith(source, sceneReparentPattern);
+  const poseCopyLines = lineNumbersWith(source, poseCopyPattern);
   if (markerCount !== 1) {
     console.error(`expected exactly one ${allowedMarker} marker in ${allowedFile}, found ${markerCount}`);
     process.exit(1);
@@ -39,6 +47,20 @@ if (args[0] === "--repo" && args.length === 1) {
     );
     process.exit(1);
   }
+  if (teleportLines.length > 0 || kinematicLines.length > 0) {
+    console.error(
+      `forbidden workpiece rigid-body teleport in ${allowedFile}: ${[...teleportLines, ...kinematicLines].join(", ")}`
+    );
+    process.exit(1);
+  }
+  if (reparentLines.length > 0) {
+    console.error(`forbidden dynamic-body scene reparent in ${allowedFile}: ${reparentLines.join(", ")}`);
+    process.exit(1);
+  }
+  if (poseCopyLines.length > 0) {
+    console.error(`forbidden carrier-to-workpiece pose copy in ${allowedFile}: ${poseCopyLines.join(", ")}`);
+    process.exit(1);
+  }
   console.log(`${allowedFile}:${setTransformLines[0]} is the only world-smoke dynamic-body transform handoff`);
   process.exit(0);
 }
@@ -46,11 +68,31 @@ if (args[0] === "--repo" && args.length === 1) {
 if (args[0] === "--fixture" && args.length === 2) {
   const fixture = args[1];
   const source = read(fixture);
-  const lines = lineNumbersWith(source, forbiddenPattern);
-  if (lines.length > 0) {
+  const poseCopyLines = lineNumbersWith(source, poseCopyPattern);
+  if (poseCopyLines.length > 0) {
     console.error(
-      `forbidden dynamic-body transform write in ${fixture}:${lines.join(", ")}; use trust_runtime::world::apply_rapier_body_pose_to_scena_node`
+      `forbidden carrier-to-workpiece pose copy in ${fixture}:${poseCopyLines.join(", ")}; carry must use a Rapier joint`
     );
+    process.exit(1);
+  }
+  const setTransformLines = lineNumbersWith(source, setTransformPattern);
+  if (setTransformLines.length > 0) {
+    console.error(
+      `forbidden dynamic-body transform write in ${fixture}:${setTransformLines.join(", ")}; use trust_runtime::world::apply_rapier_body_pose_to_scena_node`
+    );
+    process.exit(1);
+  }
+  const teleportLines = lineNumbersWith(source, teleportPattern);
+  const kinematicLines = lineNumbersWith(source, kinematicPositionPattern);
+  if (teleportLines.length > 0 || kinematicLines.length > 0) {
+    console.error(
+      `forbidden workpiece rigid-body teleport in ${fixture}:${[...teleportLines, ...kinematicLines].join(", ")}; workpiece motion must come from Rapier integration`
+    );
+    process.exit(1);
+  }
+  const reparentLines = lineNumbersWith(source, sceneReparentPattern);
+  if (reparentLines.length > 0) {
+    console.error(`forbidden dynamic-body scene reparent in ${fixture}:${reparentLines.join(", ")}`);
     process.exit(1);
   }
   console.log(`${fixture} contains no forbidden dynamic-body transform write`);
