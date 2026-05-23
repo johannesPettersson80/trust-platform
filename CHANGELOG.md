@@ -6,10 +6,14 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.18`
+Target release: `v0.24.20`
 
 ### Added
 
+- trust-twin: robot-cell product bridge now generates `Robot_<Model>` ST
+  function blocks from a URDF manifest, exposes a `Robot_P3MinimalArm`
+  native FB through the runtime world-arm bridge, and keeps the example PLC
+  motion surface on that generated FB instead of direct scene-state writes.
 - trust-twin: topology authoring now supports surface/contact placement
   metadata (`attach_to`, named surfaces, mount frames, and bounds), robot-cell
   component kinds, physical-scene doctor fixtures, and LM-tool regression

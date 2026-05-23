@@ -696,6 +696,8 @@ package "Standard Library" as stdlibPkg #PaleTurquoise {
         card "**Functions:**\nABS, SQRT, SIN, COS, TAN\nMIN, MAX, LIMIT, MUX, SEL\nLEN, LEFT, RIGHT, MID, CONCAT\nTO_INT, TO_REAL, TO_STRING\nSHL, SHR, ROL, ROR, TRUNC" as stdFuncs
 
         card "**Function Blocks:**\nTON - Timer On Delay\nTOF - Timer Off Delay\nTP - Pulse Timer\nCTU - Count Up\nCTD - Count Down\nCTUD - Count Up/Down\nR_TRIG - Rising Edge\nF_TRIG - Falling Edge\nSR - Set/Reset\nRS - Reset/Set" as stdFBs
+
+        card "**Native robot FB bridge:**\nRobot_P3MinimalArm\n-> world::arm writer-free bridge\n(no transform writes)" as robotFBBridge
     }
 }
 

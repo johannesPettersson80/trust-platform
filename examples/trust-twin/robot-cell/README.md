@@ -2,12 +2,16 @@
 
 This example is the first canonical moving robot-cell digital twin. It uses
 the Q-H robot-cell kinematics decision and `asset_state = "procedural_robot"`
-so the first proof has a deterministic multi-link robot arm without depending
-on an external URDF or glTF asset package.
+for the 3D view, while the PLC-facing robot surface is the generated
+`Robot_P3MinimalArm` function block from `robot/p3-minimal-arm.robot.toml`.
 
-`src/main.st` owns the pick-and-place command state. The 3D view binds shoulder,
-elbow, wrist, gripper, box, and status-light values to `PROGRAM Main` variables;
-local time or CSS animation must not drive the canonical motion proof.
+`src/main.st` owns the pick-and-place command state and calls the generated
+robot FB. The native FB body is implemented through
+`trust_runtime::world::arm::step_robot_p3_minimal_arm_bridge`, so the example
+crosses the product-layer seam without adding any scene transform writer. The
+3D view still binds shoulder, elbow, wrist, gripper, box, and status-light
+values to `PROGRAM Main` variables; local time or CSS animation must not drive
+the canonical motion proof.
 
 Review order:
 

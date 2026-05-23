@@ -39,10 +39,15 @@ fn run_robot_cell_trace() -> anyhow::Result<RobotCellRun> {
     let root = robot_cell_root();
     let source_path = root.join("src/main.st");
     let source = fs::read_to_string(&source_path)?;
-    let mut runtime = CompileSession::from_sources(vec![SourceFile::with_path(
-        "examples/trust-twin/robot-cell/src/main.st",
-        source,
-    )])
+    let robot_fb_path = root.join("src/Robot_P3MinimalArm.fb.st");
+    let robot_fb = fs::read_to_string(&robot_fb_path)?;
+    let mut runtime = CompileSession::from_sources(vec![
+        SourceFile::with_path(
+            "examples/trust-twin/robot-cell/src/Robot_P3MinimalArm.fb.st",
+            robot_fb,
+        ),
+        SourceFile::with_path("examples/trust-twin/robot-cell/src/main.st", source),
+    ])
     .build_runtime()?;
     let view = load_hmi_scene_view(&root, VIEW_REF)?;
 

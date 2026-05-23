@@ -5640,7 +5640,7 @@ dependencies = [
 
 [[package]]
 name = "trust-debug"
-version = "0.24.19"
+version = "0.24.20"
 dependencies = [
  "glob",
  "indexmap 2.14.0",
@@ -5655,7 +5655,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dev"
-version = "0.24.19"
+version = "0.24.20"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -5674,7 +5674,7 @@ dependencies = [
 
 [[package]]
 name = "trust-hir"
-version = "0.24.19"
+version = "0.24.20"
 dependencies = [
  "insta",
  "parking_lot",
@@ -5691,7 +5691,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ide"
-version = "0.24.19"
+version = "0.24.20"
 dependencies = [
  "expect-test",
  "once_cell",
@@ -5704,7 +5704,7 @@ dependencies = [
 
 [[package]]
 name = "trust-lsp"
-version = "0.24.19"
+version = "0.24.20"
 dependencies = [
  "anyhow",
  "expect-test",
@@ -5731,7 +5731,7 @@ dependencies = [
 
 [[package]]
 name = "trust-plcopen"
-version = "0.24.19"
+version = "0.24.20"
 dependencies = [
  "anyhow",
  "crc32fast",
@@ -5744,7 +5744,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime"
-version = "0.24.19"
+version = "0.24.20"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -5801,7 +5801,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime-core"
-version = "0.24.19"
+version = "0.24.20"
 dependencies = [
  "indexmap 2.14.0",
  "rustc-hash 2.1.2",
@@ -5812,7 +5812,7 @@ dependencies = [
 
 [[package]]
 name = "trust-syntax"
-version = "0.24.19"
+version = "0.24.20"
 dependencies = [
  "drop_bomb",
  "insta",
@@ -5823,7 +5823,7 @@ dependencies = [
 
 [[package]]
 name = "trust-twin-compiler"
-version = "0.24.19"
+version = "0.24.20"
 dependencies = [
  "clap",
  "serde",
@@ -5835,7 +5835,7 @@ dependencies = [
 
 [[package]]
 name = "trust-twin-renderer"
-version = "0.24.19"
+version = "0.24.20"
 dependencies = [
  "anyhow",
  "console_error_panic_hook",
@@ -5850,7 +5850,7 @@ dependencies = [
 
 [[package]]
 name = "trust-wasm-analysis"
-version = "0.24.19"
+version = "0.24.20"
 dependencies = [
  "rowan",
  "serde",
@@ -7141,7 +7141,7 @@ checksum = "3ae8337f8a065cfc972643663ea4279e04e7256de865aa66fe25cec5fb912d3f"
 
 [[package]]
 name = "xtask"
-version = "0.24.19"
+version = "0.24.20"
 dependencies = [
  "anyhow",
  "serde",
