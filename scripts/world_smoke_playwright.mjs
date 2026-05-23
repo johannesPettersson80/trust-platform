@@ -184,12 +184,12 @@ function assertTraceReady(value) {
   if (!Array.isArray(value.per_tick_trace) || value.per_tick_trace.length < 2) {
     throw new Error("world_smoke_trace.json has no usable per_tick_trace");
   }
+  const hasWorkpiecePositions = value.per_tick_trace.every((tick) => tick.workpiece?.center);
   const hasP2Positions = value.per_tick_trace.every((tick) =>
-    tick.carrier_a?.center && tick.carrier_b?.center && tick.workpiece?.center
+    tick.carrier_a?.center && tick.carrier_b?.center
   );
   const hasP4Positions = value.per_tick_trace.every((tick) =>
-    tick.workpiece?.center
-      && armInstanceLink(tick, "arm_a", "link_1")
+    armInstanceLink(tick, "arm_a", "link_1")
       && armInstanceLink(tick, "arm_a", "link_2")
       && armInstanceLink(tick, "arm_a", "tool")
       && armInstanceLink(tick, "arm_b", "link_1")
@@ -197,9 +197,12 @@ function assertTraceReady(value) {
       && armInstanceLink(tick, "arm_b", "tool")
   );
   const hasP3Positions = value.per_tick_trace.every((tick) =>
-    tick.workpiece?.center && armLink(tick, "link_1") && armLink(tick, "link_2") && armLink(tick, "tool")
+    armLink(tick, "link_1") && armLink(tick, "link_2") && armLink(tick, "tool")
   );
-  const hasP1Positions = value.per_tick_trace.every((tick) => tick.carrier?.center && tick.workpiece?.center);
+  const hasP1Positions = value.per_tick_trace.every((tick) => tick.carrier?.center);
+  if (!hasWorkpiecePositions) {
+    throw new Error("world_smoke_trace.json does not contain workpiece positions for every tick");
+  }
   if (!hasP1Positions && !hasP2Positions && !hasP3Positions && !hasP4Positions) {
     throw new Error("world_smoke_trace.json does not contain supported world-smoke positions");
   }

@@ -12,8 +12,8 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     active_joint_summary, apply_rapier_body_pose_to_scena_node, body_registration, contact,
-    contact_contains, determinism_trace_hash, vec3_length, ActuatorState, CarryConstraintAssertion,
-    ContactFiredAssertion, CubeAboveFloorAssertion, ExclusiveOwnershipAssertion,
+    contact_contains, determinism_trace_hash, vec3_length, ActuatorState, BodyAboveFloorAssertion,
+    CarryConstraintAssertion, ContactFiredAssertion, ExclusiveOwnershipAssertion,
     FixtureInterpenetrationAssertion, GravityAppliedAssertion, GripEventContactAssertion,
     HandoffOrderAssertion, NoPhantomCarryAssertion, OwnershipTransferAtomicAssertion,
     ReleaseDestroyedJointAssertion, TransformHandoffTrace, WorkpieceSettledAssertion, World,
@@ -589,11 +589,11 @@ pub fn assert_world_urdf_arm_smoke_trace(
 ) -> WorldSmokeAssertions {
     let workpiece_min_y = per_tick_trace
         .iter()
-        .filter_map(|tick| tick.workpiece.as_ref().map(|body| body.y))
+        .map(|tick| tick.workpiece.y)
         .fold(f32::INFINITY, f32::min);
     let max_downward_velocity = per_tick_trace
         .iter()
-        .filter_map(|tick| tick.workpiece.as_ref().map(|body| body.vy))
+        .map(|tick| tick.workpiece.vy)
         .fold(0.0, f32::min);
     let grip_tick = per_tick_trace
         .iter()
@@ -632,22 +632,24 @@ pub fn assert_world_urdf_arm_smoke_trace(
         max_joint_distance = max_joint_distance.max(distance.distance);
     }
     let max_fixture_penetration = per_tick_trace.iter().fold(0.0_f32, |current, tick| {
-        let workpiece = tick.workpiece.as_ref().map_or(0.0, |body| {
-            arm_fixture_penetration(body.center, WORKPIECE_HALF_EXTENT, WORKPIECE_HALF_EXTENT)
-        });
+        let workpiece = arm_fixture_penetration(
+            tick.workpiece.center,
+            WORKPIECE_HALF_EXTENT,
+            WORKPIECE_HALF_EXTENT,
+        );
         current.max(workpiece)
     });
-    let settled = per_tick_trace.last().and_then(|last| {
-        let workpiece = last.workpiece.as_ref()?;
+    let settled = per_tick_trace.last().map(|last| {
+        let workpiece = &last.workpiece;
         let speed = vec3_length(workpiece.velocity);
         let contact_present = contact_contains(&last.contacts, "workpiece", "fixture");
-        Some((workpiece.y, speed, contact_present))
+        (workpiece.y, speed, contact_present)
     });
     let (final_workpiece_y, final_speed, final_fixture_contact) =
         settled.unwrap_or((f32::INFINITY, f32::INFINITY, false));
-    let workpiece_above_floor = CubeAboveFloorAssertion {
+    let workpiece_above_floor = BodyAboveFloorAssertion {
         ok: workpiece_min_y >= FLOOR_Y - ABOVE_FLOOR_EPSILON,
-        min_cube_y: workpiece_min_y,
+        min_y: workpiece_min_y,
         floor_y: FLOOR_Y,
     };
     let fk_stats = fk_consistency_stats(per_tick_trace);
@@ -663,7 +665,7 @@ pub fn assert_world_urdf_arm_smoke_trace(
             .all(|tick| tick.arm_links.len() as u32 + 1 == dynamic_body_count);
 
     WorldSmokeAssertions {
-        cube_above_floor: workpiece_above_floor.clone(),
+        workpiece_above_floor,
         gravity_applied: GravityAppliedAssertion {
             ok: max_downward_velocity < -0.1,
             max_downward_velocity_before_contact: max_downward_velocity,
@@ -672,10 +674,9 @@ pub fn assert_world_urdf_arm_smoke_trace(
             ok: grip_contact_present,
             first_contact_tick: grip_tick,
         },
-        workpiece_above_floor: Some(workpiece_above_floor),
-        carrier_above_floor: Some(CubeAboveFloorAssertion {
+        carrier_above_floor: Some(BodyAboveFloorAssertion {
             ok: arm_floor_stats.min_y >= FLOOR_Y - ABOVE_FLOOR_EPSILON,
-            min_cube_y: arm_floor_stats.min_y,
+            min_y: arm_floor_stats.min_y,
             floor_y: FLOOR_Y,
         }),
         no_fixture_interpenetration: Some(FixtureInterpenetrationAssertion {
@@ -967,11 +968,11 @@ pub fn assert_world_multi_urdf_arm_smoke_trace(
 ) -> WorldSmokeAssertions {
     let workpiece_min_y = per_tick_trace
         .iter()
-        .filter_map(|tick| tick.workpiece.as_ref().map(|body| body.y))
+        .map(|tick| tick.workpiece.y)
         .fold(f32::INFINITY, f32::min);
     let max_downward_velocity = per_tick_trace
         .iter()
-        .filter_map(|tick| tick.workpiece.as_ref().map(|body| body.vy))
+        .map(|tick| tick.workpiece.vy)
         .fold(0.0, f32::min);
     let grip_tick = per_tick_trace
         .iter()
@@ -1010,16 +1011,18 @@ pub fn assert_world_multi_urdf_arm_smoke_trace(
         max_joint_distance = max_joint_distance.max(distance.distance);
     }
     let max_fixture_penetration = per_tick_trace.iter().fold(0.0_f32, |current, tick| {
-        let workpiece = tick.workpiece.as_ref().map_or(0.0, |body| {
-            arm_fixture_penetration(body.center, WORKPIECE_HALF_EXTENT, WORKPIECE_HALF_EXTENT)
-        });
+        let workpiece = arm_fixture_penetration(
+            tick.workpiece.center,
+            WORKPIECE_HALF_EXTENT,
+            WORKPIECE_HALF_EXTENT,
+        );
         current.max(workpiece)
     });
-    let settled = per_tick_trace.last().and_then(|last| {
-        let workpiece = last.workpiece.as_ref()?;
+    let settled = per_tick_trace.last().map(|last| {
+        let workpiece = &last.workpiece;
         let speed = vec3_length(workpiece.velocity);
         let contact_present = contact_contains(&last.contacts, "workpiece", "fixture");
-        Some((workpiece.y, speed, contact_present))
+        (workpiece.y, speed, contact_present)
     });
     let (final_workpiece_y, final_speed, final_fixture_contact) =
         settled.unwrap_or((f32::INFINITY, f32::INFINITY, false));
@@ -1051,16 +1054,16 @@ pub fn assert_world_multi_urdf_arm_smoke_trace(
             tick.arm_a_links.len() + tick.arm_b_links.len() + 1
         });
     let handoff_complete = dynamic_body_count == 7
-        && per_tick_trace.iter().all(|tick| {
-            tick.arm_a_links.len() == 3 && tick.arm_b_links.len() == 3 && tick.workpiece.is_some()
-        });
-    let workpiece_above_floor = CubeAboveFloorAssertion {
+        && per_tick_trace
+            .iter()
+            .all(|tick| tick.arm_a_links.len() == 3 && tick.arm_b_links.len() == 3);
+    let workpiece_above_floor = BodyAboveFloorAssertion {
         ok: workpiece_min_y >= FLOOR_Y - ABOVE_FLOOR_EPSILON,
-        min_cube_y: workpiece_min_y,
+        min_y: workpiece_min_y,
         floor_y: FLOOR_Y,
     };
     let mut assertions = WorldSmokeAssertions {
-        cube_above_floor: workpiece_above_floor.clone(),
+        workpiece_above_floor,
         gravity_applied: GravityAppliedAssertion {
             ok: max_downward_velocity < -0.1,
             max_downward_velocity_before_contact: max_downward_velocity,
@@ -1069,10 +1072,9 @@ pub fn assert_world_multi_urdf_arm_smoke_trace(
             ok: grip_contact_present,
             first_contact_tick: grip_tick,
         },
-        workpiece_above_floor: Some(workpiece_above_floor),
-        carrier_above_floor: Some(CubeAboveFloorAssertion {
+        carrier_above_floor: Some(BodyAboveFloorAssertion {
             ok: all_arm_links_above_floor.min_y >= FLOOR_Y - ABOVE_FLOOR_EPSILON,
-            min_cube_y: all_arm_links_above_floor.min_y,
+            min_y: all_arm_links_above_floor.min_y,
             floor_y: FLOOR_Y,
         }),
         no_fixture_interpenetration: Some(FixtureInterpenetrationAssertion {
@@ -2144,14 +2146,11 @@ fn trace_p4_tick(
     let (arm_b_links, arm_b_joints) = trace_p4_arm(world, arm_b)?;
     Ok(WorldTickTrace {
         tick,
-        cube_y: workpiece.y,
-        cube_center_y: workpiece.center[1],
-        cube_vy: workpiece.vy,
         contacts,
         carrier: None,
         carrier_a: None,
         carrier_b: None,
-        workpiece: Some(workpiece),
+        workpiece,
         actuator_state: None,
         actuator_states,
         ownership: Some(ownership.sample()),
@@ -3056,14 +3055,11 @@ fn trace_urdf_arm_tick(
     let arm_joints = trace_arm_joints(model, actual_joints);
     Ok(WorldTickTrace {
         tick,
-        cube_y: workpiece.y,
-        cube_center_y: workpiece.center[1],
-        cube_vy: workpiece.vy,
         contacts,
         carrier: None,
         carrier_a: None,
         carrier_b: None,
-        workpiece: Some(workpiece),
+        workpiece,
         actuator_state: Some(actuator.state),
         actuator_states: Vec::new(),
         ownership: None,

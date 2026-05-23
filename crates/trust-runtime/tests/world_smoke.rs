@@ -18,9 +18,10 @@ use trust_runtime::world::{
 fn cube_floor_world_smoke_trace_proves_physics_and_handoff() -> anyhow::Result<()> {
     let trace = run_smoke_trace(WorldSmokeConfig::default())?;
     assert!(
-        trace.assertions.cube_above_floor.ok,
-        "cube_above_floor failed: min_cube_y={} floor_y={}",
-        trace.assertions.cube_above_floor.min_cube_y, trace.assertions.cube_above_floor.floor_y
+        trace.assertions.workpiece_above_floor.ok,
+        "workpiece_above_floor failed: min_y={} floor_y={}",
+        trace.assertions.workpiece_above_floor.min_y,
+        trace.assertions.workpiece_above_floor.floor_y
     );
     assert!(
         trace.assertions.gravity_applied.ok,
@@ -181,11 +182,11 @@ fn cube_floor_world_smoke_without_floor_triggers_above_floor_assertion() -> anyh
         ..WorldSmokeConfig::default()
     })?;
     let assertions = assert_world_smoke_trace(&trace.per_tick_trace);
-    assert!(!assertions.cube_above_floor.ok);
+    assert!(!assertions.workpiece_above_floor.ok);
     assert!(assertions.gravity_applied.ok);
     assert!(!assertions.contact_fired.ok);
     assert!(
-        assertions.cube_above_floor.min_cube_y < 0.0,
+        assertions.workpiece_above_floor.min_y < 0.0,
         "floor-removed variant must fall below y=0"
     );
     Ok(())
@@ -224,10 +225,7 @@ fn workpiece_fixture_floor_removed_triggers_above_floor_assertions() -> anyhow::
     })?;
     let assertions = assert_world_actuator_smoke_trace(&trace.per_tick_trace);
     assert!(
-        !assertions
-            .workpiece_above_floor
-            .expect("workpiece assertion exists")
-            .ok,
+        !assertions.workpiece_above_floor.ok,
         "floor-removed variant must let the workpiece fall below y=0"
     );
     assert!(
@@ -327,10 +325,7 @@ fn multi_actuator_floor_removed_triggers_above_floor_assertions() -> anyhow::Res
     })?;
     let assertions = assert_world_multi_actuator_smoke_trace(&trace.per_tick_trace);
     assert!(
-        !assertions
-            .workpiece_above_floor
-            .expect("workpiece assertion exists")
-            .ok,
+        !assertions.workpiece_above_floor.ok,
         "floor-removed variant must let the workpiece fall below y=0"
     );
     assert!(
@@ -641,11 +636,7 @@ fn write_trace_artifact(trace: &WorldSmokeTrace) -> anyhow::Result<()> {
 fn assert_p1_positive_assertions(trace: &WorldSmokeTrace) {
     let assertions = &trace.assertions;
     assert!(
-        assertions
-            .workpiece_above_floor
-            .as_ref()
-            .expect("workpiece assertion exists")
-            .ok,
+        assertions.workpiece_above_floor.ok,
         "workpiece must stay above the floor"
     );
     assert!(
