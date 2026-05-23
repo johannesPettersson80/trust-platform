@@ -433,6 +433,9 @@ fn run_modbus_server(
                     break;
                 }
                 stream
+                    .set_nonblocking(false)
+                    .map_err(|err| format!("set simulator client blocking: {err}"))?;
+                stream
                     .set_read_timeout(Some(StdDuration::from_secs(1)))
                     .map_err(|err| format!("set read timeout: {err}"))?;
                 stream

@@ -265,8 +265,10 @@ fn write_robot_cell_gate_artifact(
         &ComponentLibrary::load_builtin()?,
         &TopologyCompileOptions::default(),
     )?;
+    let compiled_view = normalize_line_endings(&compiled.view_toml);
+    let checked_out_view = normalize_line_endings(&view_source);
     assert_eq!(
-        compiled.view_toml, view_source,
+        compiled_view, checked_out_view,
         "robot-cell view must be compiler-generated from topology"
     );
     let blockers = vec![
@@ -390,6 +392,10 @@ fn stable_hash(samples: &[RobotCellSample]) -> anyhow::Result<String> {
     let bytes = serde_json::to_vec(samples)?;
     let digest = Sha256::digest(bytes);
     Ok(digest.iter().map(|byte| format!("{byte:02x}")).collect())
+}
+
+fn normalize_line_endings(text: &str) -> String {
+    text.replace("\r\n", "\n").replace('\r', "\n")
 }
 
 fn rounded(value: f64) -> f64 {
