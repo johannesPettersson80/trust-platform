@@ -1,5 +1,7 @@
 PROGRAM Main
 VAR
+    Robot : Robot_P3MinimalArm;
+    RobotCommand : INT := 0;
     RobotMotionStep : INT := 0;
     RobotCycleTick : INT := 0;
     RobotShoulderAngle : REAL := -0.60;
@@ -23,103 +25,40 @@ END_IF;
 
 IF RobotCycleTick < 10 THEN
     (* approach pickup *)
-    RobotMotionStep := 1;
-    RobotShoulderAngle := -0.72;
-    RobotElbowAngle := 0.42;
-    RobotWristAngle := 0.25;
-    RobotGripperOpen := TRUE;
-    RobotGripperX := 0.00;
-    RobotGripperY := 0.80;
-    RobotGripperZ := 0.00;
-    RobotBoxX := 0.00;
-    RobotBoxY := 0.35;
-    RobotBoxZ := 0.00;
-    RobotStatusLight := FALSE;
+    RobotCommand := 1;
 ELSIF RobotCycleTick < 20 THEN
     (* close gripper *)
-    RobotMotionStep := 2;
-    RobotShoulderAngle := -0.72;
-    RobotElbowAngle := 0.42;
-    RobotWristAngle := 0.25;
-    RobotGripperOpen := FALSE;
-    RobotGripperX := 0.00;
-    RobotGripperY := 0.55;
-    RobotGripperZ := 0.00;
-    RobotBoxX := 0.00;
-    RobotBoxY := 0.35;
-    RobotBoxZ := 0.00;
-    RobotStatusLight := TRUE;
+    RobotCommand := 2;
 ELSIF RobotCycleTick < 30 THEN
     (* lift *)
-    RobotMotionStep := 3;
-    RobotShoulderAngle := -0.35;
-    RobotElbowAngle := 0.72;
-    RobotWristAngle := -0.45;
-    RobotGripperOpen := FALSE;
-    RobotGripperX := 0.80;
-    RobotGripperY := 1.15;
-    RobotGripperZ := 0.00;
-    RobotBoxX := 0.80;
-    RobotBoxY := 1.15;
-    RobotBoxZ := 0.00;
-    RobotStatusLight := TRUE;
+    RobotCommand := 3;
 ELSIF RobotCycleTick < 40 THEN
     (* translate *)
-    RobotMotionStep := 4;
-    RobotShoulderAngle := 0.35;
-    RobotElbowAngle := 0.70;
-    RobotWristAngle := -0.85;
-    RobotGripperOpen := FALSE;
-    RobotGripperX := 2.40;
-    RobotGripperY := 1.15;
-    RobotGripperZ := 0.00;
-    RobotBoxX := 2.40;
-    RobotBoxY := 1.15;
-    RobotBoxZ := 0.00;
-    RobotStatusLight := TRUE;
+    RobotCommand := 4;
 ELSIF RobotCycleTick < 50 THEN
     (* lower *)
-    RobotMotionStep := 5;
-    RobotShoulderAngle := 0.72;
-    RobotElbowAngle := 0.40;
-    RobotWristAngle := 0.85;
-    RobotGripperOpen := FALSE;
-    RobotGripperX := 4.00;
-    RobotGripperY := 0.55;
-    RobotGripperZ := 0.00;
-    RobotBoxX := 4.00;
-    RobotBoxY := 0.35;
-    RobotBoxZ := 0.00;
-    RobotStatusLight := TRUE;
+    RobotCommand := 5;
 ELSIF RobotCycleTick < 60 THEN
     (* open gripper *)
-    RobotMotionStep := 6;
-    RobotShoulderAngle := 0.72;
-    RobotElbowAngle := 0.40;
-    RobotWristAngle := 0.85;
-    RobotGripperOpen := TRUE;
-    RobotGripperX := 4.00;
-    RobotGripperY := 0.80;
-    RobotGripperZ := 0.00;
-    RobotBoxX := 4.00;
-    RobotBoxY := 0.35;
-    RobotBoxZ := 0.00;
-    RobotStatusLight := FALSE;
+    RobotCommand := 6;
 ELSE
     (* return *)
-    RobotMotionStep := 7;
-    RobotShoulderAngle := -0.15;
-    RobotElbowAngle := 0.55;
-    RobotWristAngle := 0.00;
-    RobotGripperOpen := TRUE;
-    RobotGripperX := 2.00;
-    RobotGripperY := 1.20;
-    RobotGripperZ := 0.00;
-    RobotBoxX := 4.00;
-    RobotBoxY := 0.35;
-    RobotBoxZ := 0.00;
-    RobotStatusLight := FALSE;
+    RobotCommand := 7;
 END_IF;
 
-RobotEnabled := TRUE;
+Robot(Enable := RobotEnabled, Command := RobotCommand);
+
+RobotMotionStep := Robot.State;
+RobotShoulderAngle := Robot.Joint1;
+RobotElbowAngle := Robot.Joint2;
+RobotWristAngle := Robot.ToolYaw;
+RobotGripperOpen := Robot.GripperOpen;
+RobotGripperX := Robot.ToolX;
+RobotGripperY := Robot.ToolY;
+RobotGripperZ := Robot.ToolZ;
+RobotBoxX := Robot.WorkpieceX;
+RobotBoxY := Robot.WorkpieceY;
+RobotBoxZ := Robot.WorkpieceZ;
+RobotEnabled := Robot.EnabledOut;
+RobotStatusLight := Robot.StatusLight;
 END_PROGRAM

@@ -14,6 +14,7 @@ pub enum BuiltinFbKind {
     Tp,
     Ton,
     Tof,
+    RobotP3MinimalArm,
 }
 
 pub fn builtin_kind(name: &str) -> Option<BuiltinFbKind> {
@@ -39,6 +40,7 @@ pub fn builtin_kind_uppercase(name_upper: &str) -> Option<BuiltinFbKind> {
         "TP" | "TP_LTIME" => Some(BuiltinFbKind::Tp),
         "TON" | "TON_LTIME" => Some(BuiltinFbKind::Ton),
         "TOF" | "TOF_LTIME" => Some(BuiltinFbKind::Tof),
+        "ROBOT_P3MINIMALARM" => Some(BuiltinFbKind::RobotP3MinimalArm),
         _ => None,
     }
 }

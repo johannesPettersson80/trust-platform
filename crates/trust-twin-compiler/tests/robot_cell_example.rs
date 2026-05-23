@@ -7,6 +7,8 @@ use trust_twin_compiler::diagnose_scene_view_physical_issues;
 const REQUIRED_FILES: &[&str] = &[
     "README.md",
     "src/main.st",
+    "src/Robot_P3MinimalArm.fb.st",
+    "robot/p3-minimal-arm.robot.toml",
     "runtime.toml",
     "io.toml",
     "simulation.toml",
@@ -165,9 +167,27 @@ fn robot_cell_view_contains_recognizable_robot_nodes_without_box_placeholder_esc
 fn robot_cell_bindings_are_plc_driven_from_main_st() {
     let root = robot_cell_root();
     let main_st = fs::read_to_string(root.join("src/main.st")).expect("read robot-cell ST");
+    let robot_fb =
+        fs::read_to_string(root.join("src/Robot_P3MinimalArm.fb.st")).expect("read robot FB");
     assert!(
         main_st.contains("PROGRAM Main"),
         "robot-cell ST must define PROGRAM Main"
+    );
+    assert!(
+        main_st.contains("Robot : Robot_P3MinimalArm"),
+        "PROGRAM Main must instantiate the generated robot FB"
+    );
+    assert!(
+        main_st.contains("Robot(Enable := RobotEnabled, Command := RobotCommand)"),
+        "PROGRAM Main must drive the generated robot FB instead of writing scene state directly"
+    );
+    assert!(
+        robot_fb.contains("FUNCTION_BLOCK Robot_P3MinimalArm"),
+        "robot-cell example must include the generated Robot_<Model> FB"
+    );
+    assert!(
+        robot_fb.contains("trust_runtime::world::arm::step_robot_p3_minimal_arm_bridge"),
+        "generated robot FB must name the world::arm native bridge"
     );
     for variable in REQUIRED_PLC_VARIABLES {
         assert!(

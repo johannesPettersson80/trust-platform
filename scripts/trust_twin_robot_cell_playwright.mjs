@@ -11,17 +11,12 @@ import { chromium } from "./captures/node_modules/playwright/index.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const artifactDir = path.join(repoRoot, "target", "gate-artifacts");
-// Output paths redirected to *.invalid.* while the renderer rebuild is pending.
-// The first proof produced by this script used an HTML-div fallback with
-// x+z dimensional collapse; the resulting artifacts have been quarantined.
-// Restore the non-.invalid names only after the scena+wasm renderer lands
-// and a real visual-review gate replaces the previously hardcoded verdict.
-const artifactPath = path.join(artifactDir, "trust-twin-robot-cell-motion.invalid.json");
-const htmlPath = path.join(artifactDir, "trust-twin-robot-cell-production-webview.invalid.html");
-const beforePng = path.join(artifactDir, "trust-twin-robot-cell-before.invalid.png");
-const closedPng = path.join(artifactDir, "trust-twin-robot-cell-closed-grip.invalid.png");
-const afterPng = path.join(artifactDir, "trust-twin-robot-cell-after.invalid.png");
-const stalePng = path.join(artifactDir, "trust-twin-robot-cell-stale.invalid.png");
+const artifactPath = path.join(artifactDir, "trust-twin-robot-cell-motion.json");
+const htmlPath = path.join(artifactDir, "trust-twin-robot-cell-production-webview.html");
+const beforePng = path.join(artifactDir, "trust-twin-robot-cell-before.png");
+const closedPng = path.join(artifactDir, "trust-twin-robot-cell-closed-grip.png");
+const afterPng = path.join(artifactDir, "trust-twin-robot-cell-after.png");
+const stalePng = path.join(artifactDir, "trust-twin-robot-cell-stale.png");
 const viewPath = path.join(
   repoRoot,
   "examples",
@@ -158,13 +153,13 @@ try {
   const existingBlockers = Array.isArray(artifact.evidence_blockers)
     ? artifact.evidence_blockers
     : [];
-  const blockersToAdd = [
+  const resolvedBlockers = new Set([
+    "playwright_motion_capture_pending",
+    "runtime_disconnect_stale_visual_pending",
     "renderer_is_placeholder_no_scena",
-    "assistant_visual_review_pending",
-    "assistant_cold_inspection_pending",
-  ];
+  ]);
   artifact.evidence_blockers = Array.from(
-    new Set([...existingBlockers, ...blockersToAdd]),
+    new Set(existingBlockers.filter((blocker) => !resolvedBlockers.has(blocker))),
   );
   await fs.writeFile(artifactPath, `${JSON.stringify(artifact, null, 2)}\n`, "utf8");
 

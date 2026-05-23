@@ -1,8 +1,15 @@
 //! Trust-twin topology compiler.
 
+mod robot_fb;
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 use std::path::Path;
+
+pub use robot_fb::{
+    generate_robot_function_block_from_manifest_toml, GeneratedRobotFunctionBlock,
+    RobotFunctionBlockGenerateError,
+};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};

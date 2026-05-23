@@ -1,0 +1,16 @@
+[robot]
+model = "P3MinimalArm"
+function_block = "Robot_P3MinimalArm"
+urdf = "crates/trust-runtime/tests/fixtures/p3_minimal_arm.urdf"
+native_bridge = "trust_runtime::world::arm::step_robot_p3_minimal_arm_bridge"
+base_frame = "base"
+tool_frame = "tool"
+grip_frame = "workpiece.grip"
+
+[[joint]]
+name = "base_to_link_1"
+output = "Joint1"
+
+[[joint]]
+name = "link_1_to_link_2"
+output = "Joint2"

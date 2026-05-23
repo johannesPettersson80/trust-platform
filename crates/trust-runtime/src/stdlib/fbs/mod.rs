@@ -6,6 +6,7 @@ mod bistable;
 mod counters;
 mod instance;
 mod registry;
+mod robot;
 mod state;
 mod timers;
 mod triggers;
@@ -43,5 +44,6 @@ pub fn execute_builtin_in_storage(
         BuiltinFbKind::Tp => timers::exec_tp(&mut ctx, instance_id),
         BuiltinFbKind::Ton => timers::exec_ton(&mut ctx, instance_id),
         BuiltinFbKind::Tof => timers::exec_tof(&mut ctx, instance_id),
+        BuiltinFbKind::RobotP3MinimalArm => robot::exec_robot_p3_minimal_arm(&mut ctx, instance_id),
     }
 }

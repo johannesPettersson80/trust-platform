@@ -1,13 +1,14 @@
 //! Shared deterministic simulation world primitives.
 
-mod arm;
+pub mod arm;
 
 pub use arm::{
     assert_world_multi_urdf_arm_smoke_trace, assert_world_urdf_arm_smoke_trace,
     record_multi_urdf_arm_determinism_hash_stability, record_urdf_arm_determinism_hash_stability,
-    run_world_multi_urdf_arm_smoke, run_world_urdf_arm_smoke, ArmAboveFloorAssertion,
-    ArmRenderedThroughHandoffAssertion, FkConsistencyAssertion, JointLimitAssertion,
-    MultiUrdfArmsLoadedAssertion, PerArmFkConsistencyAssertion, UrdfParsedOnceAssertion,
+    run_world_multi_urdf_arm_smoke, run_world_urdf_arm_smoke, step_robot_p3_minimal_arm_bridge,
+    ArmAboveFloorAssertion, ArmRenderedThroughHandoffAssertion, FkConsistencyAssertion,
+    JointLimitAssertion, MultiUrdfArmsLoadedAssertion, PerArmFkConsistencyAssertion,
+    RobotP3MinimalArmBridgeInput, RobotP3MinimalArmBridgeOutput, UrdfParsedOnceAssertion,
     WorldArmJointTrace, WorldArmLinkTrace, WorldFkArmVerifierTrace, WorldFkVerifierTrace,
     WorldMultiUrdfArmScenario, WorldMultiUrdfArmSmokeConfig, WorldUrdfArmInstanceTrace,
     WorldUrdfArmScenario, WorldUrdfArmSmokeConfig, WorldUrdfJointTrace, WorldUrdfTrace,
