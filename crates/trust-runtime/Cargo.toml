@@ -40,6 +40,8 @@ native-tls.workspace = true
 time.workspace = true
 scena.workspace = true
 rapier3d.workspace = true
+urdf-rs.workspace = true
+k.workspace = true
 notify = "8"
 tiny_http = { version = "0.12", features = ["ssl-rustls"] }
 tungstenite = "0.28"

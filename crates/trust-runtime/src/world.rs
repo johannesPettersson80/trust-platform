@@ -1,5 +1,15 @@
 //! Shared deterministic simulation world primitives.
 
+mod arm;
+
+pub use arm::{
+    assert_world_urdf_arm_smoke_trace, record_urdf_arm_determinism_hash_stability,
+    run_world_urdf_arm_smoke, ArmAboveFloorAssertion, ArmRenderedThroughHandoffAssertion,
+    FkConsistencyAssertion, JointLimitAssertion, UrdfParsedOnceAssertion, WorldArmJointTrace,
+    WorldArmLinkTrace, WorldFkVerifierTrace, WorldUrdfArmScenario, WorldUrdfArmSmokeConfig,
+    WorldUrdfJointTrace, WorldUrdfTrace,
+};
+
 use rapier3d::prelude::*;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -136,6 +146,12 @@ pub struct WorldSmokeTrace {
     /// P2 handoff plan trace, present only for the multi-actuator proof.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub handoff_plan: Option<WorldHandoffPlanTrace>,
+    /// P3 URDF load trace, present only for the URDF-arm proof.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub urdf: Option<WorldUrdfTrace>,
+    /// P3 FK verifier trace, present only for the URDF-arm proof.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fk_verifier: Option<WorldFkVerifierTrace>,
     /// P1 joint lifecycle trace, present only for the workpiece/fixture proof.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub joints: Option<WorldJointTrace>,
@@ -176,6 +192,9 @@ pub struct WorldBodyRegistrationTrace {
     pub kind: String,
     /// Shape name.
     pub shape: String,
+    /// Source descriptor, present for URDF-derived bodies.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
 }
 
 /// Metadata naming the single allowed dynamic-body transform handoff.
@@ -242,6 +261,12 @@ pub struct WorldTickTrace {
     /// Per-owner joint distance samples, present in the P2 proof.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub joint_distances: Vec<WorldJointDistanceTrace>,
+    /// P3 URDF arm link samples.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub arm_links: Vec<WorldArmLinkTrace>,
+    /// P3 URDF arm joint samples.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub arm_joints: Vec<WorldArmJointTrace>,
 }
 
 /// Per-body kinematic sample.
@@ -355,6 +380,21 @@ pub struct WorldSmokeAssertions {
     /// P2: repeated runs produce the same deterministic trace hash.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub determinism_hash_stable: Option<DeterminismHashStableAssertion>,
+    /// P3: URDF was parsed once and not consulted in the tick loop.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub urdf_parsed_once: Option<UrdfParsedOnceAssertion>,
+    /// P3: every dynamic arm link was rendered through the audited handoff.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub arm_rendered_through_handoff: Option<ArmRenderedThroughHandoffAssertion>,
+    /// P3: FK predictions match Rapier-owned link positions.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fk_matches_rapier: Option<FkConsistencyAssertion>,
+    /// P3: URDF joint limits are respected.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub joint_limits_enforced: Option<JointLimitAssertion>,
+    /// P3: every arm link stays above the floor.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub arm_links_above_floor: Option<ArmAboveFloorAssertion>,
 }
 
 /// Fixture interpenetration assertion.
@@ -1193,6 +1233,8 @@ impl World {
             active_joints: Vec::new(),
             joint_distance: None,
             joint_distances: Vec::new(),
+            arm_links: Vec::new(),
+            arm_joints: Vec::new(),
         })
     }
 
@@ -1571,6 +1613,8 @@ impl World {
             active_joints,
             joint_distance,
             joint_distances: Vec::new(),
+            arm_links: Vec::new(),
+            arm_joints: Vec::new(),
         })
     }
 
@@ -1626,6 +1670,8 @@ impl World {
             active_joints,
             joint_distance: joint_distances.first().map(|sample| sample.distance),
             joint_distances,
+            arm_links: Vec::new(),
+            arm_joints: Vec::new(),
         })
     }
 
@@ -1844,6 +1890,8 @@ pub fn run_world_smoke(
         actuators: None,
         ownership: None,
         handoff_plan: None,
+        urdf: None,
+        fk_verifier: None,
         joints: None,
         per_tick_trace,
         determinism_trace_hash,
@@ -1939,6 +1987,8 @@ pub fn run_world_actuator_smoke(
         actuators: None,
         ownership: None,
         handoff_plan: None,
+        urdf: None,
+        fk_verifier: None,
         joints: Some(actuator.joint_trace()),
         per_tick_trace,
         determinism_trace_hash,
@@ -2087,6 +2137,8 @@ pub fn run_world_multi_actuator_smoke(
         actuators: Some(sorted_actuator_traces(&actuators)),
         ownership: Some(ownership.trace()),
         handoff_plan: Some(handoff_plan.trace()),
+        urdf: None,
+        fk_verifier: None,
         joints: Some(joint_trace),
         per_tick_trace,
         determinism_trace_hash,
@@ -2557,6 +2609,11 @@ pub fn assert_world_smoke_trace(per_tick_trace: &[WorldTickTrace]) -> WorldSmoke
         handoff_order_deterministic: None,
         no_phantom_carry: None,
         determinism_hash_stable: None,
+        urdf_parsed_once: None,
+        arm_rendered_through_handoff: None,
+        fk_matches_rapier: None,
+        joint_limits_enforced: None,
+        arm_links_above_floor: None,
     }
 }
 
@@ -2679,6 +2736,11 @@ pub fn assert_world_actuator_smoke_trace(
         handoff_order_deterministic: None,
         no_phantom_carry: None,
         determinism_hash_stable: None,
+        urdf_parsed_once: None,
+        arm_rendered_through_handoff: None,
+        fk_matches_rapier: None,
+        joint_limits_enforced: None,
+        arm_links_above_floor: None,
     }
 }
 
@@ -2849,6 +2911,11 @@ pub fn assert_world_multi_actuator_smoke_trace(
             violation_count: phantom_violations,
         }),
         determinism_hash_stable: None,
+        urdf_parsed_once: None,
+        arm_rendered_through_handoff: None,
+        fk_matches_rapier: None,
+        joint_limits_enforced: None,
+        arm_links_above_floor: None,
     }
 }
 
@@ -3013,6 +3080,7 @@ fn body_registration(name: &str, kind: &str, shape: &str) -> WorldBodyRegistrati
         name: name.to_string(),
         kind: kind.to_string(),
         shape: shape.to_string(),
+        source: None,
     }
 }
 

@@ -100,7 +100,14 @@ try {
 }
 
 async function renderAt(page, tick) {
-  const positions = tick.carrier_a?.center
+  const positions = tick.arm_links?.length
+    ? {
+        arm_link_1: armLink(tick, "link_1")?.rapier_position,
+        arm_link_2: armLink(tick, "link_2")?.rapier_position,
+        arm_tool: armLink(tick, "tool")?.rapier_position,
+        workpiece: tick.workpiece.center,
+      }
+    : tick.carrier_a?.center
     ? {
         carrier_a: tick.carrier_a.center,
         carrier_b: tick.carrier_b.center,
@@ -142,7 +149,15 @@ function assertTraceReady(value) {
     "no_phantom_carry",
     "determinism_hash_stable",
   ];
-  const required = value.actuators ? [...p1Required, ...p2Required] : p1Required;
+  const p3Required = [
+    "urdf_parsed_once",
+    "arm_rendered_through_handoff",
+    "fk_matches_rapier",
+    "joint_limits_enforced",
+    "arm_links_above_floor",
+    "determinism_hash_stable",
+  ];
+  const required = value.urdf ? [...p1Required, ...p3Required] : value.actuators ? [...p1Required, ...p2Required] : p1Required;
   for (const name of required) {
     if (value.assertions?.[name]?.ok !== true) {
       throw new Error(`world smoke assertion ${name} is not true`);
@@ -154,13 +169,29 @@ function assertTraceReady(value) {
   const hasP2Positions = value.per_tick_trace.every((tick) =>
     tick.carrier_a?.center && tick.carrier_b?.center && tick.workpiece?.center
   );
+  const hasP3Positions = value.per_tick_trace.every((tick) =>
+    tick.workpiece?.center && armLink(tick, "link_1") && armLink(tick, "link_2") && armLink(tick, "tool")
+  );
   const hasP1Positions = value.per_tick_trace.every((tick) => tick.carrier?.center && tick.workpiece?.center);
-  if (!hasP1Positions && !hasP2Positions) {
-    throw new Error("world_smoke_trace.json does not contain P1 carrier/workpiece positions");
+  if (!hasP1Positions && !hasP2Positions && !hasP3Positions) {
+    throw new Error("world_smoke_trace.json does not contain supported world-smoke positions");
   }
 }
 
 function selectFrames(value) {
+  if (value.urdf) {
+    const initial = value.per_tick_trace[0];
+    const grip = value.per_tick_trace.find((tick) =>
+      tick.tick_events?.includes("joint_create(arm.tool, workpiece)") && hasContact(tick, "arm.tool", "workpiece")
+    );
+    const active = value.per_tick_trace.filter((tick) => tick.active_joints?.includes("fixed(arm.tool, workpiece_grip)"));
+    const carry = active[Math.floor(active.length / 2)];
+    const release = value.per_tick_trace[value.per_tick_trace.length - 1];
+    if (!initial || !grip || !carry || !release) {
+      throw new Error("trace does not contain P3 initial/grip/carry/final frames");
+    }
+    return { initial, grip, carry, release };
+  }
   if (value.actuators) {
     const initial = value.per_tick_trace[0];
     const grip = value.per_tick_trace.find((tick) =>
@@ -199,7 +230,12 @@ function hasContact(tick, a, b) {
   );
 }
 
+function armLink(tick, name) {
+  return (tick.arm_links ?? []).find((link) => link.name === name);
+}
+
 function scenePayload() {
+  const isP3 = Boolean(trace.urdf);
   const isP2 = Boolean(trace.actuators);
   const nodes = [
     {
@@ -223,7 +259,38 @@ function scenePayload() {
       transform: { scale: [0.5, 0.5, 0.5] },
       material: { base_color: "#f97316", emissive: "#000000", opacity: 1.0 },
     },
-    ...(isP2
+    ...(isP3
+      ? [
+          {
+            id: "arm_base",
+            primitive: "box",
+            local_position: [0.3, 0.85, 0.0],
+            transform: { scale: [0.3, 0.3, 0.3] },
+            material: { base_color: "#94a3b8", emissive: "#000000", opacity: 1.0 },
+          },
+          {
+            id: "arm_link_1",
+            primitive: "box",
+            local_position: [0.0, 0.0, 0.0],
+            transform: { scale: [0.9, 0.12, 0.16] },
+            material: { base_color: "#38bdf8", emissive: "#000000", opacity: 1.0 },
+          },
+          {
+            id: "arm_link_2",
+            primitive: "box",
+            local_position: [0.0, 0.0, 0.0],
+            transform: { scale: [0.9, 0.10, 0.14] },
+            material: { base_color: "#22c55e", emissive: "#000000", opacity: 1.0 },
+          },
+          {
+            id: "arm_tool",
+            primitive: "box",
+            local_position: [0.0, 0.0, 0.0],
+            transform: { scale: [0.4, 0.2, 0.2] },
+            material: { base_color: "#facc15", emissive: "#000000", opacity: 1.0 },
+          },
+        ]
+      : isP2
       ? [
           {
             id: "transfer_zone",
@@ -287,7 +354,25 @@ function scenePayload() {
       property: "transform.position",
       source: "World.WorkpiecePosition",
     },
-    ...(isP2
+    ...(isP3
+      ? [
+          {
+            node: "arm_link_1",
+            property: "transform.position",
+            source: "World.ArmLink1Position",
+          },
+          {
+            node: "arm_link_2",
+            property: "transform.position",
+            source: "World.ArmLink2Position",
+          },
+          {
+            node: "arm_tool",
+            property: "transform.position",
+            source: "World.ArmToolPosition",
+          },
+        ]
+      : isP2
       ? [
           {
             node: "carrier_a",
@@ -370,6 +455,9 @@ function htmlSource() {
     window.__worldSmokeRender = async (positions) => {
       if (!handle) throw new Error("world smoke renderer not initialized");
       apply_values(handle, JSON.stringify({
+        "World.ArmLink1Position": positions.arm_link_1,
+        "World.ArmLink2Position": positions.arm_link_2,
+        "World.ArmToolPosition": positions.arm_tool,
         "World.CarrierAPosition": positions.carrier_a,
         "World.CarrierBPosition": positions.carrier_b,
         "World.CarrierPosition": positions.carrier,

@@ -4,9 +4,11 @@ use std::process::Command;
 
 use trust_runtime::world::{
     assert_world_actuator_smoke_trace, assert_world_multi_actuator_smoke_trace,
-    assert_world_smoke_trace, record_determinism_hash_stability, run_world_actuator_smoke,
-    run_world_multi_actuator_smoke, run_world_smoke, ActuatorState, WorldActuatorSmokeConfig,
-    WorldMultiActuatorScenario, WorldMultiActuatorSmokeConfig, WorldSmokeConfig, WorldSmokeTrace,
+    assert_world_smoke_trace, assert_world_urdf_arm_smoke_trace, record_determinism_hash_stability,
+    record_urdf_arm_determinism_hash_stability, run_world_actuator_smoke,
+    run_world_multi_actuator_smoke, run_world_smoke, run_world_urdf_arm_smoke, ActuatorState,
+    WorldActuatorSmokeConfig, WorldMultiActuatorScenario, WorldMultiActuatorSmokeConfig,
+    WorldSmokeConfig, WorldSmokeTrace, WorldUrdfArmScenario, WorldUrdfArmSmokeConfig,
 };
 
 #[test]
@@ -89,7 +91,6 @@ fn multi_actuator_handoff_smoke_trace_proves_atomic_transfer() -> anyhow::Result
     let repeat = run_multi_trace(WorldMultiActuatorSmokeConfig::default())?;
     assert_eq!(trace.determinism_trace_hash, repeat.determinism_trace_hash);
     record_determinism_hash_stability(&mut trace, repeat.determinism_trace_hash);
-    write_trace_artifact(&trace)?;
 
     assert_p2_positive_assertions(&trace);
     let handoff_plan = trace.handoff_plan.as_ref().expect("P2 handoff plan exists");
@@ -106,6 +107,31 @@ fn multi_actuator_handoff_smoke_trace_proves_atomic_transfer() -> anyhow::Result
         .cloned()
         .collect::<Vec<_>>();
     assert_eq!(observed, handoff_plan.atomic_event_order);
+
+    Ok(())
+}
+
+#[test]
+fn urdf_arm_smoke_trace_proves_fk_is_verifier_not_writer() -> anyhow::Result<()> {
+    let mut trace = run_urdf_arm_trace(WorldUrdfArmSmokeConfig::default())?;
+    let repeat = run_urdf_arm_trace(WorldUrdfArmSmokeConfig::default())?;
+    assert_eq!(trace.determinism_trace_hash, repeat.determinism_trace_hash);
+    record_urdf_arm_determinism_hash_stability(&mut trace, repeat.determinism_trace_hash);
+    write_trace_artifact(&trace)?;
+
+    assert_p3_positive_assertions(&trace);
+    let urdf = trace.urdf.as_ref().expect("P3 URDF trace exists");
+    assert_eq!(
+        urdf.fixture_path,
+        "crates/trust-runtime/tests/fixtures/p3_minimal_arm.urdf"
+    );
+    assert_eq!(urdf.links_loaded, ["base", "link_1", "link_2", "tool"]);
+    assert_eq!(urdf.joints_loaded.len(), 3);
+    assert!(urdf.parsed_once);
+    assert!(!urdf.consulted_in_tick_loop);
+    let fk = trace.fk_verifier.as_ref().expect("P3 FK verifier exists");
+    assert!(fk.max_consistency_distance_m <= fk.consistency_tolerance);
+    assert_eq!(fk.checked_links, ["link_1", "link_2", "tool"]);
 
     Ok(())
 }
@@ -280,6 +306,63 @@ fn multi_actuator_floor_removed_triggers_above_floor_assertions() -> anyhow::Res
 }
 
 #[test]
+fn urdf_arm_missing_joint_limits_fails_closed_and_can_trigger_floor_assertion() -> anyhow::Result<()>
+{
+    let rejected = run_urdf_arm_trace(WorldUrdfArmSmokeConfig {
+        fixture_path: "crates/trust-runtime/tests/fixtures/p3_no_joint_limits.urdf",
+        ..WorldUrdfArmSmokeConfig::default()
+    });
+    assert!(
+        rejected.is_err(),
+        "normal URDF loader must reject revolute joints without limits"
+    );
+
+    let trace = run_urdf_arm_trace(WorldUrdfArmSmokeConfig {
+        fixture_path: "crates/trust-runtime/tests/fixtures/p3_no_joint_limits.urdf",
+        scenario: WorldUrdfArmScenario::MissingLimitsPermissive,
+        tick_count: 900,
+        ..WorldUrdfArmSmokeConfig::default()
+    })?;
+    let assertions = assert_world_urdf_arm_smoke_trace(&trace.per_tick_trace);
+    let floor = assertions
+        .arm_links_above_floor
+        .expect("arm above-floor assertion exists");
+    assert!(
+        !floor.ok,
+        "missing-limits permissive variant must drive a link below floor"
+    );
+    assert!(
+        floor.min_link_y < 0.0,
+        "floor assertion must fail with min_link_y < 0, got {}",
+        floor.min_link_y
+    );
+    Ok(())
+}
+
+#[test]
+fn urdf_arm_fk_drift_variant_triggers_fk_consistency_assertion() -> anyhow::Result<()> {
+    let trace = run_urdf_arm_trace(WorldUrdfArmSmokeConfig {
+        scenario: WorldUrdfArmScenario::FkDrift,
+        tick_count: 1200,
+        ..WorldUrdfArmSmokeConfig::default()
+    })?;
+    let assertions = assert_world_urdf_arm_smoke_trace(&trace.per_tick_trace);
+    let fk = assertions
+        .fk_matches_rapier
+        .expect("FK consistency assertion exists");
+    assert!(
+        !fk.ok,
+        "FK drift variant must fail FK/Rapier consistency assertion; max={} tolerance={}",
+        fk.max_consistency_distance_m, fk.tolerance
+    );
+    assert!(
+        fk.max_consistency_distance_m > fk.tolerance,
+        "FK drift max distance must exceed tolerance"
+    );
+    Ok(())
+}
+
+#[test]
 fn cube_floor_world_smoke_bypass_fixture_is_rejected_by_lint() {
     assert_fixture_rejected(
         "crates/trust-runtime/tests/fixtures/world_smoke_transform_bypass.rs",
@@ -300,6 +383,14 @@ fn workpiece_fixture_teleport_bypass_fixture_is_rejected_by_lint() {
     assert_fixture_rejected(
         "crates/trust-runtime/tests/fixtures/world_smoke_workpiece_teleport_bypass.rs",
         "forbidden workpiece rigid-body teleport",
+    );
+}
+
+#[test]
+fn urdf_arm_fk_to_transform_bypass_fixture_is_rejected_by_lint() {
+    assert_fixture_rejected(
+        "crates/trust-runtime/tests/fixtures/world_smoke_fk_to_transform_bypass.rs",
+        "forbidden FK-to-transform write",
     );
 }
 
@@ -344,6 +435,22 @@ fn run_multi_trace(config: WorldMultiActuatorSmokeConfig) -> anyhow::Result<Worl
         &mut scene,
         carrier_a_node,
         carrier_b_node,
+        workpiece_node,
+    )
+}
+
+fn run_urdf_arm_trace(config: WorldUrdfArmSmokeConfig) -> anyhow::Result<WorldSmokeTrace> {
+    let mut scene = scena::Scene::new();
+    let link_1_node = scene.add_empty(scene.root(), scena::Transform::IDENTITY)?;
+    let link_2_node = scene.add_empty(scene.root(), scena::Transform::IDENTITY)?;
+    let tool_node = scene.add_empty(scene.root(), scena::Transform::IDENTITY)?;
+    let workpiece_node = scene.add_empty(scene.root(), scena::Transform::IDENTITY)?;
+    run_world_urdf_arm_smoke(
+        config,
+        &mut scene,
+        link_1_node,
+        link_2_node,
+        tool_node,
         workpiece_node,
     )
 }
@@ -457,6 +564,59 @@ fn assert_p2_positive_assertions(trace: &WorldSmokeTrace) {
             .expect("determinism assertion exists")
             .ok,
         "repeated P2 run must produce the same trace hash"
+    );
+}
+
+fn assert_p3_positive_assertions(trace: &WorldSmokeTrace) {
+    assert_p1_positive_assertions(trace);
+    let assertions = &trace.assertions;
+    assert!(
+        assertions
+            .urdf_parsed_once
+            .as_ref()
+            .expect("URDF parsed-once assertion exists")
+            .ok,
+        "URDF must be parsed once at setup and not consulted in the tick loop"
+    );
+    assert!(
+        assertions
+            .arm_rendered_through_handoff
+            .as_ref()
+            .expect("arm handoff assertion exists")
+            .ok,
+        "all arm links must be traced through the audited handoff"
+    );
+    assert!(
+        assertions
+            .fk_matches_rapier
+            .as_ref()
+            .expect("FK consistency assertion exists")
+            .ok,
+        "FK verifier must match Rapier-owned link positions"
+    );
+    assert!(
+        assertions
+            .joint_limits_enforced
+            .as_ref()
+            .expect("joint-limit assertion exists")
+            .ok,
+        "URDF joint limits must be enforced"
+    );
+    assert!(
+        assertions
+            .arm_links_above_floor
+            .as_ref()
+            .expect("arm above-floor assertion exists")
+            .ok,
+        "arm links must stay above the floor"
+    );
+    assert!(
+        assertions
+            .determinism_hash_stable
+            .as_ref()
+            .expect("P3 determinism assertion exists")
+            .ok,
+        "repeated P3 run must produce the same trace hash"
     );
 }
 
