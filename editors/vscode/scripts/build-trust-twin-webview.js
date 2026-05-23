@@ -6,6 +6,7 @@ const root = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(root, "..", "..");
 const mediaRoot = path.join(root, "media", "trust-twin");
 const wasmTarget = "wasm32-unknown-unknown";
+const wasmProfile = "wasm-release";
 const wasmPackOut = path.join(repoRoot, "target", "trust-twin-renderer-wasm-pack");
 const generatedJs = path.join(wasmPackOut, "trust_twin_renderer.js");
 const generatedWasm = path.join(wasmPackOut, "trust_twin_renderer_bg.wasm");
@@ -31,8 +32,12 @@ function run(command, args, options = {}) {
     stdio: "inherit",
     ...options,
   });
+  if (result.error) {
+    throw new Error(`${command} ${args.join(" ")} failed to spawn: ${result.error.message}`);
+  }
   if (result.status !== 0) {
-    throw new Error(`${command} ${args.join(" ")} failed with status ${result.status}`);
+    const reason = result.signal ? `signal ${result.signal}` : `status ${result.status}`;
+    throw new Error(`${command} ${args.join(" ")} failed with ${reason}`);
   }
 }
 
@@ -52,22 +57,16 @@ if (process.env.TRUST_TWIN_SKIP_WASM_TARGET_INSTALL !== "1") {
   run("rustup", ["target", "add", wasmTarget]);
 }
 const wasmEnv = wasmBuildEnv();
-run("cargo", [
-  "build",
-  "-p",
-  "trust-twin-renderer",
-  "--target",
-  wasmTarget,
-  "--release",
-], { env: wasmEnv });
 fs.rmSync(wasmPackOut, { recursive: true, force: true });
 run("wasm-pack", [
   "build",
   path.join(repoRoot, "crates", "trust-twin-renderer"),
   "--target",
   "web",
-  "--release",
+  "--profile",
+  wasmProfile,
   "--no-opt",
+  "--no-typescript",
   "--out-dir",
   wasmPackOut,
   "--out-name",

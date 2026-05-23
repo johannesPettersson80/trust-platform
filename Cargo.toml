@@ -113,6 +113,12 @@ pedantic = "warn"
 lto = true
 codegen-units = 1
 
+[profile.wasm-release]
+inherits = "release"
+opt-level = "z"
+lto = false
+codegen-units = 16
+
 [profile.dev]
 debug = 1
 incremental = true
