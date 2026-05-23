@@ -4,11 +4,14 @@ use std::process::Command;
 
 use trust_runtime::world::{
     assert_world_actuator_smoke_trace, assert_world_multi_actuator_smoke_trace,
-    assert_world_smoke_trace, assert_world_urdf_arm_smoke_trace, record_determinism_hash_stability,
-    record_urdf_arm_determinism_hash_stability, run_world_actuator_smoke,
-    run_world_multi_actuator_smoke, run_world_smoke, run_world_urdf_arm_smoke, ActuatorState,
-    WorldActuatorSmokeConfig, WorldMultiActuatorScenario, WorldMultiActuatorSmokeConfig,
-    WorldSmokeConfig, WorldSmokeTrace, WorldUrdfArmScenario, WorldUrdfArmSmokeConfig,
+    assert_world_multi_urdf_arm_smoke_trace, assert_world_smoke_trace,
+    assert_world_urdf_arm_smoke_trace, record_determinism_hash_stability,
+    record_multi_urdf_arm_determinism_hash_stability, record_urdf_arm_determinism_hash_stability,
+    run_world_actuator_smoke, run_world_multi_actuator_smoke, run_world_multi_urdf_arm_smoke,
+    run_world_smoke, run_world_urdf_arm_smoke, ActuatorState, WorldActuatorSmokeConfig,
+    WorldMultiActuatorScenario, WorldMultiActuatorSmokeConfig, WorldMultiUrdfArmScenario,
+    WorldMultiUrdfArmSmokeConfig, WorldSmokeConfig, WorldSmokeTrace, WorldUrdfArmScenario,
+    WorldUrdfArmSmokeConfig,
 };
 
 #[test]
@@ -132,6 +135,41 @@ fn urdf_arm_smoke_trace_proves_fk_is_verifier_not_writer() -> anyhow::Result<()>
     let fk = trace.fk_verifier.as_ref().expect("P3 FK verifier exists");
     assert!(fk.max_consistency_distance_m <= fk.consistency_tolerance);
     assert_eq!(fk.checked_links, ["link_1", "link_2", "tool"]);
+
+    Ok(())
+}
+
+#[test]
+fn multi_urdf_arm_handoff_smoke_trace_proves_composition() -> anyhow::Result<()> {
+    let mut trace = run_multi_urdf_arm_trace(WorldMultiUrdfArmSmokeConfig::default())?;
+    let repeat = run_multi_urdf_arm_trace(WorldMultiUrdfArmSmokeConfig::default())?;
+    assert_eq!(trace.determinism_trace_hash, repeat.determinism_trace_hash);
+    record_multi_urdf_arm_determinism_hash_stability(&mut trace, repeat.determinism_trace_hash);
+    write_trace_artifact(&trace)?;
+
+    assert_p4_positive_assertions(&trace);
+    let urdf = trace.urdf.as_ref().expect("P4 URDF trace exists");
+    let instances = urdf
+        .instances
+        .iter()
+        .map(|instance| instance.id.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(instances, ["arm_a", "arm_b"]);
+
+    let handoff_plan = trace.handoff_plan.as_ref().expect("P4 handoff plan exists");
+    let handoff_tick = handoff_plan.atomic_tick.expect("handoff tick recorded");
+    let handoff_sample = trace
+        .per_tick_trace
+        .iter()
+        .find(|sample| sample.tick == handoff_tick)
+        .expect("handoff tick sample exists");
+    let observed = handoff_sample
+        .tick_events
+        .iter()
+        .filter(|event| event.starts_with("joint_") || event.starts_with("state_transition("))
+        .cloned()
+        .collect::<Vec<_>>();
+    assert_eq!(observed, handoff_plan.atomic_event_order);
 
     Ok(())
 }
@@ -363,6 +401,120 @@ fn urdf_arm_fk_drift_variant_triggers_fk_consistency_assertion() -> anyhow::Resu
 }
 
 #[test]
+fn multi_urdf_simultaneous_grip_without_plan_is_deterministic() -> anyhow::Result<()> {
+    let config = WorldMultiUrdfArmSmokeConfig {
+        scenario: WorldMultiUrdfArmScenario::SimultaneousGripNoHandoff,
+        tick_count: 500,
+        ..WorldMultiUrdfArmSmokeConfig::default()
+    };
+    let trace = run_multi_urdf_arm_trace(config)?;
+    let repeat = run_multi_urdf_arm_trace(config)?;
+    assert_eq!(trace.determinism_trace_hash, repeat.determinism_trace_hash);
+    assert!(
+        trace.per_tick_trace.iter().any(|tick| {
+            tick.ownership
+                .as_ref()
+                .and_then(|ownership| ownership.owner.as_deref())
+                == Some("arm_a")
+        }),
+        "lower-id URDF arm_a must win simultaneous grip"
+    );
+    assert!(
+        trace.per_tick_trace.iter().any(|tick| {
+            tick.contention_faults.iter().any(|fault| {
+                fault.actuator == "arm_b" && fault.code == "grip_denied_workpiece_owned_by(arm_a)"
+            })
+        }),
+        "URDF arm_b must receive a contention fault"
+    );
+    let assertions = assert_world_multi_urdf_arm_smoke_trace(&trace.per_tick_trace);
+    assert_eq!(
+        assertions
+            .exclusive_ownership
+            .expect("exclusive assertion exists")
+            .ticks_with_two_joints,
+        0
+    );
+    Ok(())
+}
+
+#[test]
+fn multi_urdf_second_arm_grip_while_owned_is_rejected() -> anyhow::Result<()> {
+    let config = WorldMultiUrdfArmSmokeConfig {
+        scenario: WorldMultiUrdfArmScenario::SecondGripWhileOwned,
+        ..WorldMultiUrdfArmSmokeConfig::default()
+    };
+    let trace = run_multi_urdf_arm_trace(config)?;
+    assert!(
+        trace.per_tick_trace.iter().any(|tick| {
+            tick.contention_faults.iter().any(|fault| {
+                fault.actuator == "arm_b" && fault.code == "grip_denied_workpiece_owned_by(arm_a)"
+            })
+        }),
+        "URDF arm_b grip must be denied while arm_a owns the workpiece"
+    );
+    let assertions = assert_world_multi_urdf_arm_smoke_trace(&trace.per_tick_trace);
+    let exclusive = assertions
+        .exclusive_ownership
+        .expect("exclusive ownership assertion exists");
+    assert!(exclusive.ok);
+    assert_eq!(exclusive.ticks_with_two_joints, 0);
+    Ok(())
+}
+
+#[test]
+fn multi_urdf_reversed_registration_keeps_trace_hash_stable() -> anyhow::Result<()> {
+    let canonical = run_multi_urdf_arm_trace(WorldMultiUrdfArmSmokeConfig::default())?;
+    let reversed = run_multi_urdf_arm_trace(WorldMultiUrdfArmSmokeConfig {
+        reverse_arm_registration: true,
+        ..WorldMultiUrdfArmSmokeConfig::default()
+    })?;
+    assert_eq!(
+        canonical.determinism_trace_hash,
+        reversed.determinism_trace_hash
+    );
+    Ok(())
+}
+
+#[test]
+fn multi_urdf_receiver_fk_drift_is_isolated() -> anyhow::Result<()> {
+    let trace = run_multi_urdf_arm_trace(WorldMultiUrdfArmSmokeConfig {
+        scenario: WorldMultiUrdfArmScenario::FkDriftReceiver,
+        tick_count: 1700,
+        ..WorldMultiUrdfArmSmokeConfig::default()
+    })?;
+    let assertions = assert_world_multi_urdf_arm_smoke_trace(&trace.per_tick_trace);
+    let per_arm = assertions
+        .per_arm_fk_consistency
+        .expect("per-arm FK consistency assertion exists");
+    assert!(
+        !per_arm.ok,
+        "receiver FK drift variant must fail the per-arm FK assertion"
+    );
+    let arm_a = per_arm
+        .max_consistency_distance_by_arm
+        .get("arm_a")
+        .copied()
+        .expect("arm_a FK stat exists");
+    let arm_b = per_arm
+        .max_consistency_distance_by_arm
+        .get("arm_b")
+        .copied()
+        .expect("arm_b FK stat exists");
+    assert!(
+        arm_a <= per_arm.tolerance,
+        "arm_a must remain within FK tolerance; arm_a={arm_a} tolerance={}",
+        per_arm.tolerance
+    );
+    assert!(
+        arm_b > per_arm.tolerance,
+        "arm_b must exceed FK tolerance after drift; arm_b={arm_b} tolerance={}",
+        per_arm.tolerance
+    );
+    Ok(())
+}
+
+#[test]
 fn cube_floor_world_smoke_bypass_fixture_is_rejected_by_lint() {
     assert_fixture_rejected(
         "crates/trust-runtime/tests/fixtures/world_smoke_transform_bypass.rs",
@@ -451,6 +603,30 @@ fn run_urdf_arm_trace(config: WorldUrdfArmSmokeConfig) -> anyhow::Result<WorldSm
         link_1_node,
         link_2_node,
         tool_node,
+        workpiece_node,
+    )
+}
+
+fn run_multi_urdf_arm_trace(
+    config: WorldMultiUrdfArmSmokeConfig,
+) -> anyhow::Result<WorldSmokeTrace> {
+    let mut scene = scena::Scene::new();
+    let arm_a_link_1_node = scene.add_empty(scene.root(), scena::Transform::IDENTITY)?;
+    let arm_a_link_2_node = scene.add_empty(scene.root(), scena::Transform::IDENTITY)?;
+    let arm_a_tool_node = scene.add_empty(scene.root(), scena::Transform::IDENTITY)?;
+    let arm_b_link_1_node = scene.add_empty(scene.root(), scena::Transform::IDENTITY)?;
+    let arm_b_link_2_node = scene.add_empty(scene.root(), scena::Transform::IDENTITY)?;
+    let arm_b_tool_node = scene.add_empty(scene.root(), scena::Transform::IDENTITY)?;
+    let workpiece_node = scene.add_empty(scene.root(), scena::Transform::IDENTITY)?;
+    run_world_multi_urdf_arm_smoke(
+        config,
+        &mut scene,
+        arm_a_link_1_node,
+        arm_a_link_2_node,
+        arm_a_tool_node,
+        arm_b_link_1_node,
+        arm_b_link_2_node,
+        arm_b_tool_node,
         workpiece_node,
     )
 }
@@ -617,6 +793,57 @@ fn assert_p3_positive_assertions(trace: &WorldSmokeTrace) {
             .expect("P3 determinism assertion exists")
             .ok,
         "repeated P3 run must produce the same trace hash"
+    );
+}
+
+fn assert_p4_positive_assertions(trace: &WorldSmokeTrace) {
+    assert_p2_positive_assertions(trace);
+    assert_p3_positive_assertions(trace);
+    let assertions = &trace.assertions;
+    assert!(
+        assertions
+            .multi_urdf_arms_loaded
+            .as_ref()
+            .expect("multi-URDF loaded assertion exists")
+            .ok,
+        "both URDF arm instances must be loaded"
+    );
+    assert!(
+        assertions
+            .per_arm_fk_consistency
+            .as_ref()
+            .expect("per-arm FK assertion exists")
+            .ok,
+        "each URDF arm must pass FK consistency independently"
+    );
+    let rendered = assertions
+        .arm_rendered_through_handoff
+        .as_ref()
+        .expect("arm handoff assertion exists");
+    assert_eq!(
+        rendered.expected_dynamic_bodies_per_tick, 7,
+        "P4 must hand off 3 links per arm plus the workpiece"
+    );
+    let joints = trace.joints.as_ref().expect("P4 joint trace exists");
+    assert_eq!(
+        joints
+            .active_by_tick_summary
+            .as_ref()
+            .expect("active joint summary exists")
+            .ticks_with_two_joints,
+        0,
+        "P4 must never have two active joints against the workpiece"
+    );
+    let fk = trace
+        .fk_verifier
+        .as_ref()
+        .expect("P4 FK verifier trace exists");
+    assert_eq!(fk.per_arm.len(), 2);
+    assert!(
+        fk.per_arm
+            .values()
+            .all(|arm| arm.max_consistency_distance_m <= fk.consistency_tolerance),
+        "both per-arm FK distributions must stay within tolerance"
     );
 }
 

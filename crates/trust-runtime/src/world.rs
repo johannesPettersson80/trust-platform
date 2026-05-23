@@ -3,11 +3,14 @@
 mod arm;
 
 pub use arm::{
-    assert_world_urdf_arm_smoke_trace, record_urdf_arm_determinism_hash_stability,
-    run_world_urdf_arm_smoke, ArmAboveFloorAssertion, ArmRenderedThroughHandoffAssertion,
-    FkConsistencyAssertion, JointLimitAssertion, UrdfParsedOnceAssertion, WorldArmJointTrace,
-    WorldArmLinkTrace, WorldFkVerifierTrace, WorldUrdfArmScenario, WorldUrdfArmSmokeConfig,
-    WorldUrdfJointTrace, WorldUrdfTrace,
+    assert_world_multi_urdf_arm_smoke_trace, assert_world_urdf_arm_smoke_trace,
+    record_multi_urdf_arm_determinism_hash_stability, record_urdf_arm_determinism_hash_stability,
+    run_world_multi_urdf_arm_smoke, run_world_urdf_arm_smoke, ArmAboveFloorAssertion,
+    ArmRenderedThroughHandoffAssertion, FkConsistencyAssertion, JointLimitAssertion,
+    MultiUrdfArmsLoadedAssertion, PerArmFkConsistencyAssertion, UrdfParsedOnceAssertion,
+    WorldArmJointTrace, WorldArmLinkTrace, WorldFkArmVerifierTrace, WorldFkVerifierTrace,
+    WorldMultiUrdfArmScenario, WorldMultiUrdfArmSmokeConfig, WorldUrdfArmInstanceTrace,
+    WorldUrdfArmScenario, WorldUrdfArmSmokeConfig, WorldUrdfJointTrace, WorldUrdfTrace,
 };
 
 use rapier3d::prelude::*;
@@ -267,6 +270,18 @@ pub struct WorldTickTrace {
     /// P3 URDF arm joint samples.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub arm_joints: Vec<WorldArmJointTrace>,
+    /// P4 URDF arm A link samples.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub arm_a_links: Vec<WorldArmLinkTrace>,
+    /// P4 URDF arm B link samples.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub arm_b_links: Vec<WorldArmLinkTrace>,
+    /// P4 URDF arm A joint samples.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub arm_a_joints: Vec<WorldArmJointTrace>,
+    /// P4 URDF arm B joint samples.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub arm_b_joints: Vec<WorldArmJointTrace>,
 }
 
 /// Per-body kinematic sample.
@@ -395,6 +410,12 @@ pub struct WorldSmokeAssertions {
     /// P3: every arm link stays above the floor.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub arm_links_above_floor: Option<ArmAboveFloorAssertion>,
+    /// P4: both URDF arm instances were loaded once at setup.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub multi_urdf_arms_loaded: Option<MultiUrdfArmsLoadedAssertion>,
+    /// P4: per-arm FK consistency stayed within tolerance.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub per_arm_fk_consistency: Option<PerArmFkConsistencyAssertion>,
 }
 
 /// Fixture interpenetration assertion.
@@ -1235,6 +1256,10 @@ impl World {
             joint_distances: Vec::new(),
             arm_links: Vec::new(),
             arm_joints: Vec::new(),
+            arm_a_links: Vec::new(),
+            arm_b_links: Vec::new(),
+            arm_a_joints: Vec::new(),
+            arm_b_joints: Vec::new(),
         })
     }
 
@@ -1510,6 +1535,10 @@ impl World {
             .is_some_and(ContactPair::has_any_active_contact)
     }
 
+    fn contact_pair_exists(&self, first: ColliderHandle, second: ColliderHandle) -> bool {
+        self.narrow_phase.contact_pair(first, second).is_some()
+    }
+
     fn create_carrier_workpiece_fixed_joint(
         &mut self,
         bodies: WorldActuatorSmokeBodies,
@@ -1615,6 +1644,10 @@ impl World {
             joint_distances: Vec::new(),
             arm_links: Vec::new(),
             arm_joints: Vec::new(),
+            arm_a_links: Vec::new(),
+            arm_b_links: Vec::new(),
+            arm_a_joints: Vec::new(),
+            arm_b_joints: Vec::new(),
         })
     }
 
@@ -1672,6 +1705,10 @@ impl World {
             joint_distances,
             arm_links: Vec::new(),
             arm_joints: Vec::new(),
+            arm_a_links: Vec::new(),
+            arm_b_links: Vec::new(),
+            arm_a_joints: Vec::new(),
+            arm_b_joints: Vec::new(),
         })
     }
 
@@ -2614,6 +2651,8 @@ pub fn assert_world_smoke_trace(per_tick_trace: &[WorldTickTrace]) -> WorldSmoke
         fk_matches_rapier: None,
         joint_limits_enforced: None,
         arm_links_above_floor: None,
+        multi_urdf_arms_loaded: None,
+        per_arm_fk_consistency: None,
     }
 }
 
@@ -2741,6 +2780,8 @@ pub fn assert_world_actuator_smoke_trace(
         fk_matches_rapier: None,
         joint_limits_enforced: None,
         arm_links_above_floor: None,
+        multi_urdf_arms_loaded: None,
+        per_arm_fk_consistency: None,
     }
 }
 
@@ -2916,6 +2957,8 @@ pub fn assert_world_multi_actuator_smoke_trace(
         fk_matches_rapier: None,
         joint_limits_enforced: None,
         arm_links_above_floor: None,
+        multi_urdf_arms_loaded: None,
+        per_arm_fk_consistency: None,
     }
 }
 
