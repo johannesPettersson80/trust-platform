@@ -212,6 +212,8 @@ fn descriptor_from_schema(schema: &crate::hmi::HmiSchemaResult) -> crate::hmi::H
             kind: page.kind.clone(),
             duration_ms: page.duration_ms,
             svg: page.svg.clone(),
+            view: page.view.clone(),
+            scene_view: page.scene_view.clone(),
             hidden: page.hidden,
             signals: page.signals.clone(),
             sections,
@@ -227,6 +229,7 @@ fn descriptor_from_schema(schema: &crate::hmi::HmiSchemaResult) -> crate::hmi::H
                     scale: binding.scale.clone(),
                 })
                 .collect(),
+            bindings3d: page.bindings3d.clone(),
         });
     }
 
@@ -244,4 +247,3 @@ fn descriptor_from_schema(schema: &crate::hmi::HmiSchemaResult) -> crate::hmi::H
         pages,
     }
 }
-

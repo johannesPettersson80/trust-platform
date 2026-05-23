@@ -6,10 +6,45 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.15`
+Target release: `v0.24.18`
 
 ### Added
 
+- trust-twin: topology authoring now supports surface/contact placement
+  metadata (`attach_to`, named surfaces, mount frames, and bounds), robot-cell
+  component kinds, physical-scene doctor fixtures, and LM-tool regression
+  coverage for attachment-based robot-cell proposals.
+- trust-twin: P6 operator surface parity adds multi-page navigation,
+  trend/alarm overlays in the VS Code 3D panel, and runtime-owned HMI
+  trend/alarm JSONL persistence with restart-window reload.
+- trust-twin: P5 VS Code 3D panel now registers a dedicated webview command,
+  reuses the existing HMI JSON-line control transport for schema, values, and
+  writes, bundles trust-twin WASM/assets into the extension media payload, and
+  adds package-smoke evidence for those assets.
+- trust-twin: P4 AI-assisted topology authoring now exposes a
+  `trust_twin_topology_propose` typed LM tool that generates reviewable
+  `.topology.toml` diffs, validates them through the trust-twin compiler
+  dry-run path, and documents the local-first/cloud opt-in privacy boundary.
+- trust-twin: P3 operator writes from 3D scene views now compile from
+  topology `[[interactions]]` into node interaction descriptors and route
+  renderer clicks through the existing `hmi.write` control, RBAC, allowlist,
+  and audit path.
+- trust-twin: P2 Rapier physics now runs behind `SimulationController` with
+  `[physics]` / `[[physics.joints]]` `simulation.toml` parsing, deterministic
+  revolute-joint encoder feedback through the existing I/O boundary, duplicate
+  target conflict checks, and a P2 gate artifact.
+- trust-twin: P1.5 topology authoring compiler and v1 component library landed
+  with deterministic `.topology.toml` to `.view.toml` emission, hash drift
+  checks, compiler diagnostics, `architecture-doctor` fixtures, and rendered
+  topology gate artifact output.
+- trust-twin: P1 static 3D proof now builds a parsed `.view.toml` into a
+  `scena::Scene`, applies `bind3d` tag values to scene node properties, and
+  emits the static-view visual gate artifact.
+- trust-twin: P1 `scene3d` page/view descriptors and bounded `bind3d`
+  runtime schema contract landed for static 3D view integration.
+- trust-twin: P0 IO boundary spike landed with a runtime integration test and
+  gate artifact proving Modbus TCP simulator I/O flows through the existing
+  `IoDriver` cycle boundary.
 - Added fail-closed runtime boundary watch envelopes for `trust-harness` protocol
   v2 and `trust-dev` agent harness snapshots. Unresolved watch paths now carry
   structured `status: "error"` entries instead of silently becoming `NULL`.
@@ -79,6 +114,9 @@ Target release: `v0.24.15`
 
 ### Fixed
 
+- `architecture-doctor --changed` now follows the current
+  `crates/trust-runtime/src/host/...` runtime host layout for initializer and
+  evaluation checks.
 - Runtime I/O drivers now fail closed for the covered safety paths: MQTT
   disconnected/stale reads and publish/connect failures return structured
   runtime errors, EtherCAT discovery and image-size mismatches fault under every

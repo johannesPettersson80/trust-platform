@@ -128,6 +128,7 @@ fn control_state(source: &str) -> Arc<ControlState> {
         debug_enabled: Arc::new(AtomicBool::new(true)),
         debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
         hmi_live: Arc::new(Mutex::new(trust_runtime::hmi::HmiLiveState::default())),
+        hmi_persistence: None,
         hmi_descriptor,
         historian: None,
         pairing: None,

@@ -119,6 +119,7 @@ pub struct ControlState {
     pub debug_enabled: Arc<AtomicBool>,
     pub debug_variables: Arc<Mutex<DebugVariableHandles>>,
     pub hmi_live: Arc<Mutex<crate::hmi::HmiLiveState>>,
+    pub hmi_persistence: Option<Arc<crate::hmi::HmiPersistenceService>>,
     pub hmi_descriptor: Arc<Mutex<HmiRuntimeDescriptor>>,
     pub historian: Option<Arc<crate::historian::HistorianService>>,
     pub pairing: Option<Arc<PairingStore>>,

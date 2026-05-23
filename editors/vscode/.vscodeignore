@@ -21,4 +21,4 @@ package-lock.json
 
 # Ensure runtime dependencies are packaged
 !node_modules/**
-
+!media/trust-twin/**

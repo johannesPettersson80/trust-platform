@@ -11,6 +11,8 @@ members = [
     "crates/trust-plcopen",
     "crates/trust-runtime-core",
     "crates/trust-runtime",
+    "crates/trust-twin-compiler",
+    "crates/trust-twin-renderer",
     "crates/trust-wasm-analysis",
 ]
 exclude = [
@@ -18,7 +20,7 @@ exclude = [
 ]
 
 [workspace.package]
-version = "0.24.17"
+version = "0.24.19"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/johannesPettersson80/trust-platform"
@@ -47,6 +49,7 @@ tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 toml = "1.0"
+sha2 = "0.10"
 clap = { version = "4", features = ["derive"] }
 clap_complete = "4"
 qrcode = { version = "0.14", default-features = false, features = ["svg"] }
@@ -83,6 +86,10 @@ owo-colors = "4"
 rumqttc = { version = "0.25", default-features = false, features = ["use-native-tls"] }
 native-tls = { version = "0.2.18", features = ["alpn", "vendored"] }
 time = "0.3.47"
+scena = "1.5.0"
+rapier3d = { version = "0.32.0", default-features = false, features = ["dim3", "f32", "enhanced-determinism"] }
+urdf-rs = "0.9.0"
+k = "0.32.0"
 
 # Internal crates
 trust-syntax = { path = "crates/trust-syntax" }
@@ -92,6 +99,7 @@ trust-dev = { path = "crates/trust-dev" }
 trust-plcopen = { path = "crates/trust-plcopen" }
 trust-runtime-core = { path = "crates/trust-runtime-core" }
 trust-runtime = { path = "crates/trust-runtime" }
+trust-twin-compiler = { path = "crates/trust-twin-compiler" }
 trust-wasm-analysis = { path = "crates/trust-wasm-analysis" }
 
 [workspace.lints.rust]
@@ -104,6 +112,12 @@ pedantic = "warn"
 [profile.release]
 lto = true
 codegen-units = 1
+
+[profile.wasm-release]
+inherits = "release"
+opt-level = "z"
+lto = false
+codegen-units = 16
 
 [profile.dev]
 debug = 1

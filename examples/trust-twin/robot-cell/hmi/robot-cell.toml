@@ -1,0 +1,101 @@
+title = "Robot Cell"
+icon = "bot"
+order = 10
+kind = "scene3d"
+view = "robot-cell.view.toml"
+signals = [
+  "Main.RobotShoulderAngle",
+  "Main.RobotElbowAngle",
+  "Main.RobotWristAngle",
+  "Main.RobotGripperOpen",
+  "Main.RobotBoxX",
+  "Main.RobotBoxY",
+  "Main.RobotBoxZ",
+  "Main.RobotEnabled",
+  "Main.RobotStatusLight",
+]
+
+[[section]]
+title = "Robot State"
+span = 12
+
+[[section.widget]]
+type = "value"
+bind = "Main.RobotMotionStep"
+label = "Robot step"
+
+[[section.widget]]
+type = "indicator"
+bind = "Main.RobotEnabled"
+label = "Robot enabled"
+
+[[section.widget]]
+type = "indicator"
+bind = "Main.RobotStatusLight"
+label = "Cycle carrying box"
+
+[[section.widget]]
+type = "value"
+bind = "Main.RobotShoulderAngle"
+label = "Shoulder angle"
+unit = "rad"
+
+[[section.widget]]
+type = "value"
+bind = "Main.RobotElbowAngle"
+label = "Elbow angle"
+unit = "rad"
+
+[[section.widget]]
+type = "value"
+bind = "Main.RobotWristAngle"
+label = "Wrist angle"
+unit = "rad"
+
+[[bind3d]]
+node = "robot.shoulder"
+property = "transform.rotation.z"
+source = "Main.RobotShoulderAngle"
+
+[[bind3d]]
+node = "robot.elbow"
+property = "transform.rotation.z"
+source = "Main.RobotElbowAngle"
+
+[[bind3d]]
+node = "robot.wrist"
+property = "transform.rotation.z"
+source = "Main.RobotWristAngle"
+
+[[bind3d]]
+node = "robot.gripper.left"
+property = "transform.position.y"
+source = "Main.RobotGripperOpen"
+map = { "true" = "0.30", "false" = "0.18" }
+
+[[bind3d]]
+node = "robot.gripper.right"
+property = "transform.position.y"
+source = "Main.RobotGripperOpen"
+map = { "true" = "-0.30", "false" = "-0.18" }
+
+[[bind3d]]
+node = "box.workpiece"
+property = "transform.position.x"
+source = "Main.RobotBoxX"
+
+[[bind3d]]
+node = "box.workpiece"
+property = "transform.position.y"
+source = "Main.RobotBoxY"
+
+[[bind3d]]
+node = "box.workpiece"
+property = "transform.position.z"
+source = "Main.RobotBoxZ"
+
+[[bind3d]]
+node = "robot.status_light"
+property = "material.emissive"
+source = "Main.RobotStatusLight"
+map = { "true" = "#22c55e", "false" = "#f59e0b" }

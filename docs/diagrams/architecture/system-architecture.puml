@@ -165,6 +165,7 @@ package "trust-runtime crate" as struntime #LightYellow {
     component "TLS Materials\n(cert/key/ca)" as tlsMaterials
     component "Linux RT Posture\n(PREEMPT_RT verify + memlock + affinity)" as linuxRt
     component "Historian Service\n(recording + alerts + hooks)" as historianSvc
+    component "HMI Persistence\n(trends + alarms JSONL)" as hmiPersistence
     component "Prometheus Scrape\n(/metrics)" as promScrape
     component "OPC UA Gateway\n(server + probe client)" as opcuaGateway
     component "MQTT Driver\n(TCP/TLS/mTLS)" as mqttDriver
@@ -211,6 +212,7 @@ package "trust-runtime crate" as struntime #LightYellow {
     runtimeConfig --> runtime
     runtimeConfig --> tlsMaterials : runtime.tls
     runtimeConfig --> historianSvc : runtime.observability
+    runtimeConfig --> hmiPersistence : runtime.hmi_persistence
     runtimeConfig --> opcuaGateway : runtime.opcua
     runtimeConfig --> linuxRt : runtime.realtime
     tlsMaterials --> webServer : runtime.web.tls
@@ -222,9 +224,11 @@ package "trust-runtime crate" as struntime #LightYellow {
     launcher --> discovery : advertises (if enabled)
     launcher --> meshSync : starts (if enabled)
     launcher --> historianSvc : starts sampler\n(if enabled)
+    launcher --> hmiPersistence : loads restart window\n(if enabled)
     launcher --> opcuaGateway : starts (if enabled)
     controlServer --> runtime : pause/step/io
     controlServer --> historianSvc : historian.query/alerts
+    controlServer --> hmiPersistence : persist HMI\ntrends/alarms
     runtime --> retainMgr : retain lifecycle
     webServer --> controlServer : status/control
     webServer --> webUiBundles : serves

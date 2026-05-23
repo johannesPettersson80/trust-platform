@@ -16,6 +16,7 @@ import {
   __testSetRuntimeControlRequestHandler,
 } from "../../lm-tools";
 import {
+  __testApplyLayoutOverrides,
   __testForcePollValues,
   __testForceRefreshSchema,
   __testGetHmiPanelState,
@@ -23,6 +24,7 @@ import {
   __testResetHmiPanelState,
   __testResolveWidgetLocation,
   __testSaveLayoutPayload,
+  __testHandleTrustTwinInteraction,
   __testSetControlRequestHandler,
   HmiWidgetSchema,
 } from "../../hmiPanel";
@@ -343,6 +345,98 @@ suite("HMI preview integration (VS Code)", function () {
     await waitFor(
       () => (__testGetHmiPanelState().schema?.version ?? 0) > afterTomlVersion,
       6000,
+    );
+
+    const afterSvgVersion = __testGetHmiPanelState().schema?.version ?? 0;
+    const viewsDir = vscode.Uri.joinPath(watchDir, "views");
+    await vscode.workspace.fs.createDirectory(viewsDir);
+    await vscode.workspace.fs.writeFile(
+      vscode.Uri.joinPath(viewsDir, "drive-cell.view.toml"),
+      Buffer.from('[[node]]\nid = "motor"\n', "utf8"),
+    );
+    await waitFor(
+      () => (__testGetHmiPanelState().schema?.version ?? 0) > afterSvgVersion,
+      6000,
+    );
+  });
+
+  test("panel preserves scene3d page metadata through local layout overlay", () => {
+    const schema = __testApplyLayoutOverrides(
+      {
+        version: 1,
+        mode: "read_only",
+        read_only: true,
+        resource: "RESOURCE",
+        generated_at_ms: Date.now(),
+        pages: [
+          {
+            id: "cell",
+            title: "Drive Cell 3D",
+            order: 0,
+            kind: "scene3d",
+            view: "views/drive-cell.view.toml",
+            bind3d: [
+              {
+                node: "motor-1.shaft",
+                property: "transform.rotation.y",
+                source: "Main.shaft_angle",
+              },
+            ],
+          },
+        ],
+        widgets: [],
+      },
+      {},
+    );
+    const page = schema.pages.find((entry) => entry.id === "cell");
+    assert.ok(page, "Expected scene3d page.");
+    assert.strictEqual(page?.kind, "scene3d");
+    assert.strictEqual(page?.view, "views/drive-cell.view.toml");
+    assert.strictEqual(page?.bind3d?.[0]?.property, "transform.rotation.y");
+  });
+
+  test("panel routes scene3d interaction clicks through hmi.write transport", async () => {
+    const requests: Array<{ requestType: string; params: unknown }> = [];
+    __testSetControlRequestHandler(async (_endpoint, _auth, requestType, params) => {
+      requests.push({ requestType, params });
+      if (requestType === "hmi.write") {
+        return {
+          status: "queued",
+          id: "resource/RESOURCE/program/Main/field/run",
+          path: "Main.run",
+        };
+      }
+      throw new Error(`Unexpected request type: ${requestType}`);
+    });
+
+    await __testHandleTrustTwinInteraction({
+      page: "cell",
+      node: "P-101",
+      interaction: {
+        event: "click",
+        action: "hmi.write",
+        id: "resource/RESOURCE/program/Main/field/run",
+        value: true,
+        required_role: "Engineer",
+        confirmation: {
+          title: "Start pump",
+          message: "Write Main.run TRUE",
+        },
+      },
+    });
+
+    assert.deepStrictEqual(requests, [
+      {
+        requestType: "hmi.write",
+        params: {
+          id: "resource/RESOURCE/program/Main/field/run",
+          value: true,
+        },
+      },
+    ]);
+    assert.ok(
+      __testGetHmiPanelState().status.includes("P-101"),
+      "scene3d interaction status should name the clicked node",
     );
   });
 

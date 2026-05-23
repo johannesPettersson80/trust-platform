@@ -1,0 +1,4 @@
+[[components]]
+id = "TK-101"
+kind = "tank"
+at = { xyz = [0.0, 0.0, 0.0] }

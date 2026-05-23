@@ -25,6 +25,8 @@ pub(super) fn apply_hmi_dir_descriptor(
             kind: page.kind.clone(),
             duration_ms: page.duration_ms,
             svg: page.svg.clone(),
+            view: page.view.clone(),
+            scene_view: page.scene_view.clone(),
             hidden: page.hidden,
             signals: page.signals.clone(),
             sections: page
@@ -53,6 +55,7 @@ pub(super) fn apply_hmi_dir_descriptor(
                     scale: binding.scale.clone(),
                 })
                 .collect(),
+            bindings3d: page.bindings3d.clone(),
         })
         .collect();
 

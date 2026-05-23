@@ -38,7 +38,7 @@ pub(super) fn load_hmi_dir_impl(root: &Path) -> anyhow::Result<HmiDirDescriptor>
     pages.sort_by(|left, right| left.0.cmp(&right.0));
     let mut parsed_pages = Vec::with_capacity(pages.len());
     for (idx, (id, parsed)) in pages.into_iter().enumerate() {
-        parsed_pages.push(map_hmi_dir_page(id, idx, parsed));
+        parsed_pages.push(map_hmi_dir_page(id, idx, parsed)?);
     }
     parsed_pages.sort_by(|left, right| {
         left.order
@@ -46,11 +46,35 @@ pub(super) fn load_hmi_dir_impl(root: &Path) -> anyhow::Result<HmiDirDescriptor>
             .then_with(|| left.id.cmp(&right.id))
     });
     promote_process_pages_to_custom_svg_if_available(&dir, &mut parsed_pages);
+    attach_scene_view_payloads(&dir, &mut parsed_pages)?;
 
     Ok(HmiDirDescriptor {
         config,
         pages: parsed_pages,
     })
+}
+
+fn attach_scene_view_payloads(dir: &Path, pages: &mut [HmiDirPage]) -> anyhow::Result<()> {
+    for page in pages {
+        if !page.kind.eq_ignore_ascii_case("scene3d") {
+            continue;
+        }
+        let Some(view_ref) = page.view.as_deref() else {
+            continue;
+        };
+        let path = dir.join(view_ref);
+        if !path.is_file() {
+            continue;
+        }
+        let text = std::fs::read_to_string(&path).map_err(|err| {
+            anyhow::anyhow!("failed to read hmi scene view '{}': {err}", path.display())
+        })?;
+        let payload = toml::from_str::<HmiSceneViewPayload>(&text).map_err(|err| {
+            anyhow::anyhow!("failed to parse hmi scene view '{}': {err}", path.display())
+        })?;
+        page.scene_view = Some(payload);
+    }
+    Ok(())
 }
 
 fn promote_process_pages_to_custom_svg_if_available(dir: &Path, pages: &mut [HmiDirPage]) {
@@ -154,7 +178,7 @@ pub(super) fn map_hmi_dir_page(
     id: String,
     default_index: usize,
     page: HmiDirPageToml,
-) -> HmiDirPage {
+) -> anyhow::Result<HmiDirPage> {
     let title = page
         .title
         .map(|title| title.trim().to_string())
@@ -168,6 +192,11 @@ pub(super) fn map_hmi_dir_page(
         .svg
         .map(|path| path.trim().to_string())
         .filter(|path| !path.is_empty());
+    let view = page
+        .view
+        .as_deref()
+        .map(normalize_scene_view_ref)
+        .transpose()?;
     let mut sections = Vec::with_capacity(page.sections.len());
     for (idx, section) in page.sections.into_iter().enumerate() {
         let title = section
@@ -280,7 +309,55 @@ pub(super) fn map_hmi_dir_page(
             .then_with(|| left.attribute.cmp(&right.attribute))
     });
 
-    HmiDirPage {
+    let mut bindings3d = Vec::with_capacity(page.bindings3d.len());
+    for binding in page.bindings3d {
+        let node = binding.node.unwrap_or_default();
+        let node = node.trim();
+        if !is_safe_scene_node_ref(node) {
+            continue;
+        }
+        let Some(property) = binding.property.map(HmiScenePropertyToml::into_inner) else {
+            continue;
+        };
+        let source = binding.source.unwrap_or_default();
+        let source = source.trim();
+        if source.is_empty() {
+            continue;
+        }
+        let format = binding
+            .format
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty());
+        let map = binding
+            .map
+            .into_iter()
+            .filter_map(|(key, value)| {
+                let key = key.trim().to_string();
+                let value = value.trim().to_string();
+                if key.is_empty() || value.is_empty() {
+                    return None;
+                }
+                Some((key, value))
+            })
+            .collect::<BTreeMap<_, _>>();
+        let scale = binding.scale.and_then(normalize_process_scale);
+        bindings3d.push(HmiSceneBindingSchema {
+            node: node.to_string(),
+            property,
+            source: source.to_string(),
+            format,
+            map,
+            scale,
+        });
+    }
+    bindings3d.sort_by(|left, right| {
+        left.source
+            .cmp(&right.source)
+            .then_with(|| left.node.cmp(&right.node))
+            .then_with(|| left.property.cmp(&right.property))
+    });
+
+    Ok(HmiDirPage {
         id,
         title,
         icon,
@@ -288,6 +365,8 @@ pub(super) fn map_hmi_dir_page(
         kind: normalize_page_kind(page.kind.as_deref()).to_string(),
         duration_ms: page.duration_s.map(|seconds| seconds.saturating_mul(1_000)),
         svg,
+        view,
+        scene_view: None,
         hidden: page.hidden.unwrap_or(false),
         signals: page
             .signals
@@ -297,6 +376,68 @@ pub(super) fn map_hmi_dir_page(
             .collect(),
         sections,
         bindings,
-    }
+        bindings3d,
+    })
 }
 
+pub fn load_hmi_scene_view(root: &Path, view_ref: &str) -> anyhow::Result<HmiSceneViewPayload> {
+    let normalized = normalize_scene_view_ref(view_ref)?;
+    let path = root.join("hmi").join(&normalized);
+    if !path.is_file() {
+        anyhow::bail!("hmi scene view '{}' not found", normalized);
+    }
+    let text = std::fs::read_to_string(&path).map_err(|err| {
+        anyhow::anyhow!("failed to read hmi scene view '{}': {err}", path.display())
+    })?;
+    toml::from_str::<HmiSceneViewPayload>(&text).map_err(|err| {
+        anyhow::anyhow!("failed to parse hmi scene view '{}': {err}", path.display())
+    })
+}
+
+fn normalize_scene_view_ref(value: &str) -> anyhow::Result<String> {
+    let trimmed = value.trim().replace('\\', "/");
+    if trimmed.is_empty() {
+        anyhow::bail!("scene3d view path must not be empty");
+    }
+    if trimmed.starts_with('/') || trimmed.contains(':') {
+        anyhow::bail!("scene3d view path must be relative to hmi/views");
+    }
+    let mut parts = trimmed
+        .split('/')
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>();
+    if parts.is_empty() {
+        anyhow::bail!("scene3d view path must not be empty");
+    }
+    if parts.len() == 1 {
+        parts.insert(0, "views");
+    }
+    if parts.first() != Some(&"views") {
+        anyhow::bail!("scene3d view path must resolve under hmi/views");
+    }
+    if parts.iter().any(|part| {
+        *part == "."
+            || *part == ".."
+            || part.len() > 96
+            || !part
+                .chars()
+                .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-' | '.'))
+    }) {
+        anyhow::bail!("scene3d view path contains unsupported path segment");
+    }
+    let Some(file_name) = parts.last() else {
+        anyhow::bail!("scene3d view path must include a file name");
+    };
+    if !file_name.ends_with(".view.toml") {
+        anyhow::bail!("scene3d view path must end with .view.toml");
+    }
+    Ok(parts.join("/"))
+}
+
+fn is_safe_scene_node_ref(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 128
+        && value
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-' | ':' | '.' | '/'))
+}

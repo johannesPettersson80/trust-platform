@@ -27,6 +27,7 @@ pub(super) fn handle_hmi_values_get(
     };
     if let Ok(mut live) = state.hmi_live.lock() {
         crate::hmi::update_live_state(&mut live, &read.schema, &read.values);
+        persist_hmi_live_state(state, &live);
     }
     ControlResponse::ok(
         id,
@@ -53,6 +54,7 @@ pub(super) fn handle_hmi_trends_get(
     let result = match state.hmi_live.lock() {
         Ok(mut live) => {
             crate::hmi::update_live_state(&mut live, &read.schema, &read.values);
+            persist_hmi_live_state(state, &live);
             crate::hmi::build_trends(
                 &live,
                 &read.schema,
@@ -88,6 +90,7 @@ pub(super) fn handle_hmi_alarms_get(
     let result = match state.hmi_live.lock() {
         Ok(mut live) => {
             crate::hmi::update_live_state(&mut live, &read.schema, &read.values);
+            persist_hmi_live_state(state, &live);
             crate::hmi::build_alarm_view(&live, params.limit.unwrap_or(100))
         }
         Err(_) => return ControlResponse::error(id, "hmi state unavailable".into()),
@@ -96,4 +99,12 @@ pub(super) fn handle_hmi_alarms_get(
         id,
         serde_json::to_value(result).expect("serialize hmi.alarms.get"),
     )
+}
+
+fn persist_hmi_live_state(state: &ControlState, live: &crate::hmi::HmiLiveState) {
+    if let Some(service) = state.hmi_persistence.as_ref() {
+        if let Err(err) = service.persist_state(live) {
+            tracing::warn!("hmi persistence update failed: {err}");
+        }
+    }
 }

@@ -359,8 +359,8 @@ fn merge_scaffold_update_page(
     let existing_toml = toml::from_str::<HmiDirPageToml>(&existing_text)?;
     let generated_toml = toml::from_str::<HmiDirPageToml>(generated_text)?;
 
-    let existing_page = map_hmi_dir_page(page_id.to_string(), 0, existing_toml);
-    let generated_page = map_hmi_dir_page(page_id.to_string(), 0, generated_toml);
+    let existing_page = map_hmi_dir_page(page_id.to_string(), 0, existing_toml)?;
+    let generated_page = map_hmi_dir_page(page_id.to_string(), 0, generated_toml)?;
     let (merged, changed) = merge_scaffold_page(existing_page, generated_page);
     if !changed {
         return Ok(None);

@@ -80,6 +80,7 @@ struct RuntimeSection {
     cloud: Option<RuntimeCloudSection>,
     realtime: Option<RealtimeSection>,
     observability: Option<ObservabilitySection>,
+    hmi_persistence: Option<HmiPersistenceSection>,
     opcua: Option<OpcUaSection>,
 }
 
@@ -248,6 +249,14 @@ struct ObservabilitySection {
     prometheus_enabled: Option<bool>,
     prometheus_path: Option<String>,
     alerts: Option<Vec<AlertSection>>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct HmiPersistenceSection {
+    enabled: Option<bool>,
+    history_path: Option<String>,
+    max_entries: Option<usize>,
 }
 
 #[derive(Debug, Deserialize)]

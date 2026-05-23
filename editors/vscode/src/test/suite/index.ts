@@ -10,6 +10,8 @@ export function run(): Promise<void> {
   require("./diagnostics.test");
   require("./debug-io.integration.test");
   require("./hmi.integration.test");
+  require("./trust-twin-lm-tools.test");
+  require("./trust-twin-panel.test");
   require("./lsp.integration.test");
   require("./runtime-default-settings.integration.test");
   require("./lm-tools-contract.test");

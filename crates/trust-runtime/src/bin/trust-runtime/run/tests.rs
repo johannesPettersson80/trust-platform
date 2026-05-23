@@ -63,6 +63,7 @@ fn bundle_with_backend(
             runtime_cloud_link_preferences: Vec::new(),
             realtime: trust_runtime::linux_rt::LinuxRtConfig::default(),
             observability: trust_runtime::historian::HistorianConfig::default(),
+            hmi_persistence: trust_runtime::hmi::HmiPersistenceConfig::default(),
             opcua: trust_runtime::opcua::OpcUaRuntimeConfig::default(),
             tasks: None,
         },

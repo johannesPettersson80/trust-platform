@@ -348,6 +348,148 @@ allow = ["resource/RESOURCE/program/Main/field/run"]
 }
 
 #[test]
+fn trust_twin_operator_write_uses_hmi_policy_and_audit_path() {
+    let source = r#"
+PROGRAM Main
+VAR
+    run : BOOL := FALSE;
+END_VAR
+END_PROGRAM
+"#;
+    let root = temp_dir("trust-twin-p3-operator-write");
+    write_file(
+        &root.join("hmi.toml"),
+        r#"
+[write]
+enabled = true
+allow = ["resource/RESOURCE/program/Main/field/run"]
+"#,
+    );
+
+    let mut state = hmi_test_state(source);
+    set_hmi_project_root(&mut state, &root);
+    state.control_requires_auth = true;
+    let store = Arc::new(PairingStore::load(pairing_file("trust-twin-p3")));
+    state.pairing = Some(store.clone());
+    let viewer_code = store.start_pairing();
+    let viewer_token = store
+        .claim(&viewer_code.code, Some(AccessRole::Viewer))
+        .expect("viewer token");
+    let engineer_code = store.start_pairing();
+    let engineer_token = store
+        .claim(&engineer_code.code, Some(AccessRole::Engineer))
+        .expect("engineer token");
+    let (audit_tx, audit_rx) = std::sync::mpsc::channel();
+    state.audit_tx = Some(audit_tx);
+
+    let viewer_response = handle_request_value(
+        json!({
+            "id": 9001,
+            "type": "hmi.write",
+            "auth": viewer_token,
+            "params": {
+                "id": "resource/RESOURCE/program/Main/field/run",
+                "value": true
+            }
+        }),
+        &state,
+        Some("trust-twin-renderer"),
+    );
+    let viewer_audit = audit_rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("viewer policy rejection audit event");
+    assert!(!viewer_response.ok, "viewer write must be denied");
+    assert!(viewer_response
+        .error
+        .as_deref()
+        .is_some_and(|error| error.contains("requires role engineer")));
+    assert_eq!(viewer_audit.request_type.as_str(), "hmi.write");
+    assert!(!viewer_audit.ok);
+    assert!(state.debug.drain_var_writes().is_empty());
+
+    let engineer_response = handle_request_value(
+        json!({
+            "id": 9002,
+            "type": "hmi.write",
+            "auth": engineer_token,
+            "params": {
+                "id": "resource/RESOURCE/program/Main/field/run",
+                "value": true
+            }
+        }),
+        &state,
+        Some("trust-twin-renderer"),
+    );
+    let engineer_audit = audit_rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("engineer write audit event");
+    assert!(
+        engineer_response.ok,
+        "engineer write should queue through hmi.write: {:?}",
+        engineer_response.error
+    );
+    assert_eq!(engineer_audit.request_type.as_str(), "hmi.write");
+    assert!(engineer_audit.ok);
+
+    let writes = state.debug.drain_var_writes();
+    assert_eq!(writes.len(), 1, "engineer write should queue one PLC tag write");
+    assert_eq!(writes[0].value, Value::Bool(true));
+    match &writes[0].target {
+        PendingVarTarget::Instance(_, name) => assert_eq!(name.as_str(), "run"),
+        other => panic!("expected instance write, got {other:?}"),
+    }
+
+    let artifact_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join("target/gate-artifacts");
+    fs::create_dir_all(&artifact_dir).expect("create trust-twin artifact dir");
+    let artifact = json!({
+        "renderer_request": {
+            "type": "hmi.write",
+            "params": {
+                "id": "resource/RESOURCE/program/Main/field/run",
+                "value": true
+            }
+        },
+        "engineer_click": {
+            "response": serde_json::to_value(&engineer_response).expect("engineer response json"),
+            "queued_write": {
+                "target": "Main.run",
+                "value": true
+            }
+        },
+        "viewer_click": {
+            "response": serde_json::to_value(&viewer_response).expect("viewer response json")
+        },
+        "policy_rejection_excerpt": {
+            "request_type": viewer_audit.request_type.as_str(),
+            "ok": viewer_audit.ok,
+            "error": viewer_audit.error.as_ref().map(|value| value.as_str())
+        },
+        "audit_event_excerpt": {
+            "viewer": {
+                "request_type": viewer_audit.request_type.as_str(),
+                "ok": viewer_audit.ok,
+                "client": viewer_audit.client.as_ref().map(|value| value.as_str())
+            },
+            "engineer": {
+                "request_type": engineer_audit.request_type.as_str(),
+                "ok": engineer_audit.ok,
+                "client": engineer_audit.client.as_ref().map(|value| value.as_str())
+            }
+        },
+        "evidence_blockers": []
+    });
+    fs::write(
+        artifact_dir.join("trust-twin-p3-operator-write.json"),
+        serde_json::to_string_pretty(&artifact).expect("serialize trust-twin p3 artifact"),
+    )
+    .expect("write trust-twin p3 artifact");
+
+    fs::remove_dir_all(root).ok();
+}
+
+#[test]
 fn hmi_write_supports_path_allowlist_and_alias_param() {
     let source = r#"
 PROGRAM Main

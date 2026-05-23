@@ -451,6 +451,14 @@ jobs:
           cache-dependency-path: editors/vscode/package-lock.json
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      - name: Install wasm-pack
+        run: |
+          if ! command -v wasm-pack >/dev/null 2>&1; then
+            cargo install wasm-pack --version 0.15.0 --locked
+          fi
+          export PATH="$HOME/.cargo/bin:$PATH"
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          wasm-pack --version
       - run: npm ci
       - run: npm run lint
       - run: npm run compile
@@ -460,11 +468,11 @@ jobs:
           mkdir -p gate-artifacts
           python3 scripts/run_with_progress.py \
             --phase ci-vscode-binaries \
-            --target trust-lsp-trust-debug-trust-runtime-trust-dev \
+            --target trust-lsp-trust-debug-trust-runtime-trust-dev-trust-twin-compiler \
             --timeout-seconds "${CI_VSCODE_BINARIES_TIMEOUT_SECONDS:-1200}" \
             --progress-interval-seconds "${GATE_PROGRESS_INTERVAL_SECONDS:-30}" \
             --log gate-artifacts/vscode-binaries.log \
-            -- cargo build -p trust-lsp -p trust-debug -p trust-runtime -p trust-dev
+            -- cargo build -p trust-lsp -p trust-debug -p trust-runtime -p trust-dev -p trust-twin-compiler
         working-directory: ${{ github.workspace }}
       - name: Add trust-lsp binary directory to PATH
         run: echo "${{ github.workspace }}/target/debug" >> "$GITHUB_PATH"

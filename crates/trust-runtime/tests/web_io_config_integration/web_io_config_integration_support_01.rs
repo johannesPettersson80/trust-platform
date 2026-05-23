@@ -123,6 +123,7 @@ pub(super) fn control_state_named_with_audit(
         debug_enabled: Arc::new(AtomicBool::new(true)),
         debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
         hmi_live: Arc::new(Mutex::new(trust_runtime::hmi::HmiLiveState::default())),
+        hmi_persistence: None,
         hmi_descriptor,
         historian: None,
         pairing: None,

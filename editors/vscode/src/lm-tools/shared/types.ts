@@ -255,6 +255,14 @@ export interface HmiExplainWidgetParams {
   path?: string;
 }
 
+export interface TrustTwinTopologyProposeParams {
+  rootPath?: string;
+  description: string;
+  reference_page_id?: string;
+  component_kind_constraints?: string[];
+  write_gate_artifact?: boolean;
+}
+
 export type HmiLayoutFileEntry = { name: string; path: string; content: string };
 
 export type HmiLayoutSnapshot = {
@@ -327,6 +335,12 @@ export type HmiSchemaResult = {
     title: string;
     order: number;
     kind?: string;
+    view?: string;
+    bind3d?: Array<{
+      node: string;
+      property: string;
+      source: string;
+    }>;
     sections?: Array<{ title: string; span: number; widget_ids?: string[] }>;
   }>;
   widgets: HmiSchemaWidget[];

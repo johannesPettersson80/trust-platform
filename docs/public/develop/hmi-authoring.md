@@ -20,9 +20,19 @@ below while comparing the browser view with the `hmi/` files that define it.
   files the runtime will serve.
 - Preview shows the expected widgets with live values before any write-capable
   control is enabled.
+- 3D HMI pages use `kind = "scene3d"` page descriptors with topology sources
+  and compiled static view payloads under `hmi/views/`, so generated view
+  payloads are not discovered as normal pages.
+- 3D topology sources describe components, ports, connections, and component
+  signals; the compiler emits deterministic `.view.toml` output with a source
+  hash header for drift checks.
+- 3D operator writes are declared as topology `[[interactions]]` and compiled
+  into node-level `hmi.write` descriptors; runtime execution still goes through
+  the normal HMI write allowlist, Engineer role policy, and audit path.
 
 ## Related
 
+- [HMI directory reference](../reference/config/hmi-directory.md)
 - [HMI And Web UI](../operate/hmi-and-web-ui.md)
 - [Program In Browser IDE](../start/program-in-browser.md)
 - [HMI examples](../examples/hmi.md)

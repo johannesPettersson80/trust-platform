@@ -1,0 +1,10 @@
+[[components]]
+id = "ROBOT-1"
+kind = "robot_arm"
+at = { grid = "A1" }
+
+[[components]]
+id = "GRIPPER-1"
+kind = "gripper"
+at = { attach_to = "ROBOT-1.tool", placement = "mount" }
+params = { approach_axis = [0.0, -1.0, 0.0] }

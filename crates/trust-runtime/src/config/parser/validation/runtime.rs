@@ -5,6 +5,7 @@ include!("runtime/base.rs");
 include!("runtime/transport.rs");
 include!("runtime/realtime.rs");
 include!("runtime/observability.rs");
+include!("runtime/hmi_persistence.rs");
 include!("runtime/opcua.rs");
 include!("runtime/entry.rs");
 include!("runtime/util.rs");

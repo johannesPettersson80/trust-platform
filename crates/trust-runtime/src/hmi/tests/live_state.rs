@@ -2,6 +2,14 @@ fn synthetic_schema(min: Option<f64>, max: Option<f64>) -> HmiSchemaResult {
     synthetic_schema_with_deadband(min, max, None)
 }
 
+fn temp_history_path(name: &str) -> std::path::PathBuf {
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("clock")
+        .as_nanos();
+    std::env::temp_dir().join(format!("trust-hmi-{name}-{stamp}.jsonl"))
+}
+
 fn synthetic_schema_with_deadband(
     min: Option<f64>,
     max: Option<f64>,
@@ -26,10 +34,13 @@ fn synthetic_schema_with_deadband(
             icon: None,
             duration_ms: None,
             svg: None,
+            view: None,
+            scene_view: None,
             hidden: false,
             signals: Vec::new(),
             sections: Vec::new(),
             bindings: Vec::new(),
+            bindings3d: Vec::new(),
         }],
         widgets: vec![HmiWidgetSchema {
             id: "resource/RESOURCE/program/Main/field/speed".to_string(),
@@ -145,6 +156,61 @@ fn alarm_state_machine_covers_raise_ack_clear_history() {
     assert!(history_events.contains(&"raised"));
     assert!(history_events.contains(&"acknowledged"));
     assert!(history_events.contains(&"cleared"));
+}
+
+#[test]
+fn hmi_persistence_reloads_bounded_trends_and_alarm_history() {
+    let path = temp_history_path("p6-hmi-persistence");
+    let config = HmiPersistenceConfig {
+        enabled: true,
+        history_path: path.clone(),
+        max_entries: 2,
+    };
+    let schema = synthetic_schema(Some(0.0), Some(100.0));
+    {
+        let service = HmiPersistenceService::new(config.clone(), None).expect("service");
+        let mut live = HmiLiveState::default();
+        update_live_state(&mut live, &schema, &synthetic_values(80.0, 1_000));
+        update_live_state(&mut live, &schema, &synthetic_values(120.0, 2_000));
+        update_live_state(&mut live, &schema, &synthetic_values(95.0, 3_000));
+        assert_eq!(service.persist_state(&live).expect("persist live hmi state"), 4);
+    }
+    let jsonl = std::fs::read_to_string(&path).expect("read hmi persistence jsonl");
+    assert_eq!(jsonl.lines().count(), 4);
+    let first_record = serde_json::from_str::<HmiPersistenceRecord>(
+        jsonl.lines().next().expect("first hmi persistence record"),
+    )
+    .expect("parse first hmi persistence record");
+    assert!(matches!(first_record, HmiPersistenceRecord::Trend { .. }));
+
+    let restarted = HmiPersistenceService::new(config, None).expect("restart service");
+    assert_eq!(restarted.config().history_path, path);
+    let restored = restarted.load_state().expect("load hmi state");
+    assert_eq!(restored.last_timestamp_ms, 3_000);
+    assert_eq!(
+        restored
+            .trend_samples
+            .get("resource/RESOURCE/program/Main/field/speed")
+            .map(VecDeque::len),
+        Some(2)
+    );
+    let trends = build_trends(&restored, &schema, None, 60_000, 12);
+    let points = &trends.series[0].points;
+    assert_eq!(
+        points.iter().map(|point| point.value).collect::<Vec<_>>(),
+        vec![120.0, 95.0],
+        "configured max_entries should bound each persisted trend window"
+    );
+
+    let alarms = build_alarm_view(&restored, 10);
+    let events = alarms
+        .history
+        .iter()
+        .map(|entry| entry.event)
+        .collect::<Vec<_>>();
+    assert_eq!(events, vec!["cleared", "raised"]);
+
+    let _ = std::fs::remove_file(path);
 }
 
 #[test]

@@ -17,7 +17,10 @@ pub(super) fn handle_hmi_alarm_ack(
     let result = match state.hmi_live.lock() {
         Ok(mut live) => {
             match crate::hmi::acknowledge_alarm(&mut live, params.id.as_str(), timestamp_ms) {
-                Ok(()) => crate::hmi::build_alarm_view(&live, 100),
+                Ok(()) => {
+                    persist_hmi_live_state(state, &live);
+                    crate::hmi::build_alarm_view(&live, 100)
+                }
                 Err(err) => return ControlResponse::error(id, err),
             }
         }

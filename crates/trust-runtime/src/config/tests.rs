@@ -1,4 +1,7 @@
-use super::{validate_io_toml_text, validate_runtime_toml_text, RuntimeConfig};
+use super::{
+    parser::parse_runtime_toml_from_text, validate_io_toml_text, validate_runtime_toml_text,
+    RuntimeConfig,
+};
 
 fn runtime_toml() -> String {
     r#"
@@ -321,6 +324,34 @@ fn runtime_schema_rejects_prometheus_path_without_leading_slash() {
     assert!(err
         .to_string()
         .contains("runtime.observability.prometheus_path must start with '/'"));
+}
+
+#[test]
+fn runtime_schema_accepts_hmi_persistence_section() {
+    let text = format!(
+        "{}\n[runtime.hmi_persistence]\nenabled = true\nhistory_path = \"history/hmi.jsonl\"\nmax_entries = 128\n",
+        runtime_toml()
+    );
+    let config = parse_runtime_toml_from_text(&text, "runtime.toml")
+        .expect("hmi persistence config should parse");
+    assert!(config.hmi_persistence.enabled);
+    assert_eq!(
+        config.hmi_persistence.history_path,
+        std::path::PathBuf::from("history/hmi.jsonl")
+    );
+    assert_eq!(config.hmi_persistence.max_entries, 128);
+}
+
+#[test]
+fn runtime_schema_rejects_empty_hmi_persistence_window() {
+    let text = format!(
+        "{}\n[runtime.hmi_persistence]\nenabled = true\nmax_entries = 0\n",
+        runtime_toml()
+    );
+    let err = validate_runtime_toml_text(&text).expect_err("max_entries should fail");
+    assert!(err
+        .to_string()
+        .contains("runtime.hmi_persistence.max_entries must be >= 1"));
 }
 
 #[test]

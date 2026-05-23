@@ -9,6 +9,7 @@ import { registerDebugAdapter } from "./debug";
 import { getBinaryPath } from "./binary";
 import { registerIoPanel } from "./ioPanel";
 import { registerHmiPanel } from "./hmiPanel";
+import { registerTrustTwinPanel } from "./trustTwinPanel";
 import { registerLanguageModelTools } from "./lm-tools";
 import { augmentDiagnostic } from "./diagnostics";
 import { registerNewProjectCommand } from "./newProject";
@@ -164,6 +165,7 @@ export async function activate(context: vscode.ExtensionContext) {
   registerDebugAdapter(context);
   registerIoPanel(context);
   registerHmiPanel(context);
+  registerTrustTwinPanel(context);
   try {
     registerLanguageModelTools(context, { getClient: () => client });
   } catch (error) {

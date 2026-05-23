@@ -56,11 +56,16 @@ pub struct HmiDirPage {
     pub kind: String,
     pub duration_ms: Option<u64>,
     pub svg: Option<String>,
+    pub view: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scene_view: Option<HmiSceneViewPayload>,
     #[serde(default)]
     pub hidden: bool,
     pub signals: Vec<String>,
     pub sections: Vec<HmiDirSection>,
     pub bindings: Vec<HmiDirProcessBinding>,
+    #[serde(default, rename = "bind3d")]
+    pub bindings3d: Vec<HmiSceneBindingSchema>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
