@@ -191,6 +191,15 @@ jobs:
           cache: 'npm'
           cache-dependency-path: editors/vscode/package-lock.json
 
+      - name: Install wasm-pack
+        shell: bash
+        run: |
+          if ! command -v wasm-pack >/dev/null 2>&1; then
+            cargo install wasm-pack --version 0.15.0 --locked
+          fi
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          wasm-pack --version
+
       - name: Install dependencies
         working-directory: editors/vscode
         run: npm ci
