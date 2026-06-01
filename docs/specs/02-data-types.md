@@ -73,6 +73,44 @@ This specification defines the type system for trust-hir.
 | 20 | `DWORD` | Bit string of 32 | `16#0000_0000` | 32 |
 | 21 | `LWORD` | Bit string of 64 | `16#0000_0000_0000_0000` | 64 |
 
+### Partial Access to ANY_BIT Variables (Table 17, Section 6.6.1.3)
+
+Variables of type `BYTE`, `WORD`, `DWORD`, and `LWORD` support partial
+bit/byte/word/double-word access. The access suffix is appended to the variable
+name with dot notation:
+
+```
+VAR
+  b : BYTE := BYTE#16#00;
+  w : WORD := WORD#16#1234;
+  d : DWORD := DWORD#16#89ABCDEF;
+  l : LWORD := LWORD#16#0123_4567_89AB_CDEF;
+END_VAR
+
+b.%X3 := TRUE;          // write bit 3 of b
+b.7 := FALSE;           // %X may be omitted for bit access
+w.%B0 := BYTE#16#FF;    // write byte 0 of w
+d.%W1;                  // word 1 of d
+l.%D1;                  // double word 1 of l
+```
+
+| Target Type | Bit Access | Byte Access | Word Access | DWord Access |
+|-------------|------------|-------------|-------------|--------------|
+| `BYTE` | `%X0`..`%X7` or `0`..`7` -> `BOOL` | - | - | - |
+| `WORD` | `%X0`..`%X15` or `0`..`15` -> `BOOL` | `%B0`..`%B1` -> `BYTE` | - | - |
+| `DWORD` | `%X0`..`%X31` or `0`..`31` -> `BOOL` | `%B0`..`%B3` -> `BYTE` | `%W0`..`%W1` -> `WORD` | - |
+| `LWORD` | `%X0`..`%X63` or `0`..`63` -> `BOOL` | `%B0`..`%B7` -> `BYTE` | `%W0`..`%W3` -> `WORD` | `%D0`..`%D1` -> `DWORD` |
+
+The lower numbered suffix addresses the lower value part independently of
+target-platform endian layout; bit offset `0` addresses the rightmost bit of
+the value. Partial writes require a value of the selected part type (`BOOL` for
+bit access, `BYTE` for byte access, `WORD` for word access, `DWORD` for dword
+access).
+
+Partial access applies to ordinary variables of the supported `ANY_BIT` types,
+including function block instance fields. It is not valid on directly
+represented variables themselves, for example `%IB10.%X0`.
+
 ## 2. Generic Data Types (Figure 5, Section 6.4.3)
 
 Generic data types are used in standard function/function block specifications. They are identified by the `ANY` prefix.

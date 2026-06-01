@@ -9,6 +9,8 @@ VAR
     sensor_size : DINT := 0;
     sensor_type_size : DINT := 0;
     values_size : DINT := 0;
+    acc_status_byte : BYTE;
+    acc_status_bit : BOOL;
     color : Color := Color#Red;
     swap_a : DINT := 10;
     swap_b : DINT := 20;
@@ -35,6 +37,8 @@ values_size := SIZEOF(values);
 sum := DemoLib.Add(A := values[0], B := values[1]);
 acc(In := sum);
 total := acc.Sum;
+acc_status_byte := acc.StatusByte;
+acc_status_bit := acc.StatusBit;
 ok := DemoLib.SwapDint(swap_a, swap_b);
 
 IF ok THEN

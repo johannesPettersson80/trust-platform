@@ -59,18 +59,37 @@ impl<'a> BytecodeEncoder<'a> {
         };
 
         let start_len = code.len();
-        let Some(reference) = self.resolve_name_ref(ctx, name)? else {
-            code.truncate(start_len);
-            return Ok(Some(false));
-        };
-        self.emit_load_ref(&reference, code)?;
-        if !self.emit_expr(ctx, value, code)? {
-            code.truncate(start_len);
-            return Ok(Some(false));
+        if let Some(reference) = self.resolve_name_ref(ctx, name)? {
+            self.emit_load_ref(&reference, code)?;
+            if !self.emit_expr(ctx, value, code)? {
+                code.truncate(start_len);
+                return Ok(Some(false));
+            }
+            self.emit_partial_write(partial, code);
+            self.emit_store_ref(&reference, code)?;
+            return Ok(Some(true));
         }
-        self.emit_partial_write(partial, code);
-        self.emit_store_ref(&reference, code)?;
-        Ok(Some(true))
+        if ctx.self_field_name(name).is_some() {
+            if !self.emit_self_field_ref(ctx, name, code)? {
+                code.truncate(start_len);
+                return Ok(Some(false));
+            }
+            code.push(0x32);
+            if !self.emit_expr(ctx, value, code)? {
+                code.truncate(start_len);
+                return Ok(Some(false));
+            }
+            self.emit_partial_write(partial, code);
+            if !self.emit_self_field_ref(ctx, name, code)? {
+                code.truncate(start_len);
+                return Ok(Some(false));
+            }
+            code.push(0x13); // SWAP
+            code.push(0x33); // STORE
+            return Ok(Some(true));
+        }
+        code.truncate(start_len);
+        Ok(Some(false))
     }
 
     fn emit_dynamic_assign(
@@ -262,12 +281,20 @@ impl<'a> BytecodeEncoder<'a> {
         access: crate::value::PartialAccess,
         code: &mut Vec<u8>,
     ) -> Result<bool, BytecodeError> {
-        let Some(reference) = self.resolve_name_ref(ctx, name)? else {
-            return Ok(false);
-        };
-        self.emit_load_ref(&reference, code)?;
-        self.emit_partial_read(access, code);
-        Ok(true)
+        if let Some(reference) = self.resolve_name_ref(ctx, name)? {
+            self.emit_load_ref(&reference, code)?;
+            self.emit_partial_read(access, code);
+            return Ok(true);
+        }
+        if ctx.self_field_name(name).is_some() {
+            if !self.emit_self_field_ref(ctx, name, code)? {
+                return Ok(false);
+            }
+            code.push(0x32);
+            self.emit_partial_read(access, code);
+            return Ok(true);
+        }
+        Ok(false)
     }
 
     fn emit_partial_read(
