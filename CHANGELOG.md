@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.20`
+Target release: `v0.24.21`
 
 ### Added
 
@@ -118,6 +118,10 @@ Target release: `v0.24.20`
 
 ### Fixed
 
+- Runtime bytecode execution now supports IEC Table 17 partial
+  bit/byte/word/dword access on `BYTE`, `WORD`, `DWORD`, and `LWORD`
+  function-block instance fields, matching the existing program-variable
+  behavior.
 - `architecture-doctor --changed` now follows the current
   `crates/trust-runtime/src/host/...` runtime host layout for initializer and
   evaluation checks.

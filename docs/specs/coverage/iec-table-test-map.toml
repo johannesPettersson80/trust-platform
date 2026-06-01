@@ -16,6 +16,11 @@ spec = "docs/specs/02-data-types.md"
 tests = ["iec_table12"]
 
 [[table]]
+id = "Table 17"
+spec = "docs/specs/02-data-types.md"
+tests = ["table17", "table17_fb"]
+
+[[table]]
 id = "Table 13"
 spec = "docs/specs/03-variables.md"
 tests = ["iec_table13", "multi_name_struct_initializer_values_are_independent"]

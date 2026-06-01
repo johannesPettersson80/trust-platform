@@ -14,6 +14,10 @@ Table 11 (docs/specs/02-data-types.md)
 Table 12 (docs/specs/02-data-types.md)
   - iec_table12: ok [crates/trust-runtime/tests/types_ref.rs]
 
+Table 17 (docs/specs/02-data-types.md)
+  - table17: ok [crates/trust-runtime/tests/types_bit_access.rs]
+  - table17_fb: ok [crates/trust-runtime/tests/types_bit_access.rs]
+
 Table 13 (docs/specs/03-variables.md)
   - iec_table13: ok [crates/trust-hir/tests/var_sections.rs]
   - multi_name_struct_initializer_values_are_independent: ok [crates/trust-runtime/tests/struct_initializers.rs]

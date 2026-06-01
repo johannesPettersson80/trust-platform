@@ -132,6 +132,7 @@ Key tables from the IEC 61131-3 standard referenced in these documents:
 | Table 12 | Reference operations | 02-data-types.md |
 | Table 13-14 | Variable declaration | 03-variables.md |
 | Table 15-16 | Arrays, direct variables | 03-variables.md |
+| Table 17 | Partial access to ANY_BIT variables | 02-data-types.md |
 | Table 19 | FUNCTION declaration | 04-pou-declarations.md |
 | Table 22-27 | Type conversion functions | 07-standard-functions.md |
 | Table 28-36 | Standard functions | 07-standard-functions.md |
