@@ -269,6 +269,42 @@ Allowed `transport` values:
 - `discovery`
 - `web`
 
+### `[runtime.openot]`
+
+This optional section enables OpenOT telemetry publishing to a shared-memory
+ring. It is separate from plant I/O drivers: the runtime publishes semantic
+audit records after output dispatch and fails the scan if the configured
+telemetry append fails.
+
+Defaults when omitted:
+
+```toml
+[runtime.openot]
+enabled = false
+path = ""
+capacity = 4096
+fence_mode = "fenced"
+allow_unfenced_for_proof = false
+```
+
+Accepted keys:
+
+| Key | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `enabled` | bool | `false` | Enables OpenOT shared-memory telemetry publishing. |
+| `path` | string | `""` | Shared-memory backing file. Relative paths resolve against the runtime bundle root. Required when `enabled = true`. |
+| `capacity` | integer | `4096` | Ring byte capacity. Must be `>= 1`. |
+| `fence_mode` | string | `"fenced"` | `"fenced"` for product use, or `"unfenced"` only for controlled proof runs. |
+| `allow_unfenced_for_proof` | bool | `false` | Must be `true` when `fence_mode = "unfenced"`. |
+
+Validation constraints:
+
+| Condition | Requirement | Example |
+| --- | --- | --- |
+| `enabled = true` | `path` must not be empty | `path = "openot.shm"` |
+| always | `capacity >= 1` | `capacity = 4096` |
+| `fence_mode = "unfenced"` | set `allow_unfenced_for_proof = true` | proof-only A/B run |
+
 ### `[runtime.observability]`
 
 Defaults when omitted:

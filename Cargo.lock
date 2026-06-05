@@ -2804,6 +2804,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8ca58f447f06ed17d5fc4043ce1b10dd205e060fb3ce5b979b8ed8e59ff3f79"
 
 [[package]]
+name = "memmap2"
+version = "0.9.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "714098028fe011992e1c3962653c96b2d578c4b4bce9036e15ff220319b1e0e3"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "memmem"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3273,6 +3282,18 @@ dependencies = [
  "tokio-util",
  "url 1.7.2",
  "uuid",
+]
+
+[[package]]
+name = "open-ot-carriage"
+version = "0.1.0"
+
+[[package]]
+name = "open-ot-shm"
+version = "0.1.0"
+dependencies = [
+ "memmap2",
+ "open-ot-carriage",
 ]
 
 [[package]]
@@ -5762,6 +5783,8 @@ dependencies = [
  "native-tls",
  "notify",
  "opcua",
+ "open-ot-carriage",
+ "open-ot-shm",
  "owo-colors",
  "qrcode",
  "rand 0.10.1",

@@ -11,6 +11,7 @@ mod mesh;
 mod metadata;
 mod metrics_subsystem;
 mod online_change;
+mod openot_telemetry;
 mod restart;
 mod retain_store;
 pub(crate) mod types;

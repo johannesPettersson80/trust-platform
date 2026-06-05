@@ -242,6 +242,84 @@ fn runtime_schema_accepts_preempt_rt_profile_section() {
 }
 
 #[test]
+fn runtime_schema_defaults_openot_telemetry_disabled() {
+    let runtime = parse_runtime_toml_from_text(&runtime_toml(), "runtime.toml")
+        .expect("runtime config should parse");
+    assert!(!runtime.openot.enabled);
+    assert_eq!(runtime.openot.capacity, 4096);
+    assert_eq!(
+        runtime.openot.fence_mode,
+        crate::config::OpenOtTelemetryFenceMode::Fenced
+    );
+}
+
+#[test]
+fn runtime_schema_accepts_openot_telemetry_section() {
+    let text = format!(
+        "{}\n[runtime.openot]\nenabled = true\npath = \"openot.shm\"\ncapacity = 4096\nfence_mode = \"fenced\"\n",
+        runtime_toml()
+    );
+    let runtime =
+        parse_runtime_toml_from_text(&text, "runtime.toml").expect("OpenOT config should parse");
+    assert!(runtime.openot.enabled);
+    assert_eq!(runtime.openot.path, std::path::PathBuf::from("openot.shm"));
+    assert_eq!(runtime.openot.capacity, 4096);
+    assert_eq!(
+        runtime.openot.fence_mode,
+        crate::config::OpenOtTelemetryFenceMode::Fenced
+    );
+}
+
+#[test]
+fn runtime_schema_rejects_enabled_openot_without_path() {
+    let text = format!("{}\n[runtime.openot]\nenabled = true\n", runtime_toml());
+    let err = validate_runtime_toml_text(&text).expect_err("enabled OpenOT requires a path");
+    assert!(err
+        .to_string()
+        .contains("runtime.openot.path must not be empty"));
+}
+
+#[test]
+fn runtime_schema_rejects_zero_openot_capacity() {
+    let text = format!(
+        "{}\n[runtime.openot]\nenabled = true\npath = \"openot.shm\"\ncapacity = 0\n",
+        runtime_toml()
+    );
+    let err = validate_runtime_toml_text(&text).expect_err("OpenOT capacity zero should fail");
+    assert!(err
+        .to_string()
+        .contains("runtime.openot.capacity must be >= 1"));
+}
+
+#[test]
+fn runtime_schema_rejects_openot_unfenced_without_proof_opt_in() {
+    let text = format!(
+        "{}\n[runtime.openot]\nenabled = true\npath = \"openot.shm\"\nfence_mode = \"unfenced\"\n",
+        runtime_toml()
+    );
+    let err =
+        validate_runtime_toml_text(&text).expect_err("unfenced OpenOT requires explicit opt-in");
+    assert!(err
+        .to_string()
+        .contains("runtime.openot.fence_mode='unfenced' requires"));
+}
+
+#[test]
+fn runtime_schema_accepts_openot_unfenced_with_proof_opt_in() {
+    let text = format!(
+        "{}\n[runtime.openot]\nenabled = true\npath = \"openot.shm\"\nfence_mode = \"unfenced\"\nallow_unfenced_for_proof = true\n",
+        runtime_toml()
+    );
+    let runtime =
+        parse_runtime_toml_from_text(&text, "runtime.toml").expect("OpenOT config should parse");
+    assert_eq!(
+        runtime.openot.fence_mode,
+        crate::config::OpenOtTelemetryFenceMode::Unfenced
+    );
+    assert!(runtime.openot.allow_unfenced_for_proof);
+}
+
+#[test]
 fn runtime_schema_rejects_enabled_realtime_section_without_fifo_or_rr_scheduler() {
     let text = format!(
         "{}\n[runtime.realtime]\nenabled = true\nscheduler = \"other\"\npriority = 70\n",

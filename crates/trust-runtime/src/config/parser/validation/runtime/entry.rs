@@ -21,6 +21,7 @@ impl RuntimeToml {
             mesh,
             cloud,
             realtime,
+            openot,
             observability,
             hmi_persistence,
             opcua,
@@ -61,6 +62,7 @@ impl RuntimeToml {
         let parsed_mesh = parse_mesh_section(mesh, parsed_tls.mode, parsed_tls.require_remote)?;
         let parsed_cloud = parse_runtime_cloud_section(cloud)?;
         let parsed_realtime = parse_realtime_section(realtime)?;
+        let parsed_openot = parse_openot_section(openot)?;
         let observability = parse_observability_section(observability)?;
         let hmi_persistence = parse_hmi_persistence_section(hmi_persistence)?;
         let opcua = parse_opcua_section(opcua)?;
@@ -94,6 +96,7 @@ impl RuntimeToml {
             runtime_cloud_wan_allow_write: parsed_cloud.wan_allow_write,
             runtime_cloud_link_preferences: parsed_cloud.link_preferences,
             realtime: parsed_realtime.config,
+            openot: parsed_openot.config,
             observability,
             hmi_persistence,
             opcua,

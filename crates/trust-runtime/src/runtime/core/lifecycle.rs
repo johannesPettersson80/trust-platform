@@ -35,6 +35,7 @@ impl Runtime {
             metrics: MetricsSubsystem::new(),
             watchdog: WatchdogSubsystem::new(),
             faults: FaultSubsystem::new(),
+            openot_telemetry: OpenOtTelemetrySubsystem::default(),
             execution_deadline: None,
             output_commit_deadline: None,
             vm_local_init_plan_cache: super::vm::VmLocalInitPlanCacheState::default(),
@@ -118,6 +119,15 @@ impl Runtime {
     /// Update the fault policy.
     pub fn set_fault_policy(&mut self, policy: FaultPolicy) {
         self.faults.set_policy(policy);
+    }
+
+    /// Configure the OpenOT telemetry publisher.
+    pub fn configure_openot_telemetry(
+        &mut self,
+        config: &crate::config::OpenOtTelemetryConfig,
+        bundle_root: Option<&std::path::Path>,
+    ) -> Result<(), error::RuntimeError> {
+        self.openot_telemetry.configure(config, bundle_root)
     }
 
     /// Current watchdog policy.

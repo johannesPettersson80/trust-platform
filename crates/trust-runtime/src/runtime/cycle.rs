@@ -420,6 +420,9 @@ impl Runtime {
                 entry.driver.write_outputs(interface.outputs())?;
             }
         }
+        self.openot_telemetry
+            .publish_heartbeat(self.cycle_counter)?;
+        self.check_output_commit_deadline()?;
         self.update_io_health();
         Ok(())
     }

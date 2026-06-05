@@ -59,6 +59,10 @@ tokio = { workspace = true, optional = true }
 
 [target.'cfg(unix)'.dependencies]
 ethercrab = { version = "0.6", optional = true }
+# Local S4b development dependency. The shared builder must keep
+# ../open-ot-ref checked out at rev >= 7b5f500; a git/vendor dep is a follow-up.
+open-ot-carriage = { path = "../../../open-ot-ref/crates/carriage" }
+open-ot-shm = { path = "../../../open-ot-ref/crates/open-ot-shm" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 rustix = { version = "1.1.4", features = ["mm", "thread"] }
