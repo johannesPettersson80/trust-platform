@@ -251,6 +251,11 @@ fn runtime_schema_defaults_openot_telemetry_disabled() {
         runtime.openot.fence_mode,
         crate::config::OpenOtTelemetryFenceMode::Fenced
     );
+    assert_eq!(
+        runtime.openot.source,
+        crate::config::OpenOtTelemetrySource::Heartbeat
+    );
+    assert!(runtime.openot.producer_instance.is_none());
 }
 
 #[test]
@@ -268,6 +273,67 @@ fn runtime_schema_accepts_openot_telemetry_section() {
         runtime.openot.fence_mode,
         crate::config::OpenOtTelemetryFenceMode::Fenced
     );
+    assert_eq!(
+        runtime.openot.source,
+        crate::config::OpenOtTelemetrySource::Heartbeat
+    );
+}
+
+#[test]
+fn runtime_schema_accepts_openot_st_fb_source() {
+    let text = format!(
+        "{}\n[runtime.openot]\nenabled = true\npath = \"openot.shm\"\nsource = \"st-fb\"\nproducer_instance = \"Main.Producer\"\n",
+        runtime_toml()
+    );
+    let runtime = parse_runtime_toml_from_text(&text, "runtime.toml")
+        .expect("OpenOT ST FB config should parse");
+    assert_eq!(
+        runtime.openot.source,
+        crate::config::OpenOtTelemetrySource::StFb
+    );
+    assert_eq!(
+        runtime.openot.producer_instance.as_deref(),
+        Some("Main.Producer")
+    );
+}
+
+#[test]
+fn runtime_schema_rejects_openot_st_fb_without_producer_instance() {
+    let text = format!(
+        "{}\n[runtime.openot]\nenabled = true\npath = \"openot.shm\"\nsource = \"st-fb\"\n",
+        runtime_toml()
+    );
+    let err = validate_runtime_toml_text(&text)
+        .expect_err("OpenOT ST FB source requires producer_instance");
+    assert!(err
+        .to_string()
+        .contains("runtime.openot.producer_instance is required"));
+}
+
+#[test]
+fn runtime_schema_rejects_unqualified_openot_producer_instance() {
+    let text = format!(
+        "{}\n[runtime.openot]\nenabled = true\npath = \"openot.shm\"\nsource = \"st-fb\"\nproducer_instance = \"Producer\"\n",
+        runtime_toml()
+    );
+    let err = validate_runtime_toml_text(&text)
+        .expect_err("OpenOT ST FB producer_instance must be qualified");
+    assert!(err
+        .to_string()
+        .contains("runtime.openot.producer_instance must be a qualified path"));
+}
+
+#[test]
+fn runtime_schema_rejects_openot_producer_instance_for_heartbeat_source() {
+    let text = format!(
+        "{}\n[runtime.openot]\nenabled = true\npath = \"openot.shm\"\nsource = \"heartbeat\"\nproducer_instance = \"Main.Producer\"\n",
+        runtime_toml()
+    );
+    let err = validate_runtime_toml_text(&text)
+        .expect_err("OpenOT heartbeat source must not accept producer_instance");
+    assert!(err
+        .to_string()
+        .contains("runtime.openot.producer_instance is only valid"));
 }
 
 #[test]

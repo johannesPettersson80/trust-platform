@@ -246,6 +246,8 @@ struct OpenOtSection {
     capacity: Option<usize>,
     fence_mode: Option<String>,
     allow_unfenced_for_proof: Option<bool>,
+    source: Option<String>,
+    producer_instance: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

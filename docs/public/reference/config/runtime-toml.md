@@ -285,6 +285,7 @@ path = ""
 capacity = 4096
 fence_mode = "fenced"
 allow_unfenced_for_proof = false
+source = "heartbeat"
 ```
 
 Accepted keys:
@@ -296,6 +297,8 @@ Accepted keys:
 | `capacity` | integer | `4096` | Ring byte capacity. Must be `>= 1`. |
 | `fence_mode` | string | `"fenced"` | `"fenced"` for product use, or `"unfenced"` only for controlled proof runs. |
 | `allow_unfenced_for_proof` | bool | `false` | Must be `true` when `fence_mode = "unfenced"`. |
+| `source` | string | `"heartbeat"` | `"heartbeat"` publishes a runtime heartbeat record per scan. `"st-fb"` publishes the encoded record emitted by a configured ST OpenOT producer FB. |
+| `producer_instance` | string | unset | Required when `source = "st-fb"`. Qualified path to the producer FB instance, for example `"Main.Producer"`. |
 
 Validation constraints:
 
@@ -304,6 +307,8 @@ Validation constraints:
 | `enabled = true` | `path` must not be empty | `path = "openot.shm"` |
 | always | `capacity >= 1` | `capacity = 4096` |
 | `fence_mode = "unfenced"` | set `allow_unfenced_for_proof = true` | proof-only A/B run |
+| `source = "st-fb"` | set a qualified `producer_instance` | `producer_instance = "Main.Producer"` |
+| `source = "heartbeat"` | omit `producer_instance` | default smoke publisher |
 
 ### `[runtime.observability]`
 

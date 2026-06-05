@@ -10,6 +10,10 @@ Target release: `v0.24.21`
 
 ### Added
 
+- trust-runtime: OpenOT telemetry can now publish real encoded records from a
+  configured ST OpenOT producer FB via `[runtime.openot] source = "st-fb"` and
+  `producer_instance`, while keeping the existing heartbeat publisher as the
+  default.
 - trust-twin: robot-cell product bridge now generates `Robot_<Model>` ST
   function blocks from a URDF manifest, exposes a `Robot_P3MinimalArm`
   native FB through the runtime world-arm bridge, and keeps the example PLC

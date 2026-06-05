@@ -32,6 +32,42 @@ fn parse_openot_section(section: Option<OpenOtSection>) -> Result<ParsedOpenOt, 
         ));
     }
 
+    let source = match section.source.as_deref() {
+        Some(value) => OpenOtTelemetrySource::parse(value)?,
+        None => OpenOtTelemetrySource::Heartbeat,
+    };
+    let producer_instance = section
+        .producer_instance
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(SmolStr::new);
+
+    match source {
+        OpenOtTelemetrySource::Heartbeat => {
+            if producer_instance.is_some() {
+                return Err(RuntimeError::InvalidConfig(
+                    "runtime.openot.producer_instance is only valid when runtime.openot.source='st-fb'"
+                        .into(),
+                ));
+            }
+        }
+        OpenOtTelemetrySource::StFb => {
+            let Some(path) = producer_instance.as_ref() else {
+                return Err(RuntimeError::InvalidConfig(
+                    "runtime.openot.producer_instance is required when runtime.openot.source='st-fb'"
+                        .into(),
+                ));
+            };
+            if !is_qualified_openot_producer_path(path.as_str()) {
+                return Err(RuntimeError::InvalidConfig(
+                    "runtime.openot.producer_instance must be a qualified path like 'Main.Producer'"
+                        .into(),
+                ));
+            }
+        }
+    }
+
     Ok(ParsedOpenOt {
         config: OpenOtTelemetryConfig {
             enabled,
@@ -39,6 +75,23 @@ fn parse_openot_section(section: Option<OpenOtSection>) -> Result<ParsedOpenOt, 
             capacity,
             fence_mode,
             allow_unfenced_for_proof,
+            source,
+            producer_instance,
         },
     })
+}
+
+fn is_qualified_openot_producer_path(path: &str) -> bool {
+    let mut parts = path.split('.');
+    let Some(program) = parts.next() else {
+        return false;
+    };
+    let Some(instance) = parts.next() else {
+        return false;
+    };
+    parts.next().is_none()
+        && !program.trim().is_empty()
+        && !instance.trim().is_empty()
+        && program == program.trim()
+        && instance == instance.trim()
 }

@@ -59,6 +59,7 @@ impl Runtime {
         // Preserve those references across both cold and warm restarts by recreating
         // instances from a stable id sequence before execution resumes.
         self.storage.reset_runtime_values(true);
+        self.openot_telemetry.reset_scan_state();
 
         for (name, meta) in globals {
             let keep = matches!(mode, RestartMode::Warm) && retain_on_warm(meta.retain);

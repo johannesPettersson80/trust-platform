@@ -266,6 +266,32 @@ impl OpenOtTelemetryFenceMode {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpenOtTelemetrySource {
+    Heartbeat,
+    StFb,
+}
+
+impl OpenOtTelemetrySource {
+    pub fn parse(text: &str) -> Result<Self, RuntimeError> {
+        match text.trim().to_ascii_lowercase().as_str() {
+            "heartbeat" => Ok(Self::Heartbeat),
+            "st-fb" => Ok(Self::StFb),
+            _ => Err(RuntimeError::InvalidConfig(
+                format!("invalid runtime.openot.source '{text}'").into(),
+            )),
+        }
+    }
+
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Heartbeat => "heartbeat",
+            Self::StFb => "st-fb",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OpenOtTelemetryConfig {
     pub enabled: bool,
@@ -273,6 +299,8 @@ pub struct OpenOtTelemetryConfig {
     pub capacity: usize,
     pub fence_mode: OpenOtTelemetryFenceMode,
     pub allow_unfenced_for_proof: bool,
+    pub source: OpenOtTelemetrySource,
+    pub producer_instance: Option<SmolStr>,
 }
 
 impl Default for OpenOtTelemetryConfig {
@@ -283,6 +311,8 @@ impl Default for OpenOtTelemetryConfig {
             capacity: 4096,
             fence_mode: OpenOtTelemetryFenceMode::Fenced,
             allow_unfenced_for_proof: false,
+            source: OpenOtTelemetrySource::Heartbeat,
+            producer_instance: None,
         }
     }
 }

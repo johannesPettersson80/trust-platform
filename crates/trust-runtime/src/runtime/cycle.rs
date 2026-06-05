@@ -421,7 +421,7 @@ impl Runtime {
             }
         }
         self.openot_telemetry
-            .publish_heartbeat(self.cycle_counter)?;
+            .publish(self.cycle_counter, &self.storage)?;
         self.check_output_commit_deadline()?;
         self.update_io_health();
         Ok(())
