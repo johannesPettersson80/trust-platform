@@ -8,12 +8,13 @@ mod imp {
     use crate::memory::VariableStorage;
     use crate::value::Value;
     use open_ot_carriage::registry::{EVENT_HEARTBEAT, SYSTEM_SOURCE_ID};
-    use open_ot_carriage::wire::Record;
+    use open_ot_carriage::wire::{validate_record, Record, CRC_LEN, HEADER_LEN};
     use open_ot_shm::{FenceMode, SharedRecordPublisher};
     use smol_str::SmolStr;
     use std::path::Path;
 
-    const ST_RING_CAPACITY: usize = 256;
+    const ST_SCAN_RECORD_CAPACITY: usize = 1024;
+    const ST_SCAN_RECORD_DESCRIPTOR_COUNT: usize = 17;
 
     #[derive(Debug)]
     pub(crate) struct OpenOtTelemetrySubsystem {
@@ -115,22 +116,33 @@ mod imp {
                     ))
                 })?;
 
-            match delta {
-                0 => Ok(()),
-                1 => {
-                    let encoded = extract_contiguous_record(path, &snapshot)?;
-                    self.publisher
-                        .as_mut()
-                        .expect("publisher checked above")
-                        .append_encoded(&encoded)
-                        .map_err(|err| telemetry_error("publish st-fb record", err))?;
-                    self.previous_published_record_count = snapshot.published_record_count;
-                    Ok(())
-                }
-                _ => Err(telemetry_message(format!(
-                    "producer '{path}' published {delta} records in one scan; S4b-3b supports exactly one"
-                ))),
+            if delta == 0 {
+                return Ok(());
             }
+
+            let scan_record_count =
+                u64::try_from(snapshot.scan_record_count).expect("UINT count fits u64");
+            if delta != scan_record_count {
+                return Err(telemetry_message(format!(
+                    "producer '{path}' delta {delta} != ScanRecordCount {}",
+                    snapshot.scan_record_count
+                )));
+            }
+
+            let publisher_capacity = self
+                .publisher
+                .as_ref()
+                .expect("publisher checked above")
+                .capacity();
+            let records = validate_scan_record_descriptors(path, &snapshot, publisher_capacity)?;
+            let publisher = self.publisher.as_mut().expect("publisher checked above");
+            for encoded in records {
+                publisher
+                    .append_encoded(encoded)
+                    .map_err(|err| telemetry_error("publish st-fb record", err))?;
+            }
+            self.previous_published_record_count = snapshot.published_record_count;
+            Ok(())
         }
     }
 
@@ -222,12 +234,11 @@ mod imp {
 
     #[derive(Debug)]
     struct StFbProducerSnapshot {
-        ring: [u8; ST_RING_CAPACITY],
-        last_start_abs: u64,
-        last_end_abs: u64,
         published_record_count: u64,
-        head_abs: u64,
-        oldest_abs: u64,
+        scan_records: [u8; ST_SCAN_RECORD_CAPACITY],
+        scan_record_offsets: [usize; ST_SCAN_RECORD_DESCRIPTOR_COUNT],
+        scan_record_lengths: [usize; ST_SCAN_RECORD_DESCRIPTOR_COUNT],
+        scan_record_count: usize,
     }
 
     fn read_st_fb_outputs(
@@ -276,17 +287,37 @@ mod imp {
         };
 
         Ok(StFbProducerSnapshot {
-            ring: read_ring_field(storage, producer_id, path)?,
-            last_start_abs: read_ulint_field(storage, producer_id, path, "LastStartAbs")?,
-            last_end_abs: read_ulint_field(storage, producer_id, path, "LastEndAbs")?,
             published_record_count: read_ulint_field(
                 storage,
                 producer_id,
                 path,
                 "PublishedRecordCount",
             )?,
-            head_abs: read_ulint_field(storage, producer_id, path, "HeadAbs")?,
-            oldest_abs: read_ulint_field(storage, producer_id, path, "OldestAbs")?,
+            scan_records: read_byte_array_field::<ST_SCAN_RECORD_CAPACITY>(
+                storage,
+                producer_id,
+                path,
+                "ScanRecords",
+                (0, 1023),
+                "ARRAY[0..1023] OF BYTE",
+            )?,
+            scan_record_offsets: read_uint_array_field::<ST_SCAN_RECORD_DESCRIPTOR_COUNT>(
+                storage,
+                producer_id,
+                path,
+                "ScanRecordOffsets",
+                (0, 16),
+                "ARRAY[0..16] OF UINT",
+            )?,
+            scan_record_lengths: read_uint_array_field::<ST_SCAN_RECORD_DESCRIPTOR_COUNT>(
+                storage,
+                producer_id,
+                path,
+                "ScanRecordLengths",
+                (0, 16),
+                "ARRAY[0..16] OF UINT",
+            )?,
+            scan_record_count: read_uint_field(storage, producer_id, path, "ScanRecordCount")?,
         })
     }
 
@@ -308,80 +339,156 @@ mod imp {
         }
     }
 
-    fn read_ring_field(
+    fn read_uint_field(
         storage: &VariableStorage,
         producer_id: crate::memory::InstanceId,
         path: &str,
-    ) -> Result<[u8; ST_RING_CAPACITY], RuntimeError> {
+        field: &str,
+    ) -> Result<usize, RuntimeError> {
+        match storage.get_instance_var_recursive(producer_id, field) {
+            Some(Value::UInt(value)) => Ok(usize::from(*value)),
+            Some(other) => Err(telemetry_message(format!(
+                "producer '{path}' field '{field}' expected UINT, got {}",
+                value_type_name(other)
+            ))),
+            None => Err(telemetry_message(format!(
+                "producer '{path}' field '{field}' was not found"
+            ))),
+        }
+    }
+
+    fn read_byte_array_field<const N: usize>(
+        storage: &VariableStorage,
+        producer_id: crate::memory::InstanceId,
+        path: &str,
+        field: &str,
+        dimensions: (i64, i64),
+        expected_type: &str,
+    ) -> Result<[u8; N], RuntimeError> {
         let value = storage
-            .get_instance_var_recursive(producer_id, "Ring")
+            .get_instance_var_recursive(producer_id, field)
             .ok_or_else(|| {
-                telemetry_message(format!("producer '{path}' field 'Ring' was not found"))
+                telemetry_message(format!("producer '{path}' field '{field}' was not found"))
             })?;
         let Value::Array(array) = value else {
             return Err(telemetry_message(format!(
-                "producer '{path}' field 'Ring' expected ARRAY[0..255] OF BYTE, got {}",
+                "producer '{path}' field '{field}' expected {expected_type}, got {}",
                 value_type_name(value)
             )));
         };
-        if array.dimensions() != [(0, 255)] || array.elements().len() != ST_RING_CAPACITY {
+        if array.dimensions() != [dimensions] || array.elements().len() != N {
             return Err(telemetry_message(format!(
-                "producer '{path}' field 'Ring' expected ARRAY[0..255] OF BYTE, got dimensions {:?} with {} elements",
+                "producer '{path}' field '{field}' expected {expected_type}, got dimensions {:?} with {} elements",
                 array.dimensions(),
                 array.elements().len()
             )));
         }
 
-        let mut ring = [0u8; ST_RING_CAPACITY];
+        let mut bytes = [0u8; N];
         for (index, value) in array.elements().iter().enumerate() {
             let Value::Byte(byte) = value else {
                 return Err(telemetry_message(format!(
-                    "producer '{path}' field 'Ring[{index}]' expected BYTE, got {}",
+                    "producer '{path}' field '{field}[{index}]' expected BYTE, got {}",
                     value_type_name(value)
                 )));
             };
-            ring[index] = *byte;
+            bytes[index] = *byte;
         }
-        Ok(ring)
+        Ok(bytes)
     }
 
-    fn extract_contiguous_record(
+    fn read_uint_array_field<const N: usize>(
+        storage: &VariableStorage,
+        producer_id: crate::memory::InstanceId,
         path: &str,
-        snapshot: &StFbProducerSnapshot,
-    ) -> Result<Vec<u8>, RuntimeError> {
-        if snapshot.last_end_abs <= snapshot.last_start_abs {
+        field: &str,
+        dimensions: (i64, i64),
+        expected_type: &str,
+    ) -> Result<[usize; N], RuntimeError> {
+        let value = storage
+            .get_instance_var_recursive(producer_id, field)
+            .ok_or_else(|| {
+                telemetry_message(format!("producer '{path}' field '{field}' was not found"))
+            })?;
+        let Value::Array(array) = value else {
             return Err(telemetry_message(format!(
-                "producer '{path}' LastEndAbs must be greater than LastStartAbs"
+                "producer '{path}' field '{field}' expected {expected_type}, got {}",
+                value_type_name(value)
+            )));
+        };
+        if array.dimensions() != [dimensions] || array.elements().len() != N {
+            return Err(telemetry_message(format!(
+                "producer '{path}' field '{field}' expected {expected_type}, got dimensions {:?} with {} elements",
+                array.dimensions(),
+                array.elements().len()
             )));
         }
-        let len = snapshot.last_end_abs - snapshot.last_start_abs;
-        if len > ST_RING_CAPACITY as u64 {
+
+        let mut values = [0usize; N];
+        for (index, value) in array.elements().iter().enumerate() {
+            let Value::UInt(uint) = value else {
+                return Err(telemetry_message(format!(
+                    "producer '{path}' field '{field}[{index}]' expected UINT, got {}",
+                    value_type_name(value)
+                )));
+            };
+            values[index] = usize::from(*uint);
+        }
+        Ok(values)
+    }
+
+    fn validate_scan_record_descriptors<'a>(
+        path: &str,
+        snapshot: &'a StFbProducerSnapshot,
+        publisher_capacity: usize,
+    ) -> Result<Vec<&'a [u8]>, RuntimeError> {
+        if snapshot.scan_record_count > ST_SCAN_RECORD_DESCRIPTOR_COUNT {
             return Err(telemetry_message(format!(
-                "producer '{path}' record length {len} exceeds staging ring capacity {ST_RING_CAPACITY}"
+                "producer '{path}' ScanRecordCount {} exceeds descriptor capacity {ST_SCAN_RECORD_DESCRIPTOR_COUNT}",
+                snapshot.scan_record_count
             )));
         }
-        if snapshot.oldest_abs > snapshot.last_start_abs
-            || snapshot.last_end_abs > snapshot.head_abs
-            || snapshot.last_start_abs >= snapshot.last_end_abs
-        {
-            return Err(telemetry_message(format!(
-                "producer '{path}' record window [{}..{}) is outside retained window [{}..{})",
-                snapshot.last_start_abs,
-                snapshot.last_end_abs,
-                snapshot.oldest_abs,
-                snapshot.head_abs
-            )));
+
+        let mut records = Vec::with_capacity(snapshot.scan_record_count);
+        for index in 0..snapshot.scan_record_count {
+            let offset = snapshot.scan_record_offsets[index];
+            let len = snapshot.scan_record_lengths[index];
+            if len < HEADER_LEN + CRC_LEN {
+                return Err(telemetry_message(format!(
+                    "producer '{path}' ScanRecordLengths[{index}]={len} is shorter than minimum record length {}",
+                    HEADER_LEN + CRC_LEN
+                )));
+            }
+            let end = offset.checked_add(len).ok_or_else(|| {
+                telemetry_message(format!(
+                    "producer '{path}' ScanRecordOffsets[{index}]={offset} plus length {len} overflows"
+                ))
+            })?;
+            if end > ST_SCAN_RECORD_CAPACITY {
+                return Err(telemetry_message(format!(
+                    "producer '{path}' ScanRecords descriptor {index} window [{offset}..{end}) exceeds capacity {ST_SCAN_RECORD_CAPACITY}"
+                )));
+            }
+            if len > publisher_capacity {
+                return Err(telemetry_message(format!(
+                    "producer '{path}' ScanRecordLengths[{index}]={len} exceeds telemetry ring capacity {publisher_capacity}"
+                )));
+            }
+
+            let record = &snapshot.scan_records[offset..end];
+            let consumed = validate_record(record).map_err(|err| {
+                telemetry_message(format!(
+                    "producer '{path}' ScanRecords descriptor {index} is not a valid OpenOT record: {err:?}"
+                ))
+            })?;
+            if consumed != len {
+                return Err(telemetry_message(format!(
+                    "producer '{path}' ScanRecords descriptor {index} declared length {consumed} != descriptor length {len}"
+                )));
+            }
+            records.push(record);
         }
-        let start_phys = usize::try_from(snapshot.last_start_abs % ST_RING_CAPACITY as u64)
-            .expect("modulo by 256 fits usize");
-        let len = usize::try_from(len).expect("validated record length fits usize");
-        let end_phys = start_phys + len;
-        if end_phys > ST_RING_CAPACITY {
-            return Err(telemetry_message(format!(
-                "producer '{path}' staged record crosses ring boundary: start_phys={start_phys}, len={len}"
-            )));
-        }
-        Ok(snapshot.ring[start_phys..end_phys].to_vec())
+        Ok(records)
     }
 
     fn value_type_name(value: &Value) -> &'static str {

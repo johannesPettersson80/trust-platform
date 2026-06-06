@@ -14,6 +14,10 @@ Target release: `v0.24.21`
   configured ST OpenOT producer FB via `[runtime.openot] source = "st-fb"` and
   `producer_instance`, while keeping the existing heartbeat publisher as the
   default.
+- trust-runtime: ST OpenOT producer telemetry now hands off multi-record
+  transition bursts through the producer FB `ScanRecords` descriptor outputs,
+  while fail-closing scans whose published-record delta does not match the
+  descriptor count.
 - trust-twin: robot-cell product bridge now generates `Robot_<Model>` ST
   function blocks from a URDF manifest, exposes a `Robot_P3MinimalArm`
   native FB through the runtime world-arm bridge, and keeps the example PLC
