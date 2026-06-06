@@ -51,45 +51,65 @@ impl<'a> BytecodeEncoder<'a> {
         let crate::program_model::LValue::Field { target, field } = target else {
             return Ok(None);
         };
-        let crate::program_model::LValue::Name(name) = target.as_ref() else {
-            return Ok(None);
-        };
         let Some(partial) = crate::value::parse_partial_access(field.as_str()) else {
             return Ok(None);
         };
 
         let start_len = code.len();
-        if let Some(reference) = self.resolve_name_ref(ctx, name)? {
-            self.emit_load_ref(&reference, code)?;
-            if !self.emit_expr(ctx, value, code)? {
-                code.truncate(start_len);
-                return Ok(Some(false));
+
+        if let crate::program_model::LValue::Name(name) = target.as_ref() {
+            if let Some(reference) = self.resolve_name_ref(ctx, name)? {
+                self.emit_load_ref(&reference, code)?;
+                if !self.emit_expr(ctx, value, code)? {
+                    code.truncate(start_len);
+                    return Ok(Some(false));
+                }
+                self.emit_partial_write(partial, code);
+                self.emit_store_ref(&reference, code)?;
+                return Ok(Some(true));
             }
-            self.emit_partial_write(partial, code);
-            self.emit_store_ref(&reference, code)?;
-            return Ok(Some(true));
+            if ctx.self_field_name(name).is_some() {
+                if !self.emit_self_field_ref(ctx, name, code)? {
+                    code.truncate(start_len);
+                    return Ok(Some(false));
+                }
+                code.push(0x32);
+                if !self.emit_expr(ctx, value, code)? {
+                    code.truncate(start_len);
+                    return Ok(Some(false));
+                }
+                self.emit_partial_write(partial, code);
+                if !self.emit_self_field_ref(ctx, name, code)? {
+                    code.truncate(start_len);
+                    return Ok(Some(false));
+                }
+                code.push(0x13); // SWAP
+                code.push(0x33); // STORE
+                return Ok(Some(true));
+            }
+            code.truncate(start_len);
+            return Ok(Some(false));
         }
-        if ctx.self_field_name(name).is_some() {
-            if !self.emit_self_field_ref(ctx, name, code)? {
-                code.truncate(start_len);
-                return Ok(Some(false));
-            }
-            code.push(0x32);
-            if !self.emit_expr(ctx, value, code)? {
-                code.truncate(start_len);
-                return Ok(Some(false));
-            }
-            self.emit_partial_write(partial, code);
-            if !self.emit_self_field_ref(ctx, name, code)? {
-                code.truncate(start_len);
-                return Ok(Some(false));
-            }
-            code.push(0x13); // SWAP
-            code.push(0x33); // STORE
-            return Ok(Some(true));
+
+        // Non-name target (e.g. s.b.%X3 where s is a struct via VAR_IN_OUT):
+        // get a ref to the base, load+partial-write+store.
+        if !self.emit_dynamic_ref_for_lvalue(ctx, target, code)? {
+            code.truncate(start_len);
+            return Ok(Some(false));
         }
-        code.truncate(start_len);
-        Ok(Some(false))
+        code.push(0x32); // DEREF: load current value at the target ref
+        if !self.emit_expr(ctx, value, code)? {
+            code.truncate(start_len);
+            return Ok(Some(false));
+        }
+        self.emit_partial_write(partial, code);
+        if !self.emit_dynamic_ref_for_lvalue(ctx, target, code)? {
+            code.truncate(start_len);
+            return Ok(Some(false));
+        }
+        code.push(0x13); // SWAP
+        code.push(0x33); // STORE
+        Ok(Some(true))
     }
 
     fn emit_dynamic_assign(

@@ -111,6 +111,10 @@ impl<'a> BytecodeEncoder<'a> {
                     }
                 } else if !self.emit_ref_expr(ctx, target, code)? {
                     Ok(false)
+                } else if let Some(access) = crate::value::parse_partial_access(field.as_str()) {
+                    code.push(0x32); // DEREF: load value from the referenced location
+                    self.emit_partial_read(access, code);
+                    Ok(true)
                 } else {
                     let field_idx = self.strings.intern(field.clone());
                     code.push(0x30);
