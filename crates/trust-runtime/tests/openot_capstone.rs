@@ -33,6 +33,9 @@ const DEFAULT_TIMEOUT_SECS: u64 = 60;
 const PER_SOURCE_ENV: &str = "OPENOT_CAPSTONE_PER_SOURCE";
 const CAPACITY_ENV: &str = "OPENOT_CAPSTONE_CAPACITY";
 const TIMEOUT_SECS_ENV: &str = "OPENOT_CAPSTONE_TIMEOUT_SECS";
+const FENCE_MODE_ENV: &str = "OPENOT_CAPSTONE_FENCE_MODE";
+const RUN_UNFENCED_ENV: &str = "OPENOT_CAPSTONE_RUN_UNFENCED";
+const EVIDENCE_MD_ENV: &str = "OPENOT_CAPSTONE_EVIDENCE_MD";
 const PRODUCER_READY_ENV: &str = "OPENOT_CAPSTONE_PRODUCER_READY";
 const CONSUMER_READY_ENV: &str = "OPENOT_CAPSTONE_CONSUMER_READY";
 const START_ENV: &str = "OPENOT_CAPSTONE_START";
@@ -43,56 +46,42 @@ const WORKDIR_ENV: &str = "OPENOT_CAPSTONE_WORKDIR";
 
 #[test]
 fn openot_capstone_fenced_cross_process() {
-    let paths = CapstonePaths::new();
-    paths.cleanup();
-
-    let producer = spawn_role(
-        "producer",
-        "openot_capstone_producer_process",
-        Some(0),
-        &paths,
-    )
-    .expect("spawn OpenOT capstone producer");
-    wait_for_file(&paths.producer_ready, Duration::from_secs(30))
-        .expect("producer did not become ready");
-
-    let consumer = spawn_role(
-        "consumer",
-        "openot_capstone_consumer_process",
-        Some(1),
-        &paths,
-    )
-    .expect("spawn OpenOT capstone consumer");
-    wait_for_file(&paths.consumer_ready, Duration::from_secs(30))
-        .expect("consumer did not become ready");
-
-    write_status_atomic(&paths.start, "start\n").expect("release capstone roles");
-
-    let producer_output = wait_for_role("producer", producer).expect("wait for producer role");
-    let consumer_output = wait_for_role("consumer", consumer).expect("wait for consumer role");
-    assert_role_success("producer", &producer_output);
-    assert_role_success("consumer", &consumer_output);
-
-    let report = ObservedReport::read(&paths.observed).expect("read capstone observed report");
+    let report = run_capstone_case(FenceMode::Fenced, "fenced");
     report
         .assert_fenced(None, true)
         .expect("fenced capstone report must reconcile");
     assert_expected_source_rows(&report);
+    print_report("capstone fenced", &report);
+}
 
-    println!("capstone fenced: {}", report.summary_line());
-    for source in &report.sources {
-        println!(
-            "capstone source run={} source={} expected_total={} delivered={} lost={} reconciled={}",
-            source.run_id,
-            source.source_id,
-            source.expected_total,
-            source.delivered,
-            source.lost,
-            source.delivered + source.lost
-        );
+#[test]
+#[ignore = "diagnostic unfenced experiment; set OPENOT_CAPSTONE_RUN_UNFENCED=1"]
+fn openot_capstone_unfenced_contrast() {
+    if env::var(RUN_UNFENCED_ENV).as_deref() != Ok("1") {
+        eprintln!("skipped; set {RUN_UNFENCED_ENV}=1 to run the unfenced capstone experiment");
+        return;
     }
 
-    paths.cleanup();
+    let fenced = run_capstone_case(FenceMode::Fenced, "contrast-fenced");
+    fenced
+        .assert_fenced(None, true)
+        .expect("fenced contrast reference must reconcile");
+    assert_expected_source_rows(&fenced);
+    print_report("capstone contrast fenced", &fenced);
+
+    let unfenced = run_capstone_case(FenceMode::Unfenced, "contrast-unfenced");
+    let evidence = unfenced.unfenced_evidence();
+    print_report("capstone contrast unfenced", &unfenced);
+    println!("{}", evidence.summary_line());
+    if !evidence.hazard_observed {
+        println!(
+            "capstone unfenced: {}",
+            open_ot_conformance::UnfencedEvidence::non_reproduction_note()
+        );
+    }
+    let path =
+        write_unfenced_contrast_markdown(&fenced, &unfenced).expect("write capstone evidence");
+    println!("capstone evidence: {}", path.display());
 }
 
 #[test]
@@ -115,11 +104,12 @@ fn openot_capstone_consumer_process() {
 
 fn run_producer_role() -> Result<(), Box<dyn Error>> {
     let paths = CapstonePaths::from_env()?;
+    let fence_mode = capstone_fence_mode();
     fs::create_dir_all(&paths.workdir)?;
     let runtime_toml = paths.workdir.join("runtime.toml");
     fs::write(
         &runtime_toml,
-        runtime_toml_text(&paths.shm, capstone_capacity(), &paths.workdir),
+        runtime_toml_text(&paths.shm, capstone_capacity(), &paths.workdir, fence_mode),
     )?;
     let config = RuntimeConfig::load(&runtime_toml)?;
 
@@ -139,22 +129,32 @@ fn run_producer_role() -> Result<(), Box<dyn Error>> {
 
 fn run_consumer_role() -> Result<(), Box<dyn Error>> {
     let paths = CapstonePaths::from_env()?;
-    let store = SharedConcurrentStore::open_existing_with_mode(&paths.shm, FenceMode::Fenced)?;
+    let fence_mode = capstone_fence_mode();
+    let store = SharedConcurrentStore::open_existing_with_mode(&paths.shm, fence_mode)?;
     let mut raw = ConcurrentRawConsumer::with_store(store.clone());
     let mut accounting = LossAccountingConsumer::new();
     let mut observer = BatchObserver::new(SidecarExpectedAbsOracle::new(
         capstone_capacity(),
         expected_records()?,
     )?);
+    let mut poll_errors = 0;
 
     write_status_atomic(&paths.consumer_ready, "ready\n")?;
     wait_for_file(&paths.start, Duration::from_secs(30))?;
 
     let deadline = Instant::now() + Duration::from_secs(capstone_timeout_secs());
     loop {
-        let batch = raw
-            .poll()
-            .map_err(|error| format!("capstone consumer poll failed: {error:?}"))?;
+        let batch = match raw.poll() {
+            Ok(batch) => batch,
+            Err(error) if fence_mode == FenceMode::Unfenced => {
+                poll_errors += 1;
+                eprintln!("capstone unfenced consumer poll error captured as evidence: {error:?}");
+                break;
+            }
+            Err(error) => {
+                return Err(format!("capstone consumer poll failed: {error:?}").into());
+            }
+        };
         observer.observe_batch(&batch)?;
         accounting.account_batch(&batch);
 
@@ -169,16 +169,70 @@ fn run_consumer_role() -> Result<(), Box<dyn Error>> {
     }
 
     let report = ObservedReport::from_consumer(ReportInputs {
-        metadata: ObservationMetadata::new("capstone", "st-fb", FenceMode::Fenced),
+        metadata: ObservationMetadata::new("capstone", "st-fb", fence_mode),
         expected_sources: expected_sources(),
         raw: &raw,
         accounting: &accounting,
         store: &store,
+        poll_errors,
         stale_violations: observer.into_violations(),
     });
     report.write(&paths.observed)?;
     println!("{}", report.summary_line());
     Ok(())
+}
+
+fn run_capstone_case(fence_mode: FenceMode, label: &str) -> ObservedReport {
+    let paths = CapstonePaths::new(label);
+    paths.cleanup();
+
+    let producer = spawn_role(
+        "producer",
+        "openot_capstone_producer_process",
+        Some(0),
+        fence_mode,
+        &paths,
+    )
+    .expect("spawn OpenOT capstone producer");
+    wait_for_file(&paths.producer_ready, Duration::from_secs(30))
+        .expect("producer did not become ready");
+
+    let consumer = spawn_role(
+        "consumer",
+        "openot_capstone_consumer_process",
+        Some(1),
+        fence_mode,
+        &paths,
+    )
+    .expect("spawn OpenOT capstone consumer");
+    wait_for_file(&paths.consumer_ready, Duration::from_secs(30))
+        .expect("consumer did not become ready");
+
+    write_status_atomic(&paths.start, "start\n").expect("release capstone roles");
+
+    let producer_output = wait_for_role("producer", producer).expect("wait for producer role");
+    let consumer_output = wait_for_role("consumer", consumer).expect("wait for consumer role");
+    assert_role_success("producer", &producer_output);
+    assert_role_success("consumer", &consumer_output);
+
+    let report = ObservedReport::read(&paths.observed).expect("read capstone observed report");
+    paths.cleanup();
+    report
+}
+
+fn print_report(label: &str, report: &ObservedReport) {
+    println!("{label}: {}", report.summary_line());
+    for source in &report.sources {
+        println!(
+            "{label} source run={} source={} expected_total={} delivered={} lost={} reconciled={}",
+            source.run_id,
+            source.source_id,
+            source.expected_total,
+            source.delivered,
+            source.lost,
+            source.delivered + source.lost
+        );
+    }
 }
 
 fn build_st_runtime(main_source: &str) -> Runtime {
@@ -375,6 +429,13 @@ fn capstone_timeout_secs() -> u64 {
         .unwrap_or(DEFAULT_TIMEOUT_SECS)
 }
 
+fn capstone_fence_mode() -> FenceMode {
+    env::var(FENCE_MODE_ENV)
+        .ok()
+        .map(|value| FenceMode::parse(&value).expect("valid capstone fence mode"))
+        .unwrap_or(FenceMode::Fenced)
+}
+
 fn assert_expected_source_rows(report: &ObservedReport) {
     let expected = expected_sources();
     assert_eq!(report.sources.len(), expected.len());
@@ -396,7 +457,13 @@ fn assert_expected_source_rows(report: &ObservedReport) {
     }
 }
 
-fn runtime_toml_text(shm_path: &Path, capacity: usize, workdir: &Path) -> String {
+fn runtime_toml_text(
+    shm_path: &Path,
+    capacity: usize,
+    workdir: &Path,
+    fence_mode: FenceMode,
+) -> String {
+    let allow_unfenced_for_proof = fence_mode == FenceMode::Unfenced;
     format!(
         r#"
 [bundle]
@@ -458,14 +525,86 @@ allow_write = []
 enabled = true
 path = "{shm_path}"
 capacity = {capacity}
-fence_mode = "fenced"
-allow_unfenced_for_proof = false
+fence_mode = "{fence_mode}"
+allow_unfenced_for_proof = {allow_unfenced_for_proof}
 source = "st-fb"
 producer_instance = "Main.Producer"
 "#,
         control_socket = workdir.join("control.sock").display(),
-        shm_path = shm_path.display()
+        shm_path = shm_path.display(),
+        fence_mode = fence_mode.as_str(),
     )
+}
+
+fn write_unfenced_contrast_markdown(
+    fenced: &ObservedReport,
+    unfenced: &ObservedReport,
+) -> io::Result<PathBuf> {
+    let path = capstone_evidence_path();
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+
+    let evidence = unfenced.unfenced_evidence();
+    let mut markdown = String::new();
+    markdown.push_str("# S4b-4b truST Capstone Unfenced Contrast\n\n");
+    markdown.push_str("## Envelope\n\n");
+    markdown.push_str(&format!("- arch: {}\n", env::consts::ARCH));
+    markdown.push_str(&format!("- sources: {:?}\n", SOURCE_IDS));
+    markdown.push_str(&format!("- per_source: {}\n", capstone_per_source()));
+    markdown.push_str(&format!("- capacity: {}\n", capstone_capacity()));
+    markdown.push_str(&format!("- timeout_secs: {}\n", capstone_timeout_secs()));
+    markdown.push_str(&format!("- taskset_available: {}\n\n", can_use_taskset()));
+
+    markdown.push_str("## Fenced Reference\n\n");
+    markdown.push_str(&format!("`{}`\n\n", fenced.summary_line()));
+    for source in &fenced.sources {
+        markdown.push_str(&format!(
+            "- run={} source={} expected_total={} delivered={} lost={} reconciled={}\n",
+            source.run_id,
+            source.source_id,
+            source.expected_total,
+            source.delivered,
+            source.lost,
+            source.delivered + source.lost
+        ));
+    }
+    markdown.push('\n');
+
+    markdown.push_str("## Unfenced Experiment\n\n");
+    markdown.push_str(&format!("`{}`\n\n", unfenced.summary_line()));
+    markdown.push_str(&format!("`{}`\n\n", evidence.summary_line()));
+    if !evidence.hazard_observed {
+        markdown.push_str(&format!(
+            "{}.\n\n",
+            open_ot_conformance::UnfencedEvidence::non_reproduction_note()
+        ));
+    }
+    for stale in unfenced.stale_violations.iter().take(10) {
+        markdown.push_str(&format!(
+            "- stale kind={} source={} seq={} expected_abs={} actual_abs={} crc_passed={}\n",
+            stale.kind.as_str(),
+            stale.source_id,
+            stale.seq,
+            stale.expected_abs,
+            stale.actual_abs,
+            stale.crc_passed
+        ));
+    }
+    if unfenced.stale_violations.is_empty() {
+        markdown.push_str("- stale samples: none\n");
+    }
+    fs::write(&path, markdown)?;
+    Ok(path)
+}
+
+fn capstone_evidence_path() -> PathBuf {
+    env::var_os(EVIDENCE_MD_ENV)
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../../target/gate-artifacts/openot/s4b-4b-capstone-contrast.md")
+        })
 }
 
 #[derive(Debug, Clone)]
@@ -481,7 +620,7 @@ struct CapstonePaths {
 }
 
 impl CapstonePaths {
-    fn new() -> Self {
+    fn new(label: &str) -> Self {
         let stamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("clock")
@@ -492,7 +631,7 @@ impl CapstonePaths {
             env::temp_dir()
         };
         let root = root_base.join(format!(
-            "trust-openot-capstone-{}-{stamp}",
+            "trust-openot-capstone-{label}-{}-{stamp}",
             std::process::id()
         ));
         Self::from_root(root)
@@ -533,6 +672,7 @@ fn spawn_role(
     role: &str,
     test_name: &str,
     preferred_core: Option<usize>,
+    fence_mode: FenceMode,
     paths: &CapstonePaths,
 ) -> io::Result<Child> {
     fs::create_dir_all(&paths.root)?;
@@ -547,6 +687,7 @@ fn spawn_role(
         .env(PER_SOURCE_ENV, capstone_per_source().to_string())
         .env(CAPACITY_ENV, capstone_capacity().to_string())
         .env(TIMEOUT_SECS_ENV, capstone_timeout_secs().to_string())
+        .env(FENCE_MODE_ENV, fence_mode.as_str())
         .env(WORKDIR_ENV, &paths.workdir)
         .env(SHM_ENV, &paths.shm)
         .env(PRODUCER_READY_ENV, &paths.producer_ready)
