@@ -26,6 +26,7 @@ impl<'a, 'b> ResolveCheckerRef<'a, 'b> {
                     | SyntaxKind::KwEno
                     | SyntaxKind::KwGet
                     | SyntaxKind::KwSet
+                    | SyntaxKind::KwStep
                     | SyntaxKind::KwRef
                     | SyntaxKind::KwNew
                     | SyntaxKind::KwNewDunder

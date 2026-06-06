@@ -165,6 +165,7 @@ pub(in crate::db) fn first_ident_token(node: &SyntaxNode) -> Option<SyntaxToken>
                     | SyntaxKind::KwEno
                     | SyntaxKind::KwGet
                     | SyntaxKind::KwSet
+                    | SyntaxKind::KwStep
             )
         })
 }

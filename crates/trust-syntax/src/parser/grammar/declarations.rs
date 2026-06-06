@@ -38,6 +38,7 @@ impl Parser<'_, '_> {
                 | TokenKind::KwEno
                 | TokenKind::KwGet
                 | TokenKind::KwSet
+                | TokenKind::KwStep
         )
     }
 
@@ -352,15 +353,12 @@ impl Parser<'_, '_> {
         self.start_node(SyntaxKind::VarDecl);
 
         // Parse variable names
-        if self.at(TokenKind::Ident) || self.at(TokenKind::KwEn) || self.at(TokenKind::KwEno) {
+        if self.at_name_token() {
             self.parse_name();
 
             while self.at(TokenKind::Comma) {
                 self.bump();
-                if self.at(TokenKind::Ident)
-                    || self.at(TokenKind::KwEn)
-                    || self.at(TokenKind::KwEno)
-                {
+                if self.at_name_token() {
                     self.parse_name();
                 }
             }

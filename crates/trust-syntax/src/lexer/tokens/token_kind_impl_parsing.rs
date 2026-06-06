@@ -28,6 +28,7 @@ impl TokenKind {
                 | Self::KwEno
                 | Self::KwGet
                 | Self::KwSet
+                | Self::KwStep
                 | Self::IntLiteral
                 | Self::RealLiteral
                 | Self::StringLiteral
@@ -63,6 +64,7 @@ impl TokenKind {
             self,
             Self::Hash
                 | Self::Ident
+                | Self::KwStep
                 | Self::DirectAddress
                 | Self::KwThis
                 | Self::KwSuper

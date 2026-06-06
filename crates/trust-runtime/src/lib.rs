@@ -79,6 +79,8 @@ mod numeric {
 /// OPC UA profile and IEC-to-OPC UA mapping helpers.
 #[path = "host/opcua/mod.rs"]
 pub mod opcua;
+/// OpenOT declaration-attribute authoring support.
+pub mod openot_authoring;
 /// PLCopen XML import/export helpers (strict subset profile).
 #[path = "host/plcopen.rs"]
 pub mod plcopen;

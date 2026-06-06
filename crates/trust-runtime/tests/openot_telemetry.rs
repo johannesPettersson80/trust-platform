@@ -3,17 +3,37 @@
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use open_ot_carriage::concurrent::ConcurrentRawConsumer;
+use open_ot_carriage::concurrent::{ConcurrentRawConsumer, ConcurrentStore};
+use open_ot_carriage::consumer::LossAccountingConsumer;
+use open_ot_carriage::control::ControlBlockSnapshot;
+use open_ot_carriage::loss::LossEvent;
 use open_ot_carriage::registry::{
-    EVENT_HEARTBEAT, EVENT_LOGGER_STOPPED, EVENT_MESSAGE, EVENT_SOURCE_HIGH_WATER, SYSTEM_SOURCE_ID,
+    EVENT_CONDITION_ACTIVE, EVENT_CONDITION_CLEARED, EVENT_HEARTBEAT, EVENT_LOGGER_STOPPED,
+    EVENT_MESSAGE, EVENT_SOURCE_HIGH_WATER, EVENT_STATE_TRANSITION, EVENT_VALUE_CHANGED,
+    KEY_CATEGORY, KEY_CONDITION_CLASS, KEY_CONDITION_ID, KEY_NEW_STATE, KEY_NEW_VALUE,
+    KEY_PREVIOUS_STATE, KEY_PREVIOUS_VALUE, KEY_SEVERITY, KEY_SOURCE_HIGH_WATER,
+    KEY_STATE_MACHINE_ID, KEY_VALUE_ID, SYSTEM_SOURCE_ID, TY_DINT, TY_REAL, TY_UDINT, TY_UINT,
+    TY_ULINT,
+};
+use open_ot_carriage::ring::{ReadRecord, DEFAULT_BUFFER_ID};
+use open_ot_carriage::wire::{Record, Slot};
+use open_ot_definition::{compute_content_hash, resolve_record, DefinitionFile, DefinitionSet};
+use open_ot_document::{
+    document_from_loss, document_from_resolution, to_json, EpochRelation, LossDocumentContext,
+    RecordDocumentContext,
 };
 use open_ot_shm::SharedConcurrentStore;
+use time::OffsetDateTime;
 use trust_runtime::config::{
     OpenOtTelemetryConfig, OpenOtTelemetryFenceMode, OpenOtTelemetrySource,
 };
 use trust_runtime::harness::{CompileSession, SourceFile, TestHarness};
+use trust_runtime::memory::InstanceId;
+use trust_runtime::openot_authoring;
 use trust_runtime::value::Value;
 use trust_runtime::Runtime;
+
+const DETERMINISTIC_SOURCE_TIME_BASE: u64 = 1_780_000_000_000_000_000;
 
 fn temp_shm_path(name: &str) -> PathBuf {
     let stamp = SystemTime::now()
@@ -36,9 +56,17 @@ fn telemetry_config(path: PathBuf, capacity: usize) -> OpenOtTelemetryConfig {
 }
 
 fn st_fb_telemetry_config(path: PathBuf, capacity: usize) -> OpenOtTelemetryConfig {
+    st_fb_telemetry_config_for(path, capacity, "Main.Producer")
+}
+
+fn st_fb_telemetry_config_for(
+    path: PathBuf,
+    capacity: usize,
+    producer_instance: &str,
+) -> OpenOtTelemetryConfig {
     OpenOtTelemetryConfig {
         source: OpenOtTelemetrySource::StFb,
-        producer_instance: Some("Main.Producer".into()),
+        producer_instance: Some(producer_instance.into()),
         ..telemetry_config(path, capacity)
     }
 }
@@ -46,6 +74,20 @@ fn st_fb_telemetry_config(path: PathBuf, capacity: usize) -> OpenOtTelemetryConf
 fn openot_iec_dir() -> PathBuf {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     manifest_dir.join("../../../open-ot-ref/st/iec61131")
+}
+
+fn openot_ref_dir() -> PathBuf {
+    openot_iec_dir()
+        .parent()
+        .and_then(|path| path.parent())
+        .expect("IEC dir has open-ot-ref root")
+        .to_path_buf()
+}
+
+fn reactor_program() -> String {
+    let path = openot_ref_dir().join("examples/reactor/Reactor.st");
+    std::fs::read_to_string(&path)
+        .unwrap_or_else(|err| panic!("read reactor example {}: {err}", path.display()))
 }
 
 fn openot_st_source_paths() -> Vec<PathBuf> {
@@ -178,6 +220,47 @@ END_PROGRAM
 "#
 }
 
+fn run_openot_st_pou_test(test_name: &str, fb_name: &str) {
+    let sources = openot_st_test_sources(
+        test_name,
+        &format!(
+            r#"
+PROGRAM Main
+VAR
+    Test : {fb_name};
+    Passed : BOOL;
+END_VAR
+
+Test();
+Passed := Test.Passed;
+END_PROGRAM
+"#
+        ),
+    );
+    let source_refs = sources.iter().map(String::as_str).collect::<Vec<_>>();
+    let mut harness = TestHarness::from_sources(&source_refs)
+        .unwrap_or_else(|err| panic!("build OpenOT ST POU harness {fb_name}: {err}"));
+    harness.cycle();
+
+    if harness.get_output("Passed") != Some(Value::Bool(true)) {
+        for name in [
+            "FirstBatchCount",
+            "FirstBatchDelta",
+            "NoChangeCount",
+            "NoChangeDelta",
+            "HeadersOk",
+            "EmissionsOk",
+            "ChangeSuppressionOk",
+        ] {
+            if let Some(value) = harness.get_output(name) {
+                eprintln!("{name}: {value:?}");
+            }
+        }
+    }
+
+    assert_eq!(harness.get_output("Passed"), Some(Value::Bool(true)));
+}
+
 #[test]
 fn openot_st_scan_records_burst_pou_passes() {
     let sources = openot_st_test_sources(
@@ -212,6 +295,56 @@ END_PROGRAM
         harness.get_output("SingleNoEdgeScanRecordCount"),
         Some(Value::UInt(1))
     );
+}
+
+#[test]
+fn openot_st_value_changed_vectors_are_byte_exact() {
+    run_openot_st_pou_test(
+        "test_conformant_value_changed_real.st",
+        "OPENOT_TestConformantValueChangedReal",
+    );
+    run_openot_st_pou_test(
+        "test_conformant_value_changed_int.st",
+        "OPENOT_TestConformantValueChangedInt",
+    );
+}
+
+#[test]
+fn openot_st_authoring_api_pou_passes() {
+    let sources = openot_st_test_sources(
+        "test_authoring_api.st",
+        r#"
+PROGRAM Main
+VAR
+    Test : OPENOT_TestAuthoringApi;
+    Passed : BOOL;
+    FirstBatchCount : UINT;
+    FirstBatchDelta : ULINT;
+    NoChangeCount : UINT;
+    NoChangeDelta : ULINT;
+    HeadersOk : BOOL;
+    EmissionsOk : BOOL;
+    ChangeSuppressionOk : BOOL;
+END_VAR
+
+Test();
+Passed := Test.Passed;
+FirstBatchCount := Test.FirstBatchCount;
+FirstBatchDelta := Test.FirstBatchDelta;
+NoChangeCount := Test.NoChangeCount;
+NoChangeDelta := Test.NoChangeDelta;
+HeadersOk := Test.HeadersOk;
+EmissionsOk := Test.EmissionsOk;
+ChangeSuppressionOk := Test.ChangeSuppressionOk;
+END_PROGRAM
+"#,
+    );
+    let source_refs = sources.iter().map(String::as_str).collect::<Vec<_>>();
+    let mut harness = TestHarness::from_sources(&source_refs)
+        .unwrap_or_else(|err| panic!("build authoring API POU harness: {err}"));
+    harness.cycle();
+
+    assert_eq!(harness.get_output("Passed"), Some(Value::Bool(true)));
 }
 
 #[test]
@@ -378,4 +511,528 @@ fn openot_telemetry_publishes_st_transition_burst() {
     assert_eq!(batch.records.len(), 0);
 
     drop(std::fs::remove_file(path));
+}
+
+#[test]
+fn openot_telemetry_authoring_showcase_renders_typed_audit_log() {
+    let path = temp_shm_path("authoring-showcase");
+    let program = reactor_program();
+    let mut runtime = build_st_runtime(&program);
+    runtime
+        .configure_openot_telemetry(
+            &st_fb_telemetry_config_for(path.clone(), 4096, "Main.OotProducer"),
+            None,
+        )
+        .expect("configure OpenOT ST FB telemetry");
+
+    let store = SharedConcurrentStore::open_existing(&path).expect("open telemetry shm");
+    let mut consumer = ConcurrentRawConsumer::with_store(store);
+    let mut audit_log = Vec::new();
+    let mut retained_records = Vec::new();
+    let source_time_window_start = unix_epoch_ns();
+    enable_host_source_time(&mut runtime);
+
+    for _ in 0..8 {
+        set_host_source_time(&mut runtime, unix_epoch_ns());
+        runtime
+            .execute_cycle()
+            .expect("showcase cycle publishes typed audit record");
+        let batch = consumer.poll().expect("poll showcase telemetry");
+        assert!(!batch.lapped);
+        audit_log.extend(render_audit_log(&batch.records));
+        retained_records.extend(batch.records.iter().cloned());
+    }
+
+    assert!(retained_records
+        .iter()
+        .all(|read| read.record.source_time >= source_time_window_start
+            && read.record.source_time <= unix_epoch_ns()));
+    assert!(retained_records
+        .iter()
+        .all(|read| read.record.source_time != DETERMINISTIC_SOURCE_TIME_BASE + read.record.seq));
+
+    let rendered_events = audit_log
+        .iter()
+        .map(|line| {
+            let (timestamp, event) = line
+                .split_once("  ")
+                .unwrap_or_else(|| panic!("timestamp column missing from {line}"));
+            assert_readable_utc_timestamp(timestamp);
+            event
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        rendered_events,
+        [
+            "Message source=1 seq=0",
+            "StateTransition source=1 seq=1 machine=7001 category=2 previous=0 new=1",
+            "ValueChanged source=1 seq=2 valueId=2001 new=REAL(0)",
+            "ValueChanged source=1 seq=3 valueId=2002 new=DINT(1)",
+            "ValueChanged source=1 seq=4 valueId=2001 previous=REAL(0) new=REAL(6)",
+            "StateTransition source=1 seq=5 machine=7001 category=2 previous=1 new=2",
+            "ValueChanged source=1 seq=6 valueId=2001 previous=REAL(6) new=REAL(12)",
+            "ValueChanged source=1 seq=7 valueId=2001 previous=REAL(12) new=REAL(13.5)",
+            "StateTransition source=1 seq=8 machine=7001 category=2 previous=2 new=3",
+            "ValueChanged source=1 seq=9 valueId=2001 previous=REAL(13.5) new=REAL(15)",
+            "ConditionActive source=1 seq=10 conditionId=9001 class=0 severity=900",
+            "ValueChanged source=1 seq=11 valueId=2001 previous=REAL(15) new=REAL(7.5)",
+            "StateTransition source=1 seq=12 machine=7001 category=2 previous=3 new=4",
+            "ValueChanged source=1 seq=13 valueId=2001 previous=REAL(7.5) new=REAL(0)",
+            "ConditionCleared source=1 seq=14 conditionId=9001 class=0 severity=900",
+        ]
+    );
+    assert_eq!(consumer.rejected_records(), 0);
+
+    let overflow = run_authoring_showcase_overflow();
+    write_authoring_showcase_artifacts(&retained_records, &audit_log, &overflow, &program)
+        .expect("write OpenOT authoring showcase artifact");
+
+    drop(std::fs::remove_file(path));
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct OverflowSummary {
+    retained_records: usize,
+    lapped_batches: u64,
+    lost_count: u64,
+    source_delivered: u64,
+    source_lost: u64,
+    loss_events: Vec<LossEvent>,
+}
+
+fn run_authoring_showcase_overflow() -> OverflowSummary {
+    let path = temp_shm_path("authoring-showcase-overflow");
+    let program = reactor_program();
+    let mut runtime = build_st_runtime(&program);
+    runtime
+        .configure_openot_telemetry(
+            &st_fb_telemetry_config_for(path.clone(), 180, "Main.OotProducer"),
+            None,
+        )
+        .expect("configure small OpenOT ST FB telemetry");
+    enable_host_source_time(&mut runtime);
+
+    for _ in 0..8 {
+        set_host_source_time(&mut runtime, unix_epoch_ns());
+        runtime
+            .execute_cycle()
+            .expect("showcase overflow cycle publishes");
+    }
+
+    let store = SharedConcurrentStore::open_existing(&path).expect("open overflow telemetry shm");
+    let lost_count = store.load_lost_acquire();
+    let mut consumer = ConcurrentRawConsumer::with_store(store);
+    let batch = consumer.poll().expect("poll overflow telemetry");
+    let mut accounting = LossAccountingConsumer::new();
+    accounting.account_batch(&batch);
+    let source_delivered = accounting.delivered(1);
+    let source_lost = accounting.lost(1);
+    let loss_events = accounting.loss_events();
+
+    assert!(batch.lapped, "small showcase ring must force a lapped read");
+    assert!(lost_count > 0, "small showcase ring must evict records");
+    assert!(
+        !loss_events.is_empty(),
+        "small showcase ring should produce reconciled loss intervals"
+    );
+    assert_eq!(
+        source_delivered + source_lost,
+        15,
+        "sequence gaps should reconcile the source stream"
+    );
+
+    drop(std::fs::remove_file(path));
+
+    OverflowSummary {
+        retained_records: batch.records.len(),
+        lapped_batches: consumer.lapped_batches(),
+        lost_count,
+        source_delivered,
+        source_lost,
+        loss_events,
+    }
+}
+
+fn render_audit_log(records: &[ReadRecord]) -> Vec<String> {
+    records
+        .iter()
+        .map(|read| render_record_line(&read.record))
+        .collect()
+}
+
+fn render_record_line(record: &Record) -> String {
+    format!(
+        "{}  {}",
+        format_source_time_utc(record.source_time),
+        render_record(record)
+    )
+}
+
+fn render_record(record: &Record) -> String {
+    match record.event_type_id {
+        EVENT_MESSAGE => format!("Message source={} seq={}", record.source_id, record.seq),
+        EVENT_LOGGER_STOPPED => {
+            format!(
+                "LoggerStopped source={} seq={}",
+                record.source_id, record.seq
+            )
+        }
+        EVENT_SOURCE_HIGH_WATER => format!(
+            "SourceHighWater source={} seq={} produced={}",
+            record.source_id,
+            record.seq,
+            required_ulint(record, KEY_SOURCE_HIGH_WATER)
+        ),
+        EVENT_STATE_TRANSITION => format!(
+            "StateTransition source={} seq={} machine={} category={} previous={} new={}",
+            record.source_id,
+            record.seq,
+            required_udint(record, KEY_STATE_MACHINE_ID),
+            required_uint(record, KEY_CATEGORY),
+            required_uint(record, KEY_PREVIOUS_STATE),
+            required_uint(record, KEY_NEW_STATE)
+        ),
+        EVENT_CONDITION_ACTIVE => format!(
+            "ConditionActive source={} seq={} conditionId={} class={} severity={}",
+            record.source_id,
+            record.seq,
+            required_udint(record, KEY_CONDITION_ID),
+            required_uint(record, KEY_CONDITION_CLASS),
+            required_uint(record, KEY_SEVERITY)
+        ),
+        EVENT_CONDITION_CLEARED => format!(
+            "ConditionCleared source={} seq={} conditionId={} class={} severity={}",
+            record.source_id,
+            record.seq,
+            required_udint(record, KEY_CONDITION_ID),
+            required_uint(record, KEY_CONDITION_CLASS),
+            required_uint(record, KEY_SEVERITY)
+        ),
+        EVENT_VALUE_CHANGED => render_value_changed(record),
+        other => format!(
+            "Event 0x{other:08X} source={} seq={}",
+            record.source_id, record.seq
+        ),
+    }
+}
+
+fn format_source_time_utc(source_time_ns: u64) -> String {
+    let datetime = OffsetDateTime::from_unix_timestamp_nanos(i128::from(source_time_ns))
+        .expect("sourceTimeNs must be a Unix timestamp");
+    format!(
+        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}.{:03}Z",
+        datetime.year(),
+        u8::from(datetime.month()),
+        datetime.day(),
+        datetime.hour(),
+        datetime.minute(),
+        datetime.second(),
+        datetime.nanosecond() / 1_000_000
+    )
+}
+
+fn assert_readable_utc_timestamp(timestamp: &str) {
+    assert_eq!(timestamp.len(), "2026-06-06T18:00:00.000Z".len());
+    assert_eq!(&timestamp[4..5], "-");
+    assert_eq!(&timestamp[7..8], "-");
+    assert_eq!(&timestamp[10..11], "T");
+    assert_eq!(&timestamp[13..14], ":");
+    assert_eq!(&timestamp[16..17], ":");
+    assert_eq!(&timestamp[19..20], ".");
+    assert_eq!(&timestamp[23..24], "Z");
+}
+
+fn unix_epoch_ns() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock must be after Unix epoch")
+        .as_nanos()
+        .try_into()
+        .expect("Unix nanoseconds fit u64")
+}
+
+fn enable_host_source_time(runtime: &mut Runtime) {
+    write_main_program_var(
+        runtime,
+        openot_authoring::GENERATED_USE_SOURCE_TIME_NAME,
+        Value::Bool(true),
+    );
+}
+
+fn set_host_source_time(runtime: &mut Runtime, source_time_ns: u64) {
+    write_main_program_var(
+        runtime,
+        openot_authoring::GENERATED_SOURCE_TIME_NAME,
+        Value::ULInt(source_time_ns),
+    );
+}
+
+fn write_main_program_var(runtime: &mut Runtime, name: &str, value: Value) {
+    let main_id = main_instance_id(runtime);
+    let reference = runtime
+        .storage()
+        .ref_for_instance_recursive(main_id, name)
+        .unwrap_or_else(|| panic!("missing generated Main.{name}"));
+    assert!(
+        runtime.storage_mut().write_by_ref(reference, value),
+        "write generated Main.{name}"
+    );
+}
+
+fn main_instance_id(runtime: &Runtime) -> InstanceId {
+    match runtime.storage().get_global("Main") {
+        Some(Value::Instance(id)) => *id,
+        other => panic!("expected Main program instance, got {other:?}"),
+    }
+}
+
+fn render_value_changed(record: &Record) -> String {
+    let value_id = required_udint(record, KEY_VALUE_ID);
+    let new_value = required_value(record, KEY_NEW_VALUE);
+    let previous = slot(record, KEY_PREVIOUS_VALUE)
+        .map(render_value_slot)
+        .map(|value| format!(" previous={value}"))
+        .unwrap_or_default();
+    format!(
+        "ValueChanged source={} seq={} valueId={}{} new={}",
+        record.source_id, record.seq, value_id, previous, new_value
+    )
+}
+
+fn required_value(record: &Record, key: u16) -> String {
+    render_value_slot(slot(record, key).unwrap_or_else(|| panic!("missing slot 0x{key:04X}")))
+}
+
+fn render_value_slot(slot: &Slot) -> String {
+    match slot.ty {
+        TY_REAL => format!(
+            "REAL({})",
+            f32::from_le_bytes(
+                slot.payload
+                    .as_slice()
+                    .try_into()
+                    .expect("REAL payload width")
+            )
+        ),
+        TY_DINT => format!(
+            "DINT({})",
+            i32::from_le_bytes(
+                slot.payload
+                    .as_slice()
+                    .try_into()
+                    .expect("DINT payload width")
+            )
+        ),
+        other => panic!("unsupported value payload type {other}"),
+    }
+}
+
+fn required_udint(record: &Record, key: u16) -> u32 {
+    let slot = slot(record, key).unwrap_or_else(|| panic!("missing slot 0x{key:04X}"));
+    assert_eq!(slot.ty, TY_UDINT);
+    u32::from_le_bytes(
+        slot.payload
+            .as_slice()
+            .try_into()
+            .expect("UDINT payload width"),
+    )
+}
+
+fn required_uint(record: &Record, key: u16) -> u16 {
+    let slot = slot(record, key).unwrap_or_else(|| panic!("missing slot 0x{key:04X}"));
+    assert_eq!(slot.ty, TY_UINT);
+    u16::from_le_bytes(
+        slot.payload
+            .as_slice()
+            .try_into()
+            .expect("UINT payload width"),
+    )
+}
+
+fn required_ulint(record: &Record, key: u16) -> u64 {
+    let slot = slot(record, key).unwrap_or_else(|| panic!("missing slot 0x{key:04X}"));
+    assert_eq!(slot.ty, TY_ULINT);
+    u64::from_le_bytes(
+        slot.payload
+            .as_slice()
+            .try_into()
+            .expect("ULINT payload width"),
+    )
+}
+
+fn slot(record: &Record, key: u16) -> Option<&Slot> {
+    record.slots.iter().find(|slot| slot.key == key)
+}
+
+fn write_authoring_showcase_artifacts(
+    records: &[ReadRecord],
+    audit_log: &[String],
+    overflow: &OverflowSummary,
+    reactor_source: &str,
+) -> std::io::Result<()> {
+    let reactor_dir = openot_ref_dir().join("examples/reactor");
+    std::fs::create_dir_all(&reactor_dir)?;
+
+    let mut text = String::new();
+    text.push_str("OpenOT Reactor Batch Log\n\n");
+    for line in audit_log {
+        text.push_str(line);
+        text.push('\n');
+    }
+    text.push_str("\nForced overflow\n");
+    text.push_str(&format!(
+        "retained_records: {}\nlapped_batches: {}\nshm_lost_count: {}\nsource_1_delivered: {}\nsource_1_lost: {}\nsource_1_reconciled: {}\n",
+        overflow.retained_records,
+        overflow.lapped_batches,
+        overflow.lost_count,
+        overflow.source_delivered,
+        overflow.source_lost,
+        overflow.source_delivered + overflow.source_lost
+    ));
+    std::fs::write(reactor_dir.join("batch-log.txt"), &text)?;
+
+    let definition = reactor_definition(reactor_source);
+    let docs = batch_log_documents(records, overflow, &definition);
+    assert_resolved_reactor_documents(&docs);
+    let json = serde_json::to_string_pretty(&docs).expect("serialize reactor batch log");
+    std::fs::write(reactor_dir.join("batch-log.json"), format!("{json}\n"))?;
+
+    let definition_json =
+        serde_json::to_string_pretty(&definition).expect("serialize reactor definition");
+    std::fs::write(
+        reactor_dir.join("openot-definition.json"),
+        format!("{definition_json}\n"),
+    )?;
+
+    write_reactor_readme(&reactor_dir, &text)?;
+
+    Ok(())
+}
+
+fn reactor_definition(reactor_source: &str) -> DefinitionFile {
+    let definition = openot_authoring::definition_json_from_sources(&[SourceFile::with_path(
+        "examples/reactor/Reactor.st",
+        reactor_source,
+    )])
+    .expect("generate OpenOT reactor definition");
+    serde_json::from_value(definition).expect("parse generated OpenOT reactor definition")
+}
+
+fn write_reactor_readme(reactor_dir: &std::path::Path, batch_log: &str) -> std::io::Result<()> {
+    let readme = format!(
+        r#"# OpenOT Reactor Example
+
+This example is the attribute-authored OpenOT path:
+
+- `Reactor.st` contains normal Structured Text and `{{attribute 'oot' := ...}}` declarations.
+- The procedural state is declared as `E_ReactorStep`; the generated definition file carries that enum set.
+- The truST compiler lowers those declarations to a hidden `OotProducer : OPENOT_Producer`.
+- The existing ST-FB telemetry path publishes `Main.OotProducer` records to shared memory.
+- The runtime supplies the source clock: hosted build -> host Unix clock; real hardware -> RTC/NTP.
+- `batch-log.json`, `batch-log.txt`, and `openot-definition.json` are generated from a truST -> shm -> consumer run.
+
+Run the proof from the sibling `trust-platform` checkout:
+
+```sh
+cargo test -p trust-runtime --test openot_telemetry openot_telemetry_authoring_showcase_renders_typed_audit_log -- --nocapture
+```
+
+The authoring surface in `Reactor.st` is declaration-only. It must not contain `Op :=`, `Execute :=`, or `OOT_Log`.
+
+Rendered batch log:
+
+```text
+{batch_log}```
+"#
+    );
+    std::fs::write(reactor_dir.join("README.md"), readme)
+}
+
+fn batch_log_documents(
+    records: &[ReadRecord],
+    overflow: &OverflowSummary,
+    definition: &DefinitionFile,
+) -> serde_json::Value {
+    let hash = compute_content_hash(definition).expect("hash reactor definition");
+    let snapshot = ControlBlockSnapshot {
+        version: 2,
+        caps: 0,
+        buffer_id: DEFAULT_BUFFER_ID,
+        buffer_bytes: 4096,
+        head_abs: records.last().map_or(0, |record| record.end_abs),
+        oldest_abs: records.first().map_or(0, |record| record.start_abs),
+        lost_count: overflow.lost_count,
+        run_id: 1,
+        epoch_id: 1,
+        epoch_first_abs: 0,
+        definition_hash: hash.carriage_hash,
+        prev_definition_hash: [0; 8],
+    };
+    let definition_set = DefinitionSet::current(definition);
+    let mut docs = records
+        .iter()
+        .map(|read| {
+            let resolution =
+                resolve_record(&read.record, read.start_abs, &snapshot, &definition_set);
+            let context = RecordDocumentContext::new(
+                DEFAULT_BUFFER_ID,
+                read.record.source_time,
+                hash.carriage_hash,
+                read.record.flags,
+            )
+            .with_semantic_version(definition.header.semantic_version.clone());
+            let document = document_from_resolution(&resolution, &context);
+            serde_json::from_str(&to_json(&document).expect("serialize event document"))
+                .expect("parse event document")
+        })
+        .collect::<Vec<serde_json::Value>>();
+
+    for event in &overflow.loss_events {
+        let context = LossDocumentContext::new(
+            unix_epoch_ns(),
+            1,
+            EpochRelation::Current,
+            hash.carriage_hash,
+        )
+        .with_semantic_version(definition.header.semantic_version.clone());
+        let document = document_from_loss(event, &context);
+        docs.push(
+            serde_json::from_str(&to_json(&document).expect("serialize loss document"))
+                .expect("parse loss document"),
+        );
+    }
+    docs.push(serde_json::json!({
+        "kind": "lossReconciliation",
+        "retainedRecords": overflow.retained_records,
+        "lappedBatches": overflow.lapped_batches,
+        "shmLostCount": overflow.lost_count,
+        "source1Delivered": overflow.source_delivered,
+        "source1Lost": overflow.source_lost,
+        "source1Reconciled": overflow.source_delivered + overflow.source_lost
+    }));
+    serde_json::Value::Array(docs)
+}
+
+fn assert_resolved_reactor_documents(docs: &serde_json::Value) {
+    let text = serde_json::to_string(docs).expect("serialize resolved docs");
+    assert!(
+        text.contains(r#""name":"value","type":"ValueRef","value":"Level""#),
+        "{text}"
+    );
+    assert!(text.contains(r#""unit":"L""#), "{text}");
+    assert!(
+        text.contains(r#""name":"stateMachine","type":"StateMachineRef","value":"Step""#),
+        "{text}"
+    );
+    assert!(
+        text.contains(r#""name":"newState","type":"StateRef","value":"Filling""#),
+        "{text}"
+    );
+    assert!(
+        text.contains(r#""name":"condition","type":"ConditionRef","value":"HighPhAlarm""#),
+        "{text}"
+    );
+    assert!(!text.contains(r#""valueId""#), "{text}");
+    assert!(!text.contains(r#""stateMachineId""#), "{text}");
+    assert!(!text.contains(r#""conditionId""#), "{text}");
 }

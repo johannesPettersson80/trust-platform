@@ -173,6 +173,7 @@ impl Parser<'_, '_> {
                                 | TokenKind::KwEno
                                 | TokenKind::KwGet
                                 | TokenKind::KwSet
+                                | TokenKind::KwStep
                         ) {
                             self.bump();
                         }
@@ -194,6 +195,7 @@ impl Parser<'_, '_> {
                         | TokenKind::KwEno
                         | TokenKind::KwGet
                         | TokenKind::KwSet
+                        | TokenKind::KwStep
                 ) {
                     self.bump();
                 } else {
@@ -206,6 +208,7 @@ impl Parser<'_, '_> {
             | TokenKind::KwEno
             | TokenKind::KwGet
             | TokenKind::KwSet
+            | TokenKind::KwStep
             | TokenKind::KwTime
             | TokenKind::KwRef
             | TokenKind::KwNew
@@ -225,6 +228,7 @@ impl Parser<'_, '_> {
                         | TokenKind::KwEno
                         | TokenKind::KwGet
                         | TokenKind::KwSet
+                        | TokenKind::KwStep
                 ) {
                     self.bump();
                 } else {

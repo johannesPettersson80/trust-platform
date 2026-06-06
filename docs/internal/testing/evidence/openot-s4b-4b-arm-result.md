@@ -53,3 +53,14 @@ Source reconciliation:
 ## Interpretation
 
 The S4b-4b experiment path is implemented and records stale, rejected, and poll-error evidence without making unfenced firing a CI gate. On this Cortex-A76 run, both live-harness and truST capstone stayed clean under the bounded ladder. This is a non-reproduction, not evidence that the unfenced transport is safe.
+
+The experiment is sound, not vacuous: `FenceMode::Unfenced` genuinely drops the section 4.3 release/acquire fences. In `open-ot-ref/crates/open-ot-shm/src/lib.rs:348-358`, `release_before_clobber` and `acquire_before_recheck` are gated on `FenceMode::Fenced`, so the unfenced runs above executed with those fences removed.
+
+A live ARM leak was never the load-bearing proof that the fences matter, and a non-reproduction does not weaken that proof. The fences are established as load-bearing in `open-ot-ref/crates/carriage/src/concurrent.rs` by:
+
+- the **fenced** loom model (`loom_rejects_mid_write_overwrite_or_reads_old_complete_record`), which proves the consumer never accepts torn or pre-publish bytes when the section 4.3 fences are present; and
+- the production-store **fence-hook usage** test (`owned_store_protocol_uses_fence_hooks`), which proves the real publisher/consumer invoke those fence hooks.
+
+The same file documents that the **unfenced** hole is, by nature, not reliably detectable by tooling: `loom_control_unfenced_model_does_not_expose_weak_memory_hole` (concurrent.rs:1103-1139) is an intentionally passing documentation test whose comment states correctness "rests on the section 4.3 release/acquire fences, not on loom detecting this relaxed-reordering gap." A hardware stress that fails to surface the hole on a given core/envelope is therefore the *expected* result, fully consistent with the model — not a sign the fences are unnecessary.
+
+Conclusion: the section 4.3 fences are proven load-bearing (fenced loom model + fence-hook usage). This ARM run is a complementary best-effort attempt to also exhibit the hardware-level hole directly; it did not fire within the bounded ladder on this Cortex-A76, which is the documented-expected outcome — recorded as a non-reproduction, not proof of safety.

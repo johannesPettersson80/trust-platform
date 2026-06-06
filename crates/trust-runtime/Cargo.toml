@@ -66,6 +66,8 @@ open-ot-shm = { path = "../../../open-ot-ref/crates/open-ot-shm" }
 
 [target.'cfg(unix)'.dev-dependencies]
 open-ot-conformance = { path = "../../../open-ot-ref/crates/conformance" }
+open-ot-definition = { path = "../../../open-ot-ref/crates/definition" }
+open-ot-document = { path = "../../../open-ot-ref/crates/document" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 rustix = { version = "1.1.4", features = ["mm", "thread"] }

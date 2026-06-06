@@ -18,6 +18,12 @@ Target release: `v0.24.21`
   transition bursts through the producer FB `ScanRecords` descriptor outputs,
   while fail-closing scans whose published-record delta does not match the
   descriptor count.
+- trust-runtime: OpenOT declaration attributes (`{attribute 'oot' := ...}`) now
+  lower to the hidden ST-FB producer path for value, state, message, and alarm
+  records, including enum-typed state variables whose HIR enum values populate
+  StateTransition payloads and definition-file enum sets, with a reactor example
+  that emits a UTC-rendered, runtime-clocked typed audit log, definition file,
+  and forced-overflow reconciliation artifact.
 - trust-twin: robot-cell product bridge now generates `Robot_<Model>` ST
   function blocks from a URDF manifest, exposes a `Robot_P3MinimalArm`
   native FB through the runtime world-arm bridge, and keeps the example PLC

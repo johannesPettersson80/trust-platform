@@ -514,7 +514,9 @@ impl SymbolCollector<'_> {
         let allow_reserved = (matches!(symbol.kind, SymbolKind::Parameter { .. })
             && matches!(upper_name.as_str(), "EN" | "ENO"))
             || (matches!(symbol.kind, SymbolKind::Method { .. })
-                && matches!(upper_name.as_str(), "GET" | "SET"));
+                && matches!(upper_name.as_str(), "GET" | "SET"))
+            || (matches!(symbol.kind, SymbolKind::Variable { .. })
+                && matches!(upper_name.as_str(), "STEP"));
         self.validate_identifier(&name, range, allow_reserved);
 
         // Check for duplicate in current scope
