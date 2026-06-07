@@ -20,6 +20,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Checkout OpenOT reference sibling
+        run: git clone --depth 1 https://github.com/johannesPettersson80/open-ot-experiments ../open-ot-ref
+
       - uses: dtolnay/rust-toolchain@stable
 
       - uses: Swatinem/rust-cache@v2
@@ -74,6 +77,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+
+      - name: Checkout OpenOT reference sibling
+        run: git clone --depth 1 https://github.com/johannesPettersson80/open-ot-experiments ../open-ot-ref
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
