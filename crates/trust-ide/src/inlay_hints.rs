@@ -6,6 +6,7 @@ use smol_str::SmolStr;
 use text_size::{TextRange, TextSize};
 
 use trust_hir::db::{FileId, SourceDatabase};
+use trust_hir::openot_authoring::{self as openot_vocab, OotKind};
 use trust_hir::symbols::ParamDirection;
 use trust_hir::Database;
 use trust_syntax::parser::parse;
@@ -19,6 +20,8 @@ use crate::util::name_from_name_node;
 pub enum InlayHintKind {
     /// Parameter name hint.
     Parameter,
+    /// OpenOT telemetry emission hint.
+    Telemetry,
 }
 
 /// A single inlay hint in ST source.
@@ -39,6 +42,7 @@ pub fn inlay_hints(db: &Database, file_id: FileId, range: TextRange) -> Vec<Inla
     let root = parsed.syntax();
 
     let mut hints = Vec::new();
+    hints.extend(openot_attribute_hints(&root, range));
     for call_expr in root
         .descendants()
         .filter(|n| n.kind() == SyntaxKind::CallExpr)
@@ -92,6 +96,57 @@ pub fn inlay_hints(db: &Database, file_id: FileId, range: TextRange) -> Vec<Inla
     }
 
     hints
+}
+
+fn openot_attribute_hints(root: &SyntaxNode, range: TextRange) -> Vec<InlayHint> {
+    let mut hints = Vec::new();
+    for var_decl in root
+        .descendants()
+        .filter(|node| node.kind() == SyntaxKind::VarDecl)
+    {
+        if !range_intersects(var_decl.text_range(), range) {
+            continue;
+        }
+        let attrs = openot_vocab::parse_attribute_map_from_node(&var_decl);
+        let Some(kind) = attrs.kind() else {
+            continue;
+        };
+        let Some(type_ref) = var_decl
+            .children()
+            .find(|child| child.kind() == SyntaxKind::TypeRef)
+        else {
+            continue;
+        };
+        let Some(label) = openot_hint_label(kind, &attrs) else {
+            continue;
+        };
+        hints.push(InlayHint {
+            position: type_ref.text_range().end(),
+            label: SmolStr::new(label),
+            kind: InlayHintKind::Telemetry,
+        });
+    }
+    hints
+}
+
+fn openot_hint_label(kind: OotKind, attrs: &openot_vocab::AttributeMap) -> Option<String> {
+    match kind {
+        OotKind::Value => {
+            let mut label = if let Some(deadband) = attrs.get("deadband") {
+                format!("ValueChanged on delta>{deadband}")
+            } else {
+                "ValueChanged on change".to_string()
+            };
+            if let Some(unit) = attrs.get("unit") {
+                label.push(' ');
+                label.push_str(unit);
+            }
+            Some(label)
+        }
+        OotKind::State => Some("StateTransition on change".to_string()),
+        OotKind::Alarm => Some("ConditionActive/Cleared on edge".to_string()),
+        OotKind::Message => Some("Message on TRUE edge".to_string()),
+    }
 }
 
 #[derive(Debug, Clone)]

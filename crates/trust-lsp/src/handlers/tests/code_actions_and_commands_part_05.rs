@@ -1,6 +1,115 @@
 use super::*;
 
 #[test]
+fn lsp_code_action_adds_openot_logging_by_declared_type() {
+    let source = r#"
+TYPE E_Step : (Idle := 0, Filling := 1) END_TYPE
+
+PROGRAM Main
+VAR
+    Step : E_Step;
+    Level : REAL;
+    BatchCount : DINT;
+    HighPhAlarm : BOOL;
+END_VAR
+END_PROGRAM
+"#;
+    let state = ServerState::new();
+    let uri = tower_lsp::lsp_types::Url::parse("file:///openot-actions.st").unwrap();
+    state.open_document(uri.clone(), 1, source.to_string());
+
+    let step_edits = openot_action_edits(&state, &uri, source, "Step : E_Step;");
+    assert!(
+        step_edits.iter().any(|(title, text)| {
+            title == "Add OpenOT logging"
+                && text.contains("{attribute 'oot' := 'state', 'category' := 'process'}")
+        }),
+        "{step_edits:?}"
+    );
+
+    let level_edits = openot_action_edits(&state, &uri, source, "Level :");
+    assert!(
+        level_edits.iter().any(|(title, text)| {
+            title == "Add OpenOT logging" && text.contains("{attribute 'oot' := 'value'}")
+        }),
+        "{level_edits:?}"
+    );
+
+    let count_edits = openot_action_edits(&state, &uri, source, "BatchCount :");
+    assert!(
+        count_edits.iter().any(|(title, text)| {
+            title == "Add OpenOT logging"
+                && text.contains("{attribute 'oot' := 'value'}")
+                && !text.contains("unit")
+                && !text.contains("deadband")
+        }),
+        "{count_edits:?}"
+    );
+
+    let bool_edits = openot_action_edits(&state, &uri, source, "HighPhAlarm :");
+    assert!(
+        bool_edits.iter().any(|(title, text)| {
+            title == "Add OpenOT logging as alarm"
+                && text.contains("{attribute 'oot' := 'alarm'}")
+                && !text.contains("class")
+                && !text.contains("severity")
+        }),
+        "{bool_edits:?}"
+    );
+    assert!(
+        bool_edits.iter().any(|(title, text)| {
+            title == "Add OpenOT logging as message"
+                && text.contains("{attribute 'oot' := 'message'}")
+                && !text.contains("template")
+        }),
+        "{bool_edits:?}"
+    );
+}
+
+fn openot_action_edits(
+    state: &ServerState,
+    uri: &tower_lsp::lsp_types::Url,
+    source: &str,
+    needle: &str,
+) -> Vec<(String, String)> {
+    let position = position_at(source, needle);
+    let params = tower_lsp::lsp_types::CodeActionParams {
+        text_document: tower_lsp::lsp_types::TextDocumentIdentifier { uri: uri.clone() },
+        range: tower_lsp::lsp_types::Range {
+            start: position,
+            end: position,
+        },
+        context: tower_lsp::lsp_types::CodeActionContext {
+            diagnostics: Vec::new(),
+            only: None,
+            trigger_kind: None,
+        },
+        work_done_progress_params: Default::default(),
+        partial_result_params: Default::default(),
+    };
+
+    let actions = code_action(state, params).expect("code actions");
+    actions
+        .into_iter()
+        .filter_map(|action| match action {
+            tower_lsp::lsp_types::CodeActionOrCommand::CodeAction(action) => {
+                let edit_text = action
+                    .edit
+                    .and_then(|edit| edit.changes)
+                    .into_iter()
+                    .flat_map(|changes| changes.into_values())
+                    .flatten()
+                    .map(|edit| edit.new_text)
+                    .collect::<Vec<_>>()
+                    .join("");
+                Some((action.title, edit_text))
+            }
+            tower_lsp::lsp_types::CodeActionOrCommand::Command(_) => None,
+        })
+        .collect()
+}
+
+#[test]
 fn lsp_code_action_namespace_disambiguation() {
     let source = r#"
 NAMESPACE LibA

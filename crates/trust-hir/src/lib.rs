@@ -32,6 +32,7 @@
 pub mod db;
 pub mod diagnostics;
 pub mod ident;
+pub mod openot_authoring;
 /// Project-wide source registry and database helpers.
 pub mod project;
 pub mod semantic;

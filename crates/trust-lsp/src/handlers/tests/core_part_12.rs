@@ -1,6 +1,161 @@
 use super::*;
 
 #[test]
+pub(super) fn lsp_openot_completion_returns_documented_values_and_keys() {
+    let source = r#"
+TYPE E_Step : (Idle := 0, Filling := 1) END_TYPE
+
+PROGRAM Main
+VAR
+    Step : E_Step {attribute 'oot' := 'state', 'category' := ''};
+    HighPhAlarm : BOOL {attribute 'oot' := 'alarm', };
+END_VAR
+END_PROGRAM
+"#;
+    let state = ServerState::new();
+    let uri = tower_lsp::lsp_types::Url::parse("file:///openot-completion.st").unwrap();
+    state.open_document(uri.clone(), 1, source.to_string());
+
+    let category_cursor =
+        source.find("'category' := '").expect("category") + "'category' := '".len();
+    let category_labels = completion_labels(&state, &uri, source, category_cursor);
+    assert!(category_labels.iter().any(|label| label == "process"));
+    assert!(category_labels.iter().any(|label| label == "mode"));
+    assert!(category_labels.iter().any(|label| label == "procedural"));
+
+    let key_cursor = source.find("'alarm', ").expect("alarm comma") + "'alarm', ".len();
+    let key_labels = completion_labels(&state, &uri, source, key_cursor);
+    assert!(key_labels.iter().any(|label| label == "class"));
+    assert!(key_labels.iter().any(|label| label == "severity"));
+}
+
+#[test]
+pub(super) fn lsp_openot_validation_reports_bad_value_and_accepts_good_value() {
+    let bad = r#"
+PROGRAM Main
+VAR
+    Step : INT {attribute 'oot' := 'state', 'category' := 'banana'};
+END_VAR
+END_PROGRAM
+"#;
+    let bad_state = ServerState::new();
+    let bad_uri = tower_lsp::lsp_types::Url::parse("file:///openot-bad.st").unwrap();
+    bad_state.open_document(bad_uri.clone(), 1, bad.to_string());
+    let bad_diagnostics = document_diagnostics(&bad_state, bad_uri);
+    assert!(
+        bad_diagnostics.iter().any(|diagnostic| {
+            diagnostic.code.as_ref().is_some_and(|code| {
+                matches!(
+                    code,
+                    tower_lsp::lsp_types::NumberOrString::String(value) if value == "E308"
+                )
+            }) && diagnostic.message.contains("unknown OpenOT category")
+        }),
+        "{bad_diagnostics:#?}"
+    );
+
+    let good = r#"
+TYPE E_Step : (Idle := 0, Filling := 1) END_TYPE
+
+PROGRAM Main
+VAR
+    Step : E_Step {attribute 'oot' := 'state', 'category' := 'process'};
+END_VAR
+END_PROGRAM
+"#;
+    let good_state = ServerState::new();
+    let good_uri = tower_lsp::lsp_types::Url::parse("file:///openot-good.st").unwrap();
+    good_state.open_document(good_uri.clone(), 1, good.to_string());
+    let good_diagnostics = document_diagnostics(&good_state, good_uri);
+    assert!(
+        !good_diagnostics.iter().any(|diagnostic| {
+            diagnostic.code.as_ref().is_some_and(|code| {
+                matches!(
+                    code,
+                    tower_lsp::lsp_types::NumberOrString::String(value) if value == "E308"
+                )
+            })
+        }),
+        "{good_diagnostics:#?}"
+    );
+}
+
+#[test]
+pub(super) fn lsp_openot_inlay_hint_shows_emitted_record() {
+    let source = r#"
+PROGRAM Main
+VAR
+    Level : REAL {attribute 'oot' := 'value', 'unit' := 'L', 'deadband' := '0.5'};
+END_VAR
+END_PROGRAM
+"#;
+    let state = ServerState::new();
+    let uri = tower_lsp::lsp_types::Url::parse("file:///openot-inlay.st").unwrap();
+    state.open_document(uri.clone(), 1, source.to_string());
+    let params = tower_lsp::lsp_types::InlayHintParams {
+        text_document: tower_lsp::lsp_types::TextDocumentIdentifier { uri },
+        range: tower_lsp::lsp_types::Range {
+            start: super::super::lsp_utils::offset_to_position(source, 0),
+            end: super::super::lsp_utils::offset_to_position(source, source.len() as u32),
+        },
+        work_done_progress_params: Default::default(),
+    };
+    let hints = inlay_hint(&state, params).expect("inlay hints");
+    assert!(
+        hints
+            .iter()
+            .any(|hint| inlay_label_contains(&hint.label, "ValueChanged on delta>0.5 L")),
+        "{hints:#?}"
+    );
+}
+
+fn completion_labels(
+    state: &ServerState,
+    uri: &tower_lsp::lsp_types::Url,
+    source: &str,
+    offset: usize,
+) -> Vec<String> {
+    let params = tower_lsp::lsp_types::CompletionParams {
+        text_document_position: tower_lsp::lsp_types::TextDocumentPositionParams {
+            text_document: tower_lsp::lsp_types::TextDocumentIdentifier { uri: uri.clone() },
+            position: super::super::lsp_utils::offset_to_position(source, offset as u32),
+        },
+        work_done_progress_params: Default::default(),
+        partial_result_params: Default::default(),
+        context: None,
+    };
+    let response = completion(state, params).expect("completion response");
+    let items = match response {
+        tower_lsp::lsp_types::CompletionResponse::Array(items) => items,
+        tower_lsp::lsp_types::CompletionResponse::List(list) => list.items,
+    };
+    items.into_iter().map(|item| item.label).collect()
+}
+
+fn document_diagnostics(
+    state: &ServerState,
+    uri: tower_lsp::lsp_types::Url,
+) -> Vec<tower_lsp::lsp_types::Diagnostic> {
+    let params = tower_lsp::lsp_types::DocumentDiagnosticParams {
+        text_document: tower_lsp::lsp_types::TextDocumentIdentifier { uri },
+        identifier: None,
+        previous_result_id: None,
+        work_done_progress_params: Default::default(),
+        partial_result_params: Default::default(),
+    };
+    let report = document_diagnostic(state, params);
+    let report = match report {
+        tower_lsp::lsp_types::DocumentDiagnosticReportResult::Report(report) => report,
+        _ => panic!("expected diagnostic report"),
+    };
+    let full = match report {
+        tower_lsp::lsp_types::DocumentDiagnosticReport::Full(full) => full,
+        _ => panic!("expected full diagnostic report"),
+    };
+    full.full_document_diagnostic_report.items
+}
+
+#[test]
 pub(super) fn lsp_completion_constant_parameter_uses_constant_kind() {
     let source = r#"
 FUNCTION_BLOCK Fb

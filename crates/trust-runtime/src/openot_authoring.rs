@@ -12,6 +12,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 use text_size::TextRange;
 use trust_hir::db::{FileId, SemanticDatabase};
+use trust_hir::openot_authoring as hir_openot;
+use trust_hir::openot_authoring::OotKind;
 use trust_hir::semantic::{DeclarationCatalog, DeclarationKind};
 use trust_hir::{Project, SourceKey, Type, TypeId};
 use trust_syntax::parser;
@@ -53,6 +55,11 @@ pub fn instrument_source_files(sources: &[SourceFile]) -> Vec<SourceFile> {
 /// The `contentHash` field is SHA-256 over the generated JSON with an empty
 /// `contentHash`, encoded as lowercase hex.
 pub fn definition_json_from_sources(sources: &[SourceFile]) -> Result<Value, String> {
+    let validation_errors = validate_authoring_sources(sources);
+    if !validation_errors.is_empty() {
+        return Err(validation_errors.join("; "));
+    }
+
     let annotations = collect_authoring_model(sources).annotations;
     if annotations.is_empty() {
         return Err("no OpenOT declaration attributes found".to_string());
@@ -205,6 +212,21 @@ pub fn definition_json_from_sources(sources: &[SourceFile]) -> Result<Value, Str
     Ok(definition)
 }
 
+fn validate_authoring_sources(sources: &[SourceFile]) -> Vec<String> {
+    let mut errors = Vec::new();
+    for (idx, source) in sources.iter().enumerate() {
+        let parse = parser::parse(&source.text);
+        for diagnostic in hir_openot::collect_openot_attribute_diagnostics(&parse.syntax()) {
+            let label = source
+                .path
+                .as_deref()
+                .map_or_else(|| format!("source {}", idx + 1), ToString::to_string);
+            errors.push(format!("{label}: {}", diagnostic.message));
+        }
+    }
+    errors
+}
+
 fn collect_authoring_model(sources: &[SourceFile]) -> AuthoringModel {
     let mut project = Project::new();
     let mut file_ids = Vec::with_capacity(sources.len());
@@ -350,7 +372,7 @@ fn collect_program_annotations(
             .children()
             .filter(|child| child.kind() == SyntaxKind::VarDecl)
         {
-            let attrs = parse_attribute_map_from_node(&var_decl);
+            let attrs = hir_openot::parse_attribute_map_from_node(&var_decl).to_btree_map();
             let Some(kind) = attrs.get("oot").and_then(|value| OotKind::parse(value)) else {
                 continue;
             };
@@ -436,7 +458,7 @@ fn annotation_from_parts(
                 unit: None,
                 category: attrs
                     .get("category")
-                    .map_or(2, |value| category_code(value)),
+                    .map_or(2, |value| hir_openot::category_code(value).unwrap_or(2)),
                 model: attrs.get("model").cloned(),
                 condition_class: 0,
                 severity: 0,
@@ -457,9 +479,9 @@ fn annotation_from_parts(
                 unit: None,
                 category: 0,
                 model: None,
-                condition_class: attrs
-                    .get("class")
-                    .map_or(0, |value| condition_class_code(value)),
+                condition_class: attrs.get("class").map_or(0, |value| {
+                    hir_openot::condition_class_code(value).unwrap_or(0)
+                }),
                 severity: attrs
                     .get("severity")
                     .and_then(|value| value.parse::<u16>().ok())
@@ -612,18 +634,6 @@ fn compact_source_text(node: &SyntaxNode) -> String {
         }
     }
     text.trim().to_string()
-}
-
-fn parse_attribute_map_from_node(node: &SyntaxNode) -> BTreeMap<String, String> {
-    let mut attrs = BTreeMap::new();
-    for token in node
-        .descendants_with_tokens()
-        .filter_map(|element| element.into_token())
-        .filter(|token| token.kind() == SyntaxKind::Pragma)
-    {
-        attrs.extend(parse_attribute_map_from_text(token.text()));
-    }
-    attrs
 }
 
 fn is_expression_kind(kind: SyntaxKind) -> bool {
@@ -820,49 +830,6 @@ fn source_time_args() -> String {
     format!("UseSourceTimeInput := {USE_SOURCE_TIME_NAME}, SourceTimeInput := {SOURCE_TIME_NAME}")
 }
 
-fn parse_attribute_map_from_text(text: &str) -> BTreeMap<String, String> {
-    let mut attrs = BTreeMap::new();
-    let mut rest = text;
-    while let Some(start) = rest.find('{') {
-        rest = &rest[start + 1..];
-        let Some(end) = rest.find('}') else {
-            break;
-        };
-        let body = &rest[..end];
-        if body.trim_start().starts_with("attribute") {
-            for part in body.split(',') {
-                let tokens = quoted_tokens(part);
-                if tokens.len() >= 2 {
-                    attrs.insert(tokens[0].to_ascii_lowercase(), tokens[1].clone());
-                } else if tokens.len() == 1 {
-                    if let Some((_, value)) = part.split_once(":=") {
-                        attrs.insert(
-                            tokens[0].to_ascii_lowercase(),
-                            value.trim().trim_matches('\'').trim().to_string(),
-                        );
-                    }
-                }
-            }
-        }
-        rest = &rest[end + 1..];
-    }
-    attrs
-}
-
-fn quoted_tokens(text: &str) -> Vec<String> {
-    let mut tokens = Vec::new();
-    let mut rest = text;
-    while let Some(start) = rest.find('\'') {
-        let after_start = &rest[start + 1..];
-        let Some(end) = after_start.find('\'') else {
-            break;
-        };
-        tokens.push(after_start[..end].to_string());
-        rest = &after_start[end + 1..];
-    }
-    tokens
-}
-
 fn id_or_default(attrs: &BTreeMap<String, String>, default: u32) -> u32 {
     attrs
         .get("id")
@@ -872,21 +839,6 @@ fn id_or_default(attrs: &BTreeMap<String, String>, default: u32) -> u32 {
         .or_else(|| attrs.get("conditionid"))
         .and_then(|value| value.parse::<u32>().ok())
         .unwrap_or(default)
-}
-
-fn category_code(value: &str) -> u16 {
-    match value.to_ascii_lowercase().as_str() {
-        "procedural" => 2,
-        _ => value.parse::<u16>().unwrap_or(2),
-    }
-}
-
-fn condition_class_code(value: &str) -> u16 {
-    match value.to_ascii_lowercase().as_str() {
-        "alarm" => 0,
-        "interlock" => 1,
-        _ => value.parse::<u16>().unwrap_or(0),
-    }
 }
 
 fn state_initializer(annotation: &Annotation) -> String {
@@ -1001,26 +953,6 @@ fn slot(key: u16, ty: u8, min: u16, max: u16, order: u16) -> Value {
         "maxOccurs": max,
         "orderClass": order
     })
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum OotKind {
-    Value,
-    State,
-    Alarm,
-    Message,
-}
-
-impl OotKind {
-    fn parse(value: &str) -> Option<Self> {
-        match value.to_ascii_lowercase().as_str() {
-            "value" => Some(Self::Value),
-            "state" => Some(Self::State),
-            "alarm" => Some(Self::Alarm),
-            "message" => Some(Self::Message),
-            _ => None,
-        }
-    }
 }
 
 #[derive(Debug, Clone)]

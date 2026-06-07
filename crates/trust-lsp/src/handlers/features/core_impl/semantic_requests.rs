@@ -226,6 +226,7 @@ pub fn inlay_hint(state: &ServerState, params: InlayHintParams) -> Option<Vec<In
             let position = offset_to_position(&doc.content, u32::from(hint.position));
             let kind = match hint.kind {
                 trust_ide::InlayHintKind::Parameter => InlayHintKind::PARAMETER,
+                trust_ide::InlayHintKind::Telemetry => InlayHintKind::TYPE,
             };
             InlayHint {
                 position,

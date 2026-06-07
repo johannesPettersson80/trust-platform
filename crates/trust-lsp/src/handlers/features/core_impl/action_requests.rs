@@ -231,6 +231,11 @@ fn code_action_with_ticket(
     if state.semantic_request_cancelled(request_ticket) {
         return None;
     }
+    actions.extend(openot_logging_actions(state, &doc, &root, &params, uri));
+
+    if state.semantic_request_cancelled(request_ticket) {
+        return None;
+    }
     actions.extend(extract_actions(state, &doc, &params));
 
     if state.semantic_request_cancelled(request_ticket) {
@@ -255,6 +260,221 @@ fn code_action_with_ticket(
     }
 
     Some(actions)
+}
+
+fn openot_logging_actions(
+    state: &ServerState,
+    doc: &crate::state::Document,
+    root: &SyntaxNode,
+    params: &CodeActionParams,
+    uri: &Url,
+) -> Vec<CodeActionOrCommand> {
+    let Some(offset) = position_to_offset(&doc.content, params.range.start) else {
+        return Vec::new();
+    };
+    let Some(var_decl) = var_decl_at_offset(root, TextSize::from(offset)) else {
+        return Vec::new();
+    };
+    if trust_hir::openot_authoring::parse_attribute_map_from_node(&var_decl).contains_oot() {
+        return Vec::new();
+    }
+    let Some(type_ref) = var_decl
+        .children()
+        .find(|child| child.kind() == SyntaxKind::TypeRef)
+    else {
+        return Vec::new();
+    };
+    let declared_type = source_for_range(&doc.content, type_ref.text_range());
+    let var_name_range = first_declared_name_range(&var_decl);
+    let classification = classify_openot_var(state, doc.file_id, var_name_range, &declared_type);
+
+    let insert_position = type_ref.text_range().end();
+    let range = Range {
+        start: offset_to_position(&doc.content, insert_position.into()),
+        end: offset_to_position(&doc.content, insert_position.into()),
+    };
+    match classification {
+        Some(OpenOtVarClassification::Enum) => vec![openot_edit_action(
+            uri,
+            "Add OpenOT logging",
+            range,
+            " {attribute 'oot' := 'state', 'category' := 'process'}",
+            true,
+        )],
+        Some(OpenOtVarClassification::Real) => vec![openot_edit_action(
+            uri,
+            "Add OpenOT logging",
+            range,
+            " {attribute 'oot' := 'value'}",
+            true,
+        )],
+        Some(OpenOtVarClassification::Integer) => vec![openot_edit_action(
+            uri,
+            "Add OpenOT logging",
+            range,
+            " {attribute 'oot' := 'value'}",
+            true,
+        )],
+        Some(OpenOtVarClassification::Bool) => vec![
+            openot_edit_action(
+                uri,
+                "Add OpenOT logging as alarm",
+                range,
+                " {attribute 'oot' := 'alarm'}",
+                true,
+            ),
+            openot_edit_action(
+                uri,
+                "Add OpenOT logging as message",
+                range,
+                " {attribute 'oot' := 'message'}",
+                false,
+            ),
+        ],
+        None => Vec::new(),
+    }
+}
+
+fn openot_edit_action(
+    uri: &Url,
+    title: &str,
+    range: Range,
+    new_text: &str,
+    is_preferred: bool,
+) -> CodeActionOrCommand {
+    let mut changes: std::collections::HashMap<Url, Vec<TextEdit>> =
+        std::collections::HashMap::new();
+    changes.insert(
+        uri.clone(),
+        vec![TextEdit {
+            range,
+            new_text: new_text.to_string(),
+        }],
+    );
+    CodeActionOrCommand::CodeAction(CodeAction {
+        title: title.to_string(),
+        kind: Some(CodeActionKind::QUICKFIX),
+        edit: Some(WorkspaceEdit {
+            changes: Some(changes),
+            document_changes: None,
+            change_annotations: None,
+        }),
+        is_preferred: Some(is_preferred),
+        ..Default::default()
+    })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OpenOtVarClassification {
+    Enum,
+    Real,
+    Integer,
+    Bool,
+}
+
+fn classify_openot_var(
+    state: &ServerState,
+    file_id: trust_hir::db::FileId,
+    var_name_range: Option<TextRange>,
+    declared_type: &str,
+) -> Option<OpenOtVarClassification> {
+    let semantic = var_name_range.and_then(|range| {
+        state.with_database(|db| {
+            let analysis = db.analyze(file_id);
+            let symbols = analysis.symbols.as_ref();
+            let symbol = symbols
+                .iter()
+                .find(|symbol| symbol.range == range && is_openot_storage_symbol(symbol));
+            symbol.and_then(|symbol| classify_hir_type(symbols, symbol.type_id))
+        })
+    });
+    semantic.or_else(|| classify_declared_type(declared_type))
+}
+
+fn classify_hir_type(symbols: &SymbolTable, type_id: TypeId) -> Option<OpenOtVarClassification> {
+    let resolved = symbols.resolve_alias_type(type_id);
+    match symbols.type_by_id(resolved) {
+        Some(trust_hir::Type::Enum { .. }) => Some(OpenOtVarClassification::Enum),
+        _ => classify_builtin_type_id(resolved),
+    }
+}
+
+fn classify_declared_type(declared_type: &str) -> Option<OpenOtVarClassification> {
+    let ty = declared_type.trim();
+    trust_hir::TypeId::from_builtin_name(ty).and_then(classify_builtin_type_id)
+}
+
+fn classify_builtin_type_id(type_id: TypeId) -> Option<OpenOtVarClassification> {
+    match type_id {
+        trust_hir::TypeId::BOOL => Some(OpenOtVarClassification::Bool),
+        trust_hir::TypeId::REAL | trust_hir::TypeId::LREAL => Some(OpenOtVarClassification::Real),
+        trust_hir::TypeId::SINT
+        | trust_hir::TypeId::INT
+        | trust_hir::TypeId::DINT
+        | trust_hir::TypeId::LINT
+        | trust_hir::TypeId::USINT
+        | trust_hir::TypeId::UINT
+        | trust_hir::TypeId::UDINT
+        | trust_hir::TypeId::ULINT => Some(OpenOtVarClassification::Integer),
+        _ => None,
+    }
+}
+
+fn is_openot_storage_symbol(symbol: &trust_hir::Symbol) -> bool {
+    matches!(
+        symbol.kind,
+        HirSymbolKind::Variable { .. } | HirSymbolKind::Parameter { .. } | HirSymbolKind::Constant
+    )
+}
+
+fn first_declared_name_range(var_decl: &SyntaxNode) -> Option<TextRange> {
+    var_decl
+        .children()
+        .filter(|child| child.kind() == SyntaxKind::Name)
+        .filter_map(|name| {
+            name.descendants_with_tokens()
+                .filter_map(|element| element.into_token())
+                .find(|token| is_name_token(token.kind()))
+                .map(|token| token.text_range())
+        })
+        .next()
+}
+
+fn is_name_token(kind: SyntaxKind) -> bool {
+    matches!(
+        kind,
+        SyntaxKind::Ident
+            | SyntaxKind::KwEn
+            | SyntaxKind::KwEno
+            | SyntaxKind::KwGet
+            | SyntaxKind::KwSet
+            | SyntaxKind::KwStep
+    )
+}
+
+fn source_for_range(source: &str, range: TextRange) -> String {
+    let start: usize = range.start().into();
+    let end: usize = range.end().into();
+    source
+        .get(start..end)
+        .map(|text| text.trim().to_string())
+        .unwrap_or_default()
+}
+
+fn var_decl_at_offset(root: &SyntaxNode, offset: TextSize) -> Option<SyntaxNode> {
+    let token = root
+        .token_at_offset(offset)
+        .right_biased()
+        .or_else(|| root.token_at_offset(offset).left_biased());
+    if let Some(token) = token {
+        if let Some(var_decl) = token
+            .parent_ancestors()
+            .find(|node| node.kind() == SyntaxKind::VarDecl)
+        {
+            return Some(var_decl);
+        }
+    }
+    find_var_decl_for_range(root, TextRange::new(offset, offset))
 }
 
 pub fn rename(state: &ServerState, params: RenameParams) -> Option<WorkspaceEdit> {

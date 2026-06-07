@@ -424,6 +424,7 @@ pub(super) fn analyze_query(
     resolve_pending_types_with_table(&symbols, pending_types, &mut builder);
     check_global_external_links_with_project(&mut symbols, &root, &mut builder, file_id);
     diagnostics.extend(builder.finish());
+    diagnostics.extend(crate::openot_authoring::collect_openot_attribute_diagnostics(&root));
 
     let mut builder = DiagnosticBuilder::new();
     check_class_semantics(&symbols, &root, &mut builder);

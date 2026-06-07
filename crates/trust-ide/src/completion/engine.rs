@@ -16,6 +16,10 @@ pub fn complete_with_filter(
 ) -> Vec<CompletionItem> {
     let mut items = Vec::new();
 
+    if let Some(openot_items) = openot_attribute_completions(db, file_id, position) {
+        return dedupe_items(openot_items);
+    }
+
     let context = IdeContext::new(db, file_id);
     let root = &context.root;
     let symbols = &context.symbols;
@@ -136,4 +140,3 @@ fn parameter_name_completions(
 
     items
 }
-
