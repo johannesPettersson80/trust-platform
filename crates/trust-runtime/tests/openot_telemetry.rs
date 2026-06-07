@@ -10,8 +10,8 @@ use open_ot_carriage::loss::LossEvent;
 use open_ot_carriage::registry::{
     EVENT_CONDITION_ACTIVE, EVENT_CONDITION_CLEARED, EVENT_HEARTBEAT, EVENT_LOGGER_STOPPED,
     EVENT_MESSAGE, EVENT_SOURCE_HIGH_WATER, EVENT_STATE_TRANSITION, EVENT_VALUE_CHANGED,
-    KEY_CATEGORY, KEY_CONDITION_CLASS, KEY_CONDITION_ID, KEY_NEW_STATE, KEY_NEW_VALUE,
-    KEY_PREVIOUS_STATE, KEY_PREVIOUS_VALUE, KEY_SEVERITY, KEY_SOURCE_HIGH_WATER,
+    KEY_CATEGORY, KEY_CONDITION_CLASS, KEY_CONDITION_ID, KEY_MESSAGE_TEMPLATE_ID, KEY_NEW_STATE,
+    KEY_NEW_VALUE, KEY_PREVIOUS_STATE, KEY_PREVIOUS_VALUE, KEY_SEVERITY, KEY_SOURCE_HIGH_WATER,
     KEY_STATE_MACHINE_ID, KEY_VALUE_ID, SYSTEM_SOURCE_ID, TY_DINT, TY_REAL, TY_UDINT, TY_UINT,
     TY_ULINT,
 };
@@ -157,7 +157,7 @@ VAR
     Producer : OPENOT_Producer;
 END_VAR
 
-Producer(Execute := TRUE, Op := UINT#0, SourceId := UDINT#77, Checkpoint := FALSE);
+Producer(Execute := TRUE, Op := UINT#0, SourceId := UDINT#77, Checkpoint := FALSE, MessageTemplateId := UDINT#10001);
 Producer(Execute := FALSE, Op := UINT#0, SourceId := UDINT#77, Checkpoint := FALSE);
 END_PROGRAM
 "#
@@ -170,9 +170,9 @@ VAR
     Producer : OPENOT_Producer;
 END_VAR
 
-Producer(Execute := TRUE, Op := UINT#0, SourceId := UDINT#77, Checkpoint := FALSE);
+Producer(Execute := TRUE, Op := UINT#0, SourceId := UDINT#77, Checkpoint := FALSE, MessageTemplateId := UDINT#10001);
 Producer(Execute := FALSE, Op := UINT#0, SourceId := UDINT#77, Checkpoint := FALSE);
-Producer(Execute := TRUE, Op := UINT#0, SourceId := UDINT#77, Checkpoint := FALSE);
+Producer(Execute := TRUE, Op := UINT#0, SourceId := UDINT#77, Checkpoint := FALSE, MessageTemplateId := UDINT#10001);
 Producer(Execute := FALSE, Op := UINT#0, SourceId := UDINT#77, Checkpoint := FALSE);
 END_PROGRAM
 "#
@@ -196,10 +196,10 @@ END_VAR
 
 CASE Phase OF
     UINT#0:
-        Producer(Execute := TRUE, Op := UINT#0, SourceId := UDINT#30, Checkpoint := FALSE);
+        Producer(Execute := TRUE, Op := UINT#0, SourceId := UDINT#30, Checkpoint := FALSE, MessageTemplateId := UDINT#10001);
         Producer(Execute := FALSE, Op := UINT#0, SourceId := UDINT#30, Checkpoint := FALSE);
     UINT#1:
-        Producer(Execute := TRUE, Op := UINT#0, SourceId := UDINT#10, Checkpoint := FALSE);
+        Producer(Execute := TRUE, Op := UINT#0, SourceId := UDINT#10, Checkpoint := FALSE, MessageTemplateId := UDINT#10001);
         Producer(Execute := FALSE, Op := UINT#0, SourceId := UDINT#10, Checkpoint := FALSE);
     UINT#2:
         Producer(
@@ -424,7 +424,7 @@ fn openot_telemetry_publishes_real_st_producer_records() {
         assert_eq!(record.run_id, 1);
         assert_eq!(record.seq, expected_seq);
         assert_eq!(record.source_time, 1_780_000_000_000_000_000 + expected_seq);
-        assert!(record.slots.is_empty());
+        assert_eq!(required_udint(record, KEY_MESSAGE_TEMPLATE_ID), 10001);
     }
 
     drop(std::fs::remove_file(path));
@@ -564,7 +564,7 @@ fn openot_telemetry_authoring_showcase_renders_typed_audit_log() {
     assert_eq!(
         rendered_events,
         [
-            "Message source=1 seq=0",
+            "Message source=1 seq=0 templateId=10001",
             "StateTransition source=1 seq=1 machine=7001 category=0 previous=0 new=1",
             "ValueChanged source=1 seq=2 valueId=2001 new=REAL(0)",
             "ValueChanged source=1 seq=3 valueId=2002 new=DINT(1)",
@@ -670,7 +670,12 @@ fn render_record_line(record: &Record) -> String {
 
 fn render_record(record: &Record) -> String {
     match record.event_type_id {
-        EVENT_MESSAGE => format!("Message source={} seq={}", record.source_id, record.seq),
+        EVENT_MESSAGE => format!(
+            "Message source={} seq={} templateId={}",
+            record.source_id,
+            record.seq,
+            required_udint(record, KEY_MESSAGE_TEMPLATE_ID)
+        ),
         EVENT_LOGGER_STOPPED => {
             format!(
                 "LoggerStopped source={} seq={}",
@@ -1032,7 +1037,14 @@ fn assert_resolved_reactor_documents(docs: &serde_json::Value) {
         text.contains(r#""name":"condition","type":"ConditionRef","value":"HighPhAlarm""#),
         "{text}"
     );
+    assert!(
+        text.contains(
+            r#""name":"messageTemplate","type":"MessageTemplateRef","value":"batch started""#
+        ),
+        "{text}"
+    );
     assert!(!text.contains(r#""valueId""#), "{text}");
     assert!(!text.contains(r#""stateMachineId""#), "{text}");
     assert!(!text.contains(r#""conditionId""#), "{text}");
+    assert!(!text.contains(r#""messageTemplateId""#), "{text}");
 }

@@ -10,6 +10,8 @@ VAR
     Step : E_Step;
     Level : REAL;
     BatchCount : DINT;
+    LongLevel : LREAL;
+    LongCount : ULINT;
     HighPhAlarm : BOOL;
 END_VAR
 END_PROGRAM
@@ -44,6 +46,22 @@ END_PROGRAM
                 && !text.contains("deadband")
         }),
         "{count_edits:?}"
+    );
+
+    let long_level_edits = openot_action_edits(&state, &uri, source, "LongLevel :");
+    assert!(
+        !long_level_edits
+            .iter()
+            .any(|(title, text)| title == "Add OpenOT logging" && text.contains("'value'")),
+        "{long_level_edits:?}"
+    );
+
+    let long_count_edits = openot_action_edits(&state, &uri, source, "LongCount :");
+    assert!(
+        !long_count_edits
+            .iter()
+            .any(|(title, text)| title == "Add OpenOT logging" && text.contains("'value'")),
+        "{long_count_edits:?}"
     );
 
     let bool_edits = openot_action_edits(&state, &uri, source, "HighPhAlarm :");

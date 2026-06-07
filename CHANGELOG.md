@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.21`
+Target release: `v0.24.22`
 
 ### Added
 
@@ -24,6 +24,10 @@ Target release: `v0.24.21`
   StateTransition payloads and definition-file enum sets, with a reactor example
   that emits a UTC-rendered, runtime-clocked typed audit log, definition file,
   and forced-overflow reconciliation artifact.
+- docs: added a public OpenOT attribute-authoring guide covering the truST
+  compiler diagnostics, language-server assistance, generated producer path,
+  definition-file generation, and `[runtime.openot] source = "st-fb"` runtime
+  configuration.
 - trust-twin: robot-cell product bridge now generates `Robot_<Model>` ST
   function blocks from a URDF manifest, exposes a `Robot_P3MinimalArm`
   native FB through the runtime world-arm bridge, and keeps the example PLC

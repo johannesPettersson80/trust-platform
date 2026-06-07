@@ -9,6 +9,7 @@
 | edit in the Browser IDE | [Program In Browser IDE](../start/program-in-browser.md) |
 | understand project files | [Project Layout](project-layout.md) |
 | name new Structured Text APIs consistently | [Structured Text Naming Standard](st-naming-standard.md) |
+| declare OpenOT event logging on variables | [OpenOT Attribute Authoring](openot-authoring.md) |
 | build, validate, and test | [Build, Validate, Test](../operate/build-validate-test.md) |
 | compile and reload a running runtime | [Compile, Validate, Reload](../operate/compile-validate-reload.md) |
 | debug execution | [Debugging](../operate/debugging-and-runtime-panel.md) |

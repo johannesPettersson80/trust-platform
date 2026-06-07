@@ -20,6 +20,8 @@ use trust_syntax::parser;
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 
 const DEFAULT_SOURCE_ID: u32 = 1;
+const DEFAULT_STATE_CATEGORY: u16 = hir_openot::STATE_CATEGORY_PROCESS;
+const ST_PRODUCER_MAX_RECORD_SIZE: u16 = 256;
 const PRODUCER_NAME: &str = "OotProducer";
 const USE_SOURCE_TIME_NAME: &str = "OotUseSourceTimeInput";
 const SOURCE_TIME_NAME: &str = "OotSourceTime";
@@ -38,6 +40,10 @@ pub const GENERATED_SOURCE_TIME_NAME: &str = SOURCE_TIME_NAME;
 /// declarations inside `PROGRAM ... VAR ... END_VAR` blocks.
 #[must_use]
 pub fn instrument_source_files(sources: &[SourceFile]) -> Vec<SourceFile> {
+    if !validate_authoring_sources(sources).is_empty() {
+        return sources.to_vec();
+    }
+
     let model = collect_authoring_model(sources);
     sources
         .iter()
@@ -175,7 +181,7 @@ pub fn definition_json_from_sources(sources: &[SourceFile]) -> Result<Value, Str
                 "sourceHighWater": true
             },
             "constraints": {
-                "maxRecordSize": 512,
+                "maxRecordSize": ST_PRODUCER_MAX_RECORD_SIZE,
                 "maxSlots": 16,
                 "overflowPolicy": "overwrite-oldest"
             },
@@ -458,7 +464,9 @@ fn annotation_from_parts(
                 unit: None,
                 category: attrs
                     .get("category")
-                    .map_or(2, |value| hir_openot::category_code(value).unwrap_or(2)),
+                    .map_or(DEFAULT_STATE_CATEGORY, |value| {
+                        hir_openot::category_code(value).unwrap_or(DEFAULT_STATE_CATEGORY)
+                    }),
                 model: attrs.get("model").cloned(),
                 condition_class: 0,
                 severity: 0,
@@ -816,9 +824,10 @@ fn message_statements(annotation: &Annotation) -> Vec<String> {
     vec![
         format!("IF {} AND (NOT OotPrev_{safe}) THEN", annotation.var_name),
         format!(
-            "    {PRODUCER_NAME}(Execute := TRUE, Op := UINT#0, SourceId := UDINT#{}, {}, Checkpoint := FALSE, AccumulateScanRecords := TRUE);",
+            "    {PRODUCER_NAME}(Execute := TRUE, Op := UINT#0, SourceId := UDINT#{}, {}, Checkpoint := FALSE, AccumulateScanRecords := TRUE, MessageTemplateId := UDINT#{});",
             annotation.source_id,
-            source_time_args()
+            source_time_args(),
+            annotation.id
         ),
         format!("    {PRODUCER_NAME}(Execute := FALSE);"),
         "END_IF;".to_string(),
@@ -905,8 +914,8 @@ fn value_changed_event_type() -> Value {
         "profile": "Core",
         "slots": [
             slot(0x000D, 0x05, 1, 1, 1),
-            slot(0x000F, 0x09, 0, 1, 2),
-            slot(0x0010, 0x09, 1, 1, 3),
+            value_slot(0x000F, 0, 1, 2),
+            value_slot(0x0010, 1, 1, 3),
             slot(0x0011, 0x03, 0, 1, 4)
         ]
     })
@@ -917,7 +926,9 @@ fn message_event_type() -> Value {
         "id": 3,
         "name": "Message",
         "profile": "Core",
-        "slots": []
+        "slots": [
+            slot(0x0014, 0x05, 1, 1, 1)
+        ]
     })
 }
 
@@ -949,6 +960,16 @@ fn slot(key: u16, ty: u8, min: u16, max: u16, order: u16) -> Value {
     json!({
         "key": key,
         "type": ty,
+        "minOccurs": min,
+        "maxOccurs": max,
+        "orderClass": order
+    })
+}
+
+fn value_slot(key: u16, min: u16, max: u16, order: u16) -> Value {
+    json!({
+        "key": key,
+        "valuePayload": true,
         "minOccurs": min,
         "maxOccurs": max,
         "orderClass": order
@@ -1109,14 +1130,28 @@ mod tests {
         let definition = definition_json_from_sources(&[source]).expect("definition");
         let hash = definition["header"]["contentHash"].as_str().unwrap();
         assert_eq!(hash.len(), 64);
+        assert_eq!(
+            definition["header"]["constraints"]["maxRecordSize"],
+            ST_PRODUCER_MAX_RECORD_SIZE
+        );
         assert_eq!(definition["values"][0]["name"], "Level");
+    }
+
+    #[test]
+    fn generated_definition_rejects_unsupported_value_types() {
+        let source = SourceFile::with_path(
+            "main.st",
+            "PROGRAM Main\nVAR\n    LongReal : LREAL {attribute 'oot' := 'value'};\n    Counter64 : ULINT {attribute 'oot' := 'value'};\nEND_VAR\nEND_PROGRAM\n",
+        );
+        let err = definition_json_from_sources(&[source]).expect_err("unsupported values reject");
+        assert!(err.contains("OpenOT value logging supports REAL and DINT only"));
     }
 
     #[test]
     fn enum_state_lowering_uses_hir_enum_values() {
         let source = SourceFile::with_path(
             "main.st",
-            "TYPE Phase : (Idle := 0, Fill := 10, Done := 20) END_TYPE\nPROGRAM Main\nVAR\n    ActiveStep : Phase {attribute 'oot' := 'state', 'category' := 'procedural'};\nEND_VAR\nActiveStep := Fill;\nEND_PROGRAM\n",
+            "TYPE Phase : (Idle := 0, Fill := 10, Done := 20) END_TYPE\nPROGRAM Main\nVAR\n    ActiveStep : Phase {attribute 'oot' := 'state', 'category' := 'process'};\nEND_VAR\nActiveStep := Fill;\nEND_PROGRAM\n",
         );
 
         let instrumented = instrument_source_files(&[source]);
@@ -1136,7 +1171,7 @@ mod tests {
     fn enum_state_definition_includes_enum_set() {
         let source = SourceFile::with_path(
             "main.st",
-            "TYPE Phase : (Idle := 0, Fill := 10, Done := 20) END_TYPE\nPROGRAM Main\nVAR\n    ActiveStep : Phase {attribute 'oot' := 'state', 'model' := 'ISA-88'};\nEND_VAR\nEND_PROGRAM\n",
+            "TYPE Phase : (Idle := 0, Fill := 10, Done := 20) END_TYPE\nPROGRAM Main\nVAR\n    ActiveStep : Phase {attribute 'oot' := 'state', 'category' := 'procedural', 'model' := 'ISA-88'};\nEND_VAR\nEND_PROGRAM\n",
         );
 
         let definition = definition_json_from_sources(&[source]).expect("definition");
@@ -1144,5 +1179,23 @@ mod tests {
         assert_eq!(definition["enumSets"][0]["name"], "Phase");
         assert_eq!(definition["enumSets"][0]["members"][1]["label"], "Fill");
         assert_eq!(definition["enumSets"][0]["members"][1]["value"], 10);
+    }
+
+    #[test]
+    fn state_category_defaults_to_process() {
+        let source = SourceFile::with_path(
+            "main.st",
+            "TYPE Phase : (Idle := 0, Fill := 10, Done := 20) END_TYPE\nPROGRAM Main\nVAR\n    ActiveStep : Phase {attribute 'oot' := 'state'};\nEND_VAR\nEND_PROGRAM\n",
+        );
+
+        let definition = definition_json_from_sources(&[source]).expect("definition");
+        assert_eq!(
+            definition["stateMachines"][0]["category"],
+            hir_openot::STATE_CATEGORY_PROCESS
+        );
+        assert_eq!(
+            definition["stateMachines"][0]["proceduralModel"],
+            Value::Null
+        );
     }
 }

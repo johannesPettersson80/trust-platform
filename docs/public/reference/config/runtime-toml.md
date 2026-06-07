@@ -276,6 +276,11 @@ ring. It is separate from plant I/O drivers: the runtime publishes semantic
 audit records after output dispatch and fails the scan if the configured
 telemetry append fails.
 
+For the attribute-driven authoring path, see
+[OpenOT Attribute Authoring](../../develop/openot-authoring.md). That compiler
+path generates `Main.OotProducer` by default; use that qualified instance path
+with `source = "st-fb"`.
+
 Defaults when omitted:
 
 ```toml
@@ -298,7 +303,7 @@ Accepted keys:
 | `fence_mode` | string | `"fenced"` | `"fenced"` for product use, or `"unfenced"` only for controlled proof runs. |
 | `allow_unfenced_for_proof` | bool | `false` | Must be `true` when `fence_mode = "unfenced"`. |
 | `source` | string | `"heartbeat"` | `"heartbeat"` publishes a runtime heartbeat record per scan. `"st-fb"` publishes the encoded record emitted by a configured ST OpenOT producer FB. |
-| `producer_instance` | string | unset | Required when `source = "st-fb"`. Qualified path to the producer FB instance, for example `"Main.Producer"`. |
+| `producer_instance` | string | unset | Required when `source = "st-fb"`. Qualified path to the producer FB instance, for example `"Main.OotProducer"` for attribute-generated programs or `"Main.Producer"` for a hand-authored producer FB. |
 
 Validation constraints:
 

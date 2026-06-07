@@ -407,15 +407,13 @@ fn classify_declared_type(declared_type: &str) -> Option<OpenOtVarClassification
 fn classify_builtin_type_id(type_id: TypeId) -> Option<OpenOtVarClassification> {
     match type_id {
         trust_hir::TypeId::BOOL => Some(OpenOtVarClassification::Bool),
-        trust_hir::TypeId::REAL | trust_hir::TypeId::LREAL => Some(OpenOtVarClassification::Real),
-        trust_hir::TypeId::SINT
-        | trust_hir::TypeId::INT
-        | trust_hir::TypeId::DINT
-        | trust_hir::TypeId::LINT
-        | trust_hir::TypeId::USINT
-        | trust_hir::TypeId::UINT
-        | trust_hir::TypeId::UDINT
-        | trust_hir::TypeId::ULINT => Some(OpenOtVarClassification::Integer),
+        supported if trust_hir::openot_authoring::is_supported_value_type_id(supported) => {
+            if supported == trust_hir::TypeId::REAL {
+                Some(OpenOtVarClassification::Real)
+            } else {
+                Some(OpenOtVarClassification::Integer)
+            }
+        }
         _ => None,
     }
 }

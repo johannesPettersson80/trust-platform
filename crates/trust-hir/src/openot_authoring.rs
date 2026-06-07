@@ -9,6 +9,7 @@ use text_size::TextRange;
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 
 use crate::diagnostics::{Diagnostic, DiagnosticCode};
+use crate::types::TypeId;
 
 /// OpenOT attribute kinds supported by the truST authoring layer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -60,6 +61,12 @@ pub const ALARM_KEYS: &[&str] = &["class", "severity"];
 pub const MESSAGE_KEYS: &[&str] = &["template"];
 /// State category values.
 pub const CATEGORY_VALUES: &[&str] = &["process", "mode", "procedural"];
+/// Machine-local process/equipment state category.
+pub const STATE_CATEGORY_PROCESS: u16 = 0;
+/// Machine-local operating mode category.
+pub const STATE_CATEGORY_MODE: u16 = 1;
+/// Canonical procedural state category.
+pub const STATE_CATEGORY_PROCEDURAL: u16 = 2;
 /// Procedural model values.
 pub const MODEL_VALUES: &[&str] = &["ISA-88", "PackML"];
 /// Condition class values.
@@ -222,6 +229,16 @@ pub fn validate_attribute_map(
         ));
         return diagnostics;
     };
+    if kind == OotKind::Value {
+        if let Some(ty) = declared_type {
+            if !is_supported_value_type_name(ty) {
+                diagnostics.push(openot_error(
+                    oot_entry.range,
+                    "OpenOT value logging supports REAL and DINT only",
+                ));
+            }
+        }
+    }
 
     let allowed = allowed_keys(kind);
     let allowed_set = allowed.iter().copied().collect::<BTreeSet<_>>();
@@ -242,10 +259,25 @@ pub fn validate_attribute_map(
             ));
             continue;
         }
-        validate_key_value(kind, entry, attrs, declared_type, &mut diagnostics);
+        validate_key_value(kind, entry, declared_type, &mut diagnostics);
+    }
+    if kind == OotKind::State {
+        validate_state_category_model(attrs, &mut diagnostics);
     }
 
     diagnostics
+}
+
+/// Whether the OpenOT ST producer has a faithful value encoder for this built-in type.
+#[must_use]
+pub fn is_supported_value_type_id(type_id: TypeId) -> bool {
+    matches!(type_id, TypeId::REAL | TypeId::DINT)
+}
+
+/// Whether the OpenOT ST producer has a faithful value encoder for this declared type name.
+#[must_use]
+pub fn is_supported_value_type_name(ty: &str) -> bool {
+    TypeId::from_builtin_name(ty.trim()).is_some_and(is_supported_value_type_id)
 }
 
 /// Keys accepted by a kind, excluding `oot` and internal id-pinning keys.
@@ -263,9 +295,9 @@ pub fn allowed_keys(kind: OotKind) -> &'static [&'static str] {
 #[must_use]
 pub fn category_code(value: &str) -> Option<u16> {
     match value.to_ascii_lowercase().as_str() {
-        "process" => Some(0),
-        "mode" => Some(1),
-        "procedural" => Some(2),
+        "process" => Some(STATE_CATEGORY_PROCESS),
+        "mode" => Some(STATE_CATEGORY_MODE),
+        "procedural" => Some(STATE_CATEGORY_PROCEDURAL),
         _ => None,
     }
 }
@@ -283,7 +315,6 @@ pub fn condition_class_code(value: &str) -> Option<u16> {
 fn validate_key_value(
     kind: OotKind,
     entry: &AttributeEntry,
-    attrs: &AttributeMap,
     declared_type: Option<&str>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
@@ -312,14 +343,6 @@ fn validate_key_value(
                     ),
                 ));
             }
-            if let Some(category) = attrs.get("category") {
-                if !category.eq_ignore_ascii_case("procedural") {
-                    diagnostics.push(openot_error(
-                        entry.range,
-                        "OpenOT 'model' is only valid with category := 'procedural'",
-                    ));
-                }
-            }
         }
         (OotKind::Alarm, "class") if condition_class_code(&entry.value).is_none() => {
             diagnostics.push(openot_error(
@@ -346,10 +369,10 @@ fn validate_key_value(
                 ));
             }
             if let Some(ty) = declared_type {
-                if !is_real_type(ty) {
+                if !ty.trim().eq_ignore_ascii_case("REAL") {
                     diagnostics.push(openot_error(
                         entry.range,
-                        "OpenOT deadband is only valid on REAL/LREAL value attributes",
+                        "OpenOT deadband is only valid on REAL value attributes",
                     ));
                 }
             }
@@ -366,6 +389,41 @@ fn validate_key_value(
     }
 }
 
+fn validate_state_category_model(attrs: &AttributeMap, diagnostics: &mut Vec<Diagnostic>) {
+    let category_entry = last_entry(attrs, "category");
+    let model_entry = last_entry(attrs, "model");
+
+    if let Some(model_entry) = model_entry {
+        match category_entry.and_then(|entry| category_code(&entry.value)) {
+            Some(STATE_CATEGORY_PROCEDURAL) => {}
+            Some(_) => diagnostics.push(openot_error(
+                model_entry.range,
+                "OpenOT 'model' is only valid with category := 'procedural'",
+            )),
+            None if category_entry.is_none() => diagnostics.push(openot_error(
+                model_entry.range,
+                "OpenOT 'model' requires category := 'procedural'",
+            )),
+            None => {}
+        }
+    }
+
+    if let Some(category_entry) = category_entry {
+        if category_code(&category_entry.value) == Some(STATE_CATEGORY_PROCEDURAL)
+            && model_entry.is_none()
+        {
+            diagnostics.push(openot_error(
+                category_entry.range,
+                "OpenOT category := 'procedural' requires a 'model'",
+            ));
+        }
+    }
+}
+
+fn last_entry<'a>(attrs: &'a AttributeMap, key: &str) -> Option<&'a AttributeEntry> {
+    attrs.entries.iter().rev().find(|entry| entry.key == key)
+}
+
 fn validate_u32_key(entry: &AttributeEntry, diagnostics: &mut Vec<Diagnostic>) {
     if entry.value.parse::<u32>().is_err() {
         diagnostics.push(openot_error(
@@ -373,11 +431,6 @@ fn validate_u32_key(entry: &AttributeEntry, diagnostics: &mut Vec<Diagnostic>) {
             format!("OpenOT '{}' must be a UDINT-compatible integer", entry.key),
         ));
     }
-}
-
-fn is_real_type(ty: &str) -> bool {
-    let trimmed = ty.trim();
-    trimmed.eq_ignore_ascii_case("REAL") || trimmed.eq_ignore_ascii_case("LREAL")
 }
 
 fn openot_error(range: TextRange, message: impl Into<String>) -> Diagnostic {
@@ -446,6 +499,7 @@ END_PROGRAM
 PROGRAM Main
 VAR
     Level : REAL {attribute 'oot' := 'value', 'unit' := 'L', 'deadband' := '0.5'};
+    BatchCount : DINT {attribute 'oot' := 'value'};
     Step : INT {attribute 'oot' := 'state', 'category' := 'procedural', 'model' := 'ISA-88'};
     Alarm : BOOL {attribute 'oot' := 'alarm', 'class' := 'interlock', 'severity' := '900'};
     Started : BOOL {attribute 'oot' := 'message', 'template' := 'batch started'};
@@ -455,5 +509,61 @@ END_PROGRAM
         let parsed = parse(source);
         let diagnostics = collect_openot_attribute_diagnostics(&parsed.syntax());
         assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    }
+
+    #[test]
+    fn rejects_value_attributes_for_unsupported_value_types() {
+        let source = r#"
+PROGRAM Main
+VAR
+    LongReal : LREAL {attribute 'oot' := 'value'};
+    LongCount : LINT {attribute 'oot' := 'value'};
+    UnsignedCount : ULINT {attribute 'oot' := 'value'};
+END_VAR
+END_PROGRAM
+"#;
+        let parsed = parse(source);
+        let diagnostics = collect_openot_attribute_diagnostics(&parsed.syntax());
+        let unsupported = diagnostics
+            .iter()
+            .filter(|diagnostic| {
+                diagnostic
+                    .message
+                    .contains("OpenOT value logging supports REAL and DINT only")
+            })
+            .count();
+        assert_eq!(unsupported, 3, "{diagnostics:#?}");
+    }
+
+    #[test]
+    fn rejects_model_without_explicit_procedural_category() {
+        let source = r#"
+PROGRAM Main
+VAR
+    Step : INT {attribute 'oot' := 'state', 'model' := 'ISA-88'};
+END_VAR
+END_PROGRAM
+"#;
+        let parsed = parse(source);
+        let diagnostics = collect_openot_attribute_diagnostics(&parsed.syntax());
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic
+            .message
+            .contains("requires category := 'procedural'")));
+    }
+
+    #[test]
+    fn rejects_procedural_category_without_model() {
+        let source = r#"
+PROGRAM Main
+VAR
+    Step : INT {attribute 'oot' := 'state', 'category' := 'procedural'};
+END_VAR
+END_PROGRAM
+"#;
+        let parsed = parse(source);
+        let diagnostics = collect_openot_attribute_diagnostics(&parsed.syntax());
+        assert!(diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("requires a 'model'")));
     }
 }

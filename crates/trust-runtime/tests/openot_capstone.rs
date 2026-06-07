@@ -12,8 +12,8 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use open_ot_carriage::concurrent::ConcurrentRawConsumer;
 use open_ot_carriage::consumer::LossAccountingConsumer;
 use open_ot_carriage::registry::{
-    EVENT_LOGGER_STOPPED, EVENT_MESSAGE, EVENT_SOURCE_HIGH_WATER, KEY_SOURCE_HIGH_WATER,
-    SYSTEM_SOURCE_ID, TY_ULINT,
+    EVENT_LOGGER_STOPPED, EVENT_MESSAGE, EVENT_SOURCE_HIGH_WATER, KEY_MESSAGE_TEMPLATE_ID,
+    KEY_SOURCE_HIGH_WATER, SYSTEM_SOURCE_ID, TY_UDINT, TY_ULINT,
 };
 use open_ot_carriage::wire::{Record, Slot};
 use open_ot_conformance::{
@@ -303,11 +303,11 @@ END_VAR
 
 IF Phase < UDINT#{second_source_start} THEN
     CurrentSourceId := UDINT#10;
-    Producer(Execute := TRUE, Op := UINT#0, SourceId := CurrentSourceId, Checkpoint := FALSE);
+    Producer(Execute := TRUE, Op := UINT#0, SourceId := CurrentSourceId, Checkpoint := FALSE, MessageTemplateId := UDINT#10001);
     Producer(Execute := FALSE, Op := UINT#0, SourceId := CurrentSourceId, Checkpoint := FALSE);
 ELSIF Phase < UDINT#{total_data_records} THEN
     CurrentSourceId := UDINT#30;
-    Producer(Execute := TRUE, Op := UINT#0, SourceId := CurrentSourceId, Checkpoint := FALSE);
+    Producer(Execute := TRUE, Op := UINT#0, SourceId := CurrentSourceId, Checkpoint := FALSE, MessageTemplateId := UDINT#10001);
     Producer(Execute := FALSE, Op := UINT#0, SourceId := CurrentSourceId, Checkpoint := FALSE);
 ELSIF Phase = UDINT#{total_data_records} THEN
     Producer(
@@ -332,7 +332,7 @@ END_PROGRAM
 fn expected_records() -> Result<Vec<ExpectedRecord>, Box<dyn Error>> {
     let mut records = Vec::new();
     let per_source = capstone_per_source();
-    let message_len = encoded_len(&Record::new(0, RUN_ID, 0, SOURCE_IDS[0], EVENT_MESSAGE))?;
+    let message_len = encoded_len(&message_record(SOURCE_IDS[0], 0))?;
     let high_water_len = encoded_len(&source_high_water_record(SOURCE_IDS[0], per_source))?;
     let logger_stopped_len = encoded_len(&Record::new(
         0,
@@ -393,6 +393,16 @@ fn source_high_water_record(source_id: u32, produced_count: u64) -> Record {
         KEY_SOURCE_HIGH_WATER,
         TY_ULINT,
         produced_count.to_le_bytes(),
+    ));
+    record
+}
+
+fn message_record(source_id: u32, seq: u64) -> Record {
+    let mut record = Record::new(0, RUN_ID, seq, source_id, EVENT_MESSAGE);
+    record.slots.push(Slot::new(
+        KEY_MESSAGE_TEMPLATE_ID,
+        TY_UDINT,
+        10001u32.to_le_bytes(),
     ));
     record
 }
