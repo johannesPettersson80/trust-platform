@@ -195,6 +195,10 @@ fn openot_hint_label(kind: OotKind, attrs: &openot_vocab::AttributeMap) -> Optio
         OotKind::OperatorLogin => Some("OperatorLogin on TRUE edge".to_string()),
         OotKind::OperatorLogout => Some("OperatorLogout on TRUE edge".to_string()),
         OotKind::SecurityFailure => Some("SecurityAccessFailure on TRUE edge".to_string()),
+        OotKind::ESignature => Some(format!(
+            "ESignature on TRUE edge attesting {}",
+            attrs.get("attests").unwrap_or("event")
+        )),
     }
 }
 

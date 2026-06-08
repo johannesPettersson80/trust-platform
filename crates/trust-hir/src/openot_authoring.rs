@@ -43,6 +43,8 @@ pub enum OotKind {
     OperatorLogout,
     /// Emits `SecurityAccessFailure`.
     SecurityFailure,
+    /// Emits `ESignature`.
+    ESignature,
 }
 
 impl OotKind {
@@ -63,6 +65,7 @@ impl OotKind {
             "operator-login" => Some(Self::OperatorLogin),
             "operator-logout" => Some(Self::OperatorLogout),
             "security-failure" => Some(Self::SecurityFailure),
+            "e-signature" => Some(Self::ESignature),
             _ => None,
         }
     }
@@ -84,6 +87,7 @@ impl OotKind {
             Self::OperatorLogin => "operator-login",
             Self::OperatorLogout => "operator-logout",
             Self::SecurityFailure => "security-failure",
+            Self::ESignature => "e-signature",
         }
     }
 }
@@ -103,6 +107,7 @@ pub const KINDS: &[&str] = &[
     "operator-login",
     "operator-logout",
     "security-failure",
+    "e-signature",
 ];
 /// Keys accepted on `value` attributes.
 pub const VALUE_KEYS: &[&str] = &[
@@ -176,8 +181,19 @@ pub const OPERATOR_LOGIN_KEYS: &[&str] = &["actor", "auth", "workstation", "role
 pub const OPERATOR_LOGOUT_KEYS: &[&str] = &["actor", "workstation"];
 /// Keys accepted on `security-failure` attributes.
 pub const SECURITY_FAILURE_KEYS: &[&str] = &["actor", "workstation", "reason"];
+/// Keys accepted on `e-signature` attributes.
+pub const ESIGNATURE_KEYS: &[&str] = &["action", "actor", "meaning", "attests", "auth"];
 /// Authentication result values from OpenOT §6.4.
 pub const AUTH_RESULT_VALUES: &[&str] = &["Granted", "Denied", "NotRequired", "Pending", "Expired"];
+/// E-signature meaning values from OpenOT §6.4.
+pub const SIGNATURE_MEANING_VALUES: &[&str] = &[
+    "Authored",
+    "Reviewed",
+    "Approved",
+    "Verified",
+    "Performed",
+    "Witnessed",
+];
 /// Batch state enum values from OpenOT §6.4.
 pub const BATCH_STATE_VALUES: &[&str] = &[
     "Started",
@@ -386,8 +402,10 @@ pub fn collect_openot_attribute_diagnostics(root: &SyntaxNode) -> Vec<Diagnostic
 fn validate_local_openot_references(program: &SyntaxNode) -> Vec<Diagnostic> {
     let local_types = local_declared_types(program);
     let local_kinds = local_openot_kinds(program);
+    let local_entries = local_openot_entries(program);
     let mut diagnostics = Vec::new();
     diagnostics.extend(validate_duplicate_pinned_value_ids(program));
+    diagnostics.extend(validate_attestable_target_count(program));
     for var_decl in program
         .descendants()
         .filter(|node| node.kind() == SyntaxKind::VarDecl)
@@ -397,6 +415,10 @@ fn validate_local_openot_references(program: &SyntaxNode) -> Vec<Diagnostic> {
             .children()
             .find(|child| child.kind() == SyntaxKind::TypeRef)
             .map(|node| compact_node_text(&node));
+        let current_names = declaration_names(&var_decl)
+            .into_iter()
+            .map(|name| name.text.to_ascii_lowercase())
+            .collect::<Vec<_>>();
         match attrs.kind() {
             Some(OotKind::Value) if is_audit_enabled(&attrs) => {
                 let actor_len =
@@ -676,7 +698,102 @@ fn validate_local_openot_references(program: &SyntaxNode) -> Vec<Diagnostic> {
                     &mut diagnostics,
                 );
             }
+            Some(OotKind::ESignature) => {
+                validate_decl_ref_with(
+                    &attrs,
+                    "action",
+                    &local_types,
+                    is_udint_type_name,
+                    "UDINT",
+                    &mut diagnostics,
+                );
+                validate_decl_ref_with(
+                    &attrs,
+                    "actor",
+                    &local_types,
+                    is_string_96_type_name,
+                    "STRING[<=96]",
+                    &mut diagnostics,
+                );
+                validate_auth_binding(&attrs, "auth", &local_types, &mut diagnostics);
+                validate_esignature_attests_ref(
+                    &attrs,
+                    &local_entries,
+                    &current_names,
+                    &mut diagnostics,
+                );
+            }
             _ => {}
+        }
+    }
+    diagnostics
+}
+
+fn validate_esignature_attests_ref(
+    attrs: &AttributeMap,
+    local_entries: &BTreeMap<String, LocalOpenOtEntry>,
+    current_names: &[String],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Some(entry) = last_entry(attrs, "attests") else {
+        return;
+    };
+    let target_name = entry.value.to_ascii_lowercase();
+    if current_names.iter().any(|name| name == &target_name) {
+        diagnostics.push(openot_error(
+            entry.range,
+            "OpenOT e-signature cannot attest itself",
+        ));
+        return;
+    }
+    let Some(target) = local_entries.get(&target_name) else {
+        diagnostics.push(openot_error(
+            entry.range,
+            format!(
+                "OpenOT 'attests' references unknown variable '{}'",
+                entry.value
+            ),
+        ));
+        return;
+    };
+    if !is_attestable_target(target) {
+        diagnostics.push(openot_error(
+            entry.range,
+            format!(
+                "OpenOT 'attests' must reference a deterministic single-event variable, got '{}'",
+                target.kind.as_str()
+            ),
+        ));
+    }
+    let signature_source_id = source_id_from_attrs(attrs);
+    if signature_source_id != target.source_id {
+        diagnostics.push(openot_error(
+            entry.range,
+            "OpenOT e-signature 'attests' target must use the same sourceid",
+        ));
+    }
+}
+
+fn validate_attestable_target_count(program: &SyntaxNode) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    let mut targets = BTreeSet::<String>::new();
+    for var_decl in program
+        .descendants()
+        .filter(|node| node.kind() == SyntaxKind::VarDecl)
+    {
+        let attrs = parse_attribute_map_from_node(&var_decl);
+        if attrs.kind() != Some(OotKind::ESignature) {
+            continue;
+        }
+        if let Some(entry) = last_entry(&attrs, "attests") {
+            targets.insert(entry.value.to_ascii_lowercase());
+            if targets.len() > 32 {
+                diagnostics.push(openot_error(
+                    entry.range,
+                    "OpenOT e-signature supports at most 32 distinct attested variables per producer instance",
+                ));
+                break;
+            }
         }
     }
     diagnostics
@@ -928,6 +1045,64 @@ fn local_openot_kinds(program: &SyntaxNode) -> BTreeMap<String, OotKind> {
     kinds
 }
 
+#[derive(Debug, Clone, Copy)]
+struct LocalOpenOtEntry {
+    kind: OotKind,
+    source_id: u32,
+    audit_enabled: bool,
+}
+
+fn local_openot_entries(program: &SyntaxNode) -> BTreeMap<String, LocalOpenOtEntry> {
+    let mut entries = BTreeMap::new();
+    for var_decl in program
+        .descendants()
+        .filter(|node| node.kind() == SyntaxKind::VarDecl)
+    {
+        let attrs = parse_attribute_map_from_node(&var_decl);
+        let Some(kind) = attrs.kind() else {
+            continue;
+        };
+        let entry = LocalOpenOtEntry {
+            kind,
+            source_id: source_id_from_attrs(&attrs),
+            audit_enabled: is_audit_enabled(&attrs),
+        };
+        for name in declaration_names(&var_decl) {
+            entries.insert(name.text.to_ascii_lowercase(), entry);
+        }
+    }
+    entries
+}
+
+fn source_id_from_attrs(attrs: &AttributeMap) -> u32 {
+    attrs
+        .get("sourceid")
+        .and_then(|value| value.parse::<u32>().ok())
+        .unwrap_or(1)
+}
+
+fn is_attestable_target(entry: &LocalOpenOtEntry) -> bool {
+    match entry.kind {
+        OotKind::Value => {
+            if entry.audit_enabled {
+                return true;
+            }
+            true
+        }
+        OotKind::State
+        | OotKind::Message
+        | OotKind::Batch
+        | OotKind::RecipeLoaded
+        | OotKind::RecipeApproved
+        | OotKind::MaterialAddition
+        | OotKind::OperatorAction
+        | OotKind::OperatorLogin
+        | OotKind::OperatorLogout
+        | OotKind::SecurityFailure => true,
+        OotKind::Alarm | OotKind::Condition | OotKind::ESignature => false,
+    }
+}
+
 /// Collect OpenOT diagnostics that need resolved HIR symbols.
 #[must_use]
 pub fn collect_openot_semantic_diagnostics(
@@ -1094,6 +1269,7 @@ pub fn validate_attribute_map(
             | OotKind::OperatorLogin
             | OotKind::OperatorLogout
             | OotKind::SecurityFailure
+            | OotKind::ESignature
     ) {
         if let Some(ty) = declared_type {
             if !ty.trim().eq_ignore_ascii_case("BOOL") {
@@ -1131,6 +1307,7 @@ pub fn validate_attribute_map(
                 | OotKind::OperatorLogin
                 | OotKind::OperatorLogout
                 | OotKind::SecurityFailure
+                | OotKind::ESignature
         ) && INTERNAL_ID_KEYS.contains(&entry.key.as_str())
             && entry.key != "sourceid"
         {
@@ -1212,6 +1389,12 @@ pub fn validate_attribute_map(
         OotKind::SecurityFailure => {
             validate_required_keys(attrs, &["actor"], "security-failure", &mut diagnostics);
         }
+        OotKind::ESignature => validate_required_keys(
+            attrs,
+            &["action", "actor", "meaning", "attests"],
+            "e-signature",
+            &mut diagnostics,
+        ),
         _ => {}
     }
 
@@ -1324,6 +1507,7 @@ pub fn allowed_keys(kind: OotKind) -> &'static [&'static str] {
         OotKind::OperatorLogin => OPERATOR_LOGIN_KEYS,
         OotKind::OperatorLogout => OPERATOR_LOGOUT_KEYS,
         OotKind::SecurityFailure => SECURITY_FAILURE_KEYS,
+        OotKind::ESignature => ESIGNATURE_KEYS,
     }
 }
 
@@ -1377,6 +1561,20 @@ pub fn auth_result_code(value: &str) -> Option<u16> {
         "pending" => Some(3),
         "expired" => Some(4),
         _ => value.parse::<u16>().ok().filter(|code| *code <= 4),
+    }
+}
+
+/// Numeric code for an e-signature meaning.
+#[must_use]
+pub fn signature_meaning_code(value: &str) -> Option<u16> {
+    match value.to_ascii_lowercase().as_str() {
+        "authored" => Some(0),
+        "reviewed" => Some(1),
+        "approved" => Some(2),
+        "verified" => Some(3),
+        "performed" => Some(4),
+        "witnessed" => Some(5),
+        _ => value.parse::<u16>().ok().filter(|code| *code <= 5),
     }
 }
 
@@ -1472,6 +1670,16 @@ fn validate_key_value(
                     "unknown OpenOT condition event '{}'; expected {}",
                     entry.value,
                     format_allowed(CONDITION_EVENT_VALUES)
+                ),
+            ));
+        }
+        (OotKind::ESignature, "meaning") if signature_meaning_code(&entry.value).is_none() => {
+            diagnostics.push(openot_error(
+                entry.range,
+                format!(
+                    "unknown OpenOT signature meaning '{}'; expected {} or 0..=5",
+                    entry.value,
+                    format_allowed(SIGNATURE_MEANING_VALUES)
                 ),
             ));
         }
@@ -1624,6 +1832,7 @@ fn validate_key_value(
         | (OotKind::OperatorLogin, "actor" | "auth" | "workstation" | "role")
         | (OotKind::OperatorLogout, "actor" | "workstation")
         | (OotKind::SecurityFailure, "actor" | "workstation" | "reason")
+        | (OotKind::ESignature, "action" | "actor" | "meaning" | "attests" | "auth")
             if entry.value.trim().is_empty() =>
         {
             diagnostics.push(openot_error(
@@ -2173,6 +2382,23 @@ END_PROGRAM
     }
 
     #[test]
+    fn validates_esignature_references() {
+        let source = r#"
+PROGRAM Main
+VAR
+    ActionId : UDINT;
+    OperatorName : STRING[32];
+    Approved : BOOL {attribute 'oot' := 'operator-action', 'action' := ActionId, 'actor' := OperatorName};
+    SignApproval : BOOL {attribute 'oot' := 'e-signature', 'action' := ActionId, 'actor' := OperatorName, 'meaning' := 'Approved', 'attests' := Approved, 'auth' := 'Granted'};
+END_VAR
+END_PROGRAM
+"#;
+        let parsed = parse(source);
+        let diagnostics = collect_openot_attribute_diagnostics(&parsed.syntax());
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    }
+
+    #[test]
     fn validates_audited_value_references_and_budget() {
         let source = r#"
 PROGRAM Main
@@ -2315,6 +2541,60 @@ END_PROGRAM
             "unknown OpenOT key 'reason' for kind 'operator-action'",
             "unknown OpenOT kind 'program-download'",
             "use bound field identities; 'valueid' is not allowed",
+        ] {
+            assert!(
+                diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.message.contains(expected)),
+                "missing {expected}; got {diagnostics:#?}"
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_invalid_esignature_attributes() {
+        let mut many_targets = String::new();
+        for index in 1..=33 {
+            many_targets.push_str(&format!(
+                "    Event{index} : BOOL {{attribute 'oot' := 'message'}};\n"
+            ));
+            many_targets.push_str(&format!(
+                "    Sign{index} : BOOL {{attribute 'oot' := 'e-signature', 'action' := ActionId, 'actor' := OperatorName, 'meaning' := 'Approved', 'attests' := Event{index}}};\n"
+            ));
+        }
+        let source = format!(
+            r#"
+PROGRAM Main
+VAR
+    ActionId : UDINT;
+    OperatorName : STRING[32];
+    BadActor : STRING[128];
+    CrossSourceTarget : BOOL {{attribute 'oot' := 'message', 'sourceid' := '2'}};
+    AlarmTarget : BOOL {{attribute 'oot' := 'alarm'}};
+    LifecycleTarget : BOOL {{attribute 'oot' := 'condition', 'of' := AlarmTarget, 'event' := 'suppress'}};
+    SignatureTarget : BOOL {{attribute 'oot' := 'e-signature', 'action' := ActionId, 'actor' := OperatorName, 'meaning' := 'Approved', 'attests' := CrossSourceTarget}};
+    BadActorType : BOOL {{attribute 'oot' := 'e-signature', 'action' := ActionId, 'actor' := BadActor, 'meaning' := 'Approved', 'attests' := CrossSourceTarget}};
+    BadMeaning : BOOL {{attribute 'oot' := 'e-signature', 'action' := ActionId, 'actor' := OperatorName, 'meaning' := 'Banana', 'attests' := CrossSourceTarget}};
+    UnknownTarget : BOOL {{attribute 'oot' := 'e-signature', 'action' := ActionId, 'actor' := OperatorName, 'meaning' := 'Approved', 'attests' := MissingEvent}};
+    AlarmAttest : BOOL {{attribute 'oot' := 'e-signature', 'action' := ActionId, 'actor' := OperatorName, 'meaning' := 'Approved', 'attests' := AlarmTarget}};
+    ConditionAttest : BOOL {{attribute 'oot' := 'e-signature', 'action' := ActionId, 'actor' := OperatorName, 'meaning' := 'Approved', 'attests' := LifecycleTarget}};
+    SignatureAttest : BOOL {{attribute 'oot' := 'e-signature', 'action' := ActionId, 'actor' := OperatorName, 'meaning' := 'Approved', 'attests' := SignatureTarget}};
+    CrossSourceAttest : BOOL {{attribute 'oot' := 'e-signature', 'action' := ActionId, 'actor' := OperatorName, 'meaning' := 'Approved', 'attests' := CrossSourceTarget}};
+    SelfSign : BOOL {{attribute 'oot' := 'e-signature', 'action' := ActionId, 'actor' := OperatorName, 'meaning' := 'Approved', 'attests' := SelfSign}};
+{many_targets}END_VAR
+END_PROGRAM
+"#
+        );
+        let parsed = parse(&source);
+        let diagnostics = collect_openot_attribute_diagnostics(&parsed.syntax());
+        for expected in [
+            "expected STRING[<=96]",
+            "unknown OpenOT signature meaning",
+            "references unknown variable",
+            "deterministic single-event variable",
+            "same sourceid",
+            "cannot attest itself",
+            "at most 32 distinct attested variables",
         ] {
             assert!(
                 diagnostics

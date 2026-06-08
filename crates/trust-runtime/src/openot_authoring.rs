@@ -165,7 +165,8 @@ pub fn definition_json_from_sources(sources: &[SourceFile]) -> Result<Value, Str
             | OotKind::OperatorAction
             | OotKind::OperatorLogin
             | OotKind::OperatorLogout
-            | OotKind::SecurityFailure => {}
+            | OotKind::SecurityFailure
+            | OotKind::ESignature => {}
         }
     }
 
@@ -549,6 +550,12 @@ fn collect_program_annotations(
                         regulated_workstation: attrs.get("workstation").cloned(),
                         regulated_role: attrs.get("role").cloned(),
                         regulated_reason: attrs.get("reason").cloned(),
+                        signature_action_id: attrs.get("action").cloned(),
+                        signature_actor: attrs.get("actor").cloned(),
+                        signature_meaning: attrs
+                            .get("meaning")
+                            .and_then(|meaning| hir_openot::signature_meaning_code(meaning)),
+                        signature_attests: attrs.get("attests").cloned(),
                     },
                     attrs.clone(),
                 ));
@@ -556,19 +563,36 @@ fn collect_program_annotations(
         }
     }
 
+    let attestable_ids = assign_attestable_ids(&pending);
     let mut annotations = Vec::new();
     let mut index = BTreeMap::<String, AnnotationIndexEntry>::new();
     for (draft, attrs) in &pending {
         if draft.kind == OotKind::Condition {
             continue;
         }
-        let annotation = annotation_from_parts(draft.clone(), attrs, counters);
+        let attestable_id = attestable_ids
+            .get(&draft.var_name.to_ascii_lowercase())
+            .copied()
+            .unwrap_or(0);
+        let signature_attests_id = draft
+            .signature_attests
+            .as_ref()
+            .and_then(|name| attestable_ids.get(&name.to_ascii_lowercase()).copied())
+            .unwrap_or(0);
+        let annotation = annotation_from_parts(
+            draft.clone(),
+            attrs,
+            counters,
+            attestable_id,
+            signature_attests_id,
+        );
         index.insert(
             annotation.var_name.to_ascii_lowercase(),
             AnnotationIndexEntry {
                 kind: annotation.kind,
                 id: annotation.id,
                 source_id: annotation.source_id,
+                attestable_id: annotation.attestable_id,
             },
         );
         annotations.push(annotation);
@@ -590,6 +614,28 @@ fn collect_program_annotations(
         annotations.push(condition_annotation_from_parts(draft, parent));
     }
     annotations
+}
+
+fn assign_attestable_ids(
+    pending: &[(AnnotationDraft, BTreeMap<String, String>)],
+) -> BTreeMap<String, u32> {
+    let mut ids = BTreeMap::new();
+    let mut next_id = 1u32;
+    for (draft, _) in pending {
+        if draft.kind != OotKind::ESignature {
+            continue;
+        }
+        let Some(target) = draft.signature_attests.as_ref() else {
+            continue;
+        };
+        let key = target.to_ascii_lowercase();
+        if ids.contains_key(&key) || next_id > 32 {
+            continue;
+        }
+        ids.insert(key, next_id);
+        next_id += 1;
+    }
+    ids
 }
 
 fn source_descriptor(source_path: Option<&str>, program: &SyntaxNode) -> SourceDescriptor {
@@ -656,6 +702,8 @@ fn annotation_from_parts(
     draft: AnnotationDraft,
     attrs: &BTreeMap<String, String>,
     counters: &mut AnnotationCounters,
+    attestable_id: u32,
+    signature_attests_id: u32,
 ) -> Annotation {
     match draft.kind {
         OotKind::Value => {
@@ -716,6 +764,11 @@ fn annotation_from_parts(
                 regulated_workstation: None,
                 regulated_role: None,
                 regulated_reason: draft.regulated_reason,
+                signature_action_id: None,
+                signature_actor: None,
+                signature_meaning: None,
+                signature_attests_id,
+                attestable_id,
             }
         }
         OotKind::State => {
@@ -770,6 +823,11 @@ fn annotation_from_parts(
                 regulated_workstation: None,
                 regulated_role: None,
                 regulated_reason: None,
+                signature_action_id: None,
+                signature_actor: None,
+                signature_meaning: None,
+                signature_attests_id,
+                attestable_id,
             }
         }
         OotKind::Alarm => {
@@ -825,6 +883,11 @@ fn annotation_from_parts(
                 regulated_workstation: None,
                 regulated_role: None,
                 regulated_reason: None,
+                signature_action_id: None,
+                signature_actor: None,
+                signature_meaning: None,
+                signature_attests_id,
+                attestable_id,
             }
         }
         OotKind::Message => {
@@ -877,6 +940,11 @@ fn annotation_from_parts(
                 regulated_workstation: None,
                 regulated_role: None,
                 regulated_reason: None,
+                signature_action_id: None,
+                signature_actor: None,
+                signature_meaning: None,
+                signature_attests_id,
+                attestable_id,
             }
         }
         OotKind::Batch
@@ -886,7 +954,8 @@ fn annotation_from_parts(
         | OotKind::OperatorAction
         | OotKind::OperatorLogin
         | OotKind::OperatorLogout
-        | OotKind::SecurityFailure => Annotation {
+        | OotKind::SecurityFailure
+        | OotKind::ESignature => Annotation {
             kind: draft.kind,
             var_name: draft.var_name,
             st_type: draft.st_type,
@@ -932,6 +1001,11 @@ fn annotation_from_parts(
             regulated_workstation: draft.regulated_workstation,
             regulated_role: draft.regulated_role,
             regulated_reason: draft.regulated_reason,
+            signature_action_id: draft.signature_action_id,
+            signature_actor: draft.signature_actor,
+            signature_meaning: draft.signature_meaning,
+            signature_attests_id,
+            attestable_id,
         },
         OotKind::Condition => {
             unreachable!("condition annotations require a resolved parent alarm index")
@@ -943,6 +1017,7 @@ fn condition_annotation_from_parts(
     draft: AnnotationDraft,
     parent: &AnnotationIndexEntry,
 ) -> Annotation {
+    let _parent_attestable_id = parent.attestable_id;
     Annotation {
         kind: draft.kind,
         var_name: draft.var_name,
@@ -989,6 +1064,11 @@ fn condition_annotation_from_parts(
         regulated_workstation: None,
         regulated_role: None,
         regulated_reason: None,
+        signature_action_id: None,
+        signature_actor: None,
+        signature_meaning: None,
+        signature_attests_id: 0,
+        attestable_id: 0,
     }
 }
 
@@ -1188,7 +1268,8 @@ fn hidden_declarations(annotations: &[Annotation]) -> Vec<String> {
             | OotKind::OperatorAction
             | OotKind::OperatorLogin
             | OotKind::OperatorLogout
-            | OotKind::SecurityFailure => {
+            | OotKind::SecurityFailure
+            | OotKind::ESignature => {
                 declarations.push(format!("    OotPrev_{safe} : BOOL := FALSE;"))
             }
             OotKind::Value => {}
@@ -1205,7 +1286,7 @@ fn hidden_statements(annotations: &[Annotation]) -> Vec<String> {
     ];
 
     for annotation in annotations {
-        if annotation.kind == OotKind::Condition {
+        if matches!(annotation.kind, OotKind::Condition | OotKind::ESignature) {
             continue;
         }
         match annotation.kind {
@@ -1223,7 +1304,7 @@ fn hidden_statements(annotations: &[Annotation]) -> Vec<String> {
             OotKind::OperatorLogin => statements.extend(operator_login_statements(annotation)),
             OotKind::OperatorLogout => statements.extend(operator_logout_statements(annotation)),
             OotKind::SecurityFailure => statements.extend(security_failure_statements(annotation)),
-            OotKind::Condition => {}
+            OotKind::Condition | OotKind::ESignature => {}
         }
     }
     for annotation in annotations
@@ -1231,6 +1312,12 @@ fn hidden_statements(annotations: &[Annotation]) -> Vec<String> {
         .filter(|annotation| annotation.kind == OotKind::Condition)
     {
         statements.extend(condition_lifecycle_statements(annotation));
+    }
+    for annotation in annotations
+        .iter()
+        .filter(|annotation| annotation.kind == OotKind::ESignature)
+    {
+        statements.extend(e_signature_statements(annotation));
     }
     statements
 }
@@ -1243,7 +1330,7 @@ fn value_statements(annotation: &Annotation) -> Vec<String> {
     if annotation.is_real() {
         return vec![
             format!(
-                "{PRODUCER_NAME}(Execute := TRUE, Op := UINT#6, SourceId := UDINT#{}, {}, ValueId := UDINT#{}, ValueReal := {}, DeadbandReal := {}, {}, SuppressPrevious := {}, HasQuality := {}, Quality := UINT#{});",
+                "{PRODUCER_NAME}(Execute := TRUE, Op := UINT#6, SourceId := UDINT#{}, {}, ValueId := UDINT#{}, ValueReal := {}, DeadbandReal := {}, {}, SuppressPrevious := {}, HasQuality := {}, Quality := UINT#{}, {});",
                 annotation.source_id,
                 source_time_args(),
                 annotation.id,
@@ -1252,7 +1339,8 @@ fn value_statements(annotation: &Annotation) -> Vec<String> {
                 annotation.sampling_args(),
                 bool_literal(annotation.suppress_previous),
                 bool_literal(annotation.quality.is_some()),
-                annotation.quality.unwrap_or(0)
+                annotation.quality.unwrap_or(0),
+                attestable_arg(annotation)
             ),
             format!("{PRODUCER_NAME}(Execute := FALSE);"),
         ];
@@ -1261,7 +1349,7 @@ fn value_statements(annotation: &Annotation) -> Vec<String> {
     if annotation.is_dint() {
         return vec![
             format!(
-                "{PRODUCER_NAME}(Execute := TRUE, Op := UINT#7, SourceId := UDINT#{}, {}, ValueId := UDINT#{}, ValueInt := {}, DeadbandReal := REAL#0.0, {}, SuppressPrevious := {}, HasQuality := {}, Quality := UINT#{});",
+                "{PRODUCER_NAME}(Execute := TRUE, Op := UINT#7, SourceId := UDINT#{}, {}, ValueId := UDINT#{}, ValueInt := {}, DeadbandReal := REAL#0.0, {}, SuppressPrevious := {}, HasQuality := {}, Quality := UINT#{}, {});",
                 annotation.source_id,
                 source_time_args(),
                 annotation.id,
@@ -1269,7 +1357,8 @@ fn value_statements(annotation: &Annotation) -> Vec<String> {
                 annotation.sampling_args(),
                 bool_literal(annotation.suppress_previous),
                 bool_literal(annotation.quality.is_some()),
-                annotation.quality.unwrap_or(0)
+                annotation.quality.unwrap_or(0),
+                attestable_arg(annotation)
             ),
             format!("{PRODUCER_NAME}(Execute := FALSE);"),
         ];
@@ -1278,7 +1367,7 @@ fn value_statements(annotation: &Annotation) -> Vec<String> {
     if annotation.is_string() {
         return vec![
             format!(
-                "{PRODUCER_NAME}(Execute := TRUE, Op := UINT#11, SourceId := UDINT#{}, {}, ValueId := UDINT#{}, ValueString := {}, {}, SuppressPrevious := {}, HasQuality := {}, Quality := UINT#{});",
+                "{PRODUCER_NAME}(Execute := TRUE, Op := UINT#11, SourceId := UDINT#{}, {}, ValueId := UDINT#{}, ValueString := {}, {}, SuppressPrevious := {}, HasQuality := {}, Quality := UINT#{}, {});",
                 annotation.source_id,
                 source_time_args(),
                 annotation.id,
@@ -1286,7 +1375,8 @@ fn value_statements(annotation: &Annotation) -> Vec<String> {
                 annotation.sampling_args(),
                 bool_literal(annotation.suppress_previous),
                 bool_literal(annotation.quality.is_some()),
-                annotation.quality.unwrap_or(0)
+                annotation.quality.unwrap_or(0),
+                attestable_arg(annotation)
             ),
             format!("{PRODUCER_NAME}(Execute := FALSE);"),
         ];
@@ -1294,7 +1384,7 @@ fn value_statements(annotation: &Annotation) -> Vec<String> {
 
     vec![
         format!(
-            "{PRODUCER_NAME}(Execute := TRUE, Op := UINT#10, SourceId := UDINT#{}, {}, ValueId := UDINT#{}, ValueTypeTag := BYTE#16#{:02X}, ValuePayloadLength := UINT#{}, ValueBits := {}, {}, SuppressPrevious := {}, HasQuality := {}, Quality := UINT#{});",
+            "{PRODUCER_NAME}(Execute := TRUE, Op := UINT#10, SourceId := UDINT#{}, {}, ValueId := UDINT#{}, ValueTypeTag := BYTE#16#{:02X}, ValuePayloadLength := UINT#{}, ValueBits := {}, {}, SuppressPrevious := {}, HasQuality := {}, Quality := UINT#{}, {});",
             annotation.source_id,
             source_time_args(),
             annotation.id,
@@ -1304,7 +1394,8 @@ fn value_statements(annotation: &Annotation) -> Vec<String> {
             annotation.sampling_args(),
             bool_literal(annotation.suppress_previous),
             bool_literal(annotation.quality.is_some()),
-            annotation.quality.unwrap_or(0)
+            annotation.quality.unwrap_or(0),
+            attestable_arg(annotation)
         ),
         format!("{PRODUCER_NAME}(Execute := FALSE);"),
     ]
@@ -1316,6 +1407,7 @@ fn audited_value_statements(annotation: &Annotation) -> Vec<String> {
         "Op := UINT#15".to_string(),
         format!("SourceId := UDINT#{}", annotation.source_id),
         source_time_args(),
+        attestable_arg(annotation),
         format!("ValueId := UDINT#{}", annotation.id),
         format!("ValueTypeTag := BYTE#16#{:02X}", annotation.tlv_type()),
         format!("ValuePayloadLength := UINT#{}", annotation.payload_len()),
@@ -1381,8 +1473,8 @@ fn state_statements(annotation: &Annotation) -> Vec<String> {
             "    ",
         ));
         statements.push(format!(
-            "    {PRODUCER_NAME}(Execute := TRUE, Op := UINT#8, SourceId := UDINT#{}, {}, StateMachineId := UDINT#{}, Category := UINT#{}, PreviousState := OotStatePrev_{safe}, NewState := OotStateNew_{safe});",
-            annotation.source_id, source_time_args(), annotation.id, annotation.category
+            "    {PRODUCER_NAME}(Execute := TRUE, Op := UINT#8, SourceId := UDINT#{}, {}, {}, StateMachineId := UDINT#{}, Category := UINT#{}, PreviousState := OotStatePrev_{safe}, NewState := OotStateNew_{safe});",
+            annotation.source_id, source_time_args(), attestable_arg(annotation), annotation.id, annotation.category
         ));
         statements.push(format!("    {PRODUCER_NAME}(Execute := FALSE);"));
         statements.push(format!("    OotPrev_{safe} := {};", annotation.var_name));
@@ -1392,8 +1484,8 @@ fn state_statements(annotation: &Annotation) -> Vec<String> {
     vec![
         format!("IF {} <> OotPrev_{safe} THEN", annotation.var_name),
         format!(
-            "    {PRODUCER_NAME}(Execute := TRUE, Op := UINT#8, SourceId := UDINT#{}, {}, StateMachineId := UDINT#{}, Category := UINT#{}, PreviousState := OotPrev_{safe}, NewState := {});",
-            annotation.source_id, source_time_args(), annotation.id, annotation.category, annotation.var_name
+            "    {PRODUCER_NAME}(Execute := TRUE, Op := UINT#8, SourceId := UDINT#{}, {}, {}, StateMachineId := UDINT#{}, Category := UINT#{}, PreviousState := OotPrev_{safe}, NewState := {});",
+            annotation.source_id, source_time_args(), attestable_arg(annotation), annotation.id, annotation.category, annotation.var_name
         ),
         format!("    {PRODUCER_NAME}(Execute := FALSE);"),
         format!("    OotPrev_{safe} := {};", annotation.var_name),
@@ -1412,6 +1504,7 @@ fn batch_statements(annotation: &Annotation) -> Vec<String> {
         "Op := UINT#13".to_string(),
         format!("SourceId := UDINT#{}", annotation.source_id),
         source_time_args(),
+        attestable_arg(annotation),
         "ProcedureEventTypeId := UDINT#16#0303".to_string(),
         format!(
             "ProcedureBatchId := {}",
@@ -1667,14 +1760,56 @@ fn security_failure_statements(annotation: &Annotation) -> Vec<String> {
     edge_trigger_statements(annotation, call_args)
 }
 
+fn e_signature_statements(annotation: &Annotation) -> Vec<String> {
+    let mut call_args = vec![
+        "Execute := TRUE".to_string(),
+        "Op := UINT#16".to_string(),
+        format!("SourceId := UDINT#{}", annotation.source_id),
+        source_time_args(),
+        format!(
+            "SignatureActionId := {}",
+            annotation
+                .signature_action_id
+                .as_deref()
+                .expect("signature action should be validated")
+        ),
+        format!(
+            "SignatureActor := {}",
+            annotation
+                .signature_actor
+                .as_deref()
+                .expect("signature actor should be validated")
+        ),
+        format!(
+            "SignatureMeaning := UINT#{}",
+            annotation
+                .signature_meaning
+                .expect("signature meaning should be validated")
+        ),
+        format!(
+            "SignatureAttestsId := UDINT#{}",
+            annotation.signature_attests_id
+        ),
+    ];
+    if let Some(auth_result) = &annotation.auth_result {
+        call_args.push("SignatureHasAuthResult := TRUE".to_string());
+        call_args.push(format!(
+            "SignatureAuthResult := {}",
+            auth_result_expr(auth_result)
+        ));
+    }
+    edge_trigger_statements(annotation, call_args)
+}
+
 fn auth_result_expr(value: &str) -> String {
     hir_openot::auth_result_code(value)
         .map(|code| format!("UINT#{code}"))
         .unwrap_or_else(|| value.to_string())
 }
 
-fn edge_trigger_statements(annotation: &Annotation, call_args: Vec<String>) -> Vec<String> {
+fn edge_trigger_statements(annotation: &Annotation, mut call_args: Vec<String>) -> Vec<String> {
     let safe = safe_identifier(&annotation.var_name);
+    call_args.push(attestable_arg(annotation));
     vec![
         format!("IF {} AND (NOT OotPrev_{safe}) THEN", annotation.var_name),
         format!("    {PRODUCER_NAME}({});", call_args.join(", ")),
@@ -1710,6 +1845,7 @@ fn alarm_statements(annotation: &Annotation) -> Vec<String> {
         "Op := UINT#9".to_string(),
         format!("SourceId := UDINT#{}", annotation.source_id),
         source_time_args(),
+        attestable_arg(annotation),
         format!("ConditionId := UDINT#{}", annotation.id),
         format!("ConditionClass := UINT#{}", annotation.condition_class),
         format!("Severity := UINT#{}", annotation.severity),
@@ -1738,6 +1874,7 @@ fn message_statements(annotation: &Annotation) -> Vec<String> {
         "Op := UINT#0".to_string(),
         format!("SourceId := UDINT#{}", annotation.source_id),
         source_time_args(),
+        attestable_arg(annotation),
         "Checkpoint := FALSE".to_string(),
         "AccumulateScanRecords := TRUE".to_string(),
         format!("MessageTemplateId := UDINT#{}", annotation.id),
@@ -1785,6 +1922,7 @@ fn condition_lifecycle_statements(annotation: &Annotation) -> Vec<String> {
         "Op := UINT#12".to_string(),
         format!("SourceId := UDINT#{}", annotation.source_id),
         source_time_args(),
+        attestable_arg(annotation),
         format!("ConditionId := UDINT#{}", annotation.id),
         format!(
             "ConditionLifecycleEventTypeId := UDINT#16#{:04X}",
@@ -1861,6 +1999,10 @@ fn condition_lifecycle_statements(annotation: &Annotation) -> Vec<String> {
 
 fn source_time_args() -> String {
     format!("UseSourceTimeInput := {USE_SOURCE_TIME_NAME}, SourceTimeInput := {SOURCE_TIME_NAME}")
+}
+
+fn attestable_arg(annotation: &Annotation) -> String {
+    format!("AttestableId := UDINT#{}", annotation.attestable_id)
 }
 
 fn id_or_default(attrs: &BTreeMap<String, String>, default: u32) -> u32 {
@@ -1972,6 +2114,11 @@ struct Annotation {
     regulated_workstation: Option<String>,
     regulated_role: Option<String>,
     regulated_reason: Option<String>,
+    signature_action_id: Option<String>,
+    signature_actor: Option<String>,
+    signature_meaning: Option<u16>,
+    signature_attests_id: u32,
+    attestable_id: u32,
 }
 
 impl Annotation {
@@ -2165,6 +2312,10 @@ struct AnnotationDraft {
     regulated_workstation: Option<String>,
     regulated_role: Option<String>,
     regulated_reason: Option<String>,
+    signature_action_id: Option<String>,
+    signature_actor: Option<String>,
+    signature_meaning: Option<u16>,
+    signature_attests: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -2172,6 +2323,7 @@ struct AnnotationIndexEntry {
     kind: OotKind,
     id: u32,
     source_id: u32,
+    attestable_id: u32,
 }
 
 #[derive(Debug, Clone)]
@@ -2486,7 +2638,7 @@ mod tests {
     fn operator_regulated_lowering_uses_regulated_op_and_auth_symbols() {
         let source = SourceFile::with_path(
             "main.st",
-            "PROGRAM Main\nVAR\n    ActionId : UDINT := UDINT#6001;\n    ContextA : UDINT := UDINT#7001;\n    ContextB : UDINT := UDINT#7002;\n    Actor : STRING[32] := 'operator-a';\n    Workstation : STRING[32] := 'station-1';\n    Role : UINT := UINT#3;\n    Reason : STRING[32] := 'denied';\n    Action : BOOL {attribute 'oot' := 'operator-action', 'action' := ActionId, 'actor' := Actor, 'context1' := ContextA, 'context2' := ContextB, 'auth' := 'Granted', 'workstation' := Workstation};\n    Login : BOOL {attribute 'oot' := 'operator-login', 'actor' := Actor, 'auth' := 'Denied', 'workstation' := Workstation, 'role' := Role};\n    Logout : BOOL {attribute 'oot' := 'operator-logout', 'actor' := Actor, 'workstation' := Workstation};\n    Failure : BOOL {attribute 'oot' := 'security-failure', 'actor' := Actor, 'workstation' := Workstation, 'reason' := Reason};\nEND_VAR\nAction := TRUE;\nLogin := TRUE;\nLogout := TRUE;\nFailure := TRUE;\nEND_PROGRAM\n",
+            "PROGRAM Main\nVAR\n    ActionId : UDINT := UDINT#6001;\n    ContextA : UDINT := UDINT#7001;\n    ContextB : UDINT := UDINT#7002;\n    Actor : STRING[32] := 'operator-a';\n    Workstation : STRING[32] := 'station-1';\n    Role : UINT := UINT#3;\n    Reason : STRING[32] := 'denied';\n    ActionTrigger : BOOL {attribute 'oot' := 'operator-action', 'action' := ActionId, 'actor' := Actor, 'context1' := ContextA, 'context2' := ContextB, 'auth' := 'Granted', 'workstation' := Workstation};\n    Login : BOOL {attribute 'oot' := 'operator-login', 'actor' := Actor, 'auth' := 'Denied', 'workstation' := Workstation, 'role' := Role};\n    Logout : BOOL {attribute 'oot' := 'operator-logout', 'actor' := Actor, 'workstation' := Workstation};\n    Failure : BOOL {attribute 'oot' := 'security-failure', 'actor' := Actor, 'workstation' := Workstation, 'reason' := Reason};\nEND_VAR\nActionTrigger := TRUE;\nLogin := TRUE;\nLogout := TRUE;\nFailure := TRUE;\nEND_PROGRAM\n",
         );
 
         let definition =

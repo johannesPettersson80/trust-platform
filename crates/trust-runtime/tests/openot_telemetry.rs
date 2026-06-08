@@ -12,19 +12,19 @@ use open_ot_carriage::registry::{
     EVENT_CONDITION_CLEARED, EVENT_CONDITION_COMMENTED, EVENT_CONDITION_CONFIRMED,
     EVENT_CONDITION_IN_SERVICE, EVENT_CONDITION_OUT_OF_SERVICE, EVENT_CONDITION_PRIORITY_CHANGED,
     EVENT_CONDITION_RESET, EVENT_CONDITION_SHELVED, EVENT_CONDITION_SUPPRESSED,
-    EVENT_CONDITION_UNSHELVED, EVENT_CONDITION_UNSUPPRESSED, EVENT_HEARTBEAT, EVENT_LOGGER_STOPPED,
-    EVENT_MATERIAL_ADDITION, EVENT_MESSAGE, EVENT_OPERATOR_ACTION, EVENT_OPERATOR_LOGIN,
-    EVENT_OPERATOR_LOGOUT, EVENT_PARAMETER_CHANGE, EVENT_RECIPE_APPROVED, EVENT_RECIPE_LOADED,
-    EVENT_SECURITY_ACCESS_FAILURE, EVENT_SOURCE_HIGH_WATER, EVENT_STATE_TRANSITION,
-    EVENT_VALUE_CHANGED, KEY_ACK_BY, KEY_ACTION_ID, KEY_ACTOR, KEY_ARG, KEY_AUTH_RESULT,
-    KEY_BATCH_ID, KEY_CATEGORY, KEY_CAUSE_OPERAND, KEY_COMMENT, KEY_CONDITION_CLASS,
-    KEY_CONDITION_ID, KEY_CONTEXT_REF, KEY_CORRELATION_ID, KEY_MATERIAL_ID,
+    EVENT_CONDITION_UNSHELVED, EVENT_CONDITION_UNSUPPRESSED, EVENT_ESIGNATURE, EVENT_HEARTBEAT,
+    EVENT_LOGGER_STOPPED, EVENT_MATERIAL_ADDITION, EVENT_MESSAGE, EVENT_OPERATOR_ACTION,
+    EVENT_OPERATOR_LOGIN, EVENT_OPERATOR_LOGOUT, EVENT_PARAMETER_CHANGE, EVENT_RECIPE_APPROVED,
+    EVENT_RECIPE_LOADED, EVENT_SECURITY_ACCESS_FAILURE, EVENT_SOURCE_HIGH_WATER,
+    EVENT_STATE_TRANSITION, EVENT_VALUE_CHANGED, KEY_ACK_BY, KEY_ACTION_ID, KEY_ACTOR, KEY_ARG,
+    KEY_AUTH_RESULT, KEY_BATCH_ID, KEY_CATEGORY, KEY_CAUSE_OPERAND, KEY_COMMENT,
+    KEY_CONDITION_CLASS, KEY_CONDITION_ID, KEY_CONTEXT_REF, KEY_CORRELATION_ID, KEY_MATERIAL_ID,
     KEY_MESSAGE_TEMPLATE_ID, KEY_NEW_PRIORITY, KEY_NEW_STATE, KEY_NEW_VALUE, KEY_PREVIOUS_PRIORITY,
     KEY_PREVIOUS_STATE, KEY_PREVIOUS_VALUE, KEY_QUANTITY, KEY_REASON, KEY_RECIPE_ID,
-    KEY_RECIPE_VERSION, KEY_ROLE, KEY_SEVERITY, KEY_SHELVE_SECS, KEY_SOURCE_HIGH_WATER,
-    KEY_STATE_MACHINE_ID, KEY_UNIT, KEY_VALUE_ID, KEY_WORKSTATION, SYSTEM_SOURCE_ID, TY_BOOL,
-    TY_DINT, TY_INT, TY_LINT, TY_LREAL, TY_REAL, TY_SINT, TY_STRING, TY_UDINT, TY_UINT, TY_ULINT,
-    TY_USINT,
+    KEY_RECIPE_VERSION, KEY_ROLE, KEY_SEVERITY, KEY_SHELVE_SECS, KEY_SIGNATURE_MEANING,
+    KEY_SIGNED_EVENT_SEQ, KEY_SOURCE_HIGH_WATER, KEY_STATE_MACHINE_ID, KEY_UNIT, KEY_VALUE_ID,
+    KEY_WORKSTATION, SYSTEM_SOURCE_ID, TY_BOOL, TY_DINT, TY_INT, TY_LINT, TY_LREAL, TY_REAL,
+    TY_SINT, TY_STRING, TY_UDINT, TY_UINT, TY_ULINT, TY_USINT,
 };
 use open_ot_carriage::ring::{ReadRecord, DEFAULT_BUFFER_ID};
 use open_ot_carriage::wire::{Record, Slot};
@@ -286,6 +286,7 @@ END_PROGRAM
             "OperatorLoginPassed",
             "OperatorLogoutPassed",
             "SecurityAccessFailurePassed",
+            "ESignaturePassed",
             "MismatchIndex",
         ] {
             if let Some(value) = harness
@@ -1248,6 +1249,235 @@ END_PROGRAM
 }
 
 #[test]
+fn openot_telemetry_authoring_esignature_cross_scan_attests_prior_event() {
+    let path = temp_shm_path("authoring-esignature-cross-scan");
+    let program = r#"
+PROGRAM Main
+VAR
+    Phase : UINT;
+    ActionId : UDINT := UDINT#6002;
+    OperatorName : STRING[32] := 'operator-a';
+    TargetAction : BOOL {attribute 'oot' := 'operator-action', 'action' := ActionId, 'actor' := OperatorName};
+    SignTarget : BOOL {attribute 'oot' := 'e-signature', 'action' := ActionId, 'actor' := OperatorName, 'meaning' := 'Approved', 'attests' := TargetAction, 'auth' := 'Granted'};
+END_VAR
+
+CASE Phase OF
+    UINT#0:
+        TargetAction := TRUE;
+    UINT#1:
+        TargetAction := FALSE;
+        SignTarget := TRUE;
+END_CASE;
+
+Phase := Phase + UINT#1;
+END_PROGRAM
+"#;
+    let mut runtime = build_st_runtime(program);
+    runtime
+        .configure_openot_telemetry(
+            &st_fb_telemetry_config_for(path.clone(), 4096, "Main.OotProducer"),
+            None,
+        )
+        .expect("configure OpenOT ST FB telemetry");
+
+    let store = SharedConcurrentStore::open_existing(&path).expect("open telemetry shm");
+    let mut consumer = ConcurrentRawConsumer::with_store(store);
+
+    runtime.execute_cycle().expect("target action publishes");
+    let target_batch = consumer.poll().expect("poll target action");
+    assert_eq!(target_batch.records.len(), 1);
+    assert_eq!(
+        target_batch.records[0].record.event_type_id,
+        EVENT_OPERATOR_ACTION
+    );
+    let target_seq = target_batch.records[0].record.seq;
+
+    runtime.execute_cycle().expect("e-signature publishes");
+    let signature_batch = consumer.poll().expect("poll e-signature");
+    assert_eq!(signature_batch.records.len(), 1);
+    let signature = &signature_batch.records[0].record;
+    assert_eq!(signature.event_type_id, EVENT_ESIGNATURE);
+    assert_eq!(
+        render_record(signature),
+        "ESignature source=1 seq=1 actionId=6002 actor=operator-a signatureMeaning=2 signedEventSeq=0 authResult=0"
+    );
+    assert_eq!(required_ulint(signature, KEY_SIGNED_EVENT_SEQ), target_seq);
+
+    drop(std::fs::remove_file(path));
+}
+
+#[test]
+fn openot_telemetry_authoring_esignature_same_scan_is_phased_last() {
+    let path = temp_shm_path("authoring-esignature-same-scan");
+    let program = r#"
+PROGRAM Main
+VAR
+    ActionId : UDINT := UDINT#6002;
+    OperatorName : STRING[32] := 'operator-a';
+    SignTarget : BOOL {attribute 'oot' := 'e-signature', 'action' := ActionId, 'actor' := OperatorName, 'meaning' := 'Approved', 'attests' := TargetAction};
+    TargetAction : BOOL {attribute 'oot' := 'operator-action', 'action' := ActionId, 'actor' := OperatorName};
+END_VAR
+
+SignTarget := TRUE;
+TargetAction := TRUE;
+END_PROGRAM
+"#;
+    let mut runtime = build_st_runtime(program);
+    runtime
+        .configure_openot_telemetry(
+            &st_fb_telemetry_config_for(path.clone(), 4096, "Main.OotProducer"),
+            None,
+        )
+        .expect("configure OpenOT ST FB telemetry");
+
+    let store = SharedConcurrentStore::open_existing(&path).expect("open telemetry shm");
+    let mut consumer = ConcurrentRawConsumer::with_store(store);
+
+    runtime
+        .execute_cycle()
+        .expect("same-scan target and e-signature publish");
+    let batch = consumer.poll().expect("poll same-scan e-signature");
+    assert_eq!(batch.records.len(), 2);
+    let target = &batch.records[0].record;
+    let signature = &batch.records[1].record;
+    assert_eq!(target.event_type_id, EVENT_OPERATOR_ACTION);
+    assert_eq!(signature.event_type_id, EVENT_ESIGNATURE);
+    assert_eq!(required_ulint(signature, KEY_SIGNED_EVENT_SEQ), target.seq);
+    assert_eq!(
+        render_record(signature),
+        "ESignature source=1 seq=1 actionId=6002 actor=operator-a signatureMeaning=2 signedEventSeq=0"
+    );
+
+    drop(std::fs::remove_file(path));
+}
+
+#[test]
+fn openot_telemetry_authoring_esignature_never_emitted_target_fails_closed() {
+    let path = temp_shm_path("authoring-esignature-never-emitted");
+    let program = r#"
+PROGRAM Main
+VAR
+    ActionId : UDINT := UDINT#6002;
+    OperatorName : STRING[32] := 'operator-a';
+    TargetAction : BOOL {attribute 'oot' := 'operator-action', 'action' := ActionId, 'actor' := OperatorName};
+    SignTarget : BOOL {attribute 'oot' := 'e-signature', 'action' := ActionId, 'actor' := OperatorName, 'meaning' := 'Approved', 'attests' := TargetAction};
+END_VAR
+
+SignTarget := TRUE;
+END_PROGRAM
+"#;
+    let mut runtime = build_st_runtime(program);
+    runtime
+        .configure_openot_telemetry(
+            &st_fb_telemetry_config_for(path.clone(), 4096, "Main.OotProducer"),
+            None,
+        )
+        .expect("configure OpenOT ST FB telemetry");
+
+    let err = runtime
+        .execute_cycle()
+        .expect_err("e-signature without attested event must fail closed");
+    let err = format!("{err:?}");
+    assert!(err.contains("dropped 1 OpenOT command(s)"), "{err}");
+    assert!(err.contains("LastCommandError 6"), "{err}");
+
+    let store = SharedConcurrentStore::open_existing(&path).expect("open telemetry shm");
+    let mut consumer = ConcurrentRawConsumer::with_store(store);
+    let batch = consumer.poll().expect("poll failed e-signature");
+    assert!(batch.records.is_empty(), "{batch:#?}");
+
+    drop(std::fs::remove_file(path));
+}
+
+#[test]
+fn openot_telemetry_esignature_attestation_state_resets_on_epoch_transition() {
+    let path = temp_shm_path("esignature-epoch-reset");
+    let program = r#"
+PROGRAM Main
+VAR
+    Producer : OPENOT_Producer;
+    Phase : UINT;
+    Signer : STRING[32] := 'operator-a';
+    DefHashOld : OPENOT_HASH8 := [
+        BYTE#16#6F, BYTE#16#6C, BYTE#16#64, BYTE#16#68,
+        BYTE#16#61, BYTE#16#73, BYTE#16#68, BYTE#16#31
+    ];
+    DefHashNew : OPENOT_HASH8 := [
+        BYTE#16#6E, BYTE#16#65, BYTE#16#77, BYTE#16#68,
+        BYTE#16#61, BYTE#16#73, BYTE#16#68, BYTE#16#32
+    ];
+END_VAR
+
+Producer(Execute := FALSE, ResetScanRecords := TRUE);
+Producer(Execute := FALSE, ResetScanRecords := FALSE);
+
+CASE Phase OF
+    UINT#0:
+        Producer(Execute := TRUE, Op := UINT#0, SourceId := UDINT#88, Checkpoint := FALSE, MessageTemplateId := UDINT#10001, AttestableId := UDINT#1);
+        Producer(Execute := FALSE);
+    UINT#1:
+        Producer(Execute := TRUE, Op := UINT#16, SourceId := UDINT#88, SignatureActionId := UDINT#6002, SignatureActor := Signer, SignatureMeaning := UINT#2, SignatureAttestsId := UDINT#1);
+        Producer(Execute := FALSE);
+    UINT#2:
+        Producer(Execute := TRUE, Op := UINT#1, SourceId := UDINT#0, Checkpoint := FALSE, DefHashOld := DefHashOld, DefHashNew := DefHashNew, TransitionEpochId := ULINT#2);
+        Producer(Execute := FALSE);
+    UINT#3:
+        Producer(Execute := TRUE, Op := UINT#2, SourceId := UDINT#0, Checkpoint := FALSE);
+        Producer(Execute := FALSE);
+    UINT#4:
+        Producer(Execute := TRUE, Op := UINT#3, SourceId := UDINT#0, Checkpoint := FALSE);
+        Producer(Execute := FALSE);
+    UINT#5:
+        Producer(Execute := TRUE, Op := UINT#16, SourceId := UDINT#88, SignatureActionId := UDINT#6002, SignatureActor := Signer, SignatureMeaning := UINT#2, SignatureAttestsId := UDINT#1);
+        Producer(Execute := FALSE);
+END_CASE;
+
+Phase := Phase + UINT#1;
+END_PROGRAM
+"#;
+    let mut runtime = build_st_runtime(program);
+    runtime
+        .configure_openot_telemetry(&st_fb_telemetry_config(path.clone(), 4096), None)
+        .expect("configure OpenOT ST FB telemetry");
+
+    let store = SharedConcurrentStore::open_existing(&path).expect("open telemetry shm");
+    let mut consumer = ConcurrentRawConsumer::with_store(store);
+
+    runtime
+        .execute_cycle()
+        .expect("attestable target publishes");
+    let batch = consumer.poll().expect("poll target");
+    assert_eq!(batch.records.len(), 1);
+    assert_eq!(batch.records[0].record.event_type_id, EVENT_MESSAGE);
+    runtime
+        .execute_cycle()
+        .expect("pre-transition signature publishes");
+    let batch = consumer.poll().expect("poll pre-transition signature");
+    assert_eq!(batch.records.len(), 1);
+    assert_eq!(batch.records[0].record.event_type_id, EVENT_ESIGNATURE);
+    assert_eq!(
+        required_ulint(&batch.records[0].record, KEY_SIGNED_EVENT_SEQ),
+        0
+    );
+
+    for _ in 0..3 {
+        runtime
+            .execute_cycle()
+            .expect("transition step publishes and clears attestable state");
+        let _ = consumer.poll().expect("poll transition record(s)");
+    }
+
+    let err = runtime
+        .execute_cycle()
+        .expect_err("post-transition e-signature must not attest prior epoch");
+    let err = format!("{err:?}");
+    assert!(err.contains("dropped 1 OpenOT command(s)"), "{err}");
+    assert!(err.contains("LastCommandError 6"), "{err}");
+
+    drop(std::fs::remove_file(path));
+}
+
+#[test]
 fn openot_telemetry_authoring_condition_lifecycle_round_trip() {
     let path = temp_shm_path("authoring-condition-lifecycle");
     let program = r#"
@@ -1940,6 +2170,7 @@ fn render_record(record: &Record) -> String {
         EVENT_OPERATOR_LOGOUT => render_operator_logout(record),
         EVENT_SECURITY_ACCESS_FAILURE => render_security_access_failure(record),
         EVENT_PARAMETER_CHANGE => render_parameter_change(record),
+        EVENT_ESIGNATURE => render_e_signature(record),
         EVENT_VALUE_CHANGED => render_value_changed(record),
         other => format!(
             "Event 0x{other:08X} source={} seq={}",
@@ -2258,6 +2489,22 @@ fn render_parameter_change(record: &Record) -> String {
         required_value(record, KEY_NEW_VALUE),
         required_string(record, KEY_ACTOR),
         required_string(record, KEY_REASON),
+        auth_result
+    )
+}
+
+fn render_e_signature(record: &Record) -> String {
+    let auth_result = slot(record, KEY_AUTH_RESULT)
+        .map(|_| format!(" authResult={}", required_uint(record, KEY_AUTH_RESULT)))
+        .unwrap_or_default();
+    format!(
+        "ESignature source={} seq={} actionId={} actor={} signatureMeaning={} signedEventSeq={}{}",
+        record.source_id,
+        record.seq,
+        required_udint(record, KEY_ACTION_ID),
+        required_string(record, KEY_ACTOR),
+        required_uint(record, KEY_SIGNATURE_MEANING),
+        required_ulint(record, KEY_SIGNED_EVENT_SEQ),
         auth_result
     )
 }

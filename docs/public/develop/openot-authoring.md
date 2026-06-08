@@ -36,14 +36,56 @@ program. Those are internal lowering details.
 
 | Kind | Declaration type | Emits | Trigger |
 | --- | --- | --- | --- |
-| `value` | `REAL` or `DINT` | `ValueChanged` | value changes, respecting `deadband` for `REAL` |
+| `value` | `BOOL`, integer widths, `REAL`, `LREAL`, or bounded `STRING` | `ValueChanged`; with `audit := 'true'`, `ParameterChange` | value changes, respecting sampling/deadband for supported `REAL` policies |
 | `state` | enum type | `StateTransition` | enum value changes |
 | `alarm` | `BOOL` | `ConditionActive` / `ConditionCleared` | FALSE->TRUE / TRUE->FALSE |
 | `message` | `BOOL` | `Message` | FALSE->TRUE |
+| `condition` | `BOOL` | condition lifecycle events | FALSE->TRUE |
+| `batch` | enum type | `BatchEvent` | enum value changes |
+| `recipe-loaded`, `recipe-approved`, `material-addition` | `BOOL` | recipe/batch/material events | FALSE->TRUE |
+| `operator-action`, `operator-login`, `operator-logout`, `security-failure`, `e-signature` | `BOOL` | operator/regulated/e-signature events | FALSE->TRUE |
 
-Other value types are rejected until matching OpenOT ST encoders exist. In
-particular, `LREAL`, 64-bit integers, unsigned integers, strings, and custom
-numeric types are not silently coerced to `DINT`.
+Unsupported or unbounded value types are compile errors; truST does not silently
+coerce them to `DINT`. Audited string values and audited `actor`/`reason`
+bindings must use explicit `STRING[n]` widths so the compiler can prove the
+record fits the producer buffer.
+
+## Regulated and Lifecycle Attributes
+
+Condition lifecycle commands are companion `BOOL` variables that reference a
+parent alarm:
+
+```iecst
+OperatorName : STRING[32] := 'operator-a';
+HighPhAlarm  : BOOL {attribute 'oot' := 'alarm', 'class' := 'alarm', 'severity' := '900'};
+AckHighPh    : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'acknowledge', 'by' := OperatorName};
+```
+
+Activation-scoped commands such as `acknowledge`, `confirm`, `shelve`,
+`unshelve`, `comment`, and `reset` use the producer's live alarm correlation id
+and fail closed if no activation is live. Condition-scoped commands such as
+`suppress`, `unsuppress`, `out-of-service`, `in-service`, and
+`priority-changed` emit without a correlation id.
+
+Batch/recipe/operator events bind typed fields from normal declarations:
+
+```iecst
+ActionId : UDINT := UDINT#6001;
+OperatorName : STRING[32] := 'operator-a';
+Action : BOOL {attribute 'oot' := 'operator-action', 'action' := ActionId, 'actor' := OperatorName, 'auth' := 'Granted'};
+```
+
+`e-signature` attests a deterministic single-event OpenOT variable in the same
+source. The compiler assigns hidden attestable ids and the producer writes the
+attested event's emitted sequence into `signedEventSeq`:
+
+```iecst
+SignAction : BOOL {attribute 'oot' := 'e-signature', 'action' := ActionId, 'actor' := OperatorName, 'meaning' := 'Approved', 'attests' := Action};
+```
+
+The signature emits after other generated OpenOT calls in the scan, so it can
+attest a same-scan target. It fails closed if the target has not emitted in the
+current run/epoch.
 
 ## State Categories
 
@@ -83,13 +125,17 @@ same editor/compiler diagnostic flow as other ST issues.
 Rejected cases include:
 
 - unknown OpenOT kinds, keys, categories, classes, or models;
+- invalid condition/recipe/operator/e-signature event values or field bindings;
 - `model` used without `category := 'procedural'`;
 - `category := 'procedural'` without a model;
 - severity outside `1..=1000`;
 - empty `unit` or `template`;
 - non-numeric `deadband`;
 - `deadband` on non-`REAL` values;
-- `value` on unsupported types.
+- `value` on unsupported types;
+- `e-signature` attesting an alarm, condition command, another signature,
+  cross-source target, unknown variable, or more than 32 distinct targets in one
+  producer instance.
 
 ## Generated Runtime Path
 
@@ -129,6 +175,9 @@ numeric ids back to meaning:
 - state-machine ids to enum names and enum members;
 - condition ids to names, classes, and severities;
 - message-template ids to template text.
+Batch/recipe/material/operator/e-signature records currently carry raw ids and
+strings for their bound fields; the reserved definition tables are populated by
+future vocabulary slices.
 
 The shared-memory ring carries encoded OpenOT records. Consumers resolve those
 records with the generated definition file into the document-format JSON used by

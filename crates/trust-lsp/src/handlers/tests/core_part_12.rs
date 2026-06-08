@@ -17,12 +17,14 @@ PROGRAM Main
 	    AckEvent : BOOL {attribute 'oot' := 'condition', 'event' := ''};
 	    BatchState : E_Step {attribute 'oot' := 'batch', };
 	    Loaded : BOOL {attribute 'oot' := 'recipe-loaded', };
-	    Addition : BOOL {attribute 'oot' := 'material-addition', };
-	    OperatorAction : BOOL {attribute 'oot' := 'operator-action', };
-	    OperatorAuth : BOOL {attribute 'oot' := 'operator-login', 'auth' := ''};
-	END_VAR
-	END_PROGRAM
-	"#;
+		    Addition : BOOL {attribute 'oot' := 'material-addition', };
+		    OperatorAction : BOOL {attribute 'oot' := 'operator-action', };
+		    OperatorAuth : BOOL {attribute 'oot' := 'operator-login', 'auth' := ''};
+		    SignApproval : BOOL {attribute 'oot' := 'e-signature', };
+		    SignMeaning : BOOL {attribute 'oot' := 'e-signature', 'meaning' := ''};
+		END_VAR
+		END_PROGRAM
+		"#;
     let state = ServerState::new();
     let uri = tower_lsp::lsp_types::Url::parse("file:///openot-completion.st").unwrap();
     state.open_document(uri.clone(), 1, source.to_string());
@@ -44,6 +46,7 @@ PROGRAM Main
     assert!(kind_labels.iter().any(|label| label == "operator-login"));
     assert!(kind_labels.iter().any(|label| label == "operator-logout"));
     assert!(kind_labels.iter().any(|label| label == "security-failure"));
+    assert!(kind_labels.iter().any(|label| label == "e-signature"));
 
     let value_key_cursor = source.find("'value', ").expect("value comma") + "'value', ".len();
     let value_key_labels = completion_labels(&state, &uri, source, value_key_cursor);
@@ -156,6 +159,20 @@ PROGRAM Main
     assert!(auth_labels.iter().any(|label| label == "Granted"));
     assert!(auth_labels.iter().any(|label| label == "Denied"));
     assert!(auth_labels.iter().any(|label| label == "NotRequired"));
+
+    let signature_key_cursor =
+        source.find("'e-signature', ").expect("signature comma") + "'e-signature', ".len();
+    let signature_key_labels = completion_labels(&state, &uri, source, signature_key_cursor);
+    assert!(signature_key_labels.iter().any(|label| label == "action"));
+    assert!(signature_key_labels.iter().any(|label| label == "actor"));
+    assert!(signature_key_labels.iter().any(|label| label == "meaning"));
+    assert!(signature_key_labels.iter().any(|label| label == "attests"));
+    assert!(signature_key_labels.iter().any(|label| label == "auth"));
+
+    let meaning_cursor = source.find("'meaning' := '").expect("meaning") + "'meaning' := '".len();
+    let meaning_labels = completion_labels(&state, &uri, source, meaning_cursor);
+    assert!(meaning_labels.iter().any(|label| label == "Approved"));
+    assert!(meaning_labels.iter().any(|label| label == "Witnessed"));
 }
 
 #[test]
@@ -163,13 +180,14 @@ pub(super) fn lsp_openot_validation_reports_bad_value_and_accepts_good_value() {
     let bad = r#"
 PROGRAM Main
 VAR
-    Step : INT {attribute 'oot' := 'state', 'category' := 'banana'};
-    Actor : STRING;
-    ReasonText : STRING[128];
-    SetPoint : REAL {attribute 'oot' := 'value', 'audit' := 'true', 'actor' := Actor, 'reason' := ReasonText};
-END_VAR
-END_PROGRAM
-"#;
+	    Step : INT {attribute 'oot' := 'state', 'category' := 'banana'};
+	    Actor : STRING;
+	    ReasonText : STRING[128];
+	    SetPoint : REAL {attribute 'oot' := 'value', 'audit' := 'true', 'actor' := Actor, 'reason' := ReasonText};
+	    Sign : BOOL {attribute 'oot' := 'e-signature', 'action' := MissingAction, 'actor' := Actor, 'meaning' := 'BadMeaning', 'attests' := MissingEvent};
+	END_VAR
+	END_PROGRAM
+	"#;
     let bad_state = ServerState::new();
     let bad_uri = tower_lsp::lsp_types::Url::parse("file:///openot-bad.st").unwrap();
     bad_state.open_document(bad_uri.clone(), 1, bad.to_string());
@@ -191,6 +209,18 @@ END_PROGRAM
                 .message
                 .contains("audited values require STRING[n], n <= 96")
         }),
+        "{bad_diagnostics:#?}"
+    );
+    assert!(
+        bad_diagnostics.iter().any(|diagnostic| diagnostic
+            .message
+            .contains("unknown OpenOT signature meaning")),
+        "{bad_diagnostics:#?}"
+    );
+    assert!(
+        bad_diagnostics.iter().any(|diagnostic| diagnostic
+            .message
+            .contains("OpenOT 'attests' references unknown variable")),
         "{bad_diagnostics:#?}"
     );
 
@@ -229,14 +259,15 @@ VAR
 	    Actor : STRING[32] := 'operator-a';
 	    ReasonText : STRING[32] := 'change';
 	    SetPoint : REAL {attribute 'oot' := 'value', 'audit' := 'true', 'actor' := Actor, 'reason' := ReasonText};
-	    HighPhAlarm : BOOL {attribute 'oot' := 'alarm'};
-	    AckHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'acknowledge'};
-	    BatchState : E_Step {attribute 'oot' := 'batch', 'batchId' := BatchId};
-	    Loaded : BOOL {attribute 'oot' := 'recipe-loaded', 'recipe' := RecipeId, 'version' := RecipeVersion};
-	    Action : BOOL {attribute 'oot' := 'operator-action', 'action' := ActionId, 'actor' := OperatorName};
-	END_VAR
-	END_PROGRAM
-	"#;
+		    HighPhAlarm : BOOL {attribute 'oot' := 'alarm'};
+		    AckHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'acknowledge'};
+		    BatchState : E_Step {attribute 'oot' := 'batch', 'batchId' := BatchId};
+		    Loaded : BOOL {attribute 'oot' := 'recipe-loaded', 'recipe' := RecipeId, 'version' := RecipeVersion};
+		    Action : BOOL {attribute 'oot' := 'operator-action', 'action' := ActionId, 'actor' := OperatorName};
+		    SignAction : BOOL {attribute 'oot' := 'e-signature', 'action' := ActionId, 'actor' := OperatorName, 'meaning' := 'Approved', 'attests' := Action};
+		END_VAR
+		END_PROGRAM
+		"#;
     let state = ServerState::new();
     let uri = tower_lsp::lsp_types::Url::parse("file:///openot-inlay.st").unwrap();
     state.open_document(uri.clone(), 1, source.to_string());
@@ -286,6 +317,13 @@ VAR
         hints
             .iter()
             .any(|hint| inlay_label_contains(&hint.label, "OperatorAction on TRUE edge")),
+        "{hints:#?}"
+    );
+    assert!(
+        hints.iter().any(|hint| inlay_label_contains(
+            &hint.label,
+            "ESignature on TRUE edge attesting Action"
+        )),
         "{hints:#?}"
     );
 }

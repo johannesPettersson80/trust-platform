@@ -143,6 +143,8 @@ fn openot_key_items(kind: openot_vocab::OotKind) -> Vec<CompletionItem> {
                 "quantity" => "'quantity' := ${1:Quantity}",
                 "action" => "'action' := ${1:ActionId}",
                 "actor" => "'actor' := ${1:OperatorName}",
+                "meaning" => "'meaning' := '${1:approved}'",
+                "attests" => "'attests' := ${1:TaggedEvent}",
                 "context1" => "'context1' := ${1:ContextId}",
                 "context2" => "'context2' := ${1:ContextId}",
                 "context3" => "'context3' := ${1:ContextId}",
@@ -181,6 +183,10 @@ fn openot_value_items(key: &str) -> Vec<CompletionItem> {
             openot_vocab::CONDITION_EVENT_VALUES,
         ),
         "auth" => string_value_items("OpenOT authResult", openot_vocab::AUTH_RESULT_VALUES),
+        "meaning" => string_value_items(
+            "OpenOT signature meaning",
+            openot_vocab::SIGNATURE_MEANING_VALUES,
+        ),
         "interval" => vec![CompletionItem::new("1000", CompletionKind::Snippet)
             .with_detail("OpenOT periodic interval")
             .with_documentation("Interval is a positive integer number of milliseconds.")
