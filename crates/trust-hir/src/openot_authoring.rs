@@ -8,8 +8,11 @@ use std::collections::{BTreeMap, BTreeSet};
 use text_size::TextRange;
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 
+use crate::db::FileId;
 use crate::diagnostics::{Diagnostic, DiagnosticCode};
-use crate::types::TypeId;
+use crate::semantic::{DeclarationCatalog, DeclarationKind};
+use crate::symbols::SymbolTable;
+use crate::types::{Type, TypeId};
 
 /// OpenOT attribute kinds supported by the truST authoring layer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -52,13 +55,15 @@ impl OotKind {
 /// Supported OpenOT kind values.
 pub const KINDS: &[&str] = &["value", "state", "alarm", "message"];
 /// Keys accepted on `value` attributes.
-pub const VALUE_KEYS: &[&str] = &["unit", "deadband"];
+pub const VALUE_KEYS: &[&str] = &["unit", "deadband", "quality", "semanticrole", "previous"];
+/// Unit symbols accepted by the current OpenOT reference registry.
+pub const UNIT_VALUES: &[&str] = &["1", "L", "degC", "bar", "rpm", "s", "ms", "kg", "m", "%"];
 /// Keys accepted on `state` attributes.
 pub const STATE_KEYS: &[&str] = &["category", "model"];
 /// Keys accepted on `alarm` attributes.
-pub const ALARM_KEYS: &[&str] = &["class", "severity"];
+pub const ALARM_KEYS: &[&str] = &["class", "severity", "cause"];
 /// Keys accepted on `message` attributes.
-pub const MESSAGE_KEYS: &[&str] = &["template"];
+pub const MESSAGE_KEYS: &[&str] = &["template", "severity", "arg1", "arg2", "arg3", "arg4"];
 /// State category values.
 pub const CATEGORY_VALUES: &[&str] = &["process", "mode", "procedural"];
 /// Machine-local process/equipment state category.
@@ -69,8 +74,47 @@ pub const STATE_CATEGORY_MODE: u16 = 1;
 pub const STATE_CATEGORY_PROCEDURAL: u16 = 2;
 /// Procedural model values.
 pub const MODEL_VALUES: &[&str] = &["ISA-88", "PackML"];
+const ISA_88_STATES: &[(u16, &str)] = &[
+    (0, "Idle"),
+    (1, "Running"),
+    (2, "Complete"),
+    (3, "Pausing"),
+    (4, "Paused"),
+    (5, "Holding"),
+    (6, "Held"),
+    (7, "Restarting"),
+    (8, "Stopping"),
+    (9, "Stopped"),
+    (10, "Aborting"),
+    (11, "Aborted"),
+];
+const PACKML_STATES: &[(u16, &str)] = &[
+    (0, "Idle"),
+    (1, "Starting"),
+    (2, "Execute"),
+    (3, "Completing"),
+    (4, "Complete"),
+    (5, "Holding"),
+    (6, "Held"),
+    (7, "Unholding"),
+    (8, "Suspending"),
+    (9, "Suspended"),
+    (10, "Unsuspending"),
+    (11, "Stopping"),
+    (12, "Stopped"),
+    (13, "Aborting"),
+    (14, "Aborted"),
+    (15, "Clearing"),
+    (16, "Resetting"),
+];
 /// Condition class values.
 pub const CLASS_VALUES: &[&str] = &["alarm", "interlock"];
+/// Value quality values.
+pub const QUALITY_VALUES: &[&str] = &["good", "uncertain", "bad", "unknown"];
+/// Value semantic-role values.
+pub const SEMANTIC_ROLE_VALUES: &[&str] = &[
+    "actual", "setpoint", "command", "count", "position", "status",
+];
 /// Severity range used by the OpenOT authoring layer.
 pub const SEVERITY_MIN: u16 = 1;
 /// Severity range used by the OpenOT authoring layer.
@@ -205,6 +249,154 @@ pub fn collect_openot_attribute_diagnostics(root: &SyntaxNode) -> Vec<Diagnostic
             .map(|node| compact_node_text(&node));
         diagnostics.extend(validate_attribute_map(&attrs, declared_type.as_deref()));
     }
+    for program in root
+        .descendants()
+        .filter(|node| node.kind() == SyntaxKind::Program)
+    {
+        diagnostics.extend(validate_local_openot_references(&program));
+    }
+    diagnostics
+}
+
+fn validate_local_openot_references(program: &SyntaxNode) -> Vec<Diagnostic> {
+    let local_types = local_declared_types(program);
+    let mut diagnostics = Vec::new();
+    for var_decl in program
+        .descendants()
+        .filter(|node| node.kind() == SyntaxKind::VarDecl)
+    {
+        let attrs = parse_attribute_map_from_node(&var_decl);
+        match attrs.kind() {
+            Some(OotKind::Message) => {
+                for key in ["arg1", "arg2", "arg3", "arg4"] {
+                    validate_decl_ref(&attrs, key, &local_types, true, &mut diagnostics);
+                }
+            }
+            Some(OotKind::Alarm) => {
+                validate_decl_ref(&attrs, "cause", &local_types, false, &mut diagnostics);
+            }
+            _ => {}
+        }
+    }
+    diagnostics
+}
+
+fn validate_decl_ref(
+    attrs: &AttributeMap,
+    key: &str,
+    local_types: &BTreeMap<String, String>,
+    require_value_encodable: bool,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Some(entry) = last_entry(attrs, key) else {
+        return;
+    };
+    let Some(st_type) = local_types.get(&entry.value.to_ascii_lowercase()) else {
+        diagnostics.push(openot_error(
+            entry.range,
+            format!(
+                "OpenOT '{key}' references unknown variable '{}'",
+                entry.value
+            ),
+        ));
+        return;
+    };
+    if require_value_encodable && !is_supported_value_type_name(st_type) {
+        diagnostics.push(openot_error(
+            entry.range,
+            format!(
+                "OpenOT '{key}' references unsupported argument type '{}'",
+                st_type
+            ),
+        ));
+    }
+}
+
+fn local_declared_types(program: &SyntaxNode) -> BTreeMap<String, String> {
+    let mut types = BTreeMap::new();
+    for var_decl in program
+        .descendants()
+        .filter(|node| node.kind() == SyntaxKind::VarDecl)
+    {
+        let Some(type_ref) = var_decl
+            .children()
+            .find(|child| child.kind() == SyntaxKind::TypeRef)
+        else {
+            continue;
+        };
+        let st_type = compact_node_text(&type_ref);
+        for name in declaration_names(&var_decl) {
+            types.insert(name.text.to_ascii_lowercase(), st_type.clone());
+        }
+    }
+    types
+}
+
+/// Collect OpenOT diagnostics that need resolved HIR symbols.
+#[must_use]
+pub fn collect_openot_semantic_diagnostics(
+    root: &SyntaxNode,
+    symbols: &SymbolTable,
+    catalog: &DeclarationCatalog,
+    file_id: FileId,
+) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    for var_decl in root
+        .descendants()
+        .filter(|node| node.kind() == SyntaxKind::VarDecl)
+    {
+        let attrs = parse_attribute_map_from_node(&var_decl);
+        if attrs.kind() != Some(OotKind::State) {
+            continue;
+        }
+        let Some(model_entry) = last_entry(&attrs, "model") else {
+            continue;
+        };
+        let Some(category) =
+            last_entry(&attrs, "category").and_then(|entry| category_code(&entry.value))
+        else {
+            continue;
+        };
+        if category != STATE_CATEGORY_PROCEDURAL {
+            continue;
+        }
+        let Some(model_states) = procedural_model_states(&model_entry.value) else {
+            continue;
+        };
+        for name in declaration_names(&var_decl) {
+            let Some(declaration) = find_declaration(catalog, file_id, name.range, &name.text)
+            else {
+                continue;
+            };
+            let resolved = symbols.resolve_alias_type(declaration.type_id());
+            let Some(Type::Enum { values, .. }) = symbols.type_by_id(resolved) else {
+                continue;
+            };
+            for (variant_name, raw_value) in values {
+                let Ok(value) = u16::try_from(*raw_value) else {
+                    diagnostics.push(openot_error(
+                        model_entry.range,
+                        format!(
+                            "OpenOT procedural model '{}' state '{}' has out-of-range value {}",
+                            model_entry.value, variant_name, raw_value
+                        ),
+                    ));
+                    continue;
+                };
+                if !model_states.iter().any(|(expected_value, expected_label)| {
+                    *expected_value == value && *expected_label == variant_name.as_str()
+                }) {
+                    diagnostics.push(openot_error(
+                        model_entry.range,
+                        format!(
+                            "OpenOT procedural model '{}' does not define state '{} := {}'",
+                            model_entry.value, variant_name, value
+                        ),
+                    ));
+                }
+            }
+        }
+    }
     diagnostics
 }
 
@@ -234,7 +426,7 @@ pub fn validate_attribute_map(
             if !is_supported_value_type_name(ty) {
                 diagnostics.push(openot_error(
                     oot_entry.range,
-                    "OpenOT value logging supports REAL and DINT only",
+                    "OpenOT value logging supports BOOL, integer, REAL, LREAL, and bounded STRING types only",
                 ));
             }
         }
@@ -271,13 +463,31 @@ pub fn validate_attribute_map(
 /// Whether the OpenOT ST producer has a faithful value encoder for this built-in type.
 #[must_use]
 pub fn is_supported_value_type_id(type_id: TypeId) -> bool {
-    matches!(type_id, TypeId::REAL | TypeId::DINT)
+    matches!(
+        type_id,
+        TypeId::BOOL
+            | TypeId::SINT
+            | TypeId::USINT
+            | TypeId::INT
+            | TypeId::UINT
+            | TypeId::DINT
+            | TypeId::UDINT
+            | TypeId::LINT
+            | TypeId::ULINT
+            | TypeId::REAL
+            | TypeId::LREAL
+            | TypeId::STRING
+    )
 }
 
 /// Whether the OpenOT ST producer has a faithful value encoder for this declared type name.
 #[must_use]
 pub fn is_supported_value_type_name(ty: &str) -> bool {
-    TypeId::from_builtin_name(ty.trim()).is_some_and(is_supported_value_type_id)
+    let trimmed = ty.trim();
+    if trimmed.to_ascii_uppercase().starts_with("STRING[") {
+        return true;
+    }
+    TypeId::from_builtin_name(trimmed).is_some_and(is_supported_value_type_id)
 }
 
 /// Keys accepted by a kind, excluding `oot` and internal id-pinning keys.
@@ -312,6 +522,32 @@ pub fn condition_class_code(value: &str) -> Option<u16> {
     }
 }
 
+/// Numeric code for a value quality.
+#[must_use]
+pub fn quality_code(value: &str) -> Option<u16> {
+    match value.to_ascii_lowercase().as_str() {
+        "good" => Some(0),
+        "uncertain" => Some(1),
+        "bad" => Some(2),
+        "unknown" => Some(3),
+        _ => value.parse::<u16>().ok().filter(|code| *code <= 3),
+    }
+}
+
+/// Numeric code for a value semantic role.
+#[must_use]
+pub fn semantic_role_code(value: &str) -> Option<u16> {
+    match value.to_ascii_lowercase().as_str() {
+        "actual" => Some(0),
+        "setpoint" => Some(1),
+        "command" => Some(2),
+        "count" => Some(3),
+        "position" => Some(4),
+        "status" => Some(5),
+        _ => value.parse::<u16>().ok().filter(|code| *code <= 5),
+    }
+}
+
 fn validate_key_value(
     kind: OotKind,
     entry: &AttributeEntry,
@@ -329,20 +565,19 @@ fn validate_key_value(
                 ),
             ));
         }
-        (OotKind::State, "model") => {
+        (OotKind::State, "model")
             if !MODEL_VALUES
                 .iter()
-                .any(|value| value.eq_ignore_ascii_case(&entry.value))
-            {
-                diagnostics.push(openot_error(
-                    entry.range,
-                    format!(
-                        "unknown OpenOT model '{}'; expected {}",
-                        entry.value,
-                        format_allowed(MODEL_VALUES)
-                    ),
-                ));
-            }
+                .any(|value| value.eq_ignore_ascii_case(&entry.value)) =>
+        {
+            diagnostics.push(openot_error(
+                entry.range,
+                format!(
+                    "unknown OpenOT model '{}'; expected {}",
+                    entry.value,
+                    format_allowed(MODEL_VALUES)
+                ),
+            ));
         }
         (OotKind::Alarm, "class") if condition_class_code(&entry.value).is_none() => {
             diagnostics.push(openot_error(
@@ -354,7 +589,10 @@ fn validate_key_value(
                 ),
             ));
         }
-        (OotKind::Alarm, "severity") => match entry.value.parse::<u16>() {
+        (OotKind::Alarm, "severity") | (OotKind::Message, "severity") => match entry
+            .value
+            .parse::<u16>()
+        {
             Ok(value) if (SEVERITY_MIN..=SEVERITY_MAX).contains(&value) => {}
             _ => diagnostics.push(openot_error(
                 entry.range,
@@ -377,12 +615,69 @@ fn validate_key_value(
                 }
             }
         }
-        (OotKind::Value, "unit") | (OotKind::Message, "template")
+        (OotKind::Value, "quality") if quality_code(&entry.value).is_none() => {
+            diagnostics.push(openot_error(
+                entry.range,
+                format!(
+                    "unknown OpenOT quality '{}'; expected {} or 0..=3",
+                    entry.value,
+                    format_allowed(QUALITY_VALUES)
+                ),
+            ));
+        }
+        (OotKind::Value, "semanticrole") if semantic_role_code(&entry.value).is_none() => {
+            diagnostics.push(openot_error(
+                entry.range,
+                format!(
+                    "unknown OpenOT semanticRole '{}'; expected {} or 0..=5",
+                    entry.value,
+                    format_allowed(SEMANTIC_ROLE_VALUES)
+                ),
+            ));
+        }
+        (OotKind::Value, "previous")
+            if !matches!(
+                entry.value.to_ascii_lowercase().as_str(),
+                "true" | "false" | "yes" | "no"
+            ) =>
+        {
+            diagnostics.push(openot_error(
+                entry.range,
+                "OpenOT previous must be 'true' or 'false'",
+            ));
+        }
+        (OotKind::Value, "unit") if entry.value.trim().is_empty() => {
+            diagnostics.push(openot_error(
+                entry.range,
+                "OpenOT 'unit' value must not be empty",
+            ));
+        }
+        (OotKind::Value, "unit")
+            if !UNIT_VALUES
+                .iter()
+                .any(|value| value.eq_ignore_ascii_case(&entry.value)) =>
+        {
+            diagnostics.push(openot_error(
+                entry.range,
+                format!(
+                    "unknown OpenOT unit '{}'; expected {}",
+                    entry.value,
+                    format_allowed(UNIT_VALUES)
+                ),
+            ));
+        }
+        (OotKind::Message, "template") if entry.value.trim().is_empty() => {
+            diagnostics.push(openot_error(
+                entry.range,
+                format!("OpenOT '{}' value must not be empty", entry.key),
+            ));
+        }
+        (OotKind::Message, "arg1" | "arg2" | "arg3" | "arg4") | (OotKind::Alarm, "cause")
             if entry.value.trim().is_empty() =>
         {
             diagnostics.push(openot_error(
                 entry.range,
-                format!("OpenOT '{}' value must not be empty", entry.key),
+                format!("OpenOT '{}' value must name a variable", entry.key),
             ));
         }
         _ => {}
@@ -422,6 +717,72 @@ fn validate_state_category_model(attrs: &AttributeMap, diagnostics: &mut Vec<Dia
 
 fn last_entry<'a>(attrs: &'a AttributeMap, key: &str) -> Option<&'a AttributeEntry> {
     attrs.entries.iter().rev().find(|entry| entry.key == key)
+}
+
+fn procedural_model_states(model: &str) -> Option<&'static [(u16, &'static str)]> {
+    match model.to_ascii_lowercase().as_str() {
+        "isa-88" => Some(ISA_88_STATES),
+        "packml" => Some(PACKML_STATES),
+        _ => None,
+    }
+}
+
+fn declaration_names(var_decl: &SyntaxNode) -> Vec<NameInfo> {
+    let mut names = Vec::new();
+    for child in var_decl.children() {
+        match child.kind() {
+            SyntaxKind::Name => {
+                if let Some(name) = name_info(&child) {
+                    names.push(name);
+                }
+            }
+            SyntaxKind::TypeRef => break,
+            _ => {}
+        }
+    }
+    names
+}
+
+fn name_info(node: &SyntaxNode) -> Option<NameInfo> {
+    let token = node
+        .children_with_tokens()
+        .filter_map(|element| element.into_token())
+        .find(|token| {
+            matches!(
+                token.kind(),
+                SyntaxKind::Ident | SyntaxKind::KwEn | SyntaxKind::KwEno | SyntaxKind::KwStep
+            )
+        })?;
+    Some(NameInfo {
+        text: token.text().to_string(),
+        range: token.text_range(),
+    })
+}
+
+fn find_declaration<'a>(
+    catalog: &'a DeclarationCatalog,
+    file_id: FileId,
+    range: TextRange,
+    name: &str,
+) -> Option<&'a crate::semantic::DeclarationRecord> {
+    catalog.entries().iter().find(|entry| {
+        matches!(
+            entry.kind(),
+            DeclarationKind::Variable | DeclarationKind::Constant | DeclarationKind::Parameter
+        ) && entry.source().file_id() == file_id
+            && entry.source().range() == range
+            && entry
+                .qualified_name()
+                .parts()
+                .last()
+                .is_some_and(|part| part.eq_ignore_ascii_case(name))
+    })
+}
+
+#[derive(Debug, Clone)]
+struct NameInfo {
+    text: String,
+    range: TextRange,
 }
 
 fn validate_u32_key(entry: &AttributeEntry, diagnostics: &mut Vec<Diagnostic>) {
@@ -500,6 +861,9 @@ PROGRAM Main
 VAR
     Level : REAL {attribute 'oot' := 'value', 'unit' := 'L', 'deadband' := '0.5'};
     BatchCount : DINT {attribute 'oot' := 'value'};
+    Enabled : BOOL {attribute 'oot' := 'value'};
+    Total : ULINT {attribute 'oot' := 'value'};
+    Ratio : LREAL {attribute 'oot' := 'value'};
     Step : INT {attribute 'oot' := 'state', 'category' := 'procedural', 'model' := 'ISA-88'};
     Alarm : BOOL {attribute 'oot' := 'alarm', 'class' := 'interlock', 'severity' := '900'};
     Started : BOOL {attribute 'oot' := 'message', 'template' := 'batch started'};
@@ -512,13 +876,60 @@ END_PROGRAM
     }
 
     #[test]
+    fn rejects_unknown_value_unit() {
+        let source = r#"
+PROGRAM Main
+VAR
+    Level : REAL {attribute 'oot' := 'value', 'unit' := 'banana'};
+END_VAR
+END_PROGRAM
+"#;
+        let parsed = parse(source);
+        let diagnostics = collect_openot_attribute_diagnostics(&parsed.syntax());
+        assert!(diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("unknown OpenOT unit")));
+    }
+
+    #[test]
+    fn validates_message_args_and_alarm_cause_references() {
+        let source = r#"
+PROGRAM Main
+VAR
+    Level : REAL {attribute 'oot' := 'value'};
+    Count : DINT {attribute 'oot' := 'value'};
+    Alarm : BOOL {attribute 'oot' := 'alarm', 'cause' := 'Level'};
+    Started : BOOL {attribute 'oot' := 'message', 'arg1' := 'Level', 'arg2' := 'Count', 'severity' := '500'};
+END_VAR
+END_PROGRAM
+"#;
+        let parsed = parse(source);
+        let diagnostics = collect_openot_attribute_diagnostics(&parsed.syntax());
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    }
+
+    #[test]
+    fn rejects_unknown_message_arg_reference() {
+        let source = r#"
+PROGRAM Main
+VAR
+    Started : BOOL {attribute 'oot' := 'message', 'arg1' := 'Missing'};
+END_VAR
+END_PROGRAM
+"#;
+        let parsed = parse(source);
+        let diagnostics = collect_openot_attribute_diagnostics(&parsed.syntax());
+        assert!(diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("references unknown variable")));
+    }
+
+    #[test]
     fn rejects_value_attributes_for_unsupported_value_types() {
         let source = r#"
 PROGRAM Main
 VAR
-    LongReal : LREAL {attribute 'oot' := 'value'};
-    LongCount : LINT {attribute 'oot' := 'value'};
-    UnsignedCount : ULINT {attribute 'oot' := 'value'};
+    WideText : WSTRING {attribute 'oot' := 'value'};
 END_VAR
 END_PROGRAM
 "#;
@@ -529,10 +940,10 @@ END_PROGRAM
             .filter(|diagnostic| {
                 diagnostic
                     .message
-                    .contains("OpenOT value logging supports REAL and DINT only")
+                    .contains("OpenOT value logging supports BOOL")
             })
             .count();
-        assert_eq!(unsupported, 3, "{diagnostics:#?}");
+        assert_eq!(unsupported, 1, "{diagnostics:#?}");
     }
 
     #[test]
@@ -565,5 +976,60 @@ END_PROGRAM
         assert!(diagnostics
             .iter()
             .any(|diagnostic| diagnostic.message.contains("requires a 'model'")));
+    }
+
+    #[test]
+    fn rejects_procedural_model_enum_states_that_are_not_canonical() {
+        use crate::db::SemanticDatabase;
+        use crate::{Project, SourceKey};
+
+        let source = r#"
+TYPE Phase : (Idle := 0, Filling := 1) END_TYPE
+PROGRAM Main
+VAR
+    Step : Phase {attribute 'oot' := 'state', 'category' := 'procedural', 'model' := 'ISA-88'};
+END_VAR
+END_PROGRAM
+"#;
+        let mut project = Project::new();
+        let file_id = project.set_source_text(SourceKey::from_virtual("main.st"), source.into());
+
+        let diagnostics = project.database().diagnostics(file_id);
+        assert!(
+            diagnostics.iter().any(|diagnostic| {
+                diagnostic.code == DiagnosticCode::InvalidOpenOtAttribute
+                    && diagnostic
+                        .message
+                        .contains("does not define state 'Filling := 1'")
+            }),
+            "{diagnostics:#?}"
+        );
+    }
+
+    #[test]
+    fn accepts_canonical_procedural_model_enum_states() {
+        use crate::db::SemanticDatabase;
+        use crate::{Project, SourceKey};
+
+        let source = r#"
+TYPE Phase : (Idle := 0, Running := 1, Complete := 2) END_TYPE
+PROGRAM Main
+VAR
+    Step : Phase {attribute 'oot' := 'state', 'category' := 'procedural', 'model' := 'ISA-88'};
+END_VAR
+END_PROGRAM
+"#;
+        let mut project = Project::new();
+        let file_id = project.set_source_text(SourceKey::from_virtual("main.st"), source.into());
+
+        let diagnostics = project.database().diagnostics(file_id);
+        assert!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.code == DiagnosticCode::InvalidOpenOtAttribute)
+                .count()
+                == 0,
+            "{diagnostics:#?}"
+        );
     }
 }

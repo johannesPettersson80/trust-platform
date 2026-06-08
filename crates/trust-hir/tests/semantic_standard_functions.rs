@@ -153,6 +153,7 @@ s := DELETE('ABCD', 2, 2);
 s := REPLACE('ABCD', 'XX', 2, 2);
 idx := FIND('ABCABC', 'BC');
 t := TIME();
+dt_val := CURRENT_DT();
 t := ADD_TIME(T#1s, T#2s);
 tod_val := ADD_TOD_TIME(TOD#00:00:00, T#1s);
 dt_val := ADD_DT_TIME(DT#2024-01-01-00:00:00, T#1s);

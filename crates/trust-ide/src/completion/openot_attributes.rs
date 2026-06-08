@@ -115,6 +115,14 @@ fn openot_key_items(kind: openot_vocab::OotKind) -> Vec<CompletionItem> {
                 "class" => "'class' := '${1:alarm}'",
                 "severity" => "'severity' := '${1:900}'",
                 "template" => "'template' := '${1:message}'",
+                "cause" => "'cause' := '${1:VariableName}'",
+                "arg1" => "'arg1' := '${1:VariableName}'",
+                "arg2" => "'arg2' := '${1:VariableName}'",
+                "arg3" => "'arg3' := '${1:VariableName}'",
+                "arg4" => "'arg4' := '${1:VariableName}'",
+                "quality" => "'quality' := '${1:good}'",
+                "semanticrole" => "'semanticRole' := '${1:actual}'",
+                "previous" => "'previous' := '${1:true}'",
                 _ => *key,
             };
             CompletionItem::new(*key, CompletionKind::Snippet)
@@ -131,6 +139,13 @@ fn openot_value_items(key: &str) -> Vec<CompletionItem> {
         "category" => string_value_items("OpenOT state category", openot_vocab::CATEGORY_VALUES),
         "model" => string_value_items("OpenOT procedural model", openot_vocab::MODEL_VALUES),
         "class" => string_value_items("OpenOT condition class", openot_vocab::CLASS_VALUES),
+        "unit" => string_value_items("OpenOT engineering unit", openot_vocab::UNIT_VALUES),
+        "quality" => string_value_items("OpenOT value quality", openot_vocab::QUALITY_VALUES),
+        "semanticrole" => string_value_items(
+            "OpenOT value semantic role",
+            openot_vocab::SEMANTIC_ROLE_VALUES,
+        ),
+        "previous" => string_value_items("OpenOT previous-value capture", &["true", "false"]),
         "severity" => vec![CompletionItem::new("900", CompletionKind::Snippet)
             .with_detail("OpenOT severity")
             .with_documentation("Severity is 1..1000: low 1..332, medium 333..666, high 667..1000.")

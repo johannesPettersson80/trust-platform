@@ -50,7 +50,7 @@ END_PROGRAM
 
     let long_level_edits = openot_action_edits(&state, &uri, source, "LongLevel :");
     assert!(
-        !long_level_edits
+        long_level_edits
             .iter()
             .any(|(title, text)| title == "Add OpenOT logging" && text.contains("'value'")),
         "{long_level_edits:?}"
@@ -58,7 +58,7 @@ END_PROGRAM
 
     let long_count_edits = openot_action_edits(&state, &uri, source, "LongCount :");
     assert!(
-        !long_count_edits
+        long_count_edits
             .iter()
             .any(|(title, text)| title == "Add OpenOT logging" && text.contains("'value'")),
         "{long_count_edits:?}"

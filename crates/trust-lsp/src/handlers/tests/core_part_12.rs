@@ -9,6 +9,7 @@ PROGRAM Main
 VAR
     Step : E_Step {attribute 'oot' := 'state', 'category' := ''};
     HighPhAlarm : BOOL {attribute 'oot' := 'alarm', };
+    Started : BOOL {attribute 'oot' := 'message', };
 END_VAR
 END_PROGRAM
 "#;
@@ -27,6 +28,14 @@ END_PROGRAM
     let key_labels = completion_labels(&state, &uri, source, key_cursor);
     assert!(key_labels.iter().any(|label| label == "class"));
     assert!(key_labels.iter().any(|label| label == "severity"));
+    assert!(key_labels.iter().any(|label| label == "cause"));
+
+    let message_key_cursor =
+        source.find("'message', ").expect("message comma") + "'message', ".len();
+    let message_key_labels = completion_labels(&state, &uri, source, message_key_cursor);
+    assert!(message_key_labels.iter().any(|label| label == "template"));
+    assert!(message_key_labels.iter().any(|label| label == "severity"));
+    assert!(message_key_labels.iter().any(|label| label == "arg1"));
 }
 
 #[test]

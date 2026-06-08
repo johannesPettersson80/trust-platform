@@ -425,6 +425,15 @@ pub(super) fn analyze_query(
     check_global_external_links_with_project(&mut symbols, &root, &mut builder, file_id);
     diagnostics.extend(builder.finish());
     diagnostics.extend(crate::openot_authoring::collect_openot_attribute_diagnostics(&root));
+    let openot_declaration_catalog = symbols.declaration_catalog(file_id);
+    diagnostics.extend(
+        crate::openot_authoring::collect_openot_semantic_diagnostics(
+            &root,
+            &symbols,
+            &openot_declaration_catalog,
+            file_id,
+        ),
+    );
 
     let mut builder = DiagnosticBuilder::new();
     check_class_semantics(&symbols, &root, &mut builder);

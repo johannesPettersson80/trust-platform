@@ -62,11 +62,11 @@ ethercrab = { version = "0.6", optional = true }
 # Local S4b development dependency. The shared builder must keep
 # ../open-ot-ref checked out at rev >= 7b5f500; a git/vendor dep is a follow-up.
 open-ot-carriage = { path = "../../../open-ot-ref/crates/carriage" }
+open-ot-definition = { path = "../../../open-ot-ref/crates/definition" }
 open-ot-shm = { path = "../../../open-ot-ref/crates/open-ot-shm" }
 
 [target.'cfg(unix)'.dev-dependencies]
 open-ot-conformance = { path = "../../../open-ot-ref/crates/conformance" }
-open-ot-definition = { path = "../../../open-ot-ref/crates/definition" }
 open-ot-document = { path = "../../../open-ot-ref/crates/document" }
 
 [target.'cfg(target_os = "linux")'.dependencies]

@@ -144,8 +144,25 @@ fn openot_hint_label(kind: OotKind, attrs: &openot_vocab::AttributeMap) -> Optio
             Some(label)
         }
         OotKind::State => Some("StateTransition on change".to_string()),
-        OotKind::Alarm => Some("ConditionActive/Cleared on edge".to_string()),
-        OotKind::Message => Some("Message on TRUE edge".to_string()),
+        OotKind::Alarm => {
+            let mut label = "ConditionActive/Cleared on edge with correlation".to_string();
+            if let Some(cause) = attrs.get("cause") {
+                label.push_str(" cause=");
+                label.push_str(cause);
+            }
+            Some(label)
+        }
+        OotKind::Message => {
+            let arg_count = ["arg1", "arg2", "arg3", "arg4"]
+                .iter()
+                .filter(|key| attrs.get(key).is_some())
+                .count();
+            if arg_count == 0 {
+                Some("Message on TRUE edge".to_string())
+            } else {
+                Some(format!("Message on TRUE edge with {arg_count} arg(s)"))
+            }
+        }
     }
 }
 

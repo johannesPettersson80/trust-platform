@@ -70,7 +70,7 @@ pub fn eval_expr(ctx: &mut EvalContext<'_>, expr: &Expr) -> Result<Value, Runtim
                             got: args.len(),
                         });
                     }
-                    return Ok(Value::Time(ctx.now));
+                    return time::runtime_clock_value(key.as_str(), ctx.now);
                 }
                 if time::is_split_name(key.as_str()) {
                     return eval_split_call(ctx, key.as_str(), args);

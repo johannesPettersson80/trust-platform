@@ -6,9 +6,10 @@
 //! calls before bytecode is built.
 
 use crate::harness::SourceFile;
+use open_ot_definition::model::canonical_event_types;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::path::Path;
 use text_size::TextRange;
 use trust_hir::db::{FileId, SemanticDatabase};
@@ -71,7 +72,7 @@ pub fn definition_json_from_sources(sources: &[SourceFile]) -> Result<Value, Str
         return Err("no OpenOT declaration attributes found".to_string());
     }
 
-    let mut source_ids = BTreeSet::new();
+    let mut sources_by_id = BTreeMap::<u32, SourceDescriptor>::new();
     let mut values = Vec::new();
     let mut states = Vec::new();
     let mut conditions = Vec::new();
@@ -80,24 +81,22 @@ pub fn definition_json_from_sources(sources: &[SourceFile]) -> Result<Value, Str
     let mut enum_sets = BTreeMap::<String, Value>::new();
 
     for annotation in &annotations {
-        source_ids.insert(annotation.source_id);
+        sources_by_id
+            .entry(annotation.source_id)
+            .or_insert_with(|| annotation.source.clone());
         match annotation.kind {
             OotKind::Value => {
                 let unit = annotation.unit.as_ref().map(|symbol| {
-                    if let Some(unit_id) = units_by_symbol.get(symbol) {
-                        *unit_id
-                    } else {
-                        let unit_id =
-                            u16::try_from(units_by_symbol.len() + 1).expect("unit id fits u16");
-                        units_by_symbol.insert(symbol.clone(), unit_id);
-                        unit_id
-                    }
+                    let unit_id = canonical_unit_id(symbol)
+                        .unwrap_or_else(|| panic!("unit '{symbol}' should have been validated"));
+                    units_by_symbol.entry(symbol.clone()).or_insert(unit_id);
+                    unit_id
                 });
                 values.push(json!({
                     "valueId": annotation.id,
                     "name": annotation.var_name,
                     "dataType": annotation.tlv_type(),
-                    "semanticRole": 0,
+                    "semanticRole": annotation.semantic_role,
                     "unit": unit,
                     "deadband": annotation.deadband.as_ref().map(|decimal| json!({
                         "decimal": decimal,
@@ -130,7 +129,14 @@ pub fn definition_json_from_sources(sources: &[SourceFile]) -> Result<Value, Str
                     "name": annotation.var_name,
                     "conditionClass": annotation.condition_class,
                     "defaultSeverity": annotation.severity,
-                    "causeOperands": []
+                    "causeOperands": annotation
+                        .cause_operand
+                        .as_ref()
+                        .map(|operand| vec![json!({
+                            "operandId": operand.operand_id,
+                            "name": operand.name
+                        })])
+                        .unwrap_or_default()
                 }));
             }
             OotKind::Message => {
@@ -141,7 +147,11 @@ pub fn definition_json_from_sources(sources: &[SourceFile]) -> Result<Value, Str
                         .message
                         .clone()
                         .unwrap_or_else(|| annotation.var_name.clone()),
-                    "argTypes": []
+                    "argTypes": annotation
+                        .message_args
+                        .iter()
+                        .map(MessageArgInfo::tlv_type)
+                        .collect::<Vec<_>>()
                 }));
             }
         }
@@ -157,16 +167,23 @@ pub fn definition_json_from_sources(sources: &[SourceFile]) -> Result<Value, Str
         })
         .collect::<Vec<_>>();
 
-    let sources_json = source_ids
+    let sources_json = sources_by_id
         .iter()
-        .map(|source_id| {
+        .map(|(source_id, source)| {
             json!({
                 "sourceId": source_id,
-                "name": format!("source{source_id}"),
-                "path": [format!("source{source_id}")],
-                "hierarchy": [],
+                "name": source.name,
+                "path": source.path,
+                "hierarchy": source.hierarchy,
                 "dynamic": false
             })
+        })
+        .collect::<Vec<_>>();
+
+    let event_types = canonical_event_types()
+        .into_iter()
+        .map(|event_type| {
+            serde_json::to_value(event_type).expect("canonical event type serializes")
         })
         .collect::<Vec<_>>();
 
@@ -188,14 +205,7 @@ pub fn definition_json_from_sources(sources: &[SourceFile]) -> Result<Value, Str
             "epochStrategy": "retain",
             "contentHash": ""
         },
-        "eventTypes": [
-            state_transition_event_type(),
-            value_changed_event_type(),
-            message_event_type(),
-            condition_event_type(0x0200, "ConditionActive"),
-            condition_event_type(0x0201, "ConditionCleared"),
-            source_high_water_event_type()
-        ],
+        "eventTypes": event_types,
         "sources": sources_json,
         "stateMachines": states,
         "conditions": conditions,
@@ -203,6 +213,18 @@ pub fn definition_json_from_sources(sources: &[SourceFile]) -> Result<Value, Str
         "values": values,
         "units": units,
         "enumSets": enum_sets.into_values().collect::<Vec<_>>(),
+        "recipeDefinitions": [],
+        "batchDefinitions": [],
+        "materialDefinitions": [],
+        "operatorDefinitions": [],
+        "eSignatureMeanings": [
+            { "meaning": 0, "label": "Authored" },
+            { "meaning": 1, "label": "Reviewed" },
+            { "meaning": 2, "label": "Approved" },
+            { "meaning": 3, "label": "Verified" },
+            { "meaning": 4, "label": "Performed" },
+            { "meaning": 5, "label": "Witnessed" }
+        ],
         "severityScale": {
             "name": "baseline",
             "low": { "min": 1, "max": 332 },
@@ -218,11 +240,56 @@ pub fn definition_json_from_sources(sources: &[SourceFile]) -> Result<Value, Str
     Ok(definition)
 }
 
+fn canonical_unit_id(symbol: &str) -> Option<u16> {
+    match symbol.to_ascii_lowercase().as_str() {
+        "1" => Some(1),
+        "l" => Some(2),
+        "degc" => Some(3),
+        "bar" => Some(4),
+        "rpm" => Some(5),
+        "s" => Some(6),
+        "ms" => Some(7),
+        "kg" => Some(8),
+        "m" => Some(9),
+        "%" => Some(10),
+        _ => None,
+    }
+}
+
 fn validate_authoring_sources(sources: &[SourceFile]) -> Vec<String> {
     let mut errors = Vec::new();
     for (idx, source) in sources.iter().enumerate() {
         let parse = parser::parse(&source.text);
         for diagnostic in hir_openot::collect_openot_attribute_diagnostics(&parse.syntax()) {
+            let label = source
+                .path
+                .as_deref()
+                .map_or_else(|| format!("source {}", idx + 1), ToString::to_string);
+            errors.push(format!("{label}: {}", diagnostic.message));
+        }
+    }
+    let mut project = Project::new();
+    let file_ids = sources
+        .iter()
+        .enumerate()
+        .map(|(idx, source)| {
+            let key = match source.path.as_deref() {
+                Some(path) => SourceKey::from_path(Path::new(path)),
+                None => SourceKey::from_virtual(format!("openot_authoring_validation_{idx}")),
+            };
+            project.set_source_text(key, source.text.clone())
+        })
+        .collect::<Vec<_>>();
+    for (idx, file_id) in file_ids.iter().copied().enumerate() {
+        let source = &sources[idx];
+        let parse = parser::parse(&source.text);
+        let analysis = project.database().analyze(file_id);
+        for diagnostic in hir_openot::collect_openot_semantic_diagnostics(
+            &parse.syntax(),
+            analysis.symbols.as_ref(),
+            analysis.declaration_catalog.as_ref(),
+            file_id,
+        ) {
             let label = source
                 .path
                 .as_deref()
@@ -269,6 +336,7 @@ fn collect_authoring_model(sources: &[SourceFile]) -> AuthoringModel {
         {
             let annotations = collect_program_annotations(
                 &program,
+                source.path.as_deref(),
                 file_ids[idx],
                 analysis.declaration_catalog.as_ref(),
                 analysis.symbols.as_ref(),
@@ -364,12 +432,35 @@ fn instrument_program_block(block: &str, annotations: &[Annotation]) -> String {
 
 fn collect_program_annotations(
     program: &SyntaxNode,
+    source_path: Option<&str>,
     file_id: FileId,
     catalog: &DeclarationCatalog,
     symbols: &trust_hir::symbols::SymbolTable,
     counters: &mut AnnotationCounters,
 ) -> Vec<Annotation> {
     let mut annotations = Vec::new();
+    let mut local_types = BTreeMap::<String, String>::new();
+    for var_block in program
+        .children()
+        .filter(|child| child.kind() == SyntaxKind::VarBlock)
+    {
+        for var_decl in var_block
+            .children()
+            .filter(|child| child.kind() == SyntaxKind::VarDecl)
+        {
+            let Some(type_ref) = var_decl
+                .children()
+                .find(|child| child.kind() == SyntaxKind::TypeRef)
+            else {
+                continue;
+            };
+            let st_type = type_ref_text(&type_ref);
+            for name in declaration_names(&var_decl) {
+                local_types.insert(name.text.to_ascii_lowercase(), st_type.clone());
+            }
+        }
+    }
+    let source_descriptor = source_descriptor(source_path, program);
     for var_block in program
         .children()
         .filter(|child| child.kind() == SyntaxKind::VarBlock)
@@ -415,7 +506,10 @@ fn collect_program_annotations(
                         st_type: st_type.clone(),
                         initializer: initializer.clone(),
                         source_id,
+                        source: source_descriptor.clone(),
                         enum_state,
+                        message_args: message_args_from_attrs(&attrs, &local_types),
+                        cause_operand: cause_operand_from_attrs(&attrs),
                     },
                     &attrs,
                     counters,
@@ -424,6 +518,59 @@ fn collect_program_annotations(
         }
     }
     annotations
+}
+
+fn source_descriptor(source_path: Option<&str>, program: &SyntaxNode) -> SourceDescriptor {
+    let program_name = program_name(program).unwrap_or_else(|| "Program".to_string());
+    let file_stem = source_path
+        .and_then(|path| {
+            Path::new(path)
+                .file_stem()
+                .map(|stem| stem.to_string_lossy().to_string())
+        })
+        .filter(|stem| !stem.is_empty())
+        .unwrap_or_else(|| "source".to_string());
+    let name = format!("{file_stem}.{program_name}");
+    SourceDescriptor {
+        name,
+        path: vec![file_stem, program_name],
+        hierarchy: vec!["file".to_string(), "program".to_string()],
+    }
+}
+
+fn program_name(program: &SyntaxNode) -> Option<String> {
+    program
+        .children()
+        .find(|child| child.kind() == SyntaxKind::Name)
+        .map(|node| node_name_text(&node))
+        .filter(|name| !name.is_empty())
+}
+
+fn message_args_from_attrs(
+    attrs: &BTreeMap<String, String>,
+    local_types: &BTreeMap<String, String>,
+) -> Vec<MessageArgInfo> {
+    let mut args = Vec::new();
+    for key in ["arg1", "arg2", "arg3", "arg4"] {
+        let Some(name) = attrs.get(key) else {
+            continue;
+        };
+        let Some(st_type) = local_types.get(&name.to_ascii_lowercase()) else {
+            continue;
+        };
+        args.push(MessageArgInfo {
+            name: name.clone(),
+            st_type: st_type.clone(),
+        });
+    }
+    args
+}
+
+fn cause_operand_from_attrs(attrs: &BTreeMap<String, String>) -> Option<CauseOperandInfo> {
+    attrs.get("cause").map(|name| CauseOperandInfo {
+        operand_id: 1,
+        name: name.clone(),
+    })
 }
 
 fn annotation_from_parts(
@@ -441,13 +588,27 @@ fn annotation_from_parts(
                 initializer: draft.initializer,
                 id: id_or_default(attrs, 2000 + counters.values),
                 source_id: draft.source_id,
+                source: draft.source,
                 deadband: attrs.get("deadband").cloned(),
                 unit: attrs.get("unit").cloned(),
+                quality: attrs
+                    .get("quality")
+                    .and_then(|value| hir_openot::quality_code(value)),
+                semantic_role: attrs
+                    .get("semanticrole")
+                    .and_then(|value| hir_openot::semantic_role_code(value))
+                    .unwrap_or(0),
+                suppress_previous: attrs.get("previous").is_some_and(|value| {
+                    matches!(value.to_ascii_lowercase().as_str(), "false" | "no")
+                }),
                 category: 0,
                 model: None,
                 condition_class: 0,
                 severity: 0,
                 message: None,
+                message_severity: None,
+                message_args: Vec::new(),
+                cause_operand: None,
                 enum_state: draft.enum_state,
             }
         }
@@ -460,8 +621,12 @@ fn annotation_from_parts(
                 initializer: draft.initializer,
                 id: id_or_default(attrs, 7000 + counters.states),
                 source_id: draft.source_id,
+                source: draft.source,
                 deadband: None,
                 unit: None,
+                quality: None,
+                semantic_role: 0,
+                suppress_previous: false,
                 category: attrs
                     .get("category")
                     .map_or(DEFAULT_STATE_CATEGORY, |value| {
@@ -471,6 +636,9 @@ fn annotation_from_parts(
                 condition_class: 0,
                 severity: 0,
                 message: None,
+                message_severity: None,
+                message_args: Vec::new(),
+                cause_operand: None,
                 enum_state: draft.enum_state,
             }
         }
@@ -483,8 +651,12 @@ fn annotation_from_parts(
                 initializer: draft.initializer,
                 id: id_or_default(attrs, 9000 + counters.alarms),
                 source_id: draft.source_id,
+                source: draft.source,
                 deadband: None,
                 unit: None,
+                quality: None,
+                semantic_role: 0,
+                suppress_previous: false,
                 category: 0,
                 model: None,
                 condition_class: attrs.get("class").map_or(0, |value| {
@@ -495,6 +667,9 @@ fn annotation_from_parts(
                     .and_then(|value| value.parse::<u16>().ok())
                     .unwrap_or(800),
                 message: None,
+                message_severity: None,
+                message_args: Vec::new(),
+                cause_operand: draft.cause_operand,
                 enum_state: draft.enum_state,
             }
         }
@@ -507,13 +682,22 @@ fn annotation_from_parts(
                 initializer: draft.initializer,
                 id: id_or_default(attrs, 10_000 + counters.messages),
                 source_id: draft.source_id,
+                source: draft.source,
                 deadband: None,
                 unit: None,
+                quality: None,
+                semantic_role: 0,
+                suppress_previous: false,
                 category: 0,
                 model: None,
                 condition_class: 0,
                 severity: 0,
                 message: attrs.get("template").cloned(),
+                message_severity: attrs
+                    .get("severity")
+                    .and_then(|value| value.parse::<u16>().ok()),
+                message_args: draft.message_args,
+                cause_operand: None,
                 enum_state: draft.enum_state,
             }
         }
@@ -665,6 +849,7 @@ fn builtin_type_name(kind: SyntaxKind) -> Option<&'static str> {
         SyntaxKind::KwLWord => Some("LWORD"),
         SyntaxKind::KwReal => Some("REAL"),
         SyntaxKind::KwLReal => Some("LREAL"),
+        SyntaxKind::KwString => Some("STRING"),
         _ => None,
     }
 }
@@ -726,19 +911,67 @@ fn hidden_statements(annotations: &[Annotation]) -> Vec<String> {
 }
 
 fn value_statements(annotation: &Annotation) -> Vec<String> {
-    let op = if annotation.is_real() { 6 } else { 7 };
-    let value_arg = if annotation.is_real() {
-        format!("ValueReal := {}", annotation.var_name)
-    } else {
-        format!("ValueInt := {}", annotation.var_name)
-    };
+    if annotation.is_real() {
+        return vec![
+            format!(
+                "{PRODUCER_NAME}(Execute := TRUE, Op := UINT#6, SourceId := UDINT#{}, {}, ValueId := UDINT#{}, ValueReal := {}, DeadbandReal := {}, SuppressPrevious := {}, HasQuality := {}, Quality := UINT#{});",
+                annotation.source_id,
+                source_time_args(),
+                annotation.id,
+                annotation.var_name,
+                real_literal(annotation.deadband.as_deref().unwrap_or("0.0")),
+                bool_literal(annotation.suppress_previous),
+                bool_literal(annotation.quality.is_some()),
+                annotation.quality.unwrap_or(0)
+            ),
+            format!("{PRODUCER_NAME}(Execute := FALSE);"),
+        ];
+    }
+
+    if annotation.is_dint() {
+        return vec![
+            format!(
+                "{PRODUCER_NAME}(Execute := TRUE, Op := UINT#7, SourceId := UDINT#{}, {}, ValueId := UDINT#{}, ValueInt := {}, DeadbandReal := REAL#0.0, SuppressPrevious := {}, HasQuality := {}, Quality := UINT#{});",
+                annotation.source_id,
+                source_time_args(),
+                annotation.id,
+                annotation.var_name,
+                bool_literal(annotation.suppress_previous),
+                bool_literal(annotation.quality.is_some()),
+                annotation.quality.unwrap_or(0)
+            ),
+            format!("{PRODUCER_NAME}(Execute := FALSE);"),
+        ];
+    }
+
+    if annotation.is_string() {
+        return vec![
+            format!(
+                "{PRODUCER_NAME}(Execute := TRUE, Op := UINT#11, SourceId := UDINT#{}, {}, ValueId := UDINT#{}, ValueString := {}, SuppressPrevious := {}, HasQuality := {}, Quality := UINT#{});",
+                annotation.source_id,
+                source_time_args(),
+                annotation.id,
+                annotation.var_name,
+                bool_literal(annotation.suppress_previous),
+                bool_literal(annotation.quality.is_some()),
+                annotation.quality.unwrap_or(0)
+            ),
+            format!("{PRODUCER_NAME}(Execute := FALSE);"),
+        ];
+    }
+
     vec![
         format!(
-            "{PRODUCER_NAME}(Execute := TRUE, Op := UINT#{op}, SourceId := UDINT#{}, {}, ValueId := UDINT#{}, {value_arg}, DeadbandReal := {}, HasQuality := FALSE, Quality := UINT#0);",
+            "{PRODUCER_NAME}(Execute := TRUE, Op := UINT#10, SourceId := UDINT#{}, {}, ValueId := UDINT#{}, ValueTypeTag := BYTE#16#{:02X}, ValuePayloadLength := UINT#{}, ValueBits := {}, SuppressPrevious := {}, HasQuality := {}, Quality := UINT#{});",
             annotation.source_id,
             source_time_args(),
             annotation.id,
-            real_literal(annotation.deadband.as_deref().unwrap_or("0.0"))
+            annotation.tlv_type(),
+            annotation.payload_len(),
+            annotation.value_bits_expr(),
+            bool_literal(annotation.suppress_previous),
+            bool_literal(annotation.quality.is_some()),
+            annotation.quality.unwrap_or(0)
         ),
         format!("{PRODUCER_NAME}(Execute := FALSE);"),
     ]
@@ -802,17 +1035,26 @@ fn enum_state_value_statements(
 
 fn alarm_statements(annotation: &Annotation) -> Vec<String> {
     let safe = safe_identifier(&annotation.var_name);
+    let mut call_args = vec![
+        "Execute := TRUE".to_string(),
+        "Op := UINT#9".to_string(),
+        format!("SourceId := UDINT#{}", annotation.source_id),
+        source_time_args(),
+        format!("ConditionId := UDINT#{}", annotation.id),
+        format!("ConditionClass := UINT#{}", annotation.condition_class),
+        format!("Severity := UINT#{}", annotation.severity),
+        format!("ConditionActive := {}", annotation.var_name),
+    ];
+    if let Some(cause_operand) = &annotation.cause_operand {
+        call_args.push("HasCauseOperand := TRUE".to_string());
+        call_args.push(format!(
+            "CauseOperand := UDINT#{}",
+            cause_operand.operand_id
+        ));
+    }
     vec![
         format!("IF {} <> OotPrev_{safe} THEN", annotation.var_name),
-        format!(
-            "    {PRODUCER_NAME}(Execute := TRUE, Op := UINT#9, SourceId := UDINT#{}, {}, ConditionId := UDINT#{}, ConditionClass := UINT#{}, Severity := UINT#{}, ConditionActive := {});",
-            annotation.source_id,
-            source_time_args(),
-            annotation.id,
-            annotation.condition_class,
-            annotation.severity,
-            annotation.var_name
-        ),
+        format!("    {PRODUCER_NAME}({});", call_args.join(", ")),
         format!("    {PRODUCER_NAME}(Execute := FALSE);"),
         format!("    OotPrev_{safe} := {};", annotation.var_name),
         "END_IF;".to_string(),
@@ -821,14 +1063,45 @@ fn alarm_statements(annotation: &Annotation) -> Vec<String> {
 
 fn message_statements(annotation: &Annotation) -> Vec<String> {
     let safe = safe_identifier(&annotation.var_name);
+    let mut call_args = vec![
+        "Execute := TRUE".to_string(),
+        "Op := UINT#0".to_string(),
+        format!("SourceId := UDINT#{}", annotation.source_id),
+        source_time_args(),
+        "Checkpoint := FALSE".to_string(),
+        "AccumulateScanRecords := TRUE".to_string(),
+        format!("MessageTemplateId := UDINT#{}", annotation.id),
+    ];
+    if let Some(severity) = annotation.message_severity {
+        call_args.push("MessageHasSeverity := TRUE".to_string());
+        call_args.push(format!("MessageSeverity := UINT#{severity}"));
+    }
+    call_args.push(format!(
+        "MessageArgCount := UINT#{}",
+        annotation.message_args.len()
+    ));
+    for (idx, arg) in annotation.message_args.iter().enumerate() {
+        let arg_number = idx + 1;
+        call_args.push(format!(
+            "MessageArg{arg_number}TypeTag := BYTE#16#{:02X}",
+            arg.tlv_type()
+        ));
+        if arg.is_string() {
+            call_args.push(format!("MessageArg{arg_number}String := {}", arg.name));
+        } else {
+            call_args.push(format!(
+                "MessageArg{arg_number}PayloadLength := UINT#{}",
+                arg.payload_len()
+            ));
+            call_args.push(format!(
+                "MessageArg{arg_number}Bits := {}",
+                arg.value_bits_expr()
+            ));
+        }
+    }
     vec![
         format!("IF {} AND (NOT OotPrev_{safe}) THEN", annotation.var_name),
-        format!(
-            "    {PRODUCER_NAME}(Execute := TRUE, Op := UINT#0, SourceId := UDINT#{}, {}, Checkpoint := FALSE, AccumulateScanRecords := TRUE, MessageTemplateId := UDINT#{});",
-            annotation.source_id,
-            source_time_args(),
-            annotation.id
-        ),
+        format!("    {PRODUCER_NAME}({});", call_args.join(", ")),
         format!("    {PRODUCER_NAME}(Execute := FALSE);"),
         "END_IF;".to_string(),
         format!("OotPrev_{safe} := {};", annotation.var_name),
@@ -873,6 +1146,14 @@ fn real_literal(value: &str) -> String {
     }
 }
 
+fn bool_literal(value: bool) -> &'static str {
+    if value {
+        "TRUE"
+    } else {
+        "FALSE"
+    }
+}
+
 fn safe_identifier(name: &str) -> String {
     name.chars()
         .map(|ch| {
@@ -893,89 +1174,6 @@ fn hex_lower(bytes: &[u8]) -> String {
     out
 }
 
-fn state_transition_event_type() -> Value {
-    json!({
-        "id": 1,
-        "name": "StateTransition",
-        "profile": "Core",
-        "slots": [
-            slot(0x0001, 0x05, 1, 1, 1),
-            slot(0x0002, 0x03, 1, 1, 2),
-            slot(0x0003, 0x03, 1, 1, 3),
-            slot(0x0004, 0x03, 1, 1, 4)
-        ]
-    })
-}
-
-fn value_changed_event_type() -> Value {
-    json!({
-        "id": 2,
-        "name": "ValueChanged",
-        "profile": "Core",
-        "slots": [
-            slot(0x000D, 0x05, 1, 1, 1),
-            value_slot(0x000F, 0, 1, 2),
-            value_slot(0x0010, 1, 1, 3),
-            slot(0x0011, 0x03, 0, 1, 4)
-        ]
-    })
-}
-
-fn message_event_type() -> Value {
-    json!({
-        "id": 3,
-        "name": "Message",
-        "profile": "Core",
-        "slots": [
-            slot(0x0014, 0x05, 1, 1, 1)
-        ]
-    })
-}
-
-fn condition_event_type(id: u32, name: &str) -> Value {
-    json!({
-        "id": id,
-        "name": name,
-        "profile": "Full",
-        "slots": [
-            slot(0x0005, 0x05, 1, 1, 1),
-            slot(0x0006, 0x03, 1, 1, 2),
-            slot(0x0008, 0x03, 1, 1, 3)
-        ]
-    })
-}
-
-fn source_high_water_event_type() -> Value {
-    json!({
-        "id": 0x80000108u32,
-        "name": "SourceHighWater",
-        "profile": "Full",
-        "slots": [
-            slot(0x0038, 0x07, 1, 1, 1)
-        ]
-    })
-}
-
-fn slot(key: u16, ty: u8, min: u16, max: u16, order: u16) -> Value {
-    json!({
-        "key": key,
-        "type": ty,
-        "minOccurs": min,
-        "maxOccurs": max,
-        "orderClass": order
-    })
-}
-
-fn value_slot(key: u16, min: u16, max: u16, order: u16) -> Value {
-    json!({
-        "key": key,
-        "valuePayload": true,
-        "minOccurs": min,
-        "maxOccurs": max,
-        "orderClass": order
-    })
-}
-
 #[derive(Debug, Clone)]
 struct Annotation {
     kind: OotKind,
@@ -984,13 +1182,20 @@ struct Annotation {
     initializer: Option<String>,
     id: u32,
     source_id: u32,
+    source: SourceDescriptor,
     deadband: Option<String>,
     unit: Option<String>,
+    quality: Option<u16>,
+    semantic_role: u16,
+    suppress_previous: bool,
     category: u16,
     model: Option<String>,
     condition_class: u16,
     severity: u16,
     message: Option<String>,
+    message_severity: Option<u16>,
+    message_args: Vec<MessageArgInfo>,
+    cause_operand: Option<CauseOperandInfo>,
     enum_state: Option<EnumStateInfo>,
 }
 
@@ -999,12 +1204,88 @@ impl Annotation {
         self.st_type.eq_ignore_ascii_case("REAL")
     }
 
+    fn is_dint(&self) -> bool {
+        self.st_type.eq_ignore_ascii_case("DINT")
+    }
+
+    fn is_string(&self) -> bool {
+        let ty = self.normalized_type();
+        ty == "STRING" || ty.starts_with("STRING[")
+    }
+
+    fn normalized_type(&self) -> String {
+        self.st_type.trim().to_ascii_uppercase()
+    }
+
     fn tlv_type(&self) -> u8 {
-        if self.is_real() {
-            0x09
-        } else {
-            0x06
-        }
+        tlv_type_for_type(&self.st_type)
+    }
+
+    fn payload_len(&self) -> u8 {
+        payload_len_for_type(&self.st_type)
+    }
+
+    fn value_bits_expr(&self) -> String {
+        value_bits_expr_for_type(&self.var_name, &self.st_type)
+    }
+}
+
+fn normalized_type_name(st_type: &str) -> String {
+    st_type.trim().to_ascii_uppercase()
+}
+
+fn is_string_type(st_type: &str) -> bool {
+    let ty = normalized_type_name(st_type);
+    ty == "STRING" || ty.starts_with("STRING[")
+}
+
+fn tlv_type_for_type(st_type: &str) -> u8 {
+    if is_string_type(st_type) {
+        return 0x0C;
+    }
+    match normalized_type_name(st_type).as_str() {
+        "BOOL" => 0x00,
+        "SINT" => 0x01,
+        "USINT" => 0x02,
+        "UINT" => 0x03,
+        "INT" => 0x04,
+        "UDINT" => 0x05,
+        "DINT" => 0x06,
+        "ULINT" => 0x07,
+        "LINT" => 0x08,
+        "REAL" => 0x09,
+        "LREAL" => 0x0A,
+        _ => 0x06,
+    }
+}
+
+fn payload_len_for_type(st_type: &str) -> u8 {
+    if is_string_type(st_type) {
+        return 96;
+    }
+    match normalized_type_name(st_type).as_str() {
+        "BOOL" | "SINT" | "USINT" => 1,
+        "INT" | "UINT" => 2,
+        "DINT" | "UDINT" | "REAL" => 4,
+        "LINT" | "ULINT" | "LREAL" => 8,
+        _ => 4,
+    }
+}
+
+fn value_bits_expr_for_type(var_name: &str, st_type: &str) -> String {
+    match normalized_type_name(st_type).as_str() {
+        "BOOL" => format!("BOOL_TO_ULINT({var_name})"),
+        "SINT" => format!("BYTE_TO_ULINT(SINT_TO_BYTE({var_name}))"),
+        "USINT" => format!("USINT_TO_ULINT({var_name})"),
+        "INT" => format!("WORD_TO_ULINT(INT_TO_WORD({var_name}))"),
+        "UINT" => format!("UINT_TO_ULINT({var_name})"),
+        "UDINT" => format!("UDINT_TO_ULINT({var_name})"),
+        "DINT" => format!("DWORD_TO_ULINT(DINT_TO_DWORD({var_name}))"),
+        "REAL" => format!("DWORD_TO_ULINT(REAL_TO_DWORD({var_name}))"),
+        "LINT" => format!("LWORD_TO_ULINT(LINT_TO_LWORD({var_name}))"),
+        "ULINT" => var_name.to_string(),
+        "LREAL" => format!("LWORD_TO_ULINT(LREAL_TO_LWORD({var_name}))"),
+        other => panic!("unsupported OpenOT value type {other}"),
     }
 }
 
@@ -1041,7 +1322,52 @@ struct AnnotationDraft {
     st_type: String,
     initializer: Option<String>,
     source_id: u32,
+    source: SourceDescriptor,
     enum_state: Option<EnumStateInfo>,
+    message_args: Vec<MessageArgInfo>,
+    cause_operand: Option<CauseOperandInfo>,
+}
+
+#[derive(Debug, Clone)]
+struct SourceDescriptor {
+    name: String,
+    path: Vec<String>,
+    hierarchy: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+struct MessageArgInfo {
+    name: String,
+    st_type: String,
+}
+
+impl MessageArgInfo {
+    fn normalized_type(&self) -> String {
+        self.st_type.trim().to_ascii_uppercase()
+    }
+
+    fn is_string(&self) -> bool {
+        let ty = self.normalized_type();
+        ty == "STRING" || ty.starts_with("STRING[")
+    }
+
+    fn tlv_type(&self) -> u8 {
+        tlv_type_for_type(&self.st_type)
+    }
+
+    fn payload_len(&self) -> u8 {
+        payload_len_for_type(&self.st_type)
+    }
+
+    fn value_bits_expr(&self) -> String {
+        value_bits_expr_for_type(&self.name, &self.st_type)
+    }
+}
+
+#[derive(Debug, Clone)]
+struct CauseOperandInfo {
+    operand_id: u32,
+    name: String,
 }
 
 #[derive(Debug, Clone)]
@@ -1093,6 +1419,7 @@ struct EnumVariantInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeSet;
 
     #[test]
     fn instruments_simple_program_attributes() {
@@ -1135,16 +1462,79 @@ mod tests {
             ST_PRODUCER_MAX_RECORD_SIZE
         );
         assert_eq!(definition["values"][0]["name"], "Level");
+        assert_eq!(definition["sources"][0]["name"], "main.Main");
+        assert_eq!(
+            definition["sources"][0]["path"],
+            serde_json::json!(["main", "Main"])
+        );
+        assert_eq!(
+            definition["sources"][0]["hierarchy"],
+            serde_json::json!(["file", "program"])
+        );
+    }
+
+    #[test]
+    fn generated_definition_uses_canonical_unit_ids() {
+        let source = SourceFile::with_path(
+            "main.st",
+            "PROGRAM Main\nVAR\n    Level : REAL {attribute 'oot' := 'value', 'unit' := 'L'};\n    Temp : REAL {attribute 'oot' := 'value', 'unit' := 'degC'};\nEND_VAR\nEND_PROGRAM\n",
+        );
+        let definition = definition_json_from_sources(&[source]).expect("definition");
+        assert_eq!(definition["values"][0]["unit"], 2);
+        assert_eq!(definition["values"][1]["unit"], 3);
+        let units = definition["units"].as_array().expect("units");
+        assert!(units
+            .iter()
+            .any(|unit| unit["unitId"] == 2 && unit["symbol"] == "L"));
+        assert!(units
+            .iter()
+            .any(|unit| unit["unitId"] == 3 && unit["symbol"] == "degC"));
+    }
+
+    #[test]
+    fn value_quality_semantic_role_and_previous_lowering_are_explicit() {
+        let source = SourceFile::with_path(
+            "main.st",
+            "PROGRAM Main\nVAR\n    Setpoint : REAL {attribute 'oot' := 'value', 'quality' := 'uncertain', 'semanticRole' := 'setpoint', 'previous' := 'false'};\nEND_VAR\nSetpoint := REAL#10.0;\nEND_PROGRAM\n",
+        );
+        let definition =
+            definition_json_from_sources(std::slice::from_ref(&source)).expect("definition");
+        assert_eq!(definition["values"][0]["semanticRole"], 1);
+
+        let instrumented = instrument_source_files(&[source]);
+        let text = &instrumented[0].text;
+        assert!(text.contains("SuppressPrevious := TRUE"), "{text}");
+        assert!(text.contains("HasQuality := TRUE"), "{text}");
+        assert!(text.contains("Quality := UINT#1"), "{text}");
+    }
+
+    #[test]
+    fn instruments_fixed_width_value_types_with_generic_value_op() {
+        let source = SourceFile::with_path(
+            "main.st",
+            "PROGRAM Main\nVAR\n    Enabled : BOOL {attribute 'oot' := 'value'};\n    Total : ULINT {attribute 'oot' := 'value'};\n    Ratio : LREAL {attribute 'oot' := 'value'};\n    Label : STRING[16] {attribute 'oot' := 'value'};\nEND_VAR\nEnabled := TRUE;\nTotal := ULINT#10;\nRatio := LREAL#1.25;\nLabel := 'ready';\nEND_PROGRAM\n",
+        );
+
+        let instrumented = instrument_source_files(&[source]);
+        let text = &instrumented[0].text;
+        assert!(text.contains("Op := UINT#10"), "{text}");
+        assert!(text.contains("ValueTypeTag := BYTE#16#00"), "{text}");
+        assert!(text.contains("ValueTypeTag := BYTE#16#07"), "{text}");
+        assert!(text.contains("ValueTypeTag := BYTE#16#0A"), "{text}");
+        assert!(text.contains("ValuePayloadLength := UINT#8"), "{text}");
+        assert!(text.contains("LREAL_TO_LWORD(Ratio)"), "{text}");
+        assert!(text.contains("Op := UINT#11"), "{text}");
+        assert!(text.contains("ValueString := Label"), "{text}");
     }
 
     #[test]
     fn generated_definition_rejects_unsupported_value_types() {
         let source = SourceFile::with_path(
             "main.st",
-            "PROGRAM Main\nVAR\n    LongReal : LREAL {attribute 'oot' := 'value'};\n    Counter64 : ULINT {attribute 'oot' := 'value'};\nEND_VAR\nEND_PROGRAM\n",
+            "PROGRAM Main\nVAR\n    WideText : WSTRING {attribute 'oot' := 'value'};\nEND_VAR\nEND_PROGRAM\n",
         );
         let err = definition_json_from_sources(&[source]).expect_err("unsupported values reject");
-        assert!(err.contains("OpenOT value logging supports REAL and DINT only"));
+        assert!(err.contains("OpenOT value logging supports BOOL"));
     }
 
     #[test]
@@ -1171,14 +1561,14 @@ mod tests {
     fn enum_state_definition_includes_enum_set() {
         let source = SourceFile::with_path(
             "main.st",
-            "TYPE Phase : (Idle := 0, Fill := 10, Done := 20) END_TYPE\nPROGRAM Main\nVAR\n    ActiveStep : Phase {attribute 'oot' := 'state', 'category' := 'procedural', 'model' := 'ISA-88'};\nEND_VAR\nEND_PROGRAM\n",
+            "TYPE Phase : (Idle := 0, Running := 1, Complete := 2) END_TYPE\nPROGRAM Main\nVAR\n    ActiveStep : Phase {attribute 'oot' := 'state', 'category' := 'procedural', 'model' := 'ISA-88'};\nEND_VAR\nEND_PROGRAM\n",
         );
 
         let definition = definition_json_from_sources(&[source]).expect("definition");
         assert_eq!(definition["stateMachines"][0]["enumSet"], "Phase");
         assert_eq!(definition["enumSets"][0]["name"], "Phase");
-        assert_eq!(definition["enumSets"][0]["members"][1]["label"], "Fill");
-        assert_eq!(definition["enumSets"][0]["members"][1]["value"], 10);
+        assert_eq!(definition["enumSets"][0]["members"][1]["label"], "Running");
+        assert_eq!(definition["enumSets"][0]["members"][1]["value"], 1);
     }
 
     #[test]
@@ -1197,5 +1587,74 @@ mod tests {
             definition["stateMachines"][0]["proceduralModel"],
             Value::Null
         );
+    }
+
+    #[test]
+    fn generated_event_types_match_openot_reference_canonical_schema() {
+        let source = SourceFile::with_path(
+            "main.st",
+            "TYPE Phase : (Idle := 0, Filling := 1) END_TYPE\nPROGRAM Main\nVAR\n    Step : Phase {attribute 'oot' := 'state', 'category' := 'process'};\n    Level : REAL {attribute 'oot' := 'value'};\n    Alarm : BOOL {attribute 'oot' := 'alarm'};\n    Started : BOOL {attribute 'oot' := 'message', 'template' := 'started'};\nEND_VAR\nEND_PROGRAM\n",
+        );
+
+        let definition = definition_json_from_sources(&[source]).expect("definition");
+        for event in definition["eventTypes"].as_array().expect("eventTypes") {
+            let parsed: open_ot_definition::model::EventTypeDefinition =
+                serde_json::from_value(event.clone()).expect("generated event type shape");
+            assert_eq!(
+                parsed,
+                open_ot_definition::model::canonical_event_type(parsed.id)
+                    .expect("canonical schema for emitted event")
+            );
+        }
+    }
+
+    #[test]
+    fn pinned_ids_are_stable_when_declarations_are_reordered() {
+        let first = SourceFile::with_path(
+            "main.st",
+            "PROGRAM Main\nVAR\n    Level : REAL {attribute 'oot' := 'value', 'id' := '2201'};\n    BatchCount : DINT {attribute 'oot' := 'value', 'id' := '2202'};\nEND_VAR\nEND_PROGRAM\n",
+        );
+        let second = SourceFile::with_path(
+            "main.st",
+            "PROGRAM Main\nVAR\n    BatchCount : DINT {attribute 'oot' := 'value', 'id' := '2202'};\n    Level : REAL {attribute 'oot' := 'value', 'id' := '2201'};\nEND_VAR\nEND_PROGRAM\n",
+        );
+
+        let first = definition_json_from_sources(&[first]).expect("first definition");
+        let second = definition_json_from_sources(&[second]).expect("second definition");
+        let first_ids = first["values"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|value| value["valueId"].as_u64().unwrap())
+            .collect::<BTreeSet<_>>();
+        let second_ids = second["values"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|value| value["valueId"].as_u64().unwrap())
+            .collect::<BTreeSet<_>>();
+
+        assert_eq!(first_ids, second_ids);
+        assert_eq!(first_ids, BTreeSet::from([2201, 2202]));
+    }
+
+    #[test]
+    fn unpinned_ids_follow_declaration_order() {
+        let first = SourceFile::with_path(
+            "main.st",
+            "PROGRAM Main\nVAR\n    Level : REAL {attribute 'oot' := 'value'};\n    BatchCount : DINT {attribute 'oot' := 'value'};\nEND_VAR\nEND_PROGRAM\n",
+        );
+        let second = SourceFile::with_path(
+            "main.st",
+            "PROGRAM Main\nVAR\n    BatchCount : DINT {attribute 'oot' := 'value'};\n    Level : REAL {attribute 'oot' := 'value'};\nEND_VAR\nEND_PROGRAM\n",
+        );
+
+        let first = definition_json_from_sources(&[first]).expect("first definition");
+        let second = definition_json_from_sources(&[second]).expect("second definition");
+
+        assert_eq!(first["values"][0]["name"], "Level");
+        assert_eq!(first["values"][0]["valueId"], 2001);
+        assert_eq!(second["values"][0]["name"], "BatchCount");
+        assert_eq!(second["values"][0]["valueId"], 2001);
     }
 }

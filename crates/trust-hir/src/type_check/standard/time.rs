@@ -3,6 +3,14 @@ use super::helpers::{builtin_in_params, builtin_param};
 
 impl<'a, 'b> StandardChecker<'a, 'b> {
     pub(in crate::type_check) fn infer_time_call(&mut self, node: &SyntaxNode) -> TypeId {
+        self.infer_zero_arg_clock_call(node, TypeId::TIME)
+    }
+
+    pub(in crate::type_check) fn infer_current_dt_call(&mut self, node: &SyntaxNode) -> TypeId {
+        self.infer_zero_arg_clock_call(node, TypeId::DT)
+    }
+
+    fn infer_zero_arg_clock_call(&mut self, node: &SyntaxNode, result: TypeId) -> TypeId {
         let call = self.builtin_call(node, Vec::new());
         let has_arg_text = node
             .children()
@@ -24,7 +32,7 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
                 format!("expected 0 arguments, found {}", found),
             );
         }
-        TypeId::TIME
+        result
     }
 
     pub(in crate::type_check) fn infer_time_named_arith_call(

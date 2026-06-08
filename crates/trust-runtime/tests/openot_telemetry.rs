@@ -9,11 +9,12 @@ use open_ot_carriage::control::ControlBlockSnapshot;
 use open_ot_carriage::loss::LossEvent;
 use open_ot_carriage::registry::{
     EVENT_CONDITION_ACTIVE, EVENT_CONDITION_CLEARED, EVENT_HEARTBEAT, EVENT_LOGGER_STOPPED,
-    EVENT_MESSAGE, EVENT_SOURCE_HIGH_WATER, EVENT_STATE_TRANSITION, EVENT_VALUE_CHANGED,
-    KEY_CATEGORY, KEY_CONDITION_CLASS, KEY_CONDITION_ID, KEY_MESSAGE_TEMPLATE_ID, KEY_NEW_STATE,
-    KEY_NEW_VALUE, KEY_PREVIOUS_STATE, KEY_PREVIOUS_VALUE, KEY_SEVERITY, KEY_SOURCE_HIGH_WATER,
-    KEY_STATE_MACHINE_ID, KEY_VALUE_ID, SYSTEM_SOURCE_ID, TY_DINT, TY_REAL, TY_UDINT, TY_UINT,
-    TY_ULINT,
+    EVENT_MESSAGE, EVENT_SOURCE_HIGH_WATER, EVENT_STATE_TRANSITION, EVENT_VALUE_CHANGED, KEY_ARG,
+    KEY_CATEGORY, KEY_CAUSE_OPERAND, KEY_CONDITION_CLASS, KEY_CONDITION_ID, KEY_CORRELATION_ID,
+    KEY_MESSAGE_TEMPLATE_ID, KEY_NEW_STATE, KEY_NEW_VALUE, KEY_PREVIOUS_STATE, KEY_PREVIOUS_VALUE,
+    KEY_SEVERITY, KEY_SOURCE_HIGH_WATER, KEY_STATE_MACHINE_ID, KEY_VALUE_ID, SYSTEM_SOURCE_ID,
+    TY_BOOL, TY_DINT, TY_INT, TY_LINT, TY_LREAL, TY_REAL, TY_SINT, TY_STRING, TY_UDINT, TY_UINT,
+    TY_ULINT, TY_USINT,
 };
 use open_ot_carriage::ring::{ReadRecord, DEFAULT_BUFFER_ID};
 use open_ot_carriage::wire::{Record, Slot};
@@ -23,6 +24,7 @@ use open_ot_document::{
     RecordDocumentContext,
 };
 use open_ot_shm::SharedConcurrentStore;
+use serde_json::json;
 use time::OffsetDateTime;
 use trust_runtime::config::{
     OpenOtTelemetryConfig, OpenOtTelemetryFenceMode, OpenOtTelemetrySource,
@@ -564,7 +566,7 @@ fn openot_telemetry_authoring_showcase_renders_typed_audit_log() {
     assert_eq!(
         rendered_events,
         [
-            "Message source=1 seq=0 templateId=10001",
+            "Message source=1 seq=0 templateId=10001 severity=100 args=[DINT(1)]",
             "StateTransition source=1 seq=1 machine=7001 category=0 previous=0 new=1",
             "ValueChanged source=1 seq=2 valueId=2001 new=REAL(0)",
             "ValueChanged source=1 seq=3 valueId=2002 new=DINT(1)",
@@ -574,11 +576,11 @@ fn openot_telemetry_authoring_showcase_renders_typed_audit_log() {
             "ValueChanged source=1 seq=7 valueId=2001 previous=REAL(12) new=REAL(13.5)",
             "StateTransition source=1 seq=8 machine=7001 category=0 previous=2 new=3",
             "ValueChanged source=1 seq=9 valueId=2001 previous=REAL(13.5) new=REAL(15)",
-            "ConditionActive source=1 seq=10 conditionId=9001 class=0 severity=900",
+            "ConditionActive source=1 seq=10 conditionId=9001 class=0 severity=900 correlation=1 causes=[1]",
             "ValueChanged source=1 seq=11 valueId=2001 previous=REAL(15) new=REAL(7.5)",
             "StateTransition source=1 seq=12 machine=7001 category=0 previous=3 new=4",
             "ValueChanged source=1 seq=13 valueId=2001 previous=REAL(7.5) new=REAL(0)",
-            "ConditionCleared source=1 seq=14 conditionId=9001 class=0 severity=900",
+            "ConditionCleared source=1 seq=14 conditionId=9001 class=0 severity=900 correlation=1 causes=[1]",
         ]
     );
     assert_eq!(consumer.rejected_records(), 0);
@@ -586,6 +588,138 @@ fn openot_telemetry_authoring_showcase_renders_typed_audit_log() {
     let overflow = run_authoring_showcase_overflow();
     write_authoring_showcase_artifacts(&retained_records, &audit_log, &overflow, &program)
         .expect("write OpenOT authoring showcase artifact");
+
+    drop(std::fs::remove_file(path));
+}
+
+#[test]
+fn openot_telemetry_authoring_fixed_width_values_round_trip() {
+    let path = temp_shm_path("authoring-fixed-width-values");
+    let program = r#"
+PROGRAM Main
+VAR
+    Enabled : BOOL {attribute 'oot' := 'value'};
+    Total : ULINT {attribute 'oot' := 'value'};
+    Ratio : LREAL {attribute 'oot' := 'value'};
+    Label : STRING[16] {attribute 'oot' := 'value'};
+END_VAR
+
+Enabled := TRUE;
+Total := ULINT#42;
+Ratio := LREAL#1.25;
+Label := 'ready';
+END_PROGRAM
+"#;
+    let mut runtime = build_st_runtime(program);
+    runtime
+        .configure_openot_telemetry(
+            &st_fb_telemetry_config_for(path.clone(), 4096, "Main.OotProducer"),
+            None,
+        )
+        .expect("configure OpenOT ST FB telemetry");
+
+    runtime
+        .execute_cycle()
+        .expect("fixed-width value cycle publishes");
+    let store = SharedConcurrentStore::open_existing(&path).expect("open telemetry shm");
+    let mut consumer = ConcurrentRawConsumer::with_store(store);
+    let batch = consumer.poll().expect("poll fixed-width values");
+    assert_eq!(batch.records.len(), 4);
+    assert_eq!(
+        slot(&batch.records[0].record, KEY_NEW_VALUE).unwrap().ty,
+        TY_BOOL
+    );
+    assert_eq!(
+        slot(&batch.records[1].record, KEY_NEW_VALUE).unwrap().ty,
+        TY_ULINT
+    );
+    assert_eq!(
+        slot(&batch.records[2].record, KEY_NEW_VALUE).unwrap().ty,
+        TY_LREAL
+    );
+    assert_eq!(
+        slot(&batch.records[3].record, KEY_NEW_VALUE).unwrap().ty,
+        TY_STRING
+    );
+    assert_eq!(
+        render_record(&batch.records[0].record),
+        "ValueChanged source=1 seq=0 valueId=2001 new=BOOL(true)"
+    );
+    assert_eq!(
+        render_record(&batch.records[1].record),
+        "ValueChanged source=1 seq=1 valueId=2002 new=ULINT(42)"
+    );
+    assert_eq!(
+        render_record(&batch.records[2].record),
+        "ValueChanged source=1 seq=2 valueId=2003 new=LREAL(1.25)"
+    );
+    assert_eq!(
+        render_record(&batch.records[3].record),
+        "ValueChanged source=1 seq=3 valueId=2004 new=STRING(ready)"
+    );
+
+    drop(std::fs::remove_file(path));
+}
+
+#[test]
+fn openot_telemetry_authoring_message_args_and_condition_correlation_round_trip() {
+    let path = temp_shm_path("authoring-message-condition-rich");
+    let program = r#"
+PROGRAM Main
+VAR
+    Level : REAL {attribute 'oot' := 'value'};
+    BatchCount : DINT {attribute 'oot' := 'value'};
+    HighLevel : BOOL {attribute 'oot' := 'alarm', 'class' := 'alarm', 'severity' := '900', 'cause' := 'Level'};
+    Started : BOOL {attribute 'oot' := 'message', 'template' := 'level count', 'severity' := '500', 'arg1' := 'Level', 'arg2' := 'BatchCount'};
+END_VAR
+
+Level := REAL#12.5;
+BatchCount := DINT#7;
+HighLevel := TRUE;
+Started := TRUE;
+END_PROGRAM
+"#;
+    let mut runtime = build_st_runtime(program);
+    runtime
+        .configure_openot_telemetry(
+            &st_fb_telemetry_config_for(path.clone(), 4096, "Main.OotProducer"),
+            None,
+        )
+        .expect("configure OpenOT ST FB telemetry");
+
+    runtime
+        .execute_cycle()
+        .expect("rich authoring cycle publishes");
+    let store = SharedConcurrentStore::open_existing(&path).expect("open telemetry shm");
+    let mut consumer = ConcurrentRawConsumer::with_store(store);
+    let batch = consumer.poll().expect("poll rich authoring records");
+    assert_eq!(batch.records.len(), 4);
+    assert_eq!(
+        render_record(&batch.records[0].record),
+        "ValueChanged source=1 seq=0 valueId=2001 new=REAL(12.5)"
+    );
+    assert_eq!(
+        render_record(&batch.records[1].record),
+        "ValueChanged source=1 seq=1 valueId=2002 new=DINT(7)"
+    );
+    assert_eq!(
+        render_record(&batch.records[2].record),
+        "ConditionActive source=1 seq=2 conditionId=9001 class=0 severity=900 correlation=1 causes=[1]"
+    );
+    assert_eq!(
+        render_record(&batch.records[3].record),
+        "Message source=1 seq=3 templateId=10001 severity=500 args=[REAL(12.5),DINT(7)]"
+    );
+
+    let definition = openot_authoring::definition_json_from_sources(&[SourceFile::with_path(
+        "main.st", program,
+    )])
+    .expect("definition");
+    assert_eq!(definition["messageTemplates"][0]["argTypes"], json!([9, 6]));
+    assert_eq!(
+        definition["conditions"][0]["causeOperands"],
+        json!([{ "operandId": 1, "name": "Level" }])
+    );
 
     drop(std::fs::remove_file(path));
 }
@@ -670,12 +804,30 @@ fn render_record_line(record: &Record) -> String {
 
 fn render_record(record: &Record) -> String {
     match record.event_type_id {
-        EVENT_MESSAGE => format!(
-            "Message source={} seq={} templateId={}",
-            record.source_id,
-            record.seq,
-            required_udint(record, KEY_MESSAGE_TEMPLATE_ID)
-        ),
+        EVENT_MESSAGE => {
+            let args = record
+                .slots
+                .iter()
+                .filter(|slot| slot.key == KEY_ARG)
+                .map(render_value_slot)
+                .collect::<Vec<_>>();
+            let severity = slot(record, KEY_SEVERITY)
+                .map(|_| format!(" severity={}", required_uint(record, KEY_SEVERITY)))
+                .unwrap_or_default();
+            let args = if args.is_empty() {
+                String::new()
+            } else {
+                format!(" args=[{}]", args.join(","))
+            };
+            format!(
+                "Message source={} seq={} templateId={}{}{}",
+                record.source_id,
+                record.seq,
+                required_udint(record, KEY_MESSAGE_TEMPLATE_ID),
+                severity,
+                args
+            )
+        }
         EVENT_LOGGER_STOPPED => {
             format!(
                 "LoggerStopped source={} seq={}",
@@ -697,28 +849,53 @@ fn render_record(record: &Record) -> String {
             required_uint(record, KEY_PREVIOUS_STATE),
             required_uint(record, KEY_NEW_STATE)
         ),
-        EVENT_CONDITION_ACTIVE => format!(
-            "ConditionActive source={} seq={} conditionId={} class={} severity={}",
-            record.source_id,
-            record.seq,
-            required_udint(record, KEY_CONDITION_ID),
-            required_uint(record, KEY_CONDITION_CLASS),
-            required_uint(record, KEY_SEVERITY)
-        ),
-        EVENT_CONDITION_CLEARED => format!(
-            "ConditionCleared source={} seq={} conditionId={} class={} severity={}",
-            record.source_id,
-            record.seq,
-            required_udint(record, KEY_CONDITION_ID),
-            required_uint(record, KEY_CONDITION_CLASS),
-            required_uint(record, KEY_SEVERITY)
-        ),
+        EVENT_CONDITION_ACTIVE => render_condition(record, "ConditionActive"),
+        EVENT_CONDITION_CLEARED => render_condition(record, "ConditionCleared"),
         EVENT_VALUE_CHANGED => render_value_changed(record),
         other => format!(
             "Event 0x{other:08X} source={} seq={}",
             record.source_id, record.seq
         ),
     }
+}
+
+fn render_condition(record: &Record, name: &str) -> String {
+    let correlation = slot(record, KEY_CORRELATION_ID)
+        .map(|_| {
+            format!(
+                " correlation={}",
+                required_udint(record, KEY_CORRELATION_ID)
+            )
+        })
+        .unwrap_or_default();
+    let causes = record
+        .slots
+        .iter()
+        .filter(|slot| slot.key == KEY_CAUSE_OPERAND)
+        .map(|slot| {
+            let payload: [u8; 4] = slot
+                .payload
+                .as_slice()
+                .try_into()
+                .expect("cause operand width");
+            u32::from_le_bytes(payload).to_string()
+        })
+        .collect::<Vec<_>>();
+    let causes = if causes.is_empty() {
+        String::new()
+    } else {
+        format!(" causes=[{}]", causes.join(","))
+    };
+    format!(
+        "{name} source={} seq={} conditionId={} class={} severity={}{}{}",
+        record.source_id,
+        record.seq,
+        required_udint(record, KEY_CONDITION_ID),
+        required_uint(record, KEY_CONDITION_CLASS),
+        required_uint(record, KEY_SEVERITY),
+        correlation,
+        causes
+    )
 }
 
 fn format_source_time_utc(source_time_ns: u64) -> String {
@@ -810,6 +987,36 @@ fn required_value(record: &Record, key: u16) -> String {
 
 fn render_value_slot(slot: &Slot) -> String {
     match slot.ty {
+        TY_BOOL => format!("BOOL({})", slot.payload.first().copied().unwrap_or(0) != 0),
+        TY_SINT => format!("SINT({})", slot.payload[0] as i8),
+        TY_USINT => format!("USINT({})", slot.payload[0]),
+        TY_UINT => format!(
+            "UINT({})",
+            u16::from_le_bytes(
+                slot.payload
+                    .as_slice()
+                    .try_into()
+                    .expect("UINT payload width")
+            )
+        ),
+        TY_INT => format!(
+            "INT({})",
+            i16::from_le_bytes(
+                slot.payload
+                    .as_slice()
+                    .try_into()
+                    .expect("INT payload width")
+            )
+        ),
+        TY_UDINT => format!(
+            "UDINT({})",
+            u32::from_le_bytes(
+                slot.payload
+                    .as_slice()
+                    .try_into()
+                    .expect("UDINT payload width")
+            )
+        ),
         TY_REAL => format!(
             "REAL({})",
             f32::from_le_bytes(
@@ -827,6 +1034,37 @@ fn render_value_slot(slot: &Slot) -> String {
                     .try_into()
                     .expect("DINT payload width")
             )
+        ),
+        TY_ULINT => format!(
+            "ULINT({})",
+            u64::from_le_bytes(
+                slot.payload
+                    .as_slice()
+                    .try_into()
+                    .expect("ULINT payload width")
+            )
+        ),
+        TY_LINT => format!(
+            "LINT({})",
+            i64::from_le_bytes(
+                slot.payload
+                    .as_slice()
+                    .try_into()
+                    .expect("LINT payload width")
+            )
+        ),
+        TY_LREAL => format!(
+            "LREAL({})",
+            f64::from_le_bytes(
+                slot.payload
+                    .as_slice()
+                    .try_into()
+                    .expect("LREAL payload width")
+            )
+        ),
+        TY_STRING => format!(
+            "STRING({})",
+            std::str::from_utf8(&slot.payload).expect("STRING payload utf-8")
         ),
         other => panic!("unsupported value payload type {other}"),
     }
@@ -1011,9 +1249,10 @@ fn batch_log_documents(
         "retainedRecords": overflow.retained_records,
         "lappedBatches": overflow.lapped_batches,
         "shmLostCount": overflow.lost_count,
-        "source1Delivered": overflow.source_delivered,
-        "source1Lost": overflow.source_lost,
-        "source1Reconciled": overflow.source_delivered + overflow.source_lost
+        "sourceId": 1,
+        "sourceDelivered": overflow.source_delivered,
+        "sourceLost": overflow.source_lost,
+        "sourceReconciled": overflow.source_delivered + overflow.source_lost
     }));
     serde_json::Value::Array(docs)
 }
@@ -1039,8 +1278,21 @@ fn assert_resolved_reactor_documents(docs: &serde_json::Value) {
     );
     assert!(
         text.contains(
-            r#""name":"messageTemplate","type":"MessageTemplateRef","value":"batch started""#
+            r#""name":"messageTemplate","type":"MessageTemplateRef","value":"batch started count""#
         ),
+        "{text}"
+    );
+    assert!(
+        text.contains(r#""name":"causeOperand","type":"CauseOperandRef","value":"Level""#),
+        "{text}"
+    );
+    assert!(
+        text.contains(r#""name":"arg","type":"DInt","value":1"#),
+        "{text}"
+    );
+    assert!(
+        text.contains(r#""name":"severity","type":"UInt","value":100"#)
+            && text.contains(r#""enumLabel":"Low","key":8,"name":"severity""#),
         "{text}"
     );
     assert!(!text.contains(r#""valueId""#), "{text}");

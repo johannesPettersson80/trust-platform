@@ -395,12 +395,16 @@ fn classify_hir_type(symbols: &SymbolTable, type_id: TypeId) -> Option<OpenOtVar
     let resolved = symbols.resolve_alias_type(type_id);
     match symbols.type_by_id(resolved) {
         Some(trust_hir::Type::Enum { .. }) => Some(OpenOtVarClassification::Enum),
+        Some(trust_hir::Type::String { .. }) => Some(OpenOtVarClassification::Integer),
         _ => classify_builtin_type_id(resolved),
     }
 }
 
 fn classify_declared_type(declared_type: &str) -> Option<OpenOtVarClassification> {
     let ty = declared_type.trim();
+    if ty.to_ascii_uppercase().starts_with("STRING[") {
+        return Some(OpenOtVarClassification::Integer);
+    }
     trust_hir::TypeId::from_builtin_name(ty).and_then(classify_builtin_type_id)
 }
 
