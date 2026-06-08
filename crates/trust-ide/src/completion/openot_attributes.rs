@@ -130,6 +130,9 @@ fn openot_key_items(kind: openot_vocab::OotKind) -> Vec<CompletionItem> {
                 "by" => "'by' := ${1:OperatorName}",
                 "seconds" => "'seconds' := ${1:ShelveSecs}",
                 "reason" => "'reason' := ${1:ReasonText}",
+                "comment" => "'comment' := ${1:CommentText}",
+                "new-priority" => "'new-priority' := ${1:NewPriority}",
+                "previous-priority" => "'previous-priority' := ${1:PreviousPriority}",
                 _ => *key,
             };
             CompletionItem::new(*key, CompletionKind::Snippet)

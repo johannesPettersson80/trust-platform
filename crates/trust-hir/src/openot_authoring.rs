@@ -77,7 +77,16 @@ pub const ALARM_KEYS: &[&str] = &["class", "severity", "cause"];
 /// Keys accepted on `message` attributes.
 pub const MESSAGE_KEYS: &[&str] = &["template", "severity", "arg1", "arg2", "arg3", "arg4"];
 /// Keys accepted on condition lifecycle command attributes.
-pub const CONDITION_KEYS: &[&str] = &["of", "event", "by", "seconds", "reason"];
+pub const CONDITION_KEYS: &[&str] = &[
+    "of",
+    "event",
+    "by",
+    "seconds",
+    "reason",
+    "comment",
+    "new-priority",
+    "previous-priority",
+];
 /// Condition lifecycle events supported by this authoring slice.
 pub const CONDITION_EVENT_VALUES: &[&str] = &[
     "acknowledge",
@@ -89,6 +98,8 @@ pub const CONDITION_EVENT_VALUES: &[&str] = &[
     "out-of-service",
     "in-service",
     "reset",
+    "comment",
+    "priority-changed",
 ];
 /// State category values.
 pub const CATEGORY_VALUES: &[&str] = &["process", "mode", "procedural"];
@@ -328,6 +339,30 @@ fn validate_local_openot_references(program: &SyntaxNode) -> Vec<Diagnostic> {
                     &local_types,
                     is_udint_type_name,
                     "UDINT",
+                    &mut diagnostics,
+                );
+                validate_decl_ref_with(
+                    &attrs,
+                    "comment",
+                    &local_types,
+                    is_string_type_name,
+                    "STRING",
+                    &mut diagnostics,
+                );
+                validate_decl_ref_with(
+                    &attrs,
+                    "new-priority",
+                    &local_types,
+                    is_uint_type_name,
+                    "UINT",
+                    &mut diagnostics,
+                );
+                validate_decl_ref_with(
+                    &attrs,
+                    "previous-priority",
+                    &local_types,
+                    is_uint_type_name,
+                    "UINT",
                     &mut diagnostics,
                 );
             }
@@ -651,6 +686,10 @@ fn is_udint_type_name(ty: &str) -> bool {
     ty.trim().eq_ignore_ascii_case("UDINT")
 }
 
+fn is_uint_type_name(ty: &str) -> bool {
+    ty.trim().eq_ignore_ascii_case("UINT")
+}
+
 /// Keys accepted by a kind, excluding `oot` and internal id-pinning keys.
 #[must_use]
 pub fn allowed_keys(kind: OotKind) -> &'static [&'static str] {
@@ -696,7 +735,9 @@ pub fn condition_lifecycle_event_id(value: &str) -> Option<u32> {
         "unsuppress" => Some(0x0207),
         "out-of-service" => Some(0x0208),
         "in-service" => Some(0x0209),
+        "comment" => Some(0x020A),
         "reset" => Some(0x020B),
+        "priority-changed" => Some(0x020C),
         _ => None,
     }
 }
@@ -890,9 +931,10 @@ fn validate_key_value(
                 format!("OpenOT '{}' value must not be empty", entry.key),
             ));
         }
-        (OotKind::Condition, "of" | "by" | "seconds" | "reason")
-            if entry.value.trim().is_empty() =>
-        {
+        (
+            OotKind::Condition,
+            "of" | "by" | "seconds" | "reason" | "comment" | "new-priority" | "previous-priority",
+        ) if entry.value.trim().is_empty() => {
             diagnostics.push(openot_error(
                 entry.range,
                 format!("OpenOT '{}' value must name a variable", entry.key),
@@ -923,6 +965,62 @@ fn validate_condition_lifecycle(attrs: &AttributeMap, diagnostics: &mut Vec<Diag
                 format!("OpenOT condition lifecycle requires '{key}'"),
             ));
         }
+    }
+
+    let Some(event_entry) = last_entry(attrs, "event") else {
+        return;
+    };
+    let Some(allowed_keys) = condition_event_allowed_keys(&event_entry.value) else {
+        return;
+    };
+
+    for entry in attrs.entries.iter().filter(|entry| entry.key != OOT_KEY) {
+        if INTERNAL_ID_KEYS.contains(&entry.key.as_str()) {
+            continue;
+        }
+        if CONDITION_KEYS.contains(&entry.key.as_str())
+            && !allowed_keys.contains(&entry.key.as_str())
+        {
+            diagnostics.push(openot_error(
+                entry.range,
+                format!(
+                    "OpenOT condition event '{}' does not allow '{}'",
+                    event_entry.value, entry.key
+                ),
+            ));
+        }
+    }
+
+    for required in condition_event_required_keys(&event_entry.value) {
+        if last_entry(attrs, required).is_none() {
+            diagnostics.push(openot_error(
+                event_entry.range,
+                format!(
+                    "OpenOT condition event '{}' requires '{}'",
+                    event_entry.value, required
+                ),
+            ));
+        }
+    }
+}
+
+fn condition_event_allowed_keys(event: &str) -> Option<&'static [&'static str]> {
+    match event.to_ascii_lowercase().as_str() {
+        "acknowledge" | "confirm" | "reset" | "out-of-service" => Some(&["of", "event", "by"]),
+        "shelve" => Some(&["of", "event", "by", "seconds"]),
+        "suppress" => Some(&["of", "event", "reason"]),
+        "unshelve" | "unsuppress" | "in-service" => Some(&["of", "event"]),
+        "comment" => Some(&["of", "event", "comment", "by"]),
+        "priority-changed" => Some(&["of", "event", "new-priority", "previous-priority", "by"]),
+        _ => None,
+    }
+}
+
+fn condition_event_required_keys(event: &str) -> &'static [&'static str] {
+    match event.to_ascii_lowercase().as_str() {
+        "comment" => &["comment"],
+        "priority-changed" => &["new-priority", "previous-priority"],
+        _ => &[],
     }
 }
 
@@ -1237,6 +1335,9 @@ PROGRAM Main
         OperatorName : STRING[32];
         ReasonText : STRING[32];
         ShelveSecs : UDINT;
+        CommentText : STRING[32];
+        PreviousPriority : UINT;
+        NewPriority : UINT;
         HighPhAlarm : BOOL {attribute 'oot' := 'alarm', 'class' := 'alarm'};
         AckHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'acknowledge', 'by' := OperatorName};
         ConfirmHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'confirm', 'by' := OperatorName};
@@ -1247,6 +1348,8 @@ PROGRAM Main
         OosHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'out-of-service', 'by' := OperatorName};
         InServiceHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'in-service'};
         ResetHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'reset', 'by' := OperatorName};
+        CommentHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'comment', 'comment' := CommentText, 'by' := OperatorName};
+        PriorityHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'priority-changed', 'previous-priority' := PreviousPriority, 'new-priority' := NewPriority, 'by' := OperatorName};
     END_VAR
 END_PROGRAM
 "#;
@@ -1261,7 +1364,11 @@ END_PROGRAM
 PROGRAM Main
 VAR
     OperatorId : DINT;
+    OperatorName : STRING[32];
     ReasonCode : DINT;
+    CommentCode : DINT;
+    PriorityCode : DINT;
+    HighPhAlarm : BOOL {attribute 'oot' := 'alarm'};
     NotAlarm : BOOL {attribute 'oot' := 'message'};
     MissingParent : BOOL {attribute 'oot' := 'condition', 'event' := 'acknowledge'};
     MissingEvent : BOOL {attribute 'oot' := 'condition', 'of' := NotAlarm};
@@ -1270,6 +1377,12 @@ VAR
     BadBy : BOOL {attribute 'oot' := 'condition', 'of' := NotAlarm, 'event' := 'acknowledge', 'by' := OperatorId};
     BadReason : BOOL {attribute 'oot' := 'condition', 'of' := NotAlarm, 'event' := 'suppress', 'reason' := ReasonCode};
     BadSeconds : BOOL {attribute 'oot' := 'condition', 'of' := NotAlarm, 'event' := 'shelve', 'seconds' := ReasonCode};
+    BadCommentType : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'comment', 'comment' := CommentCode};
+    BadPriorityType : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'priority-changed', 'previous-priority' := PriorityCode, 'new-priority' := PriorityCode};
+    MissingComment : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'comment'};
+    MissingNewPriority : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'priority-changed', 'previous-priority' := OperatorId};
+    MissingPreviousPriority : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'priority-changed', 'new-priority' := OperatorId};
+    InapplicableReason : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'comment', 'comment' := OperatorName, 'reason' := OperatorName};
     BadType : DINT {attribute 'oot' := 'condition', 'of' := NotAlarm, 'event' := 'acknowledge'};
     BadId : BOOL {attribute 'oot' := 'condition', 'of' := NotAlarm, 'event' := 'acknowledge', 'sourceid' := '2'};
 END_VAR
@@ -1285,6 +1398,12 @@ END_PROGRAM
             "expected STRING",
             "expected STRING",
             "expected UDINT",
+            "expected STRING",
+            "expected UINT",
+            "requires 'comment'",
+            "requires 'new-priority'",
+            "requires 'previous-priority'",
+            "does not allow 'reason'",
             "must be BOOL",
             "inherits the parent alarm identity",
         ] {

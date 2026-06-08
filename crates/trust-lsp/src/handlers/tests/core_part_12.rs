@@ -53,6 +53,13 @@ END_PROGRAM
     assert!(condition_key_labels.iter().any(|label| label == "by"));
     assert!(condition_key_labels.iter().any(|label| label == "seconds"));
     assert!(condition_key_labels.iter().any(|label| label == "reason"));
+    assert!(condition_key_labels.iter().any(|label| label == "comment"));
+    assert!(condition_key_labels
+        .iter()
+        .any(|label| label == "new-priority"));
+    assert!(condition_key_labels
+        .iter()
+        .any(|label| label == "previous-priority"));
 
     let event_cursor = source.find("'event' := '").expect("event") + "'event' := '".len();
     let event_labels = completion_labels(&state, &uri, source, event_cursor);
@@ -65,6 +72,8 @@ END_PROGRAM
     assert!(event_labels.iter().any(|label| label == "out-of-service"));
     assert!(event_labels.iter().any(|label| label == "in-service"));
     assert!(event_labels.iter().any(|label| label == "reset"));
+    assert!(event_labels.iter().any(|label| label == "comment"));
+    assert!(event_labels.iter().any(|label| label == "priority-changed"));
 }
 
 #[test]

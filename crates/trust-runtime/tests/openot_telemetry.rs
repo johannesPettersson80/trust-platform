@@ -9,15 +9,17 @@ use open_ot_carriage::control::ControlBlockSnapshot;
 use open_ot_carriage::loss::LossEvent;
 use open_ot_carriage::registry::{
     EVENT_CONDITION_ACKNOWLEDGED, EVENT_CONDITION_ACTIVE, EVENT_CONDITION_CLEARED,
-    EVENT_CONDITION_CONFIRMED, EVENT_CONDITION_IN_SERVICE, EVENT_CONDITION_OUT_OF_SERVICE,
-    EVENT_CONDITION_RESET, EVENT_CONDITION_SHELVED, EVENT_CONDITION_SUPPRESSED,
-    EVENT_CONDITION_UNSHELVED, EVENT_CONDITION_UNSUPPRESSED, EVENT_HEARTBEAT, EVENT_LOGGER_STOPPED,
-    EVENT_MESSAGE, EVENT_SOURCE_HIGH_WATER, EVENT_STATE_TRANSITION, EVENT_VALUE_CHANGED,
-    KEY_ACK_BY, KEY_ARG, KEY_CATEGORY, KEY_CAUSE_OPERAND, KEY_CONDITION_CLASS, KEY_CONDITION_ID,
-    KEY_CORRELATION_ID, KEY_MESSAGE_TEMPLATE_ID, KEY_NEW_STATE, KEY_NEW_VALUE, KEY_PREVIOUS_STATE,
-    KEY_PREVIOUS_VALUE, KEY_REASON, KEY_SEVERITY, KEY_SHELVE_SECS, KEY_SOURCE_HIGH_WATER,
-    KEY_STATE_MACHINE_ID, KEY_VALUE_ID, SYSTEM_SOURCE_ID, TY_BOOL, TY_DINT, TY_INT, TY_LINT,
-    TY_LREAL, TY_REAL, TY_SINT, TY_STRING, TY_UDINT, TY_UINT, TY_ULINT, TY_USINT,
+    EVENT_CONDITION_COMMENTED, EVENT_CONDITION_CONFIRMED, EVENT_CONDITION_IN_SERVICE,
+    EVENT_CONDITION_OUT_OF_SERVICE, EVENT_CONDITION_PRIORITY_CHANGED, EVENT_CONDITION_RESET,
+    EVENT_CONDITION_SHELVED, EVENT_CONDITION_SUPPRESSED, EVENT_CONDITION_UNSHELVED,
+    EVENT_CONDITION_UNSUPPRESSED, EVENT_HEARTBEAT, EVENT_LOGGER_STOPPED, EVENT_MESSAGE,
+    EVENT_SOURCE_HIGH_WATER, EVENT_STATE_TRANSITION, EVENT_VALUE_CHANGED, KEY_ACK_BY, KEY_ARG,
+    KEY_CATEGORY, KEY_CAUSE_OPERAND, KEY_COMMENT, KEY_CONDITION_CLASS, KEY_CONDITION_ID,
+    KEY_CORRELATION_ID, KEY_MESSAGE_TEMPLATE_ID, KEY_NEW_PRIORITY, KEY_NEW_STATE, KEY_NEW_VALUE,
+    KEY_PREVIOUS_PRIORITY, KEY_PREVIOUS_STATE, KEY_PREVIOUS_VALUE, KEY_REASON, KEY_SEVERITY,
+    KEY_SHELVE_SECS, KEY_SOURCE_HIGH_WATER, KEY_STATE_MACHINE_ID, KEY_VALUE_ID, SYSTEM_SOURCE_ID,
+    TY_BOOL, TY_DINT, TY_INT, TY_LINT, TY_LREAL, TY_REAL, TY_SINT, TY_STRING, TY_UDINT, TY_UINT,
+    TY_ULINT, TY_USINT,
 };
 use open_ot_carriage::ring::{ReadRecord, DEFAULT_BUFFER_ID};
 use open_ot_carriage::wire::{Record, Slot};
@@ -866,7 +868,10 @@ PROGRAM Main
         Phase : UINT;
         OperatorName : STRING[32] := 'operator-a';
         ReasonText : STRING[32] := 'maintenance';
+        CommentText : STRING[32] := 'operator comment';
         ShelveSecs : UDINT := UDINT#300;
+        PreviousPriority : UINT := UINT#600;
+        NewPriority : UINT := UINT#900;
         AckHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'acknowledge', 'by' := OperatorName};
         HighPhAlarm : BOOL {attribute 'oot' := 'alarm', 'sourceid' := '77', 'conditionid' := '9101', 'class' := 'alarm', 'severity' := '900'};
         ConfirmHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'confirm', 'by' := OperatorName};
@@ -877,6 +882,8 @@ PROGRAM Main
         OosHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'out-of-service', 'by' := OperatorName};
         InServiceHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'in-service'};
         ResetHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'reset', 'by' := OperatorName};
+        CommentHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'comment', 'comment' := CommentText, 'by' := OperatorName};
+        PriorityHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'priority-changed', 'previous-priority' := PreviousPriority, 'new-priority' := NewPriority, 'by' := OperatorName};
     END_VAR
 
     CASE Phase OF
@@ -899,6 +906,10 @@ PROGRAM Main
             InServiceHighPh := TRUE;
         UINT#8:
             ResetHighPh := TRUE;
+        UINT#9:
+            CommentHighPh := TRUE;
+        UINT#10:
+            PriorityHighPh := TRUE;
     END_CASE;
 Phase := Phase + UINT#1;
 END_PROGRAM
@@ -994,6 +1005,25 @@ END_PROGRAM
         render_record(&batch.records[0].record),
         "ConditionReset source=77 seq=9 conditionId=9101 correlation=1 ackBy=operator-a"
     );
+
+    runtime.execute_cycle().expect("comment cycle publishes");
+    let batch = consumer.poll().expect("poll comment record");
+    assert_eq!(batch.records.len(), 1);
+    assert_eq!(
+        render_record(&batch.records[0].record),
+        "ConditionCommented source=77 seq=10 conditionId=9101 correlation=1 comment=operator comment ackBy=operator-a"
+    );
+
+    runtime
+        .execute_cycle()
+        .expect("priority-changed cycle publishes");
+    let batch = consumer.poll().expect("poll priority-changed record");
+    assert_eq!(batch.records.len(), 1);
+    assert_eq!(
+        render_record(&batch.records[0].record),
+        "ConditionPriorityChanged source=77 seq=11 conditionId=9101 previousPriority=600 newPriority=900 ackBy=operator-a"
+    );
+    assert!(slot(&batch.records[0].record, KEY_CORRELATION_ID).is_none());
 
     let definition = openot_authoring::definition_json_from_sources(&[SourceFile::with_path(
         "main.st", program,
@@ -1138,6 +1168,46 @@ END_PROGRAM
 }
 
 #[test]
+fn openot_telemetry_authoring_condition_priority_while_inactive_emits() {
+    let path = temp_shm_path("authoring-condition-priority-inactive");
+    let program = r#"
+PROGRAM Main
+VAR
+    OperatorName : STRING[32] := 'operator-a';
+    PreviousPriority : UINT := UINT#600;
+    NewPriority : UINT := UINT#900;
+    HighPhAlarm : BOOL {attribute 'oot' := 'alarm', 'sourceid' := '77', 'conditionid' := '9101'};
+    PriorityHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'priority-changed', 'previous-priority' := PreviousPriority, 'new-priority' := NewPriority, 'by' := OperatorName};
+END_VAR
+
+PriorityHighPh := TRUE;
+END_PROGRAM
+"#;
+    let mut runtime = build_st_runtime(program);
+    runtime
+        .configure_openot_telemetry(
+            &st_fb_telemetry_config_for(path.clone(), 4096, "Main.OotProducer"),
+            None,
+        )
+        .expect("configure OpenOT ST FB telemetry");
+
+    runtime
+        .execute_cycle()
+        .expect("inactive priority-changed cycle publishes");
+    let store = SharedConcurrentStore::open_existing(&path).expect("open telemetry shm");
+    let mut consumer = ConcurrentRawConsumer::with_store(store);
+    let batch = consumer.poll().expect("poll inactive priority record");
+    assert_eq!(batch.records.len(), 1);
+    assert_eq!(
+        render_record(&batch.records[0].record),
+        "ConditionPriorityChanged source=77 seq=0 conditionId=9101 previousPriority=600 newPriority=900 ackBy=operator-a"
+    );
+    assert!(slot(&batch.records[0].record, KEY_CORRELATION_ID).is_none());
+
+    drop(std::fs::remove_file(path));
+}
+
+#[test]
 fn openot_telemetry_authoring_condition_ack_without_activation_fails_closed() {
     let path = temp_shm_path("authoring-condition-ack-inactive");
     let program = r#"
@@ -1225,6 +1295,45 @@ fn openot_telemetry_authoring_condition_unshelve_without_activation_fails_closed
 #[test]
 fn openot_telemetry_authoring_condition_reset_without_activation_fails_closed() {
     assert_inactive_activation_lifecycle_fails_closed("reset", true);
+}
+
+#[test]
+fn openot_telemetry_authoring_condition_comment_oversize_fails_closed() {
+    let path = temp_shm_path("authoring-condition-comment-oversize");
+    let program = r#"
+PROGRAM Main
+VAR
+    OperatorName : STRING[96] := 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    CommentText : STRING[96] := 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+    HighPhAlarm : BOOL {attribute 'oot' := 'alarm', 'sourceid' := '77', 'conditionid' := '9101'};
+    CommentHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'comment', 'comment' := CommentText, 'by' := OperatorName};
+END_VAR
+
+HighPhAlarm := TRUE;
+CommentHighPh := TRUE;
+END_PROGRAM
+"#;
+    let mut runtime = build_st_runtime(program);
+    runtime
+        .configure_openot_telemetry(
+            &st_fb_telemetry_config_for(path.clone(), 4096, "Main.OotProducer"),
+            None,
+        )
+        .expect("configure OpenOT ST FB telemetry");
+
+    let err = runtime
+        .execute_cycle()
+        .expect_err("oversize comment lifecycle record must fail closed");
+    let err = format!("{err:?}");
+    assert!(err.contains("dropped 1 OpenOT lifecycle command"), "{err}");
+    assert!(err.contains("LastLifecycleError 6"), "{err}");
+
+    let store = SharedConcurrentStore::open_existing(&path).expect("open telemetry shm");
+    let mut consumer = ConcurrentRawConsumer::with_store(store);
+    let batch = consumer.poll().expect("poll after oversize comment");
+    assert!(batch.records.is_empty(), "{batch:#?}");
+
+    drop(std::fs::remove_file(path));
 }
 
 fn assert_inactive_activation_lifecycle_fails_closed(event: &str, has_by: bool) {
@@ -1431,7 +1540,9 @@ fn render_record(record: &Record) -> String {
         EVENT_CONDITION_IN_SERVICE => {
             render_condition_lifecycle_condition(record, "ConditionInService")
         }
+        EVENT_CONDITION_COMMENTED => render_condition_lifecycle_comment(record),
         EVENT_CONDITION_RESET => render_condition_lifecycle_ack(record, "ConditionReset"),
+        EVENT_CONDITION_PRIORITY_CHANGED => render_condition_lifecycle_priority(record),
         EVENT_VALUE_CHANGED => render_value_changed(record),
         other => format!(
             "Event 0x{other:08X} source={} seq={}",
@@ -1556,6 +1667,36 @@ fn render_condition_lifecycle_condition(record: &Record, name: &str) -> String {
         record.source_id,
         record.seq,
         required_udint(record, KEY_CONDITION_ID)
+    )
+}
+
+fn render_condition_lifecycle_comment(record: &Record) -> String {
+    let ack_by = slot(record, KEY_ACK_BY)
+        .map(|_| format!(" ackBy={}", required_string(record, KEY_ACK_BY)))
+        .unwrap_or_default();
+    format!(
+        "ConditionCommented source={} seq={} conditionId={} correlation={} comment={}{}",
+        record.source_id,
+        record.seq,
+        required_udint(record, KEY_CONDITION_ID),
+        required_udint(record, KEY_CORRELATION_ID),
+        required_string(record, KEY_COMMENT),
+        ack_by
+    )
+}
+
+fn render_condition_lifecycle_priority(record: &Record) -> String {
+    let ack_by = slot(record, KEY_ACK_BY)
+        .map(|_| format!(" ackBy={}", required_string(record, KEY_ACK_BY)))
+        .unwrap_or_default();
+    format!(
+        "ConditionPriorityChanged source={} seq={} conditionId={} previousPriority={} newPriority={}{}",
+        record.source_id,
+        record.seq,
+        required_udint(record, KEY_CONDITION_ID),
+        required_uint(record, KEY_PREVIOUS_PRIORITY),
+        required_uint(record, KEY_NEW_PRIORITY),
+        ack_by
     )
 }
 

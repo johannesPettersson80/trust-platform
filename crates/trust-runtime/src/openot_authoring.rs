@@ -521,6 +521,9 @@ fn collect_program_annotations(
                         condition_ack_by: attrs.get("by").cloned(),
                         condition_shelve_secs: attrs.get("seconds").cloned(),
                         condition_reason: attrs.get("reason").cloned(),
+                        condition_comment: attrs.get("comment").cloned(),
+                        condition_previous_priority: attrs.get("previous-priority").cloned(),
+                        condition_new_priority: attrs.get("new-priority").cloned(),
                     },
                     attrs.clone(),
                 ));
@@ -663,6 +666,9 @@ fn annotation_from_parts(
                 condition_ack_by: None,
                 condition_shelve_secs: None,
                 condition_reason: None,
+                condition_comment: None,
+                condition_previous_priority: None,
+                condition_new_priority: None,
             }
         }
         OotKind::State => {
@@ -699,6 +705,9 @@ fn annotation_from_parts(
                 condition_ack_by: None,
                 condition_shelve_secs: None,
                 condition_reason: None,
+                condition_comment: None,
+                condition_previous_priority: None,
+                condition_new_priority: None,
             }
         }
         OotKind::Alarm => {
@@ -736,6 +745,9 @@ fn annotation_from_parts(
                 condition_ack_by: None,
                 condition_shelve_secs: None,
                 condition_reason: None,
+                condition_comment: None,
+                condition_previous_priority: None,
+                condition_new_priority: None,
             }
         }
         OotKind::Message => {
@@ -770,6 +782,9 @@ fn annotation_from_parts(
                 condition_ack_by: None,
                 condition_shelve_secs: None,
                 condition_reason: None,
+                condition_comment: None,
+                condition_previous_priority: None,
+                condition_new_priority: None,
             }
         }
         OotKind::Condition => {
@@ -810,6 +825,9 @@ fn condition_annotation_from_parts(
         condition_ack_by: draft.condition_ack_by,
         condition_shelve_secs: draft.condition_shelve_secs,
         condition_reason: draft.condition_reason,
+        condition_comment: draft.condition_comment,
+        condition_previous_priority: draft.condition_previous_priority,
+        condition_new_priority: draft.condition_new_priority,
     }
 }
 
@@ -1246,18 +1264,63 @@ fn condition_lifecycle_statements(annotation: &Annotation) -> Vec<String> {
                 .expect("condition event id should be resolved")
         ),
     ];
-    if let Some(ack_by) = &annotation.condition_ack_by {
-        call_args.push("LifecycleHasAckBy := TRUE".to_string());
-        call_args.push(format!("LifecycleAckBy := {ack_by}"));
-    }
-    if let Some(shelve_secs) = &annotation.condition_shelve_secs {
-        call_args.push("LifecycleHasShelveSecs := TRUE".to_string());
-        call_args.push(format!("LifecycleShelveSecs := {shelve_secs}"));
-    }
-    if let Some(reason) = &annotation.condition_reason {
-        call_args.push("LifecycleHasReason := TRUE".to_string());
-        call_args.push(format!("LifecycleReason := {reason}"));
-    }
+    call_args.push(format!(
+        "LifecycleHasAckBy := {}",
+        bool_literal(annotation.condition_ack_by.is_some())
+    ));
+    call_args.push(format!(
+        "LifecycleAckBy := {}",
+        annotation.condition_ack_by.as_deref().unwrap_or("''")
+    ));
+    call_args.push(format!(
+        "LifecycleHasShelveSecs := {}",
+        bool_literal(annotation.condition_shelve_secs.is_some())
+    ));
+    call_args.push(format!(
+        "LifecycleShelveSecs := {}",
+        annotation
+            .condition_shelve_secs
+            .as_deref()
+            .unwrap_or("UDINT#0")
+    ));
+    call_args.push(format!(
+        "LifecycleHasReason := {}",
+        bool_literal(annotation.condition_reason.is_some())
+    ));
+    call_args.push(format!(
+        "LifecycleReason := {}",
+        annotation.condition_reason.as_deref().unwrap_or("''")
+    ));
+    call_args.push(format!(
+        "LifecycleHasComment := {}",
+        bool_literal(annotation.condition_comment.is_some())
+    ));
+    call_args.push(format!(
+        "LifecycleComment := {}",
+        annotation.condition_comment.as_deref().unwrap_or("''")
+    ));
+    call_args.push(format!(
+        "LifecycleHasPreviousPriority := {}",
+        bool_literal(annotation.condition_previous_priority.is_some())
+    ));
+    call_args.push(format!(
+        "LifecyclePreviousPriority := {}",
+        annotation
+            .condition_previous_priority
+            .as_deref()
+            .unwrap_or("UINT#0")
+    ));
+    call_args.push(format!(
+        "LifecycleHasNewPriority := {}",
+        bool_literal(annotation.condition_new_priority.is_some())
+    ));
+    call_args.push(format!(
+        "LifecycleNewPriority := {}",
+        annotation
+            .condition_new_priority
+            .as_deref()
+            .unwrap_or("UINT#0")
+    ));
     vec![
         format!("IF {} AND (NOT OotPrev_{safe}) THEN", annotation.var_name),
         format!("    {PRODUCER_NAME}({});", call_args.join(", ")),
@@ -1362,6 +1425,9 @@ struct Annotation {
     condition_ack_by: Option<String>,
     condition_shelve_secs: Option<String>,
     condition_reason: Option<String>,
+    condition_comment: Option<String>,
+    condition_previous_priority: Option<String>,
+    condition_new_priority: Option<String>,
 }
 
 impl Annotation {
@@ -1531,6 +1597,9 @@ struct AnnotationDraft {
     condition_ack_by: Option<String>,
     condition_shelve_secs: Option<String>,
     condition_reason: Option<String>,
+    condition_comment: Option<String>,
+    condition_previous_priority: Option<String>,
+    condition_new_priority: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -1743,7 +1812,7 @@ mod tests {
     fn condition_lifecycle_lowering_inherits_parent_and_emits_after_alarm_phase() {
         let source = SourceFile::with_path(
             "main.st",
-            "PROGRAM Main\nVAR\n    OperatorName : STRING[32] := 'operator-a';\n    ReasonText : STRING[32] := 'maintenance';\n    ShelveSecs : UDINT := UDINT#300;\n    AckHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'acknowledge', 'by' := OperatorName};\n    HighPhAlarm : BOOL {attribute 'oot' := 'alarm', 'sourceid' := '77', 'conditionid' := '9101'};\n    ConfirmHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'confirm', 'by' := OperatorName};\n    ShelveHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'shelve', 'by' := OperatorName, 'seconds' := ShelveSecs};\n    UnshelveHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'unshelve'};\n    SuppressHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'suppress', 'reason' := ReasonText};\n    UnsuppressHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'unsuppress'};\n    OosHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'out-of-service', 'by' := OperatorName};\n    InServiceHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'in-service'};\n    ResetHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'reset', 'by' := OperatorName};\nEND_VAR\nHighPhAlarm := TRUE;\nAckHighPh := TRUE;\nConfirmHighPh := TRUE;\nShelveHighPh := TRUE;\nUnshelveHighPh := TRUE;\nSuppressHighPh := TRUE;\nUnsuppressHighPh := TRUE;\nOosHighPh := TRUE;\nInServiceHighPh := TRUE;\nResetHighPh := TRUE;\nEND_PROGRAM\n",
+            "PROGRAM Main\nVAR\n    OperatorName : STRING[32] := 'operator-a';\n    ReasonText : STRING[32] := 'maintenance';\n    CommentText : STRING[32] := 'operator comment';\n    ShelveSecs : UDINT := UDINT#300;\n    PreviousPriority : UINT := UINT#600;\n    NewPriority : UINT := UINT#900;\n    AckHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'acknowledge', 'by' := OperatorName};\n    HighPhAlarm : BOOL {attribute 'oot' := 'alarm', 'sourceid' := '77', 'conditionid' := '9101'};\n    ConfirmHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'confirm', 'by' := OperatorName};\n    ShelveHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'shelve', 'by' := OperatorName, 'seconds' := ShelveSecs};\n    UnshelveHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'unshelve'};\n    SuppressHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'suppress', 'reason' := ReasonText};\n    UnsuppressHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'unsuppress'};\n    OosHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'out-of-service', 'by' := OperatorName};\n    InServiceHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'in-service'};\n    ResetHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'reset', 'by' := OperatorName};\n    CommentHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'comment', 'comment' := CommentText, 'by' := OperatorName};\n    PriorityHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'priority-changed', 'previous-priority' := PreviousPriority, 'new-priority' := NewPriority, 'by' := OperatorName};\nEND_VAR\nHighPhAlarm := TRUE;\nAckHighPh := TRUE;\nConfirmHighPh := TRUE;\nShelveHighPh := TRUE;\nUnshelveHighPh := TRUE;\nSuppressHighPh := TRUE;\nUnsuppressHighPh := TRUE;\nOosHighPh := TRUE;\nInServiceHighPh := TRUE;\nResetHighPh := TRUE;\nCommentHighPh := TRUE;\nPriorityHighPh := TRUE;\nEND_PROGRAM\n",
         );
         let definition =
             definition_json_from_sources(std::slice::from_ref(&source)).expect("definition");
@@ -1793,12 +1862,29 @@ mod tests {
             "{text}"
         );
         assert!(
+            text.contains("ConditionLifecycleEventTypeId := UDINT#16#020A"),
+            "{text}"
+        );
+        assert!(
             text.contains("ConditionLifecycleEventTypeId := UDINT#16#020B"),
+            "{text}"
+        );
+        assert!(
+            text.contains("ConditionLifecycleEventTypeId := UDINT#16#020C"),
             "{text}"
         );
         assert!(text.contains("LifecycleAckBy := OperatorName"), "{text}");
         assert!(text.contains("LifecycleShelveSecs := ShelveSecs"), "{text}");
         assert!(text.contains("LifecycleReason := ReasonText"), "{text}");
+        assert!(text.contains("LifecycleComment := CommentText"), "{text}");
+        assert!(
+            text.contains("LifecyclePreviousPriority := PreviousPriority"),
+            "{text}"
+        );
+        assert!(
+            text.contains("LifecycleNewPriority := NewPriority"),
+            "{text}"
+        );
     }
 
     #[test]
