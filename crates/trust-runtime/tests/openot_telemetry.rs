@@ -13,15 +13,18 @@ use open_ot_carriage::registry::{
     EVENT_CONDITION_IN_SERVICE, EVENT_CONDITION_OUT_OF_SERVICE, EVENT_CONDITION_PRIORITY_CHANGED,
     EVENT_CONDITION_RESET, EVENT_CONDITION_SHELVED, EVENT_CONDITION_SUPPRESSED,
     EVENT_CONDITION_UNSHELVED, EVENT_CONDITION_UNSUPPRESSED, EVENT_HEARTBEAT, EVENT_LOGGER_STOPPED,
-    EVENT_MATERIAL_ADDITION, EVENT_MESSAGE, EVENT_RECIPE_APPROVED, EVENT_RECIPE_LOADED,
-    EVENT_SOURCE_HIGH_WATER, EVENT_STATE_TRANSITION, EVENT_VALUE_CHANGED, KEY_ACK_BY, KEY_ARG,
-    KEY_AUTH_RESULT, KEY_BATCH_ID, KEY_CATEGORY, KEY_CAUSE_OPERAND, KEY_COMMENT,
-    KEY_CONDITION_CLASS, KEY_CONDITION_ID, KEY_CORRELATION_ID, KEY_MATERIAL_ID,
+    EVENT_MATERIAL_ADDITION, EVENT_MESSAGE, EVENT_OPERATOR_ACTION, EVENT_OPERATOR_LOGIN,
+    EVENT_OPERATOR_LOGOUT, EVENT_RECIPE_APPROVED, EVENT_RECIPE_LOADED,
+    EVENT_SECURITY_ACCESS_FAILURE, EVENT_SOURCE_HIGH_WATER, EVENT_STATE_TRANSITION,
+    EVENT_VALUE_CHANGED, KEY_ACK_BY, KEY_ACTION_ID, KEY_ACTOR, KEY_ARG, KEY_AUTH_RESULT,
+    KEY_BATCH_ID, KEY_CATEGORY, KEY_CAUSE_OPERAND, KEY_COMMENT, KEY_CONDITION_CLASS,
+    KEY_CONDITION_ID, KEY_CONTEXT_REF, KEY_CORRELATION_ID, KEY_MATERIAL_ID,
     KEY_MESSAGE_TEMPLATE_ID, KEY_NEW_PRIORITY, KEY_NEW_STATE, KEY_NEW_VALUE, KEY_PREVIOUS_PRIORITY,
     KEY_PREVIOUS_STATE, KEY_PREVIOUS_VALUE, KEY_QUANTITY, KEY_REASON, KEY_RECIPE_ID,
-    KEY_RECIPE_VERSION, KEY_SEVERITY, KEY_SHELVE_SECS, KEY_SOURCE_HIGH_WATER, KEY_STATE_MACHINE_ID,
-    KEY_UNIT, KEY_VALUE_ID, SYSTEM_SOURCE_ID, TY_BOOL, TY_DINT, TY_INT, TY_LINT, TY_LREAL, TY_REAL,
-    TY_SINT, TY_STRING, TY_UDINT, TY_UINT, TY_ULINT, TY_USINT,
+    KEY_RECIPE_VERSION, KEY_ROLE, KEY_SEVERITY, KEY_SHELVE_SECS, KEY_SOURCE_HIGH_WATER,
+    KEY_STATE_MACHINE_ID, KEY_UNIT, KEY_VALUE_ID, KEY_WORKSTATION, SYSTEM_SOURCE_ID, TY_BOOL,
+    TY_DINT, TY_INT, TY_LINT, TY_LREAL, TY_REAL, TY_SINT, TY_STRING, TY_UDINT, TY_UINT, TY_ULINT,
+    TY_USINT,
 };
 use open_ot_carriage::ring::{ReadRecord, DEFAULT_BUFFER_ID};
 use open_ot_carriage::wire::{Record, Slot};
@@ -279,9 +282,16 @@ END_PROGRAM
             "ShelvedPassed",
             "SuppressedPassed",
             "OutOfServicePassed",
+            "OperatorActionPassed",
+            "OperatorLoginPassed",
+            "OperatorLogoutPassed",
+            "SecurityAccessFailurePassed",
             "MismatchIndex",
         ] {
-            if let Some(value) = harness.get_output(name) {
+            if let Some(value) = harness
+                .get_output(name)
+                .or_else(|| harness.get_output(&format!("Test.{name}")))
+            {
                 eprintln!("{name}: {value:?}");
             }
         }
@@ -351,6 +361,14 @@ fn openot_st_batch_recipe_vectors_are_byte_exact() {
     run_openot_st_pou_test(
         "test_conformant_batch_recipe.st",
         "OPENOT_TestConformantBatchRecipe",
+    );
+}
+
+#[test]
+fn openot_st_regulated_vectors_are_byte_exact() {
+    run_openot_st_pou_test(
+        "test_conformant_regulated.st",
+        "OPENOT_TestConformantRegulated",
     );
 }
 
@@ -880,6 +898,82 @@ END_PROGRAM
     assert_eq!(definition["recipeDefinitions"], json!([]));
     assert_eq!(definition["batchDefinitions"], json!([]));
     assert_eq!(definition["materialDefinitions"], json!([]));
+
+    drop(std::fs::remove_file(path));
+}
+
+#[test]
+fn openot_telemetry_authoring_operator_regulated_round_trip() {
+    let path = temp_shm_path("authoring-operator-regulated");
+    let program = r#"
+PROGRAM Main
+VAR
+    Phase : UINT;
+    ActionId : UDINT := UDINT#6001;
+    ContextA : UDINT := UDINT#7001;
+    ContextB : UDINT := UDINT#7002;
+    OperatorName : STRING[32] := 'operator-a';
+    FailedOperator : STRING[32] := 'operator-x';
+    Workstation : STRING[32] := 'station-1';
+    FailedWorkstation : STRING[32] := 'station-2';
+    Role : UINT := UINT#3;
+    ReasonText : STRING[32] := 'denied';
+    ActionTrigger : BOOL {attribute 'oot' := 'operator-action', 'action' := ActionId, 'actor' := OperatorName, 'context1' := ContextA, 'context2' := ContextB, 'auth' := 'Granted', 'workstation' := Workstation};
+    LoginTrigger : BOOL {attribute 'oot' := 'operator-login', 'actor' := OperatorName, 'auth' := 'Granted', 'workstation' := Workstation, 'role' := Role};
+    LogoutTrigger : BOOL {attribute 'oot' := 'operator-logout', 'actor' := OperatorName, 'workstation' := Workstation};
+    SecurityFailureTrigger : BOOL {attribute 'oot' := 'security-failure', 'actor' := FailedOperator, 'workstation' := FailedWorkstation, 'reason' := ReasonText};
+END_VAR
+
+CASE Phase OF
+    UINT#0:
+        ActionTrigger := TRUE;
+    UINT#1:
+        LoginTrigger := TRUE;
+    UINT#2:
+        LogoutTrigger := TRUE;
+    UINT#3:
+        SecurityFailureTrigger := TRUE;
+END_CASE;
+
+Phase := Phase + UINT#1;
+END_PROGRAM
+"#;
+    let mut runtime = build_st_runtime(program);
+    runtime
+        .configure_openot_telemetry(
+            &st_fb_telemetry_config_for(path.clone(), 4096, "Main.OotProducer"),
+            None,
+        )
+        .expect("configure OpenOT ST FB telemetry");
+
+    let store = SharedConcurrentStore::open_existing(&path).expect("open telemetry shm");
+    let mut consumer = ConcurrentRawConsumer::with_store(store);
+    let mut rendered = Vec::new();
+    for _ in 0..4 {
+        runtime
+            .execute_cycle()
+            .expect("operator regulated cycle publishes");
+        let batch = consumer.poll().expect("poll operator regulated record");
+        assert_eq!(batch.records.len(), 1);
+        rendered.push(render_record(&batch.records[0].record));
+    }
+
+    assert_eq!(
+        rendered,
+        [
+            "OperatorAction source=1 seq=0 actionId=6001 actor=operator-a contextRef=[7001,7002] authResult=0 workstation=station-1",
+            "OperatorLogin source=1 seq=1 actor=operator-a authResult=0 workstation=station-1 role=3",
+            "OperatorLogout source=1 seq=2 actor=operator-a workstation=station-1",
+            "SecurityAccessFailure source=1 seq=3 actor=operator-x workstation=station-2 reason=denied",
+        ]
+    );
+
+    let definition = openot_authoring::definition_json_from_sources(&[SourceFile::with_path(
+        "operator_regulated.st",
+        program,
+    )])
+    .expect("definition");
+    assert_eq!(definition["operatorDefinitions"], json!([]));
 
     drop(std::fs::remove_file(path));
 }
@@ -1635,6 +1729,10 @@ fn render_record(record: &Record) -> String {
         EVENT_RECIPE_APPROVED => render_recipe_approved(record),
         EVENT_BATCH_EVENT => render_batch_event(record),
         EVENT_MATERIAL_ADDITION => render_material_addition(record),
+        EVENT_OPERATOR_ACTION => render_operator_action(record),
+        EVENT_OPERATOR_LOGIN => render_operator_login(record),
+        EVENT_OPERATOR_LOGOUT => render_operator_logout(record),
+        EVENT_SECURITY_ACCESS_FAILURE => render_security_access_failure(record),
         EVENT_VALUE_CHANGED => render_value_changed(record),
         other => format!(
             "Event 0x{other:08X} source={} seq={}",
@@ -1850,6 +1948,93 @@ fn render_material_addition(record: &Record) -> String {
         required_udint(record, KEY_MATERIAL_ID),
         required_lreal(record, KEY_QUANTITY),
         unit
+    )
+}
+
+fn render_operator_action(record: &Record) -> String {
+    let context_refs = record
+        .slots
+        .iter()
+        .filter(|slot| slot.key == KEY_CONTEXT_REF)
+        .map(|slot| {
+            assert_eq!(slot.ty, TY_UDINT);
+            u32::from_le_bytes(
+                slot.payload
+                    .as_slice()
+                    .try_into()
+                    .expect("contextRef payload width"),
+            )
+            .to_string()
+        })
+        .collect::<Vec<_>>();
+    let context_refs = if context_refs.is_empty() {
+        String::new()
+    } else {
+        format!(" contextRef=[{}]", context_refs.join(","))
+    };
+    let auth_result = slot(record, KEY_AUTH_RESULT)
+        .map(|_| format!(" authResult={}", required_uint(record, KEY_AUTH_RESULT)))
+        .unwrap_or_default();
+    let workstation = slot(record, KEY_WORKSTATION)
+        .map(|_| format!(" workstation={}", required_string(record, KEY_WORKSTATION)))
+        .unwrap_or_default();
+    format!(
+        "OperatorAction source={} seq={} actionId={} actor={}{}{}{}",
+        record.source_id,
+        record.seq,
+        required_udint(record, KEY_ACTION_ID),
+        required_string(record, KEY_ACTOR),
+        context_refs,
+        auth_result,
+        workstation
+    )
+}
+
+fn render_operator_login(record: &Record) -> String {
+    let workstation = slot(record, KEY_WORKSTATION)
+        .map(|_| format!(" workstation={}", required_string(record, KEY_WORKSTATION)))
+        .unwrap_or_default();
+    let role = slot(record, KEY_ROLE)
+        .map(|_| format!(" role={}", required_uint(record, KEY_ROLE)))
+        .unwrap_or_default();
+    format!(
+        "OperatorLogin source={} seq={} actor={} authResult={}{}{}",
+        record.source_id,
+        record.seq,
+        required_string(record, KEY_ACTOR),
+        required_uint(record, KEY_AUTH_RESULT),
+        workstation,
+        role
+    )
+}
+
+fn render_operator_logout(record: &Record) -> String {
+    let workstation = slot(record, KEY_WORKSTATION)
+        .map(|_| format!(" workstation={}", required_string(record, KEY_WORKSTATION)))
+        .unwrap_or_default();
+    format!(
+        "OperatorLogout source={} seq={} actor={}{}",
+        record.source_id,
+        record.seq,
+        required_string(record, KEY_ACTOR),
+        workstation
+    )
+}
+
+fn render_security_access_failure(record: &Record) -> String {
+    let workstation = slot(record, KEY_WORKSTATION)
+        .map(|_| format!(" workstation={}", required_string(record, KEY_WORKSTATION)))
+        .unwrap_or_default();
+    let reason = slot(record, KEY_REASON)
+        .map(|_| format!(" reason={}", required_string(record, KEY_REASON)))
+        .unwrap_or_default();
+    format!(
+        "SecurityAccessFailure source={} seq={} actor={}{}{}",
+        record.source_id,
+        record.seq,
+        required_string(record, KEY_ACTOR),
+        workstation,
+        reason
     )
 }
 

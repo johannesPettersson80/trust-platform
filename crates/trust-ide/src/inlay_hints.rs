@@ -185,6 +185,10 @@ fn openot_hint_label(kind: OotKind, attrs: &openot_vocab::AttributeMap) -> Optio
         OotKind::RecipeLoaded => Some("RecipeLoaded on TRUE edge".to_string()),
         OotKind::RecipeApproved => Some("RecipeApproved on TRUE edge".to_string()),
         OotKind::MaterialAddition => Some("MaterialAddition on TRUE edge".to_string()),
+        OotKind::OperatorAction => Some("OperatorAction on TRUE edge".to_string()),
+        OotKind::OperatorLogin => Some("OperatorLogin on TRUE edge".to_string()),
+        OotKind::OperatorLogout => Some("OperatorLogout on TRUE edge".to_string()),
+        OotKind::SecurityFailure => Some("SecurityAccessFailure on TRUE edge".to_string()),
     }
 }
 

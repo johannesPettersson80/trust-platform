@@ -35,6 +35,14 @@ pub enum OotKind {
     RecipeApproved,
     /// Emits `MaterialAddition`.
     MaterialAddition,
+    /// Emits `OperatorAction`.
+    OperatorAction,
+    /// Emits `OperatorLogin`.
+    OperatorLogin,
+    /// Emits `OperatorLogout`.
+    OperatorLogout,
+    /// Emits `SecurityAccessFailure`.
+    SecurityFailure,
 }
 
 impl OotKind {
@@ -51,6 +59,10 @@ impl OotKind {
             "recipe-loaded" => Some(Self::RecipeLoaded),
             "recipe-approved" => Some(Self::RecipeApproved),
             "material-addition" => Some(Self::MaterialAddition),
+            "operator-action" => Some(Self::OperatorAction),
+            "operator-login" => Some(Self::OperatorLogin),
+            "operator-logout" => Some(Self::OperatorLogout),
+            "security-failure" => Some(Self::SecurityFailure),
             _ => None,
         }
     }
@@ -68,6 +80,10 @@ impl OotKind {
             Self::RecipeLoaded => "recipe-loaded",
             Self::RecipeApproved => "recipe-approved",
             Self::MaterialAddition => "material-addition",
+            Self::OperatorAction => "operator-action",
+            Self::OperatorLogin => "operator-login",
+            Self::OperatorLogout => "operator-logout",
+            Self::SecurityFailure => "security-failure",
         }
     }
 }
@@ -83,6 +99,10 @@ pub const KINDS: &[&str] = &[
     "recipe-loaded",
     "recipe-approved",
     "material-addition",
+    "operator-action",
+    "operator-login",
+    "operator-logout",
+    "security-failure",
 ];
 /// Keys accepted on `value` attributes.
 pub const VALUE_KEYS: &[&str] = &[
@@ -135,6 +155,25 @@ pub const RECIPE_LOADED_KEYS: &[&str] = &["recipe", "version", "batch"];
 pub const RECIPE_APPROVED_KEYS: &[&str] = &["recipe", "version", "auth", "by"];
 /// Keys accepted on `material-addition` attributes.
 pub const MATERIAL_ADDITION_KEYS: &[&str] = &["batch", "material", "quantity", "unit"];
+/// Keys accepted on `operator-action` attributes.
+pub const OPERATOR_ACTION_KEYS: &[&str] = &[
+    "action",
+    "actor",
+    "context1",
+    "context2",
+    "context3",
+    "context4",
+    "auth",
+    "workstation",
+];
+/// Keys accepted on `operator-login` attributes.
+pub const OPERATOR_LOGIN_KEYS: &[&str] = &["actor", "auth", "workstation", "role"];
+/// Keys accepted on `operator-logout` attributes.
+pub const OPERATOR_LOGOUT_KEYS: &[&str] = &["actor", "workstation"];
+/// Keys accepted on `security-failure` attributes.
+pub const SECURITY_FAILURE_KEYS: &[&str] = &["actor", "workstation", "reason"];
+/// Authentication result values from OpenOT §6.4.
+pub const AUTH_RESULT_VALUES: &[&str] = &["Granted", "Denied", "NotRequired", "Pending", "Expired"];
 /// Batch state enum values from OpenOT §6.4.
 pub const BATCH_STATE_VALUES: &[&str] = &[
     "Started",
@@ -470,14 +509,7 @@ fn validate_local_openot_references(program: &SyntaxNode) -> Vec<Diagnostic> {
                     "STRING[<=96]",
                     &mut diagnostics,
                 );
-                validate_decl_ref_with(
-                    &attrs,
-                    "auth",
-                    &local_types,
-                    is_uint_type_name,
-                    "UINT",
-                    &mut diagnostics,
-                );
+                validate_auth_binding(&attrs, "auth", &local_types, &mut diagnostics);
                 validate_decl_ref_with(
                     &attrs,
                     "by",
@@ -510,6 +542,114 @@ fn validate_local_openot_references(program: &SyntaxNode) -> Vec<Diagnostic> {
                     &local_types,
                     is_lreal_type_name,
                     "LREAL",
+                    &mut diagnostics,
+                );
+            }
+            Some(OotKind::OperatorAction) => {
+                validate_decl_ref_with(
+                    &attrs,
+                    "action",
+                    &local_types,
+                    is_udint_type_name,
+                    "UDINT",
+                    &mut diagnostics,
+                );
+                validate_decl_ref_with(
+                    &attrs,
+                    "actor",
+                    &local_types,
+                    is_string_96_type_name,
+                    "STRING[<=96]",
+                    &mut diagnostics,
+                );
+                for key in ["context1", "context2", "context3", "context4"] {
+                    validate_decl_ref_with(
+                        &attrs,
+                        key,
+                        &local_types,
+                        is_udint_type_name,
+                        "UDINT",
+                        &mut diagnostics,
+                    );
+                }
+                validate_auth_binding(&attrs, "auth", &local_types, &mut diagnostics);
+                validate_decl_ref_with(
+                    &attrs,
+                    "workstation",
+                    &local_types,
+                    is_string_96_type_name,
+                    "STRING[<=96]",
+                    &mut diagnostics,
+                );
+            }
+            Some(OotKind::OperatorLogin) => {
+                validate_decl_ref_with(
+                    &attrs,
+                    "actor",
+                    &local_types,
+                    is_string_96_type_name,
+                    "STRING[<=96]",
+                    &mut diagnostics,
+                );
+                validate_auth_binding(&attrs, "auth", &local_types, &mut diagnostics);
+                validate_decl_ref_with(
+                    &attrs,
+                    "workstation",
+                    &local_types,
+                    is_string_96_type_name,
+                    "STRING[<=96]",
+                    &mut diagnostics,
+                );
+                validate_decl_ref_with(
+                    &attrs,
+                    "role",
+                    &local_types,
+                    is_uint_type_name,
+                    "UINT",
+                    &mut diagnostics,
+                );
+            }
+            Some(OotKind::OperatorLogout) => {
+                validate_decl_ref_with(
+                    &attrs,
+                    "actor",
+                    &local_types,
+                    is_string_96_type_name,
+                    "STRING[<=96]",
+                    &mut diagnostics,
+                );
+                validate_decl_ref_with(
+                    &attrs,
+                    "workstation",
+                    &local_types,
+                    is_string_96_type_name,
+                    "STRING[<=96]",
+                    &mut diagnostics,
+                );
+            }
+            Some(OotKind::SecurityFailure) => {
+                validate_decl_ref_with(
+                    &attrs,
+                    "actor",
+                    &local_types,
+                    is_string_96_type_name,
+                    "STRING[<=96]",
+                    &mut diagnostics,
+                );
+                validate_decl_ref_with(
+                    &attrs,
+                    "workstation",
+                    &local_types,
+                    is_string_96_type_name,
+                    "STRING[<=96]",
+                    &mut diagnostics,
+                );
+                validate_decl_ref_with(
+                    &attrs,
+                    "reason",
+                    &local_types,
+                    is_string_96_type_name,
+                    "STRING[<=96]",
                     &mut diagnostics,
                 );
             }
@@ -599,6 +739,36 @@ fn validate_decl_ref_with(
         diagnostics.push(openot_error(
             entry.range,
             format!("OpenOT '{key}' references type '{st_type}', expected {expected}"),
+        ));
+    }
+}
+
+fn validate_auth_binding(
+    attrs: &AttributeMap,
+    key: &str,
+    local_types: &BTreeMap<String, String>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Some(entry) = last_entry(attrs, key) else {
+        return;
+    };
+    if auth_result_code(&entry.value).is_some() {
+        return;
+    }
+    let Some(st_type) = local_types.get(&entry.value.to_ascii_lowercase()) else {
+        diagnostics.push(openot_error(
+            entry.range,
+            format!(
+                "OpenOT '{key}' must be an authResult symbol or reference a UINT variable, got '{}'",
+                entry.value
+            ),
+        ));
+        return;
+    };
+    if !is_uint_type_name(st_type) {
+        diagnostics.push(openot_error(
+            entry.range,
+            format!("OpenOT '{key}' references type '{st_type}', expected UINT"),
         ));
     }
 }
@@ -799,7 +969,13 @@ pub fn validate_attribute_map(
     }
     if matches!(
         kind,
-        OotKind::RecipeLoaded | OotKind::RecipeApproved | OotKind::MaterialAddition
+        OotKind::RecipeLoaded
+            | OotKind::RecipeApproved
+            | OotKind::MaterialAddition
+            | OotKind::OperatorAction
+            | OotKind::OperatorLogin
+            | OotKind::OperatorLogout
+            | OotKind::SecurityFailure
     ) {
         if let Some(ty) = declared_type {
             if !ty.trim().eq_ignore_ascii_case("BOOL") {
@@ -833,6 +1009,10 @@ pub fn validate_attribute_map(
                 | OotKind::RecipeLoaded
                 | OotKind::RecipeApproved
                 | OotKind::MaterialAddition
+                | OotKind::OperatorAction
+                | OotKind::OperatorLogin
+                | OotKind::OperatorLogout
+                | OotKind::SecurityFailure
         ) && INTERNAL_ID_KEYS.contains(&entry.key.as_str())
             && entry.key != "sourceid"
         {
@@ -893,6 +1073,26 @@ pub fn validate_attribute_map(
             "material-addition",
             &mut diagnostics,
         ),
+        OotKind::OperatorAction => validate_required_keys(
+            attrs,
+            &["action", "actor"],
+            "operator-action",
+            &mut diagnostics,
+        ),
+        OotKind::OperatorLogin => {
+            validate_required_keys(
+                attrs,
+                &["actor", "auth"],
+                "operator-login",
+                &mut diagnostics,
+            );
+        }
+        OotKind::OperatorLogout => {
+            validate_required_keys(attrs, &["actor"], "operator-logout", &mut diagnostics);
+        }
+        OotKind::SecurityFailure => {
+            validate_required_keys(attrs, &["actor"], "security-failure", &mut diagnostics);
+        }
         _ => {}
     }
 
@@ -974,6 +1174,10 @@ pub fn allowed_keys(kind: OotKind) -> &'static [&'static str] {
         OotKind::RecipeLoaded => RECIPE_LOADED_KEYS,
         OotKind::RecipeApproved => RECIPE_APPROVED_KEYS,
         OotKind::MaterialAddition => MATERIAL_ADDITION_KEYS,
+        OotKind::OperatorAction => OPERATOR_ACTION_KEYS,
+        OotKind::OperatorLogin => OPERATOR_LOGIN_KEYS,
+        OotKind::OperatorLogout => OPERATOR_LOGOUT_KEYS,
+        OotKind::SecurityFailure => SECURITY_FAILURE_KEYS,
     }
 }
 
@@ -1014,6 +1218,19 @@ pub fn condition_lifecycle_event_id(value: &str) -> Option<u32> {
         "reset" => Some(0x020B),
         "priority-changed" => Some(0x020C),
         _ => None,
+    }
+}
+
+/// Numeric code for an authentication result.
+#[must_use]
+pub fn auth_result_code(value: &str) -> Option<u16> {
+    match value.to_ascii_lowercase().as_str() {
+        "granted" => Some(0),
+        "denied" => Some(1),
+        "notrequired" | "not-required" | "not_required" => Some(2),
+        "pending" => Some(3),
+        "expired" => Some(4),
+        _ => value.parse::<u16>().ok().filter(|code| *code <= 4),
     }
 }
 
@@ -1239,6 +1456,14 @@ fn validate_key_value(
         | (OotKind::RecipeLoaded, "recipe" | "version" | "batch")
         | (OotKind::RecipeApproved, "recipe" | "version" | "auth" | "by")
         | (OotKind::MaterialAddition, "batch" | "material" | "quantity")
+        | (
+            OotKind::OperatorAction,
+            "action" | "actor" | "context1" | "context2" | "context3" | "context4" | "auth"
+            | "workstation",
+        )
+        | (OotKind::OperatorLogin, "actor" | "auth" | "workstation" | "role")
+        | (OotKind::OperatorLogout, "actor" | "workstation")
+        | (OotKind::SecurityFailure, "actor" | "workstation" | "reason")
             if entry.value.trim().is_empty() =>
         {
             diagnostics.push(openot_error(
@@ -1722,6 +1947,31 @@ END_PROGRAM
     }
 
     #[test]
+    fn validates_operator_regulated_references() {
+        let source = r#"
+PROGRAM Main
+VAR
+    ActionId : UDINT;
+    ContextA : UDINT;
+    ContextB : UDINT;
+    OperatorName : STRING[32];
+    Workstation : STRING[32];
+    Role : UINT;
+    Auth : UINT;
+    ReasonText : STRING[32];
+    Action : BOOL {attribute 'oot' := 'operator-action', 'action' := ActionId, 'actor' := OperatorName, 'context1' := ContextA, 'context2' := ContextB, 'auth' := 'Granted', 'workstation' := Workstation};
+    Login : BOOL {attribute 'oot' := 'operator-login', 'actor' := OperatorName, 'auth' := Auth, 'workstation' := Workstation, 'role' := Role};
+    Logout : BOOL {attribute 'oot' := 'operator-logout', 'actor' := OperatorName, 'workstation' := Workstation};
+    Failure : BOOL {attribute 'oot' := 'security-failure', 'actor' := OperatorName, 'workstation' := Workstation, 'reason' := ReasonText};
+END_VAR
+END_PROGRAM
+"#;
+        let parsed = parse(source);
+        let diagnostics = collect_openot_attribute_diagnostics(&parsed.syntax());
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    }
+
+    #[test]
     fn rejects_invalid_batch_recipe_attributes() {
         let source = r#"
 PROGRAM Main
@@ -1757,6 +2007,46 @@ END_PROGRAM
             "unknown OpenOT key 'reason' for kind 'recipe-loaded'",
             "unknown OpenOT key 'effectivetime' for kind 'recipe-loaded'",
             "unknown OpenOT key 'correctionof' for kind 'material-addition'",
+        ] {
+            assert!(
+                diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.message.contains(expected)),
+                "missing {expected}; got {diagnostics:#?}"
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_invalid_operator_regulated_attributes() {
+        let source = r#"
+PROGRAM Main
+VAR
+    ActionId : UDINT;
+    BadContext : DINT;
+    BadActor : STRING[128];
+    Workstation : STRING[32];
+    BadRole : UDINT;
+    ReasonText : STRING[32];
+    MissingAuth : BOOL {attribute 'oot' := 'operator-login', 'actor' := BadActor};
+    BadContextType : BOOL {attribute 'oot' := 'operator-action', 'action' := ActionId, 'actor' := BadActor, 'context1' := BadContext};
+    BadRoleType : BOOL {attribute 'oot' := 'operator-login', 'actor' := BadActor, 'auth' := 'Granted', 'role' := BadRole};
+    InapplicableReason : BOOL {attribute 'oot' := 'operator-action', 'action' := ActionId, 'actor' := BadActor, 'reason' := ReasonText};
+    ProgramDownload : BOOL {attribute 'oot' := 'program-download', 'actor' := BadActor};
+    BadId : BOOL {attribute 'oot' := 'operator-logout', 'actor' := BadActor, 'valueid' := '7'};
+END_VAR
+END_PROGRAM
+"#;
+        let parsed = parse(source);
+        let diagnostics = collect_openot_attribute_diagnostics(&parsed.syntax());
+        for expected in [
+            "OpenOT operator-login requires 'auth'",
+            "expected STRING[<=96]",
+            "expected UDINT",
+            "expected UINT",
+            "unknown OpenOT key 'reason' for kind 'operator-action'",
+            "unknown OpenOT kind 'program-download'",
+            "use bound field identities; 'valueid' is not allowed",
         ] {
             assert!(
                 diagnostics

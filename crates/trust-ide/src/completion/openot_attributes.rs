@@ -137,9 +137,17 @@ fn openot_key_items(kind: openot_vocab::OotKind) -> Vec<CompletionItem> {
                 "recipe" => "'recipe' := ${1:RecipeId}",
                 "version" => "'version' := ${1:RecipeVersion}",
                 "batch" => "'batch' := ${1:BatchId}",
-                "auth" => "'auth' := ${1:AuthResult}",
+                "auth" => "'auth' := '${1:Granted}'",
                 "material" => "'material' := ${1:MaterialId}",
                 "quantity" => "'quantity' := ${1:Quantity}",
+                "action" => "'action' := ${1:ActionId}",
+                "actor" => "'actor' := ${1:OperatorName}",
+                "context1" => "'context1' := ${1:ContextId}",
+                "context2" => "'context2' := ${1:ContextId}",
+                "context3" => "'context3' := ${1:ContextId}",
+                "context4" => "'context4' := ${1:ContextId}",
+                "workstation" => "'workstation' := ${1:Workstation}",
+                "role" => "'role' := ${1:Role}",
                 _ => *key,
             };
             CompletionItem::new(*key, CompletionKind::Snippet)
@@ -170,6 +178,7 @@ fn openot_value_items(key: &str) -> Vec<CompletionItem> {
             "OpenOT condition lifecycle event",
             openot_vocab::CONDITION_EVENT_VALUES,
         ),
+        "auth" => string_value_items("OpenOT authResult", openot_vocab::AUTH_RESULT_VALUES),
         "interval" => vec![CompletionItem::new("1000", CompletionKind::Snippet)
             .with_detail("OpenOT periodic interval")
             .with_documentation("Interval is a positive integer number of milliseconds.")

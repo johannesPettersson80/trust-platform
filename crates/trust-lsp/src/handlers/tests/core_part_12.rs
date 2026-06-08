@@ -17,6 +17,8 @@ PROGRAM Main
 	    BatchState : E_Step {attribute 'oot' := 'batch', };
 	    Loaded : BOOL {attribute 'oot' := 'recipe-loaded', };
 	    Addition : BOOL {attribute 'oot' := 'material-addition', };
+	    OperatorAction : BOOL {attribute 'oot' := 'operator-action', };
+	    OperatorAuth : BOOL {attribute 'oot' := 'operator-login', 'auth' := ''};
 	END_VAR
 	END_PROGRAM
 	"#;
@@ -37,6 +39,10 @@ PROGRAM Main
     assert!(kind_labels.iter().any(|label| label == "recipe-loaded"));
     assert!(kind_labels.iter().any(|label| label == "recipe-approved"));
     assert!(kind_labels.iter().any(|label| label == "material-addition"));
+    assert!(kind_labels.iter().any(|label| label == "operator-action"));
+    assert!(kind_labels.iter().any(|label| label == "operator-login"));
+    assert!(kind_labels.iter().any(|label| label == "operator-logout"));
+    assert!(kind_labels.iter().any(|label| label == "security-failure"));
 
     let value_key_cursor = source.find("'value', ").expect("value comma") + "'value', ".len();
     let value_key_labels = completion_labels(&state, &uri, source, value_key_cursor);
@@ -115,6 +121,34 @@ PROGRAM Main
     assert!(material_key_labels.iter().any(|label| label == "material"));
     assert!(material_key_labels.iter().any(|label| label == "quantity"));
     assert!(material_key_labels.iter().any(|label| label == "unit"));
+
+    let operator_action_key_cursor = source
+        .find("'operator-action', ")
+        .expect("operator-action comma")
+        + "'operator-action', ".len();
+    let operator_action_key_labels =
+        completion_labels(&state, &uri, source, operator_action_key_cursor);
+    assert!(operator_action_key_labels
+        .iter()
+        .any(|label| label == "action"));
+    assert!(operator_action_key_labels
+        .iter()
+        .any(|label| label == "actor"));
+    assert!(operator_action_key_labels
+        .iter()
+        .any(|label| label == "context1"));
+    assert!(operator_action_key_labels
+        .iter()
+        .any(|label| label == "auth"));
+    assert!(operator_action_key_labels
+        .iter()
+        .any(|label| label == "workstation"));
+
+    let auth_cursor = source.find("'auth' := '").expect("auth") + "'auth' := '".len();
+    let auth_labels = completion_labels(&state, &uri, source, auth_cursor);
+    assert!(auth_labels.iter().any(|label| label == "Granted"));
+    assert!(auth_labels.iter().any(|label| label == "Denied"));
+    assert!(auth_labels.iter().any(|label| label == "NotRequired"));
 }
 
 #[test]
@@ -178,6 +212,7 @@ VAR
 	    AckHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'acknowledge'};
 	    BatchState : E_Step {attribute 'oot' := 'batch', 'batchId' := BatchId};
 	    Loaded : BOOL {attribute 'oot' := 'recipe-loaded', 'recipe' := RecipeId, 'version' := RecipeVersion};
+	    Action : BOOL {attribute 'oot' := 'operator-action', 'action' := ActionId, 'actor' := OperatorName};
 	END_VAR
 	END_PROGRAM
 	"#;
@@ -218,6 +253,12 @@ VAR
         hints
             .iter()
             .any(|hint| inlay_label_contains(&hint.label, "RecipeLoaded on TRUE edge")),
+        "{hints:#?}"
+    );
+    assert!(
+        hints
+            .iter()
+            .any(|hint| inlay_label_contains(&hint.label, "OperatorAction on TRUE edge")),
         "{hints:#?}"
     );
 }

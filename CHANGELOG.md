@@ -24,6 +24,11 @@ Target release: `v0.24.22`
   StateTransition payloads and definition-file enum sets, with a reactor example
   that emits a UTC-rendered, runtime-clocked typed audit log, definition file,
   and forced-overflow reconciliation artifact.
+- trust-runtime/trust-lsp: OpenOT authoring now supports the simple
+  operator/regulated edge events `operator-action`, `operator-login`,
+  `operator-logout`, and `security-failure`, including authResult symbol
+  lowering, bounded `contextRef` bindings, runtime ST-FB emission, renderer
+  support, completions, validation, and inlay hints.
 - docs: added a public OpenOT attribute-authoring guide covering the truST
   compiler diagnostics, language-server assistance, generated producer path,
   definition-file generation, and `[runtime.openot] source = "st-fb"` runtime

@@ -161,7 +161,11 @@ pub fn definition_json_from_sources(sources: &[SourceFile]) -> Result<Value, Str
             OotKind::Batch
             | OotKind::RecipeLoaded
             | OotKind::RecipeApproved
-            | OotKind::MaterialAddition => {}
+            | OotKind::MaterialAddition
+            | OotKind::OperatorAction
+            | OotKind::OperatorLogin
+            | OotKind::OperatorLogout
+            | OotKind::SecurityFailure => {}
         }
     }
 
@@ -539,6 +543,12 @@ fn collect_program_annotations(
                         material_unit_id: attrs
                             .get("unit")
                             .and_then(|symbol| canonical_unit_id(symbol)),
+                        regulated_action_id: attrs.get("action").cloned(),
+                        regulated_actor: attrs.get("actor").cloned(),
+                        regulated_context_refs: context_refs_from_attrs(&attrs),
+                        regulated_workstation: attrs.get("workstation").cloned(),
+                        regulated_role: attrs.get("role").cloned(),
+                        regulated_reason: attrs.get("reason").cloned(),
                     },
                     attrs.clone(),
                 ));
@@ -628,6 +638,13 @@ fn message_args_from_attrs(
     args
 }
 
+fn context_refs_from_attrs(attrs: &BTreeMap<String, String>) -> Vec<String> {
+    ["context1", "context2", "context3", "context4"]
+        .into_iter()
+        .filter_map(|key| attrs.get(key).cloned())
+        .collect()
+}
+
 fn cause_operand_from_attrs(attrs: &BTreeMap<String, String>) -> Option<CauseOperandInfo> {
     attrs.get("cause").map(|name| CauseOperandInfo {
         operand_id: 1,
@@ -693,6 +710,12 @@ fn annotation_from_parts(
                 material_id: None,
                 quantity: None,
                 material_unit_id: None,
+                regulated_action_id: None,
+                regulated_actor: None,
+                regulated_context_refs: Vec::new(),
+                regulated_workstation: None,
+                regulated_role: None,
+                regulated_reason: None,
             }
         }
         OotKind::State => {
@@ -741,6 +764,12 @@ fn annotation_from_parts(
                 material_id: None,
                 quantity: None,
                 material_unit_id: None,
+                regulated_action_id: None,
+                regulated_actor: None,
+                regulated_context_refs: Vec::new(),
+                regulated_workstation: None,
+                regulated_role: None,
+                regulated_reason: None,
             }
         }
         OotKind::Alarm => {
@@ -790,6 +819,12 @@ fn annotation_from_parts(
                 material_id: None,
                 quantity: None,
                 material_unit_id: None,
+                regulated_action_id: None,
+                regulated_actor: None,
+                regulated_context_refs: Vec::new(),
+                regulated_workstation: None,
+                regulated_role: None,
+                regulated_reason: None,
             }
         }
         OotKind::Message => {
@@ -836,12 +871,22 @@ fn annotation_from_parts(
                 material_id: None,
                 quantity: None,
                 material_unit_id: None,
+                regulated_action_id: None,
+                regulated_actor: None,
+                regulated_context_refs: Vec::new(),
+                regulated_workstation: None,
+                regulated_role: None,
+                regulated_reason: None,
             }
         }
         OotKind::Batch
         | OotKind::RecipeLoaded
         | OotKind::RecipeApproved
-        | OotKind::MaterialAddition => Annotation {
+        | OotKind::MaterialAddition
+        | OotKind::OperatorAction
+        | OotKind::OperatorLogin
+        | OotKind::OperatorLogout
+        | OotKind::SecurityFailure => Annotation {
             kind: draft.kind,
             var_name: draft.var_name,
             st_type: draft.st_type,
@@ -881,6 +926,12 @@ fn annotation_from_parts(
             material_id: draft.material_id,
             quantity: draft.quantity,
             material_unit_id: draft.material_unit_id,
+            regulated_action_id: draft.regulated_action_id,
+            regulated_actor: draft.regulated_actor,
+            regulated_context_refs: draft.regulated_context_refs,
+            regulated_workstation: draft.regulated_workstation,
+            regulated_role: draft.regulated_role,
+            regulated_reason: draft.regulated_reason,
         },
         OotKind::Condition => {
             unreachable!("condition annotations require a resolved parent alarm index")
@@ -932,6 +983,12 @@ fn condition_annotation_from_parts(
         material_id: None,
         quantity: None,
         material_unit_id: None,
+        regulated_action_id: None,
+        regulated_actor: None,
+        regulated_context_refs: Vec::new(),
+        regulated_workstation: None,
+        regulated_role: None,
+        regulated_reason: None,
     }
 }
 
@@ -1127,7 +1184,11 @@ fn hidden_declarations(annotations: &[Annotation]) -> Vec<String> {
             | OotKind::Condition
             | OotKind::RecipeLoaded
             | OotKind::RecipeApproved
-            | OotKind::MaterialAddition => {
+            | OotKind::MaterialAddition
+            | OotKind::OperatorAction
+            | OotKind::OperatorLogin
+            | OotKind::OperatorLogout
+            | OotKind::SecurityFailure => {
                 declarations.push(format!("    OotPrev_{safe} : BOOL := FALSE;"))
             }
             OotKind::Value => {}
@@ -1158,6 +1219,10 @@ fn hidden_statements(annotations: &[Annotation]) -> Vec<String> {
             OotKind::MaterialAddition => {
                 statements.extend(material_addition_statements(annotation))
             }
+            OotKind::OperatorAction => statements.extend(operator_action_statements(annotation)),
+            OotKind::OperatorLogin => statements.extend(operator_login_statements(annotation)),
+            OotKind::OperatorLogout => statements.extend(operator_logout_statements(annotation)),
+            OotKind::SecurityFailure => statements.extend(security_failure_statements(annotation)),
             OotKind::Condition => {}
         }
     }
@@ -1371,7 +1436,10 @@ fn recipe_approved_statements(annotation: &Annotation) -> Vec<String> {
     ];
     if let Some(auth_result) = &annotation.auth_result {
         call_args.push("ProcedureHasAuthResult := TRUE".to_string());
-        call_args.push(format!("ProcedureAuthResult := {auth_result}"));
+        call_args.push(format!(
+            "ProcedureAuthResult := {}",
+            auth_result_expr(auth_result)
+        ));
     }
     if let Some(ack_by) = &annotation.procedure_ack_by {
         call_args.push("ProcedureHasAckBy := TRUE".to_string());
@@ -1414,6 +1482,137 @@ fn material_addition_statements(annotation: &Annotation) -> Vec<String> {
         call_args.push(format!("ProcedureUnitId := UINT#{unit_id}"));
     }
     edge_trigger_statements(annotation, call_args)
+}
+
+fn operator_action_statements(annotation: &Annotation) -> Vec<String> {
+    let mut call_args = vec![
+        "Execute := TRUE".to_string(),
+        "Op := UINT#14".to_string(),
+        format!("SourceId := UDINT#{}", annotation.source_id),
+        source_time_args(),
+        "RegulatedEventTypeId := UDINT#16#0400".to_string(),
+        format!(
+            "RegulatedActionId := {}",
+            annotation
+                .regulated_action_id
+                .as_deref()
+                .expect("action id should be validated")
+        ),
+        format!(
+            "RegulatedActor := {}",
+            annotation
+                .regulated_actor
+                .as_deref()
+                .expect("actor should be validated")
+        ),
+    ];
+    for (idx, context_ref) in annotation.regulated_context_refs.iter().enumerate() {
+        let number = idx + 1;
+        call_args.push(format!("RegulatedHasContext{number} := TRUE"));
+        call_args.push(format!("RegulatedContext{number} := {context_ref}"));
+    }
+    if let Some(auth_result) = &annotation.auth_result {
+        call_args.push("RegulatedHasAuthResult := TRUE".to_string());
+        call_args.push(format!(
+            "RegulatedAuthResult := {}",
+            auth_result_expr(auth_result)
+        ));
+    }
+    if let Some(workstation) = &annotation.regulated_workstation {
+        call_args.push("RegulatedHasWorkstation := TRUE".to_string());
+        call_args.push(format!("RegulatedWorkstation := {workstation}"));
+    }
+    edge_trigger_statements(annotation, call_args)
+}
+
+fn operator_login_statements(annotation: &Annotation) -> Vec<String> {
+    let mut call_args = vec![
+        "Execute := TRUE".to_string(),
+        "Op := UINT#14".to_string(),
+        format!("SourceId := UDINT#{}", annotation.source_id),
+        source_time_args(),
+        "RegulatedEventTypeId := UDINT#16#0401".to_string(),
+        format!(
+            "RegulatedActor := {}",
+            annotation
+                .regulated_actor
+                .as_deref()
+                .expect("actor should be validated")
+        ),
+        "RegulatedHasAuthResult := TRUE".to_string(),
+        format!(
+            "RegulatedAuthResult := {}",
+            auth_result_expr(
+                annotation
+                    .auth_result
+                    .as_deref()
+                    .expect("authResult should be validated")
+            )
+        ),
+    ];
+    if let Some(workstation) = &annotation.regulated_workstation {
+        call_args.push("RegulatedHasWorkstation := TRUE".to_string());
+        call_args.push(format!("RegulatedWorkstation := {workstation}"));
+    }
+    if let Some(role) = &annotation.regulated_role {
+        call_args.push("RegulatedHasRole := TRUE".to_string());
+        call_args.push(format!("RegulatedRole := {role}"));
+    }
+    edge_trigger_statements(annotation, call_args)
+}
+
+fn operator_logout_statements(annotation: &Annotation) -> Vec<String> {
+    let mut call_args = vec![
+        "Execute := TRUE".to_string(),
+        "Op := UINT#14".to_string(),
+        format!("SourceId := UDINT#{}", annotation.source_id),
+        source_time_args(),
+        "RegulatedEventTypeId := UDINT#16#0402".to_string(),
+        format!(
+            "RegulatedActor := {}",
+            annotation
+                .regulated_actor
+                .as_deref()
+                .expect("actor should be validated")
+        ),
+    ];
+    if let Some(workstation) = &annotation.regulated_workstation {
+        call_args.push("RegulatedHasWorkstation := TRUE".to_string());
+        call_args.push(format!("RegulatedWorkstation := {workstation}"));
+    }
+    edge_trigger_statements(annotation, call_args)
+}
+
+fn security_failure_statements(annotation: &Annotation) -> Vec<String> {
+    let mut call_args = vec![
+        "Execute := TRUE".to_string(),
+        "Op := UINT#14".to_string(),
+        format!("SourceId := UDINT#{}", annotation.source_id),
+        source_time_args(),
+        "RegulatedEventTypeId := UDINT#16#0405".to_string(),
+        format!(
+            "RegulatedActor := {}",
+            annotation
+                .regulated_actor
+                .as_deref()
+                .expect("actor should be validated")
+        ),
+    ];
+    if let Some(workstation) = &annotation.regulated_workstation {
+        call_args.push("RegulatedHasWorkstation := TRUE".to_string());
+        call_args.push(format!("RegulatedWorkstation := {workstation}"));
+    }
+    if let Some(reason) = &annotation.regulated_reason {
+        call_args.push("RegulatedHasReason := TRUE".to_string());
+        call_args.push(format!("RegulatedReason := {reason}"));
+    }
+    edge_trigger_statements(annotation, call_args)
+}
+
+fn auth_result_expr(value: &str) -> String {
+    hir_openot::auth_result_code(value)
+        .map(|code| format!("UINT#{code}"))
+        .unwrap_or_else(|| value.to_string())
 }
 
 fn edge_trigger_statements(annotation: &Annotation, call_args: Vec<String>) -> Vec<String> {
@@ -1709,6 +1908,12 @@ struct Annotation {
     material_id: Option<String>,
     quantity: Option<String>,
     material_unit_id: Option<u16>,
+    regulated_action_id: Option<String>,
+    regulated_actor: Option<String>,
+    regulated_context_refs: Vec<String>,
+    regulated_workstation: Option<String>,
+    regulated_role: Option<String>,
+    regulated_reason: Option<String>,
 }
 
 impl Annotation {
@@ -1890,6 +2095,12 @@ struct AnnotationDraft {
     material_id: Option<String>,
     quantity: Option<String>,
     material_unit_id: Option<u16>,
+    regulated_action_id: Option<String>,
+    regulated_actor: Option<String>,
+    regulated_context_refs: Vec<String>,
+    regulated_workstation: Option<String>,
+    regulated_role: Option<String>,
+    regulated_reason: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -2205,6 +2416,53 @@ mod tests {
         assert!(text.contains("ProcedureQuantity := Quantity"), "{text}");
         assert!(text.contains("ProcedureUnitId := UINT#8"), "{text}");
         assert!(!text.contains("StateMachineId"), "{text}");
+    }
+
+    #[test]
+    fn operator_regulated_lowering_uses_regulated_op_and_auth_symbols() {
+        let source = SourceFile::with_path(
+            "main.st",
+            "PROGRAM Main\nVAR\n    ActionId : UDINT := UDINT#6001;\n    ContextA : UDINT := UDINT#7001;\n    ContextB : UDINT := UDINT#7002;\n    Actor : STRING[32] := 'operator-a';\n    Workstation : STRING[32] := 'station-1';\n    Role : UINT := UINT#3;\n    Reason : STRING[32] := 'denied';\n    Action : BOOL {attribute 'oot' := 'operator-action', 'action' := ActionId, 'actor' := Actor, 'context1' := ContextA, 'context2' := ContextB, 'auth' := 'Granted', 'workstation' := Workstation};\n    Login : BOOL {attribute 'oot' := 'operator-login', 'actor' := Actor, 'auth' := 'Denied', 'workstation' := Workstation, 'role' := Role};\n    Logout : BOOL {attribute 'oot' := 'operator-logout', 'actor' := Actor, 'workstation' := Workstation};\n    Failure : BOOL {attribute 'oot' := 'security-failure', 'actor' := Actor, 'workstation' := Workstation, 'reason' := Reason};\nEND_VAR\nAction := TRUE;\nLogin := TRUE;\nLogout := TRUE;\nFailure := TRUE;\nEND_PROGRAM\n",
+        );
+
+        let definition =
+            definition_json_from_sources(std::slice::from_ref(&source)).expect("definition");
+        assert_eq!(definition["operatorDefinitions"], Value::Array(vec![]));
+
+        let instrumented = instrument_source_files(&[source]);
+        let text = &instrumented[0].text;
+        assert!(text.contains("Op := UINT#14"), "{text}");
+        assert!(
+            text.contains("RegulatedEventTypeId := UDINT#16#0400"),
+            "{text}"
+        );
+        assert!(
+            text.contains("RegulatedEventTypeId := UDINT#16#0401"),
+            "{text}"
+        );
+        assert!(
+            text.contains("RegulatedEventTypeId := UDINT#16#0402"),
+            "{text}"
+        );
+        assert!(
+            text.contains("RegulatedEventTypeId := UDINT#16#0405"),
+            "{text}"
+        );
+        assert!(text.contains("RegulatedActionId := ActionId"), "{text}");
+        assert!(text.contains("RegulatedActor := Actor"), "{text}");
+        assert!(text.contains("RegulatedHasContext1 := TRUE"), "{text}");
+        assert!(text.contains("RegulatedContext1 := ContextA"), "{text}");
+        assert!(text.contains("RegulatedHasContext2 := TRUE"), "{text}");
+        assert!(text.contains("RegulatedContext2 := ContextB"), "{text}");
+        assert!(text.contains("RegulatedAuthResult := UINT#0"), "{text}");
+        assert!(text.contains("RegulatedAuthResult := UINT#1"), "{text}");
+        assert!(
+            text.contains("RegulatedWorkstation := Workstation"),
+            "{text}"
+        );
+        assert!(text.contains("RegulatedRole := Role"), "{text}");
+        assert!(text.contains("RegulatedHasReason := TRUE"), "{text}");
+        assert!(text.contains("RegulatedReason := Reason"), "{text}");
     }
 
     #[test]
