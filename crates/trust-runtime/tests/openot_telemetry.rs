@@ -580,7 +580,7 @@ fn openot_telemetry_authoring_showcase_renders_typed_audit_log() {
             "ValueChanged source=1 seq=11 valueId=2001 previous=REAL(15) new=REAL(7.5)",
             "StateTransition source=1 seq=12 machine=7001 category=0 previous=3 new=4",
             "ValueChanged source=1 seq=13 valueId=2001 previous=REAL(7.5) new=REAL(0)",
-            "ConditionCleared source=1 seq=14 conditionId=9001 class=0 severity=900 correlation=1 causes=[1]",
+            "ConditionCleared source=1 seq=14 conditionId=9001 class=0 correlation=1",
         ]
     );
     assert_eq!(consumer.rejected_records(), 0);
@@ -860,6 +860,9 @@ fn render_record(record: &Record) -> String {
 }
 
 fn render_condition(record: &Record, name: &str) -> String {
+    let severity = slot(record, KEY_SEVERITY)
+        .map(|_| format!(" severity={}", required_uint(record, KEY_SEVERITY)))
+        .unwrap_or_default();
     let correlation = slot(record, KEY_CORRELATION_ID)
         .map(|_| {
             format!(
@@ -887,12 +890,12 @@ fn render_condition(record: &Record, name: &str) -> String {
         format!(" causes=[{}]", causes.join(","))
     };
     format!(
-        "{name} source={} seq={} conditionId={} class={} severity={}{}{}",
+        "{name} source={} seq={} conditionId={} class={}{}{}{}",
         record.source_id,
         record.seq,
         required_udint(record, KEY_CONDITION_ID),
         required_uint(record, KEY_CONDITION_CLASS),
-        required_uint(record, KEY_SEVERITY),
+        severity,
         correlation,
         causes
     )
