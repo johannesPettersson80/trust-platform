@@ -123,6 +123,8 @@ fn openot_key_items(kind: openot_vocab::OotKind) -> Vec<CompletionItem> {
                 "quality" => "'quality' := '${1:good}'",
                 "semanticrole" => "'semanticRole' := '${1:actual}'",
                 "previous" => "'previous' := '${1:true}'",
+                "sampling" => "'sampling' := '${1:on-change}'",
+                "interval" => "'interval' := '${1:1000}'",
                 _ => *key,
             };
             CompletionItem::new(*key, CompletionKind::Snippet)
@@ -146,6 +148,14 @@ fn openot_value_items(key: &str) -> Vec<CompletionItem> {
             openot_vocab::SEMANTIC_ROLE_VALUES,
         ),
         "previous" => string_value_items("OpenOT previous-value capture", &["true", "false"]),
+        "sampling" => {
+            string_value_items("OpenOT value sampling policy", openot_vocab::SAMPLING_VALUES)
+        }
+        "interval" => vec![CompletionItem::new("1000", CompletionKind::Snippet)
+            .with_detail("OpenOT periodic interval")
+            .with_documentation("Interval is a positive integer number of milliseconds.")
+            .with_insert_text("'${1:1000}'")
+            .with_priority(1)],
         "severity" => vec![CompletionItem::new("900", CompletionKind::Snippet)
             .with_detail("OpenOT severity")
             .with_documentation("Severity is 1..1000: low 1..332, medium 333..666, high 667..1000.")

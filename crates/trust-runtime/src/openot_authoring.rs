@@ -23,6 +23,9 @@ use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 const DEFAULT_SOURCE_ID: u32 = 1;
 const DEFAULT_STATE_CATEGORY: u16 = hir_openot::STATE_CATEGORY_PROCESS;
 const ST_PRODUCER_MAX_RECORD_SIZE: u16 = 256;
+const SAMPLING_MODE_DEFAULT: u16 = 0;
+const SAMPLING_MODE_PERIODIC: u16 = 1;
+const SAMPLING_MODE_HYSTERESIS: u16 = 2;
 const PRODUCER_NAME: &str = "OotProducer";
 const USE_SOURCE_TIME_NAME: &str = "OotUseSourceTimeInput";
 const SOURCE_TIME_NAME: &str = "OotSourceTime";
@@ -102,7 +105,7 @@ pub fn definition_json_from_sources(sources: &[SourceFile]) -> Result<Value, Str
                         "decimal": decimal,
                         "scaled": null
                     })),
-                    "samplingPolicy": if annotation.deadband.is_some() { Value::Null } else { json!("on-change") }
+                    "samplingPolicy": annotation.sampling_policy_json()
                 }));
             }
             OotKind::State => {
@@ -590,6 +593,11 @@ fn annotation_from_parts(
                 source_id: draft.source_id,
                 source: draft.source,
                 deadband: attrs.get("deadband").cloned(),
+                sampling: attrs
+                    .get("sampling")
+                    .and_then(|value| hir_openot::sampling_policy(value))
+                    .map(str::to_string),
+                interval_ms: attrs.get("interval").and_then(|value| value.parse().ok()),
                 unit: attrs.get("unit").cloned(),
                 quality: attrs
                     .get("quality")
@@ -623,6 +631,8 @@ fn annotation_from_parts(
                 source_id: draft.source_id,
                 source: draft.source,
                 deadband: None,
+                sampling: None,
+                interval_ms: None,
                 unit: None,
                 quality: None,
                 semantic_role: 0,
@@ -653,6 +663,8 @@ fn annotation_from_parts(
                 source_id: draft.source_id,
                 source: draft.source,
                 deadband: None,
+                sampling: None,
+                interval_ms: None,
                 unit: None,
                 quality: None,
                 semantic_role: 0,
@@ -684,6 +696,8 @@ fn annotation_from_parts(
                 source_id: draft.source_id,
                 source: draft.source,
                 deadband: None,
+                sampling: None,
+                interval_ms: None,
                 unit: None,
                 quality: None,
                 semantic_role: 0,
@@ -914,12 +928,13 @@ fn value_statements(annotation: &Annotation) -> Vec<String> {
     if annotation.is_real() {
         return vec![
             format!(
-                "{PRODUCER_NAME}(Execute := TRUE, Op := UINT#6, SourceId := UDINT#{}, {}, ValueId := UDINT#{}, ValueReal := {}, DeadbandReal := {}, SuppressPrevious := {}, HasQuality := {}, Quality := UINT#{});",
+                "{PRODUCER_NAME}(Execute := TRUE, Op := UINT#6, SourceId := UDINT#{}, {}, ValueId := UDINT#{}, ValueReal := {}, DeadbandReal := {}, {}, SuppressPrevious := {}, HasQuality := {}, Quality := UINT#{});",
                 annotation.source_id,
                 source_time_args(),
                 annotation.id,
                 annotation.var_name,
                 real_literal(annotation.deadband.as_deref().unwrap_or("0.0")),
+                annotation.sampling_args(),
                 bool_literal(annotation.suppress_previous),
                 bool_literal(annotation.quality.is_some()),
                 annotation.quality.unwrap_or(0)
@@ -931,11 +946,12 @@ fn value_statements(annotation: &Annotation) -> Vec<String> {
     if annotation.is_dint() {
         return vec![
             format!(
-                "{PRODUCER_NAME}(Execute := TRUE, Op := UINT#7, SourceId := UDINT#{}, {}, ValueId := UDINT#{}, ValueInt := {}, DeadbandReal := REAL#0.0, SuppressPrevious := {}, HasQuality := {}, Quality := UINT#{});",
+                "{PRODUCER_NAME}(Execute := TRUE, Op := UINT#7, SourceId := UDINT#{}, {}, ValueId := UDINT#{}, ValueInt := {}, DeadbandReal := REAL#0.0, {}, SuppressPrevious := {}, HasQuality := {}, Quality := UINT#{});",
                 annotation.source_id,
                 source_time_args(),
                 annotation.id,
                 annotation.var_name,
+                annotation.sampling_args(),
                 bool_literal(annotation.suppress_previous),
                 bool_literal(annotation.quality.is_some()),
                 annotation.quality.unwrap_or(0)
@@ -947,11 +963,12 @@ fn value_statements(annotation: &Annotation) -> Vec<String> {
     if annotation.is_string() {
         return vec![
             format!(
-                "{PRODUCER_NAME}(Execute := TRUE, Op := UINT#11, SourceId := UDINT#{}, {}, ValueId := UDINT#{}, ValueString := {}, SuppressPrevious := {}, HasQuality := {}, Quality := UINT#{});",
+                "{PRODUCER_NAME}(Execute := TRUE, Op := UINT#11, SourceId := UDINT#{}, {}, ValueId := UDINT#{}, ValueString := {}, {}, SuppressPrevious := {}, HasQuality := {}, Quality := UINT#{});",
                 annotation.source_id,
                 source_time_args(),
                 annotation.id,
                 annotation.var_name,
+                annotation.sampling_args(),
                 bool_literal(annotation.suppress_previous),
                 bool_literal(annotation.quality.is_some()),
                 annotation.quality.unwrap_or(0)
@@ -962,13 +979,14 @@ fn value_statements(annotation: &Annotation) -> Vec<String> {
 
     vec![
         format!(
-            "{PRODUCER_NAME}(Execute := TRUE, Op := UINT#10, SourceId := UDINT#{}, {}, ValueId := UDINT#{}, ValueTypeTag := BYTE#16#{:02X}, ValuePayloadLength := UINT#{}, ValueBits := {}, SuppressPrevious := {}, HasQuality := {}, Quality := UINT#{});",
+            "{PRODUCER_NAME}(Execute := TRUE, Op := UINT#10, SourceId := UDINT#{}, {}, ValueId := UDINT#{}, ValueTypeTag := BYTE#16#{:02X}, ValuePayloadLength := UINT#{}, ValueBits := {}, {}, SuppressPrevious := {}, HasQuality := {}, Quality := UINT#{});",
             annotation.source_id,
             source_time_args(),
             annotation.id,
             annotation.tlv_type(),
             annotation.payload_len(),
             annotation.value_bits_expr(),
+            annotation.sampling_args(),
             bool_literal(annotation.suppress_previous),
             bool_literal(annotation.quality.is_some()),
             annotation.quality.unwrap_or(0)
@@ -1184,6 +1202,8 @@ struct Annotation {
     source_id: u32,
     source: SourceDescriptor,
     deadband: Option<String>,
+    sampling: Option<String>,
+    interval_ms: Option<u64>,
     unit: Option<String>,
     quality: Option<u16>,
     semantic_role: u16,
@@ -1227,6 +1247,41 @@ impl Annotation {
 
     fn value_bits_expr(&self) -> String {
         value_bits_expr_for_type(&self.var_name, &self.st_type)
+    }
+
+    fn sampling_policy_json(&self) -> Value {
+        match self.sampling.as_deref() {
+            Some("on-change") => json!("on-change"),
+            Some("deadband") => json!("deadband"),
+            Some("periodic") => json!(format!(
+                "periodic:{}",
+                self.interval_ms
+                    .expect("periodic sampling interval should be validated")
+            )),
+            Some("hysteresis") => json!("hysteresis"),
+            _ if self.deadband.is_some() => Value::Null,
+            _ => json!("on-change"),
+        }
+    }
+
+    fn sampling_mode(&self) -> u16 {
+        match self.sampling.as_deref() {
+            Some("periodic") => SAMPLING_MODE_PERIODIC,
+            Some("hysteresis") => SAMPLING_MODE_HYSTERESIS,
+            _ => SAMPLING_MODE_DEFAULT,
+        }
+    }
+
+    fn sampling_interval_ms(&self) -> u64 {
+        self.interval_ms.unwrap_or(0)
+    }
+
+    fn sampling_args(&self) -> String {
+        format!(
+            "SamplingMode := UINT#{}, SamplingIntervalMs := ULINT#{}",
+            self.sampling_mode(),
+            self.sampling_interval_ms()
+        )
     }
 }
 
@@ -1506,6 +1561,25 @@ mod tests {
         assert!(text.contains("SuppressPrevious := TRUE"), "{text}");
         assert!(text.contains("HasQuality := TRUE"), "{text}");
         assert!(text.contains("Quality := UINT#1"), "{text}");
+    }
+
+    #[test]
+    fn value_sampling_policy_lowering_uses_existing_definition_field() {
+        let source = SourceFile::with_path(
+            "main.st",
+            "PROGRAM Main\nVAR\n    Pressure : REAL {attribute 'oot' := 'value', 'sampling' := 'periodic', 'interval' := '250'};\n    Flow : REAL {attribute 'oot' := 'value', 'sampling' := 'hysteresis', 'deadband' := '1.5'};\n    Level : REAL {attribute 'oot' := 'value', 'deadband' := '0.5'};\nEND_VAR\nEND_PROGRAM\n",
+        );
+        let definition =
+            definition_json_from_sources(std::slice::from_ref(&source)).expect("definition");
+        assert_eq!(definition["values"][0]["samplingPolicy"], "periodic:250");
+        assert_eq!(definition["values"][1]["samplingPolicy"], "hysteresis");
+        assert_eq!(definition["values"][2]["samplingPolicy"], Value::Null);
+
+        let instrumented = instrument_source_files(&[source]);
+        let text = &instrumented[0].text;
+        assert!(text.contains("SamplingMode := UINT#1"), "{text}");
+        assert!(text.contains("SamplingIntervalMs := ULINT#250"), "{text}");
+        assert!(text.contains("SamplingMode := UINT#2"), "{text}");
     }
 
     #[test]

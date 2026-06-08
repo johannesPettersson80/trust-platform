@@ -132,10 +132,23 @@ fn openot_attribute_hints(root: &SyntaxNode, range: TextRange) -> Vec<InlayHint>
 fn openot_hint_label(kind: OotKind, attrs: &openot_vocab::AttributeMap) -> Option<String> {
     match kind {
         OotKind::Value => {
-            let mut label = if let Some(deadband) = attrs.get("deadband") {
-                format!("ValueChanged on delta>{deadband}")
-            } else {
-                "ValueChanged on change".to_string()
+            let mut label = match attrs.get("sampling") {
+                Some(value) if value.eq_ignore_ascii_case("periodic") => {
+                    let interval = attrs.get("interval").unwrap_or("?");
+                    format!("ValueChanged on change or every {interval}ms")
+                }
+                Some(value) if value.eq_ignore_ascii_case("hysteresis") => {
+                    let deadband = attrs.get("deadband").unwrap_or("?");
+                    format!("ValueChanged on hysteresis>{deadband}")
+                }
+                Some(value) if value.eq_ignore_ascii_case("deadband") => {
+                    let deadband = attrs.get("deadband").unwrap_or("?");
+                    format!("ValueChanged on delta>{deadband}")
+                }
+                _ if attrs.get("deadband").is_some() => {
+                    format!("ValueChanged on delta>{}", attrs.get("deadband").unwrap())
+                }
+                _ => "ValueChanged on change".to_string(),
             };
             if let Some(unit) = attrs.get("unit") {
                 label.push(' ');

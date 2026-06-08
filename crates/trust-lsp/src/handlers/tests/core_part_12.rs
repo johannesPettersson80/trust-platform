@@ -7,6 +7,7 @@ TYPE E_Step : (Idle := 0, Filling := 1) END_TYPE
 
 PROGRAM Main
 VAR
+    Level : REAL {attribute 'oot' := 'value', };
     Step : E_Step {attribute 'oot' := 'state', 'category' := ''};
     HighPhAlarm : BOOL {attribute 'oot' := 'alarm', };
     Started : BOOL {attribute 'oot' := 'message', };
@@ -23,6 +24,11 @@ END_PROGRAM
     assert!(category_labels.iter().any(|label| label == "process"));
     assert!(category_labels.iter().any(|label| label == "mode"));
     assert!(category_labels.iter().any(|label| label == "procedural"));
+
+    let value_key_cursor = source.find("'value', ").expect("value comma") + "'value', ".len();
+    let value_key_labels = completion_labels(&state, &uri, source, value_key_cursor);
+    assert!(value_key_labels.iter().any(|label| label == "sampling"));
+    assert!(value_key_labels.iter().any(|label| label == "interval"));
 
     let key_cursor = source.find("'alarm', ").expect("alarm comma") + "'alarm', ".len();
     let key_labels = completion_labels(&state, &uri, source, key_cursor);

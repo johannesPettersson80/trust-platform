@@ -253,6 +253,21 @@ END_PROGRAM
             "HeadersOk",
             "EmissionsOk",
             "ChangeSuppressionOk",
+            "PeriodicInitialDelta",
+            "PeriodicEarlyDelta",
+            "PeriodicIntervalDelta",
+            "PeriodicChangeDelta",
+            "HysteresisInitialDelta",
+            "HysteresisInsideDelta",
+            "HysteresisUpCrossDelta",
+            "HysteresisInsideAfterCenterDelta",
+            "HysteresisDownCrossDelta",
+            "DeadbandInitialDelta",
+            "DeadbandInsideDelta",
+            "DeadbandCrossDelta",
+            "OnChangeInitialDelta",
+            "OnChangeSameDelta",
+            "OnChangeChangeDelta",
         ] {
             if let Some(value) = harness.get_output(name) {
                 eprintln!("{name}: {value:?}");
@@ -347,6 +362,108 @@ END_PROGRAM
     harness.cycle();
 
     assert_eq!(harness.get_output("Passed"), Some(Value::Bool(true)));
+}
+
+#[test]
+fn openot_st_value_sampling_pou_passes() {
+    let sources = openot_st_test_sources(
+        "test_value_sampling.st",
+        r#"
+PROGRAM Main
+VAR
+    Test : OPENOT_TestValueSampling;
+    Passed : BOOL;
+    PeriodicInitialDelta : ULINT;
+    PeriodicEarlyDelta : ULINT;
+    PeriodicIntervalDelta : ULINT;
+    PeriodicChangeDelta : ULINT;
+    HysteresisInitialDelta : ULINT;
+    HysteresisInsideDelta : ULINT;
+    HysteresisUpCrossDelta : ULINT;
+    HysteresisInsideAfterCenterDelta : ULINT;
+    HysteresisDownCrossDelta : ULINT;
+    DeadbandInitialDelta : ULINT;
+    DeadbandInsideDelta : ULINT;
+    DeadbandCrossDelta : ULINT;
+    OnChangeInitialDelta : ULINT;
+    OnChangeSameDelta : ULINT;
+    OnChangeChangeDelta : ULINT;
+END_VAR
+
+Test();
+Passed := Test.Passed;
+PeriodicInitialDelta := Test.PeriodicInitialDelta;
+PeriodicEarlyDelta := Test.PeriodicEarlyDelta;
+PeriodicIntervalDelta := Test.PeriodicIntervalDelta;
+PeriodicChangeDelta := Test.PeriodicChangeDelta;
+HysteresisInitialDelta := Test.HysteresisInitialDelta;
+HysteresisInsideDelta := Test.HysteresisInsideDelta;
+HysteresisUpCrossDelta := Test.HysteresisUpCrossDelta;
+HysteresisInsideAfterCenterDelta := Test.HysteresisInsideAfterCenterDelta;
+HysteresisDownCrossDelta := Test.HysteresisDownCrossDelta;
+DeadbandInitialDelta := Test.DeadbandInitialDelta;
+DeadbandInsideDelta := Test.DeadbandInsideDelta;
+DeadbandCrossDelta := Test.DeadbandCrossDelta;
+OnChangeInitialDelta := Test.OnChangeInitialDelta;
+OnChangeSameDelta := Test.OnChangeSameDelta;
+OnChangeChangeDelta := Test.OnChangeChangeDelta;
+END_PROGRAM
+"#,
+    );
+    let source_refs = sources.iter().map(String::as_str).collect::<Vec<_>>();
+    let mut harness = TestHarness::from_sources(&source_refs)
+        .unwrap_or_else(|err| panic!("build value sampling POU harness: {err}"));
+    harness.cycle();
+
+    assert_eq!(harness.get_output("Passed"), Some(Value::Bool(true)));
+    assert_eq!(
+        harness.get_output("PeriodicInitialDelta"),
+        Some(Value::ULInt(1))
+    );
+    assert_eq!(
+        harness.get_output("PeriodicEarlyDelta"),
+        Some(Value::ULInt(0))
+    );
+    assert_eq!(
+        harness.get_output("PeriodicIntervalDelta"),
+        Some(Value::ULInt(1))
+    );
+    assert_eq!(
+        harness.get_output("PeriodicChangeDelta"),
+        Some(Value::ULInt(1))
+    );
+    assert_eq!(
+        harness.get_output("HysteresisInsideDelta"),
+        Some(Value::ULInt(0))
+    );
+    assert_eq!(
+        harness.get_output("HysteresisUpCrossDelta"),
+        Some(Value::ULInt(1))
+    );
+    assert_eq!(
+        harness.get_output("HysteresisInsideAfterCenterDelta"),
+        Some(Value::ULInt(0))
+    );
+    assert_eq!(
+        harness.get_output("HysteresisDownCrossDelta"),
+        Some(Value::ULInt(1))
+    );
+    assert_eq!(
+        harness.get_output("DeadbandInsideDelta"),
+        Some(Value::ULInt(0))
+    );
+    assert_eq!(
+        harness.get_output("DeadbandCrossDelta"),
+        Some(Value::ULInt(1))
+    );
+    assert_eq!(
+        harness.get_output("OnChangeSameDelta"),
+        Some(Value::ULInt(0))
+    );
+    assert_eq!(
+        harness.get_output("OnChangeChangeDelta"),
+        Some(Value::ULInt(1))
+    );
 }
 
 #[test]
@@ -722,6 +839,33 @@ END_PROGRAM
     );
 
     drop(std::fs::remove_file(path));
+}
+
+#[test]
+fn openot_telemetry_authoring_sampling_policy_round_trips_definition() {
+    let program = r#"
+PROGRAM Main
+VAR
+    Pressure : REAL {attribute 'oot' := 'value', 'sampling' := 'periodic', 'interval' := '250'};
+    Flow : REAL {attribute 'oot' := 'value', 'sampling' := 'hysteresis', 'deadband' := '1.5'};
+END_VAR
+END_PROGRAM
+"#;
+    let definition = openot_authoring::definition_json_from_sources(&[SourceFile::with_path(
+        "sampling.st",
+        program,
+    )])
+    .expect("sampling definition");
+    let parsed: DefinitionFile =
+        serde_json::from_value(definition).expect("definition parses through open-ot-definition");
+    assert_eq!(
+        parsed.values[0].sampling_policy.as_deref(),
+        Some("periodic:250")
+    );
+    assert_eq!(
+        parsed.values[1].sampling_policy.as_deref(),
+        Some("hysteresis")
+    );
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

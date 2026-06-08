@@ -55,7 +55,15 @@ impl OotKind {
 /// Supported OpenOT kind values.
 pub const KINDS: &[&str] = &["value", "state", "alarm", "message"];
 /// Keys accepted on `value` attributes.
-pub const VALUE_KEYS: &[&str] = &["unit", "deadband", "quality", "semanticrole", "previous"];
+pub const VALUE_KEYS: &[&str] = &[
+    "unit",
+    "deadband",
+    "quality",
+    "semanticrole",
+    "previous",
+    "sampling",
+    "interval",
+];
 /// Unit symbols accepted by the current OpenOT reference registry.
 pub const UNIT_VALUES: &[&str] = &["1", "L", "degC", "bar", "rpm", "s", "ms", "kg", "m", "%"];
 /// Keys accepted on `state` attributes.
@@ -115,6 +123,8 @@ pub const QUALITY_VALUES: &[&str] = &["good", "uncertain", "bad", "unknown"];
 pub const SEMANTIC_ROLE_VALUES: &[&str] = &[
     "actual", "setpoint", "command", "count", "position", "status",
 ];
+/// Value sampling policy values.
+pub const SAMPLING_VALUES: &[&str] = &["on-change", "deadband", "periodic", "hysteresis"];
 /// Severity range used by the OpenOT authoring layer.
 pub const SEVERITY_MIN: u16 = 1;
 /// Severity range used by the OpenOT authoring layer.
@@ -456,6 +466,9 @@ pub fn validate_attribute_map(
     if kind == OotKind::State {
         validate_state_category_model(attrs, &mut diagnostics);
     }
+    if kind == OotKind::Value {
+        validate_value_sampling(attrs, &mut diagnostics);
+    }
 
     diagnostics
 }
@@ -545,6 +558,18 @@ pub fn semantic_role_code(value: &str) -> Option<u16> {
         "position" => Some(4),
         "status" => Some(5),
         _ => value.parse::<u16>().ok().filter(|code| *code <= 5),
+    }
+}
+
+/// Canonical sampling policy spelling.
+#[must_use]
+pub fn sampling_policy(value: &str) -> Option<&'static str> {
+    match value.to_ascii_lowercase().as_str() {
+        "on-change" => Some("on-change"),
+        "deadband" => Some("deadband"),
+        "periodic" => Some("periodic"),
+        "hysteresis" => Some("hysteresis"),
+        _ => None,
     }
 }
 
@@ -666,6 +691,23 @@ fn validate_key_value(
                 ),
             ));
         }
+        (OotKind::Value, "sampling") if sampling_policy(&entry.value).is_none() => {
+            diagnostics.push(openot_error(
+                entry.range,
+                format!(
+                    "unknown OpenOT sampling '{}'; expected {}",
+                    entry.value,
+                    format_allowed(SAMPLING_VALUES)
+                ),
+            ));
+        }
+        (OotKind::Value, "interval") => match entry.value.parse::<u64>() {
+            Ok(value) if value > 0 => {}
+            _ => diagnostics.push(openot_error(
+                entry.range,
+                "OpenOT interval must be a positive integer number of milliseconds",
+            )),
+        },
         (OotKind::Message, "template") if entry.value.trim().is_empty() => {
             diagnostics.push(openot_error(
                 entry.range,
@@ -710,6 +752,50 @@ fn validate_state_category_model(attrs: &AttributeMap, diagnostics: &mut Vec<Dia
             diagnostics.push(openot_error(
                 category_entry.range,
                 "OpenOT category := 'procedural' requires a 'model'",
+            ));
+        }
+    }
+}
+
+fn validate_value_sampling(attrs: &AttributeMap, diagnostics: &mut Vec<Diagnostic>) {
+    let sampling_entry = last_entry(attrs, "sampling");
+    let sampling = sampling_entry.and_then(|entry| sampling_policy(&entry.value));
+    let deadband_entry = last_entry(attrs, "deadband");
+    let interval_entry = last_entry(attrs, "interval");
+
+    match sampling {
+        Some("periodic") if interval_entry.is_none() => {
+            if let Some(entry) = sampling_entry {
+                diagnostics.push(openot_error(
+                    entry.range,
+                    "OpenOT sampling := 'periodic' requires an 'interval' in milliseconds",
+                ));
+            }
+        }
+        Some("hysteresis") if deadband_entry.is_none() => {
+            if let Some(entry) = sampling_entry {
+                diagnostics.push(openot_error(
+                    entry.range,
+                    "OpenOT sampling := 'hysteresis' requires a REAL 'deadband'",
+                ));
+            }
+        }
+        Some("deadband") if deadband_entry.is_none() => {
+            if let Some(entry) = sampling_entry {
+                diagnostics.push(openot_error(
+                    entry.range,
+                    "OpenOT sampling := 'deadband' requires a REAL 'deadband'",
+                ));
+            }
+        }
+        _ => {}
+    }
+
+    if let Some(entry) = interval_entry {
+        if sampling != Some("periodic") {
+            diagnostics.push(openot_error(
+                entry.range,
+                "OpenOT 'interval' is only valid with sampling := 'periodic'",
             ));
         }
     }
@@ -860,6 +946,8 @@ END_PROGRAM
 PROGRAM Main
 VAR
     Level : REAL {attribute 'oot' := 'value', 'unit' := 'L', 'deadband' := '0.5'};
+    Pressure : REAL {attribute 'oot' := 'value', 'sampling' := 'periodic', 'interval' := '1000'};
+    Flow : REAL {attribute 'oot' := 'value', 'sampling' := 'hysteresis', 'deadband' := '1.5'};
     BatchCount : DINT {attribute 'oot' := 'value'};
     Enabled : BOOL {attribute 'oot' := 'value'};
     Total : ULINT {attribute 'oot' := 'value'};
@@ -889,6 +977,39 @@ END_PROGRAM
         assert!(diagnostics
             .iter()
             .any(|diagnostic| diagnostic.message.contains("unknown OpenOT unit")));
+    }
+
+    #[test]
+    fn validates_value_sampling_policy_rules() {
+        let source = r#"
+PROGRAM Main
+VAR
+    Unknown : REAL {attribute 'oot' := 'value', 'sampling' := 'banana'};
+    MissingInterval : REAL {attribute 'oot' := 'value', 'sampling' := 'periodic'};
+    MissingDeadband : REAL {attribute 'oot' := 'value', 'sampling' := 'hysteresis'};
+    DeadbandWithoutValue : REAL {attribute 'oot' := 'value', 'sampling' := 'deadband'};
+    IntervalWithoutPeriodic : REAL {attribute 'oot' := 'value', 'interval' := '1000'};
+    BadInterval : REAL {attribute 'oot' := 'value', 'sampling' := 'periodic', 'interval' := '0'};
+END_VAR
+END_PROGRAM
+"#;
+        let parsed = parse(source);
+        let diagnostics = collect_openot_attribute_diagnostics(&parsed.syntax());
+        for expected in [
+            "unknown OpenOT sampling",
+            "requires an 'interval'",
+            "requires a REAL 'deadband'",
+            "requires a REAL 'deadband'",
+            "only valid with sampling := 'periodic'",
+            "positive integer",
+        ] {
+            assert!(
+                diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.message.contains(expected)),
+                "missing {expected}; got {diagnostics:#?}"
+            );
+        }
     }
 
     #[test]
