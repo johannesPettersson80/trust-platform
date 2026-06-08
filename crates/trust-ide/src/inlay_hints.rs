@@ -181,6 +181,10 @@ fn openot_hint_label(kind: OotKind, attrs: &openot_vocab::AttributeMap) -> Optio
             let parent = attrs.get("of").unwrap_or("alarm");
             Some(format!("Condition {event} for {parent} on TRUE edge"))
         }
+        OotKind::Batch => Some("BatchEvent on change".to_string()),
+        OotKind::RecipeLoaded => Some("RecipeLoaded on TRUE edge".to_string()),
+        OotKind::RecipeApproved => Some("RecipeApproved on TRUE edge".to_string()),
+        OotKind::MaterialAddition => Some("MaterialAddition on TRUE edge".to_string()),
     }
 }
 

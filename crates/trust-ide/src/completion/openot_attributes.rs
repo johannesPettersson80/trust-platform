@@ -133,6 +133,13 @@ fn openot_key_items(kind: openot_vocab::OotKind) -> Vec<CompletionItem> {
                 "comment" => "'comment' := ${1:CommentText}",
                 "new-priority" => "'new-priority' := ${1:NewPriority}",
                 "previous-priority" => "'previous-priority' := ${1:PreviousPriority}",
+                "batchid" => "'batchId' := ${1:BatchId}",
+                "recipe" => "'recipe' := ${1:RecipeId}",
+                "version" => "'version' := ${1:RecipeVersion}",
+                "batch" => "'batch' := ${1:BatchId}",
+                "auth" => "'auth' := ${1:AuthResult}",
+                "material" => "'material' := ${1:MaterialId}",
+                "quantity" => "'quantity' := ${1:Quantity}",
                 _ => *key,
             };
             CompletionItem::new(*key, CompletionKind::Snippet)

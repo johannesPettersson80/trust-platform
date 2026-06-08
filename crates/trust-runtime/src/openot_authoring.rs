@@ -158,6 +158,10 @@ pub fn definition_json_from_sources(sources: &[SourceFile]) -> Result<Value, Str
                 }));
             }
             OotKind::Condition => {}
+            OotKind::Batch
+            | OotKind::RecipeLoaded
+            | OotKind::RecipeApproved
+            | OotKind::MaterialAddition => {}
         }
     }
 
@@ -496,7 +500,7 @@ fn collect_program_annotations(
             for name in declaration_names(&var_decl) {
                 let declaration =
                     find_declaration(catalog, file_id, name.range, name.text.as_str());
-                let enum_state = if kind == OotKind::State {
+                let enum_state = if matches!(kind, OotKind::State | OotKind::Batch) {
                     declaration.and_then(|entry| {
                         resolve_enum_state(symbols, entry.type_id(), st_type.as_str())
                     })
@@ -524,6 +528,17 @@ fn collect_program_annotations(
                         condition_comment: attrs.get("comment").cloned(),
                         condition_previous_priority: attrs.get("previous-priority").cloned(),
                         condition_new_priority: attrs.get("new-priority").cloned(),
+                        batch_id: attrs.get("batchid").cloned(),
+                        recipe_id: attrs.get("recipe").cloned(),
+                        recipe_version: attrs.get("version").cloned(),
+                        procedure_batch_id: attrs.get("batch").cloned(),
+                        auth_result: attrs.get("auth").cloned(),
+                        procedure_ack_by: attrs.get("by").cloned(),
+                        material_id: attrs.get("material").cloned(),
+                        quantity: attrs.get("quantity").cloned(),
+                        material_unit_id: attrs
+                            .get("unit")
+                            .and_then(|symbol| canonical_unit_id(symbol)),
                     },
                     attrs.clone(),
                 ));
@@ -669,6 +684,15 @@ fn annotation_from_parts(
                 condition_comment: None,
                 condition_previous_priority: None,
                 condition_new_priority: None,
+                batch_id: None,
+                recipe_id: None,
+                recipe_version: None,
+                procedure_batch_id: None,
+                auth_result: None,
+                procedure_ack_by: None,
+                material_id: None,
+                quantity: None,
+                material_unit_id: None,
             }
         }
         OotKind::State => {
@@ -708,6 +732,15 @@ fn annotation_from_parts(
                 condition_comment: None,
                 condition_previous_priority: None,
                 condition_new_priority: None,
+                batch_id: None,
+                recipe_id: None,
+                recipe_version: None,
+                procedure_batch_id: None,
+                auth_result: None,
+                procedure_ack_by: None,
+                material_id: None,
+                quantity: None,
+                material_unit_id: None,
             }
         }
         OotKind::Alarm => {
@@ -748,6 +781,15 @@ fn annotation_from_parts(
                 condition_comment: None,
                 condition_previous_priority: None,
                 condition_new_priority: None,
+                batch_id: None,
+                recipe_id: None,
+                recipe_version: None,
+                procedure_batch_id: None,
+                auth_result: None,
+                procedure_ack_by: None,
+                material_id: None,
+                quantity: None,
+                material_unit_id: None,
             }
         }
         OotKind::Message => {
@@ -785,8 +827,61 @@ fn annotation_from_parts(
                 condition_comment: None,
                 condition_previous_priority: None,
                 condition_new_priority: None,
+                batch_id: None,
+                recipe_id: None,
+                recipe_version: None,
+                procedure_batch_id: None,
+                auth_result: None,
+                procedure_ack_by: None,
+                material_id: None,
+                quantity: None,
+                material_unit_id: None,
             }
         }
+        OotKind::Batch
+        | OotKind::RecipeLoaded
+        | OotKind::RecipeApproved
+        | OotKind::MaterialAddition => Annotation {
+            kind: draft.kind,
+            var_name: draft.var_name,
+            st_type: draft.st_type,
+            initializer: draft.initializer,
+            id: 0,
+            source_id: draft.source_id,
+            source: draft.source,
+            deadband: None,
+            sampling: None,
+            interval_ms: None,
+            unit: None,
+            quality: None,
+            semantic_role: 0,
+            suppress_previous: false,
+            category: 0,
+            model: None,
+            condition_class: 0,
+            severity: 0,
+            message: None,
+            message_severity: None,
+            message_args: Vec::new(),
+            cause_operand: None,
+            enum_state: draft.enum_state,
+            condition_event_id: None,
+            condition_ack_by: None,
+            condition_shelve_secs: None,
+            condition_reason: None,
+            condition_comment: None,
+            condition_previous_priority: None,
+            condition_new_priority: None,
+            batch_id: draft.batch_id,
+            recipe_id: draft.recipe_id,
+            recipe_version: draft.recipe_version,
+            procedure_batch_id: draft.procedure_batch_id,
+            auth_result: draft.auth_result,
+            procedure_ack_by: draft.procedure_ack_by,
+            material_id: draft.material_id,
+            quantity: draft.quantity,
+            material_unit_id: draft.material_unit_id,
+        },
         OotKind::Condition => {
             unreachable!("condition annotations require a resolved parent alarm index")
         }
@@ -828,6 +923,15 @@ fn condition_annotation_from_parts(
         condition_comment: draft.condition_comment,
         condition_previous_priority: draft.condition_previous_priority,
         condition_new_priority: draft.condition_new_priority,
+        batch_id: None,
+        recipe_id: None,
+        recipe_version: None,
+        procedure_batch_id: None,
+        auth_result: None,
+        procedure_ack_by: None,
+        material_id: None,
+        quantity: None,
+        material_unit_id: None,
     }
 }
 
@@ -1010,7 +1114,20 @@ fn hidden_declarations(annotations: &[Annotation]) -> Vec<String> {
                     ));
                 }
             }
-            OotKind::Alarm | OotKind::Message | OotKind::Condition => {
+            OotKind::Batch => {
+                declarations.push(format!(
+                    "    OotPrev_{safe} : {} := {};",
+                    annotation.st_type,
+                    state_initializer(annotation)
+                ));
+                declarations.push(format!("    OotBatchStateNew_{safe} : UINT := UINT#0;"));
+            }
+            OotKind::Alarm
+            | OotKind::Message
+            | OotKind::Condition
+            | OotKind::RecipeLoaded
+            | OotKind::RecipeApproved
+            | OotKind::MaterialAddition => {
                 declarations.push(format!("    OotPrev_{safe} : BOOL := FALSE;"))
             }
             OotKind::Value => {}
@@ -1035,6 +1152,12 @@ fn hidden_statements(annotations: &[Annotation]) -> Vec<String> {
             OotKind::State => statements.extend(state_statements(annotation)),
             OotKind::Alarm => statements.extend(alarm_statements(annotation)),
             OotKind::Message => statements.extend(message_statements(annotation)),
+            OotKind::Batch => statements.extend(batch_statements(annotation)),
+            OotKind::RecipeLoaded => statements.extend(recipe_loaded_statements(annotation)),
+            OotKind::RecipeApproved => statements.extend(recipe_approved_statements(annotation)),
+            OotKind::MaterialAddition => {
+                statements.extend(material_addition_statements(annotation))
+            }
             OotKind::Condition => {}
         }
     }
@@ -1152,6 +1275,155 @@ fn state_statements(annotation: &Annotation) -> Vec<String> {
         format!("    {PRODUCER_NAME}(Execute := FALSE);"),
         format!("    OotPrev_{safe} := {};", annotation.var_name),
         "END_IF;".to_string(),
+    ]
+}
+
+fn batch_statements(annotation: &Annotation) -> Vec<String> {
+    let safe = safe_identifier(&annotation.var_name);
+    let enum_state = annotation
+        .enum_state
+        .as_ref()
+        .expect("batch annotations should resolve an enum state");
+    let mut call_args = vec![
+        "Execute := TRUE".to_string(),
+        "Op := UINT#13".to_string(),
+        format!("SourceId := UDINT#{}", annotation.source_id),
+        source_time_args(),
+        "ProcedureEventTypeId := UDINT#16#0303".to_string(),
+        format!(
+            "ProcedureBatchId := {}",
+            annotation
+                .batch_id
+                .as_deref()
+                .expect("batch id should be validated")
+        ),
+        format!("ProcedureNewState := OotBatchStateNew_{safe}"),
+    ];
+    if let Some(recipe_id) = &annotation.recipe_id {
+        call_args.push("ProcedureHasRecipeId := TRUE".to_string());
+        call_args.push(format!("ProcedureRecipeId := {recipe_id}"));
+    }
+
+    let mut statements = vec![format!("IF {} <> OotPrev_{safe} THEN", annotation.var_name)];
+    statements.extend(enum_state_value_statements(
+        &annotation.var_name,
+        &format!("OotBatchStateNew_{safe}"),
+        enum_state,
+        "    ",
+    ));
+    statements.push(format!("    {PRODUCER_NAME}({});", call_args.join(", ")));
+    statements.push(format!("    {PRODUCER_NAME}(Execute := FALSE);"));
+    statements.push(format!("    OotPrev_{safe} := {};", annotation.var_name));
+    statements.push("END_IF;".to_string());
+    statements
+}
+
+fn recipe_loaded_statements(annotation: &Annotation) -> Vec<String> {
+    let mut call_args = vec![
+        "Execute := TRUE".to_string(),
+        "Op := UINT#13".to_string(),
+        format!("SourceId := UDINT#{}", annotation.source_id),
+        source_time_args(),
+        "ProcedureEventTypeId := UDINT#16#0301".to_string(),
+        format!(
+            "ProcedureRecipeId := {}",
+            annotation
+                .recipe_id
+                .as_deref()
+                .expect("recipe id should be validated")
+        ),
+        format!(
+            "ProcedureRecipeVersion := {}",
+            annotation
+                .recipe_version
+                .as_deref()
+                .expect("recipe version should be validated")
+        ),
+    ];
+    if let Some(batch_id) = &annotation.procedure_batch_id {
+        call_args.push("ProcedureHasBatchId := TRUE".to_string());
+        call_args.push(format!("ProcedureBatchId := {batch_id}"));
+    }
+    edge_trigger_statements(annotation, call_args)
+}
+
+fn recipe_approved_statements(annotation: &Annotation) -> Vec<String> {
+    let mut call_args = vec![
+        "Execute := TRUE".to_string(),
+        "Op := UINT#13".to_string(),
+        format!("SourceId := UDINT#{}", annotation.source_id),
+        source_time_args(),
+        "ProcedureEventTypeId := UDINT#16#0302".to_string(),
+        format!(
+            "ProcedureRecipeId := {}",
+            annotation
+                .recipe_id
+                .as_deref()
+                .expect("recipe id should be validated")
+        ),
+        format!(
+            "ProcedureRecipeVersion := {}",
+            annotation
+                .recipe_version
+                .as_deref()
+                .expect("recipe version should be validated")
+        ),
+    ];
+    if let Some(auth_result) = &annotation.auth_result {
+        call_args.push("ProcedureHasAuthResult := TRUE".to_string());
+        call_args.push(format!("ProcedureAuthResult := {auth_result}"));
+    }
+    if let Some(ack_by) = &annotation.procedure_ack_by {
+        call_args.push("ProcedureHasAckBy := TRUE".to_string());
+        call_args.push(format!("ProcedureAckBy := {ack_by}"));
+    }
+    edge_trigger_statements(annotation, call_args)
+}
+
+fn material_addition_statements(annotation: &Annotation) -> Vec<String> {
+    let mut call_args = vec![
+        "Execute := TRUE".to_string(),
+        "Op := UINT#13".to_string(),
+        format!("SourceId := UDINT#{}", annotation.source_id),
+        source_time_args(),
+        "ProcedureEventTypeId := UDINT#16#0304".to_string(),
+        format!(
+            "ProcedureBatchId := {}",
+            annotation
+                .procedure_batch_id
+                .as_deref()
+                .expect("batch id should be validated")
+        ),
+        format!(
+            "ProcedureMaterialId := {}",
+            annotation
+                .material_id
+                .as_deref()
+                .expect("material id should be validated")
+        ),
+        format!(
+            "ProcedureQuantity := {}",
+            annotation
+                .quantity
+                .as_deref()
+                .expect("quantity should be validated")
+        ),
+    ];
+    if let Some(unit_id) = annotation.material_unit_id {
+        call_args.push("ProcedureHasUnit := TRUE".to_string());
+        call_args.push(format!("ProcedureUnitId := UINT#{unit_id}"));
+    }
+    edge_trigger_statements(annotation, call_args)
+}
+
+fn edge_trigger_statements(annotation: &Annotation, call_args: Vec<String>) -> Vec<String> {
+    let safe = safe_identifier(&annotation.var_name);
+    vec![
+        format!("IF {} AND (NOT OotPrev_{safe}) THEN", annotation.var_name),
+        format!("    {PRODUCER_NAME}({});", call_args.join(", ")),
+        format!("    {PRODUCER_NAME}(Execute := FALSE);"),
+        "END_IF;".to_string(),
+        format!("OotPrev_{safe} := {};", annotation.var_name),
     ]
 }
 
@@ -1428,6 +1700,15 @@ struct Annotation {
     condition_comment: Option<String>,
     condition_previous_priority: Option<String>,
     condition_new_priority: Option<String>,
+    batch_id: Option<String>,
+    recipe_id: Option<String>,
+    recipe_version: Option<String>,
+    procedure_batch_id: Option<String>,
+    auth_result: Option<String>,
+    procedure_ack_by: Option<String>,
+    material_id: Option<String>,
+    quantity: Option<String>,
+    material_unit_id: Option<u16>,
 }
 
 impl Annotation {
@@ -1600,6 +1881,15 @@ struct AnnotationDraft {
     condition_comment: Option<String>,
     condition_previous_priority: Option<String>,
     condition_new_priority: Option<String>,
+    batch_id: Option<String>,
+    recipe_id: Option<String>,
+    recipe_version: Option<String>,
+    procedure_batch_id: Option<String>,
+    auth_result: Option<String>,
+    procedure_ack_by: Option<String>,
+    material_id: Option<String>,
+    quantity: Option<String>,
+    material_unit_id: Option<u16>,
 }
 
 #[derive(Debug, Clone)]
@@ -1885,6 +2175,36 @@ mod tests {
             text.contains("LifecycleNewPriority := NewPriority"),
             "{text}"
         );
+    }
+
+    #[test]
+    fn batch_recipe_lowering_uses_procedure_op_and_raw_definition_tables() {
+        let source = SourceFile::with_path(
+            "main.st",
+            "TYPE E_BatchState : (Started := 0, Completed := 1, Held := 2, Resumed := 3, Aborted := 4, Paused := 5) END_TYPE\nPROGRAM Main\nVAR\n    RecipeId : UDINT := UDINT#3001;\n    RecipeVersion : STRING[16] := 'v1.2.3';\n    BatchId : UDINT := UDINT#4001;\n    MaterialId : UDINT := UDINT#5001;\n    Quantity : LREAL := LREAL#12.25;\n    AuthResult : UINT := UINT#1;\n    Approver : STRING[32] := 'approver-a';\n    State : E_BatchState := Started {attribute 'oot' := 'batch', 'batchId' := BatchId, 'recipe' := RecipeId};\n    Loaded : BOOL {attribute 'oot' := 'recipe-loaded', 'recipe' := RecipeId, 'version' := RecipeVersion, 'batch' := BatchId};\n    Approved : BOOL {attribute 'oot' := 'recipe-approved', 'recipe' := RecipeId, 'version' := RecipeVersion, 'auth' := AuthResult, 'by' := Approver};\n    Addition : BOOL {attribute 'oot' := 'material-addition', 'batch' := BatchId, 'material' := MaterialId, 'quantity' := Quantity, 'unit' := 'kg'};\nEND_VAR\nLoaded := TRUE;\nApproved := TRUE;\nAddition := TRUE;\nState := Held;\nEND_PROGRAM\n",
+        );
+
+        let definition =
+            definition_json_from_sources(std::slice::from_ref(&source)).expect("definition");
+        assert_eq!(definition["recipeDefinitions"], Value::Array(vec![]));
+        assert_eq!(definition["batchDefinitions"], Value::Array(vec![]));
+        assert_eq!(definition["materialDefinitions"], Value::Array(vec![]));
+
+        let instrumented = instrument_source_files(&[source]);
+        let text = &instrumented[0].text;
+        assert!(text.contains("Op := UINT#13"), "{text}");
+        assert!(
+            text.contains("ProcedureEventTypeId := UDINT#16#0303"),
+            "{text}"
+        );
+        assert!(text.contains("ProcedureHasRecipeId := TRUE"), "{text}");
+        assert!(
+            text.contains("ProcedureNewState := OotBatchStateNew_State"),
+            "{text}"
+        );
+        assert!(text.contains("ProcedureQuantity := Quantity"), "{text}");
+        assert!(text.contains("ProcedureUnitId := UINT#8"), "{text}");
+        assert!(!text.contains("StateMachineId"), "{text}");
     }
 
     #[test]

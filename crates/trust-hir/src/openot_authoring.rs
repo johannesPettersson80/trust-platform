@@ -27,6 +27,14 @@ pub enum OotKind {
     Message,
     /// Emits condition lifecycle command records.
     Condition,
+    /// Emits `BatchEvent`.
+    Batch,
+    /// Emits `RecipeLoaded`.
+    RecipeLoaded,
+    /// Emits `RecipeApproved`.
+    RecipeApproved,
+    /// Emits `MaterialAddition`.
+    MaterialAddition,
 }
 
 impl OotKind {
@@ -39,6 +47,10 @@ impl OotKind {
             "alarm" => Some(Self::Alarm),
             "message" => Some(Self::Message),
             "condition" => Some(Self::Condition),
+            "batch" => Some(Self::Batch),
+            "recipe-loaded" => Some(Self::RecipeLoaded),
+            "recipe-approved" => Some(Self::RecipeApproved),
+            "material-addition" => Some(Self::MaterialAddition),
             _ => None,
         }
     }
@@ -52,12 +64,26 @@ impl OotKind {
             Self::Alarm => "alarm",
             Self::Message => "message",
             Self::Condition => "condition",
+            Self::Batch => "batch",
+            Self::RecipeLoaded => "recipe-loaded",
+            Self::RecipeApproved => "recipe-approved",
+            Self::MaterialAddition => "material-addition",
         }
     }
 }
 
 /// Supported OpenOT kind values.
-pub const KINDS: &[&str] = &["value", "state", "alarm", "message", "condition"];
+pub const KINDS: &[&str] = &[
+    "value",
+    "state",
+    "alarm",
+    "message",
+    "condition",
+    "batch",
+    "recipe-loaded",
+    "recipe-approved",
+    "material-addition",
+];
 /// Keys accepted on `value` attributes.
 pub const VALUE_KEYS: &[&str] = &[
     "unit",
@@ -100,6 +126,23 @@ pub const CONDITION_EVENT_VALUES: &[&str] = &[
     "reset",
     "comment",
     "priority-changed",
+];
+/// Keys accepted on `batch` attributes.
+pub const BATCH_KEYS: &[&str] = &["batchid", "recipe"];
+/// Keys accepted on `recipe-loaded` attributes.
+pub const RECIPE_LOADED_KEYS: &[&str] = &["recipe", "version", "batch"];
+/// Keys accepted on `recipe-approved` attributes.
+pub const RECIPE_APPROVED_KEYS: &[&str] = &["recipe", "version", "auth", "by"];
+/// Keys accepted on `material-addition` attributes.
+pub const MATERIAL_ADDITION_KEYS: &[&str] = &["batch", "material", "quantity", "unit"];
+/// Batch state enum values from OpenOT §6.4.
+pub const BATCH_STATE_VALUES: &[&str] = &[
+    "Started",
+    "Completed",
+    "Held",
+    "Resumed",
+    "Aborted",
+    "Paused",
 ];
 /// State category values.
 pub const CATEGORY_VALUES: &[&str] = &["process", "mode", "procedural"];
@@ -366,6 +409,110 @@ fn validate_local_openot_references(program: &SyntaxNode) -> Vec<Diagnostic> {
                     &mut diagnostics,
                 );
             }
+            Some(OotKind::Batch) => {
+                validate_decl_ref_with(
+                    &attrs,
+                    "batchid",
+                    &local_types,
+                    is_udint_type_name,
+                    "UDINT",
+                    &mut diagnostics,
+                );
+                validate_decl_ref_with(
+                    &attrs,
+                    "recipe",
+                    &local_types,
+                    is_udint_type_name,
+                    "UDINT",
+                    &mut diagnostics,
+                );
+            }
+            Some(OotKind::RecipeLoaded) => {
+                validate_decl_ref_with(
+                    &attrs,
+                    "recipe",
+                    &local_types,
+                    is_udint_type_name,
+                    "UDINT",
+                    &mut diagnostics,
+                );
+                validate_decl_ref_with(
+                    &attrs,
+                    "version",
+                    &local_types,
+                    is_string_96_type_name,
+                    "STRING[<=96]",
+                    &mut diagnostics,
+                );
+                validate_decl_ref_with(
+                    &attrs,
+                    "batch",
+                    &local_types,
+                    is_udint_type_name,
+                    "UDINT",
+                    &mut diagnostics,
+                );
+            }
+            Some(OotKind::RecipeApproved) => {
+                validate_decl_ref_with(
+                    &attrs,
+                    "recipe",
+                    &local_types,
+                    is_udint_type_name,
+                    "UDINT",
+                    &mut diagnostics,
+                );
+                validate_decl_ref_with(
+                    &attrs,
+                    "version",
+                    &local_types,
+                    is_string_96_type_name,
+                    "STRING[<=96]",
+                    &mut diagnostics,
+                );
+                validate_decl_ref_with(
+                    &attrs,
+                    "auth",
+                    &local_types,
+                    is_uint_type_name,
+                    "UINT",
+                    &mut diagnostics,
+                );
+                validate_decl_ref_with(
+                    &attrs,
+                    "by",
+                    &local_types,
+                    is_string_96_type_name,
+                    "STRING[<=96]",
+                    &mut diagnostics,
+                );
+            }
+            Some(OotKind::MaterialAddition) => {
+                validate_decl_ref_with(
+                    &attrs,
+                    "batch",
+                    &local_types,
+                    is_udint_type_name,
+                    "UDINT",
+                    &mut diagnostics,
+                );
+                validate_decl_ref_with(
+                    &attrs,
+                    "material",
+                    &local_types,
+                    is_udint_type_name,
+                    "UDINT",
+                    &mut diagnostics,
+                );
+                validate_decl_ref_with(
+                    &attrs,
+                    "quantity",
+                    &local_types,
+                    is_lreal_type_name,
+                    "LREAL",
+                    &mut diagnostics,
+                );
+            }
             _ => {}
         }
     }
@@ -507,55 +654,103 @@ pub fn collect_openot_semantic_diagnostics(
         .filter(|node| node.kind() == SyntaxKind::VarDecl)
     {
         let attrs = parse_attribute_map_from_node(&var_decl);
-        if attrs.kind() != Some(OotKind::State) {
-            continue;
-        }
-        let Some(model_entry) = last_entry(&attrs, "model") else {
-            continue;
-        };
-        let Some(category) =
-            last_entry(&attrs, "category").and_then(|entry| category_code(&entry.value))
-        else {
-            continue;
-        };
-        if category != STATE_CATEGORY_PROCEDURAL {
-            continue;
-        }
-        let Some(model_states) = procedural_model_states(&model_entry.value) else {
-            continue;
-        };
-        for name in declaration_names(&var_decl) {
-            let Some(declaration) = find_declaration(catalog, file_id, name.range, &name.text)
-            else {
-                continue;
-            };
-            let resolved = symbols.resolve_alias_type(declaration.type_id());
-            let Some(Type::Enum { values, .. }) = symbols.type_by_id(resolved) else {
-                continue;
-            };
-            for (variant_name, raw_value) in values {
-                let Ok(value) = u16::try_from(*raw_value) else {
-                    diagnostics.push(openot_error(
-                        model_entry.range,
-                        format!(
-                            "OpenOT procedural model '{}' state '{}' has out-of-range value {}",
-                            model_entry.value, variant_name, raw_value
-                        ),
-                    ));
+        match attrs.kind() {
+            Some(OotKind::State) => {
+                let Some(model_entry) = last_entry(&attrs, "model") else {
                     continue;
                 };
-                if !model_states.iter().any(|(expected_value, expected_label)| {
-                    *expected_value == value && *expected_label == variant_name.as_str()
-                }) {
-                    diagnostics.push(openot_error(
-                        model_entry.range,
-                        format!(
-                            "OpenOT procedural model '{}' does not define state '{} := {}'",
-                            model_entry.value, variant_name, value
-                        ),
-                    ));
+                let Some(category) =
+                    last_entry(&attrs, "category").and_then(|entry| category_code(&entry.value))
+                else {
+                    continue;
+                };
+                if category != STATE_CATEGORY_PROCEDURAL {
+                    continue;
+                }
+                let Some(model_states) = procedural_model_states(&model_entry.value) else {
+                    continue;
+                };
+                for name in declaration_names(&var_decl) {
+                    let Some(declaration) =
+                        find_declaration(catalog, file_id, name.range, &name.text)
+                    else {
+                        continue;
+                    };
+                    let resolved = symbols.resolve_alias_type(declaration.type_id());
+                    let Some(Type::Enum { values, .. }) = symbols.type_by_id(resolved) else {
+                        continue;
+                    };
+                    for (variant_name, raw_value) in values {
+                        let Ok(value) = u16::try_from(*raw_value) else {
+                            diagnostics.push(openot_error(
+                                model_entry.range,
+                                format!(
+                                    "OpenOT procedural model '{}' state '{}' has out-of-range value {}",
+                                    model_entry.value, variant_name, raw_value
+                                ),
+                            ));
+                            continue;
+                        };
+                        if !model_states.iter().any(|(expected_value, expected_label)| {
+                            *expected_value == value && *expected_label == variant_name.as_str()
+                        }) {
+                            diagnostics.push(openot_error(
+                                model_entry.range,
+                                format!(
+                                    "OpenOT procedural model '{}' does not define state '{} := {}'",
+                                    model_entry.value, variant_name, value
+                                ),
+                            ));
+                        }
+                    }
                 }
             }
+            Some(OotKind::Batch) => {
+                let range = last_entry(&attrs, OOT_KEY)
+                    .map_or_else(|| TextRange::empty(0.into()), |entry| entry.range);
+                for name in declaration_names(&var_decl) {
+                    let Some(declaration) =
+                        find_declaration(catalog, file_id, name.range, &name.text)
+                    else {
+                        continue;
+                    };
+                    let resolved = symbols.resolve_alias_type(declaration.type_id());
+                    let Some(Type::Enum { values, .. }) = symbols.type_by_id(resolved) else {
+                        diagnostics.push(openot_error(
+                            range,
+                            "OpenOT batch logging requires an enum matching batchState",
+                        ));
+                        continue;
+                    };
+                    for (variant_name, raw_value) in values {
+                        let Ok(value) = u16::try_from(*raw_value) else {
+                            diagnostics.push(openot_error(
+                                range,
+                                format!(
+                                    "OpenOT batchState '{}' has out-of-range value {}",
+                                    variant_name, raw_value
+                                ),
+                            ));
+                            continue;
+                        };
+                        if !batch_state_values()
+                            .iter()
+                            .any(|(expected_value, expected_label)| {
+                                *expected_value == value && *expected_label == variant_name.as_str()
+                            })
+                        {
+                            diagnostics.push(openot_error(
+                                range,
+                                format!(
+                                    "OpenOT batchState does not define state '{} := {}'",
+                                    variant_name, value
+                                ),
+                            ));
+                        }
+                    }
+                }
+            }
+            _ => {}
         }
     }
     diagnostics
@@ -602,6 +797,22 @@ pub fn validate_attribute_map(
             }
         }
     }
+    if matches!(
+        kind,
+        OotKind::RecipeLoaded | OotKind::RecipeApproved | OotKind::MaterialAddition
+    ) {
+        if let Some(ty) = declared_type {
+            if !ty.trim().eq_ignore_ascii_case("BOOL") {
+                diagnostics.push(openot_error(
+                    oot_entry.range,
+                    format!(
+                        "OpenOT {} events must be BOOL trigger variables",
+                        kind.as_str()
+                    ),
+                ));
+            }
+        }
+    }
 
     let allowed = allowed_keys(kind);
     let allowed_set = allowed.iter().copied().collect::<BTreeSet<_>>();
@@ -611,6 +822,25 @@ pub fn validate_attribute_map(
                 entry.range,
                 format!(
                     "OpenOT condition lifecycle inherits the parent alarm identity; '{}' is not allowed",
+                    entry.key
+                ),
+            ));
+            continue;
+        }
+        if matches!(
+            kind,
+            OotKind::Batch
+                | OotKind::RecipeLoaded
+                | OotKind::RecipeApproved
+                | OotKind::MaterialAddition
+        ) && INTERNAL_ID_KEYS.contains(&entry.key.as_str())
+            && entry.key != "sourceid"
+        {
+            diagnostics.push(openot_error(
+                entry.range,
+                format!(
+                    "OpenOT {} events use bound field identities; '{}' is not allowed",
+                    kind.as_str(),
                     entry.key
                 ),
             ));
@@ -642,6 +872,28 @@ pub fn validate_attribute_map(
     }
     if kind == OotKind::Condition {
         validate_condition_lifecycle(attrs, &mut diagnostics);
+    }
+    match kind {
+        OotKind::Batch => validate_required_keys(attrs, &["batchid"], "batch", &mut diagnostics),
+        OotKind::RecipeLoaded => validate_required_keys(
+            attrs,
+            &["recipe", "version"],
+            "recipe-loaded",
+            &mut diagnostics,
+        ),
+        OotKind::RecipeApproved => validate_required_keys(
+            attrs,
+            &["recipe", "version"],
+            "recipe-approved",
+            &mut diagnostics,
+        ),
+        OotKind::MaterialAddition => validate_required_keys(
+            attrs,
+            &["batch", "material", "quantity"],
+            "material-addition",
+            &mut diagnostics,
+        ),
+        _ => {}
     }
 
     diagnostics
@@ -682,12 +934,31 @@ fn is_string_type_name(ty: &str) -> bool {
     upper == "STRING" || upper.starts_with("STRING[")
 }
 
+fn is_string_96_type_name(ty: &str) -> bool {
+    let upper = ty.trim().to_ascii_uppercase();
+    if upper == "STRING" {
+        return true;
+    }
+    let Some(length) = upper
+        .strip_prefix("STRING[")
+        .and_then(|rest| rest.strip_suffix(']'))
+        .and_then(|digits| digits.trim().parse::<usize>().ok())
+    else {
+        return false;
+    };
+    length <= 96
+}
+
 fn is_udint_type_name(ty: &str) -> bool {
     ty.trim().eq_ignore_ascii_case("UDINT")
 }
 
 fn is_uint_type_name(ty: &str) -> bool {
     ty.trim().eq_ignore_ascii_case("UINT")
+}
+
+fn is_lreal_type_name(ty: &str) -> bool {
+    ty.trim().eq_ignore_ascii_case("LREAL")
 }
 
 /// Keys accepted by a kind, excluding `oot` and internal id-pinning keys.
@@ -699,6 +970,10 @@ pub fn allowed_keys(kind: OotKind) -> &'static [&'static str] {
         OotKind::Alarm => ALARM_KEYS,
         OotKind::Message => MESSAGE_KEYS,
         OotKind::Condition => CONDITION_KEYS,
+        OotKind::Batch => BATCH_KEYS,
+        OotKind::RecipeLoaded => RECIPE_LOADED_KEYS,
+        OotKind::RecipeApproved => RECIPE_APPROVED_KEYS,
+        OotKind::MaterialAddition => MATERIAL_ADDITION_KEYS,
     }
 }
 
@@ -908,6 +1183,26 @@ fn validate_key_value(
                 ),
             ));
         }
+        (OotKind::MaterialAddition, "unit") if entry.value.trim().is_empty() => {
+            diagnostics.push(openot_error(
+                entry.range,
+                "OpenOT 'unit' value must not be empty",
+            ));
+        }
+        (OotKind::MaterialAddition, "unit")
+            if !UNIT_VALUES
+                .iter()
+                .any(|value| value.eq_ignore_ascii_case(&entry.value)) =>
+        {
+            diagnostics.push(openot_error(
+                entry.range,
+                format!(
+                    "unknown OpenOT unit '{}'; expected {}",
+                    entry.value,
+                    format_allowed(UNIT_VALUES)
+                ),
+            ));
+        }
         (OotKind::Value, "sampling") if sampling_policy(&entry.value).is_none() => {
             diagnostics.push(openot_error(
                 entry.range,
@@ -935,6 +1230,17 @@ fn validate_key_value(
             OotKind::Condition,
             "of" | "by" | "seconds" | "reason" | "comment" | "new-priority" | "previous-priority",
         ) if entry.value.trim().is_empty() => {
+            diagnostics.push(openot_error(
+                entry.range,
+                format!("OpenOT '{}' value must name a variable", entry.key),
+            ));
+        }
+        (OotKind::Batch, "batchid" | "recipe")
+        | (OotKind::RecipeLoaded, "recipe" | "version" | "batch")
+        | (OotKind::RecipeApproved, "recipe" | "version" | "auth" | "by")
+        | (OotKind::MaterialAddition, "batch" | "material" | "quantity")
+            if entry.value.trim().is_empty() =>
+        {
             diagnostics.push(openot_error(
                 entry.range,
                 format!("OpenOT '{}' value must name a variable", entry.key),
@@ -999,6 +1305,27 @@ fn validate_condition_lifecycle(attrs: &AttributeMap, diagnostics: &mut Vec<Diag
                     "OpenOT condition event '{}' requires '{}'",
                     event_entry.value, required
                 ),
+            ));
+        }
+    }
+}
+
+fn validate_required_keys(
+    attrs: &AttributeMap,
+    required_keys: &[&str],
+    kind: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let range = attrs
+        .entries
+        .iter()
+        .find(|entry| entry.key == OOT_KEY)
+        .map_or_else(|| TextRange::empty(0.into()), |entry| entry.range);
+    for key in required_keys {
+        if last_entry(attrs, key).is_none() {
+            diagnostics.push(openot_error(
+                range,
+                format!("OpenOT {kind} requires '{key}'"),
             ));
         }
     }
@@ -1109,6 +1436,17 @@ fn procedural_model_states(model: &str) -> Option<&'static [(u16, &'static str)]
         "packml" => Some(PACKML_STATES),
         _ => None,
     }
+}
+
+fn batch_state_values() -> &'static [(u16, &'static str)] {
+    &[
+        (0, "Started"),
+        (1, "Completed"),
+        (2, "Held"),
+        (3, "Resumed"),
+        (4, "Aborted"),
+        (5, "Paused"),
+    ]
 }
 
 fn declaration_names(var_decl: &SyntaxNode) -> Vec<NameInfo> {
@@ -1356,6 +1694,105 @@ END_PROGRAM
         let parsed = parse(source);
         let diagnostics = collect_openot_attribute_diagnostics(&parsed.syntax());
         assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    }
+
+    #[test]
+    fn validates_batch_recipe_references() {
+        let source = r#"
+TYPE BatchState : (Started := 0, Completed := 1, Held := 2, Resumed := 3, Aborted := 4, Paused := 5) END_TYPE
+PROGRAM Main
+VAR
+    RecipeId : UDINT;
+    RecipeVersion : STRING[16];
+    BatchId : UDINT;
+    MaterialId : UDINT;
+    Quantity : LREAL;
+    AuthResult : UINT;
+    Approver : STRING[32];
+    State : BatchState {attribute 'oot' := 'batch', 'batchId' := BatchId, 'recipe' := RecipeId};
+    Loaded : BOOL {attribute 'oot' := 'recipe-loaded', 'recipe' := RecipeId, 'version' := RecipeVersion, 'batch' := BatchId};
+    Approved : BOOL {attribute 'oot' := 'recipe-approved', 'recipe' := RecipeId, 'version' := RecipeVersion, 'auth' := AuthResult, 'by' := Approver};
+    Addition : BOOL {attribute 'oot' := 'material-addition', 'batch' := BatchId, 'material' := MaterialId, 'quantity' := Quantity, 'unit' := 'kg'};
+END_VAR
+END_PROGRAM
+"#;
+        let parsed = parse(source);
+        let diagnostics = collect_openot_attribute_diagnostics(&parsed.syntax());
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    }
+
+    #[test]
+    fn rejects_invalid_batch_recipe_attributes() {
+        let source = r#"
+PROGRAM Main
+VAR
+    RecipeId : UDINT;
+    RecipeVersionWide : STRING[128];
+    BatchId : UDINT;
+    MaterialId : UDINT;
+    Quantity : LREAL;
+    BadQuantity : REAL;
+    BadAuth : DINT;
+    BadBy : DINT;
+    MissingBatchId : INT {attribute 'oot' := 'batch'};
+    MissingVersion : BOOL {attribute 'oot' := 'recipe-loaded', 'recipe' := RecipeId};
+    OversizeVersion : BOOL {attribute 'oot' := 'recipe-approved', 'recipe' := RecipeId, 'version' := RecipeVersionWide};
+    BadAuthType : BOOL {attribute 'oot' := 'recipe-approved', 'recipe' := RecipeId, 'version' := RecipeVersionWide, 'auth' := BadAuth, 'by' := BadBy};
+    BadQuantityType : BOOL {attribute 'oot' := 'material-addition', 'batch' := BatchId, 'material' := MaterialId, 'quantity' := BadQuantity};
+    InapplicableReason : BOOL {attribute 'oot' := 'recipe-loaded', 'recipe' := RecipeId, 'version' := RecipeVersionWide, 'reason' := BadBy};
+    DeferredEffectiveTime : BOOL {attribute 'oot' := 'recipe-loaded', 'recipe' := RecipeId, 'version' := RecipeVersionWide, 'effectiveTime' := BatchId};
+    DeferredCorrection : BOOL {attribute 'oot' := 'material-addition', 'batch' := BatchId, 'material' := MaterialId, 'quantity' := Quantity, 'correctionOf' := BatchId};
+END_VAR
+END_PROGRAM
+"#;
+        let parsed = parse(source);
+        let diagnostics = collect_openot_attribute_diagnostics(&parsed.syntax());
+        for expected in [
+            "OpenOT batch requires 'batchid'",
+            "OpenOT recipe-loaded requires 'version'",
+            "expected STRING[<=96]",
+            "expected UINT",
+            "expected STRING[<=96]",
+            "expected LREAL",
+            "unknown OpenOT key 'reason' for kind 'recipe-loaded'",
+            "unknown OpenOT key 'effectivetime' for kind 'recipe-loaded'",
+            "unknown OpenOT key 'correctionof' for kind 'material-addition'",
+        ] {
+            assert!(
+                diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.message.contains(expected)),
+                "missing {expected}; got {diagnostics:#?}"
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_batch_enum_that_is_not_batch_state() {
+        use crate::db::SemanticDatabase;
+        use crate::{Project, SourceKey};
+
+        let source = r#"
+TYPE BatchState : (Started := 0, Filling := 1) END_TYPE
+PROGRAM Main
+VAR
+    BatchId : UDINT;
+    State : BatchState {attribute 'oot' := 'batch', 'batchId' := BatchId};
+END_VAR
+END_PROGRAM
+"#;
+        let mut project = Project::new();
+        let file_id = project.set_source_text(SourceKey::from_virtual("main.st"), source.into());
+        let diagnostics = project.database().diagnostics(file_id);
+        assert!(
+            diagnostics.iter().any(|diagnostic| {
+                diagnostic.code == DiagnosticCode::InvalidOpenOtAttribute
+                    && diagnostic
+                        .message
+                        .contains("OpenOT batchState does not define state 'Filling := 1'")
+            }),
+            "{diagnostics:#?}"
+        );
     }
 
     #[test]

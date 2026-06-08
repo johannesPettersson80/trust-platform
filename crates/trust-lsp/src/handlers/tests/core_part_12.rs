@@ -6,16 +6,20 @@ pub(super) fn lsp_openot_completion_returns_documented_values_and_keys() {
 TYPE E_Step : (Idle := 0, Filling := 1) END_TYPE
 
 PROGRAM Main
-VAR
-    Level : REAL {attribute 'oot' := 'value', };
-    Step : E_Step {attribute 'oot' := 'state', 'category' := ''};
-    HighPhAlarm : BOOL {attribute 'oot' := 'alarm', };
-    Started : BOOL {attribute 'oot' := 'message', };
-    AckHighPh : BOOL {attribute 'oot' := 'condition', };
-    AckEvent : BOOL {attribute 'oot' := 'condition', 'event' := ''};
-END_VAR
-END_PROGRAM
-"#;
+	VAR
+	    Untagged : REAL {attribute 'oot' := ''};
+	    Level : REAL {attribute 'oot' := 'value', };
+	    Step : E_Step {attribute 'oot' := 'state', 'category' := ''};
+	    HighPhAlarm : BOOL {attribute 'oot' := 'alarm', };
+	    Started : BOOL {attribute 'oot' := 'message', };
+	    AckHighPh : BOOL {attribute 'oot' := 'condition', };
+	    AckEvent : BOOL {attribute 'oot' := 'condition', 'event' := ''};
+	    BatchState : E_Step {attribute 'oot' := 'batch', };
+	    Loaded : BOOL {attribute 'oot' := 'recipe-loaded', };
+	    Addition : BOOL {attribute 'oot' := 'material-addition', };
+	END_VAR
+	END_PROGRAM
+	"#;
     let state = ServerState::new();
     let uri = tower_lsp::lsp_types::Url::parse("file:///openot-completion.st").unwrap();
     state.open_document(uri.clone(), 1, source.to_string());
@@ -26,6 +30,13 @@ END_PROGRAM
     assert!(category_labels.iter().any(|label| label == "process"));
     assert!(category_labels.iter().any(|label| label == "mode"));
     assert!(category_labels.iter().any(|label| label == "procedural"));
+
+    let kind_cursor = source.find("'oot' := '").expect("oot") + "'oot' := '".len();
+    let kind_labels = completion_labels(&state, &uri, source, kind_cursor);
+    assert!(kind_labels.iter().any(|label| label == "batch"));
+    assert!(kind_labels.iter().any(|label| label == "recipe-loaded"));
+    assert!(kind_labels.iter().any(|label| label == "recipe-approved"));
+    assert!(kind_labels.iter().any(|label| label == "material-addition"));
 
     let value_key_cursor = source.find("'value', ").expect("value comma") + "'value', ".len();
     let value_key_labels = completion_labels(&state, &uri, source, value_key_cursor);
@@ -74,6 +85,36 @@ END_PROGRAM
     assert!(event_labels.iter().any(|label| label == "reset"));
     assert!(event_labels.iter().any(|label| label == "comment"));
     assert!(event_labels.iter().any(|label| label == "priority-changed"));
+
+    let batch_key_cursor = source.find("'batch', ").expect("batch comma") + "'batch', ".len();
+    let batch_key_labels = completion_labels(&state, &uri, source, batch_key_cursor);
+    assert!(batch_key_labels.iter().any(|label| label == "batchid"));
+    assert!(batch_key_labels.iter().any(|label| label == "recipe"));
+
+    let recipe_loaded_key_cursor = source
+        .find("'recipe-loaded', ")
+        .expect("recipe-loaded comma")
+        + "'recipe-loaded', ".len();
+    let recipe_loaded_key_labels =
+        completion_labels(&state, &uri, source, recipe_loaded_key_cursor);
+    assert!(recipe_loaded_key_labels
+        .iter()
+        .any(|label| label == "recipe"));
+    assert!(recipe_loaded_key_labels
+        .iter()
+        .any(|label| label == "version"));
+    assert!(recipe_loaded_key_labels
+        .iter()
+        .any(|label| label == "batch"));
+
+    let material_key_cursor = source
+        .find("'material-addition', ")
+        .expect("material comma")
+        + "'material-addition', ".len();
+    let material_key_labels = completion_labels(&state, &uri, source, material_key_cursor);
+    assert!(material_key_labels.iter().any(|label| label == "material"));
+    assert!(material_key_labels.iter().any(|label| label == "quantity"));
+    assert!(material_key_labels.iter().any(|label| label == "unit"));
 }
 
 #[test]
@@ -132,12 +173,14 @@ pub(super) fn lsp_openot_inlay_hint_shows_emitted_record() {
     let source = r#"
 PROGRAM Main
 VAR
-    Level : REAL {attribute 'oot' := 'value', 'unit' := 'L', 'deadband' := '0.5'};
-    HighPhAlarm : BOOL {attribute 'oot' := 'alarm'};
-    AckHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'acknowledge'};
-END_VAR
-END_PROGRAM
-"#;
+	    Level : REAL {attribute 'oot' := 'value', 'unit' := 'L', 'deadband' := '0.5'};
+	    HighPhAlarm : BOOL {attribute 'oot' := 'alarm'};
+	    AckHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'acknowledge'};
+	    BatchState : E_Step {attribute 'oot' := 'batch', 'batchId' := BatchId};
+	    Loaded : BOOL {attribute 'oot' := 'recipe-loaded', 'recipe' := RecipeId, 'version' := RecipeVersion};
+	END_VAR
+	END_PROGRAM
+	"#;
     let state = ServerState::new();
     let uri = tower_lsp::lsp_types::Url::parse("file:///openot-inlay.st").unwrap();
     state.open_document(uri.clone(), 1, source.to_string());
@@ -163,6 +206,18 @@ END_PROGRAM
                 "Condition acknowledge for HighPhAlarm on TRUE edge",
             )
         }),
+        "{hints:#?}"
+    );
+    assert!(
+        hints
+            .iter()
+            .any(|hint| inlay_label_contains(&hint.label, "BatchEvent on change")),
+        "{hints:#?}"
+    );
+    assert!(
+        hints
+            .iter()
+            .any(|hint| inlay_label_contains(&hint.label, "RecipeLoaded on TRUE edge")),
         "{hints:#?}"
     );
 }

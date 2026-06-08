@@ -8,18 +8,20 @@ use open_ot_carriage::consumer::LossAccountingConsumer;
 use open_ot_carriage::control::ControlBlockSnapshot;
 use open_ot_carriage::loss::LossEvent;
 use open_ot_carriage::registry::{
-    EVENT_CONDITION_ACKNOWLEDGED, EVENT_CONDITION_ACTIVE, EVENT_CONDITION_CLEARED,
-    EVENT_CONDITION_COMMENTED, EVENT_CONDITION_CONFIRMED, EVENT_CONDITION_IN_SERVICE,
-    EVENT_CONDITION_OUT_OF_SERVICE, EVENT_CONDITION_PRIORITY_CHANGED, EVENT_CONDITION_RESET,
-    EVENT_CONDITION_SHELVED, EVENT_CONDITION_SUPPRESSED, EVENT_CONDITION_UNSHELVED,
-    EVENT_CONDITION_UNSUPPRESSED, EVENT_HEARTBEAT, EVENT_LOGGER_STOPPED, EVENT_MESSAGE,
+    EVENT_BATCH_EVENT, EVENT_CONDITION_ACKNOWLEDGED, EVENT_CONDITION_ACTIVE,
+    EVENT_CONDITION_CLEARED, EVENT_CONDITION_COMMENTED, EVENT_CONDITION_CONFIRMED,
+    EVENT_CONDITION_IN_SERVICE, EVENT_CONDITION_OUT_OF_SERVICE, EVENT_CONDITION_PRIORITY_CHANGED,
+    EVENT_CONDITION_RESET, EVENT_CONDITION_SHELVED, EVENT_CONDITION_SUPPRESSED,
+    EVENT_CONDITION_UNSHELVED, EVENT_CONDITION_UNSUPPRESSED, EVENT_HEARTBEAT, EVENT_LOGGER_STOPPED,
+    EVENT_MATERIAL_ADDITION, EVENT_MESSAGE, EVENT_RECIPE_APPROVED, EVENT_RECIPE_LOADED,
     EVENT_SOURCE_HIGH_WATER, EVENT_STATE_TRANSITION, EVENT_VALUE_CHANGED, KEY_ACK_BY, KEY_ARG,
-    KEY_CATEGORY, KEY_CAUSE_OPERAND, KEY_COMMENT, KEY_CONDITION_CLASS, KEY_CONDITION_ID,
-    KEY_CORRELATION_ID, KEY_MESSAGE_TEMPLATE_ID, KEY_NEW_PRIORITY, KEY_NEW_STATE, KEY_NEW_VALUE,
-    KEY_PREVIOUS_PRIORITY, KEY_PREVIOUS_STATE, KEY_PREVIOUS_VALUE, KEY_REASON, KEY_SEVERITY,
-    KEY_SHELVE_SECS, KEY_SOURCE_HIGH_WATER, KEY_STATE_MACHINE_ID, KEY_VALUE_ID, SYSTEM_SOURCE_ID,
-    TY_BOOL, TY_DINT, TY_INT, TY_LINT, TY_LREAL, TY_REAL, TY_SINT, TY_STRING, TY_UDINT, TY_UINT,
-    TY_ULINT, TY_USINT,
+    KEY_AUTH_RESULT, KEY_BATCH_ID, KEY_CATEGORY, KEY_CAUSE_OPERAND, KEY_COMMENT,
+    KEY_CONDITION_CLASS, KEY_CONDITION_ID, KEY_CORRELATION_ID, KEY_MATERIAL_ID,
+    KEY_MESSAGE_TEMPLATE_ID, KEY_NEW_PRIORITY, KEY_NEW_STATE, KEY_NEW_VALUE, KEY_PREVIOUS_PRIORITY,
+    KEY_PREVIOUS_STATE, KEY_PREVIOUS_VALUE, KEY_QUANTITY, KEY_REASON, KEY_RECIPE_ID,
+    KEY_RECIPE_VERSION, KEY_SEVERITY, KEY_SHELVE_SECS, KEY_SOURCE_HIGH_WATER, KEY_STATE_MACHINE_ID,
+    KEY_UNIT, KEY_VALUE_ID, SYSTEM_SOURCE_ID, TY_BOOL, TY_DINT, TY_INT, TY_LINT, TY_LREAL, TY_REAL,
+    TY_SINT, TY_STRING, TY_UDINT, TY_UINT, TY_ULINT, TY_USINT,
 };
 use open_ot_carriage::ring::{ReadRecord, DEFAULT_BUFFER_ID};
 use open_ot_carriage::wire::{Record, Slot};
@@ -341,6 +343,14 @@ fn openot_st_condition_lifecycle_vectors_are_byte_exact() {
     run_openot_st_pou_test(
         "test_conformant_condition_lifecycle.st",
         "OPENOT_TestConformantConditionLifecycle",
+    );
+}
+
+#[test]
+fn openot_st_batch_recipe_vectors_are_byte_exact() {
+    run_openot_st_pou_test(
+        "test_conformant_batch_recipe.st",
+        "OPENOT_TestConformantBatchRecipe",
     );
 }
 
@@ -792,6 +802,84 @@ END_PROGRAM
         render_record(&batch.records[3].record),
         "ValueChanged source=1 seq=3 valueId=2004 new=STRING(ready)"
     );
+
+    drop(std::fs::remove_file(path));
+}
+
+#[test]
+fn openot_telemetry_authoring_batch_recipe_round_trip() {
+    let path = temp_shm_path("authoring-batch-recipe");
+    let program = r#"
+TYPE E_BatchState : (Started := 0, Completed := 1, Held := 2, Resumed := 3, Aborted := 4, Paused := 5) END_TYPE
+
+PROGRAM Main
+VAR
+    Phase : UINT;
+    RecipeId : UDINT := UDINT#3001;
+    RecipeVersion : STRING[16] := 'v1.2.3';
+    BatchId : UDINT := UDINT#4001;
+    MaterialId : UDINT := UDINT#5001;
+    Quantity : LREAL := LREAL#12.25;
+    AuthResult : UINT := UINT#1;
+    Approver : STRING[32] := 'approver-a';
+    BatchState : E_BatchState := Started {attribute 'oot' := 'batch', 'batchId' := BatchId, 'recipe' := RecipeId};
+    RecipeLoadedTrigger : BOOL {attribute 'oot' := 'recipe-loaded', 'recipe' := RecipeId, 'version' := RecipeVersion, 'batch' := BatchId};
+    RecipeApprovedTrigger : BOOL {attribute 'oot' := 'recipe-approved', 'recipe' := RecipeId, 'version' := RecipeVersion, 'auth' := AuthResult, 'by' := Approver};
+    MaterialAdditionTrigger : BOOL {attribute 'oot' := 'material-addition', 'batch' := BatchId, 'material' := MaterialId, 'quantity' := Quantity, 'unit' := 'kg'};
+END_VAR
+
+CASE Phase OF
+    UINT#0:
+        RecipeLoadedTrigger := TRUE;
+    UINT#1:
+        RecipeApprovedTrigger := TRUE;
+    UINT#2:
+        MaterialAdditionTrigger := TRUE;
+    UINT#3:
+        BatchState := Held;
+END_CASE;
+
+Phase := Phase + UINT#1;
+END_PROGRAM
+"#;
+    let mut runtime = build_st_runtime(program);
+    runtime
+        .configure_openot_telemetry(
+            &st_fb_telemetry_config_for(path.clone(), 4096, "Main.OotProducer"),
+            None,
+        )
+        .expect("configure OpenOT ST FB telemetry");
+
+    let store = SharedConcurrentStore::open_existing(&path).expect("open telemetry shm");
+    let mut consumer = ConcurrentRawConsumer::with_store(store);
+    let mut rendered = Vec::new();
+    for _ in 0..4 {
+        runtime
+            .execute_cycle()
+            .expect("batch recipe cycle publishes");
+        let batch = consumer.poll().expect("poll batch recipe record");
+        assert_eq!(batch.records.len(), 1);
+        rendered.push(render_record(&batch.records[0].record));
+    }
+
+    assert_eq!(
+        rendered,
+        [
+            "RecipeLoaded source=1 seq=0 recipeId=3001 version=v1.2.3 batchId=4001",
+            "RecipeApproved source=1 seq=1 recipeId=3001 version=v1.2.3 authResult=1 ackBy=approver-a",
+            "MaterialAddition source=1 seq=2 batchId=4001 materialId=5001 quantity=12.25 unit=8",
+            "BatchEvent source=1 seq=3 batchId=4001 newState=2 recipeId=3001",
+        ]
+    );
+
+    let definition = openot_authoring::definition_json_from_sources(&[SourceFile::with_path(
+        "batch_recipe.st",
+        program,
+    )])
+    .expect("definition");
+    assert_eq!(definition["recipeDefinitions"], json!([]));
+    assert_eq!(definition["batchDefinitions"], json!([]));
+    assert_eq!(definition["materialDefinitions"], json!([]));
 
     drop(std::fs::remove_file(path));
 }
@@ -1543,6 +1631,10 @@ fn render_record(record: &Record) -> String {
         EVENT_CONDITION_COMMENTED => render_condition_lifecycle_comment(record),
         EVENT_CONDITION_RESET => render_condition_lifecycle_ack(record, "ConditionReset"),
         EVENT_CONDITION_PRIORITY_CHANGED => render_condition_lifecycle_priority(record),
+        EVENT_RECIPE_LOADED => render_recipe_loaded(record),
+        EVENT_RECIPE_APPROVED => render_recipe_approved(record),
+        EVENT_BATCH_EVENT => render_batch_event(record),
+        EVENT_MATERIAL_ADDITION => render_material_addition(record),
         EVENT_VALUE_CHANGED => render_value_changed(record),
         other => format!(
             "Event 0x{other:08X} source={} seq={}",
@@ -1697,6 +1789,67 @@ fn render_condition_lifecycle_priority(record: &Record) -> String {
         required_uint(record, KEY_PREVIOUS_PRIORITY),
         required_uint(record, KEY_NEW_PRIORITY),
         ack_by
+    )
+}
+
+fn render_recipe_loaded(record: &Record) -> String {
+    let batch_id = slot(record, KEY_BATCH_ID)
+        .map(|_| format!(" batchId={}", required_udint(record, KEY_BATCH_ID)))
+        .unwrap_or_default();
+    format!(
+        "RecipeLoaded source={} seq={} recipeId={} version={}{}",
+        record.source_id,
+        record.seq,
+        required_udint(record, KEY_RECIPE_ID),
+        required_string(record, KEY_RECIPE_VERSION),
+        batch_id
+    )
+}
+
+fn render_recipe_approved(record: &Record) -> String {
+    let auth_result = slot(record, KEY_AUTH_RESULT)
+        .map(|_| format!(" authResult={}", required_uint(record, KEY_AUTH_RESULT)))
+        .unwrap_or_default();
+    let ack_by = slot(record, KEY_ACK_BY)
+        .map(|_| format!(" ackBy={}", required_string(record, KEY_ACK_BY)))
+        .unwrap_or_default();
+    format!(
+        "RecipeApproved source={} seq={} recipeId={} version={}{}{}",
+        record.source_id,
+        record.seq,
+        required_udint(record, KEY_RECIPE_ID),
+        required_string(record, KEY_RECIPE_VERSION),
+        auth_result,
+        ack_by
+    )
+}
+
+fn render_batch_event(record: &Record) -> String {
+    let recipe_id = slot(record, KEY_RECIPE_ID)
+        .map(|_| format!(" recipeId={}", required_udint(record, KEY_RECIPE_ID)))
+        .unwrap_or_default();
+    format!(
+        "BatchEvent source={} seq={} batchId={} newState={}{}",
+        record.source_id,
+        record.seq,
+        required_udint(record, KEY_BATCH_ID),
+        required_uint(record, KEY_NEW_STATE),
+        recipe_id
+    )
+}
+
+fn render_material_addition(record: &Record) -> String {
+    let unit = slot(record, KEY_UNIT)
+        .map(|_| format!(" unit={}", required_uint(record, KEY_UNIT)))
+        .unwrap_or_default();
+    format!(
+        "MaterialAddition source={} seq={} batchId={} materialId={} quantity={}{}",
+        record.source_id,
+        record.seq,
+        required_udint(record, KEY_BATCH_ID),
+        required_udint(record, KEY_MATERIAL_ID),
+        required_lreal(record, KEY_QUANTITY),
+        unit
     )
 }
 
@@ -1891,6 +2044,17 @@ fn required_uint(record: &Record, key: u16) -> u16 {
             .as_slice()
             .try_into()
             .expect("UINT payload width"),
+    )
+}
+
+fn required_lreal(record: &Record, key: u16) -> f64 {
+    let slot = slot(record, key).unwrap_or_else(|| panic!("missing slot 0x{key:04X}"));
+    assert_eq!(slot.ty, TY_LREAL);
+    f64::from_le_bytes(
+        slot.payload
+            .as_slice()
+            .try_into()
+            .expect("LREAL payload width"),
     )
 }
 
