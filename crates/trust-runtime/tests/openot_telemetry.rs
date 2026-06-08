@@ -9,13 +9,14 @@ use open_ot_carriage::control::ControlBlockSnapshot;
 use open_ot_carriage::loss::LossEvent;
 use open_ot_carriage::registry::{
     EVENT_CONDITION_ACKNOWLEDGED, EVENT_CONDITION_ACTIVE, EVENT_CONDITION_CLEARED,
-    EVENT_CONDITION_SUPPRESSED, EVENT_HEARTBEAT, EVENT_LOGGER_STOPPED, EVENT_MESSAGE,
-    EVENT_SOURCE_HIGH_WATER, EVENT_STATE_TRANSITION, EVENT_VALUE_CHANGED, KEY_ACK_BY, KEY_ARG,
-    KEY_CATEGORY, KEY_CAUSE_OPERAND, KEY_CONDITION_CLASS, KEY_CONDITION_ID, KEY_CORRELATION_ID,
+    EVENT_CONDITION_OUT_OF_SERVICE, EVENT_CONDITION_SHELVED, EVENT_CONDITION_SUPPRESSED,
+    EVENT_HEARTBEAT, EVENT_LOGGER_STOPPED, EVENT_MESSAGE, EVENT_SOURCE_HIGH_WATER,
+    EVENT_STATE_TRANSITION, EVENT_VALUE_CHANGED, KEY_ACK_BY, KEY_ARG, KEY_CATEGORY,
+    KEY_CAUSE_OPERAND, KEY_CONDITION_CLASS, KEY_CONDITION_ID, KEY_CORRELATION_ID,
     KEY_MESSAGE_TEMPLATE_ID, KEY_NEW_STATE, KEY_NEW_VALUE, KEY_PREVIOUS_STATE, KEY_PREVIOUS_VALUE,
-    KEY_REASON, KEY_SEVERITY, KEY_SOURCE_HIGH_WATER, KEY_STATE_MACHINE_ID, KEY_VALUE_ID,
-    SYSTEM_SOURCE_ID, TY_BOOL, TY_DINT, TY_INT, TY_LINT, TY_LREAL, TY_REAL, TY_SINT, TY_STRING,
-    TY_UDINT, TY_UINT, TY_ULINT, TY_USINT,
+    KEY_REASON, KEY_SEVERITY, KEY_SHELVE_SECS, KEY_SOURCE_HIGH_WATER, KEY_STATE_MACHINE_ID,
+    KEY_VALUE_ID, SYSTEM_SOURCE_ID, TY_BOOL, TY_DINT, TY_INT, TY_LINT, TY_LREAL, TY_REAL, TY_SINT,
+    TY_STRING, TY_UDINT, TY_UINT, TY_ULINT, TY_USINT,
 };
 use open_ot_carriage::ring::{ReadRecord, DEFAULT_BUFFER_ID};
 use open_ot_carriage::wire::{Record, Slot};
@@ -856,26 +857,33 @@ END_PROGRAM
 }
 
 #[test]
-fn openot_telemetry_authoring_condition_lifecycle_ack_and_suppress_round_trip() {
+fn openot_telemetry_authoring_condition_lifecycle_round_trip() {
     let path = temp_shm_path("authoring-condition-lifecycle");
     let program = r#"
 PROGRAM Main
-VAR
-    Phase : UINT;
-    OperatorName : STRING[32] := 'operator-a';
-    ReasonText : STRING[32] := 'maintenance';
-    AckHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'acknowledge', 'by' := OperatorName};
-    HighPhAlarm : BOOL {attribute 'oot' := 'alarm', 'sourceid' := '77', 'conditionid' := '9101', 'class' := 'alarm', 'severity' := '900'};
-    SuppressHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'suppress', 'reason' := ReasonText};
-END_VAR
+    VAR
+        Phase : UINT;
+        OperatorName : STRING[32] := 'operator-a';
+        ReasonText : STRING[32] := 'maintenance';
+        ShelveSecs : UDINT := UDINT#300;
+        AckHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'acknowledge', 'by' := OperatorName};
+        HighPhAlarm : BOOL {attribute 'oot' := 'alarm', 'sourceid' := '77', 'conditionid' := '9101', 'class' := 'alarm', 'severity' := '900'};
+        ShelveHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'shelve', 'by' := OperatorName, 'seconds' := ShelveSecs};
+        SuppressHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'suppress', 'reason' := ReasonText};
+        OosHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'out-of-service', 'by' := OperatorName};
+    END_VAR
 
-CASE Phase OF
-    UINT#0:
-        HighPhAlarm := TRUE;
-        AckHighPh := TRUE;
-    UINT#1:
-        SuppressHighPh := TRUE;
-END_CASE;
+    CASE Phase OF
+        UINT#0:
+            HighPhAlarm := TRUE;
+            AckHighPh := TRUE;
+        UINT#1:
+            ShelveHighPh := TRUE;
+        UINT#2:
+            SuppressHighPh := TRUE;
+        UINT#3:
+            OosHighPh := TRUE;
+    END_CASE;
 Phase := Phase + UINT#1;
 END_PROGRAM
 "#;
@@ -903,12 +911,29 @@ END_PROGRAM
         "ConditionAcknowledged source=77 seq=1 conditionId=9101 correlation=1 ackBy=operator-a"
     );
 
+    runtime.execute_cycle().expect("shelve cycle publishes");
+    let batch = consumer.poll().expect("poll shelve record");
+    assert_eq!(batch.records.len(), 1);
+    assert_eq!(
+        render_record(&batch.records[0].record),
+        "ConditionShelved source=77 seq=2 conditionId=9101 correlation=1 ackBy=operator-a shelveSecs=300"
+    );
+
     runtime.execute_cycle().expect("suppress cycle publishes");
     let batch = consumer.poll().expect("poll suppress record");
     assert_eq!(batch.records.len(), 1);
     assert_eq!(
         render_record(&batch.records[0].record),
-        "ConditionSuppressed source=77 seq=2 conditionId=9101 reason=maintenance"
+        "ConditionSuppressed source=77 seq=3 conditionId=9101 reason=maintenance"
+    );
+    assert!(slot(&batch.records[0].record, KEY_CORRELATION_ID).is_none());
+
+    runtime.execute_cycle().expect("OOS cycle publishes");
+    let batch = consumer.poll().expect("poll OOS record");
+    assert_eq!(batch.records.len(), 1);
+    assert_eq!(
+        render_record(&batch.records[0].record),
+        "ConditionOutOfService source=77 seq=4 conditionId=9101 ackBy=operator-a"
     );
     assert!(slot(&batch.records[0].record, KEY_CORRELATION_ID).is_none());
 
@@ -961,6 +986,44 @@ END_PROGRAM
 }
 
 #[test]
+fn openot_telemetry_authoring_condition_oos_while_inactive_emits() {
+    let path = temp_shm_path("authoring-condition-oos-inactive");
+    let program = r#"
+PROGRAM Main
+VAR
+    OperatorName : STRING[32] := 'operator-a';
+    HighPhAlarm : BOOL {attribute 'oot' := 'alarm', 'sourceid' := '77', 'conditionid' := '9101'};
+    OosHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'out-of-service', 'by' := OperatorName};
+END_VAR
+
+OosHighPh := TRUE;
+END_PROGRAM
+"#;
+    let mut runtime = build_st_runtime(program);
+    runtime
+        .configure_openot_telemetry(
+            &st_fb_telemetry_config_for(path.clone(), 4096, "Main.OotProducer"),
+            None,
+        )
+        .expect("configure OpenOT ST FB telemetry");
+
+    runtime
+        .execute_cycle()
+        .expect("inactive OOS cycle publishes");
+    let store = SharedConcurrentStore::open_existing(&path).expect("open telemetry shm");
+    let mut consumer = ConcurrentRawConsumer::with_store(store);
+    let batch = consumer.poll().expect("poll inactive OOS record");
+    assert_eq!(batch.records.len(), 1);
+    assert_eq!(
+        render_record(&batch.records[0].record),
+        "ConditionOutOfService source=77 seq=0 conditionId=9101 ackBy=operator-a"
+    );
+    assert!(slot(&batch.records[0].record, KEY_CORRELATION_ID).is_none());
+
+    drop(std::fs::remove_file(path));
+}
+
+#[test]
 fn openot_telemetry_authoring_condition_ack_without_activation_fails_closed() {
     let path = temp_shm_path("authoring-condition-ack-inactive");
     let program = r#"
@@ -992,6 +1055,44 @@ END_PROGRAM
     let store = SharedConcurrentStore::open_existing(&path).expect("open telemetry shm");
     let mut consumer = ConcurrentRawConsumer::with_store(store);
     let batch = consumer.poll().expect("poll after inactive ack");
+    assert!(batch.records.is_empty(), "{batch:#?}");
+
+    drop(std::fs::remove_file(path));
+}
+
+#[test]
+fn openot_telemetry_authoring_condition_shelve_without_activation_fails_closed() {
+    let path = temp_shm_path("authoring-condition-shelve-inactive");
+    let program = r#"
+PROGRAM Main
+VAR
+    OperatorName : STRING[32] := 'operator-a';
+    ShelveSecs : UDINT := UDINT#300;
+    HighPhAlarm : BOOL {attribute 'oot' := 'alarm', 'sourceid' := '77', 'conditionid' := '9101'};
+    ShelveHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'shelve', 'by' := OperatorName, 'seconds' := ShelveSecs};
+END_VAR
+
+ShelveHighPh := TRUE;
+END_PROGRAM
+"#;
+    let mut runtime = build_st_runtime(program);
+    runtime
+        .configure_openot_telemetry(
+            &st_fb_telemetry_config_for(path.clone(), 4096, "Main.OotProducer"),
+            None,
+        )
+        .expect("configure OpenOT ST FB telemetry");
+
+    let err = runtime
+        .execute_cycle()
+        .expect_err("inactive shelve must fail closed");
+    let err = format!("{err:?}");
+    assert!(err.contains("dropped 1 OpenOT lifecycle command"), "{err}");
+    assert!(err.contains("LastLifecycleError 1"), "{err}");
+
+    let store = SharedConcurrentStore::open_existing(&path).expect("open telemetry shm");
+    let mut consumer = ConcurrentRawConsumer::with_store(store);
+    let batch = consumer.poll().expect("poll after inactive shelve");
     assert!(batch.records.is_empty(), "{batch:#?}");
 
     drop(std::fs::remove_file(path));
@@ -1152,7 +1253,9 @@ fn render_record(record: &Record) -> String {
         EVENT_CONDITION_ACTIVE => render_condition(record, "ConditionActive"),
         EVENT_CONDITION_CLEARED => render_condition(record, "ConditionCleared"),
         EVENT_CONDITION_ACKNOWLEDGED => render_condition_lifecycle_ack(record),
+        EVENT_CONDITION_SHELVED => render_condition_lifecycle_shelve(record),
         EVENT_CONDITION_SUPPRESSED => render_condition_lifecycle_suppress(record),
+        EVENT_CONDITION_OUT_OF_SERVICE => render_condition_lifecycle_oos(record),
         EVENT_VALUE_CHANGED => render_value_changed(record),
         other => format!(
             "Event 0x{other:08X} source={} seq={}",
@@ -1217,6 +1320,24 @@ fn render_condition_lifecycle_ack(record: &Record) -> String {
     )
 }
 
+fn render_condition_lifecycle_shelve(record: &Record) -> String {
+    let ack_by = slot(record, KEY_ACK_BY)
+        .map(|_| format!(" ackBy={}", required_string(record, KEY_ACK_BY)))
+        .unwrap_or_default();
+    let shelve_secs = slot(record, KEY_SHELVE_SECS)
+        .map(|_| format!(" shelveSecs={}", required_udint(record, KEY_SHELVE_SECS)))
+        .unwrap_or_default();
+    format!(
+        "ConditionShelved source={} seq={} conditionId={} correlation={}{}{}",
+        record.source_id,
+        record.seq,
+        required_udint(record, KEY_CONDITION_ID),
+        required_udint(record, KEY_CORRELATION_ID),
+        ack_by,
+        shelve_secs
+    )
+}
+
 fn render_condition_lifecycle_suppress(record: &Record) -> String {
     let reason = slot(record, KEY_REASON)
         .map(|_| format!(" reason={}", required_string(record, KEY_REASON)))
@@ -1227,6 +1348,19 @@ fn render_condition_lifecycle_suppress(record: &Record) -> String {
         record.seq,
         required_udint(record, KEY_CONDITION_ID),
         reason
+    )
+}
+
+fn render_condition_lifecycle_oos(record: &Record) -> String {
+    let ack_by = slot(record, KEY_ACK_BY)
+        .map(|_| format!(" ackBy={}", required_string(record, KEY_ACK_BY)))
+        .unwrap_or_default();
+    format!(
+        "ConditionOutOfService source={} seq={} conditionId={}{}",
+        record.source_id,
+        record.seq,
+        required_udint(record, KEY_CONDITION_ID),
+        ack_by
     )
 }
 

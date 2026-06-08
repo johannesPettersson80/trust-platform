@@ -519,6 +519,7 @@ fn collect_program_annotations(
                             .get("event")
                             .and_then(|event| hir_openot::condition_lifecycle_event_id(event)),
                         condition_ack_by: attrs.get("by").cloned(),
+                        condition_shelve_secs: attrs.get("seconds").cloned(),
                         condition_reason: attrs.get("reason").cloned(),
                     },
                     attrs.clone(),
@@ -660,6 +661,7 @@ fn annotation_from_parts(
                 enum_state: draft.enum_state,
                 condition_event_id: None,
                 condition_ack_by: None,
+                condition_shelve_secs: None,
                 condition_reason: None,
             }
         }
@@ -695,6 +697,7 @@ fn annotation_from_parts(
                 enum_state: draft.enum_state,
                 condition_event_id: None,
                 condition_ack_by: None,
+                condition_shelve_secs: None,
                 condition_reason: None,
             }
         }
@@ -731,6 +734,7 @@ fn annotation_from_parts(
                 enum_state: draft.enum_state,
                 condition_event_id: None,
                 condition_ack_by: None,
+                condition_shelve_secs: None,
                 condition_reason: None,
             }
         }
@@ -764,6 +768,7 @@ fn annotation_from_parts(
                 enum_state: draft.enum_state,
                 condition_event_id: None,
                 condition_ack_by: None,
+                condition_shelve_secs: None,
                 condition_reason: None,
             }
         }
@@ -803,6 +808,7 @@ fn condition_annotation_from_parts(
         enum_state: draft.enum_state,
         condition_event_id: draft.condition_event_id,
         condition_ack_by: draft.condition_ack_by,
+        condition_shelve_secs: draft.condition_shelve_secs,
         condition_reason: draft.condition_reason,
     }
 }
@@ -1244,6 +1250,10 @@ fn condition_lifecycle_statements(annotation: &Annotation) -> Vec<String> {
         call_args.push("LifecycleHasAckBy := TRUE".to_string());
         call_args.push(format!("LifecycleAckBy := {ack_by}"));
     }
+    if let Some(shelve_secs) = &annotation.condition_shelve_secs {
+        call_args.push("LifecycleHasShelveSecs := TRUE".to_string());
+        call_args.push(format!("LifecycleShelveSecs := {shelve_secs}"));
+    }
     if let Some(reason) = &annotation.condition_reason {
         call_args.push("LifecycleHasReason := TRUE".to_string());
         call_args.push(format!("LifecycleReason := {reason}"));
@@ -1350,6 +1360,7 @@ struct Annotation {
     enum_state: Option<EnumStateInfo>,
     condition_event_id: Option<u32>,
     condition_ack_by: Option<String>,
+    condition_shelve_secs: Option<String>,
     condition_reason: Option<String>,
 }
 
@@ -1518,6 +1529,7 @@ struct AnnotationDraft {
     condition_parent: Option<String>,
     condition_event_id: Option<u32>,
     condition_ack_by: Option<String>,
+    condition_shelve_secs: Option<String>,
     condition_reason: Option<String>,
 }
 
@@ -1731,7 +1743,7 @@ mod tests {
     fn condition_lifecycle_lowering_inherits_parent_and_emits_after_alarm_phase() {
         let source = SourceFile::with_path(
             "main.st",
-            "PROGRAM Main\nVAR\n    OperatorName : STRING[32] := 'operator-a';\n    ReasonText : STRING[32] := 'maintenance';\n    AckHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'acknowledge', 'by' := OperatorName};\n    HighPhAlarm : BOOL {attribute 'oot' := 'alarm', 'sourceid' := '77', 'conditionid' := '9101'};\n    SuppressHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'suppress', 'reason' := ReasonText};\nEND_VAR\nHighPhAlarm := TRUE;\nAckHighPh := TRUE;\nSuppressHighPh := TRUE;\nEND_PROGRAM\n",
+            "PROGRAM Main\nVAR\n    OperatorName : STRING[32] := 'operator-a';\n    ReasonText : STRING[32] := 'maintenance';\n    ShelveSecs : UDINT := UDINT#300;\n    AckHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'acknowledge', 'by' := OperatorName};\n    HighPhAlarm : BOOL {attribute 'oot' := 'alarm', 'sourceid' := '77', 'conditionid' := '9101'};\n    ShelveHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'shelve', 'by' := OperatorName, 'seconds' := ShelveSecs};\n    SuppressHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'suppress', 'reason' := ReasonText};\n    OosHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'out-of-service', 'by' := OperatorName};\nEND_VAR\nHighPhAlarm := TRUE;\nAckHighPh := TRUE;\nShelveHighPh := TRUE;\nSuppressHighPh := TRUE;\nOosHighPh := TRUE;\nEND_PROGRAM\n",
         );
         let definition =
             definition_json_from_sources(std::slice::from_ref(&source)).expect("definition");
@@ -1756,7 +1768,16 @@ mod tests {
             text.contains("ConditionLifecycleEventTypeId := UDINT#16#0206"),
             "{text}"
         );
+        assert!(
+            text.contains("ConditionLifecycleEventTypeId := UDINT#16#0204"),
+            "{text}"
+        );
+        assert!(
+            text.contains("ConditionLifecycleEventTypeId := UDINT#16#0208"),
+            "{text}"
+        );
         assert!(text.contains("LifecycleAckBy := OperatorName"), "{text}");
+        assert!(text.contains("LifecycleShelveSecs := ShelveSecs"), "{text}");
         assert!(text.contains("LifecycleReason := ReasonText"), "{text}");
     }
 

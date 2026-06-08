@@ -77,9 +77,10 @@ pub const ALARM_KEYS: &[&str] = &["class", "severity", "cause"];
 /// Keys accepted on `message` attributes.
 pub const MESSAGE_KEYS: &[&str] = &["template", "severity", "arg1", "arg2", "arg3", "arg4"];
 /// Keys accepted on condition lifecycle command attributes.
-pub const CONDITION_KEYS: &[&str] = &["of", "event", "by", "reason"];
+pub const CONDITION_KEYS: &[&str] = &["of", "event", "by", "seconds", "reason"];
 /// Condition lifecycle events supported by this authoring slice.
-pub const CONDITION_EVENT_VALUES: &[&str] = &["acknowledge", "suppress"];
+pub const CONDITION_EVENT_VALUES: &[&str] =
+    &["acknowledge", "shelve", "suppress", "out-of-service"];
 /// State category values.
 pub const CATEGORY_VALUES: &[&str] = &["process", "mode", "procedural"];
 /// Machine-local process/equipment state category.
@@ -310,6 +311,14 @@ fn validate_local_openot_references(program: &SyntaxNode) -> Vec<Diagnostic> {
                     &local_types,
                     is_string_type_name,
                     "STRING",
+                    &mut diagnostics,
+                );
+                validate_decl_ref_with(
+                    &attrs,
+                    "seconds",
+                    &local_types,
+                    is_udint_type_name,
+                    "UDINT",
                     &mut diagnostics,
                 );
             }
@@ -629,6 +638,10 @@ fn is_string_type_name(ty: &str) -> bool {
     upper == "STRING" || upper.starts_with("STRING[")
 }
 
+fn is_udint_type_name(ty: &str) -> bool {
+    ty.trim().eq_ignore_ascii_case("UDINT")
+}
+
 /// Keys accepted by a kind, excluding `oot` and internal id-pinning keys.
 #[must_use]
 pub fn allowed_keys(kind: OotKind) -> &'static [&'static str] {
@@ -667,7 +680,9 @@ pub fn condition_class_code(value: &str) -> Option<u16> {
 pub fn condition_lifecycle_event_id(value: &str) -> Option<u32> {
     match value.to_ascii_lowercase().as_str() {
         "acknowledge" => Some(0x0202),
+        "shelve" => Some(0x0204),
         "suppress" => Some(0x0206),
+        "out-of-service" => Some(0x0208),
         _ => None,
     }
 }
@@ -861,7 +876,9 @@ fn validate_key_value(
                 format!("OpenOT '{}' value must not be empty", entry.key),
             ));
         }
-        (OotKind::Condition, "of" | "by" | "reason") if entry.value.trim().is_empty() => {
+        (OotKind::Condition, "of" | "by" | "seconds" | "reason")
+            if entry.value.trim().is_empty() =>
+        {
             diagnostics.push(openot_error(
                 entry.range,
                 format!("OpenOT '{}' value must name a variable", entry.key),
@@ -1202,13 +1219,16 @@ END_PROGRAM
     fn validates_condition_lifecycle_references() {
         let source = r#"
 PROGRAM Main
-VAR
-    OperatorName : STRING[32];
-    ReasonText : STRING[32];
-    HighPhAlarm : BOOL {attribute 'oot' := 'alarm', 'class' := 'alarm'};
-    AckHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'acknowledge', 'by' := OperatorName};
-    SuppressHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'suppress', 'reason' := ReasonText};
-END_VAR
+    VAR
+        OperatorName : STRING[32];
+        ReasonText : STRING[32];
+        ShelveSecs : UDINT;
+        HighPhAlarm : BOOL {attribute 'oot' := 'alarm', 'class' := 'alarm'};
+        AckHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'acknowledge', 'by' := OperatorName};
+        ShelveHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'shelve', 'by' := OperatorName, 'seconds' := ShelveSecs};
+        SuppressHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'suppress', 'reason' := ReasonText};
+        OosHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'out-of-service', 'by' := OperatorName};
+    END_VAR
 END_PROGRAM
 "#;
         let parsed = parse(source);
@@ -1226,10 +1246,11 @@ VAR
     NotAlarm : BOOL {attribute 'oot' := 'message'};
     MissingParent : BOOL {attribute 'oot' := 'condition', 'event' := 'acknowledge'};
     MissingEvent : BOOL {attribute 'oot' := 'condition', 'of' := NotAlarm};
-    BadEvent : BOOL {attribute 'oot' := 'condition', 'of' := NotAlarm, 'event' := 'shelve'};
+    BadEvent : BOOL {attribute 'oot' := 'condition', 'of' := NotAlarm, 'event' := 'bad-event'};
     BadParent : BOOL {attribute 'oot' := 'condition', 'of' := NotAlarm, 'event' := 'acknowledge'};
     BadBy : BOOL {attribute 'oot' := 'condition', 'of' := NotAlarm, 'event' := 'acknowledge', 'by' := OperatorId};
     BadReason : BOOL {attribute 'oot' := 'condition', 'of' := NotAlarm, 'event' := 'suppress', 'reason' := ReasonCode};
+    BadSeconds : BOOL {attribute 'oot' := 'condition', 'of' := NotAlarm, 'event' := 'shelve', 'seconds' := ReasonCode};
     BadType : DINT {attribute 'oot' := 'condition', 'of' := NotAlarm, 'event' := 'acknowledge'};
     BadId : BOOL {attribute 'oot' := 'condition', 'of' := NotAlarm, 'event' := 'acknowledge', 'sourceid' := '2'};
 END_VAR
@@ -1244,6 +1265,7 @@ END_PROGRAM
             "must reference an alarm",
             "expected STRING",
             "expected STRING",
+            "expected UDINT",
             "must be BOOL",
             "inherits the parent alarm identity",
         ] {

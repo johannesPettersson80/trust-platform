@@ -128,6 +128,7 @@ fn openot_key_items(kind: openot_vocab::OotKind) -> Vec<CompletionItem> {
                 "of" => "'of' := ${1:AlarmVariable}",
                 "event" => "'event' := '${1:acknowledge}'",
                 "by" => "'by' := ${1:OperatorName}",
+                "seconds" => "'seconds' := ${1:ShelveSecs}",
                 "reason" => "'reason' := ${1:ReasonText}",
                 _ => *key,
             };

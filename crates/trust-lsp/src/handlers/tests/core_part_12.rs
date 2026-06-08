@@ -51,12 +51,15 @@ END_PROGRAM
     assert!(condition_key_labels.iter().any(|label| label == "of"));
     assert!(condition_key_labels.iter().any(|label| label == "event"));
     assert!(condition_key_labels.iter().any(|label| label == "by"));
+    assert!(condition_key_labels.iter().any(|label| label == "seconds"));
     assert!(condition_key_labels.iter().any(|label| label == "reason"));
 
     let event_cursor = source.find("'event' := '").expect("event") + "'event' := '".len();
     let event_labels = completion_labels(&state, &uri, source, event_cursor);
     assert!(event_labels.iter().any(|label| label == "acknowledge"));
+    assert!(event_labels.iter().any(|label| label == "shelve"));
     assert!(event_labels.iter().any(|label| label == "suppress"));
+    assert!(event_labels.iter().any(|label| label == "out-of-service"));
 }
 
 #[test]
