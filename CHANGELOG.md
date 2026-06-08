@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.22`
+Target release: `v0.24.23`
 
 ### Added
 
@@ -14,6 +14,9 @@ Target release: `v0.24.22`
   configured ST OpenOT producer FB via `[runtime.openot] source = "st-fb"` and
   `producer_instance`, while keeping the existing heartbeat publisher as the
   default.
+- trust-runtime: OpenOT ST-FB telemetry now supports multi-PROGRAM authoring by
+  draining a configured `producer_instances = [...]` list into one shared ring,
+  with deterministic per-program source ids and collision diagnostics.
 - trust-runtime: ST OpenOT producer telemetry now hands off multi-record
   transition bursts through the producer FB `ScanRecords` descriptor outputs,
   while fail-closing scans whose published-record delta does not match the

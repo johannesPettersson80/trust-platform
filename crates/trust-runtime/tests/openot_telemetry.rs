@@ -64,6 +64,7 @@ fn telemetry_config(path: PathBuf, capacity: usize) -> OpenOtTelemetryConfig {
         allow_unfenced_for_proof: false,
         source: OpenOtTelemetrySource::Heartbeat,
         producer_instance: None,
+        producer_instances: Vec::new(),
     }
 }
 
@@ -79,6 +80,23 @@ fn st_fb_telemetry_config_for(
     OpenOtTelemetryConfig {
         source: OpenOtTelemetrySource::StFb,
         producer_instance: Some(producer_instance.into()),
+        producer_instances: vec![producer_instance.into()],
+        ..telemetry_config(path, capacity)
+    }
+}
+
+fn st_fb_telemetry_config_for_many(
+    path: PathBuf,
+    capacity: usize,
+    producer_instances: &[&str],
+) -> OpenOtTelemetryConfig {
+    OpenOtTelemetryConfig {
+        source: OpenOtTelemetrySource::StFb,
+        producer_instance: None,
+        producer_instances: producer_instances
+            .iter()
+            .map(|path| (*path).into())
+            .collect(),
         ..telemetry_config(path, capacity)
     }
 }
@@ -227,6 +245,82 @@ ELSE
     Producer(Execute := FALSE, Op := UINT#0, SourceId := UDINT#0, Checkpoint := FALSE);
 END_CASE;
 
+Phase := Phase + UINT#1;
+END_PROGRAM
+"#
+}
+
+fn multi_program_authoring_messages_program() -> &'static str {
+    r#"
+PROGRAM First
+VAR
+    Scan : UINT;
+    Start : BOOL {attribute 'oot' := 'message', 'template' := 'first started'};
+END_VAR
+
+CASE Scan OF
+    UINT#0:
+        Start := TRUE;
+    UINT#1:
+        Start := FALSE;
+    UINT#2:
+        Start := TRUE;
+END_CASE;
+Scan := Scan + UINT#1;
+END_PROGRAM
+
+PROGRAM Second
+VAR
+    Scan : UINT;
+    Start : BOOL {attribute 'oot' := 'message', 'template' := 'second started'};
+END_VAR
+
+CASE Scan OF
+    UINT#0:
+        Start := TRUE;
+    UINT#1:
+        Start := FALSE;
+    UINT#2:
+        Start := TRUE;
+END_CASE;
+Scan := Scan + UINT#1;
+END_PROGRAM
+"#
+}
+
+fn multi_program_checkpoint_program() -> &'static str {
+    r#"
+PROGRAM First
+VAR
+    Producer : OPENOT_Producer;
+    Phase : UINT;
+END_VAR
+
+CASE Phase OF
+    UINT#0:
+        Producer(Execute := TRUE, Op := UINT#0, SourceId := UDINT#10, Checkpoint := FALSE, MessageTemplateId := UDINT#10001);
+        Producer(Execute := FALSE, Op := UINT#0, SourceId := UDINT#10, Checkpoint := FALSE);
+    UINT#1:
+        Producer(Execute := TRUE, Op := UINT#0, SourceId := UDINT#10, Checkpoint := TRUE);
+        Producer(Execute := FALSE, Op := UINT#0, SourceId := UDINT#10, Checkpoint := FALSE);
+END_CASE;
+Phase := Phase + UINT#1;
+END_PROGRAM
+
+PROGRAM Second
+VAR
+    Producer : OPENOT_Producer;
+    Phase : UINT;
+END_VAR
+
+CASE Phase OF
+    UINT#0:
+        Producer(Execute := TRUE, Op := UINT#0, SourceId := UDINT#20, Checkpoint := FALSE, MessageTemplateId := UDINT#10001);
+        Producer(Execute := FALSE, Op := UINT#0, SourceId := UDINT#20, Checkpoint := FALSE);
+    UINT#1:
+        Producer(Execute := TRUE, Op := UINT#0, SourceId := UDINT#20, Checkpoint := TRUE);
+        Producer(Execute := FALSE, Op := UINT#0, SourceId := UDINT#20, Checkpoint := FALSE);
+END_CASE;
 Phase := Phase + UINT#1;
 END_PROGRAM
 "#
@@ -675,6 +769,128 @@ fn openot_telemetry_publishes_st_transition_burst() {
         .expect("idle cycle ignores stale scan descriptors");
     let batch = consumer.poll().expect("poll idle cycle");
     assert_eq!(batch.records.len(), 0);
+
+    drop(std::fs::remove_file(path));
+}
+
+#[test]
+fn openot_telemetry_publishes_multi_program_authoring_sources_to_one_ring() {
+    let path = temp_shm_path("st-fb-multi-program-authoring");
+    let mut runtime = build_st_runtime(multi_program_authoring_messages_program());
+    runtime
+        .configure_openot_telemetry(
+            &st_fb_telemetry_config_for_many(
+                path.clone(),
+                4096,
+                &["First.OotProducer", "Second.OotProducer"],
+            ),
+            None,
+        )
+        .expect("configure multi-program OpenOT ST FB telemetry");
+
+    let store = SharedConcurrentStore::open_existing(&path).expect("open telemetry shm");
+    let mut consumer = ConcurrentRawConsumer::with_store(store);
+    let mut accounting = LossAccountingConsumer::new();
+
+    runtime
+        .execute_cycle()
+        .expect("first scan publishes one message per program");
+    let batch = consumer.poll().expect("poll first multi-program scan");
+    accounting.account_batch(&batch);
+    assert_eq!(batch.records.len(), 2);
+    assert_eq!(consumer.rejected_records(), 0);
+    assert_eq!(batch.records[0].record.event_type_id, EVENT_MESSAGE);
+    assert_eq!(batch.records[0].record.source_id, 1);
+    assert_eq!(batch.records[0].record.seq, 0);
+    assert_eq!(
+        required_udint(&batch.records[0].record, KEY_MESSAGE_TEMPLATE_ID),
+        10001
+    );
+    assert_eq!(batch.records[1].record.event_type_id, EVENT_MESSAGE);
+    assert_eq!(batch.records[1].record.source_id, 2);
+    assert_eq!(batch.records[1].record.seq, 0);
+    assert_eq!(
+        required_udint(&batch.records[1].record, KEY_MESSAGE_TEMPLATE_ID),
+        10002
+    );
+
+    runtime
+        .execute_cycle()
+        .expect("falling edges publish no records");
+    let batch = consumer.poll().expect("poll idle multi-program scan");
+    assert_eq!(batch.records.len(), 0);
+    assert_eq!(consumer.rejected_records(), 0);
+
+    runtime
+        .execute_cycle()
+        .expect("third scan publishes the next per-source seq");
+    let batch = consumer.poll().expect("poll second multi-program emission");
+    accounting.account_batch(&batch);
+    assert_eq!(batch.records.len(), 2);
+    assert_eq!(batch.records[0].record.source_id, 1);
+    assert_eq!(batch.records[0].record.seq, 1);
+    assert_eq!(batch.records[1].record.source_id, 2);
+    assert_eq!(batch.records[1].record.seq, 1);
+
+    assert_eq!(accounting.delivered(1), 2);
+    assert_eq!(accounting.delivered(2), 2);
+    assert_eq!(accounting.lost(1), 0);
+    assert_eq!(accounting.lost(2), 0);
+
+    drop(std::fs::remove_file(path));
+}
+
+#[test]
+fn openot_telemetry_drains_multi_program_source_high_water_to_one_ring() {
+    let path = temp_shm_path("st-fb-multi-program-high-water");
+    let mut runtime = build_st_runtime(multi_program_checkpoint_program());
+    runtime
+        .configure_openot_telemetry(
+            &st_fb_telemetry_config_for_many(
+                path.clone(),
+                4096,
+                &["First.Producer", "Second.Producer"],
+            ),
+            None,
+        )
+        .expect("configure multi-program OpenOT checkpoint telemetry");
+
+    let store = SharedConcurrentStore::open_existing(&path).expect("open telemetry shm");
+    let mut consumer = ConcurrentRawConsumer::with_store(store);
+    let mut accounting = LossAccountingConsumer::new();
+
+    runtime
+        .execute_cycle()
+        .expect("first scan registers both program sources");
+    let batch = consumer.poll().expect("poll multi-program messages");
+    accounting.account_batch(&batch);
+    assert_eq!(batch.records.len(), 2);
+    assert_eq!(batch.records[0].record.event_type_id, EVENT_MESSAGE);
+    assert_eq!(batch.records[0].record.source_id, 10);
+    assert_eq!(batch.records[0].record.seq, 0);
+    assert_eq!(batch.records[1].record.event_type_id, EVENT_MESSAGE);
+    assert_eq!(batch.records[1].record.source_id, 20);
+    assert_eq!(batch.records[1].record.seq, 0);
+
+    runtime
+        .execute_cycle()
+        .expect("second scan publishes one high-water checkpoint per program source");
+    let batch = consumer.poll().expect("poll multi-program checkpoints");
+    accounting.account_batch(&batch);
+    assert_eq!(batch.records.len(), 2);
+    assert_eq!(consumer.rejected_records(), 0);
+
+    for (record, expected_source) in batch.records.iter().map(|read| &read.record).zip([10, 20]) {
+        assert_eq!(record.event_type_id, EVENT_SOURCE_HIGH_WATER);
+        assert_eq!(record.source_id, expected_source);
+        assert_eq!(record.seq, 1);
+        assert_eq!(required_ulint(record, KEY_SOURCE_HIGH_WATER), 1);
+    }
+
+    assert_eq!(accounting.delivered(10), 2);
+    assert_eq!(accounting.delivered(20), 2);
+    assert_eq!(accounting.lost(10), 0);
+    assert_eq!(accounting.lost(20), 0);
 
     drop(std::fs::remove_file(path));
 }

@@ -310,6 +310,10 @@ fn validate_authoring_sources(sources: &[SourceFile]) -> Vec<String> {
             errors.push(format!("{label}: {}", diagnostic.message));
         }
     }
+    if errors.is_empty() {
+        let model = collect_authoring_model(sources);
+        errors.extend(validate_source_ownership(&model.annotations));
+    }
     errors
 }
 
@@ -329,6 +333,9 @@ fn collect_authoring_model(sources: &[SourceFile]) -> AuthoringModel {
         .map(|file_id| project.database().analyze(*file_id))
         .collect::<Vec<_>>();
 
+    let annotated_program_count = count_openot_programs(sources);
+    let use_multi_program_defaults = annotated_program_count > 1;
+    let mut next_default_source_id = DEFAULT_SOURCE_ID;
     let mut counters = AnnotationCounters::default();
     let mut files = Vec::with_capacity(sources.len());
     let mut all_annotations = Vec::new();
@@ -347,6 +354,16 @@ fn collect_authoring_model(sources: &[SourceFile]) -> AuthoringModel {
             .descendants()
             .filter(|node| node.kind() == SyntaxKind::Program)
         {
+            if !program_has_openot_attribute(&program) {
+                continue;
+            }
+            let default_source_id = if use_multi_program_defaults {
+                let id = next_default_source_id;
+                next_default_source_id = next_default_source_id.saturating_add(1);
+                id
+            } else {
+                DEFAULT_SOURCE_ID
+            };
             let annotations = collect_program_annotations(
                 &program,
                 source.path.as_deref(),
@@ -354,6 +371,7 @@ fn collect_authoring_model(sources: &[SourceFile]) -> AuthoringModel {
                 analysis.declaration_catalog.as_ref(),
                 analysis.symbols.as_ref(),
                 &mut counters,
+                default_source_id,
             );
             if annotations.is_empty() {
                 continue;
@@ -374,6 +392,54 @@ fn collect_authoring_model(sources: &[SourceFile]) -> AuthoringModel {
         files,
         annotations: all_annotations,
     }
+}
+
+fn count_openot_programs(sources: &[SourceFile]) -> usize {
+    sources
+        .iter()
+        .map(|source| {
+            let parse = parser::parse(&source.text);
+            if !parse.ok() {
+                return 0;
+            }
+            parse
+                .syntax()
+                .descendants()
+                .filter(|node| node.kind() == SyntaxKind::Program)
+                .filter(program_has_openot_attribute)
+                .count()
+        })
+        .sum()
+}
+
+fn program_has_openot_attribute(program: &SyntaxNode) -> bool {
+    program
+        .descendants()
+        .filter(|node| node.kind() == SyntaxKind::VarDecl)
+        .any(|var_decl| {
+            hir_openot::parse_attribute_map_from_node(&var_decl)
+                .to_btree_map()
+                .contains_key("oot")
+        })
+}
+
+fn validate_source_ownership(annotations: &[Annotation]) -> Vec<String> {
+    let mut errors = Vec::new();
+    let mut by_id = BTreeMap::<u32, SourceDescriptor>::new();
+    let mut reported = std::collections::BTreeSet::<u32>::new();
+    for annotation in annotations {
+        if let Some(existing) = by_id.get(&annotation.source_id) {
+            if existing != &annotation.source && reported.insert(annotation.source_id) {
+                errors.push(format!(
+                    "OpenOT sourceid {} is used by both '{}' and '{}'; use distinct sourceid values for distinct PROGRAM sources",
+                    annotation.source_id, existing.name, annotation.source.name
+                ));
+            }
+        } else {
+            by_id.insert(annotation.source_id, annotation.source.clone());
+        }
+    }
+    errors
 }
 
 fn instrument_source_text(text: &str, programs: &[ProgramInstrumentation]) -> String {
@@ -450,6 +516,7 @@ fn collect_program_annotations(
     catalog: &DeclarationCatalog,
     symbols: &trust_hir::symbols::SymbolTable,
     counters: &mut AnnotationCounters,
+    default_source_id: u32,
 ) -> Vec<Annotation> {
     let mut pending = Vec::<(AnnotationDraft, BTreeMap<String, String>)>::new();
     let mut local_types = BTreeMap::<String, String>::new();
@@ -500,7 +567,7 @@ fn collect_program_annotations(
             let source_id = attrs
                 .get("sourceid")
                 .and_then(|value| value.parse::<u32>().ok())
-                .unwrap_or(DEFAULT_SOURCE_ID);
+                .unwrap_or(default_source_id);
 
             for name in declaration_names(&var_decl) {
                 let declaration =
@@ -2326,7 +2393,7 @@ struct AnnotationIndexEntry {
     attestable_id: u32,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct SourceDescriptor {
     name: String,
     path: Vec<String>,
@@ -2469,6 +2536,46 @@ mod tests {
             definition["sources"][0]["hierarchy"],
             serde_json::json!(["file", "program"])
         );
+        assert_eq!(definition["sources"][0]["sourceId"], DEFAULT_SOURCE_ID);
+    }
+
+    #[test]
+    fn multi_program_omitted_sourceids_are_assigned_distinctly() {
+        let source = SourceFile::with_path(
+            "main.st",
+            "PROGRAM First\nVAR\n    Start : BOOL {attribute 'oot' := 'message', 'template' := 'first'};\nEND_VAR\nEND_PROGRAM\nPROGRAM Second\nVAR\n    Start : BOOL {attribute 'oot' := 'message', 'template' := 'second'};\nEND_VAR\nEND_PROGRAM\n",
+        );
+        let definition = definition_json_from_sources(&[source]).expect("definition");
+        let source_ids = definition["sources"]
+            .as_array()
+            .expect("sources")
+            .iter()
+            .map(|source| {
+                (
+                    source["sourceId"].as_u64().expect("sourceId"),
+                    source["name"].as_str().expect("source name").to_string(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            source_ids,
+            [
+                (u64::from(DEFAULT_SOURCE_ID), "main.First".to_string()),
+                (u64::from(DEFAULT_SOURCE_ID + 1), "main.Second".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn explicit_sourceid_collision_between_programs_is_rejected() {
+        let source = SourceFile::with_path(
+            "main.st",
+            "PROGRAM First\nVAR\n    Start : BOOL {attribute 'oot' := 'message', 'sourceid' := '77', 'template' := 'first'};\nEND_VAR\nEND_PROGRAM\nPROGRAM Second\nVAR\n    Start : BOOL {attribute 'oot' := 'message', 'sourceid' := '77', 'template' := 'second'};\nEND_VAR\nEND_PROGRAM\n",
+        );
+        let err = definition_json_from_sources(&[source]).expect_err("source collision");
+
+        assert!(err.contains("OpenOT sourceid 77 is used by both 'main.First' and 'main.Second'"));
     }
 
     #[test]

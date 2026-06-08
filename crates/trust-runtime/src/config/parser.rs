@@ -248,6 +248,7 @@ struct OpenOtSection {
     allow_unfenced_for_proof: Option<bool>,
     source: Option<String>,
     producer_instance: Option<String>,
+    producer_instances: Option<Vec<String>>,
 }
 
 #[derive(Debug, Deserialize)]

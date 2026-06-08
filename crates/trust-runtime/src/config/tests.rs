@@ -256,6 +256,7 @@ fn runtime_schema_defaults_openot_telemetry_disabled() {
         crate::config::OpenOtTelemetrySource::Heartbeat
     );
     assert!(runtime.openot.producer_instance.is_none());
+    assert!(runtime.openot.producer_instances.is_empty());
 }
 
 #[test]
@@ -295,6 +296,63 @@ fn runtime_schema_accepts_openot_st_fb_source() {
         runtime.openot.producer_instance.as_deref(),
         Some("Main.Producer")
     );
+    assert_eq!(
+        runtime
+            .openot
+            .producer_instances
+            .iter()
+            .map(|path| path.as_str())
+            .collect::<Vec<_>>(),
+        ["Main.Producer"]
+    );
+}
+
+#[test]
+fn runtime_schema_accepts_openot_st_fb_producer_instances() {
+    let text = format!(
+        "{}\n[runtime.openot]\nenabled = true\npath = \"openot.shm\"\nsource = \"st-fb\"\nproducer_instances = [\"First.OotProducer\", \"Second.OotProducer\"]\n",
+        runtime_toml()
+    );
+    let runtime = parse_runtime_toml_from_text(&text, "runtime.toml")
+        .expect("OpenOT ST FB multi-producer config should parse");
+    assert_eq!(
+        runtime.openot.source,
+        crate::config::OpenOtTelemetrySource::StFb
+    );
+    assert!(runtime.openot.producer_instance.is_none());
+    assert_eq!(
+        runtime
+            .openot
+            .producer_instances
+            .iter()
+            .map(|path| path.as_str())
+            .collect::<Vec<_>>(),
+        ["First.OotProducer", "Second.OotProducer"]
+    );
+}
+
+#[test]
+fn runtime_schema_rejects_openot_st_fb_both_producer_aliases() {
+    let text = format!(
+        "{}\n[runtime.openot]\nenabled = true\npath = \"openot.shm\"\nsource = \"st-fb\"\nproducer_instance = \"Main.Producer\"\nproducer_instances = [\"Main.Producer\"]\n",
+        runtime_toml()
+    );
+    let err = validate_runtime_toml_text(&text)
+        .expect_err("OpenOT ST FB source should reject both producer aliases");
+    assert!(err
+        .to_string()
+        .contains("producer_instance and runtime.openot.producer_instances are aliases"));
+}
+
+#[test]
+fn runtime_schema_rejects_duplicate_openot_st_fb_producer_instances() {
+    let text = format!(
+        "{}\n[runtime.openot]\nenabled = true\npath = \"openot.shm\"\nsource = \"st-fb\"\nproducer_instances = [\"Main.Producer\", \"Main.Producer\"]\n",
+        runtime_toml()
+    );
+    let err = validate_runtime_toml_text(&text)
+        .expect_err("OpenOT ST FB source should reject duplicate producer paths");
+    assert!(err.to_string().contains("duplicate path 'Main.Producer'"));
 }
 
 #[test]
@@ -305,9 +363,9 @@ fn runtime_schema_rejects_openot_st_fb_without_producer_instance() {
     );
     let err = validate_runtime_toml_text(&text)
         .expect_err("OpenOT ST FB source requires producer_instance");
-    assert!(err
-        .to_string()
-        .contains("runtime.openot.producer_instance is required"));
+    assert!(err.to_string().contains(
+        "runtime.openot.producer_instance or runtime.openot.producer_instances is required"
+    ));
 }
 
 #[test]
@@ -320,7 +378,7 @@ fn runtime_schema_rejects_unqualified_openot_producer_instance() {
         .expect_err("OpenOT ST FB producer_instance must be qualified");
     assert!(err
         .to_string()
-        .contains("runtime.openot.producer_instance must be a qualified path"));
+        .contains("runtime.openot.producer_instance(s) must be qualified paths"));
 }
 
 #[test]
@@ -333,7 +391,20 @@ fn runtime_schema_rejects_openot_producer_instance_for_heartbeat_source() {
         .expect_err("OpenOT heartbeat source must not accept producer_instance");
     assert!(err
         .to_string()
-        .contains("runtime.openot.producer_instance is only valid"));
+        .contains("runtime.openot.producer_instance(s) are only valid"));
+}
+
+#[test]
+fn runtime_schema_rejects_openot_producer_instances_for_heartbeat_source() {
+    let text = format!(
+        "{}\n[runtime.openot]\nenabled = true\npath = \"openot.shm\"\nsource = \"heartbeat\"\nproducer_instances = [\"Main.Producer\"]\n",
+        runtime_toml()
+    );
+    let err = validate_runtime_toml_text(&text)
+        .expect_err("OpenOT heartbeat source must not accept producer_instances");
+    assert!(err
+        .to_string()
+        .contains("runtime.openot.producer_instance(s) are only valid"));
 }
 
 #[test]

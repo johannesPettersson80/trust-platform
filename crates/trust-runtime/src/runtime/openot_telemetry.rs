@@ -20,10 +20,7 @@ mod imp {
     pub(crate) struct OpenOtTelemetrySubsystem {
         publisher: Option<SharedRecordPublisher>,
         source: OpenOtTelemetrySource,
-        producer_instance: Option<SmolStr>,
-        previous_published_record_count: u64,
-        previous_dropped_lifecycle_count: u64,
-        previous_dropped_command_count: u64,
+        st_fb_producers: Vec<StFbProducerState>,
     }
 
     impl Default for OpenOtTelemetrySubsystem {
@@ -31,11 +28,33 @@ mod imp {
             Self {
                 publisher: None,
                 source: OpenOtTelemetrySource::Heartbeat,
-                producer_instance: None,
+                st_fb_producers: Vec::new(),
+            }
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    struct StFbProducerState {
+        path: SmolStr,
+        previous_published_record_count: u64,
+        previous_dropped_lifecycle_count: u64,
+        previous_dropped_command_count: u64,
+    }
+
+    impl StFbProducerState {
+        fn new(path: SmolStr) -> Self {
+            Self {
+                path,
                 previous_published_record_count: 0,
                 previous_dropped_lifecycle_count: 0,
                 previous_dropped_command_count: 0,
             }
+        }
+
+        fn reset(&mut self) {
+            self.previous_published_record_count = 0;
+            self.previous_dropped_lifecycle_count = 0;
+            self.previous_dropped_command_count = 0;
         }
     }
 
@@ -48,10 +67,7 @@ mod imp {
             if !config.enabled {
                 self.publisher = None;
                 self.source = OpenOtTelemetrySource::Heartbeat;
-                self.producer_instance = None;
-                self.previous_published_record_count = 0;
-                self.previous_dropped_lifecycle_count = 0;
-                self.previous_dropped_command_count = 0;
+                self.st_fb_producers.clear();
                 return Ok(());
             }
             validate_config(config)?;
@@ -61,10 +77,10 @@ mod imp {
                     .map_err(|err| telemetry_error("create", err))?;
             self.publisher = Some(publisher);
             self.source = config.source;
-            self.producer_instance = config.producer_instance.clone();
-            self.previous_published_record_count = 0;
-            self.previous_dropped_lifecycle_count = 0;
-            self.previous_dropped_command_count = 0;
+            self.st_fb_producers = configured_producer_instances(config)
+                .into_iter()
+                .map(StFbProducerState::new)
+                .collect();
             Ok(())
         }
 
@@ -85,9 +101,9 @@ mod imp {
         }
 
         pub(crate) fn reset_scan_state(&mut self) {
-            self.previous_published_record_count = 0;
-            self.previous_dropped_lifecycle_count = 0;
-            self.previous_dropped_command_count = 0;
+            for producer in &mut self.st_fb_producers {
+                producer.reset();
+            }
         }
 
         fn publish_heartbeat(&mut self, cycle_counter: u64) -> Result<(), RuntimeError> {
@@ -110,80 +126,34 @@ mod imp {
             let Some(_) = self.publisher.as_ref() else {
                 return Ok(());
             };
-            let path = self.producer_instance.as_deref().ok_or_else(|| {
-                telemetry_message(
-                    "st-fb source requires runtime.openot.producer_instance to be configured",
-                )
-            })?;
-            let snapshot = read_st_fb_outputs(storage, path)?;
-            let delta = snapshot
-                .published_record_count
-                .checked_sub(self.previous_published_record_count)
-                .ok_or_else(|| {
-                    telemetry_message(format!(
-                        "producer '{path}' PublishedRecordCount moved backwards from {} to {}",
-                        self.previous_published_record_count, snapshot.published_record_count
-                    ))
-                })?;
-            let dropped_lifecycle_delta = snapshot
-                .dropped_lifecycle_count
-                .checked_sub(self.previous_dropped_lifecycle_count)
-                .ok_or_else(|| {
-                    telemetry_message(format!(
-                        "producer '{path}' DroppedLifecycleCount moved backwards from {} to {}",
-                        self.previous_dropped_lifecycle_count, snapshot.dropped_lifecycle_count
-                    ))
-                })?;
-            if dropped_lifecycle_delta > 0 {
-                self.previous_dropped_lifecycle_count = snapshot.dropped_lifecycle_count;
-                return Err(telemetry_message(format!(
-                    "producer '{path}' dropped {dropped_lifecycle_delta} OpenOT lifecycle command(s); LastLifecycleError {}",
-                    snapshot.last_lifecycle_error
-                )));
+            if self.st_fb_producers.is_empty() {
+                return Err(telemetry_message(
+                    "st-fb source requires runtime.openot.producer_instance(s) to be configured",
+                ));
             }
-            let dropped_command_delta = snapshot
-                .dropped_command_count
-                .checked_sub(self.previous_dropped_command_count)
-                .ok_or_else(|| {
-                    telemetry_message(format!(
-                        "producer '{path}' DroppedCommandCount moved backwards from {} to {}",
-                        self.previous_dropped_command_count, snapshot.dropped_command_count
-                    ))
-                })?;
-            if dropped_command_delta > 0 {
-                self.previous_dropped_command_count = snapshot.dropped_command_count;
-                return Err(telemetry_message(format!(
-                    "producer '{path}' dropped {dropped_command_delta} OpenOT command(s); LastCommandError {}",
-                    snapshot.last_command_error
-                )));
-            }
-
-            if delta == 0 {
-                return Ok(());
-            }
-
-            let scan_record_count =
-                u64::try_from(snapshot.scan_record_count).expect("UINT count fits u64");
-            if delta != scan_record_count {
-                return Err(telemetry_message(format!(
-                    "producer '{path}' delta {delta} != ScanRecordCount {}",
-                    snapshot.scan_record_count
-                )));
-            }
-
             let publisher_capacity = self
                 .publisher
                 .as_ref()
                 .expect("publisher checked above")
                 .capacity();
-            let records = validate_scan_record_descriptors(path, &snapshot, publisher_capacity)?;
-            let publisher = self.publisher.as_mut().expect("publisher checked above");
-            for encoded in records {
-                publisher
-                    .append_encoded(encoded)
-                    .map_err(|err| telemetry_error("publish st-fb record", err))?;
+            let mut prepared = Vec::<PreparedStFbRecords>::new();
+            for (index, producer) in self.st_fb_producers.iter_mut().enumerate() {
+                if let Some(records) =
+                    prepare_st_fb_records(index, producer, storage, publisher_capacity)?
+                {
+                    prepared.push(records);
+                }
             }
-            self.previous_published_record_count = snapshot.published_record_count;
+            let publisher = self.publisher.as_mut().expect("publisher checked above");
+            for batch in prepared {
+                for encoded in &batch.records {
+                    publisher
+                        .append_encoded(encoded)
+                        .map_err(|err| telemetry_error("publish st-fb record", err))?;
+                }
+                self.st_fb_producers[batch.producer_index].previous_published_record_count =
+                    batch.published_record_count;
+            }
             Ok(())
         }
     }
@@ -209,29 +179,130 @@ mod imp {
         }
         match config.source {
             OpenOtTelemetrySource::Heartbeat => {
-                if config.producer_instance.is_some() {
+                if !configured_producer_instances(config).is_empty() {
                     return Err(RuntimeError::InvalidConfig(
-                        "runtime.openot.producer_instance is only valid when runtime.openot.source='st-fb'"
+                        "runtime.openot.producer_instance(s) are only valid when runtime.openot.source='st-fb'"
                             .into(),
                     ));
                 }
             }
             OpenOtTelemetrySource::StFb => {
-                let Some(path) = config.producer_instance.as_deref() else {
+                let producer_instances = configured_producer_instances(config);
+                if producer_instances.is_empty() {
                     return Err(RuntimeError::InvalidConfig(
-                        "runtime.openot.producer_instance is required when runtime.openot.source='st-fb'"
+                        "runtime.openot.producer_instance or runtime.openot.producer_instances is required when runtime.openot.source='st-fb'"
                             .into(),
                     ));
-                };
-                if !is_qualified_producer_path(path) {
-                    return Err(RuntimeError::InvalidConfig(
-                        "runtime.openot.producer_instance must be a qualified path like 'Main.Producer'"
+                }
+                let mut seen = std::collections::BTreeSet::<SmolStr>::new();
+                for path in producer_instances {
+                    if !seen.insert(path.clone()) {
+                        return Err(RuntimeError::InvalidConfig(
+                            format!(
+                                "runtime.openot.producer_instances contains duplicate path '{path}'"
+                            )
                             .into(),
-                    ));
+                        ));
+                    }
+                    if !is_qualified_producer_path(&path) {
+                        return Err(RuntimeError::InvalidConfig(
+                            "runtime.openot.producer_instance(s) must be qualified paths like 'Main.Producer'"
+                                .into(),
+                        ));
+                    }
                 }
             }
         }
         Ok(())
+    }
+
+    fn configured_producer_instances(config: &OpenOtTelemetryConfig) -> Vec<SmolStr> {
+        if config.producer_instances.is_empty() {
+            config.producer_instance.iter().cloned().collect()
+        } else {
+            config.producer_instances.clone()
+        }
+    }
+
+    #[derive(Debug)]
+    struct PreparedStFbRecords {
+        producer_index: usize,
+        published_record_count: u64,
+        records: Vec<Vec<u8>>,
+    }
+
+    fn prepare_st_fb_records(
+        producer_index: usize,
+        state: &mut StFbProducerState,
+        storage: &VariableStorage,
+        publisher_capacity: usize,
+    ) -> Result<Option<PreparedStFbRecords>, RuntimeError> {
+        let path = state.path.as_str();
+        let snapshot = read_st_fb_outputs(storage, path)?;
+        let delta = snapshot
+            .published_record_count
+            .checked_sub(state.previous_published_record_count)
+            .ok_or_else(|| {
+                telemetry_message(format!(
+                    "producer '{path}' PublishedRecordCount moved backwards from {} to {}",
+                    state.previous_published_record_count, snapshot.published_record_count
+                ))
+            })?;
+        let dropped_lifecycle_delta = snapshot
+            .dropped_lifecycle_count
+            .checked_sub(state.previous_dropped_lifecycle_count)
+            .ok_or_else(|| {
+                telemetry_message(format!(
+                    "producer '{path}' DroppedLifecycleCount moved backwards from {} to {}",
+                    state.previous_dropped_lifecycle_count, snapshot.dropped_lifecycle_count
+                ))
+            })?;
+        if dropped_lifecycle_delta > 0 {
+            state.previous_dropped_lifecycle_count = snapshot.dropped_lifecycle_count;
+            return Err(telemetry_message(format!(
+                "producer '{path}' dropped {dropped_lifecycle_delta} OpenOT lifecycle command(s); LastLifecycleError {}",
+                snapshot.last_lifecycle_error
+            )));
+        }
+        let dropped_command_delta = snapshot
+            .dropped_command_count
+            .checked_sub(state.previous_dropped_command_count)
+            .ok_or_else(|| {
+                telemetry_message(format!(
+                    "producer '{path}' DroppedCommandCount moved backwards from {} to {}",
+                    state.previous_dropped_command_count, snapshot.dropped_command_count
+                ))
+            })?;
+        if dropped_command_delta > 0 {
+            state.previous_dropped_command_count = snapshot.dropped_command_count;
+            return Err(telemetry_message(format!(
+                "producer '{path}' dropped {dropped_command_delta} OpenOT command(s); LastCommandError {}",
+                snapshot.last_command_error
+            )));
+        }
+
+        if delta == 0 {
+            return Ok(None);
+        }
+
+        let scan_record_count =
+            u64::try_from(snapshot.scan_record_count).expect("UINT count fits u64");
+        if delta != scan_record_count {
+            return Err(telemetry_message(format!(
+                "producer '{path}' delta {delta} != ScanRecordCount {}",
+                snapshot.scan_record_count
+            )));
+        }
+
+        let records = validate_scan_record_descriptors(path, &snapshot, publisher_capacity)?
+            .into_iter()
+            .map(<[u8]>::to_vec)
+            .collect();
+        Ok(Some(PreparedStFbRecords {
+            producer_index,
+            published_record_count: snapshot.published_record_count,
+            records,
+        }))
     }
 
     fn is_qualified_producer_path(path: &str) -> bool {

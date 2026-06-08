@@ -300,7 +300,10 @@ pub struct OpenOtTelemetryConfig {
     pub fence_mode: OpenOtTelemetryFenceMode,
     pub allow_unfenced_for_proof: bool,
     pub source: OpenOtTelemetrySource,
+    /// Back-compat alias for a single ST-FB producer path.
     pub producer_instance: Option<SmolStr>,
+    /// Normalized ST-FB producer paths drained in stable order.
+    pub producer_instances: Vec<SmolStr>,
 }
 
 impl Default for OpenOtTelemetryConfig {
@@ -313,6 +316,7 @@ impl Default for OpenOtTelemetryConfig {
             allow_unfenced_for_proof: false,
             source: OpenOtTelemetrySource::Heartbeat,
             producer_instance: None,
+            producer_instances: Vec::new(),
         }
     }
 }

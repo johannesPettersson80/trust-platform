@@ -42,28 +42,58 @@ fn parse_openot_section(section: Option<OpenOtSection>) -> Result<ParsedOpenOt, 
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(SmolStr::new);
+    let configured_instances = section.producer_instances.unwrap_or_default();
+    let producer_instances = configured_instances
+        .into_iter()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .map(SmolStr::new)
+        .collect::<Vec<_>>();
+
+    if producer_instance.is_some() && !producer_instances.is_empty() {
+        return Err(RuntimeError::InvalidConfig(
+            "runtime.openot.producer_instance and runtime.openot.producer_instances are aliases; set only one"
+                .into(),
+        ));
+    }
+    let normalized_producer_instances = if producer_instances.is_empty() {
+        producer_instance.iter().cloned().collect::<Vec<_>>()
+    } else {
+        producer_instances
+    };
+    let mut seen_instances = std::collections::BTreeSet::<String>::new();
+    for path in &normalized_producer_instances {
+        if !seen_instances.insert(path.to_string()) {
+            return Err(RuntimeError::InvalidConfig(
+                format!("runtime.openot.producer_instances contains duplicate path '{path}'")
+                    .into(),
+            ));
+        }
+    }
 
     match source {
         OpenOtTelemetrySource::Heartbeat => {
-            if producer_instance.is_some() {
+            if !normalized_producer_instances.is_empty() {
                 return Err(RuntimeError::InvalidConfig(
-                    "runtime.openot.producer_instance is only valid when runtime.openot.source='st-fb'"
+                    "runtime.openot.producer_instance(s) are only valid when runtime.openot.source='st-fb'"
                         .into(),
                 ));
             }
         }
         OpenOtTelemetrySource::StFb => {
-            let Some(path) = producer_instance.as_ref() else {
+            if normalized_producer_instances.is_empty() {
                 return Err(RuntimeError::InvalidConfig(
-                    "runtime.openot.producer_instance is required when runtime.openot.source='st-fb'"
+                    "runtime.openot.producer_instance or runtime.openot.producer_instances is required when runtime.openot.source='st-fb'"
                         .into(),
                 ));
-            };
-            if !is_qualified_openot_producer_path(path.as_str()) {
-                return Err(RuntimeError::InvalidConfig(
-                    "runtime.openot.producer_instance must be a qualified path like 'Main.Producer'"
-                        .into(),
-                ));
+            }
+            for path in &normalized_producer_instances {
+                if !is_qualified_openot_producer_path(path.as_str()) {
+                    return Err(RuntimeError::InvalidConfig(
+                        "runtime.openot.producer_instance(s) must be qualified paths like 'Main.Producer'"
+                            .into(),
+                    ));
+                }
             }
         }
     }
@@ -77,6 +107,7 @@ fn parse_openot_section(section: Option<OpenOtSection>) -> Result<ParsedOpenOt, 
             allow_unfenced_for_proof,
             source,
             producer_instance,
+            producer_instances: normalized_producer_instances,
         },
     })
 }

@@ -151,7 +151,8 @@ The generated program contains:
 
 The generated producer is the runtime telemetry source. Configure
 `runtime.openot` with `source = "st-fb"` and point `producer_instance` at the
-generated instance:
+generated instance. For a source file with multiple `PROGRAM` blocks, configure
+the generated producers with `producer_instances` in the drain order you want:
 
 ```toml
 [runtime.openot]
@@ -161,6 +162,16 @@ capacity = 4096
 fence_mode = "fenced"
 source = "st-fb"
 producer_instance = "Main.OotProducer"
+```
+
+```toml
+[runtime.openot]
+enabled = true
+path = "openot.shm"
+capacity = 4096
+fence_mode = "fenced"
+source = "st-fb"
+producer_instances = ["First.OotProducer", "Second.OotProducer"]
 ```
 
 See [runtime.toml](../reference/config/runtime-toml.md#runtimeopenot) for all
