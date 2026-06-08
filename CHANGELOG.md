@@ -29,6 +29,10 @@ Target release: `v0.24.22`
   `operator-logout`, and `security-failure`, including authResult symbol
   lowering, bounded `contextRef` bindings, runtime ST-FB emission, renderer
   support, completions, validation, and inlay hints.
+- trust-runtime/trust-lsp: OpenOT audited value declarations now emit
+  `ParameterChange` records via `audit := 'true'`, with compile-time string
+  width and record-size validation, producer baseline rollback on fail-closed
+  drops, resolved audit rendering, completions, diagnostics, and inlay hints.
 - docs: added a public OpenOT attribute-authoring guide covering the truST
   compiler diagnostics, language-server assistance, generated producer path,
   definition-file generation, and `[runtime.openot] source = "st-fb"` runtime

@@ -14,7 +14,7 @@ use open_ot_carriage::registry::{
     EVENT_CONDITION_RESET, EVENT_CONDITION_SHELVED, EVENT_CONDITION_SUPPRESSED,
     EVENT_CONDITION_UNSHELVED, EVENT_CONDITION_UNSUPPRESSED, EVENT_HEARTBEAT, EVENT_LOGGER_STOPPED,
     EVENT_MATERIAL_ADDITION, EVENT_MESSAGE, EVENT_OPERATOR_ACTION, EVENT_OPERATOR_LOGIN,
-    EVENT_OPERATOR_LOGOUT, EVENT_RECIPE_APPROVED, EVENT_RECIPE_LOADED,
+    EVENT_OPERATOR_LOGOUT, EVENT_PARAMETER_CHANGE, EVENT_RECIPE_APPROVED, EVENT_RECIPE_LOADED,
     EVENT_SECURITY_ACCESS_FAILURE, EVENT_SOURCE_HIGH_WATER, EVENT_STATE_TRANSITION,
     EVENT_VALUE_CHANGED, KEY_ACK_BY, KEY_ACTION_ID, KEY_ACTOR, KEY_ARG, KEY_AUTH_RESULT,
     KEY_BATCH_ID, KEY_CATEGORY, KEY_CAUSE_OPERAND, KEY_COMMENT, KEY_CONDITION_CLASS,
@@ -819,6 +819,212 @@ END_PROGRAM
     assert_eq!(
         render_record(&batch.records[3].record),
         "ValueChanged source=1 seq=3 valueId=2004 new=STRING(ready)"
+    );
+
+    drop(std::fs::remove_file(path));
+}
+
+#[test]
+fn openot_telemetry_authoring_parameter_change_round_trip() {
+    let path = temp_shm_path("authoring-parameter-change");
+    let program = r#"
+PROGRAM Main
+VAR
+    Phase : UINT;
+    OperatorName : STRING[32] := 'operator-a';
+    ReasonText : STRING[32] := 'audit change';
+    SetPoint : REAL {attribute 'oot' := 'value', 'id' := '2101', 'audit' := 'true', 'actor' := OperatorName, 'reason' := ReasonText, 'auth' := 'Granted', 'unit' := 'bar', 'semanticRole' := 'setpoint'};
+    BatchCount : DINT {attribute 'oot' := 'value', 'id' := '2102', 'audit' := 'true', 'actor' := OperatorName, 'reason' := ReasonText};
+    Enabled : BOOL {attribute 'oot' := 'value', 'id' := '2103', 'audit' := 'true', 'actor' := OperatorName, 'reason' := ReasonText};
+    ModeText : STRING[16] {attribute 'oot' := 'value', 'id' := '2104', 'audit' := 'true', 'actor' := OperatorName, 'reason' := ReasonText};
+END_VAR
+
+CASE Phase OF
+    UINT#0:
+        SetPoint := REAL#10.0;
+        BatchCount := DINT#1;
+        Enabled := FALSE;
+        ModeText := 'manual';
+    UINT#1:
+        SetPoint := REAL#12.5;
+        BatchCount := DINT#2;
+        Enabled := TRUE;
+        ModeText := 'auto';
+END_CASE;
+Phase := Phase + UINT#1;
+END_PROGRAM
+"#;
+    let mut runtime = build_st_runtime(program);
+    runtime
+        .configure_openot_telemetry(
+            &st_fb_telemetry_config_for(path.clone(), 4096, "Main.OotProducer"),
+            None,
+        )
+        .expect("configure OpenOT ST FB telemetry");
+
+    let store = SharedConcurrentStore::open_existing(&path).expect("open telemetry shm");
+    let mut consumer = ConcurrentRawConsumer::with_store(store);
+
+    runtime
+        .execute_cycle()
+        .expect("first audited value cycle only seeds baselines");
+    let batch = consumer.poll().expect("poll seeded audited values");
+    assert_eq!(batch.records.len(), 0);
+
+    runtime
+        .execute_cycle()
+        .expect("second audited value cycle publishes changes");
+    let batch = consumer.poll().expect("poll audited value changes");
+    assert_eq!(batch.records.len(), 4);
+    assert!(batch
+        .records
+        .iter()
+        .all(|read| read.record.event_type_id == EVENT_PARAMETER_CHANGE));
+    assert!(batch
+        .records
+        .iter()
+        .all(|read| read.record.event_type_id != EVENT_VALUE_CHANGED));
+
+    let rendered = batch
+        .records
+        .iter()
+        .map(|read| render_record(&read.record))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        rendered,
+        [
+            "ParameterChange source=1 seq=0 valueId=2101 previous=REAL(10) new=REAL(12.5) actor=operator-a reason=audit change authResult=0",
+            "ParameterChange source=1 seq=1 valueId=2102 previous=DINT(1) new=DINT(2) actor=operator-a reason=audit change",
+            "ParameterChange source=1 seq=2 valueId=2103 previous=BOOL(false) new=BOOL(true) actor=operator-a reason=audit change",
+            "ParameterChange source=1 seq=3 valueId=2104 previous=STRING(manual) new=STRING(auto) actor=operator-a reason=audit change",
+        ]
+    );
+
+    let definition_json = openot_authoring::definition_json_from_sources(&[SourceFile::with_path(
+        "parameter_change.st",
+        program,
+    )])
+    .expect("parameter-change definition");
+    assert_eq!(definition_json["values"][0]["valueId"], 2101);
+    assert_eq!(definition_json["values"][0]["name"], "SetPoint");
+    assert_eq!(definition_json["values"][0]["semanticRole"], 1);
+    assert_eq!(definition_json["values"][0]["unit"], 4);
+    assert_eq!(definition_json["operatorDefinitions"], json!([]));
+    let definition: DefinitionFile =
+        serde_json::from_value(definition_json).expect("definition parses");
+    let hash = compute_content_hash(&definition).expect("hash definition");
+    let snapshot = ControlBlockSnapshot {
+        version: 2,
+        caps: 0,
+        buffer_id: DEFAULT_BUFFER_ID,
+        buffer_bytes: 4096,
+        head_abs: batch.records.last().map_or(0, |record| record.end_abs),
+        oldest_abs: batch.records.first().map_or(0, |record| record.start_abs),
+        lost_count: 0,
+        run_id: 1,
+        epoch_id: 1,
+        epoch_first_abs: 0,
+        definition_hash: hash.carriage_hash,
+        prev_definition_hash: [0; 8],
+    };
+    let definition_set = DefinitionSet::current(&definition);
+    let resolution = resolve_record(
+        &batch.records[0].record,
+        batch.records[0].start_abs,
+        &snapshot,
+        &definition_set,
+    );
+    let context = RecordDocumentContext::new(
+        DEFAULT_BUFFER_ID,
+        batch.records[0].record.source_time,
+        hash.carriage_hash,
+        batch.records[0].record.flags,
+    )
+    .with_semantic_version(definition.header.semantic_version.clone());
+    let document = document_from_resolution(&resolution, &context);
+    let document_text = to_json(&document).expect("serialize parameter-change document");
+    assert!(
+        document_text.contains(r#""eventName":"ParameterChange""#),
+        "{document_text}"
+    );
+    assert!(
+        document_text.contains(r#""name":"value","type":"ValueRef","value":"SetPoint""#),
+        "{document_text}"
+    );
+    assert!(
+        document_text.contains(r#""name":"actor","type":"String","value":"operator-a""#),
+        "{document_text}"
+    );
+    assert!(
+        document_text.contains(r#""name":"reason","type":"String","value":"audit change""#),
+        "{document_text}"
+    );
+
+    drop(std::fs::remove_file(path));
+}
+
+#[test]
+fn openot_telemetry_parameter_change_oversize_drop_keeps_baseline() {
+    let path = temp_shm_path("parameter-change-oversize");
+    let program = r#"
+PROGRAM Main
+VAR
+    Producer : OPENOT_Producer;
+    Phase : UINT;
+    ActorLong : STRING[96] := 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    ReasonLong : STRING[96] := 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+    ActorShort : STRING[8] := 'operator';
+    ReasonShort : STRING[8] := 'reason';
+    OldText : STRING[96] := 'old-state';
+    NewText : STRING[96] := 'new-state';
+END_VAR
+
+CASE Phase OF
+    UINT#0:
+        Producer(Execute := TRUE, Op := UINT#15, SourceId := UDINT#88, ValueId := UDINT#2301, ValueTypeTag := BYTE#16#0C, ValuePayloadLength := UINT#96, ValueString := OldText, AuditActor := ActorLong, AuditReason := ReasonLong);
+        Producer(Execute := FALSE);
+    UINT#1:
+        Producer(Execute := TRUE, Op := UINT#15, SourceId := UDINT#88, ValueId := UDINT#2301, ValueTypeTag := BYTE#16#0C, ValuePayloadLength := UINT#96, ValueString := NewText, AuditActor := ActorLong, AuditReason := ReasonLong);
+        Producer(Execute := FALSE);
+    UINT#2:
+        Producer(Execute := TRUE, Op := UINT#15, SourceId := UDINT#88, ValueId := UDINT#2301, ValueTypeTag := BYTE#16#0C, ValuePayloadLength := UINT#96, ValueString := NewText, AuditActor := ActorShort, AuditReason := ReasonShort);
+        Producer(Execute := FALSE);
+END_CASE;
+Phase := Phase + UINT#1;
+END_PROGRAM
+"#;
+    let mut runtime = build_st_runtime(program);
+    runtime
+        .configure_openot_telemetry(&st_fb_telemetry_config(path.clone(), 4096), None)
+        .expect("configure OpenOT ST FB telemetry");
+
+    let store = SharedConcurrentStore::open_existing(&path).expect("open telemetry shm");
+    let mut consumer = ConcurrentRawConsumer::with_store(store);
+
+    runtime
+        .execute_cycle()
+        .expect("first audited string observation only seeds");
+    let batch = consumer.poll().expect("poll seeded audited string");
+    assert!(batch.records.is_empty(), "{batch:#?}");
+
+    let err = runtime
+        .execute_cycle()
+        .expect_err("oversize audited string record must fail closed");
+    let err = format!("{err:?}");
+    assert!(err.contains("dropped 1 OpenOT command(s)"), "{err}");
+    assert!(err.contains("LastCommandError 3"), "{err}");
+    let batch = consumer.poll().expect("poll after oversize audited string");
+    assert!(batch.records.is_empty(), "{batch:#?}");
+    runtime.clear_fault();
+
+    runtime
+        .execute_cycle()
+        .expect("short audit strings retry publishes original previous value");
+    let batch = consumer.poll().expect("poll retried audited string");
+    assert_eq!(batch.records.len(), 1);
+    assert_eq!(
+        render_record(&batch.records[0].record),
+        "ParameterChange source=88 seq=0 valueId=2301 previous=STRING(old-state) new=STRING(new-state) actor=operator reason=reason"
     );
 
     drop(std::fs::remove_file(path));
@@ -1733,6 +1939,7 @@ fn render_record(record: &Record) -> String {
         EVENT_OPERATOR_LOGIN => render_operator_login(record),
         EVENT_OPERATOR_LOGOUT => render_operator_logout(record),
         EVENT_SECURITY_ACCESS_FAILURE => render_security_access_failure(record),
+        EVENT_PARAMETER_CHANGE => render_parameter_change(record),
         EVENT_VALUE_CHANGED => render_value_changed(record),
         other => format!(
             "Event 0x{other:08X} source={} seq={}",
@@ -2035,6 +2242,23 @@ fn render_security_access_failure(record: &Record) -> String {
         required_string(record, KEY_ACTOR),
         workstation,
         reason
+    )
+}
+
+fn render_parameter_change(record: &Record) -> String {
+    let auth_result = slot(record, KEY_AUTH_RESULT)
+        .map(|_| format!(" authResult={}", required_uint(record, KEY_AUTH_RESULT)))
+        .unwrap_or_default();
+    format!(
+        "ParameterChange source={} seq={} valueId={} previous={} new={} actor={} reason={}{}",
+        record.source_id,
+        record.seq,
+        required_udint(record, KEY_VALUE_ID),
+        required_value(record, KEY_PREVIOUS_VALUE),
+        required_value(record, KEY_NEW_VALUE),
+        required_string(record, KEY_ACTOR),
+        required_string(record, KEY_REASON),
+        auth_result
     )
 }
 

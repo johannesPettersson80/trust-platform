@@ -125,6 +125,7 @@ fn openot_key_items(kind: openot_vocab::OotKind) -> Vec<CompletionItem> {
                 "previous" => "'previous' := '${1:true}'",
                 "sampling" => "'sampling' := '${1:on-change}'",
                 "interval" => "'interval' := '${1:1000}'",
+                "audit" => "'audit' := '${1:true}'",
                 "of" => "'of' := ${1:AlarmVariable}",
                 "event" => "'event' := '${1:acknowledge}'",
                 "by" => "'by' := ${1:OperatorName}",
@@ -171,6 +172,7 @@ fn openot_value_items(key: &str) -> Vec<CompletionItem> {
             openot_vocab::SEMANTIC_ROLE_VALUES,
         ),
         "previous" => string_value_items("OpenOT previous-value capture", &["true", "false"]),
+        "audit" => string_value_items("OpenOT audited value stream", &["true", "false"]),
         "sampling" => {
             string_value_items("OpenOT value sampling policy", openot_vocab::SAMPLING_VALUES)
         }

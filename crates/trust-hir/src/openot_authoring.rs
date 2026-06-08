@@ -113,6 +113,10 @@ pub const VALUE_KEYS: &[&str] = &[
     "previous",
     "sampling",
     "interval",
+    "audit",
+    "actor",
+    "reason",
+    "auth",
 ];
 /// Unit symbols accepted by the current OpenOT reference registry.
 pub const UNIT_VALUES: &[&str] = &["1", "L", "degC", "bar", "rpm", "s", "ms", "kg", "m", "%"];
@@ -383,12 +387,31 @@ fn validate_local_openot_references(program: &SyntaxNode) -> Vec<Diagnostic> {
     let local_types = local_declared_types(program);
     let local_kinds = local_openot_kinds(program);
     let mut diagnostics = Vec::new();
+    diagnostics.extend(validate_duplicate_pinned_value_ids(program));
     for var_decl in program
         .descendants()
         .filter(|node| node.kind() == SyntaxKind::VarDecl)
     {
         let attrs = parse_attribute_map_from_node(&var_decl);
+        let declared_type = var_decl
+            .children()
+            .find(|child| child.kind() == SyntaxKind::TypeRef)
+            .map(|node| compact_node_text(&node));
         match attrs.kind() {
+            Some(OotKind::Value) if is_audit_enabled(&attrs) => {
+                let actor_len =
+                    validate_audit_string_binding(&attrs, "actor", &local_types, &mut diagnostics);
+                let reason_len =
+                    validate_audit_string_binding(&attrs, "reason", &local_types, &mut diagnostics);
+                validate_auth_binding(&attrs, "auth", &local_types, &mut diagnostics);
+                validate_audited_value_record_budget(
+                    &attrs,
+                    declared_type.as_deref(),
+                    actor_len,
+                    reason_len,
+                    &mut diagnostics,
+                );
+            }
             Some(OotKind::Message) => {
                 for key in ["arg1", "arg2", "arg3", "arg4"] {
                     validate_decl_ref(&attrs, key, &local_types, true, &mut diagnostics);
@@ -680,6 +703,101 @@ fn validate_condition_parent_ref(
             entry.range,
             format!("OpenOT 'of' references unknown variable '{}'", entry.value),
         )),
+    }
+}
+
+fn validate_duplicate_pinned_value_ids(program: &SyntaxNode) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    let mut pinned = BTreeMap::<u32, TextRange>::new();
+    for var_decl in program
+        .descendants()
+        .filter(|node| node.kind() == SyntaxKind::VarDecl)
+    {
+        let attrs = parse_attribute_map_from_node(&var_decl);
+        if attrs.kind() != Some(OotKind::Value) {
+            continue;
+        }
+        let Some(entry) = last_entry(&attrs, "valueid").or_else(|| last_entry(&attrs, "id")) else {
+            continue;
+        };
+        let Ok(value_id) = entry.value.parse::<u32>() else {
+            continue;
+        };
+        if pinned.insert(value_id, entry.range).is_some() {
+            diagnostics.push(openot_error(
+                entry.range,
+                format!(
+                    "OpenOT valueId {value_id} is already used by another value in this producer instance"
+                ),
+            ));
+        }
+    }
+    diagnostics
+}
+
+fn validate_audit_string_binding(
+    attrs: &AttributeMap,
+    key: &str,
+    local_types: &BTreeMap<String, String>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<usize> {
+    let entry = last_entry(attrs, key)?;
+    let Some(st_type) = local_types.get(&entry.value.to_ascii_lowercase()) else {
+        diagnostics.push(openot_error(
+            entry.range,
+            format!(
+                "OpenOT '{key}' references unknown variable '{}'",
+                entry.value
+            ),
+        ));
+        return None;
+    };
+    match concrete_string_max_len(st_type) {
+        Some(length) if length <= 96 => Some(length),
+        _ => {
+            diagnostics.push(openot_error(
+                entry.range,
+                "audited values require STRING[n], n <= 96 - needed to prove the record fits the 256-byte producer buffer",
+            ));
+            None
+        }
+    }
+}
+
+fn validate_audited_value_record_budget(
+    attrs: &AttributeMap,
+    declared_type: Option<&str>,
+    actor_len: Option<usize>,
+    reason_len: Option<usize>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Some(oot_entry) = last_entry(attrs, OOT_KEY) else {
+        return;
+    };
+    let Some(value_slot_len) = declared_type.and_then(audited_value_slot_len) else {
+        if declared_type.is_some_and(is_string_type_name) {
+            diagnostics.push(openot_error(
+                oot_entry.range,
+                "audited values require STRING[n], n <= 96 - needed to prove the record fits the 256-byte producer buffer",
+            ));
+        }
+        return;
+    };
+    let (Some(actor_len), Some(reason_len)) = (actor_len, reason_len) else {
+        return;
+    };
+    let total = 52
+        + (2 * value_slot_len)
+        + aligned_slot_len(actor_len)
+        + aligned_slot_len(reason_len)
+        + if attrs.get("auth").is_some() { 8 } else { 0 };
+    if total > 256 {
+        diagnostics.push(openot_error(
+            oot_entry.range,
+            format!(
+                "OpenOT audited value record worst-case size {total} exceeds the 256-byte producer buffer; narrow actor, reason, or string value widths"
+            ),
+        ));
     }
 }
 
@@ -1049,6 +1167,7 @@ pub fn validate_attribute_map(
     }
     if kind == OotKind::Value {
         validate_value_sampling(attrs, &mut diagnostics);
+        validate_value_audit(attrs, &mut diagnostics);
     }
     if kind == OotKind::Condition {
         validate_condition_lifecycle(attrs, &mut diagnostics);
@@ -1147,6 +1266,33 @@ fn is_string_96_type_name(ty: &str) -> bool {
         return false;
     };
     length <= 96
+}
+
+fn concrete_string_max_len(ty: &str) -> Option<usize> {
+    let upper = ty.trim().to_ascii_uppercase();
+    upper
+        .strip_prefix("STRING[")
+        .and_then(|rest| rest.strip_suffix(']'))
+        .and_then(|digits| digits.trim().parse::<usize>().ok())
+}
+
+fn aligned_slot_len(payload_len: usize) -> usize {
+    4 + payload_len + ((4 - (payload_len % 4)) % 4)
+}
+
+fn audited_value_slot_len(ty: &str) -> Option<usize> {
+    if let Some(length) = concrete_string_max_len(ty) {
+        return (length <= 96).then(|| aligned_slot_len(length));
+    }
+    let payload_len = match ty.trim().to_ascii_uppercase().as_str() {
+        "BOOL" | "SINT" | "USINT" => 1,
+        "INT" | "UINT" => 2,
+        "DINT" | "UDINT" | "REAL" => 4,
+        "LINT" | "ULINT" | "LREAL" => 8,
+        "STRING" => return None,
+        _ => return None,
+    };
+    Some(aligned_slot_len(payload_len))
 }
 
 fn is_udint_type_name(ty: &str) -> bool {
@@ -1270,6 +1416,12 @@ pub fn sampling_policy(value: &str) -> Option<&'static str> {
         "hysteresis" => Some("hysteresis"),
         _ => None,
     }
+}
+
+fn is_audit_enabled(attrs: &AttributeMap) -> bool {
+    attrs
+        .get("audit")
+        .is_some_and(|value| value.eq_ignore_ascii_case("true"))
 }
 
 fn validate_key_value(
@@ -1398,6 +1550,14 @@ fn validate_key_value(
                     entry.value,
                     format_allowed(UNIT_VALUES)
                 ),
+            ));
+        }
+        (OotKind::Value, "audit")
+            if !matches!(entry.value.to_ascii_lowercase().as_str(), "true" | "false") =>
+        {
+            diagnostics.push(openot_error(
+                entry.range,
+                "OpenOT audit must be 'true' or 'false'",
             ));
         }
         (OotKind::MaterialAddition, "unit") if entry.value.trim().is_empty() => {
@@ -1646,6 +1806,47 @@ fn validate_value_sampling(attrs: &AttributeMap, diagnostics: &mut Vec<Diagnosti
             diagnostics.push(openot_error(
                 entry.range,
                 "OpenOT 'interval' is only valid with sampling := 'periodic'",
+            ));
+        }
+    }
+}
+
+fn validate_value_audit(attrs: &AttributeMap, diagnostics: &mut Vec<Diagnostic>) {
+    let audit_entry = last_entry(attrs, "audit");
+    let audit_enabled = is_audit_enabled(attrs);
+
+    if !audit_enabled {
+        for key in ["actor", "reason", "auth"] {
+            if let Some(entry) = last_entry(attrs, key) {
+                diagnostics.push(openot_error(
+                    entry.range,
+                    format!("OpenOT value audit key '{key}' requires audit := 'true'"),
+                ));
+            }
+        }
+        return;
+    }
+
+    let range = audit_entry.map_or_else(|| TextRange::empty(0.into()), |entry| entry.range);
+    for key in ["actor", "reason"] {
+        match last_entry(attrs, key) {
+            Some(entry) if entry.value.trim().is_empty() => diagnostics.push(openot_error(
+                entry.range,
+                format!("OpenOT audited value requires '{key}' to name a STRING[n] variable"),
+            )),
+            Some(_) => {}
+            None => diagnostics.push(openot_error(
+                range,
+                format!("OpenOT audited value requires '{key}'"),
+            )),
+        }
+    }
+
+    for key in ["deadband", "quality", "previous", "sampling", "interval"] {
+        if let Some(entry) = last_entry(attrs, key) {
+            diagnostics.push(openot_error(
+                entry.range,
+                format!("OpenOT audited values do not allow '{key}'"),
             ));
         }
     }
@@ -1972,6 +2173,25 @@ END_PROGRAM
     }
 
     #[test]
+    fn validates_audited_value_references_and_budget() {
+        let source = r#"
+PROGRAM Main
+VAR
+    Actor : STRING[32];
+    ReasonText : STRING[64];
+    SetPoint : REAL {attribute 'oot' := 'value', 'audit' := 'true', 'actor' := Actor, 'reason' := ReasonText, 'auth' := 'Granted', 'unit' := 'bar', 'semanticRole' := 'setpoint'};
+    BatchCount : DINT {attribute 'oot' := 'value', 'audit' := 'true', 'actor' := Actor, 'reason' := ReasonText};
+    Enabled : BOOL {attribute 'oot' := 'value', 'audit' := 'true', 'actor' := Actor, 'reason' := ReasonText};
+    ModeText : STRING[16] {attribute 'oot' := 'value', 'audit' := 'true', 'actor' := Actor, 'reason' := ReasonText};
+END_VAR
+END_PROGRAM
+"#;
+        let parsed = parse(source);
+        let diagnostics = collect_openot_attribute_diagnostics(&parsed.syntax());
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    }
+
+    #[test]
     fn rejects_invalid_batch_recipe_attributes() {
         let source = r#"
 PROGRAM Main
@@ -2007,6 +2227,54 @@ END_PROGRAM
             "unknown OpenOT key 'reason' for kind 'recipe-loaded'",
             "unknown OpenOT key 'effectivetime' for kind 'recipe-loaded'",
             "unknown OpenOT key 'correctionof' for kind 'material-addition'",
+        ] {
+            assert!(
+                diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.message.contains(expected)),
+                "missing {expected}; got {diagnostics:#?}"
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_invalid_audited_value_attributes() {
+        let source = r#"
+PROGRAM Main
+VAR
+    ActorBare : STRING;
+    Actor : STRING[32];
+    Actor64 : STRING[64];
+    ReasonWide : STRING[128];
+    Reason96 : STRING[96];
+    Reason : STRING[32];
+    BadAuth : DINT;
+    SetPoint : REAL {attribute 'oot' := 'value', 'audit' := 'true', 'actor' := ActorBare, 'reason' := Reason};
+    WideReason : REAL {attribute 'oot' := 'value', 'audit' := 'true', 'actor' := Actor, 'reason' := ReasonWide};
+    OversizeText : STRING[96] {attribute 'oot' := 'value', 'audit' := 'true', 'actor' := Actor64, 'reason' := Reason96, 'auth' := 'Granted'};
+    MissingActor : REAL {attribute 'oot' := 'value', 'audit' := 'true', 'reason' := Reason};
+    BadDeadband : REAL {attribute 'oot' := 'value', 'audit' := 'true', 'actor' := Actor, 'reason' := Reason, 'deadband' := '0.5'};
+    BadSampling : REAL {attribute 'oot' := 'value', 'audit' := 'true', 'actor' := Actor, 'reason' := Reason, 'sampling' := 'periodic', 'interval' := '1000'};
+    BadAuthType : REAL {attribute 'oot' := 'value', 'audit' := 'true', 'actor' := Actor, 'reason' := Reason, 'auth' := BadAuth};
+    AuditKeyWithoutAudit : REAL {attribute 'oot' := 'value', 'actor' := Actor};
+    IdA : REAL {attribute 'oot' := 'value', 'id' := '2201'};
+    IdB : DINT {attribute 'oot' := 'value', 'id' := '2201', 'audit' := 'true', 'actor' := Actor, 'reason' := Reason};
+END_VAR
+END_PROGRAM
+"#;
+        let parsed = parse(source);
+        let diagnostics = collect_openot_attribute_diagnostics(&parsed.syntax());
+        for expected in [
+            "audited values require STRING[n], n <= 96",
+            "audited values require STRING[n], n <= 96",
+            "worst-case size",
+            "requires 'actor'",
+            "do not allow 'deadband'",
+            "do not allow 'sampling'",
+            "do not allow 'interval'",
+            "expected UINT",
+            "requires audit := 'true'",
+            "already used by another value",
         ] {
             assert!(
                 diagnostics

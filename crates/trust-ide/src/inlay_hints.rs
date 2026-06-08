@@ -132,6 +132,12 @@ fn openot_attribute_hints(root: &SyntaxNode, range: TextRange) -> Vec<InlayHint>
 fn openot_hint_label(kind: OotKind, attrs: &openot_vocab::AttributeMap) -> Option<String> {
     match kind {
         OotKind::Value => {
+            if attrs
+                .get("audit")
+                .is_some_and(|value| value.eq_ignore_ascii_case("true"))
+            {
+                return Some("ParameterChange on change".to_string());
+            }
             let mut label = match attrs.get("sampling") {
                 Some(value) if value.eq_ignore_ascii_case("periodic") => {
                     let interval = attrs.get("interval").unwrap_or("?");

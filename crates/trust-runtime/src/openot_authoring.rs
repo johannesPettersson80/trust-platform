@@ -705,17 +705,17 @@ fn annotation_from_parts(
                 recipe_id: None,
                 recipe_version: None,
                 procedure_batch_id: None,
-                auth_result: None,
+                auth_result: draft.auth_result,
                 procedure_ack_by: None,
                 material_id: None,
                 quantity: None,
                 material_unit_id: None,
                 regulated_action_id: None,
-                regulated_actor: None,
+                regulated_actor: draft.regulated_actor,
                 regulated_context_refs: Vec::new(),
                 regulated_workstation: None,
                 regulated_role: None,
-                regulated_reason: None,
+                regulated_reason: draft.regulated_reason,
             }
         }
         OotKind::State => {
@@ -1236,6 +1236,10 @@ fn hidden_statements(annotations: &[Annotation]) -> Vec<String> {
 }
 
 fn value_statements(annotation: &Annotation) -> Vec<String> {
+    if annotation.is_audited_value() {
+        return audited_value_statements(annotation);
+    }
+
     if annotation.is_real() {
         return vec![
             format!(
@@ -1302,6 +1306,60 @@ fn value_statements(annotation: &Annotation) -> Vec<String> {
             bool_literal(annotation.quality.is_some()),
             annotation.quality.unwrap_or(0)
         ),
+        format!("{PRODUCER_NAME}(Execute := FALSE);"),
+    ]
+}
+
+fn audited_value_statements(annotation: &Annotation) -> Vec<String> {
+    let mut call_args = vec![
+        "Execute := TRUE".to_string(),
+        "Op := UINT#15".to_string(),
+        format!("SourceId := UDINT#{}", annotation.source_id),
+        source_time_args(),
+        format!("ValueId := UDINT#{}", annotation.id),
+        format!("ValueTypeTag := BYTE#16#{:02X}", annotation.tlv_type()),
+        format!("ValuePayloadLength := UINT#{}", annotation.payload_len()),
+    ];
+
+    if annotation.is_real() {
+        call_args.push(format!("ValueReal := {}", annotation.var_name));
+    } else if annotation.is_dint() {
+        call_args.push(format!("ValueInt := {}", annotation.var_name));
+    } else if annotation.is_string() {
+        call_args.push(format!("ValueString := {}", annotation.var_name));
+    } else {
+        call_args.push(format!("ValueBits := {}", annotation.value_bits_expr()));
+    }
+
+    call_args.push(format!(
+        "AuditActor := {}",
+        annotation
+            .regulated_actor
+            .as_deref()
+            .expect("audit actor should be validated")
+    ));
+    call_args.push(format!(
+        "AuditReason := {}",
+        annotation
+            .regulated_reason
+            .as_deref()
+            .expect("audit reason should be validated")
+    ));
+    call_args.push(format!(
+        "AuditHasAuthResult := {}",
+        bool_literal(annotation.auth_result.is_some())
+    ));
+    call_args.push(format!(
+        "AuditAuthResult := {}",
+        annotation
+            .auth_result
+            .as_deref()
+            .map(auth_result_expr)
+            .unwrap_or_else(|| "UINT#0".to_string())
+    ));
+
+    vec![
+        format!("{PRODUCER_NAME}({});", call_args.join(", ")),
         format!("{PRODUCER_NAME}(Execute := FALSE);"),
     ]
 }
@@ -1928,6 +1986,12 @@ impl Annotation {
     fn is_string(&self) -> bool {
         let ty = self.normalized_type();
         ty == "STRING" || ty.starts_with("STRING[")
+    }
+
+    fn is_audited_value(&self) -> bool {
+        self.kind == OotKind::Value
+            && self.regulated_actor.is_some()
+            && self.regulated_reason.is_some()
     }
 
     fn normalized_type(&self) -> String {

@@ -9,6 +9,7 @@ PROGRAM Main
 	VAR
 	    Untagged : REAL {attribute 'oot' := ''};
 	    Level : REAL {attribute 'oot' := 'value', };
+	    AuditedLevel : REAL {attribute 'oot' := 'value', 'audit' := ''};
 	    Step : E_Step {attribute 'oot' := 'state', 'category' := ''};
 	    HighPhAlarm : BOOL {attribute 'oot' := 'alarm', };
 	    Started : BOOL {attribute 'oot' := 'message', };
@@ -48,6 +49,12 @@ PROGRAM Main
     let value_key_labels = completion_labels(&state, &uri, source, value_key_cursor);
     assert!(value_key_labels.iter().any(|label| label == "sampling"));
     assert!(value_key_labels.iter().any(|label| label == "interval"));
+    assert!(value_key_labels.iter().any(|label| label == "audit"));
+
+    let audit_cursor = source.find("'audit' := '").expect("audit") + "'audit' := '".len();
+    let audit_labels = completion_labels(&state, &uri, source, audit_cursor);
+    assert!(audit_labels.iter().any(|label| label == "true"));
+    assert!(audit_labels.iter().any(|label| label == "false"));
 
     let key_cursor = source.find("'alarm', ").expect("alarm comma") + "'alarm', ".len();
     let key_labels = completion_labels(&state, &uri, source, key_cursor);
@@ -157,6 +164,9 @@ pub(super) fn lsp_openot_validation_reports_bad_value_and_accepts_good_value() {
 PROGRAM Main
 VAR
     Step : INT {attribute 'oot' := 'state', 'category' := 'banana'};
+    Actor : STRING;
+    ReasonText : STRING[128];
+    SetPoint : REAL {attribute 'oot' := 'value', 'audit' := 'true', 'actor' := Actor, 'reason' := ReasonText};
 END_VAR
 END_PROGRAM
 "#;
@@ -172,6 +182,14 @@ END_PROGRAM
                     tower_lsp::lsp_types::NumberOrString::String(value) if value == "E308"
                 )
             }) && diagnostic.message.contains("unknown OpenOT category")
+        }),
+        "{bad_diagnostics:#?}"
+    );
+    assert!(
+        bad_diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("audited values require STRING[n], n <= 96")
         }),
         "{bad_diagnostics:#?}"
     );
@@ -208,6 +226,9 @@ pub(super) fn lsp_openot_inlay_hint_shows_emitted_record() {
 PROGRAM Main
 VAR
 	    Level : REAL {attribute 'oot' := 'value', 'unit' := 'L', 'deadband' := '0.5'};
+	    Actor : STRING[32] := 'operator-a';
+	    ReasonText : STRING[32] := 'change';
+	    SetPoint : REAL {attribute 'oot' := 'value', 'audit' := 'true', 'actor' := Actor, 'reason' := ReasonText};
 	    HighPhAlarm : BOOL {attribute 'oot' := 'alarm'};
 	    AckHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'acknowledge'};
 	    BatchState : E_Step {attribute 'oot' := 'batch', 'batchId' := BatchId};
@@ -232,6 +253,12 @@ VAR
         hints
             .iter()
             .any(|hint| inlay_label_contains(&hint.label, "ValueChanged on delta>0.5 L")),
+        "{hints:#?}"
+    );
+    assert!(
+        hints
+            .iter()
+            .any(|hint| inlay_label_contains(&hint.label, "ParameterChange on change")),
         "{hints:#?}"
     );
     assert!(
