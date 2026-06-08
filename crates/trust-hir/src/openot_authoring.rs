@@ -79,8 +79,17 @@ pub const MESSAGE_KEYS: &[&str] = &["template", "severity", "arg1", "arg2", "arg
 /// Keys accepted on condition lifecycle command attributes.
 pub const CONDITION_KEYS: &[&str] = &["of", "event", "by", "seconds", "reason"];
 /// Condition lifecycle events supported by this authoring slice.
-pub const CONDITION_EVENT_VALUES: &[&str] =
-    &["acknowledge", "shelve", "suppress", "out-of-service"];
+pub const CONDITION_EVENT_VALUES: &[&str] = &[
+    "acknowledge",
+    "confirm",
+    "shelve",
+    "unshelve",
+    "suppress",
+    "unsuppress",
+    "out-of-service",
+    "in-service",
+    "reset",
+];
 /// State category values.
 pub const CATEGORY_VALUES: &[&str] = &["process", "mode", "procedural"];
 /// Machine-local process/equipment state category.
@@ -680,9 +689,14 @@ pub fn condition_class_code(value: &str) -> Option<u16> {
 pub fn condition_lifecycle_event_id(value: &str) -> Option<u32> {
     match value.to_ascii_lowercase().as_str() {
         "acknowledge" => Some(0x0202),
+        "confirm" => Some(0x0203),
         "shelve" => Some(0x0204),
+        "unshelve" => Some(0x0205),
         "suppress" => Some(0x0206),
+        "unsuppress" => Some(0x0207),
         "out-of-service" => Some(0x0208),
+        "in-service" => Some(0x0209),
+        "reset" => Some(0x020B),
         _ => None,
     }
 }
@@ -1225,9 +1239,14 @@ PROGRAM Main
         ShelveSecs : UDINT;
         HighPhAlarm : BOOL {attribute 'oot' := 'alarm', 'class' := 'alarm'};
         AckHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'acknowledge', 'by' := OperatorName};
+        ConfirmHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'confirm', 'by' := OperatorName};
         ShelveHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'shelve', 'by' := OperatorName, 'seconds' := ShelveSecs};
+        UnshelveHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'unshelve'};
         SuppressHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'suppress', 'reason' := ReasonText};
+        UnsuppressHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'unsuppress'};
         OosHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'out-of-service', 'by' := OperatorName};
+        InServiceHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'in-service'};
+        ResetHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'reset', 'by' := OperatorName};
     END_VAR
 END_PROGRAM
 "#;

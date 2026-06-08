@@ -1743,7 +1743,7 @@ mod tests {
     fn condition_lifecycle_lowering_inherits_parent_and_emits_after_alarm_phase() {
         let source = SourceFile::with_path(
             "main.st",
-            "PROGRAM Main\nVAR\n    OperatorName : STRING[32] := 'operator-a';\n    ReasonText : STRING[32] := 'maintenance';\n    ShelveSecs : UDINT := UDINT#300;\n    AckHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'acknowledge', 'by' := OperatorName};\n    HighPhAlarm : BOOL {attribute 'oot' := 'alarm', 'sourceid' := '77', 'conditionid' := '9101'};\n    ShelveHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'shelve', 'by' := OperatorName, 'seconds' := ShelveSecs};\n    SuppressHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'suppress', 'reason' := ReasonText};\n    OosHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'out-of-service', 'by' := OperatorName};\nEND_VAR\nHighPhAlarm := TRUE;\nAckHighPh := TRUE;\nShelveHighPh := TRUE;\nSuppressHighPh := TRUE;\nOosHighPh := TRUE;\nEND_PROGRAM\n",
+            "PROGRAM Main\nVAR\n    OperatorName : STRING[32] := 'operator-a';\n    ReasonText : STRING[32] := 'maintenance';\n    ShelveSecs : UDINT := UDINT#300;\n    AckHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'acknowledge', 'by' := OperatorName};\n    HighPhAlarm : BOOL {attribute 'oot' := 'alarm', 'sourceid' := '77', 'conditionid' := '9101'};\n    ConfirmHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'confirm', 'by' := OperatorName};\n    ShelveHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'shelve', 'by' := OperatorName, 'seconds' := ShelveSecs};\n    UnshelveHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'unshelve'};\n    SuppressHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'suppress', 'reason' := ReasonText};\n    UnsuppressHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'unsuppress'};\n    OosHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'out-of-service', 'by' := OperatorName};\n    InServiceHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'in-service'};\n    ResetHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'reset', 'by' := OperatorName};\nEND_VAR\nHighPhAlarm := TRUE;\nAckHighPh := TRUE;\nConfirmHighPh := TRUE;\nShelveHighPh := TRUE;\nUnshelveHighPh := TRUE;\nSuppressHighPh := TRUE;\nUnsuppressHighPh := TRUE;\nOosHighPh := TRUE;\nInServiceHighPh := TRUE;\nResetHighPh := TRUE;\nEND_PROGRAM\n",
         );
         let definition =
             definition_json_from_sources(std::slice::from_ref(&source)).expect("definition");
@@ -1765,7 +1765,7 @@ mod tests {
             "{text}"
         );
         assert!(
-            text.contains("ConditionLifecycleEventTypeId := UDINT#16#0206"),
+            text.contains("ConditionLifecycleEventTypeId := UDINT#16#0203"),
             "{text}"
         );
         assert!(
@@ -1773,7 +1773,27 @@ mod tests {
             "{text}"
         );
         assert!(
+            text.contains("ConditionLifecycleEventTypeId := UDINT#16#0205"),
+            "{text}"
+        );
+        assert!(
+            text.contains("ConditionLifecycleEventTypeId := UDINT#16#0206"),
+            "{text}"
+        );
+        assert!(
+            text.contains("ConditionLifecycleEventTypeId := UDINT#16#0207"),
+            "{text}"
+        );
+        assert!(
             text.contains("ConditionLifecycleEventTypeId := UDINT#16#0208"),
+            "{text}"
+        );
+        assert!(
+            text.contains("ConditionLifecycleEventTypeId := UDINT#16#0209"),
+            "{text}"
+        );
+        assert!(
+            text.contains("ConditionLifecycleEventTypeId := UDINT#16#020B"),
             "{text}"
         );
         assert!(text.contains("LifecycleAckBy := OperatorName"), "{text}");

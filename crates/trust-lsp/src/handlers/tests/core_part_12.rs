@@ -57,9 +57,14 @@ END_PROGRAM
     let event_cursor = source.find("'event' := '").expect("event") + "'event' := '".len();
     let event_labels = completion_labels(&state, &uri, source, event_cursor);
     assert!(event_labels.iter().any(|label| label == "acknowledge"));
+    assert!(event_labels.iter().any(|label| label == "confirm"));
     assert!(event_labels.iter().any(|label| label == "shelve"));
+    assert!(event_labels.iter().any(|label| label == "unshelve"));
     assert!(event_labels.iter().any(|label| label == "suppress"));
+    assert!(event_labels.iter().any(|label| label == "unsuppress"));
     assert!(event_labels.iter().any(|label| label == "out-of-service"));
+    assert!(event_labels.iter().any(|label| label == "in-service"));
+    assert!(event_labels.iter().any(|label| label == "reset"));
 }
 
 #[test]
