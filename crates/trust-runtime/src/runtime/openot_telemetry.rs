@@ -22,6 +22,7 @@ mod imp {
         source: OpenOtTelemetrySource,
         producer_instance: Option<SmolStr>,
         previous_published_record_count: u64,
+        previous_dropped_lifecycle_count: u64,
     }
 
     impl Default for OpenOtTelemetrySubsystem {
@@ -31,6 +32,7 @@ mod imp {
                 source: OpenOtTelemetrySource::Heartbeat,
                 producer_instance: None,
                 previous_published_record_count: 0,
+                previous_dropped_lifecycle_count: 0,
             }
         }
     }
@@ -46,6 +48,7 @@ mod imp {
                 self.source = OpenOtTelemetrySource::Heartbeat;
                 self.producer_instance = None;
                 self.previous_published_record_count = 0;
+                self.previous_dropped_lifecycle_count = 0;
                 return Ok(());
             }
             validate_config(config)?;
@@ -57,6 +60,7 @@ mod imp {
             self.source = config.source;
             self.producer_instance = config.producer_instance.clone();
             self.previous_published_record_count = 0;
+            self.previous_dropped_lifecycle_count = 0;
             Ok(())
         }
 
@@ -78,6 +82,7 @@ mod imp {
 
         pub(crate) fn reset_scan_state(&mut self) {
             self.previous_published_record_count = 0;
+            self.previous_dropped_lifecycle_count = 0;
         }
 
         fn publish_heartbeat(&mut self, cycle_counter: u64) -> Result<(), RuntimeError> {
@@ -115,6 +120,22 @@ mod imp {
                         self.previous_published_record_count, snapshot.published_record_count
                     ))
                 })?;
+            let dropped_lifecycle_delta = snapshot
+                .dropped_lifecycle_count
+                .checked_sub(self.previous_dropped_lifecycle_count)
+                .ok_or_else(|| {
+                    telemetry_message(format!(
+                        "producer '{path}' DroppedLifecycleCount moved backwards from {} to {}",
+                        self.previous_dropped_lifecycle_count, snapshot.dropped_lifecycle_count
+                    ))
+                })?;
+            if dropped_lifecycle_delta > 0 {
+                self.previous_dropped_lifecycle_count = snapshot.dropped_lifecycle_count;
+                return Err(telemetry_message(format!(
+                    "producer '{path}' dropped {dropped_lifecycle_delta} OpenOT lifecycle command(s); LastLifecycleError {}",
+                    snapshot.last_lifecycle_error
+                )));
+            }
 
             if delta == 0 {
                 return Ok(());
@@ -239,6 +260,8 @@ mod imp {
         scan_record_offsets: [usize; ST_SCAN_RECORD_DESCRIPTOR_COUNT],
         scan_record_lengths: [usize; ST_SCAN_RECORD_DESCRIPTOR_COUNT],
         scan_record_count: usize,
+        dropped_lifecycle_count: u64,
+        last_lifecycle_error: usize,
     }
 
     fn read_st_fb_outputs(
@@ -318,6 +341,18 @@ mod imp {
                 "ARRAY[0..16] OF UINT",
             )?,
             scan_record_count: read_uint_field(storage, producer_id, path, "ScanRecordCount")?,
+            dropped_lifecycle_count: read_ulint_field(
+                storage,
+                producer_id,
+                path,
+                "DroppedLifecycleCount",
+            )?,
+            last_lifecycle_error: read_uint_field(
+                storage,
+                producer_id,
+                path,
+                "LastLifecycleError",
+            )?,
         })
     }
 

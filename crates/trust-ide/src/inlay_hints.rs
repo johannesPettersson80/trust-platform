@@ -176,6 +176,11 @@ fn openot_hint_label(kind: OotKind, attrs: &openot_vocab::AttributeMap) -> Optio
                 Some(format!("Message on TRUE edge with {arg_count} arg(s)"))
             }
         }
+        OotKind::Condition => {
+            let event = attrs.get("event").unwrap_or("lifecycle");
+            let parent = attrs.get("of").unwrap_or("alarm");
+            Some(format!("Condition {event} for {parent} on TRUE edge"))
+        }
     }
 }
 

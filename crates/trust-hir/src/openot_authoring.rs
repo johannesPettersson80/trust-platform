@@ -25,6 +25,8 @@ pub enum OotKind {
     Alarm,
     /// Emits `Message`.
     Message,
+    /// Emits condition lifecycle command records.
+    Condition,
 }
 
 impl OotKind {
@@ -36,6 +38,7 @@ impl OotKind {
             "state" => Some(Self::State),
             "alarm" => Some(Self::Alarm),
             "message" => Some(Self::Message),
+            "condition" => Some(Self::Condition),
             _ => None,
         }
     }
@@ -48,12 +51,13 @@ impl OotKind {
             Self::State => "state",
             Self::Alarm => "alarm",
             Self::Message => "message",
+            Self::Condition => "condition",
         }
     }
 }
 
 /// Supported OpenOT kind values.
-pub const KINDS: &[&str] = &["value", "state", "alarm", "message"];
+pub const KINDS: &[&str] = &["value", "state", "alarm", "message", "condition"];
 /// Keys accepted on `value` attributes.
 pub const VALUE_KEYS: &[&str] = &[
     "unit",
@@ -72,6 +76,10 @@ pub const STATE_KEYS: &[&str] = &["category", "model"];
 pub const ALARM_KEYS: &[&str] = &["class", "severity", "cause"];
 /// Keys accepted on `message` attributes.
 pub const MESSAGE_KEYS: &[&str] = &["template", "severity", "arg1", "arg2", "arg3", "arg4"];
+/// Keys accepted on condition lifecycle command attributes.
+pub const CONDITION_KEYS: &[&str] = &["of", "event", "by", "reason"];
+/// Condition lifecycle events supported by this authoring slice.
+pub const CONDITION_EVENT_VALUES: &[&str] = &["acknowledge", "suppress"];
 /// State category values.
 pub const CATEGORY_VALUES: &[&str] = &["process", "mode", "procedural"];
 /// Machine-local process/equipment state category.
@@ -270,6 +278,7 @@ pub fn collect_openot_attribute_diagnostics(root: &SyntaxNode) -> Vec<Diagnostic
 
 fn validate_local_openot_references(program: &SyntaxNode) -> Vec<Diagnostic> {
     let local_types = local_declared_types(program);
+    let local_kinds = local_openot_kinds(program);
     let mut diagnostics = Vec::new();
     for var_decl in program
         .descendants()
@@ -285,10 +294,53 @@ fn validate_local_openot_references(program: &SyntaxNode) -> Vec<Diagnostic> {
             Some(OotKind::Alarm) => {
                 validate_decl_ref(&attrs, "cause", &local_types, false, &mut diagnostics);
             }
+            Some(OotKind::Condition) => {
+                validate_condition_parent_ref(&attrs, &local_kinds, &mut diagnostics);
+                validate_decl_ref_with(
+                    &attrs,
+                    "by",
+                    &local_types,
+                    is_string_type_name,
+                    "STRING",
+                    &mut diagnostics,
+                );
+                validate_decl_ref_with(
+                    &attrs,
+                    "reason",
+                    &local_types,
+                    is_string_type_name,
+                    "STRING",
+                    &mut diagnostics,
+                );
+            }
             _ => {}
         }
     }
     diagnostics
+}
+
+fn validate_condition_parent_ref(
+    attrs: &AttributeMap,
+    local_kinds: &BTreeMap<String, OotKind>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Some(entry) = last_entry(attrs, "of") else {
+        return;
+    };
+    match local_kinds.get(&entry.value.to_ascii_lowercase()) {
+        Some(OotKind::Alarm) => {}
+        Some(other) => diagnostics.push(openot_error(
+            entry.range,
+            format!(
+                "OpenOT condition 'of' must reference an alarm, got '{}'",
+                other.as_str()
+            ),
+        )),
+        None => diagnostics.push(openot_error(
+            entry.range,
+            format!("OpenOT 'of' references unknown variable '{}'", entry.value),
+        )),
+    }
 }
 
 fn validate_decl_ref(
@@ -322,6 +374,35 @@ fn validate_decl_ref(
     }
 }
 
+fn validate_decl_ref_with(
+    attrs: &AttributeMap,
+    key: &str,
+    local_types: &BTreeMap<String, String>,
+    predicate: fn(&str) -> bool,
+    expected: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Some(entry) = last_entry(attrs, key) else {
+        return;
+    };
+    let Some(st_type) = local_types.get(&entry.value.to_ascii_lowercase()) else {
+        diagnostics.push(openot_error(
+            entry.range,
+            format!(
+                "OpenOT '{key}' references unknown variable '{}'",
+                entry.value
+            ),
+        ));
+        return;
+    };
+    if !predicate(st_type) {
+        diagnostics.push(openot_error(
+            entry.range,
+            format!("OpenOT '{key}' references type '{st_type}', expected {expected}"),
+        ));
+    }
+}
+
 fn local_declared_types(program: &SyntaxNode) -> BTreeMap<String, String> {
     let mut types = BTreeMap::new();
     for var_decl in program
@@ -340,6 +421,23 @@ fn local_declared_types(program: &SyntaxNode) -> BTreeMap<String, String> {
         }
     }
     types
+}
+
+fn local_openot_kinds(program: &SyntaxNode) -> BTreeMap<String, OotKind> {
+    let mut kinds = BTreeMap::new();
+    for var_decl in program
+        .descendants()
+        .filter(|node| node.kind() == SyntaxKind::VarDecl)
+    {
+        let attrs = parse_attribute_map_from_node(&var_decl);
+        let Some(kind) = attrs.kind() else {
+            continue;
+        };
+        for name in declaration_names(&var_decl) {
+            kinds.insert(name.text.to_ascii_lowercase(), kind);
+        }
+    }
+    kinds
 }
 
 /// Collect OpenOT diagnostics that need resolved HIR symbols.
@@ -441,10 +539,30 @@ pub fn validate_attribute_map(
             }
         }
     }
+    if kind == OotKind::Condition {
+        if let Some(ty) = declared_type {
+            if !ty.trim().eq_ignore_ascii_case("BOOL") {
+                diagnostics.push(openot_error(
+                    oot_entry.range,
+                    "OpenOT condition lifecycle commands must be BOOL variables",
+                ));
+            }
+        }
+    }
 
     let allowed = allowed_keys(kind);
     let allowed_set = allowed.iter().copied().collect::<BTreeSet<_>>();
     for entry in attrs.entries.iter().filter(|entry| entry.key != OOT_KEY) {
+        if kind == OotKind::Condition && INTERNAL_ID_KEYS.contains(&entry.key.as_str()) {
+            diagnostics.push(openot_error(
+                entry.range,
+                format!(
+                    "OpenOT condition lifecycle inherits the parent alarm identity; '{}' is not allowed",
+                    entry.key
+                ),
+            ));
+            continue;
+        }
         if INTERNAL_ID_KEYS.contains(&entry.key.as_str()) {
             validate_u32_key(entry, &mut diagnostics);
             continue;
@@ -468,6 +586,9 @@ pub fn validate_attribute_map(
     }
     if kind == OotKind::Value {
         validate_value_sampling(attrs, &mut diagnostics);
+    }
+    if kind == OotKind::Condition {
+        validate_condition_lifecycle(attrs, &mut diagnostics);
     }
 
     diagnostics
@@ -503,6 +624,11 @@ pub fn is_supported_value_type_name(ty: &str) -> bool {
     TypeId::from_builtin_name(trimmed).is_some_and(is_supported_value_type_id)
 }
 
+fn is_string_type_name(ty: &str) -> bool {
+    let upper = ty.trim().to_ascii_uppercase();
+    upper == "STRING" || upper.starts_with("STRING[")
+}
+
 /// Keys accepted by a kind, excluding `oot` and internal id-pinning keys.
 #[must_use]
 pub fn allowed_keys(kind: OotKind) -> &'static [&'static str] {
@@ -511,6 +637,7 @@ pub fn allowed_keys(kind: OotKind) -> &'static [&'static str] {
         OotKind::State => STATE_KEYS,
         OotKind::Alarm => ALARM_KEYS,
         OotKind::Message => MESSAGE_KEYS,
+        OotKind::Condition => CONDITION_KEYS,
     }
 }
 
@@ -531,6 +658,16 @@ pub fn condition_class_code(value: &str) -> Option<u16> {
     match value.to_ascii_lowercase().as_str() {
         "alarm" => Some(0),
         "interlock" => Some(1),
+        _ => None,
+    }
+}
+
+/// Event id for a supported condition lifecycle command.
+#[must_use]
+pub fn condition_lifecycle_event_id(value: &str) -> Option<u32> {
+    match value.to_ascii_lowercase().as_str() {
+        "acknowledge" => Some(0x0202),
+        "suppress" => Some(0x0206),
         _ => None,
     }
 }
@@ -611,6 +748,16 @@ fn validate_key_value(
                     "unknown OpenOT class '{}'; expected {}",
                     entry.value,
                     format_allowed(CLASS_VALUES)
+                ),
+            ));
+        }
+        (OotKind::Condition, "event") if condition_lifecycle_event_id(&entry.value).is_none() => {
+            diagnostics.push(openot_error(
+                entry.range,
+                format!(
+                    "unknown OpenOT condition event '{}'; expected {}",
+                    entry.value,
+                    format_allowed(CONDITION_EVENT_VALUES)
                 ),
             ));
         }
@@ -714,6 +861,12 @@ fn validate_key_value(
                 format!("OpenOT '{}' value must not be empty", entry.key),
             ));
         }
+        (OotKind::Condition, "of" | "by" | "reason") if entry.value.trim().is_empty() => {
+            diagnostics.push(openot_error(
+                entry.range,
+                format!("OpenOT '{}' value must name a variable", entry.key),
+            ));
+        }
         (OotKind::Message, "arg1" | "arg2" | "arg3" | "arg4") | (OotKind::Alarm, "cause")
             if entry.value.trim().is_empty() =>
         {
@@ -723,6 +876,22 @@ fn validate_key_value(
             ));
         }
         _ => {}
+    }
+}
+
+fn validate_condition_lifecycle(attrs: &AttributeMap, diagnostics: &mut Vec<Diagnostic>) {
+    let range = attrs
+        .entries
+        .iter()
+        .find(|entry| entry.key == OOT_KEY)
+        .map_or_else(|| TextRange::empty(0.into()), |entry| entry.range);
+    for key in ["of", "event"] {
+        if last_entry(attrs, key).is_none() {
+            diagnostics.push(openot_error(
+                range,
+                format!("OpenOT condition lifecycle requires '{key}'"),
+            ));
+        }
     }
 }
 
@@ -1027,6 +1196,64 @@ END_PROGRAM
         let parsed = parse(source);
         let diagnostics = collect_openot_attribute_diagnostics(&parsed.syntax());
         assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    }
+
+    #[test]
+    fn validates_condition_lifecycle_references() {
+        let source = r#"
+PROGRAM Main
+VAR
+    OperatorName : STRING[32];
+    ReasonText : STRING[32];
+    HighPhAlarm : BOOL {attribute 'oot' := 'alarm', 'class' := 'alarm'};
+    AckHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'acknowledge', 'by' := OperatorName};
+    SuppressHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'suppress', 'reason' := ReasonText};
+END_VAR
+END_PROGRAM
+"#;
+        let parsed = parse(source);
+        let diagnostics = collect_openot_attribute_diagnostics(&parsed.syntax());
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    }
+
+    #[test]
+    fn rejects_invalid_condition_lifecycle_attributes() {
+        let source = r#"
+PROGRAM Main
+VAR
+    OperatorId : DINT;
+    ReasonCode : DINT;
+    NotAlarm : BOOL {attribute 'oot' := 'message'};
+    MissingParent : BOOL {attribute 'oot' := 'condition', 'event' := 'acknowledge'};
+    MissingEvent : BOOL {attribute 'oot' := 'condition', 'of' := NotAlarm};
+    BadEvent : BOOL {attribute 'oot' := 'condition', 'of' := NotAlarm, 'event' := 'shelve'};
+    BadParent : BOOL {attribute 'oot' := 'condition', 'of' := NotAlarm, 'event' := 'acknowledge'};
+    BadBy : BOOL {attribute 'oot' := 'condition', 'of' := NotAlarm, 'event' := 'acknowledge', 'by' := OperatorId};
+    BadReason : BOOL {attribute 'oot' := 'condition', 'of' := NotAlarm, 'event' := 'suppress', 'reason' := ReasonCode};
+    BadType : DINT {attribute 'oot' := 'condition', 'of' := NotAlarm, 'event' := 'acknowledge'};
+    BadId : BOOL {attribute 'oot' := 'condition', 'of' := NotAlarm, 'event' := 'acknowledge', 'sourceid' := '2'};
+END_VAR
+END_PROGRAM
+"#;
+        let parsed = parse(source);
+        let diagnostics = collect_openot_attribute_diagnostics(&parsed.syntax());
+        for expected in [
+            "requires 'of'",
+            "requires 'event'",
+            "unknown OpenOT condition event",
+            "must reference an alarm",
+            "expected STRING",
+            "expected STRING",
+            "must be BOOL",
+            "inherits the parent alarm identity",
+        ] {
+            assert!(
+                diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.message.contains(expected)),
+                "missing {expected}; got {diagnostics:#?}"
+            );
+        }
     }
 
     #[test]

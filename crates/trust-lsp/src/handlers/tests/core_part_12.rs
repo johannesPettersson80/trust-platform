@@ -11,6 +11,8 @@ VAR
     Step : E_Step {attribute 'oot' := 'state', 'category' := ''};
     HighPhAlarm : BOOL {attribute 'oot' := 'alarm', };
     Started : BOOL {attribute 'oot' := 'message', };
+    AckHighPh : BOOL {attribute 'oot' := 'condition', };
+    AckEvent : BOOL {attribute 'oot' := 'condition', 'event' := ''};
 END_VAR
 END_PROGRAM
 "#;
@@ -42,6 +44,19 @@ END_PROGRAM
     assert!(message_key_labels.iter().any(|label| label == "template"));
     assert!(message_key_labels.iter().any(|label| label == "severity"));
     assert!(message_key_labels.iter().any(|label| label == "arg1"));
+
+    let condition_key_cursor =
+        source.find("'condition', ").expect("condition comma") + "'condition', ".len();
+    let condition_key_labels = completion_labels(&state, &uri, source, condition_key_cursor);
+    assert!(condition_key_labels.iter().any(|label| label == "of"));
+    assert!(condition_key_labels.iter().any(|label| label == "event"));
+    assert!(condition_key_labels.iter().any(|label| label == "by"));
+    assert!(condition_key_labels.iter().any(|label| label == "reason"));
+
+    let event_cursor = source.find("'event' := '").expect("event") + "'event' := '".len();
+    let event_labels = completion_labels(&state, &uri, source, event_cursor);
+    assert!(event_labels.iter().any(|label| label == "acknowledge"));
+    assert!(event_labels.iter().any(|label| label == "suppress"));
 }
 
 #[test]
@@ -101,6 +116,8 @@ pub(super) fn lsp_openot_inlay_hint_shows_emitted_record() {
 PROGRAM Main
 VAR
     Level : REAL {attribute 'oot' := 'value', 'unit' := 'L', 'deadband' := '0.5'};
+    HighPhAlarm : BOOL {attribute 'oot' := 'alarm'};
+    AckHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'acknowledge'};
 END_VAR
 END_PROGRAM
 "#;
@@ -120,6 +137,15 @@ END_PROGRAM
         hints
             .iter()
             .any(|hint| inlay_label_contains(&hint.label, "ValueChanged on delta>0.5 L")),
+        "{hints:#?}"
+    );
+    assert!(
+        hints.iter().any(|hint| {
+            inlay_label_contains(
+                &hint.label,
+                "Condition acknowledge for HighPhAlarm on TRUE edge",
+            )
+        }),
         "{hints:#?}"
     );
 }

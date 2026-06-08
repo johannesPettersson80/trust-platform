@@ -125,6 +125,10 @@ fn openot_key_items(kind: openot_vocab::OotKind) -> Vec<CompletionItem> {
                 "previous" => "'previous' := '${1:true}'",
                 "sampling" => "'sampling' := '${1:on-change}'",
                 "interval" => "'interval' := '${1:1000}'",
+                "of" => "'of' := ${1:AlarmVariable}",
+                "event" => "'event' := '${1:acknowledge}'",
+                "by" => "'by' := ${1:OperatorName}",
+                "reason" => "'reason' := ${1:ReasonText}",
                 _ => *key,
             };
             CompletionItem::new(*key, CompletionKind::Snippet)
@@ -151,6 +155,10 @@ fn openot_value_items(key: &str) -> Vec<CompletionItem> {
         "sampling" => {
             string_value_items("OpenOT value sampling policy", openot_vocab::SAMPLING_VALUES)
         }
+        "event" => string_value_items(
+            "OpenOT condition lifecycle event",
+            openot_vocab::CONDITION_EVENT_VALUES,
+        ),
         "interval" => vec![CompletionItem::new("1000", CompletionKind::Snippet)
             .with_detail("OpenOT periodic interval")
             .with_documentation("Interval is a positive integer number of milliseconds.")

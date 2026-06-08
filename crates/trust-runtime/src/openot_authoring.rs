@@ -157,6 +157,7 @@ pub fn definition_json_from_sources(sources: &[SourceFile]) -> Result<Value, Str
                         .collect::<Vec<_>>()
                 }));
             }
+            OotKind::Condition => {}
         }
     }
 
@@ -441,7 +442,7 @@ fn collect_program_annotations(
     symbols: &trust_hir::symbols::SymbolTable,
     counters: &mut AnnotationCounters,
 ) -> Vec<Annotation> {
-    let mut annotations = Vec::new();
+    let mut pending = Vec::<(AnnotationDraft, BTreeMap<String, String>)>::new();
     let mut local_types = BTreeMap::<String, String>::new();
     for var_block in program
         .children()
@@ -502,7 +503,7 @@ fn collect_program_annotations(
                 } else {
                     None
                 };
-                annotations.push(annotation_from_parts(
+                pending.push((
                     AnnotationDraft {
                         kind,
                         var_name: name.text,
@@ -513,12 +514,51 @@ fn collect_program_annotations(
                         enum_state,
                         message_args: message_args_from_attrs(&attrs, &local_types),
                         cause_operand: cause_operand_from_attrs(&attrs),
+                        condition_parent: attrs.get("of").cloned(),
+                        condition_event_id: attrs
+                            .get("event")
+                            .and_then(|event| hir_openot::condition_lifecycle_event_id(event)),
+                        condition_ack_by: attrs.get("by").cloned(),
+                        condition_reason: attrs.get("reason").cloned(),
                     },
-                    &attrs,
-                    counters,
+                    attrs.clone(),
                 ));
             }
         }
+    }
+
+    let mut annotations = Vec::new();
+    let mut index = BTreeMap::<String, AnnotationIndexEntry>::new();
+    for (draft, attrs) in &pending {
+        if draft.kind == OotKind::Condition {
+            continue;
+        }
+        let annotation = annotation_from_parts(draft.clone(), attrs, counters);
+        index.insert(
+            annotation.var_name.to_ascii_lowercase(),
+            AnnotationIndexEntry {
+                kind: annotation.kind,
+                id: annotation.id,
+                source_id: annotation.source_id,
+            },
+        );
+        annotations.push(annotation);
+    }
+
+    for (draft, _) in pending {
+        if draft.kind != OotKind::Condition {
+            continue;
+        }
+        let Some(parent_name) = draft.condition_parent.as_ref() else {
+            continue;
+        };
+        let Some(parent) = index.get(&parent_name.to_ascii_lowercase()) else {
+            continue;
+        };
+        if parent.kind != OotKind::Alarm {
+            continue;
+        }
+        annotations.push(condition_annotation_from_parts(draft, parent));
     }
     annotations
 }
@@ -618,6 +658,9 @@ fn annotation_from_parts(
                 message_args: Vec::new(),
                 cause_operand: None,
                 enum_state: draft.enum_state,
+                condition_event_id: None,
+                condition_ack_by: None,
+                condition_reason: None,
             }
         }
         OotKind::State => {
@@ -650,6 +693,9 @@ fn annotation_from_parts(
                 message_args: Vec::new(),
                 cause_operand: None,
                 enum_state: draft.enum_state,
+                condition_event_id: None,
+                condition_ack_by: None,
+                condition_reason: None,
             }
         }
         OotKind::Alarm => {
@@ -683,6 +729,9 @@ fn annotation_from_parts(
                 message_args: Vec::new(),
                 cause_operand: draft.cause_operand,
                 enum_state: draft.enum_state,
+                condition_event_id: None,
+                condition_ack_by: None,
+                condition_reason: None,
             }
         }
         OotKind::Message => {
@@ -713,8 +762,48 @@ fn annotation_from_parts(
                 message_args: draft.message_args,
                 cause_operand: None,
                 enum_state: draft.enum_state,
+                condition_event_id: None,
+                condition_ack_by: None,
+                condition_reason: None,
             }
         }
+        OotKind::Condition => {
+            unreachable!("condition annotations require a resolved parent alarm index")
+        }
+    }
+}
+
+fn condition_annotation_from_parts(
+    draft: AnnotationDraft,
+    parent: &AnnotationIndexEntry,
+) -> Annotation {
+    Annotation {
+        kind: draft.kind,
+        var_name: draft.var_name,
+        st_type: draft.st_type,
+        initializer: draft.initializer,
+        id: parent.id,
+        source_id: parent.source_id,
+        source: draft.source,
+        deadband: None,
+        sampling: None,
+        interval_ms: None,
+        unit: None,
+        quality: None,
+        semantic_role: 0,
+        suppress_previous: false,
+        category: 0,
+        model: None,
+        condition_class: 0,
+        severity: 0,
+        message: None,
+        message_severity: None,
+        message_args: Vec::new(),
+        cause_operand: None,
+        enum_state: draft.enum_state,
+        condition_event_id: draft.condition_event_id,
+        condition_ack_by: draft.condition_ack_by,
+        condition_reason: draft.condition_reason,
     }
 }
 
@@ -897,7 +986,7 @@ fn hidden_declarations(annotations: &[Annotation]) -> Vec<String> {
                     ));
                 }
             }
-            OotKind::Alarm | OotKind::Message => {
+            OotKind::Alarm | OotKind::Message | OotKind::Condition => {
                 declarations.push(format!("    OotPrev_{safe} : BOOL := FALSE;"))
             }
             OotKind::Value => {}
@@ -914,12 +1003,22 @@ fn hidden_statements(annotations: &[Annotation]) -> Vec<String> {
     ];
 
     for annotation in annotations {
+        if annotation.kind == OotKind::Condition {
+            continue;
+        }
         match annotation.kind {
             OotKind::Value => statements.extend(value_statements(annotation)),
             OotKind::State => statements.extend(state_statements(annotation)),
             OotKind::Alarm => statements.extend(alarm_statements(annotation)),
             OotKind::Message => statements.extend(message_statements(annotation)),
+            OotKind::Condition => {}
         }
+    }
+    for annotation in annotations
+        .iter()
+        .filter(|annotation| annotation.kind == OotKind::Condition)
+    {
+        statements.extend(condition_lifecycle_statements(annotation));
     }
     statements
 }
@@ -1126,6 +1225,38 @@ fn message_statements(annotation: &Annotation) -> Vec<String> {
     ]
 }
 
+fn condition_lifecycle_statements(annotation: &Annotation) -> Vec<String> {
+    let safe = safe_identifier(&annotation.var_name);
+    let mut call_args = vec![
+        "Execute := TRUE".to_string(),
+        "Op := UINT#12".to_string(),
+        format!("SourceId := UDINT#{}", annotation.source_id),
+        source_time_args(),
+        format!("ConditionId := UDINT#{}", annotation.id),
+        format!(
+            "ConditionLifecycleEventTypeId := UDINT#16#{:04X}",
+            annotation
+                .condition_event_id
+                .expect("condition event id should be resolved")
+        ),
+    ];
+    if let Some(ack_by) = &annotation.condition_ack_by {
+        call_args.push("LifecycleHasAckBy := TRUE".to_string());
+        call_args.push(format!("LifecycleAckBy := {ack_by}"));
+    }
+    if let Some(reason) = &annotation.condition_reason {
+        call_args.push("LifecycleHasReason := TRUE".to_string());
+        call_args.push(format!("LifecycleReason := {reason}"));
+    }
+    vec![
+        format!("IF {} AND (NOT OotPrev_{safe}) THEN", annotation.var_name),
+        format!("    {PRODUCER_NAME}({});", call_args.join(", ")),
+        format!("    {PRODUCER_NAME}(Execute := FALSE);"),
+        "END_IF;".to_string(),
+        format!("OotPrev_{safe} := {};", annotation.var_name),
+    ]
+}
+
 fn source_time_args() -> String {
     format!("UseSourceTimeInput := {USE_SOURCE_TIME_NAME}, SourceTimeInput := {SOURCE_TIME_NAME}")
 }
@@ -1217,6 +1348,9 @@ struct Annotation {
     message_args: Vec<MessageArgInfo>,
     cause_operand: Option<CauseOperandInfo>,
     enum_state: Option<EnumStateInfo>,
+    condition_event_id: Option<u32>,
+    condition_ack_by: Option<String>,
+    condition_reason: Option<String>,
 }
 
 impl Annotation {
@@ -1381,6 +1515,17 @@ struct AnnotationDraft {
     enum_state: Option<EnumStateInfo>,
     message_args: Vec<MessageArgInfo>,
     cause_operand: Option<CauseOperandInfo>,
+    condition_parent: Option<String>,
+    condition_event_id: Option<u32>,
+    condition_ack_by: Option<String>,
+    condition_reason: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+struct AnnotationIndexEntry {
+    kind: OotKind,
+    id: u32,
+    source_id: u32,
 }
 
 #[derive(Debug, Clone)]
@@ -1580,6 +1725,39 @@ mod tests {
         assert!(text.contains("SamplingMode := UINT#1"), "{text}");
         assert!(text.contains("SamplingIntervalMs := ULINT#250"), "{text}");
         assert!(text.contains("SamplingMode := UINT#2"), "{text}");
+    }
+
+    #[test]
+    fn condition_lifecycle_lowering_inherits_parent_and_emits_after_alarm_phase() {
+        let source = SourceFile::with_path(
+            "main.st",
+            "PROGRAM Main\nVAR\n    OperatorName : STRING[32] := 'operator-a';\n    ReasonText : STRING[32] := 'maintenance';\n    AckHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'acknowledge', 'by' := OperatorName};\n    HighPhAlarm : BOOL {attribute 'oot' := 'alarm', 'sourceid' := '77', 'conditionid' := '9101'};\n    SuppressHighPh : BOOL {attribute 'oot' := 'condition', 'of' := HighPhAlarm, 'event' := 'suppress', 'reason' := ReasonText};\nEND_VAR\nHighPhAlarm := TRUE;\nAckHighPh := TRUE;\nSuppressHighPh := TRUE;\nEND_PROGRAM\n",
+        );
+        let definition =
+            definition_json_from_sources(std::slice::from_ref(&source)).expect("definition");
+        assert_eq!(definition["conditions"].as_array().unwrap().len(), 1);
+        assert_eq!(definition["conditions"][0]["conditionId"], 9101);
+
+        let instrumented = instrument_source_files(&[source]);
+        let text = &instrumented[0].text;
+        let alarm_pos = text.find("Op := UINT#9").expect("alarm op");
+        let lifecycle_pos = text.find("Op := UINT#12").expect("lifecycle op");
+        assert!(
+            alarm_pos < lifecycle_pos,
+            "alarm updates must emit before lifecycle commands:\n{text}"
+        );
+        assert!(text.contains("SourceId := UDINT#77"), "{text}");
+        assert!(text.contains("ConditionId := UDINT#9101"), "{text}");
+        assert!(
+            text.contains("ConditionLifecycleEventTypeId := UDINT#16#0202"),
+            "{text}"
+        );
+        assert!(
+            text.contains("ConditionLifecycleEventTypeId := UDINT#16#0206"),
+            "{text}"
+        );
+        assert!(text.contains("LifecycleAckBy := OperatorName"), "{text}");
+        assert!(text.contains("LifecycleReason := ReasonText"), "{text}");
     }
 
     #[test]
