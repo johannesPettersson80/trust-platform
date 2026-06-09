@@ -54,6 +54,7 @@ sha2 = "0.10"
 rustls = "0.23"
 tiverse-mmap = "1.0"
 region = "3.0"
+open-ot-definition = { path = "../../../open-ot-ref/crates/definition" }
 opcua = { version = "0.12", default-features = false, features = ["server", "client", "vendored-openssl"], optional = true }
 tokio = { workspace = true, optional = true }
 
@@ -62,7 +63,6 @@ ethercrab = { version = "0.6", optional = true }
 # Local S4b development dependency. The shared builder must keep
 # ../open-ot-ref checked out at rev >= 7b5f500; a git/vendor dep is a follow-up.
 open-ot-carriage = { path = "../../../open-ot-ref/crates/carriage" }
-open-ot-definition = { path = "../../../open-ot-ref/crates/definition" }
 open-ot-shm = { path = "../../../open-ot-ref/crates/open-ot-shm" }
 
 [target.'cfg(unix)'.dev-dependencies]

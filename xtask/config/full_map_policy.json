@@ -192,8 +192,8 @@
     "module_note_limit": 5000,
     "module_split_plan_line_limit": 10000,
     "split_plan_line_limit": 1500,
-    "max_runtime_top_level_modules_current": 19,
-    "max_runtime_top_level_modules_after_boards": 19,
+    "max_runtime_top_level_modules_current": 20,
+    "max_runtime_top_level_modules_after_boards": 20,
     "enforce_after_boards_cap": true,
     "runtime_top_level_module_cap_waiver": null,
     "runtime_top_level_module_decisions": [
@@ -205,6 +205,7 @@
       {"name": "hmi", "subsystem": "host_surface_hmi", "owner": "runtime/HMI", "rationale": "HMI domain contracts and projections", "review_date": "2026-04-30", "decision_note": "ARCHPROG-C-05 baseline freeze"},
       {"name": "io", "subsystem": "host_io", "owner": "runtime/IO", "rationale": "host IO drivers and IO configuration", "review_date": "2026-04-30", "decision_note": "ARCHPROG-C-05 baseline freeze"},
       {"name": "memory", "subsystem": "portable_runtime_core", "owner": "runtime/memory", "rationale": "runtime memory model and addressing", "review_date": "2026-04-30", "decision_note": "ARCHPROG-C-05 baseline freeze"},
+      {"name": "openot_authoring", "subsystem": "runtime_openot_authoring", "owner": "runtime/OpenOT", "rationale": "compiler-side OpenOT attribute instrumentation and generated definition-file projection for the experimental OpenOT reference path; kept as a top-level runtime module while the proposal workbench is still moving in lockstep with open-ot-ref", "review_date": "2026-06-09", "decision_note": "OpenOT authoring workbench integration; split once the authoring vocabulary stabilizes"},
       {"name": "program_model", "subsystem": "portable_runtime_core", "owner": "runtime/model", "rationale": "runtime program/resource model", "review_date": "2026-04-30", "decision_note": "ARCHPROG-C-05 baseline freeze"},
       {"name": "retain", "subsystem": "portable_runtime_core", "owner": "runtime/retain", "rationale": "retain storage and restart state", "review_date": "2026-04-30", "decision_note": "ARCHPROG-C-05 baseline freeze"},
       {"name": "runtime", "subsystem": "portable_runtime_core", "owner": "runtime/core", "rationale": "runtime execution orchestration", "review_date": "2026-04-30", "decision_note": "ARCHPROG-C-05 baseline freeze"},
@@ -218,6 +219,8 @@
       {"name": "world", "subsystem": "runtime_physics_world", "owner": "runtime/world", "rationale": "shared World abstraction owning Rapier physics state, scena transform handoff, URDF arm chains, and smoke assertions for the trust-twin physics foundation; the single audited set_transform writer and writer-free arm chains live here", "review_date": "2026-05-23", "decision_note": "trust-twin physics foundation P0-P4 closure"}
     ],
     "large_file_allowlist": [
+      {"path": "crates/trust-runtime/src/openot_authoring.rs", "owner": "runtime/OpenOT", "rationale": "OpenOT attribute lowering, definition generation, and instrumentation are intentionally co-located during the standards-workbench vocabulary closure so byte/definition changes can be reviewed against one lowering surface", "review_date": "2026-06-09", "split_plan": "After the OpenOT vocabulary stabilizes, split into openot_authoring/{model,validation,definition,instrumentation}.rs while preserving existing openot_telemetry behavior locks."},
+      {"path": "crates/trust-runtime/tests/openot_telemetry.rs", "owner": "runtime/OpenOT tests", "rationale": "End-to-end OpenOT proof test keeps byte-exact vectors, attribute lowering, shared-memory publication, and resolved document assertions together while the cross-repo workbench is under active closure", "review_date": "2026-06-09", "split_plan": "After the backlog closes, split into openot_telemetry/{vectors,authoring,capstone,documents}.rs test modules without reducing byte-exact coverage."},
       {"path": "crates/trust-runtime/src/world.rs", "owner": "runtime/world", "rationale": "P0-P4 physics foundation: shared World abstraction owning Rapier state, scena transform handoff, smoke trace and assertion suite; kept in one file during foundation closure to keep the audited handoff site reviewable", "review_date": "2026-05-23", "split_plan": "After P5 product layer lands and the assertion suite stabilizes, split into world/{trace,assertions,smoke}.rs child modules while preserving the single set_transform writer."},
       {"path": "crates/trust-runtime/src/world/arm.rs", "owner": "runtime/world", "rationale": "P3-P4 physics foundation: URDF arm chain construction, FK verifier, and multi-arm coordination smoke; kept writer-free per the audited handoff lint", "review_date": "2026-05-23", "split_plan": "After P5 product layer lands, split into world/arm/{urdf,fk,smoke}.rs child modules while keeping the writer-free invariant."}
     ],
@@ -238,6 +241,7 @@
       {"crate_name": "trust-runtime", "module_name": "world", "path": "crates/trust-runtime/src/world", "owner": "runtime/world", "rationale": "trust-twin physics foundation P0-P4: shared World abstraction, Rapier integration, scena handoff, URDF arm chains, and smoke assertions are physically grouped here so the audited handoff lint and writer-free invariant remain trivially auditable", "review_date": "2026-05-23", "split_plan": "After P5 product layer lands, split world.rs into world/{trace,assertions,smoke}.rs and world/arm.rs into world/arm/{urdf,fk,smoke}.rs while preserving the single set_transform writer."}
     ],
     "function_size_allowlist": [
+      {"path": "crates/trust-runtime/src/openot_authoring.rs", "name": "annotation_from_parts", "owner": "runtime/OpenOT", "rationale": "OpenOT annotation construction centralizes kind-specific ids, sampling, audit, lifecycle, batch, regulated, and signature metadata during standards-workbench lockstep with open-ot-ref", "review_date": "2026-06-09", "split_plan": "Split per-kind annotation builders after the OpenOT authoring vocabulary stabilizes and keep tests around definition JSON and generated ST output."},
       {"path": "crates/trust-runtime/src/web/config_ui_routes/routes/workspace.rs", "name": "handle_workspace_routes", "owner": "runtime/web", "rationale": "workspace route aggregator handles several HTTP verbs in one route family", "review_date": "2026-05-02", "split_plan": "Split GET/POST workspace actions into child handlers if this route changes again."},
       {"path": "crates/trust-runtime/src/runtime/vm/register_ir/interpreter.rs", "name": "execute_register_block_interpreted", "owner": "runtime/VM", "rationale": "register-IR interpreted execution loop is mutation-locked and kept as one dispatch path", "review_date": "2026-05-02", "split_plan": "Extract instruction-family helpers only with runtime VM mutation shard coverage."},
       {"path": "crates/trust-runtime/src/bin/trust-runtime/run/runtime/entry.rs", "name": "run_runtime", "owner": "runtime CLI", "rationale": "runtime command launch orchestration is behavior-sensitive and already split into settings/control helpers", "review_date": "2026-05-02", "split_plan": "Extract remaining launch phases after adding behavior-lock tests for CLI startup output."},
