@@ -50,6 +50,38 @@ coerce them to `DINT`. Audited string values and audited `actor`/`reason`
 bindings must use explicit `STRING[n]` widths so the compiler can prove the
 record fits the producer buffer.
 
+## Value Sampling
+
+Value sampling controls when a `value` declaration emits `ValueChanged`. It does
+not change the wire record shape; the generated definition describes the policy
+with `values[].samplingPolicy`.
+
+| Attribute | Meaning |
+| --- | --- |
+| `sampling := 'on-change'` | emit when the value differs from the last emitted value |
+| `sampling := 'deadband'` | emit when a `REAL` moves more than `deadband` since the last emitted value |
+| `sampling := 'periodic'` | emit on value change and at least every configured `interval` milliseconds |
+| `sampling := 'hysteresis'` | emit when a `REAL` crosses outside `center +/- deadband`, then recenter |
+| `interval := '<ms>'` | required positive millisecond interval for `sampling := 'periodic'`; invalid with other sampling modes |
+
+Examples:
+
+```iecst
+Pressure : REAL {attribute 'oot' := 'value', 'sampling' := 'periodic', 'interval' := '1000'};
+Flow     : REAL {attribute 'oot' := 'value', 'sampling' := 'hysteresis', 'deadband' := '1.5'};
+Level    : REAL {attribute 'oot' := 'value', 'deadband' := '0.5'};
+```
+
+Default behavior is unchanged: if `sampling` is omitted, a value with
+`deadband` uses the existing `REAL` deadband behavior; otherwise it emits on
+change. `periodic` uses the same source timestamp path as the producer records:
+hosted builds supply Unix nanoseconds from the host clock, and hardware targets
+supply their configured source clock.
+
+Audited values (`audit := 'true'`) reject `sampling`, `interval`, and
+`deadband`; `ParameterChange` records every detected change with
+previous/new/actor/reason.
+
 ## Regulated and Lifecycle Attributes
 
 Condition lifecycle commands are companion `BOOL` variables that reference a
@@ -126,6 +158,10 @@ Rejected cases include:
 
 - unknown OpenOT kinds, keys, categories, classes, or models;
 - invalid condition/recipe/operator/e-signature event values or field bindings;
+- invalid `sampling` values or `interval` used without `sampling := 'periodic'`;
+- `sampling := 'periodic'` without `interval`;
+- `sampling := 'deadband'` or `sampling := 'hysteresis'` without a `REAL`
+  `deadband`;
 - `model` used without `category := 'procedural'`;
 - `category := 'procedural'` without a model;
 - severity outside `1..=1000`;
@@ -196,12 +232,37 @@ the OpenOT workbench.
 
 ## Reference Example
 
-The canonical live example is in the sibling `open-ot-ref` checkout:
+The canonical generated log artifact is in the sibling `open-ot-ref` checkout:
 
 - `examples/reactor/Reactor.st`
 - `examples/reactor/openot-definition.json`
 - `examples/reactor/batch-log.json`
 - `examples/reactor/batch-log.txt`
+
+This repo also carries a runnable multi-PROGRAM project:
+
+- `examples/openot_multi_program/src/Main.st`
+- `examples/openot_multi_program/runtime.toml`
+- `examples/openot_multi_program/trust-lsp.toml`
+
+It demonstrates two generated producers drained into one ring:
+
+```toml
+[runtime.openot]
+enabled = true
+source = "st-fb"
+producer_instances = ["Filler.OotProducer", "Quality.OotProducer"]
+```
+
+Build it with:
+
+```sh
+trust-runtime build --project examples/openot_multi_program --sources src
+```
+
+The example's `trust-lsp.toml` declares the sibling
+`open-ot-ref/st/iec61131` package as a local dependency so the build includes the
+`OPENOT_Producer` ST function block definitions.
 
 The trust-platform gate that compiles and runs that example is:
 

@@ -38,8 +38,11 @@ Target release: `v0.24.23`
   drops, resolved audit rendering, completions, diagnostics, and inlay hints.
 - docs: added a public OpenOT attribute-authoring guide covering the truST
   compiler diagnostics, language-server assistance, generated producer path,
-  definition-file generation, and `[runtime.openot] source = "st-fb"` runtime
-  configuration.
+  definition-file generation, value sampling policies, and `[runtime.openot]`
+  `source = "st-fb"` runtime configuration.
+- examples/docs: added an OpenOT multi-PROGRAM project showing two
+  attribute-generated producers drained through `producer_instances` into one
+  shared ring.
 - trust-twin: robot-cell product bridge now generates `Robot_<Model>` ST
   function blocks from a URDF manifest, exposes a `Robot_P3MinimalArm`
   native FB through the runtime world-arm bridge, and keeps the example PLC

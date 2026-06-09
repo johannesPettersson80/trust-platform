@@ -53,6 +53,7 @@ code /path/to/trust-platform
 | Vendor profiles | `examples/siemens_scl_v1/README.md`, `examples/mitsubishi_gxworks3_v1/README.md`, `examples/plcopen_xml_st_complete/README.md`, `examples/vendor_library_stubs/README.md` | vendor-oriented authoring and migration | 20-50 min |
 | Libraries and motion | `examples/plcopen_motion_single_axis_demo/README.md`, `examples/plcopen_motion_single_axis_benchmarks/README.md`, `examples/oscat_smoke/README.md` | shipped libraries and performance baselines | 10-40 min |
 | Capstones | `examples/plant_demo/README.md`, `examples/filling_line/README.md`, `examples/hardware_8do/README.md` | larger multi-file or hardware-leaning projects | 25-55 min |
+| OpenOT telemetry | `examples/openot_multi_program/README.md` | attribute-driven OpenOT logging, generated producers, one shared-memory ring | 20-30 min |
 | Runbooks | `examples/runbooks/site-runbook-template/README.md` | site-specific operator and technician handoff templates | 10-20 min |
 
 ## Archive Policy
@@ -99,6 +100,7 @@ trust-runtime build --project examples/plcopen_motion_single_axis_demo --sources
 trust-runtime build --project examples/oscat_smoke --sources src
 trust-runtime build --project examples/tutorials/12_hmi_pid_process_dashboard --sources src
 trust-runtime build --project examples/plant_demo --sources src
+trust-runtime build --project examples/openot_multi_program --sources src
 trust-runtime build --project examples/ethercat_ek1100_elx008_v1 --sources src
 trust-runtime build --project examples/ethercat_ek1100_elx008_v2 --sources src
 trust-runtime build --project examples/communication/modbus_tcp --sources src
