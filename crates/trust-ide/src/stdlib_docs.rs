@@ -78,6 +78,7 @@ const DOC_COMPARISON: &str = "Standard comparison function (IEC 61131-3 Ed.3, Ta
 const DOC_STRING: &str = "Standard string function (IEC 61131-3 Ed.3, Table 34).";
 const DOC_TIME_NUMERIC: &str = "Standard time arithmetic function (IEC 61131-3 Ed.3, Table 35).";
 const DOC_TIME_SPLIT: &str = "Standard time/date function (IEC 61131-3 Ed.3, Table 36).";
+const DOC_VALIDATE: &str = "Standard validate function (IEC 61131-3 Ed.3, Table 39).";
 
 const DOC_FB_BISTABLE: &str = "Standard bistable function block (IEC 61131-3 Ed.3, Table 43).";
 const DOC_FB_EDGE: &str = "Standard edge detection function block (IEC 61131-3 Ed.3, Table 44).";
@@ -92,6 +93,7 @@ const BIT_SHIFT: &[&str] = &["SHL", "SHR", "ROL", "ROR"];
 const BITWISE: &[&str] = &["AND", "OR", "XOR", "NOT"];
 const SELECTION: &[&str] = &["SEL", "MAX", "MIN", "LIMIT", "MUX"];
 const COMPARISON: &[&str] = &["GT", "GE", "EQ", "LE", "LT", "NE"];
+const VALIDATE_FUNCS: &[&str] = &["IS_VALID", "IS_VALID_BCD"];
 const STRING_FUNCS: &[&str] = &[
     "LEN", "LEFT", "RIGHT", "MID", "CONCAT", "INSERT", "DELETE", "REPLACE", "FIND",
 ];
@@ -176,6 +178,9 @@ static STANDARD_FUNCTIONS: Lazy<Vec<StdlibFunctionEntry>> = Lazy::new(|| {
     }
     for name in COMPARISON {
         push((*name).to_string(), DOC_COMPARISON);
+    }
+    for name in VALIDATE_FUNCS {
+        push((*name).to_string(), DOC_VALIDATE);
     }
     for name in STRING_FUNCS {
         push((*name).to_string(), DOC_STRING);

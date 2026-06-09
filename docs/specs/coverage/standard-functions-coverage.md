@@ -1,4 +1,4 @@
-# Standard Functions Coverage Checklist (IEC 61131-3 Ed 3, Tables 22-36, 43-46)
+# Standard Functions Coverage Checklist (IEC 61131-3 Ed 3, Tables 22-36, 39, 43-46)
 
 Use this checklist to track coverage of standard functions in trust-hir.
 
@@ -259,6 +259,10 @@ Runtime note:
 - [x] SPLIT_DT
 - [x] SPLIT_LDT
 - [x] DAY_OF_WEEK
+
+## Table 39 - Validate Functions
+- [x] IS_VALID
+- [x] IS_VALID_BCD (`BYTE`/`WORD`/`DWORD`/`LWORD`; `BOOL` rejected)
 
 ## Non-IEC Extensions (MP-014 Test Framework)
 - [x] ASSERT_TRUE

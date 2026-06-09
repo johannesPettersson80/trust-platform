@@ -191,6 +191,28 @@ END_PROGRAM
 }
 
 #[test]
+fn test_signature_help_validate_function() {
+    let source = r#"
+PROGRAM Main
+VAR
+    r : REAL;
+    ok : BOOL;
+END_VAR
+    ok := IS_VALID(|r);
+END_PROGRAM
+"#;
+    let cursor = source.find('|').expect("cursor");
+    let mut cleaned = source.to_string();
+    cleaned.remove(cursor);
+    let (db, file) = setup(&cleaned);
+
+    let result = signature_help(&db, file, TextSize::from(cursor as u32)).expect("signature help");
+    assert!(result.signatures[0].label.contains("IS_VALID("));
+    assert!(result.signatures[0].label.contains("IN: REAL"));
+    assert!(result.signatures[0].label.contains("BOOL"));
+}
+
+#[test]
 fn test_signature_help_method_var_input_mentions_method_parameters() {
     let source = r#"
 FUNCTION_BLOCK Motor

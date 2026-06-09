@@ -112,10 +112,15 @@ impl<'a> BytecodeEncoder<'a> {
                 } else if !self.emit_ref_expr(ctx, target, code)? {
                     Ok(false)
                 } else {
-                    let field_idx = self.strings.intern(field.clone());
-                    code.push(0x30);
-                    code.extend_from_slice(&field_idx.to_le_bytes());
-                    code.push(0x32);
+                    if let Some(access) = crate::value::parse_partial_access(field.as_str()) {
+                        code.push(0x32);
+                        self.emit_partial_read(access, code);
+                    } else {
+                        let field_idx = self.strings.intern(field.clone());
+                        code.push(0x30);
+                        code.extend_from_slice(&field_idx.to_le_bytes());
+                        code.push(0x32);
+                    }
                     Ok(true)
                 }
             }

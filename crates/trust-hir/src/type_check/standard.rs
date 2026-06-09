@@ -10,6 +10,7 @@ mod numeric;
 mod selection;
 mod string;
 mod time;
+mod validate;
 
 pub(in crate::type_check) use helpers::is_execution_param;
 
@@ -45,6 +46,8 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
                 "LIMIT" => self.infer_limit_call(node),
                 "MUX" => self.infer_mux_call(node),
                 "GT" | "GE" | "EQ" | "LE" | "LT" | "NE" => self.infer_comparison_call(node, &upper),
+                "IS_VALID" => self.infer_is_valid_call(node),
+                "IS_VALID_BCD" => self.infer_is_valid_bcd_call(node),
                 "ASSERT_TRUE" => self.infer_assert_true_call(node),
                 "ASSERT_FALSE" => self.infer_assert_false_call(node),
                 "ASSERT_EQUAL" => self.infer_assert_equal_call(node),

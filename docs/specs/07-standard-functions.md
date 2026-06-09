@@ -21,6 +21,7 @@ Standard functions are predefined functions available in all IEC 61131-3 impleme
 | `GT`, `GE`, `EQ`, `LE`, `LT`, `NE` | Comparison | fixed/extensible | Table 33 | Implemented |
 | `LEN`, `LEFT`, `RIGHT`, `MID`, `CONCAT`, `INSERT`, `DELETE`, `REPLACE`, `FIND` | String | fixed/extensible | Table 34 | Implemented |
 | `ADD_*`, `SUB_*`, `MUL_*`, `DIV_*`, `CONCAT_*`, `SPLIT_*`, `DAY_OF_WEEK` | Date / time | fixed or overloaded | Tables 35-36 | Implemented |
+| `IS_VALID`, `IS_VALID_BCD` | Validate | fixed arity | Table 39 | Implemented |
 | `REF` | Reference | fixed arity | Table 12 | Implemented |
 | `LOWER_BOUND`, `UPPER_BOUND` | Array bound | fixed arity | IEC extension set | Implemented |
 | `ASSERT_*` | Test assertions | fixed arity | non-IEC | Extension; see `docs/IEC_DEVIATIONS.md` DEV-019 |
@@ -381,7 +382,30 @@ DoubleTime := MUL_TIME(BaseTime, 2);
 HalfTime := DIV_TIME(BaseTime, 2);
 ```
 
-## 10. Reference Functions
+## 10. Validate Functions (Table 39)
+
+| Function | Description | Signature |
+|----------|-------------|-----------|
+| `IS_VALID` | Returns `FALSE` for invalid real values such as NaN or infinity | `IS_VALID(IN: REAL/LREAL) : BOOL` |
+| `IS_VALID_BCD` | Returns `FALSE` if any BCD nibble is greater than `9` | `IS_VALID_BCD(IN: BYTE/WORD/DWORD/LWORD) : BOOL` |
+
+IEC 61131-3 Ed.3 Figure 5 places `BOOL` under the broader `ANY_BIT` hierarchy,
+but the Table 39 validation-function narrative defines `IS_VALID_BCD` for
+`BYTE`, `WORD`, `DWORD`, and `LWORD`. truST follows that stricter Table 39
+domain and rejects `BOOL` for `IS_VALID_BCD`.
+
+```
+VAR
+  R : REAL;
+  W : WORD := WORD#16#1234;
+  Ok : BOOL;
+END_VAR
+
+Ok := IS_VALID(R);
+Ok := IS_VALID_BCD(W);
+```
+
+## 11. Reference Functions
 
 | Function | Description | Signature |
 |----------|-------------|-----------|
@@ -396,7 +420,7 @@ END_VAR
 pInt := REF(MyInt);
 ```
 
-## 11. Array Bound Functions
+## 12. Array Bound Functions
 
 | Function | Description | Signature |
 |----------|-------------|-----------|
@@ -413,7 +437,7 @@ Lo := LOWER_BOUND(Data, 1);  // Lo = 5
 Hi := UPPER_BOUND(Data, 1);  // Hi = 15
 ```
 
-## 12. Error Conditions
+## 13. Error Conditions
 
 ### Runtime Errors
 
@@ -493,6 +517,6 @@ The following functions are non-IEC additions for the user-facing ST test framew
 
 Compatibility notes:
 - These assertions are extension-only and not part of IEC 61131-3 Tables 22-36
-  (see `docs/IEC_DEVIATIONS.md`, DEV-019).
+  or Table 39 (see `docs/IEC_DEVIATIONS.md`, DEV-019).
 - They are intended for `TEST_PROGRAM` / `TEST_FUNCTION_BLOCK` execution paths.
 - Runtime failures include assertion context (`expected` / `actual` and tolerance data for `ASSERT_NEAR`).

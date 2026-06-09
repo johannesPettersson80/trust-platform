@@ -128,6 +128,80 @@ END_PROGRAM
 }
 
 #[test]
+// IEC 61131-3 Ed.3 Table 39 (validate functions)
+fn test_standard_validate_functions() {
+    check_no_errors(
+        r#"
+PROGRAM Test
+VAR
+    r: REAL;
+    lr: LREAL;
+    b: BYTE;
+    w: WORD;
+    dw: DWORD;
+    lw: LWORD;
+    ok: BOOL;
+END_VAR
+ok := IS_VALID(r);
+ok := IS_VALID(lr);
+ok := IS_VALID_BCD(b);
+ok := IS_VALID_BCD(w);
+ok := IS_VALID_BCD(dw);
+ok := IS_VALID_BCD(lw);
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_is_valid_requires_real_argument() {
+    check_has_error(
+        r#"
+PROGRAM Test
+VAR
+    i: DINT;
+    ok: BOOL;
+END_VAR
+ok := IS_VALID(i);
+END_PROGRAM
+"#,
+        DiagnosticCode::InvalidArgumentType,
+    );
+}
+
+#[test]
+fn test_is_valid_bcd_rejects_bool() {
+    check_has_error(
+        r#"
+PROGRAM Test
+VAR
+    flag: BOOL;
+    ok: BOOL;
+END_VAR
+ok := IS_VALID_BCD(flag);
+END_PROGRAM
+"#,
+        DiagnosticCode::InvalidArgumentType,
+    );
+}
+
+#[test]
+fn test_is_valid_bcd_rejects_non_bit_string() {
+    check_has_error(
+        r#"
+PROGRAM Test
+VAR
+    r: REAL;
+    ok: BOOL;
+END_VAR
+ok := IS_VALID_BCD(r);
+END_PROGRAM
+"#,
+        DiagnosticCode::InvalidArgumentType,
+    );
+}
+
+#[test]
 // IEC 61131-3 Ed.3 Tables 34-36 (string/time functions)
 fn test_standard_string_and_time_functions() {
     check_no_errors(

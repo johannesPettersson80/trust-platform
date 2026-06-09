@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.23`
+Target release: `v0.24.24`
 
 ### Added
 
@@ -151,6 +151,13 @@ Target release: `v0.24.23`
 
 ### Fixed
 
+- trust-hir/trust-ide: IEC Table 39 validation functions `IS_VALID` and
+  `IS_VALID_BCD` now type-check and surface in editor completion, hover, and
+  signature help; `IS_VALID_BCD` accepts `BYTE`/`WORD`/`DWORD`/`LWORD` and
+  rejects `BOOL`.
+- trust-runtime: `IS_VALID_BCD` now rejects `BOOL`, and runtime bytecode now
+  supports Table 17 partial read/write through properly mapped structured
+  `VAR_IN_OUT` references.
 - Runtime bytecode execution now supports IEC Table 17 partial
   bit/byte/word/dword access on `BYTE`, `WORD`, `DWORD`, and `LWORD`
   function-block instance fields, matching the existing program-variable

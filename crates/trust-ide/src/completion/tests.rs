@@ -172,6 +172,15 @@ END_PROGRAM
             .as_ref()
             .map(|doc| doc.contains("IEC 61131-3"))
             .unwrap_or(false));
+        let validate_item = items
+            .iter()
+            .find(|item| item.label.eq_ignore_ascii_case("IS_VALID_BCD"))
+            .expect("IS_VALID_BCD completion");
+        assert!(validate_item
+            .documentation
+            .as_ref()
+            .map(|doc| doc.contains("Table 39"))
+            .unwrap_or(false));
     }
 
     #[test]

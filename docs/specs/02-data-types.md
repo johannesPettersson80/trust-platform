@@ -108,8 +108,10 @@ bit access, `BYTE` for byte access, `WORD` for word access, `DWORD` for dword
 access).
 
 Partial access applies to ordinary variables of the supported `ANY_BIT` types,
-including function block instance fields. It is not valid on directly
-represented variables themselves, for example `%IB10.%X0`.
+including structure elements, function block instance fields, and properly
+mapped `VAR_IN_OUT` references whose selected element has type `BYTE`, `WORD`,
+`DWORD`, or `LWORD`. It is not valid on directly represented variables
+themselves, for example `%IB10.%X0`.
 
 ## 2. Generic Data Types (Figure 5, Section 6.4.3)
 

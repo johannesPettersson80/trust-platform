@@ -51,14 +51,30 @@ impl<'a> BytecodeEncoder<'a> {
         let crate::program_model::LValue::Field { target, field } = target else {
             return Ok(None);
         };
-        let crate::program_model::LValue::Name(name) = target.as_ref() else {
-            return Ok(None);
-        };
         let Some(partial) = crate::value::parse_partial_access(field.as_str()) else {
             return Ok(None);
         };
 
         let start_len = code.len();
+        let crate::program_model::LValue::Name(name) = target.as_ref() else {
+            if !self.emit_dynamic_ref_for_lvalue(ctx, target, code)? {
+                code.truncate(start_len);
+                return Ok(Some(false));
+            }
+            code.push(0x32);
+            if !self.emit_expr(ctx, value, code)? {
+                code.truncate(start_len);
+                return Ok(Some(false));
+            }
+            self.emit_partial_write(partial, code);
+            if !self.emit_dynamic_ref_for_lvalue(ctx, target, code)? {
+                code.truncate(start_len);
+                return Ok(Some(false));
+            }
+            code.push(0x13); // SWAP
+            code.push(0x33); // STORE
+            return Ok(Some(true));
+        };
         if let Some(reference) = self.resolve_name_ref(ctx, name)? {
             self.emit_load_ref(&reference, code)?;
             if !self.emit_expr(ctx, value, code)? {

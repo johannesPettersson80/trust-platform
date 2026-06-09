@@ -70,6 +70,10 @@ fn standard_signature(name: &str, arg_count: usize) -> Option<SignatureInfo> {
             Some(TypeId::BOOL),
         ),
 
+        // Validate
+        "IS_VALID" => (vec![param("IN", TypeId::ANY_REAL)], Some(TypeId::BOOL)),
+        "IS_VALID_BCD" => (vec![param("IN", TypeId::ANY_BIT)], Some(TypeId::BOOL)),
+
         // String
         "LEN" => (vec![param("IN", TypeId::ANY_STRING)], Some(TypeId::INT)),
         "LEFT" | "RIGHT" => (
@@ -290,4 +294,3 @@ fn standard_signature(name: &str, arg_count: usize) -> Option<SignatureInfo> {
         return_type,
     })
 }
-

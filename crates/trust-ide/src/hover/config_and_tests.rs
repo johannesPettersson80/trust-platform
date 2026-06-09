@@ -26,6 +26,30 @@ END_PROGRAM
     }
 
     #[test]
+    fn test_hover_validate_function_doc() {
+        let source = r#"
+PROGRAM Main
+VAR
+    x : WORD;
+    ok : BOOL;
+END_VAR
+    ok := IS_VALID_B|CD(x);
+END_PROGRAM
+"#;
+        let cursor = source.find('|').expect("cursor");
+        let mut cleaned = source.to_string();
+        cleaned.remove(cursor);
+
+        let mut db = Database::new();
+        let file_id = FileId(0);
+        db.set_source_text(file_id, cleaned);
+
+        let result = hover(&db, file_id, TextSize::from(cursor as u32)).expect("hover result");
+        assert!(result.contents.contains("IS_VALID_BCD"));
+        assert!(result.contents.contains("Table 39"));
+    }
+
+    #[test]
     fn test_hover_typed_literal_doc() {
         let source = r#"
 PROGRAM Main

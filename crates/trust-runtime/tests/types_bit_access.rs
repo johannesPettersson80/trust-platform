@@ -2,6 +2,47 @@ use trust_runtime::harness::TestHarness;
 use trust_runtime::value::Value;
 
 #[test]
+fn bit_access_on_struct_byte_via_inout() {
+    let source = r#"
+TYPE Payload :
+STRUCT
+    b : BYTE;
+END_STRUCT
+END_TYPE
+
+FUNCTION_BLOCK Mutator
+VAR_IN_OUT
+    payload : Payload;
+END_VAR
+VAR_OUTPUT
+    before : BOOL;
+END_VAR
+before := payload.b.%X0;
+payload.b.%X3 := TRUE;
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    data : Payload := (b := BYTE#16#01);
+    fb : Mutator;
+    before : BOOL;
+    result : BYTE;
+END_VAR
+fb(payload := data);
+before := fb.before;
+result := data.b;
+END_PROGRAM
+"#;
+
+    let mut harness = TestHarness::from_source(source).unwrap();
+    let err = harness.cycle().errors.into_iter().next();
+    assert!(err.is_none(), "expected success, got {err:?}");
+
+    assert_eq!(harness.get_output("before"), Some(Value::Bool(true)));
+    assert_eq!(harness.get_output("result"), Some(Value::Byte(0x09)));
+}
+
+#[test]
 fn table17() {
     let source = r#"
 PROGRAM Main
