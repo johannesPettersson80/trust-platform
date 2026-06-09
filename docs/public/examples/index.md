@@ -26,4 +26,5 @@ walkthrough.
 | Vendor Profiles | [Vendor Profiles](vendor-profiles.md) | migration-oriented examples and vendor library stubs | 20-50 min |
 | Libraries and Motion | [Libraries And Motion](libraries-and-motion.md) | shipped libraries, motion examples, performance baselines | 10-40 min |
 | Capstones | [Capstones](capstones.md) | larger multi-file or hardware-leaning projects | 25-55 min |
+| OpenOT Telemetry | [OpenOT Attribute Authoring](../develop/openot-authoring.md) | variable attributes, generated OpenOT records, multi-PROGRAM producer draining | 20-30 min |
 | Runbooks | [Runbooks](runbooks.md) | site-specific operator and technician templates | 10-20 min |

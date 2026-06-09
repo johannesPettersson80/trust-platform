@@ -7,6 +7,10 @@ fn dispatch_native_stdlib_runtime_clock_accepts_zero_args_only() {
         .expect("TIME with no args should read runtime clock");
     assert!(matches!(value, Value::Time(_)));
 
+    let value = dispatch_stdlib(&mut runtime, &mut frame, "CURRENT_DT", &[])
+        .expect("CURRENT_DT with no args should read wall clock");
+    assert!(matches!(value, Value::Dt(_)));
+
     let err = dispatch_stdlib(
         &mut runtime,
         &mut frame,

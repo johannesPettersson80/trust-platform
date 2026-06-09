@@ -6,10 +6,43 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.21`
+Target release: `v0.24.23`
 
 ### Added
 
+- trust-runtime: OpenOT telemetry can now publish real encoded records from a
+  configured ST OpenOT producer FB via `[runtime.openot] source = "st-fb"` and
+  `producer_instance`, while keeping the existing heartbeat publisher as the
+  default.
+- trust-runtime: OpenOT ST-FB telemetry now supports multi-PROGRAM authoring by
+  draining a configured `producer_instances = [...]` list into one shared ring,
+  with deterministic per-program source ids and collision diagnostics.
+- trust-runtime: ST OpenOT producer telemetry now hands off multi-record
+  transition bursts through the producer FB `ScanRecords` descriptor outputs,
+  while fail-closing scans whose published-record delta does not match the
+  descriptor count.
+- trust-runtime: OpenOT declaration attributes (`{attribute 'oot' := ...}`) now
+  lower to the hidden ST-FB producer path for value, state, message, and alarm
+  records, including enum-typed state variables whose HIR enum values populate
+  StateTransition payloads and definition-file enum sets, with a reactor example
+  that emits a UTC-rendered, runtime-clocked typed audit log, definition file,
+  and forced-overflow reconciliation artifact.
+- trust-runtime/trust-lsp: OpenOT authoring now supports the simple
+  operator/regulated edge events `operator-action`, `operator-login`,
+  `operator-logout`, and `security-failure`, including authResult symbol
+  lowering, bounded `contextRef` bindings, runtime ST-FB emission, renderer
+  support, completions, validation, and inlay hints.
+- trust-runtime/trust-lsp: OpenOT audited value declarations now emit
+  `ParameterChange` records via `audit := 'true'`, with compile-time string
+  width and record-size validation, producer baseline rollback on fail-closed
+  drops, resolved audit rendering, completions, diagnostics, and inlay hints.
+- docs: added a public OpenOT attribute-authoring guide covering the truST
+  compiler diagnostics, language-server assistance, generated producer path,
+  definition-file generation, value sampling policies, and `[runtime.openot]`
+  `source = "st-fb"` runtime configuration.
+- examples/docs: added an OpenOT multi-PROGRAM project showing two
+  attribute-generated producers drained through `producer_instances` into one
+  shared ring.
 - trust-twin: robot-cell product bridge now generates `Robot_<Model>` ST
   function blocks from a URDF manifest, exposes a `Robot_P3MinimalArm`
   native FB through the runtime world-arm bridge, and keeps the example PLC

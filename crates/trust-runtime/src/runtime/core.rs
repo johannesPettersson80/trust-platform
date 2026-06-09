@@ -28,6 +28,7 @@ use super::faults::FaultSubsystem;
 use super::io_subsystem::IoSubsystem;
 use super::metadata::{resolve_using_for_frame, RuntimeMetadata};
 use super::metrics_subsystem::MetricsSubsystem;
+use super::openot_telemetry::OpenOtTelemetrySubsystem;
 use super::types::{GlobalInitValue, GlobalVarMeta, RetainPolicy};
 use super::watchdog_subsystem::WatchdogSubsystem;
 
@@ -65,6 +66,7 @@ pub struct Runtime {
     pub(super) metrics: MetricsSubsystem,
     pub(super) watchdog: WatchdogSubsystem,
     pub(super) faults: FaultSubsystem,
+    pub(super) openot_telemetry: OpenOtTelemetrySubsystem,
     pub(super) execution_deadline: Option<std::time::Instant>,
     pub(super) output_commit_deadline: Option<std::time::Instant>,
     pub(super) vm_local_init_plan_cache: super::vm::VmLocalInitPlanCacheState,
@@ -99,6 +101,10 @@ impl std::fmt::Debug for Runtime {
             .field("cycle_counter", &self.cycle_counter)
             .field("faulted", &self.faults.is_faulted())
             .field("last_fault", &self.faults.last_fault())
+            .field(
+                "openot_telemetry_enabled",
+                &self.openot_telemetry.is_enabled(),
+            )
             .field(
                 "vm_register_lowering_cache_enabled",
                 &self.vm_register_lowering_cache.snapshot().enabled,

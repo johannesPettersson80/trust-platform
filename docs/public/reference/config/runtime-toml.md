@@ -269,6 +269,67 @@ Allowed `transport` values:
 - `discovery`
 - `web`
 
+### `[runtime.openot]`
+
+This optional section enables OpenOT telemetry publishing to a shared-memory
+ring. It is separate from plant I/O drivers: the runtime publishes semantic
+audit records after output dispatch and fails the scan if the configured
+telemetry append fails.
+
+For the attribute-driven authoring path, see
+[OpenOT Attribute Authoring](../../develop/openot-authoring.md). That compiler
+path generates `Main.OotProducer` by default; use that qualified instance path
+with `source = "st-fb"`.
+
+Defaults when omitted:
+
+```toml
+[runtime.openot]
+enabled = false
+path = ""
+capacity = 4096
+fence_mode = "fenced"
+allow_unfenced_for_proof = false
+source = "heartbeat"
+```
+
+Accepted keys:
+
+| Key | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `enabled` | bool | `false` | Enables OpenOT shared-memory telemetry publishing. |
+| `path` | string | `""` | Shared-memory backing file. Relative paths resolve against the runtime bundle root. Required when `enabled = true`. |
+| `capacity` | integer | `4096` | Ring byte capacity. Must be `>= 1`. |
+| `fence_mode` | string | `"fenced"` | `"fenced"` for product use, or `"unfenced"` only for controlled proof runs. |
+| `allow_unfenced_for_proof` | bool | `false` | Must be `true` when `fence_mode = "unfenced"`. |
+| `source` | string | `"heartbeat"` | `"heartbeat"` publishes a runtime heartbeat record per scan. `"st-fb"` publishes encoded records emitted by configured ST OpenOT producer FB instances. |
+| `producer_instance` | string | unset | Back-compatible alias for one ST-FB producer. Qualified path to the producer FB instance, for example `"Main.OotProducer"` for attribute-generated programs or `"Main.Producer"` for a hand-authored producer FB. |
+| `producer_instances` | array of strings | unset | Preferred when draining more than one ST-FB producer into one ring. Paths are drained in array order. Do not set this together with `producer_instance`. |
+
+Validation constraints:
+
+| Condition | Requirement | Example |
+| --- | --- | --- |
+| `enabled = true` | `path` must not be empty | `path = "openot.shm"` |
+| always | `capacity >= 1` | `capacity = 4096` |
+| `fence_mode = "unfenced"` | set `allow_unfenced_for_proof = true` | proof-only A/B run |
+| `source = "st-fb"` | set a qualified `producer_instance` or non-empty `producer_instances` | `producer_instances = ["First.OotProducer", "Second.OotProducer"]` |
+| `source = "heartbeat"` | omit `producer_instance` and `producer_instances` | default smoke publisher |
+
+Multi-PROGRAM OpenOT authoring generates one hidden producer per `PROGRAM`.
+Configure each generated producer explicitly:
+
+```toml
+[runtime.openot]
+enabled = true
+path = "openot.shm"
+source = "st-fb"
+producer_instances = ["First.OotProducer", "Second.OotProducer"]
+```
+
+The runtime drains the listed instances in order and serializes their records
+through one shared-memory writer.
+
 ### `[runtime.observability]`
 
 Defaults when omitted:

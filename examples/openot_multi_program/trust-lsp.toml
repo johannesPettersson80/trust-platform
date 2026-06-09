@@ -1,0 +1,10 @@
+[project]
+vendor_profile = "codesys"
+include_paths = ["src"]
+stdlib = "iec"
+
+[dependencies]
+OpenOT = { path = "../../../open-ot-ref/st/iec61131" }
+
+[runtime]
+control_endpoint = "unix:///tmp/trust-openot-multi-program.sock"

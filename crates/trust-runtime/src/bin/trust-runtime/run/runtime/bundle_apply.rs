@@ -6,6 +6,7 @@ fn apply_bundle_runtime_overrides(runtime: &mut Runtime, bundle: &RuntimeBundle)
     runtime.set_watchdog_policy(bundle.runtime.watchdog);
     runtime.set_fault_policy(bundle.runtime.fault_policy);
     runtime.set_io_safe_state(bundle.io.safe_state.clone());
+    runtime.configure_openot_telemetry(&bundle.runtime.openot, Some(&bundle.root))?;
 
     let registry = IoDriverRegistry::default_registry();
     for driver in &bundle.io.drivers {

@@ -361,6 +361,9 @@ name = "boxcar"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "36f64beae40a84da1b4b26ff2761a5b895c12adc41dc25aaee1c4f2bbfe97a6e"
+dependencies = [
+ "loom",
+]
 
 [[package]]
 name = "bstr"
@@ -1568,6 +1571,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "generator"
+version = "0.8.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3b854b0e584ead1a33f18b2fcad7cf7be18b3875c78816b753639aa501513ae"
+dependencies = [
+ "cc",
+ "cfg-if",
+ "libc",
+ "log",
+ "rustversion",
+ "windows-link",
+ "windows-result",
+]
+
+[[package]]
 name = "generic-array"
 version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2695,6 +2713,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "loom"
+version = "0.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "419e0dc8046cb947daa77eb95ae174acfbddb7673b4151f56d1eed8e93fbfaca"
+dependencies = [
+ "cfg-if",
+ "generator",
+ "scoped-tls",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "lru"
 version = "0.16.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2802,6 +2833,15 @@ name = "memchr"
 version = "2.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8ca58f447f06ed17d5fc4043ce1b10dd205e060fb3ce5b979b8ed8e59ff3f79"
+
+[[package]]
+name = "memmap2"
+version = "0.9.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "714098028fe011992e1c3962653c96b2d578c4b4bce9036e15ff220319b1e0e3"
+dependencies = [
+ "libc",
+]
 
 [[package]]
 name = "memmem"
@@ -3273,6 +3313,47 @@ dependencies = [
  "tokio-util",
  "url 1.7.2",
  "uuid",
+]
+
+[[package]]
+name = "open-ot-carriage"
+version = "0.1.0"
+
+[[package]]
+name = "open-ot-conformance"
+version = "0.1.0"
+dependencies = [
+ "open-ot-carriage",
+ "open-ot-shm",
+]
+
+[[package]]
+name = "open-ot-definition"
+version = "0.1.0"
+dependencies = [
+ "open-ot-carriage",
+ "serde",
+ "serde_jcs",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
+name = "open-ot-document"
+version = "0.1.0"
+dependencies = [
+ "open-ot-carriage",
+ "open-ot-definition",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "open-ot-shm"
+version = "0.1.0"
+dependencies = [
+ "memmap2",
+ "open-ot-carriage",
 ]
 
 [[package]]
@@ -4414,6 +4495,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 
 [[package]]
+name = "ryu-js"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6518fc26bced4d53678a22d6e423e9d8716377def84545fe328236e3af070e7f"
+
+[[package]]
 name = "safe_arch"
 version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4549,6 +4636,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "scoped-tls"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1cf6437eb19a8f4a6cc0f7dca544973b0b78843adbfeb3683d1a94a0024a294"
+
+[[package]]
 name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4665,6 +4758,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
+]
+
+[[package]]
+name = "serde_jcs"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3a60f3fda61525e439ef6d67422118f11e986566997d9021c56867ad814a0aa"
+dependencies = [
+ "ryu-js",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -5640,7 +5744,7 @@ dependencies = [
 
 [[package]]
 name = "trust-debug"
-version = "0.24.21"
+version = "0.24.23"
 dependencies = [
  "glob",
  "indexmap 2.14.0",
@@ -5655,7 +5759,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dev"
-version = "0.24.21"
+version = "0.24.23"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -5674,8 +5778,9 @@ dependencies = [
 
 [[package]]
 name = "trust-hir"
-version = "0.24.21"
+version = "0.24.23"
 dependencies = [
+ "boxcar",
  "insta",
  "parking_lot",
  "rowan",
@@ -5691,7 +5796,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ide"
-version = "0.24.21"
+version = "0.24.23"
 dependencies = [
  "expect-test",
  "once_cell",
@@ -5704,7 +5809,7 @@ dependencies = [
 
 [[package]]
 name = "trust-lsp"
-version = "0.24.21"
+version = "0.24.23"
 dependencies = [
  "anyhow",
  "expect-test",
@@ -5731,7 +5836,7 @@ dependencies = [
 
 [[package]]
 name = "trust-plcopen"
-version = "0.24.21"
+version = "0.24.23"
 dependencies = [
  "anyhow",
  "crc32fast",
@@ -5744,7 +5849,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime"
-version = "0.24.21"
+version = "0.24.23"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -5762,6 +5867,11 @@ dependencies = [
  "native-tls",
  "notify",
  "opcua",
+ "open-ot-carriage",
+ "open-ot-conformance",
+ "open-ot-definition",
+ "open-ot-document",
+ "open-ot-shm",
  "owo-colors",
  "qrcode",
  "rand 0.10.1",
@@ -5801,7 +5911,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime-core"
-version = "0.24.21"
+version = "0.24.23"
 dependencies = [
  "indexmap 2.14.0",
  "rustc-hash 2.1.2",
@@ -5812,7 +5922,7 @@ dependencies = [
 
 [[package]]
 name = "trust-syntax"
-version = "0.24.21"
+version = "0.24.23"
 dependencies = [
  "drop_bomb",
  "insta",
@@ -5823,7 +5933,7 @@ dependencies = [
 
 [[package]]
 name = "trust-twin-compiler"
-version = "0.24.21"
+version = "0.24.23"
 dependencies = [
  "clap",
  "serde",
@@ -5835,7 +5945,7 @@ dependencies = [
 
 [[package]]
 name = "trust-twin-renderer"
-version = "0.24.21"
+version = "0.24.23"
 dependencies = [
  "anyhow",
  "console_error_panic_hook",
@@ -5850,7 +5960,7 @@ dependencies = [
 
 [[package]]
 name = "trust-wasm-analysis"
-version = "0.24.21"
+version = "0.24.23"
 dependencies = [
  "rowan",
  "serde",
@@ -7141,7 +7251,7 @@ checksum = "3ae8337f8a065cfc972643663ea4279e04e7256de865aa66fe25cec5fb912d3f"
 
 [[package]]
 name = "xtask"
-version = "0.24.21"
+version = "0.24.23"
 dependencies = [
  "anyhow",
  "serde",

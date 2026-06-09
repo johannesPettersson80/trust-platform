@@ -79,6 +79,7 @@ struct RuntimeSection {
     mesh: Option<MeshSection>,
     cloud: Option<RuntimeCloudSection>,
     realtime: Option<RealtimeSection>,
+    openot: Option<OpenOtSection>,
     observability: Option<ObservabilitySection>,
     hmi_persistence: Option<HmiPersistenceSection>,
     opcua: Option<OpcUaSection>,
@@ -235,6 +236,19 @@ struct RealtimeSection {
     priority: Option<u8>,
     cpu_affinity: Option<Vec<usize>>,
     strict: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct OpenOtSection {
+    enabled: Option<bool>,
+    path: Option<String>,
+    capacity: Option<usize>,
+    fence_mode: Option<String>,
+    allow_unfenced_for_proof: Option<bool>,
+    source: Option<String>,
+    producer_instance: Option<String>,
+    producer_instances: Option<Vec<String>>,
 }
 
 #[derive(Debug, Deserialize)]

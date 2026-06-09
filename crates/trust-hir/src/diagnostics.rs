@@ -78,6 +78,8 @@ pub enum DiagnosticCode {
     InvalidTaskConfig,
     /// Unknown task reference in program configuration.
     UnknownTask,
+    /// Invalid OpenOT authoring attribute.
+    InvalidOpenOtAttribute,
 
     // Warnings (W001-W099)
     /// Unused variable.
@@ -150,6 +152,7 @@ impl DiagnosticCode {
             Self::CyclicDependency => "E305",
             Self::InvalidTaskConfig => "E306",
             Self::UnknownTask => "E307",
+            Self::InvalidOpenOtAttribute => "E308",
             // Warnings
             Self::UnusedVariable => "W001",
             Self::UnusedParameter => "W002",
@@ -200,7 +203,8 @@ impl DiagnosticCode {
             | Self::OutOfRange
             | Self::CyclicDependency
             | Self::InvalidTaskConfig
-            | Self::UnknownTask => DiagnosticSeverity::Error,
+            | Self::UnknownTask
+            | Self::InvalidOpenOtAttribute => DiagnosticSeverity::Error,
 
             // Warnings
             Self::UnusedVariable

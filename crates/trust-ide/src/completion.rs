@@ -6,7 +6,7 @@ use rustc_hash::FxHashSet;
 use smol_str::SmolStr;
 use text_size::{TextRange, TextSize};
 
-use trust_hir::db::SemanticDatabase;
+use trust_hir::db::{SemanticDatabase, SourceDatabase};
 use trust_hir::symbols::{ParamDirection, ScopeId, SymbolId, SymbolTable, Visibility};
 use trust_hir::{Database, SymbolKind, Type, TypeId};
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode, SyntaxToken};
@@ -20,6 +20,7 @@ use crate::util::{
 
 include!("completion/types.rs");
 include!("completion/context.rs");
+include!("completion/openot_attributes.rs");
 include!("completion/engine.rs");
 include!("completion/keywords.rs");
 include!("completion/symbols.rs");

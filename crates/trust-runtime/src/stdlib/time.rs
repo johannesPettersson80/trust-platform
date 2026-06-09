@@ -10,9 +10,10 @@ use crate::program_model::{apply_binary, BinaryOp};
 use crate::stdlib::helpers::{require_arity, scale_time, to_i64};
 use crate::stdlib::StandardLibrary;
 use crate::value::{
-    combine_date_and_tod, DateTimeProfile, DateTimeValue, DateValue, LDateTimeValue,
+    combine_date_and_tod, DateTimeProfile, DateTimeValue, DateValue, Duration, LDateTimeValue,
     LTimeOfDayValue, TimeOfDayValue, Value,
 };
+use std::time::{SystemTime, UNIX_EPOCH};
 
 pub fn register(lib: &mut StandardLibrary) {
     lib.register("ADD_TIME", &["IN1", "IN2"], add_time);
@@ -385,7 +386,27 @@ pub fn is_split_name(name: &str) -> bool {
 }
 
 pub fn is_runtime_clock_name(name: &str) -> bool {
-    name == "TIME"
+    matches!(name, "TIME" | "CURRENT_DT")
+}
+
+pub fn runtime_clock_value(name: &str, elapsed: Duration) -> Result<Value, RuntimeError> {
+    match name {
+        "TIME" => Ok(Value::Time(elapsed)),
+        "CURRENT_DT" => current_dt().map(Value::Dt),
+        _ => Err(RuntimeError::UndefinedFunction(name.into())),
+    }
+}
+
+fn current_dt() -> Result<DateTimeValue, RuntimeError> {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|_| RuntimeError::Overflow)?
+        .as_nanos()
+        .try_into()
+        .map_err(|_| RuntimeError::Overflow)?;
+    let ticks = nanos_to_ticks(nanos, DateTimeProfile::default(), DivisionMode::Trunc)
+        .map_err(|_| RuntimeError::Overflow)?;
+    Ok(DateTimeValue::new(ticks))
 }
 
 pub fn split_date(

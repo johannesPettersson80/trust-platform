@@ -24,6 +24,7 @@ pub struct RuntimeConfig {
     pub runtime_cloud_wan_allow_write: Vec<RuntimeCloudWanAllowRule>,
     pub runtime_cloud_link_preferences: Vec<RuntimeCloudLinkPreferenceRule>,
     pub realtime: LinuxRtConfig,
+    pub openot: OpenOtTelemetryConfig,
     pub observability: HistorianConfig,
     pub hmi_persistence: HmiPersistenceConfig,
     pub opcua: OpcUaRuntimeConfig,
@@ -237,6 +238,87 @@ pub struct RuntimeCloudLinkPreferenceRule {
     pub source: SmolStr,
     pub target: SmolStr,
     pub transport: RuntimeCloudPreferredTransport,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpenOtTelemetryFenceMode {
+    Fenced,
+    Unfenced,
+}
+
+impl OpenOtTelemetryFenceMode {
+    pub fn parse(text: &str) -> Result<Self, RuntimeError> {
+        match text.trim().to_ascii_lowercase().as_str() {
+            "fenced" => Ok(Self::Fenced),
+            "unfenced" => Ok(Self::Unfenced),
+            _ => Err(RuntimeError::InvalidConfig(
+                format!("invalid runtime.openot.fence_mode '{text}'").into(),
+            )),
+        }
+    }
+
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Fenced => "fenced",
+            Self::Unfenced => "unfenced",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpenOtTelemetrySource {
+    Heartbeat,
+    StFb,
+}
+
+impl OpenOtTelemetrySource {
+    pub fn parse(text: &str) -> Result<Self, RuntimeError> {
+        match text.trim().to_ascii_lowercase().as_str() {
+            "heartbeat" => Ok(Self::Heartbeat),
+            "st-fb" => Ok(Self::StFb),
+            _ => Err(RuntimeError::InvalidConfig(
+                format!("invalid runtime.openot.source '{text}'").into(),
+            )),
+        }
+    }
+
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Heartbeat => "heartbeat",
+            Self::StFb => "st-fb",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OpenOtTelemetryConfig {
+    pub enabled: bool,
+    pub path: PathBuf,
+    pub capacity: usize,
+    pub fence_mode: OpenOtTelemetryFenceMode,
+    pub allow_unfenced_for_proof: bool,
+    pub source: OpenOtTelemetrySource,
+    /// Back-compat alias for a single ST-FB producer path.
+    pub producer_instance: Option<SmolStr>,
+    /// Normalized ST-FB producer paths drained in stable order.
+    pub producer_instances: Vec<SmolStr>,
+}
+
+impl Default for OpenOtTelemetryConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            path: PathBuf::new(),
+            capacity: 4096,
+            fence_mode: OpenOtTelemetryFenceMode::Fenced,
+            allow_unfenced_for_proof: false,
+            source: OpenOtTelemetrySource::Heartbeat,
+            producer_instance: None,
+            producer_instances: Vec::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

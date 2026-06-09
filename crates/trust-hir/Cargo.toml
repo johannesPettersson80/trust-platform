@@ -17,6 +17,11 @@ text-size.workspace = true
 rowan.workspace = true
 parking_lot.workspace = true
 
+[target.'cfg(loom)'.dependencies]
+# Salsa's transitive boxcar dependency switches to its loom backend under
+# `--cfg loom`, but boxcar keeps the loom dependency behind an optional feature.
+boxcar = { version = "0.2.14", features = ["loom"] }
+
 [dev-dependencies]
 insta.workspace = true
 serde.workspace = true

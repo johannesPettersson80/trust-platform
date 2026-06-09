@@ -25,7 +25,8 @@ pub(super) fn dispatch_native_stdlib_call(
                 got: args.len(),
             }));
         }
-        return Ok(Value::Time(runtime.current_time()));
+        return time::runtime_clock_value(normalized_target_name.as_str(), runtime.current_time())
+            .map_err(VmTrap::Runtime);
     }
     if time::is_split_name(normalized_target_name.as_str()) {
         return dispatch_native_split_call(runtime, frame, normalized_target_name.as_str(), args);

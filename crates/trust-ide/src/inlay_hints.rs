@@ -6,6 +6,7 @@ use smol_str::SmolStr;
 use text_size::{TextRange, TextSize};
 
 use trust_hir::db::{FileId, SourceDatabase};
+use trust_hir::openot_authoring::{self as openot_vocab, OotKind};
 use trust_hir::symbols::ParamDirection;
 use trust_hir::Database;
 use trust_syntax::parser::parse;
@@ -19,6 +20,8 @@ use crate::util::name_from_name_node;
 pub enum InlayHintKind {
     /// Parameter name hint.
     Parameter,
+    /// OpenOT telemetry emission hint.
+    Telemetry,
 }
 
 /// A single inlay hint in ST source.
@@ -39,6 +42,7 @@ pub fn inlay_hints(db: &Database, file_id: FileId, range: TextRange) -> Vec<Inla
     let root = parsed.syntax();
 
     let mut hints = Vec::new();
+    hints.extend(openot_attribute_hints(&root, range));
     for call_expr in root
         .descendants()
         .filter(|n| n.kind() == SyntaxKind::CallExpr)
@@ -92,6 +96,110 @@ pub fn inlay_hints(db: &Database, file_id: FileId, range: TextRange) -> Vec<Inla
     }
 
     hints
+}
+
+fn openot_attribute_hints(root: &SyntaxNode, range: TextRange) -> Vec<InlayHint> {
+    let mut hints = Vec::new();
+    for var_decl in root
+        .descendants()
+        .filter(|node| node.kind() == SyntaxKind::VarDecl)
+    {
+        if !range_intersects(var_decl.text_range(), range) {
+            continue;
+        }
+        let attrs = openot_vocab::parse_attribute_map_from_node(&var_decl);
+        let Some(kind) = attrs.kind() else {
+            continue;
+        };
+        let Some(type_ref) = var_decl
+            .children()
+            .find(|child| child.kind() == SyntaxKind::TypeRef)
+        else {
+            continue;
+        };
+        let Some(label) = openot_hint_label(kind, &attrs) else {
+            continue;
+        };
+        hints.push(InlayHint {
+            position: type_ref.text_range().end(),
+            label: SmolStr::new(label),
+            kind: InlayHintKind::Telemetry,
+        });
+    }
+    hints
+}
+
+fn openot_hint_label(kind: OotKind, attrs: &openot_vocab::AttributeMap) -> Option<String> {
+    match kind {
+        OotKind::Value => {
+            if attrs
+                .get("audit")
+                .is_some_and(|value| value.eq_ignore_ascii_case("true"))
+            {
+                return Some("ParameterChange on change".to_string());
+            }
+            let mut label = match attrs.get("sampling") {
+                Some(value) if value.eq_ignore_ascii_case("periodic") => {
+                    let interval = attrs.get("interval").unwrap_or("?");
+                    format!("ValueChanged on change or every {interval}ms")
+                }
+                Some(value) if value.eq_ignore_ascii_case("hysteresis") => {
+                    let deadband = attrs.get("deadband").unwrap_or("?");
+                    format!("ValueChanged on hysteresis>{deadband}")
+                }
+                Some(value) if value.eq_ignore_ascii_case("deadband") => {
+                    let deadband = attrs.get("deadband").unwrap_or("?");
+                    format!("ValueChanged on delta>{deadband}")
+                }
+                _ if attrs.get("deadband").is_some() => {
+                    format!("ValueChanged on delta>{}", attrs.get("deadband").unwrap())
+                }
+                _ => "ValueChanged on change".to_string(),
+            };
+            if let Some(unit) = attrs.get("unit") {
+                label.push(' ');
+                label.push_str(unit);
+            }
+            Some(label)
+        }
+        OotKind::State => Some("StateTransition on change".to_string()),
+        OotKind::Alarm => {
+            let mut label = "ConditionActive/Cleared on edge with correlation".to_string();
+            if let Some(cause) = attrs.get("cause") {
+                label.push_str(" cause=");
+                label.push_str(cause);
+            }
+            Some(label)
+        }
+        OotKind::Message => {
+            let arg_count = ["arg1", "arg2", "arg3", "arg4"]
+                .iter()
+                .filter(|key| attrs.get(key).is_some())
+                .count();
+            if arg_count == 0 {
+                Some("Message on TRUE edge".to_string())
+            } else {
+                Some(format!("Message on TRUE edge with {arg_count} arg(s)"))
+            }
+        }
+        OotKind::Condition => {
+            let event = attrs.get("event").unwrap_or("lifecycle");
+            let parent = attrs.get("of").unwrap_or("alarm");
+            Some(format!("Condition {event} for {parent} on TRUE edge"))
+        }
+        OotKind::Batch => Some("BatchEvent on change".to_string()),
+        OotKind::RecipeLoaded => Some("RecipeLoaded on TRUE edge".to_string()),
+        OotKind::RecipeApproved => Some("RecipeApproved on TRUE edge".to_string()),
+        OotKind::MaterialAddition => Some("MaterialAddition on TRUE edge".to_string()),
+        OotKind::OperatorAction => Some("OperatorAction on TRUE edge".to_string()),
+        OotKind::OperatorLogin => Some("OperatorLogin on TRUE edge".to_string()),
+        OotKind::OperatorLogout => Some("OperatorLogout on TRUE edge".to_string()),
+        OotKind::SecurityFailure => Some("SecurityAccessFailure on TRUE edge".to_string()),
+        OotKind::ESignature => Some(format!(
+            "ESignature on TRUE edge attesting {}",
+            attrs.get("attests").unwrap_or("event")
+        )),
+    }
 }
 
 #[derive(Debug, Clone)]

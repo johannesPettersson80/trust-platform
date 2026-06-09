@@ -35,3 +35,7 @@ struct ParsedRuntimeCloud {
 struct ParsedRealtime {
     config: LinuxRtConfig,
 }
+
+struct ParsedOpenOt {
+    config: OpenOtTelemetryConfig,
+}

@@ -18,8 +18,9 @@ pub struct CompileSession {
 impl CompileSession {
     /// Build a compile session from a single source.
     pub fn from_source(source: impl Into<String>) -> Self {
+        let sources = vec![SourceFile::new(source)];
         Self {
-            sources: vec![SourceFile::new(source)],
+            sources: crate::openot_authoring::instrument_source_files(&sources),
             label_errors: false,
             extra_program_instances: Vec::new(),
         }
@@ -29,7 +30,7 @@ impl CompileSession {
     pub fn from_sources(sources: Vec<SourceFile>) -> Self {
         let label_errors = sources.len() > 1;
         Self {
-            sources,
+            sources: crate::openot_authoring::instrument_source_files(&sources),
             label_errors,
             extra_program_instances: Vec::new(),
         }
