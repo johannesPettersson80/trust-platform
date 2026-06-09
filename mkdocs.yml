@@ -105,6 +105,7 @@ nav:
       - PLC Programming:
           - Structured Text Workflow: start/choose-your-workflow.md
           - Variables And I/O Mapping: connect/devices-and-fieldbus/io-binding.md
+          - OpenOT Attribute Authoring: develop/openot-authoring.md
           - Build, Validate, Test: operate/build-validate-test.md
           - Compile, Validate, Reload: operate/compile-validate-reload.md
           - Debugging: operate/debugging-and-runtime-panel.md

@@ -7,9 +7,9 @@ to a hidden OpenOT producer function-block call path, and the runtime can publis
 the encoded records to the OpenOT shared-memory ring.
 
 The OpenOT vocabulary and wire/definition/document contracts live in the
-`open-ot-ref` workbench. This page documents the truST integration points: what
-the editor offers, what the compiler accepts, what gets generated, and how the
-runtime publishes it.
+`open-ot-ref` workbench. The truST integration covers what the editor offers,
+what the compiler accepts, what gets generated, and how the runtime publishes
+it.
 
 ## Authoring Surface
 
