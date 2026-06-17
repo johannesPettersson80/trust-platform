@@ -9,6 +9,9 @@ impl Runtime {
     /// - swap at scheduler cycle boundary,
     /// - invalidate in-flight instruction pointers by warm restart at entrypoint,
     /// - preserve retain state through warm-restart + retain-store reload.
+    ///
+    /// Host protocol surfaces such as the ADS server are refreshed by the
+    /// control/runtime owner after this protocol-agnostic core swap returns.
     pub fn apply_online_change_bytes(
         &mut self,
         bytes: &[u8],

@@ -122,6 +122,21 @@ fn control_state(
                 ResourceCommand::Snapshot { respond_to } => {
                     let _ = respond_to.send(snapshot.clone());
                 }
+                ResourceCommand::AdsStatus { respond_to } => {
+                    let _ = respond_to.send(trust_runtime::ads::diagnostics::AdsStatusReport {
+                        schema_version:
+                            trust_runtime::ads::diagnostics::ADS_DIAGNOSTICS_SCHEMA_VERSION,
+                        role: trust_runtime::ads::diagnostics::DoctorRole::Client,
+                        overall: trust_runtime::ads::diagnostics::AdsStatusOverall::Disabled,
+                        runtime_identity_hash: None,
+                        deployed_ads_config_hash: None,
+                        connections: Vec::new(),
+                        summary: "ADS is not configured.".to_string(),
+                    });
+                }
+                ResourceCommand::ActiveAdsDevice { respond_to, .. } => {
+                    let _ = respond_to.send(None);
+                }
                 _ => {}
             }
         }
@@ -145,6 +160,7 @@ fn control_state(
         metadata: Arc::new(Mutex::new(harness.runtime().metadata_snapshot())),
         sources,
         io_snapshot: Arc::new(Mutex::new(None)),
+        io_snapshot_seen_ms: Arc::new(std::sync::atomic::AtomicU64::new(0)),
         pending_restart: Arc::new(Mutex::new(None)),
         auth_token: Arc::new(Mutex::new(auth_token.map(SmolStr::new))),
         control_requires_auth: auth_token.is_some(),
@@ -153,9 +169,13 @@ fn control_state(
         metrics: Arc::new(Mutex::new(metrics)),
         events: Arc::new(Mutex::new(VecDeque::new())),
         settings: Arc::new(Mutex::new(runtime_settings())),
+        discovery: Arc::new(trust_runtime::discovery::DiscoveryState::new()),
+        mesh_topology: Arc::new(Mutex::new(None)),
         realtime_status: Arc::new(Mutex::new(LinuxRtRuntimeStatus::from_config(
             trust_runtime::linux_rt::LinuxRtConfig::default(),
         ))),
+        web_listener_bound: Arc::new(AtomicBool::new(false)),
+        opcua_server_bound: Arc::new(AtomicBool::new(false)),
         project_root: None,
         resource_name: SmolStr::new("RESOURCE"),
         io_health: Arc::new(Mutex::new(Vec::new())),
@@ -166,6 +186,13 @@ fn control_state(
         hmi_descriptor,
         historian,
         pairing: None,
+        ads_doctor_jobs: Arc::new(Mutex::new(
+            trust_runtime::control::AdsDoctorJobStore::default(),
+        )),
+        ads_client_config: Arc::new(Mutex::new(None)),
+        ads_server_config: Arc::new(Mutex::new(None)),
+        #[cfg(feature = "ads-server")]
+        ads_server_runtime: Arc::new(Mutex::new(None)),
     })
 }
 

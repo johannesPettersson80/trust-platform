@@ -132,6 +132,7 @@ nav:
           - Multi Driver: connect/devices-and-fieldbus/multi-driver.md
       - Communication While Programming:
           - Communication Overview: connect/index.md
+          - VS Code Communication Panel: connect/communication-panel.md
           - Protocol Matrix: connect/protocol-matrix.md
           - truST Mesh: concepts/trust-mesh.md
           - Runtime To Runtime: connect/runtime-to-runtime/index.md
@@ -146,6 +147,7 @@ nav:
           - Modbus TCP: connect/external-systems/modbus-tcp.md
           - MQTT: connect/external-systems/mqtt.md
           - OPC UA: connect/external-systems/opc-ua.md
+          - Beckhoff ADS: connect/external-systems/ads.md
           - Devices And Fieldbus: connect/devices-and-fieldbus/index.md
           - Enterprise Integration: connect/enterprise/index.md
           - Historian And Database: connect/enterprise/historian-and-database.md
@@ -218,6 +220,7 @@ nav:
           - Overview: reference/config/index.md
           - runtime.toml: reference/config/runtime-toml.md
           - io.toml: reference/config/io-toml.md
+          - ads.toml: reference/config/ads-toml.md
           - simulation.toml: reference/config/simulation-toml.md
           - trust-lsp.toml: reference/config/trust-lsp-toml.md
           - hmi/: reference/config/hmi-directory.md

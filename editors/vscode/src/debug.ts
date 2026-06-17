@@ -3,6 +3,7 @@ import * as path from "path";
 import * as vscode from "vscode";
 
 import { getBinaryPath } from "./binary";
+import { localSimControl } from "./simControl";
 import {
   __testCreateDefaultConfigurationAuto,
   __testEnsureConfigurationEntryAuto,
@@ -24,6 +25,30 @@ import {
 } from "./debug/configuration";
 
 const LAUNCH_WARN_DELAY_MS = 1500;
+
+// The debug output channel is user-visible; never log the injected per-session control token.
+function redactDebugConfig(config: vscode.DebugConfiguration): Record<string, unknown> {
+  if (config.controlAuthToken === undefined) {
+    return config as Record<string, unknown>;
+  }
+  return { ...config, controlAuthToken: "***" };
+}
+
+// Same, for a DAP message (the launch request carries the config under `arguments`).
+function redactDapMessage(value: unknown): unknown {
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+  const message = value as { arguments?: Record<string, unknown> };
+  const args = message.arguments;
+  if (args && typeof args === "object" && "controlAuthToken" in args) {
+    return {
+      ...(value as Record<string, unknown>),
+      arguments: { ...args, controlAuthToken: "***" },
+    };
+  }
+  return value;
+}
 
 type LaunchFallbackState = {
   seenLaunch: boolean;
@@ -229,6 +254,18 @@ class StructuredTextDebugConfigurationProvider
       config.cwd = folder.uri.fsPath;
     }
 
+    // Pin the launch session's control server to a known per-workspace endpoint + a random
+    // per-session token (the adapter already starts a control server on launch). This lets the
+    // Network Canvas reach the live simulator for comm.schema/apply + fleet.topology with write
+    // access, and avoids two workspaces colliding on one default socket. Explicit user configs win.
+    if (config.request === "launch" && !config.controlEndpoint) {
+      const sim = localSimControl(folder?.uri.fsPath);
+      if (sim) {
+        config.controlEndpoint = sim.endpoint;
+        config.controlAuthToken = sim.authToken;
+      }
+    }
+
     debugChannel().appendLine(
       `Resolved debug config: type=${config.type} request=${config.request} program=${config.program ?? "<none>"} cwd=${config.cwd ?? "<none>"}`
     );
@@ -285,7 +322,7 @@ class StructuredTextDebugAdapterTrackerFactory
     const channel = debugChannel();
     const formatMessage = (value: unknown): string => {
       try {
-        return JSON.stringify(value);
+        return JSON.stringify(redactDapMessage(value));
       } catch (err) {
         return String(err);
       }
@@ -479,20 +516,20 @@ export function registerDebugAdapter(
         const pendingTimer = setTimeout(() => {
           const active = vscode.debug.activeDebugSession;
           debugChannel().appendLine(
-            `startDebugging still pending after 5s: active=${active?.name ?? "<none>"} type=${active?.type ?? "<none>"} config=${JSON.stringify(config)}`
+            `startDebugging still pending after 5s: active=${active?.name ?? "<none>"} type=${active?.type ?? "<none>"} config=${JSON.stringify(redactDebugConfig(config))}`
           );
         }, 5000);
         try {
           const started = await vscode.debug.startDebugging(folder, config);
           clearTimeout(pendingTimer);
           debugChannel().appendLine(
-            `startDebugging result: ${started} folder=${folder?.name ?? "<none>"} config=${JSON.stringify(config)}`
+            `startDebugging result: ${started} folder=${folder?.name ?? "<none>"} config=${JSON.stringify(redactDebugConfig(config))}`
           );
           return started;
         } catch (err: unknown) {
           clearTimeout(pendingTimer);
           debugChannel().appendLine(
-            `startDebugging error: ${err instanceof Error ? err.message : String(err)} folder=${folder?.name ?? "<none>"} config=${JSON.stringify(config)}`
+            `startDebugging error: ${err instanceof Error ? err.message : String(err)} folder=${folder?.name ?? "<none>"} config=${JSON.stringify(redactDebugConfig(config))}`
           );
           throw err;
         }

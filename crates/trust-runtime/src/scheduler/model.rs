@@ -23,6 +23,15 @@ pub enum ResourceCommand {
     Snapshot {
         respond_to: std::sync::mpsc::Sender<crate::debug::DebugSnapshot>,
     },
+    AdsStatus {
+        respond_to: std::sync::mpsc::Sender<crate::ads::diagnostics::AdsStatusReport>,
+    },
+    ActiveAdsDevice {
+        target: crate::ads::diagnostics::TargetIdentity,
+        local: Option<crate::ads::diagnostics::LocalIdentity>,
+        respond_to:
+            std::sync::mpsc::Sender<Option<crate::ads::onboarding::ActiveAdsDeviceSnapshot>>,
+    },
 }
 
 /// Gate that blocks resource execution until opened.

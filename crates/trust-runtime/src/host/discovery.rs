@@ -87,18 +87,37 @@ pub fn start_discovery(
     web_tls: bool,
     mesh_listen: Option<&str>,
 ) -> Result<DiscoveryHandle, RuntimeError> {
+    start_discovery_with_state(
+        config,
+        runtime_name,
+        control_endpoint,
+        web_listen,
+        web_tls,
+        mesh_listen,
+        Arc::new(DiscoveryState::new()),
+    )
+}
+
+pub fn start_discovery_with_state(
+    config: &DiscoveryConfig,
+    runtime_name: &SmolStr,
+    control_endpoint: &ControlEndpoint,
+    web_listen: Option<&str>,
+    web_tls: bool,
+    mesh_listen: Option<&str>,
+    state: Arc<DiscoveryState>,
+) -> Result<DiscoveryHandle, RuntimeError> {
     if !config.enabled {
         return Ok(DiscoveryHandle {
             daemon: ServiceDaemon::new().map_err(|err| {
                 RuntimeError::ControlError(format!("discovery disabled: {err}").into())
             })?,
-            state: Arc::new(DiscoveryState::new()),
+            state,
         });
     }
 
     let daemon = ServiceDaemon::new()
         .map_err(|err| RuntimeError::ControlError(format!("mdns start: {err}").into()))?;
-    let state = Arc::new(DiscoveryState::new());
     let instance_name = format!("{}-{}", config.service_name, runtime_name);
     let hostname = std::env::var("HOSTNAME").unwrap_or_else(|_| "trust".into());
     let host = format!("{hostname}.local.");

@@ -1,5 +1,5 @@
 use super::*;
-use crate::value::Value;
+use crate::value::{EnumValue, Value};
 
 #[test]
 fn maps_scalar_numeric_and_string_types() {
@@ -29,6 +29,30 @@ fn maps_scalar_numeric_and_string_types() {
         Some(OpcUaValue {
             data_type: OpcUaDataType::String,
             value: OpcUaVariant::String("Pump".to_string()),
+        })
+    );
+}
+
+#[test]
+fn maps_enum_values_as_string_variants() {
+    let mut registry = trust_hir::types::TypeRegistry::new();
+    let quality = registry.register_enum(
+        "ADS_QUALITY",
+        trust_hir::TypeId::INT,
+        vec![
+            (smol_str::SmolStr::new("Stale"), 0),
+            (smol_str::SmolStr::new("Good"), 1),
+        ],
+    );
+    let value = Value::Enum(Box::new(
+        EnumValue::new(&registry, quality, "Good").expect("enum value"),
+    ));
+
+    assert_eq!(
+        map_iec_value(&value),
+        Some(OpcUaValue {
+            data_type: OpcUaDataType::String,
+            value: OpcUaVariant::String("Good".to_string()),
         })
     );
 }

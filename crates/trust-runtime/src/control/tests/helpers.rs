@@ -93,6 +93,13 @@ fn runtime_settings() -> RuntimeSettings {
 }
 
 fn hmi_test_state(source: &str) -> ControlState {
+    hmi_test_state_with_ads_status(source, disabled_ads_status())
+}
+
+fn hmi_test_state_with_ads_status(
+    source: &str,
+    ads_status: crate::ads::diagnostics::AdsStatusReport,
+) -> ControlState {
     let mut harness = TestHarness::from_source(source).expect("build harness");
     let debug = harness.runtime_mut().enable_debug();
     harness.cycle();
@@ -115,6 +122,12 @@ fn hmi_test_state(source: &str) -> ControlState {
                 }
                 ResourceCommand::Snapshot { respond_to } => {
                     let _ = respond_to.send(snapshot.clone());
+                }
+                ResourceCommand::AdsStatus { respond_to } => {
+                    let _ = respond_to.send(ads_status.clone());
+                }
+                ResourceCommand::ActiveAdsDevice { respond_to, .. } => {
+                    let _ = respond_to.send(None);
                 }
                 ResourceCommand::MeshApply { .. }
                 | ResourceCommand::Pause
@@ -140,6 +153,7 @@ fn hmi_test_state(source: &str) -> ControlState {
         metadata: Arc::new(Mutex::new(harness.runtime().metadata_snapshot())),
         sources,
         io_snapshot: Arc::new(Mutex::new(None)),
+        io_snapshot_seen_ms: Arc::new(std::sync::atomic::AtomicU64::new(0)),
         pending_restart: Arc::new(Mutex::new(None)),
         auth_token: Arc::new(Mutex::new(None)),
         control_requires_auth: false,
@@ -148,9 +162,13 @@ fn hmi_test_state(source: &str) -> ControlState {
         metrics: Arc::new(Mutex::new(RuntimeMetrics::default())),
         events: Arc::new(Mutex::new(VecDeque::new())),
         settings: Arc::new(Mutex::new(runtime_settings())),
+        discovery: Arc::new(crate::discovery::DiscoveryState::new()),
+        mesh_topology: Arc::new(Mutex::new(None)),
         realtime_status: Arc::new(Mutex::new(LinuxRtRuntimeStatus::from_config(
             crate::linux_rt::LinuxRtConfig::default(),
         ))),
+        web_listener_bound: Arc::new(AtomicBool::new(false)),
+        opcua_server_bound: Arc::new(AtomicBool::new(false)),
         project_root: None,
         resource_name: SmolStr::new("RESOURCE"),
         io_health: Arc::new(Mutex::new(Vec::new())),
@@ -161,6 +179,23 @@ fn hmi_test_state(source: &str) -> ControlState {
         hmi_descriptor,
         historian: None,
         pairing: None,
+        ads_doctor_jobs: Arc::new(Mutex::new(AdsDoctorJobStore::default())),
+        ads_client_config: Arc::new(Mutex::new(None)),
+        ads_server_config: Arc::new(Mutex::new(None)),
+        #[cfg(feature = "ads-server")]
+        ads_server_runtime: Arc::new(Mutex::new(None)),
+    }
+}
+
+fn disabled_ads_status() -> crate::ads::diagnostics::AdsStatusReport {
+    crate::ads::diagnostics::AdsStatusReport {
+        schema_version: crate::ads::diagnostics::ADS_DIAGNOSTICS_SCHEMA_VERSION,
+        role: crate::ads::diagnostics::DoctorRole::Client,
+        overall: crate::ads::diagnostics::AdsStatusOverall::Disabled,
+        runtime_identity_hash: None,
+        deployed_ads_config_hash: None,
+        connections: Vec::new(),
+        summary: "ADS is not configured.".to_string(),
     }
 }
 
@@ -262,4 +297,13 @@ fn pairing_file(name: &str) -> PathBuf {
         .unwrap_or_default()
         .as_nanos();
     std::env::temp_dir().join(format!("trust-pairing-control-{name}-{stamp}.json"))
+}
+
+fn engineer_token(name: &str, state: &mut ControlState) -> String {
+    let store = Arc::new(PairingStore::load(pairing_file(name)));
+    state.pairing = Some(store.clone());
+    let code = store.start_pairing();
+    store
+        .claim(&code.code, Some(AccessRole::Engineer))
+        .expect("engineer token")
 }

@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Beckhoff ADS Setup</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="/setup/ads.css" />
+</head>
+<body>
+  <main class="ads-shell">
+    <header class="ads-header">
+      <div>
+        <p class="eyebrow">This runtime host</p>
+        <h1>Beckhoff ADS Setup</h1>
+      </div>
+      <div class="ads-status" id="runtimeStatus">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span id="runtimeSummary">Loading ADS status</span>
+      </div>
+    </header>
+
+    <section class="ads-grid" aria-label="ADS setup workspace">
+      <form class="ads-panel ads-target" id="targetForm">
+        <div class="panel-heading">
+          <h2>Target PLC</h2>
+          <button type="submit" class="btn primary">Identify</button>
+        </div>
+        <label>
+          <span>Host/IP</span>
+          <input id="targetIp" name="targetIp" autocomplete="off" placeholder="192.168.10.5" required />
+        </label>
+        <label>
+          <span>Connection Name</span>
+          <input id="connectionName" name="connectionName" autocomplete="off" value="line1" />
+        </label>
+        <details class="advanced-fields">
+          <summary>Advanced</summary>
+          <label>
+            <span>Expected AMS Net ID</span>
+            <input id="targetAms" name="targetAms" autocomplete="off" placeholder="optional, e.g. 5.23.91.12.1.1" />
+          </label>
+        </details>
+      </form>
+
+      <section class="ads-panel" aria-labelledby="identityHeading">
+        <div class="panel-heading">
+          <h2 id="identityHeading">Runtime Identity</h2>
+          <button type="button" class="btn" id="planRouteBtn" disabled>Plan Route</button>
+        </div>
+        <dl class="facts">
+          <div><dt>Local IP</dt><dd id="localIp">-</dd></div>
+          <div><dt>Local AMS</dt><dd id="localAms">-</dd></div>
+          <div><dt>Network</dt><dd id="localClass">-</dd></div>
+        </dl>
+      </section>
+
+      <section class="ads-panel ads-route" aria-labelledby="routeHeading">
+        <div class="panel-heading">
+          <h2 id="routeHeading">Route</h2>
+          <button type="button" class="btn primary" id="addRouteBtn" disabled>Add Route</button>
+        </div>
+        <p id="routeChannel" class="panel-note">Setup channel not checked.</p>
+        <p id="routeState" class="panel-note">Route plan not generated.</p>
+        <div id="artifactList" class="artifact-list"></div>
+      </section>
+
+      <section class="ads-panel ads-doctor" aria-labelledby="doctorHeading">
+        <div class="panel-heading">
+          <h2 id="doctorHeading">Doctor</h2>
+          <button type="button" class="btn primary" id="doctorBtn" disabled>Run Doctor</button>
+        </div>
+        <ol id="doctorSteps" class="doctor-steps"></ol>
+      </section>
+    </section>
+
+    <section class="ads-panel ads-import" aria-labelledby="importHeading">
+      <div class="panel-heading">
+        <h2 id="importHeading">Symbols</h2>
+        <button type="button" class="btn" id="importSymbolsBtn" disabled>Import Symbols</button>
+      </div>
+      <div id="symbolSummary" class="panel-note">No symbols imported.</div>
+      <div id="symbolList" class="symbol-list"></div>
+    </section>
+
+    <section class="ads-panel ads-deploy" aria-labelledby="deployHeading">
+      <div class="panel-heading">
+        <h2 id="deployHeading">Deploy</h2>
+        <a class="btn primary" href="/ide" id="openIdeDeploy">Open IDE Deploy</a>
+      </div>
+      <p id="deployBridgeSummary" class="panel-note">
+        Production-ready requires a deployed/reloaded bundle, a passing runtime-host Doctor, and healthy ADS status.
+      </p>
+      <div class="deploy-actions">
+        <button type="button" class="btn" id="refreshStatusBtn">Refresh ADS Status</button>
+        <button type="button" class="btn" id="doctorAfterDeployBtn" disabled>Run Doctor After Deploy</button>
+      </div>
+    </section>
+
+    <section class="ads-panel ads-server" aria-labelledby="serverHeading">
+      <div class="panel-heading">
+        <h2 id="serverHeading">ADS Server</h2>
+        <button type="button" class="btn" id="serverDoctorBtn">Run Server Doctor</button>
+      </div>
+      <dl class="facts">
+        <div><dt>State</dt><dd id="serverState">-</dd></div>
+        <div><dt>Proof</dt><dd id="serverProof">-</dd></div>
+        <div><dt>Identity</dt><dd id="serverIdentity">-</dd></div>
+        <div><dt>Clients</dt><dd id="serverClients">-</dd></div>
+      </dl>
+      <p id="serverSummary" class="panel-note">No ADS server status loaded.</p>
+      <div id="serverPendingList" class="pending-list"></div>
+      <ol id="serverDoctorSteps" class="doctor-steps"></ol>
+    </section>
+  </main>
+
+  <dialog id="routeDialog" class="route-dialog">
+    <form method="dialog" id="routeCredentialForm">
+      <h2>Add ADS Route</h2>
+      <label>
+        <span>TwinCAT User</span>
+        <input id="routeUser" autocomplete="username" value="Administrator" />
+      </label>
+      <label>
+        <span>TwinCAT Password</span>
+        <input id="routePassword" type="password" autocomplete="current-password" />
+      </label>
+      <p class="panel-note">Credentials are sent directly to the PLC for this action and are not saved.</p>
+      <div class="dialog-actions">
+        <button value="cancel" class="btn" type="submit">Cancel</button>
+        <button value="confirm" class="btn primary" type="submit">Add Route</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="/setup/ads.js"></script>
+</body>
+</html>

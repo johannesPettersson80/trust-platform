@@ -117,6 +117,11 @@ pub(super) fn handle_bytecode_reload(
             if let Ok(mut guard) = state.metadata.lock() {
                 *guard = metadata;
             }
+            if let Err(error) =
+                super::ads_handlers::refresh_ads_server_runtime_after_online_change(state)
+            {
+                return ControlResponse::error(id, error);
+            }
             ControlResponse::ok(id, json!({ "status": "reloaded" }))
         }
         Ok(Err(err)) => ControlResponse::error(id, err.to_string()),

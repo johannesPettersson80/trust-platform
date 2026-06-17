@@ -72,7 +72,22 @@ pub(super) fn api_post_policy_check(
     }
 
     let Some(origin_raw) = header_value(request, "Origin") else {
-        return Ok(());
+        if request
+            .remote_addr()
+            .is_some_and(|addr| addr.ip().is_loopback())
+        {
+            return Ok(());
+        }
+        return Err(Response::from_string(
+            json!({
+                "ok": false,
+                "denial_code": "permission_denied",
+                "error": "missing Origin header",
+            })
+            .to_string(),
+        )
+        .with_status_code(StatusCode(403))
+        .with_header(Header::from_bytes("Content-Type", "application/json").unwrap()));
     };
     let origin = origin_raw.trim().trim_end_matches('/').to_ascii_lowercase();
     if origin == "null" {

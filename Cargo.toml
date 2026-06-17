@@ -9,6 +9,8 @@ members = [
     "crates/trust-lsp",
     "crates/trust-dev",
     "crates/trust-plcopen",
+    "crates/trust-ads-core",
+    "crates/trust-ads-server",
     "crates/trust-runtime-core",
     "crates/trust-runtime",
     "crates/trust-twin-compiler",
@@ -20,7 +22,7 @@ exclude = [
 ]
 
 [workspace.package]
-version = "0.24.24"
+version = "0.24.25"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/johannesPettersson80/trust-platform"
@@ -97,6 +99,8 @@ trust-hir = { path = "crates/trust-hir" }
 trust-ide = { path = "crates/trust-ide" }
 trust-dev = { path = "crates/trust-dev" }
 trust-plcopen = { path = "crates/trust-plcopen" }
+trust-ads-core = { path = "crates/trust-ads-core" }
+trust-ads-server = { path = "crates/trust-ads-server" }
 trust-runtime-core = { path = "crates/trust-runtime-core" }
 trust-runtime = { path = "crates/trust-runtime" }
 trust-twin-compiler = { path = "crates/trust-twin-compiler" }

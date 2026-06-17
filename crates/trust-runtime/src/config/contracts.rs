@@ -27,6 +27,8 @@ pub struct RuntimeConfig {
     pub openot: OpenOtTelemetryConfig,
     pub observability: HistorianConfig,
     pub hmi_persistence: HmiPersistenceConfig,
+    pub ads: AdsRuntimeConfig,
+    pub ads_server: AdsServerRuntimeConfig,
     pub opcua: OpcUaRuntimeConfig,
     pub tasks: Option<Vec<TaskOverride>>,
 }
@@ -321,6 +323,23 @@ impl Default for OpenOtTelemetryConfig {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AdsRuntimeConfig {
+    pub enabled: bool,
+    pub config_path: PathBuf,
+    pub worker_tick_interval: Duration,
+}
+
+impl Default for AdsRuntimeConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            config_path: PathBuf::from("ads.toml"),
+            worker_tick_interval: Duration::from_millis(20),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct IoConfig {
     pub drivers: Vec<IoDriverConfig>,
@@ -338,6 +357,8 @@ pub struct RuntimeBundle {
     pub root: PathBuf,
     pub runtime: RuntimeConfig,
     pub io: IoConfig,
+    pub ads: Option<crate::ads::AdsClientConfig>,
+    pub ads_config_hash: Option<String>,
     pub simulation: Option<SimulationConfig>,
     pub bytecode: Vec<u8>,
 }

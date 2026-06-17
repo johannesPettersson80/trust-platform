@@ -400,6 +400,8 @@ impl Runtime {
             self.apply_forced_values(&debug)?;
         }
         self.io.interface_mut().read_inputs(&mut self.storage)?;
+        let now_ms = self.current_time_ms();
+        self.ads.apply_inputs(&mut self.storage, now_ms)?;
         #[cfg(feature = "debug")]
         self.emit_io_snapshot();
         self.update_io_health();
@@ -411,6 +413,8 @@ impl Runtime {
         if let Some(debug) = self.debug.clone() {
             self.apply_forced_values(&debug)?;
         }
+        let now_ms = self.current_time_ms();
+        self.ads.capture_outputs(&mut self.storage, now_ms)?;
         #[cfg(feature = "debug")]
         self.emit_io_snapshot();
         self.check_output_commit_deadline()?;
@@ -439,6 +443,10 @@ impl Runtime {
 
     fn record_fault(&mut self, err: error::RuntimeError) -> error::RuntimeError {
         self.apply_fault(err, self.faults.decision())
+    }
+
+    fn current_time_ms(&self) -> u64 {
+        u64::try_from(self.current_time.as_millis()).unwrap_or(0)
     }
 
     #[cfg(feature = "debug")]

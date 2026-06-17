@@ -53,6 +53,10 @@ pub fn map_iec_value(value: &Value) -> Option<OpcUaValue> {
             data_type: OpcUaDataType::String,
             value: OpcUaVariant::String(ch.to_string()),
         }),
+        Value::Enum(value) => Some(OpcUaValue {
+            data_type: OpcUaDataType::String,
+            value: OpcUaVariant::String(value.variant_name().to_string()),
+        }),
         Value::SInt(value) => Some(OpcUaValue {
             data_type: OpcUaDataType::Int16,
             value: OpcUaVariant::Int16(i16::from(*value)),

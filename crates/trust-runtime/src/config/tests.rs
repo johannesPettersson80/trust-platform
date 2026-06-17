@@ -1,6 +1,6 @@
 use super::{
     parser::parse_runtime_toml_from_text, validate_io_toml_text, validate_runtime_toml_text,
-    RuntimeConfig,
+    RuntimeBundle, RuntimeConfig,
 };
 
 fn runtime_toml() -> String {
@@ -591,12 +591,325 @@ fn runtime_schema_requires_opcua_credentials_or_anonymous_when_enabled() {
 }
 
 #[test]
+fn runtime_schema_defaults_ads_disabled() {
+    let runtime = parse_runtime_toml_from_text(&runtime_toml(), "runtime.toml")
+        .expect("runtime config should parse");
+
+    assert!(!runtime.ads.enabled);
+    assert_eq!(
+        runtime.ads.config_path,
+        std::path::PathBuf::from("ads.toml")
+    );
+    assert_eq!(
+        runtime.ads.worker_tick_interval,
+        crate::value::Duration::from_millis(20)
+    );
+    assert!(!runtime.ads_server.enabled);
+    assert!(runtime.ads_server.listen.is_none());
+    assert!(runtime.ads_server.expose.is_empty());
+    assert!(runtime.ads_server.clients.is_empty());
+}
+
+#[test]
+fn runtime_schema_accepts_ads_section() {
+    let text = format!(
+        "{}\n[runtime.ads]\nenabled = true\nconfig_path = \"config/line1.ads.toml\"\nworker_tick_interval_ms = 5\n",
+        runtime_toml()
+    );
+
+    let runtime = parse_runtime_toml_from_text(&text, "runtime.toml")
+        .expect("ADS runtime config should parse");
+
+    assert!(runtime.ads.enabled);
+    assert_eq!(
+        runtime.ads.config_path,
+        std::path::PathBuf::from("config/line1.ads.toml")
+    );
+    assert_eq!(
+        runtime.ads.worker_tick_interval,
+        crate::value::Duration::from_millis(5)
+    );
+}
+
+#[test]
+fn runtime_schema_rejects_zero_ads_worker_tick() {
+    let text = format!(
+        "{}\n[runtime.ads]\nenabled = true\nworker_tick_interval_ms = 0\n",
+        runtime_toml()
+    );
+
+    let err = validate_runtime_toml_text(&text).expect_err("ADS tick interval should fail");
+
+    assert!(err
+        .to_string()
+        .contains("runtime.ads.worker_tick_interval_ms must be >= 1"));
+}
+
+#[test]
+fn runtime_schema_accepts_ads_server_section() {
+    let text = format!(
+        "{}\n[runtime.ads_server]\nenabled = true\nlisten = \"192.168.10.20\"\ninsecure_transport = true\nexpose = [\"global.*\"]\nwritable = [\"global.setpoint\"]\nwrites_enabled = true\n[[runtime.ads_server.clients]]\nams_net_id = \"5.23.91.12.1.1\"\nsource_ip = \"192.168.10.50\"\n",
+        runtime_toml()
+    );
+
+    let runtime = parse_runtime_toml_from_text(&text, "runtime.toml")
+        .expect("ADS server config should parse");
+
+    assert!(runtime.ads_server.enabled);
+    assert_eq!(runtime.ads_server.listen.as_deref(), Some("192.168.10.20"));
+    assert_eq!(
+        runtime
+            .ads_server
+            .ams_net_id
+            .as_ref()
+            .map(|id| id.0.as_str()),
+        Some("192.168.10.20.1.1")
+    );
+    assert_eq!(runtime.ads_server.ads_port, 851);
+    assert!(runtime.ads_server.writes_enabled);
+    assert_eq!(
+        runtime.ads_server.expose,
+        vec![smol_str::SmolStr::new("global.*")]
+    );
+    assert_eq!(
+        runtime.ads_server.writable,
+        vec![smol_str::SmolStr::new("global.setpoint")]
+    );
+    assert_eq!(runtime.ads_server.clients.len(), 1);
+    assert!(matches!(
+        runtime.ads_server.clients[0].source,
+        crate::ads::server::AdsServerSourcePin::Ip(_)
+    ));
+}
+
+#[test]
+fn runtime_schema_accepts_ads_server_empty_fail_closed_runtime() {
+    let text = format!(
+        "{}\n[runtime.ads_server]\nenabled = true\nlisten = \"192.168.10.20\"\ninsecure_transport = true\n",
+        runtime_toml()
+    );
+
+    let runtime = parse_runtime_toml_from_text(&text, "runtime.toml")
+        .expect("empty ADS server config starts fail-closed");
+
+    assert!(runtime.ads_server.enabled);
+    assert!(runtime.ads_server.expose.is_empty());
+    assert!(runtime.ads_server.clients.is_empty());
+}
+
+#[test]
+fn runtime_schema_rejects_ads_server_enabled_without_listen() {
+    let text = format!(
+        "{}\n[runtime.ads_server]\nenabled = true\ninsecure_transport = true\n",
+        runtime_toml()
+    );
+
+    let err = validate_runtime_toml_text(&text).expect_err("listen should be required");
+
+    assert!(err
+        .to_string()
+        .contains("runtime.ads_server.enabled=true requires explicit listen IP"));
+}
+
+#[test]
+fn runtime_schema_rejects_ads_server_wildcard_listen() {
+    let text = format!(
+        "{}\n[runtime.ads_server]\nenabled = true\nlisten = \"0.0.0.0\"\ninsecure_transport = true\n",
+        runtime_toml()
+    );
+
+    let err = validate_runtime_toml_text(&text).expect_err("wildcard listen should fail");
+
+    assert!(err
+        .to_string()
+        .contains("runtime.ads_server.listen must not be 0.0.0.0 or ::"));
+}
+
+#[test]
+fn runtime_schema_rejects_ads_server_plain_without_ack() {
+    let text = format!(
+        "{}\n[runtime.ads_server]\nenabled = true\nlisten = \"192.168.10.20\"\n",
+        runtime_toml()
+    );
+
+    let err = validate_runtime_toml_text(&text).expect_err("plain ack should fail");
+
+    assert!(err
+        .to_string()
+        .contains("runtime.ads_server.insecure_transport=true is required"));
+}
+
+#[test]
+fn runtime_schema_rejects_ads_server_writable_not_exposed() {
+    let text = format!(
+        "{}\n[runtime.ads_server]\nenabled = true\nlisten = \"192.168.10.20\"\ninsecure_transport = true\nexpose = [\"global.ready\"]\nwritable = [\"global.setpoint\"]\n",
+        runtime_toml()
+    );
+
+    let err = validate_runtime_toml_text(&text).expect_err("writable subset should fail");
+
+    assert!(err
+        .to_string()
+        .contains("runtime.ads_server.writable entry 'global.setpoint' is not covered"));
+}
+
+#[test]
+fn runtime_schema_rejects_ads_server_unpinned_bare_clients_by_default() {
+    let text = format!(
+        "{}\n[runtime.ads_server]\nenabled = true\nlisten = \"192.168.10.20\"\ninsecure_transport = true\nallow_clients = [\"5.23.91.12.1.1\"]\n",
+        runtime_toml()
+    );
+
+    let err = validate_runtime_toml_text(&text).expect_err("bare clients should fail");
+
+    assert!(err
+        .to_string()
+        .contains("runtime.ads_server.allow_clients requires allow_unpinned_clients=true"));
+}
+
+#[test]
+fn runtime_schema_accepts_ads_server_unpinned_clients_with_lab_override() {
+    let text = format!(
+        "{}\n[runtime.ads_server]\nenabled = true\nlisten = \"127.0.0.1\"\ninsecure_transport = true\nallow_unpinned_clients = true\nallow_clients = [\"5.23.91.12.1.1\"]\n",
+        runtime_toml()
+    );
+
+    let runtime = parse_runtime_toml_from_text(&text, "runtime.toml")
+        .expect("unpinned lab clients should parse with override");
+
+    assert!(runtime.ads_server.allow_unpinned_clients);
+    assert!(matches!(
+        runtime.ads_server.clients[0].source,
+        crate::ads::server::AdsServerSourcePin::Unpinned
+    ));
+}
+
+#[test]
+fn runtime_schema_rejects_ads_server_structured_client_without_source_pin() {
+    let text = format!(
+        "{}\n[runtime.ads_server]\nenabled = true\nlisten = \"192.168.10.20\"\ninsecure_transport = true\n[[runtime.ads_server.clients]]\nams_net_id = \"5.23.91.12.1.1\"\n",
+        runtime_toml()
+    );
+
+    let err = validate_runtime_toml_text(&text).expect_err("source pin should fail");
+
+    assert!(err
+        .to_string()
+        .contains("runtime.ads_server.clients[] requires source_ip or source_cidr"));
+}
+
+#[test]
+fn runtime_schema_rejects_ads_server_public_bind_without_override() {
+    let text = format!(
+        "{}\n[runtime.ads_server]\nenabled = true\nlisten = \"8.8.8.8\"\ninsecure_transport = true\n",
+        runtime_toml()
+    );
+
+    let err = validate_runtime_toml_text(&text).expect_err("public bind should fail");
+
+    assert!(err
+        .to_string()
+        .contains("runtime.ads_server.listen is public/NAT-suspect"));
+}
+
+#[test]
+fn runtime_schema_accepts_ads_server_source_cidr_client() {
+    let text = format!(
+        "{}\n[runtime.ads_server]\nenabled = true\nlisten = \"192.168.10.20\"\ninsecure_transport = true\n[[runtime.ads_server.clients]]\nams_net_id = \"5.23.91.12.1.1\"\nsource_cidr = \"192.168.10.0/24\"\n",
+        runtime_toml()
+    );
+
+    let runtime = parse_runtime_toml_from_text(&text, "runtime.toml")
+        .expect("source CIDR client should parse");
+
+    assert!(matches!(
+        runtime.ads_server.clients[0].source,
+        crate::ads::server::AdsServerSourcePin::Cidr(_)
+    ));
+}
+
+#[test]
 fn runtime_schema_accepts_opcua_secure_profile_with_user_credentials() {
     let text = format!(
             "{}\n[runtime.opcua]\nenabled = true\nallow_anonymous = false\nsecurity_policy = \"basic256sha256\"\nsecurity_mode = \"sign_and_encrypt\"\nusername = \"operator\"\npassword = \"secret\"\n",
             runtime_toml()
         );
     validate_runtime_toml_text(&text).expect("opcua secure profile should be valid");
+}
+
+#[test]
+fn runtime_bundle_loads_ads_toml_when_enabled() {
+    let root = unique_temp_dir("trust-runtime-config-ads-bundle");
+    std::fs::write(
+        root.join("runtime.toml"),
+        format!(
+            "{}\n[runtime.ads]\nenabled = true\nconfig_path = \"ads.toml\"\n",
+            runtime_toml()
+        ),
+    )
+    .expect("write runtime.toml");
+    std::fs::write(root.join("io.toml"), io_toml()).expect("write io.toml");
+    std::fs::write(root.join("program.stbc"), []).expect("write bytecode");
+    std::fs::write(root.join("ads.toml"), ads_toml()).expect("write ads.toml");
+
+    let bundle = RuntimeBundle::load(&root).expect("load runtime bundle");
+
+    let ads = bundle.ads.expect("ADS config should be loaded");
+    let expected_ads_hash = crate::ads::diagnostics::sha256_evidence_hash(ads_toml().as_bytes());
+    assert_eq!(
+        bundle.ads_config_hash.as_deref(),
+        Some(expected_ads_hash.as_str())
+    );
+    assert_eq!(ads.connections.len(), 1);
+    assert_eq!(ads.connections[0].route.name, "line1");
+    assert_eq!(ads.connections[0].points[0].point_name, "line1_temp");
+}
+
+#[test]
+fn runtime_bundle_rejects_missing_enabled_ads_toml() {
+    let root = unique_temp_dir("trust-runtime-config-ads-missing");
+    std::fs::write(
+        root.join("runtime.toml"),
+        format!("{}\n[runtime.ads]\nenabled = true\n", runtime_toml()),
+    )
+    .expect("write runtime.toml");
+    std::fs::write(root.join("io.toml"), io_toml()).expect("write io.toml");
+    std::fs::write(root.join("program.stbc"), []).expect("write bytecode");
+
+    let err = RuntimeBundle::load(&root).expect_err("missing ADS config should fail");
+
+    assert!(err
+        .to_string()
+        .contains("runtime.ads.enabled=true but ADS config is missing"));
+}
+
+fn ads_toml() -> &'static str {
+    r#"
+[[connections]]
+name = "line1"
+target_net_id = "5.23.91.12.1.1"
+host = "192.168.10.5"
+ams_port = 851
+transport = "plain"
+insecure_transport = true
+
+[[connections.points]]
+symbol = "MAIN.Temperature"
+var = "line1_temp"
+type = "REAL"
+"#
+}
+
+fn unique_temp_dir(prefix: &str) -> std::path::PathBuf {
+    let root = std::env::temp_dir().join(format!(
+        "{prefix}-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&root).expect("create temp dir");
+    root
 }
 
 #[test]
@@ -628,6 +941,23 @@ name = "mqtt"
 params = { broker = "127.0.0.1:1883", topic_in = "trust/io/in", topic_out = "trust/io/out", reconnect_ms = 500, keep_alive_s = 5, allow_insecure_remote = false }
 "#;
     validate_io_toml_text(text).expect("io.drivers profile should be valid");
+}
+
+#[test]
+fn io_schema_accepts_driver_alias_inside_multi_driver_entries() {
+    let text = r#"
+[io]
+safe_state = []
+
+[[io.drivers]]
+driver = "modbus-tcp"
+params = { address = "127.0.0.1:502", unit_id = 1 }
+
+[[io.drivers]]
+driver = "ethercat"
+params = { adapter = "eth0" }
+"#;
+    validate_io_toml_text(text).expect("io.drivers driver alias should be valid");
 }
 
 #[test]

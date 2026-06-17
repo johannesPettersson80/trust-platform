@@ -2,8 +2,9 @@
 
 | File | Use when | Main surface |
 | --- | --- | --- |
-| `runtime.toml` | runtime timing, web, control, mesh, observability, retain | [runtime.toml](runtime-toml.md) |
+| `runtime.toml` | runtime timing, web, control, ADS server, mesh, observability, retain | [runtime.toml](runtime-toml.md) |
 | `io.toml` | I/O driver/backend and safe-state behavior | [io.toml](io-toml.md) |
+| `ads.toml` | Beckhoff ADS client import of TwinCAT symbols into generated ST globals | [ads.toml](ads-toml.md) |
 | `simulation.toml` | disturbances, couplings, injected faults, timing experiments | [simulation.toml](simulation-toml.md) |
 | `trust-lsp.toml` | project settings, include paths, dependencies, vendor profile | [trust-lsp.toml](trust-lsp-toml.md) |
 | `hmi/` | HMI assets, schema, and generated output structure | [hmi/](hmi-directory.md) |

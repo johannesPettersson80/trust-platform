@@ -1,0 +1,31 @@
+{
+  "schema_version": 2,
+  "role": "client",
+  "ran_from": "vscode-authoring-only",
+  "target": {
+    "name": "CX-1234",
+    "ip": "192.168.10.5",
+    "ams_net_id": "5.23.91.12.1.1",
+    "ams_port": 851,
+    "tc_version": "3.1.4024"
+  },
+  "transport": "plain",
+  "writes_enabled": false,
+  "steps": [
+    {
+      "id": "route_present",
+      "title": "Route back to truST",
+      "status": "skip",
+      "skip_reason": "not_requested",
+      "detail": "Authoring-only import does not run the runtime-host route check.",
+      "remediation": "Run the ADS Doctor from the selected runtime host before deployment.",
+      "next_action": {
+        "kind": "open_runtime_pane"
+      },
+      "blocks_production_ready": false
+    }
+  ],
+  "overall": "partial",
+  "production_ready": false,
+  "summary": "Symbols were imported for authoring only; production readiness is not proven."
+}

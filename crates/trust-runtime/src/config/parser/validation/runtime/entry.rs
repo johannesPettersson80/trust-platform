@@ -24,6 +24,8 @@ impl RuntimeToml {
             openot,
             observability,
             hmi_persistence,
+            ads,
+            ads_server,
             opcua,
         } = self.runtime;
         let (execution_backend, execution_backend_source) =
@@ -65,6 +67,8 @@ impl RuntimeToml {
         let parsed_openot = parse_openot_section(openot)?;
         let observability = parse_observability_section(observability)?;
         let hmi_persistence = parse_hmi_persistence_section(hmi_persistence)?;
+        let ads = parse_ads_section(ads)?;
+        let ads_server = parse_ads_server_section(ads_server)?;
         let opcua = parse_opcua_section(opcua)?;
 
         Ok(RuntimeConfig {
@@ -99,6 +103,8 @@ impl RuntimeToml {
             openot: parsed_openot.config,
             observability,
             hmi_persistence,
+            ads,
+            ads_server,
             opcua,
             tasks,
         })

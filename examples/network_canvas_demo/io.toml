@@ -1,0 +1,12 @@
+# Owned field I/O for line-a. Each driver's ROLE is inherent to the driver:
+#   modbus-tcp  → truST is the Modbus CLIENT/master (the device is the server/slave)
+#   ethercat    → truST is the EtherCAT MASTER (the segment holds the slaves)
+# The runtime reports these as endpoints in fleet.topology; the canvas renders them.
+
+[[io.drivers]]
+driver = "modbus-tcp"
+params = { address = "192.168.1.50:502", unit_id = 1 }
+
+[[io.drivers]]
+driver = "ethercat"
+params = { adapter = "eth1", cycle_warn_ms = 4, on_error = "fault" }

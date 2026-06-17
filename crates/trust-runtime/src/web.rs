@@ -63,6 +63,7 @@ use crate::runtime_cloud::routing::{
 use crate::security::{constant_time_eq, pairing::PairingStore, AccessRole, TlsMaterials};
 use crate::setup::SetupOptions;
 
+mod ads_routes;
 mod auth_helpers;
 mod aux_routes;
 mod config_ui_routes;
@@ -86,6 +87,7 @@ mod setup_support;
 mod ui_routes;
 mod web_helpers;
 
+use ads_routes::{handle_ads_route, AdsRouteContext, AdsRouteOutcome};
 use auth_helpers::*;
 use aux_routes::{handle_aux_route, AuxRouteContext, AuxRouteOutcome};
 use config_ui_routes::{handle_config_ui_route, ConfigUiRouteContext, ConfigUiRouteOutcome};
@@ -137,6 +139,9 @@ const HMI_PROCESS_VIEW_JS: &str = include_str!("web/ui/modules/hmi-process-view.
 const HMI_TRANSPORT_JS: &str = include_str!("web/ui/modules/hmi-transport.js");
 const HMI_PAGES_JS: &str = include_str!("web/ui/modules/hmi-pages.js");
 const IDE_HTML: &str = include_str!("web/ui/ide.html");
+const ADS_SETUP_HTML: &str = include_str!("web/ui/ads_setup.html");
+const ADS_SETUP_CSS: &str = include_str!("web/ui/ads_setup.css");
+const ADS_SETUP_JS: &str = include_str!("web/ui/ads_setup.js");
 const BASE_CSS: &str = include_str!("web/ui/chunks/base-css/base-01.css");
 const IDE_TABS_JS: &str = include_str!("web/ui/modules/ide-tabs.js");
 const IDE_CSS: &str = concat!(

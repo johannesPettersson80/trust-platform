@@ -8,7 +8,7 @@ flowchart LR
     A[Need connectivity] --> B[truST runtime on the other side?]
     B -->|Yes| C[Runtime-to-runtime<br/>discovery / mesh / realtime T0 / runtime-cloud]
     B -->|No| D[External software or plant system?]
-    D -->|Yes| E[External systems<br/>Modbus TCP / MQTT / OPC UA]
+    D -->|Yes| E[External systems<br/>Modbus TCP / MQTT / OPC UA / ADS]
     D -->|No| F[Local hardware or fieldbus<br/>EtherCAT / GPIO / simulated / loopback / multi-driver]
 ```
 
@@ -19,7 +19,7 @@ flowchart LR
 | Question | Start here | Typical surfaces |
 | --- | --- | --- |
 | How do I connect two truST runtimes? | [Runtime-to-runtime](runtime-to-runtime/index.md) | discovery, mesh/Zenoh, realtime T0, runtime-cloud federation |
-| How do I connect truST to another system? | [External systems](external-systems/index.md) | Modbus TCP, MQTT, OPC UA |
+| How do I connect truST to another system? | [External systems](external-systems/index.md) | Modbus TCP, MQTT, OPC UA, Beckhoff ADS |
 | How do I connect to local hardware or fieldbus? | [Devices and fieldbus](devices-and-fieldbus/index.md) | EtherCAT, GPIO, simulated, loopback, multi-driver |
 
 ## Runtime-to-runtime
@@ -38,6 +38,13 @@ flowchart LR
 | Modbus TCP | register-oriented PLC/device integration | [Modbus TCP](external-systems/modbus-tcp.md) |
 | MQTT | brokered event/message exchange | [MQTT](external-systems/mqtt.md) |
 | OPC UA | runtime variable exposure to OPC UA clients | [OPC UA](external-systems/opc-ua.md) |
+| Beckhoff ADS | TwinCAT symbol import into truST globals, or exposing truST globals to ADS clients | [Beckhoff ADS](external-systems/ads.md) |
+
+Runtime-to-runtime discovery and ADS target discovery are separate surfaces.
+truST runtime discovery uses mDNS/pairing for truST peers; Beckhoff ADS
+discovery uses ADS UDP identify/discovery toward TwinCAT targets.
+ADS server mode is also separate from discovery: external ADS clients add a
+route to the truST runtime host, then browse the symbols truST exposes.
 
 ## Device and fieldbus drivers
 

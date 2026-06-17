@@ -1,0 +1,39 @@
+{
+  "schema_version": 2,
+  "role": "client",
+  "ran_from": "runtime-host",
+  "target": {
+    "name": "CX-1234",
+    "ip": "192.168.10.5",
+    "ams_net_id": "5.23.91.12.1.1",
+    "ams_port": 851,
+    "tc_version": "3.1.4024"
+  },
+  "local": {
+    "host_name": "line-controller-1",
+    "chosen_ip": "192.168.10.20",
+    "ams_net_id": "192.168.10.20.1.1",
+    "nic": "eth0",
+    "candidates": [],
+    "classification": "lan"
+  },
+  "transport": "plain",
+  "writes_enabled": false,
+  "steps": [
+    {
+      "id": "notification",
+      "title": "Notification probe",
+      "status": "skip",
+      "skip_reason": "active_device",
+      "detail": "The ADS connection is already active; full notification probing requires an explicit pause.",
+      "remediation": "Use live ADS status or pause the device before running the full doctor.",
+      "next_action": {
+        "kind": "rerun_doctor"
+      },
+      "blocks_production_ready": false
+    }
+  ],
+  "overall": "partial",
+  "production_ready": false,
+  "summary": "Active ADS device detected; full doctor was not allowed to open a duplicate AMS connection."
+}

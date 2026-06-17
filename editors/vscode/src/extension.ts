@@ -9,6 +9,13 @@ import { registerDebugAdapter } from "./debug";
 import { getBinaryPath } from "./binary";
 import { registerIoPanel } from "./ioPanel";
 import { registerHmiPanel } from "./hmiPanel";
+import { registerAdsPanel } from "./adsPanel";
+import {
+  openCommunicationPanelForAdsAction,
+  registerCommunicationPanel,
+} from "./communication/communicationPanel";
+import { registerNetworkCanvasPanel } from "./networkCanvas/networkCanvasPanel";
+import { registerRuntimeLifecycle } from "./runtimeLifecycle";
 import { registerTrustTwinPanel } from "./trustTwinPanel";
 import { registerLanguageModelTools } from "./lm-tools";
 import { augmentDiagnostic } from "./diagnostics";
@@ -163,8 +170,14 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(SfcEditorProvider.register(context));
 
   registerDebugAdapter(context);
+  registerRuntimeLifecycle(context);
   registerIoPanel(context);
   registerHmiPanel(context);
+  registerCommunicationPanel(context);
+  registerNetworkCanvasPanel(context);
+  registerAdsPanel(context, {
+    openCommunicationPanel: openCommunicationPanelForAdsAction,
+  });
   registerTrustTwinPanel(context);
   try {
     registerLanguageModelTools(context, { getClient: () => client });

@@ -6,6 +6,10 @@ This folder groups protocol-focused communication examples so they are easy to f
 
 Included protocols:
 
+- `ads_line1` (Beckhoff ADS TwinCAT symbol import with offline generation and
+  `[runtime.ads]` live runtime activation)
+- `ads_server_basic` (truST as an ADS target exposing selected runtime globals
+  to pyads/TwinCAT clients through `[runtime.ads_server]`)
 - `modbus-tcp`
 - `mqtt`
 - `opcua`
@@ -20,19 +24,24 @@ Most projects start with `simulated` or `loopback`, then fail during integration
 
 ## Recommended execution order
 
-1. `modbus_tcp/README.md`
+1. `ads_line1/README.md`
+   - learn deterministic TwinCAT symbol import with cached snapshots and generated ST globals.
+2. `ads_server_basic/README.md`
+   - learn ADS server exposure, source-pinned client allowlists, pyads smoke
+     proof, and the remaining real TwinCAT merge gate.
+3. `modbus_tcp/README.md`
    - learn deterministic request/response register mapping and timeout policy.
-2. `mqtt/README.md`
+4. `mqtt/README.md`
    - learn broker/topic boundaries and reconnect behavior.
-3. `opcua/README.md`
+5. `opcua/README.md`
    - learn runtime wire exposure and feature-gated build behavior.
-4. `ethercat/README.md`
+6. `ethercat/README.md`
    - learn mock-first module chain validation, then hardware handoff.
-5. `ethercat_field_validated_es/README.md`
+7. `ethercat_field_validated_es/README.md`
    - apply a previously field-tested real-adapter profile for EK1100 + EL2008 output commissioning.
-6. `gpio/README.md`
+8. `gpio/README.md`
    - learn IEC bit mapping to GPIO lines, debounce, and safe-state defaults.
-7. `multi_driver/README.md`
+9. `multi_driver/README.md`
    - learn composed-driver commissioning and mutual-exclusion rules.
 
 ## Common base layout in each example
@@ -42,6 +51,12 @@ Most projects start with `simulated` or `loopback`, then fail during integration
 - `src/config.st`: task/resource binding + `VAR_CONFIG` `%I/%Q` mapping
 - `io.toml`: protocol-specific I/O backend profile
 - `runtime.toml`: runtime profile (OPC UA example uses this directly)
+- ADS examples also include `ads.toml`, cached symbol snapshots under `ads/`,
+  reviewed generated ST under `src/generated/`, and `[runtime.ads]` in
+  `runtime.toml`.
+- ADS server examples instead use `[runtime.ads_server]` in `runtime.toml` and
+  expose existing declared runtime globals directly; they do not use
+  `ads.toml`.
 
 ## Validation loop (all protocols)
 
@@ -67,5 +82,17 @@ Why this loop matters:
 - OPC UA wire server:
   - requires build feature `opcua-wire`
   - if `runtime.opcua.enabled = true` without that feature, startup fails with a feature-disabled error
+- ADS wire client:
+  - live ADS wire access requires build feature `ads-wire`
+  - `[runtime.ads] enabled = true` loads `ads.toml` and starts ADS workers at
+    runtime startup
+  - the offline import/validate workflow works from cached snapshots without a PLC connection
+- ADS server:
+  - serving truST globals to external ADS clients requires build feature
+    `ads-server`
+  - `[runtime.ads_server] enabled = true` starts the server listener on ADS
+    router TCP port `48898` and exposes the configured logical AMS port
+  - loopback/pyads proof is useful, but real TwinCAT browse/read/notification
+    validation remains the merge gate for TwinCAT compatibility
 
 These notes are repeated in the protocol READMEs and in `docs/guides/PLC_IO_BINDING_GUIDE.md`.

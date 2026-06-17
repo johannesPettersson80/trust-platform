@@ -1,0 +1,53 @@
+title = "Process"
+kind = "process"
+icon = "workflow"
+order = 20
+svg = "process.auto.svg"
+
+[[bind]]
+selector = "#pid-feed-level-value"
+attribute = "text"
+source = "global.TankLevel"
+format = "{} %"
+
+[[bind]]
+selector = "#pid-feed-level-fill"
+attribute = "y"
+source = "global.TankLevel"
+scale = { min = 0, max = 100, output_min = 480, output_max = 200 }
+
+[[bind]]
+selector = "#pid-feed-level-fill"
+attribute = "height"
+source = "global.TankLevel"
+scale = { min = 0, max = 100, output_min = 0, output_max = 280 }
+
+[[bind]]
+selector = "#pid-product-level-value"
+attribute = "text"
+source = "global.TankLevel"
+format = "{} %"
+
+[[bind]]
+selector = "#pid-product-level-fill"
+attribute = "y"
+source = "global.TankLevel"
+scale = { min = 0, max = 100, output_min = 480, output_max = 200 }
+
+[[bind]]
+selector = "#pid-product-level-fill"
+attribute = "height"
+source = "global.TankLevel"
+scale = { min = 0, max = 100, output_min = 0, output_max = 280 }
+
+[[bind]]
+selector = "#pid-pump-indicator"
+attribute = "fill"
+source = "global.PumpRunning"
+map = { "true" = "#22c55e", "false" = "#ef4444" }
+
+[[bind]]
+selector = "#pid-main-line"
+attribute = "stroke"
+source = "global.PumpRunning"
+map = { "true" = "#2563eb", "false" = "#94a3b8" }

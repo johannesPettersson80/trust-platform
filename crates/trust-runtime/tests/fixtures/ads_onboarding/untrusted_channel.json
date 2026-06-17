@@ -1,0 +1,39 @@
+{
+  "schema_version": 2,
+  "role": "client",
+  "ran_from": "vscode-cli",
+  "target": {
+    "name": "CX-1234",
+    "ip": "192.168.10.5",
+    "ams_net_id": "5.23.91.12.1.1",
+    "ams_port": 851,
+    "tc_version": "3.1.4024"
+  },
+  "local": {
+    "host_name": "line-controller-1",
+    "chosen_ip": "192.168.10.20",
+    "ams_net_id": "192.168.10.20.1.1",
+    "nic": "eth0",
+    "candidates": [],
+    "classification": "lan"
+  },
+  "transport": "plain",
+  "writes_enabled": false,
+  "steps": [
+    {
+      "id": "route_present",
+      "title": "Route back to truST",
+      "status": "fail",
+      "skip_reason": null,
+      "detail": "TwinCAT credentials cannot be forwarded over the selected remote plain TCP control endpoint.",
+      "remediation": "Run route setup from this computer directly to the PLC, open trusted setup web, or use the generated artifacts.",
+      "next_action": {
+        "kind": "download_powershell"
+      },
+      "blocks_production_ready": true
+    }
+  ],
+  "overall": "fail",
+  "production_ready": false,
+  "summary": "Route-add needs a trusted setup channel; automatic credential forwarding is disabled."
+}

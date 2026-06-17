@@ -1,5 +1,7 @@
 //! CLI entrypoint for ST runtime.
 
+#[path = "trust-runtime/ads.rs"]
+mod ads;
 #[path = "trust-runtime/agent.rs"]
 mod agent;
 #[path = "trust-runtime/bench.rs"]
@@ -185,6 +187,7 @@ fn run() -> anyhow::Result<()> {
         }) => docs::run_docs(project, out_dir, format),
         Some(Command::Hmi { project, action }) => hmi::run_hmi(project, action),
         Some(Command::Plcopen { action }) => plcopen::run_plcopen(action),
+        Some(Command::Ads { action }) => ads::run_ads(action),
         Some(Command::Registry { action }) => registry::run_registry(action),
         Some(Command::Setup {
             mode,
@@ -279,6 +282,7 @@ fn suggest_subcommand(input: &str) -> Option<&'static str> {
         "docs",
         "hmi",
         "plcopen",
+        "ads",
         "registry",
         "deploy",
         "rollback",

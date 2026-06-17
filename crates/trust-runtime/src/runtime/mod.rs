@@ -2,6 +2,7 @@
 
 #![allow(missing_docs)]
 
+mod ads_subsystem;
 mod bytecode;
 mod core;
 mod cycle;

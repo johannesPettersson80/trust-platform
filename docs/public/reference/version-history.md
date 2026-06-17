@@ -2,14 +2,27 @@
 
 ## Current Baseline
 
-- current repository baseline: `v0.24.13`
-- public docs in this tree describe the `v0.24.13` workspace version unless a
+- current repository baseline: `v0.24.25`
+- public docs in this tree describe the `v0.24.25` workspace version unless a
   page explicitly marks a feature as experimental, roadmap, or target-specific
 
 ## What Changed Recently
 
 ### `v0.24.x`
 
+- Beckhoff ADS client import is documented as an external-system workflow:
+  the VS Code ADS panel and `/setup/ads` runtime-host wizard derive the runtime
+  identity, plan routes, run the ADS Doctor, and import TwinCAT symbols into
+  `ads.toml` plus cached symbol snapshots. The generated ST globals and
+  `_quality` siblings compile offline; `[runtime.ads]` loads that config at
+  runtime, starts ADS workers when built with `ads-wire`, and applies values at
+  scan boundaries so the generated globals appear on normal runtime product
+  surfaces.
+- Beckhoff ADS server support exposes selected truST runtime globals as ADS
+  symbols when built with `ads-server`. `[runtime.ads_server]` is fail-closed by
+  default, requires explicit listen identity, plain-ADS acknowledgement,
+  source-pinned clients, and opt-in write-back; loopback, pyads, and real
+  TwinCAT validation are tracked as separate proof levels.
 - Runtime release archives include `trust-dev` as the developer/workbench CLI.
   `trust-dev agent serve` now owns the external agent JSON-RPC server and
   `trust-dev commit`, `trust-dev docs`, and `trust-dev test` own the project

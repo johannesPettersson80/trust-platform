@@ -1,7 +1,7 @@
 # Connectivity
 
-Runnable examples for MQTT, OPC UA, Modbus, GPIO, multi-driver, and
-runtime-to-runtime communication.
+Runnable examples for Beckhoff ADS, MQTT, OPC UA, Modbus, GPIO, multi-driver,
+and runtime-to-runtime communication.
 
 Use [Communication Planes](../concepts/communication-planes.md) or
 [Protocol Matrix](../connect/protocol-matrix.md) before choosing a protocol.

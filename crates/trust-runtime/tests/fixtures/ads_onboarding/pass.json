@@ -1,0 +1,90 @@
+{
+  "schema_version": 2,
+  "role": "client",
+  "ran_from": "runtime-host",
+  "target": {
+    "name": "CX-1234",
+    "ip": "192.168.10.5",
+    "ams_net_id": "5.23.91.12.1.1",
+    "ams_port": 851,
+    "tc_version": "3.1.4024"
+  },
+  "local": {
+    "host_name": "line-controller-1",
+    "chosen_ip": "192.168.10.20",
+    "ams_net_id": "192.168.10.20.1.1",
+    "nic": "eth0",
+    "candidates": [],
+    "classification": "lan"
+  },
+  "transport": "plain",
+  "writes_enabled": false,
+  "steps": [
+    {
+      "id": "udp_identify",
+      "title": "Find PLC on network",
+      "status": "pass",
+      "skip_reason": null,
+      "detail": "TwinCAT target answered directed ADS identify.",
+      "remediation": "",
+      "next_action": {
+        "kind": "none"
+      },
+      "blocks_production_ready": false
+    },
+    {
+      "id": "route_present",
+      "title": "Route back to truST",
+      "status": "pass",
+      "skip_reason": null,
+      "detail": "PLC accepts the route for 192.168.10.20.1.1.",
+      "remediation": "",
+      "next_action": {
+        "kind": "none"
+      },
+      "blocks_production_ready": false
+    },
+    {
+      "id": "symbol_upload",
+      "title": "Read TwinCAT symbols",
+      "status": "pass",
+      "skip_reason": null,
+      "detail": "Symbol table upload returned compatible symbols.",
+      "remediation": "",
+      "next_action": {
+        "kind": "none"
+      },
+      "blocks_production_ready": false
+    },
+    {
+      "id": "sumup_read",
+      "title": "Read selected values",
+      "status": "pass",
+      "skip_reason": null,
+      "detail": "SUMUP read returned values for selected symbols.",
+      "remediation": "",
+      "next_action": {
+        "kind": "none"
+      },
+      "blocks_production_ready": false
+    }
+  ],
+  "overall": "pass",
+  "production_ready": true,
+  "evidence": {
+    "doctor_timestamp_ms": 1781234567000,
+    "doctor_schema_version": 2,
+    "runtime_identity_hash": "sha256:runtime",
+    "target_identity_hash": "sha256:target",
+    "ads_config_hash": "sha256:ads",
+    "symbol_snapshot_hash": "sha256:symbols",
+    "generated_st_hash": "sha256:generated-st",
+    "deployed_ads_config_hash": "sha256:deployed-ads",
+    "runtime_ads_status_hash": "sha256:ads-status",
+    "freshness": {
+      "stale_after_ms": 86400000,
+      "expires_at_ms": 1781320967000
+    }
+  },
+  "summary": "ADS connection is production ready from runtime host line-controller-1."
+}

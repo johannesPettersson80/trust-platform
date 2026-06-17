@@ -15,7 +15,7 @@ use trust_runtime::control::{
     spawn_hmi_descriptor_watcher, ControlEndpoint, ControlServer, ControlState,
     HmiRuntimeDescriptor, SourceFile, SourceRegistry,
 };
-use trust_runtime::discovery::{start_discovery, DiscoveryState};
+use trust_runtime::discovery::{start_discovery_with_state, DiscoveryState};
 use trust_runtime::harness::CompileSession;
 use trust_runtime::historian::HistorianService;
 use trust_runtime::hmi::{HmiPersistenceService, HmiScaffoldMode, HmiSourceRef};

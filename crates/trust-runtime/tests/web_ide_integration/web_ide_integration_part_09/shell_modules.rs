@@ -6,7 +6,7 @@ fn unified_shell_entry_routes_redirect_to_ide() {
     let state = control_state(source_fixture(), ControlMode::Debug, None);
     let base = start_test_server(state, project.clone(), WebAuthMode::Local);
 
-    for path in ["", "/setup"] {
+    for (path, expected_location) in [("", "/ide"), ("/setup", "/setup/ads")] {
         let response = ureq::get(&format!("{base}{path}"))
             .config()
             .http_status_as_error(false)
@@ -23,7 +23,10 @@ fn unified_shell_entry_routes_redirect_to_ide() {
             .headers()
             .get("location")
             .expect("redirect must have Location header");
-        assert_eq!(location, "/ide", "{path} must redirect to /ide");
+        assert_eq!(
+            location, expected_location,
+            "{path} must redirect to {expected_location}"
+        );
     }
 
     let _ = std::fs::remove_dir_all(project);

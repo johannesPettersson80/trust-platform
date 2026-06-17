@@ -138,6 +138,7 @@ fn log_control_audit(logger: &RuntimeLogger, event: trust_runtime::control::Cont
             "error": event.error.as_ref().map(|err| err.as_str()),
             "auth_present": event.auth_present,
             "client": event.client.as_ref().map(|client| client.as_str()),
+            "details": event.details,
             "timestamp_ms": event.timestamp_ms,
         }),
     );

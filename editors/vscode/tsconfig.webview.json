@@ -9,7 +9,9 @@
     "src/statechart/webview/**/*.ts",
     "src/statechart/webview/**/*.tsx",
     "src/sfc/webview/**/*.ts",
-    "src/sfc/webview/**/*.tsx"
+    "src/sfc/webview/**/*.tsx",
+    "src/networkCanvas/webview/**/*.ts",
+    "src/networkCanvas/webview/**/*.tsx"
   ],
   "exclude": ["node_modules", ".vscode-test"]
 }

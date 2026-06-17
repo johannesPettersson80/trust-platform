@@ -54,6 +54,9 @@ pub fn start_web_server_with_mode(
         Server::http(&listen)
             .map_err(|err| RuntimeError::ControlError(format!("web bind: {err}").into()))?
     };
+    control_state
+        .web_listener_bound
+        .store(true, Ordering::Relaxed);
     let auth = config.auth;
     let web_url = format_web_url(&listen, config.tls);
     let auth_token = control_state.auth_token.clone();
@@ -165,6 +168,21 @@ pub fn start_web_server_with_mode(
             ) {
                 AuxRouteOutcome::Handled => continue,
                 AuxRouteOutcome::NotHandled(request) => request,
+            };
+            request = match handle_ads_route(
+                request,
+                &method,
+                url.as_str(),
+                AdsRouteContext {
+                    auth_mode: auth,
+                    auth_token: &auth_token,
+                    pairing: pairing.as_deref(),
+                    web_tls_enabled,
+                    control_state: &control_state,
+                },
+            ) {
+                AdsRouteOutcome::Handled => continue,
+                AdsRouteOutcome::NotHandled(request) => request,
             };
             if mode == WebServerMode::Runtime {
                 request = match handle_runtime_cloud_route(

@@ -429,37 +429,9 @@ pub(super) fn handle_aux_route(
                 return AuxRouteOutcome::Handled;
             }
         };
-        let address = payload
-            .get("address")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-        let port = payload.get("port").and_then(|v| v.as_u64()).unwrap_or(502);
-        let timeout_ms = payload
-            .get("timeout_ms")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(500);
-        let target = if address.contains(':') {
-            address.to_string()
-        } else {
-            format!("{address}:{port}")
-        };
-        let result = target
-            .to_socket_addrs()
-            .ok()
-            .and_then(|mut addrs| addrs.next())
-            .ok_or_else(|| RuntimeError::InvalidConfig("invalid address".into()))
-            .and_then(|addr| {
-                std::net::TcpStream::connect_timeout(
-                    &addr,
-                    std::time::Duration::from_millis(timeout_ms),
-                )
-                .map_err(|err| RuntimeError::ControlError(format!("connect failed: {err}").into()))
-            });
-        let body = match result {
-            Ok(_) => json!({ "ok": true }).to_string(),
-            Err(err) => json!({ "ok": false, "error": err.to_string() }).to_string(),
-        };
+        let (status, body) = io_probe_legacy_body("modbus_tcp", payload);
         let response = Response::from_string(body)
+            .with_status_code(status)
             .with_header(Header::from_bytes("Content-Type", "application/json").unwrap());
         let _ = request.respond(response);
         return AuxRouteOutcome::Handled;
@@ -492,58 +464,77 @@ pub(super) fn handle_aux_route(
                 return AuxRouteOutcome::Handled;
             }
         };
-        let raw_broker = payload
-            .get("broker")
-            .or_else(|| payload.get("address"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-        let timeout_ms = payload
-            .get("timeout_ms")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(500);
-        let broker = raw_broker.trim();
-        if broker.is_empty() {
-            let response = Response::from_string(
-                json!({ "ok": false, "error": "broker is required" }).to_string(),
-            )
-            .with_header(Header::from_bytes("Content-Type", "application/json").unwrap())
-            .with_status_code(400);
-            let _ = request.respond(response);
-            return AuxRouteOutcome::Handled;
-        }
-        let endpoint = broker
-            .strip_prefix("mqtt://")
-            .or_else(|| broker.strip_prefix("tcp://"))
-            .or_else(|| broker.strip_prefix("ssl://"))
-            .unwrap_or(broker);
-        let target = if endpoint.contains(':') {
-            endpoint.to_string()
-        } else {
-            format!("{endpoint}:1883")
-        };
-        let result = target
-            .to_socket_addrs()
-            .ok()
-            .and_then(|mut addrs| addrs.next())
-            .ok_or_else(|| RuntimeError::InvalidConfig("invalid broker".into()))
-            .and_then(|addr| {
-                std::net::TcpStream::connect_timeout(
-                    &addr,
-                    std::time::Duration::from_millis(timeout_ms),
-                )
-                .map_err(|err| RuntimeError::ControlError(format!("connect failed: {err}").into()))
-            });
-        let body = match result {
-            Ok(_) => json!({ "ok": true }).to_string(),
-            Err(err) => json!({ "ok": false, "error": err.to_string() }).to_string(),
-        };
+        let (status, body) = io_probe_legacy_body("mqtt", payload);
         let response = Response::from_string(body)
+            .with_status_code(status)
             .with_header(Header::from_bytes("Content-Type", "application/json").unwrap());
         let _ = request.respond(response);
         return AuxRouteOutcome::Handled;
     }
 
     AuxRouteOutcome::NotHandled(request)
+}
+
+fn io_probe_legacy_body(protocol: &str, mut payload: serde_json::Value) -> (u16, String) {
+    if protocol == "modbus_tcp" {
+        if let Some(address) = payload
+            .get("address")
+            .and_then(serde_json::Value::as_str)
+            .map(str::trim)
+            .filter(|address| !address.is_empty() && !address.contains(':'))
+            .map(ToOwned::to_owned)
+        {
+            let port = payload
+                .get("port")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(502);
+            payload["address"] = json!(format!("{address}:{port}"));
+        }
+    }
+
+    let probe = crate::control::communication_probe_value_port(protocol, payload);
+    let ok = probe
+        .get("ok")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
+    if ok {
+        return (200, json!({ "ok": true, "probe": probe }).to_string());
+    }
+    let status = if probe_has_input_errors(&probe) {
+        400
+    } else {
+        200
+    };
+    (
+        status,
+        json!({
+        "ok": false,
+        "error": probe_error_message(&probe),
+        "probe": probe,
+        })
+        .to_string(),
+    )
+}
+
+fn probe_has_input_errors(probe: &serde_json::Value) -> bool {
+    let has_field_errors = probe
+        .get("field_errors")
+        .and_then(serde_json::Value::as_array)
+        .is_some_and(|errors| !errors.is_empty());
+    let has_runtime_evidence = probe.get("evidence").is_some_and(|value| !value.is_null());
+    has_field_errors && !has_runtime_evidence
+}
+
+fn probe_error_message(probe: &serde_json::Value) -> String {
+    probe
+        .get("field_errors")
+        .and_then(serde_json::Value::as_array)
+        .and_then(|errors| errors.first())
+        .and_then(|error| error.get("message"))
+        .and_then(serde_json::Value::as_str)
+        .or_else(|| probe.get("detail").and_then(serde_json::Value::as_str))
+        .unwrap_or("Connection test failed.")
+        .to_string()
 }
 
 #[derive(Debug, Deserialize)]

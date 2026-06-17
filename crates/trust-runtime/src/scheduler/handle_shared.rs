@@ -88,6 +88,30 @@ impl<C: Clock + Clone> ResourceControl<C> {
             cmd_rx,
         )
     }
+
+    /// Create a test-only stub control with a specific state/error.
+    #[cfg(test)]
+    #[allow(dead_code)]
+    pub(crate) fn stub_with_state(
+        clock: C,
+        initial_state: ResourceState,
+        initial_error: Option<RuntimeError>,
+    ) -> (Self, std::sync::mpsc::Receiver<ResourceCommand>) {
+        let stop = Arc::new(AtomicBool::new(false));
+        let state = Arc::new(Mutex::new(initial_state));
+        let last_error = Arc::new(Mutex::new(initial_error));
+        let (cmd_tx, cmd_rx) = std::sync::mpsc::channel();
+        (
+            Self {
+                stop,
+                state,
+                last_error,
+                clock,
+                cmd_tx,
+            },
+            cmd_rx,
+        )
+    }
     /// Pause the runtime cycles.
     pub fn pause(&self) -> Result<(), RuntimeError> {
         self.send_command(ResourceCommand::Pause)?;

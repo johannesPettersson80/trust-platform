@@ -82,6 +82,8 @@ struct RuntimeSection {
     openot: Option<OpenOtSection>,
     observability: Option<ObservabilitySection>,
     hmi_persistence: Option<HmiPersistenceSection>,
+    ads: Option<AdsSection>,
+    ads_server: Option<AdsServerSection>,
     opcua: Option<OpcUaSection>,
 }
 
@@ -275,6 +277,51 @@ struct HmiPersistenceSection {
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
+struct AdsSection {
+    enabled: Option<bool>,
+    config_path: Option<String>,
+    worker_tick_interval_ms: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AdsServerSection {
+    enabled: Option<bool>,
+    listen: Option<String>,
+    ads_port: Option<u16>,
+    ams_net_id: Option<String>,
+    insecure_transport: Option<bool>,
+    writes_enabled: Option<bool>,
+    symbol_namespace: Option<String>,
+    allow_unpinned_clients: Option<bool>,
+    unsafe_allow_public_bind: Option<bool>,
+    max_symbols: Option<usize>,
+    max_clients: Option<usize>,
+    max_subscriptions_per_client: Option<usize>,
+    max_total_subscriptions: Option<usize>,
+    max_frame_bytes: Option<usize>,
+    max_sumup_items: Option<usize>,
+    max_write_bytes: Option<usize>,
+    max_string_bytes: Option<usize>,
+    read_timeout_ms: Option<u64>,
+    idle_timeout_ms: Option<u64>,
+    min_notification_cycle_ms: Option<u64>,
+    expose: Option<Vec<String>>,
+    writable: Option<Vec<String>>,
+    allow_clients: Option<Vec<String>>,
+    clients: Option<Vec<AdsServerClientSection>>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AdsServerClientSection {
+    ams_net_id: String,
+    source_ip: Option<String>,
+    source_cidr: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct AlertSection {
     name: String,
     variable: String,
@@ -319,6 +366,7 @@ struct IoSection {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct IoDriverSection {
+    #[serde(alias = "driver")]
     name: String,
     params: Option<toml::Value>,
 }

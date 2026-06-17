@@ -1,6 +1,17 @@
 import * as vscode from "vscode";
 import * as net from "net";
 
+import {
+  summarizeAdsStatus,
+  type AdsStatusReport,
+  type AdsStatusSummary,
+} from "./adsStatusSummary";
+import { sendRuntimeControlRequest } from "./runtimeControlClient";
+import {
+  runtimeLifecycleService,
+  type RuntimeLifecycleResult,
+} from "./runtimeLifecycle";
+
 const DEBUG_TYPE = "structured-text";
 
 type IoEntry = {
@@ -52,6 +63,7 @@ type RuntimeStatusPayload = {
   endpointConfigured: boolean;
   endpointEnabled: boolean;
   endpointReachable: boolean;
+  ads?: AdsStatusSummary;
 };
 
 const PRAGMA_SCAN_LINES = 20;
@@ -81,14 +93,7 @@ function untrackStructuredTextSession(session: vscode.DebugSession): void {
 }
 
 function getStructuredTextSession(): vscode.DebugSession | undefined {
-  const active = vscode.debug.activeDebugSession;
-  if (active && active.type === DEBUG_TYPE) {
-    return active;
-  }
-  for (const session of structuredTextSessions.values()) {
-    return session;
-  }
-  return undefined;
+  return runtimeLifecycleService.getStructuredTextSession();
 }
 
 
@@ -216,6 +221,24 @@ async function fetchRuntimeState(endpoint: string, authToken?: string): Promise<
       finish(undefined);
     });
   });
+}
+
+async function fetchAdsStatusSummary(
+  endpoint: string,
+  authToken?: string
+): Promise<AdsStatusSummary | undefined> {
+  try {
+    const report = await sendRuntimeControlRequest<AdsStatusReport>(
+      endpoint,
+      authToken,
+      "ads.status",
+      undefined,
+      { timeoutMs: 750 }
+    );
+    return summarizeAdsStatus(report);
+  } catch {
+    return undefined;
+  }
 }
 
 let panel: vscode.WebviewPanel | undefined;
@@ -504,71 +527,15 @@ export function __testCollectSettingsSnapshot(): SettingsPayload {
 }
 
 function runtimeConfigTarget(): vscode.Uri | undefined {
-  const activeSession = getStructuredTextSession();
-  if (activeSession?.workspaceFolder) {
-    return activeSession.workspaceFolder.uri;
-  }
-  const editor = vscode.window.activeTextEditor;
-  if (editor) {
-    const folder = vscode.workspace.getWorkspaceFolder(editor.document.uri);
-    if (folder) {
-      return folder.uri;
-    }
-  }
-  return vscode.workspace.workspaceFolders?.[0]?.uri;
+  return runtimeLifecycleService.runtimeConfigTarget();
 }
 
 function runtimeConfigScope(target: vscode.Uri | undefined): vscode.ConfigurationTarget {
-  return target ? vscode.ConfigurationTarget.WorkspaceFolder : vscode.ConfigurationTarget.Workspace;
+  return runtimeLifecycleService.runtimeConfigScope(target);
 }
 
 async function runtimeStatusPayload(): Promise<RuntimeStatusPayload> {
-  const target = runtimeConfigTarget();
-  const config = vscode.workspace.getConfiguration("trust-lsp", target);
-  const endpoint = (config.get<string>("runtime.controlEndpoint") ?? "").trim();
-  const authToken = (config.get<string>("runtime.controlAuthToken") ?? "").trim();
-  const endpointConfigured = endpoint.length > 0;
-  const endpointEnabled = config.get<boolean>(
-    "runtime.controlEndpointEnabled",
-    true
-  );
-  const inlineValuesEnabled = config.get<boolean>(
-    "runtime.inlineValuesEnabled",
-    true
-  );
-  const runtimeMode = config.get<"simulate" | "online">(
-    "runtime.mode",
-    "simulate"
-  );
-  const session = getStructuredTextSession();
-  const running = !!session;
-  let runtimeState: RuntimeStatusPayload["runtimeState"] = "stopped";
-  let endpointReachable = false;
-
-  if (running) {
-    const request = session?.configuration?.request;
-    runtimeState = request === "attach" ? "connected" : "running";
-  }
-  if (!running && runtimeMode === "online" && endpointConfigured && endpointEnabled) {
-    endpointReachable = await probeEndpointReachable(endpoint);
-    if (endpointReachable) {
-      const state = await fetchRuntimeState(endpoint, authToken || undefined);
-      if (state) {
-        runtimeState = state;
-      }
-    }
-  }
-
-  return {
-    running,
-    inlineValuesEnabled,
-    runtimeMode,
-    runtimeState,
-    endpoint,
-    endpointConfigured,
-    endpointEnabled,
-    endpointReachable,
-  };
+  return (await runtimeLifecycleService.snapshot()).status;
 }
 
 async function sendRuntimeStatus(): Promise<void> {
@@ -583,23 +550,13 @@ async function sendRuntimeStatus(): Promise<void> {
 }
 
 async function requestIoState(): Promise<void> {
-  const session = getStructuredTextSession();
-  if (!session) {
+  const result = await runtimeLifecycleService.requestIoState();
+  if (!result.ok) {
     panel?.webview.postMessage({
       type: "status",
-      payload: "No active Structured Text debug session.",
+      payload: result.failure.message,
     });
     return;
-  }
-
-  try {
-    await session.customRequest("stIoState");
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    panel?.webview.postMessage({
-      type: "status",
-      payload: `I/O state request failed: ${message}`,
-    });
   }
 }
 
@@ -763,10 +720,7 @@ async function startAttachDebugging(
 
 
 async function setRuntimeMode(mode: unknown): Promise<void> {
-  const normalized = mode === "online" ? "online" : "simulate";
-  const target = runtimeConfigTarget();
-  const config = vscode.workspace.getConfiguration("trust-lsp", target);
-  await config.update("runtime.mode", normalized, runtimeConfigScope(target));
+  await runtimeLifecycleService.setRuntimeMode(mode);
   void sendRuntimeStatus();
 }
 
@@ -782,70 +736,22 @@ async function handleRuntimePrimary(): Promise<void> {
 }
 
 async function handleRuntimeStart(): Promise<void> {
-  const status = await runtimeStatusPayload();
-  const target = runtimeConfigTarget();
-  const config = vscode.workspace.getConfiguration("trust-lsp", target);
-  const mode = config.get<"simulate" | "online">(
-    "runtime.mode",
-    "simulate"
-  );
-
-  if (mode === "simulate") {
-    await compileActiveProgram({ startDebugAfter: true });
-    return;
-  }
-
-  const endpoint = status.endpoint;
-  if (!status.endpointConfigured) {
-    panel?.webview.postMessage({
-      type: "status",
-      payload: "Runtime endpoint not set.",
-    });
-    void sendRuntimeStatus();
-    return;
-  }
-
-  if (!status.endpointEnabled) {
-    await config.update(
-      "runtime.controlEndpointEnabled",
-      true,
-      runtimeConfigScope(target)
-    );
-  }
-
-  const reachable = await probeEndpointReachable(endpoint);
-  if (reachable) {
-    const authToken = config.get<string>("runtime.controlAuthToken") ?? "";
-    await startAttachDebugging(endpoint, authToken || undefined);
-    void sendRuntimeStatus();
-    return;
-  }
-
-
-  panel?.webview.postMessage({
-    type: "status",
-    payload: `Runtime not reachable: ${endpoint}`,
-  });
+  const result = await runtimeLifecycleService.startRuntime();
+  postRuntimeLifecycleResult(result);
   void sendRuntimeStatus();
 }
 
 async function handleRuntimeStop(): Promise<void> {
-  const activeSession = getStructuredTextSession();
-  if (activeSession) {
-    await stopDebugging();
-    return;
-  }
-  const status = await runtimeStatusPayload();
-  if (status.runtimeState === "connected") {
-    const target = runtimeConfigTarget();
-    const config = vscode.workspace.getConfiguration("trust-lsp", target);
-    await config.update(
-      "runtime.controlEndpointEnabled",
-      false,
-      runtimeConfigScope(target)
-    );
-    void sendRuntimeStatus();
-  }
+  const result = await runtimeLifecycleService.stopRuntime();
+  postRuntimeLifecycleResult(result);
+  void sendRuntimeStatus();
+}
+
+function postRuntimeLifecycleResult(result: RuntimeLifecycleResult): void {
+  panel?.webview.postMessage({
+    type: "status",
+    payload: result.ok ? result.message : result.failure.message,
+  });
 }
 
 function diagnosticCodeLabel(

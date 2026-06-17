@@ -3,6 +3,7 @@
 //! - handle_launch: launch argument handling
 //! - handle_configuration_done: apply pending launch actions
 
+use std::path::PathBuf;
 use std::time::Instant;
 
 use serde_json::Value;
@@ -16,8 +17,8 @@ use crate::protocol::{
 
 use super::super::control_bridge::{default_control_endpoint, DebugControlServer};
 use super::super::launch::{
-    launch_control_auth_token, launch_control_endpoint, launch_program_path, launch_stop_on_entry,
-    source_options_from_launch,
+    launch_control_auth_token, launch_control_endpoint, launch_program_path, launch_runtime_root,
+    launch_stop_on_entry, source_options_from_launch,
 };
 use super::super::remote::attach_from_args;
 use super::super::util::is_configuration_request;
@@ -221,7 +222,8 @@ impl DebugAdapter {
             None => default_control_endpoint(),
         };
         let auth_token = launch_control_auth_token(args);
-        match DebugControlServer::start(self.session.as_ref(), endpoint, auth_token) {
+        let project_root = launch_runtime_root(args).map(PathBuf::from);
+        match DebugControlServer::start(self.session.as_ref(), endpoint, auth_token, project_root) {
             Ok(server) => {
                 let label = format_control_endpoint(server.endpoint());
                 events.push(

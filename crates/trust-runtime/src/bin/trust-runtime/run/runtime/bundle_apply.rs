@@ -41,7 +41,54 @@ fn apply_bundle_runtime_overrides(runtime: &mut Runtime, bundle: &RuntimeBundle)
             "failed to apply bytecode metadata: {err} (project folder may require sources)"
         );
     }
+    start_ads_runtime(runtime, bundle)?;
 
+    Ok(())
+}
+
+#[cfg(feature = "ads-wire")]
+fn start_ads_runtime(runtime: &mut Runtime, bundle: &RuntimeBundle) -> anyhow::Result<()> {
+    start_ads_runtime_with_factory(runtime, bundle, |connection| {
+        Ok(trust_runtime::ads::AdsRsTransport::new(
+            connection.route.clone(),
+        ))
+    })
+}
+
+#[cfg(not(feature = "ads-wire"))]
+fn start_ads_runtime(_runtime: &mut Runtime, bundle: &RuntimeBundle) -> anyhow::Result<()> {
+    if bundle.runtime.ads.enabled {
+        anyhow::bail!("runtime.ads.enabled=true requires trust-runtime built with feature 'ads-wire'");
+    }
+    Ok(())
+}
+
+#[cfg(any(test, feature = "ads-wire"))]
+fn start_ads_runtime_with_factory<T, F>(
+    runtime: &mut Runtime,
+    bundle: &RuntimeBundle,
+    mut transport_factory: F,
+) -> anyhow::Result<()>
+where
+    T: trust_runtime::ads::AdsTransport + Send + 'static,
+    F: FnMut(&trust_runtime::ads::AdsConnectionConfig) -> anyhow::Result<T>,
+{
+    if !bundle.runtime.ads.enabled {
+        return Ok(());
+    }
+    let Some(config) = bundle.ads.as_ref() else {
+        anyhow::bail!("runtime.ads.enabled=true but no ADS client config was loaded");
+    };
+    runtime.set_ads_deployed_config_hash(bundle.ads_config_hash.clone());
+    let worker_tick_interval = std::time::Duration::from_millis(
+        u64::try_from(bundle.runtime.ads.worker_tick_interval.as_millis()).unwrap_or(20),
+    );
+    for connection in &config.connections {
+        let transport = transport_factory(connection)?;
+        runtime
+            .start_ads_connection(connection, transport, worker_tick_interval)
+            .map_err(anyhow::Error::from)?;
+    }
     Ok(())
 }
 

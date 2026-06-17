@@ -236,6 +236,160 @@ Validation constraints:
 | `runtime.mesh.tls = true` | runtime TLS must be enabled | mesh listener using the runtime TLS certificate set |
 | remote mesh listen + `runtime.tls.require_remote = true` | mesh TLS must be on | `listen = "0.0.0.0:5200"` with `tls = true` |
 
+### `[runtime.ads]`
+
+This optional section enables the Beckhoff ADS client runtime path. The ADS
+point grammar lives in [`ads.toml`](ads-toml.md); `runtime.toml` only controls
+whether that project source file is loaded and how often the background worker
+wakes.
+
+Defaults when omitted:
+
+```toml
+[runtime.ads]
+enabled = false
+config_path = "ads.toml"
+worker_tick_interval_ms = 20
+```
+
+Accepted keys:
+
+| Key | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `enabled` | bool | `false` | Loads `ads.toml` and starts ADS workers at runtime startup. |
+| `config_path` | string | `ads.toml` | Path to the ADS client config. Relative paths resolve against the runtime bundle root. |
+| `worker_tick_interval_ms` | integer | `20` | Background ADS worker wake interval. Must be `>= 1`. The scan cycle does not do socket I/O. |
+
+Validation constraints:
+
+| Condition | Requirement | Example |
+| --- | --- | --- |
+| `enabled = true` | `config_path` must point at a readable ADS config | `config_path = "ads.toml"` |
+| `enabled = true` at startup | runtime binary must be built with `ads-wire` | feature-enabled runtime package |
+| always | `worker_tick_interval_ms >= 1` | `worker_tick_interval_ms = 20` |
+
+### `[runtime.ads_server]`
+
+This optional section exposes selected truST runtime globals as Beckhoff ADS
+symbols. It is the ADS-server direction: external ADS clients connect to truST.
+The ADS client import path above uses `[runtime.ads]` and `ads.toml`; server
+mode is configured entirely here.
+
+Defaults when omitted:
+
+```toml
+[runtime.ads_server]
+enabled = false
+ads_port = 851
+insecure_transport = false
+writes_enabled = false
+symbol_namespace = ""
+allow_unpinned_clients = false
+unsafe_allow_public_bind = false
+max_symbols = 256
+max_clients = 8
+max_subscriptions_per_client = 64
+max_total_subscriptions = 256
+max_frame_bytes = 65536
+max_sumup_items = 512
+max_write_bytes = 8192
+max_string_bytes = 4096
+read_timeout_ms = 5000
+idle_timeout_ms = 60000
+min_notification_cycle_ms = 50
+expose = []
+writable = []
+allow_clients = []
+```
+
+Minimal enabled example:
+
+```toml
+[runtime.ads_server]
+enabled = true
+listen = "192.168.77.10"
+ams_net_id = "192.168.77.10.1.1"
+ads_port = 851
+insecure_transport = true
+writes_enabled = false
+expose = ["global.TankLevel", "global.PumpRunning", "global.StatusWord"]
+writable = []
+
+[[runtime.ads_server.clients]]
+ams_net_id = "192.168.77.20.1.1"
+source_ip = "192.168.77.20"
+```
+
+Accepted keys:
+
+| Key | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `enabled` | bool | `false` | Starts the ADS server listener when the runtime binary is built with feature `ads-server`. |
+| `listen` | IP string | none | Required when enabled. Must be one concrete local IP address; `0.0.0.0` and `::` are rejected. |
+| `ams_net_id` | string | derived from IPv4 `listen` | Six-byte AMS Net ID exposed by truST. Required when `listen` is not IPv4. |
+| `ads_port` | integer | `851` | Logical AMS target port served by truST. The TCP listener still uses ADS router port `48898`. |
+| `insecure_transport` | bool | `false` | Required acknowledgement for classic plain ADS. |
+| `writes_enabled` | bool | `false` | Global ADS write-back gate. |
+| `symbol_namespace` | string | `""` | Optional prefix for exposed ADS symbol names. |
+| `expose` | string array | `[]` | Glob allowlist of runtime globals to publish. Empty means publish nothing. |
+| `writable` | string array | `[]` | Glob allowlist of published symbols that ADS clients may write when `writes_enabled = true`. |
+| `allow_unpinned_clients` | bool | `false` | Lab/loopback escape hatch for AMS-Net-ID-only clients. Does not satisfy production-ready proof. |
+| `unsafe_allow_public_bind` | bool | `false` | Explicit override for public/NAT-suspect listen addresses. |
+| `max_symbols` | integer | `256` | Maximum exposed symbols. |
+| `max_clients` | integer | `8` | Maximum concurrent ADS clients. |
+| `max_subscriptions_per_client` | integer | `64` | Per-client notification subscription cap. |
+| `max_total_subscriptions` | integer | `256` | Global notification subscription cap. |
+| `max_frame_bytes` | integer | `65536` | Maximum accepted AMS/TCP frame size. |
+| `max_sumup_items` | integer | `512` | Maximum sum-up request items. |
+| `max_write_bytes` | integer | `8192` | Maximum single write payload. |
+| `max_string_bytes` | integer | `4096` | Maximum string payload exposed or accepted. |
+| `read_timeout_ms` | integer | `5000` | Socket read timeout. |
+| `idle_timeout_ms` | integer | `60000` | Idle client timeout. |
+| `min_notification_cycle_ms` | integer | `50` | Lower bound for accepted notification cycle requests. |
+
+Structured clients:
+
+```toml
+[[runtime.ads_server.clients]]
+ams_net_id = "192.168.77.20.1.1"
+source_ip = "192.168.77.20"
+
+[[runtime.ads_server.clients]]
+ams_net_id = "192.168.77.30.1.1"
+source_cidr = "192.168.77.0/24"
+```
+
+Legacy unpinned clients are accepted only when explicitly enabled for lab
+work:
+
+```toml
+[runtime.ads_server]
+allow_unpinned_clients = true
+allow_clients = ["127.0.0.1.1.100"]
+```
+
+Validation constraints:
+
+| Condition | Requirement | Example |
+| --- | --- | --- |
+| `enabled = true` | `listen` must be set and must not be unspecified | `listen = "192.168.77.10"` |
+| `enabled = true` | `insecure_transport = true` is required for v1 plain ADS | explicit acknowledgement |
+| `enabled = true` at startup | runtime binary must be built with `ads-server` | feature-enabled runtime package |
+| `listen` is public or NAT-suspect | rejected unless `unsafe_allow_public_bind = true` | avoid exposing plain ADS on public networks |
+| production client entries | each `[[runtime.ads_server.clients]]` needs `ams_net_id` plus `source_ip` or `source_cidr` | source-pinned allowlist |
+| `source_ip` and `source_cidr` | only one may be set per client | no ambiguous source pin |
+| `allow_clients` | requires `allow_unpinned_clients = true` | lab/loopback only |
+| `writable` | every entry must be covered by `expose` | do not write hidden symbols |
+| size/time limits | each numeric limit must be `>= 1` | `max_clients = 8` |
+
+Classic ADS is cleartext and route-based. Keep ADS server mode on a trusted OT
+segment, source-pin every production client, and enable writes only for the
+smallest safe symbol set. Accepted and rejected ADS writes are audited as
+`ads.server.write`.
+
+Secure ADS is not supported in this release; `[runtime.ads_server]` only serves
+classic plain ADS and requires `insecure_transport = true` when enabled.
+
 ### `[runtime.cloud]`
 
 This section shapes runtime-cloud policy inside `runtime.toml`.

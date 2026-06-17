@@ -45,7 +45,7 @@ pub(super) fn launch_control_auth_token(args: &LaunchArguments) -> Option<String
         .map(|value| value.to_string())
 }
 
-fn launch_runtime_root(args: &LaunchArguments) -> Option<String> {
+pub(super) fn launch_runtime_root(args: &LaunchArguments) -> Option<String> {
     args.additional
         .get("runtimeRoot")
         .and_then(|value| value.as_str())

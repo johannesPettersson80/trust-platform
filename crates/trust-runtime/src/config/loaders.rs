@@ -45,6 +45,7 @@ impl RuntimeBundle {
                 .into(),
             ));
         };
+        let ads = load_bundle_ads_config(&root, &runtime)?;
         let bytecode = std::fs::read(&program_path).map_err(|err| {
             RuntimeError::InvalidBundle(format!("failed to read program.stbc: {err}").into())
         })?;
@@ -54,6 +55,8 @@ impl RuntimeBundle {
             root,
             runtime,
             io,
+            ads: ads.as_ref().map(|loaded| loaded.config.clone()),
+            ads_config_hash: ads.map(|loaded| loaded.config_hash),
             simulation,
             bytecode,
         })
@@ -87,6 +90,43 @@ pub fn load_system_io_config() -> Result<Option<IoConfig>, RuntimeError> {
         return Ok(None);
     }
     IoConfig::load(path).map(Some)
+}
+
+struct LoadedAdsConfig {
+    config: crate::ads::AdsClientConfig,
+    config_hash: String,
+}
+
+fn load_bundle_ads_config(
+    root: &Path,
+    runtime: &RuntimeConfig,
+) -> Result<Option<LoadedAdsConfig>, RuntimeError> {
+    if !runtime.ads.enabled {
+        return Ok(None);
+    }
+    let ads_path = if runtime.ads.config_path.is_relative() {
+        root.join(&runtime.ads.config_path)
+    } else {
+        runtime.ads.config_path.clone()
+    };
+    if !ads_path.is_file() {
+        return Err(RuntimeError::InvalidBundle(
+            format!(
+                "runtime.ads.enabled=true but ADS config is missing at {}",
+                ads_path.display()
+            )
+            .into(),
+        ));
+    }
+    let text = std::fs::read_to_string(&ads_path).map_err(|err| {
+        RuntimeError::InvalidConfig(format!("{}: {err}", ads_path.display()).into())
+    })?;
+    let config_hash = crate::ads::diagnostics::sha256_evidence_hash(text.as_bytes());
+    let config = crate::ads::parse_ads_toml(&text)?;
+    Ok(Some(LoadedAdsConfig {
+        config,
+        config_hash,
+    }))
 }
 
 pub fn validate_runtime_toml_text(text: &str) -> Result<(), RuntimeError> {

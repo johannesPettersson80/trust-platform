@@ -21,6 +21,7 @@ binary reports them.
 | `test` | deprecated alias for `trust-dev test` |
 | `docs` | deprecated alias for `trust-dev docs` |
 | `hmi` | scaffold/update/reset `hmi/` |
+| `ads` | Beckhoff ADS onboarding backend, symbol import, route artifacts, and validation |
 | `plcopen` | PLCopen import/export/profile |
 | `registry` | package registry workflows |
 | `setup` | initialize system I/O config |
@@ -111,6 +112,111 @@ Current subcommands:
 - `update`
 - `reset`
 
+### ADS
+
+```text
+Usage: trust-runtime ads <COMMAND>
+```
+
+Current subcommands:
+
+- `discover`: find or identify TwinCAT ADS targets from the current host
+  (`ads-wire` build required).
+- `browse`: connect to one or all configured ADS client connections in
+  `ads.toml` and print the live symbol table (`ads-wire` build required).
+- `doctor`: run the ADS connectivity Doctor from the current host (`ads-wire`
+  build required).
+  Supplying `--target-net-id` makes a known target a first-class path: the
+  Doctor uses that AMS Net ID instead of requiring UDP identify to succeed.
+  Supplying `--write-symbol`, `--write-type`, and `--write-value` together runs
+  a guarded write probe that writes, reads back, restores, and verifies a safe
+  writable PLC variable.
+- `route-script`: generate PowerShell, StaticRoutes.xml, GUI, or removal
+  route artifacts using explicit runtime-host identity values.
+- `add-route`: send UDP AddRoute directly to the PLC. The TwinCAT password is
+  accepted only through `--password-stdin`.
+- `import-symbols`: authoring-only live symbol import that can dry-run generated
+  `ads.toml`, snapshot, and ST files for VS Code/web diff review (`ads-wire`
+  build required).
+- `import`: generate deterministic ST globals from existing `ads.toml` and
+  cached ADS symbol snapshots.
+- `validate --offline`: compare generated ST against `ads.toml` and cached
+  symbol snapshots without opening a PLC connection.
+- `validate --live`: upload live TwinCAT symbols for each configured
+  connection and compare the checked-in generated ST against the live target
+  (`ads-wire` build required).
+- `server status`: query `[runtime.ads_server]` status from a running runtime
+  control endpoint.
+- `server symbols`: list the runtime globals currently exposed as ADS symbols.
+- `server doctor`: run the ADS server Doctor against the running runtime. The
+  loopback self-test alone is not external-client proof; pass
+  `--external-kind` and `--external-name` only after an independent client such
+  as pyads has completed its smoke.
+- `server route-script`: generate route artifacts for external ADS clients or a
+  TwinCAT engineering station so they can reach the truST ADS server.
+
+The normal customer workflow starts in the VS Code ADS panel or the runtime
+host setup page at `/setup/ads`; the CLI is the scriptable backend. Common
+authoring and offline-validation workflow:
+
+```bash
+trust-runtime ads import-symbols \
+  --target 192.168.10.5 \
+  --target-net-id 5.23.91.12.1.1 \
+  --connection line1 \
+  --out ads.toml \
+  --gen src/generated/ads_generated.st
+
+trust-runtime ads validate --offline \
+  --config ads.toml \
+  --snapshot ads/snapshots/line1.symbols.json \
+  --generated src/generated/ads_generated.st
+```
+
+Live validation uses the configured ADS routes:
+
+```bash
+trust-runtime ads browse \
+  --config ads.toml \
+  --connection line1
+
+trust-runtime ads validate --live \
+  --config ads.toml \
+  --generated src/generated/ads_generated.st
+```
+
+Live runtime ADS I/O is not started by these CLI commands. It is enabled by
+`[runtime.ads]` in `runtime.toml` and requires a runtime built with feature
+`ads-wire`.
+
+ADS server mode is enabled separately by `[runtime.ads_server]` and requires a
+runtime built with feature `ads-server`. Common server workflow:
+
+```bash
+trust-runtime ads server route-script \
+  --route-name trust-runtime-line1 \
+  --server-ip 192.168.77.10 \
+  --server-net-id 192.168.77.10.1.1 \
+  --format powershell
+
+trust-runtime ads server status --project examples/communication/ads_server_basic
+trust-runtime ads server symbols --project examples/communication/ads_server_basic
+trust-runtime ads server doctor --project examples/communication/ads_server_basic
+```
+
+After an independent pyads smoke, attach that evidence to the Doctor report:
+
+```bash
+trust-runtime ads server doctor \
+  --project examples/communication/ads_server_basic \
+  --external-kind pyads \
+  --external-name pyads-smoke
+```
+
+The ADS server proof ladder is intentionally split: loopback self-test, pyads
+independent-client proof, and real TwinCAT engineering-station validation are
+separate gates.
+
 ### PLCopen
 
 ```text
@@ -190,3 +296,4 @@ trust-runtime ide serve --project ./my-plc --listen 127.0.0.1:18080
 - [trust-dev CLI](trust-dev.md)
 - [Agent API v1](../agent-api/v1.md)
 - [runtime.toml](../config/runtime-toml.md)
+- [ads.toml](../config/ads-toml.md)

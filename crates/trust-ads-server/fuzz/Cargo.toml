@@ -1,0 +1,37 @@
+[package]
+name = "trust-ads-server-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+trust-ads-core = { path = "../../trust-ads-core" }
+trust-ads-server = { path = ".." }
+
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "boundary_noop"
+path = "fuzz_targets/boundary_noop.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "ams_frame"
+path = "fuzz_targets/ams_frame.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "command_dispatch"
+path = "fuzz_targets/command_dispatch.rs"
+test = false
+doc = false
+bench = false

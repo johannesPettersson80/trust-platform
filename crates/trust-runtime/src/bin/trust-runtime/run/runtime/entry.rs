@@ -39,14 +39,23 @@ pub fn run_runtime(
     let io_health = Arc::new(Mutex::new(Vec::new()));
     runtime.set_io_health_sink(Some(io_health.clone()));
     let io_snapshot = Arc::new(Mutex::new(None));
+    let io_snapshot_seen_ms = Arc::new(std::sync::atomic::AtomicU64::new(0));
     let (io_tx, io_rx) = std::sync::mpsc::channel();
     debug.set_io_sender(io_tx);
     {
         let io_snapshot = io_snapshot.clone();
+        let io_snapshot_seen_ms = io_snapshot_seen_ms.clone();
         std::thread::spawn(move || {
             for snapshot in io_rx {
                 if let Ok(mut guard) = io_snapshot.lock() {
                     *guard = Some(snapshot);
+                    io_snapshot_seen_ms.store(
+                        std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .map(|duration| duration.as_millis() as u64)
+                            .unwrap_or(0),
+                        std::sync::atomic::Ordering::Relaxed,
+                    );
                 }
             }
         });
@@ -237,12 +246,28 @@ pub fn run_runtime(
         bundle.as_ref().map(|bundle| bundle.root.as_path()),
         &sources,
     )));
+    let ads_server_config = Arc::new(Mutex::new(
+        bundle
+            .as_ref()
+            .map(|bundle| bundle.runtime.ads_server.clone()),
+    ));
+    let ads_client_config = Arc::new(Mutex::new(
+        bundle.as_ref().and_then(|bundle| bundle.ads.clone()),
+    ));
+    let discovery_state = Arc::new(DiscoveryState::new());
+    let mesh_topology = Arc::new(Mutex::new(None));
+    let web_listener_bound = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let opcua_server_bound = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    #[cfg(feature = "ads-server")]
+    let ads_server_runtime = Arc::new(Mutex::new(None));
+
     let state = Arc::new(ControlState {
         debug: debug.clone(),
         resource: control.clone(),
         metadata: metadata.clone(),
         sources,
         io_snapshot: io_snapshot.clone(),
+        io_snapshot_seen_ms: io_snapshot_seen_ms.clone(),
         pending_restart,
         auth_token: auth_token.clone(),
         control_requires_auth: matches!(control_endpoint, ControlEndpoint::Tcp(_)),
@@ -252,11 +277,15 @@ pub fn run_runtime(
                 .map(|bundle| bundle.runtime.control_mode)
                 .unwrap_or(trust_runtime::config::ControlMode::Debug),
         )),
-        audit_tx: Some(audit_tx),
+        audit_tx: Some(audit_tx.clone()),
         metrics: metrics.clone(),
         events: events.clone(),
         settings: Arc::new(Mutex::new(settings)),
+        discovery: discovery_state.clone(),
+        mesh_topology: mesh_topology.clone(),
         realtime_status: realtime_status.clone(),
+        web_listener_bound: web_listener_bound.clone(),
+        opcua_server_bound: opcua_server_bound.clone(),
         project_root: bundle.as_ref().map(|bundle| bundle.root.clone()),
         resource_name: bundle
             .as_ref()
@@ -281,6 +310,11 @@ pub fn run_runtime(
         hmi_descriptor,
         historian: historian.clone(),
         pairing: pairing.clone(),
+        ads_doctor_jobs: Arc::new(Mutex::new(trust_runtime::control::AdsDoctorJobStore::default())),
+        ads_client_config,
+        ads_server_config,
+        #[cfg(feature = "ads-server")]
+        ads_server_runtime: ads_server_runtime.clone(),
     });
     spawn_hmi_descriptor_watcher(state.clone());
 
@@ -306,6 +340,7 @@ pub fn run_runtime(
             snapshot_provider,
             Some(bundle.root.as_path()),
         )?;
+        opcua_server_bound.store(opcua_server.is_some(), std::sync::atomic::Ordering::Relaxed);
     }
 
     let _server = ControlServer::start(control_endpoint.clone(), state.clone())?;
@@ -318,19 +353,25 @@ pub fn run_runtime(
     } else {
         None
     };
+    if let Some(mesh) = _mesh.as_ref() {
+        if let Ok(mut guard) = mesh_topology.lock() {
+            *guard = Some(mesh.topology_evidence());
+        }
+    }
     let _discovery_handle = if let Some(bundle) = &bundle {
         if bundle.runtime.discovery.enabled {
             let web_listen = bundle.runtime.web.listen.as_str();
             let mesh_listen = _mesh
                 .as_ref()
                 .and_then(|service| service.discovery_mesh_listen());
-            let handle = start_discovery(
+            let handle = start_discovery_with_state(
                 &bundle.runtime.discovery,
                 &bundle.runtime.resource_name,
                 &control_endpoint,
                 Some(web_listen),
                 bundle.runtime.web.tls,
                 mesh_listen,
+                discovery_state.clone(),
             )?;
             Some(handle)
         } else {
@@ -339,10 +380,6 @@ pub fn run_runtime(
     } else {
         None
     };
-    let discovery_state = _discovery_handle
-        .as_ref()
-        .map(|handle| handle.state())
-        .unwrap_or_else(|| Arc::new(DiscoveryState::new()));
     let _web = if web_config.enabled {
         Some(start_web_server(
             &web_config,
@@ -357,6 +394,45 @@ pub fn run_runtime(
     };
 
     start_gate.open();
+
+    #[cfg(feature = "ads-server")]
+    if let Some(bundle) = &bundle {
+        let snapshot_control = control.clone();
+        let snapshot_provider = Arc::new(move || {
+            let (tx, rx) = std::sync::mpsc::channel();
+            if snapshot_control
+                .send_command(ResourceCommand::Snapshot { respond_to: tx })
+                .is_ok()
+            {
+                if let Ok(snapshot) = rx.recv_timeout(std::time::Duration::from_millis(250)) {
+                    return Some(snapshot);
+                }
+            }
+            None
+        });
+        let server = trust_runtime::ads::server::start_ads_server_runtime(
+            bundle.runtime.resource_name.as_str(),
+            &bundle.runtime.ads_server,
+            debug.clone(),
+            control.clone(),
+            snapshot_provider,
+            Some(audit_tx.clone()),
+        )?;
+        if let Some(server) = server {
+            if let Ok(mut slot) = ads_server_runtime.lock() {
+                *slot = Some(server);
+            }
+        }
+    }
+
+    #[cfg(not(feature = "ads-server"))]
+    if let Some(bundle) = &bundle {
+        if bundle.runtime.ads_server.enabled {
+            anyhow::bail!(
+                "runtime.ads_server.enabled=true requires trust-runtime built with feature 'ads-server'"
+            );
+        }
+    }
 
     if show_banner {
         let web_url = web_config
@@ -476,6 +552,12 @@ pub fn run_runtime(
         .map_err(|_| anyhow::anyhow!("runtime thread panicked"));
     if let Some(server) = opcua_server.as_mut() {
         server.stop();
+    }
+    #[cfg(feature = "ads-server")]
+    if let Ok(mut slot) = ads_server_runtime.lock() {
+        if let Some(mut server) = slot.take() {
+            server.shutdown();
+        }
     }
     join_result?;
     logger.log(

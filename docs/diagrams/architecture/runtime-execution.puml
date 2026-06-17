@@ -20,6 +20,7 @@ package "Runtime Core" as runtimeCore #LightGreen {
         storage: VariableStorage
         registry: TypeRegistry
         initializer_catalog: program_model::InitializerCatalog
+        ads: AdsSubsystem
         io: IoSubsystem
         access: AccessMap
         stdlib: StandardLibrary
@@ -150,12 +151,15 @@ package "Execution Cycle" as cyclePkg #LightBlue {
         • apply debug IO writes
         • apply forced values (IO + vars)
         • map inputs → storage
+        • ADS cache → generated globals
+          + _quality values
     end note
 
     note right of step8
         write_cycle_outputs():
         • map storage → outputs
         • apply forced values (IO + vars)
+        • generated globals → ADS write queue
         • drivers write outputs
     end note
 
@@ -389,6 +393,72 @@ package "OPC UA Interop" as opcuaPkg #LightCyan {
 }
 
 ' ============================================================
+' ADS CLIENT INTEROP
+' ============================================================
+package "ADS Client Interop" as adsPkg #LightCyan {
+    rectangle "ADS Symbol Bridge (host/ads)" as adsFlow #Wheat {
+        card "1. runtime.toml [runtime.ads]\n+ ads.toml + cached symbol snapshot" as ads1
+        card "2. Generate single project-level\nsrc/generated/ads_generated.st" as ads2
+        card "3. Compile generated globals\nas normal ST metadata" as ads3
+        card "4. Bundle startup resolves declared global\n-> ValueRef + TypeId and starts workers" as ads4
+        card "5. Worker thread owns ADS transport\nsum-up read/write + notifications\n+ symbol-version checks" as ads5
+        card "6. Shared cache stores\nValue + PointQuality" as ads6
+        card "7. Scan boundary copies cache\nand queues write intents only" as ads7
+    }
+
+    ads1 --> ads2
+    ads2 --> ads3
+    ads3 --> ads4
+    ads4 --> ads5
+    ads5 --> ads6
+    ads6 --> ads7
+
+    note right of ads7
+        The scan thread performs no ADS
+        socket operations. Network reads,
+        writes, notifications, reconnects,
+        and symbol-version revalidation
+        stay on the worker thread.
+    end note
+}
+
+' ============================================================
+' ADS SERVER INTEROP
+' ============================================================
+package "ADS Server Interop" as adsServerPkg #LightCyan {
+    rectangle "ADS Server (host/ads/server + trust-ads-server)" as adsServerFlow #Wheat {
+        card "1. runtime.toml [runtime.ads_server]\nvalidates listen, AMS identity,\nsource-pinned clients, limits" as adsServer1
+        card "2. Runtime startup begins\nADS server listener on TCP 48898" as adsServer2
+        card "3. External ADS client\nTwinCAT / pyads / .NET connects\nto logical AMS port 851" as adsServer3
+        card "4. Protocol engine serves\nsymbol upload, read, sum-up read,\nand notifications" as adsServer4
+        card "5. Snapshot publisher reads\nruntime globals without touching\nscan socket paths" as adsServer5
+        card "6. Optional writes pass\nallowlist + writable + audit gates" as adsServer6
+        card "7. Runtime write port queues\naccepted writes at runtime boundary" as adsServer7
+    }
+
+    adsServer1 --> adsServer2
+    adsServer2 --> adsServer3
+    adsServer3 --> adsServer4
+    adsServer4 --> adsServer5
+    adsServer4 --> adsServer6
+    adsServer6 --> adsServer7
+
+    note right of adsServer4
+        ADS server parser handles
+        untrusted AMS/TCP frames with
+        size, sum-up, client, and
+        subscription caps.
+    end note
+
+    note right of adsServer7
+        ADS writes are disabled by
+        default and audited as
+        ads.server.write when accepted
+        or rejected.
+    end note
+}
+
+' ============================================================
 ' VARIABLE STORAGE
 ' ============================================================
 package "Variable Storage" as storagePkg #LightCoral {
@@ -438,6 +508,13 @@ package "Variable Storage" as storagePkg #LightCoral {
 }
 
 runtime ..> opc4 : snapshot globals
+start3 ..> ads4 : [runtime.ads] startup
+start3 ..> adsServer2 : [runtime.ads_server] startup
+step3 ..> ads7 : apply ADS read cache\n+ _quality globals
+step8 ..> ads7 : queue ADS writes\n+ _quality globals
+ads7 --> varStorage : write_by_ref / read_by_ref
+adsServer5 --> varStorage : read snapshot values
+adsServer7 --> varStorage : queued runtime writes
 
 ' ============================================================
 ' VALUE CONTRACTS

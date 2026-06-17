@@ -64,7 +64,7 @@ fn send_control_request(
     Ok(())
 }
 
-fn send_control_request_value(
+pub(crate) fn send_control_request_value(
     endpoint: &ControlEndpoint,
     request: &JsonValue,
 ) -> anyhow::Result<JsonValue> {

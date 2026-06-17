@@ -1,9 +1,8 @@
 //! Control-server bridge for debug sessions (inline values, tooling).
 
 use std::collections::VecDeque;
-#[cfg(unix)]
 use std::path::PathBuf;
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, AtomicU64};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -12,12 +11,15 @@ use smol_str::SmolStr;
 
 use trust_runtime::config::ControlMode;
 use trust_runtime::control::{
-    ControlEndpoint, ControlServer, ControlState, HmiRuntimeDescriptor, SourceRegistry,
+    AdsDoctorJobStore, ControlEndpoint, ControlServer, ControlState, HmiRuntimeDescriptor,
+    SourceRegistry,
 };
 use trust_runtime::debug::{DebugVariableHandles, RuntimeEvent};
+use trust_runtime::discovery::DiscoveryState;
 use trust_runtime::error::RuntimeError;
 use trust_runtime::io::IoDriverStatus;
 use trust_runtime::linux_rt::{LinuxRtConfig, LinuxRtRuntimeStatus};
+use trust_runtime::mesh::MeshTopologyEvidence;
 use trust_runtime::metrics::RuntimeMetrics;
 use trust_runtime::scheduler::{ResourceCommand, ResourceControl, StdClock};
 use trust_runtime::settings::{
@@ -43,6 +45,7 @@ impl DebugControlServer {
         session: &dyn DebugRuntime,
         endpoint: ControlEndpoint,
         auth_token: Option<String>,
+        project_root: Option<PathBuf>,
     ) -> Result<Self, RuntimeError> {
         let (resource, cmd_rx) = ResourceControl::stub(StdClock::new());
         let sources = SourceRegistry::new(session.control_sources());
@@ -53,9 +56,10 @@ impl DebugControlServer {
             debug: session.debug_control(),
             resource,
             metadata: Arc::new(Mutex::new(session.metadata().clone())),
-            project_root: None,
+            project_root,
             sources,
             io_snapshot: Arc::new(Mutex::new(None)),
+            io_snapshot_seen_ms: Arc::new(AtomicU64::new(0)),
             pending_restart: Arc::new(Mutex::new(None)),
             auth_token: Arc::new(Mutex::new(auth_token.map(SmolStr::new))),
             control_requires_auth: matches!(endpoint, ControlEndpoint::Tcp(_)),
@@ -64,6 +68,10 @@ impl DebugControlServer {
             metrics: Arc::new(Mutex::new(RuntimeMetrics::default())),
             events: Arc::new(Mutex::new(VecDeque::<RuntimeEvent>::new())),
             settings: Arc::new(Mutex::new(default_settings(session))),
+            discovery: Arc::new(DiscoveryState::new()),
+            mesh_topology: Arc::new(Mutex::new(None::<MeshTopologyEvidence>)),
+            web_listener_bound: Arc::new(AtomicBool::new(false)),
+            opcua_server_bound: Arc::new(AtomicBool::new(false)),
             resource_name: SmolStr::new("RESOURCE"),
             io_health: Arc::new(Mutex::new(Vec::<IoDriverStatus>::new())),
             realtime_status: Arc::new(Mutex::new(LinuxRtRuntimeStatus::from_config(
@@ -76,6 +84,11 @@ impl DebugControlServer {
             hmi_descriptor,
             historian: None,
             pairing: None,
+            ads_doctor_jobs: Arc::new(Mutex::new(AdsDoctorJobStore::default())),
+            ads_client_config: Arc::new(Mutex::new(None)),
+            ads_server_config: Arc::new(Mutex::new(None)),
+            #[cfg(feature = "ads-server")]
+            ads_server_runtime: Arc::new(Mutex::new(None)),
         });
         let server = ControlServer::start(endpoint, state.clone())?;
         let drain = spawn_command_drain(cmd_rx);
@@ -168,6 +181,21 @@ fn spawn_command_drain(rx: std::sync::mpsc::Receiver<ResourceCommand>) -> thread
                         storage: trust_runtime::memory::VariableStorage::new(),
                         now: trust_runtime::value::Duration::ZERO,
                     });
+                }
+                ResourceCommand::AdsStatus { respond_to } => {
+                    let _ = respond_to.send(trust_runtime::ads::diagnostics::AdsStatusReport {
+                        schema_version:
+                            trust_runtime::ads::diagnostics::ADS_DIAGNOSTICS_SCHEMA_VERSION,
+                        role: trust_runtime::ads::diagnostics::DoctorRole::Client,
+                        overall: trust_runtime::ads::diagnostics::AdsStatusOverall::Disabled,
+                        runtime_identity_hash: None,
+                        deployed_ads_config_hash: None,
+                        connections: Vec::new(),
+                        summary: "ADS is not configured for this debug session.".to_string(),
+                    });
+                }
+                ResourceCommand::ActiveAdsDevice { respond_to, .. } => {
+                    let _ = respond_to.send(None);
                 }
                 ResourceCommand::Pause
                 | ResourceCommand::Resume

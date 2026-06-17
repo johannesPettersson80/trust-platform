@@ -13,7 +13,9 @@ use smol_str::SmolStr;
 use trust_runtime::config::{
     ControlMode, RuntimeCloudProfile, RuntimeConfig, WebAuthMode, WebConfig,
 };
-use trust_runtime::control::{ControlState, HmiRuntimeDescriptor, SourceFile, SourceRegistry};
+use trust_runtime::control::{
+    AdsDoctorJobStore, ControlState, HmiRuntimeDescriptor, SourceFile, SourceRegistry,
+};
 use trust_runtime::debug::{DebugSnapshot, DebugVariableHandles};
 use trust_runtime::discovery::DiscoveryState;
 use trust_runtime::error::RuntimeError;
@@ -54,10 +56,11 @@ pub fn run_ide_serve(project: Option<PathBuf>, listen: String) -> anyhow::Result
         auth: WebAuthMode::Local,
         tls: false,
     };
+    let discovery = control_state.discovery.clone();
     let _server = start_web_server_with_mode(
         &config,
         control_state,
-        Some(Arc::new(DiscoveryState::new())),
+        Some(discovery),
         None,
         Some(project_root.clone()),
         None,
@@ -138,6 +141,21 @@ fn build_config_mode_control_state(
                 ResourceCommand::Snapshot { respond_to } => {
                     let _ = respond_to.send(snapshot.clone());
                 }
+                ResourceCommand::AdsStatus { respond_to } => {
+                    let _ = respond_to.send(trust_runtime::ads::diagnostics::AdsStatusReport {
+                        schema_version:
+                            trust_runtime::ads::diagnostics::ADS_DIAGNOSTICS_SCHEMA_VERSION,
+                        role: trust_runtime::ads::diagnostics::DoctorRole::Client,
+                        overall: trust_runtime::ads::diagnostics::AdsStatusOverall::Disabled,
+                        runtime_identity_hash: None,
+                        deployed_ads_config_hash: None,
+                        connections: Vec::new(),
+                        summary: "ADS is not configured.".to_string(),
+                    });
+                }
+                ResourceCommand::ActiveAdsDevice { respond_to, .. } => {
+                    let _ = respond_to.send(None);
+                }
                 _ => {}
             }
         }
@@ -194,12 +212,14 @@ fn build_config_mode_control_state(
     settings.runtime_cloud.wan_allow_write = Vec::new();
     settings.runtime_cloud.link_preferences = Vec::new();
 
+    let discovery = Arc::new(DiscoveryState::new());
     Ok(Arc::new(ControlState {
         debug,
         resource,
         metadata: Arc::new(Mutex::new(harness.runtime().metadata_snapshot())),
         sources,
         io_snapshot: Arc::new(Mutex::new(None)),
+        io_snapshot_seen_ms: Arc::new(std::sync::atomic::AtomicU64::new(0)),
         pending_restart: Arc::new(Mutex::new(None)),
         auth_token: Arc::new(Mutex::new(None)),
         control_requires_auth: false,
@@ -208,9 +228,13 @@ fn build_config_mode_control_state(
         metrics: Arc::new(Mutex::new(RuntimeMetrics::default())),
         events: Arc::new(Mutex::new(VecDeque::new())),
         settings: Arc::new(Mutex::new(settings)),
+        discovery,
+        mesh_topology: Arc::new(Mutex::new(None)),
         realtime_status: Arc::new(Mutex::new(LinuxRtRuntimeStatus::from_config(
             trust_runtime::linux_rt::LinuxRtConfig::default(),
         ))),
+        web_listener_bound: Arc::new(AtomicBool::new(false)),
+        opcua_server_bound: Arc::new(AtomicBool::new(false)),
         project_root: Some(project_root),
         resource_name,
         io_health: Arc::new(Mutex::new(Vec::new())),
@@ -221,6 +245,11 @@ fn build_config_mode_control_state(
         hmi_descriptor,
         historian: None,
         pairing: None,
+        ads_doctor_jobs: Arc::new(Mutex::new(AdsDoctorJobStore::default())),
+        ads_client_config: Arc::new(Mutex::new(None)),
+        ads_server_config: Arc::new(Mutex::new(None)),
+        #[cfg(feature = "ads-server")]
+        ads_server_runtime: Arc::new(Mutex::new(None)),
     }))
 }
 

@@ -10,6 +10,9 @@ extern crate self as trust_runtime;
 /// Portable runtime-core compatibility surface.
 pub use trust_runtime_core as runtime_core;
 
+/// Beckhoff ADS client integration contracts.
+#[path = "host/ads/mod.rs"]
+pub mod ads;
 /// Fail-closed external boundary value resolution.
 #[path = "host/boundary/mod.rs"]
 pub mod boundary;

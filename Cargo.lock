@@ -15,6 +15,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
+name = "ads"
+version = "0.4.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4959a41a182e57ce11b83058b6c7838ca65ea648d3142d86928431f26896738"
+dependencies = [
+ "byteorder",
+ "crossbeam-channel",
+ "itertools 0.13.0",
+ "thiserror 1.0.69",
+ "zerocopy 0.7.35",
+]
+
+[[package]]
 name = "aes"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -35,7 +48,7 @@ dependencies = [
  "getrandom 0.3.4",
  "once_cell",
  "version_check",
- "zerocopy",
+ "zerocopy 0.8.48",
 ]
 
 [[package]]
@@ -1922,7 +1935,7 @@ dependencies = [
  "cfg-if",
  "crunchy",
  "num-traits",
- "zerocopy",
+ "zerocopy 0.8.48",
 ]
 
 [[package]]
@@ -2409,6 +2422,15 @@ name = "itertools"
 version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b0fd2260e829bddf4cb6ea802289de2f86d6a7a690192fbe91b3f46e0f2c8473"
+dependencies = [
+ "either",
+]
+
+[[package]]
+name = "itertools"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
 dependencies = [
  "either",
 ]
@@ -3837,7 +3859,7 @@ version = "0.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "85eae3c4ed2f50dcfe72643da4befc30deadb458a9b590d720cde2f2b1e97da9"
 dependencies = [
- "zerocopy",
+ "zerocopy 0.8.48",
 ]
 
 [[package]]
@@ -5743,8 +5765,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "trust-ads-core"
+version = "0.24.25"
+dependencies = [
+ "serde",
+ "serde_json",
+ "trust-runtime-core",
+]
+
+[[package]]
+name = "trust-ads-server"
+version = "0.24.25"
+dependencies = [
+ "trust-ads-core",
+]
+
+[[package]]
 name = "trust-debug"
-version = "0.24.24"
+version = "0.24.25"
 dependencies = [
  "glob",
  "indexmap 2.14.0",
@@ -5759,7 +5797,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dev"
-version = "0.24.24"
+version = "0.24.25"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -5778,7 +5816,7 @@ dependencies = [
 
 [[package]]
 name = "trust-hir"
-version = "0.24.24"
+version = "0.24.25"
 dependencies = [
  "boxcar",
  "insta",
@@ -5796,7 +5834,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ide"
-version = "0.24.24"
+version = "0.24.25"
 dependencies = [
  "expect-test",
  "once_cell",
@@ -5809,7 +5847,7 @@ dependencies = [
 
 [[package]]
 name = "trust-lsp"
-version = "0.24.24"
+version = "0.24.25"
 dependencies = [
  "anyhow",
  "expect-test",
@@ -5836,7 +5874,7 @@ dependencies = [
 
 [[package]]
 name = "trust-plcopen"
-version = "0.24.24"
+version = "0.24.25"
 dependencies = [
  "anyhow",
  "crc32fast",
@@ -5849,17 +5887,20 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime"
-version = "0.24.24"
+version = "0.24.25"
 dependencies = [
+ "ads",
  "anyhow",
  "base64 0.22.1",
  "clap",
  "clap_complete",
  "crc32fast",
+ "crossbeam-channel",
  "crossterm",
  "dialoguer",
  "ethercrab",
  "glob",
+ "if-addrs",
  "indexmap 2.14.0",
  "indicatif",
  "k",
@@ -5895,6 +5936,8 @@ dependencies = [
  "tokio",
  "toml",
  "tracing",
+ "trust-ads-core",
+ "trust-ads-server",
  "trust-hir",
  "trust-ide",
  "trust-plcopen",
@@ -5911,7 +5954,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime-core"
-version = "0.24.24"
+version = "0.24.25"
 dependencies = [
  "indexmap 2.14.0",
  "rustc-hash 2.1.2",
@@ -5922,7 +5965,7 @@ dependencies = [
 
 [[package]]
 name = "trust-syntax"
-version = "0.24.24"
+version = "0.24.25"
 dependencies = [
  "drop_bomb",
  "insta",
@@ -5933,7 +5976,7 @@ dependencies = [
 
 [[package]]
 name = "trust-twin-compiler"
-version = "0.24.24"
+version = "0.24.25"
 dependencies = [
  "clap",
  "serde",
@@ -5945,7 +5988,7 @@ dependencies = [
 
 [[package]]
 name = "trust-twin-renderer"
-version = "0.24.24"
+version = "0.24.25"
 dependencies = [
  "anyhow",
  "console_error_panic_hook",
@@ -5960,7 +6003,7 @@ dependencies = [
 
 [[package]]
 name = "trust-wasm-analysis"
-version = "0.24.24"
+version = "0.24.25"
 dependencies = [
  "rowan",
  "serde",
@@ -7251,7 +7294,7 @@ checksum = "3ae8337f8a065cfc972643663ea4279e04e7256de865aa66fe25cec5fb912d3f"
 
 [[package]]
 name = "xtask"
-version = "0.24.24"
+version = "0.24.25"
 dependencies = [
  "anyhow",
  "serde",
@@ -7647,11 +7690,32 @@ dependencies = [
 
 [[package]]
 name = "zerocopy"
+version = "0.7.35"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1b9b4fd18abc82b8136838da5d50bae7bdea537c574d8dc1a34ed098d6c166f0"
+dependencies = [
+ "byteorder",
+ "zerocopy-derive 0.7.35",
+]
+
+[[package]]
+name = "zerocopy"
 version = "0.8.48"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eed437bf9d6692032087e337407a86f04cd8d6a16a37199ed57949d415bd68e9"
 dependencies = [
- "zerocopy-derive",
+ "zerocopy-derive 0.8.48",
+]
+
+[[package]]
+name = "zerocopy-derive"
+version = "0.7.35"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fa4f8080344d4671fb4e831a13ad1e68092748387dfc4f55e356242fae12ce3e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
 ]
 
 [[package]]

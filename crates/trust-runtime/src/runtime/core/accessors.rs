@@ -244,6 +244,72 @@ impl Runtime {
         self.io.update_health();
     }
 
+    /// Register and start one ADS client connection.
+    pub fn start_ads_connection<T>(
+        &mut self,
+        connection: &crate::ads::AdsConnectionConfig,
+        transport: T,
+        worker_tick_interval: std::time::Duration,
+    ) -> Result<(), error::RuntimeError>
+    where
+        T: crate::ads::AdsTransport + Send + 'static,
+    {
+        let bindings =
+            crate::ads::resolve_declared_bindings(self, connection).map_err(|err| {
+                error::RuntimeError::InvalidConfig(
+                    format!("ADS connection '{}': {err}", connection.route.name).into(),
+                )
+            })?;
+        let (bridge, worker) =
+            crate::ads::AdsConnectionBridge::with_transport(transport, bindings).map_err(
+                |err| {
+                    error::RuntimeError::IoTransport(
+                        format!("ADS connection '{}': {err}", connection.route.name).into(),
+                    )
+                },
+            )?;
+        let worker = worker.spawn(worker_tick_interval).map_err(|err| {
+            error::RuntimeError::IoTransport(
+                format!("ADS connection '{}': {err}", connection.route.name).into(),
+            )
+        })?;
+        self.ads
+            .add_connection(connection.route.clone(), bridge, worker);
+        Ok(())
+    }
+
+    /// Stop all active ADS client workers.
+    pub fn shutdown_ads(&mut self) -> Result<(), error::RuntimeError> {
+        self.ads.shutdown()
+    }
+
+    /// Number of configured ADS client connections.
+    #[must_use]
+    pub fn ads_connection_count(&self) -> usize {
+        self.ads.connection_count()
+    }
+
+    /// Record the ADS config hash loaded by the runtime bundle.
+    pub fn set_ads_deployed_config_hash(&mut self, hash: Option<String>) {
+        self.ads.set_deployed_ads_config_hash(hash);
+    }
+
+    /// Current ADS client status projection.
+    #[must_use]
+    pub fn ads_status_report(&self) -> crate::ads::diagnostics::AdsStatusReport {
+        self.ads.status_report()
+    }
+
+    /// Snapshot for a live ADS device that overlaps a doctor target.
+    #[must_use]
+    pub fn active_ads_device_snapshot(
+        &self,
+        target: &crate::ads::diagnostics::TargetIdentity,
+        local: Option<&crate::ads::diagnostics::LocalIdentity>,
+    ) -> Option<crate::ads::onboarding::ActiveAdsDeviceSnapshot> {
+        self.ads.active_device_snapshot(target, local)
+    }
+
     /// Access the current cycle counter.
     #[must_use]
     pub fn cycle_counter(&self) -> u64 {

@@ -1,0 +1,158 @@
+@startuml runtime-ads-client
+!theme plain
+allowmixing
+skinparam backgroundColor #FEFEFE
+skinparam componentStyle uml2
+skinparam linetype ortho
+skinparam nodesep 55
+skinparam ranksep 40
+
+title truST Runtime: Beckhoff ADS Client Architecture
+
+package "Onboarding Surfaces" as onboardingSurfaces #Lavender {
+    component "VS Code ADS Panel\n(runtime-child webview)" as vscodeAdsPanel
+    component "Runtime Pane\nsingle selected runtime context" as runtimePane
+    component "Setup Web Wizard\n/setup/ads on runtime host" as setupAds
+    component "CLI Backend\ntrust-runtime ads ..." as adsCli
+}
+
+package "Runtime Control / Web API" as runtimeApi #MistyRose {
+    component "runtimeTarget.ts\nendpoint + mode + reachability" as runtimeTarget
+    component "runtimeControlClient.ts\nshared JSON-line client" as runtimeControlClient
+    component "control/ads_handlers/*\nads.identity / doctor / status / route" as adsControl
+    component "web/ads_routes.rs\n/api/ads/* wrappers" as adsWebRoutes
+    component "host/ads/diagnostics.rs\nversioned JSON schema" as diagnosticsSchema
+    component "host/ads/onboarding/*\ndiscover / identity / doctor / route" as onboardingEngine
+}
+
+package "Authoring Artifacts" as authoring #LightYellow {
+    artifact "runtime.toml\n[runtime.ads]" as runtimeToml
+    artifact "ads.toml\nconnections + points" as adsToml
+    artifact "ads/snapshots/<conn>.symbols.json\ncached TwinCAT symbol table" as adsSnapshot
+    artifact "src/generated/ads_generated.st\nADS_QUALITY + VAR_GLOBAL values" as generatedSt
+}
+
+package "trust-ads-core\n(direction-neutral crate)" as core #PaleTurquoise {
+    component "SymbolDescriptor\nindex group/offset, flags, type, size" as coreSymbols
+    component "IecDataType + AdsDataTypeDescriptor\nscalar + scalar array mapping" as coreMapping
+    component "PointQuality\nStale / Good / Error" as coreQuality
+    component "Route + Security Policy Types\nplain | secure(reserved)" as coreRouting
+}
+
+package "trust-runtime::host::ads" as hostAds #LightCyan {
+    component "contracts.rs\nparse + validate ads.toml" as contracts
+    component "generate.rs\nsnapshot + config -> generated ST" as generate
+    component "validate.rs\noffline drift/type validation" as validate
+    component "client.rs\nresolve declared global -> ValueRef + TypeId" as bridge
+    component "client/worker.rs\nbackground transport owner" as worker
+    component "client/cache.rs\nshared Value + Quality cache\nand write queue" as cache
+    component "transport.rs\nAdsTransport trait\n(domain types only)" as transport
+    component "backend_ads_rs.rs\nads crate backend\n(feature = ads-wire)" as backend
+    component "mock.rs\nCI transport" as mock
+}
+
+package "Compiled Runtime Model" as runtimeModel #LightGreen {
+    component "HIR/type checker\nnormal ST compile path" as hir
+    component "Runtime globals metadata\nHMI / debug / historian / OPC UA visible" as globals
+    component "VariableStorage\nwrite_by_ref / read_by_ref" as storage
+    component "AdsSubsystem\nowned by Runtime" as adsSubsystem
+    component "Scan cycle\ninput phase + output phase" as scan
+    component "RuntimeBundle::load\nloads ads.toml when enabled" as bundleLoad
+}
+
+cloud "Beckhoff TwinCAT PLC\nADS server" as twincat #LightGray
+component "OPC UA Gateway" as opcua #Wheat
+component "HMI + Control/Debug + Historian" as surfaces #Wheat
+
+runtimePane --> runtimeTarget : owns runtime selection
+vscodeAdsPanel --> runtimeTarget : reads selected runtime\n(no second chooser)
+vscodeAdsPanel --> runtimeControlClient : calls selected endpoint
+runtimeControlClient --> adsControl : JSON-line commands
+setupAds --> adsWebRoutes : HTTP calls on runtime host
+adsWebRoutes --> adsControl : same command handlers
+adsControl --> diagnosticsSchema
+adsWebRoutes --> diagnosticsSchema
+onboardingEngine --> diagnosticsSchema
+adsControl --> onboardingEngine : discover / identity /\ndoctor / route plan
+adsCli --> onboardingEngine : scriptable backend
+onboardingEngine --> twincat : ADS UDP identify/discover\nand route-add
+onboardingEngine --> adsToml : import-symbols writes\nor dry-run previews
+onboardingEngine --> adsSnapshot : live symbol snapshot
+onboardingEngine --> generatedSt : generated ST preview/write
+adsControl --> adsSubsystem : status from live workers
+
+runtimeToml --> bundleLoad : enables runtime ADS\nand config path
+bundleLoad --> contracts : parse ads.toml\nat bundle load
+adsToml --> contracts
+adsSnapshot --> generate
+adsToml --> generate
+generate --> generatedSt
+adsSnapshot --> validate
+generatedSt --> validate
+generatedSt --> hir
+hir --> globals
+
+contracts --> coreRouting
+contracts --> coreSymbols
+generate --> coreSymbols
+generate --> coreMapping
+generate --> coreQuality
+validate --> coreSymbols
+validate --> coreMapping
+bridge --> coreMapping
+bridge --> coreQuality
+worker --> coreSymbols
+worker --> coreQuality
+transport --> coreSymbols
+transport --> coreMapping
+transport --> coreQuality
+
+bridge --> globals : declared global lookup\nCompileError if missing
+bridge --> cache : scan-facing bridge
+bundleLoad --> bridge : resolve bindings\nat startup
+adsSubsystem --> bridge : owns bridges
+adsSubsystem --> worker : owns worker threads
+worker --> cache : updates reads/notifications\nand drains writes
+worker --> transport : owns network calls
+backend ..|> transport
+mock ..|> transport
+backend --> twincat : ADS/AMS sum-up read/write\nnotifications + symbol version
+
+scan --> adsSubsystem : apply_inputs / capture_outputs
+adsSubsystem --> cache : copy input values / queue output writes\n(no socket calls)
+cache --> storage : apply read + _quality values\nat input phase
+storage --> cache : capture changed write values\nat output phase
+globals --> surfaces : first-class generated variables
+globals --> opcua : export values + _quality
+
+note right of scan
+    Scan-boundary invariant:
+    the scan thread never performs ADS
+    network I/O. It only copies the
+    latest cache snapshot and queues
+    write intents for the worker.
+end note
+
+note right of vscodeAdsPanel
+    Production-ready proof comes from the
+    runtime-host Doctor plus deployed
+    ADS status. Authoring-only laptop
+    imports never earn that badge.
+end note
+
+note right of backend
+    External ads crate is confined to
+    backend_ads_rs.rs behind ads-wire.
+    AdsTransport signatures expose only
+    trust-owned domain types.
+end note
+
+note bottom of core
+    The core crate has no ValueRef,
+    TypeId, storage, or runtime-global
+    dependency, so a future ADS server
+    can depend on core without depending
+    on the client.
+end note
+
+@enduml

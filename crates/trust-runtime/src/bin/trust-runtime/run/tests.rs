@@ -1,4 +1,9 @@
 use super::simulation_warning_message;
+use trust_ads_core::{
+    AdsDataTypeDescriptor, IecDataType, PointQuality, SymbolDescriptor, SymbolFlag,
+};
+use trust_runtime::harness::{CompileSession, SourceFile};
+use trust_runtime::value::Value;
 
 fn bundle_with_backend(
     backend: trust_runtime::execution_backend::ExecutionBackend,
@@ -65,6 +70,8 @@ fn bundle_with_backend(
             openot: trust_runtime::config::OpenOtTelemetryConfig::default(),
             observability: trust_runtime::historian::HistorianConfig::default(),
             hmi_persistence: trust_runtime::hmi::HmiPersistenceConfig::default(),
+            ads: trust_runtime::config::AdsRuntimeConfig::default(),
+            ads_server: trust_runtime::ads::server::AdsServerRuntimeConfig::default(),
             opcua: trust_runtime::opcua::OpcUaRuntimeConfig::default(),
             tasks: None,
         },
@@ -72,6 +79,8 @@ fn bundle_with_backend(
             drivers: Vec::new(),
             safe_state: trust_runtime::io::IoSafeState::default(),
         },
+        ads: None,
+        ads_config_hash: None,
         simulation: None,
         bytecode: Vec::new(),
     }
@@ -153,4 +162,114 @@ fn execution_backend_selection_cli_overrides_bundle() {
         source,
         trust_runtime::execution_backend::ExecutionBackendSource::Flag
     );
+}
+
+#[test]
+fn ads_runtime_start_spawns_worker_and_scan_applies_mock_data() {
+    let source = r#"
+TYPE
+    ADS_QUALITY : (Stale := 0, Good := 1, Error := 2);
+END_TYPE
+
+VAR_GLOBAL
+    line1_temp : REAL;
+    line1_temp_quality : ADS_QUALITY := Stale;
+END_VAR
+
+PROGRAM Main
+END_PROGRAM
+"#;
+    let session = CompileSession::from_sources(vec![SourceFile::with_path(
+        "src/generated/ads_generated.st",
+        source,
+    )]);
+    let mut runtime = session.build_runtime().expect("build runtime");
+    let bytecode = session.build_bytecode_bytes().expect("build bytecode");
+    runtime
+        .apply_bytecode_bytes(&bytecode, Some(&smol_str::SmolStr::new("RESOURCE")))
+        .expect("apply bytecode");
+    let mut bundle =
+        bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
+    bundle.runtime.ads.enabled = true;
+    bundle.runtime.ads.worker_tick_interval = trust_runtime::value::Duration::from_millis(1);
+    bundle.ads_config_hash = Some("sha256:test-ads-config".to_string());
+    bundle.ads = Some(
+        trust_runtime::ads::parse_ads_toml(
+            r#"
+[[connections]]
+name = "line1"
+target_net_id = "5.23.91.12.1.1"
+host = "192.168.10.5"
+ams_port = 851
+transport = "plain"
+insecure_transport = true
+
+[[connections.points]]
+symbol = "MAIN.Temperature"
+var = "line1_temp"
+type = "REAL"
+"#,
+        )
+        .expect("parse ADS config"),
+    );
+
+    super::start_ads_runtime_with_factory(&mut runtime, &bundle, |_connection| {
+        let mut transport = trust_runtime::ads::MockAdsTransport::new(vec![SymbolDescriptor::new(
+            "MAIN.Temperature",
+            AdsDataTypeDescriptor::scalar("REAL", IecDataType::Real),
+            0x4020,
+            0,
+            4,
+        )
+        .with_flag(SymbolFlag::Read)
+        .with_flag(SymbolFlag::Write)]);
+        transport.set_value("line1_temp", Value::Real(42.5), PointQuality::good(10));
+        Ok(transport)
+    })
+    .expect("start ADS runtime");
+
+    assert_eq!(runtime.ads_connection_count(), 1);
+    for _ in 0..50 {
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        runtime.execute_cycle().expect("execute cycle");
+        if runtime.storage().get_global("line1_temp") == Some(&Value::Real(42.5)) {
+            break;
+        }
+    }
+
+    assert_eq!(
+        runtime.storage().get_global("line1_temp"),
+        Some(&Value::Real(42.5))
+    );
+    assert_enum_variant(
+        runtime
+            .storage()
+            .get_global("line1_temp_quality")
+            .expect("quality global"),
+        "Good",
+    );
+    let status = runtime.ads_status_report();
+    assert_eq!(
+        status.overall,
+        trust_runtime::ads::diagnostics::AdsStatusOverall::Healthy
+    );
+    assert_eq!(
+        status.deployed_ads_config_hash.as_deref(),
+        Some("sha256:test-ads-config")
+    );
+    assert_eq!(status.connections.len(), 1);
+    assert_eq!(status.connections[0].name, "line1");
+    assert_eq!(status.connections[0].degraded_points, 0);
+    assert_eq!(
+        status.connections[0].state,
+        trust_runtime::ads::diagnostics::AdsConnectionStatusState::Connected
+    );
+    runtime.shutdown_ads().expect("shutdown ADS worker");
+}
+
+fn assert_enum_variant(value: &Value, expected: &str) {
+    let Value::Enum(value) = value else {
+        panic!("expected enum value, got {value:?}");
+    };
+    assert_eq!(value.variant_name().as_str(), expected);
 }

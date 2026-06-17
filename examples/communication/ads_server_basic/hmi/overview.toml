@@ -1,0 +1,44 @@
+title = "Overview"
+icon = "activity"
+order = 0
+
+[[section]]
+title = "Key Metrics"
+span = 12
+tier = "hero"
+
+[[section.widget]]
+type = "gauge"
+bind = "global.TankLevel"
+label = "Tank Level"
+span = 4
+unit = "%"
+min = 0
+max = 100
+
+[[section]]
+title = "Details"
+span = 12
+tier = "detail"
+
+[[section.widget]]
+type = "indicator"
+bind = "global.PumpRunning"
+label = "Pump Running"
+span = 3
+
+[[section.widget]]
+type = "gauge"
+bind = "global.Setpoint"
+label = "Setpoint"
+span = 3
+min = 0
+max = 100
+
+[[section.widget]]
+type = "value"
+bind = "global.StatusWord"
+label = "Status Word"
+span = 3
+min = 0
+max = 100

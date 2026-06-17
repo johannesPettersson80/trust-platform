@@ -3,6 +3,7 @@
 | Need | Open |
 | --- | --- |
 | choose the protocol or lane | [Protocol Matrix](protocol-matrix.md) |
+| configure communication in VS Code | [VS Code Communication Panel](communication-panel.md) |
 | connect truST runtimes | [Runtime To Runtime](runtime-to-runtime/index.md) |
 | compare runtime-to-runtime transports | [Transport Matrix](runtime-to-runtime/transport-matrix.md) |
 | use truST Mesh | [truST Mesh](../concepts/trust-mesh.md) |
@@ -13,4 +14,5 @@
 | use Modbus TCP | [Modbus TCP](external-systems/modbus-tcp.md) |
 | use MQTT | [MQTT](external-systems/mqtt.md) |
 | use OPC UA | [OPC UA](external-systems/opc-ua.md) |
+| use Beckhoff ADS / TwinCAT symbols | [Beckhoff ADS](external-systems/ads.md) |
 | use EtherCAT, GPIO, simulated, or loopback I/O | [Devices And Fieldbus](devices-and-fieldbus/index.md) |

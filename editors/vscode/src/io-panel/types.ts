@@ -1,3 +1,5 @@
+import type { AdsStatusSummary } from "../adsStatusSummary";
+
 export type IoEntry = {
   name?: string;
   address: string;
@@ -40,6 +42,7 @@ export type RuntimeStatusPayload = {
   endpointConfigured: boolean;
   endpointEnabled: boolean;
   endpointReachable: boolean;
+  ads?: AdsStatusSummary;
 };
 
 export type SettingsPayload = {

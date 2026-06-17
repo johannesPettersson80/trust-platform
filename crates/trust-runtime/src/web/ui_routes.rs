@@ -34,7 +34,28 @@ pub(super) fn handle_ui_route(
     if *method == Method::Get && (url == "/setup" || url == "/setup/") {
         let response = Response::from_string("")
             .with_status_code(StatusCode(302))
-            .with_header(Header::from_bytes("Location", "/ide").unwrap());
+            .with_header(Header::from_bytes("Location", "/setup/ads").unwrap());
+        let _ = request.respond(response);
+        return UiRouteOutcome::Handled;
+    }
+    if *method == Method::Get && (url == "/setup/ads" || url == "/setup/ads/") {
+        let response = Response::from_string(ADS_SETUP_HTML)
+            .with_header(Header::from_bytes("Cache-Control", "no-store").unwrap())
+            .with_header(Header::from_bytes("Content-Type", "text/html").unwrap());
+        let _ = request.respond(response);
+        return UiRouteOutcome::Handled;
+    }
+    if *method == Method::Get && url == "/setup/ads.css" {
+        let response = Response::from_string(ADS_SETUP_CSS)
+            .with_header(Header::from_bytes("Cache-Control", "no-store").unwrap())
+            .with_header(Header::from_bytes("Content-Type", "text/css").unwrap());
+        let _ = request.respond(response);
+        return UiRouteOutcome::Handled;
+    }
+    if *method == Method::Get && url == "/setup/ads.js" {
+        let response = Response::from_string(ADS_SETUP_JS)
+            .with_header(Header::from_bytes("Cache-Control", "no-store").unwrap())
+            .with_header(Header::from_bytes("Content-Type", "application/javascript").unwrap());
         let _ = request.respond(response);
         return UiRouteOutcome::Handled;
     }

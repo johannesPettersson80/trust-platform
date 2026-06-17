@@ -16,7 +16,7 @@
 | --- | --- |
 | GPIO | confirm group/permission model and real pin mapping on target host |
 | EtherCAT | validate NIC/adapter and module chain on the real hardware path |
-| Modbus/MQTT/OPC UA | host support is usually straightforward; integration quality depends more on the peer device/service |
+| Modbus/MQTT/OPC UA/ADS | host support is usually straightforward; integration quality depends more on the peer device/service, ADS/PLC route, source allowlist, and network security posture |
 
 ## Validation Guidance
 

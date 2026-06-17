@@ -175,6 +175,11 @@ pub enum Command {
         #[command(subcommand)]
         action: PlcopenAction,
     },
+    /// Beckhoff ADS symbol import and validation workflows.
+    Ads {
+        #[command(subcommand)]
+        action: AdsAction,
+    },
     /// Package registry workflows.
     Registry {
         #[command(subcommand)]

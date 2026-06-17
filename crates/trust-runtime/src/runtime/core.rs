@@ -24,6 +24,7 @@ use std::sync::Arc;
 use trust_hir::types::TypeRegistry;
 use trust_hir::Type;
 
+use super::ads_subsystem::AdsSubsystem;
 use super::faults::FaultSubsystem;
 use super::io_subsystem::IoSubsystem;
 use super::metadata::{resolve_using_for_frame, RuntimeMetadata};
@@ -40,6 +41,7 @@ pub struct Runtime {
     pub(super) storage: VariableStorage,
     pub(super) registry: TypeRegistry,
     pub(super) initializer_catalog: InitializerCatalog,
+    pub(super) ads: AdsSubsystem,
     pub(super) io: IoSubsystem,
     pub(super) access: AccessMap,
     pub(super) stdlib: StandardLibrary,
@@ -84,6 +86,7 @@ impl std::fmt::Debug for Runtime {
             .field("storage", &self.storage)
             .field("registry", &self.registry)
             .field("initializer_catalog", &self.initializer_catalog)
+            .field("ads_connections", &self.ads.connection_count())
             .field("io", &"<io>")
             .field("access", &self.access)
             .field("stdlib", &self.stdlib)

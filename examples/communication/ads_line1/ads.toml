@@ -1,0 +1,32 @@
+[[connections]]
+name = "line1"
+target_net_id = "5.23.91.12.1.1"
+host = "192.168.10.5"
+ams_port = 851
+transport = "plain"
+insecure_transport = true
+
+[[connections.points]]
+symbol = "MAIN.Temperature"
+var = "line1_temp"
+type = "REAL"
+mode = "poll"
+
+[[connections.points]]
+symbol = "GVL.LineReady"
+var = "line1_ready"
+type = "BOOL"
+mode = "poll"
+
+[[connections.points]]
+symbol = "GVL.Setpoint"
+var = "line1_setpoint"
+type = "REAL"
+access = "write"
+
+[[connections.points]]
+index_group = 16416
+index_offset = 0
+size = 2
+var = "line1_status"
+type = "WORD"

@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "route_name": "line1",
+  "symbols": [
+    {
+      "name": "GVL.LineReady",
+      "data_type": {
+        "source_name": "BOOL",
+        "iec_type": "BOOL"
+      },
+      "index_group": 16416,
+      "index_offset": 4,
+      "byte_size": 1,
+      "flags": [
+        "read"
+      ]
+    },
+    {
+      "name": "GVL.Setpoint",
+      "data_type": {
+        "source_name": "REAL",
+        "iec_type": "REAL"
+      },
+      "index_group": 16416,
+      "index_offset": 8,
+      "byte_size": 4,
+      "flags": [
+        "write"
+      ]
+    },
+    {
+      "name": "MAIN.Temperature",
+      "data_type": {
+        "source_name": "REAL",
+        "iec_type": "REAL"
+      },
+      "index_group": 16416,
+      "index_offset": 0,
+      "byte_size": 4,
+      "flags": [
+        "read"
+      ]
+    }
+  ]
+}

@@ -19,6 +19,7 @@
     "src/blockly/webview/**",
     "src/ladder/webview/**",
     "src/sfc/webview/**",
+    "src/networkCanvas/webview/**",
     "src/visual/runtime/webview/**"
   ]
 }

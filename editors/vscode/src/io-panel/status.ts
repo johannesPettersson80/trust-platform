@@ -5,6 +5,12 @@ import {
   isLocalControlEndpoint,
   parseControlEndpoint,
 } from "../runtimeControl";
+import { sendRuntimeControlRequest } from "../runtimeControlClient";
+import {
+  summarizeAdsStatus,
+  type AdsStatusReport,
+  type AdsStatusSummary,
+} from "../adsStatusSummary";
 import { RuntimeStatusPayload } from "./types";
 
 const ENDPOINT_PROBE_TTL_MS = 2000;
@@ -118,6 +124,24 @@ export async function fetchRuntimeState(
   });
 }
 
+export async function fetchAdsStatusSummary(
+  endpoint: string,
+  authToken?: string
+): Promise<AdsStatusSummary | undefined> {
+  try {
+    const report = await sendRuntimeControlRequest<AdsStatusReport>(
+      endpoint,
+      authToken,
+      "ads.status",
+      undefined,
+      { timeoutMs: 750 }
+    );
+    return summarizeAdsStatus(report);
+  } catch {
+    return undefined;
+  }
+}
+
 type RuntimeStatusDeps = {
   runtimeConfigTarget: () => vscode.Uri | undefined;
   getStructuredTextSession: () => vscode.DebugSession | undefined;
@@ -147,6 +171,7 @@ export async function runtimeStatusPayload(
   const running = !!session;
   let runtimeState: RuntimeStatusPayload["runtimeState"] = "stopped";
   let endpointReachable = false;
+  let ads: AdsStatusSummary | undefined;
 
   if (running) {
     const request = session?.configuration?.request;
@@ -159,6 +184,7 @@ export async function runtimeStatusPayload(
       if (state) {
         runtimeState = state;
       }
+      ads = await fetchAdsStatusSummary(endpoint, authToken || undefined);
     }
   }
 
@@ -171,5 +197,6 @@ export async function runtimeStatusPayload(
     endpointConfigured,
     endpointEnabled,
     endpointReachable,
+    ads,
   };
 }

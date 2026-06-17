@@ -2,11 +2,14 @@
 
 #![allow(missing_docs)]
 
+mod ads_handlers;
 mod audit;
 mod auth;
 mod breakpoint_handlers;
+mod comm_handlers;
 mod config_handlers;
 mod debug_handlers;
+mod fleet_handlers;
 mod handlers;
 mod hmi_handlers;
 mod io_handlers;
@@ -20,16 +23,18 @@ mod variable_handlers;
 use std::collections::VecDeque;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use crate::config::ControlMode;
 use crate::debug::{DebugControl, DebugVariableHandles};
+use crate::discovery::DiscoveryState;
 use crate::error::RuntimeError;
 use crate::io::{IoDriverStatus, IoSnapshot};
 use crate::linux_rt::LinuxRtRuntimeStatus;
+use crate::mesh::MeshTopologyEvidence;
 use crate::metrics::RuntimeMetrics;
 use crate::runtime::RuntimeMetadata;
 use crate::scheduler::ResourceControl;
@@ -42,6 +47,7 @@ use serde_json::json;
 use smol_str::SmolStr;
 use tracing::warn;
 
+pub use self::ads_handlers::AdsDoctorJobStore;
 use self::audit::{record_audit, ControlAuditRecord};
 use self::auth::resolve_request_role;
 use self::policy::{is_debug_request, required_role_for_control_request};
@@ -104,6 +110,7 @@ pub struct ControlState {
     pub metadata: Arc<Mutex<RuntimeMetadata>>,
     pub sources: SourceRegistry,
     pub io_snapshot: Arc<Mutex<Option<IoSnapshot>>>,
+    pub io_snapshot_seen_ms: Arc<AtomicU64>,
     pub pending_restart: Arc<Mutex<Option<RestartMode>>>,
     pub auth_token: Arc<Mutex<Option<SmolStr>>>,
     pub control_requires_auth: bool,
@@ -112,7 +119,11 @@ pub struct ControlState {
     pub metrics: Arc<Mutex<RuntimeMetrics>>,
     pub events: Arc<Mutex<VecDeque<crate::debug::RuntimeEvent>>>,
     pub settings: Arc<Mutex<RuntimeSettings>>,
+    pub discovery: Arc<DiscoveryState>,
+    pub mesh_topology: Arc<Mutex<Option<MeshTopologyEvidence>>>,
     pub realtime_status: Arc<Mutex<LinuxRtRuntimeStatus>>,
+    pub web_listener_bound: Arc<AtomicBool>,
+    pub opcua_server_bound: Arc<AtomicBool>,
     pub project_root: Option<PathBuf>,
     pub resource_name: SmolStr,
     pub io_health: Arc<Mutex<Vec<IoDriverStatus>>>,
@@ -123,6 +134,11 @@ pub struct ControlState {
     pub hmi_descriptor: Arc<Mutex<HmiRuntimeDescriptor>>,
     pub historian: Option<Arc<crate::historian::HistorianService>>,
     pub pairing: Option<Arc<PairingStore>>,
+    pub ads_doctor_jobs: Arc<Mutex<AdsDoctorJobStore>>,
+    pub ads_client_config: Arc<Mutex<Option<crate::ads::AdsClientConfig>>>,
+    pub ads_server_config: Arc<Mutex<Option<crate::ads::server::AdsServerRuntimeConfig>>>,
+    #[cfg(feature = "ads-server")]
+    pub ads_server_runtime: Arc<Mutex<Option<crate::ads::server::AdsServerRuntime>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -136,6 +152,7 @@ pub struct ControlAuditEvent {
     pub error: Option<SmolStr>,
     pub auth_present: bool,
     pub client: Option<SmolStr>,
+    pub details: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -343,6 +360,13 @@ pub(crate) fn control_request_required_role_port(
     required_role_for_control_request(kind, params)
 }
 
+pub(crate) fn communication_probe_value_port(
+    protocol: &str,
+    params: serde_json::Value,
+) -> serde_json::Value {
+    comm_handlers::comm_test_probe_value(protocol, params)
+}
+
 pub(crate) fn dispatch_web_control_request_port(
     mut payload: serde_json::Value,
     state: &ControlState,
@@ -381,7 +405,7 @@ pub(crate) fn handle_request_value(
     state: &ControlState,
     client: Option<&str>,
 ) -> ControlResponse {
-    let request: ControlRequest = match serde_json::from_value(value) {
+    let mut request: ControlRequest = match serde_json::from_value(value) {
         Ok(req) => req,
         Err(err) => {
             let response = ControlResponse::error(0, format!("invalid request: {err}"));
@@ -395,10 +419,18 @@ pub(crate) fn handle_request_value(
                     error: Some(SmolStr::new(format!("invalid request: {err}"))),
                     auth_present: false,
                     client,
+                    details: None,
                 },
             );
             return response.with_audit_id(audit_id);
         }
+    };
+    stamp_comm_credential_channel(&mut request, client);
+    let audit_details = || {
+        comm_handlers::audit_details_for_comm_request(
+            request.r#type.as_str(),
+            request.params.as_ref(),
+        )
     };
     let request_role = match resolve_request_role(&request, state, client) {
         Ok(role) => role,
@@ -414,6 +446,7 @@ pub(crate) fn handle_request_value(
                     error: Some(SmolStr::new(error)),
                     auth_present: request.auth.is_some(),
                     client,
+                    details: audit_details(),
                 },
             );
             return response.with_audit_id(audit_id);
@@ -434,6 +467,7 @@ pub(crate) fn handle_request_value(
                 error: Some(SmolStr::new(error)),
                 auth_present: request.auth.is_some(),
                 client,
+                details: audit_details(),
             },
         );
         return response.with_audit_id(audit_id);
@@ -461,6 +495,7 @@ pub(crate) fn handle_request_value(
                 error: Some(SmolStr::new("debug disabled")),
                 auth_present: request.auth.is_some(),
                 client,
+                details: audit_details(),
             },
         );
         return response.with_audit_id(audit_id);
@@ -477,10 +512,37 @@ pub(crate) fn handle_request_value(
             error: response.error.as_ref().map(SmolStr::new),
             auth_present: request.auth.is_some(),
             client,
+            details: audit_details(),
         },
     );
     response = response.with_audit_id(audit_id);
     response
+}
+
+fn stamp_comm_credential_channel(request: &mut ControlRequest, client: Option<&str>) {
+    if !matches!(request.r#type.as_str(), "comm.apply" | "comm.test") {
+        return;
+    }
+    let channel = classify_comm_credential_channel(client);
+    let params = request.params.get_or_insert_with(|| json!({}));
+    if let Some(object) = params.as_object_mut() {
+        object.insert("credential_channel".to_string(), json!(channel));
+    }
+}
+
+fn classify_comm_credential_channel(client: Option<&str>) -> &'static str {
+    let Some(client) = client else {
+        return "trusted_same_host";
+    };
+    if client == "unix" || client == "loopback" {
+        return "trusted_same_host";
+    }
+    if let Ok(addr) = client.parse::<SocketAddr>() {
+        if addr.ip().is_loopback() {
+            return "trusted_same_host";
+        }
+    }
+    "untrusted_remote_plain_tcp"
 }
 
 fn parse_value(text: &str) -> Result<Value, RuntimeError> {

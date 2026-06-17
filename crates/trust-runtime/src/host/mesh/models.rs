@@ -31,6 +31,57 @@ pub struct MeshLivelinessSnapshot {
     pub history: Vec<MeshLivelinessEvent>,
 }
 
+/// Live mesh evidence exposed to control-plane topology surfaces.
+#[derive(Debug, Clone)]
+pub struct MeshTopologyEvidence {
+    ready: bool,
+    degraded_reason: Option<SmolStr>,
+    peer_registry: Arc<Mutex<MeshPeerRegistry>>,
+}
+
+impl MeshTopologyEvidence {
+    #[must_use]
+    pub const fn is_ready(&self) -> bool {
+        self.ready
+    }
+
+    #[must_use]
+    pub fn degraded_reason(&self) -> Option<&str> {
+        self.degraded_reason.as_deref()
+    }
+
+    #[must_use]
+    pub fn liveliness_snapshot(&self) -> MeshLivelinessSnapshot {
+        if let Ok(guard) = self.peer_registry.lock() {
+            return MeshLivelinessSnapshot {
+                peers: guard.peers.iter().cloned().collect(),
+                history: guard.history.iter().cloned().collect(),
+            };
+        }
+        MeshLivelinessSnapshot {
+            peers: Vec::new(),
+            history: Vec::new(),
+        }
+    }
+
+    #[cfg(test)]
+    pub fn for_test(ready: bool, peers: &[&str], timestamp_ns: u64) -> Self {
+        let mut registry = MeshPeerRegistry {
+            peers: BTreeSet::new(),
+            history: VecDeque::new(),
+            history_limit: 64,
+        };
+        for peer in peers {
+            registry.record(peer, true, timestamp_ns);
+        }
+        Self {
+            ready,
+            degraded_reason: None,
+            peer_registry: Arc::new(Mutex::new(registry)),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MeshReadiness {
     pub session_established: bool,
@@ -124,6 +175,15 @@ impl MeshService {
         MeshLivelinessSnapshot {
             peers: Vec::new(),
             history: Vec::new(),
+        }
+    }
+
+    #[must_use]
+    pub fn topology_evidence(&self) -> MeshTopologyEvidence {
+        MeshTopologyEvidence {
+            ready: self.is_ready(),
+            degraded_reason: self.degraded_reason.clone(),
+            peer_registry: self.peer_registry.clone(),
         }
     }
 

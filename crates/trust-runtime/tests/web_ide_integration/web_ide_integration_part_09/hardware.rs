@@ -90,6 +90,25 @@ fn unified_shell_hardware_module_exposes_runtime_cloud_link_transport_projection
         "hardware module should clearly communicate supported test drivers"
     );
     assert!(
+        body.contains(
+            "return { address: \"127.0.0.1:502\", unit_id: 1, input_start: 0, output_start: 0, timeout_ms: 500, on_error: \"fault\" };"
+        ),
+        "web Modbus defaults must stay aligned with comm.schema"
+    );
+    assert!(
+        body.contains("broker: \"127.0.0.1:1883\"")
+            && body.contains("topic_in: \"trust/io/in\"")
+            && body.contains("topic_out: \"trust/io/out\"")
+            && body.contains("reconnect_ms: 500")
+            && body.contains("keep_alive_s: 5"),
+        "web MQTT defaults must stay aligned with comm.schema"
+    );
+    assert!(
+        body.contains("hwField(\"address\", \"Server Address\", p.address || \"127.0.0.1:502\")")
+            && body.contains("hwField(\"broker\", \"Broker\", p.broker || \"127.0.0.1:1883\")"),
+        "web-visible Modbus/MQTT form defaults must match comm.schema defaults"
+    );
+    assert!(
         body.contains("runtime_cloud.links.transports_json"),
         "hardware module must deep-link cloud links nodes to settings transport rules"
     );

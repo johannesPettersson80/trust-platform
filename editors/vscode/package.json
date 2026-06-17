@@ -3,7 +3,7 @@
   "displayName": "truST LSP",
   "description": "truST LSP \u2014 IEC 61131-3 Structured Text language support",
   "icon": "icon.png",
-  "version": "0.24.24",
+  "version": "0.24.25",
   "publisher": "trust-platform",
   "license": "MIT OR Apache-2.0",
   "engines": {
@@ -34,6 +34,14 @@
     "onCommand:trust-lsp.plcopen.import",
     "onCommand:trust-lsp.plcopen.export",
     "onCommand:trust-lsp.debug.openIoPanel",
+    "onCommand:trust-lsp.communication.openPanel",
+    "onCommand:trust-lsp.networkCanvas.open",
+    "onCommand:trust-lsp.ads.openPanel",
+    "onCommand:trust-lsp.ads.server.openPanel",
+    "onCommand:trust-lsp.ads.addDevice",
+    "onCommand:trust-lsp.ads.diagnose",
+    "onCommand:trust-lsp.ads.importSymbols",
+    "onCommand:trust-lsp.ads.addRoute",
     "onCommand:trust-lsp.hmi.openPreview",
     "onCommand:trust-lsp.hmi.refreshFromDescriptor",
     "onCommand:trust-lsp.hmi.init",
@@ -220,10 +228,25 @@
           "description": "Runtime control endpoint override for inline values (e.g. unix:///tmp/trust-debug.sock). Leave empty to rely on trust-lsp.toml.",
           "scope": "resource"
         },
+        "trust-lsp.runtime.fleetEndpoints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Additional runtime control endpoints to aggregate in the Network Canvas fleet view (e.g. tcp://10.0.0.2:9901). Each is queried for fleet.topology and merged with the primary runtime so a host appears once.",
+          "scope": "resource"
+        },
         "trust-lsp.runtime.controlAuthToken": {
           "type": "string",
           "default": "",
           "description": "Optional auth token for the runtime control endpoint override.",
+          "scope": "resource"
+        },
+        "trust-lsp.runtime.setupUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Optional setup web URL for the selected runtime host.",
           "scope": "resource"
         },
         "trust-lsp.runtime.controlEndpointEnabled": {
@@ -2245,6 +2268,46 @@
         "category": "Structured Text"
       },
       {
+        "command": "trust-lsp.communication.openPanel",
+        "title": "Communication",
+        "category": "Structured Text"
+      },
+      {
+        "command": "trust-lsp.networkCanvas.open",
+        "title": "Network Canvas",
+        "category": "Structured Text"
+      },
+      {
+        "command": "trust-lsp.ads.openPanel",
+        "title": "Structured Text: Open ADS Devices",
+        "category": "Structured Text"
+      },
+      {
+        "command": "trust-lsp.ads.server.openPanel",
+        "title": "Structured Text: Open ADS Server",
+        "category": "Structured Text"
+      },
+      {
+        "command": "trust-lsp.ads.addDevice",
+        "title": "Structured Text: Add Beckhoff ADS Device",
+        "category": "Structured Text"
+      },
+      {
+        "command": "trust-lsp.ads.diagnose",
+        "title": "Structured Text: Diagnose ADS Connection",
+        "category": "Structured Text"
+      },
+      {
+        "command": "trust-lsp.ads.importSymbols",
+        "title": "Structured Text: Import TwinCAT Symbols",
+        "category": "Structured Text"
+      },
+      {
+        "command": "trust-lsp.ads.addRoute",
+        "title": "Structured Text: Add ADS Route",
+        "category": "Structured Text"
+      },
+      {
         "command": "trust-lsp.hmi.openPreview",
         "title": "Structured Text: Open HMI Preview",
         "category": "Structured Text"
@@ -2331,6 +2394,32 @@
       }
     ],
     "menus": {
+      "commandPalette": [
+        {
+          "command": "trust-lsp.ads.openPanel",
+          "when": "false"
+        },
+        {
+          "command": "trust-lsp.ads.server.openPanel",
+          "when": "false"
+        },
+        {
+          "command": "trust-lsp.ads.addDevice",
+          "when": "false"
+        },
+        {
+          "command": "trust-lsp.ads.diagnose",
+          "when": "false"
+        },
+        {
+          "command": "trust-lsp.ads.importSymbols",
+          "when": "false"
+        },
+        {
+          "command": "trust-lsp.ads.addRoute",
+          "when": "false"
+        }
+      ],
       "editor/context": [
         {
           "command": "trust-lsp.moveNamespace.ui",
@@ -2477,10 +2566,11 @@
     "build:blockly": "node ./scripts/build-blockly-webview.js",
     "build:ladder": "node ./scripts/build-ladder-webview.js",
     "build:sfc": "node ./scripts/build-sfc-webview.js",
+    "build:network-canvas": "node ./scripts/build-network-canvas-webview.js",
     "build:trust-twin": "node ./scripts/build-trust-twin-webview.js",
     "package:trust-twin-smoke": "node ./scripts/check-trust-twin-package-assets.js",
     "typecheck:webview": "tsc -p ./tsconfig.webview.json",
-    "compile": "npm run build:panel && npm run build:statechart && npm run build:blockly && npm run build:ladder && npm run build:sfc && npm run build:trust-twin && tsc -p ./ && npm run typecheck:webview",
+    "compile": "npm run build:panel && npm run build:statechart && npm run build:blockly && npm run build:ladder && npm run build:sfc && npm run build:network-canvas && npm run build:trust-twin && tsc -p ./ && npm run typecheck:webview",
     "watch": "concurrently \"node ./scripts/watch-io-panel.js\" \"node ./scripts/build-statechart-webview.js --watch\" \"node ./scripts/build-blockly-webview.js --watch\" \"node ./scripts/build-ladder-webview.js --watch\" \"node ./scripts/build-sfc-webview.js --watch\"",
     "lint": "eslint src --ext ts,tsx",
     "test": "npm run compile && node ./out/test/runTest.js"

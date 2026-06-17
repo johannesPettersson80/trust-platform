@@ -38,7 +38,13 @@ fn resolve_web_role(
     pairing: Option<&PairingStore>,
 ) -> Option<(AccessRole, Option<String>)> {
     if matches!(auth_mode, WebAuthMode::Local) {
-        return Some((AccessRole::Admin, None));
+        if request
+            .remote_addr()
+            .is_some_and(|addr| addr.ip().is_loopback())
+        {
+            return Some((AccessRole::Admin, None));
+        }
+        return None;
     }
     let expected = token.lock().ok().and_then(|guard| guard.as_ref().cloned());
     let header = request
@@ -76,7 +82,22 @@ pub(super) fn dispatch_control_request(
     client: Option<&str>,
     request_token: Option<&str>,
 ) -> crate::control::ControlResponse {
-    crate::control::dispatch_web_control_request_port(payload, control_state, client, request_token)
+    let internal_token = if request_token.is_none() {
+        control_state
+            .auth_token
+            .lock()
+            .ok()
+            .and_then(|guard| guard.as_ref().map(|value| value.to_string()))
+    } else {
+        None
+    };
+    let effective_token = request_token.or(internal_token.as_deref());
+    crate::control::dispatch_web_control_request_port(
+        payload,
+        control_state,
+        client,
+        effective_token,
+    )
 }
 
 pub(super) fn ide_session_token(request: &tiny_http::Request) -> Option<String> {

@@ -1,4 +1,10 @@
 use super::*;
+use std::fs;
+use std::io::{BufRead, BufReader, Write};
+use std::net::{SocketAddr, TcpListener, TcpStream};
+use std::path::{Path, PathBuf};
+use std::thread;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 #[test]
 fn dispatch_set_expression_force_supports_output_and_memory_io() {
@@ -289,6 +295,248 @@ fn dispatch_launch_does_not_emit_initialized_event_without_initialize() {
         event.event == "initialized"
     });
     assert!(!saw_initialized);
+}
+
+#[test]
+fn debug_control_server_uses_launch_project_root_for_comm_apply() {
+    let project_root = unique_project_root("debug-control-project-root");
+    fs::write(project_root.join("main.st"), "PROGRAM Main\nEND_PROGRAM\n").unwrap();
+    let addr = reserve_loopback_addr();
+    let endpoint = format!("tcp://{addr}");
+    let auth = "debug-control-token";
+
+    let runtime = Runtime::new();
+    let mut adapter = DebugAdapter::new(DebugSession::new(runtime));
+    launch_debug_control_session(&mut adapter, &project_root, &endpoint, auth);
+
+    let schema = send_control_request(
+        addr,
+        auth,
+        serde_json::json!({
+            "id": 1,
+            "type": "comm.schema",
+            "params": { "protocol": "modbus_tcp" }
+        }),
+    );
+    assert_control_ok(&schema, "comm.schema");
+
+    let topology = send_control_request(
+        addr,
+        auth,
+        serde_json::json!({
+            "id": 2,
+            "type": "fleet.topology"
+        }),
+    );
+    assert_control_ok(&topology, "fleet.topology");
+
+    let create = send_control_request(
+        addr,
+        auth,
+        serde_json::json!({
+            "id": 3,
+            "type": "comm.apply",
+            "params": {
+                "protocol": "modbus_tcp",
+                "action": "add",
+                "params": {
+                    "address": "127.0.0.1:1502",
+                    "unit_id": 2,
+                    "input_start": 5,
+                    "output_start": 7,
+                    "timeout_ms": 750,
+                    "on_error": "warn"
+                }
+            }
+        }),
+    );
+    assert_control_ok(&create, "comm.apply create");
+    assert_eq!(
+        control_result(&create)
+            .get("lifecycle_effect")
+            .and_then(serde_json::Value::as_str),
+        Some("restart_required")
+    );
+    assert_eq!(
+        control_result(&create)
+            .get("applied")
+            .and_then(serde_json::Value::as_bool),
+        Some(true)
+    );
+
+    let io_toml = project_root.join("io.toml");
+    let created_text = fs::read_to_string(&io_toml).expect("debug control should create io.toml");
+    assert!(
+        created_text.contains("127.0.0.1:1502"),
+        "created io.toml should contain first Modbus driver: {created_text}"
+    );
+
+    let update = send_control_request(
+        addr,
+        auth,
+        serde_json::json!({
+            "id": 4,
+            "type": "comm.apply",
+            "params": {
+                "protocol": "modbus_tcp",
+                "action": "add",
+                "params": {
+                    "address": "127.0.0.1:1503",
+                    "unit_id": 3,
+                    "input_start": 9,
+                    "output_start": 11,
+                    "timeout_ms": 900,
+                    "on_error": "warn"
+                }
+            }
+        }),
+    );
+    assert_control_ok(&update, "comm.apply update");
+    assert_eq!(
+        control_result(&update)
+            .get("lifecycle_effect")
+            .and_then(serde_json::Value::as_str),
+        Some("restart_required")
+    );
+
+    let updated_text = fs::read_to_string(&io_toml).expect("debug control should update io.toml");
+    assert!(
+        updated_text.contains("127.0.0.1:1502"),
+        "update should preserve existing driver: {updated_text}"
+    );
+    assert!(
+        updated_text.contains("127.0.0.1:1503"),
+        "update should append second driver: {updated_text}"
+    );
+    assert!(
+        updated_text.matches("modbus-tcp").count() >= 2,
+        "update should persist multiple Modbus instances: {updated_text}"
+    );
+
+    fs::remove_dir_all(&project_root).ok();
+}
+
+fn unique_project_root(label: &str) -> PathBuf {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!(
+        "trust-debug-{label}-{}-{nanos}",
+        std::process::id()
+    ));
+    fs::create_dir_all(&root).unwrap();
+    root
+}
+
+fn reserve_loopback_addr() -> SocketAddr {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    drop(listener);
+    addr
+}
+
+fn launch_debug_control_session(
+    adapter: &mut DebugAdapter,
+    project_root: &Path,
+    endpoint: &str,
+    auth: &str,
+) {
+    let mut additional = BTreeMap::new();
+    additional.insert(
+        "program".to_string(),
+        serde_json::Value::String(project_root.join("main.st").display().to_string()),
+    );
+    additional.insert(
+        "runtimeRoot".to_string(),
+        serde_json::Value::String(project_root.display().to_string()),
+    );
+    additional.insert(
+        "controlEndpoint".to_string(),
+        serde_json::Value::String(endpoint.to_string()),
+    );
+    additional.insert(
+        "controlAuthToken".to_string(),
+        serde_json::Value::String(auth.to_string()),
+    );
+
+    let launch = Request {
+        seq: 10,
+        message_type: MessageType::Request,
+        command: "launch".to_string(),
+        arguments: Some(serde_json::to_value(LaunchArguments { additional }).unwrap()),
+    };
+    let launch_outcome = adapter.dispatch_request(launch);
+    assert!(
+        launch_outcome.responses.is_empty(),
+        "launch should defer until configurationDone"
+    );
+
+    let configuration_done = Request {
+        seq: 11,
+        message_type: MessageType::Request,
+        command: "configurationDone".to_string(),
+        arguments: None,
+    };
+    let configured = adapter.dispatch_request(configuration_done);
+    assert!(
+        configured.responses.iter().all(|value| {
+            let response: Response<serde_json::Value> =
+                serde_json::from_value(value.clone()).unwrap();
+            response.success
+        }),
+        "configurationDone/launch responses should succeed: {:?}",
+        configured.responses
+    );
+}
+
+fn send_control_request(
+    addr: SocketAddr,
+    auth: &str,
+    mut request: serde_json::Value,
+) -> serde_json::Value {
+    let deadline = Instant::now() + Duration::from_secs(2);
+    let mut last_error = None;
+    loop {
+        match TcpStream::connect(addr) {
+            Ok(mut stream) => {
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(2)))
+                    .unwrap();
+                stream
+                    .set_write_timeout(Some(Duration::from_secs(2)))
+                    .unwrap();
+                request
+                    .as_object_mut()
+                    .expect("control request should be an object")
+                    .insert("auth".to_string(), serde_json::json!(auth));
+                writeln!(stream, "{request}").unwrap();
+                let mut reader = BufReader::new(stream);
+                let mut line = String::new();
+                reader.read_line(&mut line).unwrap();
+                return serde_json::from_str(&line).expect("control response should be json");
+            }
+            Err(error) if Instant::now() < deadline => {
+                last_error = Some(error);
+                thread::sleep(Duration::from_millis(20));
+            }
+            Err(error) => panic!(
+                "control endpoint {addr} did not accept connections: last={last_error:?}, final={error}"
+            ),
+        }
+    }
+}
+
+fn assert_control_ok(response: &serde_json::Value, label: &str) {
+    assert_eq!(
+        response.get("ok").and_then(serde_json::Value::as_bool),
+        Some(true),
+        "{label} failed: {response}"
+    );
+}
+
+fn control_result(response: &serde_json::Value) -> &serde_json::Value {
+    response.get("result").expect("control response result")
 }
 
 #[test]

@@ -15,6 +15,7 @@ pub(super) struct ControlAuditRecord<'a> {
     pub error: Option<SmolStr>,
     pub auth_present: bool,
     pub client: Option<&'a str>,
+    pub details: Option<serde_json::Value>,
 }
 
 pub(super) fn record_audit(
@@ -41,6 +42,7 @@ pub(super) fn record_audit(
         error: record.error,
         auth_present: record.auth_present,
         client: record.client.map(SmolStr::new),
+        details: record.details,
     };
     if let Some(sender) = &state.audit_tx {
         if let Err(err) = sender.send(event) {

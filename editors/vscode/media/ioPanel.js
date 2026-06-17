@@ -278,11 +278,15 @@ function applyRuntimeStatus(payload) {
   if (runtimeStatusText) {
     const isRunning = runtimeState === "running" || runtimeState === "connected";
     const label = isRunning ? "Running" : "Stopped";
-    runtimeStatusText.textContent = label;
+    const adsText =
+      payload.ads && payload.ads.text ? String(payload.ads.text) : "";
+    runtimeStatusText.textContent = adsText ? `${label} · ${adsText}` : label;
     runtimeStatusText.classList.toggle("running", isRunning);
     runtimeStatusText.classList.toggle("connected", runtimeState === "connected");
     runtimeStatusText.classList.toggle("disconnected", !isRunning);
-    runtimeStatusText.title = payload.endpoint || "";
+    runtimeStatusText.title = [payload.endpoint || "", adsText]
+      .filter(Boolean)
+      .join(" · ");
   }
 }
 

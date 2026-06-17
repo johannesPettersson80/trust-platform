@@ -306,5 +306,16 @@ fn apply_resource_command(runtime: &mut Runtime, command: ResourceCommand) {
             };
             let _ = respond_to.send(snapshot);
         }
+        ResourceCommand::AdsStatus { respond_to } => {
+            let _ = respond_to.send(runtime.ads_status_report());
+        }
+        ResourceCommand::ActiveAdsDevice {
+            target,
+            local,
+            respond_to,
+        } => {
+            let snapshot = runtime.active_ads_device_snapshot(&target, local.as_ref());
+            let _ = respond_to.send(snapshot);
+        }
     }
 }

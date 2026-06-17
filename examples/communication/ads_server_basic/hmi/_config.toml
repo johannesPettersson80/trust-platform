@@ -1,0 +1,38 @@
+version = 1
+
+[theme]
+style = "industrial"
+accent = "#c2410c"
+
+[layout]
+navigation = "sidebar-left"
+header = true
+header_title = "Main HMI"
+
+[write]
+enabled = false
+allow = []
+
+[[alarm]]
+bind = "global.Setpoint"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Setpoint"
+
+[[alarm]]
+bind = "global.StatusWord"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Status Word"
+
+[[alarm]]
+bind = "global.TankLevel"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Tank Level"

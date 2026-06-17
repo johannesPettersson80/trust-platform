@@ -6,9 +6,74 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.24`
+Target release: `v0.24.25`
 
 ### Added
+
+- trust-runtime: added the staged Beckhoff ADS client import workflow with
+  deterministic `ads.toml` + cached symbol snapshot validation, generated ST
+  value/`_quality` globals, scan-safe background worker/cache handoff,
+  `[runtime.ads]` bundle loading and runtime scan-cycle wiring, on-change/cyclic
+  ADS notification caching, first-class HMI/debug/historian/OPC UA surface
+  coverage, explicit plain-ADS security warnings and route-write guardrails,
+  CLI failure-mode coverage, the runtime-host `/setup/ads` onboarding wizard,
+  VS Code ADS commands that reuse the selected Runtime pane context, route
+  artifact generation/removal, remote plain-TCP route-add through the local CLI
+  without forwarding TwinCAT credentials to the runtime, ADS Doctor/status
+  surfaces, multi-target UDP broadcast discovery, live `ads browse` symbol
+  listing and `ads validate --live` symbol validation, guarded Doctor write
+  probes with read-back/restore verification,
+  non-Windows ADS-client
+  StaticRoutes.xml flags, Usermode Runtime route-file discovery,
+  compatible-symbol filtering during live uploads, preview-before-write symbol
+  import, and an offline communication example that compiles without a PLC.
+- trust-runtime: added Beckhoff ADS server support for exposing selected
+  runtime globals as ADS symbols through `[runtime.ads_server]`, including a
+  standalone `trust-ads-server` protocol crate, fail-closed source-pinned client
+  allowlists, loopback Doctor/status/symbol control surfaces, route artifacts
+  for external clients, audited write-back through a dedicated ADS server write
+  port, online-change symbol-table refresh with `SYM_VERSION` bumps, pyads smoke
+  proof tooling, stale snapshot quality reporting, and an ADS server
+  communication example;
+  production readiness still requires a real TwinCAT external-client lab gate.
+- trust-runtime/vscode: added the native `Structured Text: Communication`
+  surface with typed `comm.capabilities`, `comm.schema`, `comm.apply`, and
+  `comm.test` runtime control responses, one palette-visible Communication
+  command, hidden-but-compatible ADS command entry points, capability-backed
+  protocol cards, runtime-owned I/O driver setup forms, restart-required apply
+  feedback, explicit multi-instance add/update controls, public-docs actions,
+  rendered card/status/intent UX polish, bounded Modbus/MQTT connection tests,
+  and secret-channel blocking for unsafe remote plain-TCP setup.
+- vscode: added the `Structured Text: Network Canvas` first-run topology
+  surface with a zero-config simulator path, intent chooser, guided simulated
+  device setup, strict-CSP rendering, and real runtime-backed first-green
+  states: the canvas now starts the local simulator through the shared runtime
+  lifecycle service, keeps runtime/device nodes pending until status and I/O
+  values are proven, and renders explicit retry/port/log fallbacks for startup
+  failures. The canvas add flow now renders schema-driven setup for the I/O
+  driver family (Modbus TCP, MQTT, EtherCAT, GPIO, simulated, and loopback)
+  through the runtime `comm.schema`/`comm.apply`/`comm.test` contract, supports
+  multi-instance add/update/remove controls without overwriting existing
+  drivers, and adds searchable palette/quick-add/template paths, click-to-pin
+  focus, keyboard navigation, fault navigation, terminal overflow handling, and
+  per-edge communication roles. The canvas renderer is split into stage, graph,
+  presentation, and style modules, and the runtime now exposes a Viewer-gated
+  `fleet.topology` control surface so VS Code can render Host -> Runtime ->
+  Endpoint fleet topology, degraded endpoint faults, and per-edge mesh/runtime
+  links from runtime evidence instead of fabricated canvas state. The fleet
+  surface now uses a dedicated responsive layout with full-width host/runtime
+  cards, wrapped endpoint labels, a non-overlapping status/footer bar, and
+  search dimming that never changes raw endpoint health or fault rollups; its
+  wide and narrow webview states are now guarded by a headless geometry overlap
+  check wired into the VS Code test script. The `fleet.topology` schema now
+  reports real discovery-backed peer hosts, service-bound liveness evidence,
+  per-endpoint live I/O snapshots, MQTT shared broker nodes, host/container
+  facts, and an additive `discovered[]` feed without serializing configured
+  secrets. The fleet contract now emits schema version 3 with explicit link
+  IDs and per-link roles, an ADS client endpoint for `[runtime.ads]`, and
+  configured counterpart nodes/links for ADS targets, Modbus TCP devices, and
+  EtherCAT segments so the canvas no longer needs to infer or fabricate those
+  graph relationships.
 
 - trust-runtime: OpenOT telemetry can now publish real encoded records from a
   configured ST OpenOT producer FB via `[runtime.openot] source = "st-fb"` and
@@ -151,6 +216,42 @@ Target release: `v0.24.24`
 
 ### Fixed
 
+- trust-debug: debug-launched local simulator control servers now receive the
+  launch project root, letting `comm.apply` create or update the project's
+  `io.toml` instead of failing Network Canvas easy-setup with "No runtime
+  project root is available for io.toml setup."
+- trust-runtime: ADS server UDP identify now listens on a wildcard UDP socket
+  while advertising the configured concrete runtime identity, so TwinCAT
+  Broadcast Search can reach truST instead of requiring directed identify or
+  static route-file setup.
+- trust-runtime: ADS server UDP discovery now acknowledges TwinCAT Broadcast
+  Search Add Route requests while keeping actual ADS access gated by the
+  source-pinned `[runtime.ads_server.clients]` allowlist.
+- trust-runtime: ADS server value reads now zero-pad shorter scalar payloads to
+  the requested read length and accept TwinCAT's zero-payload handle release
+  form, matching TwinCAT symbolic FB expectations without changing symbol-upload
+  or datatype-table response lengths.
+- trust-runtime: ADS server subscriptions now accept Beckhoff ADS.NET 7 compact
+  `AddDeviceNotification` registrations, normalize Beckhoff's 100 ns
+  notification cycle/max-delay values to server milliseconds, and retain the
+  registering ADS port per notification so TwinCAT/ADS.NET router-multiplexed
+  clients receive changed-value notifications.
+- trust-runtime: ADS server `SYM_UPLOADINFO2` responses now zero-pad to the
+  requested read length, matching ADS clients such as `ads-rs` that read the
+  24-byte upload-info structure through a larger fixed buffer.
+- trust-runtime: ADS server `GET_SYMINFO_BYNAME` now returns the compact
+  index-group/index-offset/byte-size tuple expected by ADS clients such as
+  `ads-rs`, while `GET_SYMINFO_BYNAMEEX` continues to return the full symbol
+  entry used by browsing clients.
+- trust-runtime: ADS server now handles `SUMUP_READ_EX` batch reads with
+  per-item result-length metadata, matching the batch-read form used by the
+  `ads-rs` client backend.
+- trust-runtime: ADS client `read_write` bindings now seed their output-change
+  baseline from the first good remote read, preventing local cold-start default
+  values from being written back before the PLC value has been applied.
+- trust-runtime: ADS guarded write probes now wait for scan-boundary write
+  application before read-back comparison, avoiding false mismatches against
+  scan-applied ADS servers.
 - trust-hir/trust-ide: IEC Table 39 validation functions `IS_VALID` and
   `IS_VALID_BCD` now type-check and surface in editor completion, hover, and
   signature help; `IS_VALID_BCD` accepts `BYTE`/`WORD`/`DWORD`/`LWORD` and

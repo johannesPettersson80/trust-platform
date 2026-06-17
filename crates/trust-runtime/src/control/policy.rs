@@ -40,6 +40,18 @@ pub(crate) fn required_role_for_control_request(
         | "events"
         | "faults"
         | "config.get"
+        | "ads.discover"
+        | "ads.identity"
+        | "ads.doctor.status"
+        | "ads.route_plan"
+        | "ads.status"
+        | "ads.server.status"
+        | "ads.server.symbols"
+        | "ads.server.doctor.status"
+        | "ads.server.route_plan"
+        | "comm.capabilities"
+        | "comm.schema"
+        | "fleet.topology"
         | "io.list"
         | "io.read"
         | "hmi.schema.get"
@@ -57,6 +69,9 @@ pub(crate) fn required_role_for_control_request(
         | "debug.breakpoint_locations"
         | "breakpoints.list"
         | "var.forced" => AccessRole::Viewer,
+        "ads.doctor" | "ads.doctor.start" => required_role_for_ads_doctor(params),
+        "ads.import_symbols" => required_role_for_ads_import_symbols(params),
+        "ads.server.doctor" | "ads.server.doctor.start" => AccessRole::Engineer,
         "pause" | "resume" | "restart" | "hmi.alarm.ack" | "pair.claim" => AccessRole::Operator,
         "step_in"
         | "step_over"
@@ -75,12 +90,39 @@ pub(crate) fn required_role_for_control_request(
         | "debug.evaluate"
         | "hmi.write"
         | "hmi.descriptor.update"
-        | "hmi.scaffold.reset" => AccessRole::Engineer,
+        | "hmi.scaffold.reset"
+        | "comm.apply"
+        | "comm.test" => AccessRole::Engineer,
         "config.set" => required_role_for_config_set(params),
-        "shutdown" | "bytecode.reload" | "pair.start" | "pair.list" | "pair.revoke" => {
-            AccessRole::Admin
-        }
+        "shutdown" | "bytecode.reload" | "ads.route_add" | "ads.route_remove" | "pair.start"
+        | "pair.list" | "pair.revoke" => AccessRole::Admin,
         _ => AccessRole::Viewer,
+    }
+}
+
+fn required_role_for_ads_import_symbols(params: Option<&serde_json::Value>) -> AccessRole {
+    let Some(params) = params.and_then(serde_json::Value::as_object) else {
+        return AccessRole::Viewer;
+    };
+    let has_live_target = params.get("target").is_some_and(|value| !value.is_null());
+    let has_snapshot = params.get("snapshot").is_some_and(|value| !value.is_null());
+    if has_live_target && !has_snapshot {
+        AccessRole::Engineer
+    } else {
+        AccessRole::Viewer
+    }
+}
+
+fn required_role_for_ads_doctor(params: Option<&serde_json::Value>) -> AccessRole {
+    let writes_enabled = params
+        .and_then(serde_json::Value::as_object)
+        .and_then(|object| object.get("writes_enabled"))
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
+    if writes_enabled {
+        AccessRole::Engineer
+    } else {
+        AccessRole::Viewer
     }
 }
 
@@ -107,5 +149,40 @@ fn required_role_for_config_set(params: Option<&serde_json::Value>) -> AccessRol
         AccessRole::Admin
     } else {
         AccessRole::Engineer
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn ads_import_symbols_requires_engineer_for_live_target_only() {
+        let cached = json!({
+            "connection_name": "line1",
+            "snapshot": {
+                "route_name": "line1",
+                "symbols": []
+            }
+        });
+        assert_eq!(
+            required_role_for_control_request("ads.import_symbols", Some(&cached)),
+            AccessRole::Viewer
+        );
+
+        let live = json!({
+            "connection_name": "line1",
+            "target": {
+                "ip": "192.168.10.5",
+                "ams_net_id": "5.23.91.12.1.1",
+                "ams_port": 851
+            }
+        });
+        assert_eq!(
+            required_role_for_control_request("ads.import_symbols", Some(&live)),
+            AccessRole::Engineer
+        );
     }
 }

@@ -12,6 +12,8 @@ trust-syntax.workspace = true
 trust-hir.workspace = true
 trust-ide.workspace = true
 trust-plcopen.workspace = true
+trust-ads-core.workspace = true
+trust-ads-server = { workspace = true, optional = true }
 trust-runtime-core = { workspace = true, features = ["hir"] }
 trust-wasm-analysis.workspace = true
 smol_str.workspace = true
@@ -46,6 +48,7 @@ notify = "8"
 tiny_http = { version = "0.12", features = ["ssl-rustls"] }
 tungstenite = "0.28"
 mdns-sd = "0.18"
+if-addrs = "0.15"
 zenoh = { version = "=1.7.2", default-features = false, features = ["transport_tcp"] }
 base64 = "0.22"
 rand = "0.10"
@@ -56,6 +59,8 @@ tiverse-mmap = "1.0"
 region = "3.0"
 open-ot-definition = { path = "../../../open-ot-ref/crates/definition" }
 opcua = { version = "0.12", default-features = false, features = ["server", "client", "vendored-openssl"], optional = true }
+ads = { version = "=0.4.4", optional = true }
+crossbeam-channel = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
 
 [target.'cfg(unix)'.dependencies]
@@ -77,6 +82,8 @@ default = ["debug", "ethercat-wire"]
 debug = []
 opcua-wire = ["dep:opcua"]
 ethercat-wire = ["dep:ethercrab", "dep:tokio"]
+ads-wire = ["dep:ads", "dep:crossbeam-channel"]
+ads-server = ["dep:trust-ads-server"]
 
 [dev-dependencies]
 trust-twin-compiler.workspace = true

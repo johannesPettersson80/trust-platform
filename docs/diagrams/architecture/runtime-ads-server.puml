@@ -1,0 +1,114 @@
+@startuml runtime-ads-server
+!theme plain
+allowmixing
+skinparam backgroundColor #FEFEFE
+skinparam componentStyle uml2
+skinparam linetype ortho
+skinparam nodesep 55
+skinparam ranksep 40
+
+title truST Runtime: Beckhoff ADS Server Architecture
+
+package "External ADS Clients" as clients #LightGray {
+    component "TwinCAT Engineering\nBrowse / Online View" as twincat
+    component "pyads Smoke\nindependent-client proof" as pyads
+    component ".NET ADS / SCADA\nfuture external clients" as dotnet
+}
+
+package "Onboarding / Control Surfaces" as control #Lavender {
+    component "VS Code ADS Server Panel\nchild of selected runtime" as vscode
+    component "Setup Web / API\n/api/ads/server/*" as web
+    component "CLI\ntrust-runtime ads server ..." as cli
+    component "Control Handlers\nads.server.status / symbols / doctor" as handlers
+    component "Diagnostics Schema\nDoctorRole::Server + evidence" as diagnostics
+}
+
+package "Runtime Configuration" as config #LightYellow {
+    artifact "runtime.toml\n[runtime.ads_server]" as runtimeToml
+    component "Config Validation\nexplicit listen, plain ack,\nsource pins, limits" as validation
+    component "Client Allowlist\nAMS Net ID + source IP/CIDR" as allowlist
+}
+
+package "trust-ads-server crate\n(protocol engine)" as serverCrate #PaleTurquoise {
+    component "AMS/TCP Parser\ncaps + two-phase parse" as parser
+    component "Command Dispatcher\nread / write / readwrite /\nnotifications / upload" as dispatcher
+    component "Symbol Table\nstable handles + symbol version" as symbolTable
+    component "Notification Engine\nFILETIME timestamps + coalescing" as notifications
+    component "AuditSink / ValueIo /\nRuntimeWritePort traits" as traits
+}
+
+package "trust-runtime::host::ads::server" as runtimeGlue #LightCyan {
+    component "Lifecycle\nstart_ads_server_runtime" as lifecycle
+    component "Symbol Source\nruntime snapshot -> ADS symbols" as source
+    component "Value Publisher\nscan-safe snapshot reads" as publisher
+    component "Runtime Write Port\nwrite queue + audit gate" as writePort
+    component "Policy\nallow/refuse clients" as policy
+    component "Doctor\nloopback self-test + external proof" as doctor
+}
+
+package "Runtime Core" as runtime #LightGreen {
+    component "ResourceRunner\nscan thread" as runner
+    component "DebugControl\nsnapshot + queued writes" as debug
+    component "VariableStorage\nnormal global values" as storage
+    component "Audit Channel\nads.server.write" as audit
+}
+
+runtimeToml --> validation
+validation --> allowlist
+validation --> lifecycle
+lifecycle --> serverCrate : starts TCP 48898\nfor logical AMS port 851
+lifecycle --> source
+lifecycle --> publisher
+lifecycle --> writePort
+lifecycle --> policy
+policy --> allowlist
+
+clients --> parser : AMS/TCP frames\nplain ADS
+parser --> dispatcher
+dispatcher --> symbolTable
+dispatcher --> publisher : read values
+dispatcher --> writePort : guarded writes
+dispatcher --> notifications : subscribe / publish
+dispatcher --> policy : authenticate by\nAMS Net ID + source pin
+dispatcher --> traits
+
+source --> storage : snapshot metadata\nand exposed globals
+publisher --> debug : snapshot fallback
+publisher --> storage : read-only value snapshot
+writePort --> debug : enqueue runtime write\nat runtime boundary
+writePort --> audit : accepted/rejected\nads.server.write
+runner --> storage : normal scan updates
+
+vscode --> handlers : selected runtime endpoint\n(no second chooser)
+web --> handlers
+cli --> handlers
+handlers --> diagnostics
+handlers --> doctor
+handlers --> lifecycle : status from live runtime
+doctor --> serverCrate : loopback self-client
+pyads --> handlers : attach external proof\nafter smoke
+
+note right of parser
+    The parser is untrusted input.
+    Frame sizes, sum-up counts,
+    string lengths, and write payloads
+    are capped before allocation.
+end note
+
+note right of writePort
+    Writes are disabled by default.
+    A write needs:
+    - allowed client
+    - writes_enabled = true
+    - symbol matches writable
+    - runtime type conversion succeeds
+end note
+
+note bottom of diagnostics
+    Proof levels stay separate:
+    loopback self-test, pyads external
+    client proof, and real TwinCAT lab
+    validation are not interchangeable.
+end note
+
+@enduml

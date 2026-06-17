@@ -9,6 +9,7 @@ mod version;
 
 pub use models::{
     MeshLivelinessEvent, MeshLivelinessSnapshot, MeshQosProfile, MeshReadiness, MeshService,
+    MeshTopologyEvidence,
 };
 pub use startup_publish::start_mesh;
 pub use version::{validate_zenoh_version_policy, ZENOHD_BASELINE_VERSION, ZENOH_BASELINE_VERSION};
