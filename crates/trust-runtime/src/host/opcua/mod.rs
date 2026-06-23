@@ -4,6 +4,8 @@
 
 use std::path::Path;
 use std::sync::Arc;
+#[cfg(feature = "opcua-wire")]
+use std::sync::Mutex;
 
 use smol_str::SmolStr;
 

@@ -181,7 +181,7 @@ pub struct OpcUaWireServer {
     security: OpcUaSecurityProfile,
     exposed_nodes: Vec<OpcUaExposedNode>,
     #[cfg(feature = "opcua-wire")]
-    node_ids: HashMap<SmolStr, ::opcua::types::NodeId>,
+    node_ids: Arc<Mutex<HashMap<SmolStr, ::opcua::types::NodeId>>>,
     #[cfg(feature = "opcua-wire")]
     client_pki_dir: PathBuf,
     #[cfg(feature = "opcua-wire")]
@@ -442,7 +442,10 @@ impl OpcUaWireServer {
 
     #[cfg(feature = "opcua-wire")]
     fn node_id(&self, node_name: &str) -> Result<::opcua::types::NodeId, RuntimeError> {
-        self.node_ids.get(node_name).cloned().ok_or_else(|| {
+        let node_ids = self.node_ids.lock().map_err(|_| {
+            RuntimeError::ControlError("OPC UA node registry unavailable".into())
+        })?;
+        node_ids.get(node_name).cloned().ok_or_else(|| {
             RuntimeError::ControlError(format!("unknown OPC UA node '{node_name}'").into())
         })
     }

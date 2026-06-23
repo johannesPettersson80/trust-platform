@@ -217,10 +217,15 @@ impl SourceRegistry {
     }
 
     pub fn file_id_for_path(&self, path: &Path) -> Option<u32> {
-        self.files
-            .iter()
-            .find(|file| file.path == path)
-            .map(|file| file.id)
+        self.file_for_path(path, None).map(|file| file.id)
+    }
+
+    pub fn file_id_for_path_in_project(
+        &self,
+        path: &Path,
+        project_root: Option<&Path>,
+    ) -> Option<u32> {
+        self.file_for_path(path, project_root).map(|file| file.id)
     }
 
     pub fn source_text(&self, file_id: u32) -> Option<&str> {
@@ -233,6 +238,57 @@ impl SourceRegistry {
     pub fn is_empty(&self) -> bool {
         self.files.is_empty()
     }
+
+    fn file_for_path(&self, path: &Path, project_root: Option<&Path>) -> Option<&SourceFile> {
+        if let Some(file) = self.files.iter().find(|file| file.path == path) {
+            return Some(file);
+        }
+
+        let mut candidates = Vec::new();
+        candidates.push(path.to_path_buf());
+        if let Some(root) = project_root {
+            if path.is_relative() {
+                candidates.push(root.join(path));
+                if path.components().count() == 1 {
+                    candidates.push(root.join("src").join(path));
+                }
+            }
+        }
+
+        for candidate in &candidates {
+            if let Some(file) = self.files.iter().find(|file| file.path == *candidate) {
+                return Some(file);
+            }
+            if let Ok(canonical) = std::fs::canonicalize(candidate) {
+                if let Some(file) = self
+                    .files
+                    .iter()
+                    .find(|file| canonical_path_eq(&file.path, &canonical))
+                {
+                    return Some(file);
+                }
+            }
+        }
+
+        if path.is_relative() {
+            return self.unique_suffix_match(path);
+        }
+
+        None
+    }
+
+    fn unique_suffix_match(&self, suffix: &Path) -> Option<&SourceFile> {
+        let mut matches = self.files.iter().filter(|file| file.path.ends_with(suffix));
+        let first = matches.next()?;
+        if matches.next().is_some() {
+            return None;
+        }
+        Some(first)
+    }
+}
+
+fn canonical_path_eq(left: &Path, right: &Path) -> bool {
+    std::fs::canonicalize(left).is_ok_and(|canonical| canonical == right)
 }
 
 #[derive(Debug, Clone)]

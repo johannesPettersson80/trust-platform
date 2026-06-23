@@ -1,4 +1,42 @@
 #[test]
+fn breakpoints_set_accepts_project_relative_source_path() {
+    let source = r#"
+PROGRAM Main
+VAR
+    run : BOOL := TRUE;
+END_VAR
+run := NOT run;
+END_PROGRAM
+"#;
+    let mut state = hmi_test_state(source);
+    let project_root = std::env::temp_dir().join("trust-breakpoints-project-relative");
+    state.project_root = Some(project_root.clone());
+    state.sources = SourceRegistry::new(vec![SourceFile {
+        id: 1,
+        path: project_root.join("src").join("main.st"),
+        text: source.to_string(),
+    }]);
+
+    let response = handle_request_value(
+        json!({
+            "id": 101,
+            "type": "breakpoints.set",
+            "params": { "source": "src/main.st", "lines": [6] }
+        }),
+        &state,
+        None,
+    );
+
+    assert!(
+        response.ok,
+        "project-relative breakpoint source should bind: {:?}",
+        response.error
+    );
+    let result = response.result.expect("breakpoint result");
+    assert_eq!(result.get("file_id").and_then(serde_json::Value::as_u64), Some(1));
+}
+
+#[test]
 fn request_routing_contract_dispatches_core_handler_modules() {
     let source = r#"
 PROGRAM Main

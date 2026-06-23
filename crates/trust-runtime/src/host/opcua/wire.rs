@@ -29,10 +29,11 @@ pub fn start_wire_server(
         RuntimeError::ControlError(format!("create OPC UA client PKI: {err}").into())
     })?;
 
-    let initial_snapshot = snapshot_provider().ok_or_else(|| {
-        RuntimeError::ControlError("runtime snapshot unavailable for OPC UA startup".into())
-    })?;
-    let candidates = collect_exposed_nodes(&initial_snapshot, config)?;
+    let exposure_patterns = compile_exposure_patterns(config.expose.as_slice())?;
+    let candidates = snapshot_provider()
+        .as_ref()
+        .map(|snapshot| collect_exposed_nodes(snapshot, exposure_patterns.as_slice(), config.max_nodes))
+        .unwrap_or_default();
     let (user_token_ids, user_credentials) = user_tokens(config)?;
     let mut builder = ::opcua::server::prelude::ServerBuilder::new()
         .application_name(format!("truST Runtime {resource_name}"))
@@ -60,14 +61,16 @@ pub fn start_wire_server(
     let address_space = server.address_space();
     let mut node_ids = HashMap::<SmolStr, ::opcua::types::NodeId>::new();
     let mut exposed_nodes = Vec::<OpcUaExposedNode>::new();
+    let namespace;
+    let folder_id;
     {
         let mut address_space_guard = ::opcua::trace_write_lock!(address_space);
-        let namespace = address_space_guard
+        namespace = address_space_guard
             .register_namespace(config.namespace_uri.as_str())
             .map_err(|_| {
                 RuntimeError::ControlError("failed to register OPC UA namespace".into())
             })?;
-        let folder_id = address_space_guard
+        folder_id = address_space_guard
             .add_folder(
                 "truST",
                 "truST",
@@ -76,67 +79,62 @@ pub fn start_wire_server(
             .map_err(|_| {
                 RuntimeError::ControlError("failed to create OPC UA root folder".into())
             })?;
-        let mut variables = Vec::new();
-        for node in candidates {
-            let ExposedNodeCandidate {
-                name,
-                data_type,
-                value,
-            } = node;
-            let browse_name = name.to_string();
-            let node_id = ::opcua::types::NodeId::new(namespace, browse_name.clone());
-            let mut variable = ::opcua::server::prelude::Variable::new(
-                &node_id,
-                browse_name.as_str(),
-                browse_name.as_str(),
-                to_wire_variant(&value),
-            );
-            variable.set_writable(true);
-            variable.set_user_access_level(
-                variable.user_access_level()
-                    | ::opcua::server::prelude::UserAccessLevel::CURRENT_WRITE,
-            );
-            variables.push(variable);
-            node_ids.insert(name.clone(), node_id.clone());
-            exposed_nodes.push(OpcUaExposedNode {
-                name,
-                node_id: node_id.to_string(),
-                data_type,
-            });
-        }
-        if !variables.is_empty() {
-            let added = address_space_guard.add_variables(variables, &folder_id);
-            if added.iter().any(|inserted| !*inserted) {
-                return Err(RuntimeError::ControlError(
-                    "failed to publish OPC UA variables".into(),
-                ));
-            }
-        }
+        publish_new_nodes(
+            &mut address_space_guard,
+            namespace,
+            &folder_id,
+            candidates,
+            &mut node_ids,
+            Some(&mut exposed_nodes),
+        )?;
     }
 
-    if !node_ids.is_empty() {
+    let node_ids = Arc::new(Mutex::new(node_ids));
+    {
         let refresh_space = address_space.clone();
         let refresh_nodes = node_ids.clone();
         let refresh_snapshot = snapshot_provider.clone();
+        let refresh_patterns = exposure_patterns;
+        let refresh_max_nodes = config.max_nodes;
+        let refresh_folder_id = folder_id.clone();
         server.add_polling_action(config.publish_interval_ms, move || {
             let Some(snapshot) = refresh_snapshot() else {
                 return;
             };
+            let candidates =
+                collect_exposed_nodes(&snapshot, refresh_patterns.as_slice(), refresh_max_nodes);
             let now = ::opcua::types::DateTime::now();
             let mut address_space_guard = ::opcua::trace_write_lock!(refresh_space);
-            for (name, node_id) in &refresh_nodes {
-                let Some(value) = snapshot.storage.get_global(name.as_str()) else {
+            let Ok(mut node_ids_guard) = refresh_nodes.lock() else {
+                return;
+            };
+            for candidate in candidates {
+                if let Some(node_id) = node_ids_guard.get(&candidate.name) {
+                    address_space_guard.set_variable_value(
+                        node_id.clone(),
+                        to_wire_variant(&candidate.value),
+                        &now,
+                        &now,
+                    );
                     continue;
-                };
-                let Some(mapped) = map_iec_value(value) else {
+                }
+                if node_ids_guard.len() >= refresh_max_nodes {
+                    break;
+                }
+                let mut added_nodes = HashMap::<SmolStr, ::opcua::types::NodeId>::new();
+                if publish_new_nodes(
+                    &mut address_space_guard,
+                    namespace,
+                    &refresh_folder_id,
+                    vec![candidate],
+                    &mut added_nodes,
+                    None,
+                )
+                .is_err()
+                {
                     continue;
-                };
-                address_space_guard.set_variable_value(
-                    node_id.clone(),
-                    to_wire_variant(&mapped.value),
-                    &now,
-                    &now,
-                );
+                }
+                node_ids_guard.extend(added_nodes);
             }
         });
     }
@@ -179,6 +177,59 @@ pub fn start_wire_server(
     Ok(Some(wire_server))
 }
 
+#[cfg(feature = "opcua-wire")]
+fn publish_new_nodes(
+    address_space: &mut ::opcua::server::address_space::AddressSpace,
+    namespace: u16,
+    folder_id: &::opcua::types::NodeId,
+    candidates: Vec<ExposedNodeCandidate>,
+    node_ids: &mut HashMap<SmolStr, ::opcua::types::NodeId>,
+    mut exposed_nodes: Option<&mut Vec<OpcUaExposedNode>>,
+) -> Result<(), RuntimeError> {
+    let mut variables = Vec::new();
+    let mut inserted = Vec::new();
+    for node in candidates {
+        if node_ids.contains_key(&node.name) {
+            continue;
+        }
+        let browse_name = node.name.to_string();
+        let node_id = ::opcua::types::NodeId::new(namespace, browse_name.clone());
+        let mut variable = ::opcua::server::prelude::Variable::new(
+            &node_id,
+            browse_name.as_str(),
+            browse_name.as_str(),
+            to_wire_variant(&node.value),
+        );
+        variable.set_writable(true);
+        variable.set_user_access_level(
+            variable.user_access_level()
+                | ::opcua::server::prelude::UserAccessLevel::CURRENT_WRITE,
+        );
+        variables.push(variable);
+        inserted.push((node.name, node.data_type, node_id));
+    }
+    if variables.is_empty() {
+        return Ok(());
+    }
+    let added = address_space.add_variables(variables, folder_id);
+    if added.iter().any(|inserted| !*inserted) {
+        return Err(RuntimeError::ControlError(
+            "failed to publish OPC UA variables".into(),
+        ));
+    }
+    for (name, data_type, node_id) in inserted {
+        if let Some(nodes) = exposed_nodes.as_deref_mut() {
+            nodes.push(OpcUaExposedNode {
+                name: name.clone(),
+                node_id: node_id.to_string(),
+                data_type,
+            });
+        }
+        node_ids.insert(name, node_id);
+    }
+    Ok(())
+}
+
 #[cfg(not(feature = "opcua-wire"))]
 pub fn start_wire_server(
     _resource_name: &str,
@@ -203,9 +254,9 @@ struct ExposedNodeCandidate {
 #[cfg(feature = "opcua-wire")]
 fn collect_exposed_nodes(
     snapshot: &DebugSnapshot,
-    config: &OpcUaRuntimeConfig,
-) -> Result<Vec<ExposedNodeCandidate>, RuntimeError> {
-    let patterns = compile_exposure_patterns(config.expose.as_slice())?;
+    patterns: &[Pattern],
+    max_nodes: usize,
+) -> Vec<ExposedNodeCandidate> {
     let mut nodes = Vec::new();
     for (name, value) in snapshot.storage.globals() {
         if !patterns.is_empty()
@@ -223,11 +274,11 @@ fn collect_exposed_nodes(
             data_type: mapped.data_type,
             value: mapped.value,
         });
-        if nodes.len() >= config.max_nodes {
+        if nodes.len() >= max_nodes {
             break;
         }
     }
-    Ok(nodes)
+    nodes
 }
 
 #[cfg(feature = "opcua-wire")]

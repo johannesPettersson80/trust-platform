@@ -83,7 +83,10 @@ pub(super) fn handle_debug_breakpoint_locations(
         None => return ControlResponse::error(id, "missing params".into()),
     };
     let path = PathBuf::from(params.source);
-    let file_id = match state.sources.file_id_for_path(&path) {
+    let file_id = match state
+        .sources
+        .file_id_for_path_in_project(&path, state.project_root.as_deref())
+    {
         Some(id) => id,
         None => return ControlResponse::error(id, "unknown source path".into()),
     };

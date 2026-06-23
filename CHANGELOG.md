@@ -261,6 +261,10 @@ Target release: `v0.24.25`
 
 ### Fixed
 
+- trust-runtime: OPC UA server startup no longer aborts when the first runtime
+  snapshot is not available yet; the server binds immediately and publishes
+  exposed nodes after real snapshot evidence arrives. Runtime debug breakpoint
+  control now accepts project-relative source paths such as `src/main.st`.
 - vscode: release packaging now bundles `trust-runtime` inside the VSIX next
   to `trust-lsp` and `trust-debug`, so fresh installs can use offline
   Devices & Connections configuration without requiring a separate runtime
