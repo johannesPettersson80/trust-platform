@@ -14,6 +14,9 @@ use crate::ads::{generate_ads_interface, parse_ads_toml, AdsInterfaceError};
 pub struct SymbolImportRequest {
     /// Connection name in `ads.toml`.
     pub connection_name: String,
+    /// Explicit symbol names selected by the user.
+    #[serde(default)]
+    pub symbols: Vec<String>,
     /// Optional symbol include patterns selected by the user.
     #[serde(default)]
     pub include_patterns: Vec<String>,
@@ -156,7 +159,11 @@ pub fn build_symbol_import_response(
                 leaf_name,
                 access: PointAccess::Read,
                 mode: UpdateMode::Poll,
-                selected: symbol_selected(descriptor.name.as_str(), &request.include_patterns),
+                selected: symbol_selected(
+                    descriptor.name.as_str(),
+                    &request.symbols,
+                    &request.include_patterns,
+                ),
             }
         })
         .collect::<Vec<_>>();
@@ -228,7 +235,10 @@ fn split_symbol_name(symbol: &str) -> (String, String) {
     (namespace, leaf)
 }
 
-fn symbol_selected(symbol: &str, patterns: &[String]) -> bool {
+fn symbol_selected(symbol: &str, symbols: &[String], patterns: &[String]) -> bool {
+    if !symbols.is_empty() {
+        return symbols.iter().any(|candidate| candidate == symbol);
+    }
     if patterns.is_empty() {
         return true;
     }
@@ -660,6 +670,7 @@ mod tests {
         let response = build_symbol_import_response(
             &SymbolImportRequest {
                 connection_name: "line1".to_string(),
+                symbols: Vec::new(),
                 include_patterns: Vec::new(),
                 name_prefix: Some("line1_".to_string()),
             },
@@ -752,6 +763,7 @@ mod tests {
         let response = build_symbol_import_response(
             &SymbolImportRequest {
                 connection_name: "line1".to_string(),
+                symbols: Vec::new(),
                 include_patterns: vec!["NoMatch".to_string()],
                 name_prefix: None,
             },
@@ -774,6 +786,31 @@ mod tests {
             error,
             SymbolImportApplyError::NoSelectedSymbols { .. }
         ));
+    }
+
+    #[test]
+    fn build_import_response_honors_explicit_symbol_list() {
+        let response = build_symbol_import_response(
+            &SymbolImportRequest {
+                connection_name: "line1".to_string(),
+                symbols: vec!["GVL.Setpoint".to_string()],
+                include_patterns: vec!["MAIN.*".to_string()],
+                name_prefix: Some("line1_".to_string()),
+            },
+            vec![
+                real_symbol("MAIN.Temperature"),
+                real_symbol("GVL.Setpoint"),
+                real_symbol("GVL.SetpointShadow"),
+            ],
+        );
+
+        let selected = response
+            .candidates
+            .iter()
+            .filter(|candidate| candidate.selected)
+            .map(|candidate| candidate.descriptor.name.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(selected, vec!["GVL.Setpoint"]);
     }
 
     #[test]
@@ -822,6 +859,7 @@ mod tests {
         build_symbol_import_response(
             &SymbolImportRequest {
                 connection_name: connection.to_string(),
+                symbols: Vec::new(),
                 include_patterns: Vec::new(),
                 name_prefix: Some(prefix.to_string()),
             },

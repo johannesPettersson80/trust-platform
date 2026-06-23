@@ -177,7 +177,7 @@ fn hmi_persistence_reloads_bounded_trends_and_alarm_history() {
     }
     let jsonl = std::fs::read_to_string(&path).expect("read hmi persistence jsonl");
     assert_eq!(jsonl.lines().count(), 4);
-    let first_record = serde_json::from_str::<HmiPersistenceRecord>(
+    let first_record = parse_hmi_persistence_record(
         jsonl.lines().next().expect("first hmi persistence record"),
     )
     .expect("parse first hmi persistence record");

@@ -56,6 +56,7 @@ pub fn classify_error_with_command(message: &str, command: Option<&str>) -> i32 
     }
     match command {
         Some("build") => EXIT_BUILD_FAILED,
+        Some("check") => EXIT_BUILD_FAILED,
         Some("test") => EXIT_TEST_FAILED,
         Some("validate") => EXIT_INVALID_CONFIG,
         _ => EXIT_INTERNAL,

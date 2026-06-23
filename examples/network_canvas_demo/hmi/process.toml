@@ -1,0 +1,17 @@
+title = "Process"
+kind = "process"
+icon = "workflow"
+order = 20
+svg = "process.auto.svg"
+
+[[bind]]
+selector = "#pid-pump-indicator"
+attribute = "fill"
+source = "global.running"
+map = { "true" = "#22c55e", "false" = "#ef4444" }
+
+[[bind]]
+selector = "#pid-main-line"
+attribute = "stroke"
+source = "global.running"
+map = { "true" = "#2563eb", "false" = "#94a3b8" }

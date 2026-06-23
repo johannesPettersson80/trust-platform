@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-pub(super) const COMM_SCHEMA_VERSION: u32 = 1;
+pub(super) const COMM_SCHEMA_VERSION: u32 = 4;
 
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -52,7 +52,6 @@ pub(super) enum CommNextActionKind {
     TestConnection,
     DiagnoseAds,
     OpenDocs,
-    CopyConfigSnippet,
     ApplyConfig,
     SwitchToOnline,
     GetBuildWithFeature,
@@ -133,7 +132,6 @@ mod tests {
             CommNextActionKind::TestConnection,
             CommNextActionKind::DiagnoseAds,
             CommNextActionKind::OpenDocs,
-            CommNextActionKind::CopyConfigSnippet,
             CommNextActionKind::ApplyConfig,
             CommNextActionKind::SwitchToOnline,
             CommNextActionKind::GetBuildWithFeature,
@@ -156,7 +154,6 @@ mod tests {
                 "test_connection",
                 "diagnose_ads",
                 "open_docs",
-                "copy_config_snippet",
                 "apply_config",
                 "switch_to_online",
                 "get_build_with_feature",

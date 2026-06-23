@@ -9,7 +9,9 @@ use crate::scheduler::ResourceCommand;
 use super::{ControlResponse, ControlState};
 
 mod apply;
+mod browse_symbols;
 mod contract;
+mod discover;
 mod probe;
 mod schema;
 
@@ -47,8 +49,52 @@ pub(super) fn handle_comm_apply(
     apply::handle_comm_apply(id, params, state)
 }
 
+pub(super) fn handle_comm_discover(
+    id: u64,
+    params: Option<serde_json::Value>,
+    state: &ControlState,
+) -> ControlResponse {
+    discover::handle_comm_discover(id, params, state)
+}
+
+pub(super) fn handle_comm_browse_symbols(
+    id: u64,
+    params: Option<serde_json::Value>,
+    state: &ControlState,
+) -> ControlResponse {
+    browse_symbols::handle_comm_browse_symbols(id, params, state)
+}
+
 pub(super) fn handle_comm_test(id: u64, params: Option<serde_json::Value>) -> ControlResponse {
     probe::handle_comm_test(id, params)
+}
+
+pub(super) fn static_comm_schema_value(
+    params: Option<&serde_json::Value>,
+) -> Result<serde_json::Value, String> {
+    schema::static_comm_schema_value(params)
+}
+
+pub(super) fn apply_project_value(
+    project_root: &std::path::Path,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    apply::apply_project_value(project_root, params)
+}
+
+pub(super) fn discover_value(
+    params: serde_json::Value,
+    state: Option<&ControlState>,
+) -> Result<serde_json::Value, String> {
+    discover::discover_value(params, state)
+}
+
+pub(super) fn browse_symbols_value(
+    params: serde_json::Value,
+    state: Option<&ControlState>,
+    project_root: Option<&std::path::Path>,
+) -> Result<serde_json::Value, String> {
+    browse_symbols::browse_symbols_value(params, state, project_root)
 }
 
 pub(super) fn comm_test_probe_value(
@@ -62,11 +108,43 @@ pub(super) fn audit_details_for_comm_request(
     kind: &str,
     params: Option<&serde_json::Value>,
 ) -> Option<serde_json::Value> {
-    if kind == "comm.apply" || kind == "comm.test" {
+    if matches!(kind, "comm.apply" | "comm.test") {
         params.map(apply::sanitized_apply_audit_details)
+    } else if matches!(kind, "comm.discover" | "comm.browse_symbols") {
+        params.map(sanitize_readonly_comm_audit_details)
     } else {
         None
     }
+}
+
+fn sanitize_readonly_comm_audit_details(params: &serde_json::Value) -> serde_json::Value {
+    let mut value = params.clone();
+    if let Some(object) = value.as_object_mut() {
+        for key in [
+            "password",
+            "auth_token",
+            "token",
+            "credential",
+            "credentials",
+        ] {
+            object.remove(key);
+        }
+        if let Some(target) = object
+            .get_mut("target")
+            .and_then(serde_json::Value::as_object_mut)
+        {
+            for key in [
+                "password",
+                "auth_token",
+                "token",
+                "credential",
+                "credentials",
+            ] {
+                target.remove(key);
+            }
+        }
+    }
+    value
 }
 
 fn build_capabilities_response(state: &ControlState) -> CommCapabilitiesResponse {

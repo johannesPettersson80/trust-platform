@@ -150,7 +150,7 @@ fn load_hmi_persistence_state(
         if line.trim().is_empty() {
             continue;
         }
-        let Ok(record) = serde_json::from_str::<HmiPersistenceRecord>(&line) else {
+        let Some(record) = parse_hmi_persistence_record(line.as_str()) else {
             continue;
         };
         match record {
@@ -195,6 +195,46 @@ fn load_hmi_persistence_state(
         }
     }
     Ok(state)
+}
+
+fn parse_hmi_persistence_record(line: &str) -> Option<HmiPersistenceRecord> {
+    let value = serde_json::from_str::<serde_json::Value>(line).ok()?;
+    let object = value.as_object()?;
+    match object.get("kind").and_then(serde_json::Value::as_str)? {
+        "trend" => Some(HmiPersistenceRecord::Trend {
+            widget_id: json_string_field(object, "widget_id")?,
+            ts_ms: json_u64_field(object, "ts_ms")?,
+            value: json_f64_field(object, "value")?,
+        }),
+        "alarm" => Some(HmiPersistenceRecord::Alarm {
+            id: json_string_field(object, "id")?,
+            widget_id: json_string_field(object, "widget_id")?,
+            path: json_string_field(object, "path")?,
+            label: json_string_field(object, "label")?,
+            event: json_string_field(object, "event")?,
+            timestamp_ms: json_u64_field(object, "timestamp_ms")?,
+            value: json_f64_field(object, "value")?,
+        }),
+        _ => None,
+    }
+}
+
+fn json_string_field(
+    object: &serde_json::Map<String, serde_json::Value>,
+    field: &str,
+) -> Option<String> {
+    object
+        .get(field)
+        .and_then(serde_json::Value::as_str)
+        .map(ToString::to_string)
+}
+
+fn json_u64_field(object: &serde_json::Map<String, serde_json::Value>, field: &str) -> Option<u64> {
+    object.get(field).and_then(serde_json::Value::as_u64)
+}
+
+fn json_f64_field(object: &serde_json::Map<String, serde_json::Value>, field: &str) -> Option<f64> {
+    object.get(field).and_then(serde_json::Value::as_f64)
 }
 
 fn append_hmi_persistence_records(

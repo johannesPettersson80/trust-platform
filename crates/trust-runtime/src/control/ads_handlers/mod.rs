@@ -10,7 +10,7 @@ pub(super) use discover::handle_ads_discover;
 pub use doctor::AdsDoctorJobStore;
 pub(super) use doctor::{handle_ads_doctor, handle_ads_doctor_start, handle_ads_doctor_status};
 pub(super) use identity::handle_ads_identity;
-pub(super) use import_symbols::handle_ads_import_symbols;
+pub(super) use import_symbols::{handle_ads_import_symbols, handle_ads_import_symbols_apply};
 pub(super) use route::{handle_ads_route_add, handle_ads_route_plan, handle_ads_route_remove};
 pub(super) use server::{
     handle_ads_server_doctor, handle_ads_server_doctor_start, handle_ads_server_doctor_status,

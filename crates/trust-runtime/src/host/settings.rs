@@ -7,6 +7,7 @@ use smol_str::SmolStr;
 
 use crate::config::{
     MeshRole, RuntimeCloudLinkPreferenceRule, RuntimeCloudProfile, RuntimeCloudWanAllowRule,
+    RuntimeConfig, WebAuthMode,
 };
 use crate::execution_backend::{ExecutionBackend, ExecutionBackendSource};
 use crate::linux_rt::LinuxRtConfig;
@@ -58,6 +59,83 @@ impl RuntimeSettings {
             opcua: OpcUaSettings::default(),
             simulation,
         }
+    }
+
+    /// Build the runtime settings snapshot used by status/control surfaces from parsed config.
+    #[must_use]
+    pub fn from_runtime_config(
+        config: &RuntimeConfig,
+        simulation_enabled: bool,
+        time_scale: u32,
+    ) -> Self {
+        let mut settings = Self::new(
+            config.cycle_interval,
+            BaseSettings {
+                log_level: config.log_level.clone(),
+                watchdog: config.watchdog,
+                fault_policy: config.fault_policy,
+                retain_mode: config.retain_mode,
+                retain_save_interval: Some(config.retain_save_interval),
+            },
+            WebSettings {
+                enabled: config.web.enabled,
+                listen: config.web.listen.clone(),
+                auth: SmolStr::new(match config.web.auth {
+                    WebAuthMode::Local => "local",
+                    WebAuthMode::Token => "token",
+                }),
+                tls: config.web.tls,
+            },
+            DiscoverySettings {
+                enabled: config.discovery.enabled,
+                service_name: config.discovery.service_name.clone(),
+                advertise: config.discovery.advertise,
+                interfaces: config.discovery.interfaces.clone(),
+                host_group: config.discovery.host_group.clone(),
+            },
+            MeshSettings {
+                enabled: config.mesh.enabled,
+                role: config.mesh.role,
+                listen: config.mesh.listen.clone(),
+                connect: config.mesh.connect.clone(),
+                tls: config.mesh.tls,
+                auth_token: config.mesh.auth_token.clone(),
+                publish: config.mesh.publish.clone(),
+                subscribe: config.mesh.subscribe.clone(),
+                zenohd_version: config.mesh.zenohd_version.clone(),
+                plugin_versions: config.mesh.plugin_versions.clone(),
+            },
+            SimulationSettings {
+                enabled: simulation_enabled,
+                time_scale,
+                mode_label: SmolStr::new(if simulation_enabled {
+                    "simulation"
+                } else {
+                    "production"
+                }),
+                warning: SmolStr::new(""),
+            },
+        );
+        settings.execution_backend = config.execution_backend;
+        settings.execution_backend_source = config.execution_backend_source;
+        settings.opcua = OpcUaSettings {
+            enabled: config.opcua.enabled,
+            listen: config.opcua.listen.clone(),
+            endpoint_path: config.opcua.endpoint_path.clone(),
+            namespace_uri: config.opcua.namespace_uri.clone(),
+            publish_interval_ms: config.opcua.publish_interval_ms,
+            max_nodes: config.opcua.max_nodes,
+            expose: config.opcua.expose.clone(),
+            security_policy: SmolStr::new(config.opcua.security.policy.as_config_value()),
+            security_mode: SmolStr::new(config.opcua.security.mode.as_config_value()),
+            allow_anonymous: config.opcua.security.allow_anonymous,
+            username_set: config.opcua.username.is_some(),
+        };
+        settings.runtime_cloud.profile = config.runtime_cloud_profile;
+        settings.runtime_cloud.wan_allow_write = config.runtime_cloud_wan_allow_write.clone();
+        settings.runtime_cloud.link_preferences = config.runtime_cloud_link_preferences.clone();
+        settings.realtime = config.realtime.clone();
+        settings
     }
 }
 

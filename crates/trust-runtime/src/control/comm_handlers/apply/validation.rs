@@ -64,7 +64,7 @@ pub(super) fn validate_schema_fields(protocol: &str, params: &toml::Value) -> Ve
     errors
 }
 
-pub(super) fn validate_snippet_fields(
+pub(super) fn validate_runtime_file_fields(
     protocol: &str,
     table: &toml::map::Map<String, toml::Value>,
 ) -> Vec<CommFieldError> {
@@ -167,6 +167,19 @@ pub(super) fn validate_snippet_fields(
             validate_enum_field(table, "profile", &["dev", "plant", "wan"], &mut errors);
             validate_array_field(table, "wan_allow_write", &mut errors);
             validate_array_field(table, "link_transports", &mut errors);
+        }
+        "ads_server" => {
+            let enabled = table
+                .get("enabled")
+                .and_then(toml::Value::as_bool)
+                .unwrap_or(false);
+            if enabled {
+                validate_string_field(table, "listen", true, &mut errors);
+            }
+            validate_integer_range(table, "ads_port", 1, 65535, &mut errors);
+            validate_array_field(table, "expose", &mut errors);
+            validate_array_field(table, "writable", &mut errors);
+            validate_array_field(table, "clients", &mut errors);
         }
         _ => errors.push(field_error("protocol", "Unsupported protocol.")),
     }

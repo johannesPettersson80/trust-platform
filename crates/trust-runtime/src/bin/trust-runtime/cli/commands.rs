@@ -5,7 +5,7 @@
     about = "Structured Text runtime CLI",
     infer_subcommands = true,
     arg_required_else_help = false,
-    after_help = "Examples:\n  trust-runtime                         # start (first run opens setup)\n  trust-runtime --verbose               # show startup details\n  trust-runtime ide serve --project .   # standalone browser IDE\n  trust-runtime ui --project ./my-plc   # terminal UI\n  trust-runtime play --project ./my-plc # compatibility"
+    after_help = "Examples:\n  trust-runtime                         # start (first run opens setup)\n  trust-runtime --verbose               # show startup details\n  trust-runtime ide serve --project .   # standalone browser IDE\n  trust-runtime ui --project ./my-plc   # terminal UI\n  trust-runtime check --project ./my-plc --json # check sources/config without writing bytecode\n  trust-runtime comm topology --project ./my-plc --json # inspect offline comm topology\n  trust-runtime comm discover --protocol ads --json # find communication targets from this host\n  trust-runtime fleet runtime add --fleet-root ./fleet --name cell1 --json # scaffold sibling runtime\n  trust-runtime play --project ./my-plc # compatibility"
 )]
 pub struct Cli {
     /// Show verbose startup details.
@@ -115,6 +115,21 @@ pub enum Command {
         #[arg(long, action = ArgAction::SetTrue)]
         ci: bool,
     },
+    /// Check project sources and config without writing program.stbc.
+    Check {
+        /// Project folder directory (defaults to auto-detect or current directory).
+        #[arg(long = "project", alias = "bundle")]
+        project: Option<PathBuf>,
+        /// Sources directory override (defaults to <project>/src).
+        #[arg(long)]
+        sources: Option<PathBuf>,
+        /// Emit machine-readable JSON.
+        #[arg(long, action = ArgAction::SetTrue)]
+        json: bool,
+        /// Enable CI-friendly behavior, machine-readable output, and stable exit code mapping.
+        #[arg(long, action = ArgAction::SetTrue)]
+        ci: bool,
+    },
     /// Build program.stbc from project sources.
     Build {
         /// Project folder directory (defaults to auto-detect or current directory).
@@ -179,6 +194,16 @@ pub enum Command {
     Ads {
         #[command(subcommand)]
         action: AdsAction,
+    },
+    /// Offline communication setup and topology workflows.
+    Comm {
+        #[command(subcommand)]
+        action: CommAction,
+    },
+    /// Offline fleet manifest and sibling-runtime workflows.
+    Fleet {
+        #[command(subcommand)]
+        action: FleetAction,
     },
     /// Package registry workflows.
     Registry {

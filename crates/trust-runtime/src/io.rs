@@ -9,11 +9,14 @@ pub use modbus::ModbusTcpDriver;
 mod mqtt;
 pub use mqtt::MqttIoDriver;
 mod ethercat;
-pub use ethercat::EthercatIoDriver;
+pub use ethercat::{
+    configured_ethercat_modules, discover_ethercat_modules, EthercatDiscoveryInfo,
+    EthercatIoDriver, EthercatModuleInfo,
+};
 mod gpio;
 mod loopback;
 mod registry;
-pub use gpio::GpioDriver;
+pub use gpio::{discover_gpio_lines, GpioDriver, GpioLineInfo};
 pub use loopback::LoopbackIoDriver;
 pub use registry::IoDriverRegistry;
 

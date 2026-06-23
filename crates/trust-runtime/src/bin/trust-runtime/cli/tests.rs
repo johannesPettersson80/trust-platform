@@ -22,6 +22,34 @@ mod tests {
     }
 
     #[test]
+    fn parse_check_json_and_ci_flags() {
+        let cli = Cli::parse_from([
+            "trust-runtime",
+            "check",
+            "--project",
+            "project",
+            "--sources",
+            "src",
+            "--json",
+            "--ci",
+        ]);
+        match cli.command.expect("command") {
+            Command::Check {
+                project,
+                sources,
+                json,
+                ci,
+            } => {
+                assert_eq!(project, Some(PathBuf::from("project")));
+                assert_eq!(sources, Some(PathBuf::from("src")));
+                assert!(json);
+                assert!(ci);
+            }
+            other => panic!("expected check command, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn parse_test_ci_flag() {
         let cli = Cli::parse_from(["trust-runtime", "test", "--project", "project", "--ci"]);
         match cli.command.expect("command") {
@@ -289,6 +317,72 @@ mod tests {
     }
 
     #[test]
+    fn parse_fleet_runtime_add_command() {
+        let cli = Cli::parse_from([
+            "trust-runtime",
+            "fleet",
+            "runtime",
+            "add",
+            "--fleet-root",
+            "fleet",
+            "--name",
+            "cell_1",
+            "--template",
+            "empty",
+            "--control-port",
+            "9910",
+            "--web-port",
+            "18080",
+            "--json",
+        ]);
+        match cli.command.expect("command") {
+            Command::Fleet { action } => match action {
+                FleetAction::Runtime { action } => match action {
+                    FleetRuntimeAction::Add {
+                        fleet_root,
+                        name,
+                        template,
+                        control_port,
+                        web_port,
+                        json,
+                    } => {
+                        assert_eq!(fleet_root, PathBuf::from("fleet"));
+                        assert_eq!(name, "cell_1");
+                        assert_eq!(template, FleetRuntimeTemplateArg::Empty);
+                        assert_eq!(control_port, Some(9910));
+                        assert_eq!(web_port, Some(18080));
+                        assert!(json);
+                    }
+                },
+                other => panic!("expected fleet runtime action, got {other:?}"),
+            },
+            other => panic!("expected fleet command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parse_fleet_list_command() {
+        let cli = Cli::parse_from([
+            "trust-runtime",
+            "fleet",
+            "list",
+            "--fleet-root",
+            "fleet",
+            "--json",
+        ]);
+        match cli.command.expect("command") {
+            Command::Fleet { action } => match action {
+                FleetAction::List { fleet_root, json } => {
+                    assert_eq!(fleet_root, PathBuf::from("fleet"));
+                    assert!(json);
+                }
+                other => panic!("expected fleet list action, got {other:?}"),
+            },
+            other => panic!("expected fleet command, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn parse_ads_browse_command() {
         let cli = Cli::parse_from([
             "trust-runtime",
@@ -357,6 +451,156 @@ mod tests {
                 other => panic!("expected ads doctor action, got {other:?}"),
             },
             other => panic!("expected ads command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parse_comm_schema_protocol_filter_command() {
+        let cli = Cli::parse_from([
+            "trust-runtime",
+            "comm",
+            "schema",
+            "--protocol",
+            "opcua",
+            "--json",
+        ]);
+        match cli.command.expect("command") {
+            Command::Comm { action } => match action {
+                CommAction::Schema { protocol, json } => {
+                    assert_eq!(protocol.as_deref(), Some("opcua"));
+                    assert!(json);
+                }
+                other => panic!("expected comm schema action, got {other:?}"),
+            },
+            other => panic!("expected comm command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parse_comm_apply_command() {
+        let cli = Cli::parse_from([
+            "trust-runtime",
+            "comm",
+            "apply",
+            "--project",
+            "project",
+            "--protocol",
+            "modbus-tcp",
+            "--params",
+            r#"{"address":"127.0.0.1:502"}"#,
+            "--action",
+            "add",
+            "--instance-id",
+            "modbus_tcp:1",
+            "--json",
+        ]);
+        match cli.command.expect("command") {
+            Command::Comm { action } => match action {
+                CommAction::Apply {
+                    project,
+                    protocol,
+                    params,
+                    action,
+                    instance_id,
+                    json,
+                } => {
+                    assert_eq!(project, PathBuf::from("project"));
+                    assert_eq!(protocol, "modbus-tcp");
+                    assert_eq!(params, r#"{"address":"127.0.0.1:502"}"#);
+                    assert_eq!(action, CommApplyCliAction::Add);
+                    assert_eq!(instance_id.as_deref(), Some("modbus_tcp:1"));
+                    assert!(json);
+                }
+                other => panic!("expected comm apply action, got {other:?}"),
+            },
+            other => panic!("expected comm command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parse_comm_discover_command() {
+        let cli = Cli::parse_from([
+            "trust-runtime",
+            "comm",
+            "discover",
+            "--protocol",
+            "modbus-tcp",
+            "--origin",
+            "runtime",
+            "--cidr",
+            "192.168.1.0/24",
+            "--timeout-ms",
+            "250",
+            "--json",
+        ]);
+        match cli.command.expect("command") {
+            Command::Comm { action } => match action {
+                CommAction::Discover {
+                    protocol,
+                    origin,
+                    cidr,
+                    host,
+                    adapter,
+                    timeout_ms,
+                    passive,
+                    json,
+                } => {
+                    assert_eq!(protocol, "modbus-tcp");
+                    assert_eq!(origin, CommDiscoverOriginArg::Runtime);
+                    assert_eq!(cidr.as_deref(), Some("192.168.1.0/24"));
+                    assert!(host.is_none());
+                    assert!(adapter.is_none());
+                    assert_eq!(timeout_ms, Some(250));
+                    assert!(passive);
+                    assert!(json);
+                }
+                other => panic!("expected comm discover action, got {other:?}"),
+            },
+            other => panic!("expected comm command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parse_comm_browse_symbols_command() {
+        let cli = Cli::parse_from([
+            "trust-runtime",
+            "comm",
+            "browse-symbols",
+            "--protocol",
+            "ads",
+            "--target",
+            r#"{"host":"192.168.1.10","ams_net_id":"5.23.91.12.1.1"}"#,
+            "--connection-name",
+            "line1",
+            "--json",
+        ]);
+        match cli.command.expect("command") {
+            Command::Comm { action } => match action {
+                CommAction::BrowseSymbols {
+                    protocol,
+                    project,
+                    target,
+                    snapshot_file,
+                    instance_id,
+                    kind,
+                    connection_name,
+                    json,
+                } => {
+                    assert_eq!(protocol, "ads");
+                    assert!(project.is_none());
+                    assert_eq!(
+                        target.as_deref(),
+                        Some(r#"{"host":"192.168.1.10","ams_net_id":"5.23.91.12.1.1"}"#)
+                    );
+                    assert!(snapshot_file.is_none());
+                    assert!(instance_id.is_none());
+                    assert_eq!(kind, "symbols");
+                    assert_eq!(connection_name.as_deref(), Some("line1"));
+                    assert!(json);
+                }
+                other => panic!("expected comm browse-symbols action, got {other:?}"),
+            },
+            other => panic!("expected comm command, got {other:?}"),
         }
     }
 

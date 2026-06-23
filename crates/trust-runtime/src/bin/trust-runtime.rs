@@ -8,10 +8,14 @@ mod agent;
 mod bench;
 #[path = "trust-runtime/build.rs"]
 mod build;
+#[path = "trust-runtime/check.rs"]
+mod check;
 #[path = "trust-runtime/ci.rs"]
 mod ci;
 #[path = "trust-runtime/cli.rs"]
 mod cli;
+#[path = "trust-runtime/comm.rs"]
+mod comm;
 #[path = "trust-runtime/commit.rs"]
 mod commit;
 #[path = "trust-runtime/completions.rs"]
@@ -28,6 +32,8 @@ mod deploy;
 mod dev_forward;
 #[path = "trust-runtime/docs.rs"]
 mod docs;
+#[path = "trust-runtime/fleet.rs"]
+mod fleet;
 #[path = "trust-runtime/git.rs"]
 mod git;
 #[path = "trust-runtime/hmi.rs"]
@@ -167,6 +173,12 @@ fn run() -> anyhow::Result<()> {
             action,
         }) => ctl::run_control(project, endpoint, token, action),
         Some(Command::Validate { project, ci }) => run::run_validate(project, ci),
+        Some(Command::Check {
+            project,
+            sources,
+            json,
+            ci,
+        }) => check::run_check(project, sources, json, ci),
         Some(Command::Build {
             project,
             sources,
@@ -188,6 +200,8 @@ fn run() -> anyhow::Result<()> {
         Some(Command::Hmi { project, action }) => hmi::run_hmi(project, action),
         Some(Command::Plcopen { action }) => plcopen::run_plcopen(action),
         Some(Command::Ads { action }) => ads::run_ads(action),
+        Some(Command::Comm { action }) => comm::run_comm(action),
+        Some(Command::Fleet { action }) => fleet::run_fleet(action),
         Some(Command::Registry { action }) => registry::run_registry(action),
         Some(Command::Setup {
             mode,
@@ -283,6 +297,8 @@ fn suggest_subcommand(input: &str) -> Option<&'static str> {
         "hmi",
         "plcopen",
         "ads",
+        "comm",
+        "fleet",
         "registry",
         "deploy",
         "rollback",

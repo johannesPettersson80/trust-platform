@@ -4,39 +4,39 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use smol_str::SmolStr;
 
-use crate::bundle_template::{IoConfigTemplate, IoDriverTemplate};
-use crate::config::{IoConfig, IoDriverConfig};
+use crate::config::IoDriverConfig;
 use crate::error::RuntimeError;
-use crate::io::{IoAddress, IoDriverRegistry, IoSafeState, IoSize};
-use crate::value::Value;
+use crate::io::IoDriverRegistry;
 
 use super::contract::COMM_SCHEMA_VERSION;
 use super::schema::{
-    driver_to_protocol, normalize_protocol, protocol_to_driver, supports_snippet_fallback,
+    driver_to_protocol, normalize_protocol, protocol_to_driver, supports_runtime_file_protocol,
 };
 use super::{ControlResponse, ControlState};
 
+mod io_file;
+mod runtime_file;
 mod validation;
 
-use validation::{field_from_error, validate_schema_fields, validate_snippet_fields};
+use validation::{field_from_error, validate_schema_fields};
 
 #[derive(Debug, Deserialize)]
-struct CommApplyRequest {
+pub(super) struct CommApplyRequest {
     protocol: String,
     #[serde(default)]
-    action: CommApplyAction,
-    instance_id: Option<String>,
-    instance_name: Option<String>,
+    pub(super) action: CommApplyAction,
+    pub(super) instance_id: Option<String>,
+    pub(super) instance_name: Option<String>,
     #[serde(default)]
-    params: serde_json::Value,
+    pub(super) params: serde_json::Value,
     #[serde(default)]
-    dry_run: bool,
-    credential_channel: Option<String>,
+    pub(super) dry_run: bool,
+    pub(super) credential_channel: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-enum CommApplyAction {
+pub(super) enum CommApplyAction {
     Add,
     Edit,
     #[default]
@@ -47,28 +47,28 @@ enum CommApplyAction {
 }
 
 #[derive(Debug, Serialize)]
-struct CommApplyResponse {
-    schema_version: u32,
-    protocol: String,
-    driver: String,
-    action: CommApplyAction,
-    applied: bool,
-    lifecycle_effect: &'static str,
-    message: String,
+pub(super) struct CommApplyResponse {
+    pub(super) schema_version: u32,
+    pub(super) protocol: String,
+    pub(super) driver: String,
+    pub(super) action: CommApplyAction,
+    pub(super) applied: bool,
+    pub(super) lifecycle_effect: &'static str,
+    pub(super) message: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    config_path: Option<String>,
+    pub(super) config_path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    instance_id: Option<String>,
+    pub(super) instance_id: Option<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    field_errors: Vec<CommFieldError>,
+    pub(super) field_errors: Vec<CommFieldError>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    snippet: Option<String>,
+    pub(super) snippet: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
-struct CommFieldError {
-    field: String,
-    message: String,
+pub(super) struct CommFieldError {
+    pub(super) field: String,
+    pub(super) message: String,
 }
 
 struct LoadedIoConfig {
@@ -102,11 +102,42 @@ pub(super) fn handle_comm_apply(
     }
 }
 
+pub(super) fn apply_project_value(
+    project_root: &Path,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let mut request: CommApplyRequest = serde_json::from_value(params)
+        .map_err(|error| format!("invalid comm.apply payload: {error}"))?;
+    if request.credential_channel.is_none() {
+        request.credential_channel = Some("trusted_same_host".to_string());
+    }
+    if matches!(
+        request.action,
+        CommApplyAction::Remove | CommApplyAction::Disable
+    ) && request.instance_id.is_none()
+    {
+        request.instance_id = resolve_project_instance_id(project_root, &request);
+    }
+    let response = apply_request_with_project_root(Some(project_root), request);
+    serde_json::to_value(response)
+        .map_err(|error| format!("Communication apply serialization failed: {error}"))
+}
+
 fn apply_request(state: &ControlState, request: CommApplyRequest) -> CommApplyResponse {
+    apply_request_with_project_root(state.project_root.as_deref(), request)
+}
+
+fn apply_request_with_project_root(
+    project_root: Option<&Path>,
+    request: CommApplyRequest,
+) -> CommApplyResponse {
     let protocol = normalize_protocol(request.protocol.as_str());
     let Some(driver) = protocol_to_driver(protocol.as_str()) else {
-        if supports_snippet_fallback(protocol.as_str()) {
-            return snippet_response(protocol, request);
+        if supports_runtime_file_protocol(protocol.as_str()) {
+            return runtime_file::apply_runtime_protocol(project_root, protocol, request);
+        }
+        if matches!(protocol.as_str(), "ads" | "ads_server") {
+            return runtime_file::apply_runtime_protocol(project_root, protocol, request);
         }
         return blocked_response(
             protocol,
@@ -120,7 +151,7 @@ fn apply_request(state: &ControlState, request: CommApplyRequest) -> CommApplyRe
             None,
         );
     };
-    let Some(project_root) = state.project_root.as_ref() else {
+    let Some(project_root) = project_root else {
         return blocked_response(
             protocol,
             driver.to_string(),
@@ -215,7 +246,19 @@ fn apply_request(state: &ControlState, request: CommApplyRequest) -> CommApplyRe
         return remove_io_config_response(protocol, driver.to_string(), request, loaded);
     }
 
-    let io_text = render_io_toml(&loaded.drivers, &loaded.safe_state);
+    let io_text = match io_file::render_io_toml(&loaded.path, &loaded.drivers, &loaded.safe_state) {
+        Ok(text) => text,
+        Err(error) => {
+            return blocked_response(
+                protocol,
+                driver.to_string(),
+                request.action,
+                vec![error],
+                Some(loaded.path.display().to_string()),
+                request.instance_id,
+            )
+        }
+    };
     if let Err(error) = crate::config::validate_io_toml_text(&io_text) {
         return blocked_response(
             protocol,
@@ -239,7 +282,7 @@ fn apply_request(state: &ControlState, request: CommApplyRequest) -> CommApplyRe
             config_path: Some(loaded.path.display().to_string()),
             instance_id: request.instance_id,
             field_errors: Vec::new(),
-            snippet: Some(io_text),
+            snippet: None,
         };
     }
 
@@ -270,6 +313,54 @@ fn apply_request(state: &ControlState, request: CommApplyRequest) -> CommApplyRe
         field_errors: Vec::new(),
         snippet: None,
     }
+}
+
+fn resolve_project_instance_id(project_root: &Path, request: &CommApplyRequest) -> Option<String> {
+    let loaded = load_io_config(project_root).ok()?;
+    let requested_protocol = normalize_protocol(request.protocol.as_str());
+    let requested_params = normalized_request_params(&request.params);
+    let mut matches = loaded
+        .drivers
+        .iter()
+        .enumerate()
+        .filter(|(_, driver)| {
+            driver_to_protocol(driver.name.as_str()) == Some(requested_protocol.as_str())
+        })
+        .filter(|(_, driver)| params_match(requested_params.as_ref(), &driver.params))
+        .map(|(index, _)| format!("{requested_protocol}:{index}"));
+    let first = matches.next()?;
+    if matches.next().is_none() {
+        Some(first)
+    } else {
+        None
+    }
+}
+
+fn normalized_request_params(params: &serde_json::Value) -> Option<toml::Value> {
+    match params {
+        serde_json::Value::Null => Some(toml::Value::Table(Default::default())),
+        serde_json::Value::Object(_) => {
+            let mut value = json_to_toml(params);
+            strip_empty_optional_values(&mut value);
+            Some(value)
+        }
+        _ => None,
+    }
+}
+
+fn params_match(requested: Option<&toml::Value>, existing: &toml::Value) -> bool {
+    let Some(requested) = requested else {
+        return true;
+    };
+    let Some(requested) = requested.as_table() else {
+        return false;
+    };
+    if requested.is_empty() {
+        return true;
+    }
+    requested
+        .iter()
+        .all(|(key, value)| existing.get(key).is_some_and(|existing| existing == value))
 }
 
 fn remove_io_config_response(
@@ -331,75 +422,145 @@ fn remove_io_config_file(path: &Path) -> std::io::Result<()> {
     }
 }
 
-fn snippet_response(protocol: String, request: CommApplyRequest) -> CommApplyResponse {
-    let mut field_errors = Vec::new();
-    if secret_values_present(&request.params)
-        && request.credential_channel.as_deref() != Some("trusted_same_host")
-    {
-        field_errors.push(field_error(
-            "password",
-            "Secret fields cannot be sent over an untrusted runtime control channel.",
-        ));
-    }
-    let params = match &request.params {
-        serde_json::Value::Null => serde_json::Value::Object(Default::default()),
-        serde_json::Value::Object(_) => request.params.clone(),
-        _ => {
-            field_errors.push(field_error("params", "Parameters must be an object."));
-            serde_json::Value::Object(Default::default())
-        }
-    };
-    let mut params_toml = json_to_toml(&params);
-    strip_empty_optional_values(&mut params_toml);
-    if let Some(table) = params_toml.as_table() {
-        field_errors.extend(validate_snippet_fields(protocol.as_str(), table));
-    } else {
-        field_errors.push(field_error("params", "Parameters must be a table/object."));
-    }
-    if !field_errors.is_empty() {
-        return blocked_response(
-            protocol,
-            String::new(),
-            request.action,
-            field_errors,
-            Some("runtime.toml".to_string()),
-            None,
-        );
-    }
-    let snippet = match params_toml.as_table() {
-        Some(table) => render_runtime_snippet(protocol.as_str(), table),
-        None => String::new(),
-    };
-    CommApplyResponse {
-        schema_version: COMM_SCHEMA_VERSION,
-        protocol,
-        driver: String::new(),
-        action: request.action,
-        applied: false,
-        lifecycle_effect: "deploy_required",
-        message: "Configuration validated. Paste this snippet into runtime.toml, then restart or deploy the runtime to apply it.".to_string(),
-        config_path: Some("runtime.toml".to_string()),
-        instance_id: None,
-        field_errors: Vec::new(),
-        snippet: Some(snippet),
-    }
-}
-
 fn load_io_config(project_root: &Path) -> Result<LoadedIoConfig, RuntimeError> {
     let path = project_root.join("io.toml");
     if path.is_file() {
-        let config = IoConfig::load(&path)?;
-        return Ok(LoadedIoConfig {
-            path,
-            drivers: config.drivers,
-            safe_state: format_safe_state(&config.safe_state),
-        });
+        return load_editable_io_config(&path);
     }
     Ok(LoadedIoConfig {
         path,
         drivers: Vec::new(),
         safe_state: vec![("%QX0.0".to_string(), "FALSE".to_string())],
     })
+}
+
+fn load_editable_io_config(path: &Path) -> Result<LoadedIoConfig, RuntimeError> {
+    let text = std::fs::read_to_string(path).map_err(|error| {
+        RuntimeError::IoDriver(SmolStr::new(format!(
+            "failed to read {}: {error}",
+            path.display()
+        )))
+    })?;
+    let value = text.parse::<toml::Table>().map_err(|error| {
+        RuntimeError::IoDriver(SmolStr::new(format!("invalid io.toml: {error}")))
+    })?;
+    let Some(io) = value.get("io").and_then(toml::Value::as_table) else {
+        return Ok(LoadedIoConfig {
+            path: path.to_path_buf(),
+            drivers: Vec::new(),
+            safe_state: vec![("%QX0.0".to_string(), "FALSE".to_string())],
+        });
+    };
+    Ok(LoadedIoConfig {
+        path: path.to_path_buf(),
+        drivers: io_drivers_from_toml(io)?,
+        safe_state: safe_state_entries_from_toml(io.get("safe_state"))?,
+    })
+}
+
+fn io_drivers_from_toml(
+    io: &toml::map::Map<String, toml::Value>,
+) -> Result<Vec<IoDriverConfig>, RuntimeError> {
+    let mut drivers = Vec::new();
+    if let Some(driver) = io
+        .get("driver")
+        .and_then(toml::Value::as_str)
+        .map(str::trim)
+        .filter(|driver| !driver.is_empty())
+    {
+        let params = io
+            .get("params")
+            .cloned()
+            .unwrap_or_else(|| toml::Value::Table(toml::map::Map::new()));
+        if !params.is_table() {
+            return Err(RuntimeError::IoDriver(SmolStr::new(
+                "invalid io.toml: io.params must be a table",
+            )));
+        }
+        drivers.push(IoDriverConfig {
+            name: SmolStr::new(driver),
+            params,
+        });
+    }
+    let Some(explicit_drivers) = io.get("drivers") else {
+        return Ok(drivers);
+    };
+    let explicit_drivers = explicit_drivers.as_array().ok_or_else(|| {
+        RuntimeError::IoDriver(SmolStr::new(
+            "invalid io.toml: io.drivers must be an array of tables",
+        ))
+    })?;
+    for (index, driver) in explicit_drivers.iter().enumerate() {
+        let table = driver.as_table().ok_or_else(|| {
+            RuntimeError::IoDriver(SmolStr::new(format!(
+                "invalid io.toml: io.drivers[{index}] must be a table"
+            )))
+        })?;
+        let name = table
+            .get("name")
+            .or_else(|| table.get("driver"))
+            .and_then(toml::Value::as_str)
+            .map(str::trim)
+            .filter(|name| !name.is_empty())
+            .ok_or_else(|| {
+                RuntimeError::IoDriver(SmolStr::new(format!(
+                    "invalid io.toml: io.drivers[{index}].name must not be empty"
+                )))
+            })?;
+        let params = table
+            .get("params")
+            .cloned()
+            .unwrap_or_else(|| toml::Value::Table(toml::map::Map::new()));
+        if !params.is_table() {
+            return Err(RuntimeError::IoDriver(SmolStr::new(format!(
+                "invalid io.toml: io.drivers[{index}].params must be a table"
+            ))));
+        }
+        drivers.push(IoDriverConfig {
+            name: SmolStr::new(name),
+            params,
+        });
+    }
+    Ok(drivers)
+}
+
+fn safe_state_entries_from_toml(
+    value: Option<&toml::Value>,
+) -> Result<Vec<(String, String)>, RuntimeError> {
+    let Some(value) = value else {
+        return Ok(vec![("%QX0.0".to_string(), "FALSE".to_string())]);
+    };
+    let entries = value.as_array().ok_or_else(|| {
+        RuntimeError::IoDriver(SmolStr::new(
+            "invalid io.toml: io.safe_state must be an array",
+        ))
+    })?;
+    let mut safe_state = Vec::new();
+    for entry in entries {
+        let table = entry.as_table().ok_or_else(|| {
+            RuntimeError::IoDriver(SmolStr::new(
+                "invalid io.toml: each io.safe_state entry must be a table",
+            ))
+        })?;
+        let address = table
+            .get("address")
+            .and_then(toml::Value::as_str)
+            .ok_or_else(|| {
+                RuntimeError::IoDriver(SmolStr::new(
+                    "invalid io.toml: io.safe_state entry missing address",
+                ))
+            })?;
+        let value = table
+            .get("value")
+            .and_then(toml::Value::as_str)
+            .ok_or_else(|| {
+                RuntimeError::IoDriver(SmolStr::new(
+                    "invalid io.toml: io.safe_state entry missing value",
+                ))
+            })?;
+        safe_state.push((address.to_string(), value.to_string()));
+    }
+    Ok(safe_state)
 }
 
 fn build_driver_config(
@@ -439,87 +600,6 @@ fn validate_driver_config(protocol: &str, driver: &IoDriverConfig) -> Vec<CommFi
         ));
     }
     errors
-}
-
-fn render_runtime_snippet(protocol: &str, table: &toml::map::Map<String, toml::Value>) -> String {
-    let mut root = toml::map::Map::new();
-    let mut runtime = toml::map::Map::new();
-    match protocol {
-        "runtime_cloud" => {
-            let mut cloud = toml::map::Map::new();
-            if let Some(profile) = table.get("profile") {
-                cloud.insert("profile".into(), profile.clone());
-            }
-            let mut wan = toml::map::Map::new();
-            if let Some(rules) = table.get("wan_allow_write") {
-                wan.insert("allow_write".into(), rules.clone());
-            }
-            if !wan.is_empty() {
-                cloud.insert("wan".into(), toml::Value::Table(wan));
-            }
-            let mut links = toml::map::Map::new();
-            if let Some(transports) = table.get("link_transports") {
-                links.insert("transports".into(), transports.clone());
-            }
-            if !links.is_empty() {
-                cloud.insert("links".into(), toml::Value::Table(links));
-            }
-            runtime.insert("cloud".into(), toml::Value::Table(cloud));
-        }
-        "realtime_t0" => {
-            runtime.insert(
-                "realtime".into(),
-                toml::Value::Table(filtered_table(table, &[])),
-            );
-        }
-        "opcua" => {
-            let mut section = filtered_table(table, &[]);
-            if section
-                .get("password")
-                .and_then(toml::Value::as_str)
-                .is_some_and(|value| !value.trim().is_empty())
-            {
-                section.insert(
-                    "password".into(),
-                    toml::Value::String("<set on runtime host>".into()),
-                );
-            }
-            runtime.insert("opcua".into(), toml::Value::Table(section));
-        }
-        "mesh" => {
-            let mut section = filtered_table(table, &[]);
-            if section
-                .get("auth_token")
-                .and_then(toml::Value::as_str)
-                .is_some_and(|value| !value.trim().is_empty())
-            {
-                section.insert(
-                    "auth_token".into(),
-                    toml::Value::String("<set on runtime host>".into()),
-                );
-            }
-            runtime.insert("mesh".into(), toml::Value::Table(section));
-        }
-        other => {
-            runtime.insert(other.into(), toml::Value::Table(filtered_table(table, &[])));
-        }
-    }
-    root.insert("runtime".into(), toml::Value::Table(runtime));
-    toml::to_string_pretty(&toml::Value::Table(root)).unwrap_or_default()
-}
-
-fn filtered_table(
-    table: &toml::map::Map<String, toml::Value>,
-    skip: &[&str],
-) -> toml::map::Map<String, toml::Value> {
-    table
-        .iter()
-        .filter(|(key, value)| {
-            !skip.contains(&key.as_str())
-                && !matches!(value, toml::Value::String(text) if text.trim().is_empty())
-        })
-        .map(|(key, value)| (key.clone(), value.clone()))
-        .collect()
 }
 
 fn upsert_instance(
@@ -615,71 +695,7 @@ fn same_driver(left: &str, right: &str) -> bool {
     driver_to_protocol(left) == driver_to_protocol(right)
 }
 
-fn render_io_toml(drivers: &[IoDriverConfig], safe_state: &[(String, String)]) -> String {
-    let template = IoConfigTemplate {
-        drivers: drivers
-            .iter()
-            .map(|driver| IoDriverTemplate {
-                name: driver.name.to_string(),
-                params: driver.params.clone(),
-            })
-            .collect(),
-        safe_state: safe_state.to_vec(),
-    };
-    crate::bundle_template::render_io_toml(&template)
-}
-
-fn format_safe_state(safe_state: &IoSafeState) -> Vec<(String, String)> {
-    safe_state
-        .outputs
-        .iter()
-        .map(|(address, value)| (format_io_address(address), format_io_value(value)))
-        .collect()
-}
-
-fn format_io_address(address: &IoAddress) -> String {
-    let area = match address.area {
-        crate::memory::IoArea::Input => "I",
-        crate::memory::IoArea::Output => "Q",
-        crate::memory::IoArea::Memory => "M",
-    };
-    let size = match address.size {
-        IoSize::Bit => "X",
-        IoSize::Byte => "B",
-        IoSize::Word => "W",
-        IoSize::DWord => "D",
-        IoSize::LWord => "L",
-    };
-    if address.wildcard {
-        return format!("%{area}{size}*");
-    }
-    if matches!(address.size, IoSize::Bit) {
-        format!("%{area}{size}{}.{}", address.byte, address.bit)
-    } else {
-        format!("%{area}{size}{}", address.byte)
-    }
-}
-
-fn format_io_value(value: &Value) -> String {
-    match value {
-        Value::Bool(value) => value.to_string().to_ascii_uppercase(),
-        Value::SInt(value) => value.to_string(),
-        Value::USInt(value) => value.to_string(),
-        Value::Int(value) => value.to_string(),
-        Value::UInt(value) => value.to_string(),
-        Value::DInt(value) => value.to_string(),
-        Value::UDInt(value) => value.to_string(),
-        Value::LInt(value) => value.to_string(),
-        Value::ULInt(value) => value.to_string(),
-        Value::Byte(value) => value.to_string(),
-        Value::Word(value) => value.to_string(),
-        Value::DWord(value) => value.to_string(),
-        Value::LWord(value) => value.to_string(),
-        other => format!("{other:?}"),
-    }
-}
-
-fn blocked_response(
+pub(super) fn blocked_response(
     protocol: String,
     driver: String,
     action: CommApplyAction,
@@ -703,14 +719,14 @@ fn blocked_response(
     }
 }
 
-fn field_error(field: impl Into<String>, message: impl Into<String>) -> CommFieldError {
+pub(super) fn field_error(field: impl Into<String>, message: impl Into<String>) -> CommFieldError {
     CommFieldError {
         field: field.into(),
         message: message.into(),
     }
 }
 
-fn json_to_toml(value: &serde_json::Value) -> toml::Value {
+pub(super) fn json_to_toml(value: &serde_json::Value) -> toml::Value {
     match value {
         serde_json::Value::Null => toml::Value::String(String::new()),
         serde_json::Value::Bool(value) => toml::Value::Boolean(*value),
@@ -739,7 +755,7 @@ fn json_to_toml(value: &serde_json::Value) -> toml::Value {
     }
 }
 
-fn strip_empty_optional_values(value: &mut toml::Value) {
+pub(super) fn strip_empty_optional_values(value: &mut toml::Value) {
     let Some(table) = value.as_table_mut() else {
         return;
     };
@@ -765,7 +781,7 @@ fn strip_empty_optional_values(value: &mut toml::Value) {
     }
 }
 
-fn secret_values_present(params: &serde_json::Value) -> bool {
+pub(super) fn secret_values_present(params: &serde_json::Value) -> bool {
     match params {
         serde_json::Value::Object(values) => values.iter().any(|(key, value)| {
             is_secret_key(key) && value.as_str().is_some_and(|value| !value.trim().is_empty())

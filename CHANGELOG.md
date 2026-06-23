@@ -74,6 +74,46 @@ Target release: `v0.24.25`
   configured counterpart nodes/links for ADS targets, Modbus TCP devices, and
   EtherCAT segments so the canvas no longer needs to infer or fabricate those
   graph relationships.
+- trust-runtime: added offline `trust-runtime comm schema`, `comm topology`,
+  and `comm apply` CLI commands so VS Code can inspect and edit communication
+  settings from project files without a running runtime; offline topology now
+  includes redacted endpoint params for setup prefill while keeping live status
+  non-green until runtime evidence exists.
+- trust-runtime: advanced the Communication/Network Canvas setup contract to
+  `comm.schema` version 4 with device-first protocol categories, config-home
+  metadata, ADS/ADS-server schemas, and universal
+  file-writing `comm.apply` behavior for `io.toml`, `runtime.toml`, and ADS
+  runtime setup instead of detached paste snippets.
+- trust-runtime: made OPC UA wire/server support part of the default runtime
+  build and added `comm.schema` availability metadata plus a schema-vs-capability
+  regression gate so user-visible default communication protocols cannot be
+  advertised without being compiled into the runtime for the current platform.
+- trust-runtime: added offline `trust-runtime fleet runtime add` and
+  `trust-runtime fleet list` commands for Network Canvas host-level runtime
+  setup; the new `fleet.toml` manifest registers sibling runtime projects,
+  creates loopback-only control/web endpoints with per-project control tokens,
+  and keeps newly-created runtimes offline/configured until they are actually
+  started.
+- trust-runtime: added `comm.discover` and `comm.browse_symbols` control/CLI
+  surfaces for the Network Canvas Browse/Connect flow; the first slice can
+  discover ADS targets, truST runtimes, connect-only Modbus TCP endpoints, and
+  targeted MQTT brokers, returns an honest server-only warning for OPC UA
+  instead of orphaned client candidates, and can browse ADS symbols as a generic
+  tree while reusing the existing ADS import/generate-ST candidate payload.
+- trust-runtime: completed the Network Canvas Browse/Connect backend by adding
+  offline local-global symbol browsing for OPC UA server, ADS server, and
+  OpenOT expose pickers; exact selected-tag `ads.import_symbols.apply` writes
+  `ads.toml`, cached symbol snapshots, and generated ST through the existing
+  ADS import pipeline; EtherCAT endpoint `children[]`/channel browsing now
+  come from configured modules; and runtime-origin EtherCAT/GPIO discovery now
+  reports real observed bus/modules or GPIO lines without write probes.
+- trust-runtime: made ADS client wire support and the ADS server part of the
+  default runtime build so normal release binaries include the ADS functionality
+  validated with TwinCAT, without requiring custom feature flags.
+- trust-runtime: added `trust-runtime check --json/--ci` for VS Code's real
+  Check program backend; it validates project config and compiles sources to
+  bytecode in memory without writing `program.stbc`, returning structured
+  issues for editor rendering.
 
 - trust-runtime: OpenOT telemetry can now publish real encoded records from a
   configured ST OpenOT producer FB via `[runtime.openot] source = "st-fb"` and
@@ -216,6 +256,28 @@ Target release: `v0.24.25`
 
 ### Fixed
 
+- vscode: release packaging now bundles `trust-runtime` inside the VSIX next
+  to `trust-lsp` and `trust-debug`, so fresh installs can use offline
+  Devices & Connections configuration without requiring a separate runtime
+  binary on `PATH`.
+- trust-runtime: Network Canvas communication setup now labels the ADS client
+  timing knob as an ADS link update interval instead of the internal "worker
+  tick" term, and offline fleet topology now uses the OS hostname before
+  falling back to `local-host`.
+- trust-runtime: ADS live symbol browsing and exact-tag import now treat
+  symbol-upload no-reply/timeouts after a stale route check as structured
+  `route.status = "missing"` responses with an `ads.route_plan`, so the
+  Network Canvas can show "Create route" instead of a raw ADS timeout when the
+  TwinCAT return AMS route is missing.
+- trust-runtime: `comm.schema` now advertises the implemented
+  Discover/Browse actions for EtherCAT, GPIO, OPC UA expose, and ADS-server
+  expose workflows, and `comm.apply` now bootstraps Network Canvas I/O edits
+  from single-driver, empty, or comment-only `io.toml` files by writing the
+  canonical multi-driver form instead of blocking on setup placeholder files.
+- trust-runtime: HMI persistence reload now parses persisted JSONL trend/alarm
+  records through a tolerant record reader, avoiding a deterministic reload
+  failure observed in the full remote runtime gate while preserving the stored
+  wire format.
 - trust-debug: debug-launched local simulator control servers now receive the
   launch project root, letting `comm.apply` create or update the project's
   `io.toml` instead of failing Network Canvas easy-setup with "No runtime

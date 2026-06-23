@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use serde::Serialize;
 use serde_json::json;
 
@@ -7,15 +9,14 @@ use super::{ControlResponse, ControlState};
 mod fields;
 
 use fields::{
-    discovery_fields, ethercat_fields, gpio_fields, loopback_fields, mesh_fields, modbus_fields,
-    mqtt_fields, opcua_fields, openot_fields, realtime_fields, runtime_cloud_fields,
-    simulated_fields,
+    ads_fields, ads_server_fields, discovery_fields, ethercat_fields, gpio_fields, loopback_fields,
+    mesh_fields, modbus_fields, mqtt_fields, opcua_fields, openot_fields, realtime_fields,
+    runtime_cloud_fields, simulated_fields,
 };
 
 #[derive(Debug, Serialize)]
 struct CommSchemaResponse {
     schema_version: u32,
-    family: &'static str,
     protocols: Vec<CommProtocolSchema>,
 }
 
@@ -25,6 +26,11 @@ struct CommProtocolSchema {
     driver: &'static str,
     title: &'static str,
     purpose: &'static str,
+    availability: &'static str,
+    category: &'static str,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    categories: Vec<&'static str>,
+    config_home: &'static str,
     apply_mode: &'static str,
     lifecycle_effect: &'static str,
     supports_test: bool,
@@ -59,33 +65,52 @@ struct CommConfiguredInstance {
     params: serde_json::Value,
 }
 
+struct IoProtocolSpec {
+    id: &'static str,
+    driver: &'static str,
+    title: &'static str,
+    purpose: &'static str,
+    supports_test: bool,
+    fields: Vec<CommFieldSchema>,
+}
+
 pub(super) fn handle_comm_schema(
     id: u64,
     params: Option<serde_json::Value>,
     state: &ControlState,
 ) -> ControlResponse {
+    match comm_schema_value(params.as_ref(), state.project_root.as_deref()) {
+        Ok(value) => ControlResponse::ok(id, value),
+        Err(error) => {
+            ControlResponse::error(id, format!("Communication schema build failed: {error}"))
+        }
+    }
+}
+
+pub(super) fn static_comm_schema_value(
+    params: Option<&serde_json::Value>,
+) -> Result<serde_json::Value, String> {
+    comm_schema_value(params, None)
+}
+
+fn comm_schema_value(
+    params: Option<&serde_json::Value>,
+    project_root: Option<&Path>,
+) -> Result<serde_json::Value, String> {
     let filter = params
-        .as_ref()
         .and_then(|value| value.get("protocol"))
         .and_then(serde_json::Value::as_str)
         .map(normalize_protocol);
-    let instances = configured_instances(state);
+    let instances = project_root.map_or_else(Vec::new, configured_instances_from_root);
     let mut protocols = communication_protocol_schemas(&instances);
     if let Some(filter) = filter {
         protocols.retain(|protocol| protocol.id == filter);
     }
-    let response = CommSchemaResponse {
+    serde_json::to_value(CommSchemaResponse {
         schema_version: COMM_SCHEMA_VERSION,
-        family: "io",
         protocols,
-    };
-    match serde_json::to_value(response) {
-        Ok(value) => ControlResponse::ok(id, value),
-        Err(error) => ControlResponse::error(
-            id,
-            format!("Communication schema serialization failed: {error}"),
-        ),
-    }
+    })
+    .map_err(|error| format!("Communication schema serialization failed: {error}"))
 }
 
 pub(super) fn normalize_protocol(value: &str) -> String {
@@ -104,7 +129,7 @@ pub(super) fn protocol_to_driver(protocol: &str) -> Option<&'static str> {
     }
 }
 
-pub(super) fn supports_snippet_fallback(protocol: &str) -> bool {
+pub(super) fn supports_runtime_file_protocol(protocol: &str) -> bool {
     matches!(
         normalize_protocol(protocol).as_str(),
         "opcua" | "openot" | "discovery" | "mesh" | "realtime_t0" | "runtime_cloud"
@@ -123,10 +148,7 @@ pub(super) fn driver_to_protocol(driver: &str) -> Option<&'static str> {
     }
 }
 
-fn configured_instances(state: &ControlState) -> Vec<CommConfiguredInstance> {
-    let Some(root) = state.project_root.as_ref() else {
-        return Vec::new();
-    };
+fn configured_instances_from_root(root: &Path) -> Vec<CommConfiguredInstance> {
     let path = root.join("io.toml");
     let Ok(config) = crate::config::IoConfig::load(&path) else {
         return Vec::new();
@@ -150,138 +172,180 @@ fn configured_instances(state: &ControlState) -> Vec<CommConfiguredInstance> {
 fn io_protocol_schemas(instances: &[CommConfiguredInstance]) -> Vec<CommProtocolSchema> {
     vec![
         protocol_schema(
-            "modbus_tcp",
-            "modbus-tcp",
-            "Modbus TCP",
-            "Read and write register-oriented devices or PLC endpoints.",
-            true,
-            modbus_fields(),
+            IoProtocolSpec {
+                id: "modbus_tcp",
+                driver: "modbus-tcp",
+                title: "Modbus TCP",
+                purpose: "Read and write register-oriented devices or PLC endpoints.",
+                supports_test: true,
+                fields: modbus_fields(),
+            },
             instances,
         ),
         protocol_schema(
-            "mqtt",
-            "mqtt",
-            "MQTT",
-            "Publish and subscribe process I/O through a broker.",
-            true,
-            mqtt_fields(),
+            IoProtocolSpec {
+                id: "mqtt",
+                driver: "mqtt",
+                title: "MQTT",
+                purpose: "Publish and subscribe process I/O through a broker.",
+                supports_test: true,
+                fields: mqtt_fields(),
+            },
             instances,
         ),
         protocol_schema(
-            "ethercat",
-            "ethercat",
-            "EtherCAT",
-            "Wire deterministic fieldbus I/O through a real NIC.",
-            false,
-            ethercat_fields(),
+            IoProtocolSpec {
+                id: "ethercat",
+                driver: "ethercat",
+                title: "EtherCAT",
+                purpose: "Wire deterministic fieldbus I/O through a real NIC.",
+                supports_test: false,
+                fields: ethercat_fields(),
+            },
             instances,
         ),
         protocol_schema(
-            "gpio",
-            "gpio",
-            "GPIO",
-            "Map local Linux/Pi pins to runtime I/O.",
-            false,
-            gpio_fields(),
+            IoProtocolSpec {
+                id: "gpio",
+                driver: "gpio",
+                title: "GPIO",
+                purpose: "Map local Linux/Pi pins to runtime I/O.",
+                supports_test: false,
+                fields: gpio_fields(),
+            },
             instances,
         ),
         protocol_schema(
-            "simulated",
-            "simulated",
-            "Simulated I/O",
-            "Try process I/O without hardware.",
-            false,
-            simulated_fields(),
+            IoProtocolSpec {
+                id: "simulated",
+                driver: "simulated",
+                title: "Simulated I/O",
+                purpose: "Try process I/O without hardware.",
+                supports_test: false,
+                fields: simulated_fields(),
+            },
             instances,
         ),
         protocol_schema(
-            "loopback",
-            "loopback",
-            "Loopback I/O",
-            "Echo outputs back into inputs for fast local sanity checks.",
-            false,
-            loopback_fields(),
+            IoProtocolSpec {
+                id: "loopback",
+                driver: "loopback",
+                title: "Loopback I/O",
+                purpose: "Echo outputs back into inputs for fast local sanity checks.",
+                supports_test: false,
+                fields: loopback_fields(),
+            },
             instances,
         ),
     ]
 }
 
 fn communication_protocol_schemas(instances: &[CommConfiguredInstance]) -> Vec<CommProtocolSchema> {
-    let mut protocols = Vec::with_capacity(12);
+    let mut protocols = Vec::with_capacity(14);
     protocols.extend(io_protocol_schemas(instances));
     protocols.extend([
-        snippet_protocol_schema(
+        runtime_protocol_schema(
             "opcua",
             "OPC UA",
             "Let SCADA, HMI, or historian software read and write exposed PLC tags.",
+            "supervisory_service",
             opcua_fields(),
         ),
-        snippet_protocol_schema(
+        runtime_protocol_schema(
             "openot",
             "OpenOT",
             "Publish telemetry and evidence records from runtime variables.",
+            "supervisory_service",
             openot_fields(),
         ),
-        snippet_protocol_schema(
+        runtime_protocol_schema(
             "discovery",
             "Discovery",
             "Find and pair truST runtimes on the network.",
+            "peer_link",
             discovery_fields(),
         ),
-        snippet_protocol_schema(
+        runtime_protocol_schema(
             "mesh",
             "Mesh / Zenoh",
             "Share runtime data with peer, client, or router topology.",
+            "peer_link",
             mesh_fields(),
         ),
-        snippet_protocol_schema(
+        runtime_protocol_schema(
             "realtime_t0",
             "Realtime T0",
             "Configure Linux realtime posture for deterministic same-host exchange.",
+            "peer_link",
             realtime_fields(),
         ),
-        snippet_protocol_schema(
+        runtime_protocol_schema(
             "runtime_cloud",
             "Runtime cloud / federation",
             "Configure federation policy without pretending it is a live link.",
+            "peer_link",
             runtime_cloud_fields(),
         ),
+        runtime_protocol_schema(
+            "ads_server",
+            "ADS server",
+            "Expose selected truST globals to TwinCAT or ADS clients.",
+            "supervisory_service",
+            ads_server_fields(),
+        ),
+        ads_protocol_schema(),
     ]);
     protocols
 }
 
 fn protocol_schema(
-    id: &'static str,
-    driver: &'static str,
-    title: &'static str,
-    purpose: &'static str,
-    supports_test: bool,
-    fields: Vec<CommFieldSchema>,
+    spec: IoProtocolSpec,
     instances: &[CommConfiguredInstance],
 ) -> CommProtocolSchema {
+    let categories = if spec.id == "mqtt" {
+        vec!["field_device", "supervisory_service"]
+    } else {
+        vec!["field_device"]
+    };
     CommProtocolSchema {
-        id,
-        driver,
-        title,
-        purpose,
-        apply_mode: "native",
+        id: spec.id,
+        driver: spec.driver,
+        title: spec.title,
+        purpose: spec.purpose,
+        availability: "default",
+        category: "field_device",
+        categories,
+        config_home: "io.toml",
+        apply_mode: "file",
         lifecycle_effect: "restart_required",
-        supports_test,
+        supports_test: spec.supports_test,
         supports_multi_instance: true,
-        actions: vec!["add", "edit", "remove", "disable"],
-        fields,
+        actions: io_protocol_actions(spec.id),
+        fields: spec.fields,
         instances: instances
             .iter()
-            .filter(|instance| driver_to_protocol(instance.driver.as_str()) == Some(id))
+            .filter(|instance| driver_to_protocol(instance.driver.as_str()) == Some(spec.id))
             .cloned()
             .collect(),
     }
 }
 
-fn snippet_protocol_schema(
+fn io_protocol_actions(protocol: &str) -> Vec<&'static str> {
+    let mut actions = vec!["add", "edit", "upsert", "remove", "disable"];
+    if matches!(protocol, "modbus_tcp" | "mqtt" | "ethercat" | "gpio") {
+        actions.push("discover");
+    }
+    if protocol == "ethercat" {
+        actions.push("browse_symbols");
+    }
+    actions
+}
+
+fn runtime_protocol_schema(
     id: &'static str,
     title: &'static str,
     purpose: &'static str,
+    category: &'static str,
     fields: Vec<CommFieldSchema>,
 ) -> CommProtocolSchema {
     CommProtocolSchema {
@@ -289,12 +353,57 @@ fn snippet_protocol_schema(
         driver: "",
         title,
         purpose,
-        apply_mode: "snippet",
-        lifecycle_effect: "deploy_required",
+        availability: "default",
+        category,
+        categories: vec![category],
+        config_home: "runtime.toml",
+        apply_mode: "file",
+        lifecycle_effect: "restart_required",
         supports_test: false,
         supports_multi_instance: false,
-        actions: vec!["validate"],
+        actions: runtime_protocol_actions(id),
         fields,
+        instances: Vec::new(),
+    }
+}
+
+fn runtime_protocol_actions(protocol: &str) -> Vec<&'static str> {
+    let mut actions = vec!["edit", "upsert", "remove", "disable"];
+    if matches!(protocol, "discovery" | "opcua") {
+        actions.push("discover");
+    }
+    if matches!(protocol, "opcua" | "ads_server") {
+        actions.push("browse_symbols");
+    }
+    actions
+}
+
+fn ads_protocol_schema() -> CommProtocolSchema {
+    CommProtocolSchema {
+        id: "ads",
+        driver: "",
+        title: "ADS client",
+        purpose: "Connect this runtime to a TwinCAT or ADS PLC.",
+        availability: "default",
+        category: "peer_link",
+        categories: vec!["peer_link"],
+        config_home: "ads.toml",
+        apply_mode: "file",
+        lifecycle_effect: "restart_required",
+        supports_test: true,
+        supports_multi_instance: true,
+        actions: vec![
+            "add",
+            "edit",
+            "upsert",
+            "remove",
+            "disable",
+            "discover",
+            "browse_symbols",
+            "doctor",
+            "route_script",
+        ],
+        fields: ads_fields(),
         instances: Vec::new(),
     }
 }
@@ -328,10 +437,193 @@ mod tests {
                 "{} must map to its IoDriverConfig name",
                 protocol.id
             );
-            assert_eq!(protocol.apply_mode, "native");
+            assert_eq!(protocol.category, "field_device");
+            assert_eq!(protocol.config_home, "io.toml");
+            assert_eq!(protocol.apply_mode, "file");
             assert!(protocol.supports_multi_instance);
-            assert_eq!(protocol.actions, vec!["add", "edit", "remove", "disable"]);
+            let mut expected_actions = vec!["add", "edit", "upsert", "remove", "disable"];
+            if matches!(protocol.id, "modbus_tcp" | "mqtt" | "ethercat" | "gpio") {
+                expected_actions.push("discover");
+            }
+            if protocol.id == "ethercat" {
+                expected_actions.push("browse_symbols");
+            }
+            assert_eq!(protocol.actions, expected_actions);
         }
+    }
+
+    #[test]
+    fn schema_v4_exposes_categories_config_homes_and_ads_protocols_without_profiles() {
+        let value = static_comm_schema_value(None).expect("schema");
+        assert_eq!(
+            value
+                .pointer("/schema_version")
+                .and_then(serde_json::Value::as_u64),
+            Some(4)
+        );
+        assert!(value.get("family").is_none());
+        let protocols = value
+            .get("protocols")
+            .and_then(serde_json::Value::as_array)
+            .expect("protocols");
+        let by_id = |id: &str| {
+            protocols
+                .iter()
+                .find(|protocol| protocol.get("id").and_then(serde_json::Value::as_str) == Some(id))
+                .unwrap_or_else(|| panic!("missing protocol {id}"))
+        };
+        assert!(
+            protocols
+                .iter()
+                .all(|protocol| protocol.get("profiles").is_none()),
+            "comm.schema must not expose rejected device archetype profiles: {protocols:?}"
+        );
+        assert!(
+            protocols.iter().all(|protocol| protocol
+                .get("availability")
+                .and_then(serde_json::Value::as_str)
+                == Some("default")),
+            "normal comm.schema protocols must be default-built unless explicitly marked optional_build: {protocols:?}"
+        );
+
+        let modbus = by_id("modbus_tcp");
+        assert_eq!(
+            modbus.get("category").and_then(serde_json::Value::as_str),
+            Some("field_device")
+        );
+        assert_eq!(
+            modbus
+                .get("config_home")
+                .and_then(serde_json::Value::as_str),
+            Some("io.toml")
+        );
+        assert_eq!(
+            modbus.get("apply_mode").and_then(serde_json::Value::as_str),
+            Some("file")
+        );
+
+        let mqtt = by_id("mqtt");
+        let categories = mqtt
+            .get("categories")
+            .and_then(serde_json::Value::as_array)
+            .expect("mqtt categories");
+        assert!(categories
+            .iter()
+            .any(|value| value.as_str() == Some("field_device")));
+        assert!(categories
+            .iter()
+            .any(|value| value.as_str() == Some("supervisory_service")));
+
+        let opcua = by_id("opcua");
+        assert_eq!(
+            opcua.get("category").and_then(serde_json::Value::as_str),
+            Some("supervisory_service")
+        );
+        assert_eq!(
+            opcua.get("config_home").and_then(serde_json::Value::as_str),
+            Some("runtime.toml")
+        );
+        assert_eq!(
+            opcua.get("apply_mode").and_then(serde_json::Value::as_str),
+            Some("file")
+        );
+        let opcua_actions = opcua
+            .get("actions")
+            .and_then(serde_json::Value::as_array)
+            .expect("opcua actions");
+        assert!(opcua_actions
+            .iter()
+            .any(|value| value.as_str() == Some("discover")));
+        assert!(opcua_actions
+            .iter()
+            .any(|value| value.as_str() == Some("browse_symbols")));
+
+        let ethercat_actions = by_id("ethercat")
+            .get("actions")
+            .and_then(serde_json::Value::as_array)
+            .expect("ethercat actions");
+        for action in ["discover", "browse_symbols"] {
+            assert!(
+                ethercat_actions
+                    .iter()
+                    .any(|value| value.as_str() == Some(action)),
+                "missing EtherCAT action {action}"
+            );
+        }
+
+        let gpio_actions = by_id("gpio")
+            .get("actions")
+            .and_then(serde_json::Value::as_array)
+            .expect("gpio actions");
+        assert!(gpio_actions
+            .iter()
+            .any(|value| value.as_str() == Some("discover")));
+
+        let ads = by_id("ads");
+        assert_eq!(
+            ads.get("category").and_then(serde_json::Value::as_str),
+            Some("peer_link")
+        );
+        assert_eq!(
+            ads.get("config_home").and_then(serde_json::Value::as_str),
+            Some("ads.toml")
+        );
+        let ads_actions = ads
+            .get("actions")
+            .and_then(serde_json::Value::as_array)
+            .expect("ads actions");
+        for action in ["discover", "browse_symbols", "doctor", "route_script"] {
+            assert!(
+                ads_actions
+                    .iter()
+                    .any(|value| value.as_str() == Some(action)),
+                "missing ADS action {action}"
+            );
+        }
+        let ads_fields = ads
+            .get("fields")
+            .and_then(serde_json::Value::as_array)
+            .expect("ads fields");
+        let update_interval = ads_fields
+            .iter()
+            .find(|field| {
+                field.get("id").and_then(serde_json::Value::as_str)
+                    == Some("worker_tick_interval_ms")
+            })
+            .expect("ads update interval field");
+        assert_eq!(
+            update_interval
+                .get("label")
+                .and_then(serde_json::Value::as_str),
+            Some("ADS link update interval (ms)")
+        );
+        let update_help = update_interval
+            .get("help")
+            .and_then(serde_json::Value::as_str)
+            .expect("ads update interval help");
+        assert!(update_help.contains("reads, writes, reconnects, and status updates"));
+        assert!(!update_help.contains("worker tick"));
+
+        let ads_server = by_id("ads_server");
+        assert_eq!(
+            ads_server
+                .get("category")
+                .and_then(serde_json::Value::as_str),
+            Some("supervisory_service")
+        );
+        assert_eq!(
+            ads_server
+                .get("config_home")
+                .and_then(serde_json::Value::as_str),
+            Some("runtime.toml")
+        );
+        let ads_server_actions = ads_server
+            .get("actions")
+            .and_then(serde_json::Value::as_array)
+            .expect("ads_server actions");
+        assert!(ads_server_actions
+            .iter()
+            .any(|value| value.as_str() == Some("browse_symbols")));
     }
 
     #[test]

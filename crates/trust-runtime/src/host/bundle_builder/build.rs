@@ -3,39 +3,30 @@ pub fn build_program_stbc(
     bundle_root: &Path,
     sources_root: Option<&Path>,
 ) -> anyhow::Result<BundleBuildReport> {
-    let sources_root = resolve_sources_root(bundle_root, sources_root)?;
-
-    let dependencies = resolve_local_dependencies(bundle_root)?;
-    let mut source_roots = vec![sources_root.clone()];
-    for dependency in &dependencies {
-        source_roots.push(preferred_dependency_sources_root(&dependency.path));
-    }
-
-    let (sources, source_paths) = collect_sources(&source_roots)?;
-    if sources.is_empty() {
-        anyhow::bail!(
-            "no source files found in {} (expected .st/.pou files)",
-            sources_root.display()
-        );
-    }
-
-    let session = CompileSession::from_sources(sources);
-    let bytes = session.build_bytecode_bytes()?;
+    let compiled = compile_bundle_sources(bundle_root, sources_root)?;
     fs::create_dir_all(bundle_root)?;
     let program_path = bundle_root.join("program.stbc");
-    fs::write(&program_path, bytes)?;
+    fs::write(&program_path, compiled.bytes)?;
 
     Ok(BundleBuildReport {
         program_path,
-        sources: source_paths,
-        dependency_roots: dependencies
-            .iter()
-            .map(|dependency| dependency.path.clone())
-            .collect(),
-        resolved_dependencies: dependencies
-            .iter()
-            .map(|dependency| dependency.name.clone())
-            .collect(),
+        sources: compiled.sources,
+        dependency_roots: compiled.dependency_roots,
+        resolved_dependencies: compiled.resolved_dependencies,
+    })
+}
+
+/// Compile bundle sources in memory without writing `program.stbc`.
+pub fn check_program_stbc(
+    bundle_root: &Path,
+    sources_root: Option<&Path>,
+) -> anyhow::Result<BundleCheckReport> {
+    let compiled = compile_bundle_sources(bundle_root, sources_root)?;
+    Ok(BundleCheckReport {
+        bytecode_size: compiled.bytes.len(),
+        sources: compiled.sources,
+        dependency_roots: compiled.dependency_roots,
+        resolved_dependencies: compiled.resolved_dependencies,
     })
 }
 
@@ -116,6 +107,49 @@ pub fn resolve_sources_root(
         "invalid project folder '{}': missing src/ directory",
         bundle_root.display()
     );
+}
+
+struct CompiledBundleSources {
+    bytes: Vec<u8>,
+    sources: Vec<PathBuf>,
+    dependency_roots: Vec<PathBuf>,
+    resolved_dependencies: Vec<String>,
+}
+
+fn compile_bundle_sources(
+    bundle_root: &Path,
+    sources_root: Option<&Path>,
+) -> anyhow::Result<CompiledBundleSources> {
+    let sources_root = resolve_sources_root(bundle_root, sources_root)?;
+
+    let dependencies = resolve_local_dependencies(bundle_root)?;
+    let mut source_roots = vec![sources_root.clone()];
+    for dependency in &dependencies {
+        source_roots.push(preferred_dependency_sources_root(&dependency.path));
+    }
+
+    let (sources, source_paths) = collect_sources(&source_roots)?;
+    if sources.is_empty() {
+        anyhow::bail!(
+            "no source files found in {} (expected .st/.pou files)",
+            sources_root.display()
+        );
+    }
+
+    let session = CompileSession::from_sources(sources);
+    let bytes = session.build_bytecode_bytes()?;
+    Ok(CompiledBundleSources {
+        bytes,
+        sources: source_paths,
+        dependency_roots: dependencies
+            .iter()
+            .map(|dependency| dependency.path.clone())
+            .collect(),
+        resolved_dependencies: dependencies
+            .iter()
+            .map(|dependency| dependency.name.clone())
+            .collect(),
+    })
 }
 
 fn preferred_dependency_sources_root(path: &Path) -> PathBuf {

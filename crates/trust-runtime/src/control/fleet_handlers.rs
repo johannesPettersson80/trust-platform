@@ -20,7 +20,9 @@ use crate::settings::RuntimeSettings;
 
 use super::{ControlResponse, ControlState};
 
-const FLEET_TOPOLOGY_SCHEMA_VERSION: u32 = 3;
+mod offline;
+
+const FLEET_TOPOLOGY_SCHEMA_VERSION: u32 = 4;
 const DISCOVERY_STALE_AFTER_MS: u64 = 120_000;
 const ADS_STATUS_TIMEOUT: Duration = Duration::from_millis(250);
 
@@ -35,6 +37,14 @@ pub(super) fn handle_fleet_topology(id: u64, state: &ControlState) -> ControlRes
             ControlResponse::error(id, format!("fleet topology serialization failed: {error}"))
         }
     }
+}
+
+pub(super) fn build_project_fleet_topology_value(
+    project_root: &Path,
+) -> Result<serde_json::Value, String> {
+    let response = offline::build_project_fleet_topology(project_root)?;
+    serde_json::to_value(response)
+        .map_err(|error| format!("fleet topology serialization failed: {error}"))
 }
 
 fn build_fleet_topology(state: &ControlState) -> Result<FleetTopologyResponse, String> {
@@ -275,6 +285,8 @@ fn endpoint_from_driver_config(
         health: health_value,
         detail,
         live: io_snapshot_live(io_snapshot, io_snapshot_seen_ms),
+        params: Some(redacted_toml_params(&driver.params)),
+        children: ethercat_endpoint_children(protocol.as_str(), &driver.params),
         owned: true,
         supports_test: matches!(driver.name.as_str(), "modbus-tcp" | "mqtt"),
         source: Some("self".to_string()),
@@ -301,6 +313,8 @@ fn endpoint_from_driver_health(
         health,
         detail,
         live: io_snapshot_live(io_snapshot, io_snapshot_seen_ms),
+        params: None,
+        children: Vec::new(),
         owned: true,
         supports_test: matches!(driver.name.as_str(), "modbus-tcp" | "mqtt"),
         source: Some("self".to_string()),
@@ -346,6 +360,13 @@ fn service_endpoints(runtime_id: &str, inputs: &FleetRuntimeInputs<'_>) -> Vec<F
                     .to_string()
             },
             live: bound.then(|| json!({ "last_seen_ms": now_ms() })),
+            params: Some(json!({
+                "enabled": settings.web.enabled,
+                "listen": settings.web.listen.to_string(),
+                "auth": settings.web.auth.to_string(),
+                "tls": settings.web.tls,
+            })),
+            children: Vec::new(),
             owned: true,
             supports_test: false,
             source: Some("self".to_string()),
@@ -376,6 +397,20 @@ fn service_endpoints(runtime_id: &str, inputs: &FleetRuntimeInputs<'_>) -> Vec<F
                 "OPC UA exposure exists but the server is disabled.".to_string()
             },
             live: bound.then(|| json!({ "last_seen_ms": now_ms() })),
+            params: Some(json!({
+                "enabled": settings.opcua.enabled,
+                "listen": settings.opcua.listen.to_string(),
+                "endpoint_path": settings.opcua.endpoint_path.to_string(),
+                "namespace_uri": settings.opcua.namespace_uri.to_string(),
+                "publish_interval_ms": settings.opcua.publish_interval_ms,
+                "max_nodes": settings.opcua.max_nodes,
+                "expose": settings.opcua.expose.iter().map(ToString::to_string).collect::<Vec<_>>(),
+                "security_policy": settings.opcua.security_policy.to_string(),
+                "security_mode": settings.opcua.security_mode.to_string(),
+                "allow_anonymous": settings.opcua.allow_anonymous,
+                "username_set": settings.opcua.username_set,
+            })),
+            children: Vec::new(),
             owned: true,
             supports_test: false,
             source: Some("self".to_string()),
@@ -413,6 +448,14 @@ fn service_endpoints(runtime_id: &str, inputs: &FleetRuntimeInputs<'_>) -> Vec<F
                 "value": { "observed_peers": peer_count },
                 "last_seen_ms": newest_discovery_seen_ms(inputs.discovery_entries),
             })),
+            params: Some(json!({
+                "enabled": settings.discovery.enabled,
+                "service_name": settings.discovery.service_name.to_string(),
+                "advertise": settings.discovery.advertise,
+                "interfaces": settings.discovery.interfaces.iter().map(ToString::to_string).collect::<Vec<_>>(),
+                "host_group": settings.discovery.host_group.as_ref().map(ToString::to_string),
+            })),
+            children: Vec::new(),
             owned: true,
             supports_test: false,
             source: Some("self".to_string()),
@@ -445,6 +488,22 @@ fn service_endpoints(runtime_id: &str, inputs: &FleetRuntimeInputs<'_>) -> Vec<F
                     "last_seen_ms": snapshot.history.iter().map(|event| event.timestamp_ns / 1_000_000).max(),
                 })
             }),
+            params: Some(json!({
+                "enabled": settings.mesh.enabled,
+                "role": settings.mesh.role.as_str(),
+                "listen": settings.mesh.listen.to_string(),
+                "connect": settings.mesh.connect.iter().map(ToString::to_string).collect::<Vec<_>>(),
+                "tls": settings.mesh.tls,
+                "publish": settings.mesh.publish.iter().map(ToString::to_string).collect::<Vec<_>>(),
+                "subscribe": settings.mesh.subscribe.iter().map(|(key, value)| {
+                    json!({ "topic": key.to_string(), "target": value.to_string() })
+                }).collect::<Vec<_>>(),
+                "zenohd_version": settings.mesh.zenohd_version.to_string(),
+                "plugin_versions": settings.mesh.plugin_versions.iter().map(|(key, value)| {
+                    json!({ "plugin": key.to_string(), "version": value.to_string() })
+                }).collect::<Vec<_>>(),
+            })),
+            children: Vec::new(),
             owned: true,
             supports_test: false,
             source: Some("self".to_string()),
@@ -462,6 +521,23 @@ fn service_endpoints(runtime_id: &str, inputs: &FleetRuntimeInputs<'_>) -> Vec<F
             detail: "Federation policy is configured; it is not a live transport by itself."
                 .to_string(),
             live: None,
+            params: Some(json!({
+                "profile": settings.runtime_cloud.profile.as_str(),
+                "wan_allow_write": settings.runtime_cloud.wan_allow_write.iter().map(|rule| {
+                    json!({
+                        "action": rule.action.to_string(),
+                        "target": rule.target.to_string(),
+                    })
+                }).collect::<Vec<_>>(),
+                "link_preferences": settings.runtime_cloud.link_preferences.iter().map(|rule| {
+                    json!({
+                        "source": rule.source.to_string(),
+                        "target": rule.target.to_string(),
+                        "transport": rule.transport.as_str(),
+                    })
+                }).collect::<Vec<_>>(),
+            })),
+            children: Vec::new(),
             owned: true,
             supports_test: false,
             source: Some("self".to_string()),
@@ -497,6 +573,16 @@ fn service_endpoints(runtime_id: &str, inputs: &FleetRuntimeInputs<'_>) -> Vec<F
                     "last_seen_ms": now_ms(),
                 })
             }),
+            params: Some(json!({
+                "enabled": settings.realtime.enabled,
+                "require_preempt_rt_kernel": settings.realtime.require_preempt_rt_kernel,
+                "lock_memory": settings.realtime.lock_memory,
+                "scheduler": settings.realtime.scheduler.as_str(),
+                "priority": settings.realtime.priority,
+                "cpu_affinity": settings.realtime.cpu_affinity.clone(),
+                "strict": settings.realtime.strict,
+            })),
+            children: Vec::new(),
             owned: true,
             supports_test: false,
             source: Some("self".to_string()),
@@ -518,6 +604,8 @@ fn service_endpoints(runtime_id: &str, inputs: &FleetRuntimeInputs<'_>) -> Vec<F
             health,
             detail,
             live,
+            params: Some(ads_client_params(config)),
+            children: Vec::new(),
             owned: true,
             supports_test: true,
             source: Some("self".to_string()),
@@ -537,7 +625,7 @@ fn service_endpoints(runtime_id: &str, inputs: &FleetRuntimeInputs<'_>) -> Vec<F
             kind: "service".to_string(),
             protocol: "ads_server".to_string(),
             name: "ADS server".to_string(),
-            address: config.listen.map(|value| value.to_string()),
+            address: config.listen.as_ref().map(ToString::to_string),
             role: Some("server".to_string()),
             health: if active {
                 "connected"
@@ -561,6 +649,8 @@ fn service_endpoints(runtime_id: &str, inputs: &FleetRuntimeInputs<'_>) -> Vec<F
                     "last_seen_ms": now_ms(),
                 })
             }),
+            params: Some(ads_server_params(&config)),
+            children: Vec::new(),
             owned: true,
             supports_test: false,
             source: Some("self".to_string()),
@@ -1050,6 +1140,8 @@ fn discovered_runtime(
             detail: "Advertised by runtime discovery; listener was not probed by this runtime."
                 .to_string(),
             live: Some(json!({ "last_seen_ms": discovery_last_seen_ms(entry) })),
+            params: None,
+            children: Vec::new(),
             owned: false,
             supports_test: false,
             source: Some("discovery".to_string()),
@@ -1071,6 +1163,8 @@ fn discovered_runtime(
             health: mesh_health,
             detail: "Mesh endpoint was advertised by runtime discovery.".to_string(),
             live: Some(json!({ "last_seen_ms": discovery_last_seen_ms(entry) })),
+            params: None,
+            children: Vec::new(),
             owned: false,
             supports_test: false,
             source: Some("discovery".to_string()),
@@ -1259,6 +1353,123 @@ fn bool_param(params: &toml::Value, key: &str) -> bool {
         .get(key)
         .and_then(toml::Value::as_bool)
         .unwrap_or(false)
+}
+
+fn redacted_toml_params(params: &toml::Value) -> serde_json::Value {
+    toml_to_json_redacted(params, "")
+}
+
+fn ethercat_endpoint_children(protocol: &str, params: &toml::Value) -> Vec<FleetEndpointChild> {
+    if protocol != "ethercat" {
+        return Vec::new();
+    }
+    crate::io::configured_ethercat_modules(params)
+        .map(|modules| {
+            modules
+                .into_iter()
+                .map(|module| FleetEndpointChild {
+                    id: format!("ethercat:slot:{}", module.slot),
+                    kind: "field_slave".to_string(),
+                    name: format!("{} (slot {})", module.model, module.slot),
+                    slot: Some(module.slot),
+                    model: Some(module.model),
+                    channels: Some(module.channels),
+                    health: "configured_policy".to_string(),
+                    detail: "Configured in io.toml; live EtherCAT discovery may enrich this row."
+                        .to_string(),
+                    source: Some("config".to_string()),
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn toml_to_json_redacted(value: &toml::Value, key: &str) -> serde_json::Value {
+    if is_secret_param_key(key) {
+        return serde_json::Value::String("<redacted>".to_string());
+    }
+    match value {
+        toml::Value::String(value) => serde_json::Value::String(value.clone()),
+        toml::Value::Integer(value) => json!(value),
+        toml::Value::Float(value) => json!(value),
+        toml::Value::Boolean(value) => json!(value),
+        toml::Value::Datetime(value) => serde_json::Value::String(value.to_string()),
+        toml::Value::Array(values) => serde_json::Value::Array(
+            values
+                .iter()
+                .map(|value| toml_to_json_redacted(value, key))
+                .collect(),
+        ),
+        toml::Value::Table(values) => serde_json::Value::Object(
+            values
+                .iter()
+                .map(|(key, value)| (key.clone(), toml_to_json_redacted(value, key)))
+                .collect(),
+        ),
+    }
+}
+
+fn is_secret_param_key(key: &str) -> bool {
+    matches!(
+        key.trim().to_ascii_lowercase().as_str(),
+        "password"
+            | "auth_token"
+            | "token"
+            | "secret"
+            | "client_secret"
+            | "source_ip"
+            | "source_cidr"
+            | "allowed_clients"
+            | "clients"
+    )
+}
+
+fn ads_client_params(config: &AdsClientConfig) -> serde_json::Value {
+    json!({
+        "connections": config.connections.iter().map(|connection| {
+            json!({
+                "name": connection.route.name,
+                "target_net_id": connection.route.target_net_id.0,
+                "host": connection.route.host,
+                "ams_port": connection.route.ams_port,
+                "local_net_id_set": connection.route.local_net_id.is_some(),
+                "transport": match connection.route.security.transport {
+                    trust_ads_core::TransportSecurity::Secure => "secure",
+                    trust_ads_core::TransportSecurity::Plain => "plain",
+                },
+                "auto_add_route": connection.route.security.auto_add_route,
+                "points": connection.points.len(),
+            })
+        }).collect::<Vec<_>>(),
+    })
+}
+
+fn ads_server_params(config: &crate::ads::server::AdsServerRuntimeConfig) -> serde_json::Value {
+    json!({
+        "enabled": config.enabled,
+        "listen": config.listen.as_ref().map(ToString::to_string),
+        "ads_port": config.ads_port,
+        "ams_net_id": config.ams_net_id.as_ref().map(|net_id| net_id.0.clone()),
+        "insecure_transport": config.insecure_transport,
+        "writes_enabled": config.writes_enabled,
+        "symbol_namespace": config.symbol_namespace.to_string(),
+        "allow_unpinned_clients": config.allow_unpinned_clients,
+        "unsafe_allow_public_bind": config.unsafe_allow_public_bind,
+        "expose": config.expose.iter().map(ToString::to_string).collect::<Vec<_>>(),
+        "writable": config.writable.iter().map(ToString::to_string).collect::<Vec<_>>(),
+        "clients_count": config.clients.len(),
+        "max_symbols": config.max_symbols,
+        "max_clients": config.max_clients,
+        "max_subscriptions_per_client": config.max_subscriptions_per_client,
+        "max_total_subscriptions": config.max_total_subscriptions,
+        "max_frame_bytes": config.max_frame_bytes,
+        "max_sumup_items": config.max_sumup_items,
+        "max_write_bytes": config.max_write_bytes,
+        "max_string_bytes": config.max_string_bytes,
+        "read_timeout_ms": config.read_timeout_ms,
+        "idle_timeout_ms": config.idle_timeout_ms,
+        "min_notification_cycle_ms": config.min_notification_cycle_ms,
+    })
 }
 
 fn mesh_detail(evidence: Option<&crate::mesh::MeshTopologyEvidence>, peer_count: usize) -> String {
@@ -1617,11 +1828,62 @@ fn host_from_listen(value: &str) -> Option<String> {
 }
 
 fn host_name() -> String {
-    std::env::var("HOSTNAME")
-        .or_else(|_| std::env::var("COMPUTERNAME"))
-        .ok()
-        .filter(|value| !value.trim().is_empty())
+    let env_hostname = std::env::var("HOSTNAME").ok();
+    let computer_name = std::env::var("COMPUTERNAME").ok();
+    let os_hostname = os_host_name();
+    host_name_from_sources(
+        env_hostname.as_deref(),
+        computer_name.as_deref(),
+        os_hostname.as_deref(),
+    )
+}
+
+fn host_name_from_sources(
+    env_hostname: Option<&str>,
+    computer_name: Option<&str>,
+    os_hostname: Option<&str>,
+) -> String {
+    env_hostname
+        .and_then(normalized_host_name)
+        .or_else(|| computer_name.and_then(normalized_host_name))
+        .or_else(|| os_hostname.and_then(normalized_host_name))
         .unwrap_or_else(|| "local-host".to_string())
+}
+
+fn os_host_name() -> Option<String> {
+    os_host_name_from_files()
+        .or_else(os_host_name_from_command)
+        .and_then(|value| normalized_host_name(value.as_str()))
+}
+
+#[cfg(unix)]
+fn os_host_name_from_files() -> Option<String> {
+    ["/proc/sys/kernel/hostname", "/etc/hostname"]
+        .iter()
+        .find_map(|path| std::fs::read_to_string(path).ok())
+}
+
+#[cfg(not(unix))]
+fn os_host_name_from_files() -> Option<String> {
+    None
+}
+
+fn os_host_name_from_command() -> Option<String> {
+    let output = std::process::Command::new("hostname").output().ok()?;
+    if output.status.success() {
+        String::from_utf8(output.stdout).ok()
+    } else {
+        None
+    }
+}
+
+fn normalized_host_name(value: &str) -> Option<String> {
+    let trimmed = value.trim().trim_end_matches('.');
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
 }
 
 fn stable_host_id(hostname: &str) -> String {
@@ -1849,8 +2111,29 @@ struct FleetEndpoint {
     detail: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     live: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    params: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    children: Vec<FleetEndpointChild>,
     owned: bool,
     supports_test: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    source: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct FleetEndpointChild {
+    id: String,
+    kind: String,
+    name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    slot: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    model: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    channels: Option<u16>,
+    health: String,
+    detail: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     source: Option<String>,
 }
@@ -1913,4 +2196,31 @@ struct FleetDiscovered {
     last_seen_ms: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     source: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{host_name_from_sources, normalized_host_name};
+
+    #[test]
+    fn host_name_uses_os_hostname_before_literal_fallback() {
+        assert_eq!(
+            host_name_from_sources(None, None, Some("raspberrypi")),
+            "raspberrypi"
+        );
+        assert_eq!(
+            host_name_from_sources(Some(""), Some("  "), Some("raspberrypi")),
+            "raspberrypi"
+        );
+        assert_eq!(host_name_from_sources(None, None, None), "local-host");
+    }
+
+    #[test]
+    fn host_name_normalization_trims_whitespace_and_trailing_dot() {
+        assert_eq!(
+            normalized_host_name(" raspberrypi.local. "),
+            Some("raspberrypi.local".to_string())
+        );
+        assert_eq!(normalized_host_name("  "), None);
+    }
 }

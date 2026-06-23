@@ -156,6 +156,31 @@ fn build_accepts_cross_file_root_global_struct_field_access() {
 }
 
 #[test]
+fn check_compiles_without_writing_program_stbc() {
+    let root = temp_dir("trust-runtime-check-no-write");
+    write_root_source(&root);
+    write_dependency_source(&root.join("deps/lib-a"), "DepDouble");
+    write_file(
+        &root.join("trust-lsp.toml"),
+        r#"
+[dependencies]
+LibA = "deps/lib-a"
+"#,
+    );
+
+    let report = check_program_stbc(&root, None).expect("check should pass");
+    assert!(report.bytecode_size > 0);
+    assert!(report.sources.iter().any(|path| path.ends_with("main.st")));
+    assert_eq!(report.resolved_dependencies, vec!["LibA".to_string()]);
+    assert!(
+        !root.join("program.stbc").exists(),
+        "check must not write program.stbc"
+    );
+
+    fs::remove_dir_all(root).ok();
+}
+
+#[test]
 fn build_fails_for_missing_dependency_path() {
     let root = temp_dir("trust-runtime-build-missing");
     write_root_source(&root);

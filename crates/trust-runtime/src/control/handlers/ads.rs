@@ -30,6 +30,11 @@ pub(super) fn dispatch(request: &ControlRequest, state: &ControlState) -> Option
             request.params.clone(),
             state,
         ),
+        "ads.import_symbols.apply" => super::super::ads_handlers::handle_ads_import_symbols_apply(
+            request.id,
+            request.params.clone(),
+            state,
+        ),
         "ads.status" => super::super::ads_handlers::handle_ads_status(request.id, state),
         "ads.route_plan" => super::super::ads_handlers::handle_ads_route_plan(
             request.id,

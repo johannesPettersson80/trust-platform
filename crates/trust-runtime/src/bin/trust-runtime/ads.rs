@@ -829,6 +829,7 @@ fn run_import_symbols(
         let response = build_symbol_import_response(
             &SymbolImportRequest {
                 connection_name: connection_name.clone(),
+                symbols: Vec::new(),
                 include_patterns,
                 name_prefix,
             },

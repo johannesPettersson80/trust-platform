@@ -10,6 +10,16 @@ pub(super) fn dispatch(request: &ControlRequest, state: &ControlState) -> Option
             request.params.clone(),
             state,
         ),
+        "comm.discover" => super::super::comm_handlers::handle_comm_discover(
+            request.id,
+            request.params.clone(),
+            state,
+        ),
+        "comm.browse_symbols" => super::super::comm_handlers::handle_comm_browse_symbols(
+            request.id,
+            request.params.clone(),
+            state,
+        ),
         "comm.apply" => super::super::comm_handlers::handle_comm_apply(
             request.id,
             request.params.clone(),

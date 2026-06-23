@@ -32,9 +32,11 @@ END_PROGRAM
         json!({"id": 21, "type": "ads.server.doctor.status", "params": { "job_id": "missing" }}),
         json!({"id": 22, "type": "comm.capabilities"}),
         json!({"id": 23, "type": "comm.schema"}),
-        json!({"id": 24, "type": "comm.apply", "params": { "protocol": "modbus_tcp", "dry_run": true, "params": { "address": "127.0.0.1:502" } }}),
-        json!({"id": 25, "type": "comm.test", "params": { "protocol": "simulated", "params": {} }}),
-        json!({"id": 26, "type": "fleet.topology"}),
+        json!({"id": 24, "type": "comm.discover", "params": { "protocol": "modbus_tcp", "scope": { "cidr": "127.0.0.1/32", "timeout_ms": 1 }, "origin": "this_host", "passive": true }}),
+        json!({"id": 25, "type": "comm.browse_symbols", "params": { "protocol": "ads", "snapshot": ads_symbol_snapshot_value() }}),
+        json!({"id": 26, "type": "comm.apply", "params": { "protocol": "modbus_tcp", "dry_run": true, "params": { "address": "127.0.0.1:502" } }}),
+        json!({"id": 27, "type": "comm.test", "params": { "protocol": "simulated", "params": {} }}),
+        json!({"id": 28, "type": "fleet.topology"}),
     ];
 
     for request in requests {
@@ -155,7 +157,7 @@ END_PROGRAM
 
     assert!(response.ok, "comm.schema failed: {:?}", response.error);
     let result = response.result.expect("schema result");
-    assert_eq!(result.pointer("/schema_version").and_then(serde_json::Value::as_u64), Some(1));
+    assert_eq!(result.pointer("/schema_version").and_then(serde_json::Value::as_u64), Some(4));
     let protocols = result
         .get("protocols")
         .and_then(serde_json::Value::as_array)
@@ -201,7 +203,7 @@ END_PROGRAM
 }
 
 #[test]
-fn comm_schema_reports_non_io_snippet_protocols() {
+fn comm_schema_reports_non_io_file_protocols() {
     let source = r#"
 PROGRAM Main
 VAR
@@ -228,7 +230,15 @@ END_PROGRAM
     assert_eq!(opcua.get("id").and_then(serde_json::Value::as_str), Some("opcua"));
     assert_eq!(
         opcua.get("apply_mode").and_then(serde_json::Value::as_str),
-        Some("snippet")
+        Some("file")
+    );
+    assert_eq!(
+        opcua.get("category").and_then(serde_json::Value::as_str),
+        Some("supervisory_service")
+    );
+    assert_eq!(
+        opcua.get("config_home").and_then(serde_json::Value::as_str),
+        Some("runtime.toml")
     );
     assert_eq!(
         opcua
@@ -246,7 +256,7 @@ END_PROGRAM
 }
 
 #[test]
-fn comm_apply_returns_validated_runtime_snippet_without_secret_values() {
+fn comm_apply_writes_runtime_toml_without_returning_secret_values() {
     let source = r#"
 PROGRAM Main
 VAR
@@ -254,7 +264,13 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let mut state = hmi_test_state(source);
+    let root = temp_dir("comm-apply-runtime-file");
+    set_hmi_project_root(&mut state, &root);
+    write_file(
+        &root.join("runtime.toml"),
+        &crate::bundle_template::render_runtime_toml(&SmolStr::new("comm-runtime"), 10),
+    );
 
     let response = handle_request_value(
         json!({
@@ -265,7 +281,7 @@ END_PROGRAM
                 "credential_channel": "trusted_same_host",
                 "params": {
                     "enabled": true,
-                    "listen": "0.0.0.0:4840",
+                    "listen": "127.0.0.1:4840",
                     "endpoint_path": "/",
                     "namespace_uri": "urn:trust:runtime",
                     "publish_interval_ms": 250,
@@ -283,20 +299,20 @@ END_PROGRAM
         None,
     );
 
-    assert!(response.ok, "snippet apply failed: {:?}", response.error);
-    let result = response.result.expect("snippet result");
-    assert_eq!(result.get("applied").and_then(serde_json::Value::as_bool), Some(false));
+    assert!(response.ok, "runtime file apply failed: {:?}", response.error);
+    let result = response.result.expect("runtime file result");
+    assert_eq!(result.get("applied").and_then(serde_json::Value::as_bool), Some(true));
     assert_eq!(
         result.get("lifecycle_effect").and_then(serde_json::Value::as_str),
-        Some("deploy_required")
+        Some("restart_required")
     );
-    let snippet = result
-        .get("snippet")
-        .and_then(serde_json::Value::as_str)
-        .expect("snippet");
-    assert!(snippet.contains("[runtime.opcua]"));
-    assert!(snippet.contains("username = \"operator\""));
-    assert!(snippet.contains("password = \"<set on runtime host>\""));
+    assert!(result.get("snippet").is_none_or(serde_json::Value::is_null));
+    let runtime_text = fs::read_to_string(root.join("runtime.toml")).expect("read runtime.toml");
+    assert!(runtime_text.contains("[runtime.opcua]"));
+    assert!(runtime_text.contains("username = \"operator\""));
+    assert!(runtime_text.contains("password = \"must-not-return\""));
+    crate::config::validate_runtime_toml_text(&runtime_text)
+        .expect("written runtime.toml should validate");
     assert!(
         !serde_json::to_string(&result)
             .expect("result json")
@@ -319,7 +335,7 @@ END_PROGRAM
         json!({
             "id": 146,
             "type": "comm.apply",
-            "auth": engineer_token("comm-apply-snippet-secret", &mut state),
+            "auth": engineer_token("comm-apply-runtime-secret", &mut state),
             "params": {
                 "protocol": "mesh",
                 "credential_channel": "trusted_same_host",
@@ -341,7 +357,7 @@ END_PROGRAM
         Some("10.0.0.20:50200"),
     );
 
-    assert!(response.ok, "blocked snippet result should be structured");
+    assert!(response.ok, "blocked runtime file result should be structured");
     let result = response.result.expect("blocked result");
     assert_eq!(
         result.get("lifecycle_effect").and_then(serde_json::Value::as_str),
@@ -364,6 +380,10 @@ END_PROGRAM
     let mut state = hmi_test_state(source);
     let root = temp_dir("comm-apply-dry-run");
     set_hmi_project_root(&mut state, &root);
+    write_file(
+        &root.join("runtime.toml"),
+        &crate::bundle_template::render_runtime_toml(&SmolStr::new("comm-dry-run"), 10),
+    );
 
     let invalid = handle_request_value(
         json!({
@@ -423,7 +443,7 @@ END_PROGRAM
         result.get("lifecycle_effect").and_then(serde_json::Value::as_str),
         Some("validate_only")
     );
-    assert!(result.get("snippet").and_then(serde_json::Value::as_str).is_some());
+    assert!(result.get("snippet").is_none_or(serde_json::Value::is_null));
     assert!(!root.join("io.toml").exists(), "dry-run must not write io.toml");
 
     let modbus_hostname = handle_request_value(
@@ -608,9 +628,10 @@ END_PROGRAM
     let mut state = hmi_test_state(source);
     let root = temp_dir("comm-apply-write");
     set_hmi_project_root(&mut state, &root);
-    write_file(
-        &root.join("io.toml"),
-        r#"
+	    write_file(
+	        &root.join("io.toml"),
+	        r#"
+# existing plant I/O note must survive comm.apply edits
 [io]
 safe_state = [{ address = "%QX0.0", value = "FALSE" }]
 
@@ -648,11 +669,231 @@ params = {}
         result.get("lifecycle_effect").and_then(serde_json::Value::as_str),
         Some("restart_required")
     );
-    let text = fs::read_to_string(root.join("io.toml")).expect("read io.toml");
-    assert!(text.contains("loopback"), "unrelated loopback instance should remain: {text}");
+	    let text = fs::read_to_string(root.join("io.toml")).expect("read io.toml");
+	    assert!(
+	        text.contains("existing plant I/O note"),
+	        "toml_edit writer should preserve surrounding comments: {text}"
+	    );
+	    assert!(text.contains("loopback"), "unrelated loopback instance should remain: {text}");
     assert!(text.contains("modbus-tcp"), "modbus instance should be written: {text}");
     assert!(text.contains("127.0.0.1:1502"));
     crate::config::validate_io_toml_text(&text).expect("written io.toml should validate");
+}
+
+#[test]
+fn comm_apply_add_accepts_safe_state_only_io_toml() {
+    let source = r#"
+PROGRAM Main
+VAR
+    run : BOOL := TRUE;
+END_VAR
+END_PROGRAM
+"#;
+    let mut state = hmi_test_state(source);
+    let root = temp_dir("comm-apply-safe-state-only");
+    set_hmi_project_root(&mut state, &root);
+    write_file(
+        &root.join("io.toml"),
+        r#"
+# empty project I/O file created by setup
+[io]
+safe_state = [{ address = "%QX0.0", value = "FALSE" }]
+"#,
+    );
+
+    let response = handle_request_value(
+        json!({
+            "id": 147,
+            "type": "comm.apply",
+            "params": {
+                "protocol": "modbus_tcp",
+                "action": "add",
+                "params": {
+                    "address": "127.0.0.1:1502",
+                    "unit_id": 1,
+                    "input_start": 0,
+                    "output_start": 0,
+                    "timeout_ms": 500,
+                    "on_error": "warn"
+                }
+            }
+        }),
+        &state,
+        None,
+    );
+
+    assert!(
+        response.ok,
+        "safe-state-only comm.apply failed: {:?}",
+        response.error
+    );
+    let result = response.result.expect("safe-state-only result");
+    assert_eq!(
+        result.get("applied").and_then(serde_json::Value::as_bool),
+        Some(true),
+        "safe-state-only apply result: {result:#}"
+    );
+    let text = fs::read_to_string(root.join("io.toml")).expect("read io.toml");
+    assert!(text.contains("empty project I/O file"));
+    assert!(text.contains("modbus-tcp"));
+    crate::config::validate_io_toml_text(&text).expect("safe-state-only io.toml should validate");
+}
+
+#[test]
+fn comm_apply_ethercat_migrates_single_driver_bootstrap_to_multi_driver_topology() {
+    let source = r#"
+PROGRAM Main
+VAR
+    run : BOOL := TRUE;
+END_VAR
+END_PROGRAM
+"#;
+    let mut state = hmi_test_state(source);
+    let root = temp_dir("comm-apply-ethercat-bootstrap");
+    set_hmi_project_root(&mut state, &root);
+    write_file(
+        &root.join("runtime.toml"),
+        &crate::bundle_template::render_runtime_toml(&SmolStr::new("line-a"), 10),
+    );
+    write_file(
+        &root.join("io.toml"),
+        r#"
+# easy-setup projects start with a single placeholder driver
+[io]
+driver = "simulated"
+params = {}
+"#,
+    );
+
+    let response = handle_request_value(
+        json!({
+            "id": 148,
+            "type": "comm.apply",
+            "params": {
+                "protocol": "ethercat",
+                "action": "upsert",
+                "params": {
+                    "adapter": "eth1",
+                    "timeout_ms": 250,
+                    "cycle_warn_ms": 5,
+                    "on_error": "fault",
+                    "modules": [
+                        { "model": "EK1100", "slot": 0, "channels": 1 },
+                        { "model": "EL1008", "slot": 1, "channels": 8 }
+                    ],
+                    "mock_inputs": []
+                }
+            }
+        }),
+        &state,
+        None,
+    );
+
+    assert!(
+        response.ok,
+        "ethercat bootstrap apply failed: {:?}",
+        response.error
+    );
+    let result = response.result.expect("ethercat bootstrap result");
+    assert_eq!(
+        result.get("applied").and_then(serde_json::Value::as_bool),
+        Some(true),
+        "ethercat bootstrap apply result: {result:#}"
+    );
+    let text = fs::read_to_string(root.join("io.toml")).expect("read io.toml");
+    assert!(
+        !text.contains("\ndriver = \"simulated\""),
+        "legacy single-driver key must be removed when writing canonical multi-driver TOML: {text}"
+    );
+    assert!(text.contains("[[io.drivers]]"), "{text}");
+    assert!(text.contains("name = \"simulated\""), "{text}");
+    assert!(text.contains("name = \"ethercat\""), "{text}");
+    crate::config::validate_io_toml_text(&text).expect("ethercat bootstrap io.toml validates");
+
+    let topology =
+        crate::control::offline_fleet_topology_json(&root).expect("offline fleet topology");
+    let endpoints = topology
+        .pointer("/hosts/0/runtimes/0/endpoints")
+        .and_then(serde_json::Value::as_array)
+        .or_else(|| {
+            topology
+                .pointer("/hosts/0/containers/0/runtimes/0/endpoints")
+                .and_then(serde_json::Value::as_array)
+        })
+        .expect("offline topology endpoints");
+    let ethercat = endpoints
+        .iter()
+        .find(|endpoint| {
+            endpoint.get("protocol").and_then(serde_json::Value::as_str) == Some("ethercat")
+        })
+        .expect("ethercat endpoint");
+    assert!(
+        ethercat
+            .get("children")
+            .and_then(serde_json::Value::as_array)
+            .is_some_and(|children| children.iter().any(|child| {
+                child.get("kind").and_then(serde_json::Value::as_str) == Some("field_slave")
+                    && child.get("model").and_then(serde_json::Value::as_str) == Some("EL1008")
+                    && child.get("channels").and_then(serde_json::Value::as_u64) == Some(8)
+            })),
+        "ethercat endpoint should expose configured child slaves: {ethercat:#}"
+    );
+}
+
+#[test]
+fn comm_apply_accepts_empty_and_comment_only_io_toml_as_editable_bases() {
+    let source = r#"
+PROGRAM Main
+VAR
+    run : BOOL := TRUE;
+END_VAR
+END_PROGRAM
+"#;
+
+    for (case, initial) in [
+        ("empty-drivers", "[io]\ndrivers = []\n"),
+        ("comment-only", "# created by first-run setup\n"),
+    ] {
+        let mut state = hmi_test_state(source);
+        let root = temp_dir(&format!("comm-apply-{case}"));
+        set_hmi_project_root(&mut state, &root);
+        write_file(&root.join("io.toml"), initial);
+
+        let response = handle_request_value(
+            json!({
+                "id": 149,
+                "type": "comm.apply",
+                "params": {
+                    "protocol": "ethercat",
+                    "action": "upsert",
+                    "params": {
+                        "adapter": "mock",
+                        "timeout_ms": 250,
+                        "cycle_warn_ms": 5,
+                        "on_error": "fault",
+                        "modules": [
+                            { "model": "EK1100", "slot": 0, "channels": 1 }
+                        ],
+                        "mock_inputs": []
+                    }
+                }
+            }),
+            &state,
+            None,
+        );
+
+        assert!(response.ok, "{case} result should be structured: {:?}", response.error);
+        let result = response.result.expect("apply result");
+        assert_eq!(
+            result.get("applied").and_then(serde_json::Value::as_bool),
+            Some(true),
+            "{case} apply result: {result:#}"
+        );
+        let text = fs::read_to_string(root.join("io.toml")).expect("read io.toml");
+        assert!(text.contains("name = \"ethercat\""), "{case}: {text}");
+        crate::config::validate_io_toml_text(&text)
+            .unwrap_or_else(|error| panic!("{case} io.toml should validate: {error}\n{text}"));
+    }
 }
 
 #[test]
@@ -1280,6 +1521,350 @@ END_PROGRAM
 }
 
 #[test]
+fn offline_comm_schema_apply_and_topology_work_without_runtime() {
+    let schema = crate::control::offline_comm_schema_json(None).expect("offline comm schema");
+    assert_eq!(
+        schema
+            .get("schema_version")
+            .and_then(serde_json::Value::as_u64),
+        Some(4)
+    );
+    let protocols = schema
+        .get("protocols")
+        .and_then(serde_json::Value::as_array)
+        .expect("protocols");
+    assert!(protocols.iter().any(|protocol| {
+        protocol.get("id").and_then(serde_json::Value::as_str) == Some("modbus_tcp")
+    }));
+    assert!(protocols.iter().all(|protocol| {
+        protocol
+            .get("instances")
+            .and_then(serde_json::Value::as_array)
+            .is_some_and(Vec::is_empty)
+    }));
+    assert!(
+        protocols.iter().all(|protocol| protocol.get("profiles").is_none()),
+        "offline comm schema must not expose rejected device archetype profiles"
+    );
+
+    let root = temp_dir("offline-comm");
+    write_file(
+        &root.join("runtime.toml"),
+        &crate::bundle_template::render_runtime_toml(&SmolStr::new("offline-line"), 10),
+    );
+
+    let add = crate::control::offline_comm_apply_json(
+        &root,
+        json!({
+            "protocol": "modbus-tcp",
+            "action": "add",
+            "params": {
+                "address": "127.0.0.1:502",
+                "unit_id": 1,
+                "input_start": 0,
+                "output_start": 0,
+                "timeout_ms": 500,
+                "on_error": "warn"
+            }
+        }),
+    )
+    .expect("offline comm apply");
+    assert_eq!(
+        add.get("applied").and_then(serde_json::Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        add.get("lifecycle_effect")
+            .and_then(serde_json::Value::as_str),
+        Some("restart_required")
+    );
+    let text = fs::read_to_string(root.join("io.toml")).expect("read offline io.toml");
+    assert!(text.contains("modbus-tcp"));
+    crate::config::validate_io_toml_text(&text).expect("offline io.toml validates");
+
+    let topology =
+        crate::control::offline_fleet_topology_json(&root).expect("offline fleet topology");
+    assert_eq!(
+        topology
+            .get("schema_version")
+            .and_then(serde_json::Value::as_u64),
+        Some(4)
+    );
+    let hosts = topology
+        .get("hosts")
+        .and_then(serde_json::Value::as_array)
+        .expect("hosts");
+    let runtime = hosts[0]
+        .get("runtimes")
+        .and_then(serde_json::Value::as_array)
+        .and_then(|runtimes| runtimes.first())
+        .expect("offline runtime");
+    assert_eq!(
+        runtime.get("health").and_then(serde_json::Value::as_str),
+        Some("configured_policy")
+    );
+    assert_eq!(
+        runtime.get("source").and_then(serde_json::Value::as_str),
+        Some("config")
+    );
+    let endpoints = runtime
+        .get("endpoints")
+        .and_then(serde_json::Value::as_array)
+        .expect("endpoints");
+    let modbus = endpoints
+        .iter()
+        .find(|endpoint| {
+            endpoint.get("protocol").and_then(serde_json::Value::as_str) == Some("modbus_tcp")
+        })
+        .expect("modbus endpoint");
+    assert_eq!(
+        modbus.get("health").and_then(serde_json::Value::as_str),
+        Some("configured_policy")
+    );
+    assert!(modbus.get("live").is_none(), "offline topology must not invent live values");
+    assert_eq!(
+        modbus
+            .get("params")
+            .and_then(|params| params.get("address"))
+            .and_then(serde_json::Value::as_str),
+        Some("127.0.0.1:502")
+    );
+    let links = topology
+        .get("links")
+        .and_then(serde_json::Value::as_array)
+        .expect("links");
+    assert!(links.iter().any(|link| {
+        link.get("protocol").and_then(serde_json::Value::as_str) == Some("modbus_tcp")
+            && link.get("role").and_then(serde_json::Value::as_str) == Some("client")
+            && link.get("id").and_then(serde_json::Value::as_str).is_some()
+    }));
+    let serialized = serde_json::to_string(&topology).expect("topology json");
+    for forbidden in ["auth_token", "password", "source_ip", "source_cidr"] {
+        assert!(
+            !serialized.contains(forbidden),
+            "offline topology leaked forbidden token {forbidden}: {serialized}"
+        );
+    }
+
+    let opcua_apply = crate::control::offline_comm_apply_json(
+        &root,
+        json!({
+            "protocol": "opcua",
+            "action": "upsert",
+            "params": {
+                "enabled": true,
+                "listen": "127.0.0.1:4840",
+                "endpoint_path": "/",
+                "namespace_uri": "urn:trust:runtime",
+                "publish_interval_ms": 250,
+                "max_nodes": 128,
+                "expose": ["global.*"],
+                "security_policy": "basic256sha256",
+                "security_mode": "sign_and_encrypt",
+                "allow_anonymous": true
+            }
+        }),
+    )
+    .expect("offline opcua apply");
+    assert_eq!(
+        opcua_apply
+            .get("schema_version")
+            .and_then(serde_json::Value::as_u64),
+        Some(4)
+    );
+    assert_eq!(
+        opcua_apply
+            .get("applied")
+            .and_then(serde_json::Value::as_bool),
+        Some(true)
+    );
+    assert!(opcua_apply.get("snippet").is_none_or(serde_json::Value::is_null));
+    let runtime_text = fs::read_to_string(root.join("runtime.toml")).expect("read runtime.toml");
+    assert!(runtime_text.contains("[runtime.opcua]"));
+    crate::config::validate_runtime_toml_text(&runtime_text)
+        .expect("offline runtime.toml validates after comm.apply");
+
+    let topology =
+        crate::control::offline_fleet_topology_json(&root).expect("offline fleet topology with opcua");
+    let endpoints = topology
+        .pointer("/hosts/0/runtimes/0/endpoints")
+        .and_then(serde_json::Value::as_array)
+        .expect("endpoints with opcua");
+    let opcua = endpoints
+        .iter()
+        .find(|endpoint| {
+            endpoint.get("protocol").and_then(serde_json::Value::as_str) == Some("opcua")
+        })
+        .expect("opcua endpoint");
+    assert_eq!(
+        opcua.get("health").and_then(serde_json::Value::as_str),
+        Some("configured_policy")
+    );
+    assert_eq!(
+        opcua
+            .get("params")
+            .and_then(|params| params.get("listen"))
+            .and_then(serde_json::Value::as_str),
+        Some("127.0.0.1:4840")
+    );
+
+    let opcua_disable = crate::control::offline_comm_apply_json(
+        &root,
+        json!({
+            "protocol": "opcua",
+            "action": "disable",
+            "params": {}
+        }),
+    )
+    .expect("offline opcua disable");
+    assert_eq!(
+        opcua_disable
+            .get("applied")
+            .and_then(serde_json::Value::as_bool),
+        Some(true)
+    );
+    let runtime_text = fs::read_to_string(root.join("runtime.toml")).expect("read runtime.toml");
+    assert!(runtime_text.contains("[runtime.opcua]"));
+    assert!(runtime_text.contains("enabled = false"));
+
+    let remove = crate::control::offline_comm_apply_json(
+        &root,
+        json!({
+            "protocol": "modbus_tcp",
+            "action": "remove",
+            "params": { "address": "127.0.0.1:502" }
+        }),
+    )
+    .expect("offline comm remove");
+    assert_eq!(
+        remove.get("applied").and_then(serde_json::Value::as_bool),
+        Some(true)
+    );
+    assert!(
+        !root.join("io.toml").exists(),
+        "offline remove should remove the last io.toml driver"
+    );
+}
+
+#[test]
+fn offline_comm_apply_creates_runtime_toml_when_absent() {
+    let root = temp_dir("offline-comm-runtime-create");
+
+    let opcua_apply = crate::control::offline_comm_apply_json(
+        &root,
+        json!({
+            "protocol": "opcua",
+            "action": "upsert",
+            "params": {
+                "enabled": true,
+                "listen": "127.0.0.1:4840",
+                "endpoint_path": "/",
+                "namespace_uri": "urn:trust:runtime",
+                "publish_interval_ms": 250,
+                "max_nodes": 128,
+                "expose": ["global.*"],
+                "security_policy": "basic256sha256",
+                "security_mode": "sign_and_encrypt",
+                "allow_anonymous": true
+            }
+        }),
+    )
+    .expect("offline opcua apply creates runtime.toml");
+
+    assert_eq!(
+        opcua_apply
+            .get("schema_version")
+            .and_then(serde_json::Value::as_u64),
+        Some(4)
+    );
+    assert_eq!(
+        opcua_apply
+            .get("applied")
+            .and_then(serde_json::Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        opcua_apply
+            .get("lifecycle_effect")
+            .and_then(serde_json::Value::as_str),
+        Some("restart_required")
+    );
+    let runtime_text = fs::read_to_string(root.join("runtime.toml")).expect("read runtime.toml");
+    assert!(runtime_text.contains("[runtime.opcua]"));
+    assert!(runtime_text.contains("listen = \"127.0.0.1:4840\""));
+    crate::config::validate_runtime_toml_text(&runtime_text)
+        .expect("created runtime.toml should validate");
+}
+
+#[test]
+fn offline_comm_apply_writes_ads_runtime_and_ads_toml() {
+    let root = temp_dir("offline-comm-ads");
+
+    let apply = crate::control::offline_comm_apply_json(
+        &root,
+        json!({
+            "protocol": "ads",
+            "action": "upsert",
+            "params": {
+                "enabled": true,
+                "config_path": "ads.toml",
+                "worker_tick_interval_ms": 20,
+                "connections": [{
+                    "name": "line1",
+                    "target_net_id": "5.23.91.12.1.1",
+                    "host": "192.168.10.5",
+                    "ams_port": 851,
+                    "transport": "plain",
+                    "insecure_transport": true,
+                    "points": [{
+                        "symbol": "MAIN.Temperature",
+                        "var": "line1_temp",
+                        "type": "REAL"
+                    }]
+                }]
+            }
+        }),
+    )
+    .expect("offline ads apply");
+
+    assert_eq!(
+        apply
+            .get("schema_version")
+            .and_then(serde_json::Value::as_u64),
+        Some(4)
+    );
+    assert_eq!(
+        apply.get("applied").and_then(serde_json::Value::as_bool),
+        Some(true)
+    );
+    assert!(apply.get("snippet").is_none_or(serde_json::Value::is_null));
+
+    let runtime_text = fs::read_to_string(root.join("runtime.toml")).expect("read runtime.toml");
+    assert!(runtime_text.contains("[runtime.ads]"));
+    crate::config::validate_runtime_toml_text(&runtime_text)
+        .expect("runtime.toml with runtime.ads should validate");
+    let ads_text = fs::read_to_string(root.join("ads.toml")).expect("read ads.toml");
+    crate::ads::parse_ads_toml(ads_text.as_str()).expect("ads.toml should validate");
+
+    let topology =
+        crate::control::offline_fleet_topology_json(&root).expect("offline topology with ADS");
+    let endpoints = topology
+        .pointer("/hosts/0/runtimes/0/endpoints")
+        .and_then(serde_json::Value::as_array)
+        .expect("endpoints");
+    assert!(endpoints.iter().any(|endpoint| {
+        endpoint.get("protocol").and_then(serde_json::Value::as_str) == Some("ads")
+            && endpoint
+                .get("health")
+                .and_then(serde_json::Value::as_str)
+                == Some("configured_policy")
+    }));
+    let serialized = serde_json::to_string(&topology).expect("topology json");
+    assert!(!serialized.contains("source_ip"));
+    assert!(!serialized.contains("source_cidr"));
+}
+
+#[test]
 fn comm_capabilities_control_request_reports_stable_protocol_statuses() {
     let source = r#"
 PROGRAM Main
@@ -1302,7 +1887,7 @@ END_PROGRAM
         result
             .get("schema_version")
             .and_then(serde_json::Value::as_u64),
-        Some(1)
+        Some(4)
     );
     let capabilities = result
         .get("capabilities")
@@ -1367,6 +1952,86 @@ END_PROGRAM
             .and_then(serde_json::Value::as_str),
         Some("linux")
     );
+}
+
+#[test]
+fn default_visible_comm_schema_protocols_are_built_on_this_platform() {
+    let source = r#"
+PROGRAM Main
+VAR
+    run : BOOL := TRUE;
+END_VAR
+END_PROGRAM
+"#;
+    let state = hmi_test_state(source);
+
+    let schema = handle_request_value(json!({"id": 45, "type": "comm.schema"}), &state, None);
+    assert!(schema.ok, "comm.schema failed: {:?}", schema.error);
+    let schema = schema.result.expect("schema result");
+    let protocols = schema
+        .get("protocols")
+        .and_then(serde_json::Value::as_array)
+        .expect("schema protocols");
+
+    let capabilities =
+        handle_request_value(json!({"id": 46, "type": "comm.capabilities"}), &state, None);
+    assert!(
+        capabilities.ok,
+        "comm.capabilities failed: {:?}",
+        capabilities.error
+    );
+    let capabilities = capabilities.result.expect("capabilities result");
+    let capabilities = capabilities
+        .get("capabilities")
+        .and_then(serde_json::Value::as_array)
+        .expect("capabilities");
+
+    for protocol in protocols {
+        let id = protocol
+            .get("id")
+            .and_then(serde_json::Value::as_str)
+            .expect("schema protocol id");
+        let availability = protocol
+            .get("availability")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("default");
+        if availability == "optional_build" {
+            continue;
+        }
+        assert_eq!(
+            availability, "default",
+            "unknown availability for protocol {id}"
+        );
+
+        let capability = capabilities
+            .iter()
+            .find(|capability| {
+                capability.get("id").and_then(serde_json::Value::as_str) == Some(id)
+            })
+            .unwrap_or_else(|| panic!("missing capability for default schema protocol {id}"));
+        if !capability_platform_matches_this_runtime(capability) {
+            continue;
+        }
+        assert_eq!(
+            capability
+                .get("built")
+                .and_then(serde_json::Value::as_bool),
+            Some(true),
+            "default schema protocol {id} must be built in the official default runtime"
+        );
+    }
+}
+
+fn capability_platform_matches_this_runtime(capability: &serde_json::Value) -> bool {
+    match capability
+        .get("platform")
+        .and_then(serde_json::Value::as_str)
+    {
+        Some("linux") => cfg!(target_os = "linux"),
+        Some("unix") => cfg!(unix),
+        Some(_) => false,
+        None => true,
+    }
 }
 
 fn test_ads_client_config() -> crate::ads::AdsClientConfig {
@@ -1574,7 +2239,7 @@ END_PROGRAM
         result
             .get("schema_version")
             .and_then(serde_json::Value::as_u64),
-        Some(3)
+        Some(4)
     );
     let hosts = result
         .get("hosts")
@@ -1815,7 +2480,7 @@ END_PROGRAM
 }
 
 #[test]
-fn fleet_topology_uses_network_canvas_demo_config_for_roles_and_counterparts() {
+fn fleet_topology_uses_project_config_for_roles_and_counterparts() {
     let source = r#"
 PROGRAM Main
 VAR
@@ -1824,15 +2489,42 @@ END_VAR
 END_PROGRAM
 "#;
     let mut state = hmi_test_state(source);
-    let project_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    let demo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../examples/network_canvas_demo")
         .canonicalize()
         .expect("network canvas demo path");
-    let runtime =
+    let project_root = temp_dir("fleet-topology-role-counterparts");
+    fs::copy(demo_root.join("runtime.toml"), project_root.join("runtime.toml"))
+        .expect("copy runtime.toml");
+    write_file(
+        &project_root.join("io.toml"),
+        r#"
+[io]
+safe_state = [{ address = "%QX0.0", value = "FALSE" }]
+
+[[io.drivers]]
+name = "modbus-tcp"
+params = { address = "192.168.1.50:502", unit_id = 1, input_start = 0, output_start = 0, timeout_ms = 500, on_error = "warn" }
+
+[[io.drivers]]
+name = "ethercat"
+params = { adapter = "eth1", timeout_ms = 250, cycle_warn_ms = 5, on_error = "fault", modules = [{ model = "EK1100", slot = 0, channels = 1 }, { model = "EL1008", slot = 1, channels = 8 }] }
+"#,
+    );
+    let runtime_config =
         crate::config::RuntimeConfig::load(project_root.join("runtime.toml")).expect("runtime.toml");
     let io = crate::config::IoConfig::load(project_root.join("io.toml")).expect("io.toml");
-    assert_eq!(io.drivers.len(), 2, "demo should expose the two I/O drivers");
-    apply_runtime_config_to_control_settings(&mut state, &runtime);
+    assert_eq!(io.drivers.len(), 2, "test project should expose the two I/O drivers");
+    apply_runtime_config_to_control_settings(&mut state, &runtime_config);
+    {
+        let mut settings = state.settings.lock().expect("settings lock");
+        settings.mesh.enabled = true;
+        settings.mesh.role = crate::config::MeshRole::Peer;
+        settings.mesh.listen = SmolStr::new("127.0.0.1:7447");
+        settings.mesh.connect = vec![SmolStr::new("tcp/10.0.0.2:7447")];
+        settings.opcua.enabled = true;
+        settings.opcua.listen = SmolStr::new("127.0.0.1:4840");
+    }
     set_hmi_project_root(&mut state, &project_root);
 
     let response = handle_request_value(json!({"id": 48, "type": "fleet.topology"}), &state, None);
@@ -1842,7 +2534,7 @@ END_PROGRAM
         result
             .get("schema_version")
             .and_then(serde_json::Value::as_u64),
-        Some(3)
+        Some(4)
     );
     let hosts = result
         .get("hosts")
@@ -1866,7 +2558,7 @@ END_PROGRAM
         runtime
             .get("runtime_id")
             .and_then(serde_json::Value::as_str),
-        Some("line-a")
+        Some(runtime_config.resource_name.as_str())
     );
     let endpoints = runtime
         .get("endpoints")
@@ -1898,6 +2590,16 @@ END_PROGRAM
             .and_then(serde_json::Value::as_str),
         Some("master")
     );
+    let ethercat_children = endpoint("ethercat")
+        .get("children")
+        .and_then(serde_json::Value::as_array)
+        .expect("ethercat children");
+    assert!(ethercat_children.iter().any(|child| {
+        child.get("kind").and_then(serde_json::Value::as_str) == Some("field_slave")
+            && child.get("model").and_then(serde_json::Value::as_str) == Some("EL1008")
+            && child.get("channels").and_then(serde_json::Value::as_u64) == Some(8)
+            && child.get("source").and_then(serde_json::Value::as_str) == Some("config")
+    }));
     assert_eq!(
         endpoint("opcua")
             .get("role")
@@ -3950,6 +4652,13 @@ fn ads_import_symbols_params() -> serde_json::Value {
             ]
         }
     })
+}
+
+fn ads_symbol_snapshot_value() -> serde_json::Value {
+    ads_import_symbols_params()
+        .get("snapshot")
+        .cloned()
+        .expect("snapshot fixture")
 }
 
 #[cfg(feature = "ads-server")]

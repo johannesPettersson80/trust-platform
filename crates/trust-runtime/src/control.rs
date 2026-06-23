@@ -73,6 +73,46 @@ fn control_event_time_now() -> crate::value::Duration {
     crate::value::Duration::from_millis(timestamp_ms)
 }
 
+/// Build the communication setup schema without connecting to a running runtime.
+pub fn offline_comm_schema_json(
+    params: Option<&serde_json::Value>,
+) -> Result<serde_json::Value, String> {
+    comm_handlers::static_comm_schema_value(params)
+}
+
+/// Apply a communication setup change directly to project files.
+pub fn offline_comm_apply_json(
+    project_root: &Path,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    comm_handlers::apply_project_value(project_root, params)
+}
+
+/// Discover communication targets from the current host without a running runtime.
+pub fn offline_comm_discover_json(params: serde_json::Value) -> Result<serde_json::Value, String> {
+    comm_handlers::discover_value(params, None)
+}
+
+/// Browse symbols/nodes/channels from the current host without a running runtime.
+pub fn offline_comm_browse_symbols_json(
+    params: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    comm_handlers::browse_symbols_value(params, None, None)
+}
+
+/// Browse symbols/nodes/channels from a stopped project without a running runtime.
+pub fn offline_comm_browse_symbols_project_json(
+    project_root: &Path,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    comm_handlers::browse_symbols_value(params, None, Some(project_root))
+}
+
+/// Build a config-derived fleet topology without connecting to a running runtime.
+pub fn offline_fleet_topology_json(project_root: &Path) -> Result<serde_json::Value, String> {
+    fleet_handlers::build_project_fleet_topology_value(project_root)
+}
+
 #[derive(Debug, Clone)]
 pub enum ControlEndpoint {
     Tcp(SocketAddr),
@@ -520,7 +560,10 @@ pub(crate) fn handle_request_value(
 }
 
 fn stamp_comm_credential_channel(request: &mut ControlRequest, client: Option<&str>) {
-    if !matches!(request.r#type.as_str(), "comm.apply" | "comm.test") {
+    if !matches!(
+        request.r#type.as_str(),
+        "comm.apply" | "comm.test" | "comm.browse_symbols" | "ads.import_symbols.apply"
+    ) {
         return;
     }
     let channel = classify_comm_credential_channel(client);

@@ -1,0 +1,36 @@
+title = "Overview"
+icon = "activity"
+order = 0
+
+[[section]]
+title = "Key Metrics"
+span = 12
+tier = "hero"
+
+[[section.widget]]
+type = "gauge"
+bind = "global.conveyor_speed"
+label = "Conveyor Speed"
+span = 4
+unit = "rpm"
+min = 0
+max = 3600
+
+[[section]]
+title = "Details"
+span = 12
+tier = "detail"
+
+[[section.widget]]
+type = "value"
+bind = "global.line_state"
+label = "Line State"
+span = 3
+min = 0
+max = 100
+
+[[section.widget]]
+type = "indicator"
+bind = "global.running"
+label = "Running"
+span = 3

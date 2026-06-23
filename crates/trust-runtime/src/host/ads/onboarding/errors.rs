@@ -100,3 +100,60 @@ impl fmt::Display for OnboardingWireError {
 }
 
 impl std::error::Error for OnboardingWireError {}
+
+/// Returns true when a symbol-upload failure is most likely caused by a missing
+/// return AMS route rather than by a valid PLC response with an empty table.
+#[must_use]
+pub fn upload_failure_implies_missing_return_route(error: &OnboardingWireError) -> bool {
+    match error.kind {
+        OnboardingWireErrorKind::RouteMissing => true,
+        OnboardingWireErrorKind::NoSymbols => detail_suggests_no_reply(error.detail.as_str()),
+        _ => false,
+    }
+}
+
+fn detail_suggests_no_reply(detail: &str) -> bool {
+    let detail = detail.to_ascii_lowercase();
+    [
+        "timed out",
+        "timeout",
+        "no reply",
+        "no response",
+        "route set",
+        "receiving reply",
+    ]
+    .iter()
+    .any(|needle| detail.contains(needle))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn upload_timeout_is_classified_as_missing_return_route() {
+        let error = OnboardingWireError::new(
+            OnboardingWireErrorKind::NoSymbols,
+            "upload ADS symbol table: receiving reply (route set?): timed out",
+        );
+        assert!(upload_failure_implies_missing_return_route(&error));
+    }
+
+    #[test]
+    fn empty_symbol_table_response_is_not_route_missing() {
+        let error = OnboardingWireError::new(
+            OnboardingWireErrorKind::NoSymbols,
+            "ADS symbol table is empty",
+        );
+        assert!(!upload_failure_implies_missing_return_route(&error));
+    }
+
+    #[test]
+    fn connection_refused_is_not_route_missing() {
+        let error = OnboardingWireError::new(
+            OnboardingWireErrorKind::NoSymbols,
+            "connect ADS target: Connection refused",
+        );
+        assert!(!upload_failure_implies_missing_return_route(&error));
+    }
+}

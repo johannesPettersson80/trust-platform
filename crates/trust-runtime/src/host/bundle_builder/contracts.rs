@@ -17,6 +17,19 @@ pub struct BundleBuildReport {
     pub resolved_dependencies: Vec<String>,
 }
 
+/// In-memory program check summary for a bundle.
+#[derive(Debug, Clone)]
+pub struct BundleCheckReport {
+    /// Encoded bytecode size produced by the in-memory compile.
+    pub bytecode_size: usize,
+    /// Source files included in the check.
+    pub sources: Vec<PathBuf>,
+    /// Resolved dependency roots included in this check.
+    pub dependency_roots: Vec<PathBuf>,
+    /// Resolved dependency names in deterministic order.
+    pub resolved_dependencies: Vec<String>,
+}
+
 /// Project layout summary without building bytecode.
 #[derive(Debug, Clone)]
 pub struct ProjectInspectionReport {

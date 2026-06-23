@@ -1,25 +1,50 @@
-# Network Canvas demo — REAL runtime config. The canvas renders this runtime's
-# `fleet.topology`, which the runtime derives from THIS config (not hand-authored JSON).
-# Roles come from here: an exposed OPC UA server = server; a mesh peer = peer;
-# the io.toml drivers (modbus-tcp, ethercat) = client/master.
-
 [bundle]
 version = 1
 
 [resource]
-name = "line-a"
+name = "truST runtime"
 cycle_interval_ms = 10
 
 [runtime.control]
-endpoint = "unix:///tmp/line-a.sock"
+endpoint = "unix:///tmp/trust-runtime-line-a.sock"
 mode = "production"
-debug_enabled = true
+debug_enabled = false
 
 [runtime.web]
-enabled = true
-listen = "0.0.0.0:8080"
+enabled = false
+listen = "127.0.0.1:8080"
 auth = "local"
 tls = false
+
+[runtime.tls]
+mode = "disabled"
+require_remote = false
+
+[runtime.discovery]
+enabled = false
+service_name = "truST"
+advertise = false
+interfaces = []
+
+[runtime.mesh]
+enabled = false
+listen = "0.0.0.0:5200"
+tls = false
+auth_token = ""
+publish = []
+
+[runtime.observability]
+enabled = false
+sample_interval_ms = 1000
+mode = "all"
+include = []
+history_path = "history/historian.jsonl"
+max_entries = 20000
+prometheus_enabled = true
+prometheus_path = "/metrics"
+
+[runtime.log]
+level = "info"
 
 [runtime.retain]
 mode = "none"
@@ -27,40 +52,8 @@ save_interval_ms = 1000
 
 [runtime.watchdog]
 enabled = false
-timeout_ms = 5000
+timeout_ms = 1000
 action = "halt"
 
 [runtime.fault]
 policy = "halt"
-
-# truST exposes data → it is an OPC UA SERVER (clients like SCADA/Historian connect IN).
-[runtime.opcua]
-enabled = true
-listen = "0.0.0.0:4840"
-endpoint_path = "/"
-namespace_uri = "urn:trust:line-a"
-publish_interval_ms = 250
-max_nodes = 128
-expose = ["Main.conveyor_speed", "Main.running"]
-security_policy = "basic256sha256"
-security_mode = "sign_and_encrypt"
-allow_anonymous = true
-
-# Mesh PEER linking to the packaging runtime on trust-ipc-2.
-[runtime.mesh]
-enabled = true
-role = "peer"
-listen = "0.0.0.0:5200"
-connect = ["tcp/trust-ipc-2:5200"]
-tls = false
-auth_token = ""
-publish = ["Main.line_state"]
-
-[runtime.discovery]
-enabled = true
-service_name = "truST"
-advertise = true
-interfaces = ["eth0"]
-
-[runtime.log]
-level = "info"

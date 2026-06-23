@@ -1,12 +1,7 @@
-# Owned field I/O for line-a. Each driver's ROLE is inherent to the driver:
-#   modbus-tcp  → truST is the Modbus CLIENT/master (the device is the server/slave)
-#   ethercat    → truST is the EtherCAT MASTER (the segment holds the slaves)
-# The runtime reports these as endpoints in fleet.topology; the canvas renders them.
-
-[[io.drivers]]
-driver = "modbus-tcp"
-params = { address = "192.168.1.50:502", unit_id = 1 }
-
-[[io.drivers]]
-driver = "ethercat"
-params = { adapter = "eth1", cycle_warn_ms = 4, on_error = "fault" }
+# Simulated I/O so the demo runs with no hardware/brokers on any machine. The Network
+# Canvas easy-setup flow is designed to ADD real devices live (drag a protocol onto the
+# runtime -> configure -> Apply), which writes them here. To pre-wire real drivers, replace
+# this with e.g. modbus-tcp / mqtt / ethercat entries pointing at reachable endpoints.
+[io]
+driver = "simulated"
+params = {}

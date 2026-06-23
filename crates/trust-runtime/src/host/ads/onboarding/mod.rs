@@ -17,7 +17,10 @@ pub use doctor::{
     DoctorCancellation, DoctorJob, DoctorJobProgress, DoctorJobState, DoctorOptions,
     DoctorStepTimeout, REQUIRED_DOCTOR_STEPS,
 };
-pub use errors::{OnboardingError, OnboardingWireError, OnboardingWireErrorKind};
+pub use errors::{
+    upload_failure_implies_missing_return_route, OnboardingError, OnboardingWireError,
+    OnboardingWireErrorKind,
+};
 pub use identity::{
     auto_route_availability_for_identity, classify_local_address, derive_default_ams_net_id,
     derive_runtime_identity_from_source, resolve_os_source_ip,

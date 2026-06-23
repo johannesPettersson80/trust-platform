@@ -17,6 +17,14 @@ pub struct GpioDriver {
     health: IoDriverHealth,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GpioLineInfo {
+    pub chip: String,
+    pub label: Option<String>,
+    pub line: u32,
+    pub direction: Option<String>,
+}
+
 impl std::fmt::Debug for GpioDriver {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("GpioDriver")
@@ -56,6 +64,17 @@ impl GpioDriver {
         let _ = GpioConfig::parse(params)?;
         Ok(())
     }
+}
+
+pub fn discover_gpio_lines() -> Result<Vec<GpioLineInfo>, RuntimeError> {
+    let mut lines = Vec::new();
+    collect_gpiochip_lines(Path::new("/sys/bus/gpio/devices"), &mut lines)?;
+    if lines.is_empty() {
+        collect_gpiochip_lines(Path::new("/sys/class/gpio"), &mut lines)?;
+    }
+    lines.sort_by(|left, right| left.chip.cmp(&right.chip).then(left.line.cmp(&right.line)));
+    lines.dedup_by(|left, right| left.chip == right.chip && left.line == right.line);
+    Ok(lines)
 }
 
 impl IoDriver for GpioDriver {
@@ -397,6 +416,66 @@ fn write_bit(buffer: &mut [u8], byte: usize, bit: u8, value: bool) -> Result<(),
 
 fn invalid_gpio(msg: impl Into<String>) -> RuntimeError {
     RuntimeError::InvalidConfig(SmolStr::new(msg.into()))
+}
+
+fn collect_gpiochip_lines(root: &Path, lines: &mut Vec<GpioLineInfo>) -> Result<(), RuntimeError> {
+    let entries = match fs::read_dir(root) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => {
+            return Err(RuntimeError::IoDriver(SmolStr::new(format!(
+                "gpio enumerate {} failed: {error}",
+                root.display()
+            ))))
+        }
+    };
+    for entry in entries {
+        let entry = entry.map_err(|error| {
+            RuntimeError::IoDriver(SmolStr::new(format!(
+                "gpio enumerate {} failed: {error}",
+                root.display()
+            )))
+        })?;
+        let path = entry.path();
+        let Some(file_name) = path.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        if !file_name.starts_with("gpiochip") {
+            continue;
+        }
+        let base = read_u32(path.join("base").as_path()).unwrap_or(0);
+        let ngpio = read_u32(path.join("ngpio").as_path()).unwrap_or(0);
+        if ngpio == 0 {
+            continue;
+        }
+        let label = read_optional_trimmed(path.join("label").as_path());
+        for offset in 0..ngpio.min(512) {
+            let line = base.saturating_add(offset);
+            lines.push(GpioLineInfo {
+                chip: file_name.to_string(),
+                label: label.clone(),
+                line,
+                direction: read_optional_trimmed(
+                    Path::new("/sys/class/gpio")
+                        .join(format!("gpio{line}"))
+                        .join("direction")
+                        .as_path(),
+                ),
+            });
+        }
+    }
+    Ok(())
+}
+
+fn read_u32(path: &Path) -> Option<u32> {
+    fs::read_to_string(path).ok()?.trim().parse().ok()
+}
+
+fn read_optional_trimmed(path: &Path) -> Option<String> {
+    fs::read_to_string(path)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
 }
 
 trait GpioBackend: Send {

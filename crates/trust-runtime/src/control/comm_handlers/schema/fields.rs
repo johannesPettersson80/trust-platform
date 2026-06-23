@@ -733,3 +733,155 @@ pub(super) fn runtime_cloud_fields() -> Vec<CommFieldSchema> {
         ),
     ]
 }
+
+pub(super) fn ads_fields() -> Vec<CommFieldSchema> {
+    vec![
+        boolean_field("enabled", "Enable ADS client", true, "Enable ADS client polling."),
+        optional(field(
+            "config_path",
+            "ADS config path",
+            "path",
+            json!("ads.toml"),
+            false,
+            "Project-relative ADS connection file.",
+        )),
+        number_field(
+            "worker_tick_interval_ms",
+            "ADS link update interval (ms)",
+            20,
+            1,
+            60000,
+            "How often truST services ADS reads, writes, reconnects, and status updates. Lower values reduce latency but use more CPU.",
+        ),
+        field(
+            "connections",
+            "Connections",
+            "json_array",
+            json!([]),
+            false,
+            "ADS connection entries. Enabling ADS requires at least one connection with at least one selected point.",
+        ),
+    ]
+}
+
+pub(super) fn ads_server_fields() -> Vec<CommFieldSchema> {
+    vec![
+        boolean_field(
+            "enabled",
+            "Enable ADS server",
+            true,
+            "Expose selected truST globals over ADS.",
+        ),
+        field(
+            "listen",
+            "Listen IP",
+            "string",
+            json!("127.0.0.1"),
+            true,
+            "Local IP address where TwinCAT/ADS clients connect. Wildcard binds are rejected.",
+        ),
+        optional(field(
+            "ams_net_id",
+            "AMS Net ID",
+            "string",
+            json!(""),
+            false,
+            "Runtime AMS Net ID. Empty derives it from an IPv4 listen address.",
+        )),
+        number_field("ads_port", "ADS port", 851, 1, 65535, "Logical ADS port."),
+        boolean_field(
+            "insecure_transport",
+            "Plain ADS transport",
+            true,
+            "Required acknowledgement for plain ADS server transport.",
+        ),
+        boolean_field(
+            "writes_enabled",
+            "Enable writes",
+            false,
+            "Allow writes only for symbols also listed in writable.",
+        ),
+        string_array_field(
+            "expose",
+            "Expose globals",
+            json!(["global.*"]),
+            "Glob patterns for runtime globals exposed as ADS symbols.",
+        ),
+        string_array_field(
+            "writable",
+            "Writable globals",
+            json!([]),
+            "Subset of exposed globals that ADS clients may write.",
+        ),
+        boolean_field(
+            "allow_unpinned_clients",
+            "Allow unpinned clients",
+            false,
+            "Lab override for clients without source IP/CIDR pins. Keep disabled in production.",
+        ),
+        field(
+            "clients",
+            "Allowed clients",
+            "json_array",
+            json!([]),
+            false,
+            "Allowed ADS clients as objects with ams_net_id plus source_ip or source_cidr.",
+        ),
+        advanced(number_field(
+            "max_symbols",
+            "Max symbols",
+            4096,
+            1,
+            1_000_000,
+            "Maximum exposed symbol count.",
+        )),
+        advanced(number_field(
+            "max_clients",
+            "Max clients",
+            32,
+            1,
+            10000,
+            "Maximum simultaneous ADS clients.",
+        )),
+        advanced(number_field(
+            "max_subscriptions_per_client",
+            "Max subscriptions per client",
+            1024,
+            1,
+            1_000_000,
+            "Per-client notification subscription cap.",
+        )),
+        advanced(number_field(
+            "max_total_subscriptions",
+            "Max total subscriptions",
+            8192,
+            1,
+            10_000_000,
+            "Global notification subscription cap.",
+        )),
+        advanced(number_field(
+            "max_frame_bytes",
+            "Max frame bytes",
+            1_048_576,
+            1024,
+            64 * 1024 * 1024,
+            "Maximum ADS frame payload bytes.",
+        )),
+        advanced(number_field(
+            "max_sumup_items",
+            "Max sum-up items",
+            256,
+            1,
+            65535,
+            "Maximum items in ADS sum-up requests.",
+        )),
+        advanced(number_field(
+            "max_write_bytes",
+            "Max write bytes",
+            262_144,
+            1,
+            64 * 1024 * 1024,
+            "Maximum write payload bytes.",
+        )),
+    ]
+}
