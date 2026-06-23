@@ -7,6 +7,11 @@
 // HARD honesty rule: a remote NEVER renders "Stop" (we don't own its process) — it renders
 // "Disconnect" (we only drop our own connection).
 
+import {
+  managedRuntimeLabel,
+  type ManagedRuntime,
+} from "./localRuntimeModel";
+
 export type RuntimeKind = "simulator" | "local" | "remote";
 
 export type RuntimeStatus =
@@ -22,7 +27,6 @@ export type RuntimeStatus =
 export type RuntimeAction = "start" | "stop" | "connect" | "disconnect" | "none";
 
 export const SIMULATOR_RUNTIME_ID = "simulator";
-export const LOCAL_RUNTIME_ID = "local";
 
 export interface RuntimeOption {
   readonly id: string;
@@ -68,16 +72,17 @@ export interface RuntimeModelSnapshot {
 export interface RuntimeModelInput {
   readonly snapshot: RuntimeModelSnapshot;
   readonly remotes: ReadonlyArray<RemoteRuntime>;
-  readonly localSupported: boolean;
+  // Managed local runtimes (fleet.toml projects on this computer we own — Phase 9). Each becomes a
+  // select-only dropdown entry of kind "local" with Start/Stop driven by its own reported state.
+  readonly managed: ReadonlyArray<ManagedRuntime>;
   readonly selectedId: string;
 }
 
-// The dropdown is SELECT-ONLY (§0.5.3): Simulator (default) → Local runtime (when supported) →
-// configured remotes. There is NO "Add…/Connect…" entry — adding or connecting a runtime happens in
-// Devices & Connections, never in the Run-bar dropdown.
+// The dropdown is SELECT-ONLY (§0.5.3): Simulator (default) → managed local runtimes → configured
+// remotes. There is NO "Add…/Connect…" entry — adding/connecting happens in Devices & Connections.
 export function runtimeOptions(
   remotes: ReadonlyArray<RemoteRuntime>,
-  localSupported: boolean
+  managed: ReadonlyArray<ManagedRuntime>
 ): RuntimeOption[] {
   const options: RuntimeOption[] = [
     {
@@ -86,10 +91,10 @@ export function runtimeOptions(
       kind: "simulator",
     },
   ];
-  if (localSupported) {
+  for (const local of managed) {
     options.push({
-      id: LOCAL_RUNTIME_ID,
-      label: "Local runtime (this computer)",
+      id: local.name,
+      label: managedRuntimeLabel(local.name),
       kind: "local",
     });
   }
@@ -102,21 +107,42 @@ export function runtimeOptions(
 // Resolve the selected runtime + its single state-specific action. Falls back to the simulator if the
 // stored selection is no longer in the inventory (removed/stale).
 export function selectedRuntime(input: RuntimeModelInput): SelectedRuntime {
-  const options = runtimeOptions(input.remotes, input.localSupported);
+  const options = runtimeOptions(input.remotes, input.managed);
   const chosen =
     options.find((option) => option.id === input.selectedId) ?? options[0];
   switch (chosen.kind) {
     case "remote":
       return remoteRuntime(chosen, input.snapshot);
     case "local":
+      return managedRuntime(chosen, input.managed);
     case "simulator":
     default:
-      return localOrSimulator(chosen, input.snapshot);
+      return simulatorRuntime(chosen, input.snapshot);
   }
 }
 
-// Simulator + persistent local runtime share start/stop semantics (we own the process).
-function localOrSimulator(
+// A managed local runtime: we own the process → Start/Stop (never Connect), driven by its reported state.
+function managedRuntime(
+  option: RuntimeOption,
+  managed: ReadonlyArray<ManagedRuntime>
+): SelectedRuntime {
+  const running =
+    managed.find((local) => local.name === option.id)?.state === "running";
+  return running
+    ? runtime(option, "running", "Running", {
+        action: "stop",
+        label: "Stop",
+        enabled: true,
+      })
+    : runtime(option, "stopped", "Stopped", {
+        action: "start",
+        label: "Start",
+        enabled: true,
+      });
+}
+
+// The simulator: we own the (debug) process → Start/Stop, driven by the lifecycle snapshot.
+function simulatorRuntime(
   option: RuntimeOption,
   snapshot: RuntimeModelSnapshot
 ): SelectedRuntime {

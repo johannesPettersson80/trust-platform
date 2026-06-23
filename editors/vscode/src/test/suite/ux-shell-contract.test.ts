@@ -438,11 +438,21 @@ suite("Phases 8–10 — honest backend gating (no fakes, no dead buttons)", () 
     );
   });
 
-  test("persistent local runtime is not falsely advertised (phase 9 launcher not built)", () => {
+  test("managed local runtimes are projected into the Run target from the fleet lifecycle (phase 9 landed)", () => {
     const src = readSrc("trustHomeView.ts");
+    // The launcher exists now (bbe4dacf2): the Run bar lists real managed runtimes + drives Start/Stop
+    // through the fleet lifecycle — no fake static "Local runtime" entry, no false advertising.
     assert.ok(
-      /LOCAL_RUNTIME_SUPPORTED = false/.test(src),
-      "the Run bar must not offer a 'Local runtime' target it cannot honestly drive"
+      src.includes("listManagedRuntimes"),
+      "the Run bar must list managed runtimes from the fleet lifecycle"
+    );
+    assert.ok(
+      src.includes("startManagedRuntime") && src.includes("stopManagedRuntime"),
+      "a selected managed runtime Start/Stop must drive the fleet lifecycle (we own it)"
+    );
+    assert.ok(
+      !/LOCAL_RUNTIME_SUPPORTED/.test(src),
+      "the stale static local-runtime flag must be gone"
     );
   });
 });

@@ -19,6 +19,13 @@ import {
   onDidChangeSelectedRuntime,
   setSelectedRuntimeId,
 } from "./selectedRuntime";
+import {
+  listManagedRuntimes,
+  onDidChangeManagedRuntimes,
+  startManagedRuntime,
+  stopManagedRuntime,
+} from "./localRuntime";
+import type { ManagedRuntime } from "./localRuntimeModel";
 
 // §UX v5 (vscode-ux-overhaul-plan.md §0.5) — the ONE truST panel (WebviewView `trust.home`, no visible
 // "Home"). It has TWO states:
@@ -28,10 +35,6 @@ import {
 //                        Live Values · HMI.
 // The dropdown is select-only (no Add/Connect). A remote NEVER renders Start/Stop (only Connect/
 // Disconnect) — its process lifecycle lives on its Devices & Connections node, never here.
-
-// The persistent-local-runtime workflow (launcher + service lifecycle) is not built yet, so we do NOT
-// advertise a "Local runtime" option we can't honestly drive. Flip to true when that lands (phase 9).
-const LOCAL_RUNTIME_SUPPORTED = false;
 
 interface ValidityLine {
   readonly ok: boolean;
@@ -93,11 +96,14 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
     return remotes;
   }
 
-  private storedSelectedId(remotes: RemoteRuntime[]): string {
+  private storedSelectedId(
+    remotes: RemoteRuntime[],
+    managed: ManagedRuntime[]
+  ): string {
     // Read the ONE shared store (§0.5.11) — written by this dropdown AND by graph nodes (Connect / Set
     // as run target). Fall back to the simulator if the stored target is no longer in the inventory.
     const stored = getSelectedRuntimeId();
-    const valid = runtimeOptions(remotes, LOCAL_RUNTIME_SUPPORTED).some(
+    const valid = runtimeOptions(remotes, managed).some(
       (option) => option.id === stored
     );
     return valid ? stored : SIMULATOR_RUNTIME_ID;
@@ -105,13 +111,14 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
 
   private resolveSelected(
     snapshot: RuntimeLifecycleSnapshot,
-    remotes: RemoteRuntime[]
+    remotes: RemoteRuntime[],
+    managed: ManagedRuntime[]
   ): SelectedRuntime {
     return selectedRuntime({
       snapshot: toModelSnapshot(snapshot),
       remotes,
-      localSupported: LOCAL_RUNTIME_SUPPORTED,
-      selectedId: this.storedSelectedId(remotes),
+      managed,
+      selectedId: this.storedSelectedId(remotes, managed),
     });
   }
 
@@ -122,8 +129,9 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
     const projectOpen = await isTrustProjectOpen();
     const snapshot = await runtimeLifecycleService.snapshot();
     const remotes = this.readRemotes();
-    const options = runtimeOptions(remotes, LOCAL_RUNTIME_SUPPORTED);
-    const selected = this.resolveSelected(snapshot, remotes);
+    const managed = await listManagedRuntimes(this.context);
+    const options = runtimeOptions(remotes, managed);
+    const selected = this.resolveSelected(snapshot, remotes, managed);
     // Apply changes is SIMULATOR-ONLY (§0.5.3/§0.6.6) and only when the running sim's source changed.
     // Remote apply/restart/deploy lives on the runtime node, never here.
     const canApply =
@@ -196,7 +204,14 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
   private async runAction(): Promise<void> {
     const snapshot = await runtimeLifecycleService.snapshot();
     const remotes = this.readRemotes();
-    const selected = this.resolveSelected(snapshot, remotes);
+    const managed = await listManagedRuntimes(this.context);
+    const selected = this.resolveSelected(snapshot, remotes, managed);
+    // A managed local runtime is OURS — Start/Stop via the fleet lifecycle, not the debug simulator.
+    if (selected.kind === "local") {
+      await this.runManagedAction(selected);
+      await this.render();
+      return;
+    }
     const result = await this.dispatch(selected);
     if (result && !result.ok) {
       if (selected.primary.action === "connect") {
@@ -225,6 +240,20 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
       void vscode.commands.executeCommand("trust-lsp.debug.openIoPanel");
     }
     await this.render();
+  }
+
+  private async runManagedAction(selected: SelectedRuntime): Promise<void> {
+    const ok =
+      selected.primary.action === "stop"
+        ? await stopManagedRuntime(this.context, selected.id)
+        : await startManagedRuntime(this.context, selected.id);
+    if (!ok) {
+      void vscode.window.showWarningMessage(
+        `Could not ${selected.primary.action} ${selected.label}. Check it in Devices & Connections.`
+      );
+    } else if (selected.primary.action === "start") {
+      void vscode.commands.executeCommand("trust-lsp.debug.openIoPanel");
+    }
   }
 
   private async applyChanges(): Promise<void> {
@@ -410,6 +439,10 @@ export function registerTrustHome(context: vscode.ExtensionContext): void {
   // Reflect run-target changes made on a graph node (Connect / Set as run target) in the dropdown.
   context.subscriptions.push(
     onDidChangeSelectedRuntime(() => provider.refresh())
+  );
+  // A managed local runtime starting/stopping (from here or a graph node) updates its Run-bar state.
+  context.subscriptions.push(
+    onDidChangeManagedRuntimes(() => provider.refresh())
   );
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((event) => {

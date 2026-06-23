@@ -9,6 +9,11 @@ import {
   type RuntimeModelSnapshot,
 } from "../../trustHomeModel";
 import { runtimeNodeControls } from "../../networkCanvas/webview/runtimeNodeControls";
+import {
+  managedRuntimeLabel,
+  normalizeManagedState,
+  toManagedRuntimes,
+} from "../../localRuntimeModel";
 
 // Regression guard for the v3 UX RESET (vscode-ux-overhaul-plan.md §0/§6/§8/§9): ONE run surface — a
 // Run card (WebviewView) with a runtime selector and a SINGLE state-specific action. Literal verbs
@@ -57,7 +62,7 @@ suite("Run card — selected runtime model (v3 reset)", () => {
     const stopped = selectedRuntime({
       snapshot: snap(),
       remotes: [],
-      localSupported: false,
+      managed: [],
       selectedId: SIMULATOR_RUNTIME_ID,
     });
     assert.strictEqual(stopped.kind, "simulator");
@@ -68,7 +73,7 @@ suite("Run card — selected runtime model (v3 reset)", () => {
     const running = selectedRuntime({
       snapshot: snap({ runtimeMode: "simulate", runtimeState: "running" }),
       remotes: [],
-      localSupported: false,
+      managed: [],
       selectedId: SIMULATOR_RUNTIME_ID,
     });
     assert.strictEqual(running.primary.action, "stop");
@@ -77,7 +82,7 @@ suite("Run card — selected runtime model (v3 reset)", () => {
     const starting = selectedRuntime({
       snapshot: snap({ starting: true }),
       remotes: [],
-      localSupported: false,
+      managed: [],
       selectedId: SIMULATOR_RUNTIME_ID,
     });
     assert.strictEqual(starting.primary.action, "none");
@@ -89,7 +94,7 @@ suite("Run card — selected runtime model (v3 reset)", () => {
     const notConnected = selectedRuntime({
       snapshot: snap(),
       remotes,
-      localSupported: false,
+      managed: [],
       selectedId: "tcp://raspberrypi:5680",
     });
     assert.strictEqual(notConnected.kind, "remote");
@@ -105,7 +110,7 @@ suite("Run card — selected runtime model (v3 reset)", () => {
         endpointReachable: true,
       }),
       remotes,
-      localSupported: false,
+      managed: [],
       selectedId: "tcp://raspberrypi:5680",
     });
     assert.strictEqual(connected.primary.action, "disconnect");
@@ -124,7 +129,7 @@ suite("Run card — selected runtime model (v3 reset)", () => {
         endpointReachable: false,
       }),
       remotes,
-      localSupported: false,
+      managed: [],
       selectedId: "tcp://pi:5680",
     });
     assert.strictEqual(unreachable.primary.action, "connect");
@@ -145,7 +150,7 @@ suite("Run card — selected runtime model (v3 reset)", () => {
         endpointReachable: true,
       }),
       remotes: [{ id: "tcp://raspberrypi:5680", label: "raspberrypi" }],
-      localSupported: false,
+      managed: [],
       selectedId: "tcp://raspberrypi:5680",
     });
     assert.notStrictEqual(connected.primary.action, "stop");
@@ -155,7 +160,7 @@ suite("Run card — selected runtime model (v3 reset)", () => {
 
   test("dropdown is SELECT-ONLY: simulator first, then remotes — NO Add/Connect sentinel; invalid selection falls back to simulator", () => {
     const remotes = [{ id: "tcp://pi:5680", label: "pi" }];
-    const options = runtimeOptions(remotes, false);
+    const options = runtimeOptions(remotes, []);
     assert.strictEqual(options[0].id, SIMULATOR_RUNTIME_ID);
     assert.strictEqual(
       options[options.length - 1].id,
@@ -171,10 +176,63 @@ suite("Run card — selected runtime model (v3 reset)", () => {
     const fallback = selectedRuntime({
       snapshot: snap(),
       remotes,
-      localSupported: false,
+      managed: [],
       selectedId: "does-not-exist",
     });
     assert.strictEqual(fallback.id, SIMULATOR_RUNTIME_ID);
+  });
+
+  test("managed local runtime: projected into the dropdown; Start when stopped, Stop when running (we own it)", () => {
+    const managed = [
+      { name: "cell1", controlEndpoint: "tcp://127.0.0.1:9902", state: "stopped" as const },
+    ];
+    const options = runtimeOptions([], managed);
+    const local = options.find((option) => option.id === "cell1");
+    assert.ok(local, "the managed runtime is in the dropdown");
+    assert.strictEqual(local?.kind, "local");
+    assert.strictEqual(local?.label, "cell1 (this computer)");
+
+    const stopped = selectedRuntime({ snapshot: snap(), remotes: [], managed, selectedId: "cell1" });
+    assert.strictEqual(stopped.primary.action, "start");
+    assert.strictEqual(stopped.primary.label, "Start");
+
+    const running = selectedRuntime({
+      snapshot: snap(),
+      remotes: [],
+      managed: [{ ...managed[0], state: "running" }],
+      selectedId: "cell1",
+    });
+    assert.strictEqual(running.primary.action, "stop");
+    // We OWN a managed local runtime → never "Connect".
+    assert.notStrictEqual(running.primary.action, "connect");
+  });
+});
+
+suite("Managed local runtime model (Phase 9)", () => {
+  test("normalizeManagedState + label", () => {
+    assert.strictEqual(normalizeManagedState("running"), "running");
+    assert.strictEqual(normalizeManagedState("stopped"), "stopped");
+    assert.strictEqual(normalizeManagedState(undefined), "stopped");
+    assert.strictEqual(managedRuntimeLabel("cell1"), "cell1 (this computer)");
+  });
+
+  test("toManagedRuntimes merges fleet list + per-name status", () => {
+    const list = {
+      runtimes: [
+        { name: "cell1", control_endpoint: "tcp://127.0.0.1:9902" },
+        { name: "cell2", control_endpoint: "tcp://127.0.0.1:9903" },
+      ],
+    };
+    const statuses = new Map([
+      ["cell1", { status: "running", log_path: "/tmp/cell1.log" }],
+    ]);
+    const managed = toManagedRuntimes(list, statuses);
+    assert.strictEqual(managed.length, 2);
+    assert.strictEqual(managed[0].name, "cell1");
+    assert.strictEqual(managed[0].state, "running");
+    assert.strictEqual(managed[0].logPath, "/tmp/cell1.log");
+    // No status reported → stopped (honest default, never "running").
+    assert.strictEqual(managed[1].state, "stopped");
   });
 });
 

@@ -26,6 +26,7 @@ import { registerExamples } from "./examples";
 import { registerCheckProgram } from "./checkProgram";
 import { initSelectedRuntimeStore } from "./selectedRuntime";
 import { registerRuntimeAuth } from "./runtimeAuth";
+import { registerLocalRuntime } from "./localRuntime";
 import { registerNewStatechartCommand } from "./statechart/newStatechart";
 import { registerImportStatechartCommand } from "./statechart/importStatechart";
 import { registerNewBlocklyCommand } from "./blockly/newBlockly";
@@ -179,6 +180,7 @@ export async function activate(context: vscode.ExtensionContext) {
   registerRuntimeLifecycle(context);
   initSelectedRuntimeStore(context);
   registerRuntimeAuth(context);
+  registerLocalRuntime(context);
   registerRuntimeControls(context);
   registerTrustHome(context);
   registerIoPanel(context);
