@@ -282,6 +282,7 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
     border-color: var(--vscode-button-border, var(--vscode-widget-border, rgba(128,128,128,0.35)));
   }
   button.secondary:hover:not(:disabled) { background: var(--vscode-button-secondaryHoverBackground, var(--vscode-list-hoverBackground)); }
+  .hint { font-size: 11px; opacity: 0.8; margin-top: 6px; line-height: 1.4; }
   .nav { margin-top: 16px; border-top: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.25)); padding-top: 8px; }
   .nav button {
     text-align: left; margin-top: 4px; padding: 6px 8px;
@@ -310,6 +311,7 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
     <div class="status">Status: <span class="dot" id="dot"></span><span class="value" id="status">—</span></div>
     <button id="action" disabled>—</button>
     <button id="apply" class="secondary" style="display:none">Apply changes</button>
+    <div class="hint" id="hint" style="display:none"></div>
 
     <nav class="nav">
       <button class="nav-item" id="navProject">Project</button>
@@ -327,6 +329,7 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
   const dotEl = document.getElementById("dot");
   const actionEl = document.getElementById("action");
   const applyEl = document.getElementById("apply");
+  const hintEl = document.getElementById("hint");
   const validityEl = document.getElementById("validity");
   const validityIco = document.getElementById("validityIco");
   const validityText = document.getElementById("validityText");
@@ -367,6 +370,9 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
     actionEl.textContent = msg.selected.primary.label;
     actionEl.disabled = !msg.selected.primary.enabled;
     applyEl.style.display = msg.canApply ? "" : "none";
+    const hint = msg.selected.primary.hint || "";
+    hintEl.textContent = hint;
+    hintEl.style.display = hint ? "" : "none";
   });
 
   vscode.postMessage({ type: "ready" });

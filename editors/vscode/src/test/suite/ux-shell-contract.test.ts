@@ -192,6 +192,27 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
     }
   });
 
+  test("every example runtime.toml has the sections the runtime parser requires", () => {
+    // The parser requires retain/watchdog/fault (Codex review) — a compact file fails to load offline.
+    for (const entry of manifestEntries()) {
+      const toml = fs.readFileSync(
+        path.join(EXAMPLES_DIR, entry.path, "runtime.toml"),
+        "utf8"
+      );
+      for (const section of [
+        "[runtime.control]",
+        "[runtime.retain]",
+        "[runtime.watchdog]",
+        "[runtime.fault]",
+      ]) {
+        assert.ok(
+          toml.includes(section),
+          `example '${entry.id}' runtime.toml must declare ${section}`
+        );
+      }
+    }
+  });
+
   test("hardware badges map to the user-facing requirement labels", () => {
     assert.strictEqual(hardwareBadge("none"), "No hardware");
     assert.strictEqual(hardwareBadge("twincat"), "Requires TwinCAT");
@@ -217,7 +238,8 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
           continue;
         }
         const text = fs.readFileSync(full, "utf8");
-        if (/(auth_token|password|secret|api[_-]?key)\s*[:=]\s*["']?\S+/i.test(text)) {
+        // A real secret has a non-empty value; `auth_token = ""` (empty default in runtime.toml) is fine.
+        if (/(auth_token|password|secret|api[_-]?key)\s*[:=]\s*["']?[^"'\s]/i.test(text)) {
           offenders.push(full);
         }
       }

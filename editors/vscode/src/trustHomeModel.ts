@@ -36,6 +36,9 @@ export interface PrimaryAction {
   // progress label ("Starting…" | "Connecting…").
   readonly label: string;
   readonly enabled: boolean;
+  // When the action is disabled for a known reason (e.g. unreachable), the line shown under the button
+  // so the user knows why + what to do next (§0.5.10). Omitted when there's nothing to explain.
+  readonly hint?: string;
 }
 
 export interface SelectedRuntime {
@@ -165,10 +168,13 @@ function remoteRuntime(
     });
   }
   if (isActiveEndpoint && snapshot.endpointConfigured && !snapshot.endpointReachable) {
-    return runtime(option, "unreachable", "Unreachable", {
+    // Known-unreachable (we probed and it's down): Connect is DISABLED with a reason — never a button
+    // that just fails (§0.5.10). Diagnosing/starting a remote happens in Devices & Connections.
+    return runtime(option, "unreachable", "Not reachable", {
       action: "connect",
       label: "Connect",
-      enabled: true,
+      enabled: false,
+      hint: "Not reachable — open Devices & Connections to start or diagnose this runtime.",
     });
   }
   return runtime(option, "disconnected", "Not connected", {

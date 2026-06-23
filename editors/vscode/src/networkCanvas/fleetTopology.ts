@@ -233,11 +233,14 @@ export function offlineTopologyForTarget(target: RuntimeTarget): FleetTopologyRe
   }
   // Neutral grey "stopped" (the local-sim convention), not red — a just-added peer isn't a fault;
   // the detail says why. `auth_failed` is a real error (red).
-  const health = target.status === "auth_failed" ? "error" : "stopped";
+  // We KNOW it's configured + not reachable; we do NOT know whether the process is stopped or simply
+  // unreachable — so render "unknown" (grey, ghosted), never the over-claim "stopped" (Codex review).
+  // auth_failed is a genuine error (red).
+  const health = target.status === "auth_failed" ? "error" : "unknown";
   const detail =
     target.status === "auth_failed"
       ? "Authentication failed — check the runtime's auth token."
-      : "Configured — not reachable yet. Start the runtime to bring it online.";
+      : "Configured endpoint not reachable — open it in Devices & Connections to connect or diagnose.";
   const hostId = `fleet:${endpoint}`;
   return {
     schema_version: 3,
@@ -254,8 +257,8 @@ export function offlineTopologyForTarget(target: RuntimeTarget): FleetTopologyRe
             runtime_id: `${hostId}:runtime`,
             name: target.label || "runtime",
             control_endpoint: endpoint,
-            // "stopped" mode (not "online") so the badge doesn't read as running next to the grey dot.
-            mode: target.status === "auth_failed" ? "error" : "stopped",
+            // "unknown" mode (not "online"/"stopped") so the badge doesn't claim running OR stopped.
+            mode: target.status === "auth_failed" ? "error" : "unknown",
             cycle_ms: 0,
             health,
             detail,

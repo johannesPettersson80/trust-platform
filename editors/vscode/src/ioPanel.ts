@@ -1147,7 +1147,8 @@ async function compileActiveProgram(options: CompileOptions = {}): Promise<void>
     } else if (dirty) {
       statusMessage = "Save all Structured Text files before starting the runtime.";
     } else {
-      statusMessage = "Compile ok. Starting debug session...";
+      // No authoritative whole-project compile yet (phase 8) — diagnostics + reload only.
+      statusMessage = "No known errors. Starting debug session...";
     }
   } else if (!hasConfiguration && runtimeStatus === "skipped" && errors === 0) {
     statusMessage +=

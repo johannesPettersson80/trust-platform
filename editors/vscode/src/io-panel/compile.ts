@@ -312,7 +312,9 @@ export async function compileActiveProgram(
     } else if (dirty) {
       statusMessage = "Save all Structured Text files before starting the runtime.";
     } else {
-      statusMessage = "Compile ok. Starting debug session...";
+      // No authoritative whole-project compile exists yet (phase 8) — this only aggregated diagnostics
+      // + reload, so say what we actually know, not "Compile ok".
+      statusMessage = "No known errors. Starting debug session...";
     }
   } else if (!hasConfiguration && runtimeStatus === "skipped" && errors === 0) {
     statusMessage +=

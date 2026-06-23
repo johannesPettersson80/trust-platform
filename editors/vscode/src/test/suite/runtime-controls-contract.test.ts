@@ -113,6 +113,28 @@ suite("Run card — selected runtime model (v3 reset)", () => {
     assert.strictEqual(connected.statusLabel, "Connected");
   });
 
+  test("unreachable selected remote: Connect is DISABLED with a reason (never a button that just fails)", () => {
+    const remotes = [{ id: "tcp://pi:5680", label: "pi" }];
+    const unreachable = selectedRuntime({
+      snapshot: snap({
+        runtimeMode: "online",
+        runtimeState: "stopped",
+        endpoint: "tcp://pi:5680",
+        endpointConfigured: true,
+        endpointReachable: false,
+      }),
+      remotes,
+      localSupported: false,
+      selectedId: "tcp://pi:5680",
+    });
+    assert.strictEqual(unreachable.primary.action, "connect");
+    assert.strictEqual(unreachable.primary.enabled, false, "unreachable → Connect disabled");
+    assert.ok(
+      unreachable.primary.hint && /reachable|Devices & Connections/i.test(unreachable.primary.hint),
+      "must explain why + point to Devices & Connections"
+    );
+  });
+
   test("HONESTY: a connected remote NEVER renders Stop", () => {
     const connected = selectedRuntime({
       snapshot: snap({

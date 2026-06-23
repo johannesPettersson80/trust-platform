@@ -42,8 +42,8 @@ export function setUpRuntimeOptions(
     },
     {
       id: "local",
-      label: "Run a runtime on this computer",
-      detail: "Add a runtime project on this host.",
+      label: "Add a runtime project (this computer)",
+      detail: "Creates a stopped runtime project on this host; the managed launcher comes later.",
       available: caps.runLocal,
       reason: caps.runLocal ? undefined : LATER,
     },

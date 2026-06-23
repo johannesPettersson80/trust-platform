@@ -211,7 +211,7 @@ suite("Network Canvas", function () {
     );
   });
 
-  test("a configured-but-unreachable fleet peer synthesizes a stopped node, never green", () => {
+  test("a configured-but-unreachable fleet peer synthesizes an UNKNOWN node (not 'stopped'), never green", () => {
     const base: RuntimeTarget = {
       mode: "online",
       endpoint: "10.0.0.9:5510",
@@ -225,8 +225,9 @@ suite("Network Canvas", function () {
     assert.ok(topo, "an unreachable configured peer should still appear (synthesized)");
     if (topo) {
       const runtime = topo.hosts[0].runtimes[0];
-      assert.strictEqual(runtime.health, "stopped", "stopped/grey, never connected/green");
-      assert.strictEqual(runtime.mode, "stopped");
+      // We don't know if it's stopped or just unreachable → "unknown" (grey/ghosted), never green.
+      assert.strictEqual(runtime.health, "unknown", "unknown/grey, never connected/green");
+      assert.strictEqual(runtime.mode, "unknown");
       assert.strictEqual(runtime.endpoints.length, 0);
       assert.strictEqual(topo.hosts[0].hostname, "cell1");
     }

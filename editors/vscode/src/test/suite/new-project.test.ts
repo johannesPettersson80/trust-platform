@@ -183,6 +183,13 @@ suite("New project command (VS Code)", function () {
       runtimeToml.includes("[runtime.control]"),
       "runtime.toml must declare [runtime.control]."
     );
+    // The runtime config parser REQUIRES these sections — a compact file is rejected (Codex review).
+    for (const section of ["[runtime.retain]", "[runtime.watchdog]", "[runtime.fault]"]) {
+      assert.ok(
+        runtimeToml.includes(section),
+        `runtime.toml must declare ${section} or the runtime parser rejects the project.`
+      );
+    }
     const ioToml = await readText(ioTomlUri);
     assert.ok(
       /driver\s*=\s*"simulated"/.test(ioToml),

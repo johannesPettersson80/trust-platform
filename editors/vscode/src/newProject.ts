@@ -33,6 +33,9 @@ const RUNTIME_CONTROL_ENDPOINT =
     ? "tcp://127.0.0.1:9902"
     : "unix:///tmp/trust-runtime.sock";
 
+// Full section set required by the runtime config parser (crates/trust-runtime/src/config/parser.rs) —
+// retain/watchdog/fault are NOT optional. Mirrors the proven examples/network_canvas_demo/runtime.toml
+// so the project loads offline (Devices & Connections topology) and `trust-runtime comm topology` passes.
 const RUNTIME_TOML_SOURCE = `[bundle]
 version = 1
 
@@ -43,13 +46,55 @@ cycle_interval_ms = 10
 [runtime.control]
 endpoint = "${RUNTIME_CONTROL_ENDPOINT}"
 mode = "production"
-debug_enabled = true
+debug_enabled = false
 
 [runtime.web]
 enabled = false
+listen = "127.0.0.1:8080"
+auth = "local"
+tls = false
+
+[runtime.tls]
+mode = "disabled"
+require_remote = false
+
+[runtime.discovery]
+enabled = false
+service_name = "truST"
+advertise = false
+interfaces = []
+
+[runtime.mesh]
+enabled = false
+listen = "0.0.0.0:5200"
+tls = false
+auth_token = ""
+publish = []
+
+[runtime.observability]
+enabled = false
+sample_interval_ms = 1000
+mode = "all"
+include = []
+history_path = "history/historian.jsonl"
+max_entries = 20000
+prometheus_enabled = true
+prometheus_path = "/metrics"
 
 [runtime.log]
 level = "info"
+
+[runtime.retain]
+mode = "none"
+save_interval_ms = 1000
+
+[runtime.watchdog]
+enabled = false
+timeout_ms = 1000
+action = "halt"
+
+[runtime.fault]
+policy = "halt"
 `;
 
 const IO_TOML_SOURCE = `# Simulated I/O so the project runs with no hardware or brokers, on any machine. Devices & Connections
