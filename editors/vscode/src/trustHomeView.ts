@@ -494,6 +494,7 @@ async function projectActionsMenu(): Promise<void> {
       { label: "$(file-directory-create) New project", command: "trust-lsp.newProject" },
       { label: "$(folder-opened) Open project", command: "workbench.action.files.openFolder" },
       { label: "$(library) Start from example", command: "trust.examples.start" },
+      { label: "$(check-all) Check program", command: "trust-lsp.checkProgram" },
       { label: "$(type-hierarchy) New diagram…", command: "__newDiagram" },
       { label: "$(beaker) Run tests", command: "trust-lsp.test.runAll" },
     ],

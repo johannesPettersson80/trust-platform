@@ -2298,6 +2298,12 @@
         "icon": "$(circuit-board)"
       },
       {
+        "command": "trust-lsp.checkProgram",
+        "title": "Check program",
+        "category": "truST",
+        "icon": "$(check-all)"
+      },
+      {
         "command": "trust-lsp.ads.openPanel",
         "title": "Structured Text: Open ADS Devices",
         "category": "Structured Text"

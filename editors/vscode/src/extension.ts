@@ -23,6 +23,7 @@ import { registerLanguageModelTools } from "./lm-tools";
 import { augmentDiagnostic } from "./diagnostics";
 import { focusPendingMain, registerNewProjectCommand } from "./newProject";
 import { registerExamples } from "./examples";
+import { registerCheckProgram } from "./checkProgram";
 import { initSelectedRuntimeStore } from "./selectedRuntime";
 import { registerRuntimeAuth } from "./runtimeAuth";
 import { registerNewStatechartCommand } from "./statechart/newStatechart";
@@ -237,6 +238,7 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(client);
   registerNewProjectCommand(context);
   registerExamples(context);
+  registerCheckProgram(context);
   // If a project was just scaffolded (which reloaded the window), focus its Main.st now.
   void focusPendingMain(context);
   registerNewStatechartCommand(context);

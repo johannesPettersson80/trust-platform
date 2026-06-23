@@ -12,6 +12,7 @@ import {
   V1_SETUP_CAPS,
 } from "../../networkCanvas/webview/setUpRuntime";
 import { pickAuthToken } from "../../runtimeAuthModel";
+import { summarizeCheck } from "../../checkProgramModel";
 
 // v5 "complete PLC IDE shell" contract guards (vscode-ux-overhaul-plan.md §0.5/§0.6/§9). This file holds
 // the package.json + source invariants for the shell: palette cleanup, no user-facing Communication
@@ -500,5 +501,39 @@ suite("R4 — runtime auth tokens in SecretStorage (security)", () => {
     const block = pkg.slice(idx, idx + 400);
     assert.ok(/legacy/i.test(block), "setting description must flag it as legacy");
     assert.ok(/secret store/i.test(block), "setting must point users to the secret store");
+  });
+});
+
+suite("Phase 8 — Check program (authoritative compile)", () => {
+  test("summarizeCheck: passed vs failed wording", () => {
+    assert.strictEqual(
+      summarizeCheck({ ok: true, status: "ok", errors: 0, warnings: 0, issues: [], source_count: 3 }),
+      "Project check passed — 3 sources, no errors."
+    );
+    assert.strictEqual(
+      summarizeCheck({ ok: true, status: "ok", errors: 0, warnings: 0, issues: [], source_count: 1 }),
+      "Project check passed — 1 source, no errors."
+    );
+    assert.strictEqual(
+      summarizeCheck({ ok: false, status: "failed", errors: 2, warnings: 1, issues: [] }),
+      "Project check failed — 2 errors, 1 warning."
+    );
+  });
+
+  test("Check program is ONE action (Project menu + palette), not a new run/build surface", () => {
+    assert.strictEqual(
+      commandTitles(loadPackageJson()).get("trust-lsp.checkProgram"),
+      "Check program"
+    );
+    const view = readSrc("trustHomeView.ts");
+    assert.ok(
+      view.includes("trust-lsp.checkProgram"),
+      "the Project menu must invoke Check program"
+    );
+    // It must NOT add a competing build/run control to the Run card.
+    assert.ok(
+      !/id="check"/.test(view),
+      "no Check button competing with the single Run action"
+    );
   });
 });
