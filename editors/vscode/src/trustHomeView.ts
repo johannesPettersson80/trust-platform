@@ -309,7 +309,6 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
     border: 1px solid var(--vscode-dropdown-border); border-radius: 2px; font-size: 13px;
   }
   .validity { font-size: 12px; margin: 2px 0 0; opacity: 0.85; }
-  .validity.ok::before { content: "$(check) "; }
   .validity .ico { margin-right: 5px; }
   .validity.ok .ico { color: var(--vscode-testing-iconPassed, #2ea043); }
   .validity.warn .ico { color: var(--vscode-testing-iconFailed, #d13438); }
