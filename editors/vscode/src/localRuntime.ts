@@ -23,6 +23,15 @@ let logChannel: vscode.OutputChannel | undefined;
 
 export function registerLocalRuntime(context: vscode.ExtensionContext): void {
   context.subscriptions.push(changeEmitter);
+  // Watch fleet.toml so a managed runtime added/removed OUTSIDE the extension — CLI
+  // `fleet runtime add`, a hand-edit, or another tool — refreshes the Run-target dropdown and
+  // the canvas's owned-runtime nodes, not only programmatic start/stop. Both surfaces already
+  // listen on onDidChangeManagedRuntimes, so re-firing it is all that's needed.
+  const fleetWatcher = vscode.workspace.createFileSystemWatcher("**/fleet.toml");
+  fleetWatcher.onDidCreate(() => changeEmitter.fire());
+  fleetWatcher.onDidChange(() => changeEmitter.fire());
+  fleetWatcher.onDidDelete(() => changeEmitter.fire());
+  context.subscriptions.push(fleetWatcher);
 }
 
 function binary(context: vscode.ExtensionContext): string {
