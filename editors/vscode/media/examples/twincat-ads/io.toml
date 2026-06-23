@@ -1,0 +1,9 @@
+# Starter for a Beckhoff TwinCAT (ADS) device. Runs in the Simulator out of the box.
+# To wire the real PLC, use Devices & Connections ("Set up runtime…" → add a device), or replace
+# the [io] block below with your ADS endpoint:
+#   [io]
+#   driver = "ads"
+#   params = { ams_net_id = "5.1.204.1.1.1", ams_port = 851, host = "192.168.0.10" }
+[io]
+driver = "simulated"
+params = {}

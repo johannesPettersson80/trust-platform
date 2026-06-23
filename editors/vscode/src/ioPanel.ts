@@ -350,7 +350,7 @@ function showPanel(
 
   panel = vscode.window.createWebviewPanel(
     "trust-io-panel",
-    "Structured Text Runtime",
+    "Live Values",
     vscode.ViewColumn.Two,
     {
       enableScripts: true,
@@ -399,6 +399,13 @@ function handleWebviewMessage(message: any): void {
       break;
     case "releaseInput":
       void releaseInput(String(message.address || ""));
+      break;
+    case "releaseAllForces":
+      void releaseAllForces(
+        Array.isArray(message.addresses)
+          ? message.addresses.map((a: unknown) => String(a))
+          : []
+      );
       break;
     case "startDebug":
       void startDebugging();
@@ -596,6 +603,17 @@ async function forceInput(address: string, value: string): Promise<void> {
     return;
   }
 
+  // HONESTY (§0.5.5/§0.5.16): the remote debug adapter forwards io_write only — NOT force/release. On a
+  // remote target we refuse with a reason instead of pretending the force took. Backend handoff: forward
+  // io.force/io.release through the remote adapter to lift this.
+  if (await isRemoteTarget()) {
+    panel?.webview.postMessage({
+      type: "status",
+      payload: REMOTE_FORCE_UNAVAILABLE,
+    });
+    return;
+  }
+
   try {
     await vscode.commands.executeCommand("trust-lsp.debug.io.force", {
       address,
@@ -623,6 +641,14 @@ async function releaseInput(address: string): Promise<void> {
     return;
   }
 
+  if (await isRemoteTarget()) {
+    panel?.webview.postMessage({
+      type: "status",
+      payload: REMOTE_FORCE_UNAVAILABLE,
+    });
+    return;
+  }
+
   try {
     await vscode.commands.executeCommand("trust-lsp.debug.io.release", {
       address,
@@ -638,6 +664,53 @@ async function releaseInput(address: string): Promise<void> {
       payload: `I/O release failed: ${message}`,
     });
   }
+}
+
+// §0.5.16 — "Release all forces": one click clears every force on the target. The webview sends the
+// currently-forced addresses (it renders them); we release each. Gated remotely, like single release.
+const REMOTE_FORCE_UNAVAILABLE =
+  "Force/Unforce is not available for remote targets yet.";
+
+async function isRemoteTarget(): Promise<boolean> {
+  try {
+    return (
+      (await runtimeLifecycleService.snapshot()).status.runtimeMode === "online"
+    );
+  } catch {
+    return false;
+  }
+}
+
+async function releaseAllForces(addresses: string[]): Promise<void> {
+  if (await isRemoteTarget()) {
+    panel?.webview.postMessage({
+      type: "status",
+      payload: REMOTE_FORCE_UNAVAILABLE,
+    });
+    return;
+  }
+  let released = 0;
+  for (const address of addresses) {
+    if (!address) {
+      continue;
+    }
+    try {
+      await vscode.commands.executeCommand("trust-lsp.debug.io.release", {
+        address,
+      });
+      released += 1;
+    } catch {
+      // Release the rest even if one fails.
+    }
+  }
+  panel?.webview.postMessage({
+    type: "status",
+    payload:
+      released > 0
+        ? `Released ${released} force${released === 1 ? "" : "s"}.`
+        : "No forces to release.",
+  });
+  void requestIoState();
 }
 
 
@@ -1131,7 +1204,7 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
       webview.cspSource
     } 'nonce-${nonce}';" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Structured Text Runtime</title>
+    <title>Live Values</title>
     <link href="${codiconUri}" rel="stylesheet" />
     <style>
       :root {
@@ -1449,6 +1522,28 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
         background: var(--row-hover);
       }
 
+      /* A forced value is ALWAYS visibly marked (§0.5.5/§0.5.16), not just via the F* button. */
+      .row.forced {
+        background: color-mix(in srgb, var(--vscode-testing-iconPassed, #1f8f4e) 12%, transparent);
+      }
+      .forced-badge {
+        display: inline-block;
+        margin-left: 6px;
+        padding: 0 5px;
+        border-radius: 6px;
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        color: #ffffff;
+        background: var(--vscode-testing-iconPassed, #1f8f4e);
+        vertical-align: middle;
+      }
+      .release-all {
+        background: var(--vscode-inputValidation-warningBackground, #5a4d00);
+        color: var(--vscode-foreground);
+        border: 1px solid var(--vscode-inputValidation-warningBorder, #c9a200);
+      }
+
       .row .name {
         display: flex;
         flex-direction: column;
@@ -1725,6 +1820,7 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
             <button id="modeOnline" class="mode-button" type="button" title="Connect to a running runtime at the configured endpoint." aria-label="Connect to a running runtime at the configured endpoint">External</button>
           </div>
           <button id="runtimeStart" type="button" title="Start or stop the selected runtime." aria-label="Start or stop the selected runtime">Start</button>
+          <button id="releaseAllForces" type="button" class="release-all" style="display:none" title="Release every forced value on this target" aria-label="Release all forces">Release all forces</button>
           <button
             id="settings"
             class="icon-btn"

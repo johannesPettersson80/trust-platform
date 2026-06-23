@@ -13,6 +13,7 @@ interface Props {
   setupMessage?: string;
   target?: { id: string; name: string };
   preselectProtocol?: string;
+  preselectParams?: Record<string, unknown>; // prefill from a discovered candidate (§0.5 Browse→Add)
   post: (message: unknown) => void;
   onClose: () => void;
 }
@@ -47,6 +48,24 @@ function defaultsFor(protocol: CommProtocolSchema): Record<string, string> {
   return values;
 }
 
+// Overlay discovered/prefill params over the schema defaults (Browse → Add, §0.5).
+function valuesWithPrefill(
+  protocol: CommProtocolSchema,
+  prefill?: Record<string, unknown>
+): Record<string, string> {
+  const values = defaultsFor(protocol);
+  if (prefill) {
+    for (const field of protocol.fields) {
+      if (field.id in prefill) {
+        const v = prefill[field.id];
+        values[field.id] =
+          v === null || v === undefined ? "" : typeof v === "object" ? JSON.stringify(v) : String(v);
+      }
+    }
+  }
+  return values;
+}
+
 function coerce(field: CommFieldSchema, raw: string): unknown {
   const t = field.type;
   if (t === "number") {
@@ -66,7 +85,7 @@ function coerce(field: CommFieldSchema, raw: string): unknown {
   return raw;
 }
 
-export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, target, preselectProtocol, post, onClose }: Props) {
+export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, target, preselectProtocol, preselectParams, post, onClose }: Props) {
   const protocols = useMemo(() => schema?.protocols ?? [], [schema]);
   const [protocolId, setProtocolId] = useState<string>(preselectProtocol ?? "");
   const [values, setValues] = useState<Record<string, string>>({});
@@ -81,18 +100,18 @@ export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, t
     }
   }, [protocols, protocolId, preselectProtocol]);
 
-  // Reset field values when the selected protocol changes.
+  // Reset field values when the selected protocol changes (prefilled from a discovered candidate).
   useEffect(() => {
     if (protocol) {
-      setValues(defaultsFor(protocol));
+      setValues(valuesWithPrefill(protocol, preselectParams));
     }
-  }, [protocol]);
+  }, [protocol, preselectParams]);
 
   const fieldErrors = new Map(
     (applyResult?.field_errors ?? []).map((e) => [e.field, e.message])
   );
 
-  const submit = (type: "commApply" | "commTest") => {
+  const submit = (type: string) => {
     if (!protocol) {
       return;
     }
@@ -102,7 +121,7 @@ export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, t
     }
     const action =
       protocol.supports_multi_instance && protocol.actions.includes("add") ? "add" : "upsert";
-    post({ type, protocol: protocol.id, params, action, runtimeId: target?.id });
+    post({ type, protocol: protocol.id, params, action, runtimeId: target?.id, target: target?.id });
   };
 
   const ok = applyResult && (applyResult.applied || applyResult.lifecycle_effect === "test_ok");
@@ -111,23 +130,18 @@ export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, t
   return (
     <aside style={PANEL_STYLE} aria-label="Add device">
       <header style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 14px", borderBottom: "1px solid #2a2f3a" }}>
-        <strong style={{ flex: 1, fontSize: 14 }}>Add device</strong>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <strong style={{ display: "block", fontSize: 14 }}>{protocol ? `Add ${protocol.title}` : "Add device"}</strong>
+          {target?.name && <span style={{ fontSize: 10.5, color: "#7f8794" }}>on {target.name}</span>}
+        </div>
         <button onClick={onClose} aria-label="Close" style={iconBtn}>✕</button>
       </header>
 
       <div style={{ flex: 1, overflow: "auto", padding: 14 }}>
-        {!reachable ? (
-          <div style={{ color: "#949cab", fontSize: 12, lineHeight: 1.5 }}>
-            <p style={{ margin: "0 0 12px" }}>
-              {setupMessage ??
-                "Persistent I/O setup uses the runtime control channel. Select an online runtime to load its setup schema."}
-            </p>
-            <button onClick={() => post({ type: "action", action: "openRuntimePane" })} style={primaryBtn}>
-              Choose a runtime
-            </button>
-          </div>
-        ) : protocols.length === 0 ? (
-          <p style={{ color: "#949cab", fontSize: 12 }}>This runtime did not return a setup schema.</p>
+        {protocols.length === 0 ? (
+          <p style={{ color: "#949cab", fontSize: 12 }}>
+            {setupMessage ?? "Device catalog unavailable (needs a newer trust-runtime)."}
+          </p>
         ) : (
           <>
             <label style={labelStyle}>Protocol</label>
@@ -178,11 +192,16 @@ export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, t
         )}
       </div>
 
-      {reachable && protocols.length > 0 && (
-        <footer style={{ display: "flex", gap: 8, padding: 12, borderTop: "1px solid #2a2f3a" }}>
-          <button onClick={() => submit("commApply")} style={{ ...primaryBtn, flex: 1 }}>Apply</button>
-          {protocol?.supports_test && (
+      {protocols.length > 0 && (
+        <footer style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: 12, borderTop: "1px solid #2a2f3a" }}>
+          <button onClick={() => submit("commSave")} style={{ ...primaryBtn, flex: 1 }}>Save</button>
+          {protocol?.supports_test && reachable && (
             <button onClick={() => submit("commTest")} style={secondaryBtn}>Test</button>
+          )}
+          {reachable && (
+            <button onClick={() => submit("commApplyLive")} style={{ ...secondaryBtn, flexBasis: "100%" }}>
+              Apply to running runtime
+            </button>
           )}
         </footer>
       )}

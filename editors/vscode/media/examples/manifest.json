@@ -1,0 +1,42 @@
+[
+  {
+    "id": "empty-simulator",
+    "title": "Empty simulator",
+    "description": "A minimal runnable project. Press Start to simulate immediately — no hardware.",
+    "path": "empty-simulator",
+    "hardware": "none",
+    "tags": ["starter", "simulator"]
+  },
+  {
+    "id": "conveyor",
+    "title": "Conveyor demo",
+    "description": "A small realistic program with live values to watch it run in the simulator.",
+    "path": "conveyor",
+    "hardware": "none",
+    "tags": ["demo", "simulator"]
+  },
+  {
+    "id": "twincat-ads",
+    "title": "TwinCAT ADS",
+    "description": "Starter for a Beckhoff TwinCAT (ADS) device. Runs in the simulator; wire the real PLC in Devices & Connections.",
+    "path": "twincat-ads",
+    "hardware": "twincat",
+    "tags": ["ads", "beckhoff", "fieldbus"]
+  },
+  {
+    "id": "raspberry-pi",
+    "title": "Raspberry Pi (EtherCAT / GPIO)",
+    "description": "Starter for a Raspberry Pi field-IO target. Runs in the simulator; wire real IO in Devices & Connections.",
+    "path": "raspberry-pi",
+    "hardware": "raspberrypi",
+    "tags": ["raspberrypi", "ethercat", "gpio"]
+  },
+  {
+    "id": "hmi-starter",
+    "title": "HMI starter",
+    "description": "Ships an HMI descriptor so Open HMI works out of the box — no hardware.",
+    "path": "hmi-starter",
+    "hardware": "none",
+    "tags": ["hmi", "simulator"]
+  }
+]

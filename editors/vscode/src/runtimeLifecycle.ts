@@ -200,6 +200,27 @@ class RuntimeLifecycleService {
     return this.startLocalSimulator();
   }
 
+  // Connect (attach) to a configured remote runtime by its control endpoint. Points the runtime at
+  // that endpoint, switches to online mode, then attaches. Honest: this is a "Connect", never a remote
+  // "Start" — we attach to a runtime we don't own.
+  async connectRemote(endpoint: string): Promise<RuntimeLifecycleResult> {
+    const trimmed = endpoint.trim();
+    if (!trimmed) {
+      return {
+        ok: false,
+        failure: { kind: "failed_spawn", message: "Runtime endpoint not set." },
+      };
+    }
+    const target = this.runtimeConfigTarget();
+    const config = vscode.workspace.getConfiguration("trust-lsp", target);
+    const scope = this.runtimeConfigScope(target);
+    await config.update("runtime.controlEndpoint", trimmed, scope);
+    await config.update("runtime.controlEndpointEnabled", true, scope);
+    await config.update("runtime.mode", "online", scope);
+    this.emitChanged();
+    return this.startRuntime();
+  }
+
   async startLocalSimulator(): Promise<RuntimeLifecycleResult> {
     this.starting = true;
     this.failure = undefined;
@@ -239,23 +260,28 @@ class RuntimeLifecycleService {
   async stopRuntime(): Promise<RuntimeLifecycleResult> {
     const activeSession = this.getStructuredTextSession();
     if (activeSession) {
+      // `trust-lsp.debug.stop` calls vscode.debug.stopDebugging(), which resolves to `void`,
+      // NOT `true`, on a successful stop. Success is therefore verified by the session actually
+      // going away — never by the command's return value. Stop is idempotent: a session that has
+      // already disappeared after Stop is treated as SUCCESS, never as a stale-session warning.
       try {
-        const stopped = await vscode.commands.executeCommand<boolean>(
-          "trust-lsp.debug.stop"
-        );
-        if (!stopped) {
-          return {
-            ok: false,
-            failure: {
-              kind: "stale_runtime",
-              message: "No active Structured Text debug session.",
-            },
-          };
-        }
-        return { ok: true, message: "Runtime stopped." };
+        await vscode.commands.executeCommand("trust-lsp.debug.stop");
       } catch (err) {
+        if (!this.getStructuredTextSession()) {
+          return { ok: true, message: "Runtime stopped." };
+        }
         return { ok: false, failure: classifyRuntimeStartFailure(err) };
       }
+      if (await this.waitForSessionGone(SESSION_WAIT_TIMEOUT_MS)) {
+        return { ok: true, message: "Runtime stopped." };
+      }
+      return {
+        ok: false,
+        failure: {
+          kind: "stale_runtime",
+          message: "Runtime did not stop. Check the Structured Text debug session.",
+        },
+      };
     }
 
     const snapshot = await this.snapshot();
@@ -270,13 +296,8 @@ class RuntimeLifecycleService {
       this.emitChanged();
       return { ok: true, message: "Runtime endpoint disabled." };
     }
-    return {
-      ok: false,
-      failure: {
-        kind: "stale_runtime",
-        message: "No running runtime to stop.",
-      },
-    };
+    // Idempotent: nothing is running, so Stop is a no-op success (no warning).
+    return { ok: true, message: "Runtime already stopped." };
   }
 
   private async startOnlineRuntime(
@@ -350,6 +371,20 @@ class RuntimeLifecycleService {
       await new Promise((resolve) => setTimeout(resolve, SESSION_WAIT_POLL_MS));
     }
     return this.getStructuredTextSession();
+  }
+
+  // Returns true once no Structured Text debug session remains (the terminate event has landed and
+  // cleared our tracking map). Used by stopRuntime to verify a stop honestly instead of trusting the
+  // command's void return value.
+  private async waitForSessionGone(timeoutMs: number): Promise<boolean> {
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < timeoutMs) {
+      if (!this.getStructuredTextSession()) {
+        return true;
+      }
+      await new Promise((resolve) => setTimeout(resolve, SESSION_WAIT_POLL_MS));
+    }
+    return !this.getStructuredTextSession();
   }
 
   private trackStructuredTextSession(session: vscode.DebugSession): void {

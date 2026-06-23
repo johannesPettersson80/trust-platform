@@ -13,11 +13,50 @@ type NewProjectArgs = {
 
 export const NEW_PROJECT_COMMAND = "trust-lsp.newProject";
 
+// After scaffolding + opening the folder (which reloads the window), this globalState key tells the next
+// activation which Main.st to focus (§0.5.15 "open + focus src/Main.st").
+export const FOCUS_MAIN_KEY = "trust.newProject.focusMain";
+
 const MAIN_ST_SOURCE = `PROGRAM Main
 END_PROGRAM
 `;
 
 const PROJECT_TOML_SOURCE = `include_paths = ["src"]
+`;
+
+// §0.5.15: a runnable simulator project = src/Main.st + trust-lsp.toml + runtime.toml + io.toml. The
+// simulator (trust-debug) runs from trust-lsp.toml; runtime.toml + io.toml let Devices & Connections load
+// the OFFLINE topology immediately (read by the bundled trust-runtime — phase 0 packaging) with simulated
+// I/O, so the user never hand-edits TOML to get a running, configurable project.
+const RUNTIME_CONTROL_ENDPOINT =
+  process.platform === "win32"
+    ? "tcp://127.0.0.1:9902"
+    : "unix:///tmp/trust-runtime.sock";
+
+const RUNTIME_TOML_SOURCE = `[bundle]
+version = 1
+
+[resource]
+name = "truST runtime"
+cycle_interval_ms = 10
+
+[runtime.control]
+endpoint = "${RUNTIME_CONTROL_ENDPOINT}"
+mode = "production"
+debug_enabled = true
+
+[runtime.web]
+enabled = false
+
+[runtime.log]
+level = "info"
+`;
+
+const IO_TOML_SOURCE = `# Simulated I/O so the project runs with no hardware or brokers, on any machine. Devices & Connections
+# ("Set up runtime…" → add a device) writes real drivers here when you wire one up.
+[io]
+driver = "simulated"
+params = {}
 `;
 
 function asUri(value?: vscode.Uri | string): vscode.Uri | undefined {
@@ -109,6 +148,39 @@ async function writeScaffold(targetUri: vscode.Uri): Promise<void> {
     vscode.Uri.joinPath(targetUri, "trust-lsp.toml"),
     Buffer.from(PROJECT_TOML_SOURCE)
   );
+  await vscode.workspace.fs.writeFile(
+    vscode.Uri.joinPath(targetUri, "runtime.toml"),
+    Buffer.from(RUNTIME_TOML_SOURCE)
+  );
+  await vscode.workspace.fs.writeFile(
+    vscode.Uri.joinPath(targetUri, "io.toml"),
+    Buffer.from(IO_TOML_SOURCE)
+  );
+}
+
+// Focus the freshly-scaffolded Main.st. Called both inline (no reload) and on the next activation (after
+// vscode.openFolder reloads the window). No-op when the pending file isn't in the current workspace.
+export async function focusPendingMain(
+  context: vscode.ExtensionContext
+): Promise<void> {
+  const pending = context.globalState.get<string>(FOCUS_MAIN_KEY);
+  if (!pending) {
+    return;
+  }
+  const uri = vscode.Uri.file(pending);
+  try {
+    await vscode.workspace.fs.stat(uri);
+  } catch {
+    await context.globalState.update(FOCUS_MAIN_KEY, undefined);
+    return;
+  }
+  // Only focus if the file belongs to the open workspace (the project that just opened).
+  if (!vscode.workspace.getWorkspaceFolder(uri)) {
+    return;
+  }
+  await context.globalState.update(FOCUS_MAIN_KEY, undefined);
+  const doc = await vscode.workspace.openTextDocument(uri);
+  await vscode.window.showTextDocument(doc, { preview: false });
 }
 
 async function resolveTargetUri(
@@ -174,13 +246,20 @@ export function registerNewProjectCommand(
 
         await writeScaffold(targetUri);
 
+        const mainUri = vscode.Uri.joinPath(targetUri, "src", "Main.st");
+        await context.globalState.update(FOCUS_MAIN_KEY, mainUri.fsPath);
+
         const openWorkspace = args?.openWorkspace ?? true;
         if (openWorkspace) {
+          // Opening the folder reloads the window; focusPendingMain (next activation) focuses Main.st.
           await vscode.commands.executeCommand(
             "vscode.openFolder",
             targetUri,
             false
           );
+        } else {
+          // No reload — focus Main.st right now.
+          await focusPendingMain(context);
         }
 
         vscode.window.showInformationMessage(

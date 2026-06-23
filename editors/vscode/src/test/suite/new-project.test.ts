@@ -163,6 +163,31 @@ suite("New project command (VS Code)", function () {
       'include_paths = ["src"]',
       "Expected include path scaffold."
     );
+
+    // §0.5.15 — a RUNNABLE simulator project also writes runtime.toml + io.toml so Start works and
+    // Devices & Connections can load the offline topology with zero manual TOML editing.
+    const runtimeTomlUri = vscode.Uri.joinPath(targetUri, "runtime.toml");
+    const ioTomlUri = vscode.Uri.joinPath(targetUri, "io.toml");
+    assert.strictEqual(
+      await pathExists(runtimeTomlUri),
+      true,
+      "Expected runtime.toml in the runnable scaffold."
+    );
+    assert.strictEqual(
+      await pathExists(ioTomlUri),
+      true,
+      "Expected io.toml in the runnable scaffold."
+    );
+    const runtimeToml = await readText(runtimeTomlUri);
+    assert.ok(
+      runtimeToml.includes("[runtime.control]"),
+      "runtime.toml must declare [runtime.control]."
+    );
+    const ioToml = await readText(ioTomlUri);
+    assert.ok(
+      /driver\s*=\s*"simulated"/.test(ioToml),
+      "io.toml must default to the simulated driver (runs with no hardware)."
+    );
   });
 
   test("cancel at each prompt stage leaves filesystem unchanged", async () => {

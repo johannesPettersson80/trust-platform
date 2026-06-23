@@ -1,12 +1,14 @@
 import React, { memo, useState } from "react";
 import { Handle, NodeToolbar, Position, type NodeProps } from "@xyflow/react";
 import { BusNode } from "./BusNode";
+import { useEditMode, type AddSlotRequest } from "./editMode";
 import type {
   ContainerNodeData,
   EndpointNodeData,
   ExternalNodeData,
   HostNodeData,
   RuntimeNodeData,
+  SlotNodeData,
 } from "./types";
 
 // Inline SVG icons (emojis render as tofu squares in the webview).
@@ -231,6 +233,7 @@ function HoverCard({ title, rows }: { title: string; rows: Array<[string, string
   );
 }
 
+// Edit-mode "+" insertion affordance (shown on a runtime when edit mode is on).
 const modeBadgeStyle: React.CSSProperties = {
   flex: "none",
   fontSize: 9.5,
@@ -348,6 +351,9 @@ export const EndpointNode = memo(({ data }: NodeProps) => {
   const [hover, setHover] = useState(false);
   // §0.2: everything networked gets a wire/port; only local I/O does not.
   const isComm = !["gpio", "simulated", "loopback"].includes(d.protocol);
+  // §10.2: EtherCAT segment slaves render as compact child rows inside the node (containment, no wires).
+  const slaves = d.protocol === "ethercat" ? d.children ?? [] : [];
+  const hasSlaves = slaves.length > 0;
   return (
     <div
       onMouseEnter={() => setHover(true)}
@@ -371,7 +377,7 @@ export const EndpointNode = memo(({ data }: NodeProps) => {
         />
       </NodeToolbar>
       {isComm && <Handle type="source" position={Position.Bottom} style={PORT_STYLE} />}
-      <div style={{ position: "relative", flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "3px 7px" }}>
+      <div style={{ position: "relative", flex: hasSlaves ? "0 0 30px" : 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "3px 7px" }}>
         <strong style={{ fontSize: 11, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {protocolName(d.protocol)}
         </strong>
@@ -406,6 +412,23 @@ export const EndpointNode = memo(({ data }: NodeProps) => {
       >
         {roleWord(d.protocol, d.role)}
       </div>
+      {hasSlaves && (
+        <div style={{ flex: 1, overflow: "hidden", background: "rgba(10,13,18,.6)" }}>
+          {slaves.map((s) => (
+            <div
+              key={s.id}
+              title={`${s.name}${s.channels ? ` · ${s.channels} ch` : ""}${s.detail ? ` — ${s.detail}` : ""}`}
+              style={{ display: "flex", alignItems: "center", gap: 3, height: 13, padding: "0 5px", borderTop: "1px solid #161b24" }}
+            >
+              <span style={{ flex: "none", width: 5, height: 5, borderRadius: "50%", background: healthColor(s.health ?? "") }} />
+              <span style={{ flex: 1, minWidth: 0, fontSize: 8, color: "#c4ccd8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {s.model ?? s.name}
+              </span>
+              <span style={{ flex: "none", fontSize: 7.5, color: "#6a7280" }}>·{s.slot}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 });
@@ -445,6 +468,41 @@ export const ExternalNode = memo(({ data }: NodeProps) => {
 });
 ExternalNode.displayName = "ExternalNode";
 
+// §0.4 empty slot: a dashed ghost cell the user clicks in Edit mode to add into that exact spot.
+export const SlotNode = memo(({ data }: NodeProps) => {
+  const d = data as SlotNodeData;
+  const { onPickSlot } = useEditMode();
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        onPickSlot(d.slot as AddSlotRequest);
+      }}
+      title={`Add ${d.label}`}
+      style={slotStyle}
+    >
+      <span style={{ fontSize: 17, lineHeight: 1, color: "#5aa9ff" }}>+</span>
+      <span style={{ fontSize: 10, color: "#8a93a3", textAlign: "center", lineHeight: 1.2 }}>{d.label}</span>
+    </button>
+  );
+});
+SlotNode.displayName = "SlotNode";
+
+const slotStyle: React.CSSProperties = {
+  width: "100%",
+  height: "100%",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 3,
+  border: "1px dashed #3a4150",
+  borderRadius: 9,
+  background: "rgba(90,169,255,.05)",
+  cursor: "pointer",
+  padding: 4,
+};
+
 export const nodeTypes = {
   host: HostNode,
   container: ContainerNode,
@@ -452,4 +510,5 @@ export const nodeTypes = {
   endpoint: EndpointNode,
   external: ExternalNode,
   bus: BusNode,
+  slot: SlotNode,
 };

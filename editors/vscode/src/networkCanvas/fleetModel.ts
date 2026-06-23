@@ -1,4 +1,4 @@
-import type { FleetTopologyResponse } from "./fleetTopology";
+import type { FleetTopologyResponse, FleetTopologySlave } from "./fleetTopology";
 
 export interface NetworkCanvasFleetEndpoint {
   readonly id: string;
@@ -10,6 +10,12 @@ export interface NetworkCanvasFleetEndpoint {
   readonly detail: string;
   readonly owned: boolean;
   readonly dimmed: boolean;
+  readonly params?: Record<string, unknown>;
+  // v4 (§10.2): intent + fieldbus slaves (EtherCAT segment children).
+  readonly category?: string;
+  readonly profile?: string;
+  readonly display_name?: string;
+  readonly children?: readonly FleetTopologySlave[];
 }
 
 export interface NetworkCanvasFleetRuntime {
@@ -19,6 +25,9 @@ export interface NetworkCanvasFleetRuntime {
   readonly health: string;
   readonly detail: string;
   readonly endpointCount: number;
+  // The runtime's control endpoint (for per-runtime Connect from the canvas node). Remote runtimes
+  // carry it; the local simulator has none (we own its process directly).
+  readonly controlEndpoint?: string;
   readonly endpoints: readonly NetworkCanvasFleetEndpoint[];
 }
 
@@ -185,6 +194,12 @@ function fleetRuntime(
       detail: endpoint.detail,
       owned: endpoint.owned,
       dimmed,
+      params: endpoint.params,
+      // v4 (§10.2): intent + fieldbus slaves (EtherCAT segment children).
+      category: endpoint.category,
+      profile: endpoint.profile,
+      display_name: endpoint.display_name,
+      children: endpoint.children,
     };
   });
   return {
@@ -197,6 +212,7 @@ function fleetRuntime(
     ]),
     detail: runtime.detail,
     endpointCount: endpoints.length,
+    controlEndpoint: runtime.control_endpoint,
     endpoints,
   };
 }

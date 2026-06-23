@@ -3,7 +3,7 @@
 // positions) and edges. No overlap by construction; the canvas pans/zooms.
 import { MarkerType, type Edge, type Node } from "@xyflow/react";
 import { protocolColor, protocolName } from "./nodes";
-import type { NCGraph, NCHost, NCLink, NCRuntime } from "./types";
+import type { NCEndpoint, NCGraph, NCHost, NCLink, NCRuntime } from "./types";
 
 // The peer's role is the mirror of our endpoint's role on that link. `link.role` is
 // truST's own role, emitted directly by the runtime (fleet.topology schema_version 3,
@@ -37,6 +37,19 @@ function externalSub(extId: string, links: readonly NCLink[]): string {
 const EP_W = 84;
 const EP_H = 78;
 const EP_GAP = 10;
+// §10.2 EtherCAT segment: configured slaves render as compact child rows inside the (taller)
+// endpoint node — containment = ownership, so no wires. The runtime grows to its tallest endpoint.
+const EP_HEADER = 30;
+const ROLE_BAND = 16;
+const SLAVE_ROW_H = 13;
+
+function slaveCount(ep: NCEndpoint): number {
+  return ep.protocol === "ethercat" && ep.children ? ep.children.length : 0;
+}
+function endpointHeight(ep: NCEndpoint): number {
+  const n = slaveCount(ep);
+  return n > 0 ? EP_HEADER + ROLE_BAND + n * SLAVE_ROW_H : EP_H;
+}
 const RT_PAD = 12;
 const RT_HEADER = 46;
 const MIN_RT_W = 210;
@@ -48,18 +61,24 @@ const STACK_GAP = 18;
 const HOST_GAP = 56;
 const EXT_W = 196;
 const EXT_H = 54;
+// §0.4 empty slots (Edit mode). The runtime gets ONE "+ Add" cell in its strip (endpoint-sized);
+// a "+ Runtime" slot stacks under the host's runtimes; a "+ Host" slot ends the host row.
+const RT_SLOT_H = 54;
+const HOST_SLOT_H = 92;
 
 interface Sized {
   w: number;
   h: number;
 }
 
-function sizeRuntime(rt: NCRuntime): Sized {
-  const n = Math.max(rt.endpoints.length, 1);
+function sizeRuntime(rt: NCRuntime, editMode: boolean): Sized {
+  const n = Math.max(rt.endpoints.length + (editMode ? 1 : 0), 1);
   const innerW = n * EP_W + (n - 1) * EP_GAP;
+  // The strip is as tall as its tallest endpoint (EtherCAT segments grow with their slave rows).
+  const maxEpH = rt.endpoints.reduce((m, ep) => Math.max(m, endpointHeight(ep)), EP_H);
   return {
     w: Math.max(innerW + 2 * RT_PAD, MIN_RT_W),
-    h: RT_HEADER + EP_H + 2 * RT_PAD,
+    h: RT_HEADER + maxEpH + 2 * RT_PAD,
   };
 }
 
@@ -110,7 +129,8 @@ function injectDraft(hosts: readonly NCHost[], draft: DraftEndpoint | undefined)
 
 export function buildGraph(
   graph: NCGraph,
-  draft?: DraftEndpoint
+  draft?: DraftEndpoint,
+  editMode = false
 ): { nodes: Node[]; edges: Edge[] } {
   const hostsWithDraft = injectDraft(graph.hosts, draft);
   const nodes: Node[] = [];
@@ -128,7 +148,7 @@ export function buildGraph(
     parentAbsX: number,
     containerTag?: string
   ): Sized {
-    const size = sizeRuntime(rt);
+    const size = sizeRuntime(rt, editMode);
     nodes.push({
       id: rt.id,
       type: "runtime",
@@ -141,6 +161,8 @@ export function buildGraph(
         detail: rt.detail,
         endpointCount: rt.endpoints.length,
         container: containerTag,
+        controlEndpoint: rt.controlEndpoint,
+        attached: rt.attached,
       },
       style: { width: size.w, height: size.h },
       draggable: false,
@@ -166,11 +188,31 @@ export function buildGraph(
           detail: ep.detail,
           health: ep.health,
           dimmed: Boolean(ep.dimmed),
+          params: ep.params,
+          category: ep.category,
+          profile: ep.profile,
+          display_name: ep.display_name,
+          children: ep.children,
         },
-        style: { width: EP_W, height: EP_H },
+        style: { width: EP_W, height: endpointHeight(ep) },
         draggable: false,
       });
     });
+    // §0.4 empty slot: ONE dashed "+ Add" cell appended to the strip in Edit mode.
+    if (editMode) {
+      const epX = RT_PAD + rt.endpoints.length * (EP_W + EP_GAP);
+      nodes.push({
+        id: `slot:add:${rt.id}`,
+        type: "slot",
+        parentId: rt.id,
+        extent: "parent",
+        position: { x: epX, y: RT_HEADER + RT_PAD },
+        data: { label: "Add", slot: { add: "device", targetId: rt.id } },
+        style: { width: EP_W, height: EP_H },
+        draggable: false,
+        selectable: false,
+      });
+    }
     return size;
   }
 
@@ -183,17 +225,29 @@ export function buildGraph(
     }
   }
 
-  function hostSize(host: NCHost): Sized {
-    const sizes: Sized[] = [
-      ...host.runtimes.map(sizeRuntime),
-      // A single-runtime container collapses into its runtime (just a chip) — §4.1b.
+  // Host children (runtimes + single-runtime containers + multi-runtime container frames) lay out
+  // LEFT→RIGHT in one row; the "+ Runtime" slot is the next cell to the RIGHT of them (§0.4).
+  function hostChildSizes(host: NCHost): Sized[] {
+    return [
+      ...host.runtimes.map((rt) => sizeRuntime(rt, editMode)),
       ...host.containers.map((c) =>
         c.runtimes.length === 1
-          ? sizeRuntime(c.runtimes[0])
-          : stackHeight(c.runtimes.map(sizeRuntime), CT_HEADER, CT_PAD)
+          ? sizeRuntime(c.runtimes[0], editMode)
+          : stackHeight(c.runtimes.map((r) => sizeRuntime(r, editMode)), CT_HEADER, CT_PAD)
       ),
     ];
-    return stackHeight(sizes, HOST_HEADER, HOST_PAD);
+  }
+  function hostRowHeight(host: NCHost): number {
+    const cs = hostChildSizes(host);
+    const base = cs.length ? Math.max(...cs.map((s) => s.h)) : RT_SLOT_H;
+    return editMode ? Math.max(base, RT_SLOT_H) : base;
+  }
+  function hostSize(host: NCHost): Sized {
+    const cs = hostChildSizes(host);
+    const childrenW = cs.reduce((sum, s) => sum + s.w, 0) + STACK_GAP * Math.max(0, cs.length - 1);
+    const slotW = editMode ? MIN_RT_W + STACK_GAP : 0;
+    const w = Math.max(childrenW + slotW, MIN_RT_W) + 2 * HOST_PAD;
+    return { w, h: HOST_HEADER + hostRowHeight(host) + HOST_PAD };
   }
 
   // Place hosts left-to-right.
@@ -223,38 +277,71 @@ export function buildGraph(
     });
     knownIds.add(host.id);
 
-    let y = HOST_HEADER;
-    // Bare runtimes first.
+    const rowY = HOST_HEADER;
+    const rowH = hostRowHeight(host);
+    let x = HOST_PAD;
+    // Bare runtimes, left→right.
     for (const rt of host.runtimes) {
-      const s = emitRuntime(rt, host.id, HOST_PAD, y, hostX);
-      y += s.h + STACK_GAP;
+      const s = emitRuntime(rt, host.id, x, rowY, hostX);
+      x += s.w + STACK_GAP;
     }
     // Containers. §4.1b: ONE runtime per container → collapse into the runtime (a chip,
     // no second box). Only a real multi-runtime container gets a thin grouping frame.
     for (const c of host.containers) {
       if (c.runtimes.length === 1) {
-        const s = emitRuntime(c.runtimes[0], host.id, HOST_PAD, y, hostX, c.name);
-        y += s.h + STACK_GAP;
+        const s = emitRuntime(c.runtimes[0], host.id, x, rowY, hostX, c.name);
+        x += s.w + STACK_GAP;
         continue;
       }
-      const inner = stackHeight(c.runtimes.map(sizeRuntime), CT_HEADER, CT_PAD);
+      const inner = stackHeight(c.runtimes.map((r) => sizeRuntime(r, editMode)), CT_HEADER, CT_PAD);
       nodes.push({
         id: c.id,
         type: "container",
         parentId: host.id,
-        position: { x: HOST_PAD, y },
+        position: { x, y: rowY },
         data: { label: c.name, image: c.image, status: c.status },
         style: { width: inner.w, height: inner.h },
         draggable: false,
         selectable: true,
       });
       knownIds.add(c.id);
-      emitRuntimeStack(c.runtimes, c.id, CT_HEADER, CT_PAD, hostX + HOST_PAD);
-      y += inner.h + STACK_GAP;
+      emitRuntimeStack(c.runtimes, c.id, CT_HEADER, CT_PAD, hostX + x);
+      x += inner.w + STACK_GAP;
+    }
+
+    // §0.4 "+ Runtime" empty slot — to the RIGHT of the existing runtime(s), same row.
+    if (editMode) {
+      nodes.push({
+        id: `slot:rt:${host.id}`,
+        type: "slot",
+        parentId: host.id,
+        position: { x, y: rowY },
+        data: { label: "Runtime", slot: { add: "runtime", targetId: host.id } },
+        style: { width: MIN_RT_W, height: rowH },
+        draggable: false,
+        selectable: false,
+      });
+      x += MIN_RT_W + STACK_GAP;
     }
 
     hostX += size.w + HOST_GAP;
     maxHostH = Math.max(maxHostH, size.h);
+  }
+
+  // §0.4 "+ Host" empty slot at the end of the host row.
+  if (editMode) {
+    const w = MIN_RT_W + 2 * HOST_PAD;
+    nodes.push({
+      id: "slot:host",
+      type: "slot",
+      position: { x: hostX, y: 0 },
+      data: { label: "Host", slot: { add: "host" } },
+      style: { width: w, height: HOST_SLOT_H },
+      draggable: false,
+      selectable: false,
+    });
+    hostX += w + HOST_GAP;
+    maxHostH = Math.max(maxHostH, HOST_SLOT_H);
   }
 
   // ---- Wiring channel: each wire gets its own lane (height) so the horizontal

@@ -8,9 +8,11 @@ import {
 } from "../../networkCanvas/model";
 import {
   mergeFleetTopologies,
+  offlineTopologyForTarget,
   type FleetTopologyResponse,
 } from "../../networkCanvas/fleetTopology";
 import { buildCanvasGraph } from "../../networkCanvas/graphData";
+import type { RuntimeTarget } from "../../runtimeTarget";
 import { classifyRuntimeStartFailure } from "../../networkCanvas/runtimeFailures";
 
 const RUNNING = {
@@ -209,6 +211,79 @@ suite("Network Canvas", function () {
     );
   });
 
+  test("a configured-but-unreachable fleet peer synthesizes a stopped node, never green", () => {
+    const base: RuntimeTarget = {
+      mode: "online",
+      endpoint: "10.0.0.9:5510",
+      endpointEnabled: true,
+      reachable: false,
+      status: "online_unreachable",
+      label: "cell1",
+      credentialChannel: "untrusted_remote_plain_tcp",
+    };
+    const topo = offlineTopologyForTarget(base);
+    assert.ok(topo, "an unreachable configured peer should still appear (synthesized)");
+    if (topo) {
+      const runtime = topo.hosts[0].runtimes[0];
+      assert.strictEqual(runtime.health, "stopped", "stopped/grey, never connected/green");
+      assert.strictEqual(runtime.mode, "stopped");
+      assert.strictEqual(runtime.endpoints.length, 0);
+      assert.strictEqual(topo.hosts[0].hostname, "cell1");
+    }
+    assert.strictEqual(
+      offlineTopologyForTarget({ ...base, status: "auth_failed" })?.hosts[0].runtimes[0].health,
+      "error",
+      "auth failure is a real error"
+    );
+    assert.strictEqual(
+      offlineTopologyForTarget({ ...base, status: "online_reachable" }),
+      undefined,
+      "a reachable peer uses its real fleet.topology, not a synthetic node"
+    );
+    assert.strictEqual(
+      offlineTopologyForTarget({ ...base, endpoint: undefined }),
+      undefined,
+      "no endpoint → nothing to show"
+    );
+  });
+
+  test("buildCanvasGraph shows added fleet peers even on the stopped local-simulator view", () => {
+    const peerTopology: FleetTopologyResponse = {
+      schema_version: 3,
+      hosts: [
+        {
+          host_id: "fleet:10.0.0.9:5510",
+          hostname: "10.0.0.9:5510",
+          arch: "",
+          os: "",
+          ips: [],
+          containers: [],
+          runtimes: [
+            {
+              runtime_id: "fleet:10.0.0.9:5510:runtime",
+              name: "cell1",
+              mode: "stopped",
+              cycle_ms: 0,
+              health: "stopped",
+              detail: "not reachable",
+              endpoints: [],
+            },
+          ],
+        },
+      ],
+      links: [],
+      shared: [],
+      external: [],
+    };
+    // Local sim stopped (no fleet) → localRuntimeGraph; the added peer must STILL appear beside it.
+    const graph = buildCanvasGraph(buildNetworkCanvasModel("runtime_live"), undefined, peerTopology);
+    const hostIds = graph.hosts.map((h) => h.id);
+    assert.ok(hostIds.includes("host:this-computer"), "local simulator node is preserved");
+    assert.ok(hostIds.includes("fleet:10.0.0.9:5510"), "added peer appears alongside it");
+    const peer = graph.hosts.find((h) => h.id === "fleet:10.0.0.9:5510");
+    assert.strictEqual(peer?.runtimes[0].health, "stopped", "peer stays stopped/grey, never green");
+  });
+
   test("a new project with no configured runtime shows the local simulator node, not an empty screen", () => {
     const graph = buildCanvasGraph(buildNetworkCanvasModel("runtime_live"), undefined);
     assert.strictEqual(graph.kind, "graph");
@@ -246,6 +321,28 @@ suite("Network Canvas", function () {
     assert.strictEqual(classifyRuntimeStartFailure("EACCES: permission denied").kind, "workspace_permission");
     assert.strictEqual(classifyRuntimeStartFailure("debug session timed out").kind, "stale_runtime");
     assert.strictEqual(classifyRuntimeStartFailure("something else broke").kind, "failed_spawn");
+  });
+
+  // P2 regression guard (UX overhaul §9): the Network Canvas is the comms front door — it must own
+  // communication setup in-canvas and never send the user (by command, panel import, OR copy) back to
+  // the old Communication panel. (The shared ../communication/{schemaForm,capability,runtimeComm}
+  // modules are fine — they're reused code, not the panel.)
+  test("Network Canvas owns comms in-canvas — no Communication-panel command, import, or copy", () => {
+    const root = path.resolve(__dirname, "..", "..", "..");
+    const panelSource = fs.readFileSync(
+      path.join(root, "src", "networkCanvas", "networkCanvasPanel.ts"),
+      "utf8"
+    );
+    for (const forbidden of [
+      "communication.openPanel",
+      "communicationPanel",
+      "Open Communication",
+    ]) {
+      assert.ok(
+        !panelSource.includes(forbidden),
+        `Network Canvas must not reference "${forbidden}" — comms setup lives in-canvas, not the old Communication panel.`
+      );
+    }
   });
 });
 

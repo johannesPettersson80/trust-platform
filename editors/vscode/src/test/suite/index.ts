@@ -15,6 +15,8 @@ export function run(): Promise<void> {
   require("./lsp.integration.test");
   require("./runtime-default-settings.integration.test");
   require("./lm-tools-contract.test");
+  require("./runtime-controls-contract.test");
+  require("./ux-shell-contract.test");
   require("./new-project.test");
   require("./plcopen-export.test");
   require("./plcopen-import.test");

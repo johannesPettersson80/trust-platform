@@ -58,8 +58,30 @@ export interface FleetTopologyEndpoint {
     last_seen_ms?: number;
     rtt_ms?: number;
   };
+  // Non-secret config params for this endpoint (schema_version 3, from `comm topology`),
+  // used to pre-fill the editable inspector with the device's current settings.
+  params?: Record<string, unknown>;
   owned: boolean;
   supports_test: boolean;
+  // v4 (§10.2): per-protocol intent + fieldbus slaves (EtherCAT segment children).
+  category?: string;
+  profile?: string;
+  display_name?: string;
+  children?: FleetTopologySlave[];
+}
+
+// v4 (§10.2): one slave/module on a fieldbus segment (EtherCAT terminal), from `comm topology`.
+export interface FleetTopologySlave {
+  id: string;
+  kind: string; // "field_slave"
+  slot: number;
+  name: string;
+  model?: string;
+  profile?: string;
+  channels?: number;
+  source?: string; // "config" | "observed"
+  health?: string;
+  detail?: string;
 }
 
 export interface FleetTopologyLink {
@@ -200,15 +222,65 @@ function unionStrings(a: readonly string[], b: readonly string[]): string[] {
   return [...new Set([...(a ?? []), ...(b ?? [])])];
 }
 
-// Fetch fleet.topology from every reachable target and merge into one fleet view.
-// Unreachable targets contribute nothing (fetchFleetTopology returns undefined).
+// A configured fleet peer that isn't reachable yet still appears — as a STOPPED / unreachable
+// host + runtime (honest grey, never green) — so adding a host/runtime shows something immediately
+// instead of vanishing until the runtime is running. Ids are endpoint-derived; once the peer comes
+// online its real fleet.topology (real host_id) replaces this synthetic node.
+export function offlineTopologyForTarget(target: RuntimeTarget): FleetTopologyResponse | undefined {
+  const endpoint = target.endpoint?.trim();
+  if (!endpoint || target.status === "online_reachable") {
+    return undefined;
+  }
+  // Neutral grey "stopped" (the local-sim convention), not red — a just-added peer isn't a fault;
+  // the detail says why. `auth_failed` is a real error (red).
+  const health = target.status === "auth_failed" ? "error" : "stopped";
+  const detail =
+    target.status === "auth_failed"
+      ? "Authentication failed — check the runtime's auth token."
+      : "Configured — not reachable yet. Start the runtime to bring it online.";
+  const hostId = `fleet:${endpoint}`;
+  return {
+    schema_version: 3,
+    hosts: [
+      {
+        host_id: hostId,
+        hostname: target.label || endpoint,
+        arch: "",
+        os: "",
+        ips: [],
+        containers: [],
+        runtimes: [
+          {
+            runtime_id: `${hostId}:runtime`,
+            name: target.label || "runtime",
+            control_endpoint: endpoint,
+            // "stopped" mode (not "online") so the badge doesn't read as running next to the grey dot.
+            mode: target.status === "auth_failed" ? "error" : "stopped",
+            cycle_ms: 0,
+            health,
+            detail,
+            endpoints: [],
+          },
+        ],
+      },
+    ],
+    links: [],
+    shared: [],
+    external: [],
+  };
+}
+
+// Fetch fleet.topology from every reachable target; for configured-but-unreachable targets,
+// synthesize a stopped node so they still show. Merge into one fleet view.
 export async function fetchAndMergeFleetTopologies(
   runtimes: readonly RuntimeTarget[],
   timeoutMs = 2000
 ): Promise<FleetTopologyResponse | undefined> {
   const responses = await Promise.all(
-    runtimes.map((runtime) =>
-      fetchFleetTopology(runtime, timeoutMs).catch(() => undefined)
+    runtimes.map(async (runtime) =>
+      runtime.status === "online_reachable"
+        ? await fetchFleetTopology(runtime, timeoutMs).catch(() => undefined)
+        : offlineTopologyForTarget(runtime)
     )
   );
   if (responses.every((r) => r === undefined)) {

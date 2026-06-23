@@ -16,6 +16,7 @@ const runtimeStatusText = document.getElementById("runtimeStatusText");
 const runtimeStart = document.getElementById("runtimeStart");
 const modeSimulate = document.getElementById("modeSimulate");
 const modeOnline = document.getElementById("modeOnline");
+const releaseAllForcesBtn = document.getElementById("releaseAllForces");
 const settingsFields = {
   serverPath: document.getElementById("serverPath"),
   traceServer: document.getElementById("traceServer"),
@@ -38,6 +39,38 @@ let compileState = null;
 let currentFilter = "";
 const editCache = new Map();
 let settingsOpen = false;
+// On a remote (online) target the debug adapter forwards io_write only — Force/Unforce are gated.
+let currentMode = "simulate";
+
+function forcedAddresses(state) {
+  const all = [
+    ...(state.inputs || []),
+    ...(state.outputs || []),
+    ...(state.memory || []),
+  ];
+  return all
+    .filter((entry) => entry && entry.forced && entry.address)
+    .map((entry) => entry.address);
+}
+
+function updateReleaseAll(state) {
+  if (!releaseAllForcesBtn) {
+    return;
+  }
+  const count = forcedAddresses(state).length;
+  releaseAllForcesBtn.style.display = count > 0 ? "" : "none";
+  releaseAllForcesBtn.textContent =
+    count > 0 ? "Release all forces (" + count + ")" : "Release all forces";
+}
+
+if (releaseAllForcesBtn) {
+  releaseAllForcesBtn.addEventListener("click", () => {
+    const addresses = forcedAddresses(currentState);
+    if (addresses.length) {
+      vscode.postMessage({ type: "releaseAllForces", addresses });
+    }
+  });
+}
 
 function setStatusText(message) {
   if (status) {
@@ -253,6 +286,8 @@ function applyRuntimeStatus(payload) {
   const runtimeState = payload.runtimeState || (running ? "running" : "stopped");
   const connected = runtimeState === "connected";
   const mode = payload.runtimeMode || "simulate";
+  const modeChanged = mode !== currentMode;
+  currentMode = mode;
 
   if (modeSimulate) {
     modeSimulate.classList.toggle("active", mode === "simulate");
@@ -261,6 +296,10 @@ function applyRuntimeStatus(payload) {
   if (modeOnline) {
     modeOnline.classList.toggle("active", mode === "online");
     modeOnline.disabled = running || connected;
+  }
+  // Re-gate Force/Unforce when the target kind flips (a remote can't force yet).
+  if (modeChanged) {
+    render(currentState);
   }
 
   if (runtimeStart) {
@@ -511,6 +550,7 @@ function renderRows(entries, options = {}) {
     allowWrite = true,
     allowForce = true,
     allowRelease = true,
+    remoteReason = "",
   } = options;
   const wrapper = document.createElement("div");
   wrapper.className = "rows";
@@ -554,6 +594,14 @@ function renderRows(entries, options = {}) {
     const valueCell = document.createElement("div");
     valueCell.className = "value";
     valueCell.textContent = display.value || "";
+    // A forced value is ALWAYS visibly marked, independent of the F* button state.
+    if (entry.forced) {
+      row.classList.add("forced");
+      const badge = document.createElement("span");
+      badge.className = "forced-badge";
+      badge.textContent = "FORCED";
+      valueCell.appendChild(badge);
+    }
 
     row.appendChild(nameCell);
     row.appendChild(valueCell);
@@ -624,6 +672,9 @@ function renderRows(entries, options = {}) {
         ? "Force continuously (active)"
         : "Force continuously";
       forceButton.disabled = !canForce;
+      if (!canForce && remoteReason) {
+        forceButton.title = remoteReason;
+      }
       forceButton.addEventListener("click", () => sendValue("force"));
 
       const releaseButton = document.createElement("button");
@@ -631,6 +682,9 @@ function renderRows(entries, options = {}) {
       releaseButton.textContent = "R";
       releaseButton.title = "Release force";
       releaseButton.disabled = !canRelease;
+      if (!canRelease && remoteReason) {
+        releaseButton.title = remoteReason;
+      }
       releaseButton.addEventListener("click", () => sendValue("release"));
 
       actions.appendChild(input);
@@ -693,6 +747,12 @@ function render(state) {
   const activeInput = captureActiveInput();
   sections.innerHTML = "";
 
+  // Remote (online) targets can read + write (io_write) but NOT force/release yet — gate honestly.
+  const remote = currentMode === "online";
+  const remoteReason = remote
+    ? "Force/Unforce is not available for remote targets yet."
+    : "";
+
   const ioContent = document.createElement("div");
   ioContent.appendChild(
     createNode(
@@ -701,6 +761,9 @@ function render(state) {
       renderRows(state.inputs, {
         allowActions: true,
         showAddress: true,
+        allowForce: !remote,
+        allowRelease: !remote,
+        remoteReason,
       }),
       true
     )
@@ -713,6 +776,9 @@ function render(state) {
         allowActions: true,
         showAddress: true,
         allowWrite: false,
+        allowForce: !remote,
+        allowRelease: !remote,
+        remoteReason,
       }),
       true
     )
@@ -725,12 +791,16 @@ function render(state) {
         allowActions: true,
         showAddress: true,
         allowWrite: false,
+        allowForce: !remote,
+        allowRelease: !remote,
+        remoteReason,
       }),
       true
     )
   );
 
   sections.appendChild(createNode("I/O", 0, ioContent, true));
+  updateReleaseAll(state);
   restoreActiveInput(activeInput);
 }
 

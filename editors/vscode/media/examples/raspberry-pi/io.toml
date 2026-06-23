@@ -1,0 +1,8 @@
+# Starter for a Raspberry Pi field-IO target (EtherCAT / GPIO). Runs in the Simulator out of the box.
+# To wire real field IO on the Pi, use Devices & Connections, or replace the [io] block below, e.g.:
+#   [io]
+#   driver = "ethercat"
+#   params = { interface = "eth0" }
+[io]
+driver = "simulated"
+params = {}

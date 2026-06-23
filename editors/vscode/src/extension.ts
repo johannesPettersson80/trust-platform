@@ -16,10 +16,14 @@ import {
 } from "./communication/communicationPanel";
 import { registerNetworkCanvasPanel } from "./networkCanvas/networkCanvasPanel";
 import { registerRuntimeLifecycle } from "./runtimeLifecycle";
+import { registerRuntimeControls } from "./runtimeControls";
+import { registerTrustHome } from "./trustHomeView";
 import { registerTrustTwinPanel } from "./trustTwinPanel";
 import { registerLanguageModelTools } from "./lm-tools";
 import { augmentDiagnostic } from "./diagnostics";
-import { registerNewProjectCommand } from "./newProject";
+import { focusPendingMain, registerNewProjectCommand } from "./newProject";
+import { registerExamples } from "./examples";
+import { initSelectedRuntimeStore } from "./selectedRuntime";
 import { registerNewStatechartCommand } from "./statechart/newStatechart";
 import { registerImportStatechartCommand } from "./statechart/importStatechart";
 import { registerNewBlocklyCommand } from "./blockly/newBlockly";
@@ -171,6 +175,9 @@ export async function activate(context: vscode.ExtensionContext) {
 
   registerDebugAdapter(context);
   registerRuntimeLifecycle(context);
+  initSelectedRuntimeStore(context);
+  registerRuntimeControls(context);
+  registerTrustHome(context);
   registerIoPanel(context);
   registerHmiPanel(context);
   registerCommunicationPanel(context);
@@ -227,6 +234,9 @@ export async function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(client);
   registerNewProjectCommand(context);
+  registerExamples(context);
+  // If a project was just scaffolded (which reloaded the window), focus its Main.st now.
+  void focusPendingMain(context);
   registerNewStatechartCommand(context);
   registerImportStatechartCommand(context);
   registerNewBlocklyCommand(context);

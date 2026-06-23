@@ -1,8 +1,20 @@
 import type { RuntimeCredentialChannel } from "../runtimeTarget";
 
+// v4 (spec §0.4/§10.2): the add taxonomy. A protocol's intent category + the file it writes.
+export type CommCategory = "field_device" | "supervisory_service" | "peer_link";
+
+// Device archetype (drive/sensor/remote-io…) for field_device protocols. Each preselects a
+// transport + field defaults + icon. Backend-owned (comm.schema profiles[]); never UI-only.
+export interface CommProfileSchema {
+  id: string;
+  title: string;
+  icon?: string;
+  defaults?: Record<string, unknown>;
+}
+
 export interface CommSchemaResponse {
   schema_version: number;
-  family: string;
+  family?: string; // v4: removed (was the misleading "io"); category moves per-protocol
   protocols: CommProtocolSchema[];
 }
 
@@ -11,7 +23,11 @@ export interface CommProtocolSchema {
   driver: string;
   title: string;
   purpose: string;
-  apply_mode?: "native" | "snippet" | string;
+  // v4 (§10.2): add taxonomy + universal writer. Optional until Codex lands them.
+  category?: CommCategory;
+  config_home?: "io.toml" | "runtime.toml" | "ads.toml" | string;
+  profiles?: CommProfileSchema[];
+  apply_mode?: "native" | "snippet" | "file" | string;
   lifecycle_effect: string;
   supports_test: boolean;
   supports_multi_instance: boolean;
