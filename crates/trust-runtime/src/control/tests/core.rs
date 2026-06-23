@@ -3668,6 +3668,67 @@ END_PROGRAM
 }
 
 #[test]
+fn io_read_marks_forced_io_rows() {
+    let source = r#"
+PROGRAM Main
+VAR
+    run : BOOL := TRUE;
+END_VAR
+END_PROGRAM
+"#;
+    let state = hmi_test_state(source);
+    let output = crate::io::IoAddress::parse("%QX0.0").expect("output address");
+    *state.io_snapshot.lock().expect("snapshot lock") = Some(crate::io::IoSnapshot {
+        inputs: Vec::new(),
+        outputs: vec![crate::io::IoSnapshotEntry {
+            name: Some(SmolStr::new("OUT0")),
+            address: output.clone(),
+            value: crate::io::IoSnapshotValue::Value(crate::value::Value::Bool(false)),
+        }],
+        memory: Vec::new(),
+    });
+
+    let force = handle_request_value(
+        json!({
+            "id": 40,
+            "type": "io.force",
+            "params": { "address": "%QX0.0", "value": "TRUE" }
+        }),
+        &state,
+        None,
+    );
+    assert!(force.ok, "io.force should succeed: {:?}", force.error);
+
+    let read = handle_request_value(json!({"id": 41, "type": "io.read"}), &state, None);
+    assert!(read.ok, "io.read should succeed: {:?}", read.error);
+    let forced = read
+        .result
+        .as_ref()
+        .and_then(|result| result.get("snapshot"))
+        .and_then(|snapshot| snapshot.get("outputs"))
+        .and_then(serde_json::Value::as_array)
+        .and_then(|outputs| outputs.first())
+        .and_then(|entry| entry.get("forced"))
+        .and_then(serde_json::Value::as_bool);
+    assert_eq!(forced, Some(true), "forced row should be marked: {read:?}");
+
+    let release = handle_request_value(
+        json!({
+            "id": 42,
+            "type": "io.unforce",
+            "params": { "address": "%QX0.0" }
+        }),
+        &state,
+        None,
+    );
+    assert!(
+        release.ok,
+        "io.unforce should succeed: {:?}",
+        release.error
+    );
+}
+
+#[test]
 fn status_reports_execution_backend_selection_and_metrics_tag() {
     let source = r#"
 PROGRAM Main

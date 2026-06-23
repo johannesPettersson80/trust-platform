@@ -114,6 +114,11 @@ Target release: `v0.24.25`
   Check program backend; it validates project config and compiles sources to
   bytecode in memory without writing `program.stbc`, returning structured
   issues for editor rendering.
+- trust-runtime: added managed local-runtime lifecycle commands under
+  `trust-runtime fleet runtime start|stop|status|logs`; they build registered
+  sibling projects before launch, run the local runtime as a background process
+  with captured logs, report reachability through the control endpoint, and stop
+  through the existing runtime shutdown verb.
 
 - trust-runtime: OpenOT telemetry can now publish real encoded records from a
   configured ST OpenOT producer FB via `[runtime.openot] source = "st-fb"` and
@@ -278,6 +283,10 @@ Target release: `v0.24.25`
   records through a tolerant record reader, avoiding a deterministic reload
   failure observed in the full remote runtime gate while preserving the stored
   wire format.
+- trust-debug: attach-mode I/O forcing now forwards VS Code Force/Release
+  actions to remote runtimes through `io.force` and `io.unforce`, and runtime
+  control `io.read` now marks forced rows so Live Values can show real remote
+  force state instead of disabling the workflow.
 - trust-debug: debug-launched local simulator control servers now receive the
   launch project root, letting `comm.apply` create or update the project's
   `io.toml` instead of failing Network Canvas easy-setup with "No runtime

@@ -15,8 +15,15 @@ use trust_runtime::bundle_template::{build_io_config_auto, render_io_toml, rende
 
 use crate::cli::{FleetAction, FleetRuntimeAction, FleetRuntimeTemplateArg};
 
-const FLEET_MANIFEST_FILE: &str = "fleet.toml";
-const FLEET_MANIFEST_SCHEMA_VERSION: u32 = 1;
+mod lifecycle;
+
+use lifecycle::{
+    runtime_logs, start_runtime, status_runtime, stop_runtime, FleetRuntimeLifecycleResponse,
+    FleetRuntimeLogsResponse,
+};
+
+pub(super) const FLEET_MANIFEST_FILE: &str = "fleet.toml";
+pub(super) const FLEET_MANIFEST_SCHEMA_VERSION: u32 = 1;
 const DEFAULT_CONTROL_PORT: u16 = 9900;
 const DEFAULT_WEB_PORT: u16 = 18080;
 
@@ -34,6 +41,39 @@ pub fn run_fleet(action: FleetAction) -> anyhow::Result<()> {
                 let response = add_runtime(&fleet_root, &name, template, control_port, web_port)?;
                 print_add_response(response, json)
             }
+            FleetRuntimeAction::Start {
+                fleet_root,
+                name,
+                json,
+            } => {
+                let response = start_runtime(&fleet_root, &name)?;
+                print_lifecycle_response(response, json)
+            }
+            FleetRuntimeAction::Stop {
+                fleet_root,
+                name,
+                json,
+            } => {
+                let response = stop_runtime(&fleet_root, &name)?;
+                print_lifecycle_response(response, json)
+            }
+            FleetRuntimeAction::Status {
+                fleet_root,
+                name,
+                json,
+            } => {
+                let response = status_runtime(&fleet_root, &name)?;
+                print_lifecycle_response(response, json)
+            }
+            FleetRuntimeAction::Logs {
+                fleet_root,
+                name,
+                lines,
+                json,
+            } => {
+                let response = runtime_logs(&fleet_root, &name, lines)?;
+                print_logs_response(response, json)
+            }
         },
         FleetAction::List { fleet_root, json } => {
             let response = list_runtimes(&fleet_root)?;
@@ -43,17 +83,17 @@ pub fn run_fleet(action: FleetAction) -> anyhow::Result<()> {
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
-struct FleetManifest {
+pub(super) struct FleetManifest {
     #[serde(default)]
-    runtime: Vec<FleetManifestRuntime>,
+    pub(super) runtime: Vec<FleetManifestRuntime>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
-struct FleetManifestRuntime {
-    name: String,
-    path: String,
-    control_endpoint: String,
-    web_port: u16,
+pub(super) struct FleetManifestRuntime {
+    pub(super) name: String,
+    pub(super) path: String,
+    pub(super) control_endpoint: String,
+    pub(super) web_port: u16,
 }
 
 #[derive(Debug, Serialize)]
@@ -150,7 +190,7 @@ fn list_runtimes(fleet_root: &Path) -> anyhow::Result<FleetListResponse> {
     })
 }
 
-fn load_manifest(path: &Path) -> anyhow::Result<FleetManifest> {
+pub(super) fn load_manifest(path: &Path) -> anyhow::Result<FleetManifest> {
     match fs::read_to_string(path) {
         Ok(text) => toml::from_str(text.as_str())
             .with_context(|| format!("failed to parse {}", path.display())),
@@ -385,6 +425,32 @@ fn print_list_response(response: FleetListResponse, json: bool) -> anyhow::Resul
             "{}\t{}\t{}\t{}",
             runtime.name, runtime.path, runtime.control_endpoint, runtime.web_port
         );
+    }
+    Ok(())
+}
+
+fn print_lifecycle_response(
+    response: FleetRuntimeLifecycleResponse,
+    json: bool,
+) -> anyhow::Result<()> {
+    if json {
+        println!("{}", serde_json::to_string_pretty(&response)?);
+        return Ok(());
+    }
+    println!(
+        "{}\t{}\t{}\t{}",
+        response.name, response.status, response.control_endpoint, response.message
+    );
+    Ok(())
+}
+
+fn print_logs_response(response: FleetRuntimeLogsResponse, json: bool) -> anyhow::Result<()> {
+    if json {
+        println!("{}", serde_json::to_string_pretty(&response)?);
+        return Ok(());
+    }
+    for line in response.lines {
+        println!("{line}");
     }
     Ok(())
 }

@@ -218,24 +218,32 @@ pub(super) struct PairRevokeParams {
 }
 
 pub(super) trait IoSnapshotJson {
-    fn into_json(self) -> serde_json::Value;
+    fn into_json(self) -> serde_json::Value
+    where
+        Self: Sized,
+    {
+        self.into_json_with_forced(&[])
+    }
+
+    fn into_json_with_forced(self, forced: &[IoAddress]) -> serde_json::Value;
 }
 
 impl IoSnapshotJson for IoSnapshot {
-    fn into_json(self) -> serde_json::Value {
+    fn into_json_with_forced(self, forced: &[IoAddress]) -> serde_json::Value {
         json!({
-            "inputs": self.inputs.iter().map(entry_to_json).collect::<Vec<_>>(),
-            "outputs": self.outputs.iter().map(entry_to_json).collect::<Vec<_>>(),
-            "memory": self.memory.iter().map(entry_to_json).collect::<Vec<_>>(),
+            "inputs": self.inputs.iter().map(|entry| entry_to_json(entry, forced)).collect::<Vec<_>>(),
+            "outputs": self.outputs.iter().map(|entry| entry_to_json(entry, forced)).collect::<Vec<_>>(),
+            "memory": self.memory.iter().map(|entry| entry_to_json(entry, forced)).collect::<Vec<_>>(),
         })
     }
 }
 
-fn entry_to_json(entry: &crate::io::IoSnapshotEntry) -> serde_json::Value {
+fn entry_to_json(entry: &crate::io::IoSnapshotEntry, forced: &[IoAddress]) -> serde_json::Value {
     json!({
         "name": entry.name.as_ref().map(|name| name.as_str()),
         "address": format_address(&entry.address),
         "value": format_snapshot_value(&entry.value),
+        "forced": forced.iter().any(|address| address == &entry.address),
     })
 }
 
@@ -247,7 +255,7 @@ fn format_snapshot_value(value: &crate::io::IoSnapshotValue) -> serde_json::Valu
     }
 }
 
-fn format_address(address: &IoAddress) -> String {
+pub(super) fn format_address(address: &IoAddress) -> String {
     let area = match address.area {
         crate::memory::IoArea::Input => "I",
         crate::memory::IoArea::Output => "Q",
@@ -263,10 +271,22 @@ fn format_address(address: &IoAddress) -> String {
     if address.wildcard {
         return format!("%{area}{size}*");
     }
-    if address.size == crate::io::IoSize::Bit {
-        format!("%{area}{size}{}.{}", address.byte, address.bit)
-    } else {
+    let mut path = address
+        .path
+        .iter()
+        .map(|value| value.to_string())
+        .collect::<Vec<_>>()
+        .join(".");
+    if matches!(address.size, crate::io::IoSize::Bit) {
+        if !path.is_empty() {
+            path.push('.');
+        }
+        path.push_str(&address.bit.to_string());
+    }
+    if path.is_empty() {
         format!("%{area}{size}{}", address.byte)
+    } else {
+        format!("%{area}{size}{path}")
     }
 }
 

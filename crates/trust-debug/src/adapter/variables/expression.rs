@@ -8,6 +8,7 @@ use serde_json::Value;
 use trust_runtime::debug::DebugSnapshot;
 use trust_runtime::error::RuntimeError;
 use trust_runtime::harness::{coerce_value_to_type, parse_debug_expression, parse_debug_lvalue};
+use trust_runtime::io::IoAddress;
 use trust_runtime::memory::{FrameId, IoArea, VariableStorage};
 use trust_runtime::program_model::LValue;
 use trust_runtime::value::Value as RuntimeValue;
@@ -17,7 +18,9 @@ use crate::protocol::{
     InvalidatedEventBody, Request, SetExpressionArguments, SetExpressionResponseBody,
 };
 
-use super::super::io::{io_type_id, resolve_io_address, resolve_io_address_from_state};
+use super::super::io::{
+    format_io_address, io_type_id, resolve_io_address, resolve_io_address_from_state,
+};
 use super::super::{DebugAdapter, DispatchOutcome};
 use super::eval::parse_value_expression;
 use super::format::type_id_for_value;
@@ -30,6 +33,118 @@ enum SymbolicForceDirective {
 }
 
 impl DebugAdapter {
+    fn handle_remote_set_expression(
+        &mut self,
+        request: Request<Value>,
+        args: SetExpressionArguments,
+        directive: SetDirective,
+    ) -> DispatchOutcome {
+        let expr_text = args.expression.trim();
+        let address = if let Ok(address) = IoAddress::parse(expr_text) {
+            address
+        } else {
+            let state = {
+                let Some(remote) = self.remote_session.as_mut() else {
+                    return DispatchOutcome {
+                        responses: vec![
+                            self.error_response(&request, "attach session is not connected")
+                        ],
+                        ..DispatchOutcome::default()
+                    };
+                };
+                match remote.io_state() {
+                    Ok(state) => state,
+                    Err(err) => {
+                        return DispatchOutcome {
+                            responses: vec![self.error_response(&request, &err)],
+                            ..DispatchOutcome::default()
+                        }
+                    }
+                }
+            };
+            match resolve_io_address_from_state(&state, expr_text) {
+                Ok(address) => address,
+                Err(message) => {
+                    return DispatchOutcome {
+                        responses: vec![self.error_response(&request, &message)],
+                        ..DispatchOutcome::default()
+                    }
+                }
+            }
+        };
+        let address_text = format_io_address(&address);
+
+        let (response_value, forced_state) = {
+            let Some(remote) = self.remote_session.as_mut() else {
+                return DispatchOutcome {
+                    responses: vec![
+                        self.error_response(&request, "attach session is not connected")
+                    ],
+                    ..DispatchOutcome::default()
+                };
+            };
+            match directive {
+                SetDirective::Force(raw) => match remote.io_force(&address_text, &raw) {
+                    Ok(()) => (raw, Some(true)),
+                    Err(err) => {
+                        return DispatchOutcome {
+                            responses: vec![self.error_response(&request, &err)],
+                            ..DispatchOutcome::default()
+                        }
+                    }
+                },
+                SetDirective::Release => match remote.io_unforce(&address_text) {
+                    Ok(()) => ("released".to_string(), Some(false)),
+                    Err(err) => {
+                        return DispatchOutcome {
+                            responses: vec![self.error_response(&request, &err)],
+                            ..DispatchOutcome::default()
+                        }
+                    }
+                },
+                SetDirective::Write(_) => {
+                    return DispatchOutcome {
+                        responses: vec![self.error_response(
+                            &request,
+                            "setExpression writes are not supported in attach mode; use stIoWrite",
+                        )],
+                        ..DispatchOutcome::default()
+                    }
+                }
+            }
+        };
+        if let Some(forced) = forced_state {
+            self.set_io_forced(&address, forced);
+        }
+
+        let mut events = Vec::new();
+        let refreshed = self
+            .remote_session
+            .as_mut()
+            .and_then(|remote| remote.io_state().ok());
+        if let Some(mut body) = refreshed {
+            self.apply_forced_flags(&mut body);
+            if let Ok(mut cache) = self.last_io_state.lock() {
+                *cache = Some(body.clone());
+            }
+            events.push(self.event("stIoState", Some(body)));
+        }
+
+        let body = SetExpressionResponseBody {
+            value: response_value,
+            r#type: None,
+            variables_reference: 0,
+            named_variables: None,
+            indexed_variables: None,
+        };
+        DispatchOutcome {
+            responses: vec![self.ok_response(&request, Some(body))],
+            events,
+            should_exit: false,
+            stop_gate: None,
+        }
+    }
+
     fn apply_symbolic_force_directive(
         &self,
         runtime: &Runtime,
@@ -189,15 +304,6 @@ impl DebugAdapter {
             };
         };
 
-        if self.remote_session.is_some() {
-            return DispatchOutcome {
-                responses: vec![
-                    self.error_response(&request, "setExpression not supported in attach mode")
-                ],
-                ..DispatchOutcome::default()
-            };
-        }
-
         let directive = match parse_set_directive(&args.value) {
             Ok(directive) => directive,
             Err(message) => {
@@ -207,6 +313,11 @@ impl DebugAdapter {
                 };
             }
         };
+
+        if self.remote_session.is_some() {
+            return self.handle_remote_set_expression(request, args, directive);
+        }
+
         let mut frame_id = args.frame_id.map(FrameId);
         let snapshot = self.session.debug_control().snapshot();
         let paused = snapshot.is_some();

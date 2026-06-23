@@ -3,6 +3,7 @@ use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -148,6 +149,98 @@ fn dispatch_set_expression_write_once_rejects_output_io() {
     assert_eq!(
         response.message.as_deref(),
         Some("only input addresses can be written once")
+    );
+}
+
+#[test]
+fn attach_set_expression_forwards_remote_io_force_and_release() {
+    let (addr, requests, server) = spawn_remote_io_force_server();
+    let runtime = Runtime::new();
+    let mut adapter = DebugAdapter::new(DebugSession::new(runtime));
+    adapter.remote_session = Some(
+        super::super::remote::RemoteSession::connect(
+            super::super::remote::RemoteEndpoint::Tcp(addr),
+            Some("token".to_string()),
+        )
+        .expect("remote session should connect"),
+    );
+
+    let force = Request {
+        seq: 1,
+        message_type: MessageType::Request,
+        command: "setExpression".to_string(),
+        arguments: Some(
+            serde_json::to_value(SetExpressionArguments {
+                expression: "%QX0.0".to_string(),
+                value: "force: TRUE".to_string(),
+                frame_id: None,
+            })
+            .unwrap(),
+        ),
+    };
+    let outcome = adapter.dispatch_request(force);
+    assert_eq!(outcome.responses.len(), 1);
+    assert_eq!(outcome.events.len(), 1);
+    let response: Response<SetExpressionResponseBody> =
+        serde_json::from_value(outcome.responses[0].clone()).unwrap();
+    assert!(
+        response.success,
+        "remote force failed: {:?}",
+        response.message
+    );
+    let event: Event<IoStateEventBody> = serde_json::from_value(outcome.events[0].clone()).unwrap();
+    assert!(event
+        .body
+        .unwrap()
+        .outputs
+        .iter()
+        .any(|entry| entry.address == "%QX0.0" && entry.forced));
+
+    let release = Request {
+        seq: 2,
+        message_type: MessageType::Request,
+        command: "setExpression".to_string(),
+        arguments: Some(
+            serde_json::to_value(SetExpressionArguments {
+                expression: "%QX0.0".to_string(),
+                value: "release".to_string(),
+                frame_id: None,
+            })
+            .unwrap(),
+        ),
+    };
+    let outcome = adapter.dispatch_request(release);
+    assert_eq!(outcome.responses.len(), 1);
+    assert_eq!(outcome.events.len(), 1);
+    let response: Response<SetExpressionResponseBody> =
+        serde_json::from_value(outcome.responses[0].clone()).unwrap();
+    assert!(
+        response.success,
+        "remote release failed: {:?}",
+        response.message
+    );
+    let event: Event<IoStateEventBody> = serde_json::from_value(outcome.events[0].clone()).unwrap();
+    assert!(event
+        .body
+        .unwrap()
+        .outputs
+        .iter()
+        .any(|entry| entry.address == "%QX0.0" && !entry.forced));
+
+    drop(adapter);
+    server.join().expect("server should stop cleanly");
+    let seen = requests.lock().expect("requests").clone();
+    let types = seen
+        .iter()
+        .filter_map(|request| request.get("type").and_then(serde_json::Value::as_str))
+        .collect::<Vec<_>>();
+    assert!(
+        types.contains(&"io.force"),
+        "setExpression force should call io.force: {types:?}"
+    );
+    assert!(
+        types.contains(&"io.unforce"),
+        "setExpression release should call io.unforce: {types:?}"
     );
 }
 
@@ -434,6 +527,79 @@ fn reserve_loopback_addr() -> SocketAddr {
     let addr = listener.local_addr().unwrap();
     drop(listener);
     addr
+}
+
+fn spawn_remote_io_force_server() -> (
+    SocketAddr,
+    Arc<Mutex<Vec<serde_json::Value>>>,
+    thread::JoinHandle<()>,
+) {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let server_requests = Arc::clone(&requests);
+    let handle = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("client connection");
+        stream
+            .set_read_timeout(Some(Duration::from_secs(2)))
+            .expect("read timeout");
+        stream
+            .set_write_timeout(Some(Duration::from_secs(2)))
+            .expect("write timeout");
+        let mut reader = BufReader::new(stream.try_clone().expect("clone stream"));
+        let mut forced = false;
+        loop {
+            let mut line = String::new();
+            match reader.read_line(&mut line) {
+                Ok(0) => break,
+                Ok(_) => {}
+                Err(_) => break,
+            }
+            let request: serde_json::Value =
+                serde_json::from_str(&line).expect("control request json");
+            server_requests
+                .lock()
+                .expect("requests lock")
+                .push(request.clone());
+            let id = request
+                .get("id")
+                .cloned()
+                .unwrap_or_else(|| serde_json::json!(0));
+            let response = match request.get("type").and_then(serde_json::Value::as_str) {
+                Some("io.force") => {
+                    forced = true;
+                    serde_json::json!({"id": id, "ok": true, "result": {"status": "forced"}})
+                }
+                Some("io.unforce") => {
+                    forced = false;
+                    serde_json::json!({"id": id, "ok": true, "result": {"status": "released"}})
+                }
+                Some("io.read") => serde_json::json!({
+                    "id": id,
+                    "ok": true,
+                    "result": {
+                        "snapshot": {
+                            "inputs": [],
+                            "outputs": [{
+                                "name": "OUT0",
+                                "address": "%QX0.0",
+                                "value": "Bool(false)",
+                                "forced": forced
+                            }],
+                            "memory": []
+                        }
+                    }
+                }),
+                other => serde_json::json!({
+                    "id": id,
+                    "ok": false,
+                    "error": format!("unexpected request {other:?}")
+                }),
+            };
+            writeln!(stream, "{response}").expect("write control response");
+        }
+    });
+    (addr, requests, handle)
 }
 
 fn launch_debug_control_session(

@@ -21,10 +21,17 @@ pub(super) fn handle_io_read(id: u64, state: &ControlState) -> ControlResponse {
         .lock()
         .ok()
         .and_then(|guard| guard.clone());
+    let forced_io = state
+        .debug
+        .forced_snapshot()
+        .io
+        .into_iter()
+        .map(|(address, _)| address)
+        .collect::<Vec<_>>();
     ControlResponse::ok(
         id,
         json!({
-            "snapshot": snapshot.map(|snap| snap.into_json())
+            "snapshot": snapshot.map(|snap| snap.into_json_with_forced(&forced_io))
         }),
     )
 }

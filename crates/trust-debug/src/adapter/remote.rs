@@ -334,6 +334,23 @@ impl RemoteSession {
         Ok(())
     }
 
+    pub fn io_force(&mut self, address: &str, value: &str) -> RemoteResult<()> {
+        let params = json!({
+            "address": address,
+            "value": value,
+        });
+        let _ = self.request("io.force", Some(params))?;
+        Ok(())
+    }
+
+    pub fn io_unforce(&mut self, address: &str) -> RemoteResult<()> {
+        let params = json!({
+            "address": address,
+        });
+        let _ = self.request("io.unforce", Some(params))?;
+        Ok(())
+    }
+
     fn request(&mut self, kind: &str, params: Option<Value>) -> RemoteResult<Value> {
         let mut payload = json!({
             "id": self.client.next_id(),

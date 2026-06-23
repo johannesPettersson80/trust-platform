@@ -35,7 +35,7 @@ impl DebugAdapter {
         }
     }
 
-    fn apply_forced_flags(&self, state: &mut IoStateEventBody) {
+    pub(super) fn apply_forced_flags(&self, state: &mut IoStateEventBody) {
         let forced = if let Ok(entries) = self.forced_io_addresses.lock() {
             entries.clone()
         } else {
@@ -54,7 +54,11 @@ impl DebugAdapter {
     pub(super) fn handle_io_state(&mut self, request: Request<Value>) -> DispatchOutcome {
         if let Some(remote) = self.remote_session.as_mut() {
             match remote.io_state() {
-                Ok(body) => {
+                Ok(mut body) => {
+                    self.apply_forced_flags(&mut body);
+                    if let Ok(mut cache) = self.last_io_state.lock() {
+                        *cache = Some(body.clone());
+                    }
                     let event = self.event("stIoState", Some(body));
                     return DispatchOutcome {
                         responses: vec![self.ok_response::<Value>(&request, None)],
@@ -425,7 +429,7 @@ pub(super) fn io_state_from_snapshot(snapshot: IoSnapshot) -> IoStateEventBody {
     }
 }
 
-fn format_io_address(address: &IoAddress) -> String {
+pub(super) fn format_io_address(address: &IoAddress) -> String {
     let area = match address.area {
         IoArea::Input => "I",
         IoArea::Output => "Q",
