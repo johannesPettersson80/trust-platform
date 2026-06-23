@@ -747,24 +747,15 @@ function render(state) {
   const activeInput = captureActiveInput();
   sections.innerHTML = "";
 
-  // Remote (online) targets can read + write (io_write) but NOT force/release yet — gate honestly.
-  const remote = currentMode === "online";
-  const remoteReason = remote
-    ? "Force/Unforce is not available for remote targets yet."
-    : "";
-
+  // Read + write + force/release work on the simulator AND on remote attach (the adapter forwards
+  // io.force/io.unforce; the runtime authorizes by role and surfaces any error). Outputs/memory stay
+  // write-disabled per their I/O semantics, independent of target.
   const ioContent = document.createElement("div");
   ioContent.appendChild(
     createNode(
       "Inputs",
       2,
-      renderRows(state.inputs, {
-        allowActions: true,
-        showAddress: true,
-        allowForce: !remote,
-        allowRelease: !remote,
-        remoteReason,
-      }),
+      renderRows(state.inputs, { allowActions: true, showAddress: true }),
       true
     )
   );
@@ -776,9 +767,6 @@ function render(state) {
         allowActions: true,
         showAddress: true,
         allowWrite: false,
-        allowForce: !remote,
-        allowRelease: !remote,
-        remoteReason,
       }),
       true
     )
@@ -791,9 +779,6 @@ function render(state) {
         allowActions: true,
         showAddress: true,
         allowWrite: false,
-        allowForce: !remote,
-        allowRelease: !remote,
-        remoteReason,
       }),
       true
     )

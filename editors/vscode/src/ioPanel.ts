@@ -603,17 +603,8 @@ async function forceInput(address: string, value: string): Promise<void> {
     return;
   }
 
-  // HONESTY (§0.5.5/§0.5.16): the remote debug adapter forwards io_write only — NOT force/release. On a
-  // remote target we refuse with a reason instead of pretending the force took. Backend handoff: forward
-  // io.force/io.release through the remote adapter to lift this.
-  if (await isRemoteTarget()) {
-    panel?.webview.postMessage({
-      type: "status",
-      payload: REMOTE_FORCE_UNAVAILABLE,
-    });
-    return;
-  }
-
+  // Force works on the simulator AND on remote attach (the adapter forwards io.force; the runtime
+  // authorizes by role and surfaces any error, which the catch below reports).
   try {
     await vscode.commands.executeCommand("trust-lsp.debug.io.force", {
       address,
@@ -641,14 +632,6 @@ async function releaseInput(address: string): Promise<void> {
     return;
   }
 
-  if (await isRemoteTarget()) {
-    panel?.webview.postMessage({
-      type: "status",
-      payload: REMOTE_FORCE_UNAVAILABLE,
-    });
-    return;
-  }
-
   try {
     await vscode.commands.executeCommand("trust-lsp.debug.io.release", {
       address,
@@ -666,29 +649,9 @@ async function releaseInput(address: string): Promise<void> {
   }
 }
 
-// §0.5.16 — "Release all forces": one click clears every force on the target. The webview sends the
-// currently-forced addresses (it renders them); we release each. Gated remotely, like single release.
-const REMOTE_FORCE_UNAVAILABLE =
-  "Force/Unforce is not available for remote targets yet.";
-
-async function isRemoteTarget(): Promise<boolean> {
-  try {
-    return (
-      (await runtimeLifecycleService.snapshot()).status.runtimeMode === "online"
-    );
-  } catch {
-    return false;
-  }
-}
-
+// §0.5.16 — "Release all forces": one click clears every force on the target (simulator or remote
+// attach). The webview sends the currently-forced addresses (it renders them); we release each.
 async function releaseAllForces(addresses: string[]): Promise<void> {
-  if (await isRemoteTarget()) {
-    panel?.webview.postMessage({
-      type: "status",
-      payload: REMOTE_FORCE_UNAVAILABLE,
-    });
-    return;
-  }
   let released = 0;
   for (const address of addresses) {
     if (!address) {

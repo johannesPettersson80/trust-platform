@@ -302,20 +302,30 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
     );
   });
 
-  test("remote Force/Unforce is gated honestly (disabled-with-reason, never faked)", () => {
+  test("Force/Unforce work on remote attach too — the old 'not available' gate is removed", () => {
     const host = readSrc("ioPanel.ts");
     const web = readSrc("ioPanel.webview.js");
+    // The backend now forwards io.force/io.unforce via attach (bbe4dacf2), so the remote-only block is
+    // gone — leaving it would be a FALSE limitation. Force/release flow on sim AND remote; the runtime
+    // authorizes by role and the catch surfaces any error.
     assert.ok(
-      host.includes("REMOTE_FORCE_UNAVAILABLE") && host.includes("isRemoteTarget"),
-      "host refuses force/release on a remote target with a reason"
+      !host.includes("REMOTE_FORCE_UNAVAILABLE") && !host.includes("isRemoteTarget"),
+      "the remote-only force/release block must be removed"
     );
     assert.ok(
-      /not available for remote targets yet/i.test(host),
-      "the honest remote reason is surfaced"
+      !/not available for remote targets yet/i.test(host) &&
+        !/not available for remote targets yet/i.test(web),
+      "no stale 'not available for remote targets yet' copy remains"
     );
     assert.ok(
-      web.includes("allowForce: !remote") && web.includes("allowRelease: !remote"),
-      "the webview disables force/release for remote targets"
+      !/allowForce:\s*!remote/.test(web) && !/allowRelease:\s*!remote/.test(web),
+      "the webview must NOT disable force/release for remote targets"
+    );
+    // Still wired (sim + remote) and still surfaces backend errors honestly.
+    assert.ok(
+      host.includes("trust-lsp.debug.io.force") &&
+        host.includes("trust-lsp.debug.io.release"),
+      "force/release commands stay wired"
     );
   });
 
