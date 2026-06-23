@@ -75,6 +75,8 @@ export function NodeInspector({ node, schema, params, reachable, applyResult, on
 
   // §8 P3b: a runtime node is where per-runtime lifecycle lives. Honest verbs — Start/Stop for the
   // local simulator we own, Connect/Disconnect for a remote we don't (never a fake remote "Stop").
+  const isManaged = node.data.managed === true;
+  const managedName = isManaged ? str(node.data.managedName) : "";
   const runtimeControls =
     node.type === "runtime"
       ? runtimeNodeControls({
@@ -84,8 +86,9 @@ export function NodeInspector({ node, schema, params, reachable, applyResult, on
           controlEndpoint: node.data.controlEndpoint
             ? str(node.data.controlEndpoint)
             : undefined,
-          // Local sim has logs today; remote logs are phase 14 (gated).
-          logsAvailable: node.id === LOCAL_RUNTIME_NODE_ID,
+          managed: isManaged,
+          // Local sim + managed runtimes have logs; remote logs are phase 14 (gated).
+          logsAvailable: node.id === LOCAL_RUNTIME_NODE_ID || isManaged,
         })
       : undefined;
   const onControl = (control: RuntimeNodeControl) => {
@@ -96,17 +99,32 @@ export function NodeInspector({ node, schema, params, reachable, applyResult, on
       case "runtimeDisconnect":
         post({ type: "runtimeDisconnect" });
         return;
+      case "managedStart":
+        post({ type: "runtimeManagedStart", name: managedName });
+        return;
+      case "managedStop":
+        post({ type: "runtimeManagedStop", name: managedName });
+        return;
       case "setAsRunTarget":
         post({
           type: "setAsRunTarget",
           endpoint: str(node.data.controlEndpoint),
           isLocal: node.id === LOCAL_RUNTIME_NODE_ID,
+          managedName,
         });
+        return;
+      case "openRuntimeLogs":
+        // Managed runtimes have their own logs (fleet runtime logs); the sim uses the debug channel.
+        if (managedName) {
+          post({ type: "runtimeManagedLogs", name: managedName });
+        } else {
+          post({ type: "action", action: control.action });
+        }
         return;
       case "none":
         return;
       default:
-        // Local lifecycle + logs/settings reuse the existing canvas action channel.
+        // Local lifecycle + settings reuse the existing canvas action channel.
         post({ type: "action", action: control.action });
     }
   };

@@ -24,9 +24,26 @@ export interface FleetListResponse {
 }
 export interface FleetRuntimeStatusResponse {
   readonly name?: string;
-  readonly status?: string;
+  readonly status?: string; // "running" | "stopped" | "starting" | "stopping"
   readonly control_endpoint?: string;
   readonly log_path?: string;
+  readonly message?: string;
+}
+
+export interface ManagedLifecycleResult {
+  readonly ok: boolean;
+  readonly status?: string;
+  readonly message?: string;
+}
+
+// A managed Start/Stop is only HONESTLY successful when the backend reports the *reached* state:
+// start → "running" (NOT "starting": process up but control unreachable), stop → "stopped" (NOT
+// "stopping"). Anything else is surfaced with the backend's message, not treated as success.
+export function isManagedLifecycleSuccess(
+  action: "start" | "stop",
+  status: string | undefined
+): boolean {
+  return action === "start" ? status === "running" : status === "stopped";
 }
 
 export function normalizeManagedState(raw: string | undefined): ManagedRuntimeState {

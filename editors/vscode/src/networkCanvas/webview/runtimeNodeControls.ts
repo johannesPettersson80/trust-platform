@@ -10,6 +10,8 @@ export interface RuntimeNodeControl {
   readonly action:
     | "startLocalSimulator"
     | "stopLocalSimulator"
+    | "managedStart"
+    | "managedStop"
     | "runtimeConnect"
     | "runtimeDisconnect"
     | "setAsRunTarget"
@@ -26,6 +28,8 @@ export interface RuntimeNodeControlsInput {
   readonly health: string; // the runtime's OWN health: "connected" | "pending" | "stopped" | "error" | …
   readonly attached: boolean; // does the extension hold a live connection to THIS runtime?
   readonly controlEndpoint?: string;
+  // A managed local runtime (fleet.toml project we own — Phase 9): Start/Stop via the fleet lifecycle.
+  readonly managed?: boolean;
   // Whether a log backend exists for this node (§0.6.12 — "Logs only when a log backend exists").
   // Remote logs are phase 14, so this is false for remotes until that lands.
   readonly logsAvailable?: boolean;
@@ -65,6 +69,12 @@ export function runtimeNodeControls(
 }
 
 function primaryControl(input: RuntimeNodeControlsInput): RuntimeNodeControl {
+  if (input.managed) {
+    // A managed local runtime project — we own the process → Start / Stop (never Connect).
+    return input.health === "connected"
+      ? { action: "managedStop", label: "Stop", kind: "primary", enabled: true }
+      : { action: "managedStart", label: "Start", kind: "primary", enabled: true };
+  }
   if (input.isLocal) {
     // We own the local simulator process → Start / Stop.
     if (input.health === "pending") {

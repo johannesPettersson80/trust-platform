@@ -163,6 +163,8 @@ export function buildGraph(
         container: containerTag,
         controlEndpoint: rt.controlEndpoint,
         attached: rt.attached,
+        managed: rt.managed,
+        managedName: rt.managedName,
       },
       style: { width: size.w, height: size.h },
       draggable: false,

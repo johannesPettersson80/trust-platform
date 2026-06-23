@@ -302,6 +302,69 @@ suite("Network Canvas", function () {
     assert.strictEqual(graph.hosts[0].runtimes[0].health, "connected");
   });
 
+  test("managed local runtimes are injected as owned nodes (Phase 9) with managed name + honest health", () => {
+    const graph = buildCanvasGraph(
+      buildNetworkCanvasModel("runtime_live"),
+      undefined,
+      undefined,
+      undefined,
+      [
+        { name: "cell1", controlEndpoint: "tcp://127.0.0.1:9902", state: "stopped" },
+        { name: "cell2", controlEndpoint: "tcp://127.0.0.1:9903", state: "running" },
+      ]
+    );
+    const managedHost = graph.hosts.find((h) => h.id === "host:managed-local");
+    assert.ok(managedHost, "a 'this computer' managed host is injected");
+    const cell1 = managedHost?.runtimes.find((r) => r.managedName === "cell1");
+    const cell2 = managedHost?.runtimes.find((r) => r.managedName === "cell2");
+    assert.ok(cell1?.managed === true && cell2?.managed === true, "nodes are marked managed");
+    assert.strictEqual(cell1?.health, "stopped", "stopped managed runtime is honest grey");
+    assert.strictEqual(cell2?.health, "connected", "running managed runtime is green");
+  });
+
+  test("a managed runtime already shown via fleet.topology is NOT doubled (dedup by endpoint)", () => {
+    const peerTopology = {
+      schema_version: 3 as const,
+      hosts: [
+        {
+          host_id: "fleet:peer",
+          hostname: "peer",
+          arch: "",
+          os: "",
+          ips: [],
+          containers: [],
+          runtimes: [
+            {
+              runtime_id: "fleet:peer:rt",
+              name: "cell1",
+              control_endpoint: "tcp://127.0.0.1:9902",
+              mode: "online",
+              cycle_ms: 0,
+              health: "connected",
+              detail: "",
+              endpoints: [],
+            },
+          ],
+        },
+      ],
+      links: [],
+      shared: [],
+      external: [],
+    };
+    const graph = buildCanvasGraph(
+      buildNetworkCanvasModel("runtime_live"),
+      undefined,
+      peerTopology,
+      undefined,
+      [{ name: "cell1", controlEndpoint: "tcp://127.0.0.1:9902", state: "running" }]
+    );
+    // The endpoint is already shown via the peer topology → no separate managed host injected.
+    assert.ok(
+      !graph.hosts.some((h) => h.id === "host:managed-local"),
+      "no duplicate managed node for an endpoint already on the canvas"
+    );
+  });
+
   test("a runtime start failure renders an error node + retry banner, not a failure screen", () => {
     const graph = buildCanvasGraph(
       buildNetworkCanvasModel({

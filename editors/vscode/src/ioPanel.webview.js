@@ -39,7 +39,8 @@ let compileState = null;
 let currentFilter = "";
 const editCache = new Map();
 let settingsOpen = false;
-// On a remote (online) target the debug adapter forwards io_write only — Force/Unforce are gated.
+// Current target kind (simulate/online). Force/Unforce work on both now (the adapter forwards
+// io.force/io.unforce via attach); kept only so a target flip re-renders the rows.
 let currentMode = "simulate";
 
 function forcedAddresses(state) {
@@ -297,7 +298,7 @@ function applyRuntimeStatus(payload) {
     modeOnline.classList.toggle("active", mode === "online");
     modeOnline.disabled = running || connected;
   }
-  // Re-gate Force/Unforce when the target kind flips (a remote can't force yet).
+  // Re-render the rows when the target kind flips (keeps the table in sync with the active target).
   if (modeChanged) {
     render(currentState);
   }

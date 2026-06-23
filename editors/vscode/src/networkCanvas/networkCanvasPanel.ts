@@ -30,6 +30,13 @@ import {
 import { setSelectedRuntimeId } from "../selectedRuntime";
 import { SIMULATOR_RUNTIME_ID } from "../trustHomeModel";
 import {
+  listManagedRuntimes,
+  onDidChangeManagedRuntimes,
+  showManagedRuntimeLogs,
+  startManagedRuntime,
+  stopManagedRuntime,
+} from "../localRuntime";
+import {
   fetchAndMergeFleetTopologies,
   fetchFleetTopology,
   type FleetTopologyResponse,
@@ -84,6 +91,12 @@ export function registerNetworkCanvasPanel(context: vscode.ExtensionContext): vo
   );
   context.subscriptions.push(
     runtimeLifecycleService.onDidChange(() => {
+      void refreshNetworkCanvasPanel();
+    })
+  );
+  // A managed runtime starting/stopping (here or from the Run bar) re-renders its node state.
+  context.subscriptions.push(
+    onDidChangeManagedRuntimes(() => {
       void refreshNetworkCanvasPanel();
     })
   );
@@ -259,9 +272,14 @@ async function refreshNetworkCanvasPanel(): Promise<void> {
     snapshot.status.runtimeState === "connected"
       ? snapshot.status.endpoint
       : undefined;
+  // Managed local runtimes (fleet.toml projects we own) injected as nodes so Start/Stop/Logs live on
+  // the canvas node (§0.6 / Phase 9). Same service the Run bar uses — one lifecycle model.
+  const managed = extensionContext
+    ? await listManagedRuntimes(extensionContext)
+    : [];
   void panel.webview.postMessage({
     type: "graph",
-    graph: buildCanvasGraph(model, lastTopology, peerTopology, attachedEndpoint),
+    graph: buildCanvasGraph(model, lastTopology, peerTopology, attachedEndpoint, managed),
   });
   void panel.webview.postMessage({
     type: "meta",
@@ -769,15 +787,49 @@ async function handleWebviewMessage(message: unknown): Promise<void> {
       await refreshNetworkCanvasPanel();
       break;
     case "setAsRunTarget":
-      // Select this runtime for the Run bar WITHOUT connecting (§0.5.11). Local node → the Simulator.
+      // Select this runtime for the Run bar WITHOUT connecting (§0.5.11). Managed node → its name;
+      // local sim node → the Simulator; remote → its endpoint.
       {
+        const managedName =
+          typeof message.managedName === "string" ? message.managedName : "";
         const endpoint =
           typeof message.endpoint === "string" ? message.endpoint : "";
-        await setSelectedRuntimeId(
-          message.isLocal || !endpoint ? SIMULATOR_RUNTIME_ID : endpoint
-        );
+        const target = managedName
+          ? managedName
+          : message.isLocal || !endpoint
+            ? SIMULATOR_RUNTIME_ID
+            : endpoint;
+        await setSelectedRuntimeId(target);
       }
       await refreshNetworkCanvasPanel();
+      break;
+    case "runtimeManagedStart":
+    case "runtimeManagedStop":
+      // Managed local runtime lifecycle — SAME service the Run bar uses (one lifecycle model).
+      {
+        const name = typeof message.name === "string" ? message.name : "";
+        if (extensionContext && name) {
+          const result =
+            message.type === "runtimeManagedStop"
+              ? await stopManagedRuntime(extensionContext, name)
+              : await startManagedRuntime(extensionContext, name);
+          if (!result.ok) {
+            void vscode.window.showWarningMessage(
+              result.message ||
+                `Could not ${message.type === "runtimeManagedStop" ? "stop" : "start"} ${name}.`
+            );
+          }
+        }
+      }
+      await refreshNetworkCanvasPanel();
+      break;
+    case "runtimeManagedLogs":
+      {
+        const name = typeof message.name === "string" ? message.name : "";
+        if (extensionContext && name) {
+          await showManagedRuntimeLogs(extensionContext, name);
+        }
+      }
       break;
   }
 }

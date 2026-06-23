@@ -13,6 +13,7 @@ import type {
 } from "./model";
 import type { NetworkCanvasFleetRuntime } from "./fleetModel";
 import { LOCAL_RUNTIME_NODE_ID } from "./webview/types";
+import type { ManagedRuntime } from "../localRuntimeModel";
 import type { NCFault, NCGraph, NCHost, NCRuntime } from "./webview/types";
 
 function deviceHealth(status: NetworkDeviceStatus): string {
@@ -278,7 +279,10 @@ export function buildCanvasGraph(
   // The control endpoint the extension currently holds a live connection to (an attached remote), or
   // undefined. Used to mark exactly ONE remote runtime as `attached` (→ "Disconnect") — never every
   // healthy remote (which would be a fabricated connection).
-  attachedEndpoint?: string
+  attachedEndpoint?: string,
+  // Managed local runtimes (fleet.toml projects we own — Phase 9). Injected as nodes so the user can
+  // Start/Stop/Logs them on the canvas; deduped against runtimes already shown via fleet.topology.
+  managed: ReadonlyArray<ManagedRuntime> = []
 ): NCGraph {
   const base = model.fleet ? fleetGraph(model, topology) : localRuntimeGraph(model);
   const peerHosts = (peerTopology?.hosts ?? []).filter(
@@ -300,8 +304,56 @@ export function buildCanvasGraph(
             hosts,
           };
         })();
+  injectManagedRuntimes(graph, managed);
   annotateAttached(graph, attachedEndpoint);
   return graph;
+}
+
+// Add managed local runtimes (fleet.toml projects we own) as nodes under a "this computer" host, so
+// Start/Stop/Logs live ON the Devices & Connections node (§0.6 / Phase 9). Deduped by control endpoint
+// against runtimes already shown (e.g. a running one visible via fleet.topology) to avoid doubles.
+function injectManagedRuntimes(
+  graph: NCGraph,
+  managed: ReadonlyArray<ManagedRuntime>
+): void {
+  if (managed.length === 0) {
+    return;
+  }
+  const shown = new Set<string>();
+  for (const host of graph.hosts) {
+    for (const rt of host.runtimes) {
+      if (rt.controlEndpoint) {
+        shown.add(rt.controlEndpoint);
+      }
+    }
+  }
+  const fresh = managed.filter(
+    (local) => !local.controlEndpoint || !shown.has(local.controlEndpoint)
+  );
+  if (fresh.length === 0) {
+    return;
+  }
+  graph.hosts.push({
+    id: "host:managed-local",
+    hostname: "this computer",
+    label: "managed runtimes",
+    health: fresh.some((local) => local.state === "running") ? "connected" : "stopped",
+    containers: [],
+    runtimes: fresh.map((local) => ({
+      id: `managed:${local.name}`,
+      name: local.name,
+      mode: "managed",
+      health: local.state === "running" ? "connected" : "stopped",
+      detail:
+        local.state === "running"
+          ? "Running (managed local runtime)."
+          : "Stopped — Start it from this node.",
+      controlEndpoint: local.controlEndpoint || undefined,
+      managed: true,
+      managedName: local.name,
+      endpoints: [],
+    })),
+  });
 }
 
 // Honest per-runtime "are we connected to it?" flag. Local simulator: attached === running (its own

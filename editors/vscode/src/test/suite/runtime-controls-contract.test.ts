@@ -10,6 +10,7 @@ import {
 } from "../../trustHomeModel";
 import { runtimeNodeControls } from "../../networkCanvas/webview/runtimeNodeControls";
 import {
+  isManagedLifecycleSuccess,
   managedRuntimeLabel,
   normalizeManagedState,
   toManagedRuntimes,
@@ -216,6 +217,17 @@ suite("Managed local runtime model (Phase 9)", () => {
     assert.strictEqual(managedRuntimeLabel("cell1"), "cell1 (this computer)");
   });
 
+  test("lifecycle success is HONEST: Start only at 'running', Stop only at 'stopped'", () => {
+    // Backend can report transient "starting"/"stopping" (didn't reach the target) — NOT success.
+    assert.strictEqual(isManagedLifecycleSuccess("start", "running"), true);
+    assert.strictEqual(isManagedLifecycleSuccess("start", "starting"), false);
+    assert.strictEqual(isManagedLifecycleSuccess("start", "stopped"), false);
+    assert.strictEqual(isManagedLifecycleSuccess("start", undefined), false);
+    assert.strictEqual(isManagedLifecycleSuccess("stop", "stopped"), true);
+    assert.strictEqual(isManagedLifecycleSuccess("stop", "stopping"), false);
+    assert.strictEqual(isManagedLifecycleSuccess("stop", "running"), false);
+  });
+
   test("toManagedRuntimes merges fleet list + per-name status", () => {
     const list = {
       runtimes: [
@@ -322,6 +334,36 @@ suite("Canvas runtime-node controls — honest per-runtime lifecycle (§8 P3b)",
       remoteActions.includes("setAsRunTarget"),
       "remote offers Set as run target (select without connecting)"
     );
+  });
+
+  test("managed local runtime node: Start when stopped, Stop when running — never Connect (we own it)", () => {
+    const stopped = runtimeNodeControls({
+      isLocal: false,
+      managed: true,
+      health: "stopped",
+      attached: false,
+      logsAvailable: true,
+    });
+    assert.strictEqual(stopped[0].action, "managedStart");
+    assert.strictEqual(stopped[0].label, "Start");
+
+    const running = runtimeNodeControls({
+      isLocal: false,
+      managed: true,
+      health: "connected",
+      attached: false,
+      logsAvailable: true,
+    });
+    assert.strictEqual(running[0].action, "managedStop");
+    assert.strictEqual(running[0].label, "Stop");
+
+    const actions = [...stopped, ...running].map((control) => control.action);
+    assert.ok(
+      !actions.includes("runtimeConnect") && !actions.includes("runtimeDisconnect"),
+      "a managed local runtime is owned → never Connect/Disconnect"
+    );
+    assert.ok(stopped.some((c) => c.action === "openRuntimeLogs"), "managed has Logs");
+    assert.ok(stopped.some((c) => c.action === "setAsRunTarget"), "managed offers Set as run target");
   });
 });
 

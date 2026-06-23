@@ -3,9 +3,11 @@ import * as vscode from "vscode";
 
 import { getBinaryPath } from "./binary";
 import {
+  isManagedLifecycleSuccess,
   toManagedRuntimes,
   type FleetListResponse,
   type FleetRuntimeStatusResponse,
+  type ManagedLifecycleResult,
   type ManagedRuntime,
 } from "./localRuntimeModel";
 
@@ -100,10 +102,10 @@ async function lifecycle(
   context: vscode.ExtensionContext,
   action: "start" | "stop",
   name: string
-): Promise<boolean> {
+): Promise<ManagedLifecycleResult> {
   const root = await fleetRoot();
   if (!root) {
-    return false;
+    return { ok: false, message: "No fleet runtime project found." };
   }
   const result = await runJson<FleetRuntimeStatusResponse>(
     binary(context),
@@ -111,20 +113,32 @@ async function lifecycle(
     root
   );
   changeEmitter.fire();
-  return !!result;
+  if (!result) {
+    return {
+      ok: false,
+      message: "The runtime tools didn't respond.",
+    };
+  }
+  // HONEST: success only when the backend reports the REACHED state ("running"/"stopped"), not the
+  // transient "starting"/"stopping" (process up but control not yet reachable / stop not complete).
+  return {
+    ok: isManagedLifecycleSuccess(action, result.status),
+    status: result.status,
+    message: result.message,
+  };
 }
 
 export function startManagedRuntime(
   context: vscode.ExtensionContext,
   name: string
-): Promise<boolean> {
+): Promise<ManagedLifecycleResult> {
   return lifecycle(context, "start", name);
 }
 
 export function stopManagedRuntime(
   context: vscode.ExtensionContext,
   name: string
-): Promise<boolean> {
+): Promise<ManagedLifecycleResult> {
   return lifecycle(context, "stop", name);
 }
 

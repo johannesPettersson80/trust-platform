@@ -243,15 +243,23 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
   }
 
   private async runManagedAction(selected: SelectedRuntime): Promise<void> {
-    const ok =
+    const result =
       selected.primary.action === "stop"
         ? await stopManagedRuntime(this.context, selected.id)
         : await startManagedRuntime(this.context, selected.id);
-    if (!ok) {
+    if (!result.ok) {
+      // Honest: the backend can report "starting"/"stopping" (didn't reach the target state) — surface
+      // its message, don't pretend it worked, and don't auto-open Live Values.
+      const reason =
+        result.message ||
+        `Could not ${selected.primary.action} ${selected.label}.`;
       void vscode.window.showWarningMessage(
-        `Could not ${selected.primary.action} ${selected.label}. Check it in Devices & Connections.`
+        `${reason} Check it in Devices & Connections.`
       );
-    } else if (selected.primary.action === "start") {
+      return;
+    }
+    // Auto-reveal Live Values only when Start actually reached "running".
+    if (selected.primary.action === "start") {
       void vscode.commands.executeCommand("trust-lsp.debug.openIoPanel");
     }
   }
@@ -487,8 +495,8 @@ async function isTrustProjectOpen(): Promise<boolean> {
   return found.length > 0;
 }
 
-// Passive validity (§0.5.6): diagnostics-derived "no known errors" — NOT an authoritative "build OK"
-// (a real Check program backend doesn't exist yet — phase 8). Never a button.
+// Passive validity (§0.5.6): a fast diagnostics-derived "no known errors" line — NOT the authoritative
+// whole-project compile (that's the separate `Check program` action, Phase 8). Never a button.
 function validityLine(): ValidityLine {
   let errors = 0;
   for (const [uri, diagnostics] of vscode.languages.getDiagnostics()) {

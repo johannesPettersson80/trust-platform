@@ -48,6 +48,10 @@ export interface NCRuntime {
   // Honest "does the extension hold a live connection to THIS runtime?" — distinct from `health`,
   // which is the runtime's OWN reported health. Drives Connect vs Disconnect / Start vs Stop.
   attached?: boolean;
+  // A managed local runtime (fleet.toml project on this computer we own — Phase 9). When true, the node
+  // gets Start/Stop/Logs via the fleet lifecycle (managedName), not Connect/Disconnect.
+  managed?: boolean;
+  managedName?: string;
   endpoints: NCEndpoint[];
 }
 
@@ -132,6 +136,8 @@ export interface RuntimeNodeData extends Record<string, unknown> {
   // Per-runtime control inputs for the inspector (see NCRuntime).
   controlEndpoint?: string;
   attached?: boolean;
+  managed?: boolean;
+  managedName?: string;
 }
 export interface EndpointNodeData extends Record<string, unknown> {
   name: string;
