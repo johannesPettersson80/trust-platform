@@ -240,7 +240,7 @@
         "trust-lsp.runtime.controlAuthToken": {
           "type": "string",
           "default": "",
-          "description": "Optional auth token for the runtime control endpoint override.",
+          "markdownDescription": "**Legacy / not recommended.** Plaintext auth token for the runtime control endpoint. Prefer storing tokens securely via the *Set auth token* prompt (kept in the OS secret store, per endpoint). This setting is read only as a fallback.",
           "scope": "resource"
         },
         "trust-lsp.runtime.setupUrl": {

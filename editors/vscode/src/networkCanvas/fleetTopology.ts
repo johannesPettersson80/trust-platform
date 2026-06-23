@@ -222,17 +222,16 @@ function unionStrings(a: readonly string[], b: readonly string[]): string[] {
   return [...new Set([...(a ?? []), ...(b ?? [])])];
 }
 
-// A configured fleet peer that isn't reachable yet still appears — as a STOPPED / unreachable
-// host + runtime (honest grey, never green) — so adding a host/runtime shows something immediately
-// instead of vanishing until the runtime is running. Ids are endpoint-derived; once the peer comes
-// online its real fleet.topology (real host_id) replaces this synthetic node.
+// A configured fleet peer that isn't reachable yet still appears — as an UNKNOWN/unreachable
+// host + runtime (honest grey/ghosted, never green) — so adding a host/runtime shows something
+// immediately instead of vanishing until the runtime is running. Ids are endpoint-derived; once the
+// peer comes online its real fleet.topology (real host_id) replaces this synthetic node.
 export function offlineTopologyForTarget(target: RuntimeTarget): FleetTopologyResponse | undefined {
   const endpoint = target.endpoint?.trim();
   if (!endpoint || target.status === "online_reachable") {
     return undefined;
   }
-  // Neutral grey "stopped" (the local-sim convention), not red — a just-added peer isn't a fault;
-  // the detail says why. `auth_failed` is a real error (red).
+  // Neutral grey "unknown" (not red — a just-added peer isn't a fault; the detail says why).
   // We KNOW it's configured + not reachable; we do NOT know whether the process is stopped or simply
   // unreachable — so render "unknown" (grey, ghosted), never the over-claim "stopped" (Codex review).
   // auth_failed is a genuine error (red).

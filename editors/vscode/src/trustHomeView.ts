@@ -199,7 +199,20 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
     const selected = this.resolveSelected(snapshot, remotes);
     const result = await this.dispatch(selected);
     if (result && !result.ok) {
-      void vscode.window.showWarningMessage(actionFailureMessage(selected, result));
+      if (selected.primary.action === "connect") {
+        // A failed connect is often a missing/expired token — offer a SECURE (SecretStorage) entry.
+        const choice = await vscode.window.showWarningMessage(
+          actionFailureMessage(selected, result),
+          "Set auth token"
+        );
+        if (choice === "Set auth token") {
+          await vscode.commands.executeCommand("trust-lsp.runtime.setAuthToken", {
+            endpoint: selected.id,
+          });
+        }
+      } else {
+        void vscode.window.showWarningMessage(actionFailureMessage(selected, result));
+      }
     } else if (
       selected.primary.action === "start" ||
       selected.primary.action === "connect"

@@ -9,6 +9,7 @@ import {
   probeRuntimeControlEndpoint,
   requestRuntimeStatus,
 } from "./runtimeControlClient";
+import { getControlAuthToken } from "./runtimeAuth";
 
 export const RUNTIME_PANEL_COMMAND = "trust-lsp.debug.openIoPanel";
 
@@ -60,11 +61,13 @@ export async function resolveRuntimeTarget(
   deps: RuntimeTargetDeps = {}
 ): Promise<RuntimeTarget> {
   const config = vscode.workspace.getConfiguration("trust-lsp", resource);
+  const endpoint = config.get<string>("runtime.controlEndpoint", "");
   return await resolveRuntimeTargetFromSettings(
     {
       mode: config.get<RuntimeTargetMode>("runtime.mode", "simulate"),
-      endpoint: config.get<string>("runtime.controlEndpoint", ""),
-      authToken: config.get<string>("runtime.controlAuthToken", ""),
+      endpoint,
+      // §0.6.8 — token from SecretStorage first, legacy plaintext setting only as fallback.
+      authToken: await getControlAuthToken(endpoint),
       endpointEnabled: config.get<boolean>(
         "runtime.controlEndpointEnabled",
         true

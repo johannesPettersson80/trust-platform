@@ -11,6 +11,7 @@ import {
   setUpRuntimeOptions,
   V1_SETUP_CAPS,
 } from "../../networkCanvas/webview/setUpRuntime";
+import { pickAuthToken } from "../../runtimeAuthModel";
 
 // v5 "complete PLC IDE shell" contract guards (vscode-ux-overhaul-plan.md §0.5/§0.6/§9). This file holds
 // the package.json + source invariants for the shell: palette cleanup, no user-facing Communication
@@ -35,6 +36,10 @@ type Pkg = {
 
 function extensionRoot(): string {
   return path.resolve(__dirname, "..", "..", "..");
+}
+
+function workspaceRoot(): string {
+  return path.resolve(extensionRoot(), "..", "..");
 }
 
 function loadPackageJson(): Pkg {
@@ -249,6 +254,25 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
   });
 });
 
+suite("Phase 0 — packaged runtime tools (v5 shell)", () => {
+  test("release VSIX bundles trust-runtime beside trust-lsp and trust-debug", () => {
+    const releaseWorkflow = fs.readFileSync(
+      path.join(workspaceRoot(), ".github", "workflows", "release.yml"),
+      "utf8"
+    );
+    for (const binary of ["trust-lsp", "trust-debug", "trust-runtime"]) {
+      assert.ok(
+        releaseWorkflow.includes(`cp target/\${{ matrix.target }}/release/${binary} editors/vscode/bin/`),
+        `Unix VSIX packaging must copy ${binary} into editors/vscode/bin`
+      );
+      assert.ok(
+        releaseWorkflow.includes(`cp target/\${{ matrix.target }}/release/${binary}.exe editors/vscode/bin/`),
+        `Windows VSIX packaging must copy ${binary}.exe into editors/vscode/bin`
+      );
+    }
+  });
+});
+
 suite("Phase 4 — Live Values (v5 shell)", () => {
   test("the values surface is named 'Live Values' (not 'Structured Text Runtime')", () => {
     const host = readSrc("ioPanel.ts");
@@ -432,5 +456,39 @@ suite("Phase 6 — Apply changes (simulator-only)", () => {
       src.includes("onDidSaveTextDocument") && src.includes("markSourceChanged"),
       "source-change must be detected from an actual ST save"
     );
+  });
+});
+
+suite("R4 — runtime auth tokens in SecretStorage (security)", () => {
+  test("pickAuthToken: SecretStorage value wins; empty falls back to the legacy setting", () => {
+    assert.strictEqual(pickAuthToken("sek", "legacy"), "sek");
+    assert.strictEqual(pickAuthToken("", "legacy"), "legacy");
+    assert.strictEqual(pickAuthToken(undefined, "legacy"), "legacy");
+    assert.strictEqual(pickAuthToken("  ", " legacy "), "legacy");
+    assert.strictEqual(pickAuthToken(undefined, undefined), undefined);
+    assert.strictEqual(pickAuthToken("", ""), undefined);
+  });
+
+  test("token read paths use the SecretStorage-backed store, not the raw plaintext setting", () => {
+    for (const file of ["runtimeTarget.ts", "runtimeLifecycle.ts"]) {
+      const src = readSrc(file);
+      assert.ok(
+        src.includes("getControlAuthToken"),
+        `${file} must read tokens via getControlAuthToken`
+      );
+      assert.ok(
+        !/config\.get<[^>]*>\("runtime\.controlAuthToken"/.test(src),
+        `${file} must not read the plaintext controlAuthToken setting directly`
+      );
+    }
+  });
+
+  test("the legacy plaintext token setting is marked legacy + points to the secret store", () => {
+    const pkg = fs.readFileSync(path.join(extensionRoot(), "package.json"), "utf8");
+    const idx = pkg.indexOf("trust-lsp.runtime.controlAuthToken");
+    assert.ok(idx >= 0, "the setting still exists (as a fallback)");
+    const block = pkg.slice(idx, idx + 400);
+    assert.ok(/legacy/i.test(block), "setting description must flag it as legacy");
+    assert.ok(/secret store/i.test(block), "setting must point users to the secret store");
   });
 });

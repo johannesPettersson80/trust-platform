@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 
 import { debugChannel, DEBUG_TYPE } from "./debug/configuration";
 import { runtimeSourceOptionsForTarget } from "./runtimeSourceOptions";
+import { getControlAuthToken } from "./runtimeAuth";
 import {
   classifyRuntimeStartFailure,
   type NetworkCanvasRuntimeFailure as RuntimeStartFailure,
@@ -334,7 +335,8 @@ class RuntimeLifecycleService {
       };
     }
 
-    const authToken = config.get<string>("runtime.controlAuthToken") ?? "";
+    // §0.6.8 — token from SecretStorage first (legacy setting fallback), never plaintext-only.
+    const authToken = (await getControlAuthToken(status.endpoint)) ?? "";
     const runtimeOptions = runtimeSourceOptionsForTarget();
     const folder = vscode.workspace.workspaceFolders?.[0];
     const debugConfig: vscode.DebugConfiguration = {
