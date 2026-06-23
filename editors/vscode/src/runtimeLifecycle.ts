@@ -251,7 +251,7 @@ class RuntimeLifecycleService {
       this.starting = false;
       this.failure = classifyRuntimeStartFailure(err);
       debugChannel().appendLine(
-        `Network Canvas local simulator start failed: ${this.failure.message}`
+        `Simulator start failed: ${this.failure.message}`
       );
       this.emitChanged();
       return { ok: false, failure: this.failure };

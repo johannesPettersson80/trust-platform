@@ -46,7 +46,7 @@ const vscode: VsCodeApi =
 
 const EMPTY: NCGraph = {
   kind: "graph",
-  title: "Network Canvas",
+  title: "Devices & Connections",
   summary: "",
   hosts: [],
   links: [],
@@ -424,7 +424,7 @@ function Canvas() {
         }}
       >
         <div style={{ fontWeight: 800, fontSize: 15, whiteSpace: "nowrap" }}>
-          tru<span style={{ color: "#5aa9ff" }}>ST</span> · Network Canvas
+          tru<span style={{ color: "#5aa9ff" }}>ST</span> · Devices &amp; Connections
         </div>
         <input
           onChange={onSearch}

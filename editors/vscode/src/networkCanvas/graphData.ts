@@ -74,7 +74,7 @@ function fleetGraph(
   }
   return {
     kind: "graph",
-    title: "Network Canvas",
+    title: "Devices & Connections",
     summary: fleet.summary,
     hosts: fleet.hosts.map((host) => ({
       id: host.id,
@@ -153,7 +153,7 @@ function localRuntimeGraph(model: NetworkCanvasModel): NCGraph {
   }
   return {
     kind: "graph",
-    title: "Network Canvas",
+    title: "Devices & Connections",
     summary: running
       ? `1 host · 1 runtime · ${endpoints.length} endpoint${endpoints.length === 1 ? "" : "s"}`
       : "1 host · 1 runtime · local simulator (stopped)",

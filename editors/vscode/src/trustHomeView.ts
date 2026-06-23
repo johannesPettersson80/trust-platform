@@ -332,7 +332,8 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
     border-color: var(--vscode-button-border, var(--vscode-widget-border, rgba(128,128,128,0.35)));
   }
   button.secondary:hover:not(:disabled) { background: var(--vscode-button-secondaryHoverBackground, var(--vscode-list-hoverBackground)); }
-  .hint { font-size: 11px; opacity: 0.8; margin-top: 6px; line-height: 1.4; }
+  .hint { font-size: 11px; margin-top: 6px; line-height: 1.4; opacity: 0.95; color: var(--vscode-foreground); }
+  .hint .ico { color: var(--vscode-charts-yellow, #d7a200); margin-right: 4px; }
   .nav { margin-top: 16px; border-top: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.25)); padding-top: 8px; }
   .nav button {
     text-align: left; margin-top: 4px; padding: 6px 8px;
@@ -421,7 +422,18 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
     actionEl.disabled = !msg.selected.primary.enabled;
     applyEl.style.display = msg.canApply ? "" : "none";
     const hint = msg.selected.primary.hint || "";
-    hintEl.textContent = hint;
+    // A hint only appears on a disabled-with-reason state → mark it as a warning (icon + contrast) so a
+    // beginner reads "disabled because…", not "broken".
+    hintEl.innerHTML = "";
+    if (hint) {
+      const ico = document.createElement("span");
+      ico.className = "ico";
+      ico.textContent = "⚠";
+      const text = document.createElement("span");
+      text.textContent = hint;
+      hintEl.appendChild(ico);
+      hintEl.appendChild(text);
+    }
     hintEl.style.display = hint ? "" : "none";
   });
 

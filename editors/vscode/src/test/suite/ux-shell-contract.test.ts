@@ -357,6 +357,27 @@ suite("Phase 7 — Devices & Connections (shared run-target + naming)", () => {
     );
   });
 
+  test("no user-facing 'Network Canvas' anywhere it renders or reaches the user (bundle + runtime strings)", () => {
+    // The BUILT webview bundle is esbuild output (comments stripped) — any match here is a real rendered
+    // string. This is what caught the header/title leaks that source-only guards missed.
+    const bundle = fs.readFileSync(
+      path.join(extensionRoot(), "media", "networkCanvasWebview.js"),
+      "utf8"
+    );
+    assert.ok(
+      !bundle.includes("Network Canvas"),
+      "the built Devices & Connections webview must not render 'Network Canvas'"
+    );
+    // Runtime-facing host strings: graph titles posted to the webview + user-visible messages. Match only
+    // quoted/templated literals so internal identifiers (NETWORK_CANVAS_VIEW_TYPE, the command id) are fine.
+    for (const file of ["networkCanvas/graphData.ts", "runtimeLifecycle.ts"]) {
+      assert.ok(
+        !/["'`][^"'`\n]*Network Canvas/.test(readSrc(file)),
+        `${file} must not contain a user-facing 'Network Canvas' string`
+      );
+    }
+  });
+
   test("ONE selected-run-target store, written by the dropdown AND the graph", () => {
     const store = readSrc("selectedRuntime.ts");
     assert.ok(
