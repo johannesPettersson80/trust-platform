@@ -438,7 +438,12 @@ pub(super) fn loopback_fields() -> Vec<CommFieldSchema> {
 
 pub(super) fn opcua_fields() -> Vec<CommFieldSchema> {
     vec![
-        boolean_field("enabled", "Enable OPC UA", true, "Enable the OPC UA server."),
+        boolean_field(
+            "enabled",
+            "Enable OPC UA server",
+            true,
+            "Expose selected truST globals over OPC UA.",
+        ),
         endpoint_field(
             "listen",
             "Listen address",
@@ -512,6 +517,41 @@ pub(super) fn opcua_fields() -> Vec<CommFieldSchema> {
             false,
             "Password for authenticated OPC UA clients. It is never returned by schema defaults.",
         ))),
+    ]
+}
+
+pub(super) fn opcua_client_fields() -> Vec<CommFieldSchema> {
+    vec![
+        boolean_field(
+            "enabled",
+            "Enable OPC UA client",
+            true,
+            "Read selected nodes from an external OPC UA server.",
+        ),
+        optional(field(
+            "config_path",
+            "OPC UA client config path",
+            "path",
+            json!("opcua_client.toml"),
+            false,
+            "Project-relative OPC UA client connection file.",
+        )),
+        number_field(
+            "poll_interval_ms",
+            "OPC UA poll interval (ms)",
+            250,
+            10,
+            60000,
+            "How often truST reads selected OPC UA nodes. Lower values reduce latency but use more CPU and network traffic.",
+        ),
+        field(
+            "connections",
+            "Connections",
+            "json_array",
+            json!([]),
+            false,
+            "OPC UA client connection entries. Enabling the client requires at least one connection with selected nodes.",
+        ),
     ]
 }
 

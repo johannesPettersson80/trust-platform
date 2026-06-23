@@ -84,6 +84,7 @@ struct RuntimeSection {
     hmi_persistence: Option<HmiPersistenceSection>,
     ads: Option<AdsSection>,
     ads_server: Option<AdsServerSection>,
+    opcua_client: Option<OpcUaClientSection>,
     opcua: Option<OpcUaSection>,
 }
 
@@ -281,6 +282,14 @@ struct AdsSection {
     enabled: Option<bool>,
     config_path: Option<String>,
     worker_tick_interval_ms: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct OpcUaClientSection {
+    enabled: Option<bool>,
+    config_path: Option<String>,
+    poll_interval_ms: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]

@@ -29,6 +29,7 @@ pub struct RuntimeConfig {
     pub hmi_persistence: HmiPersistenceConfig,
     pub ads: AdsRuntimeConfig,
     pub ads_server: AdsServerRuntimeConfig,
+    pub opcua_client: OpcUaClientRuntimeConfig,
     pub opcua: OpcUaRuntimeConfig,
     pub tasks: Option<Vec<TaskOverride>>,
 }
@@ -340,6 +341,23 @@ impl Default for AdsRuntimeConfig {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OpcUaClientRuntimeConfig {
+    pub enabled: bool,
+    pub config_path: PathBuf,
+    pub poll_interval: Duration,
+}
+
+impl Default for OpcUaClientRuntimeConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            config_path: PathBuf::from("opcua_client.toml"),
+            poll_interval: Duration::from_millis(250),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct IoConfig {
     pub drivers: Vec<IoDriverConfig>,
@@ -359,6 +377,8 @@ pub struct RuntimeBundle {
     pub io: IoConfig,
     pub ads: Option<crate::ads::AdsClientConfig>,
     pub ads_config_hash: Option<String>,
+    pub opcua_client: Option<crate::opcua::OpcUaClientConfig>,
+    pub opcua_client_config_hash: Option<String>,
     pub simulation: Option<SimulationConfig>,
     pub bytecode: Vec<u8>,
 }

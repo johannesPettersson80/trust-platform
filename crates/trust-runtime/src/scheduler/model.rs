@@ -26,6 +26,9 @@ pub enum ResourceCommand {
     AdsStatus {
         respond_to: std::sync::mpsc::Sender<crate::ads::diagnostics::AdsStatusReport>,
     },
+    OpcUaClientStatus {
+        respond_to: std::sync::mpsc::Sender<crate::opcua::OpcUaClientStatusReport>,
+    },
     ActiveAdsDevice {
         target: crate::ads::diagnostics::TargetIdentity,
         local: Option<crate::ads::diagnostics::LocalIdentity>,

@@ -42,6 +42,7 @@ fn apply_bundle_runtime_overrides(runtime: &mut Runtime, bundle: &RuntimeBundle)
         );
     }
     start_ads_runtime(runtime, bundle)?;
+    start_opcua_client_runtime(runtime, bundle)?;
 
     Ok(())
 }
@@ -59,6 +60,31 @@ fn start_ads_runtime(runtime: &mut Runtime, bundle: &RuntimeBundle) -> anyhow::R
 fn start_ads_runtime(_runtime: &mut Runtime, bundle: &RuntimeBundle) -> anyhow::Result<()> {
     if bundle.runtime.ads.enabled {
         anyhow::bail!("runtime.ads.enabled=true requires trust-runtime built with feature 'ads-wire'");
+    }
+    Ok(())
+}
+
+#[cfg(feature = "opcua-wire")]
+fn start_opcua_client_runtime(runtime: &mut Runtime, bundle: &RuntimeBundle) -> anyhow::Result<()> {
+    if !bundle.runtime.opcua_client.enabled {
+        return Ok(());
+    }
+    let Some(config) = bundle.opcua_client.as_ref() else {
+        anyhow::bail!("runtime.opcua_client.enabled=true but no OPC UA client config was loaded");
+    };
+    runtime
+        .configure_opcua_client(config)
+        .map_err(anyhow::Error::from)?;
+    runtime.set_opcua_client_deployed_config_hash(bundle.opcua_client_config_hash.clone());
+    Ok(())
+}
+
+#[cfg(not(feature = "opcua-wire"))]
+fn start_opcua_client_runtime(_runtime: &mut Runtime, bundle: &RuntimeBundle) -> anyhow::Result<()> {
+    if bundle.runtime.opcua_client.enabled {
+        anyhow::bail!(
+            "runtime.opcua_client.enabled=true requires trust-runtime built with feature 'opcua-wire'"
+        );
     }
     Ok(())
 }

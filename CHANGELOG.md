@@ -119,6 +119,11 @@ Target release: `v0.24.25`
   sibling projects before launch, run the local runtime as a background process
   with captured logs, report reachability through the control endpoint, and stop
   through the existing runtime shutdown verb.
+- trust-runtime: added the OPC UA client backend for Network Canvas peer links,
+  including the `opcua_client` schema, `opcua_client.toml` file writer, targeted
+  discovery/test/browse flows, reversible client certificate trust-store CLI,
+  offline non-green fleet topology, and scan-cycle read/write polling that only
+  reports live status after real OPC UA reads.
 
 - trust-runtime: OpenOT telemetry can now publish real encoded records from a
   configured ST OpenOT producer FB via `[runtime.openot] source = "st-fb"` and

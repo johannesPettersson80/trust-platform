@@ -86,6 +86,7 @@ impl DebugControlServer {
             pairing: None,
             ads_doctor_jobs: Arc::new(Mutex::new(AdsDoctorJobStore::default())),
             ads_client_config: Arc::new(Mutex::new(None)),
+            opcua_client_config: Arc::new(Mutex::new(None)),
             ads_server_config: Arc::new(Mutex::new(None)),
             #[cfg(feature = "ads-server")]
             ads_server_runtime: Arc::new(Mutex::new(None)),
@@ -192,6 +193,13 @@ fn spawn_command_drain(rx: std::sync::mpsc::Receiver<ResourceCommand>) -> thread
                         deployed_ads_config_hash: None,
                         connections: Vec::new(),
                         summary: "ADS is not configured for this debug session.".to_string(),
+                    });
+                }
+                ResourceCommand::OpcUaClientStatus { respond_to } => {
+                    let _ = respond_to.send(trust_runtime::opcua::OpcUaClientStatusReport {
+                        enabled: false,
+                        deployed_config_hash: None,
+                        connections: Vec::new(),
                     });
                 }
                 ResourceCommand::ActiveAdsDevice { respond_to, .. } => {

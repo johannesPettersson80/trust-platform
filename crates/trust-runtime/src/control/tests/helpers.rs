@@ -126,6 +126,13 @@ fn hmi_test_state_with_ads_status(
                 ResourceCommand::AdsStatus { respond_to } => {
                     let _ = respond_to.send(ads_status.clone());
                 }
+                ResourceCommand::OpcUaClientStatus { respond_to } => {
+                    let _ = respond_to.send(crate::opcua::OpcUaClientStatusReport {
+                        enabled: false,
+                        deployed_config_hash: None,
+                        connections: Vec::new(),
+                    });
+                }
                 ResourceCommand::ActiveAdsDevice { respond_to, .. } => {
                     let _ = respond_to.send(None);
                 }
@@ -181,6 +188,7 @@ fn hmi_test_state_with_ads_status(
         pairing: None,
         ads_doctor_jobs: Arc::new(Mutex::new(AdsDoctorJobStore::default())),
         ads_client_config: Arc::new(Mutex::new(None)),
+        opcua_client_config: Arc::new(Mutex::new(None)),
         ads_server_config: Arc::new(Mutex::new(None)),
         #[cfg(feature = "ads-server")]
         ads_server_runtime: Arc::new(Mutex::new(None)),

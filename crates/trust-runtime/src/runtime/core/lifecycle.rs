@@ -10,6 +10,7 @@ impl Runtime {
             registry: TypeRegistry::new(),
             initializer_catalog: InitializerCatalog::default(),
             ads: AdsSubsystem::new(),
+            opcua_client: OpcUaClientSubsystem::new(),
             io: IoSubsystem::new(),
             access: AccessMap::default(),
             stdlib: StandardLibrary::new(),

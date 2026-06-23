@@ -1,6 +1,6 @@
 use super::{
-    parser::parse_runtime_toml_from_text, validate_io_toml_text, validate_runtime_toml_text,
-    RuntimeBundle, RuntimeConfig,
+    parser::parse_runtime_toml_from_text, validate_io_toml_text, validate_opcua_client_toml_text,
+    validate_runtime_toml_text, RuntimeBundle, RuntimeConfig,
 };
 
 fn runtime_toml() -> String {
@@ -838,6 +838,32 @@ fn runtime_schema_accepts_opcua_secure_profile_with_user_credentials() {
 }
 
 #[test]
+fn runtime_schema_accepts_opcua_client_pointer() {
+    let text = format!(
+        "{}\n[runtime.opcua_client]\nenabled = true\nconfig_path = \"config/opcua_client.toml\"\npoll_interval_ms = 100\n",
+        runtime_toml()
+    );
+    let runtime = parse_runtime_toml_from_text(&text, "runtime.toml")
+        .expect("opcua client pointer should parse");
+
+    assert!(runtime.opcua_client.enabled);
+    assert_eq!(
+        runtime.opcua_client.config_path,
+        std::path::PathBuf::from("config/opcua_client.toml")
+    );
+    assert_eq!(
+        runtime.opcua_client.poll_interval,
+        crate::value::Duration::from_millis(100)
+    );
+}
+
+#[test]
+fn opcua_client_toml_accepts_connection_points() {
+    validate_opcua_client_toml_text(opcua_client_toml())
+        .expect("OPC UA client config should parse");
+}
+
+#[test]
 fn runtime_bundle_loads_ads_toml_when_enabled() {
     let root = unique_temp_dir("trust-runtime-config-ads-bundle");
     std::fs::write(
@@ -863,6 +889,59 @@ fn runtime_bundle_loads_ads_toml_when_enabled() {
     assert_eq!(ads.connections.len(), 1);
     assert_eq!(ads.connections[0].route.name, "line1");
     assert_eq!(ads.connections[0].points[0].point_name, "line1_temp");
+}
+
+#[test]
+fn runtime_bundle_loads_opcua_client_toml_when_enabled() {
+    let root = unique_temp_dir("trust-runtime-config-opcua-client-bundle");
+    std::fs::write(
+        root.join("runtime.toml"),
+        format!(
+            "{}\n[runtime.opcua_client]\nenabled = true\nconfig_path = \"opcua_client.toml\"\n",
+            runtime_toml()
+        ),
+    )
+    .expect("write runtime.toml");
+    std::fs::write(root.join("io.toml"), io_toml()).expect("write io.toml");
+    std::fs::write(root.join("program.stbc"), []).expect("write bytecode");
+    std::fs::write(root.join("opcua_client.toml"), opcua_client_toml())
+        .expect("write opcua_client.toml");
+
+    let bundle = RuntimeBundle::load(&root).expect("load runtime bundle");
+
+    let config = bundle
+        .opcua_client
+        .expect("OPC UA client config should be loaded");
+    let expected_hash =
+        crate::ads::diagnostics::sha256_evidence_hash(opcua_client_toml().as_bytes());
+    assert_eq!(
+        bundle.opcua_client_config_hash.as_deref(),
+        Some(expected_hash.as_str())
+    );
+    assert_eq!(config.connections.len(), 1);
+    assert_eq!(config.connections[0].name, "line1");
+    assert_eq!(config.connections[0].points[0].var, "conveyor_speed");
+}
+
+#[test]
+fn runtime_bundle_rejects_missing_enabled_opcua_client_toml() {
+    let root = unique_temp_dir("trust-runtime-config-opcua-client-missing");
+    std::fs::write(
+        root.join("runtime.toml"),
+        format!(
+            "{}\n[runtime.opcua_client]\nenabled = true\n",
+            runtime_toml()
+        ),
+    )
+    .expect("write runtime.toml");
+    std::fs::write(root.join("io.toml"), io_toml()).expect("write io.toml");
+    std::fs::write(root.join("program.stbc"), []).expect("write bytecode");
+
+    let err = RuntimeBundle::load(&root).expect_err("missing OPC UA client config should fail");
+
+    assert!(err
+        .to_string()
+        .contains("runtime.opcua_client.enabled=true but OPC UA client config is missing"));
 }
 
 #[test]
@@ -897,6 +976,24 @@ insecure_transport = true
 symbol = "MAIN.Temperature"
 var = "line1_temp"
 type = "REAL"
+"#
+}
+
+fn opcua_client_toml() -> &'static str {
+    r#"
+[[connections]]
+name = "line1"
+endpoint_url = "opc.tcp://127.0.0.1:4840/trust"
+security_policy = "none"
+security_mode = "none"
+auth = "anonymous"
+trust_server_certificate = false
+
+[[connections.points]]
+var = "conveyor_speed"
+node_id = "ns=2;s=MAIN.conveyor_speed"
+type = "REAL"
+access = "read"
 "#
 }
 

@@ -402,6 +402,7 @@ impl Runtime {
         self.io.interface_mut().read_inputs(&mut self.storage)?;
         let now_ms = self.current_time_ms();
         self.ads.apply_inputs(&mut self.storage, now_ms)?;
+        self.opcua_client.apply_inputs(&mut self.storage, now_ms)?;
         #[cfg(feature = "debug")]
         self.emit_io_snapshot();
         self.update_io_health();
@@ -415,6 +416,8 @@ impl Runtime {
         }
         let now_ms = self.current_time_ms();
         self.ads.capture_outputs(&mut self.storage, now_ms)?;
+        self.opcua_client
+            .capture_outputs(&mut self.storage, now_ms)?;
         #[cfg(feature = "debug")]
         self.emit_io_snapshot();
         self.check_output_commit_deadline()?;

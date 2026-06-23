@@ -113,6 +113,37 @@ pub fn run_comm(action: CommAction) -> anyhow::Result<()> {
             .map_err(anyhow::Error::msg)?;
             print_json(value)
         }
+        CommAction::OpcUaTrust { action, json: _ } => match action {
+            crate::cli::CommOpcUaTrustAction::List => {
+                let certs = trust_runtime::opcua::list_trusted_opcua_client_server_certificates()
+                    .map_err(anyhow::Error::from)?
+                    .into_iter()
+                    .map(|cert| {
+                        json!({
+                            "file_name": cert.file_name,
+                            "path": cert.path.display().to_string(),
+                        })
+                    })
+                    .collect::<Vec<_>>();
+                print_json(json!({
+                    "schema_version": 1,
+                    "protocol": "opcua_client",
+                    "pki_dir": trust_runtime::opcua::opcua_client_pki_dir().display().to_string(),
+                    "trusted": certs,
+                }))
+            }
+            crate::cli::CommOpcUaTrustAction::Clear => {
+                let cleared =
+                    trust_runtime::opcua::clear_trusted_opcua_client_server_certificates()
+                        .map_err(anyhow::Error::from)?;
+                print_json(json!({
+                    "schema_version": 1,
+                    "protocol": "opcua_client",
+                    "pki_dir": trust_runtime::opcua::opcua_client_pki_dir().display().to_string(),
+                    "cleared": cleared,
+                }))
+            }
+        },
     }
 }
 

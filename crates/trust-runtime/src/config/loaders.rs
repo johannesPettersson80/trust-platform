@@ -46,6 +46,7 @@ impl RuntimeBundle {
             ));
         };
         let ads = load_bundle_ads_config(&root, &runtime)?;
+        let opcua_client = load_bundle_opcua_client_config(&root, &runtime)?;
         let bytecode = std::fs::read(&program_path).map_err(|err| {
             RuntimeError::InvalidBundle(format!("failed to read program.stbc: {err}").into())
         })?;
@@ -57,6 +58,8 @@ impl RuntimeBundle {
             io,
             ads: ads.as_ref().map(|loaded| loaded.config.clone()),
             ads_config_hash: ads.map(|loaded| loaded.config_hash),
+            opcua_client: opcua_client.as_ref().map(|loaded| loaded.config.clone()),
+            opcua_client_config_hash: opcua_client.map(|loaded| loaded.config_hash),
             simulation,
             bytecode,
         })
@@ -97,6 +100,11 @@ struct LoadedAdsConfig {
     config_hash: String,
 }
 
+struct LoadedOpcUaClientConfig {
+    config: crate::opcua::OpcUaClientConfig,
+    config_hash: String,
+}
+
 fn load_bundle_ads_config(
     root: &Path,
     runtime: &RuntimeConfig,
@@ -129,10 +137,46 @@ fn load_bundle_ads_config(
     }))
 }
 
+fn load_bundle_opcua_client_config(
+    root: &Path,
+    runtime: &RuntimeConfig,
+) -> Result<Option<LoadedOpcUaClientConfig>, RuntimeError> {
+    if !runtime.opcua_client.enabled {
+        return Ok(None);
+    }
+    let config_path = if runtime.opcua_client.config_path.is_relative() {
+        root.join(&runtime.opcua_client.config_path)
+    } else {
+        runtime.opcua_client.config_path.clone()
+    };
+    if !config_path.is_file() {
+        return Err(RuntimeError::InvalidBundle(
+            format!(
+                "runtime.opcua_client.enabled=true but OPC UA client config is missing at {}",
+                config_path.display()
+            )
+            .into(),
+        ));
+    }
+    let text = std::fs::read_to_string(&config_path).map_err(|err| {
+        RuntimeError::InvalidConfig(format!("{}: {err}", config_path.display()).into())
+    })?;
+    let config_hash = crate::ads::diagnostics::sha256_evidence_hash(text.as_bytes());
+    let config = crate::opcua::parse_opcua_client_toml(&text)?;
+    Ok(Some(LoadedOpcUaClientConfig {
+        config,
+        config_hash,
+    }))
+}
+
 pub fn validate_runtime_toml_text(text: &str) -> Result<(), RuntimeError> {
     parser::parse_runtime_toml_from_text(text, "runtime.toml").map(|_| ())
 }
 
 pub fn validate_io_toml_text(text: &str) -> Result<(), RuntimeError> {
     parser::parse_io_toml_from_text(text, "io.toml").map(|_| ())
+}
+
+pub fn validate_opcua_client_toml_text(text: &str) -> Result<(), RuntimeError> {
+    crate::opcua::parse_opcua_client_toml(text).map(|_| ())
 }

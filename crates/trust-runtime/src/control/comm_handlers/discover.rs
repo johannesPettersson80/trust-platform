@@ -12,6 +12,7 @@ const MAX_TIMEOUT_MS: u64 = 2_000;
 const MODBUS_PORT: u16 = 502;
 const MQTT_PORT: u16 = 1883;
 const MQTTS_PORT: u16 = 8883;
+const OPCUA_PORT: u16 = 4840;
 const TRUST_MDNS_SERVICE_TYPE: &str = "_trust._plc._tcp.local.";
 
 #[derive(Debug, Deserialize)]
@@ -92,6 +93,7 @@ pub(super) fn discover_value(params: Value, state: Option<&ControlState>) -> Res
             warnings.push("OPC UA discovery is not exposed here because truST currently provides OPC UA server setup, not an OPC UA client writer.".to_string());
             Vec::new()
         }
+        "opcua_client" => discover_opcua_client(&request.scope, &mut warnings)?,
         "mqtt" => discover_mqtt(&request.scope, &mut warnings)?,
         "ethercat" => discover_ethercat(&request, state, &mut warnings)?,
         "gpio" => discover_gpio(&request, &mut warnings),
@@ -201,6 +203,56 @@ fn discover_mqtt(
             .push("No MQTT broker accepted a TCP connection at the requested target.".to_string());
     }
     Ok(candidates)
+}
+
+fn discover_opcua_client(
+    scope: &DiscoverScope,
+    warnings: &mut Vec<String>,
+) -> Result<Vec<DiscoverCandidate>, String> {
+    let endpoint_url = opcua_endpoint_url(scope)?;
+    match crate::opcua::discover_opcua_client_endpoints(endpoint_url.as_str()) {
+        Ok(endpoints) => {
+            if endpoints.is_empty() {
+                warnings.push(format!(
+                    "No OPC UA endpoints were advertised by {endpoint_url}."
+                ));
+            }
+            Ok(endpoints
+                .into_iter()
+                .map(|endpoint| {
+                    let label = endpoint
+                        .application_name
+                        .clone()
+                        .unwrap_or_else(|| "OPC UA server".to_string());
+                    DiscoverCandidate {
+                        id: format!(
+                            "opcua:{}:{}:{}",
+                            sanitize_id(endpoint.endpoint_url.as_str()),
+                            endpoint.security_policy.as_config_value(),
+                            endpoint.security_mode.as_config_value()
+                        ),
+                        label,
+                        source: "opcua_get_endpoints",
+                        confidence: "observed",
+                        params: json!({
+                            "endpoint_url": endpoint.endpoint_url,
+                            "security_policy": endpoint.security_policy.as_config_value(),
+                            "security_mode": endpoint.security_mode.as_config_value(),
+                            "auth": if endpoint.anonymous_supported { "anonymous" } else { "username" },
+                            "anonymous_supported": endpoint.anonymous_supported,
+                            "username_supported": endpoint.username_supported,
+                            "trust_server_certificate": false,
+                        }),
+                        warnings: Vec::new(),
+                    }
+                })
+                .collect())
+        }
+        Err(error) => {
+            warnings.push(format!("OPC UA discovery did not complete: {error}"));
+            Ok(Vec::new())
+        }
+    }
 }
 
 fn discover_ethercat(
@@ -590,8 +642,8 @@ fn canonical_protocol(protocol: &str) -> String {
         .as_str()
     {
         "modbus_tcp" => "modbus_tcp".to_string(),
-        "opcua" | "opc_ua" | "opcua_client" | "opc_ua_client" | "opcua_server"
-        | "opc_ua_server" => "opcua".to_string(),
+        "opcua_client" | "opc_ua_client" => "opcua_client".to_string(),
+        "opcua" | "opc_ua" | "opcua_server" | "opc_ua_server" => "opcua".to_string(),
         "mqtt" | "mqtt_broker" => "mqtt".to_string(),
         "ads" | "ads_client" | "twincat" => "ads".to_string(),
         "discovery" | "trust" | "trust_runtime" | "trust_runtimes" | "mdns" => {
@@ -629,6 +681,7 @@ fn known_protocol_without_discovery(protocol: &str) -> bool {
             | "simulated"
             | "loopback"
             | "openot"
+            | "opcua"
             | "mesh"
             | "runtime_cloud"
             | "realtime_t0"
@@ -644,10 +697,35 @@ fn protocol_title(protocol: &str) -> &'static str {
         "loopback" => "Loopback",
         "mesh" => "Mesh",
         "openot" => "OpenOT",
+        "opcua" => "OPC UA server",
+        "opcua_client" => "OPC UA client",
         "realtime_t0" => "Realtime T0",
         "runtime_cloud" => "Runtime cloud",
         "simulated" => "Simulated I/O",
         _ => "Selected protocol",
+    }
+}
+
+fn opcua_endpoint_url(scope: &DiscoverScope) -> Result<String, String> {
+    let host = scope
+        .host
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| "OPC UA client discovery needs scope.host".to_string())?;
+    if host.starts_with("opc.tcp://") {
+        return Ok(host.to_string());
+    }
+    if host.contains('/') {
+        return Ok(format!("opc.tcp://{host}"));
+    }
+    if host
+        .rsplit_once(':')
+        .is_some_and(|(_, port)| port.parse::<u16>().is_ok())
+    {
+        Ok(format!("opc.tcp://{host}"))
+    } else {
+        Ok(format!("opc.tcp://{host}:{OPCUA_PORT}"))
     }
 }
 

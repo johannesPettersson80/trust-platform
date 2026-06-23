@@ -27,6 +27,7 @@ use std::time::{Duration as StdDuration, Instant};
 include!("contracts.rs");
 include!("mapping.rs");
 include!("wire.rs");
+include!("client.rs");
 
 #[cfg(test)]
 mod tests;

@@ -300,6 +300,34 @@ impl Runtime {
         self.ads.status_report()
     }
 
+    /// Configure OPC UA client connections for this runtime.
+    pub fn configure_opcua_client(
+        &mut self,
+        config: &crate::opcua::OpcUaClientConfig,
+    ) -> Result<(), error::RuntimeError> {
+        let mut subsystem = super::opcua_client_subsystem::OpcUaClientSubsystem::new();
+        subsystem.configure(self, config)?;
+        self.opcua_client = subsystem;
+        Ok(())
+    }
+
+    /// Record the OPC UA client config hash loaded by the runtime bundle.
+    pub fn set_opcua_client_deployed_config_hash(&mut self, hash: Option<String>) {
+        self.opcua_client.set_deployed_config_hash(hash);
+    }
+
+    /// Number of configured OPC UA client connections.
+    #[must_use]
+    pub fn opcua_client_connection_count(&self) -> usize {
+        self.opcua_client.connection_count()
+    }
+
+    /// Current OPC UA client status projection.
+    #[must_use]
+    pub fn opcua_client_status_report(&self) -> crate::opcua::OpcUaClientStatusReport {
+        self.opcua_client.status_report()
+    }
+
     /// Snapshot for a live ADS device that overlaps a doctor target.
     #[must_use]
     pub fn active_ads_device_snapshot(

@@ -190,6 +190,7 @@ fn control_state(
             trust_runtime::control::AdsDoctorJobStore::default(),
         )),
         ads_client_config: Arc::new(Mutex::new(None)),
+        opcua_client_config: Arc::new(Mutex::new(None)),
         ads_server_config: Arc::new(Mutex::new(None)),
         #[cfg(feature = "ads-server")]
         ads_server_runtime: Arc::new(Mutex::new(None)),

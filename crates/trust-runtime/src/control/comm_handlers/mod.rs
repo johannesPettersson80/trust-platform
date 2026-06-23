@@ -156,11 +156,18 @@ fn build_capabilities_response(state: &ControlState) -> CommCapabilitiesResponse
         .map(|guard| guard.clone())
         .unwrap_or_default();
     let ads_status = ads_status_report(state);
+    let opcua_client_config = state
+        .opcua_client_config
+        .lock()
+        .ok()
+        .and_then(|guard| guard.clone());
+    let opcua_client_status = opcua_client_status_report(state);
 
     let capabilities = vec![
         ads_client_capability(ads_status.as_ref()),
         ads_server_capability(state),
         opcua_capability(settings.as_ref()),
+        opcua_client_capability(opcua_client_config.as_ref(), opcua_client_status.as_ref()),
         io_driver_capability(CommId::ModbusTcp, "modbus-tcp", true, None, &io_health),
         io_driver_capability(CommId::Mqtt, "mqtt", true, None, &io_health),
         openot_capability(),
@@ -357,6 +364,96 @@ fn opcua_capability(
         CommHealth::Degraded,
         "OPC UA is configured; dedicated live health is not reported yet.",
         action(CommNextActionKind::Setup, "Review OPC UA setup"),
+    )
+}
+
+fn opcua_client_capability(
+    config: Option<&crate::opcua::OpcUaClientConfig>,
+    status: Option<&crate::opcua::OpcUaClientStatusReport>,
+) -> RuntimeCapabilityStatus {
+    let built = cfg!(feature = "opcua-wire");
+    let configured = config.is_some_and(|config| !config.connections.is_empty());
+    if !built {
+        return capability(
+            CommId::OpcuaClient,
+            false,
+            configured,
+            false,
+            None,
+            CommHealth::NotInBuild,
+            "This runtime was not built with OPC UA client support.",
+            action(
+                CommNextActionKind::GetBuildWithFeature,
+                "Get a build with opcua-wire",
+            ),
+        );
+    }
+    if !configured {
+        return capability(
+            CommId::OpcuaClient,
+            true,
+            false,
+            false,
+            None,
+            CommHealth::NotConfigured,
+            "OPC UA client is not configured.",
+            action(CommNextActionKind::Setup, "Set up OPC UA client"),
+        );
+    }
+    let Some(status) = status else {
+        return capability(
+            CommId::OpcuaClient,
+            true,
+            true,
+            false,
+            None,
+            CommHealth::Degraded,
+            "OPC UA client status is unavailable from the selected runtime.",
+            action(CommNextActionKind::TestConnection, "Test OPC UA client"),
+        );
+    };
+    if status.connections.is_empty() {
+        return capability(
+            CommId::OpcuaClient,
+            true,
+            true,
+            false,
+            None,
+            CommHealth::ConfiguredPolicy,
+            "OPC UA client is configured; no live read has completed yet.",
+            action(CommNextActionKind::TestConnection, "Test OPC UA client"),
+        );
+    }
+    let any_faulted = status
+        .connections
+        .iter()
+        .any(|connection| connection.state == crate::opcua::OpcUaClientConnectionState::Faulted);
+    let all_connected = status.connections.iter().all(|connection| {
+        connection.state == crate::opcua::OpcUaClientConnectionState::Connected
+            && connection.degraded_points == 0
+    });
+    let health = if all_connected {
+        CommHealth::Connected
+    } else if any_faulted {
+        CommHealth::Error
+    } else {
+        CommHealth::Degraded
+    };
+    capability(
+        CommId::OpcuaClient,
+        true,
+        true,
+        all_connected,
+        None,
+        health,
+        if all_connected {
+            "OPC UA client reads are live."
+        } else if any_faulted {
+            "One or more OPC UA client connections are faulted."
+        } else {
+            "OPC UA client is configured but not fully live yet."
+        },
+        action_for_health(health, false),
     )
 }
 
@@ -596,6 +693,17 @@ fn ads_status_report(state: &ControlState) -> Option<AdsStatusReport> {
     state
         .resource
         .send_command(ResourceCommand::AdsStatus { respond_to: tx })
+        .ok()?;
+    rx.recv_timeout(ADS_STATUS_TIMEOUT).ok()
+}
+
+fn opcua_client_status_report(
+    state: &ControlState,
+) -> Option<crate::opcua::OpcUaClientStatusReport> {
+    let (tx, rx) = mpsc::channel();
+    state
+        .resource
+        .send_command(ResourceCommand::OpcUaClientStatus { respond_to: tx })
         .ok()?;
     rx.recv_timeout(ADS_STATUS_TIMEOUT).ok()
 }

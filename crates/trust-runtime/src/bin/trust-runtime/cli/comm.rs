@@ -93,6 +93,16 @@ pub enum CommAction {
         #[arg(long, action = ArgAction::SetTrue)]
         json: bool,
     },
+    /// Inspect or clear trusted OPC UA client server certificates.
+    #[command(name = "opcua-trust")]
+    OpcUaTrust {
+        /// Trust-store action.
+        #[arg(value_enum)]
+        action: CommOpcUaTrustAction,
+        /// Print machine-readable JSON.
+        #[arg(long, action = ArgAction::SetTrue)]
+        json: bool,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -141,4 +151,12 @@ impl CommDiscoverOriginArg {
             Self::Runtime => "runtime",
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum CommOpcUaTrustAction {
+    /// List trusted OPC UA server certificates.
+    List,
+    /// Clear trusted OPC UA server certificates.
+    Clear,
 }

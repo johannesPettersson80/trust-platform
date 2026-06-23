@@ -51,12 +51,26 @@ struct BrowseSymbolsRequest {
 struct BrowseTarget {
     #[serde(default)]
     local: bool,
+    #[serde(default)]
+    endpoint_url: String,
     #[serde(default, alias = "host")]
     ip: String,
     #[serde(default, alias = "ams_net_id")]
     ams_net_id: String,
     #[serde(default)]
     ams_port: Option<u16>,
+    #[serde(default)]
+    security_policy: Option<String>,
+    #[serde(default)]
+    security_mode: Option<String>,
+    #[serde(default)]
+    auth: Option<String>,
+    #[serde(default)]
+    username: Option<String>,
+    #[serde(default)]
+    password: Option<String>,
+    #[serde(default)]
+    trust_server_certificate: Option<bool>,
     #[serde(default)]
     name: Option<String>,
     #[serde(default)]
@@ -129,10 +143,34 @@ pub(super) fn browse_symbols_value(
     if request.protocol == "ads" {
         return browse_ads_symbols(request, state);
     }
+    if request.protocol == "opcua_client" && request.kind == "nodes" {
+        return browse_opcua_client_nodes(request);
+    }
     Err(format!(
         "comm.browse_symbols does not support protocol '{}' with kind '{}'",
         request.protocol, request.kind
     ))
+}
+
+fn browse_opcua_client_nodes(mut request: BrowseSymbolsRequest) -> Result<Value, String> {
+    let Some(target) = request.target.take() else {
+        return Err("OPC UA client browse requires target endpoint settings".to_string());
+    };
+    let endpoint_url = target.opcua_endpoint_url()?;
+    let security = target.opcua_security_profile()?;
+    let auth = target.opcua_auth()?;
+    let trust_server_certificate = target.trust_server_certificate.unwrap_or(false);
+    let nodes = crate::opcua::browse_opcua_client_nodes(
+        endpoint_url.as_str(),
+        security,
+        auth,
+        trust_server_certificate,
+        4,
+        512,
+    )
+    .map_err(|error| format!("OPC UA node browse failed: {error}"))?;
+    let tree = nodes.into_iter().map(opcua_node_to_symbol).collect();
+    response_tree_value(request.protocol, request.kind, tree, Vec::new())
 }
 
 fn browse_ads_symbols(
@@ -569,6 +607,7 @@ fn canonical_protocol(protocol: &str) -> String {
         "opcua" | "opc_ua" | "opcua_server" | "opc_ua_server" | "opcua-server" => {
             "opcua_server".to_string()
         }
+        "opcua_client" | "opc_ua_client" | "opcua-client" => "opcua_client".to_string(),
         "openot" | "open_ot" => "openot".to_string(),
         "ethercat" | "ether_cat" | "ecat" => "ethercat".to_string(),
         other => other.to_string(),
@@ -580,6 +619,76 @@ fn default_kind() -> String {
 }
 
 impl BrowseTarget {
+    fn opcua_endpoint_url(&self) -> Result<String, String> {
+        let endpoint_url = self.endpoint_url.trim();
+        if !endpoint_url.is_empty() {
+            return Ok(endpoint_url.to_string());
+        }
+        let host = self.ip.trim();
+        if host.is_empty() {
+            return Err("OPC UA browse target needs endpoint_url or host".to_string());
+        }
+        if host.starts_with("opc.tcp://") {
+            Ok(host.to_string())
+        } else if host.contains('/')
+            || host
+                .rsplit_once(':')
+                .is_some_and(|(_, port)| port.parse::<u16>().is_ok())
+        {
+            Ok(format!("opc.tcp://{host}"))
+        } else {
+            Ok(format!("opc.tcp://{host}:4840"))
+        }
+    }
+
+    fn opcua_security_profile(&self) -> Result<crate::opcua::OpcUaSecurityProfile, String> {
+        let policy_raw = self.security_policy.as_deref().unwrap_or("none");
+        let mode_raw = self.security_mode.as_deref().unwrap_or("none");
+        let policy = crate::opcua::OpcUaSecurityPolicy::parse(policy_raw)
+            .ok_or_else(|| format!("invalid OPC UA security_policy '{policy_raw}'"))?;
+        let mode = crate::opcua::OpcUaMessageSecurityMode::parse(mode_raw)
+            .ok_or_else(|| format!("invalid OPC UA security_mode '{mode_raw}'"))?;
+        Ok(crate::opcua::OpcUaSecurityProfile {
+            policy,
+            mode,
+            allow_anonymous: self.auth.as_deref().unwrap_or("anonymous") == "anonymous",
+        })
+    }
+
+    fn opcua_auth(&self) -> Result<crate::opcua::OpcUaClientAuthConfig, String> {
+        match self
+            .auth
+            .as_deref()
+            .unwrap_or("anonymous")
+            .trim()
+            .to_ascii_lowercase()
+            .as_str()
+        {
+            "anonymous" => Ok(crate::opcua::OpcUaClientAuthConfig::Anonymous),
+            "username" | "user_name" | "user" => {
+                let username = self
+                    .username
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                    .ok_or_else(|| "OPC UA username auth needs username".to_string())?;
+                let password = self
+                    .password
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                    .ok_or_else(|| "OPC UA username auth needs password".to_string())?;
+                Ok(crate::opcua::OpcUaClientAuthConfig::UserName {
+                    username: smol_str::SmolStr::new(username),
+                    password: smol_str::SmolStr::new(password),
+                })
+            }
+            other => Err(format!(
+                "OPC UA auth must be anonymous or username, got '{other}'"
+            )),
+        }
+    }
+
     fn into_identity(self) -> Result<TargetIdentity, String> {
         let host = self.ip.trim();
         if host.is_empty() {
@@ -596,6 +705,22 @@ impl BrowseTarget {
             ams_port: self.ams_port.unwrap_or(851),
             tc_version: self.tc_version,
         })
+    }
+}
+
+fn opcua_node_to_symbol(node: crate::opcua::OpcUaBrowseNode) -> SymbolTreeNode {
+    SymbolTreeNode {
+        id: format!("opcua:node:{}", sanitize_id(node.id.as_str())),
+        name: node.name,
+        path: node.path,
+        data_type: node.data_type,
+        size: None,
+        writable: Some(node.writable),
+        children: node
+            .children
+            .into_iter()
+            .map(opcua_node_to_symbol)
+            .collect(),
     }
 }
 

@@ -8,6 +8,7 @@ pub(super) enum CommId {
     Ads,
     AdsServer,
     Opcua,
+    OpcuaClient,
     ModbusTcp,
     Mqtt,
     Openot,

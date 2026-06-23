@@ -309,6 +309,9 @@ fn apply_resource_command(runtime: &mut Runtime, command: ResourceCommand) {
         ResourceCommand::AdsStatus { respond_to } => {
             let _ = respond_to.send(runtime.ads_status_report());
         }
+        ResourceCommand::OpcUaClientStatus { respond_to } => {
+            let _ = respond_to.send(runtime.opcua_client_status_report());
+        }
         ResourceCommand::ActiveAdsDevice {
             target,
             local,

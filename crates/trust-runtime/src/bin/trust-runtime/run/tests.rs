@@ -72,6 +72,7 @@ fn bundle_with_backend(
             hmi_persistence: trust_runtime::hmi::HmiPersistenceConfig::default(),
             ads: trust_runtime::config::AdsRuntimeConfig::default(),
             ads_server: trust_runtime::ads::server::AdsServerRuntimeConfig::default(),
+            opcua_client: trust_runtime::config::OpcUaClientRuntimeConfig::default(),
             opcua: trust_runtime::opcua::OpcUaRuntimeConfig::default(),
             tasks: None,
         },
@@ -81,6 +82,8 @@ fn bundle_with_backend(
         },
         ads: None,
         ads_config_hash: None,
+        opcua_client: None,
+        opcua_client_config_hash: None,
         simulation: None,
         bytecode: Vec::new(),
     }

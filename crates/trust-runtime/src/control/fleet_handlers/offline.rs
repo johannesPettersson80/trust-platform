@@ -5,9 +5,9 @@ use serde_json::json;
 
 use super::{
     ads_client_links, ads_client_params, ads_server_params, endpoint_from_driver_config,
-    endpoint_id, fleet_link, host_name, local_host, runtime_cloud_configured, topology_external,
-    topology_shared, FleetEndpoint, FleetRuntime, FleetTopologyResponse,
-    FLEET_TOPOLOGY_SCHEMA_VERSION,
+    endpoint_id, fleet_link, host_name, local_host, opcua_client_links, opcua_client_params,
+    runtime_cloud_configured, topology_external, topology_shared, FleetEndpoint, FleetRuntime,
+    FleetTopologyResponse, FLEET_TOPOLOGY_SCHEMA_VERSION,
 };
 use crate::config::{IoConfig, IoDriverConfig, RuntimeConfig};
 use crate::settings::RuntimeSettings;
@@ -19,6 +19,7 @@ pub(super) fn build_project_fleet_topology(
         .map_err(|error| format!("failed to load runtime.toml: {error}"))?;
     let io_drivers = load_project_io_drivers(project_root)?;
     let ads_client_config = load_project_ads_config(project_root, &runtime)?;
+    let opcua_client_config = load_project_opcua_client_config(project_root, &runtime)?;
     let settings = RuntimeSettings::from_runtime_config(&runtime, false, 1);
     let runtime_id = runtime.resource_name.to_string();
 
@@ -34,6 +35,7 @@ pub(super) fn build_project_fleet_topology(
         &settings,
         &runtime,
         ads_client_config.as_ref(),
+        opcua_client_config.as_ref(),
     ));
 
     let mut host = local_host(host_name().as_str(), &settings);
@@ -62,6 +64,7 @@ pub(super) fn build_project_fleet_topology(
         &settings,
         io_drivers.as_slice(),
         ads_client_config.as_ref(),
+        opcua_client_config.as_ref(),
     );
     links.sort_by(|left, right| left.id.cmp(&right.id));
     links.dedup_by(|left, right| left.id == right.id);
@@ -75,6 +78,7 @@ pub(super) fn build_project_fleet_topology(
             &settings,
             io_drivers.as_slice(),
             ads_client_config.as_ref(),
+            opcua_client_config.as_ref(),
             &[],
         ),
         discovered: Vec::new(),
@@ -116,11 +120,37 @@ fn load_project_ads_config(
         .map_err(|error| format!("failed to parse {}: {error}", path.display()))
 }
 
+fn load_project_opcua_client_config(
+    project_root: &Path,
+    runtime: &RuntimeConfig,
+) -> Result<Option<crate::opcua::OpcUaClientConfig>, String> {
+    if !runtime.opcua_client.enabled {
+        return Ok(None);
+    }
+    let path = if runtime.opcua_client.config_path.is_relative() {
+        project_root.join(&runtime.opcua_client.config_path)
+    } else {
+        runtime.opcua_client.config_path.clone()
+    };
+    if !path.is_file() {
+        return Err(format!(
+            "runtime.opcua_client.enabled=true but OPC UA client config is missing at {}",
+            path.display()
+        ));
+    }
+    let text = fs::read_to_string(&path)
+        .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+    crate::opcua::parse_opcua_client_toml(text.as_str())
+        .map(Some)
+        .map_err(|error| format!("failed to parse {}: {error}", path.display()))
+}
+
 fn offline_service_endpoints(
     runtime_id: &str,
     settings: &RuntimeSettings,
     runtime: &RuntimeConfig,
     ads_client_config: Option<&crate::ads::AdsClientConfig>,
+    opcua_client_config: Option<&crate::opcua::OpcUaClientConfig>,
 ) -> Vec<FleetEndpoint> {
     let mut endpoints = Vec::new();
     if settings.web.enabled {
@@ -319,6 +349,28 @@ fn offline_service_endpoints(
             source: Some("config".to_string()),
         });
     }
+    if let Some(config) = opcua_client_config.filter(|config| !config.connections.is_empty()) {
+        endpoints.push(FleetEndpoint {
+            id: endpoint_id(runtime_id, "opcua_client"),
+            kind: "peer".to_string(),
+            protocol: "opcua_client".to_string(),
+            name: "OPC UA client".to_string(),
+            address: config
+                .connections
+                .first()
+                .map(|connection| connection.endpoint_url.clone()),
+            role: Some("client".to_string()),
+            health: "configured_policy".to_string(),
+            detail: "Configured in OPC UA client project config; runtime is not running."
+                .to_string(),
+            live: None,
+            params: Some(opcua_client_params(config)),
+            children: Vec::new(),
+            owned: true,
+            supports_test: true,
+            source: Some("config".to_string()),
+        });
+    }
     if runtime.ads_server.enabled || !runtime.ads_server.expose.is_empty() {
         endpoints.push(FleetEndpoint {
             id: endpoint_id(runtime_id, "ads_server"),
@@ -350,6 +402,7 @@ fn offline_topology_links(
     settings: &RuntimeSettings,
     io_drivers: &[IoDriverConfig],
     ads_client_config: Option<&crate::ads::AdsClientConfig>,
+    opcua_client_config: Option<&crate::opcua::OpcUaClientConfig>,
 ) -> Vec<super::FleetLink> {
     let mesh_links = settings
         .mesh
@@ -428,5 +481,6 @@ fn offline_topology_links(
         .chain(shared_links)
         .chain(super::driver_target_links(runtime_id, io_drivers, &[]))
         .chain(ads_client_links(runtime_id, ads_client_config, None))
+        .chain(opcua_client_links(runtime_id, opcua_client_config, None))
         .collect()
 }

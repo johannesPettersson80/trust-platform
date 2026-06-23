@@ -90,6 +90,7 @@ fn test_request(request: CommTestRequest) -> CommTestResponse {
     }
     match protocol.as_str() {
         "modbus_tcp" => tcp_probe(protocol, modbus_target(&request.params), timeout_ms(&request.params, "timeout_ms")),
+        "opcua_client" => opcua_client_probe(protocol, &request.params),
         "mqtt" => tcp_probe(protocol, mqtt_target(&request.params), timeout_ms(&request.params, "timeout_ms")),
         "simulated" | "loopback" => CommTestResponse {
             schema_version: COMM_SCHEMA_VERSION,
@@ -116,6 +117,56 @@ fn test_request(request: CommTestRequest) -> CommTestResponse {
             ok: false,
             detail: "This protocol does not have a Communication test yet.".to_string(),
             evidence: None,
+            field_errors: Vec::new(),
+        },
+    }
+}
+
+fn opcua_client_probe(protocol: String, params: &serde_json::Value) -> CommTestResponse {
+    let target = match opcua_client_target(params) {
+        Ok(target) => target,
+        Err(error) => {
+            return CommTestResponse {
+                schema_version: COMM_SCHEMA_VERSION,
+                protocol,
+                supported: true,
+                ok: false,
+                detail: "OPC UA endpoint test could not start.".to_string(),
+                evidence: None,
+                field_errors: vec![error],
+            }
+        }
+    };
+    match crate::opcua::test_opcua_client_endpoint(
+        target.endpoint_url.as_str(),
+        target.security,
+        target.auth,
+        target.trust_server_certificate,
+    ) {
+        Ok(()) => CommTestResponse {
+            schema_version: COMM_SCHEMA_VERSION,
+            protocol,
+            supported: true,
+            ok: true,
+            detail: "OPC UA endpoint handshake succeeded.".to_string(),
+            evidence: Some(json!({
+                "endpoint_url": target.endpoint_url,
+                "security_policy": target.security.policy.as_config_value(),
+                "security_mode": target.security.mode.as_config_value(),
+            })),
+            field_errors: Vec::new(),
+        },
+        Err(error) => CommTestResponse {
+            schema_version: COMM_SCHEMA_VERSION,
+            protocol,
+            supported: true,
+            ok: false,
+            detail: format!("OPC UA endpoint handshake failed: {error}"),
+            evidence: Some(json!({
+                "endpoint_url": target.endpoint_url,
+                "security_policy": target.security.policy.as_config_value(),
+                "security_mode": target.security.mode.as_config_value(),
+            })),
             field_errors: Vec::new(),
         },
     }
@@ -224,6 +275,107 @@ fn mqtt_target(params: &serde_json::Value) -> Result<String, CommFieldError> {
         endpoint.to_string()
     } else {
         format!("{endpoint}:1883")
+    })
+}
+
+struct OpcUaClientProbeTarget {
+    endpoint_url: String,
+    security: crate::opcua::OpcUaSecurityProfile,
+    auth: crate::opcua::OpcUaClientAuthConfig,
+    trust_server_certificate: bool,
+}
+
+fn opcua_client_target(
+    params: &serde_json::Value,
+) -> Result<OpcUaClientProbeTarget, CommFieldError> {
+    let endpoint_url = params
+        .get("endpoint_url")
+        .or_else(|| params.get("host"))
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("")
+        .trim();
+    if endpoint_url.is_empty() {
+        return Err(field_error(
+            "endpoint_url",
+            "Enter the OPC UA endpoint URL or host.",
+        ));
+    }
+    let endpoint_url = if endpoint_url.starts_with("opc.tcp://") {
+        endpoint_url.to_string()
+    } else if endpoint_url.contains('/')
+        || endpoint_url
+            .rsplit_once(':')
+            .is_some_and(|(_, port)| port.parse::<u16>().is_ok())
+    {
+        format!("opc.tcp://{endpoint_url}")
+    } else {
+        format!("opc.tcp://{endpoint_url}:4840")
+    };
+    let security_policy = params
+        .get("security_policy")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("none");
+    let security_mode = params
+        .get("security_mode")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("none");
+    let policy = crate::opcua::OpcUaSecurityPolicy::parse(security_policy).ok_or_else(|| {
+        field_error(
+            "security_policy",
+            format!("Unsupported OPC UA security policy '{security_policy}'."),
+        )
+    })?;
+    let mode = crate::opcua::OpcUaMessageSecurityMode::parse(security_mode).ok_or_else(|| {
+        field_error(
+            "security_mode",
+            format!("Unsupported OPC UA security mode '{security_mode}'."),
+        )
+    })?;
+    let auth_mode = params
+        .get("auth")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("anonymous")
+        .trim()
+        .to_ascii_lowercase();
+    let auth = match auth_mode.as_str() {
+        "anonymous" => crate::opcua::OpcUaClientAuthConfig::Anonymous,
+        "username" | "user_name" | "user" => {
+            let username = params
+                .get("username")
+                .and_then(serde_json::Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .ok_or_else(|| field_error("username", "Enter the OPC UA username."))?;
+            let password = params
+                .get("password")
+                .and_then(serde_json::Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .ok_or_else(|| field_error("password", "Enter the OPC UA password."))?;
+            crate::opcua::OpcUaClientAuthConfig::UserName {
+                username: smol_str::SmolStr::new(username),
+                password: smol_str::SmolStr::new(password),
+            }
+        }
+        other => {
+            return Err(field_error(
+                "auth",
+                format!("OPC UA auth must be anonymous or username, got '{other}'."),
+            ))
+        }
+    };
+    Ok(OpcUaClientProbeTarget {
+        endpoint_url,
+        security: crate::opcua::OpcUaSecurityProfile {
+            policy,
+            mode,
+            allow_anonymous: matches!(auth, crate::opcua::OpcUaClientAuthConfig::Anonymous),
+        },
+        auth,
+        trust_server_certificate: params
+            .get("trust_server_certificate")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false),
     })
 }
 

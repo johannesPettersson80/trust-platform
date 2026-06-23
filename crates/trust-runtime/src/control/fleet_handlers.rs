@@ -15,6 +15,7 @@ use crate::discovery::DiscoveryEntry;
 use crate::io::{IoAddress, IoDriverHealth, IoDriverStatus, IoSnapshot, IoSnapshotEntry};
 use crate::linux_rt::LinuxRtRuntimeStatus;
 use crate::memory::IoArea;
+use crate::opcua::{OpcUaClientConfig, OpcUaClientConnectionState, OpcUaClientStatusReport};
 use crate::scheduler::ResourceCommand;
 use crate::settings::RuntimeSettings;
 
@@ -25,6 +26,7 @@ mod offline;
 const FLEET_TOPOLOGY_SCHEMA_VERSION: u32 = 4;
 const DISCOVERY_STALE_AFTER_MS: u64 = 120_000;
 const ADS_STATUS_TIMEOUT: Duration = Duration::from_millis(250);
+const OPCUA_CLIENT_STATUS_TIMEOUT: Duration = Duration::from_millis(250);
 
 pub(super) fn handle_fleet_topology(id: u64, state: &ControlState) -> ControlResponse {
     let response = match build_fleet_topology(state) {
@@ -77,7 +79,13 @@ fn build_fleet_topology(state: &ControlState) -> Result<FleetTopologyResponse, S
         .lock()
         .ok()
         .and_then(|guard| guard.clone());
+    let opcua_client_config = state
+        .opcua_client_config
+        .lock()
+        .ok()
+        .and_then(|guard| guard.clone());
     let ads_status = ads_status_report(state);
+    let opcua_client_status = opcua_client_status_report(state);
 
     let runtime_id = state.resource_name.to_string();
     let hostname = host_name();
@@ -93,6 +101,8 @@ fn build_fleet_topology(state: &ControlState) -> Result<FleetTopologyResponse, S
         discovery_entries: &discovery_entries,
         ads_client_config: ads_client_config.as_ref(),
         ads_status: ads_status.as_ref(),
+        opcua_client_config: opcua_client_config.as_ref(),
+        opcua_client_status: opcua_client_status.as_ref(),
     };
     let runtime = runtime_node(&runtime_id, &runtime_inputs);
     let mut local_host = local_host(&hostname, &settings);
@@ -118,6 +128,7 @@ fn build_fleet_topology(state: &ControlState) -> Result<FleetTopologyResponse, S
         &settings,
         io_drivers.as_slice(),
         ads_client_config.as_ref(),
+        opcua_client_config.as_ref(),
         discovery_entries.as_slice(),
     );
     let discovered = topology_discovered(&runtime_id, discovery_entries.as_slice());
@@ -144,6 +155,8 @@ struct FleetRuntimeInputs<'a> {
     discovery_entries: &'a [DiscoveryEntry],
     ads_client_config: Option<&'a AdsClientConfig>,
     ads_status: Option<&'a AdsStatusReport>,
+    opcua_client_config: Option<&'a OpcUaClientConfig>,
+    opcua_client_status: Option<&'a OpcUaClientStatusReport>,
 }
 
 fn runtime_node(runtime_id: &str, inputs: &FleetRuntimeInputs<'_>) -> FleetRuntime {
@@ -611,6 +624,29 @@ fn service_endpoints(runtime_id: &str, inputs: &FleetRuntimeInputs<'_>) -> Vec<F
             source: Some("self".to_string()),
         });
     }
+    if let Some(config) = inputs
+        .opcua_client_config
+        .filter(|config| !config.connections.is_empty())
+    {
+        let (health, detail) =
+            opcua_client_endpoint_health_and_detail(config, inputs.opcua_client_status);
+        endpoints.push(FleetEndpoint {
+            id: endpoint_id(runtime_id, "opcua_client"),
+            kind: "peer".to_string(),
+            protocol: "opcua_client".to_string(),
+            name: "OPC UA client".to_string(),
+            address: opcua_client_primary_endpoint(config),
+            role: Some("client".to_string()),
+            health,
+            detail,
+            live: opcua_client_live(config, inputs.opcua_client_status),
+            params: Some(opcua_client_params(config)),
+            children: Vec::new(),
+            owned: true,
+            supports_test: true,
+            source: Some("self".to_string()),
+        });
+    }
     if let Some(config) = state
         .ads_server_config
         .lock()
@@ -768,6 +804,11 @@ fn topology_links(runtime_id: &str, inputs: &FleetRuntimeInputs<'_>) -> Vec<Flee
             runtime_id,
             inputs.ads_client_config,
             inputs.ads_status,
+        ))
+        .chain(opcua_client_links(
+            runtime_id,
+            inputs.opcua_client_config,
+            inputs.opcua_client_status,
         ))
         .collect()
 }
@@ -977,6 +1018,64 @@ fn ads_external_id(connection: &AdsConnectionConfig) -> String {
     format!("external:ads:{}", connection.route.target_net_id.0)
 }
 
+fn opcua_client_externals(config: Option<&OpcUaClientConfig>) -> Vec<FleetExternal> {
+    let Some(config) = config else {
+        return Vec::new();
+    };
+    config
+        .connections
+        .iter()
+        .map(|connection| FleetExternal {
+            id: opcua_client_external_id(connection),
+            kind: "opcua_server".to_string(),
+            name: format!("OPC UA server {}", connection.name),
+            via_protocol: vec!["opcua_client".to_string()],
+            direction: "outbound".to_string(),
+            source: Some("config".to_string()),
+        })
+        .collect()
+}
+
+fn opcua_client_links(
+    runtime_id: &str,
+    config: Option<&OpcUaClientConfig>,
+    status: Option<&OpcUaClientStatusReport>,
+) -> Vec<FleetLink> {
+    let Some(config) = config else {
+        return Vec::new();
+    };
+    config
+        .connections
+        .iter()
+        .map(|connection| {
+            let connection_status = opcua_client_status_for_connection(status, connection);
+            fleet_link(
+                endpoint_id(runtime_id, "opcua_client"),
+                opcua_client_external_id(connection),
+                "opcua_client",
+                "client",
+                "outbound",
+                false,
+                connection_status
+                    .map(opcua_client_connection_health)
+                    .unwrap_or_else(|| "configured_policy".to_string()),
+                !matches!(
+                    connection.security.policy,
+                    crate::opcua::OpcUaSecurityPolicy::None
+                ),
+                Some(connection.endpoint_url.clone()),
+            )
+        })
+        .collect()
+}
+
+fn opcua_client_external_id(connection: &crate::opcua::OpcUaClientConnectionConfig) -> String {
+    format!(
+        "external:opcua:{}",
+        sanitize_id(connection.endpoint_url.as_str())
+    )
+}
+
 fn topology_shared(runtime_id: &str, io_drivers: &[IoDriverConfig]) -> Vec<FleetShared> {
     let mut brokers = BTreeMap::<String, BTreeSet<String>>::new();
     for driver in io_drivers {
@@ -1006,6 +1105,7 @@ fn topology_external(
     settings: &RuntimeSettings,
     io_drivers: &[IoDriverConfig],
     ads_client_config: Option<&AdsClientConfig>,
+    opcua_client_config: Option<&OpcUaClientConfig>,
     discovery_entries: &[DiscoveryEntry],
 ) -> Vec<FleetExternal> {
     let mut ids = BTreeSet::new();
@@ -1059,6 +1159,11 @@ fn topology_external(
         }
     }
     for item in ads_client_externals(ads_client_config) {
+        if ids.insert(item.id.clone()) {
+            external.push(item);
+        }
+    }
+    for item in opcua_client_externals(opcua_client_config) {
         if ids.insert(item.id.clone()) {
             external.push(item);
         }
@@ -1444,6 +1549,39 @@ fn ads_client_params(config: &AdsClientConfig) -> serde_json::Value {
     })
 }
 
+fn opcua_client_params(config: &OpcUaClientConfig) -> serde_json::Value {
+    json!({
+        "connections": config.connections.iter().map(|connection| {
+            json!({
+                "name": connection.name.to_string(),
+                "endpoint_url": connection.endpoint_url,
+                "security_policy": connection.security.policy.as_config_value(),
+                "security_mode": connection.security.mode.as_config_value(),
+                "auth": match connection.auth {
+                    crate::opcua::OpcUaClientAuthConfig::Anonymous => "anonymous",
+                    crate::opcua::OpcUaClientAuthConfig::UserName { .. } => "username",
+                },
+                "username_set": matches!(
+                    connection.auth,
+                    crate::opcua::OpcUaClientAuthConfig::UserName { .. }
+                ),
+                "trust_server_certificate": connection.trust_server_certificate,
+                "poll_interval_ms": connection.poll_interval_ms,
+                "timeout_ms": connection.timeout_ms,
+                "points": connection.points.iter().map(|point| {
+                    json!({
+                        "var": point.var.to_string(),
+                        "node_id": point.node_id,
+                        "type": point.data_type.as_config_value(),
+                        "access": point.access.as_config_value(),
+                        "writable": point.access.can_write(),
+                    })
+                }).collect::<Vec<_>>(),
+            })
+        }).collect::<Vec<_>>(),
+    })
+}
+
 fn ads_server_params(config: &crate::ads::server::AdsServerRuntimeConfig) -> serde_json::Value {
     json!({
         "enabled": config.enabled,
@@ -1562,6 +1700,15 @@ fn ads_status_report(state: &ControlState) -> Option<AdsStatusReport> {
     rx.recv_timeout(ADS_STATUS_TIMEOUT).ok()
 }
 
+fn opcua_client_status_report(state: &ControlState) -> Option<OpcUaClientStatusReport> {
+    let (tx, rx) = mpsc::channel();
+    state
+        .resource
+        .send_command(ResourceCommand::OpcUaClientStatus { respond_to: tx })
+        .ok()?;
+    rx.recv_timeout(OPCUA_CLIENT_STATUS_TIMEOUT).ok()
+}
+
 fn ads_client_endpoint_health_and_detail(
     config: &AdsClientConfig,
     status: Option<&AdsStatusReport>,
@@ -1656,6 +1803,119 @@ fn ads_client_live(
     }))
 }
 
+fn opcua_client_endpoint_health_and_detail(
+    config: &OpcUaClientConfig,
+    status: Option<&OpcUaClientStatusReport>,
+) -> (String, String) {
+    let Some(status) = status else {
+        return (
+            "configured_policy".to_string(),
+            format!(
+                "{} OPC UA client connection(s) configured; no live OPC UA client status has been reported yet.",
+                config.connections.len()
+            ),
+        );
+    };
+    let connection_statuses = config
+        .connections
+        .iter()
+        .filter_map(|connection| opcua_client_status_for_connection(Some(status), connection))
+        .collect::<Vec<_>>();
+    if connection_statuses.is_empty() {
+        return (
+            "configured_policy".to_string(),
+            format!(
+                "{} OPC UA client connection(s) configured; live status has no matching connection yet.",
+                config.connections.len()
+            ),
+        );
+    }
+    if connection_statuses
+        .iter()
+        .any(|connection| connection.state == OpcUaClientConnectionState::Faulted)
+    {
+        return (
+            "error".to_string(),
+            "One or more OPC UA client connections are faulted.".to_string(),
+        );
+    }
+    if connection_statuses.iter().any(|connection| {
+        connection.state != OpcUaClientConnectionState::Connected || connection.degraded_points > 0
+    }) {
+        return (
+            "degraded".to_string(),
+            "One or more OPC UA client connections are reconnecting, stale, or degraded."
+                .to_string(),
+        );
+    }
+    (
+        "connected".to_string(),
+        format!(
+            "{} OPC UA client connection(s) have live values.",
+            connection_statuses.len()
+        ),
+    )
+}
+
+fn opcua_client_live(
+    config: &OpcUaClientConfig,
+    status: Option<&OpcUaClientStatusReport>,
+) -> Option<serde_json::Value> {
+    let status = status?;
+    let connections = config
+        .connections
+        .iter()
+        .map(|connection| {
+            let live = opcua_client_status_for_connection(Some(status), connection);
+            json!({
+                "name": connection.name.as_str(),
+                "endpoint_url": connection.endpoint_url.as_str(),
+                "state": live.map(|item| opcua_client_state_label(item.state)),
+                "point_count": live.map(|item| item.point_count),
+                "degraded_points": live.map(|item| item.degraded_points),
+                "last_seen_ms": live.and_then(|item| item.last_seen_ms),
+                "points": live.map(|item| {
+                    item.points.iter().map(|point| {
+                        json!({
+                            "var": point.var.as_str(),
+                            "node_id": point.node_id.as_str(),
+                            "state": opcua_client_state_label(point.state),
+                            "last_seen_ms": point.last_seen_ms,
+                            "value": point.value.as_ref().map(|value| format!("{value:?}")),
+                            "detail": point.detail.as_str(),
+                        })
+                    }).collect::<Vec<_>>()
+                }),
+            })
+        })
+        .collect::<Vec<_>>();
+    let connected = status
+        .connections
+        .iter()
+        .filter(|connection| connection.state == OpcUaClientConnectionState::Connected)
+        .count();
+    Some(json!({
+        "value": {
+            "connected": connected,
+            "total": config.connections.len(),
+            "connections": connections,
+        },
+        "last_seen_ms": status
+            .connections
+            .iter()
+            .filter_map(|connection| connection.last_seen_ms)
+            .max()
+            .unwrap_or_else(now_ms),
+    }))
+}
+
+fn opcua_client_primary_endpoint(config: &OpcUaClientConfig) -> Option<String> {
+    config
+        .connections
+        .first()
+        .map(|connection| connection.endpoint_url.clone())
+}
+
 fn ads_client_local_net_id(config: &AdsClientConfig) -> Option<String> {
     config
         .connections
@@ -1676,6 +1936,42 @@ fn ads_status_for_connection<'a>(
                 target.ams_net_id == route.target_net_id.0 && target.ams_port == route.ams_port
             })
     })
+}
+
+fn opcua_client_status_for_connection<'a>(
+    status: Option<&'a OpcUaClientStatusReport>,
+    connection: &crate::opcua::OpcUaClientConnectionConfig,
+) -> Option<&'a crate::opcua::OpcUaClientConnectionStatus> {
+    let status = status?;
+    status
+        .connections
+        .iter()
+        .find(|item| item.name == connection.name || item.endpoint_url == connection.endpoint_url)
+}
+
+fn opcua_client_connection_health(status: &crate::opcua::OpcUaClientConnectionStatus) -> String {
+    match status.state {
+        OpcUaClientConnectionState::Connected if status.degraded_points == 0 => "connected",
+        OpcUaClientConnectionState::Faulted => "error",
+        OpcUaClientConnectionState::Connected
+        | OpcUaClientConnectionState::Reconnecting
+        | OpcUaClientConnectionState::Stale => "degraded",
+        OpcUaClientConnectionState::Configured | OpcUaClientConnectionState::Disabled => {
+            "configured_policy"
+        }
+    }
+    .to_string()
+}
+
+fn opcua_client_state_label(state: OpcUaClientConnectionState) -> &'static str {
+    match state {
+        OpcUaClientConnectionState::Disabled => "disabled",
+        OpcUaClientConnectionState::Configured => "configured_policy",
+        OpcUaClientConnectionState::Connected => "connected",
+        OpcUaClientConnectionState::Reconnecting => "reconnecting",
+        OpcUaClientConnectionState::Stale => "stale",
+        OpcUaClientConnectionState::Faulted => "error",
+    }
 }
 
 fn ads_connection_status_health(status: &AdsConnectionStatus) -> String {

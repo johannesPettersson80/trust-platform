@@ -26,6 +26,7 @@ impl RuntimeToml {
             hmi_persistence,
             ads,
             ads_server,
+            opcua_client,
             opcua,
         } = self.runtime;
         let (execution_backend, execution_backend_source) =
@@ -69,6 +70,7 @@ impl RuntimeToml {
         let hmi_persistence = parse_hmi_persistence_section(hmi_persistence)?;
         let ads = parse_ads_section(ads)?;
         let ads_server = parse_ads_server_section(ads_server)?;
+        let opcua_client = parse_opcua_client_section(opcua_client)?;
         let opcua = parse_opcua_section(opcua)?;
 
         Ok(RuntimeConfig {
@@ -105,6 +107,7 @@ impl RuntimeToml {
             hmi_persistence,
             ads,
             ads_server,
+            opcua_client,
             opcua,
             tasks,
         })

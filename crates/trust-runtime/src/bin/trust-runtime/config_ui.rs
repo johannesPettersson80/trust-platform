@@ -247,6 +247,7 @@ fn build_config_mode_control_state(
         pairing: None,
         ads_doctor_jobs: Arc::new(Mutex::new(AdsDoctorJobStore::default())),
         ads_client_config: Arc::new(Mutex::new(None)),
+        opcua_client_config: Arc::new(Mutex::new(None)),
         ads_server_config: Arc::new(Mutex::new(None)),
         #[cfg(feature = "ads-server")]
         ads_server_runtime: Arc::new(Mutex::new(None)),

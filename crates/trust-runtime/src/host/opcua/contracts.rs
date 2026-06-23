@@ -105,6 +105,333 @@ impl Default for OpcUaRuntimeConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OpcUaClientConfig {
+    pub connections: Vec<OpcUaClientConnectionConfig>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OpcUaClientConnectionConfig {
+    pub name: SmolStr,
+    pub endpoint_url: String,
+    pub security: OpcUaSecurityProfile,
+    pub auth: OpcUaClientAuthConfig,
+    pub trust_server_certificate: bool,
+    pub poll_interval_ms: u64,
+    pub timeout_ms: u64,
+    pub points: Vec<OpcUaClientPointConfig>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum OpcUaClientAuthConfig {
+    Anonymous,
+    UserName { username: SmolStr, password: SmolStr },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpcUaClientPointAccess {
+    Read,
+    Write,
+    ReadWrite,
+}
+
+impl OpcUaClientPointAccess {
+    #[must_use]
+    pub fn can_read(self) -> bool {
+        matches!(self, Self::Read | Self::ReadWrite)
+    }
+
+    #[must_use]
+    pub fn can_write(self) -> bool {
+        matches!(self, Self::Write | Self::ReadWrite)
+    }
+
+    #[must_use]
+    pub fn as_config_value(self) -> &'static str {
+        match self {
+            Self::Read => "read",
+            Self::Write => "write",
+            Self::ReadWrite => "read_write",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OpcUaClientPointConfig {
+    pub var: SmolStr,
+    pub node_id: String,
+    pub data_type: OpcUaDataType,
+    pub access: OpcUaClientPointAccess,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct OpcUaClientToml {
+    connections: Vec<OpcUaClientConnectionSection>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct OpcUaClientConnectionSection {
+    name: String,
+    endpoint_url: String,
+    security_policy: Option<String>,
+    security_mode: Option<String>,
+    auth: Option<String>,
+    username: Option<String>,
+    password: Option<String>,
+    trust_server_certificate: Option<bool>,
+    poll_interval_ms: Option<u64>,
+    timeout_ms: Option<u64>,
+    points: Vec<OpcUaClientPointSection>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct OpcUaClientPointSection {
+    var: String,
+    node_id: String,
+    #[serde(rename = "type")]
+    type_name: String,
+    access: Option<String>,
+    writable: Option<bool>,
+}
+
+pub fn parse_opcua_client_toml(text: &str) -> Result<OpcUaClientConfig, RuntimeError> {
+    let raw: OpcUaClientToml = toml::from_str(text).map_err(|err| {
+        RuntimeError::InvalidConfig(format!("opcua_client.toml: {err}").into())
+    })?;
+    raw.into_config()
+}
+
+impl OpcUaClientToml {
+    fn into_config(self) -> Result<OpcUaClientConfig, RuntimeError> {
+        if self.connections.is_empty() {
+            return invalid_opcua_client("opcua_client.toml requires at least one [[connections]] entry");
+        }
+        let mut point_names = std::collections::BTreeSet::new();
+        let connections = self
+            .connections
+            .into_iter()
+            .map(|connection| connection.into_config(&mut point_names))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(OpcUaClientConfig { connections })
+    }
+}
+
+impl OpcUaClientConnectionSection {
+    fn into_config(
+        self,
+        point_names: &mut std::collections::BTreeSet<String>,
+    ) -> Result<OpcUaClientConnectionConfig, RuntimeError> {
+        let name = non_empty_opcua_client("connections.name", self.name)?;
+        let endpoint_url = non_empty_opcua_client("connections.endpoint_url", self.endpoint_url)?;
+        if !endpoint_url.starts_with("opc.tcp://") {
+            return invalid_opcua_client(format!(
+                "OPC UA connection '{name}' endpoint_url must start with opc.tcp://"
+            ));
+        }
+        if self.points.is_empty() {
+            return invalid_opcua_client(format!(
+                "OPC UA connection '{name}' requires at least one point"
+            ));
+        }
+        let policy_raw = self.security_policy.as_deref().unwrap_or("none");
+        let mode_raw = self.security_mode.as_deref().unwrap_or("none");
+        let policy = OpcUaSecurityPolicy::parse(policy_raw).ok_or_else(|| {
+            RuntimeError::InvalidConfig(
+                format!("invalid OPC UA client security_policy '{policy_raw}'").into(),
+            )
+        })?;
+        let mode = OpcUaMessageSecurityMode::parse(mode_raw).ok_or_else(|| {
+            RuntimeError::InvalidConfig(
+                format!("invalid OPC UA client security_mode '{mode_raw}'").into(),
+            )
+        })?;
+        validate_client_security_profile(policy, mode)?;
+        let auth = parse_client_auth(self.auth.as_deref(), self.username, self.password, &name)?;
+        let poll_interval_ms = self.poll_interval_ms.unwrap_or(250);
+        if poll_interval_ms < 10 {
+            return invalid_opcua_client(format!(
+                "OPC UA connection '{name}' poll_interval_ms must be >= 10"
+            ));
+        }
+        let timeout_ms = self.timeout_ms.unwrap_or(2_000);
+        if timeout_ms == 0 || timeout_ms > 60_000 {
+            return invalid_opcua_client(format!(
+                "OPC UA connection '{name}' timeout_ms must be between 1 and 60000"
+            ));
+        }
+        let points = self
+            .points
+            .into_iter()
+            .map(|point| point.into_config(&name, point_names))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(OpcUaClientConnectionConfig {
+            name: SmolStr::new(name),
+            endpoint_url,
+            security: OpcUaSecurityProfile {
+                policy,
+                mode,
+                allow_anonymous: matches!(auth, OpcUaClientAuthConfig::Anonymous),
+            },
+            auth,
+            trust_server_certificate: self.trust_server_certificate.unwrap_or(false),
+            poll_interval_ms,
+            timeout_ms,
+            points,
+        })
+    }
+}
+
+impl OpcUaClientPointSection {
+    fn into_config(
+        self,
+        connection_name: &str,
+        point_names: &mut std::collections::BTreeSet<String>,
+    ) -> Result<OpcUaClientPointConfig, RuntimeError> {
+        let var = non_empty_opcua_client("connections.points.var", self.var)?;
+        if !point_names.insert(var.clone()) {
+            return invalid_opcua_client(format!(
+                "OPC UA point '{var}' is bound more than once; one binding per declared variable is required"
+            ));
+        }
+        let node_id = non_empty_opcua_client("connections.points.node_id", self.node_id)?;
+        let data_type = parse_opcua_client_data_type(self.type_name.as_str())?;
+        let access = parse_opcua_client_access(self.access.as_deref(), self.writable)?;
+        if matches!(access, OpcUaClientPointAccess::Write) {
+            return invalid_opcua_client(format!(
+                "OPC UA point '{var}' in connection '{connection_name}' cannot be write-only; runtime variables need read evidence before green status"
+            ));
+        }
+        Ok(OpcUaClientPointConfig {
+            var: SmolStr::new(var),
+            node_id,
+            data_type,
+            access,
+        })
+    }
+}
+
+fn parse_client_auth(
+    auth: Option<&str>,
+    username: Option<String>,
+    password: Option<String>,
+    connection_name: &str,
+) -> Result<OpcUaClientAuthConfig, RuntimeError> {
+    let auth = auth.unwrap_or("anonymous").trim().to_ascii_lowercase();
+    match auth.as_str() {
+        "anonymous" => {
+            if username.as_ref().is_some_and(|value| !value.trim().is_empty())
+                || password.as_ref().is_some_and(|value| !value.trim().is_empty())
+            {
+                return invalid_opcua_client(format!(
+                    "OPC UA connection '{connection_name}' uses anonymous auth but also sets username/password"
+                ));
+            }
+            Ok(OpcUaClientAuthConfig::Anonymous)
+        }
+        "username" | "user_name" | "user" => {
+            let username = username
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty())
+                .ok_or_else(|| {
+                    RuntimeError::InvalidConfig(
+                        format!("OPC UA connection '{connection_name}' username is required")
+                            .into(),
+                    )
+                })?;
+            let password = password
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty())
+                .ok_or_else(|| {
+                    RuntimeError::InvalidConfig(
+                        format!("OPC UA connection '{connection_name}' password is required")
+                            .into(),
+                    )
+                })?;
+            Ok(OpcUaClientAuthConfig::UserName {
+                username: SmolStr::new(username),
+                password: SmolStr::new(password),
+            })
+        }
+        other => invalid_opcua_client(format!(
+            "OPC UA connection '{connection_name}' auth must be anonymous or username, got '{other}'"
+        )),
+    }
+}
+
+fn validate_client_security_profile(
+    policy: OpcUaSecurityPolicy,
+    mode: OpcUaMessageSecurityMode,
+) -> Result<(), RuntimeError> {
+    match (policy, mode) {
+        (OpcUaSecurityPolicy::None, OpcUaMessageSecurityMode::None)
+        | (OpcUaSecurityPolicy::Basic256Sha256, OpcUaMessageSecurityMode::Sign)
+        | (OpcUaSecurityPolicy::Basic256Sha256, OpcUaMessageSecurityMode::SignAndEncrypt)
+        | (OpcUaSecurityPolicy::Aes128Sha256RsaOaep, OpcUaMessageSecurityMode::Sign)
+        | (
+            OpcUaSecurityPolicy::Aes128Sha256RsaOaep,
+            OpcUaMessageSecurityMode::SignAndEncrypt,
+        ) => Ok(()),
+        (policy, mode) => invalid_opcua_client(format!(
+            "unsupported OPC UA client security profile {policy:?}/{mode:?}"
+        )),
+    }
+}
+
+fn parse_opcua_client_data_type(value: &str) -> Result<OpcUaDataType, RuntimeError> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "bool" | "boolean" => Ok(OpcUaDataType::Boolean),
+        "int" | "int16" => Ok(OpcUaDataType::Int16),
+        "dint" | "int32" => Ok(OpcUaDataType::Int32),
+        "lint" | "int64" => Ok(OpcUaDataType::Int64),
+        "uint" | "uint16" => Ok(OpcUaDataType::UInt16),
+        "udint" | "uint32" => Ok(OpcUaDataType::UInt32),
+        "ulint" | "uint64" => Ok(OpcUaDataType::UInt64),
+        "real" | "float" | "float32" => Ok(OpcUaDataType::Float),
+        "lreal" | "double" | "float64" => Ok(OpcUaDataType::Double),
+        "string" => Ok(OpcUaDataType::String),
+        other => invalid_opcua_client(format!(
+            "unsupported OPC UA client point type '{other}'"
+        )),
+    }
+}
+
+fn parse_opcua_client_access(
+    access: Option<&str>,
+    writable: Option<bool>,
+) -> Result<OpcUaClientPointAccess, RuntimeError> {
+    if let Some(writable) = writable {
+        return Ok(if writable {
+            OpcUaClientPointAccess::ReadWrite
+        } else {
+            OpcUaClientPointAccess::Read
+        });
+    }
+    match access.unwrap_or("read").trim().to_ascii_lowercase().as_str() {
+        "read" => Ok(OpcUaClientPointAccess::Read),
+        "write" => Ok(OpcUaClientPointAccess::Write),
+        "read_write" | "readwrite" | "read-write" => Ok(OpcUaClientPointAccess::ReadWrite),
+        other => invalid_opcua_client(format!(
+            "OPC UA client point access must be read or read_write, got '{other}'"
+        )),
+    }
+}
+
+fn non_empty_opcua_client(field: &str, value: String) -> Result<String, RuntimeError> {
+    let value = value.trim().to_string();
+    if value.is_empty() {
+        return invalid_opcua_client(format!("{field} must not be empty"));
+    }
+    Ok(value)
+}
+
+fn invalid_opcua_client<T>(message: impl Into<String>) -> Result<T, RuntimeError> {
+    Err(RuntimeError::InvalidConfig(message.into().into()))
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OpcUaDataType {
     Boolean,
     Int16,
@@ -116,6 +443,24 @@ pub enum OpcUaDataType {
     Float,
     Double,
     String,
+}
+
+impl OpcUaDataType {
+    #[must_use]
+    pub fn as_config_value(self) -> &'static str {
+        match self {
+            Self::Boolean => "BOOL",
+            Self::Int16 => "INT",
+            Self::Int32 => "DINT",
+            Self::Int64 => "LINT",
+            Self::UInt16 => "UINT",
+            Self::UInt32 => "UDINT",
+            Self::UInt64 => "ULINT",
+            Self::Float => "REAL",
+            Self::Double => "LREAL",
+            Self::String => "STRING",
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

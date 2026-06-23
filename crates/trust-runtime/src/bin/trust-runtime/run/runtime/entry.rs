@@ -254,6 +254,11 @@ pub fn run_runtime(
     let ads_client_config = Arc::new(Mutex::new(
         bundle.as_ref().and_then(|bundle| bundle.ads.clone()),
     ));
+    let opcua_client_config = Arc::new(Mutex::new(
+        bundle
+            .as_ref()
+            .and_then(|bundle| bundle.opcua_client.clone()),
+    ));
     let discovery_state = Arc::new(DiscoveryState::new());
     let mesh_topology = Arc::new(Mutex::new(None));
     let web_listener_bound = Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -312,6 +317,7 @@ pub fn run_runtime(
         pairing: pairing.clone(),
         ads_doctor_jobs: Arc::new(Mutex::new(trust_runtime::control::AdsDoctorJobStore::default())),
         ads_client_config,
+        opcua_client_config,
         ads_server_config,
         #[cfg(feature = "ads-server")]
         ads_server_runtime: ads_server_runtime.clone(),

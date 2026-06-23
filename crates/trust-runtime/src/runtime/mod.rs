@@ -12,6 +12,7 @@ mod mesh;
 mod metadata;
 mod metrics_subsystem;
 mod online_change;
+mod opcua_client_subsystem;
 mod openot_telemetry;
 mod restart;
 mod retain_store;

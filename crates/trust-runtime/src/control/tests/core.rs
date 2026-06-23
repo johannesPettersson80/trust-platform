@@ -1903,6 +1903,152 @@ fn offline_comm_apply_writes_ads_runtime_and_ads_toml() {
 }
 
 #[test]
+fn offline_comm_apply_writes_opcua_client_runtime_and_sidecar() {
+    let root = temp_dir("offline-comm-opcua-client");
+
+    let apply = crate::control::offline_comm_apply_json(
+        &root,
+        json!({
+            "protocol": "opcua_client",
+            "action": "upsert",
+            "params": {
+                "enabled": true,
+                "config_path": "opcua_client.toml",
+                "poll_interval_ms": 100,
+                "connections": [{
+                    "name": "line1",
+                    "endpoint_url": "opc.tcp://127.0.0.1:4840/trust",
+                    "security_policy": "none",
+                    "security_mode": "none",
+                    "auth": "anonymous",
+                    "trust_server_certificate": false,
+                    "points": [{
+                        "var": "conveyor_speed",
+                        "node_id": "ns=2;s=MAIN.conveyor_speed",
+                        "type": "REAL",
+                        "access": "read"
+                    }]
+                }]
+            }
+        }),
+    )
+    .expect("offline OPC UA client apply");
+
+    assert_eq!(
+        apply
+            .get("schema_version")
+            .and_then(serde_json::Value::as_u64),
+        Some(4)
+    );
+    assert_eq!(
+        apply.get("applied").and_then(serde_json::Value::as_bool),
+        Some(true)
+    );
+    assert!(apply.get("snippet").is_none_or(serde_json::Value::is_null));
+
+    let runtime_text = fs::read_to_string(root.join("runtime.toml")).expect("read runtime.toml");
+    assert!(runtime_text.contains("[runtime.opcua_client]"));
+    assert!(runtime_text.contains("config_path = \"opcua_client.toml\""));
+    crate::config::validate_runtime_toml_text(&runtime_text)
+        .expect("runtime.toml with runtime.opcua_client should validate");
+    let client_text =
+        fs::read_to_string(root.join("opcua_client.toml")).expect("read opcua_client.toml");
+    assert!(
+        client_text.contains("poll_interval_ms = 100"),
+        "generated sidecar should inherit the form-level poll interval"
+    );
+    crate::opcua::parse_opcua_client_toml(client_text.as_str())
+        .expect("opcua_client.toml should validate");
+
+    let topology = crate::control::offline_fleet_topology_json(&root)
+        .expect("offline topology with OPC UA client");
+    let endpoints = topology
+        .pointer("/hosts/0/runtimes/0/endpoints")
+        .and_then(serde_json::Value::as_array)
+        .expect("endpoints");
+    let opcua_client = endpoints
+        .iter()
+        .find(|endpoint| {
+            endpoint.get("protocol").and_then(serde_json::Value::as_str)
+                == Some("opcua_client")
+        })
+        .expect("opcua client endpoint");
+    assert_eq!(
+        opcua_client
+            .get("kind")
+            .and_then(serde_json::Value::as_str),
+        Some("peer")
+    );
+    assert_eq!(
+        opcua_client
+            .get("role")
+            .and_then(serde_json::Value::as_str),
+        Some("client")
+    );
+    assert_eq!(
+        opcua_client
+            .get("health")
+            .and_then(serde_json::Value::as_str),
+        Some("configured_policy")
+    );
+    assert!(
+        opcua_client.get("live").is_none(),
+        "offline topology must not invent OPC UA client live values"
+    );
+    let links = topology
+        .get("links")
+        .and_then(serde_json::Value::as_array)
+        .expect("links");
+    assert!(links.iter().any(|link| {
+        link.get("protocol").and_then(serde_json::Value::as_str) == Some("opcua_client")
+            && link.get("role").and_then(serde_json::Value::as_str) == Some("client")
+            && link.get("status").and_then(serde_json::Value::as_str)
+                == Some("configured_policy")
+    }));
+    let external = topology
+        .get("external")
+        .and_then(serde_json::Value::as_array)
+        .expect("external");
+    assert!(external.iter().any(|item| {
+        item.get("kind").and_then(serde_json::Value::as_str) == Some("opcua_server")
+    }));
+    let serialized = serde_json::to_string(&topology).expect("topology json");
+    assert!(!serialized.contains("password"));
+
+    let remove = crate::control::offline_comm_apply_json(
+        &root,
+        json!({
+            "protocol": "opcua_client",
+            "action": "remove",
+            "params": {}
+        }),
+    )
+    .expect("offline OPC UA client remove");
+    assert_eq!(
+        remove.get("applied").and_then(serde_json::Value::as_bool),
+        Some(true)
+    );
+    let runtime_text = fs::read_to_string(root.join("runtime.toml")).expect("read runtime.toml");
+    assert!(
+        !runtime_text.contains("[runtime.opcua_client]"),
+        "remove should drop the runtime OPC UA client section"
+    );
+    assert!(
+        !root.join("opcua_client.toml").exists(),
+        "remove should delete the OPC UA client sidecar"
+    );
+    let topology = crate::control::offline_fleet_topology_json(&root)
+        .expect("offline topology after OPC UA client remove");
+    let endpoints = topology
+        .pointer("/hosts/0/runtimes/0/endpoints")
+        .and_then(serde_json::Value::as_array)
+        .expect("endpoints");
+    assert!(!endpoints.iter().any(|endpoint| {
+        endpoint.get("protocol").and_then(serde_json::Value::as_str) == Some("opcua_client")
+    }));
+}
+
+#[test]
 fn comm_capabilities_control_request_reports_stable_protocol_statuses() {
     let source = r#"
 PROGRAM Main
@@ -1931,7 +2077,7 @@ END_PROGRAM
         .get("capabilities")
         .and_then(serde_json::Value::as_array)
         .expect("capabilities array");
-    assert_eq!(capabilities.len(), 14);
+    assert_eq!(capabilities.len(), 15);
 
     let by_id = |id: &str| {
         capabilities
@@ -1965,6 +2111,16 @@ END_PROGRAM
             .get("health")
             .and_then(serde_json::Value::as_str),
         Some("not_configured")
+    );
+    assert_eq!(
+        by_id("opcua_client")
+            .get("health")
+            .and_then(serde_json::Value::as_str),
+        Some(if cfg!(feature = "opcua-wire") {
+            "not_configured"
+        } else {
+            "not_in_build"
+        })
     );
     assert_eq!(
         by_id("openot")

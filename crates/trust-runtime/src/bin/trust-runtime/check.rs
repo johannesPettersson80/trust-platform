@@ -158,6 +158,7 @@ fn config_issues(project_root: &Path) -> Vec<CheckIssue> {
         &mut issues,
     );
     validate_optional_ads_config(project_root, &mut issues);
+    validate_optional_opcua_client_config(project_root, &mut issues);
     issues
 }
 
@@ -214,6 +215,29 @@ fn validate_optional_ads_config(project_root: &Path, issues: &mut Vec<CheckIssue
             "error",
             format!("failed to read ads.toml: {error}"),
             "config.ads",
+            Some(path),
+        )),
+    }
+}
+
+fn validate_optional_opcua_client_config(project_root: &Path, issues: &mut Vec<CheckIssue>) {
+    let path = project_root.join("opcua_client.toml");
+    match std::fs::read_to_string(&path) {
+        Ok(text) => {
+            if let Err(error) = trust_runtime::config::validate_opcua_client_toml_text(&text) {
+                issues.push(issue(
+                    "error",
+                    format!("opcua_client.toml is invalid: {error}"),
+                    "config.opcua_client",
+                    Some(path),
+                ));
+            }
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => issues.push(issue(
+            "error",
+            format!("failed to read opcua_client.toml: {error}"),
+            "config.opcua_client",
             Some(path),
         )),
     }

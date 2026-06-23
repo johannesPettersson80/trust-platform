@@ -176,6 +176,7 @@ pub struct ControlState {
     pub pairing: Option<Arc<PairingStore>>,
     pub ads_doctor_jobs: Arc<Mutex<AdsDoctorJobStore>>,
     pub ads_client_config: Arc<Mutex<Option<crate::ads::AdsClientConfig>>>,
+    pub opcua_client_config: Arc<Mutex<Option<crate::opcua::OpcUaClientConfig>>>,
     pub ads_server_config: Arc<Mutex<Option<crate::ads::server::AdsServerRuntimeConfig>>>,
     #[cfg(feature = "ads-server")]
     pub ads_server_runtime: Arc<Mutex<Option<crate::ads::server::AdsServerRuntime>>>,

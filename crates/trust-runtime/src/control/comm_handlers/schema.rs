@@ -10,8 +10,8 @@ mod fields;
 
 use fields::{
     ads_fields, ads_server_fields, discovery_fields, ethercat_fields, gpio_fields, loopback_fields,
-    mesh_fields, modbus_fields, mqtt_fields, opcua_fields, openot_fields, realtime_fields,
-    runtime_cloud_fields, simulated_fields,
+    mesh_fields, modbus_fields, mqtt_fields, opcua_client_fields, opcua_fields, openot_fields,
+    realtime_fields, runtime_cloud_fields, simulated_fields,
 };
 
 #[derive(Debug, Serialize)]
@@ -132,7 +132,13 @@ pub(super) fn protocol_to_driver(protocol: &str) -> Option<&'static str> {
 pub(super) fn supports_runtime_file_protocol(protocol: &str) -> bool {
     matches!(
         normalize_protocol(protocol).as_str(),
-        "opcua" | "openot" | "discovery" | "mesh" | "realtime_t0" | "runtime_cloud"
+        "opcua"
+            | "opcua_client"
+            | "openot"
+            | "discovery"
+            | "mesh"
+            | "realtime_t0"
+            | "runtime_cloud"
     )
 }
 
@@ -241,16 +247,17 @@ fn io_protocol_schemas(instances: &[CommConfiguredInstance]) -> Vec<CommProtocol
 }
 
 fn communication_protocol_schemas(instances: &[CommConfiguredInstance]) -> Vec<CommProtocolSchema> {
-    let mut protocols = Vec::with_capacity(14);
+    let mut protocols = Vec::with_capacity(15);
     protocols.extend(io_protocol_schemas(instances));
     protocols.extend([
         runtime_protocol_schema(
             "opcua",
-            "OPC UA",
-            "Let SCADA, HMI, or historian software read and write exposed PLC tags.",
+            "OPC UA server",
+            "Expose selected truST globals to OPC UA clients such as SCADA, HMI, or historians.",
             "supervisory_service",
             opcua_fields(),
         ),
+        opcua_client_protocol_schema(),
         runtime_protocol_schema(
             "openot",
             "OpenOT",
@@ -369,13 +376,42 @@ fn runtime_protocol_schema(
 
 fn runtime_protocol_actions(protocol: &str) -> Vec<&'static str> {
     let mut actions = vec!["edit", "upsert", "remove", "disable"];
-    if matches!(protocol, "discovery" | "opcua") {
+    if protocol == "discovery" {
         actions.push("discover");
     }
     if matches!(protocol, "opcua" | "ads_server") {
         actions.push("browse_symbols");
     }
     actions
+}
+
+fn opcua_client_protocol_schema() -> CommProtocolSchema {
+    CommProtocolSchema {
+        id: "opcua_client",
+        driver: "",
+        title: "OPC UA client",
+        purpose: "Read selected nodes from an external OPC UA server.",
+        availability: "default",
+        category: "peer_link",
+        categories: vec!["peer_link"],
+        config_home: "opcua_client.toml",
+        apply_mode: "file",
+        lifecycle_effect: "restart_required",
+        supports_test: true,
+        supports_multi_instance: true,
+        actions: vec![
+            "add",
+            "edit",
+            "upsert",
+            "remove",
+            "disable",
+            "discover",
+            "browse_symbols",
+            "test",
+        ],
+        fields: opcua_client_fields(),
+        instances: Vec::new(),
+    }
 }
 
 fn ads_protocol_schema() -> CommProtocolSchema {
@@ -516,6 +552,10 @@ mod tests {
 
         let opcua = by_id("opcua");
         assert_eq!(
+            opcua.get("title").and_then(serde_json::Value::as_str),
+            Some("OPC UA server")
+        );
+        assert_eq!(
             opcua.get("category").and_then(serde_json::Value::as_str),
             Some("supervisory_service")
         );
@@ -531,12 +571,59 @@ mod tests {
             .get("actions")
             .and_then(serde_json::Value::as_array)
             .expect("opcua actions");
-        assert!(opcua_actions
-            .iter()
-            .any(|value| value.as_str() == Some("discover")));
+        assert!(
+            !opcua_actions
+                .iter()
+                .any(|value| value.as_str() == Some("discover")),
+            "OPC UA server must not advertise client-side discovery"
+        );
         assert!(opcua_actions
             .iter()
             .any(|value| value.as_str() == Some("browse_symbols")));
+
+        let opcua_client = by_id("opcua_client");
+        assert_eq!(
+            opcua_client
+                .get("title")
+                .and_then(serde_json::Value::as_str),
+            Some("OPC UA client")
+        );
+        assert_eq!(
+            opcua_client
+                .get("category")
+                .and_then(serde_json::Value::as_str),
+            Some("peer_link")
+        );
+        assert_eq!(
+            opcua_client
+                .get("config_home")
+                .and_then(serde_json::Value::as_str),
+            Some("opcua_client.toml")
+        );
+        assert_eq!(
+            opcua_client
+                .get("apply_mode")
+                .and_then(serde_json::Value::as_str),
+            Some("file")
+        );
+        assert_eq!(
+            opcua_client
+                .get("supports_test")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        let opcua_client_actions = opcua_client
+            .get("actions")
+            .and_then(serde_json::Value::as_array)
+            .expect("opcua_client actions");
+        for action in ["discover", "browse_symbols", "test"] {
+            assert!(
+                opcua_client_actions
+                    .iter()
+                    .any(|value| value.as_str() == Some(action)),
+                "missing OPC UA client action {action}"
+            );
+        }
 
         let ethercat_actions = by_id("ethercat")
             .get("actions")
