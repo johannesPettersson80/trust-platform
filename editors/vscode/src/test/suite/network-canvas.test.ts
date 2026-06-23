@@ -14,6 +14,7 @@ import {
 import { buildCanvasGraph } from "../../networkCanvas/graphData";
 import type { RuntimeTarget } from "../../runtimeTarget";
 import { classifyRuntimeStartFailure } from "../../networkCanvas/runtimeFailures";
+import { runtimeNodeControls } from "../../networkCanvas/webview/runtimeNodeControls";
 
 const RUNNING = {
   running: true,
@@ -322,7 +323,7 @@ suite("Network Canvas", function () {
     assert.strictEqual(cell2?.health, "connected", "running managed runtime is green");
   });
 
-  test("a managed runtime already shown via fleet.topology is NOT doubled (dedup by endpoint)", () => {
+  test("a managed runtime already shown via fleet.topology is NOT doubled, and the surviving node stays OWNED (managed)", () => {
     const peerTopology = {
       schema_version: 3 as const,
       hosts: [
@@ -358,11 +359,29 @@ suite("Network Canvas", function () {
       undefined,
       [{ name: "cell1", controlEndpoint: "tcp://127.0.0.1:9902", state: "running" }]
     );
-    // The endpoint is already shown via the peer topology → no separate managed host injected.
+    // The endpoint is already shown via the peer topology → no separate managed host injected …
     assert.ok(
       !graph.hosts.some((h) => h.id === "host:managed-local"),
       "no duplicate managed node for an endpoint already on the canvas"
     );
+    // … and the EXISTING node is annotated managed, so it keeps owned Start/Stop/Logs (not a remote).
+    const surviving = graph.hosts
+      .flatMap((h) => h.runtimes)
+      .find((r) => r.controlEndpoint === "tcp://127.0.0.1:9902");
+    assert.ok(surviving, "the topology node survives");
+    assert.strictEqual(surviving?.managed, true, "surviving node is marked managed (owned lifecycle)");
+    assert.strictEqual(surviving?.managedName, "cell1", "carries the managed runtime name");
+    // It must therefore render managed Start/Stop (running → Stop), not remote Connect/Disconnect.
+    const controls = runtimeNodeControls({
+      isLocal: false,
+      managed: surviving?.managed === true,
+      health: String(surviving?.health ?? ""),
+      attached: false,
+      controlEndpoint: surviving?.controlEndpoint,
+      logsAvailable: true,
+    });
+    assert.strictEqual(controls[0].action, "managedStop");
+    assert.ok(controls.some((c) => c.action === "openRuntimeLogs"), "owned node offers Logs");
   });
 
   test("a runtime start failure renders an error node + retry banner, not a failure screen", () => {

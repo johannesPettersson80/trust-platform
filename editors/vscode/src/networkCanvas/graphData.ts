@@ -309,9 +309,10 @@ export function buildCanvasGraph(
   return graph;
 }
 
-// Add managed local runtimes (fleet.toml projects we own) as nodes under a "this computer" host, so
-// Start/Stop/Logs live ON the Devices & Connections node (§0.6 / Phase 9). Deduped by control endpoint
-// against runtimes already shown (e.g. a running one visible via fleet.topology) to avoid doubles.
+// Surface managed local runtimes (fleet.toml projects we own) so Start/Stop/Logs live ON the Devices &
+// Connections node (§0.6 / Phase 9). A managed runtime already shown via fleet.topology (or the synthetic
+// offline node) is ANNOTATED in place (marked managed, so it KEEPS owned lifecycle — not left as an
+// ordinary remote); only managed runtimes with no existing node are injected under a "this computer" host.
 function injectManagedRuntimes(
   graph: NCGraph,
   managed: ReadonlyArray<ManagedRuntime>
@@ -319,17 +320,32 @@ function injectManagedRuntimes(
   if (managed.length === 0) {
     return;
   }
-  const shown = new Set<string>();
-  for (const host of graph.hosts) {
-    for (const rt of host.runtimes) {
-      if (rt.controlEndpoint) {
-        shown.add(rt.controlEndpoint);
-      }
+  const byEndpoint = new Map<string, ManagedRuntime>();
+  for (const local of managed) {
+    if (local.controlEndpoint) {
+      byEndpoint.set(local.controlEndpoint, local);
     }
   }
-  const fresh = managed.filter(
-    (local) => !local.controlEndpoint || !shown.has(local.controlEndpoint)
-  );
+  // Annotate any existing node (host or container runtime) whose endpoint is a managed runtime, so the
+  // visible node stays OWNED (managed Start/Stop/Logs) instead of falling back to remote attach.
+  const annotated = new Set<string>();
+  const annotate = (rt: NCRuntime): void => {
+    const local = rt.controlEndpoint
+      ? byEndpoint.get(rt.controlEndpoint)
+      : undefined;
+    if (!local) {
+      return;
+    }
+    rt.managed = true;
+    rt.managedName = local.name;
+    annotated.add(local.name);
+  };
+  for (const host of graph.hosts) {
+    host.runtimes.forEach(annotate);
+    host.containers.forEach((container) => container.runtimes.forEach(annotate));
+  }
+  // Inject only managed runtimes with NO existing node anywhere (e.g. stopped, not in topology).
+  const fresh = managed.filter((local) => !annotated.has(local.name));
   if (fresh.length === 0) {
     return;
   }
