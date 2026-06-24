@@ -377,9 +377,20 @@ function Canvas() {
   const onBrowse = useCallback(
     (node: InspectorNode) => {
       const protocol = String(node.data.protocol ?? "");
+      const params = (node.data.params as Record<string, unknown> | undefined) ?? {};
+      // The opcua_client endpoint node carries the whole section ({ connections: [...] }), but the
+      // remote browse needs ONE connection's endpoint settings (endpoint_url + security) as the
+      // target — passing the section verbatim makes the backend reject it ("requires target endpoint
+      // settings") and the tree comes back empty. Use the sole connection. (Multi-connection
+      // disambiguation via a picker is a follow-up.)
+      const connections = params.connections;
+      const target =
+        protocol === "opcua_client" && Array.isArray(connections) && connections.length > 0
+          ? ((connections[0] as Record<string, unknown> | undefined) ?? params)
+          : params;
       openBrowse(
         protocol,
-        (node.data.params as Record<string, unknown> | undefined) ?? {},
+        target,
         String(node.data.name ?? node.data.label ?? protocol)
       );
     },
