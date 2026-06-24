@@ -79,7 +79,7 @@ export function BrowseTagsPanel({
   }, [q, tree]);
 
   const leaf = (n: SymbolNode, depth: number) => (
-    <div key={n.id} style={{ ...ROW, paddingLeft: 8 + depth * 14 }}>
+    <div key={nodeKey(n)} style={{ ...ROW, paddingLeft: 8 + depth * 14 }}>
       <input type="checkbox" checked={selected.has(nodeKey(n))} onChange={() => toggleSel(nodeKey(n))} style={{ flex: "none" }} />
       <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: "#eef1f5", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.name}</span>
       {(n.data_type || n.type) && <span style={{ flex: "none", fontSize: 10, color: "#7f8794" }}>{n.data_type || n.type}</span>}
@@ -89,10 +89,10 @@ export function BrowseTagsPanel({
 
   const renderNode = (n: SymbolNode, depth: number): React.ReactNode => {
     if (n.children?.length) {
-      const open = expanded.has(n.id);
+      const open = expanded.has(nodeKey(n));
       return (
-        <div key={n.id}>
-          <button onClick={() => toggleExp(n.id)} style={{ ...GROUP, paddingLeft: 4 + depth * 14 }}>
+        <div key={nodeKey(n)}>
+          <button onClick={() => toggleExp(nodeKey(n))} style={{ ...GROUP, paddingLeft: 4 + depth * 14 }}>
             {open ? "▾" : "▸"} {n.name}
           </button>
           {open && n.children.map((c) => renderNode(c, depth + 1))}

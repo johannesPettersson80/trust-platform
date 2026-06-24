@@ -81,6 +81,16 @@ suite("opcua client model", () => {
     assert.strictEqual(conn?.points[0].node_id, "ns=3;i=1"); // the exact node the user picked
   });
 
+  test("leaves whose sanitized id collides stay distinct by nodeKey (React-key safety)", () => {
+    // Two different NodeIds that sanitize to the SAME id (=/;/. → _) — the residual key-collision class.
+    const a = leaf({ id: "opcua:node:ns_2_s_Tag", node_id: "ns=2;s=Tag" });
+    const b = leaf({ id: "opcua:node:ns_2_s_Tag", node_id: "ns=2;s=Ta;g" });
+    assert.notStrictEqual(nodeKey(a), nodeKey(b)); // distinct → no duplicate React key / wrong-row reuse
+    const picked = selectedLeaves([a, b], new Set([nodeKey(b)]));
+    assert.strictEqual(picked.length, 1);
+    assert.strictEqual(picked[0].node_id, "ns=2;s=Ta;g");
+  });
+
   test("selectedLeaves returns only chosen leaves in tree order", () => {
     const tree: SymbolNode[] = [
       { id: "a", name: "A", path: "A", children: [leaf({ id: "t", name: "Temperature", path: "A.Temperature" }), leaf({ id: "c", name: "Counter", path: "A.Counter", node_id: "ns=2;i=2", writable: false })] },
