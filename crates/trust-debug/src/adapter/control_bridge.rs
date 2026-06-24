@@ -14,7 +14,7 @@ use trust_runtime::control::{
     AdsDoctorJobStore, ControlEndpoint, ControlServer, ControlState, HmiRuntimeDescriptor,
     SourceRegistry,
 };
-use trust_runtime::debug::{DebugVariableHandles, RuntimeEvent};
+use trust_runtime::debug::{DebugControl, DebugSnapshot, DebugVariableHandles, RuntimeEvent};
 use trust_runtime::discovery::DiscoveryState;
 use trust_runtime::error::RuntimeError;
 use trust_runtime::io::IoDriverStatus;
@@ -48,12 +48,14 @@ impl DebugControlServer {
         project_root: Option<PathBuf>,
     ) -> Result<Self, RuntimeError> {
         let (resource, cmd_rx) = ResourceControl::stub(StdClock::new());
+        let debug = session.debug_control();
         let sources = SourceRegistry::new(session.control_sources());
         let hmi_descriptor = Arc::new(Mutex::new(HmiRuntimeDescriptor::from_sources(
-            None, &sources,
+            project_root.as_deref(),
+            &sources,
         )));
         let state = Arc::new(ControlState {
-            debug: session.debug_control(),
+            debug: debug.clone(),
             resource,
             metadata: Arc::new(Mutex::new(session.metadata().clone())),
             project_root,
@@ -91,8 +93,9 @@ impl DebugControlServer {
             #[cfg(feature = "ads-server")]
             ads_server_runtime: Arc::new(Mutex::new(None)),
         });
+        trust_runtime::control::spawn_hmi_descriptor_watcher(state.clone());
         let server = ControlServer::start(endpoint, state.clone())?;
-        let drain = spawn_command_drain(cmd_rx);
+        let drain = spawn_command_drain(cmd_rx, debug);
         Ok(Self {
             server,
             _drain: drain,
@@ -164,7 +167,10 @@ fn default_settings(session: &dyn DebugRuntime) -> RuntimeSettings {
     )
 }
 
-fn spawn_command_drain(rx: std::sync::mpsc::Receiver<ResourceCommand>) -> thread::JoinHandle<()> {
+fn spawn_command_drain(
+    rx: std::sync::mpsc::Receiver<ResourceCommand>,
+    debug: DebugControl,
+) -> thread::JoinHandle<()> {
     thread::spawn(move || {
         while let Ok(command) = rx.recv() {
             match command {
@@ -178,10 +184,7 @@ fn spawn_command_drain(rx: std::sync::mpsc::Receiver<ResourceCommand>) -> thread
                 }
                 ResourceCommand::MeshApply { .. } => {}
                 ResourceCommand::Snapshot { respond_to } => {
-                    let _ = respond_to.send(trust_runtime::debug::DebugSnapshot {
-                        storage: trust_runtime::memory::VariableStorage::new(),
-                        now: trust_runtime::value::Duration::ZERO,
-                    });
+                    let _ = respond_to.send(debug.snapshot().unwrap_or_else(empty_debug_snapshot));
                 }
                 ResourceCommand::AdsStatus { respond_to } => {
                     let _ = respond_to.send(trust_runtime::ads::diagnostics::AdsStatusReport {
@@ -214,4 +217,11 @@ fn spawn_command_drain(rx: std::sync::mpsc::Receiver<ResourceCommand>) -> thread
             }
         }
     })
+}
+
+fn empty_debug_snapshot() -> DebugSnapshot {
+    DebugSnapshot {
+        storage: trust_runtime::memory::VariableStorage::new(),
+        now: trust_runtime::value::Duration::ZERO,
+    }
 }

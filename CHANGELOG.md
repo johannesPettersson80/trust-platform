@@ -266,6 +266,10 @@ Target release: `v0.24.25`
 
 ### Fixed
 
+- trust-debug: the debug/simulator control server now serves HMI schema and
+  value requests from the launch project and live debug snapshot, so VS Code's
+  HMI Preview can render against a running simulator instead of timing out on
+  `hmi.schema.get`.
 - trust-runtime: OPC UA server startup no longer aborts when the first runtime
   snapshot is not available yet; the server binds immediately and publishes
   exposed nodes after real snapshot evidence arrives. Runtime debug breakpoint

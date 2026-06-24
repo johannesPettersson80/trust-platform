@@ -509,6 +509,94 @@ fn debug_control_server_uses_launch_project_root_for_comm_apply() {
     fs::remove_dir_all(&project_root).ok();
 }
 
+#[test]
+fn debug_control_server_serves_hmi_schema_and_values() {
+    let project_root = unique_project_root("debug-control-hmi");
+    fs::write(
+        project_root.join("main.st"),
+        r"
+PROGRAM Main
+VAR
+    speed : REAL := 1.5;
+    running : BOOL := TRUE;
+END_VAR
+END_PROGRAM
+",
+    )
+    .unwrap();
+    let addr = reserve_loopback_addr();
+    let endpoint = format!("tcp://{addr}");
+    let auth = "debug-control-hmi-token";
+
+    let runtime = Runtime::new();
+    let mut adapter = DebugAdapter::new(DebugSession::new(runtime));
+    launch_debug_control_session(&mut adapter, &project_root, &endpoint, auth);
+
+    {
+        let runtime = adapter.session().runtime_handle();
+        let runtime = runtime.lock().unwrap();
+        adapter
+            .session()
+            .debug_control()
+            .refresh_snapshot_from_storage(runtime.storage(), runtime.current_time());
+    }
+
+    let schema = send_control_request(
+        addr,
+        auth,
+        serde_json::json!({
+            "id": 5,
+            "type": "hmi.schema.get"
+        }),
+    );
+    assert_control_ok(&schema, "hmi.schema.get");
+    let widgets = control_result(&schema)
+        .get("widgets")
+        .and_then(serde_json::Value::as_array)
+        .expect("hmi schema widgets");
+    let speed_id = widgets
+        .iter()
+        .find(|widget| widget.get("path").and_then(serde_json::Value::as_str) == Some("Main.speed"))
+        .and_then(|widget| widget.get("id"))
+        .and_then(serde_json::Value::as_str)
+        .expect("Main.speed widget should be in HMI schema")
+        .to_string();
+
+    let values = send_control_request(
+        addr,
+        auth,
+        serde_json::json!({
+            "id": 6,
+            "type": "hmi.values.get",
+            "params": { "ids": [speed_id] }
+        }),
+    );
+    assert_control_ok(&values, "hmi.values.get");
+    assert_eq!(
+        control_result(&values)
+            .get("connected")
+            .and_then(serde_json::Value::as_bool),
+        Some(true),
+        "hmi.values.get should be connected to the debug snapshot: {values}"
+    );
+    let value_record = control_result(&values)
+        .get("values")
+        .and_then(|entries| entries.get(&speed_id))
+        .expect("Main.speed value record");
+    assert_eq!(
+        value_record.get("q").and_then(serde_json::Value::as_str),
+        Some("good"),
+        "HMI value should come from the debug snapshot: {values}"
+    );
+    assert_eq!(
+        value_record.get("v").and_then(serde_json::Value::as_f64),
+        Some(1.5),
+        "HMI value should preserve the runtime value: {values}"
+    );
+
+    fs::remove_dir_all(&project_root).ok();
+}
+
 fn unique_project_root(label: &str) -> PathBuf {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
