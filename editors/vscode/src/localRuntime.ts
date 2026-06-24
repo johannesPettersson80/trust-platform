@@ -1,9 +1,13 @@
 import { execFile } from "child_process";
+import * as fs from "fs";
+import * as path from "path";
 import * as vscode from "vscode";
 
 import { getBinaryPath } from "./binary";
+import { setControlAuthToken } from "./runtimeAuth";
 import {
   isManagedLifecycleSuccess,
+  parseRuntimeControlAuthToken,
   toManagedRuntimes,
   type FleetListResponse,
   type FleetRuntimeStatusResponse,
@@ -104,7 +108,12 @@ export async function listManagedRuntimes(
       }
     })
   );
-  return toManagedRuntimes(list, statuses);
+  const managed = toManagedRuntimes(list, statuses).map((runtime) => ({
+    ...runtime,
+    projectPath: resolveManagedProjectPath(root, runtime.projectPath),
+  }));
+  await syncManagedRuntimeAuthTokens(managed);
+  return managed;
 }
 
 async function lifecycle(
@@ -130,10 +139,20 @@ async function lifecycle(
   }
   // HONEST: success only when the backend reports the REACHED state ("running"/"stopped"), not the
   // transient "starting"/"stopping" (process up but control not yet reachable / stop not complete).
+  const controlEndpoint = result.control_endpoint;
+  const projectPath = resolveManagedProjectPath(root, result.path);
+  if (controlEndpoint && projectPath) {
+    const token = readManagedRuntimeAuthToken(projectPath);
+    if (token) {
+      await setControlAuthToken(controlEndpoint, token);
+    }
+  }
   return {
     ok: isManagedLifecycleSuccess(action, result.status),
     status: result.status,
     message: result.message,
+    controlEndpoint,
+    projectPath,
   };
 }
 
@@ -174,4 +193,43 @@ export async function showManagedRuntimeLogs(
       logChannel?.append(stdout || stderr || `No logs available for ${name}.\n`);
     }
   );
+}
+
+function resolveManagedProjectPath(
+  fleetRoot: string,
+  runtimePath: string | undefined
+): string | undefined {
+  const normalized = (runtimePath ?? "").trim();
+  if (!normalized) {
+    return undefined;
+  }
+  return path.isAbsolute(normalized)
+    ? normalized
+    : path.join(fleetRoot, normalized);
+}
+
+async function syncManagedRuntimeAuthTokens(
+  runtimes: ReadonlyArray<ManagedRuntime>
+): Promise<void> {
+  await Promise.all(
+    runtimes.map(async (runtime) => {
+      if (!runtime.controlEndpoint || !runtime.projectPath) {
+        return;
+      }
+      const token = readManagedRuntimeAuthToken(runtime.projectPath);
+      if (!token) {
+        return;
+      }
+      await setControlAuthToken(runtime.controlEndpoint, token);
+    })
+  );
+}
+
+function readManagedRuntimeAuthToken(projectPath: string): string | undefined {
+  try {
+    const text = fs.readFileSync(path.join(projectPath, "runtime.toml"), "utf8");
+    return parseRuntimeControlAuthToken(text);
+  } catch {
+    return undefined;
+  }
 }

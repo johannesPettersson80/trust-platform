@@ -13,6 +13,7 @@ import {
   isManagedLifecycleSuccess,
   managedRuntimeLabel,
   normalizeManagedState,
+  parseRuntimeControlAuthToken,
   toManagedRuntimes,
 } from "../../localRuntimeModel";
 
@@ -231,20 +232,42 @@ suite("Managed local runtime model (Phase 9)", () => {
   test("toManagedRuntimes merges fleet list + per-name status", () => {
     const list = {
       runtimes: [
-        { name: "cell1", control_endpoint: "tcp://127.0.0.1:9902" },
-        { name: "cell2", control_endpoint: "tcp://127.0.0.1:9903" },
+        { name: "cell1", control_endpoint: "tcp://127.0.0.1:9902", path: "cell1" },
+        { name: "cell2", control_endpoint: "tcp://127.0.0.1:9903", path: "cell2" },
       ],
     };
     const statuses = new Map([
-      ["cell1", { status: "running", log_path: "/tmp/cell1.log" }],
+      [
+        "cell1",
+        { status: "running", path: "/fleet/cell1", log_path: "/tmp/cell1.log" },
+      ],
     ]);
     const managed = toManagedRuntimes(list, statuses);
     assert.strictEqual(managed.length, 2);
     assert.strictEqual(managed[0].name, "cell1");
     assert.strictEqual(managed[0].state, "running");
+    assert.strictEqual(managed[0].projectPath, "/fleet/cell1");
     assert.strictEqual(managed[0].logPath, "/tmp/cell1.log");
     // No status reported → stopped (honest default, never "running").
     assert.strictEqual(managed[1].state, "stopped");
+    assert.strictEqual(managed[1].projectPath, "cell2");
+  });
+
+  test("managed local runtime auth token is parsed only from runtime.control", () => {
+    const token = parseRuntimeControlAuthToken(`
+[runtime.control]
+endpoint = "tcp://127.0.0.1:9910"
+auth_token = "managed-secret" # local runtime token
+
+[mesh]
+auth_token = "mesh-secret"
+`);
+    assert.strictEqual(token, "managed-secret");
+    assert.strictEqual(
+      parseRuntimeControlAuthToken(`[mesh]\nauth_token = "mesh-secret"\n`),
+      undefined,
+      "must not import unrelated protocol secrets as runtime control tokens"
+    );
   });
 });
 

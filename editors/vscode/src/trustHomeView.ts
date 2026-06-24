@@ -260,7 +260,26 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
     }
     // Auto-reveal Live Values only when Start actually reached "running".
     if (selected.primary.action === "start") {
+      if (result.controlEndpoint) {
+        const connect = await runtimeLifecycleService.connectRemote(
+          result.controlEndpoint
+        );
+        if (!connect.ok) {
+          void vscode.window.showWarningMessage(actionFailureMessage(selected, connect));
+          return;
+        }
+      }
       void vscode.commands.executeCommand("trust-lsp.debug.openIoPanel");
+    } else if (selected.primary.action === "stop") {
+      const snapshot = await runtimeLifecycleService.snapshot();
+      if (
+        result.controlEndpoint &&
+        snapshot.status.runtimeMode === "online" &&
+        snapshot.status.runtimeState === "connected" &&
+        snapshot.status.endpoint === result.controlEndpoint
+      ) {
+        await runtimeLifecycleService.stopRuntime();
+      }
     }
   }
 

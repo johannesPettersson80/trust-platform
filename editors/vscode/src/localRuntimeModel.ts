@@ -9,6 +9,7 @@ export interface ManagedRuntime {
   readonly name: string;
   readonly controlEndpoint: string;
   readonly state: ManagedRuntimeState;
+  readonly projectPath?: string;
   readonly logPath?: string;
 }
 
@@ -25,6 +26,7 @@ export interface FleetListResponse {
 export interface FleetRuntimeStatusResponse {
   readonly name?: string;
   readonly status?: string; // "running" | "stopped" | "starting" | "stopping"
+  readonly path?: string;
   readonly control_endpoint?: string;
   readonly log_path?: string;
   readonly message?: string;
@@ -34,6 +36,8 @@ export interface ManagedLifecycleResult {
   readonly ok: boolean;
   readonly status?: string;
   readonly message?: string;
+  readonly controlEndpoint?: string;
+  readonly projectPath?: string;
 }
 
 // A managed Start/Stop is only HONESTLY successful when the backend reports the *reached* state:
@@ -68,7 +72,58 @@ export function toManagedRuntimes(
         name: entry.name,
         controlEndpoint: status?.control_endpoint ?? entry.control_endpoint ?? "",
         state: normalizeManagedState(status?.status),
+        projectPath: status?.path ?? entry.path,
         logPath: status?.log_path,
       };
     });
+}
+
+export function parseRuntimeControlAuthToken(text: string): string | undefined {
+  let section = "";
+  for (const raw of text.split(/\r?\n/)) {
+    const line = stripTomlInlineComment(raw).trim();
+    if (!line) {
+      continue;
+    }
+    if (line.startsWith("[") && line.endsWith("]")) {
+      section = line.slice(1, -1).trim();
+      continue;
+    }
+    if (section !== "runtime.control") {
+      continue;
+    }
+    const match = line.match(/^auth_token\s*=\s*(.+)$/);
+    if (!match) {
+      continue;
+    }
+    return parseTomlString(match[1]);
+  }
+  return undefined;
+}
+
+function stripTomlInlineComment(line: string): string {
+  let inSingle = false;
+  let inDouble = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i];
+    if (ch === "'" && !inDouble) {
+      inSingle = !inSingle;
+    } else if (ch === '"' && !inSingle) {
+      inDouble = !inDouble;
+    } else if (ch === "#" && !inSingle && !inDouble) {
+      return line.slice(0, i);
+    }
+  }
+  return line;
+}
+
+function parseTomlString(value: string): string | undefined {
+  const trimmed = value.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1).trim() || undefined;
+  }
+  return undefined;
 }

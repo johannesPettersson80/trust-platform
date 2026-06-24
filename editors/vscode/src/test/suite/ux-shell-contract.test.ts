@@ -472,8 +472,29 @@ suite("Phases 8–10 — honest backend gating (no fakes, no dead buttons)", () 
       "a selected managed runtime Start/Stop must drive the fleet lifecycle (we own it)"
     );
     assert.ok(
+      src.includes("runtimeLifecycleService.connectRemote") &&
+        src.includes("result.controlEndpoint"),
+      "managed Start must attach to the reached runtime endpoint so Live Values can write/force without manual token setup"
+    );
+    assert.ok(
       !/LOCAL_RUNTIME_SUPPORTED/.test(src),
       "the stale static local-runtime flag must be gone"
+    );
+  });
+
+  test("managed runtime tokens are imported into SecretStorage before attach", () => {
+    const src = readSrc("localRuntime.ts");
+    assert.ok(
+      src.includes("parseRuntimeControlAuthToken"),
+      "managed runtime token must be read from that runtime project's runtime.toml"
+    );
+    assert.ok(
+      src.includes("setControlAuthToken"),
+      "managed runtime token must be saved to SecretStorage, not plaintext settings"
+    );
+    assert.ok(
+      !/runtime\.controlAuthToken/.test(src),
+      "managed runtime token import must not write the legacy plaintext setting"
     );
   });
 });

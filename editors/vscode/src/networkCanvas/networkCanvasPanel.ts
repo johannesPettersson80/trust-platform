@@ -849,15 +849,37 @@ async function handleWebviewMessage(message: unknown): Promise<void> {
       {
         const name = typeof message.name === "string" ? message.name : "";
         if (extensionContext && name) {
+          const starting = message.type === "runtimeManagedStart";
           const result =
-            message.type === "runtimeManagedStop"
-              ? await stopManagedRuntime(extensionContext, name)
-              : await startManagedRuntime(extensionContext, name);
+            starting
+              ? await startManagedRuntime(extensionContext, name)
+              : await stopManagedRuntime(extensionContext, name);
           if (!result.ok) {
             void vscode.window.showWarningMessage(
               result.message ||
-                `Could not ${message.type === "runtimeManagedStop" ? "stop" : "start"} ${name}.`
+                `Could not ${starting ? "start" : "stop"} ${name}.`
             );
+          } else if (starting && result.controlEndpoint) {
+            const connect = await runtimeLifecycleService.connectRemote(
+              result.controlEndpoint
+            );
+            lastFailure = connect.ok ? undefined : connect.failure;
+            if (connect.ok) {
+              await setSelectedRuntimeId(name);
+            } else {
+              void vscode.window.showWarningMessage(
+                `Runtime started, but Live Values could not connect: ${connect.failure.message}`
+              );
+            }
+          } else if (!starting && result.controlEndpoint) {
+            const live = await runtimeLifecycleService.snapshot();
+            if (
+              live.status.runtimeMode === "online" &&
+              live.status.runtimeState === "connected" &&
+              live.status.endpoint === result.controlEndpoint
+            ) {
+              await runtimeLifecycleService.stopRuntime();
+            }
           }
         }
       }

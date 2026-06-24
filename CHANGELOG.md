@@ -270,6 +270,9 @@ Target release: `v0.24.25`
   value requests from the launch project and live debug snapshot, so VS Code's
   HMI Preview can render against a running simulator instead of timing out on
   `hmi.schema.get`.
+- vscode: managed local runtimes now import their generated control token into
+  SecretStorage and attach after a successful Start, so Live Values can read,
+  write, force, and release values without manual token setup.
 - trust-runtime: OPC UA server startup no longer aborts when the first runtime
   snapshot is not available yet; the server binds immediately and publishes
   exposed nodes after real snapshot evidence arrives. Runtime debug breakpoint
