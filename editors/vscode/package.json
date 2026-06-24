@@ -2304,6 +2304,11 @@
         "icon": "$(check-all)"
       },
       {
+        "command": "trust-lsp.opcua.clearTrustedCertificates",
+        "title": "Clear Trusted OPC UA Server Certificates",
+        "category": "truST"
+      },
+      {
         "command": "trust-lsp.ads.openPanel",
         "title": "Structured Text: Open ADS Devices",
         "category": "Structured Text"

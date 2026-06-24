@@ -37,7 +37,9 @@ const RECOMMENDED: Row[] = [
   { key: "modbus-local", protocol: "modbus_tcp", label: "Modbus", note: "origin's local subnet · connect-only" },
 ];
 const TARGETED: Row[] = [
-  { key: "opcua", protocol: "opcua", label: "OPC UA server", note: "at host", input: "host" },
+  // Discovering an external OPC-UA server to READ from is the opcua_client flow (the opcua server/
+  // expose flow no longer advertises discover). Label names the thing being found.
+  { key: "opcua", protocol: "opcua_client", label: "OPC UA server", note: "at host", input: "host" },
   { key: "mqtt", protocol: "mqtt", label: "MQTT broker", note: "at host", input: "host" },
   { key: "modbus-custom", protocol: "modbus_tcp", label: "Modbus (custom subnet)", note: "", input: "cidr" },
 ];

@@ -12,7 +12,7 @@ export interface BrowseAction {
   mode: "tags" | "expose";
   local: boolean; // browse truST's own globals (true) vs a remote device (false)
   route: boolean; // an ADS route is required first
-  kind: "symbols" | "channels";
+  kind: "symbols" | "channels" | "nodes";
 }
 
 export function browseAction(protocol: string): BrowseAction | undefined {
@@ -21,6 +21,10 @@ export function browseAction(protocol: string): BrowseAction | undefined {
       return { label: "Browse tags", title: "Browse tags", actionLabel: "Add tags", mode: "tags", local: false, route: true, kind: "symbols" };
     case "ethercat":
       return { label: "Browse channels", title: "Browse PDO channels", actionLabel: "Add channels", mode: "tags", local: false, route: false, kind: "channels" };
+    case "opcua_client":
+      // REMOTE browse of an external OPC-UA server's address space; pick nodes to read. Security/cert
+      // is handled via the structured browse error (not an ADS route), so route:false.
+      return { label: "Browse nodes", title: "Browse OPC UA nodes", actionLabel: "Add nodes", mode: "tags", local: false, route: false, kind: "nodes" };
     case "opcua":
     case "ads_server":
       // Only these carry an `expose` (json_array) field in comm.schema; OpenOT does not.

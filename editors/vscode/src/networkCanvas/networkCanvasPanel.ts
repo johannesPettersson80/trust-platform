@@ -460,6 +460,9 @@ async function handleBrowseSymbols(message: Record<string, unknown>): Promise<vo
     // §0.5.2: the route_plan carries ready-to-run AMS route setup scripts (no credentials) so the
     // canvas can show "Create route" instructions for the user to run on the TwinCAT.
     routePlan: result?.route?.route_plan,
+    // opcua_client: structured {code,message} failure → the canvas maps it to one recovery action
+    // (esp. the explicit cert-trust path). No secrets are included.
+    error: result?.error,
   });
 }
 
@@ -534,6 +537,40 @@ async function handleAddExpose(message: Record<string, unknown>): Promise<void> 
     await vscode.window.showWarningMessage(
       `Could not expose globals: ${
         errs ?? result?.message ?? "edit the server config in the inspector first."
+      }`
+    );
+  }
+}
+
+// opcua_client: save a browsed connection (endpoint + chosen security/auth + selected node points,
+// each with its real OPC-UA NodeId) to opcua_client.toml via comm.apply. Honest lifecycle — a file
+// write never claims the connection is live; the runtime turns it green only on real reads.
+async function handleAddOpcuaConnection(message: Record<string, unknown>): Promise<void> {
+  const connection = message.connection as Record<string, unknown> | undefined;
+  const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!extensionContext || !projectDir || !connection) {
+    return;
+  }
+  const points = Array.isArray(connection.points) ? connection.points.length : 0;
+  const result = await offlineCommApply(
+    extensionContext,
+    projectDir,
+    "opcua_client",
+    { enabled: true, connections: [connection] },
+    "add"
+  );
+  if (result?.applied) {
+    await vscode.window.showInformationMessage(
+      `Added OPC UA client connection with ${points} node(s).${
+        result.lifecycle_effect === "restart_required" ? " Restart the runtime to read it." : ""
+      }`
+    );
+    await refreshNetworkCanvasPanel();
+  } else {
+    const errs = result?.field_errors?.map((e) => e.message).join("; ");
+    await vscode.window.showWarningMessage(
+      `Could not save the OPC UA client connection: ${
+        errs ?? result?.message ?? "check the endpoint and try again."
       }`
     );
   }
@@ -721,6 +758,9 @@ async function handleWebviewMessage(message: unknown): Promise<void> {
       break;
     case "addExpose":
       await handleAddExpose(message);
+      break;
+    case "addOpcuaConnection":
+      await handleAddOpcuaConnection(message);
       break;
     case "copyText":
       if (typeof message.text === "string" && message.text.length > 0) {

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import type { RoutePlan, SymbolNode } from "../offlineComm";
+import type { OpcuaErrorView } from "./opcuaClientModel";
 
 // §0.5.2 Browse tags/signals — look INSIDE a target (e.g. an ADS PLC's symbol table). Searchable
 // tree, multi-select, read-only by default (writes need an explicit toggle). For ADS, "Add tags"
@@ -12,8 +13,10 @@ export function BrowseTagsPanel({
   tree,
   routeMissing,
   routePlan,
+  error,
   loading,
   onCreateRoute,
+  onTrustCertificate,
   onCopy,
   onAddTags,
   onClose,
@@ -24,8 +27,10 @@ export function BrowseTagsPanel({
   tree: SymbolNode[] | undefined;
   routeMissing: boolean;
   routePlan?: RoutePlan;
+  error?: OpcuaErrorView; // opcua_client structured browse failure (cert/auth/security/unreachable)
   loading: boolean;
   onCreateRoute: () => void;
+  onTrustCertificate?: () => void; // explicit cert-trust + re-browse (opcua_client)
   onCopy: (text: string) => void;
   onAddTags: (paths: string[], writable: boolean) => void;
   onClose: () => void;
@@ -75,7 +80,7 @@ export function BrowseTagsPanel({
     <div key={n.id} style={{ ...ROW, paddingLeft: 8 + depth * 14 }}>
       <input type="checkbox" checked={selected.has(n.path)} onChange={() => toggleSel(n.path)} style={{ flex: "none" }} />
       <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: "#eef1f5", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.name}</span>
-      {n.type && <span style={{ flex: "none", fontSize: 10, color: "#7f8794" }}>{n.type}</span>}
+      {(n.data_type || n.type) && <span style={{ flex: "none", fontSize: 10, color: "#7f8794" }}>{n.data_type || n.type}</span>}
       {n.writable === false && <span title="read-only on the device" style={{ flex: "none", fontSize: 9, color: "#6a7280" }}>rd</span>}
     </div>
   );
@@ -112,7 +117,16 @@ export function BrowseTagsPanel({
         </div>
       )}
 
-      {!routeMissing && (
+      {error && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "rgba(224,179,65,.12)", borderBottom: "1px solid rgba(224,179,65,.4)" }}>
+          <span style={{ flex: 1, fontSize: 11.5, color: "#f0d8a0" }}>⚠ {error.title} — {error.detail}</span>
+          {error.action === "trust" && onTrustCertificate && (
+            <button onClick={onTrustCertificate} style={ROUTEBTN}>Trust certificate</button>
+          )}
+        </div>
+      )}
+
+      {!routeMissing && !error && (
         <div style={{ padding: "9px 14px", borderBottom: "1px solid #2a2f3a" }}>
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search symbols" style={SEARCH} />
         </div>

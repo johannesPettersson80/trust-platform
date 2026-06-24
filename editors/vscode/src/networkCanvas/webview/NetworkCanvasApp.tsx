@@ -27,6 +27,12 @@ import { DiscoverPane, type DiscoverRequest, type DiscoverProgressRow } from "./
 import { BrowseTagsPanel } from "./BrowseTagsPanel";
 import { browseAction } from "./browseActions";
 import type { DiscoverCandidate, RoutePlan, SymbolNode } from "../offlineComm";
+import {
+  buildOpcuaConnection,
+  classifyOpcuaBrowseError,
+  selectedLeaves,
+  type OpcuaErrorView,
+} from "./opcuaClientModel";
 import { EditModeContext, type AddSlotRequest } from "./editMode";
 import { FilterPanel } from "./FilterPanel";
 import { applyFilter, protocolsInGraph } from "./filter";
@@ -77,6 +83,8 @@ function Canvas() {
   const [browseTree, setBrowseTree] = useState<SymbolNode[] | undefined>(undefined);
   const [browseRouteMissing, setBrowseRouteMissing] = useState(false);
   const [browseRoutePlan, setBrowseRoutePlan] = useState<RoutePlan | undefined>(undefined);
+  // opcua_client: a structured browse failure mapped to one recovery action (esp. cert-trust).
+  const [browseError, setBrowseError] = useState<OpcuaErrorView | undefined>(undefined);
   const [browseLoading, setBrowseLoading] = useState(false);
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
   const [draft, setDraft] = useState<{ runtimeId: string; runtimeName: string; protocol: string; prefillParams?: Record<string, unknown> } | undefined>(undefined);
@@ -172,6 +180,11 @@ function Canvas() {
         setBrowseTree(Array.isArray(msg.tree) ? (msg.tree as SymbolNode[]) : []);
         setBrowseRouteMissing(Boolean(msg.routeMissing));
         setBrowseRoutePlan(msg.routePlan as RoutePlan | undefined);
+        setBrowseError(
+          msg.error
+            ? classifyOpcuaBrowseError(msg.error as { code?: string; message?: string })
+            : undefined
+        );
         setBrowseLoading(false);
       }
     };
@@ -325,6 +338,7 @@ function Canvas() {
       setBrowseTree(undefined);
       setBrowseRouteMissing(false);
       setBrowseRoutePlan(undefined);
+      setBrowseError(undefined);
       setBrowseLoading(true);
       post({ type: "browseSymbols", protocol, target: tgt, kind: action.kind });
     },
@@ -371,6 +385,19 @@ function Canvas() {
     },
     [openBrowse]
   );
+  // opcua_client: explicit cert-trust path — re-browse the same endpoint with trust_server_certificate
+  // set, and carry it into the saved connection. Never auto-trusts; only on the user's click.
+  const onTrustCertificate = useCallback(() => {
+    if (!browseTags) {
+      return;
+    }
+    const target = { ...browseTags.target, trust_server_certificate: true };
+    setBrowseTags({ ...browseTags, target });
+    setBrowseTree(undefined);
+    setBrowseError(undefined);
+    setBrowseLoading(true);
+    post({ type: "browseSymbols", protocol: browseTags.protocol, target, kind: "nodes" });
+  }, [post, browseTags]);
   const onCreateRoute = useCallback(() => {
     if (browseTags) {
       post({ type: "createRoute", protocol: browseTags.protocol, target: browseTags.target });
@@ -380,12 +407,26 @@ function Canvas() {
   const onAddTags = useCallback(
     (paths: string[], writable: boolean) => {
       if (browseTags && paths.length > 0) {
-        const type = browseTags.mode === "expose" ? "addExpose" : "addTags";
-        post({ type, protocol: browseTags.protocol, target: browseTags.target, paths, writable });
+        if (browseTags.protocol === "opcua_client") {
+          // Map the selected browse leaves → a connection with points (var/node_id/type/access),
+          // carrying the endpoint + chosen security/auth/trust from the browse target.
+          const connection = buildOpcuaConnection(
+            browseTags.target,
+            browseTags.label,
+            selectedLeaves(browseTree, new Set(paths)),
+            writable
+          );
+          if (connection) {
+            post({ type: "addOpcuaConnection", connection });
+          }
+        } else {
+          const type = browseTags.mode === "expose" ? "addExpose" : "addTags";
+          post({ type, protocol: browseTags.protocol, target: browseTags.target, paths, writable });
+        }
       }
       setBrowseTags(undefined);
     },
-    [post, browseTags]
+    [post, browseTags, browseTree]
   );
 
   const fault = graph.faults[0];
@@ -716,8 +757,10 @@ function Canvas() {
             tree={browseTree}
             routeMissing={browseRouteMissing}
             routePlan={browseRoutePlan}
+            error={browseError}
             loading={browseLoading}
             onCreateRoute={onCreateRoute}
+            onTrustCertificate={onTrustCertificate}
             onCopy={onCopy}
             onAddTags={onAddTags}
             onClose={() => setBrowseTags(undefined)}
