@@ -120,9 +120,13 @@ export interface DiscoverResponse {
 // §0.5.3 `comm.browse_symbols` — look INSIDE a target: its tags/nodes/channels.
 export interface SymbolNode {
   id: string;
+  // Raw OPC-UA NodeId (e.g. "ns=2;i=1") — round-trips into comm.apply. The sanitized `id` is for
+  // React keys only and is NOT reversible to the NodeId. Present for opcua_client browse leaves.
+  node_id?: string;
   name: string;
   path: string;
-  type?: string;
+  type?: string; // raw protocol type (OPC-UA: the DataType NodeId, e.g. "i=11")
+  data_type?: string; // resolved/apply-ready type (OPC-UA: e.g. "double")
   size?: number;
   writable?: boolean;
   children?: SymbolNode[];
@@ -148,6 +152,9 @@ export interface BrowseSymbolsResponse {
   protocol: string;
   // ADS route status on a LIVE browse; `status:"missing"` → offer "Create route" (carries route_plan).
   route?: { status?: string; route_plan?: RoutePlan };
+  // Structured browse failure (opcua_client): code ∈ cert_untrusted | auth_required |
+  // endpoint_unreachable | browse_denied | unsupported_security_profile. Drives the recovery action.
+  error?: { code: string; message: string };
   tree: SymbolNode[];
 }
 

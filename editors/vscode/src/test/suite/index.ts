@@ -17,6 +17,7 @@ export function run(): Promise<void> {
   require("./lm-tools-contract.test");
   require("./runtime-controls-contract.test");
   require("./ux-shell-contract.test");
+  require("./opcua-client-model.test");
   require("./new-project.test");
   require("./plcopen-export.test");
   require("./plcopen-import.test");
