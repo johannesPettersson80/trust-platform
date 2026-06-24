@@ -10,6 +10,7 @@ import {
 } from "./hmi-panel/layout";
 import { resolveWidgetLocation } from "./hmi-panel/navigation";
 import { createControlRequestSender, runtimeEndpointSettings } from "./hmi-panel/transport";
+import { localSimControl } from "./simControl";
 import type {
   ControlRequestHandler,
   HmiSchemaResult,
@@ -291,7 +292,7 @@ async function handleTrustTwinInteractionMessage(payload: unknown): Promise<void
     setStatus("3D interaction rejected: hmi.write requires Engineer role.");
     return;
   }
-  const endpointSettings = runtimeEndpointSettings();
+  const endpointSettings = effectiveEndpoint();
   try {
     await controlRequest(
       endpointSettings.endpoint,
@@ -310,8 +311,18 @@ async function handleTrustTwinInteractionMessage(payload: unknown): Promise<void
   }
 }
 
+// Prefer the running local simulator's per-workspace endpoint (the same one the debug session and
+// Network Canvas use, e.g. /tmp/trust-debug-<hash>.sock) so the HMI preview connects to the LIVE
+// sim — not the default control endpoint (/tmp/trust-debug.sock), which nothing serves. Falls back
+// to the configured endpoint for a real remote/managed runtime.
+function effectiveEndpoint(): ReturnType<typeof runtimeEndpointSettings> {
+  const base = runtimeEndpointSettings();
+  const sim = localSimControl(pickWorkspaceFolder()?.uri.fsPath);
+  return sim ? { ...base, endpoint: sim.endpoint, authToken: sim.authToken } : base;
+}
+
 async function refreshSchema(): Promise<void> {
-  const endpointSettings = runtimeEndpointSettings();
+  const endpointSettings = effectiveEndpoint();
   try {
     const raw = await controlRequest(
       endpointSettings.endpoint,
@@ -334,7 +345,14 @@ async function refreshSchema(): Promise<void> {
     await pollValues();
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
-    setStatus(`HMI schema request failed: ${detail}`);
+    // Never surface a raw socket error to the user (F-05). A connection failure on the live-sim
+    // endpoint just means the runtime isn't running yet.
+    const cannotConnect = /ECONNREFUSED|ENOENT|connect|refused|not running/i.test(detail);
+    setStatus(
+      cannotConnect
+        ? "Start the runtime to see live HMI data."
+        : `Could not load the HMI: ${detail}`
+    );
   }
 }
 
@@ -430,7 +448,7 @@ async function pollValues(force = false): Promise<void> {
   if (!panel || !effectiveSchema || (!force && !panel.visible)) {
     return;
   }
-  const endpointSettings = runtimeEndpointSettings();
+  const endpointSettings = effectiveEndpoint();
   const ids = effectiveSchema.widgets.map((widget) => widget.id);
   if (ids.length === 0) {
     return;
