@@ -89,6 +89,12 @@ export function parseRuntimeControlAuthToken(text: string): string | undefined {
       section = line.slice(1, -1).trim();
       continue;
     }
+    if (section === "") {
+      const dotted = line.match(/^runtime\.control\.auth_token\s*=\s*(.+)$/);
+      if (dotted) {
+        return parseTomlString(dotted[1]);
+      }
+    }
     if (section !== "runtime.control") {
       continue;
     }

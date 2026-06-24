@@ -273,6 +273,11 @@ Target release: `v0.24.25`
 - vscode: managed local runtimes now import their generated control token into
   SecretStorage and attach after a successful Start, so Live Values can read,
   write, force, and release values without manual token setup.
+- trust-debug/vscode: Live Values Force and Release now use attach-safe
+  debug-adapter I/O requests for managed and remote runtimes instead of
+  `setExpression`, and managed-runtime token import now accepts both table and
+  dotted `runtime.control.auth_token` TOML forms without rewriting the same
+  SecretStorage entry on every refresh.
 - trust-runtime: OPC UA server startup no longer aborts when the first runtime
   snapshot is not available yet; the server binds immediately and publishes
   exposed nodes after real snapshot evidence arrives. Runtime debug breakpoint

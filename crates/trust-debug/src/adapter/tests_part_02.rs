@@ -245,6 +245,95 @@ fn attach_set_expression_forwards_remote_io_force_and_release() {
 }
 
 #[test]
+fn attach_st_io_force_and_release_forward_remote_io_force_and_release() {
+    let (addr, requests, server) = spawn_remote_io_force_server();
+    let runtime = Runtime::new();
+    let mut adapter = DebugAdapter::new(DebugSession::new(runtime));
+    adapter.remote_session = Some(
+        super::super::remote::RemoteSession::connect(
+            super::super::remote::RemoteEndpoint::Tcp(addr),
+            Some("token".to_string()),
+        )
+        .expect("remote session should connect"),
+    );
+
+    let force = Request {
+        seq: 1,
+        message_type: MessageType::Request,
+        command: "stIoForce".to_string(),
+        arguments: Some(
+            serde_json::to_value(IoWriteArguments {
+                address: "%QX0.0".to_string(),
+                value: "TRUE".to_string(),
+            })
+            .unwrap(),
+        ),
+    };
+    let outcome = adapter.dispatch_request(force);
+    assert_eq!(outcome.responses.len(), 1);
+    assert_eq!(outcome.events.len(), 1);
+    let response: Response<serde_json::Value> =
+        serde_json::from_value(outcome.responses[0].clone()).unwrap();
+    assert!(
+        response.success,
+        "stIoForce failed in attach mode: {:?}",
+        response.message
+    );
+    let event: Event<IoStateEventBody> = serde_json::from_value(outcome.events[0].clone()).unwrap();
+    assert!(event
+        .body
+        .unwrap()
+        .outputs
+        .iter()
+        .any(|entry| entry.address == "%QX0.0" && entry.forced));
+
+    let release = Request {
+        seq: 2,
+        message_type: MessageType::Request,
+        command: "stIoRelease".to_string(),
+        arguments: Some(
+            serde_json::to_value(IoReleaseArguments {
+                address: "%QX0.0".to_string(),
+            })
+            .unwrap(),
+        ),
+    };
+    let outcome = adapter.dispatch_request(release);
+    assert_eq!(outcome.responses.len(), 1);
+    assert_eq!(outcome.events.len(), 1);
+    let response: Response<serde_json::Value> =
+        serde_json::from_value(outcome.responses[0].clone()).unwrap();
+    assert!(
+        response.success,
+        "stIoRelease failed in attach mode: {:?}",
+        response.message
+    );
+    let event: Event<IoStateEventBody> = serde_json::from_value(outcome.events[0].clone()).unwrap();
+    assert!(event
+        .body
+        .unwrap()
+        .outputs
+        .iter()
+        .any(|entry| entry.address == "%QX0.0" && !entry.forced));
+
+    drop(adapter);
+    server.join().expect("server should stop cleanly");
+    let seen = requests.lock().expect("requests").clone();
+    let types = seen
+        .iter()
+        .filter_map(|request| request.get("type").and_then(serde_json::Value::as_str))
+        .collect::<Vec<_>>();
+    assert!(
+        types.contains(&"io.force"),
+        "stIoForce should call io.force: {types:?}"
+    );
+    assert!(
+        types.contains(&"io.unforce"),
+        "stIoRelease should call io.unforce: {types:?}"
+    );
+}
+
+#[test]
 fn dispatch_set_expression_force_supports_direct_instance_field_live() {
     let mut runtime = Runtime::new();
     let instance_id = runtime.storage_mut().create_instance("MAIN_T");

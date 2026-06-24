@@ -37,6 +37,10 @@ import {
   stopManagedRuntime,
 } from "../localRuntime";
 import {
+  attachManagedRuntimeAfterStart,
+  disconnectManagedRuntimeAfterStop,
+} from "../managedRuntimeSession";
+import {
   fetchAndMergeFleetTopologies,
   fetchFleetTopology,
   type FleetTopologyResponse,
@@ -859,27 +863,16 @@ async function handleWebviewMessage(message: unknown): Promise<void> {
               result.message ||
                 `Could not ${starting ? "start" : "stop"} ${name}.`
             );
-          } else if (starting && result.controlEndpoint) {
-            const connect = await runtimeLifecycleService.connectRemote(
-              result.controlEndpoint
-            );
-            lastFailure = connect.ok ? undefined : connect.failure;
-            if (connect.ok) {
-              await setSelectedRuntimeId(name);
-            } else {
+          } else if (starting) {
+            const attach = await attachManagedRuntimeAfterStart(name, result);
+            lastFailure = undefined;
+            if (!attach.ok) {
               void vscode.window.showWarningMessage(
-                `Runtime started, but Live Values could not connect: ${connect.failure.message}`
+                attach.message || `Runtime started, but Live Values could not connect.`
               );
             }
-          } else if (!starting && result.controlEndpoint) {
-            const live = await runtimeLifecycleService.snapshot();
-            if (
-              live.status.runtimeMode === "online" &&
-              live.status.runtimeState === "connected" &&
-              live.status.endpoint === result.controlEndpoint
-            ) {
-              await runtimeLifecycleService.stopRuntime();
-            }
+          } else {
+            await disconnectManagedRuntimeAfterStop(result);
           }
         }
       }

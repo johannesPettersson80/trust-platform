@@ -62,6 +62,12 @@ type IoCommandArgs = {
   value?: string;
 };
 
+export type IoDebugAction = "write" | "force" | "release";
+
+export interface IoDebugRequestSession {
+  customRequest(command: string, args?: unknown): Thenable<unknown>;
+}
+
 type ExpressionCommandArgs = {
   expression?: string;
   value?: string;
@@ -114,6 +120,40 @@ function normalizeExpressionCommandArgs(args: unknown[]): ExpressionCommandArgs 
     expression: typeof first === "string" ? first.trim() : undefined,
     value: typeof args[1] === "string" ? args[1] : undefined,
   };
+}
+
+export async function __testSendIoDebugRequest(
+  session: IoDebugRequestSession,
+  action: IoDebugAction,
+  address: string,
+  value?: string
+): Promise<void> {
+  await sendIoDebugRequest(session, action, address, value);
+}
+
+async function sendIoDebugRequest(
+  session: IoDebugRequestSession,
+  action: IoDebugAction,
+  address: string,
+  value?: string
+): Promise<void> {
+  switch (action) {
+    case "write":
+      await session.customRequest("stIoWrite", {
+        address,
+        value: value ?? "FALSE",
+      });
+      return;
+    case "force":
+      await session.customRequest("stIoForce", {
+        address,
+        value: value ?? "FALSE",
+      });
+      return;
+    case "release":
+      await session.customRequest("stIoRelease", { address });
+      return;
+  }
 }
 
 function resolveAdapterCommand(
@@ -585,10 +625,7 @@ export function registerDebugAdapter(
         if (!session) {
           throw new Error("No active Structured Text debug session.");
         }
-        await session.customRequest("stIoWrite", {
-          address,
-          value: value ?? "FALSE",
-        });
+        await sendIoDebugRequest(session, "write", address, value);
       }
     )
   );
@@ -605,10 +642,7 @@ export function registerDebugAdapter(
         if (!session) {
           throw new Error("No active Structured Text debug session.");
         }
-        await session.customRequest("setExpression", {
-          expression: address,
-          value: `force: ${value ?? "FALSE"}`,
-        });
+        await sendIoDebugRequest(session, "force", address, value);
       }
     )
   );
@@ -625,10 +659,7 @@ export function registerDebugAdapter(
         if (!session) {
           throw new Error("No active Structured Text debug session.");
         }
-        await session.customRequest("setExpression", {
-          expression: address,
-          value: "release",
-        });
+        await sendIoDebugRequest(session, "release", address);
       }
     )
   );

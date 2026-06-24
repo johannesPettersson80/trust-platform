@@ -269,6 +269,22 @@ auth_token = "mesh-secret"
       "must not import unrelated protocol secrets as runtime control tokens"
     );
   });
+
+  test("managed local runtime auth token parser accepts top-level dotted runtime.control form", () => {
+    const token = parseRuntimeControlAuthToken(`
+runtime.control.endpoint = "tcp://127.0.0.1:9910"
+runtime.control.auth_token = "managed-dotted-secret" # local runtime token
+
+[mesh]
+auth_token = "mesh-secret"
+`);
+    assert.strictEqual(token, "managed-dotted-secret");
+    assert.strictEqual(
+      parseRuntimeControlAuthToken(`[mesh]\nruntime.control.auth_token = "wrong"\n`),
+      undefined,
+      "dotted runtime.control auth_token inside another table must not be imported"
+    );
+  });
 });
 
 suite("Canvas runtime-node controls — honest per-runtime lifecycle (§8 P3b)", () => {

@@ -3,6 +3,7 @@ import * as vscode from "vscode";
 
 import {
   __testCreateDefaultConfigurationAuto,
+  __testSendIoDebugRequest,
   selectWorkspaceFolderPathForMode,
 } from "../../debug";
 import {
@@ -245,6 +246,30 @@ suite("Debug/IO DRY flows", function () {
           })
         ),
       /No active Structured Text debug session/
+    );
+  });
+
+  test("unit: Live Values I/O force/release use attach-safe custom requests", async () => {
+    const calls: Array<{ command: string; args?: unknown }> = [];
+    const session = {
+      customRequest: async (command: string, args?: unknown) => {
+        calls.push({ command, args });
+        return undefined;
+      },
+    };
+
+    await __testSendIoDebugRequest(session, "write", "%IX0.0", "TRUE");
+    await __testSendIoDebugRequest(session, "force", "%QX0.0", "TRUE");
+    await __testSendIoDebugRequest(session, "release", "%QX0.0");
+
+    assert.deepStrictEqual(calls, [
+      { command: "stIoWrite", args: { address: "%IX0.0", value: "TRUE" } },
+      { command: "stIoForce", args: { address: "%QX0.0", value: "TRUE" } },
+      { command: "stIoRelease", args: { address: "%QX0.0" } },
+    ]);
+    assert.ok(
+      calls.every((call) => call.command !== "setExpression"),
+      "Live Values I/O commands must not use setExpression in attach mode"
     );
   });
 

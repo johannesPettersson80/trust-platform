@@ -24,6 +24,11 @@ const changeEmitter = new vscode.EventEmitter<void>();
 export const onDidChangeManagedRuntimes = changeEmitter.event;
 
 let logChannel: vscode.OutputChannel | undefined;
+const runtimeAuthTokenCache = new Map<
+  string,
+  { readonly mtimeMs: number; readonly token?: string }
+>();
+const importedRuntimeAuthTokens = new Map<string, string>();
 
 export function registerLocalRuntime(context: vscode.ExtensionContext): void {
   context.subscriptions.push(changeEmitter);
@@ -143,8 +148,9 @@ async function lifecycle(
   const projectPath = resolveManagedProjectPath(root, result.path);
   if (controlEndpoint && projectPath) {
     const token = readManagedRuntimeAuthToken(projectPath);
-    if (token) {
+    if (token && importedRuntimeAuthTokens.get(controlEndpoint) !== token) {
       await setControlAuthToken(controlEndpoint, token);
+      importedRuntimeAuthTokens.set(controlEndpoint, token);
     }
   }
   return {
@@ -220,16 +226,29 @@ async function syncManagedRuntimeAuthTokens(
       if (!token) {
         return;
       }
+      if (importedRuntimeAuthTokens.get(runtime.controlEndpoint) === token) {
+        return;
+      }
       await setControlAuthToken(runtime.controlEndpoint, token);
+      importedRuntimeAuthTokens.set(runtime.controlEndpoint, token);
     })
   );
 }
 
 function readManagedRuntimeAuthToken(projectPath: string): string | undefined {
+  const runtimeToml = path.join(projectPath, "runtime.toml");
   try {
-    const text = fs.readFileSync(path.join(projectPath, "runtime.toml"), "utf8");
-    return parseRuntimeControlAuthToken(text);
+    const stat = fs.statSync(runtimeToml);
+    const cached = runtimeAuthTokenCache.get(projectPath);
+    if (cached && cached.mtimeMs === stat.mtimeMs) {
+      return cached.token;
+    }
+    const text = fs.readFileSync(runtimeToml, "utf8");
+    const token = parseRuntimeControlAuthToken(text);
+    runtimeAuthTokenCache.set(projectPath, { mtimeMs: stat.mtimeMs, token });
+    return token;
   } catch {
+    runtimeAuthTokenCache.delete(projectPath);
     return undefined;
   }
 }

@@ -7,11 +7,12 @@ use super::*;
 use crate::protocol::{
     BreakpointLocationsArguments, BreakpointLocationsResponseBody, ContinueArguments,
     EvaluateArguments, EvaluateResponseBody, Event, InitializeArguments, InitializeResponseBody,
-    IoStateEventBody, IoWriteArguments, MessageType, NextArguments, PauseArguments, Request,
-    Response, ScopesArguments, ScopesResponseBody, SetBreakpointsArguments,
-    SetBreakpointsResponseBody, SetExpressionArguments, SetExpressionResponseBody, Source,
-    SourceBreakpoint, StackTraceArguments, StackTraceResponseBody, StepInArguments,
-    StepOutArguments, ThreadsResponseBody, VariablesArguments, VariablesResponseBody,
+    IoReleaseArguments, IoStateEventBody, IoWriteArguments, MessageType, NextArguments,
+    PauseArguments, Request, Response, ScopesArguments, ScopesResponseBody,
+    SetBreakpointsArguments, SetBreakpointsResponseBody, SetExpressionArguments,
+    SetExpressionResponseBody, Source, SourceBreakpoint, StackTraceArguments,
+    StackTraceResponseBody, StepInArguments, StepOutArguments, ThreadsResponseBody,
+    VariablesArguments, VariablesResponseBody,
 };
 use crate::DebugSession;
 use indexmap::IndexMap;

@@ -160,6 +160,13 @@ pub struct IoWriteArguments {
     pub value: String,
 }
 
+/// Arguments for custom `stIoRelease` requests.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct IoReleaseArguments {
+    pub address: String,
+}
+
 /// Supported variable write actions for custom panels.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]

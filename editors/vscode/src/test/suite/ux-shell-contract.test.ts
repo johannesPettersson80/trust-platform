@@ -472,9 +472,14 @@ suite("Phases 8–10 — honest backend gating (no fakes, no dead buttons)", () 
       "a selected managed runtime Start/Stop must drive the fleet lifecycle (we own it)"
     );
     assert.ok(
-      src.includes("runtimeLifecycleService.connectRemote") &&
-        src.includes("result.controlEndpoint"),
-      "managed Start must attach to the reached runtime endpoint so Live Values can write/force without manual token setup"
+      src.includes("attachManagedRuntimeAfterStart"),
+      "managed Start must use the shared attach helper so Live Values can write/force without manual token setup"
+    );
+    const helper = readSrc("managedRuntimeSession.ts");
+    assert.ok(
+      helper.includes("runtimeLifecycleService.connectRemote(result.controlEndpoint)") &&
+        helper.includes("setSelectedRuntimeId(name)"),
+      "the shared managed-runtime attach helper must attach to the reached endpoint and set the Run target"
     );
     assert.ok(
       !/LOCAL_RUNTIME_SUPPORTED/.test(src),

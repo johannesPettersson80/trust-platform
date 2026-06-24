@@ -17,6 +17,8 @@ impl DebugAdapter {
             "breakpointLocations" => self.handle_breakpoint_locations(request),
             "stIoState" => self.handle_io_state(request),
             "stIoWrite" => self.handle_io_write(request),
+            "stIoForce" => self.handle_io_force(request),
+            "stIoRelease" => self.handle_io_release(request),
             "stVarState" => self.handle_var_state(request),
             "stVarWrite" => self.handle_var_write(request),
             "stReload" => self.handle_reload(request),

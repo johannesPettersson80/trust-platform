@@ -1,5 +1,5 @@
 //! IO state + write handling.
-//! - handle_io_state/handle_io_write: DAP custom requests
+//! - handle_io_state/handle_io_write/handle_io_force/handle_io_release: DAP custom requests
 //! - build_io_state/update_io_cache_for_write: cached IO events
 //! - resolve_io_address*: map labels/addresses to IoAddress
 //! - io_type_id/parse_io_value: typing helpers
@@ -13,7 +13,9 @@ use trust_runtime::io::{IoAddress, IoSize, IoSnapshot, IoSnapshotEntry, IoSnapsh
 use trust_runtime::memory::IoArea;
 use trust_runtime::value::Value as RuntimeValue;
 
-use crate::protocol::{IoStateEntry, IoStateEventBody, IoWriteArguments, Request};
+use crate::protocol::{
+    IoReleaseArguments, IoStateEntry, IoStateEventBody, IoWriteArguments, Request,
+};
 
 use super::variables::format_value;
 use super::{DebugAdapter, DispatchOutcome};
@@ -163,6 +165,174 @@ impl DebugAdapter {
         }
     }
 
+    pub(super) fn handle_io_force(&mut self, request: Request<Value>) -> DispatchOutcome {
+        let Some(args) = request
+            .arguments
+            .clone()
+            .and_then(|value| serde_json::from_value::<IoWriteArguments>(value).ok())
+        else {
+            return DispatchOutcome {
+                responses: vec![self.error_response(&request, "invalid stIoForce args")],
+                ..DispatchOutcome::default()
+            };
+        };
+
+        if self.remote_session.is_some() {
+            let address = match self.resolve_remote_io_address(&args.address) {
+                Ok(address) => address,
+                Err(message) => {
+                    return DispatchOutcome {
+                        responses: vec![self.error_response(&request, &message)],
+                        ..DispatchOutcome::default()
+                    };
+                }
+            };
+            let address_text = format_io_address(&address);
+            let response = self
+                .remote_session
+                .as_mut()
+                .expect("remote session checked")
+                .io_force(&address_text, &args.value);
+            return match response {
+                Ok(()) => {
+                    self.set_io_forced(&address, true);
+                    DispatchOutcome {
+                        responses: vec![self.ok_response::<Value>(&request, None)],
+                        events: self.refreshed_remote_io_state_event(),
+                        ..DispatchOutcome::default()
+                    }
+                }
+                Err(err) => DispatchOutcome {
+                    responses: vec![self.error_response(&request, &err.to_string())],
+                    ..DispatchOutcome::default()
+                },
+            };
+        }
+
+        let runtime_handle = self.session.runtime_handle();
+        let mut runtime = match runtime_handle.try_lock() {
+            Ok(guard) => guard,
+            Err(std::sync::TryLockError::Poisoned(poisoned)) => poisoned.into_inner(),
+            Err(std::sync::TryLockError::WouldBlock) => {
+                return DispatchOutcome {
+                    responses: vec![self.error_response(&request, "runtime busy")],
+                    ..DispatchOutcome::default()
+                };
+            }
+        };
+
+        let address = match resolve_io_address(&runtime, &args.address) {
+            Ok(address) => address,
+            Err(message) => {
+                return DispatchOutcome {
+                    responses: vec![self.error_response(&request, &message)],
+                    ..DispatchOutcome::default()
+                }
+            }
+        };
+        let value = match parse_io_value(&address, &args.value) {
+            Ok(value) => value,
+            Err(message) => {
+                return DispatchOutcome {
+                    responses: vec![self.error_response(&request, &message)],
+                    ..DispatchOutcome::default()
+                };
+            }
+        };
+
+        self.session
+            .debug_control()
+            .force_io(address.clone(), value.clone());
+        self.set_io_forced(&address, true);
+        if let Err(err) = runtime.io_mut().write(&address, value.clone()) {
+            return DispatchOutcome {
+                responses: vec![self.error_response(&request, &err.to_string())],
+                ..DispatchOutcome::default()
+            };
+        }
+        let body = self.update_io_cache_for_write(address, value);
+        DispatchOutcome {
+            responses: vec![self.ok_response::<Value>(&request, None)],
+            events: vec![self.event("stIoState", Some(body))],
+            ..DispatchOutcome::default()
+        }
+    }
+
+    pub(super) fn handle_io_release(&mut self, request: Request<Value>) -> DispatchOutcome {
+        let Some(args) = request
+            .arguments
+            .clone()
+            .and_then(|value| serde_json::from_value::<IoReleaseArguments>(value).ok())
+        else {
+            return DispatchOutcome {
+                responses: vec![self.error_response(&request, "invalid stIoRelease args")],
+                ..DispatchOutcome::default()
+            };
+        };
+
+        if self.remote_session.is_some() {
+            let address = match self.resolve_remote_io_address(&args.address) {
+                Ok(address) => address,
+                Err(message) => {
+                    return DispatchOutcome {
+                        responses: vec![self.error_response(&request, &message)],
+                        ..DispatchOutcome::default()
+                    };
+                }
+            };
+            let address_text = format_io_address(&address);
+            let response = self
+                .remote_session
+                .as_mut()
+                .expect("remote session checked")
+                .io_unforce(&address_text);
+            return match response {
+                Ok(()) => {
+                    self.set_io_forced(&address, false);
+                    DispatchOutcome {
+                        responses: vec![self.ok_response::<Value>(&request, None)],
+                        events: self.refreshed_remote_io_state_event(),
+                        ..DispatchOutcome::default()
+                    }
+                }
+                Err(err) => DispatchOutcome {
+                    responses: vec![self.error_response(&request, &err.to_string())],
+                    ..DispatchOutcome::default()
+                },
+            };
+        }
+
+        let runtime_handle = self.session.runtime_handle();
+        let runtime = match runtime_handle.try_lock() {
+            Ok(guard) => guard,
+            Err(std::sync::TryLockError::Poisoned(poisoned)) => poisoned.into_inner(),
+            Err(std::sync::TryLockError::WouldBlock) => {
+                return DispatchOutcome {
+                    responses: vec![self.error_response(&request, "runtime busy")],
+                    ..DispatchOutcome::default()
+                };
+            }
+        };
+
+        let address = match resolve_io_address(&runtime, &args.address) {
+            Ok(address) => address,
+            Err(message) => {
+                return DispatchOutcome {
+                    responses: vec![self.error_response(&request, &message)],
+                    ..DispatchOutcome::default()
+                }
+            }
+        };
+        self.session.debug_control().release_io(&address);
+        self.set_io_forced(&address, false);
+        let body = self.update_io_cache_from_runtime(&runtime);
+        DispatchOutcome {
+            responses: vec![self.ok_response::<Value>(&request, None)],
+            events: vec![self.event("stIoState", Some(body))],
+            ..DispatchOutcome::default()
+        }
+    }
+
     pub(super) fn build_io_state(&self) -> IoStateEventBody {
         if let Ok(cache) = self.last_io_state.lock() {
             if let Some(state) = cache.clone() {
@@ -208,6 +378,49 @@ impl DebugAdapter {
         if let Some(body) = self.capture_io_state_from_runtime() {
             events.push(self.event("stIoState", Some(body)));
         }
+    }
+
+    fn resolve_remote_io_address(&mut self, name: &str) -> Result<IoAddress, String> {
+        if let Ok(address) = IoAddress::parse(name) {
+            return Ok(address);
+        }
+        if let Ok(cache) = self.last_io_state.lock() {
+            if let Some(state) = cache.as_ref() {
+                if let Ok(address) = resolve_io_address_from_state(state, name) {
+                    return Ok(address);
+                }
+            }
+        }
+        let Some(remote) = self.remote_session.as_mut() else {
+            return Err("attach session is not connected".to_string());
+        };
+        let mut state = remote.io_state().map_err(|err| err.to_string())?;
+        self.apply_forced_flags(&mut state);
+        if let Ok(mut cache) = self.last_io_state.lock() {
+            *cache = Some(state.clone());
+        }
+        resolve_io_address_from_state(&state, name)
+    }
+
+    fn refreshed_remote_io_state_event(&mut self) -> Vec<Value> {
+        let body = self
+            .remote_session
+            .as_mut()
+            .and_then(|remote| remote.io_state().ok());
+        if let Some(mut body) = body {
+            self.apply_forced_flags(&mut body);
+            if let Ok(mut cache) = self.last_io_state.lock() {
+                *cache = Some(body.clone());
+            }
+            return vec![self.event("stIoState", Some(body))];
+        }
+        if let Ok(cache) = self.last_io_state.lock() {
+            if let Some(mut body) = cache.clone() {
+                self.apply_forced_flags(&mut body);
+                return vec![self.event("stIoState", Some(body))];
+            }
+        }
+        Vec::new()
     }
 
     pub(super) fn update_io_cache_for_write(

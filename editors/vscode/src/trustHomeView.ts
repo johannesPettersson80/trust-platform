@@ -25,6 +25,10 @@ import {
   startManagedRuntime,
   stopManagedRuntime,
 } from "./localRuntime";
+import {
+  attachManagedRuntimeAfterStart,
+  disconnectManagedRuntimeAfterStop,
+} from "./managedRuntimeSession";
 import type { ManagedRuntime } from "./localRuntimeModel";
 
 // §UX v5 (vscode-ux-overhaul-plan.md §0.5) — the ONE truST panel (WebviewView `trust.home`, no visible
@@ -260,26 +264,16 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
     }
     // Auto-reveal Live Values only when Start actually reached "running".
     if (selected.primary.action === "start") {
-      if (result.controlEndpoint) {
-        const connect = await runtimeLifecycleService.connectRemote(
-          result.controlEndpoint
+      const attach = await attachManagedRuntimeAfterStart(selected.id, result);
+      if (!attach.ok) {
+        void vscode.window.showWarningMessage(
+          attach.message || `Could not connect Live Values for ${selected.label}.`
         );
-        if (!connect.ok) {
-          void vscode.window.showWarningMessage(actionFailureMessage(selected, connect));
-          return;
-        }
+        return;
       }
       void vscode.commands.executeCommand("trust-lsp.debug.openIoPanel");
     } else if (selected.primary.action === "stop") {
-      const snapshot = await runtimeLifecycleService.snapshot();
-      if (
-        result.controlEndpoint &&
-        snapshot.status.runtimeMode === "online" &&
-        snapshot.status.runtimeState === "connected" &&
-        snapshot.status.endpoint === result.controlEndpoint
-      ) {
-        await runtimeLifecycleService.stopRuntime();
-      }
+      await disconnectManagedRuntimeAfterStop(result);
     }
   }
 
