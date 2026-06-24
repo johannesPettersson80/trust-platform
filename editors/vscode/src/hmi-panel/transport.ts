@@ -79,11 +79,11 @@ export function createControlRequestSender(): ControlRequestHandler {
         finish(() => reject(error));
       });
       socket.once("connect", () => {
-        socket.write(`${JSON.stringify(requestEnvelope)}\\n`);
+        socket.write(`${JSON.stringify(requestEnvelope)}\n`);
       });
       socket.on("data", (chunk: Buffer | string) => {
         buffer += chunk.toString();
-        let newlineIndex = buffer.indexOf("\\n");
+        let newlineIndex = buffer.indexOf("\n");
         while (newlineIndex !== -1) {
           const line = buffer.slice(0, newlineIndex).trim();
           buffer = buffer.slice(newlineIndex + 1);
@@ -109,7 +109,7 @@ export function createControlRequestSender(): ControlRequestHandler {
               return;
             }
           }
-          newlineIndex = buffer.indexOf("\\n");
+          newlineIndex = buffer.indexOf("\n");
         }
       });
     });
