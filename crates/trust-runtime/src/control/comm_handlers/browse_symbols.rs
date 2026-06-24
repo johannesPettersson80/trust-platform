@@ -84,6 +84,8 @@ struct BrowseSymbolsResponse {
     kind: String,
     tree: Vec<SymbolTreeNode>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<CommProtocolError>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     route: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     ads_import: Option<crate::ads::onboarding::SymbolImportResponse>,
@@ -97,13 +99,23 @@ struct SymbolTreeNode {
     name: String,
     path: String,
     #[serde(rename = "type")]
-    data_type: String,
+    type_label: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    node_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    data_type: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     size: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     writable: Option<bool>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     children: Vec<SymbolTreeNode>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct CommProtocolError {
+    code: String,
+    message: String,
 }
 
 pub(super) fn handle_comm_browse_symbols(
@@ -160,15 +172,24 @@ fn browse_opcua_client_nodes(mut request: BrowseSymbolsRequest) -> Result<Value,
     let security = target.opcua_security_profile()?;
     let auth = target.opcua_auth()?;
     let trust_server_certificate = target.trust_server_certificate.unwrap_or(false);
-    let nodes = crate::opcua::browse_opcua_client_nodes(
+    let nodes = match crate::opcua::browse_opcua_client_nodes(
         endpoint_url.as_str(),
         security,
         auth,
         trust_server_certificate,
         4,
         512,
-    )
-    .map_err(|error| format!("OPC UA node browse failed: {error}"))?;
+    ) {
+        Ok(nodes) => nodes,
+        Err(error) => {
+            return response_tree_error_value(
+                request.protocol,
+                request.kind,
+                crate::opcua::classify_opcua_client_browse_error(&error).as_str(),
+                format!("OPC UA node browse failed: {error}"),
+            )
+        }
+    };
     let tree = nodes.into_iter().map(opcua_node_to_symbol).collect();
     response_tree_value(request.protocol, request.kind, tree, Vec::new())
 }
@@ -278,6 +299,7 @@ fn missing_ads_route_browse_response(
         protocol: "ads".to_string(),
         kind: "symbols".to_string(),
         tree: Vec::new(),
+        error: None,
         route: Some(ads_route_missing_payload(detail, route_plan)),
         ads_import: None,
         warnings: vec![
@@ -320,6 +342,7 @@ fn response_value(
         protocol,
         kind,
         tree: symbol_tree(import.snapshot.symbols.as_slice()),
+        error: None,
         route,
         ads_import: Some(import.clone()),
         warnings,
@@ -338,9 +361,32 @@ fn response_tree_value(
         protocol,
         kind,
         tree,
+        error: None,
         route: None,
         ads_import: None,
         warnings,
+    })
+    .map_err(|error| format!("comm.browse_symbols serialization failed: {error}"))
+}
+
+fn response_tree_error_value(
+    protocol: String,
+    kind: String,
+    code: &str,
+    message: String,
+) -> Result<Value, String> {
+    serde_json::to_value(BrowseSymbolsResponse {
+        schema_version: BROWSE_SYMBOLS_SCHEMA_VERSION,
+        protocol,
+        kind,
+        tree: Vec::new(),
+        error: Some(CommProtocolError {
+            code: code.to_string(),
+            message,
+        }),
+        route: None,
+        ads_import: None,
+        warnings: Vec::new(),
     })
     .map_err(|error| format!("comm.browse_symbols serialization failed: {error}"))
 }
@@ -379,11 +425,13 @@ fn browse_local_project_symbols(
             id: format!("local:symbol:{}", sanitize_id(name.as_str())),
             name: name.to_string(),
             path: format!("global.{name}"),
-            data_type: runtime
+            type_label: runtime
                 .registry()
                 .type_name(meta.type_id)
                 .map(|name| name.to_string())
                 .unwrap_or_else(|| "UNKNOWN".to_string()),
+            node_id: None,
+            data_type: None,
             size: None,
             writable: None,
             children: Vec::new(),
@@ -397,7 +445,9 @@ fn browse_local_project_symbols(
             id: "local:group:global".to_string(),
             name: "global".to_string(),
             path: "global".to_string(),
-            data_type: "group".to_string(),
+            type_label: "group".to_string(),
+            node_id: None,
+            data_type: None,
             size: None,
             writable: None,
             children,
@@ -475,7 +525,9 @@ fn ethercat_module_channel_node(module: &crate::io::EthercatModuleInfo) -> Symbo
                 id: format!("ethercat:channel:slot{}:{}", module.slot, channel),
                 name: format!("Channel {channel}"),
                 path,
-                data_type: "BOOL".to_string(),
+                type_label: "BOOL".to_string(),
+                node_id: None,
+                data_type: None,
                 size: Some(1),
                 writable: None,
                 children: Vec::new(),
@@ -486,7 +538,9 @@ fn ethercat_module_channel_node(module: &crate::io::EthercatModuleInfo) -> Symbo
         id: format!("ethercat:module:slot{}", module.slot),
         name: format!("{} (slot {})", module.model, module.slot),
         path: module_path,
-        data_type: "field_slave".to_string(),
+        type_label: "field_slave".to_string(),
+        node_id: None,
+        data_type: None,
         size: Some(u32::from(module.channels)),
         writable: None,
         children,
@@ -525,7 +579,9 @@ fn insert_symbol(
             id: format!("ads:symbol:{}", sanitize_id(symbol.name.as_str())),
             name: (*head).to_string(),
             path: symbol.name.clone(),
-            data_type: symbol.data_type.source_name.clone(),
+            type_label: symbol.data_type.source_name.clone(),
+            node_id: None,
+            data_type: None,
             size: Some(symbol.byte_size),
             writable: Some(symbol.flags.contains(&SymbolFlag::Write)),
             children: Vec::new(),
@@ -543,7 +599,9 @@ fn insert_symbol(
                 id: format!("ads:group:{}", sanitize_id(path.as_str())),
                 name: (*head).to_string(),
                 path: path.clone(),
-                data_type: "group".to_string(),
+                type_label: "group".to_string(),
+                node_id: None,
+                data_type: None,
                 size: None,
                 writable: None,
                 children: Vec::new(),
@@ -713,7 +771,9 @@ fn opcua_node_to_symbol(node: crate::opcua::OpcUaBrowseNode) -> SymbolTreeNode {
         id: format!("opcua:node:{}", sanitize_id(node.id.as_str())),
         name: node.name,
         path: node.path,
-        data_type: node.data_type,
+        type_label: node.data_type_id,
+        node_id: Some(node.id),
+        data_type: Some(node.data_type),
         size: None,
         writable: Some(node.writable),
         children: node
@@ -817,6 +877,63 @@ mod tests {
                 .expect("json")
                 .contains("ads_import"),
             "browse response must expose the existing ADS import shape"
+        );
+    }
+
+    #[test]
+    fn opcua_client_browse_leaf_exposes_raw_node_id_and_apply_data_type() {
+        let symbol = opcua_node_to_symbol(crate::opcua::OpcUaBrowseNode {
+            id: "ns=2;s=MAIN.Temperature".to_string(),
+            name: "Temperature".to_string(),
+            path: "Objects/Device/Temperature".to_string(),
+            data_type_id: "i=11".to_string(),
+            data_type: "double".to_string(),
+            writable: true,
+            children: Vec::new(),
+        });
+        let value = serde_json::to_value(symbol).expect("serialize OPC UA browse symbol");
+
+        assert_eq!(
+            value.get("id").and_then(Value::as_str),
+            Some("opcua:node:ns_2_s_MAIN.Temperature"),
+            "sanitized id remains a UI key only"
+        );
+        assert_eq!(
+            value.get("node_id").and_then(Value::as_str),
+            Some("ns=2;s=MAIN.Temperature"),
+            "raw OPC UA NodeId must round-trip into comm.apply"
+        );
+        assert_eq!(value.get("type").and_then(Value::as_str), Some("i=11"));
+        assert_eq!(
+            value.get("data_type").and_then(Value::as_str),
+            Some("double"),
+            "data_type is the apply-friendly scalar type, not the OPC UA type NodeId"
+        );
+        assert_eq!(value.get("writable").and_then(Value::as_bool), Some(true));
+    }
+
+    #[test]
+    fn opcua_client_browse_error_response_carries_structured_code() {
+        let error =
+            crate::error::RuntimeError::ControlError("OPC UA status: BadNodeIdUnknown".into());
+        let value = response_tree_error_value(
+            "opcua_client".to_string(),
+            "nodes".to_string(),
+            crate::opcua::classify_opcua_client_browse_error(&error).as_str(),
+            format!("OPC UA node browse failed: {error}"),
+        )
+        .expect("browse error response");
+
+        assert_eq!(
+            value.pointer("/error/code").and_then(Value::as_str),
+            Some("browse_denied")
+        );
+        assert_eq!(
+            value
+                .pointer("/tree")
+                .and_then(Value::as_array)
+                .map(Vec::len),
+            Some(0)
         );
     }
 

@@ -27,6 +27,8 @@ struct CommTestResponse {
     ok: bool,
     detail: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<CommProtocolError>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     evidence: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     field_errors: Vec<CommFieldError>,
@@ -35,6 +37,12 @@ struct CommTestResponse {
 #[derive(Debug, Serialize)]
 struct CommFieldError {
     field: String,
+    message: String,
+}
+
+#[derive(Debug, Serialize)]
+struct CommProtocolError {
+    code: String,
     message: String,
 }
 
@@ -72,6 +80,7 @@ pub(super) fn probe_value(protocol: &str, params: serde_json::Value) -> serde_js
             "supported": false,
             "ok": false,
             "detail": format!("Communication test serialization failed: {error}"),
+            "error": null,
             "field_errors": [],
         })
     })
@@ -98,6 +107,7 @@ fn test_request(request: CommTestRequest) -> CommTestResponse {
             supported: true,
             ok: true,
             detail: "This driver does not require a network connection test.".to_string(),
+            error: None,
             evidence: Some(json!({ "kind": "local_driver" })),
             field_errors: Vec::new(),
         },
@@ -107,6 +117,7 @@ fn test_request(request: CommTestRequest) -> CommTestResponse {
             supported: false,
             ok: false,
             detail: "This driver needs runtime hardware health after restart, not a TCP connection test.".to_string(),
+            error: None,
             evidence: None,
             field_errors: Vec::new(),
         },
@@ -116,6 +127,7 @@ fn test_request(request: CommTestRequest) -> CommTestResponse {
             supported: false,
             ok: false,
             detail: "This protocol does not have a Communication test yet.".to_string(),
+            error: None,
             evidence: None,
             field_errors: Vec::new(),
         },
@@ -132,6 +144,7 @@ fn opcua_client_probe(protocol: String, params: &serde_json::Value) -> CommTestR
                 supported: true,
                 ok: false,
                 detail: "OPC UA endpoint test could not start.".to_string(),
+                error: None,
                 evidence: None,
                 field_errors: vec![error],
             }
@@ -149,6 +162,7 @@ fn opcua_client_probe(protocol: String, params: &serde_json::Value) -> CommTestR
             supported: true,
             ok: true,
             detail: "OPC UA endpoint handshake succeeded.".to_string(),
+            error: None,
             evidence: Some(json!({
                 "endpoint_url": target.endpoint_url,
                 "security_policy": target.security.policy.as_config_value(),
@@ -156,19 +170,28 @@ fn opcua_client_probe(protocol: String, params: &serde_json::Value) -> CommTestR
             })),
             field_errors: Vec::new(),
         },
-        Err(error) => CommTestResponse {
-            schema_version: COMM_SCHEMA_VERSION,
-            protocol,
-            supported: true,
-            ok: false,
-            detail: format!("OPC UA endpoint handshake failed: {error}"),
-            evidence: Some(json!({
-                "endpoint_url": target.endpoint_url,
-                "security_policy": target.security.policy.as_config_value(),
-                "security_mode": target.security.mode.as_config_value(),
-            })),
-            field_errors: Vec::new(),
-        },
+        Err(error) => {
+            let message = format!("OPC UA endpoint handshake failed: {error}");
+            CommTestResponse {
+                schema_version: COMM_SCHEMA_VERSION,
+                protocol,
+                supported: true,
+                ok: false,
+                detail: message.clone(),
+                error: Some(CommProtocolError {
+                    code: crate::opcua::classify_opcua_client_error(&error)
+                        .as_str()
+                        .to_string(),
+                    message,
+                }),
+                evidence: Some(json!({
+                    "endpoint_url": target.endpoint_url,
+                    "security_policy": target.security.policy.as_config_value(),
+                    "security_mode": target.security.mode.as_config_value(),
+                })),
+                field_errors: Vec::new(),
+            }
+        }
     }
 }
 
@@ -186,6 +209,7 @@ fn tcp_probe(
                 supported: true,
                 ok: false,
                 detail: "Connection test could not start.".to_string(),
+                error: None,
                 evidence: None,
                 field_errors: vec![error],
             }
@@ -205,6 +229,7 @@ fn tcp_probe(
                 supported: true,
                 ok: false,
                 detail: "Address could not be resolved.".to_string(),
+                error: None,
                 evidence: Some(json!({ "target": target, "timeout_ms": timeout.as_millis() })),
                 field_errors: vec![field_error("address", "Enter a resolvable host:port.")],
             }
@@ -217,6 +242,7 @@ fn tcp_probe(
             supported: true,
             ok: true,
             detail: "TCP connection succeeded.".to_string(),
+            error: None,
             evidence: Some(json!({
                 "target": target,
                 "resolved": resolved.to_string(),
@@ -230,6 +256,7 @@ fn tcp_probe(
             supported: true,
             ok: false,
             detail: format!("TCP connection failed: {error}"),
+            error: None,
             evidence: Some(json!({
                 "target": target,
                 "resolved": resolved.to_string(),
@@ -393,6 +420,7 @@ fn blocked(protocol: String, field: &str, message: &str) -> CommTestResponse {
         supported: true,
         ok: false,
         detail: "Connection test was blocked.".to_string(),
+        error: None,
         evidence: None,
         field_errors: vec![field_error(field, message)],
     }
@@ -463,6 +491,34 @@ mod tests {
             .field_errors
             .iter()
             .any(|error| error.field == "broker"));
+    }
+
+    #[cfg(feature = "opcua-wire")]
+    #[test]
+    fn opcua_client_probe_reports_structured_unreachable_error() {
+        let refused = unused_loopback_address();
+        let response = test_request(CommTestRequest {
+            protocol: "opcua_client".to_string(),
+            params: json!({
+                "endpoint_url": format!("opc.tcp://{refused}/trust-test"),
+                "security_policy": "none",
+                "security_mode": "none",
+                "auth": "anonymous",
+                "trust_server_certificate": true,
+            }),
+            credential_channel: None,
+        });
+
+        assert!(response.supported);
+        assert!(!response.ok);
+        assert_eq!(
+            response.error.as_ref().map(|error| error.code.as_str()),
+            Some("endpoint_unreachable")
+        );
+        assert!(
+            response.detail.contains("OPC UA endpoint handshake failed"),
+            "detail should remain human-readable"
+        );
     }
 
     fn spawn_one_shot_listener() -> String {

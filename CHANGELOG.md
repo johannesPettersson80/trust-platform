@@ -270,6 +270,10 @@ Target release: `v0.24.25`
   snapshot is not available yet; the server binds immediately and publishes
   exposed nodes after real snapshot evidence arrives. Runtime debug breakpoint
   control now accepts project-relative source paths such as `src/main.st`.
+- trust-runtime: OPC UA client node browsing now returns each leaf's raw
+  `node_id` plus an apply-ready scalar `data_type`, and OPC UA client
+  browse/test failures now include structured reason codes for certificate,
+  authentication, reachability, browse-denial, and security-profile errors.
 - vscode: release packaging now bundles `trust-runtime` inside the VSIX next
   to `trust-lsp` and `trust-debug`, so fresh installs can use offline
   Devices & Connections configuration without requiring a separate runtime

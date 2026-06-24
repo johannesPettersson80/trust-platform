@@ -1957,6 +1957,10 @@ fn offline_comm_apply_writes_opcua_client_runtime_and_sidecar() {
         client_text.contains("poll_interval_ms = 100"),
         "generated sidecar should inherit the form-level poll interval"
     );
+    assert!(
+        client_text.contains("node_id = \"ns=2;s=MAIN.conveyor_speed\""),
+        "generated sidecar should preserve the exact browsed OPC UA NodeId"
+    );
     crate::opcua::parse_opcua_client_toml(client_text.as_str())
         .expect("opcua_client.toml should validate");
 

@@ -13,9 +13,32 @@ pub struct OpcUaBrowseNode {
     pub id: String,
     pub name: String,
     pub path: String,
+    pub data_type_id: String,
     pub data_type: String,
     pub writable: bool,
     pub children: Vec<OpcUaBrowseNode>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpcUaClientErrorCode {
+    CertUntrusted,
+    AuthRequired,
+    EndpointUnreachable,
+    BrowseDenied,
+    UnsupportedSecurityProfile,
+}
+
+impl OpcUaClientErrorCode {
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::CertUntrusted => "cert_untrusted",
+            Self::AuthRequired => "auth_required",
+            Self::EndpointUnreachable => "endpoint_unreachable",
+            Self::BrowseDenied => "browse_denied",
+            Self::UnsupportedSecurityProfile => "unsupported_security_profile",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -97,6 +120,23 @@ pub fn clear_trusted_opcua_client_server_certificates() -> Result<usize, Runtime
         }
     }
     Ok(cleared)
+}
+
+#[must_use]
+pub fn classify_opcua_client_error(error: &RuntimeError) -> OpcUaClientErrorCode {
+    classify_opcua_client_error_message(error.to_string().as_str())
+}
+
+#[must_use]
+pub fn classify_opcua_client_browse_error(error: &RuntimeError) -> OpcUaClientErrorCode {
+    let message = error.to_string();
+    if message.to_ascii_lowercase().contains("baduseraccessdenied")
+        || message.to_ascii_lowercase().contains("badnotreadable")
+        || message.to_ascii_lowercase().contains("badnodeidunknown")
+    {
+        return OpcUaClientErrorCode::BrowseDenied;
+    }
+    classify_opcua_client_error_message(message.as_str())
 }
 
 #[cfg(feature = "opcua-wire")]
@@ -491,10 +531,10 @@ fn browse_children(
             format!("{parent_path}/{name}")
         };
         let is_variable = reference.node_class == ::opcua::types::NodeClass::Variable;
-        let (data_type, writable) = if is_variable {
+        let (data_type_id, data_type, writable) = if is_variable {
             variable_metadata(session, node_id.clone())
         } else {
-            ("Object".to_string(), false)
+            ("Object".to_string(), "object".to_string(), false)
         };
         *count += 1;
         let children = browse_children(
@@ -510,6 +550,7 @@ fn browse_children(
             id: node_id.to_string(),
             name,
             path,
+            data_type_id,
             data_type,
             writable,
             children,
@@ -522,7 +563,7 @@ fn browse_children(
 fn variable_metadata(
     session: &::opcua::client::prelude::Session,
     node_id: ::opcua::types::NodeId,
-) -> (String, bool) {
+) -> (String, String, bool) {
     let values = session
         .read(
             &[
@@ -543,11 +584,14 @@ fn variable_metadata(
             0.0,
         )
         .unwrap_or_default();
-    let data_type = values
+    let data_type_id = values
         .first()
         .and_then(|value| value.value.as_ref())
         .map(|value| value.to_string())
         .unwrap_or_else(|| "Value".to_string());
+    let data_type = opcua_data_type_for_apply(data_type_id.as_str())
+        .map(str::to_string)
+        .unwrap_or_else(|| "unknown".to_string());
     let writable = values
         .get(1)
         .and_then(|value| value.value.as_ref())
@@ -558,7 +602,24 @@ fn variable_metadata(
             _ => None,
         })
         .unwrap_or(false);
-    (data_type, writable)
+    (data_type_id, data_type, writable)
+}
+
+#[cfg(feature = "opcua-wire")]
+fn opcua_data_type_for_apply(data_type_id: &str) -> Option<&'static str> {
+    match data_type_id {
+        "i=1" | "ns=0;i=1" => Some("bool"),
+        "i=2" | "ns=0;i=2" | "i=4" | "ns=0;i=4" => Some("int16"),
+        "i=3" | "ns=0;i=3" | "i=5" | "ns=0;i=5" => Some("uint16"),
+        "i=6" | "ns=0;i=6" => Some("int32"),
+        "i=7" | "ns=0;i=7" => Some("uint32"),
+        "i=8" | "ns=0;i=8" => Some("int64"),
+        "i=9" | "ns=0;i=9" => Some("uint64"),
+        "i=10" | "ns=0;i=10" => Some("float"),
+        "i=11" | "ns=0;i=11" => Some("double"),
+        "i=12" | "ns=0;i=12" => Some("string"),
+        _ => None,
+    }
 }
 
 #[cfg(feature = "opcua-wire")]
@@ -668,4 +729,34 @@ fn collect_certificate_files(
         certs.push(OpcUaTrustedCertificate { path, file_name });
     }
     Ok(())
+}
+
+fn classify_opcua_client_error_message(message: &str) -> OpcUaClientErrorCode {
+    let lower = message.to_ascii_lowercase();
+    if lower.contains("badcertificateuntrusted")
+        || lower.contains("badcertificaterevoked")
+        || lower.contains("badcertificatetimeinvalid")
+        || lower.contains("badcertificate")
+        || lower.contains("certificate")
+            && (lower.contains("untrusted") || lower.contains("trust"))
+    {
+        return OpcUaClientErrorCode::CertUntrusted;
+    }
+    if lower.contains("badidentitytoken")
+        || lower.contains("baduseraccessdenied")
+        || lower.contains("badusersignatureinvalid")
+        || lower.contains("badsecuritychecksfailed")
+        || lower.contains("username")
+        || lower.contains("password")
+        || lower.contains("auth")
+    {
+        return OpcUaClientErrorCode::AuthRequired;
+    }
+    if lower.contains("no matching opc ua endpoint")
+        || lower.contains("unsupported security")
+        || lower.contains("unsupported opc ua client security")
+    {
+        return OpcUaClientErrorCode::UnsupportedSecurityProfile;
+    }
+    OpcUaClientErrorCode::EndpointUnreachable
 }
