@@ -5,6 +5,7 @@ import {
   classifyOpcuaBrowseError,
   deriveOpcuaConnectionName,
   deriveOpcuaVarName,
+  nodeKey,
   opcuaAccess,
   opcuaDisplayType,
   opcuaPointFromNode,
@@ -62,11 +63,29 @@ suite("opcua client model", () => {
     assert.strictEqual(p, undefined);
   });
 
+  test("nodeKey prefers the raw node_id, then the React id, then the path", () => {
+    assert.strictEqual(nodeKey({ node_id: "ns=2;i=1", id: "x", path: "p" }), "ns=2;i=1");
+    assert.strictEqual(nodeKey({ id: "x", path: "p" }), "x");
+    assert.strictEqual(nodeKey({ path: "p" }), "p");
+  });
+
+  test("two leaves sharing a path but different node_id are NOT conflated (B1 integrity)", () => {
+    const a = leaf({ id: "opcua:node:ns_2_i_1", node_id: "ns=2;i=1", path: "Temperature" });
+    const b = leaf({ id: "opcua:node:ns_3_i_1", node_id: "ns=3;i=1", path: "Temperature" });
+    // Selecting ONLY b's key must pick b alone — not both, and not a.
+    const picked = selectedLeaves([a, b], new Set([nodeKey(b)]));
+    assert.strictEqual(picked.length, 1);
+    assert.strictEqual(picked[0].node_id, "ns=3;i=1");
+    const conn = buildOpcuaConnection({ endpoint_url: "opc.tcp://h:4840" }, "x", picked, false);
+    assert.strictEqual(conn?.points.length, 1);
+    assert.strictEqual(conn?.points[0].node_id, "ns=3;i=1"); // the exact node the user picked
+  });
+
   test("selectedLeaves returns only chosen leaves in tree order", () => {
     const tree: SymbolNode[] = [
       { id: "a", name: "A", path: "A", children: [leaf({ id: "t", name: "Temperature", path: "A.Temperature" }), leaf({ id: "c", name: "Counter", path: "A.Counter", node_id: "ns=2;i=2", writable: false })] },
     ];
-    const picked = selectedLeaves(tree, new Set(["A.Counter"]));
+    const picked = selectedLeaves(tree, new Set(["ns=2;i=2"])); // Counter's node_id key
     assert.strictEqual(picked.length, 1);
     assert.strictEqual(picked[0].name, "Counter");
   });

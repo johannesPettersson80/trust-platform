@@ -78,17 +78,25 @@ export function opcuaPointFromNode(
   };
 }
 
-// Flatten a browse tree to the leaves whose path is selected, in tree order.
+// A stable selection key for a browse leaf. Prefer the raw protocol id (OPC-UA node_id) so two
+// leaves that share a display path are never conflated; fall back to the React id, then path. This is
+// what B1 (the round-trippable node_id) is for — selection must not be keyed by the display path.
+export function nodeKey(node: { node_id?: string; id?: string; path: string }): string {
+  return node.node_id ?? node.id ?? node.path;
+}
+
+// Flatten a browse tree to the leaves whose stable key is selected, in tree order. Used by every
+// browse flow (the App then extracts the per-protocol payload), so selection is node-identity based.
 export function selectedLeaves(
   tree: SymbolNode[] | undefined,
-  selectedPaths: ReadonlySet<string>
+  selectedKeys: ReadonlySet<string>
 ): SymbolNode[] {
   const out: SymbolNode[] = [];
   const walk = (nodes: SymbolNode[] | undefined): void => {
     for (const n of nodes ?? []) {
       if (n.children?.length) {
         walk(n.children);
-      } else if (selectedPaths.has(n.path)) {
+      } else if (selectedKeys.has(nodeKey(n))) {
         out.push(n);
       }
     }

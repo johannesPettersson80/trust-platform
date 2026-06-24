@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import type { RoutePlan, SymbolNode } from "../offlineComm";
-import type { OpcuaErrorView } from "./opcuaClientModel";
+import { nodeKey, type OpcuaErrorView } from "./opcuaClientModel";
 
 // §0.5.2 Browse tags/signals — look INSIDE a target (e.g. an ADS PLC's symbol table). Searchable
 // tree, multi-select, read-only by default (writes need an explicit toggle). For ADS, "Add tags"
@@ -43,10 +43,12 @@ export function BrowseTagsPanel({
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const [allowWrites, setAllowWrites] = useState(false);
 
-  const toggleSel = (path: string) =>
+  // `selected` holds stable node keys (nodeKey: node_id ?? id ?? path), never the display path, so
+  // two leaves sharing a path can't be conflated.
+  const toggleSel = (key: string) =>
     setSelected((prev) => {
       const next = new Set(prev);
-      next.has(path) ? next.delete(path) : next.add(path);
+      next.has(key) ? next.delete(key) : next.add(key);
       return next;
     });
   const toggleExp = (id: string) =>
@@ -78,7 +80,7 @@ export function BrowseTagsPanel({
 
   const leaf = (n: SymbolNode, depth: number) => (
     <div key={n.id} style={{ ...ROW, paddingLeft: 8 + depth * 14 }}>
-      <input type="checkbox" checked={selected.has(n.path)} onChange={() => toggleSel(n.path)} style={{ flex: "none" }} />
+      <input type="checkbox" checked={selected.has(nodeKey(n))} onChange={() => toggleSel(nodeKey(n))} style={{ flex: "none" }} />
       <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: "#eef1f5", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.name}</span>
       {(n.data_type || n.type) && <span style={{ flex: "none", fontSize: 10, color: "#7f8794" }}>{n.data_type || n.type}</span>}
       {n.writable === false && <span title="read-only on the device" style={{ flex: "none", fontSize: 9, color: "#6a7280" }}>rd</span>}

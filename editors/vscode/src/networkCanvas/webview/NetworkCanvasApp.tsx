@@ -405,22 +405,26 @@ function Canvas() {
   }, [post, browseTags]);
   const onCopy = useCallback((text: string) => post({ type: "copyText", text }), [post]);
   const onAddTags = useCallback(
-    (paths: string[], writable: boolean) => {
-      if (browseTags && paths.length > 0) {
+    (keys: string[], writable: boolean) => {
+      if (browseTags && keys.length > 0) {
+        // Resolve the stable selection keys back to leaves by node identity (not display path).
+        const nodes = selectedLeaves(browseTree, new Set(keys));
         if (browseTags.protocol === "opcua_client") {
-          // Map the selected browse leaves → a connection with points (var/node_id/type/access),
+          // Map the selected leaves → a connection with points (var/node_id/type/access),
           // carrying the endpoint + chosen security/auth/trust from the browse target.
           const connection = buildOpcuaConnection(
             browseTags.target,
             browseTags.label,
-            selectedLeaves(browseTree, new Set(paths)),
+            nodes,
             writable
           );
           if (connection) {
             post({ type: "addOpcuaConnection", connection });
           }
         } else {
+          // ADS tags / EtherCAT channels / expose globals are keyed by their symbol path.
           const type = browseTags.mode === "expose" ? "addExpose" : "addTags";
+          const paths = nodes.map((n) => n.path);
           post({ type, protocol: browseTags.protocol, target: browseTags.target, paths, writable });
         }
       }
