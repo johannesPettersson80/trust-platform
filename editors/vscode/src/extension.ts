@@ -9,11 +9,6 @@ import { registerDebugAdapter } from "./debug";
 import { getBinaryPath } from "./binary";
 import { registerIoPanel } from "./ioPanel";
 import { registerHmiPanel } from "./hmiPanel";
-import { registerAdsPanel } from "./adsPanel";
-import {
-  openCommunicationPanelForAdsAction,
-  registerCommunicationPanel,
-} from "./communication/communicationPanel";
 import { registerNetworkCanvasPanel } from "./networkCanvas/networkCanvasPanel";
 import { registerRuntimeLifecycle } from "./runtimeLifecycle";
 import { registerRuntimeControls } from "./runtimeControls";
@@ -187,11 +182,26 @@ export async function activate(context: vscode.ExtensionContext) {
   registerTrustHome(context);
   registerIoPanel(context);
   registerHmiPanel(context);
-  registerCommunicationPanel(context);
   registerNetworkCanvasPanel(context);
-  registerAdsPanel(context, {
-    openCommunicationPanel: openCommunicationPanelForAdsAction,
-  });
+  // Communication + ADS panels are retired; the Network Canvas is the front door (spec §1, locked).
+  // The legacy "Communication" command + the 6 ADS commands survive as hidden escape hatches
+  // (ux-shell §0.5.6 — hidden from the palette via when:false, registered not deleted) and route to
+  // the canvas, where ADS now lives (browse / import symbols / add device / routes).
+  for (const legacyCommand of [
+    "trust-lsp.communication.openPanel",
+    "trust-lsp.ads.openPanel",
+    "trust-lsp.ads.server.openPanel",
+    "trust-lsp.ads.addDevice",
+    "trust-lsp.ads.diagnose",
+    "trust-lsp.ads.importSymbols",
+    "trust-lsp.ads.addRoute",
+  ]) {
+    context.subscriptions.push(
+      vscode.commands.registerCommand(legacyCommand, () =>
+        vscode.commands.executeCommand("trust-lsp.networkCanvas.open")
+      )
+    );
+  }
   registerTrustTwinPanel(context);
   try {
     registerLanguageModelTools(context, { getClient: () => client });

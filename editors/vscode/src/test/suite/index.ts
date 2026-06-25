@@ -40,10 +40,8 @@ export function run(): Promise<void> {
   require("./runtime-shared-utils.test");
   require("./runtime-control-client.test");
   require("./runtime-target.test");
-  require("./communication-panel.test");
   require("./network-canvas.test");
   require("./ads-status-summary.test");
-  require("./ads-panel.test");
   require("./snippets.test");
   require("./st-tests.integration.test");
 
