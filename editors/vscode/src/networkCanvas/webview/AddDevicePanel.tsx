@@ -25,8 +25,8 @@ const PANEL_STYLE: React.CSSProperties = {
   bottom: 0,
   width: 360,
   maxWidth: "92vw",
-  background: "rgba(18,21,28,.98)",
-  borderLeft: "1px solid #2a2f3a",
+  background: "var(--vscode-editorHoverWidget-background, rgba(18,21,28,.98))",
+  borderLeft: "1px solid var(--vscode-editorWidget-border, #2a2f3a)",
   boxShadow: "-18px 0 50px rgba(0,0,0,.45)",
   zIndex: 8,
   display: "flex",
@@ -129,17 +129,17 @@ export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, t
 
   return (
     <aside style={PANEL_STYLE} aria-label="Add device">
-      <header style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 14px", borderBottom: "1px solid #2a2f3a" }}>
+      <header style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 14px", borderBottom: "1px solid var(--vscode-editorWidget-border, #2a2f3a)" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <strong style={{ display: "block", fontSize: 14 }}>{protocol ? `Add ${protocol.title}` : "Add device"}</strong>
-          {target?.name && <span style={{ fontSize: 10.5, color: "#7f8794" }}>on {target.name}</span>}
+          {target?.name && <span style={{ fontSize: 10.5, color: "var(--vscode-descriptionForeground, #7f8794)" }}>on {target.name}</span>}
         </div>
         <button onClick={onClose} aria-label="Close" style={iconBtn}>✕</button>
       </header>
 
       <div style={{ flex: 1, overflow: "auto", padding: 14 }}>
         {protocols.length === 0 ? (
-          <p style={{ color: "#949cab", fontSize: 12 }}>
+          <p style={{ color: "var(--vscode-descriptionForeground, #949cab)", fontSize: 12 }}>
             {setupMessage ?? "Device catalog unavailable (needs a newer trust-runtime)."}
           </p>
         ) : (
@@ -157,7 +157,7 @@ export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, t
               ))}
             </select>
             {protocol?.purpose && (
-              <p style={{ color: "#7f8794", fontSize: 11, margin: "6px 0 14px" }}>{protocol.purpose}</p>
+              <p style={{ color: "var(--vscode-descriptionForeground, #7f8794)", fontSize: 11, margin: "6px 0 14px" }}>{protocol.purpose}</p>
             )}
 
             {protocol?.fields.map((field) => (
@@ -177,14 +177,14 @@ export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, t
                   padding: "9px 11px",
                   borderRadius: 8,
                   fontSize: 12,
-                  border: `1px solid ${ok ? "#46c26577" : blocked ? "#f0584f77" : "#343b47"}`,
-                  background: ok ? "rgba(70,194,101,.12)" : blocked ? "rgba(240,88,79,.1)" : "rgba(20,24,32,.7)",
-                  color: ok ? "#bff0cc" : blocked ? "#ffcfcb" : "#cfd6e0",
+                  border: `1px solid ${ok ? "var(--vscode-charts-green, #46c265)77" : blocked ? "var(--vscode-errorForeground, #f0584f)77" : "var(--vscode-input-border, #343b47)"}`,
+                  background: ok ? "rgba(70,194,101,.12)" : blocked ? "rgba(240,88,79,.1)" : "var(--vscode-editorWidget-background, rgba(20,24,32,.7))",
+                  color: ok ? "var(--vscode-charts-green, #bff0cc)" : blocked ? "var(--vscode-errorForeground, #ffcfcb)" : "var(--vscode-foreground, #cfd6e0)",
                 }}
               >
                 {applyResult.message || (ok ? "Applied." : "")}
                 {applyResult.lifecycle_effect && applyResult.lifecycle_effect !== "blocked" && (
-                  <div style={{ color: "#949cab", marginTop: 3 }}>{applyResult.lifecycle_effect}</div>
+                  <div style={{ color: "var(--vscode-descriptionForeground, #949cab)", marginTop: 3 }}>{applyResult.lifecycle_effect}</div>
                 )}
               </div>
             )}
@@ -193,7 +193,7 @@ export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, t
       </div>
 
       {protocols.length > 0 && (
-        <footer style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: 12, borderTop: "1px solid #2a2f3a" }}>
+        <footer style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: 12, borderTop: "1px solid var(--vscode-editorWidget-border, #2a2f3a)" }}>
           <button onClick={() => submit("commSave")} style={{ ...primaryBtn, flex: 1 }}>Save</button>
           {protocol?.supports_test && reachable && (
             <button onClick={() => submit("commTest")} style={secondaryBtn}>Test</button>
@@ -220,13 +220,13 @@ function Field({
   error?: string;
   onChange: (v: string) => void;
 }) {
-  const border = error ? "1px solid #f0584f88" : "1px solid #343b47";
+  const border = error ? "1px solid var(--vscode-errorForeground, #f0584f)88" : "1px solid var(--vscode-input-border, #343b47)";
   const common = { ...inputStyle, border };
   return (
     <div style={{ marginBottom: 12 }}>
       <label style={labelStyle}>
         {field.label}
-        {field.required && <span style={{ color: "#f0584f" }}> *</span>}
+        {field.required && <span style={{ color: "var(--vscode-errorForeground, #f0584f)" }}> *</span>}
       </label>
       {field.options && field.options.length > 0 ? (
         <select value={value} onChange={(e) => onChange(e.target.value)} style={common}>
@@ -250,28 +250,28 @@ function Field({
         />
       )}
       {error ? (
-        <div style={{ color: "#ffcfcb", fontSize: 10.5, marginTop: 3 }}>{error}</div>
+        <div style={{ color: "var(--vscode-errorForeground, #ffcfcb)", fontSize: 10.5, marginTop: 3 }}>{error}</div>
       ) : field.help ? (
-        <div style={{ color: "#7f8794", fontSize: 10.5, marginTop: 3 }}>{field.help}</div>
+        <div style={{ color: "var(--vscode-descriptionForeground, #7f8794)", fontSize: 10.5, marginTop: 3 }}>{field.help}</div>
       ) : null}
     </div>
   );
 }
 
-const labelStyle: React.CSSProperties = { display: "block", fontSize: 11, color: "#cfd6e0", marginBottom: 4, fontWeight: 600 };
+const labelStyle: React.CSSProperties = { display: "block", fontSize: 11, color: "var(--vscode-foreground, #cfd6e0)", marginBottom: 4, fontWeight: 600 };
 const inputStyle: React.CSSProperties = {
   width: "100%",
-  background: "#10141b",
-  border: "1px solid #343b47",
+  background: "var(--vscode-input-background, #10141b)",
+  border: "1px solid var(--vscode-input-border, #343b47)",
   borderRadius: 7,
-  color: "#eef1f5",
+  color: "var(--vscode-foreground, #eef1f5)",
   padding: "7px 9px",
   fontSize: 12,
 };
 const primaryBtn: React.CSSProperties = {
-  border: "1px solid #2f81f7",
-  background: "#2f81f7",
-  color: "#fff",
+  border: "1px solid var(--vscode-focusBorder, #2f81f7)",
+  background: "var(--vscode-focusBorder, #2f81f7)",
+  color: "var(--vscode-button-foreground, #fff)",
   borderRadius: 7,
   padding: "8px 13px",
   fontSize: 12,
@@ -279,9 +279,9 @@ const primaryBtn: React.CSSProperties = {
   cursor: "pointer",
 };
 const secondaryBtn: React.CSSProperties = {
-  border: "1px solid #343b47",
+  border: "1px solid var(--vscode-input-border, #343b47)",
   background: "transparent",
-  color: "#cfd6e0",
+  color: "var(--vscode-foreground, #cfd6e0)",
   borderRadius: 7,
   padding: "8px 13px",
   fontSize: 12,
@@ -290,7 +290,7 @@ const secondaryBtn: React.CSSProperties = {
 const iconBtn: React.CSSProperties = {
   border: "none",
   background: "transparent",
-  color: "#949cab",
+  color: "var(--vscode-descriptionForeground, #949cab)",
   fontSize: 14,
   cursor: "pointer",
 };

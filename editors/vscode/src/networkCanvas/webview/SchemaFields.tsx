@@ -79,13 +79,13 @@ export function Field({
   error?: string;
   onChange: (v: string) => void;
 }) {
-  const border = error ? "1px solid #f0584f88" : "1px solid #343b47";
+  const border = error ? "1px solid var(--vscode-errorForeground, #f0584f)88" : "1px solid var(--vscode-input-border, #343b47)";
   const common = { ...inputStyle, border };
   return (
     <div style={{ marginBottom: 12 }}>
       <label style={labelStyle}>
         {field.label}
-        {field.required && <span style={{ color: "#f0584f" }}> *</span>}
+        {field.required && <span style={{ color: "var(--vscode-errorForeground, #f0584f)" }}> *</span>}
       </label>
       {field.options && field.options.length > 0 ? (
         <select value={value} onChange={(e) => onChange(e.target.value)} style={common}>
@@ -116,9 +116,9 @@ export function Field({
         />
       )}
       {error ? (
-        <div style={{ color: "#ffcfcb", fontSize: 10.5, marginTop: 3 }}>{error}</div>
+        <div style={{ color: "var(--vscode-errorForeground, #ffcfcb)", fontSize: 10.5, marginTop: 3 }}>{error}</div>
       ) : field.help ? (
-        <div style={{ color: "#7f8794", fontSize: 10.5, marginTop: 3 }}>{field.help}</div>
+        <div style={{ color: "var(--vscode-descriptionForeground, #7f8794)", fontSize: 10.5, marginTop: 3 }}>{field.help}</div>
       ) : null}
     </div>
   );
@@ -127,16 +127,16 @@ export function Field({
 export const labelStyle: React.CSSProperties = {
   display: "block",
   fontSize: 11,
-  color: "#cfd6e0",
+  color: "var(--vscode-foreground, #cfd6e0)",
   marginBottom: 4,
   fontWeight: 600,
 };
 export const inputStyle: React.CSSProperties = {
   width: "100%",
-  background: "#10141b",
-  border: "1px solid #343b47",
+  background: "var(--vscode-input-background, #10141b)",
+  border: "1px solid var(--vscode-input-border, #343b47)",
   borderRadius: 7,
-  color: "#eef1f5",
+  color: "var(--vscode-foreground, #eef1f5)",
   padding: "7px 9px",
   fontSize: 12,
 };

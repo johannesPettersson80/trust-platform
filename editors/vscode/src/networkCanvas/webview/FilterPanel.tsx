@@ -13,12 +13,12 @@ export function FilterPanel({
 }) {
   return (
     <aside style={PANEL} aria-label="Filter connections">
-      <div style={{ padding: "11px 12px", borderBottom: "1px solid #2a2f3a", fontSize: 11, fontWeight: 700, color: "#cfd6e0" }}>
+      <div style={{ padding: "11px 12px", borderBottom: "1px solid var(--vscode-editorWidget-border, #2a2f3a)", fontSize: 11, fontWeight: 700, color: "var(--vscode-foreground, #cfd6e0)" }}>
         Show protocols
       </div>
       <div style={{ flex: 1, overflow: "auto", padding: 8 }}>
         {protocols.length === 0 ? (
-          <p style={{ color: "#7f8794", fontSize: 11, padding: "4px 6px" }}>No connections.</p>
+          <p style={{ color: "var(--vscode-descriptionForeground, #7f8794)", fontSize: 11, padding: "4px 6px" }}>No connections.</p>
         ) : (
           protocols.map((p) => {
             const on = !hidden.has(p);
@@ -42,8 +42,8 @@ const PANEL: React.CSSProperties = {
   left: 0,
   bottom: 0,
   width: 184,
-  background: "rgba(16,19,26,.96)",
-  borderRight: "1px solid #2a2f3a",
+  background: "var(--vscode-editorHoverWidget-background, rgba(16,19,26,.96))",
+  borderRight: "1px solid var(--vscode-editorWidget-border, #2a2f3a)",
   zIndex: 7,
   display: "flex",
   flexDirection: "column",

@@ -127,11 +127,11 @@ export function DiscoverPane({
     <div key={r.key} style={ROW}>
       <input type="checkbox" checked={checked.has(r.key)} onChange={() => toggle(r.key)} style={{ flex: "none", marginTop: 2 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12, color: "#eef1f5" }}>
+        <div style={{ fontSize: 12, color: "var(--vscode-foreground, #eef1f5)" }}>
           {r.label}
-          {r.confirm && <span title="Can disturb a live bus — confirm before scanning" style={{ color: "#e0b341", marginLeft: 5 }}>⚠</span>}
+          {r.confirm && <span title="Can disturb a live bus — confirm before scanning" style={{ color: "var(--vscode-charts-yellow, #e0b341)", marginLeft: 5 }}>⚠</span>}
         </div>
-        {r.note && <div style={{ fontSize: 10, color: "#7f8794" }}>{r.note}</div>}
+        {r.note && <div style={{ fontSize: 10, color: "var(--vscode-descriptionForeground, #7f8794)" }}>{r.note}</div>}
         {r.input && checked.has(r.key) && (
           <input
             value={inputs[r.key] ?? ""}
@@ -146,27 +146,27 @@ export function DiscoverPane({
 
   return (
     <aside style={PANEL} aria-label="Discover devices">
-      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "11px 12px", borderBottom: "1px solid #2a2f3a" }}>
-        <div style={{ flex: 1, fontSize: 12, fontWeight: 700, color: "#cfd6e0" }}>Discover</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "11px 12px", borderBottom: "1px solid var(--vscode-editorWidget-border, #2a2f3a)" }}>
+        <div style={{ flex: 1, fontSize: 12, fontWeight: 700, color: "var(--vscode-foreground, #cfd6e0)" }}>Discover</div>
         <button onClick={onClose} aria-label="Close" style={ICON}>✕</button>
       </div>
 
       <div style={{ flex: 1, overflow: "auto" }}>
-        <div style={{ padding: "10px 12px", borderBottom: "1px solid #232833" }}>
+        <div style={{ padding: "10px 12px", borderBottom: "1px solid var(--vscode-editorWidget-border, #232833)" }}>
           <label style={LABEL}>Scan from</label>
           <select value={origin} onChange={(e) => setOrigin(e.target.value)} style={INPUT}>
             {origins.map((o) => (
               <option key={o.id} value={o.id}>{o.label}</option>
             ))}
           </select>
-          <p style={{ fontSize: 10, color: "#7f8794", margin: "4px 0 0" }}>
+          <p style={{ fontSize: 10, color: "var(--vscode-descriptionForeground, #7f8794)", margin: "4px 0 0" }}>
             Field devices live on the runtime's network — scan from the runtime to find them.
           </p>
         </div>
 
         <div style={{ padding: "8px 12px" }}>
           {allRows.length === 0 && (
-            <p style={{ fontSize: 11, color: "#7f8794", margin: "4px 2px", lineHeight: 1.5 }}>
+            <p style={{ fontSize: 11, color: "var(--vscode-descriptionForeground, #7f8794)", margin: "4px 2px", lineHeight: 1.5 }}>
               No discovery is available yet. Load a project or connect a runtime that advertises
               discoverable protocols.
             </p>
@@ -187,14 +187,14 @@ export function DiscoverPane({
         </div>
 
         {(scanning || progress.length > 0 || results.length > 0) && (
-          <div style={{ borderTop: "1px solid #2a2f3a", padding: "8px 12px" }}>
+          <div style={{ borderTop: "1px solid var(--vscode-editorWidget-border, #2a2f3a)", padding: "8px 12px" }}>
             {progress.map((p) => (
-              <div key={p.protocol + p.label} style={{ fontSize: 10.5, color: "#9aa6b6", lineHeight: 1.5 }}>
+              <div key={p.protocol + p.label} style={{ fontSize: 10.5, color: "var(--vscode-descriptionForeground, #9aa6b6)", lineHeight: 1.5 }}>
                 {p.label} … {p.status === "scanning" ? "scanning" : `${p.count ?? 0} found`}
               </div>
             ))}
             {!scanning && progress.length > 0 && results.length === 0 && (
-              <p style={{ fontSize: 11, color: "#7f8794", marginTop: 6 }}>
+              <p style={{ fontSize: 11, color: "var(--vscode-descriptionForeground, #7f8794)", marginTop: 6 }}>
                 Nothing found. (Discovery needs a runtime that serves it; try scanning from the runtime.)
               </p>
             )}
@@ -203,8 +203,8 @@ export function DiscoverPane({
               return (
                 <div key={c.id} style={CARD}>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, color: "#eef1f5", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.label}</div>
-                    <div style={{ fontSize: 10, color: "#7f8794" }}>{c.protocol} · {c.source}</div>
+                    <div style={{ fontSize: 12, color: "var(--vscode-foreground, #eef1f5)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.label}</div>
+                    <div style={{ fontSize: 10, color: "var(--vscode-descriptionForeground, #7f8794)" }}>{c.protocol} · {c.source}</div>
                   </div>
                   <button onClick={() => (isRuntime ? onAdopt(c) : onAdd(c))} style={ADDBTN}>
                     {isRuntime ? "Adopt" : "+ Add"}
@@ -216,7 +216,7 @@ export function DiscoverPane({
         )}
       </div>
 
-      <div style={{ display: "flex", gap: 8, padding: 12, borderTop: "1px solid #2a2f3a" }}>
+      <div style={{ display: "flex", gap: 8, padding: 12, borderTop: "1px solid var(--vscode-editorWidget-border, #2a2f3a)" }}>
         <button onClick={scan} disabled={scanning || checked.size === 0} style={{ ...PRIMARY, flex: 1, opacity: scanning || checked.size === 0 ? 0.5 : 1 }}>
           {scanning ? "Scanning…" : "Scan"}
         </button>
@@ -231,18 +231,18 @@ const PANEL: React.CSSProperties = {
   left: 0,
   bottom: 0,
   width: 290,
-  background: "rgba(16,19,26,.97)",
-  borderRight: "1px solid #2a2f3a",
+  background: "var(--vscode-editorHoverWidget-background, rgba(16,19,26,.97))",
+  borderRight: "1px solid var(--vscode-editorWidget-border, #2a2f3a)",
   zIndex: 7,
   display: "flex",
   flexDirection: "column",
 };
 const ROW: React.CSSProperties = { display: "flex", alignItems: "flex-start", gap: 8, padding: "6px 2px" };
-const SECTION: React.CSSProperties = { fontSize: 10, fontWeight: 700, color: "#6a7280", textTransform: "uppercase", letterSpacing: 0.4, margin: "2px 0 4px" };
-const TOGGLE: React.CSSProperties = { display: "block", width: "100%", textAlign: "left", border: "none", background: "transparent", color: "#9aa6b6", fontSize: 11, cursor: "pointer", padding: "8px 2px 4px" };
-const LABEL: React.CSSProperties = { display: "block", fontSize: 11, color: "#cfd6e0", marginBottom: 4, fontWeight: 600 };
-const INPUT: React.CSSProperties = { width: "100%", background: "#10141b", border: "1px solid #343b47", borderRadius: 7, color: "#eef1f5", padding: "5px 8px", fontSize: 11.5, marginTop: 4 };
-const CARD: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, padding: "8px 9px", marginTop: 6, borderRadius: 8, border: "1px solid #2a2f3a", background: "rgba(29,33,42,.7)" };
-const ADDBTN: React.CSSProperties = { flex: "none", border: "1px solid #2f81f7", background: "rgba(47,129,247,.16)", color: "#cfe0ff", borderRadius: 6, padding: "4px 9px", fontSize: 11, cursor: "pointer" };
-const PRIMARY: React.CSSProperties = { border: "1px solid #2f81f7", background: "#2f81f7", color: "#fff", borderRadius: 7, padding: "8px 13px", fontSize: 12, fontWeight: 650, cursor: "pointer" };
-const ICON: React.CSSProperties = { border: "none", background: "transparent", color: "#949cab", fontSize: 14, cursor: "pointer", padding: 0 };
+const SECTION: React.CSSProperties = { fontSize: 10, fontWeight: 700, color: "var(--vscode-disabledForeground, #6a7280)", textTransform: "uppercase", letterSpacing: 0.4, margin: "2px 0 4px" };
+const TOGGLE: React.CSSProperties = { display: "block", width: "100%", textAlign: "left", border: "none", background: "transparent", color: "var(--vscode-descriptionForeground, #9aa6b6)", fontSize: 11, cursor: "pointer", padding: "8px 2px 4px" };
+const LABEL: React.CSSProperties = { display: "block", fontSize: 11, color: "var(--vscode-foreground, #cfd6e0)", marginBottom: 4, fontWeight: 600 };
+const INPUT: React.CSSProperties = { width: "100%", background: "var(--vscode-input-background, #10141b)", border: "1px solid var(--vscode-input-border, #343b47)", borderRadius: 7, color: "var(--vscode-foreground, #eef1f5)", padding: "5px 8px", fontSize: 11.5, marginTop: 4 };
+const CARD: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, padding: "8px 9px", marginTop: 6, borderRadius: 8, border: "1px solid var(--vscode-editorWidget-border, #2a2f3a)", background: "var(--vscode-editorWidget-background, rgba(29,33,42,.7))" };
+const ADDBTN: React.CSSProperties = { flex: "none", border: "1px solid var(--vscode-focusBorder, #2f81f7)", background: "rgba(47,129,247,.16)", color: "var(--vscode-foreground, #cfe0ff)", borderRadius: 6, padding: "4px 9px", fontSize: 11, cursor: "pointer" };
+const PRIMARY: React.CSSProperties = { border: "1px solid var(--vscode-focusBorder, #2f81f7)", background: "var(--vscode-focusBorder, #2f81f7)", color: "var(--vscode-button-foreground, #fff)", borderRadius: 7, padding: "8px 13px", fontSize: 12, fontWeight: 650, cursor: "pointer" };
+const ICON: React.CSSProperties = { border: "none", background: "transparent", color: "var(--vscode-descriptionForeground, #949cab)", fontSize: 14, cursor: "pointer", padding: 0 };

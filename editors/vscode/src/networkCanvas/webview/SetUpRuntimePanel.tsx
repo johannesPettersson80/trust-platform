@@ -33,7 +33,7 @@ export function SetUpRuntimePanel({
   return (
     <aside style={PANEL} aria-label="Set up a runtime">
       <div style={HEADER}>
-        <div style={{ flex: 1, fontSize: 12, fontWeight: 700, color: "#cfd6e0" }}>
+        <div style={{ flex: 1, fontSize: 12, fontWeight: 700, color: "var(--vscode-foreground, #cfd6e0)" }}>
           Set up runtime
         </div>
         <button onClick={onClose} aria-label="Close" style={ICON}>
@@ -79,8 +79,8 @@ const PANEL: React.CSSProperties = {
   left: 0,
   bottom: 0,
   width: 252,
-  background: "rgba(16,19,26,.97)",
-  borderRight: "1px solid #2a2f3a",
+  background: "var(--vscode-editorHoverWidget-background, rgba(16,19,26,.97))",
+  borderRight: "1px solid var(--vscode-editorWidget-border, #2a2f3a)",
   zIndex: 7,
   display: "flex",
   flexDirection: "column",
@@ -89,7 +89,7 @@ const HEADER: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   padding: "11px 12px",
-  borderBottom: "1px solid #2a2f3a",
+  borderBottom: "1px solid var(--vscode-editorWidget-border, #2a2f3a)",
 };
 const OPTION: React.CSSProperties = {
   display: "flex",
@@ -97,27 +97,27 @@ const OPTION: React.CSSProperties = {
   gap: 3,
   width: "100%",
   textAlign: "left",
-  background: "#10141b",
-  border: "1px solid #343b47",
+  background: "var(--vscode-input-background, #10141b)",
+  border: "1px solid var(--vscode-input-border, #343b47)",
   borderRadius: 7,
-  color: "#eef1f5",
+  color: "var(--vscode-foreground, #eef1f5)",
   padding: "9px 11px",
   marginBottom: 8,
   cursor: "pointer",
 };
 const OPTION_LABEL: React.CSSProperties = { fontSize: 12, fontWeight: 650 };
-const OPTION_DETAIL: React.CSSProperties = { fontSize: 11, color: "#9aa6b6", lineHeight: 1.4 };
+const OPTION_DETAIL: React.CSSProperties = { fontSize: 11, color: "var(--vscode-descriptionForeground, #9aa6b6)", lineHeight: 1.4 };
 const SECTION: React.CSSProperties = {
   fontSize: 10,
   textTransform: "uppercase",
   letterSpacing: "0.04em",
-  color: "#7a8595",
+  color: "var(--vscode-descriptionForeground, #7a8595)",
   margin: "8px 0 8px",
 };
 const ICON: React.CSSProperties = {
   border: "none",
   background: "transparent",
-  color: "#949cab",
+  color: "var(--vscode-descriptionForeground, #949cab)",
   fontSize: 14,
   cursor: "pointer",
   padding: 0,
