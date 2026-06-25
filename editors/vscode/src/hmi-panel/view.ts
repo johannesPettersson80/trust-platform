@@ -77,6 +77,27 @@ export function getHtml(webview: vscode.Webview): string {
       padding: 10px;
       padding-bottom: 24px;
     }
+    .hmi-empty {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 40vh;
+      text-align: center;
+      padding: 24px;
+    }
+    .hmi-empty-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--vscode-foreground);
+    }
+    .hmi-empty-sub {
+      font-size: 12px;
+      color: var(--vscode-descriptionForeground);
+      max-width: 320px;
+    }
     .group {
       grid-column: 1 / -1;
       margin-top: 10px;
@@ -807,7 +828,42 @@ export function getHtml(webview: vscode.Webview): string {
         renderScene3dPage(page);
         return;
       }
+      // Every page gets a designed state — never a blank body. Trend/alarm pages with nothing mapped
+      // (or any empty page) explain what to do instead of rendering an empty void.
+      if (visible.length === 0) {
+        renderEmptyPage(kind, page);
+        return;
+      }
       renderSectionWidgets(page, visible);
+    }
+
+    // A page with no widgets to render still gets a designed, HONEST state — never a blank void.
+    // Trend/alarm pages are usually configured (signals / alarm defs) but the preview doesn't draw
+    // time-series charts or the alarm list, so we say exactly that (and name the tracked signals)
+    // rather than implying nothing is set up.
+    function renderEmptyPage(kind, page) {
+      const signals = page && Array.isArray(page.signals) ? page.signals : [];
+      const wrap = document.createElement("div");
+      wrap.className = "hmi-empty";
+      const heading = document.createElement("div");
+      heading.className = "hmi-empty-title";
+      const sub = document.createElement("div");
+      sub.className = "hmi-empty-sub";
+      if (kind === "trend") {
+        heading.textContent = "Live trend charts aren't shown in this preview";
+        sub.textContent = signals.length
+          ? "Tracked signals: " + signals.map((s) => s.replace(/^global\./, "")).join(", ") + "."
+          : "Add trend signals to this page to chart values over time.";
+      } else if (kind === "alarm") {
+        heading.textContent = "The alarm list isn't shown in this preview";
+        sub.textContent = "This preview renders live values; open the runtime's web HMI for alarms.";
+      } else {
+        heading.textContent = "Nothing on this page yet";
+        sub.textContent = "Map a widget to this page in your HMI layout to see it here.";
+      }
+      wrap.appendChild(heading);
+      wrap.appendChild(sub);
+      elements.widgets.appendChild(wrap);
     }
 
     function render() {
