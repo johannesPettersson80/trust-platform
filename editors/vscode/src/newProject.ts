@@ -21,6 +21,18 @@ const MAIN_ST_SOURCE = `PROGRAM Main
 END_PROGRAM
 `;
 
+// A CONFIGURATION instantiates the program (RESOURCE + TASK + PROGRAM WITH) so the project actually
+// runs AND so a brand-new project is clean — without an instance, the "unused program" lint (W009)
+// flags Main on first open (F-02). Mirrors the proven examples/network_canvas_demo config; INTERVAL
+// matches runtime.toml cycle_interval_ms.
+const CONFIG_ST_SOURCE = `CONFIGURATION Config
+RESOURCE MainRes ON PLC
+    TASK MainTask (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH MainTask : Main;
+END_RESOURCE
+END_CONFIGURATION
+`;
+
 const PROJECT_TOML_SOURCE = `include_paths = ["src"]
 `;
 
@@ -188,6 +200,10 @@ async function writeScaffold(targetUri: vscode.Uri): Promise<void> {
   await vscode.workspace.fs.writeFile(
     vscode.Uri.joinPath(srcUri, "Main.st"),
     mainBuffer
+  );
+  await vscode.workspace.fs.writeFile(
+    vscode.Uri.joinPath(srcUri, "config.st"),
+    Buffer.from(CONFIG_ST_SOURCE)
   );
   await vscode.workspace.fs.writeFile(
     vscode.Uri.joinPath(targetUri, "trust-lsp.toml"),

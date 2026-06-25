@@ -178,6 +178,19 @@ suite("New project command (VS Code)", function () {
       true,
       "Expected io.toml in the runnable scaffold."
     );
+    // F-02 — a CONFIGURATION instantiates Main so a brand-new project opens clean (no W009 "unused
+    // program" lint). Without the program instance the LSP flags Main on first open.
+    const configUri = vscode.Uri.joinPath(targetUri, "src", "config.st");
+    assert.strictEqual(
+      await pathExists(configUri),
+      true,
+      "Expected src/config.st in the scaffold."
+    );
+    const configSource = await readText(configUri);
+    assert.ok(
+      /PROGRAM\s+Main\s+WITH\s+\w+\s*:\s*Main/.test(configSource),
+      "config.st must instantiate Main (PROGRAM ... WITH ... : Main) so it is not flagged unused (F-02)."
+    );
     const runtimeToml = await readText(runtimeTomlUri);
     assert.ok(
       runtimeToml.includes("[runtime.control]"),

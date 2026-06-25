@@ -266,6 +266,10 @@ Target release: `v0.24.25`
 
 ### Fixed
 
+- vscode: the create-project scaffold now writes a `src/config.st` CONFIGURATION
+  that instantiates `Main` (RESOURCE + TASK + `PROGRAM Main WITH MainTask`), so a
+  brand-new project opens clean instead of tripping the W009 "unused program"
+  lint on first open (F-02).
 - trust-debug: the debug/simulator control server now serves HMI schema and
   value requests from the launch project and live debug snapshot, so VS Code's
   HMI Preview can render against a running simulator instead of timing out on
