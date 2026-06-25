@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { healthColor, protocolColor, protocolName, roleWord } from "./nodes";
+import { t, tint } from "./theme";
 import { buildParams, Field, valuesFor } from "./SchemaFields";
 import { browseAction } from "./browseActions";
 import {
@@ -48,9 +49,9 @@ const PANEL_STYLE: React.CSSProperties = {
   bottom: 0,
   width: 340,
   maxWidth: "92vw",
-  background: "rgba(18,21,28,.98)",
-  borderLeft: "1px solid #2a2f3a",
-  boxShadow: "-18px 0 50px rgba(0,0,0,.45)",
+  background: t.overlay,
+  borderLeft: `1px solid ${t.border}`,
+  boxShadow: t.shadowOverlay,
   zIndex: 8,
   display: "flex",
   flexDirection: "column",
@@ -255,30 +256,30 @@ function SummaryView({
 
   return (
     <aside style={PANEL_STYLE} aria-label="Node summary">
-      <header style={{ display: "flex", alignItems: "center", gap: 9, padding: "12px 14px", borderBottom: "1px solid #2a2f3a" }}>
+      <header style={{ display: "flex", alignItems: "center", gap: 9, padding: "12px 14px", borderBottom: `1px solid ${t.border}` }}>
         {accent && <span style={{ flex: "none", width: 10, height: 10, borderRadius: 3, background: accent }} />}
         <div style={{ flex: 1, minWidth: 0 }}>
           <strong style={{ display: "block", fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</strong>
-          <span style={{ fontSize: 10.5, color: "#7f8794", textTransform: "uppercase", letterSpacing: 0.4 }}>{kindLabel}</span>
+          <span style={{ fontSize: 10.5, color: t.textMuted, textTransform: "uppercase", letterSpacing: 0.4 }}>{kindLabel}</span>
         </div>
         {health && (
-          <span title={health} style={{ flex: "none", width: 10, height: 10, borderRadius: "50%", background: healthColor(health), boxShadow: `0 0 0 2px ${healthColor(health)}30` }} />
+          <span title={health} style={{ flex: "none", width: 10, height: 10, borderRadius: "50%", background: healthColor(health), boxShadow: `0 0 0 2px ${tint(healthColor(health), 0.18)}` }} />
         )}
         <button onClick={onClose} aria-label="Close" style={iconBtn}>✕</button>
       </header>
       <div style={{ flex: 1, overflow: "auto", padding: 14 }}>
         {shown.length === 0 ? (
-          <p style={{ color: "#7f8794", fontSize: 12 }}>No further details.</p>
+          <p style={{ color: t.textMuted, fontSize: 12 }}>No further details.</p>
         ) : (
           shown.map(([k, v]) => (
             <div key={k} style={{ display: "flex", gap: 10, fontSize: 12, lineHeight: 1.55, marginBottom: 7 }}>
-              <span style={{ color: "#7f8794", flex: "none", minWidth: 84 }}>{k}</span>
-              <span style={{ color: "#cfd6e0", overflowWrap: "anywhere" }}>{v}</span>
+              <span style={{ color: t.textMuted, flex: "none", minWidth: 84 }}>{k}</span>
+              <span style={{ color: t.text, overflowWrap: "anywhere" }}>{v}</span>
             </div>
           ))
         )}
       </div>
-      <footer style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: 12, borderTop: "1px solid #2a2f3a" }}>
+      <footer style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: 12, borderTop: `1px solid ${t.border}` }}>
         {runtimeControls && onControl ? (
           <>
             {runtimeControls.map((control) => (
@@ -349,24 +350,24 @@ function EditableEndpoint({
 
   return (
     <aside style={PANEL_STYLE} aria-label="Node settings">
-      <header style={{ display: "flex", alignItems: "center", gap: 9, padding: "12px 14px", borderBottom: "1px solid #2a2f3a" }}>
+      <header style={{ display: "flex", alignItems: "center", gap: 9, padding: "12px 14px", borderBottom: `1px solid ${t.border}` }}>
         <button onClick={onBack} aria-label="Back" title="Back to summary" style={iconBtn}>‹</button>
         <span style={{ flex: "none", width: 10, height: 10, borderRadius: 3, background: protocolColor(protocol) }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <strong style={{ display: "block", fontSize: 14 }}>{protocolName(protocol)}</strong>
-          <span style={{ fontSize: 10.5, color: "#7f8794", textTransform: "uppercase", letterSpacing: 0.4 }}>
+          <span style={{ fontSize: 10.5, color: t.textMuted, textTransform: "uppercase", letterSpacing: 0.4 }}>
             {roleWord(protocol, str(node.data.role))} · edit
           </span>
         </div>
         {health && (
-          <span title={health} style={{ flex: "none", width: 10, height: 10, borderRadius: "50%", background: healthColor(health), boxShadow: `0 0 0 2px ${healthColor(health)}30` }} />
+          <span title={health} style={{ flex: "none", width: 10, height: 10, borderRadius: "50%", background: healthColor(health), boxShadow: `0 0 0 2px ${tint(healthColor(health), 0.18)}` }} />
         )}
         <button onClick={onClose} aria-label="Close" style={iconBtn}>✕</button>
       </header>
 
       <div style={{ flex: 1, overflow: "auto", padding: 14 }}>
         {protoSchema.purpose && (
-          <p style={{ color: "#7f8794", fontSize: 11, margin: "0 0 14px" }}>{protoSchema.purpose}</p>
+          <p style={{ color: t.textMuted, fontSize: 11, margin: "0 0 14px" }}>{protoSchema.purpose}</p>
         )}
         {protoSchema.fields.map((field) => (
           <Field
@@ -384,9 +385,9 @@ function EditableEndpoint({
               padding: "9px 11px",
               borderRadius: 8,
               fontSize: 12,
-              border: `1px solid ${ok ? "#46c26577" : blocked ? "#f0584f77" : "#343b47"}`,
-              background: ok ? "rgba(70,194,101,.12)" : blocked ? "rgba(240,88,79,.1)" : "rgba(20,24,32,.7)",
-              color: ok ? "#bff0cc" : blocked ? "#ffcfcb" : "#cfd6e0",
+              border: `1px solid ${ok ? tint(t.ok, 0.47) : blocked ? tint(t.danger, 0.47) : t.border}`,
+              background: ok ? tint(t.ok, 0.12) : blocked ? tint(t.danger, 0.1) : t.surface,
+              color: ok ? t.ok : blocked ? t.danger : t.text,
             }}
           >
             {applyResult.message || (ok ? "Saved." : "")}
@@ -394,7 +395,7 @@ function EditableEndpoint({
         )}
       </div>
 
-      <footer style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: 12, borderTop: "1px solid #2a2f3a" }}>
+      <footer style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: 12, borderTop: `1px solid ${t.border}` }}>
         <button onClick={() => send("commSave", { action: "upsert" })} style={{ ...primaryBtn, flex: 1 }}>Save</button>
         {protoSchema.supports_test && reachable && (
           <button onClick={() => send("commTest")} style={secondaryBtn}>Test</button>
@@ -410,7 +411,7 @@ function EditableEndpoint({
   );
 }
 
-const iconBtn: React.CSSProperties = { border: "none", background: "transparent", color: "#949cab", fontSize: 14, cursor: "pointer" };
-const primaryBtn: React.CSSProperties = { border: "1px solid #2f81f7", background: "#2f81f7", color: "#fff", borderRadius: 7, padding: "8px 13px", fontSize: 12, fontWeight: 650, cursor: "pointer" };
-const secondaryBtn: React.CSSProperties = { border: "1px solid #343b47", background: "transparent", color: "#cfd6e0", borderRadius: 7, padding: "8px 13px", fontSize: 12, cursor: "pointer" };
-const dangerBtn: React.CSSProperties = { border: "1px solid #5a2b2b", background: "transparent", color: "#f0a8a2", borderRadius: 7, padding: "8px 13px", fontSize: 12, cursor: "pointer" };
+const iconBtn: React.CSSProperties = { border: "none", background: "transparent", color: t.textMuted, fontSize: 14, cursor: "pointer" };
+const primaryBtn: React.CSSProperties = { border: `1px solid ${t.accent}`, background: t.accent, color: t.onAccent, borderRadius: 7, padding: "8px 13px", fontSize: 12, fontWeight: 650, cursor: "pointer" };
+const secondaryBtn: React.CSSProperties = { border: `1px solid ${t.border}`, background: "transparent", color: t.text, borderRadius: 7, padding: "8px 13px", fontSize: 12, cursor: "pointer" };
+const dangerBtn: React.CSSProperties = { border: `1px solid ${tint(t.danger, 0.45)}`, background: "transparent", color: t.danger, borderRadius: 7, padding: "8px 13px", fontSize: 12, cursor: "pointer" };
