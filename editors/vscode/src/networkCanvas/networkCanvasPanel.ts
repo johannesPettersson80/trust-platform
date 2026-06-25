@@ -1057,7 +1057,7 @@ function networkCanvasWebviewHtml(
       html, body, #root {
         width: 100%; height: 100%; overflow: hidden;
         font-family: var(--vscode-font-family, -apple-system, "Segoe UI", sans-serif);
-        background: #0f1116; color: #eef1f5;
+        background: var(--vscode-editor-background, #0f1116); color: var(--vscode-foreground, #eef1f5);
       }
     </style>
   </head>

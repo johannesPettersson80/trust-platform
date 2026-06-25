@@ -1,5 +1,6 @@
 import React from "react";
 import { BaseEdge, getSmoothStepPath, type EdgeProps } from "@xyflow/react";
+import { t } from "./theme";
 
 // §8: edges are orthogonal with rounded corners + a casing in the canvas-bg colour
 // so the wire reads clearly above nodes and the dotted background; protocol-coloured.
@@ -28,12 +29,12 @@ export function CasedEdge({
     borderRadius: 8,
     ...(centerY !== undefined ? { centerY } : {}),
   });
-  const color = (data?.color as string) ?? "#5aa9ff";
+  const color = (data?.color as string) ?? t.accent;
   const dashed = data?.dashed ? "5 4" : undefined;
 
   return (
     <>
-      <path d={path} fill="none" stroke="#0f1116" strokeWidth={5} strokeLinecap="round" />
+      <path d={path} fill="none" stroke={t.canvas} strokeWidth={5} strokeLinecap="round" />
       <BaseEdge
         id={id}
         path={path}

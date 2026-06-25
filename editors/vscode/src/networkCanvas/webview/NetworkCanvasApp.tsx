@@ -13,6 +13,8 @@ import {
   useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import "./theme.css";
+import { t, tint } from "./theme";
 import { buildGraph } from "./layout";
 import { nodeTypes } from "./nodes";
 import { edgeTypes } from "./CasedEdge";
@@ -466,6 +468,46 @@ function Canvas() {
     [editMode]
   );
 
+  // A right-side drawer (inspector, add/setup/discover/filter, browse) overlays the canvas. To make
+  // sure it never covers a node, inset the React Flow viewport by the drawer width (panel sits BESIDE
+  // the graph) and re-fit so the working node lands in the now-visible area. Preserves "nothing hidden".
+  const DRAWER_W = 360; // widest right-side drawer; the canvas insets by this so panels never overlap nodes
+  const drawerOpen = Boolean(
+    selectedId || draft || addSlot || filterOpen || discoverOpen || browseTags
+  );
+  const prevDrawerRef = useRef(false);
+  const prevSelRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const drawerChanged = prevDrawerRef.current !== drawerOpen;
+    const selChanged = prevSelRef.current !== selectedId;
+    prevDrawerRef.current = drawerOpen;
+    prevSelRef.current = selectedId;
+    if (!drawerChanged && !selChanged) {
+      return;
+    }
+    // Let the viewport inset apply (one tick) before fitting against the new width.
+    const id = setTimeout(() => {
+      if (drawerOpen && selectedId) {
+        void fitView({ nodes: [{ id: selectedId }], padding: 0.6, maxZoom: 1.4, duration: 320 });
+      } else if (drawerChanged) {
+        void fitView({ padding: 0.2, duration: 320 });
+      }
+    }, 90);
+    return () => clearTimeout(id);
+  }, [drawerOpen, selectedId, fitView]);
+
+  const toolbarBtn = (active: boolean): React.CSSProperties => ({
+    border: `1px solid ${active ? t.accent : t.border}`,
+    background: active ? tint(t.accent, 0.14) : "transparent",
+    color: t.text,
+    borderRadius: t.radius,
+    padding: "6px 12px",
+    fontSize: 12,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+    transition: `background ${t.ease}, border-color ${t.ease}`,
+  });
+
   return (
     <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column" }}>
       <header
@@ -474,13 +516,15 @@ function Canvas() {
           alignItems: "center",
           gap: 12,
           padding: "10px 16px",
-          borderBottom: "1px solid #2a2f3a",
-          background: "rgba(18,21,27,.85)",
+          borderBottom: `1px solid ${t.border}`,
+          background: t.surface,
           zIndex: 5,
         }}
       >
-        <div style={{ fontWeight: 800, fontSize: 15, whiteSpace: "nowrap" }}>
-          tru<span style={{ color: "#5aa9ff" }}>ST</span> · Devices &amp; Connections
+        <div style={{ fontWeight: 600, fontSize: 14, whiteSpace: "nowrap", color: t.text, letterSpacing: 0.2 }}>
+          tru<span style={{ color: t.accent }}>ST</span>
+          <span style={{ color: t.textSubtle, margin: "0 8px" }}>·</span>
+          <span style={{ color: t.textMuted, fontWeight: 500 }}>Devices &amp; Connections</span>
         </div>
         <input
           onChange={onSearch}
@@ -489,10 +533,10 @@ function Canvas() {
           style={{
             flex: "1 1 240px",
             minWidth: 0,
-            background: "#10141b",
-            border: "1px solid #343b47",
-            borderRadius: 8,
-            color: "#eef1f5",
+            background: t.inputBg,
+            border: `1px solid ${t.inputBorder}`,
+            borderRadius: t.radius,
+            color: t.text,
             padding: "6px 10px",
             fontSize: 12,
           }}
@@ -501,13 +545,13 @@ function Canvas() {
           <button
             onClick={() => focusNode(fault.targetNodeId)}
             style={{
-              border: "1px solid rgba(255,92,84,.45)",
-              background: "rgba(255,92,84,.12)",
-              color: "#ffcfcb",
-              borderRadius: 8,
+              border: `1px solid ${tint(t.danger, 0.5)}`,
+              background: tint(t.danger, 0.12),
+              color: t.danger,
+              borderRadius: t.radius,
               padding: "6px 10px",
               fontSize: 11,
-              fontWeight: 750,
+              fontWeight: 600,
               cursor: "pointer",
               whiteSpace: "nowrap",
               maxWidth: 360,
@@ -526,16 +570,7 @@ function Canvas() {
             setDiscoverOpen(false);
           }}
           title="Filter connections by protocol"
-          style={{
-            border: filterOpen ? "1px solid #2f81f7" : "1px solid #343b47",
-            background: filterOpen ? "rgba(47,129,247,.16)" : "transparent",
-            color: "#eef1f5",
-            borderRadius: 8,
-            padding: "6px 12px",
-            fontSize: 12,
-            cursor: "pointer",
-            whiteSpace: "nowrap",
-          }}
+          style={toolbarBtn(filterOpen)}
         >
           Filter
         </button>
@@ -546,16 +581,7 @@ function Canvas() {
             setAddSlot(undefined);
           }}
           title="Find devices on the network"
-          style={{
-            border: discoverOpen ? "1px solid #2f81f7" : "1px solid #343b47",
-            background: discoverOpen ? "rgba(47,129,247,.16)" : "transparent",
-            color: "#eef1f5",
-            borderRadius: 8,
-            padding: "6px 12px",
-            fontSize: 12,
-            cursor: "pointer",
-            whiteSpace: "nowrap",
-          }}
+          style={toolbarBtn(discoverOpen)}
         >
           Discover
         </button>
@@ -570,16 +596,7 @@ function Canvas() {
             setFilterOpen(false);
           }}
           title="Edit mode: shows + on each runtime to add a device or service"
-          style={{
-            border: editMode ? "1px solid #2f81f7" : "1px solid #343b47",
-            background: editMode ? "rgba(47,129,247,.16)" : "transparent",
-            color: "#eef1f5",
-            borderRadius: 8,
-            padding: "6px 12px",
-            fontSize: 12,
-            cursor: "pointer",
-            whiteSpace: "nowrap",
-          }}
+          style={toolbarBtn(editMode)}
         >
           {editMode ? "Done" : "Edit"}
         </button>
@@ -600,6 +617,7 @@ function Canvas() {
           edgeTypes={edgeTypes}
           minZoom={0.2}
           maxZoom={1.75}
+          style={{ width: drawerOpen ? `calc(100% - ${DRAWER_W}px)` : "100%", height: "100%" }}
           proOptions={{ hideAttribution: true }}
           onNodeClick={(_, node) => {
             setDraft(undefined); // selection and the add-flow share the right drawer
@@ -607,9 +625,9 @@ function Canvas() {
             post({ type: "selectNode", nodeId: node.id });
           }}
         >
-          <Background variant={BackgroundVariant.Dots} gap={26} size={1} color="#ffffff14" />
+          <Background variant={BackgroundVariant.Dots} gap={26} size={1} color="var(--vscode-editorIndentGuide-background, #ffffff14)" />
           <Controls showInteractive={false} />
-          <MiniMap pannable zoomable style={{ background: "#11151c" }} maskColor="rgba(8,10,14,.6)" />
+          <MiniMap pannable zoomable style={{ background: t.surface, border: `1px solid ${t.border}`, borderRadius: t.radius }} maskColor={tint(t.canvas, 0.6)} />
         </ReactFlow>
         </EditModeContext.Provider>
 
@@ -623,19 +641,17 @@ function Canvas() {
               display: "flex",
               alignItems: "center",
               gap: 12,
-              background: graph.banner.kind === "info" ? "rgba(18,21,28,.96)" : "rgba(31,20,20,.96)",
-              border:
-                graph.banner.kind === "info"
-                  ? "1px solid #343b47"
-                  : "1px solid rgba(255,92,84,.5)",
-              borderRadius: 8,
+              background: t.overlay,
+              border: `1px solid ${graph.banner.kind === "info" ? t.border : tint(t.danger, 0.5)}`,
+              borderRadius: t.radiusLg,
               padding: "8px 12px",
+              boxShadow: t.shadowOverlay,
               zIndex: 6,
             }}
           >
             <span
               style={{
-                color: graph.banner.kind === "info" ? "#cfd6e0" : "#ffcfcb",
+                color: graph.banner.kind === "info" ? t.text : t.danger,
                 fontSize: 12,
                 fontWeight: 600,
               }}
@@ -647,10 +663,10 @@ function Canvas() {
                 key={a.action}
                 onClick={() => post({ type: "action", action: a.action })}
                 style={{
-                  border: "1px solid #343b47",
+                  border: `1px solid ${t.border}`,
                   background: "transparent",
-                  color: "#cfd6e0",
-                  borderRadius: 6,
+                  color: t.text,
+                  borderRadius: t.radiusSm,
                   padding: "4px 10px",
                   fontSize: 11,
                   cursor: "pointer",
@@ -669,10 +685,10 @@ function Canvas() {
               left: 16,
               bottom: 14,
               padding: "8px 12px",
-              borderRadius: 8,
-              border: "1px solid #343b47",
-              background: "rgba(15,18,24,.82)",
-              color: "#949cab",
+              borderRadius: t.radius,
+              border: `1px solid ${t.border}`,
+              background: t.overlay,
+              color: t.textMuted,
               fontSize: 11,
               pointerEvents: "none",
             }}

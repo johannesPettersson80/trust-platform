@@ -114,12 +114,20 @@ export function fleetViewFromTopology(
       id: host.host_id,
       hostname: host.hostname,
       label: `${host.hostname} · ${host.os}/${host.arch}`,
-      health: aggregateHealth(
-        allRuntimes.flatMap((runtime) => [
-          runtime.health,
-          ...runtime.endpoints.map((endpoint) => endpoint.health),
-        ])
-      ),
+      // A host's status is its MACHINE reachability — NOT an aggregate of the runtimes on it. It's
+      // reachable even when its runtime is stopped. The signals hold on EVERY OS and for REMOTE peers:
+      //  • arch/os/ips are reported by each host's OWN runtime via `std::env::consts::ARCH/OS`
+      //    (fleet_handlers.rs) — a cross-platform compile-time constant, so always populated on
+      //    Linux/Windows/macOS, local or remote. We never key off Linux-only fields (e.g. /proc load).
+      //  • a live runtime on the host also proves we reached it.
+      // An unreachable configured peer is a synthetic placeholder with arch=""/ips=[]/no live runtime
+      // (fleetTopology.ts) → Unreachable. So: reachable here ⇔ we actually have the machine.
+      health:
+        host.arch.trim().length > 0 ||
+        host.ips.length > 0 ||
+        allRuntimes.some((runtime) => runtime.health === "connected")
+          ? "connected"
+          : "runtime_unreachable",
       runtimeCount: allRuntimes.length,
       endpointCount,
       containers,
@@ -226,6 +234,11 @@ function aggregateHealth(values: readonly string[]): string {
   }
   if (values.includes("connected")) {
     return "connected";
+  }
+  // "configured_policy" = configured from project files but no live health reported → the runtime is
+  // not running. That's an honest "Stopped", not a vague "Pending" (which implies a connection in flight).
+  if (values.includes("configured_policy")) {
+    return "stopped";
   }
   return "pending";
 }

@@ -51,16 +51,16 @@ function endpointHeight(ep: NCEndpoint): number {
   return n > 0 ? EP_HEADER + ROLE_BAND + n * SLAVE_ROW_H : EP_H;
 }
 const RT_PAD = 12;
-const RT_HEADER = 46;
+const RT_HEADER = 64; // title-over-status header: full-width name (wraps, no truncation) + a status-pill row
 const MIN_RT_W = 210;
-const HOST_PAD = 16;
-const HOST_HEADER = 58;
+const HOST_PAD = 12;
+const HOST_HEADER = 60; // title-over-status header: hostname on its own row + a reachability-pill row
 const CT_PAD = 14;
 const CT_HEADER = 40;
 const STACK_GAP = 18;
 const HOST_GAP = 56;
-const EXT_W = 196;
-const EXT_H = 54;
+const EXT_W = 220;
+const EXT_H = 62;
 // §0.4 empty slots (Edit mode). The runtime gets ONE "+ Add" cell in its strip (endpoint-sized);
 // a "+ Runtime" slot stacks under the host's runtimes; a "+ Host" slot ends the host row.
 const RT_SLOT_H = 54;

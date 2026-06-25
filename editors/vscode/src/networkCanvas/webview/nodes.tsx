@@ -2,6 +2,7 @@ import React, { memo, useState } from "react";
 import { Handle, NodeToolbar, Position, type NodeProps } from "@xyflow/react";
 import { BusNode } from "./BusNode";
 import { useEditMode, type AddSlotRequest } from "./editMode";
+import { t, tint } from "./theme";
 import type {
   ContainerNodeData,
   EndpointNodeData,
@@ -48,28 +49,25 @@ const ICONS = {
   ),
 };
 
-// §8 design tokens: status colours (label-paired, colour-blind safe via the pill text).
-const STATUS_GREEN = "#46c265";
-const STATUS_AMBER = "#e0b341";
-const STATUS_RED = "#f0584f";
-const STATUS_GREY = "#6b7480";
-
+// Status → theme colour. Maps onto VS Code chart/status tokens (see theme.ts) so it tracks the
+// user's theme; colour is always paired with a label (mode badge, hover card, inspector) for
+// colour-blind safety.
 export function healthColor(health: string): string {
   switch (health) {
     case "connected":
-      return STATUS_GREEN;
+      return t.ok;
     case "degraded":
-      return STATUS_AMBER;
+      return t.warn;
     case "error":
     case "runtime_unreachable":
-      return STATUS_RED;
+      return t.danger;
     default:
-      return STATUS_GREY; // not_configured / configured_policy / pending / simulate / unknown
+      return t.idle; // not_configured / configured_policy / pending / simulate / unknown
   }
 }
 
-// §8 design tokens: colour means status + protocol-on-wire only. Protocol identity colours
-// the wire and the endpoint badge — never floods the node body.
+// Protocol identity colours the wire + the endpoint role band only — never floods a node body.
+// Mid-tone hues so the band reads with dark text on both light and dark themes.
 const PROTOCOL_COLORS: Record<string, string> = {
   modbus_tcp: "#5b9bd5",
   modbus: "#5b9bd5",
@@ -88,7 +86,7 @@ const PROTOCOL_COLORS: Record<string, string> = {
 };
 
 export function protocolColor(protocol: string): string {
-  return PROTOCOL_COLORS[protocol] ?? STATUS_GREY;
+  return PROTOCOL_COLORS[protocol] ?? "#6b7480";
 }
 
 const PROTOCOL_LABELS: Record<string, string> = {
@@ -182,13 +180,17 @@ export function roleWord(protocol: string, role: string): string {
   }
 }
 
-// Ports are square/neutral nubs (NOT circles) so they never read as a status dot.
+// Ports are invisible plumbing: wires still anchor to their position, but the nub never shows — so a
+// runtime's (rarely used) left/right link ports don't read as dots that connect to nothing. Devices
+// are added via the Edit-mode "+" slots, not by dragging from a handle, so nothing needs a visible port.
 const PORT_STYLE: React.CSSProperties = {
-  background: "#5a6472",
-  width: 8,
-  height: 8,
-  borderRadius: 2,
+  background: "transparent",
+  width: 6,
+  height: 6,
   border: "none",
+  opacity: 0,
+  minWidth: 0,
+  minHeight: 0,
 };
 
 // §7 honesty: unproven/pending config renders ghost/dashed and never green.
@@ -197,14 +199,88 @@ function isPending(health: string): boolean {
   return PENDING_STATES.has(health);
 }
 
-// On-canvas status is a dot (§4.3); the full state word lives in the hover card + inspector.
-function StatusDot({ health }: { health: string }) {
-  const c = healthColor(health);
+// A HOST is a machine (where), not a process. Its lifecycle state ("pending"/"stopped"/"connected") is
+// really the RUNTIME's connection state — showing it on the host conflates "the runtime isn't connected"
+// with "the machine is pending" (e.g. the local Pi we're literally running on showing "Pending"). So the
+// host only surfaces a status pill when something is wrong with reaching THAT machine; otherwise the host
+// is just its name and the runtime node carries the lifecycle status.
+const HOST_PROBLEM_STATES = new Set(["error", "degraded", "runtime_unreachable"]);
+function isHostProblem(health: string): boolean {
+  return HOST_PROBLEM_STATES.has(health);
+}
+
+// A node card surface. Hairline border + soft elevation (theme-aware); dashed + dimmed when pending.
+function cardStyle(health: string, opts: { raised?: boolean; radius?: number } = {}): React.CSSProperties {
+  const pending = isPending(health);
+  return {
+    width: "100%",
+    height: "100%",
+    border: `1px ${pending ? "dashed" : "solid"} ${t.border}`,
+    borderRadius: opts.radius ?? t.radius,
+    background: opts.raised ? t.surfaceRaised : t.surface,
+    boxShadow: pending ? "none" : t.shadow,
+    opacity: pending ? 0.9 : 1,
+    transition: `box-shadow ${t.ease}, border-color ${t.ease}, opacity ${t.ease}`,
+  };
+}
+
+// Honest status word — paired with the dot so status never relies on colour alone (accessibility) and
+// is one clear signal instead of a colour-dot plus a separate state badge.
+function statusLabel(health: string): string {
+  switch (health) {
+    case "connected":
+      return "Online";
+    case "degraded":
+      return "Degraded";
+    case "error":
+      return "Error";
+    case "runtime_unreachable":
+      return "Unreachable";
+    case "pending":
+      // Configured but not running / state not yet known — honest-neutral, never overclaim a live connect.
+      return "Pending";
+    case "stopped":
+      return "Stopped";
+    case "not_configured":
+      return "Not set up";
+    case "simulate":
+      return "Simulator";
+    case "unknown":
+      return "Unknown";
+    default:
+      return health ? health.charAt(0).toUpperCase() + health.slice(1) : "Unknown";
+  }
+}
+
+// One status signal for a host/runtime: a quiet pill with a status-coloured dot + the state word.
+// Replaces the old "mode badge that showed the state" + a separate dot (which said the same thing twice).
+function StatusPill({ health, label, tone }: { health: string; label?: string; tone?: string }) {
+  const c = tone ?? healthColor(health);
+  const live = !tone && health === "connected";
   return (
     <span
       title={health}
-      style={{ flex: "none", width: 9, height: 9, borderRadius: "50%", background: c, boxShadow: `0 0 0 2px ${c}30` }}
-    />
+      style={{
+        flex: "none",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 5,
+        fontSize: 10,
+        fontWeight: 600,
+        color: t.textMuted,
+        background: t.canvas,
+        border: `1px solid ${t.border}`,
+        borderRadius: t.pill,
+        padding: "2px 8px 2px 6px",
+        whiteSpace: "nowrap",
+      }}
+    >
+      <span
+        className={live ? "trust-dot trust-dot--live" : "trust-dot"}
+        style={{ width: 7, height: 7, borderRadius: "50%", background: c, boxShadow: `0 0 0 3px ${tint(c, 0.16)}` }}
+      />
+      {label ?? statusLabel(health)}
+    </span>
   );
 }
 
@@ -216,68 +292,53 @@ function HoverCard({ title, rows }: { title: string; rows: Array<[string, string
         minWidth: 180,
         maxWidth: 280,
         textAlign: "left",
-        background: "rgba(18,21,28,.98)",
-        border: "1px solid #2a2f3a",
-        borderRadius: 8,
-        boxShadow: "0 14px 40px rgba(0,0,0,.5)",
+        background: t.overlay,
+        border: `1px solid ${t.border}`,
+        borderRadius: t.radiusLg,
+        boxShadow: t.shadowOverlay,
         padding: "9px 11px",
       }}
     >
-      <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>{title}</div>
+      <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6, color: t.text }}>{title}</div>
       {rows
         .filter(([, v]) => v)
         .map(([k, v]) => (
           <div key={k} style={{ display: "flex", gap: 10, fontSize: 11, lineHeight: 1.5 }}>
-            <span style={{ color: "#7f8794", flex: "none", minWidth: 62 }}>{k}</span>
-            <span style={{ color: "#cfd6e0", overflowWrap: "anywhere" }}>{v}</span>
+            <span style={{ color: t.textMuted, flex: "none", minWidth: 62 }}>{k}</span>
+            <span style={{ color: t.text, overflowWrap: "anywhere" }}>{v}</span>
           </div>
         ))}
     </div>
   );
 }
 
-// Edit-mode "+" insertion affordance (shown on a runtime when edit mode is on).
-const modeBadgeStyle: React.CSSProperties = {
-  flex: "none",
-  fontSize: 9.5,
-  fontWeight: 700,
-  color: "#cfe0ff",
-  border: "1px solid #343b47",
-  borderRadius: 5,
-  padding: "1px 6px",
-  textTransform: "uppercase",
-};
-
 export const HostNode = memo(({ data }: NodeProps) => {
   const d = data as HostNodeData;
-  const c = healthColor(d.health);
   const [hover, setHover] = useState(false);
   return (
-    <div
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        width: "100%",
-        height: "100%",
-        border: `1px ${isPending(d.health) ? "dashed" : "solid"} ${c}55`,
-        borderRadius: 12,
-        background: "linear-gradient(180deg,rgba(29,33,42,.55),rgba(16,18,24,.6))",
-        boxShadow: "0 18px 50px rgba(0,0,0,.35)",
-        opacity: isPending(d.health) ? 0.82 : 1,
-      }}
-    >
+    <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} style={cardStyle(d.health, { radius: t.radiusLg })}>
       <NodeToolbar isVisible={hover} position={Position.Top}>
         <HoverCard
           title={d.label}
           rows={[["address", d.sub], ["health", d.health], ["runtimes", String(d.runtimeCount)], ["endpoints", String(d.endpointCount)]]}
         />
       </NodeToolbar>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px" }}>
-        <span style={{ display: "flex", color: "#9aa6b6" }}>{ICONS.host}</span>
-        <strong style={{ flex: 1, minWidth: 0, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {d.label}
-        </strong>
-        <StatusDot health={d.health} />
+      {/* Title over status: hostname always shows in full; reachability sits on its own row. */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "9px 12px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ flex: "none", display: "flex", color: t.textMuted }}>{ICONS.host}</span>
+          <strong title={d.label} style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 600, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {d.label}
+          </strong>
+        </div>
+        <div style={{ display: "flex" }}>
+          {/* Unreachable is a "can't reach this machine" warning (amber), not a hard error (red). */}
+          <StatusPill
+            health={d.health}
+            label={isHostProblem(d.health) ? "Unreachable" : "Reachable"}
+            tone={isHostProblem(d.health) ? t.warn : undefined}
+          />
+        </div>
       </div>
     </div>
   );
@@ -291,15 +352,15 @@ export const ContainerNode = memo(({ data }: NodeProps) => {
     <div
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
-      style={{ width: "100%", height: "100%", border: "1px dashed #3a4150", borderRadius: 10, background: "rgba(20,24,32,.4)" }}
+      style={{ width: "100%", height: "100%", border: `1px dashed ${t.borderSubtle}`, borderRadius: t.radius, background: "transparent" }}
     >
       <NodeToolbar isVisible={hover} position={Position.Top}>
         <HoverCard title={d.label} rows={[["image", d.image], ["status", d.status]]} />
       </NodeToolbar>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 11px", color: "#cfe0ff" }}>
-        <span style={{ display: "flex", color: "#9aa6b6" }}>{ICONS.container}</span>
-        <strong style={{ flex: 1, minWidth: 0, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{d.label}</strong>
-        <span style={{ flex: "none", color: "#949cab", fontSize: 10 }}>{d.status}</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 11px", color: t.text }}>
+        <span style={{ display: "flex", color: t.textMuted }}>{ICONS.container}</span>
+        <strong style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{d.label}</strong>
+        <span style={{ flex: "none", color: t.textMuted, fontSize: 10 }}>{d.status}</span>
       </div>
     </div>
   );
@@ -308,21 +369,9 @@ ContainerNode.displayName = "ContainerNode";
 
 export const RuntimeNode = memo(({ data }: NodeProps) => {
   const d = data as RuntimeNodeData;
-  const c = healthColor(d.health);
   const [hover, setHover] = useState(false);
   return (
-    <div
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        width: "100%",
-        height: "100%",
-        border: `1px ${isPending(d.health) ? "dashed" : "solid"} ${c}66`,
-        borderRadius: 10,
-        background: "linear-gradient(180deg,rgba(33,38,49,.92),rgba(22,26,34,.94))",
-        opacity: isPending(d.health) ? 0.85 : 1,
-      }}
-    >
+    <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} style={cardStyle(d.health, { raised: true })}>
       <NodeToolbar isVisible={hover} position={Position.Top}>
         <HoverCard
           title={d.label}
@@ -331,16 +380,37 @@ export const RuntimeNode = memo(({ data }: NodeProps) => {
       </NodeToolbar>
       <Handle type="target" position={Position.Left} style={PORT_STYLE} />
       <Handle type="source" position={Position.Right} style={PORT_STYLE} />
-      <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 13px" }}>
-        <span style={{ display: "flex", color: "#9aa6b6" }}>{ICONS.runtime}</span>
-        <strong style={{ flex: 1, minWidth: 0, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{d.label}</strong>
-        {d.container && (
-          <span title={`container: ${d.container}`} style={{ flex: "none", display: "inline-flex", alignItems: "center", color: "#9aa6b6", border: "1px solid #343b47", borderRadius: 5, padding: "2px 5px" }}>
-            {ICONS.container}
-          </span>
-        )}
-        <span style={modeBadgeStyle}>{d.mode}</span>
-        <StatusDot health={d.health} />
+      {/* Title over status: the name gets the full width (no truncation), status sits on its own row. */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "9px 12px" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
+          <span style={{ flex: "none", display: "flex", color: t.textMuted, marginTop: 1 }}>{ICONS.runtime}</span>
+          <strong
+            title={d.label}
+            style={{
+              flex: 1,
+              minWidth: 0,
+              fontSize: 13,
+              fontWeight: 600,
+              color: t.text,
+              lineHeight: 1.25,
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+              overflowWrap: "anywhere",
+            }}
+          >
+            {d.label}
+          </strong>
+          {d.container && (
+            <span title={`container: ${d.container}`} style={{ flex: "none", display: "inline-flex", alignItems: "center", color: t.textMuted, border: `1px solid ${t.border}`, borderRadius: t.radiusSm, padding: "2px 5px" }}>
+              {ICONS.container}
+            </span>
+          )}
+        </div>
+        <div style={{ display: "flex" }}>
+          <StatusPill health={d.health} />
+        </div>
       </div>
     </div>
   );
@@ -366,11 +436,13 @@ export const EndpointNode = memo(({ data }: NodeProps) => {
         height: "100%",
         display: "flex",
         flexDirection: "column",
-        border: `1px ${isPending(d.health) ? "dashed" : "solid"} #2a2f3a`,
-        borderRadius: 8,
-        background: "rgba(15,18,24,.96)",
+        border: `1px ${isPending(d.health) ? "dashed" : "solid"} ${t.border}`,
+        borderRadius: t.radiusLg,
+        background: t.surface,
+        boxShadow: d.dimmed || isPending(d.health) ? "none" : t.shadow,
         overflow: "hidden",
-        opacity: d.dimmed ? 0.32 : isPending(d.health) ? 0.85 : 1,
+        opacity: d.dimmed ? 0.32 : isPending(d.health) ? 0.9 : 1,
+        transition: `box-shadow ${t.ease}, opacity ${t.ease}`,
       }}
     >
       <NodeToolbar isVisible={hover} position={Position.Top}>
@@ -381,27 +453,28 @@ export const EndpointNode = memo(({ data }: NodeProps) => {
       </NodeToolbar>
       {isComm && <Handle type="source" position={Position.Bottom} style={PORT_STYLE} />}
       <div style={{ position: "relative", flex: hasSlaves ? "0 0 30px" : 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "3px 7px" }}>
-        <strong style={{ fontSize: 11, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        <strong style={{ fontSize: 11, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {protocolName(d.protocol)}
         </strong>
         <span
+          className={d.health === "connected" ? "trust-dot trust-dot--live" : "trust-dot"}
           title={d.health}
           style={{
             position: "absolute",
             top: 5,
             right: 6,
-            width: 8,
-            height: 8,
+            width: 7,
+            height: 7,
             borderRadius: "50%",
             background: healthColor(d.health),
-            boxShadow: `0 0 0 2px ${healthColor(d.health)}30`,
+            boxShadow: `0 0 0 2.5px ${tint(healthColor(d.health), 0.16)}`,
           }}
         />
       </div>
       <div
         style={{
           background: pc,
-          color: "#0c111a",
+          color: "#0b0e14",
           fontSize: 8.5,
           fontWeight: 800,
           letterSpacing: 0.3,
@@ -416,18 +489,18 @@ export const EndpointNode = memo(({ data }: NodeProps) => {
         {roleWord(d.protocol, d.role)}
       </div>
       {hasSlaves && (
-        <div style={{ flex: 1, overflow: "hidden", background: "rgba(10,13,18,.6)" }}>
+        <div style={{ flex: 1, overflow: "hidden", background: t.canvas }}>
           {slaves.map((s) => (
             <div
               key={s.id}
               title={`${s.name}${s.channels ? ` · ${s.channels} ch` : ""}${s.detail ? ` — ${s.detail}` : ""}`}
-              style={{ display: "flex", alignItems: "center", gap: 3, height: 13, padding: "0 5px", borderTop: "1px solid #161b24" }}
+              style={{ display: "flex", alignItems: "center", gap: 3, height: 13, padding: "0 5px", borderTop: `1px solid ${t.borderSubtle}` }}
             >
               <span style={{ flex: "none", width: 5, height: 5, borderRadius: "50%", background: healthColor(s.health ?? "") }} />
-              <span style={{ flex: 1, minWidth: 0, fontSize: 8, color: "#c4ccd8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <span style={{ flex: 1, minWidth: 0, fontSize: 8, color: t.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {s.model ?? s.name}
               </span>
-              <span style={{ flex: "none", fontSize: 7.5, color: "#6a7280" }}>·{s.slot}</span>
+              <span style={{ flex: "none", fontSize: 7.5, color: t.textSubtle }}>·{s.slot}</span>
             </div>
           ))}
         </div>
@@ -450,9 +523,9 @@ export const ExternalNode = memo(({ data }: NodeProps) => {
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
-        border: "1px dashed #4a5263",
-        borderRadius: 10,
-        background: "rgba(20,24,32,.7)",
+        border: `1px dashed ${t.border}`,
+        borderRadius: t.radius,
+        background: t.surface,
         padding: "0 12px",
       }}
     >
@@ -462,10 +535,27 @@ export const ExternalNode = memo(({ data }: NodeProps) => {
       <Handle type="target" position={Position.Top} style={PORT_STYLE} />
       <Handle type="source" position={Position.Bottom} style={PORT_STYLE} />
       <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-        <span style={{ display: "flex", color: "#9aa6b6" }}>{ICONS.external}</span>
-        <strong style={{ flex: 1, minWidth: 0, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{d.label}</strong>
+        <span style={{ flex: "none", display: "flex", color: t.textMuted }}>{ICONS.external}</span>
+        <strong
+          title={d.label}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            fontSize: 12,
+            fontWeight: 600,
+            color: t.text,
+            lineHeight: 1.25,
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+            overflowWrap: "anywhere",
+          }}
+        >
+          {d.label}
+        </strong>
       </div>
-      {d.sub && <div style={{ color: "#9aa6b6", fontSize: 10, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{d.sub}</div>}
+      {d.sub && <div style={{ color: t.textMuted, fontSize: 10, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{d.sub}</div>}
     </div>
   );
 });
@@ -484,8 +574,8 @@ export const SlotNode = memo(({ data }: NodeProps) => {
       title={`Add ${d.label}`}
       style={slotStyle}
     >
-      <span style={{ fontSize: 17, lineHeight: 1, color: "#5aa9ff" }}>+</span>
-      <span style={{ fontSize: 10, color: "#8a93a3", textAlign: "center", lineHeight: 1.2 }}>{d.label}</span>
+      <span style={{ fontSize: 17, lineHeight: 1, color: t.accent }}>+</span>
+      <span style={{ fontSize: 10, color: t.textMuted, textAlign: "center", lineHeight: 1.2 }}>{d.label}</span>
     </button>
   );
 });
@@ -499,11 +589,12 @@ const slotStyle: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   gap: 3,
-  border: "1px dashed #3a4150",
-  borderRadius: 9,
-  background: "rgba(90,169,255,.05)",
+  border: `1px dashed ${tint(t.accent, 0.5)}`,
+  borderRadius: t.radius,
+  background: tint(t.accent, 0.06),
   cursor: "pointer",
   padding: 4,
+  transition: `background ${t.ease}, border-color ${t.ease}`,
 };
 
 export const nodeTypes = {
