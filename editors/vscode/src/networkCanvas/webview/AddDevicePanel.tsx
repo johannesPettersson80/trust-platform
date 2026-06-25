@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type {
   CommApplyResponse,
   CommFieldSchema,
@@ -111,6 +111,9 @@ export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, t
     (applyResult?.field_errors ?? []).map((e) => [e.field, e.message])
   );
 
+  // Track that THIS panel issued a Save (not a Test), so the close-on-success effect only fires for a
+  // real save the user just triggered — not a stale applyResult left over from before the panel opened.
+  const savingRef = useRef(false);
   const submit = (type: string) => {
     if (!protocol) {
       return;
@@ -121,8 +124,22 @@ export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, t
     }
     const action =
       protocol.supports_multi_instance && protocol.actions.includes("add") ? "add" : "upsert";
+    if (type === "commSave") {
+      savingRef.current = true;
+    }
     post({ type, protocol: protocol.id, params, action, runtimeId: target?.id, target: target?.id });
   };
+
+  // On a successful Save, close the panel: this clears the draft preview (no stale "DRAFT" lingering next
+  // to the saved device) and the real device now on the canvas is the success signal. Done synchronously
+  // so a follow-up poll updating applyResult can't cancel it. (A Test keeps the panel open; only an applied
+  // Save closes it.)
+  useEffect(() => {
+    if (savingRef.current && applyResult?.applied) {
+      savingRef.current = false;
+      onClose();
+    }
+  }, [applyResult, onClose]);
 
   const ok = applyResult && (applyResult.applied || applyResult.lifecycle_effect === "test_ok");
   const blocked = applyResult && applyResult.lifecycle_effect === "blocked";

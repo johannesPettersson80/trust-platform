@@ -509,7 +509,9 @@ function defaultNumericValue(value) {
 function defaultWriteValue(entry, display) {
   const booleanValue = parseBooleanValue(entry.value || display.value);
   if (booleanValue !== undefined) {
-    return booleanValue ? "FALSE" : "TRUE";
+    // Pre-fill the input with the CURRENT value (not the inverse), so it reads consistently with the
+    // value badge and with numeric signals. The user edits it to write a different value.
+    return booleanValue ? "TRUE" : "FALSE";
   }
   const numericValue = defaultNumericValue(display.value || entry.value);
   if (numericValue) {
