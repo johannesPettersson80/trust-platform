@@ -78,25 +78,27 @@ suite("Network Canvas", function () {
     );
   });
 
-  test("fleet topology rolls host/runtime health up from raw endpoint evidence", () => {
+  test("runtime rolls health up from raw endpoint evidence; host stays reachability", () => {
     const model = buildNetworkCanvasModel({
       stage: "runtime_live",
       runtime: RUNNING,
       topology: fleetTopology(),
     });
     assert.ok(model.fleet, "expected a fleet view");
-    assert.strictEqual(model.fleet?.hosts[0]?.health, "degraded");
+    // Host status is MACHINE reachability, not a health rollup: a host we reached (arch/os/ips present)
+    // is "connected" even with a degraded endpoint inside — the degradation surfaces on the RUNTIME.
+    assert.strictEqual(model.fleet?.hosts[0]?.health, "connected");
     assert.strictEqual(model.fleet?.hosts[0]?.runtimes[0]?.health, "degraded");
   });
 
-  test("fleet search never hides degraded endpoints from host or runtime rollups", () => {
+  test("fleet search never hides degraded endpoints from the runtime rollup", () => {
     const model = buildNetworkCanvasModel({
       stage: "runtime_live",
       runtime: RUNNING,
       topology: fleetTopology(),
       searchQuery: "modbus", // does NOT match the degraded mqtt endpoint
     });
-    assert.strictEqual(model.fleet?.hosts[0]?.health, "degraded");
+    assert.strictEqual(model.fleet?.hosts[0]?.health, "connected"); // reachability, unaffected by search
     assert.strictEqual(model.fleet?.hosts[0]?.runtimes[0]?.health, "degraded");
     const mqtt = model.fleet?.hosts[0]?.runtimes[0]?.endpoints.find(
       (e) => e.protocol === "mqtt"
