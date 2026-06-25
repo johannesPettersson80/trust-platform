@@ -114,14 +114,14 @@ export function BrowseTagsPanel({
 
       {routeMissing && (
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "rgba(224,179,65,.12)", borderBottom: "1px solid rgba(224,179,65,.4)" }}>
-          <span style={{ flex: 1, fontSize: 11.5, color: "var(--vscode-charts-yellow, #f0d8a0)" }}>⚠ No ADS route to this PLC — set one up on the TwinCAT.</span>
+          <span style={{ flex: 1, fontSize: 11.5, color: "var(--vscode-charts-yellow, #f0d8a0)" }}>⚠ No ADS route to this PLC. Set one up on the TwinCAT.</span>
           {artifacts.length === 0 && <button onClick={onCreateRoute} style={ROUTEBTN}>Create route</button>}
         </div>
       )}
 
       {error && (
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "rgba(224,179,65,.12)", borderBottom: "1px solid rgba(224,179,65,.4)" }}>
-          <span style={{ flex: 1, fontSize: 11.5, color: "var(--vscode-charts-yellow, #f0d8a0)" }}>⚠ {error.title} — {error.detail}</span>
+          <span style={{ flex: 1, fontSize: 11.5, color: "var(--vscode-charts-yellow, #f0d8a0)" }}>⚠ {error.title}: {error.detail}</span>
           {error.action === "trust" && onTrustCertificate && (
             <button onClick={onTrustCertificate} style={ROUTEBTN}>Trust certificate</button>
           )}

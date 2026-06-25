@@ -468,33 +468,41 @@ function Canvas() {
     [editMode]
   );
 
-  // A right-side drawer (inspector, add/setup/discover/filter, browse) overlays the canvas. To make
-  // sure it never covers a node, inset the React Flow viewport by the drawer width (panel sits BESIDE
-  // the graph) and re-fit so the working node lands in the now-visible area. Preserves "nothing hidden".
-  const DRAWER_W = 360; // widest right-side drawer; the canvas insets by this so panels never overlap nodes
-  const drawerOpen = Boolean(
-    selectedId || draft || addSlot || filterOpen || discoverOpen || browseTags
-  );
-  const prevDrawerRef = useRef(false);
-  const prevSelRef = useRef<string | undefined>(undefined);
+  // Every drawer (inspector, add/setup/discover/filter, browse) opens on the RIGHT — opposite the
+  // Explorer, beside the top-right toolbar that triggers most of them. A spacer of the drawer's OWN
+  // width reserves space in the flex row, so React Flow's viewport genuinely narrows (not a racy calc)
+  // and we re-fit into it: the panel sits beside the graph, never over a node, at any webview width
+  // (Explorer open or not). Keep these widths in sync with each panel's PANEL width.
+  const activeDrawerW = draft
+    ? 360 // AddDevicePanel
+    : selectedId
+      ? 340 // NodeInspector
+      : browseTags
+        ? 340 // BrowseTagsPanel
+        : discoverOpen
+          ? 290 // DiscoverPane
+          : addSlot?.kind === "setup"
+            ? 252 // SetUpRuntimePanel
+            : addSlot
+              ? 232 // AddPane / AddHostPanel / AddRuntimePanel
+              : filterOpen
+                ? 184 // FilterPanel
+                : 0;
+  const drawerOpen = activeDrawerW > 0;
+  // Re-fit whenever the reserved width CHANGES — opening (0→W), closing (W→0), or swapping between two
+  // drawers of different widths (e.g. the 232px protocol picker → the 360px config form). Tracking the
+  // width (not just open/closed) is what keeps a node from slipping under a drawer that grew.
+  const prevWidthRef = useRef(0);
   useEffect(() => {
-    const drawerChanged = prevDrawerRef.current !== drawerOpen;
-    const selChanged = prevSelRef.current !== selectedId;
-    prevDrawerRef.current = drawerOpen;
-    prevSelRef.current = selectedId;
-    if (!drawerChanged && !selChanged) {
+    if (prevWidthRef.current === activeDrawerW) {
       return;
     }
-    // Let the viewport inset apply (one tick) before fitting against the new width.
-    const id = setTimeout(() => {
-      if (drawerOpen && selectedId) {
-        void fitView({ nodes: [{ id: selectedId }], padding: 0.6, maxZoom: 1.4, duration: 320 });
-      } else if (drawerChanged) {
-        void fitView({ padding: 0.2, duration: 320 });
-      }
-    }, 90);
+    prevWidthRef.current = activeDrawerW;
+    // The spacer reflows the canvas column to its new width first; once it has, fit the WHOLE graph into
+    // the now-visible width so no node — or its parent host — can sit under the drawer. (Zoom = Focus button.)
+    const id = setTimeout(() => void fitView({ padding: 0.2, duration: 320 }), 80);
     return () => clearTimeout(id);
-  }, [drawerOpen, selectedId, fitView]);
+  }, [activeDrawerW, fitView]);
 
   const toolbarBtn = (active: boolean): React.CSSProperties => ({
     border: `1px solid ${active ? t.accent : t.border}`,
@@ -602,7 +610,8 @@ function Canvas() {
         </button>
       </header>
 
-      <div style={{ position: "relative", flex: 1, minHeight: 0 }}>
+      <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "row" }}>
+        <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
         <EditModeContext.Provider value={editModeValue}>
         <ReactFlow
           nodes={nodes}
@@ -617,7 +626,7 @@ function Canvas() {
           edgeTypes={edgeTypes}
           minZoom={0.2}
           maxZoom={1.75}
-          style={{ width: drawerOpen ? `calc(100% - ${DRAWER_W}px)` : "100%", height: "100%" }}
+          style={{ width: "100%", height: "100%" }}
           proOptions={{ hideAttribution: true }}
           onNodeClick={(_, node) => {
             setDraft(undefined); // selection and the add-flow share the right drawer
@@ -627,7 +636,12 @@ function Canvas() {
         >
           <Background variant={BackgroundVariant.Dots} gap={26} size={1} color="var(--vscode-editorIndentGuide-background, #ffffff14)" />
           <Controls showInteractive={false} />
-          <MiniMap pannable zoomable style={{ background: t.surface, border: `1px solid ${t.border}`, borderRadius: t.radius }} maskColor={tint(t.canvas, 0.6)} />
+          {/* The minimap is navigation chrome for LARGE fleets. On a small graph it's a useless thumbnail
+              (and reads as a placeholder blob), so show it only when the fleet is big enough to scroll —
+              and never while a drawer is open, where it could overlap a node in the narrowed canvas. */}
+          {!drawerOpen && nodes.length > 8 && (
+            <MiniMap pannable zoomable style={{ background: t.surface, border: `1px solid ${t.border}`, borderRadius: t.radius }} maskColor={tint(t.canvas, 0.6)} />
+          )}
         </ReactFlow>
         </EditModeContext.Provider>
 
@@ -712,6 +726,11 @@ function Canvas() {
             {graph.summary}
           </div>
         )}
+        </div>
+
+        {/* Reserves the active drawer's width in the flex row so the canvas column narrows by exactly
+            that much — the right-anchored panel lands in this gap and never covers a node. */}
+        {drawerOpen && <div aria-hidden="true" style={{ width: activeDrawerW, flexShrink: 0 }} />}
 
         {addSlot?.kind === "device" && (
           <AddPane

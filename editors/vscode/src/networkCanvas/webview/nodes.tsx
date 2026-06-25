@@ -3,13 +3,14 @@ import { Handle, NodeToolbar, Position, type NodeProps } from "@xyflow/react";
 import { BusNode } from "./BusNode";
 import { useEditMode, type AddSlotRequest } from "./editMode";
 import { t, tint } from "./theme";
-import type {
-  ContainerNodeData,
-  EndpointNodeData,
-  ExternalNodeData,
-  HostNodeData,
-  RuntimeNodeData,
-  SlotNodeData,
+import {
+  LOCAL_RUNTIME_NODE_ID,
+  type ContainerNodeData,
+  type EndpointNodeData,
+  type ExternalNodeData,
+  type HostNodeData,
+  type RuntimeNodeData,
+  type SlotNodeData,
 } from "./types";
 
 // Inline SVG icons (emojis render as tofu squares in the webview).
@@ -367,11 +368,22 @@ export const ContainerNode = memo(({ data }: NodeProps) => {
 });
 ContainerNode.displayName = "ContainerNode";
 
-export const RuntimeNode = memo(({ data }: NodeProps) => {
+export const RuntimeNode = memo(({ id, data }: NodeProps) => {
   const d = data as RuntimeNodeData;
   const [hover, setHover] = useState(false);
+  const { editMode } = useEditMode();
+  // First-run orientation: a runtime with no devices is otherwise a blank box, and a newcomer has no
+  // cue that Edit reveals the add-slots (§0.4 keeps adding in Edit mode, not a header "+"). So when the
+  // body is empty in view mode, fill it with a hint that names the two real paths to a first device.
+  // Honesty gate: only assert "no devices" for the local simulator (an unambiguous fresh start) or a
+  // runtime we're actually connected to. A merely-stopped managed/remote runtime may have devices we
+  // just can't see yet (they surface on connect), so we must NOT claim it's empty.
+  const showEmpty =
+    !editMode &&
+    d.endpointCount === 0 &&
+    (id === LOCAL_RUNTIME_NODE_ID || d.health === "connected");
   return (
-    <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} style={cardStyle(d.health, { raised: true })}>
+    <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} style={{ ...cardStyle(d.health, { raised: true }), display: "flex", flexDirection: "column" }}>
       <NodeToolbar isVisible={hover} position={Position.Top}>
         <HoverCard
           title={d.label}
@@ -412,6 +424,14 @@ export const RuntimeNode = memo(({ data }: NodeProps) => {
           <StatusPill health={d.health} />
         </div>
       </div>
+      {showEmpty && (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 5, padding: "4px 16px 14px", textAlign: "center" }}>
+          <div style={{ fontSize: 11.5, fontWeight: 600, color: t.textMuted }}>No devices yet</div>
+          <div style={{ fontSize: 10.5, color: t.textSubtle, lineHeight: 1.5 }}>
+            Use <span style={{ color: t.textMuted, fontWeight: 600 }}>Edit</span> to add one, or <span style={{ color: t.textMuted, fontWeight: 600 }}>Discover</span> to scan the network.
+          </div>
+        </div>
+      )}
     </div>
   );
 });
@@ -473,13 +493,14 @@ export const EndpointNode = memo(({ data }: NodeProps) => {
       </div>
       <div
         style={{
-          background: pc,
-          color: "#0b0e14",
+          background: tint(pc, 0.16),
+          color: t.text,
           fontSize: 8.5,
-          fontWeight: 800,
-          letterSpacing: 0.3,
+          fontWeight: 600,
+          letterSpacing: 0.4,
           textAlign: "center",
           padding: "2px 3px",
+          borderTop: `2px solid ${pc}`,
           textTransform: "uppercase",
           whiteSpace: "nowrap",
           overflow: "hidden",
@@ -493,7 +514,7 @@ export const EndpointNode = memo(({ data }: NodeProps) => {
           {slaves.map((s) => (
             <div
               key={s.id}
-              title={`${s.name}${s.channels ? ` · ${s.channels} ch` : ""}${s.detail ? ` — ${s.detail}` : ""}`}
+              title={`${s.name}${s.channels ? ` · ${s.channels} ch` : ""}${s.detail ? ` · ${s.detail}` : ""}`}
               style={{ display: "flex", alignItems: "center", gap: 3, height: 13, padding: "0 5px", borderTop: `1px solid ${t.borderSubtle}` }}
             >
               <span style={{ flex: "none", width: 5, height: 5, borderRadius: "50%", background: healthColor(s.health ?? "") }} />

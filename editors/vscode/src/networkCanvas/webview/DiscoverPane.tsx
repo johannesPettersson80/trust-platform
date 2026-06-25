@@ -129,7 +129,7 @@ export function DiscoverPane({
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 12, color: "var(--vscode-foreground, #eef1f5)" }}>
           {r.label}
-          {r.confirm && <span title="Can disturb a live bus — confirm before scanning" style={{ color: "var(--vscode-charts-yellow, #e0b341)", marginLeft: 5 }}>⚠</span>}
+          {r.confirm && <span title="Can disturb a live bus, so confirm before scanning" style={{ color: "var(--vscode-charts-yellow, #e0b341)", marginLeft: 5 }}>⚠</span>}
         </div>
         {r.note && <div style={{ fontSize: 10, color: "var(--vscode-descriptionForeground, #7f8794)" }}>{r.note}</div>}
         {r.input && checked.has(r.key) && (
@@ -160,7 +160,7 @@ export function DiscoverPane({
             ))}
           </select>
           <p style={{ fontSize: 10, color: "var(--vscode-descriptionForeground, #7f8794)", margin: "4px 0 0" }}>
-            Field devices live on the runtime's network — scan from the runtime to find them.
+            Field devices live on the runtime's network, so scan from the runtime to find them.
           </p>
         </div>
 
@@ -228,17 +228,17 @@ export function DiscoverPane({
 const PANEL: React.CSSProperties = {
   position: "absolute",
   top: 0,
-  left: 0,
+  right: 0,
   bottom: 0,
   width: 290,
   background: "var(--vscode-editorHoverWidget-background, rgba(16,19,26,.97))",
-  borderRight: "1px solid var(--vscode-editorWidget-border, #2a2f3a)",
+  borderLeft: "1px solid var(--vscode-editorWidget-border, #2a2f3a)",
   zIndex: 7,
   display: "flex",
   flexDirection: "column",
 };
 const ROW: React.CSSProperties = { display: "flex", alignItems: "flex-start", gap: 8, padding: "6px 2px" };
-const SECTION: React.CSSProperties = { fontSize: 10, fontWeight: 700, color: "var(--vscode-disabledForeground, #6a7280)", textTransform: "uppercase", letterSpacing: 0.4, margin: "2px 0 4px" };
+const SECTION: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: "var(--vscode-disabledForeground, #6a7280)", letterSpacing: 0.2, margin: "2px 0 4px" };
 const TOGGLE: React.CSSProperties = { display: "block", width: "100%", textAlign: "left", border: "none", background: "transparent", color: "var(--vscode-descriptionForeground, #9aa6b6)", fontSize: 11, cursor: "pointer", padding: "8px 2px 4px" };
 const LABEL: React.CSSProperties = { display: "block", fontSize: 11, color: "var(--vscode-foreground, #cfd6e0)", marginBottom: 4, fontWeight: 600 };
 const INPUT: React.CSSProperties = { width: "100%", background: "var(--vscode-input-background, #10141b)", border: "1px solid var(--vscode-input-border, #343b47)", borderRadius: 7, color: "var(--vscode-foreground, #eef1f5)", padding: "5px 8px", fontSize: 11.5, marginTop: 4 };

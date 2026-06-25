@@ -39,11 +39,11 @@ export function FilterPanel({
 const PANEL: React.CSSProperties = {
   position: "absolute",
   top: 0,
-  left: 0,
+  right: 0,
   bottom: 0,
   width: 184,
   background: "var(--vscode-editorHoverWidget-background, rgba(16,19,26,.96))",
-  borderRight: "1px solid var(--vscode-editorWidget-border, #2a2f3a)",
+  borderLeft: "1px solid var(--vscode-editorWidget-border, #2a2f3a)",
   zIndex: 7,
   display: "flex",
   flexDirection: "column",

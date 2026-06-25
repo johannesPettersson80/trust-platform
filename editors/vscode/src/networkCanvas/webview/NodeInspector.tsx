@@ -42,6 +42,16 @@ function str(value: unknown): string {
   return value === undefined || value === null ? "" : String(value);
 }
 
+// The compact node band shows the role as terse nomenclature (CLIENT / PUB/SUB). In the roomier
+// inspector eyebrow we render it as a calm sentence-case descriptor instead of a shouted all-caps badge.
+function roleCap(protocol: string, role: string): string {
+  const w = roleWord(protocol, role);
+  if (w === "PUB/SUB") return "Pub/Sub";
+  if (w === "I/O") return "I/O";
+  if (w === "SAME-HOST") return "Same-host";
+  return w.charAt(0) + w.slice(1).toLowerCase();
+}
+
 const PANEL_STYLE: React.CSSProperties = {
   position: "absolute",
   top: 0,
@@ -197,7 +207,7 @@ function SummaryView({
   if (protoSchema) {
     // Endpoint with a known protocol: show its current settings (read-only).
     title = protocolName(protocol);
-    kindLabel = `${roleWord(protocol, str(d.role))} · ${str(d.kind) === "field" ? "device" : "endpoint"}`;
+    kindLabel = `${roleCap(protocol, str(d.role))} · ${str(d.kind) === "field" ? "device" : "endpoint"}`;
     accent = protocolColor(protocol);
     health = str(d.health);
     rows.push(["name", str(d.name)]);
@@ -209,7 +219,7 @@ function SummaryView({
       }
     }
     if (d.detail) {
-      rows.push(["status", `${health} — ${str(d.detail)}`]);
+      rows.push(["status", `${health} · ${str(d.detail)}`]);
     }
   } else {
     switch (node.type) {
@@ -233,12 +243,12 @@ function SummaryView({
       case "external":
         title = str(d.label);
         kindLabel = "External system";
-        rows.push(["presents", str(d.sub)], ["scope", "external — configured on our side"]);
+        rows.push(["presents", str(d.sub)], ["scope", "external · configured on our side"]);
         break;
       case "endpoint":
         // Endpoint without a loaded schema: still show its basic facts (never blank).
         title = str(d.name) || protocolName(protocol);
-        kindLabel = `${roleWord(protocol, str(d.role))} · endpoint`;
+        kindLabel = `${roleCap(protocol, str(d.role))} · endpoint`;
         health = str(d.health);
         rows.push(
           ["protocol", protocolName(protocol)],
@@ -260,7 +270,7 @@ function SummaryView({
         {accent && <span style={{ flex: "none", width: 10, height: 10, borderRadius: 3, background: accent }} />}
         <div style={{ flex: 1, minWidth: 0 }}>
           <strong style={{ display: "block", fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</strong>
-          <span style={{ fontSize: 10.5, color: t.textMuted, textTransform: "uppercase", letterSpacing: 0.4 }}>{kindLabel}</span>
+          <span style={{ fontSize: 11, color: t.textMuted, letterSpacing: 0.2 }}>{kindLabel}</span>
         </div>
         {health && (
           <span title={health} style={{ flex: "none", width: 10, height: 10, borderRadius: "50%", background: healthColor(health), boxShadow: `0 0 0 2px ${tint(healthColor(health), 0.18)}` }} />
@@ -355,7 +365,7 @@ function EditableEndpoint({
         <span style={{ flex: "none", width: 10, height: 10, borderRadius: 3, background: protocolColor(protocol) }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <strong style={{ display: "block", fontSize: 14 }}>{protocolName(protocol)}</strong>
-          <span style={{ fontSize: 10.5, color: t.textMuted, textTransform: "uppercase", letterSpacing: 0.4 }}>
+          <span style={{ fontSize: 11, color: t.textMuted, letterSpacing: 0.2 }}>
             {roleWord(protocol, str(node.data.role))} · edit
           </span>
         </div>

@@ -48,7 +48,7 @@ export function AddHostPanel({
           The host:port (or socket) of the runtime's control endpoint.
         </p>
         <p style={{ color: "var(--vscode-disabledForeground, #6a7280)", fontSize: 10, lineHeight: 1.4, marginTop: 12 }}>
-          Discover hosts on the network — coming next.
+          Discover hosts on the network (coming next).
         </p>
       </div>
       <div style={{ display: "flex", gap: 8, padding: 12, borderTop: "1px solid var(--vscode-editorWidget-border, #2a2f3a)" }}>
@@ -67,11 +67,11 @@ export function AddHostPanel({
 const PANEL: React.CSSProperties = {
   position: "absolute",
   top: 0,
-  left: 0,
+  right: 0,
   bottom: 0,
   width: 232,
   background: "var(--vscode-editorHoverWidget-background, rgba(16,19,26,.97))",
-  borderRight: "1px solid var(--vscode-editorWidget-border, #2a2f3a)",
+  borderLeft: "1px solid var(--vscode-editorWidget-border, #2a2f3a)",
   zIndex: 7,
   display: "flex",
   flexDirection: "column",

@@ -114,7 +114,7 @@ function injectDraft(hosts: readonly NCHost[], draft: DraftEndpoint | undefined)
               name: "New device",
               role: "draft",
               health: "pending",
-              detail: "Draft — configure and Apply",
+              detail: "Draft: configure and Apply",
               dimmed: false,
             },
           ],

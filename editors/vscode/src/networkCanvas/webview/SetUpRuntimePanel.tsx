@@ -76,11 +76,11 @@ export function SetUpRuntimePanel({
 const PANEL: React.CSSProperties = {
   position: "absolute",
   top: 0,
-  left: 0,
+  right: 0,
   bottom: 0,
   width: 252,
   background: "var(--vscode-editorHoverWidget-background, rgba(16,19,26,.97))",
-  borderRight: "1px solid var(--vscode-editorWidget-border, #2a2f3a)",
+  borderLeft: "1px solid var(--vscode-editorWidget-border, #2a2f3a)",
   zIndex: 7,
   display: "flex",
   flexDirection: "column",
@@ -108,9 +108,9 @@ const OPTION: React.CSSProperties = {
 const OPTION_LABEL: React.CSSProperties = { fontSize: 12, fontWeight: 650 };
 const OPTION_DETAIL: React.CSSProperties = { fontSize: 11, color: "var(--vscode-descriptionForeground, #9aa6b6)", lineHeight: 1.4 };
 const SECTION: React.CSSProperties = {
-  fontSize: 10,
-  textTransform: "uppercase",
-  letterSpacing: "0.04em",
+  fontSize: 11,
+  fontWeight: 600,
+  letterSpacing: 0.2,
   color: "var(--vscode-descriptionForeground, #7a8595)",
   margin: "8px 0 8px",
 };
