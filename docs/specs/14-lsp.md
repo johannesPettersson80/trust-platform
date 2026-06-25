@@ -657,8 +657,10 @@ tests/corpus/
    - Debug evaluation is restricted to side-effect-free expressions and a small pure stdlib whitelist
    - Hot reload is implemented via a custom request and supports per-resource
      reloads with retained globals preserved across warm restart (see DEV-024)
-   - I/O forcing supports both input and output areas through the DAP/control
-     bridge write path (see DEV-025)
+   - I/O write/force/release supports both input and output areas through the
+     DAP/control bridge. Attach-mode runtimes use explicit Live Values custom
+     requests (`stIoWrite`, `stIoForce`, `stIoRelease`) instead of
+     `setExpression` (see DEV-025)
 
 
 ---

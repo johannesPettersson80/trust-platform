@@ -101,8 +101,10 @@ Attach arguments (adapter-specific):
 Attach requires `runtime.control.debug_enabled=true`. If disabled, the adapter must report an
 error and remain disconnected.
 
-Current attach limitation: `setVariable` / `setExpression` are not supported in attach mode
-(read-only variables).
+Current attach limitation: arbitrary `setVariable` / `setExpression` variable writes are not
+supported in attach mode. Live Values I/O operations are the supported write path while attached:
+`stIoWrite`, `stIoForce`, and `stIoRelease` forward to the runtime control endpoint and must surface
+runtime authorization/capability errors honestly.
 
 ### Stepping Semantics
 
@@ -141,7 +143,9 @@ Stepping is statement-granular, not instruction-granular.
 
 - `VariablesRequest` and `ScopesRequest` return locals, globals, retain, and instance scopes.
 - `EvaluateRequest` in `hover` or `watch` context must not have side effects. Calls are rejected.
-- `setVariable` and `setExpression` are allowed only when paused.
+- `setVariable` and `setExpression` are allowed only when paused. Attached runtimes use the
+  side-effecting Live Values I/O custom requests (`stIoWrite`, `stIoForce`, `stIoRelease`) instead
+  of `setExpression` for I/O writes and forcing.
 
 ### Variable Visibility
 
