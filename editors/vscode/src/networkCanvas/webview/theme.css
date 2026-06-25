@@ -38,10 +38,25 @@
   animation: trust-pulse 2.4s ease-in-out infinite;
 }
 
+/* Empty/loading state: a calm breathe so the canvas never sits as a dead blank void. */
+@keyframes trust-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+.trust-loading {
+  animation: trust-breathe 1.8s ease-in-out infinite;
+}
+
 /* Respect reduced-motion preferences. */
 @media (prefers-reduced-motion: reduce) {
   .react-flow__node,
-  .trust-dot--live {
+  .trust-dot--live,
+  .trust-loading {
     transition: none;
     animation: none;
   }

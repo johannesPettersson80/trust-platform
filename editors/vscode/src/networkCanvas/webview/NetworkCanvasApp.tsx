@@ -631,6 +631,22 @@ function Canvas() {
         </ReactFlow>
         </EditModeContext.Provider>
 
+        {nodes.length === 0 && (
+          <div
+            className="trust-loading"
+            style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, pointerEvents: "none" }}
+          >
+            <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke={t.textSubtle} strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4.5" width="18" height="6" rx="1.5" />
+              <rect x="3" y="13.5" width="18" height="6" rx="1.5" />
+              <circle cx="6.6" cy="7.5" r="1" fill={t.textSubtle} stroke="none" />
+              <circle cx="6.6" cy="16.5" r="1" fill={t.textSubtle} stroke="none" />
+            </svg>
+            <div style={{ fontSize: 13.5, fontWeight: 600, color: t.textMuted }}>Loading your devices…</div>
+            <div style={{ fontSize: 12, color: t.textSubtle, maxWidth: 300, textAlign: "center" }}>Reading the project's runtime and connections.</div>
+          </div>
+        )}
+
         {graph.banner && (
           <div
             style={{
