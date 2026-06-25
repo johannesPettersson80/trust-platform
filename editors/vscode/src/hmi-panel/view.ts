@@ -29,8 +29,8 @@ export function getHtml(webview: vscode.Webview): string {
     body {
       margin: 0;
       font-family: var(--vscode-font-family);
-      color: var(--vscode-editor-foreground);
-      background: var(--vscode-editor-background);
+      color: var(--vscode-editor-foreground, var(--vscode-foreground, #cccccc));
+      background: var(--vscode-editor-background, #1e1e1e);
     }
     header {
       position: sticky;
@@ -40,8 +40,8 @@ export function getHtml(webview: vscode.Webview): string {
       gap: 8px;
       align-items: center;
       padding: 10px;
-      border-bottom: 1px solid var(--vscode-panel-border);
-      background: var(--vscode-editor-background);
+      border-bottom: 1px solid var(--vscode-panel-border, #2b2b2b);
+      background: var(--vscode-editor-background, #1e1e1e);
     }
     #status {
       margin-left: auto;
@@ -56,10 +56,10 @@ export function getHtml(webview: vscode.Webview): string {
       flex-wrap: wrap;
       gap: 6px;
       padding: 10px;
-      border-bottom: 1px solid var(--vscode-panel-border);
+      border-bottom: 1px solid var(--vscode-panel-border, #2b2b2b);
     }
     .tab {
-      border: 1px solid var(--vscode-panel-border);
+      border: 1px solid var(--vscode-panel-border, #2b2b2b);
       background: transparent;
       color: inherit;
       border-radius: 999px;
@@ -67,8 +67,8 @@ export function getHtml(webview: vscode.Webview): string {
       cursor: pointer;
     }
     .tab.active {
-      border-color: var(--vscode-focusBorder);
-      background: color-mix(in srgb, var(--vscode-focusBorder) 20%, transparent);
+      border-color: var(--vscode-focusBorder, #007fd4);
+      background: color-mix(in srgb, var(--vscode-focusBorder, #007fd4) 20%, transparent);
     }
     #widgets {
       display: grid;
@@ -91,11 +91,11 @@ export function getHtml(webview: vscode.Webview): string {
     .hmi-empty-title {
       font-size: 14px;
       font-weight: 600;
-      color: var(--vscode-foreground);
+      color: var(--vscode-foreground, #cccccc);
     }
     .hmi-empty-sub {
       font-size: 12px;
-      color: var(--vscode-descriptionForeground);
+      color: var(--vscode-descriptionForeground, var(--vscode-foreground, #9d9d9d));
       max-width: 320px;
     }
     .group {
@@ -105,10 +105,10 @@ export function getHtml(webview: vscode.Webview): string {
       opacity: 0.9;
     }
     .widget {
-      border: 1px solid var(--vscode-panel-border);
+      border: 1px solid var(--vscode-panel-border, #2b2b2b);
       border-radius: 8px;
       padding: 8px;
-      background: color-mix(in srgb, var(--vscode-editor-background) 90%, var(--vscode-editor-foreground) 10%);
+      background: color-mix(in srgb, var(--vscode-editor-background, #1e1e1e) 90%, var(--vscode-editor-foreground, var(--vscode-foreground, #cccccc)) 10%);
       display: flex;
       flex-direction: column;
       gap: 8px;
@@ -149,10 +149,10 @@ export function getHtml(webview: vscode.Webview): string {
       width: 100%;
     }
     .section-card {
-      border: 1px solid var(--vscode-panel-border);
+      border: 1px solid var(--vscode-panel-border, #2b2b2b);
       border-radius: 8px;
       padding: 10px;
-      background: color-mix(in srgb, var(--vscode-editor-background) 92%, var(--vscode-editor-foreground) 8%);
+      background: color-mix(in srgb, var(--vscode-editor-background, #1e1e1e) 92%, var(--vscode-editor-foreground, var(--vscode-foreground, #cccccc)) 8%);
       display: flex;
       flex-direction: column;
       gap: 8px;
@@ -174,10 +174,10 @@ export function getHtml(webview: vscode.Webview): string {
     }
     .process-panel {
       grid-column: 1 / -1;
-      border: 1px solid var(--vscode-panel-border);
+      border: 1px solid var(--vscode-panel-border, #2b2b2b);
       border-radius: 8px;
       padding: 10px;
-      background: color-mix(in srgb, var(--vscode-editor-background) 94%, var(--vscode-editor-foreground) 6%);
+      background: color-mix(in srgb, var(--vscode-editor-background, #1e1e1e) 94%, var(--vscode-editor-foreground, var(--vscode-foreground, #cccccc)) 6%);
       display: flex;
       flex-direction: column;
       gap: 8px;
@@ -185,11 +185,11 @@ export function getHtml(webview: vscode.Webview): string {
     .process-svg-host {
       width: 100%;
       overflow: auto;
-      border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 70%, transparent);
+      border: 1px solid color-mix(in srgb, var(--vscode-panel-border, #2b2b2b) 70%, transparent);
       border-radius: 6px;
       padding: 8px;
       box-sizing: border-box;
-      background: color-mix(in srgb, var(--vscode-editor-background) 96%, var(--vscode-editor-foreground) 4%);
+      background: color-mix(in srgb, var(--vscode-editor-background, #1e1e1e) 96%, var(--vscode-editor-foreground, var(--vscode-foreground, #cccccc)) 4%);
     }
     .process-svg-host svg {
       width: 100%;
@@ -212,12 +212,12 @@ export function getHtml(webview: vscode.Webview): string {
       position: relative;
       min-height: 360px;
       overflow: hidden;
-      border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 76%, transparent);
+      border: 1px solid color-mix(in srgb, var(--vscode-panel-border, #2b2b2b) 76%, transparent);
       border-radius: 8px;
       background:
-        linear-gradient(0deg, color-mix(in srgb, var(--vscode-editor-background) 88%, transparent), color-mix(in srgb, var(--vscode-editor-background) 88%, transparent)),
-        repeating-linear-gradient(90deg, transparent 0 47px, color-mix(in srgb, var(--vscode-panel-border) 30%, transparent) 48px),
-        repeating-linear-gradient(0deg, transparent 0 47px, color-mix(in srgb, var(--vscode-panel-border) 30%, transparent) 48px);
+        linear-gradient(0deg, color-mix(in srgb, var(--vscode-editor-background, #1e1e1e) 88%, transparent), color-mix(in srgb, var(--vscode-editor-background, #1e1e1e) 88%, transparent)),
+        repeating-linear-gradient(90deg, transparent 0 47px, color-mix(in srgb, var(--vscode-panel-border, #2b2b2b) 30%, transparent) 48px),
+        repeating-linear-gradient(0deg, transparent 0 47px, color-mix(in srgb, var(--vscode-panel-border, #2b2b2b) 30%, transparent) 48px);
     }
     .scene3d-node {
       position: absolute;
@@ -225,10 +225,10 @@ export function getHtml(webview: vscode.Webview): string {
       max-width: 150px;
       min-height: 36px;
       padding: 7px 10px;
-      border: 1px solid var(--vscode-panel-border);
+      border: 1px solid var(--vscode-panel-border, #2b2b2b);
       border-radius: 6px;
       color: inherit;
-      background: color-mix(in srgb, var(--vscode-button-secondaryBackground) 60%, var(--vscode-editor-background));
+      background: color-mix(in srgb, var(--vscode-button-secondaryBackground, #3a3d41) 60%, var(--vscode-editor-background, #1e1e1e));
       box-sizing: border-box;
       transform: translate(-50%, -50%);
       font: inherit;
@@ -240,8 +240,8 @@ export function getHtml(webview: vscode.Webview): string {
       cursor: pointer;
     }
     button.scene3d-node:hover {
-      border-color: var(--vscode-focusBorder);
-      background: color-mix(in srgb, var(--vscode-focusBorder) 20%, var(--vscode-button-secondaryBackground));
+      border-color: var(--vscode-focusBorder, #007fd4);
+      background: color-mix(in srgb, var(--vscode-focusBorder, #007fd4) 20%, var(--vscode-button-secondaryBackground, #3a3d41));
     }
     .scene3d-meta {
       font-size: 11px;

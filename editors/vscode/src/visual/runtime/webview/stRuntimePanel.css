@@ -1,17 +1,17 @@
 .st-runtime-panel {
-  --bg: var(--vscode-sideBar-background);
-  --text: var(--vscode-sideBar-foreground);
-  --muted: var(--vscode-descriptionForeground);
-  --border: var(--vscode-sideBar-border, var(--vscode-panel-border));
-  --panel: var(--vscode-editor-background);
-  --row-hover: var(--vscode-list-hoverBackground);
-  --row-alt: var(--vscode-list-inactiveSelectionBackground);
-  --button-bg: var(--vscode-button-background);
-  --button-fg: var(--vscode-button-foreground);
-  --button-hover: var(--vscode-button-hoverBackground);
-  --input-bg: var(--vscode-input-background);
-  --input-fg: var(--vscode-input-foreground);
-  --input-border: var(--vscode-input-border);
+  --bg: var(--vscode-sideBar-background, var(--vscode-editor-background, #1e1e1e));
+  --text: var(--vscode-sideBar-foreground, var(--vscode-foreground, #cccccc));
+  --muted: var(--vscode-descriptionForeground, var(--vscode-foreground, #9d9d9d));
+  --border: var(--vscode-sideBar-border, var(--vscode-panel-border, #2b2b2b));
+  --panel: var(--vscode-editor-background, var(--vscode-sideBar-background, #1e1e1e));
+  --row-hover: var(--vscode-list-hoverBackground, var(--vscode-editor-background, #2a2d2e));
+  --row-alt: var(--vscode-list-inactiveSelectionBackground, var(--vscode-editor-background, #37373d));
+  --button-bg: var(--vscode-button-background, var(--vscode-editor-background, #0e639c));
+  --button-fg: var(--vscode-button-foreground, var(--vscode-foreground, #ffffff));
+  --button-hover: var(--vscode-button-hoverBackground, var(--vscode-button-background, #1177bb));
+  --input-bg: var(--vscode-input-background, var(--vscode-editor-background, #3c3c3c));
+  --input-fg: var(--vscode-input-foreground, var(--vscode-foreground, #cccccc));
+  --input-border: var(--vscode-input-border, var(--vscode-panel-border, #3c3c3c));
   --error: var(--vscode-errorForeground, #f14c4c);
   --warning: var(--vscode-editorWarning-foreground, #cca700);
 

@@ -318,25 +318,25 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
   label { display: block; font-size: 12px; opacity: 0.85; margin: 10px 0 4px; }
   select {
     width: 100%; box-sizing: border-box; padding: 4px 6px;
-    color: var(--vscode-dropdown-foreground); background: var(--vscode-dropdown-background);
-    border: 1px solid var(--vscode-dropdown-border); border-radius: 2px; font-size: 13px;
+    color: var(--vscode-dropdown-foreground, var(--vscode-foreground, #cccccc)); background: var(--vscode-dropdown-background, var(--vscode-editor-background, #1e1e1e));
+    border: 1px solid var(--vscode-dropdown-border, var(--vscode-panel-border, #2b2b2b)); border-radius: 2px; font-size: 13px;
   }
   .validity { font-size: 12px; margin: 2px 0 0; opacity: 0.85; }
   .validity .ico { margin-right: 5px; }
   .validity.ok .ico { color: var(--vscode-testing-iconPassed, #2ea043); }
   .validity.warn .ico { color: var(--vscode-testing-iconFailed, #d13438); }
   .status { font-size: 12px; margin: 10px 0 2px; }
-  .status .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; background: var(--vscode-descriptionForeground); }
+  .status .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; background: var(--vscode-descriptionForeground, var(--vscode-foreground, #9d9d9d)); }
   .status .dot.running, .status .dot.connected { background: var(--vscode-testing-iconPassed, #2ea043); }
   .status .dot.starting { background: var(--vscode-charts-yellow, #d7a200); }
   .status .dot.unreachable { background: var(--vscode-testing-iconFailed, #d13438); }
   .status .value { font-weight: 600; }
   button {
     width: 100%; box-sizing: border-box; margin-top: 8px; padding: 6px 10px; cursor: pointer;
-    color: var(--vscode-button-foreground); background: var(--vscode-button-background);
+    color: var(--vscode-button-foreground, #ffffff); background: var(--vscode-button-background, #0e639c);
     border: 1px solid var(--vscode-button-border, transparent); border-radius: 2px; font-size: 13px;
   }
-  button:hover:not(:disabled) { background: var(--vscode-button-hoverBackground); }
+  button:hover:not(:disabled) { background: var(--vscode-button-hoverBackground, var(--vscode-button-background, #1177bb)); }
   button:disabled { opacity: 0.5; cursor: default; }
   button.secondary {
     color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
@@ -351,7 +351,7 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
     text-align: left; margin-top: 4px; padding: 6px 8px;
     background: transparent; color: var(--vscode-foreground); border: 1px solid transparent;
   }
-  .nav button:hover { background: var(--vscode-list-hoverBackground); }
+  .nav button:hover { background: var(--vscode-list-hoverBackground, rgba(128,128,128,0.18)); }
   .hidden { display: none; }
 </style>
 </head>

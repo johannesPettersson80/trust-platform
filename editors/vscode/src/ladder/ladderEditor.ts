@@ -118,8 +118,8 @@ const WEBVIEW_HTML_TEMPLATE = `<!DOCTYPE html>
           Cantarell,
           sans-serif
         );
-        background-color: var(--vscode-editor-background);
-        color: var(--vscode-editor-foreground);
+        background-color: var(--vscode-editor-background, #1e1e1e);
+        color: var(--vscode-editor-foreground, var(--vscode-foreground, #cccccc));
       }
     </style>
   </head>

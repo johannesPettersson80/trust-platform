@@ -76,18 +76,18 @@ const WEBVIEW_HTML_TEMPLATE = `<!DOCTYPE html>
           Cantarell,
           sans-serif
         );
-        background-color: var(--vscode-editor-background);
-        color: var(--vscode-editor-foreground);
+        background-color: var(--vscode-editor-background, #1e1e1e);
+        color: var(--vscode-editor-foreground, var(--vscode-foreground, #cccccc));
       }
 
       .react-flow__controls button {
-        background-color: var(--vscode-button-background);
-        color: var(--vscode-button-foreground);
-        border-color: var(--vscode-button-border);
+        background-color: var(--vscode-button-background, #0e639c);
+        color: var(--vscode-button-foreground, #ffffff);
+        border-color: var(--vscode-button-border, var(--vscode-panel-border, #2b2b2b));
       }
 
       .react-flow__controls button:hover {
-        background-color: var(--vscode-button-hoverBackground);
+        background-color: var(--vscode-button-hoverBackground, #1177bb);
       }
     </style>
   </head>

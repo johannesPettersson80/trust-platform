@@ -27,19 +27,19 @@ body.right-pane-resize-active {
   left: 50%;
   width: 1px;
   transform: translateX(-50%);
-  background: var(--vscode-panel-border);
+  background: var(--vscode-panel-border, var(--vscode-editorWidget-border, #2b2b2b));
   opacity: 0.6;
 }
 
 .right-pane-resize-handle:hover::before,
 .right-pane-resize-handle.is-resizing::before,
 body.right-pane-resize-active .right-pane-resize-handle::before {
-  background: var(--vscode-focusBorder);
+  background: var(--vscode-focusBorder, var(--vscode-panel-border, #007fd4));
   opacity: 1;
 }
 
 .right-pane-resize-handle:focus-visible::before {
-  background: var(--vscode-focusBorder);
+  background: var(--vscode-focusBorder, var(--vscode-panel-border, #007fd4));
   opacity: 1;
   width: 2px;
 }

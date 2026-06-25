@@ -22,10 +22,10 @@ interface SfcToolsPanelProps {
 
 const buttonStyle: React.CSSProperties = {
   padding: "7px 10px",
-  border: "1px solid var(--vscode-button-border)",
+  border: "1px solid var(--vscode-button-border, var(--vscode-panel-border, #2b2b2b))",
   borderRadius: "4px",
-  background: "var(--vscode-button-secondaryBackground)",
-  color: "var(--vscode-button-secondaryForeground)",
+  background: "var(--vscode-button-secondaryBackground, var(--vscode-button-background, #313131))",
+  color: "var(--vscode-button-secondaryForeground, var(--vscode-button-foreground, #cccccc))",
   fontSize: "12px",
   fontWeight: 600,
   lineHeight: 1.25,
@@ -57,7 +57,7 @@ export const SfcToolsPanel: React.FC<SfcToolsPanelProps> = ({
         flexDirection: "column",
         gap: "8px",
         padding: "10px 8px",
-        borderBottom: "1px solid var(--vscode-panel-border)",
+        borderBottom: "1px solid var(--vscode-panel-border, #2b2b2b)",
       }}
       aria-label="SFC tools"
     >
@@ -65,7 +65,7 @@ export const SfcToolsPanel: React.FC<SfcToolsPanelProps> = ({
       <div
         style={{
           fontSize: "11px",
-          color: "var(--vscode-descriptionForeground)",
+          color: "var(--vscode-descriptionForeground, var(--vscode-foreground, #9d9d9d))",
           opacity: 0.9,
         }}
       >
@@ -74,7 +74,7 @@ export const SfcToolsPanel: React.FC<SfcToolsPanelProps> = ({
       <div
         style={{
           fontSize: "11px",
-          color: "var(--vscode-descriptionForeground)",
+          color: "var(--vscode-descriptionForeground, var(--vscode-foreground, #9d9d9d))",
           opacity: 0.8,
         }}
       >
@@ -136,12 +136,12 @@ export const SfcToolsPanel: React.FC<SfcToolsPanelProps> = ({
             style={{
               ...buttonStyle,
               background: showCodePanel
-                ? "var(--vscode-button-background)"
-                : "var(--vscode-button-secondaryBackground)",
+                ? "var(--vscode-button-background, #0e639c)"
+                : "var(--vscode-button-secondaryBackground, var(--vscode-button-background, #313131))",
               color: showCodePanel
-                ? "var(--vscode-button-foreground)"
-                : "var(--vscode-button-secondaryForeground)",
-              borderColor: showCodePanel ? "var(--vscode-focusBorder)" : "var(--vscode-button-border)",
+                ? "var(--vscode-button-foreground, #ffffff)"
+                : "var(--vscode-button-secondaryForeground, var(--vscode-button-foreground, #cccccc))",
+              borderColor: showCodePanel ? "var(--vscode-focusBorder, #007fd4)" : "var(--vscode-button-border, var(--vscode-panel-border, #2b2b2b))",
             }}
             onClick={onToggleCodePanel}
             title={showCodePanel ? "Hide code panel" : "Show code panel"}

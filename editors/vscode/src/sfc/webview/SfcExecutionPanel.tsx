@@ -40,7 +40,7 @@ export const SfcExecutionPanel: React.FC<SfcExecutionPanelProps> = ({
   return (
     <div
       style={{
-        borderBottom: "1px solid var(--vscode-panel-border)",
+        borderBottom: "1px solid var(--vscode-panel-border, #2b2b2b)",
         display: "flex",
         flexDirection: "column",
       }}
@@ -68,8 +68,8 @@ export const SfcExecutionPanel: React.FC<SfcExecutionPanelProps> = ({
                 style={{
                   padding: "8px",
                   borderRadius: "4px",
-                  border: "1px solid var(--vscode-panel-border)",
-                  background: "var(--vscode-editor-background)",
+                  border: "1px solid var(--vscode-panel-border, #2b2b2b)",
+                  background: "var(--vscode-editor-background, #1e1e1e)",
                   fontSize: "12px",
                 }}
               >
@@ -81,10 +81,10 @@ export const SfcExecutionPanel: React.FC<SfcExecutionPanelProps> = ({
                 style={{
                   padding: "8px",
                   borderRadius: "4px",
-                  border: "1px solid var(--vscode-panel-border)",
+                  border: "1px solid var(--vscode-panel-border, #2b2b2b)",
                   background: isPaused
                     ? "rgba(255, 165, 0, 0.1)"
-                    : "var(--vscode-editor-background)",
+                    : "var(--vscode-editor-background, #1e1e1e)",
                   fontSize: "12px",
                   display: "flex",
                   alignItems: "center",
@@ -115,9 +115,9 @@ export const SfcExecutionPanel: React.FC<SfcExecutionPanelProps> = ({
                             flex: 1,
                             padding: "6px 12px",
                             borderRadius: "4px",
-                            border: "1px solid var(--vscode-button-border)",
-                            background: "var(--vscode-button-background)",
-                            color: "var(--vscode-button-foreground)",
+                            border: "1px solid var(--vscode-button-border, var(--vscode-panel-border, #2b2b2b))",
+                            background: "var(--vscode-button-background, #0e639c)",
+                            color: "var(--vscode-button-foreground, #ffffff)",
                             cursor: "pointer",
                             fontSize: "11px",
                             fontWeight: 600,
@@ -132,9 +132,9 @@ export const SfcExecutionPanel: React.FC<SfcExecutionPanelProps> = ({
                             flex: 1,
                             padding: "6px 12px",
                             borderRadius: "4px",
-                            border: "1px solid var(--vscode-button-border)",
-                            background: "var(--vscode-button-secondaryBackground)",
-                            color: "var(--vscode-button-secondaryForeground)",
+                            border: "1px solid var(--vscode-button-border, var(--vscode-panel-border, #2b2b2b))",
+                            background: "var(--vscode-button-secondaryBackground, var(--vscode-button-background, #313131))",
+                            color: "var(--vscode-button-secondaryForeground, var(--vscode-button-foreground, #cccccc))",
                             cursor: "pointer",
                             fontSize: "11px",
                             fontWeight: 600,
@@ -151,9 +151,9 @@ export const SfcExecutionPanel: React.FC<SfcExecutionPanelProps> = ({
                           flex: 1,
                           padding: "6px 12px",
                           borderRadius: "4px",
-                          border: "1px solid var(--vscode-button-border)",
-                          background: "var(--vscode-button-background)",
-                          color: "var(--vscode-button-foreground)",
+                          border: "1px solid var(--vscode-button-border, var(--vscode-panel-border, #2b2b2b))",
+                          background: "var(--vscode-button-background, #0e639c)",
+                          color: "var(--vscode-button-foreground, #ffffff)",
                           cursor: "pointer",
                           fontSize: "11px",
                           fontWeight: 600,
@@ -191,8 +191,8 @@ export const SfcExecutionPanel: React.FC<SfcExecutionPanelProps> = ({
                 style={{
                   padding: "8px",
                   borderRadius: "4px",
-                  border: "1px solid var(--vscode-panel-border)",
-                  background: "var(--vscode-editor-background)",
+                  border: "1px solid var(--vscode-panel-border, #2b2b2b)",
+                  background: "var(--vscode-editor-background, #1e1e1e)",
                   fontSize: "12px",
                   maxHeight: "120px",
                   overflowY: "auto",

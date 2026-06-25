@@ -10,7 +10,7 @@ function reportFatal(message: string, stack?: string): void {
   const body = document.body;
   if (body) {
     body.innerHTML = `
-      <div style="padding:16px;color:var(--vscode-editor-foreground);font-family:var(--vscode-font-family);">
+      <div style="padding:16px;color:var(--vscode-editor-foreground, var(--vscode-foreground, #cccccc));font-family:var(--vscode-font-family);">
         <h2 style="margin:0 0 8px 0;font-size:16px;">Ladder webview fatal error</h2>
         <pre style="white-space:pre-wrap;font-size:12px;">${message}${stack ? `\n\n${stack}` : ""}</pre>
       </div>

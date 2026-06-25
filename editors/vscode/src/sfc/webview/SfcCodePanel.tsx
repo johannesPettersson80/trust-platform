@@ -33,8 +33,8 @@ export const SfcCodePanel: React.FC<SfcCodePanelProps> = ({
         width: "400px",
         display: "flex",
         flexDirection: "column",
-        background: "var(--vscode-editor-background)",
-        borderLeft: "1px solid var(--vscode-panel-border)",
+        background: "var(--vscode-editor-background, #1e1e1e)",
+        borderLeft: "1px solid var(--vscode-panel-border, #2b2b2b)",
         zIndex: 10,
       }}
     >
@@ -42,11 +42,11 @@ export const SfcCodePanel: React.FC<SfcCodePanelProps> = ({
       <div
         style={{
           padding: "8px 12px",
-          borderBottom: "1px solid var(--vscode-panel-border)",
+          borderBottom: "1px solid var(--vscode-panel-border, #2b2b2b)",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          background: "var(--vscode-sideBar-background)",
+          background: "var(--vscode-sideBar-background, var(--vscode-editor-background, #1e1e1e))",
         }}
       >
         <h3
@@ -54,7 +54,7 @@ export const SfcCodePanel: React.FC<SfcCodePanelProps> = ({
             margin: 0,
             fontSize: "13px",
             fontWeight: 600,
-            color: "var(--vscode-foreground)",
+            color: "var(--vscode-foreground, #cccccc)",
           }}
         >
           Generated ST Code
@@ -65,10 +65,10 @@ export const SfcCodePanel: React.FC<SfcCodePanelProps> = ({
             style={{
               padding: "4px 12px",
               fontSize: "11px",
-              border: "1px solid var(--vscode-button-border)",
+              border: "1px solid var(--vscode-button-border, var(--vscode-panel-border, #2b2b2b))",
               borderRadius: "2px",
-              background: "var(--vscode-button-background)",
-              color: "var(--vscode-button-foreground)",
+              background: "var(--vscode-button-background, #0e639c)",
+              color: "var(--vscode-button-foreground, #ffffff)",
               cursor: "pointer",
             }}
             title="Copy code to clipboard"
@@ -101,7 +101,7 @@ export const SfcCodePanel: React.FC<SfcCodePanelProps> = ({
               style={{
                 margin: 0,
                 fontSize: "13px",
-                color: "var(--vscode-descriptionForeground)",
+                color: "var(--vscode-descriptionForeground, var(--vscode-foreground, #9d9d9d))",
               }}
             >
               Generating Structured Text...
@@ -114,7 +114,7 @@ export const SfcCodePanel: React.FC<SfcCodePanelProps> = ({
               fontFamily: "var(--vscode-editor-font-family, monospace)",
               fontSize: "12px",
               lineHeight: "1.5",
-              color: "var(--vscode-editor-foreground)",
+              color: "var(--vscode-editor-foreground, var(--vscode-foreground, #cccccc))",
               whiteSpace: "pre-wrap",
               wordBreak: "break-word",
             }}
@@ -137,7 +137,7 @@ export const SfcCodePanel: React.FC<SfcCodePanelProps> = ({
                 style={{
                   margin: 0,
                   fontSize: "13px",
-                  color: "var(--vscode-descriptionForeground)",
+                  color: "var(--vscode-descriptionForeground, var(--vscode-foreground, #9d9d9d))",
                 }}
               >
                 Structured Text code will appear here
@@ -146,7 +146,7 @@ export const SfcCodePanel: React.FC<SfcCodePanelProps> = ({
                 style={{
                   margin: "8px 0 0 0",
                   fontSize: "11px",
-                  color: "var(--vscode-descriptionForeground)",
+                  color: "var(--vscode-descriptionForeground, var(--vscode-foreground, #9d9d9d))",
                   opacity: 0.7,
                 }}
               >
@@ -161,9 +161,9 @@ export const SfcCodePanel: React.FC<SfcCodePanelProps> = ({
       {errors.length > 0 && (
         <div
           style={{
-            borderTop: "1px solid var(--vscode-panel-border)",
+            borderTop: "1px solid var(--vscode-panel-border, #2b2b2b)",
             padding: "12px",
-            background: "var(--vscode-inputValidation-warningBackground)",
+            background: "var(--vscode-inputValidation-warningBackground, #5a4d00)",
             maxHeight: "150px",
             overflow: "auto",
           }}
@@ -173,7 +173,7 @@ export const SfcCodePanel: React.FC<SfcCodePanelProps> = ({
               margin: "0 0 8px 0",
               fontSize: "12px",
               fontWeight: 600,
-              color: "var(--vscode-inputValidation-warningForeground)",
+              color: "var(--vscode-inputValidation-warningForeground, var(--vscode-foreground, #cca700))",
             }}
           >
             Warnings ({errors.length})
@@ -183,7 +183,7 @@ export const SfcCodePanel: React.FC<SfcCodePanelProps> = ({
               margin: 0,
               paddingLeft: "20px",
               fontSize: "11px",
-              color: "var(--vscode-inputValidation-warningForeground)",
+              color: "var(--vscode-inputValidation-warningForeground, var(--vscode-foreground, #cca700))",
             }}
           >
             {errors.map((error, index) => (

@@ -8,8 +8,8 @@
 
 body {
   font-family: var(--vscode-font-family);
-  color: var(--vscode-foreground);
-  background-color: var(--vscode-editor-background);
+  color: var(--vscode-foreground, #cccccc);
+  background-color: var(--vscode-editor-background, #1e1e1e);
   overflow: hidden;
 }
 
@@ -27,8 +27,12 @@ body {
 }
 
 .ladder-side-panel {
-  border-left: 1px solid var(--vscode-panel-border);
-  background: var(--vscode-sideBar-background);
+  border-left: 1px solid
+    var(--vscode-panel-border, var(--vscode-editorGroup-border, #2b2b2b));
+  background: var(
+    --vscode-sideBar-background,
+    var(--vscode-editor-background, #1e1e1e)
+  );
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -41,11 +45,15 @@ body {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
   padding: 8px;
-  border-bottom: 1px solid var(--vscode-panel-border);
+  border-bottom: 1px solid
+    var(--vscode-panel-border, var(--vscode-editorGroup-border, #2b2b2b));
   position: sticky;
   top: 0;
   z-index: 3;
-  background: var(--vscode-sideBar-background);
+  background: var(
+    --vscode-sideBar-background,
+    var(--vscode-editor-background, #1e1e1e)
+  );
 }
 
 .right-pane-view-tab {
@@ -74,25 +82,29 @@ body {
   flex-direction: column;
   gap: 6px;
   padding: 8px;
-  border-bottom: 1px solid var(--vscode-panel-border);
-  background: var(--vscode-sideBar-background);
+  border-bottom: 1px solid
+    var(--vscode-panel-border, var(--vscode-editorGroup-border, #2b2b2b));
+  background: var(
+    --vscode-sideBar-background,
+    var(--vscode-editor-background, #1e1e1e)
+  );
 }
 
 .ladder-tools-panel__title {
   font-size: 12px;
   font-weight: 600;
-  color: var(--vscode-foreground);
+  color: var(--vscode-foreground, #cccccc);
 }
 
 .ladder-tools-panel__hint {
   font-size: 11px;
-  color: var(--vscode-descriptionForeground);
+  color: var(--vscode-descriptionForeground, var(--vscode-foreground, #cccccc));
 }
 
 .ladder-tools-panel__section-title {
   font-size: 11px;
   font-weight: 600;
-  color: var(--vscode-descriptionForeground);
+  color: var(--vscode-descriptionForeground, var(--vscode-foreground, #cccccc));
   text-transform: uppercase;
   letter-spacing: 0.04em;
   margin-top: 2px;
@@ -148,8 +160,12 @@ body {
   display: flex;
   gap: 20px;
   padding: 10px;
-  background-color: var(--vscode-editorGroupHeader-tabsBackground);
-  border-bottom: 1px solid var(--vscode-panel-border);
+  background-color: var(
+    --vscode-editorGroupHeader-tabsBackground,
+    var(--vscode-editor-background, #1e1e1e)
+  );
+  border-bottom: 1px solid
+    var(--vscode-panel-border, var(--vscode-editorGroup-border, #2b2b2b));
   overflow-x: auto;
 }
 
@@ -162,7 +178,7 @@ body {
 
 .toolbar-section h3 {
   font-size: 11px;
-  color: var(--vscode-descriptionForeground);
+  color: var(--vscode-descriptionForeground, var(--vscode-foreground, #cccccc));
   text-transform: uppercase;
   margin-bottom: 5px;
 }
@@ -250,8 +266,11 @@ body {
   width: 100%;
   min-width: 0;
   border-left: none;
-  background: var(--vscode-sideBar-background);
-  color: var(--vscode-sideBar-foreground);
+  background: var(
+    --vscode-sideBar-background,
+    var(--vscode-editor-background, #1e1e1e)
+  );
+  color: var(--vscode-sideBar-foreground, var(--vscode-foreground, #cccccc));
   padding: 12px;
   overflow-y: auto;
   display: flex;
@@ -262,7 +281,7 @@ body {
 
 .properties-panel h3 {
   font-size: 12px;
-  color: var(--vscode-descriptionForeground);
+  color: var(--vscode-descriptionForeground, var(--vscode-foreground, #cccccc));
   text-transform: uppercase;
 }
 
@@ -271,7 +290,8 @@ body {
   flex-direction: column;
   gap: 8px;
   padding-bottom: 8px;
-  border-bottom: 1px solid var(--vscode-panel-border);
+  border-bottom: 1px solid
+    var(--vscode-panel-border, var(--vscode-editorGroup-border, #2b2b2b));
 }
 
 .properties-section:last-child {
@@ -286,7 +306,7 @@ body {
 
 .property-row label {
   font-size: 12px;
-  color: var(--vscode-descriptionForeground);
+  color: var(--vscode-descriptionForeground, var(--vscode-foreground, #cccccc));
 }
 
 .property-row input,
@@ -294,14 +314,18 @@ body {
   width: 100%;
   padding: 6px 8px;
   border-radius: 2px;
-  border: 1px solid var(--vscode-input-border);
-  background: var(--vscode-input-background);
-  color: var(--vscode-input-foreground);
+  border: 1px solid
+    var(--vscode-input-border, var(--vscode-panel-border, #3c3c3c));
+  background: var(
+    --vscode-input-background,
+    var(--vscode-editor-background, #1e1e1e)
+  );
+  color: var(--vscode-input-foreground, var(--vscode-foreground, #cccccc));
 }
 
 .property-hint {
   font-size: 12px;
-  color: var(--vscode-descriptionForeground);
+  color: var(--vscode-descriptionForeground, var(--vscode-foreground, #cccccc));
 }
 
 .property-warning {
@@ -330,9 +354,13 @@ body {
   flex-direction: column;
   gap: 2px;
   padding: 6px;
-  border: 1px solid var(--vscode-panel-border);
+  border: 1px solid
+    var(--vscode-panel-border, var(--vscode-editorGroup-border, #2b2b2b));
   border-radius: 6px;
-  background: var(--vscode-menu-background, var(--vscode-editorWidget-background));
+  background: var(
+    --vscode-menu-background,
+    var(--vscode-editorWidget-background, var(--vscode-editor-background, #252526))
+  );
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   z-index: 9999;
 }
@@ -341,7 +369,7 @@ body {
   border: 1px solid transparent;
   border-radius: 4px;
   background: transparent;
-  color: var(--vscode-menu-foreground, var(--vscode-foreground));
+  color: var(--vscode-menu-foreground, var(--vscode-foreground, #cccccc));
   padding: 6px 8px;
   font-size: 12px;
   text-align: left;
@@ -367,7 +395,8 @@ body {
   padding: 5px 10px;
   background-color: var(--vscode-statusBar-background);
   color: var(--vscode-statusBar-foreground);
-  border-top: 1px solid var(--vscode-panel-border);
+  border-top: 1px solid
+    var(--vscode-panel-border, var(--vscode-editorGroup-border, #2b2b2b));
   font-size: 12px;
   align-items: center;
   flex-wrap: wrap;
@@ -400,8 +429,8 @@ body {
   height: 100vh;
   width: 100vw;
   padding: 16px;
-  background: var(--vscode-editor-background);
-  color: var(--vscode-editor-foreground);
+  background: var(--vscode-editor-background, #1e1e1e);
+  color: var(--vscode-editor-foreground, var(--vscode-foreground, #cccccc));
   font-family: var(--vscode-font-family);
 }
 

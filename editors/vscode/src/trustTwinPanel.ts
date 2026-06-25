@@ -227,7 +227,16 @@ async function refreshScene(): Promise<void> {
   } catch (error) {
     connected = false;
     const detail = error instanceof Error ? error.message : String(error);
-    setStatus(`trust-twin schema request failed: ${detail}`);
+    // A missing/refused control socket is the normal "no runtime yet" case — guide the user instead of
+    // leaking a raw socket error (e.g. "connect ENOENT /tmp/trust-debug.sock"). Keep the detail in the
+    // console for diagnostics.
+    console.warn(`[trust-twin] schema request failed: ${detail}`);
+    const noRuntime = /ENOENT|ECONNREFUSED|connect |not running|unavailable|no workspace/i.test(detail);
+    setStatus(
+      noRuntime
+        ? "Start a runtime to load the 3D view."
+        : "Couldn't load the 3D view. Check the runtime, then Refresh.",
+    );
   }
 }
 
@@ -668,16 +677,16 @@ function getTrustTwinPanelHtml(
     body {
       margin: 0;
       font-family: var(--vscode-font-family);
-      color: var(--vscode-editor-foreground);
-      background: var(--vscode-editor-background);
+      color: var(--vscode-editor-foreground, var(--vscode-foreground, #cccccc));
+      background: var(--vscode-editor-background, #1e1e1e);
     }
     header {
       display: flex;
       gap: 8px;
       align-items: center;
       padding: 10px;
-      border-bottom: 1px solid var(--vscode-panel-border);
-      background: var(--vscode-editor-background);
+      border-bottom: 1px solid var(--vscode-panel-border, #2b2b2b);
+      background: var(--vscode-editor-background, #1e1e1e);
     }
     #pages {
       display: flex;
@@ -688,17 +697,17 @@ function getTrustTwinPanelHtml(
     }
     .page-button {
       white-space: nowrap;
-      color: var(--vscode-button-secondaryForeground);
-      background: var(--vscode-button-secondaryBackground);
+      color: var(--vscode-button-secondaryForeground, var(--vscode-foreground, #cccccc));
+      background: var(--vscode-button-secondaryBackground, var(--vscode-editor-background, #3a3d41));
     }
     .page-button.active {
-      color: var(--vscode-button-foreground);
-      background: var(--vscode-button-background);
+      color: var(--vscode-button-foreground, #ffffff);
+      background: var(--vscode-button-background, #0e639c);
     }
     button {
       border: 1px solid var(--vscode-button-border, transparent);
-      color: var(--vscode-button-foreground);
-      background: var(--vscode-button-background);
+      color: var(--vscode-button-foreground, #ffffff);
+      background: var(--vscode-button-background, #0e639c);
       padding: 4px 10px;
       cursor: pointer;
     }
@@ -717,9 +726,9 @@ function getTrustTwinPanelHtml(
       min-height: 420px;
       overflow: hidden;
       background:
-        linear-gradient(0deg, color-mix(in srgb, var(--vscode-editor-background) 90%, transparent), color-mix(in srgb, var(--vscode-editor-background) 90%, transparent)),
-        repeating-linear-gradient(90deg, transparent 0 47px, color-mix(in srgb, var(--vscode-panel-border) 34%, transparent) 48px),
-        repeating-linear-gradient(0deg, transparent 0 47px, color-mix(in srgb, var(--vscode-panel-border) 34%, transparent) 48px);
+        linear-gradient(0deg, color-mix(in srgb, var(--vscode-editor-background, #1e1e1e) 90%, transparent), color-mix(in srgb, var(--vscode-editor-background, #1e1e1e) 90%, transparent)),
+        repeating-linear-gradient(90deg, transparent 0 47px, color-mix(in srgb, var(--vscode-panel-border, #2b2b2b) 34%, transparent) 48px),
+        repeating-linear-gradient(0deg, transparent 0 47px, color-mix(in srgb, var(--vscode-panel-border, #2b2b2b) 34%, transparent) 48px);
     }
     .node {
       position: absolute;
@@ -727,13 +736,13 @@ function getTrustTwinPanelHtml(
       max-width: 150px;
       min-height: 38px;
       padding: 7px 10px;
-      border: 1px solid var(--vscode-panel-border);
+      border: 1px solid var(--vscode-panel-border, #2b2b2b);
       border-radius: 6px;
       transform: translate(-50%, -50%);
       box-sizing: border-box;
       text-align: center;
       overflow-wrap: anywhere;
-      background: color-mix(in srgb, var(--vscode-button-secondaryBackground) 64%, var(--vscode-editor-background));
+      background: color-mix(in srgb, var(--vscode-button-secondaryBackground, var(--vscode-editor-background, #3a3d41)) 64%, var(--vscode-editor-background, #1e1e1e));
       transition: left 180ms linear, top 180ms linear, transform 180ms linear, background-color 180ms linear, box-shadow 180ms linear;
     }
     .node.robot-base {
@@ -783,11 +792,11 @@ function getTrustTwinPanelHtml(
       padding: 0;
       border-radius: 999px;
       font-size: 0;
-      border-color: color-mix(in srgb, var(--vscode-panel-border) 50%, #ffffff);
+      border-color: color-mix(in srgb, var(--vscode-panel-border, #2b2b2b) 50%, #ffffff);
     }
     button.node:hover {
-      border-color: var(--vscode-focusBorder);
-      background: color-mix(in srgb, var(--vscode-focusBorder) 18%, var(--vscode-button-secondaryBackground));
+      border-color: var(--vscode-focusBorder, #007fd4);
+      background: color-mix(in srgb, var(--vscode-focusBorder, #007fd4) 18%, var(--vscode-button-secondaryBackground, var(--vscode-editor-background, #3a3d41)));
     }
     .offline .node {
       opacity: 0.6;
@@ -803,8 +812,8 @@ function getTrustTwinPanelHtml(
       bottom: 10px;
       font-size: 11px;
       opacity: 0.76;
-      background: color-mix(in srgb, var(--vscode-editor-background) 86%, transparent);
-      border: 1px solid var(--vscode-panel-border);
+      background: color-mix(in srgb, var(--vscode-editor-background, #1e1e1e) 86%, transparent);
+      border: 1px solid var(--vscode-panel-border, #2b2b2b);
       padding: 5px 7px;
       border-radius: 4px;
     }
@@ -825,9 +834,9 @@ function getTrustTwinPanelHtml(
       top: 10px;
       max-width: min(420px, 42vw);
       padding: 6px 8px;
-      border: 1px solid var(--vscode-inputValidation-errorBorder);
-      background: color-mix(in srgb, var(--vscode-inputValidation-errorBackground) 72%, var(--vscode-editor-background));
-      color: var(--vscode-inputValidation-errorForeground, var(--vscode-editor-foreground));
+      border: 1px solid var(--vscode-inputValidation-errorBorder, var(--vscode-errorForeground, #be1100));
+      background: color-mix(in srgb, var(--vscode-inputValidation-errorBackground, #5a1d1d) 72%, var(--vscode-editor-background, #1e1e1e));
+      color: var(--vscode-inputValidation-errorForeground, var(--vscode-editor-foreground, var(--vscode-foreground, #cccccc)));
       font-size: 12px;
       border-radius: 4px;
     }
@@ -837,8 +846,8 @@ function getTrustTwinPanelHtml(
       bottom: 10px;
       width: min(360px, 42vw);
       min-height: 96px;
-      border: 1px solid var(--vscode-panel-border);
-      background: color-mix(in srgb, var(--vscode-editor-background) 88%, transparent);
+      border: 1px solid var(--vscode-panel-border, #2b2b2b);
+      background: color-mix(in srgb, var(--vscode-editor-background, #1e1e1e) 88%, transparent);
       border-radius: 4px;
       padding: 8px;
       box-sizing: border-box;
@@ -1225,7 +1234,9 @@ function getTrustTwinPanelHtml(
       if (!nodes.length) {
         const empty = document.createElement("div");
         empty.className = "empty";
-        empty.textContent = "No scene3d payload is available.";
+        empty.textContent = state.connected
+          ? "This page has no 3D scene yet."
+          : "Start a runtime to see the 3D scene.";
         surface.appendChild(empty);
         renderOverlays();
         return;

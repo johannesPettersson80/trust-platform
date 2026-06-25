@@ -271,8 +271,8 @@ export const StateChartEditor: React.FC = () => {
       <div
         style={{
           ...rightPaneStyle,
-          borderLeft: "1px solid var(--vscode-panel-border)",
-          backgroundColor: "var(--vscode-sideBar-background)",
+          borderLeft: "1px solid var(--vscode-panel-border, #2b2b2b)",
+          backgroundColor: "var(--vscode-sideBar-background, var(--vscode-editor-background, #1e1e1e))",
           display: "flex",
           flexDirection: "column",
           overflowY: "auto",
@@ -287,11 +287,11 @@ export const StateChartEditor: React.FC = () => {
               gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
               gap: "6px",
               padding: "8px",
-              borderBottom: "1px solid var(--vscode-panel-border)",
+              borderBottom: "1px solid var(--vscode-panel-border, #2b2b2b)",
               position: "sticky",
               top: 0,
               zIndex: 3,
-              background: "var(--vscode-sideBar-background)",
+              background: "var(--vscode-sideBar-background, var(--vscode-editor-background, #1e1e1e))",
             }
           }
         >
@@ -301,20 +301,20 @@ export const StateChartEditor: React.FC = () => {
               type="button"
               onClick={() => setRightPaneView(view)}
               style={{
-                border: "1px solid var(--vscode-button-border)",
+                border: "1px solid var(--vscode-button-border, var(--vscode-panel-border, #2b2b2b))",
                 borderRadius: "4px",
                 background:
                   rightPaneView === view
-                    ? "var(--vscode-button-background)"
-                    : "var(--vscode-button-secondaryBackground)",
+                    ? "var(--vscode-button-background, #0e639c)"
+                    : "var(--vscode-button-secondaryBackground, #3a3d41)",
                 color:
                   rightPaneView === view
-                    ? "var(--vscode-button-foreground)"
-                    : "var(--vscode-button-secondaryForeground)",
+                    ? "var(--vscode-button-foreground, #ffffff)"
+                    : "var(--vscode-button-secondaryForeground, var(--vscode-foreground, #cccccc))",
                 borderColor:
                   rightPaneView === view
-                    ? "var(--vscode-focusBorder)"
-                    : "var(--vscode-button-border)",
+                    ? "var(--vscode-focusBorder, #007fd4)"
+                    : "var(--vscode-button-border, var(--vscode-panel-border, #2b2b2b))",
                 padding: "5px 8px",
                 fontSize: "11px",
                 fontWeight: 600,

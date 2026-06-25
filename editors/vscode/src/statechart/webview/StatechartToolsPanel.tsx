@@ -13,10 +13,10 @@ interface StatechartToolsPanelProps {
 
 const buttonStyle: React.CSSProperties = {
   padding: "6px 8px",
-  border: "1px solid var(--vscode-button-border)",
+  border: "1px solid var(--vscode-button-border, var(--vscode-panel-border, #2b2b2b))",
   borderRadius: "4px",
-  background: "var(--vscode-button-secondaryBackground)",
-  color: "var(--vscode-button-secondaryForeground)",
+  background: "var(--vscode-button-secondaryBackground, #3a3d41)",
+  color: "var(--vscode-button-secondaryForeground, var(--vscode-foreground, #cccccc))",
   fontSize: "12px",
   cursor: "pointer",
 };
@@ -38,7 +38,7 @@ export const StatechartToolsPanel: React.FC<StatechartToolsPanelProps> = ({
         flexDirection: "column",
         gap: "8px",
         padding: "10px 8px",
-        borderBottom: "1px solid var(--vscode-panel-border)",
+        borderBottom: "1px solid var(--vscode-panel-border, #2b2b2b)",
       }}
       aria-label="Statechart tools"
     >

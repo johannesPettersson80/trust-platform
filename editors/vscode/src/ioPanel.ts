@@ -1173,21 +1173,24 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
     <style>
       :root {
         color-scheme: light dark;
-        --bg: var(--vscode-sideBar-background);
-        --text: var(--vscode-sideBar-foreground);
-        --muted: var(--vscode-descriptionForeground);
-        --border: var(--vscode-sideBar-border, var(--vscode-panel-border));
-        --panel: var(--vscode-editor-background);
-        --table-header: var(--vscode-sideBarSectionHeader-background, var(--vscode-sideBar-background));
-        --table-header-text: var(--vscode-sideBarSectionHeader-foreground, var(--vscode-sideBar-foreground));
-        --row-hover: var(--vscode-list-hoverBackground);
-        --row-alt: var(--vscode-list-inactiveSelectionBackground);
-        --button-bg: var(--vscode-button-background);
-        --button-fg: var(--vscode-button-foreground);
-        --button-hover: var(--vscode-button-hoverBackground);
-        --input-bg: var(--vscode-input-background);
-        --input-fg: var(--vscode-input-foreground);
-        --input-border: var(--vscode-input-border);
+        /* Every var ends in a fallback chain to --vscode-foreground/-background (always defined). Themes
+           that omit sideBar.foreground/background otherwise leave these EMPTY, and an empty color resolves
+           to black — the invisible-text bug. Never use a bare var(--vscode-X) for text or surfaces. */
+        --bg: var(--vscode-sideBar-background, var(--vscode-editor-background, #1e1e1e));
+        --text: var(--vscode-sideBar-foreground, var(--vscode-foreground, #cccccc));
+        --muted: var(--vscode-descriptionForeground, var(--vscode-foreground, #9d9d9d));
+        --border: var(--vscode-sideBar-border, var(--vscode-panel-border, #2b2b2b));
+        --panel: var(--vscode-editor-background, #1e1e1e);
+        --table-header: var(--vscode-sideBarSectionHeader-background, var(--vscode-sideBar-background, #252526));
+        --table-header-text: var(--vscode-sideBarSectionHeader-foreground, var(--vscode-foreground, #cccccc));
+        --row-hover: var(--vscode-list-hoverBackground, rgba(255, 255, 255, 0.07));
+        --row-alt: var(--vscode-list-inactiveSelectionBackground, rgba(255, 255, 255, 0.05));
+        --button-bg: var(--vscode-button-background, #0e639c);
+        --button-fg: var(--vscode-button-foreground, #ffffff);
+        --button-hover: var(--vscode-button-hoverBackground, #1177bb);
+        --input-bg: var(--vscode-input-background, #313131);
+        --input-fg: var(--vscode-input-foreground, #cccccc);
+        --input-border: var(--vscode-input-border, #3c3c3c);
         --error: var(--vscode-errorForeground, #f14c4c);
         --warning: var(--vscode-editorWarning-foreground, #cca700);
       }

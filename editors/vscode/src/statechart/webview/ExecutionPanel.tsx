@@ -36,7 +36,7 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({
   return (
     <div
       style={{
-        borderBottom: "1px solid var(--vscode-panel-border)",
+        borderBottom: "1px solid var(--vscode-panel-border, #2b2b2b)",
         display: "flex",
         flexDirection: "column",
       }}
@@ -64,8 +64,8 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({
                 style={{
                   padding: "8px",
                   borderRadius: "4px",
-                  border: "1px solid var(--vscode-panel-border)",
-                  background: "var(--vscode-editor-background)",
+                  border: "1px solid var(--vscode-panel-border, #2b2b2b)",
+                  background: "var(--vscode-editor-background, #1e1e1e)",
                   fontSize: "12px",
                 }}
               >
@@ -110,10 +110,10 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({
                   placeholder="Custom event"
                   style={{
                     flex: 1,
-                    border: "1px solid var(--vscode-input-border)",
+                    border: "1px solid var(--vscode-input-border, #3c3c3c)",
                     borderRadius: "4px",
-                    background: "var(--vscode-input-background)",
-                    color: "var(--vscode-input-foreground)",
+                    background: "var(--vscode-input-background, #313131)",
+                    color: "var(--vscode-input-foreground, var(--vscode-foreground, #cccccc))",
                     padding: "6px 8px",
                     fontSize: "12px",
                   }}
@@ -142,11 +142,11 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({
 };
 
 const eventButtonStyle: React.CSSProperties = {
-  border: "1px solid var(--vscode-button-border)",
+  border: "1px solid var(--vscode-button-border, var(--vscode-panel-border, #2b2b2b))",
   borderRadius: "4px",
   padding: "6px 8px",
-  background: "var(--vscode-button-secondaryBackground)",
-  color: "var(--vscode-button-secondaryForeground)",
+  background: "var(--vscode-button-secondaryBackground, #3a3d41)",
+  color: "var(--vscode-button-secondaryForeground, var(--vscode-foreground, #cccccc))",
   fontSize: "12px",
   cursor: "pointer",
 };

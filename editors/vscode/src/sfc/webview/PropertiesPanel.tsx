@@ -84,22 +84,22 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
   const panelStyle: React.CSSProperties = {
     width: "100%",
-    backgroundColor: "var(--vscode-sideBar-background)",
-    borderTop: "1px solid var(--vscode-panel-border)",
+    backgroundColor: "var(--vscode-sideBar-background, var(--vscode-editor-background, #1e1e1e))",
+    borderTop: "1px solid var(--vscode-panel-border, #2b2b2b)",
     overflowY: "auto",
     padding: "12px",
     fontFamily: "var(--vscode-font-family)",
     fontSize: "13px",
-    color: "var(--vscode-editor-foreground)",
+    color: "var(--vscode-editor-foreground, var(--vscode-foreground, #cccccc))",
     boxSizing: "border-box",
   };
 
   const inputStyle: React.CSSProperties = {
     width: "100%",
     padding: "6px 8px",
-    backgroundColor: "var(--vscode-input-background)",
-    color: "var(--vscode-input-foreground)",
-    border: "1px solid var(--vscode-input-border)",
+    backgroundColor: "var(--vscode-input-background, #313131)",
+    color: "var(--vscode-input-foreground, var(--vscode-foreground, #cccccc))",
+    border: "1px solid var(--vscode-input-border, var(--vscode-panel-border, #3c3c3c))",
     borderRadius: "2px",
     fontSize: "13px",
     fontFamily: "var(--vscode-font-family)",
@@ -107,8 +107,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
   const buttonStyle: React.CSSProperties = {
     padding: "6px 12px",
-    backgroundColor: "var(--vscode-button-background)",
-    color: "var(--vscode-button-foreground)",
+    backgroundColor: "var(--vscode-button-background, #0e639c)",
+    color: "var(--vscode-button-foreground, #ffffff)",
     border: "none",
     borderRadius: "2px",
     cursor: "pointer",
@@ -216,11 +216,11 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                   <div
                     key={action.id}
                     style={{
-                      backgroundColor: "var(--vscode-editor-background)",
+                      backgroundColor: "var(--vscode-editor-background, #1e1e1e)",
                       padding: "8px",
                       borderRadius: "4px",
                       marginBottom: "8px",
-                      border: "1px solid var(--vscode-panel-border)",
+                      border: "1px solid var(--vscode-panel-border, #2b2b2b)",
                     }}
                   >
                     <div
@@ -298,7 +298,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
             <div
               style={{
-                borderTop: "1px solid var(--vscode-panel-border)",
+                borderTop: "1px solid var(--vscode-panel-border, #2b2b2b)",
                 paddingTop: "12px",
               }}
             >
