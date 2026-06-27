@@ -10,6 +10,7 @@ import {
 } from "../../trustHomeModel";
 import { runtimeNodeControls } from "../../networkCanvas/webview/runtimeNodeControls";
 import {
+  formatManagedRuntimeLogs,
   isManagedLifecycleSuccess,
   managedRuntimeLabel,
   normalizeManagedState,
@@ -285,6 +286,28 @@ auth_token = "mesh-secret"
       "dotted runtime.control auth_token inside another table must not be imported"
     );
   });
+
+  test("managed runtime logs are formatted for humans instead of raw JSON", () => {
+    const formatted = formatManagedRuntimeLogs(
+      '{"data":{"backend":"vm","source":"config"},"event":"execution_backend_selected","level":"info","ts":1782568993146}\n' +
+        '{"data":{"affinity_applied":false,"errors":[],"warnings":[]},"event":"linux_rt_profile","level":"info","ts":1782568993147}\n',
+      "",
+      "cell1"
+    );
+    assert.ok(
+      formatted.includes("[info] execution_backend_selected backend=vm source=config"),
+      "structured logs should be summarized as readable event lines"
+    );
+    assert.ok(
+      formatted.includes("[info] linux_rt_profile affinity_applied=false"),
+      "structured log details should stay visible without dumping raw JSON objects"
+    );
+    assert.ok(!formatted.includes('{"data"'), "raw JSON log records must not be shown directly");
+    assert.strictEqual(
+      formatManagedRuntimeLogs("", "", "cell1"),
+      "No logs available for cell1.\n"
+    );
+  });
 });
 
 suite("Canvas runtime-node controls — honest per-runtime lifecycle (§8 P3b)", () => {
@@ -468,6 +491,23 @@ suite("Run card — surface contract (v3 reset)", () => {
       source.includes('internalConsoleOptions: "neverOpen"'),
       "Run-card Start must not auto-open VS Code's Debug Console with raw adapter logs"
     );
+  });
+
+  test("attach sessions keep raw adapter logs out of canvas and Live Values workflows", () => {
+    const debugSource = loadSource("debug.ts");
+    const lifecycleSource = loadSource("runtimeLifecycle.ts");
+    const ioPanelSource = loadSource("ioPanel.ts");
+    for (const [name, source] of [
+      ["debug command attach", debugSource],
+      ["runtime lifecycle attach", lifecycleSource],
+      ["Live Values attach", ioPanelSource],
+    ] as const) {
+      assert.ok(
+        source.includes('request: "attach"') &&
+          source.includes('internalConsoleOptions: "neverOpen"'),
+        `${name} must not auto-open VS Code's Debug Console with raw adapter logs`
+      );
+    }
   });
 
   test("no ST editor-title Run/Stop controls", () => {

@@ -272,6 +272,12 @@ Target release: `v0.24.25`
 - vscode: starting the simulator from the truST Run card no longer auto-opens
   VS Code's Debug Console with raw adapter logs, keeping the first-run running
   state focused on product surfaces.
+- vscode: attach-mode debug sessions no longer auto-open VS Code's Debug
+  Console with raw adapter logs, keeping managed-runtime Start/Connect flows
+  focused on Devices & Connections and Live Values.
+- vscode: managed-runtime Start/Stop in Devices & Connections now refits when
+  endpoint nodes appear or disappear, and managed runtime logs are summarized as
+  readable event lines instead of raw JSON records.
 - vscode: Devices & Connections now uses the shared truST webview product
   chrome for its Add pane, so visual-editor right panes and the device setup
   pane resolve the same title, panel, input, and button theme treatment across

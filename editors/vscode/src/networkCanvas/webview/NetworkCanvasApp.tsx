@@ -267,15 +267,14 @@ function Canvas() {
     setEdges(built.edges);
   }, [built, editMode, setNodes, setEdges]);
 
-  // Fit when the graph's top-level node IDENTITY changes — first paint, or a STRUCTURAL swap such as
-  // offline→live topology (the "this computer" hosts become the live fleet host, ids change). NOT on a
-  // plain live-value poll (same ids, positions preserved) — re-fitting on every refresh would yank the
-  // viewport. Without this, a managed Start swaps the graph but the viewport stays on the old layout and
-  // the new node sits off-screen → an empty-looking canvas.
+  // Fit when the graph node IDENTITY changes — first paint, a structural host swap, or child endpoints
+  // appearing/disappearing after Start/Stop. NOT on a plain live-value poll (same ids, positions
+  // preserved) — re-fitting on every refresh would yank the viewport. Without this, a managed Start can
+  // add endpoint children under an existing host while the viewport stays on the old layout, leaving the
+  // graph empty-looking even though the DOM contains the new nodes.
   useEffect(() => {
     nodeCountRef.current = nodes.length;
     const sig = nodes
-      .filter((n) => !n.parentId)
       .map((n) => n.id)
       .sort()
       .join("|");

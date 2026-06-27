@@ -107,6 +107,62 @@ export function parseRuntimeControlAuthToken(text: string): string | undefined {
   return undefined;
 }
 
+export function formatManagedRuntimeLogs(
+  stdout: string,
+  stderr: string,
+  runtimeName: string
+): string {
+  const text = stdout.trim() ? stdout : stderr;
+  if (!text.trim()) {
+    return `No logs available for ${runtimeName}.\n`;
+  }
+  return `${text
+    .split(/\r?\n/)
+    .map((line) => formatManagedRuntimeLogLine(line))
+    .join("\n")}\n`;
+}
+
+function formatManagedRuntimeLogLine(line: string): string {
+  const trimmed = line.trim();
+  if (!trimmed) {
+    return "";
+  }
+  try {
+    const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+    const data =
+      parsed.data && typeof parsed.data === "object" && !Array.isArray(parsed.data)
+        ? (parsed.data as Record<string, unknown>)
+        : parsed;
+    const level = stringValue(data.level ?? parsed.level) ?? "info";
+    const event = stringValue(data.event ?? parsed.event) ?? "runtime";
+    const details = Object.entries(data)
+      .filter(([key]) => !["level", "event", "ts"].includes(key))
+      .map(([key, value]) => `${key}=${formatLogValue(value)}`)
+      .filter(Boolean)
+      .join(" ");
+    return details ? `[${level}] ${event} ${details}` : `[${level}] ${event}`;
+  } catch {
+    return trimmed;
+  }
+}
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function formatLogValue(value: unknown): string {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  if (value == null) {
+    return "null";
+  }
+  return JSON.stringify(value);
+}
+
 function stripTomlInlineComment(line: string): string {
   let inSingle = false;
   let inDouble = false;

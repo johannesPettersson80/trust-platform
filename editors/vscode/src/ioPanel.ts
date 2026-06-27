@@ -752,6 +752,7 @@ async function startAttachDebugging(
     name: "Attach Structured Text",
     endpoint,
     authToken,
+    internalConsoleOptions: "neverOpen",
     ...runtimeOptions,
   };
   if (folder) {

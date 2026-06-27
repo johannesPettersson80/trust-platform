@@ -6,6 +6,7 @@ import * as vscode from "vscode";
 import { getBinaryPath } from "./binary";
 import { setControlAuthToken } from "./runtimeAuth";
 import {
+  formatManagedRuntimeLogs,
   isManagedLifecycleSuccess,
   parseRuntimeControlAuthToken,
   toManagedRuntimes,
@@ -196,7 +197,7 @@ export async function showManagedRuntimeLogs(
     ["fleet", "runtime", "logs", "--fleet-root", root, "--name", name, "--lines", "200"],
     { cwd: root, timeout: 15_000, maxBuffer: 16 * 1024 * 1024 },
     (_error, stdout, stderr) => {
-      logChannel?.append(stdout || stderr || `No logs available for ${name}.\n`);
+      logChannel?.append(formatManagedRuntimeLogs(stdout, stderr, name));
     }
   );
 }

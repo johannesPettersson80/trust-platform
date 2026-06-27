@@ -345,6 +345,7 @@ class RuntimeLifecycleService {
       name: "Attach Structured Text",
       endpoint: status.endpoint,
       authToken: authToken || undefined,
+      internalConsoleOptions: "neverOpen",
       ...runtimeOptions,
     };
     if (folder) {

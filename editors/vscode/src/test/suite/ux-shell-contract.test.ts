@@ -809,6 +809,18 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     }
   });
 
+  test("Devices & Connections refits when endpoint children appear after managed Start", () => {
+    const src = readSrc("networkCanvas/webview/NetworkCanvasApp.tsx");
+    assert.ok(
+      src.includes("child endpoints") && src.includes(".map((n) => n.id)"),
+      "canvas fit signature must include child endpoint node IDs, not only host IDs"
+    );
+    assert.ok(
+      !src.includes(".filter((n) => !n.parentId)\n      .map((n) => n.id)"),
+      "managed Start can add endpoints under an existing host; top-level-only fit signatures leave a blank-looking canvas"
+    );
+  });
+
   test("visual editor right panes use the shared product chrome, not private sidebars", () => {
     const themeCss = readSrc("webview/theme.css");
     for (const selector of [

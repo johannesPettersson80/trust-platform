@@ -595,6 +595,7 @@ export function registerDebugAdapter(
         name: "Attach Structured Text",
         endpoint: controlConfig.endpoint,
         authToken: controlConfig.authToken,
+        internalConsoleOptions: "neverOpen",
         ...runtimeOptions,
       };
       if (folder) {
