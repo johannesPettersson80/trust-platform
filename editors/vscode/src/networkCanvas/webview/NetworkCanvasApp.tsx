@@ -13,7 +13,7 @@ import {
   useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import "./theme.css";
+import "../../webview/theme.css";
 import { t, tint } from "./theme";
 import { buildGraph } from "./layout";
 import { nodeTypes } from "./nodes";
@@ -96,6 +96,10 @@ function Canvas() {
   const [reachable, setReachable] = useState(false);
   const [setupMessage, setSetupMessage] = useState<string | undefined>(undefined);
   const { fitView, screenToFlowPosition, getIntersectingNodes } = useReactFlow();
+  const clearApplyResult = useCallback(() => {
+    setApplyResult(undefined);
+    vscode.postMessage({ type: "clearApplyResult" });
+  }, []);
 
   const focusNode = useCallback(
     (nodeId: string) => {
@@ -125,6 +129,7 @@ function Canvas() {
       if (!runtime) {
         return; // only runtimes own endpoints (§6.1 drop target decides ownership)
       }
+      clearApplyResult();
       setSelectedId(undefined); // add-flow and read-only inspector are mutually exclusive
       setDraft({
         runtimeId: runtime.id,
@@ -132,7 +137,7 @@ function Canvas() {
         protocol,
       });
     },
-    [screenToFlowPosition, getIntersectingNodes]
+    [screenToFlowPosition, getIntersectingNodes, clearApplyResult]
   );
 
   // §4.2E: right-click a runtime → Add endpoint (opens the inspector setup form).
@@ -142,6 +147,7 @@ function Canvas() {
         return;
       }
       e.preventDefault();
+      clearApplyResult();
       setSelectedId(undefined); // add-flow and read-only inspector are mutually exclusive
       setDraft({
         runtimeId: node.id,
@@ -149,7 +155,7 @@ function Canvas() {
         protocol: schema?.protocols[0]?.id ?? "",
       });
     },
-    [schema]
+    [schema, clearApplyResult]
   );
 
   useEffect(() => {
@@ -195,7 +201,12 @@ function Canvas() {
     return () => window.removeEventListener("message", onMessage);
   }, []);
 
-  const fittedRef = useRef(false);
+  // Signature of the current top-level node IDs — drives a re-fit when the graph's STRUCTURE changes
+  // (first paint, or a swap like offline→live topology where host/runtime ids change), but not on a plain
+  // live-value poll (same ids). A ref the resize observer reads, so it never re-fits to an empty graph.
+  const fitSigRef = useRef("");
+  const flowWrapRef = useRef<HTMLDivElement>(null);
+  const nodeCountRef = useRef(0);
   const positionsRef = useRef<Record<string, { x: number; y: number }>>(
     ((vscode.getState() as { positions?: Record<string, { x: number; y: number }> } | undefined)
       ?.positions) ?? {}
@@ -256,13 +267,52 @@ function Canvas() {
     setEdges(built.edges);
   }, [built, editMode, setNodes, setEdges]);
 
-  // Fit the view once, when nodes first appear (not on every live update).
+  // Fit when the graph's top-level node IDENTITY changes — first paint, or a STRUCTURAL swap such as
+  // offline→live topology (the "this computer" hosts become the live fleet host, ids change). NOT on a
+  // plain live-value poll (same ids, positions preserved) — re-fitting on every refresh would yank the
+  // viewport. Without this, a managed Start swaps the graph but the viewport stays on the old layout and
+  // the new node sits off-screen → an empty-looking canvas.
   useEffect(() => {
-    if (!fittedRef.current && nodes.length > 0) {
-      fittedRef.current = true;
+    nodeCountRef.current = nodes.length;
+    const sig = nodes
+      .filter((n) => !n.parentId)
+      .map((n) => n.id)
+      .sort()
+      .join("|");
+    if (sig && sig !== fitSigRef.current) {
+      fitSigRef.current = sig;
       void fitView({ padding: 0.2, duration: 300 });
     }
   }, [nodes, fitView]);
+
+  // Re-fit when the canvas CONTAINER resizes — chiefly the Debug Console docking after a managed Start
+  // (it shrinks the editor area, pushing the graph below the now-shorter viewport), but also window
+  // resizes. Debounced so a burst collapses into one fit; only fits once nodes exist so a transient
+  // 0-size never fits an empty graph.
+  useEffect(() => {
+    const el = flowWrapRef.current;
+    if (!el || typeof ResizeObserver === "undefined") {
+      return;
+    }
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const ro = new ResizeObserver(() => {
+      if (timer) {
+        clearTimeout(timer);
+      }
+      timer = setTimeout(() => {
+        if (nodeCountRef.current > 0) {
+          void fitView({ padding: 0.2, duration: 200 });
+        }
+      }, 140);
+    });
+    ro.observe(el);
+    return () => {
+      if (timer) {
+        clearTimeout(timer);
+      }
+      ro.disconnect();
+    };
+  }, [fitView]);
 
   // Re-fit when Edit toggles — the empty slots widen the canvas, so reveal them.
   const prevEditRef = useRef(editMode);
@@ -328,6 +378,7 @@ function Canvas() {
       if (!action) {
         return;
       }
+      clearApplyResult();
       const tgt = action.local ? { local: true } : target;
       setBrowseTags({
         label,
@@ -344,10 +395,11 @@ function Canvas() {
       setBrowseLoading(true);
       post({ type: "browseSymbols", protocol, target: tgt, kind: action.kind });
     },
-    [post]
+    [post, clearApplyResult]
   );
   const onDiscoverAdd = useCallback(
     (c: DiscoverCandidate) => {
+      clearApplyResult();
       setDiscoverOpen(false);
       setSelectedId(undefined);
       // §0.5: a discovered ADS PLC is set up by picking its tags (browse → add tags), not via the
@@ -364,7 +416,7 @@ function Canvas() {
         prefillParams: c.params,
       });
     },
-    [built.nodes, openBrowse]
+    [built.nodes, openBrowse, clearApplyResult]
   );
   const onDiscoverAdopt = useCallback(
     (c: DiscoverCandidate) => {
@@ -455,6 +507,7 @@ function Canvas() {
         setDiscoverOpen(false);
         setSelectedId(undefined);
         setDraft(undefined);
+        clearApplyResult();
         if (slot.add === "device") {
           setAddSlot({ kind: "device", targetId: slot.targetId });
         } else if (slot.add === "runtime") {
@@ -465,7 +518,7 @@ function Canvas() {
         }
       },
     }),
-    [editMode]
+    [editMode, clearApplyResult]
   );
 
   // Every drawer (inspector, add/setup/discover/filter, browse) opens on the RIGHT — opposite the
@@ -576,6 +629,7 @@ function Canvas() {
             setFilterOpen((v) => !v);
             setAddSlot(undefined);
             setDiscoverOpen(false);
+            clearApplyResult();
           }}
           title="Filter connections by protocol"
           style={toolbarBtn(filterOpen)}
@@ -587,6 +641,7 @@ function Canvas() {
             setDiscoverOpen((v) => !v);
             setFilterOpen(false);
             setAddSlot(undefined);
+            clearApplyResult();
           }}
           title="Find devices on the network"
           style={toolbarBtn(discoverOpen)}
@@ -602,6 +657,7 @@ function Canvas() {
               return !v;
             });
             setFilterOpen(false);
+            clearApplyResult();
           }}
           title="Edit mode: shows + on each runtime to add a device or service"
           style={toolbarBtn(editMode)}
@@ -611,7 +667,7 @@ function Canvas() {
       </header>
 
       <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "row" }}>
-        <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
+        <div ref={flowWrapRef} style={{ position: "relative", flex: 1, minWidth: 0 }}>
         <EditModeContext.Provider value={editModeValue}>
         <ReactFlow
           nodes={nodes}
@@ -629,6 +685,7 @@ function Canvas() {
           style={{ width: "100%", height: "100%" }}
           proOptions={{ hideAttribution: true }}
           onNodeClick={(_, node) => {
+            clearApplyResult();
             setDraft(undefined); // selection and the add-flow share the right drawer
             setSelectedId(node.id);
             post({ type: "selectNode", nodeId: node.id });
@@ -741,6 +798,7 @@ function Canvas() {
             }}
             onChoose={(protocol) => {
               const rt = built.nodes.find((n) => n.id === addSlot.targetId);
+              clearApplyResult();
               setSelectedId(undefined);
               setDraft({
                 runtimeId: addSlot.targetId ?? "",
@@ -749,7 +807,10 @@ function Canvas() {
               });
               setAddSlot(undefined);
             }}
-            onClose={() => setAddSlot(undefined)}
+            onClose={() => {
+              clearApplyResult();
+              setAddSlot(undefined);
+            }}
           />
         )}
 
@@ -764,11 +825,17 @@ function Canvas() {
         )}
 
         {addSlot?.kind === "runtime-scaffold" && (
-          <AddRuntimePanel post={post} onClose={() => setAddSlot(undefined)} />
+          <AddRuntimePanel post={post} onClose={() => {
+            clearApplyResult();
+            setAddSlot(undefined);
+          }} />
         )}
 
         {addSlot?.kind === "host" && (
-          <AddHostPanel post={post} onClose={() => setAddSlot(undefined)} />
+          <AddHostPanel post={post} onClose={() => {
+            clearApplyResult();
+            setAddSlot(undefined);
+          }} />
         )}
 
         {filterOpen && <FilterPanel protocols={protocols} hidden={hidden} onToggle={toggleHidden} />}
@@ -797,7 +864,10 @@ function Canvas() {
             preselectProtocol={draft.protocol}
             preselectParams={draft.prefillParams}
             post={post}
-            onClose={() => setDraft(undefined)}
+            onClose={() => {
+              clearApplyResult();
+              setDraft(undefined);
+            }}
           />
         )}
 
@@ -811,7 +881,10 @@ function Canvas() {
             post={post}
             onFocus={focusNode}
             onBrowse={onBrowse}
-            onClose={() => setSelectedId(undefined)}
+            onClose={() => {
+              clearApplyResult();
+              setSelectedId(undefined);
+            }}
           />
         )}
 

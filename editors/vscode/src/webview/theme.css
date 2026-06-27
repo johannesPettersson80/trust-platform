@@ -1,0 +1,398 @@
+/* Shared truST webview theme.
+
+   This is the only CSS token layer for product webviews. It maps VS Code theme
+   variables to stable --trust-* names so Devices & Connections, visual editors,
+   Live Values, and future pages look like one product instead of separate apps. */
+:root {
+  --trust-canvas: var(--vscode-editor-background, #0f1116);
+  --trust-surface: var(--vscode-editorWidget-background, #1b1f28);
+  --trust-surface-raised: var(--vscode-editorHoverWidget-background, #222732);
+  --trust-overlay: var(--vscode-editorHoverWidget-background, #12151c);
+
+  --trust-text: var(--vscode-foreground, #cfd6e0);
+  --trust-text-muted: var(--vscode-descriptionForeground, #949cab);
+  --trust-text-subtle: var(--vscode-disabledForeground, #6b7480);
+  --trust-on-accent: var(--vscode-button-foreground, #ffffff);
+  --trust-mono: var(--vscode-editor-font-family, ui-monospace, SFMono-Regular, Menlo, monospace);
+
+  --trust-border: var(--vscode-editorWidget-border, var(--vscode-panel-border, #2a2f3a));
+  --trust-border-subtle: var(--vscode-panel-border, #23272f);
+  --trust-accent: var(--vscode-focusBorder, #4a9eff);
+
+  --trust-ok: var(--vscode-charts-green, var(--vscode-testing-iconPassed, #46c265));
+  --trust-warn: var(--vscode-charts-yellow, var(--vscode-editorWarning-foreground, #e0b341));
+  --trust-danger: var(--vscode-charts-red, var(--vscode-errorForeground, #f0584f));
+  --trust-idle: var(--vscode-descriptionForeground, #6b7480);
+  --trust-breakpoint: var(--vscode-debugIcon-breakpointForeground, #e51400);
+
+  --trust-input-bg: var(--vscode-input-background, #10141b);
+  --trust-input-border: var(--vscode-input-border, var(--vscode-editorWidget-border, #343b47));
+
+  --trust-grid-line: color-mix(in srgb, var(--trust-border) 62%, transparent);
+  --trust-rail: color-mix(in srgb, var(--trust-text) 58%, transparent);
+  --trust-selected-bg: color-mix(in srgb, var(--trust-accent) 18%, transparent);
+  --trust-selected-strong-bg: color-mix(in srgb, var(--trust-accent) 28%, transparent);
+  --trust-ladder-wire: color-mix(in srgb, var(--trust-ok) 82%, var(--trust-text) 18%);
+  --trust-ladder-live: var(--trust-warn);
+  --trust-ladder-preview: color-mix(in srgb, var(--trust-warn) 80%, var(--trust-text) 20%);
+  --trust-ladder-body: color-mix(in srgb, var(--trust-canvas) 78%, var(--trust-surface) 22%);
+  --trust-ladder-text: var(--trust-text);
+
+  --trust-block-logic: #5c81a6;
+  --trust-block-loop: #5ca65c;
+  --trust-block-math: #5c68a6;
+  --trust-block-variables: #a55b99;
+  --trust-block-functions: #9a5ca6;
+  --trust-block-io: #d19a4d;
+  --trust-block-timer: #d1684d;
+  --trust-block-counter: #4d97d1;
+
+  --trust-radius-sm: 4px;
+  --trust-radius: 6px;
+  --trust-radius-lg: 8px;
+  --trust-pill: 999px;
+  --trust-ease: 150ms cubic-bezier(.4, 0, .2, 1);
+  --trust-shadow: 0 1px 2px rgba(0, 0, 0, .14), 0 3px 10px rgba(0, 0, 0, .10);
+  --trust-shadow-overlay: 0 8px 28px rgba(0, 0, 0, .28);
+}
+
+body {
+  color: var(--trust-text);
+  background: var(--trust-canvas);
+}
+
+/* Shared product chrome ----------------------------------------------------
+
+   These classes are the rendered UI contract for truST webviews. Devices &
+   Connections established the inspector rhythm: right drawer, quiet header,
+   compact sections, VS Code theme-derived colors, and one obvious button
+   treatment. Visual editors use these classes for their product chrome; only
+   domain content such as ladder wires, graph nodes, and block categories may
+   carry domain-specific color. */
+
+.trust-inspector {
+  background: var(--trust-overlay);
+  border-left: 1px solid var(--trust-border);
+  color: var(--trust-text);
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  min-width: 0;
+}
+
+.trust-inspector__header {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--trust-border);
+  background: var(--trust-overlay);
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+
+.trust-inspector__eyebrow {
+  color: var(--trust-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.trust-inspector__title {
+  color: var(--trust-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.trust-section {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--trust-border);
+}
+
+.trust-section--grow {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.trust-section__title {
+  color: var(--trust-text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+
+.trust-section__heading {
+  color: var(--trust-text);
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0 0 10px;
+}
+
+.trust-help {
+  color: var(--trust-text-muted);
+  font-size: 11.5px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.trust-empty {
+  color: var(--trust-text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  padding: 16px;
+  text-align: center;
+}
+
+.trust-button-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.trust-button-grid--single {
+  grid-template-columns: 1fr;
+}
+
+.trust-button {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--trust-border);
+  border-radius: var(--trust-radius);
+  color: var(--trust-text);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: var(--vscode-font-family);
+  font-size: 12px;
+  font-weight: 500;
+  justify-content: center;
+  line-height: 1.25;
+  min-height: 30px;
+  padding: 7px 10px;
+  text-align: center;
+  transition: background var(--trust-ease), border-color var(--trust-ease), color var(--trust-ease);
+  white-space: nowrap;
+}
+
+.trust-button:hover:not(:disabled) {
+  background: var(--trust-selected-bg);
+  border-color: var(--trust-accent);
+}
+
+.trust-button:disabled {
+  color: var(--trust-text-subtle);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.trust-button--active {
+  background: var(--trust-selected-bg);
+  border-color: var(--trust-accent);
+  color: var(--trust-text);
+  font-weight: 650;
+}
+
+.trust-button--primary {
+  background: var(--trust-accent);
+  border-color: var(--trust-accent);
+  color: var(--trust-on-accent);
+  font-weight: 650;
+}
+
+.trust-button--danger {
+  border-color: color-mix(in srgb, var(--trust-danger) 45%, transparent);
+  color: var(--trust-danger);
+}
+
+.trust-divider {
+  border-top: 1px solid var(--trust-border);
+  margin-top: 4px;
+  padding-top: 10px;
+}
+
+.trust-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.trust-field label {
+  color: var(--trust-text-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.trust-input {
+  background: var(--trust-input-bg);
+  border: 1px solid var(--trust-input-border);
+  border-radius: var(--trust-radius);
+  color: var(--vscode-input-foreground, var(--trust-text));
+  font-family: var(--vscode-font-family);
+  font-size: 12px;
+  padding: 6px 8px;
+  width: 100%;
+}
+
+.trust-input:focus {
+  border-color: var(--trust-accent);
+  outline: 1px solid var(--trust-accent);
+  outline-offset: -1px;
+}
+
+.trust-input--error {
+  border-color: color-mix(in srgb, var(--trust-danger) 70%, transparent);
+}
+
+.trust-field__required {
+  color: var(--trust-danger);
+}
+
+.trust-field__message {
+  color: var(--trust-text-muted);
+  font-size: 10.5px;
+  line-height: 1.35;
+  margin-top: 3px;
+}
+
+.trust-field__message--error {
+  color: var(--trust-danger);
+}
+
+.trust-message {
+  background: var(--trust-surface);
+  border: 1px solid var(--trust-border);
+  border-radius: var(--trust-radius-lg);
+  color: var(--trust-text);
+  font-size: 12px;
+  line-height: 1.4;
+  margin-top: 12px;
+  padding: 9px 11px;
+}
+
+.trust-message--ok {
+  background: color-mix(in srgb, var(--trust-ok) 12%, transparent);
+  border-color: color-mix(in srgb, var(--trust-ok) 48%, transparent);
+  color: var(--trust-ok);
+}
+
+.trust-message--error {
+  background: color-mix(in srgb, var(--trust-danger) 10%, transparent);
+  border-color: color-mix(in srgb, var(--trust-danger) 48%, transparent);
+  color: var(--trust-danger);
+}
+
+.trust-message__detail {
+  color: var(--trust-text-muted);
+  margin-top: 3px;
+}
+
+.trust-card {
+  background: var(--trust-surface);
+  border: 1px solid var(--trust-border);
+  border-radius: var(--trust-radius-lg);
+  padding: 10px;
+}
+
+/* React Flow auto-picks its dark-mode pane default (#141414), which ignores the
+   VS Code theme and shows as a black pane on light themes. Point its own
+   background variable at the editor colour so canvas surfaces track the theme. */
+.react-flow {
+  --xy-background-color: var(--trust-canvas);
+}
+
+/* Calm hover lift on any node: brightness, not transform, because transform
+   fights React Flow layout and makes screenshots harder to compare. */
+.react-flow__node {
+  transition: filter var(--trust-ease);
+}
+
+.react-flow__node:hover {
+  filter: brightness(1.05);
+}
+
+/* Selection ring: a focus-coloured ring around the selected node card. */
+.react-flow__node.selected > div {
+  box-shadow:
+    0 0 0 2px var(--trust-accent),
+    var(--trust-shadow) !important;
+  border-color: var(--trust-accent) !important;
+}
+
+/* Shared canvas navigation chrome. React Flow is used by Devices &
+   Connections, SFC, and Statechart; its controls must not restyle themselves
+   as primary blue buttons on one surface and neutral controls on another. */
+.react-flow__controls {
+  border: 1px solid var(--trust-border) !important;
+  border-radius: var(--trust-radius) !important;
+  background: var(--trust-surface) !important;
+  color: var(--trust-text) !important;
+  box-shadow: var(--trust-shadow) !important;
+  overflow: hidden;
+}
+
+.react-flow__controls button {
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--trust-border) !important;
+  color: var(--trust-text) !important;
+  width: 34px !important;
+  height: 34px !important;
+}
+
+.react-flow__controls button:last-child {
+  border-bottom: 0 !important;
+}
+
+.react-flow__controls button:hover {
+  background: var(--trust-selected-bg) !important;
+}
+
+.react-flow__attribution {
+  display: none !important;
+}
+
+/* A connected/live runtime's status dot gently breathes, so live reads at a
+   glance without adding decorative motion. */
+@keyframes trust-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--trust-ok) 18%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--trust-ok) 6%, transparent);
+  }
+}
+
+.trust-dot--live {
+  animation: trust-pulse 2.4s ease-in-out infinite;
+}
+
+/* Empty/loading state: a calm breathe so a canvas never sits as a dead blank
+   void. */
+@keyframes trust-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+.trust-loading {
+  animation: trust-breathe 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .react-flow__node,
+  .trust-dot--live,
+  .trust-loading {
+    transition: none;
+    animation: none;
+  }
+}

@@ -21,8 +21,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   return (
     <div
       style={{
-        borderTop: '1px solid var(--vscode-panel-border, #2b2b2b)',
-        borderBottom: '1px solid var(--vscode-panel-border, #2b2b2b)',
+        borderTop: "1px solid var(--trust-border)",
+        borderBottom: "1px solid var(--trust-border)",
         display: 'flex',
         flexDirection: 'column',
         height: isCollapsed ? 'auto' : '250px',
@@ -36,9 +36,9 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '8px 12px',
-          backgroundColor: 'var(--vscode-sideBarSectionHeader-background, var(--vscode-sideBar-background, #252526))',
-          borderBottom: isCollapsed ? 'none' : '1px solid var(--vscode-panel-border, #2b2b2b)',
+          padding: "10px 14px",
+          backgroundColor: "transparent",
+          borderBottom: isCollapsed ? "none" : "1px solid var(--trust-border)",
           cursor: 'pointer',
           userSelect: 'none',
         }}
@@ -58,7 +58,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
             <span
               style={{
                 fontSize: '11px',
-                color: 'var(--vscode-descriptionForeground, var(--vscode-foreground, #9d9d9d))',
+                color: "var(--trust-text-muted)",
               }}
             >
               {selectedNode ? '● Node' : '● Edge'}
@@ -69,7 +69,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
       {/* Panel Content */}
       {!isCollapsed && (
-        <div style={{ padding: '12px', flex: 1, overflow: 'auto' }}>
+        <div style={{ padding: "12px 14px", flex: 1, overflow: "auto" }}>
           {!hasSelection ? (
             <div
               style={{
@@ -77,7 +77,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                 height: "100%",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "var(--vscode-descriptionForeground, var(--vscode-foreground, #9d9d9d))",
+                color: "var(--trust-text-muted)",
                 fontSize: '12px',
               }}
             >
@@ -277,7 +277,7 @@ const EdgeProperties: React.FC<{
           <div style={fieldStyle}>
             <label style={labelStyle}>
               Auto-Transition Timer (ms)
-              <span style={{ fontSize: "11px", color: "var(--vscode-descriptionForeground, var(--vscode-foreground, #9d9d9d))", marginLeft: "8px" }}>
+              <span style={{ fontSize: "11px", color: "var(--trust-text-muted)", marginLeft: "8px" }}>
                 optional
               </span>
             </label>
@@ -290,7 +290,7 @@ const EdgeProperties: React.FC<{
               min="0"
               step="1"
             />
-            <div style={{ fontSize: "11px", color: "var(--vscode-descriptionForeground, var(--vscode-foreground, #9d9d9d))", marginTop: "4px" }}>
+            <div style={{ fontSize: "11px", color: "var(--trust-text-muted)", marginTop: "4px" }}>
               Leave empty for manual events. Set delay for automatic transitions.
             </div>
           </div>
@@ -336,7 +336,7 @@ const ActionArrayEditor: React.FC<{
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
         {items.length === 0 && (
-          <div style={{ fontSize: "12px", color: "var(--vscode-descriptionForeground, var(--vscode-foreground, #9d9d9d))" }}>
+          <div style={{ fontSize: "12px", color: "var(--trust-text-muted)" }}>
             No actions defined
           </div>
         )}
@@ -364,17 +364,17 @@ const ActionArrayEditor: React.FC<{
 
 // Styles
 const cardStyle: React.CSSProperties = {
-  padding: "16px",
-  backgroundColor: "var(--vscode-editor-background, #1e1e1e)",
-  border: "1px solid var(--vscode-panel-border, #2b2b2b)",
-  borderRadius: "4px",
+  padding: "12px",
+  backgroundColor: "var(--trust-surface)",
+  border: "1px solid var(--trust-border)",
+  borderRadius: "var(--trust-radius-lg)",
 };
 
 const headerStyle: React.CSSProperties = {
-  fontSize: "16px",
+  fontSize: "13px",
   fontWeight: "600",
-  marginBottom: "16px",
-  color: "var(--vscode-editor-foreground, var(--vscode-foreground, #cccccc))",
+  marginBottom: "12px",
+  color: "var(--trust-text)",
 };
 
 const fieldStyle: React.CSSProperties = {
@@ -384,18 +384,18 @@ const fieldStyle: React.CSSProperties = {
 };
 
 const labelStyle: React.CSSProperties = {
-  fontSize: "13px",
+  fontSize: "11.5px",
   fontWeight: "500",
-  color: "var(--vscode-editor-foreground, var(--vscode-foreground, #cccccc))",
+  color: "var(--trust-text-muted)",
 };
 
 const inputStyle: React.CSSProperties = {
-  padding: "6px 10px",
-  fontSize: "13px",
-  backgroundColor: "var(--vscode-input-background, #313131)",
-  color: "var(--vscode-input-foreground, var(--vscode-foreground, #cccccc))",
-  border: "1px solid var(--vscode-input-border, #3c3c3c)",
-  borderRadius: "2px",
+  padding: "6px 8px",
+  fontSize: "12px",
+  backgroundColor: "var(--trust-input-bg)",
+  color: "var(--vscode-input-foreground, var(--trust-text))",
+  border: "1px solid var(--trust-input-border)",
+  borderRadius: "var(--trust-radius)",
   outline: "none",
 };
 
@@ -411,20 +411,20 @@ const textareaStyle: React.CSSProperties = {
 
 const smallButtonStyle: React.CSSProperties = {
   padding: "4px 8px",
-  fontSize: "13px",
-  backgroundColor: "var(--vscode-button-secondaryBackground, #3a3d41)",
-  color: "var(--vscode-button-secondaryForeground, var(--vscode-foreground, #cccccc))",
-  border: "1px solid var(--vscode-button-border, var(--vscode-panel-border, #2b2b2b))",
-  borderRadius: "2px",
+  fontSize: "12px",
+  backgroundColor: "transparent",
+  color: "var(--trust-text)",
+  border: "1px solid var(--trust-border)",
+  borderRadius: "var(--trust-radius)",
   cursor: "pointer",
 };
 
 const deleteButtonStyle: React.CSSProperties = {
   padding: "6px 10px",
-  fontSize: "13px",
-  backgroundColor: "var(--vscode-button-secondaryBackground, #3a3d41)",
-  color: "var(--vscode-button-secondaryForeground, var(--vscode-foreground, #cccccc))",
-  border: "1px solid var(--vscode-button-border, var(--vscode-panel-border, #2b2b2b))",
-  borderRadius: "2px",
+  fontSize: "12px",
+  backgroundColor: "transparent",
+  color: "var(--trust-danger)",
+  border: "1px solid color-mix(in srgb, var(--trust-danger) 45%, transparent)",
+  borderRadius: "var(--trust-radius)",
   cursor: "pointer",
 };

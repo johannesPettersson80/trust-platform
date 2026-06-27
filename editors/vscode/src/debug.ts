@@ -546,6 +546,7 @@ export function registerDebugAdapter(
           request: "launch",
           name: "Debug Structured Text",
           program,
+          internalConsoleOptions: "neverOpen",
           ...runtimeOptions,
         };
 

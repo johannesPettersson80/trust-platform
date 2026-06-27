@@ -11,6 +11,7 @@ import type {
   MathNode,
   Timer as TimerType,
 } from "../ladderEngine.types";
+import { canvasColor, t, tint } from "../../webview/theme";
 
 export interface DrawNodeContext {
   layer: Konva.Layer;
@@ -42,6 +43,9 @@ const FB_BODY_Y = -34;
 const FB_BODY_WIDTH = 124;
 const FB_BODY_HEIGHT = 68;
 const FB_CONNECTOR_RIGHT = 140;
+
+const k = canvasColor;
+const kt = (color: string, alpha: number): string => canvasColor(tint(color, alpha));
 
 export function connectorOffset(
   elementType: LadderElement["type"],
@@ -159,7 +163,7 @@ export function drawContactNode(
         executionState.variableBooleans?.[variable])
   );
   const isActive = contactType === "NC" ? !variableState : variableState;
-  const color = isActive ? "#FFEB3B" : "#4CAF50";
+  const color = k(isActive ? t.ladderWireLive : t.ladderWire);
 
   const group = new Konva.Group({
     x: position.x,
@@ -175,8 +179,8 @@ export function drawContactNode(
       y: -24,
       width: 74,
       height: 54,
-      fill: context.isSelected ? "rgba(87, 166, 255, 0.20)" : "transparent",
-      stroke: context.isSelected ? "#57a6ff" : undefined,
+      fill: context.isSelected ? k(t.selectedBg) : "transparent",
+      stroke: context.isSelected ? k(t.accent) : undefined,
       strokeWidth: context.isSelected ? 2 : 0,
     })
   );
@@ -249,7 +253,7 @@ export function drawCoilNode(
         executionState.markers?.[variable] ||
         executionState.variableBooleans?.[variable])
   );
-  const color = isActive ? "#FF9800" : "#2196F3";
+  const color = k(isActive ? t.ladderWireLive : t.accent);
 
   const group = new Konva.Group({
     x: position.x,
@@ -265,8 +269,8 @@ export function drawCoilNode(
       y: -24,
       width: 74,
       height: 54,
-      fill: context.isSelected ? "rgba(87, 166, 255, 0.20)" : "transparent",
-      stroke: context.isSelected ? "#57a6ff" : undefined,
+      fill: context.isSelected ? k(t.selectedBg) : "transparent",
+      stroke: context.isSelected ? k(t.accent) : undefined,
       strokeWidth: context.isSelected ? 2 : 0,
     })
   );
@@ -371,6 +375,7 @@ function drawFunctionBlockNode(
   rightPins: FunctionBlockPin[],
   accentColor: string
 ): void {
+  const resolvedAccent = k(accentColor);
   const group = new Konva.Group({
     x: position.x,
     y: position.y,
@@ -385,8 +390,8 @@ function drawFunctionBlockNode(
       y: -42,
       width: FB_CONNECTOR_RIGHT + 32,
       height: FB_BODY_HEIGHT + 16,
-      fill: context.isSelected ? "rgba(87, 166, 255, 0.12)" : "transparent",
-      stroke: context.isSelected ? "#57a6ff" : undefined,
+      fill: context.isSelected ? kt(t.accent, 0.12) : "transparent",
+      stroke: context.isSelected ? k(t.accent) : undefined,
       strokeWidth: context.isSelected ? 2 : 0,
       cornerRadius: 6,
     })
@@ -398,8 +403,8 @@ function drawFunctionBlockNode(
       y: FB_BODY_Y,
       width: FB_BODY_WIDTH,
       height: FB_BODY_HEIGHT,
-      fill: "#131821",
-      stroke: context.isSelected ? "#57a6ff" : "#6b7480",
+      fill: k(t.ladderBody),
+      stroke: context.isSelected ? k(t.accent) : k(t.textSubtle),
       strokeWidth: context.isSelected ? 2 : 1.2,
       cornerRadius: 4,
     })
@@ -411,7 +416,7 @@ function drawFunctionBlockNode(
       y: FB_BODY_Y,
       width: FB_BODY_WIDTH,
       height: 18,
-      fill: context.isSelected ? "rgba(87, 166, 255, 0.30)" : "rgba(87, 166, 255, 0.16)",
+      fill: context.isSelected ? k(t.selectedStrongBg) : kt(t.accent, 0.16),
       cornerRadius: 4,
     })
   );
@@ -419,7 +424,7 @@ function drawFunctionBlockNode(
   group.add(
     new Konva.Line({
       points: [-20, 0, 0, 0],
-      stroke: accentColor,
+      stroke: resolvedAccent,
       strokeWidth: 3,
     })
   );
@@ -427,7 +432,7 @@ function drawFunctionBlockNode(
   group.add(
     new Konva.Line({
       points: [FB_BODY_WIDTH, 0, FB_CONNECTOR_RIGHT, 0],
-      stroke: accentColor,
+      stroke: resolvedAccent,
       strokeWidth: 3,
     })
   );
@@ -438,7 +443,7 @@ function drawFunctionBlockNode(
       y: -31,
       text: title,
       fontSize: 11,
-      fill: "#eef4ff",
+      fill: k(t.text),
       fontStyle: "bold",
     })
   );
@@ -449,7 +454,7 @@ function drawFunctionBlockNode(
       y: -16,
       text: truncateLabel(instance, 20),
       fontSize: 10,
-      fill: "#b9c6d8",
+      fill: k(t.textMuted),
     })
   );
 
@@ -462,7 +467,7 @@ function drawFunctionBlockNode(
         y,
         text: value ? `${pin.label} ${value}` : pin.label,
         fontSize: 9,
-        fill: "#cfd6df",
+        fill: k(t.ladderText),
       })
     );
   });
@@ -478,7 +483,7 @@ function drawFunctionBlockNode(
         align: "right",
         text: value ? `${pin.label} ${value}` : pin.label,
         fontSize: 9,
-        fill: "#cfd6df",
+        fill: k(t.ladderText),
       })
     );
   });
@@ -500,7 +505,7 @@ export function drawTimerNode(element: TimerType, context: DrawNodeContext): voi
       { label: "Q", value: element.qOutput },
       { label: "ET", value: element.etOutput },
     ],
-    "#7fb3ff"
+    t.accent
   );
 }
 
@@ -521,7 +526,7 @@ export function drawCounterNode(
       { label: "Q", value: element.qOutput },
       { label: "CV", value: element.cvOutput },
     ],
-    "#f0b36b"
+    t.ladderPreview
   );
 }
 
@@ -539,7 +544,7 @@ export function drawCompareNode(
       { label: "IN2", value: element.right },
     ],
     [{ label: "Q", value: "RUNG" }],
-    "#8ecf85"
+    t.ok
   );
 }
 
@@ -554,7 +559,7 @@ export function drawMathNode(element: MathNode, context: DrawNodeContext): void 
       { label: "IN2", value: element.right },
     ],
     [{ label: "OUT", value: element.output }],
-    "#da93bc"
+    t.blockVariables
   );
 }
 
@@ -563,6 +568,7 @@ function drawBranchTerminalBase(
   position: { x: number; y: number },
   color: string
 ): Konva.Group {
+  const resolvedColor = k(color);
   const group = new Konva.Group({
     x: position.x,
     y: position.y,
@@ -577,7 +583,7 @@ function drawBranchTerminalBase(
       y: -9,
       width: 18,
       height: 18,
-      fill: "rgba(0, 0, 0, 0.001)",
+      fill: "transparent",
     })
   );
 
@@ -587,8 +593,8 @@ function drawBranchTerminalBase(
         x: 0,
         y: 0,
         radius: 8,
-        fill: "rgba(87, 166, 255, 0.14)",
-        stroke: "#57a6ff",
+        fill: kt(t.accent, 0.14),
+        stroke: k(t.accent),
         strokeWidth: 1.8,
       })
     );
@@ -599,8 +605,8 @@ function drawBranchTerminalBase(
       x: 0,
       y: 0,
       radius: 3.5,
-      fill: color,
-      stroke: "#10151d",
+      fill: resolvedColor,
+      stroke: k(t.canvas),
       strokeWidth: 1,
     })
   );
@@ -611,10 +617,11 @@ function drawBranchTerminalBase(
 function drawBranchStem(group: Konva.Group, color: string, direction: "up" | "down"): void {
   const stemLength = 12;
   const y2 = direction === "down" ? stemLength : -stemLength;
+  const resolvedColor = k(color);
   group.add(
     new Konva.Line({
       points: [0, 0, 0, y2],
-      stroke: color,
+      stroke: resolvedColor,
       strokeWidth: 2.1,
     })
   );
@@ -624,8 +631,8 @@ export function drawBranchSplitNode(
   element: BranchSplitNode,
   context: DrawNodeContext
 ): void {
-  const group = drawBranchTerminalBase(context, element.position, "#8bd3a8");
-  drawBranchStem(group, "#8bd3a8", "down");
+  const group = drawBranchTerminalBase(context, element.position, t.ladderWire);
+  drawBranchStem(group, t.ladderWire, "down");
   context.layer.add(group);
 }
 
@@ -633,8 +640,8 @@ export function drawBranchMergeNode(
   element: BranchMergeNode,
   context: DrawNodeContext
 ): void {
-  const group = drawBranchTerminalBase(context, element.position, "#f3bf6f");
-  drawBranchStem(group, "#f3bf6f", "down");
+  const group = drawBranchTerminalBase(context, element.position, t.ladderPreview);
+  drawBranchStem(group, t.ladderPreview, "down");
   context.layer.add(group);
 }
 
@@ -655,8 +662,8 @@ export function drawJunctionNode(
       x: 0,
       y: 0,
       radius: 7,
-      fill: context.isSelected ? "#57a6ff" : "#9fb6cc",
-      stroke: "#2f3b49",
+      fill: context.isSelected ? k(t.accent) : k(t.textMuted),
+      stroke: k(t.border),
       strokeWidth: 1.5,
     })
   );
@@ -664,7 +671,7 @@ export function drawJunctionNode(
   group.add(
     new Konva.Line({
       points: [-10, 0, 10, 0],
-      stroke: "#9fb6cc",
+      stroke: k(t.textMuted),
       strokeWidth: 2,
     })
   );
@@ -672,7 +679,7 @@ export function drawJunctionNode(
   group.add(
     new Konva.Line({
       points: [0, -10, 0, 10],
-      stroke: "#9fb6cc",
+      stroke: k(t.textMuted),
       strokeWidth: 2,
     })
   );

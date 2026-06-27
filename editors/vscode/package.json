@@ -151,7 +151,7 @@
     ],
     "configuration": {
       "type": "object",
-      "title": "Structured Text",
+      "title": "truST",
       "properties": {
         "trust-lsp.server.path": {
           "type": "string",
@@ -2247,49 +2247,49 @@
     "commands": [
       {
         "command": "trust-lsp.newProject",
-        "title": "Structured Text: New Project",
-        "category": "Structured Text"
+        "title": "New Project",
+        "category": "truST"
       },
       {
         "command": "trust-lsp.plcopen.import",
-        "title": "Structured Text: Import PLCopen XML",
-        "category": "Structured Text"
+        "title": "Import PLCopen XML",
+        "category": "truST"
       },
       {
         "command": "trust-lsp.plcopen.export",
-        "title": "Structured Text: Export PLCopen XML",
-        "category": "Structured Text"
+        "title": "Export PLCopen XML",
+        "category": "truST"
       },
       {
         "command": "trust-lsp.moveNamespace.ui",
-        "title": "Structured Text: Move Namespace",
-        "category": "Structured Text"
+        "title": "Move Namespace",
+        "category": "truST"
       },
       {
         "command": "trust-lsp.debug.start",
-        "title": "Structured Text: Start Debugging",
-        "category": "Structured Text",
+        "title": "Start Debugging",
+        "category": "truST",
         "icon": "$(debug-alt)"
       },
       {
         "command": "trust-lsp.debug.attach",
-        "title": "Structured Text: Attach Debugger",
-        "category": "Structured Text"
+        "title": "Attach Debugger",
+        "category": "truST"
       },
       {
         "command": "trust-lsp.debug.ensureConfiguration",
-        "title": "Structured Text: Create/Select Configuration",
-        "category": "Structured Text"
+        "title": "Create or Select Run Configuration",
+        "category": "truST"
       },
       {
         "command": "trust-lsp.debug.openIoPanel",
-        "title": "Structured Text: Open Runtime Panel",
-        "category": "Structured Text"
+        "title": "Open Runtime Panel",
+        "category": "truST"
       },
       {
         "command": "trust-lsp.communication.openPanel",
         "title": "Communication",
-        "category": "Structured Text"
+        "category": "truST"
       },
       {
         "command": "trust-lsp.networkCanvas.open",
@@ -2310,120 +2310,120 @@
       },
       {
         "command": "trust-lsp.ads.openPanel",
-        "title": "Structured Text: Open ADS Devices",
-        "category": "Structured Text"
+        "title": "Open ADS Devices",
+        "category": "truST"
       },
       {
         "command": "trust-lsp.ads.server.openPanel",
-        "title": "Structured Text: Open ADS Server",
-        "category": "Structured Text"
+        "title": "Open ADS Server",
+        "category": "truST"
       },
       {
         "command": "trust-lsp.ads.addDevice",
-        "title": "Structured Text: Add Beckhoff ADS Device",
-        "category": "Structured Text"
+        "title": "Add Beckhoff ADS Device",
+        "category": "truST"
       },
       {
         "command": "trust-lsp.ads.diagnose",
-        "title": "Structured Text: Diagnose ADS Connection",
-        "category": "Structured Text"
+        "title": "Diagnose ADS Connection",
+        "category": "truST"
       },
       {
         "command": "trust-lsp.ads.importSymbols",
-        "title": "Structured Text: Import TwinCAT Symbols",
-        "category": "Structured Text"
+        "title": "Import TwinCAT Symbols",
+        "category": "truST"
       },
       {
         "command": "trust-lsp.ads.addRoute",
-        "title": "Structured Text: Add ADS Route",
-        "category": "Structured Text"
+        "title": "Add ADS Route",
+        "category": "truST"
       },
       {
         "command": "trust-lsp.hmi.openPreview",
-        "title": "Structured Text: Open HMI Preview",
-        "category": "Structured Text",
+        "title": "Open HMI Preview",
+        "category": "truST",
         "icon": "$(preview)"
       },
       {
         "command": "trust-lsp.hmi.refreshFromDescriptor",
-        "title": "Structured Text: Refresh HMI Descriptor",
-        "category": "Structured Text"
+        "title": "Refresh HMI Descriptor",
+        "category": "truST"
       },
       {
         "command": "trust-lsp.hmi.init",
-        "title": "Structured Text: Initialize HMI Descriptor",
-        "category": "Structured Text"
+        "title": "Initialize HMI Descriptor",
+        "category": "truST"
       },
       {
         "command": "trust-lsp.trustTwin.openPanel",
-        "title": "Structured Text: Open trust-twin 3D Panel",
-        "category": "Structured Text"
+        "title": "Open trust-twin 3D Panel",
+        "category": "truST"
       },
       {
         "command": "trust-lsp.trustTwin.refreshPanel",
-        "title": "Structured Text: Refresh trust-twin 3D Panel",
-        "category": "Structured Text"
+        "title": "Refresh trust-twin 3D Panel",
+        "category": "truST"
       },
       {
         "command": "trust-lsp.debug.reload",
-        "title": "Structured Text: Hot Reload",
-        "category": "Structured Text"
+        "title": "Hot Reload",
+        "category": "truST"
       },
       {
         "command": "trust-lsp.test.runAll",
-        "title": "Structured Text: Run All Tests",
-        "category": "Structured Text",
+        "title": "Run All Tests",
+        "category": "truST",
         "icon": "$(beaker)"
       },
       {
         "command": "trust-lsp.test.runOne",
-        "title": "Structured Text: Run Test",
-        "category": "Structured Text"
+        "title": "Run Test",
+        "category": "truST"
       },
       {
         "command": "trust-lsp.statechart.new",
-        "title": "Structured Text: New UML Statechart",
-        "category": "Structured Text"
+        "title": "New UML Statechart",
+        "category": "truST"
       },
       {
         "command": "trust-lsp.statechart.import",
-        "title": "Structured Text: Import UML Statechart",
-        "category": "Structured Text"
+        "title": "Import UML Statechart",
+        "category": "truST"
       },
       {
         "command": "trust-lsp.blockly.new",
-        "title": "Structured Text: New Blockly Program",
-        "category": "Structured Text"
+        "title": "New Blockly Program",
+        "category": "truST"
       },
       {
         "command": "trust-lsp.blockly.import",
-        "title": "Structured Text: Import Blockly Program",
-        "category": "Structured Text"
+        "title": "Import Blockly Program",
+        "category": "truST"
       },
       {
         "command": "trust-lsp.ladder.new",
-        "title": "Structured Text: New Ladder Logic Program",
-        "category": "Structured Text"
+        "title": "New Ladder Logic Program",
+        "category": "truST"
       },
       {
         "command": "trust-lsp.ladder.import",
-        "title": "Structured Text: Import Ladder Logic Program",
-        "category": "Structured Text"
+        "title": "Import Ladder Logic Program",
+        "category": "truST"
       },
       {
         "command": "trust-lsp.sfc.new",
-        "title": "Structured Text: New SFC (Sequential Function Chart)",
-        "category": "Structured Text"
+        "title": "New SFC (Sequential Function Chart)",
+        "category": "truST"
       },
       {
         "command": "trust-lsp.sfc.import",
-        "title": "Structured Text: Import SFC (Sequential Function Chart)",
-        "category": "Structured Text"
+        "title": "Import SFC (Sequential Function Chart)",
+        "category": "truST"
       },
       {
         "command": "trust-lsp.visual.syncCompanionSt",
-        "title": "Structured Text: Sync Visual ST Companion",
-        "category": "Structured Text"
+        "title": "Sync Structured Text from Visual Editor",
+        "category": "truST"
       }
     ],
     "menus": {
@@ -2478,6 +2478,14 @@
         },
         {
           "command": "trust-lsp.ads.addRoute",
+          "when": "false"
+        },
+        {
+          "command": "trust-lsp.trustTwin.openPanel",
+          "when": "false"
+        },
+        {
+          "command": "trust-lsp.trustTwin.refreshPanel",
           "when": "false"
         }
       ],

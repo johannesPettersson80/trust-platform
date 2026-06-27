@@ -20,7 +20,6 @@ interface LadderToolsPanelProps {
   onRemoveRung: () => void;
   onAddParallelContact: () => void;
   onClearWiring: () => void;
-  onOpenRuntimePanel: () => void;
   onUndo: () => void;
   onRedo: () => void;
   onCopy: () => void;
@@ -80,7 +79,6 @@ export function LadderToolsPanel({
   onRemoveRung,
   onAddParallelContact,
   onClearWiring,
-  onOpenRuntimePanel,
   onUndo,
   onRedo,
   onCopy,
@@ -109,53 +107,15 @@ export function LadderToolsPanel({
   };
 
   return (
-    <section className="ladder-tools-panel" aria-label="Ladder tools">
-      <div className="ladder-tools-panel__section-title">Quick Actions</div>
-      <div className="ladder-tools-panel__grid">
-        <button
-          type="button"
-          className="ladder-tools-panel__button"
-          onClick={onDeleteSelection}
-          disabled={!canDeleteSelection}
-          title="Delete selected element"
-        >
-          Delete
-        </button>
-        <button
-          type="button"
-          className="ladder-tools-panel__button"
-          onClick={onCopy}
-          title="Copy selected element or active rung"
-        >
-          Copy
-        </button>
-        <button
-          type="button"
-          className="ladder-tools-panel__button"
-          onClick={onPaste}
-          disabled={!canPaste}
-          title="Paste copied element or rung"
-        >
-          Paste
-        </button>
-        <button
-          type="button"
-          className="ladder-tools-panel__button"
-          onClick={onAddParallelContact}
-          disabled={!canAddParallelContact}
-          title="Auto-create a parallel branch from selected contact"
-        >
-          Parallel
-        </button>
-      </div>
-      <div className="ladder-tools-panel__section-title">Elements</div>
-      <div className="ladder-tools-panel__grid">
+    <section className="trust-section" aria-label="Ladder tools">
+      <div className="trust-section__title">Elements</div>
+      <div className="trust-button-grid">
         {LOGIC_TOOL_OPTIONS.map((tool) => (
           <button
             key={tool.id}
             type="button"
-            className={`ladder-tools-panel__button ladder-tools-panel__tool ${
-              selectedTool === tool.id ? "active" : ""
+            className={`trust-button ladder-tools-panel__tool ${
+              selectedTool === tool.id ? "trust-button--active" : ""
             }`}
             draggable
             onDragStart={(event) => handleToolDragStart(event, tool.id)}
@@ -166,47 +126,11 @@ export function LadderToolsPanel({
           </button>
         ))}
       </div>
-      <div className="ladder-tools-panel__section-title">Topology</div>
-      <div className="ladder-tools-panel__grid">
-        {TOPOLOGY_TOOL_OPTIONS.map((tool) => (
-          <button
-            key={tool.id}
-            type="button"
-            className={`ladder-tools-panel__button ladder-tools-panel__tool ${
-              selectedTool === tool.id ? "active" : ""
-            }`}
-            draggable
-            onDragStart={(event) => handleToolDragStart(event, tool.id)}
-            onClick={() => onToolSelect(selectedTool === tool.id ? null : tool.id)}
-            title={tool.title}
-          >
-            {tool.label}
-          </button>
-        ))}
-      </div>
-      <button
-        type="button"
-        className={`ladder-tools-panel__button ${linkModeEnabled ? "active" : ""}`}
-        onClick={onToggleLinkMode}
-        title="Wire mode: click source then target, or drag from source and release on target"
-      >
-        {linkModeEnabled ? "Wire Mode: On" : "Wire Mode"}
-      </button>
-      {linkModeEnabled && (
-        <div className="ladder-tools-panel__hint">
-          {linkSourceLabel
-            ? `Source: ${linkSourceLabel}. Click/drag to target node.`
-            : "Click a source node, then click or drag to the target node."}
-        </div>
-      )}
-      {linkModeEnabled && linkFeedback && (
-        <div className="ladder-tools-panel__hint">{linkFeedback}</div>
-      )}
-      <div className="ladder-tools-panel__section-title">Rungs</div>
-      <div className="ladder-tools-panel__rungs">
+      <div className="trust-section__title" style={{ marginTop: 10 }}>Rungs</div>
+      <div className="trust-button-grid">
         <button
           type="button"
-          className="ladder-tools-panel__button"
+          className="trust-button"
           onClick={onAddRung}
           title="Add new rung"
         >
@@ -214,7 +138,7 @@ export function LadderToolsPanel({
         </button>
         <button
           type="button"
-          className="ladder-tools-panel__button"
+          className="trust-button"
           onClick={onRemoveRung}
           title="Remove selected rung"
           disabled={!canRemoveRung}
@@ -224,66 +148,141 @@ export function LadderToolsPanel({
       </div>
       <button
         type="button"
-        className="ladder-tools-panel__button"
-        onClick={onClearWiring}
-        disabled={!canClearWiring}
-        title="Remove explicit wiring from active rung"
-      >
-        Clear Wiring
-      </button>
-      <button
-        type="button"
-        className="ladder-tools-panel__button"
-        onClick={onOpenRuntimePanel}
-        title="Open Structured Text runtime panel"
-      >
-        Open Runtime Panel
-      </button>
-      <div className="ladder-tools-panel__section-title">Edit</div>
-      <div className="ladder-tools-panel__grid">
-        <button
-          type="button"
-          className="ladder-tools-panel__button"
-          onClick={onUndo}
-          disabled={!canUndo}
-          title="Undo (Ctrl/Cmd+Z)"
-        >
-          Undo
-        </button>
-        <button
-          type="button"
-          className="ladder-tools-panel__button"
-          onClick={onRedo}
-          disabled={!canRedo}
-          title="Redo (Ctrl/Cmd+Y or Shift+Ctrl/Cmd+Z)"
-        >
-          Redo
-        </button>
-        <button
-          type="button"
-          className="ladder-tools-panel__button"
-          onClick={onSearchReplace}
-          title="Search and replace ladder symbols"
-        >
-          Replace
-        </button>
-        <button
-          type="button"
-          className="ladder-tools-panel__button"
-          onClick={onAutoRoute}
-          title="Auto-route rung wiring"
-        >
-          Auto-route
-        </button>
-      </div>
-      <button
-        type="button"
-        className="ladder-tools-panel__button"
+        className="trust-button trust-button--primary"
         onClick={onSave}
         title="Save program"
+        style={{ width: "100%", marginTop: 7 }}
       >
         Save
       </button>
+
+      <details className="ladder-tools-panel__details">
+        <summary>More tools</summary>
+        <div className="trust-section__title">Selection</div>
+        <div className="trust-button-grid">
+          <button
+            type="button"
+            className="trust-button"
+            onClick={onDeleteSelection}
+            disabled={!canDeleteSelection}
+            title="Delete selected element"
+          >
+            Delete
+          </button>
+          <button
+            type="button"
+            className="trust-button"
+            onClick={onCopy}
+            title="Copy selected element or active rung"
+          >
+            Copy
+          </button>
+          <button
+            type="button"
+            className="trust-button"
+            onClick={onPaste}
+            disabled={!canPaste}
+            title="Paste copied element or rung"
+          >
+            Paste
+          </button>
+          <button
+            type="button"
+            className="trust-button"
+            onClick={onAddParallelContact}
+            disabled={!canAddParallelContact}
+            title="Auto-create a parallel branch from selected contact"
+          >
+            Parallel
+          </button>
+        </div>
+
+        <div className="trust-section__title" style={{ marginTop: 10 }}>Topology</div>
+        <div className="trust-button-grid">
+          {TOPOLOGY_TOOL_OPTIONS.map((tool) => (
+            <button
+              key={tool.id}
+              type="button"
+              className={`trust-button ladder-tools-panel__tool ${
+                selectedTool === tool.id ? "trust-button--active" : ""
+              }`}
+              draggable
+              onDragStart={(event) => handleToolDragStart(event, tool.id)}
+              onClick={() => onToolSelect(selectedTool === tool.id ? null : tool.id)}
+              title={tool.title}
+            >
+              {tool.label}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          className={`trust-button ${linkModeEnabled ? "trust-button--active" : ""}`}
+          onClick={onToggleLinkMode}
+          title="Wire mode: click source then target, or drag from source and release on target"
+          style={{ width: "100%", marginTop: 7 }}
+        >
+          {linkModeEnabled ? "Wire Mode: On" : "Wire Mode"}
+        </button>
+        {linkModeEnabled && (
+          <div className="trust-help" style={{ marginTop: 6 }}>
+            {linkSourceLabel
+              ? `Source: ${linkSourceLabel}. Click/drag to target node.`
+              : "Click a source node, then click or drag to the target node."}
+          </div>
+        )}
+        {linkModeEnabled && linkFeedback && (
+          <div className="trust-help" style={{ marginTop: 6 }}>{linkFeedback}</div>
+        )}
+        <button
+          type="button"
+          className="trust-button"
+          onClick={onClearWiring}
+          disabled={!canClearWiring}
+          title="Remove explicit wiring from active rung"
+          style={{ width: "100%", marginTop: 7 }}
+        >
+          Clear Wiring
+        </button>
+
+        <div className="trust-section__title" style={{ marginTop: 10 }}>Edit</div>
+        <div className="trust-button-grid">
+          <button
+            type="button"
+            className="trust-button"
+            onClick={onUndo}
+            disabled={!canUndo}
+            title="Undo (Ctrl/Cmd+Z)"
+          >
+            Undo
+          </button>
+          <button
+            type="button"
+            className="trust-button"
+            onClick={onRedo}
+            disabled={!canRedo}
+            title="Redo (Ctrl/Cmd+Y or Shift+Ctrl/Cmd+Z)"
+          >
+            Redo
+          </button>
+          <button
+            type="button"
+            className="trust-button"
+            onClick={onSearchReplace}
+            title="Search and replace ladder symbols"
+          >
+            Replace
+          </button>
+          <button
+            type="button"
+            className="trust-button"
+            onClick={onAutoRoute}
+            title="Auto-route rung wiring"
+          >
+            Auto-route
+          </button>
+        </div>
+      </details>
     </section>
   );
 }

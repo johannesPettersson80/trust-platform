@@ -2,27 +2,27 @@
 
 /* Toolbox categories - better text contrast */
 .blocklyToolboxCategory {
-  color: #ffffff !important;
+  color: var(--trust-on-accent) !important;
   font-weight: 500 !important;
   font-size: 14px !important;
 }
 
 /* Category label text */
 .blocklyTreeLabel {
-  color: #ffffff !important;
+  color: var(--trust-on-accent) !important;
   font-weight: 500 !important;
 }
 
 /* Flyout background */
 .blocklyFlyoutBackground {
-  fill: var(--vscode-sideBar-background) !important;
+  fill: var(--trust-overlay) !important;
   fill-opacity: 0.95 !important;
 }
 
 /* Toolbox background */
 .blocklyToolboxDiv {
-  background-color: var(--vscode-sideBar-background) !important;
-  border-right: 1px solid var(--vscode-panel-border) !important;
+  background-color: var(--trust-overlay) !important;
+  border-right: 1px solid var(--trust-border) !important;
 }
 
 /* Main workspace background */
@@ -64,7 +64,7 @@
 
 /* Executing block highlight - bright yellow/orange */
 .blocklyHighlight > .blocklyPath {
-  stroke: #ffa500 !important;
+  stroke: var(--trust-warn) !important;
   stroke-width: 4px !important;
   fill-opacity: 0.9 !important;
   animation: pulse-highlight 0.5s ease-in-out infinite;
@@ -73,11 +73,11 @@
 @keyframes pulse-highlight {
   0%, 100% {
     stroke-width: 4px;
-    stroke: #ffa500;
+    stroke: var(--trust-warn);
   }
   50% {
     stroke-width: 5px;
-    stroke: #ff8c00;
+    stroke: color-mix(in srgb, var(--trust-warn) 84%, var(--trust-danger));
   }
 }
 
@@ -89,13 +89,13 @@
 /* Field text - make it more visible */
 .blocklyEditableText > text,
 .blocklyNonEditableText > text {
-  fill: #ffffff !important;
+  fill: var(--trust-on-accent) !important;
   font-weight: 500 !important;
 }
 
 /* Dropdown fields */
 .blocklyDropdownText {
-  fill: #ffffff !important;
+  fill: var(--trust-on-accent) !important;
 }
 
 /* Make category rows more visible */
@@ -123,7 +123,7 @@
 
 /* Ensure text is readable on all block colors */
 .blocklyText {
-  fill: #ffffff !important;
+  fill: var(--trust-on-accent) !important;
   font-family: var(--vscode-font-family, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif) !important;
   font-size: 12pt !important;
   font-weight: 500 !important;
@@ -138,8 +138,8 @@
 
 /* Input fields */
 .blocklyHtmlInput {
-  background-color: var(--vscode-input-background) !important;
+  background-color: var(--trust-input-bg) !important;
   color: var(--vscode-input-foreground) !important;
-  border: 1px solid var(--vscode-input-border) !important;
+  border: 1px solid var(--trust-input-border) !important;
   font-family: var(--vscode-editor-font-family) !important;
 }

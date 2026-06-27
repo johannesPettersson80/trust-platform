@@ -269,7 +269,7 @@ export class BlocklyEditorProvider implements vscode.CustomTextEditorProvider {
 
           case "error":
             void vscode.window.showErrorMessage(
-              `Blockly Editor Error: ${message.error}`
+              message.error || "Could not open this Blockly program. Fix the file and try again."
             );
             return;
 

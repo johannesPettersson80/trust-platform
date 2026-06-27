@@ -3,14 +3,13 @@ import {
   ReactFlow,
   Background,
   Controls,
-  MiniMap,
-  Panel,
   BackgroundVariant,
+  type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { StateNode } from "./StateNode";
+import { STATE_TRANSITION_EDGE, StateTransitionEdge } from "./StateTransitionEdge";
 import { PropertiesPanel } from "./PropertiesPanel";
-import { ExecutionPanel } from "./ExecutionPanel";
 import { ActionMappingsPanel } from "./ActionMappingsPanel";
 import { StatechartToolsPanel } from "./StatechartToolsPanel";
 import { useStateChart } from "./hooks/useStateChart";
@@ -19,23 +18,25 @@ import {
   ExtensionToWebviewMessage,
   StateChartNode,
   StateChartEdge,
-  ExecutionState,
 } from "./types";
-import { runtimeMessage } from "../../visual/runtime/runtimeMessages";
 import { getVsCodeApi } from "../../visual/runtime/webview/vscodeApi";
 import { useRightPaneResize } from "../../visual/runtime/webview/useRightPaneResize";
-import {
-  DEFAULT_RUNTIME_UI_STATE,
-  type RightPaneView,
-  type RuntimeUiState,
-} from "../../visual/runtime/runtimeTypes";
 import "../../visual/runtime/webview/rightPaneResize.css";
+import { t } from "../../webview/theme";
 
 const vscode = getVsCodeApi();
 
 const nodeTypes = {
   stateNode: StateNode,
 } as any; // Type assertion to avoid @xyflow/react type inference issues
+const edgeTypes = {
+  [STATE_TRANSITION_EDGE]: StateTransitionEdge,
+} as any;
+const STATECHART_FIT_VIEW_OPTIONS = {
+  padding: 0.18,
+  minZoom: 0.3,
+  maxZoom: 1,
+} as const;
 
 /**
  * Main StateChart Editor Component
@@ -61,16 +62,35 @@ export const StateChartEditor: React.FC = () => {
 
   const [selectedNode, setSelectedNode] = useState<StateChartNode | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<StateChartEdge | null>(null);
-  const [executionState, setExecutionState] = useState<ExecutionState | null>(null);
-  const [runtimeState, setRuntimeState] = useState<RuntimeUiState>(
-    DEFAULT_RUNTIME_UI_STATE
-  );
-  const [rightPaneView, setRightPaneView] = useState<RightPaneView>("io");
+  const [parseError, setParseError] = useState<string | null>(null);
+  const [reactFlowInstance, setReactFlowInstance] = useState<
+    ReactFlowInstance<StateChartNode, StateChartEdge> | null
+  >(null);
+  const [fitViewRequest, setFitViewRequest] = useState(0);
   const {
     rightPaneStyle,
     resizeHandleClassName,
     resizeHandleProps,
   } = useRightPaneResize("statechart");
+
+  const requestFitView = useCallback(() => {
+    setFitViewRequest((value) => value + 1);
+  }, []);
+
+  useEffect(() => {
+    if (!reactFlowInstance || fitViewRequest === 0) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      reactFlowInstance.fitView({
+        ...STATECHART_FIT_VIEW_OPTIONS,
+        duration: 150,
+      });
+    }, 50);
+
+    return () => window.clearTimeout(timeout);
+  }, [edges.length, fitViewRequest, nodes.length, reactFlowInstance]);
 
   // Handle messages from extension
   useEffect(() => {
@@ -84,32 +104,32 @@ export const StateChartEditor: React.FC = () => {
             if (message.content) {
               const config = JSON.parse(message.content);
               importFromXState(config);
+              requestFitView();
+              setParseError(null);
             }
           } catch (error) {
-            console.error("Failed to parse StateChart config:", error);
+            const detail = error instanceof Error ? error.message : String(error);
+            console.error("Failed to parse StateChart config:", detail);
+            setParseError(detail);
             vscode.postMessage({
               type: "error",
-              error: String(error),
+              error: "Could not open this statechart because the file is not valid JSON.",
             } as WebviewToExtensionMessage);
           }
           break;
 
         case "executionState":
-          setExecutionState(message.state);
           // Update active state indicator
           updateActiveState(message.state.currentState);
           break;
 
         case "executionStopped":
-          setExecutionState(null);
           // Clear active state indicators
           updateActiveState(null);
           break;
 
         case "runtime.state":
-          setRuntimeState(message.state);
           if (!message.state.isExecuting) {
-            setExecutionState(null);
             updateActiveState(null);
           }
           break;
@@ -126,7 +146,7 @@ export const StateChartEditor: React.FC = () => {
     vscode.postMessage({ type: "ready" } as WebviewToExtensionMessage);
 
     return () => window.removeEventListener("message", handleMessage);
-  }, [importFromXState]);
+  }, [importFromXState, requestFitView]);
 
   // Update active state indicator on nodes
   const updateActiveState = useCallback(
@@ -154,17 +174,6 @@ export const StateChartEditor: React.FC = () => {
     } as WebviewToExtensionMessage);
   }, [exportToXState]);
 
-  const handleOpenRuntimePanel = useCallback(() => {
-    vscode.postMessage(runtimeMessage.openPanel() as WebviewToExtensionMessage);
-  }, []);
-
-  const handleSendEvent = useCallback((event: string) => {
-    vscode.postMessage({
-      type: "sendEvent",
-      event,
-    } as WebviewToExtensionMessage);
-  }, []);
-
   // Handle selection changes
   const handleSelectionChange = useCallback(
     ({ nodes: selectedNodes, edges: selectedEdges }: any) => {
@@ -177,15 +186,18 @@ export const StateChartEditor: React.FC = () => {
   // Toolbar actions
   const handleAddState = useCallback(() => {
     addNewState("normal");
-  }, [addNewState]);
+    requestFitView();
+  }, [addNewState, requestFitView]);
 
   const handleAddInitialState = useCallback(() => {
     addNewState("initial");
-  }, [addNewState]);
+    requestFitView();
+  }, [addNewState, requestFitView]);
 
   const handleAddFinalState = useCallback(() => {
     addNewState("final");
-  }, [addNewState]);
+    requestFitView();
+  }, [addNewState, requestFitView]);
 
   const handleDelete = useCallback(() => {
     deleteSelected();
@@ -193,150 +205,128 @@ export const StateChartEditor: React.FC = () => {
     setSelectedEdge(null);
   }, [deleteSelected]);
 
+  const handleAutoLayout = useCallback(() => {
+    autoLayout();
+    requestFitView();
+  }, [autoLayout, requestFitView]);
+
   return (
     <div style={{ width: "100%", height: "100vh", display: "flex" }}>
       {/* Main editor area */}
       <div style={{ flex: 1, minWidth: 0, position: "relative" }}>
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          onSelectionChange={handleSelectionChange}
-          nodeTypes={nodeTypes}
-          fitView
-          snapToGrid
-          snapGrid={[15, 15]}
-          defaultEdgeOptions={{
-            type: "smoothstep",
-            animated: true,
-            style: {
-              stroke: "var(--vscode-editorWidget-border)",
-              strokeWidth: 2,
-            },
-          }}
-          style={{
-            background: "var(--vscode-editor-background)",
-          }}
-        >
-          <Background
-            variant={BackgroundVariant.Dots}
-            gap={20}
-            size={1}
-            color="var(--vscode-editorWidget-border)"
-          />
-          <Controls />
-          <MiniMap
-            nodeColor={(node) => {
-              const data = node.data as any;
-              switch (data?.type) {
-                case "initial":
-                  return "#4caf50";
-                case "final":
-                  return "#f44336";
-                case "compound":
-                  return "#2196f3";
-                default:
-                  return "#757575";
-              }
-            }}
+        {parseError ? (
+          <div
+            role="alert"
             style={{
-              backgroundColor: "var(--vscode-editor-background)",
-              border: "1px solid var(--vscode-panel-border)",
-            }}
-          />
-
-          {/* Info Panel */}
-          <Panel
-            position="bottom-right"
-            style={{
-              padding: "8px 12px",
-              backgroundColor: "var(--vscode-editor-background)",
-              border: "1px solid var(--vscode-panel-border)",
-              borderRadius: "4px",
-              fontSize: "12px",
+              height: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "32px",
+              background: t.canvas,
+              color: t.text,
             }}
           >
-            <div>Nodes: {nodes.length}</div>
-            <div>Transitions: {edges.length}</div>
-            {selectedNode && <div>Selected: {selectedNode.data.label}</div>}
-          </Panel>
-        </ReactFlow>
+            <div
+              style={{
+                maxWidth: 520,
+                border: `1px solid ${t.danger}`,
+                borderRadius: t.radius,
+                padding: "18px 20px",
+                background: t.surface,
+                boxShadow: t.shadowOverlay,
+              }}
+            >
+              <h2
+                style={{
+                  color: t.danger,
+                  fontSize: 15,
+                  margin: "0 0 8px",
+                }}
+              >
+                Could not open this statechart
+              </h2>
+              <p
+                style={{
+                  color: t.text,
+                  fontSize: 12,
+                  lineHeight: 1.5,
+                  margin: "0 0 10px",
+                }}
+              >
+                The file is not valid JSON. Fix the JSON in the file, save it, and the visual editor will reload.
+              </p>
+              <code
+                style={{
+                  color: t.textMuted,
+                  fontSize: 11,
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {parseError}
+              </code>
+            </div>
+          </div>
+        ) : (
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            onSelectionChange={handleSelectionChange}
+            nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
+            onInit={setReactFlowInstance}
+            fitView
+            fitViewOptions={STATECHART_FIT_VIEW_OPTIONS}
+            snapToGrid
+            snapGrid={[15, 15]}
+            defaultEdgeOptions={{
+              type: STATE_TRANSITION_EDGE,
+              animated: true,
+              style: {
+                stroke: "var(--vscode-editorWidget-border)",
+                strokeWidth: 2,
+              },
+            }}
+            style={{
+              background: t.canvas,
+            }}
+          >
+            <Background
+              variant={BackgroundVariant.Dots}
+              gap={20}
+              size={1}
+              color="var(--vscode-editorWidget-border)"
+            />
+            <Controls />
+          </ReactFlow>
+        )}
       </div>
 
-      <div className={resizeHandleClassName} {...resizeHandleProps} />
+      {!parseError && (
+        <>
+          <div className={resizeHandleClassName} {...resizeHandleProps} />
 
-      {/* Properties Panel (Sidebar) */}
-      <div
-        style={{
-          ...rightPaneStyle,
-          borderLeft: "1px solid var(--vscode-panel-border, #2b2b2b)",
-          backgroundColor: "var(--vscode-sideBar-background, var(--vscode-editor-background, #1e1e1e))",
-          display: "flex",
-          flexDirection: "column",
-          overflowY: "auto",
-          overflowX: "hidden",
-        }}
-        className="right-pane-resizable"
-      >
-        <div
-          style={
-            {
-              display: "grid",
-              gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-              gap: "6px",
-              padding: "8px",
-              borderBottom: "1px solid var(--vscode-panel-border, #2b2b2b)",
-              position: "sticky",
-              top: 0,
-              zIndex: 3,
-              background: "var(--vscode-sideBar-background, var(--vscode-editor-background, #1e1e1e))",
-            }
-          }
-        >
-          {(["io", "settings", "tools"] as RightPaneView[]).map((view) => (
-            <button
-              key={view}
-              type="button"
-              onClick={() => setRightPaneView(view)}
-              style={{
-                border: "1px solid var(--vscode-button-border, var(--vscode-panel-border, #2b2b2b))",
-                borderRadius: "4px",
-                background:
-                  rightPaneView === view
-                    ? "var(--vscode-button-background, #0e639c)"
-                    : "var(--vscode-button-secondaryBackground, #3a3d41)",
-                color:
-                  rightPaneView === view
-                    ? "var(--vscode-button-foreground, #ffffff)"
-                    : "var(--vscode-button-secondaryForeground, var(--vscode-foreground, #cccccc))",
-                borderColor:
-                  rightPaneView === view
-                    ? "var(--vscode-focusBorder, #007fd4)"
-                    : "var(--vscode-button-border, var(--vscode-panel-border, #2b2b2b))",
-                padding: "5px 8px",
-                fontSize: "11px",
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-              aria-pressed={rightPaneView === view}
-            >
-              {view === "io" ? "I/O" : view === "settings" ? "Settings" : "Tools"}
-            </button>
-          ))}
-        </div>
+          {/* Properties Panel (Sidebar) */}
+          <div
+            style={{
+              ...rightPaneStyle,
+            }}
+            className="trust-inspector right-pane-resizable"
+          >
+            <div className="trust-inspector__header">
+              <span className="trust-inspector__title">Statechart editor</span>
+            </div>
 
-        {rightPaneView === "tools" ? (
-          <>
             <StatechartToolsPanel
               canDelete={Boolean(selectedNode || selectedEdge)}
               onAddState={handleAddState}
               onAddInitialState={handleAddInitialState}
               onAddFinalState={handleAddFinalState}
-              onOpenRuntimePanel={handleOpenRuntimePanel}
               onDelete={handleDelete}
-              onAutoLayout={autoLayout}
+              onAutoLayout={handleAutoLayout}
               onSave={handleSave}
             />
             <PropertiesPanel
@@ -350,17 +340,9 @@ export const StateChartEditor: React.FC = () => {
               nodes={nodes}
               onUpdateActionMappings={updateActionMappings}
             />
-          </>
-        ) : (
-          <ExecutionPanel
-            activeRuntimeView={rightPaneView === "settings" ? "settings" : "io"}
-            runtimeState={runtimeState}
-            executionState={executionState}
-            onSendEvent={handleSendEvent}
-            onViewChange={setRightPaneView}
-          />
-        )}
-      </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

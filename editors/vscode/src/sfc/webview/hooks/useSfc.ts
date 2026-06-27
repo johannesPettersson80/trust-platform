@@ -22,6 +22,14 @@ import type {
   StepType,
   TransitionData,
 } from "../types";
+import {
+  STEP_SOURCE_BOTTOM,
+  STEP_SOURCE_LEFT,
+  STEP_SOURCE_RIGHT,
+  STEP_TARGET_LEFT,
+  STEP_TARGET_RIGHT,
+  STEP_TARGET_TOP,
+} from "../StepNode";
 
 const MIN_PARALLEL_BRANCHES = 2;
 const SPLIT_INPUT_HANDLE = "in";
@@ -140,6 +148,78 @@ const INITIAL_NODES: SfcNode[] = [
 ];
 
 const INITIAL_EDGES: SfcTransitionEdge[] = [];
+const DEFAULT_NODE_X = 250;
+const DEFAULT_NODE_Y = 50;
+const DEFAULT_NODE_VERTICAL_GAP = 150;
+
+function nextNodePosition(nodes: SfcNode[]): XYPosition {
+  const maxY = nodes.reduce(
+    (current, node) => Math.max(current, node.position.y),
+    DEFAULT_NODE_Y - DEFAULT_NODE_VERTICAL_GAP
+  );
+
+  return {
+    x: DEFAULT_NODE_X,
+    y: maxY + DEFAULT_NODE_VERTICAL_GAP,
+  };
+}
+
+function stepConnectionHandles(
+  sourceNode: SfcNode,
+  targetNode: SfcNode
+): Pick<Connection, "sourceHandle" | "targetHandle"> {
+  if (!isSfcStepNode(sourceNode) || !isSfcStepNode(targetNode)) {
+    return {
+      sourceHandle: null,
+      targetHandle: null,
+    };
+  }
+
+  const deltaY = targetNode.position.y - sourceNode.position.y;
+  const expectedVerticalGap = DEFAULT_NODE_VERTICAL_GAP * 1.35;
+
+  if (deltaY < 0) {
+    if (Math.abs(deltaY) > expectedVerticalGap) {
+      return {
+        sourceHandle: STEP_SOURCE_RIGHT,
+        targetHandle: STEP_TARGET_RIGHT,
+      };
+    }
+
+    return {
+      sourceHandle: STEP_SOURCE_LEFT,
+      targetHandle: STEP_TARGET_LEFT,
+    };
+  }
+
+  if (deltaY > expectedVerticalGap) {
+    return {
+      sourceHandle: STEP_SOURCE_RIGHT,
+      targetHandle: STEP_TARGET_RIGHT,
+    };
+  }
+
+  return {
+    sourceHandle: STEP_SOURCE_BOTTOM,
+    targetHandle: STEP_TARGET_TOP,
+  };
+}
+
+function applyStepConnectionHandles(edge: SfcTransitionEdge, nodes: SfcNode[]) {
+  if (edge.sourceHandle || edge.targetHandle) {
+    return;
+  }
+
+  const sourceNode = nodes.find((node) => node.id === edge.source);
+  const targetNode = nodes.find((node) => node.id === edge.target);
+  if (!sourceNode || !targetNode) {
+    return;
+  }
+
+  const handles = stepConnectionHandles(sourceNode, targetNode);
+  edge.sourceHandle = handles.sourceHandle;
+  edge.targetHandle = handles.targetHandle;
+}
 
 /**
  * Custom hook for managing SFC state and operations
@@ -249,13 +329,14 @@ export function useSfc() {
       }
 
       const data = buildTransitionData({ condition: "TRUE", label: "TRUE" });
+      const handles = stepConnectionHandles(sourceNode, targetNode);
       const newEdge: SfcTransitionEdge = {
         id: `trans_${Date.now()}`,
         source: connection.source,
         target: connection.target,
-        sourceHandle: connection.sourceHandle,
-        targetHandle: connection.targetHandle,
-        type: "default",
+        sourceHandle: connection.sourceHandle ?? handles.sourceHandle,
+        targetHandle: connection.targetHandle ?? handles.targetHandle,
+        type: "transition",
         markerEnd: {
           type: MarkerType.ArrowClosed,
         },
@@ -279,7 +360,7 @@ export function useSfc() {
         const newStep: SfcStepNode = {
           id,
           type: "step",
-          position: position ?? { x: 250, y: 150 + nds.length * 100 },
+          position: position ?? nextNodePosition(nds),
           data: {
             label: `Step${stepCount + 1}`,
             type,
@@ -309,7 +390,7 @@ export function useSfc() {
       const newNode: SfcParallelSplitNode = {
         id,
         type: "parallelSplit",
-        position: position ?? { x: 250, y: 150 + nds.length * 100 },
+        position: position ?? nextNodePosition(nds),
         data,
       };
 
@@ -333,7 +414,7 @@ export function useSfc() {
       const newNode: SfcParallelJoinNode = {
         id,
         type: "parallelJoin",
-        position: position ?? { x: 250, y: 150 + nds.length * 100 },
+        position: position ?? nextNodePosition(nds),
         data,
       };
 
@@ -632,7 +713,7 @@ export function useSfc() {
         id: trans.id,
         source: trans.sourceStepId,
         target: trans.targetStepId,
-        type: "default",
+        type: "transition",
         markerEnd: {
           type: MarkerType.ArrowClosed,
         },
@@ -669,6 +750,8 @@ export function useSfc() {
           edge.targetHandle = `${JOIN_BRANCH_PREFIX}${branchIndex}`;
         }
       }
+
+      applyStepConnectionHandles(edge, allNodes);
 
       return edge;
     });

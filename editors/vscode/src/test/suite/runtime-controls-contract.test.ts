@@ -462,6 +462,14 @@ suite("Run card — surface contract (v3 reset)", () => {
     );
   });
 
+  test("simulator launch keeps raw adapter logs out of the first-run surface", () => {
+    const source = loadSource("debug.ts");
+    assert.ok(
+      source.includes('internalConsoleOptions: "neverOpen"'),
+      "Run-card Start must not auto-open VS Code's Debug Console with raw adapter logs"
+    );
+  });
+
   test("no ST editor-title Run/Stop controls", () => {
     const items = loadPackageJson().contributes?.menus?.["editor/title"] ?? [];
     const runtimeItems = items.filter((item) =>
@@ -487,6 +495,19 @@ suite("Run card — surface contract (v3 reset)", () => {
     assert.ok(source.includes(">Create project<"), "welcome offers Create project");
     assert.ok(source.includes(">Open project<"), "welcome offers Open project");
     assert.ok(source.includes(">Start from example<"), "welcome offers Start from example");
+    assert.ok(
+      source.includes("This folder is not a truST project"),
+      "an open non-truST folder must explain that it is not a truST project"
+    );
+    assert.ok(
+      source.includes("Initialize truST here"),
+      "an open non-truST folder must offer an explicit initialize action"
+    );
+    assert.ok(
+      source.includes("targetUri: workspaceState.folder.uri") &&
+        source.includes("openWorkspace: false"),
+      "initializing an open non-truST folder must scaffold that folder instead of opening an unrelated picker"
+    );
     // Run bar label + nav launchers (the v4 in-card links are now proper nav areas).
     assert.ok(source.includes("Run target:"), "the Run bar label must read 'Run target:'");
     assert.ok(source.includes("Devices &amp; Connections"), "nav must offer Devices & Connections");

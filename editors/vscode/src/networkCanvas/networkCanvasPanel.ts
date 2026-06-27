@@ -151,7 +151,8 @@ async function showNetworkCanvasPanel(
 }
 
 async function refreshNetworkCanvasPanel(): Promise<void> {
-  if (!panel) {
+  const panelRef = panel;
+  if (!panelRef) {
     return;
   }
   const snapshot = await runtimeLifecycleService.snapshot();
@@ -281,11 +282,14 @@ async function refreshNetworkCanvasPanel(): Promise<void> {
   const managed = extensionContext
     ? await listManagedRuntimes(extensionContext)
     : [];
-  void panel.webview.postMessage({
+  if (panel !== panelRef) {
+    return;
+  }
+  void panelRef.webview.postMessage({
     type: "graph",
     graph: buildCanvasGraph(model, lastTopology, peerTopology, attachedEndpoint, managed),
   });
-  void panel.webview.postMessage({
+  void panelRef.webview.postMessage({
     type: "meta",
     schema: activeSchema,
     applyResult: lastApplyResult,
@@ -737,6 +741,10 @@ async function handleWebviewMessage(message: unknown): Promise<void> {
           await refreshNetworkCanvasPanel();
         }
       }
+      break;
+    case "clearApplyResult":
+      lastApplyResult = undefined;
+      await refreshNetworkCanvasPanel();
       break;
     case "addHost":
       await addFleetHost(message);

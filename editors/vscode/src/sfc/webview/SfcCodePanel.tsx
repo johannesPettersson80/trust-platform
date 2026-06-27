@@ -33,20 +33,20 @@ export const SfcCodePanel: React.FC<SfcCodePanelProps> = ({
         width: "400px",
         display: "flex",
         flexDirection: "column",
-        background: "var(--vscode-editor-background, #1e1e1e)",
-        borderLeft: "1px solid var(--vscode-panel-border, #2b2b2b)",
+        background: "var(--trust-overlay)",
+        borderLeft: "1px solid var(--trust-border)",
         zIndex: 10,
       }}
     >
       {/* Header */}
       <div
         style={{
-          padding: "8px 12px",
-          borderBottom: "1px solid var(--vscode-panel-border, #2b2b2b)",
+          padding: "12px 14px",
+          borderBottom: "1px solid var(--trust-border)",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          background: "var(--vscode-sideBar-background, var(--vscode-editor-background, #1e1e1e))",
+          background: "var(--trust-overlay)",
         }}
       >
         <h3
@@ -54,7 +54,7 @@ export const SfcCodePanel: React.FC<SfcCodePanelProps> = ({
             margin: 0,
             fontSize: "13px",
             fontWeight: 600,
-            color: "var(--vscode-foreground, #cccccc)",
+            color: "var(--trust-text)",
           }}
         >
           Generated ST Code
@@ -65,10 +65,10 @@ export const SfcCodePanel: React.FC<SfcCodePanelProps> = ({
             style={{
               padding: "4px 12px",
               fontSize: "11px",
-              border: "1px solid var(--vscode-button-border, var(--vscode-panel-border, #2b2b2b))",
-              borderRadius: "2px",
-              background: "var(--vscode-button-background, #0e639c)",
-              color: "var(--vscode-button-foreground, #ffffff)",
+              border: "1px solid var(--trust-accent)",
+              borderRadius: "var(--trust-radius)",
+              background: "var(--trust-accent)",
+              color: "var(--trust-on-accent)",
               cursor: "pointer",
             }}
             title="Copy code to clipboard"
@@ -101,7 +101,7 @@ export const SfcCodePanel: React.FC<SfcCodePanelProps> = ({
               style={{
                 margin: 0,
                 fontSize: "13px",
-                color: "var(--vscode-descriptionForeground, var(--vscode-foreground, #9d9d9d))",
+                color: "var(--trust-text-muted)",
               }}
             >
               Generating Structured Text...
@@ -114,7 +114,7 @@ export const SfcCodePanel: React.FC<SfcCodePanelProps> = ({
               fontFamily: "var(--vscode-editor-font-family, monospace)",
               fontSize: "12px",
               lineHeight: "1.5",
-              color: "var(--vscode-editor-foreground, var(--vscode-foreground, #cccccc))",
+              color: "var(--trust-text)",
               whiteSpace: "pre-wrap",
               wordBreak: "break-word",
             }}
@@ -137,7 +137,7 @@ export const SfcCodePanel: React.FC<SfcCodePanelProps> = ({
                 style={{
                   margin: 0,
                   fontSize: "13px",
-                  color: "var(--vscode-descriptionForeground, var(--vscode-foreground, #9d9d9d))",
+                  color: "var(--trust-text-muted)",
                 }}
               >
                 Structured Text code will appear here
@@ -146,7 +146,7 @@ export const SfcCodePanel: React.FC<SfcCodePanelProps> = ({
                 style={{
                   margin: "8px 0 0 0",
                   fontSize: "11px",
-                  color: "var(--vscode-descriptionForeground, var(--vscode-foreground, #9d9d9d))",
+                  color: "var(--trust-text-muted)",
                   opacity: 0.7,
                 }}
               >
@@ -161,7 +161,7 @@ export const SfcCodePanel: React.FC<SfcCodePanelProps> = ({
       {errors.length > 0 && (
         <div
           style={{
-            borderTop: "1px solid var(--vscode-panel-border, #2b2b2b)",
+            borderTop: "1px solid var(--trust-border)",
             padding: "12px",
             background: "var(--vscode-inputValidation-warningBackground, #5a4d00)",
             maxHeight: "150px",

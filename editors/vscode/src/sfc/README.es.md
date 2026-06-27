@@ -57,7 +57,7 @@ Editor visual para Sequential Function Chart (SFC) basado en el estándar **IEC 
 ### Crear un nuevo SFC
 
 ```bash
-Ctrl+Shift+P → "Structured Text: New SFC (Sequential Function Chart)"
+Ctrl+Shift+P → "truST: New SFC (Sequential Function Chart)"
 ```
 
 ### Formato del Archivo

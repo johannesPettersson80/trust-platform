@@ -6,15 +6,8 @@ import {
   LadderToolsPanel,
   type LadderToolId,
 } from "./LadderToolsPanel";
-import { StRuntimePanel } from "../../visual/runtime/webview/StRuntimePanel";
 import { getVsCodeApi } from "../../visual/runtime/webview/vscodeApi";
 import { useRightPaneResize } from "../../visual/runtime/webview/useRightPaneResize";
-import { runtimeMessage } from "../../visual/runtime/runtimeMessages";
-import {
-  DEFAULT_RUNTIME_UI_STATE,
-  type RightPaneView,
-  type RuntimeUiState,
-} from "../../visual/runtime/runtimeTypes";
 import {
   connectorOffset,
   drawBranchMergeNode,
@@ -48,6 +41,7 @@ import type {
   Timer as TimerType,
 } from "../ladderEngine.types";
 import "../../visual/runtime/webview/rightPaneResize.css";
+import { canvasColor, t, tint } from "../../webview/theme";
 
 interface SelectedElement {
   rungIndex: number;
@@ -96,6 +90,8 @@ const LEFT_RAIL_X = 50;
 const RIGHT_RAIL_X = 1100;
 const GRID_SIZE = 20;
 const HISTORY_LIMIT = 100;
+const k = canvasColor;
+const kt = (color: string, alpha: number): string => canvasColor(tint(color, alpha));
 
 type LadderInsertTool = LadderToolId;
 
@@ -338,9 +334,6 @@ export function LadderEditor() {
   const [selectedTool, setSelectedTool] = useState<LadderInsertTool | null>(
     null
   );
-  const [runtimeState, setRuntimeState] = useState<RuntimeUiState>(
-    DEFAULT_RUNTIME_UI_STATE
-  );
   const [executionState, setExecutionState] = useState<any>(null);
   const [scale, setScale] = useState(1);
   const [selectedElement, setSelectedElement] = useState<SelectedElement | null>(
@@ -363,7 +356,6 @@ export function LadderEditor() {
   const [undoDepth, setUndoDepth] = useState(0);
   const [redoDepth, setRedoDepth] = useState(0);
   const [hasClipboard, setHasClipboard] = useState(false);
-  const [rightPaneView, setRightPaneView] = useState<RightPaneView>("io");
   const [contextMenu, setContextMenu] = useState<LadderContextMenuState | null>(
     null
   );
@@ -1878,7 +1870,7 @@ export function LadderEditor() {
       layer.add(
         new Konva.Line({
           points: [x, 0, x, STAGE_HEIGHT],
-          stroke: "#333",
+          stroke: k(t.gridLine),
           strokeWidth: 0.5,
           opacity: 0.3,
           listening: false,
@@ -1890,7 +1882,7 @@ export function LadderEditor() {
       layer.add(
         new Konva.Line({
           points: [0, y, STAGE_WIDTH, y],
-          stroke: "#333",
+          stroke: k(t.gridLine),
           strokeWidth: 0.5,
           opacity: 0.3,
           listening: false,
@@ -1901,7 +1893,7 @@ export function LadderEditor() {
     layer.add(
       new Konva.Line({
         points: [LEFT_RAIL_X, 0, LEFT_RAIL_X, STAGE_HEIGHT],
-        stroke: "#888",
+        stroke: k(t.rail),
         strokeWidth: 3,
         listening: false,
       })
@@ -1910,7 +1902,7 @@ export function LadderEditor() {
     layer.add(
       new Konva.Line({
         points: [RIGHT_RAIL_X, 0, RIGHT_RAIL_X, STAGE_HEIGHT],
-        stroke: "#888",
+        stroke: k(t.rail),
         strokeWidth: 3,
         listening: false,
       })
@@ -1926,7 +1918,7 @@ export function LadderEditor() {
         y: rungY - 16,
         width: RIGHT_RAIL_X - LEFT_RAIL_X,
         height: 32,
-        fill: isHoverRung ? "rgba(87, 166, 255, 0.14)" : "transparent",
+        fill: isHoverRung ? kt(t.accent, 0.14) : "transparent",
       });
       hitArea.on("click tap", (event) => {
         event.cancelBubble = true;
@@ -1956,7 +1948,11 @@ export function LadderEditor() {
       });
       layer.add(hitArea);
 
-      const rungStroke = isActiveRung ? "#57a6ff" : isHoverRung ? "#8cbfff" : "#666";
+      const rungStroke = isActiveRung
+        ? k(t.accent)
+        : isHoverRung
+          ? kt(t.accent, 0.72)
+          : k(t.textSubtle);
       const rungStrokeWidth = isActiveRung || isHoverRung ? 3 : 2;
       if (rung.edges.length === 0) {
         const occlusions = mergeIntervals(
@@ -2013,7 +2009,7 @@ export function LadderEditor() {
           y: rungY - 10,
           text: `${rungIndex + 1}`,
           fontSize: 14,
-          fill: isActiveRung ? "#57a6ff" : isHoverRung ? "#8cbfff" : "#ccc",
+          fill: isActiveRung ? k(t.accent) : isHoverRung ? kt(t.accent, 0.72) : k(t.text),
           listening: false,
         })
       );
@@ -2032,7 +2028,7 @@ export function LadderEditor() {
               first.position.x + connectorOffset(first.type, "left"),
               first.position.y,
             ],
-            stroke: "#6fba8a",
+            stroke: k(t.ladderWire),
             strokeWidth: 2,
             listening: false,
           })
@@ -2050,7 +2046,7 @@ export function LadderEditor() {
                   next.position.x + connectorOffset(next.type, "left"),
                   next.position.y,
                 ],
-                stroke: "#6fba8a",
+                stroke: k(t.ladderWire),
                 strokeWidth: 2,
                 listening: false,
               })
@@ -2077,7 +2073,7 @@ export function LadderEditor() {
             layer.add(
               new Konva.Line({
                 points,
-                stroke: "#6fba8a",
+                stroke: k(t.ladderWire),
                 strokeWidth: 2,
                 lineJoin: "round",
                 lineCap: "round",
@@ -2095,7 +2091,7 @@ export function LadderEditor() {
               RIGHT_RAIL_X,
               rungY,
             ],
-            stroke: "#6fba8a",
+            stroke: k(t.ladderWire),
             strokeWidth: 2,
             listening: false,
           })
@@ -2129,7 +2125,7 @@ export function LadderEditor() {
                 linkPreviewPoint.x,
                 linkPreviewPoint.y,
               ],
-              stroke: "#f5a524",
+              stroke: k(t.ladderPreview),
               strokeWidth: 2,
               dash: [8, 6],
               lineJoin: "round",
@@ -2251,7 +2247,6 @@ export function LadderEditor() {
           break;
         }
         case "runtime.state":
-          setRuntimeState(message.state);
           runtimeIsExecutingRef.current = Boolean(message.state?.isExecuting);
           if (!message.state.isExecuting) {
             setExecutionState(null);
@@ -2312,10 +2307,6 @@ export function LadderEditor() {
     vscodeApi?.postMessage({ type: "save", program });
   };
 
-  const handleOpenRuntimePanel = () => {
-    vscodeApi?.postMessage(runtimeMessage.openPanel());
-  };
-
   const handleAutoRoute = () => {
     applyProgramChange((previous) => autoRouteProgram(previous));
   };
@@ -2340,98 +2331,57 @@ export function LadderEditor() {
 
         <div className={resizeHandleClassName} {...resizeHandleProps} />
 
-        <div className="ladder-side-panel right-pane-resizable" style={rightPaneStyle}>
-          <div className="right-pane-view-tabs" role="tablist" aria-label="Right pane view">
-            <button
-              type="button"
-              className={`right-pane-view-tab ${
-                rightPaneView === "io" ? "active" : ""
-              }`}
-              onClick={() => setRightPaneView("io")}
-              aria-pressed={rightPaneView === "io"}
-            >
-              I/O
-            </button>
-            <button
-              type="button"
-              className={`right-pane-view-tab ${
-                rightPaneView === "settings" ? "active" : ""
-              }`}
-              onClick={() => setRightPaneView("settings")}
-              aria-pressed={rightPaneView === "settings"}
-            >
-              Settings
-            </button>
-            <button
-              type="button"
-              className={`right-pane-view-tab ${
-                rightPaneView === "tools" ? "active" : ""
-              }`}
-              onClick={() => setRightPaneView("tools")}
-              aria-pressed={rightPaneView === "tools"}
-            >
-              Tools
-            </button>
+        <div className="trust-inspector ladder-side-panel right-pane-resizable" style={rightPaneStyle}>
+          <div className="trust-inspector__header" aria-label="Ladder editor">
+            <div className="trust-inspector__title">Ladder editor</div>
           </div>
 
-          {rightPaneView === "tools" ? (
-            <>
-              <ElementPropertiesPanel
-                selectedElement={selectedElement}
-                selectedElementData={selectedElementData}
-                activeRungIndex={activeRungIndex}
-                networkCount={program.networks.length}
-                gridSize={GRID_SIZE}
-                onUpdateSelectedElement={updateSelectedElement}
-                onRemoveSelectedElement={removeSelectedElement}
-              />
-              <LadderToolsPanel
-                selectedTool={selectedTool}
-                onToolSelect={(tool) => {
-                  setSelectedTool(tool);
-                  if (tool) {
-                    setLinkModeEnabled(false);
-                    setLinkFeedback(null);
-                    setEdgeLinkSourceState(null);
-                  }
-                }}
-                onDeleteSelection={removeSelectedElement}
-                onAddRung={addRung}
-                onRemoveRung={removeRung}
-                onAddParallelContact={() => addParallelContactFromSelection()}
-                onClearWiring={clearActiveRungWiring}
-                onOpenRuntimePanel={handleOpenRuntimePanel}
-                onUndo={undo}
-                onRedo={redo}
-                onCopy={copySelection}
-                onPaste={pasteSelection}
-                onSearchReplace={handleSearchReplace}
-                onAutoRoute={handleAutoRoute}
-                onSave={handleSave}
-                onToggleLinkMode={toggleLinkMode}
-                linkModeEnabled={linkModeEnabled}
-                linkSourceLabel={edgeLinkSource?.nodeId}
-                linkFeedback={linkFeedback}
-                canUndo={undoDepth > 0}
-                canRedo={redoDepth > 0}
-                canPaste={hasClipboard}
-                canDeleteSelection={Boolean(selectedElementData)}
-                canRemoveRung={program.networks.length > 0}
-                canAddParallelContact={canAddParallelContact}
-                canClearWiring={
-                  activeRungIndex !== null &&
-                  Boolean(program.networks[activeRungIndex]?.edges.length)
-                }
-              />
-            </>
-          ) : (
-            <StRuntimePanel
-              activeView={rightPaneView === "settings" ? "settings" : "io"}
-              onViewChange={setRightPaneView}
-              showToolsShortcut
-              toolsShortcutLabel="Tools"
-            />
-          )}
+          <ElementPropertiesPanel
+            selectedElement={selectedElement}
+            selectedElementData={selectedElementData}
+            activeRungIndex={activeRungIndex}
+            networkCount={program.networks.length}
+            gridSize={GRID_SIZE}
+            onUpdateSelectedElement={updateSelectedElement}
+            onRemoveSelectedElement={removeSelectedElement}
+          />
+          <LadderToolsPanel
+            selectedTool={selectedTool}
+            onToolSelect={(tool) => {
+              setSelectedTool(tool);
+              if (tool) {
+                setLinkModeEnabled(false);
+                setLinkFeedback(null);
+                setEdgeLinkSourceState(null);
+              }
+            }}
+            onDeleteSelection={removeSelectedElement}
+            onAddRung={addRung}
+            onRemoveRung={removeRung}
+            onAddParallelContact={() => addParallelContactFromSelection()}
+            onClearWiring={clearActiveRungWiring}
+            onUndo={undo}
+            onRedo={redo}
+            onCopy={copySelection}
+            onPaste={pasteSelection}
+            onSearchReplace={handleSearchReplace}
+            onAutoRoute={handleAutoRoute}
+            onSave={handleSave}
+            onToggleLinkMode={toggleLinkMode}
+            linkModeEnabled={linkModeEnabled}
+            linkSourceLabel={edgeLinkSource?.nodeId}
+            linkFeedback={linkFeedback}
+            canUndo={undoDepth > 0}
+            canRedo={redoDepth > 0}
+            canPaste={hasClipboard}
+            canDeleteSelection={Boolean(selectedElementData)}
+            canRemoveRung={program.networks.length > 0}
+            canAddParallelContact={canAddParallelContact}
+            canClearWiring={
+              activeRungIndex !== null &&
+              Boolean(program.networks[activeRungIndex]?.edges.length)
+            }
+          />
         </div>
       </div>
 
@@ -2592,12 +2542,6 @@ export function LadderEditor() {
       )}
 
       <div className="status-bar">
-        {runtimeState.isExecuting && (
-          <span className="execution-indicator">Executing</span>
-        )}
-        <span>
-          Mode: {runtimeState.mode === "local" ? "Local" : "External"}
-        </span>
         <span>Rungs: {program.networks.length}</span>
         <span>Zoom: {Math.round(scale * 100)}%</span>
         <span>Undo: {undoDepth}</span>

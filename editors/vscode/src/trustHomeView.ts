@@ -45,6 +45,11 @@ interface ValidityLine {
   readonly label: string;
 }
 
+interface WorkspaceProjectState {
+  readonly kind: "none" | "nonTrust" | "trust";
+  readonly folder?: vscode.WorkspaceFolder;
+}
+
 class TrustHomeProvider implements vscode.WebviewViewProvider {
   static readonly viewType = "trust.home";
 
@@ -130,7 +135,8 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
     if (!this.view) {
       return;
     }
-    const projectOpen = await isTrustProjectOpen();
+    const workspaceState = await getWorkspaceProjectState();
+    const projectOpen = workspaceState.kind === "trust";
     const snapshot = await runtimeLifecycleService.snapshot();
     const remotes = this.readRemotes();
     const managed = await listManagedRuntimes(this.context);
@@ -145,6 +151,8 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
     void this.view.webview.postMessage({
       type: "state",
       projectOpen,
+      workspaceKind: workspaceState.kind,
+      workspaceName: workspaceState.folder?.name ?? "",
       options,
       selectedId: selected.id,
       selected,
@@ -172,7 +180,7 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
         return;
       // No-project welcome
       case "createProject":
-        await vscode.commands.executeCommand("trust-lsp.newProject");
+        await this.createProjectFromWelcome();
         return;
       case "openProject":
         await vscode.commands.executeCommand("workbench.action.files.openFolder");
@@ -196,6 +204,19 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
       default:
         return;
     }
+  }
+
+  private async createProjectFromWelcome(): Promise<void> {
+    const workspaceState = await getWorkspaceProjectState();
+    if (workspaceState.kind === "nonTrust" && workspaceState.folder) {
+      await vscode.commands.executeCommand("trust-lsp.newProject", {
+        targetUri: workspaceState.folder.uri,
+        openWorkspace: false,
+      });
+      await this.render();
+      return;
+    }
+    await vscode.commands.executeCommand("trust-lsp.newProject");
   }
 
   private async onSelect(id: string): Promise<void> {
@@ -358,8 +379,8 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
 <body>
   <!-- No project open: the Project welcome ONLY -->
   <section id="welcome" class="hidden">
-    <h2>truST</h2>
-    <p class="hint">Create or open a project to get started.</p>
+    <h2 id="welcomeTitle">truST</h2>
+    <p class="hint" id="welcomeText">Create or open a project to get started.</p>
     <button id="createProject">Create project</button>
     <button id="openProject" class="secondary">Open project</button>
     <button id="startExample" class="secondary">Start from example</button>
@@ -387,6 +408,9 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
   const vscode = acquireVsCodeApi();
   const welcomeEl = document.getElementById("welcome");
   const projectEl = document.getElementById("project");
+  const welcomeTitle = document.getElementById("welcomeTitle");
+  const welcomeText = document.getElementById("welcomeText");
+  const createProjectEl = document.getElementById("createProject");
   const runtimeEl = document.getElementById("runtime");
   const statusEl = document.getElementById("status");
   const dotEl = document.getElementById("dot");
@@ -401,7 +425,7 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
   runtimeEl.addEventListener("change", () => vscode.postMessage({ type: "select", id: runtimeEl.value }));
   actionEl.addEventListener("click", () => { if (!actionEl.disabled) { vscode.postMessage({ type: "action" }); } });
   applyEl.addEventListener("click", () => vscode.postMessage({ type: "applyChanges" }));
-  document.getElementById("createProject").addEventListener("click", post("createProject"));
+  createProjectEl.addEventListener("click", post("createProject"));
   document.getElementById("openProject").addEventListener("click", post("openProject"));
   document.getElementById("startExample").addEventListener("click", post("startExample"));
   document.getElementById("navProject").addEventListener("click", post("navProject"));
@@ -414,7 +438,19 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
     if (!msg || msg.type !== "state") { return; }
     welcomeEl.classList.toggle("hidden", msg.projectOpen);
     projectEl.classList.toggle("hidden", !msg.projectOpen);
-    if (!msg.projectOpen) { return; }
+    if (!msg.projectOpen) {
+      if (msg.workspaceKind === "nonTrust") {
+        const name = msg.workspaceName ? "“" + msg.workspaceName + "”" : "This folder";
+        welcomeTitle.textContent = "This folder is not a truST project";
+        welcomeText.textContent = name + " does not contain a truST project yet. Initialize it here, open an existing project, or start from an example.";
+        createProjectEl.textContent = "Initialize truST here";
+      } else {
+        welcomeTitle.textContent = "truST";
+        welcomeText.textContent = "Create or open a project to get started.";
+        createProjectEl.textContent = "Create project";
+      }
+      return;
+    }
 
     validityText.textContent = msg.validity.label;
     validityIco.textContent = msg.validity.ok ? "✓" : "⚠";
@@ -505,18 +541,19 @@ export function registerTrustHome(context: vscode.ExtensionContext): void {
   );
 }
 
-// "Project open" = a workspace folder is open AND it is a truST project (has a trust-lsp.toml). Anything
-// else shows the Create/Open/Example welcome — there's nothing to run yet.
-async function isTrustProjectOpen(): Promise<boolean> {
-  if (!vscode.workspace.workspaceFolders?.length) {
-    return false;
+// "Project open" = a workspace folder is open AND it is a truST project (has a trust-lsp.toml). Keep
+// "no folder" and "non-truST folder" distinct so the first-run UI can explain exactly what happened.
+async function getWorkspaceProjectState(): Promise<WorkspaceProjectState> {
+  const folder = vscode.workspace.workspaceFolders?.[0];
+  if (!folder) {
+    return { kind: "none" };
   }
   const found = await vscode.workspace.findFiles(
     "**/trust-lsp.toml",
     "**/node_modules/**",
     1
   );
-  return found.length > 0;
+  return found.length > 0 ? { kind: "trust", folder } : { kind: "nonTrust", folder };
 }
 
 // Passive validity (§0.5.6): a fast diagnostics-derived "no known errors" line — NOT the authoritative

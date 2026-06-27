@@ -1,6 +1,7 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { SfcEditor } from "./SfcEditor";
+import "../../webview/theme.css";
 
 /**
  * Entry point for the SFC editor webview

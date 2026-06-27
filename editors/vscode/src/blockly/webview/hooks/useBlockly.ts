@@ -3,37 +3,22 @@ import {
   BlocklyWorkspace,
   ExtensionToWebviewMessage,
 } from "../types";
-import { runtimeMessage } from "../../../visual/runtime/runtimeMessages";
 import { getVsCodeApi } from "../../../visual/runtime/webview/vscodeApi";
-import {
-  DEFAULT_RUNTIME_UI_STATE,
-  type RuntimeUiMode,
-  type RuntimeUiState,
-} from "../../../visual/runtime/runtimeTypes";
 
 const vscode = getVsCodeApi();
 
 export interface UseBlocklyReturn {
   workspace: BlocklyWorkspace | null;
   generatedCode: string | null;
-  runtimeState: RuntimeUiState;
   errors: string[];
   saveWorkspace: (workspace: BlocklyWorkspace) => void;
   generateCode: () => void;
-  setRuntimeMode: (mode: RuntimeUiMode) => void;
-  startRuntime: () => void;
-  stopRuntime: () => void;
-  openRuntimePanel: () => void;
-  openRuntimeSettings: () => void;
   executeBlock: (blockId: string) => void;
 }
 
 export function useBlockly(): UseBlocklyReturn {
   const [workspace, setWorkspace] = useState<BlocklyWorkspace | null>(null);
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
-  const [runtimeState, setRuntimeState] = useState<RuntimeUiState>(
-    DEFAULT_RUNTIME_UI_STATE
-  );
   const [errors, setErrors] = useState<string[]>([]);
 
   // Handle messages from extension
@@ -51,7 +36,7 @@ export function useBlockly(): UseBlocklyReturn {
             console.error("Failed to parse workspace:", error);
             vscode.postMessage({
               type: "error",
-              error: "Invalid JSON format",
+              error: "Could not open this Blockly program because the file is not valid JSON.",
             });
           }
           break;
@@ -92,10 +77,6 @@ export function useBlockly(): UseBlocklyReturn {
           }
           break;
 
-        case "runtime.state":
-          setRuntimeState(message.state);
-          break;
-
         case "runtime.error":
           console.error("[Blockly runtime error]", message.message);
           break;
@@ -125,26 +106,6 @@ export function useBlockly(): UseBlocklyReturn {
     vscode.postMessage({ type: "generateCode" });
   }, []);
 
-  const setRuntimeMode = useCallback((mode: RuntimeUiMode) => {
-    vscode.postMessage(runtimeMessage.setMode(mode));
-  }, []);
-
-  const startRuntime = useCallback(() => {
-    vscode.postMessage(runtimeMessage.start());
-  }, []);
-
-  const stopRuntime = useCallback(() => {
-    vscode.postMessage(runtimeMessage.stop());
-  }, []);
-
-  const openRuntimePanel = useCallback(() => {
-    vscode.postMessage(runtimeMessage.openPanel());
-  }, []);
-
-  const openRuntimeSettings = useCallback(() => {
-    vscode.postMessage(runtimeMessage.openSettings());
-  }, []);
-
   const executeBlock = useCallback((blockId: string) => {
     vscode.postMessage({
       type: "executeBlock",
@@ -155,15 +116,9 @@ export function useBlockly(): UseBlocklyReturn {
   return {
     workspace,
     generatedCode,
-    runtimeState,
     errors,
     saveWorkspace,
     generateCode,
-    setRuntimeMode,
-    startRuntime,
-    stopRuntime,
-    openRuntimePanel,
-    openRuntimeSettings,
     executeBlock,
   };
 }

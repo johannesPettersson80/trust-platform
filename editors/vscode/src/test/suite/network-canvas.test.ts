@@ -15,6 +15,7 @@ import { buildCanvasGraph } from "../../networkCanvas/graphData";
 import type { RuntimeTarget } from "../../runtimeTarget";
 import { classifyRuntimeStartFailure } from "../../networkCanvas/runtimeFailures";
 import { runtimeNodeControls } from "../../networkCanvas/webview/runtimeNodeControls";
+import { groupByCategory, CATEGORY_ORDER } from "../../networkCanvas/webview/grouping";
 
 const RUNNING = {
   running: true,
@@ -503,3 +504,43 @@ function fleetTopology(): FleetTopologyResponse {
     ],
   };
 }
+
+// F-009: the Add-device picker groups the protocol catalog by the schema's own `category` into
+// Field devices / Supervisory services / Peer links instead of one flat list.
+suite("Network Canvas — add picker grouping (F-009)", function () {
+  type P = { id: string; category?: string };
+  test("groups protocols into Field → Supervisory → Peer in canonical order, preserving input order within a group", () => {
+    const protos: P[] = [
+      { id: "opcua", category: "supervisory_service" },
+      { id: "modbus_tcp", category: "field_device" },
+      { id: "mesh", category: "peer_link" },
+      { id: "gpio", category: "field_device" },
+      { id: "opcua_client", category: "peer_link" },
+      { id: "openot", category: "supervisory_service" },
+    ];
+    const groups = groupByCategory(protos);
+    assert.deepStrictEqual(groups.map((g) => g.key), ["field_device", "supervisory_service", "peer_link"]);
+    assert.deepStrictEqual(groups.map((g) => g.label), ["Field devices", "Supervisory services", "Peer links"]);
+    assert.deepStrictEqual(groups[0].items.map((p) => p.id), ["modbus_tcp", "gpio"]);
+  });
+
+  test("omits empty groups (no header for a category with nothing in it)", () => {
+    const groups = groupByCategory<P>([{ id: "modbus_tcp", category: "field_device" }]);
+    assert.deepStrictEqual(groups.map((g) => g.key), ["field_device"]);
+  });
+
+  test("routes missing/unknown categories to a trailing 'Other' group and never drops anything", () => {
+    const groups = groupByCategory<P>([
+      { id: "modbus_tcp", category: "field_device" },
+      { id: "mystery", category: "wat" },
+      { id: "blank" },
+    ]);
+    assert.deepStrictEqual(groups.map((g) => g.key), ["field_device", "other"]);
+    assert.deepStrictEqual(groups[1].items.map((p) => p.id), ["mystery", "blank"]);
+    assert.strictEqual(groups.reduce((n, g) => n + g.items.length, 0), 3);
+  });
+
+  test("CATEGORY_ORDER is the canonical Field → Supervisory → Peer", () => {
+    assert.deepStrictEqual(CATEGORY_ORDER.map((c) => c.key), ["field_device", "supervisory_service", "peer_link"]);
+  });
+});

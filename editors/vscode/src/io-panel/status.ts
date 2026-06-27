@@ -24,23 +24,13 @@ export function isLocalEndpoint(endpoint: string): boolean {
   return isLocalControlEndpoint(endpoint);
 }
 
-export async function probeEndpointReachable(
-  endpoint: string
-): Promise<boolean> {
-  const now = Date.now();
-  if (
-    endpointProbeCache &&
-    endpointProbeCache.endpoint === endpoint &&
-    now - endpointProbeCache.checkedAt < ENDPOINT_PROBE_TTL_MS
-  ) {
-    return endpointProbeCache.reachable;
-  }
+// One fresh reachability probe (no cache): does the control endpoint accept a connection right now?
+async function probeEndpointOnce(endpoint: string): Promise<boolean> {
   const parsed = parseControlEndpoint(endpoint);
   if (!parsed) {
-    endpointProbeCache = { endpoint, reachable: false, checkedAt: now };
     return false;
   }
-  const reachable = await new Promise<boolean>((resolve) => {
+  return new Promise<boolean>((resolve) => {
     let settled = false;
     const socket =
       parsed.kind === "tcp"
@@ -58,7 +48,44 @@ export async function probeEndpointReachable(
     socket.once("error", () => finish(false));
     socket.once("connect", () => finish(true));
   });
+}
+
+export async function probeEndpointReachable(
+  endpoint: string
+): Promise<boolean> {
+  const now = Date.now();
+  if (
+    endpointProbeCache &&
+    endpointProbeCache.endpoint === endpoint &&
+    now - endpointProbeCache.checkedAt < ENDPOINT_PROBE_TTL_MS
+  ) {
+    return endpointProbeCache.reachable;
+  }
+  const reachable = await probeEndpointOnce(endpoint);
   endpointProbeCache = { endpoint, reachable, checkedAt: Date.now() };
+  return reachable;
+}
+
+// Poll a control endpoint until it accepts connections (or the budget runs out), bypassing the short
+// reachability cache so a freshly-started runtime is not pinned to a stale `false`. Used right after a
+// managed Start: the runtime process is up but its control socket may need a beat to bind, and reporting
+// "Live Values could not connect" in that window is a false failure on the happy path (F-11). On success
+// the cache is primed `true` so the immediately-following attach probe sees it. Returns false honestly if
+// the endpoint never becomes reachable within the budget — a genuine failure still surfaces.
+export async function waitForEndpointReachable(
+  endpoint: string,
+  totalMs = 6000,
+  intervalMs = 250
+): Promise<boolean> {
+  const deadline = Date.now() + totalMs;
+  let reachable = await probeEndpointOnce(endpoint);
+  while (!reachable && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    reachable = await probeEndpointOnce(endpoint);
+  }
+  if (reachable) {
+    endpointProbeCache = { endpoint, reachable: true, checkedAt: Date.now() };
+  }
   return reachable;
 }
 

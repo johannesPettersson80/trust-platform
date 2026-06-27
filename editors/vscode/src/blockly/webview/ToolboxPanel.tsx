@@ -5,14 +5,14 @@ import React from "react";
  */
 export const ToolboxPanel: React.FC = () => {
   const categories = [
-    { name: "Logic", icon: "🔀", color: "#5C81A6" },
-    { name: "Loops", icon: "🔁", color: "#5CA65C" },
-    { name: "Math", icon: "➕", color: "#5C68A6" },
-    { name: "Variables", icon: "📦", color: "#A55B99" },
-    { name: "Functions", icon: "⚙️", color: "#9A5CA6" },
-    { name: "PLC I/O", icon: "🔌", color: "#D19A4D" },
-    { name: "PLC Timers", icon: "⏱️", color: "#D1684D" },
-    { name: "PLC Counters", icon: "🔢", color: "#4D97D1" },
+    { name: "Logic", icon: "🔀", color: "var(--trust-block-logic)" },
+    { name: "Loops", icon: "🔁", color: "var(--trust-block-loop)" },
+    { name: "Math", icon: "➕", color: "var(--trust-block-math)" },
+    { name: "Variables", icon: "📦", color: "var(--trust-block-variables)" },
+    { name: "Functions", icon: "⚙️", color: "var(--trust-block-functions)" },
+    { name: "PLC I/O", icon: "🔌", color: "var(--trust-block-io)" },
+    { name: "PLC Timers", icon: "⏱️", color: "var(--trust-block-timer)" },
+    { name: "PLC Counters", icon: "🔢", color: "var(--trust-block-counter)" },
   ];
 
   return (

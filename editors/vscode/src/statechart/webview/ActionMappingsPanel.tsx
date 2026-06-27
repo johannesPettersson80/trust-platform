@@ -12,7 +12,7 @@ export const ActionMappingsPanel: React.FC<ActionMappingsPanelProps> = ({
   nodes,
   onUpdateActionMappings,
 }) => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const [selectedAction, setSelectedAction] = useState<string | null>(null);
 
   // Collect all action names referenced in states
@@ -81,7 +81,7 @@ export const ActionMappingsPanel: React.FC<ActionMappingsPanelProps> = ({
   return (
     <div
       style={{
-        borderTop: "1px solid var(--vscode-panel-border, #2b2b2b)",
+        borderTop: "1px solid var(--trust-border)",
         display: "flex",
         flexDirection: "column",
         height: isCollapsed ? "auto" : "400px",
@@ -94,11 +94,11 @@ export const ActionMappingsPanel: React.FC<ActionMappingsPanelProps> = ({
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          padding: "8px 12px",
-          backgroundColor: "var(--vscode-sideBarSectionHeader-background, var(--vscode-sideBar-background, #252526))",
+          padding: "10px 14px",
+          backgroundColor: "transparent",
           borderBottom: isCollapsed
             ? "none"
-            : "1px solid var(--vscode-panel-border, #2b2b2b)",
+            : "1px solid var(--trust-border)",
           cursor: "pointer",
           userSelect: "none",
         }}
@@ -118,7 +118,7 @@ export const ActionMappingsPanel: React.FC<ActionMappingsPanelProps> = ({
             <span
               style={{
                 backgroundColor: "var(--vscode-editorWarning-foreground)",
-                color: "var(--vscode-editor-background)",
+                color: "var(--trust-canvas)",
                 padding: "2px 6px",
                 borderRadius: "10px",
                 fontSize: "11px",
@@ -138,10 +138,10 @@ export const ActionMappingsPanel: React.FC<ActionMappingsPanelProps> = ({
             padding: "4px 8px",
             fontSize: "12px",
             cursor: "pointer",
-            backgroundColor: "var(--vscode-button-background, #0e639c)",
-            color: "var(--vscode-button-foreground, #ffffff)",
-            border: "none",
-            borderRadius: "2px",
+            backgroundColor: "var(--trust-accent)",
+            color: "var(--trust-on-accent)",
+            border: "1px solid var(--trust-accent)",
+            borderRadius: "var(--trust-radius)",
           }}
         >
           + Add
@@ -155,7 +155,7 @@ export const ActionMappingsPanel: React.FC<ActionMappingsPanelProps> = ({
           <div
             style={{
               width: "40%",
-              borderRight: "1px solid var(--vscode-panel-border, #2b2b2b)",
+              borderRight: "1px solid var(--trust-border)",
               overflowY: "auto",
             }}
           >
@@ -172,7 +172,7 @@ export const ActionMappingsPanel: React.FC<ActionMappingsPanelProps> = ({
                 <div style={{ fontWeight: 600, marginBottom: "4px" }}>
                   ⚠️ Unmapped Actions
                 </div>
-                <div style={{ color: "var(--vscode-descriptionForeground, var(--vscode-foreground, #9d9d9d))" }}>
+                <div style={{ color: "var(--trust-text-muted)" }}>
                   The following actions are referenced but not mapped:
                 </div>
                 <ul style={{ margin: "4px 0", paddingLeft: "20px" }}>
@@ -191,7 +191,7 @@ export const ActionMappingsPanel: React.FC<ActionMappingsPanelProps> = ({
                 style={{
                   padding: "16px",
                   textAlign: "center",
-                  color: "var(--vscode-descriptionForeground, var(--vscode-foreground, #9d9d9d))",
+                  color: "var(--trust-text-muted)",
                   fontSize: "12px",
                 }}
               >
@@ -217,9 +217,9 @@ export const ActionMappingsPanel: React.FC<ActionMappingsPanelProps> = ({
                         selectedAction === name
                           ? "var(--vscode-list-activeSelectionForeground)"
                           : isUnused
-                          ? "var(--vscode-descriptionForeground, var(--vscode-foreground, #9d9d9d))"
+                          ? "var(--trust-text-muted)"
                           : "inherit",
-                      borderBottom: "1px solid var(--vscode-panel-border, #2b2b2b)",
+                      borderBottom: "1px solid var(--trust-border)",
                       fontSize: "13px",
                     }}
                   >
@@ -253,7 +253,7 @@ export const ActionMappingsPanel: React.FC<ActionMappingsPanelProps> = ({
                   alignItems: "center",
                   justifyContent: "center",
                   height: "100%",
-                  color: "var(--vscode-descriptionForeground, var(--vscode-foreground, #9d9d9d))",
+                  color: "var(--trust-text-muted)",
                   fontSize: "12px",
                 }}
               >
@@ -310,10 +310,10 @@ const MappingEditor: React.FC<{
               padding: "4px 8px",
               fontSize: "11px",
               cursor: "pointer",
-              backgroundColor: "var(--vscode-button-secondaryBackground, #3a3d41)",
-              color: "var(--vscode-button-secondaryForeground, var(--vscode-foreground, #cccccc))",
-              border: "none",
-              borderRadius: "2px",
+              backgroundColor: "transparent",
+              color: "var(--trust-danger)",
+              border: "1px solid color-mix(in srgb, var(--trust-danger) 45%, transparent)",
+              borderRadius: "var(--trust-radius)",
             }}
           >
             Delete
@@ -327,10 +327,10 @@ const MappingEditor: React.FC<{
             width: "100%",
             padding: "6px 8px",
             fontSize: "13px",
-            backgroundColor: "var(--vscode-input-background, #313131)",
-            color: "var(--vscode-input-foreground, var(--vscode-foreground, #cccccc))",
-            border: "1px solid var(--vscode-input-border, #3c3c3c)",
-            borderRadius: "2px",
+            backgroundColor: "var(--trust-input-bg)",
+            color: "var(--vscode-input-foreground, var(--trust-text))",
+            border: "1px solid var(--trust-input-border)",
+            borderRadius: "var(--trust-radius)",
             opacity: 0.6,
             cursor: "not-allowed",
           }}
@@ -338,7 +338,7 @@ const MappingEditor: React.FC<{
         <div
           style={{
             fontSize: "11px",
-            color: "var(--vscode-descriptionForeground, var(--vscode-foreground, #9d9d9d))",
+            color: "var(--trust-text-muted)",
             marginTop: "4px",
           }}
         >
@@ -364,10 +364,10 @@ const MappingEditor: React.FC<{
             width: "100%",
             padding: "6px 8px",
             fontSize: "13px",
-            backgroundColor: "var(--vscode-input-background, #313131)",
-            color: "var(--vscode-input-foreground, var(--vscode-foreground, #cccccc))",
-            border: "1px solid var(--vscode-input-border, #3c3c3c)",
-            borderRadius: "2px",
+            backgroundColor: "var(--trust-input-bg)",
+            color: "var(--vscode-input-foreground, var(--trust-text))",
+            border: "1px solid var(--trust-input-border)",
+            borderRadius: "var(--trust-radius)",
           }}
         >
           {actionTypes.map((type) => (
@@ -398,10 +398,10 @@ const MappingEditor: React.FC<{
                 width: "100%",
                 padding: "6px 8px",
                 fontSize: "13px",
-                backgroundColor: "var(--vscode-input-background, #313131)",
-                color: "var(--vscode-input-foreground, var(--vscode-foreground, #cccccc))",
-                border: "1px solid var(--vscode-input-border, #3c3c3c)",
-                borderRadius: "2px",
+                backgroundColor: "var(--trust-input-bg)",
+                color: "var(--vscode-input-foreground, var(--trust-text))",
+                border: "1px solid var(--trust-input-border)",
+                borderRadius: "var(--trust-radius)",
               }}
             >
               <option value="">Select address...</option>
@@ -414,7 +414,7 @@ const MappingEditor: React.FC<{
             <div
               style={{
                 fontSize: "11px",
-                color: "var(--vscode-descriptionForeground, var(--vscode-foreground, #9d9d9d))",
+                color: "var(--trust-text-muted)",
                 marginTop: "4px",
               }}
             >
@@ -492,10 +492,10 @@ const MappingEditor: React.FC<{
               width: "100%",
               padding: "6px 8px",
               fontSize: "13px",
-              backgroundColor: "var(--vscode-input-background, #313131)",
-              color: "var(--vscode-input-foreground, var(--vscode-foreground, #cccccc))",
-              border: "1px solid var(--vscode-input-border, #3c3c3c)",
-              borderRadius: "2px",
+              backgroundColor: "var(--trust-input-bg)",
+              color: "var(--vscode-input-foreground, var(--trust-text))",
+              border: "1px solid var(--trust-input-border)",
+              borderRadius: "var(--trust-radius)",
             }}
           />
         </div>
@@ -523,10 +523,10 @@ const MappingEditor: React.FC<{
                 width: "100%",
                 padding: "6px 8px",
                 fontSize: "13px",
-                backgroundColor: "var(--vscode-input-background, #313131)",
-                color: "var(--vscode-input-foreground, var(--vscode-foreground, #cccccc))",
-                border: "1px solid var(--vscode-input-border, #3c3c3c)",
-                borderRadius: "2px",
+                backgroundColor: "var(--trust-input-bg)",
+                color: "var(--vscode-input-foreground, var(--trust-text))",
+                border: "1px solid var(--trust-input-border)",
+                borderRadius: "var(--trust-radius)",
               }}
             />
           </div>
@@ -557,10 +557,10 @@ const MappingEditor: React.FC<{
                 width: "100%",
                 padding: "6px 8px",
                 fontSize: "13px",
-                backgroundColor: "var(--vscode-input-background, #313131)",
-                color: "var(--vscode-input-foreground, var(--vscode-foreground, #cccccc))",
-                border: "1px solid var(--vscode-input-border, #3c3c3c)",
-                borderRadius: "2px",
+                backgroundColor: "var(--trust-input-bg)",
+                color: "var(--vscode-input-foreground, var(--trust-text))",
+                border: "1px solid var(--trust-input-border)",
+                borderRadius: "var(--trust-radius)",
               }}
             />
           </div>
@@ -582,11 +582,11 @@ const MappingEditor: React.FC<{
           <div
             style={{
               fontSize: "11px",
-              color: "var(--vscode-descriptionForeground, var(--vscode-foreground, #9d9d9d))",
+              color: "var(--trust-text-muted)",
               padding: "8px",
               backgroundColor: "var(--vscode-textBlockQuote-background)",
               border: "1px solid var(--vscode-textBlockQuote-border)",
-              borderRadius: "2px",
+              borderRadius: "var(--trust-radius)",
             }}
           >
             SET_MULTIPLE requires editing the targets array in JSON format.

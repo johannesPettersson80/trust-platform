@@ -41,6 +41,7 @@ export interface GeneratedCode {
  */
 export class BlocklyEngine {
   private variables: Map<string, string> = new Map();
+  private variableIds: Map<string, string> = new Map();
   private errors: string[] = [];
   private blockById: Map<string, BlockDefinition> = new Map();
 
@@ -51,27 +52,37 @@ export class BlocklyEngine {
    */
   generateCode(workspace: BlocklyWorkspace): GeneratedCode {
     this.variables.clear();
+    this.variableIds.clear();
     this.errors = [];
     this.blockById.clear();
 
     // Process variables
     if (workspace.variables) {
       for (const variable of workspace.variables) {
-        this.variables.set(variable.name, variable.type || "BOOL");
+        this.variables.set(variable.name, variable.type || "");
+        this.variableIds.set(variable.id, variable.name);
       }
     }
+
+    if (workspace.blocks && workspace.blocks.blocks) {
+      for (const block of workspace.blocks.blocks) {
+        this.registerBlockTree(block);
+      }
+
+      for (const block of workspace.blocks.blocks) {
+        this.inferVariableTypes(block);
+      }
+    }
+
+    this.finalizeVariableTypes();
 
     // Generate variable declarations
     const varDeclarations = this.generateVariableDeclarations();
 
     // Generate program body
     const bodyLines: string[] = [];
-    
-    if (workspace.blocks && workspace.blocks.blocks) {
-      for (const block of workspace.blocks.blocks) {
-        this.registerBlockTree(block);
-      }
 
+    if (workspace.blocks && workspace.blocks.blocks) {
       for (const block of workspace.blocks.blocks) {
         bodyLines.push(...this.generateStatementChain(block));
       }
@@ -186,12 +197,16 @@ export class BlocklyEngine {
     switch (block.type) {
       case "controls_if":
         return this.generateIfBlock(block);
+      case "controls_whileUntil":
+        return this.generateWhileUntilBlock(block);
       case "logic_compare":
         return this.generateCompareBlock(block);
       case "math_arithmetic":
         return this.generateArithmeticBlock(block);
       case "variables_set":
         return this.generateSetVariableBlock(block);
+      case "variables_get":
+        return this.generateGetVariableBlock(block);
       case "io_digital_write":
         return this.generateDigitalWriteBlock(block);
       case "io_digital_read":
@@ -228,6 +243,34 @@ export class BlocklyEngine {
       : "";
 
     return `IF ${condition} THEN${statements}\nEND_IF;`;
+  }
+
+  /**
+   * Generate a pre-tested loop from Blockly's while/until block.
+   *
+   * Blockly's UNTIL mode is also pre-tested, so ST WHILE with a negated
+   * condition preserves the block semantics better than ST REPEAT.
+   */
+  private generateWhileUntilBlock(block: BlockDefinition): string {
+    const conditionBlock = this.resolveInputBlock(block, ["BOOL"]);
+    const rawCondition = conditionBlock
+      ? this.generateBlockCode(conditionBlock)
+      : "FALSE";
+    const mode = String(block.fields?.["MODE"] || "WHILE").toUpperCase();
+    const condition =
+      mode === "UNTIL" ? `NOT (${rawCondition})` : rawCondition;
+
+    const doBlock = this.resolveInputBlock(block, ["DO"]);
+    const doStatements = doBlock ? this.generateStatementChain(doBlock) : [];
+
+    const indent = "  ";
+    const statements = doStatements.length
+      ? `\n${doStatements
+          .map((statement) => this.indentMultiline(statement, indent))
+          .join("\n")}`
+      : "";
+
+    return `WHILE ${condition} DO${statements}\nEND_WHILE;`;
   }
 
   /**
@@ -281,20 +324,19 @@ export class BlocklyEngine {
    * Generate variable assignment
    */
   private generateSetVariableBlock(block: BlockDefinition): string {
-    const varField = block.fields?.["VAR"];
-    const varName =
-      typeof varField === "string"
-        ? varField
-        : typeof varField === "object" &&
-            varField !== null &&
-            typeof (varField as { name?: unknown }).name === "string"
-          ? (varField as { name: string }).name
-          : "temp";
+    const varName = this.resolveVariableName(block.fields?.["VAR"]);
     const value = block.inputs?.["VALUE"]?.block
       ? this.generateBlockCode(block.inputs["VALUE"].block)
       : "0";
 
     return `${varName} := ${value};`;
+  }
+
+  /**
+   * Generate a variable reference.
+   */
+  private generateGetVariableBlock(block: BlockDefinition): string {
+    return this.resolveVariableName(block.fields?.["VAR"]);
   }
 
   /**
@@ -339,6 +381,84 @@ export class BlocklyEngine {
   private generateNumberBlock(block: BlockDefinition): string {
     const num = block.fields?.["NUM"] || "0";
     return String(num);
+  }
+
+  private resolveVariableName(varField: unknown): string {
+    if (typeof varField === "string" && varField.trim()) {
+      return varField;
+    }
+
+    if (!varField || typeof varField !== "object") {
+      return "temp";
+    }
+
+    const candidate = varField as { id?: unknown; name?: unknown };
+    if (typeof candidate.name === "string" && candidate.name.trim()) {
+      return candidate.name;
+    }
+
+    if (typeof candidate.id === "string" && candidate.id.trim()) {
+      return this.variableIds.get(candidate.id) || this.sanitizeIdentifier(candidate.id);
+    }
+
+    return "temp";
+  }
+
+  private inferVariableTypes(block: BlockDefinition | undefined): void {
+    if (!block) {
+      return;
+    }
+
+    if (block.type === "variables_set") {
+      const varName = this.resolveVariableName(block.fields?.["VAR"]);
+      const valueBlock = this.resolveInputBlock(block, ["VALUE"]);
+      const inferredType = this.inferExpressionType(valueBlock);
+      if (inferredType && !this.variables.get(varName)) {
+        this.variables.set(varName, inferredType);
+      }
+    }
+
+    if (block.inputs) {
+      for (const input of Object.values(block.inputs)) {
+        this.inferVariableTypes(this.resolveInputBlockValue(input));
+      }
+    }
+
+    this.inferVariableTypes(this.resolveNextBlock(block.next));
+  }
+
+  private inferExpressionType(block: BlockDefinition | undefined): string | undefined {
+    if (!block) {
+      return undefined;
+    }
+
+    switch (block.type) {
+      case "logic_boolean":
+      case "logic_compare":
+      case "io_digital_read":
+        return "BOOL";
+      case "math_number": {
+        const value = String(block.fields?.["NUM"] ?? "0");
+        return value.includes(".") ? "REAL" : "INT";
+      }
+      case "math_arithmetic": {
+        const leftType = this.inferExpressionType(this.resolveInputBlock(block, ["A"]));
+        const rightType = this.inferExpressionType(this.resolveInputBlock(block, ["B"]));
+        return leftType === "REAL" || rightType === "REAL" ? "REAL" : "INT";
+      }
+      case "variables_get":
+        return this.variables.get(this.resolveVariableName(block.fields?.["VAR"])) || undefined;
+      default:
+        return undefined;
+    }
+  }
+
+  private finalizeVariableTypes(): void {
+    for (const [name, type] of this.variables) {
+      if (!type) {
+        this.variables.set(name, "BOOL");
+      }
+    }
   }
 
   private resolveInputBlock(
@@ -412,6 +532,22 @@ export class BlocklyEngine {
       .replace(/_+$/, "");
     if (!normalized) {
       return "FB_BlocklyGenerated";
+    }
+    if (/^[0-9]/.test(normalized)) {
+      return `_${normalized}`;
+    }
+    return normalized;
+  }
+
+  private sanitizeIdentifier(raw: string): string {
+    const normalized = raw
+      .trim()
+      .replace(/[^A-Za-z0-9_]/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_+/, "")
+      .replace(/_+$/, "");
+    if (!normalized) {
+      return "temp";
     }
     if (/^[0-9]/.test(normalized)) {
       return `_${normalized}`;

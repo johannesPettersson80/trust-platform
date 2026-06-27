@@ -1,6 +1,21 @@
 import React, { memo } from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
 import type { SfcStepNode } from "./types";
+import { t, tint } from "../../webview/theme";
+
+export const STEP_TARGET_TOP = "step-target-top";
+export const STEP_TARGET_LEFT = "step-target-left";
+export const STEP_TARGET_RIGHT = "step-target-right";
+export const STEP_SOURCE_BOTTOM = "step-source-bottom";
+export const STEP_SOURCE_LEFT = "step-source-left";
+export const STEP_SOURCE_RIGHT = "step-source-right";
+
+const baseHandleStyle: React.CSSProperties = {
+  background: t.border,
+  width: 8,
+  height: 8,
+  border: `1px solid ${t.canvas}`,
+};
 
 /**
  * Custom node component for SFC steps following IEC 61131-3 standard
@@ -18,20 +33,20 @@ export const StepNode = memo(({ data, selected }: NodeProps<SfcStepNode>) => {
   const isFinal = data.type === "final";
 
   const borderColor = selected
-    ? "var(--vscode-focusBorder)"
+    ? t.accent
     : data.isCurrentDebugStep
-    ? "#FFA500"
-    : "var(--vscode-editor-foreground)";
+    ? t.warn
+    : t.text;
 
   const backgroundColor = data.isActive
-    ? "#4caf50"
+    ? t.ok
     : data.isCurrentDebugStep
-    ? "rgba(255, 165, 0, 0.2)"
-    : "var(--vscode-editor-background)";
+    ? tint(t.warn, 0.2)
+    : t.canvas;
 
   const textColor = data.isActive
-    ? "#ffffff"
-    : "var(--vscode-editor-foreground)";
+    ? t.onAccent
+    : t.text;
   
   const borderWidth = data.isActive ? "3px" : isInitial ? "3px" : "2px";
 
@@ -55,10 +70,10 @@ export const StepNode = memo(({ data, selected }: NodeProps<SfcStepNode>) => {
     alignItems: "center",
     justifyContent: "center",
     boxSizing: "border-box",
-    boxShadow: data.isActive 
-      ? `0 0 0 3px ${borderColor}, 0 4px 12px rgba(76, 175, 80, 0.4)` 
-      : selected 
-      ? `0 0 0 2px var(--vscode-focusBorder)` 
+    boxShadow: data.isActive
+      ? `0 0 0 3px ${borderColor}, 0 4px 12px ${tint(t.ok, 0.4)}`
+      : selected
+      ? `0 0 0 2px ${t.accent}`
       : "none",
   };
 
@@ -83,9 +98,9 @@ export const StepNode = memo(({ data, selected }: NodeProps<SfcStepNode>) => {
             width: "16px",
             height: "16px",
             borderRadius: "50%",
-            background: "#E51400",
-            border: "2px solid var(--vscode-editor-background)",
-            boxShadow: "0 0 4px rgba(229, 20, 0, 0.6)",
+            background: t.breakpoint,
+            border: `2px solid ${t.canvas}`,
+            boxShadow: `0 0 4px ${tint(t.breakpoint, 0.6)}`,
             zIndex: 10,
           }}
           title="Breakpoint"
@@ -93,14 +108,33 @@ export const StepNode = memo(({ data, selected }: NodeProps<SfcStepNode>) => {
       )}
 
       <Handle
+        id={STEP_TARGET_TOP}
         type="target"
         position={Position.Top}
         style={{
+          ...baseHandleStyle,
           background: borderColor,
-          width: 8,
-          height: 8,
-          border: "none",
           top: -4,
+        }}
+      />
+      <Handle
+        id={STEP_TARGET_LEFT}
+        type="target"
+        position={Position.Left}
+        style={{
+          ...baseHandleStyle,
+          background: borderColor,
+          left: -4,
+        }}
+      />
+      <Handle
+        id={STEP_TARGET_RIGHT}
+        type="target"
+        position={Position.Right}
+        style={{
+          ...baseHandleStyle,
+          background: borderColor,
+          right: -4,
         }}
       />
 
@@ -132,14 +166,35 @@ export const StepNode = memo(({ data, selected }: NodeProps<SfcStepNode>) => {
       )}
 
       <Handle
+        id={STEP_SOURCE_BOTTOM}
         type="source"
         position={Position.Bottom}
         style={{
+          ...baseHandleStyle,
           background: borderColor,
-          width: 8,
-          height: 8,
-          border: "none",
           bottom: -4,
+        }}
+      />
+      <Handle
+        id={STEP_SOURCE_LEFT}
+        type="source"
+        position={Position.Left}
+        style={{
+          ...baseHandleStyle,
+          background: borderColor,
+          left: -4,
+          top: "62%",
+        }}
+      />
+      <Handle
+        id={STEP_SOURCE_RIGHT}
+        type="source"
+        position={Position.Right}
+        style={{
+          ...baseHandleStyle,
+          background: borderColor,
+          right: -4,
+          top: "62%",
         }}
       />
     </div>

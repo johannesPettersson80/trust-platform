@@ -4,8 +4,6 @@ import {
   BackgroundVariant,
   Controls,
   MarkerType,
-  MiniMap,
-  Panel,
   ReactFlow,
   type ReactFlowInstance,
   type XYPosition,
@@ -15,12 +13,11 @@ import "./sfcEditor.css";
 import { ParallelNode } from "./ParallelNode";
 import { PropertiesPanel } from "./PropertiesPanel";
 import { SfcCodePanel } from "./SfcCodePanel";
-import { SfcExecutionPanel } from "./SfcExecutionPanel";
 import { StepNode } from "./StepNode";
 import { SfcDragItemType, SfcToolsPanel } from "./SfcToolsPanel";
+import { TransitionEdge } from "./TransitionEdge";
 import { useSfc } from "./hooks/useSfc";
 import {
-  SfcExecutionState,
   SfcExtensionToWebviewMessage,
   SfcNode,
   SfcTransitionEdge,
@@ -28,12 +25,8 @@ import {
 } from "./types";
 import { getVsCodeApi } from "../../visual/runtime/webview/vscodeApi";
 import { useRightPaneResize } from "../../visual/runtime/webview/useRightPaneResize";
-import {
-  DEFAULT_RUNTIME_UI_STATE,
-  type RightPaneView,
-  type RuntimeUiState,
-} from "../../visual/runtime/runtimeTypes";
 import "../../visual/runtime/webview/rightPaneResize.css";
+import { t } from "../../webview/theme";
 
 const vscode = getVsCodeApi();
 
@@ -42,7 +35,15 @@ const nodeTypes = {
   parallelSplit: ParallelNode,
   parallelJoin: ParallelNode,
 } as const;
+const edgeTypes = {
+  transition: TransitionEdge,
+} as const;
 const DRAG_MIME_TYPE = "application/x-trust-sfc-node";
+const SFC_FIT_VIEW_OPTIONS = {
+  padding: 0.2,
+  minZoom: 0.5,
+  maxZoom: 1,
+} as const;
 
 /**
  * Main SFC Editor Component
@@ -75,15 +76,11 @@ export const SfcEditor: React.FC = () => {
 
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
   const [selectedEdgeIds, setSelectedEdgeIds] = useState<string[]>([]);
-  const [executionState, setExecutionState] = useState<SfcExecutionState | null>(null);
-  const [runtimeState, setRuntimeState] = useState<RuntimeUiState>(
-    DEFAULT_RUNTIME_UI_STATE
-  );
-  const [rightPaneView, setRightPaneView] = useState<RightPaneView>("io");
   const [showCodePanel, setShowCodePanel] = useState(false);
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [codeErrors, setCodeErrors] = useState<string[]>([]);
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
+  const [fitViewRequest, setFitViewRequest] = useState(0);
   const [reactFlowInstance, setReactFlowInstance] = useState<
     ReactFlowInstance<SfcNode, SfcTransitionEdge> | null
   >(null);
@@ -101,6 +98,25 @@ export const SfcEditor: React.FC = () => {
     } as SfcWebviewToExtensionMessage);
   }, []);
 
+  const requestFitView = useCallback(() => {
+    setFitViewRequest((value) => value + 1);
+  }, []);
+
+  useEffect(() => {
+    if (!reactFlowInstance || fitViewRequest === 0) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      reactFlowInstance.fitView({
+        ...SFC_FIT_VIEW_OPTIONS,
+        duration: 150,
+      });
+    }, 80);
+
+    return () => window.clearTimeout(timeout);
+  }, [edges.length, fitViewRequest, nodes.length, reactFlowInstance]);
+
   // Handle messages from extension
   useEffect(() => {
     const handleMessage = (event: MessageEvent<SfcExtensionToWebviewMessage>) => {
@@ -113,18 +129,18 @@ export const SfcEditor: React.FC = () => {
             if (message.content) {
               const workspace = JSON.parse(message.content);
               importFromJson(workspace);
+              requestFitView();
             }
           } catch (error) {
             console.error("Failed to parse SFC workspace:", error);
             vscode.postMessage({
               type: "error",
-              error: String(error),
+              error: "Could not open this SFC because the file is not valid JSON.",
             } as SfcWebviewToExtensionMessage);
           }
           break;
 
         case "executionState":
-          setExecutionState(message.state);
           highlightActiveSteps(message.state.activeSteps || []);
           if (message.state.breakpoints !== undefined) {
             updateDebugState(
@@ -136,14 +152,11 @@ export const SfcEditor: React.FC = () => {
           break;
 
         case "executionStopped":
-          setExecutionState(null);
           highlightActiveSteps([]);
           break;
 
         case "runtime.state":
-          setRuntimeState(message.state);
           if (!message.state.isExecuting) {
-            setExecutionState(null);
             highlightActiveSteps([]);
           }
           break;
@@ -176,6 +189,7 @@ export const SfcEditor: React.FC = () => {
     handleToggleBreakpoint,
     highlightActiveSteps,
     importFromJson,
+    requestFitView,
     updateDebugState,
   ]);
 
@@ -264,15 +278,18 @@ export const SfcEditor: React.FC = () => {
 
   const handleAddStep = useCallback(() => {
     addNodeAtPosition("step");
-  }, [addNodeAtPosition]);
+    requestFitView();
+  }, [addNodeAtPosition, requestFitView]);
 
   const handleAddParallelSplit = useCallback(() => {
     addNodeAtPosition("parallelSplit");
-  }, [addNodeAtPosition]);
+    requestFitView();
+  }, [addNodeAtPosition, requestFitView]);
 
   const handleAddParallelJoin = useCallback(() => {
     addNodeAtPosition("parallelJoin");
-  }, [addNodeAtPosition]);
+    requestFitView();
+  }, [addNodeAtPosition, requestFitView]);
 
   const handleDelete = useCallback(() => {
     deleteSelected({
@@ -301,7 +318,8 @@ export const SfcEditor: React.FC = () => {
 
   const handleAutoLayout = useCallback(() => {
     autoLayout();
-  }, [autoLayout]);
+    requestFitView();
+  }, [autoLayout, requestFitView]);
 
   const handleToggleCodePanel = useCallback(() => {
     setShowCodePanel((prev) => {
@@ -318,24 +336,6 @@ export const SfcEditor: React.FC = () => {
       navigator.clipboard.writeText(generatedCode);
     }
   }, [generatedCode]);
-
-  const handleDebugPause = useCallback(() => {
-    vscode.postMessage({
-      type: "debugPause",
-    } as SfcWebviewToExtensionMessage);
-  }, []);
-
-  const handleDebugResume = useCallback(() => {
-    vscode.postMessage({
-      type: "debugResume",
-    } as SfcWebviewToExtensionMessage);
-  }, []);
-
-  const handleDebugStepOver = useCallback(() => {
-    vscode.postMessage({
-      type: "debugStepOver",
-    } as SfcWebviewToExtensionMessage);
-  }, []);
 
   const handleCloseProperties = useCallback(() => {
     clearSelection();
@@ -376,7 +376,6 @@ export const SfcEditor: React.FC = () => {
       : null;
 
   const hasSelection = selectedNodeIds.length > 0 || selectedEdgeIds.length > 0;
-  const stepCount = nodes.filter((node) => node.type === "step").length;
 
   return (
     <div className="sfc-editor" style={{ width: "100%", height: "100vh", display: "flex" }}>
@@ -393,16 +392,13 @@ export const SfcEditor: React.FC = () => {
           onDragOver={handleCanvasDragOver}
           onDrop={handleCanvasDrop}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           fitView
-          fitViewOptions={{
-            padding: 0.2,
-            minZoom: 0.5,
-            maxZoom: 1,
-          }}
+          fitViewOptions={SFC_FIT_VIEW_OPTIONS}
           snapToGrid
           snapGrid={[15, 15]}
           defaultEdgeOptions={{
-            type: "smoothstep",
+            type: "transition",
             animated: true,
             markerEnd: {
               type: MarkerType.ArrowClosed,
@@ -414,21 +410,21 @@ export const SfcEditor: React.FC = () => {
               strokeWidth: 2,
             },
             labelStyle: {
-              fill: "var(--vscode-editor-foreground)",
+              fill: "var(--trust-text)",
               fontSize: "11px",
               fontWeight: 600,
             },
-            labelBgPadding: [7, 3],
-            labelBgBorderRadius: 4,
+            labelBgPadding: [9, 4],
+            labelBgBorderRadius: 6,
             labelBgStyle: {
-              fill: "var(--vscode-editor-background)",
+              fill: "var(--trust-surface)",
               fillOpacity: 0.92,
-              stroke: "var(--vscode-panel-border)",
+              stroke: "var(--trust-border)",
               strokeWidth: 1,
             },
           }}
           style={{
-            background: "var(--vscode-editor-background)",
+            background: t.canvas,
           }}
         >
           <Background
@@ -438,57 +434,6 @@ export const SfcEditor: React.FC = () => {
             color="var(--vscode-editorWidget-border)"
           />
           <Controls />
-          <MiniMap
-            nodeColor={(node) => {
-              const data = node.data;
-              if (data?.isActive) {
-                return "#4caf50";
-              }
-              if (data?.isCurrentDebugStep) {
-                return "#FFA500";
-              }
-              if (data?.type === "initial") {
-                return "#2196f3";
-              }
-              if (
-                data?.nodeType === "parallelSplit" ||
-                data?.nodeType === "parallelJoin"
-              ) {
-                return "#9c27b0";
-              }
-              return "#757575";
-            }}
-            style={{
-              backgroundColor: "var(--vscode-editor-background)",
-              border: "1px solid var(--vscode-panel-border)",
-            }}
-          />
-
-          <Panel
-            position="bottom-right"
-            style={{
-              padding: "8px 12px",
-              backgroundColor: "var(--vscode-editor-background)",
-              border: "1px solid var(--vscode-panel-border)",
-              borderRadius: "4px",
-              fontSize: "12px",
-            }}
-          >
-            <div>Steps: {stepCount}</div>
-            <div>Transitions: {edges.length}</div>
-            {nodes.length > stepCount && (
-              <div>Parallel Nodes: {nodes.length - stepCount}</div>
-            )}
-            {selectedNode && <div>Selected: {selectedNode.data.label}</div>}
-            {!selectedNode && selectedEdge && (
-              <div>Selected Transition: {selectedEdge.data.label || selectedEdge.id}</div>
-            )}
-            {executionState && executionState.activeSteps.length > 0 && (
-              <div style={{ color: "#4caf50", fontWeight: 600 }}>
-                Active: {executionState.activeSteps.length}
-              </div>
-            )}
-          </Panel>
         </ReactFlow>
 
         {showCodePanel && (
@@ -506,114 +451,46 @@ export const SfcEditor: React.FC = () => {
       <div
         style={{
           ...rightPaneStyle,
-          borderLeft: "1px solid var(--vscode-panel-border, #2b2b2b)",
-          backgroundColor: "var(--vscode-sideBar-background, var(--vscode-editor-background, #1e1e1e))",
-          display: "flex",
-          flexDirection: "column",
-          overflowY: "auto",
-          overflowX: "hidden",
         }}
-        className="right-pane-resizable"
+        className="trust-inspector right-pane-resizable"
       >
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-            gap: "6px",
-            padding: "8px",
-            borderBottom: "1px solid var(--vscode-panel-border, #2b2b2b)",
-            position: "sticky",
-            top: 0,
-            zIndex: 3,
-            background: "var(--vscode-sideBar-background, var(--vscode-editor-background, #1e1e1e))",
-          }}
-        >
-          {(["io", "settings", "tools"] as RightPaneView[]).map((view) => (
-            <button
-              key={view}
-              type="button"
-              onClick={() => setRightPaneView(view)}
-              style={{
-                border: "1px solid var(--vscode-button-border, var(--vscode-panel-border, #2b2b2b))",
-                borderRadius: "4px",
-                background:
-                  rightPaneView === view
-                    ? "var(--vscode-button-background, #0e639c)"
-                    : "var(--vscode-button-secondaryBackground, var(--vscode-button-background, #313131))",
-                color:
-                  rightPaneView === view
-                    ? "var(--vscode-button-foreground, #ffffff)"
-                    : "var(--vscode-button-secondaryForeground, var(--vscode-button-foreground, #cccccc))",
-                borderColor:
-                  rightPaneView === view
-                    ? "var(--vscode-focusBorder, #007fd4)"
-                    : "var(--vscode-button-border, var(--vscode-panel-border, #2b2b2b))",
-                padding: "5px 8px",
-                fontSize: "11px",
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-              aria-pressed={rightPaneView === view}
-            >
-              {view === "io" ? "I/O" : view === "settings" ? "Settings" : "Tools"}
-            </button>
-          ))}
+        <div className="trust-inspector__header">
+          <span className="trust-inspector__title">SFC editor</span>
         </div>
 
-        {rightPaneView === "tools" ? (
-          <>
-            <SfcToolsPanel
-              onAddStep={handleAddStep}
-              onAddParallelSplit={handleAddParallelSplit}
-              onAddParallelJoin={handleAddParallelJoin}
-              onToolDragStart={handleToolDragStart}
-              onDelete={handleDelete}
-              onValidate={handleValidate}
-              onGenerateST={handleGenerateST}
-              onAutoLayout={handleAutoLayout}
-              onSave={handleSave}
-              onToggleCodePanel={handleToggleCodePanel}
-              showCodePanel={showCodePanel}
-              hasSelection={hasSelection}
-            />
-            {(selectedNode || selectedEdge) && (
-              <PropertiesPanel
-                selectedNode={selectedNode}
-                selectedEdge={selectedEdge}
-                variables={variables}
-                onUpdateStepNode={updateStepNodeData}
-                onUpdateParallelNode={updateParallelNodeData}
-                onUpdateEdge={updateEdgeData}
-                onAddAction={addActionToStep}
-                onUpdateAction={updateAction}
-                onDeleteAction={deleteAction}
-                onUpdateVariables={updateVariables}
-                onClose={handleCloseProperties}
-              />
-            )}
-            {!selectedNode && !selectedEdge && (
-              <div
-                style={{
-                  padding: "16px",
-                  fontSize: "12px",
-                  color: "var(--vscode-descriptionForeground, var(--vscode-foreground, #9d9d9d))",
-                  textAlign: "center",
-                }}
-              >
-                <div>Select a step, parallel node, or transition to view properties</div>
-              </div>
-            )}
-          </>
-        ) : (
-          <SfcExecutionPanel
-            activeRuntimeView={rightPaneView === "settings" ? "settings" : "io"}
-            runtimeState={runtimeState}
-            executionState={executionState}
-            onViewChange={setRightPaneView}
-            onDebugPause={handleDebugPause}
-            onDebugResume={handleDebugResume}
-            onDebugStepOver={handleDebugStepOver}
+        <SfcToolsPanel
+          onAddStep={handleAddStep}
+          onAddParallelSplit={handleAddParallelSplit}
+          onAddParallelJoin={handleAddParallelJoin}
+          onToolDragStart={handleToolDragStart}
+          onDelete={handleDelete}
+          onValidate={handleValidate}
+          onGenerateST={handleGenerateST}
+          onAutoLayout={handleAutoLayout}
+          onSave={handleSave}
+          onToggleCodePanel={handleToggleCodePanel}
+          showCodePanel={showCodePanel}
+          hasSelection={hasSelection}
+        />
+        {(selectedNode || selectedEdge) && (
+          <PropertiesPanel
+            selectedNode={selectedNode}
+            selectedEdge={selectedEdge}
+            variables={variables}
+            onUpdateStepNode={updateStepNodeData}
+            onUpdateParallelNode={updateParallelNodeData}
+            onUpdateEdge={updateEdgeData}
+            onAddAction={addActionToStep}
+            onUpdateAction={updateAction}
+            onDeleteAction={deleteAction}
+            onUpdateVariables={updateVariables}
+            onClose={handleCloseProperties}
           />
+        )}
+        {!selectedNode && !selectedEdge && (
+          <div className="trust-empty">
+            <div>Select a step, parallel node, or transition to view properties</div>
+          </div>
         )}
       </div>
     </div>

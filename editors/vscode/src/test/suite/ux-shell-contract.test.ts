@@ -78,6 +78,8 @@ const HIDDEN_FROM_PALETTE = [
   "trust-lsp.debug.reload", // "Hot Reload" — Run bar Apply changes drives this
   "trust-lsp.hmi.init", // raw HMI init — reached via the adaptive HMI launcher
   "trust-lsp.hmi.refreshFromDescriptor", // raw HMI refresh
+  "trust-lsp.trustTwin.openPanel", // trust-twin 3D panel — internal/experimental, scoped out of the first-user flow
+  "trust-lsp.trustTwin.refreshPanel", // trust-twin 3D panel refresh
 ];
 
 const ADS_HIDDEN = [
@@ -113,6 +115,19 @@ suite("Phase 1 — palette cleanup (v5 shell)", () => {
       assert.ok(
         titles.has(command),
         `${command} must remain a registered command (hidden from palette, not removed)`
+      );
+    }
+  });
+
+  test("no palette-visible command embeds a 'Structured Text:' category prefix (one truST category)", () => {
+    const pkg = loadPackageJson();
+    for (const cmd of pkg.contributes?.commands ?? []) {
+      if (!cmd.command || paletteHidden(pkg, cmd.command)) {
+        continue;
+      }
+      assert.ok(
+        !(cmd.title ?? "").startsWith("Structured Text:"),
+        `${cmd.command} (palette-visible) must not embed a category prefix in its title: "${cmd.title}"`
       );
     }
   });
@@ -339,6 +354,38 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
       "the webview renders a FORCED badge on forced rows"
     );
   });
+
+  test("stopped/no-session state is beginner-facing and clears stale values", () => {
+    const host = readSrc("ioPanel.ts");
+    assert.ok(
+      host.includes("Start the runtime to see live values."),
+      "Live Values must explain the stopped state in user-facing language"
+    );
+    assert.ok(
+      host.includes("function postEmptyIoState"),
+      "Live Values must have a single helper for clearing stale I/O rows"
+    );
+    const requestIoStateBody = host.slice(
+      host.indexOf("async function requestIoState"),
+      host.indexOf("async function writeInput")
+    );
+    assert.ok(
+      requestIoStateBody.includes("postEmptyIoState();"),
+      "a no-session request must clear stale rows before showing stopped guidance"
+    );
+    const terminateBody = host.slice(
+      host.indexOf("vscode.debug.onDidTerminateDebugSession"),
+      host.indexOf("vscode.debug.onDidChangeActiveDebugSession")
+    );
+    assert.ok(
+      terminateBody.includes("postEmptyIoState();"),
+      "debug session termination must clear stale rows"
+    );
+    assert.ok(
+      !/payload:\s*"No active Structured Text debug session\."/.test(host),
+      "Live Values must not display the raw debug-adapter no-session message"
+    );
+  });
 });
 
 suite("Phase 7 — Devices & Connections (shared run-target + naming)", () => {
@@ -424,6 +471,66 @@ suite("Phase 7 — Devices & Connections (shared run-target + naming)", () => {
     assert.ok(
       !byId("docker")?.available && !!byId("docker")?.reason,
       "Run in Docker is gated with a reason (phase 12)"
+    );
+  });
+
+  test("refresh does not post through a disposed canvas panel", () => {
+    const src = panel();
+    assert.ok(
+      src.includes("const panelRef = panel;"),
+      "refresh must snapshot the current webview panel before any await"
+    );
+    assert.ok(
+      src.includes("if (panel !== panelRef)") && src.includes("return;"),
+      "refresh must stop if the panel was disposed/replaced while async work was in flight"
+    );
+    assert.ok(
+      src.includes("panelRef.webview.postMessage"),
+      "refresh must post through the stable panel reference, not the mutable global"
+    );
+  });
+
+  test("node inspector maps raw health ids to user-facing labels", () => {
+    const src = readSrc("networkCanvas/webview/NodeInspector.tsx");
+    assert.ok(
+      src.includes("function healthLabel"),
+      "NodeInspector must map backend health ids before rendering inspector status rows"
+    );
+    assert.ok(
+      /case "configured_policy":[\s\S]*return "Configured";/.test(src),
+      "configured_policy must render as Configured, never as the raw backend enum"
+    );
+    assert.ok(
+      src.includes("healthLabel(health)") &&
+        !src.includes('`${health} · ${str(d.detail)}`'),
+      "endpoint status rows must use healthLabel(health), not raw health ids"
+    );
+  });
+
+  test("starting a new canvas drawer clears stale apply errors", () => {
+    const host = panel();
+    const app = readSrc("networkCanvas/webview/NetworkCanvasApp.tsx");
+    assert.ok(
+      host.includes('case "clearApplyResult"') &&
+        host.includes("lastApplyResult = undefined"),
+      "the canvas host must clear lastApplyResult on request so old faults disappear"
+    );
+    assert.ok(
+      app.includes("function Canvas()") &&
+        app.includes("const clearApplyResult = useCallback"),
+      "the webview must centralize clearing transient apply state"
+    );
+    assert.ok(
+      app.includes('vscode.postMessage({ type: "clearApplyResult" })'),
+      "the webview must tell the host to clear stale apply state, not only local React state"
+    );
+    assert.ok(
+      /onPickSlot:[\s\S]*clearApplyResult\(\);[\s\S]*if \(slot\.add === "device"\)/.test(app),
+      "opening a new Add flow must clear stale validation/fault banners"
+    );
+    assert.ok(
+      /onChoose=\{\(protocol\) => \{[\s\S]*clearApplyResult\(\);[\s\S]*setDraft/.test(app),
+      "choosing a new protocol form must clear stale validation/fault banners"
     );
   });
 });
@@ -592,5 +699,529 @@ suite("Phase 8 — Check program (authoritative compile)", () => {
       !/id="check"/.test(view),
       "no Check button competing with the single Run action"
     );
+  });
+});
+
+suite("VIS — visual editors follow the shared Run + Live Values model", () => {
+  const visualEditorFiles = [
+    "sfc/webview/SfcEditor.tsx",
+    "statechart/webview/StateChartEditor.tsx",
+    "ladder/webview/LadderEditor.tsx",
+    "blockly/webview/BlocklyEditor.tsx",
+  ];
+
+  test("visual editors do not render the legacy embedded runtime/I/O panel", () => {
+    for (const file of visualEditorFiles) {
+      const src = readSrc(file);
+      assert.ok(
+        !src.includes("StRuntimePanel"),
+        `${file} must not import/render StRuntimePanel; use the shared Run card + Live Values surfaces`
+      );
+      assert.ok(
+        !/rightPaneView\s*===\s*"io"|setRightPaneView\("io"\)|>\s*I\/O\s*</.test(src),
+        `${file} must not expose a local I/O tab`
+      );
+      assert.ok(
+        !/rightPaneView\s*===\s*"settings"|setRightPaneView\("settings"\)|>\s*Settings\s*</.test(src),
+        `${file} must not expose a local runtime settings tab`
+      );
+      assert.ok(
+        !/Open Runtime Panel|Compile Diagnostics/.test(src),
+        `${file} must not route users to the old Runtime Panel mental model`
+      );
+      assert.ok(
+        !/MiniMap|<Panel\b/.test(src),
+        `${file} must not render default minimap/stat overlays that obscure the program`
+      );
+    }
+  });
+
+  test("product webviews share the same truST theme source", () => {
+    assert.ok(
+      fs.existsSync(path.join(extensionRoot(), "src", "webview", "theme.ts")),
+      "shared React style tokens must live in src/webview/theme.ts"
+    );
+    assert.ok(
+      fs.existsSync(path.join(extensionRoot(), "src", "webview", "theme.css")),
+      "shared CSS tokens must live in src/webview/theme.css"
+    );
+    assert.ok(
+      !fs.existsSync(path.join(extensionRoot(), "src", "networkCanvas", "webview", "theme.css")),
+      "Devices & Connections must not keep a parallel CSS theme file"
+    );
+
+    const expectedImport = 'import "../../webview/theme.css";';
+    for (const file of [
+      "networkCanvas/webview/NetworkCanvasApp.tsx",
+      "sfc/webview/main.tsx",
+      "statechart/webview/main.tsx",
+      "ladder/webview/main.tsx",
+      "blockly/webview/main.tsx",
+    ]) {
+      const src = readSrc(file);
+      assert.ok(
+        src.includes(expectedImport),
+        `${file} must import the shared CSS theme, not a local theme copy`
+      );
+      assert.ok(
+        !src.includes("trustTheme.css"),
+        `${file} must not import the retired private visual-editor theme`
+      );
+    }
+
+    assert.strictEqual(
+      readSrc("networkCanvas/webview/theme.ts").trim(),
+      'export { t, tint } from "../../webview/theme";',
+      "Devices & Connections must use the shared React style token module"
+    );
+  });
+
+  test("React Flow canvas controls use the shared Devices & Connections treatment", () => {
+    const themeCss = readSrc("webview/theme.css");
+    for (const selector of [
+      ".react-flow__controls",
+      ".react-flow__controls button",
+      ".react-flow__controls button:hover",
+    ]) {
+      assert.ok(
+        themeCss.includes(selector),
+        `shared webview theme must define ${selector} for canvas navigation chrome`
+      );
+    }
+
+    const localControlCss = [
+      "sfc/webview/sfcEditor.css",
+      "statechart/webview/index.html",
+      "statechart/stateChartEditor.ts",
+    ];
+    for (const file of localControlCss) {
+      const src = readSrc(file);
+      assert.ok(
+        !src.includes("--vscode-button-background") &&
+          !src.includes("--vscode-button-hoverBackground"),
+        `${file} must not restyle canvas controls as primary buttons`
+      );
+      assert.ok(
+        !/\\.react-flow__controls\\s*\\{/.test(src) &&
+          !/\\.react-flow__controls button/.test(src),
+        `${file} must not keep a private React Flow controls theme; use src/webview/theme.css`
+      );
+    }
+  });
+
+  test("visual editor right panes use the shared product chrome, not private sidebars", () => {
+    const themeCss = readSrc("webview/theme.css");
+    for (const selector of [
+      ".trust-inspector",
+      ".trust-inspector__header",
+      ".trust-section",
+      ".trust-button",
+      ".trust-input",
+    ]) {
+      assert.ok(
+        themeCss.includes(selector),
+        `shared webview theme must define ${selector} for product chrome`
+      );
+    }
+
+    const editorShells = [
+      "sfc/webview/SfcEditor.tsx",
+      "statechart/webview/StateChartEditor.tsx",
+      "ladder/webview/LadderEditor.tsx",
+      "blockly/webview/BlocklyEditor.tsx",
+    ];
+    for (const file of editorShells) {
+      const src = readSrc(file);
+      assert.ok(
+        src.includes("trust-inspector"),
+        `${file} must render the same inspector/right-pane chrome as Devices & Connections`
+      );
+      assert.ok(
+        src.includes("trust-inspector__title"),
+        `${file} must render its right-pane heading with the shared primary inspector title treatment`
+      );
+      assert.ok(
+        !src.includes(">Editor tools<") && !src.includes('"Editor tools"'),
+        `${file} must not render a generic "Editor tools" right-pane title; use the surface name`
+      );
+      assert.ok(
+        !/right-pane-view-title|blockly-right-pane-title/.test(src),
+        `${file} must not use private right-pane title classes for the primary inspector heading`
+      );
+    }
+
+    const expectedSurfaceTitles: Array<[string, string]> = [
+      ["sfc/webview/SfcEditor.tsx", "SFC editor"],
+      ["statechart/webview/StateChartEditor.tsx", "Statechart editor"],
+      ["ladder/webview/LadderEditor.tsx", "Ladder editor"],
+      ["blockly/webview/BlocklyEditor.tsx", "Blockly editor"],
+    ];
+    for (const [file, title] of expectedSurfaceTitles) {
+      assert.ok(
+        readSrc(file).includes(title),
+        `${file} must use the product-surface title "${title}"`
+      );
+    }
+
+    const productChromeFiles = [
+      "sfc/webview/SfcToolsPanel.tsx",
+      "sfc/webview/SfcCodePanel.tsx",
+      "sfc/webview/sfcEditor.css",
+      "statechart/webview/StatechartToolsPanel.tsx",
+      "statechart/webview/PropertiesPanel.tsx",
+      "statechart/webview/ActionMappingsPanel.tsx",
+      "ladder/webview/styles.css",
+      "blockly/webview/styles.css",
+      "blockly/webview/blocklyTheme.css",
+    ];
+    const forbiddenPrivateChrome = [
+      "vscode-button-secondaryBackground",
+      "vscode-button-secondaryHoverBackground",
+      "vscode-button-secondaryForeground",
+      "vscode-sideBar-background",
+      "vscode-sideBarSectionHeader-background",
+      "vscode-panel-border, #2b2b2b",
+    ];
+    for (const file of productChromeFiles) {
+      const src = readSrc(file);
+      for (const forbidden of forbiddenPrivateChrome) {
+        assert.ok(
+          !src.includes(forbidden),
+          `${file} must not define private visual-editor chrome with ${forbidden}; use shared --trust-* product tokens/classes`
+        );
+      }
+    }
+
+    const forbiddenVisualPanelSelectors = [
+      ".ladder-tools-panel__title",
+      ".ladder-tools-panel__hint",
+      ".ladder-tools-panel__section-title",
+      ".ladder-tools-panel__grid",
+      ".ladder-tools-panel__rungs",
+      ".ladder-tools-panel__button",
+      ".blockly-tools-panel",
+      ".blockly-tools-panel__title",
+      ".blockly-tools-panel__hint",
+      ".blockly-tools-panel__grid",
+      ".blockly-tools-panel__button",
+    ];
+    for (const [file, src] of [
+      ["ladder/webview/styles.css", readSrc("ladder/webview/styles.css")],
+      ["blockly/webview/styles.css", readSrc("blockly/webview/styles.css")],
+    ] as const) {
+      for (const selector of forbiddenVisualPanelSelectors) {
+        assert.ok(
+          !src.includes(selector),
+          `${file} must not define private product chrome selector ${selector}; use shared trust-section/trust-button classes`
+        );
+      }
+    }
+  });
+
+  test("Devices & Connections add pane uses the shared product chrome baseline", () => {
+    const src = readSrc("networkCanvas/webview/AddPane.tsx");
+    for (const required of [
+      'className="trust-inspector"',
+      'className="trust-inspector__header"',
+      'className="trust-inspector__title"',
+      'className="trust-section"',
+      'className="trust-input"',
+    ]) {
+      assert.ok(
+        src.includes(required),
+        `AddPane must use shared product chrome: missing ${required}`
+      );
+    }
+
+    for (const forbidden of [
+      "--vscode-foreground",
+      "--vscode-descriptionForeground",
+      "--vscode-editorWidget-border",
+      "--vscode-editorHoverWidget-background",
+      "--vscode-input-background",
+      "--vscode-input-border",
+    ]) {
+      assert.ok(
+        !src.includes(forbidden),
+        `AddPane product chrome must use shared --trust-* tokens/classes, not ${forbidden}`
+      );
+    }
+  });
+
+  test("Devices & Connections node summaries use the shared product chrome baseline", () => {
+    const src = readSrc("networkCanvas/webview/NodeInspector.tsx");
+    for (const required of [
+      'className="trust-inspector"',
+      'className="trust-inspector__header"',
+      'className="trust-inspector__title"',
+      'className="trust-inspector__eyebrow"',
+      'className="trust-section trust-section--grow"',
+      'className="trust-button"',
+    ]) {
+      assert.ok(
+        src.includes(required),
+        `Node summary must use shared product chrome: missing ${required}`
+      );
+    }
+
+    for (const forbidden of ["primaryBtn", "secondaryBtn", "dangerBtn"]) {
+      assert.ok(
+        !src.includes(forbidden),
+        `Node summary must not keep a parallel inline button style via ${forbidden}`
+      );
+    }
+  });
+
+  test("protocol add/edit forms use the shared product chrome baseline", () => {
+    const addPanel = readSrc("networkCanvas/webview/AddDevicePanel.tsx");
+    const schemaFields = readSrc("networkCanvas/webview/SchemaFields.tsx");
+
+    for (const required of [
+      'className="trust-inspector"',
+      'className="trust-inspector__header"',
+      'className="trust-inspector__title"',
+      'className="trust-section trust-section--grow"',
+      'className="trust-field"',
+      'className="trust-input"',
+      'className="trust-button trust-button--primary"',
+      "trust-message",
+    ]) {
+      assert.ok(
+        addPanel.includes(required),
+        `AddDevicePanel must use shared product chrome: missing ${required}`
+      );
+    }
+
+    for (const required of [
+      'className="trust-field"',
+      "trust-input",
+      "trust-input--error",
+      "trust-field__message",
+      "trust-field__message--error",
+    ]) {
+      assert.ok(
+        schemaFields.includes(required),
+        `SchemaFields must use shared product form chrome: missing ${required}`
+      );
+    }
+
+    const files = new Map([
+      ["AddDevicePanel", addPanel],
+      ["SchemaFields", schemaFields],
+    ]);
+    for (const [name, src] of files) {
+      for (const forbidden of [
+        "--vscode-foreground",
+        "--vscode-descriptionForeground",
+        "--vscode-editorWidget-border",
+        "--vscode-editorHoverWidget-background",
+        "--vscode-input-background",
+        "--vscode-input-border",
+        "--vscode-errorForeground",
+        "labelStyle",
+        "inputStyle",
+        "primaryBtn",
+        "secondaryBtn",
+      ]) {
+        assert.ok(
+          !src.includes(forbidden),
+          `${name} must not keep a parallel protocol-form chrome via ${forbidden}; use shared trust-* classes`
+        );
+      }
+    }
+  });
+
+  test("SFC toolbar add actions reframe the canvas so the result is visible", () => {
+    const src = readSrc("sfc/webview/SfcEditor.tsx");
+    const hook = readSrc("sfc/webview/hooks/useSfc.ts");
+    assert.ok(
+      src.includes("requestFitView") &&
+        /useEffect\([\s\S]*reactFlowInstance\.fitView/.test(src),
+      "SFC toolbar Add actions must request a committed fitView after mutating the graph"
+    );
+    assert.ok(
+      /const handleAddStep[\s\S]*addNodeAtPosition\("step"\);[\s\S]*requestFitView\(\);/.test(
+        src
+      ),
+      "Add Step must reframe after adding so the new step is visible"
+    );
+    assert.ok(
+      /const handleAddParallelSplit[\s\S]*addNodeAtPosition\("parallelSplit"\);[\s\S]*requestFitView\(\);/.test(
+        src
+      ),
+      "Split must reframe after adding so the new node is visible"
+    );
+    assert.ok(
+      /const handleAddParallelJoin[\s\S]*addNodeAtPosition\("parallelJoin"\);[\s\S]*requestFitView\(\);/.test(
+        src
+      ),
+      "Join must reframe after adding so the new node is visible"
+    );
+    assert.ok(
+      hook.includes("nextNodePosition"),
+      "SFC hook must calculate toolbar-added node placement from existing node positions"
+    );
+    assert.ok(
+      !hook.includes("150 + nds.length * 100"),
+      "SFC toolbar-added nodes must not use the old overlapping vertical placement formula"
+    );
+  });
+
+  test("SFC transition routing avoids stacking non-linear labels through the center line", () => {
+    const stepNode = readSrc("sfc/webview/StepNode.tsx");
+    const hook = readSrc("sfc/webview/hooks/useSfc.ts");
+    const editor = readSrc("sfc/webview/SfcEditor.tsx");
+    const transitionEdge = readSrc("sfc/webview/TransitionEdge.tsx");
+    assert.ok(
+      editor.includes("TransitionEdge") && editor.includes("edgeTypes"),
+      "SFC must use the custom transition edge renderer, not React Flow's default midpoint labels"
+    );
+    assert.ok(
+      transitionEdge.includes("EdgeLabelRenderer") &&
+        transitionEdge.includes("labelOffset(sourcePosition)") &&
+        transitionEdge.includes("sfc-transition-label"),
+      "SFC transition labels must be offset from side-routed edges and inspectable by the VIS runner"
+    );
+    for (const handle of [
+      "STEP_TARGET_LEFT",
+      "STEP_TARGET_RIGHT",
+      "STEP_SOURCE_LEFT",
+      "STEP_SOURCE_RIGHT",
+    ]) {
+      assert.ok(
+        stepNode.includes(handle),
+        `SFC step nodes must expose ${handle} for readable side-routed transitions`
+      );
+      assert.ok(
+        hook.includes(handle),
+        `SFC import/connect routing must use ${handle} when a transition is not a simple downward edge`
+      );
+    }
+    assert.ok(
+      hook.includes("stepConnectionHandles"),
+      "SFC edge routing must use the shared stepConnectionHandles helper"
+    );
+    assert.ok(
+      /deltaY\s*<\s*0[\s\S]*STEP_SOURCE_LEFT[\s\S]*STEP_TARGET_LEFT/.test(hook),
+      "backward SFC transitions must route to side handles instead of overlapping the vertical path"
+    );
+    assert.ok(
+      /deltaY\s*>\s*expectedVerticalGap[\s\S]*STEP_SOURCE_RIGHT[\s\S]*STEP_TARGET_RIGHT/.test(hook),
+      "skip SFC transitions must route to side handles instead of overlapping intermediate labels"
+    );
+  });
+
+  test("Statechart import and add actions reframe the canvas inside the shared editor shell", () => {
+    const src = readSrc("statechart/webview/StateChartEditor.tsx");
+    const hook = readSrc("statechart/webview/hooks/useStateChart.ts");
+    assert.ok(
+      src.includes("STATECHART_FIT_VIEW_OPTIONS"),
+      "Statechart editor must use explicit fitView options for predictable framing"
+    );
+    assert.ok(
+      src.includes("requestFitView"),
+      "Statechart editor must request fitView after graph mutations"
+    );
+    assert.ok(
+      /importFromXState\(config\);[\s\S]*requestFitView\(\);/.test(src),
+      "Statechart import must reframe after loading nodes"
+    );
+    assert.ok(
+      /const handleAddState[\s\S]*addNewState\("normal"\);[\s\S]*requestFitView\(\);/.test(
+        src
+      ),
+      "Add State must reframe so the new state and existing small graph stay visible"
+    );
+    assert.ok(
+      /const handleAutoLayout[\s\S]*autoLayout\(\);[\s\S]*requestFitView\(\);/.test(
+        src
+      ),
+      "Auto Layout must reframe after moving nodes"
+    );
+    assert.ok(
+      /const STATE_GRID_X = 2[2-9]0;/.test(hook) &&
+        /const STATE_GRID_Y = 2[2-9]0;/.test(hook),
+      "Statechart grid spacing must leave room for edge labels between cards"
+    );
+    assert.ok(
+      hook.includes("transitionHandles") &&
+        hook.includes("STATE_SOURCE_RIGHT") &&
+        hook.includes("STATE_TARGET_LEFT"),
+      "Statechart same-row transitions must use side handles so labels do not sit on cards"
+    );
+    const edge = readSrc("statechart/webview/StateTransitionEdge.tsx");
+    assert.ok(
+      edge.includes("EdgeLabelRenderer") &&
+        edge.includes("statechart-transition-label") &&
+        edge.includes("labelTranslateY") &&
+        edge.includes("sourcePosition === Position.Left") &&
+        edge.includes("targetPosition === Position.Right") &&
+        edge.includes("sourcePosition === Position.Bottom") &&
+        edge.includes("targetPosition === Position.Top"),
+      "Statechart backward and row-crossing transitions must lift labels away from cards"
+    );
+  });
+
+  test("visual-editor chrome does not add private hardcoded colours", () => {
+    const allowedSharedThemeFiles = new Set(["webview/theme.ts", "webview/theme.css"]);
+    const filesToCheck = [
+      "sfc/webview/SfcEditor.tsx",
+      "sfc/webview/StepNode.tsx",
+      "sfc/webview/sfcEditor.css",
+      "statechart/webview/StateChartEditor.tsx",
+      "statechart/webview/StateNode.tsx",
+      "statechart/webview/StateTransitionEdge.tsx",
+      "ladder/webview/LadderEditor.tsx",
+      "ladder/webview/nodeDrawing.ts",
+      "ladder/webview/styles.css",
+      "blockly/webview/BlocklyEditor.tsx",
+      "blockly/webview/ToolboxPanel.tsx",
+      "blockly/webview/styles.css",
+      "blockly/webview/blocklyTheme.css",
+    ];
+    const hardcodedColor = /#[0-9a-fA-F]{3,8}|rgba?\(/;
+    for (const file of filesToCheck) {
+      if (allowedSharedThemeFiles.has(file)) {
+        continue;
+      }
+      const src = readSrc(file)
+        .split("\n")
+        .filter((line) => !line.includes("color-mix("))
+        .join("\n");
+      assert.ok(
+        !hardcodedColor.test(src),
+        `${file} must use shared --trust-* or t.* tokens for product chrome/semantic colours`
+      );
+    }
+  });
+
+  test("dead execution panels with embedded runtime controls are removed", () => {
+    for (const file of [
+      "sfc/webview/SfcExecutionPanel.tsx",
+      "statechart/webview/ExecutionPanel.tsx",
+    ]) {
+      assert.ok(
+        !fs.existsSync(path.join(extensionRoot(), "src", file)),
+        `${file} must not remain as dead duplicate runtime UI`
+      );
+    }
+  });
+
+  test("visual editor parse errors use user-facing recovery language", () => {
+    for (const file of [
+      "sfc/sfcEditor.ts",
+      "statechart/stateChartEditor.ts",
+      "blockly/blocklyEditor.ts",
+    ]) {
+      const src = readSrc(file);
+      assert.ok(
+        !/Editor Error:/.test(src),
+        `${file} must not show raw 'Editor Error' notifications`
+      );
+      assert.ok(
+        /Could not open/.test(src),
+        `${file} must tell the user the visual file could not be opened`
+      );
+    }
   });
 });

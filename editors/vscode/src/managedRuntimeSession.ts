@@ -1,4 +1,5 @@
 import { debugChannel } from "./debug/configuration";
+import { waitForEndpointReachable } from "./io-panel/status";
 import type { ManagedLifecycleResult } from "./localRuntimeModel";
 import { runtimeLifecycleService } from "./runtimeLifecycle";
 import { setSelectedRuntimeId } from "./selectedRuntime";
@@ -25,6 +26,12 @@ export async function attachManagedRuntimeAfterStart(
     debugChannel().appendLine(message);
     return { ok: false, message };
   }
+
+  // A freshly-started managed runtime's control socket can need a beat to bind. Poll for readiness
+  // (cache-bypassing) before attaching, so a cold Start does not surface a false "Live Values could not
+  // connect" on the happy path (F-11). A genuinely unreachable endpoint still falls through to the honest
+  // failure below — we never fabricate a connection.
+  await waitForEndpointReachable(result.controlEndpoint);
 
   const connect = await runtimeLifecycleService.connectRemote(result.controlEndpoint);
   if (!connect.ok) {

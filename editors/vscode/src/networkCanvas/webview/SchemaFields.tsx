@@ -79,16 +79,15 @@ export function Field({
   error?: string;
   onChange: (v: string) => void;
 }) {
-  const border = error ? "1px solid var(--vscode-errorForeground, #f0584f)88" : "1px solid var(--vscode-input-border, #343b47)";
-  const common = { ...inputStyle, border };
+  const inputClass = error ? "trust-input trust-input--error" : "trust-input";
   return (
-    <div style={{ marginBottom: 12 }}>
-      <label style={labelStyle}>
+    <div className="trust-field">
+      <label>
         {field.label}
-        {field.required && <span style={{ color: "var(--vscode-errorForeground, #f0584f)" }}> *</span>}
+        {field.required && <span className="trust-field__required"> *</span>}
       </label>
       {field.options && field.options.length > 0 ? (
-        <select value={value} onChange={(e) => onChange(e.target.value)} style={common}>
+        <select value={value} onChange={(e) => onChange(e.target.value)} className={inputClass}>
           {field.options.map((o) => (
             <option key={o} value={o}>
               {o}
@@ -100,10 +99,11 @@ export function Field({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           rows={3}
-          style={{ ...common, resize: "vertical", fontFamily: "monospace" }}
+          className={inputClass}
+          style={{ resize: "vertical", fontFamily: "var(--trust-mono)" }}
         />
       ) : field.type === "bool" || field.type === "boolean" ? (
-        <select value={value} onChange={(e) => onChange(e.target.value)} style={common}>
+        <select value={value} onChange={(e) => onChange(e.target.value)} className={inputClass}>
           <option value="false">false</option>
           <option value="true">true</option>
         </select>
@@ -112,31 +112,14 @@ export function Field({
           type={field.secret ? "password" : field.type === "number" ? "number" : "text"}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          style={common}
+          className={inputClass}
         />
       )}
       {error ? (
-        <div style={{ color: "var(--vscode-errorForeground, #ffcfcb)", fontSize: 10.5, marginTop: 3 }}>{error}</div>
+        <div className="trust-field__message trust-field__message--error">{error}</div>
       ) : field.help ? (
-        <div style={{ color: "var(--vscode-descriptionForeground, #7f8794)", fontSize: 10.5, marginTop: 3 }}>{field.help}</div>
+        <div className="trust-field__message">{field.help}</div>
       ) : null}
     </div>
   );
 }
-
-export const labelStyle: React.CSSProperties = {
-  display: "block",
-  fontSize: 11,
-  color: "var(--vscode-foreground, #cfd6e0)",
-  marginBottom: 4,
-  fontWeight: 600,
-};
-export const inputStyle: React.CSSProperties = {
-  width: "100%",
-  background: "var(--vscode-input-background, #10141b)",
-  border: "1px solid var(--vscode-input-border, #343b47)",
-  borderRadius: 7,
-  color: "var(--vscode-foreground, #eef1f5)",
-  padding: "7px 9px",
-  fontSize: 12,
-};

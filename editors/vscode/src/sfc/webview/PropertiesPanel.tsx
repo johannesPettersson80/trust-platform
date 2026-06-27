@@ -84,35 +84,36 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
   const panelStyle: React.CSSProperties = {
     width: "100%",
-    backgroundColor: "var(--vscode-sideBar-background, var(--vscode-editor-background, #1e1e1e))",
-    borderTop: "1px solid var(--vscode-panel-border, #2b2b2b)",
+    backgroundColor: "transparent",
+    borderTop: "1px solid var(--trust-border)",
     overflowY: "auto",
-    padding: "12px",
+    padding: "12px 14px",
     fontFamily: "var(--vscode-font-family)",
-    fontSize: "13px",
-    color: "var(--vscode-editor-foreground, var(--vscode-foreground, #cccccc))",
+    fontSize: "12px",
+    color: "var(--trust-text)",
     boxSizing: "border-box",
   };
 
   const inputStyle: React.CSSProperties = {
     width: "100%",
     padding: "6px 8px",
-    backgroundColor: "var(--vscode-input-background, #313131)",
-    color: "var(--vscode-input-foreground, var(--vscode-foreground, #cccccc))",
-    border: "1px solid var(--vscode-input-border, var(--vscode-panel-border, #3c3c3c))",
-    borderRadius: "2px",
-    fontSize: "13px",
+    backgroundColor: "var(--trust-input-bg)",
+    color: "var(--vscode-input-foreground, var(--trust-text))",
+    border: "1px solid var(--trust-input-border)",
+    borderRadius: "var(--trust-radius)",
+    fontSize: "12px",
     fontFamily: "var(--vscode-font-family)",
   };
 
   const buttonStyle: React.CSSProperties = {
-    padding: "6px 12px",
-    backgroundColor: "var(--vscode-button-background, #0e639c)",
-    color: "var(--vscode-button-foreground, #ffffff)",
-    border: "none",
-    borderRadius: "2px",
+    padding: "7px 10px",
+    backgroundColor: "var(--trust-accent)",
+    color: "var(--trust-on-accent)",
+    border: "1px solid var(--trust-accent)",
+    borderRadius: "var(--trust-radius)",
     cursor: "pointer",
     fontSize: "12px",
+    fontWeight: 650,
     marginTop: "8px",
   };
 
@@ -139,7 +140,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           marginBottom: "16px",
         }}
       >
-        <h3 style={{ margin: 0, fontSize: "14px", fontWeight: "bold" }}>
+        <h3 style={{ margin: 0, fontSize: "13px", fontWeight: 700 }}>
           Properties
         </h3>
         <button
@@ -156,7 +157,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
       {selectedStepNode && (
         <div>
-          <h4 style={{ marginTop: 0, marginBottom: "12px" }}>
+          <h4 style={{ marginTop: 0, marginBottom: "12px", fontSize: "12px", color: "var(--trust-text-muted)" }}>
             Step: {selectedStepNode.data.label}
           </h4>
 
@@ -215,13 +216,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                 {selectedStepNode.data.actions.map((action) => (
                   <div
                     key={action.id}
-                    style={{
-                      backgroundColor: "var(--vscode-editor-background, #1e1e1e)",
-                      padding: "8px",
-                      borderRadius: "4px",
-                      marginBottom: "8px",
-                      border: "1px solid var(--vscode-panel-border, #2b2b2b)",
-                    }}
+                    className="trust-card"
+                    style={{ marginBottom: "8px" }}
                   >
                     <div
                       style={{
@@ -298,7 +294,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
             <div
               style={{
-                borderTop: "1px solid var(--vscode-panel-border, #2b2b2b)",
+                borderTop: "1px solid var(--trust-border)",
                 paddingTop: "12px",
               }}
             >

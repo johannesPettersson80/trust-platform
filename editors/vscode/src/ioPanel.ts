@@ -298,6 +298,7 @@ export function registerIoPanel(context: vscode.ExtensionContext): void {
         return;
       }
       untrackStructuredTextSession(session);
+      postEmptyIoState();
       void sendRuntimeStatus();
     })
   );
@@ -381,7 +382,25 @@ function showPanel(
 function postPanelStatus(message: string): void {
   panel?.webview.postMessage({
     type: "status",
-    payload: message,
+    payload: userFacingIoStatus(message),
+  });
+}
+
+function userFacingIoStatus(message: string): string {
+  if (isNoActiveSessionMessage(message)) {
+    return "Start the runtime to see live values.";
+  }
+  return message;
+}
+
+function isNoActiveSessionMessage(message: string): boolean {
+  return /No active Structured Text debug session/i.test(message);
+}
+
+function postEmptyIoState(): void {
+  panel?.webview.postMessage({
+    type: "ioState",
+    payload: { inputs: [], outputs: [], memory: [] },
   });
 }
 
@@ -559,9 +578,12 @@ async function sendRuntimeStatus(): Promise<void> {
 async function requestIoState(): Promise<void> {
   const result = await runtimeLifecycleService.requestIoState();
   if (!result.ok) {
+    if (isNoActiveSessionMessage(result.failure.message)) {
+      postEmptyIoState();
+    }
     panel?.webview.postMessage({
       type: "status",
-      payload: result.failure.message,
+      payload: userFacingIoStatus(result.failure.message),
     });
     return;
   }
@@ -685,14 +707,14 @@ async function stopDebugging(): Promise<void> {
     if (!stopped) {
       panel?.webview.postMessage({
         type: "status",
-        payload: "No active Structured Text debug session.",
+        payload: "Start the runtime to see live values.",
       });
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     panel?.webview.postMessage({
       type: "status",
-      payload: `Stop debugging failed: ${message}`,
+      payload: userFacingIoStatus(`Stop debugging failed: ${message}`),
     });
   }
 }

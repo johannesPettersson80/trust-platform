@@ -20,19 +20,6 @@ interface SfcToolsPanelProps {
   hasSelection: boolean;
 }
 
-const buttonStyle: React.CSSProperties = {
-  padding: "7px 10px",
-  border: "1px solid var(--vscode-button-border, var(--vscode-panel-border, #2b2b2b))",
-  borderRadius: "4px",
-  background: "var(--vscode-button-secondaryBackground, var(--vscode-button-background, #313131))",
-  color: "var(--vscode-button-secondaryForeground, var(--vscode-button-foreground, #cccccc))",
-  fontSize: "12px",
-  fontWeight: 600,
-  lineHeight: 1.25,
-  whiteSpace: "nowrap",
-  cursor: "pointer",
-};
-
 /**
  * SFC Tools Panel - appears in Tools tab
  */
@@ -51,41 +38,16 @@ export const SfcToolsPanel: React.FC<SfcToolsPanelProps> = ({
   hasSelection,
 }) => {
   return (
-    <section
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "8px",
-        padding: "10px 8px",
-        borderBottom: "1px solid var(--vscode-panel-border, #2b2b2b)",
-      }}
-      aria-label="SFC tools"
-    >
-      <div style={{ fontSize: "12px", fontWeight: 600 }}>SFC Tools</div>
-      <div
-        style={{
-          fontSize: "11px",
-          color: "var(--vscode-descriptionForeground, var(--vscode-foreground, #9d9d9d))",
-          opacity: 0.9,
-        }}
-      >
-        Drag tools into the canvas or click to add.
-      </div>
-      <div
-        style={{
-          fontSize: "11px",
-          color: "var(--vscode-descriptionForeground, var(--vscode-foreground, #9d9d9d))",
-          opacity: 0.8,
-        }}
-      >
-        Select a transition and press Delete/Backspace to remove it.
-      </div>
+    <section className="trust-section" aria-label="SFC tools">
+      <div className="trust-section__title">Tools</div>
+      <p className="trust-help">Drag tools into the canvas or click to add.</p>
+      <p className="trust-help">Select a transition and press Delete/Backspace to remove it.</p>
       
       {/* Add Elements */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px" }}>
+      <div className="trust-button-grid" style={{ marginTop: 10 }}>
         <button
           type="button"
-          style={buttonStyle}
+          className="trust-button"
           onClick={onAddStep}
           title="Add new step"
           draggable={Boolean(onToolDragStart)}
@@ -96,7 +58,7 @@ export const SfcToolsPanel: React.FC<SfcToolsPanelProps> = ({
         {onAddParallelSplit && (
           <button
             type="button"
-            style={buttonStyle}
+            className="trust-button"
             onClick={onAddParallelSplit}
             title="Add parallel split"
             draggable={Boolean(onToolDragStart)}
@@ -108,7 +70,7 @@ export const SfcToolsPanel: React.FC<SfcToolsPanelProps> = ({
         {onAddParallelJoin && (
           <button
             type="button"
-            style={buttonStyle}
+            className="trust-button"
             onClick={onAddParallelJoin}
             title="Add parallel join"
             draggable={Boolean(onToolDragStart)}
@@ -117,32 +79,23 @@ export const SfcToolsPanel: React.FC<SfcToolsPanelProps> = ({
             Join
           </button>
         )}
-        <button type="button" style={buttonStyle} onClick={onAutoLayout} title="Auto arrange steps">
+        <button type="button" className="trust-button" onClick={onAutoLayout} title="Auto arrange steps">
           Layout
         </button>
       </div>
 
       {/* Actions */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px" }}>
-        <button type="button" style={buttonStyle} onClick={onValidate} title="Validate SFC">
+      <div className="trust-button-grid" style={{ marginTop: 7 }}>
+        <button type="button" className="trust-button" onClick={onValidate} title="Validate SFC">
           Validate
         </button>
-        <button type="button" style={buttonStyle} onClick={onGenerateST} title="Generate ST code">
+        <button type="button" className="trust-button" onClick={onGenerateST} title="Generate ST code">
           Generate
         </button>
         {onToggleCodePanel && (
           <button
             type="button"
-            style={{
-              ...buttonStyle,
-              background: showCodePanel
-                ? "var(--vscode-button-background, #0e639c)"
-                : "var(--vscode-button-secondaryBackground, var(--vscode-button-background, #313131))",
-              color: showCodePanel
-                ? "var(--vscode-button-foreground, #ffffff)"
-                : "var(--vscode-button-secondaryForeground, var(--vscode-button-foreground, #cccccc))",
-              borderColor: showCodePanel ? "var(--vscode-focusBorder, #007fd4)" : "var(--vscode-button-border, var(--vscode-panel-border, #2b2b2b))",
-            }}
+            className={showCodePanel ? "trust-button trust-button--active" : "trust-button"}
             onClick={onToggleCodePanel}
             title={showCodePanel ? "Hide code panel" : "Show code panel"}
           >
@@ -151,11 +104,7 @@ export const SfcToolsPanel: React.FC<SfcToolsPanelProps> = ({
         )}
         <button
           type="button"
-          style={{
-            ...buttonStyle,
-            opacity: hasSelection ? 1 : 0.55,
-            cursor: hasSelection ? "pointer" : "not-allowed",
-          }}
+          className="trust-button trust-button--danger"
           onClick={onDelete}
           disabled={!hasSelection}
           title="Delete selected element"
@@ -165,9 +114,11 @@ export const SfcToolsPanel: React.FC<SfcToolsPanelProps> = ({
       </div>
 
       {/* Save */}
-      <button type="button" style={buttonStyle} onClick={onSave} title="Save changes">
+      <div className="trust-button-grid trust-button-grid--single" style={{ marginTop: 7 }}>
+        <button type="button" className="trust-button trust-button--primary" onClick={onSave} title="Save changes">
         Save
-      </button>
+        </button>
+      </div>
     </section>
   );
 };

@@ -200,7 +200,7 @@ export class SfcEditorProvider implements vscode.CustomTextEditorProvider {
 
           case "error":
             vscode.window.showErrorMessage(
-              `SFC Editor Error: ${message.error}`
+              message.error || "Could not open this SFC. Fix the file and try again."
             );
             return;
 

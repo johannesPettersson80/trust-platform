@@ -1,6 +1,7 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { StateChartEditor } from "./StateChartEditor";
+import "../../webview/theme.css";
 
 /**
  * Entry point for the StateChart editor webview

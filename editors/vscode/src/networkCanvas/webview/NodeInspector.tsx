@@ -42,6 +42,37 @@ function str(value: unknown): string {
   return value === undefined || value === null ? "" : String(value);
 }
 
+function healthLabel(health: string): string {
+  switch (health) {
+    case "connected":
+      return "Connected";
+    case "stopped":
+      return "Stopped";
+    case "configured_policy":
+      return "Configured";
+    case "not_configured":
+      return "Not configured";
+    case "runtime_unreachable":
+      return "Runtime unreachable";
+    case "auth_failed":
+      return "Authentication failed";
+    case "degraded":
+      return "Degraded";
+    case "error":
+      return "Error";
+    case "pending":
+      return "Pending";
+    case "simulate":
+      return "Simulator";
+    case "unknown":
+      return "Unknown";
+    default:
+      return health
+        ? health.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase())
+        : "Unknown";
+  }
+}
+
 // The compact node band shows the role as terse nomenclature (CLIENT / PUB/SUB). In the roomier
 // inspector eyebrow we render it as a calm sentence-case descriptor instead of a shouted all-caps badge.
 function roleCap(protocol: string, role: string): string {
@@ -219,7 +250,7 @@ function SummaryView({
       }
     }
     if (d.detail) {
-      rows.push(["status", `${health} · ${str(d.detail)}`]);
+      rows.push(["status", `${healthLabel(health)} · ${str(d.detail)}`]);
     }
   } else {
     switch (node.type) {
@@ -227,13 +258,13 @@ function SummaryView({
         title = str(d.label);
         kindLabel = "Runtime";
         health = str(d.health);
-        rows.push(["mode", str(d.mode)], ["status", str(d.health)], ["endpoints", str(d.endpointCount)], ["detail", str(d.detail)]);
+        rows.push(["mode", str(d.mode)], ["status", healthLabel(health)], ["endpoints", str(d.endpointCount)], ["detail", str(d.detail)]);
         break;
       case "host":
         title = str(d.label);
         kindLabel = "Host";
         health = str(d.health);
-        rows.push(["address", str(d.sub)], ["status", str(d.health)], ["runtimes", str(d.runtimeCount)], ["endpoints", str(d.endpointCount)]);
+        rows.push(["address", str(d.sub)], ["status", healthLabel(health)], ["runtimes", str(d.runtimeCount)], ["endpoints", str(d.endpointCount)]);
         break;
       case "container":
         title = str(d.label);
@@ -253,7 +284,7 @@ function SummaryView({
         rows.push(
           ["protocol", protocolName(protocol)],
           ["role", roleWord(protocol, str(d.role))],
-          ["status", str(d.health)],
+          ["status", healthLabel(health)],
           ["detail", str(d.detail)]
         );
         break;
@@ -265,21 +296,21 @@ function SummaryView({
   const shown = rows.filter(([, v]) => v);
 
   return (
-    <aside style={PANEL_STYLE} aria-label="Node summary">
-      <header style={{ display: "flex", alignItems: "center", gap: 9, padding: "12px 14px", borderBottom: `1px solid ${t.border}` }}>
+    <aside className="trust-inspector" style={PANEL_STYLE} aria-label="Node summary">
+      <header className="trust-inspector__header">
         {accent && <span style={{ flex: "none", width: 10, height: 10, borderRadius: 3, background: accent }} />}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <strong style={{ display: "block", fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</strong>
-          <span style={{ fontSize: 11, color: t.textMuted, letterSpacing: 0.2 }}>{kindLabel}</span>
+          <strong className="trust-inspector__title" style={{ display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</strong>
+          <span className="trust-inspector__eyebrow" style={{ display: "block", marginTop: 2 }}>{kindLabel}</span>
         </div>
         {health && (
           <span title={health} style={{ flex: "none", width: 10, height: 10, borderRadius: "50%", background: healthColor(health), boxShadow: `0 0 0 2px ${tint(healthColor(health), 0.18)}` }} />
         )}
         <button onClick={onClose} aria-label="Close" style={iconBtn}>✕</button>
       </header>
-      <div style={{ flex: 1, overflow: "auto", padding: 14 }}>
+      <div className="trust-section trust-section--grow">
         {shown.length === 0 ? (
-          <p style={{ color: t.textMuted, fontSize: 12 }}>No further details.</p>
+          <p className="trust-empty" style={{ padding: 0, textAlign: "left" }}>No further details.</p>
         ) : (
           shown.map(([k, v]) => (
             <div key={k} style={{ display: "flex", gap: 10, fontSize: 12, lineHeight: 1.55, marginBottom: 7 }}>
@@ -289,7 +320,7 @@ function SummaryView({
           ))
         )}
       </div>
-      <footer style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: 12, borderTop: `1px solid ${t.border}` }}>
+      <footer className="trust-section" style={{ display: "flex", flexWrap: "wrap", gap: 8, borderBottom: "none" }}>
         {runtimeControls && onControl ? (
           <>
             {runtimeControls.map((control) => (
@@ -297,26 +328,23 @@ function SummaryView({
                 key={`${control.action}:${control.label}`}
                 onClick={() => onControl(control)}
                 disabled={!control.enabled}
-                style={
-                  control.kind === "primary"
-                    ? { ...primaryBtn, flexBasis: "100%", opacity: control.enabled ? 1 : 0.5 }
-                    : { ...secondaryBtn, flex: 1 }
-                }
+                className={`trust-button${control.kind === "primary" ? " trust-button--primary" : ""}`}
+                style={control.kind === "primary" ? { flexBasis: "100%" } : { flex: 1 }}
               >
                 {control.label}
               </button>
             ))}
-            <button onClick={() => onFocus(node.id)} style={{ ...secondaryBtn, flex: 1 }}>Focus</button>
+            <button onClick={() => onFocus(node.id)} className="trust-button" style={{ flex: 1 }}>Focus</button>
           </>
         ) : (
           <>
             {onEdit && (
-              <button onClick={onEdit} style={{ ...primaryBtn, flex: 1 }}>Edit settings</button>
+              <button onClick={onEdit} className="trust-button trust-button--primary" style={{ flex: 1 }}>Edit settings</button>
             )}
             {onBrowse && (
-              <button onClick={onBrowse} style={secondaryBtn}>{browseLabel ?? "Browse"}</button>
+              <button onClick={onBrowse} className="trust-button">{browseLabel ?? "Browse"}</button>
             )}
-            <button onClick={() => onFocus(node.id)} style={onEdit || onBrowse ? secondaryBtn : { ...secondaryBtn, flex: 1 }}>Focus</button>
+            <button onClick={() => onFocus(node.id)} className="trust-button" style={onEdit || onBrowse ? undefined : { flex: 1 }}>Focus</button>
           </>
         )}
       </footer>
@@ -359,15 +387,15 @@ function EditableEndpoint({
   const blocked = applyResult && applyResult.lifecycle_effect === "blocked";
 
   return (
-    <aside style={PANEL_STYLE} aria-label="Node settings">
-      <header style={{ display: "flex", alignItems: "center", gap: 9, padding: "12px 14px", borderBottom: `1px solid ${t.border}` }}>
+    <aside className="trust-inspector" style={PANEL_STYLE} aria-label="Node settings">
+      <header className="trust-inspector__header">
         <button onClick={onBack} aria-label="Back" title="Back to summary" style={iconBtn}>‹</button>
         <span style={{ flex: "none", width: 10, height: 10, borderRadius: 3, background: protocolColor(protocol) }} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <strong style={{ display: "block", fontSize: 14 }}>{protocolName(protocol)}</strong>
-          <span style={{ fontSize: 11, color: t.textMuted, letterSpacing: 0.2 }}>
+          <div className="trust-inspector__title">{protocolName(protocol)}</div>
+          <div className="trust-inspector__eyebrow" style={{ marginTop: 2 }}>
             {roleWord(protocol, str(node.data.role))} · edit
-          </span>
+          </div>
         </div>
         {health && (
           <span title={health} style={{ flex: "none", width: 10, height: 10, borderRadius: "50%", background: healthColor(health), boxShadow: `0 0 0 2px ${tint(healthColor(health), 0.18)}` }} />
@@ -375,9 +403,9 @@ function EditableEndpoint({
         <button onClick={onClose} aria-label="Close" style={iconBtn}>✕</button>
       </header>
 
-      <div style={{ flex: 1, overflow: "auto", padding: 14 }}>
+      <div className="trust-section trust-section--grow">
         {protoSchema.purpose && (
-          <p style={{ color: t.textMuted, fontSize: 11, margin: "0 0 14px" }}>{protoSchema.purpose}</p>
+          <p className="trust-help" style={{ marginBottom: 14 }}>{protoSchema.purpose}</p>
         )}
         {protoSchema.fields.map((field) => (
           <Field
@@ -390,29 +418,21 @@ function EditableEndpoint({
         ))}
         {applyResult && (applyResult.message || ok || blocked) && (
           <div
-            style={{
-              marginTop: 8,
-              padding: "9px 11px",
-              borderRadius: 8,
-              fontSize: 12,
-              border: `1px solid ${ok ? tint(t.ok, 0.47) : blocked ? tint(t.danger, 0.47) : t.border}`,
-              background: ok ? tint(t.ok, 0.12) : blocked ? tint(t.danger, 0.1) : t.surface,
-              color: ok ? t.ok : blocked ? t.danger : t.text,
-            }}
+            className={`trust-message ${ok ? "trust-message--ok" : blocked ? "trust-message--error" : ""}`}
           >
             {applyResult.message || (ok ? "Saved." : "")}
           </div>
         )}
       </div>
 
-      <footer style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: 12, borderTop: `1px solid ${t.border}` }}>
-        <button onClick={() => send("commSave", { action: "upsert" })} style={{ ...primaryBtn, flex: 1 }}>Save</button>
+      <footer className="trust-section" style={{ display: "flex", flexWrap: "wrap", gap: 8, borderBottom: "none" }}>
+        <button onClick={() => send("commSave", { action: "upsert" })} className="trust-button trust-button--primary" style={{ flex: 1 }}>Save</button>
         {protoSchema.supports_test && reachable && (
-          <button onClick={() => send("commTest")} style={secondaryBtn}>Test</button>
+          <button onClick={() => send("commTest")} className="trust-button">Test</button>
         )}
-        <button onClick={() => send("commRemove")} style={dangerBtn}>Remove</button>
+        <button onClick={() => send("commRemove")} className="trust-button trust-button--danger">Remove</button>
         {reachable && (
-          <button onClick={() => send("commApplyLive", { action: "upsert" })} title="Push this config to the running runtime now" style={{ ...secondaryBtn, flexBasis: "100%" }}>
+          <button onClick={() => send("commApplyLive", { action: "upsert" })} title="Push this config to the running runtime now" className="trust-button" style={{ flexBasis: "100%" }}>
             Apply to running runtime
           </button>
         )}
@@ -422,6 +442,3 @@ function EditableEndpoint({
 }
 
 const iconBtn: React.CSSProperties = { border: "none", background: "transparent", color: t.textMuted, fontSize: 14, cursor: "pointer" };
-const primaryBtn: React.CSSProperties = { border: `1px solid ${t.accent}`, background: t.accent, color: t.onAccent, borderRadius: 7, padding: "8px 13px", fontSize: 12, fontWeight: 650, cursor: "pointer" };
-const secondaryBtn: React.CSSProperties = { border: `1px solid ${t.border}`, background: "transparent", color: t.text, borderRadius: 7, padding: "8px 13px", fontSize: 12, cursor: "pointer" };
-const dangerBtn: React.CSSProperties = { border: `1px solid ${tint(t.danger, 0.45)}`, background: "transparent", color: t.danger, borderRadius: 7, padding: "8px 13px", fontSize: 12, cursor: "pointer" };

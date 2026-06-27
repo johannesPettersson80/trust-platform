@@ -2,6 +2,7 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { LadderEditor } from "./LadderEditor";
 import { getVsCodeApi } from "../../visual/runtime/webview/vscodeApi";
+import "../../webview/theme.css";
 import "./styles.css";
 
 const vscodeApi = getVsCodeApi();

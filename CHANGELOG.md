@@ -266,6 +266,30 @@ Target release: `v0.24.25`
 
 ### Fixed
 
+- vscode: the truST sidebar now distinguishes an open non-truST folder from the
+  no-folder first-run state and offers an explicit "Initialize truST here"
+  action instead of showing the generic create/open/example welcome.
+- vscode: starting the simulator from the truST Run card no longer auto-opens
+  VS Code's Debug Console with raw adapter logs, keeping the first-run running
+  state focused on product surfaces.
+- vscode: Devices & Connections now uses the shared truST webview product
+  chrome for its Add pane, so visual-editor right panes and the device setup
+  pane resolve the same title, panel, input, and button theme treatment across
+  Dark+, Light+, and High Contrast themes.
+- vscode: Devices & Connections protocol setup forms now use the same shared
+  truST form chrome as the rest of the canvas, and starting a new add/edit
+  workflow clears stale validation banners so one protocol's failed save cannot
+  leak into the next form.
+- vscode: Devices & Connections endpoint inspectors now render user-facing
+  status labels such as "Configured" instead of raw backend health IDs such as
+  `configured_policy`.
+- vscode: visual-editor right panes now use surface-specific titles such as
+  "SFC editor" and the shared truST section/button chrome, removing the generic
+  "Editor tools" title and private Ladder/Blockly panel styling that made those
+  editors look like separate products.
+- vscode: Devices & Connections node-summary actions and shared React Flow
+  canvas controls now use the shared truST product chrome, closing the remaining
+  visual-editor parity gaps in Dark+, Light+, and High Contrast themes.
 - vscode: the create-project scaffold now writes a `src/config.st` CONFIGURATION
   that instantiates `Main` (RESOURCE + TASK + `PROGRAM Main WITH MainTask`), so a
   brand-new project opens clean instead of tripping the W009 "unused program"

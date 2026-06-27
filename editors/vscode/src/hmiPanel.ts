@@ -121,7 +121,7 @@ async function showPanel(context: vscode.ExtensionContext): Promise<void> {
 
   panel = vscode.window.createWebviewPanel(
     HMI_PANEL_VIEW_TYPE,
-    "Structured Text: HMI Preview",
+    "HMI Preview",
     vscode.ViewColumn.Beside,
     {
       enableScripts: true,

@@ -4,9 +4,7 @@ import { useBlockly } from "./hooks/useBlockly";
 import { registerPLCBlocks } from "./blocklyBlocks";
 import { PropertiesPanel } from "./PropertiesPanel";
 import { CodePanel } from "./CodePanel";
-import { StRuntimePanel } from "../../visual/runtime/webview/StRuntimePanel";
 import { useRightPaneResize } from "../../visual/runtime/webview/useRightPaneResize";
-import type { RightPaneView } from "../../visual/runtime/runtimeTypes";
 import "./styles.css";
 import "./blocklyTheme.css";
 import "../../visual/runtime/webview/rightPaneResize.css";
@@ -21,19 +19,16 @@ export const BlocklyEditor: React.FC = () => {
   const {
     workspace,
     generatedCode,
-    runtimeState,
     errors,
     saveWorkspace,
     generateCode,
-    openRuntimePanel,
   } = useBlockly();
 
   const workspaceRef = useRef<HTMLDivElement>(null);
   const blocklyWorkspaceRef = useRef<Blockly.WorkspaceSvg | null>(null);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [showCode, setShowCode] = useState(false);
-  const [showProperties, setShowProperties] = useState(true);
-  const [rightPaneView, setRightPaneView] = useState<RightPaneView>("io");
+  const [showProperties, setShowProperties] = useState(false);
   const {
     rightPaneStyle,
     resizeHandleClassName,
@@ -53,7 +48,7 @@ export const BlocklyEditor: React.FC = () => {
       grid: {
         spacing: 20,
         length: 3,
-        colour: "#ccc",
+        colour: "var(--trust-grid-line)",
         snap: true,
       },
       zoom: {
@@ -251,102 +246,54 @@ export const BlocklyEditor: React.FC = () => {
 
         <div className={resizeHandleClassName} {...resizeHandleProps} />
 
-        <div className="blockly-right-panel right-pane-resizable" style={rightPaneStyle}>
-          <div className="blockly-right-pane-tabs" role="tablist" aria-label="Right pane view">
-            <button
-              type="button"
-              className={`blockly-right-pane-tab ${
-                rightPaneView === "io" ? "active" : ""
-              }`}
-              onClick={() => setRightPaneView("io")}
-              aria-pressed={rightPaneView === "io"}
-            >
-              I/O
-            </button>
-            <button
-              type="button"
-              className={`blockly-right-pane-tab ${
-                rightPaneView === "settings" ? "active" : ""
-              }`}
-              onClick={() => setRightPaneView("settings")}
-              aria-pressed={rightPaneView === "settings"}
-            >
-              Settings
-            </button>
-            <button
-              type="button"
-              className={`blockly-right-pane-tab ${
-                rightPaneView === "tools" ? "active" : ""
-              }`}
-              onClick={() => setRightPaneView("tools")}
-              aria-pressed={rightPaneView === "tools"}
-            >
-              Tools
-            </button>
+        <div className="trust-inspector blockly-right-panel right-pane-resizable" style={rightPaneStyle}>
+          <div className="trust-inspector__header" aria-label="Blockly editor">
+            <div className="trust-inspector__title">Blockly editor</div>
           </div>
 
-          {rightPaneView === "tools" ? (
-            <>
-              <section className="blockly-tools-panel" aria-label="Blockly tools">
-                <div className="blockly-tools-panel__title">Blockly Tools</div>
-                {workspace?.metadata?.name && (
-                  <div className="blockly-tools-panel__hint">
-                    {workspace.metadata.name}
-                  </div>
-                )}
-                <div className="blockly-tools-panel__grid">
-                  <button
-                    type="button"
-                    className="blockly-tools-panel__button"
-                    onClick={handleGenerateCode}
-                    disabled={!workspace}
-                    title="Generate Structured Text code"
-                  >
-                    Generate Code
-                  </button>
-                  <button
-                    type="button"
-                    className="blockly-tools-panel__button"
-                    onClick={() => setShowCode(!showCode)}
-                    title="Toggle code view"
-                  >
-                    {showCode ? "Show Blocks" : "Show Code"}
-                  </button>
-                  <button
-                    type="button"
-                    className="blockly-tools-panel__button"
-                    onClick={() => setShowProperties(!showProperties)}
-                    title="Toggle properties panel"
-                  >
-                    {showProperties ? "Hide Properties" : "Show Properties"}
-                  </button>
-                  <button
-                    type="button"
-                    className="blockly-tools-panel__button"
-                    onClick={openRuntimePanel}
-                    title="Open Structured Text runtime panel"
-                  >
-                    Open Runtime Panel
-                  </button>
-                </div>
-              </section>
-              {showProperties && (
-                <div className="blockly-properties-container">
-                  <PropertiesPanel
-                    workspace={workspace}
-                    selectedBlockId={selectedBlockId}
-                    onWorkspaceChange={saveWorkspace}
-                  />
-                </div>
-              )}
-            </>
-          ) : (
-            <StRuntimePanel
-              activeView={rightPaneView === "settings" ? "settings" : "io"}
-              onViewChange={setRightPaneView}
-              showToolsShortcut
-              toolsShortcutLabel="Tools"
-            />
+          <section className="trust-section" aria-label="Blockly tools">
+            <div className="trust-section__title">Tools</div>
+            {workspace?.metadata?.name && (
+              <div className="trust-help" style={{ marginBottom: 8 }}>
+                {workspace.metadata.name}
+              </div>
+            )}
+            <div className="trust-button-grid trust-button-grid--single">
+              <button
+                type="button"
+                className="trust-button"
+                onClick={handleGenerateCode}
+                disabled={!workspace}
+                title="Generate Structured Text code"
+              >
+                Generate Code
+              </button>
+              <button
+                type="button"
+                className="trust-button"
+                onClick={() => setShowCode(!showCode)}
+                title="Toggle code view"
+              >
+                {showCode ? "Show Blocks" : "Show Code"}
+              </button>
+              <button
+                type="button"
+                className="trust-button"
+                onClick={() => setShowProperties(!showProperties)}
+                title="Toggle properties panel"
+              >
+                {showProperties ? "Hide Properties" : "Show Properties"}
+              </button>
+            </div>
+          </section>
+          {showProperties && (
+            <div className="blockly-properties-container">
+              <PropertiesPanel
+                workspace={workspace}
+                selectedBlockId={selectedBlockId}
+                onWorkspaceChange={saveWorkspace}
+              />
+            </div>
           )}
         </div>
       </div>
@@ -356,8 +303,6 @@ export const BlocklyEditor: React.FC = () => {
           Blocks: {workspace?.blocks?.blocks?.length || 0} | Variables:{" "}
           {workspace?.variables?.length || 0}
         </span>
-        <span>Mode: {runtimeState.mode === "local" ? "Local" : "External"}</span>
-        <span>Status: {runtimeState.status}</span>
         {errors.length > 0 && (
           <span className="error-count">⚠️ {errors.length} warnings</span>
         )}
