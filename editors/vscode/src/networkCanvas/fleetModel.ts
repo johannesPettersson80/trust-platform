@@ -1,3 +1,4 @@
+import * as os from "os";
 import type { FleetTopologyResponse, FleetTopologySlave } from "./fleetTopology";
 
 export interface NetworkCanvasFleetEndpoint {
@@ -129,19 +130,28 @@ function hostDisplay(host: FleetTopologyResponse["hosts"][number]): {
     return { headline: host.hostname.trim(), detail: rawDetail || host.hostname.trim() };
   }
 
-  const runtimeHosts = host.runtimes.map((runtime) => endpointHost(runtime.control_endpoint));
-  const isLocal =
-    host.ips.some(isLoopbackAddress) ||
-    runtimeHosts.some(isLoopbackAddress) ||
-    isLoopbackAddress(host.hostname);
-  if (isLocal) {
+  // A host with live machine facts is "This computer" only when its reported identity matches the
+  // machine VS Code runs on. A loopback CONTROL ENDPOINT alone does NOT prove locality — a remote
+  // runtime reached over an SSH tunnel / port-forward also looks loopback yet reports a different
+  // machine (its own hostname/arch). Key off the reported identity, not the transport, so two
+  // different computers never both read "This computer".
+  const localHostname = os.hostname().trim().toLowerCase();
+  const reportedHostname = host.hostname.trim();
+  const hasRealHostname =
+    reportedHostname.length > 0 && !isLoopbackAddress(reportedHostname);
+  const hasRealIp = host.ips.some((ip) => !isLoopbackAddress(ip));
+  if (localHostname.length > 0 && reportedHostname.toLowerCase() === localHostname) {
     return { headline: "This computer", detail: rawDetail || "local computer" };
   }
+  if (hasRealHostname) {
+    return { headline: reportedHostname, detail: rawDetail || reportedHostname };
+  }
   const remoteAddress = firstRemoteAddress(host);
-  if (remoteAddress) {
+  if (hasRealIp && remoteAddress) {
     return { headline: `Computer ${remoteAddress}`, detail: rawDetail || remoteAddress };
   }
-  return { headline: "Remote computer", detail: rawDetail || "remote computer" };
+  // Only a loopback identity, and not the named local machine → the local loopback context.
+  return { headline: "This computer", detail: rawDetail || "local computer" };
 }
 
 export function fleetViewFromTopology(
