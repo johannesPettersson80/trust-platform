@@ -163,7 +163,7 @@ END_PROGRAM
         code: Some(tower_lsp::lsp_types::NumberOrString::String(
             "E105".to_string(),
         )),
-        source: Some("trust-lsp".to_string()),
+        source: Some("truST".to_string()),
         message: "ambiguous reference to 'Foo'; qualify the name".to_string(),
         ..Default::default()
     };
@@ -243,7 +243,7 @@ END_PROGRAM
         code: Some(tower_lsp::lsp_types::NumberOrString::String(
             "E105".to_string(),
         )),
-        source: Some("trust-lsp".to_string()),
+        source: Some("truST".to_string()),
         message: "ambiguous reference to 'Foo'; qualify the name".to_string(),
         ..Default::default()
     };

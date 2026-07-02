@@ -1,6 +1,9 @@
 fn validate_bundle(bundle: &RuntimeBundle) -> anyhow::Result<()> {
     let registry = IoDriverRegistry::default_registry();
     for driver in &bundle.io.drivers {
+        if !driver.enabled {
+            continue;
+        }
         registry
             .validate(driver.name.as_str(), &driver.params)
             .map_err(anyhow::Error::from)?;

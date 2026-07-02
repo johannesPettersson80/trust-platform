@@ -2,6 +2,7 @@ use indexmap::IndexMap;
 use smol_str::SmolStr;
 
 use crate::debug::SourceLocation;
+use crate::memory::IoArea;
 use crate::task::ProgramDef;
 use crate::Runtime;
 use std::path::Path;
@@ -353,6 +354,7 @@ pub(super) fn build_runtime_from_source_files(
         ensure_wildcards_resolved(&wildcards)?;
     }
 
+    resize_process_image_from_bindings(&mut runtime);
     init_function_static_locals(&mut runtime)?;
     let _ = runtime.ensure_background_thread_id();
 
@@ -367,6 +369,33 @@ pub(super) fn build_runtime_from_source_files(
     }
 
     Ok(runtime)
+}
+
+fn resize_process_image_from_bindings(runtime: &mut Runtime) {
+    let mut inputs = runtime.io().inputs().len();
+    let mut outputs = runtime.io().outputs().len();
+    let mut memory = runtime.io().memory().len();
+
+    for binding in runtime.io().bindings() {
+        let address = &binding.address;
+        if address.wildcard || address.path.len() > 1 {
+            continue;
+        }
+        let span = match address.size {
+            crate::io::IoSize::Bit | crate::io::IoSize::Byte => 1usize,
+            crate::io::IoSize::Word => 2usize,
+            crate::io::IoSize::DWord => 4usize,
+            crate::io::IoSize::LWord => 8usize,
+        };
+        let required = address.byte as usize + span;
+        match address.area {
+            IoArea::Input => inputs = inputs.max(required),
+            IoArea::Output => outputs = outputs.max(required),
+            IoArea::Memory => memory = memory.max(required),
+        }
+    }
+
+    runtime.io_mut().resize(inputs, outputs, memory);
 }
 
 fn init_function_static_locals(runtime: &mut Runtime) -> Result<(), CompileError> {

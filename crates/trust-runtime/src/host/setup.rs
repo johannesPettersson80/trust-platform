@@ -14,7 +14,7 @@ use crate::error::RuntimeError;
 pub struct SetupOptions {
     /// Optional driver override (default is auto-detect).
     pub driver: Option<SmolStr>,
-    /// Optional backend override (e.g., sysfs).
+    /// Optional backend override (libgpiod/chardev by default; sysfs for legacy hosts).
     pub backend: Option<SmolStr>,
     /// Overwrite existing system config.
     pub force: bool,
@@ -47,6 +47,7 @@ pub fn run_setup(options: SetupOptions) -> Result<PathBuf, RuntimeError> {
         drivers: vec![crate::config::IoDriverConfig {
             name: SmolStr::new(driver),
             params,
+            enabled: true,
         }],
         safe_state: crate::io::IoSafeState::default(),
     };
@@ -100,8 +101,12 @@ fn build_driver_params(
 
 fn build_gpio_params(backend: Option<SmolStr>) -> Result<toml::Value, RuntimeError> {
     let mut params = toml::map::Map::new();
-    let backend = backend.unwrap_or_else(|| SmolStr::new("sysfs"));
+    let backend = backend.unwrap_or_else(|| SmolStr::new("libgpiod"));
     params.insert("backend".into(), toml::Value::String(backend.to_string()));
+    params.insert(
+        "chip".into(),
+        toml::Value::String("/dev/gpiochip0".to_string()),
+    );
     params.insert("inputs".into(), toml::Value::Array(Vec::new()));
     params.insert("outputs".into(), toml::Value::Array(Vec::new()));
     Ok(toml::Value::Table(params))

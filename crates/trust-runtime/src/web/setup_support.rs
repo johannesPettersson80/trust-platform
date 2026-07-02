@@ -256,6 +256,7 @@ pub(super) fn driver_configs_from_payload(
                 Ok(IoDriverConfig {
                     name: SmolStr::new(name),
                     params: params_toml,
+                    enabled: true,
                 })
             })
             .collect::<Result<Vec<_>, _>>();
@@ -277,6 +278,7 @@ pub(super) fn driver_configs_from_payload(
     Ok(vec![IoDriverConfig {
         name: SmolStr::new(driver),
         params: params_toml,
+        enabled: true,
     }])
 }
 

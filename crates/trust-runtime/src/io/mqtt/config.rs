@@ -115,7 +115,10 @@ fn parse_tls_config(
     let tls_fields_present = params.tls_ca_path.is_some()
         || params.tls_client_cert_path.is_some()
         || params.tls_client_key_path.is_some()
-        || params.tls_alpn.is_some();
+        || params
+            .tls_alpn
+            .as_ref()
+            .is_some_and(|protocols| !protocols.is_empty());
     if !tls_enabled {
         if tls_fields_present {
             return Err(RuntimeError::InvalidConfig(

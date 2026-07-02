@@ -1265,7 +1265,7 @@ dependencies = [
  "io-uring",
  "libc",
  "log",
- "nix",
+ "nix 0.29.0",
  "pcap",
  "pnet_datalink",
  "sealed",
@@ -1890,6 +1890,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2c4ee00b289aba7a9e5306d57c2d05499b2e5dc427f84ac708bd2c090212cf3e"
 dependencies = [
  "gl_generator",
+]
+
+[[package]]
+name = "gpio-cdev"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09831ec59b80be69e75d29cf36e16afbbe5fd1af9c1bf4689ad91c77db5aa6a6"
+dependencies = [
+ "bitflags 2.11.1",
+ "libc",
+ "nix 0.27.1",
 ]
 
 [[package]]
@@ -2797,7 +2808,7 @@ version = "1.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c0aeb26bf5e836cc1c341c8106051b573f1766dfa05aa87f0b98be5e51b02303"
 dependencies = [
- "nix",
+ "nix 0.29.0",
  "winapi",
 ]
 
@@ -3064,6 +3075,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee6cda3051665f1fb8d9e08fc35c96d5a244fb1be711a03b71118828afc9a873"
 dependencies = [
  "jni-sys 0.3.1",
+]
+
+[[package]]
+name = "nix"
+version = "0.27.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2eb04e9c688eff1c89d72b407f168cf79bb9e867a9d3323ed6c01519eb9cc053"
+dependencies = [
+ "bitflags 2.11.1",
+ "cfg-if",
+ "libc",
 ]
 
 [[package]]
@@ -5318,7 +5340,7 @@ dependencies = [
  "libc",
  "log",
  "memmem",
- "nix",
+ "nix 0.29.0",
  "num-derive",
  "num-traits",
  "ordered-float 4.6.0",
@@ -5769,7 +5791,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ads-core"
-version = "0.24.25"
+version = "0.24.26"
 dependencies = [
  "serde",
  "serde_json",
@@ -5778,14 +5800,14 @@ dependencies = [
 
 [[package]]
 name = "trust-ads-server"
-version = "0.24.25"
+version = "0.24.26"
 dependencies = [
  "trust-ads-core",
 ]
 
 [[package]]
 name = "trust-debug"
-version = "0.24.25"
+version = "0.24.26"
 dependencies = [
  "glob",
  "indexmap 2.14.0",
@@ -5800,7 +5822,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dev"
-version = "0.24.25"
+version = "0.24.26"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -5819,7 +5841,7 @@ dependencies = [
 
 [[package]]
 name = "trust-hir"
-version = "0.24.25"
+version = "0.24.26"
 dependencies = [
  "boxcar",
  "insta",
@@ -5837,7 +5859,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ide"
-version = "0.24.25"
+version = "0.24.26"
 dependencies = [
  "expect-test",
  "once_cell",
@@ -5850,7 +5872,7 @@ dependencies = [
 
 [[package]]
 name = "trust-lsp"
-version = "0.24.25"
+version = "0.24.26"
 dependencies = [
  "anyhow",
  "expect-test",
@@ -5877,7 +5899,7 @@ dependencies = [
 
 [[package]]
 name = "trust-plcopen"
-version = "0.24.25"
+version = "0.24.26"
 dependencies = [
  "anyhow",
  "crc32fast",
@@ -5890,7 +5912,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime"
-version = "0.24.25"
+version = "0.24.26"
 dependencies = [
  "ads",
  "anyhow",
@@ -5903,6 +5925,7 @@ dependencies = [
  "dialoguer",
  "ethercrab",
  "glob",
+ "gpio-cdev",
  "if-addrs",
  "indexmap 2.14.0",
  "indicatif",
@@ -5958,7 +5981,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime-core"
-version = "0.24.25"
+version = "0.24.26"
 dependencies = [
  "indexmap 2.14.0",
  "rustc-hash 2.1.2",
@@ -5969,7 +5992,7 @@ dependencies = [
 
 [[package]]
 name = "trust-syntax"
-version = "0.24.25"
+version = "0.24.26"
 dependencies = [
  "drop_bomb",
  "insta",
@@ -5980,7 +6003,7 @@ dependencies = [
 
 [[package]]
 name = "trust-twin-compiler"
-version = "0.24.25"
+version = "0.24.26"
 dependencies = [
  "clap",
  "serde",
@@ -5992,7 +6015,7 @@ dependencies = [
 
 [[package]]
 name = "trust-twin-renderer"
-version = "0.24.25"
+version = "0.24.26"
 dependencies = [
  "anyhow",
  "console_error_panic_hook",
@@ -6007,7 +6030,7 @@ dependencies = [
 
 [[package]]
 name = "trust-wasm-analysis"
-version = "0.24.25"
+version = "0.24.26"
 dependencies = [
  "rowan",
  "serde",
@@ -7298,7 +7321,7 @@ checksum = "3ae8337f8a065cfc972643663ea4279e04e7256de865aa66fe25cec5fb912d3f"
 
 [[package]]
 name = "xtask"
-version = "0.24.25"
+version = "0.24.26"
 dependencies = [
  "anyhow",
  "serde",

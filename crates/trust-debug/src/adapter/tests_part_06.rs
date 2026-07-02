@@ -29,7 +29,7 @@ fn dispatch_evaluate_returns_value() {
         serde_json::from_value(outcome.responses[0].clone()).unwrap();
     assert!(response.success);
     let body = response.body.unwrap();
-    assert_eq!(body.result, "DInt(42)");
+    assert_eq!(body.result, "42");
 }
 
 #[test]
@@ -81,7 +81,7 @@ fn dispatch_evaluate_allows_pure_stdlib_calls() {
     let response: Response<EvaluateResponseBody> =
         serde_json::from_value(outcome.responses[0].clone()).unwrap();
     assert!(response.success);
-    assert_eq!(response.body.unwrap().result, "DInt(1)");
+    assert_eq!(response.body.unwrap().result, "1");
 }
 
 #[test]
@@ -116,7 +116,7 @@ fn dispatch_evaluate_resolves_instance_and_retain() {
     let instance_response: Response<EvaluateResponseBody> =
         serde_json::from_value(instance_outcome.responses[0].clone()).unwrap();
     assert!(instance_response.success);
-    assert_eq!(instance_response.body.unwrap().result, "Int(7)");
+    assert_eq!(instance_response.body.unwrap().result, "7");
 
     let eval_this_req = Request {
         seq: 2,
@@ -157,7 +157,7 @@ fn dispatch_evaluate_resolves_instance_and_retain() {
     let retain_response: Response<EvaluateResponseBody> =
         serde_json::from_value(retain_outcome.responses[0].clone()).unwrap();
     assert!(retain_response.success);
-    assert_eq!(retain_response.body.unwrap().result, "DInt(9)");
+    assert_eq!(retain_response.body.unwrap().result, "9");
 }
 
 #[test]
@@ -202,5 +202,5 @@ fn dispatch_evaluate_honors_using_for_types() {
     let response: Response<EvaluateResponseBody> =
         serde_json::from_value(outcome.responses[0].clone()).unwrap();
     assert!(response.success);
-    assert_eq!(response.body.unwrap().result, "DInt(2)");
+    assert_eq!(response.body.unwrap().result, "2");
 }

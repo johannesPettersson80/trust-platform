@@ -83,6 +83,61 @@ fn collect_sources(
     Ok(sources)
 }
 
+fn apply_project_io_config(
+    runtime: &mut Runtime,
+    program_path: &str,
+    options: &SourceOptions,
+) -> Result<(), CompileError> {
+    let Some(project_root) = resolve_project_root_for_io(program_path, options)? else {
+        return Ok(());
+    };
+    let io_path = project_root.join("io.toml");
+    if !io_path.is_file() {
+        return Ok(());
+    }
+
+    let io = IoConfig::load(&io_path)
+        .map_err(|err| CompileError::new(format!("failed to load io.toml: {err}")))?;
+    runtime.clear_io_drivers();
+    runtime.set_io_safe_state(io.safe_state);
+    let registry = IoDriverRegistry::default_registry();
+    for driver in io.drivers {
+        if !driver.enabled {
+            continue;
+        }
+        if let Some(spec) = registry
+            .build(driver.name.as_str(), &driver.params)
+            .map_err(|err| CompileError::new(format!("failed to load io.toml: {err}")))?
+        {
+            runtime.add_io_driver(spec.name, spec.driver);
+        }
+    }
+    Ok(())
+}
+
+fn resolve_project_root_for_io(
+    program_path: &str,
+    options: &SourceOptions,
+) -> Result<Option<PathBuf>, CompileError> {
+    if let Some(root) = options.root.as_ref().map(PathBuf::from) {
+        return Ok(Some(canonicalize_lossy(&root)));
+    }
+
+    let entry_path = canonicalize_lossy(Path::new(program_path));
+    let parent = entry_path
+        .parent()
+        .ok_or_else(|| CompileError::new("program path has no parent directory"))?;
+    if parent.join("io.toml").is_file() {
+        return Ok(Some(parent.to_path_buf()));
+    }
+    if let Some(project_root) = parent.parent() {
+        if project_root.join("io.toml").is_file() {
+            return Ok(Some(project_root.to_path_buf()));
+        }
+    }
+    Ok(None)
+}
+
 fn source_key_for_path(path: &str) -> SourceKey {
     let normalized = canonicalize_lossy(Path::new(path));
     SourceKey::from_path(normalized)

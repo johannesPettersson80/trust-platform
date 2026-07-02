@@ -9,7 +9,7 @@ use serde::Serialize;
 use serde_json::json;
 
 use crate::ads::diagnostics::{AdsConnectionStatus, AdsConnectionStatusState, AdsStatusReport};
-use crate::ads::{AdsClientConfig, AdsConnectionConfig};
+use crate::ads::{AdsClientConfig, AdsConnectionConfig, AdsPointAddress};
 use crate::config::{IoConfig, IoDriverConfig};
 use crate::discovery::DiscoveryEntry;
 use crate::io::{IoAddress, IoDriverHealth, IoDriverStatus, IoSnapshot, IoSnapshotEntry};
@@ -18,6 +18,7 @@ use crate::memory::IoArea;
 use crate::opcua::{OpcUaClientConfig, OpcUaClientConnectionState, OpcUaClientStatusReport};
 use crate::scheduler::ResourceCommand;
 use crate::settings::RuntimeSettings;
+use trust_ads_core::{AdsDataTypeDescriptor, PointAccess};
 
 use super::{ControlResponse, ControlState};
 
@@ -247,21 +248,27 @@ fn io_endpoints(
     io_snapshot_seen_ms: u64,
 ) -> Vec<FleetEndpoint> {
     if !io_drivers.is_empty() {
-        return io_drivers
-            .iter()
-            .enumerate()
-            .map(|(index, driver)| {
-                let health = driver_health_for_config(io_health, index, driver.name.as_str());
-                endpoint_from_driver_config(
-                    runtime_id,
-                    index,
-                    driver,
-                    health,
-                    io_snapshot,
-                    io_snapshot_seen_ms,
-                )
-            })
-            .collect();
+        let mut endpoints = Vec::with_capacity(io_drivers.len());
+        let mut enabled_index = 0usize;
+        for (index, driver) in io_drivers.iter().enumerate() {
+            let health = if driver.enabled {
+                let health =
+                    driver_health_for_config(io_health, enabled_index, driver.name.as_str());
+                enabled_index += 1;
+                health
+            } else {
+                None
+            };
+            endpoints.push(endpoint_from_driver_config(
+                runtime_id,
+                index,
+                driver,
+                health,
+                io_snapshot,
+                io_snapshot_seen_ms,
+            ));
+        }
+        return endpoints;
     }
 
     io_health
@@ -282,12 +289,19 @@ fn endpoint_from_driver_config(
     io_snapshot_seen_ms: u64,
 ) -> FleetEndpoint {
     let protocol = protocol_from_driver_name(driver.name.as_str());
-    let (health_value, detail) = health.map(driver_health).unwrap_or_else(|| {
+    let (health_value, detail) = if driver.enabled {
+        health.map(driver_health).unwrap_or_else(|| {
+            (
+                "configured_policy".to_string(),
+                "Configured in io.toml; no live driver health has been reported yet.".to_string(),
+            )
+        })
+    } else {
         (
-            "configured_policy".to_string(),
-            "Configured in io.toml; no live driver health has been reported yet.".to_string(),
+            "disabled".to_string(),
+            "Disabled in io.toml; it will not run until enabled again.".to_string(),
         )
-    });
+    };
     FleetEndpoint {
         id: endpoint_instance_id(runtime_id, protocol.as_str(), index),
         kind: "field".to_string(),
@@ -297,11 +311,14 @@ fn endpoint_from_driver_config(
         role: Some(driver_role(protocol.as_str()).to_string()),
         health: health_value,
         detail,
-        live: io_snapshot_live(io_snapshot, io_snapshot_seen_ms),
+        live: driver
+            .enabled
+            .then(|| io_snapshot_live(io_snapshot, io_snapshot_seen_ms))
+            .flatten(),
         params: Some(redacted_toml_params(&driver.params)),
         children: ethercat_endpoint_children(protocol.as_str(), &driver.params),
         owned: true,
-        supports_test: matches!(driver.name.as_str(), "modbus-tcp" | "mqtt"),
+        supports_test: driver.enabled && matches!(driver.name.as_str(), "modbus-tcp" | "mqtt"),
         source: Some("self".to_string()),
     }
 }
@@ -856,46 +873,53 @@ fn driver_target_links(
     io_drivers: &[IoDriverConfig],
     io_health: &[IoDriverStatus],
 ) -> Vec<FleetLink> {
-    io_drivers
-        .iter()
-        .enumerate()
-        .filter_map(|(index, driver)| {
-            let protocol = protocol_from_driver_name(driver.name.as_str());
-            let from = endpoint_instance_id(runtime_id, protocol.as_str(), index);
-            let status = driver_link_status(io_health, index, driver);
-            match protocol.as_str() {
-                "modbus_tcp" => {
-                    let address = driver_endpoint_address(&driver.params)?;
-                    Some(fleet_link(
-                        from,
-                        modbus_external_id(address.as_str()),
-                        protocol,
-                        "client",
-                        "outbound",
-                        false,
-                        status,
-                        bool_param(&driver.params, "tls"),
-                        Some(address),
-                    ))
-                }
-                "ethercat" => {
-                    let adapter = driver_adapter(&driver.params)?;
-                    Some(fleet_link(
-                        from,
-                        ethercat_external_id(adapter.as_str()),
-                        protocol,
-                        "master",
-                        "outbound",
-                        false,
-                        status,
-                        false,
-                        None,
-                    ))
-                }
-                _ => None,
-            }
-        })
-        .collect()
+    let mut links = Vec::new();
+    let mut enabled_index = 0usize;
+    for (index, driver) in io_drivers.iter().enumerate() {
+        let protocol = protocol_from_driver_name(driver.name.as_str());
+        let from = endpoint_instance_id(runtime_id, protocol.as_str(), index);
+        let status = if driver.enabled {
+            let status = driver_link_status(io_health, enabled_index, driver);
+            enabled_index += 1;
+            status
+        } else {
+            "disabled".to_string()
+        };
+        let link = match protocol.as_str() {
+            "modbus_tcp" => driver_endpoint_address(&driver.params).map(|address| {
+                fleet_link(
+                    from,
+                    modbus_external_id(address.as_str()),
+                    protocol,
+                    "client",
+                    "outbound",
+                    false,
+                    status,
+                    bool_param(&driver.params, "tls"),
+                    Some(address),
+                )
+            }),
+            "ethercat" => driver_adapter(&driver.params).map(|adapter| {
+                fleet_link(
+                    from,
+                    ethercat_external_id(adapter.as_str()),
+                    protocol,
+                    "master",
+                    "outbound",
+                    false,
+                    status,
+                    false,
+                    None,
+                )
+            }),
+            _ => None,
+        };
+        let Some(link) = link else {
+            continue;
+        };
+        links.push(link);
+    }
+    links
 }
 
 fn driver_target_externals(io_drivers: &[IoDriverConfig]) -> Vec<FleetExternal> {
@@ -1448,9 +1472,28 @@ fn driver_endpoint_address(params: &toml::Value) -> Option<String> {
 }
 
 fn driver_display_name(protocol: &str, index: usize, params: &toml::Value) -> String {
+    fn protocol_display_name(protocol: &str) -> &str {
+        match protocol {
+            "modbus_tcp" => "Modbus TCP",
+            "mqtt" => "MQTT broker",
+            "ethercat" => "EtherCAT",
+            "gpio" => "GPIO",
+            "simulated" => "Simulated I/O",
+            "loopback" => "Loopback I/O",
+            _ => protocol,
+        }
+    }
+
+    let display = protocol_display_name(protocol);
     driver_endpoint_address(params)
-        .map(|address| format!("{protocol} {address}"))
-        .unwrap_or_else(|| format!("{protocol} #{index}"))
+        .map(|address| format!("{display} {address}"))
+        .unwrap_or_else(|| {
+            if index == 0 {
+                display.to_string()
+            } else {
+                format!("{display} {}", index + 1)
+            }
+        })
 }
 
 fn bool_param(params: &toml::Value, key: &str) -> bool {
@@ -1543,10 +1586,51 @@ fn ads_client_params(config: &AdsClientConfig) -> serde_json::Value {
                     trust_ads_core::TransportSecurity::Plain => "plain",
                 },
                 "auto_add_route": connection.route.security.auto_add_route,
-                "points": connection.points.len(),
+                "points": connection.points.iter().map(|point| {
+                    let (symbol, address) = ads_point_external_ref(&point.address);
+                    json!({
+                        "var": point.point_name,
+                        "symbol": symbol,
+                        "address": address,
+                        "type": ads_type_name(&point.data_type),
+                        "access": ads_access_name(point.access),
+                    })
+                }).collect::<Vec<_>>(),
             })
         }).collect::<Vec<_>>(),
     })
+}
+
+fn ads_point_external_ref(address: &AdsPointAddress) -> (Option<String>, Option<String>) {
+    match address {
+        AdsPointAddress::Symbol(symbol) => (Some(symbol.clone()), None),
+        AdsPointAddress::Index {
+            index_group,
+            index_offset,
+            size,
+        } => (
+            None,
+            Some(format!(
+                "index {index_group:#x}:{index_offset:#x} · {size} bytes"
+            )),
+        ),
+    }
+}
+
+fn ads_type_name(data_type: &AdsDataTypeDescriptor) -> String {
+    if data_type.source_name.trim().is_empty() {
+        format!("{:?}", data_type.iec_type).to_ascii_uppercase()
+    } else {
+        data_type.source_name.clone()
+    }
+}
+
+fn ads_access_name(access: PointAccess) -> &'static str {
+    match access {
+        PointAccess::Read => "read",
+        PointAccess::Write => "write",
+        PointAccess::ReadWrite => "read_write",
+    }
 }
 
 fn opcua_client_params(config: &OpcUaClientConfig) -> serde_json::Value {
@@ -1595,7 +1679,22 @@ fn ads_server_params(config: &crate::ads::server::AdsServerRuntimeConfig) -> ser
         "unsafe_allow_public_bind": config.unsafe_allow_public_bind,
         "expose": config.expose.iter().map(ToString::to_string).collect::<Vec<_>>(),
         "writable": config.writable.iter().map(ToString::to_string).collect::<Vec<_>>(),
-        "clients_count": config.clients.len(),
+        "clients": config.clients.iter().map(|client| {
+            let mut value = serde_json::Map::new();
+            value.insert("ams_net_id".to_string(), json!(client.ams_net_id.0));
+            match &client.source {
+                crate::ads::server::AdsServerSourcePin::Ip(ip) => {
+                    value.insert("source_ip".to_string(), json!(ip.to_string()));
+                }
+                crate::ads::server::AdsServerSourcePin::Cidr(cidr) => {
+                    value.insert("source_cidr".to_string(), json!(cidr.to_string()));
+                }
+                crate::ads::server::AdsServerSourcePin::Unpinned => {
+                    value.insert("unpinned".to_string(), json!(true));
+                }
+            }
+            serde_json::Value::Object(value)
+        }).collect::<Vec<_>>(),
         "max_symbols": config.max_symbols,
         "max_clients": config.max_clients,
         "max_subscriptions_per_client": config.max_subscriptions_per_client,

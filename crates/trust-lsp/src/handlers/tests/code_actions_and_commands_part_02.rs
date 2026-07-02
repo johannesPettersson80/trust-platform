@@ -23,7 +23,7 @@ END_PROGRAM
         code: Some(tower_lsp::lsp_types::NumberOrString::String(
             "E203".to_string(),
         )),
-        source: Some("trust-lsp".to_string()),
+        source: Some("truST".to_string()),
         message: "cannot assign 'INT' to 'BOOL'".to_string(),
         ..Default::default()
     };
@@ -90,7 +90,7 @@ END_PROGRAM
         code: Some(tower_lsp::lsp_types::NumberOrString::String(
             "E205".to_string(),
         )),
-        source: Some("trust-lsp".to_string()),
+        source: Some("truST".to_string()),
         message: "formal calls cannot mix positional arguments".to_string(),
         ..Default::default()
     };
@@ -149,7 +149,7 @@ END_PROGRAM
         code: Some(tower_lsp::lsp_types::NumberOrString::String(
             "E205".to_string(),
         )),
-        source: Some("trust-lsp".to_string()),
+        source: Some("truST".to_string()),
         message: "positional arguments must precede formal arguments".to_string(),
         ..Default::default()
     };

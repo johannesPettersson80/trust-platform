@@ -335,6 +335,10 @@ END_PROGRAM
     let mut found = false;
     for lens in lenses {
         if let Some(cmd) = &lens.command {
+            assert_ne!(
+                cmd.title, "References: 0",
+                "zero-reference code lenses add clutter without helping navigation"
+            );
             if let Some(count_str) = cmd.title.strip_prefix("References: ") {
                 if let Ok(count) = count_str.trim().parse::<usize>() {
                     if count >= 2 {

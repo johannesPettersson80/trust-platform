@@ -60,7 +60,7 @@ fn collect_hmi_toml_parse_diagnostics(content: &str) -> Vec<Diagnostic> {
             range,
             severity: Some(DiagnosticSeverity::ERROR),
             code: Some(NumberOrString::String("HMI_TOML_PARSE".to_string())),
-            source: Some("trust-lsp".to_string()),
+            source: Some("truST".to_string()),
             message: error.to_string(),
             ..Default::default()
         });
@@ -162,7 +162,7 @@ fn collect_hmi_toml_semantic_diagnostics(
             range: find_name_range(content, binding.bind.as_str()),
             severity: Some(DiagnosticSeverity::WARNING),
             code: Some(NumberOrString::String(binding.code.to_string())),
-            source: Some("trust-lsp".to_string()),
+            source: Some("truST".to_string()),
             message,
             ..Default::default()
         });
@@ -188,7 +188,7 @@ fn collect_hmi_toml_semantic_diagnostics(
                                 code: Some(NumberOrString::String(
                                     HMI_DIAG_INVALID_PROPERTIES.to_string(),
                                 )),
-                                source: Some("trust-lsp".to_string()),
+                                source: Some("truST".to_string()),
                                 message: format!(
                                     "invalid widget property combination: min ({min}) is greater than max ({max})"
                                 ),
@@ -205,7 +205,7 @@ fn collect_hmi_toml_semantic_diagnostics(
                             code: Some(NumberOrString::String(
                                 HMI_DIAG_INVALID_PROPERTIES.to_string(),
                             )),
-                            source: Some("trust-lsp".to_string()),
+                            source: Some("truST".to_string()),
                             message: format!(
                                 "invalid widget property combination: on_color/off_color only apply to indicator widgets (found '{kind}')"
                             ),
@@ -219,7 +219,7 @@ fn collect_hmi_toml_semantic_diagnostics(
                             code: Some(NumberOrString::String(
                                 HMI_DIAG_INVALID_PROPERTIES.to_string(),
                             )),
-                            source: Some("trust-lsp".to_string()),
+                            source: Some("truST".to_string()),
                             message:
                                 "invalid widget property combination: indicator widgets do not support min/max"
                                     .to_string(),

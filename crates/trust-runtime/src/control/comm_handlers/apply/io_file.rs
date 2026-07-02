@@ -61,6 +61,9 @@ fn driver_tables(drivers: &[IoDriverConfig]) -> ArrayOfTables {
     for driver in drivers {
         let mut table = Table::new();
         table.insert("name", value(driver.name.as_str()));
+        if !driver.enabled {
+            table.insert("enabled", value(false));
+        }
         table.insert("params", params_item(&driver.params));
         tables.push(table);
     }
@@ -143,6 +146,7 @@ safe_state = [{ address = "%QX0.0", value = "FALSE" }]
             &[IoDriverConfig {
                 name: SmolStr::new("modbus-tcp"),
                 params: toml::Value::Table(params),
+                enabled: true,
             }],
             &[("%QX0.0".to_string(), "FALSE".to_string())],
         )

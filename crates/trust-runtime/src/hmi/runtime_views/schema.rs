@@ -10,6 +10,7 @@ pub fn build_schema(
     if let Some(customization) = customization {
         for (idx, point) in points.iter_mut().enumerate() {
             point.order = idx as i32;
+            apply_write_policy(point, customization);
             if let Some(annotation) = customization.annotation_overrides.get(point.path.as_str()) {
                 apply_widget_override(point, annotation);
             }
@@ -67,12 +68,13 @@ pub fn build_schema(
             max: point.max,
         })
         .collect::<Vec<_>>();
+    let schema_read_only = !widgets.iter().any(|widget| widget.writable);
 
     HmiSchemaResult {
         version: HMI_SCHEMA_VERSION,
         schema_revision: 0,
-        mode: if read_only { "read_only" } else { "read_write" },
-        read_only,
+        mode: if schema_read_only { "read_only" } else { "read_write" },
+        read_only: schema_read_only,
         resource: resource_name.to_string(),
         generated_at_ms: now_unix_ms(),
         descriptor_error: None,
@@ -81,5 +83,47 @@ pub fn build_schema(
         export,
         pages,
         widgets,
+    }
+}
+
+fn apply_write_policy(point: &mut HmiPoint, customization: &HmiCustomization) {
+    if !customization.write_enabled() {
+        return;
+    }
+    let allowed = customization.write_target_allowed(point.id.as_str())
+        || customization.write_target_allowed(point.path.as_str());
+    if !allowed {
+        return;
+    }
+    point.access = "read_write";
+    point.writable = true;
+    point.widget = write_widget_for_point(point).to_string();
+}
+
+fn write_widget_for_point(point: &HmiPoint) -> &'static str {
+    match point.widget.as_str() {
+        "indicator" => "toggle",
+        "readout" => "selector",
+        "value" => write_widget_for_data_type(point.data_type.as_str()),
+        "slider" => "slider",
+        "toggle" => "toggle",
+        "selector" => "selector",
+        "text" => "text",
+        _ => write_widget_for_data_type(point.data_type.as_str()),
+    }
+}
+
+fn write_widget_for_data_type(data_type: &str) -> &'static str {
+    let upper = data_type.trim().to_ascii_uppercase();
+    if upper == "BOOL" {
+        "toggle"
+    } else if upper.starts_with("STRING")
+        || upper.starts_with("WSTRING")
+        || upper == "CHAR"
+        || upper == "WCHAR"
+    {
+        "text"
+    } else {
+        "slider"
     }
 }

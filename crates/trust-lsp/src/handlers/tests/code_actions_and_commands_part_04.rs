@@ -88,6 +88,7 @@ END_PROGRAM
         position: position_at(source, "LibA\nTYPE"),
         new_path: "Company.LibA".to_string(),
         target_uri: None,
+        return_edit: false,
     };
 
     let edit = namespace_move_workspace_edit(&state, args).expect("workspace edit");

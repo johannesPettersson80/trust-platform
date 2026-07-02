@@ -7,9 +7,7 @@ use std::thread::{self, JoinHandle};
 
 use trust_runtime::debug::{DebugControl, DebugStop, DebugStopReason};
 
-use crate::protocol::{
-    Event, InvalidatedEventBody, MessageType, OutputEventBody, StoppedEventBody,
-};
+use crate::protocol::{Event, InvalidatedEventBody, MessageType, StoppedEventBody};
 
 use super::protocol_io::write_protocol_log;
 use super::StopGate;
@@ -116,24 +114,20 @@ impl StopCoordinator {
             DebugStopReason::Entry => "entry",
         };
         let thread_id = stop.thread_id.or(Some(1));
-        let output_body = OutputEventBody {
-            output: format!(
+        let telemetry_body = serde_json::json!({
+            "message": format!(
                 "[trust-debug] stopped: reason={} thread_id={}\n",
                 reason,
                 thread_id
                     .map(|id| id.to_string())
                     .unwrap_or_else(|| "<none>".to_string())
-            ),
-            category: Some("console".to_string()),
-            source: None,
-            line: None,
-            column: None,
-        };
+            )
+        });
         let output_event = Event {
             seq: self.seq.fetch_add(1, Ordering::Relaxed),
             message_type: MessageType::Event,
-            event: "output".to_string(),
-            body: Some(output_body),
+            event: "trustDebugInternal".to_string(),
+            body: Some(telemetry_body),
         };
         let all_threads_stopped = self.stop_control.target_thread().is_none();
         let body = StoppedEventBody {

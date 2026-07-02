@@ -122,6 +122,50 @@ pub fn clear_trusted_opcua_client_server_certificates() -> Result<usize, Runtime
     Ok(cleared)
 }
 
+fn promote_rejected_opcua_client_server_certificates() -> Result<usize, RuntimeError> {
+    let pki_dir = opcua_client_pki_dir();
+    let rejected_root = pki_dir.join("rejected");
+    let mut certs = Vec::new();
+    collect_certificate_files(rejected_root.as_path(), &mut certs)?;
+    if certs.is_empty() {
+        return Ok(0);
+    }
+    let trusted_root = pki_dir.join("trusted");
+    std::fs::create_dir_all(trusted_root.as_path()).map_err(|err| {
+        RuntimeError::ControlError(
+            format!(
+                "failed to create OPC UA trusted certificate directory {}: {err}",
+                trusted_root.display()
+            )
+            .into(),
+        )
+    })?;
+    let mut promoted = 0usize;
+    for cert in certs {
+        let target = trusted_root.join(cert.file_name.as_str());
+        std::fs::copy(cert.path.as_path(), target.as_path()).map_err(|err| {
+            RuntimeError::ControlError(
+                format!(
+                    "failed to trust OPC UA certificate {}: {err}",
+                    cert.path.display()
+                )
+                .into(),
+            )
+        })?;
+        std::fs::remove_file(cert.path.as_path()).map_err(|err| {
+            RuntimeError::ControlError(
+                format!(
+                    "failed to remove rejected OPC UA certificate {} after trust: {err}",
+                    cert.path.display()
+                )
+                .into(),
+            )
+        })?;
+        promoted += 1;
+    }
+    Ok(promoted)
+}
+
 #[must_use]
 pub fn classify_opcua_client_error(error: &RuntimeError) -> OpcUaClientErrorCode {
     classify_opcua_client_error_message(error.to_string().as_str())
@@ -412,6 +456,12 @@ fn connect_opcua_client_session(
     application_name: &str,
     application_uri: &str,
 ) -> Result<Arc<::opcua::sync::RwLock<::opcua::client::prelude::Session>>, RuntimeError> {
+    if trust_server_certificate {
+        // The opcua crate treats an already-rejected certificate as stronger than the
+        // auto-trust flag. The canvas "Trust certificate" action is explicit user consent,
+        // so promote rejected certificates before retrying the secure connection.
+        promote_rejected_opcua_client_server_certificates()?;
+    }
     let mut client = build_opcua_client(application_name, application_uri, trust_server_certificate)?;
     let endpoints = client
         .get_server_endpoints_from_url(endpoint_url)
@@ -746,6 +796,7 @@ fn classify_opcua_client_error_message(message: &str) -> OpcUaClientErrorCode {
         || lower.contains("baduseraccessdenied")
         || lower.contains("badusersignatureinvalid")
         || lower.contains("badsecuritychecksfailed")
+        || lower.contains("badsecuritypolicyrejected")
         || lower.contains("username")
         || lower.contains("password")
         || lower.contains("auth")

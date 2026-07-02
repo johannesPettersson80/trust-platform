@@ -15,7 +15,7 @@ pub(super) fn validate_schema_fields(protocol: &str, params: &toml::Value) -> Ve
             validate_error_policy(table, &mut errors);
         }
         "mqtt" => {
-            validate_required_endpoint(table, "broker", &mut errors);
+            validate_required_endpoint_with_example(table, "broker", "127.0.0.1:1883", &mut errors);
             validate_integer_range(table, "reconnect_ms", 1, 60000, &mut errors);
             validate_integer_range(table, "keep_alive_s", 1, 65535, &mut errors);
             let has_username = table
@@ -33,6 +33,7 @@ pub(super) fn validate_schema_fields(protocol: &str, params: &toml::Value) -> Ve
                 ));
             }
             validate_array_field(table, "tls_alpn", &mut errors);
+            validate_mqtt_tls_fields(table, &mut errors);
         }
         "ethercat" => {
             validate_string_field(table, "adapter", true, &mut errors);
@@ -41,8 +42,16 @@ pub(super) fn validate_schema_fields(protocol: &str, params: &toml::Value) -> Ve
             validate_error_policy(table, &mut errors);
             validate_array_field(table, "modules", &mut errors);
             validate_array_field(table, "mock_inputs", &mut errors);
+            validate_array_field(table, "selected_channels", &mut errors);
         }
         "gpio" => {
+            validate_enum_field(
+                table,
+                "backend",
+                &["libgpiod", "chardev", "sysfs"],
+                &mut errors,
+            );
+            validate_string_field(table, "chip", false, &mut errors);
             validate_string_field(table, "sysfs_base", false, &mut errors);
             validate_array_field(table, "inputs", &mut errors);
             validate_array_field(table, "outputs", &mut errors);
@@ -186,6 +195,58 @@ pub(super) fn validate_runtime_file_fields(
     errors
 }
 
+fn validate_mqtt_tls_fields(
+    table: &toml::map::Map<String, toml::Value>,
+    errors: &mut Vec<CommFieldError>,
+) {
+    let tls = table
+        .get("tls")
+        .and_then(toml::Value::as_bool)
+        .unwrap_or(false);
+    let ca_path = string_field_present(table, "tls_ca_path");
+    let client_cert = string_field_present(table, "tls_client_cert_path");
+    let client_key = string_field_present(table, "tls_client_key_path");
+    let alpn = non_empty_array_field(table, "tls_alpn");
+
+    if tls {
+        if !ca_path {
+            errors.push(field_error(
+                "tls_ca_path",
+                "TLS CA path is required when TLS is true.",
+            ));
+        }
+        if client_cert ^ client_key {
+            errors.push(field_error(
+                if client_cert {
+                    "tls_client_key_path"
+                } else {
+                    "tls_client_cert_path"
+                },
+                "MQTT client certificate and key path must be set together.",
+            ));
+        }
+    } else if ca_path || client_cert || client_key || alpn {
+        errors.push(field_error(
+            "tls",
+            "Turn TLS on before setting TLS certificate or ALPN fields.",
+        ));
+    }
+}
+
+fn string_field_present(table: &toml::map::Map<String, toml::Value>, field: &str) -> bool {
+    table
+        .get(field)
+        .and_then(toml::Value::as_str)
+        .is_some_and(|value| !value.trim().is_empty())
+}
+
+fn non_empty_array_field(table: &toml::map::Map<String, toml::Value>, field: &str) -> bool {
+    table
+        .get(field)
+        .and_then(toml::Value::as_array)
+        .is_some_and(|values| !values.is_empty())
+}
+
 pub(super) fn field_from_error(message: &str) -> &str {
     for field in [
         "address",
@@ -236,6 +297,15 @@ fn validate_required_endpoint(
     field: &'static str,
     errors: &mut Vec<CommFieldError>,
 ) {
+    validate_required_endpoint_with_example(table, field, "127.0.0.1:502", errors);
+}
+
+fn validate_required_endpoint_with_example(
+    table: &toml::map::Map<String, toml::Value>,
+    field: &'static str,
+    example: &str,
+    errors: &mut Vec<CommFieldError>,
+) {
     let Some(text) = table.get(field).and_then(toml::Value::as_str) else {
         errors.push(field_error(field, "Enter host:port."));
         return;
@@ -248,7 +318,7 @@ fn validate_required_endpoint(
     if !looks_like_host_port(trimmed) {
         errors.push(field_error(
             field,
-            "Use host:port, for example 127.0.0.1:502.",
+            format!("Use host:port, for example {example}."),
         ));
     }
 }
@@ -371,5 +441,137 @@ fn validate_enum_field(
     };
     if !allowed.contains(&text.trim()) {
         errors.push(field_error(field, "Choose a listed value."));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate_schema_fields;
+
+    fn mqtt_errors(params: toml::Value) -> Vec<(String, String)> {
+        validate_schema_fields("mqtt", &params)
+            .into_iter()
+            .map(|error| (error.field, error.message))
+            .collect()
+    }
+
+    #[test]
+    fn mqtt_tls_without_ca_path_is_field_specific() {
+        let errors = mqtt_errors(
+            toml::toml! {
+                broker = "127.0.0.1:1883"
+                input_topic = "trust/io/in"
+                output_topic = "trust/io/out"
+                tls = true
+                reconnect_ms = 500
+                keep_alive_s = 5
+                tls_alpn = []
+            }
+            .into(),
+        );
+
+        assert!(
+            errors.iter().any(|(field, message)| {
+                field == "tls_ca_path" && message.contains("TLS CA path")
+            }),
+            "expected field-specific tls_ca_path error, got {errors:?}"
+        );
+    }
+
+    #[test]
+    fn mqtt_broker_validation_uses_mqtt_port_example() {
+        let errors = mqtt_errors(
+            toml::toml! {
+                broker = "not-a-host"
+                input_topic = "trust/io/in"
+                output_topic = "trust/io/out"
+                tls = false
+                reconnect_ms = 500
+                keep_alive_s = 5
+                tls_alpn = []
+            }
+            .into(),
+        );
+
+        assert!(
+            errors.iter().any(|(field, message)| {
+                field == "broker" && message.contains("127.0.0.1:1883")
+            }),
+            "expected MQTT broker error to use MQTT port example, got {errors:?}"
+        );
+    }
+
+    #[test]
+    fn mqtt_tls_fields_require_tls_enabled() {
+        let errors = mqtt_errors(
+            toml::toml! {
+                broker = "127.0.0.1:1883"
+                input_topic = "trust/io/in"
+                output_topic = "trust/io/out"
+                tls = false
+                reconnect_ms = 500
+                keep_alive_s = 5
+                tls_ca_path = "/tmp/ca.pem"
+                tls_alpn = []
+            }
+            .into(),
+        );
+
+        assert!(
+            errors
+                .iter()
+                .any(|(field, message)| { field == "tls" && message.contains("Turn TLS on") }),
+            "expected field-specific tls toggle error, got {errors:?}"
+        );
+    }
+
+    #[test]
+    fn mqtt_mtls_cert_and_key_are_validated_together() {
+        let errors = mqtt_errors(
+            toml::toml! {
+                broker = "127.0.0.1:1883"
+                input_topic = "trust/io/in"
+                output_topic = "trust/io/out"
+                tls = true
+                reconnect_ms = 500
+                keep_alive_s = 5
+                tls_ca_path = "/tmp/ca.pem"
+                tls_client_cert_path = "/tmp/client.pem"
+                tls_alpn = []
+            }
+            .into(),
+        );
+
+        assert!(
+            errors.iter().any(|(field, message)| {
+                field == "tls_client_key_path" && message.contains("certificate and key")
+            }),
+            "expected field-specific client-key error, got {errors:?}"
+        );
+    }
+
+    #[test]
+    fn ethercat_selected_channels_is_an_allowed_array_param() {
+        let errors = validate_schema_fields(
+            "ethercat",
+            &toml::toml! {
+                adapter = "mock"
+                timeout_ms = 250
+                cycle_warn_ms = 5
+                on_error = "fault"
+                modules = [
+                    { model = "EK1100", slot = 0, channels = 1 },
+                    { model = "EL1008", slot = 1, channels = 8 },
+                ]
+                mock_inputs = []
+                selected_channels = ["ethercat.slot1.channel0"]
+            }
+            .into(),
+        );
+
+        assert!(
+            errors.is_empty(),
+            "selected EtherCAT channels must validate as driver params: {errors:?}"
+        );
     }
 }

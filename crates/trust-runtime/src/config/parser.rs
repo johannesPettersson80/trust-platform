@@ -378,6 +378,7 @@ struct IoDriverSection {
     #[serde(alias = "driver")]
     name: String,
     params: Option<toml::Value>,
+    enabled: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]

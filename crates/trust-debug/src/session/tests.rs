@@ -4,6 +4,8 @@ mod tests {
     use crate::protocol::Source;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use trust_runtime::debug::SourceLocation;
+    use trust_runtime::io::IoAddress;
+    use trust_runtime::value::Value as RuntimeValue;
 
     static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
 
@@ -15,6 +17,14 @@ mod tests {
         let mut path = dir;
         path.push("main.st");
         path
+    }
+
+    fn temp_project_root(label: &str) -> std::path::PathBuf {
+        let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
+        let mut dir = std::env::temp_dir();
+        dir.push(format!("trust-debug-{label}-{id}"));
+        let _ = std::fs::create_dir_all(&dir);
+        dir
     }
 
     #[test]
@@ -292,6 +302,78 @@ END_PROGRAM
         session.clear_requested_breakpoints();
         session.reload_program(None).unwrap();
         assert_eq!(session.control.breakpoint_count(), 0);
+    }
+
+    #[test]
+    fn session_reload_applies_project_io_toml_drivers() {
+        let project_root = temp_project_root("reload_io");
+        let src = project_root.join("src");
+        std::fs::create_dir_all(&src).unwrap();
+        let main_path = src.join("Main.st");
+        let config_path = src.join("Configuration.st");
+        std::fs::write(
+            &main_path,
+            r#"PROGRAM MainProgram
+VAR
+    e_stop : BOOL;
+    running : BOOL;
+END_VAR
+
+running := FALSE;
+END_PROGRAM
+"#,
+        )
+        .unwrap();
+        std::fs::write(
+            &config_path,
+            r#"CONFIGURATION Config
+TASK Cycle (INTERVAL := T#10ms, PRIORITY := 1);
+PROGRAM P1 WITH Cycle : MainProgram;
+VAR_CONFIG
+    P1.e_stop AT %IX0.0 : BOOL;
+    P1.running AT %QX0.0 : BOOL;
+END_VAR
+END_CONFIGURATION
+"#,
+        )
+        .unwrap();
+        std::fs::write(
+            project_root.join("io.toml"),
+            r#"[io]
+
+[[io.drivers]]
+name = "loopback"
+params = { input_count = 1, output_count = 1, scan_period_ms = 10 }
+"#,
+        )
+        .unwrap();
+
+        let mut session = DebugSession::new(Runtime::new());
+        session.update_source_options(SourceOptionsUpdate {
+            root: Some(project_root.to_string_lossy().to_string()),
+            include_globs: None,
+            exclude_globs: None,
+            ignore_pragmas: None,
+        });
+        session
+            .reload_program(Some(config_path.to_string_lossy().as_ref()))
+            .unwrap();
+
+        let output = IoAddress::parse("%QX0.0").unwrap();
+        let input = IoAddress::parse("%IX0.0").unwrap();
+        session.debug_control().force_io(output.clone(), RuntimeValue::Bool(true));
+
+        let handle = session.runtime_handle();
+        let mut runtime = handle.lock().unwrap();
+        runtime.execute_cycle().unwrap();
+        runtime.execute_cycle().unwrap();
+
+        assert_eq!(runtime.io().read(&output).unwrap(), RuntimeValue::Bool(true));
+        assert_eq!(
+            runtime.io().read(&input).unwrap(),
+            RuntimeValue::Bool(true),
+            "loopback io.toml driver should mirror forced output into the next input cycle"
+        );
     }
 
     #[test]

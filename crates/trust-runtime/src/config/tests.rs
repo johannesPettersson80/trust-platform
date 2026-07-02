@@ -1041,6 +1041,20 @@ params = { broker = "127.0.0.1:1883", topic_in = "trust/io/in", topic_out = "tru
 }
 
 #[test]
+fn io_schema_accepts_disabled_multi_driver_entries() {
+    let text = r#"
+[io]
+safe_state = [{ address = "%QX0.0", value = "FALSE" }]
+
+[[io.drivers]]
+name = "modbus-tcp"
+enabled = false
+params = { address = "127.0.0.1:502", unit_id = 1, input_start = 0, output_start = 0, timeout_ms = 500, on_error = "fault" }
+"#;
+    validate_io_toml_text(text).expect("disabled io.drivers entry should be valid");
+}
+
+#[test]
 fn io_schema_accepts_driver_alias_inside_multi_driver_entries() {
     let text = r#"
 [io]

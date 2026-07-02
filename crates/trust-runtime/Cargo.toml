@@ -76,6 +76,7 @@ open-ot-conformance = { path = "../../../open-ot-ref/crates/conformance" }
 open-ot-document = { path = "../../../open-ot-ref/crates/document" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
+gpio-cdev = "0.6"
 rustix = { version = "1.1.4", features = ["mm", "thread"] }
 
 [features]

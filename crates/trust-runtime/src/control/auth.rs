@@ -2,11 +2,33 @@ use crate::security::{constant_time_eq, AccessRole};
 
 use super::{ControlRequest, ControlState};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum AuthFailure {
+    MissingToken,
+    InvalidToken,
+}
+
+impl AuthFailure {
+    pub(super) fn message(self) -> &'static str {
+        match self {
+            Self::MissingToken => "missing auth token",
+            Self::InvalidToken => "invalid auth token",
+        }
+    }
+
+    pub(super) fn code(self) -> &'static str {
+        match self {
+            Self::MissingToken => "missing_auth_token",
+            Self::InvalidToken => "invalid_auth_token",
+        }
+    }
+}
+
 pub(super) fn resolve_request_role(
     request: &ControlRequest,
     state: &ControlState,
     client: Option<&str>,
-) -> Result<AccessRole, &'static str> {
+) -> Result<AccessRole, AuthFailure> {
     let provided = request.auth.as_deref();
     let expected = state.auth_token.lock().ok().and_then(|guard| guard.clone());
     if let Some(expected) = expected {
@@ -22,7 +44,11 @@ pub(super) fn resolve_request_role(
                 }
             }
         }
-        return Err("unauthorized");
+        return Err(if provided.is_some() {
+            AuthFailure::InvalidToken
+        } else {
+            AuthFailure::MissingToken
+        });
     }
     if let Some(token) = provided {
         if let Some(store) = state.pairing.as_ref() {
@@ -32,7 +58,11 @@ pub(super) fn resolve_request_role(
         }
     }
     if state.control_requires_auth {
-        return Err("unauthorized");
+        return Err(if provided.is_some() {
+            AuthFailure::InvalidToken
+        } else {
+            AuthFailure::MissingToken
+        });
     }
     if control_client_is_untrusted_transport(client) {
         return Ok(AccessRole::Viewer);
@@ -45,7 +75,7 @@ fn control_client_is_untrusted_transport(client: Option<&str>) -> bool {
         return false;
     };
     if client == "unix" {
-        return true;
+        return false;
     }
     client.contains(':')
 }

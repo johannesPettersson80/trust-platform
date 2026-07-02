@@ -91,8 +91,18 @@ fn hmi_standalone_export_bundle_contains_assets_routes_and_config() {
     assert!(
         app_js.contains("function renderProcessPage")
             && app_js.contains("createGaugeRenderer")
-            && app_js.contains("kind === 'sparkline'"),
+            && app_js.contains("kind === 'sparkline'")
+            && app_js.contains("function widgetWritePolicy")
+            && app_js.contains("This value can be watched but not changed from HMI."),
         "exported hmi bundle should include process-page and rich-widget renderers"
+    );
+    let styles = assets
+        .get("hmi/styles.css")
+        .and_then(serde_json::Value::as_str)
+        .expect("hmi styles css");
+    assert!(
+        styles.contains(".widget-policy-badge") && styles.contains(".card-policy-note"),
+        "exported hmi styles should make read-only widget policy visible"
     );
     assert!(payload
         .get("config")

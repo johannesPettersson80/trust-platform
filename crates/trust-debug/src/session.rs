@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 use glob::glob;
 
 use trust_hir::{db::FileId, SourceKey, SourceRegistry};
+use trust_runtime::config::IoConfig;
 use trust_runtime::control::SourceFile as ControlSourceFile;
 use trust_runtime::debug::{DebugBreakpoint, DebugControl, HitCondition, LogFragment};
 #[cfg(test)]
@@ -12,6 +13,7 @@ use trust_runtime::harness::TestHarness;
 use trust_runtime::harness::{
     parse_debug_expression, CompileError, CompileSession, SourceFile as HarnessSourceFile,
 };
+use trust_runtime::io::IoDriverRegistry;
 use trust_runtime::{Runtime, RuntimeMetadata};
 
 use crate::protocol::{
@@ -194,6 +196,7 @@ impl DebugSession {
             .collect::<Vec<_>>();
         let compile = CompileSession::from_sources(source_files);
         let mut runtime = compile.build_runtime()?;
+        apply_project_io_config(&mut runtime, &path, &self.source_options)?;
         runtime.set_debug_control(self.control.clone());
         runtime
             .apply_retain_snapshot(&retained)

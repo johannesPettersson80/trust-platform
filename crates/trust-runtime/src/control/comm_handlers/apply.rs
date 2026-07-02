@@ -200,8 +200,13 @@ fn apply_request_with_project_root(
     }
 
     match request.action {
-        CommApplyAction::Remove | CommApplyAction::Disable => {
+        CommApplyAction::Remove => {
             if let Err(error) = remove_instance(&mut loaded.drivers, &request) {
+                field_errors.push(error);
+            }
+        }
+        CommApplyAction::Disable => {
+            if let Err(error) = disable_instance(&mut loaded.drivers, &request) {
                 field_errors.push(error);
             }
         }
@@ -307,11 +312,20 @@ fn apply_request_with_project_root(
         action: request.action,
         applied: true,
         lifecycle_effect: "restart_required",
-        message: "I/O configuration saved. Restart the runtime to apply it.".to_string(),
+        message: io_apply_message(request.action).to_string(),
         config_path: Some(loaded.path.display().to_string()),
         instance_id: request.instance_id,
         field_errors: Vec::new(),
         snippet: None,
+    }
+}
+
+fn io_apply_message(action: CommApplyAction) -> &'static str {
+    match action {
+        CommApplyAction::Disable => {
+            "Endpoint disabled. Restart the runtime to apply it; the endpoint stays visible in Devices & Connections."
+        }
+        _ => "I/O configuration saved. Restart the runtime to apply it.",
     }
 }
 
@@ -480,6 +494,7 @@ fn io_drivers_from_toml(
         drivers.push(IoDriverConfig {
             name: SmolStr::new(driver),
             params,
+            enabled: true,
         });
     }
     let Some(explicit_drivers) = io.get("drivers") else {
@@ -519,6 +534,10 @@ fn io_drivers_from_toml(
         drivers.push(IoDriverConfig {
             name: SmolStr::new(name),
             params,
+            enabled: table
+                .get("enabled")
+                .and_then(toml::Value::as_bool)
+                .unwrap_or(true),
         });
     }
     Ok(drivers)
@@ -583,6 +602,7 @@ fn build_driver_config(
     Ok(IoDriverConfig {
         name: SmolStr::new(driver),
         params: params_toml,
+        enabled: true,
     })
 }
 
@@ -682,6 +702,39 @@ fn remove_instance(
         ));
     }
     drivers.remove(index);
+    Ok(())
+}
+
+fn disable_instance(
+    drivers: &mut [IoDriverConfig],
+    request: &CommApplyRequest,
+) -> Result<(), CommFieldError> {
+    let requested_protocol = normalize_protocol(request.protocol.as_str());
+    let Some((instance_protocol, index)) = parse_instance_id(request.instance_id.as_deref()) else {
+        return Err(field_error(
+            "instance_id",
+            "Choose the configured instance to disable.",
+        ));
+    };
+    if instance_protocol != requested_protocol {
+        return Err(field_error(
+            "instance_id",
+            "Configured instance belongs to a different protocol.",
+        ));
+    }
+    let Some(driver) = drivers.get_mut(index) else {
+        return Err(field_error(
+            "instance_id",
+            "Configured instance was not found.",
+        ));
+    };
+    if driver_to_protocol(driver.name.as_str()) != Some(requested_protocol.as_str()) {
+        return Err(field_error(
+            "instance_id",
+            "Configured instance belongs to a different protocol.",
+        ));
+    }
+    driver.enabled = false;
     Ok(())
 }
 

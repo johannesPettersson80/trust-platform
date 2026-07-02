@@ -452,6 +452,38 @@ fn dispatch_initialize_emits_initialized_event() {
         event.event == "initialized"
     });
     assert!(saw_initialized);
+    let internal_messages = outcome
+        .events
+        .iter()
+        .filter_map(|value| {
+            let event: Event<serde_json::Value> = serde_json::from_value(value.clone()).unwrap();
+            if event.event != "trustDebugInternal" {
+                return None;
+            }
+            event.body.and_then(|body| {
+                body.get("message")
+                    .and_then(|value| value.as_str())
+                    .map(str::to_string)
+            })
+        })
+        .collect::<Vec<_>>();
+    assert!(!internal_messages.is_empty());
+    assert!(internal_messages
+        .iter()
+        .all(|message| message.contains("[trust-debug]")));
+    let visible_internal_output = outcome.events.iter().any(|value| {
+        let event: Event<serde_json::Value> = serde_json::from_value(value.clone()).unwrap();
+        event.event == "output"
+            && event.body.as_ref().is_some_and(|body| {
+                body.get("output")
+                    .and_then(|value| value.as_str())
+                    .is_some_and(|output| output.contains("[trust-debug]"))
+            })
+    });
+    assert!(
+        !visible_internal_output,
+        "internal debug traces must not be visible Debug Console output: {internal_messages:?}"
+    );
 }
 
 #[test]
@@ -595,6 +627,82 @@ fn debug_control_server_uses_launch_project_root_for_comm_apply() {
         "update should persist multiple Modbus instances: {updated_text}"
     );
 
+    fs::remove_dir_all(&project_root).ok();
+}
+
+#[test]
+fn launch_fails_when_control_server_endpoint_is_already_in_use() {
+    let project_root = unique_project_root("debug-control-endpoint-busy");
+    fs::write(project_root.join("main.st"), "PROGRAM Main\nEND_PROGRAM\n").unwrap();
+    let occupied = TcpListener::bind("127.0.0.1:0").unwrap();
+    let endpoint = format!("tcp://{}", occupied.local_addr().unwrap());
+
+    let runtime = Runtime::new();
+    let mut adapter = DebugAdapter::new(DebugSession::new(runtime));
+    let mut additional = BTreeMap::new();
+    additional.insert(
+        "program".to_string(),
+        serde_json::Value::String(project_root.join("main.st").display().to_string()),
+    );
+    additional.insert(
+        "runtimeRoot".to_string(),
+        serde_json::Value::String(project_root.display().to_string()),
+    );
+    additional.insert(
+        "controlEndpoint".to_string(),
+        serde_json::Value::String(endpoint),
+    );
+    additional.insert(
+        "controlAuthToken".to_string(),
+        serde_json::Value::String("debug-control-token".to_string()),
+    );
+
+    let launch = Request {
+        seq: 20,
+        message_type: MessageType::Request,
+        command: "launch".to_string(),
+        arguments: Some(serde_json::to_value(LaunchArguments { additional }).unwrap()),
+    };
+    let launch_outcome = adapter.dispatch_request(launch);
+    assert!(
+        launch_outcome.responses.is_empty(),
+        "launch should defer until configurationDone"
+    );
+
+    let configuration_done = Request {
+        seq: 21,
+        message_type: MessageType::Request,
+        command: "configurationDone".to_string(),
+        arguments: None,
+    };
+    let configured = adapter.dispatch_request(configuration_done);
+    let failed = configured.responses.iter().any(|value| {
+        let response: Response<serde_json::Value> = serde_json::from_value(value.clone()).unwrap();
+        !response.success
+            && response
+                .message
+                .as_deref()
+                .is_some_and(|message| message.contains("control server start failed"))
+    });
+    assert!(
+        failed,
+        "control endpoint collision must fail launch, not fake a running runtime: {:?}",
+        configured.responses
+    );
+    let scheduled_runner = configured.events.iter().any(|value| {
+        let event: Event<serde_json::Value> = serde_json::from_value(value.clone()).unwrap();
+        event.body.as_ref().is_some_and(|body| {
+            body.get("message")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|message| message.contains("runner start scheduled"))
+        })
+    });
+    assert!(
+        !scheduled_runner,
+        "failed control endpoint must not schedule the debug runner"
+    );
+
+    drop(occupied);
     fs::remove_dir_all(&project_root).ok();
 }
 

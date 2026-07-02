@@ -276,9 +276,10 @@ fn resolve_bindings(
 ) -> Result<Vec<OpcUaClientBinding>, RuntimeError> {
     let mut bindings = Vec::with_capacity(connection.points.len());
     for point in &connection.points {
+        let storage_name = global_storage_name(point.var.as_str());
         let reference = runtime
             .storage()
-            .ref_for_global(point.var.as_str())
+            .ref_for_global(storage_name)
             .ok_or_else(|| {
                 RuntimeError::InvalidConfig(
                     format!(
@@ -288,7 +289,7 @@ fn resolve_bindings(
                     .into(),
                 )
             })?;
-        validate_initial_value(runtime, connection, point)?;
+        validate_initial_value(runtime, connection, point, storage_name)?;
         bindings.push(OpcUaClientBinding {
             point: point.clone(),
             reference,
@@ -302,19 +303,17 @@ fn validate_initial_value(
     runtime: &Runtime,
     connection: &OpcUaClientConnectionConfig,
     point: &OpcUaClientPointConfig,
+    storage_name: &str,
 ) -> Result<(), RuntimeError> {
-    let value = runtime
-        .storage()
-        .get_global(point.var.as_str())
-        .ok_or_else(|| {
-            RuntimeError::InvalidConfig(
-                format!(
-                    "OPC UA client connection '{}': global '{}' does not exist",
-                    connection.name, point.var
-                )
-                .into(),
+    let value = runtime.storage().get_global(storage_name).ok_or_else(|| {
+        RuntimeError::InvalidConfig(
+            format!(
+                "OPC UA client connection '{}': global '{}' does not exist",
+                connection.name, point.var
             )
-        })?;
+            .into(),
+        )
+    })?;
     let Some(mapped) = crate::opcua::map_iec_value(value) else {
         return Err(RuntimeError::InvalidConfig(
             format!(
@@ -346,6 +345,13 @@ fn validate_initial_value(
         ));
     }
     Ok(())
+}
+
+fn global_storage_name(point_var: &str) -> &str {
+    point_var
+        .split_once('.')
+        .filter(|(prefix, name)| prefix.eq_ignore_ascii_case("global") && !name.is_empty())
+        .map_or(point_var, |(_, name)| name)
 }
 
 fn set_point_status(

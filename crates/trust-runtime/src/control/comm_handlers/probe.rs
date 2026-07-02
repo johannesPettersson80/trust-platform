@@ -98,9 +98,19 @@ fn test_request(request: CommTestRequest) -> CommTestResponse {
         );
     }
     match protocol.as_str() {
-        "modbus_tcp" => tcp_probe(protocol, modbus_target(&request.params), timeout_ms(&request.params, "timeout_ms")),
+        "modbus_tcp" => tcp_probe(
+            protocol,
+            modbus_target(&request.params),
+            timeout_ms(&request.params, "timeout_ms"),
+            "address",
+        ),
         "opcua_client" => opcua_client_probe(protocol, &request.params),
-        "mqtt" => tcp_probe(protocol, mqtt_target(&request.params), timeout_ms(&request.params, "timeout_ms")),
+        "mqtt" => tcp_probe(
+            protocol,
+            mqtt_target(&request.params),
+            timeout_ms(&request.params, "timeout_ms"),
+            "broker",
+        ),
         "simulated" | "loopback" => CommTestResponse {
             schema_version: COMM_SCHEMA_VERSION,
             protocol,
@@ -199,6 +209,7 @@ fn tcp_probe(
     protocol: String,
     target: Result<String, CommFieldError>,
     timeout_ms: u64,
+    target_field: &'static str,
 ) -> CommTestResponse {
     let target = match target {
         Ok(target) => target,
@@ -231,39 +242,61 @@ fn tcp_probe(
                 detail: "Address could not be resolved.".to_string(),
                 error: None,
                 evidence: Some(json!({ "target": target, "timeout_ms": timeout.as_millis() })),
-                field_errors: vec![field_error("address", "Enter a resolvable host:port.")],
+                field_errors: vec![field_error(target_field, "Enter a resolvable host:port.")],
             }
         }
     };
     match TcpStream::connect_timeout(&resolved, timeout) {
-        Ok(_) => CommTestResponse {
-            schema_version: COMM_SCHEMA_VERSION,
-            protocol,
-            supported: true,
-            ok: true,
-            detail: "TCP connection succeeded.".to_string(),
-            error: None,
-            evidence: Some(json!({
-                "target": target,
-                "resolved": resolved.to_string(),
-                "timeout_ms": timeout.as_millis()
-            })),
-            field_errors: Vec::new(),
-        },
-        Err(error) => CommTestResponse {
-            schema_version: COMM_SCHEMA_VERSION,
-            protocol,
-            supported: true,
-            ok: false,
-            detail: format!("TCP connection failed: {error}"),
-            error: None,
-            evidence: Some(json!({
-                "target": target,
-                "resolved": resolved.to_string(),
-                "timeout_ms": timeout.as_millis()
-            })),
-            field_errors: Vec::new(),
-        },
+        Ok(_) => {
+            let detail = probe_success_detail(protocol.as_str()).to_string();
+            CommTestResponse {
+                schema_version: COMM_SCHEMA_VERSION,
+                protocol,
+                supported: true,
+                ok: true,
+                detail,
+                error: None,
+                evidence: Some(json!({
+                    "target": target,
+                    "resolved": resolved.to_string(),
+                    "timeout_ms": timeout.as_millis()
+                })),
+                field_errors: Vec::new(),
+            }
+        }
+        Err(error) => {
+            let detail = format!("{}: {error}", probe_failure_prefix(protocol.as_str()));
+            CommTestResponse {
+                schema_version: COMM_SCHEMA_VERSION,
+                protocol,
+                supported: true,
+                ok: false,
+                detail,
+                error: None,
+                evidence: Some(json!({
+                    "target": target,
+                    "resolved": resolved.to_string(),
+                    "timeout_ms": timeout.as_millis()
+                })),
+                field_errors: Vec::new(),
+            }
+        }
+    }
+}
+
+fn probe_success_detail(protocol: &str) -> &'static str {
+    match protocol {
+        "modbus_tcp" => "Modbus device port is reachable.",
+        "mqtt" => "MQTT broker port is reachable.",
+        _ => "TCP connection succeeded.",
+    }
+}
+
+fn probe_failure_prefix(protocol: &str) -> &'static str {
+    match protocol {
+        "modbus_tcp" => "Modbus device port is not reachable",
+        "mqtt" => "MQTT broker port is not reachable",
+        _ => "TCP connection failed",
     }
 }
 
@@ -457,6 +490,7 @@ mod tests {
         });
         assert!(success.supported);
         assert!(success.ok, "expected success, got {}", success.detail);
+        assert_eq!(success.detail, "Modbus device port is reachable.");
 
         let refused = unused_loopback_address();
         let failure = test_request(CommTestRequest {
@@ -466,7 +500,9 @@ mod tests {
         });
         assert!(failure.supported);
         assert!(!failure.ok);
-        assert!(failure.detail.contains("TCP connection failed"));
+        assert!(failure
+            .detail
+            .contains("Modbus device port is not reachable"));
     }
 
     #[test]
@@ -479,6 +515,7 @@ mod tests {
         });
         assert!(success.supported);
         assert!(success.ok, "expected success, got {}", success.detail);
+        assert_eq!(success.detail, "MQTT broker port is reachable.");
 
         let missing = test_request(CommTestRequest {
             protocol: "mqtt".to_string(),
@@ -488,6 +525,18 @@ mod tests {
         assert!(missing.supported);
         assert!(!missing.ok);
         assert!(missing
+            .field_errors
+            .iter()
+            .any(|error| error.field == "broker"));
+
+        let unresolved = test_request(CommTestRequest {
+            protocol: "mqtt".to_string(),
+            params: json!({ "broker": "127.0.0.1:notaport" }),
+            credential_channel: None,
+        });
+        assert!(unresolved.supported);
+        assert!(!unresolved.ok);
+        assert!(unresolved
             .field_errors
             .iter()
             .any(|error| error.field == "broker"));

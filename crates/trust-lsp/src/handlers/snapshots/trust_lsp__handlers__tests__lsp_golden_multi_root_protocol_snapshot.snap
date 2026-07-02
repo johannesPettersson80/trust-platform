@@ -104,7 +104,7 @@ expression: output
             }
           },
           "severity": 2,
-          "source": "trust-lsp"
+          "source": "truST"
         }
       ],
       "edit": {
@@ -345,7 +345,7 @@ expression: output
           }
         },
         "severity": 1,
-        "source": "trust-lsp"
+        "source": "truST"
       },
       {
         "code": "E002",
@@ -367,7 +367,7 @@ expression: output
           }
         },
         "severity": 1,
-        "source": "trust-lsp"
+        "source": "truST"
       },
       {
         "code": "E002",
@@ -389,7 +389,7 @@ expression: output
           }
         },
         "severity": 1,
-        "source": "trust-lsp"
+        "source": "truST"
       },
       {
         "code": "E002",
@@ -411,7 +411,7 @@ expression: output
           }
         },
         "severity": 1,
-        "source": "trust-lsp"
+        "source": "truST"
       },
       {
         "code": "E002",
@@ -433,7 +433,7 @@ expression: output
           }
         },
         "severity": 1,
-        "source": "trust-lsp"
+        "source": "truST"
       },
       {
         "code": "E002",
@@ -455,7 +455,7 @@ expression: output
           }
         },
         "severity": 1,
-        "source": "trust-lsp"
+        "source": "truST"
       },
       {
         "code": "E002",
@@ -477,7 +477,7 @@ expression: output
           }
         },
         "severity": 1,
-        "source": "trust-lsp"
+        "source": "truST"
       },
       {
         "code": "E002",
@@ -499,7 +499,7 @@ expression: output
           }
         },
         "severity": 1,
-        "source": "trust-lsp"
+        "source": "truST"
       },
       {
         "code": "E002",
@@ -521,7 +521,7 @@ expression: output
           }
         },
         "severity": 1,
-        "source": "trust-lsp"
+        "source": "truST"
       },
       {
         "code": "W001",
@@ -543,7 +543,7 @@ expression: output
           }
         },
         "severity": 2,
-        "source": "trust-lsp"
+        "source": "truST"
       },
       {
         "code": "W001",
@@ -565,7 +565,7 @@ expression: output
           }
         },
         "severity": 2,
-        "source": "trust-lsp"
+        "source": "truST"
       },
       {
         "code": "W009",
@@ -587,7 +587,7 @@ expression: output
           }
         },
         "severity": 2,
-        "source": "trust-lsp"
+        "source": "truST"
       },
       {
         "code": "W009",
@@ -609,7 +609,7 @@ expression: output
           }
         },
         "severity": 2,
-        "source": "trust-lsp"
+        "source": "truST"
       }
     ],
     "kind": "full",
@@ -1827,7 +1827,7 @@ expression: output
               }
             },
             "severity": 2,
-            "source": "trust-lsp"
+            "source": "truST"
           }
         ],
         "kind": "full",
@@ -1857,7 +1857,7 @@ expression: output
               }
             },
             "severity": 1,
-            "source": "trust-lsp"
+            "source": "truST"
           },
           {
             "code": "E002",
@@ -1879,7 +1879,7 @@ expression: output
               }
             },
             "severity": 1,
-            "source": "trust-lsp"
+            "source": "truST"
           },
           {
             "code": "E002",
@@ -1901,7 +1901,7 @@ expression: output
               }
             },
             "severity": 1,
-            "source": "trust-lsp"
+            "source": "truST"
           },
           {
             "code": "E002",
@@ -1923,7 +1923,7 @@ expression: output
               }
             },
             "severity": 1,
-            "source": "trust-lsp"
+            "source": "truST"
           },
           {
             "code": "E002",
@@ -1945,7 +1945,7 @@ expression: output
               }
             },
             "severity": 1,
-            "source": "trust-lsp"
+            "source": "truST"
           },
           {
             "code": "E002",
@@ -1967,7 +1967,7 @@ expression: output
               }
             },
             "severity": 1,
-            "source": "trust-lsp"
+            "source": "truST"
           },
           {
             "code": "E002",
@@ -1989,7 +1989,7 @@ expression: output
               }
             },
             "severity": 1,
-            "source": "trust-lsp"
+            "source": "truST"
           },
           {
             "code": "E002",
@@ -2011,7 +2011,7 @@ expression: output
               }
             },
             "severity": 1,
-            "source": "trust-lsp"
+            "source": "truST"
           },
           {
             "code": "E002",
@@ -2033,7 +2033,7 @@ expression: output
               }
             },
             "severity": 1,
-            "source": "trust-lsp"
+            "source": "truST"
           },
           {
             "code": "W001",
@@ -2055,7 +2055,7 @@ expression: output
               }
             },
             "severity": 2,
-            "source": "trust-lsp"
+            "source": "truST"
           },
           {
             "code": "W001",
@@ -2077,7 +2077,7 @@ expression: output
               }
             },
             "severity": 2,
-            "source": "trust-lsp"
+            "source": "truST"
           },
           {
             "code": "W009",
@@ -2099,7 +2099,7 @@ expression: output
               }
             },
             "severity": 2,
-            "source": "trust-lsp"
+            "source": "truST"
           },
           {
             "code": "W009",
@@ -2121,7 +2121,7 @@ expression: output
               }
             },
             "severity": 2,
-            "source": "trust-lsp"
+            "source": "truST"
           }
         ],
         "kind": "full",

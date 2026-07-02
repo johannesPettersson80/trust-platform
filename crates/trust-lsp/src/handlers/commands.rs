@@ -38,6 +38,8 @@ pub struct MoveNamespaceCommandArgs {
     pub new_path: String,
     #[serde(default)]
     pub target_uri: Option<Url>,
+    #[serde(default)]
+    pub return_edit: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -74,15 +76,75 @@ pub async fn execute_command(
     match params.command.as_str() {
         MOVE_NAMESPACE_COMMAND => {
             let args = parse_move_namespace_args(params.arguments)?;
+            let return_edit = args.return_edit;
             let edit = namespace_move_workspace_edit(state, args)?;
-            let response = client.apply_edit(edit).await.ok()?;
-            Some(json!(response.applied))
+            if return_edit {
+                return Some(json!(edit));
+            }
+            Some(json!(
+                apply_workspace_edit_in_safe_phases(client, edit).await?
+            ))
         }
         PROJECT_INFO_COMMAND => project_info_value(state, params.arguments),
         HMI_INIT_COMMAND => hmi_init_value(state, params.arguments),
         HMI_BINDINGS_COMMAND => hmi_bindings_value(state, params.arguments),
         _ => None,
     }
+}
+
+async fn apply_workspace_edit_in_safe_phases(client: &Client, edit: WorkspaceEdit) -> Option<bool> {
+    for phase in split_workspace_edit_for_safe_apply(edit) {
+        let response = client.apply_edit(phase).await.ok()?;
+        if !response.applied {
+            return Some(false);
+        }
+    }
+    Some(true)
+}
+
+fn split_workspace_edit_for_safe_apply(edit: WorkspaceEdit) -> Vec<WorkspaceEdit> {
+    let WorkspaceEdit {
+        changes,
+        document_changes,
+        change_annotations,
+    } = edit;
+
+    let Some(DocumentChanges::Operations(operations)) = document_changes else {
+        return vec![WorkspaceEdit {
+            changes,
+            document_changes,
+            change_annotations,
+        }];
+    };
+    if changes.is_some() || change_annotations.is_some() {
+        return vec![WorkspaceEdit {
+            changes,
+            document_changes: Some(DocumentChanges::Operations(operations)),
+            change_annotations,
+        }];
+    }
+
+    let mut apply_ops = Vec::new();
+    let mut cleanup_ops = Vec::new();
+
+    for operation in operations {
+        match &operation {
+            DocumentChangeOperation::Op(ResourceOp::Create(_))
+            | DocumentChangeOperation::Op(ResourceOp::Rename(_))
+            | DocumentChangeOperation::Edit(_) => apply_ops.push(operation),
+            DocumentChangeOperation::Op(ResourceOp::Delete(_)) => cleanup_ops.push(operation),
+        }
+    }
+
+    [apply_ops, cleanup_ops]
+        .into_iter()
+        .filter(|operations| !operations.is_empty())
+        .map(|operations| WorkspaceEdit {
+            changes: None,
+            document_changes: Some(DocumentChanges::Operations(operations)),
+            change_annotations: None,
+        })
+        .collect()
 }
 
 fn parse_move_namespace_args(args: Vec<Value>) -> Option<MoveNamespaceCommandArgs> {

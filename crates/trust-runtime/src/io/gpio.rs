@@ -6,6 +6,8 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use smol_str::SmolStr;
+#[cfg(target_os = "linux")]
+use std::collections::HashMap;
 
 use crate::error::RuntimeError;
 use crate::io::{IoAddress, IoDriver, IoDriverHealth, IoSize};
@@ -39,6 +41,7 @@ impl GpioDriver {
         let config = GpioConfig::parse(params)?;
         let mut backend: Box<dyn GpioBackend> = match config.backend {
             GpioBackendKind::Sysfs => Box::new(SysfsBackend::new(config.sysfs_base)),
+            GpioBackendKind::Chardev => make_chardev_backend(config.chip_path),
         };
 
         let mut inputs = Vec::new();
@@ -200,15 +203,17 @@ impl GpioOutput {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum GpioBackendKind {
     Sysfs,
+    Chardev,
 }
 
 #[derive(Debug)]
 struct GpioConfig {
     backend: GpioBackendKind,
     sysfs_base: PathBuf,
+    chip_path: PathBuf,
     inputs: Vec<GpioInputEntry>,
     outputs: Vec<GpioOutputEntry>,
 }
@@ -235,8 +240,14 @@ impl GpioConfig {
             .as_table()
             .ok_or_else(|| invalid_gpio("io.params must be a table"))?;
         let backend = match table.get("backend").and_then(|v| v.as_str()) {
-            None => GpioBackendKind::Sysfs,
+            None => GpioBackendKind::Chardev,
             Some(name) if name.eq_ignore_ascii_case("sysfs") => GpioBackendKind::Sysfs,
+            Some(name)
+                if name.eq_ignore_ascii_case("libgpiod")
+                    || name.eq_ignore_ascii_case("chardev") =>
+            {
+                GpioBackendKind::Chardev
+            }
             Some(name) => return Err(invalid_gpio(format!("unsupported gpio backend '{name}'"))),
         };
         let sysfs_base = table
@@ -244,6 +255,11 @@ impl GpioConfig {
             .and_then(|v| v.as_str())
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from("/sys/class/gpio"));
+        let chip_path = table
+            .get("chip")
+            .and_then(|v| v.as_str())
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("/dev/gpiochip0"));
 
         let inputs = parse_gpio_inputs(table.get("inputs"))?;
         let outputs = parse_gpio_outputs(table.get("outputs"))?;
@@ -251,6 +267,7 @@ impl GpioConfig {
         Ok(Self {
             backend,
             sysfs_base,
+            chip_path,
             inputs,
             outputs,
         })
@@ -559,6 +576,144 @@ impl GpioBackend for SysfsBackend {
     }
 }
 
+#[cfg(target_os = "linux")]
+type ChardevLineHandle = gpio_cdev::LineHandle;
+
+#[cfg(target_os = "linux")]
+fn make_chardev_backend(chip_path: PathBuf) -> Box<dyn GpioBackend> {
+    Box::new(ChardevBackend::new(chip_path))
+}
+
+#[cfg(not(target_os = "linux"))]
+fn make_chardev_backend(chip_path: PathBuf) -> Box<dyn GpioBackend> {
+    Box::new(UnsupportedChardevBackend { chip_path })
+}
+
+#[cfg(target_os = "linux")]
+#[derive(Debug)]
+struct ChardevBackend {
+    chip_path: PathBuf,
+    inputs: HashMap<u32, ChardevLineHandle>,
+    outputs: HashMap<u32, ChardevLineHandle>,
+}
+
+#[cfg(target_os = "linux")]
+impl ChardevBackend {
+    fn new(chip_path: PathBuf) -> Self {
+        Self {
+            chip_path,
+            inputs: HashMap::new(),
+            outputs: HashMap::new(),
+        }
+    }
+
+    fn request(
+        &self,
+        line: u32,
+        flags: gpio_cdev::LineRequestFlags,
+        initial: bool,
+    ) -> Result<ChardevLineHandle, RuntimeError> {
+        let mut chip = gpio_cdev::Chip::new(&self.chip_path).map_err(|err| {
+            RuntimeError::IoDriver(SmolStr::new(format!(
+                "gpio chardev open {} failed: {err}",
+                self.chip_path.display()
+            )))
+        })?;
+        chip.get_line(line)
+            .and_then(|line_handle| line_handle.request(flags, u8::from(initial), "trust-runtime"))
+            .map_err(|err| {
+                RuntimeError::IoDriver(SmolStr::new(format!(
+                    "gpio chardev request line {line} on {} failed: {err}",
+                    self.chip_path.display()
+                )))
+            })
+    }
+}
+
+#[cfg(target_os = "linux")]
+impl GpioBackend for ChardevBackend {
+    fn configure_input(&mut self, line: u32) -> Result<(), RuntimeError> {
+        if self.inputs.contains_key(&line) {
+            return Ok(());
+        }
+        let handle = self.request(line, gpio_cdev::LineRequestFlags::INPUT, false)?;
+        self.inputs.insert(line, handle);
+        Ok(())
+    }
+
+    fn configure_output(&mut self, line: u32, initial: bool) -> Result<(), RuntimeError> {
+        if self.outputs.contains_key(&line) {
+            return Ok(());
+        }
+        let handle = self.request(line, gpio_cdev::LineRequestFlags::OUTPUT, initial)?;
+        self.outputs.insert(line, handle);
+        Ok(())
+    }
+
+    fn read(&mut self, line: u32) -> Result<bool, RuntimeError> {
+        let handle = self
+            .inputs
+            .get(&line)
+            .or_else(|| self.outputs.get(&line))
+            .ok_or_else(|| {
+                RuntimeError::IoDriver(SmolStr::new(format!(
+                    "gpio chardev line {line} was not requested"
+                )))
+            })?;
+        handle.get_value().map(|value| value != 0).map_err(|err| {
+            RuntimeError::IoDriver(SmolStr::new(format!(
+                "gpio chardev read line {line} failed: {err}"
+            )))
+        })
+    }
+
+    fn write(&mut self, line: u32, value: bool) -> Result<(), RuntimeError> {
+        let handle = self.outputs.get(&line).ok_or_else(|| {
+            RuntimeError::IoDriver(SmolStr::new(format!(
+                "gpio chardev output line {line} was not requested"
+            )))
+        })?;
+        handle.set_value(u8::from(value)).map_err(|err| {
+            RuntimeError::IoDriver(SmolStr::new(format!(
+                "gpio chardev write line {line} failed: {err}"
+            )))
+        })
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+#[derive(Debug)]
+struct UnsupportedChardevBackend {
+    chip_path: PathBuf,
+}
+
+#[cfg(not(target_os = "linux"))]
+impl GpioBackend for UnsupportedChardevBackend {
+    fn configure_input(&mut self, _line: u32) -> Result<(), RuntimeError> {
+        Err(chardev_unsupported(&self.chip_path))
+    }
+
+    fn configure_output(&mut self, _line: u32, _initial: bool) -> Result<(), RuntimeError> {
+        Err(chardev_unsupported(&self.chip_path))
+    }
+
+    fn read(&mut self, _line: u32) -> Result<bool, RuntimeError> {
+        Err(chardev_unsupported(&self.chip_path))
+    }
+
+    fn write(&mut self, _line: u32, _value: bool) -> Result<(), RuntimeError> {
+        Err(chardev_unsupported(&self.chip_path))
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn chardev_unsupported(chip_path: &Path) -> RuntimeError {
+    RuntimeError::IoDriver(SmolStr::new(format!(
+        "gpio libgpiod/chardev backend requires Linux GPIO character devices; {} is not available on this platform",
+        chip_path.display()
+    )))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -568,7 +723,8 @@ mod tests {
     fn parse_gpio_config_accepts_basic_inputs() {
         let params: toml::Value = toml::from_str(
             r#"
-backend = "sysfs"
+backend = "libgpiod"
+chip = "/dev/gpiochip0"
 inputs = [ { address = "%IX0.0", line = 17, invert = true, debounce_ms = 10 } ]
 outputs = [ { address = "%QX0.1", line = 27, invert = false, initial = true } ]
 "#,
@@ -577,6 +733,22 @@ outputs = [ { address = "%QX0.1", line = 27, invert = false, initial = true } ]
         let config = GpioConfig::parse(&params).expect("config");
         assert_eq!(config.inputs.len(), 1);
         assert_eq!(config.outputs.len(), 1);
+        assert_eq!(config.backend, GpioBackendKind::Chardev);
+        assert_eq!(config.chip_path, PathBuf::from("/dev/gpiochip0"));
+    }
+
+    #[test]
+    fn parse_gpio_config_keeps_sysfs_selectable_for_legacy_hosts() {
+        let params: toml::Value = toml::from_str(
+            r#"
+backend = "sysfs"
+sysfs_base = "/tmp/gpio"
+"#,
+        )
+        .unwrap();
+        let config = GpioConfig::parse(&params).expect("config");
+        assert_eq!(config.backend, GpioBackendKind::Sysfs);
+        assert_eq!(config.sysfs_base, PathBuf::from("/tmp/gpio"));
     }
 
     #[test]

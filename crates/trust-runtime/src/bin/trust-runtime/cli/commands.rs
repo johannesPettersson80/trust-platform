@@ -239,7 +239,7 @@ pub enum Command {
         /// Override driver selection (default is auto-detect).
         #[arg(long)]
         driver: Option<String>,
-        /// Override GPIO backend (e.g., sysfs).
+        /// Override GPIO backend (libgpiod/chardev by default; sysfs for legacy hosts).
         #[arg(long)]
         backend: Option<String>,
         /// Override output path (default: system io.toml).

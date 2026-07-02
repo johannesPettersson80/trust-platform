@@ -238,6 +238,44 @@ END_PROGRAM
             "missing simulated field {field_id}"
         );
     }
+
+    let gpio = handle_request_value(
+        json!({"id": 442, "type": "comm.schema", "params": { "protocol": "gpio" }}),
+        &state,
+        None,
+    );
+    assert!(gpio.ok, "comm.schema gpio failed: {:?}", gpio.error);
+    let result = gpio.result.expect("gpio schema result");
+    let fields = result
+        .pointer("/protocols/0/fields")
+        .and_then(serde_json::Value::as_array)
+        .expect("gpio fields");
+    let backend = fields
+        .iter()
+        .find(|field| field.get("id").and_then(serde_json::Value::as_str) == Some("backend"))
+        .expect("gpio backend field");
+    assert_eq!(
+        backend.get("default").and_then(serde_json::Value::as_str),
+        Some("libgpiod")
+    );
+    assert_eq!(
+        backend
+            .get("options")
+            .and_then(serde_json::Value::as_array)
+            .map(|options| {
+                options
+                    .iter()
+                    .filter_map(serde_json::Value::as_str)
+                    .collect::<Vec<_>>()
+            }),
+        Some(vec!["libgpiod", "sysfs"])
+    );
+    assert!(
+        fields
+            .iter()
+            .any(|field| field.get("id").and_then(serde_json::Value::as_str) == Some("chip")),
+        "gpio schema must expose the chardev chip path"
+    );
 }
 
 #[test]
@@ -1018,6 +1056,109 @@ params = {}
     assert!(
         !root.join("io.toml").exists(),
         "removing the last configured driver should turn I/O config off"
+    );
+}
+
+#[test]
+fn comm_apply_disable_preserves_driver_as_disabled() {
+    let source = r#"
+PROGRAM Main
+VAR
+    run : BOOL := TRUE;
+END_VAR
+END_PROGRAM
+"#;
+    let mut state = hmi_test_state(source);
+    let root = temp_dir("comm-apply-disable-preserves-driver");
+    set_hmi_project_root(&mut state, &root);
+    write_file(
+        &root.join("io.toml"),
+        r#"
+[io]
+safe_state = [{ address = "%QX0.0", value = "FALSE" }]
+
+[[io.drivers]]
+name = "modbus-tcp"
+
+[io.drivers.params]
+address = "127.0.0.1:1502"
+unit_id = 2
+input_start = 5
+output_start = 7
+timeout_ms = 750
+on_error = "warn"
+"#,
+    );
+
+    let disable = handle_request_value(
+        json!({
+            "id": 492,
+            "type": "comm.apply",
+            "params": {
+                "protocol": "modbus_tcp",
+                "action": "disable",
+                "instance_id": "modbus_tcp:0",
+                "params": {}
+            }
+        }),
+        &state,
+        None,
+    );
+
+    assert!(disable.ok, "disable failed: {:?}", disable.error);
+    let result = disable.result.expect("disable result");
+    assert_eq!(
+        result.get("applied").and_then(serde_json::Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        result.get("action").and_then(serde_json::Value::as_str),
+        Some("disable")
+    );
+    let message = result
+        .get("message")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+    assert!(message.contains("Endpoint disabled"), "{message}");
+
+    let text = fs::read_to_string(root.join("io.toml")).expect("read io.toml");
+    assert!(text.contains("name = \"modbus-tcp\""), "{text}");
+    assert!(text.contains("enabled = false"), "{text}");
+    crate::config::validate_io_toml_text(&text).expect("disabled io.toml should validate");
+
+    let topology = handle_request_value(
+        json!({
+            "id": 493,
+            "type": "fleet.topology"
+        }),
+        &state,
+        None,
+    );
+    assert!(topology.ok, "topology failed: {:?}", topology.error);
+    let topology = topology.result.expect("topology result");
+    let endpoints = topology
+        .pointer("/hosts/0/runtimes/0/endpoints")
+        .and_then(serde_json::Value::as_array)
+        .expect("runtime endpoints");
+    let endpoint = endpoints
+        .iter()
+        .find(|endpoint| {
+            endpoint
+                .get("protocol")
+                .and_then(serde_json::Value::as_str)
+                == Some("modbus_tcp")
+        })
+        .expect("disabled modbus endpoint remains visible");
+    assert_eq!(
+        endpoint.get("health").and_then(serde_json::Value::as_str),
+        Some("disabled")
+    );
+    assert!(
+        endpoint
+            .get("detail")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|detail| detail.contains("Disabled in io.toml")),
+        "{endpoint:?}"
     );
 }
 
@@ -1897,9 +2038,168 @@ fn offline_comm_apply_writes_ads_runtime_and_ads_toml() {
                 .and_then(serde_json::Value::as_str)
                 == Some("configured_policy")
     }));
+    let ads_endpoint = endpoints
+        .iter()
+        .find(|endpoint| endpoint.get("protocol").and_then(serde_json::Value::as_str) == Some("ads"))
+        .expect("ADS endpoint");
+    let points = ads_endpoint
+        .pointer("/params/connections/0/points")
+        .and_then(serde_json::Value::as_array)
+        .expect("configured ADS points");
+    assert_eq!(points.len(), 1);
+    assert_eq!(
+        points[0].get("var").and_then(serde_json::Value::as_str),
+        Some("line1_temp")
+    );
+    assert_eq!(
+        points[0].get("symbol").and_then(serde_json::Value::as_str),
+        Some("MAIN.Temperature")
+    );
+    assert_eq!(
+        points[0].get("type").and_then(serde_json::Value::as_str),
+        Some("REAL")
+    );
     let serialized = serde_json::to_string(&topology).expect("topology json");
     assert!(!serialized.contains("source_ip"));
     assert!(!serialized.contains("source_cidr"));
+}
+
+#[test]
+fn offline_comm_apply_preserves_ads_server_client_pins_and_projects_them() {
+    let root = temp_dir("offline-comm-ads-server");
+    write_file(
+        &root.join("runtime.toml"),
+        r#"
+[bundle]
+version = 1
+
+[resource]
+name = "main"
+cycle_interval_ms = 100
+
+[runtime]
+execution_backend = "vm"
+
+[runtime.control]
+endpoint = "unix:///tmp/trust-runtime.sock"
+mode = "production"
+debug_enabled = false
+
+[runtime.log]
+level = "info"
+
+[runtime.retain]
+mode = "none"
+save_interval_ms = 1000
+
+[runtime.watchdog]
+enabled = false
+timeout_ms = 5000
+action = "halt"
+
+[runtime.fault]
+policy = "halt"
+
+[runtime.web]
+enabled = true
+listen = "0.0.0.0:8080"
+auth = "local"
+tls = false
+
+[runtime.discovery]
+enabled = true
+service_name = "truST"
+advertise = true
+interfaces = ["eth0"]
+
+[runtime.mesh]
+enabled = false
+listen = "0.0.0.0:5200"
+tls = false
+publish = []
+subscribe = {}
+
+[runtime.cloud]
+profile = "dev"
+
+[runtime.cloud.wan]
+allow_write = []
+
+[runtime.ads_server]
+enabled = true
+listen = "127.0.0.1"
+insecure_transport = true
+writes_enabled = true
+expose = ["global.*"]
+writable = ["global.TankLevel"]
+
+[[runtime.ads_server.clients]]
+ams_net_id = "5.23.91.12.1.1"
+source_ip = "192.168.10.50"
+"#,
+    );
+
+    let topology =
+        crate::control::offline_fleet_topology_json(&root).expect("offline ADS server topology");
+    let endpoints = topology
+        .pointer("/hosts/0/runtimes/0/endpoints")
+        .and_then(serde_json::Value::as_array)
+        .expect("endpoints");
+    let ads_server = endpoints
+        .iter()
+        .find(|endpoint| {
+            endpoint.get("protocol").and_then(serde_json::Value::as_str)
+                == Some("ads_server")
+        })
+        .expect("ADS server endpoint");
+    let clients = ads_server
+        .pointer("/params/clients")
+        .and_then(serde_json::Value::as_array)
+        .expect("ADS server clients");
+    assert_eq!(clients.len(), 1);
+    assert_eq!(
+        clients[0]
+            .get("ams_net_id")
+            .and_then(serde_json::Value::as_str),
+        Some("5.23.91.12.1.1")
+    );
+    assert_eq!(
+        clients[0]
+            .get("source_ip")
+            .and_then(serde_json::Value::as_str),
+        Some("192.168.10.50")
+    );
+
+    let apply = crate::control::offline_comm_apply_json(
+        &root,
+        json!({
+            "protocol": "ads_server",
+            "action": "upsert",
+            "params": {
+                "enabled": true,
+                "listen": "127.0.0.1",
+                "insecure_transport": true,
+                "writes_enabled": true,
+                "expose": ["global.*"],
+                "writable": ["global.TankLevel"]
+            }
+        }),
+    )
+    .expect("offline ADS server apply preserves clients");
+    assert_eq!(
+        apply.get("applied").and_then(serde_json::Value::as_bool),
+        Some(true)
+    );
+
+    let runtime_text = fs::read_to_string(root.join("runtime.toml")).expect("read runtime.toml");
+    assert!(
+        runtime_text.contains("[[runtime.ads_server.clients]]"),
+        "ADS server client pins must survive expose writes: {runtime_text}"
+    );
+    assert!(runtime_text.contains("ams_net_id = \"5.23.91.12.1.1\""));
+    assert!(runtime_text.contains("source_ip = \"192.168.10.50\""));
+    crate::config::validate_runtime_toml_text(&runtime_text)
+        .expect("runtime.toml with preserved ADS server clients should validate");
 }
 
 #[test]
@@ -4560,6 +4860,39 @@ END_PROGRAM
         None,
     );
     assert!(viewer_status.ok, "viewer should read status");
+    let viewer_access = viewer_status
+        .result
+        .as_ref()
+        .and_then(|value| value.get("access"))
+        .expect("viewer access capabilities");
+    assert_eq!(
+        viewer_access.get("role").and_then(serde_json::Value::as_str),
+        Some("viewer")
+    );
+    assert_eq!(
+        viewer_access
+            .pointer("/io/write")
+            .and_then(serde_json::Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        viewer_access
+            .pointer("/io/force")
+            .and_then(serde_json::Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        viewer_access
+            .pointer("/io/release")
+            .and_then(serde_json::Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        viewer_access
+            .get("reason")
+            .and_then(serde_json::Value::as_str),
+        Some("Viewer role — connect with an engineer token to write or force.")
+    );
 
     let viewer_restart = handle_request_value(
         json!({"id": 51, "type": "restart", "auth": viewer_token, "params": {"mode": "warm"}}),
@@ -4669,7 +5002,19 @@ END_PROGRAM
         None,
     );
     assert!(!unauthorized.ok);
-    assert_eq!(unauthorized.error.as_deref(), Some("unauthorized"));
+    assert_eq!(unauthorized.error.as_deref(), Some("invalid auth token"));
+    assert_eq!(
+        unauthorized.error_code.as_deref(),
+        Some("invalid_auth_token")
+    );
+
+    let missing_auth = handle_request_value(json!({"id": 58, "type": "status"}), &state, None);
+    assert!(!missing_auth.ok);
+    assert_eq!(missing_auth.error.as_deref(), Some("missing auth token"));
+    assert_eq!(
+        missing_auth.error_code.as_deref(),
+        Some("missing_auth_token")
+    );
 
     let _ = std::fs::remove_file(pairing_path);
 }
@@ -4703,6 +5048,109 @@ END_PROGRAM
         .error
         .as_deref()
         .is_some_and(|msg| msg.contains("requires role engineer")));
+}
+
+#[test]
+fn unauthenticated_unix_control_defaults_to_admin_without_admin_token() {
+    let source = r#"
+PROGRAM Main
+VAR
+    run : BOOL := TRUE;
+END_VAR
+END_PROGRAM
+"#;
+    let state = hmi_test_state(source);
+
+    let status = handle_request_value(json!({"id": 903, "type": "status"}), &state, Some("unix"));
+    assert!(status.ok, "local Unix control should read status");
+    let access = status
+        .result
+        .as_ref()
+        .and_then(|value| value.get("access"))
+        .expect("access capabilities");
+    assert_eq!(
+        access.get("role").and_then(serde_json::Value::as_str),
+        Some("admin")
+    );
+    assert_eq!(
+        access
+            .pointer("/io/write")
+            .and_then(serde_json::Value::as_bool),
+        Some(true)
+    );
+
+    let accepted = handle_request_value(
+        json!({
+            "id": 904,
+            "type": "config.set",
+            "params": { "log.level": "debug" }
+        }),
+        &state,
+        Some("unix"),
+    );
+    assert!(
+        accepted.ok,
+        "local Unix control without a configured token should keep local admin semantics"
+    );
+}
+
+#[test]
+fn unix_control_with_viewer_pairing_token_keeps_viewer_capabilities() {
+    let source = r#"
+PROGRAM Main
+VAR
+    run : BOOL := TRUE;
+END_VAR
+END_PROGRAM
+"#;
+    let mut state = hmi_test_state(source);
+    let pairing_path = pairing_file("unix-viewer-token");
+    let store = Arc::new(PairingStore::load(pairing_path.clone()));
+    state.pairing = Some(store.clone());
+    let code = store.start_pairing();
+    let viewer_token = store
+        .claim(&code.code, Some(AccessRole::Viewer))
+        .expect("viewer token");
+
+    let status = handle_request_value(
+        json!({"id": 905, "type": "status", "auth": viewer_token}),
+        &state,
+        Some("unix"),
+    );
+    assert!(status.ok, "viewer token should read status over Unix");
+    let access = status
+        .result
+        .as_ref()
+        .and_then(|value| value.get("access"))
+        .expect("access capabilities");
+    assert_eq!(
+        access.get("role").and_then(serde_json::Value::as_str),
+        Some("viewer")
+    );
+    assert_eq!(
+        access
+            .pointer("/io/write")
+            .and_then(serde_json::Value::as_bool),
+        Some(false)
+    );
+
+    let denied = handle_request_value(
+        json!({
+            "id": 906,
+            "type": "io.write",
+            "auth": viewer_token,
+            "params": { "address": "%QX0.0", "value": "TRUE" }
+        }),
+        &state,
+        Some("unix"),
+    );
+    assert!(!denied.ok, "viewer token must not write over Unix");
+    assert!(denied
+        .error
+        .as_deref()
+        .is_some_and(|msg| msg.contains("requires role engineer")));
+
+    let _ = std::fs::remove_file(pairing_path);
 }
 
 #[test]

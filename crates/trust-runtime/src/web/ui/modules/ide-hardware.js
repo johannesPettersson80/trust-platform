@@ -1463,7 +1463,8 @@ function hwDriverDetailPairs(name, params) {
     const inputCount = Array.isArray(p.inputs) ? p.inputs.length : (Array.isArray(p.input) ? p.input.length : 0);
     const outputCount = Array.isArray(p.outputs) ? p.outputs.length : (Array.isArray(p.output) ? p.output.length : 0);
     return [
-      ["Backend", p.backend || "sysfs"],
+      ["Backend", p.backend || "libgpiod"],
+      ["GPIO chip", p.chip || "/dev/gpiochip0"],
       ["Inputs", inputCount],
       ["Outputs", outputCount],
     ];
@@ -2081,7 +2082,7 @@ function hwDefaultParams(driver) {
         keep_alive_s: 5,
       };
     case "gpio":
-      return { backend: "sysfs", sysfs_base: "/sys/class/gpio", inputs: [], outputs: [] };
+      return { backend: "libgpiod", chip: "/dev/gpiochip0", sysfs_base: "/sys/class/gpio", inputs: [], outputs: [] };
     case "ethercat":
       return {
         adapter: "mock",
@@ -5022,7 +5023,8 @@ function hwRenderDriverParams(mod) {
       html += hwField("keep_alive_s", "Keep-alive (s)", p.keep_alive_s ?? 5, "number");
       break;
     case "gpio":
-      html += hwSelect("backend", "Backend", p.backend || "sysfs", ["sysfs"]);
+      html += hwSelect("backend", "Backend", p.backend || "libgpiod", ["libgpiod", "sysfs"]);
+      html += hwField("chip", "GPIO chip", p.chip || "/dev/gpiochip0");
       html += hwField("sysfs_base", "Sysfs Base", p.sysfs_base || "/sys/class/gpio");
       html += hwJsonField("inputs_json", "Inputs (JSON)", p.inputs ?? []);
       html += hwJsonField("outputs_json", "Outputs (JSON)", p.outputs ?? []);

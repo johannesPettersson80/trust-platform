@@ -733,11 +733,44 @@ fn patch_runtime_doc(
         runtime.remove(section);
         return Ok(());
     }
-    if protocol == "runtime_cloud" {
+    if protocol == "ads_server" {
+        patch_ads_server_runtime_section(runtime, params, action)
+    } else if protocol == "runtime_cloud" {
         patch_runtime_cloud(runtime, params, action)
     } else {
         patch_runtime_section(runtime, section, params, action)
     }
+}
+
+fn patch_ads_server_runtime_section(
+    runtime: &mut Table,
+    params: &toml::map::Map<String, toml::Value>,
+    action: CommApplyAction,
+) -> Result<(), CommFieldError> {
+    if action == CommApplyAction::Disable {
+        let table = ensure_table(runtime, "ads_server")?;
+        table.insert("enabled", value(false));
+        return Ok(());
+    }
+
+    let previous_clients = runtime
+        .get("ads_server")
+        .and_then(Item::as_table)
+        .and_then(|table| table.get("clients"))
+        .cloned();
+    let should_preserve_clients = params
+        .get("clients")
+        .and_then(toml::Value::as_array)
+        .is_none_or(Vec::is_empty);
+
+    let mut table = edit_table_from_toml(params);
+    if should_preserve_clients {
+        if let Some(clients) = previous_clients {
+            table.insert("clients", clients);
+        }
+    }
+    runtime.insert("ads_server", Item::Table(table));
+    Ok(())
 }
 
 fn patch_runtime_section(

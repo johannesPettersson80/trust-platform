@@ -30,7 +30,7 @@ END_PROGRAM
         code: Some(tower_lsp::lsp_types::NumberOrString::String(
             "W004".to_string(),
         )),
-        source: Some("trust-lsp".to_string()),
+        source: Some("truST".to_string()),
         message: "CASE statement has no ELSE branch".to_string(),
         ..Default::default()
     };
@@ -81,7 +81,7 @@ END_PROGRAM
         code: Some(tower_lsp::lsp_types::NumberOrString::String(
             "E101".to_string(),
         )),
-        source: Some("trust-lsp".to_string()),
+        source: Some("truST".to_string()),
         message: "undefined identifier 'foo'".to_string(),
         ..Default::default()
     };
@@ -142,7 +142,7 @@ END_PROGRAM
         code: Some(tower_lsp::lsp_types::NumberOrString::String(
             "E102".to_string(),
         )),
-        source: Some("trust-lsp".to_string()),
+        source: Some("truST".to_string()),
         message: "cannot resolve type 'MissingType'".to_string(),
         ..Default::default()
     };
@@ -200,7 +200,7 @@ END_PROGRAM
         code: Some(tower_lsp::lsp_types::NumberOrString::String(
             "W005".to_string(),
         )),
-        source: Some("trust-lsp".to_string()),
+        source: Some("truST".to_string()),
         message: "implicit conversion from 'INT' to 'REAL'".to_string(),
         ..Default::default()
     };

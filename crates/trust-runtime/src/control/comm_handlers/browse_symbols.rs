@@ -55,7 +55,7 @@ struct BrowseTarget {
     endpoint_url: String,
     #[serde(default, alias = "host")]
     ip: String,
-    #[serde(default, alias = "ams_net_id")]
+    #[serde(default, alias = "ams_net_id", alias = "target_net_id")]
     ams_net_id: String,
     #[serde(default)]
     ams_port: Option<u16>,
@@ -878,6 +878,24 @@ mod tests {
                 .contains("ads_import"),
             "browse response must expose the existing ADS import shape"
         );
+    }
+
+    #[test]
+    fn ads_browse_target_accepts_project_target_net_id_alias() {
+        let target: BrowseTarget = serde_json::from_value(json!({
+            "host": "192.168.10.5",
+            "target_net_id": "5.23.91.12.1.1",
+            "ams_port": 851,
+            "name": "line1"
+        }))
+        .expect("target");
+
+        let identity = target.into_identity().expect("identity");
+
+        assert_eq!(identity.ip, "192.168.10.5");
+        assert_eq!(identity.ams_net_id, "5.23.91.12.1.1");
+        assert_eq!(identity.ams_port, 851);
+        assert_eq!(identity.name.as_deref(), Some("line1"));
     }
 
     #[test]

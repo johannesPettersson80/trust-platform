@@ -6,10 +6,17 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.25`
+Target release: `v0.24.26`
 
 ### Added
 
+- vscode: added the Libraries surface under Project for reusable ST libraries,
+  including packaged OSCAT and PLCopen Motion curated choices, vendored
+  per-project dependencies, local-folder and Git add flows, expandable
+  function block/function/type browsing, remove/update actions, and shared
+  truST webview theme coverage. The bundled examples now include a portable
+  PLCopen Motion single-axis starter with a vendored motion library and mapped
+  Live Values proof points.
 - trust-runtime: added the staged Beckhoff ADS client import workflow with
   deterministic `ads.toml` + cached symbol snapshot validation, generated ST
   value/`_quality` globals, scan-safe background worker/cache handoff,
@@ -158,45 +165,6 @@ Target release: `v0.24.25`
 - examples/docs: added an OpenOT multi-PROGRAM project showing two
   attribute-generated producers drained through `producer_instances` into one
   shared ring.
-- trust-twin: robot-cell product bridge now generates `Robot_<Model>` ST
-  function blocks from a URDF manifest, exposes a `Robot_P3MinimalArm`
-  native FB through the runtime world-arm bridge, and keeps the example PLC
-  motion surface on that generated FB instead of direct scene-state writes.
-- trust-twin: topology authoring now supports surface/contact placement
-  metadata (`attach_to`, named surfaces, mount frames, and bounds), robot-cell
-  component kinds, physical-scene doctor fixtures, and LM-tool regression
-  coverage for attachment-based robot-cell proposals.
-- trust-twin: P6 operator surface parity adds multi-page navigation,
-  trend/alarm overlays in the VS Code 3D panel, and runtime-owned HMI
-  trend/alarm JSONL persistence with restart-window reload.
-- trust-twin: P5 VS Code 3D panel now registers a dedicated webview command,
-  reuses the existing HMI JSON-line control transport for schema, values, and
-  writes, bundles trust-twin WASM/assets into the extension media payload, and
-  adds package-smoke evidence for those assets.
-- trust-twin: P4 AI-assisted topology authoring now exposes a
-  `trust_twin_topology_propose` typed LM tool that generates reviewable
-  `.topology.toml` diffs, validates them through the trust-twin compiler
-  dry-run path, and documents the local-first/cloud opt-in privacy boundary.
-- trust-twin: P3 operator writes from 3D scene views now compile from
-  topology `[[interactions]]` into node interaction descriptors and route
-  renderer clicks through the existing `hmi.write` control, RBAC, allowlist,
-  and audit path.
-- trust-twin: P2 Rapier physics now runs behind `SimulationController` with
-  `[physics]` / `[[physics.joints]]` `simulation.toml` parsing, deterministic
-  revolute-joint encoder feedback through the existing I/O boundary, duplicate
-  target conflict checks, and a P2 gate artifact.
-- trust-twin: P1.5 topology authoring compiler and v1 component library landed
-  with deterministic `.topology.toml` to `.view.toml` emission, hash drift
-  checks, compiler diagnostics, `architecture-doctor` fixtures, and rendered
-  topology gate artifact output.
-- trust-twin: P1 static 3D proof now builds a parsed `.view.toml` into a
-  `scena::Scene`, applies `bind3d` tag values to scene node properties, and
-  emits the static-view visual gate artifact.
-- trust-twin: P1 `scene3d` page/view descriptors and bounded `bind3d`
-  runtime schema contract landed for static 3D view integration.
-- trust-twin: P0 IO boundary spike landed with a runtime integration test and
-  gate artifact proving Modbus TCP simulator I/O flows through the existing
-  `IoDriver` cycle boundary.
 - Added fail-closed runtime boundary watch envelopes for `trust-harness` protocol
   v2 and `trust-dev` agent harness snapshots. Unresolved watch paths now carry
   structured `status: "error"` entries instead of silently becoming `NULL`.
@@ -217,6 +185,10 @@ Target release: `v0.24.25`
 
 ### Changed
 
+- vscode: removed the unfinished trust-twin 3D panel, typed LM tool, packaged
+  WASM/assets, and related activation/build/test wiring from the shipped
+  extension surface so the PLC IDE focuses on the accepted Run, Devices &
+  Connections, Live Values, HMI, and visual-editor workflows.
 - `trust-harness` now defaults to JSON protocol version 2 and accepts
   `--protocol-version 1` or `TRUST_HARNESS_PROTOCOL_VERSION=1` for the legacy
   watch-value map shape during migration.
@@ -246,6 +218,10 @@ Target release: `v0.24.25`
   client authentication, `mqtts://` and `ssl://` broker schemes imply TLS,
   Linux release builds use vendored OpenSSL for the selected native TLS backend,
   and remote plaintext brokers still require `allow_insecure_remote = true`.
+- GPIO I/O now defaults new configurations to the Linux GPIO character-device
+  backend (`libgpiod`/`chardev`) while keeping legacy `sysfs` selectable, and
+  setup surfaces expose the GPIO chip path alongside the existing line mapping
+  help.
 - The default OSCAT OOP example catalog test now keeps the all-example folder,
   README, source-layout, and pattern checks in the normal Rust suite while
   moving the expensive 98-project `trust-runtime test --project` sweep behind
@@ -266,12 +242,82 @@ Target release: `v0.24.25`
 
 ### Fixed
 
+- vscode/trust-runtime: Live Values now receives runtime role/capability data
+  from the control channel, disables viewer-role Write/Force/Release controls
+  before any unsafe attempt, and shows a visible engineer-token recovery reason;
+  remote auth recovery now distinguishes missing tokens from rejected tokens,
+  managed Stop clears the selected-runtime status consistently, and Update
+  running simulation reports success or compile-failure recovery without leaking
+  raw source paths.
+- vscode: the sidebar Start, Debug, and Update-running-simulation controls now
+  stay visible but disable with a plain recovery reason when compile or
+  `runtime.toml` errors mean the action cannot succeed.
 - trust-runtime: advanced communication setup schemas now use one
   configured-only note for Mesh, Realtime T0, and Runtime cloud so draft links
   cannot read like live runtime proof.
+- examples: OPC UA server and ADS server expose examples now update the exposed
+  globals from ST each scan so protocol proof can show value changes instead of
+  reading only initializer constants.
+- vscode: tightened the first-run/sidebar UX by restoring the distinctive
+  stacked `tru/ST` activity icon, replacing the Project bucket with one compact
+  sidebar control surface, making Start from example the no-project primary
+  path, exposing Libraries as a first-class destination, renaming project
+  validation to Compile, and adding the Examples Gallery surface for curated
+  runnable starters.
+- vscode: Examples Gallery filters now combine hardware requirements and
+  categories and include a clear no-match reset state, so users can find a
+  runnable starter without scrolling a flat list.
+- trust-debug/vscode: internal debug-adapter lifecycle trace now uses internal
+  DAP events instead of the visible Debug Console, so first-time debugging no
+  longer exposes raw `[trust-debug]` backend logs.
+- vscode: Devices & Connections runtime inspectors now show a direct
+  `Set auth token` recovery action for remote runtime authentication failures,
+  reusing the SecretStorage-backed token command instead of leaving users to
+  infer the fix from Settings.
+- vscode: Run target labels now keep the remote control port, so two runtimes on
+  the same host no longer appear as identical `127.0.0.1` entries.
+- vscode: shortened bundled starter descriptions in the Start from example
+  picker so hardware notes and first-run purpose text remain readable instead
+  of clipping in the clean-profile onboarding flow.
+- trust-runtime: HMI schema generation now marks only explicitly allowlisted
+  `[write]` targets as writable/read-write, so browser HMI slider/toggle
+  controls are enabled for safe configured writes without making the whole HMI
+  writable.
+- trust-runtime/vscode: Devices & Connections endpoint Disable now preserves I/O
+  drivers as disabled instead of deleting them, skips disabled drivers at
+  runtime/deploy validation, keeps disabled endpoints visible and non-green in
+  `fleet.topology`, and exposes a schema-driven Disable action in the endpoint
+  inspector with explicit re-enable guidance.
+- trust-runtime/vscode: MQTT setup validation now reports missing TLS CA paths,
+  mismatched client certificate/key paths, TLS-field misuse, and broker-format
+  errors against the relevant setup fields, uses an MQTT port example for
+  broker errors, and treats the schema's empty TLS ALPN default as empty so
+  Devices & Connections can highlight the exact field instead of showing only a
+  generic blocked-save message; MQTT broker Test results now use honest
+  broker-port reachable/not-reachable wording, keep unresolved broker errors
+  attached to the Broker field, and render saved MQTT broker nodes from fleet
+  topology instead of leaving publish/subscribe links hidden. The ADS/OPC UA
+  server expose picker now strips topology-only evidence fields before saving,
+  so selected globals are persisted instead of being rejected by `comm apply`.
+- vscode/trust-runtime: Devices & Connections endpoint summaries now expose the
+  existing Communication Test action for testable endpoints, translate
+  structured OPC UA client endpoint failures into user-facing recovery text,
+  classify rejected OPC UA anonymous logins as authentication-required recovery,
+  and summarize configured connections instead of rendering raw JSON blobs.
 - vscode: the truST sidebar now distinguishes an open non-truST folder from the
   no-folder first-run state and offers an explicit "Initialize truST here"
   action instead of showing the generic create/open/example welcome.
+- trust-lsp/vscode: Move Namespace now asks the LSP for the computed workspace
+  edit, applies it through VS Code in a text-edits-before-cleanup order,
+  pre-creates missing target files, and removes an empty pre-created target on
+  failure, so VS Code no longer reports success after leaving an empty target
+  file and unchanged references.
+- vscode: the namespace refactor command is now labeled "Move Structured Text
+  Namespace" in the Command Palette and editor code action, so the advanced
+  refactor no longer appears as the ambiguous bare "Move Namespace" command.
+- vscode: stale package contribution and legacy Live Values titles now use
+  "Devices & Connections" and "Live Values" instead of the retired "Network
+  Canvas", "Runtime Panel", or "Structured Text Runtime" wording.
 - vscode: starting the simulator from the truST Run card no longer auto-opens
   VS Code's Debug Console with raw adapter logs, keeping the first-run running
   state focused on product surfaces.
@@ -289,6 +335,16 @@ Target release: `v0.24.25`
   truST form chrome as the rest of the canvas, and starting a new add/edit
   workflow clears stale validation banners so one protocol's failed save cannot
   leak into the next form.
+- vscode: Devices & Connections add/edit validation now shows a concise
+  field-issue banner that fits the toolbar, and saved Modbus endpoints render
+  as "Modbus TCP" in the graph instead of leaking the raw `modbus_tcp` driver
+  id.
+- vscode: Devices & Connections endpoint edit forms no longer reset in-progress
+  field changes when background topology refreshes deliver the same endpoint
+  parameters with a new object identity.
+- vscode/trust-runtime: Devices & Connections EtherCAT Browse channels now
+  saves selected PDO channel paths back to the EtherCAT driver config instead
+  of incorrectly routing them through the ADS tag-import flow.
 - vscode: Devices & Connections endpoint inspectors now render user-facing
   status labels such as "Configured" instead of raw backend health IDs such as
   `configured_policy`.
@@ -296,6 +352,15 @@ Target release: `v0.24.25`
   "SFC editor" and the shared truST section/button chrome, removing the generic
   "Editor tools" title and private Ladder/Blockly panel styling that made those
   editors look like separate products.
+- vscode: Blockly toolbox category labels now use the shared normal foreground
+  theme token instead of accent-button text, keeping the toolbox readable in
+  Light+, Dark+, and High Contrast themes.
+- vscode: Live Values now uses the same shared truST product theme roles as
+  Devices & Connections and the visual editors instead of a private color-token
+  layer, so cross-surface color checks compare equivalent UI roles.
+- vscode: Devices & Connections, SFC, and Statechart canvas grids now use the
+  same shared truST grid-line role instead of separate raw VS Code color
+  variables.
 - vscode: Devices & Connections node-summary actions and shared React Flow
   canvas controls now use the shared truST product chrome, closing the remaining
   visual-editor parity gaps in Dark+, Light+, and High Contrast themes.
@@ -307,6 +372,10 @@ Target release: `v0.24.25`
   value requests from the launch project and live debug snapshot, so VS Code's
   HMI Preview can render against a running simulator instead of timing out on
   `hmi.schema.get`.
+- trust-debug: simulator launches now load the project `io.toml` driver stack
+  and direct debug-runtime builds size process images from I/O bindings, so
+  Live Values reflects simulated/loopback I/O updates instead of showing forced
+  outputs that never reach mirrored inputs.
 - vscode: managed local runtimes now import their generated control token into
   SecretStorage and attach after a successful Start, so Live Values can read,
   write, force, and release values without manual token setup.
@@ -323,6 +392,10 @@ Target release: `v0.24.25`
   `node_id` plus an apply-ready scalar `data_type`, and OPC UA client
   browse/test failures now include structured reason codes for certificate,
   authentication, reachability, browse-denial, and security-profile errors.
+  Explicit OPC UA client certificate trust now promotes a previously rejected
+  server certificate into the trusted store before reconnecting, so the
+  Devices & Connections `Trust certificate` action can recover from the first
+  untrusted browse attempt.
 - vscode: release packaging now bundles `trust-runtime` inside the VSIX next
   to `trust-lsp` and `trust-debug`, so fresh installs can use offline
   Devices & Connections configuration without requiring a separate runtime

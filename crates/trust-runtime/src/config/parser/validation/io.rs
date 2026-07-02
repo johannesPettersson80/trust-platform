@@ -30,6 +30,7 @@ impl IoToml {
             vec![IoDriverConfig {
                 name: SmolStr::new(driver),
                 params: legacy_params,
+                enabled: true,
             }]
         } else {
             if explicit_drivers.is_empty() {
@@ -57,6 +58,7 @@ impl IoToml {
                     Ok(IoDriverConfig {
                         name: SmolStr::new(driver.name),
                         params,
+                        enabled: driver.enabled.unwrap_or(true),
                     })
                 })
                 .collect::<Result<Vec<_>, _>>()?

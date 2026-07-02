@@ -99,6 +99,24 @@ function createEquipmentBlock(widget) {
   return block;
 }
 
+function widgetWritePolicy(widget) {
+  if (state.schema?.read_only === true) {
+    return {
+      locked: true,
+      label: 'HMI read-only',
+      reason: 'Writes are disabled for this HMI session.',
+    };
+  }
+  if (widget?.writable !== true) {
+    return {
+      locked: true,
+      label: 'Read-only',
+      reason: 'This value can be watched but not changed from HMI.',
+    };
+  }
+  return { locked: false };
+}
+
 function createWidgetCard(widget) {
   const card = document.createElement('article');
   card.className = 'card';
@@ -137,9 +155,20 @@ function createWidgetCard(widget) {
   const tag = document.createElement('span');
   tag.className = 'widget-tag';
   tag.textContent = widget.widget;
+  const tagStack = document.createElement('div');
+  tagStack.className = 'widget-tag-stack';
+  tagStack.appendChild(tag);
+  const writePolicy = widgetWritePolicy(widget);
+  if (writePolicy.locked) {
+    card.classList.add('card-read-only');
+    const writeBadge = document.createElement('span');
+    writeBadge.className = 'widget-policy-badge';
+    writeBadge.textContent = writePolicy.label;
+    tagStack.appendChild(writeBadge);
+  }
 
   head.appendChild(titleWrap);
-  head.appendChild(tag);
+  head.appendChild(tagStack);
 
   const value = document.createElement('div');
   value.className = 'card-value';
@@ -177,6 +206,12 @@ function createWidgetCard(widget) {
     unitEl.className = 'card-unit';
     unitEl.textContent = widget.unit;
     card.appendChild(unitEl);
+  }
+  if (writePolicy.locked) {
+    const writeReason = document.createElement('div');
+    writeReason.className = 'card-policy-note';
+    writeReason.textContent = writePolicy.reason;
+    card.appendChild(writeReason);
   }
   card.appendChild(meta);
   card.appendChild(actions);
@@ -224,4 +259,3 @@ function renderGroupedWidgets(groupsRoot, widgets) {
     groupsRoot.appendChild(section);
   }
 }
-

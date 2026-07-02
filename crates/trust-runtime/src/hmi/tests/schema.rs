@@ -498,6 +498,81 @@ allow = [" resource/RESOURCE/program/Main/field/run ", "", "Main.run"]
 }
 
 #[test]
+fn allowlisted_hmi_write_targets_are_marked_writable_in_schema() {
+    let root = temp_dir("trust-runtime-hmi-write-schema");
+    write_file(
+        &root.join("hmi/_config.toml"),
+        r#"
+[write]
+enabled = true
+allow = ["Main.speed"]
+"#,
+    );
+    write_file(
+        &root.join("hmi/control.toml"),
+        r#"
+title = "Setpoints"
+
+[[section]]
+title = "Allowed"
+span = 12
+
+[[section.widget]]
+type = "slider"
+bind = "Main.speed"
+label = "Speed SP"
+min = 0
+max = 100
+
+[[section.widget]]
+type = "slider"
+bind = "Main.pressure"
+label = "Pressure SP"
+min = 0
+max = 10
+"#,
+    );
+    let source = r#"
+PROGRAM Main
+VAR
+    speed : REAL := 25.0;
+    pressure : REAL := 3.0;
+END_VAR
+END_PROGRAM
+"#;
+    let metadata = metadata_for_source(source);
+    let source_path = root.join("src/main.st");
+    let source_refs = [HmiSourceRef {
+        path: &source_path,
+        text: source,
+    }];
+    let customization = load_customization(Some(&root), &source_refs);
+    let schema = build_schema("RESOURCE", &metadata, None, true, Some(&customization));
+
+    assert!(!schema.read_only);
+    assert_eq!(schema.mode, "read_write");
+
+    let speed = schema
+        .widgets
+        .iter()
+        .find(|widget| widget.path == "Main.speed")
+        .expect("speed widget");
+    assert_eq!(speed.access, "read_write");
+    assert!(speed.writable);
+    assert_eq!(speed.widget, "slider");
+
+    let pressure = schema
+        .widgets
+        .iter()
+        .find(|widget| widget.path == "Main.pressure")
+        .expect("pressure widget");
+    assert_eq!(pressure.access, "read");
+    assert!(!pressure.writable);
+
+    std::fs::remove_dir_all(root).ok();
+}
+
+#[test]
 fn resolve_write_point_supports_id_and_path_matches() {
     let source = r#"
 PROGRAM Main

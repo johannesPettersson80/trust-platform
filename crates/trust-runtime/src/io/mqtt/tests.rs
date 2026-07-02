@@ -248,6 +248,22 @@ tls_ca_path = "{ca_path}"
 }
 
 #[test]
+fn security_test_allows_empty_alpn_list_when_tls_disabled() {
+    let result = MqttIoDriver::from_params(&params(
+        r#"
+broker = "127.0.0.1:1883"
+tls = false
+tls_alpn = []
+"#,
+    ));
+
+    assert!(
+        result.is_ok(),
+        "empty TLS ALPN list is the schema default and must not block non-TLS MQTT"
+    );
+}
+
+#[test]
 fn security_test_rejects_partial_mtls_pair() {
     let ca_path = tls_fixture_path("server-cert.pem");
     let cert_path = tls_fixture_path("server-cert.pem");

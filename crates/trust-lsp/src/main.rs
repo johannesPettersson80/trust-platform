@@ -178,7 +178,7 @@ impl LanguageServer for StLanguageServer {
                 // Pull diagnostics (only when refresh is supported)
                 diagnostic_provider: use_pull_diagnostics.then_some(
                     DiagnosticServerCapabilities::Options(DiagnosticOptions {
-                        identifier: Some("trust-lsp".to_string()),
+                        identifier: Some("truST".to_string()),
                         inter_file_dependencies: true,
                         workspace_diagnostics: true,
                         work_done_progress_options: Default::default(),

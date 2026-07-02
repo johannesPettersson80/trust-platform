@@ -31,7 +31,14 @@ pub fn build_io_config_auto(driver: &str) -> anyhow::Result<IoConfigTemplate> {
     let safe_state = vec![("%QX0.0".to_string(), "FALSE".to_string())];
     if driver.eq_ignore_ascii_case("gpio") {
         let mut params = toml::map::Map::new();
-        params.insert("backend".into(), toml::Value::String("sysfs".to_string()));
+        params.insert(
+            "backend".into(),
+            toml::Value::String("libgpiod".to_string()),
+        );
+        params.insert(
+            "chip".into(),
+            toml::Value::String("/dev/gpiochip0".to_string()),
+        );
         let inputs = toml::Value::Array(vec![toml::Value::Table(toml::map::Map::from_iter([
             ("address".into(), toml::Value::String("%IX0.0".to_string())),
             ("line".into(), toml::Value::Integer(17)),

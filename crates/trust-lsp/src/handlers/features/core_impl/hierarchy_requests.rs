@@ -54,6 +54,9 @@ pub fn code_lens(state: &ServerState, params: CodeLensParams) -> Option<Vec<Code
                 range: Range { start, end },
             });
         }
+        if locations.is_empty() {
+            continue;
+        }
 
         let title = format!("References: {}", locations.len());
         let position = offset_to_position(&doc.content, entry.range.start().into());

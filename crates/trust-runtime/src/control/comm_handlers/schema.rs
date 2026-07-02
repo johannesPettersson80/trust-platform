@@ -261,7 +261,7 @@ fn communication_protocol_schemas(instances: &[CommConfiguredInstance]) -> Vec<C
         runtime_protocol_schema(
             "openot",
             "OpenOT",
-            "Publish telemetry and evidence records from runtime variables.",
+            "Configure OpenOT evidence output; no evidence is published until a runtime reports one.",
             "supervisory_service",
             openot_fields(),
         ),
@@ -445,16 +445,33 @@ fn ads_protocol_schema() -> CommProtocolSchema {
 }
 
 fn instance_display_name(protocol: &str, index: usize, params: &toml::Value) -> String {
+    fn protocol_display_name(protocol: &str) -> &str {
+        match protocol {
+            "modbus_tcp" => "Modbus TCP",
+            "mqtt" => "MQTT broker",
+            "ethercat" => "EtherCAT",
+            "gpio" => "GPIO",
+            "simulated" => "Simulated I/O",
+            "loopback" => "Loopback I/O",
+            _ => protocol,
+        }
+    }
+
     let endpoint = params
         .get("address")
         .or_else(|| params.get("broker"))
         .and_then(toml::Value::as_str)
         .filter(|value| !value.trim().is_empty())
         .unwrap_or("");
+    let display = protocol_display_name(protocol);
     if endpoint.is_empty() {
-        format!("{protocol} #{index}")
+        if index == 0 {
+            display.to_string()
+        } else {
+            format!("{display} {}", index + 1)
+        }
     } else {
-        format!("{protocol} {endpoint}")
+        format!("{display} {endpoint}")
     }
 }
 
@@ -486,6 +503,18 @@ mod tests {
             }
             assert_eq!(protocol.actions, expected_actions);
         }
+    }
+
+    fn field_by_id<'a>(protocol: &'a serde_json::Value, id: &str) -> &'a serde_json::Value {
+        protocol
+            .get("fields")
+            .and_then(serde_json::Value::as_array)
+            .and_then(|fields| {
+                fields
+                    .iter()
+                    .find(|field| field.get("id").and_then(serde_json::Value::as_str) == Some(id))
+            })
+            .unwrap_or_else(|| panic!("missing field {id}"))
     }
 
     #[test]
@@ -580,6 +609,17 @@ mod tests {
         assert!(opcua_actions
             .iter()
             .any(|value| value.as_str() == Some("browse_symbols")));
+        let opcua_expose = field_by_id(opcua, "expose");
+        assert_eq!(
+            opcua_expose
+                .get("label")
+                .and_then(serde_json::Value::as_str),
+            Some("Exposed globals")
+        );
+        assert_eq!(
+            opcua_expose.get("help").and_then(serde_json::Value::as_str),
+            Some("Choose project globals to expose, or add a pattern such as global.*.")
+        );
 
         let opcua_client = by_id("opcua_client");
         assert_eq!(
@@ -723,6 +763,35 @@ mod tests {
             );
             assert!(!purpose.contains("pretending"));
         }
+        let runtime_cloud = by_id("runtime_cloud");
+        assert_eq!(
+            field_by_id(runtime_cloud, "wan_allow_write")
+                .get("label")
+                .and_then(serde_json::Value::as_str),
+            Some("Allowed WAN writes")
+        );
+
+        let openot = by_id("openot");
+        assert_eq!(
+            field_by_id(openot, "path")
+                .get("label")
+                .and_then(serde_json::Value::as_str),
+            Some("Evidence file")
+        );
+        assert_eq!(
+            field_by_id(openot, "capacity")
+                .get("label")
+                .and_then(serde_json::Value::as_str),
+            Some("Record capacity")
+        );
+
+        let realtime = by_id("realtime_t0");
+        assert_eq!(
+            field_by_id(realtime, "require_preempt_rt_kernel")
+                .get("label")
+                .and_then(serde_json::Value::as_str),
+            Some("Require real-time kernel")
+        );
     }
 
     #[test]

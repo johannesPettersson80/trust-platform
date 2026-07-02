@@ -161,12 +161,19 @@ impl DebugAdapter {
                             self.debug_output_message("[trust-debug] stopOnEntry: pause requested"),
                         );
                     }
+                    if let Err(err) = self.ensure_control_server(&args, &mut events) {
+                        return DispatchOutcome {
+                            responses: vec![self.error_response(&request, &err)],
+                            events,
+                            should_exit: false,
+                            stop_gate: None,
+                        };
+                    }
                     actions.start_runner_after_launch = true;
                     self.launch_state.set_post_launch(actions);
                     events.push(self.debug_output_message(
                         "[trust-debug] runner start scheduled (post-launch)",
                     ));
-                    self.ensure_control_server(&args, &mut events);
                     return DispatchOutcome {
                         responses: vec![self.ok_response::<Value>(&request, None)],
                         events,
@@ -194,10 +201,16 @@ impl DebugAdapter {
             events.push(self.debug_output_message("[trust-debug] stopOnEntry: pause requested"));
         }
         actions.start_runner_after_launch = true;
+        if let Err(err) = self.ensure_control_server(&args, &mut events) {
+            return DispatchOutcome {
+                responses: vec![self.error_response(&request, &err)],
+                events,
+                ..DispatchOutcome::default()
+            };
+        }
         self.launch_state.set_post_launch(actions);
         events
             .push(self.debug_output_message("[trust-debug] runner start scheduled (post-launch)"));
-        self.ensure_control_server(&args, &mut events);
         DispatchOutcome {
             responses: vec![self.ok_response::<Value>(&request, None)],
             events,
@@ -205,18 +218,21 @@ impl DebugAdapter {
         }
     }
 
-    fn ensure_control_server(&mut self, args: &LaunchArguments, events: &mut Vec<Value>) {
+    fn ensure_control_server(
+        &mut self,
+        args: &LaunchArguments,
+        events: &mut Vec<Value>,
+    ) -> Result<(), String> {
         if self.control_server.is_some() {
-            return;
+            return Ok(());
         }
         let endpoint = match launch_control_endpoint(args) {
             Some(text) => match ControlEndpoint::parse(&text) {
                 Ok(endpoint) => endpoint,
                 Err(err) => {
-                    events.push(self.debug_output_message(format!(
-                        "[trust-debug] control endpoint error: {err}"
-                    )));
-                    return;
+                    let message = format!("control endpoint error: {err}");
+                    events.push(self.debug_output_message(format!("[trust-debug] {message}")));
+                    return Err(message);
                 }
             },
             None => default_control_endpoint(),
@@ -230,11 +246,12 @@ impl DebugAdapter {
                     self.debug_output_message(format!("[trust-debug] control server: {label}")),
                 );
                 self.control_server = Some(server);
+                Ok(())
             }
             Err(err) => {
-                events.push(self.debug_output_message(format!(
-                    "[trust-debug] control server start failed: {err}"
-                )));
+                let message = format!("control server start failed: {err}");
+                events.push(self.debug_output_message(format!("[trust-debug] {message}")));
+                Err(message)
             }
         }
     }

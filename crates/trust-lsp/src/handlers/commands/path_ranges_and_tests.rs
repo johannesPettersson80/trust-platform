@@ -209,6 +209,7 @@ END_PROGRAM
             position: offset_to_position(source, source.find("LibA").expect("position") as u32),
             new_path: "Company.LibA".to_string(),
             target_uri: Some(target_uri.clone()),
+            return_edit: false,
         };
         let edit = namespace_move_workspace_edit_with_context(&context, args).expect("edit");
         let ops = match edit.document_changes.expect("document changes") {
@@ -259,6 +260,112 @@ END_PROGRAM
             tower_lsp::lsp_types::OneOf::Right(_) => false,
         });
         assert!(main_updated, "main file should include renamed namespace");
+    }
+
+    #[test]
+    fn namespace_move_apply_phases_keep_create_and_edits_before_delete() {
+        let source_uri = Url::parse("file:///workspace/liba.st").expect("source uri");
+        let target_uri = Url::parse("file:///workspace/Company/LibA.st").expect("target uri");
+        let main_uri = Url::parse("file:///workspace/main.st").expect("main uri");
+
+        let edit = WorkspaceEdit {
+            changes: None,
+            document_changes: Some(DocumentChanges::Operations(vec![
+                DocumentChangeOperation::Op(ResourceOp::Create(CreateFile {
+                    uri: target_uri.clone(),
+                    options: None,
+                    annotation_id: None,
+                })),
+                DocumentChangeOperation::Edit(TextDocumentEdit {
+                    text_document: OptionalVersionedTextDocumentIdentifier {
+                        uri: target_uri.clone(),
+                        version: None,
+                    },
+                    edits: vec![tower_lsp::lsp_types::OneOf::Left(TextEdit {
+                        range: Range {
+                            start: Position::new(0, 0),
+                            end: Position::new(0, 0),
+                        },
+                        new_text: "NAMESPACE Company.LibA\nEND_NAMESPACE\n".to_string(),
+                    })],
+                }),
+                DocumentChangeOperation::Edit(TextDocumentEdit {
+                    text_document: OptionalVersionedTextDocumentIdentifier {
+                        uri: main_uri.clone(),
+                        version: None,
+                    },
+                    edits: vec![tower_lsp::lsp_types::OneOf::Left(TextEdit {
+                        range: Range {
+                            start: Position::new(1, 10),
+                            end: Position::new(1, 14),
+                        },
+                        new_text: "Company.LibA".to_string(),
+                    })],
+                }),
+                DocumentChangeOperation::Op(ResourceOp::Delete(DeleteFile {
+                    uri: source_uri,
+                    options: Some(DeleteFileOptions {
+                        recursive: Some(false),
+                        ignore_if_not_exists: Some(true),
+                        annotation_id: None,
+                    }),
+                })),
+            ])),
+            change_annotations: None,
+        };
+
+        let phases = split_workspace_edit_for_safe_apply(edit);
+        assert_eq!(phases.len(), 2, "expected apply/cleanup phases");
+
+        let operations = phases
+            .iter()
+            .map(
+                |phase| match phase.document_changes.as_ref().expect("document changes") {
+                    DocumentChanges::Operations(operations) => operations,
+                    DocumentChanges::Edits(_) => panic!("expected operation phases"),
+                },
+            )
+            .collect::<Vec<_>>();
+
+        assert!(
+            operations[0].iter().any(|operation| {
+                matches!(
+                    operation,
+                    DocumentChangeOperation::Op(ResourceOp::Create(_))
+                )
+            }),
+            "first phase should create the target file"
+        );
+        assert!(
+            operations[1]
+                .iter()
+                .all(|operation| matches!(
+                    operation,
+                    DocumentChangeOperation::Op(ResourceOp::Delete(_))
+                )),
+            "second phase should only clean up source files"
+        );
+        assert!(
+            operations[0]
+                .iter()
+                .any(|operation| matches!(operation, DocumentChangeOperation::Edit(edit) if edit.text_document.uri == main_uri)),
+            "first phase should include reference text edits before cleanup"
+        );
+        assert!(
+            operations[0]
+                .iter()
+                .any(|operation| matches!(operation, DocumentChangeOperation::Edit(edit) if edit.text_document.uri == target_uri)),
+            "first phase should insert namespace text into the target file before cleanup"
+        );
+        assert!(
+            !operations[0].iter().any(|operation| {
+                matches!(
+                    operation,
+                    DocumentChangeOperation::Op(ResourceOp::Delete(_))
+                )
+            }),
+            "source cleanup must not happen with create/text edits"
+        );
     }
 
     #[test]

@@ -254,7 +254,7 @@ pub(crate) fn collect_diagnostics_with_ticket(
                 range,
                 severity: Some(DiagnosticSeverity::ERROR),
                 code: Some(NumberOrString::String(code.to_string())),
-                source: Some("trust-lsp".to_string()),
+                source: Some("truST".to_string()),
                 message: err.message.clone(),
                 ..Default::default()
             }
@@ -308,7 +308,7 @@ pub(crate) fn collect_diagnostics_with_ticket(
             range,
             severity: Some(severity),
             code: Some(NumberOrString::String(diag.code.code().to_string())),
-            source: Some("trust-lsp".to_string()),
+            source: Some("truST".to_string()),
             message: diag.message,
             related_information,
             ..Default::default()

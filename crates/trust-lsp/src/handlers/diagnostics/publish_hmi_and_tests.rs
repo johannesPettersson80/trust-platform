@@ -35,7 +35,7 @@ fn collect_config_diagnostics(
             range,
             severity: Some(DiagnosticSeverity::ERROR),
             code: Some(NumberOrString::String(issue.code.to_string())),
-            source: Some("trust-lsp".to_string()),
+            source: Some("truST".to_string()),
             message: issue.message.clone(),
             ..Default::default()
         });
@@ -50,7 +50,7 @@ fn collect_config_diagnostics(
             range,
             severity: Some(DiagnosticSeverity::ERROR),
             code: Some(NumberOrString::String(issue.code.to_string())),
-            source: Some("trust-lsp".to_string()),
+            source: Some("truST".to_string()),
             message: issue.message,
             ..Default::default()
         });

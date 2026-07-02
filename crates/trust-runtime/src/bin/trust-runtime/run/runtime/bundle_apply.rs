@@ -10,6 +10,9 @@ fn apply_bundle_runtime_overrides(runtime: &mut Runtime, bundle: &RuntimeBundle)
 
     let registry = IoDriverRegistry::default_registry();
     for driver in &bundle.io.drivers {
+        if !driver.enabled {
+            continue;
+        }
         if let Some(spec) = registry
             .build(driver.name.as_str(), &driver.params)
             .map_err(anyhow::Error::from)?

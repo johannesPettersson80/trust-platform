@@ -141,3 +141,48 @@ fn opcua_client_trust_store_can_be_listed_and_cleared() {
     std::env::remove_var("TRUST_RUNTIME_OPCUA_CLIENT_PKI_DIR");
     let _ = std::fs::remove_dir_all(root);
 }
+
+#[test]
+fn opcua_client_explicit_trust_promotes_rejected_certificates() {
+    let _guard = OPCUA_CLIENT_PKI_ENV_LOCK
+        .lock()
+        .expect("OPC UA client PKI env lock");
+    let root = std::env::temp_dir().join(format!(
+        "trust-opcua-client-pki-promote-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos()
+    ));
+    let rejected = root.join("rejected");
+    std::fs::create_dir_all(&rejected).expect("create rejected cert dir");
+    std::fs::write(rejected.join("server.der"), b"cert").expect("write rejected cert");
+    std::env::set_var("TRUST_RUNTIME_OPCUA_CLIENT_PKI_DIR", &root);
+
+    let promoted =
+        promote_rejected_opcua_client_server_certificates().expect("promote rejected OPC UA cert");
+
+    assert_eq!(promoted, 1);
+    assert!(!rejected.join("server.der").exists());
+    assert_eq!(
+        std::fs::read(root.join("trusted").join("server.der")).expect("trusted cert"),
+        b"cert"
+    );
+
+    std::env::remove_var("TRUST_RUNTIME_OPCUA_CLIENT_PKI_DIR");
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn opcua_client_rejected_security_policy_during_login_prompts_for_auth() {
+    let error = RuntimeError::ControlError(
+        "OPC UA status: BadSecurityPolicyRejected"
+            .to_string()
+            .into(),
+    );
+
+    assert_eq!(
+        classify_opcua_client_browse_error(&error),
+        OpcUaClientErrorCode::AuthRequired
+    );
+}

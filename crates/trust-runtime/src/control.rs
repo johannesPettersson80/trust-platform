@@ -38,7 +38,7 @@ use crate::mesh::MeshTopologyEvidence;
 use crate::metrics::RuntimeMetrics;
 use crate::runtime::RuntimeMetadata;
 use crate::scheduler::ResourceControl;
-use crate::security::pairing::PairingStore;
+use crate::security::{pairing::PairingStore, AccessRole};
 use crate::settings::RuntimeSettings;
 use crate::value::Value;
 use crate::RestartMode;
@@ -532,7 +532,11 @@ pub(crate) fn handle_request_value(
     let request_role = match resolve_request_role(&request, state, client) {
         Ok(role) => role,
         Err(error) => {
-            let response = ControlResponse::error(request.id, error.to_string());
+            let response = ControlResponse::error_with_code(
+                request.id,
+                error.message().to_string(),
+                error.code(),
+            );
             let audit_id = record_audit(
                 state,
                 ControlAuditRecord {
@@ -540,7 +544,7 @@ pub(crate) fn handle_request_value(
                     request_type: SmolStr::new(request.r#type.as_str()),
                     correlation_id: request.request_id.as_deref(),
                     ok: false,
-                    error: Some(SmolStr::new(error)),
+                    error: Some(SmolStr::new(error.message())),
                     auth_present: request.auth.is_some(),
                     client,
                     details: audit_details(),
@@ -599,6 +603,9 @@ pub(crate) fn handle_request_value(
     }
     let mut response = handlers::dispatch(&request, state)
         .unwrap_or_else(|| ControlResponse::error(request.id, "unsupported request".into()));
+    if request.r#type == "status" && response.ok {
+        attach_access_capabilities(&mut response, request_role);
+    }
     let audit_id = record_audit(
         state,
         ControlAuditRecord {
@@ -614,6 +621,46 @@ pub(crate) fn handle_request_value(
     );
     response = response.with_audit_id(audit_id);
     response
+}
+
+fn attach_access_capabilities(response: &mut ControlResponse, role: AccessRole) {
+    let Some(result) = response.result.as_mut() else {
+        return;
+    };
+    let Some(object) = result.as_object_mut() else {
+        return;
+    };
+    object.insert("access".to_string(), access_capabilities_json(role));
+}
+
+fn access_capabilities_json(role: AccessRole) -> serde_json::Value {
+    let engineer = role.allows(AccessRole::Engineer);
+    let denied_reason = (!engineer).then(|| {
+        format!(
+            "{} role — connect with an engineer token to write or force.",
+            capitalize_role(role.as_str())
+        )
+    });
+    json!({
+        "role": role.as_str(),
+        "io": {
+            "write": engineer,
+            "force": engineer,
+            "release": engineer,
+        },
+        "hmi": {
+            "write": engineer,
+        },
+        "reason": denied_reason,
+    })
+}
+
+fn capitalize_role(role: &str) -> String {
+    let mut chars = role.chars();
+    match chars.next() {
+        Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+        None => String::new(),
+    }
 }
 
 fn stamp_comm_credential_channel(request: &mut ControlRequest, client: Option<&str>) {

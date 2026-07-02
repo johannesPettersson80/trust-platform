@@ -246,7 +246,14 @@ fn build_io_config(driver: &str) -> anyhow::Result<IoConfigTemplate> {
         let input_line = prompt_u64("GPIO input line for %IX0.0", 17)?;
         let output_line = prompt_u64("GPIO output line for %QX0.0", 27)?;
         let mut params = toml::map::Map::new();
-        params.insert("backend".into(), toml::Value::String("sysfs".to_string()));
+        params.insert(
+            "backend".into(),
+            toml::Value::String("libgpiod".to_string()),
+        );
+        params.insert(
+            "chip".into(),
+            toml::Value::String("/dev/gpiochip0".to_string()),
+        );
         let inputs = toml::Value::Array(vec![toml::Value::Table(toml::map::Map::from_iter([
             ("address".into(), toml::Value::String("%IX0.0".to_string())),
             ("line".into(), toml::Value::Integer(input_line as i64)),

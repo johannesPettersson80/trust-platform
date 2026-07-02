@@ -368,6 +368,7 @@ pub struct IoConfig {
 pub struct IoDriverConfig {
     pub name: SmolStr,
     pub params: toml::Value,
+    pub enabled: bool,
 }
 
 #[derive(Debug, Clone)]

@@ -192,15 +192,8 @@ impl DebugAdapter {
 
 
     pub(super) fn debug_output_message(&self, message: impl Into<String>) -> Value {
-        let output = format!("{}\n", message.into());
-        let body = OutputEventBody {
-            output,
-            category: Some("console".to_string()),
-            source: None,
-            line: None,
-            column: None,
-        };
-        self.event("output", Some(body))
+        let body = serde_json::json!({ "message": message.into() });
+        self.event("trustDebugInternal", Some(body))
     }
 
 

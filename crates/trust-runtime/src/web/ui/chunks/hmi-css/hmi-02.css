@@ -148,6 +148,26 @@ body.layout-edit-mode .section-actions {
   background: var(--surface-soft);
 }
 
+.widget-tag-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.2rem;
+  flex: none;
+}
+
+.widget-policy-badge {
+  color: color-mix(in srgb, var(--warn) 78%, var(--text) 22%);
+  font-size: 0.56rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: 1px solid color-mix(in srgb, var(--warn) 28%, var(--border) 72%);
+  border-radius: 6px;
+  padding: 0.1rem 0.32rem;
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--warn) 11%, var(--mix-base) 89%);
+}
+
 .card-value {
   font-size: 1.15rem;
   font-weight: 700;
@@ -167,6 +187,13 @@ body.layout-edit-mode .section-actions {
   font-size: 0.64rem;
   font-family: var(--font-sans);
   letter-spacing: 0.015em;
+}
+
+.card-policy-note {
+  margin-top: -0.08rem;
+  color: color-mix(in srgb, var(--text) 64%, var(--muted) 36%);
+  font-size: 0.68rem;
+  line-height: 1.3;
 }
 
 .card-actions {

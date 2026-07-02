@@ -59,7 +59,7 @@ pub(super) fn handle_ui_route(
         let _ = request.respond(response);
         return UiRouteOutcome::Handled;
     }
-    if *method == Method::Get && (url == "/hmi" || url == "/hmi/") {
+    if *method == Method::Get && (url_path == "/hmi" || url_path == "/hmi/") {
         let response = Response::from_string(HMI_HTML)
             .with_header(Header::from_bytes("Content-Type", "text/html").unwrap());
         let _ = request.respond(response);
@@ -479,13 +479,13 @@ pub(super) fn handle_ui_route(
         let _ = request.respond(response);
         return UiRouteOutcome::Handled;
     }
-    if *method == Method::Get && url == "/hmi/styles.css" {
+    if *method == Method::Get && url_path == "/hmi/styles.css" {
         let response = Response::from_string(HMI_CSS)
             .with_header(Header::from_bytes("Content-Type", "text/css").unwrap());
         let _ = request.respond(response);
         return UiRouteOutcome::Handled;
     }
-    if *method == Method::Get && url == "/hmi/app.js" {
+    if *method == Method::Get && url_path == "/hmi/app.js" {
         let response = Response::from_string(HMI_JS)
             .with_header(Header::from_bytes("Content-Type", "application/javascript").unwrap());
         let _ = request.respond(response);
