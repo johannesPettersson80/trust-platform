@@ -275,21 +275,21 @@ fn communication_protocol_schemas(instances: &[CommConfiguredInstance]) -> Vec<C
         runtime_protocol_schema(
             "mesh",
             "Mesh / Zenoh",
-            "Share runtime data with peer, client, or router topology.",
+            "Connect this runtime to selected peers or a Zenoh router. No live link is active until a runtime reports one.",
             "peer_link",
             mesh_fields(),
         ),
         runtime_protocol_schema(
             "realtime_t0",
             "Realtime T0",
-            "Configure Linux realtime posture for deterministic same-host exchange.",
+            "Check and request host settings for deterministic same-host exchange. No live link is active until a runtime reports one.",
             "peer_link",
             realtime_fields(),
         ),
         runtime_protocol_schema(
             "runtime_cloud",
             "Runtime cloud / federation",
-            "Configure federation policy without pretending it is a live link.",
+            "Configure federation policy and link preferences. No live link is active until a runtime reports one.",
             "peer_link",
             runtime_cloud_fields(),
         ),
@@ -711,6 +711,18 @@ mod tests {
         assert!(ads_server_actions
             .iter()
             .any(|value| value.as_str() == Some("browse_symbols")));
+
+        for protocol in ["mesh", "realtime_t0", "runtime_cloud"] {
+            let purpose = by_id(protocol)
+                .get("purpose")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_else(|| panic!("missing {protocol} purpose"));
+            assert!(
+                purpose.contains("No live link is active until a runtime reports one."),
+                "{protocol} must use the shared configured-only note: {purpose}"
+            );
+            assert!(!purpose.contains("pretending"));
+        }
     }
 
     #[test]

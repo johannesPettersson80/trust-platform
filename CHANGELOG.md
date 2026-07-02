@@ -266,6 +266,9 @@ Target release: `v0.24.25`
 
 ### Fixed
 
+- trust-runtime: advanced communication setup schemas now use one
+  configured-only note for Mesh, Realtime T0, and Runtime cloud so draft links
+  cannot read like live runtime proof.
 - vscode: the truST sidebar now distinguishes an open non-truST folder from the
   no-folder first-run state and offers an explicit "Initialize truST here"
   action instead of showing the generic create/open/example welcome.
