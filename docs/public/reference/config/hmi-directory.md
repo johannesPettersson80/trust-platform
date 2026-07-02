@@ -199,8 +199,8 @@ kind = "directional"
 intensity = 1.0
 ```
 
-The P1 runtime bridge renders primitive nodes through `scena`. Asset-backed
-nodes remain a later trust-twin slice.
+The runtime bridge renders primitive nodes through `scena`. Asset-backed scene
+nodes are not part of the current shipped HMI surface.
 
 ### `[[node.interaction]]`
 

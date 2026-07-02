@@ -1,108 +1,54 @@
-# Debugging And Runtime Panel
+# Run & Check
 
-truST puts the debugger and runtime panel beside your Structured Text code in
-VS Code.
+Check that your program is valid, then run it on the simulator — both from the **Run** card in the truST
+view, with honest status at every step.
 
-![Debugger paused at a breakpoint in VS Code](../assets/images/vscode/debugger-stopped-at-breakpoint.png)
+## Check your program
 
-*Figure:* The debugger paused at a breakpoint with locals, call stack, inline
-values, and the runtime panel visible beside the code.
+Running **Check program** validates the whole project. On success you get a confirmation — *"Project check
+passed — 2 sources, no errors."* — and the Run card's passive line reads **✓ No known errors**.
 
-## What this surface gives you
+![The Run card showing No known errors and a "Project check passed" toast](../assets/images/vscode/vscode-run-check-passed.png)
 
-- breakpoints and stepping at ST statement boundaries
-- locals, call stack, and inline values in the editor
-- live I/O, memory, and compile diagnostics in the runtime panel
-- one project and control endpoint shared by edit, run, and debug
+*Check validates the whole project before you run — the Run card shows "No known errors", the simulator selected, and a single Start button.*
 
-## Fast path
+The **✓ No known errors** line is diagnostics-derived: it means *nothing is currently flagged*, and it
+updates live as you edit. It never claims a build is good when it isn't.
 
-1. Open a truST project in VS Code.
-2. Run `Structured Text: Open Runtime Panel`.
-3. Choose local or external mode.
-4. Start the runtime.
-5. Use `F5` when you need breakpoints and stepping.
+### When Check fails
 
-## Runtime panel
+If the project has errors, they appear in VS Code's **Problems** panel with their IEC references (for
+example an undefined identifier on a specific line), and the Run card reflects that there are errors. Fix
+them in the editor — the Problems entries are clickable and jump to the source. truST is honest here: a
+broken config surfaces an error and a fallback, never a fake-green runtime.
 
-![Desktop VS Code with the truST runtime panel](../assets/images/hero-runtime.png)
+## Choose where it runs
 
-*Figure:* Desktop VS Code with Structured Text code, the runtime panel docked
-on the right, live I/O, memory, and compile diagnostics in one window.
+**Run target** selects where the program runs. For a new project this is **Simulator (this computer)** —
+the built-in simulator, no hardware required. The dropdown lists only existing targets (the simulator, and
+any runtimes you've added in [Devices & Connections](../connect/communication-panel.md)); you add or
+connect targets there, not from this dropdown.
 
-Use the runtime panel for:
+## Run on the simulator
 
-- live I/O read and quick state checks
-- quick local iteration without leaving the editor
-- viewing runtime state while editing code
+Press **Start**. truST compiles your program and runs it on the simulator; the status changes to
+**● Running** and the button becomes **Stop**. The status bar mirrors this (`truST: Simulator running`).
 
-### Good panel workflows
+![The Run card with the simulator running: Status Running and a Stop button](../assets/images/vscode/vscode-run-simulator-running.png)
 
-| Task | Best surface |
-| --- | --- |
-| flip a simulated bit and watch the result | runtime panel |
-| confirm `%I/%Q/%M` addresses are mapped as expected | runtime panel |
-| inspect faults, restart, or control connection state | runtime panel |
-| debug program flow with breakpoints | debugger |
+*Start runs your program on the local simulator — honest Running status, one Stop button, and the same state echoed in the status bar.*
 
-### Common debug scenarios
+- **Start** — compile, then run on the selected target.
+- **Stop** — stop the simulator.
+- **Apply changes** — appears when you've edited the source while the simulator is running, to hot-reload
+  without a full restart (simulator only).
 
-#### Output never changes
-
-1. Confirm the runtime is actually running.
-2. Check whether the source variable is mapped in `Configuration.st`.
-3. Inspect the runtime panel I/O tree for `%I` and `%Q` changes.
-4. If the input changes but output does not, set a breakpoint in the ST logic.
-
-#### Timer never fires
-
-1. Confirm the task is scheduled in `CONFIGURATION`.
-2. Confirm the runtime scan is running and not faulted.
-3. Inspect the timer inputs or elapsed state in debugger or runtime panel.
-
-#### Type mismatch or impossible write
-
-1. Check diagnostics first.
-2. Confirm the target address class matches the value you are writing.
-3. Use [Build, Validate, Test](build-validate-test.md) before assuming the runtime is wrong.
-
-## Debugger
-
-Use the debugger when you need:
-
-- breakpoints
-- step in / step over / step out
-- variable inspection
-- inline values
-
-The adapter is `trust-debug`, and VS Code drives it through the same runtime
-control endpoint the rest of truST uses.
-
-### Typical debugger flow
-
-1. Build and validate the project first.
-2. Start or attach to the runtime.
-3. Set a breakpoint in the ST file you care about.
-4. Press `F5`.
-5. Inspect variables, step, and resume until the failure condition is understood.
-
-## Browser Runtime Overview
-
-The runtime web UI gives a browser-hosted runtime summary outside VS Code.
-
-![Runtime overview with live inputs and outputs](../assets/images/runtime/ui-overview.png)
-
-*Figure:* The browser runtime overview shows health, cycle timing, tasks, and
-the live input/output summary when you need the same runtime state outside the
-editor.
-
-### When not to use the debugger
-
-- do not start with the debugger when simple diagnostics or a forced I/O check will answer the question faster
-- do not treat debugger success as proof that hardware mappings are correct; verify through the runtime panel too
+While it runs, open [Live Values](live-values.md) to watch and drive I/O, or set a breakpoint and use
+[Debugging In VS Code](debugging-in-vscode.md) to step through the logic.
 
 ## Related
 
+- [Debugging In VS Code](debugging-in-vscode.md)
+- [Live Values: write, force, release](live-values.md)
+- [Build, Validate, Test](build-validate-test.md)
 - [Runtime UI And Control](runtime-ui-and-control.md)
-- [Agent Quickstart](../start/agent-quickstart.md)
-- [trust-debug](../reference/cli/trust-debug.md)

@@ -56,8 +56,6 @@ Use the editor AI tools when you want the assistant to:
 - inspect HMI bindings and descriptor layout
 - apply HMI descriptor patches through typed operations
 - validate or preview HMI changes before accepting them
-- propose trust-twin topology diffs from natural language and validate them
-  through the topology compiler before applying them
 - start, attach, reload, or open the runtime I/O panel for debug-oriented work
 
 Evidence:
@@ -80,32 +78,7 @@ Evidence:
 | compile and reload | partial debug/reload helpers | yes, through runtime methods |
 | deterministic harness loops | no | yes |
 | HMI descriptor planning and validation | yes | no direct v1 HMI authoring surface |
-| trust-twin topology authoring | yes, local-first diff proposal via `trust_twin_topology_propose` | no direct v1 topology authoring surface |
 | HMI runtime writes | policy-controlled by runtime/HMI authorization | policy-controlled by runtime/HMI authorization |
-
-## trust-twin Topology Assistance
-
-The `trust_twin_topology_propose` editor tool turns an engineer prompt into a
-reviewable `hmi/views/<name>.topology.toml` diff. It validates the proposed
-diff by running the trust-twin topology compiler in dry-run mode and returns the
-compiler/doctor result with the diff. The normal path emits topology components
-and placement relationships only; it does not hand-author low-level `bind3d`
-entries or raw `xyz` coordinates.
-
-Provider mode is controlled by `trust-lsp.trustTwin.aiProvider`:
-
-| Mode | Project content handling |
-| --- | --- |
-| `disabled` | The tool refuses to generate topology proposals. |
-| `local` | Default. Prompt text and topology content stay in the local workspace and are validated by the local compiler. |
-| `cloud` | Opt-in only. P4 declares the privacy boundary, but no cloud adapter sends content yet. |
-
-If a future cloud adapter is enabled, the content sent will be limited to the
-natural-language topology prompt, optional component constraints, the selected
-topology source needed for diff context, and compiler diagnostics needed to
-repair the proposal. Set `trust-lsp.trustTwin.aiProvider` to `disabled` to
-prevent topology proposals, or keep the default `local` mode to avoid sending
-project content outside the workspace.
 
 ## Agent API
 

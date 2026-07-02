@@ -28,6 +28,16 @@ trust-dev test --project ./my-plc --output json
 - runs them with configurable timeout and output format
 - can list tests without executing them
 
+## Run Tests In VS Code
+
+Structured Text tests also appear in VS Code's native **Testing** view — no custom panel to learn. Open
+the Testing view (the flask icon in the Activity Bar) to see your test files, run one test or all of them,
+and read the result.
+
+![The VS Code Testing view with a "ST tests: 3 passed, 0 failed, 0 errors" result](../assets/images/vscode/vscode-test-runner.png)
+
+*Run Structured Text unit tests from the standard Testing view — here, 3 passed, 0 failed, 0 errors.*
+
 ## Worked Example
 
 ```bash

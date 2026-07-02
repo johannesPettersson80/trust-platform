@@ -4,16 +4,15 @@ This is the primary truST engineering workflow.
 
 Start with the shipped tutorial project in desktop VS Code.
 
-![Desktop VS Code with the truST runtime panel](../assets/images/hero-runtime.png)
+![Structured Text with full syntax highlighting and inline reference counts](../assets/images/vscode/vscode-st-syntax.png)
 
-*Figure:* Desktop VS Code with Structured Text code, the runtime panel docked
-on the right, live I/O, memory, and compile diagnostics in one window.
+*Structured Text with full syntax highlighting and inline reference counts (CodeLens).*
 
 ## What You Get In One Window
 
 - IEC-aware diagnostics and semantic highlighting
 - go to definition, references, rename, and formatting
-- the runtime panel with live I/O and memory
+- **Live Values** with live I/O and memory (read + write/force)
 - the debugger with breakpoints, stepping, locals, and call stack
 
 ## Use A Shipped Project First
@@ -33,12 +32,11 @@ code examples/tutorials/12_hmi_pid_process_dashboard
 1. Install `truST LSP`.
 2. Open the tutorial project in VS Code.
 3. Open `src/main.st` and `src/config.st`.
-4. Run `Structured Text: Open Runtime Panel`.
-5. Start the runtime in `Local` mode.
-6. Inspect `%I`, `%Q`, and memory values in the runtime panel.
-7. Set a breakpoint inside the control logic and press `F5`.
-8. Rename or jump to the control function block to confirm the LSP flow.
-9. Open `/hmi` only after the editor-side behavior makes sense.
+4. Press **Start** on the Run card to run the program on the simulator (see [Run & Check](../operate/debugging-and-runtime-panel.md)).
+5. Open **Live Values** to inspect `%I`, `%Q`, and memory while it runs (see [Live Values](../operate/live-values.md)).
+6. Set a breakpoint in the control logic and step through it (see [Debugging In VS Code](../operate/debugging-in-vscode.md)).
+7. Rename or jump to the control function block to confirm the LSP flow.
+8. Open the **HMI** preview once the editor-side behavior makes sense.
 
 ## IEC-Aware Diagnostics
 
@@ -48,12 +46,21 @@ code examples/tutorials/12_hmi_pid_process_dashboard
 you what language rule was broken instead of only showing a generic parser
 failure.
 
+## Completion And Hover
+
+![Context-aware completion popup from the language server](../assets/images/vscode/vscode-st-completion.png)
+
+*Context-aware completion from the language server — suggesting functions, function blocks, and standard library symbols as you type.*
+
+![Hover showing a resolved Structured Text signature](../assets/images/vscode/vscode-st-hover.png)
+
+*Hover shows the resolved signature; go-to-definition, references, and rename work the same way across files.*
+
 ## Debug Live
 
-![Debugger paused at a breakpoint in VS Code](../assets/images/vscode/debugger-stopped-at-breakpoint.png)
-
-*Figure:* The debugger paused at a breakpoint with locals, call stack, inline
-values, and the runtime panel visible beside the code.
+Set a breakpoint and step through your logic with VS Code's debugger — see
+[Debugging In VS Code](../operate/debugging-in-vscode.md) for the full flow (breakpoints, current-line
+highlight, Variables, and the Call Stack).
 
 ## Refactor Safely
 
@@ -77,20 +84,20 @@ The tutorial already maps safe proof signals:
 Verify it works:
 
 1. toggle `%IX0.0`
-2. confirm the runtime panel changes
-3. open `/hmi` from the running project for visual confirmation
+2. confirm **Live Values** changes
+3. open the HMI from the running project for visual confirmation
 
 ![Browser HMI for the tutorial project](../assets/images/browser/hmi-home.png)
 
 *Figure:* `/hmi` for the same shipped tutorial project once the runtime is
 connected. Use it as the operator-side confirmation after the editor,
-diagnostics, runtime panel, and debugger all look correct.
+diagnostics, Live Values, and debugger all look correct.
 
 ## If It Fails
 
 - no commands in Command Palette: go to [Installation](installation.md)
-- runtime panel does not connect: go to
-  [Debugging And Runtime Panel](../operate/debugging-and-runtime-panel.md)
+- the program won't run or connect: go to
+  [Run & Check](../operate/debugging-and-runtime-panel.md)
 - values do not move: go to [I/O Binding](../connect/devices-and-fieldbus/io-binding.md)
 - diagnostics appear after your edit: use the clickable Problems panel
 - a realistic first failure is a one-letter typo such as `PumpRuning` instead of
@@ -100,5 +107,5 @@ diagnostics, runtime panel, and debugger all look correct.
 
 - [Create A New Project](create-new-project.md)
 - [Project Layout](../develop/project-layout.md)
-- [Debugging And Runtime Panel](../operate/debugging-and-runtime-panel.md)
+- [Run & Check](../operate/debugging-and-runtime-panel.md)
 - [HMI And Web UI](../operate/hmi-and-web-ui.md)

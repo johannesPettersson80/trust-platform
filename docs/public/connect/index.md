@@ -3,7 +3,8 @@
 | Need | Open |
 | --- | --- |
 | choose the protocol or lane | [Protocol Matrix](protocol-matrix.md) |
-| configure communication in VS Code | [VS Code Communication Panel](communication-panel.md) |
+| configure communication in VS Code | [Devices & Connections](communication-panel.md) |
+| add and configure a device | [Add A Device](add-a-device.md) |
 | connect truST runtimes | [Runtime To Runtime](runtime-to-runtime/index.md) |
 | compare runtime-to-runtime transports | [Transport Matrix](runtime-to-runtime/transport-matrix.md) |
 | use truST Mesh | [truST Mesh](../concepts/trust-mesh.md) |

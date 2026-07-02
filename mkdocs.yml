@@ -100,15 +100,18 @@ nav:
           - Project Layout: develop/project-layout.md
           - Structured Text Naming Standard: develop/st-naming-standard.md
           - Vendor Profiles: develop/vendor-profiles.md
-          - Maintain An Existing Project: start/maintain-an-existing-project.md
           - Create A New Project: start/create-new-project.md
+          - Start From An Example: start/start-from-example.md
+          - Maintain An Existing Project: start/maintain-an-existing-project.md
       - PLC Programming:
           - Structured Text Workflow: start/choose-your-workflow.md
           - Variables And I/O Mapping: connect/devices-and-fieldbus/io-binding.md
           - OpenOT Attribute Authoring: develop/openot-authoring.md
           - Build, Validate, Test: operate/build-validate-test.md
           - Compile, Validate, Reload: operate/compile-validate-reload.md
-          - Debugging: operate/debugging-and-runtime-panel.md
+          - Debugging In VS Code: operate/debugging-in-vscode.md
+          - Live Values: operate/live-values.md
+          - Run & Check: operate/debugging-and-runtime-panel.md
           - Simulation: operate/simulation.md
           - Test And Debug Examples: examples/test-and-debug.md
       - Visual Programming:
@@ -132,7 +135,8 @@ nav:
           - Multi Driver: connect/devices-and-fieldbus/multi-driver.md
       - Communication While Programming:
           - Communication Overview: connect/index.md
-          - VS Code Communication Panel: connect/communication-panel.md
+          - Devices & Connections: connect/communication-panel.md
+          - Add A Device: connect/add-a-device.md
           - Protocol Matrix: connect/protocol-matrix.md
           - truST Mesh: concepts/trust-mesh.md
           - Runtime To Runtime: connect/runtime-to-runtime/index.md
@@ -182,7 +186,8 @@ nav:
       - Supervision: operate/supervision.md
       - PREEMPT_RT: operate/preempt-rt.md
       - Deploy And Rollback: operate/deploy-rollback.md
-      - Operator HMI: operate/hmi-and-web-ui.md
+      - HMI (Preview & Browser): operate/hmi-and-web-ui.md
+      - Errors And Recovery: operate/errors-and-recovery.md
       - Operator Guide: operate/operator-guide.md
       - Daily Checks: operate/operator-daily-checks.md
       - Alarm Handbook: operate/operator-alarm-handbook.md
