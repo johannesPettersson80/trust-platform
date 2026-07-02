@@ -4,7 +4,6 @@ import {
   BackgroundVariant,
   Controls,
   type Edge,
-  MiniMap,
   type Node,
   ReactFlow,
   ReactFlowProvider,
@@ -37,7 +36,7 @@ import {
 } from "./opcuaClientModel";
 import { EditModeContext, type AddSlotRequest } from "./editMode";
 import { FilterPanel } from "./FilterPanel";
-import { applyFilter, protocolsInGraph } from "./filter";
+import { applyFilter, filterReport, protocolsInGraph } from "./filter";
 import type { CommApplyResponse, CommSchemaResponse } from "../../communication/schemaForm";
 
 interface VsCodeApi {
@@ -89,8 +88,10 @@ function Canvas() {
   const [browseError, setBrowseError] = useState<OpcuaErrorView | undefined>(undefined);
   const [browseLoading, setBrowseLoading] = useState(false);
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
+  const [searchDraft, setSearchDraft] = useState("");
   const [draft, setDraft] = useState<{ runtimeId: string; runtimeName: string; protocol: string; prefillParams?: Record<string, unknown> } | undefined>(undefined);
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
+  const [focusTargetId, setFocusTargetId] = useState<string | undefined>(undefined);
   const [schema, setSchema] = useState<CommSchemaResponse | undefined>(undefined);
   const [applyResult, setApplyResult] = useState<CommApplyResponse | undefined>(undefined);
   const [reachable, setReachable] = useState(false);
@@ -104,7 +105,7 @@ function Canvas() {
   const focusNode = useCallback(
     (nodeId: string) => {
       vscode.postMessage({ type: "focus", nodeId });
-      void fitView({ nodes: [{ id: nodeId }], duration: 500, padding: 0.6, maxZoom: 1.4 });
+      void fitView({ duration: 500, padding: 0.2, maxZoom: 1.2 });
     },
     [fitView]
   );
@@ -195,6 +196,10 @@ function Canvas() {
         );
         setBrowseLoading(false);
       }
+      if (msg && msg.type === "focusNode" && typeof msg.nodeId === "string") {
+        setSelectedId(msg.nodeId);
+        setFocusTargetId(msg.nodeId);
+      }
     };
     window.addEventListener("message", onMessage);
     vscode.postMessage({ type: "ready" });
@@ -213,14 +218,17 @@ function Canvas() {
   );
 
   const protocols = useMemo(() => protocolsInGraph(graph), [graph]);
+  const report = useMemo(() => filterReport(graph, hidden), [graph, hidden]);
+  const editSlotsVisible =
+    editMode && !draft && !selectedId && !browseTags && !discoverOpen && !addSlot && !filterOpen;
   const built = useMemo(
     () =>
       buildGraph(
         applyFilter(graph, hidden),
         draft ? { runtimeId: draft.runtimeId, protocol: draft.protocol } : undefined,
-        editMode
+        editSlotsVisible
       ),
-    [graph, hidden, draft, editMode]
+    [graph, hidden, draft, editSlotsVisible]
   );
   // Resolve the selected node from the freshly-built graph so the inspector reflects
   // live polls and auto-closes if the node is filtered out / disappears (vs a stale snapshot).
@@ -243,15 +251,16 @@ function Canvas() {
       return next;
     });
   }, []);
+  const showAllProtocols = useCallback(() => setHidden(new Set()), []);
 
   // Merge new graph data over current nodes: keep user-dragged / persisted positions for top-level
   // nodes so live polling never resets the canvas. BUT an Edit-mode toggle reflows the layout (the
   // host grows to hold the slots), so on that transition drop stale auto-positions and keep only
   // explicit user drags — otherwise externals stay at their pre-grow Y and overlap the host.
-  const layoutModeRef = useRef(editMode);
+  const layoutModeRef = useRef(editSlotsVisible);
   useEffect(() => {
-    const modeChanged = layoutModeRef.current !== editMode;
-    layoutModeRef.current = editMode;
+    const modeChanged = layoutModeRef.current !== editSlotsVisible;
+    layoutModeRef.current = editSlotsVisible;
     setNodes((prev) => {
       const prevPos = new Map(prev.map((n) => [n.id, n.position]));
       return built.nodes.map((n) => {
@@ -265,7 +274,15 @@ function Canvas() {
       });
     });
     setEdges(built.edges);
-  }, [built, editMode, setNodes, setEdges]);
+  }, [built, editSlotsVisible, setNodes, setEdges]);
+
+  useEffect(() => {
+    if (!focusTargetId || !nodes.some((node) => node.id === focusTargetId)) {
+      return;
+    }
+    void fitView({ duration: 500, padding: 0.2, maxZoom: 1.2 });
+    setFocusTargetId(undefined);
+  }, [focusTargetId, nodes, fitView]);
 
   // Fit when the graph node IDENTITY changes — first paint, a structural host swap, or child endpoints
   // appearing/disappearing after Start/Stop. NOT on a plain live-value poll (same ids, positions
@@ -280,9 +297,12 @@ function Canvas() {
       .join("|");
     if (sig && sig !== fitSigRef.current) {
       fitSigRef.current = sig;
+      if (focusTargetId) {
+        return;
+      }
       void fitView({ padding: 0.2, duration: 300 });
     }
-  }, [nodes, fitView]);
+  }, [nodes, fitView, focusTargetId]);
 
   // Re-fit when the canvas CONTAINER resizes — chiefly the Debug Console docking after a managed Start
   // (it shrinks the editor area, pushing the graph below the now-shorter viewport), but also window
@@ -313,6 +333,67 @@ function Canvas() {
     };
   }, [fitView]);
 
+  // VS Code can place Live Values or another editor beside this webview. That changes the webview
+  // viewport even when the graph data is unchanged, so re-fit on window-level visibility/resize too.
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const refit = () => {
+      if (timer) {
+        clearTimeout(timer);
+      }
+      timer = setTimeout(() => {
+        if (nodeCountRef.current > 0) {
+          void fitView({ padding: 0.2, duration: 220 });
+        }
+      }, 120);
+    };
+    const onVisibility = () => {
+      if (!document.hidden) {
+        refit();
+      }
+    };
+    window.addEventListener("resize", refit);
+    window.addEventListener("focus", refit);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      if (timer) {
+        clearTimeout(timer);
+      }
+      window.removeEventListener("resize", refit);
+      window.removeEventListener("focus", refit);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [fitView]);
+
+  useEffect(() => {
+    const nodesAreVisible = () => {
+      const root = flowWrapRef.current;
+      if (!root) {
+        return true;
+      }
+      const rootRect = root.getBoundingClientRect();
+      const nodeEls = Array.from(root.querySelectorAll<HTMLElement>(".react-flow__node"));
+      if (!nodeEls.length) {
+        return true;
+      }
+      return nodeEls.some((nodeEl) => {
+        const rect = nodeEl.getBoundingClientRect();
+        return (
+          rect.right > rootRect.left &&
+          rect.left < rootRect.right &&
+          rect.bottom > rootRect.top &&
+          rect.top < rootRect.bottom
+        );
+      });
+    };
+    const id = window.setInterval(() => {
+      if (nodeCountRef.current > 0 && !nodesAreVisible()) {
+        void fitView({ padding: 0.2, duration: 220 });
+      }
+    }, 900);
+    return () => window.clearInterval(id);
+  }, [fitView]);
+
   // Re-fit when Edit toggles — the empty slots widen the canvas, so reveal them.
   const prevEditRef = useRef(editMode);
   useEffect(() => {
@@ -323,6 +404,10 @@ function Canvas() {
     const t = setTimeout(() => void fitView({ padding: 0.2, duration: 300 }), 70);
     return () => clearTimeout(t);
   }, [editMode, fitView]);
+
+  useEffect(() => {
+    setSearchDraft(graph.searchQuery ?? "");
+  }, [graph.searchQuery]);
 
   const onNodeDragStop = useCallback((_evt: React.MouseEvent, node: Node) => {
     if (node.parentId) {
@@ -336,9 +421,16 @@ function Canvas() {
   const post = useCallback((message: unknown) => vscode.postMessage(message), []);
 
   const onSearch = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => post({ type: "search", query: e.target.value }),
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setSearchDraft(e.target.value);
+      post({ type: "search", query: e.target.value });
+    },
     [post]
   );
+  const clearSearch = useCallback(() => {
+    setSearchDraft("");
+    post({ type: "search", query: "" });
+  }, [post]);
 
   const discoverOrigins = useMemo(() => {
     const runtimes = built.nodes
@@ -420,10 +512,17 @@ function Canvas() {
   const onDiscoverAdopt = useCallback(
     (c: DiscoverCandidate) => {
       const endpoint = typeof c.params.control_endpoint === "string" ? c.params.control_endpoint : "";
+      const label =
+        typeof c.label === "string" && c.label.trim().length > 0
+          ? c.label.trim()
+          : typeof c.params.name === "string"
+            ? c.params.name.trim()
+            : "";
       if (endpoint) {
-        post({ type: "addHost", endpoint });
+        post({ type: "addHost", endpoint, label });
       }
       setDiscoverOpen(false);
+      setEditMode(false); // success state: show the adopted runtime, not the next edit-mode placeholders
     },
     [post]
   );
@@ -438,7 +537,7 @@ function Canvas() {
       // disambiguation via a picker is a follow-up.)
       const connections = params.connections;
       const target =
-        protocol === "opcua_client" && Array.isArray(connections) && connections.length > 0
+        (protocol === "opcua_client" || protocol === "ads") && Array.isArray(connections) && connections.length > 0
           ? ((connections[0] as Record<string, unknown> | undefined) ?? params)
           : params;
       openBrowse(
@@ -485,8 +584,11 @@ function Canvas() {
           if (connection) {
             post({ type: "addOpcuaConnection", connection });
           }
+        } else if (browseTags.protocol === "ethercat") {
+          const paths = nodes.map((n) => n.path);
+          post({ type: "addEthercatChannels", target: browseTags.target, paths });
         } else {
-          // ADS tags / EtherCAT channels / expose globals are keyed by their symbol path.
+          // ADS tags / expose globals are keyed by their symbol path.
           const type = browseTags.mode === "expose" ? "addExpose" : "addTags";
           const paths = nodes.map((n) => n.path);
           post({ type, protocol: browseTags.protocol, target: browseTags.target, paths, writable });
@@ -535,14 +637,20 @@ function Canvas() {
           ? 290 // DiscoverPane
           : addSlot?.kind === "setup"
             ? 252 // SetUpRuntimePanel
+            : addSlot?.kind === "host"
+              ? 300 // AddHostPanel / Connect existing runtime
+            : addSlot?.kind === "device"
+              ? 360 // AddPane
+            : addSlot?.kind === "runtime-scaffold"
+              ? 232 // AddRuntimePanel
             : addSlot
-              ? 232 // AddPane / AddHostPanel / AddRuntimePanel
+              ? 232
               : filterOpen
                 ? 184 // FilterPanel
                 : 0;
   const drawerOpen = activeDrawerW > 0;
   // Re-fit whenever the reserved width CHANGES — opening (0→W), closing (W→0), or swapping between two
-  // drawers of different widths (e.g. the 232px protocol picker → the 360px config form). Tracking the
+  // drawers of different widths (e.g. the 360px add picker → the 360px config form). Tracking the
   // width (not just open/closed) is what keeps a node from slipping under a drawer that grew.
   const prevWidthRef = useRef(0);
   useEffect(() => {
@@ -567,6 +675,28 @@ function Canvas() {
     whiteSpace: "nowrap",
     transition: `background ${t.ease}, border-color ${t.ease}`,
   });
+  const fieldIssueCount = applyResult?.field_errors?.length ?? 0;
+  const fieldIssueLabel =
+    fieldIssueCount > 0
+      ? `${fieldIssueCount} field issue${fieldIssueCount === 1 ? "" : "s"} · fix highlighted fields`
+      : undefined;
+  const fieldIssueTitle =
+    fieldIssueCount > 0
+      ? applyResult?.message || "Fix the highlighted fields and try again."
+      : undefined;
+  const issuePillStyle: React.CSSProperties = {
+    border: `1px solid ${tint(t.danger, 0.5)}`,
+    background: tint(t.danger, 0.12),
+    color: t.danger,
+    borderRadius: t.radius,
+    padding: "6px 10px",
+    fontSize: 11,
+    fontWeight: 600,
+    whiteSpace: "nowrap",
+    maxWidth: 360,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  };
 
   return (
     <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column" }}>
@@ -581,14 +711,16 @@ function Canvas() {
           zIndex: 5,
         }}
       >
-        <div style={{ fontWeight: 600, fontSize: 14, whiteSpace: "nowrap", color: t.text, letterSpacing: 0.2 }}>
+        <div
+          aria-label="truST"
+          title="truST"
+          style={{ fontWeight: 700, fontSize: 14, whiteSpace: "nowrap", color: t.text, letterSpacing: 0.2 }}
+        >
           tru<span style={{ color: t.accent }}>ST</span>
-          <span style={{ color: t.textSubtle, margin: "0 8px" }}>·</span>
-          <span style={{ color: t.textMuted, fontWeight: 500 }}>Devices &amp; Connections</span>
         </div>
         <input
           onChange={onSearch}
-          defaultValue={graph.searchQuery ?? ""}
+          value={searchDraft}
           placeholder="Search nodes, links, faults"
           style={{
             flex: "1 1 240px",
@@ -601,22 +733,28 @@ function Canvas() {
             fontSize: 12,
           }}
         />
-        {fault && (
+        {searchDraft.trim().length > 0 && (
+          <button
+            onClick={clearSearch}
+            title="Clear search"
+            style={toolbarBtn(false)}
+          >
+            Clear search
+          </button>
+        )}
+        {fieldIssueLabel ? (
+          <span
+            style={issuePillStyle}
+            title={fieldIssueTitle}
+          >
+            {fieldIssueLabel}
+          </span>
+        ) : fault && (
           <button
             onClick={() => focusNode(fault.targetNodeId)}
             style={{
-              border: `1px solid ${tint(t.danger, 0.5)}`,
-              background: tint(t.danger, 0.12),
-              color: t.danger,
-              borderRadius: t.radius,
-              padding: "6px 10px",
-              fontSize: 11,
-              fontWeight: 600,
+              ...issuePillStyle,
               cursor: "pointer",
-              whiteSpace: "nowrap",
-              maxWidth: 360,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
             }}
             title={fault.label}
           >
@@ -687,17 +825,12 @@ function Canvas() {
             clearApplyResult();
             setDraft(undefined); // selection and the add-flow share the right drawer
             setSelectedId(node.id);
+            setFocusTargetId(node.id);
             post({ type: "selectNode", nodeId: node.id });
           }}
         >
-          <Background variant={BackgroundVariant.Dots} gap={26} size={1} color="var(--vscode-editorIndentGuide-background, #ffffff14)" />
+          <Background variant={BackgroundVariant.Dots} gap={26} size={1} color="var(--trust-grid-line)" />
           <Controls showInteractive={false} />
-          {/* The minimap is navigation chrome for LARGE fleets. On a small graph it's a useless thumbnail
-              (and reads as a placeholder blob), so show it only when the fleet is big enough to scroll —
-              and never while a drawer is open, where it could overlap a node in the narrowed canvas. */}
-          {!drawerOpen && nodes.length > 8 && (
-            <MiniMap pannable zoomable style={{ background: t.surface, border: `1px solid ${t.border}`, borderRadius: t.radius }} maskColor={tint(t.canvas, 0.6)} />
-          )}
         </ReactFlow>
         </EditModeContext.Provider>
 
@@ -765,20 +898,7 @@ function Canvas() {
         )}
 
         {graph.summary && (
-          <div
-            style={{
-              position: "absolute",
-              left: 16,
-              bottom: 14,
-              padding: "8px 12px",
-              borderRadius: t.radius,
-              border: `1px solid ${t.border}`,
-              background: t.overlay,
-              color: t.textMuted,
-              fontSize: 11,
-              pointerEvents: "none",
-            }}
-          >
+          <div className="trust-canvas-summary">
             {graph.summary}
           </div>
         )}
@@ -806,6 +926,11 @@ function Canvas() {
               });
               setAddSlot(undefined);
             }}
+            onDiscover={() => {
+              clearApplyResult();
+              setAddSlot(undefined);
+              setDiscoverOpen(true);
+            }}
             onClose={() => {
               clearApplyResult();
               setAddSlot(undefined);
@@ -831,13 +956,25 @@ function Canvas() {
         )}
 
         {addSlot?.kind === "host" && (
-          <AddHostPanel post={post} onClose={() => {
-            clearApplyResult();
-            setAddSlot(undefined);
-          }} />
+          <AddHostPanel
+            post={post}
+            onSaved={() => setEditMode(false)}
+            onClose={() => {
+              clearApplyResult();
+              setAddSlot(undefined);
+            }}
+          />
         )}
 
-        {filterOpen && <FilterPanel protocols={protocols} hidden={hidden} onToggle={toggleHidden} />}
+        {filterOpen && (
+          <FilterPanel
+            protocols={protocols}
+            hidden={hidden}
+            report={report}
+            onToggle={toggleHidden}
+            onShowAll={showAllProtocols}
+          />
+        )}
 
         {discoverOpen && (
           <DiscoverPane

@@ -75,6 +75,75 @@ export interface NetworkCanvasFleetFault {
   readonly severity: "warning" | "error";
 }
 
+function endpointHost(endpoint: string | undefined): string | undefined {
+  const value = endpoint?.trim();
+  if (!value) {
+    return undefined;
+  }
+  if (value.startsWith("unix://")) {
+    return "localhost";
+  }
+  const normalized = value.includes("://") ? value : `tcp://${value}`;
+  try {
+    return new URL(normalized).hostname;
+  } catch {
+    const withoutScheme = value.replace(/^[a-z][a-z0-9+.-]*:\/\//i, "");
+    return withoutScheme.split(":")[0]?.replace(/^\[|\]$/g, "") || undefined;
+  }
+}
+
+function isLoopbackAddress(value: string | undefined): boolean {
+  const host = value?.trim().toLowerCase().replace(/^\[|\]$/g, "");
+  return (
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "::1" ||
+    host === "0:0:0:0:0:0:0:1" ||
+    host === "0.0.0.0"
+  );
+}
+
+function firstRemoteAddress(host: FleetTopologyResponse["hosts"][number]): string | undefined {
+  return (
+    host.ips.find((ip) => !isLoopbackAddress(ip)) ??
+    host.runtimes
+      .map((runtime) => endpointHost(runtime.control_endpoint))
+      .find((ip) => ip && !isLoopbackAddress(ip))
+  );
+}
+
+function hostDisplay(host: FleetTopologyResponse["hosts"][number]): {
+  headline: string;
+  detail: string;
+} {
+  const rawDetail = [host.hostname, `${host.os}/${host.arch}`]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(" · ");
+  // Synthetic configured peers have no live OS/arch/IP facts. Keep the configured label as the
+  // headline even if the stored endpoint is loopback in a test harness; otherwise an auth-failed
+  // peer can be mislabeled as "This computer" beside the real local host.
+  const hasLiveMachineFacts =
+    host.arch.trim().length > 0 || host.os.trim().length > 0 || host.ips.length > 0;
+  if (!hasLiveMachineFacts && host.hostname.trim()) {
+    return { headline: host.hostname.trim(), detail: rawDetail || host.hostname.trim() };
+  }
+
+  const runtimeHosts = host.runtimes.map((runtime) => endpointHost(runtime.control_endpoint));
+  const isLocal =
+    host.ips.some(isLoopbackAddress) ||
+    runtimeHosts.some(isLoopbackAddress) ||
+    isLoopbackAddress(host.hostname);
+  if (isLocal) {
+    return { headline: "This computer", detail: rawDetail || "local computer" };
+  }
+  const remoteAddress = firstRemoteAddress(host);
+  if (remoteAddress) {
+    return { headline: `Computer ${remoteAddress}`, detail: rawDetail || remoteAddress };
+  }
+  return { headline: "Remote computer", detail: rawDetail || "remote computer" };
+}
+
 export function fleetViewFromTopology(
   topology: FleetTopologyResponse | undefined,
   searchQuery: string | undefined
@@ -110,10 +179,11 @@ export function fleetViewFromTopology(
       (sum, runtime) => sum + runtime.endpointCount,
       0
     );
+    const display = hostDisplay(host);
     return {
       id: host.host_id,
-      hostname: host.hostname,
-      label: `${host.hostname} · ${host.os}/${host.arch}`,
+      hostname: display.headline,
+      label: display.detail,
       // A host's status is its MACHINE reachability — NOT an aggregate of the runtimes on it. It's
       // reachable even when its runtime is stopped. The signals hold on EVERY OS and for REMOTE peers:
       //  • arch/os/ips are reported by each host's OWN runtime via `std::env::consts::ARCH/OS`

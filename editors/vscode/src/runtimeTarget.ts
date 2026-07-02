@@ -8,6 +8,7 @@ import {
   isRuntimeControlAuthError,
   probeRuntimeControlEndpoint,
   requestRuntimeStatus,
+  runtimeControlAuthErrorKind,
 } from "./runtimeControlClient";
 import { getControlAuthToken } from "./runtimeAuth";
 
@@ -34,6 +35,7 @@ export interface RuntimeTarget {
   endpointEnabled: boolean;
   reachable: boolean;
   status: RuntimeTargetStatus;
+  authFailureKind?: "missing" | "rejected";
   label: string;
   setupUrl?: string;
   credentialChannel: RuntimeCredentialChannel;
@@ -152,7 +154,8 @@ export async function resolveRuntimeTargetFromSettings(
         authToken,
         credentialChannel,
         true,
-        "auth_failed"
+        "auth_failed",
+        runtimeControlAuthErrorKind(error)
       );
     }
     return onlineTarget(
@@ -202,7 +205,8 @@ function onlineTarget(
   authToken: string | undefined,
   credentialChannel: RuntimeCredentialChannel,
   reachable: boolean,
-  status: RuntimeTargetStatus
+  status: RuntimeTargetStatus,
+  authFailureKind?: "missing" | "rejected"
 ): RuntimeTarget {
   const endpoint = (settings.endpoint ?? "").trim();
   return {
@@ -212,6 +216,7 @@ function onlineTarget(
     endpointEnabled: settings.endpointEnabled ?? true,
     reachable,
     status,
+    authFailureKind,
     label: settings.label ?? (endpoint || "Online runtime"),
     setupUrl: normalizedOptional(settings.setupUrl),
     credentialChannel,

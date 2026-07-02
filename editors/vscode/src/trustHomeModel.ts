@@ -1,5 +1,5 @@
-// Pure model for the truST Run card — NO vscode import, so it's unit-testable standalone.
-// The Run card (trustHomeView.ts WebviewView) renders these; the contract test asserts the dropdown
+// Pure model for the truST sidebar — NO vscode import, so it's unit-testable standalone.
+// The sidebar (trustHomeView.ts WebviewView) renders these; the contract test asserts the dropdown
 // options, the single state-specific action, and the honesty rules.
 //
 // Product goal (vscode-ux-overhaul-plan.md §0/§6): one runtime selector + ONE state-specific action.
@@ -43,6 +43,10 @@ export interface PrimaryAction {
   // When the action is disabled for a known reason (e.g. unreachable), the line shown under the button
   // so the user knows why + what to do next (§0.5.10). Omitted when there's nothing to explain.
   readonly hint?: string;
+}
+
+export interface PrimaryActionGate {
+  readonly reason: string;
 }
 
 export interface SelectedRuntime {
@@ -119,6 +123,23 @@ export function selectedRuntime(input: RuntimeModelInput): SelectedRuntime {
     default:
       return simulatorRuntime(chosen, input.snapshot);
   }
+}
+
+export function withPrimaryActionGate(
+  selected: SelectedRuntime,
+  gate: PrimaryActionGate | undefined
+): SelectedRuntime {
+  if (!gate?.reason || selected.primary.action !== "start" || !selected.primary.enabled) {
+    return selected;
+  }
+  return {
+    ...selected,
+    primary: {
+      ...selected.primary,
+      enabled: false,
+      hint: gate.reason,
+    },
+  };
 }
 
 // A managed local runtime: we own the process → Start/Stop (never Connect), driven by its reported state.
@@ -226,16 +247,13 @@ function runtime(
   };
 }
 
-// Friendly host label from a control endpoint string (e.g. "tcp://raspberrypi:5680" → "raspberrypi").
+// Friendly label from a control endpoint string. Keep the port when present so two runtimes on the
+// same host do not both render as "127.0.0.1" in the Run target dropdown.
 export function remoteLabelFromEndpoint(endpoint: string): string {
   const trimmed = endpoint.trim();
   if (!trimmed) {
     return "runtime";
   }
-  return (
-    trimmed
-      .replace(/^[a-z]+:\/\//i, "")
-      .split("/")[0]
-      .split(":")[0] || "runtime"
-  );
+  const withoutScheme = trimmed.replace(/^[a-z]+:\/\//i, "");
+  return withoutScheme.split("/")[0] || withoutScheme || "runtime";
 }

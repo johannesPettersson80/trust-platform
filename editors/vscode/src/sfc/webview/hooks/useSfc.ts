@@ -164,6 +164,24 @@ function nextNodePosition(nodes: SfcNode[]): XYPosition {
   };
 }
 
+// The step a newly-added step should wire onto: the lowest step with no outgoing transition (the
+// open end of the chain), falling back to the lowest step. Keeps toolbar-added steps in the flow.
+function terminalStepNode(
+  nodes: SfcNode[],
+  edges: SfcTransitionEdge[]
+): SfcStepNode | null {
+  const steps = nodes.filter(isSfcStepNode);
+  if (steps.length === 0) {
+    return null;
+  }
+  const hasOutgoing = new Set(edges.map((edge) => edge.source));
+  const open = steps.filter((step) => !hasOutgoing.has(step.id));
+  const pool = open.length > 0 ? open : steps;
+  return pool.reduce((lowest, step) =>
+    step.position.y > lowest.position.y ? step : lowest
+  );
+}
+
 function stepConnectionHandles(
   sourceNode: SfcNode,
   targetNode: SfcNode
@@ -355,24 +373,44 @@ export function useSfc() {
   const addNewStep = useCallback(
     (type: StepType = "normal", position?: XYPosition) => {
       const id = `step_${Date.now()}`;
-      setNodes((nds) => {
-        const stepCount = nds.filter((node) => node.type === "step").length;
-        const newStep: SfcStepNode = {
-          id,
-          type: "step",
-          position: position ?? nextNodePosition(nds),
-          data: {
-            label: `Step${stepCount + 1}`,
-            type,
-            actions: [],
-          },
-        };
-
-        return [...nds, newStep];
-      });
+      const stepCount = nodes.filter((node) => node.type === "step").length;
+      const newStep: SfcStepNode = {
+        id,
+        type: "step",
+        position: position ?? nextNodePosition(nodes),
+        data: {
+          label: `Step${stepCount + 1}`,
+          type,
+          actions: [],
+        },
+      };
+      setNodes((nds) => [...nds, newStep]);
+      // Added from the toolbar (no explicit drop position): wire it onto the current terminal step
+      // so it joins the flow instead of dropping in detached and unconnected.
+      if (!position) {
+        const terminal = terminalStepNode(nodes, edges);
+        if (terminal) {
+          const handles = stepConnectionHandles(terminal, newStep);
+          const data = buildTransitionData({ condition: "TRUE", label: "TRUE" });
+          const wireEdge: SfcTransitionEdge = {
+            id: `trans_${Date.now()}`,
+            source: terminal.id,
+            target: id,
+            sourceHandle: handles.sourceHandle,
+            targetHandle: handles.targetHandle,
+            type: "transition",
+            markerEnd: {
+              type: MarkerType.ArrowClosed,
+            },
+            data,
+            label: data.label,
+          };
+          setEdges((eds) => addEdge(wireEdge, eds));
+        }
+      }
       return id;
     },
-    []
+    [nodes, edges]
   );
 
   /**

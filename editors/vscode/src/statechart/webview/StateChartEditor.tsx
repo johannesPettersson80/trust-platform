@@ -174,6 +174,24 @@ export const StateChartEditor: React.FC = () => {
     } as WebviewToExtensionMessage);
   }, [exportToXState]);
 
+  const handleValidate = useCallback(() => {
+    const config = exportToXState();
+    const content = JSON.stringify(config, null, 2);
+    vscode.postMessage({
+      type: "validate",
+      content,
+    } as WebviewToExtensionMessage);
+  }, [exportToXState]);
+
+  const handleGenerateST = useCallback(() => {
+    const config = exportToXState();
+    const content = JSON.stringify(config, null, 2);
+    vscode.postMessage({
+      type: "generateST",
+      content,
+    } as WebviewToExtensionMessage);
+  }, [exportToXState]);
+
   // Handle selection changes
   const handleSelectionChange = useCallback(
     ({ nodes: selectedNodes, edges: selectedEdges }: any) => {
@@ -211,9 +229,19 @@ export const StateChartEditor: React.FC = () => {
   }, [autoLayout, requestFitView]);
 
   return (
-    <div style={{ width: "100%", height: "100vh", display: "flex" }}>
+    <div className="trust-product-shell">
+      <header className="trust-product-header" aria-label="Statechart editor header">
+        <div className="trust-product-brand">
+          tru<span className="trust-product-brand__accent">ST</span>
+          <span className="trust-product-brand__separator">·</span>
+          <span className="trust-product-brand__surface">Statechart editor</span>
+        </div>
+        <div className="trust-product-header__meta">State machine diagram</div>
+      </header>
+
+      <div className="trust-product-workspace">
       {/* Main editor area */}
-      <div style={{ flex: 1, minWidth: 0, position: "relative" }}>
+      <div className="trust-canvas-pane">
         {parseError ? (
           <div
             role="alert"
@@ -298,7 +326,7 @@ export const StateChartEditor: React.FC = () => {
               variant={BackgroundVariant.Dots}
               gap={20}
               size={1}
-              color="var(--vscode-editorWidget-border)"
+              color="var(--trust-grid-line)"
             />
             <Controls />
           </ReactFlow>
@@ -327,6 +355,8 @@ export const StateChartEditor: React.FC = () => {
               onAddFinalState={handleAddFinalState}
               onDelete={handleDelete}
               onAutoLayout={handleAutoLayout}
+              onValidate={handleValidate}
+              onGenerateST={handleGenerateST}
               onSave={handleSave}
             />
             <PropertiesPanel
@@ -343,6 +373,7 @@ export const StateChartEditor: React.FC = () => {
           </div>
         </>
       )}
+      </div>
     </div>
   );
 };

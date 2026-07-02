@@ -455,11 +455,19 @@ export function LadderEditor() {
       return;
     }
 
+    // Size the stage to the visible pane and fit the rung width on open, so the output coils on
+    // the right rail aren't clipped off the edge (the fixed 1200px stage was wider than the panel).
+    const containerWidth = containerRef.current.clientWidth || STAGE_WIDTH;
+    const fitScale = Math.max(
+      0.3,
+      Math.min(1, (containerWidth - 24) / (RIGHT_RAIL_X + 40))
+    );
+
     let stage: Konva.Stage;
     try {
       stage = new Konva.Stage({
         container: containerRef.current,
-        width: STAGE_WIDTH,
+        width: containerWidth,
         height: STAGE_HEIGHT,
       });
     } catch (error) {
@@ -531,6 +539,13 @@ export function LadderEditor() {
 
     stageRef.current = stage;
     layerRef.current = layer;
+
+    // Apply the initial fit so the whole rung (contacts + coils + right rail) shows on open.
+    if (fitScale < 1) {
+      stage.scale({ x: fitScale, y: fitScale });
+      stage.position({ x: 12, y: 0 });
+      setScale(fitScale);
+    }
 
     return () => {
       stage.off("mousedown touchstart", startPan);
@@ -2307,15 +2322,32 @@ export function LadderEditor() {
     vscodeApi?.postMessage({ type: "save", program });
   };
 
+  const handleValidate = () => {
+    vscodeApi?.postMessage({ type: "validate", program });
+  };
+
+  const handleGenerateST = () => {
+    vscodeApi?.postMessage({ type: "generateST", program });
+  };
+
   const handleAutoRoute = () => {
     applyProgramChange((previous) => autoRouteProgram(previous));
   };
 
   return (
-    <div className="ladder-editor">
-      <div className="editor-body">
+    <div className="ladder-editor trust-product-shell">
+      <header className="trust-product-header" aria-label="Ladder editor header">
+        <div className="trust-product-brand">
+          tru<span className="trust-product-brand__accent">ST</span>
+          <span className="trust-product-brand__separator">·</span>
+          <span className="trust-product-brand__surface">Ladder editor</span>
+        </div>
+        <div className="trust-product-header__meta">Ladder logic diagram</div>
+      </header>
+
+      <div className="editor-body trust-product-workspace">
         <div
-          className={`canvas-container ${selectedTool ? "tool-selected" : ""} ${
+          className={`canvas-container trust-canvas-pane ${selectedTool ? "tool-selected" : ""} ${
             linkModeEnabled ? "link-mode" : ""
           } ${
             isPanModifierActive ? "pan-enabled" : ""
@@ -2366,6 +2398,8 @@ export function LadderEditor() {
             onPaste={pasteSelection}
             onSearchReplace={handleSearchReplace}
             onAutoRoute={handleAutoRoute}
+            onValidate={handleValidate}
+            onGenerateST={handleGenerateST}
             onSave={handleSave}
             onToggleLinkMode={toggleLinkMode}
             linkModeEnabled={linkModeEnabled}
@@ -2541,7 +2575,7 @@ export function LadderEditor() {
         </div>
       )}
 
-      <div className="status-bar">
+      <div className="trust-visual-status status-bar">
         <span>Rungs: {program.networks.length}</span>
         <span>Zoom: {Math.round(scale * 100)}%</span>
         <span>Undo: {undoDepth}</span>

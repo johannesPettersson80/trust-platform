@@ -14,6 +14,7 @@ export interface RuntimeNodeControl {
     | "managedStop"
     | "runtimeConnect"
     | "runtimeDisconnect"
+    | "setAuthToken"
     | "setAsRunTarget"
     | "openRuntimeLogs"
     | "openRuntimeSettings"
@@ -21,6 +22,20 @@ export interface RuntimeNodeControl {
   readonly label: string;
   readonly kind: "primary" | "secondary";
   readonly enabled: boolean;
+}
+
+export interface RuntimeNodeActionItem {
+  readonly key: string;
+  readonly label: string;
+  readonly enabled: boolean;
+  readonly onClick: () => void;
+}
+
+export interface RuntimeNodeControlLayout {
+  readonly primary?: RuntimeNodeControl;
+  readonly visibleSecondary: RuntimeNodeActionItem[];
+  readonly overflowSecondary: RuntimeNodeActionItem[];
+  readonly hasOverflow: boolean;
 }
 
 export interface RuntimeNodeControlsInput {
@@ -33,13 +48,42 @@ export interface RuntimeNodeControlsInput {
   // Whether a log backend exists for this node (§0.6.12 — "Logs only when a log backend exists").
   // Remote logs are phase 14, so this is false for remotes until that lands.
   readonly logsAvailable?: boolean;
+  // Auth failures need a direct credential recovery action in the inspector (S-23). This does not
+  // change lifecycle ownership: Connect remains available as a retry, but Set auth token becomes the
+  // primary next action because the error has already proven Connect cannot succeed without it.
+  readonly authTokenRequired?: boolean;
 }
 
 export function runtimeNodeControls(
   input: RuntimeNodeControlsInput
 ): RuntimeNodeControl[] {
+  const primary = primaryControl(input);
   return [
-    primaryControl(input),
+    primary,
+    ...(input.authTokenRequired && input.controlEndpoint
+      ? [
+          ...(primary.action === "setAuthToken"
+            ? [
+                {
+                  action: "runtimeConnect" as const,
+                  label: "Connect",
+                  kind: "secondary" as const,
+                  enabled: true,
+                },
+              ]
+            : []),
+          ...(primary.action === "setAuthToken"
+            ? []
+            : [
+                {
+                  action: "setAuthToken" as const,
+                  label: "Set auth token",
+                  kind: "secondary" as const,
+                  enabled: true,
+                },
+              ]),
+        ]
+      : []),
     // "Set as run target" selects this runtime for the Run bar WITHOUT connecting (§0.5.11). Connecting
     // also sets the target, but this is the select-only path.
     {
@@ -66,6 +110,44 @@ export function runtimeNodeControls(
       enabled: true,
     },
   ];
+}
+
+export const MAX_VISIBLE_RUNTIME_NODE_SECONDARY = 2;
+
+export function runtimeNodeControlLayout(
+  controls: readonly RuntimeNodeControl[] | undefined,
+  onControl: ((control: RuntimeNodeControl) => void) | undefined,
+  extraSecondary: readonly RuntimeNodeActionItem[] = [],
+  showAllSecondary = false
+): RuntimeNodeControlLayout {
+  if (!controls || !onControl) {
+    return {
+      primary: undefined,
+      visibleSecondary: [],
+      overflowSecondary: [],
+      hasOverflow: false,
+    };
+  }
+  const secondary = [
+    ...controls
+      .filter((control) => control.kind === "secondary")
+      .map((control) => ({
+        key: `${control.action}:${control.label}`,
+        label: control.label,
+        enabled: control.enabled,
+        onClick: () => onControl(control),
+      })),
+    ...extraSecondary,
+  ];
+  const visibleSecondary = showAllSecondary
+    ? secondary
+    : secondary.slice(0, MAX_VISIBLE_RUNTIME_NODE_SECONDARY);
+  return {
+    primary: controls.find((control) => control.kind === "primary"),
+    visibleSecondary,
+    overflowSecondary: secondary.slice(MAX_VISIBLE_RUNTIME_NODE_SECONDARY),
+    hasOverflow: secondary.length > MAX_VISIBLE_RUNTIME_NODE_SECONDARY,
+  };
 }
 
 function primaryControl(input: RuntimeNodeControlsInput): RuntimeNodeControl {
@@ -100,6 +182,14 @@ function primaryControl(input: RuntimeNodeControlsInput): RuntimeNodeControl {
     return {
       action: "runtimeDisconnect",
       label: "Disconnect",
+      kind: "primary",
+      enabled: true,
+    };
+  }
+  if (input.authTokenRequired && input.controlEndpoint) {
+    return {
+      action: "setAuthToken",
+      label: "Set auth token",
       kind: "primary",
       enabled: true,
     };

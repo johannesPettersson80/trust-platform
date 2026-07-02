@@ -10,6 +10,7 @@ import {
   runtimeOptions,
   selectedRuntime,
   SIMULATOR_RUNTIME_ID,
+  withPrimaryActionGate,
   type RemoteRuntime,
   type RuntimeModelSnapshot,
   type SelectedRuntime,
@@ -19,6 +20,12 @@ import {
   onDidChangeSelectedRuntime,
   setSelectedRuntimeId,
 } from "./selectedRuntime";
+import { CHECK_PROGRAM_COMMAND, onDidCheckProgram } from "./checkProgram";
+import { onDidDebugReload } from "./debug";
+import {
+  summarizeCheck,
+  type CheckProgramResponse,
+} from "./checkProgramModel";
 import {
   listManagedRuntimes,
   onDidChangeManagedRuntimes,
@@ -31,18 +38,45 @@ import {
 } from "./managedRuntimeSession";
 import type { ManagedRuntime } from "./localRuntimeModel";
 
-// §UX v5 (vscode-ux-overhaul-plan.md §0.5) — the ONE truST panel (WebviewView `trust.home`, no visible
-// "Home"). It has TWO states:
-//   • No project open  → ONLY the Project welcome: Create project · Open project · Start from example.
-//   • Project open     → the Run bar (select-only `Run target:` + ONE state-specific action + passive
-//                        validity line) followed by nav launchers: Project · Devices & Connections ·
-//                        Live Values · HMI.
-// The dropdown is select-only (no Add/Connect). A remote NEVER renders Start/Stop (only Connect/
-// Disconnect) — its process lifecycle lives on its Devices & Connections node, never here.
+// The ONE truST sidebar (WebviewView `trust.home`). It keeps one fixed layout:
+//   • No project open  → Examples-first onboarding; no transport controls.
+//   • Project open     → project label, Target picker, compact Compile/Run/Debug/Deploy actions,
+//                        then visible truST destinations.
+// Target selection is select-only (no Add/Connect sentinel). A remote NEVER renders Stop; it renders
+// Disconnect because we only own our attach session.
+const SIDEBAR_ACTION_TIMEOUT_MS = 8000;
 
 interface ValidityLine {
   readonly ok: boolean;
   readonly label: string;
+  readonly errors: number;
+  readonly sourceErrors: number;
+  readonly configErrors: number;
+}
+
+type CompileState =
+  | { readonly kind: "unknown" }
+  | { readonly kind: "dirty" }
+  | { readonly kind: "clean"; readonly summary: string }
+  | {
+      readonly kind: "failed";
+      readonly summary: string;
+      readonly errors: number;
+      readonly sourceErrors: number;
+      readonly configErrors: number;
+    };
+
+type ButtonTone = "neutral" | "primary" | "success" | "warning" | "danger" | "disabled";
+type ButtonVariant = "outline" | "filled";
+
+interface SidebarButtonState {
+  readonly state: string;
+  readonly label: string;
+  readonly title: string;
+  readonly icon: string;
+  readonly tone: ButtonTone;
+  readonly variant: ButtonVariant;
+  readonly enabled: boolean;
 }
 
 interface WorkspaceProjectState {
@@ -54,14 +88,43 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
   static readonly viewType = "trust.home";
 
   private view?: vscode.WebviewView;
-  // "Apply changes" (sim-only): true once an .st/.pou file is saved after Start, cleared on Start/Apply.
+  // "Update running simulation" (sim-only): true once an .st/.pou file is saved after Start, cleared only after a
+  // confirmed successful Apply.
   // This is honest save-based change detection — never claim "changed" without an actual save.
   private sourceChanged = false;
+  private applyMessage = "";
+  private applyMessageKind: "success" | "error" | "" = "";
+  private compileState: CompileState = { kind: "unknown" };
 
-  constructor(private readonly context: vscode.ExtensionContext) {}
+  constructor(private readonly context: vscode.ExtensionContext) {
+    this.context.subscriptions.push(
+      onDidCheckProgram((result) => {
+        this.setCompileState(result);
+        void this.render();
+      })
+    );
+    this.context.subscriptions.push(
+      onDidDebugReload((result) => {
+        if (result.ok) {
+          this.sourceChanged = false;
+          this.applyMessage = "Running simulation updated.";
+          this.applyMessageKind = "success";
+        } else if (this.sourceChanged) {
+          this.applyMessage = `Update failed: ${reloadFailureMessage(result, validityLine())}`;
+          this.applyMessageKind = "error";
+        }
+        void this.render();
+      })
+    );
+  }
 
   markSourceChanged(): void {
     this.sourceChanged = true;
+    this.applyMessage = "";
+    this.applyMessageKind = "";
+    if (this.compileState.kind === "clean" || this.compileState.kind === "failed") {
+      this.compileState = { kind: "dirty" };
+    }
     void this.render();
   }
 
@@ -141,23 +204,74 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
     const remotes = this.readRemotes();
     const managed = await listManagedRuntimes(this.context);
     const options = runtimeOptions(remotes, managed);
-    const selected = this.resolveSelected(snapshot, remotes, managed);
-    // Apply changes is SIMULATOR-ONLY (§0.5.3/§0.6.6) and only when the running sim's source changed.
+    const selectedRaw = this.resolveSelected(snapshot, remotes, managed);
+    const diagnostics = validityLine();
+    const primaryGate = primaryActionGateReason(
+      selectedRaw,
+      this.compileState,
+      diagnostics
+    );
+    const selected = withPrimaryActionGate(
+      selectedRaw,
+      primaryGate ? { reason: primaryGate } : undefined
+    );
+    const hmiLabel = (await hasHmiDescriptor()) ? "HMI" : "Create HMI";
+    // Update running simulation is SIMULATOR-ONLY and only when the running sim's source changed.
     // Remote apply/restart/deploy lives on the runtime node, never here.
     const canApply =
       selected.kind === "simulator" &&
       selected.status === "running" &&
       this.sourceChanged;
+    const updateGate = canApply
+      ? compileGateReason(this.compileState, diagnostics, "update")
+      : undefined;
+    const lifecycleFailureMessage =
+      snapshot.failure &&
+      selected.kind === "simulator" &&
+      selected.status === "stopped"
+        ? actionFailureMessage(selected, { ok: false, failure: snapshot.failure })
+        : "";
+    const applyMessage = updateGate
+      ? updateGate
+      : this.applyMessageKind === "error" ||
+          (selected.kind === "simulator" && selected.status === "running")
+        ? this.applyMessage
+        : lifecycleFailureMessage;
+    const applyMessageKind =
+      updateGate ? "error" : this.applyMessageKind || (lifecycleFailureMessage ? "error" : "");
+    const visibleApplyMessage =
+      updateGate ||
+      applyMessageKind === "error" ||
+      (selected.kind === "simulator" && selected.status === "running")
+        ? applyMessage
+        : "";
+    const compile = compileButtonState(this.compileState, diagnostics);
+    const buttons = {
+      compile,
+      action: runtimeActionButtonState(selected),
+      debug: debugButtonState(
+        selected,
+        compileGateReason(this.compileState, diagnostics, "debug")
+      ),
+      deploy: deployButtonState(selected, this.compileState),
+    };
+    const actionHint = !buttons.action.enabled ? buttons.action.title : selected.primary.hint ?? "";
     void this.view.webview.postMessage({
       type: "state",
       projectOpen,
       workspaceKind: workspaceState.kind,
-      workspaceName: workspaceState.folder?.name ?? "",
+      workspaceName: displayProjectName(workspaceState.folder?.name ?? ""),
       options,
       selectedId: selected.id,
       selected,
-      validity: validityLine(),
+      buttons,
+      actionHint,
       canApply,
+      applyEnabled: canApply && !updateGate,
+      applyTitle: updateGate || "Update running simulation",
+      applyMessage: visibleApplyMessage,
+      applyMessageKind,
+      hmiLabel,
     });
   }
 
@@ -172,8 +286,22 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
       case "select":
         await this.onSelect(String(message.id ?? ""));
         return;
+      case "chooseTarget":
+        await this.chooseTarget();
+        return;
+      case "compile":
+        await this.compileProject();
+        return;
       case "action":
         await this.runAction();
+        return;
+      case "debug":
+        await vscode.commands.executeCommand("trust-lsp.debug.start");
+        return;
+      case "deploy":
+        void vscode.window.showInformationMessage(
+          "Deploy is not available for this target yet."
+        );
         return;
       case "applyChanges":
         await this.applyChanges();
@@ -188,18 +316,18 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
       case "startExample":
         await vscode.commands.executeCommand("trust.examples.start");
         return;
-      // Project-open nav launchers
-      case "navProject":
-        await projectActionsMenu();
-        return;
       case "navDevices":
         await vscode.commands.executeCommand("trust-lsp.networkCanvas.open");
+        return;
+      case "navLibraries":
+        await vscode.commands.executeCommand("trust-lsp.libraries.open");
         return;
       case "navLiveValues":
         await vscode.commands.executeCommand("trust-lsp.debug.openIoPanel");
         return;
       case "navHmi":
         await openOrCreateHmi();
+        await this.render();
         return;
       default:
         return;
@@ -223,46 +351,167 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
     if (id) {
       await setSelectedRuntimeId(id);
     }
+    this.applyMessage = "";
+    this.applyMessageKind = "";
     await this.render();
+  }
+
+  private async chooseTarget(): Promise<void> {
+    const remotes = this.readRemotes();
+    const managed = await listManagedRuntimes(this.context);
+    const options = runtimeOptions(remotes, managed);
+    const currentId = getSelectedRuntimeId() || SIMULATOR_RUNTIME_ID;
+    const items: Array<vscode.QuickPickItem & { id?: string }> = [];
+    for (const group of [
+      { label: "Simulator", kind: "simulator" },
+      { label: "Managed on this computer", kind: "local" },
+      { label: "Runtime on another computer", kind: "remote" },
+    ] as const) {
+      const groupOptions = options.filter((option) => option.kind === group.kind);
+      if (!groupOptions.length) {
+        continue;
+      }
+      items.push({ label: group.label, kind: vscode.QuickPickItemKind.Separator });
+      for (const option of groupOptions) {
+        items.push({
+          id: option.id,
+          label: option.label,
+          description: option.id === currentId ? "selected" : undefined,
+        });
+      }
+    }
+    const pick = await vscode.window.showQuickPick(items, {
+      title: "Target",
+      placeHolder: "Choose where truST should run or connect",
+    });
+    if (pick?.id) {
+      await this.onSelect(pick.id);
+    }
+  }
+
+  private async compileProject(): Promise<void> {
+    const result = await vscode.commands.executeCommand<CheckProgramResponse | undefined>(
+      CHECK_PROGRAM_COMMAND
+    );
+    if (result) {
+      this.setCompileState(result);
+    }
+    await this.render();
+  }
+
+  private setCompileState(result: CheckProgramResponse): void {
+    const issueCounts = classifyCompileIssues(result);
+    this.compileState = result.ok
+      ? { kind: "clean", summary: compileSummary(result) }
+      : {
+          kind: "failed",
+          summary: compileSummary(result),
+          errors: result.errors ?? result.issues?.length ?? 1,
+          sourceErrors: issueCounts.sourceErrors,
+          configErrors: issueCounts.configErrors,
+        };
+  }
+
+  private async showWarning(
+    message: string,
+    ...items: string[]
+  ): Promise<string | undefined> {
+    if (this.context.extensionMode === vscode.ExtensionMode.Test) {
+      return undefined;
+    }
+    try {
+      return await vscode.window.showWarningMessage(message, ...items);
+    } catch {
+      return undefined;
+    }
   }
 
   private async runAction(): Promise<void> {
     const snapshot = await runtimeLifecycleService.snapshot();
     const remotes = this.readRemotes();
     const managed = await listManagedRuntimes(this.context);
-    const selected = this.resolveSelected(snapshot, remotes, managed);
+    const selectedRaw = this.resolveSelected(snapshot, remotes, managed);
+    const gateReason = primaryActionGateReason(
+      selectedRaw,
+      this.compileState,
+      validityLine()
+    );
+    const selected = withPrimaryActionGate(
+      selectedRaw,
+      gateReason ? { reason: gateReason } : undefined
+    );
+    if (!selected.primary.enabled && selected.primary.hint) {
+      this.applyMessage = selected.primary.hint;
+      this.applyMessageKind = "error";
+      await this.render();
+      return;
+    }
     // A managed local runtime is OURS — Start/Stop via the fleet lifecycle, not the debug simulator.
     if (selected.kind === "local") {
       await this.runManagedAction(selected);
       await this.render();
       return;
     }
-    const result = await this.dispatch(selected);
+    if (selected.primary.action === "start") {
+      const compile = await vscode.commands.executeCommand<
+        CheckProgramResponse | undefined
+      >(CHECK_PROGRAM_COMMAND);
+      if (compile) {
+        this.setCompileState(compile);
+        if (!compile.ok) {
+          const summary = compileSummary(compile);
+          this.applyMessage = summary;
+          this.applyMessageKind = "error";
+          await this.render();
+          void this.showWarning(summary);
+          return;
+        }
+      }
+    }
+    const dispatched = this.dispatch(selected);
+    const result =
+      selected.primary.action === "start" && dispatched
+        ? await withSidebarActionTimeout(
+            dispatched,
+            SIDEBAR_ACTION_TIMEOUT_MS,
+            "Start timed out. Check the runtime port or target settings."
+          )
+        : await dispatched;
     if (result && !result.ok) {
+      const failureMessage = actionFailureMessage(selected, result);
+      this.applyMessage = failureMessage;
+      this.applyMessageKind = "error";
+      await this.render();
       if (selected.primary.action === "connect") {
-        // A failed connect is often a missing/expired token — offer a SECURE (SecretStorage) entry.
-        const choice = await vscode.window.showWarningMessage(
-          actionFailureMessage(selected, result),
-          "Set auth token"
+        const choices = connectFailureChoices(result);
+        const choice = await this.showWarning(
+          failureMessage,
+          ...choices
         );
-        if (choice === "Set auth token") {
+        if (choice === SET_AUTH_TOKEN_ACTION) {
           await vscode.commands.executeCommand("trust-lsp.runtime.setAuthToken", {
             endpoint: selected.id,
           });
+        } else if (choice === OPEN_DEVICES_ACTION) {
+          await vscode.commands.executeCommand("trust-lsp.networkCanvas.open");
         }
       } else {
-        void vscode.window.showWarningMessage(actionFailureMessage(selected, result));
+        void this.showWarning(failureMessage);
       }
-    } else if (
-      selected.primary.action === "start" ||
-      selected.primary.action === "connect"
-    ) {
+    } else if (result?.ok) {
+      this.applyMessage = "";
+      this.applyMessageKind = "";
       if (selected.primary.action === "start") {
         // A fresh Start compiles current source — nothing pending to apply.
         this.sourceChanged = false;
       }
-      // Auto-reveal Live Values when the user starts the sim or connects a remote (§0.5.5).
-      void vscode.commands.executeCommand("trust-lsp.debug.openIoPanel");
+      if (
+        selected.primary.action === "start" ||
+        selected.primary.action === "connect"
+      ) {
+        // Auto-reveal Live Values when the user starts the sim or connects a remote (§0.5.5).
+        void vscode.commands.executeCommand("trust-lsp.debug.openIoPanel");
+      }
     }
     await this.render();
   }
@@ -278,7 +527,7 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
       const reason =
         result.message ||
         `Could not ${selected.primary.action} ${selected.label}.`;
-      void vscode.window.showWarningMessage(
+      void this.showWarning(
         `${reason} Check it in Devices & Connections.`
       );
       return;
@@ -287,21 +536,37 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
     if (selected.primary.action === "start") {
       const attach = await attachManagedRuntimeAfterStart(selected.id, result);
       if (!attach.ok) {
-        void vscode.window.showWarningMessage(
+        void this.showWarning(
           attach.message || `Could not connect Live Values for ${selected.label}.`
         );
         return;
       }
       void vscode.commands.executeCommand("trust-lsp.debug.openIoPanel");
     } else if (selected.primary.action === "stop") {
-      await disconnectManagedRuntimeAfterStop(result);
+      await disconnectManagedRuntimeAfterStop(selected.id, result);
     }
   }
 
   private async applyChanges(): Promise<void> {
     // Sim-only hot reload (§0.6.6). The button is only shown when canApply, but guard anyway.
-    await vscode.commands.executeCommand("trust-lsp.debug.reload");
-    this.sourceChanged = false;
+    const gateReason = compileGateReason(this.compileState, validityLine(), "update");
+    if (gateReason) {
+      this.applyMessage = gateReason;
+      this.applyMessageKind = "error";
+      await this.render();
+      return;
+    }
+    const result = await vscode.commands.executeCommand<unknown>("trust-lsp.debug.reload");
+    if (isReloadSuccess(result)) {
+      this.sourceChanged = false;
+      this.applyMessage = "Running simulation updated.";
+      this.applyMessageKind = "success";
+    } else {
+      const reason = reloadFailureMessage(result, validityLine());
+      this.sourceChanged = true;
+      this.applyMessage = `Update failed: ${reason}`;
+      this.applyMessageKind = "error";
+    }
     await this.render();
   }
 
@@ -314,7 +579,7 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
       case "stop":
         return runtimeLifecycleService.stopRuntime();
       case "connect":
-        return runtimeLifecycleService.connectRemote(selected.id);
+        return runtimeLifecycleService.connectRemote(selected.id, selected.label);
       case "disconnect":
         // Disconnect ends our attach session — it does NOT kill a remote we don't own.
         return runtimeLifecycleService.stopRuntime();
@@ -326,164 +591,451 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
 
   private html(webview: vscode.Webview): string {
     const nonce = makeNonce();
+    const themeUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.context.extensionUri, "src", "webview", "theme.css")
+    );
+    const codiconsUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(
+        this.context.extensionUri,
+        "node_modules",
+        "@vscode",
+        "codicons",
+        "dist",
+        "codicon.css"
+      )
+    );
+    const csp = `default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; font-src ${webview.cspSource}; script-src 'nonce-${nonce}';`;
     return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<style>
-  body { padding: 10px 12px; font-family: var(--vscode-font-family); color: var(--vscode-foreground); }
-  h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.8; margin: 0 0 8px; }
-  p.hint { font-size: 12px; opacity: 0.8; margin: 0 0 12px; }
-  label { display: block; font-size: 12px; opacity: 0.85; margin: 10px 0 4px; }
-  select {
-    width: 100%; box-sizing: border-box; padding: 4px 6px;
-    color: var(--vscode-dropdown-foreground, var(--vscode-foreground, #cccccc)); background: var(--vscode-dropdown-background, var(--vscode-editor-background, #1e1e1e));
-    border: 1px solid var(--vscode-dropdown-border, var(--vscode-panel-border, #2b2b2b)); border-radius: 2px; font-size: 13px;
-  }
-  .validity { font-size: 12px; margin: 2px 0 0; opacity: 0.85; }
-  .validity .ico { margin-right: 5px; }
-  .validity.ok .ico { color: var(--vscode-testing-iconPassed, #2ea043); }
-  .validity.warn .ico { color: var(--vscode-testing-iconFailed, #d13438); }
-  .status { font-size: 12px; margin: 10px 0 2px; }
-  .status .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; background: var(--vscode-descriptionForeground, var(--vscode-foreground, #9d9d9d)); }
-  .status .dot.running, .status .dot.connected { background: var(--vscode-testing-iconPassed, #2ea043); }
-  .status .dot.starting { background: var(--vscode-charts-yellow, #d7a200); }
-  .status .dot.unreachable { background: var(--vscode-testing-iconFailed, #d13438); }
-  .status .value { font-weight: 600; }
-  button {
-    width: 100%; box-sizing: border-box; margin-top: 8px; padding: 6px 10px; cursor: pointer;
-    color: var(--vscode-button-foreground, #ffffff); background: var(--vscode-button-background, #0e639c);
-    border: 1px solid var(--vscode-button-border, transparent); border-radius: 2px; font-size: 13px;
-  }
-  button:hover:not(:disabled) { background: var(--vscode-button-hoverBackground, var(--vscode-button-background, #1177bb)); }
-  button:disabled { opacity: 0.5; cursor: default; }
-  button.secondary {
-    color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
-    background: var(--vscode-button-secondaryBackground, transparent);
-    border-color: var(--vscode-button-border, var(--vscode-widget-border, rgba(128,128,128,0.35)));
-  }
-  button.secondary:hover:not(:disabled) { background: var(--vscode-button-secondaryHoverBackground, var(--vscode-list-hoverBackground)); }
-  .hint { font-size: 11px; margin-top: 6px; line-height: 1.4; opacity: 0.95; color: var(--vscode-foreground); }
-  .hint .ico { color: var(--vscode-charts-yellow, #d7a200); margin-right: 4px; }
-  .nav { margin-top: 16px; border-top: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.25)); padding-top: 8px; }
-  .nav button {
-    text-align: left; margin-top: 4px; padding: 6px 8px;
-    background: transparent; color: var(--vscode-foreground); border: 1px solid transparent;
-  }
-  .nav button:hover { background: var(--vscode-list-hoverBackground, rgba(128,128,128,0.18)); }
-  .hidden { display: none; }
-</style>
-</head>
-<body>
-  <!-- No project open: the Project welcome ONLY -->
-  <section id="welcome" class="hidden">
-    <h2 id="welcomeTitle">truST</h2>
-    <p class="hint" id="welcomeText">Create or open a project to get started.</p>
-    <button id="createProject">Create project</button>
-    <button id="openProject" class="secondary">Open project</button>
-    <button id="startExample" class="secondary">Start from example</button>
-  </section>
+	<html lang="en">
+	<head>
+	<meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="${csp}" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="${themeUri}" />
+  <link rel="stylesheet" href="${codiconsUri}" />
+	<style>
+	  * { box-sizing: border-box; }
+	  body {
+      margin: 0;
+      padding: 10px 11px;
+      font-family: var(--vscode-font-family);
+      color: var(--trust-text);
+      background: var(--vscode-sideBar-background, var(--trust-canvas));
+    }
+    .top {
+      border-bottom: 1px solid var(--trust-border);
+      padding-bottom: 10px;
+      margin-bottom: 8px;
+    }
+    .project-name {
+      color: var(--trust-text);
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.25;
+      margin-bottom: 8px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .hint {
+      color: var(--trust-text-muted);
+      font-size: 11.5px;
+      line-height: 1.4;
+      margin: 0 0 9px;
+    }
+    button {
+      font-family: var(--vscode-font-family);
+    }
+    .primary-start,
+    .secondary-start,
+    .target-button,
+    .action-button,
+    .update-button,
+    .nav-button {
+      border-radius: var(--trust-radius);
+      cursor: pointer;
+      min-width: 0;
+      transition: background var(--trust-ease), border-color var(--trust-ease), color var(--trust-ease);
+    }
+    .primary-start,
+    .secondary-start {
+      align-items: center;
+      display: flex;
+      justify-content: center;
+      min-height: 31px;
+      width: 100%;
+      margin-top: 7px;
+      padding: 7px 9px;
+      font-size: 12px;
+      font-weight: 650;
+    }
+    .primary-start {
+      background: var(--trust-action-primary-bg);
+      border: 1px solid var(--trust-action-primary-bg);
+      color: var(--trust-action-primary-fg);
+    }
+    .secondary-start {
+      background: transparent;
+      border: 1px solid var(--trust-border);
+      color: var(--trust-text);
+    }
+    .target-label {
+      color: var(--trust-text-muted);
+      font-size: 10px;
+      font-weight: 750;
+      letter-spacing: 0.5px;
+      margin: 0 0 4px;
+      text-transform: uppercase;
+    }
+    .target-button {
+      align-items: center;
+      background: var(--trust-surface);
+      border: 1px solid var(--trust-border);
+      color: var(--trust-text);
+      display: flex;
+      gap: 7px;
+      justify-content: space-between;
+      min-height: 30px;
+      padding: 6px 8px;
+      width: 100%;
+    }
+    .target-button .value {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .action-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 5px;
+      margin-top: 8px;
+    }
+    .action-button {
+      align-items: center;
+      background: transparent;
+      border: 1px solid var(--trust-border);
+      color: var(--trust-text);
+      display: inline-flex;
+      flex-direction: column;
+      gap: 2px;
+      justify-content: center;
+      min-height: 42px;
+      padding: 5px 3px;
+    }
+    .action-button .icon {
+      font-size: 14px;
+      line-height: 1;
+    }
+    .action-button .codicon {
+      font-size: 15px;
+    }
+    .action-button .label {
+      font-size: 10.5px;
+      line-height: 1.1;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .action-button.label-clipped .label { display: none; }
+    .action-button[data-variant="filled"] {
+      background: var(--trust-action-primary-bg);
+      border-color: var(--trust-action-primary-bg);
+      color: var(--trust-action-primary-fg);
+      font-weight: 700;
+    }
+    .action-button[data-tone="success"] {
+      border-color: color-mix(in srgb, var(--trust-ok) 55%, var(--trust-border));
+      color: var(--trust-ok);
+    }
+    .action-button[data-tone="danger"] {
+      border-color: color-mix(in srgb, var(--trust-danger) 58%, var(--trust-border));
+      color: var(--trust-danger);
+    }
+    .action-button[data-tone="warning"] {
+      border-color: color-mix(in srgb, var(--trust-warn) 58%, var(--trust-border));
+      color: var(--trust-warn);
+    }
+    .action-button[data-tone="disabled"] {
+      color: var(--trust-text-subtle);
+    }
+    button:hover:not(:disabled) {
+      background: var(--trust-selected-bg);
+      border-color: var(--trust-accent);
+    }
+    .action-button[data-variant="filled"]:hover:not(:disabled),
+    .primary-start:hover:not(:disabled) {
+      background: var(--trust-action-primary-hover-bg);
+      border-color: var(--trust-action-primary-hover-bg);
+      color: var(--trust-action-primary-fg);
+    }
+    button:disabled {
+      color: var(--trust-text-subtle);
+      cursor: not-allowed;
+      opacity: 0.62;
+    }
+    .update-button {
+      background: var(--trust-action-primary-bg);
+      border: 1px solid var(--trust-action-primary-bg);
+      color: var(--trust-action-primary-fg);
+      display: none;
+      font-size: 12px;
+      font-weight: 650;
+      margin-top: 7px;
+      min-height: 30px;
+      width: 100%;
+    }
+    .message {
+      color: var(--trust-text-muted);
+      display: none;
+      font-size: 11px;
+      line-height: 1.4;
+      margin-top: 7px;
+    }
+    .message.success { color: var(--trust-ok); }
+    .message.error { color: var(--trust-danger); }
+    .hint-line {
+      color: var(--trust-warn);
+      display: none;
+      font-size: 11px;
+      line-height: 1.35;
+      margin-top: 7px;
+    }
+    .nav {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .nav-button {
+      align-items: center;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--trust-text);
+      display: flex;
+      gap: 8px;
+      min-height: 31px;
+      padding: 6px 7px;
+      text-align: left;
+      width: 100%;
+    }
+    .nav-button .nav-icon {
+      color: var(--trust-text-muted);
+      flex: 0 0 auto;
+      text-align: center;
+      width: 18px;
+    }
+    .nav-button:disabled {
+      color: var(--trust-text-subtle);
+      opacity: 0.72;
+    }
+    .nav-button:hover:not(:disabled) {
+      background: var(--trust-selected-bg);
+      border-color: var(--trust-border);
+    }
+    .disabled-reason {
+      color: var(--trust-text-subtle);
+      font-size: 10.5px;
+      line-height: 1.25;
+      margin: -1px 0 4px 26px;
+    }
+    @media (max-width: 245px) {
+      .action-button .label { display: none; }
+      .action-button { min-height: 32px; }
+    }
+	  .hidden { display: none; }
+	</style>
+	</head>
+	<body>
+	  <!-- No project open: same sidebar shell, onboarding top region only. -->
+	  <section id="welcome" class="hidden">
+      <div class="top">
+        <div class="project-name" id="welcomeTitle">No project</div>
+        <p class="hint" id="welcomeText">Start with a runnable example, create a blank project, or open an existing folder.</p>
+        <button id="startExample" class="primary-start">▦ Start from example</button>
+        <button id="createProject" class="secondary-start">+ Create project</button>
+        <button id="openProject" class="secondary-start">Open project</button>
+      </div>
+      <nav class="nav" aria-label="truST destinations disabled until a project is open">
+        <button class="nav-button" disabled><span class="nav-icon">▤</span><span>Devices &amp; Connections</span></button>
+        <div class="disabled-reason">Open a project to use this.</div>
+        <button class="nav-button" disabled><span class="nav-icon">▦</span><span>Libraries</span></button>
+        <div class="disabled-reason">Open a project to use this.</div>
+        <button class="nav-button" disabled><span class="nav-icon">◉</span><span>Live Values</span></button>
+        <div class="disabled-reason">Start a project to watch values.</div>
+        <button class="nav-button" disabled><span class="nav-icon">▭</span><span>Create HMI</span></button>
+        <div class="disabled-reason">Open a project to use this.</div>
+      </nav>
+	  </section>
 
-  <!-- Project open: Run bar + nav launchers -->
-  <section id="project" class="hidden">
-    <h2>Run</h2>
-    <div class="validity" id="validity"><span class="ico" id="validityIco"></span><span id="validityText">—</span></div>
-    <label for="runtime">Run target:</label>
-    <select id="runtime"></select>
-    <div class="status">Status: <span class="dot" id="dot"></span><span class="value" id="status">—</span></div>
-    <button id="action" disabled>—</button>
-    <button id="apply" class="secondary" style="display:none">Apply changes</button>
-    <div class="hint" id="hint" style="display:none"></div>
+	  <!-- Project open: compact action surface + visible truST destinations. -->
+	  <section id="project" class="hidden">
+      <div class="top">
+        <div class="project-name" id="projectName">Project</div>
+        <div class="target-label">Target</div>
+        <button id="targetButton" class="target-button" type="button">
+          <span class="value" id="targetValue">Simulator</span>
+          <span aria-hidden="true">▾</span>
+        </button>
+        <div class="action-row" aria-label="Run controls">
+          <button id="compile" class="action-button" type="button" title="Compile project">
+            <span class="icon codicon codicon-tools" id="compileIcon" aria-hidden="true"></span><span class="label" id="compileLabel">Compile</span>
+          </button>
+          <button id="action" class="action-button" type="button" disabled title="Selected target action">
+            <span class="icon codicon codicon-play" id="actionIcon" aria-hidden="true"></span><span class="label" id="actionLabel">Run</span>
+          </button>
+          <button id="debug" class="action-button" type="button" title="Debug">
+            <span class="icon codicon codicon-debug-alt" id="debugIcon" aria-hidden="true"></span><span class="label" id="debugLabel">Debug</span>
+          </button>
+          <button id="deploy" class="action-button" type="button" disabled title="Deploy is not available for this target yet">
+            <span class="icon codicon codicon-rocket" id="deployIcon" aria-hidden="true"></span><span class="label" id="deployLabel">Deploy</span>
+          </button>
+        </div>
+        <button id="apply" class="update-button" type="button">Update running simulation</button>
+        <div class="message" id="applyMessage"></div>
+        <div class="hint-line" id="hint"></div>
+      </div>
 
-    <nav class="nav">
-      <button class="nav-item" id="navProject">Project</button>
-      <button class="nav-item" id="navDevices">Devices &amp; Connections</button>
-      <button class="nav-item" id="navLiveValues">Live Values</button>
-      <button class="nav-item" id="navHmi">HMI</button>
-    </nav>
-  </section>
-<script nonce="${nonce}">
-  const vscode = acquireVsCodeApi();
-  const welcomeEl = document.getElementById("welcome");
-  const projectEl = document.getElementById("project");
-  const welcomeTitle = document.getElementById("welcomeTitle");
-  const welcomeText = document.getElementById("welcomeText");
-  const createProjectEl = document.getElementById("createProject");
-  const runtimeEl = document.getElementById("runtime");
-  const statusEl = document.getElementById("status");
-  const dotEl = document.getElementById("dot");
-  const actionEl = document.getElementById("action");
-  const applyEl = document.getElementById("apply");
-  const hintEl = document.getElementById("hint");
-  const validityEl = document.getElementById("validity");
-  const validityIco = document.getElementById("validityIco");
-  const validityText = document.getElementById("validityText");
+      <nav class="nav" aria-label="truST destinations">
+        <button class="nav-button" id="navDevices"><span class="nav-icon">▤</span><span>Devices &amp; Connections</span></button>
+        <button class="nav-button" id="navLibraries"><span class="nav-icon">▦</span><span>Libraries</span></button>
+        <button class="nav-button" id="navLiveValues"><span class="nav-icon">◉</span><span>Live Values</span></button>
+        <button class="nav-button" id="navHmi"><span class="nav-icon">▭</span><span id="navHmiLabel">HMI</span></button>
+      </nav>
+	  </section>
+	<script nonce="${nonce}">
+	  const vscode = acquireVsCodeApi();
+	  const welcomeEl = document.getElementById("welcome");
+	  const projectEl = document.getElementById("project");
+	  const welcomeTitle = document.getElementById("welcomeTitle");
+	  const welcomeText = document.getElementById("welcomeText");
+	  const createProjectEl = document.getElementById("createProject");
+    const projectNameEl = document.getElementById("projectName");
+    const targetButton = document.getElementById("targetButton");
+    const targetValue = document.getElementById("targetValue");
+    const compileEl = document.getElementById("compile");
+    const compileIcon = document.getElementById("compileIcon");
+    const compileLabel = document.getElementById("compileLabel");
+	  const actionEl = document.getElementById("action");
+    const actionIcon = document.getElementById("actionIcon");
+    const actionLabel = document.getElementById("actionLabel");
+    const debugEl = document.getElementById("debug");
+    const debugIcon = document.getElementById("debugIcon");
+    const debugLabel = document.getElementById("debugLabel");
+    const deployEl = document.getElementById("deploy");
+    const deployIcon = document.getElementById("deployIcon");
+    const deployLabel = document.getElementById("deployLabel");
+	  const applyEl = document.getElementById("apply");
+	  const applyMessageEl = document.getElementById("applyMessage");
+	  const hintEl = document.getElementById("hint");
+	  const navHmiLabel = document.getElementById("navHmiLabel");
 
-  function post(type) { return () => vscode.postMessage({ type }); }
-  runtimeEl.addEventListener("change", () => vscode.postMessage({ type: "select", id: runtimeEl.value }));
-  actionEl.addEventListener("click", () => { if (!actionEl.disabled) { vscode.postMessage({ type: "action" }); } });
-  applyEl.addEventListener("click", () => vscode.postMessage({ type: "applyChanges" }));
-  createProjectEl.addEventListener("click", post("createProject"));
-  document.getElementById("openProject").addEventListener("click", post("openProject"));
-  document.getElementById("startExample").addEventListener("click", post("startExample"));
-  document.getElementById("navProject").addEventListener("click", post("navProject"));
-  document.getElementById("navDevices").addEventListener("click", post("navDevices"));
-  document.getElementById("navLiveValues").addEventListener("click", post("navLiveValues"));
-  document.getElementById("navHmi").addEventListener("click", post("navHmi"));
+	  function post(type) { return () => vscode.postMessage({ type }); }
+    function setButton(button, icon, label, view) {
+      button.disabled = !view.enabled;
+      button.title = view.title;
+      button.dataset.baseTitle = view.title || "";
+      button.dataset.state = view.state;
+      button.dataset.tone = view.tone;
+      button.dataset.variant = view.variant;
+      label.textContent = view.label;
+      icon.className = "icon codicon " + view.icon;
+    }
+    // CROSS-09: collapse an action label to icon-only (with the full label in the tooltip) when it would
+    // clip in its 1/4 column, so "Disconnect"/"Connecting…" never render as "Disconn…".
+    function measureLabelTextWidth(label) {
+      const text = label.textContent || "";
+      if (!text) { return 0; }
+      const probe = document.createElement("span");
+      const style = getComputedStyle(label);
+      probe.textContent = text;
+      probe.style.position = "absolute";
+      probe.style.visibility = "hidden";
+      probe.style.whiteSpace = "nowrap";
+      probe.style.font = style.font;
+      probe.style.letterSpacing = style.letterSpacing;
+      document.body.appendChild(probe);
+      const width = probe.getBoundingClientRect().width;
+      probe.remove();
+      return width;
+    }
+    function fitActionLabels() {
+      document.querySelectorAll(".action-row .action-button").forEach((btn) => {
+        const label = btn.querySelector(".label");
+        if (!label) { return; }
+        btn.classList.remove("label-clipped");
+        const base = btn.dataset.baseTitle || "";
+        const buttonStyle = getComputedStyle(btn);
+        const available = btn.clientWidth -
+          parseFloat(buttonStyle.paddingLeft || "0") -
+          parseFloat(buttonStyle.paddingRight || "0");
+        const measuredText = measureLabelTextWidth(label);
+        // Chromium can still apply text-overflow ellipsis when measured text is only
+        // fractionally below the content box. Keep a small reserve so long transport
+        // labels collapse before they visibly truncate in the four-column action row.
+        if (measuredText > Math.max(0, available - 4)) {
+          btn.classList.add("label-clipped");
+          const text = label.textContent || "";
+          btn.title = text ? (base && base !== text ? text + " — " + base : text) : base;
+        } else if (base) {
+          btn.title = base;
+        }
+      });
+    }
+    window.addEventListener("resize", fitActionLabels);
+    targetButton.addEventListener("click", post("chooseTarget"));
+    compileEl.addEventListener("click", post("compile"));
+	  actionEl.addEventListener("click", () => { if (!actionEl.disabled) { vscode.postMessage({ type: "action" }); } });
+      debugEl.addEventListener("click", post("debug"));
+    deployEl.addEventListener("click", () => { if (!deployEl.disabled) { vscode.postMessage({ type: "deploy" }); } });
+	  applyEl.addEventListener("click", () => vscode.postMessage({ type: "applyChanges" }));
+	  createProjectEl.addEventListener("click", post("createProject"));
+	  document.getElementById("openProject").addEventListener("click", post("openProject"));
+	  document.getElementById("startExample").addEventListener("click", post("startExample"));
+	  document.getElementById("navDevices").addEventListener("click", post("navDevices"));
+	  document.getElementById("navLibraries").addEventListener("click", post("navLibraries"));
+	  document.getElementById("navLiveValues").addEventListener("click", post("navLiveValues"));
+	  document.getElementById("navHmi").addEventListener("click", post("navHmi"));
 
   window.addEventListener("message", (event) => {
     const msg = event.data;
     if (!msg || msg.type !== "state") { return; }
-    welcomeEl.classList.toggle("hidden", msg.projectOpen);
-    projectEl.classList.toggle("hidden", !msg.projectOpen);
-    if (!msg.projectOpen) {
-      if (msg.workspaceKind === "nonTrust") {
-        const name = msg.workspaceName ? "“" + msg.workspaceName + "”" : "This folder";
-        welcomeTitle.textContent = "This folder is not a truST project";
-        welcomeText.textContent = name + " does not contain a truST project yet. Initialize it here, open an existing project, or start from an example.";
-        createProjectEl.textContent = "Initialize truST here";
-      } else {
-        welcomeTitle.textContent = "truST";
-        welcomeText.textContent = "Create or open a project to get started.";
-        createProjectEl.textContent = "Create project";
-      }
-      return;
-    }
+	    welcomeEl.classList.toggle("hidden", msg.projectOpen);
+	    projectEl.classList.toggle("hidden", !msg.projectOpen);
+	    if (!msg.projectOpen) {
+	      if (msg.workspaceKind === "nonTrust") {
+	        const name = msg.workspaceName ? "“" + msg.workspaceName + "”" : "This folder";
+	        welcomeTitle.textContent = "No truST project";
+	        welcomeText.textContent = name + " does not contain a truST project yet. Initialize it here, open an existing project, or start from an example.";
+	        createProjectEl.textContent = "Initialize truST here";
+	      } else {
+	        welcomeTitle.textContent = "No project";
+	        welcomeText.textContent = "Start with a runnable example, create a blank project, or open an existing folder.";
+	        createProjectEl.textContent = "+ Create project";
+	      }
+	      return;
+	    }
 
-    validityText.textContent = msg.validity.label;
-    validityIco.textContent = msg.validity.ok ? "✓" : "⚠";
-    validityEl.className = "validity " + (msg.validity.ok ? "ok" : "warn");
-
-    runtimeEl.innerHTML = "";
-    for (const option of msg.options) {
-      const el = document.createElement("option");
-      el.value = option.id;
-      el.textContent = option.label;
-      if (option.id === msg.selectedId) { el.selected = true; }
-      runtimeEl.appendChild(el);
-    }
-    statusEl.textContent = msg.selected.statusLabel;
-    dotEl.className = "dot " + msg.selected.status;
-    actionEl.textContent = msg.selected.primary.label;
-    actionEl.disabled = !msg.selected.primary.enabled;
-    applyEl.style.display = msg.canApply ? "" : "none";
-    const hint = msg.selected.primary.hint || "";
-    // A hint only appears on a disabled-with-reason state → mark it as a warning (icon + contrast) so a
-    // beginner reads "disabled because…", not "broken".
-    hintEl.innerHTML = "";
-    if (hint) {
-      const ico = document.createElement("span");
-      ico.className = "ico";
-      ico.textContent = "⚠";
-      const text = document.createElement("span");
-      text.textContent = hint;
-      hintEl.appendChild(ico);
-      hintEl.appendChild(text);
-    }
-    hintEl.style.display = hint ? "" : "none";
-  });
+      projectNameEl.textContent = msg.workspaceName || "truST project";
+      projectNameEl.title = msg.workspaceName || "truST project";
+      targetValue.textContent = msg.selected.label;
+      targetButton.title = "Target: " + msg.selected.label + " — " + msg.selected.statusLabel;
+      setButton(compileEl, compileIcon, compileLabel, msg.buttons.compile);
+      setButton(actionEl, actionIcon, actionLabel, msg.buttons.action);
+      setButton(debugEl, debugIcon, debugLabel, msg.buttons.debug);
+      setButton(deployEl, deployIcon, deployLabel, msg.buttons.deploy);
+      fitActionLabels();
+	    applyEl.style.display = msg.canApply ? "block" : "none";
+	    applyEl.disabled = !msg.applyEnabled;
+	    applyEl.title = msg.applyTitle || "Update running simulation";
+	    const applyMessage = msg.applyMessage || "";
+	    applyMessageEl.textContent = applyMessage;
+	    applyMessageEl.className = "message " + (msg.applyMessageKind || "");
+	    applyMessageEl.style.display = applyMessage ? "block" : "none";
+	    const hint = msg.actionHint || msg.selected.primary.hint || "";
+	    hintEl.textContent = hint ? "⚠ " + hint : "";
+	    hintEl.style.display = hint ? "block" : "none";
+	    navHmiLabel.textContent = msg.hmiLabel || "HMI";
+	  });
 
   vscode.postMessage({ type: "ready" });
 </script>
@@ -494,6 +1046,19 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
 
 export function registerTrustHome(context: vscode.ExtensionContext): void {
   const provider = new TrustHomeProvider(context);
+  context.subscriptions.push(
+    vscode.commands.registerCommand("trust-lsp.openSettings", () =>
+      vscode.commands.executeCommand(
+        "workbench.action.openSettings",
+        "@ext:trust-platform.trust-lsp"
+      )
+    )
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand("trust-lsp.visual.newDiagram", () =>
+      newDiagramMenu()
+    )
+  );
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
       TrustHomeProvider.viewType,
@@ -528,10 +1093,14 @@ export function registerTrustHome(context: vscode.ExtensionContext): void {
   projectWatcher.onDidCreate(() => provider.refresh());
   projectWatcher.onDidDelete(() => provider.refresh());
   context.subscriptions.push(projectWatcher);
+  const hmiWatcher = vscode.workspace.createFileSystemWatcher("**/hmi/*.toml");
+  hmiWatcher.onDidCreate(() => provider.refresh());
+  hmiWatcher.onDidDelete(() => provider.refresh());
+  context.subscriptions.push(hmiWatcher);
   context.subscriptions.push(
     vscode.languages.onDidChangeDiagnostics(() => provider.refresh())
   );
-  // Saving an ST source while the sim runs enables the sim-only "Apply changes" (§0.6.6).
+  // Saving an ST source while the sim runs enables the sim-only update action.
   context.subscriptions.push(
     vscode.workspace.onDidSaveTextDocument((doc) => {
       if (/\.(st|pou)$/i.test(doc.uri.fsPath)) {
@@ -556,60 +1125,337 @@ async function getWorkspaceProjectState(): Promise<WorkspaceProjectState> {
   return found.length > 0 ? { kind: "trust", folder } : { kind: "nonTrust", folder };
 }
 
+function displayProjectName(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    return "";
+  }
+  if (/^network[_-]+canvas[_-]+demo$/i.test(trimmed)) {
+    return "Conveyor Demo";
+  }
+  if (!/[_-]/.test(trimmed)) {
+    return trimmed;
+  }
+  return trimmed
+    .split(/[_-]+/)
+    .filter((part) => part.length > 0)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+async function hasHmiDescriptor(): Promise<boolean> {
+  const found = await vscode.workspace.findFiles(
+    "**/hmi/*.toml",
+    "**/node_modules/**",
+    1
+  );
+  return found.length > 0;
+}
+
 // Passive validity (§0.5.6): a fast diagnostics-derived "no known errors" line — NOT the authoritative
-// whole-project compile (that's the separate `Check program` action, Phase 8). Never a button.
+// Diagnostics are only a pre-compile warning source. They are never enough to show a green Compile badge.
 function validityLine(): ValidityLine {
   let errors = 0;
+  let sourceErrors = 0;
+  let configErrors = 0;
   for (const [uri, diagnostics] of vscode.languages.getDiagnostics()) {
-    if (!/\.(st|pou)$/i.test(uri.fsPath)) {
+    const filePath = uri.fsPath;
+    const relevant = isSourceDiagnosticPath(filePath) || isConfigDiagnosticPath(filePath);
+    if (!relevant) {
       continue;
     }
-    errors += diagnostics.filter(
+    const count = diagnostics.filter(
       (d) => d.severity === vscode.DiagnosticSeverity.Error
     ).length;
+    errors += count;
+    if (isConfigDiagnosticPath(filePath)) {
+      configErrors += count;
+    } else {
+      sourceErrors += count;
+    }
   }
   return errors === 0
-    ? { ok: true, label: "No known errors" }
-    : { ok: false, label: `${errors} error${errors === 1 ? "" : "s"} — see Problems` };
+    ? { ok: true, label: "No known errors", errors, sourceErrors, configErrors }
+    : {
+        ok: false,
+        label: `${errors} error${errors === 1 ? "" : "s"} — see Problems`,
+        errors,
+        sourceErrors,
+        configErrors,
+      };
+}
+
+function isSourceDiagnosticPath(filePath: string): boolean {
+  return /\.(st|pou)$/i.test(filePath);
+}
+
+function isConfigDiagnosticPath(filePath: string): boolean {
+  return /(^|[/\\])(runtime|trust-lsp)\.toml$/i.test(filePath) ||
+    /[/\\]hmi[/\\].+\.toml$/i.test(filePath);
+}
+
+function compileButtonState(
+  state: CompileState,
+  diagnostics: ValidityLine
+): SidebarButtonState {
+  if (!diagnostics.ok) {
+    return {
+      state: "diagnostics-failed",
+      label: `Compile ${diagnostics.errors}`,
+      title: diagnostics.label,
+      icon: "codicon-error",
+      tone: "danger",
+      variant: "outline",
+      enabled: true,
+    };
+  }
+  switch (state.kind) {
+    case "clean":
+      return {
+        state: "clean",
+        label: "Compile",
+        title: state.summary,
+        icon: "codicon-check",
+        tone: "neutral",
+        variant: "outline",
+        enabled: true,
+      };
+    case "failed":
+      return {
+        state: "failed",
+        label: `Compile ${state.errors}`,
+        title: state.summary,
+        icon: "codicon-error",
+        tone: "danger",
+        variant: "outline",
+        enabled: true,
+      };
+    case "dirty":
+      return {
+        state: "dirty",
+        label: "Compile",
+        title: "Source changed — compile again.",
+        icon: "codicon-warning",
+        tone: "warning",
+        variant: "outline",
+        enabled: true,
+      };
+    case "unknown":
+    default:
+      return {
+        state: "unknown",
+        label: "Compile",
+        title: "Compile the project and show Problems if it fails.",
+        icon: "codicon-tools",
+        tone: "neutral",
+        variant: "outline",
+        enabled: true,
+      };
+  }
+}
+
+function runtimeActionButtonState(selected: SelectedRuntime): SidebarButtonState {
+  const action = selected.primary.action;
+  const enabled = selected.primary.enabled;
+  const title = selected.primary.hint || selected.statusLabel || selected.primary.label;
+  switch (action) {
+    case "start":
+      return {
+        state: "start",
+        label: selected.primary.label,
+        title,
+        icon: "codicon-play",
+        tone: enabled ? "primary" : "disabled",
+        variant: enabled ? "filled" : "outline",
+        enabled,
+      };
+    case "connect":
+      return {
+        state: enabled ? "connect" : "connect-disabled",
+        label: selected.primary.label,
+        title,
+        icon: "codicon-remote",
+        tone: enabled ? "primary" : "disabled",
+        variant: enabled ? "filled" : "outline",
+        enabled,
+      };
+    case "stop":
+      return {
+        state: "stop",
+        label: selected.primary.label,
+        title,
+        icon: "codicon-stop",
+        tone: "neutral",
+        variant: "outline",
+        enabled,
+      };
+    case "disconnect":
+      return {
+        state: "disconnect",
+        label: selected.primary.label,
+        title,
+        icon: "codicon-debug-disconnect",
+        tone: "neutral",
+        variant: "outline",
+        enabled,
+      };
+    case "none":
+    default:
+      return {
+        state: selected.status === "starting" ? "busy" : "disabled",
+        label: selected.primary.label,
+        title,
+        icon: selected.status === "starting" ? "codicon-loading codicon-modifier-spin" : "codicon-circle-slash",
+        tone: "disabled",
+        variant: "outline",
+        enabled: false,
+      };
+  }
+}
+
+function debugButtonState(
+  selected: SelectedRuntime,
+  launchGateReason?: string
+): SidebarButtonState {
+  const disabled =
+    selected.status === "unreachable" ||
+    selected.status === "starting" ||
+    Boolean(launchGateReason);
+  return {
+    state: disabled ? "disabled" : "ready",
+    label: "Debug",
+    title: launchGateReason ||
+      (disabled ? "Debug is unavailable until the target is reachable." : "Start debugging"),
+    icon: "codicon-debug-alt",
+    tone: disabled ? "disabled" : "neutral",
+    variant: "outline",
+    enabled: !disabled,
+  };
+}
+
+function primaryActionGateReason(
+  selected: SelectedRuntime,
+  compileState: CompileState,
+  diagnostics: ValidityLine
+): string | undefined {
+  if (selected.primary.action !== "start") {
+    return undefined;
+  }
+  return compileGateReason(compileState, diagnostics, "start");
+}
+
+function compileGateReason(
+  compileState: CompileState,
+  diagnostics: ValidityLine,
+  verb: "start" | "update" | "debug"
+): string | undefined {
+  if (!diagnostics.ok) {
+    if (diagnostics.configErrors > 0) {
+      return configGateReason(verb);
+    }
+    return sourceGateReason(diagnostics.errors, verb);
+  }
+  if (compileState.kind === "failed") {
+    if (compileState.configErrors > 0 || looksLikeConfigFailure(compileState.summary)) {
+      return configGateReason(verb);
+    }
+    return sourceGateReason(compileState.errors, verb);
+  }
+  return undefined;
+}
+
+function classifyCompileIssues(response: CheckProgramResponse): {
+  sourceErrors: number;
+  configErrors: number;
+} {
+  let sourceErrors = 0;
+  let configErrors = 0;
+  for (const issue of response.issues ?? []) {
+    if ((issue.severity ?? "").toLowerCase() !== "error") {
+      continue;
+    }
+    const file = issue.file ?? "";
+    const code = issue.code ?? "";
+    if (isConfigDiagnosticPath(file) || /config/i.test(code)) {
+      configErrors += 1;
+    } else {
+      sourceErrors += 1;
+    }
+  }
+  return { sourceErrors, configErrors };
+}
+
+function configGateReason(verb: "start" | "update" | "debug"): string {
+  return `Fix runtime.toml to ${verb}.`;
+}
+
+function sourceGateReason(errors: number, verb: "start" | "update" | "debug"): string {
+  const count = Math.max(1, errors);
+  return `Fix ${count} error${count === 1 ? "" : "s"} to ${verb}.`;
+}
+
+function looksLikeConfigFailure(summary: string): boolean {
+  return /\b(runtime|trust-lsp)\.toml\b|configuration|config/i.test(summary);
+}
+
+function deployButtonState(
+  _selected: SelectedRuntime,
+  _compileState: CompileState
+): SidebarButtonState {
+  return {
+    state: "unsupported",
+    label: "Deploy",
+    title: "Deploy is not available for this target yet.",
+    icon: "codicon-rocket",
+    tone: "disabled",
+    variant: "outline",
+    enabled: false,
+  };
+}
+
+function compileSummary(response: CheckProgramResponse): string {
+  return summarizeCheck(response);
+}
+
+async function withSidebarActionTimeout(
+  promise: Promise<RuntimeLifecycleResult>,
+  timeoutMs: number,
+  timeoutMessage: string
+): Promise<RuntimeLifecycleResult> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<RuntimeLifecycleResult>((resolve) => {
+        timer = setTimeout(
+          () =>
+            resolve({
+              ok: false,
+              failure: {
+                kind: "failed_spawn",
+                message: timeoutMessage,
+              },
+            }),
+          timeoutMs
+        );
+      }),
+    ]);
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
 }
 
 // HMI is adaptive (§0.5.13): open when a descriptor exists, otherwise scaffold then open. Never a dead
 // disabled button.
 async function openOrCreateHmi(): Promise<void> {
-  const present = await vscode.workspace.findFiles(
-    "**/hmi/*.toml",
-    "**/node_modules/**",
-    1
-  );
-  if (present.length > 0) {
+  if (await hasHmiDescriptor()) {
     await vscode.commands.executeCommand("trust-lsp.hmi.openPreview");
     return;
   }
   await vscode.commands.executeCommand("trust-lsp.hmi.init");
   await vscode.commands.executeCommand("trust-lsp.hmi.openPreview");
-}
-
-// "Project" launcher → the project actions a user reaches without the palette.
-async function projectActionsMenu(): Promise<void> {
-  const pick = await vscode.window.showQuickPick(
-    [
-      { label: "$(file-directory-create) New project", command: "trust-lsp.newProject" },
-      { label: "$(folder-opened) Open project", command: "workbench.action.files.openFolder" },
-      { label: "$(library) Start from example", command: "trust.examples.start" },
-      { label: "$(check-all) Check program", command: "trust-lsp.checkProgram" },
-      { label: "$(type-hierarchy) New diagram…", command: "__newDiagram" },
-      { label: "$(beaker) Run tests", command: "trust-lsp.test.runAll" },
-    ],
-    { title: "truST — Project", placeHolder: "Project actions" }
-  );
-  if (!pick) {
-    return;
-  }
-  if (pick.command === "__newDiagram") {
-    await newDiagramMenu();
-    return;
-  }
-  await vscode.commands.executeCommand(pick.command);
 }
 
 async function newDiagramMenu(): Promise<void> {
@@ -649,6 +1495,9 @@ function actionFailureMessage(
     case "stop":
       return `Could not stop: ${reason}`;
     case "connect":
+      if (isRuntimeUnreachableFailure(reason)) {
+        return `Could not connect to ${selected.label}. Runtime is not reachable. Open Devices & Connections to start or diagnose this runtime.`;
+      }
       return `Could not connect to ${selected.label}: ${reason}`;
     case "disconnect":
       return `Could not disconnect: ${reason}`;
@@ -657,8 +1506,64 @@ function actionFailureMessage(
   }
 }
 
+const SET_AUTH_TOKEN_ACTION = "Set auth token";
+const OPEN_DEVICES_ACTION = "Open Devices & Connections";
+
+function connectFailureChoices(
+  result: RuntimeLifecycleResult & { ok: false }
+): string[] {
+  const text = `${result.failure.kind} ${result.failure.message} ${result.failure.detail ?? ""}`;
+  if (isRuntimeUnreachableFailure(text)) {
+    return [OPEN_DEVICES_ACTION];
+  }
+  if (isAuthTokenFailure(text)) {
+    return [SET_AUTH_TOKEN_ACTION];
+  }
+  return [];
+}
+
+function isRuntimeUnreachableFailure(text: string): boolean {
+  return /not reachable|unreachable|connection refused|econnrefused|timed out|timeout/i.test(text);
+}
+
+function isAuthTokenFailure(text: string): boolean {
+  return /auth|token|credential|unauthori[sz]ed|permission denied/i.test(text) &&
+    !isRuntimeUnreachableFailure(text);
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function isReloadSuccess(value: unknown): boolean {
+  return isRecord(value) && value.ok === true;
+}
+
+function reloadFailureMessage(value: unknown, validity: ValidityLine): string {
+  if (!validity.ok) {
+    return "Fix the errors shown in Problems, then try again.";
+  }
+  if (isRecord(value) && typeof value.message === "string" && value.message.trim()) {
+    return summarizeReloadMessage(value.message);
+  }
+  return "Reload did not report success. Keep the simulator running, fix any compile errors, and try again.";
+}
+
+function summarizeReloadMessage(message: string): string {
+  const firstLine = message.trim().split(/\r?\n/).find((line) => line.trim())?.trim() ?? "";
+  if (!firstLine) {
+    return "Reload did not report a reason.";
+  }
+  const sourceErrorCount = message
+    .split(/\r?\n/)
+    .filter((line) => /\.(st|pou):/i.test(line)).length;
+  if (sourceErrorCount > 0) {
+    return `Compile failed — ${sourceErrorCount} error${sourceErrorCount === 1 ? "" : "s"}. Open Problems, then try again.`;
+  }
+  if (firstLine.length <= 160) {
+    return firstLine;
+  }
+  return `${firstLine.slice(0, 157).trimEnd()}...`;
 }
 
 function makeNonce(): string {

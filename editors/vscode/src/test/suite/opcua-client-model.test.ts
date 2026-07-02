@@ -147,4 +147,20 @@ suite("opcua client model", () => {
     assert.strictEqual(classifyOpcuaBrowseError({ code: "browse_denied" }).action, "none");
     assert.strictEqual(classifyOpcuaBrowseError({ code: "weird" }).action, "none");
   });
+
+  test("browse error details are user-facing recovery text, not raw status tokens", () => {
+    const auth = classifyOpcuaBrowseError({
+      code: "auth_required",
+      message: "OPC UA node browse failed: control error 'OPC UA status: BadSecurityPolicyRejected'",
+    });
+    assert.match(auth.detail, /username authentication/i);
+    assert.doesNotMatch(auth.detail, /BadSecurityPolicyRejected/);
+
+    const cert = classifyOpcuaBrowseError({
+      code: "cert_untrusted",
+      message: "OPC UA node browse failed: control error 'BadCertificateUntrusted'",
+    });
+    assert.match(cert.detail, /Trust certificate/i);
+    assert.doesNotMatch(cert.detail, /BadCertificateUntrusted/);
+  });
 });

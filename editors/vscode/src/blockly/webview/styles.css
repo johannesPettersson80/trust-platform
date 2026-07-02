@@ -9,76 +9,6 @@
   color: var(--trust-text);
 }
 
-/* Toolbar */
-.blockly-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 16px;
-  background-color: var(--trust-surface);
-  border-bottom: 1px solid var(--trust-border);
-}
-
-.toolbar-section {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.editor-title {
-  font-size: 14px;
-  font-weight: 600;
-  margin: 0;
-}
-
-.workspace-name {
-  font-size: 12px;
-  opacity: 0.8;
-}
-
-.toolbar-button {
-  padding: 6px 12px;
-  border: 1px solid var(--vscode-button-border, var(--trust-border));
-  background-color: var(--vscode-button-background, var(--trust-accent));
-  color: var(--vscode-button-foreground, var(--trust-on-accent));
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.toolbar-button:hover:not(:disabled) {
-  background-color: var(--vscode-button-hoverBackground, color-mix(in srgb, var(--trust-accent) 84%, var(--trust-canvas)));
-}
-
-.toolbar-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.toolbar-button.success {
-  background-color: var(--trust-ok);
-  color: var(--trust-on-accent);
-}
-
-.toolbar-button.warning {
-  background-color: var(--trust-warn);
-  color: var(--trust-on-accent);
-}
-
-.toolbar-button.danger {
-  background-color: var(--trust-danger);
-  color: var(--trust-on-accent);
-}
-
-.toolbar-button.active {
-  background-color: var(--vscode-button-background, var(--trust-accent));
-  border: 2px solid var(--trust-accent);
-  font-weight: 600;
-}
-
 /* Execution Indicator (shown during execution) */
 .execution-indicator {
   padding: 4px 12px;
@@ -391,17 +321,7 @@
 }
 
 .copy-button {
-  padding: 4px 10px;
-  background-color: var(--vscode-button-background, var(--trust-accent));
-  color: var(--vscode-button-foreground, var(--trust-on-accent));
-  border: none;
-  border-radius: 3px;
-  cursor: pointer;
-  font-size: 12px;
-}
-
-.copy-button:hover {
-  background-color: var(--vscode-button-hoverBackground, color-mix(in srgb, var(--trust-accent) 84%, var(--trust-canvas)));
+  min-height: 28px;
 }
 
 .code-panel-content {
@@ -459,14 +379,7 @@
 
 /* Status Bar */
 .blockly-status-bar {
-  display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 4px 16px;
-  background-color: var(--vscode-statusBar-background, var(--trust-accent));
-  color: var(--vscode-statusBar-foreground, var(--trust-on-accent));
-  font-size: 12px;
-  border-top: 1px solid var(--trust-border);
 }
 
 .error-count {

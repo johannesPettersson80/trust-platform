@@ -31,39 +31,54 @@ export function SetUpRuntimePanel({
   };
 
   return (
-    <aside style={PANEL} aria-label="Set up a runtime">
-      <div style={HEADER}>
-        <div style={{ flex: 1, fontSize: 12, fontWeight: 700, color: "var(--vscode-foreground, #cfd6e0)" }}>
+    <aside className="trust-inspector" style={PANEL} aria-label="Set up a runtime">
+      <div className="trust-inspector__header">
+        <div className="trust-inspector__title" style={{ flex: 1 }}>
           Set up runtime
         </div>
-        <button onClick={onClose} aria-label="Close" style={ICON}>
+        <button
+          onClick={onClose}
+          aria-label="Close"
+          className="trust-button"
+          style={CLOSE_BUTTON}
+        >
           ✕
         </button>
       </div>
-      <div style={{ flex: 1, overflow: "auto", padding: 12 }}>
-        {available.map((option) => (
-          <button
-            key={option.id}
-            onClick={() => choose(option.id)}
-            style={OPTION}
-          >
-            <span style={OPTION_LABEL}>{option.label}</span>
-            <span style={OPTION_DETAIL}>{option.detail}</span>
-          </button>
-        ))}
+      <div className="trust-section trust-section--grow">
+        <div className="trust-button-grid trust-button-grid--single">
+          {available.map((option) => (
+            <button
+              key={option.id}
+              onClick={() => choose(option.id)}
+              className="trust-button trust-button--active"
+              style={OPTION_BUTTON}
+            >
+              <span style={OPTION_LABEL}>{option.label}</span>
+              <span className="trust-help" style={OPTION_DETAIL}>
+                {option.detail}
+              </span>
+            </button>
+          ))}
+        </div>
 
         {comingSoon.length > 0 && (
           <>
-            <div style={SECTION}>More ways to run (coming soon)</div>
+            <div className="trust-divider">
+              <div className="trust-section__title">More ways to run (coming soon)</div>
+            </div>
             {comingSoon.map((option) => (
               <button
                 key={option.id}
                 disabled
                 title={option.reason}
-                style={{ ...OPTION, opacity: 0.5, cursor: "default" }}
+                className="trust-button"
+                style={OPTION_BUTTON}
               >
                 <span style={OPTION_LABEL}>{option.label}</span>
-                <span style={OPTION_DETAIL}>{option.reason}</span>
+                <span className="trust-help" style={OPTION_DETAIL}>
+                  {option.reason}
+                </span>
               </button>
             ))}
           </>
@@ -79,46 +94,28 @@ const PANEL: React.CSSProperties = {
   right: 0,
   bottom: 0,
   width: 252,
-  background: "var(--vscode-editorHoverWidget-background, rgba(16,19,26,.97))",
-  borderLeft: "1px solid var(--vscode-editorWidget-border, #2a2f3a)",
   zIndex: 7,
-  display: "flex",
-  flexDirection: "column",
 };
-const HEADER: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  padding: "11px 12px",
-  borderBottom: "1px solid var(--vscode-editorWidget-border, #2a2f3a)",
-};
-const OPTION: React.CSSProperties = {
-  display: "flex",
+const OPTION_BUTTON: React.CSSProperties = {
+  alignItems: "stretch",
   flexDirection: "column",
   gap: 3,
-  width: "100%",
-  textAlign: "left",
-  background: "var(--vscode-input-background, #10141b)",
-  border: "1px solid var(--vscode-input-border, #343b47)",
-  borderRadius: 7,
-  color: "var(--vscode-foreground, #eef1f5)",
-  padding: "9px 11px",
+  justifyContent: "flex-start",
   marginBottom: 8,
-  cursor: "pointer",
+  minHeight: 54,
+  textAlign: "left",
+  whiteSpace: "normal",
+  width: "100%",
 };
 const OPTION_LABEL: React.CSSProperties = { fontSize: 12, fontWeight: 650 };
-const OPTION_DETAIL: React.CSSProperties = { fontSize: 11, color: "var(--vscode-descriptionForeground, #9aa6b6)", lineHeight: 1.4 };
-const SECTION: React.CSSProperties = {
+const OPTION_DETAIL: React.CSSProperties = {
   fontSize: 11,
-  fontWeight: 600,
-  letterSpacing: 0.2,
-  color: "var(--vscode-descriptionForeground, #7a8595)",
-  margin: "8px 0 8px",
+  lineHeight: 1.4,
+  margin: 0,
+  textAlign: "left",
 };
-const ICON: React.CSSProperties = {
-  border: "none",
-  background: "transparent",
-  color: "var(--vscode-descriptionForeground, #949cab)",
-  fontSize: 14,
-  cursor: "pointer",
+const CLOSE_BUTTON: React.CSSProperties = {
+  minHeight: 24,
   padding: 0,
+  width: 26,
 };

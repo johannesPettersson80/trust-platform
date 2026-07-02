@@ -102,6 +102,8 @@ export type ExecutionMode = "simulation" | "hardware";
  */
 export type WebviewToExtensionMessage =
   | { type: "save"; content: string }
+  | { type: "validate"; content: string }
+  | { type: "generateST"; content: string }
   | { type: "ready" }
   | { type: "error"; error: string }
   | { type: "sendEvent"; event: string }

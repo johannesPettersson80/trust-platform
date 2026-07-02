@@ -72,7 +72,7 @@ export async function offlineCommApply(
   projectDir: string,
   protocol: string,
   params: Record<string, unknown>,
-  action: "add" | "upsert" | "remove"
+  action: "add" | "upsert" | "remove" | "disable"
 ): Promise<CommApplyResponse | undefined> {
   return runJson<CommApplyResponse>(
     runtimeBinary(context),

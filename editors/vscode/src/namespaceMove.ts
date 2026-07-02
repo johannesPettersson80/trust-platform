@@ -17,6 +17,36 @@ type MoveNamespaceArgs = {
   target_uri?: string;
 };
 
+type LspPosition = { line: number; character: number };
+type LspRange = { start: LspPosition; end: LspPosition };
+type LspTextEdit = { range: LspRange; newText?: string; new_text?: string };
+type LspTextDocumentEdit = {
+  textDocument?: { uri?: string };
+  text_document?: { uri?: string };
+  edits?: LspTextEdit[];
+};
+type LspResourceOperation = {
+  kind?: "create" | "delete" | "rename";
+  uri?: string;
+  oldUri?: string;
+  newUri?: string;
+  old_uri?: string;
+  new_uri?: string;
+  options?: {
+    overwrite?: boolean;
+    ignoreIfExists?: boolean;
+    ignore_if_exists?: boolean;
+    recursive?: boolean;
+    ignoreIfNotExists?: boolean;
+    ignore_if_not_exists?: boolean;
+  };
+};
+type LspWorkspaceEdit = {
+  changes?: Record<string, LspTextEdit[]>;
+  documentChanges?: Array<LspTextDocumentEdit | LspResourceOperation>;
+  document_changes?: Array<LspTextDocumentEdit | LspResourceOperation>;
+};
+
 const NAMESPACE_CONTEXT_KEY = "trust-lsp.namespaceContext";
 const MOVE_NAMESPACE_UI_COMMAND = "trust-lsp.moveNamespace.ui";
 const LAST_TARGET_KEY = "trust-lsp.lastNamespaceMoveTarget";
@@ -226,6 +256,113 @@ async function ensureTargetFile(uri: vscode.Uri): Promise<boolean> {
   }
 }
 
+async function removeCreatedTargetIfEmpty(
+  uri: vscode.Uri,
+  created: boolean
+): Promise<void> {
+  if (!created) {
+    return;
+  }
+  try {
+    const data = await vscode.workspace.fs.readFile(uri);
+    if (data.length === 0) {
+      await vscode.workspace.fs.delete(uri);
+    }
+  } catch {
+    // Best-effort cleanup only; the user-facing failure message is shown below.
+  }
+}
+
+function toVsCodeRange(range: LspRange): vscode.Range {
+  return new vscode.Range(
+    new vscode.Position(range.start.line, range.start.character),
+    new vscode.Position(range.end.line, range.end.character)
+  );
+}
+
+function addTextEdits(
+  edit: vscode.WorkspaceEdit,
+  uriValue: string | undefined,
+  edits: LspTextEdit[] | undefined
+): void {
+  if (!uriValue || !Array.isArray(edits)) {
+    return;
+  }
+  const uri = vscode.Uri.parse(uriValue);
+  for (const textEdit of edits) {
+    if (!textEdit.range) {
+      continue;
+    }
+    edit.replace(
+      uri,
+      toVsCodeRange(textEdit.range),
+      textEdit.newText ?? textEdit.new_text ?? ""
+    );
+  }
+}
+
+async function applyLspWorkspaceEdit(value: unknown): Promise<boolean> {
+  const lspEdit = value as LspWorkspaceEdit | undefined;
+  if (!lspEdit || typeof lspEdit !== "object") {
+    return false;
+  }
+
+  const applyEdit = new vscode.WorkspaceEdit();
+  const cleanupEdit = new vscode.WorkspaceEdit();
+  let hasApplyOps = false;
+  let hasCleanupOps = false;
+
+  for (const [uri, edits] of Object.entries(lspEdit.changes ?? {})) {
+    addTextEdits(applyEdit, uri, edits);
+    hasApplyOps = hasApplyOps || edits.length > 0;
+  }
+
+  for (const operation of lspEdit.documentChanges ?? lspEdit.document_changes ?? []) {
+    const textDocument = (operation as LspTextDocumentEdit).textDocument ??
+      (operation as LspTextDocumentEdit).text_document;
+    if (textDocument) {
+      const edits = (operation as LspTextDocumentEdit).edits ?? [];
+      addTextEdits(applyEdit, textDocument.uri, edits);
+      hasApplyOps = hasApplyOps || edits.length > 0;
+      continue;
+    }
+
+    const resource = operation as LspResourceOperation;
+    if (resource.kind === "create" && resource.uri) {
+      applyEdit.createFile(vscode.Uri.parse(resource.uri), {
+        overwrite: resource.options?.overwrite,
+        ignoreIfExists:
+          resource.options?.ignoreIfExists ?? resource.options?.ignore_if_exists,
+      });
+      hasApplyOps = true;
+    } else if (resource.kind === "rename") {
+      const oldUri = resource.oldUri ?? resource.old_uri;
+      const newUri = resource.newUri ?? resource.new_uri;
+      if (oldUri && newUri) {
+        applyEdit.renameFile(vscode.Uri.parse(oldUri), vscode.Uri.parse(newUri), {
+          overwrite: resource.options?.overwrite,
+          ignoreIfExists:
+            resource.options?.ignoreIfExists ?? resource.options?.ignore_if_exists,
+        });
+        hasApplyOps = true;
+      }
+    } else if (resource.kind === "delete" && resource.uri) {
+      cleanupEdit.deleteFile(vscode.Uri.parse(resource.uri), {
+        recursive: resource.options?.recursive,
+        ignoreIfNotExists:
+          resource.options?.ignoreIfNotExists ??
+          resource.options?.ignore_if_not_exists,
+      });
+      hasCleanupOps = true;
+    }
+  }
+
+  if (hasApplyOps && !(await vscode.workspace.applyEdit(applyEdit))) {
+    return false;
+  }
+  return hasCleanupOps ? vscode.workspace.applyEdit(cleanupEdit) : true;
+}
+
 export function registerNamespaceMoveCommand(
   context: vscode.ExtensionContext,
   client: LanguageClient
@@ -280,17 +417,28 @@ export function registerNamespaceMoveCommand(
         }
 
         await client.start();
-        const result = await client.sendRequest(ExecuteCommandRequest.type, {
-          command: "trust-lsp.moveNamespace",
-          arguments: [
-            {
-              text_document: { uri: uri.toString() },
-              position: { line: position.line, character: position.character },
-              new_path: newPath,
-              ...(targetUri ? { target_uri: targetUri.toString() } : {}),
-            },
-          ],
-        });
+        let result: unknown;
+        try {
+          result = await client.sendRequest(ExecuteCommandRequest.type, {
+            command: "trust-lsp.moveNamespace",
+            arguments: [
+              {
+                text_document: { uri: uri.toString() },
+                position: { line: position.line, character: position.character },
+                new_path: newPath,
+                return_edit: true,
+                ...(targetUri ? { target_uri: targetUri.toString() } : {}),
+              },
+            ],
+          });
+        } catch (error) {
+          if (targetUri) {
+            await removeCreatedTargetIfEmpty(targetUri, createdTarget);
+          }
+          throw error;
+        }
+
+        result = await applyLspWorkspaceEdit(result);
 
         if (result === true) {
           if (targetUri) {
@@ -301,15 +449,8 @@ export function registerNamespaceMoveCommand(
           }
           vscode.window.showInformationMessage("Namespace move applied.");
         } else {
-          if (createdTarget && targetUri) {
-            try {
-              await vscode.workspace.fs.delete(targetUri, {
-                useTrash: false,
-                recursive: false,
-              });
-            } catch {
-              // Ignore cleanup failures on failed moves.
-            }
+          if (targetUri) {
+            await removeCreatedTargetIfEmpty(targetUri, createdTarget);
           }
           vscode.window.showWarningMessage(
             "Namespace move did not apply. Ensure the cursor is inside a namespace declaration."
@@ -356,12 +497,12 @@ export function registerNamespaceMoveCodeActions(
         return undefined;
       }
       const action = new vscode.CodeAction(
-        "Move Namespace",
+        "Move Structured Text Namespace",
         vscode.CodeActionKind.QuickFix
       );
       action.command = {
         command: MOVE_NAMESPACE_UI_COMMAND,
-        title: "Move Namespace",
+        title: "Move Structured Text Namespace",
         arguments: [
           {
             uri: document.uri,

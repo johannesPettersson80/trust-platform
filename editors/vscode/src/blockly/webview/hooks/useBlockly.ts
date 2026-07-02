@@ -12,6 +12,7 @@ export interface UseBlocklyReturn {
   generatedCode: string | null;
   errors: string[];
   saveWorkspace: (workspace: BlocklyWorkspace) => void;
+  validateWorkspace: () => void;
   generateCode: () => void;
   executeBlock: (blockId: string) => void;
 }
@@ -106,6 +107,10 @@ export function useBlockly(): UseBlocklyReturn {
     vscode.postMessage({ type: "generateCode" });
   }, []);
 
+  const validateWorkspace = useCallback(() => {
+    vscode.postMessage({ type: "validate" });
+  }, []);
+
   const executeBlock = useCallback((blockId: string) => {
     vscode.postMessage({
       type: "executeBlock",
@@ -118,6 +123,7 @@ export function useBlockly(): UseBlocklyReturn {
     generatedCode,
     errors,
     saveWorkspace,
+    validateWorkspace,
     generateCode,
     executeBlock,
   };

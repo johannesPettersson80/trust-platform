@@ -2,8 +2,9 @@
 // Computes sizes bottom-up and emits React Flow nodes (with parentId + relative
 // positions) and edges. No overlap by construction; the canvas pans/zooms.
 import { MarkerType, type Edge, type Node } from "@xyflow/react";
-import { protocolColor, protocolName } from "./nodes";
-import type { NCEndpoint, NCGraph, NCHost, NCLink, NCRuntime } from "./types";
+import { protocolColor, protocolName } from "./protocolMeta";
+import { t } from "./theme";
+import type { NCEndpoint, NCExternal, NCGraph, NCHost, NCLink, NCRuntime } from "./types";
 
 // The peer's role is the mirror of our endpoint's role on that link. `link.role` is
 // truST's own role, emitted directly by the runtime (fleet.topology schema_version 3,
@@ -31,10 +32,45 @@ function externalSub(extId: string, links: readonly NCLink[]): string {
   if (!link) {
     return "external system";
   }
-  return `${protocolName(link.protocol)} ${counterpartRole(link.protocol, link.role)}`;
+  const role = counterpartRole(link.protocol, link.role);
+  if (link.protocol === "opcua_client" && role === "server") {
+    return "OPC UA server";
+  }
+  if (link.protocol === "opcua" && role === "client") {
+    return "OPC UA client";
+  }
+  if (link.protocol === "ads" && role === "server") {
+    return "ADS server";
+  }
+  if (link.protocol === "ads_server" && role === "client") {
+    return "ADS client";
+  }
+  return `${protocolName(link.protocol)} ${role}`;
 }
 
-const EP_W = 84;
+function externalLabel(ext: NCExternal, links: readonly NCLink[]): string {
+  const name = ext.name.trim();
+  const link = links.find((l) => l.to === ext.id || l.from === ext.id);
+  if (!link) {
+    return name || "External system";
+  }
+  const rawProtocolNames = new Set([
+    link.protocol.toLowerCase(),
+    link.protocol.replace(/_/g, " ").toLowerCase(),
+  ]);
+  const lower = name.toLowerCase();
+  for (const raw of rawProtocolNames) {
+    if (lower === raw) {
+      return protocolName(link.protocol);
+    }
+    if (lower.startsWith(`${raw} `)) {
+      return `${protocolName(link.protocol)}${name.slice(raw.length)}`;
+    }
+  }
+  return name;
+}
+
+const EP_W = 110;
 const EP_H = 78;
 const EP_GAP = 10;
 // §10.2 EtherCAT segment: configured slaves render as compact child rows inside the (taller)
@@ -61,8 +97,8 @@ const STACK_GAP = 18;
 const HOST_GAP = 56;
 const EXT_W = 220;
 const EXT_H = 62;
-// §0.4 empty slots (Edit mode). The runtime gets ONE "+ Add" cell in its strip (endpoint-sized);
-// a "+ Runtime" slot stacks under the host's runtimes; a "+ Host" slot ends the host row.
+// §0.4 empty slots (Edit mode). The runtime gets one Add connection cell in its strip
+// (endpoint-sized); Set up runtime stacks under the host; Add host ends the host row.
 const RT_SLOT_H = 54;
 const HOST_SLOT_H = 92;
 
@@ -137,6 +173,7 @@ export function buildGraph(
   const endpointParent = new Map<string, string>();
   const knownIds = new Set<string>();
   const endpointCx = new Map<string, number>(); // absolute centre-x, for bus drops
+  const endpointDimmed = new Map<string, boolean>();
 
   // Lay out a runtime group + its endpoint child nodes at (ox, oy) relative to
   // its parent group. parentAbsX = the parent group's absolute x. Returns size.
@@ -161,7 +198,7 @@ export function buildGraph(
         detail: rt.detail,
         endpointCount: rt.endpoints.length,
         container: containerTag,
-        controlEndpoint: rt.controlEndpoint,
+        controlEndpoint: rt.controlEndpoint ?? controlEndpointFromSyntheticRuntimeId(rt.id),
         attached: rt.attached,
         managed: rt.managed,
         managedName: rt.managedName,
@@ -176,6 +213,7 @@ export function buildGraph(
       knownIds.add(ep.id);
       const epX = RT_PAD + i * (EP_W + EP_GAP);
       endpointCx.set(ep.id, parentAbsX + ox + epX + EP_W / 2);
+      endpointDimmed.set(ep.id, Boolean(ep.dimmed));
       nodes.push({
         id: ep.id,
         type: "endpoint",
@@ -200,7 +238,7 @@ export function buildGraph(
         draggable: false,
       });
     });
-    // §0.4 empty slot: ONE dashed "+ Add" cell appended to the strip in Edit mode.
+    // §0.4 empty slot: one dashed Add connection cell appended to the strip in Edit mode.
     if (editMode) {
       const epX = RT_PAD + rt.endpoints.length * (EP_W + EP_GAP);
       nodes.push({
@@ -209,7 +247,7 @@ export function buildGraph(
         parentId: rt.id,
         extent: "parent",
         position: { x: epX, y: RT_HEADER + RT_PAD },
-        data: { label: "Add", slot: { add: "device", targetId: rt.id } },
+        data: { label: "Add connection", slot: { add: "device", targetId: rt.id } },
         style: { width: EP_W, height: EP_H },
         draggable: false,
         selectable: false,
@@ -247,7 +285,13 @@ export function buildGraph(
   function hostSize(host: NCHost): Sized {
     const cs = hostChildSizes(host);
     const childrenW = cs.reduce((sum, s) => sum + s.w, 0) + STACK_GAP * Math.max(0, cs.length - 1);
-    const slotW = editMode ? MIN_RT_W + STACK_GAP : 0;
+    // Edit mode has two levels of empty slots: a runtime-local Add connection endpoint cell and
+    // the host-level "Set up runtime" cell. The runtime size accounts for its own cell,
+    // but after a save/refresh React Flow can momentarily keep the pre-edit measured
+    // parent width while rendering the new child slot. Reserve one endpoint cell at the
+    // host level too so the host setup slot and the trailing "+ Host" slot never collide.
+    const editEndpointSlotW = editMode ? EP_W + EP_GAP : 0;
+    const slotW = editMode ? MIN_RT_W + STACK_GAP + editEndpointSlotW : 0;
     const w = Math.max(childrenW + slotW, MIN_RT_W) + 2 * HOST_PAD;
     return { w, h: HOST_HEADER + hostRowHeight(host) + HOST_PAD };
   }
@@ -311,14 +355,16 @@ export function buildGraph(
       x += inner.w + STACK_GAP;
     }
 
-    // §0.4 "+ Runtime" empty slot — to the RIGHT of the existing runtime(s), same row.
+    // §0.4 host runtime setup slot — to the RIGHT of the existing runtime(s), same row.
+    // User-facing wording follows the UX plan's "Set up runtime..." verb; "runtime" alone is too
+    // abstract for a first-time controls engineer.
     if (editMode) {
       nodes.push({
         id: `slot:rt:${host.id}`,
         type: "slot",
         parentId: host.id,
         position: { x, y: rowY },
-        data: { label: "Runtime", slot: { add: "runtime", targetId: host.id } },
+        data: { label: "Set up runtime", slot: { add: "runtime", targetId: host.id } },
         style: { width: MIN_RT_W, height: rowH },
         draggable: false,
         selectable: false,
@@ -330,31 +376,31 @@ export function buildGraph(
     maxHostH = Math.max(maxHostH, size.h);
   }
 
-  // §0.4 "+ Host" empty slot at the end of the host row.
+  // §0.4 Add host empty slot at the end of the host row.
   if (editMode) {
     const w = MIN_RT_W + 2 * HOST_PAD;
     nodes.push({
       id: "slot:host",
       type: "slot",
-      position: { x: hostX, y: 0 },
-      data: { label: "Host", slot: { add: "host" } },
+      position: { x: hostX, y: HOST_HEADER },
+      data: { label: "Add host", slot: { add: "host" } },
       style: { width: w, height: HOST_SLOT_H },
       draggable: false,
       selectable: false,
     });
     hostX += w + HOST_GAP;
-    maxHostH = Math.max(maxHostH, HOST_SLOT_H);
+    maxHostH = Math.max(maxHostH, HOST_HEADER + HOST_SLOT_H);
   }
 
   // ---- Wiring channel: each wire gets its own lane (height) so the horizontal
   // runs never overlap; mesh peers share one fabric bus. ----
-  const meshEndpoints: Array<{ id: string; cx: number }> = [];
+  const meshEndpoints: Array<{ id: string; cx: number; status: string }> = [];
   for (const host of hostsWithDraft) {
     const runtimes = [...host.runtimes, ...host.containers.flatMap((c) => c.runtimes)];
     for (const rt of runtimes) {
       for (const ep of rt.endpoints) {
         if (ep.protocol === "mesh" && endpointCx.has(ep.id)) {
-          meshEndpoints.push({ id: ep.id, cx: endpointCx.get(ep.id)! });
+          meshEndpoints.push({ id: ep.id, cx: endpointCx.get(ep.id)!, status: ep.health });
         }
       }
     }
@@ -375,6 +421,19 @@ export function buildGraph(
   const meshBusY = laneBottom + 16;
   const extY = (meshEndpoints.length > 0 ? meshBusY : laneBottom) + 28;
 
+  function linkDimmed(link: NCLink): boolean {
+    return (
+      Boolean(link.dimmed) ||
+      Boolean(endpointDimmed.get(link.from)) ||
+      Boolean(endpointDimmed.get(link.to))
+    );
+  }
+
+  function externalDimmed(extId: string): boolean {
+    const connected = graph.links.filter((link) => link.from === extId || link.to === extId);
+    return connected.length > 0 && connected.every(linkDimmed);
+  }
+
   // External / device / peer nodes in a row at the bottom.
   let extX = 0;
   for (const ext of graph.external) {
@@ -382,7 +441,11 @@ export function buildGraph(
       id: ext.id,
       type: "external",
       position: { x: extX, y: extY },
-      data: { label: ext.name, sub: externalSub(ext.id, graph.links) },
+      data: {
+        label: externalLabel(ext, graph.links),
+        sub: externalSub(ext.id, graph.links),
+        dimmed: Boolean(ext.dimmed) || externalDimmed(ext.id),
+      },
       style: { width: EXT_W, height: EXT_H },
       draggable: true,
       selectable: true,
@@ -405,8 +468,9 @@ export function buildGraph(
       type: "cased",
       data: {
         color: stroke,
-        dashed: link.status === "error" || link.status === "degraded",
+        dashed: link.status === "error" || link.status === "degraded" || link.status === "pending" || link.status === "draft",
         centerY: channelTop + lane * LANE_GAP,
+        dimmed: linkDimmed(link),
       },
       markerStart: inbound ? marker : undefined,
       markerEnd: inbound ? undefined : marker,
@@ -415,7 +479,10 @@ export function buildGraph(
 
   // Mesh fabric: every mesh peer drops straight down onto one shared bus-bar (§0.2/§4.4).
   if (meshEndpoints.length > 0) {
-    const meshColor = protocolColor("mesh");
+    const meshDraft = meshEndpoints.some((endpoint) =>
+      ["pending", "draft", "configured_policy", "not_configured", "unknown"].includes(endpoint.status)
+    );
+    const meshColor = meshDraft ? t.protocolMuted : protocolColor("mesh");
     const pad = 36;
     const minX = Math.min(...meshEndpoints.map((e) => e.cx)) - pad;
     const maxX = Math.max(...meshEndpoints.map((e) => e.cx)) + pad;
@@ -427,6 +494,7 @@ export function buildGraph(
       data: {
         label: "Mesh fabric",
         color: meshColor,
+        draft: meshDraft,
         handles: meshEndpoints.map((e) => ({ id: `h-${e.id}`, x: e.cx - minX })),
       },
       style: { width: maxX - minX, height: 8 },
@@ -440,10 +508,20 @@ export function buildGraph(
         target: busId,
         targetHandle: `h-${e.id}`,
         type: "cased",
-        data: { color: meshColor, dashed: false },
+        data: { color: meshColor, dashed: meshDraft || e.status === "pending" || e.status === "draft" },
       });
     }
   }
 
   return { nodes, edges };
+}
+
+function controlEndpointFromSyntheticRuntimeId(id: string): string | undefined {
+  const prefix = "fleet:";
+  const suffix = ":runtime";
+  if (!id.startsWith(prefix) || !id.endsWith(suffix)) {
+    return undefined;
+  }
+  const endpoint = id.slice(prefix.length, -suffix.length).trim();
+  return endpoint.length > 0 ? endpoint : undefined;
 }

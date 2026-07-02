@@ -121,7 +121,7 @@ async function showPanel(context: vscode.ExtensionContext): Promise<void> {
 
   panel = vscode.window.createWebviewPanel(
     HMI_PANEL_VIEW_TYPE,
-    "HMI Preview",
+    "HMI",
     vscode.ViewColumn.Beside,
     {
       enableScripts: true,
@@ -183,8 +183,8 @@ async function handleWebviewMessage(message: unknown): Promise<void> {
     case "saveLayout":
       await handleSaveLayoutMessage(message.payload);
       break;
-    case "trustTwinInteraction":
-      await handleTrustTwinInteractionMessage(message.payload);
+    case "sceneInteraction":
+      await handleSceneInteractionMessage(message.payload);
       break;
     default:
       break;
@@ -241,7 +241,7 @@ async function handleSaveLayoutMessage(payload: unknown): Promise<void> {
   }
 }
 
-function parseTrustTwinInteractionPayload(
+function parseSceneInteractionPayload(
   payload: unknown,
 ): { node: string; interaction: HmiSceneInteractionSchema } | undefined {
   if (!isRecord(payload) || !isRecord(payload.interaction)) {
@@ -281,8 +281,8 @@ function parseTrustTwinInteractionPayload(
   };
 }
 
-async function handleTrustTwinInteractionMessage(payload: unknown): Promise<void> {
-  const parsed = parseTrustTwinInteractionPayload(payload);
+async function handleSceneInteractionMessage(payload: unknown): Promise<void> {
+  const parsed = parseSceneInteractionPayload(payload);
   if (!parsed) {
     setStatus("3D interaction rejected: invalid hmi.write descriptor.");
     return;
@@ -606,8 +606,8 @@ export async function __testLoadLayoutOverrides(
   return await loadLayoutOverrides(workspaceUri);
 }
 
-export async function __testHandleTrustTwinInteraction(payload: unknown): Promise<void> {
-  await handleTrustTwinInteractionMessage(payload);
+export async function __testHandleSceneInteraction(payload: unknown): Promise<void> {
+  await handleSceneInteractionMessage(payload);
 }
 
 export async function __testResolveWidgetLocation(

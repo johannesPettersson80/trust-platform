@@ -24,7 +24,7 @@ import {
   __testResetHmiPanelState,
   __testResolveWidgetLocation,
   __testSaveLayoutPayload,
-  __testHandleTrustTwinInteraction,
+  __testHandleSceneInteraction,
   __testSetControlRequestHandler,
   HmiWidgetSchema,
 } from "../../hmiPanel";
@@ -409,7 +409,7 @@ suite("HMI preview integration (VS Code)", function () {
       throw new Error(`Unexpected request type: ${requestType}`);
     });
 
-    await __testHandleTrustTwinInteraction({
+    await __testHandleSceneInteraction({
       page: "cell",
       node: "P-101",
       interaction: {

@@ -21,16 +21,45 @@ export function getHtml(webview: vscode.Webview): string {
     content="default-src 'none'; img-src ${webview.cspSource} https: data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${scriptNonce}';"
   />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HMI Preview</title>
+  <title>HMI</title>
   <style>
     :root {
       color-scheme: light dark;
+      --trust-canvas: var(--vscode-editor-background, #0f1116);
+      --trust-surface: var(--vscode-editorWidget-background, #1b1f28);
+      --trust-surface-raised: var(--vscode-editorHoverWidget-background, #222732);
+      --trust-overlay: var(--vscode-editorHoverWidget-background, #12151c);
+      --trust-text: var(--vscode-foreground, #cfd6e0);
+      --trust-text-muted: var(--vscode-descriptionForeground, #949cab);
+      --trust-text-subtle: var(--vscode-disabledForeground, #6b7480);
+      --trust-on-accent: var(--vscode-button-foreground, #ffffff);
+      --trust-mono: var(--vscode-editor-font-family, ui-monospace, SFMono-Regular, Menlo, monospace);
+      --trust-border: var(--vscode-editorWidget-border, var(--vscode-panel-border, #2a2f3a));
+      --trust-border-subtle: var(--vscode-panel-border, #23272f);
+      --trust-accent: var(--vscode-focusBorder, #4a9eff);
+      --trust-ok: var(--vscode-charts-green, var(--vscode-testing-iconPassed, #46c265));
+      --trust-warn: var(--vscode-charts-yellow, var(--vscode-editorWarning-foreground, #e0b341));
+      --trust-danger: var(--vscode-charts-red, var(--vscode-errorForeground, #f0584f));
+      --trust-input-bg: var(--vscode-input-background, #10141b);
+      --trust-input-border: var(--vscode-input-border, var(--vscode-editorWidget-border, #343b47));
+      --trust-grid-line: color-mix(in srgb, var(--trust-border) 62%, transparent);
+      --trust-selected-bg: color-mix(in srgb, var(--trust-accent) 18%, transparent);
+      --trust-selected-strong-bg: color-mix(in srgb, var(--trust-accent) 28%, transparent);
+      --trust-radius-sm: 4px;
+      --trust-radius: 6px;
+      --trust-radius-lg: 8px;
+      --trust-pill: 999px;
+      --trust-ease: 150ms cubic-bezier(.4, 0, .2, 1);
+      --trust-shadow: 0 1px 2px rgba(0, 0, 0, .14), 0 3px 10px rgba(0, 0, 0, .10);
+    }
+    * {
+      box-sizing: border-box;
     }
     body {
       margin: 0;
       font-family: var(--vscode-font-family);
-      color: var(--vscode-editor-foreground, var(--vscode-foreground, #cccccc));
-      background: var(--vscode-editor-background, #1e1e1e);
+      color: var(--trust-text);
+      background: var(--trust-canvas);
     }
     header {
       position: sticky;
@@ -39,14 +68,14 @@ export function getHtml(webview: vscode.Webview): string {
       display: flex;
       gap: 8px;
       align-items: center;
-      padding: 10px;
-      border-bottom: 1px solid var(--vscode-panel-border, #2b2b2b);
-      background: var(--vscode-editor-background, #1e1e1e);
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--trust-border);
+      background: var(--trust-overlay);
     }
     #status {
       margin-left: auto;
       font-size: 12px;
-      opacity: 0.85;
+      color: var(--trust-text-muted);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -55,26 +84,23 @@ export function getHtml(webview: vscode.Webview): string {
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
-      padding: 10px;
-      border-bottom: 1px solid var(--vscode-panel-border, #2b2b2b);
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--trust-border);
     }
     .tab {
-      border: 1px solid var(--vscode-panel-border, #2b2b2b);
-      background: transparent;
-      color: inherit;
-      border-radius: 999px;
-      padding: 4px 10px;
-      cursor: pointer;
+      border-radius: var(--trust-pill);
     }
     .tab.active {
-      border-color: var(--vscode-focusBorder, #007fd4);
-      background: color-mix(in srgb, var(--vscode-focusBorder, #007fd4) 20%, transparent);
+      background: var(--trust-selected-bg);
+      border-color: var(--trust-accent);
+      color: var(--trust-text);
+      font-weight: 650;
     }
     #widgets {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
       gap: 10px;
-      padding: 10px;
+      padding: 12px;
       padding-bottom: 24px;
     }
     .hmi-empty {
@@ -88,49 +114,64 @@ export function getHtml(webview: vscode.Webview): string {
       text-align: center;
       padding: 24px;
     }
+    .hmi-empty--state {
+      min-height: 48vh;
+      border: 1px solid var(--trust-border);
+      border-radius: var(--trust-radius-lg);
+      background: var(--trust-surface);
+      margin: 12px;
+    }
     .hmi-empty-title {
       font-size: 14px;
       font-weight: 600;
-      color: var(--vscode-foreground, #cccccc);
+      color: var(--trust-text);
     }
     .hmi-empty-sub {
       font-size: 12px;
-      color: var(--vscode-descriptionForeground, var(--vscode-foreground, #9d9d9d));
+      color: var(--trust-text-muted);
       max-width: 320px;
     }
     .group {
       grid-column: 1 / -1;
       margin-top: 10px;
       font-weight: 700;
-      opacity: 0.9;
+      color: var(--trust-text-muted);
     }
     .widget {
-      border: 1px solid var(--vscode-panel-border, #2b2b2b);
-      border-radius: 8px;
+      border: 1px solid var(--trust-border);
+      border-radius: var(--trust-radius-lg);
       padding: 8px;
-      background: color-mix(in srgb, var(--vscode-editor-background, #1e1e1e) 90%, var(--vscode-editor-foreground, var(--vscode-foreground, #cccccc)) 10%);
+      background: var(--trust-surface);
       display: flex;
       flex-direction: column;
       gap: 8px;
+      min-width: 0;
     }
     .widget-title {
       font-weight: 700;
       border: 0;
       background: transparent;
-      color: inherit;
+      color: var(--trust-text);
       text-align: left;
       cursor: pointer;
       padding: 0;
+      min-height: 0;
+      justify-content: flex-start;
+    }
+    .widget-title:hover:not(:disabled) {
+      background: transparent;
+      border-color: transparent;
+      color: var(--trust-accent);
     }
     .widget-value {
-      font-family: var(--vscode-editor-font-family);
+      font-family: var(--trust-mono);
       font-size: 13px;
-      opacity: 0.95;
+      color: var(--trust-text);
       word-break: break-all;
     }
     .widget-meta {
       font-size: 11px;
-      opacity: 0.7;
+      color: var(--trust-text-muted);
     }
     .edit-row {
       display: grid;
@@ -149,10 +190,10 @@ export function getHtml(webview: vscode.Webview): string {
       width: 100%;
     }
     .section-card {
-      border: 1px solid var(--vscode-panel-border, #2b2b2b);
-      border-radius: 8px;
+      border: 1px solid var(--trust-border);
+      border-radius: var(--trust-radius-lg);
       padding: 10px;
-      background: color-mix(in srgb, var(--vscode-editor-background, #1e1e1e) 92%, var(--vscode-editor-foreground, var(--vscode-foreground, #cccccc)) 8%);
+      background: var(--trust-surface);
       display: flex;
       flex-direction: column;
       gap: 8px;
@@ -163,7 +204,7 @@ export function getHtml(webview: vscode.Webview): string {
       font-size: 12px;
       font-weight: 700;
       letter-spacing: 0.02em;
-      opacity: 0.88;
+      color: var(--trust-text-muted);
       text-transform: uppercase;
     }
     .section-widget-grid {
@@ -174,10 +215,10 @@ export function getHtml(webview: vscode.Webview): string {
     }
     .process-panel {
       grid-column: 1 / -1;
-      border: 1px solid var(--vscode-panel-border, #2b2b2b);
-      border-radius: 8px;
+      border: 1px solid var(--trust-border);
+      border-radius: var(--trust-radius-lg);
       padding: 10px;
-      background: color-mix(in srgb, var(--vscode-editor-background, #1e1e1e) 94%, var(--vscode-editor-foreground, var(--vscode-foreground, #cccccc)) 6%);
+      background: var(--trust-surface);
       display: flex;
       flex-direction: column;
       gap: 8px;
@@ -185,11 +226,11 @@ export function getHtml(webview: vscode.Webview): string {
     .process-svg-host {
       width: 100%;
       overflow: auto;
-      border: 1px solid color-mix(in srgb, var(--vscode-panel-border, #2b2b2b) 70%, transparent);
-      border-radius: 6px;
+      border: 1px solid color-mix(in srgb, var(--trust-border) 70%, transparent);
+      border-radius: var(--trust-radius);
       padding: 8px;
       box-sizing: border-box;
-      background: color-mix(in srgb, var(--vscode-editor-background, #1e1e1e) 96%, var(--vscode-editor-foreground, var(--vscode-foreground, #cccccc)) 4%);
+      background: var(--trust-surface-raised);
     }
     .process-svg-host svg {
       width: 100%;
@@ -199,7 +240,7 @@ export function getHtml(webview: vscode.Webview): string {
     }
     .process-meta {
       font-size: 11px;
-      opacity: 0.72;
+      color: var(--trust-text-muted);
     }
     .scene3d-panel {
       grid-column: 1 / -1;
@@ -212,12 +253,12 @@ export function getHtml(webview: vscode.Webview): string {
       position: relative;
       min-height: 360px;
       overflow: hidden;
-      border: 1px solid color-mix(in srgb, var(--vscode-panel-border, #2b2b2b) 76%, transparent);
-      border-radius: 8px;
+      border: 1px solid color-mix(in srgb, var(--trust-border) 76%, transparent);
+      border-radius: var(--trust-radius-lg);
       background:
-        linear-gradient(0deg, color-mix(in srgb, var(--vscode-editor-background, #1e1e1e) 88%, transparent), color-mix(in srgb, var(--vscode-editor-background, #1e1e1e) 88%, transparent)),
-        repeating-linear-gradient(90deg, transparent 0 47px, color-mix(in srgb, var(--vscode-panel-border, #2b2b2b) 30%, transparent) 48px),
-        repeating-linear-gradient(0deg, transparent 0 47px, color-mix(in srgb, var(--vscode-panel-border, #2b2b2b) 30%, transparent) 48px);
+        linear-gradient(0deg, color-mix(in srgb, var(--trust-canvas) 88%, transparent), color-mix(in srgb, var(--trust-canvas) 88%, transparent)),
+        repeating-linear-gradient(90deg, transparent 0 47px, color-mix(in srgb, var(--trust-grid-line) 70%, transparent) 48px),
+        repeating-linear-gradient(0deg, transparent 0 47px, color-mix(in srgb, var(--trust-grid-line) 70%, transparent) 48px);
     }
     .scene3d-node {
       position: absolute;
@@ -225,10 +266,10 @@ export function getHtml(webview: vscode.Webview): string {
       max-width: 150px;
       min-height: 36px;
       padding: 7px 10px;
-      border: 1px solid var(--vscode-panel-border, #2b2b2b);
-      border-radius: 6px;
-      color: inherit;
-      background: color-mix(in srgb, var(--vscode-button-secondaryBackground, #3a3d41) 60%, var(--vscode-editor-background, #1e1e1e));
+      border: 1px solid var(--trust-border);
+      border-radius: var(--trust-radius);
+      color: var(--trust-text);
+      background: var(--trust-surface-raised);
       box-sizing: border-box;
       transform: translate(-50%, -50%);
       font: inherit;
@@ -240,17 +281,63 @@ export function getHtml(webview: vscode.Webview): string {
       cursor: pointer;
     }
     button.scene3d-node:hover {
-      border-color: var(--vscode-focusBorder, #007fd4);
-      background: color-mix(in srgb, var(--vscode-focusBorder, #007fd4) 20%, var(--vscode-button-secondaryBackground, #3a3d41));
+      border-color: var(--trust-accent);
+      background: var(--trust-selected-bg);
     }
     .scene3d-meta {
       font-size: 11px;
-      opacity: 0.72;
+      color: var(--trust-text-muted);
     }
     .empty {
       font-size: 12px;
-      opacity: 0.75;
+      color: var(--trust-text-muted);
       padding: 6px 0;
+    }
+    input {
+      background: var(--trust-input-bg);
+      border: 1px solid var(--trust-input-border);
+      border-radius: var(--trust-radius);
+      color: var(--vscode-input-foreground, var(--trust-text));
+      font-family: var(--vscode-font-family);
+      font-size: 12px;
+      padding: 6px 8px;
+    }
+    input:focus {
+      border-color: var(--trust-accent);
+      outline: 1px solid var(--trust-accent);
+      outline-offset: -1px;
+    }
+    button {
+      align-items: center;
+      background: transparent;
+      border: 1px solid var(--trust-border);
+      border-radius: var(--trust-radius);
+      color: var(--trust-text);
+      cursor: pointer;
+      display: inline-flex;
+      font-family: var(--vscode-font-family);
+      font-size: 12px;
+      font-weight: 500;
+      justify-content: center;
+      line-height: 1.25;
+      min-height: 30px;
+      padding: 7px 10px;
+      text-align: center;
+      transition: background var(--trust-ease), border-color var(--trust-ease), color var(--trust-ease);
+      white-space: nowrap;
+    }
+    button:hover:not(:disabled) {
+      background: var(--trust-selected-bg);
+      border-color: var(--trust-accent);
+    }
+    button:disabled {
+      color: var(--trust-text-subtle);
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+    label {
+      color: var(--trust-text);
+      font-size: 12px;
     }
     @media (max-width: 900px) {
       .section-grid {
@@ -291,6 +378,9 @@ export function getHtml(webview: vscode.Webview): string {
 
     function setStatus(text) {
       elements.status.textContent = String(text || "");
+      if (!state.schema && text) {
+        renderSystemState(String(text));
+      }
     }
 
     function isFiniteNumber(value) {
@@ -477,10 +567,13 @@ export function getHtml(webview: vscode.Webview): string {
       const sectionGrid = document.createElement("section");
       sectionGrid.className = "section-grid";
 
+      const built = [];
+
       for (const section of sections) {
         const card = document.createElement("article");
         card.className = "section-card";
-        card.style.gridColumn = "span " + clampSpan(section?.span, 12);
+        const span = clampSpan(section?.span, 12);
+        card.style.gridColumn = "span " + span;
 
         const title = document.createElement("h3");
         title.className = "section-title";
@@ -510,7 +603,7 @@ export function getHtml(webview: vscode.Webview): string {
         } else {
           card.appendChild(grid);
         }
-        sectionGrid.appendChild(card);
+        built.push({ card, span });
       }
 
       const unassigned = widgets.filter((widget) => !used.has(widget.id));
@@ -528,7 +621,29 @@ export function getHtml(webview: vscode.Webview): string {
           grid.appendChild(createWidgetCard(widget));
         }
         card.appendChild(grid);
-        sectionGrid.appendChild(card);
+        built.push({ card, span: 12 });
+      }
+
+      // A section-card that ends up alone on its 12-column row is stretched to fill the row,
+      // so a solo section (e.g. a lone "Key metrics") doesn't leave dead space beside it.
+      let packed = 0;
+      while (packed < built.length) {
+        const rowStart = packed;
+        let rowSpan = 0;
+        while (packed < built.length && rowSpan + built[packed].span <= 12) {
+          rowSpan += built[packed].span;
+          packed += 1;
+        }
+        if (packed === rowStart) {
+          packed += 1;
+        }
+        if (packed - rowStart === 1) {
+          built[rowStart].card.style.gridColumn = "span 12";
+        }
+      }
+
+      for (const entry of built) {
+        sectionGrid.appendChild(entry.card);
       }
 
       elements.widgets.appendChild(sectionGrid);
@@ -765,7 +880,7 @@ export function getHtml(webview: vscode.Webview): string {
           : document.createElement("div");
         element.className = "scene3d-node";
         const nodeId = typeof node?.id === "string" && node.id.trim() ? node.id.trim() : "node-" + index;
-        element.dataset.trustTwinNode = nodeId;
+        element.dataset.sceneNode = nodeId;
         element.textContent =
           typeof node?.label === "string" && node.label.trim() ? node.label.trim() : nodeId;
         const fallback = index * 1.5;
@@ -774,7 +889,7 @@ export function getHtml(webview: vscode.Webview): string {
         element.style.left = 8 + ((x - minX) / spanX) * 84 + "%";
         element.style.top = 12 + ((z - minZ) / spanZ) * 76 + "%";
         if (firstInteraction) {
-          element.dataset.trustTwinAction = firstInteraction.action;
+          element.dataset.sceneAction = firstInteraction.action;
           element.addEventListener("click", () => {
             const confirmation = firstInteraction.confirmation;
             if (
@@ -786,7 +901,7 @@ export function getHtml(webview: vscode.Webview): string {
               return;
             }
             vscode.postMessage({
-              type: "trustTwinInteraction",
+              type: "sceneInteraction",
               payload: {
                 page: page?.id,
                 node: nodeId,
@@ -821,7 +936,7 @@ export function getHtml(webview: vscode.Webview): string {
         ? allWidgets.filter((widget) => widget.page === state.selectedPage)
         : allWidgets;
       if (kind === "process") {
-        renderProcessPage(page, visible);
+        renderProcessPage(page, allWidgets);
         return;
       }
       if (kind === "scene3d") {
@@ -835,6 +950,34 @@ export function getHtml(webview: vscode.Webview): string {
         return;
       }
       renderSectionWidgets(page, visible);
+    }
+
+    function renderSystemState(statusText) {
+      if (state.schema) {
+        return;
+      }
+      elements.tabs.innerHTML = "";
+      elements.widgets.innerHTML = "";
+      const wrap = document.createElement("div");
+      wrap.className = "hmi-empty hmi-empty--state";
+      const heading = document.createElement("div");
+      heading.className = "hmi-empty-title";
+      const sub = document.createElement("div");
+      sub.className = "hmi-empty-sub";
+      const normalized = String(statusText || "").toLowerCase();
+      if (normalized.includes("start the runtime")) {
+        heading.textContent = "Start the runtime to see live HMI data";
+        sub.textContent = "Use Start in the truST sidebar, then return here to watch the operator view update.";
+      } else if (normalized.includes("could not load")) {
+        heading.textContent = "HMI preview could not load";
+        sub.textContent = String(statusText || "Check the runtime connection and try Refresh.");
+      } else {
+        heading.textContent = "Loading HMI preview";
+        sub.textContent = String(statusText || "Reading the HMI layout and live values.");
+      }
+      wrap.appendChild(heading);
+      wrap.appendChild(sub);
+      elements.widgets.appendChild(wrap);
     }
 
     // A page with no widgets to render still gets a designed, HONEST state — never a blank void.
@@ -869,7 +1012,7 @@ export function getHtml(webview: vscode.Webview): string {
     function render() {
       if (!state.schema) {
         elements.tabs.innerHTML = "";
-        elements.widgets.innerHTML = "<div style='padding:10px;'>No HMI schema available.</div>";
+        renderSystemState("Loading HMI preview");
         return;
       }
       renderTabs();

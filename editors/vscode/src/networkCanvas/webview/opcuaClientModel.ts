@@ -167,26 +167,36 @@ export function classifyOpcuaBrowseError(error: {
         code,
         action: "trust",
         title: "Server certificate not trusted",
-        detail: message,
+        detail: "Confirm this is the expected server, then choose Trust certificate to browse it.",
       };
     case "auth_required":
       return {
         code,
         action: "credentials",
         title: "Authentication required",
-        detail: message,
+        detail: "Choose username authentication or update the saved OPC UA credentials, then browse again.",
       };
     case "unsupported_security_profile":
       return {
         code,
         action: "security",
         title: "Unsupported security profile",
-        detail: message,
+        detail: "Choose a security policy and mode that this OPC UA server offers.",
       };
     case "endpoint_unreachable":
-      return { code, action: "retry", title: "Server unreachable", detail: message };
+      return {
+        code,
+        action: "retry",
+        title: "Server unreachable",
+        detail: "Check the endpoint URL, port, and that the OPC UA server is running.",
+      };
     case "browse_denied":
-      return { code, action: "none", title: "Browse denied", detail: message };
+      return {
+        code,
+        action: "none",
+        title: "Browse denied",
+        detail: "The server refused node browsing for the selected identity.",
+      };
     default:
       return { code: code || "unknown", action: "none", title: "OPC UA browse failed", detail: message };
   }

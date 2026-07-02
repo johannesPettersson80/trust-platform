@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import * as Blockly from "blockly";
 import { useBlockly } from "./hooks/useBlockly";
 import { registerPLCBlocks } from "./blocklyBlocks";
@@ -21,6 +21,7 @@ export const BlocklyEditor: React.FC = () => {
     generatedCode,
     errors,
     saveWorkspace,
+    validateWorkspace,
     generateCode,
   } = useBlockly();
 
@@ -34,6 +35,30 @@ export const BlocklyEditor: React.FC = () => {
     resizeHandleClassName,
     resizeHandleProps,
   } = useRightPaneResize("blockly");
+
+  const applyBlocklyTheme = useCallback(() => {
+    const root = workspaceRef.current;
+    if (!root) {
+      return;
+    }
+    const styleHost = document.body ?? document.documentElement;
+    const computed = getComputedStyle(styleHost);
+    const canvas =
+      computed.getPropertyValue("--trust-canvas").trim() ||
+      computed.getPropertyValue("--vscode-editor-background").trim();
+    if (!canvas) {
+      return;
+    }
+    root.style.backgroundColor = canvas;
+    const svg = root.querySelector<SVGSVGElement>(".blocklySvg");
+    if (svg) {
+      svg.style.backgroundColor = canvas;
+    }
+    root.querySelectorAll<SVGElement>(".blocklyMainBackground").forEach((background) => {
+      background.style.fill = canvas;
+      background.setAttribute("fill", canvas);
+    });
+  }, []);
 
   // Initialize Blockly workspace
   useEffect(() => {
@@ -72,7 +97,16 @@ export const BlocklyEditor: React.FC = () => {
 
     blocklyWorkspaceRef.current = blocklyWorkspace;
     (window as any).blocklyWorkspace = blocklyWorkspace;
+    requestAnimationFrame(applyBlocklyTheme);
     console.log("[BlocklyEditor] Blockly workspace stored in window");
+
+    const themeObserver = new MutationObserver(() => {
+      requestAnimationFrame(applyBlocklyTheme);
+    });
+    themeObserver.observe(document.body, {
+      attributes: true,
+      attributeFilter: ["class", "style"],
+    });
 
     blocklyWorkspace.addChangeListener((event: Blockly.Events.Abstract) => {
       if (
@@ -97,12 +131,13 @@ export const BlocklyEditor: React.FC = () => {
     console.log("Blockly workspace initialized");
 
     return () => {
+      themeObserver.disconnect();
       blocklyWorkspace.dispose();
       blocklyWorkspaceRef.current = null;
       (window as any).blocklyWorkspace = null;
       console.log("Blockly workspace cleanup");
     };
-  }, []);
+  }, [applyBlocklyTheme]);
 
   // Update workspace when data changes
   useEffect(() => {
@@ -140,6 +175,23 @@ export const BlocklyEditor: React.FC = () => {
   const handleGenerateCode = () => {
     generateCode();
     setShowCode(true);
+  };
+
+  const handleSaveWorkspace = () => {
+    const blocklyWorkspace = blocklyWorkspaceRef.current;
+    if (!blocklyWorkspace) {
+      return;
+    }
+    const json = Blockly.serialization.workspaces.save(blocklyWorkspace);
+    saveWorkspace({
+      blocks: json as any,
+      variables: blocklyWorkspace.getAllVariables().map((variable) => ({
+        id: variable.getId(),
+        name: variable.name,
+        type: variable.type || "",
+      })),
+      metadata: workspace?.metadata || { name: "BlocklyProgram" },
+    });
   };
 
   const getToolboxXML = () => {
@@ -228,9 +280,18 @@ export const BlocklyEditor: React.FC = () => {
   };
 
   return (
-    <div className="blockly-editor-container">
-      <div className="blockly-content">
-        <div className="blockly-workspace-container">
+    <div className="blockly-editor-container trust-product-shell">
+      <header className="trust-product-header" aria-label="Blockly editor header">
+        <div className="trust-product-brand">
+          tru<span className="trust-product-brand__accent">ST</span>
+          <span className="trust-product-brand__separator">·</span>
+          <span className="trust-product-brand__surface">Blockly editor</span>
+        </div>
+        <div className="trust-product-header__meta">Block-based Structured Text program</div>
+      </header>
+
+      <div className="blockly-content trust-product-workspace">
+        <div className="blockly-workspace-container trust-canvas-pane">
           {showCode ? (
             <CodePanel code={generatedCode} errors={errors} />
           ) : (
@@ -258,7 +319,16 @@ export const BlocklyEditor: React.FC = () => {
                 {workspace.metadata.name}
               </div>
             )}
-            <div className="trust-button-grid trust-button-grid--single">
+            <div className="trust-button-grid">
+              <button
+                type="button"
+                className="trust-button"
+                onClick={validateWorkspace}
+                disabled={!workspace}
+                title="Validate generated Structured Text"
+              >
+                Validate
+              </button>
               <button
                 type="button"
                 className="trust-button"
@@ -266,8 +336,20 @@ export const BlocklyEditor: React.FC = () => {
                 disabled={!workspace}
                 title="Generate Structured Text code"
               >
-                Generate Code
+                Generate ST
               </button>
+              <button
+                type="button"
+                className="trust-button trust-button--primary"
+                onClick={handleSaveWorkspace}
+                disabled={!workspace}
+                title="Save Blockly workspace"
+              >
+                Save
+              </button>
+            </div>
+            <div className="trust-section__title" style={{ marginTop: 10 }}>View</div>
+            <div className="trust-button-grid trust-button-grid--single">
               <button
                 type="button"
                 className="trust-button"
@@ -298,7 +380,7 @@ export const BlocklyEditor: React.FC = () => {
         </div>
       </div>
 
-      <div className="blockly-status-bar">
+      <div className="blockly-status-bar trust-visual-status">
         <span>
           Blocks: {workspace?.blocks?.blocks?.length || 0} | Variables:{" "}
           {workspace?.variables?.length || 0}

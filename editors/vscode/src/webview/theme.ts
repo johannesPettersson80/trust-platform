@@ -13,8 +13,8 @@ export const t = {
   overlay: v("--vscode-editorHoverWidget-background", "#12151c"),
 
   text: v("--vscode-foreground", "#cfd6e0"),
-  textMuted: v("--vscode-descriptionForeground", "#949cab"),
-  textSubtle: v("--vscode-disabledForeground", "#6b7480"),
+  textMuted: v("--trust-text-muted", v("--vscode-descriptionForeground", "#949cab")),
+  textSubtle: v("--trust-text-subtle", v("--vscode-disabledForeground", "#6b7480")),
   onAccent: v("--vscode-button-foreground", "#ffffff"),
 
   border: v("--vscode-editorWidget-border", v("--vscode-panel-border", "#2a2f3a")),
@@ -24,11 +24,27 @@ export const t = {
   ok: v("--vscode-charts-green", v("--vscode-testing-iconPassed", "#46c265")),
   warn: v("--vscode-charts-yellow", v("--vscode-editorWarning-foreground", "#e0b341")),
   danger: v("--vscode-charts-red", v("--vscode-errorForeground", "#f0584f")),
-  idle: v("--vscode-descriptionForeground", "#6b7480"),
+  idle: v("--trust-idle", v("--vscode-descriptionForeground", "#6b7480")),
   breakpoint: v("--trust-breakpoint", v("--vscode-debugIcon-breakpointForeground", "#e51400")),
 
   inputBg: v("--vscode-input-background", "#10141b"),
   inputBorder: v("--vscode-input-border", v("--vscode-editorWidget-border", "#343b47")),
+
+  protocolBlue: v("--trust-protocol-blue", v("--vscode-charts-blue", "#5b9bd5")),
+  protocolOrange: v("--trust-protocol-orange", v("--vscode-charts-orange", "#d29152")),
+  protocolGreen: v("--trust-protocol-green", v("--vscode-charts-green", "#5cb46c")),
+  protocolCyan: v("--trust-protocol-cyan", "color-mix(in srgb, var(--trust-protocol-blue) 62%, var(--trust-protocol-green) 38%)"),
+  protocolRed: v("--trust-protocol-red", v("--vscode-charts-red", "#d2756f")),
+  protocolPurple: v("--trust-protocol-purple", v("--vscode-charts-purple", "#b39bef")),
+  protocolMuted: v("--trust-protocol-muted", v("--vscode-descriptionForeground", "#6b7480")),
+
+  roleHostBg: v("--trust-role-host-bg", "color-mix(in srgb, var(--trust-protocol-blue) 10%, var(--trust-surface) 90%)"),
+  roleHostBorder: v("--trust-role-host-border", "color-mix(in srgb, var(--trust-protocol-blue) 36%, var(--trust-border) 64%)"),
+  roleRuntimeBg: v("--trust-role-runtime-bg", "color-mix(in srgb, var(--trust-protocol-green) 9%, var(--trust-surface-raised) 91%)"),
+  roleRuntimeBorder: v("--trust-role-runtime-border", "color-mix(in srgb, var(--trust-protocol-green) 34%, var(--trust-border) 66%)"),
+  roleEndpointBg: v("--trust-role-endpoint-bg", "color-mix(in srgb, var(--trust-protocol-cyan) 8%, var(--trust-surface) 92%)"),
+  roleExternalBg: v("--trust-role-external-bg", "color-mix(in srgb, var(--trust-protocol-orange) 8%, var(--trust-surface) 92%)"),
+  roleExternalBorder: v("--trust-role-external-border", "color-mix(in srgb, var(--trust-protocol-orange) 32%, var(--trust-border) 68%)"),
 
   gridLine: v("--trust-grid-line", "#2a2f3a"),
   rail: v("--trust-rail", "#8a93a3"),

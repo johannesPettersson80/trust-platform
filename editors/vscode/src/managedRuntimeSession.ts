@@ -1,6 +1,9 @@
 import { debugChannel } from "./debug/configuration";
 import { waitForEndpointReachable } from "./io-panel/status";
-import type { ManagedLifecycleResult } from "./localRuntimeModel";
+import {
+  managedRuntimeLabel,
+  type ManagedLifecycleResult,
+} from "./localRuntimeModel";
 import { runtimeLifecycleService } from "./runtimeLifecycle";
 import { setSelectedRuntimeId } from "./selectedRuntime";
 
@@ -33,7 +36,10 @@ export async function attachManagedRuntimeAfterStart(
   // failure below — we never fabricate a connection.
   await waitForEndpointReachable(result.controlEndpoint);
 
-  const connect = await runtimeLifecycleService.connectRemote(result.controlEndpoint);
+  const connect = await runtimeLifecycleService.connectRemote(
+    result.controlEndpoint,
+    managedRuntimeLabel(name)
+  );
   if (!connect.ok) {
     return {
       ok: false,
@@ -45,20 +51,28 @@ export async function attachManagedRuntimeAfterStart(
 }
 
 export async function disconnectManagedRuntimeAfterStop(
+  name: string,
   result: ManagedLifecycleResult
 ): Promise<void> {
-  if (!result.controlEndpoint) {
-    debugChannel().appendLine(
-      "Managed runtime stopped without a reported control endpoint; no Live Values session was disconnected."
-    );
-    return;
-  }
   const snapshot = await runtimeLifecycleService.snapshot();
+  const stoppedEndpoint = result.controlEndpoint?.trim();
+  const attachedEndpoint = snapshot.status.endpoint.trim();
+  const attachedLabel = snapshot.status.targetLabel?.trim();
+  const managedLabel = managedRuntimeLabel(name);
+  const sameEndpoint =
+    !!stoppedEndpoint && attachedEndpoint === stoppedEndpoint;
+  const sameManagedTarget = attachedLabel === managedLabel;
   if (
     snapshot.status.runtimeMode === "online" &&
     snapshot.status.runtimeState === "connected" &&
-    snapshot.status.endpoint === result.controlEndpoint
+    (sameEndpoint || sameManagedTarget)
   ) {
     await runtimeLifecycleService.stopRuntime();
+    return;
+  }
+  if (!stoppedEndpoint) {
+    debugChannel().appendLine(
+      `Managed runtime ${name} stopped without a reported control endpoint; no matching Live Values session was connected.`
+    );
   }
 }

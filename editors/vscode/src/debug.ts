@@ -1,4 +1,5 @@
 import * as fs from "fs";
+import * as net from "net";
 import * as path from "path";
 import * as vscode from "vscode";
 
@@ -23,8 +24,20 @@ import {
   selectWorkspaceFolderPathForMode,
   validateConfiguration,
 } from "./debug/configuration";
+import { parseControlEndpoint } from "./runtimeControl";
 
 const LAUNCH_WARN_DELAY_MS = 1500;
+const HOT_RELOAD_REQUEST_TIMEOUT_MS = 30000;
+const TEST_CONTROL_ENDPOINT_OVERRIDE_ENV = "TRUST_UX_DEBUG_CONTROL_ENDPOINT";
+const TEST_CONTROL_AUTH_TOKEN_ENV = "TRUST_UX_DEBUG_CONTROL_AUTH_TOKEN";
+
+export type DebugReloadEvent = {
+  readonly ok: boolean;
+  readonly message?: string;
+};
+
+const debugReloadEmitter = new vscode.EventEmitter<DebugReloadEvent>();
+export const onDidDebugReload = debugReloadEmitter.event;
 
 // The debug output channel is user-visible; never log the injected per-session control token.
 function redactDebugConfig(config: vscode.DebugConfiguration): Record<string, unknown> {
@@ -32,6 +45,111 @@ function redactDebugConfig(config: vscode.DebugConfiguration): Record<string, un
     return config as Record<string, unknown>;
   }
   return { ...config, controlAuthToken: "***" };
+}
+
+function applyLaunchControlEndpoint(
+  config: vscode.DebugConfiguration,
+  folder: vscode.WorkspaceFolder | undefined,
+  allowTestControlEndpointOverride: boolean
+): void {
+  if (config.request !== "launch" || config.controlEndpoint) {
+    return;
+  }
+  const testEndpoint = allowTestControlEndpointOverride
+    ? (process.env[TEST_CONTROL_ENDPOINT_OVERRIDE_ENV] ?? "").trim()
+    : "";
+  if (testEndpoint) {
+    config.controlEndpoint = testEndpoint;
+    const testToken = (process.env[TEST_CONTROL_AUTH_TOKEN_ENV] ?? "").trim();
+    if (testToken) {
+      config.controlAuthToken = testToken;
+    }
+    return;
+  }
+  const sim = localSimControl(folder?.uri.fsPath);
+  if (sim) {
+    config.controlEndpoint = sim.endpoint;
+    config.controlAuthToken = sim.authToken;
+  }
+}
+
+async function launchControlEndpointError(
+  endpoint: unknown
+): Promise<string | undefined> {
+  if (typeof endpoint !== "string") {
+    return undefined;
+  }
+  const parsed = parseControlEndpoint(endpoint);
+  if (!parsed || parsed.kind !== "tcp") {
+    return undefined;
+  }
+  if (await canConnectToTcpEndpoint(parsed.host, parsed.port)) {
+    return "The runtime port is already in use.";
+  }
+  return undefined;
+}
+
+function canConnectToTcpEndpoint(host: string, port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = net.createConnection({ host, port });
+    let finished = false;
+    const finish = (value: boolean) => {
+      if (finished) {
+        return;
+      }
+      finished = true;
+      socket.removeAllListeners();
+      socket.destroy();
+      resolve(value);
+    };
+    socket.once("connect", () => finish(true));
+    socket.once("error", () => finish(false));
+    socket.setTimeout(300, () => finish(false));
+  });
+}
+
+function withTimeout<T>(
+  operation: () => Thenable<T>,
+  timeoutMs: number,
+  message: string
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return new Promise<T>((resolve, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+    void Promise.resolve().then(operation).then(
+      (value) => {
+        if (timer) {
+          clearTimeout(timer);
+        }
+        resolve(value);
+      },
+      (error) => {
+        if (timer) {
+          clearTimeout(timer);
+        }
+        reject(error);
+      }
+    );
+  });
+}
+
+function summarizeReloadCommandMessage(message: string): string {
+  const trimmed = message.trim();
+  const sourceErrorCount = trimmed
+    .split(/\r?\n/)
+    .filter((line) => /\.(st|pou):/i.test(line)).length;
+  if (sourceErrorCount > 0) {
+    return `Compile failed — ${sourceErrorCount} error${sourceErrorCount === 1 ? "" : "s"}. Open Problems, then try again.`;
+  }
+  const firstLine =
+    trimmed.split(/\r?\n/).find((line) => line.trim())?.trim() ?? "";
+  if (!firstLine) {
+    return "Reload did not report a reason.";
+  }
+  if (firstLine.length <= 160) {
+    return firstLine;
+  }
+  return `${firstLine.slice(0, 157).trimEnd()}...`;
 }
 
 // Same, for a DAP message (the launch request carries the config under `arguments`).
@@ -235,6 +353,8 @@ class StructuredTextDebugAdapterFactory
 class StructuredTextDebugConfigurationProvider
   implements vscode.DebugConfigurationProvider
 {
+  constructor(private readonly allowTestControlEndpointOverride: boolean) {}
+
   async resolveDebugConfiguration(
     folder: vscode.WorkspaceFolder | undefined,
     config: vscode.DebugConfiguration
@@ -298,13 +418,15 @@ class StructuredTextDebugConfigurationProvider
     // per-session token (the adapter already starts a control server on launch). This lets the
     // Network Canvas reach the live simulator for comm.schema/apply + fleet.topology with write
     // access, and avoids two workspaces colliding on one default socket. Explicit user configs win.
-    if (config.request === "launch" && !config.controlEndpoint) {
-      const sim = localSimControl(folder?.uri.fsPath);
-      if (sim) {
-        config.controlEndpoint = sim.endpoint;
-        config.controlAuthToken = sim.authToken;
-      }
-    }
+    //
+    // Test-mode evidence runners can override the endpoint to force a real TCP bind conflict for
+    // ERR-04. This is intentionally not a user setting: production/dev users keep the normal
+    // per-workspace Unix socket.
+    applyLaunchControlEndpoint(
+      config,
+      folder,
+      this.allowTestControlEndpointOverride
+    );
 
     debugChannel().appendLine(
       `Resolved debug config: type=${config.type} request=${config.request} program=${config.program ?? "<none>"} cwd=${config.cwd ?? "<none>"}`
@@ -427,7 +549,9 @@ export function registerDebugAdapter(
   context.subscriptions.push(factory);
   debugChannel().appendLine("Structured Text debug adapter factory registered.");
 
-  const provider = new StructuredTextDebugConfigurationProvider();
+  const provider = new StructuredTextDebugConfigurationProvider(
+    context.extensionMode === vscode.ExtensionMode.Test
+  );
   context.subscriptions.push(
     vscode.debug.registerDebugConfigurationProvider(DEBUG_TYPE, provider)
   );
@@ -552,6 +676,17 @@ export function registerDebugAdapter(
 
         if (folder) {
           config.cwd = folder.uri.fsPath;
+        }
+        applyLaunchControlEndpoint(
+          config,
+          folder,
+          context.extensionMode === vscode.ExtensionMode.Test
+        );
+        const launchEndpointError = await launchControlEndpointError(
+          config.controlEndpoint
+        );
+        if (launchEndpointError) {
+          throw new Error(launchEndpointError);
         }
 
         const pendingTimer = setTimeout(() => {
@@ -739,10 +874,11 @@ export function registerDebugAdapter(
     vscode.commands.registerCommand("trust-lsp.debug.reload", async () => {
       const session = vscode.debug.activeDebugSession;
       if (!session || session.type !== DEBUG_TYPE) {
+        const message = "No active Structured Text debug session to reload.";
         vscode.window.showErrorMessage(
-          "No active Structured Text debug session to reload."
+          message
         );
-        return;
+        return { ok: false, message };
       }
 
       const config = session.configuration ?? {};
@@ -757,13 +893,22 @@ export function registerDebugAdapter(
             ? vscode.Uri.file(program)
             : preferred;
         const runtimeOptions = runtimeSourceOptions(target);
-        await session.customRequest("stReload", {
-          program: program ?? activeFile,
-          ...runtimeOptions,
-        });
+        await withTimeout(
+          () => session.customRequest("stReload", {
+            program: program ?? activeFile,
+            ...runtimeOptions,
+          }),
+          HOT_RELOAD_REQUEST_TIMEOUT_MS,
+          "Update running simulation timed out. The simulator may still be busy; try again or restart it."
+        );
+        debugReloadEmitter.fire({ ok: true });
+        return { ok: true };
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+        const rawMessage = err instanceof Error ? err.message : String(err);
+        const message = summarizeReloadCommandMessage(rawMessage);
         vscode.window.showErrorMessage(`Hot reload failed: ${message}`);
+        debugReloadEmitter.fire({ ok: false, message });
+        return { ok: false, message };
       }
     })
   );

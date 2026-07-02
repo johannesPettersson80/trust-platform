@@ -2,6 +2,7 @@ import React, { memo, useState } from "react";
 import { Handle, NodeToolbar, Position, type NodeProps } from "@xyflow/react";
 import { BusNode } from "./BusNode";
 import { useEditMode, type AddSlotRequest } from "./editMode";
+import { protocolBadgeLabel, protocolColor, protocolName } from "./protocolMeta";
 import { t, tint } from "./theme";
 import {
   LOCAL_RUNTIME_NODE_ID,
@@ -67,80 +68,6 @@ export function healthColor(health: string): string {
   }
 }
 
-// Protocol identity colours the wire + the endpoint role band only — never floods a node body.
-// Mid-tone hues so the band reads with dark text on both light and dark themes.
-const PROTOCOL_COLORS: Record<string, string> = {
-  modbus_tcp: "#5b9bd5",
-  modbus: "#5b9bd5",
-  mqtt: "#d29152",
-  opcua: "#3bae9a",
-  opcua_client: "#3bae9a",
-  ads: "#d2756f",
-  ads_server: "#d2756f",
-  mesh: "#5cb46c",
-  runtime_cloud: "#b39bef",
-  federation: "#b39bef",
-  realtime: "#b39bef",
-  realtime_t0: "#b39bef",
-  gpio: "#5aa6a0",
-  ethercat: "#b07cc6",
-};
-
-export function protocolColor(protocol: string): string {
-  return PROTOCOL_COLORS[protocol] ?? "#6b7480";
-}
-
-const PROTOCOL_LABELS: Record<string, string> = {
-  modbus_tcp: "MB",
-  modbus: "MB",
-  mqtt: "MQ",
-  opcua: "UA",
-  opcua_client: "UA",
-  ads: "ADS",
-  ads_server: "ADS",
-  mesh: "ME",
-  runtime_cloud: "FE",
-  federation: "FE",
-  realtime: "T0",
-  realtime_t0: "T0",
-  gpio: "IO",
-  ethercat: "EC",
-  web: "WB",
-  discovery: "DS",
-  simulated: "SM",
-  loopback: "LB",
-};
-
-export function protocolBadgeLabel(protocol: string): string {
-  return PROTOCOL_LABELS[protocol] ?? protocol.replace(/_/g, "").slice(0, 2).toUpperCase();
-}
-
-// §8: spell the protocol (no cryptic 2-letter tile). Readable display names.
-const PROTOCOL_NAMES: Record<string, string> = {
-  modbus_tcp: "Modbus",
-  modbus: "Modbus",
-  ethercat: "EtherCAT",
-  opcua: "OPC UA server",
-  opcua_client: "OPC UA client",
-  ads: "ADS",
-  ads_server: "ADS",
-  mqtt: "MQTT",
-  mesh: "Mesh",
-  discovery: "Discovery",
-  realtime: "Realtime",
-  realtime_t0: "Realtime",
-  runtime_cloud: "Federation",
-  federation: "Federation",
-  gpio: "GPIO",
-  simulated: "Simulated",
-  loopback: "Loopback",
-  web: "Web",
-};
-
-export function protocolName(protocol: string): string {
-  return PROTOCOL_NAMES[protocol] ?? protocol.replace(/_/g, " ");
-}
-
 // The role band text (uppercase). Local I/O has no remote role → "I/O".
 export function roleWord(protocol: string, role: string): string {
   if (role === "draft") {
@@ -195,9 +122,18 @@ const PORT_STYLE: React.CSSProperties = {
 };
 
 // §7 honesty: unproven/pending config renders ghost/dashed and never green.
-const PENDING_STATES = new Set(["pending", "not_configured", "not_in_build", "unknown"]);
+const PENDING_STATES = new Set(["pending", "not_configured", "not_in_build", "configured_policy", "unknown", "disabled"]);
 function isPending(health: string): boolean {
   return PENDING_STATES.has(health);
+}
+
+const ADVANCED_PROTOCOLS = new Set(["mesh", "openot", "realtime", "realtime_t0", "runtime_cloud", "federation"]);
+function isDraftLikeEndpoint(protocol: string, role: string, health: string): boolean {
+  return (
+    role === "draft" ||
+    (ADVANCED_PROTOCOLS.has(protocol) &&
+      ["pending", "configured_policy", "not_configured", "unknown"].includes(health))
+  );
 }
 
 // A HOST is a machine (where), not a process. Its lifecycle state ("pending"/"stopped"/"connected") is
@@ -210,15 +146,18 @@ function isHostProblem(health: string): boolean {
   return HOST_PROBLEM_STATES.has(health);
 }
 
-// A node card surface. Hairline border + soft elevation (theme-aware); dashed + dimmed when pending.
-function cardStyle(health: string, opts: { raised?: boolean; radius?: number } = {}): React.CSSProperties {
+// A node card surface. Hairline border + soft role tint (theme-aware); dashed + dimmed when pending.
+function cardStyle(
+  health: string,
+  opts: { background?: string; border?: string; radius?: number } = {}
+): React.CSSProperties {
   const pending = isPending(health);
   return {
     width: "100%",
     height: "100%",
-    border: `1px ${pending ? "dashed" : "solid"} ${t.border}`,
+    border: `1px ${pending ? "dashed" : "solid"} ${opts.border ?? t.border}`,
     borderRadius: opts.radius ?? t.radius,
-    background: opts.raised ? t.surfaceRaised : t.surface,
+    background: opts.background ?? t.surface,
     boxShadow: pending ? "none" : t.shadow,
     opacity: pending ? 0.9 : 1,
     transition: `box-shadow ${t.ease}, border-color ${t.ease}, opacity ${t.ease}`,
@@ -240,8 +179,12 @@ function statusLabel(health: string): string {
     case "pending":
       // Configured but not running / state not yet known — honest-neutral, never overclaim a live connect.
       return "Pending";
+    case "configured_policy":
+      return "Configured only";
     case "stopped":
       return "Stopped";
+    case "disabled":
+      return "Disabled";
     case "not_configured":
       return "Not set up";
     case "simulate":
@@ -317,11 +260,19 @@ export const HostNode = memo(({ data }: NodeProps) => {
   const d = data as HostNodeData;
   const [hover, setHover] = useState(false);
   return (
-    <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} style={cardStyle(d.health, { radius: t.radiusLg })}>
+    <div
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={cardStyle(d.health, {
+        background: t.roleHostBg,
+        border: t.roleHostBorder,
+        radius: t.radiusLg,
+      })}
+    >
       <NodeToolbar isVisible={hover} position={Position.Top}>
         <HoverCard
           title={d.label}
-          rows={[["address", d.sub], ["health", d.health], ["runtimes", String(d.runtimeCount)], ["endpoints", String(d.endpointCount)]]}
+          rows={[["detail", d.sub], ["health", d.health], ["runtimes", String(d.runtimeCount)], ["endpoints", String(d.endpointCount)]]}
         />
       </NodeToolbar>
       {/* Title over status: hostname always shows in full; reachability sits on its own row. */}
@@ -383,7 +334,18 @@ export const RuntimeNode = memo(({ id, data }: NodeProps) => {
     d.endpointCount === 0 &&
     (id === LOCAL_RUNTIME_NODE_ID || d.health === "connected");
   return (
-    <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} style={{ ...cardStyle(d.health, { raised: true }), display: "flex", flexDirection: "column" }}>
+    <div
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        ...cardStyle(d.health, {
+          background: t.roleRuntimeBg,
+          border: t.roleRuntimeBorder,
+        }),
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
       <NodeToolbar isVisible={hover} position={Position.Top}>
         <HoverCard
           title={d.label}
@@ -440,7 +402,8 @@ RuntimeNode.displayName = "RuntimeNode";
 // Layout (app-icon style): protocol name on top, role in a coloured band below.
 export const EndpointNode = memo(({ data }: NodeProps) => {
   const d = data as EndpointNodeData;
-  const pc = protocolColor(d.protocol);
+  const draftLike = isDraftLikeEndpoint(d.protocol, d.role, d.health);
+  const pc = draftLike ? t.protocolMuted : protocolColor(d.protocol);
   const [hover, setHover] = useState(false);
   // §0.2: everything networked gets a wire/port; only local I/O does not.
   const isComm = !["gpio", "simulated", "loopback"].includes(d.protocol);
@@ -456,10 +419,12 @@ export const EndpointNode = memo(({ data }: NodeProps) => {
         height: "100%",
         display: "flex",
         flexDirection: "column",
-        border: `1px ${isPending(d.health) ? "dashed" : "solid"} ${t.border}`,
+        border: `1px ${draftLike || isPending(d.health) ? "dashed" : "solid"} ${tint(pc, draftLike ? 0.65 : 0.45)}`,
         borderRadius: t.radiusLg,
-        background: t.surface,
-        boxShadow: d.dimmed || isPending(d.health) ? "none" : t.shadow,
+        background: draftLike || d.protocol === "simulated" || d.protocol === "loopback" || d.protocol === "gpio"
+          ? t.roleEndpointBg
+          : tint(pc, 0.08),
+        boxShadow: d.dimmed || draftLike || isPending(d.health) ? "none" : t.shadow,
         overflow: "hidden",
         opacity: d.dimmed ? 0.32 : isPending(d.health) ? 0.9 : 1,
         transition: `box-shadow ${t.ease}, opacity ${t.ease}`,
@@ -472,10 +437,13 @@ export const EndpointNode = memo(({ data }: NodeProps) => {
         />
       </NodeToolbar>
       {isComm && <Handle type="source" position={Position.Bottom} style={PORT_STYLE} />}
-      <div style={{ position: "relative", flex: hasSlaves ? "0 0 30px" : 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "3px 7px" }}>
+      <div style={{ position: "relative", flex: hasSlaves ? "0 0 30px" : 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, padding: "3px 7px" }}>
         <strong style={{ fontSize: 11, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {protocolName(d.protocol)}
         </strong>
+        {(d.health === "disabled" || draftLike) && (
+          <StatusPill health={d.health} label={draftLike ? "DRAFT" : undefined} tone={draftLike ? t.protocolMuted : undefined} />
+        )}
         <span
           className={d.health === "connected" ? "trust-dot trust-dot--live" : "trust-dot"}
           title={d.health}
@@ -507,7 +475,7 @@ export const EndpointNode = memo(({ data }: NodeProps) => {
           textOverflow: "ellipsis",
         }}
       >
-        {roleWord(d.protocol, d.role)}
+        {draftLike ? "DRAFT" : roleWord(d.protocol, d.role)}
       </div>
       {hasSlaves && (
         <div style={{ flex: 1, overflow: "hidden", background: t.canvas }}>
@@ -544,10 +512,12 @@ export const ExternalNode = memo(({ data }: NodeProps) => {
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
-        border: `1px dashed ${t.border}`,
+        border: `1px dashed ${t.roleExternalBorder}`,
         borderRadius: t.radius,
-        background: t.surface,
+        background: t.roleExternalBg,
         padding: "0 12px",
+        opacity: d.dimmed ? 0.32 : 1,
+        transition: `opacity ${t.ease}`,
       }}
     >
       <NodeToolbar isVisible={hover} position={Position.Top}>
@@ -586,17 +556,29 @@ ExternalNode.displayName = "ExternalNode";
 export const SlotNode = memo(({ data }: NodeProps) => {
   const d = data as SlotNodeData;
   const { onPickSlot } = useEditMode();
+  const actionLabel = d.slot?.add === "runtime" ? "Set up" : "Add";
+  const objectLabel =
+    d.slot?.add === "device"
+      ? "connection"
+      : d.slot?.add === "host"
+        ? "host"
+        : "runtime";
   return (
     <button
       onClick={(e) => {
         e.stopPropagation();
         onPickSlot(d.slot as AddSlotRequest);
       }}
-      title={`Add ${d.label}`}
+      title={d.label}
       style={slotStyle}
     >
       <span style={{ fontSize: 17, lineHeight: 1, color: t.accent }}>+</span>
-      <span style={{ fontSize: 10, color: t.textMuted, textAlign: "center", lineHeight: 1.2 }}>{d.label}</span>
+      <span style={{ fontSize: 10.5, color: t.text, fontWeight: 650, textAlign: "center", lineHeight: 1.12 }}>
+        {actionLabel}
+      </span>
+      <span style={{ fontSize: 9, color: t.textMuted, textAlign: "center", lineHeight: 1.12 }}>
+        {objectLabel}
+      </span>
     </button>
   );
 });

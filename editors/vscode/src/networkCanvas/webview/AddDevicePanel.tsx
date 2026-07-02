@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type {
   CommApplyResponse,
-  CommFieldSchema,
   CommProtocolSchema,
   CommSchemaResponse,
 } from "../../communication/schemaForm";
+import { coerce, Field } from "./SchemaFields";
+import { t } from "./theme";
 
 interface Props {
   schema?: CommSchemaResponse;
@@ -60,29 +61,15 @@ function valuesWithPrefill(
   return values;
 }
 
-function coerce(field: CommFieldSchema, raw: string): unknown {
-  const t = field.type;
-  if (t === "number") {
-    const n = Number(raw);
-    return Number.isFinite(n) ? n : raw;
-  }
-  if (t === "bool" || t === "boolean") {
-    return raw === "true";
-  }
-  if (t === "json_object") {
-    try {
-      return JSON.parse(raw);
-    } catch {
-      return raw;
-    }
-  }
-  return raw;
-}
-
 export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, target, preselectProtocol, preselectParams, post, onClose }: Props) {
   const protocols = useMemo(() => schema?.protocols ?? [], [schema]);
   const [protocolId, setProtocolId] = useState<string>(preselectProtocol ?? "");
   const [values, setValues] = useState<Record<string, string>>({});
+  const preselectParamsKey = useMemo(
+    () => JSON.stringify(preselectParams ?? null),
+    [preselectParams]
+  );
+  const lastInitializedKey = useRef<string>("");
 
   const protocol = protocols.find((p) => p.id === protocolId);
 
@@ -94,12 +81,18 @@ export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, t
     }
   }, [protocols, protocolId, preselectProtocol]);
 
-  // Reset field values when the selected protocol changes (prefilled from a discovered candidate).
+  // Reset field values only when the selected protocol or prefill changes. The schema/meta stream can
+  // refresh while the drawer is open; that must not wipe fields the user is actively editing.
   useEffect(() => {
-    if (protocol) {
+    if (!protocol) {
+      return;
+    }
+    const initKey = `${protocol.id}\n${preselectParamsKey}`;
+    if (lastInitializedKey.current !== initKey) {
+      lastInitializedKey.current = initKey;
       setValues(valuesWithPrefill(protocol, preselectParams));
     }
-  }, [protocol, preselectParams]);
+  }, [protocol, preselectParams, preselectParamsKey]);
 
   const fieldErrors = new Map(
     (applyResult?.field_errors ?? []).map((e) => [e.field, e.message])
@@ -137,18 +130,24 @@ export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, t
 
   const ok = applyResult && (applyResult.applied || applyResult.lifecycle_effect === "test_ok");
   const blocked = applyResult && applyResult.lifecycle_effect === "blocked";
+  const lifecycleDetail =
+    applyResult?.lifecycle_effect &&
+    !["blocked", "test_ok"].includes(applyResult.lifecycle_effect)
+      ? applyResult.lifecycle_effect
+      : undefined;
 
   return (
     <aside className="trust-inspector" style={PANEL_STYLE} aria-label="Add device">
       <header className="trust-inspector__header">
         <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="trust-inspector__eyebrow">Devices & Connections / Add device or connection</div>
           <div className="trust-inspector__title">{protocol ? `Add ${protocol.title}` : "Add device"}</div>
           {target?.name && <div className="trust-inspector__eyebrow" style={{ marginTop: 2 }}>on {target.name}</div>}
         </div>
         <button onClick={onClose} aria-label="Close" style={iconBtn}>✕</button>
       </header>
 
-      <div className="trust-section trust-section--grow">
+      <div className="trust-section trust-section--grow" style={{ paddingBottom: 18 }}>
         {protocols.length === 0 ? (
           <p className="trust-empty">
             {setupMessage ?? "Device catalog unavailable (needs a newer trust-runtime)."}
@@ -182,24 +181,28 @@ export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, t
                 onChange={(v) => setValues((prev) => ({ ...prev, [field.id]: v }))}
               />
             ))}
-
-            {applyResult && (
-              <div
-                className={`trust-message ${ok ? "trust-message--ok" : blocked ? "trust-message--error" : ""}`}
-              >
-                {applyResult.message || (ok ? "Applied." : "")}
-                {applyResult.lifecycle_effect && applyResult.lifecycle_effect !== "blocked" && (
-                  <div className="trust-message__detail">{applyResult.lifecycle_effect}</div>
-                )}
-              </div>
-            )}
           </>
         )}
       </div>
 
+      {/* Pinned between the scroll body and the footer so the apply/validation result —
+          especially its 2nd line — is never hidden behind the Save/Cancel footer. */}
+      {applyResult && (
+        <div
+          className={`trust-message ${ok ? "trust-message--ok" : blocked ? "trust-message--error" : ""}`}
+          style={{ margin: "0 14px 10px" }}
+        >
+          {applyResult.message || (ok ? "Applied." : "")}
+          {lifecycleDetail && (
+            <div className="trust-message__detail">{lifecycleDetail}</div>
+          )}
+        </div>
+      )}
+
       {protocols.length > 0 && (
-        <footer className="trust-section" style={{ display: "flex", flexWrap: "wrap", gap: 8, borderBottom: "none" }}>
+        <footer className="trust-section" style={{ display: "flex", flexWrap: "wrap", gap: 8, borderBottom: "none", borderTop: `1px solid ${t.border}`, background: t.surface }}>
           <button onClick={() => submit("commSave")} className="trust-button trust-button--primary" style={{ flex: 1 }}>Save</button>
+          <button onClick={onClose} className="trust-button">Cancel</button>
           {protocol?.supports_test && reachable && (
             <button onClick={() => submit("commTest")} className="trust-button">Test</button>
           )}
@@ -211,59 +214,6 @@ export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, t
         </footer>
       )}
     </aside>
-  );
-}
-
-function Field({
-  field,
-  value,
-  error,
-  onChange,
-}: {
-  field: CommFieldSchema;
-  value: string;
-  error?: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div className="trust-field">
-      <label>
-        {field.label}
-        {field.required && <span className="trust-field__required"> *</span>}
-      </label>
-      {field.options && field.options.length > 0 ? (
-        <select value={value} onChange={(e) => onChange(e.target.value)} className={error ? "trust-input trust-input--error" : "trust-input"}>
-          {field.options.map((o) => (
-            <option key={o} value={o}>{o}</option>
-          ))}
-        </select>
-      ) : field.type === "json_object" ? (
-        <textarea
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          rows={3}
-          className={error ? "trust-input trust-input--error" : "trust-input"}
-          style={{ resize: "vertical", fontFamily: "var(--trust-mono)" }}
-        />
-      ) : field.type === "bool" || field.type === "boolean" ? (
-        <select value={value} onChange={(e) => onChange(e.target.value)} className={error ? "trust-input trust-input--error" : "trust-input"}>
-          <option value="false">false</option>
-          <option value="true">true</option>
-        </select>
-      ) : (
-        <input
-          type={field.secret ? "password" : field.type === "number" ? "number" : "text"}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className={error ? "trust-input trust-input--error" : "trust-input"}
-        />
-      )}
-      {error ? (
-        <div className="trust-field__message trust-field__message--error">{error}</div>
-      ) : field.help ? (
-        <div className="trust-field__message">{field.help}</div>
-      ) : null}
-    </div>
   );
 }
 

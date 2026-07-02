@@ -137,8 +137,13 @@ export function mountStRuntimePanel(
     }
   };
 
+  const isTransientStatusText = (message: string) =>
+    /^Live Values (loading|ready)\.?$/i.test(message) ||
+    /^Start the runtime to see live values\.?$/i.test(message) ||
+    /^Connect to the selected runtime to see live values\.?$/i.test(message);
+
   const reportWebviewError = (message: string, stack: string) => {
-    setStatusText(`Runtime panel error: ${message}`);
+    setStatusText(`Live Values error: ${message}`);
     vscode.postMessage({
       type: "webviewError",
       message,
@@ -333,7 +338,8 @@ export function mountStRuntimePanel(
 
     if (runtimeStatusText) {
       const isRunning = runtimeState === "running" || runtimeState === "connected";
-      runtimeStatusText.textContent = isRunning ? "Running" : "Stopped";
+      runtimeStatusText.textContent =
+        runtimeState === "connected" ? "Connected" : isRunning ? "Running" : "Stopped";
       runtimeStatusText.classList.toggle("running", isRunning);
       runtimeStatusText.classList.toggle("connected", runtimeState === "connected");
       runtimeStatusText.classList.toggle("disconnected", !isRunning);
@@ -517,7 +523,9 @@ export function mountStRuntimePanel(
   ): string => {
     const booleanValue = parseBooleanValue(entry.value || display.value);
     if (booleanValue !== undefined) {
-      return booleanValue ? "FALSE" : "TRUE";
+      // Pre-fill with the current value. Rendering a BOOL row must not silently choose
+      // the opposite force/write value before the user clicks the toggle.
+      return booleanValue ? "TRUE" : "FALSE";
     }
 
     const numericValue = defaultNumericValue(display.value || entry.value);
@@ -542,6 +550,27 @@ export function mountStRuntimePanel(
       return { value: text, type: "" };
     }
     return { value: match[2], type: match[1].toUpperCase() };
+  };
+
+  const typeFromAddress = (address: unknown): string => {
+    const match = String(address || "").match(/^%[IQM]([XBWDL])/i);
+    if (!match) {
+      return "";
+    }
+    switch (match[1].toUpperCase()) {
+      case "X":
+        return "BOOL";
+      case "B":
+        return "BYTE";
+      case "W":
+        return "WORD";
+      case "D":
+        return "DWORD";
+      case "L":
+        return "LWORD";
+      default:
+        return "";
+    }
   };
 
   const createNode = (
@@ -592,6 +621,28 @@ export function mountStRuntimePanel(
       return wrapper;
     }
 
+    if (allowActions) {
+      const header = document.createElement("div");
+      header.className = "row-header";
+      const signal = document.createElement("div");
+      signal.textContent = "Name";
+      const value = document.createElement("div");
+      value.textContent = "Value";
+      const type = document.createElement("div");
+      type.textContent = "Type";
+      const state = document.createElement("div");
+      state.textContent = "State";
+      const actions = document.createElement("div");
+      actions.className = "actions-heading";
+      actions.textContent = "Actions";
+      header.appendChild(signal);
+      header.appendChild(value);
+      header.appendChild(type);
+      header.appendChild(state);
+      header.appendChild(actions);
+      wrapper.appendChild(header);
+    }
+
     for (const entry of filtered) {
       const row = document.createElement("div");
       row.className = "row";
@@ -610,12 +661,7 @@ export function mountStRuntimePanel(
       nameCell.appendChild(nameLabel);
 
       const display = splitDisplayValue(entry.value || "");
-      if (display.type) {
-        const typeLabel = document.createElement("div");
-        typeLabel.className = "type";
-        typeLabel.textContent = display.type;
-        nameCell.appendChild(typeLabel);
-      }
+      const displayType = display.type || typeFromAddress(entry.address);
       if (showAddress && entry.address) {
         const address = document.createElement("div");
         address.className = "address";
@@ -626,14 +672,35 @@ export function mountStRuntimePanel(
       const valueCell = document.createElement("div");
       valueCell.className = "value";
       valueCell.textContent = display.value || "";
+
+      const typeCell = document.createElement("div");
+      typeCell.className = "type-cell";
+      typeCell.textContent = displayType || "—";
+
+      const stateCell = document.createElement("div");
+      stateCell.className = "state-cell";
+      const stateBadge = document.createElement("span");
+      const isForced = Boolean(entry.forced);
       if (operationPending) {
-        valueCell.textContent = `${valueCell.textContent}  (pending)`.trim();
+        stateBadge.className = "state-badge pending";
+        stateBadge.textContent = "pending";
       } else if (operationError) {
-        valueCell.textContent = `${valueCell.textContent}  (error)`.trim();
+        stateBadge.className = "state-badge error";
+        stateBadge.textContent = "error";
+      } else if (isForced) {
+        row.classList.add("forced");
+        stateBadge.className = "state-badge forced";
+        stateBadge.textContent = "FORCED";
+      } else {
+        stateBadge.className = "state-badge live";
+        stateBadge.textContent = "live";
       }
+      stateCell.appendChild(stateBadge);
 
       row.appendChild(nameCell);
       row.appendChild(valueCell);
+      row.appendChild(typeCell);
+      row.appendChild(stateCell);
 
       if (allowActions) {
         const actions = document.createElement("div");
@@ -642,27 +709,57 @@ export function mountStRuntimePanel(
         const canForce = allowForce;
         const canRelease = allowRelease;
 
-        const input = document.createElement("input");
-        input.className = "value-input";
-        input.type = "text";
         const key = `${entry.name || ""}|${entry.address || ""}|${
           entry.writeTarget || ""
         }`;
-        input.dataset.key = key;
-        input.value = editCache.has(key)
+        const defaultValue = editCache.has(key)
           ? editCache.get(key)!
           : defaultWriteValue(entry, display);
-        input.placeholder = entry.value || "";
-        input.disabled = !(canWrite || canForce) || operationPending;
-        input.addEventListener("input", () => {
-          editCache.set(key, input.value);
-        });
-        input.addEventListener("focus", () => {
-          editCache.set(key, input.value);
-        });
-        input.addEventListener("blur", () => {
-          editCache.delete(key);
-        });
+        const createTextInput = (): HTMLInputElement => {
+          const input = document.createElement("input");
+          input.className = "value-input";
+          input.type = "text";
+          input.dataset.key = key;
+          input.value = defaultValue;
+          input.placeholder = entry.value || "";
+          input.disabled = !(canWrite || canForce) || operationPending;
+          input.addEventListener("input", () => {
+            editCache.set(key, input.value);
+          });
+          input.addEventListener("focus", () => {
+            editCache.set(key, input.value);
+          });
+          input.addEventListener("blur", () => {
+            editCache.delete(key);
+          });
+          return input;
+        };
+        const boolCurrentValue =
+          String(display.value || entry.value || "").toUpperCase() === "TRUE";
+        // BOOL rows get a TRUE/FALSE chooser in the write-box slot so the operator explicitly
+        // picks the value to write or force (starts at the current value).
+        const createBoolToggle = (): HTMLButtonElement => {
+          const toggle = document.createElement("button");
+          toggle.type = "button";
+          toggle.className = "value-input bool-toggle";
+          const initial = boolCurrentValue ? "TRUE" : "FALSE";
+          toggle.value = initial;
+          toggle.textContent = initial;
+          toggle.dataset.key = key;
+          toggle.setAttribute("aria-pressed", boolCurrentValue ? "true" : "false");
+          toggle.title = "Choose the value to write or force (click to toggle TRUE / FALSE)";
+          toggle.setAttribute("aria-label", "Value to write or force");
+          toggle.disabled = !(canWrite || canForce) || operationPending;
+          toggle.addEventListener("click", () => {
+            const next = toggle.value === "TRUE" ? "FALSE" : "TRUE";
+            toggle.value = next;
+            toggle.textContent = next;
+            toggle.setAttribute("aria-pressed", next === "TRUE" ? "true" : "false");
+          });
+          return toggle;
+        };
+        const valueControl: HTMLInputElement | HTMLButtonElement =
+          displayType === "BOOL" ? createBoolToggle() : createTextInput();
 
         const actionTarget = String(
           entry.writeTarget && entry.writeTarget.trim().length > 0
@@ -676,7 +773,7 @@ export function mountStRuntimePanel(
             return;
           }
           if (action !== "release") {
-            const raw = input.value.trim();
+            const raw = String((valueControl && valueControl.value) || "").trim();
             if (!raw) {
               setStatusText("Enter a value.");
               return;
@@ -698,34 +795,47 @@ export function mountStRuntimePanel(
 
         const writeButton = document.createElement("button");
         writeButton.className = "mini-btn";
-        writeButton.textContent = "W";
-        writeButton.title = "Write once (next cycle, inputs only)";
+        writeButton.textContent =
+          "Write";
+        writeButton.title =
+          displayType === "BOOL"
+            ? "Write the chosen value once (next cycle, inputs only)"
+            : "Write once (next cycle, inputs only)";
+        writeButton.setAttribute("aria-label", "Write value once");
         writeButton.disabled = !canWrite || operationPending;
         writeButton.addEventListener("click", () => sendValue("write"));
 
         const forceButton = document.createElement("button");
         forceButton.className = "mini-btn";
-        const isForced = Boolean(entry.forced);
         forceButton.classList.toggle("active", isForced);
         forceButton.setAttribute("aria-pressed", isForced ? "true" : "false");
-        forceButton.textContent = isForced ? "F*" : "F";
+        forceButton.textContent = "Force";
         forceButton.title = isForced
           ? "Force continuously (active)"
-          : "Force continuously";
+          : displayType === "BOOL"
+            ? "Force the chosen value continuously"
+            : "Force continuously";
+        forceButton.setAttribute("aria-label", "Force value continuously");
         forceButton.disabled = !canForce || operationPending;
         forceButton.addEventListener("click", () => sendValue("force"));
 
         const releaseButton = document.createElement("button");
         releaseButton.className = "mini-btn";
-        releaseButton.textContent = "R";
+        releaseButton.textContent = "Release";
         releaseButton.title = "Release force";
+        releaseButton.setAttribute("aria-label", "Release forced value");
         releaseButton.disabled = !canRelease || operationPending;
         releaseButton.addEventListener("click", () => sendValue("release"));
 
-        actions.appendChild(input);
+        if (valueControl) {
+          actions.appendChild(valueControl);
+        }
         actions.appendChild(writeButton);
-        actions.appendChild(forceButton);
-        actions.appendChild(releaseButton);
+        if (isForced) {
+          actions.appendChild(releaseButton);
+        } else {
+          actions.appendChild(forceButton);
+        }
         row.appendChild(actions);
       }
 
@@ -886,7 +996,9 @@ export function mountStRuntimePanel(
     }
 
     if (message.type === "ioState") {
-      setStatusText("");
+      if (isTransientStatusText(status?.textContent || "")) {
+        setStatusText("");
+      }
       currentState = message.payload || { inputs: [], outputs: [], memory: [] };
       render(currentState);
       return;
@@ -916,7 +1028,7 @@ export function mountStRuntimePanel(
   addListener(window, "message", onMessage);
 
   setSettingsOpen(options.initialSettingsOpen === true);
-  setStatusText("Runtime panel ready.");
+  setStatusText("Live Values ready.");
   vscode.postMessage({ type: "webviewReady" });
 
   return () => {

@@ -116,12 +116,32 @@ suite("Runtime target", function () {
       {
         probeEndpoint: async () => true,
         requestStatus: async () => {
-          throw new RuntimeControlError("invalid token", "AUTH_FAILED");
+          throw new RuntimeControlError("invalid auth token", "invalid_auth_token");
         },
       }
     );
 
     assert.strictEqual(target.status, "auth_failed");
+    assert.strictEqual(target.authFailureKind, "rejected");
+    assert.strictEqual(target.reachable, true);
+  });
+
+  test("reports missing auth token as a distinct auth failure", async () => {
+    const target = await resolveRuntimeTargetFromSettings(
+      {
+        mode: "online",
+        endpoint: "tcp://127.0.0.1:9901",
+      },
+      {
+        probeEndpoint: async () => true,
+        requestStatus: async () => {
+          throw new RuntimeControlError("missing auth token", "missing_auth_token");
+        },
+      }
+    );
+
+    assert.strictEqual(target.status, "auth_failed");
+    assert.strictEqual(target.authFailureKind, "missing");
     assert.strictEqual(target.reachable, true);
   });
 

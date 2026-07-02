@@ -2,14 +2,14 @@
 
 /* Toolbox categories - better text contrast */
 .blocklyToolboxCategory {
-  color: var(--trust-on-accent) !important;
+  color: var(--trust-text) !important;
   font-weight: 500 !important;
   font-size: 14px !important;
 }
 
 /* Category label text */
 .blocklyTreeLabel {
-  color: var(--trust-on-accent) !important;
+  color: var(--trust-text) !important;
   font-weight: 500 !important;
 }
 
@@ -26,9 +26,11 @@
 }
 
 /* Main workspace background */
+.blocklySvg,
 .blocklyMainBackground {
   stroke-width: 0 !important;
-  fill: var(--vscode-editor-background) !important;
+  background-color: var(--trust-canvas) !important;
+  fill: var(--trust-canvas) !important;
 }
 
 /* Grid lines */
@@ -111,6 +113,10 @@
   background-color: var(--vscode-list-hoverBackground) !important;
 }
 
+.blocklyTreeRow:hover .blocklyTreeLabel {
+  color: var(--vscode-list-hoverForeground, var(--trust-text)) !important;
+}
+
 .blocklyTreeRowContentContainer {
   display: flex;
   align-items: center;
@@ -119,6 +125,10 @@
 /* Selected category */
 .blocklyTreeSelected > .blocklyTreeRow {
   background-color: var(--vscode-list-activeSelectionBackground) !important;
+}
+
+.blocklyTreeSelected .blocklyTreeLabel {
+  color: var(--vscode-list-activeSelectionForeground, var(--trust-text)) !important;
 }
 
 /* Ensure text is readable on all block colors */

@@ -12,10 +12,15 @@ import {
   type FleetTopologyResponse,
 } from "../../networkCanvas/fleetTopology";
 import { buildCanvasGraph } from "../../networkCanvas/graphData";
+import { buildGraph } from "../../networkCanvas/webview/layout";
 import type { RuntimeTarget } from "../../runtimeTarget";
 import { classifyRuntimeStartFailure } from "../../networkCanvas/runtimeFailures";
 import { runtimeNodeControls } from "../../networkCanvas/webview/runtimeNodeControls";
-import { groupByCategory, CATEGORY_ORDER } from "../../networkCanvas/webview/grouping";
+import { ADD_PICKER_GROUPS, groupForAddPicker } from "../../networkCanvas/webview/grouping";
+import { applyFilter, filterReport } from "../../networkCanvas/webview/filter";
+import { buildExposeApplyParams } from "../../networkCanvas/exposeConfig";
+import { commTestMessage } from "../../communication/runtimeComm";
+import { protocolColor, protocolName } from "../../networkCanvas/webview/protocolMeta";
 
 const RUNNING = {
   running: true,
@@ -92,6 +97,75 @@ suite("Network Canvas", function () {
     assert.strictEqual(model.fleet?.hosts[0]?.runtimes[0]?.health, "degraded");
   });
 
+  test("fleet host headlines are user-facing, not raw lab machine names", () => {
+    const local = fleetTopology();
+    local.hosts[0].hostname = "scena-rust-builder";
+    local.hosts[0].ips = ["127.0.0.1"];
+    local.hosts[0].runtimes[0].control_endpoint = "tcp://127.0.0.1:39855";
+    const localModel = buildNetworkCanvasModel({
+      stage: "runtime_live",
+      runtime: RUNNING,
+      topology: local,
+    });
+    assert.strictEqual(localModel.fleet?.hosts[0]?.hostname, "This computer");
+    assert.ok(
+      localModel.fleet?.hosts[0]?.label.includes("scena-rust-builder"),
+      "the raw hostname is retained as detail for diagnostics, not the headline"
+    );
+
+    const remote = fleetTopology();
+    remote.hosts[0].hostname = "scena-rust-builder";
+    remote.hosts[0].ips = ["192.168.77.10"];
+    remote.hosts[0].runtimes[0].control_endpoint = "tcp://192.168.77.10:5680";
+    const remoteModel = buildNetworkCanvasModel({
+      stage: "runtime_live",
+      runtime: RUNNING,
+      topology: remote,
+    });
+    assert.strictEqual(remoteModel.fleet?.hosts[0]?.hostname, "Computer 192.168.77.10");
+    assert.ok(
+      remoteModel.fleet?.hosts[0]?.label.includes("scena-rust-builder"),
+      "the raw hostname remains available as supporting detail"
+    );
+  });
+
+  test("unreachable configured peers keep their configured label, not 'This computer'", () => {
+    const topology: FleetTopologyResponse = {
+      schema_version: 3,
+      hosts: [
+        {
+          host_id: "fleet:tcp://127.0.0.1:5510",
+          hostname: "discoveredcell",
+          arch: "",
+          os: "",
+          ips: [],
+          containers: [],
+          runtimes: [
+            {
+              runtime_id: "fleet:tcp://127.0.0.1:5510:runtime",
+              name: "discoveredcell",
+              control_endpoint: "tcp://127.0.0.1:5510",
+              mode: "error",
+              cycle_ms: 0,
+              health: "error",
+              detail: "Authentication failed — check the runtime's auth token.",
+              endpoints: [],
+            },
+          ],
+        },
+      ],
+      links: [],
+      shared: [],
+      external: [],
+    };
+    const model = buildNetworkCanvasModel({
+      stage: "runtime_live",
+      runtime: RUNNING,
+      topology,
+    });
+    assert.strictEqual(model.fleet?.hosts[0]?.hostname, "discoveredcell");
+  });
+
   test("fleet search never hides degraded endpoints from the runtime rollup", () => {
     const model = buildNetworkCanvasModel({
       stage: "runtime_live",
@@ -106,6 +180,27 @@ suite("Network Canvas", function () {
     );
     assert.strictEqual(mqtt?.health, "degraded", "raw health preserved");
     assert.strictEqual(mqtt?.dimmed, true, "non-match dimmed for display only");
+  });
+
+  test("fleet search dims external counterparts and wires without hiding warnings", () => {
+    const topology = fleetTopology();
+    const model = buildNetworkCanvasModel({
+      stage: "runtime_live",
+      runtime: RUNNING,
+      topology,
+      searchQuery: "modbus",
+    });
+    const graph = buildCanvasGraph(model, topology);
+    const rendered = buildGraph(graph, undefined, false);
+    const mqttEndpoint = rendered.nodes.find((node) => node.id === "endpoint:runtime-a:mqtt");
+    const mqttBroker = rendered.nodes.find((node) => node.id === "shared:mqtt:broker");
+    const mqttLink = rendered.edges.find((edge) => edge.id === "link:mqtt:broker");
+    const warning = graph.faults.find((fault) => /mqtt/i.test(fault.label));
+
+    assert.strictEqual(mqttEndpoint?.data.dimmed, true, "nonmatching endpoint is dimmed");
+    assert.strictEqual(mqttBroker?.data.dimmed, true, "counterpart external node is dimmed too");
+    assert.strictEqual(mqttLink?.data?.dimmed, true, "counterpart wire is dimmed too");
+    assert.ok(warning, "search preserves the degraded endpoint warning");
   });
 
   // --- Graph mapping (the React Flow canvas data) ---------------------------
@@ -125,8 +220,42 @@ suite("Network Canvas", function () {
     assert.ok(graph.links.some((l) => l.protocol === "mesh"));
     assert.ok(graph.external.some((x) => x.id === "external:mesh:0"));
     assert.ok(
+      graph.external.some((x) => x.id === "shared:mqtt:broker"),
+      "shared MQTT broker nodes must render so publish/subscribe links are not dangling"
+    );
+    assert.ok(graph.links.some((l) => l.to === "shared:mqtt:broker"));
+    assert.ok(
       graph.faults.some((f) => f.targetNodeId === "endpoint:runtime-a:mqtt"),
       "degraded endpoint surfaces as a fault"
+    );
+  });
+
+  test("buildCanvasGraph does not duplicate a runtime as an external system", () => {
+    const topology = fleetTopology();
+    topology.external.push({
+      id: "external:self",
+      kind: "runtime",
+      name: "Line runtime",
+      via_protocol: ["discovery"],
+      direction: "outbound",
+    });
+    const model = buildNetworkCanvasModel({
+      stage: "runtime_live",
+      runtime: RUNNING,
+      topology,
+    });
+    const graph = buildCanvasGraph(model, topology);
+    assert.ok(
+      graph.hosts[0].runtimes.some((runtime) => runtime.name === "Line runtime"),
+      "the runtime itself stays visible"
+    );
+    assert.ok(
+      !graph.external.some((external) => external.name === "Line runtime"),
+      "the same runtime must not also appear as an external system"
+    );
+    assert.ok(
+      graph.external.some((external) => external.id === "external:mesh:0"),
+      "unrelated external systems stay visible"
     );
   });
 
@@ -150,6 +279,385 @@ suite("Network Canvas", function () {
     for (const link of graph.links) {
       assert.ok(ids.has(link.from) || ids.has(link.to), `link ${link.id} references known nodes`);
     }
+  });
+
+  test("draft/pending wire links render dashed, connected links stay solid (honest: not yet a live link)", () => {
+    const graph = buildGraph({
+      kind: "graph",
+      title: "Devices & Connections",
+      summary: "",
+      hosts: [
+        {
+          id: "host:local",
+          hostname: "this computer",
+          label: "local host",
+          health: "connected",
+          containers: [],
+          runtimes: [
+            {
+              id: "runtime:local",
+              name: "truST runtime",
+              mode: "simulate",
+              health: "stopped",
+              detail: "",
+              endpoints: [
+                {
+                  id: "endpoint:openot",
+                  kind: "field",
+                  protocol: "openot",
+                  name: "OpenOT",
+                  role: "client",
+                  health: "pending",
+                  detail: "",
+                },
+                {
+                  id: "endpoint:ads",
+                  kind: "field",
+                  protocol: "ads",
+                  name: "ADS",
+                  role: "client",
+                  health: "connected",
+                  detail: "",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      links: [
+        {
+          id: "link:openot",
+          from: "endpoint:openot",
+          to: "external:openot",
+          protocol: "openot",
+          role: "client",
+          status: "pending",
+          secure: false,
+        },
+        {
+          id: "link:ads",
+          from: "endpoint:ads",
+          to: "external:ads",
+          protocol: "ads",
+          role: "client",
+          status: "connected",
+          secure: false,
+        },
+      ],
+      external: [
+        { id: "external:openot", name: "openot peer", kind: "server" },
+        { id: "external:ads", name: "ads server", kind: "server" },
+      ],
+      faults: [],
+    });
+    const draftEdge = graph.edges.find((edge) => edge.id === "link:openot");
+    const liveEdge = graph.edges.find((edge) => edge.id === "link:ads");
+    assert.ok(draftEdge, "expected the pending openot wire");
+    assert.ok(liveEdge, "expected the connected ads wire");
+    assert.strictEqual(draftEdge?.data?.dashed, true, "a pending link must render dashed, not as a live connection");
+    assert.ok(!liveEdge?.data?.dashed, "a connected link must render solid");
+  });
+
+  test("draft/pending mesh peers drop a dashed bus wire; connected peers stay solid", () => {
+    const graph = buildGraph({
+      kind: "graph",
+      title: "Devices & Connections",
+      summary: "",
+      hosts: [
+        {
+          id: "host:local",
+          hostname: "this computer",
+          label: "local host",
+          health: "connected",
+          containers: [],
+          runtimes: [
+            {
+              id: "runtime:local",
+              name: "truST runtime",
+              mode: "simulate",
+              health: "stopped",
+              detail: "",
+              endpoints: [
+                {
+                  id: "endpoint:mesh-draft",
+                  kind: "field",
+                  protocol: "mesh",
+                  name: "Mesh (draft)",
+                  role: "peer",
+                  health: "pending",
+                  detail: "",
+                },
+                {
+                  id: "endpoint:mesh-live",
+                  kind: "field",
+                  protocol: "mesh",
+                  name: "Mesh (live)",
+                  role: "peer",
+                  health: "connected",
+                  detail: "",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      links: [],
+      external: [],
+      faults: [],
+    });
+    const draftMesh = graph.edges.find((edge) => edge.id === "mesh-endpoint:mesh-draft");
+    const liveMesh = graph.edges.find((edge) => edge.id === "mesh-endpoint:mesh-live");
+    const meshBus = graph.nodes.find((node) => node.id === "bus:mesh");
+    assert.ok(draftMesh, "expected a bus wire for the draft mesh peer");
+    assert.ok(liveMesh, "expected a bus wire for the live mesh peer");
+    assert.strictEqual(draftMesh?.data?.dashed, true, "a pending mesh peer must render dashed");
+    assert.strictEqual(liveMesh?.data?.dashed, true, "a mixed draft/live fabric stays dashed until all peers are live");
+    assert.strictEqual(meshBus?.data?.draft, true, "mesh fabric must visibly carry the DRAFT state");
+    assert.notStrictEqual(meshBus?.data?.color, "rgb(137,209,133)", "draft fabric must not use the live green");
+  });
+
+  test("external protocol nodes render display names, not raw driver ids", () => {
+    const graph = buildGraph({
+      kind: "graph",
+      title: "Devices & Connections",
+      summary: "",
+      hosts: [
+        {
+          id: "host:local",
+          hostname: "this computer",
+          label: "local host",
+          health: "connected",
+          containers: [],
+          runtimes: [
+            {
+              id: "runtime:local",
+              name: "truST runtime",
+              mode: "simulate",
+              health: "stopped",
+              detail: "",
+              endpoints: [
+                {
+                  id: "endpoint:modbus",
+                  kind: "field",
+                  protocol: "modbus_tcp",
+                  name: "Modbus",
+                  role: "client",
+                  health: "pending",
+                  detail: "",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      links: [
+        {
+          id: "link:modbus",
+          from: "endpoint:modbus",
+          to: "external:modbus",
+          protocol: "modbus_tcp",
+          role: "client",
+          status: "configured_policy",
+          secure: false,
+        },
+      ],
+      external: [{ id: "external:modbus", name: "modbus_tcp 127.0.0.1:502", kind: "server" }],
+      faults: [],
+    });
+    const external = graph.nodes.find((node) => node.id === "external:modbus");
+    assert.ok(external, "expected external Modbus node");
+    assert.strictEqual(external?.data.label, "Modbus TCP 127.0.0.1:502");
+    assert.strictEqual(external?.data.sub, "Modbus TCP server");
+  });
+
+  test("OPC UA client links label the external counterpart as an OPC UA server", () => {
+    const graph = buildGraph({
+      kind: "graph",
+      title: "Devices & Connections",
+      summary: "1 host · 1 runtime · 1 endpoint",
+      hosts: [
+        {
+          id: "host:local",
+          hostname: "This computer",
+          label: "local",
+          health: "connected",
+          containers: [],
+          runtimes: [
+            {
+              id: "runtime:local",
+              name: "truST runtime",
+              mode: "simulate",
+              health: "stopped",
+              detail: "",
+              endpoints: [
+                {
+                  id: "endpoint:opcua-client",
+                  kind: "field",
+                  protocol: "opcua_client",
+                  name: "OPC UA client",
+                  role: "client",
+                  health: "pending",
+                  detail: "",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      links: [
+        {
+          id: "link:opcua-client",
+          from: "endpoint:opcua-client",
+          to: "external:opcua:server",
+          protocol: "opcua_client",
+          role: "client",
+          status: "configured_policy",
+          secure: false,
+        },
+      ],
+      external: [{ id: "external:opcua:server", name: "OPC UA server line-a", kind: "server" }],
+      faults: [],
+    });
+    const external = graph.nodes.find((node) => node.id === "external:opcua:server");
+    assert.ok(external, "expected external OPC UA server node");
+    assert.strictEqual(external?.data.label, "OPC UA server line-a");
+    assert.strictEqual(external?.data.sub, "OPC UA server");
+    assert.notStrictEqual(external?.data.sub, "OPC UA client server");
+  });
+
+  test("OPC UA server links label the external counterpart as an OPC UA client", () => {
+    const graph = buildGraph({
+      kind: "graph",
+      title: "Devices & Connections",
+      summary: "1 host · 1 runtime · 1 endpoint",
+      hosts: [
+        {
+          id: "host:local",
+          hostname: "This computer",
+          label: "local",
+          health: "connected",
+          containers: [],
+          runtimes: [
+            {
+              id: "runtime:local",
+              name: "truST runtime",
+              mode: "simulate",
+              health: "connected",
+              detail: "",
+              endpoints: [
+                {
+                  id: "endpoint:opcua-server",
+                  kind: "service",
+                  protocol: "opcua",
+                  name: "OPC UA server",
+                  role: "server",
+                  health: "connected",
+                  detail: "",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      links: [
+        {
+          id: "link:opcua-server",
+          from: "endpoint:opcua-server",
+          to: "external:opcua:client",
+          protocol: "opcua",
+          role: "server",
+          status: "connected",
+          secure: false,
+        },
+      ],
+      external: [{ id: "external:opcua:client", name: "External client", kind: "client" }],
+      faults: [],
+    });
+    const external = graph.nodes.find((node) => node.id === "external:opcua:client");
+    assert.ok(external, "expected external OPC UA client node");
+    assert.strictEqual(external?.data.sub, "OPC UA client");
+  });
+
+  test("ADS client links label the external counterpart as an ADS server", () => {
+    const graph = buildGraph({
+      kind: "graph",
+      title: "Devices & Connections",
+      summary: "1 host · 1 runtime · 1 endpoint",
+      hosts: [
+        {
+          id: "host:local",
+          hostname: "This computer",
+          label: "local",
+          health: "connected",
+          containers: [],
+          runtimes: [
+            {
+              id: "runtime:local",
+              name: "truST runtime",
+              mode: "simulate",
+              health: "stopped",
+              detail: "",
+              endpoints: [
+                {
+                  id: "endpoint:ads-client",
+                  kind: "field",
+                  protocol: "ads",
+                  name: "ADS client",
+                  role: "client",
+                  health: "pending",
+                  detail: "",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      links: [
+        {
+          id: "link:ads-client",
+          from: "endpoint:ads-client",
+          to: "external:ads:server",
+          protocol: "ads",
+          role: "client",
+          status: "configured_policy",
+          secure: false,
+        },
+      ],
+      external: [{ id: "external:ads:server", name: "TwinCAT 5.23.91.12.1.1", kind: "server" }],
+      faults: [],
+    });
+    const external = graph.nodes.find((node) => node.id === "external:ads:server");
+    assert.ok(external, "expected external ADS server node");
+    assert.strictEqual(external?.data.sub, "ADS server");
+    assert.notStrictEqual(external?.data.sub, "ADS client server");
+  });
+
+  test("protocol filtering reports hidden degraded/faulted endpoints instead of silently losing them", () => {
+    const topology = fleetTopology();
+    const graph = buildCanvasGraph(
+      buildNetworkCanvasModel({
+        stage: "runtime_live",
+        runtime: RUNNING,
+        topology,
+      }),
+      topology
+    );
+    const hidden = new Set(["mqtt"]);
+    const filtered = applyFilter(graph, hidden);
+    const report = filterReport(graph, hidden);
+
+    const remainingEndpoints = filtered.hosts.flatMap((host) =>
+      host.runtimes.flatMap((runtime) => runtime.endpoints)
+    );
+    assert.ok(
+      !remainingEndpoints.some((endpoint) => endpoint.protocol === "mqtt"),
+      "the protocol filter hides MQTT endpoints"
+    );
+    assert.strictEqual(report.hiddenEndpointCount, 1);
+    assert.strictEqual(report.hiddenAttentionCount, 1);
+    assert.strictEqual(report.hiddenFaultCount, 1);
+    assert.strictEqual(report.hiddenWarningCount, 1);
+    assert.strictEqual(report.hiddenErrorCount, 0);
   });
 
   // --- Multi-runtime merge (§10/§12.10) ------------------------------------
@@ -241,6 +749,22 @@ suite("Network Canvas", function () {
       "auth failure is a real error"
     );
     assert.strictEqual(
+      offlineTopologyForTarget({
+        ...base,
+        status: "auth_failed",
+        authFailureKind: "missing",
+      })?.hosts[0].runtimes[0].detail,
+      "No auth token provided — this runtime requires one."
+    );
+    assert.strictEqual(
+      offlineTopologyForTarget({
+        ...base,
+        status: "auth_failed",
+        authFailureKind: "rejected",
+      })?.hosts[0].runtimes[0].detail,
+      "Auth token rejected — check it and try again."
+    );
+    assert.strictEqual(
       offlineTopologyForTarget({ ...base, status: "online_reachable" }),
       undefined,
       "a reachable peer uses its real fleet.topology, not a synthetic node"
@@ -289,6 +813,28 @@ suite("Network Canvas", function () {
     assert.strictEqual(peer?.runtimes[0].health, "stopped", "peer stays stopped/grey, never green");
   });
 
+  test("auth-failed synthetic runtime nodes keep control endpoint for inspector actions", () => {
+    const endpoint = "tcp://127.0.0.1:33101";
+    const topo = offlineTopologyForTarget({
+      mode: "online",
+      endpoint,
+      endpointEnabled: true,
+      reachable: true,
+      status: "auth_failed",
+      label: "discoveredcell",
+      credentialChannel: "trusted_same_host",
+    });
+    assert.ok(topo, "auth-failed configured runtime should still synthesize a node");
+    const graph = buildCanvasGraph(buildNetworkCanvasModel("runtime_live"), undefined, topo);
+    const rendered = buildGraph(graph).nodes.find((node) => node.type === "runtime" && node.id.includes(endpoint));
+    assert.ok(rendered, "synthetic auth-failed runtime node should render");
+    assert.strictEqual(
+      rendered?.data.controlEndpoint,
+      endpoint,
+      "runtime inspector actions need the endpoint for Set auth token and Set as run target"
+    );
+  });
+
   test("a new project with no configured runtime shows the local simulator node, not an empty screen", () => {
     const graph = buildCanvasGraph(buildNetworkCanvasModel("runtime_live"), undefined);
     assert.strictEqual(graph.kind, "graph");
@@ -306,7 +852,7 @@ suite("Network Canvas", function () {
     assert.strictEqual(graph.hosts[0].runtimes[0].health, "connected");
   });
 
-  test("managed local runtimes are injected as owned nodes (Phase 9) with managed name + honest health", () => {
+  test("managed local runtimes are injected under the existing This computer host", () => {
     const graph = buildCanvasGraph(
       buildNetworkCanvasModel("runtime_live"),
       undefined,
@@ -317,8 +863,14 @@ suite("Network Canvas", function () {
         { name: "cell2", controlEndpoint: "tcp://127.0.0.1:9903", state: "running" },
       ]
     );
-    const managedHost = graph.hosts.find((h) => h.id === "host:managed-local");
-    assert.ok(managedHost, "a 'this computer' managed host is injected");
+    assert.strictEqual(
+      graph.hosts.filter((host) => host.hostname === "This computer").length,
+      1,
+      "local simulator and managed local runtimes share one This computer host"
+    );
+    assert.strictEqual(graph.hosts.length, 1, "managed injection must not draw a duplicate host");
+    assert.strictEqual(graph.summary, "1 host · 3 runtimes · 0 endpoints");
+    const managedHost = graph.hosts[0];
     const cell1 = managedHost?.runtimes.find((r) => r.managedName === "cell1");
     const cell2 = managedHost?.runtimes.find((r) => r.managedName === "cell2");
     assert.ok(cell1?.managed === true && cell2?.managed === true, "nodes are marked managed");
@@ -409,6 +961,21 @@ suite("Network Canvas", function () {
     assert.strictEqual(classifyRuntimeStartFailure("something else broke").kind, "failed_spawn");
   });
 
+  test("OPC UA client test failures render user-facing recovery text, not raw backend tokens", () => {
+    const message = commTestMessage("opcua_client", {
+      protocol: "opcua_client",
+      supported: true,
+      ok: false,
+      detail: "OPC UA endpoint handshake failed: OPC UA status: BadNotConnected",
+      error: {
+        code: "endpoint_unreachable",
+        message: "OPC UA endpoint handshake failed: OPC UA status: BadNotConnected",
+      },
+    });
+    assert.ok(message.includes("OPC UA server is not reachable"));
+    assert.ok(!message.includes("BadNotConnected"), "raw OPC UA status must not leak into the user-facing result");
+  });
+
   // P2 regression guard (UX overhaul §9): the Network Canvas is the comms front door — it must own
   // communication setup in-canvas and never send the user (by command, panel import, OR copy) back to
   // the old Communication panel. (The shared ../communication/{schemaForm,capability,runtimeComm}
@@ -482,6 +1049,18 @@ function fleetTopology(): FleetTopologyResponse {
     ],
     links: [
       {
+        id: "link:mqtt:broker",
+        from: "endpoint:runtime-a:mqtt",
+        to: "shared:mqtt:broker",
+        protocol: "mqtt",
+        role: "publish_subscribe",
+        direction: "publish_subscribe",
+        same_host: false,
+        status: "configured_policy",
+        secure: false,
+        detail: "MQTT broker referenced by io.toml",
+      },
+      {
         from: "endpoint:runtime-a:mqtt",
         to: "external:mesh:0",
         protocol: "mesh",
@@ -492,7 +1071,15 @@ function fleetTopology(): FleetTopologyResponse {
         detail: "tcp/192.168.77.11:7447",
       },
     ],
-    shared: [],
+    shared: [
+      {
+        id: "shared:mqtt:broker",
+        kind: "broker",
+        name: "MQTT broker",
+        address: "127.0.0.1:1883",
+        used_by: ["runtime-a"],
+      },
+    ],
     external: [
       {
         id: "external:mesh:0",
@@ -505,42 +1092,131 @@ function fleetTopology(): FleetTopologyResponse {
   };
 }
 
-// F-009: the Add-device picker groups the protocol catalog by the schema's own `category` into
-// Field devices / Supervisory services / Peer links instead of one flat list.
-suite("Network Canvas — add picker grouping (F-009)", function () {
-  type P = { id: string; category?: string };
-  test("groups protocols into Field → Supervisory → Peer in canonical order, preserving input order within a group", () => {
+// F-043/S-09: the Add picker presents backend protocols as first-user choices, not raw
+// Field/Supervisory/Peer schema categories.
+suite("Network Canvas — add picker taxonomy", function () {
+  type P = { id: string; title: string; purpose?: string; category?: string };
+  const p = (id: string, category?: string): P => ({ id, title: id, purpose: `${id} purpose`, category });
+
+  test("groups protocols by user intent in the S-09 order", () => {
     const protos: P[] = [
-      { id: "opcua", category: "supervisory_service" },
-      { id: "modbus_tcp", category: "field_device" },
-      { id: "mesh", category: "peer_link" },
-      { id: "gpio", category: "field_device" },
-      { id: "opcua_client", category: "peer_link" },
-      { id: "openot", category: "supervisory_service" },
+      p("opcua", "supervisory_service"),
+      p("modbus_tcp", "field_device"),
+      p("mqtt", "field_device"),
+      p("mesh", "peer_link"),
+      p("gpio", "field_device"),
+      p("opcua_client", "peer_link"),
+      p("ads_server", "supervisory_service"),
+      p("ads", "peer_link"),
     ];
-    const groups = groupByCategory(protos);
-    assert.deepStrictEqual(groups.map((g) => g.key), ["field_device", "supervisory_service", "peer_link"]);
-    assert.deepStrictEqual(groups.map((g) => g.label), ["Field devices", "Supervisory services", "Peer links"]);
-    assert.deepStrictEqual(groups[0].items.map((p) => p.id), ["modbus_tcp", "gpio"]);
-  });
-
-  test("omits empty groups (no header for a category with nothing in it)", () => {
-    const groups = groupByCategory<P>([{ id: "modbus_tcp", category: "field_device" }]);
-    assert.deepStrictEqual(groups.map((g) => g.key), ["field_device"]);
-  });
-
-  test("routes missing/unknown categories to a trailing 'Other' group and never drops anything", () => {
-    const groups = groupByCategory<P>([
-      { id: "modbus_tcp", category: "field_device" },
-      { id: "mystery", category: "wat" },
-      { id: "blank" },
+    const groups = groupForAddPicker(protos);
+    assert.deepStrictEqual(groups.map((g) => g.key), [
+      "devices_io",
+      "read_tags",
+      "share_values",
+      "messages",
+      "advanced",
     ]);
-    assert.deepStrictEqual(groups.map((g) => g.key), ["field_device", "other"]);
-    assert.deepStrictEqual(groups[1].items.map((p) => p.id), ["mystery", "blank"]);
+    assert.deepStrictEqual(groups.map((g) => g.label), [
+      "Devices and I/O",
+      "Read tags from another PLC or server",
+      "Share truST values",
+      "Send and receive messages",
+      "Advanced integrations",
+    ]);
+    assert.deepStrictEqual(groups[0].items.map((item) => item.protocol.id), ["modbus_tcp", "gpio"]);
+  });
+
+  test("omits empty groups and keeps advanced choices separate", () => {
+    const groups = groupForAddPicker<P>([p("modbus_tcp"), p("mesh")]);
+    assert.deepStrictEqual(groups.map((g) => g.key), ["devices_io", "advanced"]);
+    assert.strictEqual(groups[1].advanced, true);
+  });
+
+  test("does not render runtime discovery as a protocol card", () => {
+    const groups = groupForAddPicker<P>([p("discovery"), p("modbus_tcp")]);
+    assert.deepStrictEqual(groups.map((g) => g.key), ["devices_io"]);
+    assert.deepStrictEqual(groups.flatMap((g) => g.items.map((item) => item.protocol.id)), ["modbus_tcp"]);
+  });
+
+  test("routes unknown protocols to a trailing advanced Other choices group and never drops anything", () => {
+    const groups = groupForAddPicker<P>([p("modbus_tcp"), p("mystery"), p("blank")]);
+    assert.deepStrictEqual(groups.map((g) => g.key), ["devices_io", "other"]);
+    assert.strictEqual(groups[1].advanced, true);
+    assert.deepStrictEqual(groups[1].items.map((item) => item.protocol.id), ["mystery", "blank"]);
     assert.strictEqual(groups.reduce((n, g) => n + g.items.length, 0), 3);
   });
 
-  test("CATEGORY_ORDER is the canonical Field → Supervisory → Peer", () => {
-    assert.deepStrictEqual(CATEGORY_ORDER.map((c) => c.key), ["field_device", "supervisory_service", "peer_link"]);
+  test("server and client pairs have distinct badges and direction copy", () => {
+    const groups = groupForAddPicker<P>([p("opcua"), p("opcua_client"), p("ads_server"), p("ads")]);
+    const items = new Map(groups.flatMap((g) => g.items.map((item) => [item.protocol.id, item])));
+    assert.strictEqual(items.get("opcua")?.badge, "UA OUT");
+    assert.strictEqual(items.get("opcua_client")?.badge, "UA IN");
+    assert.strictEqual(items.get("ads_server")?.badge, "ADS OUT");
+    assert.strictEqual(items.get("ads")?.badge, "ADS IN");
+    assert.ok(items.get("opcua_client")?.purpose.includes("Read selected tags"));
+    assert.ok(items.get("opcua")?.purpose.includes("Share truST values"));
+  });
+
+  test("advanced picker copy is user-facing and not backend review prose", () => {
+    const groups = groupForAddPicker<P>([
+      p("mesh"),
+      p("openot"),
+      p("realtime_t0"),
+      p("runtime_cloud"),
+    ]);
+    const items = new Map(groups.flatMap((g) => g.items.map((item) => [item.protocol.id, item])));
+    assert.strictEqual(items.get("mesh")?.title, "Mesh / Zenoh");
+    assert.ok(items.get("mesh")?.purpose.includes("peer network"));
+    assert.ok(items.get("openot")?.purpose.includes("OpenOT evidence"));
+    assert.ok(items.get("realtime_t0")?.purpose.includes("deterministic"));
+    assert.ok(items.get("runtime_cloud")?.purpose.includes("federation"));
+    assert.ok(!items.get("runtime_cloud")?.purpose.includes("pretending"));
+  });
+
+  test("canvas protocol names spell ADS direction instead of relying on the role band", () => {
+    assert.strictEqual(protocolName("ads"), "ADS client");
+    assert.strictEqual(protocolName("ads_server"), "ADS server");
+    assert.strictEqual(
+      protocolColor("ads_server"),
+      protocolColor("opcua"),
+      "equivalent benign server endpoints share a non-alarm protocol accent"
+    );
+  });
+
+  test("ADD_PICKER_GROUPS is the canonical S-09 group order", () => {
+    assert.deepStrictEqual(ADD_PICKER_GROUPS.map((c) => c.key), [
+      "devices_io",
+      "read_tags",
+      "share_values",
+      "messages",
+      "advanced",
+    ]);
+  });
+});
+
+suite("Network Canvas — expose globals apply params", function () {
+  test("drops topology-only evidence fields before re-applying ADS/OPC UA server config", () => {
+    const { names, params } = buildExposeApplyParams(
+      {
+        enabled: true,
+        listen: "0.0.0.0",
+        ams_net_id: "127.0.0.1.1.1",
+        port: 48898,
+        expose: ["TankLevel"],
+        writable: [],
+        clients: [],
+        clients_count: 0,
+        username_set: true,
+      },
+      ["global.Setpoint"],
+      true
+    );
+
+    assert.deepStrictEqual(names, ["Setpoint"]);
+    assert.deepStrictEqual(params.expose, ["TankLevel", "Setpoint"]);
+    assert.deepStrictEqual(params.writable, ["Setpoint"]);
+    assert.strictEqual(params.clients_count, undefined);
+    assert.strictEqual(params.username_set, undefined);
   });
 });

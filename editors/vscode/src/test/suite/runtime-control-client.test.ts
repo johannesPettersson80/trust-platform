@@ -5,6 +5,7 @@ import {
   isRuntimeControlAuthError,
   probeRuntimeControlEndpoint,
   RuntimeControlError,
+  runtimeControlAuthErrorKind,
   type RuntimeControlSocket,
   sendRuntimeControlRequest,
 } from "../../runtimeControlClient";
@@ -91,8 +92,8 @@ suite("Runtime control client", function () {
     const socket = new FakeRuntimeControlSocket((request) => ({
       id: request.id,
       ok: false,
-      code: "AUTH_FAILED",
-      error: "invalid control token",
+      error_code: "invalid_auth_token",
+      error: "invalid auth token",
     }));
 
     await assert.rejects(
@@ -103,6 +104,29 @@ suite("Runtime control client", function () {
       (error) => {
         assert.ok(error instanceof RuntimeControlError);
         assert.strictEqual(isRuntimeControlAuthError(error), true);
+        assert.strictEqual(runtimeControlAuthErrorKind(error), "rejected");
+        return true;
+      }
+    );
+  });
+
+  test("distinguishes missing auth token responses", async () => {
+    const socket = new FakeRuntimeControlSocket((request) => ({
+      id: request.id,
+      ok: false,
+      error_code: "missing_auth_token",
+      error: "missing auth token",
+    }));
+
+    await assert.rejects(
+      sendRuntimeControlRequest("tcp://127.0.0.1:9901", undefined, "status", undefined, {
+        socketFactory: () => socket,
+        timeoutMs: 100,
+      }),
+      (error) => {
+        assert.ok(error instanceof RuntimeControlError);
+        assert.strictEqual(isRuntimeControlAuthError(error), true);
+        assert.strictEqual(runtimeControlAuthErrorKind(error), "missing");
         return true;
       }
     );

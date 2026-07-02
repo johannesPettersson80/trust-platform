@@ -99,11 +99,18 @@ function fleetGraph(
       status: link.status,
       secure: link.secure,
     })),
-    external: (topology?.external ?? []).map((ext) => ({
-      id: ext.id,
-      name: ext.name,
-      kind: ext.kind,
-    })),
+    external: [
+      ...(topology?.shared ?? []).map((shared) => ({
+        id: shared.id,
+        name: shared.name || shared.address,
+        kind: shared.kind,
+      })),
+      ...(topology?.external ?? []).map((ext) => ({
+        id: ext.id,
+        name: ext.name,
+        kind: ext.kind,
+      })),
+    ],
     faults: mapFaults(model),
     searchQuery: model.searchQuery,
   };
@@ -160,8 +167,10 @@ function localRuntimeGraph(model: NetworkCanvasModel): NCGraph {
     hosts: [
       {
         id: "host:this-computer",
-        hostname: model.runtime.hostLabel || "this computer",
-        label: "local host · simulator",
+        hostname: "This computer",
+        label: model.runtime.hostLabel
+          ? `local simulator · ${model.runtime.hostLabel}`
+          : "local simulator",
         // This computer is always reachable (we're running on it) — its status is reachability, NOT the
         // simulator's run state. The runtime node below carries the Start/Stop lifecycle.
         health: "connected",
@@ -319,62 +328,70 @@ function injectManagedRuntimes(
   graph: NCGraph,
   managed: ReadonlyArray<ManagedRuntime>
 ): void {
-  if (managed.length === 0) {
-    return;
-  }
-  const byEndpoint = new Map<string, ManagedRuntime>();
-  const byName = new Map<string, ManagedRuntime>();
-  for (const local of managed) {
-    if (local.controlEndpoint) {
-      byEndpoint.set(local.controlEndpoint, local);
+  if (managed.length > 0) {
+    const byEndpoint = new Map<string, ManagedRuntime>();
+    const byName = new Map<string, ManagedRuntime>();
+    for (const local of managed) {
+      if (local.controlEndpoint) {
+        byEndpoint.set(local.controlEndpoint, local);
+      }
+      byName.set(local.name, local);
     }
-    byName.set(local.name, local);
-  }
-  // Annotate any existing node that IS a managed runtime, so the visible node keeps OWNED lifecycle
-  // (Start/Stop/Logs) instead of falling back to remote attach. Match by control endpoint OR by name:
-  // the live fleet.topology can report a runtime under a slightly different endpoint string than the
-  // managed list (e.g. 0.0.0.0 vs 127.0.0.1), so an endpoint-only match would miss it and we'd inject a
-  // DUPLICATE node (F-12 twinning). Name is the stable identity for a fleet runtime.
-  const annotated = new Set<string>();
-  const annotate = (rt: NCRuntime): void => {
-    const local =
-      (rt.controlEndpoint ? byEndpoint.get(rt.controlEndpoint) : undefined) ?? byName.get(rt.name);
-    if (!local) {
-      return;
+    // Annotate any existing node that IS a managed runtime, so the visible node keeps OWNED lifecycle
+    // (Start/Stop/Logs) instead of falling back to remote attach. Match by control endpoint OR by name:
+    // the live fleet.topology can report a runtime under a slightly different endpoint string than the
+    // managed list (e.g. 0.0.0.0 vs 127.0.0.1), so an endpoint-only match would miss it and we'd inject a
+    // DUPLICATE node (F-12 twinning). Name is the stable identity for a fleet runtime.
+    const annotated = new Set<string>();
+    const annotate = (rt: NCRuntime): void => {
+      const local =
+        (rt.controlEndpoint ? byEndpoint.get(rt.controlEndpoint) : undefined) ?? byName.get(rt.name);
+      if (!local) {
+        return;
+      }
+      rt.managed = true;
+      rt.managedName = local.name;
+      annotated.add(local.name);
+    };
+    for (const host of graph.hosts) {
+      host.runtimes.forEach(annotate);
+      host.containers.forEach((container) => container.runtimes.forEach(annotate));
     }
-    rt.managed = true;
-    rt.managedName = local.name;
-    annotated.add(local.name);
-  };
-  for (const host of graph.hosts) {
-    host.runtimes.forEach(annotate);
-    host.containers.forEach((container) => container.runtimes.forEach(annotate));
-  }
-  // Inject only managed runtimes with NO existing node anywhere (e.g. stopped, not in topology).
-  const fresh = managed.filter((local) => !annotated.has(local.name));
-  if (fresh.length > 0) {
-    graph.hosts.push({
-      id: "host:managed-local",
-      hostname: "this computer",
-      label: "managed runtimes",
-      // This computer is always reachable — host status is reachability, not the runtimes' run state.
-      health: "connected",
-      containers: [],
-      runtimes: fresh.map((local) => ({
-        id: `managed:${local.name}`,
-        name: local.name,
-        mode: "managed",
-        health: local.state === "running" ? "connected" : "stopped",
-        detail:
-          local.state === "running"
-            ? "Running (managed local runtime)."
-            : "Stopped — Start it from this node.",
-        controlEndpoint: local.controlEndpoint || undefined,
-        managed: true,
-        managedName: local.name,
-        endpoints: [],
-      })),
-    });
+    // Inject only managed runtimes with NO existing node anywhere (e.g. stopped, not in topology).
+    const fresh = managed.filter((local) => !annotated.has(local.name));
+    if (fresh.length > 0) {
+      const host =
+        graph.hosts.find((candidate) => candidate.id === "host:this-computer") ??
+        graph.hosts.find((candidate) => candidate.hostname === "This computer");
+      const runtimes = fresh.map((local) => ({
+          id: `managed:${local.name}`,
+          name: local.name,
+          mode: "managed",
+          health: local.state === "running" ? "connected" : "stopped",
+          detail:
+            local.state === "running"
+              ? "Running (managed local runtime)."
+              : "Stopped — Start it from this node.",
+          controlEndpoint: local.controlEndpoint || undefined,
+          managed: true,
+          managedName: local.name,
+          endpoints: [],
+        }));
+      if (host) {
+        host.runtimes.push(...runtimes);
+      } else {
+        graph.hosts.push({
+          id: "host:managed-local",
+          hostname: "This computer",
+          label: "managed runtimes",
+          // This computer is always reachable — host status is reachability, not the runtimes' run state.
+          health: "connected",
+          containers: [],
+          runtimes,
+        });
+      }
+    }
+    graph.summary = graphSummary(graph);
   }
   // De-twin (F-12): a runtime must never ALSO appear as a separate "external system" node. The live
   // topology can advertise one of our own runtimes back as an external peer; drop any external whose
@@ -390,6 +407,26 @@ function injectManagedRuntimes(
     }
     graph.external = graph.external.filter((ext) => !runtimeNames.has(ext.name));
   }
+}
+
+function graphSummary(graph: NCGraph): string {
+  const runtimeCount = graph.hosts.reduce(
+    (sum, host) =>
+      sum + host.runtimes.length + host.containers.reduce((nested, container) => nested + container.runtimes.length, 0),
+    0
+  );
+  const endpointCount = graph.hosts.reduce(
+    (sum, host) =>
+      sum +
+      host.runtimes.reduce((nested, runtime) => nested + runtime.endpoints.length, 0) +
+      host.containers.reduce(
+        (nested, container) =>
+          nested + container.runtimes.reduce((rtSum, runtime) => rtSum + runtime.endpoints.length, 0),
+        0
+      ),
+    0
+  );
+  return `${graph.hosts.length} host${graph.hosts.length === 1 ? "" : "s"} · ${runtimeCount} runtime${runtimeCount === 1 ? "" : "s"} · ${endpointCount} endpoint${endpointCount === 1 ? "" : "s"}`;
 }
 
 // Honest per-runtime "are we connected to it?" flag. Local simulator: attached === running (its own

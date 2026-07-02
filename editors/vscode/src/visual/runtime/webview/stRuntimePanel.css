@@ -237,17 +237,39 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 2px 6px 2px 18px;
+  padding: 2px 4px 2px 10px;
+}
+
+.st-runtime-panel .row,
+.st-runtime-panel .row-header {
+  display: grid;
+  grid-template-columns:
+    minmax(82px, 1fr)
+    minmax(52px, auto)
+    minmax(38px, auto)
+    minmax(52px, auto)
+    minmax(128px, auto);
+  align-items: center;
+  gap: 6px;
 }
 
 .st-runtime-panel .row {
-  display: grid;
-  grid-template-columns: minmax(120px, 1fr) auto auto;
-  align-items: center;
-  gap: 8px;
   padding: 2px 4px;
   border-radius: 4px;
   font-size: 12px;
+}
+
+.st-runtime-panel .row-header {
+  padding: 2px 4px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.st-runtime-panel .row-header .actions-heading {
+  text-align: right;
 }
 
 .st-runtime-panel .row:hover {
@@ -261,6 +283,11 @@
 .st-runtime-panel .row.error {
   outline: 1px solid var(--error);
   background: color-mix(in srgb, var(--error) 12%, transparent);
+}
+
+.st-runtime-panel .row.forced {
+  background: color-mix(in srgb, var(--warning) 13%, transparent);
+  box-shadow: inset 2px 0 0 var(--warning);
 }
 
 .st-runtime-panel .row .name {
@@ -281,14 +308,56 @@
   font-size: 11px;
 }
 
+.st-runtime-panel .state-cell,
+.st-runtime-panel .type-cell {
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.st-runtime-panel .state-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+}
+
+.st-runtime-panel .state-badge.live {
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.st-runtime-panel .state-badge.forced {
+  color: #161616;
+  background: var(--warning);
+  border-color: var(--warning);
+}
+
+.st-runtime-panel .state-badge.pending {
+  color: var(--warning);
+  border-color: var(--warning);
+}
+
+.st-runtime-panel .state-badge.error {
+  color: var(--error);
+  border-color: var(--error);
+}
+
 .st-runtime-panel .row .actions {
   display: flex;
   align-items: center;
   gap: 4px;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
 }
 
 .st-runtime-panel .value-input {
-  width: 70px;
+  width: 52px;
+  height: 24px;
   padding: 2px 4px;
   border: 1px solid var(--input-border);
   border-radius: 3px;
@@ -303,10 +372,22 @@
   cursor: not-allowed;
 }
 
+.st-runtime-panel .value-input.bool-toggle {
+  cursor: pointer;
+  font-weight: 700;
+  text-align: center;
+}
+
+.st-runtime-panel .value-input.bool-toggle[aria-pressed="true"] {
+  border-color: var(--button-bg);
+  background: var(--row-alt);
+  color: var(--text);
+}
+
 .st-runtime-panel .mini-btn {
-  width: 18px;
-  height: 18px;
-  padding: 0;
+  min-width: 48px;
+  height: 24px;
+  padding: 0 5px;
   border-radius: 3px;
   font-size: 11px;
   font-weight: 600;
@@ -316,6 +397,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  line-height: 1;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -324,10 +407,10 @@
 }
 
 .st-runtime-panel .mini-btn.active {
-  background: var(--vscode-testing-iconPassed, #1f8f4e);
-  color: #ffffff;
-  border-color: var(--vscode-testing-iconPassed, #1f8f4e);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+  background: var(--warning);
+  color: #161616;
+  border-color: var(--warning);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
 }
 
 .st-runtime-panel .mini-btn:disabled {

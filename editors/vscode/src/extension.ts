@@ -13,12 +13,13 @@ import { registerNetworkCanvasPanel } from "./networkCanvas/networkCanvasPanel";
 import { registerRuntimeLifecycle } from "./runtimeLifecycle";
 import { registerRuntimeControls } from "./runtimeControls";
 import { registerTrustHome } from "./trustHomeView";
-import { registerTrustTwinPanel } from "./trustTwinPanel";
 import { registerLanguageModelTools } from "./lm-tools";
 import { augmentDiagnostic } from "./diagnostics";
 import { focusPendingMain, registerNewProjectCommand } from "./newProject";
 import { registerExamples } from "./examples";
 import { registerCheckProgram } from "./checkProgram";
+import { registerLibraryCodeActions } from "./libraryCodeActions";
+import { registerLibraries } from "./libraries";
 import { initSelectedRuntimeStore } from "./selectedRuntime";
 import { registerRuntimeAuth } from "./runtimeAuth";
 import { registerLocalRuntime } from "./localRuntime";
@@ -183,26 +184,6 @@ export async function activate(context: vscode.ExtensionContext) {
   registerIoPanel(context);
   registerHmiPanel(context);
   registerNetworkCanvasPanel(context);
-  // Communication + ADS panels are retired; the Network Canvas is the front door (spec §1, locked).
-  // The legacy "Communication" command + the 6 ADS commands survive as hidden escape hatches
-  // (ux-shell §0.5.6 — hidden from the palette via when:false, registered not deleted) and route to
-  // the canvas, where ADS now lives (browse / import symbols / add device / routes).
-  for (const legacyCommand of [
-    "trust-lsp.communication.openPanel",
-    "trust-lsp.ads.openPanel",
-    "trust-lsp.ads.server.openPanel",
-    "trust-lsp.ads.addDevice",
-    "trust-lsp.ads.diagnose",
-    "trust-lsp.ads.importSymbols",
-    "trust-lsp.ads.addRoute",
-  ]) {
-    context.subscriptions.push(
-      vscode.commands.registerCommand(legacyCommand, () =>
-        vscode.commands.executeCommand("trust-lsp.networkCanvas.open")
-      )
-    );
-  }
-  registerTrustTwinPanel(context);
   try {
     registerLanguageModelTools(context, { getClient: () => client });
   } catch (error) {
@@ -211,6 +192,7 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(registerVisualCustomEditorAutoOpen());
   context.subscriptions.push(registerVisualCompanionSync());
   registerStTestIntegration(context);
+  registerLibraryCodeActions(context);
   const config = vscode.workspace.getConfiguration("trust-lsp");
   showIecDiagnosticRefs = readIecDiagnosticsSetting(config);
   const command = resolveServerCommand(context);
@@ -253,6 +235,7 @@ export async function activate(context: vscode.ExtensionContext) {
   registerNewProjectCommand(context);
   registerExamples(context);
   registerCheckProgram(context);
+  registerLibraries(context, { getClient: () => client });
   // If a project was just scaffolded (which reloaded the window), focus its Main.st now.
   void focusPendingMain(context);
   registerNewStatechartCommand(context);

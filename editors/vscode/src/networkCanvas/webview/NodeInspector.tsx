@@ -1,15 +1,18 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { healthColor, protocolColor, protocolName, roleWord } from "./nodes";
+import { healthColor, roleWord } from "./nodes";
+import { protocolColor, protocolName } from "./protocolMeta";
 import { t, tint } from "./theme";
 import { buildParams, Field, valuesFor } from "./SchemaFields";
 import { browseAction } from "./browseActions";
 import {
+  runtimeNodeControlLayout,
   runtimeNodeControls,
   type RuntimeNodeControl,
 } from "./runtimeNodeControls";
 import { LOCAL_RUNTIME_NODE_ID } from "./types";
 import type {
   CommApplyResponse,
+  CommFieldSchema,
   CommProtocolSchema,
   CommSchemaResponse,
 } from "../../communication/schemaForm";
@@ -50,6 +53,8 @@ function healthLabel(health: string): string {
       return "Stopped";
     case "configured_policy":
       return "Configured";
+    case "disabled":
+      return "Disabled";
     case "not_configured":
       return "Not configured";
     case "runtime_unreachable":
@@ -71,6 +76,272 @@ function healthLabel(health: string): string {
         ? health.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase())
         : "Unknown";
   }
+}
+
+function testParamsFor(protocol: string, params?: Record<string, unknown>): Record<string, unknown> {
+  if (!params) {
+    return {};
+  }
+  const connections = params.connections;
+  if (protocol === "opcua_client" && Array.isArray(connections) && connections.length > 0) {
+    const first = connections[0];
+    if (first && typeof first === "object" && !Array.isArray(first)) {
+      return first as Record<string, unknown>;
+    }
+  }
+  return params;
+}
+
+function isRecordValue(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isRuntimeAuthTokenFailure(node: InspectorNode): boolean {
+  if (node.type !== "runtime") {
+    return false;
+  }
+  const endpoint = str(node.data.controlEndpoint);
+  if (!endpoint || node.id === LOCAL_RUNTIME_NODE_ID || node.data.managed === true) {
+    return false;
+  }
+  const health = str(node.data.health).toLowerCase();
+  const detail = str(node.data.detail).toLowerCase();
+  return (
+    health === "auth_failed" ||
+    (detail.includes("authentication failed") && detail.includes("auth token")) ||
+    detail.includes("no auth token provided") ||
+    detail.includes("auth token rejected")
+  );
+}
+
+function plural(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
+}
+
+function connectionSummary(value: unknown): string {
+  let connections: unknown[] = [];
+  if (Array.isArray(value)) {
+    connections = value;
+  } else if (typeof value === "string" && value.trim().startsWith("[")) {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      connections = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      connections = [];
+    }
+  }
+  if (connections.length === 0) {
+    return "";
+  }
+  return connections
+    .map((connection, index) => {
+      if (!isRecordValue(connection)) {
+        return `connection ${index + 1}`;
+      }
+      const name = str(connection.name) || `connection ${index + 1}`;
+      const endpoint =
+        str(connection.endpoint_url) ||
+        str(connection.host) ||
+        str(connection.address) ||
+        str(connection.broker);
+      const points = Array.isArray(connection.points) ? connection.points : [];
+      const mappings = points
+        .filter(isRecordValue)
+        .map((point) => pointMapping(point as Record<string, unknown>))
+        .filter(Boolean);
+      const head = [name, endpoint].filter(Boolean).join(" · ");
+      return mappings.length === 0 ? head : `${head} — ${mappings.join("; ")}`;
+    })
+    .join("; ");
+}
+
+function parseArrayValue(raw: unknown, value: string): unknown[] {
+  if (Array.isArray(raw)) {
+    return raw;
+  }
+  if (typeof value === "string" && value.trim().startsWith("[")) {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function formatEthercatModules(raw: unknown, value: string): string {
+  const modules = parseArrayValue(raw, value);
+  if (modules.length === 0) {
+    return "None";
+  }
+  const labels = modules.map((module, index) => {
+    if (!isRecordValue(module)) {
+      return `module ${index + 1}`;
+    }
+    const model = str(module.model) || `module ${index + 1}`;
+    const slot = str(module.slot);
+    const channelCount = Number(module.channels);
+    const channels = Number.isFinite(channelCount) ? plural(channelCount, "channel") : "";
+    return [model, slot ? `slot ${slot}` : "", channels]
+      .filter(Boolean)
+      .join(" · ");
+  });
+  return labels.join("; ");
+}
+
+function formatEthercatChannels(raw: unknown, value: string): string {
+  const channels = parseArrayValue(raw, value).map((channel) => str(channel)).filter(Boolean);
+  if (channels.length === 0) {
+    return "None";
+  }
+  return `${plural(channels.length, "channel")}: ${channels.join(", ")}`;
+}
+
+function formatEthercatMockInputs(raw: unknown, value: string): string {
+  const frames = parseArrayValue(raw, value);
+  return frames.length === 0 ? "None" : plural(frames.length, "mock frame");
+}
+
+function formatOnError(value: string): string {
+  switch (value) {
+    case "fault":
+      return "Stop with fault";
+    case "warn":
+      return "Warn and continue";
+    case "ignore":
+      return "Ignore";
+    default:
+      return value;
+  }
+}
+
+// §0.5 #9 / S-14: render which ST symbol/address each external point becomes ("what do I type after
+// adding this?") instead of a bare "N nodes" count. `var` is the ST name; the external ref is
+// protocol-specific (node_id / symbol / register / topic / channel).
+function pointMapping(point: Record<string, unknown>): string {
+  const scalar = (value: unknown): string =>
+    value === undefined || value === null ? "" : String(value).trim();
+  const stName = scalar(point.var) || scalar(point.address) || scalar(point.name);
+  const address = scalar(point.address);
+  const external =
+    scalar(point.node_id) ||
+    scalar(point.symbol) ||
+    (point.register !== undefined ? `register ${scalar(point.register)}` : "") ||
+    scalar(point.topic) ||
+    scalar(point.channel) ||
+    scalar(point.tag) ||
+    (point.index !== undefined ? `index ${scalar(point.index)}` : "");
+  const meta = [scalar(point.type), scalar(point.access) || scalar(point.direction)]
+    .filter(Boolean)
+    .join(" · ");
+  if (!stName && !external) {
+    return "";
+  }
+  let left = stName || "(unnamed)";
+  if (address && address !== stName) {
+    left += ` (${address})`;
+  }
+  let result = left;
+  if (external) {
+    result += ` ← ${external}`;
+  }
+  if (meta) {
+    result += ` · ${meta}`;
+  }
+  return result;
+}
+
+function summaryValueFor(protocol: string, field: CommFieldSchema, value: string, raw: unknown): string {
+  if (field.id === "connections") {
+    return connectionSummary(raw ?? value);
+  }
+  if (protocol === "ethercat") {
+    if (field.id === "modules") {
+      return formatEthercatModules(raw, value);
+    }
+    if (field.id === "selected_channels") {
+      return formatEthercatChannels(raw, value);
+    }
+    if (field.id === "mock_inputs") {
+      return formatEthercatMockInputs(raw, value);
+    }
+    if (field.id === "timeout_ms" || field.id === "cycle_warn_ms") {
+      return value ? `${value} ms` : "";
+    }
+    if (field.id === "on_error") {
+      return formatOnError(value);
+    }
+  }
+  if (field.type === "json_array" && (!value.trim() || value.trim() === "[]")) {
+    return "None";
+  }
+  return value;
+}
+
+function endpointStatusRow(health: string, detail: string): string {
+  const label = healthLabel(health);
+  const withoutConfigFile = detail.replace(/^Configured in [^;]+;\s*/i, "");
+  if (!withoutConfigFile) {
+    return label;
+  }
+  return `${label} · ${withoutConfigFile}`;
+}
+
+const SUMMARY_FIELD_IDS: Record<string, ReadonlySet<string>> = {
+  ads_server: new Set([
+    "enabled",
+    "listen",
+    "ams_net_id",
+    "ads_port",
+    "insecure_transport",
+    "writes_enabled",
+    "expose",
+    "writable",
+    "allow_unpinned_clients",
+    "clients",
+  ]),
+  opcua: new Set([
+    "enabled",
+    "listen",
+    "endpoint_path",
+    "namespace_uri",
+    "expose",
+    "security_policy",
+    "security_mode",
+    "allow_anonymous",
+  ]),
+};
+
+function includeSummaryField(protocol: string, field: CommFieldSchema): boolean {
+  return SUMMARY_FIELD_IDS[protocol]?.has(field.id) ?? true;
+}
+
+function summaryLabelFor(protocol: string, field: CommFieldSchema): string {
+  if (field.id === "connections") {
+    return "Connections";
+  }
+  if (field.id === "writes_enabled") {
+    return "Writes enabled";
+  }
+  if (/^enable[_\s-]/i.test(field.id) || /^enable\s+/i.test(field.label)) {
+    return "Enabled";
+  }
+  if (/(^|[_\s-])config[_\s-]?path$/i.test(field.id) || /config path/i.test(field.label)) {
+    if (protocol === "opcua_client") {
+      return "Connection file";
+    }
+    return "Config file";
+  }
+  if (/poll[_\s-]?interval/i.test(field.id) || /poll interval/i.test(field.label)) {
+    return "Polling";
+  }
+  return field.label
+    .replace(/\bOPC UA client\s+/i, "")
+    .replace(/\bOPC UA server\s+/i, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^./, (char) => char.toUpperCase());
 }
 
 // The compact node band shows the role as terse nomenclature (CLIENT / PUB/SUB). In the roomier
@@ -129,6 +400,7 @@ export function NodeInspector({ node, schema, params, reachable, applyResult, on
             ? str(node.data.controlEndpoint)
             : undefined,
           managed: isManaged,
+          authTokenRequired: isRuntimeAuthTokenFailure(node),
           // Local sim + managed runtimes have logs; remote logs are phase 14 (gated).
           logsAvailable: node.id === LOCAL_RUNTIME_NODE_ID || isManaged,
         })
@@ -136,10 +408,17 @@ export function NodeInspector({ node, schema, params, reachable, applyResult, on
   const onControl = (control: RuntimeNodeControl) => {
     switch (control.action) {
       case "runtimeConnect":
-        post({ type: "runtimeConnect", endpoint: str(node.data.controlEndpoint) });
+        post({
+          type: "runtimeConnect",
+          endpoint: str(node.data.controlEndpoint),
+          label: str(node.data.label),
+        });
         return;
       case "runtimeDisconnect":
         post({ type: "runtimeDisconnect" });
+        return;
+      case "setAuthToken":
+        post({ type: "setRuntimeAuthToken", endpoint: str(node.data.controlEndpoint) });
         return;
       case "managedStart":
         post({ type: "runtimeManagedStart", name: managedName });
@@ -187,14 +466,20 @@ export function NodeInspector({ node, schema, params, reachable, applyResult, on
   }
 
   return (
-    <SummaryView
-      node={node}
-      protoSchema={protoSchema}
-      params={params}
-      onEdit={protoSchema ? () => setEditing(true) : undefined}
-      onBrowse={onBrowse && browse ? () => onBrowse(node) : undefined}
-      browseLabel={browse?.label}
-      runtimeControls={runtimeControls}
+      <SummaryView
+        node={node}
+        protoSchema={protoSchema}
+        params={params}
+        applyResult={applyResult}
+        onEdit={protoSchema ? () => setEditing(true) : undefined}
+        onTest={
+          node.type === "endpoint" && protoSchema?.supports_test && reachable
+            ? () => post({ type: "commTest", protocol, params: testParamsFor(protocol, params), target: node.id })
+            : undefined
+        }
+        onBrowse={onBrowse && browse ? () => onBrowse(node) : undefined}
+        browseLabel={browse?.label}
+        runtimeControls={runtimeControls}
       onControl={onControl}
       onClose={onClose}
       onFocus={onFocus}
@@ -207,7 +492,9 @@ function SummaryView({
   node,
   protoSchema,
   params,
+  applyResult,
   onEdit,
+  onTest,
   onBrowse,
   browseLabel,
   runtimeControls,
@@ -218,7 +505,9 @@ function SummaryView({
   node: InspectorNode;
   protoSchema?: CommProtocolSchema;
   params?: Record<string, unknown>;
+  applyResult?: CommApplyResponse;
   onEdit?: () => void;
+  onTest?: () => void;
   onBrowse?: () => void;
   browseLabel?: string;
   runtimeControls?: RuntimeNodeControl[];
@@ -228,6 +517,19 @@ function SummaryView({
 }) {
   const d = node.data;
   const protocol = str(d.protocol);
+  const resultApplies = applyResult?.protocol === protocol;
+  const ok = resultApplies && (applyResult?.applied || applyResult?.lifecycle_effect === "test_ok");
+  const blocked = resultApplies && applyResult?.lifecycle_effect === "blocked";
+
+  const [showAllActions, setShowAllActions] = useState(false);
+  // S-14: a node inspector shows at most TWO visible secondary actions; any extras collapse behind an
+  // overflow disclosure so a node never becomes a toolbar full of buttons.
+  const runtimeControlLayout = runtimeNodeControlLayout(
+    runtimeControls,
+    onControl,
+    [{ key: "focus", label: "Focus", enabled: true, onClick: () => onFocus(node.id) }],
+    showAllActions
+  );
 
   let title: string;
   let kindLabel: string;
@@ -241,16 +543,21 @@ function SummaryView({
     kindLabel = `${roleCap(protocol, str(d.role))} · ${str(d.kind) === "field" ? "device" : "endpoint"}`;
     accent = protocolColor(protocol);
     health = str(d.health);
-    rows.push(["name", str(d.name)]);
+    rows.push(["Name", str(d.name)]);
     const values = valuesFor(protoSchema, params);
     for (const field of protoSchema.fields) {
-      const v = field.secret ? (values[field.id] ? "••• (set)" : "—") : values[field.id];
+      if (!includeSummaryField(protocol, field)) {
+        continue;
+      }
+      const v = field.secret
+        ? (values[field.id] ? "••• (set)" : "—")
+        : summaryValueFor(protocol, field, values[field.id], params?.[field.id]);
       if (v) {
-        rows.push([field.label.toLowerCase(), v]);
+        rows.push([summaryLabelFor(protocol, field), v]);
       }
     }
     if (d.detail) {
-      rows.push(["status", `${healthLabel(health)} · ${str(d.detail)}`]);
+      rows.push(["Status", endpointStatusRow(health, str(d.detail))]);
     }
   } else {
     switch (node.type) {
@@ -300,51 +607,85 @@ function SummaryView({
       <header className="trust-inspector__header">
         {accent && <span style={{ flex: "none", width: 10, height: 10, borderRadius: 3, background: accent }} />}
         <div style={{ flex: 1, minWidth: 0 }}>
+          <span className="trust-inspector__eyebrow" style={{ display: "block", marginBottom: 2 }}>Devices & Connections / {kindLabel}</span>
           <strong className="trust-inspector__title" style={{ display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</strong>
-          <span className="trust-inspector__eyebrow" style={{ display: "block", marginTop: 2 }}>{kindLabel}</span>
         </div>
         {health && (
           <span title={health} style={{ flex: "none", width: 10, height: 10, borderRadius: "50%", background: healthColor(health), boxShadow: `0 0 0 2px ${tint(healthColor(health), 0.18)}` }} />
         )}
         <button onClick={onClose} aria-label="Close" style={iconBtn}>✕</button>
       </header>
-      <div className="trust-section trust-section--grow">
+      <div className="trust-section trust-section--grow" style={{ paddingBottom: 18 }}>
         {shown.length === 0 ? (
           <p className="trust-empty" style={{ padding: 0, textAlign: "left" }}>No further details.</p>
         ) : (
           shown.map(([k, v]) => (
-            <div key={k} style={{ display: "flex", gap: 10, fontSize: 12, lineHeight: 1.55, marginBottom: 7 }}>
-              <span style={{ color: t.textMuted, flex: "none", minWidth: 84 }}>{k}</span>
+            <div key={k} style={{ display: "grid", gridTemplateColumns: "132px 1fr", gap: 10, fontSize: 12, lineHeight: 1.55, marginBottom: 7 }}>
+              <span style={{ color: t.textMuted, overflowWrap: "anywhere" }}>{k}</span>
               <span style={{ color: t.text, overflowWrap: "anywhere" }}>{v}</span>
             </div>
           ))
         )}
       </div>
-      <footer className="trust-section" style={{ display: "flex", flexWrap: "wrap", gap: 8, borderBottom: "none" }}>
+      {/* Pinned between the scroll body and the footer so the result message is never
+          hidden behind the footer buttons. */}
+      {resultApplies && applyResult && (applyResult.message || ok || blocked) && (
+        <div
+          className={`trust-message ${ok ? "trust-message--ok" : blocked ? "trust-message--error" : ""}`}
+          style={{ margin: "0 14px 10px" }}
+        >
+          {applyResult.message || (ok ? "Test passed." : "")}
+        </div>
+      )}
+      <footer className="trust-section" style={{ display: "flex", flexWrap: "wrap", gap: 8, borderBottom: "none", borderTop: `1px solid ${t.border}`, background: t.surface }}>
         {runtimeControls && onControl ? (
           <>
-            {runtimeControls.map((control) => (
+            {runtimeControlLayout.primary && (
               <button
-                key={`${control.action}:${control.label}`}
-                onClick={() => onControl(control)}
-                disabled={!control.enabled}
-                className={`trust-button${control.kind === "primary" ? " trust-button--primary" : ""}`}
-                style={control.kind === "primary" ? { flexBasis: "100%" } : { flex: 1 }}
+                key={`${runtimeControlLayout.primary.action}:${runtimeControlLayout.primary.label}`}
+                onClick={() => onControl(runtimeControlLayout.primary!)}
+                disabled={!runtimeControlLayout.primary.enabled}
+                className="trust-button trust-button--primary"
+                style={{ flexBasis: "100%" }}
               >
-                {control.label}
+                {runtimeControlLayout.primary.label}
+              </button>
+            )}
+            {runtimeControlLayout.visibleSecondary.map((item) => (
+              <button
+                key={item.key}
+                onClick={item.onClick}
+                disabled={!item.enabled}
+                className="trust-button"
+                style={{ flex: 1 }}
+              >
+                {item.label}
               </button>
             ))}
-            <button onClick={() => onFocus(node.id)} className="trust-button" style={{ flex: 1 }}>Focus</button>
+            {runtimeControlLayout.hasOverflow && (
+              <button
+                onClick={() => setShowAllActions((value) => !value)}
+                className="trust-button"
+                style={{ flex: 1 }}
+                aria-label={showAllActions ? "Show fewer actions" : "More actions"}
+                title={showAllActions ? "Show fewer actions" : "More actions"}
+              >
+                {showAllActions ? "Less" : "⋯"}
+              </button>
+            )}
           </>
         ) : (
           <>
             {onEdit && (
               <button onClick={onEdit} className="trust-button trust-button--primary" style={{ flex: 1 }}>Edit settings</button>
             )}
+            {onTest && (
+              <button onClick={onTest} className="trust-button">Test</button>
+            )}
             {onBrowse && (
               <button onClick={onBrowse} className="trust-button">{browseLabel ?? "Browse"}</button>
             )}
-            <button onClick={() => onFocus(node.id)} className="trust-button" style={onEdit || onBrowse ? undefined : { flex: 1 }}>Focus</button>
+            <button onClick={() => onFocus(node.id)} className="trust-button" style={onEdit || onTest || onBrowse ? undefined : { flex: 1 }}>Focus</button>
           </>
         )}
       </footer>
@@ -375,13 +716,32 @@ function EditableEndpoint({
   const protocol = str(node.data.protocol);
   const health = str(node.data.health);
   const [values, setValues] = useState<Record<string, string>>(() => valuesFor(protoSchema, params));
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const paramsKey = JSON.stringify(params ?? {});
+  const schemaKey = `${protoSchema.id}:${protoSchema.fields.map((field) => field.id).join("|")}`;
   useEffect(() => {
     setValues(valuesFor(protoSchema, params));
-  }, [node.id, protoSchema, params]);
+  }, [node.id, schemaKey, paramsKey]);
+  useEffect(() => {
+    setConfirmRemove(false);
+  }, [node.id]);
 
   const fieldErrors = new Map((applyResult?.field_errors ?? []).map((e) => [e.field, e.message]));
-  const send = (type: string, extra?: Record<string, unknown>) =>
+  const isDisabled = health === "disabled";
+  const canDisable = protoSchema.actions.includes("disable") && !isDisabled;
+  const send = (type: string, extra?: Record<string, unknown>) => {
+    if (type !== "commRemove") {
+      setConfirmRemove(false);
+    }
     post({ type, protocol, params: buildParams(protoSchema, values), target: node.id, ...extra });
+  };
+  const requestRemove = () => {
+    if (!confirmRemove) {
+      setConfirmRemove(true);
+      return;
+    }
+    send("commRemove");
+  };
 
   const ok = applyResult && (applyResult.applied || applyResult.lifecycle_effect === "test_ok");
   const blocked = applyResult && applyResult.lifecycle_effect === "blocked";
@@ -392,10 +752,8 @@ function EditableEndpoint({
         <button onClick={onBack} aria-label="Back" title="Back to summary" style={iconBtn}>‹</button>
         <span style={{ flex: "none", width: 10, height: 10, borderRadius: 3, background: protocolColor(protocol) }} />
         <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="trust-inspector__eyebrow">Devices & Connections / {roleWord(protocol, str(node.data.role))} edit</div>
           <div className="trust-inspector__title">{protocolName(protocol)}</div>
-          <div className="trust-inspector__eyebrow" style={{ marginTop: 2 }}>
-            {roleWord(protocol, str(node.data.role))} · edit
-          </div>
         </div>
         {health && (
           <span title={health} style={{ flex: "none", width: 10, height: 10, borderRadius: "50%", background: healthColor(health), boxShadow: `0 0 0 2px ${tint(healthColor(health), 0.18)}` }} />
@@ -416,25 +774,61 @@ function EditableEndpoint({
             onChange={(v) => setValues((prev) => ({ ...prev, [field.id]: v }))}
           />
         ))}
-        {applyResult && (applyResult.message || ok || blocked) && (
-          <div
-            className={`trust-message ${ok ? "trust-message--ok" : blocked ? "trust-message--error" : ""}`}
-          >
-            {applyResult.message || (ok ? "Saved." : "")}
-          </div>
-        )}
       </div>
 
+      {/* Pinned between the scroll body and the footer so the save/validation result and
+          the disabled note are never hidden behind the footer buttons. */}
+      {applyResult && (applyResult.message || ok || blocked) && (
+        <div
+          className={`trust-message ${ok ? "trust-message--ok" : blocked ? "trust-message--error" : ""}`}
+          style={{ margin: "0 14px 10px" }}
+        >
+          {applyResult.message || (ok ? "Saved." : "")}
+        </div>
+      )}
+      {isDisabled && !applyResult && (
+        <div className="trust-message" style={{ margin: "0 14px 10px" }}>
+          This endpoint is disabled. Use Enable to turn it back on; restart the runtime to apply the change.
+        </div>
+      )}
+
       <footer className="trust-section" style={{ display: "flex", flexWrap: "wrap", gap: 8, borderBottom: "none" }}>
-        <button onClick={() => send("commSave", { action: "upsert" })} className="trust-button trust-button--primary" style={{ flex: 1 }}>Save</button>
-        {protoSchema.supports_test && reachable && (
-          <button onClick={() => send("commTest")} className="trust-button">Test</button>
-        )}
-        <button onClick={() => send("commRemove")} className="trust-button trust-button--danger">Remove</button>
-        {reachable && (
-          <button onClick={() => send("commApplyLive", { action: "upsert" })} title="Push this config to the running runtime now" className="trust-button" style={{ flexBasis: "100%" }}>
-            Apply to running runtime
-          </button>
+        {confirmRemove ? (
+          <>
+            <div
+              className="trust-message trust-message--error endpoint-remove-confirmation"
+              style={{ flexBasis: "100%", margin: 0 }}
+            >
+              Remove this endpoint from the project? This writes the config file and takes effect after restart.
+            </div>
+            <button onClick={() => setConfirmRemove(false)} className="trust-button" style={{ flex: 1 }}>
+              Cancel
+            </button>
+            <button onClick={requestRemove} className="trust-button trust-button--danger" style={{ flex: 1 }}>
+              Confirm remove
+            </button>
+          </>
+        ) : (
+          <>
+            <button onClick={() => send("commSave", { action: "upsert" })} className="trust-button trust-button--primary" style={{ flex: 1 }}>{isDisabled ? "Enable" : "Save"}</button>
+            <button onClick={onClose} className="trust-button">Cancel</button>
+            {protoSchema.supports_test && reachable && (
+              <button onClick={() => send("commTest")} className="trust-button">Test</button>
+            )}
+            {canDisable && (
+              <button onClick={() => send("commDisable", { action: "disable" })} className="trust-button">
+                Disable
+              </button>
+            )}
+            <button onClick={requestRemove} className="trust-button trust-button--danger">
+              Remove
+            </button>
+            {reachable && (
+              <button onClick={() => send("commApplyLive", { action: "upsert" })} title="Push this config to the running runtime now" className="trust-button" style={{ flexBasis: "100%" }}>
+                Apply to running runtime
+              </button>
+            )}
+          </>
         )}
       </footer>
     </aside>

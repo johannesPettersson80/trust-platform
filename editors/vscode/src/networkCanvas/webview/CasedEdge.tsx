@@ -31,16 +31,24 @@ export function CasedEdge({
   });
   const color = (data?.color as string) ?? t.accent;
   const dashed = data?.dashed ? "5 4" : undefined;
+  const dimmed = Boolean(data?.dimmed);
 
   return (
     <>
-      <path d={path} fill="none" stroke={t.canvas} strokeWidth={5} strokeLinecap="round" />
+      <path
+        d={path}
+        fill="none"
+        stroke={t.canvas}
+        strokeWidth={5}
+        strokeLinecap="round"
+        opacity={dimmed ? 0.45 : 1}
+      />
       <BaseEdge
         id={id}
         path={path}
         markerStart={markerStart}
         markerEnd={markerEnd}
-        style={{ stroke: color, strokeWidth: 1.7, strokeDasharray: dashed }}
+        style={{ stroke: color, strokeWidth: 1.7, strokeDasharray: dashed, opacity: dimmed ? 0.32 : 1 }}
       />
     </>
   );

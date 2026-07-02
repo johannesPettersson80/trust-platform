@@ -1,4 +1,4 @@
-// Pure model for the Phase 8 "Check program" result (NO vscode import → unit-testable). Mirrors the
+// Pure model for the Phase 8 Compile result (NO vscode import → unit-testable). Mirrors the
 // `trust-runtime check --json` shape (status:"ok"|"failed" + CheckIssue[]).
 
 export interface CheckIssue {
@@ -19,19 +19,28 @@ export interface CheckProgramResponse {
   readonly source_count?: number;
 }
 
+export interface CheckProblemCounts {
+  readonly errors: number;
+  readonly warnings: number;
+}
+
 function plural(n: number, word: string): string {
   return `${n} ${word}${n === 1 ? "" : "s"}`;
 }
 
-// One honest line — authoritative (whole-project compile), distinct from the diagnostics-derived
-// "No known errors" passive line.
-export function summarizeCheck(response: CheckProgramResponse): string {
+// One honest line — authoritative whole-project compile result.
+export function summarizeCheck(
+  response: CheckProgramResponse,
+  visibleProblems?: CheckProblemCounts
+): string {
   if (response.ok) {
     const sources = response.source_count ?? 0;
-    return `Project check passed — ${plural(sources, "source")}, no errors.`;
+    return `Compile passed — ${plural(sources, "source")}, no errors.`;
   }
-  return `Project check failed — ${plural(response.errors, "error")}, ${plural(
-    response.warnings,
+  const errors = Math.max(response.errors, visibleProblems?.errors ?? 0);
+  const warnings = Math.max(response.warnings, visibleProblems?.warnings ?? 0);
+  return `Compile failed — ${plural(errors, "error")}, ${plural(
+    warnings,
     "warning"
   )}.`;
 }

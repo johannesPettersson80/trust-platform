@@ -57,7 +57,6 @@ async function main(): Promise<void> {
   buildRustPackage(repoRoot, "trust-runtime");
   buildRustPackage(repoRoot, "trust-dev");
   buildRustPackage(repoRoot, "trust-debug");
-  buildRustPackage(repoRoot, "trust-twin-compiler");
 
   await runTests({
     extensionDevelopmentPath,

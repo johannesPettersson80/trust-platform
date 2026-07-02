@@ -441,6 +441,12 @@ export function registerStTestIntegration(context: vscode.ExtensionContext): voi
     }
   }
 
+  function clearAllResults(): void {
+    resultByKey.clear();
+    stateByUriLine.clear();
+    applyDecorations();
+  }
+
   function updateResultState(
     payload: RuntimePayload,
     projectRoot: string,
@@ -556,6 +562,7 @@ export function registerStTestIntegration(context: vscode.ExtensionContext): voi
     const fileItems = new Map<string, vscode.TestItem>();
     testById.clear();
     itemById.clear();
+    clearAllResults();
 
     for (const uri of fileUris) {
       const projectRoot = resolveProjectRootFromUri(uri);
@@ -896,6 +903,10 @@ export function registerStTestIntegration(context: vscode.ExtensionContext): voi
     true
   );
   context.subscriptions.push(runProfile);
+
+  controller.refreshHandler = async () => {
+    await refreshDiscoveredTests();
+  };
 
   context.subscriptions.push(
     vscode.workspace.onDidOpenTextDocument((document) => {

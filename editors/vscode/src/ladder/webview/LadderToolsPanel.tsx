@@ -26,6 +26,8 @@ interface LadderToolsPanelProps {
   onPaste: () => void;
   onSearchReplace: () => void;
   onAutoRoute: () => void;
+  onValidate: () => void;
+  onGenerateST: () => void;
   onSave: () => void;
   onToggleLinkMode: () => void;
   linkModeEnabled: boolean;
@@ -85,6 +87,8 @@ export function LadderToolsPanel({
   onPaste,
   onSearchReplace,
   onAutoRoute,
+  onValidate,
+  onGenerateST,
   onSave,
   onToggleLinkMode,
   linkModeEnabled,
@@ -108,7 +112,24 @@ export function LadderToolsPanel({
 
   return (
     <section className="trust-section" aria-label="Ladder tools">
-      <div className="trust-section__title">Elements</div>
+      <div className="trust-section__title">Tools</div>
+      <div className="trust-button-grid">
+        <button type="button" className="trust-button" onClick={onValidate} title="Validate ladder program">
+          Validate
+        </button>
+        <button type="button" className="trust-button" onClick={onGenerateST} title="Generate Structured Text companion">
+          Generate ST
+        </button>
+        <button
+          type="button"
+          className="trust-button trust-button--primary"
+          onClick={onSave}
+          title="Save program"
+        >
+          Save
+        </button>
+      </div>
+      <div className="trust-section__title" style={{ marginTop: 10 }}>Elements</div>
       <div className="trust-button-grid">
         {LOGIC_TOOL_OPTIONS.map((tool) => (
           <button
@@ -146,16 +167,6 @@ export function LadderToolsPanel({
           Remove Rung
         </button>
       </div>
-      <button
-        type="button"
-        className="trust-button trust-button--primary"
-        onClick={onSave}
-        title="Save program"
-        style={{ width: "100%", marginTop: 7 }}
-      >
-        Save
-      </button>
-
       <details className="ladder-tools-panel__details">
         <summary>More tools</summary>
         <div className="trust-section__title">Selection</div>

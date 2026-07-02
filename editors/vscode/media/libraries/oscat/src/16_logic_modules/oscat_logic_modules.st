@@ -1,0 +1,766 @@
+(* OSCAT BASIC 3.33 logic modules. *)
+
+FUNCTION_BLOCK DEC_2
+VAR_INPUT
+    ENABLE : BOOL;
+    A : BOOL;
+END_VAR
+VAR_OUTPUT
+    Q0 : BOOL;
+    Q1 : BOOL;
+END_VAR
+
+Q0 := ENABLE AND NOT A;
+Q1 := ENABLE AND A;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK DEC_4
+VAR_INPUT
+    ENABLE : BOOL;
+    A0 : BOOL;
+    A1 : BOOL;
+END_VAR
+VAR_OUTPUT
+    Q0 : BOOL;
+    Q1 : BOOL;
+    Q2 : BOOL;
+    Q3 : BOOL;
+END_VAR
+
+Q0 := ENABLE AND NOT A0 AND NOT A1;
+Q1 := ENABLE AND A0 AND NOT A1;
+Q2 := ENABLE AND NOT A0 AND A1;
+Q3 := ENABLE AND A0 AND A1;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK DEC_8
+VAR_INPUT
+    ENABLE : BOOL;
+    A0 : BOOL;
+    A1 : BOOL;
+    A2 : BOOL;
+END_VAR
+VAR_OUTPUT
+    Q0 : BOOL;
+    Q1 : BOOL;
+    Q2 : BOOL;
+    Q3 : BOOL;
+    Q4 : BOOL;
+    Q5 : BOOL;
+    Q6 : BOOL;
+    Q7 : BOOL;
+END_VAR
+
+Q0 := ENABLE AND NOT A0 AND NOT A1 AND NOT A2;
+Q1 := ENABLE AND A0 AND NOT A1 AND NOT A2;
+Q2 := ENABLE AND NOT A0 AND A1 AND NOT A2;
+Q3 := ENABLE AND A0 AND A1 AND NOT A2;
+Q4 := ENABLE AND NOT A0 AND NOT A1 AND A2;
+Q5 := ENABLE AND A0 AND NOT A1 AND A2;
+Q6 := ENABLE AND NOT A0 AND A1 AND A2;
+Q7 := ENABLE AND A0 AND A1 AND A2;
+END_FUNCTION_BLOCK
+
+FUNCTION DW_TO_REAL : REAL
+VAR_INPUT
+    X : DWORD;
+END_VAR
+
+DW_TO_REAL := DWORD_TO_REAL(X);
+END_FUNCTION
+
+FUNCTION MUX_2 : BOOL
+VAR_INPUT
+    D0 : BOOL;
+    D1 : BOOL;
+    A0 : BOOL;
+END_VAR
+
+MUX_2 := SEL(A0, D0, D1);
+END_FUNCTION
+
+FUNCTION MUX_4 : BOOL
+VAR_INPUT
+    D0 : BOOL;
+    D1 : BOOL;
+    D2 : BOOL;
+    D3 : BOOL;
+    A0 : BOOL;
+    A1 : BOOL;
+END_VAR
+
+IF A1 THEN
+    MUX_4 := SEL(A0, D2, D3);
+ELSE
+    MUX_4 := SEL(A0, D0, D1);
+END_IF;
+END_FUNCTION
+
+FUNCTION BCDC_TO_INT : INT
+VAR_INPUT
+    IN : BYTE;
+END_VAR
+
+BCDC_TO_INT := BYTE_TO_INT(IN := IN AND BYTE#16#0F) + BYTE_TO_INT(IN := SHR(IN, INT#4)) * INT#10;
+END_FUNCTION
+
+FUNCTION BIT_COUNT : INT
+VAR_INPUT
+    IN : DWORD;
+END_VAR
+VAR
+    Work : DWORD;
+END_VAR
+
+Work := IN;
+WHILE Work > DWORD#0 DO
+    IF (Work AND DWORD#1) = DWORD#1 THEN
+        BIT_COUNT := BIT_COUNT + INT#1;
+    END_IF;
+    Work := SHR(Work, INT#1);
+END_WHILE;
+END_FUNCTION
+
+FUNCTION BIT_LOAD_B : BYTE
+VAR_INPUT
+    IN : BYTE;
+    VAL : BOOL;
+    POS : INT;
+END_VAR
+
+IF VAL THEN
+    BIT_LOAD_B := IN OR SHL(BYTE#1, POS);
+ELSE
+    BIT_LOAD_B := IN AND NOT SHL(BYTE#1, POS);
+END_IF;
+END_FUNCTION
+
+FUNCTION BIT_LOAD_B2 : BYTE
+VAR_INPUT
+    I : BYTE;
+    VALUE : BOOL;
+    P : INT;
+    N : INT;
+END_VAR
+VAR
+    Index : INT;
+    TargetPos : INT;
+END_VAR
+
+BIT_LOAD_B2 := I;
+FOR Index := INT#0 TO N - INT#1 DO
+    TargetPos := P + Index;
+    WHILE TargetPos >= INT#8 DO
+        TargetPos := TargetPos - INT#8;
+    END_WHILE;
+    WHILE TargetPos < INT#0 DO
+        TargetPos := TargetPos + INT#8;
+    END_WHILE;
+    BIT_LOAD_B2 := BIT_LOAD_B(IN := BIT_LOAD_B2, VAL := VALUE, POS := TargetPos);
+END_FOR;
+END_FUNCTION
+
+FUNCTION BIT_LOAD_DW : DWORD
+VAR_INPUT
+    IN : DWORD;
+    VAL : BOOL;
+    POS : INT;
+END_VAR
+
+IF VAL THEN
+    BIT_LOAD_DW := IN OR SHL(DWORD#1, POS);
+ELSE
+    BIT_LOAD_DW := IN AND NOT SHL(DWORD#1, POS);
+END_IF;
+END_FUNCTION
+
+FUNCTION BIT_LOAD_DW2 : DWORD
+VAR_INPUT
+    I : DWORD;
+    VALUE : BOOL;
+    P : INT;
+    N : INT;
+END_VAR
+VAR
+    Index : INT;
+    TargetPos : INT;
+END_VAR
+
+BIT_LOAD_DW2 := I;
+FOR Index := INT#0 TO N - INT#1 DO
+    TargetPos := P + Index;
+    WHILE TargetPos >= INT#32 DO
+        TargetPos := TargetPos - INT#32;
+    END_WHILE;
+    WHILE TargetPos < INT#0 DO
+        TargetPos := TargetPos + INT#32;
+    END_WHILE;
+    BIT_LOAD_DW2 := BIT_LOAD_DW(IN := BIT_LOAD_DW2, VAL := VALUE, POS := TargetPos);
+END_FOR;
+END_FUNCTION
+
+FUNCTION BIT_LOAD_W : WORD
+VAR_INPUT
+    IN : WORD;
+    VAL : BOOL;
+    POS : INT;
+END_VAR
+
+IF VAL THEN
+    BIT_LOAD_W := IN OR SHL(WORD#1, POS);
+ELSE
+    BIT_LOAD_W := IN AND NOT SHL(WORD#1, POS);
+END_IF;
+END_FUNCTION
+
+FUNCTION BIT_LOAD_W2 : WORD
+VAR_INPUT
+    I : WORD;
+    VALUE : BOOL;
+    P : INT;
+    N : INT;
+END_VAR
+VAR
+    Index : INT;
+    TargetPos : INT;
+END_VAR
+
+BIT_LOAD_W2 := I;
+FOR Index := INT#0 TO N - INT#1 DO
+    TargetPos := P + Index;
+    WHILE TargetPos >= INT#16 DO
+        TargetPos := TargetPos - INT#16;
+    END_WHILE;
+    WHILE TargetPos < INT#0 DO
+        TargetPos := TargetPos + INT#16;
+    END_WHILE;
+    BIT_LOAD_W2 := BIT_LOAD_W(IN := BIT_LOAD_W2, VAL := VALUE, POS := TargetPos);
+END_FOR;
+END_FUNCTION
+
+FUNCTION BIT_OF_DWORD : BOOL
+VAR_INPUT
+    IN : DWORD;
+    N : INT;
+END_VAR
+
+BIT_OF_DWORD := (SHR(IN, N) AND DWORD#1) = DWORD#1;
+END_FUNCTION
+
+FUNCTION BIT_TOGGLE_B : BYTE
+VAR_INPUT
+    IN : BYTE;
+    POS : INT;
+END_VAR
+
+BIT_TOGGLE_B := SHL(BYTE#1, POS) XOR IN;
+END_FUNCTION
+
+FUNCTION BIT_TOGGLE_DW : DWORD
+VAR_INPUT
+    IN : DWORD;
+    POS : INT;
+END_VAR
+
+BIT_TOGGLE_DW := SHL(DWORD#1, POS) XOR IN;
+END_FUNCTION
+
+FUNCTION BIT_TOGGLE_W : WORD
+VAR_INPUT
+    IN : WORD;
+    POS : INT;
+END_VAR
+
+BIT_TOGGLE_W := SHL(WORD#1, POS) XOR IN;
+END_FUNCTION
+
+FUNCTION BYTE_OF_BIT : BYTE
+VAR_INPUT
+    B0 : BOOL;
+    B1 : BOOL;
+    B2 : BOOL;
+    B3 : BOOL;
+    B4 : BOOL;
+    B5 : BOOL;
+    B6 : BOOL;
+    B7 : BOOL;
+END_VAR
+
+BYTE_OF_BIT := BYTE#0;
+IF B0 THEN BYTE_OF_BIT := BYTE_OF_BIT OR BYTE#1; END_IF;
+IF B1 THEN BYTE_OF_BIT := BYTE_OF_BIT OR BYTE#2; END_IF;
+IF B2 THEN BYTE_OF_BIT := BYTE_OF_BIT OR BYTE#4; END_IF;
+IF B3 THEN BYTE_OF_BIT := BYTE_OF_BIT OR BYTE#8; END_IF;
+IF B4 THEN BYTE_OF_BIT := BYTE_OF_BIT OR BYTE#16; END_IF;
+IF B5 THEN BYTE_OF_BIT := BYTE_OF_BIT OR BYTE#32; END_IF;
+IF B6 THEN BYTE_OF_BIT := BYTE_OF_BIT OR BYTE#64; END_IF;
+IF B7 THEN BYTE_OF_BIT := BYTE_OF_BIT OR BYTE#16#80; END_IF;
+END_FUNCTION
+
+FUNCTION BYTE_OF_DWORD : BYTE
+VAR_INPUT
+    IN : DWORD;
+    N : BYTE;
+END_VAR
+VAR
+    ShiftBits : INT;
+END_VAR
+
+ShiftBits := BYTE_TO_INT(IN := N) * INT#8;
+BYTE_OF_DWORD := DWORD_TO_BYTE(SHR(IN, ShiftBits));
+END_FUNCTION
+
+FUNCTION_BLOCK BYTE_TO_BITS
+VAR_INPUT
+    IN : BYTE;
+END_VAR
+VAR_OUTPUT
+    B0 : BOOL;
+    B1 : BOOL;
+    B2 : BOOL;
+    B3 : BOOL;
+    B4 : BOOL;
+    B5 : BOOL;
+    B6 : BOOL;
+    B7 : BOOL;
+END_VAR
+
+B0 := (IN AND BYTE#1) = BYTE#1;
+B1 := (IN AND BYTE#2) = BYTE#2;
+B2 := (IN AND BYTE#4) = BYTE#4;
+B3 := (IN AND BYTE#8) = BYTE#8;
+B4 := (IN AND BYTE#16) = BYTE#16;
+B5 := (IN AND BYTE#32) = BYTE#32;
+B6 := (IN AND BYTE#64) = BYTE#64;
+B7 := (IN AND BYTE#16#80) = BYTE#16#80;
+END_FUNCTION_BLOCK
+
+FUNCTION BYTE_TO_GRAY : BYTE
+VAR_INPUT
+    IN : BYTE;
+END_VAR
+
+BYTE_TO_GRAY := IN XOR SHR(IN, INT#1);
+END_FUNCTION
+
+FUNCTION CHECK_PARITY : BOOL
+VAR_INPUT
+    IN : DWORD;
+    P : BOOL;
+END_VAR
+
+CHECK_PARITY := PARITY(IN) = P;
+END_FUNCTION
+
+FUNCTION DWORD_OF_BYTE : DWORD
+VAR_INPUT
+    B3 : BYTE;
+    B2 : BYTE;
+    B1 : BYTE;
+    B0 : BYTE;
+END_VAR
+
+DWORD_OF_BYTE :=
+    SHL(BYTE_TO_DWORD(B3), INT#24) OR
+    SHL(BYTE_TO_DWORD(B2), INT#16) OR
+    SHL(BYTE_TO_DWORD(B1), INT#8) OR
+    BYTE_TO_DWORD(B0);
+END_FUNCTION
+
+FUNCTION DWORD_OF_WORD : DWORD
+VAR_INPUT
+    W1 : WORD;
+    W0 : WORD;
+END_VAR
+
+DWORD_OF_WORD := SHL(WORD_TO_DWORD(W1), INT#16) OR WORD_TO_DWORD(W0);
+END_FUNCTION
+
+FUNCTION CHK_REAL : BYTE
+VAR_INPUT
+    X : REAL;
+END_VAR
+VAR
+    Bits : DWORD;
+    Magnitude : DWORD;
+END_VAR
+
+Bits := REAL_TO_DWORD(X);
+Magnitude := Bits AND DWORD#16#7FFFFFFF;
+
+IF Magnitude < DWORD#16#7F800000 THEN
+    CHK_REAL := BYTE#16#00;
+ELSIF Bits = DWORD#16#7F800000 THEN
+    CHK_REAL := BYTE#16#20;
+ELSIF Bits = DWORD#16#FF800000 THEN
+    CHK_REAL := BYTE#16#40;
+ELSE
+    CHK_REAL := BYTE#16#80;
+END_IF;
+END_FUNCTION
+
+FUNCTION GRAY_TO_BYTE : BYTE
+VAR_INPUT
+    IN : BYTE;
+END_VAR
+VAR
+    Work : BYTE;
+END_VAR
+
+Work := IN;
+Work := SHR(Work, INT#4) XOR Work;
+Work := SHR(Work, INT#2) XOR Work;
+GRAY_TO_BYTE := SHR(Work, INT#1) XOR Work;
+END_FUNCTION
+
+FUNCTION INT_TO_BCDC : BYTE
+VAR_INPUT
+    IN : INT;
+END_VAR
+
+INT_TO_BCDC := SHL(INT_TO_BYTE(IN / INT#10), INT#4) OR INT_TO_BYTE(IN MOD INT#10);
+END_FUNCTION
+
+FUNCTION PARITY : BOOL
+VAR_INPUT
+    IN : DWORD;
+END_VAR
+
+PARITY := (BIT_COUNT(IN) MOD INT#2) = INT#1;
+END_FUNCTION
+
+FUNCTION REAL_TO_DW : DWORD
+VAR_INPUT
+    X : REAL;
+END_VAR
+
+REAL_TO_DW := REAL_TO_DWORD(X);
+END_FUNCTION
+
+FUNCTION REFLECT : DWORD
+VAR_INPUT
+    VALUE : DWORD;
+    L : INT;
+END_VAR
+VAR
+    Index : INT;
+    Work : DWORD;
+END_VAR
+
+Work := VALUE;
+REFLECT := DWORD#0;
+FOR Index := INT#1 TO L DO
+    REFLECT := SHL(REFLECT, INT#1);
+    IF (Work AND DWORD#1) = DWORD#1 THEN
+        REFLECT := REFLECT OR DWORD#1;
+    END_IF;
+    Work := SHR(Work, INT#1);
+END_FOR;
+REFLECT := REFLECT OR SHL(Work, L);
+END_FUNCTION
+
+FUNCTION REVERSE : BYTE
+VAR_INPUT
+    IN : BYTE;
+END_VAR
+VAR
+    Index : INT;
+    Work : BYTE;
+END_VAR
+
+Work := IN;
+REVERSE := BYTE#0;
+FOR Index := INT#0 TO INT#7 DO
+    REVERSE := SHL(REVERSE, INT#1);
+    IF (Work AND BYTE#1) = BYTE#1 THEN
+        REVERSE := REVERSE OR BYTE#1;
+    END_IF;
+    Work := SHR(Work, INT#1);
+END_FOR;
+END_FUNCTION
+
+FUNCTION SHL1 : DWORD
+VAR_INPUT
+    IN : DWORD;
+    N : INT;
+END_VAR
+
+IF N <= INT#0 THEN
+    SHL1 := IN;
+ELSIF N >= INT#32 THEN
+    SHL1 := DWORD#16#FFFFFFFF;
+ELSE
+    SHL1 := SHL(IN, N) OR SHR(DWORD#16#FFFFFFFF, INT#32 - N);
+END_IF;
+END_FUNCTION
+
+FUNCTION SHR1 : DWORD
+VAR_INPUT
+    IN : DWORD;
+    N : INT;
+END_VAR
+
+IF N <= INT#0 THEN
+    SHR1 := IN;
+ELSIF N >= INT#32 THEN
+    SHR1 := DWORD#16#FFFFFFFF;
+ELSE
+    SHR1 := SHR(IN, N) OR SHL(DWORD#16#FFFFFFFF, INT#32 - N);
+END_IF;
+END_FUNCTION
+
+FUNCTION SWAP_BYTE : WORD
+VAR_INPUT
+    IN : WORD;
+END_VAR
+
+SWAP_BYTE := SHL(IN AND WORD#16#00FF, INT#8) OR SHR(IN AND WORD#16#FF00, INT#8);
+END_FUNCTION
+
+FUNCTION SWAP_BYTE2 : DWORD
+VAR_INPUT
+    IN : DWORD;
+END_VAR
+
+SWAP_BYTE2 :=
+    SHL(IN AND DWORD#16#000000FF, INT#24) OR
+    SHL(IN AND DWORD#16#0000FF00, INT#8) OR
+    SHR(IN AND DWORD#16#00FF0000, INT#8) OR
+    SHR(IN AND DWORD#16#FF000000, INT#24);
+END_FUNCTION
+
+FUNCTION WORD_OF_BYTE : WORD
+VAR_INPUT
+    B1 : BYTE;
+    B0 : BYTE;
+END_VAR
+
+WORD_OF_BYTE := SHL(BYTE_TO_WORD(B1), INT#8) OR BYTE_TO_WORD(B0);
+END_FUNCTION
+
+FUNCTION WORD_OF_DWORD : WORD
+VAR_INPUT
+    IN : DWORD;
+    N : BYTE;
+END_VAR
+VAR
+    ShiftBits : INT;
+END_VAR
+
+ShiftBits := BYTE_TO_INT(IN := N) * INT#16;
+WORD_OF_DWORD := DWORD_TO_WORD(SHR(IN, ShiftBits));
+END_FUNCTION
+
+
+FUNCTION CRC_GEN : DWORD
+VAR_INPUT
+    PT : POINTER TO ARRAY[*] OF BYTE;
+    SIZE : INT;
+    PL : INT;
+    PN : DWORD;
+    INIT : DWORD;
+    REV_IN : BOOL;
+    REV_OUT : BOOL;
+    XOR_OUT : DWORD;
+END_VAR
+VAR
+    Pos : INT;
+    Shift : INT;
+    Dx : BYTE;
+    Bits : INT;
+    Poly : DWORD;
+    TopSet : BOOL;
+    InputBit : BOOL;
+END_VAR
+
+Shift := INT#32 - PL;
+Poly := SHL(PN, Shift);
+CRC_GEN := DWORD#0;
+
+FOR Pos := INT#0 TO INT#3 DO
+    IF Pos < SIZE THEN
+        Dx := PT^[Pos];
+    ELSE
+        Dx := BYTE#0;
+    END_IF;
+    IF REV_IN THEN
+        Dx := REVERSE(IN := Dx);
+    END_IF;
+    CRC_GEN := SHL(CRC_GEN, INT#8) OR BYTE_TO_DWORD(Dx);
+END_FOR;
+Pos := INT#4;
+
+CRC_GEN := CRC_GEN XOR SHL(INIT, Shift);
+
+WHILE Pos < SIZE DO
+    Dx := PT^[Pos];
+    IF REV_IN THEN
+        Dx := REVERSE(IN := Dx);
+    END_IF;
+    Pos := Pos + INT#1;
+
+    FOR Bits := INT#0 TO INT#7 DO
+        TopSet := (CRC_GEN AND DWORD#16#8000_0000) <> DWORD#0;
+        InputBit := (Dx AND BYTE#16#80) <> BYTE#0;
+        CRC_GEN := SHL(CRC_GEN, INT#1);
+        IF InputBit THEN
+            CRC_GEN := CRC_GEN OR DWORD#1;
+        END_IF;
+        IF TopSet THEN
+            CRC_GEN := CRC_GEN XOR Poly;
+        END_IF;
+        Dx := SHL(Dx, INT#1);
+    END_FOR;
+END_WHILE;
+
+FOR Bits := INT#0 TO INT#31 DO
+    TopSet := (CRC_GEN AND DWORD#16#8000_0000) <> DWORD#0;
+    CRC_GEN := SHL(CRC_GEN, INT#1);
+    IF TopSet THEN
+        CRC_GEN := CRC_GEN XOR Poly;
+    END_IF;
+END_FOR;
+
+CRC_GEN := SHR(CRC_GEN, Shift) XOR XOR_OUT;
+IF REV_OUT THEN
+    CRC_GEN := REFLECT(CRC_GEN, PL);
+END_IF;
+END_FUNCTION
+
+FUNCTION_BLOCK MATRIX
+VAR_INPUT
+    X1 : BOOL;
+    X2 : BOOL;
+    X3 : BOOL;
+    X4 : BOOL;
+    X5 : BOOL;
+    Release : BOOL := FALSE;
+END_VAR
+VAR_OUTPUT
+    CODE : BYTE;
+    TP : BOOL;
+    Y1 : BOOL := TRUE;
+    Y2 : BOOL;
+    Y3 : BOOL;
+    Y4 : BOOL;
+END_VAR
+VAR
+    Line : INT;
+    X : ARRAY[0..3] OF BYTE;
+    L : ARRAY[0..3] OF BYTE;
+    I : INT;
+    Temp : BYTE;
+    Found : BOOL;
+END_VAR
+
+TP := FALSE;
+CODE := BYTE#0;
+Temp := BYTE#0;
+
+IF X1 THEN
+    Temp := Temp OR BYTE#1;
+END_IF;
+IF X2 THEN
+    Temp := Temp OR BYTE#2;
+END_IF;
+IF X3 THEN
+    Temp := Temp OR BYTE#4;
+END_IF;
+IF X4 THEN
+    Temp := Temp OR BYTE#8;
+END_IF;
+IF X5 THEN
+    Temp := Temp OR BYTE#16;
+END_IF;
+X[Line] := Temp;
+
+Found := FALSE;
+FOR I := INT#0 TO INT#3 DO
+    IF NOT Found AND X[I] <> L[I] THEN
+        Temp := X[I] XOR L[I];
+        IF (Temp AND BYTE#1) = BYTE#1 THEN
+            CODE := BYTE#1;
+            IF (X[I] AND BYTE#1) = BYTE#1 THEN
+                CODE := CODE OR BYTE#16#80;
+                L[I] := L[I] OR BYTE#1;
+            ELSE
+                L[I] := L[I] AND BYTE#16#FE;
+            END_IF;
+        ELSIF (Temp AND BYTE#2) = BYTE#2 THEN
+            CODE := BYTE#2;
+            IF (X[I] AND BYTE#2) = BYTE#2 THEN
+                CODE := CODE OR BYTE#16#80;
+                L[I] := L[I] OR BYTE#2;
+            ELSE
+                L[I] := L[I] AND BYTE#16#FD;
+            END_IF;
+        ELSIF (Temp AND BYTE#4) = BYTE#4 THEN
+            CODE := BYTE#3;
+            IF (X[I] AND BYTE#4) = BYTE#4 THEN
+                CODE := CODE OR BYTE#16#80;
+                L[I] := L[I] OR BYTE#4;
+            ELSE
+                L[I] := L[I] AND BYTE#16#FB;
+            END_IF;
+        ELSIF (Temp AND BYTE#8) = BYTE#8 THEN
+            CODE := BYTE#4;
+            IF (X[I] AND BYTE#8) = BYTE#8 THEN
+                CODE := CODE OR BYTE#16#80;
+                L[I] := L[I] OR BYTE#8;
+            ELSE
+                L[I] := L[I] AND BYTE#16#F7;
+            END_IF;
+        ELSIF (Temp AND BYTE#16) = BYTE#16 THEN
+            CODE := BYTE#5;
+            IF (X[I] AND BYTE#16) = BYTE#16 THEN
+                CODE := CODE OR BYTE#16#80;
+                L[I] := L[I] OR BYTE#16;
+            ELSE
+                L[I] := L[I] AND BYTE#16#EF;
+            END_IF;
+        END_IF;
+
+        TP := TRUE;
+        CODE := CODE OR SHL(INT_TO_BYTE(I), INT#4);
+        IF NOT Release AND (CODE AND BYTE#16#80) = BYTE#0 THEN
+            CODE := BYTE#0;
+            TP := FALSE;
+        END_IF;
+        Found := TRUE;
+    END_IF;
+END_FOR;
+
+Line := (Line + INT#1) MOD INT#4;
+Y1 := Line = INT#0;
+Y2 := Line = INT#1;
+Y3 := Line = INT#2;
+Y4 := Line = INT#3;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK PIN_CODE
+VAR_INPUT
+    CB : BYTE;
+    E : BOOL;
+    PIN : STRING[8];
+END_VAR
+VAR_OUTPUT
+    TP : BOOL;
+END_VAR
+VAR
+    POS : INT := INT#1;
+END_VAR
+
+TP := FALSE;
+IF E THEN
+    IF CB = CODE(STR := PIN, POS := POS) THEN
+        POS := POS + INT#1;
+        IF POS > LEN(PIN) THEN
+            TP := TRUE;
+            POS := INT#1;
+        END_IF;
+    ELSE
+        POS := INT#1;
+    END_IF;
+END_IF;
+END_FUNCTION_BLOCK
+

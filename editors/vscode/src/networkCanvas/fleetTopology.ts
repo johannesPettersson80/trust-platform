@@ -238,7 +238,7 @@ export function offlineTopologyForTarget(target: RuntimeTarget): FleetTopologyRe
   const health = target.status === "auth_failed" ? "error" : "unknown";
   const detail =
     target.status === "auth_failed"
-      ? "Authentication failed — check the runtime's auth token."
+      ? authFailureDetail(target.authFailureKind)
       : "Configured endpoint not reachable — open it in Devices & Connections to connect or diagnose.";
   const hostId = `fleet:${endpoint}`;
   return {
@@ -270,6 +270,16 @@ export function offlineTopologyForTarget(target: RuntimeTarget): FleetTopologyRe
     shared: [],
     external: [],
   };
+}
+
+function authFailureDetail(kind: RuntimeTarget["authFailureKind"]): string {
+  if (kind === "missing") {
+    return "No auth token provided — this runtime requires one.";
+  }
+  if (kind === "rejected") {
+    return "Auth token rejected — check it and try again.";
+  }
+  return "Authentication failed — check the runtime's auth token.";
 }
 
 // Fetch fleet.topology from every reachable target; for configured-but-unreachable targets,

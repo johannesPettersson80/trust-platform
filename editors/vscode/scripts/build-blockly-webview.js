@@ -35,6 +35,14 @@ const buildOptions = {
   logLevel: "info",
 };
 
+function stripTrailingWhitespace(filePath) {
+  const source = fs.readFileSync(filePath, "utf8");
+  const clean = source.replace(/[ \t]+$/gm, "");
+  if (clean !== source) {
+    fs.writeFileSync(filePath, clean, "utf8");
+  }
+}
+
 async function build() {
   try {
     if (isWatch) {
@@ -43,6 +51,7 @@ async function build() {
       console.log("👀 Watching for Blockly webview changes...");
     } else {
       await esbuild.build(buildOptions);
+      stripTrailingWhitespace(buildOptions.outfile);
       console.log("✅ Blockly webview built successfully");
     }
   } catch (error) {

@@ -31,6 +31,7 @@ import {
   stopVisualRuntime,
   writeVisualRuntimeIo,
 } from "../visual/runtime/stRuntimeCommands";
+import { syncVisualCompanionFromUri } from "../visual/companionSt";
 import { validateLadderProgramValue } from "../visual/ladderToSt";
 import { sanitizeIdentifier } from "../visual/stNaming";
 
@@ -350,6 +351,47 @@ export class LadderEditorProvider implements vscode.CustomTextEditorProvider {
           }
           const persisted = await this.saveProgram(document, validatedProgram);
           this.latestPrograms.set(docId, persisted);
+          break;
+        }
+
+        case "validate": {
+          try {
+            validateLadderProgramValue(message.program);
+            void vscode.window.showInformationMessage("Ladder program validates.");
+          } catch (error) {
+            const details = error instanceof Error ? error.message : String(error);
+            void vscode.window.showErrorMessage(
+              `Ladder validation failed: ${details}`
+            );
+          }
+          break;
+        }
+
+        case "generateST": {
+          let validatedProgram: LadderProgram;
+          try {
+            validatedProgram = validateLadderProgramValue(message.program);
+          } catch (error) {
+            const details = error instanceof Error ? error.message : String(error);
+            void vscode.window.showErrorMessage(
+              `Ladder ST generation failed: ${details}`
+            );
+            break;
+          }
+          const persisted = await this.saveProgram(document, validatedProgram, {
+            notify: false,
+          });
+          this.latestPrograms.set(docId, persisted);
+          const companion = await syncVisualCompanionFromUri(document.uri, {
+            force: true,
+            showErrors: true,
+            sourceText: `${JSON.stringify(persisted, null, 2)}\n`,
+          });
+          if (companion) {
+            void vscode.window.showInformationMessage(
+              `Generated ST companion: ${path.basename(companion.fsPath)}`
+            );
+          }
           break;
         }
 

@@ -255,14 +255,6 @@ export interface HmiExplainWidgetParams {
   path?: string;
 }
 
-export interface TrustTwinTopologyProposeParams {
-  rootPath?: string;
-  description: string;
-  reference_page_id?: string;
-  component_kind_constraints?: string[];
-  write_gate_artifact?: boolean;
-}
-
 export type HmiLayoutFileEntry = { name: string; path: string; content: string };
 
 export type HmiLayoutSnapshot = {

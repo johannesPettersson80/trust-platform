@@ -6,58 +6,90 @@ import React, { useState } from "react";
 export function AddHostPanel({
   post,
   onClose,
+  onSaved,
 }: {
   post: (message: unknown) => void;
   onClose: () => void;
+  onSaved?: () => void;
 }) {
   const [endpoint, setEndpoint] = useState("");
+  const [authToken, setAuthToken] = useState("");
   const submit = () => {
     const value = endpoint.trim();
     if (!value) {
       return;
     }
-    post({ type: "addHost", endpoint: value });
+    post({ type: "addHost", endpoint: value, authToken: authToken.trim() });
+    onSaved?.();
     onClose();
   };
 
   return (
-    <aside style={PANEL} aria-label="Add a host">
-      <div style={{ display: "flex", alignItems: "center", padding: "11px 12px", borderBottom: "1px solid var(--vscode-editorWidget-border, #2a2f3a)" }}>
-        <div style={{ flex: 1, fontSize: 12, fontWeight: 700, color: "var(--vscode-foreground, #cfd6e0)" }}>Add a host</div>
-        <button onClick={onClose} aria-label="Close" style={ICON}>✕</button>
+    <aside className="trust-inspector" style={PANEL} aria-label="Connect existing runtime">
+      <div className="trust-inspector__header">
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="trust-inspector__eyebrow">Set up runtime</div>
+          <div className="trust-inspector__title">Connect existing runtime</div>
+        </div>
+        <button onClick={onClose} aria-label="Close" className="trust-button" style={CLOSE_BUTTON}>
+          ✕
+        </button>
       </div>
-      <div style={{ flex: 1, overflow: "auto", padding: 12 }}>
-        <p style={{ color: "var(--vscode-descriptionForeground, #9aa6b6)", fontSize: 11, lineHeight: 1.5, margin: "0 0 12px" }}>
-          Point at another runtime's control endpoint. It joins your fleet view and appears on the
-          canvas once it's reachable.
+      <div className="trust-section trust-section--grow">
+        <p className="trust-help" style={{ marginBottom: 12 }}>
+          Add a truST runtime that is already running on another computer or controller.
+          truST checks the address before it is shown as connected.
         </p>
-        <label style={LABEL}>Control endpoint</label>
-        <input
-          value={endpoint}
-          onChange={(e) => setEndpoint(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              submit();
-            }
-          }}
-          placeholder="10.0.0.5:5510"
-          style={INPUT}
-          autoFocus
-        />
-        <p style={{ color: "var(--vscode-descriptionForeground, #7f8794)", fontSize: 10.5, marginTop: 4 }}>
-          The host:port (or socket) of the runtime's control endpoint.
-        </p>
-        <p style={{ color: "var(--vscode-disabledForeground, #6a7280)", fontSize: 10, lineHeight: 1.4, marginTop: 12 }}>
-          Discover hosts on the network (coming next).
+        <div className="trust-field">
+          <label htmlFor="runtime-endpoint">Runtime address</label>
+          <input
+            id="runtime-endpoint"
+            value={endpoint}
+            onChange={(e) => setEndpoint(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                submit();
+              }
+            }}
+            placeholder="10.0.0.5:5680"
+            className="trust-input"
+            autoFocus
+          />
+          <div className="trust-field__message">
+            Host name or IP plus port. Advanced: tcp://host:port or unix:///path/to/socket.
+          </div>
+        </div>
+        <div className="trust-field">
+          <label htmlFor="runtime-auth-token">Runtime auth token (optional)</label>
+          <input
+            id="runtime-auth-token"
+            value={authToken}
+            onChange={(e) => setAuthToken(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                submit();
+              }
+            }}
+            placeholder="Optional"
+            className="trust-input"
+            type="password"
+          />
+          <div className="trust-field__message">
+            Paste the token configured for that runtime. Leave this empty when the runtime does not require one. VS Code stores it securely and never shows it on the canvas.
+          </div>
+        </div>
+        <p className="trust-help" style={{ marginTop: 12 }}>
+          If you do not know the address, use Discover instead.
         </p>
       </div>
-      <div style={{ display: "flex", gap: 8, padding: 12, borderTop: "1px solid var(--vscode-editorWidget-border, #2a2f3a)" }}>
+      <div className="trust-section" style={{ display: "flex", gap: 8 }}>
         <button
           onClick={submit}
           disabled={!endpoint.trim()}
-          style={{ ...PRIMARY, flex: 1, opacity: endpoint.trim() ? 1 : 0.5, cursor: endpoint.trim() ? "pointer" : "default" }}
+          className="trust-button trust-button--primary"
+          style={{ flex: 1 }}
         >
-          Add host
+          Add runtime
         </button>
       </div>
     </aside>
@@ -69,30 +101,11 @@ const PANEL: React.CSSProperties = {
   top: 0,
   right: 0,
   bottom: 0,
-  width: 232,
-  background: "var(--vscode-editorHoverWidget-background, rgba(16,19,26,.97))",
-  borderLeft: "1px solid var(--vscode-editorWidget-border, #2a2f3a)",
+  width: 300,
   zIndex: 7,
-  display: "flex",
-  flexDirection: "column",
 };
-const LABEL: React.CSSProperties = { display: "block", fontSize: 11, color: "var(--vscode-foreground, #cfd6e0)", marginBottom: 4, fontWeight: 600 };
-const INPUT: React.CSSProperties = {
-  width: "100%",
-  background: "var(--vscode-input-background, #10141b)",
-  border: "1px solid var(--vscode-input-border, #343b47)",
-  borderRadius: 7,
-  color: "var(--vscode-foreground, #eef1f5)",
-  padding: "7px 9px",
-  fontSize: 12,
+const CLOSE_BUTTON: React.CSSProperties = {
+  minHeight: 24,
+  padding: 0,
+  width: 26,
 };
-const PRIMARY: React.CSSProperties = {
-  border: "1px solid var(--vscode-focusBorder, #2f81f7)",
-  background: "var(--vscode-focusBorder, #2f81f7)",
-  color: "var(--vscode-button-foreground, #fff)",
-  borderRadius: 7,
-  padding: "8px 13px",
-  fontSize: 12,
-  fontWeight: 650,
-};
-const ICON: React.CSSProperties = { border: "none", background: "transparent", color: "var(--vscode-descriptionForeground, #949cab)", fontSize: 14, cursor: "pointer", padding: 0 };

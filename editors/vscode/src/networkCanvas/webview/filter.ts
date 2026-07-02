@@ -1,4 +1,4 @@
-import type { NCGraph, NCRuntime } from "./types";
+import type { NCGraph, NCEndpoint, NCRuntime } from "./types";
 
 // Protocols present anywhere in the graph (for the filter checkboxes).
 export function protocolsInGraph(graph: NCGraph): string[] {
@@ -12,6 +12,52 @@ export function protocolsInGraph(graph: NCGraph): string[] {
     }
   }
   return [...set].sort();
+}
+
+export interface FilterReport {
+  readonly hiddenEndpointCount: number;
+  readonly hiddenAttentionCount: number;
+  readonly hiddenFaultCount: number;
+  readonly hiddenWarningCount: number;
+  readonly hiddenErrorCount: number;
+}
+
+function endpointsInGraph(graph: NCGraph): NCEndpoint[] {
+  const endpoints: NCEndpoint[] = [];
+  for (const host of graph.hosts) {
+    const runtimes = [...host.runtimes, ...host.containers.flatMap((c) => c.runtimes)];
+    for (const rt of runtimes) {
+      endpoints.push(...rt.endpoints);
+    }
+  }
+  return endpoints;
+}
+
+function needsAttention(endpoint: NCEndpoint): boolean {
+  switch (endpoint.health) {
+    case "connected":
+    case "configured":
+    case "configured_policy":
+    case "disabled":
+    case "stopped":
+    case "simulate":
+      return false;
+    default:
+      return endpoint.health.trim().length > 0;
+  }
+}
+
+export function filterReport(graph: NCGraph, hidden: ReadonlySet<string>): FilterReport {
+  const hiddenEndpoints = endpointsInGraph(graph).filter((ep) => hidden.has(ep.protocol));
+  const hiddenEndpointIds = new Set(hiddenEndpoints.map((ep) => ep.id));
+  const hiddenFaults = graph.faults.filter((fault) => hiddenEndpointIds.has(fault.targetNodeId));
+  return {
+    hiddenEndpointCount: hiddenEndpoints.length,
+    hiddenAttentionCount: hiddenEndpoints.filter(needsAttention).length,
+    hiddenFaultCount: hiddenFaults.length,
+    hiddenWarningCount: hiddenFaults.filter((fault) => fault.severity === "warning").length,
+    hiddenErrorCount: hiddenFaults.filter((fault) => fault.severity === "error").length,
+  };
 }
 
 // Hide endpoints (and their links + orphaned externals) whose protocol is filtered out.

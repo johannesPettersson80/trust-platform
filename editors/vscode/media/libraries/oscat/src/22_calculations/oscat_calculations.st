@@ -1,0 +1,282 @@
+(* Initial OSCAT BASIC 3.33 conversion subset ported for truST. *)
+
+FUNCTION BFT_TO_MS : REAL
+VAR_INPUT
+    BFT : INT;
+END_VAR
+BFT_TO_MS := EXPT(INT_TO_REAL(BFT), 1.5) * 0.836;
+END_FUNCTION
+
+FUNCTION C_TO_F : REAL
+VAR_INPUT
+    celsius : REAL;
+END_VAR
+C_TO_F := celsius * 1.8 + 32.0;
+END_FUNCTION
+
+FUNCTION C_TO_K : REAL
+VAR_INPUT
+    Celsius : REAL;
+END_VAR
+C_TO_K := Celsius - PHYS.T0;
+END_FUNCTION
+
+FUNCTION F_TO_C : REAL
+VAR_INPUT
+    fahrenheit : REAL;
+END_VAR
+F_TO_C := (fahrenheit - 32.0) * 0.5555555555555;
+END_FUNCTION
+
+FUNCTION F_TO_OM : REAL
+VAR_INPUT
+    F : REAL;
+END_VAR
+F_TO_OM := MATH.PI2 * F;
+END_FUNCTION
+
+FUNCTION F_TO_PT : TIME
+VAR_INPUT
+    F : REAL;
+END_VAR
+F_TO_PT := DWORD_TO_TIME(UDINT_TO_DWORD(REAL_TO_UDINT(1000.0 / F)));
+END_FUNCTION
+
+FUNCTION DEG_TO_DIR : STRING[3]
+VAR_INPUT
+    DEG : INT;
+    N : INT;
+    L : INT;
+END_VAR
+VAR
+    ly : INT;
+    DirectionIndex : INT;
+END_VAR
+
+IF L = 0 THEN
+    ly := LANGUAGE.DEFAULT;
+ELSE
+    ly := MIN(L, LANGUAGE.LMAX);
+END_IF;
+CASE N OF
+    1:
+        DirectionIndex := (((DEG + 45) / 90) MOD 4) * 4;
+    2:
+        DirectionIndex := ((((DEG * 2) + 45) / 90) MOD 8) * 2;
+ELSE
+    DirectionIndex := (((DEG * 4) + 45) / 90) MOD 16;
+END_CASE;
+DEG_TO_DIR := LANGUAGE.DIRS[ly, DirectionIndex];
+END_FUNCTION
+
+FUNCTION DIR_TO_DEG : INT
+VAR_INPUT
+    DIR : STRING[3];
+    L : INT;
+END_VAR
+VAR
+    ly : INT;
+    i : INT;
+    MatchIndex : INT;
+END_VAR
+IF L = 0 THEN
+    ly := LANGUAGE.DEFAULT;
+ELSE
+    ly := MIN(L, LANGUAGE.LMAX);
+END_IF;
+MatchIndex := 16;
+FOR i := 0 TO 15 DO
+    IF MatchIndex = 16 AND LANGUAGE.DIRS[ly, i] = DIR THEN
+        MatchIndex := i;
+    END_IF;
+END_FOR;
+DIR_TO_DEG := (MatchIndex * 45 + 1) / 2;
+END_FUNCTION
+
+FUNCTION GEO_TO_DEG : REAL
+VAR_INPUT
+    DEG : INT;
+    M : INT;
+    SEC : REAL;
+END_VAR
+GEO_TO_DEG := INT_TO_REAL(DEG) + INT_TO_REAL(M) * 0.016666666666667 + SEC * 0.00027777777777778;
+END_FUNCTION
+
+FUNCTION K_TO_C : REAL
+VAR_INPUT
+    Kelvin : REAL;
+END_VAR
+K_TO_C := Kelvin + PHYS.T0;
+END_FUNCTION
+
+FUNCTION KMH_TO_MS : REAL
+VAR_INPUT
+    kmh : REAL;
+END_VAR
+KMH_TO_MS := kmh * 0.2777777777777;
+END_FUNCTION
+
+FUNCTION MS_TO_BFT : INT
+VAR_INPUT
+    MS : REAL;
+END_VAR
+MS_TO_BFT := REAL_TO_INT(EXPT(MS * 1.196172, 0.666667));
+END_FUNCTION
+
+FUNCTION MS_TO_KMH : REAL
+VAR_INPUT
+    ms : REAL;
+END_VAR
+MS_TO_KMH := ms * 3.6;
+END_FUNCTION
+
+FUNCTION OM_TO_F : REAL
+VAR_INPUT
+    OM : REAL;
+END_VAR
+OM_TO_F := OM / MATH.PI2;
+END_FUNCTION
+
+FUNCTION PT_TO_F : REAL
+VAR_INPUT
+    PT : TIME;
+END_VAR
+PT_TO_F := 1000.0 / UDINT_TO_REAL(DWORD_TO_UDINT(TIME_TO_DWORD(PT)));
+END_FUNCTION
+
+
+FUNCTION_BLOCK ENERGY
+VAR_INPUT
+    J : REAL;
+    C : REAL;
+    Wh : REAL;
+END_VAR
+VAR_OUTPUT
+    YJ : REAL;
+    YC : REAL;
+    YWh : REAL;
+END_VAR
+YJ := J + Wh * 3600.0 + C * 4.1868;
+YC := YJ * 0.238845896627496;
+YWh := YJ * 2.7777777778E-004;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK LENGTH
+VAR_INPUT
+    m : REAL;
+    p : REAL;
+    inch : REAL;
+    ft : REAL;
+    yd : REAL;
+    mile : REAL;
+    sm : REAL;
+    fm : REAL;
+END_VAR
+VAR_OUTPUT
+    Ym : REAL;
+    Yp : REAL;
+    Yin : REAL;
+    Yft : REAL;
+    Yyd : REAL;
+    Ymile : REAL;
+    Ysm : REAL;
+    Yfm : REAL;
+END_VAR
+Ym := m + p * 0.000376065 + inch * 0.0254 + ft * 0.3048 + yd * 0.9144 + mile * 1609.344 + sm * 1852.0 + fm * 1.829;
+Yp := Ym * 2659.11478068951;
+Yin := Ym * 39.37007874016;
+Yft := Ym * 3.28083989501;
+Yyd := Ym * 1.09361329834;
+Ymile := Ym * 0.00062137119;
+Ysm := Ym * 0.00053995680;
+Yfm := Ym * 0.54674685621;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK PRESSURE
+VAR_INPUT
+    mws : REAL;
+    torr : REAL;
+    att : REAL;
+    atm : REAL;
+    pa : REAL;
+    bar : REAL;
+END_VAR
+VAR_OUTPUT
+    Ymws : REAL;
+    Ytorr : REAL;
+    Yatt : REAL;
+    Yatm : REAL;
+    Ypa : REAL;
+    Ybar : REAL;
+END_VAR
+Ybar := bar + pa * 1.0E-5 + 0.980665 * att + 1.01325 * atm + 0.001333224 * torr + 0.0980665 * mws;
+Ymws := Ybar * 10.1971621297793;
+Ytorr := Ybar * 750.0615050434140;
+Yatt := Ybar * 1.0197162129779;
+Yatm := Ybar * 0.9869232667160;
+Ypa := Ybar * 100000.0;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK SPEED
+VAR_INPUT
+    ms : REAL;
+    kmh : REAL;
+    kn : REAL;
+    mh : REAL;
+END_VAR
+VAR_OUTPUT
+    Yms : REAL;
+    Ykmh : REAL;
+    Ykn : REAL;
+    Ymh : REAL;
+END_VAR
+Yms := ms + kmh * 0.27777777777778 + kn * 0.5144444 + mh * 0.44704;
+Ykmh := Yms * 3.6;
+Ykn := Yms * 1.94384466037535;
+Ymh := Yms * 2.23693629205440;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK TEMPERATURE
+VAR_INPUT
+    K : REAL;
+    C : REAL := -273.15;
+    F : REAL := -459.67;
+    Re : REAL := -218.52;
+    Ra : REAL;
+END_VAR
+VAR_OUTPUT
+    YK : REAL;
+    YC : REAL;
+    YF : REAL;
+    YRe : REAL;
+    YRa : REAL;
+END_VAR
+YK := K + (C + 273.15) + (F + 459.67) * 0.555555555555 + (Re * 1.25 + 273.15) + (Ra * 0.555555555555);
+YC := YK - 273.15;
+YF := YK * 1.8 - 459.67;
+YRe := (YK - 273.15) * 0.8;
+YRa := YK * 1.8;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK ASTRO
+VAR_INPUT
+    m : REAL;
+    AE : REAL;
+    PC : REAL;
+    LJ : REAL;
+END_VAR
+VAR_OUTPUT
+    Ym : REAL;
+    YAE : REAL;
+    YPC : REAL;
+    YLJ : REAL;
+END_VAR
+
+YAE := AE
+    + m * 6.6845871535E-12
+    + PC * 206265.0
+    + LJ * 63240.0;
+Ym := YAE * 149.597870E9;
+YPC := YAE * 4.8481322570E-6;
+YLJ := YAE * 1.5812776724E-5;
+END_FUNCTION_BLOCK

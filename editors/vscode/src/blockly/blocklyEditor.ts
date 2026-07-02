@@ -273,6 +273,10 @@ export class BlocklyEditorProvider implements vscode.CustomTextEditorProvider {
             );
             return;
 
+          case "validate":
+            void this.validateWorkspace(document, webviewPanel);
+            return;
+
           case "generateCode":
             void this.generateCode(document, webviewPanel);
             return;
@@ -715,6 +719,33 @@ export class BlocklyEditorProvider implements vscode.CustomTextEditorProvider {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       vscode.window.showErrorMessage(`Code generation failed: ${errorMessage}`);
+    }
+  }
+
+  private async validateWorkspace(
+    document: vscode.TextDocument,
+    webviewPanel: vscode.WebviewPanel
+  ) {
+    try {
+      const workspaceData: BlocklyWorkspace = JSON.parse(document.getText());
+      const engine = new BlocklyEngine();
+      const result = engine.generateCode(workspaceData);
+      void webviewPanel.webview.postMessage({
+        type: "codeGenerated",
+        code: result.structuredText,
+        variables: Array.from(result.variables.entries()),
+        errors: result.errors,
+      });
+      if (result.errors.length > 0) {
+        void vscode.window.showWarningMessage(
+          `Blockly validation completed with ${result.errors.length} warnings.`
+        );
+      } else {
+        void vscode.window.showInformationMessage("Blockly workspace validates.");
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      void vscode.window.showErrorMessage(`Blockly validation failed: ${errorMessage}`);
     }
   }
 

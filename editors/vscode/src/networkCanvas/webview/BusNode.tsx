@@ -1,9 +1,11 @@
 import React, { memo } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
+import { t } from "./theme";
 
 export interface BusNodeData extends Record<string, unknown> {
   label: string;
   color: string;
+  draft?: boolean;
   handles: Array<{ id: string; x: number }>; // x = px offset from the bus's left edge
 }
 
@@ -11,6 +13,7 @@ export interface BusNodeData extends Record<string, unknown> {
 // connections MERGE into one trunk instead of N point-to-point wires (§0.2/§4.4).
 export const BusNode = memo(({ data }: NodeProps) => {
   const d = data as BusNodeData;
+  const label = d.draft ? `${d.label} · DRAFT` : d.label;
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
       <div
@@ -22,23 +25,28 @@ export const BusNode = memo(({ data }: NodeProps) => {
           height: 4,
           transform: "translateY(-50%)",
           background: d.color,
+          border: d.draft ? `1px dashed ${t.border}` : "none",
           borderRadius: 2,
-          boxShadow: "0 0 0 3px #0f1116",
+          boxShadow: `0 0 0 3px ${t.canvas}`,
         }}
       />
       <div
         style={{
           position: "absolute",
           left: "50%",
-          top: -15,
+          top: -16,
           transform: "translateX(-50%)",
           fontSize: 9.5,
           fontWeight: 700,
-          color: "#9aa6b6",
+          color: t.textMuted,
           whiteSpace: "nowrap",
+          // Opaque knockout so peer wires dropping onto the bus never run through the label text.
+          background: t.canvas,
+          padding: "1px 5px",
+          borderRadius: 3,
         }}
       >
-        {d.label}
+        {label}
       </div>
       {d.handles.map((h) => (
         <Handle

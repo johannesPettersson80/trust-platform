@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import type { RoutePlan, SymbolNode } from "../offlineComm";
 import { nodeKey, type OpcuaErrorView } from "./opcuaClientModel";
+import { t, tint } from "./theme";
 
 // §0.5.2 Browse tags/signals — look INSIDE a target (e.g. an ADS PLC's symbol table). Searchable
 // tree, multi-select, read-only by default (writes need an explicit toggle). For ADS, "Add tags"
@@ -78,12 +79,15 @@ export function BrowseTagsPanel({
     return out;
   }, [q, tree]);
 
+  const accessLabel = (n: SymbolNode): string =>
+    n.writable === true ? "read/write" : n.writable === false ? "read-only" : "";
+
   const leaf = (n: SymbolNode, depth: number) => (
     <div key={nodeKey(n)} style={{ ...ROW, paddingLeft: 8 + depth * 14 }}>
       <input type="checkbox" checked={selected.has(nodeKey(n))} onChange={() => toggleSel(nodeKey(n))} style={{ flex: "none" }} />
       <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: "var(--vscode-foreground, #eef1f5)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.name}</span>
       {(n.data_type || n.type) && <span style={{ flex: "none", fontSize: 10, color: "var(--vscode-descriptionForeground, #7f8794)" }}>{n.data_type || n.type}</span>}
-      {n.writable === false && <span title="read-only on the device" style={{ flex: "none", fontSize: 9, color: "var(--vscode-disabledForeground, #6a7280)" }}>rd</span>}
+      {accessLabel(n) && <span title={`${accessLabel(n)} on the device`} style={{ flex: "none", fontSize: 9, color: "var(--vscode-disabledForeground, #6a7280)" }}>{accessLabel(n)}</span>}
     </div>
   );
 
@@ -106,6 +110,7 @@ export function BrowseTagsPanel({
     <aside style={PANEL} aria-label="Browse tags">
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 14px", borderBottom: "1px solid var(--vscode-editorWidget-border, #2a2f3a)" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, color: "var(--vscode-descriptionForeground, #7f8794)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>Devices & Connections</span>
           <strong style={{ display: "block", fontSize: 14 }}>{title}</strong>
           <span style={{ fontSize: 10.5, color: "var(--vscode-descriptionForeground, #7f8794)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>{targetLabel}</span>
         </div>
@@ -113,15 +118,15 @@ export function BrowseTagsPanel({
       </div>
 
       {routeMissing && (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "rgba(224,179,65,.12)", borderBottom: "1px solid rgba(224,179,65,.4)" }}>
-          <span style={{ flex: 1, fontSize: 11.5, color: "var(--vscode-charts-yellow, #f0d8a0)" }}>⚠ No ADS route to this PLC. Set one up on the TwinCAT.</span>
+        <div style={WARNING_BAR}>
+          <span style={WARNING_TEXT}>Warning: No ADS route to the TwinCAT system. Add the route, then browse again.</span>
           {artifacts.length === 0 && <button onClick={onCreateRoute} style={ROUTEBTN}>Create route</button>}
         </div>
       )}
 
       {error && (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "rgba(224,179,65,.12)", borderBottom: "1px solid rgba(224,179,65,.4)" }}>
-          <span style={{ flex: 1, fontSize: 11.5, color: "var(--vscode-charts-yellow, #f0d8a0)" }}>⚠ {error.title}: {error.detail}</span>
+        <div style={WARNING_BAR}>
+          <span style={WARNING_TEXT}>Warning: {error.title}: {error.detail}</span>
           {error.action === "trust" && onTrustCertificate && (
             <button onClick={onTrustCertificate} style={ROUTEBTN}>Trust certificate</button>
           )}
@@ -139,7 +144,7 @@ export function BrowseTagsPanel({
           artifacts.length ? (
             <div style={{ padding: "2px 4px" }}>
               <p style={{ fontSize: 11.5, color: "var(--vscode-foreground, #cfd6e0)", margin: "4px 6px 10px", lineHeight: 1.5 }}>
-                TwinCAT needs a route back to truST. Run one of these on the PLC, then reopen Browse.
+                TwinCAT needs a route back to truST. Run one of these on the TwinCAT computer, then reopen Browse.
               </p>
               {artifacts.map((a, i) => (
                 <div key={a.kind ?? a.label ?? String(i)} style={ARTCARD}>
@@ -203,7 +208,16 @@ const ROW: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8
 const GROUP: React.CSSProperties = { display: "block", width: "100%", textAlign: "left", border: "none", background: "transparent", color: "var(--vscode-foreground, #cfd6e0)", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "5px 6px" };
 const SEARCH: React.CSSProperties = { width: "100%", background: "var(--vscode-input-background, #10141b)", border: "1px solid var(--vscode-input-border, #343b47)", borderRadius: 7, color: "var(--vscode-foreground, #eef1f5)", padding: "6px 9px", fontSize: 12 };
 const PRIMARY: React.CSSProperties = { border: "1px solid var(--vscode-focusBorder, #2f81f7)", background: "var(--vscode-focusBorder, #2f81f7)", color: "var(--vscode-button-foreground, #fff)", borderRadius: 7, padding: "8px 13px", fontSize: 12, fontWeight: 650 };
-const ROUTEBTN: React.CSSProperties = { flex: "none", border: "1px solid var(--vscode-charts-yellow, #e0b341)", background: "rgba(224,179,65,.16)", color: "var(--vscode-charts-yellow, #f0d8a0)", borderRadius: 6, padding: "4px 10px", fontSize: 11, cursor: "pointer" };
+const WARNING_BAR: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  padding: "10px 14px",
+  background: tint(t.warn, 0.12),
+  borderBottom: `1px solid ${tint(t.warn, 0.4)}`,
+};
+const WARNING_TEXT: React.CSSProperties = { flex: 1, fontSize: 11.5, color: t.warn };
+const ROUTEBTN: React.CSSProperties = { flex: "none", border: `1px solid ${t.warn}`, background: tint(t.warn, 0.16), color: t.warn, borderRadius: 6, padding: "4px 10px", fontSize: 11, cursor: "pointer" };
 const ARTCARD: React.CSSProperties = { border: "1px solid var(--vscode-editorWidget-border, #2a2f3a)", borderRadius: 8, padding: "9px 10px", margin: "0 4px 9px", background: "var(--vscode-editor-background, rgba(13,16,22,.7))" };
 const ARTPRE: React.CSSProperties = { margin: 0, maxHeight: 150, overflow: "auto", background: "var(--vscode-editor-background, #0c0f15)", border: "1px solid var(--vscode-editorWidget-border, #20262f)", borderRadius: 6, padding: "7px 9px", fontSize: 10.5, lineHeight: 1.45, color: "var(--vscode-foreground, #c4ccd8)", whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "ui-monospace, monospace" };
 const COPYBTN: React.CSSProperties = { flex: "none", border: "1px solid var(--vscode-focusBorder, #2f81f7)", background: "rgba(47,129,247,.16)", color: "var(--vscode-foreground, #cfe0ff)", borderRadius: 6, padding: "3px 10px", fontSize: 11, cursor: "pointer" };

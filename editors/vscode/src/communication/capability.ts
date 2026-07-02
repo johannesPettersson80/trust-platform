@@ -185,7 +185,9 @@ function runtimeBlockedDetail(runtime: RuntimeTarget): string {
     case "missing_endpoint":
       return "No online runtime control endpoint is selected.";
     case "auth_failed":
-      return "The selected runtime rejected the configured control credentials.";
+      return runtime.authFailureKind === "missing"
+        ? "No auth token is configured for the selected runtime."
+        : "The selected runtime rejected the configured control credentials.";
     case "online_unreachable":
       return "The selected runtime is not reachable.";
     default:

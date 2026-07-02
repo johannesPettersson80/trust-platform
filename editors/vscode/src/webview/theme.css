@@ -18,6 +18,9 @@
   --trust-border: var(--vscode-editorWidget-border, var(--vscode-panel-border, #2a2f3a));
   --trust-border-subtle: var(--vscode-panel-border, #23272f);
   --trust-accent: var(--vscode-focusBorder, #4a9eff);
+  --trust-action-primary-bg: var(--vscode-button-background, var(--trust-accent));
+  --trust-action-primary-hover-bg: var(--vscode-button-hoverBackground, var(--trust-accent));
+  --trust-action-primary-fg: var(--vscode-button-foreground, #ffffff);
 
   --trust-ok: var(--vscode-charts-green, var(--vscode-testing-iconPassed, #46c265));
   --trust-warn: var(--vscode-charts-yellow, var(--vscode-editorWarning-foreground, #e0b341));
@@ -27,6 +30,22 @@
 
   --trust-input-bg: var(--vscode-input-background, #10141b);
   --trust-input-border: var(--vscode-input-border, var(--vscode-editorWidget-border, #343b47));
+
+  --trust-protocol-blue: var(--vscode-charts-blue, #5b9bd5);
+  --trust-protocol-orange: var(--vscode-charts-orange, #d29152);
+  --trust-protocol-green: var(--vscode-charts-green, #5cb46c);
+  --trust-protocol-cyan: color-mix(in srgb, var(--trust-protocol-blue) 62%, var(--trust-protocol-green) 38%);
+  --trust-protocol-red: var(--vscode-charts-red, #d2756f);
+  --trust-protocol-purple: var(--vscode-charts-purple, #b39bef);
+  --trust-protocol-muted: var(--trust-idle);
+
+  --trust-role-host-bg: color-mix(in srgb, var(--trust-protocol-blue) 10%, var(--trust-surface) 90%);
+  --trust-role-host-border: color-mix(in srgb, var(--trust-protocol-blue) 36%, var(--trust-border) 64%);
+  --trust-role-runtime-bg: color-mix(in srgb, var(--trust-protocol-green) 9%, var(--trust-surface-raised) 91%);
+  --trust-role-runtime-border: color-mix(in srgb, var(--trust-protocol-green) 34%, var(--trust-border) 66%);
+  --trust-role-endpoint-bg: color-mix(in srgb, var(--trust-protocol-cyan) 8%, var(--trust-surface) 92%);
+  --trust-role-external-bg: color-mix(in srgb, var(--trust-protocol-orange) 8%, var(--trust-surface) 92%);
+  --trust-role-external-border: color-mix(in srgb, var(--trust-protocol-orange) 32%, var(--trust-border) 68%);
 
   --trust-grid-line: color-mix(in srgb, var(--trust-border) 62%, transparent);
   --trust-rail: color-mix(in srgb, var(--trust-text) 58%, transparent);
@@ -54,6 +73,11 @@
   --trust-ease: 150ms cubic-bezier(.4, 0, .2, 1);
   --trust-shadow: 0 1px 2px rgba(0, 0, 0, .14), 0 3px 10px rgba(0, 0, 0, .10);
   --trust-shadow-overlay: 0 8px 28px rgba(0, 0, 0, .28);
+}
+
+body.vscode-light {
+  --trust-text-muted: color-mix(in srgb, var(--vscode-foreground, #24292f) 64%, var(--vscode-editor-background, #ffffff) 36%);
+  --trust-idle: var(--trust-text-muted);
 }
 
 body {
@@ -197,10 +221,23 @@ body {
 }
 
 .trust-button--primary {
-  background: var(--trust-accent);
-  border-color: var(--trust-accent);
-  color: var(--trust-on-accent);
+  background: var(--trust-action-primary-bg);
+  border-color: var(--trust-action-primary-bg);
+  color: var(--trust-action-primary-fg);
   font-weight: 650;
+}
+
+.trust-button--primary:hover:not(:disabled) {
+  background: var(--trust-action-primary-hover-bg);
+  border-color: var(--trust-action-primary-hover-bg);
+  color: var(--trust-action-primary-fg);
+}
+
+.trust-button--primary:disabled {
+  background: var(--trust-surface-raised);
+  border-color: var(--trust-border);
+  color: var(--trust-text-subtle);
+  opacity: 1;
 }
 
 .trust-button--danger {
@@ -244,6 +281,18 @@ body {
   outline-offset: -1px;
 }
 
+/* Native <select> renders its text with an OS-specific inset and its own dropdown glyph, which
+   misaligns it against styled text inputs. Normalise: drop the native chrome, keep the input's
+   left inset, and draw one consistent chevron on the right. */
+select.trust-input {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 28px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%23888888' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round' d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+}
+
 .trust-input--error {
   border-color: color-mix(in srgb, var(--trust-danger) 70%, transparent);
 }
@@ -261,6 +310,66 @@ body {
 
 .trust-field__message--error {
   color: var(--trust-danger);
+}
+
+.trust-array {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.trust-array__empty {
+  background: var(--trust-surface);
+  border: 1px dashed var(--trust-border);
+  border-radius: var(--trust-radius);
+  color: var(--trust-text-muted);
+  font-size: 11.5px;
+  line-height: 1.4;
+  padding: 9px 10px;
+}
+
+.trust-array__item {
+  background: var(--trust-surface);
+  border: 1px solid var(--trust-border);
+  border-radius: var(--trust-radius);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 9px;
+}
+
+.trust-array__item-header {
+  align-items: center;
+  color: var(--trust-text-muted);
+  display: flex;
+  font-size: 11px;
+  font-weight: 700;
+  justify-content: space-between;
+  text-transform: uppercase;
+}
+
+.trust-array__grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.trust-array__property {
+  color: var(--trust-text-muted);
+  display: flex;
+  flex-direction: column;
+  font-size: 11px;
+  font-weight: 600;
+  gap: 4px;
+}
+
+.trust-array__remove {
+  min-height: 24px;
+  padding: 4px 7px;
+}
+
+.trust-array__add {
+  width: 100%;
 }
 
 .trust-message {
@@ -296,6 +405,93 @@ body {
   border: 1px solid var(--trust-border);
   border-radius: var(--trust-radius-lg);
   padding: 10px;
+}
+
+.trust-product-shell {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--trust-canvas);
+  color: var(--trust-text);
+  font-family: var(--vscode-font-family);
+}
+
+.trust-product-header {
+  align-items: center;
+  background: var(--trust-surface);
+  border-bottom: 1px solid var(--trust-border);
+  display: flex;
+  flex: none;
+  gap: 12px;
+  min-height: 42px;
+  padding: 10px 16px;
+  z-index: 5;
+}
+
+.trust-product-brand {
+  color: var(--trust-text);
+  flex: none;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+
+.trust-product-brand__accent {
+  color: var(--trust-accent);
+}
+
+.trust-product-brand__separator {
+  color: var(--trust-text-subtle);
+  margin: 0 8px;
+}
+
+.trust-product-brand__surface {
+  color: var(--trust-text-muted);
+  font-weight: 500;
+}
+
+.trust-product-header__meta {
+  color: var(--trust-text-subtle);
+  flex: 1 1 auto;
+  font-size: 12px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trust-product-workspace {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+.trust-canvas-pane {
+  background: var(--trust-canvas);
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.trust-visual-status {
+  align-items: center;
+  background: var(--trust-surface);
+  border-top: 1px solid var(--trust-border);
+  color: var(--trust-text-muted);
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: 14px;
+  min-height: 28px;
+  padding: 5px 10px;
+  font-size: 12px;
 }
 
 /* React Flow auto-picks its dark-mode pane default (#141414), which ignores the
@@ -350,6 +546,24 @@ body {
 
 .react-flow__controls button:hover {
   background: var(--trust-selected-bg) !important;
+}
+
+.trust-canvas-summary {
+  position: absolute;
+  left: 58px;
+  bottom: 14px;
+  max-width: calc(100% - 90px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 8px 12px;
+  border-radius: var(--trust-radius);
+  border: 1px solid var(--trust-border);
+  background: var(--trust-overlay);
+  color: var(--trust-text-muted);
+  font-size: 11px;
+  pointer-events: none;
+  z-index: 5;
 }
 
 .react-flow__attribution {

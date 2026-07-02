@@ -158,4 +158,32 @@ suite("ST test workflow integration (VS Code)", function () {
     assert.strictEqual(pass?.status, "passed");
     assert.strictEqual(fail?.status, "failed");
   });
+
+  test("refresh clears stale results when a file no longer contains tests", async () => {
+    const source = [
+      "(*",
+      "  Add a TEST_PROGRAM or TEST_FUNCTION_BLOCK here to create ST tests.",
+      "*)",
+      "",
+    ].join("\n");
+    await vscode.workspace.fs.writeFile(testUri, Buffer.from(source, "utf8"));
+
+    await vscode.commands.executeCommand("testing.refreshTests");
+    await delay(500);
+
+    const discovered = (await vscode.commands.executeCommand(
+      "trust-lsp.test._discover",
+      { uri: testUri.toString() }
+    )) as Array<{ name: string; kind: string; line: number }> | undefined;
+    assert.deepStrictEqual(discovered, [], "Expected no ST tests after rewriting the file.");
+
+    const state = (await vscode.commands.executeCommand(
+      "trust-lsp.test._state"
+    )) as LastResultEntry[] | undefined;
+    assert.deepStrictEqual(
+      state,
+      [],
+      "Refreshing tests after removing TEST_* declarations must clear stale PASS/FAIL state."
+    );
+  });
 });

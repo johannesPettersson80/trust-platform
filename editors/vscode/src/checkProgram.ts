@@ -5,20 +5,29 @@ import * as vscode from "vscode";
 import { getBinaryPath } from "./binary";
 import {
   summarizeCheck,
+  type CheckProblemCounts,
   type CheckProgramResponse,
 } from "./checkProgramModel";
 
-// §0.5.17 / Phase 8 — an authoritative whole-project check via `trust-runtime check --json`. NOT a new
-// run/build surface: one command, surfaced from the Project menu + palette. Results go to the Problems
-// panel (a `trust check` diagnostic collection) + a one-line summary.
+// §0.5.17 / Phase 8 — user-facing Compile via `trust-runtime check --json`. The backend verb remains
+// `check`; the IDE verb is Compile. Results go to Problems plus a one-line summary, and the command
+// returns the parsed report so the sidebar can show an honest badge only after a real compile result.
 
 export const CHECK_PROGRAM_COMMAND = "trust-lsp.checkProgram";
 
 let collection: vscode.DiagnosticCollection | undefined;
+const didCheckProgramEmitter = new vscode.EventEmitter<CheckProgramResponse>();
+let lastCompileStatusMessage: vscode.Disposable | undefined;
+
+export const onDidCheckProgram = didCheckProgramEmitter.event;
 
 export function registerCheckProgram(context: vscode.ExtensionContext): void {
   collection = vscode.languages.createDiagnosticCollection("trust check");
   context.subscriptions.push(collection);
+  context.subscriptions.push(didCheckProgramEmitter);
+  context.subscriptions.push({
+    dispose: () => clearCompileStatusMessage(),
+  });
   context.subscriptions.push(
     vscode.commands.registerCommand(CHECK_PROGRAM_COMMAND, () =>
       runAndReport(context)
@@ -57,29 +66,39 @@ function runCheck(
   });
 }
 
-async function runAndReport(context: vscode.ExtensionContext): Promise<void> {
+async function runAndReport(
+  context: vscode.ExtensionContext
+): Promise<CheckProgramResponse | undefined> {
   const root = projectRoot();
   if (!root) {
+    clearCompileStatusMessage();
     void vscode.window.showWarningMessage(
-      "Open a truST project before checking the program."
+      "Open a truST project before compiling."
     );
-    return;
+    return undefined;
   }
   const response = await vscode.window.withProgress(
-    { location: vscode.ProgressLocation.Window, title: "truST: checking program…" },
+    { location: vscode.ProgressLocation.Window, title: "truST: compiling…" },
     () => runCheck(context, root.fsPath)
   );
   if (!response) {
+    clearCompileStatusMessage();
     void vscode.window.showWarningMessage(
-      "Could not run the program check (the trust-runtime tools aren't available)."
+      "Could not compile the project (the trust-runtime tools aren't available)."
     );
-    return;
+    return undefined;
   }
 
   applyDiagnostics(root, response);
-  const summary = summarizeCheck(response);
+  didCheckProgramEmitter.fire(response);
+  const summary = summarizeCheck(
+    response,
+    response.ok ? undefined : visibleProblemCounts(root)
+  );
+  clearCompileStatusMessage();
+  lastCompileStatusMessage = vscode.window.setStatusBarMessage(summary, 8_000);
   if (response.ok) {
-    void vscode.window.showInformationMessage(summary);
+    return response;
   } else {
     void vscode.window
       .showWarningMessage(summary, "Show Problems")
@@ -89,6 +108,38 @@ async function runAndReport(context: vscode.ExtensionContext): Promise<void> {
         }
       });
   }
+  return response;
+}
+
+function clearCompileStatusMessage(): void {
+  lastCompileStatusMessage?.dispose();
+  lastCompileStatusMessage = undefined;
+}
+
+function visibleProblemCounts(root: vscode.Uri): CheckProblemCounts {
+  let errors = 0;
+  let warnings = 0;
+  for (const [uri, diagnostics] of vscode.languages.getDiagnostics()) {
+    if (!isInWorkspaceRoot(root, uri)) {
+      continue;
+    }
+    for (const diagnostic of diagnostics) {
+      if (diagnostic.severity === vscode.DiagnosticSeverity.Error) {
+        errors += 1;
+      } else if (diagnostic.severity === vscode.DiagnosticSeverity.Warning) {
+        warnings += 1;
+      }
+    }
+  }
+  return { errors, warnings };
+}
+
+function isInWorkspaceRoot(root: vscode.Uri, uri: vscode.Uri): boolean {
+  if (uri.scheme !== "file" || root.scheme !== "file") {
+    return uri.toString().startsWith(root.toString());
+  }
+  const relative = path.relative(root.fsPath, uri.fsPath);
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
 
 // File-anchored issues → the Problems panel (labeled `trust check`). File-less issues (config/sources)

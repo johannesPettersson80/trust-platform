@@ -8,9 +8,9 @@ export interface AddSlotRequest {
 }
 
 // Edit mode (LOCKED 2026-06-18, spec §0.4): a toolbar toggle. When ON, layout.ts emits dashed
-// EMPTY-SLOT placeholder nodes on the canvas (per runtime: Field/Supervisory/Peer; per host:
-// Runtime; canvas: Host). Clicking a slot calls onPickSlot → the app opens the add pane scoped to
-// that slot. This is NOT a "+" button in a node header — the affordance is the empty slots.
+// EMPTY-SLOT buttons on the canvas (per runtime: add connection; per host: set up runtime;
+// canvas: add host). Clicking a slot calls onPickSlot → the app opens the matching right pane.
+// This is NOT a "+" button in a node header — the affordance is the explicit empty-slot button.
 export interface EditModeValue {
   editMode: boolean;
   onPickSlot: (slot: AddSlotRequest) => void;

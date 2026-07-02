@@ -8,11 +8,13 @@ const filterInput = document.getElementById("filter");
 const diagnosticsSummary = document.getElementById("diagnosticsSummary");
 const diagnosticsRuntime = document.getElementById("diagnosticsRuntime");
 const diagnosticsList = document.getElementById("diagnosticsList");
+const diagnosticsPanel = document.getElementById("diagnostics");
 const runtimeView = document.getElementById("runtimeView");
 const settingsPanel = document.getElementById("settingsPanel");
 const settingsSave = document.getElementById("settingsSave");
 const settingsCancel = document.getElementById("settingsCancel");
 const runtimeStatusText = document.getElementById("runtimeStatusText");
+const targetLabel = document.getElementById("targetLabel");
 const runtimeStart = document.getElementById("runtimeStart");
 const modeSimulate = document.getElementById("modeSimulate");
 const modeOnline = document.getElementById("modeOnline");
@@ -42,6 +44,15 @@ let settingsOpen = false;
 // Current target kind (simulate/online). Force/Unforce work on both now (the adapter forwards
 // io.force/io.unforce via attach); kept only so a target flip re-renders the rows.
 let currentMode = "simulate";
+let currentRuntimeState = "stopped";
+let currentTargetKey = "simulate|stopped|";
+let forceArmed = false;
+let currentAccess = {
+  allowWrite: true,
+  allowForce: true,
+  allowRelease: true,
+  reason: "",
+};
 
 function forcedAddresses(state) {
   const all = [
@@ -62,6 +73,11 @@ function updateReleaseAll(state) {
   releaseAllForcesBtn.style.display = count > 0 ? "" : "none";
   releaseAllForcesBtn.textContent =
     count > 0 ? "Release all forces (" + count + ")" : "Release all forces";
+  releaseAllForcesBtn.disabled = count === 0 || !currentAccess.allowRelease;
+  releaseAllForcesBtn.title =
+    !currentAccess.allowRelease && currentAccess.reason
+      ? currentAccess.reason
+      : "Release every forced value on this target";
 }
 
 if (releaseAllForcesBtn) {
@@ -75,12 +91,83 @@ if (releaseAllForcesBtn) {
 
 function setStatusText(message) {
   if (status) {
-    status.textContent = message;
+    const text = String(message || "");
+    status.textContent = text;
+    status.classList.toggle(
+      "status-error",
+      /failed|forbidden|requires role|missing|error|denied|viewer role|operator role|engineer token|permissions are unknown/i.test(text)
+    );
+    status.classList.toggle(
+      "status-ok",
+      /queued|active|armed|released|cleared/i.test(text)
+    );
   }
 }
 
+function isTransientStatusText(message) {
+  return (
+    /^Live Values (loading|ready)\.?$/i.test(message) ||
+    /^Start the runtime to see live values\.?$/i.test(message) ||
+    /^Connect to the selected runtime to see live values\.?$/i.test(message)
+  );
+}
+
+function forceRequiresArming() {
+  return currentMode !== "simulate" || currentRuntimeState === "connected";
+}
+
+function resetForceArming() {
+  forceArmed = false;
+}
+
+function normalizeAccess(access, mode, runtimeState) {
+  if (access && typeof access === "object") {
+    return {
+      allowWrite: access.allowWrite === true,
+      allowForce: access.allowForce === true,
+      allowRelease: access.allowRelease === true,
+      reason:
+        typeof access.reason === "string" && access.reason.trim()
+          ? access.reason.trim()
+          : "",
+    };
+  }
+  if (mode === "simulate") {
+    return {
+      allowWrite: true,
+      allowForce: true,
+      allowRelease: true,
+      reason: "",
+    };
+  }
+  const active = runtimeState === "connected" || runtimeState === "running";
+  return {
+    allowWrite: false,
+    allowForce: false,
+    allowRelease: false,
+    reason: active
+      ? "Write/force permissions are unknown — reconnect with an engineer token."
+      : "Connect with an engineer token to write or force.",
+  };
+}
+
+function accessKey(access) {
+  return [
+    access.allowWrite ? "w1" : "w0",
+    access.allowForce ? "f1" : "f0",
+    access.allowRelease ? "r1" : "r0",
+    access.reason || "",
+  ].join("|");
+}
+
+function armForceForTarget() {
+  forceArmed = true;
+  setStatusText("Force armed for this target. Click Force again to pin a value.");
+  render(currentState);
+}
+
 function reportWebviewError(message, stack) {
-  setStatusText("Runtime panel error: " + message);
+  setStatusText("Live Values error: " + message);
   vscode.postMessage({
     type: "webviewError",
     message,
@@ -150,7 +237,7 @@ if (filterInput) {
     render(currentState);
   });
 }
-setStatusText("Runtime panel ready.");
+setStatusText("Live Values ready.");
 vscode.postMessage({ type: "webviewReady" });
 
 function setSettingsOpen(open) {
@@ -251,7 +338,7 @@ function collectSettingsPayload() {
     debugAdapterEnv = parseEnv(getFieldValue(settingsFields.debugAdapterEnv));
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    status.textContent = message;
+    setStatusText(message);
     return null;
   }
   return {
@@ -279,6 +366,45 @@ function collectSettingsPayload() {
   };
 }
 
+function shortEndpointLabel(endpoint) {
+  const text = String(endpoint || "").trim();
+  if (!text) {
+    return "";
+  }
+  if (text.startsWith("tcp://")) {
+    try {
+      const url = new URL(text);
+      return url.host || text;
+    } catch (err) {
+      return text;
+    }
+  }
+  if (text.startsWith("unix://")) {
+    const path = text.slice("unix://".length);
+    const base = path.split(/[\\/]/).filter(Boolean).pop();
+    return base ? "local socket " + base : "local socket";
+  }
+  return text;
+}
+
+function targetLabelForStatus(payload) {
+  const label = payload && typeof payload.targetLabel === "string" ? payload.targetLabel.trim() : "";
+  if (label) {
+    return label;
+  }
+  const mode = payload && payload.runtimeMode ? payload.runtimeMode : "simulate";
+  const runtimeState = payload && payload.runtimeState ? payload.runtimeState : "";
+  if (runtimeState === "connected") {
+    const endpoint = shortEndpointLabel(payload && payload.endpoint);
+    return endpoint ? "Runtime at " + endpoint : "Connected runtime";
+  }
+  if (mode === "simulate") {
+    return "Simulator (this computer)";
+  }
+  const endpoint = shortEndpointLabel(payload && payload.endpoint);
+  return endpoint ? "Runtime at " + endpoint : "Runtime endpoint";
+}
+
 function applyRuntimeStatus(payload) {
   if (!payload) {
     return;
@@ -288,7 +414,17 @@ function applyRuntimeStatus(payload) {
   const connected = runtimeState === "connected";
   const mode = payload.runtimeMode || "simulate";
   const modeChanged = mode !== currentMode;
+  const nextTargetKey = [mode, runtimeState, payload.endpoint || ""].join("|");
+  const targetChanged = nextTargetKey !== currentTargetKey;
+  const nextAccess = normalizeAccess(payload.access, mode, runtimeState);
+  const accessChanged = accessKey(nextAccess) !== accessKey(currentAccess);
   currentMode = mode;
+  currentRuntimeState = runtimeState;
+  currentTargetKey = nextTargetKey;
+  currentAccess = nextAccess;
+  if (targetChanged || (!running && !connected)) {
+    resetForceArming();
+  }
 
   if (modeSimulate) {
     modeSimulate.classList.toggle("active", mode === "simulate");
@@ -298,9 +434,12 @@ function applyRuntimeStatus(payload) {
     modeOnline.classList.toggle("active", mode === "online");
     modeOnline.disabled = running || connected;
   }
-  // Re-render the rows when the target kind flips (keeps the table in sync with the active target).
-  if (modeChanged) {
+  // Re-render the rows when the target changes (keeps safety affordances in sync with the target).
+  if (modeChanged || targetChanged || accessChanged) {
     render(currentState);
+  }
+  if (currentAccess.reason && (running || connected)) {
+    setStatusText(currentAccess.reason);
   }
 
   if (runtimeStart) {
@@ -317,7 +456,8 @@ function applyRuntimeStatus(payload) {
 
   if (runtimeStatusText) {
     const isRunning = runtimeState === "running" || runtimeState === "connected";
-    const label = isRunning ? "Running" : "Stopped";
+    const label =
+      runtimeState === "connected" ? "Connected" : isRunning ? "Running" : "Stopped";
     const adsText =
       payload.ads && payload.ads.text ? String(payload.ads.text) : "";
     runtimeStatusText.textContent = adsText ? `${label} · ${adsText}` : label;
@@ -327,6 +467,11 @@ function applyRuntimeStatus(payload) {
     runtimeStatusText.title = [payload.endpoint || "", adsText]
       .filter(Boolean)
       .join(" · ");
+  }
+  if (targetLabel) {
+    const label = targetLabelForStatus(payload);
+    targetLabel.textContent = label;
+    targetLabel.title = payload.endpoint || label;
   }
 }
 
@@ -385,9 +530,15 @@ function renderDiagnostics() {
   }
   diagnosticsList.innerHTML = "";
   if (!compileState) {
-    diagnosticsSummary.textContent = "No compile run yet";
+    if (diagnosticsPanel) {
+      diagnosticsPanel.style.display = "none";
+    }
+    diagnosticsSummary.textContent = "";
     diagnosticsRuntime.textContent = "";
     return;
+  }
+  if (diagnosticsPanel) {
+    diagnosticsPanel.style.display = "";
   }
 
   const targetLabel = compileState.target ? fileLabel(compileState.target) : "";
@@ -499,7 +650,7 @@ function defaultNumericValue(value) {
   if (numericLiteral.test(trimmed)) {
     return trimmed;
   }
-  const match = trimmed.match(/\\(([-\\d]+)\\)/);
+  const match = trimmed.match(/\((-?\d+)\)/);
   if (match) {
     return match[1];
   }
@@ -507,32 +658,54 @@ function defaultNumericValue(value) {
 }
 
 function defaultWriteValue(entry, display) {
-  const booleanValue = parseBooleanValue(entry.value || display.value);
-  if (booleanValue !== undefined) {
-    // Pre-fill the input with the CURRENT value (not the inverse), so it reads consistently with the
-    // value badge and with numeric signals. The user edits it to write a different value.
+  const addressType = typeFromAddress(entry.address);
+  const resolvedType = String(display.type || addressType || "").toUpperCase();
+  const isBool =
+    resolvedType === "BOOL" ||
+    /^%[IQM]X/i.test(String(entry.address || "").trim());
+  if (isBool) {
+    // BOOL: pre-fill with the current TRUE/FALSE so it matches the value badge.
+    const booleanValue = parseBooleanValue(entry.value || display.value);
     return booleanValue ? "TRUE" : "FALSE";
   }
+  // Numeric (BYTE/WORD/DWORD/INT/REAL): never offer a boolean literal as the default; pre-fill with
+  // the current numeric value so the write box is type-consistent with the row.
   const numericValue = defaultNumericValue(display.value || entry.value);
-  if (numericValue) {
-    return numericValue;
-  }
-  if (
-    display.type === "BOOL" ||
-    /^%[IQM]X/i.test(String(entry.address || "").trim())
-  ) {
-    return "TRUE";
-  }
-  return "0";
+  return numericValue || String(display.value || "").trim();
 }
 
 function splitDisplayValue(value) {
   const text = String(value == null ? "" : value);
-  const match = text.match(/^([A-Za-z_][A-Za-z0-9_]*)\\((.*)\\)$/);
+  const match = text.match(/^([A-Za-z_][A-Za-z0-9_]*)\((.*)\)$/);
   if (!match) {
     return { value: text, type: "" };
   }
   return { value: match[2], type: match[1].toUpperCase() };
+}
+
+function typeFromAddress(address) {
+  const match = String(address || "").match(/^%[IQM]([XBWDL])/i);
+  if (!match) {
+    return "";
+  }
+  switch (match[1].toUpperCase()) {
+    case "X":
+      return "BOOL";
+    case "B":
+      return "BYTE";
+    case "W":
+      return "WORD";
+    case "D":
+      return "DWORD";
+    case "L":
+      return "LWORD";
+    default:
+      return "";
+  }
+}
+
+function displayTypeForEntry(entry, display) {
+  return display.type || typeFromAddress(entry && entry.address);
 }
 
 function createNode(title, level, content, open = true) {
@@ -571,6 +744,28 @@ function renderRows(entries, options = {}) {
     return wrapper;
   }
 
+  if (options.allowActions) {
+    const header = document.createElement("div");
+    header.className = "row-header";
+    const signal = document.createElement("div");
+    signal.textContent = "Name";
+    const value = document.createElement("div");
+    value.textContent = "Value";
+    const type = document.createElement("div");
+    type.textContent = "Type";
+    const state = document.createElement("div");
+    state.textContent = "State";
+    const actions = document.createElement("div");
+    actions.className = "actions-heading";
+    actions.textContent = "Actions";
+    header.appendChild(signal);
+    header.appendChild(value);
+    header.appendChild(type);
+    header.appendChild(state);
+    header.appendChild(actions);
+    wrapper.appendChild(header);
+  }
+
   filtered.forEach((entry) => {
     const row = document.createElement("div");
     row.className = "row";
@@ -581,12 +776,7 @@ function renderRows(entries, options = {}) {
     nameLabel.textContent = entry.name || "";
     nameCell.appendChild(nameLabel);
     const display = splitDisplayValue(entry.value || "");
-    if (display.type) {
-      const typeLabel = document.createElement("div");
-      typeLabel.className = "type";
-      typeLabel.textContent = display.type;
-      nameCell.appendChild(typeLabel);
-    }
+    const displayType = displayTypeForEntry(entry, display);
     if (showAddress && entry.address) {
       const address = document.createElement("div");
       address.className = "address";
@@ -597,17 +787,31 @@ function renderRows(entries, options = {}) {
     const valueCell = document.createElement("div");
     valueCell.className = "value";
     valueCell.textContent = display.value || "";
-    // A forced value is ALWAYS visibly marked, independent of the F* button state.
-    if (entry.forced) {
+
+    const typeCell = document.createElement("div");
+    typeCell.className = "type-cell";
+    typeCell.textContent = displayType || "—";
+
+    const stateCell = document.createElement("div");
+    stateCell.className = "state-cell";
+    const stateBadge = document.createElement("span");
+    const forced = !!entry.forced;
+    // A forced value is ALWAYS visibly marked in its own State column, not inferred from
+    // action buttons or hidden inside the value text.
+    if (forced) {
       row.classList.add("forced");
-      const badge = document.createElement("span");
-      badge.className = "forced-badge";
-      badge.textContent = "FORCED";
-      valueCell.appendChild(badge);
+      stateBadge.className = "state-badge forced";
+      stateBadge.textContent = "FORCED";
+    } else {
+      stateBadge.className = "state-badge live";
+      stateBadge.textContent = "live";
     }
+    stateCell.appendChild(stateBadge);
 
     row.appendChild(nameCell);
     row.appendChild(valueCell);
+    row.appendChild(typeCell);
+    row.appendChild(stateCell);
 
     if (allowActions) {
       const actions = document.createElement("div");
@@ -616,31 +820,65 @@ function renderRows(entries, options = {}) {
       const canForce = allowForce;
       const canRelease = allowRelease;
 
-      const input = document.createElement("input");
-      input.className = "value-input";
-      input.type = "text";
       const key = [entry.name || "", entry.address || ""].join("|");
-      input.dataset.key = key;
-      input.value = editCache.has(key)
+      const defaultValue = editCache.has(key)
         ? editCache.get(key)
         : defaultWriteValue(entry, display);
-      input.placeholder = entry.value || "";
-      input.disabled = !(canWrite || canForce);
-      input.addEventListener("input", () => {
-        editCache.set(key, input.value);
-      });
-      input.addEventListener("focus", () => {
-        editCache.set(key, input.value);
-      });
-      input.addEventListener("blur", () => {
-        editCache.delete(key);
-      });
+      const createTextInput = () => {
+        const input = document.createElement("input");
+        input.className = "value-input";
+        input.type = "text";
+        input.dataset.key = key;
+        input.value = defaultValue;
+        input.placeholder = display.value || entry.value || "";
+        input.disabled = !(canWrite || canForce);
+        input.addEventListener("input", () => {
+          editCache.set(key, input.value);
+        });
+        input.addEventListener("focus", () => {
+          editCache.set(key, input.value);
+        });
+        input.addEventListener("blur", () => {
+          editCache.delete(key);
+        });
+        return input;
+      };
+      const boolCurrentValue =
+        String(display.value || entry.value || "").toUpperCase() === "TRUE";
+      // BOOL rows get a TRUE/FALSE chooser in the same slot as the numeric write-box, so the
+      // operator explicitly picks the value to write or force (starts at the current value).
+      const createBoolToggle = () => {
+        const toggle = document.createElement("button");
+        toggle.type = "button";
+        toggle.className = "value-input bool-toggle";
+        const initial = boolCurrentValue ? "TRUE" : "FALSE";
+        toggle.value = initial;
+        toggle.textContent = initial;
+        toggle.dataset.key = key;
+        toggle.setAttribute("aria-pressed", boolCurrentValue ? "true" : "false");
+        toggle.title = "Choose the value to write or force (click to toggle TRUE / FALSE)";
+        toggle.setAttribute("aria-label", "Value to write or force");
+        toggle.disabled = !(canWrite || canForce);
+        toggle.addEventListener("click", () => {
+          const next = toggle.value === "TRUE" ? "FALSE" : "TRUE";
+          toggle.value = next;
+          toggle.textContent = next;
+          toggle.setAttribute("aria-pressed", next === "TRUE" ? "true" : "false");
+        });
+        return toggle;
+      };
+      const valueControl =
+        displayType === "BOOL" ? createBoolToggle() : createTextInput();
 
       const sendValue = (action) => {
+        if (action === "force" && forceRequiresArming() && !forceArmed) {
+          armForceForTarget();
+          return;
+        }
         if (action !== "release") {
-          const raw = input.value.trim();
+          const raw = String(valueControl.value || "").trim();
           if (!raw) {
-            status.textContent = "Enter a value.";
+    setStatusText("Enter a value.");
             return;
           }
           editCache.delete(key);
@@ -660,20 +898,38 @@ function renderRows(entries, options = {}) {
 
       const writeButton = document.createElement("button");
       writeButton.className = "mini-btn";
-      writeButton.textContent = "W";
-      writeButton.title = "Write once (next cycle, inputs only)";
+      writeButton.textContent =
+        "Write";
+      writeButton.title =
+        displayType === "BOOL"
+          ? "Write the chosen value once (next cycle, inputs only)"
+          : "Write once (next cycle, inputs only)";
+      writeButton.setAttribute("aria-label", "Write value once");
       writeButton.disabled = !canWrite;
+      if (!canWrite && remoteReason) {
+        writeButton.title = remoteReason;
+      }
       writeButton.addEventListener("click", () => sendValue("write"));
 
       const forceButton = document.createElement("button");
-      forceButton.className = "mini-btn";
-      const isForced = !!entry.forced;
+      forceButton.className = "mini-btn force-slot";
+      const isForced = forced;
+      const needsForceArm = forceRequiresArming() && !forceArmed && !isForced;
       forceButton.classList.toggle("active", isForced);
+      forceButton.classList.toggle("armed", forceRequiresArming() && forceArmed && !isForced);
       forceButton.setAttribute("aria-pressed", isForced ? "true" : "false");
-      forceButton.textContent = isForced ? "F*" : "F";
+      forceButton.textContent = needsForceArm ? "Arm force" : "Force";
       forceButton.title = isForced
         ? "Force continuously (active)"
-        : "Force continuously";
+        : needsForceArm
+          ? "Arm force for this target before pinning a value"
+          : displayType === "BOOL"
+            ? "Force the chosen value continuously"
+            : "Force continuously";
+      forceButton.setAttribute(
+        "aria-label",
+        needsForceArm ? "Arm force for this target" : "Force value continuously"
+      );
       forceButton.disabled = !canForce;
       if (!canForce && remoteReason) {
         forceButton.title = remoteReason;
@@ -681,19 +937,33 @@ function renderRows(entries, options = {}) {
       forceButton.addEventListener("click", () => sendValue("force"));
 
       const releaseButton = document.createElement("button");
-      releaseButton.className = "mini-btn";
-      releaseButton.textContent = "R";
+      releaseButton.className = "mini-btn force-slot release";
+      releaseButton.textContent = "Release";
       releaseButton.title = "Release force";
+      releaseButton.setAttribute("aria-label", "Release forced value");
       releaseButton.disabled = !canRelease;
       if (!canRelease && remoteReason) {
         releaseButton.title = remoteReason;
       }
       releaseButton.addEventListener("click", () => sendValue("release"));
 
-      actions.appendChild(input);
+      if (valueControl) {
+        actions.appendChild(valueControl);
+      } else {
+        // Reserve the write-box slot on rows without an editable field (BOOL) so every
+        // section's actions column has the same width. Otherwise the Inputs/Outputs/Memory
+        // grids size their columns differently and their headers drift out of alignment.
+        const writeSlot = document.createElement("span");
+        writeSlot.className = "value-input-spacer";
+        writeSlot.setAttribute("aria-hidden", "true");
+        actions.appendChild(writeSlot);
+      }
       actions.appendChild(writeButton);
-      actions.appendChild(forceButton);
-      actions.appendChild(releaseButton);
+      if (isForced) {
+        actions.appendChild(releaseButton);
+      } else {
+        actions.appendChild(forceButton);
+      }
       row.appendChild(actions);
     }
 
@@ -758,7 +1028,14 @@ function render(state) {
     createNode(
       "Inputs",
       2,
-      renderRows(state.inputs, { allowActions: true, showAddress: true }),
+      renderRows(state.inputs, {
+        allowActions: true,
+        showAddress: true,
+        allowWrite: currentAccess.allowWrite,
+        allowForce: currentAccess.allowForce,
+        allowRelease: currentAccess.allowRelease,
+        remoteReason: currentAccess.reason,
+      }),
       true
     )
   );
@@ -770,6 +1047,9 @@ function render(state) {
         allowActions: true,
         showAddress: true,
         allowWrite: false,
+        allowForce: currentAccess.allowForce,
+        allowRelease: currentAccess.allowRelease,
+        remoteReason: currentAccess.reason,
       }),
       true
     )
@@ -782,6 +1062,9 @@ function render(state) {
         allowActions: true,
         showAddress: true,
         allowWrite: false,
+        allowForce: currentAccess.allowForce,
+        allowRelease: currentAccess.allowRelease,
+        remoteReason: currentAccess.reason,
       }),
       true
     )
@@ -795,12 +1078,24 @@ function render(state) {
 window.addEventListener("message", (event) => {
   const message = event.data;
   if (message.type === "ioState") {
-    status.textContent = "";
+    if (isTransientStatusText(status ? status.textContent || "" : "")) {
+      setStatusText("");
+    }
     currentState = message.payload || { inputs: [], outputs: [], memory: [] };
     render(currentState);
   }
   if (message.type === "status") {
-    status.textContent = message.payload;
+    const payload = String(message.payload || "");
+    if (
+      forceRequiresArming() &&
+      forceArmed &&
+      /released|cleared/i.test(payload) &&
+      !/armed/i.test(payload)
+    ) {
+      setStatusText(payload + " Force remains armed for this target.");
+    } else {
+      setStatusText(payload);
+    }
   }
   if (message.type === "compileResult") {
     compileState = message.payload || null;

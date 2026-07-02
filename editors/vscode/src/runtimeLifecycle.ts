@@ -13,9 +13,16 @@ import {
   runtimeStatusPayload,
 } from "./io-panel/status";
 import type { IoState, RuntimeStatusPayload } from "./io-panel/types";
+import {
+  isRuntimeControlAuthError,
+  requestRuntimeStatus,
+  runtimeControlAuthErrorKind,
+} from "./runtimeControlClient";
 
 const SESSION_WAIT_TIMEOUT_MS = 8000;
 const SESSION_WAIT_POLL_MS = 100;
+const SESSION_START_STABILITY_MS = 2500;
+const DEBUG_START_COMMAND_TIMEOUT_MS = 6000;
 
 export type { RuntimeStartFailure, RuntimeStartFailureKind };
 
@@ -160,7 +167,7 @@ class RuntimeLifecycleService {
     };
   }
 
-  async requestIoState(): Promise<RuntimeLifecycleResult> {
+  async requestIoState(options: { readonly persistFailure?: boolean } = {}): Promise<RuntimeLifecycleResult> {
     const session = this.getStructuredTextSession();
     if (!session) {
       return {
@@ -176,12 +183,15 @@ class RuntimeLifecycleService {
       return { ok: true, message: "I/O state requested." };
     } catch (err) {
       const failure = classifyRuntimeStartFailure(err);
-      this.failure = {
+      const ioFailure = {
         ...failure,
         message: `I/O state request failed: ${failure.message}`,
       };
-      this.emitChanged();
-      return { ok: false, failure: this.failure };
+      if (options.persistFailure) {
+        this.failure = ioFailure;
+        this.emitChanged();
+      }
+      return { ok: false, failure: ioFailure };
     }
   }
 
@@ -193,10 +203,10 @@ class RuntimeLifecycleService {
     this.emitChanged();
   }
 
-  async startRuntime(): Promise<RuntimeLifecycleResult> {
+  async startRuntime(targetLabel?: string): Promise<RuntimeLifecycleResult> {
     const status = await this.snapshot();
     if (status.status.runtimeMode === "online") {
-      return this.startOnlineRuntime(status.status);
+      return this.startOnlineRuntime(status.status, targetLabel);
     }
     return this.startLocalSimulator();
   }
@@ -204,7 +214,10 @@ class RuntimeLifecycleService {
   // Connect (attach) to a configured remote runtime by its control endpoint. Points the runtime at
   // that endpoint, switches to online mode, then attaches. Honest: this is a "Connect", never a remote
   // "Start" — we attach to a runtime we don't own.
-  async connectRemote(endpoint: string): Promise<RuntimeLifecycleResult> {
+  async connectRemote(
+    endpoint: string,
+    targetLabel?: string
+  ): Promise<RuntimeLifecycleResult> {
     const trimmed = endpoint.trim();
     if (!trimmed) {
       return {
@@ -219,7 +232,7 @@ class RuntimeLifecycleService {
     await config.update("runtime.controlEndpointEnabled", true, scope);
     await config.update("runtime.mode", "online", scope);
     this.emitChanged();
-    return this.startRuntime();
+    return this.startRuntime(targetLabel);
   }
 
   async startLocalSimulator(): Promise<RuntimeLifecycleResult> {
@@ -228,8 +241,10 @@ class RuntimeLifecycleService {
     this.emitChanged();
     try {
       await this.setRuntimeMode("simulate");
-      const started = await vscode.commands.executeCommand<boolean>(
-        "trust-lsp.debug.start"
+      const started = await withTimeout(
+        vscode.commands.executeCommand<boolean>("trust-lsp.debug.start"),
+        DEBUG_START_COMMAND_TIMEOUT_MS,
+        "Start debugging timed out. Check the runtime port or target settings."
       );
       if (!started) {
         throw new Error("Start debugging did not launch a local simulator session.");
@@ -242,7 +257,23 @@ class RuntimeLifecycleService {
           "Timed out waiting for the local simulator debug session."
         );
       }
-      await this.requestIoState();
+      const ioStateResult = await this.requestIoState({ persistFailure: true });
+      if (!ioStateResult.ok) {
+        this.starting = false;
+        this.failure = ioStateResult.failure;
+        this.emitChanged();
+        return ioStateResult;
+      }
+      if (!(await this.waitForSessionStillPresent(SESSION_START_STABILITY_MS))) {
+        this.starting = false;
+        this.failure = {
+          kind: "failed_spawn",
+          message:
+            "Simulator stopped during startup. Check the runtime port or target settings.",
+        };
+        this.emitChanged();
+        return { ok: false, failure: this.failure };
+      }
       this.starting = false;
       this.failure = undefined;
       this.emitChanged();
@@ -268,13 +299,13 @@ class RuntimeLifecycleService {
       try {
         await vscode.commands.executeCommand("trust-lsp.debug.stop");
       } catch (err) {
-        if (!this.getStructuredTextSession()) {
-          return { ok: true, message: "Runtime stopped." };
+        if (await this.waitForSessionGone(SESSION_WAIT_TIMEOUT_MS)) {
+          return this.markStopped("Runtime stopped.");
         }
         return { ok: false, failure: classifyRuntimeStartFailure(err) };
       }
       if (await this.waitForSessionGone(SESSION_WAIT_TIMEOUT_MS)) {
-        return { ok: true, message: "Runtime stopped." };
+        return this.markStopped("Runtime stopped.");
       }
       return {
         ok: false,
@@ -298,11 +329,12 @@ class RuntimeLifecycleService {
       return { ok: true, message: "Runtime endpoint disabled." };
     }
     // Idempotent: nothing is running, so Stop is a no-op success (no warning).
-    return { ok: true, message: "Runtime already stopped." };
+    return this.markStopped("Runtime already stopped.");
   }
 
   private async startOnlineRuntime(
-    status: RuntimeStatusPayload
+    status: RuntimeStatusPayload,
+    targetLabel?: string
   ): Promise<RuntimeLifecycleResult> {
     const target = this.runtimeConfigTarget();
     const config = vscode.workspace.getConfiguration("trust-lsp", target);
@@ -337,6 +369,45 @@ class RuntimeLifecycleService {
 
     // §0.6.8 — token from SecretStorage first (legacy setting fallback), never plaintext-only.
     const authToken = (await getControlAuthToken(status.endpoint)) ?? "";
+    let runtimeInfo: unknown;
+    try {
+      runtimeInfo = await requestRuntimeStatus(status.endpoint, authToken || undefined, {
+        timeoutMs: 1000,
+      });
+    } catch (err) {
+      if (isRuntimeControlAuthError(err)) {
+        const authKind = runtimeControlAuthErrorKind(err);
+        return {
+          ok: false,
+          failure: {
+            kind: "workspace_permission",
+            message:
+              authKind === "missing" || !authToken
+                ? "No auth token provided — this runtime requires one."
+                : "Auth token rejected — check it and try again.",
+          },
+        };
+      }
+      return {
+        ok: false,
+        failure: {
+          kind: "stale_runtime",
+          message: `Runtime status check failed: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        },
+      };
+    }
+    if (runtimeDebugDisabled(runtimeInfo)) {
+      return {
+        ok: false,
+        failure: {
+          kind: "failed_spawn",
+          message:
+            "Remote debugging is disabled for this runtime. Open Devices & Connections or ask the runtime owner to enable debugging, then connect again.",
+        },
+      };
+    }
     const runtimeOptions = runtimeSourceOptionsForTarget();
     const folder = vscode.workspace.workspaceFolders?.[0];
     const debugConfig: vscode.DebugConfiguration = {
@@ -345,6 +416,7 @@ class RuntimeLifecycleService {
       name: "Attach Structured Text",
       endpoint: status.endpoint,
       authToken: authToken || undefined,
+      targetLabel,
       internalConsoleOptions: "neverOpen",
       ...runtimeOptions,
     };
@@ -390,12 +462,31 @@ class RuntimeLifecycleService {
     return !this.getStructuredTextSession();
   }
 
+  private async waitForSessionStillPresent(timeoutMs: number): Promise<boolean> {
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < timeoutMs) {
+      if (!this.getStructuredTextSession()) {
+        return false;
+      }
+      await new Promise((resolve) => setTimeout(resolve, SESSION_WAIT_POLL_MS));
+    }
+    return !!this.getStructuredTextSession();
+  }
+
   private trackStructuredTextSession(session: vscode.DebugSession): void {
     this.sessions.set(structuredTextSessionKey(session), session);
   }
 
   private untrackStructuredTextSession(session: vscode.DebugSession): void {
     this.sessions.delete(structuredTextSessionKey(session));
+  }
+
+  private markStopped(message: string): RuntimeLifecycleResult {
+    this.lastIoState = EMPTY_IO_STATE;
+    this.starting = false;
+    this.failure = undefined;
+    this.emitChanged();
+    return { ok: true, message };
   }
 
   private emitChanged(): void {
@@ -409,11 +500,31 @@ export function registerRuntimeLifecycle(context: vscode.ExtensionContext): void
   runtimeLifecycleService.register(context);
 }
 
+async function withTimeout<T>(
+  promise: Thenable<T>,
+  timeoutMs: number,
+  timeoutMessage: string
+): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
+}
+
 function structuredTextSessionKey(session: vscode.DebugSession): string {
   return session.id ?? session.name;
 }
 
-function normalizeIoState(value: unknown): IoState {
+export function normalizeIoState(value: unknown): IoState {
   if (!isRecord(value)) {
     return EMPTY_IO_STATE;
   }
@@ -440,7 +551,7 @@ function normalizeIoEntries(value: unknown): IoState["inputs"] {
       }
       const normalized: IoState["inputs"][number] = {
         address,
-        value: rawValue,
+        value: formatIoValue(rawValue),
         forced: entry.forced === true,
       };
       if (typeof entry.name === "string") {
@@ -449,6 +560,30 @@ function normalizeIoEntries(value: unknown): IoState["inputs"] {
       return normalized;
     })
     .filter((entry): entry is IoState["inputs"][number] => entry !== undefined);
+}
+
+function formatIoValue(rawValue: string): string {
+  const trimmed = rawValue.trim();
+  const boolMatch = /^Bool\((true|false)\)$/i.exec(trimmed);
+  if (boolMatch) {
+    return boolMatch[1].toLowerCase() === "true" ? "TRUE" : "FALSE";
+  }
+  const simpleValue = /^(?:S?Int|DInt|LInt|U?Int|UDInt|ULInt|Real|LReal|Byte|Word|DWord|LWord)\((.*)\)$/i.exec(trimmed);
+  if (simpleValue) {
+    return simpleValue[1];
+  }
+  return rawValue;
+}
+
+function runtimeDebugDisabled(value: unknown): boolean {
+  if (!isRecord(value)) {
+    return false;
+  }
+  if (value.debug_enabled === false) {
+    return true;
+  }
+  const controlStatus = value.control_status;
+  return isRecord(controlStatus) && controlStatus.debug_enabled === false;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

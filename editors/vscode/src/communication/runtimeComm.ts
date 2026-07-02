@@ -22,6 +22,20 @@ export interface CommSetupResult {
   readonly applyResult: CommApplyResponse;
 }
 
+export interface CommProtocolError {
+  readonly code?: string;
+  readonly message?: string;
+}
+
+export interface CommTestControlResponse {
+  readonly protocol: string;
+  readonly supported: boolean;
+  readonly ok: boolean;
+  readonly detail: string;
+  readonly error?: CommProtocolError | null;
+  readonly field_errors?: Array<{ field: string; message: string }>;
+}
+
 export async function fetchCommSchema(
   runtime: RuntimeTarget,
   protocol?: string,
@@ -169,13 +183,7 @@ export async function testCommSetup(
   }
 
   try {
-    const result = await sendRuntimeControlRequest<{
-      protocol: string;
-      supported: boolean;
-      ok: boolean;
-      detail: string;
-      field_errors?: Array<{ field: string; message: string }>;
-    }>(
+    const result = await sendRuntimeControlRequest<CommTestControlResponse>(
       runtime.endpoint,
       runtime.authToken,
       "comm.test",
@@ -196,7 +204,7 @@ export async function testCommSetup(
         action: "test",
         applied: false,
         lifecycle_effect: result.ok ? "test_ok" : "blocked",
-        message: result.detail,
+        message: commTestMessage(protocol, result),
         field_errors: result.field_errors ?? [],
       },
     };
@@ -209,6 +217,29 @@ export async function testCommSetup(
         error instanceof Error ? error.message : String(error)
       ),
     };
+  }
+}
+
+export function commTestMessage(protocol: string, result: CommTestControlResponse): string {
+  if (result.ok) {
+    return result.detail;
+  }
+  if (protocol !== "opcua_client") {
+    return result.detail;
+  }
+  switch (result.error?.code) {
+    case "endpoint_unreachable":
+      return "OPC UA server is not reachable. Check the endpoint URL, port, and that the server is running.";
+    case "auth_required":
+      return "The OPC UA server needs valid credentials. Enter the username and password, then test again.";
+    case "cert_untrusted":
+      return "The OPC UA server certificate is not trusted. Use Browse nodes and choose Trust certificate if this is the expected server.";
+    case "unsupported_security_profile":
+      return "The OPC UA server does not offer the selected security policy and mode. Pick a supported endpoint and test again.";
+    case "browse_denied":
+      return "The OPC UA server denied access. Check the selected credentials and permissions.";
+    default:
+      return result.detail;
   }
 }
 

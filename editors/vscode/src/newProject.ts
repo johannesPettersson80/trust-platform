@@ -323,9 +323,7 @@ export function registerNewProjectCommand(
           await focusPendingMain(context);
         }
 
-        vscode.window.showInformationMessage(
-          `Structured Text project created at ${targetUri.fsPath}`
-        );
+        vscode.window.showInformationMessage("truST project created.");
         return true;
       }
     )

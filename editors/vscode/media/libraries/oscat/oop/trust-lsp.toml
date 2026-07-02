@@ -1,0 +1,8 @@
+[package]
+version = "0.1.0"
+
+[project]
+include_paths = ["src"]
+
+[dependencies]
+OSCAT = { path = "..", version = "0.1.0" }

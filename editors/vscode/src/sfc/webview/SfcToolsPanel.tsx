@@ -42,9 +42,22 @@ export const SfcToolsPanel: React.FC<SfcToolsPanelProps> = ({
       <div className="trust-section__title">Tools</div>
       <p className="trust-help">Drag tools into the canvas or click to add.</p>
       <p className="trust-help">Select a transition and press Delete/Backspace to remove it.</p>
-      
-      {/* Add Elements */}
+
+      {/* Actions */}
       <div className="trust-button-grid" style={{ marginTop: 10 }}>
+        <button type="button" className="trust-button" onClick={onValidate} title="Validate SFC">
+          Validate
+        </button>
+        <button type="button" className="trust-button" onClick={onGenerateST} title="Generate ST code">
+          Generate ST
+        </button>
+        <button type="button" className="trust-button trust-button--primary" onClick={onSave} title="Save changes">
+          Save
+        </button>
+      </div>
+
+      <div className="trust-section__title" style={{ marginTop: 10 }}>Edit tools</div>
+      <div className="trust-button-grid">
         <button
           type="button"
           className="trust-button"
@@ -84,14 +97,7 @@ export const SfcToolsPanel: React.FC<SfcToolsPanelProps> = ({
         </button>
       </div>
 
-      {/* Actions */}
       <div className="trust-button-grid" style={{ marginTop: 7 }}>
-        <button type="button" className="trust-button" onClick={onValidate} title="Validate SFC">
-          Validate
-        </button>
-        <button type="button" className="trust-button" onClick={onGenerateST} title="Generate ST code">
-          Generate
-        </button>
         {onToggleCodePanel && (
           <button
             type="button"
@@ -110,13 +116,6 @@ export const SfcToolsPanel: React.FC<SfcToolsPanelProps> = ({
           title="Delete selected element"
         >
           Delete
-        </button>
-      </div>
-
-      {/* Save */}
-      <div className="trust-button-grid trust-button-grid--single" style={{ marginTop: 7 }}>
-        <button type="button" className="trust-button trust-button--primary" onClick={onSave} title="Save changes">
-        Save
         </button>
       </div>
     </section>

@@ -30,6 +30,7 @@ import {
   stopVisualRuntime,
   writeVisualRuntimeIo,
 } from "../visual/runtime/stRuntimeCommands";
+import { syncVisualCompanionFromUri } from "../visual/companionSt";
 
 type ExecutionMode = "simulation" | "hardware";
 
@@ -255,6 +256,14 @@ export class StateChartEditorProvider
         switch (message.type) {
           case "save":
             void this.saveDocument(document, message.content);
+            return;
+
+          case "validate":
+            void this.validateDocument(message.content);
+            return;
+
+          case "generateST":
+            void this.generateStructuredTextCompanion(document, message.content);
             return;
 
           case "ready":
@@ -664,6 +673,33 @@ export class StateChartEditorProvider
   ): Promise<void> {
     await this.updateTextDocument(document, content);
     await document.save();
+  }
+
+  private async validateDocument(content: string): Promise<void> {
+    try {
+      JSON.parse(content);
+      void vscode.window.showInformationMessage("Statechart validates.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      void vscode.window.showErrorMessage(`Statechart validation failed: ${message}`);
+    }
+  }
+
+  private async generateStructuredTextCompanion(
+    document: vscode.TextDocument,
+    content: string
+  ): Promise<void> {
+    await this.saveDocument(document, content);
+    const companion = await syncVisualCompanionFromUri(document.uri, {
+      force: true,
+      showErrors: true,
+      sourceText: content,
+    });
+    if (companion) {
+      void vscode.window.showInformationMessage(
+        `Generated ST companion: ${path.basename(companion.fsPath)}`
+      );
+    }
   }
 
   /**

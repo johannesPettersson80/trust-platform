@@ -1,5 +1,7 @@
 # Development sources
 src/**
+!src/webview/
+!src/webview/theme.css
 scripts/**
 .vscode/**
 .vscode-test/**
@@ -21,4 +23,3 @@ package-lock.json
 
 # Ensure runtime dependencies are packaged
 !node_modules/**
-!media/trust-twin/**

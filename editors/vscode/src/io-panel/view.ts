@@ -25,28 +25,34 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
       webview.cspSource
     } 'nonce-${nonce}';" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Structured Text Runtime</title>
+    <title>Live Values</title>
     <link href="${codiconUri}" rel="stylesheet" />
     <style>
       :root {
         color-scheme: light dark;
-        --bg: var(--vscode-sideBar-background);
-        --text: var(--vscode-sideBar-foreground);
-        --muted: var(--vscode-descriptionForeground);
-        --border: var(--vscode-sideBar-border, var(--vscode-panel-border));
-        --panel: var(--vscode-editor-background);
-        --table-header: var(--vscode-sideBarSectionHeader-background, var(--vscode-sideBar-background));
-        --table-header-text: var(--vscode-sideBarSectionHeader-foreground, var(--vscode-sideBar-foreground));
-        --row-hover: var(--vscode-list-hoverBackground);
-        --row-alt: var(--vscode-list-inactiveSelectionBackground);
-        --button-bg: var(--vscode-button-background);
-        --button-fg: var(--vscode-button-foreground);
-        --button-hover: var(--vscode-button-hoverBackground);
-        --input-bg: var(--vscode-input-background);
-        --input-fg: var(--vscode-input-foreground);
-        --input-border: var(--vscode-input-border);
-        --error: var(--vscode-errorForeground, #f14c4c);
-        --warning: var(--vscode-editorWarning-foreground, #cca700);
+        /* Kept aligned with the active Live Values panel and the shared truST
+           product chrome; this legacy view must not reintroduce private colors. */
+        --trust-canvas: var(--vscode-editor-background, #0f1116);
+        --trust-surface: var(--vscode-editorWidget-background, #1b1f28);
+        --trust-surface-raised: var(--vscode-editorHoverWidget-background, #222732);
+        --trust-text: var(--vscode-foreground, #cfd6e0);
+        --trust-text-muted: var(--vscode-descriptionForeground, #949cab);
+        --trust-text-subtle: var(--vscode-disabledForeground, #6b7480);
+        --trust-on-accent: var(--vscode-button-foreground, #ffffff);
+        --trust-mono: var(--vscode-editor-font-family, ui-monospace, SFMono-Regular, Menlo, monospace);
+        --trust-border: var(--vscode-editorWidget-border, var(--vscode-panel-border, #2a2f3a));
+        --trust-accent: var(--vscode-focusBorder, #4a9eff);
+        --trust-ok: var(--vscode-charts-green, var(--vscode-testing-iconPassed, #46c265));
+        --trust-warn: var(--vscode-charts-yellow, var(--vscode-editorWarning-foreground, #e0b341));
+        --trust-danger: var(--vscode-charts-red, var(--vscode-errorForeground, #f0584f));
+        --trust-input-bg: var(--vscode-input-background, #10141b);
+        --trust-input-border: var(--vscode-input-border, var(--vscode-editorWidget-border, #343b47));
+        --trust-selected-bg: color-mix(in srgb, var(--trust-accent) 18%, transparent);
+        --trust-selected-strong-bg: color-mix(in srgb, var(--trust-accent) 28%, transparent);
+        --trust-radius-sm: 4px;
+        --trust-radius: 6px;
+        --trust-radius-lg: 8px;
+        --trust-pill: 999px;
       }
 
       * {
@@ -58,8 +64,8 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
         font-size: var(--vscode-font-size);
         margin: 0;
         padding: 0;
-        color: var(--text);
-        background: var(--bg);
+        color: var(--trust-text);
+        background: var(--trust-canvas);
       }
 
       header {
@@ -70,8 +76,8 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
         flex-direction: column;
         gap: 8px;
         padding: 8px;
-        background: var(--bg);
-        border-bottom: 1px solid var(--border);
+        background: var(--trust-canvas);
+        border-bottom: 1px solid var(--trust-border);
       }
 
       h1 {
@@ -96,14 +102,33 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
         align-items: center;
         gap: 12px;
         font-size: 12px;
-        color: var(--muted);
+        color: var(--trust-text-muted);
         flex-wrap: wrap;
+      }
+
+      .target-strip {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        min-height: 22px;
+        color: var(--trust-text-muted);
+        font-size: 11px;
+      }
+
+      .target-label {
+        color: var(--trust-text);
+        font-weight: 600;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
       .mode-toggle {
         display: inline-flex;
         align-items: center;
-        border: 1px solid var(--border);
+        border: 1px solid var(--trust-border);
         border-radius: 999px;
         overflow: hidden;
       }
@@ -111,7 +136,7 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
       .mode-button {
         background: transparent;
         border: none;
-        color: var(--text);
+        color: var(--trust-text);
         padding: 4px 10px;
         font-size: 11px;
         font-weight: 600;
@@ -119,8 +144,8 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
       }
 
       .mode-button.active {
-        background: var(--button-bg);
-        color: var(--button-fg);
+        background: var(--trust-accent);
+        color: var(--trust-on-accent);
       }
 
       .mode-button:disabled {
@@ -130,7 +155,7 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
 
       .mode-subtitle {
         font-size: 11px;
-        color: var(--muted);
+        color: var(--trust-text-muted);
         margin-right: 8px;
       }
 
@@ -143,16 +168,16 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
       .status-pill {
         padding: 2px 8px;
         border-radius: 999px;
-        border: 1px solid var(--border);
-        background: var(--row-alt);
-        color: var(--text);
+        border: 1px solid var(--trust-border);
+        background: var(--trust-surface);
+        color: var(--trust-text);
         white-space: nowrap;
       }
 
       .status-pill.on,
       .status-pill.running {
-        background: var(--button-bg);
-        color: var(--button-fg);
+        background: var(--trust-accent);
+        color: var(--trust-on-accent);
         border-color: transparent;
       }
 
@@ -161,7 +186,7 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
       }
 
       .status-pill.connected {
-        border-color: var(--button-bg);
+        border-color: var(--trust-accent);
       }
 
       .status-pill.disconnected {
@@ -169,16 +194,16 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
       }
 
       .status-action {
-        border: 1px solid var(--border);
+        border: 1px solid var(--trust-border);
         background: transparent;
-        color: var(--text);
+        color: var(--trust-text);
         padding: 2px 8px;
         border-radius: 999px;
         font-size: 11px;
       }
 
       .status-action:hover {
-        background: var(--row-alt);
+        background: var(--trust-surface);
       }
 
       .status-action:disabled {
@@ -188,21 +213,21 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
 
       input#filter {
         padding: 4px 8px;
-        border: 1px solid var(--input-border);
+        border: 1px solid var(--trust-input-border);
         border-radius: 4px;
         min-width: 220px;
-        background: var(--input-bg);
-        color: var(--input-fg);
+        background: var(--trust-input-bg);
+        color: var(--vscode-input-foreground, var(--trust-text));
       }
 
       input#filter::placeholder {
-        color: rgba(76, 86, 106, 0.7);
+        color: var(--vscode-input-placeholderForeground, var(--trust-text-muted));
       }
 
       button {
-        background: var(--button-bg);
+        background: var(--trust-accent);
         border: none;
-        color: var(--button-fg);
+        color: var(--trust-on-accent);
         padding: 4px 10px;
         border-radius: 4px;
         cursor: pointer;
@@ -210,7 +235,19 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
       }
 
       button:hover {
-        background: var(--button-hover);
+        background: var(--trust-selected-strong-bg);
+      }
+
+      button:disabled {
+        background: var(--vscode-button-secondaryBackground, var(--trust-surface));
+        border: 1px solid var(--trust-border);
+        color: var(--trust-text-subtle);
+        cursor: not-allowed;
+        opacity: 1;
+      }
+
+      button:disabled:hover {
+        background: var(--vscode-button-secondaryBackground, var(--trust-surface));
       }
 
       .panel {
@@ -231,9 +268,9 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
         height: 28px;
         padding: 0;
         border-radius: 6px;
-        border: 1px solid var(--border);
+        border: 1px solid var(--trust-border);
         background: transparent;
-        color: var(--text);
+        color: var(--trust-text);
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -245,11 +282,11 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
       }
 
       .icon-btn:hover {
-        background: var(--row-hover);
+        background: var(--trust-selected-bg);
       }
 
       .icon-btn:active {
-        background: var(--row-alt);
+        background: var(--trust-surface);
       }
 
       .icon-btn:disabled {
@@ -263,12 +300,12 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
 
       .icon-btn.primary {
         border-color: transparent;
-        background: var(--button-bg);
-        color: var(--button-fg);
+        background: var(--trust-accent);
+        color: var(--trust-on-accent);
       }
 
       .icon-btn.primary:hover {
-        background: var(--button-hover);
+        background: var(--trust-selected-strong-bg);
       }
 
       .tree {
@@ -287,11 +324,11 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
         border-radius: 4px;
         font-size: 12px;
         font-weight: 600;
-        color: var(--text);
+        color: var(--trust-text);
       }
 
       details.tree-node > summary:hover {
-        background: var(--row-hover);
+        background: var(--trust-selected-bg);
       }
 
       details.tree-node > summary::-webkit-details-marker {
@@ -302,7 +339,7 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
         content: "▸";
         display: inline-block;
         width: 12px;
-        color: var(--muted);
+        color: var(--trust-text-muted);
         transform: translateY(-1px);
       }
 
@@ -322,25 +359,88 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
         padding-left: 32px;
       }
 
+      /* One shared grid for the whole section so every row — BOOL or numeric, with or
+         without a write-box — lines its VALUE/TYPE/STATE/ACTIONS up under the same headers.
+         Rows use subgrid so the column tracks are shared, not re-derived per row. */
       .rows {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-        padding: 2px 6px 2px 18px;
+        display: grid;
+        grid-template-columns:
+          minmax(82px, 1fr)
+          minmax(52px, auto)
+          minmax(38px, auto)
+          minmax(52px, auto)
+          minmax(128px, auto);
+        row-gap: 2px;
+        padding: 2px 4px 2px 10px;
+      }
+
+      .row,
+      .row-header {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: subgrid;
+        align-items: center;
+        column-gap: 6px;
       }
 
       .row {
-        display: grid;
-        grid-template-columns: minmax(120px, 1fr) auto auto;
-        align-items: center;
-        gap: 8px;
         padding: 2px 4px;
         border-radius: 4px;
         font-size: 12px;
       }
 
+      .row-header {
+        padding: 2px 4px;
+        color: var(--trust-text-muted);
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .row-header .actions-heading {
+        text-align: right;
+      }
+
       .row:hover {
-        background: var(--row-hover);
+        background: var(--trust-selected-bg);
+      }
+
+      /* A forced value is ALWAYS visibly marked in the State column, not just via an action button. */
+      .row.forced {
+        background: color-mix(in srgb, var(--vscode-testing-iconPassed, #1f8f4e) 12%, transparent);
+      }
+
+      .state-cell,
+      .type-cell {
+        color: var(--trust-text-muted);
+        font-size: 11px;
+        white-space: nowrap;
+      }
+
+      .state-badge {
+        display: inline-block;
+        min-width: 64px;
+        box-sizing: border-box;
+        text-align: center;
+        padding: 1px 6px;
+        border-radius: 6px;
+        border: 1px solid var(--trust-border);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        line-height: 1.4;
+      }
+
+      .state-badge.live {
+        color: var(--trust-text-muted);
+        text-transform: uppercase;
+      }
+
+      .state-badge.forced {
+        color: var(--trust-on-accent);
+        background: var(--vscode-testing-iconPassed, #1f8f4e);
+        border-color: var(--vscode-testing-iconPassed, #1f8f4e);
       }
 
       .row .name {
@@ -351,16 +451,16 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
 
       .row .name .type {
         font-size: 10px;
-        color: var(--muted);
+        color: var(--trust-text-muted);
       }
 
       .row .name .address {
         font-size: 10px;
-        color: var(--muted);
+        color: var(--trust-text-muted);
       }
 
       .row .value {
-        color: var(--text);
+        color: var(--trust-text);
         font-family: var(--vscode-editor-font-family);
         font-size: 11px;
       }
@@ -369,15 +469,18 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
         display: flex;
         align-items: center;
         gap: 4px;
+        justify-content: flex-end;
+        flex-wrap: nowrap;
       }
 
       .value-input {
-        width: 70px;
+        width: 52px;
+        height: 24px;
         padding: 2px 4px;
-        border: 1px solid var(--input-border);
+        border: 1px solid var(--trust-input-border);
         border-radius: 3px;
-        background: var(--input-bg);
-        color: var(--input-fg);
+        background: var(--trust-input-bg);
+        color: var(--vscode-input-foreground, var(--trust-text));
         font-family: var(--vscode-editor-font-family);
         font-size: 11px;
       }
@@ -387,55 +490,117 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
         cursor: not-allowed;
       }
 
+      /* Invisible placeholder that reserves the write-box slot on rows without an editable
+         field, so every section's actions column keeps the same width and the headers align. */
+      .value-input-spacer {
+        flex: 0 0 52px;
+        height: 24px;
+      }
+
+      .value-input.bool-toggle {
+        cursor: pointer;
+        font-weight: 700;
+        text-align: center;
+      }
+
+      .value-input.bool-toggle[aria-pressed="true"] {
+        border-color: var(--trust-accent);
+        background: var(--trust-selected-bg);
+        color: var(--trust-text);
+      }
+
       .mini-btn {
-        width: 18px;
-        height: 18px;
-        padding: 0;
+        min-width: 48px;
+        height: 24px;
+        padding: 0 5px;
         border-radius: 3px;
         font-size: 11px;
         font-weight: 600;
-        border: 1px solid var(--input-border);
-        background: var(--button-bg);
-        color: var(--button-fg);
+        border: 1px solid var(--trust-input-border);
+        background: var(--trust-accent);
+        color: var(--trust-on-accent);
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        line-height: 1;
+        white-space: nowrap;
         cursor: pointer;
       }
 
+      /* The force/release control keeps a fixed width so its label can change between
+         "Force", "Arm force" and "Release" without resizing — and so every section's
+         actions column stays the same width, keeping the tables aligned across sections. */
+      .mini-btn.force-slot {
+        width: 72px;
+      }
+
       .mini-btn:hover {
-        background: var(--button-hover);
+        background: var(--trust-selected-strong-bg);
       }
 
       .mini-btn.active {
         background: var(--vscode-testing-iconPassed, #1f8f4e);
-        color: #ffffff;
+        color: var(--trust-on-accent);
         border-color: var(--vscode-testing-iconPassed, #1f8f4e);
         box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
       }
 
+      .mini-btn.armed {
+        background: var(--trust-warn);
+        color: var(--trust-canvas);
+        border-color: var(--trust-warn);
+      }
+
       .mini-btn:disabled {
-        opacity: 0.55;
+        background: var(--trust-input-bg);
+        border-color: var(--trust-input-border);
+        color: var(--trust-text-subtle);
+        box-shadow: none;
+        opacity: 1;
         cursor: not-allowed;
       }
 
+      .mini-btn:disabled:hover {
+        background: var(--trust-input-bg);
+      }
+
       .empty {
+        grid-column: 1 / -1;
         font-size: 11px;
-        color: var(--muted);
+        color: var(--trust-text-muted);
         padding: 2px 6px 2px 24px;
       }
 
       .status {
-        margin-top: 10px;
-        color: var(--muted);
+        display: none;
+        color: var(--trust-text);
         font-size: 12px;
+        line-height: 1.35;
+        padding: 4px 8px;
+        border: 1px solid var(--trust-border);
+        border-radius: 4px;
+        background: var(--trust-surface);
+      }
+
+      .status:not(:empty) {
+        display: block;
+      }
+
+      .status.status-ok {
+        border-color: var(--trust-ok);
+        background: color-mix(in srgb, var(--trust-ok) 12%, var(--trust-surface));
+      }
+
+      .status.status-error {
+        border-color: var(--trust-danger);
+        background: color-mix(in srgb, var(--trust-danger) 12%, var(--trust-surface));
       }
 
       .diagnostics {
         margin-top: 12px;
-        border: 1px solid var(--border);
+        border: 1px solid var(--trust-border);
         border-radius: 6px;
-        background: var(--panel);
+        background: var(--trust-surface);
         padding: 8px;
       }
 
@@ -454,12 +619,12 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
 
       .diagnostics-summary {
         font-size: 11px;
-        color: var(--muted);
+        color: var(--trust-text-muted);
       }
 
       .diagnostics-runtime {
         font-size: 11px;
-        color: var(--muted);
+        color: var(--trust-text-muted);
         margin-bottom: 6px;
       }
 
@@ -472,16 +637,16 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
       .diagnostic-item {
         padding: 6px 8px;
         border-radius: 4px;
-        background: var(--row-alt);
+        background: var(--trust-surface);
         border-left: 3px solid transparent;
       }
 
       .diagnostic-item.error {
-        border-left-color: var(--error);
+        border-left-color: var(--trust-danger);
       }
 
       .diagnostic-item.warning {
-        border-left-color: var(--warning);
+        border-left-color: var(--trust-warn);
       }
 
       .diagnostic-message {
@@ -490,7 +655,7 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
 
       .diagnostic-meta {
         font-size: 11px;
-        color: var(--muted);
+        color: var(--trust-text-muted);
         margin-top: 2px;
         display: flex;
         flex-wrap: wrap;
@@ -503,9 +668,9 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
 
       .settings-panel {
         display: none;
-        border: 1px solid var(--border);
+        border: 1px solid var(--trust-border);
         border-radius: 8px;
-        background: var(--panel);
+        background: var(--trust-surface);
         padding: 12px;
       }
 
@@ -528,7 +693,7 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
 
       .settings-subtitle {
         font-size: 11px;
-        color: var(--muted);
+        color: var(--trust-text-muted);
         margin-top: 2px;
       }
 
@@ -538,10 +703,10 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
       }
 
       .settings-section {
-        border: 1px solid var(--border);
+        border: 1px solid var(--trust-border);
         border-radius: 6px;
         padding: 10px;
-        background: var(--row-alt);
+        background: var(--trust-surface);
       }
 
       .settings-section h2 {
@@ -549,7 +714,7 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
         font-size: 11px;
         text-transform: uppercase;
         letter-spacing: 0.4px;
-        color: var(--muted);
+        color: var(--trust-text-muted);
       }
 
       .settings-row {
@@ -566,7 +731,7 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
 
       .settings-row label {
         font-size: 11px;
-        color: var(--muted);
+        color: var(--trust-text-muted);
       }
 
       .settings-row input,
@@ -574,10 +739,10 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
       .settings-row select {
         width: 100%;
         padding: 4px 6px;
-        border: 1px solid var(--input-border);
+        border: 1px solid var(--trust-input-border);
         border-radius: 4px;
-        background: var(--input-bg);
-        color: var(--input-fg);
+        background: var(--trust-input-bg);
+        color: var(--vscode-input-foreground, var(--trust-text));
         font-family: var(--vscode-editor-font-family);
         font-size: 12px;
       }
@@ -589,7 +754,7 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
 
       .settings-help {
         font-size: 11px;
-        color: var(--muted);
+        color: var(--trust-text-muted);
         margin-top: 4px;
       }
 
@@ -601,12 +766,12 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
 
       .button-ghost {
         background: transparent;
-        border: 1px solid var(--border);
-        color: var(--text);
+        border: 1px solid var(--trust-border);
+        color: var(--trust-text);
       }
 
       .button-ghost:hover {
-        background: var(--row-hover);
+        background: var(--trust-selected-bg);
       }
     </style>
   </head>
@@ -633,9 +798,14 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
           <span id="runtimeStatusText" class="status-pill disconnected">Stopped</span>
         </div>
       </div>
+      <div class="target-strip" aria-label="Active Live Values target">
+        <span>Target</span>
+        <span id="targetLabel" class="target-label" title="Simulator (this computer)">Simulator (this computer)</span>
+      </div>
       <div class="header-search">
         <input id="filter" placeholder="Filter by name or address" />
       </div>
+      <div class="status" id="status">Live Values loading...</div>
     </header>
 
     <div class="panel">
@@ -759,7 +929,6 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
           </section>
         </div>
       </div>
-      <div class="status" id="status">Runtime panel loading...</div>
     </div>
 
     <script nonce="${nonce}" src="${scriptUri}"></script>

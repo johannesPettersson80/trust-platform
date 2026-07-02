@@ -378,8 +378,18 @@ export const SfcEditor: React.FC = () => {
   const hasSelection = selectedNodeIds.length > 0 || selectedEdgeIds.length > 0;
 
   return (
-    <div className="sfc-editor" style={{ width: "100%", height: "100vh", display: "flex" }}>
-      <div style={{ flex: 1, minWidth: 0, position: "relative" }}>
+    <div className="sfc-editor trust-product-shell">
+      <header className="trust-product-header" aria-label="SFC editor header">
+        <div className="trust-product-brand">
+          tru<span className="trust-product-brand__accent">ST</span>
+          <span className="trust-product-brand__separator">·</span>
+          <span className="trust-product-brand__surface">SFC editor</span>
+        </div>
+        <div className="trust-product-header__meta">Sequential function chart</div>
+      </header>
+
+      <div className="trust-product-workspace">
+      <div className="trust-canvas-pane">
         <ReactFlow<SfcNode, SfcTransitionEdge>
           nodes={nodes}
           edges={edges}
@@ -431,7 +441,7 @@ export const SfcEditor: React.FC = () => {
             variant={BackgroundVariant.Dots}
             gap={20}
             size={1}
-            color="var(--vscode-editorWidget-border)"
+            color="var(--trust-grid-line)"
           />
           <Controls />
         </ReactFlow>
@@ -492,6 +502,7 @@ export const SfcEditor: React.FC = () => {
             <div>Select a step, parallel node, or transition to view properties</div>
           </div>
         )}
+      </div>
       </div>
     </div>
   );

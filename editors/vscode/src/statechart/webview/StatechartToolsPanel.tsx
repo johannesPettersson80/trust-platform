@@ -7,6 +7,8 @@ interface StatechartToolsPanelProps {
   onAddFinalState: () => void;
   onDelete: () => void;
   onAutoLayout: () => void;
+  onValidate: () => void;
+  onGenerateST: () => void;
   onSave: () => void;
 }
 
@@ -17,11 +19,25 @@ export const StatechartToolsPanel: React.FC<StatechartToolsPanelProps> = ({
   onAddFinalState,
   onDelete,
   onAutoLayout,
+  onValidate,
+  onGenerateST,
   onSave,
 }) => {
   return (
     <section className="trust-section" aria-label="Statechart tools">
       <div className="trust-section__title">Tools</div>
+      <div className="trust-button-grid">
+        <button type="button" className="trust-button" onClick={onValidate} title="Validate statechart">
+          Validate
+        </button>
+        <button type="button" className="trust-button" onClick={onGenerateST} title="Generate Structured Text companion">
+          Generate ST
+        </button>
+        <button type="button" className="trust-button trust-button--primary" onClick={onSave} title="Save statechart">
+          Save
+        </button>
+      </div>
+      <div className="trust-section__title" style={{ marginTop: 10 }}>Edit tools</div>
       <div className="trust-button-grid">
         <button type="button" className="trust-button" onClick={onAddState}>
           Add State
@@ -44,9 +60,6 @@ export const StatechartToolsPanel: React.FC<StatechartToolsPanelProps> = ({
           disabled={!canDelete}
         >
           Delete
-        </button>
-        <button type="button" className="trust-button trust-button--primary" onClick={onSave}>
-          Save
         </button>
       </div>
     </section>

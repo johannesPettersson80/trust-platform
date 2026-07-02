@@ -189,6 +189,29 @@ export function isRuntimeControlAuthError(error: unknown): boolean {
   return false;
 }
 
+export function runtimeControlAuthErrorKind(
+  error: unknown
+): "missing" | "rejected" | undefined {
+  const code = error instanceof RuntimeControlError ? error.code : undefined;
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  const normalized = `${code ?? ""} ${message}`.toLowerCase();
+  if (
+    normalized.includes("missing_auth_token") ||
+    normalized.includes("missing auth token") ||
+    normalized.includes("no auth token")
+  ) {
+    return "missing";
+  }
+  if (
+    normalized.includes("invalid_auth_token") ||
+    normalized.includes("invalid auth token") ||
+    normalized.includes("rejected")
+  ) {
+    return "rejected";
+  }
+  return undefined;
+}
+
 function handleResponseLine<T>(
   line: string,
   requestId: number,
@@ -201,6 +224,7 @@ function handleResponseLine<T>(
     result?: T;
     error?: unknown;
     code?: unknown;
+    error_code?: unknown;
   };
   try {
     parsed = JSON.parse(line);
@@ -219,6 +243,9 @@ function handleResponseLine<T>(
   const code =
     typeof parsed.code === "string" && parsed.code.trim().length > 0
       ? parsed.code.trim()
+      : typeof parsed.error_code === "string" &&
+          parsed.error_code.trim().length > 0
+        ? parsed.error_code.trim()
       : undefined;
   const message =
     typeof parsed.error === "string" && parsed.error.trim().length > 0

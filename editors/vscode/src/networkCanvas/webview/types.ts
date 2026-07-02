@@ -80,12 +80,14 @@ export interface NCLink {
   role: string;
   status: string;
   secure: boolean;
+  dimmed?: boolean;
 }
 
 export interface NCExternal {
   id: string;
   name: string;
   kind: string;
+  dimmed?: boolean;
 }
 
 export interface NCFault {
@@ -157,6 +159,7 @@ export interface EndpointNodeData extends Record<string, unknown> {
 export interface ExternalNodeData extends Record<string, unknown> {
   label: string;
   sub: string;
+  dimmed: boolean;
 }
 // v4 (§0.4): an empty-slot placeholder rendered in Edit mode (dashed ghost cell).
 export interface SlotNodeData extends Record<string, unknown> {

@@ -20,8 +20,11 @@ export const CodePanel: React.FC<CodePanelProps> = ({ code, errors }) => {
       <div className="code-panel-header">
         <h3>Generated Structured Text (ST)</h3>
         {code && (
-          <button className="copy-button" onClick={handleCopyCode}>
-            📋 Copy
+          <button
+            className="copy-button trust-button trust-button--primary"
+            onClick={handleCopyCode}
+          >
+            Copy
           </button>
         )}
       </div>

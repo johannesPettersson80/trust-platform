@@ -185,6 +185,18 @@ suite("Debug/IO DRY flows", function () {
     assert.strictEqual(stopped, false);
   });
 
+  test("integration: reload command returns failure without active structured-text session", async () => {
+    await ensureNoStructuredTextSession();
+    const result = await vscode.commands.executeCommand<{ ok?: boolean; message?: string }>(
+      "trust-lsp.debug.reload"
+    );
+    assert.strictEqual(result?.ok, false);
+    assert.ok(
+      result?.message?.includes("No active Structured Text debug session"),
+      `Expected no-session guidance, got ${JSON.stringify(result)}`
+    );
+  });
+
   test("integration: io and expression commands are callable and reject without session", async () => {
     await ensureNoStructuredTextSession();
 

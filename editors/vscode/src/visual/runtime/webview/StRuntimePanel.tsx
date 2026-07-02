@@ -268,7 +268,7 @@ export const StRuntimePanel: React.FC<StRuntimePanelProps> = ({
             </div>
           </div>
           <div className="status" data-st-runtime-id="status">
-            Runtime panel loading...
+            Live Values loading...
           </div>
         </div>
       </div>

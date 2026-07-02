@@ -57,7 +57,6 @@ import {
   STHmiTraceCaptureTool,
   STHmiValidateTool,
 } from "./lm-tools/hmiTools";
-import { STTrustTwinTopologyProposeTool } from "./lm-tools/trustTwinTools";
 import {
   STApplyEditsTool,
   STFileReadTool,
@@ -74,7 +73,6 @@ import {
 
 export { __testSetRuntimeControlRequestHandler } from "./lm-tools/shared";
 export * from "./lm-tools/hmiTools";
-export * from "./lm-tools/trustTwinTools";
 
 export function registerLanguageModelTools(
   context: vscode.ExtensionContext,
@@ -188,10 +186,6 @@ export function registerLanguageModelTools(
       new STHmiExplainWidgetTool(getClient),
     ),
     lm.registerTool("trust_hmi_init", new STHmiInitTool(getClient)),
-    lm.registerTool(
-      "trust_twin_topology_propose",
-      new STTrustTwinTopologyProposeTool(),
-    ),
     lm.registerTool("trust_workspace_rename_file", new STWorkspaceRenameFileTool()),
     lm.registerTool("trust_update_settings", new STSettingsUpdateTool(getClient)),
     lm.registerTool("trust_read_telemetry", new STTelemetryReadTool()),

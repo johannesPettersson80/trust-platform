@@ -38,11 +38,21 @@ export type RuntimeStatusPayload = {
   inlineValuesEnabled: boolean;
   runtimeMode: "simulate" | "online";
   runtimeState: "running" | "connected" | "stopped";
+  targetLabel?: string;
   endpoint: string;
   endpointConfigured: boolean;
   endpointEnabled: boolean;
   endpointReachable: boolean;
+  access?: RuntimeAccessPayload;
   ads?: AdsStatusSummary;
+};
+
+export type RuntimeAccessPayload = {
+  role?: string;
+  allowWrite: boolean;
+  allowForce: boolean;
+  allowRelease: boolean;
+  reason?: string;
 };
 
 export type SettingsPayload = {

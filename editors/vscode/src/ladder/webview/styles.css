@@ -71,77 +71,6 @@ body {
   margin-bottom: 6px;
 }
 
-/* Toolbar */
-.toolbar {
-  display: flex;
-  gap: 20px;
-  padding: 10px;
-  background-color: var(--vscode-editorGroupHeader-tabsBackground, var(--trust-canvas));
-  border-bottom: 1px solid var(--trust-border);
-  overflow-x: auto;
-}
-
-.toolbar-section {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  min-width: fit-content;
-}
-
-.toolbar-section h3 {
-  font-size: 11px;
-  color: var(--trust-text-muted);
-  text-transform: uppercase;
-  margin-bottom: 5px;
-}
-
-.toolbar-button {
-  padding: 6px 12px;
-  background-color: transparent;
-  color: var(--trust-text);
-  border: 1px solid var(--trust-border);
-  border-radius: var(--trust-radius);
-  cursor: pointer;
-  font-size: 13px;
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-
-.toolbar-button:hover:not(:disabled) {
-  background-color: var(--trust-selected-bg);
-  border-color: var(--trust-accent);
-}
-
-.toolbar-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.toolbar-button.active {
-  background-color: var(--trust-selected-bg);
-  color: var(--trust-text);
-  border: 1px solid var(--trust-accent);
-  font-weight: 600;
-}
-
-.toolbar-button.success {
-  background-color: var(--trust-ok);
-  color: var(--trust-on-accent);
-}
-
-.toolbar-button.success:hover {
-  background-color: color-mix(in srgb, var(--trust-ok) 84%, var(--trust-canvas));
-}
-
-.toolbar-button.danger {
-  background-color: var(--trust-danger);
-  color: var(--trust-on-accent);
-}
-
-.toolbar-button.danger:hover {
-  background-color: color-mix(in srgb, var(--trust-danger) 84%, var(--trust-canvas));
-}
-
 /* Canvas Container */
 .canvas-container {
   flex: 1;
@@ -291,15 +220,7 @@ body {
 
 /* Status Bar */
 .status-bar {
-  display: flex;
-  gap: 20px;
-  padding: 5px 10px;
-  background-color: var(--vscode-statusBar-background);
-  color: var(--vscode-statusBar-foreground);
-  border-top: 1px solid var(--trust-border);
-  font-size: 12px;
-  align-items: center;
-  flex-wrap: wrap;
+  justify-content: flex-start;
 }
 
 .execution-indicator {

@@ -1,9 +1,9 @@
 {
   "name": "trust-lsp",
-  "displayName": "truST LSP",
-  "description": "truST LSP \u2014 IEC 61131-3 Structured Text language support",
+  "displayName": "truST",
+  "description": "truST — IEC 61131-3 Structured Text language support",
   "icon": "icon.png",
-  "version": "0.24.25",
+  "version": "0.24.26",
   "publisher": "trust-platform",
   "license": "MIT OR Apache-2.0",
   "engines": {
@@ -31,22 +31,16 @@
     "onLanguage:structured-text",
     "onDebug:structured-text",
     "onCommand:trust-lsp.newProject",
+    "onCommand:trust-lsp.openSettings",
+    "onCommand:trust-lsp.visual.newDiagram",
     "onCommand:trust-lsp.plcopen.import",
     "onCommand:trust-lsp.plcopen.export",
     "onCommand:trust-lsp.debug.openIoPanel",
-    "onCommand:trust-lsp.communication.openPanel",
     "onCommand:trust-lsp.networkCanvas.open",
-    "onCommand:trust-lsp.ads.openPanel",
-    "onCommand:trust-lsp.ads.server.openPanel",
-    "onCommand:trust-lsp.ads.addDevice",
-    "onCommand:trust-lsp.ads.diagnose",
-    "onCommand:trust-lsp.ads.importSymbols",
-    "onCommand:trust-lsp.ads.addRoute",
+    "onCommand:trust-lsp.libraries.open",
     "onCommand:trust-lsp.hmi.openPreview",
     "onCommand:trust-lsp.hmi.refreshFromDescriptor",
     "onCommand:trust-lsp.hmi.init",
-    "onCommand:trust-lsp.trustTwin.openPanel",
-    "onCommand:trust-lsp.trustTwin.refreshPanel",
     "onCommand:trust-lsp.debug.reload",
     "onCommand:trust-lsp.moveNamespace.ui",
     "onLanguageModelTool:trust_lsp_request",
@@ -97,7 +91,6 @@
     "onLanguageModelTool:trust_hmi_run_journey",
     "onLanguageModelTool:trust_hmi_explain_widget",
     "onLanguageModelTool:trust_hmi_init",
-    "onLanguageModelTool:trust_twin_topology_propose",
     "onLanguageModelTool:trust_workspace_rename_file",
     "onLanguageModelTool:trust_update_settings",
     "onLanguageModelTool:trust_read_telemetry",
@@ -219,13 +212,13 @@
             "online"
           ],
           "default": "simulate",
-          "description": "Default runtime mode for the runtime panel.",
+          "description": "Default runtime mode used by the Run target and Live Values when no project target overrides it.",
           "scope": "resource"
         },
         "trust-lsp.runtime.controlEndpoint": {
           "type": "string",
           "default": "",
-          "description": "Runtime control endpoint override for inline values (e.g. unix:///tmp/trust-debug.sock). Leave empty to rely on trust-lsp.toml.",
+          "description": "Runtime control endpoint override for Live Values (e.g. unix:///tmp/trust-debug.sock). Leave empty to rely on trust-lsp.toml.",
           "scope": "resource"
         },
         "trust-lsp.runtime.fleetEndpoints": {
@@ -234,7 +227,7 @@
             "type": "string"
           },
           "default": [],
-          "description": "Additional runtime control endpoints to aggregate in the Network Canvas fleet view (e.g. tcp://10.0.0.2:9901). Each is queried for fleet.topology and merged with the primary runtime so a host appears once.",
+          "description": "Additional runtime control endpoints to aggregate in Devices & Connections (e.g. tcp://10.0.0.2:9901). Each is queried for fleet.topology and merged with the primary runtime so a host appears once.",
           "scope": "resource"
         },
         "trust-lsp.runtime.controlAuthToken": {
@@ -296,17 +289,6 @@
           "default": 500,
           "minimum": 100,
           "description": "Polling interval for the HMI preview panel value refresh (milliseconds).",
-          "scope": "resource"
-        },
-        "trust-lsp.trustTwin.aiProvider": {
-          "type": "string",
-          "enum": [
-            "disabled",
-            "local",
-            "cloud"
-          ],
-          "default": "local",
-          "description": "Provider mode for trust-twin AI topology authoring. Local keeps project content in the workspace; cloud is opt-in and requires a future provider adapter.",
           "scope": "resource"
         }
       }
@@ -1366,46 +1348,6 @@
         }
       },
       {
-        "name": "trust_twin_topology_propose",
-        "displayName": "trust-twin Topology Propose",
-        "toolReferenceName": "trustTwinTopologyPropose",
-        "canBeReferencedInPrompt": true,
-        "icon": "$(sparkle)",
-        "userDescription": "Propose a reviewed trust-twin topology diff from natural language.",
-        "modelDescription": "Creates a topology.toml diff from a natural-language intent, validates it through the trust-twin topology compiler in dry-run mode, and returns reviewable diff plus doctor evidence. Do not emit raw coordinates or hand-authored bind3d in the normal path.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "rootPath": {
-              "type": "string",
-              "description": "Optional workspace root path/URI."
-            },
-            "description": {
-              "type": "string",
-              "description": "Natural-language topology intent, for example 'Conveyor with 2 sensors and a pusher'."
-            },
-            "reference_page_id": {
-              "type": "string",
-              "description": "Optional page id used to choose hmi/views/<id>.topology.toml."
-            },
-            "component_kind_constraints": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              },
-              "description": "Optional allowed built-in component kinds such as motor, transmitter, valve, pump, tank, or vfd."
-            },
-            "write_gate_artifact": {
-              "type": "boolean",
-              "description": "When true, write target/gate-artifacts/trust-twin-p4-ai-author.json for checklist evidence."
-            }
-          },
-          "required": [
-            "description"
-          ]
-        }
-      },
-      {
         "name": "trust_get_inline_values",
         "displayName": "ST Inline Values",
         "toolReferenceName": "stInlineValues",
@@ -2244,10 +2186,17 @@
         }
       ]
     },
+    "viewsWelcome": [
+      {
+        "view": "workbench.view.testing",
+        "contents": "No Structured Text tests found. Add a TEST_PROGRAM or TEST_FUNCTION_BLOCK, then refresh tests.",
+        "when": "workspaceFolderCount != 0"
+      }
+    ],
     "commands": [
       {
         "command": "trust-lsp.newProject",
-        "title": "New Project",
+        "title": "Create Project",
         "category": "truST"
       },
       {
@@ -2262,7 +2211,7 @@
       },
       {
         "command": "trust-lsp.moveNamespace.ui",
-        "title": "Move Namespace",
+        "title": "Move Structured Text Namespace",
         "category": "truST"
       },
       {
@@ -2283,25 +2232,32 @@
       },
       {
         "command": "trust-lsp.debug.openIoPanel",
-        "title": "Open Runtime Panel",
-        "category": "truST"
-      },
-      {
-        "command": "trust-lsp.communication.openPanel",
-        "title": "Communication",
+        "title": "Open Live Values",
         "category": "truST"
       },
       {
         "command": "trust-lsp.networkCanvas.open",
-        "title": "Devices & Connections",
+        "title": "Open Devices & Connections",
         "category": "truST",
         "icon": "$(circuit-board)"
       },
       {
         "command": "trust-lsp.checkProgram",
-        "title": "Check program",
+        "title": "Compile",
         "category": "truST",
         "icon": "$(check-all)"
+      },
+      {
+        "command": "trust-lsp.openSettings",
+        "title": "Open truST Settings",
+        "category": "truST",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "trust-lsp.libraries.open",
+        "title": "Open Libraries",
+        "category": "truST",
+        "icon": "$(book)"
       },
       {
         "command": "trust-lsp.opcua.clearTrustedCertificates",
@@ -2309,38 +2265,8 @@
         "category": "truST"
       },
       {
-        "command": "trust-lsp.ads.openPanel",
-        "title": "Open ADS Devices",
-        "category": "truST"
-      },
-      {
-        "command": "trust-lsp.ads.server.openPanel",
-        "title": "Open ADS Server",
-        "category": "truST"
-      },
-      {
-        "command": "trust-lsp.ads.addDevice",
-        "title": "Add Beckhoff ADS Device",
-        "category": "truST"
-      },
-      {
-        "command": "trust-lsp.ads.diagnose",
-        "title": "Diagnose ADS Connection",
-        "category": "truST"
-      },
-      {
-        "command": "trust-lsp.ads.importSymbols",
-        "title": "Import TwinCAT Symbols",
-        "category": "truST"
-      },
-      {
-        "command": "trust-lsp.ads.addRoute",
-        "title": "Add ADS Route",
-        "category": "truST"
-      },
-      {
         "command": "trust-lsp.hmi.openPreview",
-        "title": "Open HMI Preview",
+        "title": "Open HMI",
         "category": "truST",
         "icon": "$(preview)"
       },
@@ -2352,16 +2278,6 @@
       {
         "command": "trust-lsp.hmi.init",
         "title": "Initialize HMI Descriptor",
-        "category": "truST"
-      },
-      {
-        "command": "trust-lsp.trustTwin.openPanel",
-        "title": "Open trust-twin 3D Panel",
-        "category": "truST"
-      },
-      {
-        "command": "trust-lsp.trustTwin.refreshPanel",
-        "title": "Refresh trust-twin 3D Panel",
         "category": "truST"
       },
       {
@@ -2379,6 +2295,12 @@
         "command": "trust-lsp.test.runOne",
         "title": "Run Test",
         "category": "truST"
+      },
+      {
+        "command": "trust-lsp.visual.newDiagram",
+        "title": "New Visual Logic Diagram",
+        "category": "truST",
+        "icon": "$(type-hierarchy)"
       },
       {
         "command": "trust-lsp.statechart.new",
@@ -2429,10 +2351,6 @@
     "menus": {
       "commandPalette": [
         {
-          "command": "trust-lsp.communication.openPanel",
-          "when": "false"
-        },
-        {
           "command": "trust-lsp.debug.openIoPanel",
           "when": "false"
         },
@@ -2445,7 +2363,19 @@
           "when": "false"
         },
         {
+          "command": "trust-lsp.debug.ensureConfiguration",
+          "when": "false"
+        },
+        {
           "command": "trust-lsp.debug.reload",
+          "when": "false"
+        },
+        {
+          "command": "trust-lsp.test.runAll",
+          "when": "false"
+        },
+        {
+          "command": "trust-lsp.test.runOne",
           "when": "false"
         },
         {
@@ -2455,38 +2385,18 @@
         {
           "command": "trust-lsp.hmi.refreshFromDescriptor",
           "when": "false"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "trust-lsp.openSettings",
+          "when": "view == trust.home",
+          "group": "navigation@1"
         },
         {
-          "command": "trust-lsp.ads.openPanel",
-          "when": "false"
-        },
-        {
-          "command": "trust-lsp.ads.server.openPanel",
-          "when": "false"
-        },
-        {
-          "command": "trust-lsp.ads.addDevice",
-          "when": "false"
-        },
-        {
-          "command": "trust-lsp.ads.diagnose",
-          "when": "false"
-        },
-        {
-          "command": "trust-lsp.ads.importSymbols",
-          "when": "false"
-        },
-        {
-          "command": "trust-lsp.ads.addRoute",
-          "when": "false"
-        },
-        {
-          "command": "trust-lsp.trustTwin.openPanel",
-          "when": "false"
-        },
-        {
-          "command": "trust-lsp.trustTwin.refreshPanel",
-          "when": "false"
+          "command": "trust-lsp.visual.newDiagram",
+          "when": "view == trust.home",
+          "group": "2_modification@1"
         }
       ],
       "editor/context": [
@@ -2636,11 +2546,10 @@
     "build:ladder": "node ./scripts/build-ladder-webview.js",
     "build:sfc": "node ./scripts/build-sfc-webview.js",
     "build:network-canvas": "node ./scripts/build-network-canvas-webview.js",
-    "build:trust-twin": "node ./scripts/build-trust-twin-webview.js",
-    "package:trust-twin-smoke": "node ./scripts/check-trust-twin-package-assets.js",
+    "clean:out": "node -e \"require('fs').rmSync('out', { recursive: true, force: true })\"",
     "typecheck:webview": "tsc -p ./tsconfig.webview.json",
     "check:canvas-geometry": "node ./scripts/network-canvas-overlap-check.js",
-    "compile": "npm run build:panel && npm run build:statechart && npm run build:blockly && npm run build:ladder && npm run build:sfc && npm run build:network-canvas && npm run build:trust-twin && tsc -p ./ && npm run typecheck:webview",
+    "compile": "npm run build:panel && npm run build:statechart && npm run build:blockly && npm run build:ladder && npm run build:sfc && npm run build:network-canvas && npm run clean:out && tsc -p ./ && npm run typecheck:webview",
     "watch": "concurrently \"node ./scripts/watch-io-panel.js\" \"node ./scripts/build-statechart-webview.js --watch\" \"node ./scripts/build-blockly-webview.js --watch\" \"node ./scripts/build-ladder-webview.js --watch\" \"node ./scripts/build-sfc-webview.js --watch\"",
     "lint": "eslint src --ext ts,tsx",
     "test": "npm run compile && npm run check:canvas-geometry && node ./out/test/runTest.js"

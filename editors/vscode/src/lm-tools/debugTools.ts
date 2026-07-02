@@ -21,6 +21,11 @@ type DebugStartParams = {
   filePath?: string;
 };
 
+type CommandResult = {
+  ok?: boolean;
+  message?: string;
+};
+
 function textResult(text: string): unknown {
   if (languageModelToolResultCtor && languageModelTextPartCtor) {
     return new languageModelToolResultCtor([new languageModelTextPartCtor(text)]);
@@ -110,7 +115,14 @@ export class STDebugReloadTool {
       return textResult("Cancelled.");
     }
     try {
-      await vscode.commands.executeCommand("trust-lsp.debug.reload");
+      const result = await vscode.commands.executeCommand<CommandResult>(
+        "trust-lsp.debug.reload"
+      );
+      if (result && result.ok === false) {
+        return errorResult(
+          `Failed to reload debugger: ${result.message ?? "Reload did not report success."}`
+        );
+      }
       return textResult("Debug reload requested.");
     } catch (error) {
       return errorResult(`Failed to reload debugger: ${String(error)}`);
@@ -151,4 +163,3 @@ export class STDebugEnsureConfigurationTool {
     }
   }
 }
-
