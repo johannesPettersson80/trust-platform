@@ -218,10 +218,6 @@ function optionLabel(field: CommFieldSchema, value: string): string {
   return value;
 }
 
-function booleanOption(value: boolean): React.ReactElement {
-  return <option value={String(value)}>{value ? "On" : "Off"}</option>;
-}
-
 function emptyArrayMessage(field: CommFieldSchema, canAdd: boolean): string {
   if (/connections/i.test(field.id)) {
     return "No connections yet. Use Discover or Browse to add one instead of typing JSON.";
@@ -269,6 +265,28 @@ function parseEditedValue(raw: string, previous: unknown): unknown {
 
 function objectKeys(item: JsonObject, template: JsonObject): string[] {
   return Array.from(new Set([...Object.keys(template), ...Object.keys(item)]));
+}
+
+function BooleanControl({
+  checked,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  label: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <span className="trust-checkbox">
+      <input
+        type="checkbox"
+        aria-label={label}
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <span>{checked ? "On" : "Off"}</span>
+    </span>
+  );
 }
 
 function JsonArrayField({
@@ -377,14 +395,11 @@ function JsonArrayItem({
               <label key={key} className="trust-array__property">
                 <span>{labelForKey(key)}</span>
                 {kind === "boolean" ? (
-                  <select
-                    className="trust-input"
-                    value={String(Boolean(current))}
-                    onChange={(e) => onChange({ ...item, [key]: e.target.value === "true" })}
-                  >
-                    {booleanOption(false)}
-                    {booleanOption(true)}
-                  </select>
+                  <BooleanControl
+                    checked={Boolean(current)}
+                    label={labelForKey(key)}
+                    onChange={(checked) => onChange({ ...item, [key]: checked })}
+                  />
                 ) : (
                   <input
                     className="trust-input"
@@ -411,10 +426,11 @@ function JsonArrayItem({
         </button>
       </div>
       {kind === "boolean" ? (
-        <select className="trust-input" value={String(Boolean(item))} onChange={(e) => onChange(e.target.value === "true")}>
-          {booleanOption(false)}
-          {booleanOption(true)}
-        </select>
+        <BooleanControl
+          checked={Boolean(item)}
+          label={itemLabel}
+          onChange={(checked) => onChange(checked)}
+        />
       ) : (
         <input
           className="trust-input"
@@ -439,13 +455,20 @@ export function Field({
   onChange: (v: string) => void;
 }) {
   const inputClass = error ? "trust-input trust-input--error" : "trust-input";
+  const isBooleanField = field.type === "bool" || field.type === "boolean";
   return (
     <div className="trust-field">
       <label>
         {field.label}
         {field.required && <span className="trust-field__required"> *</span>}
       </label>
-      {field.options && field.options.length > 0 ? (
+      {isBooleanField ? (
+        <BooleanControl
+          checked={value === "true"}
+          label={field.label}
+          onChange={(checked) => onChange(String(checked))}
+        />
+      ) : field.options && field.options.length > 0 ? (
         <select value={value} onChange={(e) => onChange(e.target.value)} className={inputClass}>
           {field.options.map((o) => (
             <option key={o} value={o}>
@@ -463,11 +486,6 @@ export function Field({
           className={inputClass}
           style={{ resize: "vertical", fontFamily: "var(--trust-mono)" }}
         />
-      ) : field.type === "bool" || field.type === "boolean" ? (
-        <select value={value} onChange={(e) => onChange(e.target.value)} className={inputClass}>
-          {booleanOption(false)}
-          {booleanOption(true)}
-        </select>
       ) : (
         <input
           type={field.secret ? "password" : field.type === "number" ? "number" : "text"}

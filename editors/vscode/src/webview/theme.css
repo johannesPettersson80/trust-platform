@@ -435,6 +435,36 @@ select.trust-input {
   border-color: color-mix(in srgb, var(--trust-danger) 70%, transparent);
 }
 
+.trust-checkbox {
+  align-items: center;
+  background: var(--trust-input-bg);
+  border: 1px solid var(--trust-input-border);
+  border-radius: var(--trust-radius);
+  color: var(--trust-text);
+  display: flex;
+  gap: 8px;
+  min-height: 30px;
+  padding: 5px 8px;
+  width: 100%;
+}
+
+.trust-checkbox:focus-within {
+  border-color: var(--trust-accent);
+  outline: 1px solid var(--trust-accent);
+  outline-offset: -1px;
+}
+
+.trust-checkbox input {
+  accent-color: var(--trust-accent);
+  flex: none;
+}
+
+.trust-checkbox span {
+  color: var(--trust-text);
+  font-size: 12px;
+  font-weight: 500;
+}
+
 .trust-field__required {
   color: var(--trust-danger);
 }

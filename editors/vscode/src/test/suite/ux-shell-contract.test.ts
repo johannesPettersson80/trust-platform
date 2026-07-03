@@ -3170,10 +3170,15 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
       "json_array values must still serialize back to real arrays for comm apply"
     );
     assert.ok(
-      fieldSrc.includes('value ? "On" : "Off"') &&
+      fieldSrc.includes("function BooleanControl") &&
+        fieldSrc.includes('type="checkbox"') &&
+        fieldSrc.indexOf('const isBooleanField = field.type === "bool" || field.type === "boolean"') <
+          fieldSrc.indexOf("field.options && field.options.length > 0") &&
+        fieldSrc.includes('checked={value === "true"}') &&
+        fieldSrc.includes('onChange={(checked) => onChange(String(checked))}') &&
         !fieldSrc.includes('<option value="false">false</option>') &&
         !fieldSrc.includes('<option value="true">true</option>'),
-      "boolean protocol fields must render user-facing On/Off labels, not raw true/false"
+      "boolean protocol fields must render native checkboxes with On/Off labels, not dropdowns or raw true/false"
     );
     assert.ok(
       addSrc.includes('import { coerce, Field } from "./SchemaFields"'),
@@ -3181,6 +3186,7 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     );
     assert.ok(
       themeSrc.includes(".trust-array") &&
+        themeSrc.includes(".trust-checkbox") &&
         themeSrc.includes("var(--trust-surface)") &&
         themeSrc.includes("var(--trust-border)"),
       "array editor chrome must live in the shared --trust-* theme layer"

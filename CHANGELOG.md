@@ -264,6 +264,8 @@ Target release: `v0.24.28`
   protocol fragments.
 - vscode: Simulated and Loopback endpoint node titles now use matching local I/O
   naming, leaving the `I/O` role label to the node band.
+- vscode: Boolean fields in Devices & Connections protocol forms now render as
+  native checkboxes with On/Off labels instead of dropdowns.
 - vscode: Compile diagnostics now use the user-facing `truST` Problems source
   label instead of the stale `trust check` name, and Compile resolves the
   nearest `trust-lsp.toml` from the active file before falling back to the
