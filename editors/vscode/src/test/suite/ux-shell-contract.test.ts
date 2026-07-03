@@ -3199,6 +3199,38 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     );
   });
 
+  test("browse add action disables honestly when there is nothing valid to add", () => {
+    const browse = readSrc("networkCanvas/webview/BrowseTagsPanel.tsx");
+    assert.ok(
+      browse.includes("collectLeafKeys") &&
+        browse.includes("selectableKeys") &&
+        browse.includes("selectedAddKeys") &&
+        browse.includes("setSelected((prev)") &&
+        browse.includes("filter((key) => selectableKeys.has(key))"),
+      "browse selections must be pruned when the tree empties, errors, or changes"
+    );
+    assert.ok(
+      browse.includes('className={addDisabledReason ? "trust-button" : "trust-button trust-button--primary"}') &&
+        browse.includes("disabled={Boolean(addDisabledReason)}") &&
+        browse.includes("No symbols are available to add.") &&
+        browse.includes("Select at least one symbol to add.") &&
+        browse.includes("Resolve the browse error before adding tags."),
+      "browse Add tags/Add nodes must stay visible but neutral-disabled with a reason when no valid selection exists"
+    );
+    assert.ok(
+      browse.includes("writeToggleDisabled") &&
+        browse.includes("disabled={writeToggleDisabled}") &&
+        browse.includes('cursor: writeToggleDisabled ? "not-allowed" : "pointer"'),
+      "browse write-mode toggle must not remain interactive when browse results cannot be added"
+    );
+    assert.ok(
+      !browse.includes("const PRIMARY") &&
+        !browse.includes("var(--vscode-focusBorder, #2f81f7)") &&
+        !browse.includes("opacity: selected.size"),
+      "browse footer must use the shared trust-button contract instead of a private blue opacity button"
+    );
+  });
+
   test("remote browse uses one configured client connection for ADS and OPC UA", () => {
     const app = readSrc("networkCanvas/webview/NetworkCanvasApp.tsx");
     assert.ok(

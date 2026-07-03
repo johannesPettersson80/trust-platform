@@ -256,6 +256,9 @@ Target release: `v0.24.28`
   scans with an inline reason until a running runtime is selected, and empty
   scan results explain concrete recovery checks instead of vague runtime
   plumbing.
+- vscode: Browse tags/nodes now clears stale selections when browse results
+  disappear and keeps Add/write controls neutral-disabled with a visible reason
+  when there is nothing valid to add.
 - vscode: Compile diagnostics now use the user-facing `truST` Problems source
   label instead of the stale `trust check` name, and Compile resolves the
   nearest `trust-lsp.toml` from the active file before falling back to the

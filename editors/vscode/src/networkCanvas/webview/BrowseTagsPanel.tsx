@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import type { RoutePlan, SymbolNode } from "../offlineComm";
 import { nodeKey, type OpcuaErrorView } from "./opcuaClientModel";
 import { t, tint } from "./theme";
@@ -78,6 +78,40 @@ export function BrowseTagsPanel({
     walk(tree ?? []);
     return out;
   }, [q, tree]);
+  const selectableKeys = useMemo(
+    () => (routeMissing || error || loading ? new Set<string>() : collectLeafKeys(tree ?? [])),
+    [error, loading, routeMissing, tree]
+  );
+  const selectedAddKeys = useMemo(
+    () => [...selected].filter((key) => selectableKeys.has(key)),
+    [selectableKeys, selected]
+  );
+
+  useEffect(() => {
+    setSelected((prev) => {
+      if (prev.size === 0) {
+        return prev;
+      }
+      const next = new Set([...prev].filter((key) => selectableKeys.has(key)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [selectableKeys]);
+
+  const addDisabledReason =
+    routeMissing
+      ? "Create the route and browse again before adding tags."
+      : error
+        ? "Resolve the browse error before adding tags."
+        : loading
+          ? "Wait for browse results before adding tags."
+          : tree === undefined
+            ? "Start or connect the runtime, then Browse again to load symbols."
+            : tree.length === 0
+              ? "No symbols are available to add."
+              : selectedAddKeys.length === 0
+                ? "Select at least one symbol to add."
+                : undefined;
+  const writeToggleDisabled = routeMissing || Boolean(error) || loading || tree === undefined || tree.length === 0;
 
   const accessLabel = (n: SymbolNode): string =>
     n.writable === true ? "read/write" : n.writable === false ? "read-only" : "";
@@ -162,7 +196,7 @@ export function BrowseTagsPanel({
         ) : loading ? (
           <p style={EMPTY}>Loading symbols…</p>
         ) : tree === undefined ? (
-          <p style={EMPTY}>Symbol browsing needs a runtime that serves it.</p>
+          <p style={EMPTY}>Start or connect the runtime, then Browse again to load symbols.</p>
         ) : matches ? (
           matches.length ? matches.map((n) => leaf(n, 0)) : <p style={EMPTY}>No matching symbols.</p>
         ) : tree.length ? (
@@ -173,20 +207,55 @@ export function BrowseTagsPanel({
       </div>
 
       <div style={{ padding: 12, borderTop: "1px solid var(--vscode-editorWidget-border, #2a2f3a)" }}>
-        <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11, color: "var(--vscode-foreground, #cfd6e0)", marginBottom: 9, cursor: "pointer" }}>
-          <input type="checkbox" checked={allowWrites} onChange={(e) => setAllowWrites(e.target.checked)} />
+        <label
+          title={writeToggleDisabled ? addDisabledReason : undefined}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 7,
+            fontSize: 11,
+            color: "var(--vscode-foreground, #cfd6e0)",
+            marginBottom: 9,
+            cursor: writeToggleDisabled ? "not-allowed" : "pointer",
+            opacity: writeToggleDisabled ? 0.7 : 1,
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={allowWrites}
+            disabled={writeToggleDisabled}
+            onChange={(e) => setAllowWrites(e.target.checked)}
+          />
           Allow writes (default: read-only)
         </label>
         <button
-          onClick={() => onAddTags([...selected], allowWrites)}
-          disabled={selected.size === 0}
-          style={{ ...PRIMARY, width: "100%", opacity: selected.size === 0 ? 0.5 : 1, cursor: selected.size === 0 ? "default" : "pointer" }}
+          onClick={() => onAddTags(selectedAddKeys, allowWrites)}
+          disabled={Boolean(addDisabledReason)}
+          title={addDisabledReason}
+          className={addDisabledReason ? "trust-button" : "trust-button trust-button--primary"}
+          style={{ width: "100%" }}
         >
-          {selected.size > 0 ? `${actionLabel} (${selected.size})` : actionLabel}
+          {selectedAddKeys.length > 0 ? `${actionLabel} (${selectedAddKeys.length})` : actionLabel}
         </button>
+        {addDisabledReason && <p className="trust-help" style={{ marginTop: 6 }}>{addDisabledReason}</p>}
       </div>
     </aside>
   );
+}
+
+function collectLeafKeys(nodes: SymbolNode[]): Set<string> {
+  const keys = new Set<string>();
+  const walk = (items: SymbolNode[]) => {
+    for (const item of items) {
+      if (item.children?.length) {
+        walk(item.children);
+      } else {
+        keys.add(nodeKey(item));
+      }
+    }
+  };
+  walk(nodes);
+  return keys;
 }
 
 const PANEL: React.CSSProperties = {
@@ -207,7 +276,6 @@ const PANEL: React.CSSProperties = {
 const ROW: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, padding: "4px 6px", borderRadius: 6 };
 const GROUP: React.CSSProperties = { display: "block", width: "100%", textAlign: "left", border: "none", background: "transparent", color: "var(--vscode-foreground, #cfd6e0)", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "5px 6px" };
 const SEARCH: React.CSSProperties = { width: "100%", background: "var(--vscode-input-background, #10141b)", border: "1px solid var(--vscode-input-border, #343b47)", borderRadius: 7, color: "var(--vscode-foreground, #eef1f5)", padding: "6px 9px", fontSize: 12 };
-const PRIMARY: React.CSSProperties = { border: "1px solid var(--vscode-focusBorder, #2f81f7)", background: "var(--vscode-focusBorder, #2f81f7)", color: "var(--vscode-button-foreground, #fff)", borderRadius: 7, padding: "8px 13px", fontSize: 12, fontWeight: 650 };
 const WARNING_BAR: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
@@ -220,6 +288,6 @@ const WARNING_TEXT: React.CSSProperties = { flex: 1, fontSize: 11.5, color: t.wa
 const ROUTEBTN: React.CSSProperties = { flex: "none", border: `1px solid ${t.warn}`, background: tint(t.warn, 0.16), color: t.warn, borderRadius: 6, padding: "4px 10px", fontSize: 11, cursor: "pointer" };
 const ARTCARD: React.CSSProperties = { border: "1px solid var(--vscode-editorWidget-border, #2a2f3a)", borderRadius: 8, padding: "9px 10px", margin: "0 4px 9px", background: "var(--vscode-editor-background, rgba(13,16,22,.7))" };
 const ARTPRE: React.CSSProperties = { margin: 0, maxHeight: 150, overflow: "auto", background: "var(--vscode-editor-background, #0c0f15)", border: "1px solid var(--vscode-editorWidget-border, #20262f)", borderRadius: 6, padding: "7px 9px", fontSize: 10.5, lineHeight: 1.45, color: "var(--vscode-foreground, #c4ccd8)", whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "ui-monospace, monospace" };
-const COPYBTN: React.CSSProperties = { flex: "none", border: "1px solid var(--vscode-focusBorder, #2f81f7)", background: "rgba(47,129,247,.16)", color: "var(--vscode-foreground, #cfe0ff)", borderRadius: 6, padding: "3px 10px", fontSize: 11, cursor: "pointer" };
+const COPYBTN: React.CSSProperties = { flex: "none", border: "1px solid var(--trust-accent)", background: "var(--trust-selected-bg)", color: "var(--trust-text)", borderRadius: 6, padding: "3px 10px", fontSize: 11, cursor: "pointer" };
 const ICON: React.CSSProperties = { border: "none", background: "transparent", color: "var(--vscode-descriptionForeground, #949cab)", fontSize: 14, cursor: "pointer", padding: 0 };
 const EMPTY: React.CSSProperties = { color: "var(--vscode-descriptionForeground, #7f8794)", fontSize: 11.5, padding: "8px 8px", lineHeight: 1.5 };
