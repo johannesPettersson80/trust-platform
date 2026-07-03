@@ -300,7 +300,7 @@ function fleetRuntime(
       id: endpoint.id,
       kind: endpoint.kind,
       protocol: endpoint.protocol,
-      name: endpoint.name,
+      name: endpointDisplayName(endpoint),
       role: endpoint.role,
       health: endpoint.health,
       detail: endpoint.detail,
@@ -316,7 +316,7 @@ function fleetRuntime(
   });
   return {
     id: runtime.runtime_id,
-    name: runtime.name,
+    name: runtimeDisplayName(runtime),
     mode: runtime.mode,
     health: aggregateHealth([
       runtime.health,
@@ -327,6 +327,37 @@ function fleetRuntime(
     controlEndpoint: runtime.control_endpoint,
     endpoints,
   };
+}
+
+function runtimeDisplayName(
+  runtime: FleetTopologyResponse["hosts"][number]["runtimes"][number]
+): string {
+  const mode = runtime.mode.trim().toLowerCase();
+  const rawName = runtime.name.trim();
+  const runtimeId = runtime.runtime_id.trim().toLowerCase();
+  if (
+    runtimeId === "runtime:local" ||
+    runtimeId === "runtime:project" ||
+    /^local simulator$/i.test(rawName) ||
+    (mode === "simulate" && /^trust runtime$/i.test(rawName))
+  ) {
+    return "Simulator";
+  }
+  return rawName || "Runtime";
+}
+
+function endpointDisplayName(
+  endpoint: FleetTopologyResponse["hosts"][number]["runtimes"][number]["endpoints"][number]
+): string {
+  const rawName = endpoint.name.trim();
+  switch (endpoint.protocol.trim().toLowerCase()) {
+    case "simulated":
+      return "Simulated I/O";
+    case "loopback":
+      return "Loopback I/O";
+    default:
+      return rawName || endpoint.protocol.replace(/_/g, " ");
+  }
 }
 
 function aggregateHealth(values: readonly string[]): string {

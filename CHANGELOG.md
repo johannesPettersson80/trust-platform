@@ -185,6 +185,11 @@ Target release: `v0.24.28`
 
 ### Changed
 
+- vscode: normalized simulator copy across the sidebar, Devices & Connections,
+  Live Values, new-project template, and bundled examples so the local runtime
+  appears as `Simulator` and its local endpoints appear as `Simulated I/O` /
+  `Loopback I/O` instead of mixing `truST runtime`, `local simulator`, and bare
+  protocol names.
 - vscode/runtime: removed the unfinished 3D twin prototype, typed LM tool,
   packaged WASM/assets, scene-page HMI contract, and related activation/build
   and test wiring from the shipped product surface so the PLC IDE focuses on the

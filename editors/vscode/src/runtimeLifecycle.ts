@@ -279,14 +279,14 @@ class RuntimeLifecycleService {
         "Start debugging timed out. Check the runtime port or target settings."
       );
       if (!started) {
-        throw new Error("Start debugging did not launch a local simulator session.");
+        throw new Error("Start debugging did not launch a Simulator session.");
       }
       const session = await this.waitForStructuredTextSession(
         SESSION_WAIT_TIMEOUT_MS
       );
       if (!session) {
         throw new Error(
-          "Timed out waiting for the local simulator debug session."
+          "Timed out waiting for the Simulator debug session."
         );
       }
       const ioStateResult = await this.requestIoState({ persistFailure: true });
@@ -309,7 +309,7 @@ class RuntimeLifecycleService {
       this.starting = false;
       this.failure = undefined;
       this.emitChanged();
-      return { ok: true, message: "Local simulator running." };
+      return { ok: true, message: "Simulator running." };
     } catch (err) {
       this.starting = false;
       this.failure = classifyRuntimeStartFailure(err);

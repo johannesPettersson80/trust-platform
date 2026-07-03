@@ -911,7 +911,7 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
       </div>
       <div class="target-strip" aria-label="Active Live Values target">
         <span>Target</span>
-        <span id="targetLabel" class="target-label" title="Simulator (this computer)">Simulator (this computer)</span>
+        <span id="targetLabel" class="target-label" title="Simulator">Simulator</span>
         <span id="scanLabel" class="scan-label" title="No runtime scan has been received yet">scan --</span>
       </div>
       <div class="header-search">

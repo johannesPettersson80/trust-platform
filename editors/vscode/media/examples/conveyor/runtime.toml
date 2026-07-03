@@ -1,7 +1,7 @@
 [bundle]
 version = 1
 [resource]
-name = "truST runtime"
+name = "Simulator"
 cycle_interval_ms = 50
 [runtime.control]
 endpoint = "unix:///tmp/trust-conveyor.sock"

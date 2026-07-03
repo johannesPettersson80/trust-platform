@@ -66,8 +66,8 @@ const PROTOCOL_NAMES: Record<string, string> = {
   runtime_cloud: "Federation",
   federation: "Federation",
   gpio: "GPIO",
-  simulated: "Simulated",
-  loopback: "Loopback",
+  simulated: "Simulated I/O",
+  loopback: "Loopback I/O",
   web: "Web",
 };
 

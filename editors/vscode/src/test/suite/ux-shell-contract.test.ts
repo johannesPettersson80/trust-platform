@@ -1196,7 +1196,7 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
     }
     assert.ok(
       web.includes("targetLabelForStatus") &&
-        web.includes("Simulator (this computer)") &&
+        web.includes('return "Simulator"') &&
         web.includes('runtimeState === "connected"') &&
         web.includes("Connected runtime") &&
         web.includes("Runtime at ") &&
@@ -1591,7 +1591,7 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
     );
   });
 
-  test("Live Values refreshes from the shared runtime lifecycle service", () => {
+  test("Live Values mirrors runtime lifecycle without re-polling every I/O event", () => {
     const host = readSrc("ioPanel.ts");
     assert.ok(
       host.includes("runtimeLifecycleService.onDidChange"),
@@ -1602,9 +1602,12 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
       host.indexOf("const activeSession = vscode.debug.activeDebugSession")
     );
     assert.ok(
-      subscriptionBody.includes("void requestIoState();") &&
-        subscriptionBody.includes("void sendRuntimeStatus();"),
-      "lifecycle changes must refresh both the values table and the status badge"
+      subscriptionBody.includes("void sendRuntimeStatus();"),
+      "lifecycle changes must refresh the status badge"
+    );
+    assert.ok(
+      !subscriptionBody.includes("void requestIoState();"),
+      "I/O state events already update the table; requesting another state on every lifecycle change creates a DAP polling loop"
     );
   });
 });

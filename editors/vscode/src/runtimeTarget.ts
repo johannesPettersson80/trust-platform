@@ -99,7 +99,7 @@ export async function resolveRuntimeTargetFromSettings(
       endpointEnabled,
       reachable: false,
       status: "simulate",
-      label: settings.label ?? "Simulated runtime",
+      label: settings.label ?? "Simulator",
       setupUrl: normalizedOptional(settings.setupUrl),
       credentialChannel,
     };

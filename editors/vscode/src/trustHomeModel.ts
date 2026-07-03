@@ -91,7 +91,7 @@ export function runtimeOptions(
   const options: RuntimeOption[] = [
     {
       id: SIMULATOR_RUNTIME_ID,
-      label: "Simulator (this computer)",
+      label: "Simulator",
       kind: "simulator",
     },
   ];

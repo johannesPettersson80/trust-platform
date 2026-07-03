@@ -211,7 +211,7 @@ async function refreshNetworkCanvasPanel(): Promise<void> {
         endpoint: sim.endpoint,
         authToken: sim.authToken,
         endpointEnabled: true,
-        label: "Local simulator",
+        label: "Simulator",
       });
       if (simTarget.status === "online_reachable") {
         runtime = simTarget;

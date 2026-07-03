@@ -297,7 +297,7 @@ export function buildNetworkCanvasModel(
     pinnedNodeId: normalizedInput.pinnedNodeId,
     quickAddOpen: normalizedInput.quickAddOpen === true,
     runtime: {
-      name: "Local simulator",
+      name: "Simulator",
       hostLabel: "this computer",
       mode: "simulate",
       state: runtimeState,
@@ -325,7 +325,7 @@ export function isNeutralStoppedRuntimeFailure(
   }
   const text = `${failure.message} ${failure.detail ?? ""}`;
   return (
-    /local runtime is stopped|local simulator is stopped/i.test(text) ||
+    /local runtime is stopped|local simulator is stopped|simulator is stopped/i.test(text) ||
     (/runtime (?:is )?not reachable/i.test(text) && /unix:\/\//i.test(text))
   );
 }
@@ -480,7 +480,7 @@ function firstRunSimulatedDevice(
     id: "first-run:simulated",
     name: "Drive A",
     protocol: "simulated",
-    protocolTitle: "Simulated",
+    protocolTitle: "Simulated I/O",
     status: connected ? "connected" : "pending",
     statusText: connected ? "Connected" : "Waiting for runtime I/O",
     liveValues,
@@ -593,9 +593,9 @@ function protocolLabel(protocol: NetworkCanvasProtocolId): string {
     case "gpio":
       return "GPIO";
     case "loopback":
-      return "Loopback";
+      return "Loopback I/O";
     case "simulated":
-      return "Simulated";
+      return "Simulated I/O";
   }
 }
 

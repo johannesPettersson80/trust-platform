@@ -1135,11 +1135,11 @@ suite("Network Canvas", function () {
     const runtimes = graph.hosts[0].runtimes;
     assert.deepStrictEqual(
       runtimes.map((runtime) => runtime.name).sort(),
-      ["cell1", "truST runtime"],
+      ["Simulator", "cell1"],
       "managed Start must not delete the project runtime the user just saw"
     );
     const cell1 = runtimes.find((runtime) => runtime.name === "cell1");
-    const projectRuntime = runtimes.find((runtime) => runtime.name === "truST runtime");
+    const projectRuntime = runtimes.find((runtime) => runtime.name === "Simulator");
     assert.strictEqual(cell1?.managed, true, "managed runtime keeps owned lifecycle controls");
     assert.strictEqual(cell1?.health, "connected", "started managed runtime is honestly running");
     assert.strictEqual(
@@ -1399,8 +1399,8 @@ suite("Network Canvas — add picker taxonomy", function () {
   });
 
   test("local I/O endpoint titles leave the I/O role to the node band", () => {
-    assert.strictEqual(protocolName("simulated"), "Simulated");
-    assert.strictEqual(protocolName("loopback"), "Loopback");
+    assert.strictEqual(protocolName("simulated"), "Simulated I/O");
+    assert.strictEqual(protocolName("loopback"), "Loopback I/O");
   });
 
   test("ADD_PICKER_GROUPS is the canonical S-09 group order", () => {

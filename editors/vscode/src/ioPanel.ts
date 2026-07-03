@@ -272,7 +272,6 @@ export function registerIoPanel(context: vscode.ExtensionContext): void {
       if (!panel) {
         return;
       }
-      void requestIoState();
       void sendRuntimeStatus();
     })
   );
@@ -2264,7 +2263,7 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
       </div>
       <div class="target-strip" aria-label="Active Live Values target">
         <span>Target</span>
-        <span id="targetLabel" class="target-label" title="Simulator (this computer)">Simulator (this computer)</span>
+        <span id="targetLabel" class="target-label" title="Simulator">Simulator</span>
         <span id="scanLabel" class="scan-label" title="No runtime scan has been received yet">scan --</span>
       </div>
       <div

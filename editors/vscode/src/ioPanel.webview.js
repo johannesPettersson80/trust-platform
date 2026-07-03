@@ -546,7 +546,7 @@ function targetLabelForStatus(payload) {
     return endpoint ? "Runtime at " + endpoint : "Connected runtime";
   }
   if (mode === "simulate") {
-    return "Simulator (this computer)";
+    return "Simulator";
   }
   const endpoint = shortEndpointLabel(payload && payload.endpoint);
   if (endpoint === "local control socket") {

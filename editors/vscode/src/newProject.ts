@@ -66,7 +66,7 @@ const RUNTIME_TOML_SOURCE = `[bundle]
 version = 1
 
 [resource]
-name = "truST runtime"
+name = "Simulator"
 cycle_interval_ms = 10
 
 [runtime.control]

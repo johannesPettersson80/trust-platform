@@ -137,7 +137,7 @@ function localRuntimeGraph(model: NetworkCanvasModel): NCGraph {
     : running
       ? model.runtime.statusText
       : state === "starting"
-        ? "Starting local simulator…"
+        ? "Starting Simulator…"
         : "Stopped — start the simulator to run it.";
   const endpoints = model.devices.map((device: NetworkCanvasDevice) => ({
     id: device.id,
@@ -153,7 +153,7 @@ function localRuntimeGraph(model: NetworkCanvasModel): NCGraph {
   if (failure) {
     faults.unshift({
       id: "fault:runtime",
-      label: `Local simulator: ${failure.message}`,
+      label: `Simulator: ${failure.message}`,
       targetNodeId: LOCAL_RUNTIME_NODE_ID,
       severity: "error",
     });
@@ -163,14 +163,14 @@ function localRuntimeGraph(model: NetworkCanvasModel): NCGraph {
     title: "Devices & Connections",
     summary: running
       ? `1 host · 1 runtime · ${endpoints.length} endpoint${endpoints.length === 1 ? "" : "s"}`
-      : "1 host · 1 runtime · local simulator (stopped)",
+      : "1 host · 1 runtime · Simulator stopped",
     hosts: [
       {
         id: "host:this-computer",
         hostname: "This computer",
         label: model.runtime.hostLabel
-          ? `local simulator · ${model.runtime.hostLabel}`
-          : "local simulator",
+          ? `Simulator · ${model.runtime.hostLabel}`
+          : "Simulator",
         // This computer is always reachable (we're running on it) — its status is reachability, NOT the
         // simulator's run state. The runtime node below carries the Start/Stop lifecycle.
         health: "connected",
@@ -178,7 +178,7 @@ function localRuntimeGraph(model: NetworkCanvasModel): NCGraph {
         runtimes: [
           {
             id: LOCAL_RUNTIME_NODE_ID,
-            name: model.runtime.name || "Local simulator",
+            name: model.runtime.name || "Simulator",
             mode: model.runtime.mode,
             health,
             detail,
@@ -203,13 +203,13 @@ function localRuntimeGraph(model: NetworkCanvasModel): NCGraph {
       : state === "not_started"
         ? {
             kind: "info",
-            text: "Local simulator is stopped.",
+            text: "Simulator is stopped.",
             actions: [{ label: "Start simulator", action: "startLocalSimulator" }],
           }
         : running
           ? {
               kind: "info",
-              text: "Local simulator running.",
+              text: "Simulator running.",
               actions: [{ label: "Stop simulator", action: "stopLocalSimulator" }],
             }
           : undefined,
