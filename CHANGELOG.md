@@ -259,6 +259,9 @@ Target release: `v0.24.28`
 - vscode: Browse tags/nodes now clears stale selections when browse results
   disappear and keeps Add/write controls neutral-disabled with a visible reason
   when there is nothing valid to add.
+- vscode: OPC UA browse authentication warnings now include an inline
+  `Edit credentials` recovery action that reopens the connection form with the
+  failed endpoint values prefilled.
 - vscode: Advanced integration cards in the Devices & Connections Add picker
   now use intentional badges (`MESH`, `OT`, `RT`, `CLOUD`) instead of truncated
   protocol fragments.

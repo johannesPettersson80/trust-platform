@@ -3290,6 +3290,31 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     );
   });
 
+  test("OPC UA browse auth warnings have an inline credential recovery action", () => {
+    const browse = readSrc("networkCanvas/webview/BrowseTagsPanel.tsx");
+    const app = readSrc("networkCanvas/webview/NetworkCanvasApp.tsx");
+    const opcua = readSrc("networkCanvas/webview/opcuaClientModel.ts");
+    assert.ok(
+      opcua.includes('action: "credentials"') &&
+        opcua.includes("Choose username authentication or update the saved OPC UA credentials"),
+      "OPC UA auth browse failures must classify to a credential recovery action"
+    );
+    assert.ok(
+      browse.includes("onEditCredentials?: () => void") &&
+        browse.includes('error.action === "credentials"') &&
+        browse.includes("Edit credentials"),
+      "the browse warning must show an inline Edit credentials action, not only passive text"
+    );
+    assert.ok(
+      app.includes("const onEditBrowseCredentials = useCallback") &&
+        app.includes("setBrowseTags(undefined)") &&
+        app.includes("protocol: browseTags.protocol") &&
+        app.includes("prefillParams: browseTags.target") &&
+        app.includes("onEditCredentials={onEditBrowseCredentials}"),
+      "Edit credentials must reopen the protocol form prefilled with the failed OPC UA target"
+    );
+  });
+
   test("remote browse uses one configured client connection for ADS and OPC UA", () => {
     const app = readSrc("networkCanvas/webview/NetworkCanvasApp.tsx");
     assert.ok(

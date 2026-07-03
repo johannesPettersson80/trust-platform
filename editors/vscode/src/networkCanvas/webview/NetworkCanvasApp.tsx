@@ -274,6 +274,20 @@ function Canvas() {
       built.nodes.find((node) => node.type === "runtime")
     );
   }, [built.nodes, selectedId]);
+  const selectedOwningRuntime = useMemo(() => {
+    const selected = selectedId ? built.nodes.find((node) => node.id === selectedId) : undefined;
+    if (!selected) {
+      return toolbarAddTarget;
+    }
+    if (selected.type === "runtime") {
+      return selected;
+    }
+    return (
+      (selected.parentId
+        ? built.nodes.find((node) => node.id === selected.parentId && node.type === "runtime")
+        : undefined) ?? toolbarAddTarget
+    );
+  }, [built.nodes, selectedId, toolbarAddTarget]);
   const openAddPicker = useCallback(() => {
     if (!toolbarAddTarget) {
       return;
@@ -629,6 +643,21 @@ function Canvas() {
     setBrowseLoading(true);
     post({ type: "browseSymbols", protocol: browseTags.protocol, target, kind: "nodes" });
   }, [post, browseTags]);
+  const onEditBrowseCredentials = useCallback(() => {
+    if (!browseTags) {
+      return;
+    }
+    clearApplyResult();
+    setBrowseTags(undefined);
+    setSelectedId(undefined);
+    const runtime = selectedOwningRuntime;
+    setDraft({
+      runtimeId: runtime?.id ?? "",
+      runtimeName: String((runtime?.data as { label?: string } | undefined)?.label ?? "runtime"),
+      protocol: browseTags.protocol,
+      prefillParams: browseTags.target,
+    });
+  }, [browseTags, clearApplyResult, selectedOwningRuntime]);
   const onCreateRoute = useCallback(() => {
     if (browseTags) {
       post({ type: "createRoute", protocol: browseTags.protocol, target: browseTags.target });
@@ -1140,6 +1169,7 @@ function Canvas() {
             loading={browseLoading}
             onCreateRoute={onCreateRoute}
             onTrustCertificate={onTrustCertificate}
+            onEditCredentials={onEditBrowseCredentials}
             onCopy={onCopy}
             onAddTags={onAddTags}
             onClose={() => setBrowseTags(undefined)}

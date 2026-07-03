@@ -18,6 +18,7 @@ export function BrowseTagsPanel({
   loading,
   onCreateRoute,
   onTrustCertificate,
+  onEditCredentials,
   onCopy,
   onAddTags,
   onClose,
@@ -32,6 +33,7 @@ export function BrowseTagsPanel({
   loading: boolean;
   onCreateRoute: () => void;
   onTrustCertificate?: () => void; // explicit cert-trust + re-browse (opcua_client)
+  onEditCredentials?: () => void; // opcua_client auth recovery: reopen the endpoint form prefilled
   onCopy: (text: string) => void;
   onAddTags: (paths: string[], writable: boolean) => void;
   onClose: () => void;
@@ -163,6 +165,9 @@ export function BrowseTagsPanel({
           <span style={WARNING_TEXT}>Warning: {error.title}: {error.detail}</span>
           {error.action === "trust" && onTrustCertificate && (
             <button onClick={onTrustCertificate} style={ROUTEBTN}>Trust certificate</button>
+          )}
+          {error.action === "credentials" && onEditCredentials && (
+            <button onClick={onEditCredentials} style={ROUTEBTN}>Edit credentials</button>
           )}
         </div>
       )}
