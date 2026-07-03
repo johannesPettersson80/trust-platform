@@ -94,5 +94,9 @@ suite("Libraries model", () => {
         ["type", "AxisState"],
       ]
     );
+    assert.deepStrictEqual(
+      symbols.map((symbol) => symbol.declaration),
+      ["FUNCTION SCALE : REAL", "FUNCTION_BLOCK Averager", "TYPE AxisState : INT; END_TYPE"]
+    );
   });
 });

@@ -236,6 +236,7 @@ class LibrariesPanel {
       gitUrl?: string;
       gitPin?: string;
       gitVersion?: string;
+      text?: string;
     };
     switch (msg.type) {
       case "ready":
@@ -290,6 +291,17 @@ class LibrariesPanel {
         if (msg.name) {
           await fixLibraryPath(this.root, msg.name);
           await this.refresh("");
+        }
+        return;
+      case "copySymbol":
+        if (msg.text) {
+          await vscode.env.clipboard.writeText(msg.text);
+          void vscode.window.showInformationMessage("Library snippet copied.");
+        }
+        return;
+      case "insertDeclaration":
+        if (msg.text) {
+          await insertDeclarationText(msg.text);
         }
         return;
     }
@@ -422,29 +434,94 @@ class LibrariesPanel {
       border-top: 1px solid var(--trust-border);
       padding: 8px 12px 12px;
     }
-    .group {
-      margin-top: 8px;
+    .symbol-tools {
+      align-items: center;
+      display: grid;
+      gap: 8px;
+      grid-template-columns: minmax(0, 1fr) auto;
+      margin: 8px 0;
     }
-    .group h3 {
-      color: var(--trust-text-muted);
-      font-size: 10px;
-      font-weight: 750;
-      letter-spacing: 0.5px;
-      margin: 0 0 5px;
-      text-transform: uppercase;
+    .symbol-search {
+      width: 100%;
     }
-    .symbols {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 5px;
+    .symbol-browser {
+      display: grid;
+      gap: 8px;
     }
-    .symbol {
+    .symbol-list {
+      border: 1px solid var(--trust-border);
+      border-radius: var(--trust-radius);
+      overflow: hidden;
+    }
+    .symbol-row {
+      align-items: center;
+      background: transparent;
+      border: 0;
+      border-bottom: 1px solid var(--trust-border);
+      color: var(--trust-text);
+      cursor: pointer;
+      display: grid;
+      gap: 8px;
+      grid-template-columns: minmax(0, 1fr) auto;
+      padding: 7px 8px;
+      text-align: left;
+      width: 100%;
+    }
+    .symbol-row:last-child {
+      border-bottom: 0;
+    }
+    .symbol-row:hover,
+    .symbol-row.is-selected {
+      background: var(--trust-surface);
+    }
+    .symbol-main {
+      min-width: 0;
+    }
+    .symbol-name,
+    .symbol-declaration {
       border: 1px solid var(--trust-border);
       border-radius: var(--trust-radius-sm);
       color: var(--trust-text);
       font-family: var(--vscode-editor-font-family);
       font-size: 11px;
       padding: 3px 6px;
+    }
+    .symbol-declaration {
+      display: block;
+      overflow-wrap: anywhere;
+    }
+    .symbol-kind {
+      color: var(--trust-text-muted);
+      font-size: 10px;
+      font-weight: 750;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .symbol-detail {
+      background: var(--trust-surface);
+      border: 1px solid var(--trust-border);
+      border-radius: var(--trust-radius);
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+    }
+    .symbol-detail-actions,
+    .pager {
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .pager {
+      color: var(--trust-text-muted);
+      font-size: 12px;
+      justify-content: space-between;
+    }
+    .symbol-empty {
+      border: 1px dashed var(--trust-border);
+      border-radius: var(--trust-radius);
+      color: var(--trust-text-muted);
+      padding: 10px;
     }
     .add-panel {
       border: 1px solid var(--trust-border);
@@ -538,27 +615,88 @@ class LibrariesPanel {
     function esc(value) {
       return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
     }
-    function groupSymbols(symbols, kind) {
-      return (symbols || []).filter((symbol) => symbol.kind === kind).slice(0, 24);
+    const PAGE_SIZE = 24;
+    const symbolBrowserState = Object.create(null);
+    const openLibraries = Object.create(null);
+    let lastState = { libraries: [], curated: [] };
+    function symbolKey(symbol) {
+      return symbol.kind + ':' + symbol.name;
     }
-    function group(label, symbols) {
-      if (!symbols.length) return '';
-      return '<div class="group"><h3>' + esc(label) + '</h3><div class="symbols">' + symbols.map((symbol) => '<span class="symbol">' + esc(symbol.name) + '</span>').join('') + '</div></div>';
+    function kindLabel(kind) {
+      if (kind === 'function_block') return 'Function block';
+      if (kind === 'function') return 'Function';
+      return 'Type';
+    }
+    function shortKind(kind) {
+      if (kind === 'function_block') return 'FB';
+      if (kind === 'function') return 'FUN';
+      return 'TYPE';
+    }
+    function browserState(lib) {
+      symbolBrowserState[lib.name] = symbolBrowserState[lib.name] || { query: '', page: 0, selected: '' };
+      return symbolBrowserState[lib.name];
+    }
+    function symbolText(symbol) {
+      return [symbol.name, symbol.kind, symbol.declaration, symbol.file].join(' ').toLowerCase();
+    }
+    function instanceName(name) {
+      const base = String(name || 'libraryBlock').replace(/[^A-Za-z0-9_]/g, '');
+      return (base.charAt(0).toLowerCase() + base.slice(1)) || 'libraryBlock';
+    }
+    function declarationText(symbol) {
+      if (symbol.kind === 'function_block') return instanceName(symbol.name) + ' : ' + symbol.name + ';';
+      if (symbol.kind === 'type') return 'value : ' + symbol.name + ';';
+      return symbol.name + '(...)';
+    }
+    function findSymbol(libraryName, key) {
+      const lib = (lastState.libraries || []).find((candidate) => candidate.name === libraryName);
+      return (lib?.symbols || []).find((symbol) => symbolKey(symbol) === key);
+    }
+    function renderSymbolRow(lib, symbol, selectedKey) {
+      const key = symbolKey(symbol);
+      const selected = key === selectedKey ? ' is-selected' : '';
+      return '<button class="symbol-row' + selected + '" data-symbol-select="' + esc(lib.name) + '" data-symbol-key="' + esc(key) + '"><div class="symbol-main"><span class="symbol-name">' + esc(symbol.name) + '</span><div class="row-detail">' + esc(symbol.declaration || kindLabel(symbol.kind)) + '</div></div><span class="symbol-kind">' + esc(shortKind(symbol.kind)) + '</span></button>';
+    }
+    function renderSymbolDetail(lib, symbol) {
+      if (!symbol) {
+        return '<div class="symbol-detail"><div class="row-detail">Search or select a symbol to see its declaration and insert it into Structured Text.</div></div>';
+      }
+      const key = symbolKey(symbol);
+      return '<div class="symbol-detail"><div><div class="symbol-kind">' + esc(kindLabel(symbol.kind)) + '</div><strong>' + esc(symbol.name) + '</strong></div><code class="symbol-declaration">' + esc(symbol.declaration || declarationText(symbol)) + '</code><div class="row-detail">Insert snippet: <code>' + esc(declarationText(symbol)) + '</code></div><div class="symbol-detail-actions"><button class="trust-button trust-button--primary" data-symbol-insert="' + esc(lib.name) + '" data-symbol-key="' + esc(key) + '">Insert declaration</button><button class="trust-button" data-symbol-copy="' + esc(lib.name) + '" data-symbol-key="' + esc(key) + '">Copy snippet</button></div></div>';
+    }
+    function renderSymbolBrowser(lib) {
+      const symbols = lib.symbols || [];
+      if (!symbols.length) {
+        return '<div class="symbol-empty">No symbols found in this library.</div>';
+      }
+      const state = browserState(lib);
+      const query = state.query.trim().toLowerCase();
+      const filtered = query ? symbols.filter((symbol) => symbolText(symbol).includes(query)) : symbols;
+      const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+      state.page = Math.min(Math.max(0, state.page), pageCount - 1);
+      const start = state.page * PAGE_SIZE;
+      const pageSymbols = filtered.slice(start, start + PAGE_SIZE);
+      if (!filtered.some((symbol) => symbolKey(symbol) === state.selected)) {
+        state.selected = pageSymbols[0] ? symbolKey(pageSymbols[0]) : '';
+      }
+      const selected = filtered.find((symbol) => symbolKey(symbol) === state.selected);
+      const rows = pageSymbols.length
+        ? pageSymbols.map((symbol) => renderSymbolRow(lib, symbol, state.selected)).join('')
+        : '<div class="symbol-empty">No matching symbols. Clear the search or try another name.</div>';
+      return '<div class="symbol-browser"><div class="symbol-tools"><input class="symbol-search" data-symbol-search="' + esc(lib.name) + '" placeholder="Search all ' + esc(countLabel(symbols.length, 'symbol')) + '" value="' + esc(state.query) + '" /><span class="symbol-count">' + esc(countLabel(filtered.length, 'match', 'matches')) + '</span></div><div class="symbol-list">' + rows + '</div><div class="pager"><button class="trust-button" data-symbol-page="' + esc(lib.name) + '" data-page="-1"' + (state.page <= 0 ? ' disabled' : '') + '>Previous</button><span>Page ' + esc(state.page + 1) + ' of ' + esc(pageCount) + '</span><button class="trust-button" data-symbol-page="' + esc(lib.name) + '" data-page="1"' + (state.page >= pageCount - 1 ? ' disabled' : '') + '>Next</button></div>' + renderSymbolDetail(lib, selected) + '</div>';
     }
     function countLabel(count, singular, plural) {
       return String(count) + ' ' + (count === 1 ? singular : (plural || singular + 's'));
     }
     function libraryRow(lib) {
-      const fb = groupSymbols(lib.symbols, 'function_block');
-      const fn = groupSymbols(lib.symbols, 'function');
-      const ty = groupSymbols(lib.symbols, 'type');
       const statusClass = lib.status === 'resolved' ? 'ok' : lib.status === 'failed' ? 'error' : 'warn';
       const update = lib.updateAvailable ? '<button class="trust-button" data-update="' + esc(lib.updateAvailable.curatedId) + '">Update to ' + esc(lib.updateAvailable.next) + '</button>' : '';
       const open = lib.path ? '<button class="trust-button" data-open="' + esc(lib.path) + '">View source</button>' : '';
       const fix = lib.canFixPath ? '<button class="trust-button" data-fix="' + esc(lib.name) + '">Fix path</button>' : '';
-      return '<details><summary><div><div class="row-title"><strong>' + esc(lib.label) + '</strong><span class="badge">' + esc(lib.source) + '</span><span class="badge ' + statusClass + '">' + esc(lib.status) + '</span>' + (lib.version ? '<span class="badge">' + esc(lib.version) + '</span>' : '') + '</div><div class="row-detail">' + esc(lib.detail) + '</div></div><div class="row-actions">' + update + fix + open + '<button class="trust-button trust-button--danger" data-remove="' + esc(lib.name) + '">Remove</button></div></summary><div class="contents"><div class="symbol-count">' + esc(countLabel((lib.symbols || []).length, 'symbol')) + '</div>' + group('Function blocks', fb) + group('Functions', fn) + group('Types', ty) + '</div></details>';
+      return '<details data-library-row="' + esc(lib.name) + '"' + (openLibraries[lib.name] ? ' open' : '') + '><summary><div><div class="row-title"><strong>' + esc(lib.label) + '</strong><span class="badge">' + esc(lib.source) + '</span><span class="badge ' + statusClass + '">' + esc(lib.status) + '</span>' + (lib.version ? '<span class="badge">' + esc(lib.version) + '</span>' : '') + '</div><div class="row-detail">' + esc(lib.detail) + '</div></div><div class="row-actions">' + update + fix + open + '<button class="trust-button trust-button--danger" data-remove="' + esc(lib.name) + '">Remove</button></div></summary><div class="contents"><div class="symbol-count">' + esc(countLabel((lib.symbols || []).length, 'symbol')) + '</div>' + renderSymbolBrowser(lib) + '</div></details>';
     }
     function render(state) {
+      lastState = state;
       errorEl.innerHTML = state.error ? '<div class="error" role="alert">' + esc(state.error) + ' <button class="trust-button" id="retryAdd">Fix and retry</button></div>' : '';
       const libraries = state.libraries || [];
       librariesEl.innerHTML = libraries.length ? '<div class="list">' + libraries.map(libraryRow).join('') + '</div>' : '<div class="empty">No libraries added. Add OSCAT, PLCopen Motion, or your own.</div>';
@@ -568,6 +706,37 @@ class LibrariesPanel {
       document.querySelectorAll('[data-open]').forEach((el) => el.addEventListener('click', () => vscode.postMessage({ type: 'openSource', path: el.getAttribute('data-open') })));
       document.querySelectorAll('[data-update]').forEach((el) => el.addEventListener('click', () => vscode.postMessage({ type: 'update', id: el.getAttribute('data-update') })));
       document.querySelectorAll('[data-fix]').forEach((el) => el.addEventListener('click', () => vscode.postMessage({ type: 'fixPath', name: el.getAttribute('data-fix') })));
+      document.querySelectorAll('[data-library-row]').forEach((el) => el.addEventListener('toggle', () => {
+        openLibraries[el.getAttribute('data-library-row')] = el.open;
+      }));
+      document.querySelectorAll('[data-symbol-search]').forEach((el) => el.addEventListener('input', () => {
+        const name = el.getAttribute('data-symbol-search');
+        symbolBrowserState[name] = symbolBrowserState[name] || { query: '', page: 0, selected: '' };
+        symbolBrowserState[name].query = el.value;
+        symbolBrowserState[name].page = 0;
+        symbolBrowserState[name].selected = '';
+        render(lastState);
+      }));
+      document.querySelectorAll('[data-symbol-page]').forEach((el) => el.addEventListener('click', () => {
+        const name = el.getAttribute('data-symbol-page');
+        symbolBrowserState[name] = symbolBrowserState[name] || { query: '', page: 0, selected: '' };
+        symbolBrowserState[name].page += Number(el.getAttribute('data-page') || 0);
+        render(lastState);
+      }));
+      document.querySelectorAll('[data-symbol-select]').forEach((el) => el.addEventListener('click', () => {
+        const name = el.getAttribute('data-symbol-select');
+        symbolBrowserState[name] = symbolBrowserState[name] || { query: '', page: 0, selected: '' };
+        symbolBrowserState[name].selected = el.getAttribute('data-symbol-key') || '';
+        render(lastState);
+      }));
+      document.querySelectorAll('[data-symbol-insert]').forEach((el) => el.addEventListener('click', () => {
+        const symbol = findSymbol(el.getAttribute('data-symbol-insert'), el.getAttribute('data-symbol-key'));
+        if (symbol) vscode.postMessage({ type: 'insertDeclaration', text: declarationText(symbol) });
+      }));
+      document.querySelectorAll('[data-symbol-copy]').forEach((el) => el.addEventListener('click', () => {
+        const symbol = findSymbol(el.getAttribute('data-symbol-copy'), el.getAttribute('data-symbol-key'));
+        if (symbol) vscode.postMessage({ type: 'copySymbol', text: declarationText(symbol) });
+      }));
       document.getElementById('retryAdd')?.addEventListener('click', () => { addPanel.hidden = false; });
     }
     window.addEventListener('message', (event) => {
@@ -989,6 +1158,61 @@ async function openFirstSourceFile(rootPath: string): Promise<void> {
   const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(file));
   await vscode.window.showTextDocument(doc, { preview: false });
   void vscode.window.showInformationMessage("Library source opened from the vendored project copy.");
+}
+
+async function insertDeclarationText(text: string): Promise<void> {
+  const editor = structuredTextEditorForInsertion();
+  if (!editor) {
+    await vscode.env.clipboard.writeText(text);
+    void vscode.window.showWarningMessage(
+      "Open a Structured Text file to insert the declaration. The snippet was copied instead."
+    );
+    return;
+  }
+  const declarationEdit = declarationInsertion(editor.document, text);
+  if (declarationEdit) {
+    await editor.edit((edit) => edit.insert(declarationEdit.position, declarationEdit.text));
+    const line = declarationEdit.position.line;
+    editor.revealRange(new vscode.Range(line, 0, line, 0), vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+    void vscode.window.showInformationMessage("Library declaration inserted.");
+    return;
+  }
+  await editor.insertSnippet(new vscode.SnippetString(text));
+  void vscode.window.showInformationMessage("Library declaration inserted.");
+}
+
+function structuredTextEditorForInsertion(): vscode.TextEditor | undefined {
+  const active = vscode.window.activeTextEditor;
+  if (active && isStructuredTextDocument(active.document)) {
+    return active;
+  }
+  return vscode.window.visibleTextEditors.find((editor) => isStructuredTextDocument(editor.document)) ?? active;
+}
+
+function isStructuredTextDocument(document: vscode.TextDocument): boolean {
+  return /\.(st|pou)$/i.test(document.uri.fsPath);
+}
+
+function declarationInsertion(
+  document: vscode.TextDocument,
+  text: string
+): { position: vscode.Position; text: string } | undefined {
+  const trimmed = text.trim();
+  if (!/^[A-Za-z_][A-Za-z0-9_]*\s*:/.test(trimmed)) {
+    return undefined;
+  }
+  for (let line = 0; line < document.lineCount; line += 1) {
+    if (!/^\s*VAR\b/i.test(document.lineAt(line).text)) {
+      continue;
+    }
+    const nextLine = line + 1 < document.lineCount ? document.lineAt(line + 1).text : "";
+    const indent = nextLine.match(/^\s+(?=\S)/)?.[0] ?? "    ";
+    return {
+      position: new vscode.Position(line + 1, 0),
+      text: `${indent}${trimmed}\n`,
+    };
+  }
+  return undefined;
 }
 
 async function refreshPanel(root: vscode.Uri): Promise<void> {

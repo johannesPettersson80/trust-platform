@@ -24,6 +24,7 @@ export interface SymbolSummary {
   readonly name: string;
   readonly kind: "function_block" | "function" | "type";
   readonly file: string;
+  readonly declaration: string;
 }
 
 interface SectionRange {
@@ -170,7 +171,14 @@ export function collectSymbolSummaries(
         continue;
       }
       seen.add(key);
-      symbols.push({ name, kind, file: file.file });
+      const start = match.index ?? 0;
+      const lineStart = file.text.lastIndexOf("\n", start) + 1;
+      const lineEnd = file.text.indexOf("\n", start);
+      const declaration = file.text
+        .slice(lineStart, lineEnd >= 0 ? lineEnd : undefined)
+        .trim()
+        .replace(/\s+/g, " ");
+      symbols.push({ name, kind, file: file.file, declaration });
     }
   }
   symbols.sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));

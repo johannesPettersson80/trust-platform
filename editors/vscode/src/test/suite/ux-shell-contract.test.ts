@@ -2516,6 +2516,36 @@ suite("S-24 — Libraries surface contract", () => {
     );
   });
 
+  test("library symbol browser supports search, pagination, detail, and insertion", () => {
+    const source = readSrc("libraries.ts");
+    assert.ok(
+      !source.includes(".slice(0, 24)") && !source.includes("groupSymbols"),
+      "Libraries must not truncate symbols into inert first-24 chips"
+    );
+    assert.ok(
+      source.includes("data-symbol-search") &&
+        source.includes("Search all ") &&
+        source.includes("data-symbol-page") &&
+        source.includes("openLibraries"),
+      "Libraries must provide search within a library and page through the full symbol list without collapsing the row"
+    );
+    assert.ok(
+      source.includes("data-symbol-select") &&
+        source.includes("symbol-detail") &&
+        source.includes("declarationText(symbol)"),
+      "Libraries must show a per-symbol detail panel with declaration context"
+    );
+    assert.ok(
+      source.includes("Insert declaration") &&
+        source.includes("Copy snippet") &&
+        source.includes("insertDeclarationText") &&
+        source.includes("visibleTextEditors.find") &&
+        source.includes("declarationInsertion") &&
+        source.includes("VAR"),
+      "Libraries must insert declaration snippets into a visible ST VAR block, even after the webview takes focus"
+    );
+  });
+
   test("library row actions use user-facing verbs and versioned updates", () => {
     const source = readSrc("libraries.ts");
     assert.ok(

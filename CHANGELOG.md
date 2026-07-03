@@ -265,6 +265,10 @@ Target release: `v0.24.28`
 
 ### Fixed
 
+- vscode: the Libraries symbol browser now searches and pages through the full
+  library symbol list, shows declaration detail for the selected symbol, and
+  can insert or copy a declaration snippet instead of rendering a capped list
+  of inert chips.
 - vscode: visual editors now share keyboard/canvas chrome: Blockly toolbox
   focus uses the truST focus ring, and SFC/Statechart expose the same themed
   canvas zoom controls as Devices & Connections.
