@@ -8,7 +8,7 @@ use serde::Serialize;
 use smol_str::SmolStr;
 
 use crate::io::{IoAddress, IoSize, IoSnapshot, IoSnapshotEntry, IoSnapshotValue};
-use crate::memory::{FrameId, InstanceId, IoArea};
+use crate::memory::{FrameId, InstanceId, IoArea, VariableStorage};
 use crate::value::{ArrayValue, StructValue, Value, ValueRef};
 
 #[derive(Debug, Clone, Serialize)]
@@ -151,7 +151,7 @@ pub fn format_value(value: &Value) -> String {
         Value::Enum(value) => format!("{}::{}", value.type_name(), value.variant_name()),
         Value::Reference(Some(_)) => "REF".to_string(),
         Value::Reference(None) => "NULL_REF".to_string(),
-        Value::Instance(value) => format!("Instance({})", value.0),
+        Value::Instance(_) => "Instance".to_string(),
         Value::Null => "NULL".to_string(),
         _ => format!("{value:?}"),
     }
@@ -173,12 +173,12 @@ pub fn variables_from_instances(
 ) -> Vec<DebugVariable> {
     instances
         .into_iter()
-        .map(|(id, name)| DebugVariable {
-            name: name.clone(),
-            value: format!("Instance({})", id.0),
-            r#type: Some("INSTANCE".to_string()),
+        .map(|(id, type_name)| DebugVariable {
+            name: format!("{type_name}#{}", id.0),
+            value: type_name.clone(),
+            r#type: Some(type_name),
             variables_reference: handles.alloc(VariableHandle::Instance(id)),
-            evaluate_name: Some(name),
+            evaluate_name: None,
         })
         .collect()
 }
@@ -243,6 +243,17 @@ pub fn variable_from_value(
     value: Value,
     evaluate_name: Option<String>,
 ) -> DebugVariable {
+    variable_from_value_with_metadata(handles, name, value, evaluate_name, None, None)
+}
+
+pub fn variable_from_value_with_metadata(
+    handles: &mut DebugVariableHandles,
+    name: String,
+    value: Value,
+    evaluate_name: Option<String>,
+    display: Option<String>,
+    type_name: Option<String>,
+) -> DebugVariable {
     let mut variables_reference = 0;
     match &value {
         Value::Struct(value) => {
@@ -262,11 +273,25 @@ pub fn variable_from_value(
 
     DebugVariable {
         name,
-        value: format_value(&value),
-        r#type: value_type_name(&value),
+        value: display.unwrap_or_else(|| format_value(&value)),
+        r#type: type_name.or_else(|| value_type_name(&value)),
         variables_reference,
         evaluate_name,
     }
+}
+
+pub fn instance_display_metadata(
+    value: &Value,
+    storage: &VariableStorage,
+) -> (Option<String>, Option<String>) {
+    let Value::Instance(id) = value else {
+        return (None, None);
+    };
+    let Some(instance) = storage.get_instance(*id) else {
+        return (None, None);
+    };
+    let type_name = instance.type_name.to_string();
+    (Some(type_name.clone()), Some(type_name))
 }
 
 pub fn io_scope_available(snapshot: Option<&IoSnapshot>) -> bool {

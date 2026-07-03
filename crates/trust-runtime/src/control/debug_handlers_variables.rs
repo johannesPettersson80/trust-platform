@@ -1,3 +1,10 @@
+struct DebugVariableEntry {
+    name: String,
+    value: crate::value::Value,
+    display: Option<String>,
+    type_name: Option<String>,
+}
+
 pub(super) fn handle_debug_scopes(
     id: u64,
     params: Option<serde_json::Value>,
@@ -182,41 +189,49 @@ pub(super) fn handle_debug_variables(
                     instance
                         .variables
                         .iter()
-                        .map(|(name, value)| (name.to_string(), value.clone())),
+                        .map(|(name, value)| {
+                            debug_variable_entry(name.to_string(), value.clone(), &snapshot.storage)
+                        }),
                 );
             }
             entries.extend(
                 frame
                     .variables
                     .iter()
-                    .map(|(name, value)| (name.to_string(), value.clone())),
+                    .map(|(name, value)| {
+                        debug_variable_entry(name.to_string(), value.clone(), &snapshot.storage)
+                    }),
             );
-            crate::debug::dap::variables_from_entries(&mut handles, entries)
+            debug_variables_from_entries(&mut handles, entries)
         }
         VariableHandle::Globals => {
             let entries = snapshot
                 .storage
                 .globals()
                 .iter()
-                .map(|(name, value)| (name.to_string(), value.clone()))
+                .map(|(name, value)| {
+                    debug_variable_entry(name.to_string(), value.clone(), &snapshot.storage)
+                })
                 .collect::<Vec<_>>();
-            crate::debug::dap::variables_from_entries(&mut handles, entries)
+            debug_variables_from_entries(&mut handles, entries)
         }
         VariableHandle::Retain => {
             let entries = snapshot
                 .storage
                 .retain()
                 .iter()
-                .map(|(name, value)| (name.to_string(), value.clone()))
+                .map(|(name, value)| {
+                    debug_variable_entry(name.to_string(), value.clone(), &snapshot.storage)
+                })
                 .collect::<Vec<_>>();
-            crate::debug::dap::variables_from_entries(&mut handles, entries)
+            debug_variables_from_entries(&mut handles, entries)
         }
         VariableHandle::Instances => {
             let instances = snapshot
                 .storage
                 .instances()
                 .iter()
-                .map(|(id, data)| (*id, format!("{}#{}", data.type_name, id.0)))
+                .map(|(id, data)| (*id, data.type_name.to_string()))
                 .collect::<Vec<_>>();
             crate::debug::dap::variables_from_instances(&mut handles, instances)
         }
@@ -227,12 +242,18 @@ pub(super) fn handle_debug_variables(
             let mut entries = instance
                 .variables
                 .iter()
-                .map(|(name, value)| (name.to_string(), value.clone()))
+                .map(|(name, value)| {
+                    debug_variable_entry(name.to_string(), value.clone(), &snapshot.storage)
+                })
                 .collect::<Vec<_>>();
             if let Some(parent) = instance.parent {
-                entries.push(("parent".to_string(), Value::Instance(parent)));
+                entries.push(debug_variable_entry(
+                    "parent".to_string(),
+                    crate::value::Value::Instance(parent),
+                    &snapshot.storage,
+                ));
             }
-            crate::debug::dap::variables_from_entries(&mut handles, entries)
+            debug_variables_from_entries(&mut handles, entries)
         }
         VariableHandle::Struct(value) => {
             crate::debug::dap::variables_from_struct(&mut handles, value)
@@ -244,10 +265,9 @@ pub(super) fn handle_debug_variables(
             let Some(value) = snapshot.storage.read_by_ref(value_ref).cloned() else {
                 return ControlResponse::error(id, "reference target unavailable".to_string());
             };
-            vec![crate::debug::dap::variable_from_value(
+            vec![debug_variable_from_entry(
                 &mut handles,
-                "*".to_string(),
-                value,
+                debug_variable_entry("*".to_string(), value, &snapshot.storage),
                 None,
             )]
         }
@@ -303,4 +323,46 @@ pub(super) fn handle_debug_variables(
     };
     debug!("control debug.variables result_count={}", variables.len());
     ControlResponse::ok(id, json!({ "variables": variables }))
+}
+
+fn debug_variable_entry(
+    name: String,
+    value: crate::value::Value,
+    storage: &crate::memory::VariableStorage,
+) -> DebugVariableEntry {
+    let (display, type_name) = crate::debug::dap::instance_display_metadata(&value, storage);
+    DebugVariableEntry {
+        name,
+        value,
+        display,
+        type_name,
+    }
+}
+
+fn debug_variables_from_entries(
+    handles: &mut crate::debug::dap::DebugVariableHandles,
+    entries: Vec<DebugVariableEntry>,
+) -> Vec<DebugVariable> {
+    entries
+        .into_iter()
+        .map(|entry| {
+            let evaluate_name = Some(entry.name.clone());
+            debug_variable_from_entry(handles, entry, evaluate_name)
+        })
+        .collect()
+}
+
+fn debug_variable_from_entry(
+    handles: &mut crate::debug::dap::DebugVariableHandles,
+    entry: DebugVariableEntry,
+    evaluate_name: Option<String>,
+) -> DebugVariable {
+    crate::debug::dap::variable_from_value_with_metadata(
+        handles,
+        entry.name,
+        entry.value,
+        evaluate_name,
+        entry.display,
+        entry.type_name,
+    )
 }

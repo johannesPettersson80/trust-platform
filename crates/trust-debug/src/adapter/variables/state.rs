@@ -4,6 +4,7 @@
 
 use serde_json::Value;
 
+use trust_runtime::memory::VariableStorage;
 use trust_runtime::value::Value as RuntimeValue;
 
 use crate::protocol::{Request, VarStateEntry, VarStateEventBody, VarStateInstance};
@@ -55,14 +56,14 @@ impl DebugAdapter {
                             entries.extend(instance.variables.iter().map(|(name, value)| {
                                 VarStateEntry {
                                     name: name.to_string(),
-                                    value: format_value(value),
+                                    value: format_var_state_value(value, storage),
                                 }
                             }));
                         }
                     }
                     entries.extend(frame.variables.iter().map(|(name, value)| VarStateEntry {
                         name: name.to_string(),
-                        value: format_value(value),
+                        value: format_var_state_value(value, storage),
                     }));
                     (entries, Some(frame.id.0))
                 })
@@ -72,7 +73,7 @@ impl DebugAdapter {
                 .iter()
                 .map(|(name, value)| VarStateEntry {
                     name: name.to_string(),
-                    value: format_value(value),
+                    value: format_var_state_value(value, storage),
                 })
                 .collect();
             let retain = storage
@@ -80,7 +81,7 @@ impl DebugAdapter {
                 .iter()
                 .map(|(name, value)| VarStateEntry {
                     name: name.to_string(),
-                    value: format_value(value),
+                    value: format_var_state_value(value, storage),
                 })
                 .collect();
             let instances = storage
@@ -92,13 +93,13 @@ impl DebugAdapter {
                         .iter()
                         .map(|(name, value)| VarStateEntry {
                             name: name.to_string(),
-                            value: format_value(value),
+                            value: format_var_state_value(value, storage),
                         })
                         .collect::<Vec<_>>();
                     if let Some(parent) = data.parent {
                         vars.push(VarStateEntry {
                             name: "parent".to_string(),
-                            value: format_value(&RuntimeValue::Instance(parent)),
+                            value: format_var_state_value(&RuntimeValue::Instance(parent), storage),
                         });
                     }
                     VarStateInstance {
@@ -128,4 +129,13 @@ impl DebugAdapter {
             paused: Some(false),
         }
     }
+}
+
+fn format_var_state_value(value: &RuntimeValue, storage: &VariableStorage) -> String {
+    if let RuntimeValue::Instance(id) = value {
+        if let Some(instance) = storage.get_instance(*id) {
+            return instance.type_name.to_string();
+        }
+    }
+    format_value(value)
 }

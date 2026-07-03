@@ -138,11 +138,10 @@ fn dispatch_threads_stack_scopes_variables() {
         .find(|var| var.name == "arr")
         .unwrap()
         .variables_reference;
-    let instance_ref = local_vars
-        .iter()
-        .find(|var| var.name == "inst")
-        .unwrap()
-        .variables_reference;
+    let instance_var = local_vars.iter().find(|var| var.name == "inst").unwrap();
+    assert_eq!(instance_var.value, "MyFB");
+    assert_eq!(instance_var.r#type.as_deref(), Some("MyFB"));
+    let instance_ref = instance_var.variables_reference;
     let ref_ref = local_vars
         .iter()
         .find(|var| var.name == "ref")
@@ -221,11 +220,13 @@ fn dispatch_threads_stack_scopes_variables() {
         serde_json::from_value(instance_outcome.responses[0].clone()).unwrap();
     let instance_vars = instance_response.body.unwrap().variables;
     assert!(instance_vars.iter().any(|var| var.name == "iv"));
-    let parent_ref = instance_vars
+    let parent_var = instance_vars
         .iter()
         .find(|var| var.name == "parent")
-        .unwrap()
-        .variables_reference;
+        .unwrap();
+    assert_eq!(parent_var.value, "ParentFB");
+    assert_eq!(parent_var.r#type.as_deref(), Some("ParentFB"));
+    let parent_ref = parent_var.variables_reference;
     assert!(parent_ref > 0);
 
     let parent_vars_req = Request {
@@ -277,7 +278,12 @@ fn dispatch_threads_stack_scopes_variables() {
     let instances_response: Response<VariablesResponseBody> =
         serde_json::from_value(instances_outcome.responses[0].clone()).unwrap();
     let instances_vars = instances_response.body.unwrap().variables;
-    assert!(instances_vars.iter().any(|var| var.name.contains("MyFB#")));
+    let my_fb_instance = instances_vars
+        .iter()
+        .find(|var| var.name.contains("MyFB#"))
+        .unwrap();
+    assert_eq!(my_fb_instance.value, "MyFB");
+    assert_eq!(my_fb_instance.r#type.as_deref(), Some("MyFB"));
 }
 
 #[test]

@@ -5,13 +5,41 @@
 
 use serde_json::Value;
 
-use trust_runtime::memory::InstanceId;
+use trust_runtime::memory::{InstanceId, VariableStorage};
 use trust_runtime::value::{ArrayValue, StructValue, Value as RuntimeValue};
 
 use crate::protocol::{IoStateEntry, Request, Variable, VariablesArguments, VariablesResponseBody};
 
 use super::super::{DebugAdapter, DispatchOutcome, PausedStateView, VariableHandle};
 use super::format::{format_value, value_type_name};
+
+#[derive(Debug)]
+struct VariableEntry {
+    name: String,
+    value: RuntimeValue,
+    display: Option<String>,
+    type_name: Option<String>,
+}
+
+impl VariableEntry {
+    fn new(name: String, value: RuntimeValue) -> Self {
+        Self {
+            name,
+            value,
+            display: None,
+            type_name: None,
+        }
+    }
+
+    fn with_display(name: String, value: RuntimeValue, display: String, type_name: String) -> Self {
+        Self {
+            name,
+            value,
+            display: Some(display),
+            type_name: Some(type_name),
+        }
+    }
+}
 
 impl DebugAdapter {
     pub(in crate::adapter) fn handle_variables(
@@ -71,10 +99,11 @@ impl DebugAdapter {
                                 let mut entries = Vec::new();
                                 if let Some(instance_id) = frame.instance_id {
                                     if let Some(instance) = storage.get_instance(instance_id) {
-                                        entries.extend(collect_entries(&instance.variables));
+                                        entries
+                                            .extend(collect_entries(&instance.variables, storage));
                                     }
                                 }
-                                entries.extend(collect_entries(&frame.variables));
+                                entries.extend(collect_entries(&frame.variables, storage));
                                 entries
                             })
                             .unwrap_or_default()
@@ -84,13 +113,13 @@ impl DebugAdapter {
             }
             VariableHandle::Globals => {
                 let entries = view
-                    .with_storage(|storage| collect_entries(storage.globals()))
+                    .with_storage(|storage| collect_entries(storage.globals(), storage))
                     .unwrap_or_default();
                 self.variables_from_entries(entries)
             }
             VariableHandle::Retain => {
                 let entries = view
-                    .with_storage(|storage| collect_entries(storage.retain()))
+                    .with_storage(|storage| collect_entries(storage.retain(), storage))
                     .unwrap_or_default();
                 self.variables_from_entries(entries)
             }
@@ -110,11 +139,12 @@ impl DebugAdapter {
                 let entries = view
                     .with_storage(|storage| {
                         storage.get_instance(instance_id).map(|instance| {
-                            let mut entries = collect_entries(&instance.variables);
+                            let mut entries = collect_entries(&instance.variables, storage);
                             if let Some(parent_id) = instance.parent {
-                                entries.push((
+                                entries.push(entry_for_value(
                                     "parent".to_string(),
                                     RuntimeValue::Instance(parent_id),
+                                    storage,
                                 ));
                             }
                             entries
@@ -127,11 +157,16 @@ impl DebugAdapter {
             VariableHandle::Struct(struct_value) => self.variables_from_struct(struct_value),
             VariableHandle::Array(array_value) => self.variables_from_array(array_value),
             VariableHandle::Reference(value_ref) => {
-                let value = view
-                    .with_storage(|storage| storage.read_by_ref(value_ref).cloned())
+                let entry = view
+                    .with_storage(|storage| {
+                        storage
+                            .read_by_ref(value_ref)
+                            .cloned()
+                            .map(|value| entry_for_value("*".to_string(), value, storage))
+                    })
                     .flatten();
-                value
-                    .map(|value| vec![self.variable_from_value("*".to_string(), value, None)])
+                entry
+                    .map(|entry| vec![self.variable_from_entry(entry, None)])
                     .unwrap_or_default()
             }
             VariableHandle::IoRoot => {
@@ -184,10 +219,13 @@ impl DebugAdapter {
             ..DispatchOutcome::default()
         }
     }
-    fn variables_from_entries(&mut self, entries: Vec<(String, RuntimeValue)>) -> Vec<Variable> {
+    fn variables_from_entries(&mut self, entries: Vec<VariableEntry>) -> Vec<Variable> {
         entries
             .into_iter()
-            .map(|(name, value)| self.variable_from_value(name.clone(), value, Some(name)))
+            .map(|entry| {
+                let evaluate_name = Some(entry.name.clone());
+                self.variable_from_entry(entry, evaluate_name)
+            })
             .collect()
     }
 
@@ -211,11 +249,11 @@ impl DebugAdapter {
         let entries = value
             .fields()
             .iter()
-            .map(|(name, value)| (name.to_string(), value.clone()))
+            .map(|(name, value)| VariableEntry::new(name.to_string(), value.clone()))
             .collect::<Vec<_>>();
         entries
             .into_iter()
-            .map(|(name, value)| self.variable_from_value(name, value, None))
+            .map(|entry| self.variable_from_entry(entry, None))
             .collect()
     }
 
@@ -250,7 +288,7 @@ impl DebugAdapter {
                 let variables_reference = self.alloc_variable_handle(VariableHandle::Instance(id));
                 Variable {
                     name: format!("{type_name}#{}", id.0),
-                    value: "Instance".to_string(),
+                    value: type_name.clone(),
                     r#type: Some(type_name),
                     variables_reference,
                     evaluate_name: None,
@@ -267,6 +305,19 @@ impl DebugAdapter {
     ) -> Variable {
         let display = format_value(&value);
         let r#type = value_type_name(&value);
+        self.variable_from_value_with_metadata(name, value, evaluate_name, Some(display), r#type)
+    }
+
+    pub(super) fn variable_from_value_with_metadata(
+        &mut self,
+        name: String,
+        value: RuntimeValue,
+        evaluate_name: Option<String>,
+        display: Option<String>,
+        type_name: Option<String>,
+    ) -> Variable {
+        let display = display.unwrap_or_else(|| format_value(&value));
+        let r#type = type_name.or_else(|| value_type_name(&value));
         let variables_reference = match value {
             RuntimeValue::Struct(value) => {
                 self.alloc_variable_handle(VariableHandle::Struct((*value).clone()))
@@ -287,6 +338,45 @@ impl DebugAdapter {
         }
     }
 
+    pub(super) fn instance_display_metadata(
+        &self,
+        value: &RuntimeValue,
+    ) -> (Option<String>, Option<String>) {
+        let RuntimeValue::Instance(id) = value else {
+            return (None, None);
+        };
+
+        if let Some(snapshot) = self.session.debug_control().snapshot() {
+            if let Some(instance) = snapshot.storage.get_instance(*id) {
+                let type_name = instance.type_name.to_string();
+                return (Some(type_name.clone()), Some(type_name));
+            }
+        }
+
+        if let Ok(runtime) = self.session.runtime_handle().try_lock() {
+            if let Some(instance) = runtime.storage().get_instance(*id) {
+                let type_name = instance.type_name.to_string();
+                return (Some(type_name.clone()), Some(type_name));
+            }
+        }
+
+        (None, None)
+    }
+
+    fn variable_from_entry(
+        &mut self,
+        entry: VariableEntry,
+        evaluate_name: Option<String>,
+    ) -> Variable {
+        self.variable_from_value_with_metadata(
+            entry.name,
+            entry.value,
+            evaluate_name,
+            entry.display,
+            entry.type_name,
+        )
+    }
+
     pub(in crate::adapter) fn alloc_variable_handle(&mut self, handle: VariableHandle) -> u32 {
         let id = self.next_variable_ref;
         self.next_variable_ref = self.next_variable_ref.saturating_add(1);
@@ -297,10 +387,27 @@ impl DebugAdapter {
 
 fn collect_entries(
     vars: &indexmap::IndexMap<smol_str::SmolStr, RuntimeValue>,
-) -> Vec<(String, RuntimeValue)> {
+    storage: &VariableStorage,
+) -> Vec<VariableEntry> {
     vars.iter()
-        .map(|(name, value)| (name.to_string(), value.clone()))
+        .map(|(name, value)| entry_for_value(name.to_string(), value.clone(), storage))
         .collect()
+}
+
+fn entry_for_value(name: String, value: RuntimeValue, storage: &VariableStorage) -> VariableEntry {
+    if let RuntimeValue::Instance(id) = value {
+        if let Some(instance) = storage.get_instance(id) {
+            let type_name = instance.type_name.to_string();
+            return VariableEntry::with_display(
+                name,
+                RuntimeValue::Instance(id),
+                type_name.clone(),
+                type_name,
+            );
+        }
+        return VariableEntry::new(name, RuntimeValue::Instance(id));
+    }
+    VariableEntry::new(name, value)
 }
 
 fn array_indices_for_offset(dimensions: &[(i64, i64)], mut offset: usize) -> Vec<i64> {

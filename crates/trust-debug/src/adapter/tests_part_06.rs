@@ -135,10 +135,9 @@ fn dispatch_evaluate_resolves_instance_and_retain() {
     let this_response: Response<EvaluateResponseBody> =
         serde_json::from_value(this_outcome.responses[0].clone()).unwrap();
     assert!(this_response.success);
-    assert_eq!(
-        this_response.body.unwrap().result,
-        format!("Instance({})", instance_id.0)
-    );
+    let this_body = this_response.body.unwrap();
+    assert_eq!(this_body.result, "MyFB");
+    assert_eq!(this_body.r#type.as_deref(), Some("MyFB"));
 
     let eval_retain_req = Request {
         seq: 3,

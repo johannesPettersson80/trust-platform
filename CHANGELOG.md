@@ -243,6 +243,9 @@ Target release: `v0.24.28`
 
 ### Fixed
 
+- trust-debug/trust-runtime: debug Variables and Watch/Evaluate output now show
+  function block/program instance type names instead of leaking raw
+  `Instance(id)` runtime handles.
 - vscode: Live Values now shows a `Forced (N)` filter chip when overrides are
   active, letting operators list only forced points before releasing or
   inspecting them.

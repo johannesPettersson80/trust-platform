@@ -150,7 +150,14 @@ impl DebugAdapter {
             };
         };
 
-        let variable = self.variable_from_value("result".to_string(), value, None);
+        let (display, type_name) = self.instance_display_metadata(&value);
+        let variable = self.variable_from_value_with_metadata(
+            "result".to_string(),
+            value,
+            None,
+            display,
+            type_name,
+        );
         let body = EvaluateResponseBody {
             result: variable.value,
             r#type: variable.r#type,

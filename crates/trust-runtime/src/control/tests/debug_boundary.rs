@@ -64,6 +64,90 @@ END_PROGRAM
 }
 
 #[test]
+fn debug_boundary_instance_values_use_type_names() {
+    let source = r#"
+PROGRAM Main
+VAR
+    drive : BOOL := TRUE;
+END_VAR
+END_PROGRAM
+"#;
+    let state = hmi_test_state(source);
+    assert!(state.debug.snapshot().is_some(), "debug snapshot");
+
+    let globals_ref = state
+        .debug_variables
+        .lock()
+        .expect("debug variable handles")
+        .alloc(crate::debug::dap::VariableHandle::Globals);
+    let variables = handle_request_value(
+        json!({
+            "id": 20,
+            "type": "debug.variables",
+            "params": { "variables_reference": globals_ref }
+        }),
+        &state,
+        None,
+    );
+    assert!(
+        variables.ok,
+        "debug.variables should succeed: {:?}",
+        variables.error
+    );
+    let globals = variables
+        .result
+        .as_ref()
+        .and_then(|value| value.get("variables"))
+        .and_then(serde_json::Value::as_array)
+        .expect("debug variables");
+    let main = globals
+        .iter()
+        .find(|variable| variable.get("name").and_then(serde_json::Value::as_str) == Some("Main"))
+        .expect("Main global");
+    assert_eq!(main.get("value").and_then(serde_json::Value::as_str), Some("Main"));
+    assert_eq!(main.get("type").and_then(serde_json::Value::as_str), Some("Main"));
+    assert!(
+        !main
+            .get("value")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default()
+            .contains("Instance("),
+        "debug variable leaked internal instance id: {main:?}"
+    );
+
+    let evaluated = handle_request_value(
+        json!({
+            "id": 21,
+            "type": "debug.evaluate",
+            "params": { "expression": "Main" }
+        }),
+        &state,
+        None,
+    );
+    assert!(
+        evaluated.ok,
+        "debug.evaluate should succeed: {:?}",
+        evaluated.error
+    );
+    assert_eq!(
+        evaluated
+            .result
+            .as_ref()
+            .and_then(|value| value.get("result"))
+            .and_then(serde_json::Value::as_str),
+        Some("Main")
+    );
+    assert_eq!(
+        evaluated
+            .result
+            .as_ref()
+            .and_then(|value| value.get("type"))
+            .and_then(serde_json::Value::as_str),
+        Some("Main")
+    );
+}
+
+#[test]
 fn debug_boundary_io_snapshot_poison_is_an_error() {
     let source = r#"
 PROGRAM Main

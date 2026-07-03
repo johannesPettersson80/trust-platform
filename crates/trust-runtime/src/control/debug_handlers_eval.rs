@@ -58,8 +58,10 @@ pub(super) fn handle_debug_evaluate(
         Ok(value) => value,
         Err(err) => return ControlResponse::error(id, err.to_string()),
     };
-    let result = crate::debug::dap::format_value(&value);
-    let type_name = crate::debug::dap::value_type_name(&value);
+    let (display, display_type) =
+        crate::debug::dap::instance_display_metadata(&value, &snapshot.storage);
+    let result = display.unwrap_or_else(|| crate::debug::dap::format_value(&value));
+    let type_name = display_type.or_else(|| crate::debug::dap::value_type_name(&value));
     ControlResponse::ok(
         id,
         json!({

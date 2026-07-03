@@ -121,7 +121,7 @@ fn format_log_value(value: &Value) -> String {
         Value::Enum(value) => format!("{}::{}", value.type_name(), value.variant_name()),
         Value::Reference(Some(_)) => "REF".to_string(),
         Value::Reference(None) => "NULL_REF".to_string(),
-        Value::Instance(value) => format!("Instance({})", value.0),
+        Value::Instance(_) => "Instance".to_string(),
         Value::Null => "NULL".to_string(),
         _ => format!("{value:?}"),
     }

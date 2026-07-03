@@ -94,7 +94,7 @@ pub(in crate::adapter) fn format_value(value: &RuntimeValue) -> String {
         RuntimeValue::Enum(value) => format!("{}::{}", value.type_name(), value.variant_name()),
         RuntimeValue::Reference(Some(_)) => "REF".to_string(),
         RuntimeValue::Reference(None) => "NULL_REF".to_string(),
-        RuntimeValue::Instance(value) => format!("Instance({})", value.0),
+        RuntimeValue::Instance(_) => "Instance".to_string(),
         RuntimeValue::Null => "NULL".to_string(),
     }
 }
@@ -118,6 +118,7 @@ pub(in crate::adapter) fn type_id_for_value(value: &RuntimeValue) -> Option<Type
 
 #[cfg(test)]
 mod tests {
+    use trust_runtime::memory::InstanceId;
     use trust_runtime::value::{
         DateTimeValue, DateValue, Duration, LDateTimeValue, LDateValue, LTimeOfDayValue,
         TimeOfDayValue, Value as RuntimeValue,
@@ -158,6 +159,10 @@ mod tests {
         assert_eq!(
             format_value(&RuntimeValue::Ldt(LDateTimeValue::new(8))),
             "LDT#8"
+        );
+        assert_eq!(
+            format_value(&RuntimeValue::Instance(InstanceId(7))),
+            "Instance"
         );
     }
 }
