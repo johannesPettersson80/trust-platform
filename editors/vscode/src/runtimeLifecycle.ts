@@ -394,7 +394,8 @@ class RuntimeLifecycleService {
         ok: false,
         failure: {
           kind: "stale_runtime",
-          message: `Runtime not reachable: ${status.endpoint}`,
+          message: runtimeNotReachableMessage(status.endpoint),
+          detail: status.endpoint,
         },
       };
     }
@@ -635,6 +636,31 @@ function runtimeDebugDisabled(value: unknown): boolean {
   }
   const controlStatus = value.control_status;
   return isRecord(controlStatus) && controlStatus.debug_enabled === false;
+}
+
+function runtimeNotReachableMessage(endpoint: string): string {
+  if (endpoint.trim().startsWith("unix://")) {
+    return "Local runtime is stopped. Start it to connect.";
+  }
+  return `Runtime is not reachable at ${shortRuntimeEndpointLabel(endpoint)}.`;
+}
+
+function shortRuntimeEndpointLabel(endpoint: string): string {
+  const text = endpoint.trim();
+  if (!text) {
+    return "the configured endpoint";
+  }
+  if (text.startsWith("tcp://")) {
+    try {
+      return new URL(text).host || "the configured endpoint";
+    } catch {
+      return "the configured endpoint";
+    }
+  }
+  if (text.startsWith("unix://")) {
+    return "the local control socket";
+  }
+  return text;
 }
 
 function delay(ms: number): Promise<void> {

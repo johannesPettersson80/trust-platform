@@ -867,6 +867,27 @@ suite("Network Canvas", function () {
     assert.notStrictEqual(runtime.health, "connected", "honest: not green until proven");
   });
 
+  test("a stopped local control socket renders neutral stopped state, not an alarm fault", () => {
+    const graph = buildCanvasGraph(
+      buildNetworkCanvasModel({
+        stage: "runtime_live",
+        failure: {
+          kind: "stale_runtime",
+          message: "Runtime not reachable: unix:///tmp/trust-runtime-line-123.sock",
+        },
+      }),
+      undefined
+    );
+    const runtime = graph.hosts[0].runtimes[0];
+    assert.strictEqual(runtime.health, "stopped", "stopped local runtime is neutral, not red");
+    assert.deepStrictEqual(graph.faults, [], "stopped local runtime must not spend the red issue channel");
+    assert.strictEqual(graph.banner?.kind, "info", "guidance stays neutral/info");
+    assert.ok(
+      !JSON.stringify(graph).includes("unix:///tmp/trust-runtime-line"),
+      "raw local socket paths must not leak into the rendered graph"
+    );
+  });
+
   test("a running local simulator renders as a connected runtime node", () => {
     const graph = buildCanvasGraph(
       buildNetworkCanvasModel({ stage: "runtime_live", runtime: RUNNING }),

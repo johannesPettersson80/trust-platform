@@ -805,6 +805,20 @@ suite("truST sidebar — control surface contract", () => {
     }
   });
 
+  test("unreachable runtime messages are human-facing and do not expose local socket paths", () => {
+    const lifecycleSource = loadSource("runtimeLifecycle.ts");
+    assert.ok(
+      lifecycleSource.includes("runtimeNotReachableMessage(status.endpoint)") &&
+        lifecycleSource.includes("Local runtime is stopped. Start it to connect.") &&
+        lifecycleSource.includes("shortRuntimeEndpointLabel(endpoint)"),
+      "runtime lifecycle must humanize unreachable endpoints before surfacing them"
+    );
+    assert.ok(
+      !lifecycleSource.includes("message: `Runtime not reachable: ${status.endpoint}`"),
+      "user-facing runtime-unreachable messages must not expose raw socket paths"
+    );
+  });
+
   test("remote attach refuses debug-disabled runtimes before reporting connected", () => {
     const lifecycleSource = loadSource("runtimeLifecycle.ts");
     assert.ok(

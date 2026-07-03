@@ -242,7 +242,10 @@ export function buildNetworkCanvasModel(
     normalizedInput.runtime?.running === true &&
     (normalizedInput.runtime.runtimeState === "running" ||
       normalizedInput.runtime.runtimeState === "connected");
-  const runtimeState: NetworkRuntimeState = normalizedInput.failure
+  const activeFailure = isNeutralStoppedRuntimeFailure(normalizedInput.failure)
+    ? undefined
+    : normalizedInput.failure;
+  const runtimeState: NetworkRuntimeState = activeFailure
     ? "error"
     : normalizedInput.starting
       ? "starting"
@@ -278,7 +281,7 @@ export function buildNetworkCanvasModel(
   const faults = faultsForModel(
     devices,
     normalizedInput.applyResult,
-    normalizedInput.failure,
+    activeFailure,
     fleet
   );
 
@@ -308,10 +311,23 @@ export function buildNetworkCanvasModel(
     templates: NETWORK_CANVAS_TEMPLATES,
     fleet,
     topologyError: normalizedInput.topologyError,
-    failure: normalizedInput.failure,
+    failure: activeFailure,
     previewNotice: normalizedInput.previewNotice,
     runtimeSetupMessage: normalizedInput.runtimeSetupMessage,
   };
+}
+
+export function isNeutralStoppedRuntimeFailure(
+  failure: NetworkCanvasFailure | undefined
+): boolean {
+  if (!failure || failure.kind !== "stale_runtime") {
+    return false;
+  }
+  const text = `${failure.message} ${failure.detail ?? ""}`;
+  return (
+    /local runtime is stopped|local simulator is stopped/i.test(text) ||
+    (/runtime (?:is )?not reachable/i.test(text) && /unix:\/\//i.test(text))
+  );
 }
 
 export function nextNetworkCanvasStage(

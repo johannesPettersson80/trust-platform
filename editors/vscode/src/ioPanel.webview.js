@@ -91,8 +91,8 @@ function updateForceStatusFromState(state) {
   }
   const addresses = forcedAddresses(state);
   const current = status.textContent || "";
-  const isError = /failed|forbidden|requires role|missing|error|denied|viewer role|operator role|engineer token|permissions are unknown/i.test(current);
-  if (addresses.length > 0 && !isError) {
+  const preserveStatus = isErrorStatusText(current) || isPermissionGuidanceText(current);
+  if (addresses.length > 0 && !preserveStatus) {
     setStatusText(
       addresses.length === 1
         ? "I/O force active at " + addresses[0] + "."
@@ -141,12 +141,10 @@ function setStatusText(message) {
   if (status) {
     clearStatusClearTimer();
     const text = String(message || "");
-    const isWarning = /force armed|force active|force remains armed/i.test(text);
+    const isWarning = isWarningStatusText(text);
+    const isError = isErrorStatusText(text) && !isWarning;
     status.textContent = text;
-    status.classList.toggle(
-      "status-error",
-      /failed|forbidden|requires role|missing|error|denied|viewer role|operator role|engineer token|permissions are unknown/i.test(text)
-    );
+    status.classList.toggle("status-error", isError);
     status.classList.toggle("status-warn", isWarning);
     status.classList.toggle(
       "status-ok",
@@ -160,6 +158,23 @@ function setStatusText(message) {
       }, TRANSIENT_STATUS_CLEAR_MS);
     }
   }
+}
+
+function isPermissionGuidanceText(message) {
+  const text = String(message || "");
+  return (
+    /viewer role|operator role|engineer token|permissions are unknown/i.test(text) ||
+    (/forbidden|requires role|denied/i.test(text) && !/failed|error/i.test(text))
+  );
+}
+
+function isWarningStatusText(message) {
+  const text = String(message || "");
+  return /force armed|force active|force remains armed/i.test(text) || isPermissionGuidanceText(text);
+}
+
+function isErrorStatusText(message) {
+  return /failed|forbidden|requires role|missing|error|denied/i.test(String(message || ""));
 }
 
 function clearStatusClearTimer() {

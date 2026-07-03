@@ -955,9 +955,11 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
     assert.ok(web.includes("status-error"), "webview must mark failed operations as error status");
     assert.ok(
       web.includes("status-warn") &&
+        web.includes("isPermissionGuidanceText") &&
         web.includes("force armed|force active|force remains armed") &&
-        web.includes("!isWarning && /queued|released|cleared/i.test(text)"),
-      "force armed/active feedback must be amber warning, not green success"
+        web.includes("!isWarning && /queued|released|cleared/i.test(text)") &&
+        web.includes('status.classList.toggle("status-error", isError)'),
+      "force armed/active feedback and permission guidance must be amber warning, not green success or alarm red"
     );
     assert.ok(
       web.includes("updateForceStatusFromState") &&
