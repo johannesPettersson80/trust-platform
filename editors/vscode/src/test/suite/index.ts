@@ -8,6 +8,7 @@ export function run(): Promise<void> {
 
   mocha.suite.emit("pre-require", global, "nofile", mocha);
   require("./diagnostics.test");
+  require("./check-program.integration.test");
   require("./debug-io.integration.test");
   require("./hmi.integration.test");
   require("./lsp.integration.test");

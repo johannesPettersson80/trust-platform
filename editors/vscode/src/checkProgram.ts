@@ -1,4 +1,5 @@
 import { execFile } from "child_process";
+import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 
@@ -14,6 +15,7 @@ import {
 // returns the parsed report so the sidebar can show an honest badge only after a real compile result.
 
 export const CHECK_PROGRAM_COMMAND = "trust-lsp.checkProgram";
+const TRUST_DIAGNOSTIC_SOURCE = "truST";
 
 let collection: vscode.DiagnosticCollection | undefined;
 const didCheckProgramEmitter = new vscode.EventEmitter<CheckProgramResponse>();
@@ -22,7 +24,7 @@ let lastCompileStatusMessage: vscode.Disposable | undefined;
 export const onDidCheckProgram = didCheckProgramEmitter.event;
 
 export function registerCheckProgram(context: vscode.ExtensionContext): void {
-  collection = vscode.languages.createDiagnosticCollection("trust check");
+  collection = vscode.languages.createDiagnosticCollection(TRUST_DIAGNOSTIC_SOURCE);
   context.subscriptions.push(collection);
   context.subscriptions.push(didCheckProgramEmitter);
   context.subscriptions.push({
@@ -35,11 +37,35 @@ export function registerCheckProgram(context: vscode.ExtensionContext): void {
   );
 }
 
+function hasProjectMarker(root: string): boolean {
+  return fs.existsSync(path.join(root, "trust-lsp.toml"));
+}
+
+function nearestProjectRoot(fsPath: string): string | undefined {
+  let current = fs.existsSync(fsPath) && fs.statSync(fsPath).isDirectory()
+    ? fsPath
+    : path.dirname(fsPath);
+  while (true) {
+    if (hasProjectMarker(current)) {
+      return current;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) {
+      return undefined;
+    }
+    current = parent;
+  }
+}
+
 function projectRoot(): vscode.Uri | undefined {
   const active = vscode.window.activeTextEditor?.document.uri;
-  const folder = active
-    ? vscode.workspace.getWorkspaceFolder(active)
-    : undefined;
+  if (active?.scheme === "file") {
+    const nearest = nearestProjectRoot(active.fsPath);
+    if (nearest) {
+      return vscode.Uri.file(nearest);
+    }
+  }
+  const folder = active ? vscode.workspace.getWorkspaceFolder(active) : undefined;
   return folder?.uri ?? vscode.workspace.workspaceFolders?.[0]?.uri;
 }
 
@@ -142,7 +168,7 @@ function isInWorkspaceRoot(root: vscode.Uri, uri: vscode.Uri): boolean {
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
 
-// File-anchored issues → the Problems panel (labeled `trust check`). File-less issues (config/sources)
+// File-anchored issues → the Problems panel (labeled `truST`). File-less issues (config/sources)
 // are covered by the summary message.
 function applyDiagnostics(
   root: vscode.Uri,
@@ -167,7 +193,7 @@ function applyDiagnostics(
         ? vscode.DiagnosticSeverity.Warning
         : vscode.DiagnosticSeverity.Error
     );
-    diagnostic.source = "trust check";
+    diagnostic.source = TRUST_DIAGNOSTIC_SOURCE;
     const key = fileUri.toString();
     const list = byFile.get(key) ?? [];
     list.push(diagnostic);

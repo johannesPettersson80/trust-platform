@@ -243,6 +243,10 @@ Target release: `v0.24.28`
 
 ### Fixed
 
+- vscode: Compile diagnostics now use the user-facing `truST` Problems source
+  label instead of the stale `trust check` name, and Compile resolves the
+  nearest `trust-lsp.toml` from the active file before falling back to the
+  workspace root.
 - trust-debug/trust-runtime: debug Variables and Watch/Evaluate output now show
   function block/program instance type names instead of leaking raw
   `Instance(id)` runtime handles.
