@@ -725,13 +725,21 @@ suite("truST sidebar — control surface contract", () => {
     const state = normalizeIoState({
       scan: 12841,
       inputs: [],
-      outputs: [{ address: "%QX0.0", name: "Out", value: "Bool(true)" }],
+      outputs: [
+        {
+          address: "%QX0.0",
+          name: "Out",
+          source: "MQTT topic trust/examples/mqtt/out",
+          value: "Bool(true)",
+        },
+      ],
       memory: [
         { address: "%MX0.0", name: "Flag", value: "Bool(false)" },
         { address: "%MW0", name: "Count", value: "Int(42)" },
       ],
     });
     assert.strictEqual(state.outputs[0].value, "TRUE");
+    assert.strictEqual(state.outputs[0].source, "MQTT topic trust/examples/mqtt/out");
     assert.strictEqual(state.memory[0].value, "FALSE");
     assert.strictEqual(state.memory[1].value, "42");
     assert.strictEqual(state.scan, 12841);

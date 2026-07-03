@@ -245,11 +245,12 @@
 .st-runtime-panel .row-header {
   display: grid;
   grid-template-columns:
-    minmax(120px, 2fr)
-    minmax(64px, max-content)
-    minmax(44px, max-content)
-    minmax(72px, max-content)
-    minmax(168px, max-content);
+    minmax(92px, 1.2fr)
+    minmax(112px, 1.4fr)
+    minmax(52px, max-content)
+    minmax(40px, max-content)
+    minmax(68px, max-content)
+    minmax(112px, max-content);
   align-items: center;
   gap: 6px;
 }
@@ -328,10 +329,17 @@
 }
 
 .st-runtime-panel .state-cell,
+.st-runtime-panel .source-cell,
 .st-runtime-panel .type-cell {
   color: var(--muted);
   font-size: 11px;
   white-space: nowrap;
+}
+
+.st-runtime-panel .source-cell {
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .st-runtime-panel .state-badge {

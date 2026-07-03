@@ -100,8 +100,9 @@ fn apply_project_io_config(
         .map_err(|err| CompileError::new(format!("failed to load io.toml: {err}")))?;
     runtime.clear_io_drivers();
     runtime.set_io_safe_state(io.safe_state);
+    let drivers = io.drivers;
     let registry = IoDriverRegistry::default_registry();
-    for driver in io.drivers {
+    for driver in &drivers {
         if !driver.enabled {
             continue;
         }
@@ -112,6 +113,7 @@ fn apply_project_io_config(
             runtime.add_io_driver(spec.name, spec.driver);
         }
     }
+    trust_runtime::io::annotate_io_binding_sources(runtime.io_mut(), &drivers);
     Ok(())
 }
 

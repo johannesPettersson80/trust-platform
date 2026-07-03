@@ -249,6 +249,9 @@ Target release: `v0.24.27`
 - vscode: Live Values now auto-expires short success feedback such as released
   forces while leaving standing-state banners, including active forces and
   permission-denied guidance, visible until the state changes.
+- trust-runtime/vscode: Live Values rows now carry runtime-owned source
+  provenance when available, so mapped Modbus/MQTT rows show the driver
+  endpoint or topic directly in the panel instead of relying on ST comments.
 - vscode: Live Values now clears stale connected/value rows as soon as a
   Structured Text debug session stops or disconnects, keeps remote
   disconnected targets labelled `Not connected` instead of fabricating

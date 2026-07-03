@@ -594,6 +594,9 @@ function normalizeIoEntries(value: unknown): IoState["inputs"] {
       if (typeof entry.name === "string") {
         normalized.name = entry.name;
       }
+      if (typeof entry.source === "string") {
+        normalized.source = entry.source;
+      }
       return normalized;
     })
     .filter((entry): entry is IoState["inputs"][number] => entry !== undefined);

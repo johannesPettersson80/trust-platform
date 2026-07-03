@@ -831,6 +831,7 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
       ["visual/runtime/webview/stRuntimePanelController.ts", visualRuntime],
     ] as const) {
       assert.ok(source.includes("typeFromAddress"), `${name} must derive BOOL/WORD-style types from I/O addresses`);
+      assert.ok(source.includes('sourceCell.className = "source-cell"'), `${name} must render source in its own column`);
       assert.ok(source.includes('typeCell.className = "type-cell"'), `${name} must render type in its own column`);
       assert.ok(source.includes('typeCell.textContent = displayType || "—"'), `${name} must show a stable type-cell value`);
       assert.ok(source.includes('stateCell.className = "state-cell"'), `${name} must render state in its own column`);
@@ -980,7 +981,7 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
         web.includes("Rows are from runtime scan #"),
       "the webview must update the visible scan number from each I/O state payload"
     );
-    for (const label of ["Name", "Value", "Type", "State", "Actions"]) {
+    for (const label of ["Name", "Source", "Value", "Type", "State", "Actions"]) {
       assert.ok(web.includes(`textContent = "${label}"`), `Live Values rows must label ${label}`);
     }
   });
@@ -994,7 +995,7 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
       assert.ok(source.includes("white-space: nowrap"), `${name} must keep Write/Force/Release on one line`);
       assert.ok(source.includes(".mini-btn"), `${name} must style action buttons explicitly`);
       assert.ok(
-        source.includes("minmax(168px, max-content)"),
+        source.includes("minmax(112px, max-content)"),
         `${name} must reserve enough fixed action-column width for the write/force/release controls`
       );
     }
@@ -1010,12 +1011,13 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
       ["visual/runtime/webview/stRuntimePanel.css", visual],
     ] as const) {
       assert.ok(
-        source.includes("minmax(120px, 2fr)") &&
-          source.includes("minmax(64px, max-content)") &&
-          source.includes("minmax(44px, max-content)") &&
-          source.includes("minmax(72px, max-content)") &&
-          source.includes("minmax(168px, max-content)"),
-        `${name} must cap the name column and keep value/type/state/actions on fixed minimum tracks`
+        source.includes("minmax(92px, 1.2fr)") &&
+          source.includes("minmax(112px, 1.4fr)") &&
+          source.includes("minmax(52px, max-content)") &&
+          source.includes("minmax(40px, max-content)") &&
+          source.includes("minmax(68px, max-content)") &&
+          source.includes("minmax(112px, max-content)"),
+        `${name} must cap the name/source columns and keep value/type/state/actions visible on narrow panes`
       );
       assert.ok(source.includes("overflow-x: auto"), `${name} must stay usable in narrow panes`);
       assert.ok(
@@ -1029,6 +1031,16 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
         web.includes("nameCell.title = nameTitle"),
       "Live Values rows must expose the full signal name and address in the title when visible text is ellipsized"
     );
+    for (const [name, source] of [
+      ["ioPanel.ts", host],
+      ["io-panel/view.ts", legacy],
+      ["visual/runtime/webview/stRuntimePanel.css", visual],
+    ] as const) {
+      assert.ok(
+        source.includes("overflow-wrap: anywhere") && source.includes("white-space: normal"),
+        `${name} must wrap source provenance in pixels instead of hiding it behind ellipsis`
+      );
+    }
   });
 
   test("Live Values uses the shared truST product theme tokens", () => {

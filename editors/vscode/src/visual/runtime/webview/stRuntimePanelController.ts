@@ -3,6 +3,7 @@ import { getVsCodeApi } from "./vscodeApi";
 interface IoEntry {
   name?: string;
   address: string;
+  source?: string;
   writeTarget?: string;
   value: string;
   forced?: boolean;
@@ -503,7 +504,9 @@ export function mountStRuntimePanel(
       return entries || [];
     }
     return (entries || []).filter((entry) => {
-      const haystack = `${entry.name || ""} ${entry.address || ""}`.toLowerCase();
+      const haystack = `${entry.name || ""} ${entry.address || ""} ${
+        entry.source || ""
+      }`.toLowerCase();
       return haystack.includes(filter);
     });
   };
@@ -652,6 +655,8 @@ export function mountStRuntimePanel(
       signal.textContent = "Name";
       const value = document.createElement("div");
       value.textContent = "Value";
+      const source = document.createElement("div");
+      source.textContent = "Source";
       const type = document.createElement("div");
       type.textContent = "Type";
       const state = document.createElement("div");
@@ -660,6 +665,7 @@ export function mountStRuntimePanel(
       actions.className = "actions-heading";
       actions.textContent = "Actions";
       header.appendChild(signal);
+      header.appendChild(source);
       header.appendChild(value);
       header.appendChild(type);
       header.appendChild(state);
@@ -693,6 +699,14 @@ export function mountStRuntimePanel(
         nameCell.appendChild(address);
       }
 
+      const sourceCell = document.createElement("div");
+      sourceCell.className = "source-cell";
+      const sourceText = String(entry.source || "").trim();
+      sourceCell.textContent = sourceText || "—";
+      if (sourceText) {
+        sourceCell.title = sourceText;
+      }
+
       const valueCell = document.createElement("div");
       valueCell.className = "value";
       valueCell.textContent = display.value || "";
@@ -722,6 +736,7 @@ export function mountStRuntimePanel(
       stateCell.appendChild(stateBadge);
 
       row.appendChild(nameCell);
+      row.appendChild(sourceCell);
       row.appendChild(valueCell);
       row.appendChild(typeCell);
       row.appendChild(stateCell);

@@ -4,6 +4,7 @@ import type { RuntimeUiMode, RuntimeUiState } from "./runtimeTypes";
 export interface RuntimePanelIoEntry {
   name?: string;
   address: string;
+  source?: string;
   writeTarget?: string;
   value: string;
   forced?: boolean;

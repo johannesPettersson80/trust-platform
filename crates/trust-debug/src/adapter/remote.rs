@@ -286,6 +286,10 @@ impl RemoteSession {
                                 .get("name")
                                 .and_then(|name| name.as_str())
                                 .map(|name| name.to_string());
+                            let source = entry
+                                .get("source")
+                                .and_then(|source| source.as_str())
+                                .map(|source| source.to_string());
                             let value = entry.get("value")?;
                             let value_str = if let Some(text) = value.as_str() {
                                 text.to_string()
@@ -299,6 +303,7 @@ impl RemoteSession {
                             Some(IoStateEntry {
                                 name,
                                 address,
+                                source,
                                 value: value_str,
                                 forced,
                             })

@@ -120,6 +120,7 @@ pub struct IoBinding {
     pub address: IoAddress,
     pub value_type: Option<TypeId>,
     pub display_name: Option<SmolStr>,
+    pub source: Option<SmolStr>,
 }
 
 #[derive(Debug, Clone)]
@@ -134,6 +135,7 @@ pub struct IoSnapshotEntry {
     pub name: Option<SmolStr>,
     pub address: IoAddress,
     pub value: IoSnapshotValue,
+    pub source: Option<SmolStr>,
 }
 
 #[derive(Debug, Clone, Default)]

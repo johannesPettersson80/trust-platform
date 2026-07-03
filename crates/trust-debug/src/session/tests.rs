@@ -374,6 +374,17 @@ params = { input_count = 1, output_count = 1, scan_period_ms = 10 }
             RuntimeValue::Bool(true),
             "loopback io.toml driver should mirror forced output into the next input cycle"
         );
+        let snapshot = runtime.io().snapshot();
+        assert_eq!(
+            snapshot.inputs[0].source.as_deref(),
+            Some("Loopback I/O"),
+            "debug-session simulator path should annotate configured input provenance"
+        );
+        assert_eq!(
+            snapshot.outputs[0].source.as_deref(),
+            Some("Loopback I/O"),
+            "debug-session simulator path should annotate configured output provenance"
+        );
     }
 
     #[test]

@@ -442,6 +442,7 @@ impl DebugAdapter {
             entries.push(IoStateEntry {
                 name: None,
                 address: address_str,
+                source: None,
                 value: format_value(&value),
                 forced: false,
             });
@@ -627,6 +628,7 @@ pub(super) fn io_state_from_snapshot(snapshot: IoSnapshot) -> IoStateEventBody {
                 IoStateEntry {
                     name,
                     address,
+                    source: entry.source.map(|source| source.to_string()),
                     value,
                     forced: forced.iter().any(|forced| forced == &entry.address),
                 }

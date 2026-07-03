@@ -368,14 +368,15 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
       /* One shared grid for the whole section so every row — BOOL or numeric, with or
          without a write-box — lines its VALUE/TYPE/STATE/ACTIONS up under the same headers.
          Rows use subgrid so the column tracks are shared, not re-derived per row. */
-      .rows {
-        display: grid;
-        grid-template-columns:
-          minmax(120px, 2fr)
-          minmax(64px, max-content)
-          minmax(44px, max-content)
-          minmax(72px, max-content)
-          minmax(168px, max-content);
+	      .rows {
+	        display: grid;
+	        grid-template-columns:
+	          minmax(92px, 1.2fr)
+	          minmax(112px, 1.4fr)
+	          minmax(52px, max-content)
+	          minmax(40px, max-content)
+	          minmax(68px, max-content)
+          minmax(112px, max-content);
         row-gap: 2px;
         padding: 2px 4px 2px 10px;
         overflow-x: auto;
@@ -423,12 +424,19 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
         background: color-mix(in srgb, var(--vscode-testing-iconPassed, #1f8f4e) 12%, transparent);
       }
 
-      .state-cell,
-      .type-cell {
-        color: var(--trust-text-muted);
-        font-size: 11px;
-        white-space: nowrap;
-      }
+	      .state-cell,
+	      .source-cell,
+	      .type-cell {
+	        color: var(--trust-text-muted);
+	        font-size: 11px;
+	        white-space: nowrap;
+	      }
+
+	      .source-cell {
+	        line-height: 1.25;
+	        overflow-wrap: anywhere;
+	        white-space: normal;
+	      }
 
       .state-badge {
         display: inline-block;

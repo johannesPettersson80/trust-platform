@@ -685,7 +685,11 @@ function applyFilter(entries) {
     return entries || [];
   }
   return (entries || []).filter((entry) => {
-    const haystack = ((entry.name || "") + " " + (entry.address || "")).toLowerCase();
+    const haystack = [
+      entry.name || "",
+      entry.address || "",
+      entry.source || "",
+    ].join(" ").toLowerCase();
     return haystack.includes(filter);
   });
 }
@@ -817,6 +821,8 @@ function renderRows(entries, options = {}) {
     header.className = "row-header";
     const signal = document.createElement("div");
     signal.textContent = "Name";
+    const source = document.createElement("div");
+    source.textContent = "Source";
     const value = document.createElement("div");
     value.textContent = "Value";
     const type = document.createElement("div");
@@ -827,6 +833,7 @@ function renderRows(entries, options = {}) {
     actions.className = "actions-heading";
     actions.textContent = "Actions";
     header.appendChild(signal);
+    header.appendChild(source);
     header.appendChild(value);
     header.appendChild(type);
     header.appendChild(state);
@@ -856,6 +863,14 @@ function renderRows(entries, options = {}) {
       nameCell.appendChild(address);
     }
 
+    const sourceCell = document.createElement("div");
+    sourceCell.className = "source-cell";
+    const sourceText = String(entry.source || "").trim();
+    sourceCell.textContent = sourceText || "—";
+    if (sourceText) {
+      sourceCell.title = sourceText;
+    }
+
     const valueCell = document.createElement("div");
     valueCell.className = "value";
     valueCell.textContent = display.value || "";
@@ -881,6 +896,7 @@ function renderRows(entries, options = {}) {
     stateCell.appendChild(stateBadge);
 
     row.appendChild(nameCell);
+    row.appendChild(sourceCell);
     row.appendChild(valueCell);
     row.appendChild(typeCell);
     row.appendChild(stateCell);

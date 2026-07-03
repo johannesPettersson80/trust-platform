@@ -359,7 +359,7 @@ trustlsp -down-> stide : IDE queries
 stide -down-> sthir : semantic info
 sthir -down-> stsyntax : parse tree
 
-runtimePanel -down-> stdebug : custom DAP\n(I/O + reload)
+runtimePanel -down-> stdebug : custom DAP\n(I/O + source provenance + reload)
 communicationPanel -down-> controlServer : Communication comm.* requests\nthrough selected runtime endpoint
 adsPanel -down-> controlServer : ADS control requests\nthrough selected runtime endpoint
 

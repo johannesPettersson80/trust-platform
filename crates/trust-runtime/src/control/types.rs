@@ -240,12 +240,16 @@ impl IoSnapshotJson for IoSnapshot {
 }
 
 fn entry_to_json(entry: &crate::io::IoSnapshotEntry, forced: &[IoAddress]) -> serde_json::Value {
-    json!({
+    let mut payload = json!({
         "name": entry.name.as_ref().map(|name| name.as_str()),
         "address": format_address(&entry.address),
         "value": format_snapshot_value(&entry.value),
         "forced": forced.iter().any(|address| address == &entry.address),
-    })
+    });
+    if let Some(source) = &entry.source {
+        payload["source"] = json!(source.as_str());
+    }
+    payload
 }
 
 fn format_snapshot_value(value: &crate::io::IoSnapshotValue) -> serde_json::Value {
@@ -373,5 +377,34 @@ pub(super) fn runtime_event_to_json(event: RuntimeEvent) -> serde_json::Value {
             "request_type": request_type.as_deref(),
             "time_ns": time.as_nanos(),
         }),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::io::{IoAddress, IoSnapshot, IoSnapshotEntry, IoSnapshotValue};
+    use crate::value::Value;
+
+    #[test]
+    fn io_snapshot_json_includes_optional_source() {
+        let snapshot = IoSnapshot {
+            scan: Some(4),
+            forced: Vec::new(),
+            inputs: vec![IoSnapshotEntry {
+                name: Some(SmolStr::new("In0")),
+                address: IoAddress::parse("%IX0.0").expect("address"),
+                value: IoSnapshotValue::Value(Value::Bool(true)),
+                source: Some(SmolStr::new("MQTT topic plant/line1")),
+            }],
+            outputs: Vec::new(),
+            memory: Vec::new(),
+        };
+
+        let payload = snapshot.into_json();
+        assert_eq!(
+            payload["inputs"][0]["source"].as_str(),
+            Some("MQTT topic plant/line1")
+        );
     }
 }

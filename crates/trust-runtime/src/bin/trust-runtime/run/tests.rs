@@ -132,6 +132,59 @@ fn execution_backend_selection_prefers_cli_override() {
 }
 
 #[test]
+fn modbus_io_source_label_uses_register_direction() {
+    let params: toml::Value = toml::toml! {
+        address = "127.0.0.1:1502"
+        input_start = 10
+        output_start = 20
+    }
+    .into();
+    let driver = trust_runtime::config::IoDriverConfig {
+        name: smol_str::SmolStr::new("modbus-tcp"),
+        params,
+        enabled: true,
+    };
+
+    let input = trust_runtime::io::IoAddress::parse("%IX4.0").expect("input address");
+    let output = trust_runtime::io::IoAddress::parse("%QX2.0").expect("output address");
+
+    assert_eq!(
+        trust_runtime::io::io_source_label_for_driver_address(&driver, &input).as_deref(),
+        Some("Modbus 127.0.0.1:1502 · input reg 12")
+    );
+    assert_eq!(
+        trust_runtime::io::io_source_label_for_driver_address(&driver, &output).as_deref(),
+        Some("Modbus 127.0.0.1:1502 · output reg 21")
+    );
+}
+
+#[test]
+fn mqtt_io_source_label_uses_directional_topic() {
+    let params: toml::Value = toml::toml! {
+        topic_in = "trust/examples/mqtt/in"
+        topic_out = "trust/examples/mqtt/out"
+    }
+    .into();
+    let driver = trust_runtime::config::IoDriverConfig {
+        name: smol_str::SmolStr::new("mqtt"),
+        params,
+        enabled: true,
+    };
+
+    let input = trust_runtime::io::IoAddress::parse("%IX0.0").expect("input address");
+    let output = trust_runtime::io::IoAddress::parse("%QX0.0").expect("output address");
+
+    assert_eq!(
+        trust_runtime::io::io_source_label_for_driver_address(&driver, &input).as_deref(),
+        Some("MQTT topic trust/examples/mqtt/in")
+    );
+    assert_eq!(
+        trust_runtime::io::io_source_label_for_driver_address(&driver, &output).as_deref(),
+        Some("MQTT topic trust/examples/mqtt/out")
+    );
+}
+
+#[test]
 fn execution_backend_selection_uses_bundle_when_cli_absent() {
     let bundle =
         bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);

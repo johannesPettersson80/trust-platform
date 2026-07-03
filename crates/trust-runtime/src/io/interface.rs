@@ -81,6 +81,7 @@ impl IoInterface {
                 name,
                 address: binding.address.clone(),
                 value,
+                source: binding.source.clone(),
             };
             match binding.address.area {
                 IoArea::Input => snapshot.inputs.push(entry),
@@ -98,6 +99,7 @@ impl IoInterface {
             address,
             value_type: None,
             display_name: Some(name),
+            source: None,
         });
     }
 
@@ -107,6 +109,7 @@ impl IoInterface {
             address,
             value_type: None,
             display_name: None,
+            source: None,
         });
     }
 
@@ -117,6 +120,7 @@ impl IoInterface {
             address,
             value_type: Some(value_type),
             display_name: Some(name),
+            source: None,
         });
     }
 
@@ -126,6 +130,7 @@ impl IoInterface {
             address,
             value_type: Some(value_type),
             display_name: None,
+            source: None,
         });
     }
 
@@ -141,7 +146,17 @@ impl IoInterface {
             address,
             value_type: Some(value_type),
             display_name: Some(name.into()),
+            source: None,
         });
+    }
+
+    pub fn set_binding_sources<F>(&mut self, mut source_for: F)
+    where
+        F: FnMut(&IoAddress) -> Option<SmolStr>,
+    {
+        for binding in &mut self.bindings {
+            binding.source = source_for(&binding.address);
+        }
     }
 
     pub fn read_inputs(&self, storage: &mut VariableStorage) -> Result<(), RuntimeError> {
@@ -349,5 +364,30 @@ impl From<&IoAddress> for IoAddressKey {
 fn ensure_len(buffer: &mut Vec<u8>, index: usize) {
     if buffer.len() <= index {
         buffer.resize(index + 1, 0);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn snapshot_carries_optional_binding_source() {
+        let mut interface = IoInterface::new();
+        interface.bind("Input0", IoAddress::parse("%IX0.0").expect("address"));
+        interface.set_binding_sources(|address| {
+            if matches!(address.area, IoArea::Input) {
+                Some(SmolStr::new("Modbus 127.0.0.1:1502 · input reg 0"))
+            } else {
+                None
+            }
+        });
+
+        let snapshot = interface.snapshot();
+        assert_eq!(snapshot.inputs.len(), 1);
+        assert_eq!(
+            snapshot.inputs[0].source.as_deref(),
+            Some("Modbus 127.0.0.1:1502 · input reg 0")
+        );
     }
 }

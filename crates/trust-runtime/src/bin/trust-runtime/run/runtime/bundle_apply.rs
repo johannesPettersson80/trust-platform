@@ -44,6 +44,7 @@ fn apply_bundle_runtime_overrides(runtime: &mut Runtime, bundle: &RuntimeBundle)
             "failed to apply bytecode metadata: {err} (project folder may require sources)"
         );
     }
+    trust_runtime::io::annotate_io_binding_sources(runtime.io_mut(), &bundle.io.drivers);
     start_ads_runtime(runtime, bundle)?;
     start_opcua_client_runtime(runtime, bundle)?;
 

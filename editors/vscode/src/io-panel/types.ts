@@ -3,6 +3,7 @@ import type { AdsStatusSummary } from "../adsStatusSummary";
 export type IoEntry = {
   name?: string;
   address: string;
+  source?: string;
   value: string;
   forced?: boolean;
 };

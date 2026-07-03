@@ -23,11 +23,13 @@ package "VS Code Extension" as vscode #LightBlue {
 }
 
 note right of runtimePanel
-    Runtime panel issues custom
-    DAP requests (stIoState, stIoWrite, stReload)
-    and writes workspace settings
-    for runtime control overrides.
-end note
+	    Runtime panel issues custom
+	    DAP requests (stIoState, stIoWrite, stReload)
+	    stIoState carries runtime-owned
+	    I/O source provenance when available
+	    and writes workspace settings
+	    for runtime control overrides.
+	end note
 
 ' ============================================================
 ' DAP PROTOCOL LAYER

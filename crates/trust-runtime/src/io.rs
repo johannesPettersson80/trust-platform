@@ -29,5 +29,6 @@ use trust_hir::TypeId;
 
 include!("io/driver.rs");
 include!("io/addressing.rs");
-include!("io/interface.rs");
 include!("io/coercion.rs");
+include!("io/provenance.rs");
+include!("io/interface.rs");
