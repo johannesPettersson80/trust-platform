@@ -3791,10 +3791,12 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     assert.ok(
       transitionEdge.includes("EdgeLabelRenderer") &&
         transitionEdge.includes("labelOffset(sourcePosition)") &&
+        transitionEdge.includes("sourcePosition === Position.Bottom") &&
+        transitionEdge.includes("sourcePosition === Position.Top") &&
         transitionEdge.includes("sfc-transition-marker") &&
         transitionEdge.includes("sfc-transition-bar") &&
         transitionEdge.includes("sfc-transition-label"),
-      "SFC transitions must render an IEC-style bar plus an offset condition label inspectable by the VIS runner"
+      "SFC transitions must render an IEC-style bar plus an offset condition label inspectable by the VIS runner; dense vertical-chain labels must not sit on the center line"
     );
     assert.ok(
       stepNode.includes('data.type === "initial"') &&

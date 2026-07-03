@@ -16,6 +16,9 @@ function labelOffset(sourcePosition: Position): number {
   if (sourcePosition === Position.Left) {
     return -56;
   }
+  if (sourcePosition === Position.Bottom || sourcePosition === Position.Top) {
+    return 84;
+  }
   return 0;
 }
 
