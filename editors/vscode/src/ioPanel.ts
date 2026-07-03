@@ -1638,13 +1638,14 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
       .rows {
         display: grid;
         grid-template-columns:
-          minmax(82px, 1fr)
-          minmax(52px, auto)
-          minmax(38px, auto)
-          minmax(52px, auto)
-          minmax(128px, auto);
+          minmax(120px, 2fr)
+          minmax(64px, max-content)
+          minmax(44px, max-content)
+          minmax(72px, max-content)
+          minmax(168px, max-content);
         row-gap: 2px;
         padding: 2px 4px 2px 10px;
+        overflow-x: auto;
       }
 
       .row,
@@ -1654,6 +1655,11 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
         grid-template-columns: subgrid;
         align-items: center;
         column-gap: 6px;
+      }
+
+      .row > *,
+      .row-header > * {
+        min-width: 0;
       }
 
       .row {
@@ -1737,6 +1743,15 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
         display: flex;
         flex-direction: column;
         gap: 2px;
+        min-width: 0;
+        overflow: hidden;
+      }
+
+      .row .name > div {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
       .row .name .type {
@@ -1753,6 +1768,10 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
         color: var(--trust-text);
         font-family: var(--vscode-editor-font-family);
         font-size: 11px;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
       .row .actions {

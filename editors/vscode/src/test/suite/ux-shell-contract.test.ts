@@ -967,8 +967,42 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
     ] as const) {
       assert.ok(source.includes("white-space: nowrap"), `${name} must keep Write/Force/Release on one line`);
       assert.ok(source.includes(".mini-btn"), `${name} must style action buttons explicitly`);
-      assert.ok(source.includes("minmax(128px, auto)"), `${name} must keep the action column compact enough for split panes`);
+      assert.ok(
+        source.includes("minmax(168px, max-content)"),
+        `${name} must reserve enough fixed action-column width for the write/force/release controls`
+      );
     }
+  });
+
+  test("Live Values long signal names cannot collapse the table columns", () => {
+    const host = readSrc("ioPanel.ts");
+    const legacy = readSrc("io-panel/view.ts");
+    const visual = readSrc("visual/runtime/webview/stRuntimePanel.css");
+    for (const [name, source] of [
+      ["ioPanel.ts", host],
+      ["io-panel/view.ts", legacy],
+      ["visual/runtime/webview/stRuntimePanel.css", visual],
+    ] as const) {
+      assert.ok(
+        source.includes("minmax(120px, 2fr)") &&
+          source.includes("minmax(64px, max-content)") &&
+          source.includes("minmax(44px, max-content)") &&
+          source.includes("minmax(72px, max-content)") &&
+          source.includes("minmax(168px, max-content)"),
+        `${name} must cap the name column and keep value/type/state/actions on fixed minimum tracks`
+      );
+      assert.ok(source.includes("overflow-x: auto"), `${name} must stay usable in narrow panes`);
+      assert.ok(
+        source.includes("text-overflow: ellipsis") && source.includes("white-space: nowrap"),
+        `${name} must ellipsize long names instead of letting them push into other columns`
+      );
+    }
+    const web = readSrc("ioPanel.webview.js");
+    assert.ok(
+      web.includes("[entry.name, entry.address].filter(Boolean).join") &&
+        web.includes("nameCell.title = nameTitle"),
+      "Live Values rows must expose the full signal name and address in the title when visible text is ellipsized"
+    );
   });
 
   test("Live Values uses the shared truST product theme tokens", () => {

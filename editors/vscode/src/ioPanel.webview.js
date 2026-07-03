@@ -800,6 +800,10 @@ function renderRows(entries, options = {}) {
 
     const nameCell = document.createElement("div");
     nameCell.className = "name";
+    const nameTitle = [entry.name, entry.address].filter(Boolean).join("\n");
+    if (nameTitle) {
+      nameCell.title = nameTitle;
+    }
     const nameLabel = document.createElement("div");
     nameLabel.textContent = entry.name || "";
     nameCell.appendChild(nameLabel);
