@@ -2455,6 +2455,25 @@ suite("S-24 — Libraries surface contract", () => {
       !source.includes('${symbols.length} symbols available'),
       "Libraries must not render awkward copy such as '1 symbols available'"
     );
+    assert.ok(
+      source.includes("countLabel((lib.symbols || []).length, 'symbol')") &&
+        !source.includes("esc((lib.symbols || []).length) + ' symbols'"),
+      "expanded library contents must also use singular/plural copy"
+    );
+  });
+
+  test("library row actions use user-facing verbs and versioned updates", () => {
+    const source = readSrc("libraries.ts");
+    assert.ok(
+      source.includes(">View source</button>") &&
+        !source.includes(">Open source</button>"),
+      "Libraries must use View source for read-only vendor/library files"
+    );
+    assert.ok(
+      source.includes(">Update to ' + esc(lib.updateAvailable.next) + '</button>") &&
+        !source.includes('">Update</button>'),
+      "Library update buttons must name the target version"
+    );
   });
 });
 

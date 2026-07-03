@@ -196,6 +196,9 @@ Target release: `v0.24.28`
 - vscode: clarified Examples Gallery badges and filters so hardware-required
   starters use the shared warning role while category chips display readable
   labels such as `ADS`, `Raspberry Pi`, and `EtherCAT`.
+- vscode: clarified Libraries row actions and counts by renaming read-only
+  library access to `View source`, showing versioned update buttons such as
+  `Update to 0.1.0`, and using singular/plural symbol counts consistently.
 - vscode/runtime: removed the unfinished 3D twin prototype, typed LM tool,
   packaged WASM/assets, scene-page HMI contract, and related activation/build
   and test wiring from the shipped product surface so the PLC IDE focuses on the

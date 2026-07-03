@@ -545,15 +545,18 @@ class LibrariesPanel {
       if (!symbols.length) return '';
       return '<div class="group"><h3>' + esc(label) + '</h3><div class="symbols">' + symbols.map((symbol) => '<span class="symbol">' + esc(symbol.name) + '</span>').join('') + '</div></div>';
     }
+    function countLabel(count, singular, plural) {
+      return String(count) + ' ' + (count === 1 ? singular : (plural || singular + 's'));
+    }
     function libraryRow(lib) {
       const fb = groupSymbols(lib.symbols, 'function_block');
       const fn = groupSymbols(lib.symbols, 'function');
       const ty = groupSymbols(lib.symbols, 'type');
       const statusClass = lib.status === 'resolved' ? 'ok' : lib.status === 'failed' ? 'error' : 'warn';
-      const update = lib.updateAvailable ? '<button class="trust-button" data-update="' + esc(lib.updateAvailable.curatedId) + '">Update</button>' : '';
-      const open = lib.path ? '<button class="trust-button" data-open="' + esc(lib.path) + '">Open source</button>' : '';
+      const update = lib.updateAvailable ? '<button class="trust-button" data-update="' + esc(lib.updateAvailable.curatedId) + '">Update to ' + esc(lib.updateAvailable.next) + '</button>' : '';
+      const open = lib.path ? '<button class="trust-button" data-open="' + esc(lib.path) + '">View source</button>' : '';
       const fix = lib.canFixPath ? '<button class="trust-button" data-fix="' + esc(lib.name) + '">Fix path</button>' : '';
-      return '<details><summary><div><div class="row-title"><strong>' + esc(lib.label) + '</strong><span class="badge">' + esc(lib.source) + '</span><span class="badge ' + statusClass + '">' + esc(lib.status) + '</span>' + (lib.version ? '<span class="badge">' + esc(lib.version) + '</span>' : '') + '</div><div class="row-detail">' + esc(lib.detail) + '</div></div><div class="row-actions">' + update + fix + open + '<button class="trust-button trust-button--danger" data-remove="' + esc(lib.name) + '">Remove</button></div></summary><div class="contents"><div class="symbol-count">' + esc((lib.symbols || []).length) + ' symbols</div>' + group('Function blocks', fb) + group('Functions', fn) + group('Types', ty) + '</div></details>';
+      return '<details><summary><div><div class="row-title"><strong>' + esc(lib.label) + '</strong><span class="badge">' + esc(lib.source) + '</span><span class="badge ' + statusClass + '">' + esc(lib.status) + '</span>' + (lib.version ? '<span class="badge">' + esc(lib.version) + '</span>' : '') + '</div><div class="row-detail">' + esc(lib.detail) + '</div></div><div class="row-actions">' + update + fix + open + '<button class="trust-button trust-button--danger" data-remove="' + esc(lib.name) + '">Remove</button></div></summary><div class="contents"><div class="symbol-count">' + esc(countLabel((lib.symbols || []).length, 'symbol')) + '</div>' + group('Function blocks', fb) + group('Functions', fn) + group('Types', ty) + '</div></details>';
     }
     function render(state) {
       errorEl.innerHTML = state.error ? '<div class="error" role="alert">' + esc(state.error) + ' <button class="trust-button" id="retryAdd">Fix and retry</button></div>' : '';
