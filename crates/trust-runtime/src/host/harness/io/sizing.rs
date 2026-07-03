@@ -33,6 +33,10 @@ fn io_size_for_type(
         | Type::LDate
         | Type::LTod
         | Type::Ldt => Ok(crate::io::IoSize::LWord),
+        Type::String { max_len } => max_len
+            .map(u32::from)
+            .map(crate::io::IoSize::Bytes)
+            .ok_or_else(|| CompileError::new("STRING direct I/O binding requires STRING[n]")),
         _ => Err(CompileError::new("unsupported type for I/O binding")),
     }
 }

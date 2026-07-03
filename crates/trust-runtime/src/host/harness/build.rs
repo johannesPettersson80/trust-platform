@@ -386,6 +386,7 @@ fn resize_process_image_from_bindings(runtime: &mut Runtime) {
             crate::io::IoSize::Word => 2usize,
             crate::io::IoSize::DWord => 4usize,
             crate::io::IoSize::LWord => 8usize,
+            crate::io::IoSize::Bytes(len) => len as usize,
         };
         let required = address.byte as usize + span;
         match address.area {

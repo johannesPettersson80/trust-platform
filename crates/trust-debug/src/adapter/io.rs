@@ -7,6 +7,7 @@
 use std::borrow::Cow;
 
 use serde_json::Value;
+use smol_str::SmolStr;
 
 use trust_hir::TypeId;
 use trust_runtime::io::{IoAddress, IoSize, IoSnapshot, IoSnapshotEntry, IoSnapshotValue};
@@ -126,27 +127,6 @@ impl DebugAdapter {
             };
         }
 
-        let address = match IoAddress::parse(&args.address) {
-            Ok(address) => address,
-            Err(err) => {
-                return DispatchOutcome {
-                    responses: vec![
-                        self.error_response(&request, &format!("invalid I/O address: {err}"))
-                    ],
-                    ..DispatchOutcome::default()
-                }
-            }
-        };
-
-        if address.area != IoArea::Input {
-            return DispatchOutcome {
-                responses: vec![
-                    self.error_response(&request, "only input addresses can be written")
-                ],
-                ..DispatchOutcome::default()
-            };
-        }
-
         let runtime_handle = self.session.runtime_handle();
         let mut runtime = match runtime_handle.try_lock() {
             Ok(guard) => guard,
@@ -158,6 +138,24 @@ impl DebugAdapter {
                 };
             }
         };
+        let address = match resolve_io_address(&runtime, &args.address) {
+            Ok(address) => address,
+            Err(err) => {
+                return DispatchOutcome {
+                    responses: vec![self.error_response(&request, &err)],
+                    ..DispatchOutcome::default()
+                };
+            }
+        };
+
+        if address.area != IoArea::Input {
+            return DispatchOutcome {
+                responses: vec![
+                    self.error_response(&request, "only input addresses can be written")
+                ],
+                ..DispatchOutcome::default()
+            };
+        }
         let value_type = value_type_for_io_address(&runtime, &address);
         let value = match parse_io_value_for_type(&address, value_type, &args.value) {
             Ok(value) => value,
@@ -488,6 +486,7 @@ pub(super) fn io_type_id(address: &IoAddress) -> TypeId {
         IoSize::Word => TypeId::WORD,
         IoSize::DWord => TypeId::DWORD,
         IoSize::LWord => TypeId::LWORD,
+        IoSize::Bytes(_) => TypeId::STRING,
     }
 }
 
@@ -501,9 +500,6 @@ fn find_io_address_in_entries<'a, I>(name: &str, entries: I) -> Result<IoAddress
 where
     I: IntoIterator<Item = IoEntryLookup<'a>>,
 {
-    if let Ok(address) = IoAddress::parse(name) {
-        return Ok(address);
-    }
     let mut matches = Vec::new();
     for entry in entries {
         if entry.label == Some(name) || entry.address == name {
@@ -516,7 +512,7 @@ where
     }
     match matches.len() {
         1 => Ok(matches[0].clone()),
-        0 => Err("unknown I/O entry".to_string()),
+        0 => IoAddress::parse(name).map_err(|_| "unknown I/O entry".to_string()),
         _ => Err("ambiguous I/O entry name".to_string()),
     }
 }
@@ -607,6 +603,13 @@ fn parse_io_value(address: &IoAddress, raw: &str) -> Result<RuntimeValue, String
             let numeric = parse_numeric(trimmed)?;
             Ok(RuntimeValue::LWord(numeric))
         }
+        IoSize::Bytes(len) => {
+            let text = trimmed.trim_matches('\'');
+            if text.len() > len as usize {
+                return Err(format!("STRING value exceeds {len} bytes"));
+            }
+            Ok(RuntimeValue::String(SmolStr::new(text)))
+        }
     }
 }
 
@@ -635,6 +638,16 @@ fn parse_io_value_for_type(
                 .map_err(|_| "TIME value out of range for DWORD milliseconds".to_string())?;
             Ok(RuntimeValue::DWord(millis))
         }
+        Some(TypeId::STRING) => match address.size {
+            IoSize::Bytes(len) => {
+                let text = raw.trim().trim_matches('\'');
+                if text.len() > len as usize {
+                    return Err(format!("STRING value exceeds {len} bytes"));
+                }
+                Ok(RuntimeValue::String(SmolStr::new(text)))
+            }
+            _ => Err("STRING I/O values require a byte-span address".to_string()),
+        },
         _ => parse_io_value(address, raw),
     }
 }
@@ -751,6 +764,7 @@ pub(super) fn format_io_address(address: &IoAddress) -> String {
         IoSize::Word => "W",
         IoSize::DWord => "D",
         IoSize::LWord => "L",
+        IoSize::Bytes(_) => "B",
     };
     if address.wildcard {
         return format!("%{area}{size}*");

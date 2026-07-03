@@ -71,6 +71,7 @@ pub(super) fn format_io_address(address: &IoAddress) -> SmolStr {
         IoSize::Word => 'W',
         IoSize::DWord => 'D',
         IoSize::LWord => 'L',
+        IoSize::Bytes(_) => 'B',
     };
     if address.wildcard {
         return SmolStr::new(format!("%{area}{size}*"));

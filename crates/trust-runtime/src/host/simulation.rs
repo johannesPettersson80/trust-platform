@@ -726,6 +726,13 @@ fn coerce_to_size(source: &Value, target_size: IoSize) -> Result<Value, RuntimeE
         IoSize::Word => Ok(Value::Word(value_to_u64(source)? as u16)),
         IoSize::DWord => Ok(Value::DWord(value_to_u64(source)? as u32)),
         IoSize::LWord => Ok(Value::LWord(value_to_u64(source)?)),
+        IoSize::Bytes(len) => {
+            let text = value_to_text(source)?;
+            if text.len() > len as usize {
+                return Err(RuntimeError::Overflow);
+            }
+            Ok(Value::String(text.into()))
+        }
     }
 }
 
@@ -765,6 +772,18 @@ fn value_to_f64(value: &Value) -> Option<f64> {
     }
 }
 
+fn value_to_text(value: &Value) -> Result<String, RuntimeError> {
+    match value {
+        Value::String(text) => Ok(text.to_string()),
+        Value::WString(text) => Ok(text.clone()),
+        Value::Char(value) => Ok(char::from(*value).to_string()),
+        Value::WChar(value) => char::from_u32(u32::from(*value))
+            .map(|ch| ch.to_string())
+            .ok_or(RuntimeError::TypeMismatch),
+        _ => Err(RuntimeError::TypeMismatch),
+    }
+}
+
 fn parse_io_value(text: &str, size: IoSize) -> Result<Value, RuntimeError> {
     let trimmed = text.trim();
     let upper = trimmed.to_ascii_uppercase();
@@ -780,6 +799,13 @@ fn parse_io_value(text: &str, size: IoSize) -> Result<Value, RuntimeError> {
         IoSize::Word => Ok(Value::Word(parse_u64(trimmed)? as u16)),
         IoSize::DWord => Ok(Value::DWord(parse_u64(trimmed)? as u32)),
         IoSize::LWord => Ok(Value::LWord(parse_u64(trimmed)?)),
+        IoSize::Bytes(len) => {
+            let text = trimmed.trim_matches('\'');
+            if text.len() > len as usize {
+                return Err(RuntimeError::Overflow);
+            }
+            Ok(Value::String(text.into()))
+        }
     }
 }
 
@@ -805,6 +831,7 @@ fn default_value_for_size(size: IoSize, active: bool) -> Value {
         IoSize::Word => Value::Word(if active { 1 } else { 0 }),
         IoSize::DWord => Value::DWord(if active { 1 } else { 0 }),
         IoSize::LWord => Value::LWord(if active { 1 } else { 0 }),
+        IoSize::Bytes(_) => Value::String(if active { "TRUE" } else { "FALSE" }.into()),
     }
 }
 
@@ -828,6 +855,7 @@ fn format_io(address: &IoAddress) -> String {
         IoSize::Word => "W",
         IoSize::DWord => "D",
         IoSize::LWord => "L",
+        IoSize::Bytes(_) => "B",
     };
     if address.size == IoSize::Bit {
         format!("%{area}{size}{}.{}", address.byte, address.bit)

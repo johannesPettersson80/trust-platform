@@ -210,8 +210,27 @@ fn collect_io_bindings(
             }
             Ok(())
         }
-        Type::String { .. } | Type::WString { .. } => Err(CompileError::new(
-            "AT binding for STRING types is not supported",
+        Type::String { max_len: Some(_) } => {
+            if bit_offset > 0 {
+                return Err(CompileError::new(
+                    "bit offset only allowed for BOOL direct bindings",
+                ));
+            }
+            let size = io_size_for_type(type_id, registry)?;
+            out.push(IoLeafBinding {
+                reference,
+                offset_bytes,
+                bit_offset,
+                size,
+                value_type: TypeId::STRING,
+            });
+            Ok(())
+        }
+        Type::String { max_len: None } => Err(CompileError::new(
+            "STRING direct I/O binding requires STRING[n]",
+        )),
+        Type::WString { .. } => Err(CompileError::new(
+            "AT binding for WSTRING types is not supported",
         )),
         Type::FunctionBlock { .. }
         | Type::Class { .. }

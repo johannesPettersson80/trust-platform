@@ -180,11 +180,16 @@ fn dispatch_io_state_emits_event() {
     let input_addr = IoAddress::parse("%IX0.0").unwrap();
     let output_addr = IoAddress::parse("%QX0.1").unwrap();
     let speed_addr = IoAddress::parse("%MD0").unwrap();
+    let mut label_addr = IoAddress::parse("%IB8").unwrap();
+    label_addr.size = trust_runtime::io::IoSize::Bytes(12);
     runtime.io_mut().bind("IN0", input_addr.clone());
     runtime.io_mut().bind("OUT0", output_addr.clone());
     runtime
         .io_mut()
         .bind_typed("Speed", speed_addr.clone(), trust_hir::TypeId::REAL);
+    runtime
+        .io_mut()
+        .bind_typed("Label", label_addr.clone(), trust_hir::TypeId::STRING);
     runtime
         .io_mut()
         .write(&input_addr, RuntimeValue::Bool(true))
@@ -196,6 +201,10 @@ fn dispatch_io_state_emits_event() {
     runtime
         .io_mut()
         .write(&speed_addr, RuntimeValue::DWord(0x3FC0_0000))
+        .unwrap();
+    runtime
+        .io_mut()
+        .write(&label_addr, RuntimeValue::String("Ready".into()))
         .unwrap();
 
     let session = DebugSession::new(runtime);
@@ -225,6 +234,11 @@ fn dispatch_io_state_emits_event() {
         entry.name.as_deref() == Some("Speed")
             && entry.value_type.as_deref() == Some("REAL")
             && entry.value == "1.5"
+    }));
+    assert!(body.inputs.iter().any(|entry| {
+        entry.name.as_deref() == Some("Label")
+            && entry.value_type.as_deref() == Some("STRING")
+            && entry.value == "Ready"
     }));
 }
 
@@ -289,17 +303,26 @@ fn dispatch_io_write_accepts_configured_real_and_time_values() {
     let mut runtime = Runtime::new();
     let real_addr = IoAddress::parse("%ID0").unwrap();
     let time_addr = IoAddress::parse("%ID4").unwrap();
+    let mut string_addr = IoAddress::parse("%IB8").unwrap();
+    string_addr.size = trust_runtime::io::IoSize::Bytes(12);
     runtime
         .io_mut()
         .bind_typed("Speed", real_addr.clone(), trust_hir::TypeId::REAL);
     runtime
         .io_mut()
         .bind_typed("Delay", time_addr.clone(), trust_hir::TypeId::TIME);
+    runtime
+        .io_mut()
+        .bind_typed("Label", string_addr.clone(), trust_hir::TypeId::STRING);
 
     let session = DebugSession::new(runtime);
     let mut adapter = DebugAdapter::new(session);
 
-    for (seq, address, value) in [(1, "%ID0", "1.5"), (2, "%ID4", "T#250ms")] {
+    for (seq, address, value) in [
+        (1, "%ID0", "1.5"),
+        (2, "%ID4", "T#250ms"),
+        (3, "%IB8", "Running"),
+    ] {
         let args = IoWriteArguments {
             address: address.to_string(),
             value: value.to_string(),
@@ -326,5 +349,9 @@ fn dispatch_io_write_accepts_configured_real_and_time_values() {
     assert_eq!(
         runtime.io().read(&time_addr).unwrap(),
         RuntimeValue::DWord(250)
+    );
+    assert_eq!(
+        runtime.io().read(&string_addr).unwrap(),
+        RuntimeValue::String("Running".into())
     );
 }

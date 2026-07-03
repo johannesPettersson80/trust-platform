@@ -94,6 +94,15 @@ fn parse_io_value(text: &str, size: IoSize) -> Result<Value, RuntimeError> {
         IoSize::Word => Ok(Value::Word(parse_u64(trimmed)? as u16)),
         IoSize::DWord => Ok(Value::DWord(parse_u64(trimmed)? as u32)),
         IoSize::LWord => Ok(Value::LWord(parse_u64(trimmed)?)),
+        IoSize::Bytes(len) => {
+            let text = trimmed.trim_matches('\'');
+            if text.len() > len as usize {
+                return Err(RuntimeError::InvalidConfig(
+                    "STRING safe-state value is too long".into(),
+                ));
+            }
+            Ok(Value::String(text.into()))
+        }
     }
 }
 

@@ -5,6 +5,7 @@ pub enum IoSize {
     Word,
     DWord,
     LWord,
+    Bytes(u32),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

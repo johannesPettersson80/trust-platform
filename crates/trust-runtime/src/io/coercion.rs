@@ -7,6 +7,7 @@ fn expected_size_for_type(value_type: TypeId) -> Option<IoSize> {
             Some(IoSize::DWord)
         }
         TypeId::LINT | TypeId::ULINT | TypeId::LWORD | TypeId::LREAL => Some(IoSize::LWord),
+        TypeId::STRING => None,
         _ => None,
     }
 }
@@ -29,6 +30,7 @@ pub fn io_value_type_name(value_type: TypeId) -> Option<&'static str> {
         TypeId::DWORD => Some("DWORD"),
         TypeId::LWORD => Some("LWORD"),
         TypeId::TIME => Some("TIME"),
+        TypeId::STRING => Some("STRING"),
         TypeId::CHAR => Some("CHAR"),
         TypeId::WCHAR => Some("WCHAR"),
         _ => None,
@@ -95,6 +97,10 @@ fn coerce_from_io(value: Value, target: TypeId) -> Result<Value, RuntimeError> {
             )))),
             _ => Err(RuntimeError::TypeMismatch),
         },
+        TypeId::STRING => match value {
+            Value::String(text) => Ok(Value::String(text)),
+            _ => Err(RuntimeError::TypeMismatch),
+        },
         TypeId::LINT => match value {
             Value::LWord(word) => Ok(Value::LInt(word as i64)),
             _ => Err(RuntimeError::TypeMismatch),
@@ -116,12 +122,29 @@ fn coerce_from_io(value: Value, target: TypeId) -> Result<Value, RuntimeError> {
 }
 
 fn coerce_to_io(value: Value, target: TypeId, size: IoSize) -> Result<Value, RuntimeError> {
-    let Some(expected) = expected_size_for_type(target) else {
-        return Err(RuntimeError::TypeMismatch);
-    };
-    if expected != size {
-        return Err(RuntimeError::TypeMismatch);
+    match target {
+        TypeId::STRING => match (value, size) {
+            (Value::String(text), IoSize::Bytes(len)) => {
+                if text.len() > len as usize {
+                    return Err(RuntimeError::Overflow);
+                }
+                Ok(Value::String(text))
+            }
+            _ => Err(RuntimeError::TypeMismatch),
+        },
+        _ => {
+            let Some(expected) = expected_size_for_type(target) else {
+                return Err(RuntimeError::TypeMismatch);
+            };
+            if expected != size {
+                return Err(RuntimeError::TypeMismatch);
+            }
+            coerce_scalar_to_io(value, target)
+        }
     }
+}
+
+fn coerce_scalar_to_io(value: Value, target: TypeId) -> Result<Value, RuntimeError> {
     match target {
         TypeId::BOOL => match value {
             Value::Bool(flag) => Ok(Value::Bool(flag)),

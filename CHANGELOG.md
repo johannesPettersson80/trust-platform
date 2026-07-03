@@ -259,8 +259,9 @@ Target release: `v0.24.28`
   word-like numeric rows, rendering IEC-style `16#` and `2#` literals without
   changing write/force parsing.
 - trust-debug/vscode: Live Values now preserves configured I/O value types from
-  the runtime snapshot, so REAL and TIME rows render as typed values instead of
-  raw DWORDs and local writes accept `1.5` / `T#250ms` style values.
+  the runtime snapshot, so REAL, TIME, and fixed-length STRING rows render as
+  typed values instead of raw DWORDs/bytes and local writes accept `1.5`,
+  `T#250ms`, and text values.
 - vscode: HMI Preview now refreshes through the shared descriptor debounce when
   HMI descriptor or process SVG files are edited in an open workspace, keeping
   the panel current without waiting for a separate manual refresh.

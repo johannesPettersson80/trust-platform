@@ -297,6 +297,7 @@ fn format_address(address: &IoAddress) -> String {
         IoSize::Word => "W",
         IoSize::DWord => "D",
         IoSize::LWord => "L",
+        IoSize::Bytes(_) => "B",
     };
     if address.wildcard {
         return format!("%{area}{size}*");

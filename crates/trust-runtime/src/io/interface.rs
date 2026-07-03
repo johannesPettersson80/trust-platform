@@ -264,6 +264,18 @@ impl IoInterface {
                 }
                 Ok(Value::LWord(u64::from_le_bytes(bytes)))
             }
+            IoSize::Bytes(len) => {
+                let start = address.byte as usize;
+                let end = start.saturating_add(len as usize);
+                let bytes = if start < buffer.len() {
+                    &buffer[start..buffer.len().min(end)]
+                } else {
+                    &[]
+                };
+                let nul = bytes.iter().position(|byte| *byte == 0).unwrap_or(bytes.len());
+                let text = std::str::from_utf8(&bytes[..nul]).map_err(|_| RuntimeError::TypeMismatch)?;
+                Ok(Value::String(SmolStr::new(text)))
+            }
         }
     }
 
@@ -329,6 +341,21 @@ impl IoInterface {
                     for (idx, byte) in bytes.iter().enumerate() {
                         buffer[address.byte as usize + idx] = *byte;
                     }
+                    Ok(())
+                }
+                _ => Err(RuntimeError::TypeMismatch),
+            },
+            IoSize::Bytes(len) => match value {
+                Value::String(text) => {
+                    let bytes = text.as_bytes();
+                    if bytes.len() > len as usize {
+                        return Err(RuntimeError::Overflow);
+                    }
+                    let start = address.byte as usize;
+                    let end = start + len as usize;
+                    ensure_len(buffer, end.saturating_sub(1));
+                    buffer[start..end].fill(0);
+                    buffer[start..start + bytes.len()].copy_from_slice(bytes);
                     Ok(())
                 }
                 _ => Err(RuntimeError::TypeMismatch),
@@ -415,12 +442,18 @@ mod tests {
             IoAddress::parse("%MD4").expect("time address"),
             TypeId::TIME,
         );
+        let mut label_address = IoAddress::parse("%IB8").expect("string address");
+        label_address.size = IoSize::Bytes(12);
+        interface.bind_typed("Label", label_address.clone(), TypeId::STRING);
         interface
             .write(&IoAddress::parse("%MD0").expect("real address"), Value::DWord(0x3FC0_0000))
             .expect("write REAL bits");
         interface
             .write(&IoAddress::parse("%MD4").expect("time address"), Value::DWord(250))
             .expect("write TIME millis");
+        interface
+            .write(&label_address, Value::String(SmolStr::new("Ready")))
+            .expect("write STRING bytes");
 
         let snapshot = interface.snapshot();
 
@@ -435,6 +468,11 @@ mod tests {
                 assert_eq!(*value, crate::value::Duration::from_millis(250));
             }
             other => panic!("expected TIME snapshot value, got {other:?}"),
+        }
+        assert_eq!(snapshot.inputs[0].value_type, Some(TypeId::STRING));
+        match &snapshot.inputs[0].value {
+            IoSnapshotValue::Value(Value::String(value)) => assert_eq!(value.as_str(), "Ready"),
+            other => panic!("expected STRING snapshot value, got {other:?}"),
         }
     }
 }

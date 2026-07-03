@@ -275,6 +275,7 @@ pub(super) fn format_address(address: &IoAddress) -> String {
         crate::io::IoSize::Word => "W",
         crate::io::IoSize::DWord => "D",
         crate::io::IoSize::LWord => "L",
+        crate::io::IoSize::Bytes(_) => "B",
     };
     if address.wildcard {
         return format!("%{area}{size}*");

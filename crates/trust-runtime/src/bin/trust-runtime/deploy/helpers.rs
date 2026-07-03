@@ -28,6 +28,7 @@ fn format_address(address: &IoAddress) -> String {
         trust_runtime::io::IoSize::Word => "W",
         trust_runtime::io::IoSize::DWord => "D",
         trust_runtime::io::IoSize::LWord => "L",
+        trust_runtime::io::IoSize::Bytes(_) => "B",
     };
     if address.wildcard {
         return format!("%{area}{size}*");
