@@ -36,6 +36,20 @@ END_CONFIGURATION
 const PROJECT_TOML_SOURCE = `include_paths = ["src"]
 `;
 
+const LAUNCH_JSON_SOURCE = `{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "structured-text",
+      "request": "launch",
+      "name": "truST Simulator",
+      "program": "\${workspaceFolder}/src/config.st",
+      "stopOnEntry": false
+    }
+  ]
+}
+`;
+
 // §0.5.15: a runnable simulator project = src/Main.st + trust-lsp.toml + runtime.toml + io.toml. The
 // simulator (trust-debug) runs from trust-lsp.toml; runtime.toml + io.toml let Devices & Connections load
 // the OFFLINE topology immediately (read by the bundled trust-runtime — phase 0 packaging) with simulated
@@ -195,7 +209,9 @@ async function confirmOverwrite(targetUri: vscode.Uri): Promise<boolean> {
 
 async function writeScaffold(targetUri: vscode.Uri): Promise<void> {
   const srcUri = vscode.Uri.joinPath(targetUri, "src");
+  const vscodeUri = vscode.Uri.joinPath(targetUri, ".vscode");
   await vscode.workspace.fs.createDirectory(srcUri);
+  await vscode.workspace.fs.createDirectory(vscodeUri);
   const mainBuffer = Buffer.from(MAIN_ST_SOURCE);
   await vscode.workspace.fs.writeFile(
     vscode.Uri.joinPath(srcUri, "Main.st"),
@@ -216,6 +232,10 @@ async function writeScaffold(targetUri: vscode.Uri): Promise<void> {
   await vscode.workspace.fs.writeFile(
     vscode.Uri.joinPath(targetUri, "io.toml"),
     Buffer.from(IO_TOML_SOURCE)
+  );
+  await vscode.workspace.fs.writeFile(
+    vscode.Uri.joinPath(vscodeUri, "launch.json"),
+    Buffer.from(LAUNCH_JSON_SOURCE)
   );
 }
 

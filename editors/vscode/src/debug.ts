@@ -430,6 +430,21 @@ class StructuredTextDebugConfigurationProvider
 {
   constructor(private readonly allowTestControlEndpointOverride: boolean) {}
 
+  provideDebugConfigurations(
+    _folder: vscode.WorkspaceFolder | undefined,
+    _token?: vscode.CancellationToken
+  ): vscode.ProviderResult<vscode.DebugConfiguration[]> {
+    return [
+      {
+        type: DEBUG_TYPE,
+        request: "launch",
+        name: "truST Simulator",
+        program: "${file}",
+        internalConsoleOptions: "neverOpen",
+      },
+    ];
+  }
+
   async resolveDebugConfiguration(
     folder: vscode.WorkspaceFolder | undefined,
     config: vscode.DebugConfiguration
@@ -437,7 +452,7 @@ class StructuredTextDebugConfigurationProvider
     if (!config.type && !config.request && !config.name) {
       config.type = DEBUG_TYPE;
       config.request = "launch";
-      config.name = "Debug Structured Text";
+      config.name = "truST Simulator";
     }
 
     if (!config.type) {
@@ -447,7 +462,7 @@ class StructuredTextDebugConfigurationProvider
       config.request = "launch";
     }
     if (!config.name) {
-      config.name = "Debug Structured Text";
+      config.name = "truST Simulator";
     }
 
     if (config.request === "attach") {
@@ -630,6 +645,13 @@ export function registerDebugAdapter(
   context.subscriptions.push(
     vscode.debug.registerDebugConfigurationProvider(DEBUG_TYPE, provider)
   );
+  context.subscriptions.push(
+    vscode.debug.registerDebugConfigurationProvider(
+      DEBUG_TYPE,
+      provider,
+      vscode.DebugConfigurationProviderTriggerKind.Dynamic
+    )
+  );
 
   const trackerFactory = new StructuredTextDebugAdapterTrackerFactory();
   context.subscriptions.push(
@@ -747,7 +769,7 @@ export function registerDebugAdapter(
         const config: vscode.DebugConfiguration = {
           type: DEBUG_TYPE,
           request: "launch",
-          name: "Debug Structured Text",
+          name: "truST Simulator",
           program,
           internalConsoleOptions: "neverOpen",
           ...runtimeOptions,

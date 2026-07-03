@@ -2530,7 +2530,7 @@
           {
             "type": "structured-text",
             "request": "launch",
-            "name": "Debug Structured Text",
+            "name": "truST Simulator",
             "program": "${file}"
           }
         ]

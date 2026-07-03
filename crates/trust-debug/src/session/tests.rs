@@ -305,6 +305,33 @@ END_PROGRAM
     }
 
     #[test]
+    fn source_display_name_is_project_relative_but_path_stays_absolute() {
+        let project_root = temp_project_root("source_display");
+        let src = project_root.join("src");
+        std::fs::create_dir_all(&src).unwrap();
+        let main_path = src.join("main.st");
+        let absolute_path = canonicalize_lossy(&main_path);
+        std::fs::write(&absolute_path, "PROGRAM Main\nEND_PROGRAM\n").unwrap();
+
+        let mut session = DebugSession::new(Runtime::new());
+        session.update_source_options(SourceOptionsUpdate {
+            root: Some(project_root.to_string_lossy().to_string()),
+            include_globs: None,
+            exclude_globs: None,
+            ignore_pragmas: None,
+        });
+        session.register_source(absolute_path.to_string_lossy().to_string(), 0, "");
+
+        let source = session.source_for_file_id(0).expect("source for file id");
+        assert_eq!(source.name.as_deref(), Some("src/main.st"));
+        assert_eq!(
+            source.path.as_deref(),
+            Some(absolute_path.to_string_lossy().as_ref()),
+            "DAP path must stay absolute so VS Code can open the stack frame source"
+        );
+    }
+
+    #[test]
     fn session_reload_applies_project_io_toml_drivers() {
         let project_root = temp_project_root("reload_io");
         let src = project_root.join("src");

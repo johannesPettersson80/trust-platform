@@ -243,6 +243,11 @@ Target release: `v0.24.28`
 
 ### Fixed
 
+- vscode/trust-debug: starter projects and bundled examples now include a
+  native `truST Simulator` launch configuration, and Structured Text debug
+  stack frames display workspace-relative source names while keeping absolute
+  paths for navigation, so the Run and Debug view no longer shows
+  `No Configurations` or long local paths during first-use debugging.
 - vscode: Compile diagnostics now use the user-facing `truST` Problems source
   label instead of the stale `trust check` name, and Compile resolves the
   nearest `trust-lsp.toml` from the active file before falling back to the

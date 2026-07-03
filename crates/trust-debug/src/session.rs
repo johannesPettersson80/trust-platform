@@ -247,11 +247,24 @@ impl DebugSession {
     pub fn source_for_file_id(&self, file_id: u32) -> Option<Source> {
         let key = self.source_registry.key_for_file_id(FileId(file_id))?;
         let path = key.display();
+        let name = self.display_source_name(&path);
         Some(Source {
-            name: Some(path.clone()),
+            name: Some(name),
             path: Some(path),
             source_reference: None,
         })
+    }
+
+    fn display_source_name(&self, path: &str) -> String {
+        let source_path = Path::new(path);
+        if let Some(root) = self.source_options.root.as_deref() {
+            let root_path = canonicalize_lossy(Path::new(root));
+            let candidate_path = canonicalize_lossy(source_path);
+            if let Ok(relative) = candidate_path.strip_prefix(&root_path) {
+                return display_path(relative);
+            }
+        }
+        display_path(source_path)
     }
 
     #[must_use]
@@ -335,6 +348,18 @@ impl DebugRuntime for DebugSession {
                 text: source.text.clone(),
             })
             .collect()
+    }
+}
+
+fn display_path(path: &Path) -> String {
+    let display = path.to_string_lossy().replace('\\', "/");
+    if display.is_empty() {
+        path.file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or_default()
+            .to_string()
+    } else {
+        display
     }
 }
 

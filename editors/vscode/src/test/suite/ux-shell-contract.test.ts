@@ -36,6 +36,11 @@ type Pkg = {
     viewsContainers?: { activitybar?: Array<{ id?: string }> };
     views?: Record<string, Array<{ id?: string; type?: string }>>;
     viewsWelcome?: Array<{ view?: string; contents?: string }>;
+    debuggers?: Array<{
+      type?: string;
+      label?: string;
+      initialConfigurations?: Array<{ name?: string; request?: string }>;
+    }>;
   };
   scripts?: Record<string, string>;
 };
@@ -403,6 +408,26 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
     return parseManifest(raw);
   }
 
+  function readLaunchConfig(dir: string): {
+    configurations?: Array<{
+      type?: string;
+      request?: string;
+      name?: string;
+      program?: string;
+    }>;
+  } {
+    return JSON.parse(
+      fs.readFileSync(path.join(dir, ".vscode", "launch.json"), "utf8")
+    ) as {
+      configurations?: Array<{
+        type?: string;
+        request?: string;
+        name?: string;
+        program?: string;
+      }>;
+    };
+  }
+
   test("the manifest parses and ships the curated starters", () => {
     const ids = manifestEntries().map((entry) => entry.id);
     for (const id of [
@@ -424,6 +449,7 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
         "trust-lsp.toml",
         "runtime.toml",
         "io.toml",
+        path.join(".vscode", "launch.json"),
         path.join("src", "Main.st"),
       ]) {
         assert.ok(
@@ -432,6 +458,60 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
         );
       }
     }
+  });
+
+  test("every bundled example has a native truST Simulator debug configuration", () => {
+    for (const entry of manifestEntries()) {
+      const dir = path.join(EXAMPLES_DIR, entry.path);
+      const launch = readLaunchConfig(dir);
+      const config = launch.configurations?.find(
+        (candidate) =>
+          candidate.type === "structured-text" &&
+          candidate.request === "launch" &&
+          candidate.name === "truST Simulator"
+      );
+      assert.ok(
+        config,
+        `example '${entry.id}' must give VS Code a native truST Simulator launch configuration`
+      );
+      assert.ok(
+        typeof config?.program === "string" &&
+          config.program.startsWith("${workspaceFolder}/src/"),
+        `example '${entry.id}' launch config must point at its bundled CONFIGURATION source`
+      );
+      const relativeProgram = config!.program!.replace("${workspaceFolder}/", "");
+      assert.ok(
+        fs.existsSync(path.join(dir, relativeProgram)),
+        `example '${entry.id}' launch program must exist: ${relativeProgram}`
+      );
+    }
+  });
+
+  test("new project scaffolding writes the same native debug configuration", () => {
+    const source = readSrc("newProject.ts");
+    assert.ok(
+      source.includes('const LAUNCH_JSON_SOURCE = `') &&
+        source.includes('"name": "truST Simulator"') &&
+        source.includes('"program": "\\${workspaceFolder}/src/config.st"') &&
+        source.includes('vscode.Uri.joinPath(targetUri, ".vscode")') &&
+        source.includes('vscode.Uri.joinPath(vscodeUri, "launch.json")'),
+      "Create project must write .vscode/launch.json so VS Code does not show No Configurations"
+    );
+  });
+
+  test("debug journey fixture has a native truST Simulator launch configuration", () => {
+    const dir = path.join(workspaceRoot(), "examples", "network_canvas_demo");
+    const launch = readLaunchConfig(dir);
+    assert.ok(
+      launch.configurations?.some(
+        (config) =>
+          config.type === "structured-text" &&
+          config.request === "launch" &&
+          config.name === "truST Simulator" &&
+          config.program === "${workspaceFolder}/src/config.st"
+      ),
+      "network_canvas_demo must not leave the native debug selector at No Configurations"
+    );
   });
 
   test("every example runtime.toml has the sections the runtime parser requires", () => {
@@ -1398,6 +1478,27 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
         stopBody.includes("const stopped = await terminated") &&
         stopBody.includes("await sleep(DEBUG_STOP_UI_SETTLE_MS)"),
       "Stop command must not resolve before the structured-text session termination event and UI settle"
+    );
+  });
+
+  test("Structured Text debugger exposes a named truST simulator configuration", () => {
+    const pkg = loadPackageJson();
+    const debug = readSrc("debug.ts");
+    const structuredTextDebugger = pkg.contributes?.debuggers?.find(
+      (entry) => entry.type === "structured-text"
+    );
+    assert.ok(structuredTextDebugger, "package.json must contribute the ST debugger");
+    assert.ok(
+      structuredTextDebugger?.initialConfigurations?.some(
+        (config) => config.name === "truST Simulator" && config.request === "launch"
+      ),
+      "the native Run and Debug selector must have a user-facing truST Simulator launch option"
+    );
+    assert.ok(
+      debug.includes("provideDebugConfigurations") &&
+        debug.includes('name: "truST Simulator"') &&
+        debug.includes("DebugConfigurationProviderTriggerKind.Dynamic"),
+      "the debug configuration provider must supply a dynamic truST Simulator option, not leave VS Code at No Configurations"
     );
   });
 
