@@ -1841,11 +1841,13 @@ suite("Phase 7 — Devices & Connections (shared run-target + naming)", () => {
     for (const required of [
       "trust-inspector",
       "trust-inspector__header",
+      "trust-inspector__eyebrow",
       "trust-inspector__title",
       "trust-section",
       "trust-button",
       "trust-button-grid",
       "trust-help",
+      "Devices &amp; Connections / Runtime setup",
     ]) {
       assert.ok(src.includes(required), `SetUpRuntimePanel must render ${required}`);
     }
@@ -1868,7 +1870,7 @@ suite("Phase 7 — Devices & Connections (shared run-target + naming)", () => {
 	      "trust-input",
 	      "trust-button",
 	      "type=\"password\"",
-	      "Set up runtime",
+	      "Devices &amp; Connections / Runtime setup",
 	      "Runtime address",
 	      "10.0.0.5:5680",
 	      "Runtime auth token (optional)",
@@ -1921,6 +1923,22 @@ suite("Phase 7 — Devices & Connections (shared run-target + naming)", () => {
       !host.includes("Added ${endpoint} to the fleet"),
       "successful remote-runtime setup must not use a global VS Code toast that covers the canvas result"
     );
+  });
+
+  test("runtime setup task panes keep the Devices & Connections breadcrumb", () => {
+    const panes = [
+      ["SetUpRuntimePanel", readSrc("networkCanvas/webview/SetUpRuntimePanel.tsx"), "Set up runtime"],
+      ["AddHostPanel", readSrc("networkCanvas/webview/AddHostPanel.tsx"), "Connect existing runtime"],
+    ] as const;
+
+    for (const [name, src, title] of panes) {
+      assert.ok(
+        src.includes("trust-inspector__eyebrow") &&
+          src.includes("Devices &amp; Connections / Runtime setup"),
+        `${name} must render the shared Devices & Connections runtime setup breadcrumb`
+      );
+      assert.ok(src.includes(title), `${name} must keep its task-specific title`);
+    }
   });
 
   test("refresh does not post through a disposed canvas panel", () => {

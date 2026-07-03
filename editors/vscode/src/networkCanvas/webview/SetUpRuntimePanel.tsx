@@ -33,8 +33,11 @@ export function SetUpRuntimePanel({
   return (
     <aside className="trust-inspector" style={PANEL} aria-label="Set up a runtime">
       <div className="trust-inspector__header">
-        <div className="trust-inspector__title" style={{ flex: 1 }}>
-          Set up runtime
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="trust-inspector__eyebrow">Devices &amp; Connections / Runtime setup</div>
+          <div className="trust-inspector__title">
+            Set up runtime
+          </div>
         </div>
         <button
           onClick={onClose}
