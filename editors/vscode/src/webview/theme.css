@@ -51,7 +51,7 @@
   --trust-rail: color-mix(in srgb, var(--trust-text) 58%, transparent);
   --trust-selected-bg: color-mix(in srgb, var(--trust-accent) 18%, transparent);
   --trust-selected-strong-bg: color-mix(in srgb, var(--trust-accent) 28%, transparent);
-  --trust-ladder-wire: color-mix(in srgb, var(--trust-ok) 82%, var(--trust-text) 18%);
+  --trust-ladder-wire: color-mix(in srgb, var(--trust-text) 62%, var(--trust-border) 38%);
   --trust-ladder-live: var(--trust-warn);
   --trust-ladder-preview: color-mix(in srgb, var(--trust-warn) 80%, var(--trust-text) 20%);
   --trust-ladder-body: color-mix(in srgb, var(--trust-canvas) 78%, var(--trust-surface) 22%);
@@ -118,6 +118,7 @@ body[data-vscode-theme-kind="vscode-high-contrast"] {
 
   --trust-grid-line: color-mix(in srgb, var(--trust-border) 38%, transparent);
   --trust-rail: var(--trust-text);
+  --trust-ladder-wire: var(--trust-text);
   --trust-ladder-body: #000000;
   --trust-ladder-text: var(--trust-text);
   --trust-shadow: none;
@@ -162,6 +163,7 @@ body[data-vscode-theme-kind="vscode-high-contrast-light"] {
 
   --trust-grid-line: color-mix(in srgb, var(--trust-border) 38%, transparent);
   --trust-rail: var(--trust-text);
+  --trust-ladder-wire: var(--trust-text);
   --trust-ladder-body: #ffffff;
   --trust-ladder-text: var(--trust-text);
   --trust-shadow: none;

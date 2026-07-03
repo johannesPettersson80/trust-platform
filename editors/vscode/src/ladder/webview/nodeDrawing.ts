@@ -36,6 +36,12 @@ export interface DrawNodeContext {
     clientX: number,
     clientY: number
   ) => void;
+  resolveVariableDisplay?: (reference: string) => VariableDisplay;
+}
+
+export interface VariableDisplay {
+  primary: string;
+  secondary?: string;
 }
 
 const FB_BODY_X = 0;
@@ -149,6 +155,51 @@ function truncateLabel(value: string, maxLength: number): string {
   return `${text.slice(0, head)}...${text.slice(text.length - tail)}`;
 }
 
+function variableDisplayFor(reference: string, context: DrawNodeContext): VariableDisplay {
+  const resolved = context.resolveVariableDisplay?.(reference);
+  if (resolved?.primary.trim()) {
+    return resolved;
+  }
+  return { primary: reference.trim() || "Unassigned" };
+}
+
+function drawVariableLabel(
+  group: Konva.Group,
+  display: VariableDisplay,
+  color: string
+): void {
+  const primary = display.primary.trim();
+  const secondary = display.secondary?.trim();
+  group.add(
+    new Konva.Text({
+      x: -18,
+      y: 20,
+      width: 96,
+      text: truncateLabel(primary, 16),
+      fontSize: 11,
+      fill: color,
+      fontStyle: "bold",
+      align: "center",
+    })
+  );
+
+  if (!secondary) {
+    return;
+  }
+
+  group.add(
+    new Konva.Text({
+      x: -18,
+      y: 34,
+      width: 96,
+      text: truncateLabel(secondary, 18),
+      fontSize: 9,
+      fill: k(t.textMuted),
+      align: "center",
+    })
+  );
+}
+
 export function drawContactNode(
   element: ContactType,
   context: DrawNodeContext,
@@ -162,8 +213,11 @@ export function drawContactNode(
         executionState.markers?.[variable] ||
         executionState.variableBooleans?.[variable])
   );
-  const isActive = contactType === "NC" ? !variableState : variableState;
+  const hasExecutionState = Boolean(executionState);
+  const isActive =
+    hasExecutionState && (contactType === "NC" ? !variableState : variableState);
   const color = k(isActive ? t.ladderWireLive : t.ladderWire);
+  const display = variableDisplayFor(variable, context);
 
   const group = new Konva.Group({
     x: position.x,
@@ -227,16 +281,7 @@ export function drawContactNode(
     );
   }
 
-  group.add(
-    new Konva.Text({
-      x: -2,
-      y: 20,
-      text: truncateLabel(variable, 14),
-      fontSize: 11,
-      fill: color,
-      fontStyle: "bold",
-    })
-  );
+  drawVariableLabel(group, display, color);
 
   context.layer.add(group);
 }
@@ -253,7 +298,8 @@ export function drawCoilNode(
         executionState.markers?.[variable] ||
         executionState.variableBooleans?.[variable])
   );
-  const color = k(isActive ? t.ladderWireLive : t.accent);
+  const color = k(isActive ? t.ladderWireLive : t.ladderWire);
+  const display = variableDisplayFor(variable, context);
 
   const group = new Konva.Group({
     x: position.x,
@@ -347,16 +393,7 @@ export function drawCoilNode(
     );
   }
 
-  group.add(
-    new Konva.Text({
-      x: -2,
-      y: 20,
-      text: truncateLabel(variable, 14),
-      fontSize: 11,
-      fill: color,
-      fontStyle: "bold",
-    })
-  );
+  drawVariableLabel(group, display, color);
 
   context.layer.add(group);
 }

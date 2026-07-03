@@ -264,6 +264,9 @@ Target release: `v0.24.28`
   failed endpoint values prefilled.
 - vscode: SFC diagrams now use clearer IEC-style initial-step and transition
   markers so the visual editor reads as SFC instead of a generic flowchart.
+- vscode: Ladder diagrams now render symbolic names above mapped `%I/%Q/%M`
+  addresses and use neutral edit-time strokes, reserving status colour for live
+  power-flow.
 - vscode: Advanced integration cards in the Devices & Connections Add picker
   now use intentional badges (`MESH`, `OT`, `RT`, `CLOUD`) instead of truncated
   protocol fragments.

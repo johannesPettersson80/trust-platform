@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Konva from "konva";
 import { ElementPropertiesPanel } from "./ElementPropertiesPanel";
 import {
@@ -20,6 +20,7 @@ import {
   drawMathNode,
   drawTimerNode,
   type DrawNodeContext,
+  type VariableDisplay,
 } from "./nodeDrawing";
 import {
   addParallelContactBranchLeg,
@@ -213,6 +214,11 @@ function normalizeRuntimeKey(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function variableDisplayKey(value: unknown): string | null {
+  const normalized = normalizeRuntimeKey(value);
+  return normalized ? normalized.toUpperCase() : null;
+}
+
 function parseRuntimeBoolean(value: unknown): boolean | undefined {
   if (typeof value === "boolean") {
     return value;
@@ -374,6 +380,46 @@ export function LadderEditor() {
   const clipboardRef = useRef<LadderClipboard>(null);
   const runtimeIsExecutingRef = useRef(false);
   const edgeLinkSourceRef = useRef<EdgeLinkSource | null>(null);
+
+  const variableDisplayByReference = useMemo(() => {
+    const lookup = new Map<string, VariableDisplay>();
+
+    const register = (reference: unknown, display: VariableDisplay) => {
+      const key = variableDisplayKey(reference);
+      if (key) {
+        lookup.set(key, display);
+      }
+    };
+
+    for (const variable of program.variables) {
+      const name = variable.name?.trim();
+      const address = variable.address?.trim();
+      if (!name && !address) {
+        continue;
+      }
+
+      const primary = name || address || "";
+      const secondary =
+        address && variableDisplayKey(address) !== variableDisplayKey(primary)
+          ? address
+          : undefined;
+      const display = { primary, secondary };
+
+      register(name, display);
+      register(address, display);
+    }
+
+    return lookup;
+  }, [program.variables]);
+
+  const resolveVariableDisplay = useCallback((reference: string): VariableDisplay => {
+    const key = variableDisplayKey(reference);
+    return (
+      (key ? variableDisplayByReference.get(key) : undefined) ?? {
+        primary: reference.trim() || "Unassigned",
+      }
+    );
+  }, [variableDisplayByReference]);
 
   const syncHistoryState = () => {
     setUndoDepth(undoStackRef.current.length);
@@ -2175,6 +2221,7 @@ export function LadderEditor() {
               clientY
             );
           },
+          resolveVariableDisplay,
           onSelect: (nextRungIndex, nextElementIndex) => {
             setSelectedElement({
               rungIndex: nextRungIndex,
@@ -2226,6 +2273,7 @@ export function LadderEditor() {
     linkPreviewPoint,
     placeToolOnRung,
     program,
+    resolveVariableDisplay,
     selectedElement,
     selectedTool,
   ]);

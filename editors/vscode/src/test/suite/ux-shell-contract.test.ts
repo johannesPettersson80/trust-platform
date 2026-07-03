@@ -3090,6 +3090,53 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     }
   });
 
+  test("ladder contacts and coils show symbols with addresses using neutral edit strokes", () => {
+    const editor = readSrc("ladder/webview/LadderEditor.tsx");
+    const nodes = readSrc("ladder/webview/nodeDrawing.ts");
+    const themeCss = readSrc("webview/theme.css");
+    const example = JSON.parse(
+      fs.readFileSync(
+        path.join(workspaceRoot(), "examples/ladder/ethercat-snake.ladder.json"),
+        "utf8"
+      )
+    ) as {
+      variables?: Array<{ name?: string; address?: string }>;
+    };
+
+    assert.ok(
+      editor.includes("variableDisplayByReference") &&
+        editor.includes("resolveVariableDisplay") &&
+        editor.includes("register(address, display)"),
+      "Ladder editor must resolve node labels through variables[] so address references display their symbols"
+    );
+    assert.ok(
+      nodes.includes("drawVariableLabel") &&
+        nodes.includes("display.primary") &&
+        nodes.includes("display.secondary"),
+      "Ladder contacts/coils must render the symbolic name and mapped address as separate label lines"
+    );
+    assert.ok(
+      nodes.includes("const color = k(isActive ? t.ladderWireLive : t.ladderWire)") &&
+        !nodes.includes("const color = k(isActive ? t.ladderWireLive : t.accent)"),
+      "Ladder contact/coil edit strokes must use the neutral ladder wire token until live execution state drives power-flow colour"
+    );
+    assert.ok(
+      /--trust-ladder-wire:\s*color-mix\(in srgb, var\(--trust-text\)/.test(
+        themeCss
+      ),
+      "The edit-time ladder wire token must derive from text/border roles, not status green"
+    );
+
+    const mappedSymbol = example.variables?.find(
+      (variable) => variable.address === "%MX1.0"
+    );
+    assert.equal(
+      mappedSymbol?.name,
+      "Step0Active",
+      "EtherCAT ladder fixture must expose a named symbol for the %MX1.0 address capture"
+    );
+  });
+
   test("Blockly status counts visible blocks, not serialized top-level stacks", () => {
     const src = readSrc("blockly/webview/BlocklyEditor.tsx");
     assert.ok(

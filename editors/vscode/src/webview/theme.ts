@@ -50,7 +50,7 @@ export const t = {
   rail: v("--trust-rail", "#8a93a3"),
   selectedBg: v("--trust-selected-bg", "rgba(74, 158, 255, 0.18)"),
   selectedStrongBg: v("--trust-selected-strong-bg", "rgba(74, 158, 255, 0.28)"),
-  ladderWire: v("--trust-ladder-wire", "#6fba8a"),
+  ladderWire: v("--trust-ladder-wire", v("--vscode-descriptionForeground", "#949cab")),
   ladderWireLive: v("--trust-ladder-live", "#e0b341"),
   ladderPreview: v("--trust-ladder-preview", "#f0b36b"),
   ladderBody: v("--trust-ladder-body", "#131821"),

@@ -684,103 +684,103 @@
   ],
   "variables": [
     {
-      "name": "%MX0.0",
+      "name": "StartTrigger",
       "type": "BOOL",
       "address": "%MX0.0",
       "comment": "Start trigger"
     },
     {
-      "name": "%MX1.0",
+      "name": "Step0Active",
       "type": "BOOL",
       "address": "%MX1.0",
       "comment": "Step 0 active"
     },
     {
-      "name": "%MX2.0",
+      "name": "Step1Active",
       "type": "BOOL",
       "address": "%MX2.0",
       "comment": "Step 1 active"
     },
     {
-      "name": "%MX3.0",
+      "name": "Step2Active",
       "type": "BOOL",
       "address": "%MX3.0",
       "comment": "Step 2 active"
     },
     {
-      "name": "%MX4.0",
+      "name": "Step3Active",
       "type": "BOOL",
       "address": "%MX4.0",
       "comment": "Step 3 active"
     },
     {
-      "name": "%MX5.0",
+      "name": "Step4Active",
       "type": "BOOL",
       "address": "%MX5.0",
       "comment": "Step 4 active"
     },
     {
-      "name": "%MX6.0",
+      "name": "Step5Active",
       "type": "BOOL",
       "address": "%MX6.0",
       "comment": "Step 5 active"
     },
     {
-      "name": "%MX7.0",
+      "name": "Step6Active",
       "type": "BOOL",
       "address": "%MX7.0",
       "comment": "Step 6 active"
     },
     {
-      "name": "%MX8.0",
+      "name": "Step7Active",
       "type": "BOOL",
       "address": "%MX8.0",
       "comment": "Step 7 active"
     },
     {
-      "name": "%QX0.0",
+      "name": "Led0Output",
       "type": "BOOL",
       "address": "%QX0.0",
       "comment": "EL2008 LED 0"
     },
     {
-      "name": "%QX0.1",
+      "name": "Led1Output",
       "type": "BOOL",
       "address": "%QX0.1",
       "comment": "EL2008 LED 1"
     },
     {
-      "name": "%QX0.2",
+      "name": "Led2Output",
       "type": "BOOL",
       "address": "%QX0.2",
       "comment": "EL2008 LED 2"
     },
     {
-      "name": "%QX0.3",
+      "name": "Led3Output",
       "type": "BOOL",
       "address": "%QX0.3",
       "comment": "EL2008 LED 3"
     },
     {
-      "name": "%QX0.4",
+      "name": "Led4Output",
       "type": "BOOL",
       "address": "%QX0.4",
       "comment": "EL2008 LED 4"
     },
     {
-      "name": "%QX0.5",
+      "name": "Led5Output",
       "type": "BOOL",
       "address": "%QX0.5",
       "comment": "EL2008 LED 5"
     },
     {
-      "name": "%QX0.6",
+      "name": "Led6Output",
       "type": "BOOL",
       "address": "%QX0.6",
       "comment": "EL2008 LED 6"
     },
     {
-      "name": "%QX0.7",
+      "name": "Led7Output",
       "type": "BOOL",
       "address": "%QX0.7",
       "comment": "EL2008 LED 7"
