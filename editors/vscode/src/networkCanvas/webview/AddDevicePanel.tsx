@@ -16,6 +16,7 @@ interface Props {
   preselectProtocol?: string;
   preselectParams?: Record<string, unknown>; // prefill from a discovered candidate (§0.5 Browse→Add)
   post: (message: unknown) => void;
+  onValidationStale?: () => void;
   onClose: () => void;
 }
 
@@ -61,7 +62,7 @@ function valuesWithPrefill(
   return values;
 }
 
-export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, target, preselectProtocol, preselectParams, post, onClose }: Props) {
+export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, target, preselectProtocol, preselectParams, post, onValidationStale, onClose }: Props) {
   const protocols = useMemo(() => schema?.protocols ?? [], [schema]);
   const [protocolId, setProtocolId] = useState<string>(preselectProtocol ?? "");
   const [values, setValues] = useState<Record<string, string>>({});
@@ -72,6 +73,22 @@ export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, t
   const lastInitializedKey = useRef<string>("");
 
   const protocol = protocols.find((p) => p.id === protocolId);
+  const applyResultSignature = useMemo(
+    () =>
+      applyResult
+        ? JSON.stringify({
+            applied: applyResult.applied,
+            lifecycle_effect: applyResult.lifecycle_effect,
+            message: applyResult.message,
+            field_errors: applyResult.field_errors ?? [],
+          })
+        : "",
+    [applyResult]
+  );
+  const [editedAfterApplyResult, setEditedAfterApplyResult] = useState(false);
+  const [clearedFieldErrors, setClearedFieldErrors] = useState<Set<string>>(
+    () => new Set()
+  );
 
   // Pick the dropped protocol (or the first available) when a schema arrives.
   useEffect(() => {
@@ -94,9 +111,34 @@ export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, t
     }
   }, [protocol, preselectParams, preselectParamsKey]);
 
-  const fieldErrors = new Map(
+  useEffect(() => {
+    setEditedAfterApplyResult(false);
+    setClearedFieldErrors(new Set());
+  }, [applyResultSignature]);
+
+  const rawFieldErrors = new Map(
     (applyResult?.field_errors ?? []).map((e) => [e.field, e.message])
   );
+  const fieldErrors = new Map(
+    [...rawFieldErrors].filter(([field]) => !clearedFieldErrors.has(field))
+  );
+  const visibleApplyResult = editedAfterApplyResult ? undefined : applyResult;
+
+  const updateField = (fieldId: string, value: string) => {
+    setValues((prev) => ({ ...prev, [fieldId]: value }));
+    if (applyResult) {
+      setEditedAfterApplyResult(true);
+      onValidationStale?.();
+      setClearedFieldErrors((prev) => {
+        if (prev.has(fieldId)) {
+          return prev;
+        }
+        const next = new Set(prev);
+        next.add(fieldId);
+        return next;
+      });
+    }
+  };
 
   // Track that THIS panel issued a Save (not a Test), so the close-on-success effect only fires for a
   // real save the user just triggered — not a stale applyResult left over from before the panel opened.
@@ -111,6 +153,8 @@ export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, t
     }
     const action =
       protocol.supports_multi_instance && protocol.actions.includes("add") ? "add" : "upsert";
+    setEditedAfterApplyResult(false);
+    setClearedFieldErrors(new Set());
     if (type === "commSave") {
       savingRef.current = true;
     }
@@ -128,12 +172,12 @@ export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, t
     }
   }, [applyResult, onClose]);
 
-  const ok = applyResult && (applyResult.applied || applyResult.lifecycle_effect === "test_ok");
-  const blocked = applyResult && applyResult.lifecycle_effect === "blocked";
+  const ok = visibleApplyResult && (visibleApplyResult.applied || visibleApplyResult.lifecycle_effect === "test_ok");
+  const blocked = visibleApplyResult && visibleApplyResult.lifecycle_effect === "blocked";
   const lifecycleDetail =
-    applyResult?.lifecycle_effect &&
-    !["blocked", "test_ok"].includes(applyResult.lifecycle_effect)
-      ? applyResult.lifecycle_effect
+    visibleApplyResult?.lifecycle_effect &&
+    !["blocked", "test_ok"].includes(visibleApplyResult.lifecycle_effect)
+      ? visibleApplyResult.lifecycle_effect
       : undefined;
 
   return (
@@ -178,7 +222,7 @@ export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, t
                 field={field}
                 value={values[field.id] ?? ""}
                 error={fieldErrors.get(field.id)}
-                onChange={(v) => setValues((prev) => ({ ...prev, [field.id]: v }))}
+                onChange={(v) => updateField(field.id, v)}
               />
             ))}
           </>
@@ -187,12 +231,12 @@ export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, t
 
       {/* Pinned between the scroll body and the footer so the apply/validation result —
           especially its 2nd line — is never hidden behind the Save/Cancel footer. */}
-      {applyResult && (
+      {visibleApplyResult && (
         <div
           className={`trust-message ${ok ? "trust-message--ok" : blocked ? "trust-message--error" : ""}`}
           style={{ margin: "0 14px 10px" }}
         >
-          {applyResult.message || (ok ? "Applied." : "")}
+          {visibleApplyResult.message || (ok ? "Applied." : "")}
           {lifecycleDetail && (
             <div className="trust-message__detail">{lifecycleDetail}</div>
           )}

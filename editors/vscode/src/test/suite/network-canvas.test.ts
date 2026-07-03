@@ -21,6 +21,7 @@ import { applyFilter, filterReport } from "../../networkCanvas/webview/filter";
 import { buildExposeApplyParams } from "../../networkCanvas/exposeConfig";
 import { commTestMessage } from "../../communication/runtimeComm";
 import { protocolColor, protocolName } from "../../networkCanvas/webview/protocolMeta";
+import { visibleFaultsForValidationState } from "../../networkCanvas/webview/faults";
 
 const RUNNING = {
   running: true,
@@ -107,10 +108,10 @@ suite("Network Canvas", function () {
       runtime: RUNNING,
       topology: local,
     });
-    assert.strictEqual(localModel.fleet?.hosts[0]?.hostname, "This computer");
+    assert.strictEqual(localModel.fleet?.hosts[0]?.hostname, "Computer scena-rust-builder");
     assert.ok(
       localModel.fleet?.hosts[0]?.label.includes("scena-rust-builder"),
-      "the raw hostname is retained as detail for diagnostics, not the headline"
+      "the raw hostname stays visible without pretending a remote lab machine is this computer"
     );
 
     const remote = fleetTopology();
@@ -201,6 +202,26 @@ suite("Network Canvas", function () {
     assert.strictEqual(mqttBroker?.data.dimmed, true, "counterpart external node is dimmed too");
     assert.strictEqual(mqttLink?.data?.dimmed, true, "counterpart wire is dimmed too");
     assert.ok(warning, "search preserves the degraded endpoint warning");
+  });
+
+  test("editing a rejected add form hides stale apply faults without hiding real faults", () => {
+    const faults = [
+      {
+        id: "apply:modbus_tcp",
+        label: "Configuration was not applied. Fix the highlighted fields and try again.",
+        targetNodeId: "draft:modbus_tcp",
+        severity: "error" as const,
+      },
+      {
+        id: "device:modbus",
+        label: "Modbus TCP: unreachable",
+        targetNodeId: "endpoint:modbus",
+        severity: "warning" as const,
+      },
+    ];
+
+    assert.deepStrictEqual(visibleFaultsForValidationState(faults, false), faults);
+    assert.deepStrictEqual(visibleFaultsForValidationState(faults, true), [faults[1]]);
   });
 
   // --- Graph mapping (the React Flow canvas data) ---------------------------

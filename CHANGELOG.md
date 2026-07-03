@@ -252,6 +252,9 @@ Target release: `v0.24.27`
   when its reported identity also matches a local interface, so remote runtimes
   on machines with lab-builder hostnames render as generic `Computer <address>`
   headlines instead of misleading local-machine labels.
+- vscode: Add Device forms now clear stale field validation and hide stale
+  apply banners as soon as the user edits the rejected field, so corrected
+  example values no longer remain marked invalid before the next Save.
 - vscode/trust-runtime: Live Values now receives runtime role/capability data
   from the control channel, disables viewer-role Write/Force/Release controls
   before any unsafe attempt, and shows a visible engineer-token recovery reason;

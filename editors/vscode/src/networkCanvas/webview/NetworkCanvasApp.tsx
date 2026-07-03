@@ -15,6 +15,7 @@ import "@xyflow/react/dist/style.css";
 import "../../webview/theme.css";
 import { t, tint } from "./theme";
 import { buildGraph } from "./layout";
+import { visibleFaultsForValidationState } from "./faults";
 import { nodeTypes } from "./nodes";
 import { edgeTypes } from "./CasedEdge";
 import type { NCGraph } from "./types";
@@ -94,11 +95,25 @@ function Canvas() {
   const [focusTargetId, setFocusTargetId] = useState<string | undefined>(undefined);
   const [schema, setSchema] = useState<CommSchemaResponse | undefined>(undefined);
   const [applyResult, setApplyResult] = useState<CommApplyResponse | undefined>(undefined);
+  const applyResultSignature = useMemo(
+    () =>
+      applyResult
+        ? JSON.stringify({
+            applied: applyResult.applied,
+            lifecycle_effect: applyResult.lifecycle_effect,
+            message: applyResult.message,
+            field_errors: applyResult.field_errors ?? [],
+          })
+        : "",
+    [applyResult]
+  );
+  const [applyResultLocallyStale, setApplyResultLocallyStale] = useState(false);
   const [reachable, setReachable] = useState(false);
   const [setupMessage, setSetupMessage] = useState<string | undefined>(undefined);
   const { fitView, screenToFlowPosition, getIntersectingNodes } = useReactFlow();
   const clearApplyResult = useCallback(() => {
     setApplyResult(undefined);
+    setApplyResultLocallyStale(false);
     vscode.postMessage({ type: "clearApplyResult" });
   }, []);
 
@@ -158,6 +173,10 @@ function Canvas() {
     },
     [schema, clearApplyResult]
   );
+
+  useEffect(() => {
+    setApplyResultLocallyStale(false);
+  }, [applyResultSignature]);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
@@ -599,7 +618,11 @@ function Canvas() {
     [post, browseTags, browseTree]
   );
 
-  const fault = graph.faults[0];
+  const visibleFaults = visibleFaultsForValidationState(
+    graph.faults,
+    applyResultLocallyStale
+  );
+  const fault = visibleFaults[0];
   const editModeValue = useMemo(
     () => ({
       editMode,
@@ -675,7 +698,7 @@ function Canvas() {
     whiteSpace: "nowrap",
     transition: `background ${t.ease}, border-color ${t.ease}`,
   });
-  const fieldIssueCount = applyResult?.field_errors?.length ?? 0;
+  const fieldIssueCount = applyResultLocallyStale ? 0 : applyResult?.field_errors?.length ?? 0;
   const fieldIssueLabel =
     fieldIssueCount > 0
       ? `${fieldIssueCount} field issue${fieldIssueCount === 1 ? "" : "s"} · fix highlighted fields`
@@ -758,7 +781,7 @@ function Canvas() {
             }}
             title={fault.label}
           >
-            {graph.faults.length} issue{graph.faults.length === 1 ? "" : "s"} · {fault.label}
+            {visibleFaults.length} issue{visibleFaults.length === 1 ? "" : "s"} · {fault.label}
           </button>
         )}
         <button
@@ -1000,6 +1023,7 @@ function Canvas() {
             preselectProtocol={draft.protocol}
             preselectParams={draft.prefillParams}
             post={post}
+            onValidationStale={() => setApplyResultLocallyStale(true)}
             onClose={() => {
               clearApplyResult();
               setDraft(undefined);

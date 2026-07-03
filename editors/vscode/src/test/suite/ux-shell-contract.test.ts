@@ -2770,7 +2770,7 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
       "AddDevicePanel must still treat comm.test success as a positive result"
     );
     assert.ok(
-      addSrc.includes('!["blocked", "test_ok"].includes(applyResult.lifecycle_effect)'),
+      /!\["blocked", "test_ok"\]\.includes\(\w+ApplyResult\.lifecycle_effect\)/.test(addSrc),
       "AddDevicePanel must not render raw lifecycle tokens such as test_ok as user-facing detail"
     );
     assert.ok(
