@@ -546,7 +546,7 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
   }
 
   private async applyChanges(): Promise<void> {
-    // Sim-only hot reload (§0.6.6). The button is only shown when canApply, but guard anyway.
+    // Sim-only update (§0.6.6). The button is only shown when canApply, but guard anyway.
     const gateReason = compileGateReason(this.compileState, validityLine(), "update");
     if (gateReason) {
       this.applyMessage = gateReason;
@@ -1472,13 +1472,13 @@ function reloadFailureMessage(value: unknown, validity: ValidityLine): string {
   if (isRecord(value) && typeof value.message === "string" && value.message.trim()) {
     return summarizeReloadMessage(value.message);
   }
-  return "Reload did not report success. Keep the simulator running, fix any compile errors, and try again.";
+  return "Update did not report success. Keep the simulator running, fix any compile errors, and try again.";
 }
 
 function summarizeReloadMessage(message: string): string {
   const firstLine = message.trim().split(/\r?\n/).find((line) => line.trim())?.trim() ?? "";
   if (!firstLine) {
-    return "Reload did not report a reason.";
+    return "Update did not report a reason.";
   }
   const sourceErrorCount = message
     .split(/\r?\n/)

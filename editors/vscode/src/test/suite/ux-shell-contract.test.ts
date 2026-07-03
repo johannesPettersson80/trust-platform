@@ -85,7 +85,7 @@ const HIDDEN_FROM_PALETTE = [
   "trust-lsp.debug.start", // "Start Debugging" — F5 uses the debugger, not the palette
   "trust-lsp.debug.attach", // "Attach Debugger"
   "trust-lsp.debug.ensureConfiguration", // target selection lives in the sidebar, not the palette
-  "trust-lsp.debug.reload", // "Hot Reload" — Update running simulation drives this
+  "trust-lsp.debug.reload", // Update running simulation drives this internal command
   "trust-lsp.test.runAll", // tests live in VS Code's native Testing view
   "trust-lsp.test.runOne", // tests live in VS Code's native Testing view
   "trust-lsp.hmi.init", // raw HMI init — reached via the adaptive HMI launcher
@@ -2171,7 +2171,7 @@ suite("Phases 8–10 — honest backend gating (no fakes, no dead buttons)", () 
 });
 
 suite("Phase 6 — Update running simulation (simulator-only)", () => {
-  test("Update running simulation is sim-only, gated on a real source change, wired to hot reload", () => {
+  test("Update running simulation is sim-only, gated on a real source change, wired to the update command", () => {
     const src = readSrc("trustHomeView.ts");
     // sim-only + running + an actual change
     assert.ok(
@@ -2180,10 +2180,10 @@ suite("Phase 6 — Update running simulation (simulator-only)", () => {
         /this\.sourceChanged/.test(src),
       "canApply must require simulator + running + a real source change"
     );
-    // wired to the existing hot reload, not a fake
+    // wired to the existing debug adapter update request, not a fake
     assert.ok(
       src.includes("trust-lsp.debug.reload"),
-      "Update running simulation must drive the hot-reload command"
+      "Update running simulation must drive the update command"
     );
     assert.ok(
       src.includes("isReloadSuccess") &&
@@ -2199,7 +2199,7 @@ suite("Phase 6 — Update running simulation (simulator-only)", () => {
     assert.ok(
       /if \(isReloadSuccess\(result\)\)[\s\S]*this\.sourceChanged = false/.test(src) &&
         /else[\s\S]*this\.sourceChanged = true/.test(src),
-      "Update running simulation must clear pending state only after a successful reload and keep retry visible on failure"
+      "Update running simulation must clear pending state only after a successful update and keep retry visible on failure"
     );
     // change detection is save-based (honest), and reset on Start/Apply
     assert.ok(
@@ -2217,8 +2217,8 @@ suite("Phase 6 — Update running simulation (simulator-only)", () => {
     );
     assert.ok(
       src.includes("result.ok === false") &&
-        src.includes("Failed to reload debugger:"),
-      "the LM reload tool must not report success when hot reload failed"
+        src.includes("Failed to update running simulation:"),
+      "the LM reload tool must not report success when Update failed"
     );
   });
 });

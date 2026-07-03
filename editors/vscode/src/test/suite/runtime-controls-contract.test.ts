@@ -1163,11 +1163,11 @@ suite("truST sidebar — control surface contract", () => {
     );
     assert.ok(
       source.includes("HOT_RELOAD_REQUEST_TIMEOUT_MS"),
-      "hot reload must define an explicit timeout"
+      "Update running simulation must define an explicit timeout"
     );
     assert.ok(
       source.includes("function withTimeout"),
-      "hot reload must use a timeout helper for adapter requests"
+      "Update running simulation must use a timeout helper for adapter requests"
     );
     assert.ok(
       reloadCommand.includes('session.customRequest("stReload"') &&
@@ -1180,7 +1180,7 @@ suite("truST sidebar — control surface contract", () => {
         reloadCommand.includes("return { ok: false, message: gateReason, gated: true }") &&
         reloadCommand.indexOf("diagnosticsGateReason") <
           reloadCommand.indexOf('session.customRequest("stReload"'),
-      "trust-lsp.debug.reload must share the sidebar compile gate before attempting hot reload"
+      "trust-lsp.debug.reload must share the sidebar compile gate before attempting update"
     );
     assert.ok(
       reloadCommand.includes("Update running simulation timed out") &&
@@ -1191,8 +1191,9 @@ suite("truST sidebar — control surface contract", () => {
       source.includes("function summarizeReloadCommandMessage") &&
         source.includes("Compile failed — ${sourceErrorCount} error") &&
         reloadCommand.includes("summarizeReloadCommandMessage(rawMessage)") &&
-        !reloadCommand.includes("Hot reload failed: ${rawMessage}"),
-      "hot reload notifications must summarize compile failures instead of leaking raw source paths"
+        reloadCommand.includes("Update failed: ${message}") &&
+        !reloadCommand.includes("Update failed: ${rawMessage}"),
+      "Update notifications must summarize compile failures instead of leaking raw source paths"
     );
     assert.ok(
       source.includes("onDidDebugReload") &&

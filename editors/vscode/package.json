@@ -2090,12 +2090,12 @@
       },
       {
         "name": "trust_debug_reload",
-        "displayName": "ST Debug Reload",
+        "displayName": "ST Update Running Simulation",
         "toolReferenceName": "stDebugReload",
         "canBeReferencedInPrompt": true,
         "icon": "$(refresh)",
-        "userDescription": "Hot reload an active Structured Text debug session.",
-        "modelDescription": "Requests a hot reload for the active Structured Text debug session.",
+        "userDescription": "Update an active Structured Text simulator session.",
+        "modelDescription": "Requests an update for the active Structured Text simulator session.",
         "inputSchema": {
           "type": "object",
           "properties": {}
@@ -2287,7 +2287,7 @@
       },
       {
         "command": "trust-lsp.debug.reload",
-        "title": "Hot Reload",
+        "title": "Update Running Simulation",
         "category": "truST"
       },
       {

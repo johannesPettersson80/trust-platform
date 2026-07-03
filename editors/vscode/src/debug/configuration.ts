@@ -717,10 +717,10 @@ export async function maybeReloadForEditor(
     const runtimeOptions = runtimeSourceOptions(programUri);
     await session.customRequest("stReload", { program, ...runtimeOptions });
     lastReloadedProgram.set(sessionId, program);
-    debugChannel().appendLine(`Auto-reloaded program: ${program}`);
+    debugChannel().appendLine(`Automatically updated running program: ${program}`);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    debugChannel().appendLine(`Auto-reload failed: ${message}`);
+    debugChannel().appendLine(`Automatic update failed: ${message}`);
   }
 }
 

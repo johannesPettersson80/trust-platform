@@ -120,12 +120,12 @@ export class STDebugReloadTool {
       );
       if (result && result.ok === false) {
         return errorResult(
-          `Failed to reload debugger: ${result.message ?? "Reload did not report success."}`
+          `Failed to update running simulation: ${result.message ?? "Update did not report success."}`
         );
       }
-      return textResult("Debug reload requested.");
+      return textResult("Update running simulation requested.");
     } catch (error) {
-      return errorResult(`Failed to reload debugger: ${String(error)}`);
+      return errorResult(`Failed to update running simulation: ${String(error)}`);
     }
   }
 }

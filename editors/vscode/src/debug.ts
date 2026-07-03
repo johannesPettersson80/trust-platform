@@ -149,7 +149,7 @@ function summarizeReloadCommandMessage(message: string): string {
   const firstLine =
     trimmed.split(/\r?\n/).find((line) => line.trim())?.trim() ?? "";
   if (!firstLine) {
-    return "Reload did not report a reason.";
+    return "Update did not report a reason.";
   }
   if (firstLine.length <= 160) {
     return firstLine;
@@ -989,7 +989,7 @@ export function registerDebugAdapter(
     vscode.commands.registerCommand("trust-lsp.debug.reload", async () => {
       const session = vscode.debug.activeDebugSession;
       if (!session || session.type !== DEBUG_TYPE) {
-        const message = "No active Structured Text debug session to reload.";
+        const message = "No active Structured Text debug session to update.";
         vscode.window.showErrorMessage(
           message
         );
@@ -1027,7 +1027,7 @@ export function registerDebugAdapter(
       } catch (err) {
         const rawMessage = err instanceof Error ? err.message : String(err);
         const message = summarizeReloadCommandMessage(rawMessage);
-        vscode.window.showErrorMessage(`Hot reload failed: ${message}`);
+        vscode.window.showErrorMessage(`Update failed: ${message}`);
         debugReloadEmitter.fire({ ok: false, message });
         return { ok: false, message };
       }

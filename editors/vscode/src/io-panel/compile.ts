@@ -241,7 +241,7 @@ export async function compileActiveProgram(
           program,
           ...runtimeOptions,
         });
-        runtimeMessage = "Runtime reload succeeded.";
+        runtimeMessage = "Runtime update succeeded.";
       } catch (err) {
         runtimeStatus = "error";
         const message = err instanceof Error ? err.message : String(err);

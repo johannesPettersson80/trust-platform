@@ -190,6 +190,9 @@ Target release: `v0.24.28`
   appears as `Simulator` and its local endpoints appear as `Simulated I/O` /
   `Loopback I/O` instead of mixing `truST runtime`, `local simulator`, and bare
   protocol names.
+- vscode: normalized online-change wording across the sidebar command, command
+  palette, language-model tool, toasts, and runtime feedback so the user-facing
+  verb is consistently `Update` instead of mixing update and hot-reload terms.
 - vscode/runtime: removed the unfinished 3D twin prototype, typed LM tool,
   packaged WASM/assets, scene-page HMI contract, and related activation/build
   and test wiring from the shipped product surface so the PLC IDE focuses on the
