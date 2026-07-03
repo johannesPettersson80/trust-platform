@@ -265,6 +265,9 @@ Target release: `v0.24.28`
 - vscode: Live Values now explains program-driven outputs and memory rows in
   the panel and on disabled Write controls, pointing users to Force for
   simulation overrides instead of leaving greyed actions unexplained.
+- vscode: Live Values now maps disconnected I/O transport failures to
+  user-facing reconnect guidance instead of surfacing raw socket or cancellation
+  text in the panel.
 - vscode: HMI Preview now refreshes through the shared descriptor debounce when
   HMI descriptor or process SVG files are edited in an open workspace, keeping
   the panel current without waiting for a separate manual refresh.

@@ -9,6 +9,7 @@ import {
 import {
   __testApplySettingsUpdate,
   __testCollectSettingsSnapshot,
+  __testUserFacingIoStatus,
 } from "../../ioPanel";
 
 async function pathExists(uri: vscode.Uri): Promise<boolean> {
@@ -303,6 +304,21 @@ suite("Debug/IO DRY flows", function () {
       { command: "stIoRelease", args: { address: "%QX0.0" } },
       { command: "stIoRelease", args: { address: "%QX0.0" } },
     ]);
+  });
+
+  test("unit: Live Values transport errors use recovery text, not raw socket copy", () => {
+    assert.strictEqual(
+      __testUserFacingIoStatus("I/O state request failed: Canceled"),
+      "Start the runtime to see live values."
+    );
+    assert.strictEqual(
+      __testUserFacingIoStatus("I/O state request failed: socket hang up"),
+      "Live Values lost connection to the runtime. Restart or reconnect the runtime, then retry."
+    );
+    assert.strictEqual(
+      __testUserFacingIoStatus("I/O state request failed: read ECONNRESET"),
+      "Live Values lost connection to the runtime. Restart or reconnect the runtime, then retry."
+    );
   });
 
   test("integration: VM debug session returns non-empty stackTrace at stopOnEntry", async () => {

@@ -421,6 +421,9 @@ function userFacingIoStatus(message: string): string {
   if (isNoActiveSessionMessage(message)) {
     return "Start the runtime to see live values.";
   }
+  if (isIoStateTransportFailureMessage(message)) {
+    return "Live Values lost connection to the runtime. Restart or reconnect the runtime, then retry.";
+  }
   return message;
 }
 
@@ -442,6 +445,15 @@ function isNoActiveSessionMessage(message: string): boolean {
   );
 }
 
+function isIoStateTransportFailureMessage(message: string): boolean {
+  return (
+    /I\/O state request failed:/i.test(message) &&
+    /cancelled|connection|socket|ECONNRESET|ECONNREFUSED|EPIPE|closed|terminated|timed?\s*out|timeout|not connected|disconnected/i.test(
+      message
+    )
+  );
+}
+
 function postEmptyIoState(): void {
   panel?.webview.postMessage({
     type: "ioState",
@@ -449,8 +461,12 @@ function postEmptyIoState(): void {
   });
 }
 
-function postUnavailableLiveValues(status?: RuntimeStatusPayload): void {
+function postUnavailableLiveValues(
+  status?: RuntimeStatusPayload,
+  message?: string
+): void {
   const publish = () => {
+    const statusMessage = message || liveValuesUnavailableMessage(status);
     if (status) {
       panel?.webview.postMessage({
         type: "runtimeStatus",
@@ -460,7 +476,7 @@ function postUnavailableLiveValues(status?: RuntimeStatusPayload): void {
     postEmptyIoState();
     panel?.webview.postMessage({
       type: "status",
-      payload: liveValuesUnavailableMessage(status),
+      payload: statusMessage,
     });
   };
   publish();
@@ -648,6 +664,10 @@ export function __testCollectSettingsSnapshot(): SettingsPayload {
   return collectSettingsSnapshot();
 }
 
+export function __testUserFacingIoStatus(message: string): string {
+  return userFacingIoStatus(message);
+}
+
 function runtimeConfigTarget(): vscode.Uri | undefined {
   return runtimeLifecycleService.runtimeConfigTarget();
 }
@@ -690,6 +710,11 @@ async function handleIoStateRequestResult(result: RuntimeLifecycleResult): Promi
     if (isNoActiveSessionMessage(result.failure.message)) {
       const status = await runtimeStatusPayload().catch(() => undefined);
       postUnavailableLiveValues(status);
+      return;
+    }
+    if (isIoStateTransportFailureMessage(result.failure.message)) {
+      const status = await runtimeStatusPayload().catch(() => undefined);
+      postUnavailableLiveValues(status, userFacingIoStatus(result.failure.message));
       return;
     }
     panel?.webview.postMessage({

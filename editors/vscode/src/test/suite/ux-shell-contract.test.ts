@@ -1258,7 +1258,8 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
     );
     assert.ok(
       unavailableBody.includes("postEmptyIoState();") &&
-        unavailableBody.includes("payload: liveValuesUnavailableMessage(status)"),
+        unavailableBody.includes("message || liveValuesUnavailableMessage(status)") &&
+        unavailableBody.includes("payload: statusMessage"),
       "terminated sessions must also clear stale rows and replace stale role/success banners with the correct unavailable message"
     );
     assert.ok(
