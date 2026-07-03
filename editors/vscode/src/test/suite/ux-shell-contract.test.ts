@@ -815,6 +815,40 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
     );
   });
 
+  test("Live Values exposes a forced-values inventory filter", () => {
+    const web = readSrc("ioPanel.webview.js");
+    for (const [name, source] of [
+      ["ioPanel.ts", readSrc("ioPanel.ts")],
+      ["io-panel/view.ts", readSrc("io-panel/view.ts")],
+    ] as const) {
+      assert.ok(
+        source.includes('id="forcedFilter"') &&
+          source.includes("Forced") &&
+          source.includes(".forced-filter") &&
+          source.includes('aria-pressed="false"'),
+        `${name} must render the Forced (N) filter chip in the Live Values header`
+      );
+      assert.ok(
+        source.includes("var(--trust-warn)") &&
+          source.includes(".forced-filter.active") &&
+          source.includes("white-space: nowrap"),
+        `${name} must style the active Forced filter with the shared force/warning role`
+      );
+    }
+    assert.ok(
+      web.includes("const forcedFilterBtn = document.getElementById(\"forcedFilter\")") &&
+        web.includes("let forcedOnly = false") &&
+        web.includes("function updateForcedFilter") &&
+        web.includes("Forced (\" + count + \")") &&
+        web.includes("forcedFilterBtn.setAttribute(\"aria-pressed\"") &&
+        web.includes("forcedFilterBtn.addEventListener(\"click\"") &&
+        web.includes("forcedOnly && !entry.forced") &&
+        web.includes("function appendIoSection") &&
+        web.includes("forcedOnly && !hasForcedEntry(entries)"),
+      "the webview must count forced rows, toggle the chip, and filter to forced rows only without empty groups"
+    );
+  });
+
   test("Live Values uses explicit safety verbs for row actions", () => {
     const web = readSrc("ioPanel.webview.js");
     const visualRuntime = readSrc("visual/runtime/webview/stRuntimePanelController.ts");

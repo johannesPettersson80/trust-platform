@@ -243,6 +243,9 @@ Target release: `v0.24.28`
 
 ### Fixed
 
+- vscode: Live Values now shows a `Forced (N)` filter chip when overrides are
+  active, letting operators list only forced points before releasing or
+  inspecting them.
 - vscode: Live Values now explains the force ceremony in-panel, distinguishing
   immediate simulator forcing from the managed/remote `Arm force` flow so the
   two target types do not look inconsistent.

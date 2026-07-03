@@ -276,6 +276,31 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
         color: var(--trust-text);
       }
 
+      .forced-filter {
+        height: 24px;
+        flex: 0 0 auto;
+        padding: 0 8px;
+        border-radius: 999px;
+        border: 1px solid var(--trust-input-border);
+        background: var(--vscode-button-secondaryBackground, var(--trust-surface));
+        color: var(--vscode-button-secondaryForeground, var(--trust-text));
+        font-size: 11px;
+        font-weight: 700;
+        line-height: 1;
+        white-space: nowrap;
+      }
+
+      .forced-filter:hover {
+        background: var(--vscode-button-secondaryHoverBackground, var(--trust-selected-bg));
+      }
+
+      .forced-filter.active {
+        border-color: var(--trust-warn);
+        background: color-mix(in srgb, var(--trust-warn) 14%, var(--trust-surface));
+        color: var(--trust-text);
+        box-shadow: inset 2px 0 0 var(--trust-warn);
+      }
+
       button {
         background: var(--trust-accent);
         border: none;
@@ -891,6 +916,7 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
       </div>
       <div class="header-search">
         <input id="filter" placeholder="Filter by name or address" />
+        <button id="forcedFilter" class="forced-filter" type="button" style="display:none" aria-pressed="false" title="No forced values">Forced</button>
         <div class="numeric-format" aria-label="Numeric display format">
           <span class="numeric-format-label">Format</span>
           <button class="format-toggle active" type="button" data-numeric-format="dec" aria-pressed="true" title="Show numeric values as decimal">DEC</button>

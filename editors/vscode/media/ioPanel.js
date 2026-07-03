@@ -5,6 +5,7 @@ const vscode =
 const sections = document.getElementById("sections");
 const status = document.getElementById("status");
 const filterInput = document.getElementById("filter");
+const forcedFilterBtn = document.getElementById("forcedFilter");
 const diagnosticsSummary = document.getElementById("diagnosticsSummary");
 const diagnosticsRuntime = document.getElementById("diagnosticsRuntime");
 const diagnosticsList = document.getElementById("diagnosticsList");
@@ -41,6 +42,7 @@ const settingsFields = {
 let currentState = { inputs: [], outputs: [], memory: [] };
 let compileState = null;
 let currentFilter = "";
+let forcedOnly = false;
 const editCache = new Map();
 let settingsOpen = false;
 // Current target kind (simulate/online). Force/Unforce work on both now (the adapter forwards
@@ -68,6 +70,27 @@ function forcedAddresses(state) {
   return all
     .filter((entry) => entry && entry.forced && entry.address)
     .map((entry) => entry.address);
+}
+
+function updateForcedFilter(state) {
+  if (!forcedFilterBtn) {
+    return;
+  }
+  const count = forcedAddresses(state).length;
+  if (count === 0) {
+    forcedOnly = false;
+  }
+  forcedFilterBtn.style.display = count > 0 ? "" : "none";
+  forcedFilterBtn.textContent = count > 0 ? "Forced (" + count + ")" : "Forced";
+  forcedFilterBtn.disabled = count === 0;
+  forcedFilterBtn.classList.toggle("active", forcedOnly && count > 0);
+  forcedFilterBtn.setAttribute("aria-pressed", forcedOnly && count > 0 ? "true" : "false");
+  forcedFilterBtn.title =
+    count > 0
+      ? forcedOnly
+        ? "Showing only forced values"
+        : "Show only forced values"
+      : "No forced values";
 }
 
 function updateReleaseAll(state) {
@@ -111,6 +134,16 @@ if (releaseAllForcesBtn) {
     if (addresses.length) {
       vscode.postMessage({ type: "releaseAllForces", addresses });
     }
+  });
+}
+
+if (forcedFilterBtn) {
+  forcedFilterBtn.addEventListener("click", () => {
+    if (forcedFilterBtn.disabled) {
+      return;
+    }
+    forcedOnly = !forcedOnly;
+    render(currentState);
   });
 }
 
@@ -759,15 +792,16 @@ function renderDiagnostics() {
 
 function applyFilter(entries) {
   const filter = currentFilter.trim().toLowerCase();
-  if (!filter) {
-    return entries || [];
-  }
   return (entries || []).filter((entry) => {
-    const haystack = [
-      entry.name || "",
-      entry.address || "",
-      entry.source || "",
-    ].join(" ").toLowerCase();
+    if (forcedOnly && !entry.forced) {
+      return false;
+    }
+    if (!filter) {
+      return true;
+    }
+    const haystack = [entry.name || "", entry.address || "", entry.source || ""]
+      .join(" ")
+      .toLowerCase();
     return haystack.includes(filter);
   });
 }
@@ -944,6 +978,17 @@ function createNode(title, level, content, open = true) {
   return details;
 }
 
+function hasForcedEntry(entries) {
+  return (entries || []).some((entry) => entry && entry.forced);
+}
+
+function appendIoSection(parent, title, entries, options) {
+  if (forcedOnly && !hasForcedEntry(entries)) {
+    return;
+  }
+  parent.appendChild(createNode(title, 2, renderRows(entries, options), true));
+}
+
 function renderRows(entries, options = {}) {
   const {
     allowActions = false,
@@ -961,10 +1006,15 @@ function renderRows(entries, options = {}) {
   if (filtered.length === 0) {
     const empty = document.createElement("div");
     empty.className = "empty";
-    const message =
-      entries && entries.length > 0 && currentFilter.trim()
-        ? "No matches"
-        : "No entries";
+    let message = "No entries";
+    if (forcedOnly) {
+      message =
+        entries && entries.some((entry) => entry && entry.forced)
+          ? "No forced matches"
+          : "No forced values";
+    } else if (entries && entries.length > 0 && currentFilter.trim()) {
+      message = "No matches";
+    }
     empty.textContent = message;
     wrapper.appendChild(empty);
     return wrapper;
@@ -1265,6 +1315,7 @@ function render(state) {
   const activeInput = captureActiveInput();
   updateScanLabel(state);
   updateForcePolicy();
+  updateForcedFilter(state);
   sections.innerHTML = "";
 
   // Read + write + force/release work on the simulator AND on remote attach (the adapter forwards
@@ -1275,53 +1326,32 @@ function render(state) {
   writeHint.className = "write-hint";
   writeHint.textContent = "Outputs and memory are program-driven — use Force to override.";
   ioContent.appendChild(writeHint);
-  ioContent.appendChild(
-    createNode(
-      "Inputs",
-      2,
-      renderRows(state.inputs, {
-        allowActions: true,
-        showAddress: true,
-        allowWrite: currentAccess.allowWrite,
-        allowForce: currentAccess.allowForce,
-        allowRelease: currentAccess.allowRelease,
-        remoteReason: currentAccess.reason,
-      }),
-      true
-    )
-  );
-  ioContent.appendChild(
-    createNode(
-      "Outputs",
-      2,
-      renderRows(state.outputs, {
-        allowActions: true,
-        showAddress: true,
-        allowWrite: false,
-        allowForce: currentAccess.allowForce,
-        allowRelease: currentAccess.allowRelease,
-        remoteReason: currentAccess.reason,
-        writeDisabledReason: "Program-driven — use Force to override",
-      }),
-      true
-    )
-  );
-  ioContent.appendChild(
-    createNode(
-      "Memory",
-      2,
-      renderRows(state.memory, {
-        allowActions: true,
-        showAddress: true,
-        allowWrite: false,
-        allowForce: currentAccess.allowForce,
-        allowRelease: currentAccess.allowRelease,
-        remoteReason: currentAccess.reason,
-        writeDisabledReason: "Program-driven — use Force to override",
-      }),
-      true
-    )
-  );
+  appendIoSection(ioContent, "Inputs", state.inputs, {
+    allowActions: true,
+    showAddress: true,
+    allowWrite: currentAccess.allowWrite,
+    allowForce: currentAccess.allowForce,
+    allowRelease: currentAccess.allowRelease,
+    remoteReason: currentAccess.reason,
+  });
+  appendIoSection(ioContent, "Outputs", state.outputs, {
+    allowActions: true,
+    showAddress: true,
+    allowWrite: false,
+    allowForce: currentAccess.allowForce,
+    allowRelease: currentAccess.allowRelease,
+    remoteReason: currentAccess.reason,
+    writeDisabledReason: "Program-driven — use Force to override",
+  });
+  appendIoSection(ioContent, "Memory", state.memory, {
+    allowActions: true,
+    showAddress: true,
+    allowWrite: false,
+    allowForce: currentAccess.allowForce,
+    allowRelease: currentAccess.allowRelease,
+    remoteReason: currentAccess.reason,
+    writeDisabledReason: "Program-driven — use Force to override",
+  });
 
   sections.appendChild(createNode("I/O", 0, ioContent, true));
   updateReleaseAll(state);
