@@ -15,13 +15,13 @@
 
 /* Flyout background */
 .blocklyFlyoutBackground {
-  fill: var(--trust-overlay) !important;
+  fill: var(--trust-surface-raised) !important;
   fill-opacity: 0.95 !important;
 }
 
 /* Toolbox background */
 .blocklyToolboxDiv {
-  background-color: var(--trust-overlay) !important;
+  background-color: var(--trust-surface) !important;
   border-right: 1px solid var(--trust-border) !important;
 }
 
@@ -107,6 +107,7 @@
   padding: 4px 8px !important;
   border-radius: 4px;
   margin: 2px 4px;
+  background: transparent !important;
 }
 
 .blocklyTreeRow:hover {

@@ -13,7 +13,7 @@ export function registerPLCBlocks() {
         .appendField(new Blockly.FieldTextInput('%QX0.0'), 'ADDRESS');
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
-      this.setColour(230);
+      this.setStyle('io_blocks');
       this.setTooltip('Write digital output');
       this.setHelpUrl('');
     }
@@ -26,7 +26,7 @@ export function registerPLCBlocks() {
         .appendField('Read')
         .appendField(new Blockly.FieldTextInput('%IX0.0'), 'ADDRESS');
       this.setOutput(true, 'Boolean');
-      this.setColour(230);
+      this.setStyle('io_blocks');
       this.setTooltip('Read digital input');
       this.setHelpUrl('');
     }
@@ -40,7 +40,7 @@ export function registerPLCBlocks() {
         .appendField(new Blockly.FieldTextInput('comment'), 'TEXT');
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
-      this.setColour(160);
+      this.setStyle('comment_blocks');
       this.setTooltip('Add a comment');
       this.setHelpUrl('');
     }
@@ -62,7 +62,7 @@ export function registerPLCBlocks() {
         .appendField(new Blockly.FieldVariable('timer1_Q'), 'Q');
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
-      this.setColour(290);
+      this.setStyle('timer_blocks');
       this.setTooltip('On-Delay Timer');
 this.setHelpUrl('');
     }
@@ -87,7 +87,7 @@ this.setHelpUrl('');
         .appendField(new Blockly.FieldVariable('counter1_Q'), 'Q');
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
-      this.setColour(290);
+      this.setStyle('counter_blocks');
       this.setTooltip('Up Counter');
       this.setHelpUrl('');
     }
@@ -106,7 +106,7 @@ this.setHelpUrl('');
           ['≥', 'GTE']
         ];
         this.setHelpUrl('');
-        this.setColour(210);
+        this.setStyle('logic_blocks');
         this.setOutput(true, 'Boolean');
         this.appendValueInput('A');
         this.appendValueInput('B')

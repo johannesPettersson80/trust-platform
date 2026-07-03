@@ -3213,6 +3213,32 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     }
   });
 
+  test("Blockly uses the shared truST theme instead of raw toy hues", () => {
+    const editor = readSrc("blockly/webview/BlocklyEditor.tsx");
+    const blocks = readSrc("blockly/webview/blocklyBlocks.ts");
+    const css = readSrc("blockly/webview/blocklyTheme.css");
+    assert.ok(
+      editor.includes("Blockly.Theme.defineTheme(\"trust\"") &&
+        editor.includes("theme: createTrustBlocklyTheme()"),
+      "Blockly must inject a named truST Blockly theme"
+    );
+    assert.ok(
+      editor.includes("workspaceBackgroundColour: resolvedThemeColor(t.canvas)") &&
+        editor.includes("toolboxBackgroundColour: resolvedThemeColor(t.surface)") &&
+        editor.includes("flyoutBackgroundColour: resolvedThemeColor(t.surfaceRaised)") &&
+        editor.includes("mixedThemeColor(primary, t.surface, 0.72)") &&
+        editor.includes("mixedThemeColor(primary, t.border, 0.58)"),
+      "Blockly workspace, toolbox, and flyout surfaces must derive from shared truST tokens"
+    );
+    assert.ok(!/colour:\\s*\"\\d+\"/.test(editor), "Blockly toolbox categories must not use raw hue strings");
+    assert.ok(!blocks.includes(".setColour("), "custom PLC Blockly blocks must use named block styles, not raw hue colours");
+    assert.ok(
+      css.includes("background-color: var(--trust-surface)") &&
+        css.includes("fill: var(--trust-surface-raised)"),
+      "Blockly toolbox and flyout CSS must stay on shared surface tokens"
+    );
+  });
+
   test("Blockly status counts visible blocks, not serialized top-level stacks", () => {
     const src = readSrc("blockly/webview/BlocklyEditor.tsx");
     assert.ok(

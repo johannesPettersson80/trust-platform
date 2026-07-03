@@ -57,14 +57,14 @@
   --trust-ladder-body: color-mix(in srgb, var(--trust-canvas) 78%, var(--trust-surface) 22%);
   --trust-ladder-text: var(--trust-text);
 
-  --trust-block-logic: #5c81a6;
-  --trust-block-loop: #5ca65c;
-  --trust-block-math: #5c68a6;
-  --trust-block-variables: #a55b99;
-  --trust-block-functions: #9a5ca6;
-  --trust-block-io: #d19a4d;
-  --trust-block-timer: #d1684d;
-  --trust-block-counter: #4d97d1;
+  --trust-block-logic: #55708c;
+  --trust-block-loop: #607d67;
+  --trust-block-math: #60688d;
+  --trust-block-variables: #875f81;
+  --trust-block-functions: #756286;
+  --trust-block-io: #9a764b;
+  --trust-block-timer: #916653;
+  --trust-block-counter: #547c98;
 
   --trust-radius-sm: 4px;
   --trust-radius: 6px;

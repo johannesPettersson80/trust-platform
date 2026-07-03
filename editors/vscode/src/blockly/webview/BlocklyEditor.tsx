@@ -5,10 +5,68 @@ import { registerPLCBlocks } from "./blocklyBlocks";
 import { PropertiesPanel } from "./PropertiesPanel";
 import { CodePanel } from "./CodePanel";
 import { useRightPaneResize } from "../../visual/runtime/webview/useRightPaneResize";
-import { t } from "../../webview/theme";
+import { canvasColor, t } from "../../webview/theme";
 import "./styles.css";
 import "./blocklyTheme.css";
 import "../../visual/runtime/webview/rightPaneResize.css";
+
+type RgbColor = { r: number; g: number; b: number };
+
+function parseRgbColor(color: string): RgbColor | undefined {
+  const trimmed = color.trim();
+  const rgb = trimmed.match(/^rgba?\(\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)/i);
+  if (rgb) {
+    return {
+      r: Math.max(0, Math.min(255, Math.round(Number(rgb[1])))),
+      g: Math.max(0, Math.min(255, Math.round(Number(rgb[2])))),
+      b: Math.max(0, Math.min(255, Math.round(Number(rgb[3])))),
+    };
+  }
+
+  const hex = trimmed.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (!hex) {
+    return undefined;
+  }
+  const value = hex[1];
+  if (value.length === 3) {
+    return {
+      r: parseInt(value[0] + value[0], 16),
+      g: parseInt(value[1] + value[1], 16),
+      b: parseInt(value[2] + value[2], 16),
+    };
+  }
+  return {
+    r: parseInt(value.slice(0, 2), 16),
+    g: parseInt(value.slice(2, 4), 16),
+    b: parseInt(value.slice(4, 6), 16),
+  };
+}
+
+function toHexColor(color: RgbColor): string {
+  const part = (value: number) => Math.max(0, Math.min(255, value)).toString(16).padStart(2, "0");
+  return `#${part(color.r)}${part(color.g)}${part(color.b)}`;
+}
+
+function resolvedThemeColor(token: string): string {
+  const resolved = canvasColor(token);
+  const parsed = parseRgbColor(resolved);
+  return parsed ? toHexColor(parsed) : resolved;
+}
+
+function mixedThemeColor(primary: string, background: string, primaryWeight: number): string {
+  const primaryColor = parseRgbColor(resolvedThemeColor(primary));
+  const backgroundColor = parseRgbColor(resolvedThemeColor(background));
+  if (!primaryColor || !backgroundColor) {
+    return resolvedThemeColor(primary);
+  }
+
+  const secondaryWeight = 1 - primaryWeight;
+  return toHexColor({
+    r: Math.round(primaryColor.r * primaryWeight + backgroundColor.r * secondaryWeight),
+    g: Math.round(primaryColor.g * primaryWeight + backgroundColor.g * secondaryWeight),
+    b: Math.round(primaryColor.b * primaryWeight + backgroundColor.b * secondaryWeight),
+  });
+}
 
 /**
  * Main Blockly Editor Component
@@ -40,6 +98,62 @@ export const BlocklyEditor: React.FC = () => {
     resizeHandleProps,
   } = useRightPaneResize("blockly");
 
+  const createTrustBlocklyTheme = useCallback(() => {
+    const block = (primary: string) => ({
+      colourPrimary: resolvedThemeColor(primary),
+      colourSecondary: mixedThemeColor(primary, t.surface, 0.72),
+      colourTertiary: mixedThemeColor(primary, t.border, 0.58),
+    });
+
+    return Blockly.Theme.defineTheme("trust", {
+      base: Blockly.Themes.Classic,
+      blockStyles: {
+        logic_blocks: block(t.blockLogic),
+        loop_blocks: block(t.blockLoop),
+        math_blocks: block(t.blockMath),
+        text_blocks: block(t.blockFunctions),
+        variable_blocks: block(t.blockVariables),
+        variable_dynamic_blocks: block(t.blockVariables),
+        procedure_blocks: block(t.blockFunctions),
+        list_blocks: block(t.blockFunctions),
+        colour_blocks: block(t.blockMath),
+        io_blocks: block(t.blockIo),
+        timer_blocks: block(t.blockTimer),
+        counter_blocks: block(t.blockCounter),
+        comment_blocks: block(t.protocolMuted),
+      },
+      categoryStyles: {
+        logic_category: { colour: resolvedThemeColor(t.blockLogic) },
+        loop_category: { colour: resolvedThemeColor(t.blockLoop) },
+        math_category: { colour: resolvedThemeColor(t.blockMath) },
+        variable_category: { colour: resolvedThemeColor(t.blockVariables) },
+        function_category: { colour: resolvedThemeColor(t.blockFunctions) },
+        io_category: { colour: resolvedThemeColor(t.blockIo) },
+        timer_category: { colour: resolvedThemeColor(t.blockTimer) },
+        counter_category: { colour: resolvedThemeColor(t.blockCounter) },
+        comment_category: { colour: resolvedThemeColor(t.protocolMuted) },
+      },
+      componentStyles: {
+        workspaceBackgroundColour: resolvedThemeColor(t.canvas),
+        toolboxBackgroundColour: resolvedThemeColor(t.surface),
+        toolboxForegroundColour: resolvedThemeColor(t.text),
+        flyoutBackgroundColour: resolvedThemeColor(t.surfaceRaised),
+        flyoutForegroundColour: resolvedThemeColor(t.text),
+        flyoutOpacity: 0.96,
+        scrollbarColour: resolvedThemeColor(t.border),
+        scrollbarOpacity: 0.72,
+        insertionMarkerColour: resolvedThemeColor(t.accent),
+        insertionMarkerOpacity: 0.38,
+        markerColour: resolvedThemeColor(t.accent),
+        cursorColour: resolvedThemeColor(t.accent),
+        selectedGlowColour: resolvedThemeColor(t.accent),
+        selectedGlowOpacity: 0.82,
+        replacementGlowColour: resolvedThemeColor(t.warn),
+        replacementGlowOpacity: 0.42,
+      },
+    });
+  }, []);
+
   const applyBlocklyTheme = useCallback(() => {
     const root = workspaceRef.current;
     if (!root) {
@@ -62,7 +176,8 @@ export const BlocklyEditor: React.FC = () => {
       background.style.fill = canvas;
       background.setAttribute("fill", canvas);
     });
-  }, []);
+    blocklyWorkspaceRef.current?.setTheme(createTrustBlocklyTheme());
+  }, [createTrustBlocklyTheme]);
 
   const refreshBlockCount = useCallback(() => {
     setBlockCount(blocklyWorkspaceRef.current?.getAllBlocks(false).length ?? 0);
@@ -80,6 +195,7 @@ export const BlocklyEditor: React.FC = () => {
     registerPLCBlocks();
 
     const blocklyWorkspace = Blockly.inject(workspaceRef.current, {
+      theme: createTrustBlocklyTheme(),
       toolbox: getToolboxXML(),
       grid: {
         spacing: 20,
@@ -149,7 +265,7 @@ export const BlocklyEditor: React.FC = () => {
       (window as any).blocklyWorkspace = null;
       console.log("Blockly workspace cleanup");
     };
-  }, [applyBlocklyTheme, parseError, refreshBlockCount]);
+  }, [applyBlocklyTheme, createTrustBlocklyTheme, parseError, refreshBlockCount]);
 
   // Update workspace when data changes
   useEffect(() => {
@@ -219,7 +335,7 @@ export const BlocklyEditor: React.FC = () => {
         {
           kind: "category",
           name: "Logic",
-          colour: "210",
+          categorystyle: "logic_category",
           contents: [
             { kind: "block", type: "controls_if" },
             { kind: "block", type: "logic_compare" },
@@ -231,7 +347,7 @@ export const BlocklyEditor: React.FC = () => {
         {
           kind: "category",
           name: "Loops",
-          colour: "120",
+          categorystyle: "loop_category",
           contents: [
             { kind: "block", type: "controls_whileUntil" },
             { kind: "block", type: "controls_for" },
@@ -242,7 +358,7 @@ export const BlocklyEditor: React.FC = () => {
         {
           kind: "category",
           name: "Math",
-          colour: "230",
+          categorystyle: "math_category",
           contents: [
             { kind: "block", type: "math_number" },
             { kind: "block", type: "math_arithmetic" },
@@ -257,19 +373,19 @@ export const BlocklyEditor: React.FC = () => {
         {
           kind: "category",
           name: "Variables",
-          colour: "330",
+          categorystyle: "variable_category",
           custom: "VARIABLE",
         },
         {
           kind: "category",
           name: "Functions",
-          colour: "290",
+          categorystyle: "function_category",
           custom: "PROCEDURE",
         },
         {
           kind: "category",
           name: "PLC I/O",
-          colour: "160",
+          categorystyle: "io_category",
           contents: [
             { kind: "block", type: "io_digital_write" },
             { kind: "block", type: "io_digital_read" },
@@ -278,19 +394,19 @@ export const BlocklyEditor: React.FC = () => {
         {
           kind: "category",
           name: "PLC Timers",
-          colour: "65",
+          categorystyle: "timer_category",
           contents: [{ kind: "block", type: "timer_ton" }],
         },
         {
           kind: "category",
           name: "PLC Counters",
-          colour: "20",
+          categorystyle: "counter_category",
           contents: [{ kind: "block", type: "counter_ctu" }],
         },
         {
           kind: "category",
           name: "Comments",
-          colour: "160",
+          categorystyle: "comment_category",
           contents: [{ kind: "block", type: "comment" }],
         },
       ],

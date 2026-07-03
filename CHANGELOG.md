@@ -273,6 +273,9 @@ Target release: `v0.24.28`
 - vscode: invalid SFC, Statechart, and Blockly visual-editor files now show an
   `Open as text` recovery action so users can fix malformed JSON directly in
   the default VS Code editor.
+- vscode: Blockly now uses a truST-themed workspace, toolbox, flyout, and muted
+  block palette derived from the shared webview design tokens instead of raw
+  default Blockly hues.
 - vscode: Advanced integration cards in the Devices & Connections Add picker
   now use intentional badges (`MESH`, `OT`, `RT`, `CLOUD`) instead of truncated
   protocol fragments.
