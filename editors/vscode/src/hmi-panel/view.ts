@@ -356,15 +356,63 @@ export function getHtml(webview: vscode.Webview): string {
       elements.save.disabled = Object.keys(state.overrides).length === 0;
     }
 
-    function toDisplayValue(record) {
-      if (!record) {
-        return "n/a";
+    function dataTypeName(dataType) {
+      return typeof dataType === "string" ? dataType.trim().toUpperCase() : "";
+    }
+
+    function formatRealValue(value) {
+      const numeric = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(numeric)) {
+        return null;
       }
-      const value = record.v;
+      const text = String(value);
+      if (/[.eE]/.test(text)) {
+        return text;
+      }
+      return numeric.toFixed(1);
+    }
+
+    function formatHmiLiteral(value, dataType, fallback) {
+      if (value === null || value === undefined) {
+        return fallback;
+      }
+      const type = dataTypeName(dataType);
+      if (type === "BOOL" || typeof value === "boolean") {
+        if (typeof value === "string") {
+          const normalized = value.trim().toUpperCase();
+          if (normalized === "TRUE" || normalized === "1" || normalized === "BOOL(TRUE)") {
+            return "TRUE";
+          }
+          if (normalized === "FALSE" || normalized === "0" || normalized === "BOOL(FALSE)") {
+            return "FALSE";
+          }
+        }
+        return value === true || value === 1 ? "TRUE" : "FALSE";
+      }
+      if (type === "REAL" || type === "LREAL") {
+        const formatted = formatRealValue(value);
+        if (formatted !== null) {
+          return formatted;
+        }
+      }
       if (typeof value === "string") {
         return value;
       }
-      return JSON.stringify(value);
+      if (typeof value === "number") {
+        return Number.isFinite(value) ? String(value) : fallback;
+      }
+      try {
+        return JSON.stringify(value);
+      } catch {
+        return String(value);
+      }
+    }
+
+    function toDisplayValue(record, widget) {
+      if (!record) {
+        return "n/a";
+      }
+      return formatHmiLiteral(record.v, widget?.data_type, "n/a");
     }
 
     function currentPage() {
@@ -430,7 +478,7 @@ export function getHtml(webview: vscode.Webview): string {
 
       const value = document.createElement("div");
       value.className = "widget-value";
-      value.textContent = toDisplayValue(state.values?.values?.[widget.id]);
+      value.textContent = toDisplayValue(state.values?.values?.[widget.id], widget);
       card.appendChild(value);
 
       const meta = document.createElement("div");
@@ -614,24 +662,20 @@ export function getHtml(webview: vscode.Webview): string {
       );
     }
 
-    function formatProcessRawValue(value) {
-      if (value === null || value === undefined) {
-        return "--";
-      }
-      if (typeof value === "number") {
-        return Number.isFinite(value) ? String(value) : "--";
-      }
+    function formatProcessRawValue(value, dataType) {
+      return formatHmiLiteral(value, dataType, "--");
+    }
+
+    function processMapKeys(value, dataType) {
+      const keys = [formatProcessRawValue(value, dataType)];
       if (typeof value === "boolean") {
-        return value ? "true" : "false";
+        keys.push(value ? "true" : "false");
+      } else if (typeof value === "number" && Number.isFinite(value)) {
+        keys.push(String(value));
+      } else if (typeof value === "string") {
+        keys.push(value);
       }
-      if (typeof value === "string") {
-        return value;
-      }
-      try {
-        return JSON.stringify(value);
-      } catch {
-        return String(value);
-      }
+      return Array.from(new Set(keys));
     }
 
     function scaleProcessValue(value, scale) {
@@ -653,9 +697,9 @@ export function getHtml(webview: vscode.Webview): string {
       return outputMin + (outputMax - outputMin) * ratio;
     }
 
-    function formatProcessValue(value, format) {
+    function formatProcessValue(value, format, dataType) {
       if (typeof format !== "string" || !format.trim()) {
-        return formatProcessRawValue(value);
+        return formatProcessRawValue(value, dataType);
       }
       const pattern = format.trim();
       const fixedMatch = pattern.match(/\{:\.(\d+)f\}/);
@@ -665,9 +709,9 @@ export function getHtml(webview: vscode.Webview): string {
         return pattern.replace(/\{:\.(\d+)f\}/, formatted);
       }
       if (pattern.includes("{}")) {
-        return pattern.replace("{}", formatProcessRawValue(value));
+        return pattern.replace("{}", formatProcessRawValue(value, dataType));
       }
-      return (pattern + " " + formatProcessRawValue(value)).trim();
+      return (pattern + " " + formatProcessRawValue(value, dataType)).trim();
     }
 
     function renderProcessPage(page, widgets) {
@@ -739,13 +783,15 @@ export function getHtml(webview: vscode.Webview): string {
         const mapTable =
           binding?.map && typeof binding.map === "object" ? binding.map : null;
         if (mapTable) {
-          const key = formatProcessRawValue(resolved);
-          if (Object.prototype.hasOwnProperty.call(mapTable, key)) {
-            resolved = mapTable[key];
+          for (const key of processMapKeys(resolved, widget.data_type)) {
+            if (Object.prototype.hasOwnProperty.call(mapTable, key)) {
+              resolved = mapTable[key];
+              break;
+            }
           }
         }
         resolved = scaleProcessValue(resolved, binding?.scale);
-        const text = formatProcessValue(resolved, binding?.format);
+        const text = formatProcessValue(resolved, binding?.format, widget.data_type);
         if (attribute === "text") {
           target.textContent = text;
         } else {

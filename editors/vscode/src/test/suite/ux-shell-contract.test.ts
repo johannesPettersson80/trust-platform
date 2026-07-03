@@ -2668,6 +2668,25 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     }
   });
 
+  test("HMI preview formats live values like the rest of truST", () => {
+    const src = readSrc("hmi-panel/view.ts");
+    assert.ok(
+      src.includes("function formatHmiLiteral") &&
+        src.includes('return "TRUE";') &&
+        src.includes('return "FALSE";'),
+      "HMI preview must format BOOL values as IEC TRUE/FALSE, matching Live Values"
+    );
+    assert.ok(
+      src.includes("function formatRealValue") && src.includes("numeric.toFixed(1)"),
+      "HMI preview must keep at least one decimal for REAL/LREAL values"
+    );
+    assert.ok(
+      src.includes("function processMapKeys") &&
+        src.includes('keys.push(value ? "true" : "false")'),
+      "HMI process maps must remain compatible with existing lowercase true/false map keys"
+    );
+  });
+
   test("HMI preview schedules descriptor refreshes from edit save and watcher events", () => {
     const src = readSrc("hmiPanel.ts");
     for (const token of [
