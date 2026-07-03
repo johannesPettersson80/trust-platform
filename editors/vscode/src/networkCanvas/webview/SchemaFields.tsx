@@ -155,6 +155,18 @@ function itemName(field: CommFieldSchema): string {
   return label || "item";
 }
 
+function sentenceFieldLabel(field: CommFieldSchema): string {
+  const label = field.label.trim();
+  if (!label) {
+    return "items";
+  }
+  const [firstWord = ""] = label.split(/\s+/, 1);
+  if (/^[A-Z0-9]+$/.test(firstWord) && /[A-Z]/.test(firstWord)) {
+    return label;
+  }
+  return label.charAt(0).toLowerCase() + label.slice(1);
+}
+
 function optionLabel(field: CommFieldSchema, value: string): string {
   if ((field.type === "bool" || field.type === "boolean") && (value === "true" || value === "false")) {
     return value === "true" ? "On" : "Off";
@@ -227,9 +239,10 @@ function emptyArrayMessage(field: CommFieldSchema, canAdd: boolean): string {
       ? "No globals selected yet. Use Choose globals to pick project variables, or add a pattern manually."
       : "No globals selected yet.";
   }
+  const label = sentenceFieldLabel(field);
   return canAdd
-    ? `No ${field.label.toLowerCase()} yet. Add an item below.`
-    : `No ${field.label.toLowerCase()} yet.`;
+    ? `No ${label} yet. Add an item below.`
+    : `No ${label} yet.`;
 }
 
 function valueKind(value: unknown): "number" | "boolean" | "text" {

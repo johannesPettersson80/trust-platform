@@ -2422,6 +2422,19 @@ suite("S-24 — Libraries surface contract", () => {
       "curated update state must prefer the vendored package version before project-info"
     );
   });
+
+  test("library symbol counts use real singular/plural copy", () => {
+    const source = readSrc("libraries.ts");
+    assert.ok(
+      source.includes('function countLabel(count: number, singular: string') &&
+        source.includes('countLabel(symbols.length, "symbol")'),
+      "Libraries must use a shared countLabel helper for symbol availability"
+    );
+    assert.ok(
+      !source.includes('${symbols.length} symbols available'),
+      "Libraries must not render awkward copy such as '1 symbols available'"
+    );
+  });
 });
 
 suite("VIS — visual editors follow the shared Run + Live Values model", () => {
@@ -3142,6 +3155,19 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     const fieldSrc = readSrc("networkCanvas/webview/SchemaFields.tsx");
     const addSrc = readSrc("networkCanvas/webview/AddDevicePanel.tsx");
     const themeSrc = readSrc("webview/theme.css");
+    const runtimeFieldsSrc = fs.readFileSync(
+      path.join(
+        workspaceRoot(),
+        "crates",
+        "trust-runtime",
+        "src",
+        "control",
+        "comm_handlers",
+        "schema",
+        "fields.rs"
+      ),
+      "utf8"
+    );
 
     assert.ok(
       fieldSrc.includes('field.type === "json_array"') &&
@@ -3179,6 +3205,17 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
         !fieldSrc.includes('<option value="false">false</option>') &&
         !fieldSrc.includes('<option value="true">true</option>'),
       "boolean protocol fields must render native checkboxes with On/Off labels, not dropdowns or raw true/false"
+    );
+    assert.ok(
+      fieldSrc.includes("function sentenceFieldLabel") &&
+        fieldSrc.includes("/^[A-Z0-9]+$/.test(firstWord)") &&
+        fieldSrc.includes("const label = sentenceFieldLabel(field);"),
+      "generic array empty states must preserve acronym field labels such as TLS ALPN and CPU affinity"
+    );
+    assert.ok(
+      runtimeFieldsSrc.includes("Existing saved passwords are not shown here.") &&
+        !runtimeFieldsSrc.includes("It is never returned by schema defaults."),
+      "secret-field help must use product copy instead of schema-defaults wording"
     );
     assert.ok(
       addSrc.includes('import { coerce, Field } from "./SchemaFields"'),

@@ -203,7 +203,7 @@ pub(super) fn mqtt_fields() -> Vec<CommFieldSchema> {
             "secret",
             serde_json::Value::Null,
             false,
-            "Broker password. It is never returned by schema defaults.",
+            "Broker password. Existing saved passwords are not shown here.",
         ))),
         field(
             "tls",
@@ -536,7 +536,7 @@ pub(super) fn opcua_fields() -> Vec<CommFieldSchema> {
             "secret",
             serde_json::Value::Null,
             false,
-            "Password for authenticated OPC UA clients. It is never returned by schema defaults.",
+            "Password for authenticated OPC UA clients. Existing saved passwords are not shown here.",
         ))),
     ]
 }

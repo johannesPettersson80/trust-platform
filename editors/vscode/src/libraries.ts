@@ -819,6 +819,10 @@ async function requireProjectRoot(): Promise<vscode.Uri | undefined> {
   }
 }
 
+function countLabel(count: number, singular: string, plural = `${singular}s`): string {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
 async function viewEntryForDependency(
   context: vscode.ExtensionContext,
   root: vscode.Uri,
@@ -853,7 +857,7 @@ async function viewEntryForDependency(
       ? "Path is missing. Fix or remove this library."
       : status === "resolving"
         ? "Waiting for the dependency resolver to pin this Git library."
-        : `${symbols.length} symbols available`,
+        : `${countLabel(symbols.length, "symbol")} available`,
     symbols,
     updateAvailable,
     canFixPath: status === "failed" && Boolean(dependency.path),
