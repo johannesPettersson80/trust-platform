@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  ReactFlow,
   Background,
   BackgroundVariant,
+  Controls,
+  ReactFlow,
   type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
@@ -340,6 +341,7 @@ export const StateChartEditor: React.FC = () => {
               size={1}
               color="var(--trust-grid-line)"
             />
+            <Controls showInteractive={false} />
           </ReactFlow>
         )}
       </div>

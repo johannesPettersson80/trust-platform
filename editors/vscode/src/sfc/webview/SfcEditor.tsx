@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
   Background,
   BackgroundVariant,
+  Controls,
   MarkerType,
   ReactFlow,
   type ReactFlowInstance,
@@ -514,6 +515,7 @@ export const SfcEditor: React.FC = () => {
               size={1}
               color="var(--trust-grid-line)"
             />
+            <Controls showInteractive={false} />
           </ReactFlow>
         )}
 

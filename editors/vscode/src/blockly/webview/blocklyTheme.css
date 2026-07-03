@@ -25,6 +25,13 @@
   border-right: 1px solid var(--trust-border) !important;
 }
 
+.blocklyToolboxContents:focus-visible,
+.blocklyToolboxCategory:focus-visible,
+.blocklyTreeRow:focus-visible {
+  outline: 2px solid var(--trust-accent) !important;
+  outline-offset: -2px !important;
+}
+
 /* Main workspace background */
 .blocklySvg,
 .blocklyMainBackground {

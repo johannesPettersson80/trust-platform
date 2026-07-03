@@ -243,6 +243,9 @@ Target release: `v0.24.28`
 
 ### Fixed
 
+- vscode: visual editors now share keyboard/canvas chrome: Blockly toolbox
+  focus uses the truST focus ring, and SFC/Statechart expose the same themed
+  canvas zoom controls as Devices & Connections.
 - trust-runtime/vscode: stopped/configured Devices & Connections nodes now use
   one consistent "runtime is not running" state phrase across runtime and
   endpoint inspectors instead of mixing project-file and live-health wording.
