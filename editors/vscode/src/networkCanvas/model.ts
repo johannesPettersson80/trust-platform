@@ -480,7 +480,7 @@ function firstRunSimulatedDevice(
     id: "first-run:simulated",
     name: "Drive A",
     protocol: "simulated",
-    protocolTitle: "Simulated I/O",
+    protocolTitle: "Simulated",
     status: connected ? "connected" : "pending",
     statusText: connected ? "Connected" : "Waiting for runtime I/O",
     liveValues,
@@ -593,9 +593,9 @@ function protocolLabel(protocol: NetworkCanvasProtocolId): string {
     case "gpio":
       return "GPIO";
     case "loopback":
-      return "Loopback I/O";
+      return "Loopback";
     case "simulated":
-      return "Simulated I/O";
+      return "Simulated";
   }
 }
 

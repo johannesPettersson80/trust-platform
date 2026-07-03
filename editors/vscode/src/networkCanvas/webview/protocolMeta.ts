@@ -67,7 +67,7 @@ const PROTOCOL_NAMES: Record<string, string> = {
   federation: "Federation",
   gpio: "GPIO",
   simulated: "Simulated",
-  loopback: "Loopback I/O",
+  loopback: "Loopback",
   web: "Web",
 };
 

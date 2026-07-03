@@ -1232,6 +1232,11 @@ suite("Network Canvas — add picker taxonomy", function () {
     );
   });
 
+  test("local I/O endpoint titles leave the I/O role to the node band", () => {
+    assert.strictEqual(protocolName("simulated"), "Simulated");
+    assert.strictEqual(protocolName("loopback"), "Loopback");
+  });
+
   test("ADD_PICKER_GROUPS is the canonical S-09 group order", () => {
     assert.deepStrictEqual(ADD_PICKER_GROUPS.map((c) => c.key), [
       "devices_io",
