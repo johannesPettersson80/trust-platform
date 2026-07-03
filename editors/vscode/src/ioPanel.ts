@@ -1735,6 +1735,22 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
         line-height: 1.35;
       }
 
+      .force-policy {
+        margin: 4px 12px 8px;
+        padding: 5px 8px;
+        border: 1px solid var(--trust-border-subtle);
+        border-left: 3px solid var(--trust-warn);
+        border-radius: 4px;
+        background: color-mix(in srgb, var(--trust-warn) 8%, var(--trust-surface));
+        color: var(--trust-text);
+        font-size: 11px;
+        line-height: 1.35;
+      }
+
+      .force-policy.armed-target {
+        background: color-mix(in srgb, var(--trust-warn) 12%, var(--trust-surface));
+      }
+
       /* One shared grid for the whole section so every row — BOOL or numeric, with or
          without a write-box — lines its VALUE/TYPE/STATE/ACTIONS up under the same headers.
          Rows use subgrid so the column tracks are shared, not re-derived per row. */
@@ -2226,6 +2242,11 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
         <span id="targetLabel" class="target-label" title="Simulator (this computer)">Simulator (this computer)</span>
         <span id="scanLabel" class="scan-label" title="No runtime scan has been received yet">scan --</span>
       </div>
+      <div
+        id="forcePolicy"
+        class="force-policy"
+        aria-live="polite"
+      >Force policy: simulator pins immediately; managed/remote targets require Arm force first.</div>
       <div class="header-search">
         <input id="filter" placeholder="Filter by name or address" />
         <div class="numeric-format" aria-label="Numeric display format">

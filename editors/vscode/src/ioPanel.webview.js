@@ -16,6 +16,7 @@ const settingsCancel = document.getElementById("settingsCancel");
 const runtimeStatusText = document.getElementById("runtimeStatusText");
 const targetLabel = document.getElementById("targetLabel");
 const scanLabel = document.getElementById("scanLabel");
+const forcePolicy = document.getElementById("forcePolicy");
 const runtimeStart = document.getElementById("runtimeStart");
 const modeSimulate = document.getElementById("modeSimulate");
 const modeOnline = document.getElementById("modeOnline");
@@ -200,6 +201,17 @@ function isAutoExpiringStatusText(message) {
 
 function forceRequiresArming() {
   return currentMode !== "simulate" || currentRuntimeState === "connected";
+}
+
+function updateForcePolicy() {
+  if (!forcePolicy) {
+    return;
+  }
+  const requiresArm = forceRequiresArming();
+  forcePolicy.textContent = requiresArm
+    ? "Force policy: this target requires Arm force first; simulator pins immediately."
+    : "Force policy: simulator pins immediately; managed/remote targets require Arm force first.";
+  forcePolicy.classList.toggle("armed-target", requiresArm);
 }
 
 function resetForceArming() {
@@ -565,6 +577,7 @@ function applyRuntimeStatus(payload) {
     targetLabel.textContent = label;
     targetLabel.title = payload.endpoint || label;
   }
+  updateForcePolicy();
 }
 
 function clearUnavailableRuntimeStatus(message) {
@@ -1236,6 +1249,7 @@ function restoreActiveInput(state) {
 function render(state) {
   const activeInput = captureActiveInput();
   updateScanLabel(state);
+  updateForcePolicy();
   sections.innerHTML = "";
 
   // Read + write + force/release work on the simulator AND on remote attach (the adapter forwards

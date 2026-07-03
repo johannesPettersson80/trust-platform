@@ -768,6 +768,19 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
       "the arming step must be visible in the sticky status banner"
     );
     assert.ok(
+      web.includes("function updateForcePolicy") &&
+        web.includes("simulator pins immediately") &&
+        web.includes("managed/remote targets require Arm force first") &&
+        web.includes("this target requires Arm force first"),
+      "the simulator-vs-managed force ceremony difference must be explained in the rendered panel"
+    );
+    assert.ok(
+      host.includes('id="forcePolicy"') &&
+        host.includes(".force-policy") &&
+        host.includes("Force policy: simulator pins immediately; managed/remote targets require Arm force first."),
+      "the force policy explanation must exist in the real Live Values webview HTML/CSS"
+    );
+    assert.ok(
       web.includes("Force remains armed for this target."),
       "release feedback must explain when the target remains armed for the session"
     );
