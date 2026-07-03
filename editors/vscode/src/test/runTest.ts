@@ -51,6 +51,8 @@ async function main(): Promise<void> {
   const runtimeName =
     process.platform === "win32" ? "trust-runtime.exe" : "trust-runtime";
   const runtimePath = cargoDebugBinary(repoRoot, runtimeName);
+  const devName = process.platform === "win32" ? "trust-dev.exe" : "trust-dev";
+  const devPath = cargoDebugBinary(repoRoot, devName);
 
   if (!configured) {
     buildRustPackage(repoRoot, "trust-lsp");
@@ -75,6 +77,7 @@ async function main(): Promise<void> {
     extensionTestsEnv: {
       ST_LSP_TEST_SERVER: serverPath,
       ST_RUNTIME_TEST_BIN: runtimePath,
+      ST_DEV_TEST_BIN: devPath,
     },
   });
 }

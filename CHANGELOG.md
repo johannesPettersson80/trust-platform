@@ -246,6 +246,12 @@ Target release: `v0.24.28`
 - trust-debug/trust-runtime: debug Variables and Watch/Evaluate output now show
   function block/program instance type names instead of leaking raw
   `Instance(id)` runtime handles.
+- trust-runtime: ST test assertion failures now format expected and actual
+  values as user-facing ST values instead of leaking Rust enum wrappers such as
+  `Int(1)` or `Real(1.5)`.
+- vscode: refreshing the native Test Explorer now preserves pass/fail state for
+  unchanged Structured Text tests instead of clearing the gutter/status evidence
+  immediately after a run.
 - vscode: Live Values now shows a `Forced (N)` filter chip when overrides are
   active, letting operators list only forced points before releasing or
   inspecting them.

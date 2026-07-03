@@ -7,7 +7,7 @@ use crate::stdlib::helpers::{
     coerce_to_common, common_kind, compare_common, require_arity, to_f64, CmpOp,
 };
 use crate::stdlib::StandardLibrary;
-use crate::value::Value;
+use crate::value::{format_user_value, Value};
 
 pub fn register(lib: &mut StandardLibrary) {
     lib.register("ASSERT_TRUE", &["IN"], assert_true);
@@ -58,8 +58,9 @@ fn assert_false(args: &[Value]) -> Result<Value, RuntimeError> {
 fn assert_equal(args: &[Value]) -> Result<Value, RuntimeError> {
     assert_compare(args, CmpOp::Eq, "ASSERT_EQUAL", |left, right| {
         format!(
-            "ASSERT_EQUAL failed: expected {:?}, actual {:?}",
-            left, right
+            "ASSERT_EQUAL failed: expected {}, actual {}",
+            format_user_value(left),
+            format_user_value(right)
         )
     })
 }
@@ -67,8 +68,9 @@ fn assert_equal(args: &[Value]) -> Result<Value, RuntimeError> {
 fn assert_not_equal(args: &[Value]) -> Result<Value, RuntimeError> {
     assert_compare(args, CmpOp::Ne, "ASSERT_NOT_EQUAL", |left, right| {
         format!(
-            "ASSERT_NOT_EQUAL failed: values should differ, left {:?}, right {:?}",
-            left, right
+            "ASSERT_NOT_EQUAL failed: values should differ, left {}, right {}",
+            format_user_value(left),
+            format_user_value(right)
         )
     })
 }
@@ -76,8 +78,9 @@ fn assert_not_equal(args: &[Value]) -> Result<Value, RuntimeError> {
 fn assert_greater(args: &[Value]) -> Result<Value, RuntimeError> {
     assert_compare(args, CmpOp::Gt, "ASSERT_GREATER", |value, bound| {
         format!(
-            "ASSERT_GREATER failed: value {:?} is not greater than bound {:?}",
-            value, bound
+            "ASSERT_GREATER failed: value {} is not greater than bound {}",
+            format_user_value(value),
+            format_user_value(bound)
         )
     })
 }
@@ -85,8 +88,9 @@ fn assert_greater(args: &[Value]) -> Result<Value, RuntimeError> {
 fn assert_less(args: &[Value]) -> Result<Value, RuntimeError> {
     assert_compare(args, CmpOp::Lt, "ASSERT_LESS", |value, bound| {
         format!(
-            "ASSERT_LESS failed: value {:?} is not less than bound {:?}",
-            value, bound
+            "ASSERT_LESS failed: value {} is not less than bound {}",
+            format_user_value(value),
+            format_user_value(bound)
         )
     })
 }
@@ -98,8 +102,9 @@ fn assert_greater_or_equal(args: &[Value]) -> Result<Value, RuntimeError> {
         "ASSERT_GREATER_OR_EQUAL",
         |value, bound| {
             format!(
-                "ASSERT_GREATER_OR_EQUAL failed: value {:?} is not >= bound {:?}",
-                value, bound
+                "ASSERT_GREATER_OR_EQUAL failed: value {} is not >= bound {}",
+                format_user_value(value),
+                format_user_value(bound)
             )
         },
     )
@@ -108,8 +113,9 @@ fn assert_greater_or_equal(args: &[Value]) -> Result<Value, RuntimeError> {
 fn assert_less_or_equal(args: &[Value]) -> Result<Value, RuntimeError> {
     assert_compare(args, CmpOp::Le, "ASSERT_LESS_OR_EQUAL", |value, bound| {
         format!(
-            "ASSERT_LESS_OR_EQUAL failed: value {:?} is not <= bound {:?}",
-            value, bound
+            "ASSERT_LESS_OR_EQUAL failed: value {} is not <= bound {}",
+            format_user_value(value),
+            format_user_value(bound)
         )
     })
 }

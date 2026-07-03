@@ -2,8 +2,10 @@
 
 #![allow(missing_docs)]
 
+mod display;
 mod reference;
 
+pub use display::*;
 pub use reference::*;
 pub use trust_runtime_core::value::datetime::*;
 pub use trust_runtime_core::value::defaults::*;

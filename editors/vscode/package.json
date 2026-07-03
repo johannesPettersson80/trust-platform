@@ -267,7 +267,12 @@
         "trust-lsp.runtime.cli.path": {
           "type": "string",
           "default": "",
-          "description": "Path to the trust-runtime CLI executable for running Structured Text tests (leave empty to use trust-runtime from PATH)."
+          "description": "Path to the trust-runtime CLI executable for runtime, compile, import/export, and connection flows (leave empty to use trust-runtime from PATH)."
+        },
+        "trust-lsp.dev.cli.path": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the trust-dev CLI executable for running Structured Text tests (leave empty to use trust-dev from PATH)."
         },
         "trust-lsp.visual.autoGenerateStCompanion": {
           "type": "boolean",

@@ -64,6 +64,16 @@ suite("ST test workflow integration (VS Code)", function () {
           vscode.ConfigurationTarget.Workspace
         );
     }
+    const devBin = process.env.ST_DEV_TEST_BIN;
+    if (devBin && devBin.trim().length > 0) {
+      await vscode.workspace
+        .getConfiguration("trust-lsp")
+        .update(
+          "dev.cli.path",
+          devBin,
+          vscode.ConfigurationTarget.Workspace
+        );
+    }
 
     const source = [
       "TEST_PROGRAM Pass_Case",
@@ -157,6 +167,25 @@ suite("ST test workflow integration (VS Code)", function () {
     assert.ok(fail, "Expected Fail_Case in state.");
     assert.strictEqual(pass?.status, "passed");
     assert.strictEqual(fail?.status, "failed");
+  });
+
+  test("refresh preserves results for tests that still exist", async () => {
+    await vscode.commands.executeCommand("trust-lsp.test.runOne", {
+      uri: testUri.toString(),
+      line: 1,
+      kind: "TEST_PROGRAM",
+      name: "Pass_Case",
+    });
+
+    await vscode.commands.executeCommand("testing.refreshTests");
+    await delay(500);
+
+    const state = (await vscode.commands.executeCommand(
+      "trust-lsp.test._state"
+    )) as LastResultEntry[] | undefined;
+    const pass = state?.find((entry) => entry.name === "Pass_Case");
+    assert.ok(pass, "Expected Pass_Case state to survive a test refresh.");
+    assert.strictEqual(pass?.status, "passed");
   });
 
   test("refresh clears stale results when a file no longer contains tests", async () => {

@@ -277,12 +277,30 @@ function resolveProjectRoot(args?: RunAllArgs | RunOneArgs): string | undefined 
   return first;
 }
 
-function resolveRuntimeBinary(context: vscode.ExtensionContext): string {
-  const envPath = process.env.ST_RUNTIME_TEST_BIN?.trim();
+function siblingTrustDevBinary(candidate: string | undefined): string | undefined {
+  if (!candidate || (!path.isAbsolute(candidate) && !candidate.includes(path.sep))) {
+    return undefined;
+  }
+  const suffix = process.platform === "win32" ? ".exe" : "";
+  const sibling = path.join(path.dirname(candidate), `trust-dev${suffix}`);
+  return fs.existsSync(sibling) ? sibling : undefined;
+}
+
+function resolveTestBinary(context: vscode.ExtensionContext): string {
+  const envPath = process.env.ST_DEV_TEST_BIN?.trim();
   if (envPath && fs.existsSync(envPath)) {
     return envPath;
   }
-  return getBinaryPath(context, "trust-runtime", "runtime.cli.path");
+  const envRuntimeSibling = siblingTrustDevBinary(process.env.ST_RUNTIME_TEST_BIN?.trim());
+  if (envRuntimeSibling) {
+    return envRuntimeSibling;
+  }
+  const configuredRuntime = getBinaryPath(context, "trust-runtime", "runtime.cli.path");
+  const configuredRuntimeSibling = siblingTrustDevBinary(configuredRuntime);
+  if (configuredRuntimeSibling) {
+    return configuredRuntimeSibling;
+  }
+  return getBinaryPath(context, "trust-dev", "dev.cli.path");
 }
 
 function runRuntimeCommand(
@@ -321,7 +339,7 @@ async function executeRuntimeTests(
   projectRoot: string,
   filter?: string
 ): Promise<RuntimePayload> {
-  const binary = resolveRuntimeBinary(context);
+  const binary = resolveTestBinary(context);
   const args = ["test", "--project", projectRoot, "--output", "json"];
   if (filter && filter.trim()) {
     args.push("--filter", filter.trim());
@@ -444,9 +462,30 @@ export function registerStTestIntegration(context: vscode.ExtensionContext): voi
     }
   }
 
-  function clearAllResults(): void {
-    resultByKey.clear();
-    stateByUriLine.clear();
+  function pruneResultsToDiscoveredTests(): void {
+    const validKeys = new Set(Array.from(testById.values()).map((test) => test.key));
+    for (const key of Array.from(resultByKey.keys())) {
+      if (!validKeys.has(key)) {
+        resultByKey.delete(key);
+      }
+    }
+    for (const [uriKey, lineMap] of Array.from(stateByUriLine.entries())) {
+      for (const [line, entry] of Array.from(lineMap.entries())) {
+        const entryUri = toUri(entry.uri);
+        const entryFsPath = entryUri?.fsPath;
+        if (!entryFsPath) {
+          lineMap.delete(line);
+          continue;
+        }
+        const key = discoveredTestKey(entryFsPath, entry.line, entry.kind, entry.name);
+        if (!validKeys.has(key)) {
+          lineMap.delete(line);
+        }
+      }
+      if (lineMap.size === 0) {
+        stateByUriLine.delete(uriKey);
+      }
+    }
     applyDecorations();
   }
 
@@ -565,7 +604,6 @@ export function registerStTestIntegration(context: vscode.ExtensionContext): voi
     const fileItems = new Map<string, vscode.TestItem>();
     testById.clear();
     itemById.clear();
-    clearAllResults();
 
     for (const uri of fileUris) {
       const projectRoot = resolveProjectRootFromUri(uri);
@@ -601,6 +639,7 @@ export function registerStTestIntegration(context: vscode.ExtensionContext): voi
     }
 
     controller.items.replace(Array.from(fileItems.values()));
+    pruneResultsToDiscoveredTests();
     updateTestItemState(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "");
   }
 
@@ -807,12 +846,11 @@ export function registerStTestIntegration(context: vscode.ExtensionContext): voi
   const runProfile = controller.createRunProfile(
     "Run",
     vscode.TestRunProfileKind.Run,
-    (request, token) => {
-      void (async () => {
-        const run = controller.createTestRun(request);
+    async (request, token) => {
+      const run = controller.createTestRun(request);
+      try {
         const selected = collectDiscoveredTests(request.include);
         if (selected.length === 0) {
-          run.end();
           return;
         }
 
@@ -869,7 +907,6 @@ export function registerStTestIntegration(context: vscode.ExtensionContext): voi
               }
             }
           }
-          run.end();
           return;
         }
 
@@ -900,8 +937,9 @@ export function registerStTestIntegration(context: vscode.ExtensionContext): voi
             run.errored(item, new vscode.TestMessage(message));
           }
         }
+      } finally {
         run.end();
-      })();
+      }
     },
     true
   );
