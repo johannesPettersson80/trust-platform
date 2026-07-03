@@ -4,6 +4,7 @@ interface IoEntry {
   name?: string;
   address: string;
   source?: string;
+  valueType?: string;
   writeTarget?: string;
   value: string;
   forced?: boolean;
@@ -691,7 +692,8 @@ export function mountStRuntimePanel(
       nameCell.appendChild(nameLabel);
 
       const display = splitDisplayValue(entry.value || "");
-      const displayType = display.type || typeFromAddress(entry.address);
+      const explicitType = String((entry.valueType || (entry as { value_type?: string }).value_type || (entry as { type?: string }).type) || "").trim();
+      const displayType = explicitType.toUpperCase() || display.type || typeFromAddress(entry.address);
       if (showAddress && entry.address) {
         const address = document.createElement("div");
         address.className = "address";

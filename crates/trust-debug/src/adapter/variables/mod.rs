@@ -15,4 +15,4 @@ mod set;
 mod state;
 mod write;
 
-pub(in crate::adapter) use format::format_value;
+pub(in crate::adapter) use format::{format_value, type_id_for_value, value_type_name};

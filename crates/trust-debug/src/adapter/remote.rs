@@ -290,6 +290,12 @@ impl RemoteSession {
                                 .get("source")
                                 .and_then(|source| source.as_str())
                                 .map(|source| source.to_string());
+                            let value_type = entry
+                                .get("valueType")
+                                .or_else(|| entry.get("value_type"))
+                                .or_else(|| entry.get("type"))
+                                .and_then(|value_type| value_type.as_str())
+                                .map(|value_type| value_type.to_ascii_uppercase());
                             let value = entry.get("value")?;
                             let value_str = if let Some(text) = value.as_str() {
                                 text.to_string()
@@ -304,6 +310,7 @@ impl RemoteSession {
                                 name,
                                 address,
                                 source,
+                                value_type,
                                 value: value_str,
                                 forced,
                             })

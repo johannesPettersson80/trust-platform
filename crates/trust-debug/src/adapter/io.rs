@@ -17,7 +17,7 @@ use crate::protocol::{
     IoReleaseArguments, IoStateEntry, IoStateEventBody, IoWriteArguments, Request,
 };
 
-use super::variables::format_value;
+use super::variables::{format_value, type_id_for_value, value_type_name};
 use super::{DebugAdapter, DispatchOutcome};
 
 impl DebugAdapter {
@@ -147,7 +147,19 @@ impl DebugAdapter {
             };
         }
 
-        let value = match parse_io_value(&address, &args.value) {
+        let runtime_handle = self.session.runtime_handle();
+        let mut runtime = match runtime_handle.try_lock() {
+            Ok(guard) => guard,
+            Err(std::sync::TryLockError::Poisoned(poisoned)) => poisoned.into_inner(),
+            Err(std::sync::TryLockError::WouldBlock) => {
+                return DispatchOutcome {
+                    responses: vec![self.error_response(&request, "runtime busy")],
+                    ..DispatchOutcome::default()
+                };
+            }
+        };
+        let value_type = value_type_for_io_address(&runtime, &address);
+        let value = match parse_io_value_for_type(&address, value_type, &args.value) {
             Ok(value) => value,
             Err(message) => {
                 return DispatchOutcome {
@@ -160,13 +172,11 @@ impl DebugAdapter {
         self.session
             .debug_control()
             .enqueue_io_write(address.clone(), value.clone());
-        if let Ok(mut runtime) = self.session.runtime_handle().try_lock() {
-            if let Err(err) = runtime.io_mut().write(&address, value.clone()) {
-                return DispatchOutcome {
-                    responses: vec![self.error_response(&request, &format!("{err}"))],
-                    ..DispatchOutcome::default()
-                };
-            }
+        if let Err(err) = runtime.io_mut().write(&address, value.clone()) {
+            return DispatchOutcome {
+                responses: vec![self.error_response(&request, &format!("{err}"))],
+                ..DispatchOutcome::default()
+            };
         }
         DispatchOutcome {
             responses: vec![self.ok_response::<Value>(&request, None)],
@@ -237,7 +247,8 @@ impl DebugAdapter {
                 }
             }
         };
-        let value = match parse_io_value(&address, &args.value) {
+        let value_type = value_type_for_io_address(&runtime, &address);
+        let value = match parse_io_value_for_type(&address, value_type, &args.value) {
             Ok(value) => value,
             Err(message) => {
                 return DispatchOutcome {
@@ -443,6 +454,9 @@ impl DebugAdapter {
                 name: None,
                 address: address_str,
                 source: None,
+                value_type: type_id_for_value(&value)
+                    .and_then(trust_runtime::io::io_value_type_name)
+                    .map(str::to_string),
                 value: format_value(&value),
                 forced: false,
             });
@@ -525,6 +539,18 @@ pub(super) fn resolve_io_address(
     find_io_address_in_entries(name, entries)
 }
 
+fn value_type_for_io_address(
+    runtime: &trust_runtime::Runtime,
+    address: &IoAddress,
+) -> Option<TypeId> {
+    runtime
+        .io()
+        .bindings()
+        .iter()
+        .find(|binding| binding.address == *address)
+        .and_then(|binding| binding.value_type)
+}
+
 pub(super) fn resolve_io_address_from_state(
     state: &IoStateEventBody,
     name: &str,
@@ -584,6 +610,65 @@ fn parse_io_value(address: &IoAddress, raw: &str) -> Result<RuntimeValue, String
     }
 }
 
+fn parse_io_value_for_type(
+    address: &IoAddress,
+    value_type: Option<TypeId>,
+    raw: &str,
+) -> Result<RuntimeValue, String> {
+    match value_type {
+        Some(TypeId::REAL) => {
+            if !matches!(address.size, IoSize::DWord) {
+                return Err("REAL I/O values require a DWORD address".to_string());
+            }
+            let value = raw
+                .trim()
+                .parse::<f32>()
+                .map_err(|_| "REAL inputs accept decimal values such as 1.5".to_string())?;
+            Ok(RuntimeValue::DWord(value.to_bits()))
+        }
+        Some(TypeId::TIME) => {
+            if !matches!(address.size, IoSize::DWord) {
+                return Err("TIME I/O values require a DWORD address".to_string());
+            }
+            let millis = parse_time_millis(raw)?;
+            let millis = u32::try_from(millis)
+                .map_err(|_| "TIME value out of range for DWORD milliseconds".to_string())?;
+            Ok(RuntimeValue::DWord(millis))
+        }
+        _ => parse_io_value(address, raw),
+    }
+}
+
+fn parse_time_millis(raw: &str) -> Result<u64, String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Err("TIME value cannot be empty".to_string());
+    }
+    if let Ok(value) = parse_numeric(trimmed) {
+        return Ok(value);
+    }
+    let upper = trimmed.to_ascii_uppercase();
+    let value = upper.strip_prefix("T#").ok_or_else(|| {
+        "TIME inputs accept milliseconds or IEC literals such as T#250ms".to_string()
+    })?;
+    let split_at = value
+        .find(|ch: char| ch.is_ascii_alphabetic())
+        .ok_or_else(|| "TIME literal requires a unit such as ms or s".to_string())?;
+    let (number, unit) = value.split_at(split_at);
+    let number = number
+        .parse::<u64>()
+        .map_err(|_| "invalid TIME literal number".to_string())?;
+    match unit {
+        "MS" => Ok(number),
+        "S" => number
+            .checked_mul(1_000)
+            .ok_or_else(|| "TIME literal is too large".to_string()),
+        "US" => Ok(number / 1_000),
+        "NS" => Ok(number / 1_000_000),
+        _ => Err("TIME literal unit must be ns, us, ms, or s".to_string()),
+    }
+}
+
 fn parse_bool(raw: &str) -> Option<bool> {
     match raw.trim().to_ascii_uppercase().as_str() {
         "TRUE" => Some(true),
@@ -620,6 +705,14 @@ pub(super) fn io_state_from_snapshot(snapshot: IoSnapshot) -> IoStateEventBody {
             .map(|entry| {
                 let name = entry.name.map(|name| name.to_string());
                 let address = format_io_address(&entry.address);
+                let value_type = entry
+                    .value_type
+                    .and_then(trust_runtime::io::io_value_type_name)
+                    .map(str::to_string)
+                    .or_else(|| match &entry.value {
+                        IoSnapshotValue::Value(value) => value_type_name(value),
+                        IoSnapshotValue::Error(_) | IoSnapshotValue::Unresolved => None,
+                    });
                 let value = match entry.value {
                     IoSnapshotValue::Value(value) => format_value(&value),
                     IoSnapshotValue::Error(err) => format!("error: {err}"),
@@ -629,6 +722,7 @@ pub(super) fn io_state_from_snapshot(snapshot: IoSnapshot) -> IoStateEventBody {
                     name,
                     address,
                     source: entry.source.map(|source| source.to_string()),
+                    value_type,
                     value,
                     forced: forced.iter().any(|forced| forced == &entry.address),
                 }

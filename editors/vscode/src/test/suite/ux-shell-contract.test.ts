@@ -831,6 +831,10 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
       ["visual/runtime/webview/stRuntimePanelController.ts", visualRuntime],
     ] as const) {
       assert.ok(source.includes("typeFromAddress"), `${name} must derive BOOL/WORD-style types from I/O addresses`);
+      assert.ok(
+        source.includes("valueType") && source.includes("typeFromAddress(entry"),
+        `${name} must prefer backend-provided I/O value types before address fallback`
+      );
       assert.ok(source.includes('sourceCell.className = "source-cell"'), `${name} must render source in its own column`);
       assert.ok(source.includes('typeCell.className = "type-cell"'), `${name} must render type in its own column`);
       assert.ok(source.includes('typeCell.textContent = displayType || "—"'), `${name} must show a stable type-cell value`);
@@ -2302,6 +2306,20 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
         !src.includes(legacyPattern),
         `HMI preview must not keep private raw VS Code chrome: ${legacyPattern}`
       );
+    }
+  });
+
+  test("HMI preview schedules descriptor refreshes from edit save and watcher events", () => {
+    const src = readSrc("hmiPanel.ts");
+    for (const token of [
+      "vscode.workspace.onDidChangeTextDocument",
+      "vscode.workspace.onDidSaveTextDocument",
+      'vscode.workspace.createFileSystemWatcher("**/hmi/*.{toml,svg}")',
+      'vscode.workspace.createFileSystemWatcher("**/hmi/views/*.view.toml")',
+      "scheduleSchemaRefresh();",
+      "DESCRIPTOR_REFRESH_DEBOUNCE_MS",
+    ]) {
+      assert.ok(src.includes(token), `HMI preview must keep descriptor refresh wiring: ${token}`);
     }
   });
 

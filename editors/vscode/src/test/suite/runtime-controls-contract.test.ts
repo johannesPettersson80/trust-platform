@@ -736,12 +736,15 @@ suite("truST sidebar — control surface contract", () => {
       memory: [
         { address: "%MX0.0", name: "Flag", value: "Bool(false)" },
         { address: "%MW0", name: "Count", value: "Int(42)" },
+        { address: "%MD4", name: "Delay", value: "T#250ms", valueType: "TIME" },
       ],
     });
     assert.strictEqual(state.outputs[0].value, "TRUE");
     assert.strictEqual(state.outputs[0].source, "MQTT topic trust/examples/mqtt/out");
     assert.strictEqual(state.memory[0].value, "FALSE");
     assert.strictEqual(state.memory[1].value, "42");
+    assert.strictEqual(state.memory[2].value, "T#250ms");
+    assert.strictEqual(state.memory[2].valueType, "TIME");
     assert.strictEqual(state.scan, 12841);
 
     const ioPanelSource = loadSource("ioPanel.ts");

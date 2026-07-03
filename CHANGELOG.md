@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.27`
+Target release: `v0.24.28`
 
 ### Added
 
@@ -258,6 +258,12 @@ Target release: `v0.24.27`
 - vscode: Live Values now includes a compact DEC/HEX/BIN display toggle for
   word-like numeric rows, rendering IEC-style `16#` and `2#` literals without
   changing write/force parsing.
+- trust-debug/vscode: Live Values now preserves configured I/O value types from
+  the runtime snapshot, so REAL and TIME rows render as typed values instead of
+  raw DWORDs and local writes accept `1.5` / `T#250ms` style values.
+- vscode: HMI Preview now refreshes through the shared descriptor debounce when
+  HMI descriptor or process SVG files are edited in an open workspace, keeping
+  the panel current without waiting for a separate manual refresh.
 - vscode: Live Values now clears stale connected/value rows as soon as a
   Structured Text debug session stops or disconnects, keeps remote
   disconnected targets labelled `Not connected` instead of fabricating

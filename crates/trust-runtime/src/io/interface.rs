@@ -73,13 +73,24 @@ impl IoInterface {
                 IoSnapshotValue::Unresolved
             } else {
                 match self.read(&binding.address) {
-                    Ok(value) => IoSnapshotValue::Value(value),
+                    Ok(value) => {
+                        let value = if let Some(value_type) = binding.value_type {
+                            coerce_from_io(value, value_type)
+                        } else {
+                            Ok(value)
+                        };
+                        match value {
+                            Ok(value) => IoSnapshotValue::Value(value),
+                            Err(err) => IoSnapshotValue::Error(err.to_string()),
+                        }
+                    }
                     Err(err) => IoSnapshotValue::Error(err.to_string()),
                 }
             };
             let entry = IoSnapshotEntry {
                 name,
                 address: binding.address.clone(),
+                value_type: binding.value_type,
                 value,
                 source: binding.source.clone(),
             };
@@ -389,5 +400,41 @@ mod tests {
             snapshot.inputs[0].source.as_deref(),
             Some("Modbus 127.0.0.1:1502 · input reg 0")
         );
+    }
+
+    #[test]
+    fn snapshot_carries_and_formats_typed_bindings() {
+        let mut interface = IoInterface::new();
+        interface.bind_typed(
+            "Speed",
+            IoAddress::parse("%MD0").expect("real address"),
+            TypeId::REAL,
+        );
+        interface.bind_typed(
+            "Delay",
+            IoAddress::parse("%MD4").expect("time address"),
+            TypeId::TIME,
+        );
+        interface
+            .write(&IoAddress::parse("%MD0").expect("real address"), Value::DWord(0x3FC0_0000))
+            .expect("write REAL bits");
+        interface
+            .write(&IoAddress::parse("%MD4").expect("time address"), Value::DWord(250))
+            .expect("write TIME millis");
+
+        let snapshot = interface.snapshot();
+
+        assert_eq!(snapshot.memory[0].value_type, Some(TypeId::REAL));
+        match &snapshot.memory[0].value {
+            IoSnapshotValue::Value(Value::Real(value)) => assert_eq!(*value, 1.5),
+            other => panic!("expected REAL snapshot value, got {other:?}"),
+        }
+        assert_eq!(snapshot.memory[1].value_type, Some(TypeId::TIME));
+        match &snapshot.memory[1].value {
+            IoSnapshotValue::Value(Value::Time(value)) => {
+                assert_eq!(*value, crate::value::Duration::from_millis(250));
+            }
+            other => panic!("expected TIME snapshot value, got {other:?}"),
+        }
     }
 }

@@ -57,6 +57,12 @@ export function registerHmiPanel(context: vscode.ExtensionContext): void {
   );
 
   context.subscriptions.push(
+    vscode.workspace.onDidChangeTextDocument((event) => {
+      if (!panel || !isRelevantForSchemaRefresh(event.document.uri)) {
+        return;
+      }
+      scheduleSchemaRefresh();
+    }),
     vscode.workspace.onDidSaveTextDocument((document) => {
       if (!panel || !isRelevantForSchemaRefresh(document.uri)) {
         return;

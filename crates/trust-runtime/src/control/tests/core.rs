@@ -2718,12 +2718,14 @@ END_PROGRAM
         inputs: vec![crate::io::IoSnapshotEntry {
             name: Some(SmolStr::new("Input0")),
             address: crate::io::IoAddress::parse("%IX0.0").expect("input address"),
+            value_type: None,
             value: crate::io::IoSnapshotValue::Value(crate::value::Value::Bool(true)),
             source: None,
         }],
         outputs: vec![crate::io::IoSnapshotEntry {
             name: Some(SmolStr::new("Output0")),
             address: crate::io::IoAddress::parse("%QX0.0").expect("output address"),
+            value_type: None,
             value: crate::io::IoSnapshotValue::Value(crate::value::Value::Bool(false)),
             source: None,
         }],
@@ -4187,6 +4189,7 @@ END_PROGRAM
         outputs: vec![crate::io::IoSnapshotEntry {
             name: Some(SmolStr::new("OUT0")),
             address: output.clone(),
+            value_type: None,
             value: crate::io::IoSnapshotValue::Value(crate::value::Value::Bool(false)),
             source: None,
         }],
@@ -4235,6 +4238,7 @@ END_PROGRAM
         outputs: vec![crate::io::IoSnapshotEntry {
             name: Some(SmolStr::new("OUT0")),
             address: output.clone(),
+            value_type: None,
             value: crate::io::IoSnapshotValue::Value(crate::value::Value::Bool(false)),
             source: None,
         }],

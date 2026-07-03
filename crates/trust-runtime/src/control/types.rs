@@ -246,6 +246,9 @@ fn entry_to_json(entry: &crate::io::IoSnapshotEntry, forced: &[IoAddress]) -> se
         "value": format_snapshot_value(&entry.value),
         "forced": forced.iter().any(|address| address == &entry.address),
     });
+    if let Some(value_type) = entry.value_type.and_then(crate::io::io_value_type_name) {
+        payload["valueType"] = json!(value_type);
+    }
     if let Some(source) = &entry.source {
         payload["source"] = json!(source.as_str());
     }
@@ -394,6 +397,7 @@ mod tests {
             inputs: vec![IoSnapshotEntry {
                 name: Some(SmolStr::new("In0")),
                 address: IoAddress::parse("%IX0.0").expect("address"),
+                value_type: None,
                 value: IoSnapshotValue::Value(Value::Bool(true)),
                 source: Some(SmolStr::new("MQTT topic plant/line1")),
             }],
@@ -406,5 +410,25 @@ mod tests {
             payload["inputs"][0]["source"].as_str(),
             Some("MQTT topic plant/line1")
         );
+    }
+
+    #[test]
+    fn io_snapshot_json_includes_optional_value_type() {
+        let snapshot = IoSnapshot {
+            scan: Some(4),
+            forced: Vec::new(),
+            inputs: Vec::new(),
+            outputs: Vec::new(),
+            memory: vec![IoSnapshotEntry {
+                name: Some(SmolStr::new("Speed")),
+                address: IoAddress::parse("%MD0").expect("address"),
+                value_type: Some(trust_hir::TypeId::REAL),
+                value: IoSnapshotValue::Value(Value::Real(1.5)),
+                source: None,
+            }],
+        };
+
+        let payload = snapshot.into_json();
+        assert_eq!(payload["memory"][0]["valueType"].as_str(), Some("REAL"));
     }
 }

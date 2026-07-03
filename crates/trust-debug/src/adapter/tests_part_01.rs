@@ -179,8 +179,12 @@ fn dispatch_io_state_emits_event() {
     let mut runtime = Runtime::new();
     let input_addr = IoAddress::parse("%IX0.0").unwrap();
     let output_addr = IoAddress::parse("%QX0.1").unwrap();
+    let speed_addr = IoAddress::parse("%MD0").unwrap();
     runtime.io_mut().bind("IN0", input_addr.clone());
     runtime.io_mut().bind("OUT0", output_addr.clone());
+    runtime
+        .io_mut()
+        .bind_typed("Speed", speed_addr.clone(), trust_hir::TypeId::REAL);
     runtime
         .io_mut()
         .write(&input_addr, RuntimeValue::Bool(true))
@@ -188,6 +192,10 @@ fn dispatch_io_state_emits_event() {
     runtime
         .io_mut()
         .write(&output_addr, RuntimeValue::Bool(false))
+        .unwrap();
+    runtime
+        .io_mut()
+        .write(&speed_addr, RuntimeValue::DWord(0x3FC0_0000))
         .unwrap();
 
     let session = DebugSession::new(runtime);
@@ -213,6 +221,11 @@ fn dispatch_io_state_emits_event() {
         .outputs
         .iter()
         .any(|entry| entry.name.as_deref() == Some("OUT0")));
+    assert!(body.memory.iter().any(|entry| {
+        entry.name.as_deref() == Some("Speed")
+            && entry.value_type.as_deref() == Some("REAL")
+            && entry.value == "1.5"
+    }));
 }
 
 #[test]
@@ -269,4 +282,49 @@ fn dispatch_io_write_updates_input() {
         .inputs
         .iter()
         .any(|entry| entry.address == "%IX0.2" && entry.value == "TRUE"));
+}
+
+#[test]
+fn dispatch_io_write_accepts_configured_real_and_time_values() {
+    let mut runtime = Runtime::new();
+    let real_addr = IoAddress::parse("%ID0").unwrap();
+    let time_addr = IoAddress::parse("%ID4").unwrap();
+    runtime
+        .io_mut()
+        .bind_typed("Speed", real_addr.clone(), trust_hir::TypeId::REAL);
+    runtime
+        .io_mut()
+        .bind_typed("Delay", time_addr.clone(), trust_hir::TypeId::TIME);
+
+    let session = DebugSession::new(runtime);
+    let mut adapter = DebugAdapter::new(session);
+
+    for (seq, address, value) in [(1, "%ID0", "1.5"), (2, "%ID4", "T#250ms")] {
+        let args = IoWriteArguments {
+            address: address.to_string(),
+            value: value.to_string(),
+        };
+        let request = Request {
+            seq,
+            message_type: MessageType::Request,
+            command: "stIoWrite".to_string(),
+            arguments: Some(serde_json::to_value(args).unwrap()),
+        };
+        let outcome = adapter.dispatch_request(request);
+        assert_eq!(outcome.responses.len(), 1);
+        let response: Response<serde_json::Value> =
+            serde_json::from_value(outcome.responses[0].clone()).unwrap();
+        assert!(response.success, "typed I/O write failed: {response:?}");
+    }
+
+    let runtime_handle = adapter.session().runtime_handle();
+    let runtime = runtime_handle.lock().unwrap();
+    assert_eq!(
+        runtime.io().read(&real_addr).unwrap(),
+        RuntimeValue::DWord(1.5f32.to_bits())
+    );
+    assert_eq!(
+        runtime.io().read(&time_addr).unwrap(),
+        RuntimeValue::DWord(250)
+    );
 }

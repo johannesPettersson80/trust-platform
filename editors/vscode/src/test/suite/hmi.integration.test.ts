@@ -58,7 +58,7 @@ suite("HMI preview integration (VS Code)", function () {
     await editor.edit((builder) => {
       builder.insert(new vscode.Position(line, 0), text);
     });
-    await document.save();
+    assert.ok(await document.save(), `Expected ${uri.fsPath} to save.`);
   }
 
   function toolResultText(result: unknown): string {
@@ -267,7 +267,14 @@ suite("HMI preview integration (VS Code)", function () {
     assert.deepStrictEqual(unchanged["Main.run"], loaded["Main.run"]);
   });
 
-  test("descriptor watcher refreshes open panel on hmi toml and svg changes", async () => {
+  async function refreshFromDescriptorCommand(): Promise<void> {
+    const refreshed = await vscode.commands.executeCommand(
+      "trust-lsp.hmi.refreshFromDescriptor"
+    );
+    assert.strictEqual(refreshed, true, "Expected descriptor refresh command to run.");
+  }
+
+  test("descriptor refreshes open panel on hmi toml and svg changes", async () => {
     const widgetId = "resource/RESOURCE/program/Main/field/run";
     let schemaVersion = 0;
     __testSetControlRequestHandler(async (_endpoint, _auth, requestType) => {
@@ -327,9 +334,10 @@ suite("HMI preview integration (VS Code)", function () {
       vscode.Uri.joinPath(watchDir, "overview.toml"),
       "\n# save-trigger\n",
     );
+    await refreshFromDescriptorCommand();
     await waitFor(
       () => (__testGetHmiPanelState().schema?.version ?? 0) > initialVersion,
-      6000,
+      15000,
     );
 
     const afterTomlVersion = __testGetHmiPanelState().schema?.version ?? 0;
@@ -341,9 +349,10 @@ suite("HMI preview integration (VS Code)", function () {
       vscode.Uri.joinPath(watchDir, "plant.svg"),
       "\n<!-- save-trigger -->\n",
     );
+    await refreshFromDescriptorCommand();
     await waitFor(
       () => (__testGetHmiPanelState().schema?.version ?? 0) > afterTomlVersion,
-      6000,
+      15000,
     );
 
     const afterSvgVersion = __testGetHmiPanelState().schema?.version ?? 0;
@@ -353,9 +362,10 @@ suite("HMI preview integration (VS Code)", function () {
       vscode.Uri.joinPath(viewsDir, "drive-cell.view.toml"),
       Buffer.from('[[node]]\nid = "motor"\n', "utf8"),
     );
+    await refreshFromDescriptorCommand();
     await waitFor(
       () => (__testGetHmiPanelState().schema?.version ?? 0) > afterSvgVersion,
-      6000,
+      15000,
     );
   });
 

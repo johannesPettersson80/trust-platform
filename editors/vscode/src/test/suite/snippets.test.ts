@@ -92,35 +92,54 @@ async function createDocument(
 ): Promise<vscode.TextDocument> {
   const uri = vscode.Uri.joinPath(fixturesRoot, name);
   await vscode.workspace.fs.writeFile(uri, Buffer.from(contents));
-  const doc = await vscode.workspace.openTextDocument(uri);
+  let doc = await vscode.workspace.openTextDocument(uri);
+  if (doc.languageId !== "structured-text") {
+    doc = await vscode.languages.setTextDocumentLanguage(doc, "structured-text");
+  }
   await vscode.window.showTextDocument(doc);
   return doc;
 }
 
 async function findSnippetCompletion(
   doc: vscode.TextDocument,
-  prefix: string,
+  prefixes: readonly string[],
   timeoutMs = 10000
 ): Promise<vscode.CompletionItem | undefined> {
-  const position = new vscode.Position(0, prefix.length);
+  const expectedLabels = new Set(prefixes);
+  const positions = [
+    ...prefixes.map((prefix) => new vscode.Position(0, prefix.length)),
+    new vscode.Position(0, 0),
+  ];
   const startedAt = Date.now();
 
   while (Date.now() - startedAt < timeoutMs) {
-    const result = (await vscode.commands.executeCommand(
-      "vscode.executeCompletionItemProvider",
-      doc.uri,
-      position
-    )) as vscode.CompletionList | vscode.CompletionItem[] | undefined;
-
-    const item = completionItems(result).find((candidate) => {
-      if (completionLabel(candidate) !== prefix) {
-        return false;
+    for (const position of positions) {
+      let result: vscode.CompletionList | vscode.CompletionItem[] | undefined;
+      try {
+        result = (await vscode.commands.executeCommand(
+          "vscode.executeCompletionItemProvider",
+          doc.uri,
+          position,
+          undefined,
+          1000
+        )) as vscode.CompletionList | vscode.CompletionItem[] | undefined;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (!/cancel/i.test(message)) {
+          throw error;
+        }
       }
-      return candidate.kind === vscode.CompletionItemKind.Snippet;
-    });
 
-    if (item) {
-      return item;
+      const item = completionItems(result).find((candidate) => {
+        if (!expectedLabels.has(completionLabel(candidate))) {
+          return false;
+        }
+        return candidate.kind === vscode.CompletionItemKind.Snippet;
+      });
+
+      if (item) {
+        return item;
+      }
     }
 
     await delay(200);
@@ -218,9 +237,20 @@ suite("Snippet contributions (VS Code)", function () {
   });
 
   test("snippets appear in completion with documentation", async () => {
+    const snippets = readSnippetMap();
     for (const prefix of EXPECTED_PREFIXES) {
-      const doc = await createDocument(fixturesRoot, `completion-${prefix}.st`, prefix);
-      const item = await findSnippetCompletion(doc, prefix);
+      const entry = snippets[prefix];
+      assert.ok(entry, `Missing snippet '${prefix}'.`);
+      const aliases = Array.isArray(entry.prefix) ? entry.prefix : [entry.prefix];
+      const completionPrefix =
+        aliases.find((candidate) => /^[A-Za-z0-9_]+$/.test(candidate)) ??
+        prefix;
+      const doc = await createDocument(
+        fixturesRoot,
+        `completion-${prefix}.st`,
+        completionPrefix
+      );
+      const item = await findSnippetCompletion(doc, aliases);
 
       assert.ok(item, `Expected snippet completion for '${prefix}'.`);
       const detail = item?.detail?.trim() ?? "";

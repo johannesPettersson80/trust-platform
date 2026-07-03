@@ -4,6 +4,7 @@ export type IoEntry = {
   name?: string;
   address: string;
   source?: string;
+  valueType?: string;
   value: string;
   forced?: boolean;
 };

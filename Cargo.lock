@@ -5781,7 +5781,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ads-core"
-version = "0.24.27"
+version = "0.24.28"
 dependencies = [
  "serde",
  "serde_json",
@@ -5790,14 +5790,14 @@ dependencies = [
 
 [[package]]
 name = "trust-ads-server"
-version = "0.24.27"
+version = "0.24.28"
 dependencies = [
  "trust-ads-core",
 ]
 
 [[package]]
 name = "trust-debug"
-version = "0.24.27"
+version = "0.24.28"
 dependencies = [
  "glob",
  "indexmap 2.14.0",
@@ -5812,7 +5812,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dev"
-version = "0.24.27"
+version = "0.24.28"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -5831,7 +5831,7 @@ dependencies = [
 
 [[package]]
 name = "trust-hir"
-version = "0.24.27"
+version = "0.24.28"
 dependencies = [
  "boxcar",
  "insta",
@@ -5849,7 +5849,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ide"
-version = "0.24.27"
+version = "0.24.28"
 dependencies = [
  "expect-test",
  "once_cell",
@@ -5862,7 +5862,7 @@ dependencies = [
 
 [[package]]
 name = "trust-lsp"
-version = "0.24.27"
+version = "0.24.28"
 dependencies = [
  "anyhow",
  "expect-test",
@@ -5889,7 +5889,7 @@ dependencies = [
 
 [[package]]
 name = "trust-plcopen"
-version = "0.24.27"
+version = "0.24.28"
 dependencies = [
  "anyhow",
  "crc32fast",
@@ -5902,7 +5902,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime"
-version = "0.24.27"
+version = "0.24.28"
 dependencies = [
  "ads",
  "anyhow",
@@ -5970,7 +5970,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime-core"
-version = "0.24.27"
+version = "0.24.28"
 dependencies = [
  "indexmap 2.14.0",
  "rustc-hash 2.1.2",
@@ -5981,7 +5981,7 @@ dependencies = [
 
 [[package]]
 name = "trust-syntax"
-version = "0.24.27"
+version = "0.24.28"
 dependencies = [
  "drop_bomb",
  "insta",
@@ -5992,7 +5992,7 @@ dependencies = [
 
 [[package]]
 name = "trust-wasm-analysis"
-version = "0.24.27"
+version = "0.24.28"
 dependencies = [
  "rowan",
  "serde",
@@ -7283,7 +7283,7 @@ checksum = "3ae8337f8a065cfc972643663ea4279e04e7256de865aa66fe25cec5fb912d3f"
 
 [[package]]
 name = "xtask"
-version = "0.24.27"
+version = "0.24.28"
 dependencies = [
  "anyhow",
  "serde",

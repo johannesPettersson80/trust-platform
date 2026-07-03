@@ -877,7 +877,10 @@ function typeFromAddress(address) {
 }
 
 function displayTypeForEntry(entry, display) {
-  return display.type || typeFromAddress(entry && entry.address);
+  const explicitType = String(
+    (entry && (entry.valueType || entry.value_type || entry.type)) || ""
+  ).trim();
+  return explicitType.toUpperCase() || display.type || typeFromAddress(entry && entry.address);
 }
 
 function createNode(title, level, content, open = true) {

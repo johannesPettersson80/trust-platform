@@ -195,13 +195,16 @@ async function readText(uri: vscode.Uri): Promise<string | undefined> {
   const open = vscode.workspace.textDocuments.find(
     (doc) => doc.uri.toString() === uri.toString()
   );
-  if (open) {
+  if (open?.isDirty) {
     return open.getText();
   }
   try {
     const bytes = await vscode.workspace.fs.readFile(uri);
     return new TextDecoder("utf-8").decode(bytes);
   } catch {
+    if (open) {
+      return open.getText();
+    }
     return undefined;
   }
 }

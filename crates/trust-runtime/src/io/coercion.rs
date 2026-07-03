@@ -3,8 +3,34 @@ fn expected_size_for_type(value_type: TypeId) -> Option<IoSize> {
         TypeId::BOOL => Some(IoSize::Bit),
         TypeId::SINT | TypeId::USINT | TypeId::BYTE | TypeId::CHAR => Some(IoSize::Byte),
         TypeId::INT | TypeId::UINT | TypeId::WORD | TypeId::WCHAR => Some(IoSize::Word),
-        TypeId::DINT | TypeId::UDINT | TypeId::DWORD | TypeId::REAL => Some(IoSize::DWord),
+        TypeId::DINT | TypeId::UDINT | TypeId::DWORD | TypeId::REAL | TypeId::TIME => {
+            Some(IoSize::DWord)
+        }
         TypeId::LINT | TypeId::ULINT | TypeId::LWORD | TypeId::LREAL => Some(IoSize::LWord),
+        _ => None,
+    }
+}
+
+pub fn io_value_type_name(value_type: TypeId) -> Option<&'static str> {
+    match value_type {
+        TypeId::BOOL => Some("BOOL"),
+        TypeId::SINT => Some("SINT"),
+        TypeId::INT => Some("INT"),
+        TypeId::DINT => Some("DINT"),
+        TypeId::LINT => Some("LINT"),
+        TypeId::USINT => Some("USINT"),
+        TypeId::UINT => Some("UINT"),
+        TypeId::UDINT => Some("UDINT"),
+        TypeId::ULINT => Some("ULINT"),
+        TypeId::REAL => Some("REAL"),
+        TypeId::LREAL => Some("LREAL"),
+        TypeId::BYTE => Some("BYTE"),
+        TypeId::WORD => Some("WORD"),
+        TypeId::DWORD => Some("DWORD"),
+        TypeId::LWORD => Some("LWORD"),
+        TypeId::TIME => Some("TIME"),
+        TypeId::CHAR => Some("CHAR"),
+        TypeId::WCHAR => Some("WCHAR"),
         _ => None,
     }
 }
@@ -61,6 +87,12 @@ fn coerce_from_io(value: Value, target: TypeId) -> Result<Value, RuntimeError> {
         },
         TypeId::REAL => match value {
             Value::DWord(word) => Ok(Value::Real(f32::from_bits(word))),
+            _ => Err(RuntimeError::TypeMismatch),
+        },
+        TypeId::TIME => match value {
+            Value::DWord(word) => Ok(Value::Time(crate::value::Duration::from_millis(i64::from(
+                word,
+            )))),
             _ => Err(RuntimeError::TypeMismatch),
         },
         TypeId::LINT => match value {
@@ -170,6 +202,14 @@ fn coerce_to_io(value: Value, target: TypeId, size: IoSize) -> Result<Value, Run
             };
             Ok(Value::DWord(val.to_bits()))
         }
+        TypeId::TIME => match value {
+            Value::Time(value) => {
+                let millis = value.as_millis();
+                let millis = u32::try_from(millis).map_err(|_| RuntimeError::Overflow)?;
+                Ok(Value::DWord(millis))
+            }
+            _ => Err(RuntimeError::TypeMismatch),
+        },
         TypeId::LINT => {
             let val = match value {
                 Value::LInt(val) => val,

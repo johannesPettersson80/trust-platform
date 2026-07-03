@@ -597,6 +597,17 @@ function normalizeIoEntries(value: unknown): IoState["inputs"] {
       if (typeof entry.source === "string") {
         normalized.source = entry.source;
       }
+      const valueType =
+        typeof entry.valueType === "string"
+          ? entry.valueType
+          : typeof entry.value_type === "string"
+            ? entry.value_type
+            : typeof entry.type === "string"
+              ? entry.type
+              : undefined;
+      if (valueType) {
+        normalized.valueType = valueType.toUpperCase();
+      }
       return normalized;
     })
     .filter((entry): entry is IoState["inputs"][number] => entry !== undefined);

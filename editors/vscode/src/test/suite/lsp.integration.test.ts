@@ -27,15 +27,22 @@ async function waitForCodeAction(
 ): Promise<vscode.CodeAction | vscode.Command> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    const actions = (await vscode.commands.executeCommand(
-      "vscode.executeCodeActionProvider",
-      uri,
-      range,
-      kind
-    )) as (vscode.CodeAction | vscode.Command)[] | undefined;
-    const match = (actions ?? []).find(predicate);
-    if (match) {
-      return match;
+    try {
+      const actions = (await vscode.commands.executeCommand(
+        "vscode.executeCodeActionProvider",
+        uri,
+        range,
+        kind
+      )) as (vscode.CodeAction | vscode.Command)[] | undefined;
+      const match = (actions ?? []).find(predicate);
+      if (match) {
+        return match;
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!/cancel/i.test(message)) {
+        throw error;
+      }
     }
     await delay(200);
   }
@@ -483,20 +490,20 @@ suite("LSP integration (VS Code)", function () {
     const position = doc.positionAt(offset + 2);
     const range = new vscode.Range(position, position);
 
-    const actions = (await vscode.commands.executeCommand(
-      "vscode.executeCodeActionProvider",
+    const stubAction = await waitForCodeAction(
       doc.uri,
       range,
-      vscode.CodeActionKind.Refactor.value
-    )) as (vscode.CodeAction | vscode.Command)[] | undefined;
-
-    const stubAction = (actions ?? []).find((action) => {
-      const title = action.title;
-      return typeof title === "string" && title.includes("interface stubs");
-    }) as vscode.CodeAction | undefined;
+      vscode.CodeActionKind.Refactor.value,
+      (action) => {
+        const title = action.title;
+        return typeof title === "string" && title.includes("interface stubs");
+      }
+    );
     assert.ok(stubAction, "Expected interface stub code action.");
+    const edits =
+      stubAction && "edit" in stubAction ? stubAction.edit : undefined;
     assert.ok(
-      stubAction?.edit?.size ?? 0 > 0,
+      edits?.size ?? 0 > 0,
       "Expected stub code action edits."
     );
   });

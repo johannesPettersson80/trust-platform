@@ -107,6 +107,8 @@ pub struct IoStateEntry {
     pub address: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value_type: Option<String>,
     pub value: String,
     #[serde(default)]
     pub forced: bool,

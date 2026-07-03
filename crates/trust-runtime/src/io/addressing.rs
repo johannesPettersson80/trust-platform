@@ -134,6 +134,7 @@ pub enum IoSnapshotValue {
 pub struct IoSnapshotEntry {
     pub name: Option<SmolStr>,
     pub address: IoAddress,
+    pub value_type: Option<TypeId>,
     pub value: IoSnapshotValue,
     pub source: Option<SmolStr>,
 }
