@@ -106,6 +106,7 @@ export type WebviewToExtensionMessage =
   | { type: "generateST"; content: string }
   | { type: "ready" }
   | { type: "error"; error: string }
+  | { type: "openAsText" }
   | { type: "sendEvent"; event: string }
   | RuntimeWebviewToExtensionMessage;
 

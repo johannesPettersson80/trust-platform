@@ -11,16 +11,19 @@ export interface UseBlocklyReturn {
   workspace: BlocklyWorkspace | null;
   generatedCode: string | null;
   errors: string[];
+  parseError: string | null;
   saveWorkspace: (workspace: BlocklyWorkspace) => void;
   validateWorkspace: () => void;
   generateCode: () => void;
   executeBlock: (blockId: string) => void;
+  openAsText: () => void;
 }
 
 export function useBlockly(): UseBlocklyReturn {
   const [workspace, setWorkspace] = useState<BlocklyWorkspace | null>(null);
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
+  const [parseError, setParseError] = useState<string | null>(null);
 
   // Handle messages from extension
   useEffect(() => {
@@ -33,8 +36,11 @@ export function useBlockly(): UseBlocklyReturn {
           try {
             const parsed = JSON.parse(message.content);
             setWorkspace(parsed);
+            setParseError(null);
           } catch (error) {
-            console.error("Failed to parse workspace:", error);
+            const detail = error instanceof Error ? error.message : String(error);
+            console.error("Failed to parse workspace:", detail);
+            setParseError(detail);
             vscode.postMessage({
               type: "error",
               error: "Could not open this Blockly program because the file is not valid JSON.",
@@ -118,13 +124,19 @@ export function useBlockly(): UseBlocklyReturn {
     });
   }, []);
 
+  const openAsText = useCallback(() => {
+    vscode.postMessage({ type: "openAsText" });
+  }, []);
+
   return {
     workspace,
     generatedCode,
     errors,
+    parseError,
     saveWorkspace,
     validateWorkspace,
     generateCode,
     executeBlock,
+    openAsText,
   };
 }

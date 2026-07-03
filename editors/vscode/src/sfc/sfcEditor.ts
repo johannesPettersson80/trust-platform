@@ -204,6 +204,15 @@ export class SfcEditorProvider implements vscode.CustomTextEditorProvider {
             );
             return;
 
+          case "openAsText":
+            await vscode.commands.executeCommand(
+              "vscode.openWith",
+              document.uri,
+              "default",
+              { preview: false }
+            );
+            return;
+
           case "validate":
             await this.validateSfc(document, webviewPanel);
             return;

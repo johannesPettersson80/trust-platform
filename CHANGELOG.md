@@ -270,6 +270,9 @@ Target release: `v0.24.28`
 - vscode: visual editor right panes now share the same Tools/Edit/View section
   order, with Fit View in the pane and Show Code labeled as a generated-ST
   preview instead of a save action.
+- vscode: invalid SFC, Statechart, and Blockly visual-editor files now show an
+  `Open as text` recovery action so users can fix malformed JSON directly in
+  the default VS Code editor.
 - vscode: Advanced integration cards in the Devices & Connections Add picker
   now use intentional badges (`MESH`, `OT`, `RT`, `CLOUD`) instead of truncated
   protocol fragments.

@@ -3177,6 +3177,42 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     }
   });
 
+  test("invalid visual model cards can escape to the text editor", () => {
+    for (const file of [
+      "statechart/webview/StateChartEditor.tsx",
+      "sfc/webview/SfcEditor.tsx",
+      "blockly/webview/BlocklyEditor.tsx",
+    ]) {
+      const src = readSrc(file);
+      assert.ok(src.includes("Open as text"), `${file} must render an Open as text recovery button`);
+    }
+
+    for (const file of [
+      "statechart/webview/StateChartEditor.tsx",
+      "sfc/webview/SfcEditor.tsx",
+      "blockly/webview/hooks/useBlockly.ts",
+    ]) {
+      const src = readSrc(file);
+      assert.ok(
+        src.includes('type: "openAsText"'),
+        `${file} must post the openAsText recovery message`
+      );
+    }
+
+    for (const file of [
+      "statechart/stateChartEditor.ts",
+      "sfc/sfcEditor.ts",
+      "blockly/blocklyEditor.ts",
+    ]) {
+      const src = readSrc(file);
+      assert.ok(src.includes('case "openAsText"'), `${file} must handle the openAsText recovery message`);
+      assert.ok(
+        src.includes('"vscode.openWith"') && src.includes('"default"'),
+        `${file} must open the same file with VS Code's default text editor`
+      );
+    }
+  });
+
   test("Blockly status counts visible blocks, not serialized top-level stacks", () => {
     const src = readSrc("blockly/webview/BlocklyEditor.tsx");
     assert.ok(

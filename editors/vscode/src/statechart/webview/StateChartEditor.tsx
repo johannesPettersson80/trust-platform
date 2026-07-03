@@ -227,6 +227,10 @@ export const StateChartEditor: React.FC = () => {
     requestFitView();
   }, [autoLayout, requestFitView]);
 
+  const handleOpenAsText = useCallback(() => {
+    vscode.postMessage({ type: "openAsText" } as WebviewToExtensionMessage);
+  }, []);
+
   return (
     <div className="trust-product-shell">
       <header className="trust-product-header" aria-label="Statechart editor header">
@@ -283,9 +287,19 @@ export const StateChartEditor: React.FC = () => {
               >
                 The file is not valid JSON. Fix the JSON in the file, save it, and the visual editor will reload.
               </p>
+              <button
+                type="button"
+                className="trust-button trust-button--primary"
+                onClick={handleOpenAsText}
+                title="Open this file in VS Code's default text editor"
+                style={{ display: "block", marginBottom: 10 }}
+              >
+                Open as text
+              </button>
               <code
                 style={{
                   color: t.textMuted,
+                  display: "block",
                   fontSize: 11,
                   whiteSpace: "pre-wrap",
                 }}

@@ -284,6 +284,15 @@ export class StateChartEditorProvider
             );
             return;
 
+          case "openAsText":
+            void vscode.commands.executeCommand(
+              "vscode.openWith",
+              document.uri,
+              "default",
+              { preview: false }
+            );
+            return;
+
           // Backward compatibility for older webviews.
           case "startExecution":
             void this.handleRuntimeMessage(

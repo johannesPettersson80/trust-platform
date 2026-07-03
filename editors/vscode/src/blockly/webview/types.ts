@@ -110,6 +110,7 @@ export type WebviewToExtensionMessage =
   | { type: "save"; content: string }
   | { type: "ready" }
   | { type: "error"; error: string }
+  | { type: "openAsText" }
   | { type: "validate" }
   | { type: "generateCode" }
   | { type: "executeBlock"; blockId: string }

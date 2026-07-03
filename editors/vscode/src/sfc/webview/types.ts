@@ -179,6 +179,7 @@ export type SfcWebviewToExtensionMessage =
   | { type: "ready" }
   | { type: "save"; content: string }
   | { type: "error"; error: string }
+  | { type: "openAsText" }
   | { type: "addStep" }
   | { type: "addTransition" }
   | { type: "deleteSelected" }

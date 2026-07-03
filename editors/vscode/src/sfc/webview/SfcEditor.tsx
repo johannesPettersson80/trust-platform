@@ -79,6 +79,7 @@ export const SfcEditor: React.FC = () => {
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [codeErrors, setCodeErrors] = useState<string[]>([]);
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
+  const [parseError, setParseError] = useState<string | null>(null);
   const [fitViewRequest, setFitViewRequest] = useState(0);
   const [reactFlowInstance, setReactFlowInstance] = useState<
     ReactFlowInstance<SfcNode, SfcTransitionEdge> | null
@@ -129,9 +130,12 @@ export const SfcEditor: React.FC = () => {
               const workspace = JSON.parse(message.content);
               importFromJson(workspace);
               requestFitView();
+              setParseError(null);
             }
           } catch (error) {
-            console.error("Failed to parse SFC workspace:", error);
+            const detail = error instanceof Error ? error.message : String(error);
+            console.error("Failed to parse SFC workspace:", detail);
+            setParseError(detail);
             vscode.postMessage({
               type: "error",
               error: "Could not open this SFC because the file is not valid JSON.",
@@ -320,6 +324,10 @@ export const SfcEditor: React.FC = () => {
     requestFitView();
   }, [autoLayout, requestFitView]);
 
+  const handleOpenAsText = useCallback(() => {
+    vscode.postMessage({ type: "openAsText" } as SfcWebviewToExtensionMessage);
+  }, []);
+
   const handleToggleCodePanel = useCallback(() => {
     setShowCodePanel((prev) => {
       const next = !prev;
@@ -389,62 +397,127 @@ export const SfcEditor: React.FC = () => {
 
       <div className="trust-product-workspace">
       <div className="trust-canvas-pane">
-        <ReactFlow<SfcNode, SfcTransitionEdge>
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          onPaneClick={clearSelection}
-          onSelectionChange={handleSelectionChange}
-          onInit={setReactFlowInstance}
-          onDragOver={handleCanvasDragOver}
-          onDrop={handleCanvasDrop}
-          nodeTypes={nodeTypes}
-          edgeTypes={edgeTypes}
-          fitView
-          fitViewOptions={SFC_FIT_VIEW_OPTIONS}
-          snapToGrid
-          snapGrid={[15, 15]}
-          defaultEdgeOptions={{
-            type: "transition",
-            animated: true,
-            markerEnd: {
-              type: MarkerType.ArrowClosed,
-              width: 20,
-              height: 20,
-            },
-            style: {
-              stroke: "var(--vscode-editorWidget-border)",
-              strokeWidth: 2,
-            },
-            labelStyle: {
-              fill: "var(--trust-text)",
-              fontSize: "11px",
-              fontWeight: 600,
-            },
-            labelBgPadding: [9, 4],
-            labelBgBorderRadius: 6,
-            labelBgStyle: {
-              fill: "var(--trust-surface)",
-              fillOpacity: 0.92,
-              stroke: "var(--trust-border)",
-              strokeWidth: 1,
-            },
-          }}
-          style={{
-            background: t.canvas,
-          }}
-        >
-          <Background
-            variant={BackgroundVariant.Dots}
-            gap={20}
-            size={1}
-            color="var(--trust-grid-line)"
-          />
-        </ReactFlow>
+        {parseError ? (
+          <div
+            role="alert"
+            style={{
+              height: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "32px",
+              background: t.canvas,
+              color: t.text,
+            }}
+          >
+            <div
+              style={{
+                maxWidth: 520,
+                border: `1px solid ${t.danger}`,
+                borderRadius: t.radius,
+                padding: "18px 20px",
+                background: t.surface,
+                boxShadow: t.shadowOverlay,
+              }}
+            >
+              <h2
+                style={{
+                  color: t.danger,
+                  fontSize: 15,
+                  margin: "0 0 8px",
+                }}
+              >
+                Could not open this SFC
+              </h2>
+              <p
+                style={{
+                  color: t.text,
+                  fontSize: 12,
+                  lineHeight: 1.5,
+                  margin: "0 0 10px",
+                }}
+              >
+                The file is not valid JSON. Fix the JSON in the file, save it, and the visual editor will reload.
+              </p>
+              <button
+                type="button"
+                className="trust-button trust-button--primary"
+                onClick={handleOpenAsText}
+                title="Open this file in VS Code's default text editor"
+                style={{ display: "block", marginBottom: 10 }}
+              >
+                Open as text
+              </button>
+              <code
+                style={{
+                  color: t.textMuted,
+                  display: "block",
+                  fontSize: 11,
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {parseError}
+              </code>
+            </div>
+          </div>
+        ) : (
+          <ReactFlow<SfcNode, SfcTransitionEdge>
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            onPaneClick={clearSelection}
+            onSelectionChange={handleSelectionChange}
+            onInit={setReactFlowInstance}
+            onDragOver={handleCanvasDragOver}
+            onDrop={handleCanvasDrop}
+            nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
+            fitView
+            fitViewOptions={SFC_FIT_VIEW_OPTIONS}
+            snapToGrid
+            snapGrid={[15, 15]}
+            defaultEdgeOptions={{
+              type: "transition",
+              animated: true,
+              markerEnd: {
+                type: MarkerType.ArrowClosed,
+                width: 20,
+                height: 20,
+              },
+              style: {
+                stroke: "var(--vscode-editorWidget-border)",
+                strokeWidth: 2,
+              },
+              labelStyle: {
+                fill: "var(--trust-text)",
+                fontSize: "11px",
+                fontWeight: 600,
+              },
+              labelBgPadding: [9, 4],
+              labelBgBorderRadius: 6,
+              labelBgStyle: {
+                fill: "var(--trust-surface)",
+                fillOpacity: 0.92,
+                stroke: "var(--trust-border)",
+                strokeWidth: 1,
+              },
+            }}
+            style={{
+              background: t.canvas,
+            }}
+          >
+            <Background
+              variant={BackgroundVariant.Dots}
+              gap={20}
+              size={1}
+              color="var(--trust-grid-line)"
+            />
+          </ReactFlow>
+        )}
 
-        {showCodePanel && (
+        {!parseError && showCodePanel && (
           <SfcCodePanel
             code={generatedCode}
             errors={codeErrors}

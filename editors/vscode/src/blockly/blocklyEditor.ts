@@ -273,6 +273,15 @@ export class BlocklyEditorProvider implements vscode.CustomTextEditorProvider {
             );
             return;
 
+          case "openAsText":
+            void vscode.commands.executeCommand(
+              "vscode.openWith",
+              document.uri,
+              "default",
+              { preview: false }
+            );
+            return;
+
           case "validate":
             void this.validateWorkspace(document, webviewPanel);
             return;

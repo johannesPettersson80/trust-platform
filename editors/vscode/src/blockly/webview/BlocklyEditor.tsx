@@ -5,6 +5,7 @@ import { registerPLCBlocks } from "./blocklyBlocks";
 import { PropertiesPanel } from "./PropertiesPanel";
 import { CodePanel } from "./CodePanel";
 import { useRightPaneResize } from "../../visual/runtime/webview/useRightPaneResize";
+import { t } from "../../webview/theme";
 import "./styles.css";
 import "./blocklyTheme.css";
 import "../../visual/runtime/webview/rightPaneResize.css";
@@ -20,9 +21,11 @@ export const BlocklyEditor: React.FC = () => {
     workspace,
     generatedCode,
     errors,
+    parseError,
     saveWorkspace,
     validateWorkspace,
     generateCode,
+    openAsText,
   } = useBlockly();
 
   const workspaceRef = useRef<HTMLDivElement>(null);
@@ -67,6 +70,9 @@ export const BlocklyEditor: React.FC = () => {
 
   // Initialize Blockly workspace
   useEffect(() => {
+    if (parseError) {
+      return;
+    }
     if (!workspaceRef.current || blocklyWorkspaceRef.current) {
       return;
     }
@@ -143,7 +149,7 @@ export const BlocklyEditor: React.FC = () => {
       (window as any).blocklyWorkspace = null;
       console.log("Blockly workspace cleanup");
     };
-  }, [applyBlocklyTheme, refreshBlockCount]);
+  }, [applyBlocklyTheme, parseError, refreshBlockCount]);
 
   // Update workspace when data changes
   useEffect(() => {
@@ -304,7 +310,70 @@ export const BlocklyEditor: React.FC = () => {
 
       <div className="blockly-content trust-product-workspace">
         <div className="blockly-workspace-container trust-canvas-pane">
-          {showCode ? (
+          {parseError ? (
+            <div
+              role="alert"
+              style={{
+                height: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "32px",
+                background: t.canvas,
+                color: t.text,
+              }}
+            >
+              <div
+                style={{
+                  maxWidth: 520,
+                  border: `1px solid ${t.danger}`,
+                  borderRadius: t.radius,
+                  padding: "18px 20px",
+                  background: t.surface,
+                  boxShadow: t.shadowOverlay,
+                }}
+              >
+                <h2
+                  style={{
+                    color: t.danger,
+                    fontSize: 15,
+                    margin: "0 0 8px",
+                  }}
+                >
+                  Could not open this Blockly program
+                </h2>
+                <p
+                  style={{
+                    color: t.text,
+                    fontSize: 12,
+                    lineHeight: 1.5,
+                    margin: "0 0 10px",
+                  }}
+                >
+                  The file is not valid JSON. Fix the JSON in the file, save it, and the visual editor will reload.
+                </p>
+                <button
+                  type="button"
+                  className="trust-button trust-button--primary"
+                  onClick={openAsText}
+                  title="Open this file in VS Code's default text editor"
+                  style={{ display: "block", marginBottom: 10 }}
+                >
+                  Open as text
+                </button>
+                <code
+                  style={{
+                    color: t.textMuted,
+                    display: "block",
+                    fontSize: 11,
+                    whiteSpace: "pre-wrap",
+                  }}
+                >
+                  {parseError}
+                </code>
+              </div>
+            </div>
+          ) : showCode ? (
             <CodePanel code={generatedCode} errors={errors} />
           ) : (
             <div ref={workspaceRef} className="blockly-workspace" id="blocklyDiv">
