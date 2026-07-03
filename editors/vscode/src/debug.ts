@@ -24,6 +24,7 @@ import {
   selectWorkspaceFolderPathForMode,
   validateConfiguration,
 } from "./debug/configuration";
+import { diagnosticsGateReason, validityLine } from "./compileGate";
 import { parseControlEndpoint } from "./runtimeControl";
 
 const LAUNCH_WARN_DELAY_MS = 1500;
@@ -37,6 +38,7 @@ const TEST_CONTROL_AUTH_TOKEN_ENV = "TRUST_UX_DEBUG_CONTROL_AUTH_TOKEN";
 export type DebugReloadEvent = {
   readonly ok: boolean;
   readonly message?: string;
+  readonly gated?: boolean;
 };
 
 const debugReloadEmitter = new vscode.EventEmitter<DebugReloadEvent>();
@@ -970,6 +972,12 @@ export function registerDebugAdapter(
           message
         );
         return { ok: false, message };
+      }
+      const gateReason = diagnosticsGateReason(validityLine(), "update");
+      if (gateReason) {
+        vscode.window.showWarningMessage(gateReason);
+        debugReloadEmitter.fire({ ok: false, message: gateReason, gated: true });
+        return { ok: false, message: gateReason, gated: true };
       }
 
       const config = session.configuration ?? {};

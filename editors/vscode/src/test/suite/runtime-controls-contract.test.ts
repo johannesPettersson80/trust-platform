@@ -18,6 +18,10 @@ import {
   normalizeIoState,
 } from "../../runtimeLifecycle";
 import {
+  compileGateReason,
+  diagnosticsGateReason,
+} from "../../compileGate";
+import {
   formatManagedRuntimeLogs,
   isManagedLifecycleSuccess,
   managedRuntimeLabel,
@@ -125,6 +129,31 @@ suite("truST sidebar — selected target model", () => {
     assert.strictEqual(gated.primary.label, "Start");
     assert.strictEqual(gated.primary.enabled, false);
     assert.strictEqual(gated.primary.hint, "Fix 2 errors to start.");
+  });
+
+  test("compile/update gates use one shared user-facing reason model", () => {
+    assert.strictEqual(
+      diagnosticsGateReason(
+        { ok: false, label: "2 errors", errors: 2, sourceErrors: 2, configErrors: 0 },
+        "update"
+      ),
+      "Fix 2 errors to update."
+    );
+    assert.strictEqual(
+      diagnosticsGateReason(
+        { ok: false, label: "1 error", errors: 1, sourceErrors: 0, configErrors: 1 },
+        "start"
+      ),
+      "Fix runtime.toml to start."
+    );
+    assert.strictEqual(
+      compileGateReason(
+        { kind: "failed", errors: 3, configErrors: 0, summary: "Compile failed" },
+        { ok: true, label: "No known errors", errors: 0, sourceErrors: 0, configErrors: 0 },
+        "debug"
+      ),
+      "Fix 3 errors to debug."
+    );
   });
 
   test("remote: not connected → Connect, connected → Disconnect", () => {
@@ -835,14 +864,16 @@ suite("truST sidebar — control surface contract", () => {
 
   test("Start and Update disable with reasons when compile/config validity cannot succeed", () => {
     const source = loadSource("trustHomeView.ts");
+    const gateSource = loadSource("compileGate.ts");
     assert.ok(
       source.includes("primaryActionGateReason(") &&
         source.includes("withPrimaryActionGate("),
       "sidebar Start must be gated before rendering and dispatch"
     );
     assert.ok(
-      source.includes("Fix runtime.toml to ${verb}.") &&
-        source.includes("Fix ${count} error"),
+      source.includes("compileGateReason(") &&
+        gateSource.includes("Fix runtime.toml to ${verb}.") &&
+        gateSource.includes("Fix ${count} error"),
       "disabled primary/update actions must explain config and compile-error recovery"
     );
     assert.ok(
@@ -852,8 +883,8 @@ suite("truST sidebar — control surface contract", () => {
     );
     assert.ok(
       source.includes("isConfigDiagnosticPath") &&
-        source.includes("(runtime|trust-lsp)") &&
-        source.includes("configErrors"),
+        gateSource.includes("(runtime|trust-lsp)") &&
+        gateSource.includes("configErrors"),
       "runtime.toml/trust-lsp.toml diagnostics must be classified as config blockers"
     );
   });
@@ -1116,6 +1147,13 @@ suite("truST sidebar — control surface contract", () => {
       "trust-lsp.debug.reload must bound the stReload custom request"
     );
     assert.ok(
+      reloadCommand.includes("diagnosticsGateReason(validityLine(), \"update\")") &&
+        reloadCommand.includes("return { ok: false, message: gateReason, gated: true }") &&
+        reloadCommand.indexOf("diagnosticsGateReason") <
+          reloadCommand.indexOf('session.customRequest("stReload"'),
+      "trust-lsp.debug.reload must share the sidebar compile gate before attempting hot reload"
+    );
+    assert.ok(
       reloadCommand.includes("Update running simulation timed out") &&
         reloadCommand.includes("try again or restart"),
       "a timed-out Update running simulation must fail with a user-facing recovery message"
@@ -1138,6 +1176,7 @@ suite("truST sidebar — control surface contract", () => {
         homeSource.includes("this.sourceChanged = false") &&
         homeSource.includes("Running simulation updated.") &&
         homeSource.includes("Update failed:") &&
+        homeSource.includes("value.gated === true") &&
         homeSource.includes("Open Problems, then try again."),
       "sidebar must clear or explain pending Update state from the shared reload result"
     );

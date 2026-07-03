@@ -23,6 +23,12 @@ import {
 import { CHECK_PROGRAM_COMMAND, onDidCheckProgram } from "./checkProgram";
 import { onDidDebugReload } from "./debug";
 import {
+  compileGateReason,
+  isConfigDiagnosticPath,
+  validityLine,
+  type ValidityLine,
+} from "./compileGate";
+import {
   summarizeCheck,
   type CheckProgramResponse,
 } from "./checkProgramModel";
@@ -45,14 +51,6 @@ import type { ManagedRuntime } from "./localRuntimeModel";
 // Target selection is select-only (no Add/Connect sentinel). A remote NEVER renders Stop; it renders
 // Disconnect because we only own our attach session.
 const SIDEBAR_ACTION_TIMEOUT_MS = 8000;
-
-interface ValidityLine {
-  readonly ok: boolean;
-  readonly label: string;
-  readonly errors: number;
-  readonly sourceErrors: number;
-  readonly configErrors: number;
-}
 
 type CompileState =
   | { readonly kind: "unknown" }
@@ -1152,48 +1150,6 @@ async function hasHmiDescriptor(): Promise<boolean> {
   return found.length > 0;
 }
 
-// Passive validity (§0.5.6): a fast diagnostics-derived "no known errors" line — NOT the authoritative
-// Diagnostics are only a pre-compile warning source. They are never enough to show a green Compile badge.
-function validityLine(): ValidityLine {
-  let errors = 0;
-  let sourceErrors = 0;
-  let configErrors = 0;
-  for (const [uri, diagnostics] of vscode.languages.getDiagnostics()) {
-    const filePath = uri.fsPath;
-    const relevant = isSourceDiagnosticPath(filePath) || isConfigDiagnosticPath(filePath);
-    if (!relevant) {
-      continue;
-    }
-    const count = diagnostics.filter(
-      (d) => d.severity === vscode.DiagnosticSeverity.Error
-    ).length;
-    errors += count;
-    if (isConfigDiagnosticPath(filePath)) {
-      configErrors += count;
-    } else {
-      sourceErrors += count;
-    }
-  }
-  return errors === 0
-    ? { ok: true, label: "No known errors", errors, sourceErrors, configErrors }
-    : {
-        ok: false,
-        label: `${errors} error${errors === 1 ? "" : "s"} — see Problems`,
-        errors,
-        sourceErrors,
-        configErrors,
-      };
-}
-
-function isSourceDiagnosticPath(filePath: string): boolean {
-  return /\.(st|pou)$/i.test(filePath);
-}
-
-function isConfigDiagnosticPath(filePath: string): boolean {
-  return /(^|[/\\])(runtime|trust-lsp)\.toml$/i.test(filePath) ||
-    /[/\\]hmi[/\\].+\.toml$/i.test(filePath);
-}
-
 function compileButtonState(
   state: CompileState,
   diagnostics: ValidityLine
@@ -1344,26 +1300,6 @@ function primaryActionGateReason(
   return compileGateReason(compileState, diagnostics, "start");
 }
 
-function compileGateReason(
-  compileState: CompileState,
-  diagnostics: ValidityLine,
-  verb: "start" | "update" | "debug"
-): string | undefined {
-  if (!diagnostics.ok) {
-    if (diagnostics.configErrors > 0) {
-      return configGateReason(verb);
-    }
-    return sourceGateReason(diagnostics.errors, verb);
-  }
-  if (compileState.kind === "failed") {
-    if (compileState.configErrors > 0 || looksLikeConfigFailure(compileState.summary)) {
-      return configGateReason(verb);
-    }
-    return sourceGateReason(compileState.errors, verb);
-  }
-  return undefined;
-}
-
 function classifyCompileIssues(response: CheckProgramResponse): {
   sourceErrors: number;
   configErrors: number;
@@ -1383,19 +1319,6 @@ function classifyCompileIssues(response: CheckProgramResponse): {
     }
   }
   return { sourceErrors, configErrors };
-}
-
-function configGateReason(verb: "start" | "update" | "debug"): string {
-  return `Fix runtime.toml to ${verb}.`;
-}
-
-function sourceGateReason(errors: number, verb: "start" | "update" | "debug"): string {
-  const count = Math.max(1, errors);
-  return `Fix ${count} error${count === 1 ? "" : "s"} to ${verb}.`;
-}
-
-function looksLikeConfigFailure(summary: string): boolean {
-  return /\b(runtime|trust-lsp)\.toml\b|configuration|config/i.test(summary);
 }
 
 function deployButtonState(
@@ -1540,6 +1463,9 @@ function isReloadSuccess(value: unknown): boolean {
 }
 
 function reloadFailureMessage(value: unknown, validity: ValidityLine): string {
+  if (isRecord(value) && value.gated === true && typeof value.message === "string" && value.message.trim()) {
+    return value.message;
+  }
   if (!validity.ok) {
     return "Fix the errors shown in Problems, then try again.";
   }

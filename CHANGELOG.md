@@ -255,6 +255,9 @@ Target release: `v0.24.27`
 - vscode: Add Device forms now clear stale field validation and hide stale
   apply banners as soon as the user edits the rejected field, so corrected
   example values no longer remain marked invalid before the next Save.
+- vscode: the `Update running simulation` command now uses the same compile
+  and config gate as the sidebar button, returning the disabled-with-reason
+  message instead of attempting hot reload from an invalid project.
 - vscode/trust-runtime: Live Values now receives runtime role/capability data
   from the control channel, disables viewer-role Write/Force/Release controls
   before any unsafe attempt, and shows a visible engineer-token recovery reason;
