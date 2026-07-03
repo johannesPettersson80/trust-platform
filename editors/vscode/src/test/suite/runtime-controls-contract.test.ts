@@ -723,6 +723,7 @@ suite("truST sidebar — control surface contract", () => {
 
   test("Live Values normalizes runtime debug values before webview rendering", () => {
     const state = normalizeIoState({
+      scan: 12841,
       inputs: [],
       outputs: [{ address: "%QX0.0", name: "Out", value: "Bool(true)" }],
       memory: [
@@ -733,6 +734,7 @@ suite("truST sidebar — control surface contract", () => {
     assert.strictEqual(state.outputs[0].value, "TRUE");
     assert.strictEqual(state.memory[0].value, "FALSE");
     assert.strictEqual(state.memory[1].value, "42");
+    assert.strictEqual(state.scan, 12841);
 
     const ioPanelSource = loadSource("ioPanel.ts");
     assert.ok(
@@ -938,7 +940,9 @@ suite("truST sidebar — control surface contract", () => {
       source.indexOf("async startLocalSimulator()")
     );
     assert.ok(
-      requestBody.includes("options: { readonly persistFailure?: boolean } = {}"),
+      requestBody.includes(
+        "options: { readonly persistFailure?: boolean; readonly afterScan?: number } = {}"
+      ),
       "I/O refresh must distinguish background polling from the Start acceptance probe"
     );
     assert.ok(

@@ -125,6 +125,12 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
         white-space: nowrap;
       }
 
+      .scan-label {
+        color: var(--trust-text-muted);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+
       .mode-toggle {
         display: inline-flex;
         align-items: center;
@@ -820,6 +826,7 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
       <div class="target-strip" aria-label="Active Live Values target">
         <span>Target</span>
         <span id="targetLabel" class="target-label" title="Simulator (this computer)">Simulator (this computer)</span>
+        <span id="scanLabel" class="scan-label" title="No runtime scan has been received yet">scan --</span>
       </div>
       <div class="header-search">
         <input id="filter" placeholder="Filter by name or address" />

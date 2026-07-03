@@ -15,6 +15,7 @@ const settingsSave = document.getElementById("settingsSave");
 const settingsCancel = document.getElementById("settingsCancel");
 const runtimeStatusText = document.getElementById("runtimeStatusText");
 const targetLabel = document.getElementById("targetLabel");
+const scanLabel = document.getElementById("scanLabel");
 const runtimeStart = document.getElementById("runtimeStart");
 const modeSimulate = document.getElementById("modeSimulate");
 const modeOnline = document.getElementById("modeOnline");
@@ -102,6 +103,18 @@ function setStatusText(message) {
       /queued|active|armed|released|cleared/i.test(text)
     );
   }
+}
+
+function updateScanLabel(state) {
+  if (!scanLabel) {
+    return;
+  }
+  const scan = state && Number.isFinite(state.scan) ? state.scan : undefined;
+  scanLabel.textContent = scan === undefined ? "scan --" : "scan #" + scan;
+  scanLabel.title =
+    scan === undefined
+      ? "No runtime scan has been received yet"
+      : "Rows are from runtime scan #" + scan;
 }
 
 function isTransientStatusText(message) {
@@ -1050,6 +1063,7 @@ function restoreActiveInput(state) {
 
 function render(state) {
   const activeInput = captureActiveInput();
+  updateScanLabel(state);
   sections.innerHTML = "";
 
   // Read + write + force/release work on the simulator AND on remote attach (the adapter forwards

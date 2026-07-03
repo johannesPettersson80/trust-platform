@@ -403,8 +403,6 @@ impl Runtime {
         let now_ms = self.current_time_ms();
         self.ads.apply_inputs(&mut self.storage, now_ms)?;
         self.opcua_client.apply_inputs(&mut self.storage, now_ms)?;
-        #[cfg(feature = "debug")]
-        self.emit_io_snapshot();
         self.update_io_health();
         Ok(())
     }
@@ -455,7 +453,15 @@ impl Runtime {
     #[cfg(feature = "debug")]
     fn emit_io_snapshot(&self) {
         if let Some(debug) = &self.debug {
-            debug.push_io_snapshot(self.io.snapshot());
+            let mut snapshot = self.io.snapshot();
+            snapshot.scan = Some(self.cycle_counter);
+            snapshot.forced = debug
+                .forced_snapshot()
+                .io
+                .into_iter()
+                .map(|(address, _)| address)
+                .collect();
+            debug.push_io_snapshot(snapshot);
         }
     }
 }

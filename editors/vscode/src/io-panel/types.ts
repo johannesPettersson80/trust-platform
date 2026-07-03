@@ -8,6 +8,7 @@ export type IoEntry = {
 };
 
 export type IoState = {
+  scan?: number;
   inputs: IoEntry[];
   outputs: IoEntry[];
   memory: IoEntry[];

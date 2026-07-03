@@ -218,22 +218,23 @@ pub(super) struct PairRevokeParams {
 }
 
 pub(super) trait IoSnapshotJson {
-    fn into_json(self) -> serde_json::Value
-    where
-        Self: Sized,
-    {
-        self.into_json_with_forced(&[])
-    }
-
-    fn into_json_with_forced(self, forced: &[IoAddress]) -> serde_json::Value;
+    fn into_json(self) -> serde_json::Value;
 }
 
 impl IoSnapshotJson for IoSnapshot {
-    fn into_json_with_forced(self, forced: &[IoAddress]) -> serde_json::Value {
+    fn into_json(self) -> serde_json::Value {
+        let IoSnapshot {
+            scan,
+            forced,
+            inputs,
+            outputs,
+            memory,
+        } = self;
         json!({
-            "inputs": self.inputs.iter().map(|entry| entry_to_json(entry, forced)).collect::<Vec<_>>(),
-            "outputs": self.outputs.iter().map(|entry| entry_to_json(entry, forced)).collect::<Vec<_>>(),
-            "memory": self.memory.iter().map(|entry| entry_to_json(entry, forced)).collect::<Vec<_>>(),
+            "scan": scan,
+            "inputs": inputs.iter().map(|entry| entry_to_json(entry, &forced)).collect::<Vec<_>>(),
+            "outputs": outputs.iter().map(|entry| entry_to_json(entry, &forced)).collect::<Vec<_>>(),
+            "memory": memory.iter().map(|entry| entry_to_json(entry, &forced)).collect::<Vec<_>>(),
         })
     }
 }

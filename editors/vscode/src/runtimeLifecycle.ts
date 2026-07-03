@@ -23,6 +23,8 @@ const SESSION_WAIT_TIMEOUT_MS = 8000;
 const SESSION_WAIT_POLL_MS = 100;
 const SESSION_START_STABILITY_MS = 2500;
 const DEBUG_START_COMMAND_TIMEOUT_MS = 6000;
+const IO_NEXT_SCAN_TIMEOUT_MS = 1200;
+const IO_NEXT_SCAN_POLL_MS = 60;
 
 export type { RuntimeStartFailure, RuntimeStartFailureKind };
 
@@ -167,7 +169,7 @@ class RuntimeLifecycleService {
     };
   }
 
-  async requestIoState(options: { readonly persistFailure?: boolean } = {}): Promise<RuntimeLifecycleResult> {
+  async requestIoState(options: { readonly persistFailure?: boolean; readonly afterScan?: number } = {}): Promise<RuntimeLifecycleResult> {
     const session = this.getStructuredTextSession();
     if (!session) {
       return {
@@ -179,7 +181,10 @@ class RuntimeLifecycleService {
       };
     }
     try {
-      await session.customRequest("stIoState");
+      await session.customRequest(
+        "stIoState",
+        options.afterScan === undefined ? undefined : { afterScan: options.afterScan }
+      );
       return { ok: true, message: "I/O state requested." };
     } catch (err) {
       const failure = classifyRuntimeStartFailure(err);
@@ -193,6 +198,33 @@ class RuntimeLifecycleService {
       }
       return { ok: false, failure: ioFailure };
     }
+  }
+
+  async requestIoStateAfterScan(
+    previousScan: number | undefined,
+    options: { readonly timeoutMs?: number } = {}
+  ): Promise<RuntimeLifecycleResult> {
+    const deadline = Date.now() + (options.timeoutMs ?? IO_NEXT_SCAN_TIMEOUT_MS);
+    let lastResult: RuntimeLifecycleResult = {
+      ok: true,
+      message: "I/O state requested.",
+    };
+    do {
+      lastResult = await this.requestIoState({ afterScan: previousScan });
+      if (!lastResult.ok) {
+        return lastResult;
+      }
+      const nextScan = this.lastIoState.scan;
+      if (
+        previousScan === undefined ||
+        nextScan === undefined ||
+        nextScan > previousScan
+      ) {
+        return lastResult;
+      }
+      await delay(IO_NEXT_SCAN_POLL_MS);
+    } while (Date.now() < deadline);
+    return lastResult;
   }
 
   async setRuntimeMode(mode: unknown): Promise<void> {
@@ -528,7 +560,12 @@ export function normalizeIoState(value: unknown): IoState {
   if (!isRecord(value)) {
     return EMPTY_IO_STATE;
   }
+  const scan =
+    typeof value.scan === "number" && Number.isFinite(value.scan)
+      ? value.scan
+      : undefined;
   return {
+    scan,
     inputs: normalizeIoEntries(value.inputs),
     outputs: normalizeIoEntries(value.outputs),
     memory: normalizeIoEntries(value.memory),
@@ -584,6 +621,10 @@ function runtimeDebugDisabled(value: unknown): boolean {
   }
   const controlStatus = value.control_status;
   return isRecord(controlStatus) && controlStatus.debug_enabled === false;
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

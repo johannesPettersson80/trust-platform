@@ -138,6 +138,8 @@ pub struct IoSnapshotEntry {
 
 #[derive(Debug, Clone, Default)]
 pub struct IoSnapshot {
+    pub scan: Option<u64>,
+    pub forced: Vec<IoAddress>,
     pub inputs: Vec<IoSnapshotEntry>,
     pub outputs: Vec<IoSnapshotEntry>,
     pub memory: Vec<IoSnapshotEntry>,

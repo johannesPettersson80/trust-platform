@@ -271,7 +271,6 @@ fn attach_st_io_force_and_release_forward_remote_io_force_and_release() {
     };
     let outcome = adapter.dispatch_request(force);
     assert_eq!(outcome.responses.len(), 1);
-    assert_eq!(outcome.events.len(), 1);
     let response: Response<serde_json::Value> =
         serde_json::from_value(outcome.responses[0].clone()).unwrap();
     assert!(
@@ -279,6 +278,19 @@ fn attach_st_io_force_and_release_forward_remote_io_force_and_release() {
         "stIoForce failed in attach mode: {:?}",
         response.message
     );
+    assert_eq!(
+        outcome.events.len(),
+        0,
+        "stIoForce must not emit an optimistic stale remote snapshot"
+    );
+    let state = Request::<serde_json::Value> {
+        seq: 2,
+        message_type: MessageType::Request,
+        command: "stIoState".to_string(),
+        arguments: None,
+    };
+    let outcome = adapter.dispatch_request(state);
+    assert_eq!(outcome.events.len(), 1);
     let event: Event<IoStateEventBody> = serde_json::from_value(outcome.events[0].clone()).unwrap();
     assert!(event
         .body
@@ -288,7 +300,7 @@ fn attach_st_io_force_and_release_forward_remote_io_force_and_release() {
         .any(|entry| entry.address == "%QX0.0" && entry.forced));
 
     let release = Request {
-        seq: 2,
+        seq: 3,
         message_type: MessageType::Request,
         command: "stIoRelease".to_string(),
         arguments: Some(
@@ -300,7 +312,6 @@ fn attach_st_io_force_and_release_forward_remote_io_force_and_release() {
     };
     let outcome = adapter.dispatch_request(release);
     assert_eq!(outcome.responses.len(), 1);
-    assert_eq!(outcome.events.len(), 1);
     let response: Response<serde_json::Value> =
         serde_json::from_value(outcome.responses[0].clone()).unwrap();
     assert!(
@@ -308,6 +319,19 @@ fn attach_st_io_force_and_release_forward_remote_io_force_and_release() {
         "stIoRelease failed in attach mode: {:?}",
         response.message
     );
+    assert_eq!(
+        outcome.events.len(),
+        0,
+        "stIoRelease must not emit an optimistic stale remote snapshot"
+    );
+    let state = Request::<serde_json::Value> {
+        seq: 4,
+        message_type: MessageType::Request,
+        command: "stIoState".to_string(),
+        arguments: None,
+    };
+    let outcome = adapter.dispatch_request(state);
+    assert_eq!(outcome.events.len(), 1);
     let event: Event<IoStateEventBody> = serde_json::from_value(outcome.events[0].clone()).unwrap();
     assert!(event
         .body

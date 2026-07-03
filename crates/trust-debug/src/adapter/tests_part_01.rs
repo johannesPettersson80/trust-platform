@@ -237,9 +237,11 @@ fn dispatch_io_write_updates_input() {
 
     let outcome = adapter.dispatch_request(request);
     assert_eq!(outcome.responses.len(), 1);
-    assert_eq!(outcome.events.len(), 1);
-    let event: Event<IoStateEventBody> = serde_json::from_value(outcome.events[0].clone()).unwrap();
-    assert_eq!(event.event, "stIoState");
+    assert_eq!(
+        outcome.events.len(),
+        0,
+        "stIoWrite must wait for an explicit/newer I/O snapshot instead of emitting a partial stale row"
+    );
 
     let value = adapter
         .session()
@@ -250,4 +252,21 @@ fn dispatch_io_write_updates_input() {
         .read(&input_addr)
         .unwrap();
     assert_eq!(value, RuntimeValue::Bool(true));
+
+    let state_request = Request::<serde_json::Value> {
+        seq: 2,
+        message_type: MessageType::Request,
+        command: "stIoState".to_string(),
+        arguments: None,
+    };
+    let outcome = adapter.dispatch_request(state_request);
+    assert_eq!(outcome.events.len(), 1);
+    let event: Event<IoStateEventBody> = serde_json::from_value(outcome.events[0].clone()).unwrap();
+    assert_eq!(event.event, "stIoState");
+    assert!(event
+        .body
+        .unwrap()
+        .inputs
+        .iter()
+        .any(|entry| entry.address == "%IX0.2" && entry.value == "TRUE"));
 }

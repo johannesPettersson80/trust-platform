@@ -657,7 +657,7 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
     );
   });
 
-  test("row write force and release refresh visible I/O state immediately", () => {
+  test("row write force and release wait for the next runtime scan before refreshing rows", () => {
     const host = readSrc("ioPanel.ts");
     for (const [name, successText] of [
       ["writeInput", "I/O write queued for"],
@@ -670,8 +670,9 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
       const body = host.slice(start, end >= 0 ? end : undefined);
       assert.ok(body.includes(successText), `${name} must post success feedback`);
       assert.ok(
-        body.includes("void requestIoState();"),
-        `${name} must refresh the visible rows after a successful operation`
+        body.includes("const previousScan = await currentIoScan();") &&
+          body.includes("void requestIoStateAfterScan(previousScan);"),
+        `${name} must wait for a newer scan before refreshing visible rows`
       );
     }
   });
@@ -941,6 +942,12 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
         `${name} must render the active Live Values target above the table`
       );
       assert.ok(
+        source.includes('id="scanLabel"') &&
+          source.includes("scan --") &&
+          source.includes(".scan-label"),
+        `${name} must render the runtime scan number above the table`
+      );
+      assert.ok(
         source.includes(".row-header") &&
           source.includes(".actions-heading"),
         `${name} must style visible table headers for value rows`
@@ -953,6 +960,12 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
         web.includes("Connected runtime") &&
         web.includes("Runtime at "),
       "the webview must label simulator and attached runtime targets in user-facing words"
+    );
+    assert.ok(
+      web.includes("function updateScanLabel") &&
+        web.includes('"scan #" + scan') &&
+        web.includes("Rows are from runtime scan #"),
+      "the webview must update the visible scan number from each I/O state payload"
     );
     for (const label of ["Name", "Value", "Type", "State", "Actions"]) {
       assert.ok(web.includes(`textContent = "${label}"`), `Live Values rows must label ${label}`);

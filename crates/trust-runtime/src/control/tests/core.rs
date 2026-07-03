@@ -2713,6 +2713,8 @@ END_PROGRAM
             },
         ]);
     *state.io_snapshot.lock().expect("io snapshot lock") = Some(crate::io::IoSnapshot {
+        scan: Some(42),
+        forced: Vec::new(),
         inputs: vec![crate::io::IoSnapshotEntry {
             name: Some(SmolStr::new("Input0")),
             address: crate::io::IoAddress::parse("%IX0.0").expect("input address"),
@@ -4166,7 +4168,7 @@ END_PROGRAM
 }
 
 #[test]
-fn io_read_marks_forced_io_rows() {
+fn io_read_uses_force_marks_from_the_cached_snapshot() {
     let source = r#"
 PROGRAM Main
 VAR
@@ -4177,6 +4179,8 @@ END_PROGRAM
     let state = hmi_test_state(source);
     let output = crate::io::IoAddress::parse("%QX0.0").expect("output address");
     *state.io_snapshot.lock().expect("snapshot lock") = Some(crate::io::IoSnapshot {
+        scan: Some(7),
+        forced: Vec::new(),
         inputs: Vec::new(),
         outputs: vec![crate::io::IoSnapshotEntry {
             name: Some(SmolStr::new("OUT0")),
@@ -4199,7 +4203,43 @@ END_PROGRAM
 
     let read = handle_request_value(json!({"id": 41, "type": "io.read"}), &state, None);
     assert!(read.ok, "io.read should succeed: {:?}", read.error);
-    let forced = read
+    let snapshot = read
+        .result
+        .as_ref()
+        .and_then(|result| result.get("snapshot"))
+        .expect("snapshot result");
+    assert_eq!(
+        snapshot.get("scan").and_then(serde_json::Value::as_u64),
+        Some(7),
+        "scan number should come from the cached snapshot: {read:?}"
+    );
+    let stale_forced = snapshot
+        .get("outputs")
+        .and_then(serde_json::Value::as_array)
+        .and_then(|outputs| outputs.first())
+        .and_then(|entry| entry.get("forced"))
+        .and_then(serde_json::Value::as_bool);
+    assert_eq!(
+        stale_forced,
+        Some(false),
+        "a force requested after scan #7 must not decorate scan #7: {read:?}"
+    );
+
+    *state.io_snapshot.lock().expect("snapshot lock") = Some(crate::io::IoSnapshot {
+        scan: Some(8),
+        forced: vec![output.clone()],
+        inputs: Vec::new(),
+        outputs: vec![crate::io::IoSnapshotEntry {
+            name: Some(SmolStr::new("OUT0")),
+            address: output.clone(),
+            value: crate::io::IoSnapshotValue::Value(crate::value::Value::Bool(false)),
+        }],
+        memory: Vec::new(),
+    });
+
+    let next_read = handle_request_value(json!({"id": 43, "type": "io.read"}), &state, None);
+    assert!(next_read.ok, "io.read should succeed: {:?}", next_read.error);
+    let forced = next_read
         .result
         .as_ref()
         .and_then(|result| result.get("snapshot"))
@@ -4208,7 +4248,7 @@ END_PROGRAM
         .and_then(|outputs| outputs.first())
         .and_then(|entry| entry.get("forced"))
         .and_then(serde_json::Value::as_bool);
-    assert_eq!(forced, Some(true), "forced row should be marked: {read:?}");
+    assert_eq!(forced, Some(true), "scan #8 should carry its own force mark: {next_read:?}");
 
     let release = handle_request_value(
         json!({

@@ -273,6 +273,7 @@ impl RemoteSession {
     pub fn io_state(&mut self) -> RemoteResult<IoStateEventBody> {
         let payload = self.request("io.read", None)?;
         let snapshot = payload.get("snapshot").cloned().unwrap_or(Value::Null);
+        let scan = snapshot.get("scan").and_then(|scan| scan.as_u64());
         let parse_entries = |value: &Value| -> Vec<IoStateEntry> {
             value
                 .as_array()
@@ -319,6 +320,7 @@ impl RemoteSession {
             .map(parse_entries)
             .unwrap_or_default();
         Ok(IoStateEventBody {
+            scan,
             inputs,
             outputs,
             memory,

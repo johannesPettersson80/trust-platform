@@ -56,10 +56,15 @@ impl DebugAdapter {
     pub(super) fn handle_io_state(&mut self, request: Request<Value>) -> DispatchOutcome {
         if let Some(remote) = self.remote_session.as_mut() {
             match remote.io_state() {
-                Ok(mut body) => {
-                    self.apply_forced_flags(&mut body);
+                Ok(body) => {
                     if let Ok(mut cache) = self.last_io_state.lock() {
                         *cache = Some(body.clone());
+                    }
+                    if suppress_io_state_event_until_next_scan(&request, body.scan) {
+                        return DispatchOutcome {
+                            responses: vec![self.ok_response::<Value>(&request, None)],
+                            ..DispatchOutcome::default()
+                        };
                     }
                     let event = self.event("stIoState", Some(body));
                     return DispatchOutcome {
@@ -79,6 +84,14 @@ impl DebugAdapter {
         let body = self
             .capture_io_state_from_runtime()
             .unwrap_or_else(|| self.build_io_state());
+        if suppress_io_state_event_until_next_scan(&request, body.scan) {
+            return DispatchOutcome {
+                responses: vec![self.ok_response::<Value>(&request, None)],
+                events: Vec::new(),
+                should_exit: false,
+                stop_gate: None,
+            };
+        }
         let event = self.event("stIoState", Some(body));
         DispatchOutcome {
             responses: vec![self.ok_response::<Value>(&request, None)],
@@ -155,11 +168,9 @@ impl DebugAdapter {
                 };
             }
         }
-        let body = self.update_io_cache_for_write(address, value);
-        let event = self.event("stIoState", Some(body));
         DispatchOutcome {
             responses: vec![self.ok_response::<Value>(&request, None)],
-            events: vec![event],
+            events: Vec::new(),
             should_exit: false,
             stop_gate: None,
         }
@@ -194,14 +205,10 @@ impl DebugAdapter {
                 .expect("remote session checked")
                 .io_force(&address_text, &args.value);
             return match response {
-                Ok(()) => {
-                    self.set_io_forced(&address, true);
-                    DispatchOutcome {
-                        responses: vec![self.ok_response::<Value>(&request, None)],
-                        events: self.refreshed_remote_io_state_event(),
-                        ..DispatchOutcome::default()
-                    }
-                }
+                Ok(()) => DispatchOutcome {
+                    responses: vec![self.ok_response::<Value>(&request, None)],
+                    ..DispatchOutcome::default()
+                },
                 Err(err) => DispatchOutcome {
                     responses: vec![self.error_response(&request, &err.to_string())],
                     ..DispatchOutcome::default()
@@ -250,10 +257,8 @@ impl DebugAdapter {
                 ..DispatchOutcome::default()
             };
         }
-        let body = self.update_io_cache_for_write(address, value);
         DispatchOutcome {
             responses: vec![self.ok_response::<Value>(&request, None)],
-            events: vec![self.event("stIoState", Some(body))],
             ..DispatchOutcome::default()
         }
     }
@@ -287,14 +292,10 @@ impl DebugAdapter {
                 .expect("remote session checked")
                 .io_unforce(&address_text);
             return match response {
-                Ok(()) => {
-                    self.set_io_forced(&address, false);
-                    DispatchOutcome {
-                        responses: vec![self.ok_response::<Value>(&request, None)],
-                        events: self.refreshed_remote_io_state_event(),
-                        ..DispatchOutcome::default()
-                    }
-                }
+                Ok(()) => DispatchOutcome {
+                    responses: vec![self.ok_response::<Value>(&request, None)],
+                    ..DispatchOutcome::default()
+                },
                 Err(err) => DispatchOutcome {
                     responses: vec![self.error_response(&request, &err.to_string())],
                     ..DispatchOutcome::default()
@@ -325,10 +326,8 @@ impl DebugAdapter {
         };
         self.session.debug_control().release_io(&address);
         self.set_io_forced(&address, false);
-        let body = self.update_io_cache_from_runtime(&runtime);
         DispatchOutcome {
             responses: vec![self.ok_response::<Value>(&request, None)],
-            events: vec![self.event("stIoState", Some(body))],
             ..DispatchOutcome::default()
         }
     }
@@ -340,11 +339,12 @@ impl DebugAdapter {
             }
         }
         if let Ok(runtime) = self.session.runtime_handle().try_lock() {
-            let mut state = io_state_from_snapshot(runtime.io().snapshot());
+            let mut state = io_state_from_snapshot(self.runtime_io_snapshot(&runtime));
             self.apply_forced_flags(&mut state);
             return state;
         }
         IoStateEventBody {
+            scan: None,
             inputs: Vec::new(),
             outputs: Vec::new(),
             memory: Vec::new(),
@@ -354,7 +354,7 @@ impl DebugAdapter {
     pub(super) fn capture_io_state_from_runtime(&self) -> Option<IoStateEventBody> {
         let runtime_handle = self.session.runtime_handle();
         let runtime = runtime_handle.try_lock().ok()?;
-        let mut body = io_state_from_snapshot(runtime.io().snapshot());
+        let mut body = io_state_from_snapshot(self.runtime_io_snapshot(&runtime));
         self.apply_forced_flags(&mut body);
         if let Ok(mut cache) = self.last_io_state.lock() {
             *cache = Some(body.clone());
@@ -366,12 +366,18 @@ impl DebugAdapter {
         &self,
         runtime: &trust_runtime::Runtime,
     ) -> IoStateEventBody {
-        let mut body = io_state_from_snapshot(runtime.io().snapshot());
+        let mut body = io_state_from_snapshot(self.runtime_io_snapshot(runtime));
         self.apply_forced_flags(&mut body);
         if let Ok(mut cache) = self.last_io_state.lock() {
             *cache = Some(body.clone());
         }
         body
+    }
+
+    fn runtime_io_snapshot(&self, runtime: &trust_runtime::Runtime) -> IoSnapshot {
+        let mut snapshot = runtime.io().snapshot();
+        snapshot.scan = Some(runtime.cycle_counter());
+        snapshot
     }
 
     pub(super) fn emit_io_state_event_from_runtime(&self, events: &mut Vec<Value>) {
@@ -394,33 +400,11 @@ impl DebugAdapter {
         let Some(remote) = self.remote_session.as_mut() else {
             return Err("attach session is not connected".to_string());
         };
-        let mut state = remote.io_state().map_err(|err| err.to_string())?;
-        self.apply_forced_flags(&mut state);
+        let state = remote.io_state().map_err(|err| err.to_string())?;
         if let Ok(mut cache) = self.last_io_state.lock() {
             *cache = Some(state.clone());
         }
         resolve_io_address_from_state(&state, name)
-    }
-
-    fn refreshed_remote_io_state_event(&mut self) -> Vec<Value> {
-        let body = self
-            .remote_session
-            .as_mut()
-            .and_then(|remote| remote.io_state().ok());
-        if let Some(mut body) = body {
-            self.apply_forced_flags(&mut body);
-            if let Ok(mut cache) = self.last_io_state.lock() {
-                *cache = Some(body.clone());
-            }
-            return vec![self.event("stIoState", Some(body))];
-        }
-        if let Ok(cache) = self.last_io_state.lock() {
-            if let Some(mut body) = cache.clone() {
-                self.apply_forced_flags(&mut body);
-                return vec![self.event("stIoState", Some(body))];
-            }
-        }
-        Vec::new()
     }
 
     pub(super) fn update_io_cache_for_write(
@@ -430,12 +414,14 @@ impl DebugAdapter {
     ) -> IoStateEventBody {
         let mut state = if let Ok(cache) = self.last_io_state.lock() {
             cache.clone().unwrap_or(IoStateEventBody {
+                scan: None,
                 inputs: Vec::new(),
                 outputs: Vec::new(),
                 memory: Vec::new(),
             })
         } else {
             IoStateEventBody {
+                scan: None,
                 inputs: Vec::new(),
                 outputs: Vec::new(),
                 memory: Vec::new(),
@@ -467,6 +453,19 @@ impl DebugAdapter {
         state
     }
 }
+
+fn suppress_io_state_event_until_next_scan(request: &Request<Value>, scan: Option<u64>) -> bool {
+    let Some(after_scan) = request
+        .arguments
+        .as_ref()
+        .and_then(|arguments| arguments.get("afterScan"))
+        .and_then(|value| value.as_u64())
+    else {
+        return false;
+    };
+    scan.is_some_and(|scan| scan <= after_scan)
+}
+
 pub(super) fn io_type_id(address: &IoAddress) -> TypeId {
     match address.size {
         IoSize::Bit => TypeId::BOOL,
@@ -614,7 +613,7 @@ fn parse_numeric(raw: &str) -> Result<u64, String> {
 }
 
 pub(super) fn io_state_from_snapshot(snapshot: IoSnapshot) -> IoStateEventBody {
-    fn convert(entries: Vec<IoSnapshotEntry>) -> Vec<IoStateEntry> {
+    fn convert(entries: Vec<IoSnapshotEntry>, forced: &[IoAddress]) -> Vec<IoStateEntry> {
         entries
             .into_iter()
             .map(|entry| {
@@ -629,16 +628,18 @@ pub(super) fn io_state_from_snapshot(snapshot: IoSnapshot) -> IoStateEventBody {
                     name,
                     address,
                     value,
-                    forced: false,
+                    forced: forced.iter().any(|forced| forced == &entry.address),
                 }
             })
             .collect()
     }
 
+    let forced = snapshot.forced;
     IoStateEventBody {
-        inputs: convert(snapshot.inputs),
-        outputs: convert(snapshot.outputs),
-        memory: convert(snapshot.memory),
+        scan: snapshot.scan,
+        inputs: convert(snapshot.inputs, &forced),
+        outputs: convert(snapshot.outputs, &forced),
+        memory: convert(snapshot.memory, &forced),
     }
 }
 

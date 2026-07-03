@@ -77,7 +77,6 @@ impl DebugAdapter {
         let io_logger = dap_log.clone();
         let io_seq = Arc::clone(&self.next_seq);
         let io_state_cache = Arc::clone(&self.last_io_state);
-        let forced_io_addresses = Arc::clone(&self.forced_io_addresses);
         let io_thread = thread::spawn(move || {
             let mut last_sent = Instant::now() - IO_EVENT_MIN_INTERVAL;
             while let Ok(snapshot) = io_rx.recv() {
@@ -85,17 +84,7 @@ impl DebugAdapter {
                 while let Ok(next) = io_rx.try_recv() {
                     latest = next;
                 }
-                let mut body = io_state_from_snapshot(latest);
-                if let Ok(forced) = forced_io_addresses.lock() {
-                    for entry in body
-                        .inputs
-                        .iter_mut()
-                        .chain(body.outputs.iter_mut())
-                        .chain(body.memory.iter_mut())
-                    {
-                        entry.forced = forced.contains(entry.address.as_str());
-                    }
-                }
+                let body = io_state_from_snapshot(latest);
                 let mut should_emit = true;
                 if let Ok(mut cache) = io_state_cache.lock() {
                     if let Some(previous) = cache.as_ref() {

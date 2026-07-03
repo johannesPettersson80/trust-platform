@@ -23,6 +23,7 @@ type IoEntry = {
 };
 
 type IoState = {
+  scan?: number;
   inputs: IoEntry[];
   outputs: IoEntry[];
   memory: IoEntry[];
@@ -671,6 +672,19 @@ async function sendRuntimeStatus(): Promise<void> {
 
 async function requestIoState(): Promise<void> {
   const result = await runtimeLifecycleService.requestIoState();
+  await handleIoStateRequestResult(result);
+}
+
+async function requestIoStateAfterScan(previousScan: number | undefined): Promise<void> {
+  const result = await runtimeLifecycleService.requestIoStateAfterScan(previousScan);
+  await handleIoStateRequestResult(result);
+}
+
+async function currentIoScan(): Promise<number | undefined> {
+  return (await runtimeLifecycleService.snapshot()).ioState.scan;
+}
+
+async function handleIoStateRequestResult(result: RuntimeLifecycleResult): Promise<void> {
   if (!result.ok) {
     if (isNoActiveSessionMessage(result.failure.message)) {
       const status = await runtimeStatusPayload().catch(() => undefined);
@@ -695,6 +709,7 @@ async function writeInput(address: string, value: string): Promise<void> {
   }
 
   try {
+    const previousScan = await currentIoScan();
     await vscode.commands.executeCommand("trust-lsp.debug.io.write", {
       address,
       value,
@@ -703,7 +718,7 @@ async function writeInput(address: string, value: string): Promise<void> {
       type: "status",
       payload: `I/O write queued for ${address}.`,
     });
-    void requestIoState();
+    void requestIoStateAfterScan(previousScan);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     panel?.webview.postMessage({
@@ -725,6 +740,7 @@ async function forceInput(address: string, value: string): Promise<void> {
   // Force works on the simulator AND on remote attach (the adapter forwards io.force; the runtime
   // authorizes by role and surfaces any error, which the catch below reports).
   try {
+    const previousScan = await currentIoScan();
     await vscode.commands.executeCommand("trust-lsp.debug.io.force", {
       address,
       value,
@@ -733,7 +749,7 @@ async function forceInput(address: string, value: string): Promise<void> {
       type: "status",
       payload: `I/O force active at ${address}.`,
     });
-    void requestIoState();
+    void requestIoStateAfterScan(previousScan);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     panel?.webview.postMessage({
@@ -753,6 +769,7 @@ async function releaseInput(address: string): Promise<void> {
   }
 
   try {
+    const previousScan = await currentIoScan();
     await vscode.commands.executeCommand("trust-lsp.debug.io.release", {
       address,
     });
@@ -760,7 +777,7 @@ async function releaseInput(address: string): Promise<void> {
       type: "status",
       payload: `I/O force released at ${address}.`,
     });
-    void requestIoState();
+    void requestIoStateAfterScan(previousScan);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     panel?.webview.postMessage({
@@ -773,6 +790,7 @@ async function releaseInput(address: string): Promise<void> {
 // §0.5.16 — "Release all forces": one click clears every force on the target (simulator or remote
 // attach). The webview sends the currently-forced addresses (it renders them); we release each.
 async function releaseAllForces(addresses: string[]): Promise<void> {
+  const previousScan = await currentIoScan();
   let released = 0;
   for (const address of addresses) {
     if (!address) {
@@ -794,7 +812,7 @@ async function releaseAllForces(addresses: string[]): Promise<void> {
         ? `Released ${released} force${released === 1 ? "" : "s"}.`
         : "No forces to release.",
   });
-  void requestIoState();
+  void requestIoStateAfterScan(previousScan);
 }
 
 
@@ -1388,6 +1406,12 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
         min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .scan-label {
+        color: var(--trust-text-muted);
+        font-variant-numeric: tabular-nums;
         white-space: nowrap;
       }
 
@@ -2106,6 +2130,7 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
       <div class="target-strip" aria-label="Active Live Values target">
         <span>Target</span>
         <span id="targetLabel" class="target-label" title="Simulator (this computer)">Simulator (this computer)</span>
+        <span id="scanLabel" class="scan-label" title="No runtime scan has been received yet">scan --</span>
       </div>
       <div class="header-search">
         <input id="filter" placeholder="Filter by name or address" />

@@ -114,6 +114,8 @@ pub struct IoStateEntry {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct IoStateEventBody {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scan: Option<u64>,
     pub inputs: Vec<IoStateEntry>,
     pub outputs: Vec<IoStateEntry>,
     pub memory: Vec<IoStateEntry>,
