@@ -115,22 +115,27 @@ const ADD_PICKER_COPY: Record<string, PickerProtocolCopy> = {
   mesh: {
     title: "Mesh / Zenoh",
     purpose: "Configure a peer network; no live link is active until a runtime reports one.",
+    badge: "MESH",
   },
   openot: {
     purpose: "Configure OpenOT evidence output; no evidence is published until a runtime reports one.",
+    badge: "OT",
   },
   realtime_t0: {
     title: "Realtime T0",
     purpose:
       "Configure deterministic same-host exchange; no live exchange runs until a runtime reports one.",
+    badge: "RT",
   },
   runtime_cloud: {
     title: "Runtime cloud",
     purpose: "Configure federation policy; no live link is active until a runtime reports one.",
+    badge: "CLOUD",
   },
   federation: {
     title: "Runtime cloud",
     purpose: "Configure federation policy; no live link is active until a runtime reports one.",
+    badge: "CLOUD",
   },
 };
 

@@ -1211,6 +1211,10 @@ suite("Network Canvas — add picker taxonomy", function () {
     ]);
     const items = new Map(groups.flatMap((g) => g.items.map((item) => [item.protocol.id, item])));
     assert.strictEqual(items.get("mesh")?.title, "Mesh / Zenoh");
+    assert.strictEqual(items.get("mesh")?.badge, "MESH");
+    assert.strictEqual(items.get("openot")?.badge, "OT");
+    assert.strictEqual(items.get("realtime_t0")?.badge, "RT");
+    assert.strictEqual(items.get("runtime_cloud")?.badge, "CLOUD");
     assert.ok(items.get("mesh")?.purpose.includes("peer network"));
     assert.ok(items.get("openot")?.purpose.includes("OpenOT evidence"));
     assert.ok(items.get("realtime_t0")?.purpose.includes("deterministic"));
