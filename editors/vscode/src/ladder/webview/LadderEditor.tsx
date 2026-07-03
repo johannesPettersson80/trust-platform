@@ -2382,6 +2382,23 @@ export function LadderEditor() {
     applyProgramChange((previous) => autoRouteProgram(previous));
   };
 
+  const handleFitView = () => {
+    const stage = stageRef.current;
+    const container = containerRef.current;
+    if (!stage || !container) {
+      return;
+    }
+    const containerWidth = container.clientWidth || STAGE_WIDTH;
+    const fitScale = Math.max(
+      0.3,
+      Math.min(1, (containerWidth - 24) / (RIGHT_RAIL_X + 40))
+    );
+    stage.scale({ x: fitScale, y: fitScale });
+    stage.position({ x: 12, y: 0 });
+    setScale(fitScale);
+    stage.batchDraw();
+  };
+
   return (
     <div className="ladder-editor trust-product-shell">
       <header className="trust-product-header" aria-label="Ladder editor header">
@@ -2416,15 +2433,6 @@ export function LadderEditor() {
             <div className="trust-inspector__title">Ladder editor</div>
           </div>
 
-          <ElementPropertiesPanel
-            selectedElement={selectedElement}
-            selectedElementData={selectedElementData}
-            activeRungIndex={activeRungIndex}
-            networkCount={program.networks.length}
-            gridSize={GRID_SIZE}
-            onUpdateSelectedElement={updateSelectedElement}
-            onRemoveSelectedElement={removeSelectedElement}
-          />
           <LadderToolsPanel
             selectedTool={selectedTool}
             onToolSelect={(tool) => {
@@ -2446,6 +2454,7 @@ export function LadderEditor() {
             onPaste={pasteSelection}
             onSearchReplace={handleSearchReplace}
             onAutoRoute={handleAutoRoute}
+            onFitView={handleFitView}
             onValidate={handleValidate}
             onGenerateST={handleGenerateST}
             onSave={handleSave}
@@ -2463,6 +2472,15 @@ export function LadderEditor() {
               activeRungIndex !== null &&
               Boolean(program.networks[activeRungIndex]?.edges.length)
             }
+          />
+          <ElementPropertiesPanel
+            selectedElement={selectedElement}
+            selectedElementData={selectedElementData}
+            activeRungIndex={activeRungIndex}
+            networkCount={program.networks.length}
+            gridSize={GRID_SIZE}
+            onUpdateSelectedElement={updateSelectedElement}
+            onRemoveSelectedElement={removeSelectedElement}
           />
         </div>
       </div>

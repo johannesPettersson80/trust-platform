@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
   Background,
   BackgroundVariant,
-  Controls,
   MarkerType,
   ReactFlow,
   type ReactFlowInstance,
@@ -443,7 +442,6 @@ export const SfcEditor: React.FC = () => {
             size={1}
             color="var(--trust-grid-line)"
           />
-          <Controls />
         </ReactFlow>
 
         {showCodePanel && (
@@ -477,6 +475,7 @@ export const SfcEditor: React.FC = () => {
           onValidate={handleValidate}
           onGenerateST={handleGenerateST}
           onAutoLayout={handleAutoLayout}
+          onFitView={requestFitView}
           onSave={handleSave}
           onToggleCodePanel={handleToggleCodePanel}
           showCodePanel={showCodePanel}

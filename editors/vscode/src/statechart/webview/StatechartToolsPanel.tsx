@@ -7,6 +7,7 @@ interface StatechartToolsPanelProps {
   onAddFinalState: () => void;
   onDelete: () => void;
   onAutoLayout: () => void;
+  onFitView: () => void;
   onValidate: () => void;
   onGenerateST: () => void;
   onSave: () => void;
@@ -19,6 +20,7 @@ export const StatechartToolsPanel: React.FC<StatechartToolsPanelProps> = ({
   onAddFinalState,
   onDelete,
   onAutoLayout,
+  onFitView,
   onValidate,
   onGenerateST,
   onSave,
@@ -37,7 +39,7 @@ export const StatechartToolsPanel: React.FC<StatechartToolsPanelProps> = ({
           Save
         </button>
       </div>
-      <div className="trust-section__title" style={{ marginTop: 10 }}>Edit tools</div>
+      <div className="trust-section__title" style={{ marginTop: 10 }}>Edit</div>
       <div className="trust-button-grid">
         <button type="button" className="trust-button" onClick={onAddState}>
           Add State
@@ -60,6 +62,12 @@ export const StatechartToolsPanel: React.FC<StatechartToolsPanelProps> = ({
           disabled={!canDelete}
         >
           Delete
+        </button>
+      </div>
+      <div className="trust-section__title" style={{ marginTop: 10 }}>View</div>
+      <div className="trust-button-grid trust-button-grid--single">
+        <button type="button" className="trust-button" onClick={onFitView} title="Fit the full statechart in the canvas">
+          Fit View
         </button>
       </div>
     </section>

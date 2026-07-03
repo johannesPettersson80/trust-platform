@@ -267,6 +267,9 @@ Target release: `v0.24.28`
 - vscode: Ladder diagrams now render symbolic names above mapped `%I/%Q/%M`
   addresses and use neutral edit-time strokes, reserving status colour for live
   power-flow.
+- vscode: visual editor right panes now share the same Tools/Edit/View section
+  order, with Fit View in the pane and Show Code labeled as a generated-ST
+  preview instead of a save action.
 - vscode: Advanced integration cards in the Devices & Connections Add picker
   now use intentional badges (`MESH`, `OT`, `RT`, `CLOUD`) instead of truncated
   protocol fragments.

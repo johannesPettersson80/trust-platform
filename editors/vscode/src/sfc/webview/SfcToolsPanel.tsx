@@ -14,6 +14,7 @@ interface SfcToolsPanelProps {
   onValidate: () => void;
   onGenerateST: () => void;
   onAutoLayout: () => void;
+  onFitView: () => void;
   onSave: () => void;
   onToggleCodePanel?: () => void;
   showCodePanel?: boolean;
@@ -32,6 +33,7 @@ export const SfcToolsPanel: React.FC<SfcToolsPanelProps> = ({
   onValidate,
   onGenerateST,
   onAutoLayout,
+  onFitView,
   onSave,
   onToggleCodePanel,
   showCodePanel = false,
@@ -56,7 +58,7 @@ export const SfcToolsPanel: React.FC<SfcToolsPanelProps> = ({
         </button>
       </div>
 
-      <div className="trust-section__title" style={{ marginTop: 10 }}>Edit tools</div>
+      <div className="trust-section__title" style={{ marginTop: 10 }}>Edit</div>
       <div className="trust-button-grid">
         <button
           type="button"
@@ -98,16 +100,6 @@ export const SfcToolsPanel: React.FC<SfcToolsPanelProps> = ({
       </div>
 
       <div className="trust-button-grid" style={{ marginTop: 7 }}>
-        {onToggleCodePanel && (
-          <button
-            type="button"
-            className={showCodePanel ? "trust-button trust-button--active" : "trust-button"}
-            onClick={onToggleCodePanel}
-            title={showCodePanel ? "Hide code panel" : "Show code panel"}
-          >
-            {showCodePanel ? "Hide Code" : "Show Code"}
-          </button>
-        )}
         <button
           type="button"
           className="trust-button trust-button--danger"
@@ -117,6 +109,23 @@ export const SfcToolsPanel: React.FC<SfcToolsPanelProps> = ({
         >
           Delete
         </button>
+      </div>
+
+      <div className="trust-section__title" style={{ marginTop: 10 }}>View</div>
+      <div className="trust-button-grid">
+        <button type="button" className="trust-button" onClick={onFitView} title="Fit the full SFC diagram in the canvas">
+          Fit View
+        </button>
+        {onToggleCodePanel && (
+          <button
+            type="button"
+            className={showCodePanel ? "trust-button trust-button--active" : "trust-button"}
+            onClick={onToggleCodePanel}
+            title={showCodePanel ? "Hide generated ST preview" : "Preview generated ST without saving the companion file"}
+          >
+            {showCodePanel ? "Hide Code" : "Show Code"}
+          </button>
+        )}
       </div>
     </section>
   );

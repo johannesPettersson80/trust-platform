@@ -3137,6 +3137,46 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     );
   });
 
+  test("visual editor right panes share Tools Edit View IA and one zoom placement", () => {
+    const panelFiles = [
+      "sfc/webview/SfcToolsPanel.tsx",
+      "statechart/webview/StatechartToolsPanel.tsx",
+      "ladder/webview/LadderToolsPanel.tsx",
+      "blockly/webview/BlocklyEditor.tsx",
+    ];
+
+    for (const file of panelFiles) {
+      const src = readSrc(file);
+      const tools = src.indexOf(">Tools<");
+      const edit = src.indexOf(">Edit<");
+      const view = src.indexOf(">View<");
+      assert.ok(tools >= 0 && edit > tools && view > edit, `${file} must order sections as Tools → Edit → View`);
+      assert.ok(!src.includes("Edit tools"), `${file} must use the shared Edit section label`);
+      assert.ok(src.includes("Fit View"), `${file} must expose canvas fit/zoom from the shared View section`);
+    }
+
+    const sfc = readSrc("sfc/webview/SfcEditor.tsx");
+    const statechart = readSrc("statechart/webview/StateChartEditor.tsx");
+    const ladderEditor = readSrc("ladder/webview/LadderEditor.tsx");
+    const blockly = readSrc("blockly/webview/BlocklyEditor.tsx");
+    assert.ok(!sfc.includes("<Controls />"), "SFC must not keep a separate floating zoom-control placement");
+    assert.ok(!statechart.includes("<Controls />"), "Statechart must not keep a separate floating zoom-control placement");
+    assert.ok(blockly.includes("controls: false"), "Blockly must not keep its separate floating zoom-control placement");
+    assert.ok(
+      ladderEditor.indexOf("<LadderToolsPanel") >= 0 &&
+        ladderEditor.indexOf("<ElementPropertiesPanel") > ladderEditor.indexOf("<LadderToolsPanel"),
+      "Ladder must render the shared Tools/Edit/View panel before selection/rung properties"
+    );
+
+    for (const file of ["sfc/webview/SfcToolsPanel.tsx", "blockly/webview/BlocklyEditor.tsx"]) {
+      const src = readSrc(file);
+      assert.ok(
+        src.includes("Preview generated ST without saving the companion file"),
+        `${file} must explain Show Code as a preview, distinct from Generate ST`
+      );
+    }
+  });
+
   test("Blockly status counts visible blocks, not serialized top-level stacks", () => {
     const src = readSrc("blockly/webview/BlocklyEditor.tsx");
     assert.ok(

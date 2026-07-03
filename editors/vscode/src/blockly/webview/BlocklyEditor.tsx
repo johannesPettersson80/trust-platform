@@ -82,7 +82,7 @@ export const BlocklyEditor: React.FC = () => {
         snap: true,
       },
       zoom: {
-        controls: true,
+        controls: false,
         wheel: true,
         startScale: 1.0,
         maxScale: 3,
@@ -182,6 +182,10 @@ export const BlocklyEditor: React.FC = () => {
   const handleGenerateCode = () => {
     generateCode();
     setShowCode(true);
+  };
+
+  const handleFitView = () => {
+    blocklyWorkspaceRef.current?.zoomToFit();
   };
 
   const handleSaveWorkspace = () => {
@@ -356,23 +360,36 @@ export const BlocklyEditor: React.FC = () => {
                 Save
               </button>
             </div>
-            <div className="trust-section__title" style={{ marginTop: 10 }}>View</div>
+            <div className="trust-section__title" style={{ marginTop: 10 }}>Edit</div>
             <div className="trust-button-grid trust-button-grid--single">
               <button
                 type="button"
                 className="trust-button"
-                onClick={() => setShowCode(!showCode)}
-                title="Toggle code view"
+                onClick={() => setShowProperties(!showProperties)}
+                title="Show or hide selected block properties"
               >
-                {showCode ? "Show Blocks" : "Show Code"}
+                {showProperties ? "Hide Properties" : "Show Properties"}
+              </button>
+            </div>
+
+            <div className="trust-section__title" style={{ marginTop: 10 }}>View</div>
+            <div className="trust-button-grid">
+              <button
+                type="button"
+                className="trust-button"
+                onClick={handleFitView}
+                disabled={!workspace}
+                title="Fit all Blockly blocks in the canvas"
+              >
+                Fit View
               </button>
               <button
                 type="button"
                 className="trust-button"
-                onClick={() => setShowProperties(!showProperties)}
-                title="Toggle properties panel"
+                onClick={() => setShowCode(!showCode)}
+                title={showCode ? "Return to the Blockly canvas" : "Preview generated ST without saving the companion file"}
               >
-                {showProperties ? "Hide Properties" : "Show Properties"}
+                {showCode ? "Show Blocks" : "Show Code"}
               </button>
             </div>
           </section>

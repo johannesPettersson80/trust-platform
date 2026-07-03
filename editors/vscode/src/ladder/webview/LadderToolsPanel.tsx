@@ -26,6 +26,7 @@ interface LadderToolsPanelProps {
   onPaste: () => void;
   onSearchReplace: () => void;
   onAutoRoute: () => void;
+  onFitView: () => void;
   onValidate: () => void;
   onGenerateST: () => void;
   onSave: () => void;
@@ -87,6 +88,7 @@ export function LadderToolsPanel({
   onPaste,
   onSearchReplace,
   onAutoRoute,
+  onFitView,
   onValidate,
   onGenerateST,
   onSave,
@@ -129,7 +131,8 @@ export function LadderToolsPanel({
           Save
         </button>
       </div>
-      <div className="trust-section__title" style={{ marginTop: 10 }}>Elements</div>
+      <div className="trust-section__title" style={{ marginTop: 10 }}>Edit</div>
+      <p className="trust-help">Add logic elements and manage the active rung.</p>
       <div className="trust-button-grid">
         {LOGIC_TOOL_OPTIONS.map((tool) => (
           <button
@@ -146,9 +149,6 @@ export function LadderToolsPanel({
             {tool.label}
           </button>
         ))}
-      </div>
-      <div className="trust-section__title" style={{ marginTop: 10 }}>Rungs</div>
-      <div className="trust-button-grid">
         <button
           type="button"
           className="trust-button"
@@ -166,37 +166,68 @@ export function LadderToolsPanel({
         >
           Remove Rung
         </button>
+        <button
+          type="button"
+          className="trust-button"
+          onClick={onDeleteSelection}
+          disabled={!canDeleteSelection}
+          title="Delete selected element"
+        >
+          Delete
+        </button>
+        <button
+          type="button"
+          className="trust-button"
+          onClick={onCopy}
+          title="Copy selected element or active rung"
+        >
+          Copy
+        </button>
+        <button
+          type="button"
+          className="trust-button"
+          onClick={onPaste}
+          disabled={!canPaste}
+          title="Paste copied element or rung"
+        >
+          Paste
+        </button>
+        <button
+          type="button"
+          className="trust-button"
+          onClick={onUndo}
+          disabled={!canUndo}
+          title="Undo (Ctrl/Cmd+Z)"
+        >
+          Undo
+        </button>
+        <button
+          type="button"
+          className="trust-button"
+          onClick={onRedo}
+          disabled={!canRedo}
+          title="Redo (Ctrl/Cmd+Y or Shift+Ctrl/Cmd+Z)"
+        >
+          Redo
+        </button>
       </div>
+
+      <div className="trust-section__title" style={{ marginTop: 10 }}>View</div>
+      <div className="trust-button-grid trust-button-grid--single">
+        <button
+          type="button"
+          className="trust-button"
+          onClick={onFitView}
+          title="Fit the full ladder rung width in the canvas"
+        >
+          Fit View
+        </button>
+      </div>
+
       <details className="ladder-tools-panel__details">
-        <summary>More tools</summary>
-        <div className="trust-section__title">Selection</div>
+        <summary>Advanced</summary>
+        <div className="trust-section__title">Topology</div>
         <div className="trust-button-grid">
-          <button
-            type="button"
-            className="trust-button"
-            onClick={onDeleteSelection}
-            disabled={!canDeleteSelection}
-            title="Delete selected element"
-          >
-            Delete
-          </button>
-          <button
-            type="button"
-            className="trust-button"
-            onClick={onCopy}
-            title="Copy selected element or active rung"
-          >
-            Copy
-          </button>
-          <button
-            type="button"
-            className="trust-button"
-            onClick={onPaste}
-            disabled={!canPaste}
-            title="Paste copied element or rung"
-          >
-            Paste
-          </button>
           <button
             type="button"
             className="trust-button"
@@ -206,10 +237,6 @@ export function LadderToolsPanel({
           >
             Parallel
           </button>
-        </div>
-
-        <div className="trust-section__title" style={{ marginTop: 10 }}>Topology</div>
-        <div className="trust-button-grid">
           {TOPOLOGY_TOOL_OPTIONS.map((tool) => (
             <button
               key={tool.id}
@@ -226,6 +253,7 @@ export function LadderToolsPanel({
             </button>
           ))}
         </div>
+
         <button
           type="button"
           className={`trust-button ${linkModeEnabled ? "trust-button--active" : ""}`}
@@ -256,26 +284,8 @@ export function LadderToolsPanel({
           Clear Wiring
         </button>
 
-        <div className="trust-section__title" style={{ marginTop: 10 }}>Edit</div>
-        <div className="trust-button-grid">
-          <button
-            type="button"
-            className="trust-button"
-            onClick={onUndo}
-            disabled={!canUndo}
-            title="Undo (Ctrl/Cmd+Z)"
-          >
-            Undo
-          </button>
-          <button
-            type="button"
-            className="trust-button"
-            onClick={onRedo}
-            disabled={!canRedo}
-            title="Redo (Ctrl/Cmd+Y or Shift+Ctrl/Cmd+Z)"
-          >
-            Redo
-          </button>
+        <div className="trust-section__title" style={{ marginTop: 10 }}>Maintenance</div>
+        <div className="trust-button-grid trust-button-grid--single">
           <button
             type="button"
             className="trust-button"

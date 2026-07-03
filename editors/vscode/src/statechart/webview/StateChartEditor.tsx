@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
   ReactFlow,
   Background,
-  Controls,
   BackgroundVariant,
   type ReactFlowInstance,
 } from "@xyflow/react";
@@ -328,7 +327,6 @@ export const StateChartEditor: React.FC = () => {
               size={1}
               color="var(--trust-grid-line)"
             />
-            <Controls />
           </ReactFlow>
         )}
       </div>
@@ -355,6 +353,7 @@ export const StateChartEditor: React.FC = () => {
               onAddFinalState={handleAddFinalState}
               onDelete={handleDelete}
               onAutoLayout={handleAutoLayout}
+              onFitView={requestFitView}
               onValidate={handleValidate}
               onGenerateST={handleGenerateST}
               onSave={handleSave}
