@@ -966,6 +966,15 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
           source.includes(".actions-heading"),
         `${name} must style visible table headers for value rows`
       );
+      assert.ok(
+        source.includes('aria-label="Numeric display format"') &&
+          source.includes('data-numeric-format="dec"') &&
+          source.includes('data-numeric-format="hex"') &&
+          source.includes('data-numeric-format="bin"') &&
+          source.includes(".numeric-format") &&
+          source.includes(".format-toggle"),
+        `${name} must expose the DEC/HEX/BIN numeric display toggle in the Live Values header`
+      );
     }
     assert.ok(
       web.includes("targetLabelForStatus") &&
@@ -986,6 +995,25 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
     );
     for (const label of ["Name", "Source", "Value", "Type", "State", "Actions"]) {
       assert.ok(web.includes(`textContent = "${label}"`), `Live Values rows must label ${label}`);
+    }
+  });
+
+  test("Live Values can display word-like values as decimal hex or binary", () => {
+    const web = readSrc("ioPanel.webview.js");
+    assert.ok(
+      web.includes('let numericDisplayBase = "dec"') &&
+        web.includes("setNumericDisplayBase") &&
+        web.includes("formatIntegerForBase") &&
+        web.includes("displayValueForEntry"),
+      "the webview must keep numeric display format as explicit panel state"
+    );
+    assert.ok(
+      web.includes('return "16#" + normalized.toString(16).toUpperCase().padStart(width, "0")') &&
+        web.includes('return "2#" + normalized.toString(2).padStart(bits, "0")'),
+      "the webview must render IEC-style HEX/BIN literals for word-like values"
+    );
+    for (const type of ['case "BYTE":', 'case "WORD":', 'case "DWORD":']) {
+      assert.ok(web.includes(type), `numeric display toggle must cover ${type}`);
     }
   });
 

@@ -49,6 +49,7 @@ let currentRuntimeState = "stopped";
 let currentTargetKey = "simulate|stopped|";
 let forceArmed = false;
 let statusClearTimer = undefined;
+let numericDisplayBase = "dec";
 const TRANSIENT_STATUS_CLEAR_MS = 5000;
 let currentAccess = {
   allowWrite: true,
@@ -91,6 +92,29 @@ if (releaseAllForcesBtn) {
     }
   });
 }
+
+function setNumericDisplayBase(next) {
+  const normalized = ["dec", "hex", "bin"].includes(next) ? next : "dec";
+  numericDisplayBase = normalized;
+  document.querySelectorAll("[data-numeric-format]").forEach((button) => {
+    const active = button.dataset.numericFormat === normalized;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+  render(currentState);
+}
+
+document.addEventListener("click", (event) => {
+  const target = event.target;
+  const button =
+    target && typeof target.closest === "function"
+      ? target.closest("[data-numeric-format]")
+      : undefined;
+  if (!button) {
+    return;
+  }
+  setNumericDisplayBase(button.dataset.numericFormat || "dec");
+});
 
 function setStatusText(message) {
   if (status) {
@@ -759,6 +783,78 @@ function splitDisplayValue(value) {
   return { value: match[2], type: match[1].toUpperCase() };
 }
 
+function integerBitsForType(type) {
+  switch (String(type || "").toUpperCase()) {
+    case "BYTE":
+    case "USINT":
+      return 8;
+    case "WORD":
+    case "UINT":
+      return 16;
+    case "DWORD":
+    case "UDINT":
+      return 32;
+    case "LWORD":
+    case "ULINT":
+      return 64;
+    default:
+      return 0;
+  }
+}
+
+function parseUnsignedIntegerValue(value) {
+  const text = String(value == null ? "" : value).trim().replace(/_/g, "");
+  if (!text) {
+    return undefined;
+  }
+  try {
+    if (/^0x[0-9a-f]+$/i.test(text)) {
+      return BigInt(text);
+    }
+    if (/^16#[0-9a-f]+$/i.test(text)) {
+      return BigInt("0x" + text.slice(3));
+    }
+    if (/^2#[01]+$/i.test(text)) {
+      return BigInt("0b" + text.slice(2));
+    }
+    if (/^[0-9]+$/.test(text)) {
+      return BigInt(text);
+    }
+  } catch (err) {
+    return undefined;
+  }
+  return undefined;
+}
+
+function formatIntegerForBase(value, bits) {
+  if (numericDisplayBase === "dec" || bits <= 0) {
+    return undefined;
+  }
+  const numeric = parseUnsignedIntegerValue(value);
+  if (numeric === undefined) {
+    return undefined;
+  }
+  const max = 1n << BigInt(bits);
+  const normalized = numeric < 0n ? max + numeric : numeric;
+  if (normalized < 0n || normalized >= max) {
+    return undefined;
+  }
+  if (numericDisplayBase === "hex") {
+    const width = Math.ceil(bits / 4);
+    return "16#" + normalized.toString(16).toUpperCase().padStart(width, "0");
+  }
+  if (numericDisplayBase === "bin") {
+    return "2#" + normalized.toString(2).padStart(bits, "0");
+  }
+  return undefined;
+}
+
+function displayValueForEntry(display, displayType) {
+  const value = display.value || "";
+  const formatted = formatIntegerForBase(value, integerBitsForType(displayType));
+  return formatted || value;
+}
+
 function typeFromAddress(address) {
   const match = String(address || "").match(/^%[IQM]([XBWDL])/i);
   if (!match) {
@@ -877,7 +973,11 @@ function renderRows(entries, options = {}) {
 
     const valueCell = document.createElement("div");
     valueCell.className = "value";
-    valueCell.textContent = display.value || "";
+    const displayValue = displayValueForEntry(display, displayType);
+    valueCell.textContent = displayValue;
+    if (displayValue && displayValue !== (display.value || "")) {
+      valueCell.title = (display.value || "") + " as " + displayValue;
+    }
 
     const typeCell = document.createElement("div");
     typeCell.className = "type-cell";

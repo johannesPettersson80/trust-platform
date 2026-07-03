@@ -255,6 +255,9 @@ Target release: `v0.24.27`
 - vscode: Live Values now labels local control-socket targets as
   `Local runtime (control socket)` while keeping the full socket path in the
   tooltip, so temporary socket filenames no longer leak into the panel header.
+- vscode: Live Values now includes a compact DEC/HEX/BIN display toggle for
+  word-like numeric rows, rendering IEC-style `16#` and `2#` literals without
+  changing write/force parsing.
 - vscode: Live Values now clears stale connected/value rows as soon as a
   Structured Text debug session stops or disconnects, keeps remote
   disconnected targets labelled `Not connected` instead of fabricating

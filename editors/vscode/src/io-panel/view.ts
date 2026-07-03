@@ -95,6 +95,8 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
 
       .header-search {
         display: flex;
+        align-items: center;
+        gap: 8px;
       }
 
       .runtime-status {
@@ -218,16 +220,60 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
       }
 
       input#filter {
+        flex: 1 1 auto;
+        min-width: 0;
         padding: 4px 8px;
         border: 1px solid var(--trust-input-border);
         border-radius: 4px;
-        min-width: 220px;
         background: var(--trust-input-bg);
         color: var(--vscode-input-foreground, var(--trust-text));
       }
 
       input#filter::placeholder {
         color: var(--vscode-input-placeholderForeground, var(--trust-text-muted));
+      }
+
+      .numeric-format {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        flex: 0 0 auto;
+        border: 1px solid var(--trust-border);
+        border-radius: 6px;
+        padding: 2px;
+        background: var(--trust-surface);
+      }
+
+      .numeric-format-label {
+        color: var(--trust-text-muted);
+        font-size: 10px;
+        font-weight: 700;
+        padding: 0 4px;
+        text-transform: uppercase;
+      }
+
+      .format-toggle {
+        min-width: 34px;
+        height: 22px;
+        padding: 0 6px;
+        border: 1px solid transparent;
+        border-radius: 4px;
+        background: transparent;
+        color: var(--trust-text-muted);
+        font-size: 10px;
+        font-weight: 700;
+        line-height: 1;
+      }
+
+      .format-toggle:hover {
+        background: var(--trust-selected-bg);
+        color: var(--trust-text);
+      }
+
+      .format-toggle.active {
+        background: var(--trust-selected-bg);
+        border-color: var(--trust-input-border);
+        color: var(--trust-text);
       }
 
       button {
@@ -838,6 +884,12 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
       </div>
       <div class="header-search">
         <input id="filter" placeholder="Filter by name or address" />
+        <div class="numeric-format" aria-label="Numeric display format">
+          <span class="numeric-format-label">Format</span>
+          <button class="format-toggle active" type="button" data-numeric-format="dec" aria-pressed="true" title="Show numeric values as decimal">DEC</button>
+          <button class="format-toggle" type="button" data-numeric-format="hex" aria-pressed="false" title="Show BYTE/WORD/DWORD values as IEC hex literals">HEX</button>
+          <button class="format-toggle" type="button" data-numeric-format="bin" aria-pressed="false" title="Show BYTE/WORD/DWORD values as IEC binary literals">BIN</button>
+        </div>
       </div>
       <div class="status" id="status">Live Values loading...</div>
     </header>
