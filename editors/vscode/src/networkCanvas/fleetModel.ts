@@ -11,6 +11,7 @@ export interface NetworkCanvasFleetEndpoint {
   readonly detail: string;
   readonly owned: boolean;
   readonly dimmed: boolean;
+  readonly live?: FleetTopologyResponse["hosts"][number]["runtimes"][number]["endpoints"][number]["live"];
   readonly params?: Record<string, unknown>;
   // v4 (§10.2): intent + fieldbus slaves (EtherCAT segment children).
   readonly category?: string;
@@ -306,6 +307,7 @@ function fleetRuntime(
       detail: endpoint.detail,
       owned: endpoint.owned,
       dimmed,
+      live: endpoint.live,
       params: endpoint.params,
       // v4 (§10.2): intent + fieldbus slaves (EtherCAT segment children).
       category: endpoint.category,

@@ -1,4 +1,4 @@
-const DERIVED_TOPOLOGY_PARAM_KEYS = new Set(["clients_count"]);
+const DERIVED_TOPOLOGY_PARAM_KEYS = new Set(["clients_count", "clients_summary"]);
 
 function stringArray(value: unknown): string[] {
   return Array.isArray(value)

@@ -54,7 +54,7 @@ export interface FleetTopologyEndpoint {
   health: string;
   detail: string;
   live?: {
-    value?: string;
+    value?: unknown;
     last_seen_ms?: number;
     rtt_ms?: number;
   };

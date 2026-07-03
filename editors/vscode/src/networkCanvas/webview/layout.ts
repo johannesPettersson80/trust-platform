@@ -228,6 +228,7 @@ export function buildGraph(
           detail: ep.detail,
           health: ep.health,
           dimmed: Boolean(ep.dimmed),
+          live: ep.live,
           params: ep.params,
           category: ep.category,
           profile: ep.profile,

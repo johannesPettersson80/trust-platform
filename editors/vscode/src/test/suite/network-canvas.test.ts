@@ -27,6 +27,10 @@ import {
   type CommProtocolSchema,
 } from "../../communication/schemaForm";
 import { protocolColor, protocolName } from "../../networkCanvas/webview/protocolMeta";
+import {
+  formatExposedGlobals,
+  serverEndpointSummaryRows,
+} from "../../networkCanvas/webview/serverEndpointSummary";
 import { visibleFaultsForValidationState } from "../../networkCanvas/webview/faults";
 
 const RUNNING = {
@@ -657,6 +661,97 @@ suite("Network Canvas", function () {
     const external = graph.nodes.find((node) => node.id === "external:opcua:client");
     assert.ok(external, "expected external OPC UA client node");
     assert.strictEqual(external?.data.sub, "OPC UA client");
+  });
+
+  test("server endpoint summaries answer where the server is and what it exposes", () => {
+    assert.strictEqual(
+      formatExposedGlobals(["global.TankLevel", "global.PumpRunning"]),
+      "2 globals: global.TankLevel, global.PumpRunning"
+    );
+    assert.deepStrictEqual(
+      serverEndpointSummaryRows("opcua", {
+        listen: "127.0.0.1:4840",
+        endpoint_path: "/trust",
+      }),
+      [{ label: "Server endpoint", value: "opc.tcp://127.0.0.1:4840/trust" }]
+    );
+    assert.deepStrictEqual(
+      serverEndpointSummaryRows(
+        "ads_server",
+        {
+          listen: "127.0.0.1:48898",
+          ams_net_id: "127.0.0.1.1.1",
+          ads_port: 851,
+        },
+        { value: { connected_clients: 2 }, last_seen_ms: 12 }
+      ),
+      [
+        {
+          label: "Server endpoint",
+          value: "127.0.0.1:48898 · AMS Net ID 127.0.0.1.1.1 · ADS port 851",
+        },
+        { label: "Connected clients", value: "2 clients connected" },
+      ]
+    );
+  });
+
+  test("ADS server live client count survives topology to endpoint node data", () => {
+    const topology: FleetTopologyResponse = {
+      schema_version: 3,
+      hosts: [
+        {
+          host_id: "host:local",
+          hostname: "This computer",
+          arch: "aarch64",
+          os: "linux",
+          ips: ["127.0.0.1"],
+          containers: [],
+          runtimes: [
+            {
+              runtime_id: "runtime:local",
+              name: "truST runtime",
+              control_endpoint: "tcp://127.0.0.1:9000",
+              mode: "simulate",
+              cycle_ms: 10,
+              health: "connected",
+              detail: "Running.",
+              endpoints: [
+                {
+                  id: "endpoint:ads-server",
+                  kind: "service",
+                  protocol: "ads_server",
+                  name: "ADS server",
+                  role: "server",
+                  health: "connected",
+                  detail: "ADS server runtime is active and listening.",
+                  live: { value: { connected_clients: 3 }, last_seen_ms: 99 },
+                  params: {
+                    listen: "127.0.0.1:48898",
+                    ams_net_id: "127.0.0.1.1.1",
+                    ads_port: 851,
+                    expose: ["global.TankLevel"],
+                  },
+                  owned: true,
+                  supports_test: false,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      links: [],
+      shared: [],
+      external: [],
+    };
+
+    const model = buildNetworkCanvasModel({ topology });
+    const canvas = buildCanvasGraph(model, topology);
+    const endpoint = canvas.hosts[0]?.runtimes[0]?.endpoints[0];
+    assert.deepStrictEqual(endpoint?.live?.value, { connected_clients: 3 });
+
+    const graph = buildGraph(canvas);
+    const node = graph.nodes.find((item) => item.id === "endpoint:ads-server");
+    assert.deepStrictEqual(node?.data.live, { value: { connected_clients: 3 }, last_seen_ms: 99 });
   });
 
   test("ADS client links label the external counterpart as an ADS server", () => {
@@ -1515,6 +1610,7 @@ suite("Network Canvas — expose globals apply params", function () {
         writable: [],
         clients: [],
         clients_count: 0,
+        clients_summary: ["127.0.0.1.1.100 (from 127.0.0.1)"],
         username_set: true,
       },
       ["global.Setpoint"],
@@ -1525,6 +1621,7 @@ suite("Network Canvas — expose globals apply params", function () {
     assert.deepStrictEqual(params.expose, ["TankLevel", "Setpoint"]);
     assert.deepStrictEqual(params.writable, ["Setpoint"]);
     assert.strictEqual(params.clients_count, undefined);
+    assert.strictEqual(params.clients_summary, undefined);
     assert.strictEqual(params.username_set, undefined);
   });
 });

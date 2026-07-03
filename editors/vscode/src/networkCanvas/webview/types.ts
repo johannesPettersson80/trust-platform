@@ -29,6 +29,11 @@ export interface NCEndpoint {
   health: string;
   detail: string;
   dimmed?: boolean;
+  live?: {
+    value?: unknown;
+    last_seen_ms?: number;
+    rtt_ms?: number;
+  };
   params?: Record<string, unknown>;
   // v4 (§10.2)
   category?: string;
@@ -149,6 +154,11 @@ export interface EndpointNodeData extends Record<string, unknown> {
   detail: string;
   health: string;
   dimmed: boolean;
+  live?: {
+    value?: unknown;
+    last_seen_ms?: number;
+    rtt_ms?: number;
+  };
   params?: Record<string, unknown>;
   // v4 (§10.2)
   category?: string;

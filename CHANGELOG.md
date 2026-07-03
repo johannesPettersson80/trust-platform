@@ -272,6 +272,10 @@ Target release: `v0.24.28`
 - trust-runtime/vscode: GPIO setup fields are now conditional on the selected
   backend, so the default libgpiod form hides legacy Sysfs base settings while
   sysfs mode hides the libgpiod chip field.
+- vscode: Devices & Connections server inspectors now show the server endpoint
+  and exposed globals after OPC UA/ADS expose flows, preserve ADS pinned-client
+  config while reapplying expose changes, and carry ADS live client-count
+  evidence through to the inspector when available.
 - vscode: visual editors now share keyboard/canvas chrome: Blockly toolbox
   focus uses the truST focus ring, and SFC/Statechart expose the same themed
   canvas zoom controls as Devices & Connections.

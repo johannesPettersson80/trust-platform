@@ -9,6 +9,10 @@ import {
   runtimeNodeControls,
   type RuntimeNodeControl,
 } from "./runtimeNodeControls";
+import {
+  formatExposedGlobals,
+  serverEndpointSummaryRows,
+} from "./serverEndpointSummary";
 import { LOCAL_RUNTIME_NODE_ID } from "./types";
 import type {
   CommApplyResponse,
@@ -355,6 +359,9 @@ function summaryValueFor(
   if (protocol === "ads_server" && field.id === "clients") {
     return formatAdsServerAllowedClients(raw, value, params);
   }
+  if ((protocol === "ads_server" || protocol === "opcua") && field.id === "expose") {
+    return formatExposedGlobals(raw, value);
+  }
   if (protocol === "ethercat") {
     if (field.id === "modules") {
       return formatEthercatModules(raw, value);
@@ -422,6 +429,9 @@ function summaryLabelFor(protocol: string, field: CommFieldSchema): string {
   }
   if (field.id === "writes_enabled") {
     return "Writes enabled";
+  }
+  if ((protocol === "ads_server" || protocol === "opcua") && field.id === "expose") {
+    return "Exposed globals";
   }
   if (/^enable[_\s-]/i.test(field.id) || /^enable\s+/i.test(field.label)) {
     return "Enabled";
@@ -648,6 +658,9 @@ function SummaryView({
     health = str(d.health);
     rows.push(["Name", str(d.name)]);
     const values = valuesFor(protoSchema, params);
+    for (const row of serverEndpointSummaryRows(protocol, params, d.live)) {
+      rows.push([row.label, row.value]);
+    }
     for (const field of protoSchema.fields) {
       if (!includeSummaryField(protocol, field)) {
         continue;
