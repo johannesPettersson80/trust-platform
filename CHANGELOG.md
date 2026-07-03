@@ -252,6 +252,10 @@ Target release: `v0.24.28`
   action that opens the device/connection picker for the selected/default
   runtime, instead of teaching first-time users to discover the primary add
   flow through Edit mode.
+- vscode: Devices & Connections discovery now disables EtherCAT/GPIO hardware
+  scans with an inline reason until a running runtime is selected, and empty
+  scan results explain concrete recovery checks instead of vague runtime
+  plumbing.
 - vscode: Compile diagnostics now use the user-facing `truST` Problems source
   label instead of the stale `trust check` name, and Compile resolves the
   nearest `trust-lsp.toml` from the active file before falling back to the

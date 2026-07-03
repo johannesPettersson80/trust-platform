@@ -346,8 +346,8 @@ suite("Phases 2–3 — naming + nav (v5 shell)", () => {
 	    );
 	  });
 
-	  test("Discover copy stays first-user-facing and avoids rejected network jargon", () => {
-	    const source = readSrc("networkCanvas/webview/DiscoverPane.tsx");
+  test("Discover copy stays first-user-facing and avoids rejected network jargon", () => {
+    const source = readSrc("networkCanvas/webview/DiscoverPane.tsx");
 	    for (const required of [
 	      "trust-inspector",
 	      "trust-inspector__header",
@@ -364,14 +364,58 @@ suite("Phases 2–3 — naming + nav (v5 shell)", () => {
 	      "connect-only",
 	      "Targeted (needs a host/subnet)",
 	      "Runtime-only",
-	      "var(--vscode-editorHoverWidget-background",
-	      "var(--vscode-editorWidget-border",
-	    ]) {
+      "var(--vscode-editorHoverWidget-background",
+      "var(--vscode-editorWidget-border",
+      "Discovery needs a runtime that serves it",
+    ]) {
       assert.ok(
         !source.includes(forbidden),
         `Discover pane must not expose rejected first-user wording: ${forbidden}`
       );
     }
+    assert.ok(
+      source.includes("device is powered on") &&
+        source.includes("same network") &&
+        source.includes("port or firewall") &&
+        source.includes("address or subnet"),
+      "empty discovery results must give concrete recovery checks instead of a vague runtime hint"
+    );
+  });
+
+  test("Discover hardware scans are disabled with a reason until an origin can run them", () => {
+    const pane = readSrc("networkCanvas/webview/DiscoverPane.tsx");
+    assert.ok(
+      pane.includes("runtimeDiscoveryReady") &&
+        pane.includes("selectedStoppedRuntimeReason") &&
+        pane.includes('selectedOrigin.id !== "this_host"') &&
+        pane.includes("runtimeScanDisabledReason") &&
+        pane.includes("disabled={Boolean(disabledReason)}") &&
+        pane.includes("selectedScanRows") &&
+        pane.includes('className={scanDisabled ? "trust-button" : "trust-button trust-button--primary"}') &&
+        pane.includes("Start or connect a runtime before scanning EtherCAT or GPIO."),
+      "runtime-only scans must stay visible but disabled-with-reason, and stopped runtime origins must disable all scan rows"
+    );
+    const theme = readSrc("webview/theme.css");
+    assert.ok(
+      theme.includes("button.trust-button:disabled") &&
+        theme.includes(".trust-inspector button.trust-button:disabled") &&
+        /\.trust-button:disabled[\s\S]*background:\s*var\(--trust-surface-raised\)\s*!important/.test(theme) &&
+        /background-color:\s*var\(--trust-surface-raised\)\s*!important/.test(theme) &&
+        /border:\s*1px solid var\(--trust-border\)\s*!important/.test(theme) &&
+        /color:\s*var\(--trust-text-subtle\)\s*!important/.test(theme) &&
+        /transition:\s*none\s*!important/.test(theme),
+      "disabled buttons must render as neutral disabled controls using shared trust tokens, not VS Code primary blue"
+    );
+
+    const app = readSrc("networkCanvas/webview/NetworkCanvasApp.tsx");
+    assert.ok(
+      app.includes("runtimeDiscoveryReady") &&
+        app.includes('health === "connected"') &&
+        app.includes('health === "running"') &&
+        app.includes("before scanning from it") &&
+        app.includes("Choose a running runtime for EtherCAT or GPIO scans."),
+      "Discover origins must derive hardware-scan readiness from the rendered runtime node state, not from hardcoded availability"
+    );
   });
 
   test("Discover Adopt preserves the runtime label and focuses the adopted node", () => {
@@ -2728,10 +2772,15 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
       assert.ok(css.includes(token), `theme.css must define ${token}`);
     }
     assert.ok(
-      css.includes(".trust-button--primary:disabled") &&
-        css.includes("background: var(--trust-surface-raised)") &&
-        css.includes("border-color: var(--trust-border)"),
-      "disabled primary actions must use shared neutral styling, not a live-looking accent button"
+      css.includes(".trust-button:disabled") &&
+        css.includes("button.trust-button:disabled") &&
+        css.includes(".trust-button--primary:disabled") &&
+        css.includes("button.trust-button.trust-button--primary:disabled") &&
+        /background:\s*var\(--trust-surface-raised\)\s*!important/.test(css) &&
+        /background-color:\s*var\(--trust-surface-raised\)\s*!important/.test(css) &&
+        /border:\s*1px solid var\(--trust-border\)\s*!important/.test(css) &&
+        /transition:\s*none\s*!important/.test(css),
+      "disabled actions must use shared neutral styling, not a live-looking accent button"
     );
     for (const role of ["t.roleHostBg", "t.roleRuntimeBg", "t.roleEndpointBg", "t.roleExternalBg"]) {
       assert.ok(nodes.includes(role), `network canvas nodes must use shared role tint ${role}`);

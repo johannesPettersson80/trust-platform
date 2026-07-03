@@ -25,7 +25,12 @@ import { AddPane } from "./AddPane";
 import { AddHostPanel } from "./AddHostPanel";
 import { AddRuntimePanel } from "./AddRuntimePanel";
 import { SetUpRuntimePanel } from "./SetUpRuntimePanel";
-import { DiscoverPane, type DiscoverRequest, type DiscoverProgressRow } from "./DiscoverPane";
+import {
+  DiscoverPane,
+  type DiscoverOrigin,
+  type DiscoverRequest,
+  type DiscoverProgressRow,
+} from "./DiscoverPane";
 import { BrowseTagsPanel } from "./BrowseTagsPanel";
 import { browseAction } from "./browseActions";
 import type { DiscoverCandidate, RoutePlan, SymbolNode } from "../offlineComm";
@@ -477,8 +482,29 @@ function Canvas() {
   const discoverOrigins = useMemo(() => {
     const runtimes = built.nodes
       .filter((n) => n.type === "runtime")
-      .map((n) => ({ id: n.id, label: String((n.data as { label?: string }).label ?? n.id) }));
-    return [{ id: "this_host", label: "This computer" }, ...runtimes];
+      .map((n): DiscoverOrigin => {
+        const data = n.data as { label?: string; health?: string; attached?: boolean };
+        const label = String(data.label ?? n.id);
+        const health = String(data.health ?? "");
+        const runtimeDiscoveryReady = data.attached === true || health === "connected" || health === "running";
+        return {
+          id: n.id,
+          label,
+          runtimeDiscoveryReady,
+          runtimeDiscoveryDisabledReason: runtimeDiscoveryReady
+            ? undefined
+            : `Start or connect ${label} before scanning from it.`,
+        };
+      });
+    return [
+      {
+        id: "this_host",
+        label: "This computer",
+        runtimeDiscoveryReady: false,
+        runtimeDiscoveryDisabledReason: "Choose a running runtime for EtherCAT or GPIO scans.",
+      },
+      ...runtimes,
+    ];
   }, [built.nodes]);
 
   // Discover-capable protocols come straight from the contract: comm.schema marks a protocol's

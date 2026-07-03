@@ -32,6 +32,13 @@ interface Row {
   confirm?: boolean;
 }
 
+export interface DiscoverOrigin {
+  id: string;
+  label: string;
+  runtimeDiscoveryReady?: boolean;
+  runtimeDiscoveryDisabledReason?: string;
+}
+
 const RECOMMENDED: Row[] = [
   { key: "ads", protocol: "ads", label: "TwinCAT (ADS)", note: "network broadcast" },
   { key: "discovery", protocol: "discovery", label: "truST runtimes", note: "mDNS" },
@@ -61,7 +68,7 @@ export function DiscoverPane({
   onAdopt,
   onClose,
 }: {
-  origins: { id: string; label: string }[];
+  origins: DiscoverOrigin[];
   discoverProtocols: ReadonlySet<string>;
   scanning: boolean;
   progress: DiscoverProgressRow[];
@@ -95,6 +102,30 @@ export function DiscoverPane({
   const [inputs, setInputs] = useState<Record<string, string>>({});
   const [showTargeted, setShowTargeted] = useState(false);
   const [showRuntime, setShowRuntime] = useState(false);
+  const selectedOrigin = origins.find((o) => o.id === origin) ?? origins[0];
+  const hasRuntimeOriginReady = origins.some((o) => o.runtimeDiscoveryReady === true);
+  const selectedStoppedRuntimeReason =
+    selectedOrigin && selectedOrigin.id !== "this_host" && selectedOrigin.runtimeDiscoveryReady !== true
+      ? selectedOrigin.runtimeDiscoveryDisabledReason ??
+        `Start or connect ${selectedOrigin.label} before scanning from it.`
+      : undefined;
+  const runtimeScanDisabledReason = (r: Row): string | undefined => {
+    if (selectedStoppedRuntimeReason) {
+      return selectedStoppedRuntimeReason;
+    }
+    if (!RUNTIME_ONLY.some((runtimeRow) => runtimeRow.key === r.key)) {
+      return undefined;
+    }
+    if (selectedOrigin?.runtimeDiscoveryReady === true) {
+      return undefined;
+    }
+    return (
+      selectedOrigin?.runtimeDiscoveryDisabledReason ??
+      "Start or connect a runtime before scanning EtherCAT or GPIO."
+    );
+  };
+  const selectedScanRows = allRows.filter((r) => checked.has(r.key) && !runtimeScanDisabledReason(r));
+  const scanDisabled = scanning || selectedScanRows.length === 0;
 
   // The schema can resolve after this pane mounts; seed the Recommended defaults once known (only
   // while nothing is checked yet, so it never overrides a user's choice).
@@ -114,7 +145,7 @@ export function DiscoverPane({
 
   const scan = () => {
     const items: DiscoverRequestItem[] = allRows
-      .filter((r) => checked.has(r.key))
+      .filter((r) => checked.has(r.key) && !runtimeScanDisabledReason(r))
       .map((r) => ({
         protocol: r.protocol,
         cidr: r.input === "cidr" ? inputs[r.key]?.trim() || undefined : undefined,
@@ -125,27 +156,46 @@ export function DiscoverPane({
     }
   };
 
-  const renderRow = (r: Row) => (
-    <div key={r.key} style={ROW}>
-      <input type="checkbox" checked={checked.has(r.key)} onChange={() => toggle(r.key)} style={{ flex: "none", marginTop: 2 }} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12, color: "var(--trust-text)" }}>
-          {r.label}
-          {r.confirm && <span title="Can disturb a live bus, so confirm before scanning" style={{ color: "var(--trust-warn)", marginLeft: 5 }}>⚠</span>}
+  const renderRow = (r: Row) => {
+    const disabledReason = runtimeScanDisabledReason(r);
+    return (
+      <div key={r.key} style={{ ...ROW, opacity: disabledReason ? 0.68 : 1 }}>
+        <input
+          type="checkbox"
+          checked={checked.has(r.key) && !disabledReason}
+          disabled={Boolean(disabledReason)}
+          onChange={() => {
+            if (!disabledReason) {
+              toggle(r.key);
+            }
+          }}
+          title={disabledReason}
+          style={{ flex: "none", marginTop: 2 }}
+        />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 12, color: "var(--trust-text)" }}>
+            {r.label}
+            {r.confirm && <span title="Can disturb a live bus, so confirm before scanning" style={{ color: "var(--trust-warn)", marginLeft: 5 }}>⚠</span>}
+          </div>
+          {r.note && <div style={{ fontSize: 10, color: "var(--trust-text-muted)" }}>{r.note}</div>}
+          {disabledReason && (
+            <div style={{ fontSize: 10, color: "var(--trust-text-muted)", marginTop: 3 }}>
+              {disabledReason}
+            </div>
+          )}
+          {r.input && checked.has(r.key) && (
+            <input
+              value={inputs[r.key] ?? ""}
+              onChange={(e) => setInputs((p) => ({ ...p, [r.key]: e.target.value }))}
+              placeholder={r.input === "host" ? "host:port" : "192.168.1.0/24"}
+              className="trust-input"
+              style={{ marginTop: 4 }}
+            />
+          )}
         </div>
-        {r.note && <div style={{ fontSize: 10, color: "var(--trust-text-muted)" }}>{r.note}</div>}
-        {r.input && checked.has(r.key) && (
-          <input
-            value={inputs[r.key] ?? ""}
-            onChange={(e) => setInputs((p) => ({ ...p, [r.key]: e.target.value }))}
-            placeholder={r.input === "host" ? "host:port" : "192.168.1.0/24"}
-            className="trust-input"
-            style={{ marginTop: 4 }}
-          />
-        )}
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <aside className="trust-inspector" style={PANEL} aria-label="Discover devices">
@@ -201,7 +251,7 @@ export function DiscoverPane({
             ))}
             {!scanning && progress.length > 0 && results.length === 0 && (
               <p className="trust-help" style={{ marginTop: 6 }}>
-                Nothing found. (Discovery needs a runtime that serves it; try scanning from the runtime.)
+                {emptyResultCopy(selectedOrigin, hasRuntimeOriginReady)}
               </p>
             )}
             {results.map((c) => {
@@ -229,12 +279,30 @@ export function DiscoverPane({
       </div>
 
       <div className="trust-section" style={{ display: "flex", gap: 8 }}>
-        <button onClick={scan} disabled={scanning || checked.size === 0} className="trust-button trust-button--primary" style={{ flex: 1 }}>
+        <button
+          onClick={scan}
+          disabled={scanDisabled}
+          title={selectedScanRows.length === 0 ? "Select at least one available scan type." : undefined}
+          className={scanDisabled ? "trust-button" : "trust-button trust-button--primary"}
+          style={SCAN_BUTTON}
+        >
           {scanning ? "Scanning…" : "Scan"}
         </button>
       </div>
     </aside>
   );
+}
+
+function emptyResultCopy(origin: DiscoverOrigin | undefined, hasRuntimeOriginReady: boolean): string {
+  const checks =
+    "Nothing found. Check that the device is powered on, on the same network, and not blocked by a port or firewall. Verify the address or subnet for known-address scans.";
+  if (origin?.runtimeDiscoveryReady === true) {
+    return `${checks} Hardware scans are running from the selected runtime.`;
+  }
+  if (hasRuntimeOriginReady) {
+    return `${checks} For EtherCAT or GPIO, choose a running runtime in Scan from.`;
+  }
+  return `${checks} For EtherCAT or GPIO, start or connect a runtime first.`;
 }
 
 function formatDiscoveredEndpoint(endpoint: string): string {
@@ -268,3 +336,4 @@ const TOGGLE: React.CSSProperties = { display: "block", width: "100%", textAlign
 const LABEL: React.CSSProperties = { display: "block", fontSize: 11, color: "var(--trust-text)", marginBottom: 4, fontWeight: 600 };
 const CARD: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, padding: "8px 9px", marginTop: 6, borderRadius: "var(--trust-radius-lg)", border: "1px solid var(--trust-border)", background: "var(--trust-surface)" };
 const ICON: React.CSSProperties = { minHeight: 24, padding: 0, width: 26 };
+const SCAN_BUTTON: React.CSSProperties = { flex: 1 };

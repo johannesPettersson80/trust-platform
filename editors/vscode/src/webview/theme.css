@@ -337,10 +337,25 @@ body {
   outline-offset: 2px;
 }
 
-.trust-button:disabled {
-  color: var(--trust-text-subtle);
+.trust-button:disabled,
+.trust-button[disabled],
+button.trust-button:disabled,
+button.trust-button[disabled],
+.trust-inspector button.trust-button:disabled,
+.trust-inspector button.trust-button[disabled],
+.trust-button--primary:disabled,
+.trust-button--primary[disabled],
+button.trust-button.trust-button--primary:disabled,
+button.trust-button.trust-button--primary[disabled],
+.trust-inspector button.trust-button.trust-button--primary:disabled,
+.trust-inspector button.trust-button.trust-button--primary[disabled] {
+  background: var(--trust-surface-raised) !important;
+  background-color: var(--trust-surface-raised) !important;
+  border: 1px solid var(--trust-border) !important;
+  color: var(--trust-text-subtle) !important;
+  opacity: 1 !important;
   cursor: not-allowed;
-  opacity: 0.6;
+  transition: none !important;
 }
 
 .trust-button--active {
@@ -361,13 +376,6 @@ body {
   background: var(--trust-action-primary-hover-bg);
   border-color: var(--trust-action-primary-hover-bg);
   color: var(--trust-action-primary-fg);
-}
-
-.trust-button--primary:disabled {
-  background: var(--trust-surface-raised);
-  border-color: var(--trust-border);
-  color: var(--trust-text-subtle);
-  opacity: 1;
 }
 
 .trust-button--danger {
