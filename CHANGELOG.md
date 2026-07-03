@@ -258,6 +258,10 @@ Target release: `v0.24.27`
 - vscode: the `Update running simulation` command now uses the same compile
   and config gate as the sidebar button, returning the disabled-with-reason
   message instead of attempting hot reload from an invalid project.
+- vscode/trust-runtime: Devices & Connections now renders ADS server allowed
+  clients as readable pins such as `127.0.0.1.1.100 (from 127.0.0.1)` and no
+  longer sends the raw ADS client allowlist objects through the topology
+  inspector payload.
 - vscode/trust-runtime: Live Values now receives runtime role/capability data
   from the control channel, disables viewer-role Write/Force/Release controls
   before any unsafe attempt, and shows a visible engineer-token recovery reason;

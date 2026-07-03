@@ -1679,22 +1679,7 @@ fn ads_server_params(config: &crate::ads::server::AdsServerRuntimeConfig) -> ser
         "unsafe_allow_public_bind": config.unsafe_allow_public_bind,
         "expose": config.expose.iter().map(ToString::to_string).collect::<Vec<_>>(),
         "writable": config.writable.iter().map(ToString::to_string).collect::<Vec<_>>(),
-        "clients": config.clients.iter().map(|client| {
-            let mut value = serde_json::Map::new();
-            value.insert("ams_net_id".to_string(), json!(client.ams_net_id.0));
-            match &client.source {
-                crate::ads::server::AdsServerSourcePin::Ip(ip) => {
-                    value.insert("source_ip".to_string(), json!(ip.to_string()));
-                }
-                crate::ads::server::AdsServerSourcePin::Cidr(cidr) => {
-                    value.insert("source_cidr".to_string(), json!(cidr.to_string()));
-                }
-                crate::ads::server::AdsServerSourcePin::Unpinned => {
-                    value.insert("unpinned".to_string(), json!(true));
-                }
-            }
-            serde_json::Value::Object(value)
-        }).collect::<Vec<_>>(),
+        "clients_summary": config.clients.iter().map(ads_server_client_summary).collect::<Vec<_>>(),
         "max_symbols": config.max_symbols,
         "max_clients": config.max_clients,
         "max_subscriptions_per_client": config.max_subscriptions_per_client,
@@ -1707,6 +1692,21 @@ fn ads_server_params(config: &crate::ads::server::AdsServerRuntimeConfig) -> ser
         "idle_timeout_ms": config.idle_timeout_ms,
         "min_notification_cycle_ms": config.min_notification_cycle_ms,
     })
+}
+
+fn ads_server_client_summary(client: &crate::ads::server::AdsServerClientConfig) -> String {
+    let net_id = client.ams_net_id.0.as_str();
+    match &client.source {
+        crate::ads::server::AdsServerSourcePin::Ip(ip) => {
+            format!("{net_id} (from {ip})")
+        }
+        crate::ads::server::AdsServerSourcePin::Cidr(cidr) => {
+            format!("{net_id} (from {cidr})")
+        }
+        crate::ads::server::AdsServerSourcePin::Unpinned => {
+            format!("{net_id} (unpinned lab client)")
+        }
+    }
 }
 
 fn mesh_detail(evidence: Option<&crate::mesh::MeshTopologyEvidence>, peer_count: usize) -> String {
@@ -2595,7 +2595,11 @@ struct FleetDiscovered {
 
 #[cfg(test)]
 mod tests {
-    use super::{host_name_from_sources, normalized_host_name};
+    use serde_json::json;
+    use smol_str::SmolStr;
+
+    use super::{ads_server_params, host_name_from_sources, normalized_host_name};
+    use crate::ads::server::{AdsServerClientConfig, AdsServerRuntimeConfig, AdsServerSourcePin};
 
     #[test]
     fn host_name_uses_os_hostname_before_literal_fallback() {
@@ -2617,5 +2621,39 @@ mod tests {
             Some("raspberrypi.local".to_string())
         );
         assert_eq!(normalized_host_name("  "), None);
+    }
+
+    #[test]
+    fn ads_server_params_humanize_allowed_clients_without_raw_pin_objects() {
+        let config = AdsServerRuntimeConfig {
+            clients: vec![
+                AdsServerClientConfig {
+                    ams_net_id: trust_ads_core::AmsNetId::new("127.0.0.1.1.100"),
+                    source: AdsServerSourcePin::Ip(SmolStr::new("127.0.0.1")),
+                },
+                AdsServerClientConfig {
+                    ams_net_id: trust_ads_core::AmsNetId::new("5.23.91.12.1.1"),
+                    source: AdsServerSourcePin::Cidr(SmolStr::new("127.0.0.0/8")),
+                },
+            ],
+            ..AdsServerRuntimeConfig::default()
+        };
+
+        let params = ads_server_params(&config);
+        assert_eq!(
+            params.get("clients_summary"),
+            Some(&json!([
+                "127.0.0.1.1.100 (from 127.0.0.1)",
+                "5.23.91.12.1.1 (from 127.0.0.0/8)",
+            ]))
+        );
+        assert!(
+            params.get("clients").is_none(),
+            "topology params must not send editable raw ADS client objects"
+        );
+
+        let payload = params.to_string();
+        assert!(!payload.contains("source_ip"), "{payload}");
+        assert!(!payload.contains("source_cidr"), "{payload}");
     }
 }

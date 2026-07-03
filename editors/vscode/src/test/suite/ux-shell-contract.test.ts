@@ -2728,6 +2728,20 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     }
   });
 
+  test("ADS server allowed clients render through the humanized summary, not raw JSON pins", () => {
+    const inspector = readSrc("networkCanvas/webview/NodeInspector.tsx");
+    assert.ok(
+      inspector.includes("formatAdsServerAllowedClients") &&
+        inspector.includes("clients_summary") &&
+        inspector.includes('protocol === "ads_server" && field.id === "clients"'),
+      "ADS server Allowed clients must use the runtime's humanized clients_summary instead of dumping raw client pin JSON"
+    );
+    assert.ok(
+      !inspector.includes('rows.push(["Allowed clients", JSON.stringify'),
+      "the inspector must not render raw ADS client objects by stringifying the row"
+    );
+  });
+
   test("network-canvas notifications do not expose backend protocol ids or awkward plurals", () => {
     const panel = readSrc("networkCanvas/networkCanvasPanel.ts");
     assert.ok(

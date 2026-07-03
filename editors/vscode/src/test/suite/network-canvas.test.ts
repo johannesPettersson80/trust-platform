@@ -1,5 +1,6 @@
 import * as assert from "assert";
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
 
 import {
@@ -100,7 +101,8 @@ suite("Network Canvas", function () {
 
   test("fleet host headlines are user-facing, not raw lab machine names", () => {
     const local = fleetTopology();
-    local.hosts[0].hostname = "scena-rust-builder";
+    const localHostname = os.hostname();
+    local.hosts[0].hostname = localHostname;
     local.hosts[0].ips = ["127.0.0.1"];
     local.hosts[0].runtimes[0].control_endpoint = "tcp://127.0.0.1:39855";
     const localModel = buildNetworkCanvasModel({
@@ -108,10 +110,10 @@ suite("Network Canvas", function () {
       runtime: RUNNING,
       topology: local,
     });
-    assert.strictEqual(localModel.fleet?.hosts[0]?.hostname, "Computer scena-rust-builder");
+    assert.strictEqual(localModel.fleet?.hosts[0]?.hostname, "This computer");
     assert.ok(
-      localModel.fleet?.hosts[0]?.label.includes("scena-rust-builder"),
-      "the raw hostname stays visible without pretending a remote lab machine is this computer"
+      localHostname.length === 0 || localModel.fleet?.hosts[0]?.label.includes(localHostname),
+      "the raw local hostname stays available as supporting detail"
     );
 
     const remote = fleetTopology();

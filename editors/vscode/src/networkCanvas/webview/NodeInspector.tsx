@@ -170,6 +170,41 @@ function parseArrayValue(raw: unknown, value: string): unknown[] {
   return [];
 }
 
+function formatAdsServerAllowedClients(
+  raw: unknown,
+  value: string,
+  params?: Record<string, unknown>
+): string {
+  const summary = parseArrayValue(params?.clients_summary, "");
+  if (summary.length > 0) {
+    return summary.map((client) => str(client)).filter(Boolean).join("; ");
+  }
+
+  const clients = parseArrayValue(raw, value);
+  if (clients.length === 0) {
+    return "None";
+  }
+  return clients
+    .map((client, index) => {
+      if (!isRecordValue(client)) {
+        return str(client) || `client ${index + 1}`;
+      }
+      const netId = str(client.ams_net_id) || str(client.net_id) || `client ${index + 1}`;
+      const source =
+        str(client.source_ip) ||
+        str(client.source_cidr);
+      if (source) {
+        return `${netId} (from ${source})`;
+      }
+      if (client.unpinned === true) {
+        return `${netId} (unpinned lab client)`;
+      }
+      return netId;
+    })
+    .filter(Boolean)
+    .join("; ");
+}
+
 function formatEthercatModules(raw: unknown, value: string): string {
   const modules = parseArrayValue(raw, value);
   if (modules.length === 0) {
@@ -252,9 +287,18 @@ function pointMapping(point: Record<string, unknown>): string {
   return result;
 }
 
-function summaryValueFor(protocol: string, field: CommFieldSchema, value: string, raw: unknown): string {
+function summaryValueFor(
+  protocol: string,
+  field: CommFieldSchema,
+  value: string,
+  raw: unknown,
+  params?: Record<string, unknown>
+): string {
   if (field.id === "connections") {
     return connectionSummary(raw ?? value);
+  }
+  if (protocol === "ads_server" && field.id === "clients") {
+    return formatAdsServerAllowedClients(raw, value, params);
   }
   if (protocol === "ethercat") {
     if (field.id === "modules") {
@@ -551,7 +595,7 @@ function SummaryView({
       }
       const v = field.secret
         ? (values[field.id] ? "••• (set)" : "—")
-        : summaryValueFor(protocol, field, values[field.id], params?.[field.id]);
+        : summaryValueFor(protocol, field, values[field.id], params?.[field.id], params);
       if (v) {
         rows.push([summaryLabelFor(protocol, field), v]);
       }
