@@ -80,6 +80,129 @@ body.vscode-light {
   --trust-idle: var(--trust-text-muted);
 }
 
+:root.vscode-high-contrast,
+html.vscode-high-contrast,
+body.vscode-high-contrast,
+:root[data-vscode-theme-kind="vscode-high-contrast"],
+html[data-vscode-theme-kind="vscode-high-contrast"],
+body[data-vscode-theme-kind="vscode-high-contrast"] {
+  --trust-canvas: #000000;
+  --trust-surface: #000000;
+  --trust-surface-raised: #000000;
+  --trust-overlay: #000000;
+
+  --trust-text: var(--vscode-foreground, #ffffff);
+  --trust-text-muted: var(--vscode-descriptionForeground, #cccccc);
+  --trust-text-subtle: var(--vscode-disabledForeground, #cccccc);
+  --trust-on-accent: var(--vscode-button-foreground, #ffffff);
+
+  --trust-border: var(--vscode-contrastBorder, var(--vscode-focusBorder, #f38518));
+  --trust-border-subtle: var(--trust-border);
+  --trust-accent: var(--vscode-focusBorder, #f38518);
+  --trust-action-primary-bg: var(--vscode-button-background, #0f4a85);
+  --trust-action-primary-hover-bg: var(--vscode-button-hoverBackground, #115ea3);
+  --trust-action-primary-fg: var(--vscode-button-foreground, #ffffff);
+
+  --trust-input-bg: #000000;
+  --trust-input-border: var(--trust-border);
+  --trust-selected-bg: color-mix(in srgb, var(--trust-accent) 28%, transparent);
+  --trust-selected-strong-bg: color-mix(in srgb, var(--trust-accent) 42%, transparent);
+
+  --trust-role-host-bg: #000000;
+  --trust-role-runtime-bg: #000000;
+  --trust-role-endpoint-bg: #000000;
+  --trust-role-external-bg: #000000;
+  --trust-role-host-border: var(--trust-protocol-blue);
+  --trust-role-runtime-border: var(--trust-protocol-green);
+  --trust-role-external-border: var(--trust-protocol-orange);
+
+  --trust-grid-line: color-mix(in srgb, var(--trust-border) 38%, transparent);
+  --trust-rail: var(--trust-text);
+  --trust-ladder-body: #000000;
+  --trust-ladder-text: var(--trust-text);
+  --trust-shadow: none;
+  --trust-shadow-overlay: none;
+}
+
+:root.vscode-high-contrast-light,
+html.vscode-high-contrast-light,
+body.vscode-high-contrast-light,
+:root[data-vscode-theme-kind="vscode-high-contrast-light"],
+html[data-vscode-theme-kind="vscode-high-contrast-light"],
+body[data-vscode-theme-kind="vscode-high-contrast-light"] {
+  --trust-canvas: #ffffff;
+  --trust-surface: #ffffff;
+  --trust-surface-raised: #ffffff;
+  --trust-overlay: #ffffff;
+
+  --trust-text: var(--vscode-foreground, #000000);
+  --trust-text-muted: var(--vscode-descriptionForeground, #292929);
+  --trust-text-subtle: var(--vscode-disabledForeground, #515151);
+  --trust-on-accent: var(--vscode-button-foreground, #000000);
+
+  --trust-border: var(--vscode-contrastBorder, var(--vscode-focusBorder, #0f4a85));
+  --trust-border-subtle: var(--trust-border);
+  --trust-accent: var(--vscode-focusBorder, #0f4a85);
+  --trust-action-primary-bg: var(--vscode-button-background, #ffffff);
+  --trust-action-primary-hover-bg: var(--vscode-button-hoverBackground, #f2f2f2);
+  --trust-action-primary-fg: var(--vscode-button-foreground, #000000);
+
+  --trust-input-bg: #ffffff;
+  --trust-input-border: var(--trust-border);
+  --trust-selected-bg: color-mix(in srgb, var(--trust-accent) 24%, transparent);
+  --trust-selected-strong-bg: color-mix(in srgb, var(--trust-accent) 36%, transparent);
+
+  --trust-role-host-bg: #ffffff;
+  --trust-role-runtime-bg: #ffffff;
+  --trust-role-endpoint-bg: #ffffff;
+  --trust-role-external-bg: #ffffff;
+  --trust-role-host-border: var(--trust-protocol-blue);
+  --trust-role-runtime-border: var(--trust-protocol-green);
+  --trust-role-external-border: var(--trust-protocol-orange);
+
+  --trust-grid-line: color-mix(in srgb, var(--trust-border) 38%, transparent);
+  --trust-rail: var(--trust-text);
+  --trust-ladder-body: #ffffff;
+  --trust-ladder-text: var(--trust-text);
+  --trust-shadow: none;
+  --trust-shadow-overlay: none;
+}
+
+@media (forced-colors: active) {
+  :root {
+    --trust-canvas: Canvas;
+    --trust-surface: Canvas;
+    --trust-surface-raised: Canvas;
+    --trust-overlay: Canvas;
+    --trust-text: CanvasText;
+    --trust-text-muted: CanvasText;
+    --trust-text-subtle: GrayText;
+    --trust-border: CanvasText;
+    --trust-border-subtle: CanvasText;
+    --trust-accent: Highlight;
+    --trust-action-primary-bg: Highlight;
+    --trust-action-primary-hover-bg: Highlight;
+    --trust-action-primary-fg: HighlightText;
+    --trust-input-bg: Canvas;
+    --trust-input-border: CanvasText;
+    --trust-selected-bg: Highlight;
+    --trust-selected-strong-bg: Highlight;
+    --trust-role-host-bg: Canvas;
+    --trust-role-runtime-bg: Canvas;
+    --trust-role-endpoint-bg: Canvas;
+    --trust-role-external-bg: Canvas;
+    --trust-role-host-border: CanvasText;
+    --trust-role-runtime-border: CanvasText;
+    --trust-role-external-border: CanvasText;
+    --trust-grid-line: CanvasText;
+    --trust-rail: CanvasText;
+    --trust-ladder-body: Canvas;
+    --trust-ladder-text: CanvasText;
+    --trust-shadow: none;
+    --trust-shadow-overlay: none;
+  }
+}
+
 body {
   color: var(--trust-text);
   background: var(--trust-canvas);
@@ -205,6 +328,13 @@ body {
 .trust-button:hover:not(:disabled) {
   background: var(--trust-selected-bg);
   border-color: var(--trust-accent);
+}
+
+.trust-button:focus-visible,
+.trust-input:focus-visible,
+.react-flow__controls button:focus-visible {
+  outline: 2px solid var(--trust-accent);
+  outline-offset: 2px;
 }
 
 .trust-button:disabled {

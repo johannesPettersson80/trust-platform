@@ -2315,6 +2315,62 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     );
   });
 
+  test("shared truST theme has an explicit high-contrast token contract", () => {
+    const themeCss = readSrc("webview/theme.css");
+    const themeTs = readSrc("webview/theme.ts");
+
+    for (const selector of [
+      ":root.vscode-high-contrast",
+      "body.vscode-high-contrast",
+      ':root[data-vscode-theme-kind="vscode-high-contrast"]',
+      "body.vscode-high-contrast-light",
+      "@media (forced-colors: active)",
+    ]) {
+      assert.ok(themeCss.includes(selector), `shared theme must define ${selector}`);
+    }
+
+    for (const token of [
+      "--trust-canvas: #000000",
+      "--trust-surface: #000000",
+      "--trust-overlay: #000000",
+      "--trust-input-bg: #000000",
+      "--trust-canvas: #ffffff",
+      "--trust-surface: #ffffff",
+      "--trust-overlay: #ffffff",
+      "--trust-input-bg: #ffffff",
+      "--trust-border: var(--vscode-contrastBorder",
+      "--trust-action-primary-bg: var(--vscode-button-background",
+      "--trust-role-host-bg: #000000",
+      "--trust-role-runtime-bg: #000000",
+      "--trust-role-endpoint-bg: #000000",
+      "--trust-role-external-bg: #000000",
+      "--trust-role-host-bg: #ffffff",
+      "--trust-role-runtime-bg: #ffffff",
+      "--trust-role-endpoint-bg: #ffffff",
+      "--trust-role-external-bg: #ffffff",
+      "outline: 2px solid var(--trust-accent)",
+    ]) {
+      assert.ok(themeCss.includes(token), `high-contrast theme must include ${token}`);
+    }
+
+    for (const token of [
+      'canvas: v("--trust-canvas"',
+      'surface: v("--trust-surface"',
+      'surfaceRaised: v("--trust-surface-raised"',
+      'overlay: v("--trust-overlay"',
+      'text: v("--trust-text"',
+      'border: v("--trust-border"',
+      'accent: v("--trust-accent"',
+      'inputBg: v("--trust-input-bg"',
+      'inputBorder: v("--trust-input-border"',
+    ]) {
+      assert.ok(
+        themeTs.includes(token),
+        `React/Canvas inline styles must consume shared CSS token ${token}`
+      );
+    }
+  });
+
   test("HMI preview uses shared truST product theme roles", () => {
     const src = readSrc("hmi-panel/view.ts");
     for (const token of [

@@ -243,6 +243,10 @@ Target release: `v0.24.28`
 
 ### Fixed
 
+- vscode: shared webview theme tokens now handle VS Code High Contrast and
+  High Contrast Light explicitly, so visual editors, Devices & Connections,
+  and other product webviews no longer render as a dark/navy island under
+  high-contrast captures.
 - vscode: Live Values now renders row Write/Force controls as quiet secondary
   actions, marks active forces with amber warning treatment instead of success
   green, and keeps forced rows readable by removing the stale editable value

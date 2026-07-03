@@ -7,19 +7,19 @@
 const v = (name: string, fallback: string): string => `var(${name}, ${fallback})`;
 
 export const t = {
-  canvas: v("--vscode-editor-background", "#0f1116"),
-  surface: v("--vscode-editorWidget-background", "#1b1f28"),
-  surfaceRaised: v("--vscode-editorHoverWidget-background", "#222732"),
-  overlay: v("--vscode-editorHoverWidget-background", "#12151c"),
+  canvas: v("--trust-canvas", v("--vscode-editor-background", "#0f1116")),
+  surface: v("--trust-surface", v("--vscode-editorWidget-background", "#1b1f28")),
+  surfaceRaised: v("--trust-surface-raised", v("--vscode-editorHoverWidget-background", "#222732")),
+  overlay: v("--trust-overlay", v("--vscode-editorHoverWidget-background", "#12151c")),
 
-  text: v("--vscode-foreground", "#cfd6e0"),
+  text: v("--trust-text", v("--vscode-foreground", "#cfd6e0")),
   textMuted: v("--trust-text-muted", v("--vscode-descriptionForeground", "#949cab")),
   textSubtle: v("--trust-text-subtle", v("--vscode-disabledForeground", "#6b7480")),
-  onAccent: v("--vscode-button-foreground", "#ffffff"),
+  onAccent: v("--trust-on-accent", v("--vscode-button-foreground", "#ffffff")),
 
-  border: v("--vscode-editorWidget-border", v("--vscode-panel-border", "#2a2f3a")),
-  borderSubtle: v("--vscode-panel-border", "#23272f"),
-  accent: v("--vscode-focusBorder", "#4a9eff"),
+  border: v("--trust-border", v("--vscode-editorWidget-border", v("--vscode-panel-border", "#2a2f3a"))),
+  borderSubtle: v("--trust-border-subtle", v("--vscode-panel-border", "#23272f")),
+  accent: v("--trust-accent", v("--vscode-focusBorder", "#4a9eff")),
 
   ok: v("--vscode-charts-green", v("--vscode-testing-iconPassed", "#46c265")),
   warn: v("--vscode-charts-yellow", v("--vscode-editorWarning-foreground", "#e0b341")),
@@ -27,8 +27,8 @@ export const t = {
   idle: v("--trust-idle", v("--vscode-descriptionForeground", "#6b7480")),
   breakpoint: v("--trust-breakpoint", v("--vscode-debugIcon-breakpointForeground", "#e51400")),
 
-  inputBg: v("--vscode-input-background", "#10141b"),
-  inputBorder: v("--vscode-input-border", v("--vscode-editorWidget-border", "#343b47")),
+  inputBg: v("--trust-input-bg", v("--vscode-input-background", "#10141b")),
+  inputBorder: v("--trust-input-border", v("--vscode-input-border", v("--vscode-editorWidget-border", "#343b47"))),
 
   protocolBlue: v("--trust-protocol-blue", v("--vscode-charts-blue", "#5b9bd5")),
   protocolOrange: v("--trust-protocol-orange", v("--vscode-charts-orange", "#d29152")),
