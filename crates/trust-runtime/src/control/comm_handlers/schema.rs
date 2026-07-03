@@ -55,6 +55,8 @@ struct CommFieldSchema {
     validation: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     options: Option<Vec<&'static str>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    visible_when: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -645,6 +647,24 @@ mod tests {
                 .get("apply_mode")
                 .and_then(serde_json::Value::as_str),
             Some("file")
+        );
+
+        let gpio = by_id("gpio");
+        assert_eq!(
+            field_by_id(gpio, "chip").pointer("/visible_when/field"),
+            Some(&serde_json::Value::String("backend".to_string()))
+        );
+        assert_eq!(
+            field_by_id(gpio, "chip").pointer("/visible_when/equals"),
+            Some(&serde_json::Value::String("libgpiod".to_string()))
+        );
+        assert_eq!(
+            field_by_id(gpio, "sysfs_base").pointer("/visible_when/field"),
+            Some(&serde_json::Value::String("backend".to_string()))
+        );
+        assert_eq!(
+            field_by_id(gpio, "sysfs_base").pointer("/visible_when/equals"),
+            Some(&serde_json::Value::String("sysfs".to_string()))
         );
         assert_eq!(
             opcua_client

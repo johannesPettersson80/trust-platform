@@ -16,6 +16,7 @@ import type {
   CommProtocolSchema,
   CommSchemaResponse,
 } from "../../communication/schemaForm";
+import { visibleSchemaFields } from "../../communication/schemaForm";
 
 // §4 D + settings UX (2026-06-17/18): single-click a node → ONE side panel. It opens on a
 // read-only SUMMARY (what it is + its current settings); an Edit button switches to the
@@ -835,6 +836,7 @@ function EditableEndpoint({
   }, [node.id]);
 
   const fieldErrors = new Map((applyResult?.field_errors ?? []).map((e) => [e.field, e.message]));
+  const visibleFields = visibleSchemaFields(protoSchema, values);
   const isDisabled = health === "disabled";
   const canDisable = protoSchema.actions.includes("disable") && !isDisabled;
   const send = (type: string, extra?: Record<string, unknown>) => {
@@ -873,7 +875,7 @@ function EditableEndpoint({
         {protoSchema.purpose && (
           <p className="trust-help" style={{ marginBottom: 14 }}>{protoSchema.purpose}</p>
         )}
-        {protoSchema.fields.map((field) => (
+        {visibleFields.map((field) => (
           <Field
             key={field.id}
             field={field}

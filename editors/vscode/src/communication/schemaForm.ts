@@ -47,6 +47,12 @@ export interface CommFieldSchema {
   default?: unknown;
   validation?: unknown;
   options?: string[];
+  visible_when?: CommFieldVisibilityRule;
+}
+
+export interface CommFieldVisibilityRule {
+  field: string;
+  equals?: unknown;
 }
 
 export interface CommConfiguredInstance {
@@ -171,6 +177,25 @@ export function schemaFormClientScript(
     options.clientErrorMessageType ?? "commApplyClientError"
   );
   return `
+    function schemaFieldValue(form, fieldId) {
+      for (const input of form.querySelectorAll("[data-field-id]")) {
+        if (input.dataset.fieldId !== fieldId) continue;
+        if (input.type === "checkbox") return input.checked ? "true" : "false";
+        return String(input.value || "");
+      }
+      return "";
+    }
+    function updateSchemaFieldVisibility(form) {
+      for (const wrapper of form.querySelectorAll("[data-visible-when-field]")) {
+        const dependsOn = wrapper.dataset.visibleWhenField;
+        const expected = String(wrapper.dataset.visibleWhenEquals || "");
+        const visible = String(schemaFieldValue(form, dependsOn)) === expected;
+        wrapper.hidden = !visible;
+        for (const input of wrapper.querySelectorAll("[data-field-id]")) {
+          input.disabled = !visible;
+        }
+      }
+    }
     function fillSchemaFormWithParams(form, params) {
       for (const input of form.querySelectorAll("[data-field-id]")) {
         const fieldId = input.dataset.fieldId;
@@ -194,7 +219,18 @@ export function schemaFormClientScript(
           input.value = value === null || value === undefined ? "" : String(value);
         }
       }
+      updateSchemaFieldVisibility(form);
     }
+    queueMicrotask(() => {
+      for (const form of document.querySelectorAll("form[data-action='commApply']")) {
+        updateSchemaFieldVisibility(form);
+      }
+    });
+    document.addEventListener("DOMContentLoaded", () => {
+      for (const form of document.querySelectorAll("form[data-action='commApply']")) {
+        updateSchemaFieldVisibility(form);
+      }
+    });
     document.addEventListener("click", (event) => {
       const preset = event.target.closest("[data-schema-preset]");
       if (!preset) return;
@@ -215,15 +251,25 @@ export function schemaFormClientScript(
         params = {};
       }
       fillSchemaFormWithParams(form, params);
+      updateSchemaFieldVisibility(form);
+    });
+    document.addEventListener("change", (event) => {
+      const input = event.target.closest("[data-field-id]");
+      if (!input) return;
+      const form = input.closest("form[data-action='commApply']");
+      if (!form) return;
+      updateSchemaFieldVisibility(form);
     });
     document.addEventListener("submit", (event) => {
       const form = event.target.closest("form[data-action='commApply']");
       if (!form) return;
       event.preventDefault();
+      updateSchemaFieldVisibility(form);
       const submitter = event.submitter;
       const params = {};
       const errors = [];
       for (const input of form.querySelectorAll("[data-field-id]")) {
+        if (input.disabled || input.closest("[hidden]")) continue;
         const fieldId = input.dataset.fieldId;
         const fieldType = input.dataset.fieldType;
         if (!fieldId) continue;
@@ -268,6 +314,9 @@ export function shouldBlockSecretApply(
     return false;
   }
   return schema.fields.some((field) => {
+    if (!isSchemaFieldVisible(field, values)) {
+      return false;
+    }
     if (!field.secret) {
       return false;
     }
@@ -282,6 +331,9 @@ export function validateSchemaValues(
 ): CommFieldValidationError[] {
   const errors: CommFieldValidationError[] = [];
   for (const field of schema.fields) {
+    if (!isSchemaFieldVisible(field, values)) {
+      continue;
+    }
     const value = values[field.id];
     if (field.required && valueIsEmpty(value)) {
       errors.push({ field: field.id, message: "This field is required." });
@@ -334,6 +386,30 @@ export function validateSchemaValues(
   return errors;
 }
 
+export function visibleSchemaFields(
+  schema: CommProtocolSchema,
+  values: Record<string, unknown>
+): CommFieldSchema[] {
+  return schema.fields.filter((field) => isSchemaFieldVisible(field, values));
+}
+
+export function isSchemaFieldVisible(
+  field: CommFieldSchema,
+  values: Record<string, unknown>
+): boolean {
+  const rule = field.visible_when;
+  if (!rule) {
+    return true;
+  }
+  if (!rule.field) {
+    return true;
+  }
+  if (Object.prototype.hasOwnProperty.call(rule, "equals")) {
+    return String(values[rule.field] ?? "") === String(rule.equals ?? "");
+  }
+  return true;
+}
+
 function renderApplyResult(result: CommApplyResponse): string {
   const status = applyResultClass(result);
   const snippet = result.snippet
@@ -366,12 +442,20 @@ function renderField(field: CommFieldSchema, error: string | undefined): string 
   const advanced = field.advanced ? " advanced" : "";
   const errorHtml = error ? `<span class="field-error">${escapeHtml(error)}</span>` : "";
   const example = exampleForField(field);
-  return `<label class="field${advanced}" data-field="${escapeAttribute(field.id)}">
+  return `<label class="field${advanced}" data-field="${escapeAttribute(field.id)}"${visibilityAttributes(field)}>
     <span>${escapeHtml(field.label)}${field.required ? " *" : ""}</span>
     ${renderInput(field, value, required)}
     <small>${escapeHtml(field.help)}${example ? ` <span class="field-example">Example: ${escapeHtml(example)}</span>` : ""}</small>
     ${errorHtml}
   </label>`;
+}
+
+function visibilityAttributes(field: CommFieldSchema): string {
+  const rule = field.visible_when;
+  if (!rule?.field || !Object.prototype.hasOwnProperty.call(rule, "equals")) {
+    return "";
+  }
+  return ` data-visible-when-field="${escapeAttribute(rule.field)}" data-visible-when-equals="${escapeAttribute(String(rule.equals ?? ""))}"`;
 }
 
 function renderInput(

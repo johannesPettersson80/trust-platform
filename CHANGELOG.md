@@ -269,6 +269,9 @@ Target release: `v0.24.28`
   library symbol list, shows declaration detail for the selected symbol, and
   can insert or copy a declaration snippet instead of rendering a capped list
   of inert chips.
+- trust-runtime/vscode: GPIO setup fields are now conditional on the selected
+  backend, so the default libgpiod form hides legacy Sysfs base settings while
+  sysfs mode hides the libgpiod chip field.
 - vscode: visual editors now share keyboard/canvas chrome: Blockly toolbox
   focus uses the truST focus ring, and SFC/Statechart expose the same themed
   canvas zoom controls as Devices & Connections.

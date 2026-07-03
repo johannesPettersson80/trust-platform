@@ -1,5 +1,5 @@
 import React from "react";
-import type { CommFieldSchema, CommProtocolSchema } from "../../communication/schemaForm";
+import { visibleSchemaFields, type CommFieldSchema, type CommProtocolSchema } from "../../communication/schemaForm";
 
 // Shared schema-driven form bits used by the editable inspector (and the add flow):
 // turn a protocol schema + a params object into editable string values and back.
@@ -33,7 +33,7 @@ export function buildParams(
   values: Record<string, string>
 ): Record<string, unknown> {
   const params: Record<string, unknown> = {};
-  for (const field of protocol.fields) {
+  for (const field of visibleSchemaFields(protocol, values)) {
     params[field.id] = coerce(field, values[field.id] ?? "");
   }
   return params;

@@ -21,6 +21,11 @@ import { ADD_PICKER_GROUPS, groupForAddPicker } from "../../networkCanvas/webvie
 import { applyFilter, filterReport } from "../../networkCanvas/webview/filter";
 import { buildExposeApplyParams } from "../../networkCanvas/exposeConfig";
 import { commTestMessage } from "../../communication/runtimeComm";
+import {
+  validateSchemaValues,
+  visibleSchemaFields,
+  type CommProtocolSchema,
+} from "../../communication/schemaForm";
 import { protocolColor, protocolName } from "../../networkCanvas/webview/protocolMeta";
 import { visibleFaultsForValidationState } from "../../networkCanvas/webview/faults";
 
@@ -1206,6 +1211,90 @@ suite("Network Canvas", function () {
         `Network Canvas must not reference "${forbidden}" — comms setup lives in-canvas, not the old Communication panel.`
       );
     }
+  });
+
+  test("conditional schema fields render and validate only for the selected backend", () => {
+    const gpioSchema: CommProtocolSchema = {
+      id: "gpio",
+      driver: "Gpio",
+      title: "GPIO",
+      purpose: "Configure GPIO lines.",
+      lifecycle_effect: "restart_required",
+      supports_test: false,
+      supports_multi_instance: true,
+      actions: ["add", "upsert"],
+      fields: [
+        {
+          id: "backend",
+          label: "Backend",
+          type: "enum",
+          required: true,
+          advanced: false,
+          secret: false,
+          help: "Backend.",
+          default: "libgpiod",
+          options: ["libgpiod", "sysfs"],
+        },
+        {
+          id: "chip",
+          label: "GPIO chip",
+          type: "path",
+          required: true,
+          advanced: false,
+          secret: false,
+          help: "libgpiod chip.",
+          default: "/dev/gpiochip0",
+          visible_when: { field: "backend", equals: "libgpiod" },
+        },
+        {
+          id: "sysfs_base",
+          label: "Sysfs base",
+          type: "path",
+          required: true,
+          advanced: false,
+          secret: false,
+          help: "sysfs root.",
+          default: "/sys/class/gpio",
+          visible_when: { field: "backend", equals: "sysfs" },
+        },
+      ],
+    };
+
+    assert.deepStrictEqual(
+      visibleSchemaFields(gpioSchema, { backend: "libgpiod" }).map((field) => field.id),
+      ["backend", "chip"]
+    );
+    assert.deepStrictEqual(
+      visibleSchemaFields(gpioSchema, { backend: "sysfs" }).map((field) => field.id),
+      ["backend", "sysfs_base"]
+    );
+    assert.deepStrictEqual(
+      validateSchemaValues(gpioSchema, { backend: "libgpiod", chip: "/dev/gpiochip0" }),
+      [],
+      "hidden sysfs_base must not block libgpiod validation"
+    );
+    assert.deepStrictEqual(
+      validateSchemaValues(gpioSchema, { backend: "sysfs", sysfs_base: "/sys/class/gpio" }),
+      [],
+      "hidden chip must not block sysfs validation"
+    );
+    const schemaFieldsSource = fs.readFileSync(
+      path.join(__dirname, "..", "..", "..", "src", "networkCanvas", "webview", "SchemaFields.tsx"),
+      "utf8"
+    );
+    const inspectorSource = fs.readFileSync(
+      path.join(__dirname, "..", "..", "..", "src", "networkCanvas", "webview", "NodeInspector.tsx"),
+      "utf8"
+    );
+    assert.ok(
+      schemaFieldsSource.includes("visibleSchemaFields(protocol, values)"),
+      "endpoint edits must omit hidden conditional fields when building params"
+    );
+    assert.ok(
+      inspectorSource.includes("visibleSchemaFields(protoSchema, values)") &&
+        inspectorSource.includes("visibleFields.map((field)"),
+      "endpoint edits must render only visible conditional fields"
+    );
   });
 });
 

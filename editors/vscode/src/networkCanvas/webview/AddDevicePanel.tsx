@@ -4,6 +4,7 @@ import type {
   CommProtocolSchema,
   CommSchemaResponse,
 } from "../../communication/schemaForm";
+import { visibleSchemaFields } from "../../communication/schemaForm";
 import { coerce, Field } from "./SchemaFields";
 import { t } from "./theme";
 
@@ -124,6 +125,7 @@ export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, t
     [...rawFieldErrors].filter(([field]) => !clearedFieldErrors.has(field))
   );
   const visibleApplyResult = editedAfterApplyResult ? undefined : applyResult;
+  const visibleFields = protocol ? visibleSchemaFields(protocol, values) : [];
 
   const updateField = (fieldId: string, value: string) => {
     setValues((prev) => ({ ...prev, [fieldId]: value }));
@@ -149,7 +151,7 @@ export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, t
       return;
     }
     const params: Record<string, unknown> = {};
-    for (const field of protocol.fields) {
+    for (const field of visibleSchemaFields(protocol, values)) {
       params[field.id] = coerce(field, values[field.id] ?? "");
     }
     const action =
@@ -221,7 +223,7 @@ export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, t
               <p className="trust-help" style={{ marginBottom: 14 }}>{protocol.purpose}</p>
             )}
 
-            {protocol?.fields.map((field) => (
+            {visibleFields.map((field) => (
               <Field
                 key={field.id}
                 field={field}

@@ -21,6 +21,7 @@ fn field(
         default,
         validation: None,
         options: None,
+        visible_when: None,
     }
 }
 
@@ -93,6 +94,15 @@ fn secret(mut field: CommFieldSchema) -> CommFieldSchema {
 
 fn optional(mut field: CommFieldSchema) -> CommFieldSchema {
     field.required = false;
+    field
+}
+
+fn visible_when_eq(
+    mut field: CommFieldSchema,
+    field_id: &'static str,
+    value: &'static str,
+) -> CommFieldSchema {
+    field.visible_when = Some(json!({ "field": field_id, "equals": value }));
     field
 }
 
@@ -343,21 +353,29 @@ pub(super) fn gpio_fields() -> Vec<CommFieldSchema> {
             vec!["libgpiod", "sysfs"],
             "Linux GPIO access backend. libgpiod uses the kernel GPIO character device; sysfs is available for legacy hosts.",
         ),
-        field(
-            "chip",
-            "GPIO chip",
-            "path",
-            json!("/dev/gpiochip0"),
-            false,
-            "Linux GPIO character device used by libgpiod, usually /dev/gpiochip0 on Raspberry Pi.",
+        visible_when_eq(
+            field(
+                "chip",
+                "GPIO chip",
+                "path",
+                json!("/dev/gpiochip0"),
+                false,
+                "Linux GPIO character device used by libgpiod, usually /dev/gpiochip0 on Raspberry Pi.",
+            ),
+            "backend",
+            "libgpiod",
         ),
-        field(
-            "sysfs_base",
-            "Sysfs base",
-            "path",
-            json!("/sys/class/gpio"),
-            false,
-            "Legacy sysfs root, usually /sys/class/gpio. Only used when Backend is sysfs.",
+        visible_when_eq(
+            field(
+                "sysfs_base",
+                "Sysfs base",
+                "path",
+                json!("/sys/class/gpio"),
+                false,
+                "Legacy sysfs root, usually /sys/class/gpio. Only used when Backend is sysfs.",
+            ),
+            "backend",
+            "sysfs",
         ),
         field(
             "inputs",
