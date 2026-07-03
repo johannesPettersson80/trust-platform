@@ -61,8 +61,8 @@ export const StateNode: React.FC<NodeProps> = memo(
         case "compound":
           return {
             ...baseStyle,
+            backgroundColor: tint(t.accent, 0.08),
             borderColor: t.accent,
-            borderStyle: "dashed",
           };
         default:
           return baseStyle;

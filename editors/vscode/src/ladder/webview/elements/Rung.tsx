@@ -27,7 +27,6 @@ export function Rung({ y, leftX, rightX, rungNumber, isActive = false }: RungPro
         points={[leftX, y, rightX, y]}
         stroke={isActive ? "orange" : "#333"}
         strokeWidth={isActive ? 3 : 2}
-        dash={[10, 5]}
       />
       
       {/* Left power rail connection */}

@@ -2188,7 +2188,7 @@ export function LadderEditor() {
               ],
               stroke: k(t.ladderPreview),
               strokeWidth: 2,
-              dash: [8, 6],
+              opacity: 0.82,
               lineJoin: "round",
               lineCap: "round",
               listening: false,

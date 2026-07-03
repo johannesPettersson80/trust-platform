@@ -325,7 +325,6 @@ export const StateChartEditor: React.FC = () => {
             snapGrid={[15, 15]}
             defaultEdgeOptions={{
               type: STATE_TRANSITION_EDGE,
-              animated: true,
               style: {
                 stroke: "var(--vscode-editorWidget-border)",
                 strokeWidth: 2,

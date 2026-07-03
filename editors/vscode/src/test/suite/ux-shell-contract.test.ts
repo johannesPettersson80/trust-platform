@@ -3137,6 +3137,33 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     );
   });
 
+  test("visual editors reserve dashed strokes for product draft semantics", () => {
+    const editorFiles = [
+      "statechart/webview/StateNode.tsx",
+      "ladder/webview/LadderEditor.tsx",
+      "ladder/webview/elements/Rung.tsx",
+      "sfc/webview/SfcEditor.tsx",
+      "blockly/webview/BlocklyEditor.tsx",
+    ];
+    for (const file of editorFiles) {
+      const src = readSrc(file);
+      assert.ok(!/borderStyle:\s*["']dashed["']/.test(src), `${file} must not render dashed borders for editor decoration`);
+      assert.ok(!/strokeDasharray/.test(src), `${file} must not render dashed editor strokes`);
+      assert.ok(!/\bdash\s*[:=]\s*\[/.test(src), `${file} must not render Konva dashed editor strokes`);
+    }
+    assert.ok(
+      !readSrc("statechart/webview/StateChartEditor.tsx").includes("animated: true"),
+      "Statechart transitions must not use React Flow animated edges because that renders dashed motion"
+    );
+
+    const dcNodes = readSrc("networkCanvas/webview/nodes.tsx");
+    const dcEdges = readSrc("networkCanvas/webview/CasedEdge.tsx");
+    assert.ok(
+      dcNodes.includes('"dashed"') && dcEdges.includes("strokeDasharray"),
+      "Devices & Connections must keep dashed treatment for draft/unproven topology"
+    );
+  });
+
   test("visual editor right panes share Tools Edit View IA and one zoom placement", () => {
     const panelFiles = [
       "sfc/webview/SfcToolsPanel.tsx",
