@@ -371,6 +371,9 @@ fn apply_widget_override(point: &mut HmiPoint, override_spec: &HmiWidgetOverride
     if let Some(alarm_deadband) = override_spec.alarm_deadband {
         point.alarm_deadband = Some(alarm_deadband.max(0.0));
     }
+    if let Some(alarm_label) = override_spec.alarm_label.as_ref() {
+        point.alarm_label = Some(alarm_label.clone());
+    }
     if let Some(inferred_interface) = override_spec.inferred_interface {
         point.inferred_interface = inferred_interface;
     }

@@ -14,6 +14,7 @@ impl HmiWidgetOverride {
             && self.section_title.is_none()
             && self.widget_span.is_none()
             && self.alarm_deadband.is_none()
+            && self.alarm_label.is_none()
             && self.inferred_interface.is_none()
             && self.detail_page.is_none()
     }
@@ -60,6 +61,9 @@ impl HmiWidgetOverride {
         }
         if other.alarm_deadband.is_some() {
             self.alarm_deadband = other.alarm_deadband;
+        }
+        if other.alarm_label.is_some() {
+            self.alarm_label = other.alarm_label.clone();
         }
         if other.inferred_interface.is_some() {
             self.inferred_interface = other.inferred_interface;
@@ -243,6 +247,7 @@ impl From<HmiTomlWidgetOverride> for HmiWidgetOverride {
             section_title: None,
             widget_span: None,
             alarm_deadband: None,
+            alarm_label: None,
             inferred_interface: None,
             detail_page: None,
         }

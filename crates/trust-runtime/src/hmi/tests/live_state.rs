@@ -57,6 +57,7 @@ fn synthetic_schema_with_deadband(
             section_title: None,
             widget_span: None,
             alarm_deadband: deadband,
+            alarm_label: None,
             inferred_interface: false,
             detail_page: None,
             unit: Some("rpm".to_string()),
@@ -128,6 +129,7 @@ fn alarm_state_machine_covers_raise_ack_clear_history() {
     let raised = build_alarm_view(&live, 10);
     assert_eq!(raised.active.len(), 1);
     assert_eq!(raised.active[0].state, "raised");
+    assert_eq!(raised.active[0].label, "Speed");
     assert_eq!(
         raised.history.first().map(|event| event.event),
         Some("raised")
@@ -153,6 +155,21 @@ fn alarm_state_machine_covers_raise_ack_clear_history() {
     assert!(history_events.contains(&"raised"));
     assert!(history_events.contains(&"acknowledged"));
     assert!(history_events.contains(&"cleared"));
+}
+
+#[test]
+fn alarm_state_uses_configured_alarm_label_without_renaming_widget() {
+    let mut schema = synthetic_schema(Some(0.0), Some(100.0));
+    schema.widgets[0].alarm_label = Some("Speed too high".to_string());
+    assert_eq!(schema.widgets[0].label, "Speed");
+
+    let mut live = HmiLiveState::default();
+    update_live_state(&mut live, &schema, &synthetic_values(120.0, 2_000));
+
+    let raised = build_alarm_view(&live, 10);
+    assert_eq!(raised.active.len(), 1);
+    assert_eq!(raised.active[0].label, "Speed too high");
+    assert_eq!(raised.history[0].label, "Speed too high");
 }
 
 #[test]

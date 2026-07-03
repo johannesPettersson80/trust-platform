@@ -1,6 +1,12 @@
 fn update_alarm_state(state: &mut HmiLiveState, widget: &HmiWidgetSchema, value: f64, ts_ms: u128) {
     let violation = alarm_violation(value, widget.min, widget.max);
     let clear_window = alarm_clear_window(value, widget.min, widget.max, widget.alarm_deadband);
+    let display_label = widget
+        .alarm_label
+        .as_ref()
+        .filter(|label| !label.trim().is_empty())
+        .unwrap_or(&widget.label)
+        .clone();
     let mut raised = false;
     let mut cleared = false;
     let (id, widget_id, path, label) = {
@@ -11,7 +17,7 @@ fn update_alarm_state(state: &mut HmiLiveState, widget: &HmiWidgetSchema, value:
                 id: widget.id.clone(),
                 widget_id: widget.id.clone(),
                 path: widget.path.clone(),
-                label: widget.label.clone(),
+                label: display_label.clone(),
                 active: false,
                 acknowledged: false,
                 raised_at_ms: 0,
@@ -23,6 +29,7 @@ fn update_alarm_state(state: &mut HmiLiveState, widget: &HmiWidgetSchema, value:
         alarm.value = value;
         alarm.min = widget.min;
         alarm.max = widget.max;
+        alarm.label = display_label;
         if violation {
             if !alarm.active {
                 alarm.active = true;
@@ -181,4 +188,3 @@ fn to_alarm_record(state: &HmiAlarmState) -> HmiAlarmRecord {
         max: state.max,
     }
 }
-

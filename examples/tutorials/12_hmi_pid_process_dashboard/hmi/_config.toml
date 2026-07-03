@@ -33,3 +33,7 @@ label = "PT-001 High Pressure"
 bind = "P1.ProductLevelPct"
 high = 90
 label = "LT-002 High Product Level"
+
+[[alarm]]
+bind = "P1.PressureDeviationBar"
+label = "Pressure deviation high"

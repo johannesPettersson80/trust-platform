@@ -57,6 +57,7 @@ function renderAlarmTable(result) {
 
       const signalCell = document.createElement('td');
       signalCell.textContent = alarm.label || alarm.path || alarm.id;
+      signalCell.title = alarm.path || alarm.id || '';
 
       const valueCell = document.createElement('td');
       valueCell.textContent = formatValue(alarm.value);

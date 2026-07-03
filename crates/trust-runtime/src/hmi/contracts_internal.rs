@@ -67,6 +67,7 @@ struct HmiPoint {
     section_title: Option<String>,
     widget_span: Option<u32>,
     alarm_deadband: Option<f64>,
+    alarm_label: Option<String>,
     inferred_interface: bool,
     detail_page: Option<String>,
     unit: Option<String>,
@@ -325,6 +326,7 @@ struct HmiWidgetOverride {
     section_title: Option<String>,
     widget_span: Option<u32>,
     alarm_deadband: Option<f64>,
+    alarm_label: Option<String>,
     inferred_interface: Option<bool>,
     detail_page: Option<String>,
 }

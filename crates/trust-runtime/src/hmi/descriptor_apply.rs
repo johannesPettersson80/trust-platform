@@ -89,6 +89,7 @@ pub(super) fn apply_hmi_dir_descriptor(
                     section_title: Some(section.title.clone()),
                     widget_span: widget.span,
                     alarm_deadband: None,
+                    alarm_label: None,
                     inferred_interface: widget.inferred_interface,
                     detail_page: widget.detail_page.clone(),
                 });
@@ -111,9 +112,7 @@ pub(super) fn apply_hmi_dir_descriptor(
         if let Some(deadband) = alarm.deadband {
             entry.alarm_deadband = Some(deadband.max(0.0));
         }
-        if entry.label.is_none() {
-            entry.label = alarm.label.clone();
-        }
+        entry.alarm_label = alarm.label.clone();
     }
 
     customization.widget_overrides = overrides;

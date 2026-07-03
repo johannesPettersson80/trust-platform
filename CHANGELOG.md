@@ -252,6 +252,9 @@ Target release: `v0.24.28`
 - trust-runtime: Browser HMI now separates passive header status chips from
   clickable header actions, including moving the theme toggle into the action
   group and giving actions visible button affordance.
+- trust-runtime: Browser HMI alarm banners and alarm tables now use configured
+  alarm labels while keeping the raw signal path as tooltip detail, so operator
+  alarms do not expose variable-name labels when a human title exists.
 - vscode/trust-debug: starter projects and bundled examples now include a
   native `truST Simulator` launch configuration, and Structured Text debug
   stack frames display workspace-relative source names while keeping absolute

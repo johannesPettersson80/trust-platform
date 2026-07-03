@@ -144,10 +144,16 @@ function updateAlarmBanner() {
     const raised = active.filter(a => a.state === 'raised');
     const top = raised.length > 0 ? raised[0] : active[0];
     banner.classList.add('active');
-    if (text) text.textContent = top.label || top.path || top.id || 'Alarm active';
+    if (text) {
+      text.textContent = top.label || top.path || top.id || 'Alarm active';
+      text.title = top.path || top.id || '';
+    }
   } else {
     banner.classList.remove('active');
-    if (text) text.textContent = 'No alarms';
+    if (text) {
+      text.textContent = 'No alarms';
+      text.title = '';
+    }
   }
 }
 
@@ -162,6 +168,7 @@ function updateAlarmBannerFromValues(values) {
         if (banner && text) {
           banner.classList.add('active');
           text.textContent = val.trim();
+          text.title = '';
         }
         return;
       }
@@ -276,4 +283,3 @@ function connectWebSocketTransport() {
     socket.close();
   });
 }
-

@@ -44,6 +44,8 @@ pub struct HmiWidgetSchema {
     pub widget_span: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub alarm_deadband: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub alarm_label: Option<String>,
     #[serde(default, skip_serializing_if = "is_false")]
     pub inferred_interface: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]

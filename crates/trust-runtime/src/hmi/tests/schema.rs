@@ -168,7 +168,8 @@ END_PROGRAM
         .expect("speed widget");
     assert_eq!(speed.min, Some(10.0));
     assert_eq!(speed.max, Some(120.0));
-    assert_eq!(speed.label, "Speed Alarm");
+    assert_eq!(speed.label, "speed");
+    assert_eq!(speed.alarm_label.as_deref(), Some("Speed Alarm"));
     std::fs::remove_dir_all(root).ok();
 }
 

@@ -61,6 +61,7 @@ pub fn build_schema(
             section_title: point.section_title,
             widget_span: point.widget_span,
             alarm_deadband: point.alarm_deadband,
+            alarm_label: point.alarm_label,
             inferred_interface: point.inferred_interface,
             detail_page: point.detail_page,
             unit: point.unit,
