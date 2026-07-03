@@ -39,6 +39,7 @@ import { EditModeContext, type AddSlotRequest } from "./editMode";
 import { FilterPanel } from "./FilterPanel";
 import { applyFilter, filterReport, protocolsInGraph } from "./filter";
 import type { CommApplyResponse, CommSchemaResponse } from "../../communication/schemaForm";
+import { LOCAL_RUNTIME_NODE_ID } from "./types";
 
 interface VsCodeApi {
   postMessage(msg: unknown): void;
@@ -258,6 +259,28 @@ function Canvas() {
     const n = built.nodes.find((node) => node.id === selectedId);
     return n ? { id: n.id, type: n.type, data: n.data as Record<string, unknown> } : undefined;
   }, [selectedId, built.nodes]);
+  const toolbarAddTarget = useMemo(() => {
+    const selectedRuntime = selectedId
+      ? built.nodes.find((node) => node.id === selectedId && node.type === "runtime")
+      : undefined;
+    return (
+      selectedRuntime ??
+      built.nodes.find((node) => node.id === LOCAL_RUNTIME_NODE_ID && node.type === "runtime") ??
+      built.nodes.find((node) => node.type === "runtime")
+    );
+  }, [built.nodes, selectedId]);
+  const openAddPicker = useCallback(() => {
+    if (!toolbarAddTarget) {
+      return;
+    }
+    setFilterOpen(false);
+    setDiscoverOpen(false);
+    setSelectedId(undefined);
+    setDraft(undefined);
+    setEditMode(false);
+    clearApplyResult();
+    setAddSlot({ kind: "device", targetId: toolbarAddTarget.id });
+  }, [toolbarAddTarget, clearApplyResult]);
 
   const toggleHidden = useCallback((protocol: string) => {
     setHidden((prev) => {
@@ -687,14 +710,25 @@ function Canvas() {
     return () => clearTimeout(id);
   }, [activeDrawerW, fitView]);
 
-  const toolbarBtn = (active: boolean): React.CSSProperties => ({
-    border: `1px solid ${active ? t.accent : t.border}`,
-    background: active ? tint(t.accent, 0.14) : "transparent",
-    color: t.text,
+  const toolbarBtn = (
+    active: boolean,
+    variant: "default" | "primary" = "default",
+    disabled = false
+  ): React.CSSProperties => ({
+    border: `1px solid ${active || variant === "primary" ? t.accent : t.border}`,
+    background:
+      variant === "primary"
+        ? t.accent
+        : active
+          ? tint(t.accent, 0.14)
+          : "transparent",
+    color: disabled ? t.textSubtle : variant === "primary" ? t.onAccent : t.text,
     borderRadius: t.radius,
     padding: "6px 12px",
     fontSize: 12,
-    cursor: "pointer",
+    fontWeight: variant === "primary" ? 650 : 500,
+    cursor: disabled ? "not-allowed" : "pointer",
+    opacity: disabled ? 0.62 : 1,
     whiteSpace: "nowrap",
     transition: `background ${t.ease}, border-color ${t.ease}`,
   });
@@ -795,6 +829,18 @@ function Canvas() {
           style={toolbarBtn(filterOpen)}
         >
           Filter
+        </button>
+        <button
+          onClick={openAddPicker}
+          disabled={!toolbarAddTarget}
+          title={
+            toolbarAddTarget
+              ? `Add a device or connection to ${String((toolbarAddTarget.data as { label?: string } | undefined)?.label ?? "runtime")}`
+              : "Open or set up a runtime before adding a device or connection"
+          }
+          style={toolbarBtn(addSlot?.kind === "device", "primary", !toolbarAddTarget)}
+        >
+          + Add
         </button>
         <button
           onClick={() => {

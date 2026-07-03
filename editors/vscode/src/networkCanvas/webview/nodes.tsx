@@ -323,9 +323,8 @@ export const RuntimeNode = memo(({ id, data }: NodeProps) => {
   const d = data as RuntimeNodeData;
   const [hover, setHover] = useState(false);
   const { editMode } = useEditMode();
-  // First-run orientation: a runtime with no devices is otherwise a blank box, and a newcomer has no
-  // cue that Edit reveals the add-slots (§0.4 keeps adding in Edit mode, not a header "+"). So when the
-  // body is empty in view mode, fill it with a hint that names the two real paths to a first device.
+  // First-run orientation: a runtime with no devices is otherwise a blank box. The primary path is the
+  // toolbar + Add button; Edit-mode slots remain a topology-placement affordance.
   // Honesty gate: only assert "no devices" for the local simulator (an unambiguous fresh start) or a
   // runtime we're actually connected to. A merely-stopped managed/remote runtime may have devices we
   // just can't see yet (they surface on connect), so we must NOT claim it's empty.
@@ -390,7 +389,7 @@ export const RuntimeNode = memo(({ id, data }: NodeProps) => {
         <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 5, padding: "4px 16px 14px", textAlign: "center" }}>
           <div style={{ fontSize: 11.5, fontWeight: 600, color: t.textMuted }}>No devices yet</div>
           <div style={{ fontSize: 10.5, color: t.textSubtle, lineHeight: 1.5 }}>
-            Use <span style={{ color: t.textMuted, fontWeight: 600 }}>Edit</span> to add one, or <span style={{ color: t.textMuted, fontWeight: 600 }}>Discover</span> to scan the network.
+            Use <span style={{ color: t.textMuted, fontWeight: 600 }}>+ Add</span> to add one, or <span style={{ color: t.textMuted, fontWeight: 600 }}>Discover</span> to scan the network.
           </div>
         </div>
       )}

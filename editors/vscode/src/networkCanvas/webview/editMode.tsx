@@ -7,10 +7,9 @@ export interface AddSlotRequest {
   targetId?: string;
 }
 
-// Edit mode (LOCKED 2026-06-18, spec §0.4): a toolbar toggle. When ON, layout.ts emits dashed
-// EMPTY-SLOT buttons on the canvas (per runtime: add connection; per host: set up runtime;
-// canvas: add host). Clicking a slot calls onPickSlot → the app opens the matching right pane.
-// This is NOT a "+" button in a node header — the affordance is the explicit empty-slot button.
+// Edit mode: a secondary topology-placement toggle. The default first-user add path is the toolbar
+// + Add button; when Edit is on, layout.ts emits dashed empty-slot buttons for precise placement
+// (per runtime: add connection; per host: set up runtime; canvas: add host).
 export interface EditModeValue {
   editMode: boolean;
   onPickSlot: (slot: AddSlotRequest) => void;

@@ -2777,6 +2777,14 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
       "edit-mode add/setup/host slots must hide while a right drawer is open so background affordances cannot overlap the active workflow"
     );
     assert.ok(
+      src.includes("const toolbarAddTarget = useMemo") &&
+        src.includes("LOCAL_RUNTIME_NODE_ID") &&
+        src.includes("const openAddPicker = useCallback") &&
+        src.includes('setAddSlot({ kind: "device", targetId: toolbarAddTarget.id })') &&
+        /<button[\s\S]*onClick=\{openAddPicker\}[\s\S]*\+ Add[\s\S]*<\/button>/.test(src),
+      "Devices & Connections must expose a first-class + Add toolbar action that opens the picker for the selected/default runtime"
+    );
+    assert.ok(
       !/\bMiniMap\b|<MiniMap\b/.test(src),
       "Devices & Connections must use the shared low-prominence zoom/fit/count controls, not a separate minimap panel that clutters small graphs"
     );
@@ -2808,6 +2816,15 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     assert.ok(
       src.includes('if (!confirmRemove)') && src.includes('send("commRemove")'),
       "commRemove must only be sent from the confirmed branch"
+    );
+  });
+
+  test("empty runtime guidance points to + Add, not hidden Edit mode", () => {
+    const nodes = readSrc("networkCanvas/webview/nodes.tsx");
+    assert.ok(
+      nodes.includes(">+ Add</span> to add one") &&
+        !nodes.includes(">Edit</span> to add one"),
+      "a first-time user must see + Add as the primary path from an empty runtime"
     );
   });
 

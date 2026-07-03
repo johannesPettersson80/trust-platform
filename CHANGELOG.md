@@ -248,6 +248,10 @@ Target release: `v0.24.28`
   stack frames display workspace-relative source names while keeping absolute
   paths for navigation, so the Run and Debug view no longer shows
   `No Configurations` or long local paths during first-use debugging.
+- vscode: Devices & Connections now exposes a first-class `+ Add` toolbar
+  action that opens the device/connection picker for the selected/default
+  runtime, instead of teaching first-time users to discover the primary add
+  flow through Edit mode.
 - vscode: Compile diagnostics now use the user-facing `truST` Problems source
   label instead of the stale `trust check` name, and Compile resolves the
   nearest `trust-lsp.toml` from the active file before falling back to the
