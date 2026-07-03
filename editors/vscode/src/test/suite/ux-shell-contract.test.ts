@@ -2728,6 +2728,7 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
 
   test("Devices & Connections protocol identity colors use shared theme roles", () => {
     const nodes = readSrc("networkCanvas/webview/nodes.tsx");
+    const busNode = readSrc("networkCanvas/webview/BusNode.tsx");
     const protocolMeta = readSrc("networkCanvas/webview/protocolMeta.ts");
     const theme = readSrc("webview/theme.ts");
     const css = readSrc("webview/theme.css");
@@ -2798,6 +2799,21 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     for (const role of ["t.roleHostBg", "t.roleRuntimeBg", "t.roleEndpointBg", "t.roleExternalBg"]) {
       assert.ok(nodes.includes(role), `network canvas nodes must use shared role tint ${role}`);
     }
+    assert.ok(
+      nodes.includes("const statusTone = draftLike ? t.protocolMuted : healthColor(d.health)") &&
+        nodes.includes("background: statusTone"),
+      "draft endpoints must use the shared muted draft role for every status indicator, not a separate health colour"
+    );
+    assert.ok(
+      busNode.includes("trust-edge-label-knockout") &&
+        busNode.includes("trust-bus-draft-chip") &&
+        busNode.includes("boxShadow: `0 0 0 4px ${t.canvas}`"),
+      "mesh bus labels must have an opaque knockout and a separate DRAFT chip so wires never run through label text"
+    );
+    assert.ok(
+      !busNode.includes(" · DRAFT"),
+      "draft state must render as a separate chip, not as suffix text inside the bus label"
+    );
   });
 
   test("Devices & Connections refits when endpoint children appear after managed Start", () => {

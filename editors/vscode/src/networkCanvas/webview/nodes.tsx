@@ -403,6 +403,7 @@ export const EndpointNode = memo(({ data }: NodeProps) => {
   const d = data as EndpointNodeData;
   const draftLike = isDraftLikeEndpoint(d.protocol, d.role, d.health);
   const pc = draftLike ? t.protocolMuted : protocolColor(d.protocol);
+  const statusTone = draftLike ? t.protocolMuted : healthColor(d.health);
   const [hover, setHover] = useState(false);
   // §0.2: everything networked gets a wire/port; only local I/O does not.
   const isComm = !["gpio", "simulated", "loopback"].includes(d.protocol);
@@ -444,7 +445,7 @@ export const EndpointNode = memo(({ data }: NodeProps) => {
           <StatusPill health={d.health} label={draftLike ? "DRAFT" : undefined} tone={draftLike ? t.protocolMuted : undefined} />
         )}
         <span
-          className={d.health === "connected" ? "trust-dot trust-dot--live" : "trust-dot"}
+          className={!draftLike && d.health === "connected" ? "trust-dot trust-dot--live" : "trust-dot"}
           title={d.health}
           style={{
             position: "absolute",
@@ -453,8 +454,8 @@ export const EndpointNode = memo(({ data }: NodeProps) => {
             width: 7,
             height: 7,
             borderRadius: "50%",
-            background: healthColor(d.health),
-            boxShadow: `0 0 0 2.5px ${tint(healthColor(d.health), 0.16)}`,
+            background: statusTone,
+            boxShadow: `0 0 0 2.5px ${tint(statusTone, 0.16)}`,
           }}
         />
       </div>

@@ -484,8 +484,13 @@ export function buildGraph(
     );
     const meshColor = meshDraft ? t.protocolMuted : protocolColor("mesh");
     const pad = 36;
-    const minX = Math.min(...meshEndpoints.map((e) => e.cx)) - pad;
-    const maxX = Math.max(...meshEndpoints.map((e) => e.cx)) + pad;
+    const naturalMinX = Math.min(...meshEndpoints.map((e) => e.cx)) - pad;
+    const naturalMaxX = Math.max(...meshEndpoints.map((e) => e.cx)) + pad;
+    const naturalWidth = naturalMaxX - naturalMinX;
+    const minBusWidth = meshEndpoints.length > 1 ? 168 : naturalWidth;
+    const busCenterX = (naturalMinX + naturalMaxX) / 2;
+    const minX = naturalWidth < minBusWidth ? busCenterX - minBusWidth / 2 : naturalMinX;
+    const maxX = naturalWidth < minBusWidth ? busCenterX + minBusWidth / 2 : naturalMaxX;
     const busId = "bus:mesh";
     nodes.push({
       id: busId,
@@ -495,6 +500,7 @@ export function buildGraph(
         label: "Mesh fabric",
         color: meshColor,
         draft: meshDraft,
+        showLabel: meshEndpoints.length > 1,
         handles: meshEndpoints.map((e) => ({ id: `h-${e.id}`, x: e.cx - minX })),
       },
       style: { width: maxX - minX, height: 8 },

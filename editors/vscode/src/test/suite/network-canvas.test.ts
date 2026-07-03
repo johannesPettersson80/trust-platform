@@ -436,7 +436,60 @@ suite("Network Canvas", function () {
     assert.strictEqual(draftMesh?.data?.dashed, true, "a pending mesh peer must render dashed");
     assert.strictEqual(liveMesh?.data?.dashed, true, "a mixed draft/live fabric stays dashed until all peers are live");
     assert.strictEqual(meshBus?.data?.draft, true, "mesh fabric must visibly carry the DRAFT state");
+    assert.strictEqual(meshBus?.data?.showLabel, true, "a multi-peer mesh fabric needs its shared-bus label");
     assert.notStrictEqual(meshBus?.data?.color, "rgb(137,209,133)", "draft fabric must not use the live green");
+    assert.strictEqual(draftMesh?.data?.color, meshBus?.data?.color, "draft mesh wires must use the same muted draft role as the bus");
+    assert.strictEqual(liveMesh?.data?.color, meshBus?.data?.color, "mixed mesh fabric wires stay muted while any peer is draft");
+  });
+
+  test("single-peer mesh fabric suppresses redundant bus label", () => {
+    const graph = buildGraph({
+      kind: "graph",
+      title: "Devices & Connections",
+      summary: "",
+      hosts: [
+        {
+          id: "host:local",
+          hostname: "this computer",
+          label: "local host",
+          health: "connected",
+          containers: [],
+          runtimes: [
+            {
+              id: "runtime:local",
+              name: "truST runtime",
+              mode: "simulate",
+              health: "stopped",
+              detail: "",
+              endpoints: [
+                {
+                  id: "endpoint:mesh-draft",
+                  kind: "field",
+                  protocol: "mesh",
+                  name: "Mesh (draft)",
+                  role: "peer",
+                  health: "pending",
+                  detail: "",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      links: [],
+      external: [],
+      faults: [],
+    });
+    const meshBus = graph.nodes.find((node) => node.id === "bus:mesh");
+    const meshBusData = meshBus?.data as { handles?: Array<{ x: number }> } | undefined;
+    const meshBusWidth = Number(meshBus?.style?.width ?? 0);
+    assert.ok(meshBus, "expected a mesh fabric bus node");
+    assert.strictEqual(meshBus?.data?.showLabel, false, "a one-peer mesh fabric should not add a redundant floating label");
+    assert.strictEqual(
+      meshBusData?.handles?.[0]?.x,
+      meshBusWidth / 2,
+      "a one-peer bus keeps the endpoint handle centered"
+    );
   });
 
   test("external protocol nodes render display names, not raw driver ids", () => {
