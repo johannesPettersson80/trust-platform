@@ -9,6 +9,9 @@
   --button-bg: var(--vscode-button-background, var(--vscode-editor-background, #0e639c));
   --button-fg: var(--vscode-button-foreground, var(--vscode-foreground, #ffffff));
   --button-hover: var(--vscode-button-hoverBackground, var(--vscode-button-background, #1177bb));
+  --button-secondary-bg: var(--vscode-button-secondaryBackground, var(--panel));
+  --button-secondary-fg: var(--vscode-button-secondaryForeground, var(--text));
+  --button-secondary-hover: var(--vscode-button-secondaryHoverBackground, var(--row-alt));
   --input-bg: var(--vscode-input-background, var(--vscode-editor-background, #3c3c3c));
   --input-fg: var(--vscode-input-foreground, var(--vscode-foreground, #cccccc));
   --input-border: var(--vscode-input-border, var(--vscode-panel-border, #3c3c3c));
@@ -245,14 +248,14 @@
 .st-runtime-panel .row-header {
   display: grid;
   grid-template-columns:
-    minmax(92px, 1.2fr)
-    minmax(112px, 1.4fr)
+    minmax(116px, 1fr)
     minmax(52px, max-content)
-    minmax(40px, max-content)
-    minmax(68px, max-content)
-    minmax(112px, max-content);
+    minmax(38px, max-content)
+    minmax(64px, max-content)
+    minmax(160px, max-content);
   align-items: center;
-  gap: 6px;
+  column-gap: 6px;
+  row-gap: 6px;
 }
 
 .st-runtime-panel .row > *,
@@ -329,15 +332,16 @@
 }
 
 .st-runtime-panel .state-cell,
-.st-runtime-panel .source-cell,
 .st-runtime-panel .type-cell {
   color: var(--muted);
   font-size: 11px;
   white-space: nowrap;
 }
 
-.st-runtime-panel .source-cell {
-  line-height: 1.25;
+.st-runtime-panel .source-subtitle {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.2;
   overflow-wrap: anywhere;
   white-space: normal;
 }
@@ -383,7 +387,7 @@
 }
 
 .st-runtime-panel .value-input {
-  width: 52px;
+  width: 46px;
   height: 24px;
   padding: 2px 4px;
   border: 1px solid var(--input-border);
@@ -412,15 +416,15 @@
 }
 
 .st-runtime-panel .mini-btn {
-  min-width: 48px;
+  min-width: 42px;
   height: 24px;
-  padding: 0 5px;
+  padding: 0 4px;
   border-radius: 3px;
   font-size: 11px;
   font-weight: 600;
   border: 1px solid var(--input-border);
-  background: var(--button-bg);
-  color: var(--button-fg);
+  background: var(--button-secondary-bg);
+  color: var(--button-secondary-fg);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -430,14 +434,18 @@
 }
 
 .st-runtime-panel .mini-btn:hover {
-  background: var(--button-hover);
+  background: var(--button-secondary-hover);
+}
+
+.st-runtime-panel .mini-btn.force-slot {
+  width: 62px;
 }
 
 .st-runtime-panel .mini-btn.active {
-  background: var(--warning);
-  color: #161616;
+  background: color-mix(in srgb, var(--warning) 14%, var(--panel));
+  color: var(--text);
   border-color: var(--warning);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
+  box-shadow: inset 2px 0 0 var(--warning);
 }
 
 .st-runtime-panel .mini-btn:disabled {

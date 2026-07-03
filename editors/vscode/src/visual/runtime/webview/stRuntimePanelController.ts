@@ -656,8 +656,6 @@ export function mountStRuntimePanel(
       signal.textContent = "Name";
       const value = document.createElement("div");
       value.textContent = "Value";
-      const source = document.createElement("div");
-      source.textContent = "Source";
       const type = document.createElement("div");
       type.textContent = "Type";
       const state = document.createElement("div");
@@ -666,7 +664,6 @@ export function mountStRuntimePanel(
       actions.className = "actions-heading";
       actions.textContent = "Actions";
       header.appendChild(signal);
-      header.appendChild(source);
       header.appendChild(value);
       header.appendChild(type);
       header.appendChild(state);
@@ -701,12 +698,13 @@ export function mountStRuntimePanel(
         nameCell.appendChild(address);
       }
 
-      const sourceCell = document.createElement("div");
-      sourceCell.className = "source-cell";
       const sourceText = String(entry.source || "").trim();
-      sourceCell.textContent = sourceText || "—";
       if (sourceText) {
-        sourceCell.title = sourceText;
+        const source = document.createElement("div");
+        source.className = "source-subtitle";
+        source.textContent = sourceText;
+        source.title = sourceText;
+        nameCell.appendChild(source);
       }
 
       const valueCell = document.createElement("div");
@@ -738,7 +736,6 @@ export function mountStRuntimePanel(
       stateCell.appendChild(stateBadge);
 
       row.appendChild(nameCell);
-      row.appendChild(sourceCell);
       row.appendChild(valueCell);
       row.appendChild(typeCell);
       row.appendChild(stateCell);
@@ -746,9 +743,9 @@ export function mountStRuntimePanel(
       if (allowActions) {
         const actions = document.createElement("div");
         actions.className = "actions";
-        const canWrite = allowWrite;
-        const canForce = allowForce;
-        const canRelease = allowRelease;
+        const canWrite = allowWrite && !isForced;
+        const canForce = allowForce && !isForced;
+        const canRelease = allowRelease && isForced;
 
         const key = `${entry.name || ""}|${entry.address || ""}|${
           entry.writeTarget || ""
@@ -799,8 +796,9 @@ export function mountStRuntimePanel(
           });
           return toggle;
         };
-        const valueControl: HTMLInputElement | HTMLButtonElement =
-          displayType === "BOOL" ? createBoolToggle() : createTextInput();
+        const valueControl: HTMLInputElement | HTMLButtonElement | null = isForced
+          ? null
+          : displayType === "BOOL" ? createBoolToggle() : createTextInput();
 
         const actionTarget = String(
           entry.writeTarget && entry.writeTarget.trim().length > 0
@@ -844,10 +842,13 @@ export function mountStRuntimePanel(
             : "Write once (next cycle, inputs only)";
         writeButton.setAttribute("aria-label", "Write value once");
         writeButton.disabled = !canWrite || operationPending;
+        if (!canWrite && isForced) {
+          writeButton.title = "Release force before writing this value.";
+        }
         writeButton.addEventListener("click", () => sendValue("write"));
 
         const forceButton = document.createElement("button");
-        forceButton.className = "mini-btn";
+        forceButton.className = "mini-btn force-slot";
         forceButton.classList.toggle("active", isForced);
         forceButton.setAttribute("aria-pressed", isForced ? "true" : "false");
         forceButton.textContent = "Force";
@@ -861,7 +862,7 @@ export function mountStRuntimePanel(
         forceButton.addEventListener("click", () => sendValue("force"));
 
         const releaseButton = document.createElement("button");
-        releaseButton.className = "mini-btn";
+        releaseButton.className = "mini-btn force-slot release";
         releaseButton.textContent = "Release";
         releaseButton.title = "Release force";
         releaseButton.setAttribute("aria-label", "Release forced value");

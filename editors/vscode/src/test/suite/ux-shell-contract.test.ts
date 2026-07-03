@@ -743,10 +743,12 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
       "denied write/force/release controls must be disabled before the user clicks"
     );
     assert.ok(
-      web.includes("writeButton.title = writeDisabledReason || remoteReason") &&
+      web.includes("writeDisabledReason || remoteReason || \"Write is not available for this value.\"") &&
+        web.includes("\"Release force before writing this value.\"") &&
+        web.includes("if (!canForce && remoteReason)") &&
         web.includes("forceButton.title = remoteReason") &&
         web.includes("setStatusText(currentAccess.reason)"),
-      "denied controls must carry a visible reason, not just a backend error after click"
+      "denied controls must carry a visible reason, and forced rows must explain why Write is disabled"
     );
   });
 
@@ -783,9 +785,9 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
     ] as const) {
       assert.ok(source.includes(".mini-btn.armed"), `${name} must style the armed force state`);
       assert.ok(
-        source.includes("background: var(--trust-warn)") &&
-          source.includes("color: var(--trust-canvas)"),
-        `${name} must use shared --trust-* roles for force arming`
+        source.includes("background: color-mix(in srgb, var(--trust-warn) 14%, var(--trust-surface))") &&
+          source.includes("box-shadow: inset 2px 0 0 var(--trust-warn)"),
+        `${name} must use a quiet amber treatment for force arming, not a solid action fill`
       );
     }
   });
@@ -851,7 +853,11 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
         source.includes("valueType") && source.includes("typeFromAddress(entry"),
         `${name} must prefer backend-provided I/O value types before address fallback`
       );
-      assert.ok(source.includes('sourceCell.className = "source-cell"'), `${name} must render source in its own column`);
+      assert.ok(
+        source.includes('source.className = "source-subtitle"') &&
+          source.includes("nameCell.appendChild(source)"),
+        `${name} must render source as muted name-cell context instead of a width-consuming column`
+      );
       assert.ok(source.includes('typeCell.className = "type-cell"'), `${name} must render type in its own column`);
       assert.ok(source.includes('typeCell.textContent = displayType || "—"'), `${name} must show a stable type-cell value`);
       assert.ok(source.includes('stateCell.className = "state-cell"'), `${name} must render state in its own column`);
@@ -892,6 +898,11 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
           source.includes("actions.appendChild(forceButton)"),
         `${name} must show Release only for forced rows and Force otherwise`
       );
+      assert.ok(
+        /const valueControl[\s\S]*(isForced|forced)[\s\S]*\?\s*null/.test(source) &&
+          source.includes("Release force before writing this value."),
+        `${name} must not crowd forced rows with an editable value control beside the FORCED badge`
+      );
     }
     for (const [name, source] of [
       ["ioPanel.ts", readSrc("ioPanel.ts")],
@@ -920,6 +931,7 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
       );
       assert.ok(source.includes(".status:not(:empty)"), `${name} must hide only empty status text`);
       assert.ok(source.includes(".status.status-error"), `${name} must style failed writes/forces visibly`);
+      assert.ok(source.includes(".status.status-warn"), `${name} must style armed/active force feedback as warning`);
     }
     assert.ok(
       web.includes('if (message.type === "status")') &&
@@ -928,6 +940,19 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
       "status messages must go through the styled status renderer"
     );
     assert.ok(web.includes("status-error"), "webview must mark failed operations as error status");
+    assert.ok(
+      web.includes("status-warn") &&
+        web.includes("force armed|force active|force remains armed") &&
+        web.includes("!isWarning && /queued|released|cleared/i.test(text)"),
+      "force armed/active feedback must be amber warning, not green success"
+    );
+    assert.ok(
+      web.includes("updateForceStatusFromState") &&
+        web.includes("forcedAddresses(state)") &&
+        web.includes('"I/O force active at " + addresses[0]') &&
+        web.includes("updateForceStatusFromState(currentState)"),
+      "active forces from runtime snapshots must render a standing amber warning, even without a fresh button click"
+    );
     for (const [name, source] of [
       ["ioPanel.webview.js", web],
       ["visual/runtime/webview/stRuntimePanelController.ts", visualRuntime],
@@ -1013,9 +1038,13 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
         web.includes("Rows are from runtime scan #"),
       "the webview must update the visible scan number from each I/O state payload"
     );
-    for (const label of ["Name", "Source", "Value", "Type", "State", "Actions"]) {
+    for (const label of ["Name", "Value", "Type", "State", "Actions"]) {
       assert.ok(web.includes(`textContent = "${label}"`), `Live Values rows must label ${label}`);
     }
+    assert.ok(
+      !web.includes('textContent = "Source"') && web.includes("source-subtitle"),
+      "source provenance must stay visible as row context without adding a sixth table column"
+    );
   });
 
   test("Live Values can display word-like values as decimal hex or binary", () => {
@@ -1046,7 +1075,19 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
       assert.ok(source.includes("white-space: nowrap"), `${name} must keep Write/Force/Release on one line`);
       assert.ok(source.includes(".mini-btn"), `${name} must style action buttons explicitly`);
       assert.ok(
-        source.includes("minmax(112px, max-content)"),
+        source.includes("secondary") || source.includes("button-secondary"),
+        `${name} must render row Write/Force controls as quiet secondary actions`
+      );
+      assert.ok(
+        !/\.mini-btn\s*\{[\s\S]*background:\s*var\(--trust-accent\)/.test(source) &&
+          !/\.mini-btn\s*\{[\s\S]*background:\s*var\(--button-bg\)/.test(source),
+        `${name} must not render every row Write/Force action as a filled primary button`
+      );
+      assert.ok(
+        source.includes("minmax(160px, max-content)") &&
+          source.includes("column-gap: 6px") &&
+          source.includes("width: 46px") &&
+          source.includes("width: 62px"),
         `${name} must reserve enough fixed action-column width for the write/force/release controls`
       );
     }
@@ -1062,13 +1103,12 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
       ["visual/runtime/webview/stRuntimePanel.css", visual],
     ] as const) {
       assert.ok(
-        source.includes("minmax(92px, 1.2fr)") &&
-          source.includes("minmax(112px, 1.4fr)") &&
+        source.includes("minmax(116px, 1fr)") &&
           source.includes("minmax(52px, max-content)") &&
-          source.includes("minmax(40px, max-content)") &&
-          source.includes("minmax(68px, max-content)") &&
-          source.includes("minmax(112px, max-content)"),
-        `${name} must cap the name/source columns and keep value/type/state/actions visible on narrow panes`
+          source.includes("minmax(38px, max-content)") &&
+          source.includes("minmax(64px, max-content)") &&
+          source.includes("minmax(160px, max-content)"),
+        `${name} must keep name/value/type/state/actions visible on narrow panes`
       );
       assert.ok(source.includes("overflow-x: auto"), `${name} must stay usable in narrow panes`);
       assert.ok(

@@ -84,6 +84,26 @@ function updateReleaseAll(state) {
       : "Release every forced value on this target";
 }
 
+function updateForceStatusFromState(state) {
+  if (!status) {
+    return;
+  }
+  const addresses = forcedAddresses(state);
+  const current = status.textContent || "";
+  const isError = /failed|forbidden|requires role|missing|error|denied|viewer role|operator role|engineer token|permissions are unknown/i.test(current);
+  if (addresses.length > 0 && !isError) {
+    setStatusText(
+      addresses.length === 1
+        ? "I/O force active at " + addresses[0] + "."
+        : addresses.length + " I/O forces active."
+    );
+    return;
+  }
+  if (addresses.length === 0 && /I\/O forces? active|force active/i.test(current)) {
+    setStatusText("");
+  }
+}
+
 if (releaseAllForcesBtn) {
   releaseAllForcesBtn.addEventListener("click", () => {
     const addresses = forcedAddresses(currentState);
@@ -120,14 +140,16 @@ function setStatusText(message) {
   if (status) {
     clearStatusClearTimer();
     const text = String(message || "");
+    const isWarning = /force armed|force active|force remains armed/i.test(text);
     status.textContent = text;
     status.classList.toggle(
       "status-error",
       /failed|forbidden|requires role|missing|error|denied|viewer role|operator role|engineer token|permissions are unknown/i.test(text)
     );
+    status.classList.toggle("status-warn", isWarning);
     status.classList.toggle(
       "status-ok",
-      /queued|active|armed|released|cleared/i.test(text)
+      !isWarning && /queued|released|cleared/i.test(text)
     );
     if (isAutoExpiringStatusText(text)) {
       statusClearTimer = window.setTimeout(() => {
@@ -925,8 +947,6 @@ function renderRows(entries, options = {}) {
     header.className = "row-header";
     const signal = document.createElement("div");
     signal.textContent = "Name";
-    const source = document.createElement("div");
-    source.textContent = "Source";
     const value = document.createElement("div");
     value.textContent = "Value";
     const type = document.createElement("div");
@@ -937,7 +957,6 @@ function renderRows(entries, options = {}) {
     actions.className = "actions-heading";
     actions.textContent = "Actions";
     header.appendChild(signal);
-    header.appendChild(source);
     header.appendChild(value);
     header.appendChild(type);
     header.appendChild(state);
@@ -966,13 +985,13 @@ function renderRows(entries, options = {}) {
       address.textContent = entry.address;
       nameCell.appendChild(address);
     }
-
-    const sourceCell = document.createElement("div");
-    sourceCell.className = "source-cell";
     const sourceText = String(entry.source || "").trim();
-    sourceCell.textContent = sourceText || "—";
     if (sourceText) {
-      sourceCell.title = sourceText;
+      const source = document.createElement("div");
+      source.className = "source-subtitle";
+      source.textContent = sourceText;
+      source.title = sourceText;
+      nameCell.appendChild(source);
     }
 
     const valueCell = document.createElement("div");
@@ -1004,7 +1023,6 @@ function renderRows(entries, options = {}) {
     stateCell.appendChild(stateBadge);
 
     row.appendChild(nameCell);
-    row.appendChild(sourceCell);
     row.appendChild(valueCell);
     row.appendChild(typeCell);
     row.appendChild(stateCell);
@@ -1012,9 +1030,9 @@ function renderRows(entries, options = {}) {
     if (allowActions) {
       const actions = document.createElement("div");
       actions.className = "actions";
-      const canWrite = allowWrite;
-      const canForce = allowForce;
-      const canRelease = allowRelease;
+      const canWrite = allowWrite && !forced;
+      const canForce = allowForce && !forced;
+      const canRelease = allowRelease && forced;
 
       const key = [entry.name || "", entry.address || ""].join("|");
       const defaultValue = editCache.has(key)
@@ -1063,8 +1081,9 @@ function renderRows(entries, options = {}) {
         });
         return toggle;
       };
-      const valueControl =
-        displayType === "BOOL" ? createBoolToggle() : createTextInput();
+      const valueControl = forced
+        ? null
+        : displayType === "BOOL" ? createBoolToggle() : createTextInput();
 
       const sendValue = (action) => {
         if (action === "force" && forceRequiresArming() && !forceArmed) {
@@ -1103,7 +1122,9 @@ function renderRows(entries, options = {}) {
       writeButton.setAttribute("aria-label", "Write value once");
       writeButton.disabled = !canWrite;
       if (!canWrite) {
-        writeButton.title = writeDisabledReason || remoteReason || "Write is not available for this value.";
+        writeButton.title = forced
+          ? "Release force before writing this value."
+          : writeDisabledReason || remoteReason || "Write is not available for this value.";
       }
       writeButton.addEventListener("click", () => sendValue("write"));
 
@@ -1286,6 +1307,7 @@ window.addEventListener("message", (event) => {
     }
     currentState = message.payload || { inputs: [], outputs: [], memory: [] };
     render(currentState);
+    updateForceStatusFromState(currentState);
   }
   if (message.type === "status") {
     const payload = String(message.payload || "");

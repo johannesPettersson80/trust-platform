@@ -1,6 +1,6 @@
 {
   "ton-usage": {
-    "prefix": ["ton-usage", "tonusage", "usage"],
+    "prefix": ["tonusage", "ton-usage", "usage"],
     "description": "Instantiate TON with named enable, done, and elapsed variables.",
     "body": [
       "PROGRAM ${1:Main}",
@@ -16,7 +16,7 @@
     ]
   },
   "state-machine": {
-    "prefix": ["state-machine", "statemachine", "machine"],
+    "prefix": ["statemachine", "state-machine", "machine"],
     "description": "Create an INT-backed CASE state machine with start/stop transitions.",
     "body": [
       "PROGRAM ${1:StateMachine}",
@@ -40,7 +40,7 @@
     ]
   },
   "fb-template": {
-    "prefix": ["fb-template", "fbtemplate", "template"],
+    "prefix": ["fbtemplate", "fb-template", "template"],
     "description": "Scaffold a reusable FUNCTION_BLOCK with start/stop latch behavior.",
     "body": [
       "FUNCTION_BLOCK ${1:MotorController}",
@@ -61,7 +61,7 @@
     ]
   },
   "for-loop": {
-    "prefix": ["for-loop", "forloop", "loop"],
+    "prefix": ["forloop", "for-loop", "loop"],
     "description": "Insert a counted FOR loop with explicit accumulator and index variables.",
     "body": [
       "PROGRAM ${1:LoopProgram}",
@@ -77,7 +77,7 @@
     ]
   },
   "edge-detect": {
-    "prefix": ["edge-detect", "edgedetect", "detect"],
+    "prefix": ["edgedetect", "edge-detect", "detect"],
     "description": "Use R_TRIG to convert a BOOL signal edge into a one-scan pulse.",
     "body": [
       "PROGRAM ${1:EdgeProgram}",

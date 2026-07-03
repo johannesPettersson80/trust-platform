@@ -417,12 +417,12 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
 	      .rows {
 	        display: grid;
 	        grid-template-columns:
-	          minmax(92px, 1.2fr)
-	          minmax(112px, 1.4fr)
+	          minmax(116px, 1fr)
 	          minmax(52px, max-content)
-	          minmax(40px, max-content)
-	          minmax(68px, max-content)
-          minmax(112px, max-content);
+	          minmax(38px, max-content)
+	          minmax(64px, max-content)
+          minmax(160px, max-content);
+        column-gap: 6px;
         row-gap: 2px;
         padding: 2px 4px 2px 10px;
         overflow-x: auto;
@@ -471,18 +471,19 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
       }
 
 	      .state-cell,
-	      .source-cell,
 	      .type-cell {
 	        color: var(--trust-text-muted);
 	        font-size: 11px;
 	        white-space: nowrap;
 	      }
 
-	      .source-cell {
-	        line-height: 1.25;
-	        overflow-wrap: anywhere;
-	        white-space: normal;
-	      }
+          .source-subtitle {
+            color: var(--trust-text-muted);
+            font-size: 10px;
+            line-height: 1.2;
+            overflow-wrap: anywhere;
+            white-space: normal;
+          }
 
       .state-badge {
         display: inline-block;
@@ -553,7 +554,7 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
       }
 
       .value-input {
-        width: 52px;
+	        width: 46px;
         height: 24px;
         padding: 2px 4px;
         border: 1px solid var(--trust-input-border);
@@ -572,7 +573,7 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
       /* Invisible placeholder that reserves the write-box slot on rows without an editable
          field, so every section's actions column keeps the same width and the headers align. */
       .value-input-spacer {
-        flex: 0 0 52px;
+	        flex: 0 0 46px;
         height: 24px;
       }
 
@@ -589,15 +590,15 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
       }
 
       .mini-btn {
-        min-width: 48px;
+	        min-width: 42px;
         height: 24px;
-        padding: 0 5px;
+	        padding: 0 4px;
         border-radius: 3px;
         font-size: 11px;
         font-weight: 600;
         border: 1px solid var(--trust-input-border);
-        background: var(--trust-accent);
-        color: var(--trust-on-accent);
+        background: var(--vscode-button-secondaryBackground, var(--trust-surface-raised));
+        color: var(--vscode-button-secondaryForeground, var(--trust-text));
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -610,24 +611,25 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
          "Force", "Arm force" and "Release" without resizing — and so every section's
          actions column stays the same width, keeping the tables aligned across sections. */
       .mini-btn.force-slot {
-        width: 72px;
+	        width: 62px;
       }
 
       .mini-btn:hover {
-        background: var(--trust-selected-strong-bg);
+        background: var(--vscode-button-secondaryHoverBackground, var(--trust-selected-bg));
       }
 
       .mini-btn.active {
-        background: var(--vscode-testing-iconPassed, #1f8f4e);
-        color: var(--trust-on-accent);
-        border-color: var(--vscode-testing-iconPassed, #1f8f4e);
-        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+        background: color-mix(in srgb, var(--trust-warn) 14%, var(--trust-surface));
+        color: var(--trust-text);
+        border-color: var(--trust-warn);
+        box-shadow: inset 2px 0 0 var(--trust-warn);
       }
 
       .mini-btn.armed {
-        background: var(--trust-warn);
-        color: var(--trust-canvas);
+        background: color-mix(in srgb, var(--trust-warn) 14%, var(--trust-surface));
+        color: var(--trust-text);
         border-color: var(--trust-warn);
+        box-shadow: inset 2px 0 0 var(--trust-warn);
       }
 
       .mini-btn:disabled {
@@ -668,6 +670,11 @@ export function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
       .status.status-ok {
         border-color: var(--trust-ok);
         background: color-mix(in srgb, var(--trust-ok) 12%, var(--trust-surface));
+      }
+
+      .status.status-warn {
+        border-color: var(--trust-warn);
+        background: color-mix(in srgb, var(--trust-warn) 12%, var(--trust-surface));
       }
 
       .status.status-error {

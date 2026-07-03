@@ -243,6 +243,13 @@ Target release: `v0.24.28`
 
 ### Fixed
 
+- vscode: Live Values now renders row Write/Force controls as quiet secondary
+  actions, marks active forces with amber warning treatment instead of success
+  green, and keeps forced rows readable by removing the stale editable value
+  control while showing a disabled Write reason plus Release.
+- vscode: Structured Text snippets now prefer identifier-friendly completion
+  aliases while preserving the readable hyphenated aliases, making snippet
+  completions deterministic in the extension test harness.
 - trust-runtime/vscode: Live Values snapshots now come from one final
   post-logic runtime scan with per-snapshot force markers and a visible scan
   number, preventing stale rows from being decorated with newer force state.
