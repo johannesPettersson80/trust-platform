@@ -48,14 +48,16 @@ export const StepNode = memo(({ data, selected }: NodeProps<SfcStepNode>) => {
     ? t.onAccent
     : t.text;
   
-  const borderWidth = data.isActive ? "3px" : isInitial ? "3px" : "2px";
+  const borderWidth = data.isActive ? "3px" : "2px";
 
   // Simple rectangular box per IEC 61131-3
   const stepStyle: React.CSSProperties = {
     width: "200px",
     minHeight: "56px",
     padding: "10px 14px",
-    border: `${borderWidth} solid ${borderColor}`,
+    border: isInitial
+      ? `4px double ${borderColor}`
+      : `${borderWidth} solid ${borderColor}`,
     borderRadius: "2px",
     background: backgroundColor,
     color: textColor,
@@ -105,6 +107,27 @@ export const StepNode = memo(({ data, selected }: NodeProps<SfcStepNode>) => {
           }}
           title="Breakpoint"
         />
+      )}
+
+      {isInitial && (
+        <div
+          style={{
+            position: "absolute",
+            top: 4,
+            right: 6,
+            padding: "1px 5px",
+            border: `1px solid ${tint(borderColor, 0.45)}`,
+            borderRadius: 2,
+            background: tint(t.canvas, 0.86),
+            color: borderColor,
+            fontSize: 8,
+            fontWeight: 700,
+            letterSpacing: 0,
+            lineHeight: 1.15,
+          }}
+        >
+          INITIAL
+        </div>
       )}
 
       <Handle

@@ -262,6 +262,8 @@ Target release: `v0.24.28`
 - vscode: OPC UA browse authentication warnings now include an inline
   `Edit credentials` recovery action that reopens the connection form with the
   failed endpoint values prefilled.
+- vscode: SFC diagrams now use clearer IEC-style initial-step and transition
+  markers so the visual editor reads as SFC instead of a generic flowchart.
 - vscode: Advanced integration cards in the Devices & Connections Add picker
   now use intentional badges (`MESH`, `OT`, `RT`, `CLOUD`) instead of truncated
   protocol fragments.

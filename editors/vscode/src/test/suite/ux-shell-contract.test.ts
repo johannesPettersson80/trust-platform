@@ -3615,8 +3615,22 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     assert.ok(
       transitionEdge.includes("EdgeLabelRenderer") &&
         transitionEdge.includes("labelOffset(sourcePosition)") &&
+        transitionEdge.includes("sfc-transition-marker") &&
+        transitionEdge.includes("sfc-transition-bar") &&
         transitionEdge.includes("sfc-transition-label"),
-      "SFC transition labels must be offset from side-routed edges and inspectable by the VIS runner"
+      "SFC transitions must render an IEC-style bar plus an offset condition label inspectable by the VIS runner"
+    );
+    assert.ok(
+      stepNode.includes('data.type === "initial"') &&
+        stepNode.includes("4px double") &&
+        stepNode.includes("INITIAL"),
+      "SFC initial steps must be visually distinct at a glance, not only a thicker generic border"
+    );
+    assert.ok(
+      transitionEdge.includes("function transitionBarStyle") &&
+        transitionEdge.includes("width: sideRouted ? 3 : 34") &&
+        transitionEdge.includes("height: sideRouted ? 34 : 3"),
+      "SFC transition bars must stay perpendicular to normal and side-routed links"
     );
     for (const handle of [
       "STEP_TARGET_LEFT",

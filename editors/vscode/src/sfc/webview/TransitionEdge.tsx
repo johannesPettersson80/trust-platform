@@ -19,6 +19,18 @@ function labelOffset(sourcePosition: Position): number {
   return 0;
 }
 
+function transitionBarStyle(sourcePosition: Position, selected: boolean): React.CSSProperties {
+  const sideRouted = sourcePosition === Position.Left || sourcePosition === Position.Right;
+  return {
+    width: sideRouted ? 3 : 34,
+    height: sideRouted ? 34 : 3,
+    flex: "none",
+    borderRadius: 1,
+    background: selected ? t.accent : t.text,
+    boxShadow: `0 0 0 2px ${t.canvas}`,
+  };
+}
+
 export const TransitionEdge = memo((props: EdgeProps<SfcTransitionEdge>) => {
   const {
     data,
@@ -54,35 +66,47 @@ export const TransitionEdge = memo((props: EdgeProps<SfcTransitionEdge>) => {
           ...style,
         }}
       />
-      {label && (
-        <EdgeLabelRenderer>
-          <div
-            className="sfc-transition-label"
-            style={{
-              position: "absolute",
-              transform: `translate(-50%, -50%) translate(${labelX + labelOffset(sourcePosition)}px, ${labelY}px)`,
-              padding: "4px 9px",
-              border: `1px solid ${t.border}`,
-              borderRadius: t.radius,
-              background: t.surface,
-              color: t.text,
-              fontFamily: "var(--vscode-font-family)",
-              fontSize: 11,
-              fontWeight: 650,
-              lineHeight: 1.2,
-              maxWidth: 156,
-              overflow: "hidden",
-              pointerEvents: "all",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              boxShadow: t.shadow,
-            }}
-            title={label}
-          >
-            {label}
-          </div>
-        </EdgeLabelRenderer>
-      )}
+      <EdgeLabelRenderer>
+        <div
+          className="sfc-transition-marker"
+          style={{
+            position: "absolute",
+            transform: `translate(-50%, -50%) translate(${labelX + labelOffset(sourcePosition)}px, ${labelY}px)`,
+            display: "flex",
+            alignItems: "center",
+            gap: 7,
+            pointerEvents: "all",
+          }}
+          title={label || "Transition"}
+        >
+          <span
+            aria-hidden="true"
+            className="sfc-transition-bar"
+            style={transitionBarStyle(sourcePosition, selected === true)}
+          />
+          {label && (
+            <span
+              className="sfc-transition-label"
+              style={{
+                padding: "2px 6px",
+                background: t.canvas,
+                color: t.text,
+                fontFamily: "var(--vscode-font-family)",
+                fontSize: 11,
+                fontWeight: 650,
+                lineHeight: 1.2,
+                maxWidth: 156,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                boxShadow: `0 0 0 2px ${t.canvas}`,
+              }}
+            >
+              {label}
+            </span>
+          )}
+        </div>
+      </EdgeLabelRenderer>
     </>
   );
 });
