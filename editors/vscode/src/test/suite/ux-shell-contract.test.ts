@@ -2361,6 +2361,25 @@ suite("Phase 8 — Compile (authoritative project validation)", () => {
     );
   });
 
+  test("project-open sidebar renders the project name as an identity row", () => {
+    const view = readSrc("trustHomeView.ts");
+    for (const required of [
+      'class="project-identity"',
+      'title="Current truST project"',
+      "codicon-root-folder-opened",
+      "project-identity__icon",
+      'id="projectName"',
+      ".project-identity .project-name",
+      "font-weight: 600",
+    ]) {
+      assert.ok(view.includes(required), `project identity row must include ${required}`);
+    }
+    assert.ok(
+      !/project-identity[^{]*{[^}]*#[0-9a-fA-F]{3,8}/.test(view),
+      "project identity row must use theme variables, not raw colors"
+    );
+  });
+
   test("truST sidebar title exposes only Settings as a visible icon; New diagram stays in overflow", () => {
     const viewTitle = loadPackageJson().contributes?.menus?.["view/title"] ?? [];
     const settings = viewTitle.find((item) => item.command === "trust-lsp.openSettings");

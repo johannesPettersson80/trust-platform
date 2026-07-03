@@ -635,6 +635,23 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    .project-identity {
+      align-items: center;
+      display: flex;
+      gap: 6px;
+      margin-bottom: 8px;
+      min-width: 0;
+    }
+    .project-identity__icon {
+      color: var(--trust-text-muted);
+      flex: none;
+      font-size: 14px;
+    }
+    .project-identity .project-name {
+      font-weight: 600;
+      margin-bottom: 0;
+      min-width: 0;
+    }
     .hint {
       color: var(--trust-text-muted);
       font-size: 11.5px;
@@ -868,7 +885,10 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
 	  <!-- Project open: compact action surface + visible truST destinations. -->
 	  <section id="project" class="hidden">
       <div class="top">
-        <div class="project-name" id="projectName">Project</div>
+        <div class="project-identity" title="Current truST project">
+          <span class="codicon codicon-root-folder-opened project-identity__icon" aria-hidden="true"></span>
+          <div class="project-name" id="projectName">Project</div>
+        </div>
         <div class="target-label">Target</div>
         <button id="targetButton" class="target-button" type="button">
           <span class="value" id="targetValue">Simulator</span>
