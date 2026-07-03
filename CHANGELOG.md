@@ -269,6 +269,10 @@ Target release: `v0.24.28`
 - vscode/runtime: generated protocol-form copy now preserves acronym casing in
   empty states, avoids schema-defaults wording for saved secrets, and the
   Libraries surface pluralizes symbol counts correctly.
+- vscode: Devices & Connections now lands on the saved endpoint after a
+  successful add-device Save, keeps the success result visible, and resolves
+  the selected node from the refreshed topology when the apply response omits
+  an instance id.
 - vscode: Devices & Connections draft/advanced mesh fabric nodes now use one
   muted draft treatment, with an opaque label knockout and separate `DRAFT`
   chip so dashed wires never read as live state or run through text.

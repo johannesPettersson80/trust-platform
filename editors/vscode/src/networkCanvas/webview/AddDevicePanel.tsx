@@ -18,6 +18,7 @@ interface Props {
   post: (message: unknown) => void;
   onValidationStale?: () => void;
   onClose: () => void;
+  onSaved?: (nodeId?: string) => void;
 }
 
 const PANEL_STYLE: React.CSSProperties = {
@@ -62,7 +63,7 @@ function valuesWithPrefill(
   return values;
 }
 
-export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, target, preselectProtocol, preselectParams, post, onValidationStale, onClose }: Props) {
+export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, target, preselectProtocol, preselectParams, post, onValidationStale, onClose, onSaved }: Props) {
   const protocols = useMemo(() => schema?.protocols ?? [], [schema]);
   const [protocolId, setProtocolId] = useState<string>(preselectProtocol ?? "");
   const [values, setValues] = useState<Record<string, string>>({});
@@ -168,9 +169,13 @@ export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, t
   useEffect(() => {
     if (savingRef.current && applyResult?.applied) {
       savingRef.current = false;
-      onClose();
+      if (onSaved) {
+        onSaved(applyResult.instance_id);
+      } else {
+        onClose();
+      }
     }
-  }, [applyResult, onClose]);
+  }, [applyResult, onClose, onSaved]);
 
   const ok = visibleApplyResult && (visibleApplyResult.applied || visibleApplyResult.lifecycle_effect === "test_ok");
   const blocked = visibleApplyResult && visibleApplyResult.lifecycle_effect === "blocked";

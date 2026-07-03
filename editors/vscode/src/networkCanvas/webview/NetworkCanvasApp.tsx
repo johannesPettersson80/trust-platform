@@ -1096,6 +1096,14 @@ function Canvas() {
             preselectParams={draft.prefillParams}
             post={post}
             onValidationStale={() => setApplyResultLocallyStale(true)}
+            onSaved={(nodeId) => {
+              setDraft(undefined);
+              if (nodeId) {
+                setSelectedId(nodeId);
+                setFocusTargetId(nodeId);
+                post({ type: "selectNode", nodeId });
+              }
+            }}
             onClose={() => {
               clearApplyResult();
               setDraft(undefined);

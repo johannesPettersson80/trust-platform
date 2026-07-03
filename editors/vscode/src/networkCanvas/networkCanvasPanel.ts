@@ -1089,9 +1089,83 @@ async function saveNetworkCanvasSetup(
   const params = isRecord(message.params) ? message.params : {};
   const result = await offlineCommApply(extensionContext, projectDir, protocol, params, action);
   if (result) {
-    lastApplyResult = result;
+    const topology = result.applied
+      ? await offlineCommTopology(extensionContext, projectDir)
+      : undefined;
+    lastApplyResult = {
+      ...result,
+      instance_id:
+        result.instance_id ??
+        (topology && action !== "remove"
+          ? findSavedEndpointId(topology, protocol, params)
+          : undefined),
+    };
   }
   await refreshNetworkCanvasPanel();
+}
+
+function findSavedEndpointId(
+  topology: FleetTopologyResponse,
+  protocol: string,
+  params: Record<string, unknown>
+): string | undefined {
+  const protocolMatches: Array<{ id: string; params?: Record<string, unknown> }> = [];
+  for (const host of topology.hosts ?? []) {
+    const runtimes = [
+      ...(host.runtimes ?? []),
+      ...(host.containers ?? []).flatMap((container) => container.runtimes ?? []),
+    ];
+    for (const runtime of runtimes) {
+      for (const endpoint of runtime.endpoints ?? []) {
+        if (endpoint.protocol !== protocol) {
+          continue;
+        }
+        protocolMatches.push({ id: endpoint.id, params: endpoint.params });
+      }
+    }
+  }
+  const exact = protocolMatches.filter((endpoint) =>
+    endpoint.params ? paramsMatch(endpoint.params, params) : false
+  );
+  return (lastItem(exact) ?? lastItem(protocolMatches))?.id;
+}
+
+function lastItem<T>(items: readonly T[]): T | undefined {
+  return items.length > 0 ? items[items.length - 1] : undefined;
+}
+
+function paramsMatch(
+  endpointParams: Record<string, unknown>,
+  submittedParams: Record<string, unknown>
+): boolean {
+  for (const [key, value] of Object.entries(submittedParams)) {
+    if (!(key in endpointParams)) {
+      continue; // Secret/redacted fields are intentionally absent from topology.
+    }
+    if (stableParamValue(endpointParams[key]) !== stableParamValue(value)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function stableParamValue(value: unknown): string {
+  return JSON.stringify(normalizeParamValue(value)) ?? "undefined";
+}
+
+function normalizeParamValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(normalizeParamValue);
+  }
+  if (isRecord(value)) {
+    return Object.keys(value)
+      .sort()
+      .reduce<Record<string, unknown>>((acc, key) => {
+        acc[key] = normalizeParamValue(value[key]);
+        return acc;
+      }, {});
+  }
+  return value;
 }
 
 async function testNetworkCanvasSetup(

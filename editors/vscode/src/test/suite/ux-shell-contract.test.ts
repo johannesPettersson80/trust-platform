@@ -3388,6 +3388,35 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     );
   });
 
+  test("successful add-device Save lands on the saved node without clearing the result", () => {
+    const addSrc = readSrc("networkCanvas/webview/AddDevicePanel.tsx");
+    const appSrc = readSrc("networkCanvas/webview/NetworkCanvasApp.tsx");
+    const panelSrc = readSrc("networkCanvas/networkCanvasPanel.ts");
+
+    assert.ok(
+      addSrc.includes("onSaved?: (nodeId?: string) => void") &&
+        addSrc.includes("onSaved(applyResult.instance_id)"),
+      "AddDevicePanel must report the saved instance id after a successful Save"
+    );
+    assert.ok(
+      appSrc.includes("onSaved={(nodeId)") &&
+        appSrc.includes("setSelectedId(nodeId)") &&
+        appSrc.includes("setFocusTargetId(nodeId)") &&
+        appSrc.includes('post({ type: "selectNode", nodeId })'),
+      "NetworkCanvasApp must select/focus the saved node after add-save"
+    );
+    assert.ok(
+      /<AddDevicePanel[\s\S]*onSaved=\{\(nodeId\) => \{[\s\S]*setDraft\(undefined\);[\s\S]*setSelectedId\(nodeId\)[\s\S]*onClose=\{\(\) => \{\s*clearApplyResult\(\);[\s\S]*setDraft\(undefined\);[\s\S]*\/>/.test(appSrc),
+      "manual close clears the result, but add-save landing must preserve it for the selected-node message"
+    );
+    assert.ok(
+      panelSrc.includes("findSavedEndpointId(topology, protocol, params)") &&
+        panelSrc.includes("result.instance_id ??") &&
+        panelSrc.includes("Secret/redacted fields are intentionally absent from topology."),
+      "the host must resolve a saved endpoint id from topology when comm.apply omits instance_id"
+    );
+  });
+
   test("Devices & Connections header reports active form field errors", () => {
     const appSrc = readSrc("networkCanvas/webview/NetworkCanvasApp.tsx");
 
