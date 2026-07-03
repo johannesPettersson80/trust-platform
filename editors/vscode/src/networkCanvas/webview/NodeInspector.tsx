@@ -78,6 +78,52 @@ function healthLabel(health: string): string {
   }
 }
 
+function stateSummary(health: string, detail: string): string {
+  const label = healthLabel(health);
+  const cleanDetail = detail.trim();
+  if (!cleanDetail) {
+    return label;
+  }
+  const normalizedDetail = cleanDetail.toLowerCase();
+  if (
+    normalizedDetail === label.toLowerCase() ||
+    normalizedDetail === health.trim().toLowerCase()
+  ) {
+    return label;
+  }
+  return `${label} · ${cleanDetail}`;
+}
+
+function runtimeModeLabel(mode: string): string {
+  switch (mode.trim().toLowerCase()) {
+    case "simulate":
+    case "simulator":
+      return "Simulator";
+    case "managed":
+      return "Managed";
+    case "remote":
+      return "Remote";
+    case "attached":
+      return "Attached";
+    case "local":
+      return "Local";
+    case "":
+    case "stopped":
+    case "running":
+    case "connected":
+    case "online":
+    case "pending":
+    case "degraded":
+    case "error":
+    case "auth_failed":
+    case "runtime_unreachable":
+    case "unknown":
+      return "";
+    default:
+      return mode.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+  }
+}
+
 function testParamsFor(protocol: string, params?: Record<string, unknown>): Record<string, unknown> {
   if (!params) {
     return {};
@@ -601,7 +647,7 @@ function SummaryView({
       }
     }
     if (d.detail) {
-      rows.push(["Status", endpointStatusRow(health, str(d.detail))]);
+      rows.push(["State", endpointStatusRow(health, str(d.detail))]);
     }
   } else {
     switch (node.type) {
@@ -609,23 +655,30 @@ function SummaryView({
         title = str(d.label);
         kindLabel = "Runtime";
         health = str(d.health);
-        rows.push(["mode", str(d.mode)], ["status", healthLabel(health)], ["endpoints", str(d.endpointCount)], ["detail", str(d.detail)]);
+        rows.push(["State", stateSummary(health, str(d.detail))]);
+        {
+          const mode = runtimeModeLabel(str(d.mode));
+          if (mode) {
+            rows.push(["Mode", mode]);
+          }
+        }
+        rows.push(["Endpoints", str(d.endpointCount)]);
         break;
       case "host":
         title = str(d.label);
         kindLabel = "Host";
         health = str(d.health);
-        rows.push(["address", str(d.sub)], ["status", healthLabel(health)], ["runtimes", str(d.runtimeCount)], ["endpoints", str(d.endpointCount)]);
+        rows.push(["Address", str(d.sub)], ["State", healthLabel(health)], ["Runtimes", str(d.runtimeCount)], ["Endpoints", str(d.endpointCount)]);
         break;
       case "container":
         title = str(d.label);
         kindLabel = "Container";
-        rows.push(["image", str(d.image)], ["status", str(d.status)]);
+        rows.push(["Image", str(d.image)], ["State", str(d.status)]);
         break;
       case "external":
         title = str(d.label);
         kindLabel = "External system";
-        rows.push(["presents", str(d.sub)], ["scope", "external · configured on our side"]);
+        rows.push(["Presents", str(d.sub)], ["Scope", "external · configured on our side"]);
         break;
       case "endpoint":
         // Endpoint without a loaded schema: still show its basic facts (never blank).
@@ -633,10 +686,9 @@ function SummaryView({
         kindLabel = `${roleCap(protocol, str(d.role))} · endpoint`;
         health = str(d.health);
         rows.push(
-          ["protocol", protocolName(protocol)],
-          ["role", roleWord(protocol, str(d.role))],
-          ["status", healthLabel(health)],
-          ["detail", str(d.detail)]
+          ["Protocol", protocolName(protocol)],
+          ["Role", roleWord(protocol, str(d.role))],
+          ["State", endpointStatusRow(health, str(d.detail))]
         );
         break;
       default:

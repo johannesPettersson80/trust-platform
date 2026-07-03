@@ -1777,7 +1777,7 @@ suite("Phase 7 — Devices & Connections (shared run-target + naming)", () => {
     const src = readSrc("networkCanvas/webview/NodeInspector.tsx");
     assert.ok(
       src.includes("function healthLabel"),
-      "NodeInspector must map backend health ids before rendering inspector status rows"
+      "NodeInspector must map backend health ids before rendering inspector state rows"
     );
     assert.ok(
       /case "configured_policy":[\s\S]*return "Configured";/.test(src),
@@ -1786,7 +1786,17 @@ suite("Phase 7 — Devices & Connections (shared run-target + naming)", () => {
     assert.ok(
       src.includes("healthLabel(health)") &&
         !src.includes('`${health} · ${str(d.detail)}`'),
-      "endpoint status rows must use healthLabel(health), not raw health ids"
+      "endpoint state rows must use healthLabel(health), not raw health ids"
+    );
+    assert.ok(
+      src.includes("function stateSummary") &&
+        src.includes("function runtimeModeLabel") &&
+        src.includes('rows.push(["State", stateSummary(health, str(d.detail))])') &&
+        src.includes('rows.push(["Mode", mode])') &&
+        !src.includes('rows.push(["mode"') &&
+        !src.includes('rows.push(["status"') &&
+        !src.includes('rows.push(["detail"'),
+      "runtime/host inspector rows must render Title-Case product labels and keep lifecycle in one State row"
     );
     assert.ok(
       src.includes("function summaryLabelFor") &&
