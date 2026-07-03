@@ -920,6 +920,19 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
         `${name} must clear stale empty-state guidance after live values arrive`
       );
       assert.ok(
+        source.includes("TRANSIENT_STATUS_CLEAR_MS = 5000") &&
+          source.includes("isAutoExpiringStatusText") &&
+          source.includes("force released at") &&
+          source.includes("Released \\d+ forces?") &&
+          source.includes("No forces to release") &&
+          /status(?:\?\.|\.)textContent === (text|message)/.test(source),
+        `${name} must auto-expire short success feedback without clearing newer status`
+      );
+      assert.ok(
+        !source.includes("I/O force active at .+"),
+        `${name} must not auto-expire force-active standing-state banners`
+      );
+      assert.ok(
         !/if \(message\.type === "ioState"\) \{\s*setStatusText\(""\);/.test(source),
         `${name} must not clear operation feedback on every value refresh`
       );

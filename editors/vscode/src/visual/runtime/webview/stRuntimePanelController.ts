@@ -128,12 +128,29 @@ export function mountStRuntimePanel(
   const editCache = new Map<string, string>();
   let settingsOpen = false;
   let currentRuntimeState: "running" | "connected" | "stopped" = "stopped";
+  let statusClearTimer: ReturnType<typeof window.setTimeout> | undefined;
+  const TRANSIENT_STATUS_CLEAR_MS = 5000;
 
   const removeListeners: Array<() => void> = [];
 
+  const clearStatusClearTimer = () => {
+    if (statusClearTimer !== undefined) {
+      window.clearTimeout(statusClearTimer);
+      statusClearTimer = undefined;
+    }
+  };
+
   const setStatusText = (message: string) => {
     if (status) {
+      clearStatusClearTimer();
       status.textContent = message;
+      if (isAutoExpiringStatusText(message)) {
+        statusClearTimer = window.setTimeout(() => {
+          if (status?.textContent === message) {
+            setStatusText("");
+          }
+        }, TRANSIENT_STATUS_CLEAR_MS);
+      }
     }
   };
 
@@ -141,6 +158,13 @@ export function mountStRuntimePanel(
     /^Live Values (loading|ready)\.?$/i.test(message) ||
     /^Start the runtime to see live values\.?$/i.test(message) ||
     /^Connect to the selected runtime to see live values\.?$/i.test(message);
+
+  const isAutoExpiringStatusText = (message: string) =>
+    /^Live Values ready\.?$/i.test(message) ||
+    /^I\/O write queued for .+\.?$/i.test(message) ||
+    /^I\/O force released at .+\.?$/i.test(message) ||
+    /^Released \d+ forces?\.?$/i.test(message) ||
+    /^No forces to release\.?$/i.test(message);
 
   const reportWebviewError = (message: string, stack: string) => {
     setStatusText(`Live Values error: ${message}`);
@@ -1032,6 +1056,7 @@ export function mountStRuntimePanel(
   vscode.postMessage({ type: "webviewReady" });
 
   return () => {
+    clearStatusClearTimer();
     for (const remove of removeListeners) {
       remove();
     }

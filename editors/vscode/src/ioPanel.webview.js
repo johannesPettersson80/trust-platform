@@ -48,6 +48,8 @@ let currentMode = "simulate";
 let currentRuntimeState = "stopped";
 let currentTargetKey = "simulate|stopped|";
 let forceArmed = false;
+let statusClearTimer = undefined;
+const TRANSIENT_STATUS_CLEAR_MS = 5000;
 let currentAccess = {
   allowWrite: true,
   allowForce: true,
@@ -92,6 +94,7 @@ if (releaseAllForcesBtn) {
 
 function setStatusText(message) {
   if (status) {
+    clearStatusClearTimer();
     const text = String(message || "");
     status.textContent = text;
     status.classList.toggle(
@@ -102,6 +105,20 @@ function setStatusText(message) {
       "status-ok",
       /queued|active|armed|released|cleared/i.test(text)
     );
+    if (isAutoExpiringStatusText(text)) {
+      statusClearTimer = window.setTimeout(() => {
+        if (status && status.textContent === text) {
+          setStatusText("");
+        }
+      }, TRANSIENT_STATUS_CLEAR_MS);
+    }
+  }
+}
+
+function clearStatusClearTimer() {
+  if (statusClearTimer !== undefined) {
+    window.clearTimeout(statusClearTimer);
+    statusClearTimer = undefined;
   }
 }
 
@@ -122,6 +139,16 @@ function isTransientStatusText(message) {
     /^Live Values (loading|ready)\.?$/i.test(message) ||
     /^Start the runtime to see live values\.?$/i.test(message) ||
     /^Connect to the selected runtime to see live values\.?$/i.test(message)
+  );
+}
+
+function isAutoExpiringStatusText(message) {
+  return (
+    /^Live Values ready\.?$/i.test(message) ||
+    /^I\/O write queued for .+\.?$/i.test(message) ||
+    /^I\/O force released at .+\.?$/i.test(message) ||
+    /^Released \d+ forces?\.?$/i.test(message) ||
+    /^No forces to release\.?$/i.test(message)
   );
 }
 
