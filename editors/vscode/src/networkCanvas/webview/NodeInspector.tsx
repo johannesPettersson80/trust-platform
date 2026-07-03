@@ -80,7 +80,7 @@ function healthLabel(health: string): string {
 
 function stateSummary(health: string, detail: string): string {
   const label = healthLabel(health);
-  const cleanDetail = detail.trim();
+  const cleanDetail = normalizedConfiguredDetail(detail);
   if (!cleanDetail) {
     return label;
   }
@@ -92,6 +92,14 @@ function stateSummary(health: string, detail: string): string {
     return label;
   }
   return `${label} · ${cleanDetail}`;
+}
+
+function normalizedConfiguredDetail(detail: string): string {
+  return detail
+    .trim()
+    .replace(/^Configured in [^;]+;\s*/i, "")
+    .replace(/^Loaded from project files;\s*/i, "")
+    .trim();
 }
 
 function runtimeModeLabel(mode: string): string {
@@ -371,7 +379,7 @@ function summaryValueFor(
 
 function endpointStatusRow(health: string, detail: string): string {
   const label = healthLabel(health);
-  const withoutConfigFile = detail.replace(/^Configured in [^;]+;\s*/i, "");
+  const withoutConfigFile = normalizedConfiguredDetail(detail);
   if (!withoutConfigFile) {
     return label;
   }

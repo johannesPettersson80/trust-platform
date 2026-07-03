@@ -7,7 +7,9 @@ use super::{
     ads_client_links, ads_client_params, ads_server_params, endpoint_from_driver_config,
     endpoint_id, fleet_link, host_name, local_host, opcua_client_links, opcua_client_params,
     runtime_cloud_configured, topology_external, topology_shared, FleetEndpoint, FleetRuntime,
-    FleetTopologyResponse, FLEET_TOPOLOGY_SCHEMA_VERSION,
+    FleetTopologyResponse, CONFIGURED_PROJECT_RUNTIME_NOT_RUNNING_DETAIL,
+    CONFIGURED_RUNTIME_TOML_NOT_RUNNING_DETAIL, FLEET_TOPOLOGY_SCHEMA_VERSION,
+    OFFLINE_CONFIGURED_DRIVER_DETAILS,
 };
 use crate::config::{IoConfig, IoDriverConfig, RuntimeConfig};
 use crate::settings::RuntimeSettings;
@@ -27,7 +29,15 @@ pub(super) fn build_project_fleet_topology(
         .iter()
         .enumerate()
         .map(|(index, driver)| {
-            endpoint_from_driver_config(&runtime_id, index, driver, None, None, 0)
+            endpoint_from_driver_config(
+                &runtime_id,
+                index,
+                driver,
+                None,
+                None,
+                0,
+                OFFLINE_CONFIGURED_DRIVER_DETAILS,
+            )
         })
         .collect::<Vec<_>>();
     endpoints.extend(offline_service_endpoints(
@@ -53,7 +63,7 @@ pub(super) fn build_project_fleet_topology(
         cycle_ms: settings.cycle_interval.as_millis() as u64,
         load: None,
         health: "configured_policy".to_string(),
-        detail: "Loaded from project files; runtime is not running.".to_string(),
+        detail: CONFIGURED_PROJECT_RUNTIME_NOT_RUNNING_DETAIL.to_string(),
         endpoints,
         source: Some("config".to_string()),
         last_seen_ms: None,
@@ -162,7 +172,7 @@ fn offline_service_endpoints(
             address: Some(settings.web.listen.to_string()),
             role: Some("server".to_string()),
             health: "configured_policy".to_string(),
-            detail: "Configured in runtime.toml; runtime is not running.".to_string(),
+            detail: CONFIGURED_RUNTIME_TOML_NOT_RUNNING_DETAIL.to_string(),
             live: None,
             params: Some(json!({
                 "enabled": settings.web.enabled,
@@ -190,7 +200,7 @@ fn offline_service_endpoints(
                 "not_configured"
             }
             .to_string(),
-            detail: "Configured in runtime.toml; runtime is not running.".to_string(),
+            detail: CONFIGURED_RUNTIME_TOML_NOT_RUNNING_DETAIL.to_string(),
             live: None,
             params: Some(json!({
                 "enabled": settings.opcua.enabled,
@@ -224,7 +234,7 @@ fn offline_service_endpoints(
                 "browse".to_string()
             }),
             health: "configured_policy".to_string(),
-            detail: "Configured in runtime.toml; runtime is not running.".to_string(),
+            detail: CONFIGURED_RUNTIME_TOML_NOT_RUNNING_DETAIL.to_string(),
             live: None,
             params: Some(json!({
                 "enabled": settings.discovery.enabled,
@@ -248,7 +258,7 @@ fn offline_service_endpoints(
             address: Some(settings.mesh.listen.to_string()),
             role: Some(settings.mesh.role.as_str().to_string()),
             health: "configured_policy".to_string(),
-            detail: "Configured in runtime.toml; runtime is not running.".to_string(),
+            detail: CONFIGURED_RUNTIME_TOML_NOT_RUNNING_DETAIL.to_string(),
             live: None,
             params: Some(json!({
                 "enabled": settings.mesh.enabled,
@@ -314,7 +324,7 @@ fn offline_service_endpoints(
             address: None,
             role: Some("same_host".to_string()),
             health: "configured_policy".to_string(),
-            detail: "Configured in runtime.toml; runtime is not running.".to_string(),
+            detail: CONFIGURED_RUNTIME_TOML_NOT_RUNNING_DETAIL.to_string(),
             live: None,
             params: Some(json!({
                 "enabled": settings.realtime.enabled,
@@ -385,7 +395,7 @@ fn offline_service_endpoints(
                 "not_configured"
             }
             .to_string(),
-            detail: "Configured in runtime.toml; runtime is not running.".to_string(),
+            detail: CONFIGURED_RUNTIME_TOML_NOT_RUNNING_DETAIL.to_string(),
             live: None,
             params: Some(ads_server_params(&runtime.ads_server)),
             children: Vec::new(),

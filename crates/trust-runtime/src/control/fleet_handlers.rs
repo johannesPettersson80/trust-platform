@@ -28,6 +28,33 @@ const FLEET_TOPOLOGY_SCHEMA_VERSION: u32 = 4;
 const DISCOVERY_STALE_AFTER_MS: u64 = 120_000;
 const ADS_STATUS_TIMEOUT: Duration = Duration::from_millis(250);
 const OPCUA_CLIENT_STATUS_TIMEOUT: Duration = Duration::from_millis(250);
+const CONFIGURED_IO_NO_LIVE_HEALTH_DETAIL: &str =
+    "Configured in io.toml; no live driver health has been reported yet.";
+const CONFIGURED_ETHERCAT_NO_LIVE_DISCOVERY_DETAIL: &str =
+    "Configured in io.toml; live EtherCAT discovery may enrich this row.";
+pub(super) const CONFIGURED_IO_RUNTIME_NOT_RUNNING_DETAIL: &str =
+    "Configured in io.toml; runtime is not running.";
+pub(super) const CONFIGURED_PROJECT_RUNTIME_NOT_RUNNING_DETAIL: &str =
+    "Configured in project files; runtime is not running.";
+pub(super) const CONFIGURED_RUNTIME_TOML_NOT_RUNNING_DETAIL: &str =
+    "Configured in runtime.toml; runtime is not running.";
+
+#[derive(Clone, Copy)]
+pub(super) struct ConfiguredDriverDetails<'a> {
+    missing_health: &'a str,
+    ethercat_child: &'a str,
+}
+
+const LIVE_CONFIGURED_DRIVER_DETAILS: ConfiguredDriverDetails<'static> = ConfiguredDriverDetails {
+    missing_health: CONFIGURED_IO_NO_LIVE_HEALTH_DETAIL,
+    ethercat_child: CONFIGURED_ETHERCAT_NO_LIVE_DISCOVERY_DETAIL,
+};
+
+pub(super) const OFFLINE_CONFIGURED_DRIVER_DETAILS: ConfiguredDriverDetails<'static> =
+    ConfiguredDriverDetails {
+        missing_health: CONFIGURED_IO_RUNTIME_NOT_RUNNING_DETAIL,
+        ethercat_child: CONFIGURED_IO_RUNTIME_NOT_RUNNING_DETAIL,
+    };
 
 pub(super) fn handle_fleet_topology(id: u64, state: &ControlState) -> ControlResponse {
     let response = match build_fleet_topology(state) {
@@ -266,6 +293,7 @@ fn io_endpoints(
                 health,
                 io_snapshot,
                 io_snapshot_seen_ms,
+                LIVE_CONFIGURED_DRIVER_DETAILS,
             ));
         }
         return endpoints;
@@ -287,13 +315,14 @@ fn endpoint_from_driver_config(
     health: Option<&IoDriverStatus>,
     io_snapshot: Option<&IoSnapshot>,
     io_snapshot_seen_ms: u64,
+    configured_details: ConfiguredDriverDetails<'_>,
 ) -> FleetEndpoint {
     let protocol = protocol_from_driver_name(driver.name.as_str());
     let (health_value, detail) = if driver.enabled {
         health.map(driver_health).unwrap_or_else(|| {
             (
                 "configured_policy".to_string(),
-                "Configured in io.toml; no live driver health has been reported yet.".to_string(),
+                configured_details.missing_health.to_string(),
             )
         })
     } else {
@@ -316,7 +345,11 @@ fn endpoint_from_driver_config(
             .then(|| io_snapshot_live(io_snapshot, io_snapshot_seen_ms))
             .flatten(),
         params: Some(redacted_toml_params(&driver.params)),
-        children: ethercat_endpoint_children(protocol.as_str(), &driver.params),
+        children: ethercat_endpoint_children(
+            protocol.as_str(),
+            &driver.params,
+            configured_details.ethercat_child,
+        ),
         owned: true,
         supports_test: driver.enabled && matches!(driver.name.as_str(), "modbus-tcp" | "mqtt"),
         source: Some("self".to_string()),
@@ -1508,7 +1541,11 @@ fn redacted_toml_params(params: &toml::Value) -> serde_json::Value {
     toml_to_json_redacted(params, "")
 }
 
-fn ethercat_endpoint_children(protocol: &str, params: &toml::Value) -> Vec<FleetEndpointChild> {
+fn ethercat_endpoint_children(
+    protocol: &str,
+    params: &toml::Value,
+    configured_child_detail: &str,
+) -> Vec<FleetEndpointChild> {
     if protocol != "ethercat" {
         return Vec::new();
     }
@@ -1524,8 +1561,7 @@ fn ethercat_endpoint_children(protocol: &str, params: &toml::Value) -> Vec<Fleet
                     model: Some(module.model),
                     channels: Some(module.channels),
                     health: "configured_policy".to_string(),
-                    detail: "Configured in io.toml; live EtherCAT discovery may enrich this row."
-                        .to_string(),
+                    detail: configured_child_detail.to_string(),
                     source: Some("config".to_string()),
                 })
                 .collect()

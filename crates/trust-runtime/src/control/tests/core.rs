@@ -1783,6 +1783,10 @@ fn offline_comm_schema_apply_and_topology_work_without_runtime() {
         Some("configured_policy")
     );
     assert_eq!(
+        runtime.get("detail").and_then(serde_json::Value::as_str),
+        Some("Configured in project files; runtime is not running.")
+    );
+    assert_eq!(
         runtime.get("source").and_then(serde_json::Value::as_str),
         Some("config")
     );
@@ -1799,6 +1803,10 @@ fn offline_comm_schema_apply_and_topology_work_without_runtime() {
     assert_eq!(
         modbus.get("health").and_then(serde_json::Value::as_str),
         Some("configured_policy")
+    );
+    assert_eq!(
+        modbus.get("detail").and_then(serde_json::Value::as_str),
+        Some("Configured in io.toml; runtime is not running.")
     );
     assert!(modbus.get("live").is_none(), "offline topology must not invent live values");
     assert_eq!(

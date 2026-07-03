@@ -243,6 +243,9 @@ Target release: `v0.24.28`
 
 ### Fixed
 
+- trust-runtime/vscode: stopped/configured Devices & Connections nodes now use
+  one consistent "runtime is not running" state phrase across runtime and
+  endpoint inspectors instead of mixing project-file and live-health wording.
 - vscode: Devices & Connections now preserves the stopped project runtime when
   a managed local runtime starts, so the topology updates state in place instead
   of silently removing a runtime node the user just saw.
