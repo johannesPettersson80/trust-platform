@@ -743,7 +743,8 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
       "denied write/force/release controls must be disabled before the user clicks"
     );
     assert.ok(
-      web.includes("writeButton.title = remoteReason") &&
+      web.includes("writeButton.title = writeDisabledReason || remoteReason") &&
+        web.includes("forceButton.title = remoteReason") &&
         web.includes("setStatusText(currentAccess.reason)"),
       "denied controls must carry a visible reason, not just a backend error after click"
     );
@@ -821,6 +822,21 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
       assert.ok(!/textContent\s*=\s*"R"/.test(source), `${name} must not use R as a safety action label`);
       assert.ok(!/\?\s*"F\*"\s*:\s*"F"/.test(source), `${name} must not use F/F* as a safety action label`);
     }
+  });
+
+  test("Live Values explains disabled program-driven writes", () => {
+    const web = readSrc("ioPanel.webview.js");
+    assert.ok(
+      web.includes("Outputs and memory are program-driven") &&
+        web.includes("use Force to override"),
+      "Live Values must show a visible hint explaining why outputs/memory Write is disabled"
+    );
+    assert.ok(
+      web.includes("writeDisabledReason") &&
+        web.includes("Program-driven") &&
+        web.includes("Write is not available for this value."),
+      "disabled Write buttons must carry a concrete tooltip reason"
+    );
   });
 
   test("Live Values renders visible data-type labels instead of hidden value inference", () => {

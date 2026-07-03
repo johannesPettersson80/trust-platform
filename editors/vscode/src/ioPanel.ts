@@ -1703,6 +1703,13 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
         padding-left: 32px;
       }
 
+      .write-hint {
+        margin: 2px 4px 6px 10px;
+        color: var(--trust-text-muted);
+        font-size: 11px;
+        line-height: 1.35;
+      }
+
       /* One shared grid for the whole section so every row — BOOL or numeric, with or
          without a write-box — lines its VALUE/TYPE/STATE/ACTIONS up under the same headers.
          Rows use subgrid so the column tracks are shared, not re-derived per row. */

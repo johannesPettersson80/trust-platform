@@ -262,6 +262,9 @@ Target release: `v0.24.28`
   the runtime snapshot, so REAL, TIME, and fixed-length STRING rows render as
   typed values instead of raw DWORDs/bytes and local writes accept `1.5`,
   `T#250ms`, and text values.
+- vscode: Live Values now explains program-driven outputs and memory rows in
+  the panel and on disabled Write controls, pointing users to Force for
+  simulation overrides instead of leaving greyed actions unexplained.
 - vscode: HMI Preview now refreshes through the shared descriptor debounce when
   HMI descriptor or process SVG files are edited in an open workspace, keeping
   the panel current without waiting for a separate manual refresh.

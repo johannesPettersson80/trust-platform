@@ -902,6 +902,7 @@ function renderRows(entries, options = {}) {
     allowForce = true,
     allowRelease = true,
     remoteReason = "",
+    writeDisabledReason = "",
   } = options;
   const wrapper = document.createElement("div");
   wrapper.className = "rows";
@@ -1101,8 +1102,8 @@ function renderRows(entries, options = {}) {
           : "Write once (next cycle, inputs only)";
       writeButton.setAttribute("aria-label", "Write value once");
       writeButton.disabled = !canWrite;
-      if (!canWrite && remoteReason) {
-        writeButton.title = remoteReason;
+      if (!canWrite) {
+        writeButton.title = writeDisabledReason || remoteReason || "Write is not available for this value.";
       }
       writeButton.addEventListener("click", () => sendValue("write"));
 
@@ -1220,6 +1221,10 @@ function render(state) {
   // io.force/io.unforce; the runtime authorizes by role and surfaces any error). Outputs/memory stay
   // write-disabled per their I/O semantics, independent of target.
   const ioContent = document.createElement("div");
+  const writeHint = document.createElement("div");
+  writeHint.className = "write-hint";
+  writeHint.textContent = "Outputs and memory are program-driven — use Force to override.";
+  ioContent.appendChild(writeHint);
   ioContent.appendChild(
     createNode(
       "Inputs",
@@ -1246,6 +1251,7 @@ function render(state) {
         allowForce: currentAccess.allowForce,
         allowRelease: currentAccess.allowRelease,
         remoteReason: currentAccess.reason,
+        writeDisabledReason: "Program-driven — use Force to override",
       }),
       true
     )
@@ -1261,6 +1267,7 @@ function render(state) {
         allowForce: currentAccess.allowForce,
         allowRelease: currentAccess.allowRelease,
         remoteReason: currentAccess.reason,
+        writeDisabledReason: "Program-driven — use Force to override",
       }),
       true
     )
