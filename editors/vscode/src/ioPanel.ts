@@ -318,20 +318,21 @@ export function registerIoPanel(context: vscode.ExtensionContext): void {
         return;
       }
       untrackStructuredTextSession(session);
-      postEmptyIoState();
-      void sendRuntimeStatus();
+      postUnavailableLiveValues(terminatedSessionStatus(session));
     })
   );
 
 
   context.subscriptions.push(
     vscode.debug.onDidChangeActiveDebugSession((session) => {
+      if (!session || session.type !== DEBUG_TYPE) {
+        postUnavailableLiveValues();
+        return;
+      }
       if (panel) {
         void requestIoState();
       }
-      if (session && session.type === DEBUG_TYPE) {
-        trackStructuredTextSession(session);
-      }
+      trackStructuredTextSession(session);
       void sendRuntimeStatus();
     })
   );
@@ -434,7 +435,8 @@ function isNoActiveSessionMessage(message: string): boolean {
   return (
     /No active Structured Text debug session/i.test(message) ||
     /No debugger available/i.test(message) ||
-    /can\s+not\s+send\s+['"]?stIoState['"]?/i.test(message)
+    /can\s+not\s+send\s+['"]?stIoState['"]?/i.test(message) ||
+    /I\/O state request failed:\s*Canceled/i.test(message)
   );
 }
 
@@ -443,6 +445,57 @@ function postEmptyIoState(): void {
     type: "ioState",
     payload: { inputs: [], outputs: [], memory: [] },
   });
+}
+
+function postUnavailableLiveValues(status?: RuntimeStatusPayload): void {
+  const publish = () => {
+    if (status) {
+      panel?.webview.postMessage({
+        type: "runtimeStatus",
+        payload: status,
+      });
+    }
+    postEmptyIoState();
+    panel?.webview.postMessage({
+      type: "status",
+      payload: liveValuesUnavailableMessage(status),
+    });
+  };
+  publish();
+  setTimeout(publish, 100);
+  setTimeout(publish, 500);
+}
+
+function terminatedSessionStatus(session: vscode.DebugSession): RuntimeStatusPayload {
+  const request = session.configuration?.request;
+  const isAttach = request === "attach";
+  const endpoint =
+    typeof session.configuration?.endpoint === "string"
+      ? session.configuration.endpoint.trim()
+      : typeof session.configuration?.controlEndpoint === "string"
+        ? session.configuration.controlEndpoint.trim()
+        : "";
+  const targetLabel =
+    typeof session.configuration?.targetLabel === "string" &&
+    session.configuration.targetLabel.trim()
+      ? session.configuration.targetLabel.trim()
+      : undefined;
+  return {
+    running: false,
+    inlineValuesEnabled: true,
+    runtimeMode: isAttach ? "online" : "simulate",
+    runtimeState: "stopped",
+    targetLabel,
+    endpoint,
+    endpointConfigured: endpoint.length > 0,
+    endpointEnabled: true,
+    endpointReachable: false,
+    access: {
+      allowWrite: false,
+      allowForce: false,
+      allowRelease: false,
+    },
+  };
 }
 
 function handleWebviewMessage(message: any): void {
@@ -621,11 +674,7 @@ async function requestIoState(): Promise<void> {
   if (!result.ok) {
     if (isNoActiveSessionMessage(result.failure.message)) {
       const status = await runtimeStatusPayload().catch(() => undefined);
-      postEmptyIoState();
-      panel?.webview.postMessage({
-        type: "status",
-        payload: liveValuesUnavailableMessage(status),
-      });
+      postUnavailableLiveValues(status);
       return;
     }
     panel?.webview.postMessage({

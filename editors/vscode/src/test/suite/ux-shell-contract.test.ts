@@ -133,7 +133,14 @@ suite("Phase 1 — palette cleanup (v5 shell)", () => {
     }
   });
 
-  test("trust-twin is absent from the VS Code product surface", () => {
+  test("retired 3D twin surface is absent from the VS Code product surface", () => {
+    const retiredSlug = ["trust", "twin"].join("-");
+    const retiredCamel = ["trust", "Twin"].join("");
+    const retiredSnake = ["trust", "twin"].join("_");
+    const retiredPattern = new RegExp(
+      `${retiredSlug}|${retiredCamel}|${retiredSnake}`,
+      "i"
+    );
     const pkg = loadPackageJson();
     const packageSurface = JSON.stringify({
       activationEvents: pkg.activationEvents,
@@ -143,12 +150,12 @@ suite("Phase 1 — palette cleanup (v5 shell)", () => {
       scripts: pkg.scripts,
     });
     assert.ok(
-      !/trust[-_]?twin|trustTwin|trust_twin/i.test(packageSurface),
-      "trust-twin must not be contributed as an activation event, command, LM tool, menu, or build script"
+      !retiredPattern.test(packageSurface),
+      "retired 3D twin surface must not be contributed as an activation event, command, LM tool, menu, or build script"
     );
     for (const removedFile of [
-      "trustTwinPanel.ts",
-      path.join("lm-tools", "trustTwinTools.ts"),
+      `${retiredCamel}Panel.ts`,
+      path.join("lm-tools", `${retiredCamel}Tools.ts`),
     ]) {
       assert.ok(
         !fs.existsSync(path.join(extensionRoot(), "src", removedFile)),
@@ -156,10 +163,10 @@ suite("Phase 1 — palette cleanup (v5 shell)", () => {
       );
     }
     for (const removedOutput of [
-      "trustTwinPanel.js",
-      "trustTwinPanel.js.map",
-      path.join("lm-tools", "trustTwinTools.js"),
-      path.join("lm-tools", "trustTwinTools.js.map"),
+      `${retiredCamel}Panel.js`,
+      `${retiredCamel}Panel.js.map`,
+      path.join("lm-tools", `${retiredCamel}Tools.js`),
+      path.join("lm-tools", `${retiredCamel}Tools.js.map`),
     ]) {
       assert.ok(
         !fs.existsSync(path.join(extensionRoot(), "out", removedOutput)),
@@ -167,8 +174,8 @@ suite("Phase 1 — palette cleanup (v5 shell)", () => {
       );
     }
     assert.ok(
-      !fs.existsSync(path.join(extensionRoot(), "media", "trust-twin")),
-      "trust-twin media assets must not be packaged by the extension"
+      !fs.existsSync(path.join(extensionRoot(), "media", retiredSlug)),
+      "retired 3D twin media assets must not be packaged by the extension"
     );
   });
 
@@ -1007,16 +1014,16 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
       host.indexOf("async function writeInput")
     );
     assert.ok(
-      requestIoStateBody.includes("postEmptyIoState();"),
-      "a no-session request must clear stale rows before showing stopped guidance"
+      requestIoStateBody.includes("postUnavailableLiveValues(status);"),
+      "a no-session request must clear stale rows and publish stopped guidance through the unavailable helper"
     );
     const terminateBody = host.slice(
       host.indexOf("vscode.debug.onDidTerminateDebugSession"),
       host.indexOf("vscode.debug.onDidChangeActiveDebugSession")
     );
     assert.ok(
-      terminateBody.includes("postEmptyIoState();"),
-      "debug session termination must clear stale rows"
+      terminateBody.includes("postUnavailableLiveValues(terminatedSessionStatus(session));"),
+      "debug session termination must clear stale rows through the unavailable helper"
     );
     assert.ok(
       !/payload:\s*"No active Structured Text debug session\."/.test(host),
@@ -1062,7 +1069,7 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
       ["visual runtime controller", visualController],
     ] as const) {
       assert.ok(
-        source.includes('runtimeState === "connected" ? "Connected"'),
+        /runtimeState\s*===\s*"connected"[\s\S]{0,120}\?\s*"Connected"/.test(source),
         `${name} must show Connected for attach-mode Live Values sessions`
       );
       assert.ok(
@@ -1075,6 +1082,109 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
       status.includes('request === "attach"') &&
         status.includes("session.configuration.endpoint.trim()"),
       "Live Values status must source the active attach endpoint from the debug session"
+    );
+  });
+
+  test("Live Values lifecycle pill is lifecycle-only and does not fake remote running", () => {
+    const web = readSrc("ioPanel.webview.js");
+    const status = readSrc("io-panel/status.ts");
+    assert.ok(
+      web.includes("runtimeStatusText.textContent = label"),
+      "Live Values pill must render only the lifecycle label"
+    );
+    assert.ok(
+      web.includes('payload.runtimeMode === "online"') && web.includes('"Not connected"'),
+      "Live Values must label an unattached online target as Not connected"
+    );
+    assert.ok(
+      !web.includes("`${label} · ${adsText}`") && !web.includes("payload.ads && payload.ads.text"),
+      "Live Values pill must not append ADS/protocol commentary to lifecycle state"
+    );
+    const onlineReachableBranch = status.slice(
+      status.indexOf('if (!running && runtimeMode === "online"'),
+      status.indexOf("if (!access)")
+    );
+    assert.ok(
+      onlineReachableBranch.includes("endpointReachable = await probeEndpointReachable(endpoint)") &&
+        onlineReachableBranch.includes("fetchRuntimeStatusReport(endpoint, authToken)"),
+      "unattached online targets may be probed for access/reachability"
+    );
+    assert.ok(
+      !onlineReachableBranch.includes('runtimeState = "running"'),
+      "a reachable remote without an attached Live Values session must stay Not connected, not Running"
+    );
+  });
+
+  test("Live Values clears connected UI immediately when a debug session terminates", () => {
+    const host = readSrc("ioPanel.ts");
+    const terminateBody = host.slice(
+      host.indexOf("vscode.debug.onDidTerminateDebugSession((session) =>"),
+      host.indexOf("vscode.debug.onDidChangeActiveDebugSession")
+    );
+    assert.ok(
+      host.includes("function terminatedSessionStatus") &&
+        host.includes("function postUnavailableLiveValues") &&
+        host.includes("postUnavailableLiveValues(terminatedSessionStatus(session))") &&
+        host.indexOf("postUnavailableLiveValues(terminatedSessionStatus(session))") <
+          host.indexOf("vscode.debug.onDidChangeActiveDebugSession"),
+      "terminated debug sessions must immediately publish a disconnected runtime status before clearing rows"
+    );
+    const unavailableBody = host.slice(
+      host.indexOf("function postUnavailableLiveValues"),
+      host.indexOf("function terminatedSessionStatus")
+    );
+    assert.ok(
+      unavailableBody.includes("postEmptyIoState();") &&
+        unavailableBody.includes("payload: liveValuesUnavailableMessage(status)"),
+      "terminated sessions must also clear stale rows and replace stale role/success banners with the correct unavailable message"
+    );
+    assert.ok(
+      host.includes("/I\\/O state request failed:\\s*Canceled/i.test(message)"),
+      "a canceled I/O request during Stop must clear stale Live Values instead of leaving old LIVE rows"
+    );
+    assert.ok(
+      !terminateBody.includes("sendRuntimeStatus()"),
+      "termination must not immediately recompute runtime status from a stale lifecycle snapshot"
+    );
+    const web = readSrc("ioPanel.webview.js");
+    assert.ok(
+      web.includes("function clearUnavailableRuntimeStatus") &&
+        web.includes("Start the runtime to see live values") &&
+        web.includes('runtimeState: "stopped"') &&
+        web.includes("clearUnavailableRuntimeStatus(payload)"),
+      "the webview must clear stale Connected pills when the host reports Live Values unavailable"
+    );
+    assert.ok(
+      host.includes("postUnavailableLiveValues();") &&
+        host.includes("vscode.debug.onDidChangeActiveDebugSession"),
+      "active debug-session loss must clear Live Values even before a later poll fails"
+    );
+  });
+
+  test("Structured Text Stop waits for termination before callers capture the UI", () => {
+    const debug = readSrc("debug.ts");
+    const stopBody = debug.slice(
+      debug.indexOf('vscode.commands.registerCommand("trust-lsp.debug.stop"'),
+      debug.indexOf('"trust-lsp.debug.io.write"')
+    );
+    assert.ok(
+      debug.includes("function waitForStructuredTextSessionTerminated") &&
+        debug.includes("vscode.debug.onDidTerminateDebugSession"),
+      "Stop must have an explicit termination wait helper"
+    );
+    assert.ok(
+      debug.includes("const structuredTextSessions = new Map") &&
+        debug.includes("structuredTextSessions.set(structuredTextSessionKey(session), session)") &&
+        debug.includes("for (const session of structuredTextSessions.values())") &&
+        debug.includes("structuredTextSessions.delete(structuredTextSessionKey(session))"),
+      "Stop must fall back to a tracked Structured Text session when VS Code has no active debug session"
+    );
+    assert.ok(
+      stopBody.includes("const terminated = waitForStructuredTextSessionTerminated(session)") &&
+        stopBody.includes("await vscode.debug.stopDebugging(session)") &&
+        stopBody.includes("const stopped = await terminated") &&
+        stopBody.includes("await sleep(DEBUG_STOP_UI_SETTLE_MS)"),
+      "Stop command must not resolve before the structured-text session termination event and UI settle"
     );
   });
 

@@ -327,12 +327,6 @@ export type HmiSchemaResult = {
     title: string;
     order: number;
     kind?: string;
-    view?: string;
-    bind3d?: Array<{
-      node: string;
-      property: string;
-      source: string;
-    }>;
     sections?: Array<{ title: string; span: number; widget_ids?: string[] }>;
   }>;
   widgets: HmiSchemaWidget[];

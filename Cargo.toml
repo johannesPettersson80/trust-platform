@@ -13,8 +13,6 @@ members = [
     "crates/trust-ads-server",
     "crates/trust-runtime-core",
     "crates/trust-runtime",
-    "crates/trust-twin-compiler",
-    "crates/trust-twin-renderer",
     "crates/trust-wasm-analysis",
 ]
 exclude = [
@@ -22,7 +20,7 @@ exclude = [
 ]
 
 [workspace.package]
-version = "0.24.26"
+version = "0.24.27"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/johannesPettersson80/trust-platform"
@@ -104,7 +102,6 @@ trust-ads-core = { path = "crates/trust-ads-core" }
 trust-ads-server = { path = "crates/trust-ads-server" }
 trust-runtime-core = { path = "crates/trust-runtime-core" }
 trust-runtime = { path = "crates/trust-runtime" }
-trust-twin-compiler = { path = "crates/trust-twin-compiler" }
 trust-wasm-analysis = { path = "crates/trust-wasm-analysis" }
 
 [workspace.lints.rust]

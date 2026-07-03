@@ -38,54 +38,6 @@ type HmiProcessScaleSchema = {
   output_max: number;
 };
 
-export type HmiSceneBindingSchema = {
-  node: string;
-  property: string;
-  source: string;
-  format?: string | null;
-  map?: Record<string, string>;
-  scale?: HmiProcessScaleSchema | null;
-};
-
-export type HmiSceneInteractionSchema = {
-  event: "click" | "touch" | "toggle" | string;
-  action: "hmi.write" | string;
-  id: string;
-  value: unknown;
-  required_role: string;
-  confirmation?: {
-    title: string;
-    message: string;
-  } | null;
-};
-
-export type HmiSceneNodeSchema = {
-  id: string;
-  asset?: string | null;
-  primitive?: string | null;
-  label?: string | null;
-  transform?: {
-    position?: [number, number, number] | null;
-    rotation?: [number, number, number] | null;
-    scale?: [number, number, number] | null;
-  } | null;
-  material?: {
-    base_color?: string | null;
-    emissive?: string | null;
-    opacity?: number | null;
-  } | null;
-  interaction?: HmiSceneInteractionSchema[];
-  interactions?: HmiSceneInteractionSchema[];
-};
-
-export type HmiSceneViewPayload = {
-  asset?: unknown[];
-  node?: HmiSceneNodeSchema[];
-  camera?: unknown[];
-  light?: unknown[];
-  bind3d?: HmiSceneBindingSchema[];
-};
-
 export type HmiProcessBindingSchema = {
   selector: string;
   attribute: string;
@@ -110,12 +62,9 @@ export type HmiPageSchema = {
   duration_ms?: number | null;
   svg?: string | null;
   svg_content?: string | null;
-  view?: string | null;
-  scene_view?: HmiSceneViewPayload | null;
   signals?: string[];
   sections?: HmiSectionSchema[];
   bindings?: HmiProcessBindingSchema[];
-  bind3d?: HmiSceneBindingSchema[];
 };
 
 export type HmiSchemaResult = {

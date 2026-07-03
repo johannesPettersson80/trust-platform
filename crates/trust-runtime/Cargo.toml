@@ -86,6 +86,3 @@ opcua-wire = ["dep:opcua"]
 ethercat-wire = ["dep:ethercrab", "dep:tokio"]
 ads-wire = ["dep:ads", "dep:crossbeam-channel"]
 ads-server = ["dep:trust-ads-server"]
-
-[dev-dependencies]
-trust-twin-compiler.workspace = true

@@ -98,9 +98,6 @@ pub(super) fn render_hmi_dir_page_toml(page: &HmiDirPage) -> String {
     if let Some(svg) = page.svg.as_ref() {
         let _ = writeln!(out, "svg = \"{}\"", escape_toml_string(svg.as_str()));
     }
-    if let Some(view) = page.view.as_ref() {
-        let _ = writeln!(out, "view = \"{}\"", escape_toml_string(view.as_str()));
-    }
     if !page.signals.is_empty() {
         let values = page
             .signals
@@ -199,50 +196,6 @@ pub(super) fn render_hmi_dir_page_toml(page: &HmiDirPage) -> String {
             out,
             "attribute = \"{}\"",
             escape_toml_string(binding.attribute.as_str())
-        );
-        let _ = writeln!(
-            out,
-            "source = \"{}\"",
-            escape_toml_string(binding.source.as_str())
-        );
-        if let Some(format) = binding.format.as_ref() {
-            let _ = writeln!(out, "format = \"{}\"", escape_toml_string(format.as_str()));
-        }
-        if !binding.map.is_empty() {
-            let values = binding
-                .map
-                .iter()
-                .map(|(key, value)| {
-                    format!(
-                        "\"{}\" = \"{}\"",
-                        escape_toml_string(key.as_str()),
-                        escape_toml_string(value.as_str())
-                    )
-                })
-                .collect::<Vec<_>>()
-                .join(", ");
-            let _ = writeln!(out, "map = {{ {values} }}");
-        }
-        if let Some(scale) = binding.scale.as_ref() {
-            let _ = writeln!(
-                out,
-                "scale = {{ min = {}, max = {}, output_min = {}, output_max = {} }}",
-                format_toml_number(scale.min),
-                format_toml_number(scale.max),
-                format_toml_number(scale.output_min),
-                format_toml_number(scale.output_max)
-            );
-        }
-    }
-
-    for binding in &page.bindings3d {
-        let _ = writeln!(out);
-        let _ = writeln!(out, "[[bind3d]]");
-        let _ = writeln!(out, "node = \"{}\"", escape_toml_string(binding.node.as_str()));
-        let _ = writeln!(
-            out,
-            "property = \"{}\"",
-            escape_toml_string(binding.property.as_str())
         );
         let _ = writeln!(
             out,

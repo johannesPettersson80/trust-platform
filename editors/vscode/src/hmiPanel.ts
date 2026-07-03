@@ -14,7 +14,6 @@ import { localSimControl } from "./simControl";
 import type {
   ControlRequestHandler,
   HmiSchemaResult,
-  HmiSceneInteractionSchema,
   HmiValuesResult,
   HmiWidgetSchema,
   LayoutOverrides,
@@ -183,9 +182,6 @@ async function handleWebviewMessage(message: unknown): Promise<void> {
     case "saveLayout":
       await handleSaveLayoutMessage(message.payload);
       break;
-    case "sceneInteraction":
-      await handleSceneInteractionMessage(message.payload);
-      break;
     default:
       break;
   }
@@ -238,76 +234,6 @@ async function handleSaveLayoutMessage(payload: unknown): Promise<void> {
     const detail = error instanceof Error ? error.message : String(error);
     setStatus(`Layout save rejected: ${detail}`);
     postMessage("layoutSaved", { ok: false, error: detail });
-  }
-}
-
-function parseSceneInteractionPayload(
-  payload: unknown,
-): { node: string; interaction: HmiSceneInteractionSchema } | undefined {
-  if (!isRecord(payload) || !isRecord(payload.interaction)) {
-    return undefined;
-  }
-  const node = typeof payload.node === "string" ? payload.node.trim() : "";
-  const interaction = payload.interaction;
-  const action = typeof interaction.action === "string" ? interaction.action.trim() : "";
-  const id = typeof interaction.id === "string" ? interaction.id.trim() : "";
-  if (!node || action.toLowerCase() !== "hmi.write" || !id) {
-    return undefined;
-  }
-  return {
-    node,
-    interaction: {
-      event: typeof interaction.event === "string" ? interaction.event : "click",
-      action: "hmi.write",
-      id,
-      value: interaction.value,
-      required_role:
-        typeof interaction.required_role === "string"
-          ? interaction.required_role
-          : "Engineer",
-      confirmation: isRecord(interaction.confirmation)
-        ? {
-            title:
-              typeof interaction.confirmation.title === "string"
-                ? interaction.confirmation.title
-                : "",
-            message:
-              typeof interaction.confirmation.message === "string"
-                ? interaction.confirmation.message
-                : "",
-          }
-        : null,
-    },
-  };
-}
-
-async function handleSceneInteractionMessage(payload: unknown): Promise<void> {
-  const parsed = parseSceneInteractionPayload(payload);
-  if (!parsed) {
-    setStatus("3D interaction rejected: invalid hmi.write descriptor.");
-    return;
-  }
-  const requiredRole = parsed.interaction.required_role.trim().toLowerCase();
-  if (requiredRole !== "engineer") {
-    setStatus("3D interaction rejected: hmi.write requires Engineer role.");
-    return;
-  }
-  const endpointSettings = effectiveEndpoint();
-  try {
-    await controlRequest(
-      endpointSettings.endpoint,
-      endpointSettings.authToken,
-      "hmi.write",
-      {
-        id: parsed.interaction.id,
-        value: parsed.interaction.value,
-      },
-    );
-    setStatus(`3D write queued from ${parsed.node}.`);
-    await pollValues(true);
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    setStatus(`3D write rejected from ${parsed.node}: ${detail}`);
   }
 }
 
@@ -438,7 +364,7 @@ function normalizeProcessSvgPath(value: string | null | undefined): string | und
 
 function normalizePageKind(value: string | null | undefined): string {
   const kind = typeof value === "string" ? value.trim().toLowerCase() : "";
-  if (kind === "process" || kind === "trend" || kind === "alarm" || kind === "scene3d") {
+  if (kind === "process" || kind === "trend" || kind === "alarm") {
     return kind;
   }
   return "dashboard";
@@ -604,10 +530,6 @@ export async function __testLoadLayoutOverrides(
   workspaceUri: vscode.Uri
 ): Promise<LayoutOverrides> {
   return await loadLayoutOverrides(workspaceUri);
-}
-
-export async function __testHandleSceneInteraction(payload: unknown): Promise<void> {
-  await handleSceneInteractionMessage(payload);
 }
 
 export async function __testResolveWidgetLocation(

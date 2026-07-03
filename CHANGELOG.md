@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.26`
+Target release: `v0.24.27`
 
 ### Added
 
@@ -185,10 +185,11 @@ Target release: `v0.24.26`
 
 ### Changed
 
-- vscode: removed the unfinished trust-twin 3D panel, typed LM tool, packaged
-  WASM/assets, and related activation/build/test wiring from the shipped
-  extension surface so the PLC IDE focuses on the accepted Run, Devices &
-  Connections, Live Values, HMI, and visual-editor workflows.
+- vscode/runtime: removed the unfinished 3D twin prototype, typed LM tool,
+  packaged WASM/assets, scene-page HMI contract, and related activation/build
+  and test wiring from the shipped product surface so the PLC IDE focuses on the
+  accepted Run, Devices & Connections, Live Values, HMI, and visual-editor
+  workflows.
 - `trust-harness` now defaults to JSON protocol version 2 and accepts
   `--protocol-version 1` or `TRUST_HARNESS_PROTOCOL_VERSION=1` for the legacy
   watch-value map shape during migration.
@@ -242,6 +243,15 @@ Target release: `v0.24.26`
 
 ### Fixed
 
+- vscode: Live Values now clears stale connected/value rows as soon as a
+  Structured Text debug session stops or disconnects, keeps remote
+  disconnected targets labelled `Not connected` instead of fabricating
+  `Running`, and retries transient runtime-busy write/force/release requests
+  before surfacing a user-visible failure.
+- vscode: Devices & Connections now only labels a fleet host as `This computer`
+  when its reported identity also matches a local interface, so remote runtimes
+  on machines with lab-builder hostnames render as generic `Computer <address>`
+  headlines instead of misleading local-machine labels.
 - vscode/trust-runtime: Live Values now receives runtime role/capability data
   from the control channel, disables viewer-role Write/Force/Release controls
   before any unsafe attempt, and shows a visible engineer-token recovery reason;

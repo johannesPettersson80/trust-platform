@@ -242,52 +242,6 @@ export function getHtml(webview: vscode.Webview): string {
       font-size: 11px;
       color: var(--trust-text-muted);
     }
-    .scene3d-panel {
-      grid-column: 1 / -1;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      min-width: 0;
-    }
-    .scene3d-surface {
-      position: relative;
-      min-height: 360px;
-      overflow: hidden;
-      border: 1px solid color-mix(in srgb, var(--trust-border) 76%, transparent);
-      border-radius: var(--trust-radius-lg);
-      background:
-        linear-gradient(0deg, color-mix(in srgb, var(--trust-canvas) 88%, transparent), color-mix(in srgb, var(--trust-canvas) 88%, transparent)),
-        repeating-linear-gradient(90deg, transparent 0 47px, color-mix(in srgb, var(--trust-grid-line) 70%, transparent) 48px),
-        repeating-linear-gradient(0deg, transparent 0 47px, color-mix(in srgb, var(--trust-grid-line) 70%, transparent) 48px);
-    }
-    .scene3d-node {
-      position: absolute;
-      min-width: 72px;
-      max-width: 150px;
-      min-height: 36px;
-      padding: 7px 10px;
-      border: 1px solid var(--trust-border);
-      border-radius: var(--trust-radius);
-      color: var(--trust-text);
-      background: var(--trust-surface-raised);
-      box-sizing: border-box;
-      transform: translate(-50%, -50%);
-      font: inherit;
-      font-size: 12px;
-      text-align: center;
-      overflow-wrap: anywhere;
-    }
-    button.scene3d-node {
-      cursor: pointer;
-    }
-    button.scene3d-node:hover {
-      border-color: var(--trust-accent);
-      background: var(--trust-selected-bg);
-    }
-    .scene3d-meta {
-      font-size: 11px;
-      color: var(--trust-text-muted);
-    }
     .empty {
       font-size: 12px;
       color: var(--trust-text-muted);
@@ -424,7 +378,7 @@ export function getHtml(webview: vscode.Webview): string {
     function currentPageKind() {
       const page = currentPage();
       const kind = typeof page?.kind === "string" ? page.kind.trim().toLowerCase() : "";
-      if (kind === "process" || kind === "trend" || kind === "alarm" || kind === "scene3d") {
+      if (kind === "process" || kind === "trend" || kind === "alarm") {
         return kind;
       }
       return "dashboard";
@@ -815,115 +769,6 @@ export function getHtml(webview: vscode.Webview): string {
       elements.widgets.appendChild(panel);
     }
 
-    function sceneNodeInteractions(node) {
-      if (Array.isArray(node?.interaction)) {
-        return node.interaction;
-      }
-      if (Array.isArray(node?.interactions)) {
-        return node.interactions;
-      }
-      return [];
-    }
-
-    function sceneNodePosition(node, axis, fallback) {
-      const position = node?.transform?.position;
-      if (!Array.isArray(position) || position.length < 3) {
-        return fallback;
-      }
-      const value = Number(position[axis]);
-      return Number.isFinite(value) ? value : fallback;
-    }
-
-    function renderScene3dPage(page) {
-      const panel = document.createElement("section");
-      panel.className = "scene3d-panel";
-
-      const nodes = Array.isArray(page?.scene_view?.node) ? page.scene_view.node : [];
-      if (!nodes.length) {
-        const empty = document.createElement("div");
-        empty.className = "empty";
-        empty.textContent = "3D view payload is not available.";
-        panel.appendChild(empty);
-        elements.widgets.appendChild(panel);
-        return;
-      }
-
-      let minX = Infinity;
-      let maxX = -Infinity;
-      let minZ = Infinity;
-      let maxZ = -Infinity;
-      nodes.forEach((node, index) => {
-        const fallback = index * 1.5;
-        const x = sceneNodePosition(node, 0, fallback);
-        const z = sceneNodePosition(node, 2, 0);
-        minX = Math.min(minX, x);
-        maxX = Math.max(maxX, x);
-        minZ = Math.min(minZ, z);
-        maxZ = Math.max(maxZ, z);
-      });
-      const spanX = Math.max(1, maxX - minX);
-      const spanZ = Math.max(1, maxZ - minZ);
-
-      const surface = document.createElement("div");
-      surface.className = "scene3d-surface";
-      let interactionCount = 0;
-      nodes.forEach((node, index) => {
-        const interactions = sceneNodeInteractions(node).filter(
-          (interaction) => interaction && typeof interaction.action === "string",
-        );
-        interactionCount += interactions.length;
-        const firstInteraction = interactions.find(
-          (interaction) => interaction.action.trim().toLowerCase() === "hmi.write",
-        );
-        const element = firstInteraction
-          ? document.createElement("button")
-          : document.createElement("div");
-        element.className = "scene3d-node";
-        const nodeId = typeof node?.id === "string" && node.id.trim() ? node.id.trim() : "node-" + index;
-        element.dataset.sceneNode = nodeId;
-        element.textContent =
-          typeof node?.label === "string" && node.label.trim() ? node.label.trim() : nodeId;
-        const fallback = index * 1.5;
-        const x = sceneNodePosition(node, 0, fallback);
-        const z = sceneNodePosition(node, 2, 0);
-        element.style.left = 8 + ((x - minX) / spanX) * 84 + "%";
-        element.style.top = 12 + ((z - minZ) / spanZ) * 76 + "%";
-        if (firstInteraction) {
-          element.dataset.sceneAction = firstInteraction.action;
-          element.addEventListener("click", () => {
-            const confirmation = firstInteraction.confirmation;
-            if (
-              confirmation &&
-              typeof confirmation.message === "string" &&
-              confirmation.message.trim() &&
-              !window.confirm(confirmation.message.trim())
-            ) {
-              return;
-            }
-            vscode.postMessage({
-              type: "sceneInteraction",
-              payload: {
-                page: page?.id,
-                node: nodeId,
-                interaction: firstInteraction,
-              },
-            });
-          });
-        }
-        surface.appendChild(element);
-      });
-      panel.appendChild(surface);
-
-      const meta = document.createElement("div");
-      meta.className = "scene3d-meta";
-      const fileName =
-        typeof page?.view === "string" && page.view.trim() ? page.view.trim() : "inline";
-      meta.textContent =
-        "View: " + fileName + " | nodes: " + nodes.length + " | interactions: " + interactionCount;
-      panel.appendChild(meta);
-      elements.widgets.appendChild(panel);
-    }
-
     function renderWidgets() {
       elements.widgets.innerHTML = "";
       if (!state.schema) {
@@ -937,10 +782,6 @@ export function getHtml(webview: vscode.Webview): string {
         : allWidgets;
       if (kind === "process") {
         renderProcessPage(page, allWidgets);
-        return;
-      }
-      if (kind === "scene3d") {
-        renderScene3dPage(page);
         return;
       }
       // Every page gets a designed state — never a blank body. Trend/alarm pages with nothing mapped

@@ -230,8 +230,8 @@ fn physics_revolute_trace_is_deterministic_for_same_seed() {
         trace_hash,
         "a9ef39925272a3c450aae99624c072ed2ad5799210ecb6c0166d818b92461c5c"
     );
-    write_trust_twin_p2_artifact(&trace_hash, trace_a[0], trace_a[999])
-        .expect("write trust-twin P2 gate artifact");
+    write_simulation_physics_artifact(&trace_hash, trace_a[0], trace_a[999])
+        .expect("write simulation physics gate artifact");
 }
 
 #[test]
@@ -446,7 +446,7 @@ fn hash_u16_trace(trace: &[u16]) -> String {
     format!("{:x}", hasher.finalize())
 }
 
-fn write_trust_twin_p2_artifact(
+fn write_simulation_physics_artifact(
     trace_hash: &str,
     first_encoder: u16,
     final_encoder: u16,
@@ -491,7 +491,7 @@ fn write_trust_twin_p2_artifact(
     let path = workspace_root()
         .join("target")
         .join("gate-artifacts")
-        .join("trust-twin-p2-physics.json");
+        .join("simulation-physics.json");
     let parent = path
         .parent()
         .ok_or_else(|| format!("artifact path has no parent: {}", path.display()))?;

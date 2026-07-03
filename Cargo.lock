@@ -656,16 +656,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "console_error_panic_hook"
-version = "0.1.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a06aeb73f470f66dcdbf7223caeebb85984942f22f1adb2a088cf9668146bbbc"
-dependencies = [
- "cfg-if",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "const_format"
 version = "0.2.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5791,7 +5781,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ads-core"
-version = "0.24.26"
+version = "0.24.27"
 dependencies = [
  "serde",
  "serde_json",
@@ -5800,14 +5790,14 @@ dependencies = [
 
 [[package]]
 name = "trust-ads-server"
-version = "0.24.26"
+version = "0.24.27"
 dependencies = [
  "trust-ads-core",
 ]
 
 [[package]]
 name = "trust-debug"
-version = "0.24.26"
+version = "0.24.27"
 dependencies = [
  "glob",
  "indexmap 2.14.0",
@@ -5822,7 +5812,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dev"
-version = "0.24.26"
+version = "0.24.27"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -5841,7 +5831,7 @@ dependencies = [
 
 [[package]]
 name = "trust-hir"
-version = "0.24.26"
+version = "0.24.27"
 dependencies = [
  "boxcar",
  "insta",
@@ -5859,7 +5849,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ide"
-version = "0.24.26"
+version = "0.24.27"
 dependencies = [
  "expect-test",
  "once_cell",
@@ -5872,7 +5862,7 @@ dependencies = [
 
 [[package]]
 name = "trust-lsp"
-version = "0.24.26"
+version = "0.24.27"
 dependencies = [
  "anyhow",
  "expect-test",
@@ -5899,7 +5889,7 @@ dependencies = [
 
 [[package]]
 name = "trust-plcopen"
-version = "0.24.26"
+version = "0.24.27"
 dependencies = [
  "anyhow",
  "crc32fast",
@@ -5912,7 +5902,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime"
-version = "0.24.26"
+version = "0.24.27"
 dependencies = [
  "ads",
  "anyhow",
@@ -5970,7 +5960,6 @@ dependencies = [
  "trust-plcopen",
  "trust-runtime-core",
  "trust-syntax",
- "trust-twin-compiler",
  "trust-wasm-analysis",
  "tungstenite",
  "urdf-rs",
@@ -5981,7 +5970,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime-core"
-version = "0.24.26"
+version = "0.24.27"
 dependencies = [
  "indexmap 2.14.0",
  "rustc-hash 2.1.2",
@@ -5992,7 +5981,7 @@ dependencies = [
 
 [[package]]
 name = "trust-syntax"
-version = "0.24.26"
+version = "0.24.27"
 dependencies = [
  "drop_bomb",
  "insta",
@@ -6002,35 +5991,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "trust-twin-compiler"
-version = "0.24.26"
-dependencies = [
- "clap",
- "serde",
- "serde_json",
- "sha2",
- "thiserror 2.0.18",
- "toml",
-]
-
-[[package]]
-name = "trust-twin-renderer"
-version = "0.24.26"
-dependencies = [
- "anyhow",
- "console_error_panic_hook",
- "js-sys",
- "scena",
- "serde",
- "serde_json",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
-]
-
-[[package]]
 name = "trust-wasm-analysis"
-version = "0.24.26"
+version = "0.24.27"
 dependencies = [
  "rowan",
  "serde",
@@ -7321,13 +7283,12 @@ checksum = "3ae8337f8a065cfc972643663ea4279e04e7256de865aa66fe25cec5fb912d3f"
 
 [[package]]
 name = "xtask"
-version = "0.24.26"
+version = "0.24.27"
 dependencies = [
  "anyhow",
  "serde",
  "serde_json",
  "toml",
- "trust-twin-compiler",
 ]
 
 [[package]]

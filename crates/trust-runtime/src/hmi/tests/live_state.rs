@@ -34,13 +34,10 @@ fn synthetic_schema_with_deadband(
             icon: None,
             duration_ms: None,
             svg: None,
-            view: None,
-            scene_view: None,
             hidden: false,
             signals: Vec::new(),
             sections: Vec::new(),
             bindings: Vec::new(),
-            bindings3d: Vec::new(),
         }],
         widgets: vec![HmiWidgetSchema {
             id: "resource/RESOURCE/program/Main/field/speed".to_string(),

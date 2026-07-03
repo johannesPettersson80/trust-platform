@@ -285,6 +285,26 @@ suite("Debug/IO DRY flows", function () {
     );
   });
 
+  test("unit: Live Values I/O retries transient runtime busy responses", async () => {
+    const calls: Array<{ command: string; args?: unknown }> = [];
+    const session = {
+      customRequest: async (command: string, args?: unknown) => {
+        calls.push({ command, args });
+        if (calls.length === 1) {
+          throw new Error("runtime busy");
+        }
+        return undefined;
+      },
+    };
+
+    await __testSendIoDebugRequest(session, "release", "%QX0.0");
+
+    assert.deepStrictEqual(calls, [
+      { command: "stIoRelease", args: { address: "%QX0.0" } },
+      { command: "stIoRelease", args: { address: "%QX0.0" } },
+    ]);
+  });
+
   test("integration: VM debug session returns non-empty stackTrace at stopOnEntry", async () => {
     await ensureNoStructuredTextSession();
     const extension = vscode.extensions.getExtension("trust-platform.trust-lsp");

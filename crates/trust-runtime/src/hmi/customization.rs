@@ -90,13 +90,10 @@ fn apply_legacy_hmi_toml(customization: &mut HmiCustomization, parsed: HmiTomlFi
                 kind,
                 duration_ms: page.duration_s.map(|seconds| seconds.saturating_mul(1_000)),
                 svg: None,
-                view: None,
-                scene_view: None,
                 hidden: false,
                 signals,
                 sections: Vec::new(),
                 bindings: Vec::new(),
-                bindings3d: Vec::new(),
             })
         })
         .collect();
@@ -189,22 +186,6 @@ pub fn validate_hmi_bindings(
                     message: format!("unknown binding path '{bind}'"),
                     bind: bind.to_string(),
                     widget: Some("process.bind".to_string()),
-                    page: page.id.clone(),
-                    section: None,
-                });
-            }
-        }
-        for binding in &page.bindings3d {
-            let bind = binding.source.trim();
-            if bind.is_empty() {
-                continue;
-            }
-            if !by_path.contains_key(bind) {
-                diagnostics.push(HmiBindingDiagnostic {
-                    code: HMI_DIAG_UNKNOWN_BIND,
-                    message: format!("unknown binding path '{bind}'"),
-                    bind: bind.to_string(),
-                    widget: Some("scene3d.bind3d".to_string()),
                     page: page.id.clone(),
                     section: None,
                 });

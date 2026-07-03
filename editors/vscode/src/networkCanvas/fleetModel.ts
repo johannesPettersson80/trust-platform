@@ -113,6 +113,19 @@ function firstRemoteAddress(host: FleetTopologyResponse["hosts"][number]): strin
   );
 }
 
+function localInterfaceAddresses(): Set<string> {
+  const addresses = new Set<string>();
+  for (const entries of Object.values(os.networkInterfaces())) {
+    for (const entry of entries ?? []) {
+      const address = entry.address?.trim().toLowerCase().replace(/^\[|\]$/g, "");
+      if (address) {
+        addresses.add(address);
+      }
+    }
+  }
+  return addresses;
+}
+
 function hostDisplay(host: FleetTopologyResponse["hosts"][number]): {
   headline: string;
   detail: string;
@@ -137,18 +150,29 @@ function hostDisplay(host: FleetTopologyResponse["hosts"][number]): {
   // different computers never both read "This computer".
   const localHostname = os.hostname().trim().toLowerCase();
   const reportedHostname = host.hostname.trim();
+  const remoteAddress = firstRemoteAddress(host);
+  const localAddresses = localInterfaceAddresses();
+  const hostReportsLocalAddress =
+    host.ips.length === 0 ||
+    host.ips.some((ip) => {
+      const normalized = ip.trim().toLowerCase().replace(/^\[|\]$/g, "");
+      return isLoopbackAddress(normalized) || localAddresses.has(normalized);
+    });
   const hasRealHostname =
     reportedHostname.length > 0 && !isLoopbackAddress(reportedHostname);
   const hasRealIp = host.ips.some((ip) => !isLoopbackAddress(ip));
-  if (localHostname.length > 0 && reportedHostname.toLowerCase() === localHostname) {
+  if (
+    localHostname.length > 0 &&
+    reportedHostname.toLowerCase() === localHostname &&
+    hostReportsLocalAddress
+  ) {
     return { headline: "This computer", detail: rawDetail || "local computer" };
   }
-  if (hasRealHostname) {
-    return { headline: reportedHostname, detail: rawDetail || reportedHostname };
-  }
-  const remoteAddress = firstRemoteAddress(host);
   if (hasRealIp && remoteAddress) {
     return { headline: `Computer ${remoteAddress}`, detail: rawDetail || remoteAddress };
+  }
+  if (hasRealHostname) {
+    return { headline: `Computer ${reportedHostname}`, detail: rawDetail || reportedHostname };
   }
   // Only a loopback identity, and not the named local machine → the local loopback context.
   return { headline: "This computer", detail: rawDetail || "local computer" };

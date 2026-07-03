@@ -1,4 +1,0 @@
-[[components]]
-id = "BOX-1"
-kind = "workpiece"
-at = { attach_to = "PICKUP-1.top", placement = "top_center" }

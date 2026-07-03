@@ -432,6 +432,7 @@ function runJourney(journey) {
   fs.mkdirSync(path.join(journeyRoot, "screenshots-raw"), { recursive: true });
   fs.mkdirSync(path.join(journeyRoot, "json"), { recursive: true });
   fs.mkdirSync(path.join(journeyRoot, "logs"), { recursive: true });
+  const pngRegistry = new Map();
 
   if (!only.size && defaultSkip.has(journey.id)) {
     result.status = "skipped";
@@ -506,10 +507,27 @@ function runJourney(journey) {
     entry.strippedPngFiles =
       pngHygiene.stripTree(path.join(journeyRoot, "screenshots-raw")) +
       pngHygiene.stripTree(path.join(journeyRoot, "legacy-captures"));
+    try {
+      const validation = pngHygiene.validateCaptureTree(journeyRoot, {
+        duplicateRegistry: pngRegistry,
+        expectedWidth: command.env && command.env.TRUST_UX_EXPECTED_WIDTH,
+        expectedHeight: command.env && command.env.TRUST_UX_EXPECTED_HEIGHT,
+      });
+      entry.validPngFiles = validation.valid.length;
+    } catch (error) {
+      entry.pixelValidation = {
+        status: "failed",
+        errors: error.errors || [error.message || String(error)],
+      };
+      result.status = "failed";
+    }
     result.commands.push(entry);
     fs.writeFileSync(path.join(journeyRoot, "batch-run.json"), JSON.stringify(result, null, 2));
     if (proc.status !== 0) {
       result.status = "failed";
+      break;
+    }
+    if (entry.pixelValidation && entry.pixelValidation.status === "failed") {
       break;
     }
   }

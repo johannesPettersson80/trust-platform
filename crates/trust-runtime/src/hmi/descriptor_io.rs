@@ -201,47 +201,6 @@ fn normalize_descriptor_page(page: &HmiDirPage) -> Option<HmiDirPage> {
             .then_with(|| left.attribute.cmp(&right.attribute))
     });
 
-    let mut bindings3d = Vec::new();
-    for binding in &page.bindings3d {
-        let node = binding.node.trim();
-        let source = binding.source.trim();
-        let Ok(property) = normalize_scene_binding_property(binding.property.as_str()) else {
-            continue;
-        };
-        if !is_safe_scene_node_ref(node) || source.is_empty() {
-            continue;
-        }
-        bindings3d.push(HmiSceneBindingSchema {
-            node: node.to_string(),
-            property,
-            source: source.to_string(),
-            format: binding
-                .format
-                .as_ref()
-                .map(|value| value.trim().to_string())
-                .filter(|value| !value.is_empty()),
-            map: binding
-                .map
-                .iter()
-                .filter_map(|(key, value)| {
-                    let key = key.trim();
-                    let value = value.trim();
-                    if key.is_empty() || value.is_empty() {
-                        return None;
-                    }
-                    Some((key.to_string(), value.to_string()))
-                })
-                .collect(),
-            scale: binding.scale.clone(),
-        });
-    }
-    bindings3d.sort_by(|left, right| {
-        left.source
-            .cmp(&right.source)
-            .then_with(|| left.node.cmp(&right.node))
-            .then_with(|| left.property.cmp(&right.property))
-    });
-
     Some(HmiDirPage {
         id: id.to_string(),
         title,
@@ -258,11 +217,6 @@ fn normalize_descriptor_page(page: &HmiDirPage) -> Option<HmiDirPage> {
             .as_ref()
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty()),
-        view: page
-            .view
-            .as_deref()
-            .and_then(|value| normalize_scene_view_ref(value).ok()),
-        scene_view: page.scene_view.clone(),
         hidden: page.hidden,
         signals: page
             .signals
@@ -272,6 +226,5 @@ fn normalize_descriptor_page(page: &HmiDirPage) -> Option<HmiDirPage> {
             .collect(),
         sections,
         bindings,
-        bindings3d,
     })
 }

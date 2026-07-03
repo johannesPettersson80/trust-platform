@@ -100,8 +100,6 @@ export function parseHmiSchemaPayload(value: unknown): HmiSchemaResult | undefin
           ? page.order
           : 0,
       kind: typeof page.kind === "string" ? page.kind : undefined,
-      view: typeof page.view === "string" ? page.view : undefined,
-      bind3d: parseHmiSceneBindings(page.bind3d),
       sections: sections.length > 0 ? sections : undefined,
     });
   }
@@ -120,33 +118,6 @@ export function parseHmiSchemaPayload(value: unknown): HmiSchemaResult | undefin
     ),
     widgets: widgets.sort((left, right) => left.id.localeCompare(right.id)),
   };
-}
-
-function parseHmiSceneBindings(value: unknown): HmiSchemaResult["pages"][number]["bind3d"] {
-  if (!Array.isArray(value)) {
-    return undefined;
-  }
-  const bindings = value
-    .map((entry) => {
-      const binding = asRecord(entry);
-      if (
-        !binding ||
-        typeof binding.node !== "string" ||
-        typeof binding.property !== "string" ||
-        typeof binding.source !== "string"
-      ) {
-        return undefined;
-      }
-      return {
-        node: binding.node,
-        property: binding.property,
-        source: binding.source,
-      };
-    })
-    .filter(
-      (entry): entry is { node: string; property: string; source: string } => !!entry,
-    );
-  return bindings.length > 0 ? bindings : undefined;
 }
 
 export function parseHmiValuesPayload(value: unknown): HmiValuesResult | undefined {

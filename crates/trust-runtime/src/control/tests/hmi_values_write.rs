@@ -348,7 +348,7 @@ allow = ["resource/RESOURCE/program/Main/field/run"]
 }
 
 #[test]
-fn trust_twin_operator_write_uses_hmi_policy_and_audit_path() {
+fn hmi_operator_write_uses_hmi_policy_and_audit_path() {
     let source = r#"
 PROGRAM Main
 VAR
@@ -356,7 +356,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let root = temp_dir("trust-twin-p3-operator-write");
+    let root = temp_dir("hmi-operator-write");
     write_file(
         &root.join("hmi.toml"),
         r#"
@@ -369,7 +369,7 @@ allow = ["resource/RESOURCE/program/Main/field/run"]
     let mut state = hmi_test_state(source);
     set_hmi_project_root(&mut state, &root);
     state.control_requires_auth = true;
-    let store = Arc::new(PairingStore::load(pairing_file("trust-twin-p3")));
+    let store = Arc::new(PairingStore::load(pairing_file("hmi-operator-write")));
     state.pairing = Some(store.clone());
     let viewer_code = store.start_pairing();
     let viewer_token = store
@@ -393,7 +393,7 @@ allow = ["resource/RESOURCE/program/Main/field/run"]
             }
         }),
         &state,
-        Some("trust-twin-renderer"),
+        Some("hmi-panel"),
     );
     let viewer_audit = audit_rx
         .recv_timeout(Duration::from_secs(2))
@@ -418,7 +418,7 @@ allow = ["resource/RESOURCE/program/Main/field/run"]
             }
         }),
         &state,
-        Some("trust-twin-renderer"),
+        Some("hmi-panel"),
     );
     let engineer_audit = audit_rx
         .recv_timeout(Duration::from_secs(2))
@@ -442,7 +442,7 @@ allow = ["resource/RESOURCE/program/Main/field/run"]
     let artifact_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .join("target/gate-artifacts");
-    fs::create_dir_all(&artifact_dir).expect("create trust-twin artifact dir");
+    fs::create_dir_all(&artifact_dir).expect("create hmi artifact dir");
     let artifact = json!({
         "renderer_request": {
             "type": "hmi.write",
@@ -481,10 +481,10 @@ allow = ["resource/RESOURCE/program/Main/field/run"]
         "evidence_blockers": []
     });
     fs::write(
-        artifact_dir.join("trust-twin-p3-operator-write.json"),
-        serde_json::to_string_pretty(&artifact).expect("serialize trust-twin p3 artifact"),
+        artifact_dir.join("hmi-operator-write.json"),
+        serde_json::to_string_pretty(&artifact).expect("serialize hmi operator write artifact"),
     )
-    .expect("write trust-twin p3 artifact");
+    .expect("write hmi operator write artifact");
 
     fs::remove_dir_all(root).ok();
 }

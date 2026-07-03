@@ -28,6 +28,9 @@ import { parseControlEndpoint } from "./runtimeControl";
 
 const LAUNCH_WARN_DELAY_MS = 1500;
 const HOT_RELOAD_REQUEST_TIMEOUT_MS = 30000;
+const IO_BUSY_RETRY_DELAYS_MS = [75, 150, 250, 400, 600];
+const DEBUG_STOP_WAIT_TIMEOUT_MS = 8000;
+const DEBUG_STOP_UI_SETTLE_MS = 1000;
 const TEST_CONTROL_ENDPOINT_OVERRIDE_ENV = "TRUST_UX_DEBUG_CONTROL_ENDPOINT";
 const TEST_CONTROL_AUTH_TOKEN_ENV = "TRUST_UX_DEBUG_CONTROL_AUTH_TOKEN";
 
@@ -174,6 +177,7 @@ type LaunchFallbackState = {
 };
 
 const launchFallbackState = new Map<string, LaunchFallbackState>();
+const structuredTextSessions = new Map<string, vscode.DebugSession>();
 
 type IoCommandArgs = {
   address?: string;
@@ -191,12 +195,51 @@ type ExpressionCommandArgs = {
   value?: string;
 };
 
+function structuredTextSessionKey(session: vscode.DebugSession): string {
+  return session.id ?? session.name;
+}
+
 function structuredTextSession(): vscode.DebugSession | undefined {
   const active = vscode.debug.activeDebugSession;
   if (active && active.type === DEBUG_TYPE) {
     return active;
   }
+  for (const session of structuredTextSessions.values()) {
+    return session;
+  }
   return undefined;
+}
+
+function sameDebugSession(
+  left: vscode.DebugSession | undefined,
+  right: vscode.DebugSession
+): boolean {
+  if (!left) {
+    return false;
+  }
+  if (left.id && right.id) {
+    return left.id === right.id;
+  }
+  return left.name === right.name && left.type === right.type;
+}
+
+async function waitForStructuredTextSessionTerminated(
+  session: vscode.DebugSession,
+  timeoutMs = DEBUG_STOP_WAIT_TIMEOUT_MS
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    const finish = (ok: boolean) => {
+      clearTimeout(timer);
+      disposable.dispose();
+      resolve(ok);
+    };
+    const timer = setTimeout(() => finish(false), timeoutMs);
+    const disposable = vscode.debug.onDidTerminateDebugSession((terminated) => {
+      if (sameDebugSession(terminated, session)) {
+        finish(true);
+      }
+    });
+  });
 }
 
 function normalizeIoCommandArgs(args: unknown[]): IoCommandArgs {
@@ -257,21 +300,51 @@ async function sendIoDebugRequest(
 ): Promise<void> {
   switch (action) {
     case "write":
-      await session.customRequest("stIoWrite", {
+      await sendIoCustomRequest(session, "stIoWrite", {
         address,
         value: value ?? "FALSE",
       });
       return;
     case "force":
-      await session.customRequest("stIoForce", {
+      await sendIoCustomRequest(session, "stIoForce", {
         address,
         value: value ?? "FALSE",
       });
       return;
     case "release":
-      await session.customRequest("stIoRelease", { address });
+      await sendIoCustomRequest(session, "stIoRelease", { address });
       return;
   }
+}
+
+async function sendIoCustomRequest(
+  session: IoDebugRequestSession,
+  command: string,
+  args: Record<string, unknown>
+): Promise<void> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= IO_BUSY_RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      await session.customRequest(command, args);
+      return;
+    } catch (error) {
+      lastError = error;
+      if (!isRuntimeBusyError(error) || attempt >= IO_BUSY_RETRY_DELAYS_MS.length) {
+        throw error;
+      }
+      await sleep(IO_BUSY_RETRY_DELAYS_MS[attempt]);
+    }
+  }
+  throw lastError;
+}
+
+function isRuntimeBusyError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /\bruntime busy\b/i.test(message);
+}
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function resolveAdapterCommand(
@@ -574,7 +647,10 @@ export function registerDebugAdapter(
       debugChannel().appendLine(
         `Debug session started: ${session.name} type=${session.type} config=${stringifySession(session)}`
       );
-      markSessionProgram(session);
+      if (session.type === DEBUG_TYPE) {
+        structuredTextSessions.set(structuredTextSessionKey(session), session);
+        markSessionProgram(session);
+      }
     })
   );
 
@@ -589,6 +665,7 @@ export function registerDebugAdapter(
         if (current?.fallbackTimer) {
           clearTimeout(current.fallbackTimer);
         }
+        structuredTextSessions.delete(structuredTextSessionKey(session));
         launchFallbackState.delete(sessionId);
         clearSessionProgram(session);
       }
@@ -746,7 +823,21 @@ export function registerDebugAdapter(
       if (!session) {
         return false;
       }
-      return vscode.debug.stopDebugging(session);
+      const terminated = waitForStructuredTextSessionTerminated(session);
+      try {
+        await vscode.debug.stopDebugging(session);
+      } catch (err) {
+        if (await terminated) {
+          await sleep(DEBUG_STOP_UI_SETTLE_MS);
+          return true;
+        }
+        throw err;
+      }
+      const stopped = await terminated;
+      if (stopped) {
+        await sleep(DEBUG_STOP_UI_SETTLE_MS);
+      }
+      return stopped;
     })
   );
 

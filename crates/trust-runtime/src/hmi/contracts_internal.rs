@@ -279,13 +279,10 @@ struct HmiPageConfig {
     kind: String,
     duration_ms: Option<u64>,
     svg: Option<String>,
-    view: Option<String>,
-    scene_view: Option<HmiSceneViewPayload>,
     hidden: bool,
     signals: Vec<String>,
     sections: Vec<HmiSectionConfig>,
     bindings: Vec<HmiProcessBindingSchema>,
-    bindings3d: Vec<HmiSceneBindingSchema>,
 }
 
 #[derive(Debug, Clone)]

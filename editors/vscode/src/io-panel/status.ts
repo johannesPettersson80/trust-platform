@@ -230,13 +230,6 @@ export async function runtimeStatusPayload(
     endpointReachable = await probeEndpointReachable(endpoint);
     if (endpointReachable) {
       const report = await fetchRuntimeStatusReport(endpoint, authToken);
-      const state =
-        typeof report?.state === "string" ? report.state.toLowerCase() : "";
-      if (state === "running") {
-        runtimeState = "running";
-      } else if (state === "stopped" || state === "ready") {
-        runtimeState = "stopped";
-      }
       access = normalizeRuntimeAccess(report?.access);
       ads = await fetchAdsStatusSummary(endpoint, authToken);
     }

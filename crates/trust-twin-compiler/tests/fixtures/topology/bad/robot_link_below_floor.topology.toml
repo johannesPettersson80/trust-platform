@@ -1,5 +1,0 @@
-[[components]]
-id = "ROBOT-1"
-kind = "robot_arm"
-at = { grid = "A1" }
-params = { min_y = -0.1 }

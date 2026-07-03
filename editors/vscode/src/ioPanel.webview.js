@@ -457,21 +457,49 @@ function applyRuntimeStatus(payload) {
   if (runtimeStatusText) {
     const isRunning = runtimeState === "running" || runtimeState === "connected";
     const label =
-      runtimeState === "connected" ? "Connected" : isRunning ? "Running" : "Stopped";
-    const adsText =
-      payload.ads && payload.ads.text ? String(payload.ads.text) : "";
-    runtimeStatusText.textContent = adsText ? `${label} · ${adsText}` : label;
+      runtimeState === "connected"
+        ? "Connected"
+        : runtimeState === "running"
+          ? "Running"
+          : payload.runtimeMode === "online"
+            ? "Not connected"
+            : "Stopped";
+    runtimeStatusText.textContent = label;
     runtimeStatusText.classList.toggle("running", isRunning);
     runtimeStatusText.classList.toggle("connected", runtimeState === "connected");
     runtimeStatusText.classList.toggle("disconnected", !isRunning);
-    runtimeStatusText.title = [payload.endpoint || "", adsText]
-      .filter(Boolean)
-      .join(" · ");
+    runtimeStatusText.title = payload.endpoint || label;
   }
   if (targetLabel) {
     const label = targetLabelForStatus(payload);
     targetLabel.textContent = label;
     targetLabel.title = payload.endpoint || label;
+  }
+}
+
+function clearUnavailableRuntimeStatus(message) {
+  if (/Start the runtime to see live values/i.test(message)) {
+    applyRuntimeStatus({
+      running: false,
+      runtimeMode: "simulate",
+      runtimeState: "stopped",
+      endpoint: "",
+      endpointConfigured: false,
+      endpointEnabled: true,
+      endpointReachable: false
+    });
+    return;
+  }
+  if (/Connect to the selected runtime to see live values/i.test(message)) {
+    applyRuntimeStatus({
+      running: false,
+      runtimeMode: "online",
+      runtimeState: "stopped",
+      endpoint: "",
+      endpointConfigured: false,
+      endpointEnabled: true,
+      endpointReachable: false
+    });
   }
 }
 
@@ -1086,6 +1114,7 @@ window.addEventListener("message", (event) => {
   }
   if (message.type === "status") {
     const payload = String(message.payload || "");
+    clearUnavailableRuntimeStatus(payload);
     if (
       forceRequiresArming() &&
       forceArmed &&

@@ -22,13 +22,10 @@ fn resolve_pages(
                             icon: page.icon.clone(),
                             duration_ms: page.duration_ms,
                             svg: page.svg.clone(),
-                            view: page.view.clone(),
-                            scene_view: page.scene_view.clone(),
                             hidden: page.hidden,
                             signals: page.signals.clone(),
                             sections: Vec::new(),
                             bindings: page.bindings.clone(),
-                            bindings3d: page.bindings3d.clone(),
                         },
                     )
                 })
@@ -47,13 +44,10 @@ fn resolve_pages(
                 icon: None,
                 duration_ms: None,
                 svg: None,
-                view: None,
-                scene_view: None,
                 hidden: false,
                 signals: Vec::new(),
                 sections: Vec::new(),
                 bindings: Vec::new(),
-                bindings3d: Vec::new(),
             },
         );
     }
@@ -68,13 +62,10 @@ fn resolve_pages(
                 icon: None,
                 duration_ms: Some(10 * 60 * 1_000),
                 svg: None,
-                view: None,
-                scene_view: None,
                 hidden: false,
                 signals: Vec::new(),
                 sections: Vec::new(),
                 bindings: Vec::new(),
-                bindings3d: Vec::new(),
             },
         );
     }
@@ -89,13 +80,10 @@ fn resolve_pages(
                 icon: None,
                 duration_ms: None,
                 svg: None,
-                view: None,
-                scene_view: None,
                 hidden: false,
                 signals: Vec::new(),
                 sections: Vec::new(),
                 bindings: Vec::new(),
-                bindings3d: Vec::new(),
             },
         );
     }
@@ -113,13 +101,10 @@ fn resolve_pages(
                     icon: None,
                     duration_ms: None,
                     svg: None,
-                    view: None,
-                    scene_view: None,
                     hidden: false,
                     signals: Vec::new(),
                     sections: Vec::new(),
                     bindings: Vec::new(),
-                    bindings3d: Vec::new(),
                 },
             );
         }
@@ -209,7 +194,6 @@ fn normalize_page_kind(value: Option<&str>) -> &'static str {
         "alarm" => "alarm",
         "table" => "table",
         "process" => "process",
-        "scene3d" => "scene3d",
         _ => "dashboard",
     }
 }
