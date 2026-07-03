@@ -972,7 +972,10 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
         web.includes("Simulator (this computer)") &&
         web.includes('runtimeState === "connected"') &&
         web.includes("Connected runtime") &&
-        web.includes("Runtime at "),
+        web.includes("Runtime at ") &&
+        web.includes("Local runtime (control socket)") &&
+        web.includes('"local control socket"') &&
+        !web.includes('"local socket "'),
       "the webview must label simulator and attached runtime targets in user-facing words"
     );
     assert.ok(

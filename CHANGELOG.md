@@ -252,6 +252,9 @@ Target release: `v0.24.27`
 - trust-runtime/vscode: Live Values rows now carry runtime-owned source
   provenance when available, so mapped Modbus/MQTT rows show the driver
   endpoint or topic directly in the panel instead of relying on ST comments.
+- vscode: Live Values now labels local control-socket targets as
+  `Local runtime (control socket)` while keeping the full socket path in the
+  tooltip, so temporary socket filenames no longer leak into the panel header.
 - vscode: Live Values now clears stale connected/value rows as soon as a
   Structured Text debug session stops or disconnects, keeps remote
   disconnected targets labelled `Not connected` instead of fabricating

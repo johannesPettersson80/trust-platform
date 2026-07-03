@@ -420,9 +420,7 @@ function shortEndpointLabel(endpoint) {
     }
   }
   if (text.startsWith("unix://")) {
-    const path = text.slice("unix://".length);
-    const base = path.split(/[\\/]/).filter(Boolean).pop();
-    return base ? "local socket " + base : "local socket";
+    return "local control socket";
   }
   return text;
 }
@@ -436,12 +434,18 @@ function targetLabelForStatus(payload) {
   const runtimeState = payload && payload.runtimeState ? payload.runtimeState : "";
   if (runtimeState === "connected") {
     const endpoint = shortEndpointLabel(payload && payload.endpoint);
+    if (endpoint === "local control socket") {
+      return "Local runtime (control socket)";
+    }
     return endpoint ? "Runtime at " + endpoint : "Connected runtime";
   }
   if (mode === "simulate") {
     return "Simulator (this computer)";
   }
   const endpoint = shortEndpointLabel(payload && payload.endpoint);
+  if (endpoint === "local control socket") {
+    return "Local runtime (control socket)";
+  }
   return endpoint ? "Runtime at " + endpoint : "Runtime endpoint";
 }
 
