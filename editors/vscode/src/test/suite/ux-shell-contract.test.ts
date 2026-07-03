@@ -2653,6 +2653,17 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
         !src.includes("renderProcessPage(page, visible)"),
       "HMI process bindings must resolve against all schema widgets, not only widgets visible on the process page"
     );
+    assert.ok(
+      src.includes("function applyProcessSvgTheme") &&
+        src.includes("trust-process-svg") &&
+        src.includes("svg.trust-process-svg > rect:first-of-type") &&
+        src.includes("svg.trust-process-svg .pid-title") &&
+        src.includes("svg.trust-process-svg .pid-value") &&
+        src.includes("var(--trust-surface-raised)") &&
+        src.includes("var(--trust-text)") &&
+        src.includes("var(--trust-accent)"),
+      "HMI process SVG embedding must normalize generated process SVGs to shared theme roles"
+    );
 
     for (const legacyPattern of [
       "border: 1px solid var(--vscode-panel-border",

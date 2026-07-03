@@ -243,6 +243,9 @@ Target release: `v0.24.28`
 
 ### Fixed
 
+- vscode: HMI Process SVG previews now inherit the shared truST theme roles,
+  so generated process diagrams no longer render as a white slab inside the
+  dark VS Code theme while remaining readable in Light Modern.
 - vscode/trust-debug: starter projects and bundled examples now include a
   native `truST Simulator` launch configuration, and Structured Text debug
   stack frames display workspace-relative source names while keeping absolute

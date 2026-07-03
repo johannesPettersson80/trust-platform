@@ -714,6 +714,57 @@ export function getHtml(webview: vscode.Webview): string {
       return (pattern + " " + formatProcessRawValue(value, dataType)).trim();
     }
 
+    function applyProcessSvgTheme(svgRoot) {
+      svgRoot.classList.add("trust-process-svg");
+      const doc = svgRoot.ownerDocument;
+      let defs = svgRoot.querySelector("defs");
+      if (!defs) {
+        defs = doc.createElementNS("http://www.w3.org/2000/svg", "defs");
+        svgRoot.insertBefore(defs, svgRoot.firstChild);
+      }
+      const style = doc.createElementNS("http://www.w3.org/2000/svg", "style");
+      style.textContent = \`
+        svg.trust-process-svg {
+          background: var(--trust-surface-raised);
+          color: var(--trust-text);
+        }
+        svg.trust-process-svg > rect:first-of-type {
+          fill: var(--trust-surface-raised);
+        }
+        svg.trust-process-svg > rect:nth-of-type(2) {
+          fill: var(--trust-surface);
+          stroke: var(--trust-border);
+        }
+        svg.trust-process-svg .pid-title {
+          fill: var(--trust-text);
+        }
+        svg.trust-process-svg .pid-label {
+          fill: var(--trust-text-muted);
+        }
+        svg.trust-process-svg .pid-value {
+          fill: var(--trust-accent);
+        }
+        svg.trust-process-svg .pid-shell {
+          fill: color-mix(in srgb, var(--trust-surface-raised) 88%, var(--trust-accent) 12%);
+          stroke: var(--trust-border);
+        }
+        svg.trust-process-svg .pid-line {
+          stroke: var(--trust-border);
+        }
+        svg.trust-process-svg .pid-symbol {
+          stroke: var(--trust-text-muted);
+        }
+        svg.trust-process-svg .pid-solid,
+        svg.trust-process-svg .pid-flow-arrow {
+          fill: var(--trust-text-muted);
+        }
+        svg.trust-process-svg #pid-pump-indicator {
+          stroke: var(--trust-surface);
+        }
+      \`;
+      defs.appendChild(style);
+    }
+
     function renderProcessPage(page, widgets) {
       const panel = document.createElement("section");
       panel.className = "process-panel";
@@ -752,6 +803,7 @@ export function getHtml(webview: vscode.Webview): string {
           node.remove();
         }
       }
+      applyProcessSvgTheme(svgRoot);
 
       const byPath = new Map(widgets.map((widget) => [widget.path, widget]));
       const bindings = Array.isArray(page?.bindings) ? page.bindings : [];
