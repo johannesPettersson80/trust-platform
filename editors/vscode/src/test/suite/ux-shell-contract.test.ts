@@ -1941,6 +1941,23 @@ suite("Phase 7 — Devices & Connections (shared run-target + naming)", () => {
     }
   });
 
+  test("endpoint edit pane uses task-name breadcrumbs instead of role badges", () => {
+    const src = readSrc("networkCanvas/webview/NodeInspector.tsx");
+    assert.ok(
+      src.includes("function editBreadcrumb(protocol: string)") &&
+        src.includes("return `Edit ${protocolName(protocol)}`;"),
+      "endpoint edit panes must build a user-facing Edit <protocol> breadcrumb"
+    );
+    assert.ok(
+      src.includes("Devices & Connections / {editBreadcrumb(protocol)}"),
+      "endpoint edit breadcrumb must use the task name helper"
+    );
+    assert.ok(
+      !src.includes("{roleWord(protocol, str(node.data.role))} edit"),
+      "endpoint edit breadcrumb must not render role-badge copy such as CLIENT edit"
+    );
+  });
+
   test("refresh does not post through a disposed canvas panel", () => {
     const src = panel();
     assert.ok(

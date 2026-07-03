@@ -452,6 +452,10 @@ function roleCap(protocol: string, role: string): string {
   return w.charAt(0) + w.slice(1).toLowerCase();
 }
 
+function editBreadcrumb(protocol: string): string {
+  return `Edit ${protocolName(protocol)}`;
+}
+
 const PANEL_STYLE: React.CSSProperties = {
   position: "absolute",
   top: 0,
@@ -856,7 +860,7 @@ function EditableEndpoint({
         <button onClick={onBack} aria-label="Back" title="Back to summary" style={iconBtn}>‹</button>
         <span style={{ flex: "none", width: 10, height: 10, borderRadius: 3, background: protocolColor(protocol) }} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="trust-inspector__eyebrow">Devices & Connections / {roleWord(protocol, str(node.data.role))} edit</div>
+          <div className="trust-inspector__eyebrow">Devices & Connections / {editBreadcrumb(protocol)}</div>
           <div className="trust-inspector__title">{protocolName(protocol)}</div>
         </div>
         {health && (

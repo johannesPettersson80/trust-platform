@@ -202,6 +202,8 @@ Target release: `v0.24.28`
 - vscode: aligned Devices & Connections runtime setup panes with the shared
   inspector breadcrumb so `Set up runtime` and `Connect existing runtime` read
   as part of the same right-pane shell.
+- vscode: changed Devices & Connections endpoint edit breadcrumbs from role
+  badge wording such as `CLIENT edit` to task wording such as `Edit Modbus TCP`.
 - vscode/runtime: removed the unfinished 3D twin prototype, typed LM tool,
   packaged WASM/assets, scene-page HMI contract, and related activation/build
   and test wiring from the shipped product surface so the PLC IDE focuses on the
