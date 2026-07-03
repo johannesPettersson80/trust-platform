@@ -2894,6 +2894,20 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     }
   });
 
+  test("Blockly status counts visible blocks, not serialized top-level stacks", () => {
+    const src = readSrc("blockly/webview/BlocklyEditor.tsx");
+    assert.ok(
+      src.includes("blockCount") &&
+        src.includes("refreshBlockCount") &&
+        src.includes("getAllBlocks(false).length"),
+      "Blockly status must use the live Blockly workspace block count"
+    );
+    assert.ok(
+      !src.includes("workspace?.blocks?.blocks?.length"),
+      "Blockly status must not count only serialized top-level stacks"
+    );
+  });
+
   test("Devices & Connections add pane uses the shared product chrome baseline", () => {
     const src = readSrc("networkCanvas/webview/AddPane.tsx");
     for (const required of [

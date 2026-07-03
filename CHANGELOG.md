@@ -251,6 +251,8 @@ Target release: `v0.24.28`
   single Title-Case `State` row, hiding backend `mode`/`status`/`detail`
   duplicates unless `Mode` adds real target context such as Simulator or
   Managed.
+- vscode: Blockly editor status now counts all visible Blockly blocks from the
+  live workspace instead of reporting only serialized top-level stacks.
 - trust-debug/trust-runtime: debug Variables and Watch/Evaluate output now show
   function block/program instance type names instead of leaking raw
   `Instance(id)` runtime handles.

@@ -30,6 +30,7 @@ export const BlocklyEditor: React.FC = () => {
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [showCode, setShowCode] = useState(false);
   const [showProperties, setShowProperties] = useState(false);
+  const [blockCount, setBlockCount] = useState(0);
   const {
     rightPaneStyle,
     resizeHandleClassName,
@@ -58,6 +59,10 @@ export const BlocklyEditor: React.FC = () => {
       background.style.fill = canvas;
       background.setAttribute("fill", canvas);
     });
+  }, []);
+
+  const refreshBlockCount = useCallback(() => {
+    setBlockCount(blocklyWorkspaceRef.current?.getAllBlocks(false).length ?? 0);
   }, []);
 
   // Initialize Blockly workspace
@@ -125,6 +130,7 @@ export const BlocklyEditor: React.FC = () => {
           variables: json.variables || [],
           metadata: workspace?.metadata || { name: "Untitled", description: "" },
         });
+        refreshBlockCount();
       }
     });
 
@@ -137,7 +143,7 @@ export const BlocklyEditor: React.FC = () => {
       (window as any).blocklyWorkspace = null;
       console.log("Blockly workspace cleanup");
     };
-  }, [applyBlocklyTheme]);
+  }, [applyBlocklyTheme, refreshBlockCount]);
 
   // Update workspace when data changes
   useEffect(() => {
@@ -165,12 +171,13 @@ export const BlocklyEditor: React.FC = () => {
         "Total blocks in workspace:",
         blocklyWorkspaceRef.current.getAllBlocks(false).length
       );
+      refreshBlockCount();
     } catch (error) {
       Blockly.Events.enable();
       console.error("❌ Failed to load workspace:", error);
       console.error("Workspace data:", workspace);
     }
-  }, [workspace]);
+  }, [workspace, refreshBlockCount]);
 
   const handleGenerateCode = () => {
     generateCode();
@@ -192,6 +199,7 @@ export const BlocklyEditor: React.FC = () => {
       })),
       metadata: workspace?.metadata || { name: "BlocklyProgram" },
     });
+    refreshBlockCount();
   };
 
   const getToolboxXML = () => {
@@ -382,7 +390,7 @@ export const BlocklyEditor: React.FC = () => {
 
       <div className="blockly-status-bar trust-visual-status">
         <span>
-          Blocks: {workspace?.blocks?.blocks?.length || 0} | Variables:{" "}
+          Blocks: {blockCount} | Variables:{" "}
           {workspace?.variables?.length || 0}
         </span>
         {errors.length > 0 && (
