@@ -224,6 +224,7 @@ async function refreshNetworkCanvasPanel(): Promise<void> {
   activeSchema = undefined;
   runtimeSetupMessage = undefined;
   lastTopology = undefined;
+  let offlineTopology: FleetTopologyResponse | undefined;
   const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 
   // Offline-first: the protocol schema and the configured topology come from the trust-runtime
@@ -232,7 +233,8 @@ async function refreshNetworkCanvasPanel(): Promise<void> {
   if (extensionContext) {
     activeSchema = await offlineCommSchema(extensionContext);
     if (projectDir) {
-      lastTopology = await offlineCommTopology(extensionContext, projectDir);
+      offlineTopology = await offlineCommTopology(extensionContext, projectDir);
+      lastTopology = offlineTopology;
     }
   }
 
@@ -264,7 +266,12 @@ async function refreshNetworkCanvasPanel(): Promise<void> {
       // The local primary's own live topology (real status). Peers are resolved separately below.
       const liveTopology = await fetchFleetTopology(runtime);
       if (liveTopology) {
-        lastTopology = liveTopology;
+        // Keep the project-file topology as a stopped/configured overlay when the selected
+        // runtime comes online. Replacing it with the live report made sibling runtimes vanish
+        // during managed Start, so the canvas appeared to morph instead of showing state changes.
+        lastTopology = offlineTopology
+          ? mergeFleetTopologies([liveTopology, offlineTopology])
+          : liveTopology;
       }
     } catch (error) {
       topologyError =

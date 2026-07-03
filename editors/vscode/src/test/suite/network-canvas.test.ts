@@ -1036,6 +1036,119 @@ suite("Network Canvas", function () {
     assert.ok(controls.some((c) => c.action === "openRuntimeLogs"), "owned node offers Logs");
   });
 
+  test("live managed topology preserves the stopped project runtime instead of morphing the canvas", () => {
+    const liveTopology: FleetTopologyResponse = {
+      schema_version: 3,
+      hosts: [
+        {
+          host_id: "host:this-computer",
+          hostname: "This computer",
+          arch: "aarch64",
+          os: "linux",
+          ips: ["127.0.0.1"],
+          containers: [],
+          runtimes: [
+            {
+              runtime_id: "runtime:cell1",
+              name: "cell1",
+              control_endpoint: "tcp://127.0.0.1:9902",
+              mode: "online",
+              cycle_ms: 10,
+              health: "connected",
+              detail: "Running (managed local runtime).",
+              endpoints: [
+                {
+                  id: "endpoint:cell1:simulated",
+                  kind: "field",
+                  protocol: "simulated",
+                  name: "Simulated",
+                  role: "owned_driver",
+                  health: "connected",
+                  detail: "Driver is healthy.",
+                  owned: true,
+                  supports_test: true,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      links: [],
+      shared: [],
+      external: [],
+    };
+    const offlineProjectTopology: FleetTopologyResponse = {
+      schema_version: 3,
+      hosts: [
+        {
+          host_id: "host:this-computer",
+          hostname: "This computer",
+          arch: "aarch64",
+          os: "linux",
+          ips: ["127.0.0.1"],
+          containers: [],
+          runtimes: [
+            {
+              runtime_id: "runtime:project",
+              name: "truST runtime",
+              mode: "simulate",
+              cycle_ms: 10,
+              health: "configured_policy",
+              detail: "Stopped - configured in this project.",
+              endpoints: [
+                {
+                  id: "endpoint:project:simulated",
+                  kind: "field",
+                  protocol: "simulated",
+                  name: "Simulated",
+                  role: "owned_driver",
+                  health: "configured_policy",
+                  detail: "Configured in io.toml.",
+                  owned: true,
+                  supports_test: true,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      links: [],
+      shared: [],
+      external: [],
+    };
+
+    const merged = mergeFleetTopologies([liveTopology, offlineProjectTopology]);
+    const graph = buildCanvasGraph(
+      buildNetworkCanvasModel({
+        stage: "runtime_live",
+        runtime: RUNNING,
+        topology: merged,
+      }),
+      merged,
+      undefined,
+      undefined,
+      [{ name: "cell1", controlEndpoint: "tcp://127.0.0.1:9902", state: "running" }]
+    );
+
+    assert.strictEqual(graph.hosts.length, 1, "same computer stays one host");
+    assert.strictEqual(graph.summary, "1 host · 2 runtimes · 2 endpoints");
+    const runtimes = graph.hosts[0].runtimes;
+    assert.deepStrictEqual(
+      runtimes.map((runtime) => runtime.name).sort(),
+      ["cell1", "truST runtime"],
+      "managed Start must not delete the project runtime the user just saw"
+    );
+    const cell1 = runtimes.find((runtime) => runtime.name === "cell1");
+    const projectRuntime = runtimes.find((runtime) => runtime.name === "truST runtime");
+    assert.strictEqual(cell1?.managed, true, "managed runtime keeps owned lifecycle controls");
+    assert.strictEqual(cell1?.health, "connected", "started managed runtime is honestly running");
+    assert.strictEqual(
+      projectRuntime?.health,
+      "stopped",
+      "project runtime remains visible with an honest stopped state"
+    );
+  });
+
   test("a runtime start failure renders an error node + retry banner, not a failure screen", () => {
     const graph = buildCanvasGraph(
       buildNetworkCanvasModel({

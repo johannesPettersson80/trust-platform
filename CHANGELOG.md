@@ -243,6 +243,9 @@ Target release: `v0.24.28`
 
 ### Fixed
 
+- vscode: Devices & Connections now preserves the stopped project runtime when
+  a managed local runtime starts, so the topology updates state in place instead
+  of silently removing a runtime node the user just saw.
 - vscode: HMI Process SVG previews now inherit the shared truST theme roles,
   so generated process diagrams no longer render as a white slab inside the
   dark VS Code theme while remaining readable in Light Modern.
