@@ -14,6 +14,18 @@ fn hmi_dashboard_routes_render_without_manual_layout() {
     assert!(hmi_html.contains("truST HMI"));
     assert!(hmi_html.contains("id=\"hmiGroups\""));
     assert!(hmi_html.contains("id=\"pageSidebar\""));
+    assert!(hmi_html.contains("class=\"pill status-chip\""));
+    assert!(hmi_html.contains("class=\"action-link hmi-action\""));
+    assert!(
+        hmi_html
+            .find("id=\"themeLabel\"")
+            .is_some_and(|theme_index| {
+                hmi_html
+                    .find("class=\"actions\"")
+                    .is_some_and(|actions_index| actions_index < theme_index)
+            }),
+        "theme toggle must be rendered with actions, not passive status chips"
+    );
 
     let hmi_js = load_hmi_runtime_script_bundle(&base);
     assert!(hmi_js.contains("hmi.schema.get"));
@@ -58,6 +70,10 @@ fn hmi_dashboard_routes_render_without_manual_layout() {
     assert!(hmi_css.contains("prefers-color-scheme: dark"));
     assert!(hmi_css.contains("@media (max-width: 680px)"));
     assert!(hmi_css.contains("@media (max-width: 1024px)"));
+    assert!(hmi_css.contains(".status-chip"));
+    assert!(hmi_css.contains("cursor: default"));
+    assert!(hmi_css.contains(".action-link:focus-visible"));
+    assert!(hmi_css.contains("box-shadow: var(--shadow-sm)"));
 
     let schema = post_control(&base, "hmi.schema.get", None);
     assert_eq!(schema.get("ok").and_then(|v| v.as_bool()), Some(true));

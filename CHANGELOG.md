@@ -249,6 +249,9 @@ Target release: `v0.24.28`
 - trust-runtime: Browser HMI cards now suppress standalone unit rows for
   widgets whose renderer already shows the unit inline, avoiding duplicate
   `%`/`bar` lines under setpoint and readback values.
+- trust-runtime: Browser HMI now separates passive header status chips from
+  clickable header actions, including moving the theme toggle into the action
+  group and giving actions visible button affordance.
 - vscode/trust-debug: starter projects and bundled examples now include a
   native `truST Simulator` launch configuration, and Structured Text debug
   stack frames display workspace-relative source names while keeping absolute

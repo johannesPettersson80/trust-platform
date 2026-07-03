@@ -20,19 +20,19 @@
         <span class="alarm-banner-dot" id="alarmBannerDot"></span>
         <span class="alarm-banner-text" id="alarmBannerText">No alarms</span>
       </div>
-      <div class="pill" id="connectionState">Disconnected</div>
-      <div class="pill" id="freshnessState">freshness: n/a</div>
-      <div class="pill mode" id="modeLabel">read-only</div>
-      <div class="pill mode" id="themeLabel">Dark mode</div>
-      <div class="pill hidden" id="diagnosticState">diag: n/a</div>
+      <div class="pill status-chip" id="connectionState">Disconnected</div>
+      <div class="pill status-chip" id="freshnessState">freshness: n/a</div>
+      <div class="pill status-chip mode" id="modeLabel">read-only</div>
+      <div class="pill status-chip hidden" id="diagnosticState">diag: n/a</div>
     </div>
     <div class="actions">
-      <button id="backButton" class="action-link hidden" type="button">Back</button>
-      <button id="modeToggle" class="action-link" type="button">Engineering Mode</button>
-      <button id="layoutToggle" class="action-link hidden" type="button">Edit Layout</button>
-      <button id="addSignalButton" class="action-link hidden" type="button">Add Signal</button>
-      <button id="resetLayoutButton" class="action-link hidden" type="button">Reset Defaults</button>
-      <a id="exportLink" class="action-link" href="/hmi/export.json" download>Export Standalone</a>
+      <button id="backButton" class="action-link hmi-action hidden" type="button">Back</button>
+      <button id="themeLabel" class="action-link hmi-action" type="button">Dark mode</button>
+      <button id="modeToggle" class="action-link hmi-action" type="button">Engineering Mode</button>
+      <button id="layoutToggle" class="action-link hmi-action hidden" type="button">Edit Layout</button>
+      <button id="addSignalButton" class="action-link hmi-action hidden" type="button">Add Signal</button>
+      <button id="resetLayoutButton" class="action-link hmi-action hidden" type="button">Reset Defaults</button>
+      <a id="exportLink" class="action-link hmi-action" href="/hmi/export.json" download>Export Standalone</a>
     </div>
   </header>
 

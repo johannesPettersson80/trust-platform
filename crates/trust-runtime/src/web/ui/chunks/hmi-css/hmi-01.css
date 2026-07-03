@@ -102,6 +102,12 @@ body {
   background: var(--surface-soft);
 }
 
+.status-chip {
+  border-radius: 4px;
+  cursor: default;
+  user-select: none;
+}
+
 .pill.mode {
   color: color-mix(in srgb, var(--accent) 74%, var(--text) 26%);
   background: var(--accent-soft);
@@ -165,11 +171,13 @@ body {
 .action-link {
   appearance: none;
   text-decoration: none;
-  border: 1px solid var(--border);
-  color: color-mix(in srgb, var(--text) 76%, var(--accent) 24%);
-  background: var(--surface);
-  border-radius: 6px;
-  padding: 0.24rem 0.62rem;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, var(--text) 30%);
+  color: color-mix(in srgb, var(--text) 82%, var(--accent) 18%);
+  background: linear-gradient(180deg, var(--surface), color-mix(in srgb, var(--surface-soft) 72%, var(--surface) 28%));
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  min-height: 1.7rem;
+  padding: 0.28rem 0.66rem;
   font-size: 0.64rem;
   font-weight: 600;
   letter-spacing: 0.035em;
@@ -179,9 +187,14 @@ body {
 }
 
 .action-link:hover {
-  border-color: color-mix(in srgb, var(--accent) 30%, var(--border) 70%);
+  border-color: color-mix(in srgb, var(--accent) 48%, var(--border) 52%);
   color: color-mix(in srgb, var(--text) 62%, var(--accent) 38%);
   background: var(--accent-soft);
+}
+
+.action-link:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 78%, transparent);
+  outline-offset: 2px;
 }
 
 .hmi-shell {
