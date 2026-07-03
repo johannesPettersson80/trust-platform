@@ -19,6 +19,15 @@ function buildRustPackage(repoRoot: string, packageName: string): void {
   });
 }
 
+function cargoTargetDir(repoRoot: string): string {
+  const configured = process.env.CARGO_TARGET_DIR?.trim();
+  return configured ? path.resolve(repoRoot, configured) : path.join(repoRoot, "target");
+}
+
+function cargoDebugBinary(repoRoot: string, binaryName: string): string {
+  return path.join(cargoTargetDir(repoRoot), "debug", binaryName);
+}
+
 async function main(): Promise<void> {
   const extensionDevelopmentPath = path.resolve(__dirname, "../../");
   const extensionTestsPath = path.resolve(__dirname, "./suite/index");
@@ -35,18 +44,13 @@ async function main(): Promise<void> {
 
   const defaultServerName =
     process.platform === "win32" ? "trust-lsp.exe" : "trust-lsp";
-  const defaultServerPath = path.join(
-    repoRoot,
-    "target",
-    "debug",
-    defaultServerName
-  );
+  const defaultServerPath = cargoDebugBinary(repoRoot, defaultServerName);
   const configured = process.env.ST_LSP_TEST_SERVER?.trim();
   const serverPath =
     configured && fs.existsSync(configured) ? configured : defaultServerPath;
   const runtimeName =
     process.platform === "win32" ? "trust-runtime.exe" : "trust-runtime";
-  const runtimePath = path.join(repoRoot, "target", "debug", runtimeName);
+  const runtimePath = cargoDebugBinary(repoRoot, runtimeName);
 
   if (!configured) {
     buildRustPackage(repoRoot, "trust-lsp");

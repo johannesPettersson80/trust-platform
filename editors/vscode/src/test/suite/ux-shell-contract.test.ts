@@ -2371,6 +2371,35 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     }
   });
 
+  test("VS Code extension test runner honors CARGO_TARGET_DIR", () => {
+    const src = readSrc("test/runTest.ts");
+    assert.ok(
+      src.includes("function cargoTargetDir") &&
+        src.includes("process.env.CARGO_TARGET_DIR") &&
+        src.includes('path.join(cargoTargetDir(repoRoot), "debug", binaryName)'),
+      "runTest.ts must find built trust binaries in CARGO_TARGET_DIR for remote-builder gates"
+    );
+    assert.ok(
+      !src.includes('path.join(\n    repoRoot,\n    "target",\n    "debug"'),
+      "runTest.ts must not hardcode repoRoot/target/debug while remote gates use CARGO_TARGET_DIR"
+    );
+  });
+
+  test("development binary resolver honors CARGO_TARGET_DIR", () => {
+    const src = readSrc("binary.ts");
+    assert.ok(
+      src.includes("process.env.CARGO_TARGET_DIR") &&
+        src.includes("configuredDebugCandidate") &&
+        src.includes("configuredReleaseCandidate"),
+      "development/test binary lookup must resolve trust-lsp, trust-runtime, and trust-debug from CARGO_TARGET_DIR"
+    );
+    assert.ok(
+      src.indexOf("process.env.CARGO_TARGET_DIR") <
+        src.indexOf('path.join(\n    repoRoot,\n    "target",\n    "debug"'),
+      "CARGO_TARGET_DIR must be checked before falling back to repoRoot/target/debug"
+    );
+  });
+
   test("HMI preview uses shared truST product theme roles", () => {
     const src = readSrc("hmi-panel/view.ts");
     for (const token of [

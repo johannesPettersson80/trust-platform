@@ -247,6 +247,10 @@ Target release: `v0.24.28`
   High Contrast Light explicitly, so visual editors, Devices & Connections,
   and other product webviews no longer render as a dark/navy island under
   high-contrast captures.
+- vscode: the extension test runner and development binary resolver now honor
+  `CARGO_TARGET_DIR` when locating built `trust-lsp`, `trust-runtime`, and
+  `trust-debug` binaries, keeping isolated remote-builder gates aligned with
+  warmed target-cache builds.
 - vscode: Live Values now renders row Write/Force controls as quiet secondary
   actions, marks active forces with amber warning treatment instead of success
   green, and keeps forced rows readable by removing the stale editable value

@@ -90,6 +90,26 @@ function getDevelopmentBinaryPath(
 ): string | undefined {
   const suffix = process.platform === "win32" ? ".exe" : "";
   const repoRoot = path.resolve(context.extensionPath, "..", "..");
+  const configuredTargetDir = process.env.CARGO_TARGET_DIR?.trim();
+  if (configuredTargetDir) {
+    const cargoTargetDir = path.resolve(repoRoot, configuredTargetDir);
+    const configuredDebugCandidate = path.join(
+      cargoTargetDir,
+      "debug",
+      `${binaryName}${suffix}`
+    );
+    if (fs.existsSync(configuredDebugCandidate)) {
+      return configuredDebugCandidate;
+    }
+    const configuredReleaseCandidate = path.join(
+      cargoTargetDir,
+      "release",
+      `${binaryName}${suffix}`
+    );
+    if (fs.existsSync(configuredReleaseCandidate)) {
+      return configuredReleaseCandidate;
+    }
+  }
   const debugCandidate = path.join(
     repoRoot,
     "target",
