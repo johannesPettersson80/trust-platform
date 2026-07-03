@@ -240,14 +240,19 @@ body.operator-mode .widget-tag {
   display: none;
 }
 
-/* Unit shown inline next to value (hidden for gauges – the SVG already shows the unit) */
+/* Standalone unit row is only for renderers that do not already carry the unit. */
 .card-unit {
   font-size: 0.72rem;
   color: var(--muted);
   font-family: var(--font-data);
   margin-top: -0.18rem;
 }
-.card-widget-gauge .card-unit { display: none; }
+.card-widget-bar .card-unit,
+.card-widget-gauge .card-unit,
+.card-widget-module .card-unit,
+.card-widget-slider .card-unit,
+.card-widget-sparkline .card-unit,
+.card-widget-tank .card-unit { display: none; }
 
 .card[data-quality="bad"] {
   border-color: color-mix(in srgb, var(--bad) 36%, var(--border) 64%);

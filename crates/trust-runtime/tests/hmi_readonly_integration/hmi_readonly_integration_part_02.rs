@@ -93,6 +93,8 @@ fn hmi_standalone_export_bundle_contains_assets_routes_and_config() {
             && app_js.contains("createGaugeRenderer")
             && app_js.contains("kind === 'sparkline'")
             && app_js.contains("function widgetWritePolicy")
+            && app_js.contains("function widgetRendererCarriesUnit")
+            && app_js.contains("widget.unit && !widgetRendererCarriesUnit(widget)")
             && app_js.contains("This value can be watched but not changed from HMI."),
         "exported hmi bundle should include process-page and rich-widget renderers"
     );
@@ -103,6 +105,11 @@ fn hmi_standalone_export_bundle_contains_assets_routes_and_config() {
     assert!(
         styles.contains(".widget-policy-badge") && styles.contains(".card-policy-note"),
         "exported hmi styles should make read-only widget policy visible"
+    );
+    assert!(
+        styles.contains(".card-widget-slider .card-unit")
+            && styles.contains(".card-widget-tank .card-unit"),
+        "exported hmi styles should defensively hide duplicate unit rows for unit-carrying renderers"
     );
     assert!(payload
         .get("config")

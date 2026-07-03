@@ -117,6 +117,11 @@ function widgetWritePolicy(widget) {
   return { locked: false };
 }
 
+function widgetRendererCarriesUnit(widget) {
+  const kind = String(widget?.widget || '').toLowerCase();
+  return ['bar', 'gauge', 'module', 'slider', 'sparkline', 'tank'].includes(kind);
+}
+
 function createWidgetCard(widget) {
   const card = document.createElement('article');
   card.className = 'card';
@@ -201,7 +206,7 @@ function createWidgetCard(widget) {
 
   card.appendChild(head);
   card.appendChild(value);
-  if (widget.unit) {
+  if (widget.unit && !widgetRendererCarriesUnit(widget)) {
     const unitEl = document.createElement('div');
     unitEl.className = 'card-unit';
     unitEl.textContent = widget.unit;
