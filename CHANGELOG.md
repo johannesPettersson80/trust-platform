@@ -193,6 +193,9 @@ Target release: `v0.24.28`
 - vscode: normalized online-change wording across the sidebar command, command
   palette, language-model tool, toasts, and runtime feedback so the user-facing
   verb is consistently `Update` instead of mixing update and hot-reload terms.
+- vscode: clarified Examples Gallery badges and filters so hardware-required
+  starters use the shared warning role while category chips display readable
+  labels such as `ADS`, `Raspberry Pi`, and `EtherCAT`.
 - vscode/runtime: removed the unfinished 3D twin prototype, typed LM tool,
   packaged WASM/assets, scene-page HMI contract, and related activation/build
   and test wiring from the shipped product surface so the PLC IDE focuses on the

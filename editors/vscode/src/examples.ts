@@ -258,11 +258,17 @@ class ExamplesGalleryPanel {
       font-size: 10px;
       font-weight: 700;
       padding: 2px 7px;
+    }
+    .badge.hardware {
       text-transform: uppercase;
     }
     .badge.ok {
       border-color: color-mix(in srgb, var(--trust-ok) 55%, var(--trust-border));
       color: var(--trust-ok);
+    }
+    .badge.requires {
+      border-color: color-mix(in srgb, var(--trust-warn) 62%, var(--trust-border));
+      color: var(--trust-warn);
     }
     .actions {
       margin-top: auto;
@@ -327,9 +333,27 @@ class ExamplesGalleryPanel {
       return value;
     }
 
+    const TAG_LABELS = {
+      ads: "ADS",
+      ethercat: "EtherCAT",
+      gpio: "GPIO",
+      hmi: "HMI",
+      plcopen: "PLCopen",
+      raspberrypi: "Raspberry Pi",
+      twincat: "TwinCAT",
+    };
+
+    function titleCaseTag(value) {
+      return value
+        .split("-")
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" ");
+    }
+
     function tagFilterLabel(value) {
       if (value === "all") { return "All categories"; }
-      return value.replace(/-/g, " ");
+      return TAG_LABELS[value] || titleCaseTag(value);
     }
 
     function renderFilters() {
@@ -428,7 +452,7 @@ class ExamplesGalleryPanel {
         const badges = document.createElement("div");
         badges.className = "badges";
         const hw = document.createElement("span");
-        hw.className = "badge" + (example.hardware === "none" ? " ok" : "");
+        hw.className = "badge hardware " + (example.hardware === "none" ? "ok" : "requires");
         hw.textContent = example.hardwareLabel;
         badges.appendChild(hw);
         for (const tag of example.tags || []) {

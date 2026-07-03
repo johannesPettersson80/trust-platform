@@ -643,6 +643,24 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
     );
   });
 
+  test("example gallery separates hardware requirements from category labels", () => {
+    const source = readSrc("examples.ts");
+    assert.ok(
+      source.includes(".badge.requires") &&
+        source.includes("var(--trust-warn)") &&
+        source.includes('hw.className = "badge hardware "'),
+      "hardware-required examples must use the shared warning role instead of looking like neutral tags"
+    );
+    assert.ok(
+      source.includes("const TAG_LABELS") &&
+        source.includes('ads: "ADS"') &&
+        source.includes('raspberrypi: "Raspberry Pi"') &&
+        source.includes("titleCaseTag") &&
+        source.includes('.split("-")'),
+      "category chips must show user-facing labels while keeping stable filter ids"
+    );
+  });
+
   test("example copy keeps native prompts and exposes only an acceptance-runner prompt override", () => {
     const source = readSrc("examples.ts");
     assert.ok(source.includes("showOpenDialog"), "normal users must still choose the destination through native VS Code UI");
