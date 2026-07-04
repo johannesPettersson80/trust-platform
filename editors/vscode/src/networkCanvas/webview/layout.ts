@@ -202,6 +202,7 @@ export function buildGraph(
         attached: rt.attached,
         managed: rt.managed,
         managedName: rt.managedName,
+        runTarget: rt.runTarget,
       },
       style: { width: size.w, height: size.h },
       draggable: false,

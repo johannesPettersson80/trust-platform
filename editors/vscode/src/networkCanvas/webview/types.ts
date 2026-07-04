@@ -57,6 +57,9 @@ export interface NCRuntime {
   // gets Start/Stop/Logs via the fleet lifecycle (managedName), not Connect/Disconnect.
   managed?: boolean;
   managedName?: string;
+  // Projection of the shared selected run target store. This is visual feedback only; the sidebar
+  // remains the lifecycle/action owner.
+  runTarget?: boolean;
   endpoints: NCEndpoint[];
 }
 
@@ -145,6 +148,7 @@ export interface RuntimeNodeData extends Record<string, unknown> {
   attached?: boolean;
   managed?: boolean;
   managedName?: string;
+  runTarget?: boolean;
 }
 export interface EndpointNodeData extends Record<string, unknown> {
   name: string;

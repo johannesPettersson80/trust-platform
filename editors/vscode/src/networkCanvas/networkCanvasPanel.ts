@@ -28,7 +28,7 @@ import {
   type RuntimeLifecycleSnapshot,
   type RuntimeStartFailure,
 } from "../runtimeLifecycle";
-import { setSelectedRuntimeId } from "../selectedRuntime";
+import { getSelectedRuntimeId, setSelectedRuntimeId } from "../selectedRuntime";
 import { SIMULATOR_RUNTIME_ID } from "../trustHomeModel";
 import {
   listManagedRuntimes,
@@ -332,7 +332,14 @@ async function refreshNetworkCanvasPanel(): Promise<void> {
   }
   void panelRef.webview.postMessage({
     type: "graph",
-    graph: buildCanvasGraph(model, displayTopology, undefined, attachedEndpoint, managed),
+    graph: buildCanvasGraph(
+      model,
+      displayTopology,
+      undefined,
+      attachedEndpoint,
+      managed,
+      getSelectedRuntimeId()
+    ),
   });
   void panelRef.webview.postMessage({
     type: "meta",

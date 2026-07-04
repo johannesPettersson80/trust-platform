@@ -682,6 +682,7 @@ function SummaryView({
         kindLabel = "Runtime";
         health = str(d.health);
         rows.push(["State", stateSummary(health, str(d.detail))]);
+        rows.push(["Run target", d.runTarget === true ? "Selected" : "Not selected"]);
         {
           const mode = runtimeModeLabel(str(d.mode));
           if (mode) {

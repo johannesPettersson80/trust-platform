@@ -14,6 +14,7 @@ import type {
 import type { NetworkCanvasFleetRuntime } from "./fleetModel";
 import { LOCAL_RUNTIME_NODE_ID } from "./webview/types";
 import type { ManagedRuntime } from "../localRuntimeModel";
+import { SIMULATOR_RUNTIME_ID } from "../trustHomeModel";
 import type { NCFault, NCGraph, NCHost, NCRuntime } from "./webview/types";
 
 function deviceHealth(status: NetworkDeviceStatus): string {
@@ -295,7 +296,10 @@ export function buildCanvasGraph(
   attachedEndpoint?: string,
   // Managed local runtimes (fleet.toml projects we own — Phase 9). Injected as nodes so the user can
   // Start/Stop/Logs them on the canvas; deduped against runtimes already shown via fleet.topology.
-  managed: ReadonlyArray<ManagedRuntime> = []
+  managed: ReadonlyArray<ManagedRuntime> = [],
+  // The selected run-target ID from selectedRuntime.ts. Used only to project selection back onto the
+  // graph/inspector, so "Set as run target" has persistent visible feedback.
+  selectedRunTargetId?: string
 ): NCGraph {
   const base = model.fleet ? fleetGraph(model, topology) : localRuntimeGraph(model);
   const peerHosts = (peerTopology?.hosts ?? []).filter(
@@ -319,6 +323,7 @@ export function buildCanvasGraph(
         })();
   injectManagedRuntimes(graph, managed);
   annotateAttached(graph, attachedEndpoint);
+  annotateRunTarget(graph, selectedRunTargetId);
   return graph;
 }
 
@@ -444,6 +449,21 @@ function annotateAttached(graph: NCGraph, attachedEndpoint: string | undefined):
       !!rt.controlEndpoint &&
       !!attachedEndpoint &&
       rt.controlEndpoint === attachedEndpoint;
+  };
+  for (const host of graph.hosts) {
+    host.runtimes.forEach(mark);
+    host.containers.forEach((container) => container.runtimes.forEach(mark));
+  }
+}
+
+function annotateRunTarget(graph: NCGraph, selectedRunTargetId: string | undefined): void {
+  const selected = selectedRunTargetId || SIMULATOR_RUNTIME_ID;
+  const mark = (rt: NCRuntime): void => {
+    rt.runTarget =
+      (selected === SIMULATOR_RUNTIME_ID && rt.id === LOCAL_RUNTIME_NODE_ID) ||
+      (Boolean(rt.managedName) && rt.managedName === selected) ||
+      (Boolean(rt.controlEndpoint) && rt.controlEndpoint === selected) ||
+      rt.id === selected;
   };
   for (const host of graph.hosts) {
     host.runtimes.forEach(mark);

@@ -381,8 +381,27 @@ export const RuntimeNode = memo(({ id, data }: NodeProps) => {
             </span>
           )}
         </div>
-        <div style={{ display: "flex" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
           <StatusPill health={d.health} />
+          {d.runTarget === true && (
+            <span
+              title="Selected run target"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                border: `1px solid ${t.accent}`,
+                borderRadius: t.pill,
+                background: t.selectedBg,
+                color: t.text,
+                fontSize: 10.5,
+                fontWeight: 650,
+                lineHeight: 1,
+                padding: "3px 7px",
+              }}
+            >
+              Run target
+            </span>
+          )}
         </div>
       </div>
       {showEmpty && (

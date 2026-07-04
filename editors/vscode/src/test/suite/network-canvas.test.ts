@@ -1075,6 +1075,30 @@ suite("Network Canvas", function () {
     assert.strictEqual(cell2?.health, "connected", "running managed runtime is green");
   });
 
+  test("selected run target is projected onto the graph node and rendered node data", () => {
+    const graph = buildCanvasGraph(
+      buildNetworkCanvasModel("runtime_live"),
+      undefined,
+      undefined,
+      undefined,
+      [
+        { name: "cell1", controlEndpoint: "tcp://127.0.0.1:9902", state: "stopped" },
+        { name: "cell2", controlEndpoint: "tcp://127.0.0.1:9903", state: "running" },
+      ],
+      "cell1"
+    );
+    const cell1 = graph.hosts[0].runtimes.find((runtime) => runtime.managedName === "cell1");
+    const cell2 = graph.hosts[0].runtimes.find((runtime) => runtime.managedName === "cell2");
+    const simulator = graph.hosts[0].runtimes.find((runtime) => runtime.id === "runtime:local");
+
+    assert.strictEqual(cell1?.runTarget, true, "the selected managed runtime gets a run-target flag");
+    assert.strictEqual(cell2?.runTarget, false, "non-selected managed runtimes are not flagged");
+    assert.strictEqual(simulator?.runTarget, false, "the simulator is not flagged when a managed runtime is selected");
+
+    const rendered = buildGraph(graph).nodes.find((node) => node.type === "runtime" && node.id === cell1?.id);
+    assert.strictEqual(rendered?.data.runTarget, true, "React Flow runtime node data carries the flag");
+  });
+
   test("a managed runtime already shown via fleet.topology is NOT doubled, and the surviving node stays OWNED (managed)", () => {
     const peerTopology = {
       schema_version: 3 as const,
