@@ -282,6 +282,9 @@ Target release: `v0.24.28`
 - vscode: visual editors now distinguish `Preview ST` from `Generate ST`, with
   tooltips that state whether the action only previews generated code or writes
   a companion `.st` file.
+- vscode: Devices & Connections discovery now treats reachable `Online`
+  runtimes as valid EtherCAT/GPIO scan origins instead of leaving hardware scans
+  disabled until a debug-attached `running` state appears.
 - vscode: visual editors now share keyboard/canvas chrome: Blockly toolbox
   focus uses the truST focus ring, and SFC/Statechart expose the same themed
   canvas zoom controls as Devices & Connections.

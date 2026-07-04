@@ -412,6 +412,7 @@ suite("Phases 2–3 — naming + nav (v5 shell)", () => {
       app.includes("runtimeDiscoveryReady") &&
         app.includes('health === "connected"') &&
         app.includes('health === "running"') &&
+        app.includes('health === "online"') &&
         app.includes("before scanning from it") &&
         app.includes("Choose a running runtime for EtherCAT or GPIO scans."),
       "Discover origins must derive hardware-scan readiness from the rendered runtime node state, not from hardcoded availability"

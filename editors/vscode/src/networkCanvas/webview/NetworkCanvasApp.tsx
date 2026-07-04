@@ -500,7 +500,11 @@ function Canvas() {
         const data = n.data as { label?: string; health?: string; attached?: boolean };
         const label = String(data.label ?? n.id);
         const health = String(data.health ?? "");
-        const runtimeDiscoveryReady = data.attached === true || health === "connected" || health === "running";
+        const runtimeDiscoveryReady =
+          data.attached === true ||
+          health === "connected" ||
+          health === "running" ||
+          health === "online";
         return {
           id: n.id,
           label,
