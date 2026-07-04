@@ -279,6 +279,9 @@ Target release: `v0.24.28`
 - vscode: Devices & Connections runtime nodes now project the shared selected
   run target back onto the canvas and inspector with a neutral `Run target`
   badge, so `Set as run target` gives persistent visible feedback.
+- vscode: visual editors now distinguish `Preview ST` from `Generate ST`, with
+  tooltips that state whether the action only previews generated code or writes
+  a companion `.st` file.
 - vscode: visual editors now share keyboard/canvas chrome: Blockly toolbox
   focus uses the truST focus ring, and SFC/Statechart expose the same themed
   canvas zoom controls as Devices & Connections.

@@ -150,7 +150,7 @@ export const SfcCodePanel: React.FC<SfcCodePanelProps> = ({
                   opacity: 0.7,
                 }}
               >
-                Click Generate or Show Code to generate from the current SFC
+                Preview ST shows generated code here. Generate ST writes the companion file.
               </p>
             </div>
           </div>

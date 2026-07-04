@@ -119,7 +119,7 @@ export function LadderToolsPanel({
         <button type="button" className="trust-button" onClick={onValidate} title="Validate ladder program">
           Validate
         </button>
-        <button type="button" className="trust-button" onClick={onGenerateST} title="Generate Structured Text companion">
+        <button type="button" className="trust-button" onClick={onGenerateST} title="Write generated ST companion file">
           Generate ST
         </button>
         <button

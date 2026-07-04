@@ -36,7 +36,7 @@ export const CodePanel: React.FC<CodePanelProps> = ({ code, errors }) => {
           </pre>
         ) : (
           <div className="code-placeholder">
-            <p>Click "Generate Code" to see the ST output</p>
+            <p>Preview ST shows generated code here. Generate ST can save a .st file.</p>
           </div>
         )}
       </div>

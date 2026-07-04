@@ -531,7 +531,7 @@ export const BlocklyEditor: React.FC = () => {
                 className="trust-button"
                 onClick={handleGenerateCode}
                 disabled={!workspace}
-                title="Generate Structured Text code"
+                title="Generate Structured Text and ask whether to save it as a .st file"
               >
                 Generate ST
               </button>
@@ -574,7 +574,7 @@ export const BlocklyEditor: React.FC = () => {
                 onClick={() => setShowCode(!showCode)}
                 title={showCode ? "Return to the Blockly canvas" : "Preview generated ST without saving the companion file"}
               >
-                {showCode ? "Show Blocks" : "Show Code"}
+                {showCode ? "Show Blocks" : "Preview ST"}
               </button>
             </div>
           </section>

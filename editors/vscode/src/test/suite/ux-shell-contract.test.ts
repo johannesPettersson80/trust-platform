@@ -3352,10 +3352,27 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     for (const file of ["sfc/webview/SfcToolsPanel.tsx", "blockly/webview/BlocklyEditor.tsx"]) {
       const src = readSrc(file);
       assert.ok(
+        src.includes("Preview ST") &&
         src.includes("Preview generated ST without saving the companion file"),
-        `${file} must explain Show Code as a preview, distinct from Generate ST`
+        `${file} must explain Preview ST as a preview, distinct from Generate ST`
       );
     }
+
+    for (const file of [
+      "sfc/webview/SfcToolsPanel.tsx",
+      "ladder/webview/LadderToolsPanel.tsx",
+      "statechart/webview/StatechartToolsPanel.tsx",
+    ]) {
+      const src = readSrc(file);
+      assert.ok(
+        src.includes("Write generated ST companion file"),
+        `${file} must explain Generate ST as writing a companion file`
+      );
+    }
+    assert.ok(
+      blockly.includes("Generate Structured Text and ask whether to save it as a .st file"),
+      "Blockly Generate ST must explain that saving the generated file is prompted"
+    );
   });
 
   test("invalid visual model cards can escape to the text editor", () => {

@@ -50,7 +50,7 @@ export const SfcToolsPanel: React.FC<SfcToolsPanelProps> = ({
         <button type="button" className="trust-button" onClick={onValidate} title="Validate SFC">
           Validate
         </button>
-        <button type="button" className="trust-button" onClick={onGenerateST} title="Generate ST code">
+        <button type="button" className="trust-button" onClick={onGenerateST} title="Write generated ST companion file and open it beside the editor">
           Generate ST
         </button>
         <button type="button" className="trust-button trust-button--primary" onClick={onSave} title="Save changes">
@@ -123,7 +123,7 @@ export const SfcToolsPanel: React.FC<SfcToolsPanelProps> = ({
             onClick={onToggleCodePanel}
             title={showCodePanel ? "Hide generated ST preview" : "Preview generated ST without saving the companion file"}
           >
-            {showCodePanel ? "Hide Code" : "Show Code"}
+            {showCodePanel ? "Hide Preview" : "Preview ST"}
           </button>
         )}
       </div>
