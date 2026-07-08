@@ -320,6 +320,8 @@ Target release: `v0.24.29`
   modules.
 - ci: macOS release tests now tolerate `/private/var` temp-path aliases and
   filesystems that reject invalid non-UTF8 fixture names.
+- ci: the regression-test-first guard now recognizes Rust module files named
+  `tests.rs` as focused regression-test evidence.
 - docs: public docs release gates now include the checked-in VS Code screenshot
   inventory entries, current regenerated PlantUML SVGs, and search-regression
   scoring for the intended VS Code, runtime-panel, and observability pages.

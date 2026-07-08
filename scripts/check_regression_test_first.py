@@ -175,7 +175,33 @@ def is_test_file(path: str) -> bool:
     if normalized.startswith("editors/vscode/src/test/"):
         return True
     return (
-        name.startswith("test_")
+        name == "tests.rs"
+        or name == "test.rs"
+        or name == "tests.ts"
+        or name == "test.ts"
+        or name == "tests.js"
+        or name == "test.js"
+        or name == "tests.py"
+        or name == "test.py"
+        or name == "tests.sh"
+        or name == "test.sh"
+        or name == "tests.ps1"
+        or name == "test.ps1"
+        or name == "tests.toml"
+        or name == "test.toml"
+        or name == "tests.yaml"
+        or name == "test.yaml"
+        or name == "tests.yml"
+        or name == "test.yml"
+        or name == "tests.json"
+        or name == "test.json"
+        or name == "tests.mjs"
+        or name == "test.mjs"
+        or name == "tests.cjs"
+        or name == "test.cjs"
+        or name == "tests.tsx"
+        or name == "test.tsx"
+        or name.startswith("test_")
         or name.endswith("_test.rs")
         or name.endswith(".test.ts")
         or name.endswith(".test.tsx")
