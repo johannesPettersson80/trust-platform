@@ -19,6 +19,11 @@ claim is traceable to:
 5. durable evidence,
 6. a release/public-claim status.
 
+If a claim creates or changes a user-facing workflow, the user story or public
+workflow is part of the written specification. It must describe the actor,
+preconditions, visible steps, success state, failure/status behavior, and
+acceptance evidence before implementation starts.
+
 This is a SQLite-style proof discipline adapted to PLC risk:
 
 - Wrong output is worse than a crash.
@@ -34,6 +39,8 @@ This is a SQLite-style proof discipline adapted to PLC risk:
   test-refactor policy, suite tiers, metrics, and final definition of done.
 - `metadata-model.md`: machine-readable record shapes, schema files, status
   vocabulary, authority precedence, schema versioning, and traceability reports.
+- `spec-matrix-model.md`: canonical area values and required-specification
+  matrix semantics.
 - `test-taxonomy.md`: code-area matrix, test classes, coverage dimensions,
   malformed-input taxonomy, supply-chain/security tests, and platform tests.
 - `verification-areas.md`: domain ownership, invariant classes, harnesses, and
@@ -48,10 +55,17 @@ The program must start with specifications, not tests.
 
 1. Create the verification skeleton.
 2. Inventory specification/oracle sources.
-3. Inventory existing tests.
-4. Classify spec gaps separately from test gaps.
-5. Run the bytecode/VM pilot first.
-6. Broaden to runtime safety, IEC/HIR, protocols, editor/UI, release, and
+3. Create the required-specification matrix so each canonical area has explicit
+   required spec tags, owners, authority expectations, and source/gap refs.
+4. Add structured invariants with `contract_kind` and behavior rows before new
+   feature or bug-fix tests are authored. If the work creates a user story or
+   public workflow, specify that workflow first or record a spec gap.
+5. Let the planner derive required test classes and case families from metadata;
+   missing behavior rows become spec gaps.
+6. Inventory existing tests.
+7. Classify spec gaps separately from test gaps.
+8. Run the bytecode/VM pilot first.
+9. Broaden to runtime safety, IEC/HIR, protocols, editor/UI, release, and
    hardware lab only after the pilot produces useful reports.
 
 Most important safety area:
@@ -77,13 +91,29 @@ Why this pilot:
 - exercises spec-source inventory, invariant mapping, coverage gaps, ignored
   protective tests, and validator/report self-tests.
 
+Spec-first planner pilot:
+
+- `plan_tests.py` reports required proof from committed metadata and fails
+  closed on unmapped files, uninventoried areas, unknown risk, or missing
+  behavior rows.
+- `gen_cases.py` derives hostile data-shaped cases from decision-table behavior
+  rows or deterministic bytecode transforms; it never invents expected behavior.
+- `prove.py red|green|lock` runs cataloged commands and writes evidence records
+  itself, using per-case artifacts emitted by the dev-only
+  `verification-cases` helper.
+- Scenario/fault families such as SIGTERM, worker down, slow handshakes, and
+  hardware reconnect stay out of v1 case generation until the Phase 8
+  fault-injection harness exists.
+
 ## Current Status
 
 External review (Fable, 2026-07-08) returned `clear-with-edits`. Required
 edits are folded and verified; the verdict, fold verification, baseline
 counts, and snapshot live under
 `docs/internal/testing/evidence/plc-verification-program/2026-07-08/`.
-Phase 1 implementation is unblocked.
+The later spec-first planner amendment review is folded in the same evidence
+root. Phase 1 implementation is unblocked after these document-only fixes, but
+the policy stop gates still control every implementation row.
 
 Still binding during implementation:
 
@@ -113,7 +143,10 @@ Verification metadata lives under the future `verification/` control plane:
 verification/
   invariants/
   suites/
+  cases/
   schemas/
+  matrix.toml
+  spec-matrix.toml
   test-catalog.toml
   ignored-tests.toml
   risk-register.toml

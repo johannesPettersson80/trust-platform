@@ -2,7 +2,8 @@
 
 Status: reviewed. External review returned `clear-with-edits` (Fable,
 2026-07-08); required edits are folded and verified, and `VERIF-REVIEW-004` is
-cleared. Phase 1 may start. The policy stop gates still govern implementation.
+cleared. The spec-first planner amendment follow-up review edits are also
+folded. Phase 1 may start. The policy stop gates still govern implementation.
 
 This board sequences implementation. Policy lives in `policy.md`; schema and
 record details live in `metadata-model.md`.
@@ -46,7 +47,8 @@ Acceptance:
   `invariant.schema.json`, `suite.schema.json`, `catalog.schema.json`,
   `ignored-test.schema.json`, `risk-register.schema.json`,
   `evidence.schema.json`,
-  `spec-source.schema.json`, and `spec-gap.schema.json`.
+  `spec-source.schema.json`, `spec-gap.schema.json`, and
+  `spec-matrix.schema.json`.
 - [ ] `VERIF-P1-003` Add empty or seed TOML files under
   `verification/invariants/**`.
 - [ ] `VERIF-P1-004` Add seed suite definitions under `verification/suites/**`.
@@ -72,6 +74,30 @@ Acceptance:
   `test_written`, `implemented`, and `validated` cannot be hand-edited without
   the required tests, proof levels, evidence refs, specified spec status, and
   closed safety coverage cells.
+- [ ] `VERIF-P1-018` Add invariant schema support for `contract_kind`, `[input]`,
+  and `[[behavior]]` decision-table rows. v1 supports only single-input,
+  data-shaped partitions with typed outcomes and explicit oracle/spec-gap refs.
+- [ ] `VERIF-P1-019` Add case-file and case-artifact schemas. Catalog records
+  may reference `case_file` plus `case_file_digest`; the validator recomputes
+  the digest and rejects stale or weakened case tables.
+- [ ] `VERIF-P1-020` Add validation rules for spec-first case derivation:
+  behavior rows cannot invent expected outcomes, missing behavior rows become
+  spec gaps, high-risk red/green evidence from non-allowlisted producers is
+  rejected, and decision-table partitions must cover applicable domains or name
+  a `spec_gap_ref`.
+- [ ] `VERIF-P1-021` Encode the TOML container convention in schemas and
+  validator fixtures: one invariant per file under
+  `verification/invariants/<area>/<ID>.toml`; flat registries use plural wrapper
+  arrays such as `[[spec_sources]]`, `[[spec_gaps]]`, and `[[evidence]]`.
+- [ ] `VERIF-P1-022` Encode structured `delta` validation for decision-table
+  rows. Do not accept stringly-typed delta blobs; v1 uses closed values for
+  target, siblings, retain, process image, diagnostics, and status.
+- [ ] `VERIF-P1-023` Add producer allowlist validation. For `safety_critical`,
+  `wrong_result`, `silent_corruption`, and `false_status` red/green proof, only
+  `prove.py vN` or an approved gate can close proof.
+- [ ] `VERIF-P1-024` Add waiver validation: `not_applicable` coverage cells and
+  waived matrix rows require `decision_ref` to an active reviewed decision or
+  deviation. Risk-change reporting requires a baseline revision.
 
 Acceptance:
 
@@ -82,6 +108,8 @@ Acceptance:
 - Evidence has a committed record type; evidence refs point to evidence IDs, not
   raw paths.
 - Spec sources and spec gaps can be tracked before tests are proof-mapped.
+- The schema can represent the spec-first planner/case/prover workflow without
+  adding a separate behavior-record layer.
 
 ## Phase 1A - Specification Source Inventory
 
@@ -104,8 +132,10 @@ proof.
   bytecode format, bytecode validator, VM value semantics, scan-cycle lifecycle,
   stop/safe-state, retain/restart, protocol status/discovery, HMI API/UI,
   source transformations, LSP sync/positions/cancellation, debug/DAP
-  force-write-release lifecycle, security/supply chain, platform/package
-  behavior, release proof.
+  force-write-release lifecycle, control/RBAC/security, PLCopen import/export,
+  test-harness/simulation semantics, runtime/project/HMI config schemas, CLI and
+  control-socket surfaces, GPIO, runtime performance budgets, supply chain,
+  platform/package behavior, and release proof.
 - [x] `VERIF-P1A-005` Emit public-claim report: public/user-facing docs claims
   with no normative source, no invariant, or no proof path.
   Initial report:
@@ -119,6 +149,17 @@ proof.
   create a `spec_gap` row before cataloging tests as proof for that behavior.
 - [ ] `VERIF-P1A-009` Do not mark Phase 2 catalog entries as proof-mapped unless
   their invariant can point to a spec source or spec gap.
+- [ ] `VERIF-P1A-010` Create the required-specification matrix at
+  `verification/spec-matrix.toml` with a schema. Keyed by canonical machine
+  `area`; per area, list required spec kinds as coverage tags with
+  `expected_authority`, `owner`, current `source_ref` or `spec_gap_ref`, and
+  `blocks = test_mapping | release_claim | none_yet`. The validator fails when
+  a required tag resolves to neither an active source nor an open gap, or when a
+  source's `covers` list or authority does not satisfy the requirement.
+  `plan_tests.py` defines "uninventoried area" as any required
+  `test_mapping`-blocking tag unresolved for that area. Only bytecode/VM rows
+  must be complete for Phase 1B; other areas may carry open gaps with owners.
+  Resolve the `control_security` mapping before the matrix lands.
 
 Acceptance:
 
@@ -126,6 +167,89 @@ Acceptance:
 - Missing/stale/conflicting specifications are visible.
 - Bytecode/VM pilot can separate test gaps from spec gaps.
 - Public claims without specs are reported instead of accepted.
+
+## Phase 1B - Spec-First Test Planning Pilot
+
+This phase pulls the minimum planner prerequisites forward from later phases and
+proves the model on bytecode/VM only. All non-pilot areas must fail closed as
+not inventoried until their metadata exists.
+
+- [ ] `VERIF-P1B-001` Add `verification/matrix.toml` with area globs,
+  area-to-risk defaults, required test classes, and required case families for
+  the bytecode/VM pilot. This is the machine-readable form of
+  `test-taxonomy.md`; add a drift check so prose and metadata cannot diverge.
+  This row satisfies the bytecode/VM slice of `VERIF-P5-009`.
+- [ ] `VERIF-P1B-002` Add changed-file classifier for the pilot with
+  default-deny behavior: unmapped file exits blocked, uninventoried area exits
+  blocked, and unknown risk is treated as highest until classified. This row
+  satisfies the bytecode/VM slice of `VERIF-P5-010`.
+- [ ] `VERIF-P1B-003` Add `plan_tests.py` scoped to bytecode/VM:
+  `plan_tests.py --intent bugfix|feature|refactor|docs|test-refactor
+  (--changed <files> | --area <area>)`. Exit codes are `0 clear`,
+  `2 missing tests/cases`, `3 spec_gap`, and `4 unmapped`. The planner must not
+  emit expected behavior text. Risk-change reports require `--baseline <rev>` or
+  the CI pull-request merge base.
+- [ ] `VERIF-P1B-003A` Inventory stable error-code identifiers for pilot
+  surfaces before behavior rows pin error codes. If subrange, declared-type
+  conversion, string-bound, or bytecode-validation paths only expose ad-hoc
+  strings, record a spec gap or a small explicitly gated product-change
+  exception before `VERIF-P1B-004`.
+- [ ] `VERIF-P1B-004` Seed decision-table behavior rows for three real pilot
+  bug classes: subrange runtime write, declared-type conversion on store, and
+  `STRING[n]` bounded write. If a boundary decision is unwritten, keep it as a
+  `spec_gap`; the pilot should prove honest exit-3 behavior.
+- [ ] `VERIF-P1B-005` Add `gen_cases.py` for the pilot. It may derive boundary
+  cases from decision-table rows and validate committed case files. It may only
+  generate expected outcomes by copying behavior rows with oracle refs or by
+  marking blocked cases with `spec_gap_ref`.
+- [ ] `VERIF-P1B-006` Add committed pilot case tables under
+  `verification/cases/bytecode_vm/**` with catalog digests. Case family values
+  must come from `test-taxonomy.md` coverage dimensions.
+- [ ] `VERIF-P1B-007` Add the small `crates/verification-cases` dev-helper
+  crate with `run_case_file!` and `StateProbe`. v1 probes are limited to process
+  image hash, retain hash, target and sibling variables, emitted diagnostics,
+  and case-artifact emission through existing test harnesses.
+- [ ] `VERIF-P1B-008` Add `prove.py red|green|lock --test <TEST_ID>`. It runs
+  the cataloged command, validates the case artifact and digest, distinguishes
+  assertion failure from compile error or harness panic, and writes the evidence
+  record itself. `prove.py green` must pair to the red evidence record and prove
+  formerly-red case IDs are now green, no previously-green case regressed, the
+  case-file digest matches, and no case was skipped without a waiver.
+- [ ] `VERIF-P1B-009` Add one deterministic bytecode transform generator:
+  container truncation by section boundary, unknown opcode sweep, jump-target
+  sweep, and stack-underflow cases from committed seed artifacts. Other
+  generated families remain out of v1.
+- [ ] `VERIF-P1B-010` Add a cheap `verification-gate` report-only CI path:
+  metadata validation, planner re-derivation on PR diff, `gen_cases.py --check`,
+  and ratchet report for new/modified tests that lack catalog entries. Do not
+  enforce outside the pilot during burn-in.
+- [ ] `VERIF-P1B-011` Add adversarial self-test fixtures for the planner/case
+  tooling: assert-nothing red proof, skipped case, stale digest, missing oracle,
+  spec-gap closure, risk downgrade without waiver, manual safety evidence,
+  compile-error-as-red, uncataloged test, and unmapped file.
+- [ ] `VERIF-P1B-012` Keep `VERIF-STOP-012` closed for skills/agent mandate
+  until the pilot has red/green proof, report-only CI has burned in without
+  false blocks, and the bytecode-validator mutation shard has reported
+  survivors against case IDs. This row stays open across phases until
+  `VERIF-P1B-013` and `VERIF-P1B-014` are complete.
+- [ ] `VERIF-P1B-013` Pull the first bytecode-validator mutation shard forward
+  from Phase 10 and report survivors against case IDs. This satisfies only the
+  bytecode-validator slice of `VERIF-P10-001`.
+- [ ] `VERIF-P1B-014` Flip the bytecode/VM pilot ratchet from report-only to
+  enforcing after burn-in: at least three organic PRs or implementation slices
+  run with zero false blocks, pilot red/green proof is captured, waiver/risk
+  reports are reviewable, and fallback override procedure is documented.
+
+Acceptance:
+
+- A bytecode/VM change can ask the planner what tests and cases are required.
+- Missing spec behavior blocks with exit 3 instead of letting an agent invent an
+  oracle.
+- The first case/proof loop can show named cases red before implementation and
+  green after implementation.
+- Enforcing mode is a separate ratchet row, not implied by report-only CI.
+- The tooling remains thin: scripts under `scripts/verification/**`, metadata
+  under `verification/**`, and a small dev-only helper crate.
 
 ## Phase 2 - Existing Test Catalog
 
@@ -257,7 +381,11 @@ Acceptance:
 - [ ] `VERIF-P5-008` Ensure release commands name durable evidence or CI
   artifacts.
 - [ ] `VERIF-P5-009` Encode code-area matrix in machine-readable metadata.
-- [ ] `VERIF-P5-010` Add changed-file classifier.
+  Bytecode/VM pilot requirements are pulled forward by `VERIF-P1B-001`; the
+  full row closes only when every area in `test-taxonomy.md` is represented.
+- [ ] `VERIF-P5-010` Add changed-file classifier. Bytecode/VM pilot
+  classification is pulled forward by `VERIF-P1B-002`; the full row closes only
+  when every code area has default-deny routing.
 
 ## Phase 6 - Requirement, Oracle, and Traceability Mapping
 
@@ -302,6 +430,14 @@ Acceptance:
 - [ ] `VERIF-P6A-007` Add report-renderer golden/protective tests.
 - [ ] `VERIF-P6A-008` Add stale metadata tests for deleted/renamed tests and
   removed scripts.
+- [ ] `VERIF-P6A-009` Add known-bad fixtures for the spec-first planner layer:
+  decision-table invariant missing behavior rows, case file with unknown family,
+  stale case digest, case artifact that skips a case, high-risk red/green
+  evidence from a non-allowlisted producer, green proof missing its paired red
+  evidence, risk downgrade without `decision_ref`, and compile-error-as-red.
+- [ ] `VERIF-P6A-010` Add self-tests that assert each bypass is caught by its
+  assigned layer. Do not claim the validator catches assertion strength; that is
+  handled by red proof and mutation shards where available.
 
 Acceptance:
 
@@ -354,7 +490,9 @@ Acceptance:
 
 - [ ] `VERIF-P10-001` Define first mutation shards: bytecode validator, runtime
   value/type conversion, HIR diagnostics, parser recovery, retain/restart,
-  connector status projection.
+  connector status projection. The bytecode-validator pilot slice is pulled
+  forward by `VERIF-P1B-013`; the full row closes only when all listed shards
+  are defined.
 - [ ] `VERIF-P10-002` Coverage is adequacy signal, not release safety proof.
 - [ ] `VERIF-P10-003` Add mutation survivor report format.
 - [ ] `VERIF-P10-004` Safety-critical survivors require added test,
@@ -378,6 +516,11 @@ Acceptance:
 
 ## Phase 12 - Editor, UI, and Human Workflow Verification
 
+- [ ] `VERIF-P12-000` Inventory user stories and public workflows that imply a
+  user can accomplish a task. Each workflow must have a spec source with actor,
+  entry point, preconditions, visible steps, success state, failure/status
+  behavior, safety/authz boundaries, and acceptance evidence, or a spec gap
+  before related implementation starts.
 - [ ] `VERIF-P12-001` Map accepted VS Code UI journeys to invariants.
 - [ ] `VERIF-P12-002` Backend/runtime proof can support UI acceptance but cannot
   replace journey evidence.
@@ -390,6 +533,9 @@ Acceptance:
   affected journey screenshots until recaptured.
 - [ ] `VERIF-P12-006` Report UI journeys with backend changes but no fresh
   visual evidence.
+- [ ] `VERIF-P12-006A` Report user stories or public workflows with
+  implementation changes but no workflow spec source, linked invariant, or
+  acceptance evidence.
 - [ ] `VERIF-P12-007` Add VS Code extension gate mapping and evidence rules.
 - [ ] `VERIF-P12-008` UI-area invariants can reach `validated` only when linked
   journey rows are `ux_accepted`; provisional journey evidence may support but

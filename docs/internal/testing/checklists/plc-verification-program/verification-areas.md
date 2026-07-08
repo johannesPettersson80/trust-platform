@@ -6,6 +6,8 @@ so area ownership can evolve without rewriting the board.
 
 ## Compiler and IEC Frontend
 
+Machine area: `compiler_iec`.
+
 Owns:
 
 - `trust-syntax`
@@ -33,6 +35,8 @@ Harnesses:
 - mutation tests for type rules and diagnostics.
 
 ## HIR to Bytecode to VM Seam
+
+Machine area: `bytecode_vm`.
 
 Owns:
 
@@ -69,6 +73,8 @@ This is the first implementation pilot after specification-source inventory.
 
 ## Runtime Safety
 
+Machine area: `runtime_safety`.
+
 Owns:
 
 - scan-cycle execution,
@@ -104,7 +110,39 @@ Harnesses:
 - debug control and force/write/release tests,
 - long soak.
 
+## Control, Security, and Debug Authority
+
+Machine area: `control_security`.
+
+Owns:
+
+- runtime control API and control-socket authorization,
+- RBAC roles and token behavior,
+- HMI write authorization boundaries,
+- debug write/force/release authorization,
+- secret handling and audit/status visibility.
+
+Required invariant classes:
+
+- Viewer/default-level access cannot perform control writes, debug writes, or
+  force outputs.
+- Authorized writes are visible, bounded, and auditable.
+- Force/write/release lifecycle has specified stop, disconnect, restart, and
+  debug-pause behavior.
+- Control and debug surfaces expose stable error/status identifiers.
+- Secrets and tokens are never printed in diagnostics, logs, or public reports.
+
+Harnesses:
+
+- API/RBAC negative and allowed-path tests,
+- runtime debug control tests,
+- VS Code debug journey evidence when user-visible,
+- HMI write-authz tests,
+- security/release gate checks for secret leakage.
+
 ## Protocol and Connectivity
+
+Machine area: `protocols`.
 
 Owns:
 
@@ -136,6 +174,8 @@ Harnesses:
 
 ## Editor and Source Transformation Safety
 
+Machine area: `editor_safety`.
+
 Owns:
 
 - `trust-ide`,
@@ -165,6 +205,8 @@ Harnesses:
 
 ## PLCopen Import and Developer Tooling
 
+Machine area: `plcopen_devtools`.
+
 Owns:
 
 - `trust-plcopen`,
@@ -192,6 +234,8 @@ Harnesses:
 
 ## HMI, Web, and UI Acceptance
 
+Machine area: `hmi_ui`.
+
 Owns:
 
 - HMI web UI,
@@ -217,6 +261,8 @@ Harnesses:
 - PNG hygiene and structural acceptance audit.
 
 ## Security, Supply Chain, and Platform Integrity
+
+Machine area: `supply_chain_platform`.
 
 Owns:
 
@@ -246,6 +292,8 @@ Harnesses:
 
 ## Release and Public Claims
 
+Machine area: `release`.
+
 Owns:
 
 - changelog/version/tag/release proof,
@@ -267,6 +315,59 @@ Harnesses:
 - version-release guard,
 - public docs IA/search checks,
 - release workflow artifact checks.
+
+## Required Specification Matrix Seed Scope
+
+`VERIF-P1A-010` turns this scope into `verification/spec-matrix.toml`. The
+matrix is keyed by the machine areas above and by coverage tags, not by these
+human headings.
+
+Initial required spec tags by area:
+
+- `compiler_iec`: ST syntax/parser recovery, operator precedence, IEC
+  decisions/deviations, type system, implicit conversions, subranges, strings,
+  arrays/structs/enums, references, OOP/method dispatch, `VAR_IN_OUT`,
+  standard functions/FBs, timers/counters, retain/init/reset semantics, and
+  external IEC source availability.
+- `bytecode_vm`: HIR diagnostic gate, lowering/fail-closed contract, bytecode
+  format, bytecode validator semantic contract, VM value/tag semantics,
+  reference and owner semantics, stable trap/error-code model, deterministic
+  execution, and resource limits.
+- `runtime_safety`: scan-cycle lifecycle, scheduler/deadline/watchdog,
+  panic/fault policy, stop/signal behavior, safe-state output handoff,
+  retain/restart/corruption, online change/hot reload, time model,
+  scan-critical allocation/resource policy, runtime/project config behavior,
+  and scan-cycle/VM performance budgets.
+- `protocols`: unified status/quality/confidence vocabulary, process-image I/O
+  contract, `on_error`, worker/snapshot architecture, discovery truth model,
+  Modbus, MQTT, ADS, OPC UA, EtherCAT, GPIO, protocol config schemas, and
+  hardware-lab proof matrix.
+- `control_security`: control API, ctl/JSON-line protocol, RBAC/authz roles,
+  HMI write authorization, debug write/force/release lifecycle, audit/logging,
+  secret handling, and default-safe permissions.
+- `editor_safety`: LSP position/sync contract, diagnostics cancellation,
+  rename/source-transform safety, cross-file indexing/staleness, completion,
+  hover, references, call hierarchy, workspace performance budgets, and VS Code
+  extension protocol boundaries.
+- `plcopen_devtools`: PLCopen import/export, vendor metadata, non-ST body
+  rejection, XML malformed-input behavior, vendor corpus/provenance, `trust-dev`
+  test discovery, developer CLI behavior, and commit-helper scope.
+- `hmi_ui`: HMI API/UI contract, widget mapping, trends, alarms, writes,
+  Devices and Connections, Live Values, HMI config, webview/browser behavior,
+  and accepted user journeys.
+- `release`: conformance suite contract, public known-gaps contract, public
+  claim registry, release evidence, version/changelog/tag/latest proof,
+  platform support claims, source-build/install workflows, and tutorial/public
+  workflow promises.
+- `supply_chain_platform`: dependency/provenance policy, optional dependency
+  behavior, license/security gates, VSIX/package artifact identity, platform
+  path/socket behavior, build scripts, and packaged binary provenance.
+- `verification`: TestHarness cycle/time semantics, simulation-mode semantics,
+  verification metadata schemas, case-file/prover contracts, mutation/fuzz
+  report contracts, and CI/report artifact semantics.
+
+The bytecode/VM tags are the only tags that must be complete enough for Phase
+1B. Other areas may start with open spec gaps and owners.
 
 ## Initial High-Risk Invariant Seeds
 

@@ -7,8 +7,9 @@ malformed inputs must be considered.
 ## Code Area to Minimum Test Matrix
 
 If a change touches multiple areas, run the union of required tests and use the
-highest-risk classification. A row can be waived only by adding a decision that
-explains why the touched code path is not exercised by that test class.
+highest-risk classification. A row can be waived only with `decision_ref` to an
+active reviewed decision or deviation that explains why the touched code path is
+not exercised by that test class.
 
 | Touched area | Examples | Required proof before implementation | Minimum targeted tests after implementation | Broader gates before close |
 | --- | --- | --- | --- | --- |
@@ -29,6 +30,7 @@ explains why the touched code path is not exercised by that test class.
 | `trust-ide` source intelligence | rename, references, goto, code actions | Source transformation invariant; failing IDE test first for silent-corruption risk | `cargo test -p trust-ide`, conflict/rebind negatives | LSP/VS Code tests if surfaced |
 | `trust-lsp` protocol boundary | sync, positions, diagnostics, cancellation, index cache | LSP protocol invariant; failing protocol test first | `cargo test -p trust-lsp`, snapshots, perf tests for hot paths | `./scripts/prepush_ci_gate.sh`; VS Code npm gate for visible behavior |
 | VS Code extension | `editors/vscode/src/**`, webviews, commands, debug | User workflow invariant; extension test or journey proof planned first | `npm run lint`, `npm run compile`, `npm test`; test registered in `index.ts` | Screenshot/CDP/journey evidence for visible changes; version sync |
+| User story or public workflow | Workflow specs, tutorials, public docs task promises, HMI/operator journeys, CLI/device setup walkthroughs | Written workflow spec or explicit spec gap first; map actor, steps, success/failure/status behavior, and acceptance evidence | Linked invariant plus contract/journey/CLI/browser proof as appropriate | Public docs and release summary show workflow proof or visible gap |
 | PLCopen import/export | `trust-plcopen/**`, fixtures, CLI/import paths | Vendor/export corpus or malformed XML repro; failing diagnostic test first | `cargo test -p trust-plcopen`; runtime PLCopen command tests if CLI path touched | Real vendor export corpus before public compatibility claim |
 | `trust-dev` CLI/workbench | `crates/trust-dev/**`, dev aliases, commit/test/docs | CLI contract invariant; failing CLI behavior test first | `cargo test -p trust-dev`; command-specific fixtures | Changelog/version if visible |
 | Conformance suite | `conformance/**`, runner/models/reporting | Contract/schema invariant; failing schema/runner test first | Conformance runner tests; schema validation; run-twice determinism diff | CI conformance job; public docs only from generated result and gaps |
@@ -86,6 +88,12 @@ Every invariant needs a coverage matrix. Each required cell is one of:
 `covered`, `covered_by_fuzz`, `not_applicable`, `blocked`, `spec_gap`,
 `gap_open`, or `deferred`.
 
+Coverage dimensions are also the canonical case-family vocabulary for committed
+case files under `verification/cases/**`. Do not create a second family list in
+`gen_cases.py`, `plan_tests.py`, tests, or checklist prose. If a new case family
+is needed, add it here, update `verification/matrix.toml`, and explain the
+product risk it covers.
+
 Required dimensions:
 
 - `happy_path`
@@ -119,6 +127,20 @@ Rules:
   product cap, runtime width, or reviewed decision.
 - If a broad integration test covers a cell, the catalog must say how its
   assertion fails if that specific cell regresses.
+
+`decision_table` contract cases may use only data-shaped dimensions in v1:
+happy path, boundary values, wrong type or shape, missing/extra fields,
+encoding, resource limits, persistence of the touched value, and platform/file
+shape where the input itself carries that variation. Runtime events such as
+SIGTERM, worker down, slow protocol handshakes, queue-full stop handling, and
+hardware reconnect are scenario/fault families. They belong to Phase 8
+fault-injection harnesses and `contract_kind = "fault_scenario"` or
+`protocol_trace`, not to v1 decision-table case generation.
+
+The machine-readable source of truth for area-to-test-class requirements is
+`verification/matrix.toml`. This Markdown table is the reviewed explanation of
+that matrix. A drift check must fail if the metadata and this document disagree
+after the matrix lands.
 
 ## Malformed Input Taxonomy
 
