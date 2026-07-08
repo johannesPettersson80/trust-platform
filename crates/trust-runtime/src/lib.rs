@@ -128,8 +128,6 @@ pub mod value;
 pub mod watchdog;
 /// Embedded browser UI server.
 pub mod web;
-/// Shared deterministic simulation world for physics-owned visible state.
-pub mod world;
 
 mod runtime;
 

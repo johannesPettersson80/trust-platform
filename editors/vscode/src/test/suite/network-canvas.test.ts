@@ -136,7 +136,7 @@ suite("Network Canvas", function () {
     );
 
     const remote = fleetTopology();
-    remote.hosts[0].hostname = "scena-rust-builder";
+    remote.hosts[0].hostname = "remote-plc-host";
     remote.hosts[0].ips = ["192.168.77.10"];
     remote.hosts[0].runtimes[0].control_endpoint = "tcp://192.168.77.10:5680";
     const remoteModel = buildNetworkCanvasModel({
@@ -146,7 +146,7 @@ suite("Network Canvas", function () {
     });
     assert.strictEqual(remoteModel.fleet?.hosts[0]?.hostname, "Computer 192.168.77.10");
     assert.ok(
-      remoteModel.fleet?.hosts[0]?.label.includes("scena-rust-builder"),
+      remoteModel.fleet?.hosts[0]?.label.includes("remote-plc-host"),
       "the raw hostname remains available as supporting detail"
     );
   });

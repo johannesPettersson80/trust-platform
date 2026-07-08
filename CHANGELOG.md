@@ -221,11 +221,16 @@ Target release: `v0.24.29`
   test` remains as a deprecated forwarding alias during the product/workbench
   CLI split.
 
+### Removed
+
+- trust-runtime: removed the abandoned digital-twin/world proof stack, including
+  the Scena/URDF robot-arm dependencies, `RobotP3MinimalArm` built-in function
+  block, world-smoke fixtures, and transform-handoff lint script. The release
+  keeps the normal simulator/runtime surfaces and no longer ships a
+  digital-twin or trust-twin runtime path.
+
 ### Changed
 
-- testing: world-smoke transform-handoff lint now audits the split runtime
-  world-arm modules while preserving the single scene-transform handoff and
-  workpiece-joint ownership boundaries.
 - vscode: normalized simulator copy across the sidebar, Devices & Connections,
   Live Values, new-project template, and bundled examples so the local runtime
   appears as `Simulator` and its local endpoints appear as `Simulated I/O` /

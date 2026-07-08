@@ -3227,10 +3227,8 @@ fn collect_unsafe_summary(root: &Path, policy: &FullMapPolicy) -> UnsafeSummary 
                     continue;
                 }
                 let line_without_comment = strip_line_comment(line);
-                if line_without_comment.contains("unsafe")
-                    && !line_without_comment.contains("forbid(unsafe_code)")
-                    && !line_without_comment.contains("deny(unsafe_code)")
-                {
+                let line_without_strings = strip_string_literals(line_without_comment);
+                if contains_rust_unsafe_token(&line_without_strings) {
                     production_unsafe_sites.push(SourcePatternSummary {
                         path: rel.clone(),
                         line: idx,
@@ -3639,6 +3637,55 @@ fn strip_line_comment(line: &str) -> &str {
     line.split_once("//").map_or(line, |(code, _)| code)
 }
 
+fn strip_string_literals(line: &str) -> String {
+    let mut result = String::with_capacity(line.len());
+    let mut chars = line.chars().peekable();
+    let mut in_string = false;
+    let mut escaped = false;
+
+    while let Some(ch) = chars.next() {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == '"' {
+                in_string = false;
+            }
+            result.push(' ');
+            continue;
+        }
+
+        if ch == 'r' && chars.peek() == Some(&'"') {
+            result.push(' ');
+            result.push(' ');
+            chars.next();
+            for raw_ch in chars.by_ref() {
+                result.push(' ');
+                if raw_ch == '"' {
+                    break;
+                }
+            }
+            continue;
+        }
+
+        if ch == '"' {
+            in_string = true;
+            result.push(' ');
+        } else {
+            result.push(ch);
+        }
+    }
+
+    result
+}
+
+fn contains_rust_unsafe_token(line_without_comment: &str) -> bool {
+    line_without_comment
+        .split(|ch: char| !is_ident_char(ch))
+        .any(|token| token == "unsafe")
+}
+
 fn is_ident_char(ch: char) -> bool {
     ch.is_ascii_alphanumeric() || ch == '_'
 }
@@ -4027,6 +4074,22 @@ fn rel_path(root: &Path, path: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn unsafe_token_scan_ignores_safe_identifier_names() {
+        assert!(contains_rust_unsafe_token("unsafe { call() }"));
+        assert!(contains_rust_unsafe_token("pub unsafe fn call()"));
+        assert!(contains_rust_unsafe_token("unsafe impl Send for X {}"));
+        assert!(!contains_rust_unsafe_token(
+            &strip_string_literals("unsafe_allow_public_bind: Option<bool>,")
+        ));
+        assert!(!contains_rust_unsafe_token(&strip_string_literals(
+            "#![forbid(unsafe_code)]"
+        )));
+        assert!(!contains_rust_unsafe_token(&strip_string_literals(
+            "input: \"server-role unsafe/lab trust flags\","
+        )));
+    }
 
     fn audit_report_policy_failures(
         report_json: &str,
