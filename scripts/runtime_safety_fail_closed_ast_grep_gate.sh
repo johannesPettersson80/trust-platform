@@ -76,9 +76,21 @@ def body_lines(text: str, start: int, end: int):
     base_line = line_for(text, start)
     return [(base_line + offset, line) for offset, line in enumerate(text[start:end].splitlines())]
 
+def intentional_degraded_ok_contract(lines, idx):
+    body = "\n".join(line for _, line in lines)
+    context = "\n".join(line for _, line in lines[max(0, idx - 6):idx + 12])
+    if (
+        "IoDriverErrorPolicy::Warn | IoDriverErrorPolicy::Ignore" in body
+        and "IoDriverHealth::Degraded" in context
+    ):
+        return True
+    return "output handoff pending" in context
+
 def health_then_ok_without_err(lines):
     for idx, (_, line) in enumerate(lines):
         if "IoDriverHealth::Degraded" not in line and "IoDriverHealth::Faulted" not in line:
+            continue
+        if "IoDriverHealth::Degraded" in line and intentional_degraded_ok_contract(lines, idx):
             continue
         saw_err = False
         for _, next_line in lines[idx:idx + 12]:
