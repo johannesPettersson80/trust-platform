@@ -43,7 +43,7 @@
       "errors": [],
       "globals": {
         "et_tp": {
-          "nanos": 0,
+          "nanos": 10000000,
           "type": "TIME"
         },
         "q_tp": {

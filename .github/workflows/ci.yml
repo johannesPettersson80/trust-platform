@@ -99,6 +99,13 @@ jobs:
         run: bash scripts/checkout_openot_ref.sh
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      - name: Install Windows vendored OpenSSL Perl prerequisites
+        if: ${{ matrix.os == 'windows-latest' }}
+        shell: powershell
+        run: |
+          choco install strawberryperl -y --no-progress
+          "C:\Strawberry\perl\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          "PERL=C:\Strawberry\perl\bin\perl.exe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - name: Prepare test log path
         shell: bash
         run: |

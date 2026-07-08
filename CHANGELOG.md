@@ -315,6 +315,9 @@ Target release: `v0.24.29`
 
 ### Fixed
 
+- ci: Windows test jobs now install a full Perl toolchain before building
+  vendored OpenSSL so cross-platform release gates do not fail on missing Perl
+  modules.
 - docs: public docs release gates now include the checked-in VS Code screenshot
   inventory entries, current regenerated PlantUML SVGs, and search-regression
   scoring for the intended VS Code, runtime-panel, and observability pages.
