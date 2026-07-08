@@ -320,6 +320,9 @@ Target release: `v0.24.29`
   mtime fixture updates, and Windows ADS diagnostics fixture line endings.
 - ci: Ubuntu release test jobs now serialize all-target Rust linking to avoid
   hosted-runner `rust-lld` bus errors before the test suite starts.
+- trust-runtime: Windows `trust-runtime.exe` now links with a larger stack so
+  CLI invocations such as ADS route and validation commands do not overflow the
+  default Windows executable stack during release tests.
 - ci: Windows test jobs now install a full Perl toolchain before building
   vendored OpenSSL so cross-platform release gates do not fail on missing Perl
   modules.
