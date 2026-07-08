@@ -324,6 +324,8 @@ Target release: `v0.24.29`
 - trust-runtime: Web IDE workspace path validation now rejects Windows rooted
   paths with the same absolute-path denial used on Unix, keeping release tests
   and browser-facing file-scope errors consistent across platforms.
+- release: Windows packaging now installs Strawberry Perl before building
+  vendored OpenSSL so release artifacts use the same prerequisites as CI tests.
 - ci: Ubuntu release test jobs now serialize all-target Rust linking to avoid
   hosted-runner `rust-lld` bus errors before the test suite starts.
 - trust-runtime: Windows `trust-runtime.exe` now links with a larger stack so
