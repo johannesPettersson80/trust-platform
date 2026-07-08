@@ -127,6 +127,10 @@ jobs:
             PYTHON_BIN=python
           fi
           LOG_PATH="gate-artifacts/test-${{ matrix.os }}.log"
+          build_command=(cargo build --all-targets)
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            build_command+=(--jobs 1)
+          fi
           for attempt in 1 2; do
             echo "=== cargo build attempt ${attempt}/2 (${{ matrix.os }}) ===" | tee -a "${LOG_PATH}"
             if "${PYTHON_BIN}" scripts/run_with_progress.py \
@@ -135,7 +139,7 @@ jobs:
               --timeout-seconds "${CI_CARGO_BUILD_TIMEOUT_SECONDS:-1800}" \
               --progress-interval-seconds "${GATE_PROGRESS_INTERVAL_SECONDS:-30}" \
               --log "${LOG_PATH}" \
-              -- cargo build --all-targets; then
+              -- "${build_command[@]}"; then
               if [[ "${attempt}" -gt 1 ]]; then
                 echo "cargo build passed only after retry on ${{ matrix.os }}" \
                   | tee -a "gate-artifacts/test-${{ matrix.os }}-retry-rescued.txt"
@@ -187,6 +191,8 @@ jobs:
             echo "=== full test suite attempt ${attempt}/2 (${{ matrix.os }}) ===" | tee -a "${LOG_PATH}"
             if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
               command=(cargo test --all-targets -- --test-threads=1)
+            elif [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+              command=(cargo test --all-targets --jobs 1)
             else
               command=(cargo test --all-targets)
             fi
