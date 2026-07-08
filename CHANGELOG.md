@@ -315,6 +315,9 @@ Target release: `v0.24.29`
 
 ### Fixed
 
+- docs: Communication overview pages now list Beckhoff ADS alongside Modbus,
+  MQTT, and OPC UA so the public navigation path matches the shipped ADS
+  client/server support.
 - ci: release tests now tolerate loaded matrix runners for MQTT/Modbus
   scan-bound timing, runtime fail-closed state propagation, Windows index-cache
   mtime fixture updates, and Windows ADS diagnostics fixture line endings.

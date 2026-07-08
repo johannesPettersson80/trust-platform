@@ -19,10 +19,9 @@ at the top.
 
 The choices, grouped by what they do:
 
-- **Field devices:** Modbus TCP, MQTT, EtherCAT, GPIO, Simulated I/O, Loopback I/O.
-- **Supervisory services:** OPC UA server, ADS server, OpenOT.
-- **Peer links (runtime-to-runtime):** OPC UA client, ADS client, Discovery, Mesh / Zenoh, Realtime T0,
-  Runtime cloud / federation.
+- **Field devices and local I/O:** EtherCAT, GPIO, Simulated I/O, Loopback I/O.
+- **External systems:** Modbus TCP, MQTT, OPC UA client/server, Beckhoff ADS client/server, OpenOT.
+- **Runtime-to-runtime:** Discovery, Mesh / Zenoh, Realtime T0, Runtime cloud / federation.
 
 ## 3. Fill the typed form
 
@@ -55,3 +54,4 @@ Each protocol's own guide walks through its specific discover/browse/test flow â
 - [Modbus TCP](external-systems/modbus-tcp.md)
 - [MQTT](external-systems/mqtt.md)
 - [OPC UA](external-systems/opc-ua.md)
+- [Beckhoff ADS](external-systems/ads.md)

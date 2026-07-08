@@ -6,13 +6,13 @@ question first.
 | Term | Meaning |
 | --- | --- |
 | Runtime-to-runtime | One truST runtime communicating with another. |
-| MQTT / OPC UA / Modbus TCP | Plant or external-system protocols. |
+| Modbus TCP / MQTT / OPC UA / Beckhoff ADS | Plant or external-system protocols. |
 | Fieldbus/local I/O | Direct device or driver wiring such as EtherCAT, GPIO, simulated, or loopback I/O. |
 
 ```mermaid
 flowchart TB
     A[Runtime-to-runtime<br/>discovery, mesh, realtime T0, runtime-cloud]
-    B[External systems<br/>Modbus TCP, MQTT, OPC UA]
+    B[External systems<br/>Modbus TCP, MQTT, OPC UA, Beckhoff ADS]
     C[Device / fieldbus / local I-O<br/>EtherCAT, GPIO, simulated, loopback]
     D[Question: what is the other endpoint?]
     D --> A
@@ -43,6 +43,7 @@ Current surfaces:
 - Modbus TCP
 - MQTT
 - OPC UA
+- Beckhoff ADS
 
 ## 3. Device / fieldbus / local I/O
 
