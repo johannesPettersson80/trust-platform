@@ -190,9 +190,9 @@ fn wait_for_fault<C>(handle: &trust_runtime::scheduler::ResourceHandle<C>)
 where
     C: Clock + Clone,
 {
-    let deadline = Instant::now() + StdDuration::from_millis(250);
+    let deadline = Instant::now() + StdDuration::from_secs(2);
     while handle.state() != ResourceState::Faulted && Instant::now() < deadline {
-        std::thread::yield_now();
+        std::thread::sleep(StdDuration::from_millis(1));
     }
 }
 

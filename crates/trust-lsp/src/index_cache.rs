@@ -230,6 +230,7 @@ mod tests {
     fn set_modified_time(path: &Path, modified: SystemTime) {
         let file = fs::OpenOptions::new()
             .read(true)
+            .write(true)
             .open(path)
             .expect("open file for mtime update");
         let times = fs::FileTimes::new().set_modified(modified);
