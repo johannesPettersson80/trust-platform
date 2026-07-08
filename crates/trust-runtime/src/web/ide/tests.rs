@@ -32,6 +32,16 @@ fn write_source(project: &Path, rel: &str, content: &str) {
 }
 
 #[test]
+fn rooted_workspace_paths_are_rejected_as_absolute() {
+    let err = normalize_workspace_file_path("/etc/passwd")
+        .expect_err("rooted workspace path must be rejected before resolution");
+    assert_eq!(err.kind(), IdeErrorKind::Forbidden);
+    assert!(err
+        .to_string()
+        .contains("absolute workspace paths are not allowed"));
+}
+
+#[test]
 fn auth_and_session_lifecycle_contract() {
     let project = project_dir("session");
     write_source(&project, "main.st", "PROGRAM Main\nEND_PROGRAM\n");

@@ -32,7 +32,7 @@ pub(in crate::web::ide) fn normalize_workspace_path(
     }
 
     let raw = Path::new(trimmed);
-    if raw.is_absolute() {
+    if raw.is_absolute() || raw.has_root() {
         return Err(IdeError::new(
             IdeErrorKind::Forbidden,
             "absolute workspace paths are not allowed",
