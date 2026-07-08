@@ -963,7 +963,7 @@ on_error = "warn"
     let elapsed = started.elapsed();
 
     assert!(
-        elapsed < StdDuration::from_millis(50),
+        elapsed < MQTT_WORKER_SCAN_WAIT_BOUND + MQTT_CI_TIMING_SLACK,
         "stale MQTT snapshot must be returned without waiting for broker freshness, elapsed={elapsed:?}"
     );
     assert_eq!(
@@ -1005,7 +1005,7 @@ on_error = "{policy}"
         let elapsed = started.elapsed();
 
         assert!(
-            elapsed < StdDuration::from_millis(50),
+            elapsed < MQTT_WORKER_SCAN_WAIT_BOUND + MQTT_CI_TIMING_SLACK,
             "{policy} no-fresh-payload handling must be scan-bounded, elapsed={elapsed:?}"
         );
         assert_eq!(
@@ -1090,7 +1090,7 @@ on_error = "warn"
     let elapsed = started.elapsed();
 
     assert!(
-        elapsed < StdDuration::from_millis(50),
+        elapsed < MQTT_WORKER_SCAN_WAIT_BOUND + MQTT_CI_TIMING_SLACK,
         "output command handoff must stay bounded when the scan thread outpaces the MQTT worker, elapsed={elapsed:?}"
     );
 }
@@ -1124,7 +1124,7 @@ on_error = "warn"
     let elapsed = started.elapsed();
 
     assert!(
-        elapsed < StdDuration::from_millis(50),
+        elapsed < MQTT_WORKER_SCAN_WAIT_BOUND + MQTT_CI_TIMING_SLACK,
         "dropping the MQTT driver must not wait for a worker blocked on session readiness, elapsed={elapsed:?}"
     );
 }

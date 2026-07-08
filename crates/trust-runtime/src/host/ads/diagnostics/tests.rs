@@ -67,6 +67,7 @@ fn committed_golden_fixtures_match_rust_schema() {
         let path = fixture_path(name);
         let expected = std::fs::read_to_string(&path)
             .unwrap_or_else(|error| panic!("read fixture {}: {error}", path.display()));
+        let expected = expected.replace("\r\n", "\n");
         let actual = format!(
             "{}\n",
             serde_json::to_string_pretty(&report).expect("serialize fixture")

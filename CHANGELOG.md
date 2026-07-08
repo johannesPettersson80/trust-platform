@@ -315,9 +315,9 @@ Target release: `v0.24.29`
 
 ### Fixed
 
-- ci: release tests now tolerate loaded matrix runners for MQTT scan-bound
-  timing, runtime fail-closed state propagation, and Windows index-cache mtime
-  fixture updates.
+- ci: release tests now tolerate loaded matrix runners for MQTT/Modbus
+  scan-bound timing, runtime fail-closed state propagation, Windows index-cache
+  mtime fixture updates, and Windows ADS diagnostics fixture line endings.
 - ci: Windows test jobs now install a full Perl toolchain before building
   vendored OpenSSL so cross-platform release gates do not fail on missing Perl
   modules.
