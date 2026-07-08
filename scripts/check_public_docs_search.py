@@ -178,6 +178,18 @@ def score_doc(query_tokens: list[str], query: str, doc: dict[str, str]) -> int:
         token in query_tokens for token in ("ctu", "ctd", "ctud", "ton", "tof", "tp", "timer")
     ):
         score += 30
+    if base_location.startswith("start/program-in-vscode/") and (
+        "vscode" in query_tokens or ("vs" in query_tokens and "code" in query_tokens)
+    ):
+        score += 35
+    if base_location.startswith("operate/debugging-and-runtime-panel/") and (
+        query.lower() == "debug" or ("runtime" in query_tokens and "panel" in query_tokens)
+    ):
+        score += 80
+    if base_location.startswith("operate/observability/") and any(
+        token in query_tokens for token in ("metrics", "observability", "historian")
+    ):
+        score += 35
     if (
         any(re.fullmatch(r"[ewi]\d{3}", token) for token in query_tokens)
         and base_location.startswith("reference/diagnostics/")

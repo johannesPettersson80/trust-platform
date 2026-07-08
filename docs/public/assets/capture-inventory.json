@@ -211,6 +211,126 @@
       "source": "desktop VS Code rename preview across files for a Structured Text symbol"
     },
     {
+      "path": "images/vscode/vscode-add-device-modbus-form.png",
+      "class": "vscode-desktop-surface",
+      "generator": "synced-media",
+      "source": "desktop VS Code Devices & Connections Add Modbus TCP form capture"
+    },
+    {
+      "path": "images/vscode/vscode-add-device-picker.png",
+      "class": "vscode-desktop-surface",
+      "generator": "synced-media",
+      "source": "desktop VS Code Devices & Connections protocol picker capture"
+    },
+    {
+      "path": "images/vscode/vscode-create-no-project.png",
+      "class": "vscode-desktop-surface",
+      "generator": "synced-media",
+      "source": "desktop VS Code truST sidebar no-project onboarding capture"
+    },
+    {
+      "path": "images/vscode/vscode-create-project-shell.png",
+      "class": "vscode-desktop-surface",
+      "generator": "synced-media",
+      "source": "desktop VS Code newly created truST project shell capture"
+    },
+    {
+      "path": "images/vscode/vscode-debug-breakpoint.png",
+      "class": "vscode-desktop-surface",
+      "generator": "synced-media",
+      "source": "desktop VS Code Structured Text breakpoint gutter capture"
+    },
+    {
+      "path": "images/vscode/vscode-debug-paused.png",
+      "class": "vscode-desktop-surface",
+      "generator": "synced-media",
+      "source": "desktop VS Code debug session paused at a Structured Text breakpoint"
+    },
+    {
+      "path": "images/vscode/vscode-devices-overview.png",
+      "class": "vscode-desktop-surface",
+      "generator": "synced-media",
+      "source": "desktop VS Code Devices & Connections overview capture"
+    },
+    {
+      "path": "images/vscode/vscode-hmi-running.png",
+      "class": "vscode-desktop-surface",
+      "generator": "synced-media",
+      "source": "desktop VS Code HMI surface with running runtime values"
+    },
+    {
+      "path": "images/vscode/vscode-hmi-stopped.png",
+      "class": "vscode-desktop-surface",
+      "generator": "synced-media",
+      "source": "desktop VS Code HMI surface in stopped-runtime state"
+    },
+    {
+      "path": "images/vscode/vscode-live-values-force.png",
+      "class": "vscode-desktop-surface",
+      "generator": "synced-media",
+      "source": "desktop VS Code Live Values forced-value state capture"
+    },
+    {
+      "path": "images/vscode/vscode-live-values-release-all.png",
+      "class": "vscode-desktop-surface",
+      "generator": "synced-media",
+      "source": "desktop VS Code Live Values release-all-forces state capture"
+    },
+    {
+      "path": "images/vscode/vscode-live-values-released.png",
+      "class": "vscode-desktop-surface",
+      "generator": "synced-media",
+      "source": "desktop VS Code Live Values post-release live state capture"
+    },
+    {
+      "path": "images/vscode/vscode-live-values-running.png",
+      "class": "vscode-desktop-surface",
+      "generator": "synced-media",
+      "source": "desktop VS Code Live Values running state capture"
+    },
+    {
+      "path": "images/vscode/vscode-live-values-stopped.png",
+      "class": "vscode-desktop-surface",
+      "generator": "synced-media",
+      "source": "desktop VS Code Live Values stopped state capture"
+    },
+    {
+      "path": "images/vscode/vscode-run-check-passed.png",
+      "class": "vscode-desktop-surface",
+      "generator": "synced-media",
+      "source": "desktop VS Code truST Compile passed state capture"
+    },
+    {
+      "path": "images/vscode/vscode-run-simulator-running.png",
+      "class": "vscode-desktop-surface",
+      "generator": "synced-media",
+      "source": "desktop VS Code truST simulator running state capture"
+    },
+    {
+      "path": "images/vscode/vscode-st-completion.png",
+      "class": "vscode-desktop-surface",
+      "generator": "synced-media",
+      "source": "desktop VS Code Structured Text completion capture"
+    },
+    {
+      "path": "images/vscode/vscode-st-hover.png",
+      "class": "vscode-desktop-surface",
+      "generator": "synced-media",
+      "source": "desktop VS Code Structured Text hover capture"
+    },
+    {
+      "path": "images/vscode/vscode-st-syntax.png",
+      "class": "vscode-desktop-surface",
+      "generator": "synced-media",
+      "source": "desktop VS Code Structured Text syntax highlighting capture"
+    },
+    {
+      "path": "images/vscode/vscode-test-runner.png",
+      "class": "vscode-desktop-surface",
+      "generator": "synced-media",
+      "source": "desktop VS Code native Testing view capture for truST ST tests"
+    },
+    {
       "path": "images/vscode/ai-tools-diagnostics.svg",
       "class": "vscode-ai-diagram",
       "generator": "hand-authored",

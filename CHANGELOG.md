@@ -310,6 +310,9 @@ Target release: `v0.24.29`
 
 ### Fixed
 
+- docs: public docs release gates now include the checked-in VS Code screenshot
+  inventory entries, current regenerated PlantUML SVGs, and search-regression
+  scoring for the intended VS Code, runtime-panel, and observability pages.
 - build/source: `trust-runtime` now uses pinned public Git dependencies for the
   OpenOT Rust crates, so fresh clones and GitHub source archives can build
   without a pre-existing sibling `../open-ot-ref` checkout; the source-build
