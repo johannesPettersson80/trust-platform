@@ -318,6 +318,9 @@ Target release: `v0.24.29`
 - ci: release tests now tolerate loaded matrix runners for MQTT/Modbus
   scan-bound timing, runtime fail-closed state propagation, Windows index-cache
   mtime fixture updates, and Windows ADS diagnostics fixture line endings.
+- ci: Modbus write-failure policy tests now use a deterministic local Modbus
+  exception response instead of assuming a fixed localhost port is closed on
+  every hosted runner.
 - ci: Ubuntu release test jobs now serialize all-target Rust linking to avoid
   hosted-runner `rust-lld` bus errors before the test suite starts.
 - trust-runtime: Windows `trust-runtime.exe` now links with a larger stack so

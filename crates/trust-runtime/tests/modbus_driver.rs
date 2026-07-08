@@ -651,24 +651,59 @@ fn modbus_driver_ignore_policy_degrades_without_transport_error() {
 #[test]
 fn modbus_driver_write_failure_follows_on_error_policy() {
     for (policy, should_error) in [("fault", true), ("warn", false), ("ignore", false)] {
+        let state = Arc::new(Mutex::new(ModbusTestState::with_registers(
+            vec![0u16; 1],
+            vec![],
+        )));
+        let addr = start_modbus_server(state, 1);
         let params: toml::Value = toml::from_str(&format!(
-            "address = \"127.0.0.1:65000\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\non_error = \"{policy}\"\n"
+            "address = \"{addr}\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\ntimeout_ms = 1000\non_error = \"{policy}\"\n"
         ))
         .expect("params");
         let mut driver = ModbusTcpDriver::from_params(&params).expect("driver");
 
         let result = driver.write_outputs(&[0x12, 0x34]);
 
-        assert_eq!(
-            result.is_err(),
-            should_error,
-            "{policy} write failure result should match on_error policy"
-        );
-        match (policy, driver.health()) {
+        if should_error && result.is_err() {
+            // Fast platforms can observe the worker-completed fault in the scan wait.
+        } else {
+            assert!(
+                result.is_ok(),
+                "{policy} write handoff should be bounded while worker reports the Modbus exception"
+            );
+        }
+        let health = wait_for_modbus_health(&driver, policy);
+        match (policy, health) {
             ("fault", trust_runtime::io::IoDriverHealth::Faulted { .. }) => {}
             ("warn" | "ignore", trust_runtime::io::IoDriverHealth::Degraded { .. }) => {}
             (_, other) => panic!("unexpected {policy} health after write failure: {other:?}"),
         }
+    }
+}
+
+fn wait_for_modbus_health(
+    driver: &ModbusTcpDriver,
+    policy: &str,
+) -> trust_runtime::io::IoDriverHealth {
+    let deadline = Instant::now() + StdDuration::from_millis(500);
+    loop {
+        let health = driver.health();
+        let expected = matches!(
+            (policy, &health),
+            ("fault", trust_runtime::io::IoDriverHealth::Faulted { .. })
+                | (
+                    "warn" | "ignore",
+                    trust_runtime::io::IoDriverHealth::Degraded { .. },
+                )
+        );
+        if expected {
+            return health;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "{policy} Modbus write failure did not reach expected health state, last={health:?}"
+        );
+        thread::sleep(StdDuration::from_millis(5));
     }
 }
 
