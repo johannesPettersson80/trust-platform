@@ -371,7 +371,15 @@ mod tests {
         let repo = unique_temp_dir("non-utf8-status");
         init_repo(&repo);
         let project = repo.join(OsString::from_vec(b"project-\xFF".to_vec()));
-        std::fs::create_dir_all(&project).expect("create non-utf8 project");
+        if let Err(error) = std::fs::create_dir_all(&project) {
+            // macOS/APFS rejects invalid UTF-8 path bytes before Git can exercise
+            // pathspec handling. Linux filesystems accept this fixture.
+            if cfg!(target_os = "macos") && error.raw_os_error() == Some(92) {
+                let _ = std::fs::remove_dir_all(repo);
+                return;
+            }
+            panic!("create non-utf8 project: {error}");
+        }
         std::fs::write(project.join("Main.st"), "PROGRAM Main\nEND_PROGRAM\n")
             .expect("write source");
 

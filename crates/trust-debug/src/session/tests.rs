@@ -324,10 +324,15 @@ END_PROGRAM
 
         let source = session.source_for_file_id(0).expect("source for file id");
         assert_eq!(source.name.as_deref(), Some("src/main.st"));
-        assert_eq!(
-            source.path.as_deref(),
-            Some(absolute_path.to_string_lossy().as_ref()),
+        let source_path = source.path.as_deref().expect("DAP source path");
+        assert!(
+            std::path::Path::new(source_path).is_absolute(),
             "DAP path must stay absolute so VS Code can open the stack frame source"
+        );
+        assert_eq!(
+            std::fs::canonicalize(source_path).expect("canonical DAP source path"),
+            std::fs::canonicalize(&absolute_path).expect("canonical registered source path"),
+            "DAP path must identify the registered source file"
         );
     }
 
